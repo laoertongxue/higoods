@@ -48,39 +48,18 @@ import {
   type PcsProjectInlineNodeRecordWorkItemTypeCode,
 } from '../data/pcs-project-inline-node-record-types.ts'
 import type { ProjectRelationRecord } from '../data/pcs-project-relation-types.ts'
-import { listProjectRelationsByProjectNode } from '../data/pcs-project-relation-repository.ts'
-import {
-  type ProjectTestingSummaryBreakdownItem,
-  getProjectTestingSummaryAggregate,
-  listProjectChannelProductsByProjectId,
+import type {
+  ProjectTestingSummaryAggregate,
+  ProjectTestingSummaryBreakdownItem,
 } from '../data/pcs-channel-product-project-repository.ts'
 import {
   resolvePcsStoreCurrency,
   resolvePcsStoreDisplayName,
 } from '../data/pcs-channel-store-master.ts'
-import {
-  getProjectArchiveById,
-  getProjectArchiveByProjectId,
-} from '../data/pcs-project-archive-repository.ts'
-import {
-  getTechnicalDataVersionById,
-  listTechnicalDataVersionsByStyleId,
-} from '../data/pcs-technical-data-version-repository.ts'
-import { buildTechPackVersionSourceTaskSummary } from '../data/pcs-tech-pack-task-generation.ts'
-import { getPlateMakingTaskById } from '../data/pcs-plate-making-repository.ts'
-import { getPatternTaskById } from '../data/pcs-pattern-task-repository.ts'
-import { getFirstSampleTaskById } from '../data/pcs-first-sample-repository.ts'
-import { getPreProductionSampleTaskById } from '../data/pcs-pre-production-sample-repository.ts'
-import { getSampleAssetByCode, getSampleAssetById } from '../data/pcs-sample-asset-repository.ts'
-import { listSampleLedgerEventsBySample } from '../data/pcs-sample-ledger-repository.ts'
-import {
-  findLatestNodeInstance,
-  findLatestProjectInstance,
-  getProjectInstanceFieldValue,
-  getProjectInstanceModel,
-  type PcsProjectInstanceItem,
-  type PcsProjectInstanceModel,
-  type PcsProjectNodeInstanceModel,
+import type {
+  PcsProjectInstanceItem,
+  PcsProjectInstanceModel,
+  PcsProjectNodeInstanceModel,
 } from '../data/pcs-project-instance-model.ts'
 import {
   archiveProject,
@@ -90,7 +69,6 @@ import {
   syncProjectLifecycle,
   terminateProject,
 } from '../data/pcs-project-flow-service.ts'
-import { ensurePcsProjectDemoDataReady } from '../data/pcs-project-demo-seed-service.ts'
 
 type ProjectListViewMode = 'list' | 'grid'
 type ProjectListSort = 'updatedAt' | 'pendingDecision' | 'risk' | 'progressLow'
@@ -208,6 +186,31 @@ interface ProjectViewModel {
   logs: ProjectLogItem[]
 }
 
+interface ProjectListNodeViewModel {
+  node: PcsProjectNodeRecord
+  unlocked: boolean
+  displayStatus: ProjectNodeStatus | '未解锁'
+}
+
+interface ProjectListPhaseViewModel {
+  phase: PcsProjectPhaseRecord
+  derivedStatus: PcsProjectPhaseRecord['phaseStatus']
+  completedCount: number
+  totalCount: number
+  pendingDecision: boolean
+  current: boolean
+}
+
+interface ProjectListViewModel {
+  project: PcsProjectViewRecord
+  currentPhase: ProjectListPhaseViewModel | null
+  nextNode: ProjectListNodeViewModel | null
+  pendingDecisionNode: ProjectListNodeViewModel | null
+  progressDone: number
+  progressTotal: number
+  channelNames: string[]
+}
+
 const STYLE_TYPE_OPTIONS: Array<'全部' | TemplateStyleType> = ['全部', '基础款', '快时尚款', '改版款', '设计款']
 const PROJECT_STATUS_OPTIONS = ['全部', '已立项', '进行中', '已终止', '已归档']
 const PROJECT_NODE_FIELD_MODULE_EXCEPTIONS = new Set([
@@ -219,6 +222,7 @@ const PROJECT_NODE_FIELD_MODULE_EXCEPTIONS = new Set([
 ])
 const RISK_STATUS_OPTIONS = ['全部', '正常', '延期']
 const DATE_RANGE_OPTIONS: ProjectDateRange[] = ['全部时间', '今天', '最近一周', '最近一月']
+const PROJECT_DEMO_SEED_IMPORT_THRESHOLD = 20
 const WORK_ITEM_TAB_OPTIONS: Array<{ key: WorkItemTabKey; label: string }> = [
   { key: 'full-info', label: '全量信息' },
   { key: 'records', label: '记录' },
@@ -287,7 +291,374 @@ const state: ProjectPageState = {
   recordDialog: createEmptyRecordDialogState(),
 }
 
-let projectDemoSeedReady = false
+type ProjectRelationRepositoryModule = Pick<
+  typeof import('../data/pcs-project-relation-repository.ts'),
+  'listProjectRelationsByProjectNode'
+>
+type ProjectDemoSeedServiceModule = Pick<
+  typeof import('../data/pcs-project-demo-seed-service.ts'),
+  'ensurePcsProjectDemoDataReady'
+>
+type ProjectTechPackTaskGenerationModule = Pick<
+  typeof import('../data/pcs-tech-pack-task-generation.ts'),
+  'buildTechPackVersionSourceTaskSummary'
+>
+type ProjectChannelProductProjectRepositoryModule = Pick<
+  typeof import('../data/pcs-channel-product-project-repository.ts'),
+  'getProjectTestingSummaryAggregate' | 'listProjectChannelProductsByProjectId'
+>
+type ProjectDetailSupportModule = Pick<
+  typeof import('../data/pcs-project-detail-support.ts'),
+  | 'getProjectArchiveById'
+  | 'getProjectArchiveByProjectId'
+  | 'getTechnicalDataVersionById'
+  | 'listTechnicalDataVersionsByStyleId'
+  | 'getPlateMakingTaskById'
+  | 'getPatternTaskById'
+  | 'getFirstSampleTaskById'
+  | 'getPreProductionSampleTaskById'
+  | 'getSampleAssetByCode'
+  | 'getSampleAssetById'
+  | 'listSampleLedgerEventsBySample'
+>
+type ProjectInstanceModelModule = Pick<
+  typeof import('../data/pcs-project-instance-model.ts'),
+  'findLatestNodeInstance' | 'findLatestProjectInstance' | 'getProjectInstanceFieldValue' | 'getProjectInstanceModel'
+>
+
+type ProjectArchiveRecordMaybe = ReturnType<ProjectDetailSupportModule['getProjectArchiveById']>
+type TechnicalDataVersionMaybe = ReturnType<ProjectDetailSupportModule['getTechnicalDataVersionById']>
+
+let projectRelationRepositoryModule: ProjectRelationRepositoryModule | null = null
+let projectRelationRepositoryPromise: Promise<ProjectRelationRepositoryModule> | null = null
+let projectDemoSeedServiceModule: ProjectDemoSeedServiceModule | null = null
+let projectDemoSeedPromise: Promise<ProjectDemoSeedServiceModule> | null = null
+let projectTechPackTaskGenerationModule: ProjectTechPackTaskGenerationModule | null = null
+let projectTechPackTaskGenerationPromise: Promise<ProjectTechPackTaskGenerationModule> | null = null
+let projectChannelProductProjectRepositoryModule: ProjectChannelProductProjectRepositoryModule | null = null
+let projectChannelProductProjectRepositoryPromise: Promise<ProjectChannelProductProjectRepositoryModule> | null = null
+let projectDetailSupportModule: ProjectDetailSupportModule | null = null
+let projectDetailSupportPromise: Promise<ProjectDetailSupportModule> | null = null
+let projectInstanceModelModule: ProjectInstanceModelModule | null = null
+let projectInstanceModelPromise: Promise<ProjectInstanceModelModule> | null = null
+
+async function ensureProjectRelationRepositoryReady(): Promise<ProjectRelationRepositoryModule> {
+  if (projectRelationRepositoryModule) {
+    return projectRelationRepositoryModule
+  }
+
+  if (!projectRelationRepositoryPromise) {
+    projectRelationRepositoryPromise = import('../data/pcs-project-relation-repository.ts')
+      .then((module) => {
+        projectRelationRepositoryModule = module
+        return module
+      })
+      .catch((error) => {
+        projectRelationRepositoryPromise = null
+        throw error
+      })
+  }
+
+  return projectRelationRepositoryPromise
+}
+
+async function ensureProjectDemoSeedServiceReady(): Promise<ProjectDemoSeedServiceModule> {
+  if (projectDemoSeedServiceModule) {
+    return projectDemoSeedServiceModule
+  }
+
+  if (!projectDemoSeedPromise) {
+    projectDemoSeedPromise = import('../data/pcs-project-demo-seed-service.ts')
+      .then((module) => {
+        projectDemoSeedServiceModule = module
+        return module
+      })
+      .catch((error) => {
+        projectDemoSeedPromise = null
+        throw error
+      })
+  }
+
+  return projectDemoSeedPromise
+}
+
+async function ensureProjectTechPackTaskGenerationReady(): Promise<ProjectTechPackTaskGenerationModule> {
+  if (projectTechPackTaskGenerationModule) {
+    return projectTechPackTaskGenerationModule
+  }
+
+  if (!projectTechPackTaskGenerationPromise) {
+    projectTechPackTaskGenerationPromise = import('../data/pcs-tech-pack-task-generation.ts')
+      .then((module) => {
+        projectTechPackTaskGenerationModule = module
+        return module
+      })
+      .catch((error) => {
+        projectTechPackTaskGenerationPromise = null
+        throw error
+      })
+  }
+
+  return projectTechPackTaskGenerationPromise
+}
+
+async function ensureProjectChannelProductProjectRepositoryReady(): Promise<ProjectChannelProductProjectRepositoryModule> {
+  if (projectChannelProductProjectRepositoryModule) {
+    return projectChannelProductProjectRepositoryModule
+  }
+
+  if (!projectChannelProductProjectRepositoryPromise) {
+    projectChannelProductProjectRepositoryPromise = import('../data/pcs-channel-product-project-repository.ts')
+      .then((module) => {
+        projectChannelProductProjectRepositoryModule = module
+        return module
+      })
+      .catch((error) => {
+        projectChannelProductProjectRepositoryPromise = null
+        throw error
+      })
+  }
+
+  return projectChannelProductProjectRepositoryPromise
+}
+
+async function ensureProjectDetailSupportModuleReady(): Promise<ProjectDetailSupportModule> {
+  if (projectDetailSupportModule) {
+    return projectDetailSupportModule
+  }
+
+  if (!projectDetailSupportPromise) {
+    projectDetailSupportPromise = import('../data/pcs-project-detail-support.ts')
+      .then((module) => {
+        projectDetailSupportModule = module
+        return module
+      })
+      .catch((error) => {
+        projectDetailSupportPromise = null
+        throw error
+      })
+  }
+
+  return projectDetailSupportPromise
+}
+
+async function ensureProjectInstanceModelReady(): Promise<ProjectInstanceModelModule> {
+  if (projectInstanceModelModule) {
+    return projectInstanceModelModule
+  }
+
+  if (!projectInstanceModelPromise) {
+    projectInstanceModelPromise = import('../data/pcs-project-instance-model.ts')
+      .then((module) => {
+        projectInstanceModelModule = module
+        return module
+      })
+      .catch((error) => {
+        projectInstanceModelPromise = null
+        throw error
+      })
+  }
+
+  return projectInstanceModelPromise
+}
+
+async function ensureProjectDetailSupportReady(): Promise<void> {
+  await Promise.all([
+    ensureProjectRelationRepositoryReady(),
+    ensureProjectTechPackTaskGenerationReady(),
+    ensureProjectChannelProductProjectRepositoryReady(),
+    ensureProjectDetailSupportModuleReady(),
+    ensureProjectInstanceModelReady(),
+  ])
+}
+
+function ensureProjectDemoDataReadySync(): void {
+  if (listProjects().length >= PROJECT_DEMO_SEED_IMPORT_THRESHOLD) {
+    return
+  }
+
+  projectDemoSeedServiceModule?.ensurePcsProjectDemoDataReady()
+}
+
+function listProjectRelationsByProjectNodeSafe(projectId: string, projectNodeId: string): ProjectRelationRecord[] {
+  return projectRelationRepositoryModule?.listProjectRelationsByProjectNode(projectId, projectNodeId) ?? []
+}
+
+function buildTechPackVersionSourceTaskSummarySafe(
+  record: Parameters<ProjectTechPackTaskGenerationModule['buildTechPackVersionSourceTaskSummary']>[0],
+): ReturnType<ProjectTechPackTaskGenerationModule['buildTechPackVersionSourceTaskSummary']> | null {
+  if (!projectTechPackTaskGenerationModule) {
+    return null
+  }
+
+  return projectTechPackTaskGenerationModule.buildTechPackVersionSourceTaskSummary(record)
+}
+
+function findLatestProjectInstanceSafe(
+  projectId: string,
+  predicate: (instance: PcsProjectInstanceItem) => boolean,
+): PcsProjectInstanceItem | null {
+  if (!projectInstanceModelModule) {
+    return null
+  }
+
+  return projectInstanceModelModule.findLatestProjectInstance(projectId, predicate)
+}
+
+function findLatestNodeInstanceSafe(
+  projectId: string,
+  projectNodeId: string,
+  predicate: (instance: PcsProjectInstanceItem) => boolean,
+): PcsProjectInstanceItem | null {
+  if (!projectInstanceModelModule) {
+    return null
+  }
+
+  return projectInstanceModelModule.findLatestNodeInstance(projectId, projectNodeId, predicate)
+}
+
+function getProjectInstanceFieldValueSafe(instance: PcsProjectInstanceItem | null | undefined, fieldKey: string): unknown {
+  if (!projectInstanceModelModule || !instance) {
+    return undefined
+  }
+
+  return projectInstanceModelModule.getProjectInstanceFieldValue(instance, fieldKey)
+}
+
+function getProjectInstanceModelSafe(projectId: string): PcsProjectInstanceModel | null {
+  if (!projectInstanceModelModule) {
+    return null
+  }
+
+  return projectInstanceModelModule.getProjectInstanceModel(projectId)
+}
+
+function createEmptyProjectTestingAggregate(): ProjectTestingSummaryAggregate {
+  return {
+    liveRelationIds: [],
+    liveRelationCodes: [],
+    videoRelationIds: [],
+    videoRelationCodes: [],
+    totalExposureQty: 0,
+    totalClickQty: 0,
+    totalOrderQty: 0,
+    totalGmvAmount: 0,
+    channelBreakdownLines: [],
+    storeBreakdownLines: [],
+    channelProductBreakdownLines: [],
+    testingSourceBreakdownLines: [],
+    currencyBreakdownLines: [],
+    channelBreakdowns: [],
+    storeBreakdowns: [],
+    channelProductBreakdowns: [],
+    testingSourceBreakdowns: [],
+    currencyBreakdowns: [],
+  }
+}
+
+function getProjectTestingSummaryAggregateSafe(projectId: string): ProjectTestingSummaryAggregate {
+  if (!projectChannelProductProjectRepositoryModule) {
+    return createEmptyProjectTestingAggregate()
+  }
+
+  return projectChannelProductProjectRepositoryModule.getProjectTestingSummaryAggregate(projectId)
+}
+
+function listProjectChannelProductsByProjectIdSafe(projectId: string) {
+  if (!projectChannelProductProjectRepositoryModule) {
+    return []
+  }
+
+  return projectChannelProductProjectRepositoryModule.listProjectChannelProductsByProjectId(projectId)
+}
+
+function getProjectArchiveByIdSafe(projectArchiveId: string): ProjectArchiveRecordMaybe {
+  if (!projectDetailSupportModule) {
+    return null
+  }
+
+  return projectDetailSupportModule.getProjectArchiveById(projectArchiveId)
+}
+
+function getProjectArchiveByProjectIdSafe(projectId: string): ProjectArchiveRecordMaybe {
+  if (!projectDetailSupportModule) {
+    return null
+  }
+
+  return projectDetailSupportModule.getProjectArchiveByProjectId(projectId)
+}
+
+function getTechnicalDataVersionByIdSafe(technicalVersionId: string): TechnicalDataVersionMaybe {
+  if (!projectDetailSupportModule) {
+    return null
+  }
+
+  return projectDetailSupportModule.getTechnicalDataVersionById(technicalVersionId)
+}
+
+function listTechnicalDataVersionsByStyleIdSafe(styleId: string) {
+  if (!projectDetailSupportModule) {
+    return []
+  }
+
+  return projectDetailSupportModule.listTechnicalDataVersionsByStyleId(styleId)
+}
+
+function getPlateMakingTaskByIdSafe(plateTaskId: string) {
+  if (!projectDetailSupportModule) {
+    return null
+  }
+
+  return projectDetailSupportModule.getPlateMakingTaskById(plateTaskId)
+}
+
+function getPatternTaskByIdSafe(patternTaskId: string) {
+  if (!projectDetailSupportModule) {
+    return null
+  }
+
+  return projectDetailSupportModule.getPatternTaskById(patternTaskId)
+}
+
+function getFirstSampleTaskByIdSafe(firstSampleTaskId: string) {
+  if (!projectDetailSupportModule) {
+    return null
+  }
+
+  return projectDetailSupportModule.getFirstSampleTaskById(firstSampleTaskId)
+}
+
+function getPreProductionSampleTaskByIdSafe(preProductionSampleTaskId: string) {
+  if (!projectDetailSupportModule) {
+    return null
+  }
+
+  return projectDetailSupportModule.getPreProductionSampleTaskById(preProductionSampleTaskId)
+}
+
+function getSampleAssetByCodeSafe(sampleCode: string) {
+  if (!projectDetailSupportModule) {
+    return null
+  }
+
+  return projectDetailSupportModule.getSampleAssetByCode(sampleCode)
+}
+
+function getSampleAssetByIdSafe(sampleAssetId: string) {
+  if (!projectDetailSupportModule) {
+    return null
+  }
+
+  return projectDetailSupportModule.getSampleAssetById(sampleAssetId)
+}
+
+function listSampleLedgerEventsBySampleSafe(sampleAssetId: string) {
+  if (!projectDetailSupportModule) {
+    return []
+  }
+
+  return projectDetailSupportModule.listSampleLedgerEventsBySample(sampleAssetId)
+}
 
 function nowText(): string {
   const now = new Date()
@@ -509,7 +880,7 @@ function findLatestProjectRelation(
   sourceModule: ProjectRelationRecord['sourceModule'],
   sourceObjectType?: ProjectRelationRecord['sourceObjectType'],
 ): PcsProjectInstanceItem | null {
-  return findLatestProjectInstance(
+  return findLatestProjectInstanceSafe(
     projectId,
     (instance) =>
       instance.sourceLayer === '正式业务对象' &&
@@ -524,7 +895,7 @@ function findLatestNodeRelation(
   sourceModule: ProjectRelationRecord['sourceModule'],
   sourceObjectType?: ProjectRelationRecord['sourceObjectType'],
 ): PcsProjectInstanceItem | null {
-  return findLatestNodeInstance(
+  return findLatestNodeInstanceSafe(
     projectId,
     projectNodeId,
     (instance) =>
@@ -547,7 +918,7 @@ function resolveSampleAcceptedAt(
 ): string {
   if (fallbackAcceptedAt) return fallbackAcceptedAt
   if (sampleAssetId) {
-    const event = listSampleLedgerEventsBySample(sampleAssetId).find(
+    const event = listSampleLedgerEventsBySampleSafe(sampleAssetId).find(
       (item) => item.eventType === 'DELIVER_SIGNED' || item.eventType === 'RECEIVE_ARRIVAL',
     )
     if (event?.businessDate) return event.businessDate
@@ -566,7 +937,7 @@ function resolveSampleConfirmedAt(
 ): string {
   if (fallbackConfirmedAt) return fallbackConfirmedAt
   if (sampleAssetId) {
-    const event = listSampleLedgerEventsBySample(sampleAssetId).find((item) => item.eventType === 'CHECKIN_VERIFY')
+    const event = listSampleLedgerEventsBySampleSafe(sampleAssetId).find((item) => item.eventType === 'CHECKIN_VERIFY')
     if (event?.businessDate) return event.businessDate
   }
   if (fallbackStatus === '已完成') return fallbackUpdatedAt
@@ -574,13 +945,13 @@ function resolveSampleConfirmedAt(
 }
 
 function getCurrentProjectArchiveRecord(project: PcsProjectRecord) {
-  return (project.projectArchiveId ? getProjectArchiveById(project.projectArchiveId) : null) || getProjectArchiveByProjectId(project.projectId)
+  return (project.projectArchiveId ? getProjectArchiveByIdSafe(project.projectArchiveId) : null) || getProjectArchiveByProjectIdSafe(project.projectId)
 }
 
 function getProjectTechPackContext(project: PcsProjectRecord, linkedStyleId: string) {
-  const versions = linkedStyleId ? listTechnicalDataVersionsByStyleId(linkedStyleId) : []
+  const versions = linkedStyleId ? listTechnicalDataVersionsByStyleIdSafe(linkedStyleId) : []
   const currentVersion =
-    (project.linkedTechPackVersionId ? getTechnicalDataVersionById(project.linkedTechPackVersionId) : null) ||
+    (project.linkedTechPackVersionId ? getTechnicalDataVersionByIdSafe(project.linkedTechPackVersionId) : null) ||
     (project.linkedTechPackVersionCode
       ? versions.find((item) => item.technicalVersionCode === project.linkedTechPackVersionCode)
       : null) ||
@@ -589,7 +960,7 @@ function getProjectTechPackContext(project: PcsProjectRecord, linkedStyleId: str
   const previousVersion = currentVersion
     ? versions.find((item) => item.technicalVersionId !== currentVersion.technicalVersionId) || null
     : null
-  const sourceSummary = currentVersion ? buildTechPackVersionSourceTaskSummary(currentVersion) : null
+  const sourceSummary = currentVersion ? buildTechPackVersionSourceTaskSummarySafe(currentVersion) : null
   return { currentVersion, previousVersion, versions, sourceSummary }
 }
 
@@ -600,8 +971,8 @@ function formatSignedNumber(value: number): string {
 }
 
 function buildTechPackVersionDiffSummary(
-  currentVersion: ReturnType<typeof getTechnicalDataVersionById>,
-  previousVersion: ReturnType<typeof getTechnicalDataVersionById>,
+  currentVersion: TechnicalDataVersionMaybe,
+  previousVersion: TechnicalDataVersionMaybe,
 ): string[] {
   if (!currentVersion) return ['尚未关联当前技术包版本。']
 
@@ -712,13 +1083,13 @@ function getProjectTestingAggregate(projectId: string): {
   testingSourceBreakdowns: ProjectTestingSummaryBreakdownItem[]
   currencyBreakdowns: ProjectTestingSummaryBreakdownItem[]
 } {
-  return getProjectTestingSummaryAggregate(projectId)
+  return getProjectTestingSummaryAggregateSafe(projectId)
 }
 
 function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel, fieldKey: string): unknown {
   const payload = (node.latestRecord?.payload || {}) as Record<string, unknown>
   const detailSnapshot = (node.latestRecord?.detailSnapshot || {}) as Record<string, unknown>
-  const latestFormalRelationRecord = listProjectRelationsByProjectNode(project.projectId, node.node.projectNodeId)[0] || null
+  const latestFormalRelationRecord = listProjectRelationsByProjectNodeSafe(project.projectId, node.node.projectNodeId)[0] || null
   const latestFormalNodeInstance =
     node.instanceModel.instances.find((item) => item.sourceLayer === '正式业务对象') || null
   const nodeRelationMeta = {
@@ -734,16 +1105,16 @@ function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel
   const projectArchiveRelation = findLatestProjectRelation(project.projectId, '项目资料归档', '项目资料归档')
   const projectArchiveMeta = buildInstanceFieldMap(projectArchiveRelation)
   const plateRelation = findLatestNodeRelation(project.projectId, node.node.projectNodeId, '制版任务', '制版任务')
-  const plateTask = plateRelation ? getPlateMakingTaskById(plateRelation.sourceObjectId || plateRelation.instanceId) : null
+  const plateTask = plateRelation ? getPlateMakingTaskByIdSafe(plateRelation.sourceObjectId || plateRelation.instanceId) : null
   const artworkRelation = findLatestNodeRelation(project.projectId, node.node.projectNodeId, '花型任务', '花型任务')
-  const artworkTask = artworkRelation ? getPatternTaskById(artworkRelation.sourceObjectId || artworkRelation.instanceId) : null
+  const artworkTask = artworkRelation ? getPatternTaskByIdSafe(artworkRelation.sourceObjectId || artworkRelation.instanceId) : null
   const firstSampleRelation = findLatestNodeRelation(project.projectId, node.node.projectNodeId, '首版样衣打样', '首版样衣打样任务')
   const firstSampleTask = firstSampleRelation
-    ? getFirstSampleTaskById(firstSampleRelation.sourceObjectId || firstSampleRelation.instanceId)
+    ? getFirstSampleTaskByIdSafe(firstSampleRelation.sourceObjectId || firstSampleRelation.instanceId)
     : null
   const preProductionRelation = findLatestNodeRelation(project.projectId, node.node.projectNodeId, '产前版样衣', '产前版样衣任务')
   const preProductionTask = preProductionRelation
-    ? getPreProductionSampleTaskById(preProductionRelation.sourceObjectId || preProductionRelation.instanceId)
+    ? getPreProductionSampleTaskByIdSafe(preProductionRelation.sourceObjectId || preProductionRelation.instanceId)
     : null
   const currentEngineeringTask =
     plateTask || artworkTask || firstSampleTask || preProductionTask || null
@@ -769,7 +1140,7 @@ function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel
     currentChannelMeta.channelProductCode || currentChannelProduct?.instanceCode || node.node.latestInstanceCode || '',
   )
   const currentUpstreamChannelProductCode = String(
-    getProjectInstanceFieldValue(currentChannelProduct, 'upstreamChannelProductCode') ||
+    getProjectInstanceFieldValueSafe(currentChannelProduct, 'upstreamChannelProductCode') ||
       nodeRelationMeta.upstreamChannelProductCode ||
       buildFallbackUpstreamChannelProductCode(currentChannelProductCode, project.projectCode),
   )
@@ -797,8 +1168,8 @@ function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel
     Boolean(currentProjectArchive?.finalizedAt || project.projectArchiveFinalizedAt)
   const currentSampleTask = firstSampleTask || preProductionTask || null
   const currentSampleAsset =
-    (currentSampleTask?.sampleAssetId ? getSampleAssetById(currentSampleTask.sampleAssetId) : null) ||
-    (currentSampleTask?.sampleCode ? getSampleAssetByCode(currentSampleTask.sampleCode) : null)
+    (currentSampleTask?.sampleAssetId ? getSampleAssetByIdSafe(currentSampleTask.sampleAssetId) : null) ||
+    (currentSampleTask?.sampleCode ? getSampleAssetByCodeSafe(currentSampleTask.sampleCode) : null)
   const currentTaskStatus = String(currentEngineeringTask?.status || '')
   const currentTaskAcceptedAt = resolveSampleAcceptedAt(
     currentSampleAsset?.sampleAssetId || currentSampleTask?.sampleAssetId || '',
@@ -816,7 +1187,7 @@ function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel
     project.projectStatus === '已终止' ||
     node.node.latestResultType === '测款淘汰' ||
     node.node.pendingActionType === '项目关闭'
-  const activeListingCount = listProjectChannelProductsByProjectId(project.projectId).filter(
+  const activeListingCount = listProjectChannelProductsByProjectIdSafe(project.projectId).filter(
     (item) => item.channelProductStatus !== '已作废',
   ).length
   const projectValues: Record<string, unknown> = {
@@ -1430,7 +1801,7 @@ function getNodeDisplayStatus(project: PcsProjectRecord, orderedNodes: PcsProjec
 }
 
 function buildProjectLogs(project: PcsProjectViewRecord): ProjectLogItem[] {
-  const instanceModel = getProjectInstanceModel(project.projectId)
+  const instanceModel = getProjectInstanceModelSafe(project.projectId)
   const logs: ProjectLogItem[] = [
     {
       time: project.createdAt,
@@ -1499,7 +1870,7 @@ function buildProjectViewModel(projectId: string): ProjectViewModel | null {
 
   const phases = listProjectPhases(projectId)
   const nodes = listProjectNodes(projectId)
-  const instanceModel = getProjectInstanceModel(projectId)
+  const instanceModel = getProjectInstanceModelSafe(projectId)
   if (!instanceModel) return null
   const nodeInstanceMap = new Map(instanceModel.nodes.map((item) => [item.projectNodeId, item]))
   const nodeViewModels = nodes.map((node) => ({
@@ -1564,8 +1935,65 @@ function buildProjectViewModel(projectId: string): ProjectViewModel | null {
   }
 }
 
-function getFilteredProjectViewModels(): ProjectViewModel[] {
-  ensurePcsProjectDemoDataReady()
+function buildProjectListViewModel(projectId: string): ProjectListViewModel | null {
+  const project = getProjectById(projectId)
+  if (!project) return null
+
+  const phases = listProjectPhases(projectId)
+  const nodes = listProjectNodes(projectId)
+  const nodeViewModels: ProjectListNodeViewModel[] = nodes.map((node) => ({
+    node,
+    unlocked: isNodeUnlocked(project, nodes, node),
+    displayStatus: getNodeDisplayStatus(project, nodes, node),
+  }))
+
+  const currentNode =
+    nodeViewModels.find((item) => item.node.currentStatus === '进行中' || item.node.currentStatus === '待确认') ??
+    nodeViewModels.find((item) => !isClosedNodeStatus(item.node.currentStatus) && item.unlocked) ??
+    nodeViewModels[0] ??
+    null
+  const currentPhaseCode = currentNode?.node.phaseCode ?? project.currentPhaseCode
+  const phaseViewModels: ProjectListPhaseViewModel[] = phases.map((phase) => {
+    const phaseNodes = nodeViewModels.filter((item) => item.node.phaseCode === phase.phaseCode)
+    let derivedStatus: PcsProjectPhaseRecord['phaseStatus'] = '未开始'
+
+    if (project.projectStatus === '已终止' && phaseNodes.some((item) => !isClosedNodeStatus(item.node.currentStatus))) {
+      derivedStatus = '已终止'
+    } else if (phaseNodes.length > 0 && phaseNodes.every((item) => isClosedNodeStatus(item.node.currentStatus))) {
+      derivedStatus = '已完成'
+    } else if (
+      phase.phaseCode === currentPhaseCode ||
+      phaseNodes.some((item) => item.node.currentStatus === '进行中' || item.node.currentStatus === '待确认')
+    ) {
+      derivedStatus = '进行中'
+    }
+
+    return {
+      phase,
+      derivedStatus,
+      completedCount: phaseNodes.filter((item) => item.node.currentStatus === '已完成').length,
+      totalCount: phaseNodes.length,
+      pendingDecision: phaseNodes.some((item) => item.node.currentStatus === '待确认'),
+      current: phase.phaseCode === currentPhaseCode,
+    }
+  })
+
+  return {
+    project,
+    currentPhase: phaseViewModels.find((item) => item.phase.phaseCode === currentPhaseCode) ?? phaseViewModels[0] ?? null,
+    nextNode:
+      nodeViewModels.find((item) => !isClosedNodeStatus(item.node.currentStatus) && item.unlocked) ??
+      nodeViewModels.find((item) => !isClosedNodeStatus(item.node.currentStatus)) ??
+      null,
+    pendingDecisionNode: nodeViewModels.find((item) => item.node.currentStatus === '待确认') ?? null,
+    progressDone: nodeViewModels.filter((item) => item.node.currentStatus === '已完成').length,
+    progressTotal: nodeViewModels.length,
+    channelNames: getChannelNamesByCodes(project.targetChannelCodes),
+  }
+}
+
+function getFilteredProjectViewModels(): ProjectListViewModel[] {
+  ensureProjectDemoDataReadySync()
   const keyword = state.list.search.trim().toLowerCase()
   const owner = state.list.owner
   const phase = state.list.phase
@@ -1585,8 +2013,8 @@ function getFilteredProjectViewModels(): ProjectViewModel[] {
   }
 
   const items = listProjects()
-    .map((project) => buildProjectViewModel(project.projectId))
-    .filter((item): item is ProjectViewModel => Boolean(item))
+    .map((project) => buildProjectListViewModel(project.projectId))
+    .filter((item): item is ProjectListViewModel => Boolean(item))
     .filter((item) => {
       const { project } = item
       const matchesKeyword =
@@ -1653,6 +2081,10 @@ function getPagedProjects() {
     totalPages,
     paged: filtered.slice(startIndex, startIndex + state.list.pageSize),
   }
+}
+
+function buildProjectPhaseOptions(projects: ProjectListViewModel[]): string[] {
+  return ['全部阶段', ...Array.from(new Set(projects.map((item) => item.currentPhase?.phase.phaseName || '-')))]
 }
 
 function ensureCreateState(): void {
@@ -1801,7 +2233,7 @@ function getNodeStatusIcon(status: ProjectNodeStatus | '未解锁'): string {
   return 'clock-3'
 }
 
-function renderProjectProgress(project: ProjectViewModel): string {
+function renderProjectProgress(project: ProjectListViewModel): string {
   const percent = project.progressTotal === 0 ? 0 : Math.round((project.progressDone / project.progressTotal) * 100)
   return `
     <div class="space-y-1">
@@ -1847,9 +2279,8 @@ function renderPagination(totalPages: number): string {
   `
 }
 
-function renderListToolbar(filteredCount: number): string {
+function renderListToolbar(filteredCount: number, phaseOptions: string[]): string {
   const ownerOptions = ['全部负责人', ...getProjectCreateCatalog().owners.map((item) => item.name)]
-  const phaseOptions = ['全部阶段', ...Array.from(new Set(getFilteredProjectViewModels().map((item) => item.currentPhase?.phase.phaseName || '-')))]
   return `
     <section class="rounded-lg border bg-white p-4">
       <div class="grid gap-3 xl:grid-cols-[minmax(240px,1.5fr)_160px_auto_auto]">
@@ -1963,7 +2394,7 @@ function renderListToolbar(filteredCount: number): string {
   `
 }
 
-function renderProjectListTable(projects: ProjectViewModel[], totalPages: number): string {
+function renderProjectListTable(projects: ProjectListViewModel[], totalPages: number): string {
   return `
     <section class="overflow-hidden rounded-lg border bg-white">
       <div class="overflow-x-auto">
@@ -2055,7 +2486,7 @@ function renderProjectListTable(projects: ProjectViewModel[], totalPages: number
   `
 }
 
-function renderProjectGrid(projects: ProjectViewModel[], totalPages: number): string {
+function renderProjectGrid(projects: ProjectListViewModel[], totalPages: number): string {
   return `
     <section class="space-y-4">
       ${
@@ -3068,7 +3499,7 @@ function renderDetailDecisionDialog(viewModel: ProjectViewModel, selectedNode: P
 }
 
 function renderProjectDetailPage(projectId: string): string {
-  ensurePcsProjectDemoDataReady()
+  ensureProjectDemoDataReadySync()
   ensureDetailState(projectId)
   const viewModel = buildProjectViewModel(projectId)
   if (!viewModel) {
@@ -3600,7 +4031,7 @@ function renderWorkItemRecordDialog(project: PcsProjectRecord, node: ProjectNode
 }
 
 function renderProjectWorkItemDetailPage(projectId: string, projectNodeId: string): string {
-  ensurePcsProjectDemoDataReady()
+  ensureProjectDemoDataReadySync()
   ensureWorkItemState(projectId, projectNodeId)
   const viewModel = buildProjectViewModel(projectId)
   if (!viewModel) {
@@ -3694,29 +4125,40 @@ function renderProjectWorkItemDetailPage(projectId: string, projectNodeId: strin
   `
 }
 
-export function renderPcsProjectListPage(): string {
-  ensurePcsProjectDemoDataReady()
+export async function renderPcsProjectListPage(): Promise<string> {
+  ensureProjectDemoDataReadySync()
   const { filtered, paged, totalPages } = getPagedProjects()
+  const phaseOptions = buildProjectPhaseOptions(filtered)
   return `
     <div class="space-y-5 p-4">
       ${renderNotice()}
       ${renderProjectListHeader()}
-      ${renderListToolbar(filtered.length)}
+      ${renderListToolbar(filtered.length, phaseOptions)}
       ${state.list.viewMode === 'list' ? renderProjectListTable(paged, totalPages) : renderProjectGrid(paged, totalPages)}
       ${renderProjectTerminateDialog()}
     </div>
   `
 }
 
-export function renderPcsProjectCreatePage(): string {
+export async function renderPcsProjectCreatePage(): Promise<string> {
   return renderCreatePage()
 }
 
-export function renderPcsProjectDetailPage(projectId: string): string {
+export async function renderPcsProjectDetailPage(projectId: string): Promise<string> {
+  const loadingTasks: Array<Promise<unknown>> = [ensureProjectDetailSupportReady()]
+  if (listProjects().length < PROJECT_DEMO_SEED_IMPORT_THRESHOLD) {
+    loadingTasks.push(ensureProjectDemoSeedServiceReady())
+  }
+  await Promise.all(loadingTasks)
   return renderProjectDetailPage(projectId)
 }
 
-export function renderPcsProjectWorkItemDetailPage(projectId: string, projectNodeId: string): string {
+export async function renderPcsProjectWorkItemDetailPage(projectId: string, projectNodeId: string): Promise<string> {
+  const loadingTasks: Array<Promise<unknown>> = [ensureProjectDetailSupportReady()]
+  if (listProjects().length < PROJECT_DEMO_SEED_IMPORT_THRESHOLD) {
+    loadingTasks.push(ensureProjectDemoSeedServiceReady())
+  }
+  await Promise.all(loadingTasks)
   return renderProjectWorkItemDetailPage(projectId, projectNodeId)
 }
 

@@ -1,297 +1,271 @@
-import {
-  handlePcsPartTemplateLibraryEvent,
-  handlePcsPartTemplateLibraryInput,
-  isPcsPartTemplateLibraryDialogOpen,
-} from '../pages/pcs-part-template-library'
-import {
-  handlePcsPatternLibraryEvent,
-  handlePcsPatternLibraryInput,
-  isPcsPatternLibraryDialogOpen,
-} from '../pages/pcs-pattern-library'
-import {
-  handlePcsPatternLibraryCreateEvent,
-  handlePcsPatternLibraryCreateInput,
-  isPcsPatternLibraryCreateDialogOpen,
-} from '../pages/pcs-pattern-library-create'
-import {
-  handlePcsPatternLibraryDetailEvent,
-  handlePcsPatternLibraryDetailInput,
-  isPcsPatternLibraryDetailDialogOpen,
-} from '../pages/pcs-pattern-library-detail'
-import {
-  handlePcsPatternLibraryConfigEvent,
-  handlePcsPatternLibraryConfigInput,
-  isPcsPatternLibraryConfigDialogOpen,
-} from '../pages/pcs-pattern-library-config'
-import {
-  handlePcsLiveTestingEvent,
-  handlePcsLiveTestingInput,
-  isPcsLiveTestingDialogOpen,
-} from '../pages/pcs-live-testing'
-import {
-  handlePcsVideoTestingEvent,
-  handlePcsVideoTestingInput,
-  isPcsVideoTestingDialogOpen,
-} from '../pages/pcs-video-testing'
-import {
-  handlePcsChannelStoresEvent,
-  handlePcsChannelStoresInput,
-  isPcsChannelStoresDialogOpen,
-} from '../pages/pcs-channel-stores'
-import {
-  handlePcsSampleLedgerEvent,
-  handlePcsSampleLedgerInput,
-  isPcsSampleLedgerDialogOpen,
-} from '../pages/pcs-sample-ledger'
-import {
-  handlePcsSampleInventoryEvent,
-  handlePcsSampleInventoryInput,
-  isPcsSampleInventoryDialogOpen,
-} from '../pages/pcs-sample-inventory'
-import {
-  handlePcsSampleTransferEvent,
-  handlePcsSampleTransferInput,
-  isPcsSampleTransferDialogOpen,
-} from '../pages/pcs-sample-transfer'
-import {
-  handlePcsSampleReturnEvent,
-  handlePcsSampleReturnInput,
-  isPcsSampleReturnDialogOpen,
-} from '../pages/pcs-sample-return'
-import {
-  handlePcsSampleApplicationEvent,
-  handlePcsSampleApplicationInput,
-  isPcsSampleApplicationDialogOpen,
-} from '../pages/pcs-sample-application'
-import {
-  handlePcsSampleViewEvent,
-  handlePcsSampleViewInput,
-  isPcsSampleViewDialogOpen,
-} from '../pages/pcs-sample-view'
-import {
-  handlePcsProductArchiveEvent,
-  handlePcsProductArchiveInput,
-  isPcsProductArchiveDialogOpen,
-} from '../pages/pcs-product-archives'
-import {
-  handlePcsProjectsEvent,
-  handlePcsProjectsInput,
-  isPcsProjectsDialogOpen,
-} from '../pages/pcs-projects'
-import {
-  handlePcsConfigWorkspaceEvent,
-  handlePcsConfigWorkspaceInput,
-  isPcsConfigWorkspaceDialogOpen,
-} from '../pages/pcs-config-workspace'
-import {
-  handlePcsTemplatesEvent,
-  handlePcsTemplatesInput,
-  isPcsTemplatesDialogOpen,
-} from '../pages/pcs-templates'
-import {
-  handlePcsWorkItemsEvent,
-  handlePcsWorkItemsInput,
-} from '../pages/pcs-work-items'
-import {
-  handlePcsEngineeringTaskEvent,
-  handlePcsEngineeringTaskInput,
-  isPcsEngineeringTaskDialogOpen,
-} from '../pages/pcs-engineering-tasks'
-import {
-  handleTechPackEvent,
-  isTechPackDialogOpen,
-} from '../pages/tech-pack'
+type HandlerModule = Record<string, unknown>
 
-export function dispatchPcsPageEvent(target: HTMLElement): boolean {
-  return (
-    handlePcsConfigWorkspaceEvent(target) ||
-    handlePcsEngineeringTaskEvent(target) ||
-    handleTechPackEvent(target) ||
-    handlePcsLiveTestingEvent(target) ||
-    handlePcsVideoTestingEvent(target) ||
-    handlePcsChannelStoresEvent(target) ||
-    handlePcsSampleLedgerEvent(target) ||
-    handlePcsSampleInventoryEvent(target) ||
-    handlePcsSampleTransferEvent(target) ||
-    handlePcsSampleReturnEvent(target) ||
-    handlePcsSampleApplicationEvent(target) ||
-    handlePcsSampleViewEvent(target) ||
-    handlePcsProductArchiveEvent(target) ||
-    handlePcsProjectsEvent(target) ||
-    handlePcsTemplatesEvent(target) ||
-    handlePcsWorkItemsEvent(target) ||
-    handlePcsPartTemplateLibraryEvent(target) ||
-    handlePcsPatternLibraryEvent(target) ||
-    handlePcsPatternLibraryCreateEvent(target) ||
-    handlePcsPatternLibraryDetailEvent(target) ||
-    handlePcsPatternLibraryConfigEvent(target)
-  )
+interface PcsCloseAction {
+  datasetKey: string
+  value: string
 }
 
-export function dispatchPcsInputEvent(target: Element): boolean {
-  return (
-    handlePcsConfigWorkspaceInput(target) ||
-    handlePcsEngineeringTaskInput(target) ||
-    handlePcsLiveTestingInput(target) ||
-    handlePcsVideoTestingInput(target) ||
-    handlePcsChannelStoresInput(target) ||
-    handlePcsSampleLedgerInput(target) ||
-    handlePcsSampleInventoryInput(target) ||
-    handlePcsSampleTransferInput(target) ||
-    handlePcsSampleReturnInput(target) ||
-    handlePcsSampleApplicationInput(target) ||
-    handlePcsSampleViewInput(target) ||
-    handlePcsProductArchiveInput(target) ||
-    handlePcsProjectsInput(target) ||
-    handlePcsTemplatesInput(target) ||
-    handlePcsWorkItemsInput(target) ||
-    handlePcsPartTemplateLibraryInput(target) ||
-    handlePcsPatternLibraryInput(target) ||
-    handlePcsPatternLibraryCreateInput(target) ||
-    handlePcsPatternLibraryDetailInput(target) ||
-    handlePcsPatternLibraryConfigInput(target)
-  )
+interface PcsHandlerSpec {
+  cacheKey: string
+  matches: (pathname: string) => boolean
+  importModule: () => Promise<HandlerModule>
+  eventExport?: string
+  inputExport?: string
+  dialogExport?: string
+  closeActions?: PcsCloseAction[]
 }
 
-export function closePcsDialogsOnEscape(): boolean {
-  if (isPcsConfigWorkspaceDialogOpen()) {
-    const fakeButton = document.createElement('button')
-    fakeButton.dataset.pcsConfigWorkspaceAction = 'close-all-dialogs'
-    handlePcsConfigWorkspaceEvent(fakeButton)
-    return true
-  }
+const handlerModuleCache = new Map<string, Promise<HandlerModule>>()
 
-  if (isPcsEngineeringTaskDialogOpen()) {
-    const fakeButton = document.createElement('button')
-    fakeButton.dataset.pcsEngineeringAction = 'close-all-engineering-dialogs'
-    handlePcsEngineeringTaskEvent(fakeButton)
-    return true
-  }
+function isExactOrNestedPath(pathname: string, basePath: string): boolean {
+  return pathname === basePath || pathname.startsWith(`${basePath}/`)
+}
 
-  if (isTechPackDialogOpen()) {
-    const fakeButton = document.createElement('button')
-    fakeButton.dataset.techAction = 'close-dialog'
-    handleTechPackEvent(fakeButton)
-    return true
-  }
+function isAnyExactOrNestedPath(pathname: string, basePaths: string[]): boolean {
+  return basePaths.some((basePath) => isExactOrNestedPath(pathname, basePath))
+}
 
-  if (isPcsProjectsDialogOpen()) {
-    const fakeButton = document.createElement('button')
-    fakeButton.dataset.pcsProjectAction = 'close-dialogs'
-    handlePcsProjectsEvent(fakeButton)
-    return true
-  }
+function getCurrentPathname(): string {
+  return window.location.pathname || ''
+}
 
-  if (isPcsLiveTestingDialogOpen()) {
-    const fakeButton = document.createElement('button')
-    fakeButton.dataset.pcsLiveTestingAction = 'close-dialogs'
-    handlePcsLiveTestingEvent(fakeButton)
-    return true
-  }
+const PCS_HANDLER_SPECS: PcsHandlerSpec[] = [
+  {
+    cacheKey: 'pcs-projects-list',
+    matches: (pathname) => pathname === '/pcs/projects',
+    importModule: () => import('../pages/pcs-projects-list'),
+    eventExport: 'handlePcsProjectListEvent',
+    inputExport: 'handlePcsProjectListInput',
+    dialogExport: 'isPcsProjectListDialogOpen',
+  },
+  {
+    cacheKey: 'pcs-config-workspace',
+    matches: (pathname) => isExactOrNestedPath(pathname, '/pcs/settings/config-workspace'),
+    importModule: () => import('../pages/pcs-config-workspace'),
+    eventExport: 'handlePcsConfigWorkspaceEvent',
+    inputExport: 'handlePcsConfigWorkspaceInput',
+    dialogExport: 'isPcsConfigWorkspaceDialogOpen',
+    closeActions: [{ datasetKey: 'pcsConfigWorkspaceAction', value: 'close-all-dialogs' }],
+  },
+  {
+    cacheKey: 'tech-pack',
+    matches: (pathname) => /^\/pcs\/products\/styles\/[^/]+\/technical-data\/[^/]+$/.test(pathname),
+    importModule: () => import('../pages/tech-pack'),
+    eventExport: 'handleTechPackEvent',
+    dialogExport: 'isTechPackDialogOpen',
+    closeActions: [{ datasetKey: 'techAction', value: 'close-dialog' }],
+  },
+  {
+    cacheKey: 'pcs-part-template-library',
+    matches: (pathname) => isExactOrNestedPath(pathname, '/pcs/patterns/part-templates'),
+    importModule: () => import('../pages/pcs-part-template-library'),
+    eventExport: 'handlePcsPartTemplateLibraryEvent',
+    inputExport: 'handlePcsPartTemplateLibraryInput',
+    dialogExport: 'isPcsPartTemplateLibraryDialogOpen',
+    closeActions: [
+      { datasetKey: 'partTemplateAction', value: 'close-detail-drawer' },
+      { datasetKey: 'partTemplateAction', value: 'close-create-drawer' },
+    ],
+  },
+  {
+    cacheKey: 'pcs-pattern-library-create',
+    matches: (pathname) => isExactOrNestedPath(pathname, '/pcs/pattern-library/create'),
+    importModule: () => import('../pages/pcs-pattern-library-create'),
+    eventExport: 'handlePcsPatternLibraryCreateEvent',
+    inputExport: 'handlePcsPatternLibraryCreateInput',
+  },
+  {
+    cacheKey: 'pcs-pattern-library-config',
+    matches: (pathname) => isExactOrNestedPath(pathname, '/pcs/pattern-library/config'),
+    importModule: () => import('../pages/pcs-pattern-library-config'),
+    eventExport: 'handlePcsPatternLibraryConfigEvent',
+    inputExport: 'handlePcsPatternLibraryConfigInput',
+  },
+  {
+    cacheKey: 'pcs-pattern-library-detail',
+    matches: (pathname) => /^\/pcs\/pattern-library\/[^/]+$/.test(pathname),
+    importModule: () => import('../pages/pcs-pattern-library-detail'),
+    eventExport: 'handlePcsPatternLibraryDetailEvent',
+    inputExport: 'handlePcsPatternLibraryDetailInput',
+  },
+  {
+    cacheKey: 'pcs-pattern-library',
+    matches: (pathname) => isExactOrNestedPath(pathname, '/pcs/pattern-library'),
+    importModule: () => import('../pages/pcs-pattern-library'),
+    eventExport: 'handlePcsPatternLibraryEvent',
+    inputExport: 'handlePcsPatternLibraryInput',
+    dialogExport: 'isPcsPatternLibraryDialogOpen',
+    closeActions: [
+      { datasetKey: 'patternLibraryAction', value: 'close-preview' },
+      { datasetKey: 'patternLibraryAction', value: 'close-batch-drawer' },
+    ],
+  },
+  {
+    cacheKey: 'pcs-live-testing',
+    matches: (pathname) => isExactOrNestedPath(pathname, '/pcs/testing/live'),
+    importModule: () => import('../pages/pcs-live-testing'),
+    eventExport: 'handlePcsLiveTestingEvent',
+    inputExport: 'handlePcsLiveTestingInput',
+    dialogExport: 'isPcsLiveTestingDialogOpen',
+    closeActions: [{ datasetKey: 'pcsLiveTestingAction', value: 'close-dialogs' }],
+  },
+  {
+    cacheKey: 'pcs-video-testing',
+    matches: (pathname) => isExactOrNestedPath(pathname, '/pcs/testing/video'),
+    importModule: () => import('../pages/pcs-video-testing'),
+    eventExport: 'handlePcsVideoTestingEvent',
+    inputExport: 'handlePcsVideoTestingInput',
+    dialogExport: 'isPcsVideoTestingDialogOpen',
+    closeActions: [{ datasetKey: 'pcsVideoTestingAction', value: 'close-dialogs' }],
+  },
+  {
+    cacheKey: 'pcs-channel-stores',
+    matches: (pathname) => isExactOrNestedPath(pathname, '/pcs/channels/stores'),
+    importModule: () => import('../pages/pcs-channel-stores'),
+    eventExport: 'handlePcsChannelStoresEvent',
+    inputExport: 'handlePcsChannelStoresInput',
+    dialogExport: 'isPcsChannelStoresDialogOpen',
+    closeActions: [{ datasetKey: 'pcsChannelStoreAction', value: 'close-dialogs' }],
+  },
+  {
+    cacheKey: 'pcs-product-archives',
+    matches: (pathname) =>
+      isAnyExactOrNestedPath(pathname, [
+        '/pcs/products/styles',
+        '/pcs/products/specifications',
+        '/pcs/products/spu',
+        '/pcs/products/sku',
+      ]),
+    importModule: () => import('../pages/pcs-product-archives'),
+    eventExport: 'handlePcsProductArchiveEvent',
+    inputExport: 'handlePcsProductArchiveInput',
+    dialogExport: 'isPcsProductArchiveDialogOpen',
+    closeActions: [{ datasetKey: 'pcsProductArchiveAction', value: 'close-drawers' }],
+  },
+  {
+    cacheKey: 'pcs-templates',
+    matches: (pathname) => isExactOrNestedPath(pathname, '/pcs/templates'),
+    importModule: () => import('../pages/pcs-templates'),
+    eventExport: 'handlePcsTemplatesEvent',
+    inputExport: 'handlePcsTemplatesInput',
+    dialogExport: 'isPcsTemplatesDialogOpen',
+    closeActions: [{ datasetKey: 'pcsTemplateAction', value: 'close-dialogs' }],
+  },
+  {
+    cacheKey: 'pcs-work-items',
+    matches: (pathname) => isExactOrNestedPath(pathname, '/pcs/work-items'),
+    importModule: () => import('../pages/pcs-work-items'),
+    eventExport: 'handlePcsWorkItemsEvent',
+    inputExport: 'handlePcsWorkItemsInput',
+  },
+  {
+    cacheKey: 'pcs-projects',
+    matches: (pathname) => pathname.startsWith('/pcs/projects/'),
+    importModule: () => import('../pages/pcs-projects'),
+    eventExport: 'handlePcsProjectsEvent',
+    inputExport: 'handlePcsProjectsInput',
+    dialogExport: 'isPcsProjectsDialogOpen',
+    closeActions: [{ datasetKey: 'pcsProjectAction', value: 'close-dialogs' }],
+  },
+  {
+    cacheKey: 'pcs-engineering-tasks',
+    matches: (pathname) =>
+      isAnyExactOrNestedPath(pathname, [
+        '/pcs/patterns',
+        '/pcs/samples/first-sample',
+        '/pcs/samples/first-order',
+        '/pcs/samples/pre-production',
+        '/pcs/production/pre-check',
+      ]),
+    importModule: () => import('../pages/pcs-engineering-tasks'),
+    eventExport: 'handlePcsEngineeringTaskEvent',
+    inputExport: 'handlePcsEngineeringTaskInput',
+    dialogExport: 'isPcsEngineeringTaskDialogOpen',
+    closeActions: [{ datasetKey: 'pcsEngineeringAction', value: 'close-all-engineering-dialogs' }],
+  },
+]
 
-  if (isPcsVideoTestingDialogOpen()) {
-    const fakeButton = document.createElement('button')
-    fakeButton.dataset.pcsVideoTestingAction = 'close-dialogs'
-    handlePcsVideoTestingEvent(fakeButton)
-    return true
-  }
+function getActiveHandlerSpec(pathname = getCurrentPathname()): PcsHandlerSpec | null {
+  return PCS_HANDLER_SPECS.find((spec) => spec.matches(pathname)) ?? null
+}
 
-  if (isPcsChannelStoresDialogOpen()) {
-    const fakeButton = document.createElement('button')
-    fakeButton.dataset.pcsChannelStoreAction = 'close-dialogs'
-    handlePcsChannelStoresEvent(fakeButton)
-    return true
-  }
-
-  if (isPcsSampleLedgerDialogOpen()) {
-    const fakeButton = document.createElement('button')
-    fakeButton.dataset.pcsSampleLedgerAction = 'close-detail'
-    handlePcsSampleLedgerEvent(fakeButton)
-    return true
-  }
-
-  if (isPcsSampleInventoryDialogOpen()) {
-    const fakeButton = document.createElement('button')
-    fakeButton.dataset.pcsSampleInventoryAction = 'close-detail'
-    handlePcsSampleInventoryEvent(fakeButton)
-    return true
-  }
-
-  if (isPcsSampleTransferDialogOpen()) {
-    const fakeButton = document.createElement('button')
-    fakeButton.dataset.pcsSampleTransferAction = 'close-detail'
-    handlePcsSampleTransferEvent(fakeButton)
-    return true
-  }
-
-  if (isPcsSampleReturnDialogOpen()) {
-    const fakeButton = document.createElement('button')
-    fakeButton.dataset.pcsSampleReturnAction = 'close-detail'
-    handlePcsSampleReturnEvent(fakeButton)
-    fakeButton.dataset.pcsSampleReturnAction = 'close-create-drawer'
-    handlePcsSampleReturnEvent(fakeButton)
-    return true
-  }
-
-  if (isPcsSampleApplicationDialogOpen()) {
-    const fakeButton = document.createElement('button')
-    fakeButton.dataset.pcsSampleApplicationAction = 'close-detail'
-    handlePcsSampleApplicationEvent(fakeButton)
-    fakeButton.dataset.pcsSampleApplicationAction = 'close-create-drawer'
-    handlePcsSampleApplicationEvent(fakeButton)
-    return true
-  }
-
-  if (isPcsSampleViewDialogOpen()) {
-    const fakeButton = document.createElement('button')
-    fakeButton.dataset.pcsSampleViewAction = 'close-detail'
-    handlePcsSampleViewEvent(fakeButton)
-    return true
-  }
-
-  if (isPcsProductArchiveDialogOpen()) {
-    const fakeButton = document.createElement('button')
-    fakeButton.dataset.pcsProductArchiveAction = 'close-drawers'
-    handlePcsProductArchiveEvent(fakeButton)
-    return true
-  }
-
-  if (isPcsTemplatesDialogOpen()) {
-    const fakeButton = document.createElement('button')
-    fakeButton.dataset.pcsTemplateAction = 'close-dialogs'
-    handlePcsTemplatesEvent(fakeButton)
-    return true
-  }
-
-  if (isPcsPatternLibraryDialogOpen()) {
-    const fakeButton = document.createElement('button')
-    fakeButton.dataset.patternLibraryAction = 'close-preview'
-    handlePcsPatternLibraryEvent(fakeButton)
-    fakeButton.dataset.patternLibraryAction = 'close-batch-drawer'
-    handlePcsPatternLibraryEvent(fakeButton)
-    return true
-  }
-
-  if (isPcsPartTemplateLibraryDialogOpen()) {
-    const fakeButton = document.createElement('button')
-    fakeButton.dataset.partTemplateAction = 'close-detail-drawer'
-    handlePcsPartTemplateLibraryEvent(fakeButton)
-    fakeButton.dataset.partTemplateAction = 'close-create-drawer'
-    handlePcsPartTemplateLibraryEvent(fakeButton)
-    return true
-  }
-
-  if (isPcsPatternLibraryCreateDialogOpen()) {
+function invokeBooleanExport<TArg>(module: HandlerModule, exportName: string | undefined, arg: TArg): boolean {
+  if (!exportName) {
     return false
   }
 
-  if (isPcsPatternLibraryDetailDialogOpen()) {
+  const handler = module[exportName]
+  if (typeof handler !== 'function') {
     return false
   }
 
-  if (isPcsPatternLibraryConfigDialogOpen()) {
+  return Boolean((handler as (value: TArg) => unknown)(arg))
+}
+
+function invokeDialogStateExport(module: HandlerModule, exportName: string | undefined): boolean {
+  if (!exportName) {
     return false
   }
 
-  return false
+  const getter = module[exportName]
+  if (typeof getter !== 'function') {
+    return false
+  }
+
+  return Boolean((getter as () => unknown)())
+}
+
+async function loadHandlerModule(spec: PcsHandlerSpec): Promise<HandlerModule> {
+  const cached = handlerModuleCache.get(spec.cacheKey)
+  if (cached) {
+    return cached
+  }
+
+  const modulePromise = spec.importModule().catch((error) => {
+    handlerModuleCache.delete(spec.cacheKey)
+    throw error
+  })
+
+  handlerModuleCache.set(spec.cacheKey, modulePromise)
+  return modulePromise
+}
+
+export async function dispatchPcsPageEvent(target: HTMLElement): Promise<boolean> {
+  const spec = getActiveHandlerSpec()
+  if (!spec?.eventExport) {
+    return false
+  }
+
+  const module = await loadHandlerModule(spec)
+  return invokeBooleanExport(module, spec.eventExport, target)
+}
+
+export async function dispatchPcsInputEvent(target: Element): Promise<boolean> {
+  const spec = getActiveHandlerSpec()
+  if (!spec?.inputExport) {
+    return false
+  }
+
+  const module = await loadHandlerModule(spec)
+  return invokeBooleanExport(module, spec.inputExport, target)
+}
+
+export async function closePcsDialogsOnEscape(): Promise<boolean> {
+  const spec = getActiveHandlerSpec()
+  if (!spec?.eventExport || !spec.dialogExport || !spec.closeActions?.length) {
+    return false
+  }
+
+  const module = await loadHandlerModule(spec)
+  if (!invokeDialogStateExport(module, spec.dialogExport)) {
+    return false
+  }
+
+  for (const closeAction of spec.closeActions) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset[closeAction.datasetKey] = closeAction.value
+    invokeBooleanExport(module, spec.eventExport, fakeButton)
+  }
+
+  return true
 }

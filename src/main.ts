@@ -129,11 +129,15 @@ async function dispatchPageEvent(target: Element): Promise<boolean> {
       getPdaHandlersModule(),
     ])
 
-    return (
-      fcsHandlers.dispatchFcsPageEvent(eventTarget) ||
-      pcsHandlers.dispatchPcsPageEvent(eventTarget) ||
-      pdaHandlers.dispatchPdaPageEvent(eventTarget)
-    )
+    if (fcsHandlers.dispatchFcsPageEvent(eventTarget)) {
+      return true
+    }
+
+    if (await pcsHandlers.dispatchPcsPageEvent(eventTarget)) {
+      return true
+    }
+
+    return pdaHandlers.dispatchPdaPageEvent(eventTarget)
   } catch (error) {
     console.error('页面事件处理器加载失败，已降级为不处理', error)
     return false
@@ -181,11 +185,15 @@ async function closeDialogsOnEscape(): Promise<boolean> {
       getPcsHandlersModule(),
       getPdaHandlersModule(),
     ])
-    return (
-      fcsHandlers.closeFcsDialogsOnEscape() ||
-      pcsHandlers.closePcsDialogsOnEscape() ||
-      pdaHandlers.closePdaDialogsOnEscape()
-    )
+    if (fcsHandlers.closeFcsDialogsOnEscape()) {
+      return true
+    }
+
+    if (await pcsHandlers.closePcsDialogsOnEscape()) {
+      return true
+    }
+
+    return pdaHandlers.closePdaDialogsOnEscape()
   } catch (error) {
     console.error('弹窗处理器加载失败', error)
     return false

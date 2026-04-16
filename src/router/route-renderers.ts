@@ -164,7 +164,7 @@ export const renderPcsConfigWorkspacePage = createAsyncRenderer(
   'renderPcsConfigWorkspacePage',
 )
 export const renderPcsProjectListPage = createAsyncRenderer(
-  () => import('../pages/pcs-projects'),
+  () => import('../pages/pcs-projects-list'),
   'renderPcsProjectListPage',
 )
 export const renderPcsProjectCreatePage = createAsyncRenderer(
