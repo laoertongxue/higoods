@@ -62,15 +62,15 @@ export const routes: RouteRegistry = {
     '/pcs/materials/yarn/new': renderClearedPcsPage('新建纱线档案'),
     '/pcs/materials/consumable': renderClearedPcsPage('耗材档案'),
     '/pcs/materials/consumable/new': renderClearedPcsPage('新建耗材档案'),
-    '/pcs/settings/cost-parameters': renderClearedPcsPage('成本参数'),
+    '/pcs/settings/cost-parameters': () => renderRouteRedirect('/pcs/settings/config-workspace', '系统设置已收口到基础配置'),
     '/pcs/settings/config-workspace': () => renderers.renderPcsConfigWorkspacePage(),
-    '/pcs/settings/template-center': renderClearedPcsPage('模板中心'),
-    '/pcs/settings/platforms': renderClearedPcsPage('平台设置'),
+    '/pcs/settings/template-center': () => renderRouteRedirect('/pcs/settings/config-workspace', '系统设置已收口到基础配置'),
+    '/pcs/settings/platforms': () => renderRouteRedirect('/pcs/settings/config-workspace', '系统设置已收口到基础配置'),
   },
   dynamicRoutes: [
     {
       pattern: /^\/pcs\/projects\/([^/]+)\/work-items\/([^/]+)$/,
-      render: (match) => renderers.renderPcsProjectWorkItemDetailPage(match[1], match[2]),
+      render: (match) => renderRouteRedirect(`/pcs/projects/${match[1]}`, '工作项已并入商品项目页内处理'),
     },
     {
       pattern: /^\/pcs\/projects\/([^/]+)$/,

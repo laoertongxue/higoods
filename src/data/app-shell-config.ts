@@ -95,10 +95,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           title: '系统设置',
           icon: 'Settings',
           children: [
-            { key: 'pcs-cost-parameters', title: '成本参数', icon: 'Calculator', href: '/pcs/settings/cost-parameters' },
-            { key: 'pcs-config-workspace', title: '配置工作台', icon: 'Settings', href: '/pcs/settings/config-workspace' },
-            { key: 'pcs-template-center', title: '模板中心', icon: 'FileText', href: '/pcs/settings/template-center' },
-            { key: 'pcs-platform-config', title: '平台对接配置', icon: 'Settings', href: '/pcs/settings/platforms' },
+            { key: 'pcs-config-workspace', title: '基础配置', icon: 'Settings', href: '/pcs/settings/config-workspace' },
           ],
         },
       ],

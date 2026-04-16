@@ -571,7 +571,7 @@ function renderDetailDrawer(): string {
             <p class="text-xs text-slate-500">关联工作项</p>
             ${
               sample.projectId && sample.projectNodeId
-                ? `<button type="button" class="mt-1 text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/projects/${escapeHtml(sample.projectId)}/work-items/${escapeHtml(sample.projectNodeId)}">${escapeHtml(sample.workItemName || '-')}</button>`
+                ? `<button type="button" class="mt-1 text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/projects/${escapeHtml(sample.projectId)}">${escapeHtml(sample.workItemName || '-')}</button>`
                 : `<p class="mt-1 text-slate-900">${escapeHtml(sample.workItemName || '-')}</p>`
             }
           </div>

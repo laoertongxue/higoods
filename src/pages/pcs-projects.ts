@@ -48,6 +48,7 @@ import {
   type PcsProjectInlineNodeRecordWorkItemTypeCode,
 } from '../data/pcs-project-inline-node-record-types.ts'
 import type { ProjectRelationRecord } from '../data/pcs-project-relation-types.ts'
+import { listProjectRelationsByProjectNode } from '../data/pcs-project-relation-repository.ts'
 import {
   type ProjectTestingSummaryBreakdownItem,
   getProjectTestingSummaryAggregate,
@@ -454,6 +455,16 @@ function buildInstanceFieldMap(instance: PcsProjectInstanceItem | null | undefin
   }, {})
 }
 
+function parseProjectRelationNoteMeta(note: string | null | undefined): Record<string, unknown> {
+  if (!note) return {}
+  try {
+    const parsed = JSON.parse(note) as Record<string, unknown>
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
 function getFirstTargetChannelCode(project: PcsProjectRecord): string {
   return project.targetChannelCodes[0] || 'tiktok-shop'
 }
@@ -707,9 +718,13 @@ function getProjectTestingAggregate(projectId: string): {
 function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel, fieldKey: string): unknown {
   const payload = (node.latestRecord?.payload || {}) as Record<string, unknown>
   const detailSnapshot = (node.latestRecord?.detailSnapshot || {}) as Record<string, unknown>
+  const latestFormalRelationRecord = listProjectRelationsByProjectNode(project.projectId, node.node.projectNodeId)[0] || null
   const latestFormalNodeInstance =
     node.instanceModel.instances.find((item) => item.sourceLayer === '正式业务对象') || null
-  const nodeRelationMeta = buildInstanceFieldMap(latestFormalNodeInstance)
+  const nodeRelationMeta = {
+    ...parseProjectRelationNoteMeta(latestFormalRelationRecord?.note),
+    ...buildInstanceFieldMap(latestFormalNodeInstance),
+  }
   const currentChannelProduct = getCurrentChannelProductRelation(project.projectId)
   const currentChannelMeta = buildInstanceFieldMap(currentChannelProduct)
   const styleRelation = findLatestProjectRelation(project.projectId, '款式档案', '款式档案')
@@ -847,7 +862,7 @@ function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel
     priceRangeLabel: project.priceRangeLabel,
     priceRange: project.priceRangeLabel,
     projectAlbumUrls: project.projectAlbumUrls,
-    activeListingCount,
+    activeListingCount: activeListingCount || Number(nodeRelationMeta.activeListingCount || 0),
     listingScopeRule: '单实例 = 单渠道 + 单店铺 + 单 Listing；同一项目可多渠道并行，同一渠道可多店铺并行。',
     targetChannelCode: currentChannelName || defaultChannelName,
     targetStoreId: currentStoreName,
@@ -1011,8 +1026,8 @@ function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel
   return (
     payload[fieldKey] ??
     detailSnapshot[fieldKey] ??
-    projectValues[fieldKey] ??
     nodeRelationMeta[fieldKey] ??
+    projectValues[fieldKey] ??
     (fieldKey === 'currentStatus' ? node.displayStatus : undefined) ??
     (fieldKey === 'latestResultText' ? node.node.latestResultText : undefined) ??
     (fieldKey === 'pendingActionText' ? node.node.pendingActionText : undefined)
@@ -2827,20 +2842,7 @@ function renderKeyOutputCards(node: ProjectNodeViewModel, project: PcsProjectRec
 
 function renderProjectInitSnapshot(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
   const groups = listProjectWorkItemFieldGroups('PROJECT_INIT')
-  return `
-    <section class="space-y-4">
-      <article class="rounded-lg border bg-white p-4">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 class="text-base font-semibold text-slate-900">立项信息快照</h3>
-            <p class="mt-1 text-sm text-slate-500">完整回显商品项目创建时填写的正式立项字段。</p>
-          </div>
-          <div class="text-xs text-slate-400">创建时间：${escapeHtml(formatDateTime(project.createdAt))}</div>
-        </div>
-      </article>
-      ${groups.map((group) => renderFieldGroupValues(group, project, node)).join('')}
-    </section>
-  `
+  return `<div class="space-y-4">${groups.map((group) => renderFieldGroupValues(group, project, node, groups.length > 1)).join('')}</div>`
 }
 
 function renderLatestRecordSummary(node: ProjectNodeViewModel): string {
@@ -2888,7 +2890,6 @@ function renderRecordListSection(node: ProjectNodeViewModel, projectId: string):
     <article class="rounded-lg border p-4">
       <div class="mb-4 flex items-center justify-between gap-3">
         <h3 class="text-sm font-medium text-slate-900">多次执行记录</h3>
-        <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/projects/${escapeHtml(projectId)}/work-items/${escapeHtml(node.node.projectNodeId)}?tab=records">查看全部</button>
       </div>
       <div class="overflow-hidden rounded-lg border">
         <table class="min-w-full text-sm">
@@ -2919,6 +2920,48 @@ function renderRecordListSection(node: ProjectNodeViewModel, projectId: string):
       </div>
     </article>
   `
+}
+
+function isProjectNodeKeyInfoOnly(node: ProjectNodeViewModel): boolean {
+  return PROJECT_NODE_FIELD_MODULE_EXCEPTIONS.has(node.node.workItemTypeCode)
+}
+
+function canEditProjectNodeFields(node: ProjectNodeViewModel): boolean {
+  return node.displayStatus !== '未解锁' && node.node.currentStatus !== '已取消' && node.node.currentStatus !== '已完成'
+}
+
+function renderReadonlyFieldSection(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
+  const groups = listProjectWorkItemFieldGroups(node.node.workItemTypeCode as PcsProjectWorkItemCode)
+  if (groups.length === 0) {
+    return `
+      <article class="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4">
+        <p class="text-sm font-medium text-slate-700">暂无正式字段</p>
+      </article>
+    `
+  }
+
+  return `<div class="space-y-4">${groups.map((group) => renderFieldGroupValues(group, project, node, groups.length > 1)).join('')}</div>`
+}
+
+function renderProjectNodeInlineContent(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
+  if (node.node.workItemTypeCode === 'PROJECT_INIT') {
+    return renderProjectInitSnapshot(project, node)
+  }
+
+  if (isProjectNodeKeyInfoOnly(node)) {
+    return `
+      ${renderNodeMetricCards(node)}
+      ${renderKeyOutputCards(node, project)}
+      ${renderLatestRecordSummary(node)}
+      ${renderRecordListSection(node, project.projectId)}
+    `
+  }
+
+  if (canUseInlineRecords(node.node.workItemTypeCode) && canEditProjectNodeFields(node)) {
+    return renderFormalFieldEntrySection(project, node)
+  }
+
+  return renderReadonlyFieldSection(project, node)
 }
 
 function renderProjectLogs(logs: ProjectLogItem[]): string {
@@ -3068,7 +3111,6 @@ function renderProjectDetailPage(projectId: string): string {
                       </div>
                     </div>
                     <div class="flex flex-wrap gap-2">
-                      <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/projects/${escapeHtml(viewModel.project.projectId)}/work-items/${escapeHtml(selectedNode.node.projectNodeId)}">查看全部</button>
                       ${renderTestingCreateAction(viewModel.project, selectedNode)}
                       ${
                         canOpenDecisionAction(selectedNode)
@@ -3084,14 +3126,7 @@ function renderProjectDetailPage(projectId: string): string {
                   </div>
                 </section>
                 ${locked ? `<section class="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">当前节点尚未解锁，请先完成前序工作项后再继续处理。</section>` : ''}
-                ${renderNodeMetricCards(selectedNode)}
-                ${renderKeyOutputCards(selectedNode, viewModel.project)}
-                ${
-                  selectedNode.node.workItemTypeCode === 'PROJECT_INIT'
-                    ? renderProjectInitSnapshot(viewModel.project, selectedNode)
-                    : `${renderFormalFieldEntrySection(viewModel.project, selectedNode)}${renderLatestRecordSummary(selectedNode)}`
-                }
-                ${renderRecordListSection(selectedNode, viewModel.project.projectId)}
+                ${renderProjectNodeInlineContent(viewModel.project, selectedNode)}
               `
               : ''
           }
@@ -3112,26 +3147,24 @@ function renderFieldGroupValues(
   group: PcsProjectNodeFieldGroupDefinition,
   project: PcsProjectRecord,
   node: ProjectNodeViewModel,
+  showHeader = true,
 ): string {
   return `
-    <article class="rounded-lg border bg-white p-4">
-      <div class="mb-4">
-        <h3 class="text-base font-semibold text-slate-900">${escapeHtml(group.groupTitle)}</h3>
-        <p class="mt-1 text-xs text-slate-500">${escapeHtml(group.groupDescription)}</p>
-      </div>
-      <div class="grid gap-4 md:grid-cols-2">
+    <section class="space-y-3">
+      ${showHeader ? `<h3 class="text-sm font-semibold text-slate-900">${escapeHtml(group.groupTitle)}</h3>` : ''}
+      <div class="grid gap-3 md:grid-cols-2">
         ${group.fields
           .map((field) => {
             return `
-              <div class="space-y-1 rounded-lg bg-slate-50 p-3">
+              <div class="rounded-md border border-slate-200 bg-white px-3 py-3">
                 <p class="text-xs text-slate-500">${escapeHtml(field.label)}</p>
-                <div class="text-sm leading-6 text-slate-700">${renderReadonlyValue(getNodeFieldValue(project, node, field.fieldKey))}</div>
+                <div class="mt-2 text-sm leading-6 text-slate-700">${renderReadonlyValue(getNodeFieldValue(project, node, field.fieldKey))}</div>
               </div>
             `
           })
           .join('')}
       </div>
-    </article>
+    </section>
   `
 }
 
@@ -3143,7 +3176,8 @@ function renderEditableFieldGroups(
 ): string {
   const groups = listProjectWorkItemFieldGroups(node.node.workItemTypeCode as PcsProjectWorkItemCode)
   const editableKeys = getInlineEditableFieldKeys(node.node.workItemTypeCode)
-  const disabled = node.displayStatus === '未解锁' || node.node.currentStatus === '已取消'
+  const disabled = !canEditProjectNodeFields(node)
+  const showHeader = groups.length > 1
 
   return groups
     .map((group) => {
@@ -3155,7 +3189,7 @@ function renderEditableFieldGroups(
             : formatDraftFieldValue(field.type, getNodeFieldValue(project, node, field.fieldKey))
 
           return `
-            <div class="space-y-1 rounded-lg border border-slate-200 bg-slate-50/80 p-3">
+            <div class="space-y-1 rounded-md border border-slate-200 bg-white p-3">
               <div class="flex items-center gap-2">
                 <p class="text-xs font-medium text-slate-600">${escapeHtml(field.label)}</p>
                 ${field.required ? '<span class="rounded bg-rose-50 px-1.5 py-0.5 text-[11px] text-rose-600">必填</span>' : ''}
@@ -3166,22 +3200,18 @@ function renderEditableFieldGroups(
                   ? renderFormalFieldControl(field, value, disabled)
                   : `<div class="min-h-10 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm leading-6 text-slate-700">${renderReadonlyValue(getNodeFieldValue(project, node, field.fieldKey))}</div>`
               }
-              <p class="text-[11px] leading-5 text-slate-400">${escapeHtml(`来源：${field.sourceKind} / ${field.sourceRef}`)}</p>
             </div>
           `
         })
         .join('')
 
       return `
-        <article class="rounded-lg border bg-white p-4">
-          <div class="mb-4">
-            <h3 class="text-base font-semibold text-slate-900">${escapeHtml(group.groupTitle)}</h3>
-            <p class="mt-1 text-xs text-slate-500">${escapeHtml(group.groupDescription)}</p>
-          </div>
-          <div class="grid gap-4 ${compact ? 'md:grid-cols-1' : 'md:grid-cols-2'}">
+        <section class="space-y-3">
+          ${showHeader ? `<h3 class="text-sm font-semibold text-slate-900">${escapeHtml(group.groupTitle)}</h3>` : ''}
+          <div class="grid gap-3 ${compact ? 'md:grid-cols-1' : 'md:grid-cols-2'}">
             ${items}
           </div>
-        </article>
+        </section>
       `
     })
     .join('')
@@ -3225,12 +3255,8 @@ function renderFormalFieldEntrySection(project: PcsProjectRecord, node: ProjectN
   const recordMode = node.contract.runtimeType === 'execute' && node.definition?.workItemNature === '执行类' && node.node.multiInstanceFlag
 
   return `
-    <section class="space-y-4 rounded-lg border border-blue-200 bg-blue-50/40 p-4">
-      <div class="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h3 class="text-base font-semibold text-slate-900">正式字段录入</h3>
-          <p class="mt-1 text-sm text-slate-500">按工作项正式字段补录当前节点内容，保存后会同步回写项目节点状态。</p>
-        </div>
+    <section class="space-y-4">
+      <div class="flex flex-wrap justify-end gap-3">
         <label class="space-y-1">
           <span class="text-xs text-slate-500">业务日期</span>
           <input type="date" class="h-10 w-[180px] rounded-md border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" value="${escapeHtml(draft.businessDate)}" data-pcs-project-field="record-business-date" />
@@ -3241,7 +3267,7 @@ function renderFormalFieldEntrySection(project: PcsProjectRecord, node: ProjectN
         node.displayStatus === '未解锁' || node.node.currentStatus === '已取消'
           ? ''
           : `
-            <div class="flex flex-wrap justify-end gap-2 border-t border-blue-100 pt-4">
+            <div class="flex flex-wrap justify-end gap-2 border-t border-slate-200 pt-4">
               <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-project-action="save-formal-fields">${recordMode ? '新增正式记录' : '保存正式字段'}</button>
               <button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-project-action="save-formal-fields-and-complete">保存并流转节点</button>
             </div>

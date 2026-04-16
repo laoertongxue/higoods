@@ -366,7 +366,7 @@ function projectButton(projectId: string, projectCode: string, projectName: stri
 }
 
 function projectNodeButton(projectId: string, projectNodeId: string, label: string): string {
-  return `<button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/projects/${escapeHtml(projectId)}/work-items/${escapeHtml(projectNodeId)}">${escapeHtml(label)}</button>`
+  return `<button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/projects/${escapeHtml(projectId)}">${escapeHtml(label)}</button>`
 }
 
 function styleArchiveLinkByProject(projectId: string): string {

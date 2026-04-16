@@ -485,7 +485,7 @@ function renderDetailDrawer(): string {
           <p class="text-sm font-medium text-slate-900">业务关联</p>
           <div class="mt-3 space-y-2 text-sm">
             <p><span class="text-slate-500">项目：</span>${caseItem.projectId ? `<button type="button" class="text-blue-700 hover:underline" data-nav="/pcs/projects/${escapeHtml(caseItem.projectId)}">${escapeHtml(caseItem.projectCode || caseItem.projectName)}</button>` : '未绑定'}</p>
-            <p><span class="text-slate-500">工作项：</span>${caseItem.projectId && caseItem.projectNodeId ? `<button type="button" class="text-blue-700 hover:underline" data-nav="/pcs/projects/${escapeHtml(caseItem.projectId)}/work-items/${escapeHtml(caseItem.projectNodeId)}">${escapeHtml(caseItem.workItemName || '-')}</button>` : escapeHtml(caseItem.workItemName || '-')}</p>
+            <p><span class="text-slate-500">工作项：</span>${caseItem.projectId ? `<button type="button" class="text-blue-700 hover:underline" data-nav="/pcs/projects/${escapeHtml(caseItem.projectId)}">${escapeHtml(caseItem.workItemName || '-')}</button>` : escapeHtml(caseItem.workItemName || '-')}</p>
             <p><span class="text-slate-500">发起人：</span>${escapeHtml(caseItem.requesterName)} / ${escapeHtml(caseItem.requesterRole)}</p>
           </div>
         </div>

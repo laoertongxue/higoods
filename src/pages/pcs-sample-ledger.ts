@@ -117,7 +117,7 @@ function getInventoryBadge(status: SampleInventoryStatus): string {
 
 function getSourceRoute(event: SampleLedgerEventRecord): string | null {
   if (event.projectId && event.projectNodeId) {
-    return `/pcs/projects/${event.projectId}/work-items/${event.projectNodeId}`
+    return `/pcs/projects/${event.projectId}`
   }
   switch (event.sourceDocType) {
     case '样衣使用申请':
@@ -136,7 +136,7 @@ function getSourceRoute(event: SampleLedgerEventRecord): string | null {
 
 function getWorkItemRoute(event: SampleLedgerEventRecord): string | null {
   if (event.projectId && event.projectNodeId) {
-    return `/pcs/projects/${event.projectId}/work-items/${event.projectNodeId}`
+    return `/pcs/projects/${event.projectId}`
   }
   return null
 }

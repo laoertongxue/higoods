@@ -300,7 +300,7 @@ function buildInlineRecordInstance(record: PcsProjectInlineNodeRecord): PcsProje
     businessDate: record.businessDate,
     updatedAt: record.updatedAt,
     summaryText: buildSummaryFromFields(fields, record.sourceDocCode || record.sourceModule || '项目内正式记录'),
-    targetRoute: `/pcs/projects/${encodeURIComponent(record.projectId)}/work-items/${encodeURIComponent(record.projectNodeId)}?tab=records`,
+    targetRoute: `/pcs/projects/${encodeURIComponent(record.projectId)}`,
     fields,
   }
 }

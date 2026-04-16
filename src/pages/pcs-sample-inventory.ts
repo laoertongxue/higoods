@@ -273,7 +273,7 @@ function buildInventoryViewModels(): InventorySampleViewModel[] {
       transit,
       anomaly,
       relatedWorkItemName: asset.workItemTypeName || null,
-      relatedWorkItemRoute: asset.projectId && asset.projectNodeId ? `/pcs/projects/${asset.projectId}/work-items/${asset.projectNodeId}` : null,
+      relatedWorkItemRoute: asset.projectId ? `/pcs/projects/${asset.projectId}` : null,
       sourceDocCode: asset.sourceDocCode,
       sourceDocRoute,
       updatedAt: asset.updatedAt,

@@ -489,5 +489,5 @@ export function buildSampleUseRequestRoute(requestId: string): string {
 
 export function getProjectWorkItemRoute(projectId: string, projectNodeId: string): string | null {
   if (!projectId || !projectNodeId || !getProjectById(projectId)) return null
-  return `/pcs/projects/${projectId}/work-items/${projectNodeId}`
+  return `/pcs/projects/${projectId}`
 }

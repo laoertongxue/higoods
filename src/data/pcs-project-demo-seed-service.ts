@@ -17,12 +17,21 @@ import type {
 } from './pcs-project-types.ts'
 import { type ProjectTemplate, type TemplateStyleType } from './pcs-templates.ts'
 import type { PcsProjectWorkItemCode } from './pcs-project-domain-contract.ts'
-import { saveProjectInlineNodeFieldEntry } from './pcs-project-inline-node-record-repository.ts'
+import {
+  getLatestProjectInlineNodeRecord,
+  saveProjectInlineNodeFieldEntry,
+} from './pcs-project-inline-node-record-repository.ts'
 import type { PcsProjectInlineNodeRecordWorkItemTypeCode } from './pcs-project-inline-node-record-types.ts'
-import { upsertProjectRelation } from './pcs-project-relation-repository.ts'
+import {
+  listProjectRelationsByProjectNode,
+  upsertProjectRelation,
+} from './pcs-project-relation-repository.ts'
 import type { ProjectRelationRecord } from './pcs-project-relation-types.ts'
 import { getProjectTestingSummaryAggregate } from './pcs-channel-product-project-repository.ts'
-import { syncProjectNodeInstanceRuntime } from './pcs-project-node-instance-registry.ts'
+import {
+  syncProjectNodeInstanceRuntime,
+  syncProjectNodeInstancesByProject,
+} from './pcs-project-node-instance-registry.ts'
 import {
   approveProjectInitAndSync,
   isClosedProjectNodeStatus,
@@ -39,6 +48,184 @@ import {
 const DEMO_OPERATOR = '系统演示'
 
 let projectDemoSeedReady = false
+
+const COVERAGE_PROJECTS_PER_NODE = 3
+const INLINE_NODE_WORK_ITEM_CODE_SET = new Set<PcsProjectInlineNodeRecordWorkItemTypeCode>([
+  'SAMPLE_ACQUIRE',
+  'SAMPLE_INBOUND_CHECK',
+  'FEASIBILITY_REVIEW',
+  'SAMPLE_SHOOT_FIT',
+  'SAMPLE_CONFIRM',
+  'SAMPLE_COST_REVIEW',
+  'SAMPLE_PRICING',
+  'TEST_DATA_SUMMARY',
+  'TEST_CONCLUSION',
+  'SAMPLE_RETAIN_REVIEW',
+  'SAMPLE_RETURN_HANDLE',
+])
+
+interface CoverageBlueprint {
+  projectLabel: string
+  categoryName: string
+  ownerName: string
+  teamName: string
+  brandName: string
+  styleCodeName: string
+  styleTags: string[]
+  channels: string[]
+  projectSourceType: PcsProjectCreateDraft['projectSourceType']
+}
+
+interface CoverageSeedContext {
+  currentNodeIndex: number
+  styleArchiveIndex: number
+  transferPrepIndex: number
+  revisionTaskIndex: number
+  replicaIndex: number
+}
+
+const COVERAGE_BLUEPRINTS: Record<TemplateStyleType, CoverageBlueprint[]> = {
+  基础款: [
+    {
+      projectLabel: '基础针织T恤',
+      categoryName: '上衣',
+      ownerName: '张丽',
+      teamName: '商品企划组',
+      brandName: 'Chicmore',
+      styleCodeName: '1-Casul Shirt-18-30休闲衬衫',
+      styleTags: ['基础', '休闲'],
+      channels: ['tiktok-shop', 'shopee'],
+      projectSourceType: '企划提案',
+    },
+    {
+      projectLabel: '基础宽松衬衫',
+      categoryName: '上衣',
+      ownerName: '周芳',
+      teamName: '商品企划组',
+      brandName: 'MODISH',
+      styleCodeName: '48-Casul Shirt-30-45宽松衬衫',
+      styleTags: ['基础', '通勤'],
+      channels: ['tiktok-shop', 'wechat-mini-program'],
+      projectSourceType: '渠道反馈',
+    },
+    {
+      projectLabel: '基础休闲连衣裙',
+      categoryName: '连衣裙',
+      ownerName: '李娜',
+      teamName: '商品企划组',
+      brandName: 'PRIMA',
+      styleCodeName: '55-Casual Dress-18-30休闲连衣裙',
+      styleTags: ['基础', '优雅'],
+      channels: ['shopee', 'tiktok-shop'],
+      projectSourceType: '测款沉淀',
+    },
+  ],
+  快时尚款: [
+    {
+      projectLabel: '快反印花上衣',
+      categoryName: '上衣',
+      ownerName: '王明',
+      teamName: '快反开发组',
+      brandName: 'FADFAD',
+      styleCodeName: '5-print top-25-45印花上衣',
+      styleTags: ['印花', '快反'],
+      channels: ['tiktok-shop', 'lazada'],
+      projectSourceType: '渠道反馈',
+    },
+    {
+      projectLabel: '快反度假连衣裙',
+      categoryName: '连衣裙',
+      ownerName: '李娜',
+      teamName: '快反开发组',
+      brandName: 'Asaya',
+      styleCodeName: '22-Casual Dress-30-45休闲连衣裙',
+      styleTags: ['度假', '印花'],
+      channels: ['shopee', 'tiktok-shop'],
+      projectSourceType: '企划提案',
+    },
+    {
+      projectLabel: '快反牛仔半裙',
+      categoryName: '半裙',
+      ownerName: '赵云',
+      teamName: '快反开发组',
+      brandName: 'LUXME',
+      styleCodeName: '45-Skirt-18-30-半裙',
+      styleTags: ['牛仔', '快反'],
+      channels: ['tiktok-shop', 'wechat-mini-program'],
+      projectSourceType: '测款沉淀',
+    },
+  ],
+  改版款: [
+    {
+      projectLabel: '改版穆斯林上衣',
+      categoryName: '上衣',
+      ownerName: '赵云',
+      teamName: '工程打样组',
+      brandName: 'Asaya',
+      styleCodeName: '50-muslim OL shirt-25-45穆斯林通勤上衣',
+      styleTags: ['改版', '穆斯林'],
+      channels: ['shopee', 'tiktok-shop'],
+      projectSourceType: '历史复用',
+    },
+    {
+      projectLabel: '改版通勤连衣裙',
+      categoryName: '连衣裙',
+      ownerName: '周芳',
+      teamName: '工程打样组',
+      brandName: 'PRIMA',
+      styleCodeName: '25- OL dress-30-45通勤连衣裙',
+      styleTags: ['改版', '通勤'],
+      channels: ['wechat-mini-program', 'shopee'],
+      projectSourceType: '历史复用',
+    },
+    {
+      projectLabel: '改版印花套装',
+      categoryName: '套装',
+      ownerName: '张丽',
+      teamName: '工程打样组',
+      brandName: 'Tendblank',
+      styleCodeName: '89-Printed Set-35-55印花套装',
+      styleTags: ['改版', '印花'],
+      channels: ['tiktok-shop', 'shopee'],
+      projectSourceType: '渠道反馈',
+    },
+  ],
+  设计款: [
+    {
+      projectLabel: '设计礼服长裙',
+      categoryName: '连衣裙',
+      ownerName: '李娜',
+      teamName: '设计研发组',
+      brandName: 'Tendblank',
+      styleCodeName: '38-senior dress-高级连衣裙',
+      styleTags: ['设计', '礼服'],
+      channels: ['tiktok-shop', 'wechat-mini-program'],
+      projectSourceType: '外部灵感',
+    },
+    {
+      projectLabel: '设计印花套装',
+      categoryName: '套装',
+      ownerName: '王明',
+      teamName: '设计研发组',
+      brandName: 'Chicmore',
+      styleCodeName: '32- fashion set-30-45时尚套装',
+      styleTags: ['设计', '印花'],
+      channels: ['tiktok-shop', 'lazada'],
+      projectSourceType: '企划提案',
+    },
+    {
+      projectLabel: '设计花型衬衫',
+      categoryName: '上衣',
+      ownerName: '赵云',
+      teamName: '设计研发组',
+      brandName: 'MODISH',
+      styleCodeName: '61-design shirt-25-45设计衬衫',
+      styleTags: ['设计', '花型'],
+      channels: ['shopee', 'wechat-mini-program'],
+      projectSourceType: '外部灵感',
+    },
+  ],
+}
 
 function getProjectTypeLabel(styleType: TemplateStyleType): PcsProjectCreateDraft['projectType'] {
   if (styleType === '快时尚款') return '快反上新'
@@ -484,13 +671,877 @@ function seedInlineRecord(
   syncProjectNodeInstanceRuntime(projectId, node.projectNodeId, DEMO_OPERATOR, `${input.businessDate} 10:00`)
 }
 
-export function ensurePcsProjectDemoDataReady(): void {
-  if (projectDemoSeedReady) return
-  if (listProjects().some((project) => project.projectName.includes('双渠道归档项目'))) {
-    projectDemoSeedReady = true
-    return
+function isInlineNodeWorkItemTypeCode(value: string): value is PcsProjectInlineNodeRecordWorkItemTypeCode {
+  return INLINE_NODE_WORK_ITEM_CODE_SET.has(value as PcsProjectInlineNodeRecordWorkItemTypeCode)
+}
+
+function getOrderedTemplateNodes(template: ProjectTemplate): ProjectTemplate['nodes'] {
+  return template.nodes
+    .filter((node) => node.enabledFlag !== false)
+    .slice()
+    .sort((left, right) => {
+      if (left.phaseCode === right.phaseCode) return left.sequenceNo - right.sequenceNo
+      return left.phaseCode.localeCompare(right.phaseCode)
+    })
+}
+
+function getCoverageBlueprint(styleType: TemplateStyleType, replicaIndex: number): CoverageBlueprint {
+  const blueprints = COVERAGE_BLUEPRINTS[styleType] ?? COVERAGE_BLUEPRINTS.基础款
+  return blueprints[replicaIndex % blueprints.length] ?? blueprints[0]
+}
+
+function buildCoverageProjectName(
+  styleType: TemplateStyleType,
+  workItemTypeName: string,
+  replicaIndex: number,
+): string {
+  const blueprint = getCoverageBlueprint(styleType, replicaIndex)
+  return `${styleType}-${blueprint.projectLabel}-${workItemTypeName}-覆盖${replicaIndex + 1}`
+}
+
+function pad(value: number): string {
+  return String(value).padStart(2, '0')
+}
+
+function getCoverageBusinessDate(nodeIndex: number, replicaIndex: number, offset = 0): string {
+  const day = 2 + ((nodeIndex * 3 + replicaIndex * 5 + offset) % 26)
+  return `2026-04-${pad(day)}`
+}
+
+function getCoverageTimestamp(nodeIndex: number, replicaIndex: number, hour = 10): string {
+  const date = getCoverageBusinessDate(nodeIndex, replicaIndex)
+  return `${date} ${pad(hour + ((nodeIndex + replicaIndex) % 6))}:${pad((replicaIndex * 17) % 60)}`
+}
+
+function buildClickRate(clicks: number, exposure: number): string {
+  if (!exposure) return ''
+  return `${((clicks / exposure) * 100).toFixed(1)}%`
+}
+
+interface DemoStoreMeta {
+  channelCode: string
+  channelName: string
+  storeId: string
+  storeName: string
+  currency: string
+}
+
+interface CoverageObjectRefs {
+  skuId: string
+  skuCode: string
+  skuName: string
+  channelProductId: string
+  channelProductCode: string
+  upstreamChannelProductCode: string
+  styleId: string
+  styleCode: string
+  styleName: string
+  techPackVersionId: string
+  techPackVersionCode: string
+  techPackVersionLabel: string
+  archiveId: string
+  archiveNo: string
+  revisionTaskId: string
+  revisionTaskCode: string
+  plateTaskId: string
+  plateTaskCode: string
+  artworkTaskId: string
+  artworkTaskCode: string
+  firstSampleTaskId: string
+  firstSampleTaskCode: string
+  preProductionTaskId: string
+  preProductionTaskCode: string
+  liveSessionId: string
+  liveSessionCode: string
+  liveLineId: string
+  liveLineCode: string
+  videoRecordId: string
+  videoRecordCode: string
+  sampleAssetId: string
+}
+
+function getDemoStoreMeta(project: PcsProjectRecord, replicaIndex: number): DemoStoreMeta {
+  const channelCode = project.targetChannelCodes[replicaIndex % Math.max(project.targetChannelCodes.length, 1)] || 'tiktok-shop'
+  const metaMap: Record<string, { channelName: string; stores: string[]; currency: string }> = {
+    'tiktok-shop': {
+      channelName: '抖音商城',
+      stores: ['抖音商城旗舰店', '抖音商城测款店', '抖音商城精选店'],
+      currency: 'IDR',
+    },
+    shopee: {
+      channelName: '虾皮',
+      stores: ['Shopee ID Store-A', 'Shopee ID Store-B', 'Shopee ID Store-C'],
+      currency: 'IDR',
+    },
+    'wechat-mini-program': {
+      channelName: '微信小程序',
+      stores: ['微信小程序商城', '微信小程序快反店', '微信小程序品牌店'],
+      currency: 'CNY',
+    },
+    lazada: {
+      channelName: 'Lazada',
+      stores: ['Lazada MY Store-A', 'Lazada MY Store-B', 'Lazada MY Store-C'],
+      currency: 'MYR',
+    },
+  }
+  const meta = metaMap[channelCode] ?? metaMap['tiktok-shop']
+  return {
+    channelCode,
+    channelName: meta.channelName,
+    storeId: `${channelCode}-store-${pad(replicaIndex + 1)}`,
+    storeName: meta.stores[replicaIndex % meta.stores.length] ?? meta.stores[0],
+    currency: meta.currency,
+  }
+}
+
+function getCoverageObjectRefs(project: PcsProjectRecord, context: CoverageSeedContext): CoverageObjectRefs {
+  const codeSeed = project.projectCode.replace(/[^0-9A-Za-z]/g, '')
+  const suffix = codeSeed.slice(-8) || codeSeed || project.projectId.slice(-8)
+  const versionNo = context.currentNodeIndex >= context.transferPrepIndex && context.transferPrepIndex >= 0 ? 2 : 1
+  return {
+    skuId: `${project.projectId}-sku-${context.replicaIndex + 1}`,
+    skuCode: `SKU-${suffix}-${context.replicaIndex + 1}`,
+    skuName: `${project.projectName} ${['主推款', '延展款', '补充款'][context.replicaIndex % 3]}`,
+    channelProductId: `${project.projectId}-channel-product-${context.replicaIndex + 1}`,
+    channelProductCode: `CP-${suffix}-${context.replicaIndex + 1}`,
+    upstreamChannelProductCode: `UP-${suffix}-${context.replicaIndex + 1}`,
+    styleId: `${project.projectId}-style-${context.replicaIndex + 1}`,
+    styleCode: `SPU-${suffix}-${context.replicaIndex + 1}`,
+    styleName: `${project.projectName} 款式档案`,
+    techPackVersionId: `${project.projectId}-tech-pack-v${versionNo}`,
+    techPackVersionCode: `TP-${suffix}-V${versionNo}`,
+    techPackVersionLabel: `V${versionNo}`,
+    archiveId: `${project.projectId}-archive-${context.replicaIndex + 1}`,
+    archiveNo: `ARC-${suffix}-${context.replicaIndex + 1}`,
+    revisionTaskId: `${project.projectId}-revision-${context.replicaIndex + 1}`,
+    revisionTaskCode: `REV-${suffix}-${context.replicaIndex + 1}`,
+    plateTaskId: `${project.projectId}-plate-${context.replicaIndex + 1}`,
+    plateTaskCode: `PLATE-${suffix}-${context.replicaIndex + 1}`,
+    artworkTaskId: `${project.projectId}-artwork-${context.replicaIndex + 1}`,
+    artworkTaskCode: `ART-${suffix}-${context.replicaIndex + 1}`,
+    firstSampleTaskId: `${project.projectId}-first-sample-${context.replicaIndex + 1}`,
+    firstSampleTaskCode: `FS-${suffix}-${context.replicaIndex + 1}`,
+    preProductionTaskId: `${project.projectId}-pre-production-${context.replicaIndex + 1}`,
+    preProductionTaskCode: `PPS-${suffix}-${context.replicaIndex + 1}`,
+    liveSessionId: `${project.projectId}-live-${context.replicaIndex + 1}`,
+    liveSessionCode: `LS-${suffix}-${context.replicaIndex + 1}`,
+    liveLineId: `${project.projectId}-live-line-${context.replicaIndex + 1}`,
+    liveLineCode: `LS-LINE-${suffix}-${context.replicaIndex + 1}`,
+    videoRecordId: `${project.projectId}-video-${context.replicaIndex + 1}`,
+    videoRecordCode: `SV-${suffix}-${context.replicaIndex + 1}`,
+    sampleAssetId: `${project.projectId}-sample-asset-${context.replicaIndex + 1}`,
+  }
+}
+
+function buildLiveMetrics(nodeIndex: number, replicaIndex: number): {
+  exposure: number
+  click: number
+  cart: number
+  order: number
+  gmv: number
+} {
+  const exposure = 18000 + nodeIndex * 3200 + replicaIndex * 1800
+  const click = Math.round(exposure * (0.075 + replicaIndex * 0.006))
+  const cart = Math.max(120, Math.round(click * 0.18))
+  const order = Math.max(36, Math.round(cart * 0.32))
+  const gmv = order * (169 + replicaIndex * 20 + nodeIndex * 6)
+  return { exposure, click, cart, order, gmv }
+}
+
+function buildVideoMetrics(nodeIndex: number, replicaIndex: number): {
+  views: number
+  clicks: number
+  likes: number
+  orders: number
+  gmv: number
+} {
+  const views = 22000 + nodeIndex * 3600 + replicaIndex * 2100
+  const clicks = Math.round(views * (0.082 + replicaIndex * 0.005))
+  const likes = Math.max(clicks, Math.round(views * (0.09 + replicaIndex * 0.01)))
+  const orders = Math.max(28, Math.round(clicks * 0.024))
+  const gmv = orders * (159 + replicaIndex * 18 + nodeIndex * 5)
+  return { views, clicks, likes, orders, gmv }
+}
+
+function updateNodeRuntimeMeta(
+  projectId: string,
+  nodeId: string,
+  patch: {
+    currentStatus: PcsProjectNodeRecord['currentStatus']
+    updatedAt: string
+    latestResultType: string
+    latestResultText: string
+    pendingActionType: string
+    pendingActionText: string
+    lastEventType: string
+    lastEventTime: string
+  },
+): void {
+  updateProjectNodeRecord(
+    projectId,
+    nodeId,
+    {
+      currentStatus: patch.currentStatus,
+      updatedAt: patch.updatedAt,
+      latestResultType: patch.latestResultType,
+      latestResultText: patch.latestResultText,
+      pendingActionType: patch.pendingActionType,
+      pendingActionText: patch.pendingActionText,
+      currentIssueType: '',
+      currentIssueText: '',
+      lastEventType: patch.lastEventType,
+      lastEventTime: patch.lastEventTime,
+    },
+    DEMO_OPERATOR,
+  )
+}
+
+function ensureFormalNodeRelation(
+  project: PcsProjectRecord,
+  node: PcsProjectNodeRecord,
+  nodeIndex: number,
+  context: CoverageSeedContext,
+): void {
+  const refs = getCoverageObjectRefs(project, context)
+  const storeMeta = getDemoStoreMeta(project, context.replicaIndex)
+  const businessDate = getCoverageTimestamp(nodeIndex, context.replicaIndex, 10 + (nodeIndex % 4))
+  const revisionPath = context.revisionTaskIndex >= 0 && context.currentNodeIndex >= context.revisionTaskIndex
+  const styleReady = context.styleArchiveIndex >= 0 && context.currentNodeIndex >= context.styleArchiveIndex
+  const archiveReady = context.transferPrepIndex >= 0 && context.currentNodeIndex >= context.transferPrepIndex
+  const techPackStatus = archiveReady ? '已发布' : styleReady ? '待完善' : '草稿'
+  const channelProductStatus = revisionPath ? '已作废' : styleReady ? '已生效' : '已上架待测款'
+  const upstreamSyncStatus = revisionPath ? '无需更新' : archiveReady ? '已更新' : styleReady ? '待更新' : '无需更新'
+  const latestStatus = nodeIndex < context.currentNodeIndex ? '已完成' : '进行中'
+
+  switch (node.workItemTypeCode) {
+    case 'CHANNEL_PRODUCT_LISTING': {
+      upsertDemoRelation({
+        project,
+        workItemTypeCode: 'CHANNEL_PRODUCT_LISTING',
+        sourceModule: '渠道店铺商品',
+        sourceObjectType: '渠道店铺商品',
+        sourceObjectId: refs.channelProductId,
+        sourceObjectCode: refs.channelProductCode,
+        sourceTitle: `${project.projectName} ${storeMeta.channelName}${storeMeta.storeName}渠道店铺商品`,
+        sourceStatus: channelProductStatus,
+        businessDate,
+        noteMeta: {
+          targetChannelCodes: project.targetChannelCodes,
+          activeListingCount: 1,
+          listingScopeRule: '单实例 = 单 SKU + 单渠道 + 单店铺 + 单 Listing',
+          skuId: refs.skuId,
+          skuCode: refs.skuCode,
+          skuName: refs.skuName,
+          channelCode: storeMeta.channelCode,
+          channelName: storeMeta.channelName,
+          storeId: storeMeta.storeId,
+          storeName: storeMeta.storeName,
+          targetChannelCode: storeMeta.channelName,
+          targetStoreId: storeMeta.storeName,
+          listingTitle: `${project.projectName} ${['主推款', '引流款', '补充款'][context.replicaIndex % 3]}`,
+          listingPrice: 169 + nodeIndex * 10 + context.replicaIndex * 18,
+          currency: storeMeta.currency,
+          channelProductId: refs.channelProductId,
+          channelProductCode: refs.channelProductCode,
+          upstreamChannelProductCode: refs.upstreamChannelProductCode,
+          channelProductStatus,
+          upstreamSyncStatus,
+          linkedStyleId: styleReady ? refs.styleId : '',
+          linkedStyleCode: styleReady ? refs.styleCode : '',
+          invalidatedReason: revisionPath ? '测款结论为调整，当前渠道店铺商品已作废。' : '',
+        },
+      })
+      return
+    }
+    case 'VIDEO_TEST': {
+      const metrics = buildVideoMetrics(nodeIndex, context.replicaIndex)
+      upsertDemoRelation({
+        project,
+        workItemTypeCode: 'VIDEO_TEST',
+        sourceModule: '短视频',
+        sourceObjectType: '短视频记录',
+        sourceObjectId: refs.videoRecordId,
+        sourceObjectCode: refs.videoRecordCode,
+        sourceTitle: `${project.projectName} 短视频测款`,
+        sourceStatus: latestStatus,
+        businessDate,
+        relationRole: '执行记录',
+        noteMeta: {
+          projectRef: project.projectCode,
+          title: `${project.projectName} 短视频测款`,
+          platform: storeMeta.channelName,
+          account: storeMeta.storeName,
+          creator: project.ownerName,
+          publishedAt: businessDate,
+          videoUrl: `https://example.com/video/${encodeURIComponent(refs.videoRecordCode)}`,
+          views: metrics.views,
+          clicks: metrics.clicks,
+          clickRate: buildClickRate(metrics.clicks, metrics.views),
+          likes: metrics.likes,
+          orders: metrics.orders,
+          gmv: metrics.gmv,
+          note: '短视频测款数据已完成录入，可直接参与项目汇总。',
+          channelName: storeMeta.channelName,
+          channelCode: storeMeta.channelCode,
+          storeId: storeMeta.storeId,
+          storeName: storeMeta.storeName,
+          currency: storeMeta.currency,
+          channelProductId: refs.channelProductId,
+          channelProductCode: refs.channelProductCode,
+          upstreamChannelProductCode: refs.upstreamChannelProductCode,
+          exposureQty: metrics.views,
+          clickQty: metrics.clicks,
+          orderQty: metrics.orders,
+          gmvAmount: metrics.gmv,
+          videoRecordId: refs.videoRecordId,
+          videoRecordCode: refs.videoRecordCode,
+        },
+      })
+      return
+    }
+    case 'LIVE_TEST': {
+      const metrics = buildLiveMetrics(nodeIndex, context.replicaIndex)
+      upsertDemoRelation({
+        project,
+        workItemTypeCode: 'LIVE_TEST',
+        sourceModule: '直播',
+        sourceObjectType: '直播商品明细',
+        sourceObjectId: refs.liveSessionId,
+        sourceObjectCode: refs.liveSessionCode,
+        sourceLineId: refs.liveLineId,
+        sourceLineCode: refs.liveLineCode,
+        sourceTitle: `${project.projectName} 直播测款`,
+        sourceStatus: latestStatus,
+        businessDate,
+        relationRole: '执行记录',
+        noteMeta: {
+          projectRef: project.projectCode,
+          title: `${project.projectName} 直播测款`,
+          liveAccount: storeMeta.storeName,
+          anchor: project.ownerName,
+          startAt: businessDate,
+          endAt: businessDate.replace(/(\d{2}):(\d{2})$/, '23:$2'),
+          exposure: metrics.exposure,
+          click: metrics.click,
+          clickRate: buildClickRate(metrics.click, metrics.exposure),
+          cart: metrics.cart,
+          order: metrics.order,
+          gmv: metrics.gmv,
+          note: '直播测款数据已完成录入，可直接参与项目汇总。',
+          channelName: storeMeta.channelName,
+          channelCode: storeMeta.channelCode,
+          storeId: storeMeta.storeId,
+          storeName: storeMeta.storeName,
+          currency: storeMeta.currency,
+          channelProductId: refs.channelProductId,
+          channelProductCode: refs.channelProductCode,
+          upstreamChannelProductCode: refs.upstreamChannelProductCode,
+          exposureQty: metrics.exposure,
+          clickQty: metrics.click,
+          orderQty: metrics.order,
+          gmvAmount: metrics.gmv,
+          liveSessionId: refs.liveSessionId,
+          liveSessionCode: refs.liveSessionCode,
+          liveLineId: refs.liveLineId,
+          liveLineCode: refs.liveLineCode,
+        },
+      })
+      return
+    }
+    case 'STYLE_ARCHIVE_CREATE': {
+      upsertDemoRelation({
+        project,
+        workItemTypeCode: 'STYLE_ARCHIVE_CREATE',
+        sourceModule: '款式档案',
+        sourceObjectType: '款式档案',
+        sourceObjectId: refs.styleId,
+        sourceObjectCode: refs.styleCode,
+        sourceTitle: refs.styleName,
+        sourceStatus: styleReady ? '技术包待完善' : '建档中',
+        businessDate,
+        noteMeta: {
+          styleId: refs.styleId,
+          styleCode: refs.styleCode,
+          styleName: refs.styleName,
+          archiveStatus: styleReady ? '技术包待完善' : '建档中',
+          linkedChannelProductCode: refs.channelProductCode,
+          upstreamChannelProductCode: refs.upstreamChannelProductCode,
+        },
+      })
+      return
+    }
+    case 'PROJECT_TRANSFER_PREP': {
+      upsertDemoRelation({
+        project,
+        workItemTypeCode: 'PROJECT_TRANSFER_PREP',
+        sourceModule: '项目资料归档',
+        sourceObjectType: '项目资料归档',
+        sourceObjectId: refs.archiveId,
+        sourceObjectCode: refs.archiveNo,
+        sourceTitle: `${project.projectName} 项目资料归档`,
+        sourceStatus: archiveReady ? '已归档' : '归档准备中',
+        businessDate,
+        noteMeta: {
+          linkedStyleId: refs.styleId,
+          linkedStyleCode: refs.styleCode,
+          linkedStyleName: refs.styleName,
+          linkedTechPackVersionCode: refs.techPackVersionCode,
+          linkedTechPackVersionLabel: refs.techPackVersionLabel,
+          linkedTechPackVersionStatus: techPackStatus,
+          linkedTechPackVersionSourceTask: revisionPath ? refs.revisionTaskCode : refs.plateTaskCode,
+          linkedTechPackVersionTaskChain: revisionPath
+            ? `改版任务：${refs.revisionTaskCode}\n制版任务：${refs.plateTaskCode}\n花型任务：${refs.artworkTaskCode}`
+            : `制版任务：${refs.plateTaskCode}\n花型任务：${refs.artworkTaskCode}\n首版样衣：${refs.firstSampleTaskCode}`,
+          linkedTechPackVersionDiffSummary: archiveReady
+            ? '当前版本已补齐关键工艺、尺寸说明和花型版本差异。'
+            : '当前版本仍在补齐工艺与归档差异项。',
+          projectArchiveNo: refs.archiveNo,
+          projectArchiveStatus: archiveReady ? '已归档' : '归档准备中',
+          projectArchiveDocumentCount: 6 + context.replicaIndex,
+          projectArchiveFileCount: 12 + context.replicaIndex * 2,
+          projectArchiveMissingItemCount: archiveReady ? 0 : 2,
+          projectArchiveCompletedFlag: archiveReady ? '是' : '否',
+          projectArchiveFinalizedAt: archiveReady ? businessDate : '',
+        },
+      })
+      return
+    }
+    case 'REVISION_TASK': {
+      upsertDemoRelation({
+        project,
+        workItemTypeCode: 'REVISION_TASK',
+        sourceModule: '改版任务',
+        sourceObjectType: '改版任务',
+        sourceObjectId: refs.revisionTaskId,
+        sourceObjectCode: refs.revisionTaskCode,
+        sourceTitle: `${project.projectName} 改版任务`,
+        sourceStatus: latestStatus,
+        businessDate,
+        noteMeta: {
+          revisionTaskId: refs.revisionTaskId,
+          revisionTaskCode: refs.revisionTaskCode,
+          revisionScopeNames: ['版型调整', '工艺优化'],
+          revisionVersion: 'R1',
+          priorityLevel: project.priorityLevel,
+          ownerName: project.ownerName,
+          dueAt: businessDate.replace(/(\d{2}):(\d{2})$/, '18:$2'),
+          note: '根据测款结论发起改版任务，等待完成后重新评估。',
+          sourceType: '测款结论驱动',
+          upstreamModule: '商品项目',
+          upstreamObjectType: '商品项目',
+          upstreamObjectId: project.projectId,
+          upstreamObjectCode: project.projectCode,
+          taskStatus: latestStatus,
+          linkedTechPackVersionId: refs.techPackVersionId,
+          linkedTechPackVersionCode: refs.techPackVersionCode,
+          linkedTechPackVersionLabel: refs.techPackVersionLabel,
+          linkedTechPackVersionStatus: techPackStatus,
+          acceptedAt: businessDate,
+          confirmedAt: nodeIndex < context.currentNodeIndex ? businessDate : '',
+        },
+      })
+      return
+    }
+    case 'PATTERN_TASK': {
+      upsertDemoRelation({
+        project,
+        workItemTypeCode: 'PATTERN_TASK',
+        sourceModule: '制版任务',
+        sourceObjectType: '制版任务',
+        sourceObjectId: refs.plateTaskId,
+        sourceObjectCode: refs.plateTaskCode,
+        sourceTitle: `${project.projectName} 制版任务`,
+        sourceStatus: latestStatus,
+        businessDate,
+        noteMeta: {
+          patternBrief: '完成结构纸样、关键尺寸和版型风险点说明。',
+          productStyleCode: refs.styleCode,
+          sizeRange: 'S-3XL',
+          patternVersion: 'P1',
+          sourceType: '开发推进',
+          upstreamModule: '款式档案',
+          upstreamObjectType: '款式档案',
+          upstreamObjectId: refs.styleId,
+          upstreamObjectCode: refs.styleCode,
+          linkedTechPackVersionId: refs.techPackVersionId,
+          linkedTechPackVersionCode: refs.techPackVersionCode,
+          linkedTechPackVersionLabel: refs.techPackVersionLabel,
+          linkedTechPackVersionStatus: techPackStatus,
+          taskStatus: latestStatus,
+          acceptedAt: businessDate,
+          confirmedAt: nodeIndex < context.currentNodeIndex ? businessDate : '',
+        },
+      })
+      return
+    }
+    case 'PATTERN_ARTWORK_TASK': {
+      upsertDemoRelation({
+        project,
+        workItemTypeCode: 'PATTERN_ARTWORK_TASK',
+        sourceModule: '花型任务',
+        sourceObjectType: '花型任务',
+        sourceObjectId: refs.artworkTaskId,
+        sourceObjectCode: refs.artworkTaskCode,
+        sourceTitle: `${project.projectName} 花型任务`,
+        sourceStatus: latestStatus,
+        businessDate,
+        noteMeta: {
+          artworkType: '印花',
+          patternMode: '定位花',
+          artworkName: `${project.projectName} 主花型`,
+          artworkVersion: 'A1',
+          sourceType: '开发推进',
+          upstreamModule: '款式档案',
+          upstreamObjectType: '款式档案',
+          upstreamObjectId: refs.styleId,
+          upstreamObjectCode: refs.styleCode,
+          linkedTechPackVersionId: refs.techPackVersionId,
+          linkedTechPackVersionCode: refs.techPackVersionCode,
+          linkedTechPackVersionLabel: refs.techPackVersionLabel,
+          linkedTechPackVersionStatus: techPackStatus,
+          taskStatus: latestStatus,
+          acceptedAt: businessDate,
+          confirmedAt: nodeIndex < context.currentNodeIndex ? businessDate : '',
+        },
+      })
+      return
+    }
+    case 'FIRST_SAMPLE': {
+      upsertDemoRelation({
+        project,
+        workItemTypeCode: 'FIRST_SAMPLE',
+        sourceModule: '首版样衣打样',
+        sourceObjectType: '首版样衣打样任务',
+        sourceObjectId: refs.firstSampleTaskId,
+        sourceObjectCode: refs.firstSampleTaskCode,
+        sourceTitle: `${project.projectName} 首版样衣打样`,
+        sourceStatus: latestStatus,
+        businessDate,
+        noteMeta: {
+          factoryId: 'FAC-GZ-001',
+          factoryName: '广州样衣一厂',
+          targetSite: '广州',
+          expectedArrival: getCoverageBusinessDate(nodeIndex, context.replicaIndex, 2),
+          trackingNo: `${refs.firstSampleTaskCode}-SF`,
+          sampleCode: `${project.projectCode}-SAMPLE-01`,
+          sourceType: '任务打样',
+          upstreamModule: '制版任务',
+          upstreamObjectType: '制版任务',
+          upstreamObjectId: refs.plateTaskId,
+          upstreamObjectCode: refs.plateTaskCode,
+          taskStatus: latestStatus,
+          acceptedAt: businessDate,
+          confirmedAt: nodeIndex < context.currentNodeIndex ? businessDate : '',
+          sampleAssetId: refs.sampleAssetId,
+        },
+      })
+      return
+    }
+    case 'PRE_PRODUCTION_SAMPLE': {
+      upsertDemoRelation({
+        project,
+        workItemTypeCode: 'PRE_PRODUCTION_SAMPLE',
+        sourceModule: '产前版样衣',
+        sourceObjectType: '产前版样衣任务',
+        sourceObjectId: refs.preProductionTaskId,
+        sourceObjectCode: refs.preProductionTaskCode,
+        sourceTitle: `${project.projectName} 产前版样衣`,
+        sourceStatus: latestStatus,
+        businessDate,
+        noteMeta: {
+          factoryId: 'FAC-SZ-002',
+          factoryName: '深圳产前样二厂',
+          targetSite: '深圳',
+          expectedArrival: getCoverageBusinessDate(nodeIndex, context.replicaIndex, 3),
+          patternVersion: 'P2',
+          artworkVersion: 'A2',
+          trackingNo: `${refs.preProductionTaskCode}-YT`,
+          sampleCode: `${project.projectCode}-PPS-01`,
+          sourceType: '产前确认',
+          upstreamModule: '技术包',
+          upstreamObjectType: '技术包版本',
+          upstreamObjectId: refs.techPackVersionId,
+          upstreamObjectCode: refs.techPackVersionCode,
+          taskStatus: latestStatus,
+          acceptedAt: businessDate,
+          confirmedAt: nodeIndex < context.currentNodeIndex ? businessDate : '',
+          sampleAssetId: refs.sampleAssetId,
+        },
+      })
+      return
+    }
+    default:
+      return
+  }
+}
+
+function hydrateProjectOutputRefs(project: PcsProjectRecord, context: CoverageSeedContext): void {
+  const refs = getCoverageObjectRefs(project, context)
+  const patch: Partial<PcsProjectRecord> = {}
+
+  if (context.styleArchiveIndex >= 0 && context.currentNodeIndex >= context.styleArchiveIndex) {
+    patch.linkedStyleId = refs.styleId
+    patch.linkedStyleCode = refs.styleCode
+    patch.linkedStyleName = refs.styleName
+    patch.linkedStyleGeneratedAt = getCoverageTimestamp(context.styleArchiveIndex, context.replicaIndex, 11)
   }
 
+  if (context.transferPrepIndex >= 0 && context.currentNodeIndex >= context.transferPrepIndex) {
+    patch.linkedTechPackVersionId = refs.techPackVersionId
+    patch.linkedTechPackVersionCode = refs.techPackVersionCode
+    patch.linkedTechPackVersionLabel = refs.techPackVersionLabel
+    patch.linkedTechPackVersionStatus = '已发布'
+    patch.linkedTechPackVersionPublishedAt = getCoverageTimestamp(context.transferPrepIndex, context.replicaIndex, 15)
+    patch.projectArchiveId = refs.archiveId
+    patch.projectArchiveNo = refs.archiveNo
+    patch.projectArchiveStatus = '已归档'
+    patch.projectArchiveDocumentCount = 6 + context.replicaIndex
+    patch.projectArchiveFileCount = 12 + context.replicaIndex * 2
+    patch.projectArchiveMissingItemCount = 0
+    patch.projectArchiveUpdatedAt = getCoverageTimestamp(context.transferPrepIndex, context.replicaIndex, 16)
+    patch.projectArchiveFinalizedAt = getCoverageTimestamp(context.transferPrepIndex, context.replicaIndex, 17)
+  }
+
+  if (Object.keys(patch).length > 0) {
+    updateProjectRecord(project.projectId, patch, DEMO_OPERATOR)
+  }
+}
+
+function resolveProjectCurrentNodeIndex(nodes: PcsProjectNodeRecord[], project: PcsProjectRecord): number {
+  if (nodes.length <= 1) return 0
+  const activeIndex = nodes.findIndex((node) => node.currentStatus === '进行中' || node.currentStatus === '待确认')
+  if (activeIndex > 0) return activeIndex
+  const completedIndexes = nodes
+    .map((node, index) => ({ index, node }))
+    .filter((item) => item.node.currentStatus === '已完成')
+    .map((item) => item.index)
+  const lastCompletedIndex = completedIndexes[completedIndexes.length - 1] ?? 0
+  if (project.projectStatus === '已归档' || project.projectStatus === '已终止') {
+    return Math.max(1, lastCompletedIndex)
+  }
+  return Math.max(1, lastCompletedIndex, 1)
+}
+
+function normalizeProjectNodeChain(
+  project: PcsProjectRecord,
+  nodes: PcsProjectNodeRecord[],
+  currentNodeIndex: number,
+  replicaIndex: number,
+): void {
+  const normalizedCurrentIndex = Math.max(1, Math.min(currentNodeIndex, nodes.length - 1))
+  nodes.forEach((node, index) => {
+    const timestamp = getCoverageTimestamp(index, replicaIndex, 10 + (index % 5))
+
+    if (index === 0) {
+      updateNodeRuntimeMeta(project.projectId, node.projectNodeId, {
+        currentStatus: '已完成',
+        updatedAt: timestamp,
+        latestResultType: '立项完成',
+        latestResultText: '商品项目立项已完成。',
+        pendingActionType: '已完成',
+        pendingActionText: '节点已完成',
+        lastEventType: '立项完成',
+        lastEventTime: timestamp,
+      })
+      return
+    }
+
+    if (project.projectStatus === '已归档') {
+      updateNodeRuntimeMeta(project.projectId, node.projectNodeId, {
+        currentStatus: '已完成',
+        updatedAt: timestamp,
+        latestResultType: '节点完成',
+        latestResultText: `${node.workItemTypeName}已完成。`,
+        pendingActionType: '已完成',
+        pendingActionText: '节点已完成',
+        lastEventType: '节点完成',
+        lastEventTime: timestamp,
+      })
+      return
+    }
+
+    if (project.projectStatus === '已终止') {
+      if (index <= normalizedCurrentIndex) {
+        updateNodeRuntimeMeta(project.projectId, node.projectNodeId, {
+          currentStatus: '已完成',
+          updatedAt: timestamp,
+          latestResultType: '节点完成',
+          latestResultText: `${node.workItemTypeName}已完成。`,
+          pendingActionType: '已完成',
+          pendingActionText: '节点已完成',
+          lastEventType: '节点完成',
+          lastEventTime: timestamp,
+        })
+      } else {
+        updateNodeRuntimeMeta(project.projectId, node.projectNodeId, {
+          currentStatus: '已取消',
+          updatedAt: timestamp,
+          latestResultType: '项目终止',
+          latestResultText: '项目已终止，当前节点不再继续。',
+          pendingActionType: '已取消',
+          pendingActionText: '项目已终止',
+          lastEventType: '项目终止',
+          lastEventTime: timestamp,
+        })
+      }
+      return
+    }
+
+    if (index < normalizedCurrentIndex) {
+      updateNodeRuntimeMeta(project.projectId, node.projectNodeId, {
+        currentStatus: '已完成',
+        updatedAt: timestamp,
+        latestResultType: '节点完成',
+        latestResultText: `${node.workItemTypeName}字段已补齐。`,
+        pendingActionType: '已完成',
+        pendingActionText: '节点已完成',
+        lastEventType: '节点完成',
+        lastEventTime: timestamp,
+      })
+      return
+    }
+
+    if (index === normalizedCurrentIndex) {
+      updateNodeRuntimeMeta(project.projectId, node.projectNodeId, {
+        currentStatus: '进行中',
+        updatedAt: timestamp,
+        latestResultType: '进行中',
+        latestResultText: `当前正在处理${node.workItemTypeName}。`,
+        pendingActionType: '待处理',
+        pendingActionText: `当前请处理：${node.workItemTypeName}`,
+        lastEventType: '进入节点',
+        lastEventTime: timestamp,
+      })
+      return
+    }
+
+    updateNodeRuntimeMeta(project.projectId, node.projectNodeId, {
+      currentStatus: '未开始',
+      updatedAt: timestamp,
+      latestResultType: '',
+      latestResultText: '',
+      pendingActionType: '未开始',
+      pendingActionText: `等待前置节点完成后解锁${node.workItemTypeName}`,
+      lastEventType: '',
+      lastEventTime: '',
+    })
+  })
+}
+
+function ensureProjectNodeDemoPayloads(
+  project: PcsProjectRecord,
+  _template: ProjectTemplate,
+  currentNodeIndex: number,
+  replicaIndex: number,
+): void {
+  const orderedNodes = listProjectNodes(project.projectId)
+  if (orderedNodes.length === 0) return
+
+  const styleArchiveIndex = orderedNodes.findIndex((node) => node.workItemTypeCode === 'STYLE_ARCHIVE_CREATE')
+  const transferPrepIndex = orderedNodes.findIndex((node) => node.workItemTypeCode === 'PROJECT_TRANSFER_PREP')
+  const revisionTaskIndex = orderedNodes.findIndex((node) => node.workItemTypeCode === 'REVISION_TASK')
+  const context: CoverageSeedContext = {
+    currentNodeIndex: Math.max(1, Math.min(currentNodeIndex, orderedNodes.length - 1)),
+    styleArchiveIndex,
+    transferPrepIndex,
+    revisionTaskIndex,
+    replicaIndex,
+  }
+
+  orderedNodes.forEach((node, index) => {
+    if (index === 0 || index > context.currentNodeIndex) return
+
+    const businessDate = getCoverageBusinessDate(index, replicaIndex)
+    if (isInlineNodeWorkItemTypeCode(node.workItemTypeCode)) {
+      seedInlineRecord(project.projectId, node.workItemTypeCode, {
+        businessDate,
+        note: `${node.workItemTypeName}演示数据已补齐。`,
+      })
+      return
+    }
+
+    ensureFormalNodeRelation(project, node, index, context)
+  })
+
+  hydrateProjectOutputRefs(project, context)
+  normalizeProjectNodeChain(project, orderedNodes, context.currentNodeIndex, replicaIndex)
+  syncProjectNodeInstancesByProject(
+    project.projectId,
+    DEMO_OPERATOR,
+    getCoverageTimestamp(context.currentNodeIndex, replicaIndex, 18),
+  )
+  syncProjectLifecycle(project.projectId, DEMO_OPERATOR, getCoverageTimestamp(context.currentNodeIndex, replicaIndex, 19))
+}
+
+function ensureTemplateCoverageProjects(): void {
+  listActiveProjectTemplates().forEach((template) => {
+    const styleType = template.styleType[0] ?? '基础款'
+    const orderedNodes = getOrderedTemplateNodes(template)
+    orderedNodes.forEach((node, nodeIndex) => {
+      if (node.workItemTypeCode === 'PROJECT_INIT') return
+
+      Array.from({ length: COVERAGE_PROJECTS_PER_NODE }).forEach((_, replicaIndex) => {
+        const projectName = buildCoverageProjectName(styleType, node.workItemTypeName, replicaIndex)
+        const existingProject =
+          listProjects().find((project) => project.projectName === projectName && project.templateId === template.id) ?? null
+
+        const blueprint = getCoverageBlueprint(styleType, replicaIndex)
+        const project =
+          existingProject ??
+          createProject(
+            buildDemoDraft({
+              projectName,
+              styleType,
+              projectSourceType: blueprint.projectSourceType,
+              categoryName: blueprint.categoryName,
+              ownerName: blueprint.ownerName,
+              teamName: blueprint.teamName,
+              brandName: blueprint.brandName,
+              styleCodeName: blueprint.styleCodeName,
+              styleTags: blueprint.styleTags,
+              channels: blueprint.channels,
+              remark: `${node.workItemTypeName}覆盖演示数据`,
+            }),
+            DEMO_OPERATOR,
+          ).project
+
+        if (!existingProject) {
+          approveProjectInitAndSync(project.projectId, DEMO_OPERATOR)
+          updateProjectRecord(
+            project.projectId,
+            {
+              createdAt: getCoverageTimestamp(nodeIndex, replicaIndex, 9),
+              updatedAt: getCoverageTimestamp(nodeIndex, replicaIndex, 9),
+            },
+            DEMO_OPERATOR,
+          )
+        }
+
+        ensureProjectNodeDemoPayloads(project, template, nodeIndex, replicaIndex)
+      })
+    })
+  })
+}
+
+function ensureExistingProjectDemoConsistency(): void {
+  const templateMap = new Map(listActiveProjectTemplates().map((template) => [template.id, template]))
+  listProjects().forEach((project, projectIndex) => {
+    const template = templateMap.get(project.templateId)
+    if (!template) return
+    ensureProjectNodeDemoPayloads(
+      project,
+      template,
+      resolveProjectCurrentNodeIndex(listProjectNodes(project.projectId), project),
+      projectIndex % COVERAGE_PROJECTS_PER_NODE,
+    )
+  })
+}
+
+export function ensurePcsProjectDemoDataReady(): void {
+  if (projectDemoSeedReady) return
+  const hasLegacyDemoSeed = listProjects().some((project) => project.projectName.includes('双渠道归档项目'))
+
+  if (!hasLegacyDemoSeed) {
   const pendingProject = createProject(
     buildDemoDraft({
       projectName: '2026夏季宽松基础T恤',
@@ -1147,6 +2198,9 @@ export function ensurePcsProjectDemoDataReady(): void {
     DEMO_OPERATOR,
   )
   syncProjectLifecycle(archivedProject.projectId, DEMO_OPERATOR, '2026-04-06 10:10')
+  }
 
+  ensureTemplateCoverageProjects()
+  ensureExistingProjectDemoConsistency()
   projectDemoSeedReady = true
 }

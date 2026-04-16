@@ -219,7 +219,7 @@ function renderSidebar(): string {
   const summaries = listConfigWorkspaceSummaries()
   return `
     <aside class="w-[238px] shrink-0 border-r border-slate-200 px-4 py-5">
-      <h1 class="text-[18px] font-semibold text-slate-900">配置维度</h1>
+      <h1 class="text-[18px] font-semibold text-slate-900">基础配置</h1>
       <div class="mt-5 space-y-1">
         ${summaries.map((summary) => `
           <button

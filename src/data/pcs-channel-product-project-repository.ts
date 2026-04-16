@@ -1603,15 +1603,37 @@ function buildTestingSummaryFacts(
   videoRelationCodes: string[]
   facts: TestingSummaryFactItem[]
 } {
+  const parseRelationMeta = (note: string | null | undefined): Record<string, unknown> => {
+    if (!note) return {}
+    try {
+      const parsed = JSON.parse(note) as Record<string, unknown>
+      return parsed && typeof parsed === 'object' ? parsed : {}
+    } catch {
+      return {}
+    }
+  }
+  const toMetricNumber = (value: unknown): number => {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : 0
+  }
   const activeChannelProducts = channelProducts.filter((item) => item.projectId === projectId && item.channelProductStatus !== '已作废')
 
   const facts = relations
     .map((relation) => {
+      const meta = parseRelationMeta(relation.note)
       if (relation.sourceObjectType === '直播商品明细') {
         const liveLineId = relation.sourceLineId || ''
         const liveRecord = liveLineId ? getLiveProductLineById(liveLineId) : null
         const liveSession = relation.sourceObjectId ? getLiveSessionRecordById(relation.sourceObjectId) : null
-        const sourceChannel = parseTestingSourceChannelLabel(liveSession?.channelName || '')
+        const sourceChannel = parseTestingSourceChannelLabel(
+          String(
+            liveSession?.channelName ||
+              meta.channelName ||
+              meta.targetChannelCode ||
+              meta.liveAccount ||
+              '',
+          ),
+        )
         const relatedChannelProduct =
           (liveLineId
             ? findProjectChannelProductByLiveLine(projectId, liveLineId) ||
@@ -1622,36 +1644,60 @@ function buildTestingSummaryFacts(
             : null) ||
           activeChannelProducts[0] ||
           null
-        const channelCode = relatedChannelProduct?.channelCode || sourceChannel.channelCode
-        const storeId = relatedChannelProduct?.storeId || ''
-        const channelName = relatedChannelProduct?.channelName || sourceChannel.channelName
+        const channelCode = relatedChannelProduct?.channelCode || sourceChannel.channelCode || String(meta.channelCode || '')
+        const storeId = relatedChannelProduct?.storeId || String(meta.storeId || '')
+        const channelName =
+          relatedChannelProduct?.channelName ||
+          sourceChannel.channelName ||
+          String(meta.channelName || meta.targetChannelCode || '')
         const storeName =
           relatedChannelProduct?.storeName ||
           (storeId ? resolvePcsStoreDisplayName(storeId, channelCode) : '') ||
+          String(meta.storeName || meta.targetStoreId || '') ||
           sourceChannel.storeName ||
           '未识别店铺'
-        const currency = relatedChannelProduct?.currency || resolvePcsStoreCurrency(storeId, channelCode) || '未识别币种'
-        const channelProductCode = relatedChannelProduct?.channelProductCode || '未识别渠道店铺商品'
+        const currency =
+          relatedChannelProduct?.currency ||
+          String(meta.currency || '') ||
+          resolvePcsStoreCurrency(storeId, channelCode) ||
+          '未识别币种'
+        const channelProductCode =
+          relatedChannelProduct?.channelProductCode ||
+          String(meta.channelProductCode || '') ||
+          '未识别渠道店铺商品'
         return {
           relationId: relation.projectRelationId,
           sourceType: '直播' as const,
-          sourceCode: liveRecord?.liveLineCode || relation.sourceLineCode || relation.sourceObjectCode || '',
+          sourceCode:
+            liveRecord?.liveLineCode ||
+            relation.sourceLineCode ||
+            String(meta.liveLineCode || meta.liveSessionCode || '') ||
+            relation.sourceObjectCode ||
+            '',
           channelCode,
           channelName,
           storeId,
           storeName,
           currency,
           channelProductCode,
-          exposureQty: liveRecord?.exposureQty ?? 0,
-          clickQty: liveRecord?.clickQty ?? 0,
-          orderQty: liveRecord?.orderQty ?? 0,
-          gmvAmount: liveRecord?.gmvAmount ?? 0,
+          exposureQty: liveRecord?.exposureQty ?? toMetricNumber(meta.exposure ?? meta.exposureQty),
+          clickQty: liveRecord?.clickQty ?? toMetricNumber(meta.click ?? meta.clickQty),
+          orderQty: liveRecord?.orderQty ?? toMetricNumber(meta.order ?? meta.orderQty),
+          gmvAmount: liveRecord?.gmvAmount ?? toMetricNumber(meta.gmv ?? meta.gmvAmount),
         }
       }
 
       const videoRecordId = relation.sourceObjectId || ''
       const videoRecord = videoRecordId ? getVideoTestRecordById(videoRecordId) : null
-      const sourceChannel = parseTestingSourceChannelLabel(videoRecord?.channelName || '')
+      const sourceChannel = parseTestingSourceChannelLabel(
+        String(
+          videoRecord?.channelName ||
+            meta.channelName ||
+            meta.targetChannelCode ||
+            meta.account ||
+            '',
+        ),
+      )
       const relatedChannelProduct =
         (videoRecordId
           ? findProjectChannelProductByVideoRecord(projectId, videoRecordId) ||
@@ -1662,30 +1708,45 @@ function buildTestingSummaryFacts(
           : null) ||
         activeChannelProducts[0] ||
         null
-      const channelCode = relatedChannelProduct?.channelCode || sourceChannel.channelCode
-      const storeId = relatedChannelProduct?.storeId || ''
-      const channelName = relatedChannelProduct?.channelName || sourceChannel.channelName
+      const channelCode = relatedChannelProduct?.channelCode || sourceChannel.channelCode || String(meta.channelCode || '')
+      const storeId = relatedChannelProduct?.storeId || String(meta.storeId || '')
+      const channelName =
+        relatedChannelProduct?.channelName ||
+        sourceChannel.channelName ||
+        String(meta.channelName || meta.targetChannelCode || '')
       const storeName =
         relatedChannelProduct?.storeName ||
         (storeId ? resolvePcsStoreDisplayName(storeId, channelCode) : '') ||
+        String(meta.storeName || meta.targetStoreId || '') ||
         sourceChannel.storeName ||
         '未识别店铺'
-      const currency = relatedChannelProduct?.currency || resolvePcsStoreCurrency(storeId, channelCode) || '未识别币种'
-      const channelProductCode = relatedChannelProduct?.channelProductCode || '未识别渠道店铺商品'
+      const currency =
+        relatedChannelProduct?.currency ||
+        String(meta.currency || '') ||
+        resolvePcsStoreCurrency(storeId, channelCode) ||
+        '未识别币种'
+      const channelProductCode =
+        relatedChannelProduct?.channelProductCode ||
+        String(meta.channelProductCode || '') ||
+        '未识别渠道店铺商品'
       return {
         relationId: relation.projectRelationId,
         sourceType: '短视频' as const,
-        sourceCode: videoRecord?.videoRecordCode || relation.sourceObjectCode || '',
+        sourceCode:
+          videoRecord?.videoRecordCode ||
+          relation.sourceObjectCode ||
+          String(meta.videoRecordCode || meta.videoCode || '') ||
+          '',
         channelCode,
         channelName,
         storeId,
         storeName,
         currency,
         channelProductCode,
-        exposureQty: videoRecord?.exposureQty ?? 0,
-        clickQty: videoRecord?.clickQty ?? 0,
-        orderQty: videoRecord?.orderQty ?? 0,
-        gmvAmount: videoRecord?.gmvAmount ?? 0,
+        exposureQty: videoRecord?.exposureQty ?? toMetricNumber(meta.views ?? meta.exposureQty),
+        clickQty: videoRecord?.clickQty ?? toMetricNumber(meta.clicks ?? meta.clickQty),
+        orderQty: videoRecord?.orderQty ?? toMetricNumber(meta.orders ?? meta.orderQty),
+        gmvAmount: videoRecord?.gmvAmount ?? toMetricNumber(meta.gmv ?? meta.gmvAmount),
       }
     })
     .filter((item) => item.exposureQty > 0 || item.clickQty > 0 || item.orderQty > 0 || item.gmvAmount > 0 || item.sourceCode)
