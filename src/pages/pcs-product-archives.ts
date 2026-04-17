@@ -2,6 +2,10 @@ import { appStore } from '../state/store.ts'
 import { escapeHtml, formatDateTime, toClassName } from '../utils.ts'
 import { ensurePcsProjectDemoDataReady } from '../data/pcs-project-demo-seed-service.ts'
 import {
+  formalizeStyleArchive,
+  getStyleArchiveFormalizationCheck,
+} from '../data/pcs-project-style-archive-generation.ts'
+import {
   findProjectChannelProductByStyleId,
   listProjectChannelProducts,
 } from '../data/pcs-channel-product-project-repository.ts'
@@ -69,6 +73,27 @@ interface ProductArchivePageState {
     batchColors: string[]
     batchSizes: string[]
     batchPrint: string
+  }
+  styleCompletion: {
+    open: boolean
+    styleId: string
+    styleName: string
+    styleNumber: string
+    styleType: string
+    categoryName: string
+    subCategoryName: string
+    brandName: string
+    yearTag: string
+    seasonTags: string
+    styleTags: string
+    targetAudienceTags: string
+    targetChannelCodes: string
+    priceRangeLabel: string
+    mainImageUrl: string
+    sellingPointText: string
+    detailDescription: string
+    packagingInfo: string
+    remark: string
   }
 }
 
@@ -159,6 +184,30 @@ function createDefaultSkuCreateState(): ProductArchivePageState['skuCreate'] {
   }
 }
 
+function createDefaultStyleCompletionState(): ProductArchivePageState['styleCompletion'] {
+  return {
+    open: false,
+    styleId: '',
+    styleName: '',
+    styleNumber: '',
+    styleType: '',
+    categoryName: '',
+    subCategoryName: '',
+    brandName: '',
+    yearTag: '',
+    seasonTags: '',
+    styleTags: '',
+    targetAudienceTags: '',
+    targetChannelCodes: '',
+    priceRangeLabel: '',
+    mainImageUrl: '',
+    sellingPointText: '',
+    detailDescription: '',
+    packagingInfo: '',
+    remark: '',
+  }
+}
+
 const state: ProductArchivePageState = {
   notice: null,
   styleList: {
@@ -182,10 +231,15 @@ const state: ProductArchivePageState = {
     activeTab: 'overview',
   },
   skuCreate: createDefaultSkuCreateState(),
+  styleCompletion: createDefaultStyleCompletionState(),
 }
 
 function resetSkuCreateState(): void {
   state.skuCreate = createDefaultSkuCreateState()
+}
+
+function resetStyleCompletionState(): void {
+  state.styleCompletion = createDefaultStyleCompletionState()
 }
 
 export function resetPcsProductArchiveState(): void {
@@ -211,6 +265,7 @@ export function resetPcsProductArchiveState(): void {
     activeTab: 'overview',
   }
   resetSkuCreateState()
+  resetStyleCompletionState()
 }
 
 function ensurePageDataReady(): void {
@@ -368,6 +423,13 @@ function renderStatusBadge(status: StyleArchiveStatusCode | SkuArchiveStatusCode
   return renderBadge(meta.label, meta.className)
 }
 
+function renderStyleLifecycleBadge(style: StyleArchiveShellRecord): string {
+  if (style.archiveStatus === 'DRAFT' && style.baseInfoStatus === '已建档') {
+    return renderBadge('已建档', 'border-sky-200 bg-sky-50 text-sky-700')
+  }
+  return renderStatusBadge(style.archiveStatus, 'style')
+}
+
 function renderMappingBadge(health: SkuArchiveMappingHealth): string {
   const meta = MAPPING_META[health]
   return renderBadge(meta.label, meta.className)
@@ -400,6 +462,10 @@ function renderFormField(label: string, control: string, required = false, hint 
 
 function renderTextInput(field: string, value: string, placeholder: string, type = 'text'): string {
   return `<input type="${escapeHtml(type)}" value="${escapeHtml(value)}" placeholder="${escapeHtml(placeholder)}" data-pcs-product-archive-field="${escapeHtml(field)}" class="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-slate-400" />`
+}
+
+function renderTextarea(field: string, value: string, placeholder: string, rows = 4): string {
+  return `<textarea rows="${rows}" placeholder="${escapeHtml(placeholder)}" data-pcs-product-archive-field="${escapeHtml(field)}" class="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm leading-6 text-slate-700 outline-none transition focus:border-slate-400">${escapeHtml(value)}</textarea>`
 }
 
 function renderSelect(
@@ -454,6 +520,17 @@ function renderNotice(): string {
       </div>
     </section>
   `
+}
+
+function stringifyTagList(values: string[]): string {
+  return values.filter((item) => item.trim()).join('，')
+}
+
+function parseTagList(value: string): string[] {
+  return value
+    .split(/[，,、/]/)
+    .map((item) => item.trim())
+    .filter(Boolean)
 }
 
 function formatCurrency(value: number, currency = '人民币'): string {
@@ -562,7 +639,7 @@ function renderStyleTable(items: StyleArchiveListItemViewModel[]): string {
             <div class="mt-1 text-xs text-slate-500">在售规格 ${escapeHtml(item.onSaleCount)}</div>
             <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.style.targetChannelCodes.join(' / ') || '-')}</div>
           </td>
-          <td class="px-4 py-3">${renderStatusBadge(item.style.archiveStatus, 'style')}</td>
+          <td class="px-4 py-3">${renderStyleLifecycleBadge(item.style)}</td>
           <td class="px-4 py-3 text-sm text-slate-500">${escapeHtml(formatDateTime(item.style.updatedAt))}</td>
           <td class="px-4 py-3">
             <div class="flex items-center justify-end gap-2">
@@ -599,6 +676,157 @@ function renderStyleTable(items: StyleArchiveListItemViewModel[]): string {
       </div>
     </section>
   `
+}
+
+function openStyleCompletionDrawer(style: StyleArchiveShellRecord): void {
+  state.styleCompletion = {
+    open: true,
+    styleId: style.styleId,
+    styleName: style.styleName,
+    styleNumber: style.styleNumber,
+    styleType: style.styleType,
+    categoryName: style.categoryName,
+    subCategoryName: style.subCategoryName,
+    brandName: style.brandName,
+    yearTag: style.yearTag,
+    seasonTags: stringifyTagList(style.seasonTags),
+    styleTags: stringifyTagList(style.styleTags),
+    targetAudienceTags: stringifyTagList(style.targetAudienceTags),
+    targetChannelCodes: stringifyTagList(style.targetChannelCodes),
+    priceRangeLabel: style.priceRangeLabel,
+    mainImageUrl: style.mainImageUrl,
+    sellingPointText: style.sellingPointText,
+    detailDescription: style.detailDescription,
+    packagingInfo: style.packagingInfo,
+    remark: style.remark,
+  }
+}
+
+function renderStyleFormalizationPanel(style: StyleArchiveShellRecord): string {
+  const check = getStyleArchiveFormalizationCheck(style.styleId)
+  const missingCount = check.missingFields.length
+  const ready = check.ready
+  const alreadyFormalized = style.baseInfoStatus === '已建档'
+
+  return `
+    <section class="rounded-lg border bg-white p-5 shadow-sm">
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div class="flex flex-wrap items-center gap-2">
+            <h2 class="text-base font-semibold text-slate-900">正式建档检查</h2>
+            ${alreadyFormalized ? renderBadge('已完成正式建档', 'border-sky-200 bg-sky-50 text-sky-700') : ready ? renderBadge('可以正式建档', 'border-emerald-200 bg-emerald-50 text-emerald-700') : renderBadge(`缺 ${missingCount} 项`, 'border-amber-200 bg-amber-50 text-amber-700')}
+          </div>
+          <p class="mt-1 text-sm text-slate-500">款式档案从项目节点生成后先进入草稿，补齐基础资料后才能进入正式建档。</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-product-archive-action="open-style-completion" data-style-id="${escapeHtml(style.styleId)}">完善款式资料</button>
+          ${
+            alreadyFormalized
+              ? `<span class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-500">已完成正式建档</span>`
+              : ready
+                ? `<button type="button" class="inline-flex h-9 items-center rounded-md bg-slate-900 px-3 text-sm text-white hover:bg-slate-800" data-pcs-product-archive-action="formalize-style-archive" data-style-id="${escapeHtml(style.styleId)}">正式建档</button>`
+                : ''
+          }
+        </div>
+      </div>
+      <div class="mt-4 grid gap-4 lg:grid-cols-[1fr,1fr]">
+        <div class="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
+          <div class="text-xs text-slate-500">当前状态</div>
+          <div class="mt-2 text-sm font-medium text-slate-900">${escapeHtml(alreadyFormalized ? '款式档案已补齐基础资料，当前可继续推进技术包与转档。' : check.message)}</div>
+        </div>
+        <div class="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
+          <div class="text-xs text-slate-500">必填资料清单</div>
+          <div class="mt-2 flex flex-wrap gap-2">
+            ${(missingCount > 0 ? check.missingFields : [{ key: 'done', label: '已全部补齐' }])
+              .map((item) =>
+                renderBadge(
+                  item.label,
+                  missingCount > 0 ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700',
+                ),
+              )
+              .join('')}
+          </div>
+        </div>
+      </div>
+    </section>
+  `
+}
+
+function renderStyleCompletionDrawer(): string {
+  if (!state.styleCompletion.open) return ''
+  const body = `
+    <div class="space-y-5">
+      <div class="grid gap-4 md:grid-cols-2">
+        ${renderFormField('款式名称', renderTextInput('style-completion-style-name', state.styleCompletion.styleName, '填写款式名称'), true)}
+        ${renderFormField('款号', renderTextInput('style-completion-style-number', state.styleCompletion.styleNumber, '填写款号'), true)}
+        ${renderFormField('款式类型', renderTextInput('style-completion-style-type', state.styleCompletion.styleType, '例如：基础款 / 快时尚款'), true)}
+        ${renderFormField('品牌', renderTextInput('style-completion-brand-name', state.styleCompletion.brandName, '填写品牌'), true)}
+        ${renderFormField('一级类目', renderTextInput('style-completion-category-name', state.styleCompletion.categoryName, '填写一级类目'), true)}
+        ${renderFormField('二级类目', renderTextInput('style-completion-sub-category-name', state.styleCompletion.subCategoryName, '填写二级类目'), true)}
+        ${renderFormField('年份', renderTextInput('style-completion-year-tag', state.styleCompletion.yearTag, '填写年份'), true)}
+        ${renderFormField('价格带', renderTextInput('style-completion-price-range-label', state.styleCompletion.priceRangeLabel, '例如：¥199-399'), true)}
+      </div>
+      <div class="grid gap-4 md:grid-cols-2">
+        ${renderFormField('季节标签', renderTextInput('style-completion-season-tags', state.styleCompletion.seasonTags, '多个标签用中文逗号分隔'), true)}
+        ${renderFormField('风格标签', renderTextInput('style-completion-style-tags', state.styleCompletion.styleTags, '多个标签用中文逗号分隔'), true)}
+        ${renderFormField('目标人群', renderTextInput('style-completion-target-audience-tags', state.styleCompletion.targetAudienceTags, '多个标签用中文逗号分隔'), true)}
+        ${renderFormField('目标渠道', renderTextInput('style-completion-target-channel-codes', state.styleCompletion.targetChannelCodes, '多个渠道用中文逗号分隔'), true)}
+      </div>
+      ${renderFormField('款式主图', renderTextInput('style-completion-main-image-url', state.styleCompletion.mainImageUrl, '填写主图地址'), true, '原型阶段使用图片地址占位即可')}
+      ${renderFormField('卖点摘要', renderTextarea('style-completion-selling-point-text', state.styleCompletion.sellingPointText, '填写款式卖点摘要', 3), true)}
+      ${renderFormField('详情描述', renderTextarea('style-completion-detail-description', state.styleCompletion.detailDescription, '填写详情描述', 5), true)}
+      ${renderFormField('包装信息', renderTextarea('style-completion-packaging-info', state.styleCompletion.packagingInfo, '可填写包装与发货说明', 3))}
+      ${renderFormField('备注', renderTextarea('style-completion-remark', state.styleCompletion.remark, '可填写补充说明', 3))}
+    </div>
+  `
+
+  const footer = `
+    <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-product-archive-action="close-drawers">取消</button>
+    <button type="button" class="inline-flex h-9 items-center rounded-md bg-slate-900 px-3 text-sm text-white hover:bg-slate-800" data-pcs-product-archive-action="submit-style-completion">保存资料</button>
+  `
+
+  return renderDrawerShell('完善款式资料', '补齐款式档案基础资料后，才可以从草稿进入正式建档。', body, footer)
+}
+
+function submitStyleCompletion(): void {
+  if (!state.styleCompletion.styleId) {
+    state.notice = '未找到待补齐的款式档案。'
+    return
+  }
+
+  const updated = updateStyleArchive(state.styleCompletion.styleId, {
+    styleName: state.styleCompletion.styleName.trim(),
+    styleNumber: state.styleCompletion.styleNumber.trim(),
+    styleType: state.styleCompletion.styleType.trim(),
+    categoryName: state.styleCompletion.categoryName.trim(),
+    subCategoryName: state.styleCompletion.subCategoryName.trim(),
+    brandName: state.styleCompletion.brandName.trim(),
+    yearTag: state.styleCompletion.yearTag.trim(),
+    seasonTags: parseTagList(state.styleCompletion.seasonTags),
+    styleTags: parseTagList(state.styleCompletion.styleTags),
+    targetAudienceTags: parseTagList(state.styleCompletion.targetAudienceTags),
+    targetChannelCodes: parseTagList(state.styleCompletion.targetChannelCodes),
+    priceRangeLabel: state.styleCompletion.priceRangeLabel.trim(),
+    mainImageUrl: state.styleCompletion.mainImageUrl.trim(),
+    sellingPointText: state.styleCompletion.sellingPointText.trim(),
+    detailDescription: state.styleCompletion.detailDescription.trim(),
+    packagingInfo: state.styleCompletion.packagingInfo.trim(),
+    remark: state.styleCompletion.remark.trim(),
+    updatedAt: nowText(),
+    updatedBy: '当前用户',
+  })
+
+  resetStyleCompletionState()
+
+  if (!updated) {
+    state.notice = '保存款式资料失败。'
+    return
+  }
+
+  const check = getStyleArchiveFormalizationCheck(updated.styleId)
+  state.notice = check.ready
+    ? `已保存 ${updated.styleCode} 的款式资料，当前可以正式建档。`
+    : `已保存 ${updated.styleCode} 的款式资料，仍需补齐：${check.missingFields.map((item) => item.label).join('、')}。`
 }
 
 function renderSkuHeader(): string {
@@ -1159,12 +1387,15 @@ function renderStyleDetailPage(styleId: string): string {
           <div>
             <div class="flex flex-wrap items-center gap-2">
               <h1 class="text-2xl font-semibold text-slate-900">${escapeHtml(style.styleCode)}</h1>
-              ${renderStatusBadge(style.archiveStatus, 'style')}
+              ${renderStyleLifecycleBadge(style)}
             </div>
             <p class="mt-1 text-sm text-slate-500">${escapeHtml(style.styleName)} · ${escapeHtml(style.categoryName || style.subCategoryName || '未设置类目')}</p>
           </div>
         </div>
         <div class="flex flex-wrap items-center gap-2">
+          <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-product-archive-action="open-style-completion" data-style-id="${escapeHtml(style.styleId)}">
+            <i data-lucide="square-pen" class="h-4 w-4"></i>完善资料
+          </button>
           <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-product-archive-action="open-sku-create" data-mode="single" data-style-id="${escapeHtml(style.styleId)}">
             <i data-lucide="plus" class="h-4 w-4"></i>新增规格
           </button>
@@ -1179,8 +1410,10 @@ function renderStyleDetailPage(styleId: string): string {
       <section class="rounded-lg border bg-white p-2 shadow-sm">
         <div class="flex flex-wrap gap-2">${tabButtons}</div>
       </section>
+      ${renderStyleFormalizationPanel(style)}
       ${tabContent}
       ${renderSkuCreateDrawer()}
+      ${renderStyleCompletionDrawer()}
     </div>
   `
 }
@@ -1780,6 +2013,57 @@ export function handlePcsProductArchiveInput(target: Element): boolean {
     case 'sku-create-batch-size':
       state.skuCreate.batchSizes = toggleBatchValue(state.skuCreate.batchSizes, fieldNode.dataset.value || value, checked)
       return true
+    case 'style-completion-style-name':
+      state.styleCompletion.styleName = value
+      return true
+    case 'style-completion-style-number':
+      state.styleCompletion.styleNumber = value
+      return true
+    case 'style-completion-style-type':
+      state.styleCompletion.styleType = value
+      return true
+    case 'style-completion-category-name':
+      state.styleCompletion.categoryName = value
+      return true
+    case 'style-completion-sub-category-name':
+      state.styleCompletion.subCategoryName = value
+      return true
+    case 'style-completion-brand-name':
+      state.styleCompletion.brandName = value
+      return true
+    case 'style-completion-year-tag':
+      state.styleCompletion.yearTag = value
+      return true
+    case 'style-completion-season-tags':
+      state.styleCompletion.seasonTags = value
+      return true
+    case 'style-completion-style-tags':
+      state.styleCompletion.styleTags = value
+      return true
+    case 'style-completion-target-audience-tags':
+      state.styleCompletion.targetAudienceTags = value
+      return true
+    case 'style-completion-target-channel-codes':
+      state.styleCompletion.targetChannelCodes = value
+      return true
+    case 'style-completion-price-range-label':
+      state.styleCompletion.priceRangeLabel = value
+      return true
+    case 'style-completion-main-image-url':
+      state.styleCompletion.mainImageUrl = value
+      return true
+    case 'style-completion-selling-point-text':
+      state.styleCompletion.sellingPointText = value
+      return true
+    case 'style-completion-detail-description':
+      state.styleCompletion.detailDescription = value
+      return true
+    case 'style-completion-packaging-info':
+      state.styleCompletion.packagingInfo = value
+      return true
+    case 'style-completion-remark':
+      state.styleCompletion.remark = value
+      return true
     default:
       return false
   }
@@ -1797,7 +2081,27 @@ export function handlePcsProductArchiveEvent(target: HTMLElement): boolean {
       return true
     case 'close-drawers':
       resetSkuCreateState()
+      resetStyleCompletionState()
       return true
+    case 'open-style-completion': {
+      const styleId = actionNode.dataset.styleId || state.styleDetail.styleId || ''
+      const style = styleId ? getStyleArchiveById(styleId) : null
+      if (!style) {
+        state.notice = '未找到对应款式档案。'
+        return true
+      }
+      openStyleCompletionDrawer(style)
+      return true
+    }
+    case 'submit-style-completion':
+      submitStyleCompletion()
+      return true
+    case 'formalize-style-archive': {
+      const styleId = actionNode.dataset.styleId || state.styleDetail.styleId || ''
+      const result = formalizeStyleArchive(styleId, '当前用户')
+      state.notice = result.message
+      return true
+    }
     case 'open-sku-create':
       resetSkuCreateState()
       state.skuCreate.open = true
@@ -1913,5 +2217,5 @@ export function handlePcsProductArchiveEvent(target: HTMLElement): boolean {
 }
 
 export function isPcsProductArchiveDialogOpen(): boolean {
-  return state.skuCreate.open
+  return state.skuCreate.open || state.styleCompletion.open
 }

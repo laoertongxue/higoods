@@ -28,6 +28,8 @@ const styleDetailHtml = renderPcsStyleArchiveDetailPage(firstStyle.styleId)
 assert.match(styleDetailHtml, new RegExp(firstStyle.styleCode), '详情页应展示款式编码')
 assert.match(styleDetailHtml, /技术包版本/, '详情页应提供技术包版本页签')
 assert.match(styleDetailHtml, /规格档案/, '详情页应提供规格档案页签')
+assert.match(styleDetailHtml, /正式建档检查/, '详情页应展示正式建档检查区')
+assert.match(styleDetailHtml, /完善款式资料/, '详情页应提供完善资料入口')
 
 const skuListHtml = renderPcsSpecificationListPage()
 assert.match(skuListHtml, /规格档案/, '应渲染规格档案列表标题')

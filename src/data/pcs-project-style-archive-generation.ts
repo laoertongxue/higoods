@@ -27,6 +27,43 @@ export interface StyleArchiveGenerationStatus {
   style: StyleArchiveShellRecord | null
 }
 
+export interface StyleArchiveFormalizationField {
+  key: string
+  label: string
+}
+
+export interface StyleArchiveFormalizationCheck {
+  ready: boolean
+  style: StyleArchiveShellRecord | null
+  missingFields: StyleArchiveFormalizationField[]
+  message: string
+}
+
+export interface StyleArchiveFormalizeResult {
+  ok: boolean
+  message: string
+  style: StyleArchiveShellRecord | null
+  missingFields: StyleArchiveFormalizationField[]
+}
+
+const STYLE_ARCHIVE_REQUIRED_FIELDS: StyleArchiveFormalizationField[] = [
+  { key: 'styleName', label: '款式名称' },
+  { key: 'styleNumber', label: '款号' },
+  { key: 'styleType', label: '款式类型' },
+  { key: 'categoryName', label: '一级类目' },
+  { key: 'subCategoryName', label: '二级类目' },
+  { key: 'brandName', label: '品牌' },
+  { key: 'yearTag', label: '年份' },
+  { key: 'seasonTags', label: '季节标签' },
+  { key: 'styleTags', label: '风格标签' },
+  { key: 'targetAudienceTags', label: '目标人群' },
+  { key: 'targetChannelCodes', label: '目标渠道' },
+  { key: 'priceRangeLabel', label: '价格带' },
+  { key: 'mainImageUrl', label: '款式主图' },
+  { key: 'sellingPointText', label: '卖点摘要' },
+  { key: 'detailDescription', label: '详情描述' },
+]
+
 function nowText(): string {
   const now = new Date()
   const pad = (value: number) => String(value).padStart(2, '0')
@@ -85,6 +122,26 @@ function getExistingStyle(projectId: string): StyleArchiveShellRecord | null {
     if (linkedStyle) return linkedStyle
   }
   return findStyleArchiveByProjectId(projectId)
+}
+
+function isBlankText(value: string | null | undefined): boolean {
+  return !value || !value.trim()
+}
+
+function collectMissingFields(style: StyleArchiveShellRecord): StyleArchiveFormalizationField[] {
+  return STYLE_ARCHIVE_REQUIRED_FIELDS.filter((field) => {
+    const value = style[field.key as keyof StyleArchiveShellRecord]
+    if (Array.isArray(value)) {
+      return value.map((item) => String(item || '').trim()).filter(Boolean).length === 0
+    }
+    if (typeof value === 'string') {
+      if (field.key === 'priceRangeLabel') {
+        return isBlankText(value) || value.trim() === '待补齐'
+      }
+      return isBlankText(value)
+    }
+    return value === null || value === undefined
+  })
 }
 
 export function getStyleArchiveGenerationStatus(projectId: string): StyleArchiveGenerationStatus {
@@ -340,5 +397,144 @@ export function generateStyleArchiveFromProjectNode(
       message: error instanceof Error ? error.message : '生成款式档案失败。',
       style: null,
     }
+  }
+}
+
+export function getStyleArchiveFormalizationCheck(styleId: string): StyleArchiveFormalizationCheck {
+  const style = getStyleArchiveById(styleId)
+  if (!style) {
+    return {
+      ready: false,
+      style: null,
+      missingFields: [],
+      message: '未找到对应款式档案。',
+    }
+  }
+
+  const missingFields = collectMissingFields(style)
+  if (missingFields.length === 0) {
+    return {
+      ready: true,
+      style,
+      missingFields,
+      message: style.baseInfoStatus === '已建档' ? '当前款式档案已完成正式建档。' : '当前款式档案已满足正式建档条件。',
+    }
+  }
+
+  return {
+    ready: false,
+    style,
+    missingFields,
+    message: `请先补齐以下字段：${missingFields.map((item) => item.label).join('、')}。`,
+  }
+}
+
+export function formalizeStyleArchive(styleId: string, operatorName = '当前用户'): StyleArchiveFormalizeResult {
+  const check = getStyleArchiveFormalizationCheck(styleId)
+  if (!check.style) {
+    return {
+      ok: false,
+      message: check.message,
+      style: null,
+      missingFields: [],
+    }
+  }
+
+  const style = check.style
+  const project = getProjectById(style.sourceProjectId)
+  if (!project) {
+    return {
+      ok: false,
+      message: '款式档案未绑定有效商品项目，不能正式建档。',
+      style,
+      missingFields: [],
+    }
+  }
+
+  const styleNode = getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'STYLE_ARCHIVE_CREATE')
+  if (!styleNode) {
+    return {
+      ok: false,
+      message: '当前项目未配置生成款式档案节点，不能正式建档。',
+      style,
+      missingFields: [],
+    }
+  }
+
+  if (styleNode.currentStatus === '已取消') {
+    return {
+      ok: false,
+      message: '当前项目节点已取消，不能正式建档。',
+      style,
+      missingFields: [],
+    }
+  }
+
+  if (!check.ready) {
+    return {
+      ok: false,
+      message: check.message,
+      style,
+      missingFields: check.missingFields,
+    }
+  }
+
+  const timestamp = nowText()
+  const nextStyle = updateStyleArchive(style.styleId, {
+    baseInfoStatus: '已建档',
+    updatedAt: timestamp,
+    updatedBy: operatorName,
+  })
+
+  updateProjectRecord(
+    project.projectId,
+    {
+      updatedAt: timestamp,
+    },
+    operatorName,
+  )
+
+  updateProjectNodeRecord(
+    project.projectId,
+    styleNode.projectNodeId,
+    {
+      currentStatus: '已完成',
+      latestInstanceId: style.styleId,
+      latestInstanceCode: style.styleCode,
+      latestResultType: '已完成正式建档',
+      latestResultText: '款式档案基础资料已补齐，已完成正式建档。',
+      pendingActionType: '',
+      pendingActionText: '',
+      updatedAt: timestamp,
+    },
+    operatorName,
+  )
+  syncProjectNodeInstanceRuntime(project.projectId, styleNode.projectNodeId, operatorName, timestamp)
+
+  const transferNode = getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'PROJECT_TRANSFER_PREP')
+  if (transferNode && transferNode.currentStatus !== '已取消') {
+    updateProjectNodeRecord(
+      project.projectId,
+      transferNode.projectNodeId,
+      {
+        currentStatus: '进行中',
+        latestInstanceId: style.styleId,
+        latestInstanceCode: style.styleCode,
+        latestResultType: '款式档案已正式建档',
+        latestResultText: '款式档案基础资料已补齐，可以继续推进技术包与项目资料归档。',
+        pendingActionType: '推进技术包与归档',
+        pendingActionText: '请从任务生成技术包版本，并继续补齐项目资料归档。',
+        updatedAt: timestamp,
+      },
+      operatorName,
+    )
+    syncProjectNodeInstanceRuntime(project.projectId, transferNode.projectNodeId, operatorName, timestamp)
+  }
+
+  return {
+    ok: true,
+    message: `已完成 ${style.styleCode} 的正式建档。`,
+    style: nextStyle,
+    missingFields: [],
   }
 }
