@@ -1,6 +1,7 @@
 import {
   getProjectById,
   getProjectNodeRecordById,
+  getProjectNodeSequenceBlocker,
   getProjectNodeRecordByWorkItemTypeCode,
   listProjectNodes,
   listProjectPhases,
@@ -57,6 +58,22 @@ function canUseInlineRecords(workItemTypeCode: string): workItemTypeCode is PcsP
 
 export function isClosedProjectNodeStatus(status: ProjectNodeStatus): boolean {
   return status === '已完成' || status === '已取消'
+}
+
+function getSequenceBlockedResult(
+  projectId: string,
+  projectNodeId: string,
+  messagePrefix = '请先完成前序工作项',
+): ProjectFlowActionResult | null {
+  const blocker = getProjectNodeSequenceBlocker(projectId, projectNodeId)
+  if (!blocker) return null
+  return {
+    ok: false,
+    message: `${messagePrefix}：${blocker.workItemTypeName}。`,
+    project: getProjectById(projectId),
+    node: getProjectNodeRecordById(projectId, projectNodeId),
+    nextNode: blocker,
+  }
 }
 
 export function syncProjectLifecycle(
@@ -149,6 +166,8 @@ export function completeProjectNode(
     resultText?: string
   } = {},
 ): PcsProjectNodeRecord | null {
+  const blocker = getProjectNodeSequenceBlocker(projectId, projectNodeId)
+  if (blocker) return null
   const node = getProjectNodeRecordById(projectId, projectNodeId)
   if (!node) return null
 
@@ -187,6 +206,8 @@ export function activateProjectNode(
     currentStatus?: Extract<ProjectNodeStatus, '进行中' | '待确认'>
   } = {},
 ): PcsProjectNodeRecord | null {
+  const blocker = getProjectNodeSequenceBlocker(projectId, projectNodeId)
+  if (blocker) return getProjectNodeRecordById(projectId, projectNodeId)
   const node = getProjectNodeRecordById(projectId, projectNodeId)
   if (!node || isClosedProjectNodeStatus(node.currentStatus)) return node
 
@@ -249,6 +270,8 @@ export function markProjectNodeCompletedAndUnlockNext(
     resultText?: string
   } = {},
 ): ProjectFlowActionResult {
+  const blockedResult = getSequenceBlockedResult(projectId, projectNodeId)
+  if (blockedResult) return blockedResult
   const node = completeProjectNode(projectId, projectNodeId, input)
   if (!node) {
     return {
@@ -605,6 +628,9 @@ export function saveProjectNodeFormalRecord(input: ProjectFormalRecordFlowInput)
       nextNode: null,
     }
   }
+
+  const blockedResult = getSequenceBlockedResult(input.projectId, input.projectNodeId, '请填写并完成前序工作项')
+  if (blockedResult) return blockedResult
 
   const values = input.payload.values || {}
   const detailSnapshot = input.payload.detailSnapshot

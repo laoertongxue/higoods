@@ -139,6 +139,42 @@ export const renderPcsPayoutAccountDetailPage = createAsyncRenderer(
   () => import('../pages/pcs-channel-stores'),
   'renderPcsPayoutAccountDetailPage',
 )
+export const renderPcsFabricArchiveListPage = createAsyncRenderer(
+  () => import('../pages/pcs-material-archives'),
+  'renderPcsFabricArchiveListPage',
+)
+export const renderPcsFabricArchiveCreatePage = createAsyncRenderer(
+  () => import('../pages/pcs-material-archives'),
+  'renderPcsFabricArchiveCreatePage',
+)
+export const renderPcsAccessoryArchiveListPage = createAsyncRenderer(
+  () => import('../pages/pcs-material-archives'),
+  'renderPcsAccessoryArchiveListPage',
+)
+export const renderPcsAccessoryArchiveCreatePage = createAsyncRenderer(
+  () => import('../pages/pcs-material-archives'),
+  'renderPcsAccessoryArchiveCreatePage',
+)
+export const renderPcsYarnArchiveListPage = createAsyncRenderer(
+  () => import('../pages/pcs-material-archives'),
+  'renderPcsYarnArchiveListPage',
+)
+export const renderPcsYarnArchiveCreatePage = createAsyncRenderer(
+  () => import('../pages/pcs-material-archives'),
+  'renderPcsYarnArchiveCreatePage',
+)
+export const renderPcsConsumableArchiveListPage = createAsyncRenderer(
+  () => import('../pages/pcs-material-archives'),
+  'renderPcsConsumableArchiveListPage',
+)
+export const renderPcsConsumableArchiveCreatePage = createAsyncRenderer(
+  () => import('../pages/pcs-material-archives'),
+  'renderPcsConsumableArchiveCreatePage',
+)
+export const renderPcsMaterialArchiveDetailPage = createAsyncRenderer(
+  () => import('../pages/pcs-material-archives'),
+  'renderPcsMaterialArchiveDetailPage',
+)
 export const renderPcsChannelProductListPage = createAsyncRenderer(
   () => import('../pages/pcs-channel-products'),
   'renderPcsChannelProductListPage',

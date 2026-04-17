@@ -1,4 +1,5 @@
 import { techPacks } from './fcs/tech-packs.ts'
+import { buildSkuFixture } from './pcs-product-archive-fixtures.ts'
 import { listProjectWorkspaceColors, listProjectWorkspaceSizes } from './pcs-project-config-workspace-adapter.ts'
 import { listStyleArchives, updateStyleArchive } from './pcs-style-archive-repository.ts'
 import { listTechnicalDataVersionsByStyleId } from './pcs-technical-data-version-repository.ts'
@@ -130,6 +131,7 @@ function resolveVolumeText(styleName: string): string {
 function normalizeRecord(record: SkuArchiveRecord): SkuArchiveRecord {
   const [defaultColor = 'Black'] = getWorkspaceFallbackColors()
   const [defaultSize = 'One Size'] = getWorkspaceFallbackSizes()
+  const fixture = buildSkuFixture(record.styleCode || record.skuCode, record.styleName || record.skuCode, record.colorName || defaultColor, record.sizeName || defaultSize)
   const archiveStatus: SkuArchiveStatusCode =
     record.archiveStatus === 'INACTIVE' || record.archiveStatus === 'ARCHIVED' ? record.archiveStatus : 'ACTIVE'
   const mappingHealth: SkuArchiveMappingHealth =
@@ -139,10 +141,14 @@ function normalizeRecord(record: SkuArchiveRecord): SkuArchiveRecord {
     ...cloneRecord(record),
     archiveStatus,
     mappingHealth,
+    skuName: record.skuName || `${record.styleName || record.styleCode} ${record.colorName || defaultColor}/${record.sizeName || defaultSize}`,
+    skuNameEn: record.skuNameEn || fixture.skuNameEn,
     colorName: record.colorName || defaultColor,
     sizeName: record.sizeName || defaultSize,
     printName: record.printName || '基础款',
     barcode: record.barcode || '',
+    channelTitle: record.channelTitle || fixture.channelTitle,
+    skuImageUrl: record.skuImageUrl || fixture.skuImageUrl,
     channelMappingCount: Number.isFinite(record.channelMappingCount) ? record.channelMappingCount : 0,
     listedChannelCount: Number.isFinite(record.listedChannelCount) ? record.listedChannelCount : 0,
     techPackVersionId: record.techPackVersionId || '',
@@ -150,10 +156,19 @@ function normalizeRecord(record: SkuArchiveRecord): SkuArchiveRecord {
     techPackVersionLabel: record.techPackVersionLabel || '',
     legacySystem: record.legacySystem || '',
     legacyCode: record.legacyCode || '',
-    weightText: record.weightText || '',
-    volumeText: record.volumeText || '',
+    costPrice: Number.isFinite(record.costPrice) ? record.costPrice : fixture.costPrice,
+    freightCost: Number.isFinite(record.freightCost) ? record.freightCost : fixture.freightCost,
+    suggestedRetailPrice: Number.isFinite(record.suggestedRetailPrice) ? record.suggestedRetailPrice : fixture.suggestedRetailPrice,
+    currency: record.currency || fixture.currency,
+    pricingUnit: record.pricingUnit || fixture.pricingUnit,
+    weightKg: Number.isFinite(record.weightKg) ? record.weightKg : fixture.weightKg,
+    lengthCm: Number.isFinite(record.lengthCm) ? record.lengthCm : fixture.lengthCm,
+    widthCm: Number.isFinite(record.widthCm) ? record.widthCm : fixture.widthCm,
+    heightCm: Number.isFinite(record.heightCm) ? record.heightCm : fixture.heightCm,
+    packagingInfo: record.packagingInfo || fixture.packagingInfo,
+    weightText: record.weightText || `${fixture.weightKg}kg`,
+    volumeText: record.volumeText || `${fixture.lengthCm}*${fixture.widthCm}*${fixture.heightCm}cm`,
     lastListingAt: record.lastListingAt || '',
-    lastOrderAt: record.lastOrderAt || '',
     createdAt: record.createdAt || record.updatedAt || nowText(),
     createdBy: record.createdBy || '系统初始化',
     updatedAt: record.updatedAt || record.createdAt || nowText(),
@@ -190,6 +205,7 @@ function buildSeedRecord(
         : 0
   const printName = resolvePrintName(style.styleName, skuIndex)
   const barcodeSeed = `${toDigits(style.styleCode).slice(-6) || String(styleIndex + 1).padStart(6, '0')}${String(skuIndex + 1).padStart(3, '0')}`
+  const fixture = buildSkuFixture(style.styleCode, style.styleName, input.color, input.size)
 
   return normalizeRecord({
     skuId: `sku_seed_${style.styleId}_${String(skuIndex + 1).padStart(3, '0')}`,
@@ -197,10 +213,14 @@ function buildSeedRecord(
     styleId: style.styleId,
     styleCode: style.styleCode,
     styleName: style.styleName,
+    skuName: `${style.styleName} ${input.color}/${input.size}`,
+    skuNameEn: fixture.skuNameEn,
     colorName: input.color,
     sizeName: input.size,
     printName,
     barcode: `69${barcodeSeed}`.slice(0, 13),
+    channelTitle: fixture.channelTitle,
+    skuImageUrl: fixture.skuImageUrl,
     archiveStatus,
     mappingHealth,
     channelMappingCount,
@@ -210,10 +230,19 @@ function buildSeedRecord(
     techPackVersionLabel: style.currentTechPackVersionLabel || latestVersion?.versionLabel || '',
     legacySystem: style.legacyOriginProject ? '老系统复用' : 'ERP-A',
     legacyCode: `${style.styleCode}-${resolveColorCode(input.color)}-${input.size}`,
+    costPrice: fixture.costPrice,
+    freightCost: fixture.freightCost,
+    suggestedRetailPrice: fixture.suggestedRetailPrice,
+    currency: fixture.currency,
+    pricingUnit: fixture.pricingUnit,
+    weightKg: fixture.weightKg,
+    lengthCm: fixture.lengthCm,
+    widthCm: fixture.widthCm,
+    heightCm: fixture.heightCm,
+    packagingInfo: fixture.packagingInfo,
     weightText: resolveWeightText(style.styleName),
     volumeText: resolveVolumeText(style.styleName),
     lastListingAt: listedChannelCount > 0 ? style.updatedAt.slice(0, 10) : '',
-    lastOrderAt: archiveStatus === 'ACTIVE' ? style.updatedAt.slice(0, 10) : '',
     createdAt: style.generatedAt || style.updatedAt,
     createdBy: style.generatedBy || style.updatedBy,
     updatedAt: style.updatedAt,

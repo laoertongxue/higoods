@@ -1,4 +1,5 @@
 import { techPacks } from './fcs/tech-packs.ts'
+import { buildStyleFixture } from './pcs-product-archive-fixtures.ts'
 import {
   listProjectWorkspaceCategories,
   listProjectWorkspaceStyles,
@@ -139,6 +140,7 @@ function countCostItems(techPack: (typeof techPacks)[number]): number {
 }
 
 function buildRecord(techPack: (typeof techPacks)[number], index: number): StyleArchiveShellRecord {
+  const fixture = buildStyleFixture(techPack.spuCode, techPack.spuName)
   const versionNo = parseVersionNo(techPack.versionLabel, 1)
   const versionLabel = normalizeVersionLabel(techPack.versionLabel, versionNo)
   const released = techPack.status === 'RELEASED'
@@ -149,6 +151,7 @@ function buildRecord(techPack: (typeof techPacks)[number], index: number): Style
     styleId: `style_seed_${String(index + 1).padStart(3, '0')}`,
     styleCode: techPack.spuCode,
     styleName: techPack.spuName,
+    styleNameEn: fixture.styleNameEn,
     styleNumber: techPack.spuCode,
     styleType: '成衣',
     sourceProjectId: '',
@@ -182,6 +185,11 @@ function buildRecord(techPack: (typeof techPacks)[number], index: number): Style
     currentTechPackVersionStatus: released ? '已发布' : '',
     currentTechPackVersionActivatedAt: released ? techPack.lastUpdatedAt || '' : '',
     currentTechPackVersionActivatedBy: released ? techPack.lastUpdatedBy || '系统初始化' : '',
+    mainImageUrl: fixture.mainImageUrl,
+    galleryImageUrls: fixture.galleryImageUrls,
+    sellingPointText: fixture.sellingPointText,
+    detailDescription: fixture.detailDescription,
+    packagingInfo: fixture.packagingInfo,
     remark: '',
     generatedAt: techPack.lastUpdatedAt || '',
     generatedBy: techPack.lastUpdatedBy || '系统初始化',
@@ -196,6 +204,7 @@ const EXTRA_STYLE_ARCHIVE_RECORDS: StyleArchiveShellRecord[] = [
     styleId: 'style_seed_project_018',
     styleCode: 'SPU-2026-018',
     styleName: '设计款印花阔腿连体裤',
+    styleNameEn: 'Printed Wide-Leg Jumpsuit',
     styleNumber: 'SPU-2026-018',
     styleType: '成衣',
     sourceProjectId: 'prj_20251216_018',
@@ -229,6 +238,11 @@ const EXTRA_STYLE_ARCHIVE_RECORDS: StyleArchiveShellRecord[] = [
     currentTechPackVersionStatus: '',
     currentTechPackVersionActivatedAt: '',
     currentTechPackVersionActivatedBy: '',
+    mainImageUrl: buildStyleFixture('SPU-2026-018', '设计款印花阔腿连体裤').mainImageUrl,
+    galleryImageUrls: buildStyleFixture('SPU-2026-018', '设计款印花阔腿连体裤').galleryImageUrls,
+    sellingPointText: '改版任务转档后的正式演示款式档案。',
+    detailDescription: '用于串联改版任务、后续技术包版本和渠道店铺商品的正式主档。',
+    packagingInfo: '独立包装袋 + 吊牌，常规折叠入箱',
     remark: '补充的改版任务演示款式档案。',
     generatedAt: '2026-04-01 18:20',
     generatedBy: '系统初始化',

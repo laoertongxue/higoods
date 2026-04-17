@@ -2,6 +2,7 @@ import {
   findProjectByCode,
   findProjectNodeByWorkItemTypeCode,
 } from './pcs-project-repository.ts'
+import { findStyleArchiveByProjectId, findStyleArchiveByCode, listStyleArchives } from './pcs-style-archive-repository.ts'
 import type {
   ProjectRelationPendingItem,
   ProjectRelationRecord,
@@ -54,6 +55,16 @@ function pendingItem(
 
 function pickProjectByCode(projectCode: string) {
   return findProjectByCode(projectCode) ?? null
+}
+
+function pickStyleByProjectCode(projectCode: string) {
+  const project = pickProjectByCode(projectCode)
+  if (!project) return null
+  return findStyleArchiveByProjectId(project.projectId) ?? null
+}
+
+function pickStyleByCode(styleCode: string) {
+  return findStyleArchiveByCode(styleCode) ?? listStyleArchives().find((item) => item.styleCode === styleCode) ?? null
 }
 
 function relationPendingItem(
@@ -132,6 +143,7 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
     : null
 
   if (projectA && nodeA) {
+    const styleA = findStyleArchiveByProjectId(projectA.projectId)
     tasks.push({
       revisionTaskId: 'RT-20260109-003',
       revisionTaskCode: 'RT-20260109-003',
@@ -147,8 +159,15 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
       upstreamObjectType: '项目工作项',
       upstreamObjectId: nodeA.projectNodeId,
       upstreamObjectCode: 'WI-20260108-011',
-      productStyleCode: 'SPU-LY-2401',
-      spuCode: 'SPU-LY-2401',
+      styleId: styleA?.styleId || '',
+      styleCode: styleA?.styleCode || 'SPU-LY-2401',
+      styleName: styleA?.styleName || projectA.projectName,
+      referenceObjectType: '',
+      referenceObjectId: '',
+      referenceObjectCode: '',
+      referenceObjectName: '',
+      productStyleCode: styleA?.styleCode || 'SPU-LY-2401',
+      spuCode: styleA?.styleCode || 'SPU-LY-2401',
       status: '进行中',
       ownerId: projectA.ownerId,
       ownerName: '李版师',
@@ -158,6 +177,8 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
       revisionScopeCodes: ['PATTERN', 'SIZE', 'FABRIC'],
       revisionScopeNames: ['版型结构', '尺码规格', '面料'],
       revisionVersion: '',
+      issueSummary: '领口开口偏大，腰节位置偏低，面料克重不利于直播镜头呈现。',
+      evidenceSummary: '直播测款评论、试穿反馈和面料手感评审记录已确认上述问题。',
       linkedTechPackVersionId: '',
       linkedTechPackVersionCode: '',
       linkedTechPackVersionLabel: '',
@@ -173,26 +194,34 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
     })
   }
 
-  if (projectB && nodeB) {
+  const styleB = pickStyleByProjectCode('PRJ-20251216-010') || listStyleArchives()[0] || null
+  if (styleB) {
     tasks.push({
       revisionTaskId: 'RT-20260108-002',
       revisionTaskCode: 'RT-20260108-002',
       title: '波西米亚印花长裙花型与颜色改版',
-      projectId: projectB.projectId,
-      projectCode: projectB.projectCode,
-      projectName: projectB.projectName,
-      projectNodeId: nodeB.projectNodeId,
+      projectId: '',
+      projectCode: '',
+      projectName: '',
+      projectNodeId: '',
       workItemTypeCode: 'REVISION_TASK',
       workItemTypeName: '改版任务',
       sourceType: '既有商品改款',
-      upstreamModule: '',
-      upstreamObjectType: '',
-      upstreamObjectId: '',
-      upstreamObjectCode: '',
-      productStyleCode: 'SPU-BX-2402',
-      spuCode: 'SPU-BX-2402',
+      upstreamModule: '款式档案',
+      upstreamObjectType: '款式档案',
+      upstreamObjectId: styleB.styleId,
+      upstreamObjectCode: styleB.styleCode,
+      styleId: styleB.styleId,
+      styleCode: styleB.styleCode,
+      styleName: styleB.styleName,
+      referenceObjectType: '',
+      referenceObjectId: '',
+      referenceObjectCode: '',
+      referenceObjectName: '',
+      productStyleCode: styleB.styleCode,
+      spuCode: styleB.styleCode,
       status: '待确认',
-      ownerId: projectB.ownerId,
+      ownerId: '',
       ownerName: '王版师',
       participantNames: ['李设计'],
       priorityLevel: '中',
@@ -200,6 +229,8 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
       revisionScopeCodes: ['PRINT', 'COLOR'],
       revisionScopeNames: ['花型', '颜色'],
       revisionVersion: 'R1',
+      issueSummary: '原款花型节奏偏密、主色偏暗，既有商品复刻后缺少夏季轻快感。',
+      evidenceSummary: '对比门店反馈、竞品陈列照片和既有款销售评论后确认需要调整。',
       linkedTechPackVersionId: '',
       linkedTechPackVersionCode: '',
       linkedTechPackVersionLabel: '',
@@ -210,8 +241,8 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
       updatedAt: '2026-01-09 11:00:00',
       updatedBy: '系统初始化',
       note: '历史既有商品改款任务已迁移。',
-      legacyProjectRef: projectB.projectCode,
-      legacyUpstreamRef: '',
+      legacyProjectRef: '',
+      legacyUpstreamRef: styleB.styleCode,
     })
   }
 
@@ -272,6 +303,7 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
     const node = project
       ? findProjectNodeByWorkItemTypeCode(project.projectId, 'REVISION_TASK') ?? findProjectNodeByWorkItemTypeCode(project.projectId, 'TEST_CONCLUSION')
       : null
+    const style = project ? findStyleArchiveByProjectId(project.projectId) : null
     if (!project || !node) return
     tasks.push({
       revisionTaskId: item.revisionTaskId,
@@ -288,8 +320,15 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
       upstreamObjectType: '项目工作项',
       upstreamObjectId: node.projectNodeId,
       upstreamObjectCode: node.projectNodeId,
-      productStyleCode: item.productStyleCode,
-      spuCode: item.spuCode,
+      styleId: style?.styleId || '',
+      styleCode: style?.styleCode || item.productStyleCode,
+      styleName: style?.styleName || project.projectName,
+      referenceObjectType: '',
+      referenceObjectId: '',
+      referenceObjectCode: '',
+      referenceObjectName: '',
+      productStyleCode: style?.styleCode || item.productStyleCode,
+      spuCode: style?.styleCode || item.spuCode,
       status: item.status,
       ownerId: project.ownerId,
       ownerName: item.ownerName,
@@ -299,6 +338,8 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
       revisionScopeCodes: item.revisionScopeCodes,
       revisionScopeNames: item.revisionScopeNames,
       revisionVersion: '',
+      issueSummary: '测款与评审结论已汇总，需要据此调整当前款式的重点问题。',
+      evidenceSummary: '来源于测款结论、样衣评审和复盘记录的正式结论摘要。',
       linkedTechPackVersionId: '',
       linkedTechPackVersionCode: '',
       linkedTechPackVersionLabel: '',
@@ -313,6 +354,58 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
       legacyUpstreamRef: node.projectNodeId,
     })
   })
+
+  const manualStyle = pickStyleByCode('SPU-2026-018') || listStyleArchives()[1] || listStyleArchives()[0] || null
+  if (manualStyle) {
+    tasks.push({
+      revisionTaskId: 'RT-20260406-901',
+      revisionTaskCode: 'RT-20260406-901',
+      title: '设计师补充意见改版（阔腿连体裤花型留白与裤脚结构）',
+      projectId: '',
+      projectCode: '',
+      projectName: '',
+      projectNodeId: '',
+      workItemTypeCode: 'REVISION_TASK',
+      workItemTypeName: '改版任务',
+      sourceType: '人工创建',
+      upstreamModule: '人工参考',
+      upstreamObjectType: '设计评审纪要',
+      upstreamObjectId: 'REF-20260406-001',
+      upstreamObjectCode: 'REF-20260406-001',
+      styleId: manualStyle.styleId,
+      styleCode: manualStyle.styleCode,
+      styleName: manualStyle.styleName,
+      referenceObjectType: '设计评审纪要',
+      referenceObjectId: 'REF-20260406-001',
+      referenceObjectCode: 'REF-20260406-001',
+      referenceObjectName: '设计评审纪要 · 阔腿连体裤二次确认',
+      productStyleCode: manualStyle.styleCode,
+      spuCode: manualStyle.styleCode,
+      status: '已确认',
+      ownerId: '',
+      ownerName: '陈版师',
+      participantNames: ['李设计', '张工艺'],
+      priorityLevel: '中',
+      dueAt: '2026-04-11 18:00:00',
+      revisionScopeCodes: ['PRINT', 'PATTERN'],
+      revisionScopeNames: ['花型', '版型结构'],
+      revisionVersion: 'R1',
+      issueSummary: '设计评审认为花型留白不足、裤脚展开角度偏保守，影响设计识别度。',
+      evidenceSummary: '来源于设计评审纪要和试穿对照图，不依赖上游自动汇集。',
+      linkedTechPackVersionId: '',
+      linkedTechPackVersionCode: '',
+      linkedTechPackVersionLabel: '',
+      linkedTechPackVersionStatus: '',
+      linkedTechPackUpdatedAt: '',
+      createdAt: '2026-04-06 15:10:00',
+      createdBy: '系统初始化',
+      updatedAt: '2026-04-06 16:00:00',
+      updatedBy: '系统初始化',
+      note: '人工创建的改版任务样例。',
+      legacyProjectRef: '',
+      legacyUpstreamRef: 'REF-20260406-001',
+    })
+  }
 
   return {
     tasks,
@@ -1091,23 +1184,25 @@ export function createTaskRelationBootstrapSnapshot(): TaskRelationBootstrapSnap
   const snapshot = createTaskBootstrapSnapshot()
   return {
     relations: [
-      ...snapshot.revisionTasks.map((task) =>
-        taskRelationRecord({
-          projectId: task.projectId,
-          projectCode: task.projectCode,
-          projectNodeId: task.projectNodeId,
-          workItemTypeCode: task.workItemTypeCode,
-          workItemTypeName: task.workItemTypeName,
-          sourceModule: '改版任务',
-          sourceObjectType: '改版任务',
-          sourceObjectId: task.revisionTaskId,
-          sourceObjectCode: task.revisionTaskCode,
-          sourceTitle: task.title,
-          sourceStatus: task.status,
-          businessDate: task.createdAt,
-          ownerName: task.ownerName,
-        }),
-      ),
+      ...snapshot.revisionTasks
+        .filter((task) => task.projectId && task.projectNodeId)
+        .map((task) =>
+          taskRelationRecord({
+            projectId: task.projectId,
+            projectCode: task.projectCode,
+            projectNodeId: task.projectNodeId,
+            workItemTypeCode: task.workItemTypeCode,
+            workItemTypeName: task.workItemTypeName,
+            sourceModule: '改版任务',
+            sourceObjectType: '改版任务',
+            sourceObjectId: task.revisionTaskId,
+            sourceObjectCode: task.revisionTaskCode,
+            sourceTitle: task.title,
+            sourceStatus: task.status,
+            businessDate: task.createdAt,
+            ownerName: task.ownerName,
+          }),
+        ),
       ...snapshot.plateTasks.map((task) =>
         taskRelationRecord({
           projectId: task.projectId,

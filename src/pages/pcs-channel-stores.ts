@@ -110,9 +110,10 @@ interface StoreCreateDraft {
   storeCode: string
   platformStoreId: string
   country: string
-  pricingCurrency: string
   settlementCurrency: string
   timezone: string
+  team: string
+  storeOwner: string
 }
 
 interface StoreEditDraft {
@@ -149,6 +150,7 @@ interface ChannelStoresPageState {
     channel: string
     country: string
     status: string
+    linkedOnly: boolean
     authStatus: string
     ownerType: string
     legalEntity: string
@@ -234,15 +236,29 @@ const LEGAL_ENTITIES: LegalEntity[] = [
   { id: 'LE-002', name: 'PT HIGOOD LIVE JAKARTA', country: '印尼' },
 ]
 
-const CHANNEL_OPTIONS = ['TikTok', 'Shopee', '独立站']
-const STORE_COUNTRY_OPTIONS = ['印尼', '越南', '马来西亚', '全球']
+const CHANNEL_OPTIONS = ['TikTok', 'Shopee', 'Lazada', '独立站']
+const STORE_COUNTRY_OPTIONS = ['印尼', '越南', '马来西亚', '菲律宾', '全球']
 const ACCOUNT_COUNTRY_OPTIONS = [
   { code: 'HK', label: '香港' },
   { code: 'ID', label: '印尼' },
   { code: 'VN', label: '越南' },
   { code: 'MY', label: '马来西亚' },
 ]
-const CURRENCY_OPTIONS = ['USD', 'IDR', 'VND', 'MYR']
+const CURRENCY_OPTIONS = ['USD', 'IDR', 'VND', 'MYR', 'PHP']
+const STORE_TEAM_OPTIONS = [
+  {
+    team: '东南亚运营组',
+    owners: ['李运营', '王运营', '苏运营', '赵运营', '何运营'],
+  },
+  {
+    team: '独立站运营组',
+    owners: ['周运营'],
+  },
+  {
+    team: '渠道运营组',
+    owners: ['陈运营', '张运营'],
+  },
+]
 const PAYOUT_CHANNEL_OPTIONS = ['平台内提现', '银行转账', 'PSP']
 const INVENTORY_SYNC_OPTIONS = [
   { value: 'AVAILABLE_TO_SELL', label: '可售库存 (ATS)' },
@@ -271,9 +287,10 @@ const initialStoreCreateDraft: StoreCreateDraft = {
   storeCode: '',
   platformStoreId: '',
   country: '',
-  pricingCurrency: '',
   settlementCurrency: '',
   timezone: '',
+  team: '',
+  storeOwner: '',
 }
 
 const initialPayoutCreateDraft: PayoutCreateDraft = {
@@ -293,6 +310,7 @@ const state: ChannelStoresPageState = {
     channel: 'all',
     country: 'all',
     status: 'all',
+    linkedOnly: false,
     authStatus: 'all',
     ownerType: 'all',
     legalEntity: 'all',
@@ -490,6 +508,26 @@ function cloneAccount(record: PayoutAccountRecord): PayoutAccountRecord {
 
 function getCountryLabel(code: string): string {
   return ACCOUNT_COUNTRY_OPTIONS.find((item) => item.code === code)?.label ?? code
+}
+
+function getStoreOwnerOptions(team: string): string[] {
+  return STORE_TEAM_OPTIONS.find((item) => item.team === team)?.owners ?? []
+}
+
+function getDefaultCurrencyByCountry(country: string): string {
+  if (country === '印尼') return 'IDR'
+  if (country === '越南') return 'VND'
+  if (country === '马来西亚') return 'MYR'
+  if (country === '菲律宾') return 'PHP'
+  return 'USD'
+}
+
+function getDefaultTimezoneByCountry(country: string): string {
+  if (country === '印尼') return 'Asia/Jakarta'
+  if (country === '越南') return 'Asia/Ho_Chi_Minh'
+  if (country === '马来西亚') return 'Asia/Kuala_Lumpur'
+  if (country === '菲律宾') return 'Asia/Manila'
+  return 'Asia/Shanghai'
 }
 
 function ensureSeeded(): void {
@@ -1212,8 +1250,6 @@ function renderCheckbox(field: string, checked: boolean, label: string): string 
 function getFilteredStores(): ChannelStoreRecord[] {
   const keyword = state.storeList.search.trim().toLowerCase()
   return listStores().filter((store) => {
-    const binding = getCurrentBinding(store)
-    const account = binding ? getPayoutAccountById(binding.payoutAccountId) : null
     const matchesKeyword =
       keyword.length === 0 ||
       [store.storeName, store.storeCode, store.platformStoreId ?? '', ...store.projectStoreIds].join(' ').toLowerCase().includes(keyword)
@@ -1221,9 +1257,7 @@ function getFilteredStores(): ChannelStoreRecord[] {
     if (state.storeList.channel !== 'all' && store.channel !== state.storeList.channel) return false
     if (state.storeList.country !== 'all' && store.country !== state.storeList.country) return false
     if (state.storeList.status !== 'all' && store.status !== state.storeList.status) return false
-    if (state.storeList.authStatus !== 'all' && store.authStatus !== state.storeList.authStatus) return false
-    if (state.storeList.ownerType !== 'all' && binding?.ownerType !== state.storeList.ownerType) return false
-    if (state.storeList.legalEntity !== 'all' && account?.ownerRefId !== state.storeList.legalEntity) return false
+    if (state.storeList.linkedOnly && store.projectStoreIds.length === 0) return false
     return true
   })
 }
@@ -1233,10 +1267,8 @@ function getStoreStats() {
   return {
     total: stores.length,
     active: stores.filter((store) => store.status === 'ACTIVE').length,
-    connected: stores.filter((store) => store.authStatus === 'CONNECTED').length,
-    expired: stores.filter((store) => store.authStatus === 'EXPIRED').length,
-    noPayoutBinding: stores.filter((store) => !getCurrentBinding(store)).length,
-    personalOwner: stores.filter((store) => getCurrentBinding(store)?.ownerType === 'PERSONAL').length,
+    inactive: stores.filter((store) => store.status === 'INACTIVE').length,
+    linkedProject: stores.filter((store) => store.projectStoreIds.length > 0).length,
   }
 }
 
@@ -1307,12 +1339,13 @@ function openStoreEditDrawer(storeId: string): void {
 
 function createStore(): void {
   const draft = state.storeCreateDraft
-  if (!draft.channel || !draft.storeName || !draft.storeCode || !draft.country || !draft.pricingCurrency) {
-    state.notice = '请补齐渠道、店铺名称、内部编码、国家/区域和报价币种。'
+  if (!draft.channel || !draft.storeName || !draft.storeCode || !draft.country || !draft.team || !draft.storeOwner) {
+    state.notice = '请补齐渠道、店铺名称、内部编码、国家/区域、所属团队和店铺负责人。'
     return
   }
   const id = `ST-${String(storeRecords.size + 1).padStart(3, '0')}`
   const timestamp = nowText()
+  const settlementCurrency = draft.settlementCurrency || getDefaultCurrencyByCountry(draft.country)
   const record: ChannelStoreRecord = {
     id,
     channel: draft.channel,
@@ -1321,15 +1354,15 @@ function createStore(): void {
     platformStoreId: draft.platformStoreId.trim() || null,
     country: draft.country,
     region: draft.country === '全球' ? 'GLOBAL' : ACCOUNT_COUNTRY_OPTIONS.find((item) => item.label === draft.country)?.code ?? draft.country,
-    pricingCurrency: draft.pricingCurrency,
-    settlementCurrency: draft.settlementCurrency || draft.pricingCurrency,
-    timezone: draft.timezone || 'Asia/Shanghai',
+    pricingCurrency: settlementCurrency,
+    settlementCurrency,
+    timezone: draft.timezone || getDefaultTimezoneByCountry(draft.country),
     status: 'ACTIVE',
     authStatus: 'ERROR',
     tokenExpireAt: null,
     lastRefreshAt: null,
-    storeOwner: '待分配',
-    team: '渠道运营组',
+    storeOwner: draft.storeOwner,
+    team: draft.team,
     reviewer: '待指定',
     createdAt: timestamp,
     createdBy: '当前用户',
@@ -1537,27 +1570,22 @@ function renderStoreListPageContent(): string {
   const stats = getStoreStats()
   const filteredStores = getFilteredStores()
   const actions = `
-    <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/channels/stores/payout-accounts">
-      <i data-lucide="wallet" class="h-4 w-4"></i>提现账号管理
-    </button>
     <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md bg-slate-900 px-3 text-sm text-white hover:bg-slate-800" data-pcs-channel-store-action="open-store-create">
       <i data-lucide="plus" class="h-4 w-4"></i>新建店铺
     </button>
   `
   const metricGrid = `
-    <div class="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
+    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
       ${renderMetricButton('全部店铺', stats.total, '', 'store-quick-filter', 'data-filter=\"reset\"')}
       ${renderMetricButton('启用中', stats.active, '', 'store-quick-filter', 'data-filter=\"status\" data-value=\"ACTIVE\"')}
-      ${renderMetricButton('已授权', stats.connected, '', 'store-quick-filter', 'data-filter=\"auth\" data-value=\"CONNECTED\"')}
-      ${renderMetricButton('授权过期', stats.expired, 'border-yellow-200 bg-yellow-50', 'store-quick-filter', 'data-filter=\"auth\" data-value=\"EXPIRED\"')}
-      ${renderMetricButton('缺少提现绑定', stats.noPayoutBinding, 'border-red-200 bg-red-50', 'store-quick-filter', 'data-filter=\"payout\" data-value=\"missing\"')}
-      ${renderMetricButton('个人归属', stats.personalOwner, 'border-orange-200 bg-orange-50', 'store-quick-filter', 'data-filter=\"owner\" data-value=\"PERSONAL\"')}
+      ${renderMetricButton('停用中', stats.inactive, 'border-slate-200 bg-slate-50', 'store-quick-filter', 'data-filter=\"status\" data-value=\"INACTIVE\"')}
+      ${renderMetricButton('已关联项目', stats.linkedProject, 'border-blue-200 bg-blue-50', 'store-quick-filter', 'data-filter=\"linked\"')}
     </div>
   `
   const filters = renderCard(
     '筛选条件',
     `
-      <div class="grid gap-4 lg:grid-cols-7">
+      <div class="grid gap-4 lg:grid-cols-5">
         ${renderFormField('关键词', renderTextInput('store-list-search', state.storeList.search, '搜索店铺名/内部编码/平台店铺ID'))}
         ${renderFormField(
           '渠道',
@@ -1589,56 +1617,12 @@ function renderStoreListPageContent(): string {
             '全部状态',
           ),
         )}
-        ${renderFormField(
-          '授权状态',
-          renderSelect(
-            'store-list-auth-status',
-            state.storeList.authStatus === 'all' ? '' : state.storeList.authStatus,
-            [
-              { value: 'CONNECTED', label: '已连接' },
-              { value: 'EXPIRED', label: '已过期' },
-              { value: 'ERROR', label: '连接错误' },
-            ],
-            '全部授权',
-          ),
-        )}
-        ${renderFormField(
-          '归属类型',
-          renderSelect(
-            'store-list-owner-type',
-            state.storeList.ownerType === 'all' ? '' : state.storeList.ownerType,
-            [
-              { value: 'PERSONAL', label: '个人' },
-              { value: 'LEGAL', label: '法人' },
-            ],
-            '全部归属',
-          ),
-        )}
-        ${
-          state.storeList.ownerType === 'LEGAL'
-            ? renderFormField(
-                '法人主体',
-                renderSelect(
-                  'store-list-legal-entity',
-                  state.storeList.legalEntity === 'all' ? '' : state.storeList.legalEntity,
-                  LEGAL_ENTITIES.map((item) => ({ value: item.id, label: item.name })),
-                  '全部法人',
-                ),
-              )
-            : '<div class="flex items-end"><button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-channel-store-action="reset-store-list">重置</button></div>'
-        }
+        <div class="flex items-end"><button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-channel-store-action="reset-store-list">重置</button></div>
       </div>
-      ${
-        state.storeList.ownerType === 'LEGAL'
-          ? '<div class="mt-4"><button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-channel-store-action="reset-store-list">重置</button></div>'
-          : ''
-      }
     `,
   )
   const rows = filteredStores
     .map((store) => {
-      const binding = getCurrentBinding(store)
-      const account = binding ? getPayoutAccountById(binding.payoutAccountId) : null
       return `
         <tr class="border-t border-slate-100 align-top">
           <td class="px-4 py-3">${renderBadge(store.channel, 'border border-slate-200 bg-white text-slate-700')}</td>
@@ -1648,25 +1632,15 @@ function renderStoreListPageContent(): string {
           </td>
           <td class="px-4 py-3 text-sm text-slate-700">
             <div>${escapeHtml(store.country)}</div>
-            <div class="mt-1 text-xs text-slate-500">${escapeHtml(store.pricingCurrency)}</div>
-          </td>
-          <td class="px-4 py-3">${renderBadge(AUTH_STATUS_META[store.authStatus].label, AUTH_STATUS_META[store.authStatus].className)}</td>
-          <td class="px-4 py-3 text-sm text-slate-700">
-            ${
-              binding
-                ? `
-                  <div>${escapeHtml(binding.payoutAccountName)}</div>
-                  <div class="mt-1 text-xs text-slate-500">${escapeHtml(binding.payoutIdentifier)}</div>
-                `
-                : '<span class="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-600"><i data-lucide="alert-triangle" class="h-3 w-3"></i>未绑定</span>'
-            }
+            <div class="mt-1 text-xs text-slate-500">${escapeHtml(store.region)}</div>
           </td>
           <td class="px-4 py-3 text-sm text-slate-700">
-            ${
-              binding && account
-                ? `<div class="flex items-center gap-2">${renderOwnerBadge(binding.ownerType)}<span>${escapeHtml(binding.ownerName)}</span></div>`
-                : '<span class="text-slate-400">-</span>'
-            }
+            <div>${escapeHtml(store.team)}</div>
+            <div class="mt-1 text-xs text-slate-500">${escapeHtml(store.reviewer)}</div>
+          </td>
+          <td class="px-4 py-3 text-sm text-slate-700">
+            <div>${escapeHtml(store.storeOwner)}</div>
+            <div class="mt-1 text-xs text-slate-500">${escapeHtml(STORE_STATUS_META[store.status].label)}</div>
           </td>
           <td class="px-4 py-3 text-sm text-slate-500">${escapeHtml(formatDateTime(store.updatedAt))}</td>
           <td class="px-4 py-3">
@@ -1687,10 +1661,9 @@ function renderStoreListPageContent(): string {
             <tr>
               <th class="px-4 py-3 font-medium">渠道</th>
               <th class="px-4 py-3 font-medium">店铺名称</th>
-              <th class="px-4 py-3 font-medium">国家/币种</th>
-              <th class="px-4 py-3 font-medium">授权状态</th>
-              <th class="px-4 py-3 font-medium">当前提现账号</th>
-              <th class="px-4 py-3 font-medium">收入归属主体</th>
+              <th class="px-4 py-3 font-medium">国家/区域</th>
+              <th class="px-4 py-3 font-medium">所属团队</th>
+              <th class="px-4 py-3 font-medium">店铺负责人</th>
               <th class="px-4 py-3 font-medium">最近更新</th>
               <th class="px-4 py-3 font-medium">操作</th>
             </tr>
@@ -1698,7 +1671,7 @@ function renderStoreListPageContent(): string {
           <tbody>
             ${
               rows ||
-              '<tr><td colspan="8" class="px-4 py-10 text-center text-sm text-slate-500">暂无符合条件的店铺记录。</td></tr>'
+              '<tr><td colspan="7" class="px-4 py-10 text-center text-sm text-slate-500">暂无符合条件的店铺记录。</td></tr>'
             }
           </tbody>
         </table>
@@ -1709,7 +1682,7 @@ function renderStoreListPageContent(): string {
   return `
     <div class="space-y-5 p-4">
       ${renderNotice()}
-      ${renderPageHeader('渠道店铺管理', '管理渠道 x 店铺的基础信息、授权连接、提现账号绑定。', actions)}
+      ${renderPageHeader('渠道店铺管理', '管理渠道店铺的基础资料、团队归属和负责人信息。', actions)}
       ${metricGrid}
       ${filters}
       ${table}
@@ -1721,6 +1694,7 @@ function renderStoreListPageContent(): string {
 function renderStoreCreateDrawer(): string {
   if (!state.storeCreateDrawerOpen) return ''
   const draft = state.storeCreateDraft
+  const ownerOptions = getStoreOwnerOptions(draft.team)
   const body = `
     <div class="space-y-6">
       <section class="space-y-4">
@@ -1737,16 +1711,11 @@ function renderStoreCreateDrawer(): string {
         </div>
       </section>
       <section class="space-y-4">
-        <h4 class="text-sm font-semibold text-slate-900">区域与币种</h4>
+        <h4 class="text-sm font-semibold text-slate-900">区域与结算</h4>
         <div class="grid gap-4 md:grid-cols-2">
           ${renderFormField(
             '国家/区域',
             renderSelect('store-create-country', draft.country, STORE_COUNTRY_OPTIONS.map((item) => ({ value: item, label: item })), '选择国家/区域'),
-            true,
-          )}
-          ${renderFormField(
-            '报价币种',
-            renderSelect('store-create-pricing-currency', draft.pricingCurrency, CURRENCY_OPTIONS.map((item) => ({ value: item, label: item })), '选择报价币种'),
             true,
           )}
           ${renderFormField(
@@ -1756,13 +1725,33 @@ function renderStoreCreateDrawer(): string {
           ${renderFormField('时区', renderTextInput('store-create-timezone', draft.timezone, '如：Asia/Jakarta'))}
         </div>
       </section>
+      <section class="space-y-4">
+        <h4 class="text-sm font-semibold text-slate-900">所属团队与负责人</h4>
+        <div class="grid gap-4 md:grid-cols-2">
+          ${renderFormField(
+            '所属团队',
+            renderSelect('store-create-team', draft.team, STORE_TEAM_OPTIONS.map((item) => ({ value: item.team, label: item.team })), '选择所属团队'),
+            true,
+          )}
+          ${renderFormField(
+            '店铺负责人',
+            renderSelect(
+              'store-create-store-owner',
+              draft.storeOwner,
+              ownerOptions.map((item) => ({ value: item, label: item })),
+              draft.team ? '选择店铺负责人' : '请先选择所属团队',
+            ),
+            true,
+          )}
+        </div>
+      </section>
     </div>
   `
   const footer = `
     <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-channel-store-action="close-dialogs">取消</button>
     <button type="button" class="inline-flex h-9 items-center rounded-md bg-slate-900 px-3 text-sm text-white hover:bg-slate-800" data-pcs-channel-store-action="submit-store-create">创建店铺</button>
   `
-  return renderDrawerShell('新建渠道店铺', '建立渠道店铺主数据，后续用于授权连接和提现账号绑定。', body, footer)
+  return renderDrawerShell('新建渠道店铺', '建立渠道店铺主数据，并明确所属团队和店铺负责人。', body, footer)
 }
 
 function renderStoreOverviewTab(store: ChannelStoreRecord): string {
@@ -2048,8 +2037,8 @@ function renderStoreLogsTab(store: ChannelStoreRecord): string {
   `
 }
 
-function renderStoreDetailDialogs(store: ChannelStoreRecord): string {
-  return `${renderStoreEditDrawer()}${renderStoreAuthDialog(store)}${renderStorePayoutDialog()}${renderStoreBindingHistoryDialog(store)}`
+function renderStoreDetailDialogs(): string {
+  return renderStoreEditDrawer()
 }
 
 function renderStoreEditDrawer(): string {
@@ -2248,36 +2237,61 @@ function renderPayoutCreateDrawer(): string {
   return renderDrawerShell('新建提现账号', '管理提现账号主数据，决定店铺收入归属主体。', body, footer)
 }
 
+function renderStoreDetailSummary(store: ChannelStoreRecord): string {
+  const projectStoreText =
+    store.projectStoreIds.length > 0
+      ? store.projectStoreIds.map((item) => `<span class="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-600">${escapeHtml(item)}</span>`).join('')
+      : '<span class="text-sm text-slate-400">暂无关联项目</span>'
+
+  return `
+    ${renderCard(
+      '店铺基础信息',
+      `
+        <div class="grid gap-4 text-sm md:grid-cols-2 xl:grid-cols-4">
+          <div><div class="text-slate-500">渠道</div><div class="mt-1 font-medium text-slate-900">${escapeHtml(store.channel)}</div></div>
+          <div><div class="text-slate-500">店铺名称</div><div class="mt-1 font-medium text-slate-900">${escapeHtml(store.storeName)}</div></div>
+          <div><div class="text-slate-500">内部编码</div><div class="mt-1 font-medium text-slate-900">${escapeHtml(store.storeCode)}</div></div>
+          <div><div class="text-slate-500">平台店铺 ID</div><div class="mt-1 font-medium text-slate-900">${escapeHtml(store.platformStoreId || '-')}</div></div>
+          <div><div class="text-slate-500">国家/区域</div><div class="mt-1 font-medium text-slate-900">${escapeHtml(store.country)}</div></div>
+          <div><div class="text-slate-500">区域编码</div><div class="mt-1 font-medium text-slate-900">${escapeHtml(store.region)}</div></div>
+          <div><div class="text-slate-500">结算币种</div><div class="mt-1 font-medium text-slate-900">${escapeHtml(store.settlementCurrency)}</div></div>
+          <div><div class="text-slate-500">时区</div><div class="mt-1 font-medium text-slate-900">${escapeHtml(store.timezone)}</div></div>
+          <div><div class="text-slate-500">店铺状态</div><div class="mt-1">${renderBadge(STORE_STATUS_META[store.status].label, STORE_STATUS_META[store.status].className)}</div></div>
+          <div><div class="text-slate-500">创建时间</div><div class="mt-1 font-medium text-slate-900">${escapeHtml(formatDateTime(store.createdAt))}</div></div>
+          <div><div class="text-slate-500">创建人</div><div class="mt-1 font-medium text-slate-900">${escapeHtml(store.createdBy)}</div></div>
+          <div><div class="text-slate-500">最近更新</div><div class="mt-1 font-medium text-slate-900">${escapeHtml(formatDateTime(store.updatedAt))}</div></div>
+        </div>
+      `,
+    )}
+    ${renderCard(
+      '团队与责任',
+      `
+        <div class="grid gap-4 text-sm md:grid-cols-2 xl:grid-cols-4">
+          <div><div class="text-slate-500">所属团队</div><div class="mt-1 font-medium text-slate-900">${escapeHtml(store.team)}</div></div>
+          <div><div class="text-slate-500">店铺负责人</div><div class="mt-1 font-medium text-slate-900">${escapeHtml(store.storeOwner)}</div></div>
+          <div><div class="text-slate-500">审核人</div><div class="mt-1 font-medium text-slate-900">${escapeHtml(store.reviewer)}</div></div>
+          <div><div class="text-slate-500">更新人</div><div class="mt-1 font-medium text-slate-900">${escapeHtml(store.updatedBy)}</div></div>
+        </div>
+      `,
+    )}
+    ${renderCard(
+      '项目引用信息',
+      `
+        <div class="space-y-4">
+          <div class="text-sm text-slate-500">当前项目引用</div>
+          <div class="flex flex-wrap gap-2">${projectStoreText}</div>
+        </div>
+      `,
+    )}
+  `
+}
+
 function renderStoreDetailContent(store: ChannelStoreRecord): string {
-  const binding = getCurrentBinding(store)
   const actions = `
     <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-channel-store-action="open-store-edit" data-store-id="${escapeHtml(store.id)}">
       <i data-lucide="edit" class="h-4 w-4"></i>编辑店铺
     </button>
-    <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-channel-store-action="open-store-auth" data-store-id="${escapeHtml(store.id)}">
-      <i data-lucide="refresh-cw" class="h-4 w-4"></i>重新授权
-    </button>
-    <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md bg-slate-900 px-3 text-sm text-white hover:bg-slate-800" data-pcs-channel-store-action="open-store-payout-dialog" data-store-id="${escapeHtml(store.id)}">
-      <i data-lucide="wallet" class="h-4 w-4"></i>变更提现账号
-    </button>
   `
-  const tabButtons = STORE_DETAIL_TABS.map(
-    (tab) => `
-      <button type="button" class="${escapeHtml(toClassName('inline-flex h-9 items-center rounded-md px-3 text-sm', state.storeDetail.activeTab === tab.key ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'))}" data-pcs-channel-store-action="set-store-detail-tab" data-value="${escapeHtml(tab.key)}">${escapeHtml(tab.label)}</button>
-    `,
-  ).join('')
-  const tabContent =
-    state.storeDetail.activeTab === 'overview'
-      ? renderStoreOverviewTab(store)
-      : state.storeDetail.activeTab === 'auth'
-        ? renderStoreAuthTab(store)
-        : state.storeDetail.activeTab === 'policies'
-          ? renderStorePoliciesTab()
-          : state.storeDetail.activeTab === 'payout'
-            ? renderStorePayoutTab(store)
-            : state.storeDetail.activeTab === 'sync'
-              ? renderStoreSyncTab()
-              : renderStoreLogsTab(store)
   return `
     <div class="space-y-5 p-4">
       ${renderNotice()}
@@ -2291,18 +2305,14 @@ function renderStoreDetailContent(store: ChannelStoreRecord): string {
               <h1 class="text-2xl font-semibold text-slate-900">${escapeHtml(store.storeName)}</h1>
               ${renderBadge(store.channel, 'border border-slate-200 bg-white text-slate-700')}
               ${renderBadge(STORE_STATUS_META[store.status].label, STORE_STATUS_META[store.status].className)}
-              ${renderBadge(AUTH_STATUS_META[store.authStatus].label, AUTH_STATUS_META[store.authStatus].className)}
             </div>
-            <p class="mt-1 text-sm text-slate-500">${escapeHtml(store.storeCode)} | ${escapeHtml(store.country)} | ${escapeHtml(store.pricingCurrency)}${binding ? ` | ${escapeHtml(binding.payoutAccountName)}` : ''}</p>
+            <p class="mt-1 text-sm text-slate-500">${escapeHtml(store.storeCode)} | ${escapeHtml(store.country)} | ${escapeHtml(store.team)} | ${escapeHtml(store.storeOwner)}</p>
           </div>
         </div>
         <div class="flex flex-wrap items-center gap-2">${actions}</div>
       </section>
-      <section class="rounded-lg border bg-white p-2 shadow-sm">
-        <div class="flex flex-wrap gap-2">${tabButtons}</div>
-      </section>
-      ${tabContent}
-      ${renderStoreDetailDialogs(store)}
+      ${renderStoreDetailSummary(store)}
+      ${renderStoreDetailDialogs()}
     </div>
   `
 }
@@ -2781,18 +2791,22 @@ export function handlePcsChannelStoresInput(target: Element): boolean {
 
   if (field === 'store-list-search' && fieldNode instanceof HTMLInputElement) {
     state.storeList.search = fieldNode.value
+    state.storeList.linkedOnly = false
     return true
   }
   if (field === 'store-list-channel' && fieldNode instanceof HTMLSelectElement) {
     state.storeList.channel = fieldNode.value || 'all'
+    state.storeList.linkedOnly = false
     return true
   }
   if (field === 'store-list-country' && fieldNode instanceof HTMLSelectElement) {
     state.storeList.country = fieldNode.value || 'all'
+    state.storeList.linkedOnly = false
     return true
   }
   if (field === 'store-list-status' && fieldNode instanceof HTMLSelectElement) {
     state.storeList.status = fieldNode.value || 'all'
+    state.storeList.linkedOnly = false
     return true
   }
   if (field === 'store-list-auth-status' && fieldNode instanceof HTMLSelectElement) {
@@ -2815,12 +2829,27 @@ export function handlePcsChannelStoresInput(target: Element): boolean {
     'store-create-store-code': 'storeCode',
     'store-create-platform-store-id': 'platformStoreId',
     'store-create-country': 'country',
-    'store-create-pricing-currency': 'pricingCurrency',
     'store-create-settlement-currency': 'settlementCurrency',
     'store-create-timezone': 'timezone',
+    'store-create-team': 'team',
+    'store-create-store-owner': 'storeOwner',
   }
   if (field in storeCreateFields && (fieldNode instanceof HTMLInputElement || fieldNode instanceof HTMLSelectElement)) {
     ;(state.storeCreateDraft as Record<string, string>)[storeCreateFields[field]] = fieldNode.value
+    if (field === 'store-create-country') {
+      if (!state.storeCreateDraft.settlementCurrency) {
+        state.storeCreateDraft.settlementCurrency = getDefaultCurrencyByCountry(fieldNode.value)
+      }
+      if (!state.storeCreateDraft.timezone) {
+        state.storeCreateDraft.timezone = getDefaultTimezoneByCountry(fieldNode.value)
+      }
+    }
+    if (field === 'store-create-team') {
+      const nextOwners = getStoreOwnerOptions(fieldNode.value)
+      if (!nextOwners.includes(state.storeCreateDraft.storeOwner)) {
+        state.storeCreateDraft.storeOwner = ''
+      }
+    }
     return true
   }
 
@@ -2951,6 +2980,7 @@ export function handlePcsChannelStoresEvent(target: HTMLElement): boolean {
       channel: 'all',
       country: 'all',
       status: 'all',
+      linkedOnly: false,
       authStatus: 'all',
       ownerType: 'all',
       legalEntity: 'all',
@@ -2966,22 +2996,24 @@ export function handlePcsChannelStoresEvent(target: HTMLElement): boolean {
         channel: 'all',
         country: 'all',
         status: 'all',
+        linkedOnly: false,
         authStatus: 'all',
         ownerType: 'all',
         legalEntity: 'all',
       }
       return true
     }
-    if (filter === 'status') state.storeList.status = value
-    if (filter === 'auth') state.storeList.authStatus = value
-    if (filter === 'owner') state.storeList.ownerType = value
-    if (filter === 'payout') {
-      state.storeList.ownerType = 'all'
-      state.storeList.legalEntity = 'all'
-      state.storeList.status = 'all'
-      state.storeList.authStatus = 'all'
+    if (filter === 'status') {
+      state.storeList.status = value
+      state.storeList.linkedOnly = false
+    }
+    if (filter === 'linked') {
       state.storeList.search = ''
-      state.notice = '已筛选缺少提现绑定的店铺，请优先补齐。'
+      state.storeList.channel = 'all'
+      state.storeList.country = 'all'
+      state.storeList.status = 'all'
+      state.storeList.linkedOnly = true
+      state.notice = '当前已筛选已关联项目的渠道店铺。'
     }
     return true
   }

@@ -4,6 +4,7 @@ export interface StyleArchiveShellRecord {
   styleId: string
   styleCode: string
   styleName: string
+  styleNameEn: string
   styleNumber: string
   styleType: string
   sourceProjectId: string
@@ -37,6 +38,11 @@ export interface StyleArchiveShellRecord {
   currentTechPackVersionStatus: string
   currentTechPackVersionActivatedAt: string
   currentTechPackVersionActivatedBy: string
+  mainImageUrl: string
+  galleryImageUrls: string[]
+  sellingPointText: string
+  detailDescription: string
+  packagingInfo: string
   remark: string
   generatedAt: string
   generatedBy: string

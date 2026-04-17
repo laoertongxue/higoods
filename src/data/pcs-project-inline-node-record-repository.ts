@@ -6,7 +6,12 @@ import {
   type PcsProjectInlineNodeRef,
 } from './pcs-project-inline-node-record-types.ts'
 import { createBootstrapProjectInlineNodeRecordSnapshot } from './pcs-project-inline-node-record-bootstrap.ts'
-import { getProjectById, getProjectNodeRecordById, updateProjectNodeRecord } from './pcs-project-repository.ts'
+import {
+  getProjectById,
+  getProjectNodeRecordById,
+  getProjectNodeSequenceBlocker,
+  updateProjectNodeRecord,
+} from './pcs-project-repository.ts'
 import { getProjectWorkItemContract, type PcsProjectWorkItemCode } from './pcs-project-domain-contract.ts'
 import { getPcsWorkItemRuntimeCarrierDefinition } from './pcs-work-item-runtime-carrier.ts'
 
@@ -470,6 +475,15 @@ export function saveProjectInlineNodeFieldEntry(
 
   if (!isSupportedWorkItemTypeCode(node.workItemTypeCode)) {
     return { ok: false, message: '当前节点不通过项目内正式记录承载字段，不能直接在此保存。', record: null }
+  }
+
+  const blocker = getProjectNodeSequenceBlocker(projectId, projectNodeId)
+  if (blocker) {
+    return {
+      ok: false,
+      message: `请先填写并完成前序工作项：${blocker.workItemTypeName}。`,
+      record: null,
+    }
   }
 
   const workItemTypeCode = node.workItemTypeCode as PcsProjectInlineNodeRecordWorkItemTypeCode

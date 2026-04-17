@@ -7,10 +7,14 @@ export interface SkuArchiveRecord {
   styleId: string
   styleCode: string
   styleName: string
+  skuName: string
+  skuNameEn: string
   colorName: string
   sizeName: string
   printName: string
   barcode: string
+  channelTitle: string
+  skuImageUrl: string
   archiveStatus: SkuArchiveStatusCode
   mappingHealth: SkuArchiveMappingHealth
   channelMappingCount: number
@@ -20,10 +24,19 @@ export interface SkuArchiveRecord {
   techPackVersionLabel: string
   legacySystem: string
   legacyCode: string
+  costPrice: number
+  freightCost: number
+  suggestedRetailPrice: number
+  currency: string
+  pricingUnit: string
+  weightKg: number
+  lengthCm: number
+  widthCm: number
+  heightCm: number
+  packagingInfo: string
   weightText: string
   volumeText: string
   lastListingAt: string
-  lastOrderAt: string
   createdAt: string
   createdBy: string
   updatedAt: string

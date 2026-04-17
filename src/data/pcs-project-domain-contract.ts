@@ -2334,7 +2334,7 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
       { statusName: '未开始', entryConditions: ['任务已确认但未执行'], exitConditions: ['开始执行'], businessMeaning: '改版任务待执行。' },
       { statusName: '进行中', entryConditions: ['任务开始执行'], exitConditions: ['提交确认、异常待处理或取消'], businessMeaning: '改版任务进行中。' },
       { statusName: '待确认', entryConditions: ['改版任务提交确认'], exitConditions: ['确认、回退或取消'], businessMeaning: '等待改版输出确认。' },
-      { statusName: '已确认', entryConditions: ['评审确认通过'], exitConditions: ['写入技术包、创建下游任务或完成'], businessMeaning: '已确认可作为后续开发和技术包输入。' },
+      { statusName: '已确认', entryConditions: ['评审确认通过'], exitConditions: ['写入技术包、创建花型任务或完成'], businessMeaning: '已确认可作为后续开发和技术包输入。' },
       { statusName: '异常待处理', entryConditions: ['任务推进中出现阻塞或异常'], exitConditions: ['恢复推进或取消'], businessMeaning: '改版任务存在异常待处理事项。' },
       { statusName: '已完成', entryConditions: ['改版任务完成'], exitConditions: ['无'], businessMeaning: '改版任务已完成。' },
       { statusName: '已取消', entryConditions: ['任务取消'], exitConditions: ['无'], businessMeaning: '改版任务已取消。' },

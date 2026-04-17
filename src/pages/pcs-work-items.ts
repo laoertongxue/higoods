@@ -1,7 +1,6 @@
 import { escapeHtml, formatDateTime, toClassName } from '../utils.ts'
 import {
   getPcsWorkItemDefinition,
-  getPcsWorkItemLibraryMeta,
   listPcsWorkItems,
 } from '../data/pcs-work-items.ts'
 import {
@@ -89,7 +88,7 @@ function getFilteredWorkItems() {
   return getWorkItems().filter((item) => {
     const matchesKeyword =
       keyword.length === 0 ||
-      [item.name, item.code, item.phaseName, item.category, item.desc, item.role].join(' ').toLowerCase().includes(keyword)
+      [item.name, item.code, item.phaseName, item.desc, item.role].join(' ').toLowerCase().includes(keyword)
     const matchesNature = state.nature === '全部类型' || item.nature === state.nature
     const matchesRole = state.role === '全部角色' || item.role === state.role
     const matchesStatus = state.status === '全部状态' || item.displayStatus === state.status
@@ -130,15 +129,6 @@ function getNatureBadgeClass(nature: string): string {
 
 function getStatusBadgeClass(status: string): string {
   return status === '停用' ? 'bg-slate-100 text-slate-600' : 'bg-emerald-100 text-emerald-700'
-}
-
-function renderCapabilityBadges(capabilities: string[]): string {
-  return capabilities
-    .map(
-      (capability) =>
-        `<span class="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">${escapeHtml(capability)}</span>`,
-    )
-    .join('')
 }
 
 function renderPagerButton(label: string, page: number, currentPage: number, disabled = false): string {
@@ -188,7 +178,7 @@ function renderLibraryHeader(): string {
         <div>
           <p class="text-xs text-slate-500">商品中心 / 标准工作项</p>
           <h1 class="text-xl font-semibold text-slate-900">工作项库</h1>
-          <p class="mt-1 text-sm text-slate-500">统一查看 PCS 标准工作项定义、字段结构、状态口径与项目承载方式，作为项目模板编排和跨模块映射的参照底座。</p>
+          <p class="mt-1 text-sm text-slate-500">统一查看 PCS 标准工作项定义、字段结构、状态口径与可执行操作，作为项目模板编排和页面实现的参照底座。</p>
         </div>
       </div>
       <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -284,8 +274,6 @@ function renderLibraryTable(): string {
               <th class="px-4 py-3 font-medium">操作</th>
               <th class="px-4 py-3 font-medium">工作项名称</th>
               <th class="px-4 py-3 font-medium">工作项性质</th>
-              <th class="px-4 py-3 font-medium">工作项分类</th>
-              <th class="px-4 py-3 font-medium">系统能力</th>
               <th class="px-4 py-3 font-medium">默认执行角色</th>
               <th class="px-4 py-3 font-medium">最近更新</th>
               <th class="px-4 py-3 font-medium">状态</th>
@@ -297,7 +285,7 @@ function renderLibraryTable(): string {
               pagedItems.length === 0
                 ? `
                   <tr>
-                    <td colspan="9" class="px-4 py-16 text-center">
+                    <td colspan="7" class="px-4 py-16 text-center">
                       <p class="text-sm font-medium text-slate-700">未找到符合条件的工作项</p>
                       <p class="mt-1 text-xs text-slate-500">可以调整筛选条件，或重置后重新查看全部标准工作项。</p>
                     </td>
@@ -316,15 +304,6 @@ function renderLibraryTable(): string {
                           </td>
                           <td class="px-4 py-3">
                             <span class="inline-flex rounded-full border px-2 py-0.5 text-xs ${getNatureBadgeClass(item.nature)}">${escapeHtml(item.nature)}</span>
-                          </td>
-                          <td class="px-4 py-3">
-                            <p class="text-slate-700">${escapeHtml(item.category)}</p>
-                            <p class="mt-1 text-xs text-slate-400">${escapeHtml(item.phaseName)}</p>
-                          </td>
-                          <td class="px-4 py-3">
-                            <div class="flex max-w-[280px] flex-wrap gap-1.5">
-                              ${renderCapabilityBadges(item.capabilities)}
-                            </div>
                           </td>
                           <td class="px-4 py-3 text-slate-600">${escapeHtml(item.role)}</td>
                           <td class="px-4 py-3 text-xs text-slate-500">${escapeHtml(formatDateTime(item.updatedAt))}</td>
@@ -384,41 +363,6 @@ function renderKeyValueCard(label: string, value: string, helper?: string): stri
       <p class="mt-2 text-sm font-medium text-slate-900">${escapeHtml(value || '-')}</p>
       ${helper ? `<p class="mt-1 text-xs leading-5 text-slate-500">${escapeHtml(helper)}</p>` : ''}
     </article>
-  `
-}
-
-function renderCapabilityCards(definition: NonNullable<ReturnType<typeof getPcsWorkItemDefinition>>): string {
-  const capabilityItems = [
-    { label: '可复用', enabled: definition.capabilities.canReuse, icon: 'copy' },
-    { label: '可多次执行', enabled: definition.capabilities.canMultiInstance, icon: 'layers-3' },
-    { label: '可回退', enabled: definition.capabilities.canRollback, icon: 'rotate-ccw' },
-    { label: '可并行', enabled: definition.capabilities.canParallel, icon: 'git-branch' },
-  ]
-
-  return `
-    <section class="rounded-lg border bg-white p-4">
-      <div class="mb-4 flex items-center gap-2">
-        <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">二</span>
-        <h2 class="text-lg font-semibold text-slate-900">工作项能力定义</h2>
-      </div>
-      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        ${capabilityItems
-          .map(
-            (item) => `
-              <article class="flex items-center gap-3 rounded-lg border px-4 py-4 ${item.enabled ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-slate-50'}">
-                <span class="${toClassName('inline-flex h-10 w-10 items-center justify-center rounded-full', item.enabled ? 'bg-white text-emerald-600' : 'bg-white text-slate-400')}">
-                  <i data-lucide="${item.icon}" class="h-4 w-4"></i>
-                </span>
-                <div>
-                  <p class="text-sm text-slate-500">${escapeHtml(item.label)}</p>
-                  <p class="mt-1 text-sm font-medium text-slate-900">${item.enabled ? '是' : '否'}</p>
-                </div>
-              </article>
-            `,
-          )
-          .join('')}
-      </div>
-    </section>
   `
 }
 
@@ -582,58 +526,6 @@ function renderOperationDefinitions(indexLabel: string, operationDefinitions: Pc
   `
 }
 
-function renderBulletSection(indexLabel: string, title: string, items: string[], tone: 'blue' | 'red' | 'violet' = 'blue'): string {
-  if (items.length === 0) return ''
-  const toneMap = {
-    blue: 'bg-blue-100 text-blue-700',
-    red: 'bg-rose-100 text-rose-700',
-    violet: 'bg-violet-100 text-violet-700',
-  }
-  return `
-    <section class="rounded-lg border bg-white p-4">
-      <div class="mb-4 flex items-center gap-2">
-        <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">${escapeHtml(indexLabel)}</span>
-        <h2 class="text-lg font-semibold text-slate-900">${escapeHtml(title)}</h2>
-      </div>
-      <ul class="space-y-3">
-        ${items
-          .map(
-            (item) => `
-              <li class="flex items-start gap-3">
-                <span class="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${toneMap[tone]}">•</span>
-                <span class="flex-1 text-sm leading-6 text-slate-700">${escapeHtml(item)}</span>
-              </li>
-            `,
-          )
-          .join('')}
-      </ul>
-    </section>
-  `
-}
-
-function renderRuntimeSection(indexLabel: string, workItemId: string): string {
-  const meta = getPcsWorkItemLibraryMeta(workItemId)
-  if (!meta) return ''
-  return `
-    <section class="rounded-lg border bg-white p-4">
-      <div class="mb-4 flex items-center gap-2">
-        <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">${escapeHtml(indexLabel)}</span>
-        <h2 class="text-lg font-semibold text-slate-900">运行时承载方式</h2>
-      </div>
-      <div class="grid gap-3 xl:grid-cols-3">
-        ${renderKeyValueCard('承载方式', meta.runtimeCarrierLabel, meta.carrierReason)}
-        ${renderKeyValueCard('项目内展示方式', meta.projectDisplayRequirementLabel, meta.projectDisplayMode)}
-        ${renderKeyValueCard('承载模块', meta.moduleName, meta.listRoute ? `可跳转到 ${meta.listRoute}` : '当前不单独维护独立实例列表')}
-      </div>
-      ${
-        meta.listRoute
-          ? `<div class="mt-4"><button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-nav="${escapeHtml(meta.listRoute)}"><i data-lucide="external-link" class="h-4 w-4"></i>打开承载模块</button></div>`
-          : ''
-      }
-    </section>
-  `
-}
-
 function renderMultiInstanceSection(
   indexLabel: string,
   definition: PcsProjectMultiInstanceDefinition | null | undefined,
@@ -655,36 +547,6 @@ function renderMultiInstanceSection(
           '伴随对象',
           definition.supportingRelationObjectTypes.length > 0 ? definition.supportingRelationObjectTypes.join(' / ') : '无',
         )}
-      </div>
-    </section>
-  `
-}
-
-function renderLegacySection(indexLabel: string, workItemId: string): string {
-  const meta = getPcsWorkItemLibraryMeta(workItemId)
-  if (!meta || (meta.legacyReferenceCodes.length === 0 && meta.legacyReferenceNames.length === 0)) return ''
-  return `
-    <section class="rounded-lg border bg-white p-4">
-      <div class="mb-4 flex items-center gap-2">
-        <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">${escapeHtml(indexLabel)}</span>
-        <h2 class="text-lg font-semibold text-slate-900">旧版映射参考</h2>
-      </div>
-      <div class="space-y-4">
-        <article class="rounded-lg border bg-slate-50 p-4">
-          <p class="text-xs text-slate-500">引用方式</p>
-          <p class="mt-2 text-sm font-medium text-slate-900">${escapeHtml(meta.legacyReferenceUseMode ?? '无')}</p>
-        </article>
-        <article class="rounded-lg border p-4">
-          <p class="text-sm font-medium text-slate-900">旧版编码 / 名称</p>
-          <div class="mt-3 flex flex-wrap gap-2">
-            ${[...meta.legacyReferenceCodes, ...meta.legacyReferenceNames]
-              .map(
-                (item) =>
-                  `<span class="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-600">${escapeHtml(item)}</span>`,
-              )
-              .join('')}
-          </div>
-        </article>
       </div>
     </section>
   `
@@ -722,7 +584,6 @@ export function renderPcsWorkItemDetailPage(workItemId: string): string {
     `
   }
 
-  const meta = getPcsWorkItemLibraryMeta(workItemId)
   const fieldGroups = listProjectWorkItemFieldGroups(contract.workItemTypeCode)
   const headerBadges = [
     `<span class="inline-flex rounded-full border px-2 py-0.5 text-xs ${getNatureBadgeClass(definition.workItemNature)}">${escapeHtml(definition.workItemNature)}</span>`,
@@ -753,7 +614,6 @@ export function renderPcsWorkItemDetailPage(workItemId: string): string {
               <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/work-items">
                 <i data-lucide="arrow-left" class="h-4 w-4"></i>返回工作项库
               </button>
-              ${meta?.listRoute ? `<button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-nav="${escapeHtml(meta.listRoute)}"><i data-lucide="external-link" class="h-4 w-4"></i>查看承载模块</button>` : ''}
             </div>
             <div>
               <p class="text-xs text-slate-500">工作项库 / 详情</p>
@@ -780,7 +640,6 @@ export function renderPcsWorkItemDetailPage(workItemId: string): string {
           ${renderKeyValueCard('工作项名称', definition.name)}
           ${renderKeyValueCard('工作项编码', definition.code)}
           ${renderKeyValueCard('所属阶段', definition.defaultPhaseName, contract.scenario)}
-          ${renderKeyValueCard('工作项分类', definition.categoryName)}
           ${renderKeyValueCard('默认执行角色', definition.role)}
           ${renderKeyValueCard('字段 / 节点状态 / 实例状态 / 操作', `${fieldGroups.reduce((sum, group) => sum + group.fields.length, 0)} / ${nodeStatusCount} / ${instanceStatusCount || '-'} / ${contract.operationDefinitions.length}`)}
           ${renderKeyValueCard('可用于模板', definition.isSelectableForTemplate ? '是' : '否')}
@@ -788,16 +647,11 @@ export function renderPcsWorkItemDetailPage(workItemId: string): string {
         </div>
       </section>
 
-      ${renderCapabilityCards(definition)}
       ${renderFieldGroups(fieldGroups)}
       ${renderStatusDefinitions(nextSectionLabel(), '节点状态定义', contract.statusDefinitions)}
       ${renderStatusDefinitions(nextSectionLabel(), '实例状态定义', instanceStatusDefinitions, 'bg-violet-100 text-violet-700')}
       ${renderOperationDefinitions(nextSectionLabel(), contract.operationDefinitions)}
-      ${renderBulletSection(nextSectionLabel(), '业务规则', definition.businessRules)}
-      ${renderBulletSection(nextSectionLabel(), '系统约束说明', definition.systemConstraints, 'red')}
-      ${renderRuntimeSection(nextSectionLabel(), workItemId)}
       ${renderMultiInstanceSection(nextSectionLabel(), contract.multiInstanceDefinition)}
-      ${renderLegacySection(nextSectionLabel(), workItemId)}
     </div>
   `
 }

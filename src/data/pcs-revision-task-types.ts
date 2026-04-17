@@ -18,6 +18,13 @@ export interface RevisionTaskRecord {
   upstreamObjectType: string
   upstreamObjectId: string
   upstreamObjectCode: string
+  styleId: string
+  styleCode: string
+  styleName: string
+  referenceObjectType: string
+  referenceObjectId: string
+  referenceObjectCode: string
+  referenceObjectName: string
   productStyleCode: string
   spuCode: string
   status: RevisionTaskStatus
@@ -29,6 +36,8 @@ export interface RevisionTaskRecord {
   revisionScopeCodes: string[]
   revisionScopeNames: string[]
   revisionVersion: string
+  issueSummary: string
+  evidenceSummary: string
   linkedTechPackVersionId: string
   linkedTechPackVersionCode: string
   linkedTechPackVersionLabel: string

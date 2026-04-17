@@ -6,3 +6,6 @@ __MACOSX/
 playwright-report/
 test-results/
 node_modules/
+.npm/
+.tmp*
+Library/

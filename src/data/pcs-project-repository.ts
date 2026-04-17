@@ -365,28 +365,28 @@ function hydrateSnapshot(snapshot: PcsProjectStoreSnapshot): PcsProjectStoreSnap
     return seedSnapshot()
   }
 
-  return mergeMissingBootstrapData(normalized)
+  return repairProjectNodeSequences(mergeMissingBootstrapData(normalized))
 }
 
 function loadSnapshot(): PcsProjectStoreSnapshot {
   if (memorySnapshot) return cloneSnapshot(memorySnapshot)
 
   if (!canUseStorage()) {
-    memorySnapshot = seedSnapshot()
+    memorySnapshot = hydrateSnapshot(seedSnapshot())
     return cloneSnapshot(memorySnapshot)
   }
 
   try {
     const raw = localStorage.getItem(PROJECT_STORAGE_KEY)
     if (!raw) {
-      memorySnapshot = seedSnapshot()
+      memorySnapshot = hydrateSnapshot(seedSnapshot())
       localStorage.setItem(PROJECT_STORAGE_KEY, JSON.stringify(memorySnapshot))
       return cloneSnapshot(memorySnapshot)
     }
 
     const parsed = JSON.parse(raw) as Partial<PcsProjectStoreSnapshot>
     if (!Array.isArray(parsed.projects) || !Array.isArray(parsed.phases) || !Array.isArray(parsed.nodes)) {
-      memorySnapshot = seedSnapshot()
+      memorySnapshot = hydrateSnapshot(seedSnapshot())
       localStorage.setItem(PROJECT_STORAGE_KEY, JSON.stringify(memorySnapshot))
       return cloneSnapshot(memorySnapshot)
     }
@@ -400,7 +400,7 @@ function loadSnapshot(): PcsProjectStoreSnapshot {
     localStorage.setItem(PROJECT_STORAGE_KEY, JSON.stringify(memorySnapshot))
     return cloneSnapshot(memorySnapshot)
   } catch {
-    memorySnapshot = seedSnapshot()
+    memorySnapshot = hydrateSnapshot(seedSnapshot())
     if (canUseStorage()) {
       localStorage.setItem(PROJECT_STORAGE_KEY, JSON.stringify(memorySnapshot))
     }
@@ -444,6 +444,178 @@ function getOrderedProjectNodes(snapshot: PcsProjectStoreSnapshot, projectId: st
 
 function isClosedNodeStatus(status: ProjectNodeStatus): boolean {
   return status === '已完成' || status === '已取消'
+}
+
+function getProjectNodeSequenceBlockerFromSnapshot(
+  snapshot: PcsProjectStoreSnapshot,
+  projectId: string,
+  projectNodeId: string,
+): PcsProjectNodeRecord | null {
+  const orderedNodes = getOrderedProjectNodes(snapshot, projectId)
+  const targetIndex = orderedNodes.findIndex((item) => item.projectNodeId === projectNodeId)
+  if (targetIndex <= 0) return null
+  return (
+    orderedNodes
+      .slice(0, targetIndex)
+      .find((item) => item.requiredFlag && !isClosedNodeStatus(item.currentStatus)) ?? null
+  )
+}
+
+function resetNodeToLockedPending(
+  node: PcsProjectNodeRecord,
+  blocker: PcsProjectNodeRecord,
+  timestamp: string,
+): void {
+  node.currentStatus = '未开始'
+  node.latestResultType = ''
+  node.latestResultText = ''
+  node.currentIssueType = ''
+  node.currentIssueText = ''
+  node.latestInstanceId = ''
+  node.latestInstanceCode = ''
+  node.pendingActionType = '待前序完成'
+  node.pendingActionText = `请先完成前序工作项：${blocker.workItemTypeName}`
+  node.updatedAt = timestamp
+  node.lastEventType = '流程顺序修复'
+  node.lastEventTime = timestamp
+}
+
+function activateFirstOpenNode(node: PcsProjectNodeRecord, timestamp: string): void {
+  node.currentStatus = '进行中'
+  node.pendingActionType = '待执行'
+  node.pendingActionText = `当前请处理：${node.workItemTypeName}`
+  node.updatedAt = timestamp
+  node.lastEventType = node.lastEventType || '节点激活'
+  node.lastEventTime = timestamp
+}
+
+function syncProjectLifecycleInSnapshot(
+  snapshot: PcsProjectStoreSnapshot,
+  projectId: string,
+  operatorName: string,
+  timestamp: string,
+): boolean {
+  const project = snapshot.projects.find((item) => item.projectId === projectId)
+  const phases = snapshot.phases
+    .filter((item) => item.projectId === projectId)
+    .sort((a, b) => a.phaseOrder - b.phaseOrder)
+  const nodes = getOrderedProjectNodes(snapshot, projectId)
+  if (!project || phases.length === 0 || nodes.length === 0) return false
+
+  const nextNode = nodes.find((node) => !isClosedNodeStatus(node.currentStatus)) ?? null
+  const currentPhaseCode = nextNode?.phaseCode ?? phases[phases.length - 1]?.phaseCode ?? project.currentPhaseCode
+  const currentPhase = phases.find((item) => item.phaseCode === currentPhaseCode) ?? phases[0]
+  const completedNonInitCount = nodes.filter(
+    (node) => node.workItemTypeCode !== 'PROJECT_INIT' && node.currentStatus === '已完成',
+  ).length
+  const allClosed = nodes.every((node) => isClosedNodeStatus(node.currentStatus))
+  const nextProjectStatus =
+    project.projectStatus === '已终止'
+      ? '已终止'
+      : allClosed
+        ? '已归档'
+        : completedNonInitCount === 0
+          ? '已立项'
+          : '进行中'
+
+  let changed = false
+  if (
+    project.currentPhaseCode !== currentPhase.phaseCode ||
+    project.currentPhaseName !== currentPhase.phaseName ||
+    project.projectStatus !== nextProjectStatus
+  ) {
+    project.currentPhaseCode = currentPhase.phaseCode
+    project.currentPhaseName = currentPhase.phaseName
+    project.projectStatus = nextProjectStatus
+    project.updatedAt = timestamp
+    project.updatedBy = operatorName
+    changed = true
+  }
+
+  phases.forEach((phase) => {
+    const phaseNodes = nodes.filter((node) => node.phaseCode === phase.phaseCode)
+    let phaseStatus: PcsProjectPhaseRecord['phaseStatus'] = '未开始'
+    if (nextProjectStatus === '已终止' && phaseNodes.some((node) => !isClosedNodeStatus(node.currentStatus))) {
+      phaseStatus = '已终止'
+    } else if (phaseNodes.length > 0 && phaseNodes.every((node) => isClosedNodeStatus(node.currentStatus))) {
+      phaseStatus = '已完成'
+    } else if (
+      phase.phaseCode === currentPhaseCode ||
+      phaseNodes.some((node) => node.currentStatus === '进行中' || node.currentStatus === '待确认')
+    ) {
+      phaseStatus = '进行中'
+    } else if (phase.phaseOrder < currentPhase.phaseOrder) {
+      phaseStatus = '已完成'
+    }
+
+    const startedAt = phaseStatus === '未开始' ? '' : phase.startedAt || timestamp
+    const finishedAt = phaseStatus === '已完成' || phaseStatus === '已终止' ? phase.finishedAt || timestamp : ''
+    if (phase.phaseStatus !== phaseStatus || phase.startedAt !== startedAt || phase.finishedAt !== finishedAt) {
+      phase.phaseStatus = phaseStatus
+      phase.startedAt = startedAt
+      phase.finishedAt = finishedAt
+      changed = true
+    }
+  })
+
+  return changed
+}
+
+function repairProjectNodeSequenceInSnapshot(
+  snapshot: PcsProjectStoreSnapshot,
+  projectId: string,
+  operatorName: string,
+  timestamp: string,
+): boolean {
+  const project = snapshot.projects.find((item) => item.projectId === projectId)
+  const orderedNodes = getOrderedProjectNodes(snapshot, projectId)
+  if (!project || orderedNodes.length === 0) return false
+
+  let changed = false
+
+  if (project.projectStatus === '已终止') {
+    orderedNodes.forEach((node) => {
+      if (isClosedNodeStatus(node.currentStatus)) return
+      node.currentStatus = '已取消'
+      node.pendingActionType = '项目关闭'
+      node.pendingActionText = '项目已终止'
+      node.latestResultType = node.latestResultType || '项目终止'
+      node.latestResultText = node.latestResultText || '项目已终止。'
+      node.updatedAt = timestamp
+      node.lastEventType = '项目终止'
+      node.lastEventTime = timestamp
+      changed = true
+    })
+    return syncProjectLifecycleInSnapshot(snapshot, projectId, operatorName, timestamp) || changed
+  }
+
+  const firstOpenIndex = orderedNodes.findIndex((node) => !isClosedNodeStatus(node.currentStatus))
+  if (firstOpenIndex >= 0) {
+    const firstOpenNode = orderedNodes[firstOpenIndex]
+    if (firstOpenNode.currentStatus === '未开始') {
+      activateFirstOpenNode(firstOpenNode, timestamp)
+      changed = true
+    }
+
+    orderedNodes.slice(firstOpenIndex + 1).forEach((node) => {
+      if (node.currentStatus === '未开始' || node.currentStatus === '已取消') return
+      resetNodeToLockedPending(node, firstOpenNode, timestamp)
+      changed = true
+    })
+  }
+
+  return syncProjectLifecycleInSnapshot(snapshot, projectId, operatorName, timestamp) || changed
+}
+
+function repairProjectNodeSequences(
+  snapshot: PcsProjectStoreSnapshot,
+  operatorName = '系统修复',
+  timestamp = nowText(),
+): PcsProjectStoreSnapshot {
+  snapshot.projects.forEach((project) => {
+    repairProjectNodeSequenceInSnapshot(snapshot, project.projectId, operatorName, timestamp)
+  })
+  return snapshot
 }
 
 function getNodeActivityTime(node: PcsProjectNodeRecord | null): string {
@@ -791,6 +963,46 @@ export function listProjectNodes(projectId: string): PcsProjectNodeRecord[] {
       return a.projectNodeId.localeCompare(b.projectNodeId)
     })
     .map(cloneNode)
+}
+
+export function getProjectNodeSequenceBlocker(projectId: string, projectNodeId: string): PcsProjectNodeRecord | null {
+  const blocker = getProjectNodeSequenceBlockerFromSnapshot(readSnapshot(), projectId, projectNodeId)
+  return blocker ? cloneNode(blocker) : null
+}
+
+export function repairAllProjectNodeSequences(
+  operatorName = '系统修复',
+  timestamp = nowText(),
+): {
+  repairedProjectCount: number
+  repairedNodeCount: number
+} {
+  const snapshot = readSnapshot()
+  const before = snapshot.nodes.map((node) => ({
+    projectId: node.projectId,
+    projectNodeId: node.projectNodeId,
+    currentStatus: node.currentStatus,
+    latestInstanceId: node.latestInstanceId,
+    latestInstanceCode: node.latestInstanceCode,
+  }))
+  const nextSnapshot = cloneSnapshot(snapshot)
+  repairProjectNodeSequences(nextSnapshot, operatorName, timestamp)
+  persistSnapshot(nextSnapshot)
+
+  const changedNodes = nextSnapshot.nodes.filter((node) => {
+    const previous = before.find((item) => item.projectNodeId === node.projectNodeId)
+    return (
+      previous &&
+      (previous.currentStatus !== node.currentStatus ||
+        previous.latestInstanceId !== node.latestInstanceId ||
+        previous.latestInstanceCode !== node.latestInstanceCode)
+    )
+  })
+
+  return {
+    repairedProjectCount: new Set(changedNodes.map((node) => node.projectId)).size,
+    repairedNodeCount: changedNodes.length,
+  }
 }
 
 export function findProjectNodeById(projectId: string, projectNodeId: string): ProjectNodeIdentityRef | null {

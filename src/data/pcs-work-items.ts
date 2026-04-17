@@ -1,15 +1,11 @@
 import {
+  getAllWorkItemTemplates,
   getSelectableWorkItemTemplates,
   getStandardProjectWorkItemIdentityById,
   getWorkItemTemplateConfig,
   type WorkItemNature,
   type WorkItemTemplateConfig,
 } from './pcs-work-item-configs.ts'
-import {
-  buildPcsWorkItemLibraryMeta,
-  listPcsWorkItemLibraryMetas,
-  type PcsWorkItemLibraryMeta,
-} from './pcs-work-item-library-meta.ts'
 import { getProjectPhaseContract, type PcsProjectPhaseCode } from './pcs-project-domain-contract.ts'
 
 export type WorkItemStatus = '标准内置'
@@ -21,8 +17,6 @@ export interface PcsWorkItemListItem {
   phaseCode: string
   phaseName: string
   nature: WorkItemNature
-  category: string
-  capabilities: string[]
   role: string
   updatedAt: string
   status: WorkItemStatus
@@ -58,20 +52,7 @@ function cloneConfig(config: WorkItemTemplateConfig): WorkItemTemplateConfig {
 }
 
 function listBuiltinDefinitions(): WorkItemTemplateConfig[] {
-  return listPcsWorkItemLibraryMetas()
-    .map((item) => getWorkItemTemplateConfig(item.workItemId))
-    .filter((item): item is WorkItemTemplateConfig => Boolean(item))
-    .map(cloneConfig)
-}
-
-function deriveCapabilities(config: WorkItemTemplateConfig): string[] {
-  const capabilities: string[] = []
-  if (config.capabilities.canReuse) capabilities.push('可复用')
-  if (config.capabilities.canMultiInstance) capabilities.push('可多次执行')
-  if (config.capabilities.canRollback) capabilities.push('可回退')
-  if (config.capabilities.canParallel) capabilities.push('可并行')
-  if (capabilities.length === 0) capabilities.push('单次执行')
-  return capabilities
+  return getAllWorkItemTemplates().map(cloneConfig)
 }
 
 function toListItem(config: WorkItemTemplateConfig): PcsWorkItemListItem {
@@ -82,8 +63,6 @@ function toListItem(config: WorkItemTemplateConfig): PcsWorkItemListItem {
     phaseCode: config.phaseCode,
     phaseName: config.defaultPhaseName,
     nature: config.workItemNature,
-    category: config.categoryName,
-    capabilities: deriveCapabilities(config),
     role: config.roleNames.join(' / '),
     updatedAt: config.updatedAt,
     status: '标准内置',
@@ -117,10 +96,6 @@ export function getPcsWorkItemDefinition(workItemId: string): WorkItemTemplateCo
 
 export function getPcsWorkItemTemplateConfig(workItemId: string): WorkItemTemplateConfig | null {
   return getPcsWorkItemDefinition(workItemId)
-}
-
-export function getPcsWorkItemLibraryMeta(workItemId: string): PcsWorkItemLibraryMeta | null {
-  return buildPcsWorkItemLibraryMeta(workItemId)
 }
 
 export function listSelectableTemplateWorkItems(phaseCode?: string): WorkItemTemplateConfig[] {

@@ -7,6 +7,7 @@ import {
   getProjectById,
   getProjectCategoryChildren,
   getProjectCreateCatalog,
+  getProjectNodeSequenceBlocker,
   listActiveProjectTemplates,
   listProjectNodes,
   listProjectPhases,
@@ -1570,6 +1571,7 @@ function buildNodeCompletionValues(project: PcsProjectRecord, node: ProjectNodeV
 }
 
 function canCompleteProjectNode(project: PcsProjectRecord, node: ProjectNodeViewModel): boolean {
+  if (!node.unlocked) return false
   const values = buildNodeCompletionValues(project, node)
   const shouldValidateRequiredFields = !PROJECT_NODE_FIELD_MODULE_EXCEPTIONS.has(node.node.workItemTypeCode)
   const hasMissingRequiredField =
@@ -1781,13 +1783,7 @@ function isNodeUnlocked(
   orderedNodes: PcsProjectNodeRecord[],
   node: PcsProjectNodeRecord,
 ): boolean {
-  if (project.blockedFlag) {
-    const blockerIndex = orderedNodes.findIndex((item) => item.workItemTypeName === project.riskWorkItem)
-    const nodeIndex = orderedNodes.findIndex((item) => item.projectNodeId === node.projectNodeId)
-    if (blockerIndex >= 0 && nodeIndex > blockerIndex && node.currentStatus === '未开始') {
-      return false
-    }
-  }
+  if (isClosedNodeStatus(node.currentStatus)) return true
   const nodeIndex = orderedNodes.findIndex((item) => item.projectNodeId === node.projectNodeId)
   if (nodeIndex <= 0) return true
   return orderedNodes.slice(0, nodeIndex).every((item) => !item.requiredFlag || isClosedNodeStatus(item.currentStatus))
@@ -4808,6 +4804,11 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
   if (action === 'mark-node-complete') {
     const context = getCurrentProjectNodeContext()
     if (!context) return true
+    const blocker = getProjectNodeSequenceBlocker(context.project.projectId, context.node.node.projectNodeId)
+    if (blocker) {
+      state.notice = `请先填写并完成前序工作项：${blocker.workItemTypeName}`
+      return true
+    }
     if (!canCompleteProjectNode(context.project, context.node)) {
       state.notice = '请填写该工作项要求的信息'
       return true

@@ -6,6 +6,8 @@ import {
   findProjectChannelProductByStyleId,
   listProjectChannelProducts,
 } from '../data/pcs-channel-product-project-repository.ts'
+import { getMaterialArchiveById, listMaterialUsageRecordsByStyleCode } from '../data/pcs-material-archive-repository.ts'
+import { buildSkuFixture, buildStyleFixture } from '../data/pcs-product-archive-fixtures.ts'
 import { createStyleArchiveShell, getStyleArchiveById, listStyleArchives, updateStyleArchive } from '../data/pcs-style-archive-repository.ts'
 import type { StyleArchiveShellRecord, StyleArchiveStatusCode } from '../data/pcs-style-archive-types.ts'
 import {
@@ -19,12 +21,7 @@ import {
 } from '../data/pcs-sku-archive-repository.ts'
 import type { SkuArchiveMappingHealth, SkuArchiveRecord, SkuArchiveStatusCode } from '../data/pcs-sku-archive-types.ts'
 import { buildTechnicalVersionListByStyle } from '../data/pcs-technical-data-version-view-model.ts'
-import {
-  createTechnicalDataVersionDraft,
-  getNextStyleVersionMeta,
-  getNextTechnicalVersionIdentity,
-  listTechnicalDataVersionsByStyleId,
-} from '../data/pcs-technical-data-version-repository.ts'
+import { listTechnicalDataVersionsByStyleId } from '../data/pcs-technical-data-version-repository.ts'
 import {
   listProjectWorkspaceCategories,
   listProjectWorkspaceColors,
@@ -32,7 +29,6 @@ import {
   listProjectWorkspaceStyles,
 } from '../data/pcs-project-config-workspace-adapter.ts'
 import { getProjectById, getProjectNodeRecordByWorkItemTypeCode, listProjects, updateProjectRecord } from '../data/pcs-project-repository.ts'
-import type { PcsProjectRecord } from '../data/pcs-project-types.ts'
 
 type StyleVersionFilter = 'all' | 'has' | 'none'
 type StyleDetailTabKey = 'overview' | 'versions' | 'specifications' | 'mappings' | 'channels' | 'logs'
@@ -73,7 +69,6 @@ interface ProductArchivePageState {
     projectId: string
     legacySystem: string
     legacyCode: string
-    createVersion: boolean
   }
   skuCreate: {
     open: boolean
@@ -96,6 +91,7 @@ interface ProductArchivePageState {
 interface StyleArchiveListItemViewModel {
   style: StyleArchiveShellRecord
   skuCount: number
+  materialUsageCount: number
   mappingHealth: SkuArchiveMappingHealth
   currentVersionText: string
   currentVersionMetaText: string
@@ -227,7 +223,6 @@ const state: ProductArchivePageState = {
     projectId: '',
     legacySystem: '',
     legacyCode: '',
-    createVersion: true,
   },
   skuCreate: createDefaultSkuCreateState(),
 }
@@ -243,7 +238,6 @@ function resetStyleCreateState(): void {
     projectId: '',
     legacySystem: '',
     legacyCode: '',
-    createVersion: true,
   }
 }
 
@@ -356,11 +350,13 @@ function buildStyleListItems(): StyleArchiveListItemViewModel[] {
   return listStyleArchives().map((style) => {
     const skus = listSkuArchivesByStyleId(style.styleId)
     const versions = buildTechnicalVersionListByStyle(style.styleId)
+    const materialUsageCount = listMaterialUsageRecordsByStyleCode(style.styleCode).length
     const currentVersion = versions.find((item) => item.isCurrentTechPackVersion) || versions[0] || null
     const styleChannels = channelProducts.filter((item) => item.styleId === style.styleId && item.channelProductStatus !== '已作废')
     return {
       style,
       skuCount: skus.length,
+      materialUsageCount,
       mappingHealth: resolveStyleMappingHealth(skus),
       currentVersionText: currentVersion ? `${currentVersion.versionLabel}` : '无生效版本',
       currentVersionMetaText: currentVersion?.publishedAt ? `生效于 ${currentVersion.publishedAt.slice(0, 10)}` : '待建立技术包版本',
@@ -536,6 +532,21 @@ function renderNotice(): string {
   `
 }
 
+function formatCurrency(value: number, currency = '人民币'): string {
+  if (!Number.isFinite(value)) return '-'
+  if (currency === '美元') return `$${value.toFixed(2)}`
+  if (currency === '印尼盾') return `Rp${Math.round(value).toLocaleString('zh-CN')}`
+  return `¥${value.toFixed(2)}`
+}
+
+function renderArchiveImage(url: string, alt: string, size: 'sm' | 'md' = 'md'): string {
+  const dimension = size === 'sm' ? 'h-12 w-12' : 'h-20 w-20'
+  if (!url) {
+    return `<div class="${escapeHtml(toClassName('flex shrink-0 items-center justify-center rounded-md border border-dashed border-slate-200 bg-slate-50 text-slate-400', dimension))}"><i data-lucide="image" class="h-4 w-4"></i></div>`
+  }
+  return `<img src="${escapeHtml(url)}" alt="${escapeHtml(alt)}" class="${escapeHtml(toClassName('shrink-0 rounded-md border border-slate-200 bg-slate-50 object-cover', dimension))}" />`
+}
+
 function renderStyleHeader(): string {
   return `
     <section class="flex flex-wrap items-start justify-between gap-4">
@@ -596,24 +607,43 @@ function renderStyleTable(items: StyleArchiveListItemViewModel[]): string {
       (item) => `
         <tr class="border-t border-slate-100 align-top">
           <td class="px-4 py-3">
-            <button type="button" class="text-left text-sm font-medium text-slate-900 hover:text-slate-700" data-nav="/pcs/products/styles/${escapeHtml(item.style.styleId)}">
-              ${escapeHtml(item.style.styleCode)}
-            </button>
-            <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.legacyMappingText)}</div>
+            <div class="flex items-start gap-3">
+              ${renderArchiveImage(item.style.mainImageUrl || '', item.style.styleName, 'sm')}
+              <div class="min-w-0">
+                <button type="button" class="text-left text-sm font-medium text-slate-900 hover:text-slate-700" data-nav="/pcs/products/styles/${escapeHtml(item.style.styleId)}">
+                  ${escapeHtml(item.style.styleCode)}
+                </button>
+                <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.legacyMappingText)}</div>
+              </div>
+            </div>
           </td>
           <td class="px-4 py-3">
             <div class="text-sm font-medium text-slate-900">${escapeHtml(item.style.styleName)}</div>
+            <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.style.styleNameEn || '-')}</div>
             <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.originProjectText)}</div>
           </td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.style.categoryName || item.style.subCategoryName || '-')}</td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.style.styleTags.join(' / ') || '-')}</td>
+          <td class="px-4 py-3 text-sm text-slate-700">
+            <div>${escapeHtml(item.style.categoryName || '-')}</div>
+            <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.style.subCategoryName || '-')}</div>
+            <div class="mt-1 text-xs text-slate-500">${escapeHtml([item.style.brandName, item.style.yearTag, item.style.seasonTags.join('/')].filter(Boolean).join(' / ') || '-')}</div>
+          </td>
+          <td class="px-4 py-3 text-sm text-slate-700">
+            <div>${escapeHtml(item.style.styleTags.join(' / ') || '-')}</div>
+            <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.style.targetAudienceTags.join(' / ') || '-')}</div>
+            <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.style.priceRangeLabel || '-')}</div>
+          </td>
           <td class="px-4 py-3">
             <div class="text-sm font-medium text-slate-900">${escapeHtml(item.currentVersionText)}</div>
-            <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.currentVersionMetaText)}</div>
+            <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.style.currentTechPackVersionCode || item.currentVersionMetaText)}</div>
+            <div class="mt-1 text-xs text-slate-500">物料引用 ${escapeHtml(item.materialUsageCount)}</div>
           </td>
           <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.skuCount)}</td>
           <td class="px-4 py-3">${renderMappingBadge(item.mappingHealth)}</td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.channelCount)} / 在售 ${escapeHtml(item.onSaleCount)}</td>
+          <td class="px-4 py-3 text-sm text-slate-700">
+            <div>${escapeHtml(item.channelCount)} 个渠道店铺商品</div>
+            <div class="mt-1 text-xs text-slate-500">在售规格 ${escapeHtml(item.onSaleCount)}</div>
+            <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.style.targetChannelCodes.join(' / ') || '-')}</div>
+          </td>
           <td class="px-4 py-3">${renderStatusBadge(item.style.archiveStatus, 'style')}</td>
           <td class="px-4 py-3 text-sm text-slate-500">${escapeHtml(formatDateTime(item.style.updatedAt))}</td>
           <td class="px-4 py-3">
@@ -714,8 +744,14 @@ function renderSkuTable(items: SkuArchiveRecord[]): string {
       (item) => `
         <tr class="border-t border-slate-100 align-top">
           <td class="px-4 py-3">
-            <button type="button" class="text-left text-sm font-medium text-slate-900 hover:text-slate-700" data-nav="/pcs/products/specifications/${escapeHtml(item.skuId)}">${escapeHtml(item.skuCode)}</button>
-            <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.barcode || '-')}</div>
+            <div class="flex items-start gap-3">
+              ${renderArchiveImage(item.skuImageUrl || '', item.skuCode, 'sm')}
+              <div class="min-w-0">
+                <button type="button" class="text-left text-sm font-medium text-slate-900 hover:text-slate-700" data-nav="/pcs/products/specifications/${escapeHtml(item.skuId)}">${escapeHtml(item.skuCode)}</button>
+                <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.skuName || '-')}</div>
+                <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.barcode || '-')}</div>
+              </div>
+            </div>
           </td>
           <td class="px-4 py-3">
             <button type="button" class="text-left text-sm font-medium text-slate-900 hover:text-slate-700" data-nav="/pcs/products/styles/${escapeHtml(item.styleId)}">${escapeHtml(item.styleCode)}</button>
@@ -724,9 +760,25 @@ function renderSkuTable(items: SkuArchiveRecord[]): string {
           <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.colorName)}</td>
           <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.sizeName)}</td>
           <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.printName || '-')}</td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.techPackVersionLabel || '未关联')}</td>
+          <td class="px-4 py-3 text-sm text-slate-700">
+            ${
+              item.techPackVersionId
+                ? `<button type="button" class="text-left font-medium text-slate-900 hover:text-slate-700" data-nav="/pcs/products/styles/${escapeHtml(item.styleId)}/technical-data/${escapeHtml(item.techPackVersionId)}">${escapeHtml(item.techPackVersionLabel || item.techPackVersionCode || '未关联')}</button>`
+                : escapeHtml(item.techPackVersionLabel || '未关联')
+            }
+            <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.techPackVersionCode || '-')}</div>
+          </td>
+          <td class="px-4 py-3 text-sm text-slate-700">
+            <div>${escapeHtml(formatCurrency(item.costPrice, item.currency))}</div>
+            <div class="mt-1 text-xs text-slate-500">售价 ${escapeHtml(formatCurrency(item.suggestedRetailPrice, item.currency))}</div>
+            <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.pricingUnit || '-')}</div>
+          </td>
           <td class="px-4 py-3">${renderMappingBadge(item.mappingHealth)}</td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.channelMappingCount)}</td>
+          <td class="px-4 py-3 text-sm text-slate-700">
+            <div>${escapeHtml(item.channelMappingCount)} 个映射</div>
+            <div class="mt-1 text-xs text-slate-500">已上架 ${escapeHtml(item.listedChannelCount)}</div>
+            <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.lastListingAt || '-')}</div>
+          </td>
           <td class="px-4 py-3">${renderStatusBadge(item.archiveStatus, 'sku')}</td>
           <td class="px-4 py-3">
             <div class="flex items-center justify-end gap-2">
@@ -751,13 +803,14 @@ function renderSkuTable(items: SkuArchiveRecord[]): string {
               <th class="px-4 py-3 font-medium">尺码</th>
               <th class="px-4 py-3 font-medium">花型 / 印花</th>
               <th class="px-4 py-3 font-medium">资料版本</th>
+              <th class="px-4 py-3 font-medium">成本价</th>
               <th class="px-4 py-3 font-medium">映射健康</th>
               <th class="px-4 py-3 font-medium">渠道映射数</th>
               <th class="px-4 py-3 font-medium">状态</th>
               <th class="px-4 py-3 text-right font-medium">操作</th>
             </tr>
           </thead>
-          <tbody>${rows || '<tr><td colspan="10" class="px-4 py-10 text-center text-sm text-slate-500">暂无规格档案数据。</td></tr>'}</tbody>
+          <tbody>${rows || '<tr><td colspan="11" class="px-4 py-10 text-center text-sm text-slate-500">暂无规格档案数据。</td></tr>'}</tbody>
         </table>
       </div>
     </section>
@@ -771,10 +824,10 @@ function renderStyleCreateDrawer(): string {
   const title = mode === 'project' ? '从商品项目生成款式档案' : mode === 'legacy' ? '建立老系统映射' : '新建款式档案'
   const description =
     mode === 'project'
-      ? '从已通过测款结论的商品项目生成正式款式档案，并可同步创建技术包草稿。'
+      ? '从已通过测款结论的商品项目生成正式款式档案。'
       : mode === 'legacy'
         ? '建立与已有业务系统商品档案的映射关系，补齐正式款式主档。'
-        : '创建正式款式主档，可选择同步创建技术包版本草稿。'
+        : '创建正式款式主档。'
   const projectOptions = listProjects()
     .filter((item) => item.projectStatus !== '已终止' && item.projectStatus !== '已归档')
     .map((item) => ({ value: item.projectId, label: `${item.projectCode} · ${item.projectName}` }))
@@ -800,10 +853,7 @@ function renderStyleCreateDrawer(): string {
           `
           : ''
       }
-      <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-        ${renderCheckbox('style-create-create-version', state.styleCreate.createVersion, '同时创建技术包版本 V1 草稿')}
-        <div class="mt-2 text-xs text-slate-500">创建后会进入款式详情页；如选择来源商品项目，将同步绑定项目主关联。</div>
-      </div>
+      <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-500">创建后会进入款式详情页；如选择来源商品项目，将同步绑定项目主关联。技术包版本仅可由改版任务、制版任务、花型任务生成。</div>
     </div>
   `
   const footer = `
@@ -890,33 +940,74 @@ function renderSkuCreateDrawer(): string {
 function renderStyleDetailOverview(style: StyleArchiveShellRecord): string {
   const skus = listSkuArchivesByStyleId(style.styleId)
   const currentChannelProduct = findProjectChannelProductByStyleId(style.styleId)
+  const materialUsages = listMaterialUsageRecordsByStyleCode(style.styleCode)
+    .map((usage) => ({ usage, material: getMaterialArchiveById(usage.materialId) }))
+    .filter((item) => item.material)
+  const gallery = (style.galleryImageUrls || []).slice(0, 3)
+  const currentTechPackHref =
+    style.currentTechPackVersionId && style.currentTechPackVersionCode
+      ? `/pcs/products/styles/${style.styleId}/technical-data/${style.currentTechPackVersionId}`
+      : ''
   return `
-    <section class="grid gap-4 xl:grid-cols-[2fr,1fr]">
-      <div class="space-y-4 rounded-lg border bg-white p-5 shadow-sm">
-        <div class="grid gap-4 md:grid-cols-2">
-          <div>
-            <div class="text-xs text-slate-500">款式名称</div>
-            <div class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(style.styleName)}</div>
+    <section class="grid gap-4 xl:grid-cols-[2.2fr,1fr]">
+      <div class="rounded-lg border bg-white p-5 shadow-sm">
+        <div class="flex flex-col gap-5 lg:flex-row">
+          <div class="w-full max-w-[320px] shrink-0 space-y-3">
+            ${renderArchiveImage(style.mainImageUrl, style.styleName)}
+            <div class="grid grid-cols-3 gap-2">
+              ${gallery
+                .map((item) => renderArchiveImage(item, style.styleName, 'sm'))
+                .join('')}
+            </div>
           </div>
-          <div>
-            <div class="text-xs text-slate-500">类目</div>
-            <div class="mt-1 text-sm text-slate-700">${escapeHtml(style.categoryName || style.subCategoryName || '-')}</div>
+          <div class="min-w-0 flex-1">
+            <div class="grid gap-4 md:grid-cols-2">
+              <div><div class="text-xs text-slate-500">款式名称</div><div class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(style.styleName)}</div></div>
+              <div><div class="text-xs text-slate-500">外文名</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.styleNameEn || '-')}</div></div>
+              <div><div class="text-xs text-slate-500">款式编码 / 款号</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.styleCode)} / ${escapeHtml(style.styleNumber || '-')}</div></div>
+              <div><div class="text-xs text-slate-500">品牌</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.brandName || '-')}</div></div>
+              <div><div class="text-xs text-slate-500">一级类目</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.categoryName || '-')}</div></div>
+              <div><div class="text-xs text-slate-500">二级类目</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.subCategoryName || '-')}</div></div>
+              <div><div class="text-xs text-slate-500">年份 / 季节</div><div class="mt-1 text-sm text-slate-700">${escapeHtml([style.yearTag, style.seasonTags.join('/')].filter(Boolean).join(' / ') || '-')}</div></div>
+              <div><div class="text-xs text-slate-500">人群标签</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.targetAudienceTags.join(' / ') || '-')}</div></div>
+              <div><div class="text-xs text-slate-500">风格标签</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.styleTags.join(' / ') || '-')}</div></div>
+              <div><div class="text-xs text-slate-500">价格带</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.priceRangeLabel || '-')}</div></div>
+              <div><div class="text-xs text-slate-500">来源项目</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.sourceProjectCode ? `${style.sourceProjectCode} · ${style.sourceProjectName}` : '未绑定商品项目')}</div></div>
+              <div><div class="text-xs text-slate-500">当前生效技术包</div><div class="mt-1 text-sm text-slate-700">${currentTechPackHref ? `<button type="button" class="font-medium text-slate-900 hover:text-slate-700" data-nav="${escapeHtml(currentTechPackHref)}">${escapeHtml(style.currentTechPackVersionLabel || style.currentTechPackVersionCode)}</button>` : escapeHtml(style.currentTechPackVersionLabel || '无生效版本')}</div></div>
+              <div class="md:col-span-2"><div class="text-xs text-slate-500">测款渠道</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.targetChannelCodes.join(' / ') || '-')}</div></div>
+              <div class="md:col-span-2"><div class="text-xs text-slate-500">卖点摘要</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.sellingPointText || '-')}</div></div>
+              <div class="md:col-span-2"><div class="text-xs text-slate-500">包装信息</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.packagingInfo || '-')}</div></div>
+              <div class="md:col-span-2"><div class="text-xs text-slate-500">详情描述</div><div class="mt-1 text-sm leading-6 text-slate-700">${escapeHtml(style.detailDescription || '-')}</div></div>
+            </div>
           </div>
-          <div>
-            <div class="text-xs text-slate-500">风格标签</div>
-            <div class="mt-1 text-sm text-slate-700">${escapeHtml(style.styleTags.join(' / ') || '-')}</div>
-          </div>
-          <div>
-            <div class="text-xs text-slate-500">价格带</div>
-            <div class="mt-1 text-sm text-slate-700">${escapeHtml(style.priceRangeLabel || '-')}</div>
-          </div>
-          <div>
-            <div class="text-xs text-slate-500">来源项目</div>
-            <div class="mt-1 text-sm text-slate-700">${escapeHtml(style.sourceProjectCode ? `${style.sourceProjectCode} · ${style.sourceProjectName}` : '未绑定商品项目')}</div>
-          </div>
-          <div>
-            <div class="text-xs text-slate-500">当前生效技术包</div>
-            <div class="mt-1 text-sm text-slate-700">${escapeHtml(style.currentTechPackVersionLabel || '无生效版本')}</div>
+        </div>
+        <div class="mt-5 border-t border-slate-100 pt-4">
+          <div class="mb-3 text-sm font-medium text-slate-900">物料引用</div>
+          <div class="space-y-3">
+            ${materialUsages.length > 0
+              ? materialUsages
+                  .slice(0, 6)
+                  .map(
+                    ({ usage, material }) => `
+                      <div class="flex items-start justify-between gap-4 rounded-md border border-slate-200 px-3 py-3">
+                        <div class="min-w-0">
+                          <div class="text-sm font-medium text-slate-900">${escapeHtml(material!.materialCode)} · ${escapeHtml(material!.materialName)}</div>
+                          <div class="mt-1 text-xs text-slate-500">${escapeHtml(usage.bomItemName)} · ${escapeHtml(usage.usageStage)} · ${escapeHtml(usage.consumptionText)}</div>
+                          <div class="mt-1 text-xs text-slate-500">${escapeHtml(usage.technicalVersionCode || '未建立技术包')}</div>
+                        </div>
+                        <div class="flex shrink-0 flex-col items-end gap-1">
+                          <button type="button" class="text-xs text-slate-600 hover:text-slate-900" data-nav="/pcs/materials/${escapeHtml(material!.kind)}/${escapeHtml(material!.materialId)}">查看物料</button>
+                          ${
+                            usage.technicalVersionId
+                              ? `<button type="button" class="text-xs text-slate-600 hover:text-slate-900" data-nav="/pcs/products/styles/${escapeHtml(style.styleId)}/technical-data/${escapeHtml(usage.technicalVersionId)}">查看技术包</button>`
+                              : ''
+                          }
+                        </div>
+                      </div>
+                    `,
+                  )
+                  .join('')
+              : '<div class="rounded-md border border-dashed border-slate-200 px-3 py-5 text-sm text-slate-500">当前款式尚未沉淀物料引用关系。</div>'}
           </div>
         </div>
       </div>
@@ -929,7 +1020,16 @@ function renderStyleDetailOverview(style: StyleArchiveShellRecord): string {
           </div>
           <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
             <div class="text-xs text-slate-500">渠道店铺商品</div>
-            <div class="mt-1 text-lg font-semibold text-slate-900">${escapeHtml(currentChannelProduct?.channelProductCode || '未生成')}</div>
+            <div class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(currentChannelProduct?.channelProductCode || '未生成')}</div>
+          </div>
+          <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+            <div class="text-xs text-slate-500">价格带 / 渠道</div>
+            <div class="mt-1 text-sm text-slate-700">${escapeHtml(style.priceRangeLabel || '-')}</div>
+            <div class="mt-1 text-xs text-slate-500">${escapeHtml(style.targetChannelCodes.join(' / ') || '-')}</div>
+          </div>
+          <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+            <div class="text-xs text-slate-500">物料引用数</div>
+            <div class="mt-1 text-lg font-semibold text-slate-900">${escapeHtml(materialUsages.length)}</div>
           </div>
           <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
             <div class="text-xs text-slate-500">更新时间</div>
@@ -1236,16 +1336,34 @@ function buildSkuChannelMappingRows(sku: SkuArchiveRecord) {
 function renderSkuDetailOverview(sku: SkuArchiveRecord): string {
   return `
     <section class="grid gap-4 xl:grid-cols-[2fr,1fr]">
-      <div class="space-y-4 rounded-lg border bg-white p-5 shadow-sm">
-        <div class="grid gap-4 md:grid-cols-2">
-          <div><div class="text-xs text-slate-500">所属款式</div><div class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(sku.styleCode)} · ${escapeHtml(sku.styleName)}</div></div>
-          <div><div class="text-xs text-slate-500">资料版本</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(sku.techPackVersionLabel || '未关联')}</div></div>
-          <div><div class="text-xs text-slate-500">颜色</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(sku.colorName)}</div></div>
-          <div><div class="text-xs text-slate-500">尺码</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(sku.sizeName)}</div></div>
-          <div><div class="text-xs text-slate-500">花型 / 印花</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(sku.printName || '-')}</div></div>
-          <div><div class="text-xs text-slate-500">条码</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(sku.barcode || '-')}</div></div>
-          <div><div class="text-xs text-slate-500">重量</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(sku.weightText || '-')}</div></div>
-          <div><div class="text-xs text-slate-500">体积</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(sku.volumeText || '-')}</div></div>
+      <div class="rounded-lg border bg-white p-5 shadow-sm">
+        <div class="flex flex-col gap-5 lg:flex-row">
+          <div class="w-full max-w-[260px] shrink-0 space-y-3">
+            ${renderArchiveImage(sku.skuImageUrl || '', sku.skuCode)}
+            <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-3 text-xs text-slate-600">
+              <div>渠道标题</div>
+              <div class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(sku.channelTitle || '-')}</div>
+            </div>
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="grid gap-4 md:grid-cols-2">
+              <div><div class="text-xs text-slate-500">所属款式</div><div class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(sku.styleCode)} · ${escapeHtml(sku.styleName)}</div></div>
+              <div><div class="text-xs text-slate-500">资料版本</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(sku.techPackVersionLabel || '未关联')}</div></div>
+              <div><div class="text-xs text-slate-500">SKU 中文名</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(sku.skuName || '-')}</div></div>
+              <div><div class="text-xs text-slate-500">SKU 外文名</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(sku.skuNameEn || '-')}</div></div>
+              <div><div class="text-xs text-slate-500">颜色</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(sku.colorName)}</div></div>
+              <div><div class="text-xs text-slate-500">尺码</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(sku.sizeName)}</div></div>
+              <div><div class="text-xs text-slate-500">花型 / 印花</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(sku.printName || '-')}</div></div>
+              <div><div class="text-xs text-slate-500">条码</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(sku.barcode || '-')}</div></div>
+              <div><div class="text-xs text-slate-500">成本价</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(formatCurrency(sku.costPrice, sku.currency))}</div></div>
+              <div><div class="text-xs text-slate-500">含运费成本</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(formatCurrency((sku.costPrice || 0) + (sku.freightCost || 0), sku.currency))}</div></div>
+              <div><div class="text-xs text-slate-500">建议售价</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(formatCurrency(sku.suggestedRetailPrice, sku.currency))}</div></div>
+              <div><div class="text-xs text-slate-500">计价单位</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(sku.pricingUnit || '-')}</div></div>
+              <div><div class="text-xs text-slate-500">重量</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(sku.weightText || '-')}</div></div>
+              <div><div class="text-xs text-slate-500">体积</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(sku.volumeText || '-')}</div></div>
+              <div class="md:col-span-2"><div class="text-xs text-slate-500">包装信息</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(sku.packagingInfo || '-')}</div></div>
+            </div>
+          </div>
         </div>
       </div>
       <aside class="space-y-4 rounded-lg border bg-white p-5 shadow-sm">
@@ -1337,7 +1455,7 @@ function renderSkuDetailVariants(sku: SkuArchiveRecord): string {
               <th class="px-4 py-3 font-medium">渠道店铺商品名称</th>
               <th class="px-4 py-3 font-medium">变体名称</th>
               <th class="px-4 py-3 font-medium">平台变体 ID</th>
-              <th class="px-4 py-3 font-medium">来源</th>
+              <th class="px-4 py-3 font-medium">关联链路</th>
             </tr>
           </thead>
           <tbody>${rows || '<tr><td colspan="7" class="px-4 py-10 text-center text-sm text-slate-500">当前规格尚未形成渠道变体。</td></tr>'}</tbody>
@@ -1552,72 +1670,6 @@ export function renderPcsSpecificationDetailPage(skuId: string): string {
   return renderSkuDetailPage(skuId)
 }
 
-function createDraftTechnicalVersionForStyle(style: StyleArchiveShellRecord, project: PcsProjectRecord | null): void {
-  const identity = getNextTechnicalVersionIdentity()
-  const versionMeta = getNextStyleVersionMeta(style.styleId)
-  const transferNode = project ? getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'PROJECT_TRANSFER_PREP') : null
-
-  createTechnicalDataVersionDraft({
-    technicalVersionId: identity.technicalVersionId,
-    technicalVersionCode: identity.technicalVersionCode,
-    versionLabel: versionMeta.versionLabel,
-    versionNo: versionMeta.versionNo,
-    styleId: style.styleId,
-    styleCode: style.styleCode,
-    styleName: style.styleName,
-    sourceProjectId: project?.projectId || '',
-    sourceProjectCode: project?.projectCode || '',
-    sourceProjectName: project?.projectName || '',
-    sourceProjectNodeId: transferNode?.projectNodeId || '',
-    linkedRevisionTaskIds: [],
-    linkedPatternTaskIds: [],
-    linkedArtworkTaskIds: [],
-    createdFromTaskType: 'REVISION',
-    createdFromTaskId: '',
-    createdFromTaskCode: '',
-    baseTechnicalVersionId: '',
-    baseTechnicalVersionCode: '',
-    linkedPartTemplateIds: [],
-    linkedPatternLibraryVersionIds: [],
-    versionStatus: 'DRAFT',
-    bomStatus: 'EMPTY',
-    patternStatus: 'EMPTY',
-    processStatus: 'EMPTY',
-    gradingStatus: 'EMPTY',
-    qualityStatus: 'EMPTY',
-    colorMaterialStatus: 'EMPTY',
-    designStatus: 'EMPTY',
-    attachmentStatus: 'EMPTY',
-    bomItemCount: 0,
-    patternFileCount: 0,
-    processEntryCount: 0,
-    gradingRuleCount: 0,
-    qualityRuleCount: 0,
-    colorMaterialMappingCount: 0,
-    designAssetCount: 0,
-    attachmentCount: 0,
-    completenessScore: 0,
-    missingItemCodes: [],
-    missingItemNames: [],
-    publishedAt: '',
-    publishedBy: '',
-    createdAt: identity.timestamp,
-    createdBy: '系统演示',
-    updatedAt: identity.timestamp,
-    updatedBy: '系统演示',
-    note: '',
-    legacySpuCode: style.styleCode,
-    legacyVersionLabel: '',
-  })
-
-  updateStyleArchive(style.styleId, {
-    techPackStatus: '草稿中',
-    techPackVersionCount: listTechnicalDataVersionsByStyleId(style.styleId).length,
-    updatedAt: identity.timestamp,
-    updatedBy: '系统演示',
-  })
-}
-
 function submitStyleCreate(): void {
   const name = state.styleCreate.name.trim()
   const category = state.styleCreate.category.trim()
@@ -1642,12 +1694,14 @@ function submitStyleCreate(): void {
 
   const identity = buildStyleIdentity()
   const styleCreateNode = project ? getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'STYLE_ARCHIVE_CREATE') : null
+  const fixture = buildStyleFixture(identity.styleCode, name)
 
   try {
     const created = createStyleArchiveShell({
       styleId: identity.styleId,
       styleCode: identity.styleCode,
       styleName: name,
+      styleNameEn: fixture.styleNameEn,
       styleNumber: identity.styleCode,
       styleType: '成衣',
       sourceProjectId: project?.projectId || '',
@@ -1674,7 +1728,7 @@ function submitStyleCreate(): void {
       archiveStatus: project ? 'ACTIVE' : 'DRAFT',
       baseInfoStatus: '已维护',
       specificationStatus: '未建立',
-      techPackStatus: state.styleCreate.createVersion ? '草稿中' : '未建立',
+      techPackStatus: '未建立',
       costPricingStatus: '未建立',
       specificationCount: 0,
       techPackVersionCount: 0,
@@ -1686,6 +1740,11 @@ function submitStyleCreate(): void {
       currentTechPackVersionStatus: '',
       currentTechPackVersionActivatedAt: '',
       currentTechPackVersionActivatedBy: '',
+      mainImageUrl: fixture.mainImageUrl,
+      galleryImageUrls: fixture.galleryImageUrls,
+      sellingPointText: fixture.sellingPointText,
+      detailDescription: fixture.detailDescription,
+      packagingInfo: fixture.packagingInfo,
       remark: '',
       generatedAt: identity.timestamp,
       generatedBy: '系统演示',
@@ -1696,10 +1755,6 @@ function submitStyleCreate(): void {
           ? `${state.styleCreate.legacySystem.trim()} · ${state.styleCreate.legacyCode.trim()}`
           : '',
     })
-
-    if (state.styleCreate.createVersion) {
-      createDraftTechnicalVersionForStyle(created, project)
-    }
 
     if (project) {
       updateProjectRecord(project.projectId, {
@@ -1747,16 +1802,21 @@ function buildSkuRecord(input: {
 }): SkuArchiveRecord {
   const identity = buildSkuIdentity()
   const latestVersion = resolveLatestVersionMeta(input.style.styleId)
+  const fixture = buildSkuFixture(input.style.styleCode, input.style.styleName, input.color, input.size)
   return {
     skuId: identity.skuId,
     skuCode: input.skuCode,
     styleId: input.style.styleId,
     styleCode: input.style.styleCode,
     styleName: input.style.styleName,
+    skuName: fixture.skuName,
+    skuNameEn: fixture.skuNameEn,
     colorName: input.color,
     sizeName: input.size,
     printName: input.print.trim() || '基础款',
     barcode: input.barcode.trim() || `69${identity.timestamp.replace(/\D/g, '').slice(-11)}`.slice(0, 13),
+    channelTitle: fixture.channelTitle,
+    skuImageUrl: fixture.skuImageUrl,
     archiveStatus: 'ACTIVE',
     mappingHealth: input.mappingHealth || (input.style.channelProductCount > 0 ? 'OK' : 'MISSING'),
     channelMappingCount: Math.max(0, input.style.channelProductCount || 0),
@@ -1766,10 +1826,19 @@ function buildSkuRecord(input: {
     techPackVersionLabel: input.style.currentTechPackVersionLabel || latestVersion.versionLabel,
     legacySystem: input.legacySystem || '',
     legacyCode: input.legacyCode || '',
-    weightText: '0.36kg',
-    volumeText: '30*22*4cm',
+    costPrice: fixture.costPrice,
+    freightCost: fixture.freightCost,
+    suggestedRetailPrice: fixture.suggestedRetailPrice,
+    currency: fixture.currency,
+    pricingUnit: fixture.pricingUnit,
+    weightKg: fixture.weightKg,
+    lengthCm: fixture.lengthCm,
+    widthCm: fixture.widthCm,
+    heightCm: fixture.heightCm,
+    packagingInfo: fixture.packagingInfo,
+    weightText: `${fixture.weightKg}kg`,
+    volumeText: `${fixture.lengthCm}*${fixture.widthCm}*${fixture.heightCm}cm`,
     lastListingAt: input.style.channelProductCount > 0 ? identity.timestamp.slice(0, 10) : '',
-    lastOrderAt: '',
     createdAt: identity.timestamp,
     createdBy: '系统演示',
     updatedAt: identity.timestamp,
@@ -1949,9 +2018,6 @@ export function handlePcsProductArchiveInput(target: Element): boolean {
       return true
     case 'style-create-legacy-code':
       state.styleCreate.legacyCode = value
-      return true
-    case 'style-create-create-version':
-      state.styleCreate.createVersion = checked
       return true
     case 'sku-create-style-id':
       state.skuCreate.styleId = value

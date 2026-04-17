@@ -2,8 +2,8 @@ import { createTaskBootstrapSnapshot } from './pcs-task-bootstrap.ts'
 import type { PcsTaskPendingItem } from './pcs-project-types.ts'
 import type { RevisionTaskRecord, RevisionTaskStoreSnapshot } from './pcs-revision-task-types.ts'
 
-const STORAGE_KEY = 'higood-pcs-revision-task-store-v1'
-const STORE_VERSION = 1
+const STORAGE_KEY = 'higood-pcs-revision-task-store-v2'
+const STORE_VERSION = 2
 
 let memorySnapshot: RevisionTaskStoreSnapshot | null = null
 
@@ -44,9 +44,18 @@ function seedSnapshot(): RevisionTaskStoreSnapshot {
 function normalizeTask(task: RevisionTaskRecord): RevisionTaskRecord {
   return {
     ...cloneTask(task),
+    styleId: task.styleId || '',
+    styleCode: task.styleCode || task.productStyleCode || task.spuCode || '',
+    styleName: task.styleName || '',
+    referenceObjectType: task.referenceObjectType || '',
+    referenceObjectId: task.referenceObjectId || '',
+    referenceObjectCode: task.referenceObjectCode || '',
+    referenceObjectName: task.referenceObjectName || '',
     participantNames: [...(task.participantNames || [])],
     revisionScopeCodes: [...(task.revisionScopeCodes || [])],
     revisionScopeNames: [...(task.revisionScopeNames || [])],
+    issueSummary: task.issueSummary || '',
+    evidenceSummary: task.evidenceSummary || '',
     linkedTechPackVersionId: task.linkedTechPackVersionId || '',
     linkedTechPackVersionCode: task.linkedTechPackVersionCode || '',
     linkedTechPackVersionLabel: task.linkedTechPackVersionLabel || '',

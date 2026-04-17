@@ -5,19 +5,24 @@ import { getSampleAssetByCode, upsertSampleAsset } from '../data/pcs-sample-asse
 import { createPatternAsset, getPatternAssetById, listPatternAssets } from '../data/pcs-pattern-library.ts'
 import type { PatternParsedFileResult } from '../data/pcs-pattern-library-types.ts'
 import { generateTechPackVersionFromPatternTask, generateTechPackVersionFromPlateTask, generateTechPackVersionFromRevisionTask } from '../data/pcs-project-technical-data-writeback.ts'
+import {
+  getTechPackGenerationActionLabel,
+  getTechPackGenerationBlockedReason,
+  isTechPackGenerationAllowedStatus,
+} from '../data/pcs-tech-pack-task-generation.ts'
 import { listPatternTasks, getPatternTaskById, updatePatternTask, resetPatternTaskRepository } from '../data/pcs-pattern-task-repository.ts'
 import { listPlateMakingTasks, getPlateMakingTaskById, updatePlateMakingTask, resetPlateMakingTaskRepository } from '../data/pcs-plate-making-repository.ts'
 import { listRevisionTasks, getRevisionTaskById, updateRevisionTask, resetRevisionTaskRepository } from '../data/pcs-revision-task-repository.ts'
 import { listFirstSampleTasks, getFirstSampleTaskById, updateFirstSampleTask, resetFirstSampleTaskRepository } from '../data/pcs-first-sample-repository.ts'
 import { listPreProductionSampleTasks, getPreProductionSampleTaskById, updatePreProductionSampleTask, resetPreProductionSampleTaskRepository } from '../data/pcs-pre-production-sample-repository.ts'
 import { createDownstreamTasksFromRevision, createFirstSampleTaskWithProjectRelation, createPatternTaskWithProjectRelation, createPlateMakingTaskWithProjectRelation, createPreProductionSampleTaskWithProjectRelation, createRevisionTaskWithProjectRelation } from '../data/pcs-task-project-relation-writeback.ts'
-import { findStyleArchiveByProjectId } from '../data/pcs-style-archive-repository.ts'
+import { findStyleArchiveByProjectId, getStyleArchiveById, listStyleArchives } from '../data/pcs-style-archive-repository.ts'
 import { getProjectById, listProjects } from '../data/pcs-project-repository.ts'
+import { REVISION_TASK_SOURCE_TYPE_LIST, type RevisionTaskSourceType } from '../data/pcs-task-source-normalizer.ts'
 import { tokenizePatternFilename } from '../utils/pcs-pattern-library-services.ts'
 import { escapeHtml, formatDateTime, toClassName } from '../utils.ts'
 
 type ModuleKey = 'revision' | 'plate' | 'pattern' | 'firstSample' | 'preProduction'
-type DownstreamTaskType = 'PATTERN' | 'PRINT' | 'SAMPLE' | 'PRE_PRODUCTION'
 type RevisionTab = 'plan' | 'issues' | 'samples' | 'outputs' | 'downstream' | 'logs'
 type PlateTab = 'overview' | 'version' | 'bom' | 'patterns' | 'outputs' | 'downstream' | 'logs'
 type PatternTab = 'plan' | 'color' | 'production' | 'samples' | 'library' | 'logs'
@@ -45,13 +50,18 @@ interface SampleListState extends ListState {
 }
 
 interface RevisionCreateDraft {
+  sourceType: RevisionTaskSourceType
   projectId: string
+  styleId: string
+  referenceObjectId: string
   title: string
   ownerName: string
   dueAt: string
-  productStyleCode: string
   note: string
+  issueSummary: string
+  evidenceSummary: string
   scopeCodes: string[]
+  createPatternTask: boolean
 }
 
 interface PlateCreateDraft {
@@ -126,16 +136,27 @@ const REVISION_SCOPE_OPTIONS = [
   { value: 'PACKAGE', label: '包装标识' },
 ] as const
 
+const REVISION_REFERENCE_OPTIONS = [
+  { id: 'REF-REVIEW-001', type: '设计评审记录', code: 'REF-REVIEW-001', name: '春夏连衣裙评审纪要' },
+  { id: 'REF-COMP-001', type: '竞品拆解', code: 'REF-COMP-001', name: '竞品连衣裙拆解记录' },
+  { id: 'REF-FEEDBACK-001', type: '历史问题清单', code: 'REF-FEEDBACK-001', name: '客诉与试穿问题汇总' },
+] as const
+
 const SAMPLE_SITE_OPTIONS = ['all', '深圳', '雅加达']
 
 const initialRevisionCreateDraft = (): RevisionCreateDraft => ({
+  sourceType: '测款触发',
   projectId: '',
+  styleId: '',
+  referenceObjectId: '',
   title: '',
   ownerName: '',
   dueAt: '',
-  productStyleCode: '',
   note: '',
+  issueSummary: '',
+  evidenceSummary: '',
   scopeCodes: ['PATTERN'],
+  createPatternTask: false,
 })
 
 const initialPlateCreateDraft = (): PlateCreateDraft => ({
@@ -183,9 +204,6 @@ const state = {
   revisionTab: 'plan' as RevisionTab,
   revisionCreateOpen: false,
   revisionCreateDraft: initialRevisionCreateDraft(),
-  revisionDownstreamOpen: false,
-  revisionDownstreamTaskId: '',
-  revisionDownstreamTypes: ['PATTERN', 'PRINT', 'SAMPLE'] as DownstreamTaskType[],
 
   plateList: { search: '', status: 'all', owner: 'all', source: 'all', quickFilter: 'all', currentPage: 1 } as ListState,
   plateTab: 'overview' as PlateTab,
@@ -362,11 +380,18 @@ function isOverdue(dateTime: string, done: boolean): boolean {
 }
 
 function projectButton(projectId: string, projectCode: string, projectName: string): string {
+  if (!projectId) return '<span class="text-slate-400">未关联商品项目</span>'
   return `<button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/projects/${escapeHtml(projectId)}">${escapeHtml(projectCode || projectName)}</button>`
 }
 
 function projectNodeButton(projectId: string, projectNodeId: string, label: string): string {
+  if (!projectId || !projectNodeId) return '<span class="text-slate-400">未关联项目节点</span>'
   return `<button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/projects/${escapeHtml(projectId)}">${escapeHtml(label)}</button>`
+}
+
+function styleArchiveButton(styleId: string, styleCode: string, styleName: string): string {
+  if (!styleId) return '<span class="text-slate-400">待选择款式档案</span>'
+  return `<button type="button" class="font-medium text-blue-700 hover:underline" data-nav="/pcs/products/styles/${escapeHtml(styleId)}">${escapeHtml(styleCode || styleName || '查看款式档案')}</button>`
 }
 
 function styleArchiveLinkByProject(projectId: string): string {
@@ -387,6 +412,24 @@ function getOwners(items: Array<{ ownerName: string }>): string[] {
 
 function getSources(items: Array<{ sourceType: string }>): string[] {
   return Array.from(new Set(items.map((item) => item.sourceType).filter(Boolean))).sort((left, right) => left.localeCompare(right))
+}
+
+function buildStyleArchiveOptions(): Array<{ value: string; label: string }> {
+  return listStyleArchives().map((style) => ({
+    value: style.styleId,
+    label: `${style.styleCode} · ${style.styleName}`,
+  }))
+}
+
+function buildRevisionReferenceOptions(): Array<{ value: string; label: string }> {
+  return REVISION_REFERENCE_OPTIONS.map((item) => ({
+    value: item.id,
+    label: `${item.type} · ${item.name}`,
+  }))
+}
+
+function getRevisionReferenceOption(referenceObjectId: string) {
+  return REVISION_REFERENCE_OPTIONS.find((item) => item.id === referenceObjectId) || null
 }
 
 function renderListFilters(input: {
@@ -544,13 +587,52 @@ function buildProjectOptions(): Array<{ value: string; label: string }> {
   return listProjects().map((project) => ({ value: project.projectId, label: `${project.projectCode} · ${project.projectName}` }))
 }
 
-function getProjectDefaultValues(projectId: string): { ownerName: string; productStyleCode: string } {
+function getProjectDefaultValues(projectId: string): { ownerName: string; styleId: string; styleCode: string; styleName: string } {
   const project = getProjectById(projectId)
   const style = findStyleArchiveByProjectId(projectId)
   return {
     ownerName: project?.ownerName || '',
-    productStyleCode: style?.styleCode || '',
+    styleId: style?.styleId || '',
+    styleCode: style?.styleCode || '',
+    styleName: style?.styleName || '',
   }
+}
+
+function getRevisionTaskStyle(task: { styleId: string; styleCode: string; styleName: string; projectId: string }) {
+  if (task.styleId) {
+    return {
+      styleId: task.styleId,
+      styleCode: task.styleCode,
+      styleName: task.styleName,
+    }
+  }
+  const style = findStyleArchiveByProjectId(task.projectId)
+  return {
+    styleId: style?.styleId || '',
+    styleCode: style?.styleCode || task.styleCode || '',
+    styleName: style?.styleName || task.styleName || '',
+  }
+}
+
+function getRevisionDownstreamTasks(task: { revisionTaskId: string; revisionTaskCode: string }) {
+  return listPatternTasks().filter(
+    (item) => item.upstreamObjectId === task.revisionTaskId || item.upstreamObjectCode === task.revisionTaskCode,
+  )
+}
+
+function getRevisionDownstreamFlag(task: { revisionTaskId: string; revisionTaskCode: string }): string {
+  const count = getRevisionDownstreamTasks(task).length
+  return count > 0
+    ? `<span class="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">有 ${count} 个</span>`
+    : '<span class="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">无</span>'
+}
+
+function getRevisionScopeText(scopeCodes: string[], scopeNames: string[]): string {
+  return scopeNames.join('、') || scopeCodes.join('、') || '-'
+}
+
+function canCreateRevisionPatternTask(scopeCodes: string[], sourceType: RevisionTaskSourceType, projectId: string): boolean {
+  return scopeCodes.includes('PRINT') && sourceType === '测款触发' && Boolean(projectId)
 }
 
 function renderLogs(logs: EngineeringLog[]): string {
@@ -790,12 +872,47 @@ function renderProjectContext(task: { projectId: string; projectCode: string; pr
   )
 }
 
+function renderRevisionContext(task: ReturnType<typeof getRevisionTaskById>): string {
+  if (!task) return ''
+  const style = getRevisionTaskStyle(task)
+  const referenceObjectText = task.referenceObjectId
+    ? `${task.referenceObjectType || '参考对象'} · ${task.referenceObjectCode || task.referenceObjectId}${task.referenceObjectName ? ` · ${task.referenceObjectName}` : ''}`
+    : '—'
+  return renderSectionCard(
+    '来源与关联',
+    renderKeyValueGrid(
+      [
+        { label: '来源类型', value: escapeHtml(task.sourceType) },
+        { label: '关联商品项目', value: projectButton(task.projectId, task.projectCode, task.projectName) },
+        { label: '关联项目节点', value: projectNodeButton(task.projectId, task.projectNodeId, task.workItemTypeName) },
+        { label: '关联款式档案', value: styleArchiveButton(style.styleId, style.styleCode, style.styleName) },
+        { label: '款式编码', value: escapeHtml(style.styleCode || '-') },
+        { label: '来源对象', value: escapeHtml(task.upstreamObjectCode || task.upstreamObjectId || '—') },
+        { label: '参考对象', value: escapeHtml(referenceObjectText) },
+        { label: '是否有下游任务', value: getRevisionDownstreamFlag(task) },
+      ],
+      4,
+    ),
+  )
+}
+
 function getRevisionTasksFiltered() {
   const tasks = listRevisionTasks()
   const keyword = state.revisionList.search.trim().toLowerCase()
   return tasks.filter((task) => {
     if (keyword) {
-      const haystack = [task.revisionTaskCode, task.title, task.projectCode, task.projectName, task.ownerName, task.productStyleCode].join(' ').toLowerCase()
+      const style = getRevisionTaskStyle(task)
+      const haystack = [
+        task.revisionTaskCode,
+        task.title,
+        task.projectCode,
+        task.projectName,
+        task.ownerName,
+        style.styleCode,
+        style.styleName,
+        task.referenceObjectCode,
+        task.referenceObjectName,
+      ].join(' ').toLowerCase()
       if (!haystack.includes(keyword)) return false
     }
     if (state.revisionList.status !== 'all' && task.status !== state.revisionList.status) return false
@@ -803,7 +920,7 @@ function getRevisionTasksFiltered() {
     if (state.revisionList.source !== 'all' && task.sourceType !== state.revisionList.source) return false
     if (state.revisionList.quickFilter === 'mine' && task.ownerName !== '李版师') return false
     if (state.revisionList.quickFilter === 'pending-review' && task.status !== '待确认') return false
-    if (state.revisionList.quickFilter === 'confirmed-no-output' && !(task.status === '已确认' && !task.linkedTechPackVersionId)) return false
+    if (state.revisionList.quickFilter === 'confirmed-no-output' && !(task.projectId && task.status === '已确认' && !task.linkedTechPackVersionId)) return false
     if (state.revisionList.quickFilter === 'blocked' && task.status !== '异常待处理') return false
     if (state.revisionList.quickFilter === 'overdue' && !isOverdue(task.dueAt, task.status === '已完成' || task.status === '已取消')) return false
     return true
@@ -818,6 +935,8 @@ function renderRevisionListPage(): string {
   const paged = paginate(filtered, state.revisionList.currentPage)
   const rows = paged.map((task) => {
     const overdue = isOverdue(task.dueAt, task.status === '已完成' || task.status === '已取消')
+    const style = getRevisionTaskStyle(task)
+    const showTechPackAction = Boolean(task.projectId) && isTechPackGenerationAllowedStatus(task.status)
     return `
       <tr class="hover:bg-slate-50/70">
         <td class="px-4 py-4">
@@ -826,18 +945,26 @@ function renderRevisionListPage(): string {
             <p class="text-xs text-slate-500">${escapeHtml(task.title)}</p>
           </div>
         </td>
-        <td class="px-4 py-4">${projectButton(task.projectId, task.projectCode, task.projectName)}</td>
-        <td class="px-4 py-4">${renderStatusBadge(task.status)}</td>
-        <td class="px-4 py-4">${escapeHtml(task.revisionScopeNames.join('、') || '-')}</td>
         <td class="px-4 py-4">${escapeHtml(task.sourceType)}</td>
+        <td class="px-4 py-4">
+          <div class="space-y-1">
+            <div>${styleArchiveButton(style.styleId, style.styleCode, style.styleName)}</div>
+            <p class="text-xs text-slate-500">${escapeHtml(style.styleName || '未补充款式名称')}</p>
+          </div>
+        </td>
+        <td class="px-4 py-4">${projectButton(task.projectId, task.projectCode, task.projectName)}</td>
+        <td class="px-4 py-4">${escapeHtml(getRevisionScopeText(task.revisionScopeCodes, task.revisionScopeNames))}</td>
+        <td class="px-4 py-4">${getRevisionDownstreamFlag(task)}</td>
+        <td class="px-4 py-4">${renderStatusBadge(task.status)}</td>
         <td class="px-4 py-4">${escapeHtml(task.ownerName)}</td>
         <td class="px-4 py-4">${escapeHtml(formatDateTime(task.dueAt))}${overdue ? '<span class="ml-2 rounded-full bg-rose-100 px-2 py-0.5 text-[11px] text-rose-700">超期</span>' : ''}</td>
         <td class="px-4 py-4">${task.linkedTechPackVersionId ? techPackLinkByProject(task.projectId, task.linkedTechPackVersionId, task.linkedTechPackVersionCode || task.linkedTechPackVersionLabel || '查看技术包') : '<span class="text-slate-400">未生成</span>'}</td>
         <td class="px-4 py-4">
           <div class="flex flex-wrap gap-2">
             <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/patterns/revision/${escapeHtml(task.revisionTaskId)}">查看</button>
-            <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="revision-generate-tech-pack" data-task-id="${escapeHtml(task.revisionTaskId)}">${escapeHtml(task.linkedTechPackVersionId ? '再次写入技术包' : '生成技术包')}</button>
-            <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="open-revision-downstream" data-task-id="${escapeHtml(task.revisionTaskId)}">创建下游</button>
+            ${showTechPackAction
+              ? `<button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="revision-generate-tech-pack" data-task-id="${escapeHtml(task.revisionTaskId)}">${escapeHtml(getTechPackGenerationActionLabel(task.projectId))}</button>`
+              : ''}
           </div>
         </td>
       </tr>
@@ -847,9 +974,9 @@ function renderRevisionListPage(): string {
   return `
     <div class="space-y-5 p-4">
       ${renderNotice()}
-      ${renderPageHeader('改版任务', '基于测款反馈、样衣评审和既有商品问题点，输出改版方案并驱动技术包、制版、花型和打样下游动作。', '新建改版任务', 'open-revision-create')}
+      ${renderPageHeader('改版任务', '按测款触发、既有商品改款、人工创建三类来源建立改版任务；仅在范围涉及花型时才可创建花型下游任务。', '新建改版任务', 'open-revision-create')}
       ${renderListFilters({
-        searchPlaceholder: '搜索任务编号 / 商品项目 / 款式 / 负责人',
+        searchPlaceholder: '搜索任务编号 / 商品项目 / 款式 / 负责人 / 参考对象',
         listState: state.revisionList,
         searchField: 'revision-search',
         statusField: 'revision-status',
@@ -863,52 +990,48 @@ function renderRevisionListPage(): string {
         ${renderMetricButton('全部任务', tasks.length, state.revisionList.quickFilter === 'all', 'all', 'set-revision-quick-filter', '当前改版任务总量')}
         ${renderMetricButton('我的任务', tasks.filter((item) => item.ownerName === '李版师').length, state.revisionList.quickFilter === 'mine', 'mine', 'set-revision-quick-filter', '当前用户默认视角')}
         ${renderMetricButton('待确认', tasks.filter((item) => item.status === '待确认').length, state.revisionList.quickFilter === 'pending-review', 'pending-review', 'set-revision-quick-filter', '待确认改版输出')}
-        ${renderMetricButton('已确认未写包', tasks.filter((item) => item.status === '已确认' && !item.linkedTechPackVersionId).length, state.revisionList.quickFilter === 'confirmed-no-output', 'confirmed-no-output', 'set-revision-quick-filter', '确认后待写技术包')}
+        ${renderMetricButton('已确认未写包', tasks.filter((item) => item.projectId && item.status === '已确认' && !item.linkedTechPackVersionId).length, state.revisionList.quickFilter === 'confirmed-no-output', 'confirmed-no-output', 'set-revision-quick-filter', '确认后待写技术包')}
         ${renderMetricButton('超期任务', tasks.filter((item) => isOverdue(item.dueAt, item.status === '已完成' || item.status === '已取消')).length, state.revisionList.quickFilter === 'overdue', 'overdue', 'set-revision-quick-filter', '超过计划完成时间')}
       </section>
-      ${renderDataTable(['改版任务', '商品项目', '状态', '改版范围', '来源', '负责人', '截止时间', '技术包', '操作'], rows, '暂无改版任务数据', renderPagination(state.revisionList.currentPage, filtered.length, 'change-revision-page'))}
+      ${renderDataTable(['改版任务', '来源', '关联款式', '关联商品项目', '改版范围', '是否有下游任务', '状态', '负责人', '截止时间', '技术包', '操作'], rows, '暂无改版任务数据', renderPagination(state.revisionList.currentPage, filtered.length, 'change-revision-page'))}
       ${renderRevisionCreateDialog()}
-      ${renderRevisionDownstreamDialog()}
     </div>
   `
 }
 
 function renderRevisionIssues(task: ReturnType<typeof getRevisionTaskById>): string {
   if (!task) return ''
-  const issues = task.revisionScopeNames.map((scopeName, index) => ({
-    source: index === 0 ? '测款反馈' : '样衣评审',
-    category: scopeName,
-    evidence: index === 0 ? '直播测款反馈点击高但下单转化偏低。' : '样衣试穿后版型和花型需要同步调整。',
-  }))
   return renderSectionCard(
     '问题点与证据',
     `
-      <div class="space-y-3">
-        ${issues.map((issue) => `
-          <div class="rounded-lg border border-slate-200 px-4 py-3">
-            <div class="flex flex-wrap items-center gap-2">
-              <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">${escapeHtml(issue.source)}</span>
-              <span class="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-700">${escapeHtml(issue.category)}</span>
-            </div>
-            <p class="mt-2 text-sm text-slate-600">${escapeHtml(issue.evidence)}</p>
-          </div>
-        `).join('')}
+      <div class="grid gap-4 md:grid-cols-2">
+        <div class="rounded-lg border border-slate-200 px-4 py-4">
+          <p class="text-sm font-medium text-slate-900">问题点</p>
+          <p class="mt-2 text-sm leading-6 text-slate-600">${escapeHtml(task.issueSummary || '暂未补充问题点。')}</p>
+        </div>
+        <div class="rounded-lg border border-slate-200 px-4 py-4">
+          <p class="text-sm font-medium text-slate-900">证据说明</p>
+          <p class="mt-2 text-sm leading-6 text-slate-600">${escapeHtml(task.evidenceSummary || '暂未补充问题点证据。')}</p>
+        </div>
       </div>
     `,
   )
 }
 
-function renderRevisionDownstream(taskId: string): string {
-  const relatedPlate = listPlateMakingTasks().filter((item) => item.upstreamObjectId === taskId || item.upstreamObjectCode === taskId)
-  const relatedPattern = listPatternTasks().filter((item) => item.upstreamObjectId === taskId || item.upstreamObjectCode === taskId)
-  const relatedFirst = listFirstSampleTasks().filter((item) => item.upstreamObjectId === taskId || item.upstreamObjectCode === taskId)
-  const relatedPre = listPreProductionSampleTasks().filter((item) => item.upstreamObjectId === taskId || item.upstreamObjectCode === taskId)
-  const rows = [
-    ...relatedPlate.map((item) => ({ type: '制版任务', code: item.plateTaskCode, title: item.title, status: item.status, path: `/pcs/patterns/plate-making/${item.plateTaskId}` })),
-    ...relatedPattern.map((item) => ({ type: '花型任务', code: item.patternTaskCode, title: item.title, status: item.status, path: `/pcs/patterns/colors/${item.patternTaskId}` })),
-    ...relatedFirst.map((item) => ({ type: '首版样衣打样', code: item.firstSampleTaskCode, title: item.title, status: item.status, path: `/pcs/samples/first-sample/${item.firstSampleTaskId}` })),
-    ...relatedPre.map((item) => ({ type: '产前版样衣', code: item.preProductionSampleTaskCode, title: item.title, status: item.status, path: `/pcs/samples/pre-production/${item.preProductionSampleTaskId}` })),
-  ]
+function renderRevisionDownstream(task: ReturnType<typeof getRevisionTaskById>): string {
+  if (!task) return ''
+  const rows = getRevisionDownstreamTasks(task).map((item) => ({
+    type: '花型任务',
+    code: item.patternTaskCode,
+    title: item.title,
+    status: item.status,
+    path: `/pcs/patterns/colors/${item.patternTaskId}`,
+  }))
+  const emptyText = !task.projectId
+    ? '当前改版任务未关联商品项目，不能创建花型下游任务。'
+    : !task.revisionScopeCodes.includes('PRINT')
+      ? '当前改版范围未涉及花型，未生成花型下游任务。'
+      : '当前改版任务尚未生成花型下游任务。'
   return renderSectionCard(
     '下游任务',
     rows.length > 0
@@ -928,7 +1051,7 @@ function renderRevisionDownstream(taskId: string): string {
             `).join('')}
           </div>
         `
-      : '<div class="rounded-lg border border-dashed border-slate-200 px-4 py-10 text-center text-sm text-slate-500">当前改版任务尚未创建正式下游任务。</div>',
+      : `<div class="rounded-lg border border-dashed border-slate-200 px-4 py-10 text-center text-sm text-slate-500">${escapeHtml(emptyText)}</div>`,
   )
 }
 
@@ -936,6 +1059,8 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
   const task = getRevisionTaskById(revisionTaskId)
   if (!task) return renderEmptyDetail('改版任务', '/pcs/patterns/revision')
 
+  const style = getRevisionTaskStyle(task)
+  const downstreamTasks = getRevisionDownstreamTasks(task)
   const relatedSamples = listFirstSampleTasks().filter((item) => item.projectId === task.projectId).slice(0, 3)
   const logs = mergeLogs('revision', task.revisionTaskId, [
     ...(task.linkedTechPackVersionId
@@ -945,13 +1070,19 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
   ])
   const actions = [
     `<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/patterns/revision">返回列表</button>`,
-    `<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="revision-generate-tech-pack" data-task-id="${escapeHtml(task.revisionTaskId)}">${escapeHtml(task.linkedTechPackVersionId ? '写入当前技术包' : '生成技术包')}</button>`,
-    `<button type="button" class="inline-flex h-10 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-engineering-action="open-revision-downstream" data-task-id="${escapeHtml(task.revisionTaskId)}">创建下游</button>`,
+    ...(task.projectId && isTechPackGenerationAllowedStatus(task.status)
+      ? [`<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="revision-generate-tech-pack" data-task-id="${escapeHtml(task.revisionTaskId)}">${escapeHtml(getTechPackGenerationActionLabel(task.projectId))}</button>`]
+      : []),
   ].join('')
+  const subtitleParts = [
+    task.projectCode || '未关联商品项目',
+    style.styleCode || '未关联款式档案',
+    formatDateTime(task.updatedAt),
+  ]
 
   const header = renderHeaderMeta(
     `${task.revisionTaskCode} · ${task.title}`,
-    `${task.projectCode} · ${task.projectName} · ${formatDateTime(task.updatedAt)}`,
+    subtitleParts.join(' · '),
     `${renderStatusBadge(task.status)}<span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600">${escapeHtml(task.priorityLevel)}优先</span>`,
     actions,
   )
@@ -972,16 +1103,20 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
         [
           { label: '商品项目', value: projectButton(task.projectId, task.projectCode, task.projectName) },
           { label: '工作项节点', value: projectNodeButton(task.projectId, task.projectNodeId, task.workItemTypeName) },
-          { label: '改版范围', value: escapeHtml(task.revisionScopeNames.join('、')) },
+          { label: '改版范围', value: escapeHtml(getRevisionScopeText(task.revisionScopeCodes, task.revisionScopeNames)) },
           { label: '来源类型', value: escapeHtml(task.sourceType) },
-          { label: '来源对象', value: escapeHtml(task.upstreamObjectCode || task.upstreamObjectId || '人工创建') },
-          { label: '款式档案', value: styleArchiveLinkByProject(task.projectId) },
+          { label: '来源对象', value: escapeHtml(task.upstreamObjectCode || task.upstreamObjectId || '—') },
+          { label: '款式档案', value: styleArchiveButton(style.styleId, style.styleCode, style.styleName) },
         ],
         3,
       )}
+      <div class="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+        <p class="font-medium text-slate-900">参考对象</p>
+        <p class="mt-2">${escapeHtml(task.referenceObjectId ? `${task.referenceObjectType || '参考对象'} · ${task.referenceObjectCode || task.referenceObjectId}${task.referenceObjectName ? ` · ${task.referenceObjectName}` : ''}` : '当前任务未单独选择参考对象。')}</p>
+      </div>
       <div class="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
         <p class="font-medium text-slate-900">改版说明</p>
-        <p class="mt-2">${escapeHtml(task.note || '基于测款与样衣评审结果，已形成改版方案并等待下游执行。')}</p>
+        <p class="mt-2">${escapeHtml(task.note || '已记录改版方案，等待责任人继续推进。')}</p>
       </div>
     `,
   )
@@ -1015,19 +1150,25 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
         <div class="rounded-lg border border-slate-200 p-4">
           <p class="text-xs text-slate-500">技术包产出</p>
           <div class="mt-2 text-sm text-slate-900">${task.linkedTechPackVersionId ? techPackLinkByProject(task.projectId, task.linkedTechPackVersionId, task.linkedTechPackVersionCode || task.linkedTechPackVersionLabel || '查看技术包') : '尚未生成技术包版本'}</div>
-          <p class="mt-2 text-xs text-slate-500">${escapeHtml(task.linkedTechPackUpdatedAt ? `最近写回：${formatDateTime(task.linkedTechPackUpdatedAt)}` : '确认产出后可直接生成或写入当前草稿技术包。')}</p>
+          <p class="mt-2 text-xs text-slate-500">${escapeHtml(task.linkedTechPackUpdatedAt ? `最近写回：${formatDateTime(task.linkedTechPackUpdatedAt)}` : getTechPackGenerationBlockedReason(task.status) || (task.projectId ? '当前任务可写入技术包版本。' : '当前任务未关联商品项目，暂不写入技术包版本。'))}</p>
         </div>
         <div class="rounded-lg border border-slate-200 p-4">
-          <p class="text-xs text-slate-500">下游创建建议</p>
-          <p class="mt-2 text-sm text-slate-900">支持一次性创建制版、花型、首版样衣和产前版样衣任务。</p>
-          <p class="mt-2 text-xs text-slate-500">当前范围：${escapeHtml(task.revisionScopeNames.join('、'))}</p>
+          <p class="text-xs text-slate-500">花型下游状态</p>
+          <p class="mt-2 text-sm text-slate-900">${downstreamTasks.length > 0 ? `已生成 ${downstreamTasks.length} 个花型任务` : '当前未生成花型下游任务'}</p>
+          <p class="mt-2 text-xs text-slate-500">${escapeHtml(
+            !task.projectId
+              ? '未关联商品项目，当前不创建花型下游任务。'
+              : !task.revisionScopeCodes.includes('PRINT')
+                ? '改版范围未涉及花型，当前不创建花型下游任务。'
+                : '涉及花型的改版任务可在创建时同步生成花型任务。',
+          )}</p>
         </div>
       </div>
     `,
   )
 
   const mainContent = state.revisionTab === 'plan'
-    ? `${plan}${renderProjectContext(task)}`
+    ? `${plan}${renderRevisionContext(task)}`
     : state.revisionTab === 'issues'
       ? renderRevisionIssues(task)
       : state.revisionTab === 'samples'
@@ -1035,7 +1176,7 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
         : state.revisionTab === 'outputs'
           ? outputs
           : state.revisionTab === 'downstream'
-            ? renderRevisionDownstream(task.revisionTaskId)
+            ? renderRevisionDownstream(task)
             : renderSectionCard('日志与审批', renderLogs(logs))
 
   const aside = `
@@ -1048,6 +1189,8 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
             { label: '参与人', value: escapeHtml(task.participantNames.join('、') || '-') },
             { label: '截止时间', value: escapeHtml(formatDateTime(task.dueAt)) },
             { label: '技术包状态', value: escapeHtml(task.linkedTechPackVersionStatus || '未写回') },
+            { label: '下游任务', value: downstreamTasks.length > 0 ? escapeHtml(`花型任务 ${downstreamTasks.length} 个`) : '无' },
+            { label: '当前动作', value: escapeHtml(isTechPackGenerationAllowedStatus(task.status) && task.projectId ? getTechPackGenerationActionLabel(task.projectId) : '暂无可执行技术包动作') },
           ],
           2,
         ),
@@ -1057,7 +1200,7 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
         renderKeyValueGrid(
           [
             { label: '正式工作项', value: projectNodeButton(task.projectId, task.projectNodeId, '关联测款结论记录') },
-            { label: '款式档案', value: styleArchiveLinkByProject(task.projectId) },
+            { label: '款式档案', value: styleArchiveButton(style.styleId, style.styleCode, style.styleName) },
             { label: '来源任务编号', value: escapeHtml(task.upstreamObjectCode || task.upstreamObjectId || '-') },
             { label: '正式状态', value: renderStatusBadge(task.status) },
           ],
@@ -1076,20 +1219,46 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
         <div class="space-y-6">${mainContent}</div>
         ${aside}
       </div>
-      ${renderRevisionDownstreamDialog()}
     </div>
   `
 }
 
 function renderRevisionCreateDialog(): string {
   const draft = state.revisionCreateDraft
+  const selectedStyle = getStyleArchiveById(draft.styleId)
+  const selectedProjectDefaults = draft.projectId ? getProjectDefaultValues(draft.projectId) : { ownerName: '', styleId: '', styleCode: '', styleName: '' }
+  const projectStyle = selectedProjectDefaults.styleId ? getStyleArchiveById(selectedProjectDefaults.styleId) : null
+  const referenceOption = getRevisionReferenceOption(draft.referenceObjectId)
+  const showProjectField = draft.sourceType === '测款触发'
+  const showStyleField = draft.sourceType !== '测款触发'
+  const showReferenceField = draft.sourceType === '人工创建'
+  const canCreatePatternTask = canCreateRevisionPatternTask(draft.scopeCodes, draft.sourceType, draft.projectId)
   const body = `
     <div class="grid gap-4 md:grid-cols-2">
-      ${renderSelectInput('商品项目', 'revision-create-project', draft.projectId, buildProjectOptions())}
-      ${renderTextInput('负责人', 'revision-create-owner', draft.ownerName, '默认取项目负责人')}
-      ${renderTextInput('任务标题', 'revision-create-title', draft.title, '例如：碎花连衣裙改版（腰节与花型）')}
-      ${renderTextInput('截止时间', 'revision-create-due-at', draft.dueAt, 'YYYY-MM-DD HH:mm:ss')}
-      ${renderTextInput('款式编码', 'revision-create-style-code', draft.productStyleCode, 'SPU-xxxx')}
+      ${renderSelectInput('来源类型', 'revision-create-source-type', draft.sourceType, REVISION_TASK_SOURCE_TYPE_LIST.map((item) => ({ value: item, label: item })))}
+      ${showProjectField ? renderSelectInput('商品项目', 'revision-create-project', draft.projectId, buildProjectOptions()) : showStyleField ? renderSelectInput('款式档案', 'revision-create-style-id', draft.styleId, buildStyleArchiveOptions()) : ''}
+      ${showReferenceField ? renderSelectInput('参考对象', 'revision-create-reference-object', draft.referenceObjectId, buildRevisionReferenceOptions()) : renderTextInput('负责人', 'revision-create-owner', draft.ownerName, '默认取来源负责人')}
+      ${showReferenceField ? renderTextInput('负责人', 'revision-create-owner', draft.ownerName, '默认取当前处理人') : renderTextInput('任务标题', 'revision-create-title', draft.title, '例如：碎花连衣裙改版（腰节与花型）')}
+      ${showReferenceField ? renderTextInput('任务标题', 'revision-create-title', draft.title, '例如：碎花连衣裙改版（腰节与花型）') : renderTextInput('截止时间', 'revision-create-due-at', draft.dueAt, 'YYYY-MM-DD HH:mm:ss')}
+      ${showReferenceField ? renderTextInput('截止时间', 'revision-create-due-at', draft.dueAt, 'YYYY-MM-DD HH:mm:ss') : ''}
+    </div>
+    <div class="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+      <div class="grid gap-3 md:grid-cols-3">
+        <div>
+          <p class="text-xs text-slate-500">当前款式</p>
+          <p class="mt-1 text-sm text-slate-900">${showProjectField ? escapeHtml(projectStyle?.styleCode ? `${projectStyle.styleCode} · ${projectStyle.styleName}` : '所选项目暂未关联款式档案') : escapeHtml(selectedStyle?.styleCode ? `${selectedStyle.styleCode} · ${selectedStyle.styleName}` : '请先选择款式档案')}</p>
+        </div>
+        <div>
+          <p class="text-xs text-slate-500">参考对象</p>
+          <p class="mt-1 text-sm text-slate-900">${escapeHtml(referenceOption ? `${referenceOption.type} · ${referenceOption.name}` : '当前来源无需单独选择参考对象')}</p>
+        </div>
+        <div>
+          <p class="text-xs text-slate-500">下游创建</p>
+          <p class="mt-1 text-sm text-slate-900">${escapeHtml(canCreatePatternTask ? '可同步创建花型任务' : draft.scopeCodes.includes('PRINT') ? '涉及花型但未关联商品项目，暂不自动创建花型任务' : '当前范围未涉及花型')}</p>
+        </div>
+      </div>
+    </div>
+    <div class="mt-4">
       <div class="space-y-2 text-sm text-slate-600">
         <span>改版范围</span>
         <div class="grid gap-2 sm:grid-cols-2">
@@ -1102,33 +1271,26 @@ function renderRevisionCreateDialog(): string {
         </div>
       </div>
     </div>
-    <div class="mt-4">
-      ${renderTextarea('说明', 'revision-create-note', draft.note, '补充改版方案、证据和边界说明')}
+    <div class="mt-4 grid gap-4 md:grid-cols-2">
+      ${renderTextarea('问题点', 'revision-create-issue-summary', draft.issueSummary, '补充本次改版要解决的核心问题')}
+      ${renderTextarea('证据说明', 'revision-create-evidence-summary', draft.evidenceSummary, '补充评审、反馈、对比记录等证据')}
     </div>
+    <div class="mt-4">
+      ${renderTextarea('说明', 'revision-create-note', draft.note, '补充改版方案、边界说明和执行要求')}
+    </div>
+    ${draft.scopeCodes.includes('PRINT')
+      ? `
+        <div class="mt-4 rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-700">
+          <label class="inline-flex items-center gap-2">
+            <input type="checkbox" ${draft.createPatternTask ? 'checked' : ''} ${canCreatePatternTask ? '' : 'disabled'} data-pcs-engineering-action="toggle-revision-create-pattern-task" />
+            <span>创建改版任务后同步创建花型任务</span>
+          </label>
+          <p class="mt-2 text-xs text-slate-500">${escapeHtml(canCreatePatternTask ? '仅当改版范围涉及花型时可选，创建后会同步写入正式下游任务。' : '只有测款触发且已关联商品项目的改版任务，才可同步创建花型下游任务。')}</p>
+        </div>
+      `
+      : ''}
   `
   return renderDialog(state.revisionCreateOpen, '新建改版任务', body, 'close-revision-create', 'submit-revision-create', '创建改版任务')
-}
-
-function renderRevisionDownstreamDialog(): string {
-  const body = `
-    <div class="space-y-4">
-      <p class="text-sm text-slate-600">选择要从当前改版任务创建的正式下游任务。创建后会自动写入商品项目关系。</p>
-      <div class="grid gap-2 sm:grid-cols-2">
-        ${[
-          { value: 'PATTERN', label: '制版任务' },
-          { value: 'PRINT', label: '花型任务' },
-          { value: 'SAMPLE', label: '首版样衣打样' },
-          { value: 'PRE_PRODUCTION', label: '产前版样衣' },
-        ].map((option) => `
-          <label class="inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-3 text-sm text-slate-700">
-            <input type="checkbox" ${state.revisionDownstreamTypes.includes(option.value as DownstreamTaskType) ? 'checked' : ''} data-pcs-engineering-action="toggle-revision-downstream-type" data-downstream-type="${escapeHtml(option.value)}" />
-            <span>${escapeHtml(option.label)}</span>
-          </label>
-        `).join('')}
-      </div>
-    </div>
-  `
-  return renderDialog(state.revisionDownstreamOpen, '创建下游任务', body, 'close-revision-downstream', 'submit-revision-downstream', '创建下游')
 }
 
 function getPlateTasksFiltered() {
@@ -2229,7 +2391,6 @@ function renderPreProductionDetailPage(preProductionSampleTaskId: string): strin
 
 function closeAllDialogs(): void {
   state.revisionCreateOpen = false
-  state.revisionDownstreamOpen = false
   state.plateCreateOpen = false
   state.patternCreateOpen = false
   state.firstSampleCreateOpen = false
@@ -2384,22 +2545,52 @@ function confirmPreProductionGate(taskId: string): void {
 
 function submitRevisionCreate(): void {
   const draft = state.revisionCreateDraft
-  if (!draft.projectId) {
-    setNotice('请先选择商品项目。')
+  const projectDefaults = draft.projectId ? getProjectDefaultValues(draft.projectId) : { ownerName: '', styleId: '', styleCode: '', styleName: '' }
+  const selectedStyle = draft.sourceType === '测款触发'
+    ? (projectDefaults.styleId ? getStyleArchiveById(projectDefaults.styleId) : null)
+    : (draft.styleId ? getStyleArchiveById(draft.styleId) : null)
+  const selectedReference = getRevisionReferenceOption(draft.referenceObjectId)
+
+  if (draft.sourceType === '测款触发' && !draft.projectId) {
+    setNotice('测款触发的改版任务必须先选择商品项目。')
     return
   }
-  const defaults = getProjectDefaultValues(draft.projectId)
+  if (draft.sourceType !== '测款触发' && !selectedStyle) {
+    setNotice('请先选择正式款式档案。')
+    return
+  }
+  if (draft.sourceType === '人工创建' && !selectedReference) {
+    setNotice('人工创建的改版任务必须先选择参考对象。')
+    return
+  }
+  if (!draft.issueSummary.trim()) {
+    setNotice('请先填写问题点。')
+    return
+  }
+  if (!draft.evidenceSummary.trim()) {
+    setNotice('请先填写证据说明。')
+    return
+  }
   const result = createRevisionTaskWithProjectRelation({
-    projectId: draft.projectId,
+    projectId: draft.sourceType === '测款触发' ? draft.projectId : '',
     title: draft.title.trim() || '新建改版任务',
-    sourceType: '人工创建',
-    ownerName: draft.ownerName.trim() || defaults.ownerName || '当前用户',
+    sourceType: draft.sourceType,
+    ownerName: draft.ownerName.trim() || projectDefaults.ownerName || '当前用户',
     priorityLevel: '中',
     dueAt: draft.dueAt.trim() || '',
-    productStyleCode: draft.productStyleCode.trim() || defaults.productStyleCode,
-    spuCode: draft.productStyleCode.trim() || defaults.productStyleCode,
+    styleId: selectedStyle?.styleId || '',
+    styleCode: selectedStyle?.styleCode || projectDefaults.styleCode,
+    styleName: selectedStyle?.styleName || projectDefaults.styleName,
+    referenceObjectType: selectedReference?.type || '',
+    referenceObjectId: selectedReference?.id || '',
+    referenceObjectCode: selectedReference?.code || '',
+    referenceObjectName: selectedReference?.name || '',
+    productStyleCode: selectedStyle?.styleCode || projectDefaults.styleCode,
+    spuCode: selectedStyle?.styleCode || projectDefaults.styleCode,
     revisionScopeCodes: [...draft.scopeCodes],
     revisionScopeNames: REVISION_SCOPE_OPTIONS.filter((option) => draft.scopeCodes.includes(option.value)).map((option) => option.label),
+    issueSummary: draft.issueSummary.trim(),
+    evidenceSummary: draft.evidenceSummary.trim(),
     note: draft.note.trim(),
     operatorName: '当前用户',
   })
@@ -2409,8 +2600,19 @@ function submitRevisionCreate(): void {
   }
   state.revisionCreateOpen = false
   state.revisionCreateDraft = initialRevisionCreateDraft()
-  pushRuntimeLog('revision', result.task.revisionTaskId, '新建任务', '已创建改版任务并写入项目关系。')
-  setNotice(result.message)
+  pushRuntimeLog('revision', result.task.revisionTaskId, '新建任务', result.task.projectId ? '已创建改版任务并写入项目关系。' : '已创建改版任务。')
+  let notice = result.message
+  if (draft.createPatternTask && canCreateRevisionPatternTask(draft.scopeCodes, draft.sourceType, result.task.projectId)) {
+    const downstreamResult = createDownstreamTasksFromRevision(result.task.revisionTaskId, ['PRINT'])
+    if (downstreamResult.successCount > 0) {
+      pushRuntimeLog('revision', result.task.revisionTaskId, '创建花型任务', `已创建花型任务：${downstreamResult.createdTaskCodes.join('、')}。`)
+      notice += ` 已同步创建花型任务：${downstreamResult.createdTaskCodes.join('、')}。`
+    }
+    if (downstreamResult.failureMessages.length > 0) {
+      notice += ` 花型任务未创建：${downstreamResult.failureMessages.join('；')}。`
+    }
+  }
+  setNotice(notice)
   appStore.navigate(`/pcs/patterns/revision/${encodeURIComponent(result.task.revisionTaskId)}`)
 }
 
@@ -2433,8 +2635,8 @@ function submitPlateCreate(): void {
     ownerName: draft.ownerName.trim() || defaults.ownerName || '当前用户',
     priorityLevel: '中',
     dueAt: draft.dueAt.trim() || '',
-    productStyleCode: draft.productStyleCode.trim() || defaults.productStyleCode,
-    spuCode: draft.productStyleCode.trim() || defaults.productStyleCode,
+    productStyleCode: draft.productStyleCode.trim() || defaults.styleCode,
+    spuCode: draft.productStyleCode.trim() || defaults.styleCode,
     patternType: draft.patternType.trim() || '常规制版',
     sizeRange: draft.sizeRange.trim() || '待补充',
     note: draft.note.trim(),
@@ -2470,8 +2672,8 @@ function submitPatternCreate(): void {
     ownerName: draft.ownerName.trim() || defaults.ownerName || '当前用户',
     priorityLevel: '中',
     dueAt: draft.dueAt.trim() || '',
-    productStyleCode: draft.productStyleCode.trim() || defaults.productStyleCode,
-    spuCode: draft.productStyleCode.trim() || defaults.productStyleCode,
+    productStyleCode: draft.productStyleCode.trim() || defaults.styleCode,
+    spuCode: draft.productStyleCode.trim() || defaults.styleCode,
     artworkType: draft.artworkType || '印花',
     patternMode: draft.patternMode || '定位印',
     artworkName: draft.artworkName.trim() || draft.title.trim() || '新建花型',
@@ -2659,23 +2861,39 @@ export function handlePcsEngineeringTaskInput(target: Element): boolean {
   if (fieldNode instanceof HTMLInputElement || fieldNode instanceof HTMLTextAreaElement || fieldNode instanceof HTMLSelectElement) {
     const value = fieldNode.value
     switch (field) {
+      case 'revision-create-source-type':
+        state.revisionCreateDraft.sourceType = value as RevisionTaskSourceType
+        state.revisionCreateDraft.projectId = ''
+        state.revisionCreateDraft.styleId = ''
+        state.revisionCreateDraft.referenceObjectId = ''
+        state.revisionCreateDraft.ownerName = ''
+        state.revisionCreateDraft.createPatternTask = false
+        return true
       case 'revision-create-project': {
         state.revisionCreateDraft.projectId = value
         const defaults = getProjectDefaultValues(value)
         state.revisionCreateDraft.ownerName = defaults.ownerName
-        state.revisionCreateDraft.productStyleCode = defaults.productStyleCode
+        state.revisionCreateDraft.styleId = defaults.styleId
+        state.revisionCreateDraft.createPatternTask = canCreateRevisionPatternTask(
+          state.revisionCreateDraft.scopeCodes,
+          state.revisionCreateDraft.sourceType,
+          value,
+        ) ? state.revisionCreateDraft.createPatternTask : false
         return true
       }
+      case 'revision-create-style-id': state.revisionCreateDraft.styleId = value; return true
+      case 'revision-create-reference-object': state.revisionCreateDraft.referenceObjectId = value; return true
       case 'revision-create-owner': state.revisionCreateDraft.ownerName = value; return true
       case 'revision-create-title': state.revisionCreateDraft.title = value; return true
       case 'revision-create-due-at': state.revisionCreateDraft.dueAt = value; return true
-      case 'revision-create-style-code': state.revisionCreateDraft.productStyleCode = value; return true
+      case 'revision-create-issue-summary': state.revisionCreateDraft.issueSummary = value; return true
+      case 'revision-create-evidence-summary': state.revisionCreateDraft.evidenceSummary = value; return true
       case 'revision-create-note': state.revisionCreateDraft.note = value; return true
       case 'plate-create-project': {
         state.plateCreateDraft.projectId = value
         const defaults = getProjectDefaultValues(value)
         state.plateCreateDraft.ownerName = defaults.ownerName
-        state.plateCreateDraft.productStyleCode = defaults.productStyleCode
+        state.plateCreateDraft.productStyleCode = defaults.styleCode
         return true
       }
       case 'plate-create-owner': state.plateCreateDraft.ownerName = value; return true
@@ -2689,7 +2907,7 @@ export function handlePcsEngineeringTaskInput(target: Element): boolean {
         state.patternCreateDraft.projectId = value
         const defaults = getProjectDefaultValues(value)
         state.patternCreateDraft.ownerName = defaults.ownerName
-        state.patternCreateDraft.productStyleCode = defaults.productStyleCode
+        state.patternCreateDraft.productStyleCode = defaults.styleCode
         return true
       }
       case 'pattern-create-owner': state.patternCreateDraft.ownerName = value; return true
@@ -2782,33 +3000,18 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement): boolean {
     state.revisionCreateDraft.scopeCodes = state.revisionCreateDraft.scopeCodes.includes(scopeCode)
       ? state.revisionCreateDraft.scopeCodes.filter((item) => item !== scopeCode)
       : [...state.revisionCreateDraft.scopeCodes, scopeCode]
+    if (!canCreateRevisionPatternTask(state.revisionCreateDraft.scopeCodes, state.revisionCreateDraft.sourceType, state.revisionCreateDraft.projectId)) {
+      state.revisionCreateDraft.createPatternTask = false
+    }
     return true
   }
 
-  if (action === 'open-revision-downstream') {
-    state.revisionDownstreamOpen = true
-    state.revisionDownstreamTaskId = actionNode.dataset.taskId || ''
-    return true
-  }
-  if (action === 'close-revision-downstream') { state.revisionDownstreamOpen = false; return true }
-  if (action === 'toggle-revision-downstream-type') {
-    const value = actionNode.dataset.downstreamType as DownstreamTaskType
-    state.revisionDownstreamTypes = state.revisionDownstreamTypes.includes(value)
-      ? state.revisionDownstreamTypes.filter((item) => item !== value)
-      : [...state.revisionDownstreamTypes, value]
-    return true
-  }
-  if (action === 'submit-revision-downstream') {
-    const taskId = state.revisionDownstreamTaskId
-    if (!taskId) { setNotice('请先选择改版任务。'); return true }
-    const result = createDownstreamTasksFromRevision(taskId, state.revisionDownstreamTypes)
-    state.revisionDownstreamOpen = false
-    if (result.failureMessages.length > 0 && result.successCount === 0) {
-      setNotice(result.failureMessages.join('；'))
+  if (action === 'toggle-revision-create-pattern-task') {
+    if (!canCreateRevisionPatternTask(state.revisionCreateDraft.scopeCodes, state.revisionCreateDraft.sourceType, state.revisionCreateDraft.projectId)) {
+      state.revisionCreateDraft.createPatternTask = false
       return true
     }
-    pushRuntimeLog('revision', taskId, '创建下游', `已创建下游任务：${result.createdTaskCodes.join('、') || '无'}。`)
-    setNotice(`已创建 ${result.successCount} 个下游任务：${result.createdTaskCodes.join('、') || '无'}${result.failureMessages.length > 0 ? `；失败原因：${result.failureMessages.join('；')}` : ''}`)
+    state.revisionCreateDraft.createPatternTask = !state.revisionCreateDraft.createPatternTask
     return true
   }
 
@@ -2861,7 +3064,6 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement): boolean {
 export function isPcsEngineeringTaskDialogOpen(): boolean {
   return (
     state.revisionCreateOpen
-    || state.revisionDownstreamOpen
     || state.plateCreateOpen
     || state.patternCreateOpen
     || state.firstSampleCreateOpen
@@ -2877,9 +3079,6 @@ export function resetPcsEngineeringTaskState(): void {
   state.revisionTab = 'plan'
   state.revisionCreateOpen = false
   state.revisionCreateDraft = initialRevisionCreateDraft()
-  state.revisionDownstreamOpen = false
-  state.revisionDownstreamTaskId = ''
-  state.revisionDownstreamTypes = ['PATTERN', 'PRINT', 'SAMPLE']
   state.plateList = { search: '', status: 'all', owner: 'all', source: 'all', quickFilter: 'all', currentPage: 1 }
   state.plateTab = 'overview'
   state.plateCreateOpen = false

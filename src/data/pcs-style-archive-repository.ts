@@ -1,4 +1,5 @@
 import { createStyleArchiveBootstrapSnapshot } from './pcs-style-archive-bootstrap.ts'
+import { buildStyleFixture } from './pcs-product-archive-fixtures.ts'
 import type {
   StyleArchivePendingItem,
   StyleArchiveShellRecord,
@@ -17,10 +18,11 @@ function canUseStorage(): boolean {
 function cloneRecord(record: StyleArchiveShellRecord): StyleArchiveShellRecord {
   return {
     ...record,
-    seasonTags: [...record.seasonTags],
-    styleTags: [...record.styleTags],
-    targetAudienceTags: [...record.targetAudienceTags],
-    targetChannelCodes: [...record.targetChannelCodes],
+    seasonTags: Array.isArray(record.seasonTags) ? [...record.seasonTags] : [],
+    styleTags: Array.isArray(record.styleTags) ? [...record.styleTags] : [],
+    targetAudienceTags: Array.isArray(record.targetAudienceTags) ? [...record.targetAudienceTags] : [],
+    targetChannelCodes: Array.isArray(record.targetChannelCodes) ? [...record.targetChannelCodes] : [],
+    galleryImageUrls: Array.isArray(record.galleryImageUrls) ? [...record.galleryImageUrls] : [],
     currentTechPackVersionId: record.currentTechPackVersionId || '',
     currentTechPackVersionCode: record.currentTechPackVersionCode || '',
     currentTechPackVersionLabel: record.currentTechPackVersionLabel || '',
@@ -47,9 +49,11 @@ function seedSnapshot(): StyleArchiveStoreSnapshot {
 }
 
 function normalizeRecord(record: StyleArchiveShellRecord): StyleArchiveShellRecord {
+  const fixture = buildStyleFixture(record.styleCode || record.styleId, record.styleName || record.styleCode)
   return {
     ...cloneRecord(record),
     archiveStatus: record.archiveStatus === 'ACTIVE' || record.archiveStatus === 'ARCHIVED' ? record.archiveStatus : 'DRAFT',
+    styleNameEn: record.styleNameEn || fixture.styleNameEn,
     baseInfoStatus: record.baseInfoStatus || '待完善',
     specificationStatus: record.specificationStatus || '未建立',
     techPackStatus: record.techPackStatus || '未建立',
@@ -64,6 +68,11 @@ function normalizeRecord(record: StyleArchiveShellRecord): StyleArchiveShellReco
     currentTechPackVersionStatus: record.currentTechPackVersionStatus || '',
     currentTechPackVersionActivatedAt: record.currentTechPackVersionActivatedAt || '',
     currentTechPackVersionActivatedBy: record.currentTechPackVersionActivatedBy || '',
+    mainImageUrl: record.mainImageUrl || fixture.mainImageUrl,
+    galleryImageUrls: Array.isArray(record.galleryImageUrls) && record.galleryImageUrls.length > 0 ? [...record.galleryImageUrls] : fixture.galleryImageUrls,
+    sellingPointText: record.sellingPointText || fixture.sellingPointText,
+    detailDescription: record.detailDescription || fixture.detailDescription,
+    packagingInfo: record.packagingInfo || fixture.packagingInfo,
     remark: record.remark || '',
     generatedAt: record.generatedAt || record.updatedAt || '',
     generatedBy: record.generatedBy || '系统初始化',

@@ -2732,6 +2732,8 @@ export function submitProjectTestingConclusion(
       ownerId: project.ownerId,
       ownerName: project.ownerName,
       priorityLevel: project.priorityLevel,
+      issueSummary: note || '测款结论为调整，需要重新组织改版方案。',
+      evidenceSummary: note || '渠道测款结论已判定为调整。',
       note,
       operatorName,
     })

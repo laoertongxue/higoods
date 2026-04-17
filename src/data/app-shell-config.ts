@@ -75,8 +75,6 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
             { key: 'pcs-style-list', title: '款式档案', icon: 'Archive', href: '/pcs/products/styles' },
             { key: 'pcs-spec-list', title: '规格档案', icon: 'Package', href: '/pcs/products/specifications' },
             { key: 'pcs-channel-products', title: '渠道店铺商品', icon: 'ShoppingCart', href: '/pcs/products/channel-products' },
-            { key: 'pcs-code-rules', title: '编码规则', icon: 'FileText', href: '/pcs/products/coding-rules' },
-            { key: 'pcs-channel-attributes', title: '渠道属性对应', icon: 'Map', href: '/pcs/products/channel-attributes' },
           ],
         },
         {
