@@ -11,6 +11,7 @@ import {
 import { getMaterialArchiveById, listMaterialUsageRecordsByStyleCode } from '../data/pcs-material-archive-repository.ts'
 import { buildSkuFixture } from '../data/pcs-product-archive-fixtures.ts'
 import {
+  STYLE_ARCHIVE_STATUS_RULES,
   isStyleArchiveFormalized,
   resolveStyleArchiveBusinessStatus,
   type StyleArchiveBusinessStatusKey,
