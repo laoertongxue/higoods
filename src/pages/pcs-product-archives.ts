@@ -11,10 +11,7 @@ import {
 import { getMaterialArchiveById, listMaterialUsageRecordsByStyleCode } from '../data/pcs-material-archive-repository.ts'
 import { buildSkuFixture } from '../data/pcs-product-archive-fixtures.ts'
 import {
-  STYLE_ARCHIVE_CONTROLLED_FIELD_RULES,
-  STYLE_ARCHIVE_STATUS_RULES,
   isStyleArchiveFormalized,
-  listUnifiedProductLifecycleRuleRows,
   resolveStyleArchiveBusinessStatus,
   type StyleArchiveBusinessStatusKey,
 } from '../data/pcs-product-lifecycle-governance.ts'
@@ -327,13 +324,12 @@ function resolveStyleMappingHealth(skus: SkuArchiveRecord[]): SkuArchiveMappingH
 }
 
 function listStyleChannelProducts(style: StyleArchiveShellRecord) {
-  const records = listProjectChannelProducts().filter((item) => item.channelProductStatus !== '已作废')
-  const byStyle = records.filter((item) => item.styleId === style.styleId)
-  if (byStyle.length > 0) return byStyle
-  if (style.sourceProjectId) {
-    return records.filter((item) => item.projectId === style.sourceProjectId)
-  }
-  return []
+  const records = listProjectChannelProducts()
+  const matchedRecords = records.filter(
+    (item) => item.styleId === style.styleId || (!!style.sourceProjectId && item.projectId === style.sourceProjectId),
+  )
+  const uniqueRecords = new Map(matchedRecords.map((item) => [item.channelProductId, item]))
+  return Array.from(uniqueRecords.values())
 }
 
 function countOnSaleChannelProducts(records: ReturnType<typeof listStyleChannelProducts>): number {
@@ -771,98 +767,6 @@ function renderStyleFormalizationPanel(style: StyleArchiveShellRecord): string {
   `
 }
 
-function renderStyleStatusRulePanel(style: StyleArchiveShellRecord): string {
-  const displayStatus = resolveStyleArchiveBusinessStatus(style)
-  const meta = STYLE_ARCHIVE_STATUS_RULES[displayStatus]
-  return `
-    <section class="rounded-lg border bg-white p-5 shadow-sm">
-      <div class="flex flex-wrap items-center gap-3">
-        <h2 class="text-sm font-medium text-slate-900">状态口径</h2>
-        ${renderBadge(meta.label, meta.className)}
-      </div>
-      <div class="mt-4 grid gap-4 lg:grid-cols-[1.4fr,1fr]">
-        <div class="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
-          <div class="text-xs text-slate-500">业务场景</div>
-          <div class="mt-2 text-sm leading-6 text-slate-700">${escapeHtml(meta.scene)}</div>
-        </div>
-        <div class="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
-          <div class="text-xs text-slate-500">当前可操作项</div>
-          <div class="mt-2 flex flex-wrap gap-2">
-            ${meta.operations.map((item) => renderBadge(item, 'border-slate-200 bg-white text-slate-700')).join('')}
-          </div>
-        </div>
-      </div>
-    </section>
-  `
-}
-
-function renderUnifiedLifecycleRulesPanel(): string {
-  const rows = listUnifiedProductLifecycleRuleRows()
-    .map(
-      (item) => `
-        <tr class="border-t border-slate-100 align-top">
-          <td class="px-4 py-3 text-sm font-medium text-slate-900">${escapeHtml(item.objectLabel)}</td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.statusLabel)}</td>
-          <td class="px-4 py-3 text-sm leading-6 text-slate-600">${escapeHtml(item.scene)}</td>
-          <td class="px-4 py-3">
-            <div class="flex flex-wrap gap-2">
-              ${item.operations.map((operation) => renderBadge(operation, 'border-slate-200 bg-white text-slate-700')).join('')}
-            </div>
-          </td>
-        </tr>
-      `,
-    )
-    .join('')
-
-  return `
-    <section class="rounded-lg border bg-white p-5 shadow-sm">
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 class="text-sm font-medium text-slate-900">统一状态口径表</h2>
-          <p class="mt-1 text-sm text-slate-500">统一说明款式档案、技术包、渠道店铺商品三套状态的业务场景和当前可操作项。</p>
-        </div>
-      </div>
-      <div class="mt-4 overflow-x-auto">
-        <table class="min-w-full text-left text-sm">
-          <thead class="bg-slate-50 text-slate-500">
-            <tr>
-              <th class="px-4 py-3 font-medium">对象</th>
-              <th class="px-4 py-3 font-medium">状态</th>
-              <th class="px-4 py-3 font-medium">业务场景</th>
-              <th class="px-4 py-3 font-medium">当前可操作项</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-    </section>
-  `
-}
-
-function renderStyleControlledFieldRulesPanel(): string {
-  return `
-    <section class="rounded-lg border bg-white p-5 shadow-sm">
-      <div class="flex flex-wrap items-center gap-3">
-        <h2 class="text-sm font-medium text-slate-900">正式建档字段维护规则</h2>
-        ${renderBadge('当前不做审批', 'border-amber-200 bg-amber-50 text-amber-700')}
-      </div>
-      <div class="mt-4 space-y-4">
-        ${STYLE_ARCHIVE_CONTROLLED_FIELD_RULES.map(
-          (group) => `
-            <div class="rounded-md border border-slate-200 bg-slate-50 px-4 py-4">
-              <div class="text-sm font-medium text-slate-900">${escapeHtml(group.title)}</div>
-              <p class="mt-1 text-sm leading-6 text-slate-500">${escapeHtml(group.description)}</p>
-              <div class="mt-3 flex flex-wrap gap-2">
-                ${group.fields.map((field) => renderBadge(field, 'border-slate-200 bg-white text-slate-700')).join('')}
-              </div>
-            </div>
-          `,
-        ).join('')}
-      </div>
-    </section>
-  `
-}
-
 function renderStyleCompletionDrawer(): string {
   if (!state.styleCompletion.open) return ''
   const currentStyle = state.styleCompletion.styleId ? getStyleArchiveById(state.styleCompletion.styleId) : null
@@ -1263,8 +1167,8 @@ function renderStyleDetailOverview(style: StyleArchiveShellRecord): string {
           </div>
           <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
             <div class="text-xs text-slate-500">渠道店铺商品</div>
-            <div class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(styleChannelProducts.length > 0 ? `${styleChannelProducts.length} 个` : style.sourceProjectId ? '待同步' : '未绑定')}</div>
-            <div class="mt-1 text-xs text-slate-500">${escapeHtml(currentChannelProduct?.channelProductCode || (style.sourceProjectId ? `在售 ${onSaleChannelCount}` : '历史导入款式'))}</div>
+            <div class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(`${styleChannelProducts.length || style.channelProductCount} 个`)}</div>
+            <div class="mt-1 text-xs text-slate-500">${escapeHtml(currentChannelProduct?.channelProductCode || `在售 ${onSaleChannelCount}`)}</div>
           </div>
           <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
             <div class="text-xs text-slate-500">价格带 / 渠道</div>
@@ -1399,7 +1303,7 @@ function renderStyleDetailMappings(style: StyleArchiveShellRecord): string {
         <div class="text-sm font-medium text-slate-900">同步健康</div>
         <div class="mt-4 space-y-3 text-sm text-slate-700">
           <div><span class="text-slate-500">规格映射健康：</span>${renderMappingBadge(resolveStyleMappingHealth(listSkuArchivesByStyleId(style.styleId)))}</div>
-          <div><span class="text-slate-500">渠道店铺商品：</span>${escapeHtml(styleChannelProducts.length > 0 ? `${styleChannelProducts.length} 个` : style.sourceProjectId ? '待同步项目渠道商品' : '未同步')}</div>
+          <div><span class="text-slate-500">渠道店铺商品：</span>${escapeHtml(`${styleChannelProducts.length || style.channelProductCount} 个`)}</div>
           <div><span class="text-slate-500">最近更新：</span>${escapeHtml(formatDateTime(style.updatedAt))}</div>
         </div>
       </div>
@@ -1552,9 +1456,6 @@ function renderStyleDetailPage(styleId: string): string {
         <div class="flex flex-wrap gap-2">${tabButtons}</div>
       </section>
       ${renderStyleFormalizationPanel(style)}
-      ${renderStyleStatusRulePanel(style)}
-      ${renderUnifiedLifecycleRulesPanel()}
-      ${renderStyleControlledFieldRulesPanel()}
       ${tabContent}
       ${renderSkuCreateDrawer()}
       ${renderStyleCompletionDrawer()}
