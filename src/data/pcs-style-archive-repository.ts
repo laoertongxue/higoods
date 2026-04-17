@@ -1,6 +1,7 @@
 import { createStyleArchiveBootstrapSnapshot } from './pcs-style-archive-bootstrap.ts'
 import { buildStyleFixture } from './pcs-product-archive-fixtures.ts'
 import { normalizeStyleTechPackStatusText } from './pcs-product-lifecycle-governance.ts'
+import { getProjectNodeRecordByWorkItemTypeCode } from './pcs-project-repository.ts'
 import type {
   StyleArchivePendingItem,
   StyleArchiveShellRecord,
@@ -56,6 +57,10 @@ function normalizeBaseInfoStatus(status: string): string {
 
 function normalizeRecord(record: StyleArchiveShellRecord): StyleArchiveShellRecord {
   const fixture = buildStyleFixture(record.styleCode || record.styleId, record.styleName || record.styleCode)
+  const inferredSourceProjectNodeId =
+    !record.sourceProjectNodeId && record.sourceProjectId
+      ? getProjectNodeRecordByWorkItemTypeCode(record.sourceProjectId, 'STYLE_ARCHIVE_CREATE')?.projectNodeId || ''
+      : record.sourceProjectNodeId || ''
   return {
     ...cloneRecord(record),
     archiveStatus: record.archiveStatus === 'ACTIVE' || record.archiveStatus === 'ARCHIVED' ? record.archiveStatus : 'DRAFT',
@@ -80,6 +85,7 @@ function normalizeRecord(record: StyleArchiveShellRecord): StyleArchiveShellReco
     detailDescription: record.detailDescription || fixture.detailDescription,
     packagingInfo: record.packagingInfo || fixture.packagingInfo,
     remark: record.remark || '',
+    sourceProjectNodeId: inferredSourceProjectNodeId,
     generatedAt: record.generatedAt || record.updatedAt || '',
     generatedBy: record.generatedBy || '系统初始化',
     updatedAt: record.updatedAt || record.generatedAt || '',

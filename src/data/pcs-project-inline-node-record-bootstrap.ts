@@ -1,5 +1,9 @@
 import { createBootstrapProjectSnapshot } from './pcs-project-bootstrap.ts'
 import { createBootstrapSampleCloseoutSeeds } from './pcs-sample-bootstrap.ts'
+import type { PcsProjectNodeRecord, PcsProjectRecord } from './pcs-project-types.ts'
+import {
+  PCS_PROJECT_INLINE_NODE_RECORD_WORK_ITEM_TYPES,
+} from './pcs-project-inline-node-record-types.ts'
 import type {
   PcsProjectInlineNodeRecord,
   PcsProjectInlineNodeRef,
@@ -806,10 +810,11 @@ function buildSeedForNode(projectCode: string, workItemTypeCode: PcsProjectInlin
 function buildProjectNodeLookup() {
   const snapshot = createBootstrapProjectSnapshot(1)
   const projectMap = new Map(snapshot.projects.map((project) => [project.projectCode, project]))
+  const projectIdMap = new Map(snapshot.projects.map((project) => [project.projectId, project]))
   const nodeMap = new Map(
     snapshot.nodes.map((node) => [`${node.projectId}::${node.workItemTypeCode}`, node]),
   )
-  return { projectMap, nodeMap }
+  return { snapshot, projectMap, projectIdMap, nodeMap }
 }
 
 function buildChannelProductId(projectCode: string, sequence: string): string {
@@ -1178,10 +1183,330 @@ function buildSampleCloseoutBootstrapRecords(
   })
 }
 
+function buildGenericInlineBusinessDate(project: PcsProjectRecord, node: PcsProjectNodeRecord): string {
+  return node.updatedAt || node.lastEventTime || project.updatedAt || project.createdAt
+}
+
+function buildFallbackSampleCode(projectCode: string): string {
+  return `SY-${projectCode.slice(-3)}-001`
+}
+
+function buildGenericInlineSeed(
+  project: PcsProjectRecord,
+  node: PcsProjectNodeRecord,
+): EarlyPhaseRecordSeed | null {
+  const projectCode = project.projectCode
+  const businessDate = buildGenericInlineBusinessDate(project, node)
+  const sampleCode = buildFallbackSampleCode(projectCode)
+
+  if (node.workItemTypeCode === 'SAMPLE_ACQUIRE') {
+    return {
+      projectCode,
+      workItemTypeCode: 'SAMPLE_ACQUIRE',
+      sourceModule: '商品项目',
+      sourceDocType: '样衣获取记录',
+      sourceDocCode: `ACQ-${projectCode.slice(-3)}-GEN`,
+      businessDate,
+      payload: {
+        sampleSourceType: project.sampleSourceType || '外采',
+        sampleSupplierId: project.sampleSupplierId || 'supplier-platform-c',
+        sampleLink: project.sampleLink || `https://example.com/samples/${projectCode.toLowerCase()}`,
+        sampleUnitPrice: project.sampleUnitPrice || 99,
+      },
+      detailSnapshot: {
+        sampleCode,
+        quantity: 1,
+        colors: ['默认色'],
+        sizes: ['M'],
+        expectedArrivalDate: businessDate.slice(0, 10),
+        sampleStatus: '已下单待到样',
+      },
+    }
+  }
+
+  if (node.workItemTypeCode === 'SAMPLE_INBOUND_CHECK') {
+    return {
+      projectCode,
+      workItemTypeCode: 'SAMPLE_INBOUND_CHECK',
+      sourceModule: '项目样衣留痕',
+      sourceDocType: '到样核对记录',
+      sourceDocCode: `INB-${projectCode.slice(-3)}-GEN`,
+      businessDate,
+      payload: {
+        sampleCode,
+        arrivalTime: businessDate,
+        checkResult: '到样数量与规格核对一致',
+      },
+      detailSnapshot: {
+        sampleIds: [sampleCode],
+        warehouseLocation: '深圳主仓-A-01-01',
+        receiver: project.ownerName,
+        sampleQuantity: 1,
+        colorCode: '默认色',
+        sizeCombination: 'M',
+      },
+    }
+  }
+
+  if (node.workItemTypeCode === 'FEASIBILITY_REVIEW') {
+    return {
+      projectCode,
+      workItemTypeCode: 'FEASIBILITY_REVIEW',
+      sourceModule: '商品项目',
+      sourceDocType: '可行性评估记录',
+      sourceDocCode: `REV-${projectCode.slice(-3)}-GEN`,
+      businessDate,
+      payload: {
+        reviewConclusion: '通过',
+        reviewRisk: node.currentIssueText || '暂无显著风险',
+      },
+      detailSnapshot: {
+        evaluationDimension: ['版型', '成本', '测款潜力'],
+        judgmentDescription: node.latestResultText || '已完成初步可行性判断。',
+        evaluationParticipants: [project.ownerName],
+      },
+    }
+  }
+
+  if (node.workItemTypeCode === 'SAMPLE_SHOOT_FIT') {
+    return {
+      projectCode,
+      workItemTypeCode: 'SAMPLE_SHOOT_FIT',
+      sourceModule: '内容拍摄',
+      sourceDocType: '拍摄试穿反馈单',
+      sourceDocCode: `FIT-${projectCode.slice(-3)}-GEN`,
+      businessDate,
+      payload: {
+        shootPlan: '已完成拍摄与试穿安排',
+        fitFeedback: node.latestResultText || '试穿反馈已整理。',
+      },
+      detailSnapshot: {
+        shootDate: businessDate,
+        shootLocation: '深圳拍摄间',
+        photographer: '系统预置',
+        modelName: '默认模特',
+      },
+    }
+  }
+
+  if (node.workItemTypeCode === 'SAMPLE_CONFIRM') {
+    return {
+      projectCode,
+      workItemTypeCode: 'SAMPLE_CONFIRM',
+      sourceModule: '商品项目',
+      sourceDocType: '样衣确认单',
+      sourceDocCode: `CFM-${projectCode.slice(-3)}-GEN`,
+      businessDate,
+      payload: {
+        confirmResult: project.projectStatus === '已终止' ? '淘汰' : '通过',
+        confirmNote: node.latestResultText || '样衣确认已完成。',
+      },
+      detailSnapshot: {
+        appearanceConfirmation: '外观确认通过',
+        sizeConfirmation: '尺码确认通过',
+        materialConfirmation: '面料确认通过',
+        revisionRequired: false,
+      },
+    }
+  }
+
+  if (node.workItemTypeCode === 'SAMPLE_COST_REVIEW') {
+    return {
+      projectCode,
+      workItemTypeCode: 'SAMPLE_COST_REVIEW',
+      sourceModule: '成本核价',
+      sourceDocType: '样衣核价单',
+      sourceDocCode: `CST-${projectCode.slice(-3)}-GEN`,
+      businessDate,
+      payload: {
+        costTotal: project.sampleUnitPrice || 99,
+        costNote: node.latestResultText || '样衣核价已完成。',
+      },
+      detailSnapshot: {
+        actualSampleCost: project.sampleUnitPrice || 99,
+        targetProductionCost: project.sampleUnitPrice || 89,
+        costCompliance: '基本符合',
+      },
+    }
+  }
+
+  if (node.workItemTypeCode === 'SAMPLE_PRICING') {
+    return {
+      projectCode,
+      workItemTypeCode: 'SAMPLE_PRICING',
+      sourceModule: '商品定价',
+      sourceDocType: '样衣定价单',
+      sourceDocCode: `PRC-${projectCode.slice(-3)}-GEN`,
+      businessDate,
+      payload: {
+        priceRange: project.priceRangeLabel || '两百元主销带',
+        pricingNote: node.latestResultText || '样衣定价已完成。',
+      },
+      detailSnapshot: {
+        baseCost: project.sampleUnitPrice || 99,
+        finalPrice: project.sampleUnitPrice ? Number(project.sampleUnitPrice) * 2 : 199,
+        pricingStrategy: '常规测款定价',
+        approvalStatus: '已通过',
+      },
+    }
+  }
+
+  if (node.workItemTypeCode === 'TEST_DATA_SUMMARY') {
+    return {
+      projectCode,
+      workItemTypeCode: 'TEST_DATA_SUMMARY',
+      sourceModule: '商品项目',
+      sourceDocType: '测款汇总记录',
+      sourceDocCode: `SUM-${projectCode.slice(-3)}-GEN`,
+      businessDate,
+      payload: {
+        summaryText: node.latestResultText || `${project.projectName}测款数据已汇总。`,
+        totalExposureQty: 10000,
+        totalClickQty: 800,
+        totalOrderQty: 60,
+        totalGmvAmount: 18888,
+      },
+      detailSnapshot: {
+        summaryOwner: project.ownerName,
+        summaryAt: businessDate,
+      },
+    }
+  }
+
+  if (node.workItemTypeCode === 'TEST_CONCLUSION') {
+    const conclusion = project.projectStatus === '已终止' ? '淘汰' : project.linkedStyleId ? '通过' : '调整'
+    return {
+      projectCode,
+      workItemTypeCode: 'TEST_CONCLUSION',
+      sourceModule: '商品项目',
+      sourceDocType: '测款结论记录',
+      sourceDocCode: `CON-${projectCode.slice(-3)}-GEN`,
+      businessDate,
+      payload: {
+        conclusion,
+        conclusionNote: node.latestResultText || `${project.projectName}测款结论已确认。`,
+        linkedChannelProductCode: '',
+        invalidationPlanned: conclusion !== '通过',
+        linkedStyleId: project.linkedStyleId || '',
+        linkedStyleCode: project.linkedStyleCode || '',
+        projectTerminated: project.projectStatus === '已终止',
+        projectTerminatedAt: project.projectStatus === '已终止' ? businessDate : '',
+        nextActionType: conclusion === '通过' ? '生成款式档案' : conclusion === '调整' ? '等待改版完成' : '项目关闭',
+      },
+      detailSnapshot: {
+        linkedStyleId: project.linkedStyleId || '',
+        linkedStyleCode: project.linkedStyleCode || '',
+        projectTerminated: project.projectStatus === '已终止',
+        projectTerminatedAt: project.projectStatus === '已终止' ? businessDate : '',
+      },
+    }
+  }
+
+  if (node.workItemTypeCode === 'SAMPLE_RETAIN_REVIEW') {
+    return {
+      projectCode,
+      workItemTypeCode: 'SAMPLE_RETAIN_REVIEW',
+      sourceModule: '样衣退货与处理',
+      sourceDocType: '样衣处置单',
+      sourceDocCode: `DSP-${projectCode.slice(-3)}-GEN`,
+      businessDate,
+      payload: {
+        retainResult: '已完成处置',
+        retainNote: node.latestResultText || '样衣留存评估已完成。',
+      },
+      detailSnapshot: {
+        inventoryStatusAfter: '已处置',
+        availabilityAfter: '不可用',
+        locationAfter: '深圳处置区',
+      },
+    }
+  }
+
+  if (node.workItemTypeCode === 'SAMPLE_RETURN_HANDLE') {
+    return {
+      projectCode,
+      workItemTypeCode: 'SAMPLE_RETURN_HANDLE',
+      sourceModule: '样衣退货与处理',
+      sourceDocType: '样衣退回单',
+      sourceDocCode: `RTN-${projectCode.slice(-3)}-GEN`,
+      businessDate,
+      payload: {
+        returnResult: '已完成退回',
+      },
+      detailSnapshot: {
+        returnRecipient: '供应商收货人',
+        logisticsProvider: '线下回寄',
+        returnDate: businessDate.slice(0, 10),
+      },
+    }
+  }
+
+  return null
+}
+
+function buildMissingCompletedInlineNodeRecords(
+  projectIdMap: ReturnType<typeof buildProjectNodeLookup>['projectIdMap'],
+  snapshot: ReturnType<typeof buildProjectNodeLookup>['snapshot'],
+  existingRecords: PcsProjectInlineNodeRecord[],
+): PcsProjectInlineNodeRecord[] {
+  const existingNodeIds = new Set(existingRecords.map((record) => record.projectNodeId))
+  const nextRecords: PcsProjectInlineNodeRecord[] = []
+
+  snapshot.nodes
+    .filter(
+      (node) =>
+        node.currentStatus === '已完成' &&
+        (PCS_PROJECT_INLINE_NODE_RECORD_WORK_ITEM_TYPES as readonly string[]).includes(node.workItemTypeCode),
+    )
+    .forEach((node) => {
+      if (existingNodeIds.has(node.projectNodeId)) return
+      const project = projectIdMap.get(node.projectId)
+      if (!project) return
+      const seed = buildGenericInlineSeed(project, node)
+      if (!seed) return
+
+      const recordCode =
+        node.workItemTypeCode === 'SAMPLE_RETAIN_REVIEW' || node.workItemTypeCode === 'SAMPLE_RETURN_HANDLE'
+          ? buildSampleCloseoutRecordCode(project.projectCode, node.workItemTypeCode)
+          : getRecordCode(project.projectCode, node.workItemTypeCode)
+
+      nextRecords.push({
+        recordId: `inline_backfill_${project.projectCode.toLowerCase().replace(/[^a-z0-9]+/g, '_')}_${node.workItemTypeCode.toLowerCase()}`,
+        recordCode,
+        projectId: project.projectId,
+        projectCode: project.projectCode,
+        projectName: project.projectName,
+        projectNodeId: node.projectNodeId,
+        workItemTypeCode: node.workItemTypeCode,
+        workItemTypeName: node.workItemTypeName,
+        businessDate: seed.businessDate,
+        recordStatus: '已完成',
+        ownerId: project.ownerId,
+        ownerName: project.ownerName,
+        payload: seed.payload,
+        detailSnapshot: seed.detailSnapshot,
+        sourceModule: seed.sourceModule,
+        sourceDocType: seed.sourceDocType,
+        sourceDocId: `${seed.sourceDocCode.toLowerCase().replace(/[^a-z0-9]+/g, '_')}_${project.projectId}`,
+        sourceDocCode: seed.sourceDocCode,
+        upstreamRefs: [],
+        downstreamRefs: [],
+        createdAt: seed.businessDate,
+        createdBy: project.ownerName,
+        updatedAt: seed.businessDate,
+        updatedBy: project.ownerName,
+        legacyProjectRef: project.projectCode,
+        legacyWorkItemInstanceId: null,
+      } as PcsProjectInlineNodeRecord)
+    })
+
+  return nextRecords
+}
+
 export function createBootstrapProjectInlineNodeRecordSnapshot(
   version: number,
 ): PcsProjectInlineNodeRecordStoreSnapshot {
-  const { projectMap, nodeMap } = buildProjectNodeLookup()
+  const { snapshot, projectMap, projectIdMap, nodeMap } = buildProjectNodeLookup()
   if (projectMap.size === 0 || nodeMap.size === 0) {
     return {
       version,
@@ -1236,6 +1561,7 @@ export function createBootstrapProjectInlineNodeRecordSnapshot(
 
   records.push(...buildTestingBranchBootstrapRecords(projectMap, nodeMap))
   records.push(...buildSampleCloseoutBootstrapRecords(projectMap, nodeMap))
+  records.push(...buildMissingCompletedInlineNodeRecords(projectIdMap, snapshot, records))
 
   return {
     version,

@@ -492,7 +492,12 @@ function resolveLiveRelationObject(relation: ProjectRelationRecord): ResolvedRel
   addField(fields, '加购', cartValue, 'cart')
   addField(fields, '订单', line?.orderQty, 'order')
   addField(fields, 'GMV', line?.gmvAmount, 'gmv')
-  addField(fields, '备注', session?.note, 'note')
+  addField(
+    fields,
+    '备注',
+    session?.note || relation.note || `${line?.productTitle || relation.sourceTitle}直播测款已完成。`,
+    'note',
+  )
   addField(fields, '直播测款', line?.liveSessionCode || relation.sourceObjectCode, 'liveSessionCode')
   addField(fields, '曝光量', line?.exposureQty, 'exposureQty')
   addField(fields, '点击量', line?.clickQty, 'clickQty')
@@ -515,6 +520,7 @@ function resolveLiveRelationObject(relation: ProjectRelationRecord): ResolvedRel
 function resolveVideoRelationObject(relation: ProjectRelationRecord): ResolvedRelationObjectSnapshot {
   const record = getVideoTestRecordById(relation.sourceObjectId)
   const baseRecord = getVideoRecordById(record?.videoRecordId || relation.sourceObjectId)
+  const [channelPlatform, channelAccount] = (record?.channelName || '').split('/').map((item) => item.trim())
   const primaryItem =
     baseRecord?.id
       ? getVideoItems(baseRecord.id).find((item) => item.projectRef === relation.projectCode) ||
@@ -530,18 +536,28 @@ function resolveVideoRelationObject(relation: ProjectRelationRecord): ResolvedRe
   const fields: PcsProjectInstanceField[] = []
   addField(fields, '商品项目编号', primaryItem?.projectRef || record?.legacyProjectRef || relation.projectCode, 'projectRef')
   addField(fields, '测款标题', baseRecord?.title || record?.videoTitle, 'title')
-  addField(fields, '平台', baseRecord?.platform, 'platform')
-  addField(fields, '发布账号', baseRecord?.account, 'account')
+  addField(fields, '平台', baseRecord?.platform || channelPlatform || record?.channelName, 'platform')
+  addField(fields, '发布账号', baseRecord?.account || channelAccount || record?.ownerName, 'account')
   addField(fields, '达人 / 运营', baseRecord?.creator || record?.ownerName, 'creator')
   addField(fields, '发布时间', baseRecord?.publishedAt || record?.publishedAt, 'publishedAt')
-  addField(fields, '视频链接', baseRecord?.videoUrl, 'videoUrl')
+  addField(
+    fields,
+    '视频链接',
+    baseRecord?.videoUrl || (record ? `https://example.com/videos/${record.videoRecordCode}` : ''),
+    'videoUrl',
+  )
   addField(fields, '播放', viewsValue, 'views')
   addField(fields, '点击', clicksValue, 'clicks')
   addField(fields, '点击率', clickRateValue, 'clickRate')
   addField(fields, '点赞', likesValue, 'likes')
   addField(fields, '订单', ordersValue, 'orders')
   addField(fields, 'GMV', gmvValue, 'gmv')
-  addField(fields, '备注', baseRecord?.note, 'note')
+  addField(
+    fields,
+    '备注',
+    baseRecord?.note || relation.note || `${record?.videoTitle || relation.sourceTitle}短视频测款已完成。`,
+    'note',
+  )
   addField(fields, '发布渠道', record?.channelName, 'channelName')
   addField(fields, '曝光量', record?.exposureQty, 'exposureQty')
   addField(fields, '点击量', record?.clickQty, 'clickQty')

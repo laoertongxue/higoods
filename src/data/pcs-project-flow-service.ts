@@ -29,6 +29,7 @@ import {
   submitProjectTestingSummary,
 } from './pcs-channel-product-project-repository.ts'
 import { syncProjectNodeInstanceRuntime } from './pcs-project-node-instance-registry.ts'
+import { validateProjectNodeCompletion } from './pcs-project-data-consistency.ts'
 
 export interface ProjectFlowActionResult {
   ok: boolean
@@ -272,6 +273,16 @@ export function markProjectNodeCompletedAndUnlockNext(
 ): ProjectFlowActionResult {
   const blockedResult = getSequenceBlockedResult(projectId, projectNodeId)
   if (blockedResult) return blockedResult
+  const completionValidation = validateProjectNodeCompletion(projectId, projectNodeId)
+  if (!completionValidation.ok) {
+    return {
+      ok: false,
+      message: completionValidation.message,
+      project: completionValidation.project,
+      node: completionValidation.node,
+      nextNode: null,
+    }
+  }
   const node = completeProjectNode(projectId, projectNodeId, input)
   if (!node) {
     return {
@@ -444,6 +455,17 @@ function applyFeasibilityReviewDecision(
     }
   }
 
+  const completionValidation = validateProjectNodeCompletion(projectId, projectNodeId)
+  if (!completionValidation.ok) {
+    return {
+      ok: false,
+      message: completionValidation.message,
+      project: completionValidation.project,
+      node: completionValidation.node,
+      nextNode: null,
+    }
+  }
+
   completeProjectNode(projectId, projectNodeId, {
     operatorName,
     timestamp,
@@ -538,6 +560,16 @@ function applySampleConfirmDecision(
   }
 
   if (decision === '淘汰') {
+    const completionValidation = validateProjectNodeCompletion(projectId, projectNodeId)
+    if (!completionValidation.ok) {
+      return {
+        ok: false,
+        message: completionValidation.message,
+        project: completionValidation.project,
+        node: completionValidation.node,
+        nextNode: null,
+      }
+    }
     completeProjectNode(projectId, projectNodeId, {
       operatorName,
       timestamp,

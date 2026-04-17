@@ -394,6 +394,18 @@ function hydrateSnapshot(
   }
 }
 
+function mergeMissingSeedData(snapshot: PcsProjectInlineNodeRecordStoreSnapshot): PcsProjectInlineNodeRecordStoreSnapshot {
+  const seed = buildSeedSnapshot()
+  const existingRecordIds = new Set(snapshot.records.map((record) => record.recordId))
+  return {
+    version: INLINE_NODE_RECORD_STORE_VERSION,
+    records: [
+      ...snapshot.records,
+      ...seed.records.filter((record) => !existingRecordIds.has(record.recordId)).map((record) => cloneRecord(record)),
+    ].sort(compareRecords),
+  }
+}
+
 function loadSnapshot(): PcsProjectInlineNodeRecordStoreSnapshot {
   if (memorySnapshot) return cloneSnapshot(memorySnapshot)
 
@@ -409,7 +421,9 @@ function loadSnapshot(): PcsProjectInlineNodeRecordStoreSnapshot {
       localStorage.setItem(INLINE_NODE_RECORD_STORAGE_KEY, JSON.stringify(memorySnapshot))
       return cloneSnapshot(memorySnapshot)
     }
-    memorySnapshot = hydrateSnapshot(JSON.parse(raw) as Partial<PcsProjectInlineNodeRecordStoreSnapshot>)
+    memorySnapshot = mergeMissingSeedData(
+      hydrateSnapshot(JSON.parse(raw) as Partial<PcsProjectInlineNodeRecordStoreSnapshot>),
+    )
     localStorage.setItem(INLINE_NODE_RECORD_STORAGE_KEY, JSON.stringify(memorySnapshot))
     return cloneSnapshot(memorySnapshot)
   } catch {

@@ -315,7 +315,6 @@ export function buildHistoricalLiveProductLineProjectRelation(
   return buildLiveProductLineProjectRelation(line, projectIdOrCode, {
     ...options,
     skipTestingGate: true,
-    allowMissingProjectNode: true,
   })
 }
 
@@ -327,7 +326,6 @@ export function buildHistoricalVideoRecordProjectRelation(
   return buildVideoRecordProjectRelation(record, projectIdOrCode, {
     ...options,
     skipTestingGate: true,
-    allowMissingProjectNode: true,
   })
 }
 

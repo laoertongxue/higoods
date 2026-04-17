@@ -670,7 +670,7 @@ function repairProjectNodeSequenceInSnapshot(
     }
 
     orderedNodes.slice(firstOpenIndex + 1).forEach((node) => {
-      if (node.currentStatus === '未开始' || node.currentStatus === '已取消') return
+      if (node.currentStatus === '未开始' || isClosedNodeStatus(node.currentStatus)) return
       resetNodeToLockedPending(node, firstOpenNode, timestamp)
       changed = true
     })
