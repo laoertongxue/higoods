@@ -197,6 +197,14 @@ export function hasStyleArchiveForProject(projectId: string): boolean {
 export function createStyleArchiveShell(record: StyleArchiveShellRecord): StyleArchiveShellRecord {
   const snapshot = loadSnapshot()
   const normalized = normalizeRecord(record)
+  if (
+    !normalized.sourceProjectId ||
+    !normalized.sourceProjectCode ||
+    !normalized.sourceProjectName ||
+    !normalized.sourceProjectNodeId
+  ) {
+    throw new Error('款式档案只能从商品项目 STYLE_ARCHIVE_CREATE 节点生成。')
+  }
   if (normalized.sourceProjectId && snapshot.records.some((item) => item.sourceProjectId === normalized.sourceProjectId)) {
     throw new Error('当前商品项目已存在正式款式档案主关联。')
   }

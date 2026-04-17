@@ -82,6 +82,13 @@ const revisionTask: RevisionTaskRecord = {
   upstreamObjectType: '项目工作项',
   upstreamObjectId: conclusionNode!.projectNodeId,
   upstreamObjectCode: conclusionNode!.projectNodeId,
+  styleId: project!.linkedStyleId || '',
+  styleCode: project!.linkedStyleCode || project!.styleNumber,
+  styleName: project!.linkedStyleName || project!.projectName,
+  referenceObjectType: '',
+  referenceObjectId: '',
+  referenceObjectCode: '',
+  referenceObjectName: '',
   productStyleCode: project!.linkedStyleCode || project!.styleNumber,
   spuCode: project!.linkedStyleCode || project!.styleNumber,
   status: '已确认',
@@ -93,6 +100,8 @@ const revisionTask: RevisionTaskRecord = {
   revisionScopeCodes: ['QUALITY'],
   revisionScopeNames: ['质检标准'],
   revisionVersion: 'V2',
+  issueSummary: '当前版本缺少质检标准，不能直接转入项目转档准备。',
+  evidenceSummary: '版本检查时发现质检标准为空，需补齐后再推进正式技术包。',
   linkedTechPackVersionId: '',
   linkedTechPackVersionCode: '',
   linkedTechPackVersionLabel: '',
@@ -197,7 +206,7 @@ updateProjectRecord(
   '测试用户',
 )
 
-const html = renderPcsProjectWorkItemDetailPage(project!.projectId, transferPrepNode!.projectNodeId)
+const html = await renderPcsProjectWorkItemDetailPage(project!.projectId, transferPrepNode!.projectNodeId)
 
 assert.match(html, /来源款式档案ID/, '详情页应展示来源款式档案 ID')
 assert.match(html, /来源款式档案名称/, '详情页应展示来源款式档案名称')

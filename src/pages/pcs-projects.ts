@@ -70,6 +70,10 @@ import {
   syncProjectLifecycle,
   terminateProject,
 } from '../data/pcs-project-flow-service.ts'
+import {
+  generateStyleArchiveFromProjectNode,
+  getStyleArchiveGenerationStatus,
+} from '../data/pcs-project-style-archive-generation.ts'
 
 type ProjectListViewMode = 'list' | 'grid'
 type ProjectListSort = 'updatedAt' | 'pendingDecision' | 'risk' | 'progressLow'
@@ -756,6 +760,29 @@ function renderTestingCreateAction(
       : 'inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50'
 
   return `<button type="button" class="${className}" data-nav="${escapeHtml(meta.route)}">${escapeHtml(meta.label)}</button>`
+}
+
+function renderStyleArchiveNodeAction(
+  project: PcsProjectRecord,
+  node: Pick<ProjectNodeViewModel, 'node' | 'displayStatus'>,
+  tone: 'primary' | 'secondary' = 'primary',
+): string {
+  if (node.node.workItemTypeCode !== 'STYLE_ARCHIVE_CREATE') return ''
+  if (node.displayStatus === '未解锁' || node.node.currentStatus === '已取消') return ''
+
+  const status = getStyleArchiveGenerationStatus(project.projectId)
+  const className =
+    tone === 'primary'
+      ? 'inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700'
+      : 'inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50'
+
+  if (status.style) {
+    return `<button type="button" class="${className}" data-nav="/pcs/products/styles/${escapeHtml(status.style.styleId)}">查看款式档案</button>`
+  }
+
+  if (!status.allowed) return ''
+
+  return `<button type="button" class="${className}" data-pcs-project-action="generate-style-archive" data-project-id="${escapeHtml(project.projectId)}">生成款式档案</button>`
 }
 
 function getDecisionFieldMeta(
@@ -3538,6 +3565,7 @@ function renderProjectDetailPage(projectId: string): string {
                       </div>
                     </div>
                     <div class="flex flex-wrap gap-2">
+                      ${renderStyleArchiveNodeAction(viewModel.project, selectedNode)}
                       ${renderTestingCreateAction(viewModel.project, selectedNode)}
                       ${
                         canOpenDecisionAction(selectedNode)
@@ -4057,6 +4085,11 @@ function renderProjectWorkItemDetailPage(projectId: string, projectNodeId: strin
   const nature = node.contract.workItemNature || node.definition?.workItemNature || '执行类'
   const canRecord = canUseInlineRecords(node.node.workItemTypeCode) && node.displayStatus !== '未解锁' && node.node.currentStatus !== '已取消'
   const testingAction = renderTestingCreateAction(viewModel.project, node, canRecord ? 'secondary' : 'primary')
+  const styleArchiveAction = renderStyleArchiveNodeAction(
+    viewModel.project,
+    node,
+    canRecord ? 'secondary' : 'primary',
+  )
 
   return `
     <div class="space-y-5 p-4">
@@ -4091,6 +4124,7 @@ function renderProjectWorkItemDetailPage(projectId: string, projectNodeId: strin
                 ? '<button type="button" class="inline-flex h-9 items-center rounded-md bg-amber-500 px-4 text-sm font-medium text-white hover:bg-amber-600" data-pcs-project-action="open-decision" data-source="work-item">做出决策</button>'
                 : ''
             }
+            ${styleArchiveAction}
             ${testingAction}
             ${canRecord ? '<button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-project-action="open-record-dialog">新增记录</button>' : ''}
             ${
@@ -4819,6 +4853,19 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
       resultText: '节点已手动标记完成。',
     })
     state.notice = result.message
+    return true
+  }
+  if (action === 'generate-style-archive') {
+    const projectId = actionNode.dataset.projectId || state.detail.projectId || state.workItem.projectId || ''
+    if (!projectId) {
+      state.notice = '未找到对应商品项目。'
+      return true
+    }
+    const result = generateStyleArchiveFromProjectNode(projectId, '当前用户')
+    state.notice = result.message
+    if (result.ok && result.style) {
+      appStore.navigate(`/pcs/products/styles/${result.style.styleId}`)
+    }
     return true
   }
   if (action === 'open-decision') {

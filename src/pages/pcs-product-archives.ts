@@ -2,13 +2,12 @@ import { appStore } from '../state/store.ts'
 import { escapeHtml, formatDateTime, toClassName } from '../utils.ts'
 import { ensurePcsProjectDemoDataReady } from '../data/pcs-project-demo-seed-service.ts'
 import {
-  bindStyleArchiveToProjectChannelProduct,
   findProjectChannelProductByStyleId,
   listProjectChannelProducts,
 } from '../data/pcs-channel-product-project-repository.ts'
 import { getMaterialArchiveById, listMaterialUsageRecordsByStyleCode } from '../data/pcs-material-archive-repository.ts'
-import { buildSkuFixture, buildStyleFixture } from '../data/pcs-product-archive-fixtures.ts'
-import { createStyleArchiveShell, getStyleArchiveById, listStyleArchives, updateStyleArchive } from '../data/pcs-style-archive-repository.ts'
+import { buildSkuFixture } from '../data/pcs-product-archive-fixtures.ts'
+import { getStyleArchiveById, listStyleArchives, updateStyleArchive } from '../data/pcs-style-archive-repository.ts'
 import type { StyleArchiveShellRecord, StyleArchiveStatusCode } from '../data/pcs-style-archive-types.ts'
 import {
   createSkuArchive,
@@ -23,17 +22,13 @@ import type { SkuArchiveMappingHealth, SkuArchiveRecord, SkuArchiveStatusCode } 
 import { buildTechnicalVersionListByStyle } from '../data/pcs-technical-data-version-view-model.ts'
 import { listTechnicalDataVersionsByStyleId } from '../data/pcs-technical-data-version-repository.ts'
 import {
-  listProjectWorkspaceCategories,
   listProjectWorkspaceColors,
   listProjectWorkspaceSizes,
-  listProjectWorkspaceStyles,
 } from '../data/pcs-project-config-workspace-adapter.ts'
-import { getProjectById, getProjectNodeRecordByWorkItemTypeCode, listProjects, updateProjectRecord } from '../data/pcs-project-repository.ts'
 
 type StyleVersionFilter = 'all' | 'has' | 'none'
 type StyleDetailTabKey = 'overview' | 'versions' | 'specifications' | 'mappings' | 'channels' | 'logs'
 type SkuDetailTabKey = 'overview' | 'channelMappings' | 'channelVariants' | 'codeMappings' | 'logs'
-type StyleCreateMode = 'new' | 'project' | 'legacy'
 type SkuCreateMode = 'single' | 'batch' | 'import'
 type SkuCodeStrategy = 'auto' | 'manual'
 
@@ -58,17 +53,6 @@ interface ProductArchivePageState {
   skuDetail: {
     skuId: string | null
     activeTab: SkuDetailTabKey
-  }
-  styleCreate: {
-    open: boolean
-    mode: StyleCreateMode
-    name: string
-    category: string
-    tags: string
-    priceBand: string
-    projectId: string
-    legacySystem: string
-    legacyCode: string
   }
   skuCreate: {
     open: boolean
@@ -136,18 +120,9 @@ const MAPPING_META: Record<SkuArchiveMappingHealth, { label: string; className: 
   CONFLICT: { label: '冲突', className: 'border-rose-200 bg-rose-50 text-rose-700' },
 }
 
-const FALLBACK_CATEGORY_OPTIONS = ['上衣', '连衣裙', '半裙', '裤子', '套装', '外套']
-const PRICE_RANGE_OPTIONS = ['¥159-299', '¥199-399', '¥299-499', '¥399-699']
 const LEGACY_SYSTEM_OPTIONS = ['ERP-A', 'ERP-B', 'OMS-旧档', '外部表格导入']
 const FALLBACK_SKU_COLOR_OPTIONS = ['Black', 'White', 'Red', 'Blue', 'Green', 'Khaki']
 const FALLBACK_SKU_SIZE_OPTIONS = ['S', 'M', 'L', 'XL', 'One Size']
-
-function listConfiguredCategoryOptions(): string[] {
-  const options = listProjectWorkspaceCategories()
-    .map((item) => item.name.trim())
-    .filter(Boolean)
-  return options.length > 0 ? options : FALLBACK_CATEGORY_OPTIONS
-}
 
 function listConfiguredSkuColors(): string[] {
   const options = listProjectWorkspaceColors()
@@ -161,13 +136,6 @@ function listConfiguredSkuSizes(): string[] {
     .map((item) => item.name.trim())
     .filter(Boolean)
   return options.length > 0 ? options : FALLBACK_SKU_SIZE_OPTIONS
-}
-
-function listConfiguredStyleTags(): string[] {
-  const options = listProjectWorkspaceStyles()
-    .map((item) => item.name.trim())
-    .filter(Boolean)
-  return options.length > 0 ? options : ['休闲']
 }
 
 function createDefaultSkuCreateState(): ProductArchivePageState['skuCreate'] {
@@ -213,32 +181,7 @@ const state: ProductArchivePageState = {
     skuId: null,
     activeTab: 'overview',
   },
-  styleCreate: {
-    open: false,
-    mode: 'new',
-    name: '',
-    category: '',
-    tags: '',
-    priceBand: '',
-    projectId: '',
-    legacySystem: '',
-    legacyCode: '',
-  },
   skuCreate: createDefaultSkuCreateState(),
-}
-
-function resetStyleCreateState(): void {
-  state.styleCreate = {
-    open: false,
-    mode: 'new',
-    name: '',
-    category: '',
-    tags: '',
-    priceBand: '',
-    projectId: '',
-    legacySystem: '',
-    legacyCode: '',
-  }
 }
 
 function resetSkuCreateState(): void {
@@ -267,7 +210,6 @@ export function resetPcsProductArchiveState(): void {
     skuId: null,
     activeTab: 'overview',
   }
-  resetStyleCreateState()
   resetSkuCreateState()
 }
 
@@ -292,24 +234,6 @@ function normalizeTextToken(value: string, fallback: string): string {
   if (normalized.includes('卡其')) return 'KHA'
   const ascii = normalized.replace(/[^a-z0-9]/g, '').slice(0, 3).toUpperCase()
   return ascii || fallback
-}
-
-function resolveTags(input: string): string[] {
-  return input
-    .split(/[，,、/]/)
-    .map((item) => item.trim())
-    .filter(Boolean)
-}
-
-function buildStyleIdentity(): { styleId: string; styleCode: string; timestamp: string } {
-  const timestamp = nowText()
-  const dateKey = timestamp.slice(0, 10).replace(/-/g, '')
-  const sequence = listStyleArchives().filter((item) => item.generatedAt.startsWith(timestamp.slice(0, 10))).length + 1
-  return {
-    styleId: `style_${dateKey}_${String(sequence).padStart(3, '0')}`,
-    styleCode: `SPU-${dateKey}-${String(sequence).padStart(3, '0')}`,
-    timestamp,
-  }
 }
 
 function buildSkuIdentity(): { skuId: string; timestamp: string } {
@@ -553,17 +477,11 @@ function renderStyleHeader(): string {
       <div>
         <p class="text-xs text-slate-500">商品中心 / 商品档案</p>
         <h1 class="mt-1 text-2xl font-semibold text-slate-900">款式档案</h1>
-        <p class="mt-1 text-sm text-slate-500">对应参照对象的商品档案 - SPU，管理正式款式主档、技术包版本、规格档案与编码映射。</p>
+        <p class="mt-1 text-sm text-slate-500">款式档案只能从商品项目的“生成款式档案”节点发起，这里只负责查看、补齐资料和承接后续规格与技术包链路。</p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
-        <button type="button" class="inline-flex h-10 items-center gap-2 rounded-md bg-slate-900 px-4 text-sm text-white hover:bg-slate-800" data-pcs-product-archive-action="open-style-create" data-mode="new">
-          <i data-lucide="plus" class="h-4 w-4"></i>新建款式档案
-        </button>
-        <button type="button" class="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-product-archive-action="open-style-create" data-mode="project">
-          <i data-lucide="folder-kanban" class="h-4 w-4"></i>从项目生成
-        </button>
-        <button type="button" class="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-product-archive-action="open-style-create" data-mode="legacy">
-          <i data-lucide="link" class="h-4 w-4"></i>建立老系统映射
+        <button type="button" class="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/projects">
+          <i data-lucide="folder-kanban" class="h-4 w-4"></i>前往商品项目
         </button>
         <button type="button" class="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-product-archive-action="sync-style-mapping">
           <i data-lucide="refresh-cw" class="h-4 w-4"></i>同步映射
@@ -815,52 +733,6 @@ function renderSkuTable(items: SkuArchiveRecord[]): string {
       </div>
     </section>
   `
-}
-
-function renderStyleCreateDrawer(): string {
-  if (!state.styleCreate.open) return ''
-  const mode = state.styleCreate.mode
-  const categoryOptions = listConfiguredCategoryOptions().map((item) => ({ value: item, label: item }))
-  const title = mode === 'project' ? '从商品项目生成款式档案' : mode === 'legacy' ? '建立老系统映射' : '新建款式档案'
-  const description =
-    mode === 'project'
-      ? '从已通过测款结论的商品项目生成正式款式档案。'
-      : mode === 'legacy'
-        ? '建立与已有业务系统商品档案的映射关系，补齐正式款式主档。'
-        : '创建正式款式主档。'
-  const projectOptions = listProjects()
-    .filter((item) => item.projectStatus !== '已终止' && item.projectStatus !== '已归档')
-    .map((item) => ({ value: item.projectId, label: `${item.projectCode} · ${item.projectName}` }))
-
-  const body = `
-    <div class="space-y-5">
-      ${
-        mode === 'project'
-          ? renderFormField('来源商品项目', renderSelect('style-create-project-id', state.styleCreate.projectId, projectOptions, '选择商品项目'), true)
-          : ''
-      }
-      ${renderFormField('款式名称', renderTextInput('style-create-name', state.styleCreate.name, '输入款式名称'), true)}
-      ${renderFormField('类目', renderSelect('style-create-category', state.styleCreate.category, categoryOptions, '选择类目'), true, '来源：配置工作台 / 品类')}
-      ${renderFormField('风格标签', renderTextInput('style-create-tags', state.styleCreate.tags, '例如：休闲，基础款，度假风'), false, '多个标签可用中文逗号分隔')}
-      ${renderFormField('价格带', renderSelect('style-create-price-band', state.styleCreate.priceBand, PRICE_RANGE_OPTIONS.map((item) => ({ value: item, label: item })), '选择价格带'), true)}
-      ${
-        mode === 'legacy'
-          ? `
-            <div class="grid gap-4 md:grid-cols-2">
-              ${renderFormField('老系统', renderSelect('style-create-legacy-system', state.styleCreate.legacySystem, LEGACY_SYSTEM_OPTIONS.map((item) => ({ value: item, label: item })), '选择来源系统'), true)}
-              ${renderFormField('老系统编码', renderTextInput('style-create-legacy-code', state.styleCreate.legacyCode, '输入老系统 SPU 编码'), true)}
-            </div>
-          `
-          : ''
-      }
-      <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-500">创建后会进入款式详情页；如选择来源商品项目，将同步绑定项目主关联。技术包版本仅可由改版任务、制版任务、花型任务生成。</div>
-    </div>
-  `
-  const footer = `
-    <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-product-archive-action="close-drawers">取消</button>
-    <button type="button" class="inline-flex h-9 items-center rounded-md bg-slate-900 px-3 text-sm text-white hover:bg-slate-800" data-pcs-product-archive-action="submit-style-create">确认创建</button>
-  `
-  return renderDrawerShell(title, description, body, footer)
 }
 
 function renderSkuCreateDrawer(): string {
@@ -1308,7 +1180,6 @@ function renderStyleDetailPage(styleId: string): string {
         <div class="flex flex-wrap gap-2">${tabButtons}</div>
       </section>
       ${tabContent}
-      ${renderStyleCreateDrawer()}
       ${renderSkuCreateDrawer()}
     </div>
   `
@@ -1634,7 +1505,6 @@ function renderPcsStyleListPage(): string {
       ${renderStyleStats()}
       ${renderStyleFilters(items.length)}
       ${renderStyleTable(items)}
-      ${renderStyleCreateDrawer()}
       ${renderSkuCreateDrawer()}
     </div>
   `
@@ -1668,125 +1538,6 @@ export function renderPcsSpecificationListPage(): string {
 
 export function renderPcsSpecificationDetailPage(skuId: string): string {
   return renderSkuDetailPage(skuId)
-}
-
-function submitStyleCreate(): void {
-  const name = state.styleCreate.name.trim()
-  const category = state.styleCreate.category.trim()
-  if (!name) {
-    state.notice = '请先输入款式名称。'
-    return
-  }
-  if (!category) {
-    state.notice = '请先选择类目。'
-    return
-  }
-
-  const project = state.styleCreate.projectId ? getProjectById(state.styleCreate.projectId) : null
-  if (state.styleCreate.mode === 'project' && !project) {
-    state.notice = '请先选择来源商品项目。'
-    return
-  }
-  if (state.styleCreate.mode === 'legacy' && (!state.styleCreate.legacySystem.trim() || !state.styleCreate.legacyCode.trim())) {
-    state.notice = '请补齐老系统与老系统编码。'
-    return
-  }
-
-  const identity = buildStyleIdentity()
-  const styleCreateNode = project ? getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'STYLE_ARCHIVE_CREATE') : null
-  const fixture = buildStyleFixture(identity.styleCode, name)
-
-  try {
-    const created = createStyleArchiveShell({
-      styleId: identity.styleId,
-      styleCode: identity.styleCode,
-      styleName: name,
-      styleNameEn: fixture.styleNameEn,
-      styleNumber: identity.styleCode,
-      styleType: '成衣',
-      sourceProjectId: project?.projectId || '',
-      sourceProjectCode: project?.projectCode || '',
-      sourceProjectName: project?.projectName || '',
-      sourceProjectNodeId: styleCreateNode?.projectNodeId || '',
-      categoryId: '',
-      categoryName: category.split('/')[0] || category,
-      subCategoryId: '',
-      subCategoryName: category.split('/')[1] || '',
-      brandId: project?.brandId || '',
-      brandName: project?.brandName || '',
-      yearTag: '2026',
-      seasonTags: project?.seasonTags?.length ? [...project.seasonTags] : ['春夏'],
-      styleTags:
-        resolveTags(state.styleCreate.tags).length > 0
-          ? resolveTags(state.styleCreate.tags)
-          : project?.styleTags?.length
-            ? project.styleTags
-            : listConfiguredStyleTags().slice(0, 1),
-      targetAudienceTags: project?.targetAudienceTags || [],
-      targetChannelCodes: project?.targetChannelCodes || [],
-      priceRangeLabel: state.styleCreate.priceBand || '¥199-399',
-      archiveStatus: project ? 'ACTIVE' : 'DRAFT',
-      baseInfoStatus: '已维护',
-      specificationStatus: '未建立',
-      techPackStatus: '未建立',
-      costPricingStatus: '未建立',
-      specificationCount: 0,
-      techPackVersionCount: 0,
-      costVersionCount: 0,
-      channelProductCount: 0,
-      currentTechPackVersionId: '',
-      currentTechPackVersionCode: '',
-      currentTechPackVersionLabel: '',
-      currentTechPackVersionStatus: '',
-      currentTechPackVersionActivatedAt: '',
-      currentTechPackVersionActivatedBy: '',
-      mainImageUrl: fixture.mainImageUrl,
-      galleryImageUrls: fixture.galleryImageUrls,
-      sellingPointText: fixture.sellingPointText,
-      detailDescription: fixture.detailDescription,
-      packagingInfo: fixture.packagingInfo,
-      remark: '',
-      generatedAt: identity.timestamp,
-      generatedBy: '系统演示',
-      updatedAt: identity.timestamp,
-      updatedBy: '系统演示',
-      legacyOriginProject:
-        state.styleCreate.mode === 'legacy'
-          ? `${state.styleCreate.legacySystem.trim()} · ${state.styleCreate.legacyCode.trim()}`
-          : '',
-    })
-
-    if (project) {
-      updateProjectRecord(project.projectId, {
-        linkedStyleId: created.styleId,
-        linkedStyleCode: created.styleCode,
-        linkedStyleName: created.styleName,
-        linkedStyleGeneratedAt: identity.timestamp,
-        updatedAt: identity.timestamp,
-      })
-      bindStyleArchiveToProjectChannelProduct(
-        project.projectId,
-        {
-          styleId: created.styleId,
-          styleCode: created.styleCode,
-          styleName: created.styleName,
-        },
-        '系统演示',
-      )
-      const styleChannels = listProjectChannelProducts().filter((item) => item.styleId === created.styleId && item.channelProductStatus !== '已作废')
-      updateStyleArchive(created.styleId, {
-        channelProductCount: styleChannels.length,
-        updatedAt: identity.timestamp,
-        updatedBy: '系统演示',
-      })
-    }
-
-    resetStyleCreateState()
-    state.notice = `已创建款式档案 ${created.styleCode}。`
-    appStore.navigate(`/pcs/products/styles/${created.styleId}`)
-  } catch (error) {
-    state.notice = error instanceof Error ? error.message : '创建款式档案失败。'
-  }
 }
 
 function buildSkuRecord(input: {
@@ -1990,35 +1741,6 @@ export function handlePcsProductArchiveInput(target: Element): boolean {
     case 'sku-list-style-id':
       state.skuList.styleId = value
       return true
-    case 'style-create-name':
-      state.styleCreate.name = value
-      return true
-    case 'style-create-category':
-      state.styleCreate.category = value
-      return true
-    case 'style-create-tags':
-      state.styleCreate.tags = value
-      return true
-    case 'style-create-price-band':
-      state.styleCreate.priceBand = value
-      return true
-    case 'style-create-project-id': {
-      state.styleCreate.projectId = value
-      const project = value ? getProjectById(value) : null
-      if (project) {
-        state.styleCreate.name = state.styleCreate.name || project.projectName
-        state.styleCreate.category = state.styleCreate.category || project.subCategoryName || project.categoryName || ''
-        state.styleCreate.tags = state.styleCreate.tags || project.styleTags.join('，')
-        state.styleCreate.priceBand = state.styleCreate.priceBand || '¥199-399'
-      }
-      return true
-    }
-    case 'style-create-legacy-system':
-      state.styleCreate.legacySystem = value
-      return true
-    case 'style-create-legacy-code':
-      state.styleCreate.legacyCode = value
-      return true
     case 'sku-create-style-id':
       state.skuCreate.styleId = value
       return true
@@ -2074,16 +1796,7 @@ export function handlePcsProductArchiveEvent(target: HTMLElement): boolean {
       state.notice = null
       return true
     case 'close-drawers':
-      resetStyleCreateState()
       resetSkuCreateState()
-      return true
-    case 'open-style-create':
-      resetStyleCreateState()
-      state.styleCreate.open = true
-      state.styleCreate.mode = (actionNode.dataset.mode as StyleCreateMode) || 'new'
-      return true
-    case 'submit-style-create':
-      submitStyleCreate()
       return true
     case 'open-sku-create':
       resetSkuCreateState()
@@ -2200,5 +1913,5 @@ export function handlePcsProductArchiveEvent(target: HTMLElement): boolean {
 }
 
 export function isPcsProductArchiveDialogOpen(): boolean {
-  return state.styleCreate.open || state.skuCreate.open
+  return state.skuCreate.open
 }

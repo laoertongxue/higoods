@@ -16,7 +16,9 @@ resetSkuArchiveRepository()
 
 const styleListHtml = renderPcsStyleArchiveListPage()
 assert.match(styleListHtml, /款式档案/, '应渲染款式档案列表标题')
-assert.match(styleListHtml, /新建款式档案/, '应提供款式档案创建入口')
+assert.doesNotMatch(styleListHtml, /新建款式档案/, '款式档案列表不应再提供直接创建入口')
+assert.doesNotMatch(styleListHtml, /从项目生成/, '款式档案列表不应再提供从页面直接生成入口')
+assert.match(styleListHtml, /前往商品项目/, '款式档案列表应引导回商品项目节点发起生成')
 assert.match(styleListHtml, /当前生效版本/, '应展示当前生效版本列')
 
 const firstStyle = listStyleArchives()[0]
@@ -31,17 +33,6 @@ const skuListHtml = renderPcsSpecificationListPage()
 assert.match(skuListHtml, /规格档案/, '应渲染规格档案列表标题')
 assert.match(skuListHtml, /批量生成/, '应提供批量生成入口')
 assert.match(skuListHtml, /渠道映射数/, '应展示渠道映射数字段')
-
-handlePcsProductArchiveEvent({
-  dataset: { pcsProductArchiveAction: 'open-style-create', mode: 'new' },
-  closest() {
-    return this
-  },
-} as unknown as HTMLElement)
-
-const styleCreateHtml = renderPcsStyleArchiveListPage()
-assert.match(styleCreateHtml, /来源：配置工作台 \/ 品类/, '款式档案建档应提示类目来源于配置工作台')
-assert.match(styleCreateHtml, /上衣/, '款式档案建档应展示配置工作台品类')
 
 handlePcsProductArchiveEvent({
   dataset: { pcsProductArchiveAction: 'open-sku-create', mode: 'single' },
