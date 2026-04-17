@@ -1589,7 +1589,6 @@ function renderStyleDetailPage(styleId: string): string {
       <section class="rounded-lg border bg-white p-2 shadow-sm">
         <div class="flex flex-wrap gap-2">${tabButtons}</div>
       </section>
-      ${renderStyleFormalizationPanel(style)}
       ${tabContent}
       ${renderSkuCreateDrawer()}
       ${renderStyleCompletionDrawer()}
