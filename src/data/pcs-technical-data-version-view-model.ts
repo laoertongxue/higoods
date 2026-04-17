@@ -1,4 +1,8 @@
 import { getProjectById } from './pcs-project-repository.ts'
+import {
+  TECH_PACK_AGGREGATE_STATUS_RULES,
+  resolveTechPackVersionBusinessStatus,
+} from './pcs-product-lifecycle-governance.ts'
 import { getStyleArchiveById, listStyleArchives } from './pcs-style-archive-repository.ts'
 import { buildTechPackVersionSourceTaskSummary } from './pcs-tech-pack-task-generation.ts'
 import {
@@ -46,9 +50,18 @@ export interface TechnicalVersionDetailViewModel {
 }
 
 export function getTechnicalVersionStatusLabel(status: TechnicalVersionStatus): string {
-  if (status === 'PUBLISHED') return '已发布'
+  if (status === 'PUBLISHED') return '已发布待启用'
   if (status === 'ARCHIVED') return '已归档'
   return '草稿中'
+}
+
+export function getTechnicalVersionBusinessStatusLabel(
+  record: Pick<TechnicalDataVersionRecord, 'versionStatus' | 'technicalVersionId'>,
+  currentVersionId: string,
+): string {
+  return TECH_PACK_AGGREGATE_STATUS_RULES[
+    resolveTechPackVersionBusinessStatus(record, currentVersionId)
+  ].label
 }
 
 export function getTechnicalDomainStatusLabel(status: TechnicalDomainStatus): string {
@@ -68,7 +81,7 @@ export function buildTechnicalVersionListByStyle(styleId: string): TechnicalVers
     technicalVersionCode: record.technicalVersionCode,
     versionLabel: record.versionLabel,
     versionStatus: record.versionStatus,
-    versionStatusLabel: getTechnicalVersionStatusLabel(record.versionStatus),
+    versionStatusLabel: getTechnicalVersionBusinessStatusLabel(record, style?.currentTechPackVersionId || ''),
     isCurrentTechPackVersion: style?.currentTechPackVersionId === record.technicalVersionId,
     completenessScore: record.completenessScore,
     missingItemNames: [...record.missingItemNames],
@@ -92,7 +105,7 @@ export function buildTechnicalVersionListByProject(projectId: string): Technical
       technicalVersionCode: record.technicalVersionCode,
       versionLabel: record.versionLabel,
       versionStatus: record.versionStatus,
-      versionStatusLabel: getTechnicalVersionStatusLabel(record.versionStatus),
+      versionStatusLabel: getTechnicalVersionBusinessStatusLabel(record, style?.currentTechPackVersionId || ''),
       isCurrentTechPackVersion: style?.currentTechPackVersionId === record.technicalVersionId,
       completenessScore: record.completenessScore,
       missingItemNames: [...record.missingItemNames],
@@ -123,8 +136,12 @@ export function buildTechnicalVersionDetailViewModel(
     sourceProjectText: record.sourceProjectCode
       ? `${record.sourceProjectCode} · ${record.sourceProjectName}`
       : '未绑定商品项目',
-    versionStatusLabel: getTechnicalVersionStatusLabel(record.versionStatus),
-    isCurrentTechPackVersion: getStyleArchiveById(record.styleId)?.currentTechPackVersionId === record.technicalVersionId,
+    versionStatusLabel: getTechnicalVersionBusinessStatusLabel(
+      record,
+      getStyleArchiveById(record.styleId)?.currentTechPackVersionId || '',
+    ),
+    isCurrentTechPackVersion:
+      getStyleArchiveById(record.styleId)?.currentTechPackVersionId === record.technicalVersionId,
     sourceTaskText: buildTechPackVersionSourceTaskSummary(record).taskChainText,
     canPublish: canPublishTechnicalVersion(record) && record.versionStatus === 'DRAFT',
     compatibilityMode: false,

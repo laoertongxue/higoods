@@ -1,5 +1,6 @@
 import { createStyleArchiveBootstrapSnapshot } from './pcs-style-archive-bootstrap.ts'
 import { buildStyleFixture } from './pcs-product-archive-fixtures.ts'
+import { normalizeStyleTechPackStatusText } from './pcs-product-lifecycle-governance.ts'
 import type {
   StyleArchivePendingItem,
   StyleArchiveShellRecord,
@@ -48,15 +49,20 @@ function seedSnapshot(): StyleArchiveStoreSnapshot {
   return createStyleArchiveBootstrapSnapshot(STYLE_ARCHIVE_STORE_VERSION)
 }
 
+function normalizeBaseInfoStatus(status: string): string {
+  if (status === '已维护') return '已建档'
+  return status || '待完善'
+}
+
 function normalizeRecord(record: StyleArchiveShellRecord): StyleArchiveShellRecord {
   const fixture = buildStyleFixture(record.styleCode || record.styleId, record.styleName || record.styleCode)
   return {
     ...cloneRecord(record),
     archiveStatus: record.archiveStatus === 'ACTIVE' || record.archiveStatus === 'ARCHIVED' ? record.archiveStatus : 'DRAFT',
     styleNameEn: record.styleNameEn || fixture.styleNameEn,
-    baseInfoStatus: record.baseInfoStatus || '待完善',
+    baseInfoStatus: normalizeBaseInfoStatus(record.baseInfoStatus),
     specificationStatus: record.specificationStatus || '未建立',
-    techPackStatus: record.techPackStatus || '未建立',
+    techPackStatus: normalizeStyleTechPackStatusText(record.techPackStatus || '未建立'),
     costPricingStatus: record.costPricingStatus || '未建立',
     specificationCount: Number.isFinite(record.specificationCount) ? record.specificationCount : 0,
     techPackVersionCount: Number.isFinite(record.techPackVersionCount) ? record.techPackVersionCount : 0,

@@ -12,7 +12,11 @@ import { getTechnicalDataVersionById } from '../../data/pcs-technical-data-versi
 import {
   buildTechPackVersionSourceTaskSummary,
 } from '../../data/pcs-tech-pack-task-generation.ts'
-import { getTechnicalVersionStatusLabel } from '../../data/pcs-technical-data-version-view-model.ts'
+import { getTechnicalVersionBusinessStatusLabel } from '../../data/pcs-technical-data-version-view-model.ts'
+import {
+  TECH_PACK_AGGREGATE_STATUS_RULES,
+  resolveTechPackVersionBusinessStatus,
+} from '../../data/pcs-product-lifecycle-governance.ts'
 import { renderAttachmentsTab, renderAddAttachmentDialog, renderAddDesignDialog, renderDesignTab } from './asset-domain.ts'
 import { renderBomFormDialog, renderBomTab } from './bom-domain.ts'
 import { renderColorMappingTab } from './color-mapping-domain.ts'
@@ -62,10 +66,43 @@ function renderTechPackSummary(): string {
   const isCurrent = style?.currentTechPackVersionId === record.technicalVersionId
   return `
     <div class="ml-10 mt-2 grid gap-2 text-sm text-muted-foreground md:grid-cols-3">
-      <div>当前版本状态：<span class="font-medium text-foreground">${escapeHtml(getTechnicalVersionStatusLabel(record.versionStatus))}</span></div>
+      <div>当前版本状态：<span class="font-medium text-foreground">${escapeHtml(getTechnicalVersionBusinessStatusLabel(record, style?.currentTechPackVersionId || ''))}</span></div>
       <div>是否当前生效版本：<span class="font-medium text-foreground">${isCurrent ? '是' : '否'}</span></div>
       <div>来源任务链：<span class="font-medium text-foreground">${escapeHtml(sourceSummary.taskChainText)}</span></div>
     </div>
+  `
+}
+
+function renderTechPackLifecyclePanel(): string {
+  if (!state.currentTechnicalVersionId || !state.currentStyleId) return ''
+  const record = getTechnicalDataVersionById(state.currentTechnicalVersionId)
+  const style = getStyleArchiveById(state.currentStyleId)
+  if (!record) return ''
+  const rule =
+    TECH_PACK_AGGREGATE_STATUS_RULES[
+      resolveTechPackVersionBusinessStatus(record, style?.currentTechPackVersionId || '')
+    ]
+  return `
+    <section class="rounded-lg border bg-card p-4">
+      <div class="flex flex-wrap items-center gap-3">
+        <h2 class="text-sm font-medium text-foreground">技术包状态口径</h2>
+        <span class="${escapeHtml(`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${rule.className}`)}">${escapeHtml(rule.label)}</span>
+      </div>
+      <div class="mt-4 grid gap-4 md:grid-cols-[1.4fr,1fr]">
+        <div class="rounded-lg border bg-muted/30 px-4 py-3">
+          <div class="text-xs text-muted-foreground">业务场景</div>
+          <div class="mt-2 text-sm leading-6 text-foreground">${escapeHtml(rule.scene)}</div>
+        </div>
+        <div class="rounded-lg border bg-muted/30 px-4 py-3">
+          <div class="text-xs text-muted-foreground">当前可操作项</div>
+          <div class="mt-2 flex flex-wrap gap-2">
+            ${rule.operations
+              .map((item) => `<span class="inline-flex rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs font-medium text-slate-700">${escapeHtml(item)}</span>`)
+              .join('')}
+          </div>
+        </div>
+      </div>
+    </section>
   `
 }
 
@@ -105,6 +142,20 @@ export function renderTechPackPage(
   const checklist = getChecklist()
   const hasIncomplete = checklist.some((item) => item.required && !item.done)
   const canRelease = !hasIncomplete && state.techPack.status !== 'RELEASED'
+  const currentRecord =
+    state.currentTechnicalVersionId && state.currentStyleId
+      ? getTechnicalDataVersionById(state.currentTechnicalVersionId)
+      : null
+  const currentStyle =
+    state.currentTechnicalVersionId && state.currentStyleId
+      ? getStyleArchiveById(state.currentStyleId)
+      : null
+  const currentRule =
+    currentRecord
+      ? TECH_PACK_AGGREGATE_STATUS_RULES[
+          resolveTechPackVersionBusinessStatus(currentRecord, currentStyle?.currentTechPackVersionId || '')
+        ]
+      : null
 
   return `
     <div class="space-y-4">
@@ -115,7 +166,7 @@ export function renderTechPackPage(
               <i data-lucide="arrow-left" class="h-4 w-4"></i>
             </button>
             <h1 class="text-xl font-semibold">技术包版本 - ${escapeHtml(state.currentTechnicalVersionCode || state.currentSpuCode)}</h1>
-            ${renderStatusBadge(state.techPack.status)}
+            ${currentRule ? `<span class="${escapeHtml(`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${currentRule.className}`)}">${escapeHtml(currentRule.label)}</span>` : renderStatusBadge(state.techPack.status)}
             <span class="text-sm text-muted-foreground">(${escapeHtml(state.techPack.versionLabel)})</span>
           </div>
           <p class="ml-10 text-sm text-muted-foreground">${escapeHtml(state.techPack.spuName)}</p>
@@ -136,6 +187,7 @@ export function renderTechPackPage(
         </div>
       </header>
 
+      ${renderTechPackLifecyclePanel()}
       ${renderTabHeader()}
       ${renderCurrentTabContent()}
 

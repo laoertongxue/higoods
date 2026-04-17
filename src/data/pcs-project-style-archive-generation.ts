@@ -333,7 +333,7 @@ export function generateStyleArchiveFromProjectNode(
     )
 
     const channelCount = listProjectChannelProductsByProjectId(project.projectId).filter(
-      (item) => item.styleId === created.styleId && item.channelProductStatus !== '已作废',
+      (item) => item.channelProductStatus !== '已作废',
     ).length
 
     updateStyleArchive(created.styleId, {

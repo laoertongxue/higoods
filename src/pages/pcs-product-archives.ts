@@ -6,13 +6,20 @@ import {
   getStyleArchiveFormalizationCheck,
 } from '../data/pcs-project-style-archive-generation.ts'
 import {
-  findProjectChannelProductByStyleId,
   listProjectChannelProducts,
 } from '../data/pcs-channel-product-project-repository.ts'
 import { getMaterialArchiveById, listMaterialUsageRecordsByStyleCode } from '../data/pcs-material-archive-repository.ts'
 import { buildSkuFixture } from '../data/pcs-product-archive-fixtures.ts'
+import {
+  STYLE_ARCHIVE_CONTROLLED_FIELD_RULES,
+  STYLE_ARCHIVE_STATUS_RULES,
+  isStyleArchiveFormalized,
+  listUnifiedProductLifecycleRuleRows,
+  resolveStyleArchiveBusinessStatus,
+  type StyleArchiveBusinessStatusKey,
+} from '../data/pcs-product-lifecycle-governance.ts'
 import { getStyleArchiveById, listStyleArchives, updateStyleArchive } from '../data/pcs-style-archive-repository.ts'
-import type { StyleArchiveShellRecord, StyleArchiveStatusCode } from '../data/pcs-style-archive-types.ts'
+import type { StyleArchiveShellRecord } from '../data/pcs-style-archive-types.ts'
 import {
   createSkuArchive,
   createSkuArchiveBatch,
@@ -40,7 +47,7 @@ interface ProductArchivePageState {
   notice: string | null
   styleList: {
     search: string
-    status: 'all' | StyleArchiveStatusCode
+    status: 'all' | StyleArchiveBusinessStatusKey
     version: StyleVersionFilter
     mapping: 'all' | SkuArchiveMappingHealth
   }
@@ -99,6 +106,8 @@ interface ProductArchivePageState {
 
 interface StyleArchiveListItemViewModel {
   style: StyleArchiveShellRecord
+  displayStatus: StyleArchiveBusinessStatusKey
+  hasEffectiveTechPack: boolean
   skuCount: number
   materialUsageCount: number
   mappingHealth: SkuArchiveMappingHealth
@@ -126,12 +135,6 @@ const SKU_DETAIL_TABS: Array<{ key: SkuDetailTabKey; label: string }> = [
   { key: 'codeMappings', label: '外部编码' },
   { key: 'logs', label: '日志' },
 ]
-
-const STYLE_STATUS_META: Record<StyleArchiveStatusCode, { label: string; className: string }> = {
-  DRAFT: { label: '草稿', className: 'border-amber-200 bg-amber-50 text-amber-700' },
-  ACTIVE: { label: '启用', className: 'border-emerald-200 bg-emerald-50 text-emerald-700' },
-  ARCHIVED: { label: '已归档', className: 'border-slate-200 bg-slate-100 text-slate-600' },
-}
 
 const SKU_STATUS_META: Record<SkuArchiveStatusCode, { label: string; className: string }> = {
   ACTIVE: { label: '启用', className: 'border-emerald-200 bg-emerald-50 text-emerald-700' },
@@ -323,24 +326,39 @@ function resolveStyleMappingHealth(skus: SkuArchiveRecord[]): SkuArchiveMappingH
   return 'OK'
 }
 
+function listStyleChannelProducts(style: StyleArchiveShellRecord) {
+  const records = listProjectChannelProducts().filter((item) => item.channelProductStatus !== '已作废')
+  const byStyle = records.filter((item) => item.styleId === style.styleId)
+  if (byStyle.length > 0) return byStyle
+  if (style.sourceProjectId) {
+    return records.filter((item) => item.projectId === style.sourceProjectId)
+  }
+  return []
+}
+
+function countOnSaleChannelProducts(records: ReturnType<typeof listStyleChannelProducts>): number {
+  return records.filter((item) => item.channelProductStatus === '已生效' && item.upstreamSyncStatus === '已更新').length
+}
+
 function buildStyleListItems(): StyleArchiveListItemViewModel[] {
   ensurePageDataReady()
-  const channelProducts = listProjectChannelProducts()
   return listStyleArchives().map((style) => {
     const skus = listSkuArchivesByStyleId(style.styleId)
     const versions = buildTechnicalVersionListByStyle(style.styleId)
     const materialUsageCount = listMaterialUsageRecordsByStyleCode(style.styleCode).length
     const currentVersion = versions.find((item) => item.isCurrentTechPackVersion) || versions[0] || null
-    const styleChannels = channelProducts.filter((item) => item.styleId === style.styleId && item.channelProductStatus !== '已作废')
+    const styleChannels = listStyleChannelProducts(style)
     return {
       style,
+      displayStatus: resolveStyleArchiveBusinessStatus(style),
+      hasEffectiveTechPack: Boolean(currentVersion),
       skuCount: skus.length,
       materialUsageCount,
       mappingHealth: resolveStyleMappingHealth(skus),
-      currentVersionText: currentVersion ? `${currentVersion.versionLabel}` : '无生效版本',
+      currentVersionText: currentVersion ? `${currentVersion.versionLabel}` : '未建立当前生效技术包',
       currentVersionMetaText: currentVersion?.publishedAt ? `生效于 ${currentVersion.publishedAt.slice(0, 10)}` : '待建立技术包版本',
       channelCount: styleChannels.length || style.channelProductCount,
-      onSaleCount: skus.filter((item) => item.listedChannelCount > 0).length,
+      onSaleCount: countOnSaleChannelProducts(styleChannels),
       legacyMappingText: style.legacyOriginProject ? `历史项目：${style.legacyOriginProject}` : `款号：${style.styleNumber || style.styleCode}`,
       originProjectText: style.sourceProjectCode ? `${style.sourceProjectCode} · ${style.sourceProjectName}` : '未绑定商品项目',
     }
@@ -363,9 +381,9 @@ function getFilteredStyleItems(): StyleArchiveListItemViewModel[] {
       if (!haystack.includes(search)) return false
     }
 
-    if (state.styleList.status !== 'all' && item.style.archiveStatus !== state.styleList.status) return false
-    if (state.styleList.version === 'has' && item.currentVersionText === '无生效版本') return false
-    if (state.styleList.version === 'none' && item.currentVersionText !== '无生效版本') return false
+    if (state.styleList.status !== 'all' && item.displayStatus !== state.styleList.status) return false
+    if (state.styleList.version === 'has' && !item.hasEffectiveTechPack) return false
+    if (state.styleList.version === 'none' && item.hasEffectiveTechPack) return false
     if (state.styleList.mapping !== 'all' && item.mappingHealth !== state.styleList.mapping) return false
 
     return true
@@ -376,9 +394,12 @@ function getStyleStats() {
   const items = buildStyleListItems()
   return {
     total: items.length,
-    active: items.filter((item) => item.style.archiveStatus === 'ACTIVE').length,
-    hasVersion: items.filter((item) => item.currentVersionText !== '无生效版本').length,
-    noVersion: items.filter((item) => item.currentVersionText === '无生效版本').length,
+    waitingBaseInfo: items.filter((item) => item.displayStatus === 'WAITING_BASE_INFO').length,
+    waitingTechPack: items.filter((item) => item.displayStatus === 'WAITING_TECH_PACK').length,
+    active: items.filter((item) => item.displayStatus === 'ACTIVE').length,
+    archived: items.filter((item) => item.displayStatus === 'ARCHIVED').length,
+    hasVersion: items.filter((item) => item.hasEffectiveTechPack).length,
+    noVersion: items.filter((item) => !item.hasEffectiveTechPack).length,
     mappingOK: items.filter((item) => item.mappingHealth === 'OK').length,
     mappingConflict: items.filter((item) => item.mappingHealth === 'CONFLICT').length,
   }
@@ -418,16 +439,13 @@ function renderBadge(text: string, className: string): string {
   return `<span class="${escapeHtml(toClassName('inline-flex rounded-full border px-2 py-0.5 text-xs font-medium', className))}">${escapeHtml(text)}</span>`
 }
 
-function renderStatusBadge(status: StyleArchiveStatusCode | SkuArchiveStatusCode, type: 'style' | 'sku'): string {
-  const meta = type === 'style' ? STYLE_STATUS_META[status as StyleArchiveStatusCode] : SKU_STATUS_META[status as SkuArchiveStatusCode]
+function renderStatusBadge(status: StyleArchiveBusinessStatusKey | SkuArchiveStatusCode, type: 'style' | 'sku'): string {
+  const meta = type === 'style' ? STYLE_ARCHIVE_STATUS_RULES[status as StyleArchiveBusinessStatusKey] : SKU_STATUS_META[status as SkuArchiveStatusCode]
   return renderBadge(meta.label, meta.className)
 }
 
 function renderStyleLifecycleBadge(style: StyleArchiveShellRecord): string {
-  if (style.archiveStatus === 'DRAFT' && style.baseInfoStatus === '已建档') {
-    return renderBadge('已建档', 'border-sky-200 bg-sky-50 text-sky-700')
-  }
-  return renderStatusBadge(style.archiveStatus, 'style')
+  return renderStatusBadge(resolveStyleArchiveBusinessStatus(style), 'style')
 }
 
 function renderMappingBadge(health: SkuArchiveMappingHealth): string {
@@ -466,6 +484,10 @@ function renderTextInput(field: string, value: string, placeholder: string, type
 
 function renderTextarea(field: string, value: string, placeholder: string, rows = 4): string {
   return `<textarea rows="${rows}" placeholder="${escapeHtml(placeholder)}" data-pcs-product-archive-field="${escapeHtml(field)}" class="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm leading-6 text-slate-700 outline-none transition focus:border-slate-400">${escapeHtml(value)}</textarea>`
+}
+
+function renderReadonlyValue(value: string, placeholder = '—'): string {
+  return `<div class="min-h-10 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm leading-6 text-slate-700">${escapeHtml(value || placeholder)}</div>`
 }
 
 function renderSelect(
@@ -560,9 +582,6 @@ function renderStyleHeader(): string {
         <button type="button" class="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/projects">
           <i data-lucide="folder-kanban" class="h-4 w-4"></i>前往商品项目
         </button>
-        <button type="button" class="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-product-archive-action="sync-style-mapping">
-          <i data-lucide="refresh-cw" class="h-4 w-4"></i>同步映射
-        </button>
       </div>
     </section>
   `
@@ -573,10 +592,10 @@ function renderStyleStats(): string {
   return `
     <section class="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
       ${renderMetricButton('全部款式', stats.total, '正式款式主档数', 'style-quick-filter', 'data-filter="reset"')}
-      ${renderMetricButton('启用中', stats.active, '当前可承接生产与上游同步', 'style-quick-filter', 'data-filter="status" data-value="ACTIVE"')}
-      ${renderMetricButton('有生效版本', stats.hasVersion, '已存在当前生效技术包版本', 'style-quick-filter', 'data-filter="version" data-value="has"')}
-      ${renderMetricButton('无生效版本', stats.noVersion, '待建立或启用技术包版本', 'style-quick-filter', 'data-filter="version" data-value="none"')}
-      ${renderMetricButton('映射健康', stats.mappingOK, '款式下规格映射正常', 'style-quick-filter', 'data-filter="mapping" data-value="OK"')}
+      ${renderMetricButton('待完善', stats.waitingBaseInfo, '基础资料未补齐，尚未正式建档', 'style-quick-filter', 'data-filter="status" data-value="WAITING_BASE_INFO"')}
+      ${renderMetricButton('待技术包', stats.waitingTechPack, '已建档但还没有当前生效技术包', 'style-quick-filter', 'data-filter="status" data-value="WAITING_TECH_PACK"')}
+      ${renderMetricButton('已启用', stats.active, '已有当前生效技术包，可承接下游', 'style-quick-filter', 'data-filter="status" data-value="ACTIVE"')}
+      ${renderMetricButton('已归档', stats.archived, '历史款式档案，仅保留追溯', 'style-quick-filter', 'data-filter="status" data-value="ARCHIVED"')}
       ${renderMetricButton('映射冲突', stats.mappingConflict, '存在规格映射冲突待处理', 'style-quick-filter', 'data-filter="mapping" data-value="CONFLICT"')}
     </section>
   `
@@ -587,8 +606,8 @@ function renderStyleFilters(total: number): string {
     <section class="rounded-lg border bg-white p-4 shadow-sm">
       <div class="flex flex-wrap items-center gap-3">
         <div class="min-w-[240px] flex-1">${renderTextInput('style-list-search', state.styleList.search, '搜索款式编码/名称/款号/老系统编码...')}</div>
-        <div class="w-full sm:w-40">${renderSelect('style-list-status', state.styleList.status === 'all' ? '' : state.styleList.status, [{ value: 'DRAFT', label: '草稿' }, { value: 'ACTIVE', label: '启用' }, { value: 'ARCHIVED', label: '已归档' }], '全部状态')}</div>
-        <div class="w-full sm:w-40">${renderSelect('style-list-version', state.styleList.version === 'all' ? '' : state.styleList.version, [{ value: 'has', label: '有生效版本' }, { value: 'none', label: '无生效版本' }], '生效版本')}</div>
+        <div class="w-full sm:w-48">${renderSelect('style-list-status', state.styleList.status === 'all' ? '' : state.styleList.status, [{ value: 'WAITING_BASE_INFO', label: '待完善' }, { value: 'WAITING_TECH_PACK', label: '已建档待技术包' }, { value: 'ACTIVE', label: '已启用' }, { value: 'ARCHIVED', label: '已归档' }], '全部状态')}</div>
+        <div class="w-full sm:w-44">${renderSelect('style-list-version', state.styleList.version === 'all' ? '' : state.styleList.version, [{ value: 'has', label: '有当前生效技术包' }, { value: 'none', label: '无当前生效技术包' }], '技术包情况')}</div>
         <div class="w-full sm:w-40">${renderSelect('style-list-mapping', state.styleList.mapping === 'all' ? '' : state.styleList.mapping, [{ value: 'OK', label: '健康' }, { value: 'MISSING', label: '缺映射' }, { value: 'CONFLICT', label: '冲突' }], '映射健康')}</div>
       </div>
       <div class="mt-3 text-sm text-slate-500">共 ${escapeHtml(total)} 条款式档案记录。</div>
@@ -636,7 +655,7 @@ function renderStyleTable(items: StyleArchiveListItemViewModel[]): string {
           <td class="px-4 py-3">${renderMappingBadge(item.mappingHealth)}</td>
           <td class="px-4 py-3 text-sm text-slate-700">
             <div>${escapeHtml(item.channelCount)} 个渠道店铺商品</div>
-            <div class="mt-1 text-xs text-slate-500">在售规格 ${escapeHtml(item.onSaleCount)}</div>
+            <div class="mt-1 text-xs text-slate-500">在售 ${escapeHtml(item.onSaleCount)}</div>
             <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.style.targetChannelCodes.join(' / ') || '-')}</div>
           </td>
           <td class="px-4 py-3">${renderStyleLifecycleBadge(item.style)}</td>
@@ -706,7 +725,7 @@ function renderStyleFormalizationPanel(style: StyleArchiveShellRecord): string {
   const check = getStyleArchiveFormalizationCheck(style.styleId)
   const missingCount = check.missingFields.length
   const ready = check.ready
-  const alreadyFormalized = style.baseInfoStatus === '已建档'
+  const alreadyFormalized = isStyleArchiveFormalized(style)
 
   return `
     <section class="rounded-lg border bg-white p-5 shadow-sm">
@@ -752,30 +771,147 @@ function renderStyleFormalizationPanel(style: StyleArchiveShellRecord): string {
   `
 }
 
+function renderStyleStatusRulePanel(style: StyleArchiveShellRecord): string {
+  const displayStatus = resolveStyleArchiveBusinessStatus(style)
+  const meta = STYLE_ARCHIVE_STATUS_RULES[displayStatus]
+  return `
+    <section class="rounded-lg border bg-white p-5 shadow-sm">
+      <div class="flex flex-wrap items-center gap-3">
+        <h2 class="text-sm font-medium text-slate-900">状态口径</h2>
+        ${renderBadge(meta.label, meta.className)}
+      </div>
+      <div class="mt-4 grid gap-4 lg:grid-cols-[1.4fr,1fr]">
+        <div class="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
+          <div class="text-xs text-slate-500">业务场景</div>
+          <div class="mt-2 text-sm leading-6 text-slate-700">${escapeHtml(meta.scene)}</div>
+        </div>
+        <div class="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
+          <div class="text-xs text-slate-500">当前可操作项</div>
+          <div class="mt-2 flex flex-wrap gap-2">
+            ${meta.operations.map((item) => renderBadge(item, 'border-slate-200 bg-white text-slate-700')).join('')}
+          </div>
+        </div>
+      </div>
+    </section>
+  `
+}
+
+function renderUnifiedLifecycleRulesPanel(): string {
+  const rows = listUnifiedProductLifecycleRuleRows()
+    .map(
+      (item) => `
+        <tr class="border-t border-slate-100 align-top">
+          <td class="px-4 py-3 text-sm font-medium text-slate-900">${escapeHtml(item.objectLabel)}</td>
+          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.statusLabel)}</td>
+          <td class="px-4 py-3 text-sm leading-6 text-slate-600">${escapeHtml(item.scene)}</td>
+          <td class="px-4 py-3">
+            <div class="flex flex-wrap gap-2">
+              ${item.operations.map((operation) => renderBadge(operation, 'border-slate-200 bg-white text-slate-700')).join('')}
+            </div>
+          </td>
+        </tr>
+      `,
+    )
+    .join('')
+
+  return `
+    <section class="rounded-lg border bg-white p-5 shadow-sm">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 class="text-sm font-medium text-slate-900">统一状态口径表</h2>
+          <p class="mt-1 text-sm text-slate-500">统一说明款式档案、技术包、渠道店铺商品三套状态的业务场景和当前可操作项。</p>
+        </div>
+      </div>
+      <div class="mt-4 overflow-x-auto">
+        <table class="min-w-full text-left text-sm">
+          <thead class="bg-slate-50 text-slate-500">
+            <tr>
+              <th class="px-4 py-3 font-medium">对象</th>
+              <th class="px-4 py-3 font-medium">状态</th>
+              <th class="px-4 py-3 font-medium">业务场景</th>
+              <th class="px-4 py-3 font-medium">当前可操作项</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </section>
+  `
+}
+
+function renderStyleControlledFieldRulesPanel(): string {
+  return `
+    <section class="rounded-lg border bg-white p-5 shadow-sm">
+      <div class="flex flex-wrap items-center gap-3">
+        <h2 class="text-sm font-medium text-slate-900">正式建档字段维护规则</h2>
+        ${renderBadge('当前不做审批', 'border-amber-200 bg-amber-50 text-amber-700')}
+      </div>
+      <div class="mt-4 space-y-4">
+        ${STYLE_ARCHIVE_CONTROLLED_FIELD_RULES.map(
+          (group) => `
+            <div class="rounded-md border border-slate-200 bg-slate-50 px-4 py-4">
+              <div class="text-sm font-medium text-slate-900">${escapeHtml(group.title)}</div>
+              <p class="mt-1 text-sm leading-6 text-slate-500">${escapeHtml(group.description)}</p>
+              <div class="mt-3 flex flex-wrap gap-2">
+                ${group.fields.map((field) => renderBadge(field, 'border-slate-200 bg-white text-slate-700')).join('')}
+              </div>
+            </div>
+          `,
+        ).join('')}
+      </div>
+    </section>
+  `
+}
+
 function renderStyleCompletionDrawer(): string {
   if (!state.styleCompletion.open) return ''
+  const currentStyle = state.styleCompletion.styleId ? getStyleArchiveById(state.styleCompletion.styleId) : null
+  const alreadyFormalized = currentStyle ? isStyleArchiveFormalized(currentStyle) : false
+  const renderControlledTextField = (label: string, field: string, value: string, placeholder: string, required = false) =>
+    renderFormField(
+      label,
+      alreadyFormalized ? renderReadonlyValue(value) : renderTextInput(field, value, placeholder),
+      required,
+      alreadyFormalized ? '正式建档后只读' : '',
+    )
+  const renderControlledTextareaField = (label: string, field: string, value: string, placeholder: string, rows: number, required = false) =>
+    renderFormField(
+      label,
+      alreadyFormalized ? renderReadonlyValue(value) : renderTextarea(field, value, placeholder, rows),
+      required,
+      alreadyFormalized ? '正式建档后只读' : '',
+    )
   const body = `
     <div class="space-y-5">
+      ${
+        alreadyFormalized
+          ? `
+            <div class="rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm leading-6 text-sky-700">
+              当前款式已完成正式建档。以下核心建档字段改为只读，当前仅允许补充包装信息与备注。
+            </div>
+          `
+          : ''
+      }
       <div class="grid gap-4 md:grid-cols-2">
-        ${renderFormField('款式名称', renderTextInput('style-completion-style-name', state.styleCompletion.styleName, '填写款式名称'), true)}
-        ${renderFormField('款号', renderTextInput('style-completion-style-number', state.styleCompletion.styleNumber, '填写款号'), true)}
-        ${renderFormField('款式类型', renderTextInput('style-completion-style-type', state.styleCompletion.styleType, '例如：基础款 / 快时尚款'), true)}
-        ${renderFormField('品牌', renderTextInput('style-completion-brand-name', state.styleCompletion.brandName, '填写品牌'), true)}
-        ${renderFormField('一级类目', renderTextInput('style-completion-category-name', state.styleCompletion.categoryName, '填写一级类目'), true)}
-        ${renderFormField('二级类目', renderTextInput('style-completion-sub-category-name', state.styleCompletion.subCategoryName, '填写二级类目'), true)}
-        ${renderFormField('年份', renderTextInput('style-completion-year-tag', state.styleCompletion.yearTag, '填写年份'), true)}
-        ${renderFormField('价格带', renderTextInput('style-completion-price-range-label', state.styleCompletion.priceRangeLabel, '例如：¥199-399'), true)}
+        ${renderControlledTextField('款式名称', 'style-completion-style-name', state.styleCompletion.styleName, '填写款式名称', true)}
+        ${renderControlledTextField('款号', 'style-completion-style-number', state.styleCompletion.styleNumber, '填写款号', true)}
+        ${renderControlledTextField('款式类型', 'style-completion-style-type', state.styleCompletion.styleType, '例如：基础款 / 快时尚款', true)}
+        ${renderControlledTextField('品牌', 'style-completion-brand-name', state.styleCompletion.brandName, '填写品牌', true)}
+        ${renderControlledTextField('一级类目', 'style-completion-category-name', state.styleCompletion.categoryName, '填写一级类目', true)}
+        ${renderControlledTextField('二级类目', 'style-completion-sub-category-name', state.styleCompletion.subCategoryName, '填写二级类目', true)}
+        ${renderControlledTextField('年份', 'style-completion-year-tag', state.styleCompletion.yearTag, '填写年份', true)}
+        ${renderControlledTextField('价格带', 'style-completion-price-range-label', state.styleCompletion.priceRangeLabel, '例如：¥199-399', true)}
       </div>
       <div class="grid gap-4 md:grid-cols-2">
-        ${renderFormField('季节标签', renderTextInput('style-completion-season-tags', state.styleCompletion.seasonTags, '多个标签用中文逗号分隔'), true)}
-        ${renderFormField('风格标签', renderTextInput('style-completion-style-tags', state.styleCompletion.styleTags, '多个标签用中文逗号分隔'), true)}
-        ${renderFormField('目标人群', renderTextInput('style-completion-target-audience-tags', state.styleCompletion.targetAudienceTags, '多个标签用中文逗号分隔'), true)}
-        ${renderFormField('目标渠道', renderTextInput('style-completion-target-channel-codes', state.styleCompletion.targetChannelCodes, '多个渠道用中文逗号分隔'), true)}
+        ${renderControlledTextField('季节标签', 'style-completion-season-tags', state.styleCompletion.seasonTags, '多个标签用中文逗号分隔', true)}
+        ${renderControlledTextField('风格标签', 'style-completion-style-tags', state.styleCompletion.styleTags, '多个标签用中文逗号分隔', true)}
+        ${renderControlledTextField('目标人群', 'style-completion-target-audience-tags', state.styleCompletion.targetAudienceTags, '多个标签用中文逗号分隔', true)}
+        ${renderControlledTextField('目标渠道', 'style-completion-target-channel-codes', state.styleCompletion.targetChannelCodes, '多个渠道用中文逗号分隔', true)}
       </div>
-      ${renderFormField('款式主图', renderTextInput('style-completion-main-image-url', state.styleCompletion.mainImageUrl, '填写主图地址'), true, '原型阶段使用图片地址占位即可')}
-      ${renderFormField('卖点摘要', renderTextarea('style-completion-selling-point-text', state.styleCompletion.sellingPointText, '填写款式卖点摘要', 3), true)}
-      ${renderFormField('详情描述', renderTextarea('style-completion-detail-description', state.styleCompletion.detailDescription, '填写详情描述', 5), true)}
-      ${renderFormField('包装信息', renderTextarea('style-completion-packaging-info', state.styleCompletion.packagingInfo, '可填写包装与发货说明', 3))}
+      ${renderControlledTextField('款式主图', 'style-completion-main-image-url', state.styleCompletion.mainImageUrl, '填写主图地址', true)}
+      ${renderControlledTextareaField('卖点摘要', 'style-completion-selling-point-text', state.styleCompletion.sellingPointText, '填写款式卖点摘要', 3, true)}
+      ${renderControlledTextareaField('详情描述', 'style-completion-detail-description', state.styleCompletion.detailDescription, '填写详情描述', 5, true)}
+      ${renderFormField('包装信息', renderTextarea('style-completion-packaging-info', state.styleCompletion.packagingInfo, '可填写包装与发货说明', 3), false, alreadyFormalized ? '正式建档后仅允许补充包装信息与备注。' : '')}
       ${renderFormField('备注', renderTextarea('style-completion-remark', state.styleCompletion.remark, '可填写补充说明', 3))}
     </div>
   `
@@ -794,22 +930,28 @@ function submitStyleCompletion(): void {
     return
   }
 
+  const currentStyle = getStyleArchiveById(state.styleCompletion.styleId)
+  const alreadyFormalized = currentStyle ? isStyleArchiveFormalized(currentStyle) : false
   const updated = updateStyleArchive(state.styleCompletion.styleId, {
-    styleName: state.styleCompletion.styleName.trim(),
-    styleNumber: state.styleCompletion.styleNumber.trim(),
-    styleType: state.styleCompletion.styleType.trim(),
-    categoryName: state.styleCompletion.categoryName.trim(),
-    subCategoryName: state.styleCompletion.subCategoryName.trim(),
-    brandName: state.styleCompletion.brandName.trim(),
-    yearTag: state.styleCompletion.yearTag.trim(),
-    seasonTags: parseTagList(state.styleCompletion.seasonTags),
-    styleTags: parseTagList(state.styleCompletion.styleTags),
-    targetAudienceTags: parseTagList(state.styleCompletion.targetAudienceTags),
-    targetChannelCodes: parseTagList(state.styleCompletion.targetChannelCodes),
-    priceRangeLabel: state.styleCompletion.priceRangeLabel.trim(),
-    mainImageUrl: state.styleCompletion.mainImageUrl.trim(),
-    sellingPointText: state.styleCompletion.sellingPointText.trim(),
-    detailDescription: state.styleCompletion.detailDescription.trim(),
+    ...(alreadyFormalized
+      ? {}
+      : {
+          styleName: state.styleCompletion.styleName.trim(),
+          styleNumber: state.styleCompletion.styleNumber.trim(),
+          styleType: state.styleCompletion.styleType.trim(),
+          categoryName: state.styleCompletion.categoryName.trim(),
+          subCategoryName: state.styleCompletion.subCategoryName.trim(),
+          brandName: state.styleCompletion.brandName.trim(),
+          yearTag: state.styleCompletion.yearTag.trim(),
+          seasonTags: parseTagList(state.styleCompletion.seasonTags),
+          styleTags: parseTagList(state.styleCompletion.styleTags),
+          targetAudienceTags: parseTagList(state.styleCompletion.targetAudienceTags),
+          targetChannelCodes: parseTagList(state.styleCompletion.targetChannelCodes),
+          priceRangeLabel: state.styleCompletion.priceRangeLabel.trim(),
+          mainImageUrl: state.styleCompletion.mainImageUrl.trim(),
+          sellingPointText: state.styleCompletion.sellingPointText.trim(),
+          detailDescription: state.styleCompletion.detailDescription.trim(),
+        }),
     packagingInfo: state.styleCompletion.packagingInfo.trim(),
     remark: state.styleCompletion.remark.trim(),
     updatedAt: nowText(),
@@ -824,9 +966,11 @@ function submitStyleCompletion(): void {
   }
 
   const check = getStyleArchiveFormalizationCheck(updated.styleId)
-  state.notice = check.ready
-    ? `已保存 ${updated.styleCode} 的款式资料，当前可以正式建档。`
-    : `已保存 ${updated.styleCode} 的款式资料，仍需补齐：${check.missingFields.map((item) => item.label).join('、')}。`
+  state.notice = alreadyFormalized
+    ? `已保存 ${updated.styleCode} 的受控补充信息，核心建档字段保持只读。`
+    : check.ready
+      ? `已保存 ${updated.styleCode} 的款式资料，当前可以正式建档。`
+      : `已保存 ${updated.styleCode} 的款式资料，仍需补齐：${check.missingFields.map((item) => item.label).join('、')}。`
 }
 
 function renderSkuHeader(): string {
@@ -846,9 +990,6 @@ function renderSkuHeader(): string {
         </button>
         <button type="button" class="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-product-archive-action="open-sku-create" data-mode="import">
           <i data-lucide="link" class="h-4 w-4"></i>导入/绑定老系统 SKU
-        </button>
-        <button type="button" class="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-product-archive-action="sync-sku-mapping">
-          <i data-lucide="refresh-cw" class="h-4 w-4"></i>同步映射
         </button>
       </div>
     </section>
@@ -1039,7 +1180,9 @@ function renderSkuCreateDrawer(): string {
 
 function renderStyleDetailOverview(style: StyleArchiveShellRecord): string {
   const skus = listSkuArchivesByStyleId(style.styleId)
-  const currentChannelProduct = findProjectChannelProductByStyleId(style.styleId)
+  const styleChannelProducts = listStyleChannelProducts(style)
+  const currentChannelProduct = styleChannelProducts[0] || null
+  const onSaleChannelCount = countOnSaleChannelProducts(styleChannelProducts)
   const materialUsages = listMaterialUsageRecordsByStyleCode(style.styleCode)
     .map((usage) => ({ usage, material: getMaterialArchiveById(usage.materialId) }))
     .filter((item) => item.material)
@@ -1073,7 +1216,7 @@ function renderStyleDetailOverview(style: StyleArchiveShellRecord): string {
               <div><div class="text-xs text-slate-500">风格标签</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.styleTags.join(' / ') || '-')}</div></div>
               <div><div class="text-xs text-slate-500">价格带</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.priceRangeLabel || '-')}</div></div>
               <div><div class="text-xs text-slate-500">来源项目</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.sourceProjectCode ? `${style.sourceProjectCode} · ${style.sourceProjectName}` : '未绑定商品项目')}</div></div>
-              <div><div class="text-xs text-slate-500">当前生效技术包</div><div class="mt-1 text-sm text-slate-700">${currentTechPackHref ? `<button type="button" class="font-medium text-slate-900 hover:text-slate-700" data-nav="${escapeHtml(currentTechPackHref)}">${escapeHtml(style.currentTechPackVersionLabel || style.currentTechPackVersionCode)}</button>` : escapeHtml(style.currentTechPackVersionLabel || '无生效版本')}</div></div>
+              <div><div class="text-xs text-slate-500">当前生效技术包</div><div class="mt-1 text-sm text-slate-700">${currentTechPackHref ? `<button type="button" class="font-medium text-slate-900 hover:text-slate-700" data-nav="${escapeHtml(currentTechPackHref)}">${escapeHtml(style.currentTechPackVersionLabel || style.currentTechPackVersionCode)}</button>` : escapeHtml(style.currentTechPackVersionLabel || '未建立当前生效技术包')}</div></div>
               <div class="md:col-span-2"><div class="text-xs text-slate-500">测款渠道</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.targetChannelCodes.join(' / ') || '-')}</div></div>
               <div class="md:col-span-2"><div class="text-xs text-slate-500">卖点摘要</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.sellingPointText || '-')}</div></div>
               <div class="md:col-span-2"><div class="text-xs text-slate-500">包装信息</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.packagingInfo || '-')}</div></div>
@@ -1120,7 +1263,8 @@ function renderStyleDetailOverview(style: StyleArchiveShellRecord): string {
           </div>
           <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
             <div class="text-xs text-slate-500">渠道店铺商品</div>
-            <div class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(currentChannelProduct?.channelProductCode || '未生成')}</div>
+            <div class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(styleChannelProducts.length > 0 ? `${styleChannelProducts.length} 个` : style.sourceProjectId ? '待同步' : '未绑定')}</div>
+            <div class="mt-1 text-xs text-slate-500">${escapeHtml(currentChannelProduct?.channelProductCode || (style.sourceProjectId ? `在售 ${onSaleChannelCount}` : '历史导入款式'))}</div>
           </div>
           <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
             <div class="text-xs text-slate-500">价格带 / 渠道</div>
@@ -1232,6 +1376,7 @@ function renderStyleDetailSpecifications(style: StyleArchiveShellRecord): string
 
 function renderStyleDetailMappings(style: StyleArchiveShellRecord): string {
   const latestVersion = resolveLatestVersionMeta(style.styleId)
+  const styleChannelProducts = listStyleChannelProducts(style)
   return `
     <section class="grid gap-4 xl:grid-cols-3">
       <div class="rounded-lg border bg-white p-5 shadow-sm">
@@ -1254,7 +1399,7 @@ function renderStyleDetailMappings(style: StyleArchiveShellRecord): string {
         <div class="text-sm font-medium text-slate-900">同步健康</div>
         <div class="mt-4 space-y-3 text-sm text-slate-700">
           <div><span class="text-slate-500">规格映射健康：</span>${renderMappingBadge(resolveStyleMappingHealth(listSkuArchivesByStyleId(style.styleId)))}</div>
-          <div><span class="text-slate-500">渠道店铺商品：</span>${escapeHtml(findProjectChannelProductByStyleId(style.styleId)?.channelProductCode || '未同步')}</div>
+          <div><span class="text-slate-500">渠道店铺商品：</span>${escapeHtml(styleChannelProducts.length > 0 ? `${styleChannelProducts.length} 个` : style.sourceProjectId ? '待同步项目渠道商品' : '未同步')}</div>
           <div><span class="text-slate-500">最近更新：</span>${escapeHtml(formatDateTime(style.updatedAt))}</div>
         </div>
       </div>
@@ -1263,8 +1408,7 @@ function renderStyleDetailMappings(style: StyleArchiveShellRecord): string {
 }
 
 function renderStyleDetailChannels(style: StyleArchiveShellRecord): string {
-  const rows = listProjectChannelProducts()
-    .filter((item) => item.styleId === style.styleId)
+  const rows = listStyleChannelProducts(style)
     .map(
       (item) => `
         <tr class="border-t border-slate-100 align-top">
@@ -1399,9 +1543,6 @@ function renderStyleDetailPage(styleId: string): string {
           <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-product-archive-action="open-sku-create" data-mode="single" data-style-id="${escapeHtml(style.styleId)}">
             <i data-lucide="plus" class="h-4 w-4"></i>新增规格
           </button>
-          <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-product-archive-action="sync-style-mapping">
-            <i data-lucide="refresh-cw" class="h-4 w-4"></i>同步映射
-          </button>
           <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md ${style.archiveStatus === 'ARCHIVED' ? 'bg-slate-900 text-white hover:bg-slate-800' : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'} px-3 text-sm" data-pcs-product-archive-action="toggle-style-status" data-style-id="${escapeHtml(style.styleId)}">
             <i data-lucide="archive" class="h-4 w-4"></i>${style.archiveStatus === 'ARCHIVED' ? '恢复启用' : '归档'}
           </button>
@@ -1411,6 +1552,9 @@ function renderStyleDetailPage(styleId: string): string {
         <div class="flex flex-wrap gap-2">${tabButtons}</div>
       </section>
       ${renderStyleFormalizationPanel(style)}
+      ${renderStyleStatusRulePanel(style)}
+      ${renderUnifiedLifecycleRulesPanel()}
+      ${renderStyleControlledFieldRulesPanel()}
       ${tabContent}
       ${renderSkuCreateDrawer()}
       ${renderStyleCompletionDrawer()}
@@ -1787,6 +1931,7 @@ function buildSkuRecord(input: {
   const identity = buildSkuIdentity()
   const latestVersion = resolveLatestVersionMeta(input.style.styleId)
   const fixture = buildSkuFixture(input.style.styleCode, input.style.styleName, input.color, input.size)
+  const styleChannelCount = listStyleChannelProducts(input.style).length || input.style.channelProductCount || 0
   return {
     skuId: identity.skuId,
     skuCode: input.skuCode,
@@ -1802,9 +1947,9 @@ function buildSkuRecord(input: {
     channelTitle: fixture.channelTitle,
     skuImageUrl: fixture.skuImageUrl,
     archiveStatus: 'ACTIVE',
-    mappingHealth: input.mappingHealth || (input.style.channelProductCount > 0 ? 'OK' : 'MISSING'),
-    channelMappingCount: Math.max(0, input.style.channelProductCount || 0),
-    listedChannelCount: input.style.channelProductCount > 0 ? Math.max(1, input.style.channelProductCount) : 0,
+    mappingHealth: input.mappingHealth || (styleChannelCount > 0 ? 'OK' : 'MISSING'),
+    channelMappingCount: Math.max(0, styleChannelCount),
+    listedChannelCount: 0,
     techPackVersionId: input.style.currentTechPackVersionId || latestVersion.versionId,
     techPackVersionCode: input.style.currentTechPackVersionCode || latestVersion.versionCode,
     techPackVersionLabel: input.style.currentTechPackVersionLabel || latestVersion.versionLabel,
@@ -1822,7 +1967,7 @@ function buildSkuRecord(input: {
     packagingInfo: fixture.packagingInfo,
     weightText: `${fixture.weightKg}kg`,
     volumeText: `${fixture.lengthCm}*${fixture.widthCm}*${fixture.heightCm}cm`,
-    lastListingAt: input.style.channelProductCount > 0 ? identity.timestamp.slice(0, 10) : '',
+    lastListingAt: '',
     createdAt: identity.timestamp,
     createdBy: '系统演示',
     updatedAt: identity.timestamp,
@@ -2141,12 +2286,6 @@ export function handlePcsProductArchiveEvent(target: HTMLElement): boolean {
       }
       return true
     }
-    case 'sync-style-mapping':
-      state.notice = '已按当前款式与规格关系刷新映射健康状态。'
-      return true
-    case 'sync-sku-mapping':
-      state.notice = '已按当前渠道店铺商品关系刷新规格映射状态。'
-      return true
     case 'toggle-style-status': {
       const styleId = actionNode.dataset.styleId || ''
       const style = styleId ? getStyleArchiveById(styleId) : null
@@ -2154,13 +2293,14 @@ export function handlePcsProductArchiveEvent(target: HTMLElement): boolean {
         state.notice = '未找到对应款式档案。'
         return true
       }
-      const nextStatus: StyleArchiveStatusCode = style.archiveStatus === 'ARCHIVED' ? 'ACTIVE' : 'ARCHIVED'
-      updateStyleArchive(style.styleId, {
+      const nextStatus = style.archiveStatus === 'ARCHIVED' ? (style.currentTechPackVersionId ? 'ACTIVE' : 'DRAFT') : 'ARCHIVED'
+      const restored = updateStyleArchive(style.styleId, {
         archiveStatus: nextStatus,
         updatedAt: nowText(),
         updatedBy: '系统演示',
       })
-      state.notice = nextStatus === 'ARCHIVED' ? `已归档 ${style.styleCode}。` : `已恢复启用 ${style.styleCode}。`
+      const restoredStatus = restored ? STYLE_ARCHIVE_STATUS_RULES[resolveStyleArchiveBusinessStatus(restored)].label : '待完善'
+      state.notice = nextStatus === 'ARCHIVED' ? `已归档 ${style.styleCode}。` : `已恢复 ${style.styleCode}，当前状态为${restoredStatus}。`
       return true
     }
     case 'toggle-sku-status': {

@@ -19,6 +19,11 @@ import {
   getStyleArchiveFormalizationCheck,
 } from '../src/data/pcs-project-style-archive-generation.ts'
 import { resetStyleArchiveRepository, updateStyleArchive } from '../src/data/pcs-style-archive-repository.ts'
+import {
+  handlePcsProductArchiveEvent,
+  renderPcsStyleArchiveDetailPage,
+  resetPcsProductArchiveState,
+} from '../src/pages/pcs-product-archives.ts'
 
 resetProjectRepository()
 resetStyleArchiveRepository()
@@ -167,6 +172,19 @@ const success = formalizeStyleArchive(generated.style!.styleId, '测试用户')
 assert.equal(success.ok, true, '补齐字段后应允许正式建档')
 assert.equal(success.style?.baseInfoStatus, '已建档', '正式建档后应回写款式基础资料状态')
 assert.equal(success.style?.archiveStatus, 'DRAFT', '正式建档不应直接改成启用')
+
+resetPcsProductArchiveState()
+const detailHtml = renderPcsStyleArchiveDetailPage(generated.style!.styleId)
+assert.match(detailHtml, /已建档待技术包/, '正式建档后详情页状态应明确为已建档待技术包')
+handlePcsProductArchiveEvent({
+  dataset: { pcsProductArchiveAction: 'open-style-completion', styleId: generated.style!.styleId },
+  closest() {
+    return this
+  },
+} as unknown as HTMLElement)
+const detailWithDrawerHtml = renderPcsStyleArchiveDetailPage(generated.style!.styleId)
+assert.match(detailWithDrawerHtml, /正式建档后只读/, '正式建档后应提示核心字段只读')
+assert.match(detailWithDrawerHtml, /仅允许补充包装信息与备注/, '正式建档后应只允许受控补充字段')
 
 const updatedStyleNode = getProjectNodeRecordByWorkItemTypeCode(projectId, 'STYLE_ARCHIVE_CREATE')
 assert.equal(updatedStyleNode?.currentStatus, '已完成', '款式档案节点应回写为已完成')

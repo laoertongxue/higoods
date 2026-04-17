@@ -241,7 +241,7 @@ const currentUser = {
 const techPackStatusConfig: Record<string, { label: string; className: string }> = {
   MISSING: { label: '缺失', className: 'bg-red-100 text-red-700' },
   BETA: { label: '草稿中', className: 'bg-yellow-100 text-yellow-700' },
-  RELEASED: { label: '已发布', className: 'bg-green-100 text-green-700' },
+  RELEASED: { label: '已发布待启用', className: 'bg-green-100 text-green-700' },
 }
 
 const tabItems: Array<{ key: TechPackTab; icon: string; label: string }> = [

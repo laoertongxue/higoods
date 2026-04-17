@@ -30,6 +30,11 @@ assert.match(styleDetailHtml, /技术包版本/, '详情页应提供技术包版
 assert.match(styleDetailHtml, /规格档案/, '详情页应提供规格档案页签')
 assert.match(styleDetailHtml, /正式建档检查/, '详情页应展示正式建档检查区')
 assert.match(styleDetailHtml, /完善款式资料/, '详情页应提供完善资料入口')
+assert.match(styleDetailHtml, /状态口径/, '详情页应展示款式状态口径说明')
+assert.match(styleDetailHtml, /统一状态口径表/, '详情页应展示统一状态口径表')
+assert.match(styleDetailHtml, /正式建档字段维护规则/, '详情页应展示正式建档字段维护规则')
+assert.match(styleDetailHtml, /当前不做审批/, '详情页应明确当前不做审批')
+assert.match(styleDetailHtml, /渠道店铺商品/, '详情页应展示渠道店铺商品信息')
 
 const skuListHtml = renderPcsSpecificationListPage()
 assert.match(skuListHtml, /规格档案/, '应渲染规格档案列表标题')

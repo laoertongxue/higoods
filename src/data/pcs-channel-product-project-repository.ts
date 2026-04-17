@@ -38,6 +38,10 @@ import {
   getLatestProjectInlineNodeRecord,
   upsertProjectInlineNodeRecord,
 } from './pcs-project-inline-node-record-repository.ts'
+import {
+  STYLE_ARCHIVE_STATUS_RULES,
+  resolveStyleArchiveBusinessStatus,
+} from './pcs-product-lifecycle-governance.ts'
 import type { ProjectRelationRecord } from './pcs-project-relation-types.ts'
 import type { PcsProjectChannelProductRecord } from './pcs-project-domain-contract.ts'
 import { syncProjectNodeInstanceRuntime } from './pcs-project-node-instance-registry.ts'
@@ -1211,7 +1215,7 @@ function applyScenarioStyleLinks(): void {
       currentTechPackVersionId: activated ? technicalVersion.technicalVersionId : '',
       currentTechPackVersionCode: activated ? technicalVersion.technicalVersionCode : '',
       currentTechPackVersionLabel: activated ? technicalVersion.versionLabel : '',
-      currentTechPackVersionStatus: activated ? '已发布' : '',
+      currentTechPackVersionStatus: activated ? '已启用' : '',
       currentTechPackVersionActivatedAt: activated ? technicalVersion.publishedAt : '',
       currentTechPackVersionActivatedBy: activated ? '商品中心' : '',
       updatedAt: (activated ? technicalVersion.publishedAt : technicalVersion.updatedAt) || style.updatedAt,
@@ -1400,7 +1404,7 @@ function findOpenChannelProductByChannelStore(
 
 function getTechPackVersionStatusText(status: string): string {
   if (status === 'DRAFT') return '草稿中'
-  if (status === 'PUBLISHED') return '已发布'
+  if (status === 'PUBLISHED') return '已发布待启用'
   if (status === 'ARCHIVED') return '已归档'
   return status
 }
@@ -2282,7 +2286,9 @@ export function buildProjectChannelProductChainSummary(projectId: string): Proje
   const activeRecords = listValidChannelProducts(records)
   const currentRecord = getCurrentChannelProduct(records)
   const style = currentRecord?.styleId ? getStyleArchiveById(currentRecord.styleId) : null
-  const styleStatus = style?.archiveStatus === 'ACTIVE' ? '可生产' : style?.archiveStatus === 'ARCHIVED' ? '已归档' : style ? '技术包待完善' : ''
+  const styleStatus = style
+    ? STYLE_ARCHIVE_STATUS_RULES[resolveStyleArchiveBusinessStatus(style)].label
+    : ''
   const linkedVersion = project.linkedTechPackVersionId ? getTechnicalDataVersionById(project.linkedTechPackVersionId) : null
   return {
     projectId: project.projectId,

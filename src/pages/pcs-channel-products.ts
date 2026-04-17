@@ -3,6 +3,10 @@ import {
   listProjectChannelProducts,
   type ProjectChannelProductRecord,
 } from '../data/pcs-channel-product-project-repository.ts'
+import {
+  CHANNEL_PRODUCT_STATUS_RULES,
+  resolveChannelProductBusinessStatus,
+} from '../data/pcs-product-lifecycle-governance.ts'
 import { getStyleArchiveById } from '../data/pcs-style-archive-repository.ts'
 import { findSkuArchiveByCode, getSkuArchiveById } from '../data/pcs-sku-archive-repository.ts'
 import { escapeHtml, formatDateTime, toClassName } from '../utils.ts'
@@ -45,10 +49,7 @@ function getStoreLabel(record: ProjectChannelProductRecord): string {
 }
 
 function getViewLabel(record: ProjectChannelProductRecord): string {
-  if (record.channelProductStatus === '已生效') return '已生效渠道店铺商品'
-  if (record.channelProductStatus === '已作废') return '已作废历史商品'
-  if (record.channelProductStatus === '已上架待测款') return '正式测款渠道店铺商品'
-  return '待上架渠道店铺商品'
+  return CHANNEL_PRODUCT_STATUS_RULES[resolveChannelProductBusinessStatus(record)].label
 }
 
 function getLinkageDescription(record: ProjectChannelProductRecord): string {
@@ -76,6 +77,11 @@ function renderChannelStatusBadge(status: ProjectChannelProductRecord['channelPr
   if (status === '已作废') return renderBadge(status, 'bg-rose-100 text-rose-700')
   if (status === '已上架待测款') return renderBadge(status, 'bg-blue-100 text-blue-700')
   return renderBadge(status, 'bg-slate-100 text-slate-600')
+}
+
+function renderBusinessStatusBadge(record: ProjectChannelProductRecord): string {
+  const rule = CHANNEL_PRODUCT_STATUS_RULES[resolveChannelProductBusinessStatus(record)]
+  return renderBadge(rule.label, rule.className)
 }
 
 function renderUpstreamStatusBadge(status: ProjectChannelProductRecord['upstreamSyncStatus']): string {
@@ -228,6 +234,7 @@ export function renderPcsChannelProductDetailPage(channelProductId: string): str
   const skuHref = sku ? `/pcs/products/specifications/${encodeURIComponent(sku.skuId)}` : null
   const completedUpstreamUpdate = record.upstreamSyncStatus === '已更新'
   const upstreamUpdateTime = record.lastUpstreamSyncAt || (completedUpstreamUpdate ? record.updatedAt : '')
+  const currentRule = CHANNEL_PRODUCT_STATUS_RULES[resolveChannelProductBusinessStatus(record)]
 
   return `
     <div class="p-4">
@@ -241,7 +248,7 @@ export function renderPcsChannelProductDetailPage(channelProductId: string): str
               <div class="mt-3 text-xs text-slate-500">商品档案 / 渠道店铺商品 / 项目测款来源</div>
               <div class="mt-2 flex flex-wrap items-center gap-2">
                 <h1 class="text-[20px] font-semibold text-slate-900">${escapeHtml(record.channelProductCode)}</h1>
-                ${renderBadge(getViewLabel(record), record.channelProductStatus === '已作废' ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700')}
+                ${renderBusinessStatusBadge(record)}
               </div>
               <div class="mt-2 text-sm text-slate-500">${escapeHtml(`${getChannelLabel(record.channelCode)} / ${getStoreLabel(record)} ｜ 渠道标题 ${record.listingTitle}`)}</div>
             </div>
@@ -291,6 +298,25 @@ export function renderPcsChannelProductDetailPage(channelProductId: string): str
             </div>
           </section>
         </div>
+
+        <section class="rounded-xl border border-slate-200 bg-white px-4 py-4">
+          <h2 class="text-base font-semibold text-slate-900">渠道店铺商品状态口径</h2>
+          <div class="mt-4 grid gap-4 xl:grid-cols-[1.3fr,1fr]">
+            <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <div class="flex flex-wrap items-center gap-2">
+                ${renderBusinessStatusBadge(record)}
+                <span class="text-sm text-slate-500">当前正式业务状态</span>
+              </div>
+              <div class="mt-3 text-sm leading-6 text-slate-700">${escapeHtml(currentRule.scene)}</div>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <div class="text-sm font-medium text-slate-900">当前可操作项</div>
+              <div class="mt-3 flex flex-wrap gap-2">
+                ${currentRule.operations.map((item) => renderBadge(item, 'bg-white text-slate-700')).join('')}
+              </div>
+            </div>
+          </div>
+        </section>
 
         <section class="rounded-xl border border-slate-200 bg-white px-4 py-4">
           <h2 class="text-base font-semibold text-slate-900">项目 / 款式 / 规格 / 渠道关联结果</h2>

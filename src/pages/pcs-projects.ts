@@ -881,15 +881,15 @@ function getDefaultChannelCurrency(channelCode: string): string {
 }
 
 function getStyleArchiveStatusText(status: string): string {
-  if (status === 'DRAFT') return '技术包待完善'
-  if (status === 'ACTIVE' || status === '已启用') return '可生产'
+  if (status === 'DRAFT' || status === '技术包待完善' || status === '已建档待技术包') return '已建档待技术包'
+  if (status === 'ACTIVE' || status === '已启用' || status === '可生产') return '已启用'
   if (status === 'ARCHIVED' || status === '已归档') return '已归档'
   return status
 }
 
 function getTechPackVersionStatusText(status: string): string {
   if (status === 'DRAFT') return '草稿中'
-  if (status === 'PUBLISHED') return '已发布'
+  if (status === 'PUBLISHED') return '已发布待启用'
   if (status === 'ACTIVE') return '已启用'
   if (status === 'ARCHIVED') return '已归档'
   return status

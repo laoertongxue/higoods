@@ -20,6 +20,10 @@ import {
 import { getPatternTaskById, updatePatternTask } from './pcs-pattern-task-repository.ts'
 import { getPlateMakingTaskById, updatePlateMakingTask } from './pcs-plate-making-repository.ts'
 import { getRevisionTaskById, updateRevisionTask } from './pcs-revision-task-repository.ts'
+import {
+  TECH_PACK_AGGREGATE_STATUS_RULES,
+  resolveTechPackAggregateStatus,
+} from './pcs-product-lifecycle-governance.ts'
 import type { ProjectRelationRecord } from './pcs-project-relation-types.ts'
 import { syncProjectNodeInstanceRuntime } from './pcs-project-node-instance-registry.ts'
 import type {
@@ -76,7 +80,7 @@ function appendUnique(items: string[], value: string): string[] {
 }
 
 function getTechPackVersionStatusText(status: TechnicalDataVersionRecord['versionStatus']): string {
-  if (status === 'PUBLISHED') return '已发布'
+  if (status === 'PUBLISHED') return '已发布待启用'
   if (status === 'ARCHIVED') return '已归档'
   return '草稿中'
 }
@@ -85,11 +89,9 @@ function getStyleTechPackStatus(
   versions: TechnicalDataVersionRecord[],
   currentVersionId: string,
 ): string {
-  if (versions.length === 0) return '未建立'
-  if (versions.some((item) => item.versionStatus === 'DRAFT')) return '草稿中'
-  if (currentVersionId) return '已启用'
-  if (versions.some((item) => item.versionStatus === 'PUBLISHED')) return '已发布'
-  return '已归档'
+  return TECH_PACK_AGGREGATE_STATUS_RULES[
+    resolveTechPackAggregateStatus(versions, currentVersionId)
+  ].label
 }
 
 export function isTechPackGenerationAllowedStatus(status: string): boolean {
