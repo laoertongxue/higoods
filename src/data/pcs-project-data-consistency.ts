@@ -34,6 +34,7 @@ import {
   getPlateTaskCompletionMissingFields,
   getRevisionTaskCompletionMissingFields,
 } from './pcs-engineering-task-field-policy.ts'
+import { getProjectTemplateById } from './pcs-templates.ts'
 import {
   listRevisionTasksByProject,
   listRevisionTasksByProjectNode,
@@ -80,6 +81,7 @@ type CompletedEngineeringTask =
   | PreProductionSampleTaskRecord
 
 export type PcsProjectDataConsistencyIssueType =
+  | '项目节点与模板定义不一致'
   | '项目关系缺少对应节点'
   | '项目关系节点类型不一致'
   | '模块记录缺少对应节点'
@@ -794,11 +796,42 @@ function pushCompletedNodeIssues(project: PcsProjectViewRecord, issues: PcsProje
     })
 }
 
+function pushTemplateAlignmentIssues(project: PcsProjectViewRecord, issues: PcsProjectDataConsistencyIssue[]): void {
+  const template = getProjectTemplateById(project.templateId)
+  if (!template) return
+
+  const templateCodes = template.nodes
+    .filter((node) => node.enabledFlag !== false)
+    .slice()
+    .sort((left, right) => {
+      if (left.phaseCode === right.phaseCode) return left.sequenceNo - right.sequenceNo
+      return left.phaseCode.localeCompare(right.phaseCode)
+    })
+    .map((node) => node.workItemTypeCode)
+  const projectNodes = listProjectNodes(project.projectId)
+  const projectCodes = projectNodes.map((node) => node.workItemTypeCode)
+
+  if (templateCodes.join('|') === projectCodes.join('|')) return
+
+  issues.push(
+    buildIssue(
+      '项目节点与模板定义不一致',
+      project,
+      projectNodes[0] || null,
+      '项目节点',
+      project.projectId,
+      project.projectCode,
+      `当前项目节点与模板定义不一致。模板节点：${templateCodes.join('、')}；项目节点：${projectCodes.join('、')}。`,
+    ),
+  )
+}
+
 export function auditPcsProjectDataConsistency(): PcsProjectDataConsistencyReport {
   const issues: PcsProjectDataConsistencyIssue[] = []
   const projects = listProjects()
 
   projects.forEach((project) => {
+    pushTemplateAlignmentIssues(project, issues)
     pushProjectLinkIssues(project, issues)
     pushRelationIssues(project, issues)
     pushModuleRecordIssues(project, issues)

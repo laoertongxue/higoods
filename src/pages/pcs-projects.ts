@@ -286,6 +286,15 @@ const PROJECT_NODE_FIELD_MODULE_EXCEPTIONS = new Set([
   'FIRST_SAMPLE',
   'PRE_PRODUCTION_SAMPLE',
 ])
+const PROJECT_NODE_MANUAL_COMPLETE_BLOCKED_TYPES = new Set([
+  'REVISION_TASK',
+  'PATTERN_TASK',
+  'PATTERN_ARTWORK_TASK',
+  'LIVE_TEST',
+  'VIDEO_TEST',
+  'STYLE_ARCHIVE_CREATE',
+  'PROJECT_TRANSFER_PREP',
+])
 const RISK_STATUS_OPTIONS = ['全部', '正常', '延期']
 const DATE_RANGE_OPTIONS: ProjectDateRange[] = ['全部时间', '今天', '最近一周', '最近一月']
 const PROJECT_DEMO_SEED_IMPORT_THRESHOLD = 20
@@ -2384,63 +2393,18 @@ function getNodeDisplayStatus(project: PcsProjectRecord, orderedNodes: PcsProjec
 }
 
 function buildProjectLogs(project: PcsProjectViewRecord): ProjectLogItem[] {
-  const instanceModel = getProjectInstanceModelSafe(project.projectId)
-  const logs: ProjectLogItem[] = [
-    {
-      time: project.createdAt,
-      title: '创建商品项目',
-      detail: `${project.projectName} 已创建，负责人为 ${project.ownerName}。`,
-      tone: 'blue',
-    },
-  ]
+  const logs: ProjectLogItem[] = []
 
   listProjectNodes(project.projectId).forEach((node) => {
+    if (node.currentStatus !== '已完成') return
     if (!(node.lastEventTime || node.updatedAt)) return
     logs.push({
       time: node.lastEventTime || node.updatedAt || project.updatedAt,
-      title: `${node.workItemTypeName}：${node.lastEventType || node.currentStatus}`,
-      detail: node.latestResultText || node.pendingActionText || '已更新项目节点状态。',
-      tone: node.currentStatus === '已完成' ? 'emerald' : node.currentStatus === '待确认' ? 'amber' : 'slate',
-    })
-  })
-
-  listProjectInlineNodeRecordsByProject(project.projectId).forEach((record) => {
-    logs.push({
-      time: record.updatedAt,
-      title: `${record.workItemTypeName}记录已更新`,
-      detail: `${record.recordCode} · ${record.recordStatus}`,
-      tone: 'blue',
-    })
-  })
-
-  instanceModel?.instances
-    .filter((instance) => instance.sourceLayer === '正式业务对象')
-    .forEach((instance) => {
-    logs.push({
-      time: instance.updatedAt,
-      title: `${instance.workItemTypeName}已关联${instance.objectType}`,
-      detail: `${instance.title} · ${instance.status || instance.relationRole}`,
-      tone: 'slate',
-    })
-  })
-
-  if (project.projectStatus === '已终止') {
-    logs.push({
-      time: project.updatedAt,
-      title: '项目已终止',
-      detail: project.blockedReason || '项目已停止推进。',
-      tone: 'rose',
-    })
-  }
-
-  if (project.projectStatus === '已归档') {
-    logs.push({
-      time: project.updatedAt,
-      title: '项目已归档',
-      detail: project.projectArchiveNo ? `归档编号：${project.projectArchiveNo}` : '已完成资料归档。',
+      title: `${node.workItemTypeName}已完成`,
+      detail: node.latestResultText || `${node.workItemTypeName}已完成。`,
       tone: 'emerald',
     })
-  }
+  })
 
   return logs
     .sort((left, right) => right.time.localeCompare(left.time))
@@ -4187,6 +4151,10 @@ function renderProjectNodeInlineContent(project: PcsProjectRecord, node: Project
     return renderProjectInitSnapshot(project, node)
   }
 
+  if (isDecisionNode(node)) {
+    return renderDecisionNodeSection(project, node)
+  }
+
   if (isProjectNodeKeyInfoOnly(node)) {
     return `
       ${renderNodeMetricCards(node)}
@@ -4244,29 +4212,6 @@ function renderProjectOverviewCard(viewModel: ProjectViewModel): string {
         <div class="flex items-center justify-between gap-3"><span>测款渠道</span><span class="text-right font-medium text-slate-900">${escapeHtml(viewModel.channelNames.join('、') || '-')}</span></div>
       </div>
     </article>
-  `
-}
-
-function renderPendingDecisionGate(viewModel: ProjectViewModel): string {
-  const pendingNode = viewModel.pendingDecisionNode
-  if (!pendingNode) return ''
-  return `
-    <section class="rounded-lg border border-amber-200 bg-amber-50 p-4">
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p class="text-sm font-semibold text-amber-800">当前存在待决策闸口</p>
-          <p class="mt-1 text-sm text-amber-700">${escapeHtml(pendingNode.node.workItemTypeName)} · ${escapeHtml(pendingNode.node.pendingActionText || '请尽快完成决策。')}</p>
-        </div>
-        <div class="flex items-center gap-2">
-          <button type="button" class="inline-flex h-9 items-center rounded-md border border-amber-200 bg-white px-4 text-sm text-amber-700 hover:bg-amber-100" data-pcs-project-action="select-node" data-project-node-id="${escapeHtml(pendingNode.node.projectNodeId)}">定位节点</button>
-          ${
-            canOpenDecisionAction(pendingNode)
-              ? `<button type="button" class="inline-flex h-9 items-center rounded-md bg-amber-500 px-4 text-sm font-medium text-white hover:bg-amber-600" data-pcs-project-action="open-decision" data-source="detail">做出决策</button>`
-              : ''
-          }
-        </div>
-      </div>
-    </section>
   `
 }
 
@@ -4351,18 +4296,21 @@ function renderProjectDetailPage(projectId: string): string {
                       </div>
                     </div>
                     <div class="flex flex-wrap gap-2">
-                      ${renderEngineeringTaskNodeAction(viewModel.project, selectedNode)}
-                      ${renderStyleArchiveNodeAction(viewModel.project, selectedNode)}
-                      ${renderTestingCreateAction(viewModel.project, selectedNode)}
                       ${
-                        canOpenDecisionAction(selectedNode)
-                          ? '<button type="button" class="inline-flex h-9 items-center rounded-md bg-amber-500 px-4 text-sm font-medium text-white hover:bg-amber-600" data-pcs-project-action="open-decision" data-source="detail">做出决策</button>'
-                          : ''
-                      }
-                      ${
-                        !locked && selectedNode.node.currentStatus !== '已完成' && selectedNode.node.currentStatus !== '已取消'
-                          ? '<button type="button" class="inline-flex h-9 items-center rounded-md border border-emerald-200 bg-emerald-50 px-4 text-sm font-medium text-emerald-700 hover:bg-emerald-100" data-pcs-project-action="mark-node-complete">标记完成</button>'
-                          : ''
+                        isDecisionNode(selectedNode)
+                          ? `${
+                              canOpenDecisionAction(selectedNode)
+                                ? '<button type="button" class="inline-flex h-9 items-center rounded-md bg-amber-500 px-4 text-sm font-medium text-white hover:bg-amber-600" data-pcs-project-action="open-decision" data-source="detail">做出决策</button>'
+                                : ''
+                            }`
+                          : `
+                              ${renderEngineeringTaskNodeAction(viewModel.project, selectedNode)}
+                              ${renderStyleArchiveNodeAction(viewModel.project, selectedNode)}
+                              ${renderTestingCreateAction(viewModel.project, selectedNode)}
+                              ${!locked && canRenderManualCompleteAction(selectedNode)
+                                ? '<button type="button" class="inline-flex h-9 items-center rounded-md border border-emerald-200 bg-emerald-50 px-4 text-sm font-medium text-emerald-700 hover:bg-emerald-100" data-pcs-project-action="mark-node-complete">标记完成</button>'
+                                : ''}
+                            `
                       }
                     </div>
                   </div>
@@ -4378,7 +4326,6 @@ function renderProjectDetailPage(projectId: string): string {
           ${renderProjectLogs(viewModel.logs)}
         </div>
       </div>
-      ${renderPendingDecisionGate(viewModel)}
       ${renderProjectTerminateDialog()}
       ${renderDetailDecisionDialog(viewModel, selectedNode)}
       ${renderEngineeringTaskCreateDialog()}
@@ -4462,6 +4409,10 @@ function renderEditableFieldGroups(
 }
 
 function renderFormalFieldEntrySection(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
+  if (isDecisionNode(node)) {
+    return renderDecisionNodeSection(project, node)
+  }
+
   if (!canUseInlineRecords(node.node.workItemTypeCode)) {
     if (node.node.workItemTypeCode === 'PROJECT_INIT') {
       return `
@@ -4786,8 +4737,41 @@ function getDecisionOptions(node: ProjectNodeViewModel): string[] {
   return ['通过']
 }
 
+function isDecisionNode(node: ProjectNodeViewModel): boolean {
+  return Boolean(getDecisionFieldMeta(node.node.workItemTypeCode))
+}
+
 function canOpenDecisionAction(node: ProjectNodeViewModel): boolean {
-  return Boolean(getDecisionFieldMeta(node.node.workItemTypeCode)) && node.displayStatus !== '未解锁' && !isClosedNodeStatus(node.node.currentStatus)
+  return isDecisionNode(node) && node.displayStatus !== '未解锁' && !isClosedNodeStatus(node.node.currentStatus)
+}
+
+function canRenderManualCompleteAction(node: ProjectNodeViewModel): boolean {
+  if (isDecisionNode(node)) return false
+  if (node.displayStatus === '未解锁') return false
+  if (node.node.currentStatus === '已完成' || node.node.currentStatus === '已取消') return false
+  return !PROJECT_NODE_MANUAL_COMPLETE_BLOCKED_TYPES.has(node.node.workItemTypeCode)
+}
+
+function getManualCompleteBlockedNotice(node: ProjectNodeViewModel): string {
+  if (isDecisionNode(node)) {
+    return '决策类节点请通过“做出决策”完成流转。'
+  }
+  if (PROJECT_NODE_MANUAL_COMPLETE_BLOCKED_TYPES.has(node.node.workItemTypeCode)) {
+    return '当前节点需通过正式业务对象推进，不能手动标记完成。'
+  }
+  return '当前节点不支持手动标记完成。'
+}
+
+function renderDecisionNodeSection(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
+  return `
+    <section class="space-y-4">
+      <article class="rounded-lg border border-amber-200 bg-amber-50 p-4">
+        <h3 class="text-sm font-semibold text-amber-900">决策节点</h3>
+        <p class="mt-2 text-sm leading-6 text-amber-800">当前节点只保留“做出决策”操作。提交结果后，系统会根据决策结果自动流转到下一个节点，或直接结束商品项目。</p>
+      </article>
+      ${renderReadonlyFieldSection(project, node)}
+    </section>
+  `
 }
 
 function renderWorkItemDecisionDialog(node: ProjectNodeViewModel | null): string {
@@ -4873,7 +4857,11 @@ function renderProjectWorkItemDetailPage(projectId: string, projectNodeId: strin
   }
 
   const nature = node.contract.workItemNature || node.definition?.workItemNature || '执行类'
-  const canRecord = canUseInlineRecords(node.node.workItemTypeCode) && node.displayStatus !== '未解锁' && node.node.currentStatus !== '已取消'
+  const canRecord =
+    canUseInlineRecords(node.node.workItemTypeCode) &&
+    !isDecisionNode(node) &&
+    node.displayStatus !== '未解锁' &&
+    node.node.currentStatus !== '已取消'
   const testingAction = renderTestingCreateAction(viewModel.project, node, canRecord ? 'secondary' : 'primary')
   const styleArchiveAction = renderStyleArchiveNodeAction(
     viewModel.project,
@@ -4910,18 +4898,21 @@ function renderProjectWorkItemDetailPage(projectId: string, projectNodeId: strin
           </div>
           <div class="flex flex-wrap gap-2">
             ${
-              canOpenDecisionAction(node)
-                ? '<button type="button" class="inline-flex h-9 items-center rounded-md bg-amber-500 px-4 text-sm font-medium text-white hover:bg-amber-600" data-pcs-project-action="open-decision" data-source="work-item">做出决策</button>'
-                : ''
-            }
-            ${renderEngineeringTaskNodeAction(viewModel.project, node, canRecord ? 'secondary' : 'primary')}
-            ${styleArchiveAction}
-            ${testingAction}
-            ${canRecord ? '<button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-project-action="open-record-dialog">新增记录</button>' : ''}
-            ${
-              node.displayStatus !== '未解锁' && node.node.currentStatus !== '已完成' && node.node.currentStatus !== '已取消'
-                ? '<button type="button" class="inline-flex h-9 items-center rounded-md bg-emerald-600 px-4 text-sm font-medium text-white hover:bg-emerald-700" data-pcs-project-action="mark-node-complete">标记完成</button>'
-                : ''
+              isDecisionNode(node)
+                ? `${
+                    canOpenDecisionAction(node)
+                      ? '<button type="button" class="inline-flex h-9 items-center rounded-md bg-amber-500 px-4 text-sm font-medium text-white hover:bg-amber-600" data-pcs-project-action="open-decision" data-source="work-item">做出决策</button>'
+                      : ''
+                  }`
+                : `
+                    ${renderEngineeringTaskNodeAction(viewModel.project, node, canRecord ? 'secondary' : 'primary')}
+                    ${styleArchiveAction}
+                    ${testingAction}
+                    ${canRecord ? '<button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-project-action="open-record-dialog">新增记录</button>' : ''}
+                    ${canRenderManualCompleteAction(node)
+                      ? '<button type="button" class="inline-flex h-9 items-center rounded-md bg-emerald-600 px-4 text-sm font-medium text-white hover:bg-emerald-700" data-pcs-project-action="mark-node-complete">标记完成</button>'
+                      : ''}
+                  `
             }
           </div>
         </div>
@@ -5457,6 +5448,10 @@ function openDecisionDialog(source: DecisionDialogSource): void {
       : state.workItem.projectNodeId || ''
   const context = projectId && projectNodeId ? getProjectNodeContext(projectId, projectNodeId) : null
   if (!context) return
+  if (!canOpenDecisionAction(context.node)) {
+    state.notice = '当前节点暂不可执行决策。'
+    return
+  }
   const draft = getNodeRecordDraft(context.project, context.node)
   const options = getDecisionOptions(context.node)
   const decisionFieldMeta = getDecisionFieldMeta(context.node.node.workItemTypeCode)
@@ -5485,6 +5480,11 @@ function confirmDecision(): void {
   const dialog = state.decisionDialog
   const context = getProjectNodeContext(dialog.projectId, dialog.projectNodeId)
   if (!context) {
+    closeAllDialogs()
+    return
+  }
+  if (!canOpenDecisionAction(context.node)) {
+    state.notice = '当前节点暂不可执行决策。'
     closeAllDialogs()
     return
   }
@@ -5719,6 +5719,10 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
   if (action === 'mark-node-complete') {
     const context = getCurrentProjectNodeContext()
     if (!context) return true
+    if (!canRenderManualCompleteAction(context.node)) {
+      state.notice = getManualCompleteBlockedNotice(context.node)
+      return true
+    }
     const blocker = getProjectNodeSequenceBlocker(context.project.projectId, context.node.node.projectNodeId)
     if (blocker) {
       state.notice = `请先填写并完成前序工作项：${blocker.workItemTypeName}`
@@ -5824,16 +5828,30 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
     return true
   }
   if (action === 'save-formal-fields') {
+    const context = getCurrentProjectNodeContext()
+    if (context && isDecisionNode(context.node)) {
+      state.notice = '决策类节点请通过“做出决策”完成流转。'
+      return true
+    }
     saveFormalRecord()
     return true
   }
   if (action === 'save-formal-fields-and-complete') {
+    const context = getCurrentProjectNodeContext()
+    if (context && isDecisionNode(context.node)) {
+      state.notice = '决策类节点请通过“做出决策”完成流转。'
+      return true
+    }
     saveFormalRecord({ completeAfterSave: true })
     return true
   }
   if (action === 'open-record-dialog') {
     const context = getCurrentProjectNodeContext()
     if (!context) return true
+    if (isDecisionNode(context.node)) {
+      state.notice = '决策类节点请通过“做出决策”完成流转。'
+      return true
+    }
     const draft = getNodeRecordDraft(context.project, context.node)
     state.recordDialog = {
       ...draft,

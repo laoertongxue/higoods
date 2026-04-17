@@ -280,6 +280,78 @@ function normalizeNode(node: PcsProjectNodeRecord): PcsProjectNodeRecord {
   }
 }
 
+function getNodeAlignmentScore(node: PcsProjectNodeRecord, expectedNodeId: string): number {
+  let score = 0
+  if (node.projectNodeId === expectedNodeId) score += 20
+  if (node.currentStatus === '已完成') score += 120
+  else if (node.currentStatus === '待确认') score += 90
+  else if (node.currentStatus === '进行中') score += 70
+  else if (node.currentStatus === '已取消') score += 30
+
+  if (node.latestInstanceId || node.latestInstanceCode) score += 40
+  if (node.latestResultType || node.latestResultText) score += 20
+  if (node.updatedAt || node.lastEventTime) score += 10
+  if (node.validInstanceCount > 0) score += 10
+  return score
+}
+
+function alignProjectNodesWithTemplate(
+  project: PcsProjectRecord,
+  existingNodes: PcsProjectNodeRecord[],
+): PcsProjectNodeRecord[] {
+  const template = getProjectTemplateById(project.templateId)
+  if (!template) {
+    return existingNodes.map(normalizeNode)
+  }
+
+  const generatedNodes = buildProjectNodeRecordsFromTemplate({
+    projectId: project.projectId,
+    ownerId: project.ownerId,
+    ownerName: project.ownerName,
+    createdAt: project.createdAt,
+    template,
+  })
+
+  const candidatesByCode = new Map<string, PcsProjectNodeRecord[]>()
+  existingNodes.forEach((node) => {
+    const list = candidatesByCode.get(node.workItemTypeCode) || []
+    list.push(node)
+    candidatesByCode.set(node.workItemTypeCode, list)
+  })
+
+  const usedNodeIds = new Set<string>()
+
+  return generatedNodes.map((generatedNode) => {
+    const candidates = (candidatesByCode.get(generatedNode.workItemTypeCode) || [])
+      .filter((item) => !usedNodeIds.has(item.projectNodeId))
+      .sort(
+        (left, right) =>
+          getNodeAlignmentScore(right, generatedNode.projectNodeId) -
+          getNodeAlignmentScore(left, generatedNode.projectNodeId),
+      )
+
+    const matchedNode = candidates[0] || null
+    if (!matchedNode) {
+      return normalizeNode(generatedNode)
+    }
+
+    usedNodeIds.add(matchedNode.projectNodeId)
+    return normalizeNode({
+      ...matchedNode,
+      phaseCode: generatedNode.phaseCode,
+      phaseName: generatedNode.phaseName,
+      workItemId: generatedNode.workItemId,
+      workItemTypeCode: generatedNode.workItemTypeCode,
+      workItemTypeName: generatedNode.workItemTypeName,
+      sequenceNo: generatedNode.sequenceNo,
+      requiredFlag: generatedNode.requiredFlag,
+      multiInstanceFlag: generatedNode.multiInstanceFlag,
+      sourceTemplateNodeId: generatedNode.sourceTemplateNodeId,
+      sourceTemplateVersion: generatedNode.sourceTemplateVersion,
+    })
+  })
+}
+
 function migrateRevisionTemplateProject(project: PcsProjectRecord): PcsProjectRecord {
   if (project.templateId !== 'TPL-003') return normalizeProject(project)
 
@@ -333,7 +405,7 @@ function mergeMissingBootstrapData(snapshot: PcsProjectStoreSnapshot): PcsProjec
   })
 
   const projectMap = new Map(mergedProjects.map((project) => [project.projectId, project]))
-  const mergedNodes = snapshot.nodes
+  let mergedNodes = snapshot.nodes
     .map(normalizeNode)
     .filter((node) => {
       const allowedNodeCodes = templateNodeCodeMap.get(node.projectId)
@@ -383,39 +455,25 @@ function mergeMissingBootstrapData(snapshot: PcsProjectStoreSnapshot): PcsProjec
     }
   })
 
-  mergedProjects.forEach((project) => {
-    const template = getProjectTemplateById(project.templateId)
-    if (!template) return
+  const templateProjectIds = new Set(
+    mergedProjects
+      .filter((project) => Boolean(getProjectTemplateById(project.templateId)))
+      .map((project) => project.projectId),
+  )
 
-    const projectNodeTypeCodes = new Set(
-      mergedNodes
-        .filter((node) => node.projectId === project.projectId)
-        .map((node) => node.workItemTypeCode),
+  const alignedNodes = mergedProjects
+    .filter((project) => templateProjectIds.has(project.projectId))
+    .flatMap((project) =>
+      alignProjectNodesWithTemplate(
+        project,
+        mergedNodes.filter((node) => node.projectId === project.projectId),
+      ),
     )
 
-    const generatedNodes = buildProjectNodeRecordsFromTemplate({
-      projectId: project.projectId,
-      ownerId: project.ownerId,
-      ownerName: project.ownerName,
-      createdAt: project.createdAt,
-      template,
-    })
-
-    generatedNodes.forEach((node) => {
-      if (projectNodeTypeCodes.has(node.workItemTypeCode)) return
-
-      const normalizedNode = normalizeNode({
-        ...node,
-        projectNodeId: nodeIds.has(node.projectNodeId)
-          ? `${node.projectNodeId}-${node.workItemTypeCode.toLowerCase()}`
-          : node.projectNodeId,
-      })
-
-      mergedNodes.push(normalizedNode)
-      nodeIds.add(normalizedNode.projectNodeId)
-      projectNodeTypeCodes.add(normalizedNode.workItemTypeCode)
-    })
-  })
+  mergedNodes = [
+    ...mergedNodes.filter((node) => !templateProjectIds.has(node.projectId)),
+    ...alignedNodes,
+  ]
 
   return {
     version: PROJECT_STORE_VERSION,
