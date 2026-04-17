@@ -6,6 +6,12 @@ import { createPatternAsset, getPatternAssetById, listPatternAssets } from '../d
 import type { PatternParsedFileResult } from '../data/pcs-pattern-library-types.ts'
 import { generateTechPackVersionFromPatternTask, generateTechPackVersionFromPlateTask, generateTechPackVersionFromRevisionTask } from '../data/pcs-project-technical-data-writeback.ts'
 import {
+  getEngineeringTaskFieldPolicy,
+  getPatternTaskCompletionMissingFields,
+  getPlateTaskCompletionMissingFields,
+  getRevisionTaskCompletionMissingFields,
+} from '../data/pcs-engineering-task-field-policy.ts'
+import {
   getTechPackGenerationActionLabel,
   getTechPackGenerationBlockedReason,
   isTechPackGenerationAllowedStatus,
@@ -15,7 +21,18 @@ import { listPlateMakingTasks, getPlateMakingTaskById, updatePlateMakingTask, re
 import { listRevisionTasks, getRevisionTaskById, updateRevisionTask, resetRevisionTaskRepository } from '../data/pcs-revision-task-repository.ts'
 import { listFirstSampleTasks, getFirstSampleTaskById, updateFirstSampleTask, resetFirstSampleTaskRepository } from '../data/pcs-first-sample-repository.ts'
 import { listPreProductionSampleTasks, getPreProductionSampleTaskById, updatePreProductionSampleTask, resetPreProductionSampleTaskRepository } from '../data/pcs-pre-production-sample-repository.ts'
-import { createDownstreamTasksFromRevision, createFirstSampleTaskWithProjectRelation, createPatternTaskWithProjectRelation, createPlateMakingTaskWithProjectRelation, createPreProductionSampleTaskWithProjectRelation, createRevisionTaskWithProjectRelation } from '../data/pcs-task-project-relation-writeback.ts'
+import {
+  completePatternTaskWithProjectRelationSync,
+  completePlateMakingTaskWithProjectRelationSync,
+  completeRevisionTaskWithProjectRelationSync,
+  createDownstreamTasksFromRevision,
+  createFirstSampleTaskWithProjectRelation,
+  createPatternTaskWithProjectRelation,
+  createPlateMakingTaskWithProjectRelation,
+  createPreProductionSampleTaskWithProjectRelation,
+  createRevisionTaskWithProjectRelation,
+  syncExistingProjectEngineeringTaskNodes,
+} from '../data/pcs-task-project-relation-writeback.ts'
 import { findStyleArchiveByProjectId, getStyleArchiveById, listStyleArchives } from '../data/pcs-style-archive-repository.ts'
 import { getProjectById, listProjects } from '../data/pcs-project-repository.ts'
 import { REVISION_TASK_SOURCE_TYPE_LIST, type RevisionTaskSourceType } from '../data/pcs-task-source-normalizer.ts'
@@ -53,13 +70,13 @@ interface RevisionCreateDraft {
   sourceType: RevisionTaskSourceType
   projectId: string
   styleId: string
-  referenceObjectId: string
   title: string
   ownerName: string
   dueAt: string
   note: string
   issueSummary: string
   evidenceSummary: string
+  evidenceImageUrls: string[]
   scopeCodes: string[]
   createPatternTask: boolean
 }
@@ -102,6 +119,20 @@ interface PreProductionCreateDraft extends SampleCreateDraft {
   artworkVersion: string
 }
 
+interface RevisionDetailDraft {
+  participantNamesText: string
+  revisionVersion: string
+}
+
+interface PlateDetailDraft {
+  participantNamesText: string
+  patternVersion: string
+}
+
+interface PatternDetailDraft {
+  artworkVersion: string
+}
+
 const PAGE_SIZE = 8
 
 const COMMON_STATUS_META: Record<string, { label: string; className: string }> = {
@@ -136,25 +167,19 @@ const REVISION_SCOPE_OPTIONS = [
   { value: 'PACKAGE', label: '包装标识' },
 ] as const
 
-const REVISION_REFERENCE_OPTIONS = [
-  { id: 'REF-REVIEW-001', type: '设计评审记录', code: 'REF-REVIEW-001', name: '春夏连衣裙评审纪要' },
-  { id: 'REF-COMP-001', type: '竞品拆解', code: 'REF-COMP-001', name: '竞品连衣裙拆解记录' },
-  { id: 'REF-FEEDBACK-001', type: '历史问题清单', code: 'REF-FEEDBACK-001', name: '客诉与试穿问题汇总' },
-] as const
-
 const SAMPLE_SITE_OPTIONS = ['all', '深圳', '雅加达']
 
 const initialRevisionCreateDraft = (): RevisionCreateDraft => ({
   sourceType: '测款触发',
   projectId: '',
   styleId: '',
-  referenceObjectId: '',
   title: '',
   ownerName: '',
   dueAt: '',
   note: '',
   issueSummary: '',
   evidenceSummary: '',
+  evidenceImageUrls: [],
   scopeCodes: ['PATTERN'],
   createPatternTask: false,
 })
@@ -204,16 +229,23 @@ const state = {
   revisionTab: 'plan' as RevisionTab,
   revisionCreateOpen: false,
   revisionCreateDraft: initialRevisionCreateDraft(),
+  revisionDetailDraftTaskId: '',
+  revisionDetailDraft: { participantNamesText: '', revisionVersion: '' } as RevisionDetailDraft,
+  imagePreview: { open: false, url: '', title: '' },
 
   plateList: { search: '', status: 'all', owner: 'all', source: 'all', quickFilter: 'all', currentPage: 1 } as ListState,
   plateTab: 'overview' as PlateTab,
   plateCreateOpen: false,
   plateCreateDraft: initialPlateCreateDraft(),
+  plateDetailDraftTaskId: '',
+  plateDetailDraft: { participantNamesText: '', patternVersion: '' } as PlateDetailDraft,
 
   patternList: { search: '', status: 'all', owner: 'all', source: 'all', quickFilter: 'all', currentPage: 1 } as ListState,
   patternTab: 'plan' as PatternTab,
   patternCreateOpen: false,
   patternCreateDraft: initialPatternCreateDraft(),
+  patternDetailDraftTaskId: '',
+  patternDetailDraft: { artworkVersion: '' } as PatternDetailDraft,
 
   firstSampleList: { search: '', status: 'all', owner: 'all', source: 'all', quickFilter: 'all', currentPage: 1, site: 'all' } as SampleListState,
   firstSampleTab: 'overview' as FirstSampleTab,
@@ -310,6 +342,13 @@ function renderNotice(): string {
 }
 
 function renderPageHeader(title: string, description: string, actionLabel: string, action: string): string {
+  const createAction = actionLabel && action
+    ? `
+        <button type="button" class="inline-flex h-10 items-center gap-2 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-engineering-action="${escapeHtml(action)}">
+          <i data-lucide="plus" class="h-4 w-4"></i>${escapeHtml(actionLabel)}
+        </button>
+      `
+    : ''
   return `
     <section class="rounded-xl border bg-white px-4 py-4 shadow-sm">
       <div class="flex flex-wrap items-start justify-between gap-4">
@@ -322,9 +361,7 @@ function renderPageHeader(title: string, description: string, actionLabel: strin
           <button type="button" class="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="refresh-page">
             <i data-lucide="refresh-cw" class="h-4 w-4"></i>刷新
           </button>
-          <button type="button" class="inline-flex h-10 items-center gap-2 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-engineering-action="${escapeHtml(action)}">
-            <i data-lucide="plus" class="h-4 w-4"></i>${escapeHtml(actionLabel)}
-          </button>
+          ${createAction}
         </div>
       </div>
     </section>
@@ -419,17 +456,6 @@ function buildStyleArchiveOptions(): Array<{ value: string; label: string }> {
     value: style.styleId,
     label: `${style.styleCode} · ${style.styleName}`,
   }))
-}
-
-function buildRevisionReferenceOptions(): Array<{ value: string; label: string }> {
-  return REVISION_REFERENCE_OPTIONS.map((item) => ({
-    value: item.id,
-    label: `${item.type} · ${item.name}`,
-  }))
-}
-
-function getRevisionReferenceOption(referenceObjectId: string) {
-  return REVISION_REFERENCE_OPTIONS.find((item) => item.id === referenceObjectId) || null
 }
 
 function renderListFilters(input: {
@@ -553,6 +579,81 @@ function renderDialog(open: boolean, title: string, body: string, closeAction: s
   `
 }
 
+function ensureRevisionDetailDraft(task: ReturnType<typeof getRevisionTaskById>): RevisionDetailDraft {
+  if (!task) return { participantNamesText: '', revisionVersion: '' }
+  if (state.revisionDetailDraftTaskId !== task.revisionTaskId) {
+    state.revisionDetailDraftTaskId = task.revisionTaskId
+    state.revisionDetailDraft = {
+      participantNamesText: task.participantNames.join('、'),
+      revisionVersion: task.revisionVersion,
+    }
+  }
+  return state.revisionDetailDraft
+}
+
+function ensurePlateDetailDraft(task: ReturnType<typeof getPlateMakingTaskById>): PlateDetailDraft {
+  if (!task) return { participantNamesText: '', patternVersion: '' }
+  if (state.plateDetailDraftTaskId !== task.plateTaskId) {
+    state.plateDetailDraftTaskId = task.plateTaskId
+    state.plateDetailDraft = {
+      participantNamesText: task.participantNames.join('、'),
+      patternVersion: task.patternVersion,
+    }
+  }
+  return state.plateDetailDraft
+}
+
+function ensurePatternDetailDraft(task: ReturnType<typeof getPatternTaskById>): PatternDetailDraft {
+  if (!task) return { artworkVersion: '' }
+  if (state.patternDetailDraftTaskId !== task.patternTaskId) {
+    state.patternDetailDraftTaskId = task.patternTaskId
+    state.patternDetailDraft = {
+      artworkVersion: task.artworkVersion,
+    }
+  }
+  return state.patternDetailDraft
+}
+
+function renderFieldLayerSection(
+  policy: ReturnType<typeof getEngineeringTaskFieldPolicy>,
+  completionMissingFields: string[],
+  detailEditorHtml: string,
+): string {
+  return renderSectionCard(
+    '字段分层清单',
+    `
+      <div class="grid gap-4 xl:grid-cols-3">
+        <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <p class="text-sm font-medium text-slate-900">节点创建必须填写</p>
+          <ul class="mt-3 space-y-2 text-sm text-slate-600">
+            ${policy.createRequiredFields.map((field) => `<li><span class="font-medium text-slate-900">${escapeHtml(field.label)}</span><span class="text-slate-500">：${escapeHtml(field.description)}</span></li>`).join('')}
+          </ul>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <p class="text-sm font-medium text-slate-900">实例详情补齐字段</p>
+          <ul class="mt-3 space-y-2 text-sm text-slate-600">
+            ${policy.detailEditableFields.map((field) => `<li><span class="font-medium text-slate-900">${escapeHtml(field.label)}</span><span class="text-slate-500">：${escapeHtml(field.description)}</span></li>`).join('')}
+          </ul>
+          <div class="mt-4 border-t border-slate-200 pt-4">${detailEditorHtml}</div>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <p class="text-sm font-medium text-slate-900">完成后回写项目节点</p>
+          <ul class="mt-3 space-y-2 text-sm text-slate-600">
+            ${policy.nodeWritebacks.map((item) => `<li><span class="font-medium text-slate-900">${escapeHtml(item.phase)}</span><span class="text-slate-500">：${escapeHtml(item.resultType)} / ${escapeHtml(item.pendingActionType || '无待办')}</span></li>`).join('')}
+          </ul>
+          <div class="mt-4 rounded-lg border ${completionMissingFields.length === 0 ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700'} px-3 py-3 text-sm">
+            ${
+              completionMissingFields.length === 0
+                ? '当前实例补齐字段已满足，允许完成任务。'
+                : `当前仍缺少：${escapeHtml(completionMissingFields.join('、'))}。完成任务前需要先补齐。`
+            }
+          </div>
+        </div>
+      </div>
+    `,
+  )
+}
+
 function renderTextInput(label: string, field: string, value: string, placeholder: string): string {
   return `
     <label class="flex flex-col gap-2 text-sm text-slate-600">
@@ -585,6 +686,102 @@ function renderSelectInput(label: string, field: string, value: string, options:
 
 function buildProjectOptions(): Array<{ value: string; label: string }> {
   return listProjects().map((project) => ({ value: project.projectId, label: `${project.projectCode} · ${project.projectName}` }))
+}
+
+function buildRevisionOwnerOptions(): Array<{ value: string; label: string }> {
+  const ownerNames = new Set<string>()
+  listProjects().forEach((project) => {
+    if (project.ownerName) ownerNames.add(project.ownerName)
+  })
+  listRevisionTasks().forEach((task) => {
+    if (task.ownerName) ownerNames.add(task.ownerName)
+  })
+  ;['当前用户', '李版师', '商品负责人', '运营负责人', '设计负责人', '花型设计师'].forEach((name) => ownerNames.add(name))
+  return Array.from(ownerNames)
+    .filter(Boolean)
+    .sort((left, right) => left.localeCompare(right))
+    .map((name) => ({ value: name, label: name }))
+}
+
+function toDateTimeLocalValue(value: string): string {
+  if (!value) return ''
+  if (value.includes('T')) return value.slice(0, 16)
+  return value.replace(' ', 'T').slice(0, 16)
+}
+
+function fromDateTimeLocalValue(value: string): string {
+  if (!value) return ''
+  const normalized = value.replace('T', ' ')
+  return normalized.length === 16 ? `${normalized}:00` : normalized
+}
+
+function renderDateTimeInput(label: string, field: string, value: string): string {
+  return `
+    <label class="flex flex-col gap-2 text-sm text-slate-600">
+      <span>${escapeHtml(label)}</span>
+      <input type="datetime-local" class="h-10 rounded-md border border-slate-200 px-3 text-sm text-slate-900 outline-none focus:border-blue-500" value="${escapeHtml(toDateTimeLocalValue(value))}" data-pcs-engineering-field="${escapeHtml(field)}" />
+    </label>
+  `
+}
+
+function renderPreviewImageModal(): string {
+  if (!state.imagePreview.open || !state.imagePreview.url) return ''
+  return `
+    <div class="fixed inset-0 z-50 flex items-center justify-center px-4 py-6">
+      <button type="button" class="absolute inset-0 bg-slate-900/70" data-pcs-engineering-action="close-image-preview" aria-label="关闭图片预览"></button>
+      <div class="relative w-full max-w-5xl rounded-2xl bg-white p-4 shadow-2xl">
+        <div class="mb-3 flex items-center justify-between gap-3">
+          <p class="text-sm font-medium text-slate-900">${escapeHtml(state.imagePreview.title || '图片预览')}</p>
+          <button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700" data-pcs-engineering-action="close-image-preview" aria-label="关闭图片预览">×</button>
+        </div>
+        <div class="flex max-h-[75vh] items-center justify-center overflow-auto rounded-xl bg-slate-100 p-3">
+          <img src="${escapeHtml(state.imagePreview.url)}" alt="${escapeHtml(state.imagePreview.title || '图片预览')}" class="max-h-[70vh] max-w-full rounded-lg object-contain" />
+        </div>
+      </div>
+    </div>
+  `
+}
+
+function renderImageThumbnailGrid(imageUrls: string[], removable = false): string {
+  if (!imageUrls.length) return ''
+  return `
+    <div class="grid grid-cols-4 gap-3 sm:grid-cols-5">
+      ${imageUrls.map((url, index) => `
+        <div class="group relative overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+          <button type="button" class="block h-20 w-full overflow-hidden" data-pcs-engineering-action="open-image-preview" data-url="${escapeHtml(url)}" data-title="证据图片 ${index + 1}">
+            <img src="${escapeHtml(url)}" alt="证据图片 ${index + 1}" class="h-full w-full object-cover transition group-hover:scale-105" />
+          </button>
+          ${
+            removable
+              ? `<button type="button" class="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-xs text-slate-600 shadow hover:bg-white" data-pcs-engineering-action="remove-revision-evidence-image" data-image-index="${index}" aria-label="删除证据图片">×</button>`
+              : ''
+          }
+        </div>
+      `).join('')}
+    </div>
+  `
+}
+
+function renderRevisionEvidenceUploader(imageUrls: string[]): string {
+  return `
+    <div class="space-y-3 rounded-lg border border-slate-200 px-3 py-3">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p class="text-sm font-medium text-slate-900">证据图片</p>
+          <p class="mt-1 text-xs text-slate-500">支持上传多张图片，默认展示缩略图，点击可查看大图。</p>
+        </div>
+        <label class="inline-flex h-9 cursor-pointer items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50">
+          上传图片
+          <input type="file" accept="image/*" multiple class="hidden" data-pcs-engineering-field="revision-create-evidence-images" />
+        </label>
+      </div>
+      ${
+        imageUrls.length > 0
+          ? renderImageThumbnailGrid(imageUrls, true)
+          : '<div class="rounded-md border border-dashed border-slate-200 px-3 py-6 text-center text-xs text-slate-400">暂未上传证据图片</div>'
+      }
+    </div>
+  `
 }
 
 function getProjectDefaultValues(projectId: string): { ownerName: string; styleId: string; styleCode: string; styleName: string } {
@@ -974,7 +1171,7 @@ function renderRevisionListPage(): string {
   return `
     <div class="space-y-5 p-4">
       ${renderNotice()}
-      ${renderPageHeader('改版任务', '按测款触发、既有商品改款、人工创建三类来源建立改版任务；仅在范围涉及花型时才可创建花型下游任务。', '新建改版任务', 'open-revision-create')}
+      ${renderPageHeader('改版任务', '改版任务由商品项目节点推进自动创建；本页仅查看任务结果、补充问题信息和跟踪下游花型任务。', '', '')}
       ${renderListFilters({
         searchPlaceholder: '搜索任务编号 / 商品项目 / 款式 / 负责人 / 参考对象',
         listState: state.revisionList,
@@ -995,6 +1192,7 @@ function renderRevisionListPage(): string {
       </section>
       ${renderDataTable(['改版任务', '来源', '关联款式', '关联商品项目', '改版范围', '是否有下游任务', '状态', '负责人', '截止时间', '技术包', '操作'], rows, '暂无改版任务数据', renderPagination(state.revisionList.currentPage, filtered.length, 'change-revision-page'))}
       ${renderRevisionCreateDialog()}
+      ${renderPreviewImageModal()}
     </div>
   `
 }
@@ -1012,6 +1210,7 @@ function renderRevisionIssues(task: ReturnType<typeof getRevisionTaskById>): str
         <div class="rounded-lg border border-slate-200 px-4 py-4">
           <p class="text-sm font-medium text-slate-900">证据说明</p>
           <p class="mt-2 text-sm leading-6 text-slate-600">${escapeHtml(task.evidenceSummary || '暂未补充问题点证据。')}</p>
+          ${task.evidenceImageUrls.length > 0 ? `<div class="mt-4">${renderImageThumbnailGrid(task.evidenceImageUrls)}</div>` : '<p class="mt-3 text-xs text-slate-400">暂未上传证据图片。</p>'}
         </div>
       </div>
     `,
@@ -1056,8 +1255,12 @@ function renderRevisionDownstream(task: ReturnType<typeof getRevisionTaskById>):
 }
 
 function renderRevisionDetailPage(revisionTaskId: string): string {
+  syncExistingProjectEngineeringTaskNodes('系统同步')
   const task = getRevisionTaskById(revisionTaskId)
   if (!task) return renderEmptyDetail('改版任务', '/pcs/patterns/revision')
+  const detailDraft = ensureRevisionDetailDraft(task)
+  const fieldPolicy = getEngineeringTaskFieldPolicy('REVISION_TASK')
+  const completionMissingFields = getRevisionTaskCompletionMissingFields(task)
 
   const style = getRevisionTaskStyle(task)
   const downstreamTasks = getRevisionDownstreamTasks(task)
@@ -1070,6 +1273,9 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
   ])
   const actions = [
     `<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/patterns/revision">返回列表</button>`,
+    ...(task.status !== '已完成' && task.status !== '已取消'
+      ? [`<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="complete-revision-task" data-task-id="${escapeHtml(task.revisionTaskId)}">完成任务</button>`]
+      : []),
     ...(task.projectId && isTechPackGenerationAllowedStatus(task.status)
       ? [`<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="revision-generate-tech-pack" data-task-id="${escapeHtml(task.revisionTaskId)}">${escapeHtml(getTechPackGenerationActionLabel(task.projectId))}</button>`]
       : []),
@@ -1166,9 +1372,22 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
       </div>
     `,
   )
+  const fieldLayer = renderFieldLayerSection(
+    fieldPolicy,
+    completionMissingFields,
+    `
+      <div class="grid gap-4 md:grid-cols-2">
+        ${renderTextInput('参与人', 'revision-detail-participants', detailDraft.participantNamesText, '多个姓名请用顿号分隔')}
+        ${renderTextInput('改版版次', 'revision-detail-version', detailDraft.revisionVersion, '例如：R2')}
+      </div>
+      <div class="mt-4 flex justify-end">
+        <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="save-revision-detail-fields" data-task-id="${escapeHtml(task.revisionTaskId)}">保存实例补齐字段</button>
+      </div>
+    `,
+  )
 
   const mainContent = state.revisionTab === 'plan'
-    ? `${plan}${renderRevisionContext(task)}`
+    ? `${plan}${fieldLayer}${renderRevisionContext(task)}`
     : state.revisionTab === 'issues'
       ? renderRevisionIssues(task)
       : state.revisionTab === 'samples'
@@ -1219,6 +1438,7 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
         <div class="space-y-6">${mainContent}</div>
         ${aside}
       </div>
+      ${renderPreviewImageModal()}
     </div>
   `
 }
@@ -1228,33 +1448,26 @@ function renderRevisionCreateDialog(): string {
   const selectedStyle = getStyleArchiveById(draft.styleId)
   const selectedProjectDefaults = draft.projectId ? getProjectDefaultValues(draft.projectId) : { ownerName: '', styleId: '', styleCode: '', styleName: '' }
   const projectStyle = selectedProjectDefaults.styleId ? getStyleArchiveById(selectedProjectDefaults.styleId) : null
-  const referenceOption = getRevisionReferenceOption(draft.referenceObjectId)
   const showProjectField = draft.sourceType === '测款触发'
   const showStyleField = draft.sourceType !== '测款触发'
-  const showReferenceField = draft.sourceType === '人工创建'
   const canCreatePatternTask = canCreateRevisionPatternTask(draft.scopeCodes, draft.sourceType, draft.projectId)
   const body = `
     <div class="grid gap-4 md:grid-cols-2">
       ${renderSelectInput('来源类型', 'revision-create-source-type', draft.sourceType, REVISION_TASK_SOURCE_TYPE_LIST.map((item) => ({ value: item, label: item })))}
       ${showProjectField ? renderSelectInput('商品项目', 'revision-create-project', draft.projectId, buildProjectOptions()) : showStyleField ? renderSelectInput('款式档案', 'revision-create-style-id', draft.styleId, buildStyleArchiveOptions()) : ''}
-      ${showReferenceField ? renderSelectInput('参考对象', 'revision-create-reference-object', draft.referenceObjectId, buildRevisionReferenceOptions()) : renderTextInput('负责人', 'revision-create-owner', draft.ownerName, '默认取来源负责人')}
-      ${showReferenceField ? renderTextInput('负责人', 'revision-create-owner', draft.ownerName, '默认取当前处理人') : renderTextInput('任务标题', 'revision-create-title', draft.title, '例如：碎花连衣裙改版（腰节与花型）')}
-      ${showReferenceField ? renderTextInput('任务标题', 'revision-create-title', draft.title, '例如：碎花连衣裙改版（腰节与花型）') : renderTextInput('截止时间', 'revision-create-due-at', draft.dueAt, 'YYYY-MM-DD HH:mm:ss')}
-      ${showReferenceField ? renderTextInput('截止时间', 'revision-create-due-at', draft.dueAt, 'YYYY-MM-DD HH:mm:ss') : ''}
+      ${renderSelectInput('负责人', 'revision-create-owner', draft.ownerName, buildRevisionOwnerOptions())}
+      ${renderTextInput('任务标题', 'revision-create-title', draft.title, '例如：碎花连衣裙改版（腰节与花型）')}
+      ${renderDateTimeInput('截止时间', 'revision-create-due-at', draft.dueAt)}
     </div>
     <div class="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-      <div class="grid gap-3 md:grid-cols-3">
+      <div class="grid gap-3 md:grid-cols-2">
         <div>
           <p class="text-xs text-slate-500">当前款式</p>
           <p class="mt-1 text-sm text-slate-900">${showProjectField ? escapeHtml(projectStyle?.styleCode ? `${projectStyle.styleCode} · ${projectStyle.styleName}` : '所选项目暂未关联款式档案') : escapeHtml(selectedStyle?.styleCode ? `${selectedStyle.styleCode} · ${selectedStyle.styleName}` : '请先选择款式档案')}</p>
         </div>
         <div>
-          <p class="text-xs text-slate-500">参考对象</p>
-          <p class="mt-1 text-sm text-slate-900">${escapeHtml(referenceOption ? `${referenceOption.type} · ${referenceOption.name}` : '当前来源无需单独选择参考对象')}</p>
-        </div>
-        <div>
           <p class="text-xs text-slate-500">下游创建</p>
-          <p class="mt-1 text-sm text-slate-900">${escapeHtml(canCreatePatternTask ? '可同步创建花型任务' : draft.scopeCodes.includes('PRINT') ? '涉及花型但未关联商品项目，暂不自动创建花型任务' : '当前范围未涉及花型')}</p>
+          <p class="mt-1 text-sm text-slate-900">${escapeHtml(canCreatePatternTask ? '涉及花型调整，将同步创建花型任务' : draft.scopeCodes.includes('PRINT') ? '涉及花型但未关联商品项目，暂不自动创建花型任务' : '当前范围未涉及花型')}</p>
         </div>
       </div>
     </div>
@@ -1273,7 +1486,10 @@ function renderRevisionCreateDialog(): string {
     </div>
     <div class="mt-4 grid gap-4 md:grid-cols-2">
       ${renderTextarea('问题点', 'revision-create-issue-summary', draft.issueSummary, '补充本次改版要解决的核心问题')}
-      ${renderTextarea('证据说明', 'revision-create-evidence-summary', draft.evidenceSummary, '补充评审、反馈、对比记录等证据')}
+      <div class="space-y-4">
+        ${renderTextarea('证据说明', 'revision-create-evidence-summary', draft.evidenceSummary, '补充评审、反馈、对比记录等证据')}
+        ${renderRevisionEvidenceUploader(draft.evidenceImageUrls)}
+      </div>
     </div>
     <div class="mt-4">
       ${renderTextarea('说明', 'revision-create-note', draft.note, '补充改版方案、边界说明和执行要求')}
@@ -1285,7 +1501,7 @@ function renderRevisionCreateDialog(): string {
             <input type="checkbox" ${draft.createPatternTask ? 'checked' : ''} ${canCreatePatternTask ? '' : 'disabled'} data-pcs-engineering-action="toggle-revision-create-pattern-task" />
             <span>创建改版任务后同步创建花型任务</span>
           </label>
-          <p class="mt-2 text-xs text-slate-500">${escapeHtml(canCreatePatternTask ? '仅当改版范围涉及花型时可选，创建后会同步写入正式下游任务。' : '只有测款触发且已关联商品项目的改版任务，才可同步创建花型下游任务。')}</p>
+          <p class="mt-2 text-xs text-slate-500">${escapeHtml(canCreatePatternTask ? '本次改版涉及花型调整，创建后会同步生成花型任务。' : '只有测款触发且已关联商品项目的改版任务，才可同步创建花型下游任务。')}</p>
         </div>
       `
       : ''}
@@ -1382,7 +1598,7 @@ function renderPlateListPage(): string {
   return `
     <div class="space-y-5 p-4">
       ${renderNotice()}
-      ${renderPageHeader('制版任务', '将设计与改版方案转化为正式版型、尺码和纸样输出，并可直接写入 FCS 技术包版本。', '新建制版任务', 'open-plate-create')}
+      ${renderPageHeader('制版任务', '制版任务由商品项目节点推进自动创建；本页仅查看任务状态、纸样输出和技术包写入结果。', '', '')}
       ${renderListFilters({
         searchPlaceholder: '搜索任务编号 / 商品项目 / 款式 / 负责人',
         listState: state.plateList,
@@ -1427,8 +1643,12 @@ function renderPlateCreateDialog(): string {
 }
 
 function renderPlateDetailPage(plateTaskId: string): string {
+  syncExistingProjectEngineeringTaskNodes('系统同步')
   const task = getPlateMakingTaskById(plateTaskId)
   if (!task) return renderEmptyDetail('制版任务', '/pcs/patterns')
+  const detailDraft = ensurePlateDetailDraft(task)
+  const fieldPolicy = getEngineeringTaskFieldPolicy('PATTERN_TASK')
+  const completionMissingFields = getPlateTaskCompletionMissingFields(task)
   const downstreamFirst = listFirstSampleTasks().filter((item) => item.upstreamObjectId === task.plateTaskId || item.upstreamObjectCode === task.plateTaskCode)
   const downstreamPre = listPreProductionSampleTasks().filter((item) => item.upstreamObjectId === task.plateTaskId || item.upstreamObjectCode === task.plateTaskCode)
   const logs = mergeLogs('plate', task.plateTaskId, [
@@ -1442,6 +1662,9 @@ function renderPlateDetailPage(plateTaskId: string): string {
     `${renderStatusBadge(task.status)}<span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600">${escapeHtml(task.patternVersion || '待定版次')}</span>`,
     [
       `<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/patterns">返回列表</button>`,
+      ...(task.status !== '已完成' && task.status !== '已取消'
+        ? [`<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="complete-plate-task" data-task-id="${escapeHtml(task.plateTaskId)}">完成任务</button>`]
+        : []),
       `<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="plate-generate-tech-pack" data-task-id="${escapeHtml(task.plateTaskId)}">${escapeHtml(task.linkedTechPackVersionId ? '再次写入技术包' : '写入技术包')}</button>`,
     ].join(''),
   )
@@ -1463,7 +1686,19 @@ function renderPlateDetailPage(plateTaskId: string): string {
     { label: '来源对象', value: escapeHtml(task.upstreamObjectCode || task.upstreamObjectId || '-') },
     { label: '负责人', value: escapeHtml(task.ownerName) },
     { label: '参与人', value: escapeHtml(task.participantNames.join('、') || '-') },
-  ], 3))}`
+  ], 3))}${renderFieldLayerSection(
+    fieldPolicy,
+    completionMissingFields,
+    `
+      <div class="grid gap-4 md:grid-cols-2">
+        ${renderTextInput('参与人', 'plate-detail-participants', detailDraft.participantNamesText, '多个姓名请用顿号分隔')}
+        ${renderTextInput('制版版次', 'plate-detail-version', detailDraft.patternVersion, '例如：P2')}
+      </div>
+      <div class="mt-4 flex justify-end">
+        <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="save-plate-detail-fields" data-task-id="${escapeHtml(task.plateTaskId)}">保存实例补齐字段</button>
+      </div>
+    `,
+  )}`
 
   const version = renderSectionCard(
     '版次与输入',
@@ -1644,7 +1879,7 @@ function renderPatternListPage(): string {
   return `
     <div class="space-y-5 p-4">
       ${renderNotice()}
-      ${renderPageHeader('花型任务', '输出正式花型方案、色卡和生产文件，任务成果可直接进入花型库并回写 PCS / FCS 技术包。', '新建花型任务', 'open-pattern-create')}
+      ${renderPageHeader('花型任务', '花型任务由商品项目节点推进自动创建；本页仅查看花型输出、生产文件和技术包写入结果。', '', '')}
       ${renderListFilters({
         searchPlaceholder: '搜索任务编号 / 花型名称 / 商品项目 / 负责人',
         listState: state.patternList,
@@ -1690,8 +1925,12 @@ function renderPatternCreateDialog(): string {
 }
 
 function renderPatternDetailPage(patternTaskId: string): string {
+  syncExistingProjectEngineeringTaskNodes('系统同步')
   const task = getPatternTaskById(patternTaskId)
   if (!task) return renderEmptyDetail('花型任务', '/pcs/patterns/colors')
+  const detailDraft = ensurePatternDetailDraft(task)
+  const fieldPolicy = getEngineeringTaskFieldPolicy('PATTERN_ARTWORK_TASK')
+  const completionMissingFields = getPatternTaskCompletionMissingFields(task)
   const asset = listPatternAssets().find((item) => item.source_task_id === task.patternTaskId)
   const sampleTasks = listFirstSampleTasks().filter((item) => item.upstreamObjectId === task.patternTaskId || item.upstreamObjectCode === task.patternTaskCode)
   const logs = mergeLogs('pattern', task.patternTaskId, [
@@ -1705,6 +1944,9 @@ function renderPatternDetailPage(patternTaskId: string): string {
     `${renderStatusBadge(task.status)}<span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600">${escapeHtml(task.artworkVersion || '待确认版本')}</span>`,
     [
       `<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/patterns/colors">返回列表</button>`,
+      ...(task.status !== '已完成' && task.status !== '已取消'
+        ? [`<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="complete-pattern-task" data-task-id="${escapeHtml(task.patternTaskId)}">完成任务</button>`]
+        : []),
       `<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="pattern-generate-tech-pack" data-task-id="${escapeHtml(task.patternTaskId)}">${escapeHtml(task.linkedTechPackVersionId ? '再次写入技术包' : '写入技术包')}</button>`,
       `<button type="button" class="inline-flex h-10 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-engineering-action="pattern-publish-library" data-task-id="${escapeHtml(task.patternTaskId)}">${escapeHtml(asset ? '打开花型库' : '沉淀花型库')}</button>`,
     ].join(''),
@@ -1726,7 +1968,19 @@ function renderPatternDetailPage(patternTaskId: string): string {
     { label: '来源对象', value: escapeHtml(task.upstreamObjectCode || task.upstreamObjectId || '项目模板阶段') },
     { label: '款式档案', value: styleArchiveLinkByProject(task.projectId) },
   ], 3))}
-  ${renderSectionCard('排版与说明', `<div class="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600"><p>${escapeHtml(task.note || '花型任务输出包含版面说明、色卡与生产文件，可继续驱动样衣任务。')}</p></div>`)}`
+  ${renderSectionCard('排版与说明', `<div class="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600"><p>${escapeHtml(task.note || '花型任务输出包含版面说明、色卡与生产文件，可继续驱动样衣任务。')}</p></div>`)}
+  ${renderFieldLayerSection(
+    fieldPolicy,
+    completionMissingFields,
+    `
+      <div class="grid gap-4 md:grid-cols-2">
+        ${renderTextInput('花型版次', 'pattern-detail-version', detailDraft.artworkVersion, '例如：A2')}
+      </div>
+      <div class="mt-4 flex justify-end">
+        <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="save-pattern-detail-fields" data-task-id="${escapeHtml(task.patternTaskId)}">保存实例补齐字段</button>
+      </div>
+    `,
+  )}`
 
   const color = renderSectionCard(
     '色彩与色卡',
@@ -2549,7 +2803,6 @@ function submitRevisionCreate(): void {
   const selectedStyle = draft.sourceType === '测款触发'
     ? (projectDefaults.styleId ? getStyleArchiveById(projectDefaults.styleId) : null)
     : (draft.styleId ? getStyleArchiveById(draft.styleId) : null)
-  const selectedReference = getRevisionReferenceOption(draft.referenceObjectId)
 
   if (draft.sourceType === '测款触发' && !draft.projectId) {
     setNotice('测款触发的改版任务必须先选择商品项目。')
@@ -2557,10 +2810,6 @@ function submitRevisionCreate(): void {
   }
   if (draft.sourceType !== '测款触发' && !selectedStyle) {
     setNotice('请先选择正式款式档案。')
-    return
-  }
-  if (draft.sourceType === '人工创建' && !selectedReference) {
-    setNotice('人工创建的改版任务必须先选择参考对象。')
     return
   }
   if (!draft.issueSummary.trim()) {
@@ -2581,16 +2830,17 @@ function submitRevisionCreate(): void {
     styleId: selectedStyle?.styleId || '',
     styleCode: selectedStyle?.styleCode || projectDefaults.styleCode,
     styleName: selectedStyle?.styleName || projectDefaults.styleName,
-    referenceObjectType: selectedReference?.type || '',
-    referenceObjectId: selectedReference?.id || '',
-    referenceObjectCode: selectedReference?.code || '',
-    referenceObjectName: selectedReference?.name || '',
+    referenceObjectType: '',
+    referenceObjectId: '',
+    referenceObjectCode: '',
+    referenceObjectName: '',
     productStyleCode: selectedStyle?.styleCode || projectDefaults.styleCode,
     spuCode: selectedStyle?.styleCode || projectDefaults.styleCode,
     revisionScopeCodes: [...draft.scopeCodes],
     revisionScopeNames: REVISION_SCOPE_OPTIONS.filter((option) => draft.scopeCodes.includes(option.value)).map((option) => option.label),
     issueSummary: draft.issueSummary.trim(),
     evidenceSummary: draft.evidenceSummary.trim(),
+    evidenceImageUrls: [...draft.evidenceImageUrls],
     note: draft.note.trim(),
     operatorName: '当前用户',
   })
@@ -2790,6 +3040,7 @@ function generatePatternTechPack(taskId: string): void {
 }
 
 export function renderPcsRevisionTaskPage(): string {
+  syncExistingProjectEngineeringTaskNodes('系统同步')
   return renderRevisionListPage()
 }
 
@@ -2798,6 +3049,7 @@ export function renderPcsRevisionTaskDetailPage(revisionTaskId: string): string 
 }
 
 export function renderPcsPlateMakingTaskPage(): string {
+  syncExistingProjectEngineeringTaskNodes('系统同步')
   return renderPlateListPage()
 }
 
@@ -2806,6 +3058,7 @@ export function renderPcsPlateMakingTaskDetailPage(plateTaskId: string): string 
 }
 
 export function renderPcsPatternTaskPage(): string {
+  syncExistingProjectEngineeringTaskNodes('系统同步')
   return renderPatternListPage()
 }
 
@@ -2834,6 +3087,17 @@ export function handlePcsEngineeringTaskInput(target: Element): boolean {
   if (!fieldNode) return false
   const field = fieldNode.dataset.pcsEngineeringField
   if (!field) return false
+
+  if (field === 'revision-create-evidence-images' && fieldNode instanceof HTMLInputElement) {
+    const files = Array.from(fieldNode.files || []).filter((file) => file.type.startsWith('image/'))
+    if (files.length === 0) return true
+    state.revisionCreateDraft.evidenceImageUrls = [
+      ...state.revisionCreateDraft.evidenceImageUrls,
+      ...files.map((file) => URL.createObjectURL(file)),
+    ]
+    fieldNode.value = ''
+    return true
+  }
 
   if (field === 'revision-search' && fieldNode instanceof HTMLInputElement) { state.revisionList.search = fieldNode.value; state.revisionList.currentPage = 1; return true }
   if (field === 'revision-status' && fieldNode instanceof HTMLSelectElement) { state.revisionList.status = fieldNode.value; state.revisionList.currentPage = 1; return true }
@@ -2865,7 +3129,6 @@ export function handlePcsEngineeringTaskInput(target: Element): boolean {
         state.revisionCreateDraft.sourceType = value as RevisionTaskSourceType
         state.revisionCreateDraft.projectId = ''
         state.revisionCreateDraft.styleId = ''
-        state.revisionCreateDraft.referenceObjectId = ''
         state.revisionCreateDraft.ownerName = ''
         state.revisionCreateDraft.createPatternTask = false
         return true
@@ -2878,17 +3141,18 @@ export function handlePcsEngineeringTaskInput(target: Element): boolean {
           state.revisionCreateDraft.scopeCodes,
           state.revisionCreateDraft.sourceType,
           value,
-        ) ? state.revisionCreateDraft.createPatternTask : false
+        )
         return true
       }
       case 'revision-create-style-id': state.revisionCreateDraft.styleId = value; return true
-      case 'revision-create-reference-object': state.revisionCreateDraft.referenceObjectId = value; return true
       case 'revision-create-owner': state.revisionCreateDraft.ownerName = value; return true
       case 'revision-create-title': state.revisionCreateDraft.title = value; return true
-      case 'revision-create-due-at': state.revisionCreateDraft.dueAt = value; return true
+      case 'revision-create-due-at': state.revisionCreateDraft.dueAt = fromDateTimeLocalValue(value); return true
       case 'revision-create-issue-summary': state.revisionCreateDraft.issueSummary = value; return true
       case 'revision-create-evidence-summary': state.revisionCreateDraft.evidenceSummary = value; return true
       case 'revision-create-note': state.revisionCreateDraft.note = value; return true
+      case 'revision-detail-participants': state.revisionDetailDraft.participantNamesText = value; return true
+      case 'revision-detail-version': state.revisionDetailDraft.revisionVersion = value; return true
       case 'plate-create-project': {
         state.plateCreateDraft.projectId = value
         const defaults = getProjectDefaultValues(value)
@@ -2903,6 +3167,8 @@ export function handlePcsEngineeringTaskInput(target: Element): boolean {
       case 'plate-create-pattern-type': state.plateCreateDraft.patternType = value; return true
       case 'plate-create-size-range': state.plateCreateDraft.sizeRange = value; return true
       case 'plate-create-note': state.plateCreateDraft.note = value; return true
+      case 'plate-detail-participants': state.plateDetailDraft.participantNamesText = value; return true
+      case 'plate-detail-version': state.plateDetailDraft.patternVersion = value; return true
       case 'pattern-create-project': {
         state.patternCreateDraft.projectId = value
         const defaults = getProjectDefaultValues(value)
@@ -2918,6 +3184,7 @@ export function handlePcsEngineeringTaskInput(target: Element): boolean {
       case 'pattern-create-artwork-type': state.patternCreateDraft.artworkType = value; return true
       case 'pattern-create-pattern-mode': state.patternCreateDraft.patternMode = value; return true
       case 'pattern-create-note': state.patternCreateDraft.note = value; return true
+      case 'pattern-detail-version': state.patternDetailDraft.artworkVersion = value; return true
       case 'first-sample-create-project': {
         state.firstSampleCreateDraft.projectId = value
         state.firstSampleCreateDraft.ownerName = getProjectById(value)?.ownerName || ''
@@ -2961,13 +3228,13 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement): boolean {
   if (action === 'close-notice') { clearNotice(); return true }
   if (action === 'refresh-page') { setNotice('已刷新当前任务页面。'); return true }
 
-  if (action === 'open-revision-create') { state.revisionCreateOpen = true; return true }
+  if (action === 'open-revision-create') { setNotice('请在商品项目对应节点中推进并自动创建改版任务。'); return true }
   if (action === 'close-revision-create') { state.revisionCreateOpen = false; return true }
   if (action === 'submit-revision-create') { submitRevisionCreate(); return true }
-  if (action === 'open-plate-create') { state.plateCreateOpen = true; return true }
+  if (action === 'open-plate-create') { setNotice('请在商品项目对应节点中推进并自动创建制版任务。'); return true }
   if (action === 'close-plate-create') { state.plateCreateOpen = false; return true }
   if (action === 'submit-plate-create') { submitPlateCreate(); return true }
-  if (action === 'open-pattern-create') { state.patternCreateOpen = true; return true }
+  if (action === 'open-pattern-create') { setNotice('请在商品项目对应节点中推进并自动创建花型任务。'); return true }
   if (action === 'close-pattern-create') { state.patternCreateOpen = false; return true }
   if (action === 'submit-pattern-create') { submitPatternCreate(); return true }
   if (action === 'open-first-sample-create') { state.firstSampleCreateOpen = true; return true }
@@ -3000,9 +3267,11 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement): boolean {
     state.revisionCreateDraft.scopeCodes = state.revisionCreateDraft.scopeCodes.includes(scopeCode)
       ? state.revisionCreateDraft.scopeCodes.filter((item) => item !== scopeCode)
       : [...state.revisionCreateDraft.scopeCodes, scopeCode]
-    if (!canCreateRevisionPatternTask(state.revisionCreateDraft.scopeCodes, state.revisionCreateDraft.sourceType, state.revisionCreateDraft.projectId)) {
-      state.revisionCreateDraft.createPatternTask = false
-    }
+    state.revisionCreateDraft.createPatternTask = canCreateRevisionPatternTask(
+      state.revisionCreateDraft.scopeCodes,
+      state.revisionCreateDraft.sourceType,
+      state.revisionCreateDraft.projectId,
+    )
     return true
   }
 
@@ -3011,13 +3280,106 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement): boolean {
       state.revisionCreateDraft.createPatternTask = false
       return true
     }
-    state.revisionCreateDraft.createPatternTask = !state.revisionCreateDraft.createPatternTask
+    state.revisionCreateDraft.createPatternTask = true
+    return true
+  }
+
+  if (action === 'remove-revision-evidence-image') {
+    const index = Number(actionNode.dataset.imageIndex || '-1')
+    if (index >= 0) {
+      state.revisionCreateDraft.evidenceImageUrls = state.revisionCreateDraft.evidenceImageUrls.filter((_, itemIndex) => itemIndex !== index)
+    }
+    return true
+  }
+
+  if (action === 'open-image-preview') {
+    state.imagePreview = {
+      open: true,
+      url: actionNode.dataset.url || '',
+      title: actionNode.dataset.title || '图片预览',
+    }
+    return true
+  }
+
+  if (action === 'close-image-preview') {
+    state.imagePreview = { open: false, url: '', title: '' }
+    return true
+  }
+
+  if (action === 'save-revision-detail-fields') {
+    const taskId = actionNode.dataset.taskId || ''
+    const draft = state.revisionDetailDraft
+    const participants = draft.participantNamesText.split(/[、,，]/).map((item) => item.trim()).filter(Boolean)
+    updateRevisionTask(taskId, {
+      participantNames: participants,
+      revisionVersion: draft.revisionVersion.trim(),
+      updatedAt: nowText(),
+      updatedBy: '当前用户',
+    })
+    setNotice('改版任务实例补齐字段已保存。')
+    return true
+  }
+  if (action === 'save-plate-detail-fields') {
+    const taskId = actionNode.dataset.taskId || ''
+    const draft = state.plateDetailDraft
+    const participants = draft.participantNamesText.split(/[、,，]/).map((item) => item.trim()).filter(Boolean)
+    updatePlateMakingTask(taskId, {
+      participantNames: participants,
+      patternVersion: draft.patternVersion.trim(),
+      updatedAt: nowText(),
+      updatedBy: '当前用户',
+    })
+    setNotice('制版任务实例补齐字段已保存。')
+    return true
+  }
+  if (action === 'save-pattern-detail-fields') {
+    const taskId = actionNode.dataset.taskId || ''
+    const draft = state.patternDetailDraft
+    updatePatternTask(taskId, {
+      artworkVersion: draft.artworkVersion.trim(),
+      updatedAt: nowText(),
+      updatedBy: '当前用户',
+    })
+    setNotice('花型任务实例补齐字段已保存。')
     return true
   }
 
   if (action === 'revision-generate-tech-pack') { generateRevisionTechPack(actionNode.dataset.taskId || ''); return true }
   if (action === 'plate-generate-tech-pack') { generatePlateTechPack(actionNode.dataset.taskId || ''); return true }
   if (action === 'pattern-generate-tech-pack') { generatePatternTechPack(actionNode.dataset.taskId || ''); return true }
+  if (action === 'complete-revision-task') {
+    const taskId = actionNode.dataset.taskId || ''
+    try {
+      const result = completeRevisionTaskWithProjectRelationSync(taskId, '当前用户')
+      pushRuntimeLog('revision', taskId, '完成任务', '已完成改版任务并同步商品项目节点。')
+      setNotice(`改版任务 ${result.task.revisionTaskCode} 已完成，并同步更新商品项目节点。`)
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : '改版任务完成失败。')
+    }
+    return true
+  }
+  if (action === 'complete-plate-task') {
+    const taskId = actionNode.dataset.taskId || ''
+    try {
+      const result = completePlateMakingTaskWithProjectRelationSync(taskId, '当前用户')
+      pushRuntimeLog('plate', taskId, '完成任务', '已完成制版任务并同步商品项目节点。')
+      setNotice(`制版任务 ${result.task.plateTaskCode} 已完成，并同步更新商品项目节点。`)
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : '制版任务完成失败。')
+    }
+    return true
+  }
+  if (action === 'complete-pattern-task') {
+    const taskId = actionNode.dataset.taskId || ''
+    try {
+      const result = completePatternTaskWithProjectRelationSync(taskId, '当前用户')
+      pushRuntimeLog('pattern', taskId, '完成任务', '已完成花型任务并同步商品项目节点。')
+      setNotice(`花型任务 ${result.task.patternTaskCode} 已完成，并同步更新商品项目节点。`)
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : '花型任务完成失败。')
+    }
+    return true
+  }
   if (action === 'pattern-publish-library') {
     const taskId = actionNode.dataset.taskId || ''
     const result = createPatternAssetFromTask(taskId)
@@ -3079,14 +3441,20 @@ export function resetPcsEngineeringTaskState(): void {
   state.revisionTab = 'plan'
   state.revisionCreateOpen = false
   state.revisionCreateDraft = initialRevisionCreateDraft()
+  state.revisionDetailDraftTaskId = ''
+  state.revisionDetailDraft = { participantNamesText: '', revisionVersion: '' }
   state.plateList = { search: '', status: 'all', owner: 'all', source: 'all', quickFilter: 'all', currentPage: 1 }
   state.plateTab = 'overview'
   state.plateCreateOpen = false
   state.plateCreateDraft = initialPlateCreateDraft()
+  state.plateDetailDraftTaskId = ''
+  state.plateDetailDraft = { participantNamesText: '', patternVersion: '' }
   state.patternList = { search: '', status: 'all', owner: 'all', source: 'all', quickFilter: 'all', currentPage: 1 }
   state.patternTab = 'plan'
   state.patternCreateOpen = false
   state.patternCreateDraft = initialPatternCreateDraft()
+  state.patternDetailDraftTaskId = ''
+  state.patternDetailDraft = { artworkVersion: '' }
   state.firstSampleList = { search: '', status: 'all', owner: 'all', source: 'all', quickFilter: 'all', currentPage: 1, site: 'all' }
   state.firstSampleTab = 'overview'
   state.firstSampleCreateOpen = false

@@ -17,6 +17,7 @@ function cloneTask(task: RevisionTaskRecord): RevisionTaskRecord {
     participantNames: [...task.participantNames],
     revisionScopeCodes: [...task.revisionScopeCodes],
     revisionScopeNames: [...task.revisionScopeNames],
+    evidenceImageUrls: [...(task.evidenceImageUrls || [])],
   }
 }
 
@@ -56,6 +57,7 @@ function normalizeTask(task: RevisionTaskRecord): RevisionTaskRecord {
     revisionScopeNames: [...(task.revisionScopeNames || [])],
     issueSummary: task.issueSummary || '',
     evidenceSummary: task.evidenceSummary || '',
+    evidenceImageUrls: [...(task.evidenceImageUrls || [])],
     linkedTechPackVersionId: task.linkedTechPackVersionId || '',
     linkedTechPackVersionCode: task.linkedTechPackVersionCode || '',
     linkedTechPackVersionLabel: task.linkedTechPackVersionLabel || '',

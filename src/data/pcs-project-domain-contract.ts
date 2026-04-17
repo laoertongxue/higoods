@@ -2597,7 +2597,7 @@ export const PCS_PROJECT_TEMPLATE_SCHEMAS: PcsProjectTemplateSchema[] = [
     description: '保留快反节奏，但不再跳过款式档案和技术包链路。',
     phaseSchemas: [
       { phaseCode: 'PHASE_01', whyExists: '快反项目仍要先立项并明确样衣来源。', nodeCodes: ['PROJECT_INIT', 'SAMPLE_ACQUIRE'] },
-      { phaseCode: 'PHASE_02', whyExists: '快反项目压缩评估动作，但样衣确认、核价和定价不能省略。', nodeCodes: ['FEASIBILITY_REVIEW', 'SAMPLE_CONFIRM', 'SAMPLE_COST_REVIEW', 'SAMPLE_PRICING'] },
+      { phaseCode: 'PHASE_02', whyExists: '快反项目压缩评估动作，但样衣拍摄试穿、确认、核价和定价不能省略。', nodeCodes: ['FEASIBILITY_REVIEW', 'SAMPLE_SHOOT_FIT', 'SAMPLE_CONFIRM', 'SAMPLE_COST_REVIEW', 'SAMPLE_PRICING'] },
       { phaseCode: 'PHASE_03', whyExists: '直播测款前必须先完成商品上架，并形成统一结论。', nodeCodes: ['CHANNEL_PRODUCT_LISTING', 'LIVE_TEST', 'TEST_DATA_SUMMARY', 'TEST_CONCLUSION'] },
       { phaseCode: 'PHASE_04', whyExists: '测款通过后仍必须生成款式档案、进入技术包和制版链路。', nodeCodes: ['STYLE_ARCHIVE_CREATE', 'PROJECT_TRANSFER_PREP', 'REVISION_TASK', 'PATTERN_TASK'] },
       { phaseCode: 'PHASE_05', whyExists: '快反项目结束时仍需明确样衣留存。', nodeCodes: ['SAMPLE_RETAIN_REVIEW'] },
@@ -2615,7 +2615,7 @@ export const PCS_PROJECT_TEMPLATE_SCHEMAS: PcsProjectTemplateSchema[] = [
     description: '保留改版项目节奏，但测款通过后必须进入正式款式档案与转档链路。',
     phaseSchemas: [
       { phaseCode: 'PHASE_01', whyExists: '改版项目仍需立项、样衣来源和到样核对。', nodeCodes: ['PROJECT_INIT', 'SAMPLE_ACQUIRE', 'SAMPLE_INBOUND_CHECK'] },
-      { phaseCode: 'PHASE_02', whyExists: '围绕改版样衣做必要的可行性、确认和核价。', nodeCodes: ['FEASIBILITY_REVIEW', 'SAMPLE_CONFIRM', 'SAMPLE_COST_REVIEW'] },
+      { phaseCode: 'PHASE_02', whyExists: '围绕改版样衣完成确认和核价。', nodeCodes: ['SAMPLE_CONFIRM', 'SAMPLE_COST_REVIEW'] },
       { phaseCode: 'PHASE_03', whyExists: '直播测款前必须先完成商品上架，并形成统一结论。', nodeCodes: ['CHANNEL_PRODUCT_LISTING', 'LIVE_TEST', 'TEST_DATA_SUMMARY', 'TEST_CONCLUSION'] },
       { phaseCode: 'PHASE_04', whyExists: '测款通过后进入款式档案、技术包和首版样衣推进。', nodeCodes: ['STYLE_ARCHIVE_CREATE', 'PROJECT_TRANSFER_PREP', 'REVISION_TASK', 'FIRST_SAMPLE'] },
       { phaseCode: 'PHASE_05', whyExists: '项目结束时仍需留存评估。', nodeCodes: ['SAMPLE_RETAIN_REVIEW'] },

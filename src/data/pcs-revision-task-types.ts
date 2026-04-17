@@ -38,6 +38,7 @@ export interface RevisionTaskRecord {
   revisionVersion: string
   issueSummary: string
   evidenceSummary: string
+  evidenceImageUrls: string[]
   linkedTechPackVersionId: string
   linkedTechPackVersionCode: string
   linkedTechPackVersionLabel: string

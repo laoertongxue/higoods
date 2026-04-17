@@ -47,7 +47,7 @@ import {
 
 const DEMO_OPERATOR = '系统演示'
 const DEMO_SEED_VERSION_STORAGE_KEY = 'higood-pcs-project-demo-seed-version'
-const DEMO_SEED_VERSION = '2026-04-16-project-page-hotfix'
+const DEMO_SEED_VERSION = '2026-04-17-revision-template-remove-feasibility'
 const EXISTING_COVERAGE_PROJECT_THRESHOLD = 40
 
 let projectDemoSeedReady = false
@@ -1895,9 +1895,9 @@ export function ensurePcsProjectDemoDataReady(): void {
     businessDate: '2026-04-07',
     note: '改版样衣已完成准备。',
   })
-  seedInlineRecordAndComplete(terminatedProject.projectId, 'FEASIBILITY_REVIEW', {
+  seedInlineRecordAndComplete(terminatedProject.projectId, 'SAMPLE_CONFIRM', {
     businessDate: '2026-04-07',
-    note: '改版目标明确，但渠道预期一般。',
+    note: '改版样衣已确认，但渠道预期一般。',
   })
   terminateProject(terminatedProject.projectId, '测款表现未达标，决定停止继续开发。', DEMO_OPERATOR, '2026-04-08 15:20')
   updateProjectRecord(terminatedProject.projectId, { updatedAt: '2026-04-08 15:20' }, DEMO_OPERATOR)

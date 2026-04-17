@@ -402,9 +402,6 @@ function renderListHeader(): string {
         <h1 class="mt-2 text-2xl font-semibold text-slate-900">商品项目模板</h1>
         <p class="mt-1 text-sm text-slate-500">管理商品项目模板，快速生成标准化流程结构。</p>
       </div>
-      <button type="button" class="inline-flex h-10 items-center gap-2 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-nav="/pcs/templates/new">
-        <i data-lucide="plus" class="h-4 w-4"></i>新增模板
-      </button>
     </header>
   `
 }
@@ -506,9 +503,7 @@ function renderListTable(): string {
                           </td>
                           <td class="px-4 py-3 align-top">
                             <div class="flex flex-wrap justify-center gap-2">
-                              <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/templates/${escapeHtml(template.id)}/edit">编辑</button>
-                              <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-pcs-template-action="copy-template" data-template-id="${escapeHtml(template.id)}">复制</button>
-                              <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-pcs-template-action="open-toggle" data-template-id="${escapeHtml(template.id)}">${template.status === 'active' ? '停用' : '启用'}</button>
+                              <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/templates/${escapeHtml(template.id)}">查看详情</button>
                             </div>
                           </td>
                         </tr>
@@ -547,48 +542,6 @@ function renderDetailSummary(template: ProjectTemplate): string {
       ${renderBaseInfoCard('创建时间', formatDateTime(template.createdAt))}
       ${renderBaseInfoCard('最近更新时间', formatDateTime(template.updatedAt))}
       ${renderBaseInfoCard('业务闭环', summary.closureStatus, summary.closureText)}
-    </section>
-  `
-}
-
-function renderBusinessSections(template: ProjectTemplate): string {
-  const summary = buildTemplateBusinessSummary(template)
-  const issues = summary.issues
-
-  return `
-    <section class="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-      <article class="rounded-lg border bg-white p-4">
-        <h2 class="text-lg font-semibold text-slate-900">模板说明</h2>
-        <p class="mt-3 text-sm leading-6 text-slate-700">${escapeHtml(template.description)}</p>
-        <div class="mt-4 flex flex-wrap gap-2">
-          ${summary.pathFlags
-            .map(
-              (flag) =>
-                `<span class="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-600">${escapeHtml(flag)}</span>`,
-            )
-            .join('')}
-        </div>
-        <div class="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
-          <p class="text-xs text-slate-500">三码关系说明</p>
-          <p class="mt-2 text-sm leading-6 text-slate-700">${escapeHtml(buildTemplateTripletNote())}</p>
-        </div>
-      </article>
-      <article class="rounded-lg border bg-white p-4">
-        <h2 class="text-lg font-semibold text-slate-900">业务链路摘要</h2>
-        <p class="mt-3 text-sm leading-6 text-slate-700">${escapeHtml(summary.scenarioSummary)}</p>
-        ${
-          issues.length === 0
-            ? `<div class="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">当前模板结构满足正式矩阵校验，可直接用于商品项目建模。</div>`
-            : `
-              <div class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
-                <p class="text-sm font-medium text-amber-800">存在 ${issues.length} 项配置提醒</p>
-                <ul class="mt-2 space-y-2 text-sm text-amber-700">
-                  ${issues.map((issue) => `<li>• ${escapeHtml(issue.message)}</li>`).join('')}
-                </ul>
-              </div>
-            `
-        }
-      </article>
     </section>
   `
 }
@@ -1026,15 +979,6 @@ export function renderPcsTemplateDetailPage(templateId: string): string {
               <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/templates">
                 <i data-lucide="arrow-left" class="h-4 w-4"></i>返回模板列表
               </button>
-              <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/templates/${escapeHtml(template.id)}/edit">
-                <i data-lucide="square-pen" class="h-4 w-4"></i>编辑
-              </button>
-              <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-template-action="copy-template" data-template-id="${escapeHtml(template.id)}">
-                <i data-lucide="copy" class="h-4 w-4"></i>复制
-              </button>
-              <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-template-action="open-toggle" data-template-id="${escapeHtml(template.id)}">
-                <i data-lucide="${template.status === 'active' ? 'power-off' : 'power'}" class="h-4 w-4"></i>${template.status === 'active' ? '停用' : '启用'}
-              </button>
             </div>
             <div>
               <p class="text-xs text-slate-500">项目模板管理 / 详情</p>
@@ -1048,7 +992,6 @@ export function renderPcsTemplateDetailPage(templateId: string): string {
                   .join('')}
                 <span class="inline-flex rounded-full px-2 py-0.5 text-xs ${getStatusBadgeClass(template.status)}">${escapeHtml(getStatusLabel(template.status))}</span>
               </div>
-              <p class="mt-2 text-sm text-slate-500">${escapeHtml(template.description)}</p>
             </div>
           </div>
           <div class="rounded-lg border bg-slate-50 px-4 py-3 text-right">
@@ -1059,7 +1002,6 @@ export function renderPcsTemplateDetailPage(templateId: string): string {
       </section>
 
       ${renderDetailSummary(template)}
-      ${renderBusinessSections(template)}
       ${renderPendingNodes(template)}
 
       <section class="space-y-4">
@@ -1079,10 +1021,7 @@ export function renderPcsTemplateDetailPage(templateId: string): string {
 }
 
 export function renderPcsTemplateEditorPage(templateId?: string): string {
-  const mode: TemplateEditorMode = templateId ? 'edit' : 'create'
-  ensureEditorState(mode, templateId)
-
-  if (mode === 'edit' && templateId && !getProjectTemplateById(templateId)) {
+  if (templateId && !getProjectTemplateById(templateId)) {
     return `
       <div class="space-y-5 p-4">
         ${renderNotice()}
@@ -1103,82 +1042,21 @@ export function renderPcsTemplateEditorPage(templateId?: string): string {
   }
 
   return `
-    <div class="space-y-5 p-4 pb-24">
+    <div class="space-y-5 p-4">
       ${renderNotice()}
-      <header class="space-y-3">
-        <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/templates">
-          <i data-lucide="arrow-left" class="h-4 w-4"></i>返回模板列表
-        </button>
-        <div>
-          <p class="text-xs text-slate-500">项目模板管理 / ${mode === 'create' ? '新增模板' : '编辑模板'}</p>
-          <h1 class="mt-2 text-2xl font-semibold text-slate-900">${mode === 'create' ? '新增模板' : '编辑模板'}</h1>
-          <p class="mt-1 text-sm text-slate-500">${mode === 'create' ? '创建新的商品项目模板。' : '调整模板基础信息和阶段工作项配置。'}</p>
-        </div>
-      </header>
-
-      ${renderEditorError()}
-      ${renderEditorPendingNodes()}
-
       <section class="rounded-lg border bg-white p-4">
-        <h2 class="text-lg font-semibold text-slate-900">模板基本信息</h2>
-        <div class="mt-4 grid gap-4 md:grid-cols-2">
-          <label class="space-y-1.5">
-            <span class="text-sm font-medium text-slate-700">模板名称 <span class="text-rose-500">*</span></span>
-            <input
-              class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              placeholder="如：基础款-完整流程模板"
-              value="${escapeHtml(state.editor.templateName)}"
-              data-pcs-template-field="editor-name"
-            />
-          </label>
-          <label class="space-y-1.5">
-            <span class="text-sm font-medium text-slate-700">适用款式类型 <span class="text-rose-500">*</span></span>
-            <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" data-pcs-template-field="editor-styleType">
-              ${STYLE_TYPE_OPTIONS.map(
-                (option) =>
-                  `<option value="${escapeHtml(option)}" ${state.editor.styleType === option ? 'selected' : ''}>${escapeHtml(option)}</option>`,
-              ).join('')}
-            </select>
-          </label>
-          <label class="space-y-1.5 md:col-span-2">
-            <span class="text-sm font-medium text-slate-700">模板说明</span>
-            <textarea
-              class="min-h-[96px] w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              placeholder="描述模板适用场景..."
-              data-pcs-template-field="editor-description"
-            >${escapeHtml(state.editor.description)}</textarea>
-          </label>
-          <label class="space-y-1.5">
-            <span class="text-sm font-medium text-slate-700">启用状态</span>
-            <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" data-pcs-template-field="editor-status">
-              <option value="active" ${state.editor.status === 'active' ? 'selected' : ''}>启用</option>
-              <option value="inactive" ${state.editor.status === 'inactive' ? 'selected' : ''}>停用</option>
-            </select>
-          </label>
-        </div>
-      </section>
-
-      <section class="space-y-4">
-        <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h2 class="text-lg font-semibold text-slate-900">阶段 & 工作项配置</h2>
-            <p class="mt-1 text-sm text-slate-500">沿用 PCS 正式阶段矩阵编排模板节点，支持按规则启停可选工作项并补充执行说明。</p>
+            <p class="text-xs text-slate-500">项目模板管理 / 只读说明</p>
+            <h1 class="mt-2 text-2xl font-semibold text-slate-900">商品项目模板为内置固定模板</h1>
+            <p class="mt-1 text-sm text-slate-500">当前仅支持查看模板详情，不支持新增、编辑、复用或停用。</p>
           </div>
-          <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-template-action="show-add-stage-hint">
-            <i data-lucide="plus" class="h-4 w-4"></i>新增阶段
+          <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/templates">
+            <i data-lucide="arrow-left" class="h-4 w-4"></i>返回模板列表
           </button>
         </div>
-        ${state.editor.stages
-          .slice()
-          .sort((a, b) => a.phaseOrder - b.phaseOrder)
-          .map((stage) => renderEditorStage(stage))
-          .join('')}
-      </section>
-
-      <div class="sticky bottom-0 z-20 -mx-6 border-t border-slate-200 bg-white/95 px-6 py-4 backdrop-blur">
-        <div class="flex flex-wrap items-center justify-end gap-3">
-          <button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-template-action="open-cancel">取消</button>
-          <button type="button" class="inline-flex h-10 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-template-action="save-editor">${mode === 'create' ? '创建模板' : '保存模板'}</button>
+        <div class="mt-4 rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-sm text-slate-500">
+          如需查看模板内容，请返回模板列表进入对应详情页。
         </div>
       </div>
     </div>

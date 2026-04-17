@@ -136,7 +136,6 @@ const PROJECT_RECORD_PLAN: Record<string, PcsProjectInlineNodeRecordWorkItemType
   'PRJ-20251216-004': [
     'SAMPLE_ACQUIRE',
     'SAMPLE_INBOUND_CHECK',
-    'FEASIBILITY_REVIEW',
     'SAMPLE_CONFIRM',
     'SAMPLE_COST_REVIEW',
   ],

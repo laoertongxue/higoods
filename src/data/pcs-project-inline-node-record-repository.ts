@@ -382,7 +382,14 @@ function hydrateSnapshot(
   return {
     version: INLINE_NODE_RECORD_STORE_VERSION,
     records: Array.isArray(snapshot?.records)
-      ? snapshot.records.map((record) => normalizeRecord(record as PcsProjectInlineNodeRecord)).sort(compareRecords)
+      ? snapshot.records
+          .map((record) => normalizeRecord(record as PcsProjectInlineNodeRecord))
+          .filter((record) => {
+            if (record.workItemTypeCode !== 'FEASIBILITY_REVIEW') return true
+            const project = getProjectById(record.projectId)
+            return project?.templateId !== 'TPL-003'
+          })
+          .sort(compareRecords)
       : [],
   }
 }

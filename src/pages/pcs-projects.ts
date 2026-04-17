@@ -39,6 +39,11 @@ import {
   type PcsProjectWorkItemCode,
 } from '../data/pcs-project-domain-contract.ts'
 import {
+  getEngineeringTaskFieldPolicy,
+  type EngineeringTaskFieldDescriptor,
+  type EngineeringTaskFieldPolicyCode,
+} from '../data/pcs-engineering-task-field-policy.ts'
+import {
   getLatestProjectInlineNodeRecord,
   listProjectInlineNodeRecordsByNode,
   listProjectInlineNodeRecordsByProject,
@@ -74,12 +79,20 @@ import {
   generateStyleArchiveFromProjectNode,
   getStyleArchiveGenerationStatus,
 } from '../data/pcs-project-style-archive-generation.ts'
+import {
+  createPatternTaskWithProjectRelation,
+  createPlateMakingTaskWithProjectRelation,
+  createRevisionTaskWithProjectRelation,
+  syncExistingProjectEngineeringTaskNodes,
+} from '../data/pcs-task-project-relation-writeback.ts'
+import { findStyleArchiveByProjectId } from '../data/pcs-style-archive-repository.ts'
 
 type ProjectListViewMode = 'list' | 'grid'
 type ProjectListSort = 'updatedAt' | 'pendingDecision' | 'risk' | 'progressLow'
 type ProjectDateRange = '全部时间' | '今天' | '最近一周' | '最近一月'
 type WorkItemTabKey = 'full-info' | 'records' | 'attachments' | 'audit'
 type DecisionDialogSource = 'detail' | 'work-item'
+type EngineeringTaskCreateType = '' | 'REVISION_TASK' | 'PATTERN_TASK' | 'PATTERN_ARTWORK_TASK'
 
 interface ProjectListState {
   search: string
@@ -135,6 +148,52 @@ interface RecordDialogState {
   values: Record<string, string>
 }
 
+interface RevisionTaskCreateDraft {
+  title: string
+  ownerName: string
+  dueAt: string
+  issueSummary: string
+  evidenceSummary: string
+  evidenceImageUrls: string[]
+  scopeCodes: string[]
+  note: string
+}
+
+interface PlateTaskCreateDraft {
+  title: string
+  ownerName: string
+  dueAt: string
+  patternType: string
+  sizeRange: string
+  note: string
+}
+
+interface PatternTaskCreateDraft {
+  title: string
+  ownerName: string
+  dueAt: string
+  artworkType: string
+  patternMode: string
+  artworkName: string
+  note: string
+}
+
+interface EngineeringTaskCreateDialogState {
+  open: boolean
+  projectId: string
+  projectNodeId: string
+  workItemTypeCode: EngineeringTaskCreateType
+  revisionDraft: RevisionTaskCreateDraft
+  plateDraft: PlateTaskCreateDraft
+  patternDraft: PatternTaskCreateDraft
+}
+
+interface ProjectImagePreviewState {
+  open: boolean
+  url: string
+  title: string
+}
+
 interface ProjectPageState {
   list: ProjectListState
   create: ProjectCreateState
@@ -146,6 +205,8 @@ interface ProjectPageState {
   createCancelOpen: boolean
   decisionDialog: DecisionDialogState
   recordDialog: RecordDialogState
+  engineeringCreateDialog: EngineeringTaskCreateDialogState
+  imagePreview: ProjectImagePreviewState
 }
 
 interface ProjectNodeViewModel {
@@ -234,6 +295,16 @@ const WORK_ITEM_TAB_OPTIONS: Array<{ key: WorkItemTabKey; label: string }> = [
   { key: 'attachments', label: '附件与引用' },
   { key: 'audit', label: '操作日志' },
 ]
+const REVISION_SCOPE_OPTIONS = [
+  { value: 'PATTERN', label: '版型结构' },
+  { value: 'SIZE', label: '尺码规格' },
+  { value: 'FABRIC', label: '面料' },
+  { value: 'ACCESSORIES', label: '辅料' },
+  { value: 'CRAFT', label: '工艺' },
+  { value: 'PRINT', label: '花型' },
+  { value: 'COLOR', label: '颜色' },
+  { value: 'PACKAGE', label: '包装标识' },
+] as const
 
 const initialListState: ProjectListState = {
   search: '',
@@ -259,6 +330,54 @@ function createEmptyRecordDialogState(): RecordDialogState {
     businessDate: '',
     note: '',
     values: {},
+  }
+}
+
+function createEmptyRevisionTaskCreateDraft(): RevisionTaskCreateDraft {
+  return {
+    title: '',
+    ownerName: '',
+    dueAt: '',
+    issueSummary: '',
+    evidenceSummary: '',
+    evidenceImageUrls: [],
+    scopeCodes: ['PATTERN'],
+    note: '',
+  }
+}
+
+function createEmptyPlateTaskCreateDraft(): PlateTaskCreateDraft {
+  return {
+    title: '',
+    ownerName: '',
+    dueAt: '',
+    patternType: '常规制版',
+    sizeRange: '',
+    note: '',
+  }
+}
+
+function createEmptyPatternTaskCreateDraft(): PatternTaskCreateDraft {
+  return {
+    title: '',
+    ownerName: '',
+    dueAt: '',
+    artworkType: '印花',
+    patternMode: '定位印',
+    artworkName: '',
+    note: '',
+  }
+}
+
+function createEmptyEngineeringTaskCreateDialogState(): EngineeringTaskCreateDialogState {
+  return {
+    open: false,
+    projectId: '',
+    projectNodeId: '',
+    workItemTypeCode: '',
+    revisionDraft: createEmptyRevisionTaskCreateDraft(),
+    plateDraft: createEmptyPlateTaskCreateDraft(),
+    patternDraft: createEmptyPatternTaskCreateDraft(),
   }
 }
 
@@ -294,6 +413,12 @@ const state: ProjectPageState = {
     note: '',
   },
   recordDialog: createEmptyRecordDialogState(),
+  engineeringCreateDialog: createEmptyEngineeringTaskCreateDialogState(),
+  imagePreview: {
+    open: false,
+    url: '',
+    title: '',
+  },
 }
 
 type ProjectRelationRepositoryModule = Pick<
@@ -318,6 +443,7 @@ type ProjectDetailSupportModule = Pick<
   | 'getProjectArchiveByProjectId'
   | 'getTechnicalDataVersionById'
   | 'listTechnicalDataVersionsByStyleId'
+  | 'getRevisionTaskById'
   | 'getPlateMakingTaskById'
   | 'getPatternTaskById'
   | 'getFirstSampleTaskById'
@@ -479,10 +605,12 @@ async function ensureProjectDetailSupportReady(): Promise<void> {
 
 function ensureProjectDemoDataReadySync(): void {
   if (listProjects().length >= PROJECT_DEMO_SEED_IMPORT_THRESHOLD) {
+    syncExistingProjectEngineeringTaskNodes('系统同步')
     return
   }
 
   projectDemoSeedServiceModule?.ensurePcsProjectDemoDataReady()
+  syncExistingProjectEngineeringTaskNodes('系统同步')
 }
 
 function listProjectRelationsByProjectNodeSafe(projectId: string, projectNodeId: string): ProjectRelationRecord[] {
@@ -607,6 +735,14 @@ function listTechnicalDataVersionsByStyleIdSafe(styleId: string) {
   }
 
   return projectDetailSupportModule.listTechnicalDataVersionsByStyleId(styleId)
+}
+
+function getRevisionTaskByIdSafe(revisionTaskId: string) {
+  if (!projectDetailSupportModule) {
+    return null
+  }
+
+  return projectDetailSupportModule.getRevisionTaskById(revisionTaskId)
 }
 
 function getPlateMakingTaskByIdSafe(plateTaskId: string) {
@@ -783,6 +919,324 @@ function renderStyleArchiveNodeAction(
   if (!status.allowed) return ''
 
   return `<button type="button" class="${className}" data-pcs-project-action="generate-style-archive" data-project-id="${escapeHtml(project.projectId)}">生成款式档案</button>`
+}
+
+function getEngineeringTaskNodeMeta(
+  node: Pick<ProjectNodeViewModel, 'node' | 'displayStatus'>,
+): { sourceModule: string; sourceObjectType: string; createLabel: string; viewLabel: string } | null {
+  if (node.displayStatus === '未解锁' || node.node.currentStatus === '已取消') return null
+
+  if (node.node.workItemTypeCode === 'REVISION_TASK') {
+    return { sourceModule: '改版任务', sourceObjectType: '改版任务', createLabel: '创建改版任务', viewLabel: '查看改版任务' }
+  }
+  if (node.node.workItemTypeCode === 'PATTERN_TASK') {
+    return { sourceModule: '制版任务', sourceObjectType: '制版任务', createLabel: '创建制版任务', viewLabel: '查看制版任务' }
+  }
+  if (node.node.workItemTypeCode === 'PATTERN_ARTWORK_TASK') {
+    return { sourceModule: '花型任务', sourceObjectType: '花型任务', createLabel: '创建花型任务', viewLabel: '查看花型任务' }
+  }
+  return null
+}
+
+function renderEngineeringTaskNodeAction(
+  project: PcsProjectRecord,
+  node: Pick<ProjectNodeViewModel, 'node' | 'displayStatus'>,
+  tone: 'primary' | 'secondary' = 'primary',
+): string {
+  const meta = getEngineeringTaskNodeMeta(node)
+  if (!meta) return ''
+
+  const relation =
+    findLatestNodeRelation(project.projectId, node.node.projectNodeId, meta.sourceModule, meta.sourceObjectType) ||
+    (node.node.workItemTypeCode === 'REVISION_TASK'
+      ? findLatestProjectRelation(project.projectId, meta.sourceModule, meta.sourceObjectType)
+      : null)
+
+  const className =
+    tone === 'primary'
+      ? 'inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700'
+      : 'inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50'
+
+  if (relation?.targetRoute) {
+    return `<button type="button" class="${className}" data-nav="${escapeHtml(relation.targetRoute)}">${escapeHtml(meta.viewLabel)}</button>`
+  }
+
+  return `<button type="button" class="${className}" data-pcs-project-action="create-engineering-task-from-node" data-project-id="${escapeHtml(project.projectId)}" data-project-node-id="${escapeHtml(node.node.projectNodeId)}">${escapeHtml(meta.createLabel)}</button>`
+}
+
+function openEngineeringTaskCreateDialog(
+  project: PcsProjectRecord,
+  node: PcsProjectNodeRecord,
+): void {
+  state.engineeringCreateDialog = {
+    open: true,
+    projectId: project.projectId,
+    projectNodeId: node.projectNodeId,
+    workItemTypeCode: node.workItemTypeCode as EngineeringTaskCreateType,
+    revisionDraft: {
+      ...createEmptyRevisionTaskCreateDraft(),
+      title: `${project.projectName}改版任务`,
+      ownerName: node.currentOwnerName || project.ownerName,
+    },
+    plateDraft: {
+      ...createEmptyPlateTaskCreateDraft(),
+      title: `${project.projectName}制版任务`,
+      ownerName: node.currentOwnerName || project.ownerName,
+    },
+    patternDraft: {
+      ...createEmptyPatternTaskCreateDraft(),
+      title: `${project.projectName}花型任务`,
+      ownerName: node.currentOwnerName || project.ownerName,
+      artworkName: `${project.projectName}花型方案`,
+    },
+  }
+}
+
+function submitEngineeringTaskCreateDialog(): { ok: boolean; message: string; route?: string } {
+  const dialog = state.engineeringCreateDialog
+  const project = dialog.projectId ? getProjectById(dialog.projectId) : null
+  const node = project ? listProjectNodes(project.projectId).find((item) => item.projectNodeId === dialog.projectNodeId) || null : null
+  if (!project || !node) return { ok: false, message: '当前项目节点不存在。' }
+
+  const linkedStyle = findStyleArchiveByProjectId(project.projectId)
+  const productStyleCode = linkedStyle?.styleCode || project.linkedStyleCode || project.styleNumber || project.styleCodeName || ''
+  const ownerId = node.currentOwnerId || project.ownerId
+  const notePrefix = '由商品项目节点推进自动创建。'
+
+  if (dialog.workItemTypeCode === 'REVISION_TASK') {
+    const draft = dialog.revisionDraft
+    if (!draft.title.trim()) return { ok: false, message: '请填写改版任务标题。' }
+    if (!draft.ownerName.trim()) return { ok: false, message: '请选择负责人。' }
+    if (!draft.dueAt.trim()) return { ok: false, message: '请选择截止时间。' }
+    if (draft.scopeCodes.length === 0) return { ok: false, message: '请至少选择一个改版范围。' }
+    if (!draft.issueSummary.trim()) return { ok: false, message: '请填写问题点。' }
+    if (!draft.evidenceSummary.trim()) return { ok: false, message: '请填写证据说明。' }
+    const result = createRevisionTaskWithProjectRelation({
+      projectId: project.projectId,
+      title: draft.title.trim(),
+      operatorName: '当前用户',
+      ownerId,
+      ownerName: draft.ownerName.trim(),
+      note: `${notePrefix}${draft.note.trim() ? ` ${draft.note.trim()}` : ''}`,
+      sourceType: '测款触发',
+      styleId: linkedStyle?.styleId || '',
+      styleCode: productStyleCode,
+      styleName: linkedStyle?.styleName || project.linkedStyleName || project.projectName,
+      productStyleCode,
+      spuCode: productStyleCode,
+      dueAt: draft.dueAt.trim(),
+      revisionScopeCodes: [...draft.scopeCodes],
+      revisionScopeNames: REVISION_SCOPE_OPTIONS.filter((option) => draft.scopeCodes.includes(option.value)).map((option) => option.label),
+      issueSummary: draft.issueSummary.trim(),
+      evidenceSummary: draft.evidenceSummary.trim(),
+      evidenceImageUrls: [...draft.evidenceImageUrls],
+    })
+    if (!result.ok) return { ok: false, message: result.message }
+    return { ok: true, message: result.message, route: `/pcs/patterns/revision/${encodeURIComponent(result.task.revisionTaskId)}` }
+  }
+
+  if (dialog.workItemTypeCode === 'PATTERN_TASK') {
+    const draft = dialog.plateDraft
+    if (!draft.title.trim()) return { ok: false, message: '请填写制版任务标题。' }
+    if (!draft.ownerName.trim()) return { ok: false, message: '请选择负责人。' }
+    if (!draft.dueAt.trim()) return { ok: false, message: '请选择截止时间。' }
+    if (!draft.patternType.trim()) return { ok: false, message: '请填写版型类型。' }
+    if (!draft.sizeRange.trim()) return { ok: false, message: '请填写尺码范围。' }
+    const result = createPlateMakingTaskWithProjectRelation({
+      projectId: project.projectId,
+      title: draft.title.trim(),
+      operatorName: '当前用户',
+      ownerId,
+      ownerName: draft.ownerName.trim(),
+      note: `${notePrefix}${draft.note.trim() ? ` ${draft.note.trim()}` : ''}`,
+      sourceType: '项目模板阶段',
+      dueAt: draft.dueAt.trim(),
+      productStyleCode,
+      spuCode: productStyleCode,
+      patternType: draft.patternType.trim(),
+      sizeRange: draft.sizeRange.trim(),
+    })
+    if (!result.ok) return { ok: false, message: result.message }
+    return { ok: true, message: result.message, route: `/pcs/patterns/plate-making/${encodeURIComponent(result.task.plateTaskId)}` }
+  }
+
+  if (dialog.workItemTypeCode === 'PATTERN_ARTWORK_TASK') {
+    const draft = dialog.patternDraft
+    if (!draft.title.trim()) return { ok: false, message: '请填写花型任务标题。' }
+    if (!draft.ownerName.trim()) return { ok: false, message: '请选择负责人。' }
+    if (!draft.dueAt.trim()) return { ok: false, message: '请选择截止时间。' }
+    if (!draft.artworkType.trim()) return { ok: false, message: '请选择花型类型。' }
+    if (!draft.patternMode.trim()) return { ok: false, message: '请选择图案方式。' }
+    if (!draft.artworkName.trim()) return { ok: false, message: '请填写花型名称。' }
+    const result = createPatternTaskWithProjectRelation({
+      projectId: project.projectId,
+      title: draft.title.trim(),
+      operatorName: '当前用户',
+      ownerId,
+      ownerName: draft.ownerName.trim(),
+      note: `${notePrefix}${draft.note.trim() ? ` ${draft.note.trim()}` : ''}`,
+      sourceType: '项目模板阶段',
+      dueAt: draft.dueAt.trim(),
+      productStyleCode,
+      spuCode: productStyleCode,
+      artworkType: draft.artworkType.trim(),
+      patternMode: draft.patternMode.trim(),
+      artworkName: draft.artworkName.trim(),
+    })
+    if (!result.ok) return { ok: false, message: result.message }
+    return { ok: true, message: result.message, route: `/pcs/patterns/colors/${encodeURIComponent(result.task.patternTaskId)}` }
+  }
+
+  return { ok: false, message: '当前节点不支持创建工程任务。' }
+}
+
+function renderEngineeringTaskCreateDialog(): string {
+  const dialog = state.engineeringCreateDialog
+  if (!dialog.open || !dialog.projectId || !dialog.projectNodeId || !dialog.workItemTypeCode) return ''
+
+  const project = getProjectById(dialog.projectId)
+  const node = project ? listProjectNodes(project.projectId).find((item) => item.projectNodeId === dialog.projectNodeId) || null : null
+  if (!project || !node) return ''
+
+  const style = findStyleArchiveByProjectId(project.projectId)
+  const styleCode = style?.styleCode || project.linkedStyleCode || project.styleNumber || project.styleCodeName || '-'
+  const ownerOptions = buildProjectTaskOwnerOptions(project, node)
+
+  const summary = `
+    <section class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+      <div class="grid gap-3 md:grid-cols-3">
+        <div><p class="text-xs text-slate-500">商品项目</p><p class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(project.projectCode)} · ${escapeHtml(project.projectName)}</p></div>
+        <div><p class="text-xs text-slate-500">项目节点</p><p class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(node.workItemTypeName)}</p></div>
+        <div><p class="text-xs text-slate-500">关联款式</p><p class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(styleCode)}</p></div>
+      </div>
+    </section>
+  `
+  const policy = getEngineeringTaskFieldPolicy(dialog.workItemTypeCode)
+  const policyPanel = `
+    <section class="rounded-lg border border-slate-200 bg-white p-4">
+      <div class="grid gap-4 lg:grid-cols-3">
+        <div>
+          <p class="text-sm font-medium text-slate-900">节点创建必须填写</p>
+          <ul class="mt-3 space-y-2 text-sm text-slate-600">
+            ${policy.createRequiredFields.map((field) => `<li><span class="font-medium text-slate-900">${escapeHtml(field.label)}</span><span class="text-slate-500">：${escapeHtml(field.description)}</span></li>`).join('')}
+          </ul>
+        </div>
+        <div>
+          <p class="text-sm font-medium text-slate-900">实例详情继续补齐</p>
+          <ul class="mt-3 space-y-2 text-sm text-slate-600">
+            ${policy.detailEditableFields.map((field) => `<li><span class="font-medium text-slate-900">${escapeHtml(field.label)}</span><span class="text-slate-500">：${escapeHtml(field.description)}</span></li>`).join('')}
+          </ul>
+        </div>
+        <div>
+          <p class="text-sm font-medium text-slate-900">完成后回写项目节点</p>
+          <ul class="mt-3 space-y-2 text-sm text-slate-600">
+            ${policy.nodeWritebacks.map((item) => `<li><span class="font-medium text-slate-900">${escapeHtml(item.phase)}</span><span class="text-slate-500">：${escapeHtml(item.resultType)} / ${escapeHtml(item.pendingActionType || '无待办')}</span></li>`).join('')}
+          </ul>
+        </div>
+      </div>
+    </section>
+  `
+
+  let title = '创建工程任务'
+  let description = '请在商品项目节点中补齐当前任务创建所需字段。其余运行字段可在任务实例详情中继续完善。'
+  let body = ''
+
+  if (dialog.workItemTypeCode === 'REVISION_TASK') {
+    const draft = dialog.revisionDraft
+    title = '创建改版任务'
+    body += `
+      <section class="space-y-4">
+        <div class="grid gap-4 md:grid-cols-2">
+          ${renderProjectTextInput('任务标题', 'engineering-revision-title', draft.title, '请输入改版任务标题')}
+          ${renderProjectSelectInput('负责人', 'engineering-revision-owner', draft.ownerName, ownerOptions)}
+          ${renderProjectDateTimeInput('截止时间', 'engineering-revision-due-at', draft.dueAt)}
+          ${renderProjectTextInput('关联款式编码', 'engineering-revision-style-code', styleCode, '自动带入', true)}
+        </div>
+        <div class="space-y-3">
+          <p class="text-sm font-medium text-slate-900">改版范围</p>
+          <div class="grid gap-3 md:grid-cols-2">
+            ${REVISION_SCOPE_OPTIONS.map((option) => `
+              <label class="flex items-center gap-3 rounded-lg border border-slate-200 px-3 py-3 text-sm text-slate-700">
+                <input type="checkbox" ${draft.scopeCodes.includes(option.value) ? 'checked' : ''} data-pcs-project-action="toggle-engineering-revision-scope" data-scope-code="${escapeHtml(option.value)}" />
+                <span>${escapeHtml(option.label)}</span>
+              </label>
+            `).join('')}
+          </div>
+        </div>
+        <div class="grid gap-4 md:grid-cols-2">
+          ${renderProjectTextarea('问题点', 'engineering-revision-issue-summary', draft.issueSummary, '请填写本次改版要解决的问题点')}
+          ${renderProjectTextarea('证据说明', 'engineering-revision-evidence-summary', draft.evidenceSummary, '请填写评审、反馈、对比记录等证据说明')}
+        </div>
+        <section class="space-y-3 rounded-lg border border-slate-200 px-3 py-3">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p class="text-sm font-medium text-slate-900">证据图片</p>
+              <p class="mt-1 text-xs text-slate-500">支持上传多张图片，默认展示缩略图，点击可查看大图。</p>
+            </div>
+            <label class="inline-flex h-9 cursor-pointer items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50">
+              上传图片
+              <input type="file" accept="image/*" multiple class="hidden" data-pcs-project-field="engineering-revision-evidence-images" />
+            </label>
+          </div>
+          ${draft.evidenceImageUrls.length > 0 ? renderProjectImageThumbnailGrid(draft.evidenceImageUrls, true) : '<div class="rounded-md border border-dashed border-slate-200 px-3 py-6 text-center text-xs text-slate-400">暂未上传证据图片</div>'}
+        </section>
+        ${renderProjectTextarea('说明', 'engineering-revision-note', draft.note, '补充本次改版方案、边界说明和执行要求')}
+      </section>
+    `
+  } else if (dialog.workItemTypeCode === 'PATTERN_TASK') {
+    const draft = dialog.plateDraft
+    title = '创建制版任务'
+    body += `
+      <section class="space-y-4">
+        <div class="grid gap-4 md:grid-cols-2">
+          ${renderProjectTextInput('任务标题', 'engineering-plate-title', draft.title, '请输入制版任务标题')}
+          ${renderProjectSelectInput('负责人', 'engineering-plate-owner', draft.ownerName, ownerOptions)}
+          ${renderProjectDateTimeInput('截止时间', 'engineering-plate-due-at', draft.dueAt)}
+          ${renderProjectTextInput('关联款式编码', 'engineering-plate-style-code', styleCode, '自动带入', true)}
+          ${renderProjectTextInput('版型类型', 'engineering-plate-pattern-type', draft.patternType, '请输入版型类型')}
+          ${renderProjectTextInput('尺码范围', 'engineering-plate-size-range', draft.sizeRange, '请输入尺码范围')}
+        </div>
+        ${renderProjectTextarea('说明', 'engineering-plate-note', draft.note, '补充本次制版输入要求与纸样输出要求')}
+      </section>
+    `
+  } else if (dialog.workItemTypeCode === 'PATTERN_ARTWORK_TASK') {
+    const draft = dialog.patternDraft
+    title = '创建花型任务'
+    body += `
+      <section class="space-y-4">
+        <div class="grid gap-4 md:grid-cols-2">
+          ${renderProjectTextInput('任务标题', 'engineering-pattern-title', draft.title, '请输入花型任务标题')}
+          ${renderProjectSelectInput('负责人', 'engineering-pattern-owner', draft.ownerName, ownerOptions)}
+          ${renderProjectDateTimeInput('截止时间', 'engineering-pattern-due-at', draft.dueAt)}
+          ${renderProjectTextInput('关联款式编码', 'engineering-pattern-style-code', styleCode, '自动带入', true)}
+          ${renderProjectSelectInput('花型类型', 'engineering-pattern-artwork-type', draft.artworkType, [
+            { value: '印花', label: '印花' },
+            { value: '贴章', label: '贴章' },
+            { value: '绣花', label: '绣花' },
+            { value: '烫画', label: '烫画' },
+          ])}
+          ${renderProjectSelectInput('图案方式', 'engineering-pattern-mode', draft.patternMode, [
+            { value: '定位印', label: '定位印' },
+            { value: '满印', label: '满印' },
+            { value: '局部', label: '局部' },
+          ])}
+          ${renderProjectTextInput('花型名称', 'engineering-pattern-artwork-name', draft.artworkName, '请输入花型名称')}
+        </div>
+        ${renderProjectTextarea('说明', 'engineering-pattern-note', draft.note, '补充本次花型输出说明与生产文件要求')}
+      </section>
+    `
+  }
+
+  return renderModalShell(
+    title,
+    description,
+    `${summary}${policyPanel}${body}`,
+    `
+      <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-project-action="close-dialogs">取消</button>
+      <button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-project-action="submit-engineering-task-create">创建任务</button>
+    `,
+    'max-w-3xl',
+  )
 }
 
 function getDecisionFieldMeta(
@@ -1799,6 +2253,112 @@ function renderModalShell(
       </aside>
     </div>
   `
+}
+
+function renderProjectTextInput(label: string, field: string, value: string, placeholder: string, readOnly = false): string {
+  return `
+    <label class="flex flex-col gap-2 text-sm text-slate-600">
+      <span>${escapeHtml(label)}</span>
+      <input class="h-10 rounded-md border border-slate-200 px-3 text-sm text-slate-900 outline-none focus:border-blue-500 ${readOnly ? 'bg-slate-50 text-slate-500' : ''}" value="${escapeHtml(value)}" placeholder="${escapeHtml(placeholder)}" ${readOnly ? 'readonly' : ''} data-pcs-project-field="${escapeHtml(field)}" />
+    </label>
+  `
+}
+
+function renderProjectTextarea(label: string, field: string, value: string, placeholder: string): string {
+  return `
+    <label class="flex flex-col gap-2 text-sm text-slate-600">
+      <span>${escapeHtml(label)}</span>
+      <textarea class="min-h-[96px] rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500" placeholder="${escapeHtml(placeholder)}" data-pcs-project-field="${escapeHtml(field)}">${escapeHtml(value)}</textarea>
+    </label>
+  `
+}
+
+function renderProjectSelectInput(label: string, field: string, value: string, options: Array<{ value: string; label: string }>): string {
+  return `
+    <label class="flex flex-col gap-2 text-sm text-slate-600">
+      <span>${escapeHtml(label)}</span>
+      <select class="h-10 rounded-md border border-slate-200 px-3 text-sm text-slate-900 outline-none focus:border-blue-500" data-pcs-project-field="${escapeHtml(field)}">
+        <option value="">请选择</option>
+        ${options.map((option) => `<option value="${escapeHtml(option.value)}" ${value === option.value ? 'selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
+      </select>
+    </label>
+  `
+}
+
+function toDateTimeLocalValue(value: string): string {
+  if (!value) return ''
+  if (value.includes('T')) return value.slice(0, 16)
+  return value.replace(' ', 'T').slice(0, 16)
+}
+
+function fromDateTimeLocalValue(value: string): string {
+  if (!value) return ''
+  const normalized = value.replace('T', ' ')
+  return normalized.length === 16 ? `${normalized}:00` : normalized
+}
+
+function renderProjectDateTimeInput(label: string, field: string, value: string): string {
+  return `
+    <label class="flex flex-col gap-2 text-sm text-slate-600">
+      <span>${escapeHtml(label)}</span>
+      <input type="datetime-local" class="h-10 rounded-md border border-slate-200 px-3 text-sm text-slate-900 outline-none focus:border-blue-500" value="${escapeHtml(toDateTimeLocalValue(value))}" data-pcs-project-field="${escapeHtml(field)}" />
+    </label>
+  `
+}
+
+function renderProjectImagePreviewModal(): string {
+  if (!state.imagePreview.open || !state.imagePreview.url) return ''
+  return `
+    <div class="fixed inset-0 z-[70] flex items-center justify-center px-4 py-6">
+      <button type="button" class="absolute inset-0 bg-slate-900/70" data-pcs-project-action="close-image-preview" aria-label="关闭图片预览"></button>
+      <div class="relative w-full max-w-5xl rounded-2xl bg-white p-4 shadow-2xl">
+        <div class="mb-3 flex items-center justify-between gap-3">
+          <p class="text-sm font-medium text-slate-900">${escapeHtml(state.imagePreview.title || '图片预览')}</p>
+          <button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700" data-pcs-project-action="close-image-preview" aria-label="关闭图片预览">×</button>
+        </div>
+        <div class="flex max-h-[75vh] items-center justify-center overflow-auto rounded-xl bg-slate-100 p-3">
+          <img src="${escapeHtml(state.imagePreview.url)}" alt="${escapeHtml(state.imagePreview.title || '图片预览')}" class="max-h-[70vh] max-w-full rounded-lg object-contain" />
+        </div>
+      </div>
+    </div>
+  `
+}
+
+function renderProjectImageThumbnailGrid(imageUrls: string[], removable = false): string {
+  if (!imageUrls.length) return ''
+  return `
+    <div class="grid grid-cols-4 gap-3 sm:grid-cols-5">
+      ${imageUrls.map((url, index) => `
+        <div class="group relative overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+          <button type="button" class="block h-20 w-full overflow-hidden" data-pcs-project-action="open-image-preview" data-url="${escapeHtml(url)}" data-title="证据图片 ${index + 1}">
+            <img src="${escapeHtml(url)}" alt="证据图片 ${index + 1}" class="h-full w-full object-cover transition group-hover:scale-105" />
+          </button>
+          ${removable ? `<button type="button" class="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-xs text-slate-600 shadow hover:bg-white" data-pcs-project-action="remove-engineering-evidence-image" data-image-index="${index}" aria-label="删除证据图片">×</button>` : ''}
+        </div>
+      `).join('')}
+    </div>
+  `
+}
+
+function buildProjectTaskOwnerOptions(project: PcsProjectRecord, node: PcsProjectNodeRecord): Array<{ value: string; label: string }> {
+  const names = new Set<string>([
+    project.ownerName,
+    node.currentOwnerName,
+    '当前用户',
+    '张丽',
+    '王明',
+    '李娜',
+    '赵云',
+    '周芳',
+    '陈刚',
+    '商品负责人',
+    '版师',
+    '花型设计师',
+  ].filter(Boolean))
+  listProjects().forEach((item) => {
+    if (item.ownerName) names.add(item.ownerName)
+  })
+  return [...names].sort((left, right) => left.localeCompare(right)).map((name) => ({ value: name, label: name }))
 }
 
 function getTemplateByStyleType(styleType: TemplateStyleType): ProjectTemplate | null {
@@ -3253,6 +3813,231 @@ function renderNodeMetricCards(node: ProjectNodeViewModel): string {
   `
 }
 
+interface EngineeringTaskCompletionProgress {
+  label: string
+  filledCount: number
+  totalCount: number
+  missingLabels: string[]
+}
+
+interface EngineeringTaskCompletionSnapshot {
+  taskLabel: string
+  taskCode: string
+  taskStatus: string
+  updatedAt: string
+  createProgress: EngineeringTaskCompletionProgress
+  detailProgress: EngineeringTaskCompletionProgress
+  completionProgress: EngineeringTaskCompletionProgress
+}
+
+function isEngineeringTaskPolicyCode(code: string): code is EngineeringTaskFieldPolicyCode {
+  return code === 'REVISION_TASK' || code === 'PATTERN_TASK' || code === 'PATTERN_ARTWORK_TASK'
+}
+
+function isEngineeringTaskFieldFilled(task: Record<string, unknown>, fieldKey: string): boolean {
+  const value = task[fieldKey]
+  if (Array.isArray(value)) {
+    return value.some((item) => String(item ?? '').trim())
+  }
+  if (typeof value === 'number') {
+    return Number.isFinite(value)
+  }
+  if (typeof value === 'boolean') {
+    return true
+  }
+  return String(value ?? '').trim() !== ''
+}
+
+function buildEngineeringTaskCompletionProgress(
+  label: string,
+  task: Record<string, unknown>,
+  fields: EngineeringTaskFieldDescriptor[],
+): EngineeringTaskCompletionProgress {
+  const missingLabels = fields
+    .filter((field) => !isEngineeringTaskFieldFilled(task, field.fieldKey))
+    .map((field) => field.label)
+
+  return {
+    label,
+    filledCount: fields.length - missingLabels.length,
+    totalCount: fields.length,
+    missingLabels,
+  }
+}
+
+function resolveEngineeringTaskCompletionSnapshot(
+  project: PcsProjectRecord,
+  node: ProjectNodeViewModel,
+): EngineeringTaskCompletionSnapshot | null {
+  if (!isEngineeringTaskPolicyCode(node.node.workItemTypeCode)) {
+    return null
+  }
+
+  const policy = getEngineeringTaskFieldPolicy(node.node.workItemTypeCode)
+  if (node.node.workItemTypeCode === 'REVISION_TASK') {
+    const relation =
+      findLatestNodeRelation(project.projectId, node.node.projectNodeId, '改版任务', '改版任务') ||
+      findLatestProjectRelation(project.projectId, '改版任务', '改版任务')
+    const taskId = relation?.sourceObjectId || relation?.instanceId || node.node.latestInstanceId || ''
+    const task = taskId ? getRevisionTaskByIdSafe(taskId) : null
+    if (!task) {
+      return null
+    }
+
+    return {
+      taskLabel: policy.taskLabel,
+      taskCode: task.revisionTaskCode,
+      taskStatus: task.status,
+      updatedAt: task.updatedAt,
+      createProgress: buildEngineeringTaskCompletionProgress('节点创建必填', task, policy.createRequiredFields),
+      detailProgress: buildEngineeringTaskCompletionProgress('实例详情补齐', task, policy.detailEditableFields),
+      completionProgress: buildEngineeringTaskCompletionProgress('完成前校验', task, policy.completionRequiredFields),
+    }
+  }
+
+  if (node.node.workItemTypeCode === 'PATTERN_TASK') {
+    const relation =
+      findLatestNodeRelation(project.projectId, node.node.projectNodeId, '制版任务', '制版任务') ||
+      findLatestProjectRelation(project.projectId, '制版任务', '制版任务')
+    const taskId = relation?.sourceObjectId || relation?.instanceId || node.node.latestInstanceId || ''
+    const task = taskId ? getPlateMakingTaskByIdSafe(taskId) : null
+    if (!task) {
+      return null
+    }
+
+    return {
+      taskLabel: policy.taskLabel,
+      taskCode: task.plateTaskCode,
+      taskStatus: task.status,
+      updatedAt: task.updatedAt,
+      createProgress: buildEngineeringTaskCompletionProgress('节点创建必填', task, policy.createRequiredFields),
+      detailProgress: buildEngineeringTaskCompletionProgress('实例详情补齐', task, policy.detailEditableFields),
+      completionProgress: buildEngineeringTaskCompletionProgress('完成前校验', task, policy.completionRequiredFields),
+    }
+  }
+
+  const relation =
+    findLatestNodeRelation(project.projectId, node.node.projectNodeId, '花型任务', '花型任务') ||
+    findLatestProjectRelation(project.projectId, '花型任务', '花型任务')
+  const taskId = relation?.sourceObjectId || relation?.instanceId || node.node.latestInstanceId || ''
+  const task = taskId ? getPatternTaskByIdSafe(taskId) : null
+  if (!task) {
+    return null
+  }
+
+  return {
+    taskLabel: policy.taskLabel,
+    taskCode: task.patternTaskCode,
+    taskStatus: task.status,
+    updatedAt: task.updatedAt,
+    createProgress: buildEngineeringTaskCompletionProgress('节点创建必填', task, policy.createRequiredFields),
+    detailProgress: buildEngineeringTaskCompletionProgress('实例详情补齐', task, policy.detailEditableFields),
+    completionProgress: buildEngineeringTaskCompletionProgress('完成前校验', task, policy.completionRequiredFields),
+  }
+}
+
+function renderEngineeringTaskCompletionCard(progress: EngineeringTaskCompletionProgress): string {
+  const percent =
+    progress.totalCount === 0 ? 100 : Math.round((progress.filledCount / progress.totalCount) * 100)
+  const done = progress.missingLabels.length === 0
+
+  return `
+    <article class="rounded-lg border bg-white p-4">
+      <div class="flex items-center justify-between gap-3">
+        <p class="text-sm font-medium text-slate-900">${escapeHtml(progress.label)}</p>
+        <span class="${toClassName(
+          'inline-flex rounded-full border px-2 py-0.5 text-xs font-medium',
+          done ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700',
+        )}">${done ? '已补齐' : `缺 ${progress.missingLabels.length} 项`}</span>
+      </div>
+      <div class="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
+        <div class="${done ? 'bg-emerald-500' : 'bg-amber-500'} h-full rounded-full transition-all" style="width: ${percent}%"></div>
+      </div>
+      <div class="mt-3 flex items-center justify-between text-xs text-slate-500">
+        <span>完成度 ${percent}%</span>
+        <span>${progress.filledCount}/${progress.totalCount}</span>
+      </div>
+      <p class="mt-3 text-sm leading-6 ${done ? 'text-emerald-700' : 'text-slate-600'}">
+        ${
+          done
+            ? '当前字段已补齐。'
+            : `仍缺：${escapeHtml(progress.missingLabels.join('、'))}`
+        }
+      </p>
+    </article>
+  `
+}
+
+function renderEngineeringTaskCompletionSection(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
+  if (!isEngineeringTaskPolicyCode(node.node.workItemTypeCode)) {
+    return ''
+  }
+
+  const policy = getEngineeringTaskFieldPolicy(node.node.workItemTypeCode)
+  const snapshot = resolveEngineeringTaskCompletionSnapshot(project, node)
+  if (!snapshot) {
+    return `
+      <article class="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 class="text-sm font-semibold text-slate-900">任务补齐完成度</h3>
+            <p class="mt-1 text-xs text-slate-500">当前节点尚未创建正式${escapeHtml(policy.taskLabel)}。</p>
+          </div>
+          <span class="inline-flex rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs text-slate-500">待创建</span>
+        </div>
+        <div class="mt-4 grid gap-3 md:grid-cols-2">
+          <div class="rounded-lg border bg-white p-4">
+            <p class="text-xs font-medium text-slate-500">节点创建时必须填写</p>
+            <p class="mt-2 text-sm leading-6 text-slate-700">${escapeHtml(policy.createRequiredFields.map((field) => field.label).join('、'))}</p>
+          </div>
+          <div class="rounded-lg border bg-white p-4">
+            <p class="text-xs font-medium text-slate-500">实例详情中继续补齐</p>
+            <p class="mt-2 text-sm leading-6 text-slate-700">${escapeHtml(
+              policy.completionRequiredFields.map((field) => field.label).join('、') || '当前没有额外补齐字段',
+            )}</p>
+          </div>
+        </div>
+      </article>
+    `
+  }
+
+  const remainingLabels = Array.from(
+    new Set([
+      ...snapshot.createProgress.missingLabels,
+      ...snapshot.detailProgress.missingLabels,
+      ...snapshot.completionProgress.missingLabels,
+    ]),
+  )
+  const readyToComplete = remainingLabels.length === 0
+
+  return `
+    <article class="rounded-lg border bg-slate-50/60 p-4">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 class="text-sm font-semibold text-slate-900">任务补齐完成度</h3>
+          <p class="mt-1 text-xs text-slate-500">${escapeHtml(snapshot.taskLabel)} ${escapeHtml(snapshot.taskCode)} · ${escapeHtml(snapshot.taskStatus)} · 最近更新 ${escapeHtml(formatDateTime(snapshot.updatedAt))}</p>
+        </div>
+        <span class="${toClassName(
+          'inline-flex rounded-full border px-2 py-0.5 text-xs font-medium',
+          readyToComplete ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700',
+        )}">${readyToComplete ? '已满足完成条件' : `待补 ${remainingLabels.length} 项`}</span>
+      </div>
+      <div class="mt-4 grid gap-3 xl:grid-cols-3">
+        ${renderEngineeringTaskCompletionCard(snapshot.createProgress)}
+        ${renderEngineeringTaskCompletionCard(snapshot.detailProgress)}
+        ${renderEngineeringTaskCompletionCard(snapshot.completionProgress)}
+      </div>
+      <div class="mt-4 rounded-lg border border-dashed ${readyToComplete ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'} px-4 py-3 text-sm leading-6 ${readyToComplete ? 'text-emerald-700' : 'text-amber-700'}">
+        ${
+          readyToComplete
+            ? '当前任务完成前字段已补齐，用户无需先进入实例详情排查缺项。'
+            : `当前仍需在实例详情补齐：${escapeHtml(remainingLabels.join('、'))}`
+        }
+      </div>
+    </article>
+  `
+}
+
 function renderInstanceFields(fields: PcsProjectInstanceItem['fields']): string {
   if (fields.length === 0) return '<span class="text-xs text-slate-400">-</span>'
   return `
@@ -3406,6 +4191,7 @@ function renderProjectNodeInlineContent(project: PcsProjectRecord, node: Project
     return `
       ${renderNodeMetricCards(node)}
       ${renderKeyOutputCards(node, project)}
+      ${renderEngineeringTaskCompletionSection(project, node)}
       ${renderLatestRecordSummary(node)}
       ${renderRecordListSection(node, project.projectId)}
     `
@@ -3565,6 +4351,7 @@ function renderProjectDetailPage(projectId: string): string {
                       </div>
                     </div>
                     <div class="flex flex-wrap gap-2">
+                      ${renderEngineeringTaskNodeAction(viewModel.project, selectedNode)}
                       ${renderStyleArchiveNodeAction(viewModel.project, selectedNode)}
                       ${renderTestingCreateAction(viewModel.project, selectedNode)}
                       ${
@@ -3594,6 +4381,8 @@ function renderProjectDetailPage(projectId: string): string {
       ${renderPendingDecisionGate(viewModel)}
       ${renderProjectTerminateDialog()}
       ${renderDetailDecisionDialog(viewModel, selectedNode)}
+      ${renderEngineeringTaskCreateDialog()}
+      ${renderProjectImagePreviewModal()}
     </div>
   `
 }
@@ -3774,6 +4563,7 @@ function renderWorkItemFullInfo(project: PcsProjectRecord, node: ProjectNodeView
           <div class="rounded-lg bg-slate-50 p-3"><p class="text-xs text-slate-500">关联渠道</p><p class="mt-2 text-sm font-semibold text-slate-900">${escapeHtml(getChannelNamesByCodes(project.targetChannelCodes).join('、') || '-')}</p></div>
         </div>
       </article>
+      ${renderEngineeringTaskCompletionSection(project, node)}
       ${renderFormalFieldEntrySection(project, node)}
       ${groups.map((group) => renderFieldGroupValues(group, project, node)).join('')}
     </div>
@@ -4124,6 +4914,7 @@ function renderProjectWorkItemDetailPage(projectId: string, projectNodeId: strin
                 ? '<button type="button" class="inline-flex h-9 items-center rounded-md bg-amber-500 px-4 text-sm font-medium text-white hover:bg-amber-600" data-pcs-project-action="open-decision" data-source="work-item">做出决策</button>'
                 : ''
             }
+            ${renderEngineeringTaskNodeAction(viewModel.project, node, canRecord ? 'secondary' : 'primary')}
             ${styleArchiveAction}
             ${testingAction}
             ${canRecord ? '<button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-project-action="open-record-dialog">新增记录</button>' : ''}
@@ -4151,6 +4942,8 @@ function renderProjectWorkItemDetailPage(projectId: string, projectNodeId: strin
       ${renderWorkItemDecisionDialog(node)}
       ${renderWorkItemRecordDialog(viewModel.project, node)}
       ${renderProjectTerminateDialog()}
+      ${renderEngineeringTaskCreateDialog()}
+      ${renderProjectImagePreviewModal()}
     </div>
   `
 }
@@ -4196,6 +4989,7 @@ function closeAllDialogs(): void {
   state.terminateProjectId = null
   state.terminateReason = ''
   state.createCancelOpen = false
+  state.imagePreview = { open: false, url: '', title: '' }
   state.decisionDialog = {
     open: false,
     source: 'detail',
@@ -4205,6 +4999,7 @@ function closeAllDialogs(): void {
     note: '',
   }
   state.recordDialog = createEmptyRecordDialogState()
+  state.engineeringCreateDialog = createEmptyEngineeringTaskCreateDialogState()
 }
 
 function getProjectNodeContext(projectId: string, projectNodeId: string): { project: PcsProjectRecord; node: ProjectNodeViewModel } | null {
@@ -4426,6 +5221,92 @@ export function handlePcsProjectsInput(target: Element): boolean {
         [fieldKey]: value,
       },
     })
+    return true
+  }
+  if (field === 'engineering-revision-title' && fieldNode instanceof HTMLInputElement) {
+    state.engineeringCreateDialog.revisionDraft.title = fieldNode.value
+    return true
+  }
+  if (field === 'engineering-revision-owner' && fieldNode instanceof HTMLSelectElement) {
+    state.engineeringCreateDialog.revisionDraft.ownerName = fieldNode.value
+    return true
+  }
+  if (field === 'engineering-revision-due-at' && fieldNode instanceof HTMLInputElement) {
+    state.engineeringCreateDialog.revisionDraft.dueAt = fromDateTimeLocalValue(fieldNode.value)
+    return true
+  }
+  if (field === 'engineering-revision-issue-summary' && fieldNode instanceof HTMLTextAreaElement) {
+    state.engineeringCreateDialog.revisionDraft.issueSummary = fieldNode.value
+    return true
+  }
+  if (field === 'engineering-revision-evidence-summary' && fieldNode instanceof HTMLTextAreaElement) {
+    state.engineeringCreateDialog.revisionDraft.evidenceSummary = fieldNode.value
+    return true
+  }
+  if (field === 'engineering-revision-note' && fieldNode instanceof HTMLTextAreaElement) {
+    state.engineeringCreateDialog.revisionDraft.note = fieldNode.value
+    return true
+  }
+  if (field === 'engineering-revision-evidence-images' && fieldNode instanceof HTMLInputElement) {
+    const files = Array.from(fieldNode.files || [])
+    if (!files.length) return true
+    state.engineeringCreateDialog.revisionDraft.evidenceImageUrls = [
+      ...state.engineeringCreateDialog.revisionDraft.evidenceImageUrls,
+      ...files.map((file) => URL.createObjectURL(file)),
+    ]
+    fieldNode.value = ''
+    return true
+  }
+  if (field === 'engineering-plate-title' && fieldNode instanceof HTMLInputElement) {
+    state.engineeringCreateDialog.plateDraft.title = fieldNode.value
+    return true
+  }
+  if (field === 'engineering-plate-owner' && fieldNode instanceof HTMLSelectElement) {
+    state.engineeringCreateDialog.plateDraft.ownerName = fieldNode.value
+    return true
+  }
+  if (field === 'engineering-plate-due-at' && fieldNode instanceof HTMLInputElement) {
+    state.engineeringCreateDialog.plateDraft.dueAt = fromDateTimeLocalValue(fieldNode.value)
+    return true
+  }
+  if (field === 'engineering-plate-pattern-type' && fieldNode instanceof HTMLInputElement) {
+    state.engineeringCreateDialog.plateDraft.patternType = fieldNode.value
+    return true
+  }
+  if (field === 'engineering-plate-size-range' && fieldNode instanceof HTMLInputElement) {
+    state.engineeringCreateDialog.plateDraft.sizeRange = fieldNode.value
+    return true
+  }
+  if (field === 'engineering-plate-note' && fieldNode instanceof HTMLTextAreaElement) {
+    state.engineeringCreateDialog.plateDraft.note = fieldNode.value
+    return true
+  }
+  if (field === 'engineering-pattern-title' && fieldNode instanceof HTMLInputElement) {
+    state.engineeringCreateDialog.patternDraft.title = fieldNode.value
+    return true
+  }
+  if (field === 'engineering-pattern-owner' && fieldNode instanceof HTMLSelectElement) {
+    state.engineeringCreateDialog.patternDraft.ownerName = fieldNode.value
+    return true
+  }
+  if (field === 'engineering-pattern-due-at' && fieldNode instanceof HTMLInputElement) {
+    state.engineeringCreateDialog.patternDraft.dueAt = fromDateTimeLocalValue(fieldNode.value)
+    return true
+  }
+  if (field === 'engineering-pattern-artwork-type' && fieldNode instanceof HTMLSelectElement) {
+    state.engineeringCreateDialog.patternDraft.artworkType = fieldNode.value
+    return true
+  }
+  if (field === 'engineering-pattern-mode' && fieldNode instanceof HTMLSelectElement) {
+    state.engineeringCreateDialog.patternDraft.patternMode = fieldNode.value
+    return true
+  }
+  if (field === 'engineering-pattern-artwork-name' && fieldNode instanceof HTMLInputElement) {
+    state.engineeringCreateDialog.patternDraft.artworkName = fieldNode.value
+    return true
+  }
+  if (field === 'engineering-pattern-note' && fieldNode instanceof HTMLTextAreaElement) {
+    state.engineeringCreateDialog.patternDraft.note = fieldNode.value
     return true
   }
 
@@ -4865,6 +5746,64 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
     state.notice = result.message
     if (result.ok && result.style) {
       appStore.navigate(`/pcs/products/styles/${result.style.styleId}`)
+    }
+    return true
+  }
+  if (action === 'create-engineering-task-from-node') {
+    const projectId = actionNode.dataset.projectId || state.detail.projectId || state.workItem.projectId || ''
+    const projectNodeId = actionNode.dataset.projectNodeId || state.detail.selectedNodeId || state.workItem.projectNodeId || ''
+    if (!projectId || !projectNodeId) {
+      state.notice = '未找到对应项目节点。'
+      return true
+    }
+    const project = getProjectById(projectId)
+    const node = project ? listProjectNodes(projectId).find((item) => item.projectNodeId === projectNodeId) || null : null
+    if (!project || !node) {
+      state.notice = '当前项目节点不存在。'
+      return true
+    }
+    openEngineeringTaskCreateDialog(project, node)
+    return true
+  }
+  if (action === 'submit-engineering-task-create') {
+    const result = submitEngineeringTaskCreateDialog()
+    if (!result.ok) {
+      state.notice = result.message
+      return true
+    }
+    closeAllDialogs()
+    state.notice = result.message
+    if (result.route) {
+      appStore.navigate(result.route)
+    }
+    return true
+  }
+  if (action === 'toggle-engineering-revision-scope') {
+    const scopeCode = actionNode.dataset.scopeCode || ''
+    if (!scopeCode) return true
+    state.engineeringCreateDialog.revisionDraft.scopeCodes = toggleStringSelection(
+      state.engineeringCreateDialog.revisionDraft.scopeCodes,
+      scopeCode,
+    )
+    return true
+  }
+  if (action === 'open-image-preview') {
+    state.imagePreview = {
+      open: true,
+      url: actionNode.dataset.url || '',
+      title: actionNode.dataset.title || '图片预览',
+    }
+    return true
+  }
+  if (action === 'close-image-preview') {
+    state.imagePreview = { open: false, url: '', title: '' }
+    return true
+  }
+  if (action === 'remove-engineering-evidence-image') {
+    const index = Number(actionNode.dataset.imageIndex || '-1')
+    if (index >= 0) {
+      state.engineeringCreateDialog.revisionDraft.evidenceImageUrls =
+        state.engineeringCreateDialog.revisionDraft.evidenceImageUrls.filter((_, itemIndex) => itemIndex !== index)
     }
     return true
   }

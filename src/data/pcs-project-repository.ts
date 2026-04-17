@@ -280,11 +280,83 @@ function normalizeNode(node: PcsProjectNodeRecord): PcsProjectNodeRecord {
   }
 }
 
+function migrateRevisionTemplateProject(project: PcsProjectRecord): PcsProjectRecord {
+  if (project.templateId !== 'TPL-003') return normalizeProject(project)
+
+  const nextProject = { ...project }
+
+  if (nextProject.currentNodeCode === 'FEASIBILITY_REVIEW') {
+    nextProject.currentNodeCode = 'SAMPLE_CONFIRM'
+  }
+
+  if (nextProject.issueNodeCode === 'FEASIBILITY_REVIEW') {
+    nextProject.issueNodeCode = 'SAMPLE_CONFIRM'
+    if (nextProject.issueText.includes('初步可行性判断')) {
+      nextProject.issueText = '样衣确认待补充结论后才可继续。'
+    }
+  }
+
+  if (nextProject.latestNodeCode === 'FEASIBILITY_REVIEW') {
+    nextProject.latestNodeCode = 'SAMPLE_INBOUND_CHECK'
+    if (!nextProject.latestResultType || nextProject.latestResultType.includes('可行性')) {
+      nextProject.latestResultType = '到样入库与核对'
+    }
+    if (!nextProject.latestResultText || nextProject.latestResultText.includes('可行性')) {
+      nextProject.latestResultText = '样衣已完成到样入库与核对。'
+    }
+  }
+
+  return normalizeProject(nextProject)
+}
+
 function mergeMissingBootstrapData(snapshot: PcsProjectStoreSnapshot): PcsProjectStoreSnapshot {
   const bootstrap = seedSnapshot()
-  const mergedProjects = snapshot.projects.map(normalizeProject)
+  const mergedProjects = snapshot.projects.map(migrateRevisionTemplateProject)
   const mergedPhases = snapshot.phases.map(normalizePhase)
-  const mergedNodes = snapshot.nodes.map(normalizeNode)
+  const templateNodeCodeMap = new Map<string, Set<string>>()
+
+  mergedProjects.forEach((project) => {
+    const template = getProjectTemplateById(project.templateId)
+    if (!template) return
+    templateNodeCodeMap.set(
+      project.projectId,
+      new Set(
+        buildProjectNodeRecordsFromTemplate({
+          projectId: project.projectId,
+          ownerId: project.ownerId,
+          ownerName: project.ownerName,
+          createdAt: project.createdAt,
+          template,
+        }).map((node) => node.workItemTypeCode),
+      ),
+    )
+  })
+
+  const projectMap = new Map(mergedProjects.map((project) => [project.projectId, project]))
+  const mergedNodes = snapshot.nodes
+    .map(normalizeNode)
+    .filter((node) => {
+      const allowedNodeCodes = templateNodeCodeMap.get(node.projectId)
+      if (!allowedNodeCodes) return true
+      return allowedNodeCodes.has(node.workItemTypeCode)
+    })
+    .map((node) => {
+      const project = projectMap.get(node.projectId)
+      if (
+        project?.templateId === 'TPL-003' &&
+        project.currentNodeCode === 'SAMPLE_CONFIRM' &&
+        node.workItemTypeCode === 'SAMPLE_CONFIRM'
+      ) {
+        return normalizeNode({
+          ...node,
+          currentStatus: node.currentStatus === '未开始' ? '待确认' : node.currentStatus,
+          pendingActionType: '待确认',
+          pendingActionText: '当前请处理：样衣确认',
+          updatedAt: project.updatedAt || node.updatedAt,
+        })
+      }
+      return node
+    })
 
   const projectIds = new Set(mergedProjects.map((item) => item.projectId))
   const phaseIds = new Set(mergedPhases.map((item) => item.projectPhaseId))
