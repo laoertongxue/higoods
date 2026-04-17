@@ -95,10 +95,16 @@ interface ProductArchivePageState {
     targetChannelCodes: string
     priceRangeLabel: string
     mainImageUrl: string
+    galleryImageUrls: string[]
     sellingPointText: string
     detailDescription: string
     packagingInfo: string
     remark: string
+  }
+  imagePreview: {
+    open: boolean
+    url: string
+    title: string
   }
 }
 
@@ -202,10 +208,19 @@ function createDefaultStyleCompletionState(): ProductArchivePageState['styleComp
     targetChannelCodes: '',
     priceRangeLabel: '',
     mainImageUrl: '',
+    galleryImageUrls: [],
     sellingPointText: '',
     detailDescription: '',
     packagingInfo: '',
     remark: '',
+  }
+}
+
+function createDefaultImagePreviewState(): ProductArchivePageState['imagePreview'] {
+  return {
+    open: false,
+    url: '',
+    title: '',
   }
 }
 
@@ -233,6 +248,7 @@ const state: ProductArchivePageState = {
   },
   skuCreate: createDefaultSkuCreateState(),
   styleCompletion: createDefaultStyleCompletionState(),
+  imagePreview: createDefaultImagePreviewState(),
 }
 
 function resetSkuCreateState(): void {
@@ -241,6 +257,10 @@ function resetSkuCreateState(): void {
 
 function resetStyleCompletionState(): void {
   state.styleCompletion = createDefaultStyleCompletionState()
+}
+
+function resetImagePreviewState(): void {
+  state.imagePreview = createDefaultImagePreviewState()
 }
 
 export function resetPcsProductArchiveState(): void {
@@ -267,6 +287,7 @@ export function resetPcsProductArchiveState(): void {
   }
   resetSkuCreateState()
   resetStyleCompletionState()
+  resetImagePreviewState()
 }
 
 function ensurePageDataReady(): void {
@@ -559,12 +580,71 @@ function formatCurrency(value: number, currency = '人民币'): string {
   return `¥${value.toFixed(2)}`
 }
 
+function uniqueImageUrls(urls: string[]): string[] {
+  const unique = new Set<string>()
+  urls.forEach((item) => {
+    const normalized = item.trim()
+    if (!normalized) return
+    unique.add(normalized)
+  })
+  return Array.from(unique)
+}
+
+function getStyleImageUrls(style: StyleArchiveShellRecord): string[] {
+  return uniqueImageUrls([style.mainImageUrl, ...(style.galleryImageUrls || [])])
+}
+
+function getStyleCompletionImageUrls(): string[] {
+  return uniqueImageUrls([state.styleCompletion.mainImageUrl, ...state.styleCompletion.galleryImageUrls])
+}
+
 function renderArchiveImage(url: string, alt: string, size: 'sm' | 'md' = 'md'): string {
   const dimension = size === 'sm' ? 'h-12 w-12' : 'h-20 w-20'
   if (!url) {
     return `<div class="${escapeHtml(toClassName('flex shrink-0 items-center justify-center rounded-md border border-dashed border-slate-200 bg-slate-50 text-slate-400', dimension))}"><i data-lucide="image" class="h-4 w-4"></i></div>`
   }
   return `<img src="${escapeHtml(url)}" alt="${escapeHtml(alt)}" class="${escapeHtml(toClassName('shrink-0 rounded-md border border-slate-200 bg-slate-50 object-cover', dimension))}" />`
+}
+
+function renderStyleImagePreviewButton(
+  url: string,
+  title: string,
+  size: 'sm' | 'md' = 'md',
+  highlighted = false,
+): string {
+  if (!url) return renderArchiveImage(url, title, size)
+  return `
+    <button
+      type="button"
+      class="${escapeHtml(toClassName('overflow-hidden rounded-md', highlighted && 'ring-2 ring-slate-900 ring-offset-1'))}"
+      data-pcs-product-archive-action="open-image-preview"
+      data-url="${escapeHtml(url)}"
+      data-title="${escapeHtml(title)}"
+    >
+      ${renderArchiveImage(url, title, size)}
+    </button>
+  `
+}
+
+function renderImagePreviewModal(): string {
+  if (!state.imagePreview.open || !state.imagePreview.url) return ''
+  return `
+    <div class="fixed inset-0 z-50 flex items-center justify-center px-4 py-6">
+      <button type="button" class="absolute inset-0 bg-slate-950/70" data-pcs-product-archive-action="close-image-preview"></button>
+      <section class="relative z-10 flex max-h-full w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
+        <div class="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
+          <div>
+            <h2 class="text-base font-semibold text-slate-900">${escapeHtml(state.imagePreview.title || '款式主图预览')}</h2>
+            <p class="mt-1 text-sm text-slate-500">点击遮罩或右上角关闭预览。</p>
+          </div>
+          <button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50" data-pcs-product-archive-action="close-image-preview">×</button>
+        </div>
+        <div class="overflow-auto bg-slate-100 p-5">
+          <img src="${escapeHtml(state.imagePreview.url)}" alt="${escapeHtml(state.imagePreview.title || '款式主图')}" class="mx-auto max-h-[80vh] w-auto max-w-full rounded-lg border border-slate-200 bg-white object-contain shadow-sm" />
+        </div>
+      </section>
+    </div>
+  `
 }
 
 function renderStyleHeader(): string {
@@ -711,6 +791,7 @@ function openStyleCompletionDrawer(style: StyleArchiveShellRecord): void {
     targetChannelCodes: stringifyTagList(style.targetChannelCodes),
     priceRangeLabel: style.priceRangeLabel,
     mainImageUrl: style.mainImageUrl,
+    galleryImageUrls: getStyleImageUrls(style),
     sellingPointText: style.sellingPointText,
     detailDescription: style.detailDescription,
     packagingInfo: style.packagingInfo,
@@ -786,6 +867,30 @@ function renderStyleCompletionDrawer(): string {
       required,
       alreadyFormalized ? '正式建档后只读' : '',
     )
+  const imageUrls = getStyleCompletionImageUrls()
+  const imageGrid = imageUrls.length
+    ? imageUrls
+        .map(
+          (item, index) => `
+            <div class="space-y-2">
+              ${renderStyleImagePreviewButton(item, `${state.styleCompletion.styleName || '款式主图'} ${index + 1}`, 'md', item === state.styleCompletion.mainImageUrl)}
+              <div class="flex flex-wrap gap-2">
+                ${
+                  !alreadyFormalized && item !== state.styleCompletion.mainImageUrl
+                    ? `<button type="button" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-600 hover:bg-slate-50" data-pcs-product-archive-action="set-style-main-image" data-url="${escapeHtml(item)}">设为主图</button>`
+                    : ''
+                }
+                ${
+                  !alreadyFormalized
+                    ? `<button type="button" class="inline-flex h-7 items-center rounded-md border border-rose-200 bg-white px-2 text-xs text-rose-600 hover:bg-rose-50" data-pcs-product-archive-action="remove-style-image" data-url="${escapeHtml(item)}">删除</button>`
+                    : ''
+                }
+              </div>
+            </div>
+          `,
+        )
+        .join('')
+    : '<div class="col-span-full rounded-md border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">当前还没有款式主图，请先上传图片。</div>'
   const body = `
     <div class="space-y-5">
       ${
@@ -813,7 +918,27 @@ function renderStyleCompletionDrawer(): string {
         ${renderControlledTextField('目标人群', 'style-completion-target-audience-tags', state.styleCompletion.targetAudienceTags, '多个标签用中文逗号分隔', true)}
         ${renderControlledTextField('目标渠道', 'style-completion-target-channel-codes', state.styleCompletion.targetChannelCodes, '多个渠道用中文逗号分隔', true)}
       </div>
-      ${renderControlledTextField('款式主图', 'style-completion-main-image-url', state.styleCompletion.mainImageUrl, '填写主图地址', true)}
+      <section class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div class="text-sm font-medium text-slate-900">款式主图</div>
+            <p class="mt-1 text-xs text-slate-500">支持上传多张主图，第一张作为主展示图，点击缩略图可查看大图。</p>
+          </div>
+          ${
+            alreadyFormalized
+              ? `<div class="text-xs text-slate-500">正式建档后只读</div>`
+              : `
+                <label class="inline-flex h-9 cursor-pointer items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50">
+                  上传主图
+                  <input type="file" accept="image/*" multiple data-pcs-product-archive-field="style-completion-main-images" class="hidden" />
+                </label>
+              `
+          }
+        </div>
+        <div class="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          ${imageGrid}
+        </div>
+      </section>
       ${renderControlledTextareaField('卖点摘要', 'style-completion-selling-point-text', state.styleCompletion.sellingPointText, '填写款式卖点摘要', 3, true)}
       ${renderControlledTextareaField('详情描述', 'style-completion-detail-description', state.styleCompletion.detailDescription, '填写详情描述', 5, true)}
       ${renderFormField('包装信息', renderTextarea('style-completion-packaging-info', state.styleCompletion.packagingInfo, '可填写包装与发货说明', 3), false, alreadyFormalized ? '正式建档后仅允许补充包装信息与备注。' : '')}
@@ -837,6 +962,7 @@ function submitStyleCompletion(): void {
 
   const currentStyle = getStyleArchiveById(state.styleCompletion.styleId)
   const alreadyFormalized = currentStyle ? isStyleArchiveFormalized(currentStyle) : false
+  const imageUrls = getStyleCompletionImageUrls()
   const updated = updateStyleArchive(state.styleCompletion.styleId, {
     ...(alreadyFormalized
       ? {}
@@ -853,7 +979,8 @@ function submitStyleCompletion(): void {
           targetAudienceTags: parseTagList(state.styleCompletion.targetAudienceTags),
           targetChannelCodes: parseTagList(state.styleCompletion.targetChannelCodes),
           priceRangeLabel: state.styleCompletion.priceRangeLabel.trim(),
-          mainImageUrl: state.styleCompletion.mainImageUrl.trim(),
+          mainImageUrl: imageUrls[0] || '',
+          galleryImageUrls: imageUrls,
           sellingPointText: state.styleCompletion.sellingPointText.trim(),
           detailDescription: state.styleCompletion.detailDescription.trim(),
         }),
@@ -1091,7 +1218,8 @@ function renderStyleDetailOverview(style: StyleArchiveShellRecord): string {
   const materialUsages = listMaterialUsageRecordsByStyleCode(style.styleCode)
     .map((usage) => ({ usage, material: getMaterialArchiveById(usage.materialId) }))
     .filter((item) => item.material)
-  const gallery = (style.galleryImageUrls || []).slice(0, 3)
+  const gallery = getStyleImageUrls(style)
+  const alreadyFormalized = isStyleArchiveFormalized(style)
   const currentTechPackHref =
     style.currentTechPackVersionId && style.currentTechPackVersionCode
       ? `/pcs/products/styles/${style.styleId}/technical-data/${style.currentTechPackVersionId}`
@@ -1101,12 +1229,17 @@ function renderStyleDetailOverview(style: StyleArchiveShellRecord): string {
       <div class="rounded-lg border bg-white p-5 shadow-sm">
         <div class="flex flex-col gap-5 lg:flex-row">
           <div class="w-full max-w-[320px] shrink-0 space-y-3">
-            ${renderArchiveImage(style.mainImageUrl, style.styleName)}
-            <div class="grid grid-cols-3 gap-2">
+            ${renderStyleImagePreviewButton(style.mainImageUrl, style.styleName, 'md', true)}
+            <div class="grid grid-cols-3 gap-2 sm:grid-cols-4">
               ${gallery
-                .map((item) => renderArchiveImage(item, style.styleName, 'sm'))
+                .map((item, index) => renderStyleImagePreviewButton(item, `${style.styleName} ${index + 1}`, 'sm', item === style.mainImageUrl))
                 .join('')}
             </div>
+            ${
+              alreadyFormalized
+                ? ''
+                : `<button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-product-archive-action="open-style-completion" data-style-id="${escapeHtml(style.styleId)}">上传主图</button>`
+            }
           </div>
           <div class="min-w-0 flex-1">
             <div class="grid gap-4 md:grid-cols-2">
@@ -1460,6 +1593,7 @@ function renderStyleDetailPage(styleId: string): string {
       ${tabContent}
       ${renderSkuCreateDrawer()}
       ${renderStyleCompletionDrawer()}
+      ${renderImagePreviewModal()}
     </div>
   `
 }
@@ -1785,6 +1919,8 @@ function renderPcsStyleListPage(): string {
       ${renderStyleFilters(items.length)}
       ${renderStyleTable(items)}
       ${renderSkuCreateDrawer()}
+      ${renderStyleCompletionDrawer()}
+      ${renderImagePreviewModal()}
     </div>
   `
 }
@@ -1799,6 +1935,7 @@ function renderPcsSkuListPage(): string {
       ${renderSkuFilters(items.length)}
       ${renderSkuTable(items)}
       ${renderSkuCreateDrawer()}
+      ${renderImagePreviewModal()}
     </div>
   `
 }
@@ -1988,11 +2125,28 @@ function toggleBatchValue(list: string[], value: string, checked: boolean): stri
   return list.filter((item) => item !== value)
 }
 
+function handleStyleImageUpload(target: HTMLElement): boolean {
+  const input = target as HTMLInputElement
+  const files = Array.from(input.files || []).filter((item) => item.type.startsWith('image/'))
+  if (files.length === 0) return false
+  const uploadedUrls = files.map((item) => URL.createObjectURL(item))
+  const nextImageUrls = uniqueImageUrls([...getStyleCompletionImageUrls(), ...uploadedUrls])
+  state.styleCompletion.mainImageUrl = nextImageUrls[0] || ''
+  state.styleCompletion.galleryImageUrls = nextImageUrls
+  input.value = ''
+  state.notice = `已添加 ${uploadedUrls.length} 张款式主图，请保存资料后生效。`
+  return true
+}
+
 export function handlePcsProductArchiveInput(target: Element): boolean {
   const fieldNode = resolveClosestNode(target, '[data-pcs-product-archive-field]')
   if (!fieldNode) return false
   const field = fieldNode.dataset.pcsProductArchiveField
   if (!field) return false
+
+  if (field === 'style-completion-main-images') {
+    return handleStyleImageUpload(fieldNode)
+  }
 
   const { value, checked } = resolveFieldValue(fieldNode)
 
@@ -2096,9 +2250,6 @@ export function handlePcsProductArchiveInput(target: Element): boolean {
     case 'style-completion-price-range-label':
       state.styleCompletion.priceRangeLabel = value
       return true
-    case 'style-completion-main-image-url':
-      state.styleCompletion.mainImageUrl = value
-      return true
     case 'style-completion-selling-point-text':
       state.styleCompletion.sellingPointText = value
       return true
@@ -2130,6 +2281,32 @@ export function handlePcsProductArchiveEvent(target: HTMLElement): boolean {
       resetSkuCreateState()
       resetStyleCompletionState()
       return true
+    case 'open-image-preview':
+      state.imagePreview = {
+        open: true,
+        url: actionNode.dataset.url || '',
+        title: actionNode.dataset.title || '款式主图预览',
+      }
+      return true
+    case 'close-image-preview':
+      resetImagePreviewState()
+      return true
+    case 'set-style-main-image': {
+      const url = actionNode.dataset.url || ''
+      if (!url) return true
+      const nextImageUrls = uniqueImageUrls([url, ...getStyleCompletionImageUrls().filter((item) => item !== url)])
+      state.styleCompletion.mainImageUrl = nextImageUrls[0] || ''
+      state.styleCompletion.galleryImageUrls = nextImageUrls
+      return true
+    }
+    case 'remove-style-image': {
+      const url = actionNode.dataset.url || ''
+      if (!url) return true
+      const nextImageUrls = getStyleCompletionImageUrls().filter((item) => item !== url)
+      state.styleCompletion.mainImageUrl = nextImageUrls[0] || ''
+      state.styleCompletion.galleryImageUrls = nextImageUrls
+      return true
+    }
     case 'open-style-completion': {
       const styleId = actionNode.dataset.styleId || state.styleDetail.styleId || ''
       const style = styleId ? getStyleArchiveById(styleId) : null
@@ -2259,5 +2436,5 @@ export function handlePcsProductArchiveEvent(target: HTMLElement): boolean {
 }
 
 export function isPcsProductArchiveDialogOpen(): boolean {
-  return state.skuCreate.open || state.styleCompletion.open
+  return state.skuCreate.open || state.styleCompletion.open || state.imagePreview.open
 }
