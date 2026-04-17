@@ -8,7 +8,6 @@ import {
 import {
   listProjectChannelProducts,
 } from '../data/pcs-channel-product-project-repository.ts'
-import { getMaterialArchiveById, listMaterialUsageRecordsByStyleCode } from '../data/pcs-material-archive-repository.ts'
 import { buildSkuFixture } from '../data/pcs-product-archive-fixtures.ts'
 import {
   STYLE_ARCHIVE_STATUS_RULES,
@@ -113,7 +112,6 @@ interface StyleArchiveListItemViewModel {
   displayStatus: StyleArchiveBusinessStatusKey
   hasEffectiveTechPack: boolean
   skuCount: number
-  materialUsageCount: number
   mappingHealth: SkuArchiveMappingHealth
   currentVersionText: string
   currentVersionMetaText: string
@@ -363,7 +361,6 @@ function buildStyleListItems(): StyleArchiveListItemViewModel[] {
   return listStyleArchives().map((style) => {
     const skus = listSkuArchivesByStyleId(style.styleId)
     const versions = buildTechnicalVersionListByStyle(style.styleId)
-    const materialUsageCount = listMaterialUsageRecordsByStyleCode(style.styleCode).length
     const currentVersion = versions.find((item) => item.isCurrentTechPackVersion) || versions[0] || null
     const styleChannels = listStyleChannelProducts(style)
     return {
@@ -371,7 +368,6 @@ function buildStyleListItems(): StyleArchiveListItemViewModel[] {
       displayStatus: resolveStyleArchiveBusinessStatus(style),
       hasEffectiveTechPack: Boolean(currentVersion),
       skuCount: skus.length,
-      materialUsageCount,
       mappingHealth: resolveStyleMappingHealth(skus),
       currentVersionText: currentVersion ? `${currentVersion.versionLabel}` : '未建立当前生效技术包',
       currentVersionMetaText: currentVersion?.publishedAt ? `生效于 ${currentVersion.publishedAt.slice(0, 10)}` : '待建立技术包版本',
@@ -726,7 +722,6 @@ function renderStyleTable(items: StyleArchiveListItemViewModel[]): string {
           <td class="px-4 py-3">
             <div class="text-sm font-medium text-slate-900">${escapeHtml(item.currentVersionText)}</div>
             <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.style.currentTechPackVersionCode || item.currentVersionMetaText)}</div>
-            <div class="mt-1 text-xs text-slate-500">物料引用 ${escapeHtml(item.materialUsageCount)}</div>
           </td>
           <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.skuCount)}</td>
           <td class="px-4 py-3">${renderMappingBadge(item.mappingHealth)}</td>
@@ -1215,9 +1210,6 @@ function renderStyleDetailOverview(style: StyleArchiveShellRecord): string {
   const styleChannelProducts = listStyleChannelProducts(style)
   const currentChannelProduct = styleChannelProducts[0] || null
   const onSaleChannelCount = countOnSaleChannelProducts(styleChannelProducts)
-  const materialUsages = listMaterialUsageRecordsByStyleCode(style.styleCode)
-    .map((usage) => ({ usage, material: getMaterialArchiveById(usage.materialId) }))
-    .filter((item) => item.material)
   const gallery = getStyleImageUrls(style)
   const alreadyFormalized = isStyleArchiveFormalized(style)
   const currentTechPackHref =
@@ -1262,35 +1254,6 @@ function renderStyleDetailOverview(style: StyleArchiveShellRecord): string {
             </div>
           </div>
         </div>
-        <div class="mt-5 border-t border-slate-100 pt-4">
-          <div class="mb-3 text-sm font-medium text-slate-900">物料引用</div>
-          <div class="space-y-3">
-            ${materialUsages.length > 0
-              ? materialUsages
-                  .slice(0, 6)
-                  .map(
-                    ({ usage, material }) => `
-                      <div class="flex items-start justify-between gap-4 rounded-md border border-slate-200 px-3 py-3">
-                        <div class="min-w-0">
-                          <div class="text-sm font-medium text-slate-900">${escapeHtml(material!.materialCode)} · ${escapeHtml(material!.materialName)}</div>
-                          <div class="mt-1 text-xs text-slate-500">${escapeHtml(usage.bomItemName)} · ${escapeHtml(usage.usageStage)} · ${escapeHtml(usage.consumptionText)}</div>
-                          <div class="mt-1 text-xs text-slate-500">${escapeHtml(usage.technicalVersionCode || '未建立技术包')}</div>
-                        </div>
-                        <div class="flex shrink-0 flex-col items-end gap-1">
-                          <button type="button" class="text-xs text-slate-600 hover:text-slate-900" data-nav="/pcs/materials/${escapeHtml(material!.kind)}/${escapeHtml(material!.materialId)}">查看物料</button>
-                          ${
-                            usage.technicalVersionId
-                              ? `<button type="button" class="text-xs text-slate-600 hover:text-slate-900" data-nav="/pcs/products/styles/${escapeHtml(style.styleId)}/technical-data/${escapeHtml(usage.technicalVersionId)}">查看技术包</button>`
-                              : ''
-                          }
-                        </div>
-                      </div>
-                    `,
-                  )
-                  .join('')
-              : '<div class="rounded-md border border-dashed border-slate-200 px-3 py-5 text-sm text-slate-500">当前款式尚未沉淀物料引用关系。</div>'}
-          </div>
-        </div>
       </div>
       <aside class="space-y-4 rounded-lg border bg-white p-5 shadow-sm">
         <div class="text-sm font-medium text-slate-900">关联合并概览</div>
@@ -1308,10 +1271,6 @@ function renderStyleDetailOverview(style: StyleArchiveShellRecord): string {
             <div class="text-xs text-slate-500">价格带 / 渠道</div>
             <div class="mt-1 text-sm text-slate-700">${escapeHtml(style.priceRangeLabel || '-')}</div>
             <div class="mt-1 text-xs text-slate-500">${escapeHtml(style.targetChannelCodes.join(' / ') || '-')}</div>
-          </div>
-          <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
-            <div class="text-xs text-slate-500">物料引用数</div>
-            <div class="mt-1 text-lg font-semibold text-slate-900">${escapeHtml(materialUsages.length)}</div>
           </div>
           <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
             <div class="text-xs text-slate-500">更新时间</div>
