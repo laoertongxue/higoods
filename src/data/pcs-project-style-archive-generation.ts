@@ -11,6 +11,7 @@ import {
 } from './pcs-project-repository.ts'
 import { upsertProjectRelation } from './pcs-project-relation-repository.ts'
 import { syncProjectNodeInstanceRuntime } from './pcs-project-node-instance-registry.ts'
+import { markProjectNodeCompletedAndUnlockNext } from './pcs-project-flow-service.ts'
 import {
   createStyleArchiveShell,
   findStyleArchiveByProjectId,
@@ -165,15 +166,6 @@ export function getStyleArchiveGenerationStatus(projectId: string): StyleArchive
       allowed: false,
       existed: false,
       message: '当前项目状态不允许生成款式档案。',
-      style: null,
-    }
-  }
-
-  if (!['PHASE_04', 'PHASE_05'].includes(project.currentPhaseCode)) {
-    return {
-      allowed: false,
-      existed: false,
-      message: '当前项目尚未进入款式档案转档阶段。',
       style: null,
     }
   }
@@ -366,24 +358,6 @@ export function generateStyleArchiveFromProjectNode(
     )
     syncProjectNodeInstanceRuntime(project.projectId, styleNode.projectNodeId, operatorName, timestamp)
 
-    const transferNode = getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'PROJECT_TRANSFER_PREP')
-    if (transferNode) {
-      updateProjectNodeRecord(
-        project.projectId,
-        transferNode.projectNodeId,
-        {
-          currentStatus: '未开始',
-          latestResultType: '等待正式建档',
-          latestResultText: '已生成款式档案草稿，待补齐后进入项目转档准备。',
-          pendingActionType: '等待正式建档',
-          pendingActionText: '请先补齐款式档案并正式建档，再进入技术包与归档链路。',
-          updatedAt: timestamp,
-        },
-        operatorName,
-      )
-      syncProjectNodeInstanceRuntime(project.projectId, transferNode.projectNodeId, operatorName, timestamp)
-    }
-
     return {
       ok: true,
       existed: false,
@@ -494,41 +468,19 @@ export function formalizeStyleArchive(styleId: string, operatorName = '当前用
     operatorName,
   )
 
-  updateProjectNodeRecord(
-    project.projectId,
-    styleNode.projectNodeId,
-    {
-      currentStatus: '已完成',
-      latestInstanceId: style.styleId,
-      latestInstanceCode: style.styleCode,
-      latestResultType: '已完成正式建档',
-      latestResultText: '款式档案基础资料已补齐，已完成正式建档。',
-      pendingActionType: '',
-      pendingActionText: '',
-      updatedAt: timestamp,
-    },
+  const flowResult = markProjectNodeCompletedAndUnlockNext(project.projectId, styleNode.projectNodeId, {
     operatorName,
-  )
-  syncProjectNodeInstanceRuntime(project.projectId, styleNode.projectNodeId, operatorName, timestamp)
-
-  const transferNode = getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'PROJECT_TRANSFER_PREP')
-  if (transferNode && transferNode.currentStatus !== '已取消') {
-    updateProjectNodeRecord(
-      project.projectId,
-      transferNode.projectNodeId,
-      {
-        currentStatus: '进行中',
-        latestInstanceId: style.styleId,
-        latestInstanceCode: style.styleCode,
-        latestResultType: '款式档案已正式建档',
-        latestResultText: '款式档案基础资料已补齐，可以继续推进技术包与项目资料归档。',
-        pendingActionType: '推进技术包与归档',
-        pendingActionText: '请从任务建立技术包版本，并继续补齐项目资料归档。',
-        updatedAt: timestamp,
-      },
-      operatorName,
-    )
-    syncProjectNodeInstanceRuntime(project.projectId, transferNode.projectNodeId, operatorName, timestamp)
+    timestamp,
+    resultType: '已完成正式建档',
+    resultText: '款式档案基础资料已补齐，已完成正式建档。',
+  })
+  if (!flowResult.ok) {
+    return {
+      ok: false,
+      message: flowResult.message,
+      style: nextStyle,
+      missingFields: [],
+    }
   }
 
   return {

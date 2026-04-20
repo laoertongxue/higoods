@@ -10,11 +10,39 @@ import { syncProjectNodeInstanceRuntime } from './pcs-project-node-instance-regi
 import { appendTechPackVersionLog } from './pcs-tech-pack-version-log-repository.ts'
 import { getStyleArchiveById, updateStyleArchive } from './pcs-style-archive-repository.ts'
 import { getTechnicalDataVersionById } from './pcs-technical-data-version-repository.ts'
+import type { TechPackSourceTaskType } from './pcs-technical-data-version-types.ts'
 
 function nowText(): string {
   const now = new Date()
   const pad = (value: number) => String(value).padStart(2, '0')
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`
+}
+
+function getProjectNodeBindingByTaskType(projectId: string, taskType: TechPackSourceTaskType) {
+  if (taskType === 'PLATE') {
+    const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'PATTERN_TASK')
+    return {
+      projectNodeId: node?.projectNodeId || null,
+      workItemTypeCode: 'PATTERN_TASK',
+      workItemTypeName: node?.workItemTypeName || '制版任务',
+    }
+  }
+
+  if (taskType === 'ARTWORK') {
+    const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'PATTERN_ARTWORK_TASK')
+    return {
+      projectNodeId: node?.projectNodeId || null,
+      workItemTypeCode: 'PATTERN_ARTWORK_TASK',
+      workItemTypeName: node?.workItemTypeName || '花型任务',
+    }
+  }
+
+  const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'REVISION_TASK')
+  return {
+    projectNodeId: node?.projectNodeId || null,
+    workItemTypeCode: 'REVISION_TASK',
+    workItemTypeName: node?.workItemTypeName || '改版任务',
+  }
 }
 
 export function activateTechPackVersionForStyle(
@@ -64,11 +92,11 @@ export function activateTechPackVersionForStyle(
       operatorName,
     )
 
-    const transferNode = getProjectNodeRecordByWorkItemTypeCode(record.sourceProjectId, 'PROJECT_TRANSFER_PREP')
-    if (transferNode) {
+    const sourceNode = getProjectNodeBindingByTaskType(record.sourceProjectId, record.createdFromTaskType)
+    if (sourceNode.projectNodeId) {
       updateProjectNodeRecord(
         record.sourceProjectId,
-        transferNode.projectNodeId,
+        sourceNode.projectNodeId,
         {
           currentStatus: '进行中',
           latestInstanceId: record.technicalVersionId,
@@ -81,16 +109,16 @@ export function activateTechPackVersionForStyle(
         },
         operatorName,
       )
-      syncProjectNodeInstanceRuntime(record.sourceProjectId, transferNode.projectNodeId, operatorName, activatedAt)
+      syncProjectNodeInstanceRuntime(record.sourceProjectId, sourceNode.projectNodeId, operatorName, activatedAt)
     }
 
     upsertProjectRelation({
       projectRelationId: `rel_tech_pack_${record.technicalVersionId}`,
       projectId: record.sourceProjectId,
       projectCode: record.sourceProjectCode,
-      projectNodeId: transferNode?.projectNodeId || record.sourceProjectNodeId || null,
-      workItemTypeCode: 'PROJECT_TRANSFER_PREP',
-      workItemTypeName: '项目转档准备',
+      projectNodeId: sourceNode.projectNodeId ?? (record.sourceProjectNodeId || null),
+      workItemTypeCode: sourceNode.workItemTypeCode,
+      workItemTypeName: sourceNode.workItemTypeName,
       relationRole: '产出对象',
       sourceModule: '技术包',
       sourceObjectType: '技术包版本',

@@ -33,7 +33,6 @@ export interface TemplateBusinessSummary {
   hasLiveTest: boolean
   hasVideoTest: boolean
   hasStyleArchiveCreate: boolean
-  hasTransferPrep: boolean
   hasFullLoop: boolean
   pathFlags: string[]
   previewPhases: Array<{
@@ -133,7 +132,7 @@ export function validateTemplateBusinessIntegrity(input: {
 
   const activeCodes = new Set(listActiveNodes(input.nodes).map((item) => item.workItemTypeCode as PcsProjectWorkItemCode))
   const hasMarketTest = activeCodes.has('LIVE_TEST') || activeCodes.has('VIDEO_TEST')
-  const hasDownstreamProduction = ['PROJECT_TRANSFER_PREP', 'PATTERN_TASK', 'PATTERN_ARTWORK_TASK', 'FIRST_SAMPLE', 'PRE_PRODUCTION_SAMPLE'].some((code) =>
+  const hasDownstreamProduction = ['PATTERN_TASK', 'PATTERN_ARTWORK_TASK', 'FIRST_SAMPLE', 'PRE_PRODUCTION_SAMPLE', 'REVISION_TASK'].some((code) =>
     activeCodes.has(code as PcsProjectWorkItemCode),
   )
 
@@ -141,13 +140,6 @@ export function validateTemplateBusinessIntegrity(input: {
     issues.push({
       code: 'MISSING_CHANNEL_LISTING',
       message: '存在直播测款或短视频测款时，必须包含商品上架节点。',
-    })
-  }
-
-  if (activeCodes.has('STYLE_ARCHIVE_CREATE') && !activeCodes.has('PROJECT_TRANSFER_PREP')) {
-    issues.push({
-      code: 'MISSING_TRANSFER_PREP',
-      message: '存在款式档案生成节点时，必须包含项目转档准备节点。',
     })
   }
 
@@ -201,19 +193,17 @@ export function buildTemplateBusinessSummary(template: ProjectTemplate): Templat
   const hasLiveTest = activeCodes.has('LIVE_TEST')
   const hasVideoTest = activeCodes.has('VIDEO_TEST')
   const hasStyleArchiveCreate = activeCodes.has('STYLE_ARCHIVE_CREATE')
-  const hasTransferPrep = activeCodes.has('PROJECT_TRANSFER_PREP')
   const hasFullLoop =
     hasChannelProductListing &&
     (hasLiveTest || hasVideoTest) &&
     activeCodes.has('TEST_CONCLUSION') &&
-    hasStyleArchiveCreate &&
-    hasTransferPrep
+    hasStyleArchiveCreate
 
   const closureStatus: TemplateBusinessClosureStatus =
     issues.length > 0 ? '配置异常' : hasFullLoop ? '完整闭环' : '仅测款不转档'
   const closureText =
     closureStatus === '完整闭环'
-      ? '模板已覆盖测款、款式档案、技术包与项目资料归档链路。'
+      ? '模板已覆盖测款、款式档案与开发推进链路。'
       : closureStatus === '仅测款不转档'
         ? '模板只覆盖市场测款，不足以进入款式档案与技术包闭环。'
         : issues.map((item) => item.message).join('；')
@@ -248,7 +238,6 @@ export function buildTemplateBusinessSummary(template: ProjectTemplate): Templat
     hasLiveTest,
     hasVideoTest,
     hasStyleArchiveCreate,
-    hasTransferPrep,
     hasFullLoop,
     pathFlags,
     previewPhases,

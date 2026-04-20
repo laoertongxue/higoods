@@ -1,5 +1,4 @@
 import { createTechnicalDataVersionBootstrapSnapshot } from './pcs-technical-data-version-bootstrap.ts'
-import { getProjectNodeRecordByWorkItemTypeCode } from './pcs-project-repository.ts'
 import { getStyleArchiveById } from './pcs-style-archive-repository.ts'
 import type {
   TechPackSourceTaskType,
@@ -329,14 +328,10 @@ function normalizeRecord(
   contentMap: Map<string, TechnicalDataVersionContent>,
 ): TechnicalDataVersionRecord {
   const content = contentMap.get(rawRecord.technicalVersionId) ?? createEmptyContent(rawRecord.technicalVersionId)
-  const inferredSourceProjectNodeId =
-    !rawRecord.sourceProjectNodeId && rawRecord.sourceProjectId
-      ? getProjectNodeRecordByWorkItemTypeCode(rawRecord.sourceProjectId, 'PROJECT_TRANSFER_PREP')?.projectNodeId || ''
-      : rawRecord.sourceProjectNodeId || ''
   return applyDerivedFields(
     {
       ...cloneRecord(rawRecord),
-      sourceProjectNodeId: inferredSourceProjectNodeId,
+      sourceProjectNodeId: rawRecord.sourceProjectNodeId || '',
       linkedRevisionTaskIds: [...(rawRecord.linkedRevisionTaskIds ?? [])],
       linkedPatternTaskIds: [...(rawRecord.linkedPatternTaskIds ?? [])],
       linkedArtworkTaskIds: [...(rawRecord.linkedArtworkTaskIds ?? [])],

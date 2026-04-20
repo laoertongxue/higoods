@@ -75,13 +75,11 @@ const created = createProject(
 
 const projectId = created.project.projectId
 const styleNode = getProjectNodeRecordByWorkItemTypeCode(projectId, 'STYLE_ARCHIVE_CREATE')
-const transferNode = getProjectNodeRecordByWorkItemTypeCode(projectId, 'PROJECT_TRANSFER_PREP')
 const conclusionNode = getProjectNodeRecordByWorkItemTypeCode(projectId, 'TEST_CONCLUSION')
 const orderedNodes = listProjectNodes(projectId)
 const styleNodeIndex = orderedNodes.findIndex((item) => item.projectNodeId === styleNode?.projectNodeId)
 
 assert.ok(styleNode, '应存在生成款式档案节点')
-assert.ok(transferNode, '应存在项目转档准备节点')
 assert.ok(conclusionNode, '应存在测款结论节点')
 assert.ok(styleNodeIndex >= 0, '应能定位生成款式档案节点顺序')
 
@@ -98,7 +96,7 @@ replaceProjectStore({
         latestResultType: item.projectNodeId === conclusionNode!.projectNodeId ? '测款通过' : '已完成',
         latestResultText:
           item.projectNodeId === conclusionNode!.projectNodeId
-            ? '测款通过，可进入款式档案转档。'
+            ? '测款通过，可进入款式档案开发阶段。'
             : `${item.workItemTypeName}已完成。`,
         pendingActionType: '',
         pendingActionText: '',
@@ -110,7 +108,7 @@ replaceProjectStore({
         ...item,
         currentStatus: '已完成',
         latestResultType: '测款通过',
-        latestResultText: '测款通过，可进入款式档案转档。',
+        latestResultText: '测款通过，可进入款式档案开发阶段。',
         updatedAt: '2026-04-17 10:00',
       }
     }
@@ -150,10 +148,6 @@ assert.equal(updatedProject?.linkedStyleId, result.style?.styleId, '项目主记
 const updatedStyleNode = getProjectNodeRecordByWorkItemTypeCode(projectId, 'STYLE_ARCHIVE_CREATE')
 assert.equal(updatedStyleNode?.latestResultType, '已生成款式档案草稿', '款式档案节点应回写最新结果')
 assert.equal(updatedStyleNode?.pendingActionType, '补齐款式资料', '款式档案节点应回写下一步动作')
-
-const updatedTransferNode = getProjectNodeRecordByWorkItemTypeCode(projectId, 'PROJECT_TRANSFER_PREP')
-assert.equal(updatedTransferNode?.latestResultType, '等待正式建档', '项目转档准备节点应等待正式建档')
-assert.equal(updatedTransferNode?.pendingActionType, '等待正式建档', '项目转档准备节点应回写等待动作')
 
 const styleRelations = listProjectRelationsByProject(projectId).filter(
   (item) =>

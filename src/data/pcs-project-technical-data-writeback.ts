@@ -9,7 +9,7 @@ import {
   generateTechPackVersionFromPlateTask,
   generateTechPackVersionFromRevisionTask,
   syncProjectFromTechPackVersion,
-  syncProjectTransferPrepNodeFromTechPackVersion,
+  syncProjectSourceNodeFromTechPackVersion,
   syncStyleArchiveFromTechPackVersion,
   writeProjectRelationFromTechPackVersion,
 } from './pcs-tech-pack-task-generation.ts'
@@ -56,7 +56,7 @@ export function saveTechnicalDataVersionContent(
   writeProjectRelationFromTechPackVersion(nextRecord, operatorName)
   syncStyleArchiveFromTechPackVersion(nextRecord)
   syncProjectFromTechPackVersion(nextRecord)
-  syncProjectTransferPrepNodeFromTechPackVersion(nextRecord, operatorName, 'WRITTEN')
+  syncProjectSourceNodeFromTechPackVersion(nextRecord, operatorName, 'WRITTEN')
   syncExistingProjectArchiveByProjectId(nextRecord.sourceProjectId, operatorName)
   return nextRecord
 }
@@ -78,7 +78,7 @@ export function publishTechnicalDataVersion(
   writeProjectRelationFromTechPackVersion(nextRecord, operatorName)
   syncStyleArchiveFromTechPackVersion(nextRecord)
   syncProjectFromTechPackVersion(nextRecord)
-  syncProjectTransferPrepNodeFromTechPackVersion(nextRecord, operatorName, 'WRITTEN')
+  syncProjectSourceNodeFromTechPackVersion(nextRecord, operatorName, 'WRITTEN')
   syncExistingProjectArchiveByProjectId(nextRecord.sourceProjectId, operatorName)
   appendTechPackVersionLog({
     logId: `tech_pack_log_publish_${nextRecord.technicalVersionId}_${publishedAt.replace(/[^0-9]/g, '')}`,

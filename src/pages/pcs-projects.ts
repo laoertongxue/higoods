@@ -300,7 +300,6 @@ const PROJECT_NODE_MANUAL_COMPLETE_BLOCKED_TYPES = new Set([
   'LIVE_TEST',
   'VIDEO_TEST',
   'STYLE_ARCHIVE_CREATE',
-  'PROJECT_TRANSFER_PREP',
 ])
 const RISK_STATUS_OPTIONS = ['全部', '正常', '延期']
 const DATE_RANGE_OPTIONS: ProjectDateRange[] = ['全部时间', '今天', '最近一周', '最近一月']

@@ -23,7 +23,6 @@ export type PcsProjectWorkItemCode =
   | 'TEST_DATA_SUMMARY'
   | 'TEST_CONCLUSION'
   | 'STYLE_ARCHIVE_CREATE'
-  | 'PROJECT_TRANSFER_PREP'
   | 'PATTERN_TASK'
   | 'PATTERN_ARTWORK_TASK'
   | 'FIRST_SAMPLE'
@@ -391,19 +390,6 @@ const PCS_PROJECT_MULTI_INSTANCE_DEFINITION_MAP: Partial<
     validInstanceCountRule: '只按汇总快照条数统计，不把上游直播 / 短视频事实算入实例数。',
     latestInstanceRule: '只以最近生成的测款汇总快照作为 latestInstance。',
     projectDisplayRule: '节点内展示当前汇总快照，同时说明其引用的直播、短视频和渠道店铺商品事实来源。',
-  }),
-  PROJECT_TRANSFER_PREP: createMultiInstanceDefinition({
-    semanticKind: 'COMPOSITE_OBJECTS',
-    semanticLabel: '复合正式对象',
-    primaryInstanceTypeName: '技术包版本',
-    primarySourceKinds: ['RELATION_OBJECT'],
-    primarySourceLayers: ['正式业务对象'],
-    primaryRelationObjectTypes: ['技术包版本'],
-    supportingRelationObjectTypes: ['项目资料归档'],
-    granularityLabel: '一个技术包版本为一条主实例，项目资料归档为伴随对象',
-    validInstanceCountRule: 'validInstanceCount 只按技术包版本条数统计，项目资料归档不单独增加主实例数。',
-    latestInstanceRule: 'latestInstance 只以最新技术包版本认定，归档对象作为伴随关系展示。',
-    projectDisplayRule: '项目节点聚合展示技术包版本链与项目资料归档，不把两类对象混成同一种实例。',
   }),
   REVISION_TASK: createMultiInstanceDefinition({
     semanticKind: 'BUSINESS_OBJECTS',
@@ -1406,46 +1392,6 @@ const styleArchiveFields = [
   }),
 ]
 
-const transferPrepFields = [
-  ...groupFields({
-    id: 'transfer-prep-style',
-    title: '款式档案关联',
-    description: '正式承接当前转档准备所绑定的款式档案对象。',
-    fields: [
-      { key: 'linkedStyleId', label: '来源款式档案ID', type: 'text', sourceKind: '项目来源', sourceRef: '款式档案', meaning: '当前项目转档准备绑定的款式档案ID', logic: '项目转档准备必须绑定正式款式档案，只读展示。', readonly: true },
-      { key: 'linkedStyleCode', label: '来源款式档案编码', type: 'text', sourceKind: '项目来源', sourceRef: '款式档案', meaning: '当前项目已生成的款式档案编码', logic: '项目转档准备必须基于正式款式档案。', readonly: true },
-      { key: 'linkedStyleName', label: '来源款式档案名称', type: 'text', sourceKind: '项目来源', sourceRef: '款式档案', meaning: '当前项目转档准备绑定的款式档案名称', logic: '默认继承款式档案标题或项目名称快照，只读展示。', readonly: true },
-    ],
-  }),
-  ...groupFields({
-    id: 'transfer-prep-tech-pack',
-    title: '当前技术包版本',
-    description: '正式承接当前技术包版本的编码、标签、来源任务链和历史差异。',
-    fields: [
-      { key: 'linkedTechPackVersionCode', label: '当前技术包版本编码', type: 'text', sourceKind: '技术包版本', sourceRef: '技术包版本仓储', meaning: '当前项目关联的技术包版本编码', logic: '技术包草稿、发布和启用状态都通过项目转档准备节点查看。', readonly: true },
-      { key: 'linkedTechPackVersionLabel', label: '当前技术包版本标签', type: 'text', sourceKind: '技术包版本', sourceRef: '技术包版本仓储', meaning: '当前技术包版本标签，例如 V1 / V2', logic: '由技术包版本仓储正式回写，只读展示。', readonly: true },
-      { key: 'linkedTechPackVersionStatus', label: '技术包版本状态', type: 'text', sourceKind: '技术包版本', sourceRef: '技术包版本仓储', meaning: '当前项目关联技术包版本状态', logic: '技术包状态只读展示。', readonly: true },
-      { key: 'linkedTechPackVersionSourceTask', label: '当前技术包版本来源任务', type: 'text', sourceKind: '技术包版本', sourceRef: '技术包版本仓储.createdFromTask*', meaning: '当前技术包版本的直接来源任务', logic: '读取技术包版本创建来源任务，只读展示。', readonly: true },
-      { key: 'linkedTechPackVersionTaskChain', label: '当前技术包版本来源任务链', type: 'textarea', sourceKind: '技术包版本', sourceRef: '技术包版本仓储.linked*TaskIds', meaning: '当前技术包版本所承接的来源任务链', logic: '汇总改版、制版、花型等来源任务链，只读展示。', readonly: true },
-      { key: 'linkedTechPackVersionDiffSummary', label: '当前生效版本与历史版本差异', type: 'textarea', sourceKind: '技术包版本', sourceRef: '技术包版本仓储 + 历史版本列表', meaning: '当前版本相对上一版本的差异摘要', logic: '系统按当前版本与上一版本自动计算完整度、缺失项变化，只读展示。', readonly: true },
-    ],
-  }),
-  ...groupFields({
-    id: 'transfer-prep-archive',
-    title: '项目资料归档',
-    description: '正式承接项目资料归档的状态、数量和完成情况。',
-    fields: [
-      { key: 'projectArchiveNo', label: '项目资料归档编号', type: 'text', sourceKind: '项目资料归档', sourceRef: '项目资料归档仓储', meaning: '项目资料归档编号', logic: '归档对象建立后只读展示。', readonly: true },
-      { key: 'projectArchiveStatus', label: '项目资料归档状态', type: 'text', sourceKind: '项目资料归档', sourceRef: '项目资料归档仓储', meaning: '项目资料归档状态', logic: '项目资料归档状态只读展示。', readonly: true },
-      { key: 'projectArchiveDocumentCount', label: '归档资料数量', type: 'number', sourceKind: '项目资料归档', sourceRef: '项目资料归档仓储.documentCount', meaning: '当前项目资料归档下的文档数量', logic: '自动汇总归档文档数量，只读展示。', readonly: true },
-      { key: 'projectArchiveFileCount', label: '归档文件数量', type: 'number', sourceKind: '项目资料归档', sourceRef: '项目资料归档仓储.fileCount', meaning: '当前项目资料归档下的文件数量', logic: '自动汇总归档文件数量，只读展示。', readonly: true },
-      { key: 'projectArchiveMissingItemCount', label: '缺失项数量', type: 'number', sourceKind: '项目资料归档', sourceRef: '项目资料归档仓储.missingItemCount', meaning: '当前项目资料归档缺失项数量', logic: '归档缺失项数量由系统自动计算，只读展示。', readonly: true },
-      { key: 'projectArchiveCompletedFlag', label: '是否已完成归档', type: 'text', sourceKind: '项目资料归档', sourceRef: '项目资料归档仓储.archiveStatus', meaning: '当前项目资料归档是否已完成', logic: '当归档状态为 FINALIZED / 已归档时自动回写为是，只读展示。', readonly: true },
-      { key: 'projectArchiveFinalizedAt', label: '完成归档时间', type: 'datetime', sourceKind: '项目资料归档', sourceRef: '项目资料归档仓储.finalizedAt', meaning: '当前项目资料归档完成时间', logic: '归档完成后自动回写完成时间，只读展示。', readonly: true },
-    ],
-  }),
-]
-
 const revisionTaskFields = [
   ...groupFields({
     id: 'revision-task-main',
@@ -2221,71 +2167,9 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
       { statusName: '已取消', entryConditions: ['测款不通过或节点取消'], exitConditions: ['无'], businessMeaning: '不再生成款式档案。' },
     ],
     upstreamChanges: ['读取测款结论和商品上架实例。'],
-    downstreamChanges: ['回写款式档案主记录', '回写渠道店铺商品生效状态', '解锁项目转档准备'],
-    businessRules: ['测款不通过不能创建款式档案', '创建成功后档案状态必须是技术包待完善'],
+    downstreamChanges: ['回写款式档案主记录', '回写渠道店铺商品生效状态', '按模板顺序进入下一个工作项'],
+    businessRules: ['测款不通过不能创建款式档案', '创建成功后档案状态必须是技术包待完善', '正式建档完成后必须按模板顺序推进项目节点'],
     systemConstraints: ['款式档案创建成功后必须把渠道店铺商品置为已生效'],
-  },
-  {
-    workItemId: 'WI-015',
-    workItemTypeCode: 'PROJECT_TRANSFER_PREP',
-    workItemTypeName: '项目转档准备',
-    phaseCode: 'PHASE_04',
-    workItemNature: '执行类',
-    runtimeType: 'execute',
-    categoryName: '款式档案与转档',
-    description: '围绕款式档案补齐技术包与归档资料。',
-    scenario: '项目转档准备统一承接技术包草稿、技术包发布、技术包启用和项目资料归档。',
-    keepReason: '技术包和项目归档必须围绕款式档案统一收口，不能分散在别的入口。',
-    roleNames: ['档案管理员', '商品负责人'],
-    capabilities: { canReuse: true, canMultiInstance: true, canRollback: true, canParallel: true },
-    fieldDefinitions: transferPrepFields,
-    operationDefinitions: [
-      {
-        actionKey: 'create-tech-pack-draft',
-        actionName: '创建技术包草稿',
-        preconditions: ['已生成款式档案'],
-        effects: ['建立技术包草稿版本', '回写项目关系和项目节点'],
-        writebackRules: ['技术包版本生成入口只能来自正式任务写回，不允许从项目侧直接新建版本', '生成后需同步回写当前技术包版本编码、标签、来源任务和来源任务链'],
-      },
-      {
-        actionKey: 'publish-tech-pack',
-        actionName: '发布技术包版本',
-        preconditions: ['技术包草稿完成补充'],
-        effects: ['版本状态改为已发布'],
-        writebackRules: ['发布不等于启用当前生效版本', '版本发布后需同步更新当前版本状态和版本差异摘要'],
-      },
-      {
-        actionKey: 'activate-tech-pack',
-        actionName: '启用技术包版本',
-        preconditions: ['存在已发布技术包版本'],
-        effects: ['款式档案变为可生产', '触发上游渠道商品最终更新'],
-        writebackRules: ['启用当前生效版本后，款式档案从技术包待完善变为可生产', '启用后需同步刷新当前生效版本与历史版本差异摘要'],
-      },
-      {
-        actionKey: 'create-project-archive',
-        actionName: '创建项目资料归档',
-        preconditions: ['已生成款式档案'],
-        effects: ['建立项目资料归档对象'],
-        writebackRules: ['项目归档对象编号和状态回写项目主记录与节点', '归档资料数量、文件数量、缺失项数量需同步回写正式字段'],
-      },
-      {
-        actionKey: 'finalize-project-archive',
-        actionName: '完成资料归档',
-        preconditions: ['项目资料归档缺失项为 0'],
-        effects: ['项目资料归档状态变为已完成'],
-        writebackRules: ['项目归档完成后更新项目节点为已完成', '归档完成标记和完成归档时间需同步回写正式字段'],
-      },
-    ],
-    statusDefinitions: [
-      { statusName: '未开始', entryConditions: ['款式档案已生成但尚未开始转档准备'], exitConditions: ['开始建立技术包或归档'], businessMeaning: '尚未进入转档准备。' },
-      { statusName: '进行中', entryConditions: ['已建立技术包草稿或项目资料归档'], exitConditions: ['技术包启用且项目资料归档完成或取消'], businessMeaning: '正在补齐技术包和项目资料。' },
-      { statusName: '已完成', entryConditions: ['技术包已启用且项目资料归档完成'], exitConditions: ['无'], businessMeaning: '项目转档准备已完成。' },
-      { statusName: '已取消', entryConditions: ['节点取消'], exitConditions: ['无'], businessMeaning: '项目转档准备不再继续。' },
-    ],
-    upstreamChanges: ['读取款式档案、技术包版本和项目资料归档。'],
-    downstreamChanges: ['技术包启用后把款式档案变为可生产', '技术包启用后触发上游渠道商品最终更新'],
-    businessRules: ['项目转档准备只查看和承接正式技术包版本，不负责项目侧直接创建技术包版本', '项目转档准备正式字段必须同时承接款式档案、当前技术包版本、来源任务链和项目资料归档进度'],
-    systemConstraints: ['启用技术包版本后必须触发上游渠道商品最终更新', '版本差异摘要、归档计数和完成标记只能由系统自动计算，不允许人工手改'],
   },
   {
     workItemId: 'WI-015A',
@@ -2529,7 +2413,7 @@ export const PCS_PROJECT_TEMPLATE_SCHEMAS: PcsProjectTemplateSchema[] = [
       { phaseCode: 'PHASE_01', whyExists: '先完成立项、样衣获取和到样核对，后续评估才有真实输入。', nodeCodes: ['PROJECT_INIT', 'SAMPLE_ACQUIRE', 'SAMPLE_INBOUND_CHECK'] },
       { phaseCode: 'PHASE_02', whyExists: '完整评估样衣可行性、拍摄试穿、确认、核价和定价。', nodeCodes: ['FEASIBILITY_REVIEW', 'SAMPLE_SHOOT_FIT', 'SAMPLE_CONFIRM', 'SAMPLE_COST_REVIEW', 'SAMPLE_PRICING'] },
       { phaseCode: 'PHASE_03', whyExists: '先有商品上架，再跑短视频和直播双测款，并形成统一结论。', nodeCodes: ['CHANNEL_PRODUCT_LISTING', 'VIDEO_TEST', 'LIVE_TEST', 'TEST_DATA_SUMMARY', 'TEST_CONCLUSION'] },
-      { phaseCode: 'PHASE_04', whyExists: '测款通过后进入款式档案、技术包和开发推进链路。', nodeCodes: ['STYLE_ARCHIVE_CREATE', 'PROJECT_TRANSFER_PREP', 'REVISION_TASK', 'PATTERN_TASK', 'FIRST_SAMPLE'] },
+      { phaseCode: 'PHASE_04', whyExists: '测款通过后进入款式档案和开发推进链路。', nodeCodes: ['STYLE_ARCHIVE_CREATE', 'REVISION_TASK', 'PATTERN_TASK', 'FIRST_SAMPLE'] },
       { phaseCode: 'PHASE_05', whyExists: '项目结束时要明确样衣退回和处置结果。', nodeCodes: ['SAMPLE_RETURN_HANDLE'] },
     ],
   },
@@ -2547,7 +2431,7 @@ export const PCS_PROJECT_TEMPLATE_SCHEMAS: PcsProjectTemplateSchema[] = [
       { phaseCode: 'PHASE_01', whyExists: '快反项目仍要先立项并明确样衣来源。', nodeCodes: ['PROJECT_INIT', 'SAMPLE_ACQUIRE'] },
       { phaseCode: 'PHASE_02', whyExists: '快反项目压缩评估动作，但样衣拍摄试穿、确认、核价和定价不能省略。', nodeCodes: ['FEASIBILITY_REVIEW', 'SAMPLE_SHOOT_FIT', 'SAMPLE_CONFIRM', 'SAMPLE_COST_REVIEW', 'SAMPLE_PRICING'] },
       { phaseCode: 'PHASE_03', whyExists: '直播测款前必须先完成商品上架，并形成统一结论。', nodeCodes: ['CHANNEL_PRODUCT_LISTING', 'LIVE_TEST', 'TEST_DATA_SUMMARY', 'TEST_CONCLUSION'] },
-      { phaseCode: 'PHASE_04', whyExists: '测款通过后仍必须生成款式档案、进入技术包和制版链路。', nodeCodes: ['STYLE_ARCHIVE_CREATE', 'PROJECT_TRANSFER_PREP', 'REVISION_TASK', 'PATTERN_TASK'] },
+      { phaseCode: 'PHASE_04', whyExists: '测款通过后仍必须生成款式档案并继续开发链路。', nodeCodes: ['STYLE_ARCHIVE_CREATE', 'REVISION_TASK', 'PATTERN_TASK'] },
       { phaseCode: 'PHASE_05', whyExists: '快反项目结束时仍需明确样衣退回和处置结果。', nodeCodes: ['SAMPLE_RETURN_HANDLE'] },
     ],
   },
@@ -2565,7 +2449,7 @@ export const PCS_PROJECT_TEMPLATE_SCHEMAS: PcsProjectTemplateSchema[] = [
       { phaseCode: 'PHASE_01', whyExists: '改版项目仍需立项、样衣来源和到样核对。', nodeCodes: ['PROJECT_INIT', 'SAMPLE_ACQUIRE', 'SAMPLE_INBOUND_CHECK'] },
       { phaseCode: 'PHASE_02', whyExists: '围绕改版样衣完成确认和核价。', nodeCodes: ['SAMPLE_CONFIRM', 'SAMPLE_COST_REVIEW'] },
       { phaseCode: 'PHASE_03', whyExists: '直播测款前必须先完成商品上架，并形成统一结论。', nodeCodes: ['CHANNEL_PRODUCT_LISTING', 'LIVE_TEST', 'TEST_DATA_SUMMARY', 'TEST_CONCLUSION'] },
-      { phaseCode: 'PHASE_04', whyExists: '测款通过后进入款式档案、技术包和首版样衣推进。', nodeCodes: ['STYLE_ARCHIVE_CREATE', 'PROJECT_TRANSFER_PREP', 'REVISION_TASK', 'FIRST_SAMPLE'] },
+      { phaseCode: 'PHASE_04', whyExists: '测款通过后进入款式档案和首版样衣推进。', nodeCodes: ['STYLE_ARCHIVE_CREATE', 'REVISION_TASK', 'FIRST_SAMPLE'] },
       { phaseCode: 'PHASE_05', whyExists: '项目结束时仍需明确样衣退回和处置结果。', nodeCodes: ['SAMPLE_RETURN_HANDLE'] },
     ],
   },
@@ -2583,7 +2467,7 @@ export const PCS_PROJECT_TEMPLATE_SCHEMAS: PcsProjectTemplateSchema[] = [
       { phaseCode: 'PHASE_01', whyExists: '设计项目仍需先立项、样衣来源和到样核对。', nodeCodes: ['PROJECT_INIT', 'SAMPLE_ACQUIRE', 'SAMPLE_INBOUND_CHECK'] },
       { phaseCode: 'PHASE_02', whyExists: '设计项目保留拍摄试穿、确认、核价和定价。', nodeCodes: ['SAMPLE_SHOOT_FIT', 'SAMPLE_CONFIRM', 'SAMPLE_COST_REVIEW', 'SAMPLE_PRICING'] },
       { phaseCode: 'PHASE_03', whyExists: '设计款内容验证和直播验证都必须建立在商品上架之后。', nodeCodes: ['CHANNEL_PRODUCT_LISTING', 'VIDEO_TEST', 'LIVE_TEST', 'TEST_DATA_SUMMARY', 'TEST_CONCLUSION'] },
-      { phaseCode: 'PHASE_04', whyExists: '测款通过后进入款式档案、技术包、改版、制版、花型、首版样和产前样完整链路。', nodeCodes: ['STYLE_ARCHIVE_CREATE', 'PROJECT_TRANSFER_PREP', 'REVISION_TASK', 'PATTERN_TASK', 'PATTERN_ARTWORK_TASK', 'FIRST_SAMPLE', 'PRE_PRODUCTION_SAMPLE'] },
+      { phaseCode: 'PHASE_04', whyExists: '测款通过后进入款式档案、改版、制版、花型、首版样和产前样完整链路。', nodeCodes: ['STYLE_ARCHIVE_CREATE', 'REVISION_TASK', 'PATTERN_TASK', 'PATTERN_ARTWORK_TASK', 'FIRST_SAMPLE', 'PRE_PRODUCTION_SAMPLE'] },
       { phaseCode: 'PHASE_05', whyExists: '设计项目结束时同样需要明确样衣退回和处置结果。', nodeCodes: ['SAMPLE_RETURN_HANDLE'] },
     ],
   },
@@ -2655,9 +2539,9 @@ export const PCS_PROJECT_CONFIG_SOURCE_MAPPINGS: PcsProjectConfigSourceMapping[]
   { fieldKey: 'acceptedAt', fieldLabel: '受理/签收时间', sourceKind: '执行任务', sourceRef: '工程任务/样衣任务正式对象.acceptedAt + 项目样衣签收留痕', reason: '受理/签收时间优先来自正式任务对象，样衣任务可结合项目样衣签收留痕推导。' },
   { fieldKey: 'confirmedAt', fieldLabel: '确认时间', sourceKind: '执行任务', sourceRef: '工程任务/样衣任务正式对象.confirmedAt + 样衣验收/门禁结果', reason: '确认时间优先来自正式任务对象，样衣任务可结合验收或门禁结果推导。' },
   { fieldKey: 'sampleAssetId', fieldLabel: '样衣资产ID', sourceKind: '样衣资产', sourceRef: '样衣资产正式对象.sampleAssetId', reason: '样衣资产 ID 在核对入库后正式回写。' },
-  { fieldKey: 'linkedStyleId', fieldLabel: '来源款式档案ID', sourceKind: '项目来源', sourceRef: '款式档案', reason: '项目转档准备节点直接引用正式款式档案 ID。' },
-  { fieldKey: 'linkedStyleCode', fieldLabel: '来源款式档案编码', sourceKind: '项目来源', sourceRef: '款式档案', reason: '项目转档准备节点直接引用正式款式档案编码。' },
-  { fieldKey: 'linkedStyleName', fieldLabel: '来源款式档案名称', sourceKind: '项目来源', sourceRef: '款式档案', reason: '项目转档准备节点直接引用正式款式档案名称。' },
+  { fieldKey: 'linkedStyleId', fieldLabel: '来源款式档案ID', sourceKind: '项目来源', sourceRef: '款式档案', reason: '款式档案主关联直接引用正式款式档案 ID。' },
+  { fieldKey: 'linkedStyleCode', fieldLabel: '来源款式档案编码', sourceKind: '项目来源', sourceRef: '款式档案', reason: '款式档案主关联直接引用正式款式档案编码。' },
+  { fieldKey: 'linkedStyleName', fieldLabel: '来源款式档案名称', sourceKind: '项目来源', sourceRef: '款式档案', reason: '款式档案主关联直接引用正式款式档案名称。' },
   { fieldKey: 'linkedTechPackVersionCode', fieldLabel: '当前技术包版本编码', sourceKind: '技术包版本', sourceRef: '技术包版本仓储', reason: '当前技术包版本编码来自技术包版本仓储。' },
   { fieldKey: 'linkedTechPackVersionLabel', fieldLabel: '当前技术包版本标签', sourceKind: '技术包版本', sourceRef: '技术包版本仓储.versionLabel', reason: '当前技术包版本标签来自技术包版本正式版本号。' },
   { fieldKey: 'linkedTechPackVersionStatus', fieldLabel: '技术包版本状态', sourceKind: '技术包版本', sourceRef: '技术包版本仓储.versionStatus', reason: '技术包版本状态直接来自技术包版本仓储。' },
@@ -2684,7 +2568,7 @@ export const PCS_PROJECT_RELATED_INSTANCE_TYPES: PcsProjectRelatedInstanceTypeDe
   { typeCode: 'PRE_PRODUCTION_SAMPLE', typeName: '产前版样衣', moduleName: '产前样衣', businessMeaning: '量产前最终样确认。' },
   { typeCode: 'STYLE_ARCHIVE', typeName: '款式档案', moduleName: '款式档案', businessMeaning: '测款通过后生成的正式款式档案壳。' },
   { typeCode: 'TECH_PACK_VERSION', typeName: '技术包版本', moduleName: '技术包', businessMeaning: '围绕款式档案推进的技术包版本。' },
-  { typeCode: 'PROJECT_ARCHIVE', typeName: '项目资料归档', moduleName: '项目资料归档', businessMeaning: '围绕项目转档准备收口的正式归档对象。' },
+  { typeCode: 'PROJECT_ARCHIVE', typeName: '项目资料归档', moduleName: '项目资料归档', businessMeaning: '围绕商品项目沉淀的正式归档对象。' },
 ]
 
 export const PCS_PROJECT_WORK_ITEM_LEGACY_MAPPINGS: Array<{
@@ -2709,9 +2593,6 @@ export const PCS_PROJECT_WORK_ITEM_LEGACY_MAPPINGS: Array<{
   { legacyName: '测款结论判定', workItemTypeCode: 'TEST_CONCLUSION' },
   { legacyName: '生成商品档案', workItemTypeCode: 'STYLE_ARCHIVE_CREATE' },
   { legacyName: '生成款式档案', workItemTypeCode: 'STYLE_ARCHIVE_CREATE' },
-  { legacyName: '商品项目转档', workItemTypeCode: 'PROJECT_TRANSFER_PREP' },
-  { legacyName: '项目转档准备', workItemTypeCode: 'PROJECT_TRANSFER_PREP' },
-  { legacyName: '转档准备', workItemTypeCode: 'PROJECT_TRANSFER_PREP' },
   { legacyName: '改版任务', workItemTypeCode: 'REVISION_TASK' },
   { legacyName: '制版准备·打版任务', workItemTypeCode: 'PATTERN_TASK' },
   { legacyName: '制版任务', workItemTypeCode: 'PATTERN_TASK' },

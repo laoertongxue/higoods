@@ -81,7 +81,7 @@ interface CoverageBlueprint {
 interface CoverageSeedContext {
   currentNodeIndex: number
   styleArchiveIndex: number
-  transferPrepIndex: number
+  archiveReadyIndex: number
   revisionTaskIndex: number
   replicaIndex: number
 }
@@ -805,7 +805,7 @@ function getDemoStoreMeta(project: PcsProjectRecord, replicaIndex: number): Demo
 function getCoverageObjectRefs(project: PcsProjectRecord, context: CoverageSeedContext): CoverageObjectRefs {
   const codeSeed = project.projectCode.replace(/[^0-9A-Za-z]/g, '')
   const suffix = codeSeed.slice(-8) || codeSeed || project.projectId.slice(-8)
-  const versionNo = context.currentNodeIndex >= context.transferPrepIndex && context.transferPrepIndex >= 0 ? 2 : 1
+  const versionNo = context.currentNodeIndex >= context.archiveReadyIndex && context.archiveReadyIndex >= 0 ? 2 : 1
   return {
     skuId: `${project.projectId}-sku-${context.replicaIndex + 1}`,
     skuCode: `SKU-${suffix}-${context.replicaIndex + 1}`,
@@ -915,7 +915,7 @@ function ensureFormalNodeRelation(
   const businessDate = getCoverageTimestamp(nodeIndex, context.replicaIndex, 10 + (nodeIndex % 4))
   const revisionPath = context.revisionTaskIndex >= 0 && context.currentNodeIndex >= context.revisionTaskIndex
   const styleReady = context.styleArchiveIndex >= 0 && context.currentNodeIndex >= context.styleArchiveIndex
-  const archiveReady = context.transferPrepIndex >= 0 && context.currentNodeIndex >= context.transferPrepIndex
+  const archiveReady = context.archiveReadyIndex >= 0 && context.currentNodeIndex >= context.archiveReadyIndex
   const techPackStatus = archiveReady ? '已发布' : styleReady ? '待完善' : '草稿'
   const channelProductStatus = revisionPath ? '已作废' : styleReady ? '已生效' : '已上架待测款'
   const upstreamSyncStatus = revisionPath ? '无需更新' : archiveReady ? '已更新' : styleReady ? '待更新' : '无需更新'
@@ -1076,42 +1076,39 @@ function ensureFormalNodeRelation(
           upstreamChannelProductCode: refs.upstreamChannelProductCode,
         },
       })
-      return
-    }
-    case 'PROJECT_TRANSFER_PREP': {
-      upsertDemoRelation({
-        project,
-        workItemTypeCode: 'PROJECT_TRANSFER_PREP',
-        sourceModule: '项目资料归档',
-        sourceObjectType: '项目资料归档',
-        sourceObjectId: refs.archiveId,
-        sourceObjectCode: refs.archiveNo,
-        sourceTitle: `${project.projectName} 项目资料归档`,
-        sourceStatus: archiveReady ? '已归档' : '归档准备中',
-        businessDate,
-        noteMeta: {
-          linkedStyleId: refs.styleId,
-          linkedStyleCode: refs.styleCode,
-          linkedStyleName: refs.styleName,
-          linkedTechPackVersionCode: refs.techPackVersionCode,
-          linkedTechPackVersionLabel: refs.techPackVersionLabel,
-          linkedTechPackVersionStatus: techPackStatus,
-          linkedTechPackVersionSourceTask: revisionPath ? refs.revisionTaskCode : refs.plateTaskCode,
-          linkedTechPackVersionTaskChain: revisionPath
-            ? `改版任务：${refs.revisionTaskCode}\n制版任务：${refs.plateTaskCode}\n花型任务：${refs.artworkTaskCode}`
-            : `制版任务：${refs.plateTaskCode}\n花型任务：${refs.artworkTaskCode}\n首版样衣：${refs.firstSampleTaskCode}`,
-          linkedTechPackVersionDiffSummary: archiveReady
-            ? '当前版本已补齐关键工艺、尺寸说明和花型版本差异。'
-            : '当前版本仍在补齐工艺与归档差异项。',
-          projectArchiveNo: refs.archiveNo,
-          projectArchiveStatus: archiveReady ? '已归档' : '归档准备中',
-          projectArchiveDocumentCount: 6 + context.replicaIndex,
-          projectArchiveFileCount: 12 + context.replicaIndex * 2,
-          projectArchiveMissingItemCount: archiveReady ? 0 : 2,
-          projectArchiveCompletedFlag: archiveReady ? '是' : '否',
-          projectArchiveFinalizedAt: archiveReady ? businessDate : '',
-        },
-      })
+      if (archiveReady) {
+        upsertDemoRelation({
+          project,
+          workItemTypeCode: 'STYLE_ARCHIVE_CREATE',
+          sourceModule: '项目资料归档',
+          sourceObjectType: '项目资料归档',
+          sourceObjectId: refs.archiveId,
+          sourceObjectCode: refs.archiveNo,
+          sourceTitle: `${project.projectName} 项目资料归档`,
+          sourceStatus: '已归档',
+          businessDate,
+          noteMeta: {
+            linkedStyleId: refs.styleId,
+            linkedStyleCode: refs.styleCode,
+            linkedStyleName: refs.styleName,
+            linkedTechPackVersionCode: refs.techPackVersionCode,
+            linkedTechPackVersionLabel: refs.techPackVersionLabel,
+            linkedTechPackVersionStatus: techPackStatus,
+            linkedTechPackVersionSourceTask: revisionPath ? refs.revisionTaskCode : refs.plateTaskCode,
+            linkedTechPackVersionTaskChain: revisionPath
+              ? `改版任务：${refs.revisionTaskCode}\n制版任务：${refs.plateTaskCode}\n花型任务：${refs.artworkTaskCode}`
+              : `制版任务：${refs.plateTaskCode}\n花型任务：${refs.artworkTaskCode}\n首版样衣：${refs.firstSampleTaskCode}`,
+            linkedTechPackVersionDiffSummary: '当前版本已补齐关键工艺、尺寸说明和花型版本差异。',
+            projectArchiveNo: refs.archiveNo,
+            projectArchiveStatus: '已归档',
+            projectArchiveDocumentCount: 6 + context.replicaIndex,
+            projectArchiveFileCount: 12 + context.replicaIndex * 2,
+            projectArchiveMissingItemCount: 0,
+            projectArchiveCompletedFlag: '是',
+            projectArchiveFinalizedAt: businessDate,
+          },
+        })
+      }
       return
     }
     case 'REVISION_TASK': {
@@ -1294,20 +1291,20 @@ function hydrateProjectOutputRefs(project: PcsProjectRecord, context: CoverageSe
     patch.linkedStyleGeneratedAt = getCoverageTimestamp(context.styleArchiveIndex, context.replicaIndex, 11)
   }
 
-  if (context.transferPrepIndex >= 0 && context.currentNodeIndex >= context.transferPrepIndex) {
+  if (context.archiveReadyIndex >= 0 && context.currentNodeIndex >= context.archiveReadyIndex) {
     patch.linkedTechPackVersionId = refs.techPackVersionId
     patch.linkedTechPackVersionCode = refs.techPackVersionCode
     patch.linkedTechPackVersionLabel = refs.techPackVersionLabel
     patch.linkedTechPackVersionStatus = '已发布'
-    patch.linkedTechPackVersionPublishedAt = getCoverageTimestamp(context.transferPrepIndex, context.replicaIndex, 15)
+    patch.linkedTechPackVersionPublishedAt = getCoverageTimestamp(context.archiveReadyIndex, context.replicaIndex, 15)
     patch.projectArchiveId = refs.archiveId
     patch.projectArchiveNo = refs.archiveNo
     patch.projectArchiveStatus = '已归档'
     patch.projectArchiveDocumentCount = 6 + context.replicaIndex
     patch.projectArchiveFileCount = 12 + context.replicaIndex * 2
     patch.projectArchiveMissingItemCount = 0
-    patch.projectArchiveUpdatedAt = getCoverageTimestamp(context.transferPrepIndex, context.replicaIndex, 16)
-    patch.projectArchiveFinalizedAt = getCoverageTimestamp(context.transferPrepIndex, context.replicaIndex, 17)
+    patch.projectArchiveUpdatedAt = getCoverageTimestamp(context.archiveReadyIndex, context.replicaIndex, 16)
+    patch.projectArchiveFinalizedAt = getCoverageTimestamp(context.archiveReadyIndex, context.replicaIndex, 17)
   }
 
   if (Object.keys(patch).length > 0) {
@@ -1446,12 +1443,12 @@ function ensureProjectNodeDemoPayloads(
   if (orderedNodes.length === 0) return
 
   const styleArchiveIndex = orderedNodes.findIndex((node) => node.workItemTypeCode === 'STYLE_ARCHIVE_CREATE')
-  const transferPrepIndex = orderedNodes.findIndex((node) => node.workItemTypeCode === 'PROJECT_TRANSFER_PREP')
   const revisionTaskIndex = orderedNodes.findIndex((node) => node.workItemTypeCode === 'REVISION_TASK')
+  const archiveReadyIndex = revisionTaskIndex >= 0 ? revisionTaskIndex : styleArchiveIndex
   const context: CoverageSeedContext = {
     currentNodeIndex: Math.max(1, Math.min(currentNodeIndex, orderedNodes.length - 1)),
     styleArchiveIndex,
-    transferPrepIndex,
+    archiveReadyIndex,
     revisionTaskIndex,
     replicaIndex,
   }
@@ -2015,7 +2012,7 @@ export function ensurePcsProjectDemoDataReady(): void {
   })
   upsertDemoRelation({
     project: archivedProject,
-    workItemTypeCode: 'PROJECT_TRANSFER_PREP',
+    workItemTypeCode: 'STYLE_ARCHIVE_CREATE',
     sourceModule: '项目资料归档',
     sourceObjectType: '项目资料归档',
     sourceObjectId: `${archivedProject.projectId}-archive-001`,
@@ -2181,7 +2178,7 @@ export function ensurePcsProjectDemoDataReady(): void {
   })
   seedInlineRecord(archivedProject.projectId, 'TEST_CONCLUSION', {
     businessDate: '2026-04-04',
-    note: '测款通过，进入款式档案与转档准备阶段。',
+    note: '测款通过，进入款式档案与后续开发阶段。',
   })
   seedInlineRecord(archivedProject.projectId, 'SAMPLE_RETURN_HANDLE', {
     businessDate: '2026-04-06',

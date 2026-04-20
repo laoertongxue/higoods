@@ -76,13 +76,11 @@ const created = createProject(
 
 const projectId = created.project.projectId
 const styleNode = getProjectNodeRecordByWorkItemTypeCode(projectId, 'STYLE_ARCHIVE_CREATE')
-const transferNode = getProjectNodeRecordByWorkItemTypeCode(projectId, 'PROJECT_TRANSFER_PREP')
 const conclusionNode = getProjectNodeRecordByWorkItemTypeCode(projectId, 'TEST_CONCLUSION')
 const orderedNodes = listProjectNodes(projectId)
 const styleNodeIndex = orderedNodes.findIndex((item) => item.projectNodeId === styleNode?.projectNodeId)
 
 assert.ok(styleNode, '应存在生成款式档案节点')
-assert.ok(transferNode, '应存在项目转档准备节点')
 assert.ok(conclusionNode, '应存在测款结论节点')
 assert.ok(styleNodeIndex >= 0, '应能定位生成款式档案节点顺序')
 
@@ -99,7 +97,7 @@ replaceProjectStore({
         latestResultType: item.projectNodeId === conclusionNode!.projectNodeId ? '测款通过' : '已完成',
         latestResultText:
           item.projectNodeId === conclusionNode!.projectNodeId
-            ? '测款通过，可进入款式档案转档。'
+            ? '测款通过，可进入款式档案开发阶段。'
             : `${item.workItemTypeName}已完成。`,
         pendingActionType: '',
         pendingActionText: '',
@@ -190,8 +188,9 @@ const updatedStyleNode = getProjectNodeRecordByWorkItemTypeCode(projectId, 'STYL
 assert.equal(updatedStyleNode?.currentStatus, '已完成', '款式档案节点应回写为已完成')
 assert.equal(updatedStyleNode?.latestResultType, '已完成正式建档', '款式档案节点应回写正式建档结果')
 
-const updatedTransferNode = getProjectNodeRecordByWorkItemTypeCode(projectId, 'PROJECT_TRANSFER_PREP')
-assert.equal(updatedTransferNode?.currentStatus, '进行中', '转档准备节点应推进到进行中')
-assert.equal(updatedTransferNode?.pendingActionType, '推进技术包与归档', '转档准备节点应回写下一步动作')
+const nextTemplateNode = orderedNodes[styleNodeIndex + 1]
+assert.ok(nextTemplateNode, '正式建档后应存在模板顺序上的下一个节点')
+const updatedNextNode = getProjectNodeRecordByWorkItemTypeCode(projectId, nextTemplateNode!.workItemTypeCode)
+assert.equal(updatedNextNode?.currentStatus, '进行中', '正式建档后应按模板顺序推进到下一个节点')
 
 console.log('pcs-style-archive-formalization.spec.ts PASS')

@@ -37,12 +37,12 @@ const projectHtml = await renderPcsProjectDetailPage(project!.projectId)
 assert.ok(!projectHtml.includes(legacyCreateLabel), '商品项目详情不应再显示旧直建入口')
 assert.ok(!projectHtml.includes(legacyCopyLabel), '商品项目详情不应再显示旧复制入口')
 
-const transferPrepNode = getProjectNodeRecordByWorkItemTypeCode(project!.projectId, 'PROJECT_TRANSFER_PREP')
-assert.ok(transferPrepNode, '应存在项目转档准备节点')
+const styleNode = getProjectNodeRecordByWorkItemTypeCode(project!.projectId, 'STYLE_ARCHIVE_CREATE')
+assert.ok(styleNode, '应存在生成款式档案节点')
 
 const projectWorkItemHtml = await renderPcsProjectWorkItemDetailPage(
   project!.projectId,
-  transferPrepNode!.projectNodeId,
+  styleNode!.projectNodeId,
 )
 assert.ok(!projectWorkItemHtml.includes(legacyCreateLabel), '项目节点详情不应再显示旧直建入口')
 assert.ok(!projectWorkItemHtml.includes(legacyCopyLabel), '项目节点详情不应再显示旧复制入口')

@@ -187,8 +187,7 @@ function createPatternTask(id: string, code: string, projectId: string, styleCod
 
 function createRevisionTask(projectId: string, styleId: string, styleCode: string, styleName: string) {
   const project = getProjectById(projectId)!
-  const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'TEST_CONCLUSION')
-    || getProjectNodeRecordByWorkItemTypeCode(projectId, 'PROJECT_TRANSFER_PREP')!
+  const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'TEST_CONCLUSION')!
   return upsertRevisionTask({
     revisionTaskId: 'revision_task_log_test',
     revisionTaskCode: 'RT-TEST-LOG-001',

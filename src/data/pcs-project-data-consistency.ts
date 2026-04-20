@@ -287,34 +287,6 @@ function validateNodeByTask(project: PcsProjectViewRecord, node: PcsProjectNodeR
   }
 }
 
-function validateTransferPrepNode(project: PcsProjectViewRecord, node: PcsProjectNodeRecord): ProjectNodeCompletionValidationResult {
-  const missingFieldLabels: string[] = []
-  if (!project.linkedTechPackVersionId) {
-    missingFieldLabels.push('当前技术包版本')
-  }
-  if (!project.projectArchiveId || project.projectArchiveStatus !== 'FINALIZED') {
-    missingFieldLabels.push('项目资料归档')
-  }
-
-  if (missingFieldLabels.length > 0) {
-    return {
-      ok: false,
-      project,
-      node,
-      message: `当前节点仍缺少：${missingFieldLabels.join('、')}。`,
-      missingFieldLabels,
-    }
-  }
-
-  return {
-    ok: true,
-    project,
-    node,
-    message: '项目转档准备节点数据完整。',
-    missingFieldLabels: [],
-  }
-}
-
 function validateStyleArchiveNode(project: PcsProjectViewRecord, node: PcsProjectNodeRecord): ProjectNodeCompletionValidationResult {
   const style = project.linkedStyleId ? getStyleArchiveById(project.linkedStyleId) : null
   if (!style) {
@@ -404,10 +376,6 @@ export function validateProjectNodeCompletion(
     return validateStyleArchiveNode(project, node)
   }
 
-  if (node.workItemTypeCode === 'PROJECT_TRANSFER_PREP') {
-    return validateTransferPrepNode(project, node)
-  }
-
   const instance = pickPrimaryNodeInstance(projectId, projectNodeId, node.workItemTypeCode)
   if (!instance) {
     return {
@@ -443,6 +411,7 @@ function pushRecordBindingIssue(
     expectedWorkItemTypeCode: string
   },
 ): void {
+  if (!input.projectNodeId || !input.expectedWorkItemTypeCode) return
   const node = input.projectNodeId ? getProjectNodeRecordById(input.project.projectId, input.projectNodeId) : null
   if (!node) {
     issues.push(
@@ -712,19 +681,25 @@ function pushModuleRecordIssues(project: PcsProjectViewRecord, issues: PcsProjec
   }
 
   listTechnicalDataVersionsByProjectId(project.projectId).forEach((record) => {
+    const expectedWorkItemTypeCode =
+      record.createdFromTaskType === 'PLATE'
+        ? 'PATTERN_TASK'
+        : record.createdFromTaskType === 'ARTWORK'
+          ? 'PATTERN_ARTWORK_TASK'
+          : 'REVISION_TASK'
     pushRecordBindingIssue(issues, {
       project,
       moduleName: '技术包',
       sourceObjectId: record.technicalVersionId,
       sourceObjectCode: record.technicalVersionCode,
       projectNodeId: record.sourceProjectNodeId,
-      expectedWorkItemTypeCode: 'PROJECT_TRANSFER_PREP',
+      expectedWorkItemTypeCode,
     })
   })
 
   const archive = getProjectArchiveByProjectId(project.projectId)
   if (archive) {
-    const node = listProjectNodes(project.projectId).find((item) => item.workItemTypeCode === 'PROJECT_TRANSFER_PREP') || null
+    const node = listProjectNodes(project.projectId).find((item) => item.workItemTypeCode === 'STYLE_ARCHIVE_CREATE') || null
     if (!node) {
       issues.push(
         buildIssue(
@@ -734,7 +709,7 @@ function pushModuleRecordIssues(project: PcsProjectViewRecord, issues: PcsProjec
           '项目资料归档',
           archive.projectArchiveId,
           archive.archiveNo,
-          '项目资料归档对象未找到对应的项目转档准备节点。',
+          '项目资料归档对象未找到对应的款式档案生成节点。',
         ),
       )
     }

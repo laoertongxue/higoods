@@ -102,6 +102,33 @@ export interface ProjectChannelProductChainSummary {
   channelProducts: ProjectChannelProductRecord[]
 }
 
+function getTechPackSourceNodeBinding(projectId: string, createdFromTaskType: string) {
+  if (createdFromTaskType === 'PLATE') {
+    const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'PATTERN_TASK')
+    return {
+      projectNodeId: node?.projectNodeId || null,
+      workItemTypeCode: 'PATTERN_TASK',
+      workItemTypeName: node?.workItemTypeName || '制版任务',
+    }
+  }
+
+  if (createdFromTaskType === 'ARTWORK') {
+    const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'PATTERN_ARTWORK_TASK')
+    return {
+      projectNodeId: node?.projectNodeId || null,
+      workItemTypeCode: 'PATTERN_ARTWORK_TASK',
+      workItemTypeName: node?.workItemTypeName || '花型任务',
+    }
+  }
+
+  const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'REVISION_TASK')
+  return {
+    projectNodeId: node?.projectNodeId || null,
+    workItemTypeCode: 'REVISION_TASK',
+    workItemTypeName: node?.workItemTypeName || '改版任务',
+  }
+}
+
 export interface ProjectChannelProductListingPayload {
   targetChannelCode?: string
   targetStoreId?: string
@@ -1074,15 +1101,15 @@ function buildTechnicalVersionRelation(
 ): ProjectRelationRecord | null {
   const project = getProjectById(projectId)
   const record = getTechnicalDataVersionById(technicalVersionId)
-  const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'PROJECT_TRANSFER_PREP')
-  if (!project || !record || !node) return null
+  if (!project || !record) return null
+  const node = getTechPackSourceNodeBinding(projectId, record.createdFromTaskType)
   return {
     projectRelationId: `rel_technical_version_${record.technicalVersionId}`,
     projectId: project.projectId,
     projectCode: project.projectCode,
     projectNodeId: node.projectNodeId,
-    workItemTypeCode: 'PROJECT_TRANSFER_PREP',
-    workItemTypeName: '项目转档准备',
+    workItemTypeCode: node.workItemTypeCode,
+    workItemTypeName: node.workItemTypeName,
     relationRole: '产出对象',
     sourceModule: '技术包',
     sourceObjectType: '技术包版本',
@@ -1144,14 +1171,14 @@ function buildUpstreamSyncRelation(
   operatorName: string,
 ): ProjectRelationRecord | null {
   if (!record.upstreamChannelProductCode || record.upstreamSyncStatus !== '已更新') return null
-  const transferNode = getProjectNodeRecordByWorkItemTypeCode(record.projectId, 'PROJECT_TRANSFER_PREP')
+  const styleNode = getProjectNodeRecordByWorkItemTypeCode(record.projectId, 'STYLE_ARCHIVE_CREATE')
   return {
     projectRelationId: `rel_upstream_sync_${record.channelProductId}`,
     projectId: record.projectId,
     projectCode: record.projectCode,
-    projectNodeId: transferNode?.projectNodeId || null,
-    workItemTypeCode: 'PROJECT_TRANSFER_PREP',
-    workItemTypeName: '项目转档准备',
+    projectNodeId: styleNode?.projectNodeId || null,
+    workItemTypeCode: styleNode ? 'STYLE_ARCHIVE_CREATE' : '',
+    workItemTypeName: styleNode?.workItemTypeName || '',
     relationRole: '执行记录',
     sourceModule: '上游渠道商品同步',
     sourceObjectType: '上游渠道商品同步',
@@ -1196,8 +1223,8 @@ function applyScenarioStyleLinks(): void {
     const styleNode = project
       ? getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'STYLE_ARCHIVE_CREATE')
       : null
-    const transferNode = project
-      ? getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'PROJECT_TRANSFER_PREP')
+    const techPackNode = project && technicalVersion
+      ? getTechPackSourceNodeBinding(project.projectId, technicalVersion.createdFromTaskType)
       : null
     if (!project || !style || !technicalVersion) return
 
@@ -1226,7 +1253,7 @@ function applyScenarioStyleLinks(): void {
       sourceProjectId: project.projectId,
       sourceProjectCode: project.projectCode,
       sourceProjectName: project.projectName,
-      sourceProjectNodeId: transferNode?.projectNodeId || '',
+      sourceProjectNodeId: techPackNode?.projectNodeId || '',
     })
 
     updateProjectRecord(
@@ -1267,10 +1294,10 @@ function applyScenarioStyleLinks(): void {
       syncProjectNodeInstanceRuntime(project.projectId, styleNode.projectNodeId, DEMO_OPERATOR, style.updatedAt)
     }
 
-    if (transferNode) {
+    if (techPackNode?.projectNodeId) {
       updateProjectNodeRecord(
         project.projectId,
-        transferNode.projectNodeId,
+        techPackNode.projectNodeId,
         {
           currentStatus: '进行中',
           latestInstanceId: technicalVersion.technicalVersionId,
@@ -1289,7 +1316,7 @@ function applyScenarioStyleLinks(): void {
       )
       syncProjectNodeInstanceRuntime(
         project.projectId,
-        transferNode.projectNodeId,
+        techPackNode.projectNodeId,
         DEMO_OPERATOR,
         (activated ? technicalVersion.publishedAt : technicalVersion.updatedAt) || project.updatedAt,
       )
@@ -2092,13 +2119,6 @@ function updateStyleArchiveCreateNode(projectId: string, patch: Partial<Paramete
   syncProjectNodeInstanceRuntime(projectId, node.projectNodeId, DEMO_OPERATOR, String(patch.updatedAt || nowText()))
 }
 
-function updateProjectTransferPrepNode(projectId: string, patch: Partial<Parameters<typeof updateProjectNodeRecord>[2]>) {
-  const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'PROJECT_TRANSFER_PREP')
-  if (!node) return
-  updateProjectNodeRecord(projectId, node.projectNodeId, patch, DEMO_OPERATOR)
-  syncProjectNodeInstanceRuntime(projectId, node.projectNodeId, DEMO_OPERATOR, String(patch.updatedAt || nowText()))
-}
-
 function isClosedProjectNodeStatus(status: string): boolean {
   return status === '已完成' || status === '已取消'
 }
@@ -2624,14 +2644,6 @@ export function submitProjectTestingConclusion(
         nextRecords.length > 1
           ? `请确认后生成款式档案壳，并保留当前 ${nextRecords.length} 个渠道店铺商品实例链路。`
           : '请确认后生成款式档案壳，并保留当前渠道店铺商品链路。',
-      updatedAt: timestamp,
-    })
-    updateProjectTransferPrepNode(projectId, {
-      currentStatus: '未开始',
-      latestResultType: '',
-      latestResultText: '',
-      pendingActionType: '等待款式档案',
-      pendingActionText: '请先生成款式档案，再进入技术包与归档链路。',
       updatedAt: timestamp,
     })
     buildTestingConclusionInlineRecord(

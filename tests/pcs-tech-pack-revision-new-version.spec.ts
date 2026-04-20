@@ -138,7 +138,6 @@ function createPlateTask(id: string, code: string, projectId: string, styleCode:
 function createRevisionTask(projectId: string, styleId: string, styleCode: string, styleName: string): RevisionTaskRecord {
   const project = getProjectById(projectId)!
   const upstreamNode = getProjectNodeRecordByWorkItemTypeCode(projectId, 'TEST_CONCLUSION')
-    || getProjectNodeRecordByWorkItemTypeCode(projectId, 'PROJECT_TRANSFER_PREP')
   assert.ok(upstreamNode, '项目中必须存在可挂接改版任务的节点')
 
   return upsertRevisionTask({

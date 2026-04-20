@@ -55,6 +55,33 @@ export const PROJECT_ARCHIVE_GROUP_LABELS: Record<ProjectArchiveDocumentGroup, s
   OTHER_FILE: '其他说明资料',
 }
 
+function getTechnicalNodeBinding(projectId: string, version: TechnicalDataVersionRecord) {
+  if (version.createdFromTaskType === 'PLATE') {
+    const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'PATTERN_TASK')
+    return {
+      projectNodeId: node?.projectNodeId || version.sourceProjectNodeId || '',
+      workItemTypeCode: 'PATTERN_TASK',
+      workItemTypeName: node?.workItemTypeName || '制版任务',
+    }
+  }
+
+  if (version.createdFromTaskType === 'ARTWORK') {
+    const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'PATTERN_ARTWORK_TASK')
+    return {
+      projectNodeId: node?.projectNodeId || version.sourceProjectNodeId || '',
+      workItemTypeCode: 'PATTERN_ARTWORK_TASK',
+      workItemTypeName: node?.workItemTypeName || '花型任务',
+    }
+  }
+
+  const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'REVISION_TASK')
+  return {
+    projectNodeId: node?.projectNodeId || version.sourceProjectNodeId || '',
+    workItemTypeCode: 'REVISION_TASK',
+    workItemTypeName: node?.workItemTypeName || '改版任务',
+  }
+}
+
 function escapeSegment(value: string): string {
   return value.replace(/[^a-zA-Z0-9_-]/g, '_')
 }
@@ -255,6 +282,7 @@ function buildTechnicalDocuments(
 ): TechnicalDataVersionRecord | null {
   const versions = listTechnicalDataVersionsByStyleId(style.styleId)
   versions.forEach((version) => {
+    const nodeBinding = getTechnicalNodeBinding(project.projectId, version)
     const documentId = buildDocumentId(
       archive.projectArchiveId,
       '技术包',
@@ -270,9 +298,9 @@ function buildTechnicalDocuments(
         projectArchiveId: archive.projectArchiveId,
         projectId: project.projectId,
         projectCode: project.projectCode,
-        projectNodeId: version.sourceProjectNodeId,
-        workItemTypeCode: 'PROJECT_TRANSFER_PREP',
-        workItemTypeName: '项目转档准备',
+        projectNodeId: nodeBinding.projectNodeId,
+        workItemTypeCode: nodeBinding.workItemTypeCode,
+        workItemTypeName: nodeBinding.workItemTypeName,
         sourceModule: '技术包',
         sourceObjectType: '技术包版本',
         sourceObjectId: version.technicalVersionId,
@@ -343,9 +371,9 @@ function buildTechnicalDocuments(
           projectArchiveId: archive.projectArchiveId,
           projectId: project.projectId,
           projectCode: project.projectCode,
-          projectNodeId: version.sourceProjectNodeId,
-          workItemTypeCode: 'PROJECT_TRANSFER_PREP',
-          workItemTypeName: '项目转档准备',
+          projectNodeId: nodeBinding.projectNodeId,
+          workItemTypeCode: nodeBinding.workItemTypeCode,
+          workItemTypeName: nodeBinding.workItemTypeName,
           sourceModule: '技术包',
           sourceObjectType: '纸样文件',
           sourceObjectId: version.technicalVersionId,
@@ -415,9 +443,9 @@ function buildTechnicalDocuments(
           projectArchiveId: archive.projectArchiveId,
           projectId: project.projectId,
           projectCode: project.projectCode,
-          projectNodeId: version.sourceProjectNodeId,
-          workItemTypeCode: 'PROJECT_TRANSFER_PREP',
-          workItemTypeName: '项目转档准备',
+          projectNodeId: nodeBinding.projectNodeId,
+          workItemTypeCode: nodeBinding.workItemTypeCode,
+          workItemTypeName: nodeBinding.workItemTypeName,
           sourceModule: '技术包',
           sourceObjectType: '花型设计',
           sourceObjectId: version.technicalVersionId,
@@ -487,9 +515,9 @@ function buildTechnicalDocuments(
           projectArchiveId: archive.projectArchiveId,
           projectId: project.projectId,
           projectCode: project.projectCode,
-          projectNodeId: version.sourceProjectNodeId,
-          workItemTypeCode: 'PROJECT_TRANSFER_PREP',
-          workItemTypeName: '项目转档准备',
+          projectNodeId: nodeBinding.projectNodeId,
+          workItemTypeCode: nodeBinding.workItemTypeCode,
+          workItemTypeName: nodeBinding.workItemTypeName,
           sourceModule: '技术包',
           sourceObjectType: '技术包附件',
           sourceObjectId: version.technicalVersionId,
@@ -923,8 +951,8 @@ function buildMissingItem(
     itemName: labelMap[reasonCode] || reasonCode,
     requiredFlag: true,
     projectNodeId: transferNodeId,
-    workItemTypeCode: 'PROJECT_TRANSFER_PREP',
-    workItemTypeName: '项目转档准备',
+    workItemTypeCode: 'STYLE_ARCHIVE_CREATE',
+    workItemTypeName: '生成款式档案',
     reasonType: '资料缺失',
     reasonText,
     status: '待补齐',

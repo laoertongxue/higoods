@@ -77,12 +77,12 @@ export function createProjectArchiveBootstrapSnapshot(version: number): ProjectA
     }
 
     const collected = collectProjectArchiveAutoData(archive, project, style)
-    const transferNodeId = getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'PROJECT_TRANSFER_PREP')?.projectNodeId || ''
+    const styleNodeId = getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'STYLE_ARCHIVE_CREATE')?.projectNodeId || ''
     const missing = computeProjectArchiveMissingItems({
       archive,
       documents: collected.documents,
       currentTechnicalVersion: collected.currentTechnicalVersion,
-      transferNodeId,
+      transferNodeId: styleNodeId,
     })
     const derived = deriveProjectArchiveState({
       archive,
