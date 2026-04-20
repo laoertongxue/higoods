@@ -178,7 +178,6 @@ function renderLibraryHeader(): string {
         <div>
           <p class="text-xs text-slate-500">商品中心 / 标准工作项</p>
           <h1 class="text-xl font-semibold text-slate-900">工作项库</h1>
-          <p class="mt-1 text-sm text-slate-500">统一查看 PCS 标准工作项定义、字段结构、状态口径与可执行操作，作为项目模板编排和页面实现的参照底座。</p>
         </div>
       </div>
       <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -215,7 +214,7 @@ function renderLibraryFilters(): string {
           <span class="text-xs text-slate-500">搜索工作项</span>
           <input
             class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            placeholder="搜索工作项名称、编码、阶段或说明"
+            placeholder="搜索工作项名称、编码或阶段"
             value="${escapeHtml(state.search)}"
             data-pcs-work-item-field="search"
           />
@@ -277,7 +276,7 @@ function renderLibraryTable(): string {
               <th class="px-4 py-3 font-medium">默认执行角色</th>
               <th class="px-4 py-3 font-medium">最近更新</th>
               <th class="px-4 py-3 font-medium">状态</th>
-              <th class="px-4 py-3 font-medium">工作项说明</th>
+              <th class="px-4 py-3 font-medium">描述</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-200">
@@ -416,7 +415,7 @@ function renderFieldGroups(groups: PcsProjectNodeFieldGroupDefinition[]): string
                                 <p>来源：${escapeHtml(field.sourceKind)} / ${escapeHtml(field.sourceRef)}</p>
                                 <p>业务含义：${escapeHtml(field.meaning)}</p>
                                 <p>业务逻辑：${escapeHtml(field.businessLogic)}</p>
-                                ${field.placeholder ? `<p class="text-xs text-slate-500">占位提示：${escapeHtml(field.placeholder)}</p>` : ''}
+                                ${field.placeholder ? `<p class="text-xs text-slate-500">占位文本：${escapeHtml(field.placeholder)}</p>` : ''}
                                 ${field.conditionalRequired ? `<p class="text-xs text-amber-700">条件必填：${escapeHtml(field.conditionalRequired)}</p>` : ''}
                                 ${
                                   field.options && field.options.length > 0

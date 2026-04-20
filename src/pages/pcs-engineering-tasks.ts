@@ -12,8 +12,9 @@ import {
   getRevisionTaskCompletionMissingFields,
 } from '../data/pcs-engineering-task-field-policy.ts'
 import {
-  getTechPackGenerationActionLabel,
   getTechPackGenerationBlockedReason,
+  getPatternTechPackActionLabel,
+  getRevisionTechPackActionLabel,
   isTechPackGenerationAllowedStatus,
 } from '../data/pcs-tech-pack-task-generation.ts'
 import { listPatternTasks, getPatternTaskById, updatePatternTask, resetPatternTaskRepository } from '../data/pcs-pattern-task-repository.ts'
@@ -332,8 +333,7 @@ function renderNotice(): string {
     <section class="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700 shadow-sm">
       <div class="flex items-start justify-between gap-3">
         <div>
-          <p class="font-medium">任务中心提示</p>
-          <p class="mt-1">${escapeHtml(state.notice)}</p>
+          <p>${escapeHtml(state.notice)}</p>
         </div>
         <button type="button" class="inline-flex h-7 items-center rounded-md px-2 text-xs text-blue-700 hover:bg-blue-100" data-pcs-engineering-action="close-notice">关闭</button>
       </div>
@@ -355,7 +355,6 @@ function renderPageHeader(title: string, description: string, actionLabel: strin
         <div>
           <p class="text-xs text-slate-500">商品中心 / 打版与样衣工程</p>
           <h1 class="mt-1 text-2xl font-semibold text-slate-900">${escapeHtml(title)}</h1>
-          <p class="mt-1 text-sm text-slate-500">${escapeHtml(description)}</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
           <button type="button" class="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="refresh-page">
@@ -388,7 +387,6 @@ function renderMetricButton(label: string, value: number, active: boolean, quick
         </div>
         <i data-lucide="bar-chart-3" class="h-5 w-5 ${active ? 'text-blue-600' : 'text-slate-300'}"></i>
       </div>
-      <p class="mt-2 text-xs text-slate-500">${escapeHtml(description)}</p>
     </button>
   `
 }
@@ -614,30 +612,30 @@ function ensurePatternDetailDraft(task: ReturnType<typeof getPatternTaskById>): 
   return state.patternDetailDraft
 }
 
-function renderFieldLayerSection(
+function renderTaskCompletionSection(
   policy: ReturnType<typeof getEngineeringTaskFieldPolicy>,
   completionMissingFields: string[],
   detailEditorHtml: string,
 ): string {
   return renderSectionCard(
-    '字段分层清单',
+    '任务补齐项',
     `
       <div class="grid gap-4 xl:grid-cols-3">
         <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
-          <p class="text-sm font-medium text-slate-900">节点创建必须填写</p>
+          <p class="text-sm font-medium text-slate-900">节点创建必填</p>
           <ul class="mt-3 space-y-2 text-sm text-slate-600">
-            ${policy.createRequiredFields.map((field) => `<li><span class="font-medium text-slate-900">${escapeHtml(field.label)}</span><span class="text-slate-500">：${escapeHtml(field.description)}</span></li>`).join('')}
+            ${policy.createRequiredFields.map((field) => `<li><span class="font-medium text-slate-900">${escapeHtml(field.label)}</span></li>`).join('')}
           </ul>
         </div>
         <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
-          <p class="text-sm font-medium text-slate-900">实例详情补齐字段</p>
+          <p class="text-sm font-medium text-slate-900">实例详情补齐</p>
           <ul class="mt-3 space-y-2 text-sm text-slate-600">
-            ${policy.detailEditableFields.map((field) => `<li><span class="font-medium text-slate-900">${escapeHtml(field.label)}</span><span class="text-slate-500">：${escapeHtml(field.description)}</span></li>`).join('')}
+            ${policy.detailEditableFields.map((field) => `<li><span class="font-medium text-slate-900">${escapeHtml(field.label)}</span></li>`).join('')}
           </ul>
           <div class="mt-4 border-t border-slate-200 pt-4">${detailEditorHtml}</div>
         </div>
         <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
-          <p class="text-sm font-medium text-slate-900">完成后回写项目节点</p>
+          <p class="text-sm font-medium text-slate-900">完成回写</p>
           <ul class="mt-3 space-y-2 text-sm text-slate-600">
             ${policy.nodeWritebacks.map((item) => `<li><span class="font-medium text-slate-900">${escapeHtml(item.phase)}</span><span class="text-slate-500">：${escapeHtml(item.resultType)} / ${escapeHtml(item.pendingActionType || '无待办')}</span></li>`).join('')}
           </ul>
@@ -1155,12 +1153,12 @@ function renderRevisionListPage(): string {
         <td class="px-4 py-4">${renderStatusBadge(task.status)}</td>
         <td class="px-4 py-4">${escapeHtml(task.ownerName)}</td>
         <td class="px-4 py-4">${escapeHtml(formatDateTime(task.dueAt))}${overdue ? '<span class="ml-2 rounded-full bg-rose-100 px-2 py-0.5 text-[11px] text-rose-700">超期</span>' : ''}</td>
-        <td class="px-4 py-4">${task.linkedTechPackVersionId ? techPackLinkByProject(task.projectId, task.linkedTechPackVersionId, task.linkedTechPackVersionCode || task.linkedTechPackVersionLabel || '查看技术包') : '<span class="text-slate-400">未生成</span>'}</td>
+        <td class="px-4 py-4">${task.linkedTechPackVersionId ? `${techPackLinkByProject(task.projectId, task.linkedTechPackVersionId, task.linkedTechPackVersionCode || task.linkedTechPackVersionLabel || '查看关联技术包')}<div class="mt-1">${techPackLinkByProject(task.projectId, task.linkedTechPackVersionId, '查看版本日志')}</div>` : '<span class="text-slate-400">未生成</span>'}</td>
         <td class="px-4 py-4">
           <div class="flex flex-wrap gap-2">
             <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/patterns/revision/${escapeHtml(task.revisionTaskId)}">查看</button>
             ${showTechPackAction
-              ? `<button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="revision-generate-tech-pack" data-task-id="${escapeHtml(task.revisionTaskId)}">${escapeHtml(getTechPackGenerationActionLabel(task.projectId))}</button>`
+              ? `<button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="revision-generate-tech-pack" data-task-id="${escapeHtml(task.revisionTaskId)}">${escapeHtml(getRevisionTechPackActionLabel())}</button>`
               : ''}
           </div>
         </td>
@@ -1277,7 +1275,7 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
       ? [`<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="complete-revision-task" data-task-id="${escapeHtml(task.revisionTaskId)}">完成任务</button>`]
       : []),
     ...(task.projectId && isTechPackGenerationAllowedStatus(task.status)
-      ? [`<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="revision-generate-tech-pack" data-task-id="${escapeHtml(task.revisionTaskId)}">${escapeHtml(getTechPackGenerationActionLabel(task.projectId))}</button>`]
+      ? [`<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="revision-generate-tech-pack" data-task-id="${escapeHtml(task.revisionTaskId)}">${escapeHtml(getRevisionTechPackActionLabel())}</button>`]
       : []),
   ].join('')
   const subtitleParts = [
@@ -1355,7 +1353,7 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
       <div class="grid gap-4 md:grid-cols-2">
         <div class="rounded-lg border border-slate-200 p-4">
           <p class="text-xs text-slate-500">技术包产出</p>
-          <div class="mt-2 text-sm text-slate-900">${task.linkedTechPackVersionId ? techPackLinkByProject(task.projectId, task.linkedTechPackVersionId, task.linkedTechPackVersionCode || task.linkedTechPackVersionLabel || '查看技术包') : '尚未生成技术包版本'}</div>
+          <div class="mt-2 text-sm text-slate-900">${task.linkedTechPackVersionId ? `${techPackLinkByProject(task.projectId, task.linkedTechPackVersionId, task.linkedTechPackVersionCode || task.linkedTechPackVersionLabel || '查看关联技术包')}<span class="mx-2 text-slate-300">/</span>${techPackLinkByProject(task.projectId, task.linkedTechPackVersionId, '查看版本日志')}` : '尚未建立技术包版本'}</div>
           <p class="mt-2 text-xs text-slate-500">${escapeHtml(task.linkedTechPackUpdatedAt ? `最近写回：${formatDateTime(task.linkedTechPackUpdatedAt)}` : getTechPackGenerationBlockedReason(task.status) || (task.projectId ? '当前任务可写入技术包版本。' : '当前任务未关联商品项目，暂不写入技术包版本。'))}</p>
         </div>
         <div class="rounded-lg border border-slate-200 p-4">
@@ -1372,7 +1370,7 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
       </div>
     `,
   )
-  const fieldLayer = renderFieldLayerSection(
+  const completionSection = renderTaskCompletionSection(
     fieldPolicy,
     completionMissingFields,
     `
@@ -1387,7 +1385,7 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
   )
 
   const mainContent = state.revisionTab === 'plan'
-    ? `${plan}${fieldLayer}${renderRevisionContext(task)}`
+    ? `${plan}${completionSection}${renderRevisionContext(task)}`
     : state.revisionTab === 'issues'
       ? renderRevisionIssues(task)
       : state.revisionTab === 'samples'
@@ -1409,7 +1407,7 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
             { label: '截止时间', value: escapeHtml(formatDateTime(task.dueAt)) },
             { label: '技术包状态', value: escapeHtml(task.linkedTechPackVersionStatus || '未写回') },
             { label: '下游任务', value: downstreamTasks.length > 0 ? escapeHtml(`花型任务 ${downstreamTasks.length} 个`) : '无' },
-            { label: '当前动作', value: escapeHtml(isTechPackGenerationAllowedStatus(task.status) && task.projectId ? getTechPackGenerationActionLabel(task.projectId) : '暂无可执行技术包动作') },
+            { label: '当前动作', value: escapeHtml(isTechPackGenerationAllowedStatus(task.status) && task.projectId ? getRevisionTechPackActionLabel() : '暂无可执行技术包动作') },
           ],
           2,
         ),
@@ -1501,7 +1499,7 @@ function renderRevisionCreateDialog(): string {
             <input type="checkbox" ${draft.createPatternTask ? 'checked' : ''} ${canCreatePatternTask ? '' : 'disabled'} data-pcs-engineering-action="toggle-revision-create-pattern-task" />
             <span>创建改版任务后同步创建花型任务</span>
           </label>
-          <p class="mt-2 text-xs text-slate-500">${escapeHtml(canCreatePatternTask ? '本次改版涉及花型调整，创建后会同步生成花型任务。' : '只有测款触发且已关联商品项目的改版任务，才可同步创建花型下游任务。')}</p>
+          <p class="mt-2 text-xs text-slate-500">${escapeHtml(canCreatePatternTask ? '本次改版涉及花型变更，创建后会同步生成花型任务。' : '只有测款触发且已关联商品项目的改版任务，才可同步创建花型下游任务。')}</p>
         </div>
       `
       : ''}
@@ -1585,11 +1583,11 @@ function renderPlateListPage(): string {
       <td class="px-4 py-4">${escapeHtml(task.sizeRange || '-')}</td>
       <td class="px-4 py-4">${escapeHtml(task.patternVersion || '-')}</td>
       <td class="px-4 py-4">${escapeHtml(task.ownerName)}</td>
-      <td class="px-4 py-4">${task.linkedTechPackVersionId ? techPackLinkByProject(task.projectId, task.linkedTechPackVersionId, task.linkedTechPackVersionCode || task.linkedTechPackVersionLabel || '查看技术包') : '<span class="text-slate-400">未写回</span>'}</td>
+      <td class="px-4 py-4">${task.linkedTechPackVersionId ? `${techPackLinkByProject(task.projectId, task.linkedTechPackVersionId, task.linkedTechPackVersionCode || task.linkedTechPackVersionLabel || '查看关联技术包')}<div class="mt-1">${techPackLinkByProject(task.projectId, task.linkedTechPackVersionId, '查看版本日志')}</div>` : '<span class="text-slate-400">未写回</span>'}</td>
       <td class="px-4 py-4">
         <div class="flex flex-wrap gap-2">
           <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/patterns/plate-making/${escapeHtml(task.plateTaskId)}">查看</button>
-          <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="plate-generate-tech-pack" data-task-id="${escapeHtml(task.plateTaskId)}">${escapeHtml(task.linkedTechPackVersionId ? '再次写包' : '写入技术包')}</button>
+          <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="plate-generate-tech-pack" data-task-id="${escapeHtml(task.plateTaskId)}">生成技术包版本</button>
         </div>
       </td>
     </tr>
@@ -1665,7 +1663,7 @@ function renderPlateDetailPage(plateTaskId: string): string {
       ...(task.status !== '已完成' && task.status !== '已取消'
         ? [`<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="complete-plate-task" data-task-id="${escapeHtml(task.plateTaskId)}">完成任务</button>`]
         : []),
-      `<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="plate-generate-tech-pack" data-task-id="${escapeHtml(task.plateTaskId)}">${escapeHtml(task.linkedTechPackVersionId ? '再次写入技术包' : '写入技术包')}</button>`,
+      `<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="plate-generate-tech-pack" data-task-id="${escapeHtml(task.plateTaskId)}">生成技术包版本</button>`,
     ].join(''),
   )
 
@@ -1686,7 +1684,7 @@ function renderPlateDetailPage(plateTaskId: string): string {
     { label: '来源对象', value: escapeHtml(task.upstreamObjectCode || task.upstreamObjectId || '-') },
     { label: '负责人', value: escapeHtml(task.ownerName) },
     { label: '参与人', value: escapeHtml(task.participantNames.join('、') || '-') },
-  ], 3))}${renderFieldLayerSection(
+  ], 3))}${renderTaskCompletionSection(
     fieldPolicy,
     completionMissingFields,
     `
@@ -1725,7 +1723,7 @@ function renderPlateDetailPage(plateTaskId: string): string {
       <div class="grid gap-4 md:grid-cols-2">
         <div class="rounded-lg border border-slate-200 p-4">
           <p class="text-xs text-slate-500">正式技术包版本</p>
-          <div class="mt-2 text-sm text-slate-900">${task.linkedTechPackVersionId ? techPackLinkByProject(task.projectId, task.linkedTechPackVersionId, task.linkedTechPackVersionCode || task.linkedTechPackVersionLabel || '查看技术包') : '尚未写入'}</div>
+          <div class="mt-2 text-sm text-slate-900">${task.linkedTechPackVersionId ? `${techPackLinkByProject(task.projectId, task.linkedTechPackVersionId, task.linkedTechPackVersionCode || task.linkedTechPackVersionLabel || '查看关联技术包')}<span class="mx-2 text-slate-300">/</span>${techPackLinkByProject(task.projectId, task.linkedTechPackVersionId, '查看版本日志')}` : '尚未写入'}</div>
           <p class="mt-2 text-xs text-slate-500">${escapeHtml(task.linkedTechPackUpdatedAt ? `最近写回：${formatDateTime(task.linkedTechPackUpdatedAt)}` : '状态达到已确认/已完成后可写入正式技术包。')}</p>
         </div>
         <div class="rounded-lg border border-slate-200 p-4">
@@ -1868,7 +1866,7 @@ function renderPatternListPage(): string {
         <td class="px-4 py-4">
           <div class="flex flex-wrap gap-2">
             <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/patterns/colors/${escapeHtml(task.patternTaskId)}">查看</button>
-            <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="pattern-generate-tech-pack" data-task-id="${escapeHtml(task.patternTaskId)}">${escapeHtml(task.linkedTechPackVersionId ? '再次写包' : '写入技术包')}</button>
+            <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="pattern-generate-tech-pack" data-task-id="${escapeHtml(task.patternTaskId)}">${escapeHtml(getPatternTechPackActionLabel(task.patternTaskId))}</button>
             <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="pattern-publish-library" data-task-id="${escapeHtml(task.patternTaskId)}">${escapeHtml(asset ? '打开花型库' : '沉淀花型库')}</button>
           </div>
         </td>
@@ -1947,7 +1945,7 @@ function renderPatternDetailPage(patternTaskId: string): string {
       ...(task.status !== '已完成' && task.status !== '已取消'
         ? [`<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="complete-pattern-task" data-task-id="${escapeHtml(task.patternTaskId)}">完成任务</button>`]
         : []),
-      `<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="pattern-generate-tech-pack" data-task-id="${escapeHtml(task.patternTaskId)}">${escapeHtml(task.linkedTechPackVersionId ? '再次写入技术包' : '写入技术包')}</button>`,
+      `<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="pattern-generate-tech-pack" data-task-id="${escapeHtml(task.patternTaskId)}">${escapeHtml(getPatternTechPackActionLabel(task.patternTaskId))}</button>`,
       `<button type="button" class="inline-flex h-10 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-engineering-action="pattern-publish-library" data-task-id="${escapeHtml(task.patternTaskId)}">${escapeHtml(asset ? '打开花型库' : '沉淀花型库')}</button>`,
     ].join(''),
   )
@@ -1968,8 +1966,8 @@ function renderPatternDetailPage(patternTaskId: string): string {
     { label: '来源对象', value: escapeHtml(task.upstreamObjectCode || task.upstreamObjectId || '项目模板阶段') },
     { label: '款式档案', value: styleArchiveLinkByProject(task.projectId) },
   ], 3))}
-  ${renderSectionCard('排版与说明', `<div class="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600"><p>${escapeHtml(task.note || '花型任务输出包含版面说明、色卡与生产文件，可继续驱动样衣任务。')}</p></div>`)}
-  ${renderFieldLayerSection(
+  ${renderSectionCard('花型文件', `<div class="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600"><p>${escapeHtml(task.note || '暂无备注')}</p></div>`)}
+  ${renderTaskCompletionSection(
     fieldPolicy,
     completionMissingFields,
     `
@@ -2012,7 +2010,7 @@ function renderPatternDetailPage(patternTaskId: string): string {
         </div>
         <div class="rounded-lg border border-slate-200 p-4">
           <p class="text-xs text-slate-500">技术包状态</p>
-          <div class="mt-2 text-sm text-slate-900">${task.linkedTechPackVersionId ? techPackLinkByProject(task.projectId, task.linkedTechPackVersionId, task.linkedTechPackVersionCode || task.linkedTechPackVersionLabel || '查看技术包') : '尚未写入正式技术包'}</div>
+          <div class="mt-2 text-sm text-slate-900">${task.linkedTechPackVersionId ? `${techPackLinkByProject(task.projectId, task.linkedTechPackVersionId, task.linkedTechPackVersionCode || task.linkedTechPackVersionLabel || '查看关联技术包')}<span class="mx-2 text-slate-300">/</span>${techPackLinkByProject(task.projectId, task.linkedTechPackVersionId, '查看版本日志')}` : '尚未写入正式技术包'}</div>
         </div>
       </div>
     `,
@@ -3008,10 +3006,10 @@ function generateRevisionTechPack(taskId: string): void {
   if (!task) return
   try {
     const result = generateTechPackVersionFromRevisionTask(taskId, '当前用户')
-    pushRuntimeLog('revision', taskId, result.action === 'CREATED' ? '生成技术包' : '写入技术包', `已处理技术包 ${result.record.technicalVersionCode}。`)
-    setNotice(`改版任务 ${task.revisionTaskCode} 已${result.action === 'CREATED' ? '生成' : '写入'}技术包 ${result.record.technicalVersionCode}。`)
+    pushRuntimeLog('revision', taskId, result.logType, `已处理技术包 ${result.record.technicalVersionCode}。`)
+    setNotice(`改版任务 ${task.revisionTaskCode} 已生成改版技术包版本 ${result.record.technicalVersionCode}。`)
   } catch (error) {
-    setNotice(error instanceof Error ? error.message : '生成技术包失败。')
+    setNotice(error instanceof Error ? error.message : '建立技术包失败。')
   }
 }
 
@@ -3020,10 +3018,10 @@ function generatePlateTechPack(taskId: string): void {
   if (!task) return
   try {
     const result = generateTechPackVersionFromPlateTask(taskId, '当前用户')
-    pushRuntimeLog('plate', taskId, result.action === 'CREATED' ? '生成技术包' : '写入技术包', `已处理技术包 ${result.record.technicalVersionCode}。`)
-    setNotice(`制版任务 ${task.plateTaskCode} 已${result.action === 'CREATED' ? '生成' : '写入'}技术包 ${result.record.technicalVersionCode}。`)
+    pushRuntimeLog('plate', taskId, result.logType, `已处理技术包 ${result.record.technicalVersionCode}。`)
+    setNotice(`制版任务 ${task.plateTaskCode} 已建立技术包版本 ${result.record.technicalVersionCode}。`)
   } catch (error) {
-    setNotice(error instanceof Error ? error.message : '写入技术包失败。')
+    setNotice(error instanceof Error ? error.message : '建立技术包失败。')
   }
 }
 
@@ -3032,10 +3030,14 @@ function generatePatternTechPack(taskId: string): void {
   if (!task) return
   try {
     const result = generateTechPackVersionFromPatternTask(taskId, '当前用户')
-    pushRuntimeLog('pattern', taskId, result.action === 'CREATED' ? '生成技术包' : '写入技术包', `已处理技术包 ${result.record.technicalVersionCode}。`)
-    setNotice(`花型任务 ${task.patternTaskCode} 已${result.action === 'CREATED' ? '生成' : '写入'}技术包 ${result.record.technicalVersionCode}。`)
+    pushRuntimeLog('pattern', taskId, result.logType, `已处理技术包 ${result.record.technicalVersionCode}。`)
+    setNotice(
+      result.logType === '花型写入技术包'
+        ? `花型任务 ${task.patternTaskCode} 已写入技术包花型 ${result.record.technicalVersionCode}。`
+        : `花型任务 ${task.patternTaskCode} 已生成花型新版本 ${result.record.technicalVersionCode}。`,
+    )
   } catch (error) {
-    setNotice(error instanceof Error ? error.message : '写入技术包失败。')
+    setNotice(error instanceof Error ? error.message : '处理技术包花型失败。')
   }
 }
 

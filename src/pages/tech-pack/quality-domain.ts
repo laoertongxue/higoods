@@ -7,7 +7,6 @@ export function renderQualityTab(): string {
       <header class="flex items-center justify-between border-b px-4 py-3">
         <div>
           <h3 class="text-base font-semibold">质检标准</h3>
-          <p class="mt-1 text-sm text-muted-foreground">维护当前技术包版本的检验项、标准和抽检规则</p>
         </div>
         ${readonly ? '' : `<button class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-tech-action="open-add-quality">
           <i data-lucide="plus" class="mr-2 h-4 w-4"></i>

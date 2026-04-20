@@ -523,7 +523,7 @@ export function formalizeStyleArchive(styleId: string, operatorName = '当前用
         latestResultType: '款式档案已正式建档',
         latestResultText: '款式档案基础资料已补齐，可以继续推进技术包与项目资料归档。',
         pendingActionType: '推进技术包与归档',
-        pendingActionText: '请从任务生成技术包版本，并继续补齐项目资料归档。',
+        pendingActionText: '请从任务建立技术包版本，并继续补齐项目资料归档。',
         updatedAt: timestamp,
       },
       operatorName,

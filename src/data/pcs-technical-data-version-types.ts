@@ -1,6 +1,7 @@
 export type TechnicalVersionStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
 export type TechnicalDomainStatus = 'EMPTY' | 'DRAFT' | 'COMPLETE'
 export type TechPackSourceTaskType = 'REVISION' | 'PLATE' | 'ARTWORK'
+export type TechPackVersionChangeScope = '制版生成' | '花型写入' | '花型替换' | '改版生成'
 
 export interface TechnicalPatternFile {
   id: string
@@ -140,6 +141,9 @@ export interface TechnicalDataVersionRecord {
   sourceProjectCode: string
   sourceProjectName: string
   sourceProjectNodeId: string
+  primaryPlateTaskId: string
+  primaryPlateTaskCode: string
+  primaryPlateTaskVersion: string
   linkedRevisionTaskIds: string[]
   linkedPatternTaskIds: string[]
   linkedArtworkTaskIds: string[]
@@ -148,6 +152,8 @@ export interface TechnicalDataVersionRecord {
   createdFromTaskCode: string
   baseTechnicalVersionId: string
   baseTechnicalVersionCode: string
+  changeScope: TechPackVersionChangeScope
+  changeSummary: string
   linkedPartTemplateIds: string[]
   linkedPatternLibraryVersionIds: string[]
   versionStatus: TechnicalVersionStatus

@@ -8,12 +8,13 @@ export const PCS_PROJECT_INLINE_NODE_RECORD_WORK_ITEM_TYPES = [
   'SAMPLE_PRICING',
   'TEST_DATA_SUMMARY',
   'TEST_CONCLUSION',
-  'SAMPLE_RETAIN_REVIEW',
   'SAMPLE_RETURN_HANDLE',
 ] as const
 
 export type PcsProjectInlineNodeRecordWorkItemTypeCode =
   (typeof PCS_PROJECT_INLINE_NODE_RECORD_WORK_ITEM_TYPES)[number]
+
+export type ProjectDecisionResult = '' | '通过' | '淘汰'
 
 export interface PcsProjectInlineNodeRef {
   refModule: string
@@ -115,8 +116,10 @@ export interface SampleInboundCheckDetailSnapshot {
 }
 
 export interface FeasibilityReviewPayload {
-  reviewConclusion: string
+  reviewConclusion: ProjectDecisionResult
   reviewRisk: string
+  reviewConclusionLegacyValue?: string
+  migrationNote?: string
 }
 
 export interface FeasibilityReviewDetailSnapshot {
@@ -147,8 +150,10 @@ export interface SampleShootFitDetailSnapshot {
 }
 
 export interface SampleConfirmPayload {
-  confirmResult: string
+  confirmResult: ProjectDecisionResult
   confirmNote: string
+  confirmResultLegacyValue?: string
+  migrationNote?: string
 }
 
 export interface SampleConfirmDetailSnapshot {
@@ -216,18 +221,16 @@ export interface TestDataSummaryDetailSnapshot {
 }
 
 export interface TestConclusionPayload {
-  conclusion: string
+  conclusion: ProjectDecisionResult
   conclusionNote: string
   linkedChannelProductCode: string
   invalidationPlanned: boolean
-  revisionTaskId?: string
-  revisionTaskCode?: string
   linkedStyleId?: string
   linkedStyleCode?: string
   invalidatedChannelProductId?: string
-  projectTerminated?: boolean
-  projectTerminatedAt?: string
   nextActionType?: string
+  conclusionLegacyValue?: string
+  migrationNote?: string
 }
 
 export interface TestConclusionDetailSnapshot {
@@ -237,29 +240,8 @@ export interface TestConclusionDetailSnapshot {
   channelProductCode?: string
   upstreamChannelProductCode?: string
   invalidatedChannelProductId?: string
-  revisionTaskId?: string
-  revisionTaskCode?: string
   linkedStyleId?: string
   linkedStyleCode?: string
-  projectTerminated?: boolean
-  projectTerminatedAt?: string
-}
-
-export interface SampleRetainReviewPayload {
-  retainResult: string
-  retainNote: string
-}
-
-export interface SampleRetainReviewDetailSnapshot {
-  sampleAssetId?: string
-  sampleCode?: string
-  sampleLedgerEventId?: string
-  sampleLedgerEventCode?: string
-  inventoryStatusAfter?: string
-  availabilityAfter?: string
-  locationAfter?: string
-  disposalDocId?: string
-  disposalDocCode?: string
 }
 
 export interface SampleReturnHandlePayload {
@@ -280,6 +262,9 @@ export interface SampleReturnHandleDetailSnapshot {
   sampleLedgerEventCode?: string
   returnDocId?: string
   returnDocCode?: string
+  inventoryStatusAfter?: string
+  availabilityAfter?: string
+  locationAfter?: string
 }
 
 export interface PcsProjectInlineNodeRecordPayloadMap {
@@ -292,7 +277,6 @@ export interface PcsProjectInlineNodeRecordPayloadMap {
   SAMPLE_PRICING: SamplePricingPayload
   TEST_DATA_SUMMARY: TestDataSummaryPayload
   TEST_CONCLUSION: TestConclusionPayload
-  SAMPLE_RETAIN_REVIEW: SampleRetainReviewPayload
   SAMPLE_RETURN_HANDLE: SampleReturnHandlePayload
 }
 
@@ -306,7 +290,6 @@ export interface PcsProjectInlineNodeRecordDetailSnapshotMap {
   SAMPLE_PRICING: SamplePricingDetailSnapshot
   TEST_DATA_SUMMARY: TestDataSummaryDetailSnapshot
   TEST_CONCLUSION: TestConclusionDetailSnapshot
-  SAMPLE_RETAIN_REVIEW: SampleRetainReviewDetailSnapshot
   SAMPLE_RETURN_HANDLE: SampleReturnHandleDetailSnapshot
 }
 
@@ -328,7 +311,6 @@ export type PcsProjectInlineNodeRecord =
   | PcsProjectInlineNodeRecordBase<'SAMPLE_PRICING', SamplePricingPayload, SamplePricingDetailSnapshot>
   | PcsProjectInlineNodeRecordBase<'TEST_DATA_SUMMARY', TestDataSummaryPayload, TestDataSummaryDetailSnapshot>
   | PcsProjectInlineNodeRecordBase<'TEST_CONCLUSION', TestConclusionPayload, TestConclusionDetailSnapshot>
-  | PcsProjectInlineNodeRecordBase<'SAMPLE_RETAIN_REVIEW', SampleRetainReviewPayload, SampleRetainReviewDetailSnapshot>
   | PcsProjectInlineNodeRecordBase<'SAMPLE_RETURN_HANDLE', SampleReturnHandlePayload, SampleReturnHandleDetailSnapshot>
 
 export interface PcsProjectInlineNodeRecordStoreSnapshot {

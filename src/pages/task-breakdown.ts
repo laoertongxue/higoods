@@ -723,7 +723,7 @@ export function renderTaskBreakdownPage(): string {
       <header>
         <h1 class="text-2xl font-semibold text-foreground">任务清单</h1>
         <p class="mt-1 text-sm text-muted-foreground">
-          任务清单用于展示生产单基于技术包已生成的任务组成与顺序关系；本页重点呈现任务链结构、前后置关系、主相关流程以及执行准备要求，不承接运行进度与分配结果。
+          展示生产单已生成任务的组成与顺序关系。
         </p>
       </header>
 

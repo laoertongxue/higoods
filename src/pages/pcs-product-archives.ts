@@ -5,6 +5,7 @@ import {
   formalizeStyleArchive,
   getStyleArchiveFormalizationCheck,
 } from '../data/pcs-project-style-archive-generation.ts'
+import { activateTechPackVersionForStyle } from '../data/pcs-project-technical-data-writeback.ts'
 import {
   listProjectChannelProducts,
 } from '../data/pcs-channel-product-project-repository.ts'
@@ -1296,7 +1297,15 @@ function renderStyleDetailVersions(style: StyleArchiveShellRecord): string {
           <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(`${item.completenessScore}%`)}</td>
           <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.sourceTaskText)}</td>
           <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.sourceProjectText)}</td>
+          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(String(item.versionLogCount))} 条</td>
           <td class="px-4 py-3 text-sm text-slate-500">${escapeHtml(formatDateTime(item.updatedAt))}</td>
+          <td class="px-4 py-3">
+            <div class="flex flex-wrap gap-2">
+              <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 hover:bg-slate-50" data-nav="/pcs/products/styles/${escapeHtml(style.styleId)}/technical-data/${escapeHtml(item.technicalVersionId)}">查看版本</button>
+              <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 hover:bg-slate-50" data-nav="/pcs/products/styles/${escapeHtml(style.styleId)}/technical-data/${escapeHtml(item.technicalVersionId)}">查看版本日志</button>
+              ${item.canActivate ? `<button type="button" class="inline-flex h-8 items-center rounded-md bg-slate-900 px-3 text-xs text-white hover:bg-slate-800" data-pcs-product-archive-action="activate-tech-pack-version" data-style-id="${escapeHtml(style.styleId)}" data-version-id="${escapeHtml(item.technicalVersionId)}">启用为当前生效版本</button>` : ''}
+            </div>
+          </td>
         </tr>
       `,
     )
@@ -1315,10 +1324,12 @@ function renderStyleDetailVersions(style: StyleArchiveShellRecord): string {
               <th class="px-4 py-3 font-medium">完整度</th>
               <th class="px-4 py-3 font-medium">来源任务</th>
               <th class="px-4 py-3 font-medium">来源项目</th>
+              <th class="px-4 py-3 font-medium">版本日志</th>
               <th class="px-4 py-3 font-medium">更新时间</th>
+              <th class="px-4 py-3 font-medium">操作</th>
             </tr>
           </thead>
-          <tbody>${rows || '<tr><td colspan="6" class="px-4 py-10 text-center text-sm text-slate-500">当前款式尚未建立技术包版本。</td></tr>'}</tbody>
+          <tbody>${rows || '<tr><td colspan="8" class="px-4 py-10 text-center text-sm text-slate-500">当前款式尚未建立技术包版本。</td></tr>'}</tbody>
         </table>
       </div>
     </section>
@@ -2282,6 +2293,21 @@ export function handlePcsProductArchiveEvent(target: HTMLElement): boolean {
       const styleId = actionNode.dataset.styleId || state.styleDetail.styleId || ''
       const result = formalizeStyleArchive(styleId, '当前用户')
       state.notice = result.message
+      return true
+    }
+    case 'activate-tech-pack-version': {
+      const styleId = actionNode.dataset.styleId || state.styleDetail.styleId || ''
+      const technicalVersionId = actionNode.dataset.versionId || ''
+      if (!styleId || !technicalVersionId) {
+        state.notice = '未找到需要启用的技术包版本。'
+        return true
+      }
+      try {
+        activateTechPackVersionForStyle(styleId, technicalVersionId, '当前用户')
+        state.notice = '已启用当前生效技术包版本。'
+      } catch (error) {
+        state.notice = error instanceof Error ? error.message : '启用当前生效技术包版本失败。'
+      }
       return true
     }
     case 'open-sku-create':

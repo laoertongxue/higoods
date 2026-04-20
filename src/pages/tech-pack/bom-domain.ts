@@ -61,7 +61,6 @@ export function renderBomTab(): string {
       <header class="flex items-center justify-between border-b px-4 py-3">
         <div>
           <h3 class="text-base font-semibold">物料清单</h3>
-          <p class="mt-1 text-sm text-muted-foreground">按 SKU 分组展示物料清单，便于按颜色/规格查看对应物料</p>
         </div>
         ${readonly ? '' : `<button class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-tech-action="open-add-bom">
           <i data-lucide="plus" class="mr-2 h-4 w-4"></i>

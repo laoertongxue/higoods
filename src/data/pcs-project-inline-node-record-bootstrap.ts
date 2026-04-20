@@ -91,25 +91,20 @@ interface TestingBranchRecordSeed {
   summaryText: string
   summaryOwner: string
   conclusionBusinessDate: string
-  conclusion: '通过' | '调整' | '暂缓' | '淘汰'
+  conclusion: '' | '通过' | '淘汰'
   conclusionNote: string
   live: TestingMetricSeed
   video: TestingMetricSeed
   linkedStyleId?: string
   linkedStyleCode?: string
   linkedStyleName?: string
-  revisionTaskId?: string
-  revisionTaskCode?: string
-  projectTerminated?: boolean
-  projectTerminatedAt?: string
   nextActionType?: string
 }
 
 function getTestingConclusionNextActionType(conclusion: TestingBranchRecordSeed['conclusion']): string {
   if (conclusion === '通过') return '生成款式档案'
-  if (conclusion === '调整') return '等待改版完成'
-  if (conclusion === '暂缓') return '等待重新评估'
-  return '项目关闭'
+  if (conclusion === '淘汰') return '样衣退回处理'
+  return ''
 }
 
 const PROJECT_RECORD_PLAN: Record<string, PcsProjectInlineNodeRecordWorkItemTypeCode[]> = {
@@ -480,11 +475,11 @@ const TESTING_BRANCH_RECORDS: TestingBranchRecordSeed[] = [
     projectCode: 'PRJ-20251216-018',
     channelProductSequence: '01',
     summaryBusinessDate: '2026-04-01 18:00:00',
-    summaryText: '直播与短视频测款曝光尚可，但点击与成交转化偏弱，建议进入改版后再测。',
+    summaryText: '直播与短视频测款曝光尚可，但点击与成交转化偏弱，当前需要重新确认测款结论。',
     summaryOwner: '李娜',
     conclusionBusinessDate: '2026-04-01 18:20:00',
-    conclusion: '调整',
-    conclusionNote: '测款结论为调整，当前渠道店铺商品作废，并已转入改版任务继续推进。',
+    conclusion: '',
+    conclusionNote: '历史测款结论已失效，请按新规则重新选择通过或淘汰。',
     live: {
       sourceObjectId: 'LS-20260331-017',
       sourceObjectCode: 'LS-20260331-017',
@@ -513,24 +508,22 @@ const TESTING_BRANCH_RECORDS: TestingBranchRecordSeed[] = [
       orderQty: 26,
       gmvAmount: 9334,
     },
-    revisionTaskId: 'RT-20260402-018',
-    revisionTaskCode: 'RT-20260402-018',
   },
   {
     projectCode: 'PRJ-20251216-020',
     channelProductSequence: '01',
     summaryBusinessDate: '2026-04-03 12:50:00',
-    summaryText: '当前测款窗口样本不足，建议暂缓当前渠道店铺商品并等待下一轮货盘与流量方案。',
+    summaryText: '当前测款窗口样本不足，历史结论已失效，请重新确认是否通过或淘汰。',
     summaryOwner: '王明',
     conclusionBusinessDate: '2026-04-03 13:10:00',
-    conclusion: '暂缓',
-    conclusionNote: '测款结论为暂缓，当前渠道店铺商品作废，项目进入阻塞等待重新评估。',
+    conclusion: '',
+    conclusionNote: '历史测款结论已失效，请按新规则重新选择通过或淘汰。',
     live: {
       sourceObjectId: 'LS-20260403-020',
       sourceObjectCode: 'LS-20260403-020',
       sourceLineId: 'LS-20260403-020__item-001',
       sourceLineCode: 'LS-20260403-020-L01',
-      sourceTitle: '快反 POLO 衫暂缓款',
+      sourceTitle: '快反 POLO 衫待确认款',
       sourceStatus: '已关账',
       businessDate: '2026-04-03',
       ownerName: '快反运营',
@@ -553,17 +546,16 @@ const TESTING_BRANCH_RECORDS: TestingBranchRecordSeed[] = [
       orderQty: 14,
       gmvAmount: 2506,
     },
-    projectTerminated: false,
   },
   {
     projectCode: 'PRJ-20251216-024',
     channelProductSequence: '01',
     summaryBusinessDate: '2026-04-05 15:50:00',
-    summaryText: '直播与短视频双渠道测款均未达到保留阈值，建议终止当前项目。',
+    summaryText: '直播与短视频双渠道测款均未达到保留阈值，建议进入样衣退回处理。',
     summaryOwner: '王明',
     conclusionBusinessDate: '2026-04-05 16:20:00',
     conclusion: '淘汰',
-    conclusionNote: '测款结论为淘汰，当前渠道店铺商品作废，项目正式终止。',
+    conclusionNote: '测款结论为淘汰，当前渠道店铺商品作废，并进入样衣退回处理。',
     live: {
       sourceObjectId: 'LS-20260405-024',
       sourceObjectCode: 'LS-20260405-024',
@@ -592,8 +584,6 @@ const TESTING_BRANCH_RECORDS: TestingBranchRecordSeed[] = [
       orderQty: 7,
       gmvAmount: 1085,
     },
-    projectTerminated: true,
-    projectTerminatedAt: '2026-04-05 16:20:00',
   },
 ]
 
@@ -987,88 +977,71 @@ function buildTestingBranchBootstrapRecords(
         refStatus: '已作废',
       })
     }
-    if (seed.revisionTaskId && seed.revisionTaskCode) {
-      downstreamRefs.push({
-        refModule: '改版任务',
-        refType: '改版任务',
-        refId: seed.revisionTaskId,
-        refCode: seed.revisionTaskCode,
-        refTitle: `${project.projectName} 改版任务`,
-        refStatus: '进行中',
-      })
-    }
-
-    records.push({
-      recordId: conclusionRecordId,
-      recordCode: conclusionRecordCode,
-      projectId: project.projectId,
-      projectCode: project.projectCode,
-      projectName: project.projectName,
-      projectNodeId: conclusionNode.projectNodeId,
-      workItemTypeCode: 'TEST_CONCLUSION',
-      workItemTypeName: conclusionNode.workItemTypeName,
-      businessDate: seed.conclusionBusinessDate,
-      recordStatus: '已完成',
-      ownerId: project.ownerId,
-      ownerName: project.ownerName,
-      payload: {
-        conclusion: seed.conclusion,
-        conclusionNote: seed.conclusionNote,
-        linkedChannelProductCode: channelProductCode,
-        invalidationPlanned: seed.conclusion !== '通过',
-        revisionTaskId: seed.revisionTaskId || '',
-        revisionTaskCode: seed.revisionTaskCode || '',
-        linkedStyleId: seed.linkedStyleId || '',
-        linkedStyleCode: seed.linkedStyleCode || '',
-        invalidatedChannelProductId: seed.conclusion === '通过' ? '' : channelProductId,
-        projectTerminated: Boolean(seed.projectTerminated),
-        projectTerminatedAt: seed.projectTerminatedAt || '',
-        nextActionType: seed.nextActionType || getTestingConclusionNextActionType(seed.conclusion),
-      },
-      detailSnapshot: {
-        summaryRecordId,
-        summaryRecordCode,
-        channelProductId,
-        channelProductCode,
-        upstreamChannelProductCode,
-        invalidatedChannelProductId: seed.conclusion === '通过' ? '' : channelProductId,
-        revisionTaskId: seed.revisionTaskId || '',
-        revisionTaskCode: seed.revisionTaskCode || '',
-        linkedStyleId: seed.linkedStyleId || '',
-        linkedStyleCode: seed.linkedStyleCode || '',
-        projectTerminated: Boolean(seed.projectTerminated),
-        projectTerminatedAt: seed.projectTerminatedAt || '',
-      },
-      sourceModule: '商品项目',
-      sourceDocType: '测款结论记录',
-      sourceDocId: `${conclusionRecordCode.toLowerCase().replace(/[^a-z0-9]+/g, '_')}_${project.projectId}`,
-      sourceDocCode: `CON-${seed.projectCode.slice(-3)}-001`,
-      upstreamRefs: [
-        {
-          refModule: '测款汇总',
-          refType: '测款汇总记录',
-          refId: summaryRecordId,
-          refCode: summaryRecordCode,
-          refTitle: `${project.projectName} 测款汇总`,
-          refStatus: '已完成',
+    if (seed.conclusion) {
+      records.push({
+        recordId: conclusionRecordId,
+        recordCode: conclusionRecordCode,
+        projectId: project.projectId,
+        projectCode: project.projectCode,
+        projectName: project.projectName,
+        projectNodeId: conclusionNode.projectNodeId,
+        workItemTypeCode: 'TEST_CONCLUSION',
+        workItemTypeName: conclusionNode.workItemTypeName,
+        businessDate: seed.conclusionBusinessDate,
+        recordStatus: '已完成',
+        ownerId: project.ownerId,
+        ownerName: project.ownerName,
+        payload: {
+          conclusion: seed.conclusion,
+          conclusionNote: seed.conclusionNote,
+          linkedChannelProductCode: channelProductCode,
+          invalidationPlanned: seed.conclusion !== '通过',
+          linkedStyleId: seed.linkedStyleId || '',
+          linkedStyleCode: seed.linkedStyleCode || '',
+          invalidatedChannelProductId: seed.conclusion === '通过' ? '' : channelProductId,
+          nextActionType: seed.nextActionType || getTestingConclusionNextActionType(seed.conclusion),
         },
-        channelProductRef,
-      ],
-      downstreamRefs,
-      createdAt: seed.conclusionBusinessDate,
-      createdBy: project.ownerName,
-      updatedAt: seed.conclusionBusinessDate,
-      updatedBy: project.ownerName,
-      legacyProjectRef: project.projectCode,
-      legacyWorkItemInstanceId: null,
-    } as PcsProjectInlineNodeRecord)
+        detailSnapshot: {
+          summaryRecordId,
+          summaryRecordCode,
+          channelProductId,
+          channelProductCode,
+          upstreamChannelProductCode,
+          invalidatedChannelProductId: seed.conclusion === '通过' ? '' : channelProductId,
+          linkedStyleId: seed.linkedStyleId || '',
+          linkedStyleCode: seed.linkedStyleCode || '',
+        },
+        sourceModule: '商品项目',
+        sourceDocType: '测款结论记录',
+        sourceDocId: `${conclusionRecordCode.toLowerCase().replace(/[^a-z0-9]+/g, '_')}_${project.projectId}`,
+        sourceDocCode: `CON-${seed.projectCode.slice(-3)}-001`,
+        upstreamRefs: [
+          {
+            refModule: '测款汇总',
+            refType: '测款汇总记录',
+            refId: summaryRecordId,
+            refCode: summaryRecordCode,
+            refTitle: `${project.projectName} 测款汇总`,
+            refStatus: '已完成',
+          },
+          channelProductRef,
+        ],
+        downstreamRefs,
+        createdAt: seed.conclusionBusinessDate,
+        createdBy: project.ownerName,
+        updatedAt: seed.conclusionBusinessDate,
+        updatedBy: project.ownerName,
+        legacyProjectRef: project.projectCode,
+        legacyWorkItemInstanceId: null,
+      } as PcsProjectInlineNodeRecord)
+    }
   })
 
   return records
 }
 
-function buildSampleCloseoutRecordCode(projectCode: string, workItemTypeCode: 'SAMPLE_RETAIN_REVIEW' | 'SAMPLE_RETURN_HANDLE'): string {
-  return `INR-${projectCode.slice(-3)}-${workItemTypeCode === 'SAMPLE_RETAIN_REVIEW' ? 'RETAIN' : 'RETURN'}`
+function buildSampleCloseoutRecordCode(projectCode: string): string {
+  return `INR-${projectCode.slice(-3)}-RETURN`
 }
 
 function buildSampleCloseoutBootstrapRecords(
@@ -1080,7 +1053,7 @@ function buildSampleCloseoutBootstrapRecords(
     if (!project) {
       throw new Error(`样衣收尾 demo 缺少项目：${seed.projectCode}`)
     }
-    const workItemTypeCode = seed.eventType === 'RETURN_SUPPLIER' ? 'SAMPLE_RETURN_HANDLE' : 'SAMPLE_RETAIN_REVIEW'
+    const workItemTypeCode = 'SAMPLE_RETURN_HANDLE'
     const node = nodeMap.get(`${project.projectId}::${workItemTypeCode}`)
     if (!node) {
       throw new Error(`样衣收尾 demo 缺少项目节点：${seed.projectCode} / ${workItemTypeCode}`)
@@ -1093,7 +1066,7 @@ function buildSampleCloseoutBootstrapRecords(
 
     return {
       recordId,
-      recordCode: buildSampleCloseoutRecordCode(project.projectCode, workItemTypeCode),
+      recordCode: buildSampleCloseoutRecordCode(project.projectCode),
       projectId: project.projectId,
       projectCode: project.projectCode,
       projectName: project.projectName,
@@ -1104,43 +1077,27 @@ function buildSampleCloseoutBootstrapRecords(
       recordStatus: '已完成',
       ownerId: project.ownerId,
       ownerName: seed.operatorName,
-      payload:
-        workItemTypeCode === 'SAMPLE_RETAIN_REVIEW'
-          ? {
-              retainResult: '已完成处置',
-              retainNote: seed.note,
-            }
-          : {
-              returnResult: '已完成退回',
-            },
-      detailSnapshot:
-        workItemTypeCode === 'SAMPLE_RETAIN_REVIEW'
-          ? {
-              sampleAssetId: seed.sampleAssetId,
-              sampleCode: seed.sampleCode,
-              sampleLedgerEventId: seed.ledgerEventId,
-              sampleLedgerEventCode: seed.ledgerEventCode,
-              inventoryStatusAfter: assetStatus,
-              availabilityAfter,
-              locationAfter,
-              disposalDocId: seed.sourceDocId,
-              disposalDocCode: seed.sourceDocCode,
-            }
-          : {
-              returnRecipient: seed.returnRecipient || '供应商收货人',
-              returnDepartment: seed.returnDepartment || '样衣管理组',
-              returnAddress: seed.returnAddress || `${seed.responsibleSite} 供应商回寄地址`,
-              returnDate: seed.returnDate || seed.businessDate,
-              logisticsProvider: seed.logisticsProvider || '线下回寄',
-              trackingNumber: seed.trackingNumber || seed.sourceDocCode,
-              modificationReason: seed.modificationReason || seed.note,
-              sampleAssetId: seed.sampleAssetId,
-              sampleCode: seed.sampleCode,
-              sampleLedgerEventId: seed.ledgerEventId,
-              sampleLedgerEventCode: seed.ledgerEventCode,
-              returnDocId: seed.sourceDocId,
-              returnDocCode: seed.sourceDocCode,
-            },
+      payload: {
+        returnResult: seed.eventType === 'RETURN_SUPPLIER' ? '已完成退回' : '已完成处置',
+      },
+      detailSnapshot: {
+        returnRecipient: seed.returnRecipient || '供应商收货人',
+        returnDepartment: seed.returnDepartment || '样衣管理组',
+        returnAddress: seed.returnAddress || `${seed.responsibleSite} 供应商回寄地址`,
+        returnDate: seed.returnDate || seed.businessDate,
+        logisticsProvider: seed.logisticsProvider || '线下回寄',
+        trackingNumber: seed.trackingNumber || seed.sourceDocCode,
+        modificationReason: seed.modificationReason || seed.note,
+        sampleAssetId: seed.sampleAssetId,
+        sampleCode: seed.sampleCode,
+        sampleLedgerEventId: seed.ledgerEventId,
+        sampleLedgerEventCode: seed.ledgerEventCode,
+        returnDocId: seed.sourceDocId,
+        returnDocCode: seed.sourceDocCode,
+        inventoryStatusAfter: assetStatus,
+        availabilityAfter,
+        locationAfter,
+      },
       sourceModule: '样衣退货与处理',
       sourceDocType: seed.eventType === 'RETURN_SUPPLIER' ? '样衣退回单' : '样衣处置单',
       sourceDocId: seed.sourceDocId,
@@ -1374,7 +1331,7 @@ function buildGenericInlineSeed(
   }
 
   if (node.workItemTypeCode === 'TEST_CONCLUSION') {
-    const conclusion = project.projectStatus === '已终止' ? '淘汰' : project.linkedStyleId ? '通过' : '调整'
+    const conclusion = project.projectStatus === '已终止' ? '淘汰' : project.linkedStyleId ? '通过' : ''
     return {
       projectCode,
       workItemTypeCode: 'TEST_CONCLUSION',
@@ -1389,35 +1346,11 @@ function buildGenericInlineSeed(
         invalidationPlanned: conclusion !== '通过',
         linkedStyleId: project.linkedStyleId || '',
         linkedStyleCode: project.linkedStyleCode || '',
-        projectTerminated: project.projectStatus === '已终止',
-        projectTerminatedAt: project.projectStatus === '已终止' ? businessDate : '',
-        nextActionType: conclusion === '通过' ? '生成款式档案' : conclusion === '调整' ? '等待改版完成' : '项目关闭',
+        nextActionType: conclusion === '通过' ? '生成款式档案' : conclusion === '淘汰' ? '样衣退回处理' : '',
       },
       detailSnapshot: {
         linkedStyleId: project.linkedStyleId || '',
         linkedStyleCode: project.linkedStyleCode || '',
-        projectTerminated: project.projectStatus === '已终止',
-        projectTerminatedAt: project.projectStatus === '已终止' ? businessDate : '',
-      },
-    }
-  }
-
-  if (node.workItemTypeCode === 'SAMPLE_RETAIN_REVIEW') {
-    return {
-      projectCode,
-      workItemTypeCode: 'SAMPLE_RETAIN_REVIEW',
-      sourceModule: '样衣退货与处理',
-      sourceDocType: '样衣处置单',
-      sourceDocCode: `DSP-${projectCode.slice(-3)}-GEN`,
-      businessDate,
-      payload: {
-        retainResult: '已完成处置',
-        retainNote: node.latestResultText || '样衣留存评估已完成。',
-      },
-      detailSnapshot: {
-        inventoryStatusAfter: '已处置',
-        availabilityAfter: '不可用',
-        locationAfter: '深圳处置区',
       },
     }
   }
@@ -1466,8 +1399,8 @@ function buildMissingCompletedInlineNodeRecords(
       if (!seed) return
 
       const recordCode =
-        node.workItemTypeCode === 'SAMPLE_RETAIN_REVIEW' || node.workItemTypeCode === 'SAMPLE_RETURN_HANDLE'
-          ? buildSampleCloseoutRecordCode(project.projectCode, node.workItemTypeCode)
+        node.workItemTypeCode === 'SAMPLE_RETURN_HANDLE'
+          ? buildSampleCloseoutRecordCode(project.projectCode)
           : getRecordCode(project.projectCode, node.workItemTypeCode)
 
       nextRecords.push({

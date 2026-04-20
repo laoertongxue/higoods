@@ -28,7 +28,6 @@ const WORK_ITEM_NAME_MAP: Record<string, string> = {
   SAMPLE_COST_REVIEW: '样衣核价',
   SAMPLE_PRICING: '样衣定价',
   SAMPLE_RETURN_HANDLE: '样衣退货与处理',
-  SAMPLE_RETAIN_REVIEW: '样衣留存与库存',
   LIVE_TEST: '直播测款',
   VIDEO_TEST: '短视频测款',
 }

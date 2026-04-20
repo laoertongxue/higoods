@@ -7,6 +7,7 @@ import {
 } from './pcs-testing-relation-normalizer.ts'
 import { getLiveProductLineById } from './pcs-live-testing-repository.ts'
 import { getProjectById, getProjectStoreSnapshot, listProjects } from './pcs-project-repository.ts'
+import { removeSampleRetainReviewFromRelations } from './pcs-remove-sample-retain-review-migration.ts'
 import { getVideoTestRecordById } from './pcs-video-testing-repository.ts'
 import type {
   ProjectRelationPendingItem,
@@ -68,11 +69,11 @@ function seedSnapshot(): ProjectRelationStoreSnapshot {
   })
   const taskSnapshot = createTaskRelationBootstrapSnapshot()
   const testingSnapshot = createTestingRelationBootstrapSnapshot()
-  return {
+  return cleanRemovedRetainReviewRelations({
     version: PROJECT_RELATION_STORE_VERSION,
     relations: dedupeRelations([...bootstrapSnapshot.relations, ...taskSnapshot.relations, ...testingSnapshot.relations]),
     pendingItems: dedupePendingItems([...bootstrapSnapshot.pendingItems, ...taskSnapshot.pendingItems, ...testingSnapshot.pendingItems]),
-  }
+  })
 }
 
 function buildRelationUniqueKey(record: Pick<
@@ -210,21 +211,30 @@ function dedupePendingItems(items: ProjectRelationPendingItem[]): ProjectRelatio
   return Array.from(map.values()).sort((a, b) => b.discoveredAt.localeCompare(a.discoveredAt))
 }
 
-function mergeMissingSeedData(snapshot: ProjectRelationStoreSnapshot): ProjectRelationStoreSnapshot {
-  const seeded = seedSnapshot()
+function cleanRemovedRetainReviewRelations(snapshot: ProjectRelationStoreSnapshot): ProjectRelationStoreSnapshot {
+  const migrated = removeSampleRetainReviewFromRelations(snapshot, getProjectStoreSnapshot())
   return {
     version: PROJECT_RELATION_STORE_VERSION,
-    relations: dedupeRelations([...snapshot.relations, ...seeded.relations]),
-    pendingItems: dedupePendingItems([...snapshot.pendingItems, ...seeded.pendingItems]),
+    relations: dedupeRelations(migrated.relations),
+    pendingItems: dedupePendingItems(migrated.pendingItems),
   }
 }
 
+function mergeMissingSeedData(snapshot: ProjectRelationStoreSnapshot): ProjectRelationStoreSnapshot {
+  const seeded = seedSnapshot()
+  return cleanRemovedRetainReviewRelations({
+    version: PROJECT_RELATION_STORE_VERSION,
+    relations: dedupeRelations([...snapshot.relations, ...seeded.relations]),
+    pendingItems: dedupePendingItems([...snapshot.pendingItems, ...seeded.pendingItems]),
+  })
+}
+
 function hydrateSnapshot(snapshot: ProjectRelationStoreSnapshot): ProjectRelationStoreSnapshot {
-  return {
+  return cleanRemovedRetainReviewRelations({
     version: PROJECT_RELATION_STORE_VERSION,
     relations: dedupeRelations(Array.isArray(snapshot.relations) ? snapshot.relations : []),
     pendingItems: dedupePendingItems(Array.isArray(snapshot.pendingItems) ? snapshot.pendingItems.map(normalizePendingItem) : []),
-  }
+  })
 }
 
 function loadSnapshot(): ProjectRelationStoreSnapshot {

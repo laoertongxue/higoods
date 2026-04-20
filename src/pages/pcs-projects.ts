@@ -13,6 +13,7 @@ import {
   listProjectPhases,
   listProjects,
 } from '../data/pcs-project-repository.ts'
+import { PROJECT_STATUS_TERMINATED } from '../data/pcs-project-types.ts'
 import type {
   PcsProjectCreateDraft,
   PcsProjectNodeRecord,
@@ -278,7 +279,13 @@ interface ProjectListViewModel {
 }
 
 const STYLE_TYPE_OPTIONS: Array<'全部' | TemplateStyleType> = ['全部', '基础款', '快时尚款', '改版款', '设计款']
-const PROJECT_STATUS_OPTIONS = ['全部', '已立项', '进行中', '已终止', '已归档']
+const PROJECT_STATUS_OPTIONS = [
+  { value: '全部', label: '全部' },
+  { value: '已立项', label: '已立项' },
+  { value: '进行中', label: '进行中' },
+  { value: PROJECT_STATUS_TERMINATED, label: '已结束' },
+  { value: '已归档', label: '已归档' },
+] as const
 const PROJECT_NODE_FIELD_MODULE_EXCEPTIONS = new Set([
   'REVISION_TASK',
   'PATTERN_TASK',
@@ -1291,16 +1298,11 @@ const INLINE_NODE_PAYLOAD_KEYS: Record<PcsProjectInlineNodeRecordWorkItemTypeCod
     'conclusionNote',
     'linkedChannelProductCode',
     'invalidationPlanned',
-    'revisionTaskId',
-    'revisionTaskCode',
     'linkedStyleId',
     'linkedStyleCode',
     'invalidatedChannelProductId',
-    'projectTerminated',
-    'projectTerminatedAt',
     'nextActionType',
   ],
-  SAMPLE_RETAIN_REVIEW: ['retainResult', 'retainNote'],
   SAMPLE_RETURN_HANDLE: ['returnResult'],
 }
 
@@ -1494,9 +1496,7 @@ function buildTechPackVersionDiffSummary(
 
 function getTestConclusionNextActionType(decision: string): string {
   if (decision === '通过') return '生成款式档案'
-  if (decision === '调整') return '等待改版完成'
-  if (decision === '暂缓') return '等待重新评估'
-  if (decision === '淘汰') return '项目关闭'
+  if (decision === '淘汰') return '样衣退回处理'
   return ''
 }
 
@@ -1518,14 +1518,6 @@ function buildTestConclusionOutcomeValues(
   return {
     linkedChannelProductCode,
     invalidationPlanned: decision ? decision !== '通过' : false,
-    revisionTaskId:
-      decision === '调整'
-        ? String(overrides.revisionTaskId ?? getNodeFieldValue(project, node, 'revisionTaskId') ?? '')
-        : '',
-    revisionTaskCode:
-      decision === '调整'
-        ? String(overrides.revisionTaskCode ?? getNodeFieldValue(project, node, 'revisionTaskCode') ?? '')
-        : '',
     linkedStyleId:
       decision === '通过'
         ? String(overrides.linkedStyleId ?? getNodeFieldValue(project, node, 'linkedStyleId') ?? project.linkedStyleId ?? '')
@@ -1537,11 +1529,6 @@ function buildTestConclusionOutcomeValues(
     invalidatedChannelProductId:
       decision && decision !== '通过'
         ? String(overrides.invalidatedChannelProductId ?? currentChannelProduct?.sourceObjectId ?? '')
-        : '',
-    projectTerminated: decision === '淘汰',
-    projectTerminatedAt:
-      decision === '淘汰'
-        ? String(overrides.projectTerminatedAt ?? getNodeFieldValue(project, node, 'projectTerminatedAt') ?? timestamp)
         : '',
     nextActionType: String(overrides.nextActionType ?? getTestConclusionNextActionType(decision)),
   }
@@ -1674,10 +1661,6 @@ function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel
     currentTaskStatus,
     String(currentSampleTask?.updatedAt || currentEngineeringTask?.updatedAt || ''),
   )
-  const projectTerminated =
-    project.projectStatus === '已终止' ||
-    node.node.latestResultType === '测款淘汰' ||
-    node.node.pendingActionType === '项目关闭'
   const activeListingCount = listProjectChannelProductsByProjectIdSafe(project.projectId).filter(
     (item) => item.channelProductStatus !== '已作废',
   ).length
@@ -1737,8 +1720,6 @@ function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel
     sampleLink: project.sampleLink,
     sampleUnitPrice: project.sampleUnitPrice,
     linkedChannelProductCode: currentChannelProductCode,
-    revisionTaskId: revisionMeta.revisionTaskId || revisionRelation?.sourceObjectId || '',
-    revisionTaskCode: revisionMeta.revisionTaskCode || revisionRelation?.instanceCode || '',
     channelProductCode: currentChannelProductCode,
     upstreamChannelProductCode: currentUpstreamChannelProductCode,
     channelProductStatus:
@@ -1816,8 +1797,6 @@ function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel
       project.linkedTechPackVersionLabel ||
       String(projectArchiveMeta.linkedTechPackVersionLabel || '') ||
       String(currentProjectArchive?.currentTechnicalVersionLabel || ''),
-    projectTerminated,
-    projectTerminatedAt: projectTerminated ? project.updatedAt : '',
     nextActionType:
       node.node.pendingActionType ||
       getTestConclusionNextActionType(String(payload.conclusion || detailSnapshot.conclusion || '')),
@@ -1834,7 +1813,7 @@ function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel
     ),
     linkedTechPackVersionSourceTask: techPackSourceSummary?.createdFromTaskText || '暂无来源任务',
     linkedTechPackVersionTaskChain:
-      techPackSourceSummary?.items.length
+      techPackSourceSummary?.items?.length
         ? techPackSourceSummary.items.map((item) => `${item.taskTypeLabel} ${item.taskCode}（${item.status}）`)
         : techPackSourceSummary
           ? [techPackSourceSummary.taskChainText]
@@ -1963,8 +1942,6 @@ function deriveRecordSummaryNote(workItemTypeCode: string, values: Record<string
       return pickFirst('summaryText') || '已完成测款数据汇总。'
     case 'TEST_CONCLUSION':
       return pickFirst('conclusionNote', 'conclusion') || '已更新测款结论。'
-    case 'SAMPLE_RETAIN_REVIEW':
-      return pickFirst('retainNote', 'retainResult') || '已保存留存评估。'
     case 'SAMPLE_RETURN_HANDLE':
       return pickFirst('returnResult') || '已保存退回处理结果。'
     default:
@@ -2441,8 +2418,8 @@ function buildProjectViewModel(projectId: string): ProjectViewModel | null {
   const phaseViewModels = phases.map((phase) => {
     const phaseNodes = nodeViewModels.filter((item) => item.node.phaseCode === phase.phaseCode)
     let derivedStatus: PcsProjectPhaseRecord['phaseStatus'] = '未开始'
-    if (project.projectStatus === '已终止' && phaseNodes.some((item) => !isClosedNodeStatus(item.node.currentStatus))) {
-      derivedStatus = '已终止'
+    if (project.projectStatus === PROJECT_STATUS_TERMINATED && phaseNodes.some((item) => !isClosedNodeStatus(item.node.currentStatus))) {
+      derivedStatus = PROJECT_STATUS_TERMINATED
     } else if (phaseNodes.length > 0 && phaseNodes.every((item) => isClosedNodeStatus(item.node.currentStatus))) {
       derivedStatus = '已完成'
     } else if (
@@ -2504,8 +2481,8 @@ function buildProjectListViewModel(projectId: string): ProjectListViewModel | nu
     const phaseNodes = nodeViewModels.filter((item) => item.node.phaseCode === phase.phaseCode)
     let derivedStatus: PcsProjectPhaseRecord['phaseStatus'] = '未开始'
 
-    if (project.projectStatus === '已终止' && phaseNodes.some((item) => !isClosedNodeStatus(item.node.currentStatus))) {
-      derivedStatus = '已终止'
+    if (project.projectStatus === PROJECT_STATUS_TERMINATED && phaseNodes.some((item) => !isClosedNodeStatus(item.node.currentStatus))) {
+      derivedStatus = PROJECT_STATUS_TERMINATED
     } else if (phaseNodes.length > 0 && phaseNodes.every((item) => isClosedNodeStatus(item.node.currentStatus))) {
       derivedStatus = '已完成'
     } else if (
@@ -2729,10 +2706,14 @@ function getSelectedDetailNode(viewModel: ProjectViewModel): ProjectNodeViewMode
   return selected ?? viewModel.currentNode ?? viewModel.nodes[0] ?? null
 }
 
+function getProjectStatusDisplayText(status: PcsProjectRecord['projectStatus']): string {
+  return status === PROJECT_STATUS_TERMINATED ? '已结束' : status
+}
+
 function getProjectStatusBadgeClass(status: PcsProjectRecord['projectStatus']): string {
   if (status === '已立项') return 'bg-blue-100 text-blue-700'
   if (status === '进行中') return 'bg-emerald-100 text-emerald-700'
-  if (status === '已终止') return 'bg-rose-100 text-rose-700'
+  if (status === PROJECT_STATUS_TERMINATED) return 'bg-rose-100 text-rose-700'
   return 'bg-slate-100 text-slate-600'
 }
 
@@ -2870,8 +2851,8 @@ function renderListToolbar(filteredCount: number, phaseOptions: string[]): strin
             (option) => `
               <button type="button" class="${toClassName(
                 'inline-flex h-8 items-center rounded-md px-3 text-xs',
-                state.list.status === option ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
-              )}" data-pcs-project-action="set-status-filter" data-value="${escapeHtml(option)}">${escapeHtml(option)}</button>
+                state.list.status === option.value ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+              )}" data-pcs-project-action="set-status-filter" data-value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</button>
             `,
           ).join('')}
         </div>
@@ -2968,7 +2949,7 @@ function renderProjectListTable(projects: ProjectListViewModel[], totalPages: nu
                   <tr>
                     <td colspan="11" class="px-4 py-16 text-center">
                       <p class="text-sm font-medium text-slate-700">暂无符合条件的商品项目</p>
-                      <p class="mt-1 text-xs text-slate-500">可以调整筛选条件，或直接创建一个新的商品项目。</p>
+                      <p class="mt-1 text-xs text-slate-500">可以修改筛选条件，或直接创建一个新的商品项目。</p>
                       <button type="button" class="mt-4 inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-nav="/pcs/projects/create">新建商品项目</button>
                     </td>
                   </tr>
@@ -2980,14 +2961,14 @@ function renderProjectListTable(projects: ProjectListViewModel[], totalPages: nu
                           <td class="px-4 py-3">
                             <div class="flex flex-wrap gap-2">
                               <button type="button" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/projects/${escapeHtml(item.project.projectId)}">查看</button>
-                              <button type="button" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50" data-pcs-project-action="open-terminate" data-project-id="${escapeHtml(item.project.projectId)}">终止</button>
+                              <button type="button" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50" data-pcs-project-action="open-terminate" data-project-id="${escapeHtml(item.project.projectId)}">结束</button>
                               <button type="button" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50" data-pcs-project-action="archive-project" data-project-id="${escapeHtml(item.project.projectId)}">归档</button>
                             </div>
                           </td>
                           <td class="px-4 py-3">
                             <button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/projects/${escapeHtml(item.project.projectId)}">${escapeHtml(item.project.projectName)}</button>
                             <div class="mt-1 flex flex-wrap items-center gap-2 text-xs">
-                              <span class="inline-flex rounded-full px-2 py-0.5 ${getProjectStatusBadgeClass(item.project.projectStatus)}">${escapeHtml(item.project.projectStatus)}</span>
+                              <span class="inline-flex rounded-full px-2 py-0.5 ${getProjectStatusBadgeClass(item.project.projectStatus)}">${escapeHtml(getProjectStatusDisplayText(item.project.projectStatus))}</span>
                               ${item.pendingDecisionNode ? '<span class="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-amber-700">待决策</span>' : ''}
                             </div>
                           </td>
@@ -3041,7 +3022,7 @@ function renderProjectGrid(projects: ProjectListViewModel[], totalPages: number)
           ? `
             <div class="rounded-lg border bg-white p-16 text-center">
               <p class="text-sm font-medium text-slate-700">暂无符合条件的商品项目</p>
-              <p class="mt-1 text-xs text-slate-500">可以调整筛选条件，或直接创建一个新的商品项目。</p>
+              <p class="mt-1 text-xs text-slate-500">可以修改筛选条件，或直接创建一个新的商品项目。</p>
             </div>
           `
           : `
@@ -3055,7 +3036,7 @@ function renderProjectGrid(projects: ProjectListViewModel[], totalPages: number)
                           <button type="button" class="text-left text-base font-semibold text-blue-700 hover:underline" data-nav="/pcs/projects/${escapeHtml(item.project.projectId)}">${escapeHtml(item.project.projectName)}</button>
                           <p class="mt-1 text-xs text-slate-400">${escapeHtml(item.project.projectCode)}</p>
                         </div>
-                        <span class="inline-flex rounded-full px-2 py-0.5 text-xs ${getProjectStatusBadgeClass(item.project.projectStatus)}">${escapeHtml(item.project.projectStatus)}</span>
+                        <span class="inline-flex rounded-full px-2 py-0.5 text-xs ${getProjectStatusBadgeClass(item.project.projectStatus)}">${escapeHtml(getProjectStatusDisplayText(item.project.projectStatus))}</span>
                       </div>
                       <div class="mt-4 flex flex-wrap gap-2">
                         <span class="inline-flex rounded-full border px-2 py-0.5 text-xs ${getStyleTypeBadgeClass(item.project.styleType)}">${escapeHtml(item.project.styleType)}</span>
@@ -3089,17 +3070,17 @@ function renderProjectTerminateDialog(): string {
   const project = getProjectById(state.terminateProjectId)
   if (!project) return ''
   return renderModalShell(
-    '终止项目',
-    `请说明终止「${project.projectName}」的原因，该记录会写入项目日志。`,
+    '结束项目',
+    `请说明结束「${project.projectName}」的原因，该记录会写入项目日志。`,
     `
       <label class="space-y-1">
-        <span class="text-xs text-slate-500">终止原因</span>
-        <textarea class="min-h-[120px] w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" placeholder="请输入终止原因" data-pcs-project-field="terminate-reason">${escapeHtml(state.terminateReason)}</textarea>
+        <span class="text-xs text-slate-500">结束原因</span>
+        <textarea class="min-h-[120px] w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" placeholder="请输入结束原因" data-pcs-project-field="terminate-reason">${escapeHtml(state.terminateReason)}</textarea>
       </label>
     `,
     `
       <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-project-action="close-dialogs">取消</button>
-      <button type="button" class="inline-flex h-9 items-center rounded-md bg-rose-600 px-4 text-sm font-medium text-white hover:bg-rose-700 ${state.terminateReason.trim() ? '' : 'opacity-50'}" data-pcs-project-action="confirm-terminate" ${state.terminateReason.trim() ? '' : 'disabled'}>确认终止</button>
+      <button type="button" class="inline-flex h-9 items-center rounded-md bg-rose-600 px-4 text-sm font-medium text-white hover:bg-rose-700 ${state.terminateReason.trim() ? '' : 'opacity-50'}" data-pcs-project-action="confirm-terminate" ${state.terminateReason.trim() ? '' : 'disabled'}>确认结束</button>
     `,
   )
 }
@@ -3110,7 +3091,6 @@ function renderProjectListHeader(): string {
       <div>
         <p class="text-xs text-slate-500">商品中心 / 商品项目</p>
         <h1 class="mt-1 text-2xl font-semibold text-slate-900">商品项目列表</h1>
-        <p class="mt-1 text-sm text-slate-500">管理所有商品立项、执行进度、测款决策和转档收口。</p>
       </div>
       <button type="button" class="inline-flex h-10 items-center gap-2 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-nav="/pcs/projects/create">
         <i data-lucide="plus" class="h-4 w-4"></i>新建商品项目
@@ -3147,10 +3127,6 @@ function renderTemplatePreview(template: ProjectTemplate | null): string {
           <p class="text-xs text-slate-500">模板状态</p>
           <p class="mt-2 text-sm font-semibold text-slate-900">${escapeHtml(template.status === 'active' ? '启用' : '停用')}</p>
         </article>
-      </div>
-      <div class="rounded-lg border bg-white p-4">
-        <p class="text-sm font-medium text-slate-900">模板说明</p>
-        <p class="mt-2 text-sm leading-6 text-slate-600">${escapeHtml(template.description || template.scenario)}</p>
       </div>
       <div class="space-y-3">
         ${template.stages
@@ -3211,7 +3187,6 @@ function renderCreatePage(): string {
           <div>
             <p class="text-xs text-slate-500">商品中心 / 商品项目</p>
             <h1 class="mt-1 text-2xl font-semibold text-slate-900">创建商品项目</h1>
-            <p class="mt-1 text-sm text-slate-500">创建新的商品项目工作空间，并自动挂接对应模板流程。</p>
           </div>
         </div>
       </section>
@@ -3230,7 +3205,6 @@ function renderCreatePage(): string {
           <div class="space-y-3">
             <div>
               <span class="text-sm font-medium text-slate-900">款式类型 <span class="text-rose-500">*</span></span>
-              <p class="mt-1 text-xs text-slate-500">选择款式类型后，系统会自动推荐对应模板。</p>
             </div>
             <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               ${catalog.styleTypes
@@ -3246,15 +3220,6 @@ function renderCreatePage(): string {
                         <span class="text-sm font-semibold text-slate-900">${escapeHtml(styleType)}</span>
                         <span class="inline-flex rounded-full px-2 py-0.5 text-xs ${getStyleTypeBadgeClass(styleType)}">${escapeHtml(getProjectTypeLabel(styleType) || '')}</span>
                       </div>
-                      <p class="mt-2 text-xs leading-5 text-slate-500">${escapeHtml(
-                        styleType === '基础款'
-                          ? '适用于标准商品开发链路。'
-                          : styleType === '快时尚款'
-                            ? '适用于渠道快反与快速上新。'
-                            : styleType === '改版款'
-                              ? '适用于改版修订和问题回收。'
-                              : '适用于设计研发和复杂打样。',
-                      )}</p>
                     </button>
                   `,
                 )
@@ -3483,7 +3448,6 @@ function renderCreatePage(): string {
           <div class="space-y-3">
             <div>
               <span class="text-sm font-medium text-slate-900">目标客群标签</span>
-              <p class="mt-1 text-xs text-slate-500">根据人群定位、年龄带和人群自动聚合生成。</p>
             </div>
             <div class="flex min-h-10 flex-wrap gap-2 rounded-md border border-dashed border-slate-200 px-3 py-2">
               ${
@@ -3546,7 +3510,6 @@ function renderCreatePage(): string {
       <section class="rounded-lg border bg-white p-4">
         <div class="mb-6">
           <h2 class="text-lg font-semibold text-slate-900">模板预览</h2>
-          <p class="mt-1 text-sm text-slate-500">根据已选款式类型和模板，预览创建后的标准流程结构。</p>
         </div>
         ${renderTemplatePreview(selectedTemplate)}
       </section>
@@ -3593,7 +3556,7 @@ function renderProjectHeader(viewModel: ProjectViewModel): string {
             <div class="flex flex-wrap items-center gap-2">
               <h1 class="text-2xl font-semibold text-slate-900">${escapeHtml(viewModel.project.projectName)}</h1>
               <span class="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-600">${escapeHtml(viewModel.project.projectCode)}</span>
-              <span class="inline-flex rounded-full px-2 py-0.5 text-xs ${getProjectStatusBadgeClass(viewModel.project.projectStatus)}">${escapeHtml(viewModel.project.projectStatus)}</span>
+              <span class="inline-flex rounded-full px-2 py-0.5 text-xs ${getProjectStatusBadgeClass(viewModel.project.projectStatus)}">${escapeHtml(getProjectStatusDisplayText(viewModel.project.projectStatus))}</span>
             </div>
             <div class="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-500">
               <span>${escapeHtml(viewModel.project.categoryName)}</span>
@@ -4417,8 +4380,7 @@ function renderFormalFieldEntrySection(project: PcsProjectRecord, node: ProjectN
     if (node.node.workItemTypeCode === 'PROJECT_INIT') {
       return `
         <section class="rounded-lg border bg-white p-4">
-          <h3 class="text-base font-semibold text-slate-900">正式字段回显</h3>
-          <p class="mt-2 text-sm leading-6 text-slate-500">当前立项节点由商品项目主记录承载，下方完整展示创建商品项目时填写的正式字段。</p>
+          <h3 class="text-base font-semibold text-slate-900">工作项字段</h3>
         </section>
       `
     }
@@ -4426,9 +4388,8 @@ function renderFormalFieldEntrySection(project: PcsProjectRecord, node: ProjectN
       const testingAction = renderTestingCreateAction(project, node)
       return `
         <section class="rounded-lg border bg-white p-4">
-          <h3 class="text-base font-semibold text-slate-900">正式字段承接</h3>
+          <h3 class="text-base font-semibold text-slate-900">关联字段</h3>
           <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
-            <p class="text-sm leading-6 text-slate-500">当前节点字段由正式业务对象承接，下方完整展示对应工作项已定义字段；标记完成前会逐项校验字段是否完整。</p>
             ${testingAction}
           </div>
         </section>
@@ -4437,9 +4398,8 @@ function renderFormalFieldEntrySection(project: PcsProjectRecord, node: ProjectN
     const testingAction = renderTestingCreateAction(project, node)
     return `
       <section class="rounded-lg border bg-white p-4">
-        <h3 class="text-base font-semibold text-slate-900">正式字段录入</h3>
+        <h3 class="text-base font-semibold text-slate-900">填写字段</h3>
         <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
-          <p class="text-sm leading-6 text-slate-500">当前节点由下游正式对象或独立业务模块承载，项目内仅展示结果摘要和引用关系。</p>
           ${testingAction}
         </div>
       </section>
@@ -4533,7 +4493,6 @@ function renderWorkItemRecords(node: ProjectNodeViewModel): string {
         <div class="flex items-center justify-between gap-3">
           <div>
             <h3 class="text-base font-semibold text-slate-900">执行记录</h3>
-            <p class="mt-1 text-sm text-slate-500">当前节点还没有正式记录。</p>
           </div>
           ${recordAction}
         </div>
@@ -4546,7 +4505,6 @@ function renderWorkItemRecords(node: ProjectNodeViewModel): string {
       <div class="mb-4 flex items-center justify-between gap-3">
         <div>
           <h3 class="text-base font-semibold text-slate-900">执行记录</h3>
-          <p class="mt-1 text-sm text-slate-500">按业务日期倒序展示当前节点的正式记录。</p>
         </div>
         ${recordAction}
       </div>
@@ -4602,7 +4560,6 @@ function renderWorkItemAttachments(node: ProjectNodeViewModel): string {
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 class="text-base font-semibold text-slate-900">项目实例总览</h3>
-            <p class="mt-1 text-sm text-slate-500">统一汇总项目主记录、项目内正式记录和正式业务对象，作为当前节点的单一实例视图。</p>
           </div>
           <div class="flex flex-wrap gap-2 text-xs text-slate-500">
             <span class="rounded-full border border-slate-200 px-2.5 py-1">正式记录 ${node.instanceModel.formalRecordCount}</span>
@@ -4728,13 +4685,13 @@ function renderWorkItemAudit(viewModel: ProjectViewModel, node: ProjectNodeViewM
 
 function getDecisionOptions(node: ProjectNodeViewModel): string[] {
   const meta = getDecisionFieldMeta(node.node.workItemTypeCode)
-  if (!meta) return ['通过', '驳回']
+  if (!meta) return ['通过', '淘汰']
   const groups = listProjectWorkItemFieldGroups(node.node.workItemTypeCode as PcsProjectWorkItemCode)
   const valueField = groups.flatMap((group) => group.fields).find((field) => field.fieldKey === meta.valueFieldKey)
   if (valueField?.options?.length) {
     return valueField.options.map((item) => item.value)
   }
-  return ['通过']
+  return ['通过', '淘汰']
 }
 
 function isDecisionNode(node: ProjectNodeViewModel): boolean {
@@ -4767,7 +4724,7 @@ function renderDecisionNodeSection(project: PcsProjectRecord, node: ProjectNodeV
     <section class="space-y-4">
       <article class="rounded-lg border border-amber-200 bg-amber-50 p-4">
         <h3 class="text-sm font-semibold text-amber-900">决策节点</h3>
-        <p class="mt-2 text-sm leading-6 text-amber-800">当前节点只保留“做出决策”操作。提交结果后，系统会根据决策结果自动流转到下一个节点，或直接结束商品项目。</p>
+        <p class="mt-2 text-sm leading-6 text-amber-800">当前节点只保留“做出决策”操作。提交结果后，系统会根据决策结果自动流转到下一个节点，或进入样衣退回处理。</p>
       </article>
       ${renderReadonlyFieldSection(project, node)}
     </section>

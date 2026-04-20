@@ -3,6 +3,7 @@ import { getProjectNodeRecordByWorkItemTypeCode } from './pcs-project-repository
 import { getStyleArchiveById } from './pcs-style-archive-repository.ts'
 import type {
   TechPackSourceTaskType,
+  TechPackVersionChangeScope,
   TechnicalAttachment,
   TechnicalBomItem,
   TechnicalColorMaterialMapping,
@@ -166,6 +167,13 @@ function normalizeSourceTaskType(
   return 'REVISION'
 }
 
+function normalizeChangeScope(value: string | null | undefined): TechPackVersionChangeScope {
+  if (value === '制版生成' || value === '花型写入' || value === '花型替换' || value === '改版生成') {
+    return value
+  }
+  return '改版生成'
+}
+
 function createEmptyContent(technicalVersionId: string): TechnicalDataVersionContent {
   return {
     technicalVersionId,
@@ -297,8 +305,13 @@ function applyDerivedFields(
     createdFromTaskType: normalizeSourceTaskType(record.createdFromTaskType, record),
     createdFromTaskId: record.createdFromTaskId || '',
     createdFromTaskCode: record.createdFromTaskCode || '',
+    primaryPlateTaskId: record.primaryPlateTaskId || '',
+    primaryPlateTaskCode: record.primaryPlateTaskCode || '',
+    primaryPlateTaskVersion: record.primaryPlateTaskVersion || '',
     baseTechnicalVersionId: record.baseTechnicalVersionId || '',
     baseTechnicalVersionCode: record.baseTechnicalVersionCode || '',
+    changeScope: normalizeChangeScope(record.changeScope),
+    changeSummary: record.changeSummary || '',
     publishedAt: record.publishedAt || '',
     publishedBy: record.publishedBy || '',
     createdAt: record.createdAt || record.updatedAt || nowText(),
@@ -330,8 +343,13 @@ function normalizeRecord(
       createdFromTaskType: normalizeSourceTaskType(rawRecord.createdFromTaskType, rawRecord),
       createdFromTaskId: rawRecord.createdFromTaskId || '',
       createdFromTaskCode: rawRecord.createdFromTaskCode || '',
+      primaryPlateTaskId: rawRecord.primaryPlateTaskId || '',
+      primaryPlateTaskCode: rawRecord.primaryPlateTaskCode || '',
+      primaryPlateTaskVersion: rawRecord.primaryPlateTaskVersion || '',
       baseTechnicalVersionId: rawRecord.baseTechnicalVersionId || '',
       baseTechnicalVersionCode: rawRecord.baseTechnicalVersionCode || '',
+      changeScope: normalizeChangeScope(rawRecord.changeScope),
+      changeSummary: rawRecord.changeSummary || '',
       versionStatus: normalizeVersionStatus(rawRecord.versionStatus),
       bomStatus: normalizeDomainStatus(rawRecord.bomStatus),
       patternStatus: normalizeDomainStatus(rawRecord.patternStatus),

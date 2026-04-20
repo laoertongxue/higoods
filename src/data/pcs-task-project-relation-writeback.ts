@@ -446,7 +446,7 @@ function updateRevisionNode(node: PcsProjectNodeRecord, task: RevisionTaskRecord
   if (!alreadyExists) {
     updateProjectNodeRecord(task.projectId, node.projectNodeId, {
       latestResultType: '已创建改版任务',
-      latestResultText: '已根据测款结论创建改版任务',
+      latestResultText: '已创建改版任务',
       pendingActionType: '等待改版完成',
       pendingActionText: '请推进改版任务，完成后重新进入测款',
       updatedAt: task.createdAt,

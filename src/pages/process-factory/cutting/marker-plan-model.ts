@@ -1260,7 +1260,7 @@ function applySeedVariant(plan: MarkerPlan, variant: SeedVariantKey, context: Ma
     imageRecords: [createImageRecord(plan.id, 1, plan.markerNo, '系统预置唛架图')],
     hasAdjustment: variant === 'mapping',
     adjustmentNote: variant === 'mapping' ? '当前样例用于演示技术包映射异常人工确认。' : '',
-    remark: variant === 'ready' ? '当前唛架可直接交接铺布。' : '当前为计划层样例唛架，用于展示不同状态。',
+    remark: variant === 'ready' ? '当前唛架可直接交接铺布。' : '当前为计划层样例唛架。',
   }
 
   if (variant === 'unbalanced' && nextPlan.allocationRows[0]) {

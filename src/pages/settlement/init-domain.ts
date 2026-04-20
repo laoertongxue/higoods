@@ -332,7 +332,7 @@ export function renderSettlementInitPage(factoryId: string): string {
       </div>
 
       <div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
-        该页面用于初始化工厂结算信息，不包含版本历史和新增版本。
+        初始化工厂结算信息。
         ${hasDraft ? `当前已加载该工厂草稿（最近更新：${escapeHtml(getInitDraftByFactory(factoryId)?.updatedAt || '—')}）。` : ''}
       </div>
       ${

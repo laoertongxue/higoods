@@ -28,7 +28,6 @@ export type PcsProjectWorkItemCode =
   | 'PATTERN_ARTWORK_TASK'
   | 'FIRST_SAMPLE'
   | 'PRE_PRODUCTION_SAMPLE'
-  | 'SAMPLE_RETAIN_REVIEW'
   | 'SAMPLE_RETURN_HANDLE'
 
 export type PcsProjectRelatedInstanceTypeCode =
@@ -502,7 +501,7 @@ const EXECUTE_NODE_STATUS_DEFINITIONS: PcsProjectNodeStatusDefinition[] = [
   createNodeStatus('进行中', ['节点已开始推进，存在处理中实例或处理中动作'], ['形成待确认结果、直接完成或取消'], '当前项目节点正在推进。'),
   createNodeStatus('待确认', ['节点已形成阶段性结果，等待项目级确认收口'], ['确认完成、重新处理或取消'], '当前项目节点等待确认后才能正式收口。'),
   createNodeStatus('已完成', ['节点已完成正式回写并达到退出条件'], ['无'], '当前项目节点已完成。'),
-  createNodeStatus('已取消', ['项目终止、节点取消或明确不再推进'], ['无'], '当前项目节点已取消。'),
+  createNodeStatus('已取消', ['项目关闭、节点取消或明确不再推进'], ['无'], '当前项目节点已取消。'),
 ]
 
 const CHANNEL_LISTING_NODE_STATUS_DEFINITIONS: PcsProjectNodeStatusDefinition[] = [
@@ -510,7 +509,7 @@ const CHANNEL_LISTING_NODE_STATUS_DEFINITIONS: PcsProjectNodeStatusDefinition[] 
   createNodeStatus('进行中', ['已建立上架实例，仍在推进上架、测款或上游更新'], ['形成待确认结果、完成或取消'], '商品上架节点正在推进渠道店铺商品实例。'),
   createNodeStatus('待确认', ['已有测款引用或已形成生效候选，等待项目级结论确认'], ['确认完成、重新处理或取消'], '商品上架节点等待项目级结论或最终确认。'),
   createNodeStatus('已完成', ['已形成正式生效结果或上架策略已收口'], ['无'], '商品上架节点已完成。'),
-  createNodeStatus('已取消', ['项目终止或节点取消'], ['无'], '商品上架节点已取消。'),
+  createNodeStatus('已取消', ['项目关闭或节点取消'], ['无'], '商品上架节点已取消。'),
 ]
 
 function groupFields(group: ContractFieldGroupSeed): PcsProjectNodeFieldDefinition[] {
@@ -1135,12 +1134,12 @@ const feasibilityFields = [
         sourceKind: '固定枚举',
         sourceRef: '可行性结论',
         meaning: '是否继续推进项目',
-        logic: '通过代表可继续，调整和暂缓会影响后续节点解锁。',
+        logic: '通过代表继续推进，淘汰代表转入样衣退回处理。',
         options: [
           { value: '通过', label: '通过' },
-          { value: '调整', label: '调整' },
-          { value: '暂缓', label: '暂缓' },
+          { value: '淘汰', label: '淘汰' },
         ],
+        required: true,
       },
       { key: 'reviewRisk', label: '风险说明', type: 'textarea', sourceKind: '本地主数据', sourceRef: '可行性判断', meaning: '风险补充说明', logic: '用于说明可行性阶段识别的风险。', required: false },
     ],
@@ -1172,12 +1171,12 @@ const sampleConfirmFields = [
         sourceKind: '固定枚举',
         sourceRef: '样衣确认结果',
         meaning: '是否通过样衣确认',
-        logic: '未确认通过时，商品上架和测款节点不能继续。',
+        logic: '通过时进入下一个节点，淘汰时进入样衣退回处理。',
         options: [
           { value: '通过', label: '通过' },
-          { value: '继续调整', label: '继续调整' },
           { value: '淘汰', label: '淘汰' },
         ],
+        required: true,
       },
       { key: 'confirmNote', label: '确认说明', type: 'textarea', sourceKind: '本地主数据', sourceRef: '样衣确认', meaning: '样衣确认补充说明', logic: '用于记录确认说明。', required: false },
     ],
@@ -1357,7 +1356,7 @@ const conclusionFields = [
   ...groupFields({
     id: 'test-conclusion-main',
     title: '测款结论',
-    description: '测款结论决定是否创建款式档案、是否作废渠道店铺商品以及后续开发走向。',
+    description: '测款结论决定项目继续推进，或转入样衣退回处理。',
     fields: [
       {
         key: 'conclusion',
@@ -1366,13 +1365,12 @@ const conclusionFields = [
         sourceKind: '固定枚举',
         sourceRef: '测款结论',
         meaning: '项目继续与否的正式结论',
-        logic: '通过解锁款式档案创建；调整、暂缓、淘汰都会作废当前渠道店铺商品。',
+        logic: '通过时进入模板中的下一个工作项；淘汰时进入样衣退回处理。',
         options: [
           { value: '通过', label: '通过' },
-          { value: '调整', label: '调整' },
-          { value: '暂缓', label: '暂缓' },
           { value: '淘汰', label: '淘汰' },
         ],
+        required: true,
       },
       { key: 'conclusionNote', label: '结论说明', type: 'textarea', sourceKind: '本地主数据', sourceRef: '测款结论', meaning: '测款结论说明', logic: '必须补充结论说明，供后续节点和回写使用。' },
       { key: 'linkedChannelProductCode', label: '来源渠道店铺商品编码', type: 'text', sourceKind: '项目来源', sourceRef: '商品上架实例', meaning: '当前测款结论对应的渠道店铺商品编码', logic: '从商品上架节点回读，只读。', readonly: true },
@@ -1382,16 +1380,12 @@ const conclusionFields = [
   ...groupFields({
     id: 'test-conclusion-effects',
     title: '结论后果',
-    description: '正式承接测款结论触发的改版任务、款式档案、作废和项目收口后果。',
+    description: '正式承接测款结论对渠道店铺商品、款式档案和下一工作项的影响。',
     fields: [
-      { key: 'revisionTaskId', label: '改版任务ID', type: 'text', sourceKind: '系统生成', sourceRef: '改版任务创建回写', meaning: '调整分支创建的改版任务ID', logic: '当测款结论为调整时系统创建改版任务并回写任务ID，只读。', readonly: true, required: false },
-      { key: 'revisionTaskCode', label: '改版任务编码', type: 'text', sourceKind: '系统生成', sourceRef: '改版任务创建回写', meaning: '调整分支创建的改版任务编码', logic: '当测款结论为调整时系统创建改版任务并回写任务编码，只读。', readonly: true, required: false },
       { key: 'linkedStyleId', label: '关联款式档案ID', type: 'text', sourceKind: '上游实例回写', sourceRef: '款式档案关联回写', meaning: '测款通过后关联的款式档案ID', logic: '通过分支如已建立款式档案关系则回写 styleId，只读。', readonly: true, required: false },
       { key: 'linkedStyleCode', label: '关联款式档案编码', type: 'text', sourceKind: '上游实例回写', sourceRef: '款式档案关联回写', meaning: '测款通过后关联的款式档案编码', logic: '通过分支如已建立款式档案关系则回写 styleCode，只读。', readonly: true, required: false },
       { key: 'invalidatedChannelProductId', label: '作废渠道店铺商品ID', type: 'text', sourceKind: '上游实例回写', sourceRef: '渠道店铺商品作废回写', meaning: '本次测款结论直接作废的渠道店铺商品ID', logic: '当结论不是通过时，系统回写本次主作废渠道店铺商品ID，只读。', readonly: true, required: false },
-      { key: 'projectTerminated', label: '是否终止项目', type: 'text', sourceKind: '系统生成', sourceRef: '项目状态回写', meaning: '本次测款结论是否直接终止项目', logic: '仅淘汰分支回写为 true，其他分支为 false，只读。', readonly: true, required: false },
-      { key: 'projectTerminatedAt', label: '项目终止时间', type: 'datetime', sourceKind: '系统生成', sourceRef: '项目状态回写', meaning: '淘汰分支终止项目的时间', logic: '仅淘汰分支回写终止时间，只读。', readonly: true, required: false },
-      { key: 'nextActionType', label: '后续动作类型', type: 'text', sourceKind: '系统生成', sourceRef: '测款结论分支流转', meaning: '本次测款结论后的下一步主动作', logic: '系统按结论自动计算，例如生成款式档案、等待改版完成、等待重新评估、项目关闭，只读。', readonly: true },
+      { key: 'nextActionType', label: '后续动作类型', type: 'text', sourceKind: '系统生成', sourceRef: '测款结论分支流转', meaning: '本次测款结论后的下一步主动作', logic: '系统按结论自动计算，例如生成款式档案或样衣退回处理，只读。', readonly: true },
     ],
   }),
 ]
@@ -1456,7 +1450,7 @@ const revisionTaskFields = [
   ...groupFields({
     id: 'revision-task-main',
     title: '改版任务',
-    description: '测款结论为调整时创建的正式改版任务。',
+    description: '改版触发后创建的正式改版任务。',
     fields: [
       { key: 'revisionTaskId', label: '改版任务ID', type: 'text', sourceKind: '系统生成', sourceRef: '改版任务正式对象', meaning: '当前改版任务主键', logic: '改版任务创建成功后由系统回写，只读展示。', readonly: true },
       { key: 'revisionTaskCode', label: '改版任务编码', type: 'text', sourceKind: '系统生成', sourceRef: '改版任务正式对象', meaning: '当前改版任务编码', logic: '改版任务创建成功后由系统回写，只读展示。', readonly: true },
@@ -1619,18 +1613,6 @@ const preProductionFields = [
   }),
 ]
 
-const retainReviewFields = [
-  ...groupFields({
-    id: 'retain-review-main',
-    title: '留存评估',
-    description: '决定样衣是否留存。',
-    fields: [
-      { key: 'retainResult', label: '留存结论', type: 'text', sourceKind: '本地主数据', sourceRef: '留存评估', meaning: '样衣留存结论', logic: '提交留存评估时必填。' },
-      { key: 'retainNote', label: '评估说明', type: 'textarea', sourceKind: '本地主数据', sourceRef: '留存评估', meaning: '留存评估说明', logic: '留存评估补充说明，选填。', required: false },
-    ],
-  }),
-]
-
 const returnHandleFields = [
   ...groupFields({
     id: 'return-handle-main',
@@ -1691,12 +1673,12 @@ export const PCS_PROJECT_PHASE_CONTRACTS: PcsProjectPhaseContract[] = [
     phaseCode: 'PHASE_05',
     phaseName: '项目收尾',
     phaseOrder: 5,
-    description: '完成样衣留存评估与退回处理。',
+    description: '完成样衣退回处理和项目收尾资料确认。',
     defaultOpenFlag: false,
-    businessScenario: '对项目样衣和收尾资料做最终处理，明确留存、退回或处置结果。',
-    whyExists: '项目结束时需要明确样衣留存和退回处置，保证项目闭环。',
+    businessScenario: '对项目样衣和收尾资料做最终处理，明确退回或处置结果。',
+    whyExists: '项目结束时需要明确样衣去向和收尾结果，保证项目闭环。',
     entryConditions: ['款式档案与开发推进阶段的正式任务已完成或已明确停止。'],
-    exitConditions: ['样衣留存和退回处理已形成正式结论。'],
+    exitConditions: ['样衣退回处理已形成正式结论。'],
   },
 ]
 
@@ -1799,7 +1781,7 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
       { statusName: '未开始', entryConditions: ['项目创建后默认状态'], exitConditions: ['开始新增样衣来源实例'], businessMeaning: '尚未登记样衣来源。' },
       { statusName: '进行中', entryConditions: ['已登记样衣来源'], exitConditions: ['样衣来源确认完成或取消'], businessMeaning: '正在推进样衣来源。' },
       { statusName: '已完成', entryConditions: ['样衣来源确认完成'], exitConditions: ['无'], businessMeaning: '样衣来源已确认。' },
-      { statusName: '已取消', entryConditions: ['项目终止或节点取消'], exitConditions: ['无'], businessMeaning: '样衣来源不再继续。' },
+      { statusName: '已取消', entryConditions: ['项目关闭或节点取消'], exitConditions: ['无'], businessMeaning: '样衣来源不再继续。' },
     ],
     upstreamChanges: ['继承商品项目主记录。'],
     downstreamChanges: ['为到样入库与核对提供来源上下文'],
@@ -1833,7 +1815,7 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
       { statusName: '未开始', entryConditions: ['样衣尚未到位'], exitConditions: ['开始登记到样'], businessMeaning: '等待样衣到位。' },
       { statusName: '进行中', entryConditions: ['开始登记到样'], exitConditions: ['完成核对或取消'], businessMeaning: '正在登记到样和核对。' },
       { statusName: '已完成', entryConditions: ['核对完成'], exitConditions: ['无'], businessMeaning: '样衣已正式到位，可进入评估。' },
-      { statusName: '已取消', entryConditions: ['项目终止或节点取消'], exitConditions: ['无'], businessMeaning: '该次到样核对不再继续。' },
+      { statusName: '已取消', entryConditions: ['项目关闭或节点取消'], exitConditions: ['无'], businessMeaning: '该次到样核对不再继续。' },
     ],
     upstreamChanges: ['引用样衣来源实例和样衣资产。'],
     downstreamChanges: ['解锁初步可行性判断'],
@@ -1867,11 +1849,11 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
       { statusName: '未开始', entryConditions: ['到样核对完成前'], exitConditions: ['开始判断'], businessMeaning: '尚未发起可行性判断。' },
       { statusName: '待确认', entryConditions: ['已提交判断结论'], exitConditions: ['确认结论或取消'], businessMeaning: '等待对可行性结论做最终确认。' },
       { statusName: '已完成', entryConditions: ['可行性结论确认完成'], exitConditions: ['无'], businessMeaning: '可行性判断已完成。' },
-      { statusName: '已取消', entryConditions: ['项目终止或节点取消'], exitConditions: ['无'], businessMeaning: '该次判断已取消。' },
+      { statusName: '已取消', entryConditions: ['项目关闭或节点取消'], exitConditions: ['无'], businessMeaning: '该次判断已取消。' },
     ],
     upstreamChanges: ['读取到样入库与核对结果。'],
     downstreamChanges: ['为样衣拍摄与试穿、样衣确认提供前置判断'],
-    businessRules: ['通过、调整、暂缓三类结论必须明确'],
+    businessRules: ['结论必须明确为通过或淘汰'],
     systemConstraints: ['样衣未到位不能提交可行性结论'],
   },
   {
@@ -1901,7 +1883,7 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
       { statusName: '未开始', entryConditions: ['尚未安排拍摄或试穿'], exitConditions: ['开始执行'], businessMeaning: '尚未发起拍摄与试穿。' },
       { statusName: '进行中', entryConditions: ['开始安排拍摄或试穿'], exitConditions: ['提交反馈或取消'], businessMeaning: '正在收集拍摄与试穿反馈。' },
       { statusName: '已完成', entryConditions: ['已提交反馈'], exitConditions: ['无'], businessMeaning: '拍摄与试穿反馈已形成。' },
-      { statusName: '已取消', entryConditions: ['项目终止或节点取消'], exitConditions: ['无'], businessMeaning: '拍摄与试穿不再继续。' },
+      { statusName: '已取消', entryConditions: ['项目关闭或节点取消'], exitConditions: ['无'], businessMeaning: '拍摄与试穿不再继续。' },
     ],
     upstreamChanges: ['读取可行性判断结论。'],
     downstreamChanges: ['为样衣确认和后续短视频素材准备提供输入'],
@@ -1935,11 +1917,11 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
       { statusName: '未开始', entryConditions: ['尚未发起确认'], exitConditions: ['提交确认结果'], businessMeaning: '样衣尚未进入正式确认。' },
       { statusName: '待确认', entryConditions: ['已提交确认结果'], exitConditions: ['确认完成或取消'], businessMeaning: '等待对样衣确认结论做最终确认。' },
       { statusName: '已完成', entryConditions: ['样衣确认完成'], exitConditions: ['无'], businessMeaning: '样衣已完成确认。' },
-      { statusName: '已取消', entryConditions: ['项目终止或节点取消'], exitConditions: ['无'], businessMeaning: '样衣确认不再继续。' },
+      { statusName: '已取消', entryConditions: ['项目关闭或节点取消'], exitConditions: ['无'], businessMeaning: '样衣确认不再继续。' },
     ],
     upstreamChanges: ['读取可行性判断和试穿反馈。'],
     downstreamChanges: ['样衣确认通过时解锁商品上架与市场测款'],
-    businessRules: ['确认结果必须明确为通过、继续调整或淘汰'],
+    businessRules: ['确认结果必须明确为通过或淘汰'],
     systemConstraints: ['样衣未确认通过，不允许进入商品上架和测款'],
   },
   {
@@ -1969,7 +1951,7 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
       { statusName: '未开始', entryConditions: ['尚未开始核价'], exitConditions: ['开始核价'], businessMeaning: '尚未进行样衣核价。' },
       { statusName: '进行中', entryConditions: ['开始核价'], exitConditions: ['提交核价或取消'], businessMeaning: '正在推进样衣核价。' },
       { statusName: '已完成', entryConditions: ['核价完成'], exitConditions: ['无'], businessMeaning: '样衣核价已完成。' },
-      { statusName: '已取消', entryConditions: ['项目终止或节点取消'], exitConditions: ['无'], businessMeaning: '样衣核价不再继续。' },
+      { statusName: '已取消', entryConditions: ['项目关闭或节点取消'], exitConditions: ['无'], businessMeaning: '样衣核价不再继续。' },
     ],
     upstreamChanges: ['读取样衣确认结果。'],
     downstreamChanges: ['为商品上架和样衣定价提供成本基线'],
@@ -2003,7 +1985,7 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
       { statusName: '未开始', entryConditions: ['尚未开始定价'], exitConditions: ['提交定价'], businessMeaning: '尚未形成定价。' },
       { statusName: '待确认', entryConditions: ['已提交定价方案'], exitConditions: ['确认定价或取消'], businessMeaning: '等待定价确认。' },
       { statusName: '已完成', entryConditions: ['定价完成'], exitConditions: ['无'], businessMeaning: '样衣定价已完成。' },
-      { statusName: '已取消', entryConditions: ['项目终止或节点取消'], exitConditions: ['无'], businessMeaning: '定价不再继续。' },
+      { statusName: '已取消', entryConditions: ['项目关闭或节点取消'], exitConditions: ['无'], businessMeaning: '定价不再继续。' },
     ],
     upstreamChanges: ['读取样衣核价结果。'],
     downstreamChanges: ['为商品上架提供售价口径'],
@@ -2028,7 +2010,7 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
       {
         actionKey: 'create-channel-product',
         actionName: '创建渠道店铺商品',
-        preconditions: ['样衣确认=通过', '样衣核价已完成', '样衣定价已完成', '当前项目未终止'],
+        preconditions: ['样衣确认=通过', '样衣核价已完成', '样衣定价已完成', '当前项目未关闭'],
         effects: ['生成 1 条商品上架实例', '生成 channelProductCode', 'channelProductStatus=待上架', '节点 currentStatus=进行中'],
         writebackRules: ['正式生成渠道店铺商品主档', '记录来源商品项目、来源项目节点和来源上架实例', '同一项目允许多渠道、多店铺、多 SKU 并行创建实例'],
       },
@@ -2183,7 +2165,7 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     workItemNature: '决策类',
     runtimeType: 'decision',
     categoryName: '市场测款',
-    description: '决定项目是否继续、调整、暂缓或淘汰。',
+    description: '决定项目是否继续推进，或转入样衣退回处理。',
     scenario: '测款结论是项目是否生成款式档案和如何处理渠道店铺商品的总开关。',
     keepReason: '没有正式测款结论，项目无法进入款式档案和开发推进链路。',
     roleNames: ['项目负责人', '商品负责人'],
@@ -2194,8 +2176,8 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
         actionKey: 'submit-test-conclusion',
         actionName: '提交测款结论',
         preconditions: ['测款数据汇总已完成'],
-        effects: ['记录结论', '通过时解锁款式档案创建', '调整、暂缓、淘汰时作废当前渠道店铺商品', '正式回写改版任务、款式档案、项目终止与后续动作字段'],
-        writebackRules: ['通过：解锁 STYLE_ARCHIVE_CREATE，并回写 linkedStyleId、linkedStyleCode、nextActionType', '调整：创建改版任务并作废当前渠道店铺商品，同时回写 revisionTaskId、revisionTaskCode、invalidatedChannelProductId、nextActionType', '暂缓：作废当前渠道店铺商品并阻塞项目，同时回写 invalidatedChannelProductId、nextActionType', '淘汰：作废当前渠道店铺商品并终止项目，同时回写 invalidatedChannelProductId、projectTerminated、projectTerminatedAt、nextActionType'],
+        effects: ['记录结论', '通过时解锁下一个工作项', '淘汰时作废当前渠道店铺商品并转入样衣退回处理', '正式回写款式档案、渠道店铺商品与后续动作字段'],
+        writebackRules: ['通过：进入模板中的下一个工作项，并回写 linkedStyleId、linkedStyleCode、nextActionType', '淘汰：作废当前渠道店铺商品，取消中间未完成节点，并回写 invalidatedChannelProductId、nextActionType=样衣退回处理'],
       },
     ],
     statusDefinitions: [
@@ -2205,8 +2187,8 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
       { statusName: '已取消', entryConditions: ['节点取消'], exitConditions: ['无'], businessMeaning: '测款结论不再继续。' },
     ],
     upstreamChanges: ['读取测款数据汇总和商品上架实例。'],
-    downstreamChanges: ['通过时解锁款式档案创建', '调整、暂缓、淘汰时回写渠道店铺商品作废和项目状态'],
-    businessRules: ['结论必须明确为通过、调整、暂缓或淘汰', '测款结论正式记录必须承接改版任务、款式档案、渠道店铺商品作废和项目终止等真实分支结果'],
+    downstreamChanges: ['通过时解锁款式档案创建', '淘汰时回写渠道店铺商品作废并转入样衣退回处理'],
+    businessRules: ['结论必须明确为通过或淘汰', '测款结论正式记录必须承接款式档案、渠道店铺商品作废和样衣退回处理等真实结果'],
     systemConstraints: ['结论不是通过时，当前渠道店铺商品必须作废', 'nextActionType 以及各类后果字段均由系统按分支自动生成，不允许手工篡改'],
   },
   {
@@ -2313,9 +2295,9 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     workItemNature: '执行类',
     runtimeType: 'execute',
     categoryName: '开发推进',
-    description: '测款结论为调整时创建的正式改版推进任务。',
-    scenario: '围绕测款结论调整分支沉淀改版任务，并继续承接制版、花型、打样和技术包下游动作。',
-    keepReason: '改版任务是测款调整分支的正式起点，没有改版任务就无法完整表达调整后的开发推进链路。',
+    description: '改版触发后创建的正式改版推进任务。',
+    scenario: '围绕改版链路沉淀改版任务，并继续承接制版、花型、打样和技术包下游动作。',
+    keepReason: '改版任务是正式改版链路的起点，没有改版任务就无法完整表达后续开发推进。',
     roleNames: ['商品负责人', '工程负责人'],
     capabilities: { canReuse: true, canMultiInstance: true, canRollback: true, canParallel: true },
     fieldDefinitions: revisionTaskFields,
@@ -2323,9 +2305,9 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
       {
         actionKey: 'create-revision-task',
         actionName: '创建改版任务',
-        preconditions: ['测款结论=调整'],
+        preconditions: ['来源任务或业务动作已明确触发改版'],
         effects: ['生成改版任务', '回写项目关系和项目节点', '允许继续创建制版、花型、首版样衣与产前样下游任务'],
-        writebackRules: ['改版任务必须承接测款结论来源对象', '改版任务正式字段必须承接来源类型、上游对象、任务状态、技术包回写结果和负责人信息'],
+        writebackRules: ['改版任务必须承接正式来源对象', '改版任务正式字段必须承接来源类型、上游对象、任务状态、技术包回写结果和负责人信息'],
       },
     ],
     statusDefinitions: EXECUTE_NODE_STATUS_DEFINITIONS,
@@ -2497,40 +2479,6 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     systemConstraints: ['产前样任务允许多次执行用于多轮确认', '来源对象、任务状态、签收时间、产前确认时间和样衣资产 ID 只能由正式产前样衣任务或项目样衣签收留痕回写'],
   },
   {
-    workItemId: 'WI-020',
-    workItemTypeCode: 'SAMPLE_RETAIN_REVIEW',
-    workItemTypeName: '样衣留存评估',
-    phaseCode: 'PHASE_05',
-    workItemNature: '决策类',
-    runtimeType: 'decision',
-    categoryName: '项目收尾',
-    description: '样衣留存评估。',
-    scenario: '项目进入收尾阶段时决定样衣是否留存。',
-    keepReason: '没有留存评估，项目闭环不完整。',
-    roleNames: ['样衣管理员', '项目负责人'],
-    capabilities: { canReuse: false, canMultiInstance: false, canRollback: true, canParallel: false },
-    fieldDefinitions: retainReviewFields,
-    operationDefinitions: [
-      {
-        actionKey: 'submit-retain-review',
-        actionName: '提交留存评估',
-        preconditions: ['项目进入收尾阶段'],
-        effects: ['记录留存结论', '记录评估说明'],
-        writebackRules: ['留存评估完成后可进入退回处理'],
-      },
-    ],
-    statusDefinitions: [
-      { statusName: '未开始', entryConditions: ['尚未发起留存评估'], exitConditions: ['提交留存评估'], businessMeaning: '尚未形成留存结论。' },
-      { statusName: '待确认', entryConditions: ['已提交留存评估'], exitConditions: ['确认结论或取消'], businessMeaning: '等待确认留存评估结论。' },
-      { statusName: '已完成', entryConditions: ['留存评估完成'], exitConditions: ['无'], businessMeaning: '留存评估已完成。' },
-      { statusName: '已取消', entryConditions: ['节点取消'], exitConditions: ['无'], businessMeaning: '留存评估不再继续。' },
-    ],
-    upstreamChanges: ['读取项目收尾上下文。'],
-    downstreamChanges: ['为样衣退回处理提供依据'],
-    businessRules: ['retainResult 必填'],
-    systemConstraints: ['项目未进入收尾阶段时不应发起留存评估'],
-  },
-  {
     workItemId: 'WI-021',
     workItemTypeCode: 'SAMPLE_RETURN_HANDLE',
     workItemTypeName: '样衣退回处理',
@@ -2539,8 +2487,8 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     runtimeType: 'execute',
     categoryName: '项目收尾',
     description: '记录样衣退回、报废或处置结果。',
-    scenario: '留存评估之后的正式收尾动作。',
-    keepReason: '样衣退回或处置必须有明确结果，项目才算收尾完整。',
+    scenario: '项目收尾阶段登记样衣退回、报废或处置结果。',
+    keepReason: '样衣退回或处置必须有明确结果，项目才算完成收尾。',
     roleNames: ['样衣管理员', '仓储'],
     capabilities: { canReuse: true, canMultiInstance: true, canRollback: true, canParallel: false },
     fieldDefinitions: returnHandleFields,
@@ -2548,7 +2496,7 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
       {
         actionKey: 'submit-return-handle',
         actionName: '提交退回处理结果',
-        preconditions: ['样衣留存评估已完成'],
+        preconditions: ['项目进入收尾阶段'],
         effects: ['记录退回、报废或处置结果'],
         writebackRules: ['样衣退回处理完成后项目可进入最终收尾'],
       },
@@ -2559,7 +2507,7 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
       { statusName: '已完成', entryConditions: ['处理结果已提交'], exitConditions: ['无'], businessMeaning: '样衣退回处理已完成。' },
       { statusName: '已取消', entryConditions: ['节点取消'], exitConditions: ['无'], businessMeaning: '样衣退回处理不再继续。' },
     ],
-    upstreamChanges: ['读取样衣留存评估结论。'],
+    upstreamChanges: ['读取样衣资产、样衣台账和项目收尾上下文。'],
     downstreamChanges: ['完成项目收尾闭环'],
     businessRules: ['returnResult 必填'],
     systemConstraints: ['样衣退回处理允许多次执行用于多次处置记录'],
@@ -2582,7 +2530,7 @@ export const PCS_PROJECT_TEMPLATE_SCHEMAS: PcsProjectTemplateSchema[] = [
       { phaseCode: 'PHASE_02', whyExists: '完整评估样衣可行性、拍摄试穿、确认、核价和定价。', nodeCodes: ['FEASIBILITY_REVIEW', 'SAMPLE_SHOOT_FIT', 'SAMPLE_CONFIRM', 'SAMPLE_COST_REVIEW', 'SAMPLE_PRICING'] },
       { phaseCode: 'PHASE_03', whyExists: '先有商品上架，再跑短视频和直播双测款，并形成统一结论。', nodeCodes: ['CHANNEL_PRODUCT_LISTING', 'VIDEO_TEST', 'LIVE_TEST', 'TEST_DATA_SUMMARY', 'TEST_CONCLUSION'] },
       { phaseCode: 'PHASE_04', whyExists: '测款通过后进入款式档案、技术包和开发推进链路。', nodeCodes: ['STYLE_ARCHIVE_CREATE', 'PROJECT_TRANSFER_PREP', 'REVISION_TASK', 'PATTERN_TASK', 'FIRST_SAMPLE'] },
-      { phaseCode: 'PHASE_05', whyExists: '项目结束时要明确样衣留存和退回处理。', nodeCodes: ['SAMPLE_RETAIN_REVIEW', 'SAMPLE_RETURN_HANDLE'] },
+      { phaseCode: 'PHASE_05', whyExists: '项目结束时要明确样衣退回和处置结果。', nodeCodes: ['SAMPLE_RETURN_HANDLE'] },
     ],
   },
   {
@@ -2600,7 +2548,7 @@ export const PCS_PROJECT_TEMPLATE_SCHEMAS: PcsProjectTemplateSchema[] = [
       { phaseCode: 'PHASE_02', whyExists: '快反项目压缩评估动作，但样衣拍摄试穿、确认、核价和定价不能省略。', nodeCodes: ['FEASIBILITY_REVIEW', 'SAMPLE_SHOOT_FIT', 'SAMPLE_CONFIRM', 'SAMPLE_COST_REVIEW', 'SAMPLE_PRICING'] },
       { phaseCode: 'PHASE_03', whyExists: '直播测款前必须先完成商品上架，并形成统一结论。', nodeCodes: ['CHANNEL_PRODUCT_LISTING', 'LIVE_TEST', 'TEST_DATA_SUMMARY', 'TEST_CONCLUSION'] },
       { phaseCode: 'PHASE_04', whyExists: '测款通过后仍必须生成款式档案、进入技术包和制版链路。', nodeCodes: ['STYLE_ARCHIVE_CREATE', 'PROJECT_TRANSFER_PREP', 'REVISION_TASK', 'PATTERN_TASK'] },
-      { phaseCode: 'PHASE_05', whyExists: '快反项目结束时仍需明确样衣留存。', nodeCodes: ['SAMPLE_RETAIN_REVIEW'] },
+      { phaseCode: 'PHASE_05', whyExists: '快反项目结束时仍需明确样衣退回和处置结果。', nodeCodes: ['SAMPLE_RETURN_HANDLE'] },
     ],
   },
   {
@@ -2618,7 +2566,7 @@ export const PCS_PROJECT_TEMPLATE_SCHEMAS: PcsProjectTemplateSchema[] = [
       { phaseCode: 'PHASE_02', whyExists: '围绕改版样衣完成确认和核价。', nodeCodes: ['SAMPLE_CONFIRM', 'SAMPLE_COST_REVIEW'] },
       { phaseCode: 'PHASE_03', whyExists: '直播测款前必须先完成商品上架，并形成统一结论。', nodeCodes: ['CHANNEL_PRODUCT_LISTING', 'LIVE_TEST', 'TEST_DATA_SUMMARY', 'TEST_CONCLUSION'] },
       { phaseCode: 'PHASE_04', whyExists: '测款通过后进入款式档案、技术包和首版样衣推进。', nodeCodes: ['STYLE_ARCHIVE_CREATE', 'PROJECT_TRANSFER_PREP', 'REVISION_TASK', 'FIRST_SAMPLE'] },
-      { phaseCode: 'PHASE_05', whyExists: '项目结束时仍需留存评估。', nodeCodes: ['SAMPLE_RETAIN_REVIEW'] },
+      { phaseCode: 'PHASE_05', whyExists: '项目结束时仍需明确样衣退回和处置结果。', nodeCodes: ['SAMPLE_RETURN_HANDLE'] },
     ],
   },
   {
@@ -2636,7 +2584,7 @@ export const PCS_PROJECT_TEMPLATE_SCHEMAS: PcsProjectTemplateSchema[] = [
       { phaseCode: 'PHASE_02', whyExists: '设计项目保留拍摄试穿、确认、核价和定价。', nodeCodes: ['SAMPLE_SHOOT_FIT', 'SAMPLE_CONFIRM', 'SAMPLE_COST_REVIEW', 'SAMPLE_PRICING'] },
       { phaseCode: 'PHASE_03', whyExists: '设计款内容验证和直播验证都必须建立在商品上架之后。', nodeCodes: ['CHANNEL_PRODUCT_LISTING', 'VIDEO_TEST', 'LIVE_TEST', 'TEST_DATA_SUMMARY', 'TEST_CONCLUSION'] },
       { phaseCode: 'PHASE_04', whyExists: '测款通过后进入款式档案、技术包、改版、制版、花型、首版样和产前样完整链路。', nodeCodes: ['STYLE_ARCHIVE_CREATE', 'PROJECT_TRANSFER_PREP', 'REVISION_TASK', 'PATTERN_TASK', 'PATTERN_ARTWORK_TASK', 'FIRST_SAMPLE', 'PRE_PRODUCTION_SAMPLE'] },
-      { phaseCode: 'PHASE_05', whyExists: '设计项目结束时同样需要留存评估和退回处理。', nodeCodes: ['SAMPLE_RETAIN_REVIEW', 'SAMPLE_RETURN_HANDLE'] },
+      { phaseCode: 'PHASE_05', whyExists: '设计项目结束时同样需要明确样衣退回和处置结果。', nodeCodes: ['SAMPLE_RETURN_HANDLE'] },
     ],
   },
 ]
@@ -2731,7 +2679,7 @@ export const PCS_PROJECT_RELATED_INSTANCE_TYPES: PcsProjectRelatedInstanceTypeDe
   { typeCode: 'CHANNEL_PRODUCT', typeName: '渠道店铺商品', moduleName: '渠道店铺商品', businessMeaning: '商品上架节点生成的 SKU 级正式渠道店铺商品主档。' },
   { typeCode: 'PATTERN_TASK', typeName: '制版任务', moduleName: '制版任务', businessMeaning: '测款通过后的制版推进任务。' },
   { typeCode: 'PATTERN_ARTWORK_TASK', typeName: '花型任务', moduleName: '花型任务', businessMeaning: '设计款花型推进任务。' },
-  { typeCode: 'REVISION_TASK', typeName: '改版任务', moduleName: '改版任务', businessMeaning: '测款结论为调整时创建的正式改版任务。' },
+  { typeCode: 'REVISION_TASK', typeName: '改版任务', moduleName: '改版任务', businessMeaning: '改版触发后创建的正式改版任务。' },
   { typeCode: 'FIRST_SAMPLE', typeName: '首版样衣打样', moduleName: '首版样衣', businessMeaning: '开发推进中的首版样衣验证。' },
   { typeCode: 'PRE_PRODUCTION_SAMPLE', typeName: '产前版样衣', moduleName: '产前样衣', businessMeaning: '量产前最终样确认。' },
   { typeCode: 'STYLE_ARCHIVE', typeName: '款式档案', moduleName: '款式档案', businessMeaning: '测款通过后生成的正式款式档案壳。' },
@@ -2770,8 +2718,6 @@ export const PCS_PROJECT_WORK_ITEM_LEGACY_MAPPINGS: Array<{
   { legacyName: '花型任务', workItemTypeCode: 'PATTERN_ARTWORK_TASK' },
   { legacyName: '首版样衣打样', workItemTypeCode: 'FIRST_SAMPLE' },
   { legacyName: '产前版样衣', workItemTypeCode: 'PRE_PRODUCTION_SAMPLE' },
-  { legacyName: '样衣留存评估', workItemTypeCode: 'SAMPLE_RETAIN_REVIEW' },
-  { legacyName: '样衣留存与库存', workItemTypeCode: 'SAMPLE_RETAIN_REVIEW' },
   { legacyName: '样衣退货与处理', workItemTypeCode: 'SAMPLE_RETURN_HANDLE' },
 ]
 

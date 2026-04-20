@@ -1799,7 +1799,7 @@ function buildSeedMarker(context: MarkerSpreadingContext): MarkerRecord {
     adjustmentNote: '',
     replacementDraftFlag: false,
     adjustmentSummary: '后续可补唛架调整记录 / 换一入口。',
-    note: '当前为原型默认唛架草稿，可根据现场唛架图与尺码配比继续调整。',
+    note: '当前为原型默认唛架草稿，可根据现场唛架图与尺码配比继续优化。',
     updatedAt: '',
     updatedBy: '系统预置',
     warningMessages: buildMarkerWarningMessages({

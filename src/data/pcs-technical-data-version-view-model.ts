@@ -5,6 +5,7 @@ import {
 } from './pcs-product-lifecycle-governance.ts'
 import { getStyleArchiveById, listStyleArchives } from './pcs-style-archive-repository.ts'
 import { buildTechPackVersionSourceTaskSummary } from './pcs-tech-pack-task-generation.ts'
+import { listTechPackVersionLogsByVersionId } from './pcs-tech-pack-version-log-repository.ts'
 import {
   getCurrentTechPackVersionByStyleId,
   getTechnicalDataVersionById,
@@ -12,6 +13,7 @@ import {
   listTechnicalDataVersionsByProjectId,
   listTechnicalDataVersionsByStyleId,
 } from './pcs-technical-data-version-repository.ts'
+import type { TechPackVersionLogRecord } from './pcs-tech-pack-version-log-types.ts'
 import type {
   TechnicalDataVersionContent,
   TechnicalDataVersionRecord,
@@ -33,6 +35,7 @@ export interface TechnicalVersionListItemViewModel {
   createdAt: string
   updatedAt: string
   publishedAt: string
+  versionLogCount: number
   canPublish: boolean
   canActivate: boolean
 }
@@ -47,6 +50,7 @@ export interface TechnicalVersionDetailViewModel {
   sourceTaskText: string
   canPublish: boolean
   compatibilityMode: boolean
+  versionLogs: TechPackVersionLogRecord[]
 }
 
 export function getTechnicalVersionStatusLabel(status: TechnicalVersionStatus): string {
@@ -92,6 +96,7 @@ export function buildTechnicalVersionListByStyle(styleId: string): TechnicalVers
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
     publishedAt: record.publishedAt,
+    versionLogCount: listTechPackVersionLogsByVersionId(record.technicalVersionId).length,
     canPublish: canPublishTechnicalVersion(record) && record.versionStatus === 'DRAFT',
     canActivate: record.versionStatus === 'PUBLISHED' && style?.currentTechPackVersionId !== record.technicalVersionId,
   }))
@@ -116,6 +121,7 @@ export function buildTechnicalVersionListByProject(projectId: string): Technical
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
       publishedAt: record.publishedAt,
+      versionLogCount: listTechPackVersionLogsByVersionId(record.technicalVersionId).length,
       canPublish: canPublishTechnicalVersion(record) && record.versionStatus === 'DRAFT',
       canActivate:
         record.versionStatus === 'PUBLISHED' && style?.currentTechPackVersionId !== record.technicalVersionId,
@@ -145,6 +151,7 @@ export function buildTechnicalVersionDetailViewModel(
     sourceTaskText: buildTechPackVersionSourceTaskSummary(record).taskChainText,
     canPublish: canPublishTechnicalVersion(record) && record.versionStatus === 'DRAFT',
     compatibilityMode: false,
+    versionLogs: listTechPackVersionLogsByVersionId(record.technicalVersionId),
   }
 }
 

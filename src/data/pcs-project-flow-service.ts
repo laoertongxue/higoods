@@ -25,11 +25,14 @@ import {
   type SaveProjectInlineNodeFieldEntryInput,
 } from './pcs-project-inline-node-record-repository.ts'
 import {
-  submitProjectTestingConclusion,
   submitProjectTestingSummary,
 } from './pcs-channel-product-project-repository.ts'
 import { syncProjectNodeInstanceRuntime } from './pcs-project-node-instance-registry.ts'
 import { validateProjectNodeCompletion } from './pcs-project-data-consistency.ts'
+import {
+  completeDecisionNodeWithResult,
+  isProjectDecisionWorkItemCode,
+} from './pcs-project-decision-flow-service.ts'
 
 export interface ProjectFlowActionResult {
   ok: boolean
@@ -435,208 +438,6 @@ export function archiveProject(
   }
 }
 
-function applyFeasibilityReviewDecision(
-  projectId: string,
-  projectNodeId: string,
-  decision: string,
-  note: string,
-  operatorName = '当前用户',
-  timestamp = nowText(),
-): ProjectFlowActionResult {
-  const project = getProjectById(projectId)
-  const node = getProjectNodeRecordById(projectId, projectNodeId)
-  if (!project || !node) {
-    return {
-      ok: false,
-      message: '未找到可行性判断节点，不能执行分支流转。',
-      project,
-      node,
-      nextNode: null,
-    }
-  }
-
-  const completionValidation = validateProjectNodeCompletion(projectId, projectNodeId)
-  if (!completionValidation.ok) {
-    return {
-      ok: false,
-      message: completionValidation.message,
-      project: completionValidation.project,
-      node: completionValidation.node,
-      nextNode: null,
-    }
-  }
-
-  completeProjectNode(projectId, projectNodeId, {
-    operatorName,
-    timestamp,
-    resultType: decision,
-    resultText: note || `初步可行性判断已判定为${decision}。`,
-  })
-
-  if (decision === '暂缓') {
-    updateProjectNodeRecord(
-      projectId,
-      projectNodeId,
-      {
-        currentIssueType: '项目阻塞',
-        currentIssueText: note || '可行性判断为暂缓，等待下一轮样衣评估。',
-        pendingActionType: '等待重新评估',
-        pendingActionText: '当前项目已阻塞，等待重新评估后再决定是否继续推进。',
-        updatedAt: timestamp,
-      },
-      operatorName,
-    )
-    syncProjectLifecycle(projectId, operatorName, timestamp)
-    return {
-      ok: true,
-      message: `${node.workItemTypeName}已判定为暂缓，项目当前进入等待评估状态。`,
-      project: getProjectById(projectId),
-      node: getProjectNodeRecordById(projectId, projectNodeId),
-      nextNode: null,
-    }
-  }
-
-  const nextNode =
-    ['SAMPLE_SHOOT_FIT', 'SAMPLE_CONFIRM']
-      .map((workItemTypeCode) => getProjectNodeRecordByWorkItemTypeCode(projectId, workItemTypeCode))
-      .find((item) => item && item.currentStatus === '未开始') ?? null
-
-  if (nextNode) {
-    activateProjectNode(projectId, nextNode.projectNodeId, {
-      operatorName,
-      timestamp,
-      pendingActionType: decision === '调整' ? '补充评估' : '待执行',
-      pendingActionText:
-        decision === '调整'
-          ? `可行性判断为调整，请继续处理：${nextNode.workItemTypeName}`
-          : `当前请处理：${nextNode.workItemTypeName}`,
-      latestResultType: decision,
-      latestResultText: note || `初步可行性判断已判定为${decision}。`,
-    })
-  }
-
-  updateProjectNodeRecord(
-    projectId,
-    projectNodeId,
-    {
-      currentIssueType: '',
-      currentIssueText: '',
-      updatedAt: timestamp,
-    },
-    operatorName,
-  )
-  syncProjectLifecycle(projectId, operatorName, timestamp)
-
-  return {
-    ok: true,
-    message:
-      decision === '调整'
-        ? `${node.workItemTypeName}已判定为调整，已转入补充评估。`
-        : `${node.workItemTypeName}已判定为通过。`,
-    project: getProjectById(projectId),
-    node: getProjectNodeRecordById(projectId, projectNodeId),
-    nextNode: nextNode ? getProjectNodeRecordById(projectId, nextNode.projectNodeId) : null,
-  }
-}
-
-function applySampleConfirmDecision(
-  projectId: string,
-  projectNodeId: string,
-  decision: string,
-  note: string,
-  operatorName = '当前用户',
-  timestamp = nowText(),
-): ProjectFlowActionResult {
-  const project = getProjectById(projectId)
-  const node = getProjectNodeRecordById(projectId, projectNodeId)
-  if (!project || !node) {
-    return {
-      ok: false,
-      message: '未找到样衣确认节点，不能执行分支流转。',
-      project,
-      node,
-      nextNode: null,
-    }
-  }
-
-  if (decision === '淘汰') {
-    const completionValidation = validateProjectNodeCompletion(projectId, projectNodeId)
-    if (!completionValidation.ok) {
-      return {
-        ok: false,
-        message: completionValidation.message,
-        project: completionValidation.project,
-        node: completionValidation.node,
-        nextNode: null,
-      }
-    }
-    completeProjectNode(projectId, projectNodeId, {
-      operatorName,
-      timestamp,
-      resultType: decision,
-      resultText: note || '样衣确认结论为淘汰，项目停止继续推进。',
-    })
-    terminateProject(projectId, note || '样衣确认结论为淘汰，项目停止继续推进。', operatorName, timestamp)
-    return {
-      ok: true,
-      message: `${node.workItemTypeName}已判定为淘汰，并终止当前商品项目。`,
-      project: getProjectById(projectId),
-      node: getProjectNodeRecordById(projectId, projectNodeId),
-      nextNode: null,
-    }
-  }
-
-  if (decision === '继续调整') {
-    updateProjectNodeRecord(
-      projectId,
-      projectNodeId,
-      {
-        currentStatus: '进行中',
-        latestResultType: '继续调整',
-        latestResultText: note || '样衣确认结论为继续调整，需补充试穿反馈后重新确认。',
-        pendingActionType: '重新确认',
-        pendingActionText: '请补充样衣拍摄与试穿后重新提交样衣确认。',
-        updatedAt: timestamp,
-        lastEventType: '继续调整',
-        lastEventTime: timestamp,
-      },
-      operatorName,
-    )
-
-    const shootFitNode = getProjectNodeRecordByWorkItemTypeCode(projectId, 'SAMPLE_SHOOT_FIT')
-    if (shootFitNode) {
-      activateProjectNode(projectId, shootFitNode.projectNodeId, {
-        operatorName,
-        timestamp,
-        pendingActionType: '继续调整',
-        pendingActionText: '样衣确认要求继续调整，请补充拍摄与试穿反馈。',
-        latestResultType: '继续调整',
-        latestResultText: note || '样衣确认要求继续调整。',
-      })
-    }
-
-    syncProjectLifecycle(projectId, operatorName, timestamp)
-    return {
-      ok: true,
-      message: `${node.workItemTypeName}已记录为继续调整，样衣评估链路已重新打开。`,
-      project: getProjectById(projectId),
-      node: getProjectNodeRecordById(projectId, projectNodeId),
-      nextNode: shootFitNode ? getProjectNodeRecordById(projectId, shootFitNode.projectNodeId) : null,
-    }
-  }
-
-  const result = markProjectNodeCompletedAndUnlockNext(projectId, projectNodeId, {
-    operatorName,
-    timestamp,
-    resultType: decision,
-    resultText: note || '样衣确认已通过，可继续进入成本与定价阶段。',
-  })
-  return {
-    ...result,
-    message: `${node.workItemTypeName}已判定为通过。`,
-  }
-}
-
 export function saveProjectNodeFormalRecord(input: ProjectFormalRecordFlowInput): ProjectFlowActionResult {
   const operatorName = input.operatorName ?? '当前用户'
   const project = getProjectById(input.projectId)
@@ -697,39 +498,6 @@ export function saveProjectNodeFormalRecord(input: ProjectFormalRecordFlowInput)
     }
   }
 
-  if (input.completeAfterSave && node.workItemTypeCode === 'TEST_CONCLUSION') {
-    const conclusion = String(values.conclusion || '').trim() as '通过' | '调整' | '暂缓' | '淘汰'
-    const note = String(values.conclusionNote || '').trim()
-    const conclusionResult = submitProjectTestingConclusion(
-      input.projectId,
-      {
-        conclusion,
-        note,
-      },
-      operatorName,
-    )
-
-    if (!conclusionResult.ok) {
-      return {
-        ok: false,
-        message: conclusionResult.message,
-        project: getProjectById(input.projectId),
-        node: getProjectNodeRecordById(input.projectId, input.projectNodeId),
-        nextNode: null,
-      }
-    }
-
-    syncProjectLifecycle(input.projectId, operatorName, businessDate)
-
-    return {
-      ok: true,
-      message: conclusionResult.message,
-      project: getProjectById(input.projectId),
-      node: getProjectNodeRecordById(input.projectId, input.projectNodeId),
-      nextNode: listProjectNodes(input.projectId).find((item) => !isClosedProjectNodeStatus(item.currentStatus)) ?? null,
-    }
-  }
-
   const saveResult = saveProjectInlineNodeFieldEntry(
     input.projectId,
     input.projectNodeId,
@@ -764,26 +532,37 @@ export function saveProjectNodeFormalRecord(input: ProjectFormalRecordFlowInput)
     }
   }
 
-  if (node.workItemTypeCode === 'FEASIBILITY_REVIEW') {
-    return applyFeasibilityReviewDecision(
-      input.projectId,
-      input.projectNodeId,
-      String(values.reviewConclusion || '').trim(),
-      String(values.reviewRisk || '').trim(),
-      operatorName,
-      businessDate,
-    )
-  }
-
-  if (node.workItemTypeCode === 'SAMPLE_CONFIRM') {
-    return applySampleConfirmDecision(
-      input.projectId,
-      input.projectNodeId,
-      String(values.confirmResult || '').trim(),
-      String(values.confirmNote || '').trim(),
-      operatorName,
-      businessDate,
-    )
+  if (isProjectDecisionWorkItemCode(node.workItemTypeCode)) {
+    const decisionValue =
+      node.workItemTypeCode === 'FEASIBILITY_REVIEW'
+        ? String(values.reviewConclusion || '').trim()
+        : node.workItemTypeCode === 'SAMPLE_CONFIRM'
+          ? String(values.confirmResult || '').trim()
+          : String(values.conclusion || '').trim()
+    const decisionNote =
+      node.workItemTypeCode === 'FEASIBILITY_REVIEW'
+        ? String(values.reviewRisk || '').trim()
+        : node.workItemTypeCode === 'SAMPLE_CONFIRM'
+          ? String(values.confirmNote || '').trim()
+          : String(values.conclusionNote || '').trim()
+    try {
+      return completeDecisionNodeWithResult(
+        input.projectId,
+        input.projectNodeId,
+        decisionValue as '通过' | '淘汰',
+        operatorName,
+        decisionNote,
+        businessDate,
+      )
+    } catch (error) {
+      return {
+        ok: false,
+        message: error instanceof Error ? error.message : '当前决策节点流转失败。',
+        project: getProjectById(input.projectId),
+        node: getProjectNodeRecordById(input.projectId, input.projectNodeId),
+        nextNode: null,
+      }
+    }
   }
 
   const summaryNote = String(

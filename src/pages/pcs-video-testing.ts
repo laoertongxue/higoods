@@ -1879,7 +1879,7 @@ function renderDetailSidebar(record: VideoRecordViewModel, relatedProjects: Arra
           : ''
       }
       <section class="rounded-lg border bg-white p-4">
-        <h3 class="text-sm font-semibold text-slate-900">工作项定义核对</h3>
+        <h3 class="text-sm font-semibold text-slate-900">工作项字段</h3>
         <div class="mt-4 space-y-3 text-sm">
           ${workItemSnapshot.rows
             .map(

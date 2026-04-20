@@ -200,7 +200,7 @@ function buildSeedCases(): SampleReturnCaseRecord[] {
   const liveProject = findProject('PRJ-20251216-002')
   const designProject = listProjects()[0] || null
 
-  const returnNode = retainedProject ? findNode(retainedProject.projectId, ['SAMPLE_RETURN_HANDLE', 'SAMPLE_RETAIN_REVIEW']) : null
+  const returnNode = retainedProject ? findNode(retainedProject.projectId, ['SAMPLE_RETURN_HANDLE']) : null
   const liveNode = liveProject ? findNode(liveProject.projectId, ['LIVE_TEST', 'SAMPLE_RETURN_HANDLE']) : null
   const designNode = designProject ? findNode(designProject.projectId, ['SAMPLE_RETURN_HANDLE', 'SAMPLE_CONFIRM']) : null
 

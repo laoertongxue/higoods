@@ -6,6 +6,8 @@ import {
   type ProjectTemplate,
 } from './pcs-templates.ts'
 import { buildTemplateBusinessSummary } from './pcs-template-domain-view-model.ts'
+import { removeSampleRetainReviewFromProjectSnapshot } from './pcs-remove-sample-retain-review-migration.ts'
+import { migrateProjectDecisionSnapshot } from './pcs-project-decision-migration.ts'
 import { createBootstrapProjectSnapshot } from './pcs-project-bootstrap.ts'
 import {
   buildProjectNodeRecordsFromTemplate,
@@ -189,7 +191,9 @@ function cloneSnapshot(snapshot: PcsProjectStoreSnapshot): PcsProjectStoreSnapsh
 }
 
 function seedSnapshot(): PcsProjectStoreSnapshot {
-  return createBootstrapProjectSnapshot(PROJECT_STORE_VERSION)
+  return migrateProjectDecisionSnapshot(
+    removeSampleRetainReviewFromProjectSnapshot(createBootstrapProjectSnapshot(PROJECT_STORE_VERSION)),
+  )
 }
 
 function normalizeNodeStatus(status: LegacyProjectNodeStatus | string | null | undefined): ProjectNodeStatus {
@@ -490,12 +494,18 @@ function hydrateSnapshot(snapshot: PcsProjectStoreSnapshot): PcsProjectStoreSnap
     phases: Array.isArray(snapshot.phases) ? snapshot.phases.map(normalizePhase) : [],
     nodes: Array.isArray(snapshot.nodes) ? snapshot.nodes.map(normalizeNode) : [],
   }
+  const migrated = removeSampleRetainReviewFromProjectSnapshot(normalized)
+  const decisionMigrated = migrateProjectDecisionSnapshot(migrated)
 
-  if (normalized.projects.length === 0 && normalized.phases.length === 0 && normalized.nodes.length === 0) {
+  if (
+    decisionMigrated.projects.length === 0 &&
+    decisionMigrated.phases.length === 0 &&
+    decisionMigrated.nodes.length === 0
+  ) {
     return seedSnapshot()
   }
 
-  return repairProjectNodeSequences(mergeMissingBootstrapData(normalized))
+  return repairProjectNodeSequences(mergeMissingBootstrapData(decisionMigrated))
 }
 
 function loadSnapshot(): PcsProjectStoreSnapshot {

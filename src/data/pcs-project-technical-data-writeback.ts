@@ -1,4 +1,10 @@
 import {
+  appendTechPackVersionLog,
+} from './pcs-tech-pack-version-log-repository.ts'
+import {
+  activateTechPackVersionForStyle,
+} from './pcs-tech-pack-version-activation.ts'
+import {
   generateTechPackVersionFromPatternTask,
   generateTechPackVersionFromPlateTask,
   generateTechPackVersionFromRevisionTask,
@@ -29,6 +35,7 @@ export {
   generateTechPackVersionFromRevisionTask,
   generateTechPackVersionFromPlateTask,
   generateTechPackVersionFromPatternTask,
+  activateTechPackVersionForStyle,
 }
 
 export function saveTechnicalDataVersionContent(
@@ -49,7 +56,7 @@ export function saveTechnicalDataVersionContent(
   writeProjectRelationFromTechPackVersion(nextRecord, operatorName)
   syncStyleArchiveFromTechPackVersion(nextRecord)
   syncProjectFromTechPackVersion(nextRecord)
-  syncProjectTransferPrepNodeFromTechPackVersion(nextRecord, operatorName, 'WRITE')
+  syncProjectTransferPrepNodeFromTechPackVersion(nextRecord, operatorName, 'WRITTEN')
   syncExistingProjectArchiveByProjectId(nextRecord.sourceProjectId, operatorName)
   return nextRecord
 }
@@ -68,6 +75,31 @@ export function publishTechnicalDataVersion(
   const nextRecord = publishTechnicalDataVersionRecord(technicalVersionId, publishedAt, operatorName)
   if (!nextRecord) throw new Error('发布技术包版本失败。')
 
+  writeProjectRelationFromTechPackVersion(nextRecord, operatorName)
   syncStyleArchiveFromTechPackVersion(nextRecord)
+  syncProjectFromTechPackVersion(nextRecord)
+  syncProjectTransferPrepNodeFromTechPackVersion(nextRecord, operatorName, 'WRITTEN')
+  syncExistingProjectArchiveByProjectId(nextRecord.sourceProjectId, operatorName)
+  appendTechPackVersionLog({
+    logId: `tech_pack_log_publish_${nextRecord.technicalVersionId}_${publishedAt.replace(/[^0-9]/g, '')}`,
+    technicalVersionId: nextRecord.technicalVersionId,
+    technicalVersionCode: nextRecord.technicalVersionCode,
+    versionLabel: nextRecord.versionLabel,
+    styleId: nextRecord.styleId,
+    styleCode: nextRecord.styleCode,
+    logType: '发布技术包版本',
+    sourceTaskType: '',
+    sourceTaskId: '',
+    sourceTaskCode: '',
+    sourceTaskName: '',
+    changeScope: '',
+    changeText: `已发布技术包版本 ${nextRecord.versionLabel}。`,
+    beforeVersionId: nextRecord.baseTechnicalVersionId || '',
+    beforeVersionCode: nextRecord.baseTechnicalVersionCode || '',
+    afterVersionId: nextRecord.technicalVersionId,
+    afterVersionCode: nextRecord.technicalVersionCode,
+    createdAt: publishedAt,
+    createdBy: operatorName,
+  })
   return nextRecord
 }

@@ -6,6 +6,8 @@ import {
   type PcsProjectInlineNodeRef,
 } from './pcs-project-inline-node-record-types.ts'
 import { createBootstrapProjectInlineNodeRecordSnapshot } from './pcs-project-inline-node-record-bootstrap.ts'
+import { removeSampleRetainReviewFromInlineRecords } from './pcs-remove-sample-retain-review-migration.ts'
+import { migrateProjectDecisionInlineRecords } from './pcs-project-decision-migration.ts'
 import {
   getProjectById,
   getProjectNodeRecordById,
@@ -59,16 +61,13 @@ const ALLOWED_PAYLOAD_KEYS: Record<PcsProjectInlineNodeRecordWorkItemTypeCode, s
     'conclusionNote',
     'linkedChannelProductCode',
     'invalidationPlanned',
-    'revisionTaskId',
-    'revisionTaskCode',
     'linkedStyleId',
     'linkedStyleCode',
     'invalidatedChannelProductId',
-    'projectTerminated',
-    'projectTerminatedAt',
     'nextActionType',
+    'conclusionLegacyValue',
+    'migrationNote',
   ],
-  SAMPLE_RETAIN_REVIEW: ['retainResult', 'retainNote'],
   SAMPLE_RETURN_HANDLE: ['returnResult'],
 }
 
@@ -187,23 +186,8 @@ const ALLOWED_DETAIL_SNAPSHOT_KEYS: Record<PcsProjectInlineNodeRecordWorkItemTyp
     'channelProductCode',
     'upstreamChannelProductCode',
     'invalidatedChannelProductId',
-    'revisionTaskId',
-    'revisionTaskCode',
     'linkedStyleId',
     'linkedStyleCode',
-    'projectTerminated',
-    'projectTerminatedAt',
-  ],
-  SAMPLE_RETAIN_REVIEW: [
-    'sampleAssetId',
-    'sampleCode',
-    'sampleLedgerEventId',
-    'sampleLedgerEventCode',
-    'inventoryStatusAfter',
-    'availabilityAfter',
-    'locationAfter',
-    'disposalDocId',
-    'disposalDocCode',
   ],
   SAMPLE_RETURN_HANDLE: [
     'returnRecipient',
@@ -219,6 +203,9 @@ const ALLOWED_DETAIL_SNAPSHOT_KEYS: Record<PcsProjectInlineNodeRecordWorkItemTyp
     'sampleLedgerEventCode',
     'returnDocId',
     'returnDocCode',
+    'inventoryStatusAfter',
+    'availabilityAfter',
+    'locationAfter',
   ],
 }
 
@@ -379,18 +366,24 @@ function normalizeFieldEntryValue(value: unknown): unknown {
 function hydrateSnapshot(
   snapshot: Partial<PcsProjectInlineNodeRecordStoreSnapshot> | null | undefined,
 ): PcsProjectInlineNodeRecordStoreSnapshot {
+  const cleanedRecords = Array.isArray(snapshot?.records)
+    ? migrateProjectDecisionInlineRecords(
+        removeSampleRetainReviewFromInlineRecords(
+          snapshot.records as Array<PcsProjectInlineNodeRecord & { workItemTypeCode?: string | null; projectNodeId?: string | null }>,
+        ),
+      )
+    : []
+
   return {
     version: INLINE_NODE_RECORD_STORE_VERSION,
-    records: Array.isArray(snapshot?.records)
-      ? snapshot.records
-          .map((record) => normalizeRecord(record as PcsProjectInlineNodeRecord))
-          .filter((record) => {
-            if (record.workItemTypeCode !== 'FEASIBILITY_REVIEW') return true
-            const project = getProjectById(record.projectId)
-            return project?.templateId !== 'TPL-003'
-          })
-          .sort(compareRecords)
-      : [],
+    records: cleanedRecords
+      .map((record) => normalizeRecord(record as PcsProjectInlineNodeRecord))
+      .filter((record) => {
+        if (record.workItemTypeCode !== 'FEASIBILITY_REVIEW') return true
+        const project = getProjectById(record.projectId)
+        return project?.templateId !== 'TPL-003'
+      })
+      .sort(compareRecords),
   }
 }
 

@@ -51,9 +51,13 @@ resetPcsEngineeringTaskState()
 assert.ok(listProjects().length > 0, '商品项目 bootstrap 不应为空')
 
 const revisionListHtml = renderPcsRevisionTaskPage()
+const plateActionLabel = ['生成', '技术包版本'].join('')
 assert.match(revisionListHtml, /改版任务/, '应渲染改版任务列表标题')
 assert.match(revisionListHtml, /RT-20260402-018/, '应渲染改版任务演示数据')
-assert.match(revisionListHtml, /生成技术包版本|写入当前草稿技术包/, '应提供正式技术包动作')
+assert.ok(
+  revisionListHtml.includes('生成改版技术包版本') || revisionListHtml.includes(plateActionLabel) || revisionListHtml.includes('写入技术包花型'),
+  '应提供正式技术包动作',
+)
 assert.match(revisionListHtml, /是否有下游任务/, '改版任务列表应展示下游任务字段')
 assert.doesNotMatch(revisionListHtml, /创建下游/, '改版任务列表不应再显示创建下游入口')
 

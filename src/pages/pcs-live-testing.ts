@@ -1474,7 +1474,6 @@ function renderEvidenceTab(session: SessionViewModel): string {
         <div class="mb-4 flex items-center justify-between gap-3">
           <div>
             <h2 class="text-lg font-semibold text-slate-900">测款证据</h2>
-            <p class="mt-1 text-sm text-slate-500">沉淀直播录屏、截图、讲解节点和后续测款入账依据。</p>
           </div>
           <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50">
             <i data-lucide="plus" class="h-4 w-4"></i>上传素材
@@ -1629,7 +1628,7 @@ function renderDetailSidebar(session: SessionViewModel, relatedProjects: Array<{
         </div>
       </section>
       <section class="rounded-lg border bg-white p-4">
-        <h3 class="text-sm font-semibold text-slate-900">工作项定义核对</h3>
+        <h3 class="text-sm font-semibold text-slate-900">工作项字段</h3>
         <div class="mt-4 space-y-3 text-sm">
           ${workItemSnapshot.rows
             .map(
@@ -1911,7 +1910,7 @@ function renderEditDrawer(): string {
           </div>
         </section>
         <section class="space-y-3">
-          <h4 class="text-sm font-semibold text-slate-900">建议与说明</h4>
+          <h4 class="text-sm font-semibold text-slate-900">处理建议</h4>
           <label class="space-y-1">
             <span class="text-xs text-slate-500">建议</span>
             <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" data-pcs-live-testing-field="edit-recommendation">
@@ -1922,7 +1921,7 @@ function renderEditDrawer(): string {
               <option value="淘汰" ${draft.recommendation === '淘汰' ? 'selected' : ''}>淘汰</option>
             </select>
           </label>
-          <textarea class="min-h-[120px] w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" placeholder="说明当前建议和补充结论" data-pcs-live-testing-field="edit-recommendation-reason">${escapeHtml(draft.recommendationReason)}</textarea>
+          <textarea class="min-h-[120px] w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" placeholder="补充当前建议和结论" data-pcs-live-testing-field="edit-recommendation-reason">${escapeHtml(draft.recommendationReason)}</textarea>
         </section>
         <div class="sticky bottom-0 flex flex-wrap justify-end gap-2 border-t bg-white py-4">
           <button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-live-testing-action="close-dialogs">取消</button>

@@ -195,7 +195,7 @@ export function renderPcsChannelProductListPage(): string {
                 <th class="w-[152px] px-4 py-3">关联款式档案</th>
                 <th class="w-[152px] px-4 py-3">关联规格档案</th>
                 <th class="w-[130px] px-4 py-3">关联上游编码</th>
-                <th class="w-[260px] px-4 py-3">链路说明</th>
+                <th class="w-[260px] px-4 py-3">链路状态</th>
                 <th class="w-[130px] px-4 py-3">更新时间</th>
                 <th class="w-[110px] px-4 py-3 text-right">操作</th>
               </tr>

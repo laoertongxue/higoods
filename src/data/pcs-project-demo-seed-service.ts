@@ -63,7 +63,6 @@ const INLINE_NODE_WORK_ITEM_CODE_SET = new Set<PcsProjectInlineNodeRecordWorkIte
   'SAMPLE_PRICING',
   'TEST_DATA_SUMMARY',
   'TEST_CONCLUSION',
-  'SAMPLE_RETAIN_REVIEW',
   'SAMPLE_RETURN_HANDLE',
 ])
 
@@ -584,13 +583,9 @@ function buildQuickRecordPayload(
           conclusionNote: note,
           linkedChannelProductCode: currentChannelProduct?.instanceCode || `${project.projectCode}-CP`,
           invalidationPlanned: false,
-          revisionTaskId: '',
-          revisionTaskCode: '',
           linkedStyleId: project.linkedStyleId || '',
           linkedStyleCode: project.linkedStyleCode || '',
           invalidatedChannelProductId: '',
-          projectTerminated: false,
-          projectTerminatedAt: '',
           nextActionType: '生成款式档案',
         },
         detailSnapshot: {
@@ -603,18 +598,6 @@ function buildQuickRecordPayload(
                 project.projectCode,
               ),
           ),
-        },
-      }
-    case 'SAMPLE_RETAIN_REVIEW':
-      return {
-        values: {
-          retainResult: '留样',
-          retainNote: note,
-        },
-        detailSnapshot: {
-          sampleCode: `${project.projectCode}-Y001`,
-          availabilityAfter: '可调拨',
-          locationAfter: '样衣仓 B-02',
         },
       }
     case 'SAMPLE_RETURN_HANDLE':
@@ -973,7 +956,7 @@ function ensureFormalNodeRelation(
           upstreamSyncStatus,
           linkedStyleId: styleReady ? refs.styleId : '',
           linkedStyleCode: styleReady ? refs.styleCode : '',
-          invalidatedReason: revisionPath ? '测款结论为调整，当前渠道店铺商品已作废。' : '',
+          invalidatedReason: revisionPath ? '历史测款结论待重新确认，当前渠道店铺商品已作废。' : '',
         },
       })
       return
@@ -1150,7 +1133,7 @@ function ensureFormalNodeRelation(
           priorityLevel: project.priorityLevel,
           ownerName: project.ownerName,
           dueAt: businessDate.replace(/(\d{2}):(\d{2})$/, '18:$2'),
-          note: '根据测款结论发起改版任务，等待完成后重新评估。',
+          note: '历史改版任务示例，保留为正式任务关系演示。',
           sourceType: '测款结论驱动',
           upstreamModule: '商品项目',
           upstreamObjectType: '商品项目',
@@ -1780,7 +1763,7 @@ export function ensurePcsProjectDemoDataReady(): void {
   seedNodeStatus(decisionProject.projectId, 'TEST_CONCLUSION', {
     currentStatus: '待确认',
     latestResultType: '待结论判定',
-    latestResultText: '请确认测款结论：通过、调整、暂缓或淘汰。',
+    latestResultText: '请确认测款结论：通过或淘汰。',
     pendingActionType: '结论判定',
     pendingActionText: '当前待确认：测款结论判定',
     updatedAt: '2026-04-12 21:30',
@@ -1899,7 +1882,7 @@ export function ensurePcsProjectDemoDataReady(): void {
     businessDate: '2026-04-07',
     note: '改版样衣已确认，但渠道预期一般。',
   })
-  terminateProject(terminatedProject.projectId, '测款表现未达标，决定停止继续开发。', DEMO_OPERATOR, '2026-04-08 15:20')
+  terminateProject(terminatedProject.projectId, '测款表现未达标，当前项目结束。', DEMO_OPERATOR, '2026-04-08 15:20')
   updateProjectRecord(terminatedProject.projectId, { updatedAt: '2026-04-08 15:20' }, DEMO_OPERATOR)
   syncProjectLifecycle(terminatedProject.projectId, DEMO_OPERATOR, '2026-04-08 15:20')
 
@@ -2200,13 +2183,9 @@ export function ensurePcsProjectDemoDataReady(): void {
     businessDate: '2026-04-04',
     note: '测款通过，进入款式档案与转档准备阶段。',
   })
-  seedInlineRecord(archivedProject.projectId, 'SAMPLE_RETAIN_REVIEW', {
-    businessDate: '2026-04-06',
-    note: '保留主推色样衣供后续复盘与素材使用。',
-  })
   seedInlineRecord(archivedProject.projectId, 'SAMPLE_RETURN_HANDLE', {
     businessDate: '2026-04-06',
-    note: '非主推色样衣已完成退回处理。',
+    note: '项目样衣已完成退回与处置收尾。',
   })
   updateProjectRecord(
     archivedProject.projectId,

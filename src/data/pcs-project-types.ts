@@ -11,6 +11,9 @@ export type SampleSourceType = '外采' | '自打样' | '委托打样'
 export type ProjectRiskStatus = '正常' | '延期'
 export type ProjectMarketTestWorkItemTypeCode = 'LIVE_TEST' | 'VIDEO_TEST'
 
+export const PROJECT_STATUS_TERMINATED: ProjectStatus = '已终止'
+export const PROJECT_PHASE_STATUS_TERMINATED: ProjectPhaseStatus = '已终止'
+
 export interface PcsProjectRuntimeState {
   progressDone: number
   progressTotal: number

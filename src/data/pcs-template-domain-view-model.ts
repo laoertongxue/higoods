@@ -44,23 +44,17 @@ export interface TemplateBusinessSummary {
 }
 
 const OPTIONAL_NODE_RULES: Record<TemplateStyleType, Partial<Record<PcsProjectWorkItemCode, TemplateNodeEditRule>>> = {
-  基础款: {
-    SAMPLE_RETAIN_REVIEW: { optional: true, allowDisable: true, allowReorder: true, allowRequiredSwitch: true },
-    SAMPLE_RETURN_HANDLE: { optional: true, allowDisable: true, allowReorder: true, allowRequiredSwitch: true },
-  },
-  快时尚款: {
-    SAMPLE_RETAIN_REVIEW: { optional: true, allowDisable: true, allowReorder: true, allowRequiredSwitch: true },
-  },
-  改版款: {
-    SAMPLE_RETAIN_REVIEW: { optional: true, allowDisable: true, allowReorder: true, allowRequiredSwitch: true },
-  },
+  基础款: {},
+  快时尚款: {},
+  改版款: {},
   设计款: {
     PATTERN_ARTWORK_TASK: { optional: true, allowDisable: true, allowReorder: true, allowRequiredSwitch: true },
     PRE_PRODUCTION_SAMPLE: { optional: true, allowDisable: true, allowReorder: true, allowRequiredSwitch: true },
-    SAMPLE_RETAIN_REVIEW: { optional: true, allowDisable: true, allowReorder: true, allowRequiredSwitch: true },
-    SAMPLE_RETURN_HANDLE: { optional: true, allowDisable: true, allowReorder: true, allowRequiredSwitch: true },
   },
 }
+
+const REQUIRED_TEMPLATE_TERMINAL_NODE_CODE: PcsProjectWorkItemCode = 'SAMPLE_RETURN_HANDLE'
+const REQUIRED_TEMPLATE_TERMINAL_NODE_NAME = '样衣退回处理'
 
 function getPrimaryStyleType(styleType: TemplateStyleType[]): TemplateStyleType | null {
   return styleType[0] ?? null
@@ -175,6 +169,13 @@ export function validateTemplateBusinessIntegrity(input: {
     issues.push({
       code: 'PHASE_04_MISSING_STYLE_ARCHIVE',
       message: '款式档案与开发推进阶段必须包含款式档案生成节点。',
+    })
+  }
+
+  if (!listPhaseNodeCodes('PHASE_05', input.nodes).includes(REQUIRED_TEMPLATE_TERMINAL_NODE_CODE)) {
+    issues.push({
+      code: 'PHASE_05_MISSING_SAMPLE_RETURN_HANDLE',
+      message: `项目收尾阶段必须包含${REQUIRED_TEMPLATE_TERMINAL_NODE_NAME}节点。`,
     })
   }
 

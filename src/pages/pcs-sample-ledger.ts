@@ -732,12 +732,12 @@ function renderDetailDrawer(): string {
       <section class="rounded-lg border bg-white p-4">
         <div class="flex items-center gap-2">
           <i data-lucide="file-text" class="h-4 w-4 text-slate-500"></i>
-          <h3 class="text-sm font-medium text-slate-900">留痕说明</h3>
+          <h3 class="text-sm font-medium text-slate-900">事件备注</h3>
         </div>
         <div class="mt-4 space-y-3">
           <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
-            <p class="text-xs text-slate-500">事件说明</p>
-            <p class="mt-2 text-sm text-slate-700">${escapeHtml(event.note || '未填写说明')}</p>
+            <p class="text-xs text-slate-500">备注</p>
+            <p class="mt-2 text-sm text-slate-700">${escapeHtml(event.note || '暂无备注')}</p>
           </div>
           ${
             asset

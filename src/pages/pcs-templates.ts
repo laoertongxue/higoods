@@ -805,7 +805,7 @@ function renderEditorStage(stage: ProjectTemplateStageDefinition): string {
               <div class="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p class="text-sm font-medium text-slate-900">工作项列表</p>
-                  <p class="mt-1 text-xs text-slate-500">阶段由正式矩阵生成，允许按规则启停可选节点并补充执行说明。${disabledCount > 0 ? `当前已停用 ${disabledCount} 项。` : ''}</p>
+                  ${disabledCount > 0 ? `<p class="mt-1 text-xs text-slate-500">当前已停用 ${disabledCount} 项。</p>` : ''}
                 </div>
                 <div class="flex flex-wrap gap-2">
                   <button type="button" class="inline-flex h-8 items-center gap-1 rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-pcs-template-action="show-add-stage-hint">
@@ -1047,16 +1047,12 @@ export function renderPcsTemplateEditorPage(templateId?: string): string {
       <section class="rounded-lg border bg-white p-4">
         <div class="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p class="text-xs text-slate-500">项目模板管理 / 只读说明</p>
+            <p class="text-xs text-slate-500">项目模板管理 / 查看</p>
             <h1 class="mt-2 text-2xl font-semibold text-slate-900">商品项目模板为内置固定模板</h1>
-            <p class="mt-1 text-sm text-slate-500">当前仅支持查看模板详情，不支持新增、编辑、复用或停用。</p>
           </div>
           <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/templates">
             <i data-lucide="arrow-left" class="h-4 w-4"></i>返回模板列表
           </button>
-        </div>
-        <div class="mt-4 rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-sm text-slate-500">
-          如需查看模板内容，请返回模板列表进入对应详情页。
         </div>
       </div>
     </div>

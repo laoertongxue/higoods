@@ -21,7 +21,6 @@ import {
   getSkuArchiveById,
   listSkuArchivesByStyleId,
 } from './pcs-sku-archive-repository.ts'
-import { createRevisionTaskWithProjectRelation } from './pcs-task-project-relation-writeback.ts'
 import { getLiveProductLineById, getLiveSessionRecordById } from './pcs-live-testing-repository.ts'
 import { getVideoTestRecordById } from './pcs-video-testing-repository.ts'
 import {
@@ -45,6 +44,7 @@ import {
 import type { ProjectRelationRecord } from './pcs-project-relation-types.ts'
 import type { PcsProjectChannelProductRecord } from './pcs-project-domain-contract.ts'
 import { syncProjectNodeInstanceRuntime } from './pcs-project-node-instance-registry.ts'
+import { completeDecisionNodeWithResult } from './pcs-project-decision-flow-service.ts'
 
 export type ProjectChannelProductScenario =
   | 'MEASURING'
@@ -55,7 +55,7 @@ export type ProjectChannelProductScenario =
   | 'STYLE_ACTIVE'
   | 'HISTORY_INVALIDATED'
 
-export type ProjectTestingConclusion = '' | '通过' | '调整' | '暂缓' | '淘汰'
+export type ProjectTestingConclusion = '' | '通过' | '淘汰'
 export type UpstreamSyncResult = '待执行' | '成功' | '失败'
 
 export interface ProjectChannelProductRecord extends PcsProjectChannelProductRecord {
@@ -299,8 +299,8 @@ function validateListingStoreChannel(targetChannelCode: string, targetStoreId: s
 
 function buildTestingStatusText(seed: ChannelSeed): string {
   if (seed.scenario === 'MEASURING') return '已完成上架，正在测款'
-  if (seed.scenario === 'FAILED_ADJUST') return '测款结论为调整，当前渠道店铺商品已作废'
-  if (seed.scenario === 'FAILED_PAUSED') return '测款结论为暂缓，当前渠道店铺商品已作废，项目阻塞'
+  if (seed.scenario === 'FAILED_ADJUST') return '历史测款结论待重新确认，当前渠道店铺商品已作废'
+  if (seed.scenario === 'FAILED_PAUSED') return '历史测款结论待重新确认，当前渠道店铺商品已作废'
   if (seed.scenario === 'FAILED_ELIMINATED') return '测款结论为淘汰，当前渠道店铺商品已作废'
   if (seed.scenario === 'STYLE_PENDING_TECH') return '测款通过，已生成款式档案，待启用技术包'
   if (seed.scenario === 'STYLE_ACTIVE') return '测款通过，已关联款式档案并完成上游最终更新'
@@ -503,8 +503,8 @@ function seedSnapshot(): ChannelProductStoreSnapshot {
       createdAt: '2026-03-20 09:10',
       updatedAt: '2026-03-25 18:20',
       invalidatedAt: '2026-03-25 18:20',
-      conclusion: '调整',
-      invalidatedReason: '测款结论为调整，当前渠道店铺商品已作废。',
+      conclusion: '',
+      invalidatedReason: '历史测款结论待重新确认，当前渠道店铺商品已作废。',
       linkedRevisionTaskId: 'RT-20260109-003',
       linkedRevisionTaskCode: 'RT-20260109-003',
       linkedVideoRecordId: 'SV-20260122-008',
@@ -518,7 +518,7 @@ function seedSnapshot(): ChannelProductStoreSnapshot {
       scenario: 'HISTORY_INVALIDATED',
       channelCode: 'tiktok-shop',
       storeId: 'store-tiktok-01',
-      listingTitle: '印尼风格碎花连衣裙改版后重测款',
+      listingTitle: '印尼风格碎花连衣裙历史重测款',
       listingPrice: 269,
       currency: 'CNY',
       channelProductStatus: '待上架',
@@ -606,8 +606,8 @@ function seedSnapshot(): ChannelProductStoreSnapshot {
       createdAt: '2026-03-01 09:10',
       updatedAt: '2026-03-08 18:00',
       invalidatedAt: '2026-03-08 18:00',
-      conclusion: '调整',
-      invalidatedReason: '第一轮测款结论为调整，旧渠道店铺商品已作废。',
+      conclusion: '',
+      invalidatedReason: '历史测款结论待重新确认，旧渠道店铺商品已作废。',
       upstreamSyncNote: '旧渠道店铺商品已失效，保留历史链路。',
       upstreamSyncLog: '旧渠道店铺商品已失效，保留历史链路。',
     },
@@ -769,8 +769,8 @@ function seedSnapshot(): ChannelProductStoreSnapshot {
       createdAt: '2026-03-20 13:10',
       updatedAt: '2026-03-29 18:10',
       invalidatedAt: '2026-03-29 18:10',
-      conclusion: '调整',
-      invalidatedReason: '测款结论为调整，当前渠道店铺商品已作废。',
+      conclusion: '',
+      invalidatedReason: '历史测款结论待重新确认，当前渠道店铺商品已作废。',
       linkedRevisionTaskId: 'RT-20260401-016',
       linkedRevisionTaskCode: 'RT-20260401-016',
       linkedLiveLineId: 'LS-20260329-016__item-001',
@@ -792,14 +792,14 @@ function seedSnapshot(): ChannelProductStoreSnapshot {
       createdAt: '2026-03-22 10:30',
       updatedAt: '2026-03-31 17:20',
       invalidatedAt: '2026-03-31 17:20',
-      conclusion: '调整',
-      invalidatedReason: '测款结论为调整，当前渠道店铺商品已作废。',
+      conclusion: '',
+      invalidatedReason: '历史测款结论待重新确认，当前渠道店铺商品已作废。',
       linkedRevisionTaskId: 'RT-20260401-017',
       linkedRevisionTaskCode: 'RT-20260401-017',
       linkedLiveLineId: 'LS-20260331-017__item-001',
       linkedLiveLineCode: 'LS-20260331-017-L01',
-      upstreamSyncNote: '测款结论为调整，已转改版任务。',
-      upstreamSyncLog: '测款结论为调整，已转改版任务。',
+      upstreamSyncNote: '历史测款结论待重新确认。',
+      upstreamSyncLog: '历史测款结论待重新确认。',
     },
     {
       projectCode: 'PRJ-20251216-018',
@@ -815,16 +815,16 @@ function seedSnapshot(): ChannelProductStoreSnapshot {
       createdAt: '2026-03-23 09:50',
       updatedAt: '2026-04-01 18:20',
       invalidatedAt: '2026-04-01 18:20',
-      conclusion: '调整',
-      invalidatedReason: '测款结论为调整，当前渠道店铺商品已作废。',
+      conclusion: '',
+      invalidatedReason: '历史测款结论待重新确认，当前渠道店铺商品已作废。',
       linkedRevisionTaskId: 'RT-20260402-018',
       linkedRevisionTaskCode: 'RT-20260402-018',
       linkedLiveLineId: 'LS-20260331-017__item-001',
       linkedLiveLineCode: 'LS-20260331-017-L01',
       linkedVideoRecordId: 'SV-PJT-018',
       linkedVideoRecordCode: 'SV-PJT-018',
-      upstreamSyncNote: '测款结论为调整，已创建改版任务。',
-      upstreamSyncLog: '测款结论为调整，已创建改版任务。',
+      upstreamSyncNote: '历史测款结论待重新确认。',
+      upstreamSyncLog: '历史测款结论待重新确认。',
     },
     {
       projectCode: 'PRJ-20251216-019',
@@ -840,12 +840,12 @@ function seedSnapshot(): ChannelProductStoreSnapshot {
       createdAt: '2026-03-21 11:10',
       updatedAt: '2026-04-02 10:30',
       invalidatedAt: '2026-04-02 10:30',
-      conclusion: '暂缓',
-      invalidatedReason: '测款结论为暂缓，当前渠道店铺商品已作废。',
+      conclusion: '',
+      invalidatedReason: '历史测款结论待重新确认，当前渠道店铺商品已作废。',
       linkedVideoRecordId: 'SV-PJT-019',
       linkedVideoRecordCode: 'SV-PJT-019',
-      upstreamSyncNote: '项目暂缓，保留历史商品记录。',
-      upstreamSyncLog: '项目暂缓，保留历史商品记录。',
+      upstreamSyncNote: '历史测款结论待重新确认，保留历史商品记录。',
+      upstreamSyncLog: '历史测款结论待重新确认，保留历史商品记录。',
     },
     {
       projectCode: 'PRJ-20251216-020',
@@ -861,14 +861,14 @@ function seedSnapshot(): ChannelProductStoreSnapshot {
       createdAt: '2026-03-21 15:20',
       updatedAt: '2026-04-03 13:10',
       invalidatedAt: '2026-04-03 13:10',
-      conclusion: '暂缓',
-      invalidatedReason: '测款结论为暂缓，当前渠道店铺商品已作废。',
+      conclusion: '',
+      invalidatedReason: '历史测款结论待重新确认，当前渠道店铺商品已作废。',
       linkedLiveLineId: 'LS-20260403-020__item-001',
       linkedLiveLineCode: 'LS-20260403-020-L01',
       linkedVideoRecordId: 'SV-PJT-019',
       linkedVideoRecordCode: 'SV-PJT-019',
-      upstreamSyncNote: '项目暂缓，等待下轮档期。',
-      upstreamSyncLog: '项目暂缓，等待下轮档期。',
+      upstreamSyncNote: '历史测款结论待重新确认，等待重新判定。',
+      upstreamSyncLog: '历史测款结论待重新确认，等待重新判定。',
     },
     {
       projectCode: 'PRJ-20251216-021',
@@ -884,8 +884,8 @@ function seedSnapshot(): ChannelProductStoreSnapshot {
       createdAt: '2026-03-22 16:40',
       updatedAt: '2026-04-04 09:40',
       invalidatedAt: '2026-04-04 09:40',
-      conclusion: '暂缓',
-      invalidatedReason: '测款结论为暂缓，当前渠道店铺商品已作废。',
+      conclusion: '',
+      invalidatedReason: '历史测款结论待重新确认，当前渠道店铺商品已作废。',
       linkedLiveLineId: 'LS-20260404-021__item-001',
       linkedLiveLineCode: 'LS-20260404-021-L01',
       upstreamSyncNote: '项目已阻塞，等待重新评估。',
@@ -905,12 +905,12 @@ function seedSnapshot(): ChannelProductStoreSnapshot {
       createdAt: '2026-03-24 10:45',
       updatedAt: '2026-04-04 15:30',
       invalidatedAt: '2026-04-04 15:30',
-      conclusion: '暂缓',
-      invalidatedReason: '测款结论为暂缓，当前渠道店铺商品已作废。',
+      conclusion: '',
+      invalidatedReason: '历史测款结论待重新确认，当前渠道店铺商品已作废。',
       linkedVideoRecordId: 'SV-PJT-022',
       linkedVideoRecordCode: 'SV-PJT-022',
-      upstreamSyncNote: '项目暂缓，等待花型方向复盘。',
-      upstreamSyncLog: '项目暂缓，等待花型方向复盘。',
+      upstreamSyncNote: '历史测款结论待重新确认，等待重新判定。',
+      upstreamSyncLog: '历史测款结论待重新确认，等待重新判定。',
     },
     {
       projectCode: 'PRJ-20251216-023',
@@ -1355,14 +1355,11 @@ function buildSummaryText(
   if (currentRecord.conclusion === '通过' && !currentRecord.styleCode) {
     return `${multiInstancePrefix}测款通过，待显式生成款式档案；当前最新用于测款的渠道店铺商品为 ${currentRecord.channelProductCode}`
   }
-  if (currentRecord.conclusion === '调整') {
-    return `${multiInstancePrefix}当前渠道店铺商品已作废，已创建改版任务，需重新进入商品上架节点。`
-  }
-  if (currentRecord.conclusion === '暂缓') {
-    return `${multiInstancePrefix}当前渠道店铺商品已作废，项目已阻塞，暂不创建款式档案。`
+  if (!currentRecord.conclusion && currentRecord.channelProductStatus === '已作废') {
+    return `${multiInstancePrefix}当前渠道店铺商品已作废，历史测款结论待重新确认。`
   }
   if (currentRecord.conclusion === '淘汰') {
-    return `${multiInstancePrefix}当前渠道店铺商品已作废，项目已终止，不会创建款式档案。`
+    return `${multiInstancePrefix}当前渠道店铺商品已作废，当前项目已进入样衣退回处理。`
   }
   if (currentRecord.channelProductStatus === '已作废') {
     return `${multiInstancePrefix}当前渠道店铺商品已作废，不会创建款式档案`
@@ -1384,6 +1381,15 @@ function getCurrentChannelProduct(records: ProjectChannelProductRecord[]): Proje
 
 function listLaunchReadyChannelProducts(records: ProjectChannelProductRecord[]): ProjectChannelProductRecord[] {
   return listValidChannelProducts(records).filter((item) => Boolean(item.upstreamChannelProductCode))
+}
+
+function listTestingConclusionTargetRecords(records: ProjectChannelProductRecord[]): ProjectChannelProductRecord[] {
+  const launchReadyRecords = listLaunchReadyChannelProducts(records)
+  if (launchReadyRecords.length > 0) return launchReadyRecords
+
+  return [...records]
+    .filter((item) => Boolean(item.upstreamChannelProductCode))
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
 }
 
 function findOpenChannelProductByChannelStore(
@@ -1959,12 +1965,8 @@ function buildTestingConclusionInlineRecord(
   summaryRecord: ReturnType<typeof getLatestProjectInlineNodeRecord>,
   branchDetail: {
     invalidatedChannelProductId?: string
-    revisionTaskId?: string
-    revisionTaskCode?: string
     linkedStyleId?: string
     linkedStyleCode?: string
-    projectTerminated?: boolean
-    projectTerminatedAt?: string
     nextActionType?: string
   },
   downstreamRefs: Array<{
@@ -2000,13 +2002,9 @@ function buildTestingConclusionInlineRecord(
       conclusionNote: payload.note,
       linkedChannelProductCode: primaryChannelProduct.channelProductCode,
       invalidationPlanned: payload.conclusion !== '通过',
-      revisionTaskId: branchDetail.revisionTaskId || '',
-      revisionTaskCode: branchDetail.revisionTaskCode || '',
       linkedStyleId: branchDetail.linkedStyleId || '',
       linkedStyleCode: branchDetail.linkedStyleCode || '',
       invalidatedChannelProductId: branchDetail.invalidatedChannelProductId || '',
-      projectTerminated: branchDetail.projectTerminated ?? false,
-      projectTerminatedAt: branchDetail.projectTerminatedAt || '',
       nextActionType: branchDetail.nextActionType || '',
     },
     detailSnapshot: {
@@ -2020,12 +2018,8 @@ function buildTestingConclusionInlineRecord(
       upstreamChannelProductCodes: channelProducts.map((item) => item.upstreamChannelProductCode).filter(Boolean),
       channelProductCount: channelProducts.length,
       invalidatedChannelProductId: branchDetail.invalidatedChannelProductId || '',
-      revisionTaskId: branchDetail.revisionTaskId || '',
-      revisionTaskCode: branchDetail.revisionTaskCode || '',
       linkedStyleId: branchDetail.linkedStyleId || '',
       linkedStyleCode: branchDetail.linkedStyleCode || '',
-      projectTerminated: branchDetail.projectTerminated ?? false,
-      projectTerminatedAt: branchDetail.projectTerminatedAt || '',
     },
     sourceModule: '商品项目',
     sourceDocType: '测款结论记录',
@@ -2143,72 +2137,11 @@ function activateTestingConclusionDecisionNode(
       pendingActionType: '结论判定',
       pendingActionText: '当前待确认：测款结论判定',
       latestResultType: '待结论判定',
-      latestResultText: '请确认测款结论：通过、调整、暂缓或淘汰。',
+      latestResultText: '请确认测款结论：通过或淘汰。',
       updatedAt: timestamp,
     },
     operatorName,
   )
-}
-
-function activateTestingAdjustBranchNodes(
-  projectId: string,
-  note: string,
-  operatorName: string,
-  timestamp: string,
-): void {
-  const branchTargets = ['PATTERN_TASK', 'PATTERN_ARTWORK_TASK', 'FIRST_SAMPLE']
-    .map((workItemTypeCode) => getProjectNodeRecordByWorkItemTypeCode(projectId, workItemTypeCode))
-    .filter((item): item is NonNullable<typeof item> => Boolean(item) && item.currentStatus === '未开始')
-  const primaryTargets = branchTargets.filter(
-    (item) => item.workItemTypeCode === 'PATTERN_TASK' || item.workItemTypeCode === 'PATTERN_ARTWORK_TASK',
-  )
-  const targetsToActivate = primaryTargets.length > 0 ? primaryTargets : branchTargets.slice(0, 1)
-
-  targetsToActivate.forEach((item) => {
-    activateProjectNodeByWorkItemTypeCode(
-      projectId,
-      item.workItemTypeCode,
-      {
-        currentStatus: '进行中',
-        pendingActionType: '改版推进',
-        pendingActionText: `测款调整，请处理：${item.workItemTypeName}`,
-        latestResultType: '改版分支',
-        latestResultText: note || '测款结论为调整，当前转入改版推进分支。',
-        updatedAt: timestamp,
-      },
-      operatorName,
-    )
-  })
-}
-
-function closeRemainingProjectNodes(
-  projectId: string,
-  exceptProjectNodeIds: string[],
-  reason: string,
-  operatorName: string,
-  timestamp: string,
-): void {
-  const keepSet = new Set(exceptProjectNodeIds)
-  listProjectNodes(projectId).forEach((node) => {
-    if (keepSet.has(node.projectNodeId) || isClosedProjectNodeStatus(node.currentStatus)) return
-    updateProjectNodeRecord(
-      projectId,
-      node.projectNodeId,
-      {
-        currentStatus: '已取消',
-        latestResultType: '项目关闭',
-        latestResultText: reason,
-        pendingActionType: '项目关闭',
-        pendingActionText: '项目已终止。',
-        currentIssueType: node.currentIssueType || '项目终止',
-        currentIssueText: reason,
-        updatedAt: timestamp,
-        lastEventType: '项目终止',
-        lastEventTime: timestamp,
-      },
-      operatorName,
-    )
-  })
 }
 
 function invalidateChannelProductRecord(
@@ -2617,11 +2550,15 @@ export function submitProjectTestingConclusion(
   payload: ProjectTestingConclusionPayload,
   operatorName = '当前用户',
 ): ProjectChannelProductWriteResult {
+  if (payload.conclusion !== '通过' && payload.conclusion !== '淘汰') {
+    return { ok: false, message: '测款结论判定只允许选择通过或淘汰。', record: null }
+  }
+
   const project = getProjectById(projectId)
   if (!project) {
     return { ok: false, message: '未找到对应商品项目，不能提交测款结论。', record: null }
   }
-  const targetRecords = listLaunchReadyChannelProducts(listProjectChannelProductsByProjectId(projectId))
+  const targetRecords = listTestingConclusionTargetRecords(listProjectChannelProductsByProjectId(projectId))
   const primaryRecord = getCurrentChannelProduct(targetRecords)
   if (!primaryRecord) {
     return { ok: false, message: '当前项目尚未完成商品上架，不能提交测款结论。', record: null }
@@ -2665,7 +2602,6 @@ export function submitProjectTestingConclusion(
       projectId,
       conclusionNode.projectNodeId,
       {
-        currentStatus: '已完成',
         latestInstanceId: latestRecord.channelProductId,
         latestInstanceCode: latestRecord.channelProductCode,
         latestResultType: '测款通过',
@@ -2707,228 +2643,27 @@ export function submitProjectTestingConclusion(
       {
         linkedStyleId: latestRecord.styleId || project.linkedStyleId || '',
         linkedStyleCode: latestRecord.styleCode || project.linkedStyleCode || '',
-        projectTerminated: false,
         nextActionType: '生成款式档案',
       },
       [],
       operatorName,
       timestamp,
     )
-    syncProjectNodeInstanceRuntime(projectId, conclusionNode.projectNodeId, operatorName, timestamp)
+    try {
+      completeDecisionNodeWithResult(projectId, conclusionNode.projectNodeId, '通过', operatorName, note, timestamp)
+    } catch (error) {
+      return {
+        ok: false,
+        message: error instanceof Error ? error.message : '测款结论流转失败。',
+        record: latestRecord,
+      }
+    }
     return {
       ok: true,
       message:
         nextRecords.length > 1
           ? `已提交测款通过结论，当前 ${nextRecords.length} 个渠道店铺商品实例可关联同一款式档案。`
           : '已提交测款通过结论，当前可生成款式档案。',
-      record: latestRecord,
-    }
-  }
-
-  if (payload.conclusion === '调整') {
-    const revisionResult = createRevisionTaskWithProjectRelation({
-      projectId,
-      title: `${project.projectName} 测款调整改版任务`,
-      sourceType: '测款触发',
-      upstreamModule: '测款结论',
-      upstreamObjectType: '测款结论判定',
-      upstreamObjectId: `testing_conclusion_${projectId}`,
-      upstreamObjectCode: `${project.projectCode}-TEST-CONCLUSION`,
-      productStyleCode: project.linkedStyleCode || project.styleCodeName || project.styleNumber,
-      ownerId: project.ownerId,
-      ownerName: project.ownerName,
-      priorityLevel: project.priorityLevel,
-      issueSummary: note || '测款结论为调整，需要重新组织改版方案。',
-      evidenceSummary: note || '渠道测款结论已判定为调整。',
-      note,
-      operatorName,
-    })
-    if (!revisionResult.ok || !revisionResult.task) {
-      return {
-        ok: false,
-        message: revisionResult.message || '改版任务创建失败，当前不能提交调整结论。',
-        record: primaryRecord,
-      }
-    }
-
-    const nextRecords = targetRecords.map((record) =>
-      invalidateChannelProductRecord(
-        {
-          ...record,
-          ...testingLinkPatch,
-          linkedRevisionTaskId: revisionResult.task.revisionTaskId,
-          linkedRevisionTaskCode: revisionResult.task.revisionTaskCode,
-        },
-        {
-          scenario: 'FAILED_ADJUST',
-          conclusion: '调整',
-          reason: note,
-          testingStatusText: '测款结论为调整，当前渠道店铺商品已作废',
-          upstreamNote: '测款结论为调整，当前渠道店铺商品已作废，已创建改版任务。',
-        },
-        operatorName,
-      ),
-    )
-    const latestRecord = getCurrentChannelProduct(nextRecords) || nextRecords[0]
-    updateProjectRecord(
-      projectId,
-      {
-        projectStatus: '进行中',
-        updatedAt: timestamp,
-      },
-      operatorName,
-    )
-    updateProjectNodeRecord(
-      projectId,
-      conclusionNode.projectNodeId,
-      {
-        currentStatus: '已完成',
-        latestInstanceId: revisionResult.task.revisionTaskId,
-        latestInstanceCode: revisionResult.task.revisionTaskCode,
-        latestResultType: '已创建改版任务',
-        latestResultText: note,
-        pendingActionType: '等待改版完成',
-        pendingActionText:
-          nextRecords.length > 1
-            ? `请推进改版任务，完成后为当前 ${nextRecords.length} 个渠道 / 店铺重新进入商品上架节点并创建新的渠道店铺商品。`
-            : '请推进改版任务，完成后重新进入商品上架节点并创建新的渠道店铺商品。',
-        updatedAt: timestamp,
-      },
-      operatorName,
-    )
-    updateStyleArchiveCreateNode(projectId, {
-      currentStatus: '未开始',
-      currentIssueType: '测款未通过',
-      currentIssueText: '当前测款结论为调整，不能创建款式档案。',
-      pendingActionType: '等待改版完成',
-      pendingActionText: '改版完成并重新测款通过后，才允许生成款式档案。',
-      updatedAt: timestamp,
-    })
-    buildTestingConclusionInlineRecord(
-      project,
-      conclusionNode.projectNodeId,
-      payload,
-      nextRecords,
-      summaryRecord,
-      {
-        invalidatedChannelProductId: latestRecord.channelProductId,
-        revisionTaskId: revisionResult.task.revisionTaskId,
-        revisionTaskCode: revisionResult.task.revisionTaskCode,
-        projectTerminated: false,
-        nextActionType: '等待改版完成',
-      },
-      [
-        ...nextRecords.map((nextRecord) => ({
-          refModule: '渠道店铺商品',
-          refType: '已作废渠道店铺商品',
-          refId: nextRecord.channelProductId,
-          refCode: nextRecord.channelProductCode,
-          refTitle: nextRecord.listingTitle,
-          refStatus: nextRecord.channelProductStatus,
-        })),
-        {
-          refModule: '改版任务',
-          refType: '改版任务',
-          refId: revisionResult.task.revisionTaskId,
-          refCode: revisionResult.task.revisionTaskCode,
-          refTitle: revisionResult.task.title,
-          refStatus: revisionResult.task.status,
-        },
-      ],
-      operatorName,
-      timestamp,
-    )
-    syncProjectNodeInstanceRuntime(projectId, conclusionNode.projectNodeId, operatorName, timestamp)
-    activateTestingAdjustBranchNodes(projectId, note, operatorName, timestamp)
-    return {
-      ok: true,
-      message:
-        nextRecords.length > 1
-          ? `已提交调整结论，已作废 ${nextRecords.length} 个渠道店铺商品实例，并创建改版任务 ${revisionResult.task.revisionTaskCode}。`
-          : `已提交调整结论，并创建改版任务 ${revisionResult.task.revisionTaskCode}。`,
-      record: latestRecord,
-      revisionTaskId: revisionResult.task.revisionTaskId,
-      revisionTaskCode: revisionResult.task.revisionTaskCode,
-    }
-  }
-
-  if (payload.conclusion === '暂缓') {
-    const nextRecords = targetRecords.map((record) =>
-      invalidateChannelProductRecord(
-        { ...record, ...testingLinkPatch },
-        {
-          scenario: 'FAILED_PAUSED',
-          conclusion: '暂缓',
-          reason: note,
-          testingStatusText: '测款结论为暂缓，当前渠道店铺商品已作废，项目阻塞',
-          upstreamNote: '测款结论为暂缓，当前渠道店铺商品已作废，项目阻塞。',
-        },
-        operatorName,
-      ),
-    )
-    const latestRecord = getCurrentChannelProduct(nextRecords) || nextRecords[0]
-    updateProjectRecord(
-      projectId,
-      {
-        projectStatus: '进行中',
-        updatedAt: timestamp,
-      },
-      operatorName,
-    )
-    updateProjectNodeRecord(
-      projectId,
-      conclusionNode.projectNodeId,
-      {
-        currentStatus: '已完成',
-        latestInstanceId: latestRecord.channelProductId,
-        latestInstanceCode: latestRecord.channelProductCode,
-        latestResultType: '测款暂缓',
-        latestResultText: note,
-        currentIssueType: '项目阻塞',
-        currentIssueText: note,
-        pendingActionType: '等待重新评估',
-        pendingActionText: '当前项目已阻塞，等待重新评估后再决定是否重新测款。',
-        updatedAt: timestamp,
-      },
-      operatorName,
-    )
-    updateStyleArchiveCreateNode(projectId, {
-      currentStatus: '未开始',
-      currentIssueType: '项目阻塞',
-      currentIssueText: '当前测款结论为暂缓，暂不创建款式档案。',
-      pendingActionType: '等待重新评估',
-      pendingActionText: '重新评估通过后，需重新进入商品上架与测款链路。',
-      updatedAt: timestamp,
-    })
-    buildTestingConclusionInlineRecord(
-      project,
-      conclusionNode.projectNodeId,
-      payload,
-      nextRecords,
-      summaryRecord,
-      {
-        invalidatedChannelProductId: latestRecord.channelProductId,
-        projectTerminated: false,
-        nextActionType: '等待重新评估',
-      },
-      nextRecords.map((nextRecord) => ({
-        refModule: '渠道店铺商品',
-        refType: '已作废渠道店铺商品',
-        refId: nextRecord.channelProductId,
-        refCode: nextRecord.channelProductCode,
-        refTitle: nextRecord.listingTitle,
-        refStatus: nextRecord.channelProductStatus,
-      })),
-      operatorName,
-      timestamp,
-    )
-    syncProjectNodeInstanceRuntime(projectId, conclusionNode.projectNodeId, operatorName, timestamp)
-    return {
-      ok: true,
-      message:
-        nextRecords.length > 1
-          ? `已提交暂缓结论，已作废 ${nextRecords.length} 个渠道店铺商品实例，项目已进入阻塞状态。`
-          : '已提交暂缓结论，项目已进入阻塞状态。',
       record: latestRecord,
     }
   }
@@ -2941,51 +2676,26 @@ export function submitProjectTestingConclusion(
         conclusion: '淘汰',
         reason: note,
         testingStatusText: '测款结论为淘汰，当前渠道店铺商品已作废',
-        upstreamNote: '测款结论为淘汰，项目关闭，不再创建款式档案。',
+        upstreamNote: '测款结论为淘汰，当前项目进入样衣退回处理。',
       },
       operatorName,
     ),
   )
   const latestRecord = getCurrentChannelProduct(nextRecords) || nextRecords[0]
-  updateProjectRecord(
-    projectId,
-    {
-      projectStatus: '已终止',
-      updatedAt: timestamp,
-    },
-    operatorName,
-  )
   updateProjectNodeRecord(
     projectId,
     conclusionNode.projectNodeId,
     {
-      currentStatus: '已完成',
       latestInstanceId: latestRecord.channelProductId,
       latestInstanceCode: latestRecord.channelProductCode,
       latestResultType: '测款淘汰',
       latestResultText: note,
-      pendingActionType: '项目关闭',
-      pendingActionText: '当前项目已终止，后续不再进入款式档案与技术包链路。',
+      pendingActionType: '样衣退回处理',
+      pendingActionText: '请完成样衣退回处理。',
       updatedAt: timestamp,
     },
     operatorName,
   )
-  updateStyleArchiveCreateNode(projectId, {
-    currentStatus: '已取消',
-    currentIssueType: '项目终止',
-    currentIssueText: '当前测款结论为淘汰，款式档案节点已关闭。',
-    pendingActionType: '项目关闭',
-    pendingActionText: '项目已终止。',
-    updatedAt: timestamp,
-  })
-  updateProjectTransferPrepNode(projectId, {
-    currentStatus: '已取消',
-    currentIssueType: '项目终止',
-    currentIssueText: '当前项目已终止，不再进入技术包与归档链路。',
-    pendingActionType: '项目关闭',
-    pendingActionText: '项目已终止。',
-    updatedAt: timestamp,
-  })
   buildTestingConclusionInlineRecord(
     project,
     conclusionNode.projectNodeId,
@@ -2994,9 +2704,7 @@ export function submitProjectTestingConclusion(
     summaryRecord,
       {
         invalidatedChannelProductId: latestRecord.channelProductId,
-        projectTerminated: true,
-        projectTerminatedAt: timestamp,
-        nextActionType: '项目关闭',
+        nextActionType: '样衣退回处理',
       },
     nextRecords.map((nextRecord) => ({
       refModule: '渠道店铺商品',
@@ -3009,14 +2717,21 @@ export function submitProjectTestingConclusion(
     operatorName,
     timestamp,
   )
-  syncProjectNodeInstanceRuntime(projectId, conclusionNode.projectNodeId, operatorName, timestamp)
-  closeRemainingProjectNodes(projectId, [conclusionNode.projectNodeId], note, operatorName, timestamp)
+  try {
+    completeDecisionNodeWithResult(projectId, conclusionNode.projectNodeId, '淘汰', operatorName, note, timestamp)
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : '测款结论流转失败。',
+      record: latestRecord,
+    }
+  }
   return {
     ok: true,
     message:
       nextRecords.length > 1
-        ? `已提交淘汰结论，已作废 ${nextRecords.length} 个渠道店铺商品实例，当前项目已终止。`
-        : '已提交淘汰结论，当前项目已终止。',
+        ? `已提交淘汰结论，已作废 ${nextRecords.length} 个渠道店铺商品实例，当前项目已进入样衣退回处理。`
+        : '已提交淘汰结论，当前项目已进入样衣退回处理。',
     record: latestRecord,
   }
 }
@@ -3107,7 +2822,7 @@ export function bindStyleArchiveToProjectChannelProduct(
 
 export function markProjectChannelProductConclusion(
   projectId: string,
-  conclusion: Exclude<ProjectTestingConclusion, '' | '通过'>,
+  conclusion: '淘汰',
   operatorName = '当前用户',
 ): ProjectChannelProductRecord | null {
   const targetRecords = listValidChannelProducts(listProjectChannelProductsByProjectId(projectId))
@@ -3116,32 +2831,19 @@ export function markProjectChannelProductConclusion(
   const nextRecords = targetRecords.map((currentRecord) => {
     const nextRecord: ProjectChannelProductRecord = {
       ...currentRecord,
-      scenario:
-        conclusion === '调整'
-          ? 'FAILED_ADJUST'
-          : conclusion === '暂缓'
-            ? 'FAILED_PAUSED'
-            : 'FAILED_ELIMINATED',
+      scenario: 'FAILED_ELIMINATED',
       conclusion,
       channelProductStatus: '已作废',
       invalidatedReason: `测款结论为${conclusion}，当前渠道店铺商品已作废。`,
       invalidatedAt: timestamp,
       updatedAt: timestamp,
-      testingStatusText:
-        conclusion === '调整'
-          ? '测款结论为调整，当前渠道店铺商品已作废'
-          : conclusion === '暂缓'
-            ? '测款结论为暂缓，当前渠道店铺商品已作废'
-            : '测款结论为淘汰，当前渠道店铺商品已作废',
+      testingStatusText: '测款结论为淘汰，当前渠道店铺商品已作废',
       upstreamSyncNote: '测款未通过，停止后续渠道更新。',
       upstreamSyncLog: `测款结论为${conclusion}，停止后续渠道更新。`,
     }
     replaceRecord(nextRecord, operatorName)
     return nextRecord
   })
-  if (conclusion === '淘汰') {
-    updateProjectRecord(projectId, { projectStatus: '已终止', updatedAt: timestamp }, operatorName)
-  }
   return getCurrentChannelProduct(nextRecords) || nextRecords[0]
 }
 

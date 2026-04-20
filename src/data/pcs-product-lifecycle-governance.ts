@@ -63,7 +63,7 @@ export const TECH_PACK_AGGREGATE_STATUS_RULES: Record<TechPackAggregateStatusKey
     label: '未建立',
     className: 'border-slate-200 bg-slate-50 text-slate-600',
     scene: '当前款式还没有任何技术包版本，尚未进入技术包维护。',
-    operations: ['等待来源任务生成技术包版本'],
+    operations: ['等待来源任务建立技术包版本'],
   },
   DRAFT: {
     key: 'DRAFT',

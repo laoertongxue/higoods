@@ -12,6 +12,7 @@ import { getTechnicalDataVersionById } from '../../data/pcs-technical-data-versi
 import {
   buildTechPackVersionSourceTaskSummary,
 } from '../../data/pcs-tech-pack-task-generation.ts'
+import { listTechPackVersionLogsByVersionId } from '../../data/pcs-tech-pack-version-log-repository.ts'
 import { getTechnicalVersionBusinessStatusLabel } from '../../data/pcs-technical-data-version-view-model.ts'
 import {
   TECH_PACK_AGGREGATE_STATUS_RULES,
@@ -73,35 +74,40 @@ function renderTechPackSummary(): string {
   `
 }
 
-function renderTechPackLifecyclePanel(): string {
-  if (!state.currentTechnicalVersionId || !state.currentStyleId) return ''
-  const record = getTechnicalDataVersionById(state.currentTechnicalVersionId)
-  const style = getStyleArchiveById(state.currentStyleId)
-  if (!record) return ''
-  const rule =
-    TECH_PACK_AGGREGATE_STATUS_RULES[
-      resolveTechPackVersionBusinessStatus(record, style?.currentTechPackVersionId || '')
-    ]
+function renderTechPackVersionLogsPanel(): string {
+  if (!state.currentTechnicalVersionId) return ''
+  const logs = listTechPackVersionLogsByVersionId(state.currentTechnicalVersionId)
   return `
     <section class="rounded-lg border bg-card p-4">
-      <div class="flex flex-wrap items-center gap-3">
-        <h2 class="text-sm font-medium text-foreground">技术包状态口径</h2>
-        <span class="${escapeHtml(`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${rule.className}`)}">${escapeHtml(rule.label)}</span>
+      <div class="flex items-center justify-between gap-3">
+        <h2 class="text-sm font-medium text-foreground">技术包版本日志</h2>
+        <span class="text-xs text-muted-foreground">共 ${escapeHtml(String(logs.length))} 条</span>
       </div>
-      <div class="mt-4 grid gap-4 md:grid-cols-[1.4fr,1fr]">
-        <div class="rounded-lg border bg-muted/30 px-4 py-3">
-          <div class="text-xs text-muted-foreground">业务场景</div>
-          <div class="mt-2 text-sm leading-6 text-foreground">${escapeHtml(rule.scene)}</div>
-        </div>
-        <div class="rounded-lg border bg-muted/30 px-4 py-3">
-          <div class="text-xs text-muted-foreground">当前可操作项</div>
-          <div class="mt-2 flex flex-wrap gap-2">
-            ${rule.operations
-              .map((item) => `<span class="inline-flex rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs font-medium text-slate-700">${escapeHtml(item)}</span>`)
-              .join('')}
-          </div>
-        </div>
-      </div>
+      ${
+        logs.length > 0
+          ? `
+            <div class="mt-4 space-y-3">
+              ${logs
+                .map(
+                  (item) => `
+                    <div class="rounded-lg border bg-muted/20 px-4 py-3">
+                      <div class="flex flex-wrap items-center justify-between gap-3">
+                        <div class="text-sm font-medium text-foreground">${escapeHtml(item.logType)}</div>
+                        <div class="text-xs text-muted-foreground">${escapeHtml(item.createdAt)}</div>
+                      </div>
+                      <div class="mt-2 text-sm text-muted-foreground">${escapeHtml(item.changeText || '未补充版本变更说明。')}</div>
+                      <div class="mt-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
+                        <span>操作人：${escapeHtml(item.createdBy || '-')}</span>
+                        <span>来源任务：${escapeHtml(item.sourceTaskCode ? `${item.sourceTaskCode} · ${item.sourceTaskName || item.sourceTaskType}` : '系统操作')}</span>
+                      </div>
+                    </div>
+                  `,
+                )
+                .join('')}
+            </div>
+          `
+          : '<div class="mt-4 rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">暂无技术包版本日志。</div>'
+      }
     </section>
   `
 }
@@ -187,7 +193,7 @@ export function renderTechPackPage(
         </div>
       </header>
 
-      ${renderTechPackLifecyclePanel()}
+      ${renderTechPackVersionLogsPanel()}
       ${renderTabHeader()}
       ${renderCurrentTabContent()}
 
