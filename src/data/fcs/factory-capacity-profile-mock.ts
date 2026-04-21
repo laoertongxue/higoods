@@ -1,5 +1,6 @@
 import { getFactoryMasterRecordById, listFactoryMasterRecords } from './factory-master-store.ts'
 import {
+  getCapacityProcessCraftOptions,
   getProcessDefinitionByCode,
   getProcessCraftDictRowByCode,
   listCraftsByProcessCode,
@@ -13,8 +14,11 @@ import { getSamBusinessFieldLabel } from './sam-field-display.ts'
 import type {
   Factory,
   FactoryCapacityEntry,
+  FactoryCapacityEquipment,
+  FactoryCapacityEquipmentAbility,
   FactoryCapacityFieldValue,
   FactoryCapacityProfile,
+  FactoryCapacityEquipmentStatus,
   FactoryDyeVatCapacity,
   FactoryPostCapacityNode,
   FactoryPostCapacityNodeCode,
@@ -105,6 +109,23 @@ export interface FactoryCapacityComputedResult {
   lines: FactoryCapacityComputationLine[]
 }
 
+export interface FactoryCapacityEquipmentSummary {
+  factoryId: string
+  processCode: string
+  craftCode: string
+  totalEquipmentCount: number
+  countableEquipmentCount: number
+  maintenanceEquipmentCount: number
+  stoppedEquipmentCount: number
+  frozenEquipmentCount: number
+  eligibleShiftMinutesTotal: number
+  eligibleDeviceCapacityTotal: number
+  averageSingleShiftMinutes: number
+  weightedEfficiencyValue: number
+  efficiencyUnit: string
+  matchedEquipments: FactoryCapacityEquipment[]
+}
+
 export type FactoryCapacityAuditIssueCategory =
   | 'DECLARED_CRAFT_ROW_MISSING'
   | 'DECLARED_PROCESS_MISMATCH'
@@ -141,11 +162,44 @@ function cloneProfile(profile: FactoryCapacityProfile): FactoryCapacityProfile {
   }
 }
 
+function cloneEquipmentAbility(ability: FactoryCapacityEquipmentAbility): FactoryCapacityEquipmentAbility {
+  return {
+    processCode: ability.processCode,
+    processName: ability.processName,
+    craftCode: ability.craftCode,
+    craftName: ability.craftName,
+    efficiencyValue: ability.efficiencyValue,
+    efficiencyUnit: ability.efficiencyUnit,
+  }
+}
+
+function cloneEquipment(equipment: FactoryCapacityEquipment): FactoryCapacityEquipment {
+  return {
+    equipmentId: equipment.equipmentId,
+    factoryId: equipment.factoryId,
+    equipmentName: equipment.equipmentName,
+    equipmentNo: equipment.equipmentNo,
+    equipmentType: equipment.equipmentType,
+    abilityList: equipment.abilityList.map((ability) => cloneEquipmentAbility(ability)),
+    quantity: equipment.quantity,
+    singleShiftMinutes: equipment.singleShiftMinutes,
+    status: equipment.status,
+    displaySpecValue: equipment.displaySpecValue,
+    displaySpecUnit: equipment.displaySpecUnit,
+    supportedMaterialTypes: equipment.supportedMaterialTypes ? [...equipment.supportedMaterialTypes] : undefined,
+    remark: equipment.remark,
+  }
+}
+
 function createEmptyProfile(factoryId: string): FactoryCapacityProfile {
   return {
     factoryId,
     entries: [],
   }
+}
+
+function cloneEquipments(equipments: FactoryCapacityEquipment[]): FactoryCapacityEquipment[] {
+  return equipments.map((item) => cloneEquipment(item))
 }
 
 function resolveFactorySupportedCraftRows(factory: Factory): ProcessCraftDictRow[] {
@@ -216,6 +270,213 @@ function buildDefaultValues(
   }, {})
 }
 
+function getSeedNumericValue(
+  values: Partial<Record<SamCurrentFieldKey, FactoryCapacityFieldValue>>,
+  key: SamCurrentFieldKey,
+): number {
+  const rawValue = values[key]
+  const numericValue = Number(rawValue)
+  return Number.isFinite(numericValue) ? numericValue : 0
+}
+
+function resolveEquipmentEfficiencyUnit(row: ProcessCraftDictRow): string {
+  if (row.processCode === 'PRINT') return '米/分钟'
+  if (row.processCode === 'DYE') return '批/分钟'
+  return '件/分钟'
+}
+
+function resolveEquipmentEfficiencyUnitByCodes(processCode: string, craftCode: string): string {
+  const row = getProcessCraftDictRowByCode(craftCode)
+  if (row) return resolveEquipmentEfficiencyUnit(row)
+  if (processCode === 'PRINT') return '米/分钟'
+  if (processCode === 'DYE') return '批/分钟'
+  return '件/分钟'
+}
+
+function buildEquipmentAbilityFromRow(
+  row: ProcessCraftDictRow,
+  efficiencyValue: number,
+  efficiencyUnit = resolveEquipmentEfficiencyUnit(row),
+): FactoryCapacityEquipmentAbility {
+  return {
+    processCode: row.processCode,
+    processName: row.processName,
+    craftCode: row.craftCode,
+    craftName: row.craftName,
+    efficiencyValue,
+    efficiencyUnit,
+  }
+}
+
+function buildEquipmentAbilityFromCodes(
+  processCode: string,
+  craftCode: string,
+  efficiencyValue: number,
+  efficiencyUnit: string,
+): FactoryCapacityEquipmentAbility {
+  const row = getProcessCraftDictRowByCode(craftCode)
+  const processName = getProcessDefinitionByCode(processCode)?.processName ?? row?.processName ?? processCode
+  const craftName = row?.craftName ?? getProcessDefinitionByCode(craftCode)?.processName ?? craftCode
+
+  return {
+    processCode,
+    processName,
+    craftCode,
+    craftName,
+    efficiencyValue,
+    efficiencyUnit,
+  }
+}
+
+function isCountableEquipmentStatus(status: FactoryCapacityEquipmentStatus): boolean {
+  return status === 'AVAILABLE' || status === 'IN_USE'
+}
+
+function buildDerivedEquipmentFromEntry(
+  factoryId: string,
+  row: ProcessCraftDictRow,
+  entry: FactoryCapacityEntry,
+): FactoryCapacityEquipment {
+  const quantity = Math.max(1, getSeedNumericValue(entry.values, 'deviceCount'))
+  const singleShiftMinutes = Math.max(
+    1,
+    getSeedNumericValue(entry.values, 'deviceShiftMinutes') || getSeedNumericValue(entry.values, 'staffShiftMinutes'),
+  )
+  const efficiencyValue = Math.max(
+    0.01,
+    getSeedNumericValue(entry.values, 'deviceEfficiencyValue') || getSeedNumericValue(entry.values, 'staffEfficiencyValue'),
+  )
+
+  return {
+    equipmentId: `${factoryId}::${row.processCode}::${row.craftCode}`,
+    factoryId,
+    equipmentName: `${row.craftName}设备`,
+    equipmentNo: `${row.craftCode}-${factoryId.split('-').at(-1) ?? '01'}`,
+    equipmentType: row.processCode === 'PRINT' ? 'PRINT_MACHINE' : row.processCode === 'DYE' ? 'DYE_VAT' : isPostCapacityNodeProcess(row.craftCode) ? 'POST_NODE' : 'GENERAL',
+    abilityList: [buildEquipmentAbilityFromRow(row, efficiencyValue)],
+    quantity,
+    singleShiftMinutes,
+    status: 'AVAILABLE',
+    displaySpecValue: efficiencyValue,
+    displaySpecUnit: resolveEquipmentEfficiencyUnit(row),
+  }
+}
+
+function buildCustomFactoryEquipments(factoryId: string): FactoryCapacityEquipment[] {
+  if (factoryId === 'ID-F002') {
+    return [
+      {
+        equipmentId: 'EQUIP-ID-F002-PR01',
+        factoryId,
+        equipmentName: '印花打印机 A',
+        equipmentNo: 'PR-01',
+        equipmentType: 'PRINT_MACHINE',
+        abilityList: [
+          buildEquipmentAbilityFromCodes('PRINT', 'CRAFT_2000001', 3.0, '米/分钟'),
+          buildEquipmentAbilityFromCodes('PRINT', 'CRAFT_2000002', 2.4, '米/分钟'),
+        ],
+        quantity: 1,
+        singleShiftMinutes: 540,
+        status: 'AVAILABLE',
+        displaySpecValue: 180,
+        displaySpecUnit: '米/小时',
+        remark: '主线机台',
+      },
+      {
+        equipmentId: 'EQUIP-ID-F002-PR02',
+        factoryId,
+        equipmentName: '印花打印机 B',
+        equipmentNo: 'PR-02',
+        equipmentType: 'PRINT_MACHINE',
+        abilityList: [
+          buildEquipmentAbilityFromCodes('PRINT', 'CRAFT_2000001', 2.8, '米/分钟'),
+          buildEquipmentAbilityFromCodes('PRINT', 'CRAFT_2000002', 2.0, '米/分钟'),
+        ],
+        quantity: 1,
+        singleShiftMinutes: 480,
+        status: 'MAINTENANCE',
+        displaySpecValue: 120,
+        displaySpecUnit: '米/小时',
+        remark: '当前做喷头保养',
+      },
+    ]
+  }
+
+  if (factoryId === 'ID-F003') {
+    return [
+      {
+        equipmentId: 'EQUIP-ID-F003-VAT01',
+        factoryId,
+        equipmentName: '染缸 A',
+        equipmentNo: 'VAT-01',
+        equipmentType: 'DYE_VAT',
+        abilityList: [
+          buildEquipmentAbilityFromCodes('DYE', 'CRAFT_2000003', 0.95, '批/分钟'),
+          buildEquipmentAbilityFromCodes('DYE', 'CRAFT_2000004', 0.85, '批/分钟'),
+        ],
+        quantity: 1,
+        singleShiftMinutes: 540,
+        status: 'AVAILABLE',
+        displaySpecValue: 650,
+        displaySpecUnit: 'kg/缸',
+        supportedMaterialTypes: ['针织棉', '涤棉'],
+        remark: '常规深色批次',
+      },
+      {
+        equipmentId: 'EQUIP-ID-F003-VAT02',
+        factoryId,
+        equipmentName: '染缸 B',
+        equipmentNo: 'VAT-02',
+        equipmentType: 'DYE_VAT',
+        abilityList: [
+          buildEquipmentAbilityFromCodes('DYE', 'CRAFT_2000003', 1.05, '批/分钟'),
+          buildEquipmentAbilityFromCodes('DYE', 'CRAFT_2000004', 0.92, '批/分钟'),
+        ],
+        quantity: 1,
+        singleShiftMinutes: 600,
+        status: 'FROZEN',
+        displaySpecValue: 900,
+        displaySpecUnit: 'kg/缸',
+        supportedMaterialTypes: ['牛仔布', '厚磅梭织'],
+        remark: '当前等待排期释放',
+      },
+    ]
+  }
+
+  return []
+}
+
+function ensureFactoryEquipmentArchive(
+  factoryId: string,
+  entries: FactoryCapacityEntry[],
+  supportedRows: ProcessCraftDictRow[],
+): FactoryCapacityEquipment[] {
+  pruneOrphanProfiles()
+  const existing = equipmentsByFactoryId.get(factoryId)
+  if (existing) return cloneEquipments(existing)
+
+  const customEquipments = buildCustomFactoryEquipments(factoryId)
+  const coveredKeys = new Set(
+    customEquipments.flatMap((equipment) =>
+      equipment.abilityList.map((ability) => `${ability.processCode}::${ability.craftCode}`),
+    ),
+  )
+
+  const rowMap = new Map(supportedRows.map((row) => [`${row.processCode}::${row.craftCode}`, row] as const))
+  const generatedEquipments = entries
+    .map((entry) => {
+      const row = rowMap.get(`${entry.processCode}::${entry.craftCode}`)
+      if (!row) return null
+      if (coveredKeys.has(`${row.processCode}::${row.craftCode}`)) return null
+      return buildDerivedEquipmentFromEntry(factoryId, row, entry)
+    })
+    .filter((item): item is FactoryCapacityEquipment => Boolean(item))
+
+  const next = [...customEquipments, ...generatedEquipments]
+  equipmentsByFactoryId.set(factoryId, cloneEquipments(next))
+  return cloneEquipments(next)
+}
+
 function normalizeEntry(
   existingEntry: FactoryCapacityEntry | undefined,
   row: ProcessCraftDictRow,
@@ -240,12 +501,18 @@ function normalizeEntry(
 }
 
 const profilesByFactoryId = new Map<string, FactoryCapacityProfile>()
+const equipmentsByFactoryId = new Map<string, FactoryCapacityEquipment[]>()
 
 function pruneOrphanProfiles(): void {
   const activeFactoryIds = new Set(listFactoryMasterRecords().map((factory) => factory.id))
   ;[...profilesByFactoryId.keys()].forEach((factoryId) => {
     if (!activeFactoryIds.has(factoryId)) {
       profilesByFactoryId.delete(factoryId)
+    }
+  })
+  ;[...equipmentsByFactoryId.keys()].forEach((factoryId) => {
+    if (!activeFactoryIds.has(factoryId)) {
+      equipmentsByFactoryId.delete(factoryId)
     }
   })
 }
@@ -267,6 +534,7 @@ function ensureProfile(factoryId: string): FactoryCapacityProfile {
   }
 
   profilesByFactoryId.set(factoryId, cloneProfile(next))
+  ensureFactoryEquipmentArchive(factoryId, next.entries, supportedRows)
   return cloneProfile(next)
 }
 
@@ -298,12 +566,144 @@ export function listFactoryCapacityEntries(factoryId: string): FactoryCapacityRe
     .map((row) => {
       const entry = entryMap.get(`${row.processCode}:${row.craftCode}`)
       if (!entry) return null
+      const nextEntry = cloneEntry(entry)
+      const equipmentSummary = getFactoryCapacityEquipmentSummary(factoryId, row.processCode, row.craftCode)
+      if (row.samCurrentFieldKeys.includes('deviceCount')) {
+        nextEntry.values.deviceCount = equipmentSummary.countableEquipmentCount
+      }
+      if (row.samCurrentFieldKeys.includes('deviceShiftMinutes')) {
+        nextEntry.values.deviceShiftMinutes = Number(equipmentSummary.averageSingleShiftMinutes.toFixed(2))
+      }
+      if (row.samCurrentFieldKeys.includes('deviceEfficiencyValue')) {
+        nextEntry.values.deviceEfficiencyValue = Number(equipmentSummary.weightedEfficiencyValue.toFixed(4))
+      }
       return {
         row,
-        entry: cloneEntry(entry),
+        entry: nextEntry,
       }
     })
     .filter((item): item is FactoryCapacityResolvedEntry => Boolean(item))
+}
+
+export function listFactoryCapacityEquipments(factoryId?: string): FactoryCapacityEquipment[] {
+  if (factoryId) {
+    const profile = ensureProfile(factoryId)
+    const supportedRows = listFactoryCapacitySupportedCraftRows(factoryId)
+    return ensureFactoryEquipmentArchive(factoryId, profile.entries, supportedRows)
+  }
+
+  return listFactoryMasterRecords().flatMap((factory) => {
+    const profile = ensureProfile(factory.id)
+    const supportedRows = listFactoryCapacitySupportedCraftRows(factory.id)
+    return ensureFactoryEquipmentArchive(factory.id, profile.entries, supportedRows)
+  })
+}
+
+function findMatchedEquipmentAbility(
+  equipment: FactoryCapacityEquipment,
+  processCode: string,
+  craftCode: string,
+): FactoryCapacityEquipmentAbility | undefined {
+  return equipment.abilityList.find((ability) =>
+    ability.processCode === processCode && ability.craftCode === craftCode,
+  )
+}
+
+export function getFactoryCapacityEquipmentSummary(
+  factoryId: string,
+  processCode: string,
+  craftCode: string,
+): FactoryCapacityEquipmentSummary {
+  const equipments = listFactoryCapacityEquipments(factoryId)
+  const matchedEquipments = equipments.filter((equipment) =>
+    equipment.abilityList.some((ability) => ability.processCode === processCode && ability.craftCode === craftCode),
+  )
+
+  const summary = matchedEquipments.reduce<FactoryCapacityEquipmentSummary>((result, equipment) => {
+    const ability = findMatchedEquipmentAbility(equipment, processCode, craftCode)
+    if (!ability) return result
+
+    const quantity = Math.max(0, equipment.quantity)
+    result.totalEquipmentCount += quantity
+
+    if (equipment.status === 'MAINTENANCE') result.maintenanceEquipmentCount += quantity
+    if (equipment.status === 'STOPPED') result.stoppedEquipmentCount += quantity
+    if (equipment.status === 'FROZEN') result.frozenEquipmentCount += quantity
+
+    if (isCountableEquipmentStatus(equipment.status)) {
+      const shiftMinutesTotal = quantity * equipment.singleShiftMinutes
+      const deviceCapacityTotal = shiftMinutesTotal * ability.efficiencyValue
+
+      result.countableEquipmentCount += quantity
+      result.eligibleShiftMinutesTotal += shiftMinutesTotal
+      result.eligibleDeviceCapacityTotal += deviceCapacityTotal
+    }
+
+    result.matchedEquipments.push(cloneEquipment(equipment))
+    if (!result.efficiencyUnit) result.efficiencyUnit = ability.efficiencyUnit
+    return result
+  }, {
+    factoryId,
+    processCode,
+    craftCode,
+    totalEquipmentCount: 0,
+    countableEquipmentCount: 0,
+    maintenanceEquipmentCount: 0,
+    stoppedEquipmentCount: 0,
+    frozenEquipmentCount: 0,
+    eligibleShiftMinutesTotal: 0,
+    eligibleDeviceCapacityTotal: 0,
+    averageSingleShiftMinutes: 0,
+    weightedEfficiencyValue: 0,
+    efficiencyUnit: '',
+    matchedEquipments: [],
+  })
+
+  if (summary.countableEquipmentCount > 0) {
+    summary.averageSingleShiftMinutes = Number(
+      (summary.eligibleShiftMinutesTotal / summary.countableEquipmentCount).toFixed(2),
+    )
+  }
+  if (summary.eligibleShiftMinutesTotal > 0) {
+    summary.weightedEfficiencyValue = Number(
+      (summary.eligibleDeviceCapacityTotal / summary.eligibleShiftMinutesTotal).toFixed(4),
+    )
+  }
+  if (!summary.efficiencyUnit) {
+    summary.efficiencyUnit = resolveEquipmentEfficiencyUnitByCodes(processCode, craftCode)
+  }
+
+  return summary
+}
+
+export function replaceFactoryCapacityEquipments(factoryId: string, equipments: FactoryCapacityEquipment[]): void {
+  const sanitized = cloneEquipments(equipments).map((equipment, index) => ({
+    ...equipment,
+    factoryId,
+    equipmentId: equipment.equipmentId || `${factoryId}::EQUIPMENT::${index + 1}`,
+    quantity: Math.max(0, equipment.quantity),
+    singleShiftMinutes: Math.max(0, equipment.singleShiftMinutes),
+    abilityList: equipment.abilityList.filter((ability) =>
+      getCapacityProcessCraftOptions().some((option) =>
+        option.processCode === ability.processCode && option.craftCode === ability.craftCode,
+      ),
+    ),
+  }))
+  equipmentsByFactoryId.set(factoryId, sanitized)
+}
+
+export function replaceFactoryCapacityProfileEntries(factoryId: string, entries: FactoryCapacityEntry[]): void {
+  const profile = ensureProfile(factoryId)
+  const supportedPairSet = new Set(
+    listFactoryCapacitySupportedCraftRows(factoryId).map((row) => `${row.processCode}:${row.craftCode}`),
+  )
+  const next: FactoryCapacityProfile = {
+    factoryId,
+    entries: entries
+      .filter((entry) => supportedPairSet.has(`${entry.processCode}:${entry.craftCode}`))
+      .map((entry) => cloneEntry(entry)),
+  }
+  profilesByFactoryId.set(factoryId, cloneProfile(next))
 }
 
 function getNumericValue(
@@ -314,6 +714,10 @@ function getNumericValue(
   if (value === undefined || value === null || String(value).trim() === '') return null
   const numericValue = Number(value)
   return Number.isFinite(numericValue) ? numericValue : null
+}
+
+function isEquipmentLinkedField(key: SamCurrentFieldKey): boolean {
+  return key === 'deviceCount' || key === 'deviceShiftMinutes' || key === 'deviceEfficiencyValue'
 }
 
 function formatResultNumber(value: number): string {
@@ -327,9 +731,18 @@ function formatNamedNumber(key: SamCurrentFieldKey, value: number): string {
 export function computeFactoryCapacityEntryResult(
   row: ProcessCraftDictRow,
   values: Partial<Record<SamCurrentFieldKey, FactoryCapacityFieldValue>>,
+  equipmentSummary?: FactoryCapacityEquipmentSummary,
 ): FactoryCapacityComputedResult {
   const template = getFactorySupplyFormulaTemplate(row.craftName)
-  const missingFieldKeys = row.samCurrentFieldKeys.filter((key) => getNumericValue(values, key) === null)
+  const deviceCountFromArchive = equipmentSummary?.countableEquipmentCount ?? 0
+  const deviceShiftMinutesFromArchive = equipmentSummary?.averageSingleShiftMinutes ?? 0
+  const deviceEfficiencyFromArchive = equipmentSummary?.weightedEfficiencyValue ?? 0
+  const missingFieldKeys = row.samCurrentFieldKeys.filter((key) => {
+    if (!equipmentSummary || !isEquipmentLinkedField(key)) {
+      return getNumericValue(values, key) === null
+    }
+    return false
+  })
   if (missingFieldKeys.length) {
     return {
       template,
@@ -374,8 +787,8 @@ export function computeFactoryCapacityEntryResult(
   }
 
   if (template === 'D') {
-    const deviceCount = getNumericValue(values, 'deviceCount') ?? 0
-    const deviceShiftMinutes = getNumericValue(values, 'deviceShiftMinutes') ?? 0
+    const deviceCount = equipmentSummary ? deviceCountFromArchive : (getNumericValue(values, 'deviceCount') ?? 0)
+    const deviceShiftMinutes = equipmentSummary ? deviceShiftMinutesFromArchive : (getNumericValue(values, 'deviceShiftMinutes') ?? 0)
     const batchLoadCapacity = getNumericValue(values, 'batchLoadCapacity') ?? 0
     const cycleMinutes = getNumericValue(values, 'cycleMinutes') ?? 0
     const staffCount = getNumericValue(values, 'staffCount') ?? 0
@@ -384,8 +797,14 @@ export function computeFactoryCapacityEntryResult(
     const setupMinutes = getNumericValue(values, 'setupMinutes') ?? 0
     const switchMinutes = getNumericValue(values, 'switchMinutes') ?? 0
 
-    const deviceBatchCount = cycleMinutes === 0 ? 0 : deviceShiftMinutes / cycleMinutes
-    const deviceCapacity = deviceBatchCount * batchLoadCapacity * deviceCount
+    const deviceBatchCount = cycleMinutes === 0
+      ? 0
+      : equipmentSummary
+        ? equipmentSummary.eligibleShiftMinutesTotal / cycleMinutes
+        : deviceShiftMinutes / cycleMinutes
+    const deviceCapacity = equipmentSummary
+      ? deviceBatchCount * batchLoadCapacity
+      : deviceBatchCount * batchLoadCapacity * deviceCount
     const staffCapacity = staffCount * staffShiftMinutes * staffEfficiencyValue
     const baseCapacity = Math.min(deviceCapacity, staffCapacity)
     const resultValue = (baseCapacity - setupMinutes - switchMinutes) * efficiencyFactor
@@ -397,12 +816,16 @@ export function computeFactoryCapacityEntryResult(
       lines: [
         {
           label: '单台默认日可运行批数',
-          expression: `${formatNamedNumber('deviceShiftMinutes', deviceShiftMinutes)} ÷ ${formatNamedNumber('cycleMinutes', cycleMinutes)}`,
+          expression: equipmentSummary
+            ? `可计入设备总单班时长（${formatResultNumber(equipmentSummary.eligibleShiftMinutesTotal)}）÷ ${formatNamedNumber('cycleMinutes', cycleMinutes)}`
+            : `${formatNamedNumber('deviceShiftMinutes', deviceShiftMinutes)} ÷ ${formatNamedNumber('cycleMinutes', cycleMinutes)}`,
           result: deviceBatchCount,
         },
         {
           label: '设备侧日能力',
-          expression: `单台默认日可运行批数（${formatResultNumber(deviceBatchCount)}）× ${formatNamedNumber('batchLoadCapacity', batchLoadCapacity)} × ${formatNamedNumber('deviceCount', deviceCount)}`,
+          expression: equipmentSummary
+            ? `单台默认日可运行批数（${formatResultNumber(deviceBatchCount)}）× ${formatNamedNumber('batchLoadCapacity', batchLoadCapacity)}`
+            : `单台默认日可运行批数（${formatResultNumber(deviceBatchCount)}）× ${formatNamedNumber('batchLoadCapacity', batchLoadCapacity)} × ${formatNamedNumber('deviceCount', deviceCount)}`,
           result: deviceCapacity,
         },
         {
@@ -424,16 +847,18 @@ export function computeFactoryCapacityEntryResult(
     }
   }
 
-  const deviceCount = getNumericValue(values, 'deviceCount') ?? 0
-  const deviceShiftMinutes = getNumericValue(values, 'deviceShiftMinutes') ?? 0
-  const deviceEfficiencyValue = getNumericValue(values, 'deviceEfficiencyValue') ?? 0
+  const deviceCount = equipmentSummary ? deviceCountFromArchive : (getNumericValue(values, 'deviceCount') ?? 0)
+  const deviceShiftMinutes = equipmentSummary ? deviceShiftMinutesFromArchive : (getNumericValue(values, 'deviceShiftMinutes') ?? 0)
+  const deviceEfficiencyValue = equipmentSummary ? deviceEfficiencyFromArchive : (getNumericValue(values, 'deviceEfficiencyValue') ?? 0)
   const staffCount = getNumericValue(values, 'staffCount') ?? 0
   const staffShiftMinutes = getNumericValue(values, 'staffShiftMinutes') ?? 0
   const staffEfficiencyValue = getNumericValue(values, 'staffEfficiencyValue') ?? 0
   const setupMinutes = getNumericValue(values, 'setupMinutes') ?? 0
   const switchMinutes = getNumericValue(values, 'switchMinutes') ?? 0
 
-  const deviceCapacity = deviceCount * deviceShiftMinutes * deviceEfficiencyValue
+  const deviceCapacity = equipmentSummary
+    ? equipmentSummary.eligibleDeviceCapacityTotal
+    : deviceCount * deviceShiftMinutes * deviceEfficiencyValue
   const staffCapacity = staffCount * staffShiftMinutes * staffEfficiencyValue
   const baseCapacity = Math.min(deviceCapacity, staffCapacity)
   const resultValue = (baseCapacity - setupMinutes - switchMinutes) * efficiencyFactor
@@ -445,7 +870,9 @@ export function computeFactoryCapacityEntryResult(
     lines: [
       {
         label: '设备侧日能力',
-        expression: `${formatNamedNumber('deviceCount', deviceCount)} × ${formatNamedNumber('deviceShiftMinutes', deviceShiftMinutes)} × ${formatNamedNumber('deviceEfficiencyValue', deviceEfficiencyValue)}`,
+        expression: equipmentSummary
+          ? `可计入设备（${deviceCount}）逐台汇总`
+          : `${formatNamedNumber('deviceCount', deviceCount)} × ${formatNamedNumber('deviceShiftMinutes', deviceShiftMinutes)} × ${formatNamedNumber('deviceEfficiencyValue', deviceEfficiencyValue)}`,
         result: deviceCapacity,
       },
       {
@@ -532,33 +959,32 @@ function getEntryNumericValue(
 
 function resolveEquipmentStatus(factoryId: string, processCode: string): FactoryEquipmentStatus {
   const factory = getFactoryMasterRecordById(factoryId)
-  if (!factory) return 'DISABLED'
-  if ((factory.processAbilities.find((item) => item.processCode === processCode)?.status ?? 'ACTIVE') === 'PAUSED') return 'PAUSED'
-  if (factory.status === 'paused') return 'PAUSED'
-  if (factory.status === 'inactive' || factory.status === 'blacklist') return 'DISABLED'
-  return 'ACTIVE'
+  if (!factory) return 'STOPPED'
+  if ((factory.processAbilities.find((item) => item.processCode === processCode)?.status ?? 'ACTIVE') === 'PAUSED') return 'FROZEN'
+  if (factory.status === 'paused') return 'FROZEN'
+  if (factory.status === 'inactive' || factory.status === 'blacklist') return 'STOPPED'
+  return 'AVAILABLE'
 }
 
 export function listFactoryPostCapacityNodes(factoryId: string): FactoryPostCapacityNode[] {
-  const entryMap = new Map(
+  const entries = new Map(
     listFactoryCapacityEntries(factoryId)
       .filter(({ row }) => isPostCapacityNodeProcess(row.craftCode))
       .map(({ row, entry }) => [row.craftCode, { row, entry }] as const),
   )
+  const equipments = listFactoryCapacityEquipments(factoryId)
 
   return POST_CAPACITY_NODE_CODES.flatMap((nodeCode) => {
-    const resolved = entryMap.get(nodeCode)
+    const resolved = entries.get(nodeCode)
     if (!resolved) return []
 
+    const matchedEquipments = equipments.filter((equipment) =>
+      equipment.abilityList.some((ability) => ability.processCode === 'POST_FINISHING' && ability.craftCode === nodeCode),
+    )
+    const summary = getFactoryCapacityEquipmentSummary(factoryId, 'POST_FINISHING', nodeCode)
     const { row, entry } = resolved
-    const deviceCount = getEntryNumericValue(entry, 'deviceCount') ?? 0
     const operatorCount = getEntryNumericValue(entry, 'staffCount')
-    const shiftMinutes = getEntryNumericValue(entry, 'staffShiftMinutes')
-      ?? getEntryNumericValue(entry, 'deviceShiftMinutes')
-      ?? 0
-    const efficiencyValue = getEntryNumericValue(entry, 'staffEfficiencyValue')
-      ?? getEntryNumericValue(entry, 'deviceEfficiencyValue')
-      ?? getEntryNumericValue(entry, 'efficiencyFactor')
+    const efficiencyValue = summary.weightedEfficiencyValue || getEntryNumericValue(entry, 'staffEfficiencyValue')
 
     return [{
       capacityNodeId: `${factoryId}::${nodeCode}`,
@@ -567,81 +993,48 @@ export function listFactoryPostCapacityNodes(factoryId: string): FactoryPostCapa
       nodeCode,
       nodeName: row.craftName,
       machineType: POST_CAPACITY_NODE_MACHINE_TYPE[nodeCode],
-      machineCount: deviceCount,
+      machineCount: summary.countableEquipmentCount,
       operatorCount,
-      shiftMinutes,
+      shiftMinutes: Math.round(summary.averageSingleShiftMinutes || getEntryNumericValue(entry, 'staffShiftMinutes') || 0),
       efficiencyValue,
-      efficiencyUnit: efficiencyValue == null ? undefined : '系数',
+      efficiencyUnit: efficiencyValue == null ? undefined : (summary.efficiencyUnit || '件/分钟'),
       setupMinutes: getEntryNumericValue(entry, 'setupMinutes'),
       switchMinutes: getEntryNumericValue(entry, 'switchMinutes'),
-      status: resolveEquipmentStatus(factoryId, 'POST_FINISHING'),
+      status: matchedEquipments.some((equipment) => isCountableEquipmentStatus(equipment.status)) ? 'AVAILABLE' : resolveEquipmentStatus(factoryId, 'POST_FINISHING'),
       effectiveFrom: getFactoryMasterRecordById(factoryId)?.updatedAt,
     }]
   })
 }
 
-const PRINT_MACHINE_SEEDS: FactoryPrintMachineCapacity[] = [
-  {
-    printerId: 'PRINTER-ID-F002-01',
-    factoryId: 'ID-F002',
-    printerNo: 'PR-01',
-    printerName: '平网印花机 A',
-    speedValue: 180,
-    speedUnit: '米/小时',
-    shiftMinutes: 540,
-    status: 'ACTIVE',
-    remark: '主线机台',
-  },
-  {
-    printerId: 'PRINTER-ID-F002-02',
-    factoryId: 'ID-F002',
-    printerNo: 'PR-02',
-    printerName: '数码直喷机 B',
-    speedValue: 120,
-    speedUnit: '米/小时',
-    shiftMinutes: 480,
-    status: 'MAINTENANCE',
-    remark: '当前做喷头保养',
-  },
-]
-
-const DYE_VAT_SEEDS: FactoryDyeVatCapacity[] = [
-  {
-    dyeVatId: 'DYEVAT-ID-F003-01',
-    factoryId: 'ID-F003',
-    dyeVatNo: 'VAT-01',
-    capacityQty: 650,
-    capacityUnit: 'kg/缸',
-    supportedMaterialTypes: ['针织棉', '涤棉'],
-    shiftMinutes: 540,
-    status: 'ACTIVE',
-    remark: '常规深色批次',
-  },
-  {
-    dyeVatId: 'DYEVAT-ID-F003-02',
-    factoryId: 'ID-F003',
-    dyeVatNo: 'VAT-02',
-    capacityQty: 900,
-    capacityUnit: 'kg/缸',
-    supportedMaterialTypes: ['牛仔布', '厚磅梭织'],
-    shiftMinutes: 600,
-    status: 'PAUSED',
-    remark: '当前等待排期释放',
-  },
-]
-
 export function listFactoryPrintMachineCapacities(factoryId?: string): FactoryPrintMachineCapacity[] {
-  return PRINT_MACHINE_SEEDS
-    .filter((item) => !factoryId || item.factoryId === factoryId)
-    .map((item) => ({ ...item }))
+  return listFactoryCapacityEquipments(factoryId)
+    .filter((equipment) => equipment.equipmentType === 'PRINT_MACHINE')
+    .map((equipment) => ({
+      printerId: equipment.equipmentId,
+      factoryId: equipment.factoryId,
+      printerNo: equipment.equipmentNo,
+      printerName: equipment.equipmentName,
+      speedValue: equipment.displaySpecValue ?? equipment.abilityList[0]?.efficiencyValue ?? 0,
+      speedUnit: equipment.displaySpecUnit ?? equipment.abilityList[0]?.efficiencyUnit ?? '米/分钟',
+      shiftMinutes: equipment.singleShiftMinutes,
+      status: equipment.status,
+      remark: equipment.remark,
+    }))
 }
 
 export function listFactoryDyeVatCapacities(factoryId?: string): FactoryDyeVatCapacity[] {
-  return DYE_VAT_SEEDS
-    .filter((item) => !factoryId || item.factoryId === factoryId)
-    .map((item) => ({
-      ...item,
-      supportedMaterialTypes: [...item.supportedMaterialTypes],
+  return listFactoryCapacityEquipments(factoryId)
+    .filter((equipment) => equipment.equipmentType === 'DYE_VAT')
+    .map((equipment) => ({
+      dyeVatId: equipment.equipmentId,
+      factoryId: equipment.factoryId,
+      dyeVatNo: equipment.equipmentNo,
+      capacityQty: equipment.displaySpecValue ?? equipment.abilityList[0]?.efficiencyValue ?? 0,
+      capacityUnit: equipment.displaySpecUnit ?? equipment.abilityList[0]?.efficiencyUnit ?? 'kg/缸',
+      supportedMaterialTypes: [...(equipment.supportedMaterialTypes ?? [])],
+      shiftMinutes: equipment.singleShiftMinutes,
+      status: equipment.status,
+      remark: equipment.remark,
     }))
 }
 
@@ -747,7 +1140,11 @@ export function auditFactoryCapacityProfile(factoryId: string): FactoryCapacityA
       })
     }
 
-    const result = computeFactoryCapacityEntryResult(row, entry.values)
+    const result = computeFactoryCapacityEntryResult(
+      row,
+      entry.values,
+      getFactoryCapacityEquipmentSummary(factory.id, row.processCode, row.craftCode),
+    )
     if (result.resultValue === null) {
       issues.push({
         category: 'CALCULATION_UNAVAILABLE',

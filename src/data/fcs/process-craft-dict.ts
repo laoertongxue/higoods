@@ -1492,6 +1492,95 @@ export function listCraftsByStageCode(stageCode: CraftStageCode): ProcessCraftDe
   return processCraftDefinitions.filter((item) => item.stageCode === stageCode)
 }
 
+export interface ProcessCraftOption {
+  processCode: string
+  processName: string
+  craftCode: string
+  craftName: string
+  label: string
+  processRole: ProcessRole
+  stageCode: CraftStageCode
+  isCapacityNode: boolean
+}
+
+function buildProcessCraftOption(definition: ProcessCraftDefinition): ProcessCraftOption | null {
+  const row = getProcessCraftDictRowByCode(definition.craftCode)
+  if (!row || !row.isActive) return null
+
+  const process = getProcessDefinitionByCode(definition.processCode)
+  const isCapacityNode = process?.processRole === 'INTERNAL_CAPACITY_NODE'
+
+  if (isCapacityNode && process?.parentProcessCode) {
+    const parent = getProcessDefinitionByCode(process.parentProcessCode)
+    const processCode = parent?.processCode ?? row.processCode
+    const processName = parent?.processName ?? row.processName
+    const craftCode = process.processCode
+    const craftName = process.processName
+
+    return {
+      processCode,
+      processName,
+      craftCode,
+      craftName,
+      label: `${processName} / ${craftName}`,
+      processRole: process.processRole,
+      stageCode: parent?.stageCode ?? row.stageCode,
+      isCapacityNode: true,
+    }
+  }
+
+  return {
+    processCode: row.processCode,
+    processName: row.processName,
+    craftCode: row.craftCode,
+    craftName: row.craftName,
+    label: `${row.processName} / ${row.craftName}`,
+    processRole: row.processRole,
+    stageCode: row.stageCode,
+    isCapacityNode: false,
+  }
+}
+
+function dedupeProcessCraftOptions(options: ProcessCraftOption[]): ProcessCraftOption[] {
+  const optionMap = new Map<string, ProcessCraftOption>()
+  for (const option of options) {
+    optionMap.set(`${option.processCode}::${option.craftCode}`, option)
+  }
+
+  return [...optionMap.values()].sort((left, right) => {
+    const stageCompare = listProcessStages().findIndex((item) => item.stageCode === left.stageCode)
+      - listProcessStages().findIndex((item) => item.stageCode === right.stageCode)
+    if (stageCompare !== 0) return stageCompare
+    const processCompare = left.processName.localeCompare(right.processName, 'zh-CN')
+    if (processCompare !== 0) return processCompare
+    return left.craftName.localeCompare(right.craftName, 'zh-CN')
+  })
+}
+
+export function getActiveProcessCraftOptions(): ProcessCraftOption[] {
+  return dedupeProcessCraftOptions(
+    listActiveProcessCraftDefinitions()
+      .map((item) => buildProcessCraftOption(item))
+      .filter((item): item is ProcessCraftOption => Boolean(item)),
+  )
+}
+
+export function getCapacityProcessCraftOptions(): ProcessCraftOption[] {
+  return getActiveProcessCraftOptions().filter((item) => {
+    const process = getProcessDefinitionByCode(item.isCapacityNode ? item.craftCode : item.processCode)
+    if (item.isCapacityNode) return true
+    return process?.capacityEnabled ?? false
+  })
+}
+
+export function getExternalTaskProcessCraftOptions(): ProcessCraftOption[] {
+  return getActiveProcessCraftOptions().filter((item) => !item.isCapacityNode)
+}
+
+export function getCapacityNodeProcessCraftOptions(): ProcessCraftOption[] {
+  return getActiveProcessCraftOptions().filter((item) => item.isCapacityNode)
+}
+
 export function getAssignmentGranularityByCraftCode(craftCode: string): ProcessAssignmentGranularity {
   return processCraftByCode.get(craftCode)?.assignmentGranularity ?? 'ORDER'
 }

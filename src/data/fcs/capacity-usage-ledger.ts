@@ -1,4 +1,8 @@
-import { computeFactoryCapacityEntryResult, listFactoryCapacityEntries } from './factory-capacity-profile-mock.ts'
+import {
+  computeFactoryCapacityEntryResult,
+  getFactoryCapacityEquipmentSummary,
+  listFactoryCapacityEntries,
+} from './factory-capacity-profile-mock.ts'
 import {
   CAPACITY_DATE_INCOMPLETE_NOTE,
   CAPACITY_TIGHT_THRESHOLD_RATIO,
@@ -463,7 +467,16 @@ function resolveFactoryDailySupplySam(
       ({ row }) => row.processCode === processCode && row.craftCode === craftCode,
     )
     dailySupplySam = roundSam(
-      Math.max(entry ? (computeFactoryCapacityEntryResult(entry.row, entry.entry.values).resultValue ?? 0) : 0, 0),
+      Math.max(
+        entry
+          ? (computeFactoryCapacityEntryResult(
+              entry.row,
+              entry.entry.values,
+              getFactoryCapacityEquipmentSummary(factoryId, processCode, craftCode),
+            ).resultValue ?? 0)
+          : 0,
+        0,
+      ),
     )
   } catch {
     dailySupplySam = 0

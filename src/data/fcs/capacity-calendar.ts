@@ -19,12 +19,18 @@ import {
 } from './capacity-usage-ledger.ts'
 import {
   computeFactoryCapacityEntryResult,
+  getFactoryCapacityEquipmentSummary,
   listFactoryCapacityEntries,
 } from './factory-capacity-profile-mock.ts'
 import {
   getFactoryMasterRecordById,
   listFactoryMasterRecords,
 } from './factory-master-store.ts'
+import {
+  getCapacityNodeProcessCraftOptions,
+  getCapacityProcessCraftOptions,
+  getExternalTaskProcessCraftOptions,
+} from './process-craft-dict.ts'
 import {
   listRuntimeExecutionTasks,
   resolveRuntimeAllocatableGroupPublishedSam,
@@ -1711,7 +1717,11 @@ export function buildCapacityCalendarData(): CapacityCalendarData {
       const craftKey = `${row.processCode}::${row.craftCode}`
       if (activeCraftKeys.size > 0 && !activeCraftKeys.has(craftKey)) continue
 
-      const computed = computeFactoryCapacityEntryResult(row, entry.values)
+      const computed = computeFactoryCapacityEntryResult(
+        row,
+        entry.values,
+        getFactoryCapacityEquipmentSummary(factory.id, row.processCode, row.craftCode),
+      )
       const baseSupplySam = roundSam(Math.max(computed.resultValue ?? 0, 0))
 
       for (const date of displayDates) {
@@ -2010,7 +2020,16 @@ export function buildFactoryCalendarData(input?: {
         craftName: row.craftName,
       })
       registerIdentity(identity)
-      const dailySupplySam = roundSam(Math.max(computeFactoryCapacityEntryResult(row, entry.values).resultValue ?? 0, 0))
+      const dailySupplySam = roundSam(
+        Math.max(
+          computeFactoryCapacityEntryResult(
+            row,
+            entry.values,
+            getFactoryCapacityEquipmentSummary(selectedFactoryId, row.processCode, row.craftCode),
+          ).resultValue ?? 0,
+          0,
+        ),
+      )
 
       for (const date of dates) {
         const seed = getRowSeed(identity, date)
@@ -2421,9 +2440,17 @@ function buildBottleneckProcessOptions(
   selectedCraftOption?: { processCode: string },
   selectedProcessCode?: string,
 ): { processOptions: CapacityRiskFilterOption[]; selectedProcessCode: string } {
-  const processOptions = [...optionMap.entries()]
-    .sort((left, right) => left[1].localeCompare(right[1]))
-    .map(([value, label]) => ({ value, label }))
+  const processOptions = getCapacityProcessCraftOptions()
+    .filter((item) => optionMap.has(item.processCode))
+    .reduce<CapacityRiskFilterOption[]>((result, item) => {
+      if (!result.some((option) => option.value === item.processCode)) {
+        result.push({
+          value: item.processCode,
+          label: item.processName,
+        })
+      }
+      return result
+    }, [])
   return {
     processOptions,
     selectedProcessCode: selectedCraftOption?.processCode
@@ -2436,13 +2463,13 @@ function buildBottleneckCraftOptions(
   optionMap: Map<string, { label: string; processCode: string }>,
   selectedProcessCode: string,
 ): Array<CapacityRiskFilterOption & { processCode: string }> {
-  return [...optionMap.entries()]
-    .sort((left, right) => left[1].label.localeCompare(right[1].label))
-    .map(([value, item]) => ({
-      value,
+  return getCapacityProcessCraftOptions()
+    .map((item) => ({
+      value: `${item.processCode}::${item.craftCode}`,
       label: item.label,
       processCode: item.processCode,
     }))
+    .filter((item) => optionMap.has(item.value))
     .filter((item) => (selectedProcessCode ? item.processCode === selectedProcessCode : true))
 }
 
@@ -2528,7 +2555,16 @@ export function buildCapacityBottleneckData(input?: {
         craftName: row.craftName,
       })
       registerIdentity(identity)
-      const dailySupplySam = roundSam(Math.max(computeFactoryCapacityEntryResult(row, entry.values).resultValue ?? 0, 0))
+      const dailySupplySam = roundSam(
+        Math.max(
+          computeFactoryCapacityEntryResult(
+            row,
+            entry.values,
+            getFactoryCapacityEquipmentSummary(factory.id, row.processCode, row.craftCode),
+          ).resultValue ?? 0,
+          0,
+        ),
+      )
       for (const date of dates) {
         const seed = getDailyRowSeed(date, factory.id, factory.name, identity)
         seed.supplySam = roundSam(seed.supplySam + dailySupplySam)
@@ -3203,33 +3239,29 @@ export function resolveProductionOrderRisk(taskRows: CapacityRiskTaskRow[]): Cap
 }
 
 function buildRiskProcessOptions(taskRows: CapacityRiskTaskRow[]): CapacityRiskFilterOption[] {
-  const map = new Map<string, string>()
-  for (const row of taskRows) {
-    if (!map.has(row.processCode)) map.set(row.processCode, row.processName)
-  }
-  return [...map.entries()]
-    .sort((left, right) => left[1].localeCompare(right[1]))
-    .map(([value, label]) => ({ value, label }))
+  const processCodeSet = new Set(taskRows.map((row) => row.processCode))
+  return getExternalTaskProcessCraftOptions()
+    .filter((item) => processCodeSet.has(item.processCode))
+    .reduce<CapacityRiskFilterOption[]>((result, item) => {
+      if (!result.some((option) => option.value === item.processCode)) {
+        result.push({
+          value: item.processCode,
+          label: item.processName,
+        })
+      }
+      return result
+    }, [])
 }
 
 function buildRiskCraftOptions(taskRows: CapacityRiskTaskRow[]): Array<CapacityRiskFilterOption & { processCode: string }> {
-  const map = new Map<string, { label: string; processCode: string }>()
-  for (const row of taskRows) {
-    const key = `${row.processCode}::${row.craftCode}`
-    if (!map.has(key)) {
-      map.set(key, {
-        label: `${row.processName} / ${row.craftName}`,
-        processCode: row.processCode,
-      })
-    }
-  }
-  return [...map.entries()]
-    .sort((left, right) => left[1].label.localeCompare(right[1].label))
-    .map(([key, value]) => ({
-      value: key,
-      label: value.label,
-      processCode: value.processCode,
+  const craftKeySet = new Set(taskRows.map((row) => `${row.processCode}::${row.craftCode}`))
+  return getExternalTaskProcessCraftOptions()
+    .map((item) => ({
+      value: `${item.processCode}::${item.craftCode}`,
+      label: item.label,
+      processCode: item.processCode,
     }))
+    .filter((item) => craftKeySet.has(item.value))
 }
 
 function summarizeTaskRiskRows(rows: CapacityRiskTaskRow[]): CapacityRiskSummary {

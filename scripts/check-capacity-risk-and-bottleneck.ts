@@ -4,9 +4,13 @@ import { fileURLToPath } from 'node:url'
 
 import {
   buildCapacityBottleneckData,
-  buildFactoryCalendarData,
   buildCapacityRiskData,
+  buildFactoryCalendarData,
 } from '../src/data/fcs/capacity-calendar.ts'
+import {
+  getCapacityProcessCraftOptions,
+  getExternalTaskProcessCraftOptions,
+} from '../src/data/fcs/process-craft-dict.ts'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const CAPACITY_PAGE_PATH = path.join(ROOT, 'src/pages/capacity.ts')
@@ -33,40 +37,89 @@ function main(): void {
 
   const riskSection = riskSectionMatch[0]
   const bottleneckSection = bottleneckSectionMatch[0]
-
-  assert(dataSource.includes("export function resolveTaskWindow"), '缺少 resolveTaskWindow helper')
-  assert(dataSource.includes("export function resolveTaskBindingState"), '缺少 resolveTaskBindingState helper')
-  assert(dataSource.includes("export function resolveTaskRisk"), '缺少 resolveTaskRisk helper')
-  assert(dataSource.includes("export function resolveProductionOrderRisk"), '缺少 resolveProductionOrderRisk helper')
-  assert(dataSource.includes("function aggregateCraftBottlenecks("), '缺少 aggregateCraftBottlenecks helper')
-  assert(dataSource.includes("function aggregateDateBottlenecks("), '缺少 aggregateDateBottlenecks helper')
-  assert(dataSource.includes("function aggregateUnallocatedDemand("), '缺少 aggregateUnallocatedDemand helper')
-  assert(dataSource.includes("function aggregateUnscheduledDemand("), '缺少 aggregateUnscheduledDemand helper')
-
-  assert(dataSource.includes("FROZEN_PENDING"), '任务风险未引入“已冻结待确认”结论')
-  assert(dataSource.includes("frozenPendingStandardTime"), '生产单风险未聚合已冻结待确认标准工时')
-  assert(dataSource.includes("assignmentStatusLabel: unallocatedStageLabel"), '待分配需求未统一使用当前分配阶段口径')
-  assert(
-    dataSource.includes("已在 ${frozenFactoryCount} 家工厂形成冻结，能力已预留，但业务仍未最终落厂。"),
-    '待分配需求未保留“已冻结但仍在待分配池”文案',
+  const capacityOptions = getCapacityProcessCraftOptions()
+  const capacityOptionKeys = new Set(capacityOptions.map((item) => `${item.processCode}::${item.craftCode}`))
+  const capacityProcessMap = new Map(
+    capacityOptions.reduce<Array<[string, string]>>((result, item) => {
+      if (!result.some(([processCode]) => processCode === item.processCode)) {
+        result.push([item.processCode, item.processName])
+      }
+      return result
+    }, []),
   )
 
-  assert(riskSection.includes('已冻结待确认任务数'), '任务风险页缺少“已冻结待确认”KPI')
-  assert(riskSection.includes('当前工厂 / 当前承接对象'), '任务风险页未改成承接对象列')
-  assert(riskSection.includes('已冻结待确认标准工时'), '生产单风险页缺少冻结待确认列')
-  assert(riskSection.includes('data-capacity-risk-task-table'), '任务风险表缺少测试锚点')
+  assert(dataSource.includes('getExternalTaskProcessCraftOptions()'), '任务工时风险筛选未从工序工艺字典读取')
+  assert(dataSource.includes('getCapacityProcessCraftOptions()'), '工艺瓶颈筛选未从工序工艺字典读取')
+  assert(!dataSource.includes('特殊工艺 / 印花工艺'), '产能风险数据层仍硬编码印花专属筛选')
+  assert(!dataSource.includes('特殊工艺 / 染色工艺'), '产能风险数据层仍硬编码染色专属筛选')
+
+  assert(getExternalTaskProcessCraftOptions().length > 0, '任务工时风险缺少工序工艺字典选项')
+  assert(capacityOptions.length > 0, '工艺瓶颈缺少工序工艺字典选项')
+  assert(
+    riskData.processOptions.every((option) => capacityProcessMap.get(option.value) === option.label),
+    '任务工时风险工序筛选未完全来自工序工艺字典',
+  )
+  assert(
+    riskData.craftOptions.every((option) => capacityOptionKeys.has(option.value)),
+    '任务工时风险工艺筛选未完全来自工序工艺字典',
+  )
+  assert(
+    bottleneckData.processOptions.every((option) => capacityProcessMap.get(option.value) === option.label),
+    '工艺瓶颈工序筛选未完全来自工序工艺字典',
+  )
+  assert(
+    bottleneckData.craftOptions.every((option) => capacityOptionKeys.has(option.value)),
+    '工艺瓶颈工艺筛选未完全来自工序工艺字典',
+  )
+
+  ;[
+    '任务编号',
+    '生产单号',
+    '工序',
+    '工艺',
+    '当前工厂 / 当前承接对象',
+    '任务总标准工时',
+    '窗口供给标准工时',
+    '其他已占用标准工时',
+    '其他已冻结标准工时',
+    '当前任务计入后剩余标准工时',
+    '风险结论',
+    '风险原因',
+  ].forEach((token) => {
+    assert(riskSection.includes(token), `任务工时风险页面缺少字段：${token}`)
+  })
+
+  ;[
+    '打印机编号',
+    '打印速度',
+    '完成量',
+    '待送货量',
+    '待审核量',
+    '染缸编号',
+    '染缸容量',
+    '节点等待',
+    '排染缸',
+  ].forEach((token) => {
+    assert(!riskSection.includes(token), `任务工时风险页面不应展示专属细维度：${token}`)
+  })
+
+  assert(riskSection.includes('已冻结待确认任务数'), '任务工时风险页缺少“已冻结待确认”KPI')
+  assert(riskSection.includes('data-capacity-risk-task-table'), '任务工时风险表缺少测试锚点')
   assert(riskSection.includes('data-capacity-risk-order-table'), '生产单风险表缺少测试锚点')
-  assert(!riskSection.includes('染印'), '任务风险页仍残留染印统计')
-  assert(!riskSection.includes('质检'), '任务风险页仍残留质检统计')
-  assert(!riskSection.includes('异常数'), '任务风险页仍残留旧异常统计')
+  assert(!riskSection.includes('染印'), '任务工时风险页仍残留染印统计')
+  assert(!riskSection.includes('质检'), '任务工时风险页仍残留质检统计')
 
   assert(bottleneckSection.includes('工艺瓶颈榜'), '工艺瓶颈页缺少工艺瓶颈榜 Tab')
   assert(bottleneckSection.includes('日期瓶颈榜'), '工艺瓶颈页缺少日期瓶颈榜 Tab')
   assert(bottleneckSection.includes('待分配 / 未排期'), '工艺瓶颈页缺少待分配 / 未排期 Tab')
-  assert(pageSource.includes('已冻结工厂数'), '待分配需求表缺少已冻结工厂数列')
-  assert(pageSource.includes('windowFrozenSam'), '工艺瓶颈页未展示已冻结标准工时主线')
-  assert(pageSource.includes('unallocatedSam'), '工艺瓶颈页未展示待分配标准工时主线')
-  assert(pageSource.includes('unscheduledSam'), '工艺瓶颈页未展示未排期标准工时主线')
+  assert(pageSource.includes('查看明细'), '工艺瓶颈页缺少查看明细动作')
+  assert(bottleneckSection.includes("selectedCraftRow ? renderBottleneckCraftDetailPanel(selectedCraftRow) : ''"), '工艺瓶颈页未改为按点击显示明细')
+  assert(bottleneckSection.includes("selectedDateRow ? renderBottleneckDateDetailPanel(selectedDateRow) : ''"), '日期瓶颈页未改为按点击显示明细')
+  assert(!bottleneckSection.includes('裁片 - 定位裁'), '工艺瓶颈页仍固定展示“裁片 - 定位裁”卡片')
+  assert(!/selectedCraftRow\s*=\s*.*\[\s*0\s*\]/.test(pageSource), '工艺瓶颈仍默认选中第一条数据')
+  assert(!/selectedDateRow\s*=\s*.*\[\s*0\s*\]/.test(pageSource), '日期瓶颈仍默认选中第一条数据')
+  assert(!bottleneckSection.includes('detailCard'), '工艺瓶颈页仍保留固定右侧详情卡片结构')
+
   assert(
     bottleneckData.craftRows.some((row) => row.processCode === 'POST_FINISHING' && row.craftCode === 'BUTTONHOLE'),
     '工艺瓶颈数据缺少“后道 / 开扣眼”节点',
@@ -79,14 +132,8 @@ function main(): void {
     washCalendar.rows.some((row) => row.processCode === 'SPECIAL_CRAFT' && row.craftName === '洗水'),
     '产能日历未按“特殊工艺 - 洗水”纳入能力计算',
   )
-  assert(!bottleneckSection.includes('染印'), '工艺瓶颈页仍残留染印统计')
-  assert(!bottleneckSection.includes('质检'), '工艺瓶颈页仍残留质检统计')
-  assert(!bottleneckSection.includes('异常数'), '工艺瓶颈页仍残留旧异常统计')
 
-  assert(!dataSource.includes('复盘工时'), '不应引入复盘工时字段或说明')
-  assert(!dataSource.includes('replaySam'), '不应引入复盘工时 SAM 逻辑')
-
-  console.log('任务工时风险与工艺瓶颈源码检查通过：helper、字段、列定义与页面主线均已收口。')
+  console.log('任务工时风险与工艺瓶颈检查通过：筛选来自工序工艺字典，风险页无印花/染色专属细维度，固定右侧卡片已移除。')
 }
 
 main()

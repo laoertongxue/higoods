@@ -1684,18 +1684,9 @@ function renderBottleneckUnscheduledTable(rows: CapacityBottleneckUnscheduledTas
   `
 }
 
-function renderBottleneckCraftDetailPanel(row: CapacityBottleneckCraftRow | null): string {
-  if (!row) {
-    return `
-      <aside class="rounded-md border bg-card p-4">
-        <h3 class="text-sm font-semibold text-foreground">工艺明细</h3>
-        <p class="mt-2 text-sm text-muted-foreground">从左侧工艺瓶颈榜选择一行后，可查看该工艺在当前窗口内的日期分布和工厂分布。</p>
-      </aside>
-    `
-  }
-
+function renderBottleneckCraftDetailPanel(row: CapacityBottleneckCraftRow): string {
   return `
-    <aside class="rounded-md border bg-card" data-bottleneck-craft-detail>
+    <section class="rounded-md border bg-card" data-bottleneck-craft-detail>
       <div class="border-b bg-muted/30 px-4 py-3">
         <h3 class="text-sm font-semibold text-foreground">${escapeHtml(formatCapacityScopeText(row.processName, row.craftName))}</h3>
         <p class="mt-1 text-xs text-muted-foreground">窗口总供给 ${escapeHtml(formatSamValue(row.windowSupplySam))} / 已占用 ${escapeHtml(formatSamValue(row.windowCommittedSam))} / 已冻结 ${escapeHtml(formatSamValue(row.windowFrozenSam))} / 剩余 ${escapeHtml(formatSamValue(row.windowRemainingSam))}</p>
@@ -1764,22 +1755,13 @@ function renderBottleneckCraftDetailPanel(row: CapacityBottleneckCraftRow | null
           </div>
         </section>
       </div>
-    </aside>
+    </section>
   `
 }
 
-function renderBottleneckDateDetailPanel(row: CapacityBottleneckDateRow | null): string {
-  if (!row) {
-    return `
-      <aside class="rounded-md border bg-card p-4">
-        <h3 class="text-sm font-semibold text-foreground">日期明细</h3>
-        <p class="mt-2 text-sm text-muted-foreground">从左侧日期瓶颈榜选择一行后，可查看当天哪些工厂 / 工艺最紧。</p>
-      </aside>
-    `
-  }
-
+function renderBottleneckDateDetailPanel(row: CapacityBottleneckDateRow): string {
   return `
-    <aside class="rounded-md border bg-card" data-bottleneck-date-detail>
+    <section class="rounded-md border bg-card" data-bottleneck-date-detail>
       <div class="border-b bg-muted/30 px-4 py-3">
         <h3 class="text-sm font-semibold text-foreground">${escapeHtml(row.date)}</h3>
         <p class="mt-1 text-xs text-muted-foreground">当日供给 ${escapeHtml(formatSamValue(row.supplySam))} / 已占用 ${escapeHtml(formatSamValue(row.committedSam))} / 已冻结 ${escapeHtml(formatSamValue(row.frozenSam))} / 剩余 ${escapeHtml(formatSamValue(row.remainingSam))}</p>
@@ -1820,11 +1802,11 @@ function renderBottleneckDateDetailPanel(row: CapacityBottleneckDateRow | null):
                     )
                     .join('')
                 : '<tr><td colspan="9" class="px-3 py-10 text-center text-sm text-muted-foreground">当前日期下暂无工艺瓶颈明细</td></tr>'
-            }
+          }
           </tbody>
         </table>
       </div>
-    </aside>
+    </section>
   `
 }
 
@@ -1854,12 +1836,10 @@ export function renderCapacityBottleneckPage(): string {
     unscheduledRows: filteredUnscheduledRows,
   })
 
-  const selectedCraftRow =
-    filteredCraftRows.find((row) => row.rowKey === state.bottleneckCraftDetailKey) ?? filteredCraftRows[0] ?? null
-  const selectedDateRow =
-    filteredDateRows.find((row) => row.date === state.bottleneckDateDetailKey) ?? filteredDateRows[0] ?? null
-  state.bottleneckCraftDetailKey = selectedCraftRow?.rowKey ?? ''
-  state.bottleneckDateDetailKey = selectedDateRow?.date ?? ''
+  const selectedCraftRow = filteredCraftRows.find((row) => row.rowKey === state.bottleneckCraftDetailKey) ?? null
+  const selectedDateRow = filteredDateRows.find((row) => row.date === state.bottleneckDateDetailKey) ?? null
+  if (!selectedCraftRow) state.bottleneckCraftDetailKey = ''
+  if (!selectedDateRow) state.bottleneckDateDetailKey = ''
 
   return `
     <div class="space-y-6" data-capacity-bottleneck-page>
@@ -1915,7 +1895,7 @@ export function renderCapacityBottleneckPage(): string {
         ${
           state.bottleneckTab === 'craft'
             ? `
-              <div class="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(360px,1fr)]">
+              <div class="space-y-4">
                 <div class="rounded-md border">
                   <div class="border-b bg-muted/30 px-4 py-3">
                     <h2 class="text-sm font-semibold text-foreground">工艺瓶颈榜</h2>
@@ -1945,12 +1925,12 @@ export function renderCapacityBottleneckPage(): string {
                     </table>
                   </div>
                 </div>
-                ${renderBottleneckCraftDetailPanel(selectedCraftRow)}
+                ${selectedCraftRow ? renderBottleneckCraftDetailPanel(selectedCraftRow) : ''}
               </div>
             `
             : state.bottleneckTab === 'date'
               ? `
-                <div class="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(360px,1fr)]">
+                <div class="space-y-4">
                   <div class="rounded-md border">
                     <div class="border-b bg-muted/30 px-4 py-3">
                       <h2 class="text-sm font-semibold text-foreground">日期瓶颈榜</h2>
@@ -1978,7 +1958,7 @@ export function renderCapacityBottleneckPage(): string {
                       </table>
                     </div>
                   </div>
-                  ${renderBottleneckDateDetailPanel(selectedDateRow)}
+                  ${selectedDateRow ? renderBottleneckDateDetailPanel(selectedDateRow) : ''}
                 </div>
               `
               : `
@@ -2608,12 +2588,14 @@ export function handleCapacityEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'open-bottleneck-craft-detail') {
-    state.bottleneckCraftDetailKey = actionNode.dataset.rowKey ?? ''
+    const rowKey = actionNode.dataset.rowKey ?? ''
+    state.bottleneckCraftDetailKey = state.bottleneckCraftDetailKey === rowKey ? '' : rowKey
     return true
   }
 
   if (action === 'open-bottleneck-date-detail') {
-    state.bottleneckDateDetailKey = actionNode.dataset.date ?? ''
+    const date = actionNode.dataset.date ?? ''
+    state.bottleneckDateDetailKey = state.bottleneckDateDetailKey === date ? '' : date
     return true
   }
 

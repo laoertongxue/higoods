@@ -2,10 +2,13 @@ import {
   calculateFactoryCapacityCompletion,
   computeFactoryCapacityEntryResult,
   getFactoryCapacityProfileByFactoryId,
+  getFactoryCapacityEquipmentSummary,
   listFactoryCapacityEntries,
-  listFactoryDyeVatCapacities,
-  listFactoryPostCapacityNodes,
-  listFactoryPrintMachineCapacities,
+  listFactoryCapacityEquipments,
+  replaceFactoryCapacityEquipments,
+  replaceFactoryCapacityProfileEntries,
+  type FactoryCapacityEquipmentSummary,
+  type FactoryCapacityResolvedEntry,
 } from '../data/fcs/factory-capacity-profile-mock'
 import {
   getFactoryMasterRecordById,
@@ -18,11 +21,13 @@ import {
   factoryStatusConfig,
   factoryTypeConfig,
   type Factory,
+  type FactoryCapacityEquipment,
   type FactoryCapacityFieldValue,
   type FactoryType,
 } from '../data/fcs/factory-types'
 import {
   SAM_CALC_MODE_LABEL,
+  getCapacityProcessCraftOptions,
   getProcessDefinitionByCode,
   listProcessStages,
   listProcessesByStageCode,
@@ -32,7 +37,6 @@ import {
 import { getSamBusinessFieldDescription, getSamBusinessFieldLabel } from '../data/fcs/sam-field-display'
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
-import { updateFactoryCapacityEntryValue } from '../data/fcs/factory-capacity-profile-mock'
 
 const PAGE_SIZE = 10
 
@@ -42,6 +46,9 @@ interface FactoryCapacityProfilePageState {
   typeFilter: string
   currentPage: number
   activeFactoryId: string
+  detailMode: 'detail' | 'edit'
+  draftEntries: FactoryCapacityResolvedEntry[]
+  draftEquipments: FactoryCapacityEquipment[]
 }
 
 const state: FactoryCapacityProfilePageState = {
@@ -50,6 +57,9 @@ const state: FactoryCapacityProfilePageState = {
   typeFilter: 'all',
   currentPage: 1,
   activeFactoryId: '',
+  detailMode: 'detail',
+  draftEntries: [],
+  draftEquipments: [],
 }
 
 function getVisibleFactories(): Factory[] {
@@ -87,6 +97,112 @@ function getFactoryTypeOptions(): FactoryType[] {
 function getSelectedFactory(): Factory | null {
   if (!state.activeFactoryId) return null
   return getFactoryMasterRecordById(state.activeFactoryId) ?? null
+}
+
+function cloneResolvedEntries(entries: FactoryCapacityResolvedEntry[]): FactoryCapacityResolvedEntry[] {
+  return entries.map(({ row, entry }) => ({
+    row,
+    entry: {
+      processCode: entry.processCode,
+      craftCode: entry.craftCode,
+      values: { ...entry.values },
+      note: entry.note,
+    },
+  }))
+}
+
+function cloneEquipments(equipments: FactoryCapacityEquipment[]): FactoryCapacityEquipment[] {
+  return equipments.map((equipment) => ({
+    ...equipment,
+    abilityList: equipment.abilityList.map((ability) => ({ ...ability })),
+    supportedMaterialTypes: equipment.supportedMaterialTypes ? [...equipment.supportedMaterialTypes] : undefined,
+  }))
+}
+
+function resetDraftState(factoryId: string): void {
+  state.draftEntries = cloneResolvedEntries(listFactoryCapacityEntries(factoryId))
+  state.draftEquipments = cloneEquipments(listFactoryCapacityEquipments(factoryId))
+}
+
+function getCurrentEntries(factoryId: string): FactoryCapacityResolvedEntry[] {
+  return state.detailMode === 'edit' && state.activeFactoryId === factoryId
+    ? state.draftEntries
+    : listFactoryCapacityEntries(factoryId)
+}
+
+function getCurrentEquipments(factoryId: string): FactoryCapacityEquipment[] {
+  return state.detailMode === 'edit' && state.activeFactoryId === factoryId
+    ? state.draftEquipments
+    : listFactoryCapacityEquipments(factoryId)
+}
+
+function isCountableEquipmentStatus(status: FactoryCapacityEquipment['status']): boolean {
+  return status === 'AVAILABLE' || status === 'IN_USE'
+}
+
+function buildEquipmentSummary(
+  factoryId: string,
+  processCode: string,
+  craftCode: string,
+): FactoryCapacityEquipmentSummary {
+  if (!(state.detailMode === 'edit' && state.activeFactoryId === factoryId)) {
+    return getFactoryCapacityEquipmentSummary(factoryId, processCode, craftCode)
+  }
+
+  const matchedEquipments = getCurrentEquipments(factoryId).filter((equipment) =>
+    equipment.abilityList.some((ability) => ability.processCode === processCode && ability.craftCode === craftCode),
+  )
+
+  const summary = matchedEquipments.reduce<FactoryCapacityEquipmentSummary>((result, equipment) => {
+    const ability = equipment.abilityList.find(
+      (item) => item.processCode === processCode && item.craftCode === craftCode,
+    )
+    if (!ability) return result
+
+    result.totalEquipmentCount += equipment.quantity
+    if (equipment.status === 'MAINTENANCE') result.maintenanceEquipmentCount += equipment.quantity
+    if (equipment.status === 'STOPPED') result.stoppedEquipmentCount += equipment.quantity
+    if (equipment.status === 'FROZEN') result.frozenEquipmentCount += equipment.quantity
+
+    if (isCountableEquipmentStatus(equipment.status)) {
+      const shiftMinutesTotal = equipment.quantity * equipment.singleShiftMinutes
+      result.countableEquipmentCount += equipment.quantity
+      result.eligibleShiftMinutesTotal += shiftMinutesTotal
+      result.eligibleDeviceCapacityTotal += shiftMinutesTotal * ability.efficiencyValue
+    }
+
+    result.efficiencyUnit = result.efficiencyUnit || ability.efficiencyUnit
+    result.matchedEquipments.push({
+      ...equipment,
+      abilityList: equipment.abilityList.map((item) => ({ ...item })),
+      supportedMaterialTypes: equipment.supportedMaterialTypes ? [...equipment.supportedMaterialTypes] : undefined,
+    })
+    return result
+  }, {
+    factoryId,
+    processCode,
+    craftCode,
+    totalEquipmentCount: 0,
+    countableEquipmentCount: 0,
+    maintenanceEquipmentCount: 0,
+    stoppedEquipmentCount: 0,
+    frozenEquipmentCount: 0,
+    eligibleShiftMinutesTotal: 0,
+    eligibleDeviceCapacityTotal: 0,
+    averageSingleShiftMinutes: 0,
+    weightedEfficiencyValue: 0,
+    efficiencyUnit: '',
+    matchedEquipments: [],
+  })
+
+  summary.averageSingleShiftMinutes = summary.countableEquipmentCount
+    ? Number((summary.eligibleShiftMinutesTotal / summary.countableEquipmentCount).toFixed(2))
+    : 0
+  summary.weightedEfficiencyValue = summary.eligibleShiftMinutesTotal
+    ? Number((summary.eligibleDeviceCapacityTotal / summary.eligibleShiftMinutesTotal).toFixed(4))
+    : 0
+
+  return summary
 }
 
 function getSupportedProcessCount(factory: Factory): number {
@@ -243,126 +359,239 @@ function renderReadonlyProcessAbilities(factory: Factory): string {
   `
 }
 
-function renderPostCapacityNodesSection(factoryId: string): string {
-  const rows = listFactoryPostCapacityNodes(factoryId)
-  if (!rows.length) return ''
+function resolveEquipmentGroupLabel(equipment: FactoryCapacityEquipment): string {
+  if (equipment.equipmentType === 'PRINT_MACHINE') return '印花打印机'
+  if (equipment.equipmentType === 'DYE_VAT') return '染缸'
+  if (equipment.equipmentType === 'POST_NODE') return '后道'
+  if (equipment.abilityList.some((ability) => ability.processCode === 'POST_FINISHING')) return '后道'
+  return '设备'
+}
+
+function resolveEquipmentEfficiencyDisplay(equipment: FactoryCapacityEquipment): string {
+  if (!equipment.abilityList.length) return '暂无数据'
+  const firstAbility = equipment.abilityList[0]
+  return `${firstAbility.efficiencyValue} ${firstAbility.efficiencyUnit}`.trim()
+}
+
+function renderEquipmentAbilityText(equipment: FactoryCapacityEquipment): string {
+  if (!equipment.abilityList.length) return '暂无数据'
+  return equipment.abilityList
+    .map((ability) => `${ability.processName} / ${ability.craftName}`)
+    .join('、')
+}
+
+function getEquipmentAbilityOptions() {
+  return getCapacityProcessCraftOptions().map((option) => ({
+    value: `${option.processCode}::${option.craftCode}`,
+    label: option.label,
+  }))
+}
+
+function renderEquipmentReadonlyTable(factoryId: string): string {
+  const equipments = getCurrentEquipments(factoryId)
+  if (!equipments.length) {
+    return '<div class="rounded-lg border border-dashed px-4 py-6 text-sm text-muted-foreground">暂无数据</div>'
+  }
 
   return `
-    <section class="space-y-3" data-testid="factory-post-capacity-nodes">
-      <div class="flex items-center justify-between gap-3">
-        <h4 class="text-sm font-medium text-foreground">产能节点</h4>
-        <span class="text-xs text-muted-foreground">后道</span>
-      </div>
-      <div class="overflow-hidden rounded-lg border">
-        <table class="w-full text-sm">
-          <thead class="bg-muted/30">
-            <tr>
-              <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">节点</th>
-              <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">设备数</th>
-              <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">人员数</th>
-              <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">单班时长</th>
-              <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">标准效率</th>
-              <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">状态</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows
-              .map(
-                (row) => `
-                  <tr class="border-t">
-                    <td class="px-3 py-3 font-medium">${escapeHtml(row.nodeName)}</td>
-                    <td class="px-3 py-3">${row.machineCount}</td>
-                    <td class="px-3 py-3">${row.operatorCount ?? '—'}</td>
-                    <td class="px-3 py-3">${row.shiftMinutes} 分钟</td>
-                    <td class="px-3 py-3">${row.efficiencyValue ? `${row.efficiencyValue} ${row.efficiencyUnit ?? ''}`.trim() : '—'}</td>
-                    <td class="px-3 py-3">${escapeHtml(factoryEquipmentStatusLabel[row.status])}</td>
-                  </tr>
-                `,
-              )
-              .join('')}
-          </tbody>
-        </table>
-      </div>
-    </section>
+    <div class="overflow-hidden rounded-lg border">
+      <table class="w-full text-sm">
+        <thead class="bg-muted/30">
+          <tr>
+            <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">设备名称</th>
+            <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">设备标号</th>
+            <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">工序工艺能力</th>
+            <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">数量</th>
+            <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">效率</th>
+            <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">单班时长</th>
+            <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">设备状态</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${equipments
+            .map(
+              (equipment) => `
+                <tr class="border-t">
+                  <td class="px-3 py-3">
+                    <div class="space-y-1">
+                      <p class="font-medium">${escapeHtml(equipment.equipmentName || '暂无数据')}</p>
+                      <span class="inline-flex rounded border px-2 py-0.5 text-xs text-muted-foreground">${escapeHtml(resolveEquipmentGroupLabel(equipment))}</span>
+                    </div>
+                  </td>
+                  <td class="px-3 py-3">${escapeHtml(equipment.equipmentNo || '暂无数据')}</td>
+                  <td class="px-3 py-3">${escapeHtml(renderEquipmentAbilityText(equipment))}</td>
+                  <td class="px-3 py-3">${equipment.quantity}</td>
+                  <td class="px-3 py-3">${escapeHtml(resolveEquipmentEfficiencyDisplay(equipment))}</td>
+                  <td class="px-3 py-3">${equipment.singleShiftMinutes} 分钟</td>
+                  <td class="px-3 py-3">${escapeHtml(factoryEquipmentStatusLabel[equipment.status])}</td>
+                </tr>
+              `,
+            )
+            .join('')}
+        </tbody>
+      </table>
+    </div>
   `
 }
 
-function renderPrintMachinesSection(factoryId: string): string {
-  const rows = listFactoryPrintMachineCapacities(factoryId)
-  if (!rows.length) return ''
+function renderEquipmentEditorTable(factoryId: string): string {
+  const abilityOptions = getEquipmentAbilityOptions()
+  const equipments = getCurrentEquipments(factoryId)
 
   return `
-    <section class="space-y-3" data-testid="factory-print-machine-capacity">
+    <div class="space-y-3">
       <div class="flex items-center justify-between gap-3">
-        <h4 class="text-sm font-medium text-foreground">印花打印机</h4>
-        <span class="text-xs text-muted-foreground">${rows.length} 台</span>
+        <div class="flex flex-wrap gap-2 text-xs text-muted-foreground">
+          <span class="inline-flex rounded border px-2 py-1">印花打印机</span>
+          <span class="inline-flex rounded border px-2 py-1">染缸</span>
+          <span class="inline-flex rounded border px-2 py-1">后道</span>
+        </div>
+        <button class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-capacity-action="add-equipment">新增设备</button>
       </div>
       <div class="overflow-hidden rounded-lg border">
         <table class="w-full text-sm">
           <thead class="bg-muted/30">
             <tr>
-              <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">打印机编号</th>
-              <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">打印速度</th>
+              <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">设备名称</th>
+              <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">设备标号</th>
+              <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">工序工艺能力</th>
+              <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">数量</th>
+              <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">效率</th>
               <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">单班时长</th>
               <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">设备状态</th>
+              <th class="px-3 py-2 text-right text-xs font-medium text-muted-foreground">操作</th>
             </tr>
           </thead>
           <tbody>
-            ${rows
-              .map(
-                (row) => `
+            ${
+              equipments.length
+                ? equipments
+                    .map((equipment) => {
+                      const abilityValueSet = new Set(
+                        equipment.abilityList.map((ability) => `${ability.processCode}::${ability.craftCode}`),
+                      )
+                      const firstAbility = equipment.abilityList[0]
+                      return `
+                        <tr class="border-t align-top">
+                          <td class="px-3 py-3">
+                            <input
+                              class="w-full rounded-md border px-3 py-2 text-sm"
+                              data-capacity-equipment-id="${escapeHtml(equipment.equipmentId)}"
+                              data-capacity-equipment-field="equipmentName"
+                              value="${escapeHtml(equipment.equipmentName)}"
+                            />
+                          </td>
+                          <td class="px-3 py-3">
+                            <input
+                              class="w-full rounded-md border px-3 py-2 text-sm"
+                              data-capacity-equipment-id="${escapeHtml(equipment.equipmentId)}"
+                              data-capacity-equipment-field="equipmentNo"
+                              value="${escapeHtml(equipment.equipmentNo)}"
+                            />
+                          </td>
+                          <td class="px-3 py-3">
+                            <select
+                              multiple
+                              class="min-h-[108px] w-full rounded-md border px-3 py-2 text-sm"
+                              data-capacity-equipment-id="${escapeHtml(equipment.equipmentId)}"
+                              data-capacity-equipment-field="abilityList"
+                            >
+                              ${abilityOptions
+                                .map(
+                                  (option) => `
+                                    <option value="${escapeHtml(option.value)}" ${abilityValueSet.has(option.value) ? 'selected' : ''}>${escapeHtml(option.label)}</option>
+                                  `,
+                                )
+                                .join('')}
+                            </select>
+                          </td>
+                          <td class="px-3 py-3">
+                            <input
+                              type="number"
+                              min="0"
+                              class="w-full rounded-md border px-3 py-2 text-sm"
+                              data-capacity-equipment-id="${escapeHtml(equipment.equipmentId)}"
+                              data-capacity-equipment-field="quantity"
+                              value="${equipment.quantity}"
+                            />
+                          </td>
+                          <td class="px-3 py-3">
+                            <div class="grid gap-2">
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                class="w-full rounded-md border px-3 py-2 text-sm"
+                                data-capacity-equipment-id="${escapeHtml(equipment.equipmentId)}"
+                                data-capacity-equipment-field="efficiencyValue"
+                                value="${firstAbility?.efficiencyValue ?? ''}"
+                              />
+                              <input
+                                class="w-full rounded-md border px-3 py-2 text-sm"
+                                data-capacity-equipment-id="${escapeHtml(equipment.equipmentId)}"
+                                data-capacity-equipment-field="efficiencyUnit"
+                                value="${escapeHtml(firstAbility?.efficiencyUnit ?? '')}"
+                              />
+                            </div>
+                          </td>
+                          <td class="px-3 py-3">
+                            <input
+                              type="number"
+                              min="0"
+                              class="w-full rounded-md border px-3 py-2 text-sm"
+                              data-capacity-equipment-id="${escapeHtml(equipment.equipmentId)}"
+                              data-capacity-equipment-field="singleShiftMinutes"
+                              value="${equipment.singleShiftMinutes}"
+                            />
+                          </td>
+                          <td class="px-3 py-3">
+                            <select
+                              class="w-full rounded-md border px-3 py-2 text-sm"
+                              data-capacity-equipment-id="${escapeHtml(equipment.equipmentId)}"
+                              data-capacity-equipment-field="status"
+                            >
+                              ${Object.entries(factoryEquipmentStatusLabel)
+                                .map(
+                                  ([value, label]) =>
+                                    `<option value="${escapeHtml(value)}" ${equipment.status === value ? 'selected' : ''}>${escapeHtml(label)}</option>`,
+                                )
+                                .join('')}
+                            </select>
+                          </td>
+                          <td class="px-3 py-3 text-right">
+                            <button
+                              class="rounded-md border px-3 py-2 text-xs hover:bg-muted"
+                              data-capacity-action="remove-equipment"
+                              data-equipment-id="${escapeHtml(equipment.equipmentId)}"
+                            >
+                              删除
+                            </button>
+                          </td>
+                        </tr>
+                      `
+                    })
+                    .join('')
+                : `
                   <tr class="border-t">
-                    <td class="px-3 py-3 font-medium">${escapeHtml(row.printerNo)}</td>
-                    <td class="px-3 py-3">${row.speedValue} ${escapeHtml(row.speedUnit)}</td>
-                    <td class="px-3 py-3">${row.shiftMinutes} 分钟</td>
-                    <td class="px-3 py-3">${escapeHtml(factoryEquipmentStatusLabel[row.status])}</td>
+                    <td colspan="8" class="px-3 py-6 text-center text-sm text-muted-foreground">暂无数据</td>
                   </tr>
-                `,
-              )
-              .join('')}
+                `
+            }
           </tbody>
         </table>
       </div>
-    </section>
+    </div>
   `
 }
 
-function renderDyeVatsSection(factoryId: string): string {
-  const rows = listFactoryDyeVatCapacities(factoryId)
-  if (!rows.length) return ''
-
+function renderEquipmentSection(factoryId: string): string {
   return `
-    <section class="space-y-3" data-testid="factory-dye-vat-capacity">
+    <section class="space-y-3" data-testid="factory-capacity-equipment-section">
       <div class="flex items-center justify-between gap-3">
-        <h4 class="text-sm font-medium text-foreground">染缸</h4>
-        <span class="text-xs text-muted-foreground">${rows.length} 台</span>
+        <h4 class="text-sm font-medium text-foreground">设备维护</h4>
+        <span class="text-xs text-muted-foreground">${state.detailMode === 'edit' ? '编辑' : '详情'}</span>
       </div>
-      <div class="overflow-hidden rounded-lg border">
-        <table class="w-full text-sm">
-          <thead class="bg-muted/30">
-            <tr>
-              <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">染缸编号</th>
-              <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">染缸容量</th>
-              <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">可染类型</th>
-              <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">设备状态</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rows
-              .map(
-                (row) => `
-                  <tr class="border-t">
-                    <td class="px-3 py-3 font-medium">${escapeHtml(row.dyeVatNo)}</td>
-                    <td class="px-3 py-3">${row.capacityQty} ${escapeHtml(row.capacityUnit)}</td>
-                    <td class="px-3 py-3">${escapeHtml(row.supportedMaterialTypes.join('、'))}</td>
-                    <td class="px-3 py-3">${escapeHtml(factoryEquipmentStatusLabel[row.status])}</td>
-                  </tr>
-                `,
-              )
-              .join('')}
-          </tbody>
-        </table>
-      </div>
+      ${state.detailMode === 'edit' ? renderEquipmentEditorTable(factoryId) : renderEquipmentReadonlyTable(factoryId)}
     </section>
   `
 }
@@ -380,9 +609,7 @@ function renderTopReadonlyInfo(factory: Factory): string {
         ${renderFieldValue('联系人', factory.contact)}
       </div>
       ${renderReadonlyProcessAbilities(factory)}
-      ${renderPostCapacityNodesSection(factory.id)}
-      ${renderPrintMachinesSection(factory.id)}
-      ${renderDyeVatsSection(factory.id)}
+      ${renderEquipmentSection(factory.id)}
     </section>
   `
 }
@@ -392,6 +619,9 @@ function formatCapacityValue(value: FactoryCapacityFieldValue | undefined): stri
 }
 
 function getCurrentPhaseFieldLabel(fieldKey: SamCurrentFieldKey): string {
+  if (fieldKey === 'deviceCount') return '设备数量（来自设备档案）'
+  if (fieldKey === 'deviceShiftMinutes') return '单班时长（来自设备档案）'
+  if (fieldKey === 'deviceEfficiencyValue') return '效率（来自设备档案）'
   return getSamBusinessFieldLabel(fieldKey)
 }
 
@@ -399,12 +629,43 @@ function getCurrentPhaseFieldDescription(fieldKey: SamCurrentFieldKey): string {
   return getSamBusinessFieldDescription(fieldKey)
 }
 
-function renderCurrentFieldInput(
+function isEquipmentLinkedField(fieldKey: SamCurrentFieldKey): boolean {
+  return fieldKey === 'deviceCount' || fieldKey === 'deviceShiftMinutes' || fieldKey === 'deviceEfficiencyValue'
+}
+
+function renderReadonlyFieldBlock(
+  label: string,
+  value: string,
+  helperText: string,
+): string {
+  return `
+    <div class="space-y-1.5">
+      <span class="text-xs text-muted-foreground">${escapeHtml(label)}</span>
+      <div class="rounded-md border bg-background px-3 py-2 text-sm font-medium text-foreground">${escapeHtml(value || '暂无数据')}</div>
+      <span class="text-[11px] text-muted-foreground">${escapeHtml(helperText)}</span>
+    </div>
+  `
+}
+
+function renderCurrentFieldControl(
+  factoryId: string,
   processCode: string,
   craftCode: string,
   fieldKey: SamCurrentFieldKey,
   value: FactoryCapacityFieldValue | undefined,
 ): string {
+  if (state.detailMode === 'detail' || isEquipmentLinkedField(fieldKey)) {
+    const summary = buildEquipmentSummary(factoryId, processCode, craftCode)
+    const helperText = fieldKey === 'deviceCount'
+      ? `可计入设备 ${summary.countableEquipmentCount}；维护中不计入 ${summary.maintenanceEquipmentCount}`
+      : fieldKey === 'deviceShiftMinutes'
+        ? `系统按设备档案自动汇总，停用和冻结不计入`
+        : fieldKey === 'deviceEfficiencyValue'
+          ? `系统按设备档案逐台汇总后自动换算`
+          : getCurrentPhaseFieldDescription(fieldKey)
+    return renderReadonlyFieldBlock(getCurrentPhaseFieldLabel(fieldKey), formatCapacityValue(value), helperText)
+  }
+
   const step = fieldKey === 'efficiencyFactor' || fieldKey === 'deviceEfficiencyValue' || fieldKey === 'staffEfficiencyValue'
     ? '0.01'
     : '1'
@@ -415,9 +676,9 @@ function renderCurrentFieldInput(
       <input
         type="number"
         step="${step}"
-        data-capacity-process-code="${processCode}"
-        data-capacity-craft-code="${craftCode}"
-        data-capacity-field-key="${fieldKey}"
+        data-capacity-draft-process-code="${processCode}"
+        data-capacity-draft-craft-code="${craftCode}"
+        data-capacity-draft-field-key="${fieldKey}"
         value="${escapeHtml(formatCapacityValue(value))}"
         class="w-full rounded-md border px-3 py-2 text-sm"
       />
@@ -426,8 +687,16 @@ function renderCurrentFieldInput(
   `
 }
 
-function renderCalculationLines(row: ProcessCraftDictRow, values: Record<string, FactoryCapacityFieldValue>): string {
-  const result = computeFactoryCapacityEntryResult(row, values)
+function renderCalculationLines(
+  factoryId: string,
+  row: ProcessCraftDictRow,
+  values: Partial<Record<SamCurrentFieldKey, FactoryCapacityFieldValue>>,
+): string {
+  const result = computeFactoryCapacityEntryResult(
+    row,
+    values,
+    buildEquipmentSummary(factoryId, row.processCode, row.craftCode),
+  )
   return `
     <div class="space-y-0 divide-y divide-slate-200" data-capacity-calculation-lines>
       ${result.lines
@@ -448,8 +717,13 @@ function renderCalculationLines(row: ProcessCraftDictRow, values: Record<string,
   `
 }
 
-function renderCapacityEntryCard(factoryId: string, row: ProcessCraftDictRow, values: Record<string, FactoryCapacityFieldValue>): string {
-  const result = computeFactoryCapacityEntryResult(row, values)
+function renderCapacityEntryCard(
+  factoryId: string,
+  row: ProcessCraftDictRow,
+  values: Partial<Record<SamCurrentFieldKey, FactoryCapacityFieldValue>>,
+): string {
+  const equipmentSummary = buildEquipmentSummary(factoryId, row.processCode, row.craftCode)
+  const result = computeFactoryCapacityEntryResult(row, values, equipmentSummary)
   const resultText = result.resultValue === null ? '待补齐字段' : Number(result.resultValue.toFixed(2)).toString()
 
   return `
@@ -470,7 +744,7 @@ function renderCapacityEntryCard(factoryId: string, row: ProcessCraftDictRow, va
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             ${row.samCurrentFieldKeys
               .map((fieldKey) =>
-                renderCurrentFieldInput(row.processCode, row.craftCode, fieldKey, values[fieldKey]),
+                renderCurrentFieldControl(factoryId, row.processCode, row.craftCode, fieldKey, values[fieldKey]),
               )
               .join('')}
           </div>
@@ -499,7 +773,7 @@ function renderCapacityEntryCard(factoryId: string, row: ProcessCraftDictRow, va
         </section>
         <section class="space-y-2 rounded-xl bg-slate-50 px-4 py-4" data-capacity-calculation-panel="${row.craftCode}">
           <p class="text-xs font-medium text-foreground">当前输入值代入后的计算过程</p>
-          <div class="mt-2">${renderCalculationLines(row, values)}</div>
+          <div class="mt-2">${renderCalculationLines(factoryId, row, values)}</div>
         </section>
       </div>
     </article>
@@ -507,7 +781,7 @@ function renderCapacityEntryCard(factoryId: string, row: ProcessCraftDictRow, va
 }
 
 function renderCurrentStageSection(factory: Factory): string {
-  const entries = listFactoryCapacityEntries(factory.id)
+  const entries = getCurrentEntries(factory.id)
 
   const stageSections = listProcessStages()
     .map((stage, stageIndex) => {
@@ -524,7 +798,7 @@ function renderCurrentStageSection(factory: Factory): string {
             <div class="space-y-4 ${processIndex === 0 ? '' : 'border-t border-slate-200 pt-5'}" data-capacity-process-section="${escapeHtml(process.processCode)}">
               <div>
                 <p class="text-sm font-medium text-foreground">${escapeHtml(process.processName)}</p>
-                <p class="mt-1 text-xs text-muted-foreground">当前阶段按该工艺最小必要字段维护，系统自动计算默认日可供给发布工时 SAM。</p>
+                <p class="mt-1 text-xs text-muted-foreground">${state.detailMode === 'edit' ? '保存后会按设备维护重新汇总设备侧能力。' : '详情'}</p>
               </div>
               <div class="space-y-3">${craftCards}</div>
             </div>
@@ -573,7 +847,18 @@ function renderCapacityDetailDrawer(): string {
             <h2 class="mt-1 text-lg font-semibold text-foreground">工厂产能档案</h2>
             <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(factory.name)}</p>
           </div>
-          <button type="button" data-capacity-action="close-detail" class="rounded-md border px-2 py-1 text-xs hover:bg-muted">关闭</button>
+          <div class="flex items-center gap-2">
+            <span class="rounded border px-2 py-1 text-xs text-muted-foreground">${state.detailMode === 'edit' ? '编辑' : '详情'}</span>
+            ${
+              state.detailMode === 'edit'
+                ? `
+                  <button type="button" data-capacity-action="save-detail" class="rounded-md border px-3 py-1 text-xs hover:bg-muted">保存</button>
+                  <button type="button" data-capacity-action="cancel-edit" class="rounded-md border px-3 py-1 text-xs hover:bg-muted">取消</button>
+                `
+                : `<button type="button" data-capacity-action="edit-detail" class="rounded-md border px-3 py-1 text-xs hover:bg-muted">编辑</button>`
+            }
+            <button type="button" data-capacity-action="close-detail" class="rounded-md border px-2 py-1 text-xs hover:bg-muted">关闭</button>
+          </div>
         </header>
         <div class="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-5">
           <div class="space-y-6">
@@ -588,6 +873,123 @@ function renderCapacityDetailDrawer(): string {
 
 function closeDetailDrawer(): void {
   state.activeFactoryId = ''
+  state.detailMode = 'detail'
+  state.draftEntries = []
+  state.draftEquipments = []
+}
+
+function createEmptyEquipment(factoryId: string): FactoryCapacityEquipment {
+  return {
+    equipmentId: `${factoryId}::NEW::${Date.now()}::${Math.random().toString(16).slice(2, 8)}`,
+    factoryId,
+    equipmentName: '',
+    equipmentNo: '',
+    equipmentType: 'GENERAL',
+    abilityList: [],
+    quantity: 1,
+    singleShiftMinutes: 480,
+    status: 'AVAILABLE',
+  }
+}
+
+function resolveEquipmentTypeByAbilities(abilityValues: string[]): FactoryCapacityEquipment['equipmentType'] {
+  if (abilityValues.some((value) => value.startsWith('PRINT::'))) return 'PRINT_MACHINE'
+  if (abilityValues.some((value) => value.startsWith('DYE::'))) return 'DYE_VAT'
+  if (abilityValues.some((value) => value.startsWith('POST_FINISHING::'))) return 'POST_NODE'
+  return 'GENERAL'
+}
+
+function updateDraftEntryValue(
+  processCode: string,
+  craftCode: string,
+  fieldKey: SamCurrentFieldKey,
+  value: FactoryCapacityFieldValue,
+): void {
+  const targetEntry = state.draftEntries.find(
+    ({ row }) => row.processCode === processCode && row.craftCode === craftCode,
+  )
+  if (!targetEntry) return
+  targetEntry.entry.values[fieldKey] = value
+}
+
+function updateDraftEquipmentField(
+  equipmentId: string,
+  field: string,
+  value: string | string[],
+): void {
+  const targetEquipment = state.draftEquipments.find((item) => item.equipmentId === equipmentId)
+  if (!targetEquipment) return
+
+  if (field === 'equipmentName' || field === 'equipmentNo') {
+    if (field === 'equipmentName') {
+      targetEquipment.equipmentName = String(value)
+    } else {
+      targetEquipment.equipmentNo = String(value)
+    }
+    return
+  }
+
+  if (field === 'quantity' || field === 'singleShiftMinutes') {
+    if (field === 'quantity') {
+      targetEquipment.quantity = Math.max(0, Number(value) || 0)
+    } else {
+      targetEquipment.singleShiftMinutes = Math.max(0, Number(value) || 0)
+    }
+    return
+  }
+
+  if (field === 'status') {
+    targetEquipment.status = String(value) as FactoryCapacityEquipment['status']
+    return
+  }
+
+  if (field === 'efficiencyValue') {
+    const nextValue = Math.max(0, Number(value) || 0)
+    targetEquipment.abilityList = targetEquipment.abilityList.map((ability) => ({
+      ...ability,
+      efficiencyValue: nextValue,
+    }))
+    return
+  }
+
+  if (field === 'efficiencyUnit') {
+    const nextValue = String(value)
+    targetEquipment.abilityList = targetEquipment.abilityList.map((ability) => ({
+      ...ability,
+      efficiencyUnit: nextValue,
+    }))
+    return
+  }
+
+  if (field === 'abilityList') {
+    const abilityValues = Array.isArray(value) ? value : [String(value)]
+    const currentAbilityMap = new Map(
+      targetEquipment.abilityList.map((ability) => [`${ability.processCode}::${ability.craftCode}`, ability] as const),
+    )
+    const fallbackEfficiencyValue = targetEquipment.abilityList[0]?.efficiencyValue ?? 1
+    const fallbackEfficiencyUnit = targetEquipment.abilityList[0]?.efficiencyUnit ?? '件/分钟'
+    const optionMap = new Map(
+      getCapacityProcessCraftOptions().map((option) => [`${option.processCode}::${option.craftCode}`, option] as const),
+    )
+
+    targetEquipment.abilityList = abilityValues
+      .map((optionValue) => {
+        const current = currentAbilityMap.get(optionValue)
+        if (current) return { ...current }
+        const option = optionMap.get(optionValue)
+        if (!option) return null
+        return {
+          processCode: option.processCode,
+          processName: option.processName,
+          craftCode: option.craftCode,
+          craftName: option.craftName,
+          efficiencyValue: fallbackEfficiencyValue,
+          efficiencyUnit: fallbackEfficiencyUnit,
+        }
+      })
+      .filter((item): item is NonNullable<typeof item> => Boolean(item))
+    targetEquipment.equipmentType = resolveEquipmentTypeByAbilities(abilityValues)
+  }
 }
 
 function normalizeCapacityValue(value: string): FactoryCapacityFieldValue {
@@ -674,20 +1076,30 @@ export function handleFactoryCapacityProfileEvent(target: HTMLElement): boolean 
   const pathname = appStore.getState().pathname.split('?')[0]
   if (pathname !== '/fcs/factories/capacity-profile') return false
 
-  const recordField = target.closest<HTMLElement>('[data-capacity-field-key]')
-  if (recordField instanceof HTMLInputElement && state.activeFactoryId) {
-    const processCode = recordField.dataset.capacityProcessCode
-    const craftCode = recordField.dataset.capacityCraftCode
-    const fieldKey = recordField.dataset.capacityFieldKey as SamCurrentFieldKey | undefined
+  const draftField = target.closest<HTMLElement>('[data-capacity-draft-field-key]')
+  if (draftField instanceof HTMLInputElement && state.activeFactoryId && state.detailMode === 'edit') {
+    const processCode = draftField.dataset.capacityDraftProcessCode
+    const craftCode = draftField.dataset.capacityDraftCraftCode
+    const fieldKey = draftField.dataset.capacityDraftFieldKey as SamCurrentFieldKey | undefined
     if (!processCode || !craftCode || !fieldKey) return true
+    updateDraftEntryValue(processCode, craftCode, fieldKey, normalizeCapacityValue(draftField.value))
+    return true
+  }
 
-    updateFactoryCapacityEntryValue(
-      state.activeFactoryId,
-      processCode,
-      craftCode,
-      fieldKey,
-      normalizeCapacityValue(recordField.value),
-    )
+  const equipmentField = target.closest<HTMLElement>('[data-capacity-equipment-field]')
+  if (
+    equipmentField instanceof HTMLInputElement
+    || equipmentField instanceof HTMLSelectElement
+    || equipmentField instanceof HTMLTextAreaElement
+  ) {
+    if (!state.activeFactoryId || state.detailMode !== 'edit') return true
+    const equipmentId = equipmentField.dataset.capacityEquipmentId
+    const field = equipmentField.dataset.capacityEquipmentField
+    if (!equipmentId || !field) return true
+    const value = equipmentField instanceof HTMLSelectElement && equipmentField.multiple
+      ? [...equipmentField.selectedOptions].map((option) => option.value)
+      : equipmentField.value
+    updateDraftEquipmentField(equipmentId, field, value)
     return true
   }
 
@@ -711,11 +1123,53 @@ export function handleFactoryCapacityProfileEvent(target: HTMLElement): boolean 
     const factoryId = actionNode.dataset.factoryId
     if (!factoryId) return true
     state.activeFactoryId = factoryId
+    state.detailMode = 'detail'
+    resetDraftState(factoryId)
     return true
   }
 
   if (action === 'close-detail') {
     closeDetailDrawer()
+    return true
+  }
+
+  if (action === 'edit-detail') {
+    if (!state.activeFactoryId) return true
+    state.detailMode = 'edit'
+    resetDraftState(state.activeFactoryId)
+    return true
+  }
+
+  if (action === 'cancel-edit') {
+    if (!state.activeFactoryId) return true
+    state.detailMode = 'detail'
+    resetDraftState(state.activeFactoryId)
+    return true
+  }
+
+  if (action === 'save-detail') {
+    if (!state.activeFactoryId) return true
+    replaceFactoryCapacityProfileEntries(
+      state.activeFactoryId,
+      state.draftEntries.map(({ entry }) => entry),
+    )
+    replaceFactoryCapacityEquipments(state.activeFactoryId, state.draftEquipments)
+    state.detailMode = 'detail'
+    resetDraftState(state.activeFactoryId)
+    return true
+  }
+
+  if (action === 'add-equipment') {
+    if (!state.activeFactoryId || state.detailMode !== 'edit') return true
+    state.draftEquipments = [...state.draftEquipments, createEmptyEquipment(state.activeFactoryId)]
+    return true
+  }
+
+  if (action === 'remove-equipment') {
+    if (!state.activeFactoryId || state.detailMode !== 'edit') return true
+    const equipmentId = actionNode.dataset.equipmentId
+    if (!equipmentId) return true
+    state.draftEquipments = state.draftEquipments.filter((item) => item.equipmentId !== equipmentId)
     return true
   }
 

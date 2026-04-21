@@ -29,6 +29,7 @@ const requiredCommands = [
   'check:process-craft-sam-rules',
   'check:process-craft-final-taxonomy',
   'check:factory-capacity-profile',
+  'check:capacity-equipment-linkage',
   'check:capacity-calendar-ia',
   'check:capacity-risk-and-bottleneck',
   'check:fcs-handover-domain',
@@ -68,6 +69,7 @@ requiredCommands.forEach((command) => {
 const requiredFiles = [
   'src/data/fcs/process-craft-dict.ts',
   'src/data/fcs/factory-capacity-profile-mock.ts',
+  'scripts/check-capacity-equipment-linkage.ts',
   'src/data/fcs/task-qr.ts',
   'src/data/fcs/task-handover-domain.ts',
   'src/data/fcs/production-confirmation.ts',

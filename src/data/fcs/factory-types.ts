@@ -40,7 +40,8 @@ export interface FactoryEligibility {
 export type FactoryAbilityScope = 'PROCESS' | 'CRAFT'
 export type FactoryAbilityStatus = 'ACTIVE' | 'PAUSED' | 'DISABLED'
 export type FactoryPostCapacityNodeCode = 'BUTTONHOLE' | 'BUTTON_ATTACH' | 'IRONING' | 'PACKAGING'
-export type FactoryEquipmentStatus = 'ACTIVE' | 'PAUSED' | 'MAINTENANCE' | 'DISABLED'
+export type FactoryCapacityEquipmentStatus = 'AVAILABLE' | 'IN_USE' | 'MAINTENANCE' | 'STOPPED' | 'FROZEN'
+export type FactoryEquipmentStatus = FactoryCapacityEquipmentStatus
 
 export interface FactoryProcessAbility {
   processCode: string
@@ -113,6 +114,31 @@ export interface FactoryCapacityEntry {
 export interface FactoryCapacityProfile {
   factoryId: string
   entries: FactoryCapacityEntry[]
+}
+
+export interface FactoryCapacityEquipmentAbility {
+  processCode: string
+  processName: string
+  craftCode: string
+  craftName: string
+  efficiencyValue: number
+  efficiencyUnit: string
+}
+
+export interface FactoryCapacityEquipment {
+  equipmentId: string
+  factoryId: string
+  equipmentName: string
+  equipmentNo: string
+  equipmentType?: 'GENERAL' | 'PRINT_MACHINE' | 'DYE_VAT' | 'POST_NODE'
+  abilityList: FactoryCapacityEquipmentAbility[]
+  quantity: number
+  singleShiftMinutes: number
+  status: FactoryCapacityEquipmentStatus
+  displaySpecValue?: number
+  displaySpecUnit?: string
+  supportedMaterialTypes?: string[]
+  remark?: string
 }
 
 export interface FactoryPostCapacityNode {
@@ -208,12 +234,15 @@ export const factoryAbilityStatusLabel: Record<FactoryAbilityStatus, string> = {
   DISABLED: '历史停用',
 }
 
-export const factoryEquipmentStatusLabel: Record<FactoryEquipmentStatus, string> = {
-  ACTIVE: '可用',
-  PAUSED: '暂停',
+export const factoryCapacityEquipmentStatusLabel: Record<FactoryCapacityEquipmentStatus, string> = {
+  AVAILABLE: '可用',
+  IN_USE: '使用中',
   MAINTENANCE: '维护中',
-  DISABLED: '停用',
+  STOPPED: '停用',
+  FROZEN: '冻结',
 }
+
+export const factoryEquipmentStatusLabel = factoryCapacityEquipmentStatusLabel
 
 // tier 对应的 type 选项
 export const typesByTier: Record<FactoryTier, FactoryType[]> = {

@@ -44,6 +44,7 @@
     "check:process-craft-final-taxonomy": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-process-craft-final-taxonomy.ts",
     "check:production-craft-dict-page": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-production-craft-dict-page.ts",
     "check:factory-capacity-profile": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-factory-capacity-profile.ts",
+    "check:capacity-equipment-linkage": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-capacity-equipment-linkage.ts",
     "check:printing-workflow": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-printing-workflow.ts",
     "check:dyeing-workflow": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-dyeing-workflow.ts",
     "check:dispatch-board-assignment": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-dispatch-board-assignment.ts",
