@@ -1314,13 +1314,6 @@ function resolveUsageBagQrValue(usage: TransferBagUsageItem): string {
   return usage.bagMaster?.qrValue || getViewModel().mastersById[usage.bagId]?.qrValue || getSourceMaster(usage.bagId)?.qrValue || ''
 }
 
-function summarizeQrValue(value: string): string {
-  const normalized = value.trim()
-  if (!normalized) return '未找到正式二维码值'
-  if (normalized.length <= 32) return normalized
-  return `${normalized.slice(0, 16)}...${normalized.slice(-12)}`
-}
-
 function isTransferBagDetailTab(value: string | null | undefined): value is TransferBagDetailTab {
   return value === 'current' || value === 'history' || value === 'recovery' || value === 'logs'
 }
@@ -1768,11 +1761,11 @@ function renderMasterDetail(item: TransferBagMasterItem | null): string {
                     <div class="space-y-2 text-sm">
                       <div><span class="text-muted-foreground">中转袋码：</span><span class="font-medium text-foreground">${escapeHtml(item.bagCode)}</span></div>
                       <div><span class="text-muted-foreground">当前使用周期：</span><span class="font-medium text-foreground">${escapeHtml(currentUsage?.usageNo || '暂无')}</span></div>
-                      <div><span class="text-muted-foreground">正式二维码值：</span><span class="font-medium break-all text-foreground">${escapeHtml(summarizeQrValue(qrValue))}</span></div>
+                      <div><span class="text-muted-foreground">二维码：</span><span class="font-medium text-foreground">已生成</span></div>
                     </div>
                   </div>
                 `
-                : '<div class="mt-3 rounded-lg border border-dashed px-4 py-6 text-sm text-muted-foreground">当前未找到可展示的正式二维码值。</div>'
+                : '<div class="mt-3 rounded-lg border border-dashed px-4 py-6 text-sm text-muted-foreground">暂无二维码</div>'
             }
           </div>
           <div class="flex flex-wrap gap-2">
@@ -3351,7 +3344,7 @@ function renderTransferBagHistoryTab(
             selectedUsage
               ? `
                 <div class="rounded-xl border bg-muted/15 p-4">
-                  <div class="text-sm font-semibold text-foreground">轻量摘要</div>
+                  <div class="text-sm font-semibold text-foreground">当前摘要</div>
                   <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4 text-sm">
                     <div><span class="text-muted-foreground">本次周转号：</span><span class="font-medium text-foreground">${escapeHtml(selectedUsage.usageNo)}</span></div>
                     <div><span class="text-muted-foreground">开始时间：</span><span class="font-medium text-foreground">${escapeHtml(selectedUsage.startedAt || '待补')}</span></div>
@@ -4083,7 +4076,7 @@ function buildManifestPrintHtml(usage: TransferBagUsageItem, bindings: TransferB
         <div class="hero">
           <div class="hero-copy">
             <h1>中转袋装袋清单</h1>
-            <div class="tip">打印预览中展示正式 SVG 二维码，用于装袋、交出与回收追溯。</div>
+            <div class="tip">中转袋二维码</div>
           </div>
           <div class="qr-panel">
             ${
@@ -4094,11 +4087,11 @@ function buildManifestPrintHtml(usage: TransferBagUsageItem, bindings: TransferB
                   title: `中转袋码 ${usage.bagCode}`,
                   label: `中转袋 ${usage.bagCode} 打印二维码`,
                 })
-                : '<div class="qr-meta">当前未找到正式二维码值</div>'
+                : '<div class="qr-meta">暂无二维码</div>'
             }
             <div class="qr-title">${escapeHtml(usage.bagCode)}</div>
             <div class="qr-meta">本次周转：${escapeHtml(usage.usageNo)}</div>
-            <div class="qr-meta">${escapeHtml(summarizeQrValue(qrValue))}</div>
+            <div class="qr-meta">二维码</div>
           </div>
         </div>
         <div class="meta">

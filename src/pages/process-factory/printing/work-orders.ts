@@ -113,14 +113,14 @@ function renderOrdersTable(): string {
         </table>
       </div>
     `,
-    `<div class="text-xs text-muted-foreground">转印完成后先进入待送货，再走交出单和接收方回写</div>`,
+    '',
   )
 }
 
 export function renderCraftPrintingWorkOrdersPage(): string {
   return `
     <div class="space-y-4 p-4">
-      ${renderPageHeader('印花加工单', '印花加工单创建印花任务，工厂在工厂端移动应用执行印花任务。')}
+      ${renderPageHeader('印花加工单', '')}
       ${renderSummaryCards()}
       ${renderOrdersTable()}
     </div>

@@ -2,6 +2,11 @@
 // 页面主对象冻结为原始裁片单；同一码回落原始裁片单，配料 / 领料只表达仓库到裁床的准备衔接。
 import { renderDetailDrawer as uiDetailDrawer, renderDialog as uiDialog, renderFormDialog as uiFormDialog } from '../../../components/ui'
 import { listTransferMaterialAvailableLots } from '../../../data/fcs/cutting/material-prep.ts'
+import {
+  ACTION_PERMISSION_DENIED_TEXT,
+  canConfigureFabricMaterial,
+  resolveFcsDemoRole,
+} from '../../../data/fcs/action-permissions.ts'
 import { appStore } from '../../../state/store'
 import { escapeHtml } from '../../../utils'
 import { getPrepQrHiddenText } from './material-prep.helpers'
@@ -549,7 +554,7 @@ function renderQrCell(row: MaterialPrepRow): string {
   return `
     <div class="space-y-1">
       <div class="font-medium">${escapeHtml(row.sameCodeValue)}</div>
-      <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.qrCodeLabel)}：${escapeHtml(row.qrCodeValue)}</p>
+      <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.qrCodeLabel)}</p>
     </div>
   `
 }
@@ -812,37 +817,41 @@ function renderReplenishmentPendingPrepSection(row: MaterialPrepRow): string {
 }
 
 function renderTransferMaterialSection(row: MaterialPrepRow): string {
+  const canConfigure = canConfigureFabricMaterial(resolveFcsDemoRole('WAREHOUSE_OPERATOR'))
   const lots = listTransferMaterialAvailableLots().filter((lot) =>
     row.materialLineItems.some(
       (item) =>
         item.materialSku === lot.materialSku &&
         ((item.sourceType === 'PRINT_REVIEW' && lot.sourceProcessType === 'PRINT') ||
-          (item.sourceType === 'DYE_REVIEW' && lot.sourceProcessType === 'DYE')),
+          (item.sourceType === 'DYE_REVIEW' && lot.sourceProcessType === 'DYE') ||
+          (item.sourceType === 'MANUAL' && lot.sourceProcessType === 'MANUAL')),
     ),
   )
 
   if (!lots.length) {
     return renderDetailSection(
-      '中转可配置',
-      '<div class="text-sm text-muted-foreground">当前裁片单没有印花 / 染色审核通过后的中转可配置面料。</div>',
+      '中转可配置面料',
+      '<div class="text-sm text-muted-foreground">暂无数据</div>',
     )
   }
 
   return renderDetailSection(
-    '中转可配置',
+    '中转可配置面料',
     `
       <div class="overflow-x-auto">
-        <table class="w-full min-w-[860px] text-sm">
+        <table class="w-full min-w-[1040px] text-sm">
           <thead class="border-b bg-muted/60 text-muted-foreground">
             <tr>
               <th class="px-3 py-2 text-left font-medium">来源</th>
+              <th class="px-3 py-2 text-left font-medium">来源单号</th>
               <th class="px-3 py-2 text-left font-medium">面料 SKU</th>
               <th class="px-3 py-2 text-left font-medium">布料颜色</th>
               <th class="px-3 py-2 text-left font-medium">可配置卷数</th>
               <th class="px-3 py-2 text-left font-medium">可配置长度</th>
               <th class="px-3 py-2 text-left font-medium">剩余卷数</th>
               <th class="px-3 py-2 text-left font-medium">剩余长度</th>
-              <th class="px-3 py-2 text-left font-medium">接收方</th>
+              <th class="px-3 py-2 text-left font-medium">状态</th>
+              <th class="px-3 py-2 text-left font-medium">操作</th>
             </tr>
           </thead>
           <tbody class="divide-y">
@@ -850,14 +859,26 @@ function renderTransferMaterialSection(row: MaterialPrepRow): string {
               .map(
                 (lot) => `
                   <tr>
-                    <td class="px-3 py-2 align-top">${escapeHtml(`${lot.sourceProcessType === 'PRINT' ? '印花面料' : '染色面料'} / ${lot.sourceOrderNo}`)}</td>
+                    <td class="px-3 py-2 align-top">${escapeHtml(lot.sourceProcessType === 'PRINT' ? '印花来源' : lot.sourceProcessType === 'DYE' ? '染色来源' : '手动来源')}</td>
+                    <td class="px-3 py-2 align-top">${escapeHtml(lot.sourceOrderNo || '手动补充')}</td>
                     <td class="px-3 py-2 align-top">${escapeHtml(lot.materialSku)}</td>
                     <td class="px-3 py-2 align-top">${escapeHtml(lot.materialColor)}</td>
                     <td class="px-3 py-2 align-top">${escapeHtml(`${lot.availableRollCount} 卷`)}</td>
                     <td class="px-3 py-2 align-top">${escapeHtml(`${lot.availableLength} ${lot.lengthUnit}`)}</td>
                     <td class="px-3 py-2 align-top">${escapeHtml(`${lot.remainingRollCount} 卷`)}</td>
                     <td class="px-3 py-2 align-top">${escapeHtml(`${lot.remainingLength} ${lot.lengthUnit}`)}</td>
-                    <td class="px-3 py-2 align-top">${escapeHtml(lot.targetTransferWarehouseName)}</td>
+                    <td class="px-3 py-2 align-top">${renderBadge(lot.reviewStatus === 'MANUAL_READY' ? '已配置' : '待审核', lot.reviewStatus === 'MANUAL_READY' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700')}</td>
+                    <td class="px-3 py-2 align-top">
+                      <button
+                        type="button"
+                        class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                        data-cutting-prep-action="open-config-dialog"
+                        data-record-id="${escapeHtml(row.id)}"
+                        ${canConfigure ? '' : `title="${ACTION_PERMISSION_DENIED_TEXT}" disabled`}
+                      >
+                        配置面料 - 布料
+                      </button>
+                    </td>
                   </tr>
                 `,
               )
@@ -900,7 +921,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
 
   const extraButtons = `
     <div class="flex flex-wrap items-center gap-2">
-      <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-prep-action="open-config-dialog" data-record-id="${escapeHtml(row.id)}">编辑配置结果</button>
+      <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50" data-cutting-prep-action="open-config-dialog" data-record-id="${escapeHtml(row.id)}" ${canConfigureFabricMaterial(resolveFcsDemoRole('WAREHOUSE_OPERATOR')) ? '' : `title="${ACTION_PERMISSION_DENIED_TEXT}" disabled`}>编辑配置结果</button>
       <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-prep-action="open-claim-dialog" data-record-id="${escapeHtml(row.id)}">裁床领料</button>
       <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-prep-action="open-schedule-dialog" data-record-id="${escapeHtml(row.id)}">分配裁床组</button>
       <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-prep-action="print-issue-list" data-record-id="${escapeHtml(row.id)}">打印配料单</button>
@@ -917,7 +938,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
               { label: '原始裁片单号', value: row.originalCutOrderNo, tone: 'strong' },
               ...(row.shouldDisplayQr
                 ? [
-                    { label: '裁片单二维码', value: row.qrCodeValue, hint: row.sameCodeValue },
+                    { label: '裁片单二维码', value: row.qrCodeLabel, hint: row.sameCodeValue },
                   ]
                 : []),
               { label: '来源生产单号', value: row.productionOrderNo },
@@ -1096,7 +1117,7 @@ function renderConfigDialog(viewModel = getViewModel()): string {
   const content = `
     <div class="space-y-4">
       <div class="rounded-lg border bg-muted/10 px-3 py-3 text-sm text-muted-foreground">
-        当前操作对象：${escapeHtml(row.originalCutOrderNo)} · 裁片单二维码 ${escapeHtml(row.qrCodeValue)}
+        当前操作对象：${escapeHtml(row.originalCutOrderNo)} · 已绑定裁片单二维码
       </div>
       ${row.materialLineItems
         .map(
@@ -1147,7 +1168,7 @@ function renderClaimDialog(viewModel = getViewModel()): string {
   const content = `
     <div class="space-y-4">
       <div class="rounded-lg border bg-muted/10 px-3 py-3 text-sm text-muted-foreground">
-        当前操作对象：${escapeHtml(row.originalCutOrderNo)} · 裁片单二维码 ${escapeHtml(row.qrCodeValue)}
+        当前操作对象：${escapeHtml(row.originalCutOrderNo)} · 已绑定裁片单二维码
       </div>
       <div class="flex flex-wrap gap-2">
         <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-prep-action="fill-claim-success">回填一致卷数</button>
@@ -1537,7 +1558,7 @@ function printIssueList(recordId: string | undefined): boolean {
         <h1>配料单</h1>
         <div class="meta">
           <div class="meta-item"><div class="label">原始裁片单号</div><div class="value">${escapeHtml(payload.originalCutOrderNo)}</div></div>
-          <div class="meta-item"><div class="label">裁片单二维码</div><div class="value">${payload.shouldPrintQr ? escapeHtml(payload.cutOrderQrValue) : escapeHtml(payload.qrHiddenHint)}</div></div>
+          <div class="meta-item"><div class="label">裁片单二维码</div><div class="value">${payload.shouldPrintQr ? '已生成二维码' : escapeHtml(payload.qrHiddenHint)}</div></div>
           <div class="meta-item"><div class="label">来源生产单号</div><div class="value">${escapeHtml(payload.productionOrderNo)}</div></div>
           <div class="meta-item"><div class="label">款号 / SPU</div><div class="value">${escapeHtml(`${payload.styleCode || payload.spuCode} / ${payload.styleName || payload.spuCode}`)}</div></div>
           <div class="meta-item"><div class="label">打印时间</div><div class="value">${escapeHtml(payload.printTime)}</div></div>
@@ -1718,6 +1739,10 @@ export function handleCraftCuttingMaterialPrepEvent(target: Element): boolean {
   }
 
   if (action === 'open-config-dialog') {
+    if (!canConfigureFabricMaterial(resolveFcsDemoRole('WAREHOUSE_OPERATOR'))) {
+      setFeedback('warning', ACTION_PERMISSION_DENIED_TEXT)
+      return true
+    }
     return openDialog('CONFIG', actionNode.dataset.recordId)
   }
 
@@ -1743,6 +1768,10 @@ export function handleCraftCuttingMaterialPrepEvent(target: Element): boolean {
   }
 
   if (action === 'save-config') {
+    if (!canConfigureFabricMaterial(resolveFcsDemoRole('WAREHOUSE_OPERATOR'))) {
+      setFeedback('warning', ACTION_PERMISSION_DENIED_TEXT)
+      return true
+    }
     return saveConfig()
   }
 

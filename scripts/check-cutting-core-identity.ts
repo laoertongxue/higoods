@@ -113,13 +113,13 @@ function assertCoreResolve(): void {
     taskId: 'TASK-CUT-000089',
     cutPieceOrderNo: 'CPO-20260319-C',
   })
-  assert(execution?.originalCutOrderNo === 'CUT-260310-083-01', 'PDA 执行对象未正确绑定原始裁片单：TASK-CUT-000089 / CPO-20260319-C')
+  assert(execution?.originalCutOrderNo === 'CUT-260310-083-01', '执行对象未正确绑定原始裁片单：TASK-CUT-000089 / CPO-20260319-C')
 
   const unboundExecution = resolvePdaExecutionRef({
     taskId: 'TASK-CUT-BID-201',
     cutPieceOrderNo: 'CPO-20260322-M',
   })
-  assert(unboundExecution === null, '未绑定 PDA 执行对象不应伪装成已绑定对象：TASK-CUT-BID-201 / CPO-20260322-M')
+  assert(unboundExecution === null, '未绑定执行对象不应伪装成已绑定对象：TASK-CUT-BID-201 / CPO-20260322-M')
 }
 
 function assertPdaSourceCoverage(): void {

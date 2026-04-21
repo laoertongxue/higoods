@@ -75,7 +75,7 @@ function main(): void {
   })
 
   checkContains('src/pages/pda-cutting-task-detail.ts', "from './pda-cutting-task-detail-helpers'", errors, 'PDA 任务详情页缺少正式 task projection/helper')
-  checkContains('src/pages/pda-cutting-pickup.ts', "from './pda-cutting-pickup-projection'", errors, 'PDA 领料页缺少正式 projection')
+  checkContains('src/pages/pda-cutting-pickup.ts', "from './pda-cutting-pickup-projection'", errors, '裁床领料页缺少正式 projection')
   checkContains('src/pages/pda-cutting-spreading.ts', "from './pda-cutting-spreading-projection'", errors, 'PDA 铺布页缺少正式 projection')
   checkContains('src/pages/pda-cutting-inbound.ts', "from './pda-cutting-inbound-projection'", errors, 'PDA 入仓页缺少正式 projection')
   checkContains('src/pages/pda-cutting-handover.ts', "from './pda-cutting-handover-projection'", errors, 'PDA 交接页缺少正式 projection')

@@ -141,7 +141,7 @@ export function renderCraftDyeingDyeOrdersPage(): string {
 
   return `
     <div class="space-y-4 p-4">
-      ${renderPageHeader('染料单', '染料单和配方关联染色加工单与染色任务，只作为执行资料，不替代加工单。')}
+      ${renderPageHeader('染料单', '')}
       ${renderFormulaList(selectedId)}
       ${renderFormulaDetail(selectedId)}
     </div>

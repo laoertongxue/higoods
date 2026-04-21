@@ -656,9 +656,9 @@ function renderDetailDrawer(): string {
           <h3 class="font-semibold text-foreground">关联摘要</h3>
           <div class="mt-4 grid gap-4 md:grid-cols-2">
             <article class="rounded-lg border bg-muted/20 p-4">
-              <p class="text-xs text-muted-foreground">领料与裁片单主码摘要</p>
+              <p class="text-xs text-muted-foreground">领料与裁片单二维码摘要</p>
               <p class="mt-1 text-sm text-foreground">${escapeHtml(row.pickupSummaryText)}</p>
-              <p class="mt-2 text-xs text-muted-foreground">领料单号 ${escapeHtml(row.pickupSlipNo)} · 打印版本 ${escapeHtml(row.latestPrintVersionNo)} · 裁片单主码 ${escapeHtml(row.qrCodeValue)}</p>
+              <p class="mt-2 text-xs text-muted-foreground">领料单号 ${escapeHtml(row.pickupSlipNo)} · 打印版本 ${escapeHtml(row.latestPrintVersionNo)} · 裁片单二维码已绑定</p>
               <div class="mt-2 flex flex-wrap gap-2">
                 ${row.needsRecheck ? renderBadge('需复核', 'bg-amber-50 text-amber-700') : renderBadge('无需复核', 'bg-emerald-50 text-emerald-700')}
                 ${row.hasPhotoEvidence ? renderBadge('有照片凭证', 'bg-blue-50 text-blue-700') : renderBadge('无照片凭证', 'bg-slate-100 text-slate-700')}

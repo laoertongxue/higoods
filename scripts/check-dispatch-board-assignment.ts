@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
+import { fileURLToPath } from 'node:url'
 
 import { listRuntimeProcessTasks, isRuntimeTaskExecutionTask } from '../src/data/fcs/runtime-process-tasks.ts'
 import { listProgressExceptions } from '../src/data/fcs/store-domain-progress.ts'
@@ -21,7 +22,7 @@ interface ParsedMockTender {
   biddingDeadline: string
 }
 
-const ROOT = '/Users/laoer/Documents/higoods'
+const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const CONTEXT_PATH = path.join(ROOT, 'src/pages/dispatch-board/context.ts')
 const BOARD_DOMAIN_PATH = path.join(ROOT, 'src/pages/dispatch-board/board-domain.ts')
 const DISPATCH_DOMAIN_PATH = path.join(ROOT, 'src/pages/dispatch-board/dispatch-domain.ts')

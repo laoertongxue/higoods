@@ -317,7 +317,7 @@ export function deriveOriginalCutOrderStage(
   }
 
   if (line.receiveStatus === 'NOT_RECEIVED' || line.receiveStatus === 'PARTIAL') {
-    return createSummaryMeta('WAITING_CLAIM', originalOrderStageMeta.WAITING_CLAIM.label, originalOrderStageMeta.WAITING_CLAIM.className, '当前待完成领料回写后再进入裁床执行。')
+    return createSummaryMeta('WAITING_CLAIM', originalOrderStageMeta.WAITING_CLAIM.label, originalOrderStageMeta.WAITING_CLAIM.className, '待领料回写。')
   }
 
   return createSummaryMeta('CUTTING', record.cuttingStage || originalOrderStageMeta.CUTTING.label, originalOrderStageMeta.CUTTING.className, '当前原始裁片单已进入裁剪执行上下文。')

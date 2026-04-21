@@ -346,7 +346,6 @@ function renderDetailDrawer(): string {
         <section class="rounded-lg border bg-card">
           <div class="border-b px-4 py-3">
             <h3 class="text-sm font-semibold text-foreground">面料卷标签</h3>
-            <p class="mt-1 text-xs text-muted-foreground">只保留轻量桥接字段，供后续仓储迁移承接。</p>
           </div>
           <div class="overflow-auto">
             <table class="min-w-full text-sm">
@@ -405,7 +404,6 @@ function renderDetailDrawer(): string {
           <div class="flex items-center justify-between gap-3">
             <div>
               <h3 class="text-sm font-semibold text-foreground">关注与后续链路</h3>
-              <p class="mt-1 text-xs text-muted-foreground">当前只承接面料卷标签与区域提示，不在此页做完整仓储。</p>
             </div>
             <button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-white" data-fabric-warehouse-action="toggle-focus" data-stock-id="${escapeHtml(item.stockItemId)}">${state.focusedStockIds.includes(item.stockItemId) ? '取消重点关注' : '标记低余量关注'}</button>
           </div>

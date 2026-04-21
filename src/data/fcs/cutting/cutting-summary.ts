@@ -547,7 +547,7 @@ function buildRecord(order: ProductionOrder): CuttingSummaryRecord | null {
         pendingPrepCount: 0,
       }
   const warehouseSummary = buildWarehouseSummary(cutPieceWarehouseRecords)
-  warehouseSummary.cuttingFabricStockNeedRecheckCount = fabricWarehouseRecords.filter((item) => item.stockStatus === 'NEED_RECHECK').length
+  warehouseSummary.cuttingFabricStockNeedRecheckCount = fabricWarehouseRecords.filter((item) => item.fabricState === 'NEED_RECHECK').length
   const sampleSummary = buildSampleSummary(sampleWarehouseRecords)
   const issues = buildIssues({
     productionOrderNo: order.productionOrderNo,

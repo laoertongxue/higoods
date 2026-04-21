@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import {
   auditAllFactoryCapacityProfiles,
@@ -12,7 +13,7 @@ import {
 } from '../src/data/fcs/factory-capacity-profile-mock.ts'
 import { listFactoryMasterRecords } from '../src/data/fcs/factory-master-store.ts'
 
-const ROOT = '/Users/laoer/Documents/higoods'
+const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const PAGE_PATH = path.join(ROOT, 'src/pages/factory-capacity-profile.ts')
 const PROFILE_PAGE_SOURCE = fs.readFileSync(PAGE_PATH, 'utf8')
 const POST_NODE_CODES = ['BUTTONHOLE', 'BUTTON_ATTACH', 'IRONING', 'PACKAGING']

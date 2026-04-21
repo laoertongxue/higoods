@@ -162,7 +162,7 @@ function renderPickupCurrentStatus(
   return renderPdaCuttingSummaryGrid([
     { label: '当前领料状态', value: getPickupResultLabel(pickupView?.latestResultLabel || detail.currentReceiveStatus), hint: pickupView?.receiptStatusLabel || detail.currentReceiveStatus },
     { label: '领料单号', value: pickupView?.pickupSlipNo || detail.pickupSlipNo },
-    { label: '裁片单主码', value: pickupView?.qrCodeValue || detail.qrCodeValue },
+    { label: '裁片单二维码', value: pickupView?.qrCodeValue || detail.qrCodeValue ? '已绑定二维码' : '待绑定二维码' },
     { label: '最新打印版本', value: pickupView?.latestPrintVersionNo || '暂无打印版本' },
   ])
 }

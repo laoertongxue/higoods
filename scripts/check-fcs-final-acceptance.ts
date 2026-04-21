@@ -4,13 +4,14 @@ import assert from 'node:assert/strict'
 import { execSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import {
   getProcessDefinitionByCode,
   listActiveProcessCraftDefinitions,
 } from '../src/data/fcs/process-craft-dict.ts'
 
-const repoRoot = path.resolve(new URL('..', import.meta.url).pathname)
+const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 
 function read(relativePath: string): string {
   return fs.readFileSync(path.resolve(repoRoot, relativePath), 'utf8')

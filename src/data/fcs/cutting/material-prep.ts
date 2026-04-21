@@ -16,9 +16,10 @@ export type MaterialPrepSourceType = 'PRINT_REVIEW' | 'DYE_REVIEW' | 'MANUAL'
 
 export interface TransferMaterialAvailableLot {
   transferLotId: string
-  sourceProcessType: 'PRINT' | 'DYE'
-  sourceOrderId: string
-  sourceOrderNo: string
+  sourceProcessType: 'PRINT' | 'DYE' | 'MANUAL'
+  sourceOrderId?: string
+  sourceOrderNo?: string
+  sourceReviewId?: string
   materialSku: string
   materialColor: string
   availableRollCount: number
@@ -26,7 +27,7 @@ export interface TransferMaterialAvailableLot {
   lengthUnit: string
   availableQty?: number
   qtyUnit?: string
-  reviewStatus: 'PASS' | 'PARTIAL_PASS'
+  reviewStatus: 'PASS' | 'PARTIAL_PASS' | 'MANUAL_READY'
   configuredRollCount: number
   configuredLength: number
   remainingRollCount: number
@@ -612,6 +613,7 @@ function buildTransferMaterialAvailableLots(): TransferMaterialAvailableLot[] {
         sourceProcessType: 'PRINT' as const,
         sourceOrderId: record.printOrderId,
         sourceOrderNo: order?.printOrderNo || record.printOrderId,
+        sourceReviewId: record.reviewRecordId,
         materialSku: order?.materialSku || 'ML-PRINT-240327-09',
         materialColor: order?.materialColor || '暂无数据',
         availableRollCount,
@@ -640,6 +642,7 @@ function buildTransferMaterialAvailableLots(): TransferMaterialAvailableLot[] {
         sourceProcessType: 'DYE' as const,
         sourceOrderId: record.dyeOrderId,
         sourceOrderNo: order?.dyeOrderNo || record.dyeOrderId,
+        sourceReviewId: record.reviewRecordId,
         materialSku: order?.rawMaterialSku || 'ML-DYE-240315-02',
         materialColor: order?.targetColor || '暂无数据',
         availableRollCount,
@@ -657,7 +660,38 @@ function buildTransferMaterialAvailableLots(): TransferMaterialAvailableLot[] {
       }
     })
 
-  return [...printLots, ...dyeLots]
+  const manualLots = cuttingMaterialPrepGroups
+    .flatMap((group) =>
+      group.materialLines
+        .map((line) => normalizeMaterialPrepLine(line))
+        .filter((line) => line.sourceType === 'MANUAL')
+        .map((line) => {
+          const availableRollCount = Math.max(line.demandRollCount - line.configuredRollCount, 1)
+          const availableLength = Math.max(line.demandLength - line.configuredLength, 1)
+          return {
+            transferLotId: `MANUAL-${line.id}`,
+            sourceProcessType: 'MANUAL' as const,
+            sourceOrderId: line.cutPieceOrderNo,
+            sourceOrderNo: line.cutPieceOrderNo,
+            materialSku: line.materialSku,
+            materialColor: line.materialLabel,
+            availableRollCount,
+            availableLength,
+            lengthUnit: '米',
+            availableQty: availableLength,
+            qtyUnit: '米',
+            reviewStatus: 'MANUAL_READY' as const,
+            configuredRollCount: 0,
+            configuredLength: 0,
+            remainingRollCount: availableRollCount,
+            remainingLength: availableLength,
+            targetTransferWarehouseName: group.assignedFactoryName || '中转区域',
+            createdAt: group.purchaseDate || '',
+          }
+        }),
+    )
+
+  return [...printLots, ...dyeLots, ...manualLots]
 }
 
 const transferMaterialAvailableLots = buildTransferMaterialAvailableLots()

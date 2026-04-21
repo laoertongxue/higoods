@@ -78,7 +78,7 @@ function renderBoardList(): string {
 export function renderCraftPrintingDashboardsPage(): string {
   return `
     <div class="space-y-4 p-4">
-      ${renderPageHeader('印花大屏', '聚合显示待花型图、等打印、打印中、转印中、待送货、待回写、待审核和异常。')}
+      ${renderPageHeader('印花大屏', '')}
       ${renderBuckets()}
       ${renderBoardList()}
     </div>

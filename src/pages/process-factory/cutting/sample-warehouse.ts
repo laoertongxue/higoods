@@ -252,7 +252,7 @@ function renderTable(items: SampleWarehouseItem[]): string {
     <table class="min-w-full text-sm">
       <thead class="sticky top-0 z-10 bg-muted/95 text-xs uppercase tracking-wide text-muted-foreground">
         <tr>
-          <th class="px-4 py-3 text-left">sampleNo</th>
+          <th class="px-4 py-3 text-left">样衣编号</th>
           <th class="px-4 py-3 text-left">面料 SKU / 款号</th>
           <th class="px-4 py-3 text-left">颜色 / 尺码</th>
           <th class="px-4 py-3 text-left">当前状态</th>
@@ -303,7 +303,7 @@ function renderDetailDrawer(): string {
 
   return uiDetailDrawer(
     {
-      title: `样衣仓详情 · ${item.sampleNo}`,
+      title: `样衣详情 · ${item.sampleNo}`,
       subtitle: '',
       closeAction: { prefix: 'sample-warehouse', action: 'close-detail' },
       width: 'lg',
@@ -335,7 +335,6 @@ function renderDetailDrawer(): string {
 
         <section class="rounded-lg border bg-card p-4">
           <h3 class="text-sm font-semibold text-foreground">位置与动作</h3>
-          <p class="mt-1 text-xs text-muted-foreground">借出、归还、调拨和抽检都会留下流转记录，不在本步进入质检系统。</p>
           <div class="mt-4 grid gap-3 md:grid-cols-2">
             ${renderFilterSelect('位置类型', 'locationType', state.detailDraft.locationType, [
               { value: 'production-center', label: '生产管理中心' },
@@ -372,7 +371,6 @@ function renderDetailDrawer(): string {
         <section class="rounded-lg border bg-card">
           <div class="border-b px-4 py-3">
             <h3 class="text-sm font-semibold text-foreground">流转记录</h3>
-            <p class="mt-1 text-xs text-muted-foreground">样衣不是普通库存件，必须保留位置与持有人变化。</p>
           </div>
           <div class="overflow-auto">
             <table class="min-w-full text-sm">
@@ -405,7 +403,7 @@ function renderDetailDrawer(): string {
         </section>
 
         <section class="rounded-lg border border-dashed bg-blue-50/60 p-4">
-          <h3 class="text-sm font-semibold text-foreground">关联款号 / 生产信息摘要</h3>
+          <h3 class="text-sm font-semibold text-foreground">关联信息</h3>
           <div class="mt-2 grid gap-3 md:grid-cols-2">
             <div>
               <div class="text-xs text-muted-foreground">款号 / SPU</div>

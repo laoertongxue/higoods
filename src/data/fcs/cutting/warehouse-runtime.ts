@@ -40,7 +40,7 @@ export interface CuttingFabricStockRecord {
   latestConfigAt: string
   latestReceiveAt: string
   latestActionText: string
-  stockStatus: CuttingFabricStockStatus
+  fabricState: CuttingFabricStockStatus
   note: string
 }
 
@@ -111,7 +111,7 @@ export interface WarehouseManagementFilters {
   cuttingFabric: {
     keyword: string
     materialType: 'ALL' | CuttingMaterialType
-    stockStatus: 'ALL' | CuttingFabricStockStatus
+    fabricState: 'ALL' | CuttingFabricStockStatus
   }
   cutPiece: {
     keyword: string
@@ -210,11 +210,11 @@ function resolveUsageByReceiveStatus(options: {
   configuredRollCount: number
   configuredLength: number
   sequence: number
-}): { stockStatus: CuttingFabricStockStatus; usedRollCount: number; usedLength: number } {
+}): { fabricState: CuttingFabricStockStatus; usedRollCount: number; usedLength: number } {
   const { receiveStatus, configuredRollCount, configuredLength, sequence } = options
   if (receiveStatus === 'PARTIAL') {
     return {
-      stockStatus: 'NEED_RECHECK',
+      fabricState: 'NEED_RECHECK',
       usedRollCount: Math.max(1, Math.floor(configuredRollCount * 0.6)),
       usedLength: Math.round(configuredLength * 0.62),
     }
@@ -222,13 +222,13 @@ function resolveUsageByReceiveStatus(options: {
   if (receiveStatus === 'RECEIVED') {
     const partial = sequence % 3 === 0
     return {
-      stockStatus: partial ? 'PARTIAL_USED' : 'READY',
+      fabricState: partial ? 'PARTIAL_USED' : 'READY',
       usedRollCount: partial ? Math.max(1, configuredRollCount - 1) : configuredRollCount,
       usedLength: partial ? Math.round(configuredLength * 0.82) : configuredLength,
     }
   }
   return {
-    stockStatus: 'READY',
+    fabricState: 'READY',
     usedRollCount: 0,
     usedLength: 0,
   }
@@ -343,8 +343,8 @@ function buildFormalWarehouseRuntimeCache(): FormalWarehouseRuntimeCache {
       latestConfigAt: progressRecord?.lastFieldUpdateAt || progressRecord?.purchaseDate || productionOrderById.get(source.productionOrderId)?.createdAt || '',
       latestReceiveAt: progressLine?.receiveStatus === 'NOT_RECEIVED' ? '' : progressRecord?.lastPickupScanAt || progressRecord?.lastFieldUpdateAt || '',
       latestActionText: buildFabricActionText(progressLine, source.originalCutOrderNo),
-      stockStatus: usage.stockStatus,
-      note: usage.stockStatus === 'NEED_RECHECK' ? '当前领料 / 使用记录存在差异，需继续核对。' : '当前仓务读链已切换到正式原始裁片单主码。',
+      fabricState: usage.fabricState,
+      note: usage.fabricState === 'NEED_RECHECK' ? '当前领料 / 使用记录存在差异，需继续核对。' : '当前仓务读链已切换到正式原始裁片单主码。',
     }
   })
 
@@ -465,7 +465,7 @@ function buildFormalWarehouseRuntimeCache(): FormalWarehouseRuntimeCache {
     })
   }
 
-  const firstNeedRecheck = fabric.find((item) => item.stockStatus === 'NEED_RECHECK')
+  const firstNeedRecheck = fabric.find((item) => item.fabricState === 'NEED_RECHECK')
   if (firstNeedRecheck) {
     alerts.push({
       id: 'formal-wa-stock-recheck',

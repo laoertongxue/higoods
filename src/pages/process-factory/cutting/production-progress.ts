@@ -1,5 +1,4 @@
 // production-progress 是 canonical 页面文件。
-// 本页只表达生产单维度总览，不再由旧 order-progress 语义壳承载正式实现。
 import { renderDrawer as uiDrawer } from '../../../components/ui'
 import { appStore } from '../../../state/store'
 import { escapeHtml } from '../../../utils'

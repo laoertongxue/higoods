@@ -496,7 +496,7 @@ function createSeedOwnerFromRow(options: {
     sourceContextLabel: mergeBatchNos[0] ? `来自批次 ${mergeBatchNos[0]}` : '原始单上下文',
     ticketCountBasisType: 'HISTORICAL_FALLBACK',
     ticketCountBasisLabel: '演示票数',
-    ticketCountBasisDetail: '当前 seed 仅用于打印模块人工验收，不影响其它业务口径。',
+    ticketCountBasisDetail: '当前样例仅供打印验收。',
     currentStageLabel: options.row.currentStage.label,
     cuttableStateLabel: options.row.cuttableState.label,
     riskLabels: options.row.riskTags.map((tag) => tag.label),

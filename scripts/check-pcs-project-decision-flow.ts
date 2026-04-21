@@ -1,9 +1,10 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import { getProjectWorkItemContract } from '../src/data/pcs-project-domain-contract.ts'
 
-const root = path.resolve(new URL('..', import.meta.url).pathname)
+const root = fileURLToPath(new URL('..', import.meta.url))
 
 function read(filePath: string): string {
   return fs.readFileSync(path.join(root, filePath), 'utf8')

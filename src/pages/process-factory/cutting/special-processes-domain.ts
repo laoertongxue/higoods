@@ -367,7 +367,7 @@ export function validateSpecialProcessExecutionTransition(options: {
   }
 
   if (options.nextStatus === 'IN_PROGRESS' && !hasExecutionContent(options.executionLogs)) {
-    return { ok: false, message: '请先记录开工或进度，再进入执行中。' }
+    return { ok: false, message: '请先记录开工或进度。' }
   }
 
   if (options.nextStatus === 'DONE') {

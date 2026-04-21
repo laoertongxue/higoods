@@ -2992,7 +2992,7 @@ function renderContextDrawer(viewModel = getViewModel()): string {
   return uiDrawer(
     {
       title: '选择唛架上下文',
-      subtitle: '先选原始裁片单或合并裁剪批次，再进入新增唛架页。',
+      subtitle: '选择原始裁片单或合并裁剪批次。',
       closeAction: { prefix: 'marker-plan', action: 'close-context-drawer' },
       width: 'xl',
     },

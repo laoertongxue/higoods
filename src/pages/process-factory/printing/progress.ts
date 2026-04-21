@@ -179,7 +179,7 @@ export function renderCraftPrintingProgressPage(): string {
 
   return `
     <div class="space-y-4 p-4">
-      ${renderPageHeader('印花进度', '花型测试、打印、转印、待送货、接收方回写、审核按同一条链路展示。')}
+      ${renderPageHeader('印花进度', '')}
       <div class="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
         ${renderOrderList(selected.printOrderId)}
         ${detail}

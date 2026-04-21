@@ -1,5 +1,4 @@
 // original-orders 是 canonical 页面文件。
-// 本页正式承载原始裁片单主对象；生产单只作为来源关系，合并裁剪批次只作为执行层上下文。
 import { renderDetailDrawer as uiDetailDrawer } from '../../../components/ui'
 import { appStore } from '../../../state/store'
 import { escapeHtml } from '../../../utils'
@@ -589,7 +588,6 @@ function renderTable(rows: OriginalCutOrderRow[]): string {
       <div class="flex items-center justify-between border-b px-4 py-3">
         <div>
           <h2 class="text-sm font-semibold">原始裁片单主表</h2>
-          <p class="mt-1 text-xs text-muted-foreground">一行一个原始裁片单，生产单仅作为来源关系，合并裁剪批次只作为执行层关联记录。</p>
         </div>
         <div class="text-xs text-muted-foreground">共 ${pagination.total} 条原始裁片单</div>
       </div>

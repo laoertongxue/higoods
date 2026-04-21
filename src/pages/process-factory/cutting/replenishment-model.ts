@@ -452,7 +452,7 @@ function buildSuggestedAction(options: {
   if (options.missingData) {
     return {
       status: 'PENDING_SUPPLEMENT',
-      text: '先补录铺布、配料或领料差异，再进入补料审核。',
+      text: '补录铺布、配料或领料差异后审核。',
     }
   }
 

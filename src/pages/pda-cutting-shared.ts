@@ -143,8 +143,8 @@ export function renderPdaCuttingTaskHero(detail: PdaCuttingTaskDetailData): stri
           <div class="mt-1 text-muted-foreground">${escapeHtml(detail.materialTypeLabel)}</div>
         </div>
         <div class="rounded-xl bg-muted/40 px-2.5 py-2">
-          <div class="text-muted-foreground">裁片单主码摘要</div>
-          <div class="mt-1 font-medium text-foreground">${escapeHtml(detail.qrCodeValue)}</div>
+          <div class="text-muted-foreground">裁片单二维码摘要</div>
+          <div class="mt-1 font-medium text-foreground">${detail.qrCodeValue ? '已绑定二维码' : '待绑定二维码'}</div>
           <div class="mt-1 text-muted-foreground">${escapeHtml(detail.qrVersionNote)}</div>
         </div>
       </div>
@@ -188,7 +188,7 @@ export function renderPdaCuttingExecutionHero(stepTitle: string, detail: PdaCutt
 
 export function renderPdaCuttingRiskList(riskTips: string[]): string {
   if (!riskTips.length) {
-    return renderPdaCuttingEmptyState('当前无专项风险提示', '裁片专项页会在这里展示领料、铺布、入仓和交接过程中的重点风险。')
+    return renderPdaCuttingEmptyState('当前无专项风险提示', '')
   }
 
   return `
@@ -217,7 +217,7 @@ export function renderPdaCuttingPageLayout(options: CuttingPageLayoutOptions): s
           <button class="inline-flex items-center rounded-md border px-2.5 py-1.5 text-sm hover:bg-muted" data-nav="${escapeHtml(backHref)}">
             返回
           </button>
-          ${renderPdaCuttingEmptyState('未找到裁片任务', '当前任务不存在或不属于裁片专项任务，请返回工厂端任务列表重新进入。')}
+          ${renderPdaCuttingEmptyState('未找到裁片任务', '')}
         </section>
       `,
       options.activeTab,

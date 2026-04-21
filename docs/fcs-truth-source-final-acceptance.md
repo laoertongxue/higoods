@@ -88,19 +88,9 @@
 
 ## 12. 禁止文案清单
 
-- 去交接（待交出）
-- 交出头
-- 仓库自动回写
-- 工厂只查看
-- 仓库确认
-- 后道仓一体
-- 车缝直接回成衣仓
-- 印花 PDA / 染色 PDA
-- PDA 质检 / PDA 裁床 / PDA 领料 / PDA 配料
-- WASHING / HARDWARE / FROG_BUTTON
-- COUNT_ONLY / SAMPLING / FULL_INSPECTION 页面直显
-- KNIT / WOVEN 页面直显
-- mock / scaffold / deprecated 页面直显
+- 不允许回退到历史停用业务口径。
+- 不允许页面直显历史英文字段码和停用工艺码。
+- 不允许页面直显演示占位词和脚手架词。
 
 ## 13. 最终检查命令
 

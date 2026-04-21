@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import {
   buildCapacityBottleneckData,
@@ -7,7 +8,7 @@ import {
   buildCapacityRiskData,
 } from '../src/data/fcs/capacity-calendar.ts'
 
-const ROOT = '/Users/laoer/Documents/higoods'
+const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const CAPACITY_PAGE_PATH = path.join(ROOT, 'src/pages/capacity.ts')
 const CAPACITY_DATA_PATH = path.join(ROOT, 'src/data/fcs/capacity-calendar.ts')
 

@@ -575,7 +575,7 @@ function buildRouteWithQuery(path: string, params: Record<string, string | undef
 
 function goMarkerPlan(batchId: string | undefined): boolean {
   if (!batchId) {
-    setFeedback('warning', '请先选择一个批次，再进入唛架。')
+    setFeedback('warning', '请先选择一个批次。')
     return true
   }
   const batch = getMergedLedger().find((item) => item.mergeBatchId === batchId)
@@ -590,7 +590,7 @@ function goMarkerPlan(batchId: string | undefined): boolean {
 
 function goSpreading(batchId: string | undefined): boolean {
   if (!batchId) {
-    setFeedback('warning', '请先选择一个批次，再进入铺布。')
+    setFeedback('warning', '请先选择一个批次。')
     return true
   }
   const batch = getMergedLedger().find((item) => item.mergeBatchId === batchId)

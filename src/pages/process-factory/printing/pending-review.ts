@@ -161,7 +161,7 @@ export function renderCraftPrintingPendingReviewPage(): string {
 
   return `
     <div class="space-y-4 p-4">
-      ${renderPageHeader('印花审核', '印花面料先到中转区域，接收方回写后再做审核与清点。')}
+      ${renderPageHeader('印花审核', '')}
       ${renderReviewList(selectedOrderId)}
       ${detail}
     </div>

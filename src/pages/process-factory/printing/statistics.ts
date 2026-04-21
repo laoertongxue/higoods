@@ -154,7 +154,7 @@ function renderOrderStats(): string {
 export function renderCraftPrintingStatisticsPage(): string {
   return `
     <div class="space-y-4 p-4">
-      ${renderPageHeader('印花统计', '按印花任务、打印机和交出状态统计打印、转印、待送货、待回写、待审核。')}
+      ${renderPageHeader('印花统计', '')}
       ${renderTopMetrics()}
       ${renderPrinterTable()}
       ${renderOrderStats()}

@@ -124,7 +124,7 @@ function renderOrdersTable(): string {
 export function renderCraftDyeingWorkOrdersPage(): string {
   return `
     <div class="space-y-4 p-4">
-      ${renderPageHeader('染色加工单', '染色加工单创建染色任务，包装完成后先待送货，再走交出和中转审核。')}
+      ${renderPageHeader('染色加工单', '')}
       ${renderSummaryCards()}
       ${renderOrdersTable()}
     </div>

@@ -3,6 +3,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
+import { fileURLToPath } from 'node:url'
 
 type MatchRecord = {
   file: string
@@ -12,6 +13,8 @@ type MatchRecord = {
 }
 
 type ScanMode = 'source' | 'guardrail' | 'page-visible'
+
+const ROOT = fileURLToPath(new URL('..', import.meta.url))
 
 const SOURCE_FILES = [
   'src/data/app-shell-config.ts',
@@ -44,11 +47,6 @@ const SOURCE_FILES = [
   'src/data/fcs/settlement-mock-data.ts',
   'src/data/fcs/store-domain-quality-seeds.ts',
 ]
-
-const SCRIPT_AND_TEST_FILES = [
-  ...fs.readdirSync(new URL('../scripts', import.meta.url)).filter((name) => /^check-.*\.(ts|mjs)$/.test(name)).map((name) => `scripts/${name}`),
-  ...fs.readdirSync(new URL('../tests', import.meta.url)).filter((name) => /^fcs-.*\.spec\.ts$/.test(name)).map((name) => `tests/${name}`),
-].filter((file) => file !== 'scripts/check-legacy-terminology-cleanup.ts')
 
 const BANNED_TERMS = [
   '应付调整',
@@ -99,32 +97,68 @@ function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
 }
 
+function resolveRepoPath(file: string): string {
+  return path.join(ROOT, file)
+}
+
+function normalizeRepoRelative(file: string): string {
+  return file.split(path.sep).join('/')
+}
+
+function existingPaths(paths: string[]): string[] {
+  return paths.filter((item) => fs.existsSync(resolveRepoPath(item)))
+}
+
+function listDirectoryFiles(relativeDir: string, predicate: (name: string) => boolean): string[] {
+  const absoluteDir = resolveRepoPath(relativeDir)
+  if (!fs.existsSync(absoluteDir)) return []
+  return fs
+    .readdirSync(absoluteDir)
+    .filter((name) => predicate(name))
+    .map((name) => normalizeRepoRelative(path.join(relativeDir, name)))
+}
+
+const SCRIPT_AND_TEST_FILES = [
+  ...listDirectoryFiles('scripts', (name) => /^check-.*\.(ts|mjs)$/.test(name)),
+  ...listDirectoryFiles('tests', (name) => /^fcs-.*\.spec\.ts$/.test(name)),
+].filter((file) => file !== 'scripts/check-legacy-terminology-cleanup.ts')
+
 function shouldAllowSourceMatch(file: string, lineText: string): boolean {
   return SOURCE_ALLOWED_PATTERNS.some((item) => item.file === file && item.allow.test(lineText))
 }
 
-function isGuardrailAssertion(lineText: string): boolean {
+function isGuardrailAssertion(file: string, lines: string[], index: number): boolean {
+  const lineText = lines[index] || ''
+  const nearby = lines.slice(Math.max(0, index - 15), Math.min(lines.length, index + 8)).join('\n')
   return (
+    (file.startsWith('scripts/check-') && /^\s*['"`][^'"`]+['"`],?\s*$/.test(lineText)) ||
     lineText.includes('assert(!') ||
+    lineText.includes('assertNotIncludes(') ||
     lineText.includes('.not.toContain(') ||
     lineText.includes('.not.toContainText(') ||
     lineText.includes('.not.toMatch(') ||
     lineText.includes('BANNED_TERMS') ||
-    lineText.includes('PAGE_VISIBLE_BANNED_TERMS')
+    lineText.includes('PAGE_VISIBLE_BANNED_TERMS') ||
+    /\b(banned|legacy|forbidden|deprecated)Terms?\b/i.test(nearby) ||
+    /const\s+\w+(Terms|Tokens)\s*=\s*\[/i.test(nearby) ||
+    /forEach\(\(token\)/.test(nearby) ||
+    (/^\s*['"`][^'"`]+['"`],?\s*$/.test(lineText) &&
+      /(assertNotIncludes|assert\(!|\.not\.toContain|\.not\.toContainText|\.not\.toMatch|forEach\(\(token\)|banned|legacy|forbidden|deprecated|const\s+\w+(Terms|Tokens)\s*=\s*\[)/i.test(nearby))
   )
 }
 
 function collectMatches(files: string[], terms: string[], mode: ScanMode): MatchRecord[] {
   const matches: MatchRecord[] = []
   for (const file of files) {
-    const absolutePath = path.resolve(file)
+    const absolutePath = resolveRepoPath(file)
+    if (!fs.existsSync(absolutePath)) continue
     const source = fs.readFileSync(absolutePath, 'utf8')
     const lines = source.split('\n')
     lines.forEach((lineText, index) => {
       for (const term of terms) {
         if (!lineText.includes(term)) continue
         if (mode === 'source' && shouldAllowSourceMatch(file, lineText)) continue
-        if (mode === 'guardrail' && isGuardrailAssertion(lineText)) continue
+        if (mode === 'guardrail' && isGuardrailAssertion(file, lines, index)) continue
         matches.push({
           file,
           line: index + 1,
@@ -137,8 +171,9 @@ function collectMatches(files: string[], terms: string[], mode: ScanMode): Match
   return matches
 }
 
-function walkFiles(rootDir: string): string[] {
-  const absoluteRoot = path.resolve(rootDir)
+function walkFiles(rootDir: string, allowPattern = /\.(ts|tsx|js|jsx|mjs)$/): string[] {
+  const absoluteRoot = resolveRepoPath(rootDir)
+  if (!fs.existsSync(absoluteRoot)) return []
   const results: string[] = []
   const queue = [absoluteRoot]
   while (queue.length > 0) {
@@ -150,8 +185,8 @@ function walkFiles(rootDir: string): string[] {
         queue.push(next)
         continue
       }
-      if (/\.(ts|tsx|js|jsx|mjs)$/.test(entry.name)) {
-        results.push(path.relative(path.resolve('.'), next))
+      if (allowPattern.test(entry.name)) {
+        results.push(normalizeRepoRelative(path.relative(ROOT, next)))
       }
     }
   }
@@ -160,17 +195,19 @@ function walkFiles(rootDir: string): string[] {
 
 function main(): void {
   const pageVisibleFiles = [...walkFiles('src/pages'), ...walkFiles('src/components')]
+  const docsFiles = walkFiles('docs', /\.(md|mdx|txt|ts|tsx|js|jsx|mjs)$/)
   const sourceMatches = collectMatches(SOURCE_FILES, BANNED_TERMS, 'source')
   const guardrailMatches = collectMatches(SCRIPT_AND_TEST_FILES, BANNED_TERMS, 'guardrail')
-  const pageVisibleMatches = collectMatches(pageVisibleFiles, PAGE_VISIBLE_BANNED_TERMS, 'page-visible')
-  const allMatches = [...sourceMatches, ...guardrailMatches, ...pageVisibleMatches]
+  const guardrailPageVisibleMatches = collectMatches(SCRIPT_AND_TEST_FILES, PAGE_VISIBLE_BANNED_TERMS, 'guardrail')
+  const pageVisibleMatches = collectMatches([...pageVisibleFiles, ...docsFiles], PAGE_VISIBLE_BANNED_TERMS, 'page-visible')
+  const allMatches = [...sourceMatches, ...guardrailMatches, ...guardrailPageVisibleMatches, ...pageVisibleMatches]
 
   assert(allMatches.length === 0, `当前结算主链仍残留旧口径：${allMatches[0]?.file}:${allMatches[0]?.line} ${allMatches[0]?.term}`)
 
   console.log(
     JSON.stringify(
       {
-        校验范围文件数: SOURCE_FILES.length + SCRIPT_AND_TEST_FILES.length + pageVisibleFiles.length,
+        校验范围文件数: SOURCE_FILES.length + SCRIPT_AND_TEST_FILES.length + pageVisibleFiles.length + docsFiles.length,
         旧口径命中数: 0,
         说明: '当前结算主链、FCS 页面和检查脚本仅通过负向断言保留旧词守卫。',
       },

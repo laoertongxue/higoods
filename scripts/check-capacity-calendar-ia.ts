@@ -1,10 +1,11 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import { menusBySystem } from '../src/data/app-shell-config.ts'
 import { buildFactoryCalendarData } from '../src/data/fcs/capacity-calendar.ts'
 
-const ROOT = '/Users/laoer/Documents/higoods'
+const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const CAPACITY_PAGE_PATH = path.join(ROOT, 'src/pages/capacity.ts')
 
 function assert(condition: unknown, message: string): asserts condition {

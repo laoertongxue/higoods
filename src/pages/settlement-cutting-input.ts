@@ -769,7 +769,7 @@ function renderDetailDrawer(): string {
               <p class="mt-1 font-medium text-foreground">${escapeHtml(row.settlementInput.pickupSummary.summaryText)}</p>
               <p class="mt-2 text-xs text-muted-foreground">领料单号：${escapeHtml(row.settlementInput.pickupSummary.pickupSlipNo)}</p>
               <p class="mt-1 text-xs text-muted-foreground">打印版本 / 回执：${escapeHtml(row.settlementInput.pickupSummary.latestPrintVersionNo)} / ${escapeHtml(row.settlementInput.pickupSummary.receiptStatusLabel)}</p>
-              <p class="mt-1 text-xs text-muted-foreground">裁片单主码 / 凭证：${escapeHtml(row.settlementInput.pickupSummary.qrCodeValue)} / ${row.settlementInput.pickupSummary.photoProofCount} 张</p>
+              <p class="mt-1 text-xs text-muted-foreground">裁片单二维码 / 凭证：${row.settlementInput.pickupSummary.qrCodeValue ? '已绑定' : '未生成'} / ${row.settlementInput.pickupSummary.photoProofCount} 张</p>
               <p class="mt-1 text-xs text-muted-foreground">最近确认：${escapeHtml(row.settlementInput.pickupSummary.latestScannedAt)} · ${escapeHtml(row.settlementInput.pickupSummary.latestScannedBy)}</p>
             </div>
             <div class="rounded-lg border bg-muted/20 p-4">

@@ -457,7 +457,7 @@ function renderCuttingMaterialProgressSection(poId?: string | null): string {
                           <td class="px-3 py-2">${row.receivedLength}</td>
                           <td class="px-3 py-2">${escapeHtml(row.differenceText)}</td>
                           <td class="px-3 py-2">${escapeHtml(row.replenishmentStatusLabel)}</td>
-                          <td class="px-3 py-2 font-mono text-xs">${escapeHtml(row.cutOrderQrValue)}</td>
+                          <td class="px-3 py-2 text-xs">${row.cutOrderQrValue ? '已绑定二维码' : '未生成'}</td>
                           <td class="px-3 py-2">
                             <div class="flex justify-end gap-2">
                               <button class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted" data-nav="${escapeHtml(buildProductionOrderLink(row.productionOrderNo))}">生产单</button>

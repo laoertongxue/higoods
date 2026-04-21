@@ -377,8 +377,8 @@ function renderFocusedQrSummary(detail: PdaCuttingTaskDetailData, state: PdaCutt
           ${renderStatusChip(detail.hasQrCode && isBound ? '已生成主码' : '待绑定主码', detail.hasQrCode && isBound ? 'green' : 'amber')}
         </div>
         <div class="mt-3 rounded-xl border border-dashed bg-background px-3 py-4 text-center">
-          <div class="text-[11px] text-muted-foreground">${isBound ? '原始裁片单主码' : '当前绑定状态'}</div>
-          <div class="mt-1 font-mono text-sm font-semibold tracking-wide text-foreground">${escapeHtml(isBound ? detail.qrCodeValue : 'UNBOUND')}</div>
+          <div class="text-[11px] text-muted-foreground">${isBound ? '原始裁片单二维码' : '当前绑定状态'}</div>
+          <div class="mt-1 text-sm font-semibold text-foreground">${isBound ? '已绑定二维码' : '待绑定二维码'}</div>
         </div>
         <div class="mt-3 grid grid-cols-2 gap-3">
           <div>
@@ -507,7 +507,7 @@ export function renderPdaCuttingTaskDetailPage(taskId: string, options?: PdaCutt
     ${renderPdaCuttingSection('当前任务', '', renderTaskOrderList(taskId, detail, state))}
     ${
       focusedOrderDetail
-        ? renderPdaCuttingSection('当前原始裁片单主码', '', renderFocusedQrSummary(focusedOrderDetail, state))
+        ? renderPdaCuttingSection('当前原始裁片单二维码', '', renderFocusedQrSummary(focusedOrderDetail, state))
         : ''
     }
     ${renderPdaCuttingSection('领料长度异议', '', renderClaimDisputeSummary(taskId))}

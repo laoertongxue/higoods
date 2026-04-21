@@ -197,7 +197,7 @@ function renderPdaPickupDisputeSourcePanel(detailCase: ExceptionCase): string {
         ${renderKv('当前工序', head.processName)}
         ${renderKv('领料方式', record.pickupModeLabel)}
         ${renderKv('物料说明', record.materialSummary)}
-        ${renderKv('二维码值', record.qrCodeValue)}
+        ${renderKv('二维码', record.qrCodeValue ? '已绑定二维码' : '未生成')}
         ${renderKv('本次应领', `${record.qtyExpected} ${record.qtyUnit}`)}
         ${renderKv('仓库交付数量', typeof record.warehouseHandedQty === 'number' ? `${record.warehouseHandedQty} ${record.qtyUnit}` : '待仓库扫码交付')}
         ${renderKv('工厂异议数量', typeof record.factoryReportedQty === 'number' ? `${record.factoryReportedQty} ${record.qtyUnit}` : '待填写')}

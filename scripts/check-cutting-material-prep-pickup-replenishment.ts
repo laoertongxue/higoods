@@ -52,7 +52,9 @@ function main(): void {
   assert(transferLots.some((lot) => lot.sourceProcessType === 'PRINT'), '缺少印花审核通过后的中转可配置数量')
   assert(transferLots.some((lot) => lot.sourceProcessType === 'DYE'), '缺少染色审核通过后的中转可配置数量')
   assert(
-    transferLots.every((lot) => lot.reviewStatus === 'PASS' || lot.reviewStatus === 'PARTIAL_PASS'),
+    transferLots.every(
+      (lot) => lot.reviewStatus === 'PASS' || lot.reviewStatus === 'PARTIAL_PASS' || lot.reviewStatus === 'MANUAL_READY',
+    ),
     '中转可配置数量包含未审核通过数据',
   )
   assert(

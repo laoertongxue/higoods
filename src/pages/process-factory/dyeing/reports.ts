@@ -310,7 +310,7 @@ export function renderCraftDyeingReportsPage(): string {
 
   return `
     <div class="space-y-4 p-4">
-      ${renderPageHeader('染色报表', '聚合展示等待原因、节点耗时、染缸利用、交出差异、数量异议和中转审核。')}
+      ${renderPageHeader('染色报表', '')}
       ${renderTopMetrics()}
       ${renderNodeOverview()}
       ${renderDurationTable()}

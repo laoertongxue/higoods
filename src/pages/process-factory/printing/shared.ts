@@ -134,7 +134,7 @@ export function renderPageHeader(title: string, subtitle: string, actionHtml = '
     <header class="flex flex-wrap items-start justify-between gap-3">
       <div>
         <h1 class="text-xl font-semibold text-foreground">${escapeHtml(title)}</h1>
-        <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(subtitle)}</p>
+        ${subtitle.trim() ? `<p class="mt-1 text-sm text-muted-foreground">${escapeHtml(subtitle)}</p>` : ''}
       </div>
       ${actionHtml}
     </header>
@@ -168,4 +168,3 @@ export function getPrintTransferSummary(order: PrintWorkOrder): {
     actualCompletedQty: transferNode?.actualCompletedQty ?? 0,
   }
 }
-

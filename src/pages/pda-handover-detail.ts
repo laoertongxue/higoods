@@ -36,6 +36,14 @@ import {
   getRecordReceiverWrittenQty,
   getReceiverDisplayName,
 } from '../data/fcs/task-handover-domain'
+import {
+  ACTION_PERMISSION_DENIED_TEXT,
+  canAcceptDiffAction,
+  canCreateHandoverRecord,
+  canRaiseQuantityObjection,
+  canReceiverWritebackAction,
+  resolveFcsDemoRole,
+} from '../data/fcs/action-permissions.ts'
 import { createPdaPickupDisputeCase } from '../helpers/fcs-pda-pickup-dispute'
 import { getTaskChainTaskById } from '../data/fcs/page-adapters/task-chain-pages-adapter'
 import { getPdaTaskFlowTaskById, isCuttingSpecialTask } from '../data/fcs/pda-cutting-execution-source.ts'
@@ -674,7 +682,7 @@ function renderPickupRecordItem(record: PdaPickupRecord): string {
           <p class="text-[11px] font-medium text-muted-foreground">领料记录二维码</p>
           <div class="flex items-center gap-2">
             <i data-lucide="qr-code" class="h-4 w-4 text-primary"></i>
-            <span class="font-mono text-xs">${escapeHtml(record.qrCodeValue)}</span>
+            <span class="text-xs">${record.qrCodeValue ? '已绑定二维码' : '待生成二维码'}</span>
           </div>
         </div>
         <p class="max-w-[220px] text-[11px] text-muted-foreground">仓库扫码对象固定为领料记录。</p>
@@ -1045,14 +1053,16 @@ function renderHandoutRecordItem(
   runtimeTask: ReturnType<typeof getPdaHeadRuntimeTask>,
   sourceDoc: ReturnType<typeof getPdaHeadSourceExecutionDoc>,
 ): string {
+  const demoRole = resolveFcsDemoRole('FACTORY')
   const meta = getRecordStatusMeta(record.status)
   const profile = deriveHandoutRecordProfile(record, head, runtimeTask, sourceDoc)
   const receiverWrittenQty = getRecordReceiverWrittenQty(record)
   const receiverWrittenAt = getRecordReceiverWrittenAt(record)
   const diffQty = getRecordDiffQty(record)
-  const canWriteback = canReceiverWriteback(record)
-  const canDiff = canHandleDiff(record)
-  const showObjectionForm = detailState.objectionRecordId === record.recordId && canDiff
+  const canWriteback = canReceiverWriteback(record) && canReceiverWritebackAction(demoRole)
+  const canDiff = canHandleDiff(record) && canAcceptDiffAction(demoRole)
+  const canObjection = canHandleDiff(record) && canRaiseQuantityObjection(demoRole)
+  const showObjectionForm = detailState.objectionRecordId === record.recordId && canObjection
   const qrValue = getHandoverRecordQrDisplayValue(record)
 
   return `
@@ -1149,6 +1159,12 @@ function renderHandoutRecordItem(
                 data-pda-handoverd-action="accept-record-diff"
                 data-record-id="${escapeHtml(record.recordId)}"
               >接受差异</button>
+            `
+            : ''
+        }
+        ${
+          canObjection
+            ? `
               <button
                 class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted"
                 data-pda-handoverd-action="open-record-objection"
@@ -1203,6 +1219,7 @@ function renderHandoutRecordItem(
 }
 
 function renderHandoutHeadDetail(head: PdaHandoverHead): string {
+  const canCreateRecord = canCreateHandoverRecord(resolveFcsDemoRole('FACTORY'))
   const records = getPdaHandoverRecordsByHead(head.handoverId)
   const sourceDoc = getPdaHeadSourceExecutionDoc(head.handoverId)
   const runtimeTask = getPdaHeadRuntimeTask(head.handoverId)
@@ -1272,11 +1289,12 @@ function renderHandoutHeadDetail(head: PdaHandoverHead): string {
         ${head.qtyDiffTotal !== 0 ? `数量有差异（差异 ${head.qtyDiffTotal > 0 ? '-' : '+'}${Math.abs(head.qtyDiffTotal)} ${profile.displayUnit}）` : '数量一致'}
       </div>
       <div class="flex flex-wrap items-center justify-between gap-2 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs text-blue-700">
-        <span>交出记录由工厂发起，接收方回写实收数量。</span>
+        <span>交出记录</span>
         <button
-          class="inline-flex h-7 items-center rounded-md border border-blue-200 bg-white px-2.5 text-xs text-blue-700 hover:bg-blue-100"
+          class="inline-flex h-7 items-center rounded-md border border-blue-200 bg-white px-2.5 text-xs text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
           data-pda-handoverd-action="open-new-handout-record"
           data-handover-id="${escapeHtml(head.handoverId)}"
+          ${canCreateRecord ? '' : `title="${ACTION_PERMISSION_DENIED_TEXT}" disabled`}
         >新增交出记录</button>
       </div>
       ${renderNewHandoutRecordForm(head)}
@@ -1497,6 +1515,10 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'open-new-handout-record') {
+    if (!canCreateHandoverRecord(resolveFcsDemoRole('FACTORY'))) {
+      showPdaHandoverDetailToast(ACTION_PERMISSION_DENIED_TEXT)
+      return true
+    }
     const handoverId = actionNode.dataset.handoverId
     const head = handoverId ? findPdaHandoverHead(handoverId) : undefined
     if (!head || head.headType !== 'HANDOUT') {
@@ -1528,6 +1550,10 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'submit-new-handout-record') {
+    if (!canCreateHandoverRecord(resolveFcsDemoRole('FACTORY'))) {
+      showPdaHandoverDetailToast(ACTION_PERMISSION_DENIED_TEXT)
+      return true
+    }
     const handoverId = actionNode.dataset.handoverId
     const head = handoverId ? findPdaHandoverHead(handoverId) : undefined
     if (!head || head.headType !== 'HANDOUT') {
@@ -1575,6 +1601,10 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'open-receiver-writeback') {
+    if (!canReceiverWritebackAction(resolveFcsDemoRole('RECEIVER'))) {
+      showPdaHandoverDetailToast(ACTION_PERMISSION_DENIED_TEXT)
+      return true
+    }
     const recordId = actionNode.dataset.recordId
     const record = recordId ? findPdaHandoverRecord(recordId) : undefined
     if (!record || !canReceiverWriteback(record)) {
@@ -1599,6 +1629,10 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'submit-receiver-writeback') {
+    if (!canReceiverWritebackAction(resolveFcsDemoRole('RECEIVER'))) {
+      showPdaHandoverDetailToast(ACTION_PERMISSION_DENIED_TEXT)
+      return true
+    }
     const recordId = actionNode.dataset.recordId
     const record = recordId ? findPdaHandoverRecord(recordId) : undefined
     if (!record || !canReceiverWriteback(record)) {
@@ -1646,6 +1680,10 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'open-record-objection') {
+    if (!canRaiseQuantityObjection(resolveFcsDemoRole('FACTORY'))) {
+      showPdaHandoverDetailToast(ACTION_PERMISSION_DENIED_TEXT)
+      return true
+    }
     const recordId = actionNode.dataset.recordId
     if (!recordId) return true
     const record = findPdaHandoverRecord(recordId)
@@ -1711,6 +1749,10 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'open-pickup-record-objection') {
+    if (!canRaiseQuantityObjection(resolveFcsDemoRole('FACTORY'))) {
+      showPdaHandoverDetailToast(ACTION_PERMISSION_DENIED_TEXT)
+      return true
+    }
     const recordId = actionNode.dataset.recordId
     if (!recordId) return true
     const currentRecord = findPdaPickupRecord(recordId)
@@ -1739,6 +1781,10 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'submit-pickup-record-objection') {
+    if (!canRaiseQuantityObjection(resolveFcsDemoRole('FACTORY'))) {
+      showPdaHandoverDetailToast(ACTION_PERMISSION_DENIED_TEXT)
+      return true
+    }
     const recordId = actionNode.dataset.recordId
     if (!recordId) return true
     const currentRecord = findPdaPickupRecord(recordId)
@@ -1780,6 +1826,10 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'submit-record-objection') {
+    if (!canRaiseQuantityObjection(resolveFcsDemoRole('FACTORY'))) {
+      showPdaHandoverDetailToast(ACTION_PERMISSION_DENIED_TEXT)
+      return true
+    }
     const recordId = actionNode.dataset.recordId
     if (!recordId) return true
 
@@ -1815,6 +1865,10 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'accept-record-diff') {
+    if (!canAcceptDiffAction(resolveFcsDemoRole('FACTORY'))) {
+      showPdaHandoverDetailToast(ACTION_PERMISSION_DENIED_TEXT)
+      return true
+    }
     const recordId = actionNode.dataset.recordId
     if (!recordId) return true
     const updated = acceptHandoverRecordDiff(recordId)

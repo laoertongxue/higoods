@@ -1,9 +1,9 @@
 /**
  * 裁片域页面元数据单一来源。
  *
- * 这里冻结 canonicalPath、可见 pageTitle 和 alias 兼容关系，
- * 目的是避免菜单、页面头部和旧路由标题再次漂移。
- * alias 只用于兼容旧入口；后续实现和内部跳转必须优先使用 canonicalPath。
+ * 这里固定 canonicalPath、可见 pageTitle 和 alias 兼容关系，
+ * 避免菜单、页面头部和旧路由标题再次漂移。
+ * alias 仅保留兼容旧入口；内部跳转优先使用 canonicalPath。
  */
 import { escapeHtml } from '../../../utils'
 

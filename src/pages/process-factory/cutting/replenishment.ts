@@ -68,6 +68,11 @@ import {
   type CuttingDrillContext,
   type CuttingNavigationTarget,
 } from './navigation-context'
+import {
+  ACTION_PERMISSION_DENIED_TEXT,
+  canReviewReplenishment,
+  resolveFcsDemoRole,
+} from '../../../data/fcs/action-permissions.ts'
 
 type FilterField = 'keyword' | 'sourceType' | 'status' | 'riskLevel'
 type ReviewField = 'status' | 'reason' | 'note'
@@ -961,7 +966,7 @@ function renderDetailDrawer(): string {
     `,
     `
       <div class="flex flex-wrap gap-2">
-        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="submit-review">提交审核</button>
+        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50" data-cutting-replenish-action="submit-review" ${canReviewReplenishment(resolveFcsDemoRole('CUTTING_LEAD')) ? '' : `title="${ACTION_PERMISSION_DENIED_TEXT}" disabled`}>提交审核</button>
         <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-material-prep" data-suggestion-id="${escapeHtml(row.suggestionId)}">去仓库配料领料</button>
         <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-marker" data-suggestion-id="${escapeHtml(row.suggestionId)}">去铺布</button>
         <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-summary" data-suggestion-id="${escapeHtml(row.suggestionId)}">去裁剪总表</button>
@@ -1142,6 +1147,10 @@ export function handleCraftCuttingReplenishmentEvent(target: Element): boolean {
   }
 
   if (action === 'submit-review') {
+    if (!canReviewReplenishment(resolveFcsDemoRole('CUTTING_LEAD'))) {
+      setFeedback('warning', ACTION_PERMISSION_DENIED_TEXT)
+      return true
+    }
     const row = getActiveRow()
     if (!row) return false
     const validation = validateReplenishmentReviewAction({

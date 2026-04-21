@@ -1392,13 +1392,13 @@ function buildNewSpreadingDraft(): SpreadingSession {
       actualCutPieceQty: 0,
       unitPrice: 0,
       totalAmount: 0,
-      note: exceptionEntry ? '当前为异常补录铺布草稿。' : '正常新建铺布必须先从唛架进入，当前不会自动补默认唛架。',
+      note: exceptionEntry ? '当前为异常补录铺布草稿。' : '正常新建铺布需从唛架进入。',
       createdAt: '',
       updatedAt: '',
       warningMessages:
         exceptionEntry
           ? (!context ? ['当前未识别到异常补录上下文，请从铺布列表重新进入。'] : [])
-          : ['正常新建铺布必须先关联唛架，请返回唛架列表或从唛架详情重新进入。'],
+          : ['正常新建铺布需先关联唛架。'],
       sourceChannel: 'MANUAL',
       sourceWritebackId: '',
       updatedFromPdaAt: '',
@@ -5041,7 +5041,7 @@ function saveCurrentMarker(goDetail: boolean, successMessage?: string): boolean 
   })
   const blockingMessages: string[] = []
   if (draft.originalCutOrderIds.length > 0 && !normalizedAllocationLines.length) {
-    blockingMessages.push('当前唛架已关联原始裁片单，必须先补充分配明细。')
+    blockingMessages.push('当前唛架已关联原始裁片单，请先补充分配明细。')
   }
   normalizedAllocationLines.forEach((line) => {
     if (!draft.originalCutOrderIds.includes(line.sourceCutOrderId)) {
@@ -5389,7 +5389,7 @@ function buildCreateSessionFromSelection(): SpreadingSession | null {
   const ownerName = buildCreateOwnerLabel(state.createOwnerAccountId)
 
   if (!state.createExceptionBackfill && (!preview.source || !preview.source.markerId)) {
-    state.feedback = { tone: 'warning', message: '正常创建铺布必须先选中一条可交接铺布的唛架。' }
+    state.feedback = { tone: 'warning', message: '正常创建铺布需先选中一条可交接铺布的唛架。' }
     return null
   }
 
@@ -6071,7 +6071,7 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
   if (action === 'next-spreading-create-step') {
     const source = getSelectedCreateSource()
     if (!source && !state.createExceptionBackfill) {
-      state.feedback = { tone: 'warning', message: '正常创建铺布必须先选中一条可交接铺布的唛架。' }
+      state.feedback = { tone: 'warning', message: '正常创建铺布需先选中一条可交接铺布的唛架。' }
       return true
     }
     if (!source && state.createExceptionBackfill && !getExceptionCreateContext()) {

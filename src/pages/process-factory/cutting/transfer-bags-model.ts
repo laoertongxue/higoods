@@ -1836,9 +1836,7 @@ export function buildTransferBagViewModel(options: {
         spreadingUpdatedFromPdaAt: traceAnchor?.updatedFromPdaAt || '',
         spreadingColorSummary: traceAnchor?.colorSummary || '',
         bagFirstSatisfied: bindings.length > 0,
-        bagFirstRuleLabel: bindings.length
-          ? '必须先扫口袋码，再扫菲票子码；当前已形成正式装袋映射。'
-          : '必须先扫口袋码，再扫菲票子码；当前尚未形成正式装袋映射。',
+        bagFirstRuleLabel: bindings.length ? '必须先扫口袋码，再扫菲票子码' : '必须先扫口袋码，再扫菲票子码',
         navigationPayload: buildTransferBagNavigationPayload({
           originalCutOrderId: bindings[0]?.originalCutOrderId,
           originalCutOrderNo: bindings[0]?.originalCutOrderNo,
@@ -1930,7 +1928,7 @@ export function buildTransferBagViewModel(options: {
         spreadingSessionId: traceAnchor?.spreadingSessionId || '',
         spreadingSessionNo: traceAnchor?.spreadingSessionNo || '',
         spreadingSourceWritebackId: traceAnchor?.sourceWritebackId || '',
-        bagFirstRuleLabel: '必须先扫口袋码，再扫菲票子码；当前父子映射已绑定到正式中转袋周期。',
+        bagFirstRuleLabel: '必须先扫口袋码，再扫菲票子码',
         navigationPayload: buildTransferBagNavigationPayload({
           originalCutOrderId: binding.originalCutOrderId,
           originalCutOrderNo: binding.originalCutOrderNo,

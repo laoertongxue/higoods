@@ -128,7 +128,7 @@ export function normalizeCutPieceWarehouseWritebackInput(
     mergeBatchNo: input.identity.mergeBatchNo || '',
     materialSku: input.identity.materialSku,
     zoneCode: input.zoneCode || 'UNASSIGNED',
-    locationCode: input.locationCode?.trim() || '待补库位',
+    locationCode: input.locationCode?.trim() || '待补区域',
     handoverTarget: input.handoverTarget?.trim() || '',
     note: input.note?.trim() || '',
     operatorAccountId: operator.operatorAccountId,

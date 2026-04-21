@@ -173,7 +173,7 @@ function buildRolls(record: CuttingFabricStockRecord): FabricWarehouseRollItem[]
 
 export function deriveFabricWarehouseRiskTags(records: CuttingFabricStockRecord[]): FabricWarehouseRiskTag[] {
   const tags: FabricWarehouseRiskTag[] = []
-  if (records.some((record) => record.stockStatus === 'NEED_RECHECK')) {
+  if (records.some((record) => record.fabricState === 'NEED_RECHECK')) {
     tags.push({ key: 'STOCK_RECHECK', label: '待核对', className: 'bg-rose-100 text-rose-700 border border-rose-200' })
   }
   if (records.some((record) => record.remainingLength > 0 && record.remainingLength <= 60)) {
@@ -186,7 +186,7 @@ export function deriveFabricWarehouseRiskTags(records: CuttingFabricStockRecord[
 }
 
 function buildStockStatus(record: CuttingFabricStockRecord): CuttingFabricStockStatus {
-  return record.stockStatus
+  return record.fabricState
 }
 
 function findBoundOriginalRow(
