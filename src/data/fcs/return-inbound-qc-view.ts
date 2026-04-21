@@ -2,6 +2,10 @@ import type { ProcessTask } from './process-tasks'
 import {
   inferReturnInboundProcessTypeFromTask,
   resolveDefaultReturnInboundQcPolicy,
+  type InspectionMethod,
+  type InspectionNextAction,
+  type InspectionScene,
+  type InspectionType,
   type QcDisposition,
   type QcStatus,
   type QualityInspection,
@@ -15,6 +19,7 @@ import {
   isReturnInboundInspection,
   resolveReturnInboundTaskId,
 } from './return-inbound-workflow'
+import { getPostExecutionModeLabel } from './post-process-route'
 
 export const RETURN_INBOUND_PROCESS_LABEL: Record<ReturnInboundProcessType, string> = {
   PRINT: '印花',
@@ -32,8 +37,35 @@ export const RETURN_INBOUND_QC_POLICY_LABEL: Record<ReturnInboundQcPolicy, strin
 }
 
 export const SEW_POST_PROCESS_MODE_LABEL: Record<SewPostProcessMode, string> = {
-  SEW_WITH_POST: '车缝（含后道）',
-  SEW_WITHOUT_POST_WAREHOUSE_INTEGRATED: '车缝（后道仓一体）',
+  SEW_FACTORY_INCLUDES_POST: '车缝厂含后道',
+  MANAGED_POST_FACTORY_EXECUTES: '我方后道工厂执行后道',
+}
+
+export const INSPECTION_SCENE_LABEL: Record<InspectionScene, string> = {
+  SEW_RETURN_RECEIVING_QC: '回货质检',
+  POST_FINAL_RECHECK: '后道复检',
+  PRINT_RECEIVING_QC: '印花回货质检',
+  DYE_RECEIVING_QC: '染色回货质检',
+  CUT_PIECE_RECEIVING_QC: '裁片回货质检',
+}
+
+export const INSPECTION_TYPE_LABEL: Record<InspectionType, string> = {
+  QC: '质检',
+  RECHECK: '复检',
+}
+
+export const INSPECTION_METHOD_LABEL: Record<InspectionMethod, string> = {
+  COUNT_ONLY: '数量复核',
+  SAMPLING: '抽检',
+  FULL_INSPECTION: '全检',
+}
+
+export const INSPECTION_NEXT_ACTION_LABEL: Record<InspectionNextAction, string> = {
+  ENTER_POST_PROCESS: '进入后道',
+  ENTER_FINAL_RECHECK: '进入复检',
+  HANDOVER_FINISHED_WAREHOUSE: '交成衣仓',
+  REWORK: '返工',
+  WAIT_EXCEPTION_HANDLE: '待处理',
 }
 
 export type ReturnInboundQcDisplayResult = 'PASS' | 'PARTIAL_PASS' | 'FAIL'
@@ -62,9 +94,16 @@ export interface ReturnInboundQcView {
   returnFactoryName: string
   warehouseId: string
   warehouseName: string
+  receiverName: string
   inboundAt: string
   inboundBy: string
   sewPostProcessMode?: SewPostProcessMode
+  inspectionSceneLabel?: string
+  inspectionTypeLabel?: string
+  inspectionMethodLabel?: string
+  nextActionLabel?: string
+  declaredQty: number
+  receivedQty: number
   sourceBusinessType: string
   sourceBusinessId: string
   inspector: string
@@ -177,9 +216,15 @@ export function normalizeQcForView(
   const qcPolicy = qc.qcPolicy ?? inboundBatch?.qcPolicy ?? resolveDefaultReturnInboundQcPolicy(processType)
   const processLabel =
     processType === 'SEW' && (qc.sewPostProcessMode ?? inboundBatch?.sewPostProcessMode)
-      ? SEW_POST_PROCESS_MODE_LABEL[qc.sewPostProcessMode ?? inboundBatch?.sewPostProcessMode!]
+      ? getPostExecutionModeLabel(qc.sewPostProcessMode ?? inboundBatch?.sewPostProcessMode)
       : RETURN_INBOUND_PROCESS_LABEL[processType]
   const inspectionSummary = resolveQcInspectionSummary(qc, inboundBatch, task)
+  const receiverName = qc.receiverName ?? inboundBatch?.receiverName ?? qc.warehouseName ?? inboundBatch?.warehouseName ?? '-'
+  const inspectionSceneLabel =
+    qc.inspectionScene && qc.inspectionScene !== 'RETURN_INBOUND' ? INSPECTION_SCENE_LABEL[qc.inspectionScene] : undefined
+  const inspectionTypeLabel = qc.inspectionType ? INSPECTION_TYPE_LABEL[qc.inspectionType] : undefined
+  const inspectionMethodLabel = qc.inspectionMethod ? INSPECTION_METHOD_LABEL[qc.inspectionMethod] : undefined
+  const nextActionLabel = qc.nextAction ? INSPECTION_NEXT_ACTION_LABEL[qc.nextAction] : undefined
 
   return {
     qc,
@@ -196,9 +241,16 @@ export function normalizeQcForView(
     returnFactoryName: qc.returnFactoryName ?? inboundBatch?.returnFactoryName ?? task?.assignedFactoryName ?? '-',
     warehouseId: qc.warehouseId ?? inboundBatch?.warehouseId ?? '',
     warehouseName: qc.warehouseName ?? inboundBatch?.warehouseName ?? '-',
+    receiverName,
     inboundAt: inboundBatch?.inboundAt ?? '-',
     inboundBy: inboundBatch?.inboundBy ?? '-',
     sewPostProcessMode: qc.sewPostProcessMode ?? inboundBatch?.sewPostProcessMode,
+    inspectionSceneLabel,
+    inspectionTypeLabel,
+    inspectionMethodLabel,
+    nextActionLabel,
+    declaredQty: qc.declaredQty ?? inboundBatch?.submittedQty ?? inboundBatch?.returnedQty ?? inspectionSummary.inspectedQty,
+    receivedQty: qc.receivedQty ?? inboundBatch?.receiverWrittenQty ?? inspectionSummary.inspectedQty,
     sourceBusinessType: qc.sourceBusinessType ?? inboundBatch?.sourceType ?? 'OTHER',
     sourceBusinessId: qc.sourceBusinessId ?? inboundBatch?.sourceId ?? '',
     inspector: qc.inspector,

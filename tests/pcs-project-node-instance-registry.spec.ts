@@ -20,6 +20,7 @@ import { resetProjectInlineNodeRecordRepository } from '../src/data/pcs-project-
 import {
   createProjectChannelProductFromListingNode,
   launchProjectChannelProductListing,
+  markProjectChannelProductListingCompleted,
   resetProjectChannelProductRepository,
 } from '../src/data/pcs-channel-product-project-repository.ts'
 import {
@@ -45,14 +46,26 @@ const createListingResult = createProjectChannelProductFromListingNode(
     targetChannelCode: 'tiktok-shop',
     targetStoreId: 'store-tiktok-01',
     listingTitle: '项目节点实例注册中心回归验证款',
-    listingPrice: 299,
+    defaultPriceAmount: 299,
+    currencyCode: 'IDR',
+    specLines: [
+      { colorName: '黑色', sizeName: 'M', priceAmount: 299, currencyCode: 'IDR', stockQty: 10 },
+      { colorName: '黑色', sizeName: 'L', priceAmount: 299, currencyCode: 'IDR', stockQty: 8 },
+    ],
   },
   '测试用户',
 )
 assert.equal(createListingResult.ok, true, '应能创建新的渠道商品上架实例')
 assert.ok(createListingResult.record, '创建渠道商品实例后应返回正式记录')
 
-launchProjectChannelProductListing(createListingResult.record!.channelProductId, '测试用户')
+const launchResult = launchProjectChannelProductListing(createListingResult.record!.channelProductId, '测试用户')
+assert.equal(launchResult.ok, true, '应能上传款式上架批次')
+
+const completeListingResult = markProjectChannelProductListingCompleted(
+  createListingResult.record!.channelProductId,
+  '测试用户',
+)
+assert.equal(completeListingResult.ok, true, '上传后应能标记商品上架完成')
 
 const listingSnapshot = getProjectNodeInstanceRuntimeSnapshot(demoProject!.projectId, listingNode!.projectNodeId)
 const listingNodeAfterWrite = getProjectNodeRecordByWorkItemTypeCode(demoProject!.projectId, 'CHANNEL_PRODUCT_LISTING')
@@ -99,6 +112,7 @@ const created = createProject(
     styleCodeName: styleCode?.name || '1-Casul Shirt-18-30休闲衬衫',
     styleType: '基础款',
     targetChannelCodes: [catalog.channelOptions[0]?.code || 'tiktok-shop'],
+    priceRangeLabel: '￥199-299',
     ownerId: owner?.id || 'owner-zl',
     ownerName: owner?.name || '张丽',
     teamId: team?.id || 'team-plan',

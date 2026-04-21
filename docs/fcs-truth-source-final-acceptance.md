@@ -1,102 +1,141 @@
-# FCS 统一事实源最终验收报告（最终收口轮）
+# FCS 最终验收口径
 
-- 验收时间：2026-03-20
-- 审计脚本：`scripts/check-fcs-truth-sources.mjs`
-- 冻结规则：`docs/fcs-truth-source-rules.md`、`src/data/fcs/frozen-rules.ts`
+## 1. 工序工艺
 
-## 1. 最终审计概况
+- 缩水归准备阶段。
+- 洗水归“特殊工艺 - 洗水”。
+- 后道按一个对外任务承接。
+- 开扣眼、装扣子、熨烫、包装只作为后道产能节点。
+- 五金、盘扣为历史停用，不进入活跃任务。
 
-- 扫描文件数：69
-- 发现问题数：44
-- 高风险：0
-- 中风险：0
-- 低风险：44
-- 旧 seed 命中：5（均为兼容快照/兼容导入低风险）
-- 自猜逻辑命中：0
-- 不稳定 ID 命中：39（均为页面层时间比较/临时 UI 场景低风险）
+## 2. 任务与交出链路
 
-> 结论：当前 FCS 主链路已达到“可收口状态”。
+- 对外任务必须有任务二维码。
+- 任务开工后自动创建交出单。
+- 一个交出单可包含多条交出记录。
+- 每条交出记录必须有二维码。
+- 页面主口径统一为“接收方回写”。
+- 数量异议由工厂发起。
 
-## 2. 本轮修复项
+## 3. 后道、质检、复检
 
-### 2.1 旧真相源命名与残留收口
+- 车缝回货先到我方后道工厂。
+- 外部车缝厂不能直接回成衣仓。
+- 回货质检与后道复检独立于后道任务。
+- 质检方式统一显示为“数量复核 / 抽检 / 全检”。
 
-- `src/data/fcs/store-domain-progress.ts`
-  - 移除 `initialExceptions` 旧命名，统一为 `progressExceptionCases` 内部事实集合。
-- `src/data/fcs/store-domain-dispatch-process.ts`
-  - 移除 `initialMaterialIssueSheets` 旧命名主导，改为 `legacyMaterialIssueSheetsSnapshot` 兼容快照。
-- `src/data/fcs/store-domain-quality-seeds.ts`
-  - 移除 `initialDyePrintOrders` 旧命名主导，改为 `legacyDyePrintOrdersSnapshot` 兼容快照。
+## 4. 生产确认单
 
-### 2.2 清理异常链路 fallback / 旧数组直改
+- 生产确认单使用快照。
+- 支持打印预览。
+- 后道只显示一个任务。
+- 洗水显示为“特殊工艺 - 洗水”。
+- 无图片显示“暂无图片”。
 
-- `src/data/fcs/pda-exec-link.ts`
-  - 不再直接读写旧异常数组。
-  - 改为通过 `listProgressExceptions / getProgressExceptionById / upsertProgressExceptionCase` 统一操作异常事实。
+## 5. 印花
 
-### 2.3 业务对象不稳定 ID 压缩
+- 印花加工单创建印花任务。
+- 转印完成后先待送货。
+- 印花完成后先进入中转区域。
+- 印花统计和大屏按任务、打印机、待送货、待回写、待审核展示。
 
-- `src/data/fcs/progress-exception-lifecycle.ts`
-  - `EA/EAL` 事件 ID 从 `Date.now()+Math.random` 改为基于 `caseId + 序号` 的稳定生成。
-- `src/data/fcs/material-request-drafts.ts`
-  - 物料草稿日志 ID 改为固定前缀 + 顺序号。
-- `src/data/fcs/indonesia-factories.ts`
-  - 工厂编码生成从随机改为顺序号生成。
-- `src/data/fcs/milestone-configs.ts`
-  - 节点配置 ID 从时间戳改为稳定顺序号。
-- `src/data/fcs/return-inbound-workflow.ts`
-  - 入仓流程对象 ID 从随机后缀改为顺序号。
-- `src/data/fcs/settlement-change-requests.ts`
-  - 变更日志 ID 从随机改为顺序号。
+## 6. 染色
 
-### 2.4 页面低风险收口（不改 UI）
+- 染色加工单创建染色任务。
+- 染色开始必须记录染缸号。
+- 包装完成后先待送货。
+- 染色完成后先进入中转区域。
+- 染色报表按等待原因、节点耗时、染缸、差异、异议展示。
 
-- `src/pages/process-print-orders.ts`
-- `src/pages/process-dye-orders.ts`
-  - 将状态统计分组改为状态集合映射，移除直接中文状态等值判断命中。
-- `src/pages/progress-board.ts`
-  - 催办、异常、任务写回审计日志 ID 改为稳定序列（不再使用 `Date.now()` 拼业务日志 ID）。
-- `src/pages/progress-urge.ts`
-  - 催办审计日志 ID 改为稳定序列（不再使用 `Date.now()` 拼业务日志 ID）。
-- `src/pages/production/core.ts`
-  - 本地业务日志 ID 改为顺序号形式，减少不稳定业务对象 ID。
-  - 染印兼容数据改为按需读取 adapter，避免模块加载期固化旧快照。
-- `src/pages/task-breakdown.ts`
-  - 清理 `PROC_QC` 旧编码判断残留，统一按任务事实字段判断质检挂接。
+## 7. 裁床
 
-## 3. 冻结规则固化结果
+- 菲票必须来自铺布产出矩阵。
+- 菲票五维为：面料卷号、布料颜色、尺码、裁片部位、数量。
+- 菲票归属原始裁片单，合并裁剪批次只作上下文。
+- 同组裁片通过组装键追溯。
+- 裁片单二维码一单一码，多次配料共用。
+- 领料异常提交必须上传照片。
+- 补料建议必须审核后生效。
+- 裁片仓只做 A区 / B区 / C区 简化区域。
 
-已固化并可见：
+## 8. 技术包
 
-- `docs/fcs-truth-source-rules.md`
-- `src/data/fcs/frozen-rules.ts`
-- 核心事实域文件头注释（如 `store-domain-progress.ts`、`store-domain-dispatch-process.ts`）
+- 纸样类型区分“针织 / 布料 / 暂无数据”。
+- 纸样记录纸样文件、纸样版本、打版软件、尺码范围、尺寸表、公差。
+- 技术包维护裁片部位库。
+- 裁床部位优先引用技术包裁片部位。
+- 图片来源只读真实字段，无图显示“暂无图片”。
 
-规则明确：
+## 9. 进度、统计、大屏
 
-- 统一事实源类任务只能改数据源、映射层、查询层、状态来源、兼容层、字段绑定。
-- 禁止顺手修改页面 UI 与交互。
-- 若必须改 UI/交互，必须单独任务提出。
+- 生产进度展示任务、交出、回写、差异、异议、质检、复检。
+- 交接链路支持生产单、任务、交出单、质检、复检跳转。
+- 领料/配料进度展示配置、领料、差异、补料。
+- 裁床进度和裁剪总结汇总配料、领料、唛架、铺布、菲票、补料、裁片仓。
+- 产能页面保留后道产能节点、印花打印机、染缸、特殊工艺 - 洗水。
 
-## 4. 仍保留的低风险项（可接受）
+## 10. 菜单与路由
 
-- 页面层 `Date.now()` 主要用于：
-  - 倒计时/逾期比较
-  - 与业务 identity 无关的临时判断
-- 兼容层仍保留少量 legacy 命名快照（非主真相源），用于旧 shape 过渡读取。
+- 菜单 href 必须有对应 route。
+- route 必须有 renderer。
+- 动态详情页和打印预览页可作为隐藏路由访问。
+- 不允许通过删除菜单、删除路由、降低检查强度规避验收。
 
-以上不影响主流程统一事实源，不会把页面回退到旧 seed 主链路。
+## 11. FCS 与 WMS 边界
 
-## 5. 最终结论
+- 允许：中转区域、接收方回写、裁片仓 A/B/C 区域、面料卷标签轻量字段。
+- 不允许：库存三态、完整库位、上架任务、拣货波次、完整入库、完整库存账、真实 WMS 接口。
 
-- FCS 任务链路、进度/异常链路、兼容层主线已统一到新事实源。
-- 高风险和中风险项已清零。
-- 剩余低风险项为可控兼容/页面临时逻辑，不影响统一事实源主链路。
-- 当前仓库已达到“可收口状态”。
+## 12. 禁止文案清单
 
-## 6. 任务拆分最终口径（第 6 步收口）
+- 去交接（待交出）
+- 交出头
+- 仓库自动回写
+- 工厂只查看
+- 仓库确认
+- 后道仓一体
+- 车缝直接回成衣仓
+- 印花 PDA / 染色 PDA
+- PDA 质检 / PDA 裁床 / PDA 领料 / PDA 配料
+- WASHING / HARDWARE / FROG_BUTTON
+- COUNT_ONLY / SAMPLING / FULL_INSPECTION 页面直显
+- KNIT / WOVEN 页面直显
+- mock / scaffold / deprecated 页面直显
 
-- 执行主体统一为“当前实际执行任务”：未拆分时为原任务，已拆分时为拆分后的平级任务。
-- 进度事实、执行异常、领料台账、仓库执行单、PDA 头单与记录均按 execution task 挂载。
-- 原始任务在拆分后只用于来源追溯与聚合展示，不再作为执行链路主体。
-- `rootTaskNo/splitGroupId/splitFromTaskNo/isSplitResult` 已在进度与台账兼容输出中保留，页面可读拆分来源关系。
+## 13. 最终检查命令
+
+- `npm run build`
+- `npm run check:production-craft-dict-page`
+- `npm run check:process-craft-sam-rules`
+- `npm run check:process-craft-final-taxonomy`
+- `npm run check:factory-capacity-profile`
+- `npm run check:capacity-calendar-ia`
+- `npm run check:capacity-risk-and-bottleneck`
+- `npm run check:fcs-handover-domain`
+- `npm run check:pda-exec-task-detail`
+- `npm run check:pda-handover-pages`
+- `npm run check:pda-pickup-flow`
+- `npm run check:pda-task-receive-scope`
+- `npm run check:post-route-qc-recheck`
+- `npm run check:quality-deduction-domain`
+- `npm run check:quality-deduction-lifecycle`
+- `npm run check:quality-deduction-platform`
+- `npm run check:production-confirmation`
+- `npm run check:fcs-production-tech-pack-snapshot`
+- `npm run check:fcs-tech-pack-snapshot-consumption`
+- `npm run check:printing-workflow`
+- `npm run check:dyeing-workflow`
+- `npm run check:cutting-fei-ticket-assembly`
+- `npm run check:cutting-material-prep-pickup-replenishment`
+- `npm run check:cutting-marker-spreading-actions`
+- `npm run check:cutting-traceability-chain`
+- `npm run check:cutting-source-provenance`
+- `npm run check:cutting-writeback-integrity`
+- `npm run check:cutting-production-progress-columns`
+- `npm run check:cutting:all`
+- `npm run check:tech-pack-pattern-and-images`
+- `npm run check:fcs-progress-and-routes`
+- `npm run check:menu-routes`
+- `npm run check:fcs-end-to-end`
+- `npm run check:legacy-terminology-cleanup`
+- `npm run check:fcs-final-acceptance`

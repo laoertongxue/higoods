@@ -143,7 +143,7 @@ export interface MarkerListRow {
 export interface MarkerDetailViewModel {
   row: MarkerListRow
   lineSummary: MarkerLineItemSummary
-  plannedSizeRatioText: string
+  sizeRatioPlanText: string
   totalLineSpreadLength: number
   templateType: 'row-template' | 'matrix-template'
   usageSummary: ReturnType<typeof computeUsageSummary>
@@ -673,7 +673,7 @@ function createSeedSession(
   if (profile.status === 'DONE') {
     session.completionLinkage = {
       completedAt: session.updatedAt,
-      completedBy: profile.sourceChannel === 'PDA_WRITEBACK' ? 'PDA回写' : 'Supervisor Seed',
+      completedBy: profile.sourceChannel === 'PDA_WRITEBACK' ? '工厂端回写' : '现场主管',
       linkedOriginalCutOrderIds: [...context.originalCutOrderIds],
       linkedOriginalCutOrderNos: [...context.originalCutOrderNos],
       generatedWarningId: session.replenishmentWarning?.warningId || `warning-${session.spreadingSessionId}`,
@@ -1089,8 +1089,8 @@ export function buildMarkerDetailViewModel(row: MarkerListRow): MarkerDetailView
   return {
     row,
     lineSummary,
-    plannedSizeRatioText:
-      row.record.plannedSizeRatioText ||
+    sizeRatioPlanText:
+      row.record.sizeRatioPlanText ||
       row.record.sizeDistribution
         .filter((item) => item.quantity > 0)
         .map((item) => `${item.sizeLabel}×${item.quantity}`)

@@ -3,6 +3,10 @@ import {
   getProjectById,
   listProjectNodes,
 } from './pcs-project-repository.ts'
+import {
+  listProjectReferenceImageViewModels,
+  listProjectSampleShootImageViewModels,
+} from './pcs-project-image-view-model.ts'
 import type { PcsProjectNodeRecord, PcsProjectViewRecord } from './pcs-project-types.ts'
 import {
   getLatestProjectInlineNodeRecord,
@@ -212,7 +216,12 @@ function buildProjectRecordInstance(project: PcsProjectViewRecord, node: PcsProj
   addField(fields, labelMap.get('targetAudienceTags') || '目标客群标签', project.targetAudienceTags, 'targetAudienceTags')
   addField(fields, labelMap.get('priceRangeLabel') || '价格带', project.priceRangeLabel, 'priceRangeLabel')
   addField(fields, labelMap.get('targetChannelCodes') || '目标测款渠道', getChannelNamesByCodes(project.targetChannelCodes), 'targetChannelCodes')
-  addField(fields, labelMap.get('projectAlbumUrls') || '项目图册链接', project.projectAlbumUrls, 'projectAlbumUrls')
+  addField(
+    fields,
+    labelMap.get('projectAlbumUrls') || '参考图片',
+    listProjectReferenceImageViewModels(project.projectId).map((item) => item.imageName),
+    'projectAlbumUrls',
+  )
   addField(fields, labelMap.get('ownerId') || '负责人', project.ownerName, 'ownerId')
   addField(fields, labelMap.get('ownerName') || '负责人名称', project.ownerName, 'ownerName')
   addField(fields, labelMap.get('teamId') || '执行团队', project.teamName, 'teamId')
@@ -263,8 +272,25 @@ function buildInlineRecordFields(record: PcsProjectInlineNodeRecord): PcsProject
   }
 
   const fields: PcsProjectInstanceField[] = []
+  const sampleShootImageMap =
+    record.workItemTypeCode === 'SAMPLE_SHOOT_FIT'
+      ? new Map(listProjectSampleShootImageViewModels(record.projectId).map((item) => [item.imageId, item.imageName]))
+      : null
   getProjectWorkItemContract(record.workItemTypeCode as PcsProjectWorkItemCode).fieldDefinitions.forEach((field) => {
-    const value = merged[field.fieldKey]
+    let value = merged[field.fieldKey]
+    if (
+      sampleShootImageMap &&
+      Array.isArray(value) &&
+      (
+        field.fieldKey === 'sampleFlatImageIds' ||
+        field.fieldKey === 'sampleTryOnImageIds' ||
+        field.fieldKey === 'sampleDetailImageIds' ||
+        field.fieldKey === 'listingCandidateImageIds' ||
+        field.fieldKey === 'styleArchiveCandidateImageIds'
+      )
+    ) {
+      value = value.map((item) => sampleShootImageMap.get(String(item)) || String(item)).filter(Boolean)
+    }
     if (isEmptyValue(value)) return
     addField(fields, labelMap.get(field.fieldKey) || field.label, value, field.fieldKey)
   })

@@ -121,15 +121,20 @@ function validateTestingGate(input: {
     })
   }
 
-  if (chain.currentChannelProductStatus !== '已上架待测款') {
+  const channelProductStatus =
+    chain.currentChannelProductStatus === '已完成'
+      ? '已上架待测款'
+      : chain.currentChannelProductStatus
+
+  if (channelProductStatus !== '已上架待测款') {
     const reason =
-      chain.currentChannelProductStatus === '待上架'
+      channelProductStatus === '待上传' || channelProductStatus === '已上传待确认'
         ? `当前项目未完成商品上架，不能建立正式${input.workItemLabel}关系。`
-        : chain.currentChannelProductStatus === '已作废'
+        : channelProductStatus === '已作废'
           ? `当前渠道店铺商品已作废，不能建立正式${input.workItemLabel}关系。`
-          : chain.currentChannelProductStatus === '已生效'
+          : channelProductStatus === '已生效'
             ? `当前渠道店铺商品已完成款式档案关联，不能再进入正式${input.workItemLabel}。`
-            : `当前渠道店铺商品状态为${chain.currentChannelProductStatus || '未知状态'}，只有“已上架待测款”的项目才允许建立正式${input.workItemLabel}关系。`
+            : `当前渠道店铺商品状态为${channelProductStatus || '未知状态'}，只有“已上架待测款”的项目才允许建立正式${input.workItemLabel}关系。`
     return buildTestingGateFailure({
       ...input,
       reason,

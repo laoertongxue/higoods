@@ -22,7 +22,7 @@ function resolveRouteLabel(routeKey: PdaCuttingExecutionRouteKey): string {
   if (routeKey === 'pickup') return '去领料'
   if (routeKey === 'spreading') return '去铺布'
   if (routeKey === 'inbound') return '去入仓'
-  if (routeKey === 'handover') return '去交接'
+  if (routeKey === 'handover') return '去交出'
   return '去补料'
 }
 
@@ -53,7 +53,7 @@ function resolveCurrentStepLabel(stepCode: PdaCuttingCurrentStepCode): string {
   if (stepCode === 'PICKUP') return '去领料'
   if (stepCode === 'SPREADING') return '去铺布'
   if (stepCode === 'REPLENISHMENT') return '去补料'
-  if (stepCode === 'HANDOVER') return '去交接'
+  if (stepCode === 'HANDOVER') return '去交出'
   if (stepCode === 'INBOUND') return '去入仓'
   return '已完成'
 }

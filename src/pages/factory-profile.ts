@@ -7,6 +7,7 @@ import {
 import {
   cooperationModeConfig,
   factoryStatusConfig,
+  type FactoryPostCapacityNodeCode,
   factoryTierConfig,
   factoryTypeConfig,
   type FactoryProcessAbility,
@@ -17,6 +18,7 @@ import {
   type FactoryType,
 } from '../data/fcs/factory-types'
 import {
+  getProcessDefinitionByCode,
   listCraftsByProcessCode,
   listProcessStages,
   listProcessesByStageCode,
@@ -36,8 +38,36 @@ import { escapeHtml } from '../utils'
 import { renderConfirmDialog } from '../components/ui/dialog'
 
 const PAGE_SIZE = 10
+const POST_CAPACITY_NODE_CODES = ['BUTTONHOLE', 'BUTTON_ATTACH', 'IRONING', 'PACKAGING'] as const satisfies FactoryPostCapacityNodeCode[]
 
 type SortField = 'code' | 'name' | 'status' | 'tier'
+
+function cloneProcessAbility(item: FactoryProcessAbility): FactoryProcessAbility {
+  return {
+    processCode: item.processCode,
+    craftCodes: [...item.craftCodes],
+    capacityNodeCodes: item.capacityNodeCodes ? [...item.capacityNodeCodes] : undefined,
+    abilityId: item.abilityId,
+    processName: item.processName,
+    craftNames: item.craftNames ? [...item.craftNames] : undefined,
+    abilityName: item.abilityName,
+    abilityScope: item.abilityScope,
+    canReceiveTask: item.canReceiveTask,
+    capacityManaged: item.capacityManaged,
+    status: item.status,
+    parentProcessCode: item.parentProcessCode,
+  }
+}
+
+function getPostCapacityNodeOptions() {
+  return POST_CAPACITY_NODE_CODES.map((processCode) => {
+    const process = getProcessDefinitionByCode(processCode)
+    return {
+      processCode,
+      processName: process?.processName ?? processCode,
+    }
+  })
+}
 type PdaTab = 'users' | 'roles' | 'permissions'
 type PdaUserStatus = 'ACTIVE' | 'LOCKED'
 
@@ -188,10 +218,7 @@ const state: FactoryPageState = {
 function cloneFormDraft(data: FactoryFormData): FactoryFormData {
   return {
     ...data,
-    processAbilities: data.processAbilities.map((item) => ({
-      processCode: item.processCode,
-      craftCodes: [...item.craftCodes],
-    })),
+    processAbilities: data.processAbilities.map((item) => cloneProcessAbility(item)),
     eligibility: { ...data.eligibility },
   }
 }
@@ -220,10 +247,7 @@ function createFormData(factory: Factory | null): FactoryFormData {
     phone: factory.phone,
     status: factory.status,
     cooperationMode: factory.cooperationMode,
-    processAbilities: factory.processAbilities.map((item) => ({
-      processCode: item.processCode,
-      craftCodes: [...item.craftCodes],
-    })),
+    processAbilities: factory.processAbilities.map((item) => cloneProcessAbility(item)),
     factoryTier: factory.factoryTier,
     factoryType: factory.factoryType,
     parentFactoryId: factory.parentFactoryId,
@@ -237,23 +261,53 @@ function getSelectedCraftCodes(processAbilities: FactoryProcessAbility[], proces
   return processAbilities.find((item) => item.processCode === processCode)?.craftCodes ?? []
 }
 
+function getSelectedCapacityNodeCodes(
+  processAbilities: FactoryProcessAbility[],
+  processCode: string,
+): FactoryPostCapacityNodeCode[] {
+  return processAbilities.find((item) => item.processCode === processCode)?.capacityNodeCodes ?? []
+}
+
 function upsertProcessAbility(
   processAbilities: FactoryProcessAbility[],
   processCode: string,
   craftCodes: string[],
+  capacityNodeCodes?: FactoryPostCapacityNodeCode[],
 ): FactoryProcessAbility[] {
   const nextCraftCodes = [...new Set(craftCodes)]
+  const nextCapacityNodeCodes = capacityNodeCodes ? [...new Set(capacityNodeCodes)] : undefined
   const nextAbilities = processAbilities
     .filter((item) => item.processCode !== processCode)
-    .map((item) => ({
-      processCode: item.processCode,
-      craftCodes: [...item.craftCodes],
-    }))
+    .map((item) => cloneProcessAbility(item))
 
-  if (nextCraftCodes.length > 0) {
+  if (nextCraftCodes.length > 0 || (nextCapacityNodeCodes?.length ?? 0) > 0) {
+    const process = getProcessDefinitionByCode(processCode)
     nextAbilities.push({
       processCode,
       craftCodes: nextCraftCodes,
+      capacityNodeCodes: nextCapacityNodeCodes,
+      abilityId: `ABILITY_${processCode}`,
+      processName: process?.processName ?? processCode,
+      craftNames:
+        processCode === 'POST_FINISHING'
+          ? nextCapacityNodeCodes?.map((nodeCode) => getProcessDefinitionByCode(nodeCode)?.processName ?? nodeCode)
+          : listCraftsByProcessCode(processCode)
+              .filter((item) => nextCraftCodes.includes(item.craftCode))
+              .map((item) => item.craftName),
+      abilityName:
+        processCode === 'SPECIAL_CRAFT' && nextCraftCodes.length === 1
+          ? `特殊工艺 - ${listCraftsByProcessCode(processCode).find((item) => item.craftCode === nextCraftCodes[0])?.craftName ?? nextCraftCodes[0]}`
+          : process?.processName ?? processCode,
+      abilityScope:
+        processCode === 'POST_FINISHING'
+          ? 'PROCESS'
+          : nextCraftCodes.length === 1
+            ? 'CRAFT'
+            : 'PROCESS',
+      canReceiveTask: process?.generatesExternalTask ?? true,
+      capacityManaged: process?.capacityEnabled ?? true,
+      status: process?.isActive ? 'ACTIVE' : 'DISABLED',
+      parentProcessCode: process?.parentProcessCode,
     })
   }
 
@@ -1234,11 +1288,11 @@ function renderFactoryDrawer(): string {
             </section>
 
             <section class="space-y-4">
-              <h4 class="${sectionTitleClass}">工序工艺能力</h4>
+              <h4 class="${sectionTitleClass}">接单能力</h4>
               <div class="space-y-4">
                 ${listProcessStages()
                   .map((stage) => {
-                    const processes = listProcessesByStageCode(stage.stageCode)
+                    const processes = listProcessesByStageCode(stage.stageCode).filter((process) => process.generatesExternalTask)
                     return `
                       <div class="rounded-lg border bg-muted/20 p-4">
                         <div class="mb-3">
@@ -1247,9 +1301,16 @@ function renderFactoryDrawer(): string {
                         <div class="space-y-3">
                           ${processes
                             .map((process) => {
-                              const crafts = listCraftsByProcessCode(process.processCode)
+                              const crafts = process.processCode === 'POST_FINISHING'
+                                ? getPostCapacityNodeOptions().map((item) => ({
+                                    craftCode: item.processCode,
+                                    craftName: item.processName,
+                                  }))
+                                : listCraftsByProcessCode(process.processCode)
                               const selectedCraftCodes = getSelectedCraftCodes(draft.processAbilities, process.processCode)
-                              const checked = crafts.length > 0 && selectedCraftCodes.length === crafts.length
+                              const selectedNodeCodes = getSelectedCapacityNodeCodes(draft.processAbilities, process.processCode)
+                              const selectedCodes = process.processCode === 'POST_FINISHING' ? selectedNodeCodes : selectedCraftCodes
+                              const checked = crafts.length > 0 && selectedCodes.length === crafts.length
                               return `
                                 <div class="rounded-md border bg-background p-3">
                                   <label class="flex items-center gap-2 text-sm font-medium text-foreground">
@@ -1264,12 +1325,14 @@ function renderFactoryDrawer(): string {
                                   <div class="mt-3 flex flex-wrap gap-x-4 gap-y-2 pl-6">
                                     ${crafts
                                       .map((craft) => {
-                                        const craftChecked = selectedCraftCodes.includes(craft.craftCode)
+                                        const craftChecked = selectedCodes.includes(craft.craftCode)
                                         return `
                                           <label class="inline-flex items-center gap-2 text-sm">
                                             <input
                                               type="checkbox"
-                                              data-factory-craft-toggle="${craft.craftCode}"
+                                              ${process.processCode === 'POST_FINISHING'
+                                                ? `data-factory-node-toggle="${craft.craftCode}"`
+                                                : `data-factory-craft-toggle="${craft.craftCode}"`}
                                               data-factory-process-code="${process.processCode}"
                                               ${craftChecked ? 'checked' : ''}
                                               class="h-4 w-4 rounded border"
@@ -1508,10 +1571,7 @@ function upsertFactory(data: FactoryFormData, editingFactory: Factory | null): v
     const nextFactory: Factory = {
       ...editingFactory,
       ...data,
-      processAbilities: data.processAbilities.map((item) => ({
-        processCode: item.processCode,
-        craftCodes: [...item.craftCodes],
-      })),
+      processAbilities: data.processAbilities.map((item) => cloneProcessAbility(item)),
       updatedAt: new Date().toISOString().split('T')[0],
     }
 
@@ -1532,10 +1592,7 @@ function upsertFactory(data: FactoryFormData, editingFactory: Factory | null): v
     phone: data.phone,
     status: data.status,
     cooperationMode: data.cooperationMode,
-    processAbilities: data.processAbilities.map((item) => ({
-      processCode: item.processCode,
-      craftCodes: [...item.craftCodes],
-    })),
+    processAbilities: data.processAbilities.map((item) => cloneProcessAbility(item)),
     qualityScore: 0,
     deliveryScore: 0,
     createdAt: today,
@@ -1637,13 +1694,23 @@ export function handleFactoryPageEvent(target: HTMLElement): boolean {
     const processCode = processToggleField.dataset.factoryProcessToggle
     if (!processCode) return true
 
-    const craftCodes = processToggleField.checked
-      ? listCraftsByProcessCode(processCode).map((item) => item.craftCode)
+    const craftCodes = processCode === 'POST_FINISHING'
+      ? []
+      : processToggleField.checked
+        ? listCraftsByProcessCode(processCode).map((item) => item.craftCode)
+        : []
+    const capacityNodeCodes = processCode === 'POST_FINISHING' && processToggleField.checked
+      ? [...POST_CAPACITY_NODE_CODES]
       : []
 
     setDraft((prev) => ({
       ...prev,
-      processAbilities: upsertProcessAbility(prev.processAbilities, processCode, craftCodes),
+      processAbilities: upsertProcessAbility(
+        prev.processAbilities,
+        processCode,
+        craftCodes,
+        processCode === 'POST_FINISHING' ? capacityNodeCodes : undefined,
+      ),
     }))
 
     return true
@@ -1664,6 +1731,27 @@ export function handleFactoryPageEvent(target: HTMLElement): boolean {
       return {
         ...prev,
         processAbilities: upsertProcessAbility(prev.processAbilities, processCode, nextCraftCodes),
+      }
+    })
+
+    return true
+  }
+
+  const nodeToggleField = target.closest<HTMLElement>('[data-factory-node-toggle]')
+  if (nodeToggleField instanceof HTMLInputElement && state.formDraft) {
+    const processCode = nodeToggleField.dataset.factoryProcessCode
+    const nodeCode = nodeToggleField.dataset.factoryNodeToggle as FactoryPostCapacityNodeCode | undefined
+    if (!processCode || !nodeCode) return true
+
+    setDraft((prev) => {
+      const selectedNodeCodes = getSelectedCapacityNodeCodes(prev.processAbilities, processCode)
+      const nextNodeCodes = nodeToggleField.checked
+        ? [...selectedNodeCodes, nodeCode]
+        : selectedNodeCodes.filter((item) => item !== nodeCode)
+
+      return {
+        ...prev,
+        processAbilities: upsertProcessAbility(prev.processAbilities, processCode, [], nextNodeCodes),
       }
     })
 

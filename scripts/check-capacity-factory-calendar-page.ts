@@ -1,6 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
+import { buildFactoryCalendarData } from '../src/data/fcs/capacity-calendar.ts'
+
 const ROOT = '/Users/laoer/Documents/higoods'
 const CAPACITY_PAGE_PATH = path.join(ROOT, 'src/pages/capacity.ts')
 
@@ -12,6 +14,7 @@ function assert(condition: unknown, message: string): asserts condition {
 
 function main(): void {
   const source = fs.readFileSync(CAPACITY_PAGE_PATH, 'utf8')
+  const calendar = buildFactoryCalendarData({ factoryId: 'ID-F010' })
   const detailPanelMatch = source.match(/function renderFactoryCalendarDetailPanel[\s\S]*?function getOverviewStats/)
   const sourceTableMatch = source.match(/function renderFactoryCalendarSourceTable[\s\S]*?function renderFactoryCalendarDetailPanel/)
 
@@ -44,14 +47,23 @@ function main(): void {
   )
 
   assert(source.includes('data-testid="factory-calendar-table-section"'), '主表区域未单独收平')
-  assert(source.includes('data-testid="factory-calendar-detail-summary"'), '详情摘要区缺少测试锚点')
+  assert(source.includes('data-testid="factory-calendar-detail-summary"'), '详情概览区缺少测试锚点')
   assert(source.includes('data-testid="factory-calendar-committed-section"'), '详情已占用来源区缺少测试锚点')
   assert(source.includes('data-testid="factory-calendar-frozen-section"'), '详情已冻结来源区缺少测试锚点')
   assert(source.includes('data-testid="factory-calendar-source-table"'), '来源表缺少测试锚点')
+  assert(source.includes('formatCapacityScopeText'), '工厂日历页面未统一使用“后道 - 节点”显示 helper')
 
   assert(!detailPanelSource.includes('rounded-md border bg-card p-4'), '详情区仍残留旧的重卡片样式')
   assert(!sourceTableSource.includes('rounded-md border border-dashed'), '来源空态仍残留旧的虚线重边框样式')
   assert(detailPanelSource.includes('xl:border-l xl:border-t-0 xl:pl-6'), '详情区未收成附属说明面板样式')
+  assert(
+    calendar.rows.some((row) => row.processCode === 'POST_FINISHING' && row.craftCode === 'BUTTONHOLE'),
+    '工厂日历缺少“后道 / 开扣眼”明细行',
+  )
+  assert(
+    !calendar.rows.some((row) => ['BUTTONHOLE', 'BUTTON_ATTACH', 'IRONING', 'PACKAGING'].includes(row.processCode)),
+    '工厂日历仍把后道产能节点当成独立任务工序',
+  )
 
   console.log('工厂日历页面收平检查通过：长说明已收短、层级已减重、无效状态已清理。')
 }

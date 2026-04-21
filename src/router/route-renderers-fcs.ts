@@ -131,6 +131,10 @@ export const renderFcsProductionTechPackSnapshotPage = createAsyncRenderer(
   () => import('../pages/fcs-production-tech-pack-snapshot'),
   'renderFcsProductionTechPackSnapshotPage',
 )
+export const renderProductionConfirmationPrintPage = createAsyncRenderer(
+  () => import('../pages/production/confirmation-print'),
+  'renderProductionConfirmationPrintPage',
+)
 export const renderMaterialStatementsPage = createAsyncRenderer(
   () => import('../pages/material-statements'),
   'renderMaterialStatementsPage',

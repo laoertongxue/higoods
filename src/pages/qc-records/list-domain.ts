@@ -31,6 +31,21 @@ import {
 
 type QcRow = ReturnType<typeof getFilteredQcRows>[number]
 
+const INSPECTION_SCENE_LABEL: Record<string, string> = {
+  RETURN_INBOUND: '回货质检',
+  SEW_RETURN_RECEIVING_QC: '回货质检',
+  POST_FINAL_RECHECK: '后道复检',
+  PRINT_RECEIVING_QC: '印花回货质检',
+  DYE_RECEIVING_QC: '染色回货质检',
+  CUT_PIECE_RECEIVING_QC: '裁片回货质检',
+}
+
+const INSPECTION_METHOD_LABEL: Record<string, string> = {
+  COUNT_ONLY: '数量复核',
+  SAMPLING: '抽检',
+  FULL_INSPECTION: '全检',
+}
+
 function renderTextBadge(label: string, className: string): string {
   return `<span class="inline-flex rounded-md border px-2 py-0.5 text-xs ${className}">${escapeHtml(label)}</span>`
 }
@@ -48,6 +63,18 @@ function renderDispositionBadge(result: QcDisplayResult, disposition?: QcDisposi
 
 function renderPolicyBadge(policy: ReturnInboundQcPolicy): string {
   return renderTextBadge(RETURN_INBOUND_QC_POLICY_LABEL[policy], 'border-slate-200 bg-slate-50 text-slate-700')
+}
+
+function getInspectionSceneLabel(row: QcRow): string {
+  const scene = row.qc.inspectionScene
+  if (!scene) return '回货质检'
+  return INSPECTION_SCENE_LABEL[scene] ?? '回货质检'
+}
+
+function getInspectionMethodLabel(row: QcRow): string {
+  const method = row.qc.inspectionMethod
+  if (!method) return '抽检'
+  return INSPECTION_METHOD_LABEL[method] ?? '抽检'
 }
 
 function renderLiabilityBadge(row: QcRow): string {
@@ -284,7 +311,7 @@ export function renderQcRecordsPage(): string {
         <div>
           <h1 class="text-2xl font-bold tracking-tight">质检记录</h1>
           <p class="mt-1 text-sm text-muted-foreground">
-            以共享质量事件事实源为底座，统一查看仓库质检、工厂响应、异议处理、扣款依据与结算影响。
+            统一查看回货质检、后道复检、工厂响应、异议处理、扣款依据与结算影响。
           </p>
         </div>
       </div>
@@ -356,7 +383,7 @@ export function renderQcRecordsPage(): string {
           </div>
 
           <div>
-            <label class="mb-1 block text-xs text-muted-foreground">入仓仓库</label>
+            <label class="mb-1 block text-xs text-muted-foreground">接收方</label>
             <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-qcr-filter="warehouse">
               <option value="ALL" ${listState.filterWarehouse === 'ALL' ? 'selected' : ''}>全部</option>
               ${warehouseOptions
@@ -369,7 +396,7 @@ export function renderQcRecordsPage(): string {
           </div>
 
           <div>
-            <label class="mb-1 block text-xs text-muted-foreground">质检策略</label>
+            <label class="mb-1 block text-xs text-muted-foreground">检查策略</label>
             <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-qcr-filter="policy">
               <option value="ALL" ${listState.filterPolicy === 'ALL' ? 'selected' : ''}>全部</option>
               ${Object.entries(RETURN_INBOUND_QC_POLICY_LABEL)
@@ -382,7 +409,7 @@ export function renderQcRecordsPage(): string {
           </div>
 
           <div>
-            <label class="mb-1 block text-xs text-muted-foreground">质检结果</label>
+            <label class="mb-1 block text-xs text-muted-foreground">检查结果</label>
             <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-qcr-filter="result">
               <option value="ALL" ${listState.filterResult === 'ALL' ? 'selected' : ''}>全部</option>
               <option value="PASS" ${listState.filterResult === 'PASS' ? 'selected' : ''}>合格</option>
@@ -491,13 +518,13 @@ export function renderQcRecordsPage(): string {
               <table class="w-full min-w-[2200px] text-sm">
                 <thead>
                   <tr class="border-b bg-muted/40 text-left">
-                    <th class="px-4 py-2 font-medium">质检单号</th>
+                    <th class="px-4 py-2 font-medium">检查单号</th>
                     <th class="px-4 py-2 font-medium">回货批次号</th>
                     <th class="px-4 py-2 font-medium">生产单号</th>
-                    <th class="px-4 py-2 font-medium">回货环节</th>
-                    <th class="px-4 py-2 font-medium">回货工厂 / 入仓仓库</th>
-                    <th class="px-4 py-2 font-medium">质检结论</th>
-                    <th class="px-4 py-2 font-medium">质检人 / 时间</th>
+                    <th class="px-4 py-2 font-medium">检查场景 / 回货环节</th>
+                    <th class="px-4 py-2 font-medium">工厂 / 接收方</th>
+                    <th class="px-4 py-2 font-medium">检查结果</th>
+                    <th class="px-4 py-2 font-medium">检查人 / 时间</th>
                     <th class="px-4 py-2 font-medium">责任状态</th>
                     <th class="px-4 py-2 font-medium">不合格品处置方式</th>
                     <th class="px-4 py-2 font-medium">工厂响应</th>
@@ -532,11 +559,16 @@ export function renderQcRecordsPage(): string {
                           </td>
                           <td class="px-4 py-3 align-top font-mono text-xs">${escapeHtml(row.batchId || '-')}</td>
                           <td class="px-4 py-3 align-top font-mono text-xs">${escapeHtml(row.productionOrderId || '-')}</td>
-                          <td class="px-4 py-3 align-top">${escapeHtml(row.processLabel)}</td>
+                          <td class="px-4 py-3 align-top">
+                            <div class="space-y-1">
+                              <div>${escapeHtml(getInspectionSceneLabel(row))}</div>
+                              <div class="text-xs text-muted-foreground">${escapeHtml(row.processLabel)} · ${escapeHtml(getInspectionMethodLabel(row))}</div>
+                            </div>
+                          </td>
                           <td class="px-4 py-3 align-top">
                             <div class="space-y-1">
                               <div>${escapeHtml(row.returnFactoryName || '-')}</div>
-                              <div class="text-xs text-muted-foreground">${escapeHtml(row.warehouseName || '-')}</div>
+                              <div class="text-xs text-muted-foreground">${escapeHtml(row.qc.receiverName || row.warehouseName || '-')}</div>
                             </div>
                           </td>
                           <td class="px-4 py-3 align-top">${renderQuantitySummary(row)}</td>

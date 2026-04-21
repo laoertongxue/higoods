@@ -125,7 +125,7 @@ export interface OriginalCutOrderTicketOwner {
   relatedMergeBatchIds: string[]
   relatedMergeBatchNos: string[]
   sourceContextLabel: string
-  ticketCountBasisType: 'SPREADING_RESULT' | 'THEORETICAL_FALLBACK'
+  ticketCountBasisType: 'SPREADING_RESULT' | 'HISTORICAL_FALLBACK'
   ticketCountBasisLabel: string
   ticketCountBasisDetail: string
   currentStageLabel: string
@@ -140,6 +140,7 @@ export interface OriginalCutOrderTicketOwner {
 export interface FeiTicketLabelRecord {
   ticketRecordId: string
   ticketNo: string
+  sourceOutputLineId?: string
   sourceSpreadingSessionId?: string
   sourceSpreadingSessionNo?: string
   sourceMarkerId?: string
@@ -150,6 +151,11 @@ export interface FeiTicketLabelRecord {
   styleCode: string
   spuCode: string
   materialSku: string
+  fabricRollId?: string
+  fabricRollNo?: string
+  fabricColor?: string
+  garmentSkuId?: string
+  garmentColor?: string
   color: string
   sequenceNo: number
   status: 'PRINTED' | 'VOIDED'
@@ -167,9 +173,15 @@ export interface FeiTicketLabelRecord {
   printableUnitType?: PrintableUnitType
   sourceProductionOrderId?: string
   splitDetailId?: string
+  partCode?: string
   partName?: string
   size?: string
+  bundleNo?: string
   quantity?: number
+  actualCutPieceQty?: number
+  assemblyGroupKey?: string
+  siblingPartTicketNos?: string[]
+  printStatus?: 'WAIT_PRINT' | 'PRINTED' | 'REPRINTED' | 'VOIDED'
   processTags?: string[]
   version?: number
   voidedAt?: string
@@ -286,7 +298,7 @@ export interface FeiTicketStatusMeta {
 }
 
 export interface TicketCountBasisResult {
-  basisType: 'SPREADING_RESULT' | 'THEORETICAL_FALLBACK'
+  basisType: 'SPREADING_RESULT' | 'HISTORICAL_FALLBACK'
   ticketCount: number
   basisLabel: string
   detailText: string
@@ -380,6 +392,27 @@ function formatQty(value: number): string {
   return numberFormatter.format(Math.max(value, 0))
 }
 
+export function isFeiTicketFiveDimComplete(record: Pick<
+  FeiTicketLabelRecord | TicketCard | TicketSplitDetail,
+  'fabricRollNo' | 'fabricColor' | 'size' | 'partName' | 'quantity'
+>): boolean {
+  return Boolean(
+    String(record.fabricRollNo || '').trim()
+    && String(record.fabricColor || '').trim()
+    && String(record.size || '').trim()
+    && String(record.partName || '').trim()
+    && Number(record.quantity || 0) > 0,
+  )
+}
+
+export function buildFeiTicketFiveDimTitle(record: Pick<
+  FeiTicketLabelRecord | TicketCard | TicketSplitDetail,
+  'fabricRollNo' | 'fabricColor' | 'size' | 'partName' | 'quantity'
+>): string {
+  if (!isFeiTicketFiveDimComplete(record)) return '暂无数据'
+  return `${record.fabricRollNo} - ${record.fabricColor} - ${record.size} - ${record.partName} - ${formatQty(record.quantity)}`
+}
+
 function createEmptyPreviewRecord(
   owner: OriginalCutOrderTicketOwner,
   sequenceNo: number,
@@ -391,6 +424,7 @@ function createEmptyPreviewRecord(
   return {
     ticketRecordId: generated?.feiTicketId || `${owner.originalCutOrderId}-${sequenceNo}`,
     ticketNo: generated?.feiTicketNo || buildFeiTicketNo(owner.originalCutOrderNo, sequenceNo),
+    sourceOutputLineId: generated?.sourceOutputLineId || '',
     sourceSpreadingSessionId: generated?.sourceSpreadingSessionId || '',
     sourceSpreadingSessionNo: generated?.sourceSpreadingSessionNo || '',
     sourceMarkerId: generated?.sourceMarkerId || '',
@@ -401,7 +435,12 @@ function createEmptyPreviewRecord(
     styleCode: owner.styleCode,
     spuCode: owner.spuCode,
     materialSku: owner.materialSku,
-    color: generated?.skuColor || owner.color,
+    fabricRollId: generated?.fabricRollId || '',
+    fabricRollNo: generated?.fabricRollNo || '',
+    fabricColor: generated?.fabricColor || generated?.skuColor || owner.color,
+    garmentSkuId: generated?.garmentSkuId || '',
+    garmentColor: generated?.garmentColor || generated?.skuColor || owner.color,
+    color: generated?.fabricColor || generated?.skuColor || owner.color,
     sequenceNo,
     status: 'PRINTED',
     qrValue: generated?.qrValue || `${owner.qrBaseValue}-${String(sequenceNo).padStart(3, '0')}`,
@@ -413,9 +452,15 @@ function createEmptyPreviewRecord(
     sourceContextType,
     sourceMergeBatchId,
     sourceMergeBatchNo,
+    partCode: generated?.partCode || '',
     partName: generated?.partName || '',
     size: generated?.skuSize || '',
-    quantity: generated?.qty ?? 1,
+    bundleNo: generated?.bundleNo || `BUNDLE-${String(sequenceNo).padStart(3, '0')}`,
+    quantity: generated?.bundleQty ?? generated?.qty ?? 1,
+    actualCutPieceQty: generated?.actualCutPieceQty ?? generated?.qty ?? 1,
+    assemblyGroupKey: generated?.assemblyGroupKey || '',
+    siblingPartTicketNos: generated?.siblingPartTicketNos ? [...generated.siblingPartTicketNos] : [],
+    printStatus: generated?.printStatus || 'WAIT_PRINT',
     processTags: generated?.secondaryCrafts || [],
   }
 }
@@ -449,7 +494,7 @@ function createSeedOwnerFromRow(options: {
     relatedMergeBatchIds: mergeBatchIds,
     relatedMergeBatchNos: mergeBatchNos,
     sourceContextLabel: mergeBatchNos[0] ? `来自批次 ${mergeBatchNos[0]}` : '原始单上下文',
-    ticketCountBasisType: 'THEORETICAL_FALLBACK',
+    ticketCountBasisType: 'HISTORICAL_FALLBACK',
     ticketCountBasisLabel: '演示票数',
     ticketCountBasisDetail: '当前 seed 仅用于打印模块人工验收，不影响其它业务口径。',
     currentStageLabel: options.row.currentStage.label,
@@ -531,9 +576,15 @@ function createSeedTicketRecord(options: {
       reprintCount: Math.max(options.version - 1, 0),
       sourcePrintJobId: options.printJobId,
       status: 'PRINTED',
+      partCode: generated?.partCode || '',
       partName: options.partName || generated?.partName || printablePartCycle[(options.sequenceNo - 1) % printablePartCycle.length],
       size: options.size || generated?.skuSize || printableSizeCycle[(options.sequenceNo - 1) % printableSizeCycle.length],
-      quantity: options.quantity ?? generated?.qty ?? 1,
+      bundleNo: generated?.bundleNo || `BUNDLE-${String(options.sequenceNo).padStart(3, '0')}`,
+      quantity: options.quantity ?? generated?.bundleQty ?? generated?.qty ?? 1,
+      actualCutPieceQty: generated?.actualCutPieceQty ?? options.quantity ?? generated?.qty ?? 1,
+      assemblyGroupKey: generated?.assemblyGroupKey || '',
+      siblingPartTicketNos: generated?.siblingPartTicketNos ? [...generated.siblingPartTicketNos] : [],
+      printStatus: options.version > 1 ? 'REPRINTED' : generated?.printStatus || 'PRINTED',
       processTags: options.processTags || generated?.secondaryCrafts || [],
       version: options.version,
     },
@@ -803,19 +854,19 @@ export function resolveTicketCountBasis(
   const markerPieces = findRelevantMarkerPieceCount(owner, markerStore, context)
   if (markerPieces && markerPieces > 0) {
     return {
-      basisType: 'THEORETICAL_FALLBACK',
+      basisType: 'HISTORICAL_FALLBACK',
       ticketCount: markerPieces,
-      basisLabel: '参考理论值',
-      detailText: `当前尚未命中正式铺布完成结果，先按参考理论值 ${formatQty(markerPieces)} 件估算建议票数。`,
+      basisLabel: '历史兜底',
+      detailText: `当前尚未命中正式铺布完成结果，暂按历史兜底 ${formatQty(markerPieces)} 件补足。`,
     }
   }
 
   const fallback = Math.max(1, Math.min(120, Math.round(Math.max(owner.orderQtyHint, 1) / 100)))
   return {
-    basisType: 'THEORETICAL_FALLBACK',
+    basisType: 'HISTORICAL_FALLBACK',
     ticketCount: fallback,
-    basisLabel: '参考理论值',
-    detailText: '当前尚未形成完整铺布完成结果，先按参考理论值补算建议票数。',
+    basisLabel: '历史兜底',
+    detailText: '当前尚未形成完整铺布完成结果，暂按历史兜底补足。',
   }
 }
 
@@ -1668,7 +1719,7 @@ export interface PrintableUnit {
   sourceCutOrderCount: number
   requiredTicketCount: number
   garmentQtyTotal: number
-  ticketCountBasisType: 'SPREADING_RESULT' | 'THEORETICAL_FALLBACK'
+  ticketCountBasisType: 'SPREADING_RESULT' | 'HISTORICAL_FALLBACK'
   ticketCountBasisLabel: string
   ticketCountBasisDetail: string
   validPrintedTicketCount: number
@@ -1708,6 +1759,7 @@ export type TicketCardStatus = 'VALID' | 'VOIDED'
 
 export interface TicketSplitDetail {
   detailId: string
+  sourceOutputLineId: string
   printableUnitId: string
   sourceSpreadingSessionId: string
   sourceSpreadingSessionNo: string
@@ -1717,10 +1769,17 @@ export interface TicketSplitDetail {
   sourceProductionOrderNo: string
   batchNo: string
   styleCode: string
+  fabricRollNo: string
+  fabricColor: string
   color: string
   size: string
+  partCode: string
   partName: string
+  bundleNo: string
   quantity: number
+  actualCutPieceQty: number
+  assemblyGroupKey: string
+  siblingPartTicketNos: string[]
   garmentQty: number
   requiredTicketCount: number
   validPrintedTicketCount: number
@@ -1731,6 +1790,7 @@ export interface TicketSplitDetail {
 export interface TicketCard {
   ticketId: string
   ticketNo: string
+  sourceOutputLineId: string
   printableUnitId: string
   printableUnitNo: string
   printableUnitType: PrintableUnitType
@@ -1740,10 +1800,18 @@ export interface TicketCard {
   sourceProductionOrderId: string
   sourceProductionOrderNo: string
   styleCode: string
+  fabricRollNo: string
+  fabricColor: string
   color: string
   size: string
+  partCode: string
   partName: string
+  bundleNo: string
   quantity: number
+  actualCutPieceQty: number
+  assemblyGroupKey: string
+  siblingPartTicketNos: string[]
+  printStatus: 'WAIT_PRINT' | 'PRINTED' | 'REPRINTED' | 'VOIDED'
   garmentQty: number
   processTags: string[]
   qrPayload: string
@@ -2051,12 +2119,12 @@ function buildPrintableUnitFromBatch(options: {
   const ticketCountBasisType =
     ownerBasisTypes.length === 1 && ownerBasisTypes[0] === 'SPREADING_RESULT'
       ? 'SPREADING_RESULT'
-      : 'THEORETICAL_FALLBACK'
-  const ticketCountBasisLabel = ticketCountBasisType === 'SPREADING_RESULT' ? '铺布完成结果' : '参考理论值'
+      : 'HISTORICAL_FALLBACK'
+  const ticketCountBasisLabel = ticketCountBasisType === 'SPREADING_RESULT' ? '铺布完成结果' : '历史兜底'
   const ticketCountBasisDetail =
     ticketCountBasisType === 'SPREADING_RESULT'
       ? `当前按铺布完成结果汇总，按实际成衣件数拆分 ${formatQty(generatedRecords.length)} 张。`
-      : '当前尚未形成完整铺布完成结果，部分票数仍按参考理论值补足。'
+      : '当前尚未形成完整铺布完成结果，部分票数仍按历史兜底补足。'
   const missingTicketCount = Math.max(requiredTicketCount - stats.validPrintedTicketCount, 0)
   const printableUnitStatus = derivePrintableUnitStatus({
     requiredTicketCount,
@@ -2314,20 +2382,36 @@ function buildSplitDetailsFromOwner(
   const detailSeeds = generatedFeiRecords.length
     ? generatedFeiRecords.map((record, index) => ({
         sequenceNo: index + 1,
-        detailId: `${source.owner.originalCutOrderId}-${index + 1}`,
-        color: record.skuColor || source.owner.color,
+        detailId: record.sourceOutputLineId || `${source.owner.originalCutOrderId}-${index + 1}`,
+        sourceOutputLineId: record.sourceOutputLineId || '',
+        fabricRollNo: record.fabricRollNo || '',
+        fabricColor: record.fabricColor || record.skuColor || source.owner.color,
+        color: record.fabricColor || record.skuColor || source.owner.color,
         size: record.skuSize || printableSizeCycle[index % printableSizeCycle.length],
+        partCode: record.partCode || '',
         partName: record.partName || printablePartCycle[index % printablePartCycle.length],
-        quantity: Math.max(record.qty, 1),
-        garmentQty: Math.max(record.qty, 1),
+        bundleNo: record.bundleNo || `BUNDLE-${String(index + 1).padStart(3, '0')}`,
+        quantity: Math.max(record.bundleQty || record.qty, 1),
+        actualCutPieceQty: Math.max(record.actualCutPieceQty || record.qty, 1),
+        assemblyGroupKey: record.assemblyGroupKey || '',
+        siblingPartTicketNos: [...(record.siblingPartTicketNos || [])],
+        garmentQty: Math.max(record.garmentQty || record.bundleQty || record.qty, 1),
       }))
     : Array.from({ length: Math.max(source.owner.plannedTicketQty, 0) }, (_, index) => ({
         sequenceNo: index + 1,
         detailId: `${source.owner.originalCutOrderId}-${index + 1}`,
+        sourceOutputLineId: '',
+        fabricRollNo: '',
+        fabricColor: source.owner.color,
         color: source.owner.color,
         size: printableSizeCycle[index % printableSizeCycle.length],
+        partCode: '',
         partName: printablePartCycle[index % printablePartCycle.length],
+        bundleNo: `BUNDLE-${String(index + 1).padStart(3, '0')}`,
         quantity: 1,
+        actualCutPieceQty: 1,
+        assemblyGroupKey: '',
+        siblingPartTicketNos: [],
         garmentQty: 1,
       }))
 
@@ -2335,6 +2419,7 @@ function buildSplitDetailsFromOwner(
     const relatedRecords = findDetailSourceRecord(
       {
         detailId: seed.detailId,
+        sourceOutputLineId: seed.sourceOutputLineId,
         printableUnitId: unit.printableUnitId,
         sourceCutOrderId: source.owner.originalCutOrderId,
         sourceCutOrderNo: source.owner.originalCutOrderNo,
@@ -2342,10 +2427,17 @@ function buildSplitDetailsFromOwner(
         sourceProductionOrderNo: source.owner.productionOrderNo,
         batchNo: unit.batchNo || source.owner.relatedMergeBatchNos[0] || '',
         styleCode: source.owner.styleCode,
+        fabricRollNo: seed.fabricRollNo,
+        fabricColor: seed.fabricColor,
         color: seed.color,
         size: seed.size,
+        partCode: seed.partCode,
         partName: seed.partName,
+        bundleNo: seed.bundleNo,
         quantity: seed.quantity,
+        actualCutPieceQty: seed.actualCutPieceQty,
+        assemblyGroupKey: seed.assemblyGroupKey,
+        siblingPartTicketNos: seed.siblingPartTicketNos,
         requiredTicketCount: 1,
         validPrintedTicketCount: 0,
         gapCount: 0,
@@ -2367,10 +2459,18 @@ function buildSplitDetailsFromOwner(
       sourceProductionOrderNo: source.owner.productionOrderNo,
       batchNo: unit.batchNo || source.owner.relatedMergeBatchNos[0] || '',
       styleCode: source.owner.styleCode,
+      sourceOutputLineId: seed.sourceOutputLineId,
+      fabricRollNo: seed.fabricRollNo,
+      fabricColor: seed.fabricColor,
       color: seed.color,
       size: seed.size,
+      partCode: seed.partCode,
       partName: seed.partName,
+      bundleNo: seed.bundleNo,
       quantity: seed.quantity,
+      actualCutPieceQty: seed.actualCutPieceQty,
+      assemblyGroupKey: seed.assemblyGroupKey,
+      siblingPartTicketNos: seed.siblingPartTicketNos,
       garmentQty: seed.garmentQty,
       requiredTicketCount: 1,
       validPrintedTicketCount,
@@ -2411,6 +2511,7 @@ export function buildTicketCards(options: {
       return {
         ticketId: record.ticketRecordId,
         ticketNo: record.ticketNo,
+        sourceOutputLineId: record.sourceOutputLineId || detail?.sourceOutputLineId || '',
         printableUnitId: options.unit.printableUnitId,
         printableUnitNo: options.unit.printableUnitNo,
         printableUnitType: options.unit.printableUnitType,
@@ -2420,10 +2521,18 @@ export function buildTicketCards(options: {
         sourceProductionOrderId: record.sourceProductionOrderId || '',
         sourceProductionOrderNo: record.productionOrderNo,
         styleCode: record.styleCode,
-        color: record.color || detail?.color || '',
+        fabricRollNo: record.fabricRollNo || detail?.fabricRollNo || '',
+        fabricColor: record.fabricColor || detail?.fabricColor || record.color || detail?.color || '',
+        color: record.fabricColor || detail?.fabricColor || record.color || detail?.color || '',
         size: record.size || detail?.size || '待补尺码',
+        partCode: record.partCode || detail?.partCode || '',
         partName: record.partName || detail?.partName || '待补部位',
+        bundleNo: record.bundleNo || detail?.bundleNo || '',
         quantity: record.quantity ?? detail?.quantity ?? 1,
+        actualCutPieceQty: record.actualCutPieceQty ?? detail?.actualCutPieceQty ?? record.quantity ?? 1,
+        assemblyGroupKey: record.assemblyGroupKey || detail?.assemblyGroupKey || '',
+        siblingPartTicketNos: record.siblingPartTicketNos ? [...record.siblingPartTicketNos] : [...(detail?.siblingPartTicketNos || [])],
+        printStatus: record.printStatus || 'PRINTED',
         garmentQty: record.quantity ?? detail?.garmentQty ?? detail?.quantity ?? 1,
         processTags: record.processTags || [],
         qrPayload: record.qrSerializedValue || record.qrValue,

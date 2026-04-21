@@ -8,10 +8,21 @@ import {
   listProjectChannelProductsByProjectId,
   resetProjectChannelProductRepository,
 } from '../src/data/pcs-channel-product-project-repository.ts'
+import {
+  createProjectImageAssetRecords,
+  resetProjectImageAssets,
+  upsertProjectImageAssets,
+} from '../src/data/pcs-project-image-repository.ts'
 import { listProjects, resetProjectRepository } from '../src/data/pcs-project-repository.ts'
 
 resetProjectRepository()
 resetProjectChannelProductRepository()
+resetProjectImageAssets()
+
+const baseSpecLines = [
+  { colorName: '黑色', sizeName: 'M', priceAmount: 279, currencyCode: 'IDR', stockQty: 12 },
+  { colorName: '黑色', sizeName: 'L', priceAmount: 279, currencyCode: 'IDR', stockQty: 10 },
+]
 
 const contract = getProjectWorkItemContract('CHANNEL_PRODUCT_LISTING')
 assert.equal(contract.capabilities.canMultiInstance, true, '商品上架节点应支持多实例')
@@ -28,6 +39,39 @@ assert.ok(
 const project = listProjects().find((item) => item.projectCode === 'PRJ-20251216-015')
 assert.ok(project, '应存在 PRJ-20251216-015 演示项目')
 
+const createdImages = createProjectImageAssetRecords(
+  project!,
+  [
+    {
+      imageUrl: 'mock://listing-image/multi-01',
+      imageName: '多实例主图 1',
+      imageType: '上架图',
+      sourceNodeCode: 'CHANNEL_PRODUCT_LISTING',
+      sourceRecordId: 'test-multi-01',
+      sourceType: '商品上架',
+      usageScopes: ['商品上架', '项目资料归档'],
+      imageStatus: '可用于上架',
+      mainFlag: true,
+      sortNo: 1,
+    },
+    {
+      imageUrl: 'mock://listing-image/multi-02',
+      imageName: '多实例主图 2',
+      imageType: '上架图',
+      sourceNodeCode: 'CHANNEL_PRODUCT_LISTING',
+      sourceRecordId: 'test-multi-02',
+      sourceType: '商品上架',
+      usageScopes: ['商品上架', '项目资料归档'],
+      imageStatus: '可用于上架',
+      mainFlag: false,
+      sortNo: 2,
+    },
+  ],
+  '测试用户',
+  '2026-04-20T10:30:00.000Z',
+)
+upsertProjectImageAssets(createdImages)
+
 const initialActiveRecords = listProjectChannelProductsByProjectId(project.projectId).filter(
   (item) => item.channelProductStatus !== '已作废',
 )
@@ -39,7 +83,11 @@ const tiktokMainStoreResult = createProjectChannelProductFromListingNode(
     targetChannelCode: 'tiktok-shop',
     targetStoreId: 'store-tiktok-01',
     listingTitle: '印尼风格碎花连衣裙 TikTok 主店测款款',
-    listingPrice: 279,
+    defaultPriceAmount: 279,
+    currencyCode: 'IDR',
+    listingMainImageId: createdImages[0].imageId,
+    listingImageIds: [createdImages[0].imageId],
+    specLines: baseSpecLines,
   },
   '测试用户',
 )
@@ -51,7 +99,14 @@ const tiktokSecondStoreResult = createProjectChannelProductFromListingNode(
     targetChannelCode: 'tiktok-shop',
     targetStoreId: 'ST-002',
     listingTitle: '印尼风格碎花连衣裙 TikTok 越南店测款款',
-    listingPrice: 289,
+    defaultPriceAmount: 289,
+    currencyCode: 'VND',
+    listingMainImageId: createdImages[1].imageId,
+    listingImageIds: [createdImages[1].imageId],
+    specLines: [
+      { colorName: '白色', sizeName: 'M', priceAmount: 289, currencyCode: 'VND', stockQty: 8 },
+      { colorName: '白色', sizeName: 'L', priceAmount: 289, currencyCode: 'VND', stockQty: 8 },
+    ],
   },
   '测试用户',
 )
@@ -63,7 +118,11 @@ const duplicateStoreResult = createProjectChannelProductFromListingNode(
     targetChannelCode: 'shopee',
     targetStoreId: 'store-shopee-01',
     listingTitle: '印尼风格碎花连衣裙 Shopee 重复店铺测款款',
-    listingPrice: 299,
+    defaultPriceAmount: 299,
+    currencyCode: 'MYR',
+    listingMainImageId: createdImages[0].imageId,
+    listingImageIds: [createdImages[0].imageId],
+    specLines: [{ colorName: '卡其', sizeName: 'M', priceAmount: 299, currencyCode: 'MYR', stockQty: 6 }],
   },
   '测试用户',
 )
@@ -76,7 +135,11 @@ const invalidChannelStoreResult = createProjectChannelProductFromListingNode(
     targetChannelCode: 'shopee',
     targetStoreId: 'ST-002',
     listingTitle: '非法渠道店铺组合',
-    listingPrice: 309,
+    defaultPriceAmount: 309,
+    currencyCode: 'VND',
+    listingMainImageId: createdImages[0].imageId,
+    listingImageIds: [createdImages[0].imageId],
+    specLines: [{ colorName: '灰色', sizeName: 'M', priceAmount: 309, currencyCode: 'VND', stockQty: 6 }],
   },
   '测试用户',
 )
@@ -85,8 +148,10 @@ assert.match(invalidChannelStoreResult.message, /不属于渠道/, '应明确提
 
 assert.ok(tiktokMainStoreResult.record, '创建成功后应返回新实例')
 assert.ok(tiktokSecondStoreResult.record, '创建成功后应返回新实例')
-launchProjectChannelProductListing(tiktokMainStoreResult.record!.channelProductId, '测试用户')
-launchProjectChannelProductListing(tiktokSecondStoreResult.record!.channelProductId, '测试用户')
+const firstLaunchResult = launchProjectChannelProductListing(tiktokMainStoreResult.record!.channelProductId, '测试用户')
+const secondLaunchResult = launchProjectChannelProductListing(tiktokSecondStoreResult.record!.channelProductId, '测试用户')
+assert.equal(firstLaunchResult.ok, true, '第一条新增批次应允许上传')
+assert.equal(secondLaunchResult.ok, true, '第二条新增批次应允许上传')
 
 const activeRecords = listProjectChannelProductsByProjectId(project.projectId).filter(
   (item) => item.channelProductStatus !== '已作废',
@@ -105,8 +170,20 @@ assert.ok(
   '应新增 TikTok 第二店铺实例',
 )
 assert.ok(
-  activeRecords.every((item) => item.upstreamChannelProductCode),
-  '发起上架后，每条有效实例都应拥有上游渠道商品编码',
+  activeRecords.every((item) => item.upstreamProductId || item.upstreamChannelProductCode),
+  '上传后，每条有效批次都应拥有上游款式商品编号',
+)
+assert.ok(
+  activeRecords
+    .filter((item) => item.channelCode === 'tiktok-shop')
+    .every((item) => item.specLines.every((line) => Boolean(line.upstreamSkuId))),
+  '上传后，每条规格都应回填上游规格编号',
+)
+assert.ok(
+  activeRecords
+    .filter((item) => item.channelCode === 'tiktok-shop')
+    .every((item) => item.listingBatchStatus === '已上传待确认'),
+  '上传成功后，新增批次应处于已上传待确认状态',
 )
 
 const chainSummary = buildProjectChannelProductChainSummary(project.projectId)

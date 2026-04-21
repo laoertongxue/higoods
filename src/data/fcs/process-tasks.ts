@@ -10,6 +10,7 @@ import {
   generateTaskArtifactsForAllOrders,
   type GeneratedTaskArtifact,
 } from './production-artifact-generation.ts'
+import { buildTaskQrValue } from './task-qr.ts'
 import type {
   DetailSplitDimension,
   DetailSplitMode,
@@ -32,6 +33,21 @@ export type PauseStatus = 'NONE' | 'REPORTED' | 'FOLLOWING_UP'
 export type PauseReasonCode = 'CUTTING_ISSUE' | 'MATERIAL_ISSUE' | 'TECH_DOC_ISSUE' | 'EQUIPMENT_ISSUE' | 'STAFF_ISSUE' | 'OTHER'
 export type MilestoneProofRequirement = 'NONE' | 'IMAGE' | 'VIDEO' | 'IMAGE_OR_VIDEO'
 export type MilestoneExceptionSeverity = 'S1' | 'S2' | 'S3'
+export type TaskQrStatus = 'ACTIVE' | 'VOIDED'
+export type TaskHandoverAutoCreatePolicy = 'CREATE_ON_START'
+export type TaskReceiverKind = 'WAREHOUSE' | 'MANAGED_POST_FACTORY'
+export type TaskHandoverStatus =
+  | 'NOT_CREATED'
+  | 'AUTO_CREATED'
+  | 'OPEN'
+  | 'PARTIAL_SUBMITTED'
+  | 'WAIT_RECEIVER_WRITEBACK'
+  | 'PARTIAL_WRITTEN_BACK'
+  | 'WRITTEN_BACK'
+  | 'DIFF_WAIT_FACTORY_CONFIRM'
+  | 'HAS_OBJECTION'
+  | 'OBJECTION_PROCESSING'
+  | 'CLOSED'
 
 export interface TaskStandardTimeSnapshot {
   standardTimePerUnit?: number
@@ -142,6 +158,14 @@ export interface ProcessTask {
   blockReason?: BlockReason
   blockRemark?: string
   blockedAt?: string
+  taskQrValue?: string
+  taskQrStatus?: TaskQrStatus
+  handoverAutoCreatePolicy?: TaskHandoverAutoCreatePolicy
+  handoverOrderId?: string
+  handoverStatus?: TaskHandoverStatus
+  receiverKind?: TaskReceiverKind
+  receiverId?: string
+  receiverName?: string
   // 上一步依赖（当前生产暂停）
   dependsOnTaskIds?: string[]
   blockNoteZh?: string            // 开始条件中文原因（ALLOCATION_GATE 时写入）
@@ -167,6 +191,9 @@ export interface ProcessTask {
   processBusinessName?: string
   craftCode?: string
   craftName?: string
+  taskScope?: 'EXTERNAL_TASK' | 'POST_ROLLUP_TASK'
+  rolledUpChildProcessCodes?: string[]
+  rolledUpChildProcessNames?: string[]
   assignmentGranularity?: 'ORDER' | 'COLOR' | 'SKU' | 'DETAIL'
   ruleSource?: RuleSource
   detailSplitMode?: DetailSplitMode
@@ -365,6 +392,41 @@ function toGeneratedOwnerSuggestion(artifact: GeneratedTaskArtifact): OwnerSugge
   return { kind: 'MAIN_FACTORY' }
 }
 
+function resolveGeneratedTaskReceiver(artifact: GeneratedTaskArtifact): Pick<
+  ProcessTask,
+  'receiverKind' | 'receiverId' | 'receiverName'
+> {
+  if (artifact.processCode === 'SEW') {
+    return {
+      receiverKind: 'MANAGED_POST_FACTORY',
+      receiverId: 'POST-FACTORY-OWN',
+      receiverName: '我方后道工厂',
+    }
+  }
+
+  if (artifact.processCode === 'CUT_PANEL') {
+    return {
+      receiverKind: 'WAREHOUSE',
+      receiverId: 'WH-CUT-PIECE',
+      receiverName: '裁片仓',
+    }
+  }
+
+  if (artifact.processCode === 'POST_FINISHING') {
+    return {
+      receiverKind: 'WAREHOUSE',
+      receiverId: 'WH-GARMENT-HANDOFF',
+      receiverName: '成衣仓交接点',
+    }
+  }
+
+  return {
+    receiverKind: 'WAREHOUSE',
+    receiverId: 'WH-TRANSFER',
+    receiverName: '中转区域',
+  }
+}
+
 function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
   const artifacts = generateTaskArtifactsForAllOrders()
   if (!artifacts.length) return []
@@ -425,6 +487,10 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
         publishedSamSource: artifact.publishedSamSource,
         attachments: [],
         status: 'NOT_STARTED',
+        taskQrValue: buildTaskQrValue(taskId),
+        taskQrStatus: 'ACTIVE',
+        handoverAutoCreatePolicy: 'CREATE_ON_START',
+        handoverStatus: 'NOT_CREATED',
         dependsOnTaskIds: prevTaskId ? [prevTaskId] : [],
         taskKind: 'NORMAL',
         taskCategoryZh: artifact.taskTypeLabel,
@@ -436,6 +502,9 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
         processBusinessName: artifact.processName,
         craftCode: artifact.craftCode,
         craftName: artifact.craftName,
+        taskScope: artifact.taskScope,
+        rolledUpChildProcessCodes: artifact.rolledUpChildProcessCodes ? [...artifact.rolledUpChildProcessCodes] : undefined,
+        rolledUpChildProcessNames: artifact.rolledUpChildProcessNames ? [...artifact.rolledUpChildProcessNames] : undefined,
         assignmentGranularity: artifact.assignmentGranularity,
         ruleSource: artifact.ruleSource,
         detailSplitMode: artifact.detailSplitMode,
@@ -449,6 +518,7 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
         defaultDocType: artifact.defaultDocType,
         taskTypeMode: artifact.taskTypeMode,
         isSpecialCraft: artifact.isSpecialCraft,
+        ...resolveGeneratedTaskReceiver(artifact),
         createdAt: GENERATED_TASK_CREATED_AT,
         updatedAt: GENERATED_TASK_CREATED_AT,
         auditLogs: [

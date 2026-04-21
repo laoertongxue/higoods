@@ -38,8 +38,8 @@ export const printMeta: Record<CuttingPrintSlipStatus, { label: string; classNam
 }
 
 export const qrMeta: Record<CuttingQrStatus, { label: string; className: string }> = {
-  NOT_GENERATED: { label: '未生成裁片单主码', className: 'bg-slate-100 text-slate-700' },
-  GENERATED: { label: '已生成裁片单主码', className: 'bg-violet-100 text-violet-700' },
+  NOT_GENERATED: { label: '未生成裁片单二维码', className: 'bg-slate-100 text-slate-700' },
+  GENERATED: { label: '已生成裁片单二维码', className: 'bg-violet-100 text-violet-700' },
 }
 
 type PrepQrHintVariant = 'list' | 'detail' | 'print'
@@ -65,9 +65,9 @@ export function getPrepQrHiddenText(
   variant: PrepQrHintVariant = 'list',
 ): string {
   if (shouldDisplayQrByPrepStatus(status)) return ''
-  if (variant === 'detail') return '当前未配置，暂不显示裁片单主码。'
-  if (variant === 'print') return '当前项未配置，本次打印不带裁片单主码。'
-  return '未配置，暂不显示裁片单主码'
+  if (variant === 'detail') return '当前未配置，暂不显示裁片单二维码。'
+  if (variant === 'print') return '当前项未配置，本次打印不带裁片单二维码。'
+  return '未配置，暂不显示裁片单二维码'
 }
 
 export const discrepancyMeta: Record<CuttingDiscrepancyStatus, { label: string; className: string }> = {

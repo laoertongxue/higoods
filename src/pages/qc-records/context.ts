@@ -355,7 +355,14 @@ function emptyAdjudicationDraft(
 }
 
 function qcToForm(qc: QualityInspection): QcRecordFormState {
-  const isReturnInbound = qc.inspectionScene === 'RETURN_INBOUND' || qc.refType === 'RETURN_BATCH' || Boolean(qc.returnBatchId)
+  const isReturnInbound =
+    qc.inspectionScene === 'RETURN_INBOUND' ||
+    qc.inspectionScene === 'SEW_RETURN_RECEIVING_QC' ||
+    qc.inspectionScene === 'PRINT_RECEIVING_QC' ||
+    qc.inspectionScene === 'DYE_RECEIVING_QC' ||
+    qc.inspectionScene === 'CUT_PIECE_RECEIVING_QC' ||
+    Boolean(qc.returnBatchId) ||
+    qc.refType === 'RETURN_BATCH'
   const refType: RefType = isReturnInbound ? 'RETURN_BATCH' : qc.refType === 'HANDOVER' ? 'HANDOVER' : 'TASK'
   const refId = isReturnInbound ? qc.returnBatchId ?? qc.refId : qc.refId
 

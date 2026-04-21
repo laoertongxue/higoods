@@ -14,6 +14,7 @@ import {
   type TaskAssignmentStatus,
   type TaskAuditLog,
 } from './process-tasks.ts'
+import { buildTaskQrValue } from './task-qr.ts'
 import type { TaskDetailRow } from './task-detail-rows.ts'
 import {
   listTaskAllocatableGroups,
@@ -561,9 +562,11 @@ function applyRuntimeSplitPlans(tasks: RuntimeProcessTask[]): RuntimeProcessTask
 
 function buildOrderScopeTask(baseTask: ProcessTask, skuLines: RuntimeTaskSkuLine[]): RuntimeProcessTask {
   const detailRows = getTaskDetailRows(baseTask)
+  const taskId = `${baseTask.taskId}__ORDER`
   return {
     ...baseTask,
-    taskId: `${baseTask.taskId}__ORDER`,
+    taskId,
+    taskQrValue: baseTask.taskQrValue ? buildTaskQrValue(taskId) : undefined,
     baseTaskId: baseTask.taskId,
     baseQty: baseTask.qty,
     baseDependsOnTaskIds: [...(baseTask.dependsOnTaskIds ?? [])],
@@ -594,9 +597,11 @@ function buildColorScopeTasks(baseTask: ProcessTask, skuLines: RuntimeTaskSkuLin
   return Array.from(grouped.entries()).map(([color, lines]) => {
     const qty = lines.reduce((sum, line) => sum + line.qty, 0)
     const detailRows = filterDetailRowsByScope(baseDetailRows, 'COLOR', lines)
+    const taskId = `${baseTask.taskId}__COLOR__${normalizeScopeToken(color)}`
     return {
       ...baseTask,
-      taskId: `${baseTask.taskId}__COLOR__${normalizeScopeToken(color)}`,
+      taskId,
+      taskQrValue: baseTask.taskQrValue ? buildTaskQrValue(taskId) : undefined,
       baseTaskId: baseTask.taskId,
       baseQty: baseTask.qty,
       baseDependsOnTaskIds: [...(baseTask.dependsOnTaskIds ?? [])],
@@ -619,9 +624,11 @@ function buildSkuScopeTasks(baseTask: ProcessTask, skuLines: RuntimeTaskSkuLine[
 
   return skuLines.map((line) => {
     const detailRows = filterDetailRowsByScope(baseDetailRows, 'SKU', [line])
+    const taskId = `${baseTask.taskId}__SKU__${normalizeScopeToken(line.skuCode)}`
     return {
       ...baseTask,
-      taskId: `${baseTask.taskId}__SKU__${normalizeScopeToken(line.skuCode)}`,
+      taskId,
+      taskQrValue: baseTask.taskQrValue ? buildTaskQrValue(taskId) : undefined,
       baseTaskId: baseTask.taskId,
       baseQty: baseTask.qty,
       baseDependsOnTaskIds: [...(baseTask.dependsOnTaskIds ?? [])],

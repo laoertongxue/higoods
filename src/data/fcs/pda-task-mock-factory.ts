@@ -16,6 +16,7 @@ import {
   PDA_MOBILE_PROCESS_DEFINITIONS,
   type PdaMobileProcessKey,
 } from './pda-task-scenario-matrix.ts'
+import { buildTaskQrValue } from './task-qr.ts'
 
 export type PdaTaskMockOrigin =
   | 'DIRECT_PENDING'
@@ -60,6 +61,9 @@ export interface PdaTaskMockHandoverHeadSeed {
   sourceFactoryName: string
   targetName: string
   targetKind: 'WAREHOUSE' | 'FACTORY'
+  receiverKind?: 'WAREHOUSE' | 'MANAGED_POST_FACTORY'
+  receiverId?: string
+  receiverName?: string
   qtyUnit: string
   factoryId: string
   taskStatus: 'IN_PROGRESS' | 'DONE'
@@ -142,6 +146,14 @@ export interface PdaTaskMockHandoutRecordSeed {
   handoutObjectType?: 'GARMENT' | 'CUT_PIECE' | 'FABRIC'
   handoutItemLabel?: string
   garmentEquivalentQty?: number
+  factorySubmittedBy?: string
+  receiverWrittenQty?: number
+  receiverWrittenAt?: string
+  receiverWrittenBy?: string
+  receiverRemark?: string
+  diffReason?: string
+  factoryDiffDecision?: 'ACCEPT_DIFF' | 'RAISE_OBJECTION'
+  quantityObjectionId?: string
   factorySubmittedAt: string
   status:
     | 'PENDING_WRITEBACK'
@@ -229,8 +241,8 @@ const PROCESS_PROFILES: GenericProcessProfile[] = [
     priceBase: 4.9,
     spuName: 'POLO 基础款',
     materialSummary: '主身片 / 领片 / 袖片',
-    handoverTargetName: '一号成衣仓',
-    handoverTargetKind: 'WAREHOUSE',
+    handoverTargetName: '我方后道工厂',
+    handoverTargetKind: 'FACTORY',
     handoverSourceName: 'PT Sinar Garment Indonesia',
     receiveHint: '车缝主线待开工，当前已安排整单派工。',
     blockedReason: 'CAPACITY',
@@ -314,8 +326,8 @@ const PROCESS_PROFILES: GenericProcessProfile[] = [
     priceBase: 3.8,
     spuName: '满版印花款',
     materialSummary: '印花片 / 色浆 / 网版',
-    handoverTargetName: 'PT Sinar Garment Indonesia',
-    handoverTargetKind: 'FACTORY',
+    handoverTargetName: '中转区域',
+    handoverTargetKind: 'WAREHOUSE',
     handoverSourceName: 'PT Prima Printing Center',
     receiveHint: '印花招标单待报价，需确认网版切换窗口。',
     blockedReason: 'TECH',
@@ -332,8 +344,8 @@ const PROCESS_PROFILES: GenericProcessProfile[] = [
     priceBase: 4.2,
     spuName: '大货染色批',
     materialSummary: '坯布 / 染化料 / 色卡',
-    handoverTargetName: 'PT Sinar Garment Indonesia',
-    handoverTargetKind: 'FACTORY',
+    handoverTargetName: '中转区域',
+    handoverTargetKind: 'WAREHOUSE',
     handoverSourceName: 'PT Cahaya Dyeing Sejahtera',
     receiveHint: '染色招标单待报价，需确认缸位与交期。',
     blockedReason: 'CAPACITY',
@@ -348,6 +360,64 @@ function getFactoryName(factoryId: string): string {
 
 function getProcessDef(profile: GenericProcessProfile) {
   return PROCESS_DEFINITION_BY_KEY.get(profile.key)
+}
+
+function isExternalMockProcess(profile: GenericProcessProfile): boolean {
+  return profile.key !== 'IRONING' && profile.key !== 'PACKAGING'
+}
+
+function resolveMockBusinessProcessCode(profile: GenericProcessProfile): string {
+  if (profile.key === 'SEWING') return 'SEW'
+  if (profile.key === 'PRINTING') return 'PRINT'
+  if (profile.key === 'DYEING') return 'DYE'
+  if (profile.key === 'FINISHING') return 'POST_FINISHING'
+  if (profile.key === 'QC') return 'QC'
+  if (profile.key === 'IRONING') return 'IRONING'
+  if (profile.key === 'PACKAGING') return 'PACKAGING'
+  return profile.processCode
+}
+
+function resolveMockStageCode(profile: GenericProcessProfile): 'PREP' | 'PROD' | 'POST' {
+  if (profile.key === 'FINISHING' || profile.key === 'QC' || profile.key === 'IRONING' || profile.key === 'PACKAGING') {
+    return 'POST'
+  }
+  return profile.key === 'PRINTING' || profile.key === 'DYEING' ? 'PREP' : 'PROD'
+}
+
+function resolveMockStageName(profile: GenericProcessProfile): string {
+  const stageCode = resolveMockStageCode(profile)
+  if (stageCode === 'PREP') return '准备阶段'
+  if (stageCode === 'POST') return '后道阶段'
+  return '生产阶段'
+}
+
+function resolveMockTaskReceiver(profile: GenericProcessProfile): Pick<
+  PdaGenericTaskMock,
+  'receiverKind' | 'receiverId' | 'receiverName'
+> | null {
+  if (!isExternalMockProcess(profile)) return null
+
+  if (profile.key === 'SEWING') {
+    return {
+      receiverKind: 'MANAGED_POST_FACTORY',
+      receiverId: 'POST-FACTORY-OWN',
+      receiverName: '我方后道工厂',
+    }
+  }
+
+  if (profile.key === 'FINISHING' || profile.key === 'QC') {
+    return {
+      receiverKind: 'WAREHOUSE',
+      receiverId: 'WH-GARMENT-HANDOFF',
+      receiverName: '成衣仓交接点',
+    }
+  }
+
+  return {
+    receiverKind: 'WAREHOUSE',
+    receiverId: 'WH-TRANSFER',
+    receiverName: '中转区域',
+  }
 }
 
 function buildOwnerSuggestion(profile: GenericProcessProfile, assignmentMode: 'DIRECT' | 'BIDDING'): OwnerSuggestion {
@@ -429,6 +499,11 @@ function createTask(
   const taskId = taskNo(profile.taskPrefix, index)
   const factoryName = getFactoryName(profile.factoryId)
   const createdAt = input.dispatchedAt
+  const receiver = resolveMockTaskReceiver(profile)
+  const isExternal = isExternalMockProcess(profile)
+  const processBusinessCode = resolveMockBusinessProcessCode(profile)
+  const stageCode = resolveMockStageCode(profile)
+  const stageName = resolveMockStageName(profile)
 
   return {
     taskId,
@@ -476,8 +551,19 @@ function createTask(
     materialMode: input.hasMaterialRequest ? 'factory_pickup' : undefined,
     materialModeLabel: input.hasMaterialRequest ? '工厂到仓自提' : undefined,
     materialRequestStatus: input.hasMaterialRequest ? '待自提' : undefined,
+    taskQrValue: isExternal ? buildTaskQrValue(taskId) : undefined,
+    taskQrStatus: isExternal ? 'ACTIVE' : undefined,
+    handoverAutoCreatePolicy: isExternal ? 'CREATE_ON_START' : undefined,
+    handoverStatus: isExternal ? (input.startedAt ? 'AUTO_CREATED' : 'NOT_CREATED') : undefined,
+    receiverKind: receiver?.receiverKind,
+    receiverId: receiver?.receiverId,
+    receiverName: receiver?.receiverName,
     taskKind: 'NORMAL',
     taskCategoryZh: `${profile.processNameZh}任务`,
+    stageCode,
+    stageName,
+    processBusinessCode,
+    processBusinessName: profile.processNameZh,
     defaultDocType: 'TASK',
     taskTypeMode: 'PROCESS',
     createdAt,
@@ -521,7 +607,7 @@ function buildDirectTaskSet(profile: GenericProcessProfile, baseIndex: number): 
       acceptDeadline: pendingAcceptDeadline,
       taskDeadline: nowLike(31, '18:00:00'),
       dispatchedAt: nowLike(28, '08:10:00'),
-      dispatchedBy: '移动端 mock 调度',
+      dispatchedBy: '移动端调度',
       productionOrderNo: baseOrderNo,
       productionOrderId: baseOrderNo,
       mockReceiveSummary: `待接单，${profile.receiveHint}`,
@@ -538,7 +624,7 @@ function buildDirectTaskSet(profile: GenericProcessProfile, baseIndex: number): 
       acceptDeadline: nowLike(29, '09:00:00'),
       taskDeadline: nowLike(31, '16:00:00'),
       dispatchedAt: nowLike(28, '08:20:00'),
-      dispatchedBy: '移动端 mock 调度',
+      dispatchedBy: '移动端调度',
       productionOrderNo: orderNo(baseIndex + 40),
       productionOrderId: orderNo(baseIndex + 40),
       mockReceiveSummary: '已拒接，保留历史卡片供验收。',
@@ -555,7 +641,7 @@ function buildDirectTaskSet(profile: GenericProcessProfile, baseIndex: number): 
       acceptDeadline: nowLike(28, '12:00:00'),
       taskDeadline: nowLike(30, '20:00:00'),
       dispatchedAt: nowLike(28, '07:30:00'),
-      dispatchedBy: '移动端 mock 调度',
+      dispatchedBy: '移动端调度',
       productionOrderNo: orderNo(baseIndex + 80),
       productionOrderId: orderNo(baseIndex + 80),
       acceptedAt: nowLike(28, '08:05:00'),
@@ -576,7 +662,7 @@ function buildDirectTaskSet(profile: GenericProcessProfile, baseIndex: number): 
       acceptDeadline: nowLike(28, '12:30:00'),
       taskDeadline: nowLike(30, '22:00:00'),
       dispatchedAt: nowLike(28, '07:40:00'),
-      dispatchedBy: '移动端 mock 调度',
+      dispatchedBy: '移动端调度',
       productionOrderNo: orderNo(baseIndex + 120),
       productionOrderId: orderNo(baseIndex + 120),
       acceptedAt: nowLike(28, '08:20:00'),
@@ -598,7 +684,7 @@ function buildDirectTaskSet(profile: GenericProcessProfile, baseIndex: number): 
       acceptDeadline: nowLike(28, '13:00:00'),
       taskDeadline: nowLike(30, '23:00:00'),
       dispatchedAt: nowLike(28, '07:50:00'),
-      dispatchedBy: '移动端 mock 调度',
+      dispatchedBy: '移动端调度',
       productionOrderNo: orderNo(baseIndex + 160),
       productionOrderId: orderNo(baseIndex + 160),
       acceptedAt: nowLike(28, '08:35:00'),
@@ -623,7 +709,7 @@ function buildDirectTaskSet(profile: GenericProcessProfile, baseIndex: number): 
       acceptDeadline: nowLike(27, '16:00:00'),
       taskDeadline: nowLike(29, '20:00:00'),
       dispatchedAt: nowLike(27, '08:00:00'),
-      dispatchedBy: '移动端 mock 调度',
+      dispatchedBy: '移动端调度',
       productionOrderNo: orderNo(baseIndex + 200),
       productionOrderId: orderNo(baseIndex + 200),
       acceptedAt: nowLike(27, '08:40:00'),
@@ -647,7 +733,7 @@ function buildDirectTaskSet(profile: GenericProcessProfile, baseIndex: number): 
       acceptDeadline: nowLike(27, '17:00:00'),
       taskDeadline: nowLike(29, '18:00:00'),
       dispatchedAt: nowLike(27, '08:30:00'),
-      dispatchedBy: '移动端 mock 调度',
+      dispatchedBy: '移动端调度',
       productionOrderNo: orderNo(baseIndex + 240),
       productionOrderId: orderNo(baseIndex + 240),
       acceptedAt: nowLike(27, '09:05:00'),
@@ -680,7 +766,7 @@ function buildBiddingTaskSet(profile: GenericProcessProfile, baseIndex: number):
       acceptDeadline: nowLike(29, '10:00:00'),
       taskDeadline: nowLike(31, '18:00:00'),
       dispatchedAt: nowLike(28, '08:00:00'),
-      dispatchedBy: '移动端 mock 调度',
+      dispatchedBy: '移动端调度',
       productionOrderNo: pendingOne,
       productionOrderId: pendingOne,
       tenderId: `TENDER-${profile.taskPrefix}-PENDING-01`,
@@ -698,7 +784,7 @@ function buildBiddingTaskSet(profile: GenericProcessProfile, baseIndex: number):
       acceptDeadline: nowLike(29, '11:00:00'),
       taskDeadline: nowLike(30, '20:00:00'),
       dispatchedAt: nowLike(28, '08:30:00'),
-      dispatchedBy: '移动端 mock 调度',
+      dispatchedBy: '移动端调度',
       productionOrderNo: pendingTwo,
       productionOrderId: pendingTwo,
       tenderId: `TENDER-${profile.taskPrefix}-PENDING-02`,
@@ -716,7 +802,7 @@ function buildBiddingTaskSet(profile: GenericProcessProfile, baseIndex: number):
       acceptDeadline: nowLike(29, '12:00:00'),
       taskDeadline: nowLike(31, '22:00:00'),
       dispatchedAt: nowLike(28, '09:00:00'),
-      dispatchedBy: '移动端 mock 调度',
+      dispatchedBy: '移动端调度',
       productionOrderNo: quotedOne,
       productionOrderId: quotedOne,
       tenderId: `TENDER-${profile.taskPrefix}-QUOTED-01`,
@@ -734,7 +820,7 @@ function buildBiddingTaskSet(profile: GenericProcessProfile, baseIndex: number):
       acceptDeadline: nowLike(29, '12:30:00'),
       taskDeadline: nowLike(31, '20:30:00'),
       dispatchedAt: nowLike(28, '09:10:00'),
-      dispatchedBy: '移动端 mock 调度',
+      dispatchedBy: '移动端调度',
       productionOrderNo: quotedTwo,
       productionOrderId: quotedTwo,
       tenderId: `TENDER-${profile.taskPrefix}-QUOTED-02`,
@@ -948,6 +1034,9 @@ function buildHandoverSeeds(
   const doneHandoutHeadId = `HOH-MOCK-${profile.taskPrefix}-${String(baseIndex + 2).padStart(3, '0')}`
   const handoutObjectType = getHandoutObjectTypeForProcess(profile.key)
   const handoutQtyUnit = getHandoutQtyUnitForProcess(profile.key)
+  const processBusinessCode = resolveMockBusinessProcessCode(profile)
+  const stageCode = resolveMockStageCode(profile)
+  const stageName = resolveMockStageName(profile)
 
   const openHandoutRecords: PdaTaskMockHandoutRecordSeed[] =
     handoutObjectType === 'CUT_PIECE'
@@ -1077,10 +1166,46 @@ function buildHandoverSeeds(
               handoutObjectType,
               handoutItemLabel: `标准色 / ${profile.taskPrefix}-SKU-002 / ${Math.max(Math.round(openHandoutTask.qty * 0.26), 48)}件`,
               factorySubmittedAt: nowLike(28, '17:00:00'),
-              status: profile.key === 'QC' ? 'OBJECTION_REPORTED' : 'PENDING_WRITEBACK',
-              factoryRemark: profile.key === 'QC' ? '数量异议待仓库确认' : '尾批待仓库回写',
-              objectionReason: profile.key === 'QC' ? '抽检不合格数量差异' : undefined,
-              objectionRemark: profile.key === 'QC' ? '待复核差异责任' : undefined,
+              status:
+                profile.key === 'SEWING' || profile.key === 'QC'
+                  ? 'OBJECTION_REPORTED'
+                  : 'PENDING_WRITEBACK',
+              warehouseReturnNo:
+                profile.key === 'SEWING' || profile.key === 'QC'
+                  ? `RET-DIFF-${profile.taskPrefix}-01`
+                  : undefined,
+              warehouseWrittenQty:
+                profile.key === 'SEWING' || profile.key === 'QC'
+                  ? Math.max(Math.round(Math.max(Math.round(openHandoutTask.qty * 0.26), 48) * 0.92), 40)
+                  : undefined,
+              warehouseWrittenAt:
+                profile.key === 'SEWING' || profile.key === 'QC'
+                  ? nowLike(28, '17:25:00')
+                  : undefined,
+              receiverWrittenBy:
+                profile.key === 'SEWING'
+                  ? '后道收货员'
+                  : profile.key === 'QC'
+                    ? '成衣仓收货员'
+                    : undefined,
+              factoryRemark:
+                profile.key === 'SEWING'
+                  ? '尾批已交我方后道工厂，数量异议处理中'
+                  : profile.key === 'QC'
+                    ? '数量异议待接收方确认'
+                    : '尾批待接收方回写',
+              objectionReason:
+                profile.key === 'SEWING'
+                  ? '我方后道工厂回写数量少于工厂交出数量'
+                  : profile.key === 'QC'
+                    ? '抽检不合格数量差异'
+                    : undefined,
+              objectionRemark:
+                profile.key === 'SEWING'
+                  ? '工厂复点与接收方回写不一致，待平台核定。'
+                  : profile.key === 'QC'
+                    ? '待复核差异责任'
+                    : undefined,
             },
           ]
 
@@ -1196,11 +1321,11 @@ function buildHandoverSeeds(
         qtyDiffTotal: Math.max(Math.round(pickupTask.qty * 0.22), 44),
         sourceDocNo: `ISS-${profile.taskPrefix}-${String(baseIndex).padStart(3, '0')}`,
         scopeLabel: `${profile.processNameZh}首批领料`,
-        stageCode: 'PROD',
-        stageName: '生产阶段',
-        processBusinessCode: profile.processCode,
+        stageCode,
+        stageName,
+        processBusinessCode,
         processBusinessName: profile.processNameZh,
-        taskTypeCode: profile.processCode,
+        taskTypeCode: processBusinessCode,
         taskTypeLabel: `${profile.processNameZh}任务`,
         assignmentGranularityLabel: '整单',
       },
@@ -1225,11 +1350,11 @@ function buildHandoverSeeds(
         qtyDiffTotal: roundQty(openHandoutExpectedTotal - openHandoutWrittenTotal),
         sourceDocNo: `RET-${profile.taskPrefix}-${String(baseIndex + 1).padStart(3, '0')}`,
         scopeLabel: `${profile.processNameZh}尾批交出`,
-        stageCode: 'POST',
-        stageName: '后道阶段',
-        processBusinessCode: profile.processCode,
+        stageCode,
+        stageName,
+        processBusinessCode,
         processBusinessName: profile.processNameZh,
-        taskTypeCode: profile.processCode,
+        taskTypeCode: processBusinessCode,
         taskTypeLabel: `${profile.processNameZh}任务`,
         assignmentGranularityLabel: '整单',
       },
@@ -1255,11 +1380,11 @@ function buildHandoverSeeds(
         qtyDiffTotal: roundQty(doneHandoutExpectedTotal - doneHandoutWrittenTotal),
         sourceDocNo: `RET-${profile.taskPrefix}-${String(baseIndex + 2).padStart(3, '0')}`,
         scopeLabel: `${profile.processNameZh}整单交接完成`,
-        stageCode: 'POST',
-        stageName: '后道阶段',
-        processBusinessCode: profile.processCode,
+        stageCode,
+        stageName,
+        processBusinessCode,
         processBusinessName: profile.processNameZh,
-        taskTypeCode: profile.processCode,
+        taskTypeCode: processBusinessCode,
         taskTypeLabel: `${profile.processNameZh}任务`,
         assignmentGranularityLabel: '整单',
       },
@@ -1456,7 +1581,7 @@ const biddingTasks = PROCESS_PROFILES
 
 const PDA_GENERIC_PROCESS_TASKS: PdaGenericTaskMock[] = [...directTasks, ...biddingTasks]
 
-const handoverSeedCollections = PROCESS_PROFILES.map((profile, index) =>
+const handoverSeedCollections = PROCESS_PROFILES.filter((profile) => isExternalMockProcess(profile)).map((profile, index) =>
   buildHandoverSeeds(
     profile,
     PDA_GENERIC_PROCESS_TASKS.filter((task) => task.mockProcessKey === profile.key),

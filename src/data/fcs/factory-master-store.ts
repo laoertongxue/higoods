@@ -7,6 +7,16 @@ function cloneFactory(factory: Factory): Factory {
     processAbilities: factory.processAbilities.map((item) => ({
       processCode: item.processCode,
       craftCodes: [...item.craftCodes],
+      capacityNodeCodes: item.capacityNodeCodes ? [...item.capacityNodeCodes] : undefined,
+      abilityId: item.abilityId,
+      processName: item.processName,
+      craftNames: item.craftNames ? [...item.craftNames] : undefined,
+      abilityName: item.abilityName,
+      abilityScope: item.abilityScope,
+      canReceiveTask: item.canReceiveTask,
+      capacityManaged: item.capacityManaged,
+      status: item.status,
+      parentProcessCode: item.parentProcessCode,
     })),
     eligibility: { ...factory.eligibility },
   }

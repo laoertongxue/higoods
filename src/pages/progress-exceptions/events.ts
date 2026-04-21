@@ -371,7 +371,7 @@ function handleDrawerAction(action: string, actionNode: HTMLElement): boolean {
   if (action === 'drawer-go-pda-dispute') {
     const taskId = actionNode.dataset.taskId || ''
     if (!taskId) return true
-    openLinkedPage('执行（PDA）', `/fcs/pda/cutting/task/${encodeURIComponent(taskId)}`)
+    openLinkedPage('任务详情', `/fcs/pda/cutting/task/${encodeURIComponent(taskId)}`)
     return true
   }
 
@@ -548,7 +548,7 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
   if (action === 'go-start') {
     const taskId = actionNode.dataset.taskId
     if (taskId) {
-      openLinkedPage('执行（PDA）', `/fcs/pda/exec/${encodeURIComponent(taskId)}?action=start`)
+      openLinkedPage('任务详情', `/fcs/pda/exec/${encodeURIComponent(taskId)}?action=start`)
     }
     return true
   }
@@ -556,7 +556,7 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
   if (action === 'goto-pda-task') {
     const taskId = actionNode.dataset.taskId
     if (taskId) {
-      openLinkedPage('执行（PDA）', `/fcs/pda/exec/${encodeURIComponent(taskId)}`)
+      openLinkedPage('任务详情', `/fcs/pda/exec/${encodeURIComponent(taskId)}`)
     }
     return true
   }

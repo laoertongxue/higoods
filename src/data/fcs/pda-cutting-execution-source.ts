@@ -981,7 +981,7 @@ function resolveCurrentStepLabel(stepCode: PdaCuttingCurrentStepCode): string {
   if (stepCode === 'PICKUP') return '去领料'
   if (stepCode === 'SPREADING') return '去铺布'
   if (stepCode === 'REPLENISHMENT') return '去补料'
-  if (stepCode === 'HANDOVER') return '去交接'
+  if (stepCode === 'HANDOVER') return '去交出'
   if (stepCode === 'INBOUND') return '去入仓'
   return '已完成'
 }
@@ -997,7 +997,7 @@ function resolveNextAction(line: {
   if (line.currentStepCode === 'PICKUP') return '去领料'
   if (line.currentStepCode === 'SPREADING') return '去铺布'
   if (line.currentStepCode === 'REPLENISHMENT') return '去补料'
-  if (line.currentStepCode === 'HANDOVER') return '去交接'
+  if (line.currentStepCode === 'HANDOVER') return '去交出'
   if (line.currentStepCode === 'INBOUND') return '去入仓'
   return '查看当前情况'
 }

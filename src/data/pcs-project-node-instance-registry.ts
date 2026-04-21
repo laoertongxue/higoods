@@ -10,6 +10,7 @@ import {
   getProjectWorkItemMultiInstanceDefinition,
   type PcsProjectMultiInstanceDefinition,
 } from './pcs-project-domain-contract.ts'
+import type { PcsProjectInlineNodeRecord } from './pcs-project-inline-node-record-types.ts'
 
 export type ProjectNodeInstanceSourceKind = 'PROJECT_RECORD' | 'INLINE_RECORD' | 'RELATION_OBJECT'
 export type ProjectNodeInstanceSourceLayer = '项目主记录' | '项目内正式记录' | '正式业务对象'
@@ -107,6 +108,19 @@ function filterSupportingInstances(
   })
 }
 
+function buildInlineRecordTitle(record: PcsProjectInlineNodeRecord): string {
+  if (record.workItemTypeCode !== 'SAMPLE_SHOOT_FIT') {
+    return record.workItemTypeName
+  }
+  const payload = (record.payload && typeof record.payload === 'object' ? record.payload : {}) as Record<string, unknown>
+  const imageCount =
+    ['sampleFlatImageIds', 'sampleTryOnImageIds', 'sampleDetailImageIds'].reduce((count, key) => {
+      const value = payload[key]
+      return count + (Array.isArray(value) ? value.length : 0)
+    }, 0)
+  return imageCount > 0 ? `${record.workItemTypeName} / ${imageCount} 张图片` : record.workItemTypeName
+}
+
 export function listProjectNodeInstances(
   projectId: string,
   projectNodeId?: string,
@@ -159,7 +173,7 @@ export function listProjectNodeInstances(
       relationRole: '执行记录',
       instanceId: record.recordId,
       instanceCode: record.recordCode,
-      title: record.workItemTypeName,
+      title: buildInlineRecordTitle(record),
       status: record.recordStatus,
       ownerName: record.ownerName,
       businessDate: record.businessDate,

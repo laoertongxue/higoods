@@ -1,4 +1,6 @@
 import type { FieldConfig, WorkItemTemplateConfig, WorkItemNature, WorkItemRuntimeType } from './pcs-work-item-configs/types.ts'
+import type { ChannelListingSpecLineRecord } from './pcs-channel-listing-spec-types.ts'
+import type { ChannelListingImageRecord } from './pcs-channel-listing-image-types.ts'
 import type { ProjectNodeStatus } from './pcs-project-types.ts'
 
 export type PcsProjectPhaseCode = 'PHASE_01' | 'PHASE_02' | 'PHASE_03' | 'PHASE_04' | 'PHASE_05'
@@ -213,13 +215,15 @@ export interface PcsProjectRelatedInstanceTypeDefinition {
   businessMeaning: string
 }
 
-export type PcsChannelProductStatus = '待上架' | '已上架待测款' | '已作废' | '已生效'
+export type PcsChannelProductStatus = '待上传' | '已上传待确认' | '已完成' | '已上架待测款' | '已作废' | '已生效'
 export type PcsChannelProductUpstreamSyncStatus = '无需更新' | '待更新' | '已更新'
 
 export interface PcsProjectChannelProductRecord {
   channelProductId: string
   channelProductCode: string
+  listingBatchCode: string
   upstreamChannelProductCode: string
+  upstreamProductId: string
   projectId: string
   projectCode: string
   projectName: string
@@ -231,9 +235,28 @@ export interface PcsProjectChannelProductRecord {
   skuId: string
   skuCode: string
   skuName: string
+  styleListingTitle: string
   listingTitle: string
+  listingDescription: string
   listingPrice: number
+  defaultPriceAmount: number
   currency: string
+  currencyCode: string
+  listingMainImageId: string
+  listingImageIds: string[]
+  listingImageSource: string
+  listingImageConfirmedAt: string
+  listingImageConfirmedBy: string
+  listingImages: ChannelListingImageRecord[]
+  mainImageUrls: string[]
+  detailImageUrls: string[]
+  listingRemark: string
+  specLines: ChannelListingSpecLineRecord[]
+  specLineCount: number
+  uploadedSpecLineCount: number
+  listingBatchStatus: PcsChannelProductStatus
+  uploadResultText: string
+  uploadedAt: string
   channelProductStatus: PcsChannelProductStatus
   upstreamSyncStatus: PcsChannelProductUpstreamSyncStatus
   styleId: string
@@ -347,7 +370,7 @@ const PCS_PROJECT_MULTI_INSTANCE_DEFINITION_MAP: Partial<
     primarySourceLayers: ['正式业务对象'],
     primaryRelationObjectTypes: ['渠道店铺商品'],
     supportingRelationObjectTypes: ['上游渠道商品同步'],
-    granularityLabel: '一个 SKU + 一个渠道 + 一个店铺 + 一条 Listing 为一条实例',
+    granularityLabel: '一个渠道 + 一个店铺 + 一条 Listing + 一组规格明细为一条实例',
     validInstanceCountRule: '只按正式渠道店铺商品实例条数统计，不把上游同步日志算入实例数。',
     latestInstanceRule: '只以最新渠道店铺商品正式对象作为 latestInstance。',
     projectDisplayRule: '项目节点展示实例摘要，正式实例列表统一在渠道店铺商品模块维护。',
@@ -945,7 +968,7 @@ const projectInitFields = [
   ...groupFields({
     id: 'project-init-channel-sample',
     title: '测款渠道信息',
-    description: '目标测款渠道和项目图册链接统一在立项节点沉淀。',
+    description: '目标测款渠道和立项参考图片统一在立项节点沉淀。',
     fields: [
       {
         key: 'targetChannelCodes',
@@ -959,14 +982,14 @@ const projectInitFields = [
       },
       {
         key: 'projectAlbumUrls',
-        label: '项目图册链接',
-        type: 'textarea',
+        label: '参考图片',
+        type: 'image',
         sourceKind: '本地主数据',
-        sourceRef: '商品项目创建表单',
-        meaning: '项目图册或灵感图链接集合',
-        logic: '图册链接保留在主记录中，用于后续研发、审计和资料归档引用。',
+        sourceRef: '项目图片资产池',
+        meaning: '商品项目立项阶段上传的参考图片',
+        logic: '参考图片用于立项参考、样衣来源参考和项目资料归档，不作为正式上架图或正式款式档案图。',
         required: false,
-        placeholder: '请输入项目图册链接，多个链接可换行录入',
+        placeholder: '上传参考图片',
       },
     ],
   }),
@@ -1140,6 +1163,13 @@ const shootFitFields = [
     fields: [
       { key: 'shootPlan', label: '拍摄安排', type: 'textarea', sourceKind: '本地主数据', sourceRef: '拍摄安排', meaning: '拍摄安排说明', logic: '用于准备内容测款素材。', required: false },
       { key: 'fitFeedback', label: '试穿反馈', type: 'textarea', sourceKind: '本地主数据', sourceRef: '试穿反馈', meaning: '试穿结论', logic: '样衣试穿反馈是样衣确认的重要输入。', placeholder: '请输入试穿反馈' },
+      { key: 'sampleFlatImageIds', label: '样衣平铺图', type: 'image-list', sourceKind: '本地主数据', sourceRef: '项目图片资产池', meaning: '样衣平铺图图片资产引用', logic: '样衣平铺图用于样衣评估，并可被后续节点标记为候选图。', required: false },
+      { key: 'sampleTryOnImageIds', label: '试穿图', type: 'image-list', sourceKind: '本地主数据', sourceRef: '项目图片资产池', meaning: '样衣试穿图图片资产引用', logic: '试穿图用于评估上身效果，并可被后续节点标记为候选图。', required: false },
+      { key: 'sampleDetailImageIds', label: '细节图', type: 'image-list', sourceKind: '本地主数据', sourceRef: '项目图片资产池', meaning: '样衣细节图图片资产引用', logic: '细节图用于记录工艺和局部细节，并可被后续节点标记为候选图。', required: false },
+      { key: 'sampleVideoUrls', label: '视频素材', type: 'multi-select', sourceKind: '本地主数据', sourceRef: '拍摄视频素材', meaning: '样衣拍摄视频素材链接或占位记录', logic: '视频素材用于样衣评估与后续内容参考。', required: false },
+      { key: 'shootImageNote', label: '图片补充说明', type: 'textarea', sourceKind: '本地主数据', sourceRef: '拍摄补充说明', meaning: '补充说明图片用途与重拍要求', logic: '用于记录样衣图片的补充备注。', required: false },
+      { key: 'listingCandidateImageIds', label: '商品上架候选图', type: 'multi-select', sourceKind: '项目图片资产池', sourceRef: '样衣拍摄图片用途标记', meaning: '人工标记可用于商品上架的图片资产', logic: '仅作为商品上架候选图，不代表已被正式选用。', required: false, conditionalRequired: '若标记可用于商品上架，至少选择 1 张图片' },
+      { key: 'styleArchiveCandidateImageIds', label: '款式档案候选图', type: 'multi-select', sourceKind: '项目图片资产池', sourceRef: '样衣拍摄图片用途标记', meaning: '人工标记可用于款式档案的图片资产', logic: '仅作为款式档案候选图，不代表已被正式选用。', required: false, conditionalRequired: '若标记可用于款式档案，至少选择 1 张图片' },
     ],
   }),
 ]
@@ -1197,7 +1227,7 @@ const channelListingFields = [
   ...groupFields({
     id: 'channel-listing-strategy',
     title: '项目上架策略',
-    description: '商品上架节点承接项目级渠道策略；单个实例只对应一个 SKU、一个渠道、一个店铺和一条 Listing。',
+    description: '商品上架节点承接项目级渠道策略；每次上架按款式发起，并维护本次上架所需的多条规格明细。',
     fields: [
       {
         key: 'targetChannelCodes',
@@ -1216,19 +1246,8 @@ const channelListingFields = [
         type: 'number',
         sourceKind: '系统生成',
         sourceRef: '渠道店铺商品主档',
-        meaning: '当前项目下未作废的商品上架实例数量',
-        logic: '用于表达节点承载的是多实例上架能力，而不是单条上架记录。',
-        required: false,
-        readonly: true,
-      },
-      {
-        key: 'listingScopeRule',
-        label: '实例粒度说明',
-        type: 'text',
-        sourceKind: '系统生成',
-        sourceRef: '商品上架节点执行规则',
-        meaning: '商品上架实例粒度说明',
-        logic: '单实例 = 单 SKU + 单渠道 + 单店铺 + 单 Listing；同一项目可多渠道并行，同一渠道可多店铺并行。',
+        meaning: '当前项目下未作废的款式上架批次数量',
+        logic: '用于表达节点承载的是多批次上架能力，而不是单条规格记录。',
         required: false,
         readonly: true,
       },
@@ -1236,27 +1255,38 @@ const channelListingFields = [
   }),
   ...groupFields({
     id: 'channel-listing-target',
-    title: '单次上架实例',
-    description: '每条商品上架实例单独绑定一个 SKU、一个渠道、一个店铺和一条 Listing。',
+    title: '款式上架批次',
+    description: '每条款式上架批次单独绑定一个渠道、一个店铺、一组规格明细和一条 Listing。',
     fields: [
-      { key: 'skuId', label: '规格档案ID', type: 'reference', sourceKind: '规格档案', sourceRef: '规格档案', meaning: '当前实例绑定的规格档案 ID', logic: '渠道店铺商品必须是 SKU 级别，创建实例时必须选择规格档案。', placeholder: '请选择规格档案' },
-      { key: 'skuCode', label: '规格档案编码', type: 'text', sourceKind: '规格档案', sourceRef: '规格档案', meaning: '当前实例绑定的规格档案编码', logic: '由规格档案回带，只读展示。', readonly: true },
-      { key: 'skuName', label: '规格档案名称', type: 'text', sourceKind: '规格档案', sourceRef: '规格档案', meaning: '当前实例绑定的规格档案名称', logic: '由规格档案回带，只读展示。', readonly: true },
-      { key: 'targetChannelCode', label: '渠道', type: 'single-select', sourceKind: '渠道主数据', sourceRef: '渠道主数据', meaning: '当前实例的目标上架渠道', logic: '每条商品上架实例只承接一个渠道；多个渠道需要拆成多条实例。', placeholder: '请选择渠道' },
-      { key: 'targetStoreId', label: '店铺', type: 'single-select', sourceKind: '店铺主数据', sourceRef: '店铺主数据', meaning: '当前实例的目标上架店铺', logic: '每条商品上架实例只承接一个店铺；同一渠道下多个店铺需要分别创建实例。', placeholder: '请选择店铺' },
-      { key: 'listingTitle', label: '上架标题', type: 'text', sourceKind: '本地主数据', sourceRef: '商品上架表单', meaning: '当前实例的渠道店铺商品标题', logic: '创建渠道店铺商品和上游上架时必填；每个渠道店铺实例独立维护自己的 Listing 标题。', placeholder: '请输入上架标题' },
-      { key: 'listingPrice', label: '上架价格', type: 'number', sourceKind: '本地主数据', sourceRef: '商品上架表单', meaning: '当前实例的渠道售价', logic: '创建渠道店铺商品和上游上架时必填；每个渠道店铺实例独立维护自己的售价。', placeholder: '请输入上架价格' },
-      { key: 'currency', label: '币种', type: 'text', sourceKind: '店铺主数据', sourceRef: '店铺主数据', meaning: '当前实例店铺的结算币种', logic: '币种来自店铺主数据，只读展示。', readonly: true },
+      { key: 'targetChannelCode', label: '渠道', type: 'single-select', sourceKind: '渠道主数据', sourceRef: '渠道主数据', meaning: '当前批次的目标上架渠道', logic: '每条款式上架批次只承接一个渠道；多个渠道需要拆成多条批次。', placeholder: '请选择渠道' },
+      { key: 'targetStoreId', label: '店铺', type: 'single-select', sourceKind: '店铺主数据', sourceRef: '店铺主数据', meaning: '当前批次的目标上架店铺', logic: '每条款式上架批次只承接一个店铺；同一渠道下多个店铺需要分别创建批次。', placeholder: '请选择店铺' },
+      { key: 'listingTitle', label: '上架标题', type: 'text', sourceKind: '本地主数据', sourceRef: '商品上架表单', meaning: '当前批次的渠道店铺商品标题', logic: '创建款式上架批次和上游上传时必填；每个渠道店铺批次独立维护自己的 Listing 标题。', placeholder: '请输入上架标题' },
+      { key: 'listingDescription', label: '上架描述', type: 'textarea', sourceKind: '本地主数据', sourceRef: '商品上架表单', meaning: '当前批次的上架描述', logic: '用于本次渠道上架展示，可为空。', required: false, placeholder: '请输入上架描述' },
+      { key: 'defaultPriceAmount', label: '默认售价', type: 'number', sourceKind: '本地主数据', sourceRef: '商品上架表单', meaning: '当前批次默认售价', logic: '用于初始化规格明细售价和批次展示。', placeholder: '请输入默认售价' },
+      { key: 'currencyCode', label: '币种', type: 'text', sourceKind: '店铺主数据', sourceRef: '店铺主数据', meaning: '当前批次店铺结算币种', logic: '币种来自店铺主数据，也可在规格明细中逐条校验。', readonly: true },
+      { key: 'listingMainImageId', label: '上架主图', type: 'text', sourceKind: '项目节点', sourceRef: '项目图片资产池', meaning: '本次上架主图对应的项目图片资产编号', logic: '上传到渠道前必须设置 1 张主图，且主图必须属于本次上架图片集合。', required: false, readonly: true },
+      { key: 'listingImageIds', label: '上架图片', type: 'image-list', sourceKind: '项目节点', sourceRef: '项目图片资产池', meaning: '本次上架使用的图片资产集合', logic: '可以从项目参考图、样衣拍摄图片中选择，也可以在当前节点补充上传图片。', required: false },
+      { key: 'listingImageSource', label: '图片来源', type: 'text', sourceKind: '系统生成', sourceRef: '项目图片资产池', meaning: '本次上架图片的确认来源', logic: '记录本次上架图片来自项目图片资产池、样衣拍摄图片或上架补充图。', required: false, readonly: true },
+      { key: 'listingImageConfirmedAt', label: '图片确认时间', type: 'text', sourceKind: '系统生成', sourceRef: '商品上架表单', meaning: '最近一次确认上架图片的时间', logic: '当用户设置主图或调整上架图片集合后回写。', required: false, readonly: true },
+      { key: 'listingImageConfirmedBy', label: '图片确认人', type: 'text', sourceKind: '系统生成', sourceRef: '商品上架表单', meaning: '最近一次确认上架图片的操作人', logic: '当用户设置主图或调整上架图片集合后回写。', required: false, readonly: true },
+      { key: 'listingRemark', label: '上架备注', type: 'textarea', sourceKind: '本地主数据', sourceRef: '商品上架表单', meaning: '当前批次的上架备注', logic: '记录本次上架注意事项，可为空。', required: false, placeholder: '请输入上架备注' },
     ],
   }),
   ...groupFields({
     id: 'channel-listing-result',
-    title: '渠道店铺商品回写',
-    description: '渠道店铺商品主档和上游渠道商品编码由本地 mock 流程回写。',
+    title: '上架结果回写',
+    description: '款式上架批次、规格上传结果和上游款式商品编号由本地 mock 流程回写。',
     fields: [
+      { key: 'listingBatchId', label: '上架批次ID', type: 'text', sourceKind: '系统生成', sourceRef: '渠道店铺商品主档', meaning: '内部款式上架批次 ID', logic: '创建款式上架批次后生成，只读。', readonly: true },
+      { key: 'listingBatchCode', label: '上架批次编码', type: 'text', sourceKind: '系统生成', sourceRef: '渠道店铺商品主档', meaning: '内部款式上架批次编码', logic: '创建款式上架批次后生成，只读。', readonly: true },
       { key: 'channelProductCode', label: '渠道店铺商品编码', type: 'text', sourceKind: '系统生成', sourceRef: '渠道店铺商品主档', meaning: '内部渠道店铺商品编码', logic: '创建渠道店铺商品后由系统生成，只读。', readonly: true },
-      { key: 'upstreamChannelProductCode', label: '上游渠道商品编码', type: 'text', sourceKind: '上游实例回写', sourceRef: '上游渠道接口模拟器', meaning: '上游渠道商品编码', logic: '发起上架后通过本地 mock 接口回填。', readonly: true },
-      { key: 'channelProductStatus', label: '渠道店铺商品状态', type: 'text', sourceKind: '系统生成', sourceRef: '渠道店铺商品主档', meaning: '渠道店铺商品当前状态', logic: '状态包含待上架、已上架待测款、已作废、已生效。', readonly: true },
+      { key: 'specLineCount', label: '规格数量', type: 'number', sourceKind: '系统生成', sourceRef: '上架规格明细', meaning: '当前批次规格明细数量', logic: '按本次上架维护的规格明细条数统计。', readonly: true },
+      { key: 'uploadedSpecLineCount', label: '已上传规格数量', type: 'number', sourceKind: '系统生成', sourceRef: '上架规格明细', meaning: '当前批次已回填上游规格编号的数量', logic: '上传成功后根据已回填的上游规格编号统计。', readonly: true },
+      { key: 'upstreamProductId', label: '上游款式商品编号', type: 'text', sourceKind: '上游实例回写', sourceRef: '上游渠道接口模拟器', meaning: '上游渠道款式商品编号', logic: '上传款式到上游渠道后回填，只读。', readonly: true },
+      { key: 'uploadedAt', label: '上传时间', type: 'text', sourceKind: '系统生成', sourceRef: '上架上传结果', meaning: '最近一次上传时间', logic: '上传成功后回填最近上传时间。', readonly: true },
+      { key: 'uploadResultText', label: '上传结果', type: 'textarea', sourceKind: '系统生成', sourceRef: '上架上传结果', meaning: '最近一次上传结果说明', logic: '上传成功或失败后回填结果说明。', readonly: true, required: false },
+      { key: 'listingBatchStatus', label: '上架批次状态', type: 'text', sourceKind: '系统生成', sourceRef: '渠道店铺商品主档', meaning: '款式上架批次当前状态', logic: '状态包含待上传、已上传待确认、已上架待测款、已作废、已生效。', readonly: true },
+      { key: 'channelProductStatus', label: '渠道店铺商品状态', type: 'text', sourceKind: '系统生成', sourceRef: '渠道店铺商品主档', meaning: '兼容渠道店铺商品当前状态', logic: '兼容旧展示时由批次状态派生。', readonly: true },
       { key: 'upstreamSyncStatus', label: '上游更新状态', type: 'text', sourceKind: '系统生成', sourceRef: '渠道店铺商品主档', meaning: '上游最终更新状态', logic: '技术包启用后才允许更新为已更新。', readonly: true },
       { key: 'linkedStyleCode', label: '关联款式档案编码', type: 'text', sourceKind: '上游实例回写', sourceRef: '款式档案生成回写', meaning: '测款通过后关联的款式档案编码', logic: '仅在生成款式档案后回填。', readonly: true },
       { key: 'invalidatedReason', label: '作废原因', type: 'textarea', sourceKind: '上游实例回写', sourceRef: '测款结论写回', meaning: '渠道店铺商品作废原因', logic: '测款结论不是通过时回填作废原因。', readonly: true, required: false },
@@ -1380,12 +1410,17 @@ const styleArchiveFields = [
   ...groupFields({
     id: 'style-archive-main',
     title: '款式档案生成',
-    description: '测款通过后生成技术包待完善的款式档案壳，并与渠道店铺商品形成三码关联。',
+    description: '测款通过后生成技术包待完善的款式档案壳，并确认档案主图和图册。',
     fields: [
       { key: 'styleId', label: '款式档案 ID', type: 'text', sourceKind: '系统生成', sourceRef: '款式档案仓储', meaning: '生成的款式档案主键', logic: '生成款式档案成功后系统回写。', readonly: true },
       { key: 'styleCode', label: '款式档案编码', type: 'text', sourceKind: '系统生成', sourceRef: '款式档案仓储', meaning: '生成的款式档案编码', logic: '生成款式档案成功后系统回写。', readonly: true },
       { key: 'styleName', label: '款式档案名称', type: 'text', sourceKind: '系统生成', sourceRef: '款式档案仓储', meaning: '生成的款式档案名称', logic: '默认继承项目名称，可由款式档案主记录维护。', readonly: true },
       { key: 'archiveStatus', label: '档案状态', type: 'text', sourceKind: '系统生成', sourceRef: '款式档案仓储', meaning: '款式档案状态', logic: '创建成功后为技术包待完善，不会直接变为可生产。', readonly: true },
+      { key: 'styleMainImageId', label: '档案主图', type: 'image-list', sourceKind: '项目图片资产池', sourceRef: '商品上架图片 / 样衣拍摄图片 / 项目参考图 / 档案补充图', meaning: '本次生成款式档案确认的主图图片资产 ID', logic: '生成款式档案前必须先选择主图，主图来自项目图片资产池或当前节点补充上传图片。', required: true },
+      { key: 'styleGalleryImageIds', label: '档案图册', type: 'image-list', sourceKind: '项目图片资产池', sourceRef: '商品上架图片 / 样衣拍摄图片 / 项目参考图 / 档案补充图', meaning: '本次生成款式档案确认的图册图片资产 ID 集合', logic: '图册可为空；如果只选择主图，图册默认包含主图。', required: false },
+      { key: 'styleImageSource', label: '图片来源', type: 'text', sourceKind: '系统汇总', sourceRef: '项目图片资产池', meaning: '本次款式档案图片来源汇总', logic: '由系统根据所选图片来源自动生成，并在生成款式档案后回写。', required: true, readonly: true },
+      { key: 'styleImageConfirmedAt', label: '图片确认时间', type: 'datetime', sourceKind: '系统生成', sourceRef: '项目图片资产池 / 款式档案仓储', meaning: '档案图片确认时间', logic: '生成款式档案时由系统回写。', required: false, readonly: true },
+      { key: 'styleImageConfirmedBy', label: '图片确认人', type: 'text', sourceKind: '系统生成', sourceRef: '项目图片资产池 / 款式档案仓储', meaning: '档案图片确认人', logic: '生成款式档案时由系统回写。', required: false, readonly: true },
       { key: 'linkedChannelProductCode', label: '来源渠道店铺商品编码', type: 'text', sourceKind: '项目来源', sourceRef: '商品上架实例', meaning: '来源渠道店铺商品编码', logic: '测款通过的渠道店铺商品编码，只读回带。', readonly: true },
       { key: 'upstreamChannelProductCode', label: '来源上游渠道商品编码', type: 'text', sourceKind: '项目来源', sourceRef: '商品上架实例', meaning: '来源上游渠道商品编码', logic: '测款通过的上游渠道商品编码，只读回带。', readonly: true },
     ],
@@ -1946,8 +1981,8 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     workItemNature: '执行类',
     runtimeType: 'execute',
     categoryName: '市场测款',
-    description: '在测款前按渠道 / 店铺 / SKU / Listing 粒度生成多个渠道店铺商品主档并完成上游渠道商品上架。',
-    scenario: '节点承接项目级渠道上架策略，单个实例代表一次上架动作、一个渠道、一个店铺、一个 SKU 和一条 Listing；直播和短视频测款引用的是具体渠道店铺商品实例及其上游渠道商品编码。',
+    description: '在测款前按渠道 / 店铺 / 款式批次 / 规格明细粒度生成多个款式上架批次，并完成上游渠道款式上传。',
+    scenario: '节点承接项目级渠道上架策略，单个实例代表一次上架动作、一个渠道、一个店铺、一组规格明细和一条 Listing；直播和短视频测款引用的是已完成的款式上架批次及其上游款式商品编号。',
     keepReason: '这是对旧 CHANNEL_PRODUCT_PREP 的正式收口，商品上架节点必须真正生成渠道店铺商品主档并完成渠道上架链路。',
     roleNames: ['渠道运营', '商品负责人'],
     capabilities: { canReuse: true, canMultiInstance: true, canRollback: true, canParallel: true },
@@ -1955,51 +1990,38 @@ export const PCS_PROJECT_WORK_ITEM_CONTRACTS: PcsProjectWorkItemContract[] = [
     operationDefinitions: [
       {
         actionKey: 'create-channel-product',
-        actionName: '创建渠道店铺商品',
+        actionName: '创建款式上架批次',
         preconditions: ['样衣确认=通过', '样衣核价已完成', '样衣定价已完成', '当前项目未关闭'],
-        effects: ['生成 1 条商品上架实例', '生成 channelProductCode', 'channelProductStatus=待上架', '节点 currentStatus=进行中'],
-        writebackRules: ['正式生成渠道店铺商品主档', '记录来源商品项目、来源项目节点和来源上架实例', '同一项目允许多渠道、多店铺、多 SKU 并行创建实例'],
+        effects: ['生成 1 条款式上架批次', '生成 channelProductCode 与 listingBatchCode', 'listingBatchStatus=待上传', '节点 currentStatus=进行中'],
+        writebackRules: ['正式生成渠道店铺商品批次主档', '记录来源商品项目、来源项目节点和来源上架批次', '同一项目允许多渠道、多店铺并行创建批次'],
       },
       {
         actionKey: 'launch-listing',
-        actionName: '发起上架',
-        preconditions: ['已存在渠道店铺商品', 'targetChannelCode、targetStoreId、skuId、listingTitle、listingPrice 完整'],
-        effects: ['通过本地 mock 上游渠道接口模拟器生成 upstreamChannelProductCode', 'channelProductStatus=已上架待测款', '该实例可供直播和短视频测款引用'],
-        writebackRules: ['回写 upstreamChannelProductCode', '回写 channelProductStatus 和 upstreamSyncStatus', '上架动作始终按单实例执行，不在一个实例里混装多个店铺、多个渠道或多个 SKU'],
+        actionName: '上传款式到渠道',
+        preconditions: ['已存在款式上架批次', 'targetChannelCode、targetStoreId、listingTitle、defaultPriceAmount 完整', '至少存在一条规格明细', '每条规格明细都已填写颜色、尺码、价格、币种'],
+        effects: ['通过本地 mock 上游渠道接口模拟器生成 upstreamProductId', '回填每条规格的 upstreamSkuId', 'listingBatchStatus=已上传待确认', '节点保持进行中'],
+        writebackRules: ['回写 upstreamProductId', '回写 uploadedSpecLineCount、uploadedAt、uploadResultText', '上传成功后仍需人工确认并标记商品上架完成'],
       },
       {
-        actionKey: 'invalidate-channel-product',
-        actionName: '作废渠道店铺商品',
-        preconditions: ['测款结论不是通过'],
-        effects: ['channelProductStatus=已作废', 'invalidatedReason 来自测款结论'],
-        writebackRules: ['若后续重新测款，必须重新创建新的商品上架实例和新的渠道店铺商品，不复用已作废渠道店铺商品'],
-      },
-      {
-        actionKey: 'activate-channel-product',
-        actionName: '生效渠道店铺商品并关联款式档案',
-        preconditions: ['测款结论=通过', '已生成款式档案'],
-        effects: ['channelProductStatus=已生效', '回填 styleId、styleCode、styleName', '形成三码关联'],
-        writebackRules: ['styleCode + channelProductCode + upstreamChannelProductCode 必须形成正式关联'],
-      },
-      {
-        actionKey: 'sync-upstream-final',
-        actionName: '上游最终更新',
-        preconditions: ['技术包版本被启用为当前生效版本'],
-        effects: ['upstreamSyncStatus=已更新', '记录 lastUpstreamSyncAt'],
-        writebackRules: ['上游最终更新必须记录更新时间和说明'],
+        actionKey: 'complete-listing',
+        actionName: '标记商品上架完成',
+        preconditions: ['当前批次已上传待确认', 'upstreamProductId 已回填', '每条规格明细都已回填 upstreamSkuId'],
+        effects: ['listingBatchStatus=已完成', 'channelProductStatus=已上架待测款', '商品上架节点 currentStatus=已完成', '项目进入模板中的下一个工作项'],
+        writebackRules: ['标记完成后才允许直播和短视频建立正式测款关系', '节点完成后必须按模板顺序推进，不得写死后续节点'],
       },
     ],
     statusDefinitions: CHANNEL_LISTING_NODE_STATUS_DEFINITIONS,
     instanceStatusDefinitions: [
-      { statusName: '待上架', entryConditions: ['渠道店铺商品已创建但还没有上游渠道商品编码'], exitConditions: ['发起上架或作废'], businessMeaning: '渠道店铺商品主档已建立，等待上游上架。' },
+      { statusName: '待上传', entryConditions: ['款式上架批次已创建但还没有上游款式商品编号'], exitConditions: ['上传款式到渠道或作废'], businessMeaning: '款式上架批次已建立，等待上传到上游渠道。' },
+      { statusName: '已上传待确认', entryConditions: ['上游渠道已生成款式商品编号且规格已回填'], exitConditions: ['标记商品上架完成或作废'], businessMeaning: '款式已上传到上游渠道，等待项目内人工确认并完成节点。' },
       { statusName: '已上架待测款', entryConditions: ['上游渠道已有商品'], exitConditions: ['测款通过生效或测款失败作废'], businessMeaning: '上游渠道已有商品，可被直播和短视频测款引用。' },
       { statusName: '已作废', entryConditions: ['测款结论不是通过'], exitConditions: ['无'], businessMeaning: '测款不通过，当前渠道店铺商品失效。' },
       { statusName: '已生效', entryConditions: ['测款通过且已关联款式档案'], exitConditions: ['无'], businessMeaning: '测款通过且已关联款式档案，但上游最终更新是否完成要看 upstreamSyncStatus。' },
     ],
     upstreamChanges: ['继承样衣确认、样衣核价、样衣定价结果和项目目标渠道池。'],
-    downstreamChanges: ['为直播测款和短视频测款提供正式渠道店铺商品引用', '测款通过后回写款式档案三码关联', '技术包启用后回写上游最终更新'],
-    businessRules: ['直播测款和短视频测款必须引用已上架待测款渠道店铺商品', '一个项目可并行创建多个渠道店铺商品实例', '同一渠道可在多个店铺分别创建实例', '同一项目下同一渠道同一店铺同一 SKU 只允许保留 1 条有效实例', '测款失败当前渠道店铺商品必须作废', '技术包启用后必须更新上游渠道商品'],
-    systemConstraints: ['不允许再使用 CHANNEL_PRODUCT_PREP 旧编码', '不允许保留旧的渠道商品准备语义', '单实例只允许对应一个渠道、一个店铺、一个 SKU 和一条 Listing'],
+    downstreamChanges: ['为直播测款和短视频测款提供正式款式上架批次引用', '测款通过后回写款式档案三码关联', '技术包启用后回写上游最终更新'],
+    businessRules: ['直播测款和短视频测款必须引用已完成商品上架的款式上架批次', '一个项目可并行创建多个款式上架批次', '同一渠道可在多个店铺分别创建批次', '同一项目下同一渠道同一店铺只允许保留 1 条有效上架批次', '测款失败当前渠道店铺商品必须作废', '技术包启用后必须更新上游渠道商品'],
+    systemConstraints: ['不允许再使用 CHANNEL_PRODUCT_PREP 旧编码', '不允许保留旧的渠道商品准备语义', '单批次只允许对应一个渠道、一个店铺和一组规格明细'],
   },
   {
     workItemId: 'WI-010',
@@ -2505,7 +2527,7 @@ export const PCS_PROJECT_CONFIG_SOURCE_MAPPINGS: PcsProjectConfigSourceMapping[]
   { fieldKey: 'targetAudienceTags', fieldLabel: '目标客群标签', sourceKind: '系统生成', sourceRef: '人群定位/年龄/人群聚合', reason: '目标客群标签由人群定位、年龄和人群自动聚合生成，并保留主记录快照。' },
   { fieldKey: 'priceRangeLabel', fieldLabel: '价格带', sourceKind: '固定枚举', sourceRef: '价格带', reason: '价格带沿用当前项目创建表单固定枚举。' },
   { fieldKey: 'targetChannelCodes', fieldLabel: '目标测款渠道', sourceKind: '渠道主数据', sourceRef: '渠道主数据', reason: '目标测款渠道来自渠道主数据。' },
-  { fieldKey: 'projectAlbumUrls', fieldLabel: '项目图册链接', sourceKind: '本地主数据', sourceRef: '商品项目创建表单', reason: '项目图册链接由项目创建表单录入，并保留到项目主记录供后续引用。' },
+  { fieldKey: 'projectAlbumUrls', fieldLabel: '参考图片', sourceKind: '项目图片资产池', sourceRef: '项目图片资产池', reason: '参考图片由商品项目立项阶段上传，并沉淀到项目图片资产池供后续引用。' },
   { fieldKey: 'ownerId', fieldLabel: '负责人', sourceKind: '本地组织主数据', sourceRef: '本地组织主数据', reason: '负责人仍使用当前本地组织主数据。' },
   { fieldKey: 'ownerName', fieldLabel: '负责人名称', sourceKind: '本地组织主数据', sourceRef: '本地组织主数据', reason: '负责人名称快照由本地组织主数据回写，供详情和导出直接使用。' },
   { fieldKey: 'teamId', fieldLabel: '执行团队', sourceKind: '本地组织主数据', sourceRef: '本地组织主数据', reason: '执行团队仍使用当前本地组织主数据。' },
@@ -2516,12 +2538,14 @@ export const PCS_PROJECT_CONFIG_SOURCE_MAPPINGS: PcsProjectConfigSourceMapping[]
   { fieldKey: 'remark', fieldLabel: '备注', sourceKind: '本地主数据', sourceRef: '商品项目创建表单', reason: '备注由当前页面表单录入。' },
   { fieldKey: 'targetChannelCode', fieldLabel: '商品上架渠道', sourceKind: '渠道主数据', sourceRef: '渠道主数据', reason: '商品上架节点的渠道字段来自渠道主数据。' },
   { fieldKey: 'targetStoreId', fieldLabel: '商品上架店铺', sourceKind: '店铺主数据', sourceRef: '店铺主数据', reason: '商品上架节点的店铺字段来自店铺主数据。' },
-  { fieldKey: 'skuId', fieldLabel: '商品上架规格档案ID', sourceKind: '规格档案', sourceRef: '规格档案', reason: '渠道店铺商品必须是 SKU 级别，商品上架实例的 skuId 直接来自规格档案。' },
-  { fieldKey: 'skuCode', fieldLabel: '商品上架规格档案编码', sourceKind: '规格档案', sourceRef: '规格档案', reason: '渠道店铺商品必须是 SKU 级别，商品上架实例的 skuCode 直接来自规格档案。' },
-  { fieldKey: 'skuName', fieldLabel: '商品上架规格档案名称', sourceKind: '规格档案', sourceRef: '规格档案', reason: '渠道店铺商品必须是 SKU 级别，商品上架实例的 skuName 直接来自规格档案。' },
   { fieldKey: 'listingTitle', fieldLabel: '上架标题', sourceKind: '本地主数据', sourceRef: '商品上架表单', reason: '上架标题由商品上架节点表单录入。' },
-  { fieldKey: 'listingPrice', fieldLabel: '上架价格', sourceKind: '本地主数据', sourceRef: '商品上架表单', reason: '上架价格由商品上架节点表单录入。' },
-  { fieldKey: 'currency', fieldLabel: '币种', sourceKind: '店铺主数据', sourceRef: '店铺主数据', reason: '币种来自店铺主数据。' },
+  { fieldKey: 'listingDescription', fieldLabel: '上架描述', sourceKind: '本地主数据', sourceRef: '商品上架表单', reason: '上架描述由商品上架节点表单录入。' },
+  { fieldKey: 'defaultPriceAmount', fieldLabel: '默认售价', sourceKind: '本地主数据', sourceRef: '商品上架表单', reason: '默认售价由商品上架节点表单录入。' },
+  { fieldKey: 'currencyCode', fieldLabel: '币种', sourceKind: '店铺主数据', sourceRef: '店铺主数据', reason: '币种来自店铺主数据。' },
+  { fieldKey: 'specLineCount', fieldLabel: '规格数量', sourceKind: '本地主数据', sourceRef: '上架规格明细', reason: '规格数量由商品上架节点中的规格明细统计生成。' },
+  { fieldKey: 'uploadedSpecLineCount', fieldLabel: '已上传规格数量', sourceKind: '上游实例回写', sourceRef: '上架规格明细', reason: '上传到上游渠道后按已回填的上游规格编号统计。' },
+  { fieldKey: 'upstreamProductId', fieldLabel: '上游款式商品编号', sourceKind: '上游实例回写', sourceRef: '上游渠道接口模拟器', reason: '上传款式到上游渠道后回填。' },
+  { fieldKey: 'listingBatchStatus', fieldLabel: '上架批次状态', sourceKind: '系统生成', sourceRef: '渠道店铺商品主档', reason: '款式上架批次状态由系统根据上传与完成动作回写。' },
   { fieldKey: 'videoChannel', fieldLabel: '短视频发布渠道', sourceKind: '短视频测款', sourceRef: '短视频测款正式记录.channelName', reason: '短视频发布渠道直接读取短视频测款正式记录。' },
   { fieldKey: 'liveSessionId', fieldLabel: '直播测款', sourceKind: '直播测款', sourceRef: '直播测款正式记录.liveSessionId', reason: '直播测款标识直接来自直播测款正式记录。' },
   { fieldKey: 'liveSessionCode', fieldLabel: '直播测款编码', sourceKind: '直播测款', sourceRef: '直播测款正式记录.liveSessionCode', reason: '直播测款编码直接来自直播测款正式记录。' },
@@ -2560,7 +2584,7 @@ export const PCS_PROJECT_CONFIG_SOURCE_MAPPINGS: PcsProjectConfigSourceMapping[]
 export const PCS_PROJECT_RELATED_INSTANCE_TYPES: PcsProjectRelatedInstanceTypeDefinition[] = [
   { typeCode: 'LIVE_TESTING', typeName: '直播测款', moduleName: '直播测款', businessMeaning: '正式直播挂车明细事实。' },
   { typeCode: 'VIDEO_TESTING', typeName: '短视频测款', moduleName: '短视频测款', businessMeaning: '正式短视频测款事实。' },
-  { typeCode: 'CHANNEL_PRODUCT', typeName: '渠道店铺商品', moduleName: '渠道店铺商品', businessMeaning: '商品上架节点生成的 SKU 级正式渠道店铺商品主档。' },
+  { typeCode: 'CHANNEL_PRODUCT', typeName: '渠道店铺商品', moduleName: '渠道店铺商品', businessMeaning: '商品上架节点生成的款式上架批次及其规格明细。' },
   { typeCode: 'PATTERN_TASK', typeName: '制版任务', moduleName: '制版任务', businessMeaning: '测款通过后的制版推进任务。' },
   { typeCode: 'PATTERN_ARTWORK_TASK', typeName: '花型任务', moduleName: '花型任务', businessMeaning: '设计款花型推进任务。' },
   { typeCode: 'REVISION_TASK', typeName: '改版任务', moduleName: '改版任务', businessMeaning: '改版触发后创建的正式改版任务。' },

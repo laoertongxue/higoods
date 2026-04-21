@@ -814,7 +814,7 @@ export function handleProductionEvent(target: HTMLElement): boolean {
       state.ordersActionMenuId = null
 
       if (view === 'board' && typeof window !== 'undefined') {
-        window.alert('Board视图 - 占位')
+        window.alert('看板视图暂未开放')
       }
     }
     return true
@@ -914,7 +914,7 @@ export function handleProductionEvent(target: HTMLElement): boolean {
 
   if (action === 'orders-export') {
     state.ordersActionMenuId = null
-    if (typeof window !== 'undefined') window.alert('导出 - 占位')
+    if (typeof window !== 'undefined') window.alert('导出暂未开放')
     return true
   }
 

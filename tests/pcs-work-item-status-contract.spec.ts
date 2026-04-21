@@ -26,7 +26,7 @@ assert.deepEqual(
 )
 assert.deepEqual(
   patternTaskContract.instanceStatusDefinitions?.map((item) => item.statusName),
-  ['草稿', '未开始', '进行中', '待评审', '已确认', '已完成', '已取消'],
+  ['草稿', '未开始', '进行中', '待确认', '已确认', '已完成', '已取消'],
   'PATTERN_TASK 应单独定义任务实例状态',
 )
 
@@ -50,7 +50,7 @@ assert.deepEqual(
 )
 assert.deepEqual(
   channelListingContract.instanceStatusDefinitions?.map((item) => item.statusName),
-  ['待上架', '已上架待测款', '已作废', '已生效'],
+  ['待上传', '已上传待确认', '已上架待测款', '已作废', '已生效'],
   'CHANNEL_PRODUCT_LISTING 应单独定义渠道商品实例状态',
 )
 
@@ -65,7 +65,7 @@ assert.deepEqual(
 const detailHtml = renderPcsWorkItemDetailPage('WI-016')
 assert.match(detailHtml, /节点状态定义/, '工作项详情应单独渲染节点状态定义')
 assert.match(detailHtml, /实例状态定义/, '工作项详情应单独渲染实例状态定义')
-assert.match(detailHtml, /待评审/, '工作项详情应展示实例状态')
+assert.match(detailHtml, /待确认/, '工作项详情应展示实例状态')
 assert.match(detailHtml, /待确认/, '工作项详情应展示节点状态')
 
 console.log('pcs-work-item-status-contract.spec.ts PASS')

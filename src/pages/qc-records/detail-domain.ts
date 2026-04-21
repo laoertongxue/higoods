@@ -49,6 +49,31 @@ import {
 } from '../../data/fcs/quality-deduction-selectors'
 import { renderPdaFrame } from '../pda-shell'
 
+const INSPECTION_SCENE_LABEL: Record<string, string> = {
+  RETURN_INBOUND: '回货质检',
+  SEW_RETURN_RECEIVING_QC: '回货质检',
+  POST_FINAL_RECHECK: '后道复检',
+  PRINT_RECEIVING_QC: '印花回货质检',
+  DYE_RECEIVING_QC: '染色回货质检',
+  CUT_PIECE_RECEIVING_QC: '裁片回货质检',
+}
+
+const INSPECTION_METHOD_LABEL: Record<string, string> = {
+  COUNT_ONLY: '数量复核',
+  SAMPLING: '抽检',
+  FULL_INSPECTION: '全检',
+}
+
+function getInspectionSceneLabel(qc: QualityInspection): string {
+  if (!qc.inspectionScene) return '回货质检'
+  return INSPECTION_SCENE_LABEL[qc.inspectionScene] ?? '回货质检'
+}
+
+function getInspectionMethodLabel(qc: QualityInspection): string {
+  if (!qc.inspectionMethod) return '抽检'
+  return INSPECTION_METHOD_LABEL[qc.inspectionMethod] ?? '抽检'
+}
+
 function renderDispositionOptions(selected: QcDisposition | ''): string {
   return `
     <option value="" ${selected === '' ? 'selected' : ''}>请选择</option>
@@ -215,7 +240,7 @@ function renderChainOverview(params: {
   return `
     <section class="grid gap-3 md:grid-cols-3">
       <article class="rounded-md border bg-card px-4 py-3">
-        <p class="text-xs text-muted-foreground">仓库质检现场</p>
+        <p class="text-xs text-muted-foreground">${escapeHtml(getInspectionSceneLabel(qc))}</p>
         <p class="mt-1 text-sm font-semibold">${escapeHtml(processLabel)} · ${escapeHtml(batchId || '-')}</p>
         <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(returnFactoryName || '-')} / ${escapeHtml(warehouseName || '-')}</p>
       </article>
@@ -237,7 +262,7 @@ function renderChainOverview(params: {
           }">${escapeHtml(LIABILITY_LABEL[qc.liabilityStatus] ?? qc.liabilityStatus)}</span>
         </div>
         <p class="mt-1 text-sm font-semibold">${escapeHtml(decisionText)}</p>
-        <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(disputeSummary ?? qc.deductionDecisionRemark ?? qc.dispositionRemark ?? '按仓库质检结果回写平台判责与扣款链路')}</p>
+        <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(disputeSummary ?? qc.deductionDecisionRemark ?? qc.dispositionRemark ?? '按检查结果回写平台判责与扣款链路')}</p>
       </article>
       <article class="rounded-md border bg-card px-4 py-3">
         <p class="text-xs text-muted-foreground">扣款与结算串联</p>
@@ -733,23 +758,26 @@ function renderExistingQcPcDetail(detailVm: PlatformQcDetailViewModel, detail: Q
 
       <section class="grid gap-4 xl:grid-cols-4">
         ${renderOverviewCard(
-          '质检现场概况',
+          '检查现场概况',
           [
+            { label: '检查场景', value: escapeHtml(getInspectionSceneLabel(qcRecord)) },
             { label: '回货环节', value: escapeHtml(qcRecord.processLabel) },
             { label: '回货工厂', value: formatDetailValue(qcRecord.returnFactoryName) },
-            { label: '入仓仓库', value: formatDetailValue(qcRecord.warehouseName) },
+            { label: '接收方', value: formatDetailValue(qcRecord.receiverName ?? qcRecord.warehouseName) },
             { label: '回货批次号', value: `<span class="font-mono">${formatDetailValue(qcRecord.returnInboundBatchNo)}</span>` },
-            { label: '质检策略', value: escapeHtml(detailVm.qcPolicyLabel) },
-            { label: '质检人', value: escapeHtml(qcRecord.inspectorUserName) },
-            { label: '质检时间', value: escapeHtml(formatDateTime(qcRecord.inspectedAt)) },
+            { label: '检查方式', value: escapeHtml(getInspectionMethodLabel(qcRecord)) },
+            { label: '检查人', value: escapeHtml(qcRecord.inspectorUserName) },
+            { label: '完成时间', value: escapeHtml(formatDateTime(qcRecord.inspectedAt)) },
           ],
           `来源类型：${escapeHtml(detailVm.sourceTypeLabel)}`,
         )}
         ${renderOverviewCard(
           '数量与结果概况',
           [
-            { label: '质检结果', value: renderBadge(resultLabel, resultClass) },
-            { label: '总检数量', value: String(qcRecord.inspectedQty) },
+            { label: '检查结果', value: renderBadge(resultLabel, resultClass) },
+            { label: '工厂交出', value: String(qcRecord.declaredQty ?? qcRecord.inspectedQty) },
+            { label: '接收方实收', value: String(qcRecord.receivedQty ?? qcRecord.inspectedQty) },
+            { label: '质检数量', value: String(qcRecord.inspectedQty) },
             { label: '合格 / 不合格', value: `${qcRecord.qualifiedQty} / ${qcRecord.unqualifiedQty}` },
             { label: '工厂责任 / 非工厂责任', value: `${qcRecord.factoryLiabilityQty} / ${qcRecord.nonFactoryLiabilityQty}` },
           ],
@@ -779,19 +807,21 @@ function renderExistingQcPcDetail(detailVm: PlatformQcDetailViewModel, detail: Q
 
       ${renderPcSection(
         '基本信息',
-        '平台运营统一查看质检单来源、现场主体和责任对象，不再使用移动端表单式只读展示。',
+        '平台统一查看检查来源、现场主体和责任对象。',
         renderPcFieldGrid([
-          { label: '质检单号', value: `<span class="font-mono">${escapeHtml(detailVm.qcNo)}</span>` },
+          { label: '检查单号', value: `<span class="font-mono">${escapeHtml(detailVm.qcNo)}</span>` },
           { label: '来源类型', value: escapeHtml(detailVm.sourceTypeLabel) },
           { label: '回货批次号', value: `<span class="font-mono">${formatDetailValue(qcRecord.returnInboundBatchNo)}</span>` },
           { label: '生产单号', value: `<span class="font-mono">${formatDetailValue(qcRecord.productionOrderNo)}</span>` },
           { label: '任务ID', value: qcRecord.taskId ? `<span class="font-mono">${escapeHtml(qcRecord.taskId)}</span>` : '—' },
+          { label: '检查场景', value: escapeHtml(getInspectionSceneLabel(qcRecord)) },
           { label: '回货环节', value: escapeHtml(qcRecord.processLabel) },
           { label: '回货工厂', value: formatDetailValue(qcRecord.returnFactoryName) },
-          { label: '入仓仓库', value: formatDetailValue(qcRecord.warehouseName) },
-          { label: '质检策略', value: escapeHtml(detailVm.qcPolicyLabel) },
-          { label: '质检人', value: escapeHtml(qcRecord.inspectorUserName) },
-          { label: '质检时间', value: escapeHtml(formatDateTime(qcRecord.inspectedAt)) },
+          { label: '接收方', value: formatDetailValue(qcRecord.receiverName ?? qcRecord.warehouseName) },
+          { label: '检查方式', value: escapeHtml(getInspectionMethodLabel(qcRecord)) },
+          { label: '检查策略', value: escapeHtml(detailVm.qcPolicyLabel) },
+          { label: '检查人', value: escapeHtml(qcRecord.inspectorUserName) },
+          { label: '检查时间', value: escapeHtml(formatDateTime(qcRecord.inspectedAt)) },
           {
             label: '来源业务',
             value: `${formatDetailValue(qcRecord.sourceBusinessType)} / ${formatDetailValue(qcRecord.sourceBusinessId)}`,
@@ -846,8 +876,8 @@ function renderExistingQcPcDetail(detailVm: PlatformQcDetailViewModel, detail: Q
       )}
 
       ${renderPcSection(
-        '缺陷与仓库证据',
-        '这里只展示仓库现场缺陷与仓库证据，用于先确认发生了什么。',
+        '缺陷与检查证据',
+        '这里只展示现场缺陷和检查证据，用于先确认发生了什么。',
         `
           <div class="space-y-5">
             ${renderPcFieldGrid(
@@ -860,10 +890,10 @@ function renderExistingQcPcDetail(detailVm: PlatformQcDetailViewModel, detail: Q
                       : '—',
                 },
                 { label: '缺陷描述', value: defectSummary },
-                { label: '仓库质检证据数量', value: `${detailVm.warehouseEvidenceCount} 份` },
+                { label: '检查证据数量', value: `${detailVm.warehouseEvidenceCount} 份` },
               ],
             )}
-            ${renderEvidenceAssets(qcRecord.evidenceAssets, '当前暂无仓库质检证据素材。')}
+            ${renderEvidenceAssets(qcRecord.evidenceAssets, '当前暂无检查证据素材。')}
           </div>
         `,
       )}
@@ -1230,9 +1260,9 @@ function renderQcRecordDetailPageByVariant(
               ? `
                 <div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
                   已带出：回货环节 ${escapeHtml(selectedBatch.processLabel ?? RETURN_INBOUND_PROCESS_LABEL[selectedBatch.processType])}
-                  · 质检策略 ${escapeHtml(RETURN_INBOUND_QC_POLICY_LABEL[selectedBatch.qcPolicy])}
+                  · 检查策略 ${escapeHtml(RETURN_INBOUND_QC_POLICY_LABEL[selectedBatch.qcPolicy])}
                   · 回货工厂 ${escapeHtml(selectedBatch.returnFactoryName ?? '-')}
-                  · 入仓仓库 ${escapeHtml(selectedBatch.warehouseName ?? '-')}
+                  · 接收方 ${escapeHtml(selectedBatch.receiverName ?? selectedBatch.warehouseName ?? '-')}
                 </div>
               `
               : ''
@@ -1240,11 +1270,11 @@ function renderQcRecordDetailPageByVariant(
 
           <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div class="space-y-1.5">
-              <label class="text-sm">质检人</label>
+              <label class="text-sm">检查人</label>
               <input class="h-9 w-full rounded-md border bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-70" data-qcd-field="inspector" value="${toInputValue(detail.form.inspector)}" ${readOnly ? 'disabled' : ''} />
             </div>
             <div class="space-y-1.5">
-              <label class="text-sm">质检时间</label>
+              <label class="text-sm">检查时间</label>
               <input class="h-9 w-full rounded-md border bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-70" data-qcd-field="inspectedAt" value="${toInputValue(detail.form.inspectedAt)}" placeholder="YYYY-MM-DD HH:mm:ss" ${readOnly ? 'disabled' : ''} />
             </div>
           </div>
@@ -1277,15 +1307,15 @@ function renderQcRecordDetailPageByVariant(
             <p>${escapeHtml(inboundView?.returnFactoryName || selectedBatch?.returnFactoryName || sourceTaskForView?.assignedFactoryName || '-')}</p>
           </div>
           <div>
-            <p class="text-xs text-muted-foreground">入仓仓库</p>
-            <p>${escapeHtml(inboundView?.warehouseName || selectedBatch?.warehouseName || '-')}</p>
+            <p class="text-xs text-muted-foreground">接收方</p>
+            <p>${escapeHtml(inboundView?.receiverName || selectedBatch?.receiverName || inboundView?.warehouseName || selectedBatch?.warehouseName || '-')}</p>
           </div>
           <div>
-            <p class="text-xs text-muted-foreground">入仓时间</p>
+            <p class="text-xs text-muted-foreground">接收时间</p>
             <p>${escapeHtml(formatDateTime(inboundView?.inboundAt || selectedBatch?.inboundAt || '-'))}</p>
           </div>
           <div>
-            <p class="text-xs text-muted-foreground">质检策略</p>
+            <p class="text-xs text-muted-foreground">检查策略</p>
             <p>${
               inboundView
                 ? RETURN_INBOUND_QC_POLICY_LABEL[inboundView.qcPolicy]
@@ -1293,6 +1323,10 @@ function renderQcRecordDetailPageByVariant(
                   ? RETURN_INBOUND_QC_POLICY_LABEL[selectedBatch.qcPolicy]
                   : '-'
             }</p>
+          </div>
+          <div>
+            <p class="text-xs text-muted-foreground">检查方式</p>
+            <p>${escapeHtml(inboundView?.inspectionMethodLabel || (selectedBatch?.qcPolicy === 'OPTIONAL' ? '抽检' : '全检'))}</p>
           </div>
           <div>
             <p class="text-xs text-muted-foreground">车缝后道模式</p>

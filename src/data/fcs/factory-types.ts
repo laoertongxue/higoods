@@ -37,9 +37,24 @@ export interface FactoryEligibility {
   allowSettle: boolean
 }
 
+export type FactoryAbilityScope = 'PROCESS' | 'CRAFT'
+export type FactoryAbilityStatus = 'ACTIVE' | 'PAUSED' | 'DISABLED'
+export type FactoryPostCapacityNodeCode = 'BUTTONHOLE' | 'BUTTON_ATTACH' | 'IRONING' | 'PACKAGING'
+export type FactoryEquipmentStatus = 'ACTIVE' | 'PAUSED' | 'MAINTENANCE' | 'DISABLED'
+
 export interface FactoryProcessAbility {
   processCode: string
   craftCodes: string[]
+  capacityNodeCodes?: FactoryPostCapacityNodeCode[]
+  abilityId?: string
+  processName?: string
+  craftNames?: string[]
+  abilityName?: string
+  abilityScope?: FactoryAbilityScope
+  canReceiveTask?: boolean
+  capacityManaged?: boolean
+  status?: FactoryAbilityStatus
+  parentProcessCode?: string
 }
 
 export type FactoryCapacityFieldValue = number | string
@@ -100,6 +115,48 @@ export interface FactoryCapacityProfile {
   entries: FactoryCapacityEntry[]
 }
 
+export interface FactoryPostCapacityNode {
+  capacityNodeId: string
+  factoryId: string
+  parentProcessCode: 'POST_FINISHING'
+  nodeCode: FactoryPostCapacityNodeCode
+  nodeName: string
+  machineType?: string
+  machineCount: number
+  operatorCount?: number
+  shiftMinutes: number
+  efficiencyValue?: number
+  efficiencyUnit?: string
+  setupMinutes?: number
+  switchMinutes?: number
+  status: FactoryEquipmentStatus
+  effectiveFrom?: string
+}
+
+export interface FactoryPrintMachineCapacity {
+  printerId: string
+  factoryId: string
+  printerNo: string
+  printerName?: string
+  speedValue: number
+  speedUnit: string
+  shiftMinutes: number
+  status: FactoryEquipmentStatus
+  remark?: string
+}
+
+export interface FactoryDyeVatCapacity {
+  dyeVatId: string
+  factoryId: string
+  dyeVatNo: string
+  capacityQty: number
+  capacityUnit: string
+  supportedMaterialTypes: string[]
+  shiftMinutes?: number
+  status: FactoryEquipmentStatus
+  remark?: string
+}
+
 // 状态配置
 export const factoryStatusConfig: Record<FactoryStatus, { label: string; color: string }> = {
   active: { label: '在合作', color: 'bg-green-100 text-green-700 border-green-200' },
@@ -138,6 +195,24 @@ export const factoryTypeConfig: Record<FactoryType, { label: string }> = {
   SATELLITE_SEWING:    { label: '缝纫工厂' },
   SATELLITE_FINISHING: { label: '后道工厂' },
   THIRD_SEWING:        { label: '小微缝纫工厂' },
+}
+
+export const factoryAbilityScopeLabel: Record<FactoryAbilityScope, string> = {
+  PROCESS: '工序',
+  CRAFT: '工艺',
+}
+
+export const factoryAbilityStatusLabel: Record<FactoryAbilityStatus, string> = {
+  ACTIVE: '可用',
+  PAUSED: '暂停',
+  DISABLED: '历史停用',
+}
+
+export const factoryEquipmentStatusLabel: Record<FactoryEquipmentStatus, string> = {
+  ACTIVE: '可用',
+  PAUSED: '暂停',
+  MAINTENANCE: '维护中',
+  DISABLED: '停用',
 }
 
 // tier 对应的 type 选项

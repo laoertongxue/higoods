@@ -3,12 +3,18 @@ import {
   computeFactoryCapacityEntryResult,
   getFactoryCapacityProfileByFactoryId,
   listFactoryCapacityEntries,
+  listFactoryDyeVatCapacities,
+  listFactoryPostCapacityNodes,
+  listFactoryPrintMachineCapacities,
 } from '../data/fcs/factory-capacity-profile-mock'
 import {
   getFactoryMasterRecordById,
   listFactoryMasterRecords,
 } from '../data/fcs/factory-master-store'
 import {
+  factoryAbilityScopeLabel,
+  factoryAbilityStatusLabel,
+  factoryEquipmentStatusLabel,
   factoryStatusConfig,
   factoryTypeConfig,
   type Factory,
@@ -17,7 +23,7 @@ import {
 } from '../data/fcs/factory-types'
 import {
   SAM_CALC_MODE_LABEL,
-  getProcessCraftDictRowByCode,
+  getProcessDefinitionByCode,
   listProcessStages,
   listProcessesByStageCode,
   type ProcessCraftDictRow,
@@ -84,11 +90,14 @@ function getSelectedFactory(): Factory | null {
 }
 
 function getSupportedProcessCount(factory: Factory): number {
-  return factory.processAbilities.length
+  return factory.processAbilities.filter((ability) => ability.status !== 'DISABLED' && ability.canReceiveTask !== false).length
 }
 
 function getSupportedCraftCount(factory: Factory): number {
-  return factory.processAbilities.reduce((total, item) => total + item.craftCodes.length, 0)
+  return factory.processAbilities.reduce(
+    (total, item) => total + item.craftCodes.length + (item.capacityNodeCodes?.length ?? 0),
+    0,
+  )
 }
 
 function renderPagination(total: number): string {
@@ -173,7 +182,7 @@ function renderCapacityTableRows(factories: Factory[]): string {
               class="rounded-md px-2 py-1 text-xs hover:bg-blue-50 hover:text-blue-600"
               data-capacity-action="open-detail"
               data-factory-id="${factory.id}"
-            >查看产能档案</button>
+            >查看工厂产能档案</button>
           </td>
         </tr>
       `
@@ -182,53 +191,177 @@ function renderCapacityTableRows(factories: Factory[]): string {
 }
 
 function renderReadonlyProcessAbilities(factory: Factory): string {
+  const abilities = factory.processAbilities
+    .filter((ability) => ability.status !== 'DISABLED')
+    .map((ability) => {
+      const processDefinition = getProcessDefinitionByCode(ability.processCode)
+      const statusLabel = factoryAbilityStatusLabel[ability.status ?? 'ACTIVE']
+      const scopeLabel = factoryAbilityScopeLabel[ability.abilityScope ?? 'PROCESS']
+      const title = ability.abilityName ?? ability.processName ?? processDefinition?.processName ?? ability.processCode
+      const detailTags = [
+        ...(ability.craftNames ?? []),
+        ...((ability.capacityNodeCodes ?? []).map(
+          (code) => getProcessDefinitionByCode(code)?.processName ?? code,
+        )),
+      ]
+
+      return `
+        <article class="rounded-lg border bg-card px-4 py-3" data-capacity-readonly-ability="${escapeHtml(ability.processCode)}">
+          <div class="flex items-start justify-between gap-3">
+            <div class="space-y-1">
+              <p class="text-sm font-medium text-foreground">${escapeHtml(title)}</p>
+              <div class="flex flex-wrap gap-2">
+                <span class="inline-flex rounded border px-2 py-0.5 text-xs text-muted-foreground">${escapeHtml(scopeLabel)}</span>
+                <span class="inline-flex rounded border px-2 py-0.5 text-xs text-muted-foreground">${escapeHtml(statusLabel)}</span>
+              </div>
+            </div>
+            <span class="text-xs text-muted-foreground">${ability.canReceiveTask === false ? '仅产能维护' : '可接单'}</span>
+          </div>
+          ${
+            detailTags.length
+              ? `<div class="mt-3 flex flex-wrap gap-2">${detailTags
+                  .map(
+                    (tag) =>
+                      `<span class="inline-flex rounded-full border border-blue-200 bg-blue-50 px-2 py-1 text-xs text-blue-700">${escapeHtml(tag)}</span>`,
+                  )
+                  .join('')}</div>`
+              : ''
+          }
+        </article>
+      `
+    })
+    .join('')
+
   return `
     <section class="space-y-4" data-testid="factory-capacity-readonly-abilities">
       <div class="flex items-center justify-between gap-3">
-        <div>
-          <h4 class="text-sm font-medium text-foreground">工序工艺能力（来自工厂档案）</h4>
-          <p class="mt-1 text-xs text-muted-foreground">当前阶段产能档案只读引用工厂档案已声明的能力范围，不在此重复维护。</p>
-        </div>
-        <span class="rounded border border-blue-200 bg-blue-50 px-2 py-1 text-xs text-blue-700">只读引用</span>
+        <h4 class="text-sm font-medium text-foreground">接单能力</h4>
+        <span class="rounded border border-blue-200 bg-blue-50 px-2 py-1 text-xs text-blue-700">来自工厂档案</span>
       </div>
-      <div class="space-y-4">
-        ${listProcessStages()
-          .map((stage, stageIndex) => {
-            const processHtml = listProcessesByStageCode(stage.stageCode)
-              .map((process, processIndex) => {
-                const ability = factory.processAbilities.find((item) => item.processCode === process.processCode)
-                if (!ability || !ability.craftCodes.length) return ''
+      <div class="grid gap-3 md:grid-cols-2">${abilities || '<div class="rounded-lg border border-dashed px-4 py-6 text-sm text-muted-foreground">当前未维护接单能力。</div>'}</div>
+    </section>
+  `
+}
 
-                const craftChips = ability.craftCodes
-                  .map((craftCode) => getProcessCraftDictRowByCode(craftCode))
-                  .filter((row): row is ProcessCraftDictRow => Boolean(row))
-                  .map(
-                    (row) =>
-                      `<span class="inline-flex rounded-full border border-blue-200 bg-blue-50 px-2 py-1 text-xs text-blue-700">${escapeHtml(row.craftName)}</span>`,
-                  )
-                  .join('')
+function renderPostCapacityNodesSection(factoryId: string): string {
+  const rows = listFactoryPostCapacityNodes(factoryId)
+  if (!rows.length) return ''
 
-                return `
-                  <div class="space-y-2 ${processIndex === 0 ? '' : 'border-t border-slate-200 pt-3'}" data-capacity-readonly-process="${escapeHtml(process.processCode)}">
-                    <p class="text-sm font-medium text-foreground">${escapeHtml(process.processName)}</p>
-                    <div class="flex flex-wrap gap-2">${craftChips}</div>
-                  </div>
-                `
-              })
-              .filter(Boolean)
-              .join('')
+  return `
+    <section class="space-y-3" data-testid="factory-post-capacity-nodes">
+      <div class="flex items-center justify-between gap-3">
+        <h4 class="text-sm font-medium text-foreground">产能节点</h4>
+        <span class="text-xs text-muted-foreground">后道</span>
+      </div>
+      <div class="overflow-hidden rounded-lg border">
+        <table class="w-full text-sm">
+          <thead class="bg-muted/30">
+            <tr>
+              <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">节点</th>
+              <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">设备数</th>
+              <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">人员数</th>
+              <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">单班时长</th>
+              <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">标准效率</th>
+              <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">状态</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows
+              .map(
+                (row) => `
+                  <tr class="border-t">
+                    <td class="px-3 py-3 font-medium">${escapeHtml(row.nodeName)}</td>
+                    <td class="px-3 py-3">${row.machineCount}</td>
+                    <td class="px-3 py-3">${row.operatorCount ?? '—'}</td>
+                    <td class="px-3 py-3">${row.shiftMinutes} 分钟</td>
+                    <td class="px-3 py-3">${row.efficiencyValue ? `${row.efficiencyValue} ${row.efficiencyUnit ?? ''}`.trim() : '—'}</td>
+                    <td class="px-3 py-3">${escapeHtml(factoryEquipmentStatusLabel[row.status])}</td>
+                  </tr>
+                `,
+              )
+              .join('')}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  `
+}
 
-            if (!processHtml) return ''
+function renderPrintMachinesSection(factoryId: string): string {
+  const rows = listFactoryPrintMachineCapacities(factoryId)
+  if (!rows.length) return ''
 
-            return `
-              <div class="space-y-3 ${stageIndex === 0 ? '' : 'border-t border-slate-200 pt-4'}" data-capacity-readonly-stage="${escapeHtml(stage.stageCode)}">
-                <p class="text-sm font-semibold text-foreground">${escapeHtml(stage.stageName)}</p>
-                <div class="space-y-3">${processHtml}</div>
-              </div>
-            `
-          })
-          .filter(Boolean)
-          .join('')}
+  return `
+    <section class="space-y-3" data-testid="factory-print-machine-capacity">
+      <div class="flex items-center justify-between gap-3">
+        <h4 class="text-sm font-medium text-foreground">印花打印机</h4>
+        <span class="text-xs text-muted-foreground">${rows.length} 台</span>
+      </div>
+      <div class="overflow-hidden rounded-lg border">
+        <table class="w-full text-sm">
+          <thead class="bg-muted/30">
+            <tr>
+              <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">打印机编号</th>
+              <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">打印速度</th>
+              <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">单班时长</th>
+              <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">设备状态</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows
+              .map(
+                (row) => `
+                  <tr class="border-t">
+                    <td class="px-3 py-3 font-medium">${escapeHtml(row.printerNo)}</td>
+                    <td class="px-3 py-3">${row.speedValue} ${escapeHtml(row.speedUnit)}</td>
+                    <td class="px-3 py-3">${row.shiftMinutes} 分钟</td>
+                    <td class="px-3 py-3">${escapeHtml(factoryEquipmentStatusLabel[row.status])}</td>
+                  </tr>
+                `,
+              )
+              .join('')}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  `
+}
+
+function renderDyeVatsSection(factoryId: string): string {
+  const rows = listFactoryDyeVatCapacities(factoryId)
+  if (!rows.length) return ''
+
+  return `
+    <section class="space-y-3" data-testid="factory-dye-vat-capacity">
+      <div class="flex items-center justify-between gap-3">
+        <h4 class="text-sm font-medium text-foreground">染缸</h4>
+        <span class="text-xs text-muted-foreground">${rows.length} 台</span>
+      </div>
+      <div class="overflow-hidden rounded-lg border">
+        <table class="w-full text-sm">
+          <thead class="bg-muted/30">
+            <tr>
+              <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">染缸编号</th>
+              <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">染缸容量</th>
+              <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">可染类型</th>
+              <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground">设备状态</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows
+              .map(
+                (row) => `
+                  <tr class="border-t">
+                    <td class="px-3 py-3 font-medium">${escapeHtml(row.dyeVatNo)}</td>
+                    <td class="px-3 py-3">${row.capacityQty} ${escapeHtml(row.capacityUnit)}</td>
+                    <td class="px-3 py-3">${escapeHtml(row.supportedMaterialTypes.join('、'))}</td>
+                    <td class="px-3 py-3">${escapeHtml(factoryEquipmentStatusLabel[row.status])}</td>
+                  </tr>
+                `,
+              )
+              .join('')}
+          </tbody>
+        </table>
       </div>
     </section>
   `
@@ -247,6 +380,9 @@ function renderTopReadonlyInfo(factory: Factory): string {
         ${renderFieldValue('联系人', factory.contact)}
       </div>
       ${renderReadonlyProcessAbilities(factory)}
+      ${renderPostCapacityNodesSection(factory.id)}
+      ${renderPrintMachinesSection(factory.id)}
+      ${renderDyeVatsSection(factory.id)}
     </section>
   `
 }
@@ -330,10 +466,7 @@ function renderCapacityEntryCard(factoryId: string, row: ProcessCraftDictRow, va
 
       <div class="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
         <section class="space-y-3 rounded-xl bg-slate-50 px-4 py-4" data-capacity-fields-panel="${row.craftCode}">
-          <div>
-            <p class="text-xs font-medium text-amber-700">当前阶段最小必要字段</p>
-            <p class="mt-1 text-xs text-muted-foreground">只维护该工艺当前阶段真正需要的最小数值字段，系统会自动计算默认日可供给发布工时 SAM。</p>
-          </div>
+          <p class="text-xs font-medium text-amber-700">当前阶段字段</p>
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             ${row.samCurrentFieldKeys
               .map((fieldKey) =>
@@ -347,7 +480,6 @@ function renderCapacityEntryCard(factoryId: string, row: ProcessCraftDictRow, va
           <div class="rounded-xl border border-blue-200 bg-blue-50 px-4 py-4" data-capacity-result-block="${row.craftCode}">
             <p class="text-xs font-medium text-blue-700">默认日可供给发布工时 SAM</p>
             <p class="mt-2 text-2xl font-semibold text-foreground" data-capacity-result-value="${row.craftCode}">${escapeHtml(resultText)}</p>
-            <p class="mt-2 text-xs text-muted-foreground">这是系统根据当前阶段字段自动算出来的结果字段，不是人工录入字段。</p>
           </div>
           <div class="space-y-2 rounded-xl bg-slate-50 px-4 py-4" data-capacity-formula-panel="${row.craftCode}">
             <p class="text-xs font-medium text-foreground">当前阶段公式</p>
@@ -360,7 +492,7 @@ function renderCapacityEntryCard(factoryId: string, row: ProcessCraftDictRow, va
 
       <div class="mt-4 grid gap-4 xl:grid-cols-2">
         <section class="space-y-2 rounded-xl bg-slate-50 px-4 py-4" data-capacity-explanation-panel="${row.craftCode}">
-          <p class="text-xs font-medium text-foreground">当前阶段说明</p>
+          <p class="text-xs font-medium text-foreground">字段说明</p>
           <div class="mt-2 space-y-2 text-sm text-muted-foreground">
             ${row.samCurrentExplanationLines.map((line) => `<p>${escapeHtml(line)}</p>`).join('')}
           </div>
@@ -418,8 +550,7 @@ function renderCurrentStageSection(factory: Factory): string {
   return `
     <section class="space-y-6" data-testid="factory-capacity-current-stage-section">
       <div class="border-b border-slate-200 pb-4">
-        <h4 class="text-sm font-medium text-foreground">当前阶段最小必要字段与自动计算结果</h4>
-        <p class="mt-1 text-xs text-muted-foreground">当前阶段只维护字典规定的最小必要字段，系统自动计算默认日可供给发布工时 SAM。</p>
+        <h4 class="text-sm font-medium text-foreground">产能字段与自动计算结果</h4>
       </div>
       <div class="space-y-6">${stageSections}</div>
     </section>
@@ -434,12 +565,12 @@ function renderCapacityDetailDrawer(): string {
 
   return `
     <div class="fixed inset-0 z-40">
-      <button class="absolute inset-0 bg-black/45" data-capacity-action="close-detail" aria-label="关闭产能档案"></button>
+      <button class="absolute inset-0 bg-black/45" data-capacity-action="close-detail" aria-label="关闭工厂产能档案"></button>
       <section class="absolute inset-y-0 right-0 flex w-full max-w-6xl flex-col overflow-hidden border-l bg-background shadow-2xl" data-testid="factory-capacity-profile-drawer">
         <header class="flex items-start justify-between gap-4 border-b px-6 py-4">
           <div>
             <p class="text-xs uppercase tracking-wide text-muted-foreground">工厂池管理</p>
-            <h2 class="mt-1 text-lg font-semibold text-foreground">产能档案</h2>
+            <h2 class="mt-1 text-lg font-semibold text-foreground">工厂产能档案</h2>
             <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(factory.name)}</p>
           </div>
           <button type="button" data-capacity-action="close-detail" class="rounded-md border px-2 py-1 text-xs hover:bg-muted">关闭</button>
@@ -474,8 +605,8 @@ export function renderFactoryCapacityProfilePage(): string {
     <div class="space-y-6" data-testid="factory-capacity-profile-page">
       <div class="flex items-center justify-between gap-4">
         <div>
-          <h1 class="text-2xl font-semibold text-foreground">产能档案</h1>
-          <p class="mt-1 text-sm text-muted-foreground">工厂来源于工厂档案，工序工艺能力只读引用；当前阶段只维护最小必要字段，由系统自动计算默认日可供给发布工时 SAM。</p>
+          <h1 class="text-2xl font-semibold text-foreground">工厂产能档案</h1>
+          <p class="mt-1 text-sm text-muted-foreground">接单能力来自工厂档案，产能节点与设备能力在此维护。</p>
         </div>
       </div>
 
@@ -521,8 +652,8 @@ export function renderFactoryCapacityProfilePage(): string {
               <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">工厂类型</th>
               <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">工厂状态</th>
               <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">联系人</th>
-              <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">已支持工序数</th>
-              <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">已支持工艺数</th>
+              <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">接单能力数</th>
+              <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">工艺 / 节点数</th>
               <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">当前阶段档案完成度</th>
               <th class="px-3 py-3 text-right text-xs font-medium text-muted-foreground">操作</th>
             </tr>

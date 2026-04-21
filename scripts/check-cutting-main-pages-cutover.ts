@@ -9,6 +9,15 @@ function readRepoFile(relativePath: string): string {
   return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8')
 }
 
+function readRouteSources(): string {
+  return [
+    'src/router/routes.ts',
+    'src/router/routes-fcs.ts',
+  ]
+    .map((file) => readRepoFile(file))
+    .join('\n')
+}
+
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
 }
@@ -46,7 +55,7 @@ function assertCanonicalPageFiles(): void {
 function assertCanonicalExportsAndRoutes(): void {
   const cuttingIndex = readRepoFile('src/pages/process-factory/cutting/index.ts')
   const processFactoryIndex = readRepoFile('src/pages/process-factory/index.ts')
-  const routes = readRepoFile('src/router/routes.ts')
+  const routes = readRouteSources()
   const handlers = readRepoFile('src/main-handlers/fcs-handlers.ts')
   const meta = readRepoFile('src/pages/process-factory/cutting/meta.ts')
   const appShell = readRepoFile('src/data/app-shell-config.ts')
@@ -70,13 +79,13 @@ function assertCanonicalExportsAndRoutes(): void {
   assertNotIncludes(processFactoryIndex, 'renderCraftCuttingOrderProgressPage', 'process-factory/index.ts 不应保留旧 order-progress renderer 名称')
   assertNotIncludes(processFactoryIndex, 'renderCraftCuttingPieceOrdersPage', 'process-factory/index.ts 不应保留旧 piece-orders renderer 名称')
 
-  assertIncludes(routes, 'renderCraftCuttingProductionProgressPage', 'routes.ts 应使用 canonical production-progress renderer')
-  assertIncludes(routes, 'renderCraftCuttingOriginalOrdersPage', 'routes.ts 应使用 canonical original-orders renderer')
-  assertIncludes(routes, "'/fcs/craft/cutting/spreading-list': () => renderCraftCuttingSpreadingListPage()", 'routes.ts 应使用 canonical spreading-list renderer')
-  assertIncludes(routes, "'/fcs/craft/cutting/spreading-create': () => renderCraftCuttingSpreadingCreatePage()", 'routes.ts 应使用 canonical spreading-create renderer')
+  assertIncludes(routes, 'renderCraftCuttingProductionProgressPage', '路由文件应使用 canonical production-progress renderer')
+  assertIncludes(routes, 'renderCraftCuttingOriginalOrdersPage', '路由文件应使用 canonical original-orders renderer')
+  assertIncludes(routes, "'/fcs/craft/cutting/spreading-list': () => renderCraftCuttingSpreadingListPage()", '路由文件应使用 canonical spreading-list renderer')
+  assertIncludes(routes, "'/fcs/craft/cutting/spreading-create': () => renderCraftCuttingSpreadingCreatePage()", '路由文件应使用 canonical spreading-create renderer')
   assertIncludes(routes, "'/fcs/craft/cutting/marker-spreading': () => renderCraftCuttingMarkerSpreadingPage()", '旧 marker-spreading 应仅保留兼容入口')
-  assertNotIncludes(routes, 'renderCraftCuttingOrderProgressPage', 'routes.ts 不应继续使用旧 order-progress renderer')
-  assertNotIncludes(routes, 'renderCraftCuttingPieceOrdersPage', 'routes.ts 不应继续使用旧 piece-orders renderer')
+  assertNotIncludes(routes, 'renderCraftCuttingOrderProgressPage', '路由文件不应继续使用旧 order-progress renderer')
+  assertNotIncludes(routes, 'renderCraftCuttingPieceOrdersPage', '路由文件不应继续使用旧 piece-orders renderer')
 
   assertIncludes(handlers, 'handleCraftCuttingProductionProgressEvent', 'fcs-handlers.ts 应使用 canonical production-progress handler')
   assertIncludes(handlers, 'handleCraftCuttingOriginalOrdersEvent', 'fcs-handlers.ts 应使用 canonical original-orders handler')

@@ -11,6 +11,17 @@ import {
   type HandoverLedgerRow,
   type HandoverTimelineProcessSection,
 } from '../data/fcs/handover-ledger-view'
+import {
+  buildHandoverOrderLink,
+  buildQualityRecordLink,
+  buildTaskDetailLink,
+} from '../data/fcs/fcs-route-links.ts'
+import {
+  getPostExecutionModeLabel,
+  getPostProcessRouteByProductionOrderId,
+  getPostRouteNodeLabel,
+} from '../data/fcs/post-process-route'
+import { getQcViewRows } from './qc-records/context'
 
 type HandoverOrderDetailTab = 'time' | 'process'
 
@@ -59,7 +70,7 @@ function getOrderName(orderId: string): string {
 function getFocusLabel(focus: HandoverFocus): string {
   if (focus === 'pickup') return '待领料'
   if (focus === 'handout') return '待交出'
-  if (focus === 'warehouse-confirm') return '待仓库确认'
+  if (focus === 'warehouse-confirm') return '待接收方回写'
   return '异议处理'
 }
 
@@ -70,6 +81,20 @@ function parseDateMs(value: string | undefined): number {
 
 function renderBadge(label: string, className: string): string {
   return `<span class="inline-flex items-center rounded border px-2 py-0.5 text-xs ${className}">${escapeHtml(label)}</span>`
+}
+
+function getReceivingQcHref(productionOrderId: string): string {
+  const row = getQcViewRows().find(
+    (item) => item.productionOrderId === productionOrderId && item.qc.inspectionScene !== 'POST_FINAL_RECHECK',
+  )
+  return row ? buildQualityRecordLink(row.qcId) : ''
+}
+
+function getFinalRecheckHref(productionOrderId: string): string {
+  const row = getQcViewRows().find(
+    (item) => item.productionOrderId === productionOrderId && item.qc.inspectionScene === 'POST_FINAL_RECHECK',
+  )
+  return row ? buildQualityRecordLink(row.qcId) : ''
 }
 
 function renderStatusBadge(row: HandoverLedgerRow): string {
@@ -85,6 +110,87 @@ function renderStatusBadge(row: HandoverLedgerRow): string {
             : 'bg-zinc-100 text-zinc-700 border-zinc-200'
 
   return renderBadge(row.statusLabel, toneClass)
+}
+
+function resolveRouteStageLabel(params: {
+  currentNode: string
+  requiresPostExecution: boolean
+  stage: 'receivingQc' | 'postExecution' | 'finalRecheck' | 'warehouseHandover'
+}): string {
+  const { currentNode, requiresPostExecution, stage } = params
+
+  if (stage === 'receivingQc') {
+    if (currentNode === 'WAIT_RECEIVING_QC') return '待回货质检'
+    if (currentNode === 'WAIT_SEW_HANDOVER' || currentNode === 'WAIT_RECEIVER_WRITEBACK') return '未开始'
+    return '已完成'
+  }
+
+  if (stage === 'postExecution') {
+    if (!requiresPostExecution) return '车缝厂已含后道'
+    if (currentNode === 'WAIT_POST_EXECUTION') return '待后道'
+    if (currentNode === 'WAIT_SEW_HANDOVER' || currentNode === 'WAIT_RECEIVER_WRITEBACK' || currentNode === 'WAIT_RECEIVING_QC') {
+      return '未开始'
+    }
+    return '已完成'
+  }
+
+  if (stage === 'finalRecheck') {
+    if (currentNode === 'WAIT_FINAL_RECHECK') return '待复检'
+    if (currentNode === 'WAIT_WAREHOUSE_HANDOVER' || currentNode === 'CLOSED') return '已完成'
+    return '未开始'
+  }
+
+  if (currentNode === 'WAIT_WAREHOUSE_HANDOVER') return '待交成衣仓'
+  if (currentNode === 'CLOSED') return '已关闭'
+  return '未开始'
+}
+
+function renderPostRouteCard(orderId: string): string {
+  const route = getPostProcessRouteByProductionOrderId(orderId)
+  if (!route) return ''
+  const receivingQcHref = getReceivingQcHref(orderId)
+  const finalRecheckHref = getFinalRecheckHref(orderId)
+
+  return `
+    <section class="rounded-lg border bg-card p-4">
+      <div class="flex flex-wrap items-center gap-2">
+        <h2 class="text-sm font-semibold">后道路由</h2>
+        <span class="inline-flex rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-700">${escapeHtml(
+          getPostExecutionModeLabel(route.postExecutionMode),
+        )}</span>
+        <span class="text-xs text-muted-foreground">接收方：${escapeHtml(route.managedPostFactoryName)}</span>
+        <span class="text-xs text-muted-foreground">当前节点：${escapeHtml(getPostRouteNodeLabel(route.currentNode))}</span>
+      </div>
+      <div class="mt-3 grid gap-3 md:grid-cols-4">
+        <div class="rounded-md border bg-background px-3 py-2 text-xs">
+          <p class="text-muted-foreground">回货质检</p>
+          <p class="mt-1 font-medium text-foreground">${escapeHtml(resolveRouteStageLabel({ currentNode: route.currentNode, requiresPostExecution: route.requiresPostExecution, stage: 'receivingQc' }))}</p>
+          ${
+            receivingQcHref
+              ? `<button type="button" class="mt-2 inline-flex rounded-md border px-2 py-1 text-[11px] hover:bg-muted" data-handover-order-action="open-quality-record" data-title="质检记录" data-href="${escapeHtml(receivingQcHref)}">质检记录</button>`
+              : ''
+          }
+        </div>
+        <div class="rounded-md border bg-background px-3 py-2 text-xs">
+          <p class="text-muted-foreground">后道状态</p>
+          <p class="mt-1 font-medium text-foreground">${escapeHtml(resolveRouteStageLabel({ currentNode: route.currentNode, requiresPostExecution: route.requiresPostExecution, stage: 'postExecution' }))}</p>
+        </div>
+        <div class="rounded-md border bg-background px-3 py-2 text-xs">
+          <p class="text-muted-foreground">后道复检</p>
+          <p class="mt-1 font-medium text-foreground">${escapeHtml(resolveRouteStageLabel({ currentNode: route.currentNode, requiresPostExecution: route.requiresPostExecution, stage: 'finalRecheck' }))}</p>
+          ${
+            finalRecheckHref
+              ? `<button type="button" class="mt-2 inline-flex rounded-md border px-2 py-1 text-[11px] hover:bg-muted" data-handover-order-action="open-quality-record" data-title="复检记录" data-href="${escapeHtml(finalRecheckHref)}">复检记录</button>`
+              : ''
+          }
+        </div>
+        <div class="rounded-md border bg-background px-3 py-2 text-xs">
+          <p class="text-muted-foreground">成衣仓交接</p>
+          <p class="mt-1 font-medium text-foreground">${escapeHtml(resolveRouteStageLabel({ currentNode: route.currentNode, requiresPostExecution: route.requiresPostExecution, stage: 'warehouseHandover' }))}</p>
+        </div>
+      </div>
+    </section>
+  `
 }
 
 function isRowFocused(row: HandoverLedgerRow): boolean {
@@ -109,7 +215,7 @@ function isSectionFocused(section: HandoverTimelineProcessSection): boolean {
 
   if (state.focusHint === 'pickup') return section.processStatusLabel === '待领料'
   if (state.focusHint === 'handout') return section.processStatusLabel === '待交出' || section.processStatusLabel === '已领料待交出'
-  if (state.focusHint === 'warehouse-confirm') return section.processStatusLabel === '已交出待仓库确认'
+  if (state.focusHint === 'warehouse-confirm') return section.processStatusLabel === '已交出待接收方回写'
   if (state.focusHint === 'objection') return section.processStatusLabel === '有异议' || section.processStatusLabel === '异议处理中'
   return false
 }
@@ -222,8 +328,7 @@ function getCompleteProcessSections(
     ? [
         { seq: 1, processName: '裁片' },
         { seq: 2, processName: '车缝' },
-        { seq: 3, processName: '整烫' },
-        { seq: 4, processName: '包装' },
+        { seq: 3, processName: '后道' },
       ]
     : orderTasks.map((task) => ({ seq: task.seq, processName: task.processNameZh }))
 
@@ -295,7 +400,7 @@ function renderTimeTab(rows: HandoverLedgerRow[]): string {
                       <div class="mt-3 flex flex-wrap gap-2">
                         <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-handover-order-action="goto-task" data-task-id="${escapeHtml(row.taskId)}">去任务</button>
                         <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-handover-order-action="goto-exception" data-po="${escapeHtml(row.productionOrderId)}" data-task-id="${escapeHtml(row.taskId)}">去异常定位与处理</button>
-                        <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-handover-order-action="open-pda" data-handover-id="${escapeHtml(row.handoverId)}">查看PDA记录</button>
+                        <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-handover-order-action="open-pda" data-handover-id="${escapeHtml(row.handoverId)}">查看交出详情</button>
                       </div>
                     </article>
                   `,
@@ -376,6 +481,7 @@ function renderPage(pathname: string): string {
   return `
     <div class="space-y-4">
       ${renderHeader(summary)}
+      ${renderPostRouteCard(state.orderId)}
       ${renderTabs()}
       ${state.activeTab === 'time' ? renderTimeTab(rows) : renderProcessTab(timelineView)}
     </div>
@@ -405,7 +511,15 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
   if (action === 'goto-task') {
     const taskId = actionNode.dataset.taskId
     if (taskId) {
-      openLinkedPage('任务进度看板', `/fcs/progress/board?taskId=${encodeURIComponent(taskId)}`)
+      openLinkedPage('任务详情', buildTaskDetailLink(taskId))
+    }
+    return true
+  }
+
+  if (action === 'open-quality-record') {
+    const href = actionNode.dataset.href
+    if (href) {
+      openLinkedPage(actionNode.dataset.title || '质检记录', href)
     }
     return true
   }
@@ -421,7 +535,7 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
   if (action === 'open-pda') {
     const handoverId = actionNode.dataset.handoverId
     if (handoverId) {
-      openLinkedPage(`交接详情 ${handoverId}`, `/fcs/pda/handover/${encodeURIComponent(handoverId)}`)
+      openLinkedPage(`交出单详情 ${handoverId}`, buildHandoverOrderLink(handoverId))
     }
     return true
   }

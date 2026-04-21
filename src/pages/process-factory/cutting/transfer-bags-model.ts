@@ -203,6 +203,14 @@ export interface TransferBagItemBinding {
   originalCutOrderNo: string
   productionOrderNo: string
   mergeBatchNo: string
+  fabricRollNo?: string
+  fabricColor?: string
+  size?: string
+  partName?: string
+  bundleNo?: string
+  actualCutPieceQty?: number
+  assemblyGroupKey?: string
+  siblingPartTicketNos?: string[]
   裁剪批次No?: string
   qty: number
   garmentQty: number
@@ -402,6 +410,7 @@ export interface TransferBagParentChildSummary {
   originalCutOrderCount: number
   productionOrderCount: number
   mergeBatchCount: number
+  assemblyGroupCount: number
   quantityTotal: number
   garmentQtyTotal: number
 }
@@ -422,10 +431,17 @@ export interface TransferBagTicketCandidate {
   mergeBatchNo: string
   styleCode: string
   spuCode: string
+  fabricRollNo: string
+  fabricColor: string
   color: string
   size: string
+  partCode: string
   partName: string
+  bundleNo: string
   qty: number
+  actualCutPieceQty: number
+  assemblyGroupKey: string
+  siblingPartTicketNos: string[]
   garmentQty: number
   materialSku: string
   sourceContextType: string
@@ -909,8 +925,17 @@ function toRuntimeBinding(binding: TransferBagItemBinding): CarrierCycleItemBind
     originalCutOrderNo: binding.originalCutOrderNo,
     productionOrderNo: binding.productionOrderNo,
     mergeBatchNo: binding.mergeBatchNo,
+    fabricRollNo: binding.fabricRollNo || '',
+    fabricColor: binding.fabricColor || '',
+    size: binding.size || '',
+    partCode: binding.ticket?.partCode || '',
+    partName: binding.partName || '',
+    bundleNo: binding.bundleNo || '',
     qty: binding.qty,
+    actualCutPieceQty: binding.actualCutPieceQty ?? binding.qty,
     garmentQty: binding.garmentQty ?? binding.qty,
+    assemblyGroupKey: binding.assemblyGroupKey || '',
+    siblingPartTicketNos: [...(binding.siblingPartTicketNos || [])],
     boundAt: binding.boundAt,
     boundBy: binding.boundBy,
     operator: normalized.operator,
@@ -939,8 +964,16 @@ function toLegacyBinding(binding: CarrierCycleItemBinding): TransferBagItemBindi
     productionOrderNo: binding.productionOrderNo,
     mergeBatchNo: binding.mergeBatchNo,
     裁剪批次No: binding.mergeBatchNo,
+    fabricRollNo: binding.fabricRollNo || '',
+    fabricColor: binding.fabricColor || '',
+    size: binding.size || '',
+    partName: binding.partName || '',
+    bundleNo: binding.bundleNo || '',
     qty: binding.qty,
-    garmentQty: binding.qty,
+    garmentQty: binding.garmentQty ?? binding.qty,
+    actualCutPieceQty: binding.actualCutPieceQty ?? binding.qty,
+    assemblyGroupKey: binding.assemblyGroupKey || '',
+    siblingPartTicketNos: [...(binding.siblingPartTicketNos || [])],
     boundAt: binding.boundAt,
     boundBy: binding.boundBy,
     operator: binding.operator || binding.boundBy,
@@ -1058,10 +1091,17 @@ function toRuntimeSeedTickets(ticketRecords: FeiTicketLabelRecord[]): TransferBa
     mergeBatchNo: record.sourceMergeBatchNo,
     styleCode: record.styleCode,
     spuCode: record.spuCode,
+    fabricRollNo: record.fabricRollNo,
+    fabricColor: record.fabricColor,
     color: record.color,
     size: record.size,
+    partCode: record.partCode,
     partName: record.partName,
+    bundleNo: record.bundleNo,
     qty: record.quantity,
+    actualCutPieceQty: record.actualCutPieceQty,
+    assemblyGroupKey: record.assemblyGroupKey,
+    siblingPartTicketNos: record.siblingPartTicketNos,
     garmentQty: record.quantity,
     materialSku: record.materialSku,
     sourceContextType: record.sourceContextType,
@@ -1381,6 +1421,7 @@ export function buildTransferBagParentChildSummary(bindings: TransferBagItemBind
     originalCutOrderCount: uniqueStrings(bindings.map((item) => item.originalCutOrderNo)).length,
     productionOrderCount: uniqueStrings(bindings.map((item) => item.productionOrderNo)).length,
     mergeBatchCount: uniqueStrings(bindings.map((item) => item.mergeBatchNo)).length,
+    assemblyGroupCount: uniqueStrings(bindings.map((item) => item.assemblyGroupKey)).length,
     quantityTotal: bindings.reduce((sum, item) => sum + Math.max(item.qty, 0), 0),
     garmentQtyTotal: bindings.reduce((sum, item) => sum + Math.max(item.garmentQty ?? item.qty, 0), 0),
   }
@@ -1511,7 +1552,7 @@ function buildSewingTaskSeeds(
     sizeSummary: 'S / M / L',
     plannedQty: batch.items.length * 24,
     status: index === 0 ? '待接料' : index === 1 ? '排单中' : '待交接',
-    note: `来源于 ${batch.mergeBatchNo} 的后道交接任务占位。`,
+    note: `来源于 ${batch.mergeBatchNo} 的后道交接任务预留。`,
   }})
 
   const fallbackRows = originalRows.map((row, index) => {
@@ -1528,7 +1569,7 @@ function buildSewingTaskSeeds(
     sizeSummary: '默认尺码组',
     plannedQty: row.plannedQty || row.orderQty,
     status: '待接料',
-    note: '用于无批次场景下的交接任务占位。',
+    note: '用于无批次场景下的交接任务预留。',
   }})
 
   return [...mergeTaskSeeds, ...fallbackRows]
@@ -1552,10 +1593,17 @@ function buildTicketCandidates(ticketRecords: FeiTicketLabelRecord[]): TransferB
       mergeBatchNo: record.sourceMergeBatchNo,
       styleCode: record.styleCode,
       spuCode: record.spuCode,
+      fabricRollNo: record.fabricRollNo || '',
+      fabricColor: record.fabricColor || record.color || '',
       color: record.color,
       size: record.size || '',
+      partCode: record.partCode || '',
       partName: record.partName || '',
+      bundleNo: record.bundleNo || '',
       qty: Math.max(record.quantity ?? 1, 1),
+      actualCutPieceQty: Math.max(record.actualCutPieceQty ?? record.quantity ?? 1, 1),
+      assemblyGroupKey: record.assemblyGroupKey || '',
+      siblingPartTicketNos: [...(record.siblingPartTicketNos || [])],
       garmentQty: Math.max(record.quantity ?? 1, 1),
       materialSku: record.materialSku,
       sourceContextType: record.sourceContextType,
@@ -1862,10 +1910,18 @@ export function buildTransferBagViewModel(options: {
     .map((binding) => {
       const usageItem = usageItemsById[binding.usageId] ?? null
       const traceAnchor = resolveBindingTraceAnchor(binding, usageItem)
+      const ticketCandidate = ticketCandidatesById[binding.ticketRecordId] ?? null
       return {
         ...binding,
         usage: usageItem,
-        ticket: ticketCandidatesById[binding.ticketRecordId] ?? null,
+        ticket: ticketCandidate,
+        fabricRollNo: binding.fabricRollNo || ticketCandidate?.fabricRollNo || '',
+        fabricColor: binding.fabricColor || ticketCandidate?.fabricColor || '',
+        size: binding.size || ticketCandidate?.size || '',
+        partName: binding.partName || ticketCandidate?.partName || '',
+        bundleNo: binding.bundleNo || ticketCandidate?.bundleNo || '',
+        assemblyGroupKey: binding.assemblyGroupKey || ticketCandidate?.assemblyGroupKey || '',
+        siblingPartTicketNos: binding.siblingPartTicketNos || ticketCandidate?.siblingPartTicketNos || [],
         pocketStatusKey: mapUsageStatusToPocketCarrierStatus({
           usage: usagesByIdRaw[binding.usageId] ?? null,
           masterStatus: options.store.masters.find((item) => item.bagId === binding.bagId)?.currentStatus || 'IDLE',

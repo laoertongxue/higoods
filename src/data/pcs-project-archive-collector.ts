@@ -7,6 +7,11 @@ import { listPreProductionSampleTasksByProject } from './pcs-pre-production-samp
 import { listSampleAssets } from './pcs-sample-asset-repository.ts'
 import { listSampleLedgerEvents } from './pcs-sample-ledger-repository.ts'
 import type { PcsProjectRecord } from './pcs-project-types.ts'
+import {
+  getProjectImageAssetById,
+  listProjectImageAssetsBySourceNode,
+  listProjectReferenceImages,
+} from './pcs-project-image-repository.ts'
 import type { StyleArchiveShellRecord } from './pcs-style-archive-types.ts'
 import {
   getCurrentTechPackVersionByStyleId,
@@ -91,6 +96,10 @@ function archiveFileNameFromUrl(url: string, fallback: string): string {
   return segment && segment.trim() ? segment : fallback
 }
 
+function uniqueStrings(values: string[]): string[] {
+  return Array.from(new Set(values.map((item) => item.trim()).filter(Boolean)))
+}
+
 function buildDocumentId(
   projectArchiveId: string,
   sourceModule: string,
@@ -159,23 +168,24 @@ function buildProjectBaseDocuments(
     '项目基础资料',
     false,
   )
-  const projectFiles = project.projectAlbumUrls.map((url, index) => {
-    const fileName = archiveFileNameFromUrl(url, `项目参考图-${index + 1}.png`)
+  const referenceImages = listProjectReferenceImages(project.projectId)
+  const projectFiles = referenceImages.map((image, index) => {
+    const fileName = archiveFileNameFromUrl(image.imageUrl, image.imageName || `项目参考图-${index + 1}.png`)
     return createFileRecord({
-      archiveFileId: buildFileId(archive.projectArchiveId, documentId, `${project.projectId}_${index}`, fileName),
+      archiveFileId: buildFileId(archive.projectArchiveId, documentId, image.imageId || `${project.projectId}_${index}`, fileName),
       projectArchiveId: archive.projectArchiveId,
       archiveDocumentId: documentId,
       sourceModule: '商品项目',
       sourceObjectType: '商品项目基础资料',
       sourceObjectId: project.projectId,
-      sourceFileId: `${project.projectId}_${index}`,
+      sourceFileId: image.imageId || `${project.projectId}_${index}`,
       fileName,
       fileType: fileName.split('.').pop()?.toUpperCase() || '图片',
-      previewUrl: url,
+      previewUrl: image.imageUrl,
       isPrimary: index === 0,
       sortOrder: index + 1,
-      uploadedAt: project.updatedAt,
-      uploadedBy: project.updatedBy,
+      uploadedAt: image.updatedAt || project.updatedAt,
+      uploadedBy: image.updatedBy || project.updatedBy,
     })
   })
 
@@ -225,6 +235,7 @@ function buildStyleArchiveDocument(
   project: PcsProjectRecord,
   style: StyleArchiveShellRecord,
   documents: ProjectArchiveDocumentRecord[],
+  files: ProjectArchiveFileRecord[],
 ): void {
   const documentId = buildDocumentId(
     archive.projectArchiveId,
@@ -235,7 +246,54 @@ function buildStyleArchiveDocument(
     '款式档案',
     false,
   )
-  documents.push(
+  const imageIds = Array.from(new Set([
+    style.mainImageId,
+    ...(style.galleryImageIds || []),
+  ].filter(Boolean)))
+  const imageAssets = imageIds
+    .map((imageId) => getProjectImageAssetById(imageId))
+    .filter((item): item is NonNullable<ReturnType<typeof getProjectImageAssetById>> => Boolean(item))
+  const imageFiles = (imageAssets.length > 0
+    ? imageAssets.map((image, index) =>
+        createFileRecord({
+          archiveFileId: buildFileId(archive.projectArchiveId, documentId, image.imageId, image.imageName),
+          projectArchiveId: archive.projectArchiveId,
+          archiveDocumentId: documentId,
+          sourceModule: '款式档案',
+          sourceObjectType: '款式档案图片',
+          sourceObjectId: style.styleId,
+          sourceFileId: image.imageId,
+          fileName: image.imageName || archiveFileNameFromUrl(image.imageUrl, `款式档案图-${index + 1}.png`),
+          fileType: '图片',
+          previewUrl: image.imageUrl,
+          isPrimary: image.imageId === style.mainImageId || (!style.mainImageId && index === 0),
+          sortOrder: index + 1,
+          uploadedAt: image.updatedAt || style.updatedAt,
+          uploadedBy: image.updatedBy || style.updatedBy,
+        }),
+      )
+    : uniqueStrings([style.mainImageUrl, ...(style.galleryImageUrls || [])]).map((imageUrl, index) =>
+        createFileRecord({
+          archiveFileId: buildFileId(archive.projectArchiveId, documentId, `${style.styleId}_${index + 1}`, archiveFileNameFromUrl(imageUrl, `款式档案图-${index + 1}.png`)),
+          projectArchiveId: archive.projectArchiveId,
+          archiveDocumentId: documentId,
+          sourceModule: '款式档案',
+          sourceObjectType: '款式档案图片',
+          sourceObjectId: style.styleId,
+          sourceFileId: `${style.styleId}_${index + 1}`,
+          fileName: archiveFileNameFromUrl(imageUrl, `款式档案图-${index + 1}.png`),
+          fileType: '图片',
+          previewUrl: imageUrl,
+          isPrimary: imageUrl === style.mainImageUrl || (!style.mainImageUrl && index === 0),
+          sortOrder: index + 1,
+          uploadedAt: style.updatedAt,
+          uploadedBy: style.updatedBy,
+        }),
+      )) as ProjectArchiveFileRecord[]
+
+  pushDocumentWithFiles(
+    documents,
+    files,
     createDocumentRecord({
       archiveDocumentId: documentId,
       projectArchiveId: archive.projectArchiveId,
@@ -258,10 +316,10 @@ function buildStyleArchiveDocument(
       documentStatus: style.archiveStatus,
       manualFlag: false,
       reusableFlag: true,
-      fileCount: 0,
-      primaryFileId: '',
-      primaryFileName: '',
-      previewUrl: '',
+      fileCount: imageFiles.length,
+      primaryFileId: imageFiles.find((item) => item.isPrimary)?.archiveFileId || '',
+      primaryFileName: imageFiles.find((item) => item.isPrimary)?.fileName || '',
+      previewUrl: imageFiles.find((item) => item.isPrimary)?.previewUrl || '',
       businessDate: style.generatedAt,
       ownerName: style.generatedBy,
       createdAt: archive.createdAt,
@@ -270,6 +328,7 @@ function buildStyleArchiveDocument(
       updatedBy: style.updatedBy,
       legacySourceRef: style.legacyOriginProject || '',
     }),
+    imageFiles,
   )
 }
 
@@ -685,7 +744,79 @@ function buildSampleDocuments(
   archive: ProjectArchiveRecord,
   project: PcsProjectRecord,
   documents: ProjectArchiveDocumentRecord[],
+  files: ProjectArchiveFileRecord[],
 ): void {
+  const sampleShootImages = listProjectImageAssetsBySourceNode(project.projectId, 'SAMPLE_SHOOT_FIT')
+  if (sampleShootImages.length > 0) {
+    const sampleShootNode = getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'SAMPLE_SHOOT_FIT')
+    const documentId = buildDocumentId(
+      archive.projectArchiveId,
+      '样衣拍摄与试穿',
+      '样衣拍摄图片',
+      project.projectId,
+      '',
+      '样衣拍摄图片',
+      false,
+    )
+    const imageFiles = sampleShootImages.map((image, index) =>
+      createFileRecord({
+        archiveFileId: buildFileId(archive.projectArchiveId, documentId, image.imageId, image.imageName),
+        projectArchiveId: archive.projectArchiveId,
+        archiveDocumentId: documentId,
+        sourceModule: '样衣拍摄与试穿',
+        sourceObjectType: '样衣拍摄图片',
+        sourceObjectId: project.projectId,
+        sourceFileId: image.imageId,
+        fileName: archiveFileNameFromUrl(image.imageUrl, image.imageName || `样衣拍摄图片-${index + 1}.png`),
+        fileType: image.imageType,
+        previewUrl: image.imageUrl,
+        isPrimary: index === 0,
+        sortOrder: index + 1,
+        uploadedAt: image.updatedAt,
+        uploadedBy: image.updatedBy,
+      }),
+    )
+    pushDocumentWithFiles(
+      documents,
+      files,
+      createDocumentRecord({
+        archiveDocumentId: documentId,
+        projectArchiveId: archive.projectArchiveId,
+        projectId: project.projectId,
+        projectCode: project.projectCode,
+        projectNodeId: sampleShootNode?.projectNodeId || '',
+        workItemTypeCode: sampleShootNode?.workItemTypeCode || 'SAMPLE_SHOOT_FIT',
+        workItemTypeName: sampleShootNode?.workItemTypeName || '样衣拍摄与试穿',
+        sourceModule: '样衣拍摄与试穿',
+        sourceObjectType: '样衣拍摄图片',
+        sourceObjectId: project.projectId,
+        sourceObjectCode: project.projectCode,
+        sourceVersionId: '',
+        sourceVersionCode: '',
+        sourceVersionLabel: '',
+        documentGroup: 'SAMPLE_ASSET',
+        documentCategory: '样衣拍摄图片',
+        documentType: '样衣图片',
+        documentTitle: `${project.projectName}样衣拍摄图片`,
+        documentStatus: sampleShootNode?.currentStatus || '已采集',
+        manualFlag: false,
+        reusableFlag: true,
+        fileCount: imageFiles.length,
+        primaryFileId: imageFiles[0]?.archiveFileId || '',
+        primaryFileName: imageFiles[0]?.fileName || '',
+        previewUrl: imageFiles[0]?.previewUrl || '',
+        businessDate: sampleShootNode?.updatedAt || archive.updatedAt,
+        ownerName: sampleShootNode?.currentOwnerName || project.ownerName,
+        createdAt: archive.createdAt,
+        createdBy: archive.createdBy,
+        updatedAt: sampleShootNode?.updatedAt || archive.updatedAt,
+        updatedBy: sampleShootNode?.currentOwnerName || archive.updatedBy,
+        legacySourceRef: '',
+      }),
+      imageFiles,
+    )
+  }
+
   listFirstSampleTasksByProject(project.projectId).forEach((task) => {
     documents.push(
       createDocumentRecord({
@@ -912,13 +1043,13 @@ export function collectProjectArchiveAutoData(
   let currentTechnicalVersion: TechnicalDataVersionRecord | null = null
 
   if (style) {
-    buildStyleArchiveDocument(archive, project, style, documents)
+    buildStyleArchiveDocument(archive, project, style, documents, files)
     currentTechnicalVersion = buildTechnicalDocuments(archive, project, style, documents, files)
   }
 
   buildRevisionDocuments(archive, project, documents)
   buildPatternTaskDocuments(archive, project, documents)
-  buildSampleDocuments(archive, project, documents)
+  buildSampleDocuments(archive, project, documents, files)
   buildConclusionDocument(archive, project, documents)
 
   return {

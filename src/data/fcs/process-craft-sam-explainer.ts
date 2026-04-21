@@ -13,7 +13,7 @@ export interface FactorySupplyFormulaGuide {
   currentReason: string
 }
 
-const TEMPLATE_A_CRAFT_NAMES = ['基础连接', '手缝扣', '手工盘扣', '包装'] as const
+const TEMPLATE_A_CRAFT_NAMES = ['基础连接', '手缝扣', '手工盘扣'] as const
 const TEMPLATE_B_CRAFT_NAMES = [
   '定位裁',
   '定向裁',
@@ -24,11 +24,13 @@ const TEMPLATE_B_CRAFT_NAMES = [
   '烫画',
   '直喷',
   '开扣眼',
+  '装扣子',
   '机打扣',
   '四爪扣',
   '布包扣',
   '鸡眼扣',
   '熨烫',
+  '包装',
 ] as const
 const TEMPLATE_C_CRAFT_NAMES = ['丝网印', '数码印', '压褶', '打条', '激光切', '捆条', '印花工艺'] as const
 const TEMPLATE_D_CRAFT_NAMES = ['匹染', '色织', '染色工艺', '缩水', '洗水'] as const

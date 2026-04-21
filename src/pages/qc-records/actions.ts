@@ -480,7 +480,18 @@ function buildPayload(
       basePayload.sourceProcessType = inboundBatch.processType
       basePayload.sourceOrderId = inboundBatch.sourceType === 'DYE_PRINT_ORDER' ? inboundBatch.sourceId : undefined
       basePayload.sourceReturnId = inboundBatch.batchId
-      basePayload.inspectionScene = 'RETURN_INBOUND'
+      basePayload.inspectionScene =
+        inboundBatch.processType === 'SEW'
+          ? 'SEW_RETURN_RECEIVING_QC'
+          : inboundBatch.processType === 'PRINT'
+            ? 'PRINT_RECEIVING_QC'
+            : inboundBatch.processType === 'DYE' || inboundBatch.processType === 'DYE_PRINT'
+              ? 'DYE_RECEIVING_QC'
+              : inboundBatch.processType === 'CUT_PANEL'
+                ? 'CUT_PIECE_RECEIVING_QC'
+                : 'SEW_RETURN_RECEIVING_QC'
+      basePayload.inspectionType = 'QC'
+      basePayload.inspectionMethod = inboundBatch.processType === 'SEW' ? 'SAMPLING' : 'FULL_INSPECTION'
       basePayload.returnBatchId = inboundBatch.batchId
       basePayload.returnProcessType = inboundBatch.processType
       basePayload.qcPolicy = inboundBatch.qcPolicy
@@ -488,14 +499,28 @@ function buildPayload(
       basePayload.returnFactoryName = inboundBatch.returnFactoryName
       basePayload.warehouseId = inboundBatch.warehouseId
       basePayload.warehouseName = inboundBatch.warehouseName
+      basePayload.receiverKind = inboundBatch.receiverKind
+      basePayload.receiverId = inboundBatch.receiverId
+      basePayload.receiverName = inboundBatch.receiverName
+      basePayload.declaredQty = inboundBatch.submittedQty ?? inboundBatch.returnedQty
+      basePayload.receivedQty = inboundBatch.receiverWrittenQty ?? inboundBatch.returnedQty
       basePayload.sourceBusinessType = inboundBatch.sourceType
       basePayload.sourceBusinessId = inboundBatch.sourceId
       basePayload.sewPostProcessMode = inboundBatch.sewPostProcessMode
     }
   }
 
-  if (existing?.inspectionScene === 'RETURN_INBOUND' && form.refType !== 'RETURN_BATCH') {
+  if (
+    (existing?.inspectionScene === 'RETURN_INBOUND' ||
+      existing?.inspectionScene === 'SEW_RETURN_RECEIVING_QC' ||
+      existing?.inspectionScene === 'PRINT_RECEIVING_QC' ||
+      existing?.inspectionScene === 'DYE_RECEIVING_QC' ||
+      existing?.inspectionScene === 'CUT_PIECE_RECEIVING_QC') &&
+    form.refType !== 'RETURN_BATCH'
+  ) {
     basePayload.inspectionScene = existing.inspectionScene
+    basePayload.inspectionType = existing.inspectionType
+    basePayload.inspectionMethod = existing.inspectionMethod
     basePayload.returnBatchId = existing.returnBatchId
     basePayload.returnProcessType = existing.returnProcessType
     basePayload.qcPolicy = existing.qcPolicy
@@ -506,6 +531,11 @@ function buildPayload(
     basePayload.sourceBusinessType = existing.sourceBusinessType
     basePayload.sourceBusinessId = existing.sourceBusinessId
     basePayload.sewPostProcessMode = existing.sewPostProcessMode
+    basePayload.receiverKind = existing.receiverKind
+    basePayload.receiverId = existing.receiverId
+    basePayload.receiverName = existing.receiverName
+    basePayload.declaredQty = existing.declaredQty
+    basePayload.receivedQty = existing.receivedQty
     basePayload.sourceProcessType = existing.sourceProcessType
     basePayload.sourceOrderId = existing.sourceOrderId
     basePayload.sourceReturnId = existing.sourceReturnId

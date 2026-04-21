@@ -40,7 +40,17 @@ const ALLOWED_PAYLOAD_KEYS: Record<PcsProjectInlineNodeRecordWorkItemTypeCode, s
   SAMPLE_ACQUIRE: ['sampleSourceType', 'sampleSupplierId', 'sampleLink', 'sampleUnitPrice'],
   SAMPLE_INBOUND_CHECK: ['sampleCode', 'arrivalTime', 'checkResult'],
   FEASIBILITY_REVIEW: ['reviewConclusion', 'reviewRisk'],
-  SAMPLE_SHOOT_FIT: ['shootPlan', 'fitFeedback'],
+  SAMPLE_SHOOT_FIT: [
+    'shootPlan',
+    'fitFeedback',
+    'sampleFlatImageIds',
+    'sampleTryOnImageIds',
+    'sampleDetailImageIds',
+    'sampleVideoUrls',
+    'shootImageNote',
+    'listingCandidateImageIds',
+    'styleArchiveCandidateImageIds',
+  ],
   SAMPLE_CONFIRM: ['confirmResult', 'confirmNote'],
   SAMPLE_COST_REVIEW: ['costTotal', 'costNote'],
   SAMPLE_PRICING: ['priceRange', 'pricingNote'],
@@ -297,6 +307,20 @@ function normalizeRecord<T extends PcsProjectInlineNodeRecord>(record: T): T {
     throw new Error(`不支持的 inline 节点正式记录类型：${record.workItemTypeCode}`)
   }
 
+  const payload = sanitizeObject(record.payload, ALLOWED_PAYLOAD_KEYS[record.workItemTypeCode])
+
+  if (record.workItemTypeCode === 'SAMPLE_SHOOT_FIT') {
+    payload.sampleFlatImageIds = Array.isArray(payload.sampleFlatImageIds) ? payload.sampleFlatImageIds : []
+    payload.sampleTryOnImageIds = Array.isArray(payload.sampleTryOnImageIds) ? payload.sampleTryOnImageIds : []
+    payload.sampleDetailImageIds = Array.isArray(payload.sampleDetailImageIds) ? payload.sampleDetailImageIds : []
+    payload.sampleVideoUrls = Array.isArray(payload.sampleVideoUrls) ? payload.sampleVideoUrls : []
+    payload.listingCandidateImageIds = Array.isArray(payload.listingCandidateImageIds) ? payload.listingCandidateImageIds : []
+    payload.styleArchiveCandidateImageIds = Array.isArray(payload.styleArchiveCandidateImageIds)
+      ? payload.styleArchiveCandidateImageIds
+      : []
+    payload.shootImageNote = typeof payload.shootImageNote === 'string' ? payload.shootImageNote : ''
+  }
+
   return {
     ...record,
     recordId: record.recordId || '',
@@ -311,7 +335,7 @@ function normalizeRecord<T extends PcsProjectInlineNodeRecord>(record: T): T {
     recordStatus: record.recordStatus || '',
     ownerId: record.ownerId || '',
     ownerName: record.ownerName || '',
-    payload: sanitizeObject(record.payload, ALLOWED_PAYLOAD_KEYS[record.workItemTypeCode]),
+    payload,
     detailSnapshot: sanitizeObject(record.detailSnapshot, ALLOWED_DETAIL_SNAPSHOT_KEYS[record.workItemTypeCode]),
     sourceModule: record.sourceModule || '',
     sourceDocType: record.sourceDocType || '',

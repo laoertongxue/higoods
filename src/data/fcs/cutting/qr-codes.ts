@@ -15,6 +15,16 @@ function sanitizeFragment(value: string): string {
   return value.trim().replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'na'
 }
 
+export function buildCutOrderQrValue(originalCutOrderId: string): string {
+  return `FCS:CUT_ORDER:v1:${sanitizeFragment(originalCutOrderId)}`
+}
+
+export function getCutOrderByQrValue(qrValue: string): { originalCutOrderId: string } | null {
+  if (!qrValue.startsWith('FCS:CUT_ORDER:v1:')) return null
+  const originalCutOrderId = qrValue.slice('FCS:CUT_ORDER:v1:'.length).trim()
+  return originalCutOrderId ? { originalCutOrderId } : null
+}
+
 export function buildCuttingTraceabilityId(prefix: string, issuedAt: string, ...parts: Array<string | number | undefined>): string {
   const dateKey = issuedAt.slice(0, 16).replace(/[-:\s]/g, '') || '000000000000'
   const fragment = parts.map((part) => sanitizeFragment(String(part || ''))).filter(Boolean).join('-') || 'na'
@@ -110,7 +120,7 @@ export function summarizeTraceabilityPayload(payload: CuttingTraceabilityQrPaylo
 } {
   if (payload.codeType === 'ORIGINAL_CUT_ORDER') {
     return {
-      codeTypeLabel: '原始裁片单主码',
+      codeTypeLabel: '裁片单二维码',
       primaryNo: payload.originalCutOrderNo,
       relationSummary: `${payload.productionOrderNo} / ${payload.materialSku}`,
       schemaVersion: payload.version,

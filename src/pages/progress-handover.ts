@@ -10,11 +10,16 @@ import {
   getPdaPickupHeads,
   markPdaHandoutHeadCompleted,
   markPdaPickupHeadCompleted,
-  mockWritebackPdaHandoverRecord,
   resolvePdaHandoverObjection,
+  writeBackHandoverRecord,
   type PdaHandoverHead,
   type PdaHandoverHeadType,
 } from '../data/fcs/pda-handover-events'
+import {
+  getRecordReceiverWrittenAt,
+  getRecordReceiverWrittenQty,
+  getReceiverDisplayName,
+} from '../data/fcs/task-handover-domain'
 import {
   buildHandoverOrderDetailLink,
   type HandoverFocus,
@@ -28,6 +33,18 @@ import {
   type HandoverLedgerStatusGroup,
   type HandoverLedgerStatusTone,
 } from '../data/fcs/handover-ledger-view'
+import {
+  buildHandoverOrderLink,
+  buildProductionOrderLink,
+  buildQualityRecordLink,
+  buildTaskDetailLink,
+} from '../data/fcs/fcs-route-links.ts'
+import {
+  getPostExecutionModeLabel,
+  getPostProcessRouteByProductionOrderId,
+  getPostRouteNodeLabel,
+} from '../data/fcs/post-process-route'
+import { getQcViewRows } from './qc-records/context'
 
 type HandoverTab = 'events' | 'orders'
 type DiffFilter = 'ALL' | 'YES' | 'NO'
@@ -69,7 +86,7 @@ interface ProgressHandoverState {
     | 'ALL'
     | '待领料'
     | '待交出'
-    | '待仓库确认'
+    | '待接收方回写'
     | '有异议'
     | '异议处理中'
     | '已完成'
@@ -133,7 +150,7 @@ const LEDGER_EVENT_FILTER_OPTIONS: Array<{ value: LedgerEventTypeFilter; label: 
   { value: 'ALL', label: '事件类型' },
   { value: 'PICKUP', label: '领料' },
   { value: 'HANDOUT', label: '交出' },
-  { value: 'WAREHOUSE', label: '仓库确认' },
+  { value: 'WAREHOUSE', label: '接收方回写' },
   { value: 'OBJECTION', label: '数量异议' },
   { value: 'COMPLETED', label: '已完成' },
 ]
@@ -142,7 +159,7 @@ const LEDGER_STATUS_FILTER_OPTIONS: Array<{ value: LedgerStatusFilter; label: st
   { value: 'ALL', label: '当前状态' },
   { value: 'PENDING_PICKUP', label: '待领料' },
   { value: 'PENDING_HANDOUT', label: '待交出' },
-  { value: 'PENDING_WAREHOUSE', label: '待仓库确认' },
+  { value: 'PENDING_WAREHOUSE', label: '待接收方回写' },
   { value: 'HAS_OBJECTION', label: '有异议' },
   { value: 'OBJECTION_PROCESSING', label: '异议处理中' },
   { value: 'OBJECTION_RESOLVED', label: '异议已处理' },
@@ -154,7 +171,7 @@ const ORDER_BOTTLENECK_FILTER_OPTIONS: Array<{
     | 'ALL'
     | '待领料'
     | '待交出'
-    | '待仓库确认'
+    | '待接收方回写'
     | '有异议'
     | '异议处理中'
     | '已完成'
@@ -164,7 +181,7 @@ const ORDER_BOTTLENECK_FILTER_OPTIONS: Array<{
   { value: 'ALL', label: '当前交接卡点' },
   { value: '待领料', label: '待领料' },
   { value: '待交出', label: '待交出' },
-  { value: '待仓库确认', label: '待仓库确认' },
+  { value: '待接收方回写', label: '待接收方回写' },
   { value: '有异议', label: '有异议' },
   { value: '异议处理中', label: '异议处理中' },
   { value: '已完成', label: '已完成' },
@@ -235,7 +252,7 @@ function isHandoverFocus(value: string | null): value is HandoverFocus {
 function getFocusLabel(focus: HandoverFocus): string {
   if (focus === 'pickup') return '待领料'
   if (focus === 'handout') return '待交出'
-  if (focus === 'warehouse-confirm') return '待仓库确认'
+  if (focus === 'warehouse-confirm') return '待接收方回写'
   return '异议处理'
 }
 
@@ -509,7 +526,7 @@ function renderSourceFacts(row: HandoverLedgerRow): string {
     const pickupModeLabel = firstPickupRecord?.pickupModeLabel || '-'
     return `
       <div class="space-y-1 text-sm">
-        <p><span class="text-muted-foreground">事实来源：</span>PDA 领料头</p>
+        <p><span class="text-muted-foreground">事实来源：</span>领料单</p>
         <p><span class="text-muted-foreground">领料方式：</span>${escapeHtml(pickupModeLabel)}</p>
         <p><span class="text-muted-foreground">记录数：</span>${head.recordCount} 次</p>
         <p><span class="text-muted-foreground">累计已领：</span>${head.qtyActualTotal} ${escapeHtml(head.qtyUnit)}</p>
@@ -526,7 +543,7 @@ function renderSourceFacts(row: HandoverLedgerRow): string {
 
     return `
       <div class="space-y-1 text-sm">
-        <p><span class="text-muted-foreground">事实来源：</span>PDA 领料记录</p>
+        <p><span class="text-muted-foreground">事实来源：</span>领料记录</p>
         <p><span class="text-muted-foreground">记录编号：</span>${escapeHtml(pickupRecord.recordId)}</p>
         <p><span class="text-muted-foreground">计划数量：</span>${pickupRecord.qtyExpected} ${escapeHtml(pickupRecord.qtyUnit)}</p>
         <p><span class="text-muted-foreground">实际数量：</span>${
@@ -542,10 +559,10 @@ function renderSourceFacts(row: HandoverLedgerRow): string {
   if (row.sourceType === 'HANDOUT_HEAD' || (row.sourceType === 'COMPLETED_HEAD' && head.headType === 'HANDOUT')) {
     return `
       <div class="space-y-1 text-sm">
-        <p><span class="text-muted-foreground">事实来源：</span>PDA 交出头</p>
+        <p><span class="text-muted-foreground">事实来源：</span>交出单</p>
         <p><span class="text-muted-foreground">交出次数：</span>${head.recordCount} 次</p>
         <p><span class="text-muted-foreground">累计回写：</span>${head.qtyActualTotal} ${escapeHtml(head.qtyUnit)}</p>
-        <p><span class="text-muted-foreground">待仓库确认：</span>${head.pendingWritebackCount} 条</p>
+        <p><span class="text-muted-foreground">待回写：</span>${head.pendingWritebackCount} 条</p>
         <p><span class="text-muted-foreground">异议条数：</span>${head.objectionCount} 条</p>
       </div>
     `
@@ -559,13 +576,13 @@ function renderSourceFacts(row: HandoverLedgerRow): string {
 
     return `
       <div class="space-y-1 text-sm">
-        <p><span class="text-muted-foreground">事实来源：</span>PDA 交出记录</p>
+        <p><span class="text-muted-foreground">事实来源：</span>交出记录</p>
         <p><span class="text-muted-foreground">记录编号：</span>${escapeHtml(handoutRecord.recordId)}（第 ${handoutRecord.sequenceNo} 次）</p>
         <p><span class="text-muted-foreground">工厂发起：</span>${escapeHtml(handoutRecord.factorySubmittedAt)}</p>
-        <p><span class="text-muted-foreground">仓库回写：</span>${
-          typeof handoutRecord.warehouseWrittenQty === 'number'
-            ? `${handoutRecord.warehouseWrittenQty} ${escapeHtml(head.qtyUnit)}`
-            : '待仓库确认'
+        <p><span class="text-muted-foreground">接收方回写：</span>${
+          typeof getRecordReceiverWrittenQty(handoutRecord) === 'number'
+            ? `${getRecordReceiverWrittenQty(handoutRecord)} ${escapeHtml(head.qtyUnit)}`
+            : '待回写'
         }</p>
         <p><span class="text-muted-foreground">异议状态：</span>${
           handoutRecord.status === 'OBJECTION_REPORTED'
@@ -584,13 +601,13 @@ function renderSourceFacts(row: HandoverLedgerRow): string {
 }
 
 function renderCurrentStatusText(row: HandoverLedgerRow): string {
-  if (row.statusCode === 'HANDOUT_RECORD_PENDING_WRITEBACK') return '仓库还未回写数量，先等待仓库确认。'
+  if (row.statusCode === 'HANDOUT_RECORD_PENDING_WRITEBACK') return '接收方还未回写实收数量，先等待回写。'
   if (row.statusCode === 'HANDOUT_OBJECTION_REPORTED') return '工厂已发起异议，待平台跟进。'
   if (row.statusCode === 'HANDOUT_OBJECTION_PROCESSING') return '平台正在跟进异议，等待处理结论。'
   if (row.statusCode === 'HANDOUT_OBJECTION_RESOLVED') return '异议已处理完成，可继续关注是否完成。'
   if (row.statusCode === 'PICKUP_PENDING') return '当前任务还没开始领料，先推进领料。'
   if (row.statusCode === 'HANDOUT_PENDING') return '当前任务还没发起交出记录，先推进交出。'
-  if (row.statusCode === 'HEAD_COMPLETED') return '仓库已发起完成，这条链路当前无需额外处理。'
+  if (row.statusCode === 'HEAD_COMPLETED') return '当前交接已关闭，这条链路无需额外处理。'
   return '当前状态正常，按下一步建议继续跟进。'
 }
 
@@ -727,7 +744,7 @@ function renderEventsPreviewCards(rows: HandoverLedgerRow[]): string {
       >
         <p class="inline-flex items-center gap-2 text-sm text-muted-foreground">
           <i data-lucide="clipboard-check" class="h-4 w-4 text-yellow-500"></i>
-          待仓库确认
+          待接收方回写
         </p>
         <p class="mt-2 text-2xl font-bold">${stats.pendingWarehouseConfirm}</p>
       </button>
@@ -831,7 +848,7 @@ function renderRowActionMenu(row: HandoverLedgerRow): string {
   if (canWriteback) {
     primaryAction = `<button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-handover-action="open-writeback-dialog" data-record-id="${escapeAttr(
       row.recordId || '',
-    )}"><i data-lucide="clipboard-check" class="mr-2 h-4 w-4"></i>模拟仓库回写</button>`
+    )}"><i data-lucide="clipboard-check" class="mr-2 h-4 w-4"></i>接收方回写</button>`
   } else if (canHandleObjection) {
     primaryAction = `<button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-handover-action="open-objection-dialog" data-record-id="${escapeAttr(
       row.recordId || '',
@@ -1199,7 +1216,7 @@ function isTimelineSectionFocused(view: HandoverOrderTimelineView, section: Hand
 
   if (focus === 'pickup') return section.processStatusLabel === '待领料'
   if (focus === 'handout') return section.processStatusLabel === '待交出' || section.processStatusLabel === '已领料待交出'
-  if (focus === 'warehouse-confirm') return section.processStatusLabel === '待仓库确认'
+  if (focus === 'warehouse-confirm') return section.processStatusLabel === '待接收方回写'
   if (focus === 'objection') return section.processStatusLabel === '有异议' || section.processStatusLabel === '异议处理中'
   return false
 }
@@ -1363,7 +1380,7 @@ function renderOrderBottleneckBadge(label: string): string {
       ? 'bg-red-100 text-red-700 border-red-200'
       : label === '异议处理中'
         ? 'bg-orange-100 text-orange-700 border-orange-200'
-        : label === '待仓库确认'
+        : label === '待接收方回写'
           ? 'bg-amber-100 text-amber-700 border-amber-200'
           : label === '待交出' || label === '待领料'
             ? 'bg-blue-100 text-blue-700 border-blue-200'
@@ -1371,6 +1388,101 @@ function renderOrderBottleneckBadge(label: string): string {
               ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
               : 'bg-zinc-100 text-zinc-700 border-zinc-200'
   return `<span class="inline-flex rounded border px-2 py-0.5 text-xs ${className}">${escapeHtml(label)}</span>`
+}
+
+function getReceivingQcHref(productionOrderId: string): string {
+  const row = getQcViewRows().find(
+    (item) => item.productionOrderId === productionOrderId && item.qc.inspectionScene !== 'POST_FINAL_RECHECK',
+  )
+  return row ? buildQualityRecordLink(row.qcId) : ''
+}
+
+function getFinalRecheckHref(productionOrderId: string): string {
+  const row = getQcViewRows().find(
+    (item) => item.productionOrderId === productionOrderId && item.qc.inspectionScene === 'POST_FINAL_RECHECK',
+  )
+  return row ? buildQualityRecordLink(row.qcId) : ''
+}
+
+function resolveRouteStageLabel(params: {
+  currentNode: string
+  requiresPostExecution: boolean
+  stage: 'receivingQc' | 'postExecution' | 'finalRecheck' | 'warehouseHandover'
+}): string {
+  const { currentNode, requiresPostExecution, stage } = params
+
+  if (stage === 'receivingQc') {
+    if (currentNode === 'WAIT_RECEIVING_QC') return '待回货质检'
+    if (currentNode === 'WAIT_SEW_HANDOVER' || currentNode === 'WAIT_RECEIVER_WRITEBACK') return '未开始'
+    return '已完成'
+  }
+
+  if (stage === 'postExecution') {
+    if (!requiresPostExecution) return '车缝厂已含后道'
+    if (currentNode === 'WAIT_POST_EXECUTION') return '待后道'
+    if (currentNode === 'WAIT_SEW_HANDOVER' || currentNode === 'WAIT_RECEIVER_WRITEBACK' || currentNode === 'WAIT_RECEIVING_QC') {
+      return '未开始'
+    }
+    return '已完成'
+  }
+
+  if (stage === 'finalRecheck') {
+    if (currentNode === 'WAIT_FINAL_RECHECK') return '待复检'
+    if (currentNode === 'WAIT_WAREHOUSE_HANDOVER' || currentNode === 'CLOSED') return '已完成'
+    return '未开始'
+  }
+
+  if (currentNode === 'WAIT_WAREHOUSE_HANDOVER') return '待交成衣仓'
+  if (currentNode === 'CLOSED') return '已关闭'
+  return '未开始'
+}
+
+function renderPostRouteSummary(orderId: string): string {
+  const route = getPostProcessRouteByProductionOrderId(orderId)
+  if (!route) return '<span class="text-xs text-muted-foreground">后道路由：未配置</span>'
+  const receivingQcHref = getReceivingQcHref(orderId)
+  const finalRecheckHref = getFinalRecheckHref(orderId)
+
+  const modeLabel = getPostExecutionModeLabel(route.postExecutionMode)
+  const currentNodeLabel = getPostRouteNodeLabel(route.currentNode)
+
+  return `
+    <div class="space-y-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-3">
+      <div class="flex flex-wrap items-center gap-2 text-xs">
+        <span class="font-medium text-foreground">后道路由：${escapeHtml(modeLabel)}</span>
+        <span class="text-muted-foreground">接收方：${escapeHtml(route.managedPostFactoryName)}</span>
+        <span class="text-muted-foreground">当前节点：${escapeHtml(currentNodeLabel)}</span>
+      </div>
+      <div class="grid gap-2 text-xs md:grid-cols-4">
+        <div class="rounded-md border bg-white px-3 py-2">
+          <p class="text-muted-foreground">回货质检</p>
+          <p class="mt-1 font-medium text-foreground">${escapeHtml(resolveRouteStageLabel({ currentNode: route.currentNode, requiresPostExecution: route.requiresPostExecution, stage: 'receivingQc' }))}</p>
+          ${
+            receivingQcHref
+              ? `<button type="button" class="mt-2 inline-flex rounded-md border px-2 py-1 text-[11px] hover:bg-muted" data-handover-action="open-quality-record" data-title="质检记录" data-href="${escapeAttr(receivingQcHref)}">质检记录</button>`
+              : ''
+          }
+        </div>
+        <div class="rounded-md border bg-white px-3 py-2">
+          <p class="text-muted-foreground">后道状态</p>
+          <p class="mt-1 font-medium text-foreground">${escapeHtml(resolveRouteStageLabel({ currentNode: route.currentNode, requiresPostExecution: route.requiresPostExecution, stage: 'postExecution' }))}</p>
+        </div>
+        <div class="rounded-md border bg-white px-3 py-2">
+          <p class="text-muted-foreground">后道复检</p>
+          <p class="mt-1 font-medium text-foreground">${escapeHtml(resolveRouteStageLabel({ currentNode: route.currentNode, requiresPostExecution: route.requiresPostExecution, stage: 'finalRecheck' }))}</p>
+          ${
+            finalRecheckHref
+              ? `<button type="button" class="mt-2 inline-flex rounded-md border px-2 py-1 text-[11px] hover:bg-muted" data-handover-action="open-quality-record" data-title="复检记录" data-href="${escapeAttr(finalRecheckHref)}">复检记录</button>`
+              : ''
+          }
+        </div>
+        <div class="rounded-md border bg-white px-3 py-2">
+          <p class="text-muted-foreground">成衣仓交接</p>
+          <p class="mt-1 font-medium text-foreground">${escapeHtml(resolveRouteStageLabel({ currentNode: route.currentNode, requiresPostExecution: route.requiresPostExecution, stage: 'warehouseHandover' }))}</p>
+        </div>
+      </div>
+    </div>
+  `
 }
 
 function renderTimelineOrderSummaryCard(view: HandoverOrderTimelineView, rows: HandoverLedgerRow[]): string {
@@ -1402,7 +1514,12 @@ function renderTimelineOrderSummaryCard(view: HandoverOrderTimelineView, rows: H
       <td class="px-3 py-3">${renderOrderBottleneckBadge(view.currentBottleneckLabel)}</td>
       <td class="px-3 py-3 text-sm">${view.pendingCount}</td>
       <td class="px-3 py-3 text-sm ${view.objectionCount > 0 ? 'text-red-600 font-medium' : ''}">${view.objectionCount}</td>
-      <td class="px-3 py-3 text-xs text-muted-foreground">${escapeHtml(getOrderProcessSummary(view))}</td>
+      <td class="px-3 py-3 text-xs text-muted-foreground">
+        <div class="space-y-2">
+          <div>${escapeHtml(getOrderProcessSummary(view))}</div>
+          ${renderPostRouteSummary(view.productionOrderId)}
+        </div>
+      </td>
       <td class="px-3 py-3 text-xs">
         <span class="inline-flex items-center rounded-md bg-muted px-2 py-1 text-muted-foreground">${escapeHtml(
           summary.primaryActionHint || view.currentBottleneckHint,
@@ -1480,7 +1597,7 @@ function renderDetailDrawer(rows: HandoverLedgerRow[]): string {
       : row.sourceType === 'PICKUP_RECORD'
         ? '领料记录'
         : row.sourceType === 'HANDOUT_HEAD'
-          ? '交出头'
+          ? '交出单'
           : row.sourceType === 'HANDOUT_RECORD'
             ? '交出记录'
             : '完成记录'
@@ -1490,7 +1607,7 @@ function renderDetailDrawer(rows: HandoverLedgerRow[]): string {
     directActions.push(
       `<button class="inline-flex h-8 items-center rounded-md border border-emerald-200 bg-emerald-50 px-3 text-sm text-emerald-700 hover:bg-emerald-100" data-handover-action="open-writeback-dialog" data-record-id="${escapeAttr(
         row.recordId || '',
-      )}">模拟仓库回写</button>`,
+      )}">接收方回写</button>`,
     )
   }
   if (canHandleObjection) {
@@ -1564,7 +1681,7 @@ function renderDetailDrawer(rows: HandoverLedgerRow[]): string {
               <p>生产单：${escapeHtml(row.productionOrderId)}</p>
               <p>任务：${escapeHtml(row.taskNo)}</p>
               <p>工序：${escapeHtml(row.processName)}</p>
-              <p>交接头：${escapeHtml(row.handoverId)}</p>
+              <p>交出单：${escapeHtml(row.handoverId)}</p>
               ${row.recordId ? `<p>交接记录：${escapeHtml(row.recordId)}</p>` : ''}
             </div>
           </section>
@@ -1620,7 +1737,7 @@ function renderDetailDrawer(rows: HandoverLedgerRow[]): string {
             <div class="space-y-2">
               <p class="text-xs text-muted-foreground">去业务页面处理</p>
               <div class="flex flex-wrap gap-2">
-                <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-handover-action="open-pda-detail" data-handover-id="${escapeAttr(row.handoverId)}">查看 PDA 记录</button>
+                <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-handover-action="open-pda-detail" data-handover-id="${escapeAttr(row.handoverId)}">查看交出详情</button>
                 <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-handover-action="goto-order" data-order-id="${escapeAttr(row.productionOrderId)}">去生产单</button>
                 <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-handover-action="goto-task" data-task-id="${escapeAttr(row.taskId)}">去任务看板</button>
                 <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-handover-action="view-exception" data-row-id="${escapeAttr(row.rowId)}">去异常定位与处理</button>
@@ -1647,32 +1764,33 @@ function renderWritebackDialog(): string {
       <button class="absolute inset-0 bg-black/45" data-handover-action="close-writeback-dialog" aria-label="关闭"></button>
       <section class="absolute left-1/2 top-1/2 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-2xl">
         <header>
-          <h3 class="text-lg font-semibold">模拟仓库回写</h3>
+          <h3 class="text-lg font-semibold">接收方回写</h3>
         </header>
 
         <div class="mt-4 space-y-2 text-sm">
           <p><span class="text-muted-foreground">生产单：</span>${escapeHtml(head.productionOrderNo)}</p>
           <p><span class="text-muted-foreground">任务：</span>${escapeHtml(head.taskNo)} / ${escapeHtml(head.processName)}</p>
           <p><span class="text-muted-foreground">发起工厂：</span>${escapeHtml(head.sourceFactoryName)}</p>
+          <p><span class="text-muted-foreground">接收方：</span>${escapeHtml(getReceiverDisplayName(head))}</p>
           <p><span class="text-muted-foreground">工厂发起时间：</span>${escapeHtml(record.factorySubmittedAt)}</p>
         </div>
 
         <div class="mt-4 grid gap-3">
           <label class="space-y-1">
-            <span class="text-sm">回货单号 *</span>
+            <span class="text-sm">回写备注</span>
             <input
               class="h-9 w-full rounded-md border bg-background px-3 text-sm"
-              placeholder="例如：RSPH20260316001"
+              placeholder="可填写差异原因或备注"
               value="${escapeAttr(state.writebackReturnNo)}"
               data-handover-field="writebackReturnNo"
             />
           </label>
           <label class="space-y-1">
-            <span class="text-sm">回写数量 *</span>
+            <span class="text-sm">实收数量 *</span>
             <input
               class="h-9 w-full rounded-md border bg-background px-3 text-sm"
               type="number"
-              placeholder="请输入回写数量"
+              placeholder="请输入实收数量"
               value="${escapeAttr(state.writebackQty)}"
               data-handover-field="writebackQty"
             />
@@ -1712,7 +1830,7 @@ function renderObjectionDialog(): string {
       <section class="absolute inset-y-6 left-1/2 w-full max-w-2xl -translate-x-1/2 overflow-y-auto rounded-xl border bg-background p-6 shadow-2xl">
         <header class="space-y-1">
           <h3 class="text-lg font-semibold">处理数量异议</h3>
-          <p class="text-sm text-muted-foreground">工厂发起的数量异议需要平台跟进后处理完成</p>
+          <p class="text-sm text-muted-foreground">记录平台跟进或处理结果</p>
         </header>
 
         <div class="mt-4 space-y-3 text-sm">
@@ -1728,9 +1846,8 @@ function renderObjectionDialog(): string {
           <div class="rounded-md border bg-muted/20 p-3">
             <p><span class="text-muted-foreground">工厂交出说明：</span>${escapeHtml(record.factoryRemark || '—')}</p>
             <p class="mt-1"><span class="text-muted-foreground">工厂交出凭证：</span>${record.factoryProofFiles.length} 个</p>
-            <p class="mt-1"><span class="text-muted-foreground">回货单号：</span>${escapeHtml(record.warehouseReturnNo || '—')}</p>
-            <p class="mt-1"><span class="text-muted-foreground">仓库回写数量：</span>${
-              typeof record.warehouseWrittenQty === 'number' ? `${record.warehouseWrittenQty} ${escapeHtml(head.qtyUnit)}` : '—'
+            <p class="mt-1"><span class="text-muted-foreground">接收方回写数量：</span>${
+              typeof getRecordReceiverWrittenQty(record) === 'number' ? `${getRecordReceiverWrittenQty(record)} ${escapeHtml(head.qtyUnit)}` : '—'
             }</p>
             <p class="mt-1"><span class="text-muted-foreground">异议原因：</span>${escapeHtml(record.objectionReason || '—')}</p>
             <p class="mt-1"><span class="text-muted-foreground">异议说明：</span>${escapeHtml(record.objectionRemark || '—')}</p>
@@ -1979,8 +2096,8 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
     const handoverId = actionNode.dataset.handoverId
     if (handoverId) {
       const head = findPdaHeadByHandoverId(handoverId)
-      const detailTitle = head?.headType === 'PICKUP' ? `领料详情 ${handoverId}` : `交出详情 ${handoverId}`
-      openLinkedPage(detailTitle, `/fcs/pda/handover/${encodeURIComponent(handoverId)}`)
+      const detailTitle = head?.headType === 'PICKUP' ? `领料详情 ${handoverId}` : `交出单详情 ${handoverId}`
+      openLinkedPage(detailTitle, buildHandoverOrderLink(handoverId))
     }
     return true
   }
@@ -2005,7 +2122,7 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
       showProgressHandoverToast(result.message, 'error')
       return true
     }
-    showProgressHandoverToast(`仓库已发起交出完成：${handoverId}`)
+    showProgressHandoverToast(`交出单已关闭：${handoverId}`)
     return true
   }
 
@@ -2015,10 +2132,13 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
     if (!record) return true
 
     state.writebackRecordId = record.recordId
-    state.writebackReturnNo = record.warehouseReturnNo || ''
-    state.writebackQty = typeof record.warehouseWrittenQty === 'number' ? String(record.warehouseWrittenQty) : ''
-    state.writebackAt = record.warehouseWrittenAt
-      ? record.warehouseWrittenAt.replace(' ', 'T').slice(0, 16)
+    state.writebackReturnNo = record.receiverRemark || record.diffReason || ''
+    state.writebackQty =
+      typeof getRecordReceiverWrittenQty(record) === 'number'
+        ? String(getRecordReceiverWrittenQty(record))
+        : String(record.submittedQty ?? record.plannedQty ?? '')
+    state.writebackAt = getRecordReceiverWrittenAt(record)
+      ? getRecordReceiverWrittenAt(record)!.replace(' ', 'T').slice(0, 16)
       : getCurrentLocalDateTimeInput()
     return true
   }
@@ -2034,10 +2154,6 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
   if (action === 'confirm-writeback') {
     const recordId = actionNode.dataset.recordId
     if (!recordId) return true
-    if (!state.writebackReturnNo.trim()) {
-      showProgressHandoverToast('请填写回货单号', 'error')
-      return true
-    }
     const qty = Number(state.writebackQty)
     if (!Number.isFinite(qty) || qty <= 0) {
       showProgressHandoverToast('请填写正确的回写数量', 'error')
@@ -2048,10 +2164,24 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
       return true
     }
 
-    const updated = mockWritebackPdaHandoverRecord(recordId, {
-      warehouseReturnNo: state.writebackReturnNo.trim(),
-      warehouseWrittenQty: qty,
-      warehouseWrittenAt: `${state.writebackAt.replace('T', ' ')}:00`,
+    const currentRecord = findPdaHandoverRecord(recordId)
+    if (!currentRecord) {
+      showProgressHandoverToast('当前记录无法回写，请刷新后重试', 'error')
+      return true
+    }
+    const submittedQty = currentRecord.submittedQty ?? currentRecord.plannedQty ?? 0
+    if (qty !== submittedQty && !state.writebackReturnNo.trim()) {
+      showProgressHandoverToast('数量有差异时请填写差异原因', 'error')
+      return true
+    }
+
+    const updated = writeBackHandoverRecord({
+      handoverRecordId: recordId,
+      receiverWrittenQty: qty,
+      receiverWrittenAt: `${state.writebackAt.replace('T', ' ')}:00`,
+      receiverWrittenBy: '接收方扫码员',
+      receiverRemark: state.writebackReturnNo.trim() || undefined,
+      diffReason: qty === submittedQty ? undefined : state.writebackReturnNo.trim() || '接收方实收数量与工厂交出数量不一致',
     })
 
     if (!updated) {
@@ -2063,7 +2193,7 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
     state.writebackReturnNo = ''
     state.writebackQty = ''
     state.writebackAt = getCurrentLocalDateTimeInput()
-    showProgressHandoverToast(`回写完成：${updated.recordId}`)
+    showProgressHandoverToast(`接收方回写完成：${updated.recordId}`)
     return true
   }
 
@@ -2125,7 +2255,7 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
   if (action === 'goto-order') {
     const orderId = actionNode.dataset.orderId
     if (orderId) {
-      openLinkedPage(`生产单 ${orderId}`, `/fcs/production/orders/${encodeURIComponent(orderId)}`)
+      openLinkedPage(`生产单 ${orderId}`, buildProductionOrderLink(orderId))
     }
     return true
   }
@@ -2133,7 +2263,15 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
   if (action === 'goto-task') {
     const taskId = actionNode.dataset.taskId
     if (taskId) {
-      openLinkedPage('任务进度看板', `/fcs/progress/board?taskId=${encodeURIComponent(taskId)}`)
+      openLinkedPage('任务详情', buildTaskDetailLink(taskId))
+    }
+    return true
+  }
+
+  if (action === 'open-quality-record') {
+    const href = actionNode.dataset.href
+    if (href) {
+      openLinkedPage(actionNode.dataset.title || '质检记录', href)
     }
     return true
   }

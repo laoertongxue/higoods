@@ -9,11 +9,15 @@ import {
   getProcessCraftByCode,
   getProcessDefinitionByCode,
   getProcessStageByCode,
+  isPostCapacityNode,
   type CraftStageCode,
+  type CapacityRollupMode,
   type DetailSplitDimension,
   type DetailSplitMode,
+  type FactoryMobileExecutionMode,
   type ProcessAssignmentGranularity,
   type ProcessDocType,
+  type ProcessRole,
   type RuleSource,
   type TaskTypeMode,
 } from './process-craft-dict.ts'
@@ -57,6 +61,9 @@ export interface GeneratedTaskArtifact extends GeneratedProductionArtifactBase {
   artifactType: 'TASK'
   taskTypeCode: string
   taskTypeLabel: string
+  taskScope: 'EXTERNAL_TASK' | 'POST_ROLLUP_TASK'
+  rolledUpChildProcessCodes?: string[]
+  rolledUpChildProcessNames?: string[]
   publishedSamPerUnit: number
   publishedSamUnit: string
   publishedSamDifficulty: 'LOW' | 'MEDIUM' | 'HIGH'
@@ -82,6 +89,15 @@ interface ResolvedEntryContext {
   systemProcessCode: string
   craftCode?: string
   craftName?: string
+  processRole: ProcessRole
+  parentProcessCode?: string
+  generatesExternalTask: boolean
+  requiresTaskQr: boolean
+  requiresHandoverOrder: boolean
+  capacityEnabled: boolean
+  capacityRollupMode: CapacityRollupMode
+  factoryMobileExecutionMode: FactoryMobileExecutionMode
+  isActive: boolean
   assignmentGranularity: ProcessAssignmentGranularity
   ruleSource: RuleSource
   detailSplitMode: DetailSplitMode
@@ -162,6 +178,18 @@ function resolveEntryContext(orderId: string, entry: TechPackProcessEntry, entry
     systemProcessCode: processDefinition?.systemProcessCode || craftDefinition?.systemProcessCode || `PROC_${entry.processCode}`,
     craftCode: entry.craftCode,
     craftName: entry.craftName,
+    processRole: craftDefinition?.processRole ?? processDefinition?.processRole ?? 'EXTERNAL_TASK',
+    parentProcessCode: craftDefinition?.parentProcessCode ?? processDefinition?.parentProcessCode,
+    generatesExternalTask: craftDefinition?.generatesExternalTask ?? processDefinition?.generatesExternalTask ?? false,
+    requiresTaskQr: craftDefinition?.requiresTaskQr ?? processDefinition?.requiresTaskQr ?? false,
+    requiresHandoverOrder: craftDefinition?.requiresHandoverOrder ?? processDefinition?.requiresHandoverOrder ?? false,
+    capacityEnabled: craftDefinition?.capacityEnabled ?? processDefinition?.capacityEnabled ?? true,
+    capacityRollupMode: craftDefinition?.capacityRollupMode ?? processDefinition?.capacityRollupMode ?? 'NONE',
+    factoryMobileExecutionMode:
+      craftDefinition?.factoryMobileExecutionMode
+      ?? processDefinition?.factoryMobileExecutionMode
+      ?? 'NONE',
+    isActive: craftDefinition?.isActive ?? processDefinition?.isActive ?? true,
     assignmentGranularity: entry.assignmentGranularity || fallbackGranularity,
     ruleSource: resolvedRuleSource,
     detailSplitMode: entry.detailSplitMode || craftDefinition?.detailSplitMode || fallbackSplitMode,
@@ -244,6 +272,7 @@ function toTaskArtifact(context: ResolvedEntryContext): GeneratedTaskArtifact {
     docTypeLabel: DOC_TYPE_LABEL.TASK,
     taskTypeCode,
     taskTypeLabel,
+    taskScope: 'EXTERNAL_TASK',
     publishedSamPerUnit: context.publishedSamPerUnit,
     publishedSamUnit: context.publishedSamUnit,
     publishedSamDifficulty: context.publishedSamDifficulty,
@@ -261,8 +290,100 @@ function shouldGenerateDemand(entry: TechPackProcessEntry, context: ResolvedEntr
   )
 }
 
-function shouldGenerateTask(entry: TechPackProcessEntry, context: ResolvedEntryContext): boolean {
-  return entry.entryType === 'CRAFT' && context.defaultDocType === 'TASK' && (context.stageCode === 'PROD' || context.stageCode === 'POST')
+function isExternalTaskProcessCode(processCode: string): boolean {
+  return getProcessDefinitionByCode(processCode)?.generatesExternalTask ?? false
+}
+
+function shouldGenerateExternalTask(context: ResolvedEntryContext): boolean {
+  if (!context.isActive) return false
+  if (!context.generatesExternalTask) return false
+  if (context.defaultDocType !== 'TASK') return false
+  if (context.sourceEntry.entryType === 'CRAFT') return true
+  return context.processCode === 'POST_FINISHING'
+}
+
+function shouldRollupToPostFinishing(context: ResolvedEntryContext): boolean {
+  return context.isActive && isPostCapacityNode(context.processCode)
+}
+
+function mergeTaskDifficulty(
+  left: GeneratedTaskArtifact['publishedSamDifficulty'],
+  right: GeneratedTaskArtifact['publishedSamDifficulty'],
+): GeneratedTaskArtifact['publishedSamDifficulty'] {
+  const score: Record<GeneratedTaskArtifact['publishedSamDifficulty'], number> = {
+    LOW: 1,
+    MEDIUM: 2,
+    HIGH: 3,
+  }
+  return score[left] >= score[right] ? left : right
+}
+
+function createPostFinishingRollupArtifact(
+  baseContext: ResolvedEntryContext,
+  childContexts: ResolvedEntryContext[],
+  directPostArtifact?: GeneratedTaskArtifact,
+): GeneratedTaskArtifact {
+  const processDefinition = getProcessDefinitionByCode('POST_FINISHING')
+  if (!processDefinition) {
+    throw new Error('缺少后道工序定义，无法生成后道汇总任务')
+  }
+
+  const rolledUpChildren = childContexts.reduce<Array<{ code: string; name: string }>>((result, item) => {
+    const alreadyExists = result.some((current) => current.code === item.processCode)
+    if (!alreadyExists) {
+      result.push({ code: item.processCode, name: item.processName })
+    }
+    return result
+  }, [])
+
+  const publishedSamPerUnit = childContexts.length > 0
+    ? childContexts.reduce((sum, item) => sum + Math.max(item.publishedSamPerUnit, 0), 0)
+    : directPostArtifact?.publishedSamPerUnit || baseContext.publishedSamPerUnit
+
+  const publishedSamDifficulty = childContexts.reduce<GeneratedTaskArtifact['publishedSamDifficulty']>(
+    (level, item) => mergeTaskDifficulty(level, item.publishedSamDifficulty),
+    directPostArtifact?.publishedSamDifficulty || baseContext.publishedSamDifficulty,
+  )
+
+  const postContext: ResolvedEntryContext = {
+    ...baseContext,
+    processCode: processDefinition.processCode,
+    processName: processDefinition.processName,
+    processSort: processDefinition.sort,
+    systemProcessCode: processDefinition.systemProcessCode,
+    craftCode: undefined,
+    craftName: undefined,
+    processRole: processDefinition.processRole,
+    parentProcessCode: processDefinition.parentProcessCode,
+    generatesExternalTask: processDefinition.generatesExternalTask,
+    requiresTaskQr: processDefinition.requiresTaskQr,
+    requiresHandoverOrder: processDefinition.requiresHandoverOrder,
+    capacityEnabled: processDefinition.capacityEnabled,
+    capacityRollupMode: processDefinition.capacityRollupMode,
+    factoryMobileExecutionMode: processDefinition.factoryMobileExecutionMode,
+    isActive: processDefinition.isActive,
+    assignmentGranularity: processDefinition.assignmentGranularity,
+    detailSplitMode: processDefinition.detailSplitMode,
+    detailSplitDimensions: [...processDefinition.detailSplitDimensions],
+    defaultDocType: processDefinition.defaultDocType,
+    taskTypeMode: processDefinition.taskTypeMode,
+    isSpecialCraft: false,
+    publishedSamPerUnit,
+    publishedSamUnit: directPostArtifact?.publishedSamUnit || baseContext.publishedSamUnit,
+    publishedSamDifficulty,
+  }
+
+  return {
+    ...toTaskArtifact(postContext),
+    taskTypeCode: processDefinition.processCode,
+    taskTypeLabel: processDefinition.processName,
+    taskScope: 'POST_ROLLUP_TASK',
+    rolledUpChildProcessCodes: rolledUpChildren.map((item) => item.code),
+    rolledUpChildProcessNames: rolledUpChildren.map((item) => item.name),
+    publishedSamPerUnit,
+    publishedSamUnit: directPostArtifact?.publishedSamUnit || baseContext.publishedSamUnit,
+    publishedSamDifficulty,
+  }
 }
 
 function resolveTechPackIdByOrder(orderId: string): string | null {
@@ -281,6 +402,7 @@ export function generateProductionArtifactsForOrder(orderId: string): GeneratedP
   if (!entries.length) return []
 
   const artifacts: GeneratedProductionArtifact[] = []
+  const taskContexts: ResolvedEntryContext[] = []
 
   entries.forEach((entry, index) => {
     const context = resolveEntryContext(orderId, entry, index)
@@ -291,10 +413,26 @@ export function generateProductionArtifactsForOrder(orderId: string): GeneratedP
       return
     }
 
-    if (shouldGenerateTask(entry, context)) {
-      artifacts.push(toTaskArtifact(context))
+    if (shouldRollupToPostFinishing(context) || shouldGenerateExternalTask(context)) {
+      taskContexts.push(context)
     }
   })
+
+  const directTaskContexts = taskContexts.filter((item) => !shouldRollupToPostFinishing(item))
+  const postChildContexts = taskContexts.filter((item) => shouldRollupToPostFinishing(item))
+
+  const directTaskArtifacts = directTaskContexts.map((context) => toTaskArtifact(context))
+  const directPostArtifact = directTaskArtifacts.find((item) => item.processCode === 'POST_FINISHING')
+  const directNonPostArtifacts = directTaskArtifacts.filter((item) => item.processCode !== 'POST_FINISHING')
+
+  if (postChildContexts.length > 0 || directPostArtifact) {
+    const baseContext = directTaskContexts.find((item) => item.processCode === 'POST_FINISHING') || postChildContexts[0]
+    if (baseContext) {
+      artifacts.push(createPostFinishingRollupArtifact(baseContext, postChildContexts, directPostArtifact))
+    }
+  }
+
+  artifacts.push(...directNonPostArtifacts)
 
   return artifacts.sort((a, b) => a.sortKey.localeCompare(b.sortKey))
 }

@@ -94,8 +94,11 @@ interface ProductArchivePageState {
     targetAudienceTags: string
     targetChannelCodes: string
     priceRangeLabel: string
+    mainImageId: string
     mainImageUrl: string
+    galleryImageIds: string[]
     galleryImageUrls: string[]
+    imageSource: string
     sellingPointText: string
     detailDescription: string
     packagingInfo: string
@@ -206,8 +209,11 @@ function createDefaultStyleCompletionState(): ProductArchivePageState['styleComp
     targetAudienceTags: '',
     targetChannelCodes: '',
     priceRangeLabel: '',
+    mainImageId: '',
     mainImageUrl: '',
+    galleryImageIds: [],
     galleryImageUrls: [],
+    imageSource: '',
     sellingPointText: '',
     detailDescription: '',
     packagingInfo: '',
@@ -317,7 +323,7 @@ function buildSkuIdentity(): { skuId: string; timestamp: string } {
   const dateKey = timestamp.slice(0, 10).replace(/-/g, '')
   const sequence = listSkuArchives().filter((item) => item.createdAt.startsWith(timestamp.slice(0, 10))).length + 1
   return {
-    skuId: `sku_${dateKey}_${String(sequence).padStart(3, '0')}`,
+    skuId: `skuDraft_${dateKey}_${String(sequence).padStart(3, '0')}`,
     timestamp,
   }
 }
@@ -786,8 +792,11 @@ function openStyleCompletionDrawer(style: StyleArchiveShellRecord): void {
     targetAudienceTags: stringifyTagList(style.targetAudienceTags),
     targetChannelCodes: stringifyTagList(style.targetChannelCodes),
     priceRangeLabel: style.priceRangeLabel,
+    mainImageId: style.mainImageId,
     mainImageUrl: style.mainImageUrl,
+    galleryImageIds: [...(style.galleryImageIds || [])],
     galleryImageUrls: getStyleImageUrls(style),
+    imageSource: style.imageSource,
     sellingPointText: style.sellingPointText,
     detailDescription: style.detailDescription,
     packagingInfo: style.packagingInfo,
@@ -934,6 +943,20 @@ function renderStyleCompletionDrawer(): string {
         <div class="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
           ${imageGrid}
         </div>
+        <div class="mt-4 grid gap-3 md:grid-cols-3">
+          <div class="rounded-md border border-slate-200 bg-white px-3 py-3">
+            <div class="text-xs text-slate-500">主图图片资产</div>
+            <div class="mt-1 text-sm text-slate-700">${escapeHtml(state.styleCompletion.mainImageId || '未记录')}</div>
+          </div>
+          <div class="rounded-md border border-slate-200 bg-white px-3 py-3">
+            <div class="text-xs text-slate-500">图册图片资产数</div>
+            <div class="mt-1 text-sm text-slate-700">${escapeHtml(String(state.styleCompletion.galleryImageIds.length))}</div>
+          </div>
+          <div class="rounded-md border border-slate-200 bg-white px-3 py-3">
+            <div class="text-xs text-slate-500">图片来源</div>
+            <div class="mt-1 text-sm text-slate-700">${escapeHtml(state.styleCompletion.imageSource || '未记录')}</div>
+          </div>
+        </div>
       </section>
       ${renderControlledTextareaField('卖点摘要', 'style-completion-selling-point-text', state.styleCompletion.sellingPointText, '填写款式卖点摘要', 3, true)}
       ${renderControlledTextareaField('详情描述', 'style-completion-detail-description', state.styleCompletion.detailDescription, '填写详情描述', 5, true)}
@@ -975,8 +998,11 @@ function submitStyleCompletion(): void {
           targetAudienceTags: parseTagList(state.styleCompletion.targetAudienceTags),
           targetChannelCodes: parseTagList(state.styleCompletion.targetChannelCodes),
           priceRangeLabel: state.styleCompletion.priceRangeLabel.trim(),
+          mainImageId: state.styleCompletion.mainImageId,
           mainImageUrl: imageUrls[0] || '',
+          galleryImageIds: [...state.styleCompletion.galleryImageIds],
           galleryImageUrls: imageUrls,
+          imageSource: state.styleCompletion.imageSource.trim(),
           sellingPointText: state.styleCompletion.sellingPointText.trim(),
           detailDescription: state.styleCompletion.detailDescription.trim(),
         }),
@@ -1247,6 +1273,7 @@ function renderStyleDetailOverview(style: StyleArchiveShellRecord): string {
               <div><div class="text-xs text-slate-500">风格标签</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.styleTags.join(' / ') || '-')}</div></div>
               <div><div class="text-xs text-slate-500">价格带</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.priceRangeLabel || '-')}</div></div>
               <div><div class="text-xs text-slate-500">来源项目</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.sourceProjectCode ? `${style.sourceProjectCode} · ${style.sourceProjectName}` : '未绑定商品项目')}</div></div>
+              <div><div class="text-xs text-slate-500">图片来源</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.imageSource || '-')}</div></div>
               <div><div class="text-xs text-slate-500">当前生效技术包</div><div class="mt-1 text-sm text-slate-700">${currentTechPackHref ? `<button type="button" class="font-medium text-slate-900 hover:text-slate-700" data-nav="${escapeHtml(currentTechPackHref)}">${escapeHtml(style.currentTechPackVersionLabel || style.currentTechPackVersionCode)}</button>` : escapeHtml(style.currentTechPackVersionLabel || '未建立当前生效技术包')}</div></div>
               <div class="md:col-span-2"><div class="text-xs text-slate-500">测款渠道</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.targetChannelCodes.join(' / ') || '-')}</div></div>
               <div class="md:col-span-2"><div class="text-xs text-slate-500">卖点摘要</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.sellingPointText || '-')}</div></div>
@@ -2100,8 +2127,11 @@ function handleStyleImageUpload(target: HTMLElement): boolean {
   if (files.length === 0) return false
   const uploadedUrls = files.map((item) => URL.createObjectURL(item))
   const nextImageUrls = uniqueImageUrls([...getStyleCompletionImageUrls(), ...uploadedUrls])
+  state.styleCompletion.mainImageId = ''
   state.styleCompletion.mainImageUrl = nextImageUrls[0] || ''
+  state.styleCompletion.galleryImageIds = []
   state.styleCompletion.galleryImageUrls = nextImageUrls
+  state.styleCompletion.imageSource = '款式档案页补充上传'
   input.value = ''
   state.notice = `已添加 ${uploadedUrls.length} 张款式主图，请保存资料后生效。`
   return true
@@ -2264,7 +2294,9 @@ export function handlePcsProductArchiveEvent(target: HTMLElement): boolean {
       const url = actionNode.dataset.url || ''
       if (!url) return true
       const nextImageUrls = uniqueImageUrls([url, ...getStyleCompletionImageUrls().filter((item) => item !== url)])
+      state.styleCompletion.mainImageId = ''
       state.styleCompletion.mainImageUrl = nextImageUrls[0] || ''
+      state.styleCompletion.galleryImageIds = []
       state.styleCompletion.galleryImageUrls = nextImageUrls
       return true
     }
@@ -2272,7 +2304,9 @@ export function handlePcsProductArchiveEvent(target: HTMLElement): boolean {
       const url = actionNode.dataset.url || ''
       if (!url) return true
       const nextImageUrls = getStyleCompletionImageUrls().filter((item) => item !== url)
+      state.styleCompletion.mainImageId = ''
       state.styleCompletion.mainImageUrl = nextImageUrls[0] || ''
+      state.styleCompletion.galleryImageIds = []
       state.styleCompletion.galleryImageUrls = nextImageUrls
       return true
     }

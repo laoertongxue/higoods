@@ -521,11 +521,47 @@ function renderRiskPromptSection(row: ProductionProgressRow): string {
   `
 }
 
+function renderStageOverview(rows: ProductionProgressRow[]): string {
+  const total = rows.length || 1
+  const configuredCount = rows.filter((row) => row.materialPrepSummary.key === 'CONFIGURED').length
+  const claimedCount = rows.filter((row) => row.materialClaimSummary.key === 'RECEIVED').length
+  const markerCount = rows.filter((row) => row.originalCutOrderCount > 0).length
+  const spreadingCount = rows.filter((row) => row.hasSpreadingRecord).length
+  const ticketCount = rows.filter((row) => row.pieceCompletionSummary.key !== 'NOT_STARTED').length
+  const replenishmentCount = rows.filter((row) => row.riskTags.some((tag) => tag.key === 'REPLENISH_PENDING')).length
+  const warehouseCount = rows.filter((row) => row.hasInboundRecord).length
+
+  const cards = [
+    { label: '配料状态', value: `${configuredCount}/${total} 已配置` },
+    { label: '领料状态', value: `${claimedCount}/${total} 已领料` },
+    { label: '唛架状态', value: `${markerCount}/${total} 已排唛` },
+    { label: '铺布状态', value: `${spreadingCount}/${total} 已铺布` },
+    { label: '菲票状态', value: `${ticketCount}/${total} 已生成` },
+    { label: '补料状态', value: replenishmentCount ? `${replenishmentCount} 条待处理` : '正常' },
+    { label: '裁片仓状态', value: `${warehouseCount}/${total} 已入仓` },
+  ]
+
+  return `
+    <section class="grid gap-3 md:grid-cols-4 xl:grid-cols-7">
+      ${cards
+        .map(
+          (card) => `
+            <article class="rounded-lg border bg-card px-4 py-3">
+              <div class="text-xs text-muted-foreground">${escapeHtml(card.label)}</div>
+              <div class="mt-2 text-base font-semibold text-foreground">${escapeHtml(card.value)}</div>
+            </article>
+          `,
+        )
+        .join('')}
+    </section>
+  `
+}
+
 const PRODUCTION_PROGRESS_TABLE_HEADERS = [
   '紧急程度',
   '生产单号',
   '款号 / SPU',
-  '本单成衣件数（件）',
+  '下单件数',
   '计划发货日期',
   '配料进展',
   '领料进展',
@@ -915,6 +951,7 @@ export function renderCraftCuttingProductionProgressPage(): string {
       })}
 
       ${renderStatsCards(rows)}
+      ${renderStageOverview(rows)}
 
       ${renderStickyFilterShell(`
         <div class="space-y-3">

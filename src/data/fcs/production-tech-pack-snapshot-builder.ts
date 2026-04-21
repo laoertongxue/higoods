@@ -7,15 +7,22 @@ import {
 import type { StyleArchiveShellRecord } from '../pcs-style-archive-types.ts'
 import type { TechPack } from './tech-packs.ts'
 import type { ProductionDemand } from './production-demands.ts'
-import type { ProductionOrderTechPackSnapshot } from './production-tech-pack-snapshot-types.ts'
+import {
+  patternMaterialTypeLabels,
+  type PatternMaterialType,
+  type ProductionOrderTechPackSnapshot,
+  type TechPackBomItemSnapshot,
+  type TechPackCutPiecePartSnapshot,
+  type TechPackImageSnapshot,
+  type TechPackPatternFileSnapshot,
+  type TechPackSizeMeasurementSnapshot,
+} from './production-tech-pack-snapshot-types.ts'
 import type {
   TechnicalAttachment,
-  TechnicalBomItem,
   TechnicalColorMaterialMapping,
   TechnicalDataVersionContent,
   TechnicalDataVersionRecord,
   TechnicalPatternDesign,
-  TechnicalPatternFile,
   TechnicalProcessEntry,
   TechnicalQualityRule,
   TechnicalSizeRow,
@@ -43,7 +50,43 @@ export interface DemandCurrentTechPackSource {
   content: TechnicalDataVersionContent
 }
 
-function clonePatternFiles(items: TechnicalPatternFile[]): TechnicalPatternFile[] {
+const IMAGE_PLACEHOLDER_MARKERS = ['/placeholder.svg', 'picsum', 'unsplash', 'dummyimage', 'loremflickr']
+const FALLBACK_PATTERN_PARTS = [
+  { partCode: 'tech-front', partNameCn: '前片', pieceCountPerGarment: 1, manualConfirmRequired: false },
+  { partCode: 'tech-back', partNameCn: '后片', pieceCountPerGarment: 1, manualConfirmRequired: false },
+  { partCode: 'tech-sleeve', partNameCn: '袖子', pieceCountPerGarment: 2, manualConfirmRequired: true },
+] as const
+
+function normalizeText(value: string | undefined | null): string {
+  return String(value || '').trim()
+}
+
+function uniqueStrings(values: Array<string | undefined | null>): string[] {
+  return Array.from(new Set(values.map((value) => normalizeText(value)).filter(Boolean)))
+}
+
+function isAllowedSnapshotImage(url: string | undefined | null): url is string {
+  const normalized = normalizeText(url)
+  if (!normalized || normalized === '#') return false
+  if (normalized.startsWith('http://') || normalized.startsWith('https://')) return false
+  return !IMAGE_PLACEHOLDER_MARKERS.some((marker) => normalized.includes(marker))
+}
+
+function inferPatternMaterialTypeFromText(input: string): PatternMaterialType {
+  const normalized = normalizeText(input).toLowerCase()
+  if (!normalized) return 'UNKNOWN'
+  if (normalized.includes('针织') || normalized.includes('毛织') || normalized.includes('knit')) return 'KNIT'
+  if (normalized.includes('梭织') || normalized.includes('布料') || normalized.includes('woven')) return 'WOVEN'
+  return 'UNKNOWN'
+}
+
+function formatSizeRange(sizeTable: TechnicalSizeRow[]): string {
+  const order = ['S', 'M', 'L', 'XL']
+  const available = order.filter((sizeCode) => sizeTable.some((row) => Number.isFinite(row[sizeCode as keyof TechnicalSizeRow] as number)))
+  return available.length ? available.join(' / ') : ''
+}
+
+function clonePatternFiles(items: TechPackPatternFileSnapshot[]): TechPackPatternFileSnapshot[] {
   return items.map((item) => ({
     ...item,
     pieceRows: item.pieceRows?.map((row) => ({
@@ -64,7 +107,11 @@ function cloneSizeTable(items: TechnicalSizeRow[]): TechnicalSizeRow[] {
   return items.map((item) => ({ ...item }))
 }
 
-function cloneBomItems(items: TechnicalBomItem[]): TechnicalBomItem[] {
+function cloneSizeMeasurements(items: TechPackSizeMeasurementSnapshot[]): TechPackSizeMeasurementSnapshot[] {
+  return items.map((item) => ({ ...item }))
+}
+
+function cloneBomItems(items: TechPackBomItemSnapshot[]): TechPackBomItemSnapshot[] {
   return items.map((item) => ({
     ...item,
     applicableSkuCodes: [...(item.applicableSkuCodes ?? [])],
@@ -95,6 +142,194 @@ function cloneAttachments(items: TechnicalAttachment[]): TechnicalAttachment[] {
   return items.map((item) => ({ ...item }))
 }
 
+function cloneCutPieceParts(items: TechPackCutPiecePartSnapshot[]): TechPackCutPiecePartSnapshot[] {
+  return items.map((item) => ({
+    ...item,
+    applicableColorList: [...item.applicableColorList],
+    applicableSizeList: [...item.applicableSizeList],
+  }))
+}
+
+function cloneImageSnapshot(snapshot: TechPackImageSnapshot): TechPackImageSnapshot {
+  return {
+    productImages: [...snapshot.productImages],
+    styleImages: [...snapshot.styleImages],
+    sampleImages: [...snapshot.sampleImages],
+    materialImages: [...snapshot.materialImages],
+    accessoryImages: [...snapshot.accessoryImages],
+    patternImages: [...snapshot.patternImages],
+    markerImages: [...snapshot.markerImages],
+    artworkImages: [...snapshot.artworkImages],
+  }
+}
+
+function normalizePatternFiles(
+  patternFiles: TechnicalDataVersionContent['patternFiles'],
+  options: {
+    bomItems: TechPackBomItemSnapshot[]
+    sizeTable: TechnicalSizeRow[]
+    versionLabel: string
+  },
+): TechPackPatternFileSnapshot[] {
+  const defaultSizeRange = formatSizeRange(options.sizeTable)
+  return patternFiles.map((item, index) => {
+    const linkedBom = options.bomItems.find((bom) => bom.id === item.linkedBomItemId) || null
+    const patternMaterialType = inferPatternMaterialTypeFromText([
+      linkedBom?.name,
+      linkedBom?.spec,
+      linkedBom?.type,
+      item.fileName,
+    ].join(' '))
+    const sequence = index + 1
+
+    return {
+      ...item,
+      patternFileId: item.id,
+      patternFileName: item.fileName,
+      patternVersion: options.versionLabel || `V${sequence}`,
+      patternMaterialType,
+      patternMaterialTypeLabel: patternMaterialTypeLabels[patternMaterialType],
+      patternSoftwareName: normalizeText((item as { patternSoftwareName?: string }).patternSoftwareName) || undefined,
+      sizeRange: normalizeText((item as { sizeRange?: string }).sizeRange) || defaultSizeRange || undefined,
+      imageUrl: isAllowedSnapshotImage((item as { imageUrl?: string }).imageUrl)
+        ? normalizeText((item as { imageUrl?: string }).imageUrl)
+        : undefined,
+      remark: normalizeText((item as { remark?: string }).remark) || undefined,
+    }
+  })
+}
+
+function buildSizeMeasurements(sizeTable: TechnicalSizeRow[]): TechPackSizeMeasurementSnapshot[] {
+  const sizeOrder = ['S', 'M', 'L', 'XL'] as const
+  return sizeTable.flatMap((row) =>
+    sizeOrder
+      .filter((sizeCode) => Number.isFinite(row[sizeCode]))
+      .map((sizeCode) => ({
+        sizeCode,
+        measurementPart: row.part,
+        measurementValue: row[sizeCode],
+        measurementUnit: 'cm',
+        tolerance: row.tolerance,
+      })),
+  )
+}
+
+function buildCutPieceParts(input: {
+  patternFiles: TechPackPatternFileSnapshot[]
+  bomItems: TechPackBomItemSnapshot[]
+  sizeTable: TechnicalSizeRow[]
+}): TechPackCutPiecePartSnapshot[] {
+  const sizeRange = uniqueStrings(
+    ['S', 'M', 'L', 'XL'].filter((sizeCode) => input.sizeTable.some((row) => Number.isFinite(row[sizeCode as keyof TechnicalSizeRow] as number))),
+  )
+
+  const partMap = new Map<string, TechPackCutPiecePartSnapshot>()
+  input.patternFiles.forEach((patternFile) => {
+    const linkedBom = input.bomItems.find((bom) => bom.id === patternFile.linkedBomItemId) || input.bomItems[0] || null
+    const applicableColors = uniqueStrings([
+      linkedBom?.colorLabel,
+      ...(linkedBom?.applicableSkuCodes ?? []).map((skuCode) => skuCode.split('-')[1]),
+    ])
+
+    ;(patternFile.pieceRows ?? []).forEach((pieceRow) => {
+      const partCode = normalizeText((pieceRow as { partCode?: string }).partCode) || normalizeText(pieceRow.id) || normalizeText(pieceRow.name)
+      const partNameCn = normalizeText(pieceRow.name)
+      if (!partCode || !partNameCn) return
+
+      const existing = partMap.get(partCode)
+      const mergedColors = uniqueStrings([
+        ...(existing?.applicableColorList ?? []),
+        ...applicableColors,
+      ])
+      const mergedSizes = uniqueStrings([
+        ...(existing?.applicableSizeList ?? []),
+        ...(pieceRow.applicableSkuCodes ?? []).map((skuCode) => skuCode.split('-').pop()),
+        ...sizeRange,
+      ])
+
+      partMap.set(partCode, {
+        partCode,
+        partNameCn,
+        partNameId: normalizeText((pieceRow as { partNameId?: string }).partNameId) || undefined,
+        partNameIdn: normalizeText((pieceRow as { partNameIdn?: string }).partNameIdn) || undefined,
+        pieceCountPerGarment: Math.max(Number(pieceRow.count || 0), 1),
+        materialSku: normalizeText(linkedBom?.id) || normalizeText(existing?.materialSku) || '',
+        materialName: normalizeText(linkedBom?.name) || existing?.materialName || undefined,
+        fabricColor: normalizeText(linkedBom?.colorLabel) || existing?.fabricColor || undefined,
+        applicableColorList: mergedColors,
+        applicableSizeList: mergedSizes,
+        manualConfirmRequired:
+          Boolean(existing?.manualConfirmRequired)
+          || partNameCn.includes('袖')
+          || Boolean((pieceRow as { manualConfirmRequired?: boolean }).manualConfirmRequired),
+        remark: normalizeText((pieceRow as { note?: string }).note) || existing?.remark || undefined,
+      })
+    })
+  })
+
+  if (partMap.size === 0) {
+    FALLBACK_PATTERN_PARTS.forEach((item) => {
+      const linkedBom = input.bomItems[0] || null
+      partMap.set(item.partCode, {
+        partCode: item.partCode,
+        partNameCn: item.partNameCn,
+        pieceCountPerGarment: item.pieceCountPerGarment,
+        materialSku: linkedBom?.id || '',
+        materialName: linkedBom?.name || undefined,
+        fabricColor: linkedBom?.colorLabel || undefined,
+        applicableColorList: linkedBom?.colorLabel ? [linkedBom.colorLabel] : [],
+        applicableSizeList: sizeRange,
+        manualConfirmRequired: item.manualConfirmRequired,
+      })
+    })
+  } else {
+    FALLBACK_PATTERN_PARTS.forEach((item) => {
+      if (partMap.has(item.partCode)) return
+      const linkedBom = input.bomItems[0] || null
+      partMap.set(item.partCode, {
+        partCode: item.partCode,
+        partNameCn: item.partNameCn,
+        pieceCountPerGarment: item.pieceCountPerGarment,
+        materialSku: linkedBom?.id || '',
+        materialName: linkedBom?.name || undefined,
+        fabricColor: linkedBom?.colorLabel || undefined,
+        applicableColorList: linkedBom?.colorLabel ? [linkedBom.colorLabel] : [],
+        applicableSizeList: sizeRange,
+        manualConfirmRequired: item.manualConfirmRequired,
+      })
+    })
+  }
+
+  return [...partMap.values()].sort((left, right) => left.partNameCn.localeCompare(right.partNameCn, 'zh-CN'))
+}
+
+function buildImageSnapshot(input: {
+  bomItems: TechPackBomItemSnapshot[]
+  patternFiles: TechPackPatternFileSnapshot[]
+  patternDesigns: TechnicalPatternDesign[]
+}): TechPackImageSnapshot {
+  const materialImages = input.bomItems
+    .filter((item) => item.type === '面料')
+    .map((item) => normalizeText(item.materialImageUrl))
+    .filter(isAllowedSnapshotImage)
+
+  const accessoryImages = input.bomItems
+    .filter((item) => item.type !== '面料')
+    .map((item) => normalizeText(item.materialImageUrl))
+    .filter(isAllowedSnapshotImage)
+
+  return {
+    productImages: [],
+    styleImages: [],
+    sampleImages: [],
+    materialImages,
+    accessoryImages,
+    patternImages: input.patternFiles.map((item) => normalizeText(item.imageUrl)).filter(isAllowedSnapshotImage),
+    markerImages: [],
+    artworkImages: input.patternDesigns.map((item) => normalizeText(item.imageUrl)).filter(isAllowedSnapshotImage),
+  }
+}
+
 export function cloneProductionOrderTechPackSnapshot(
   snapshot: ProductionOrderTechPackSnapshot | null,
 ): ProductionOrderTechPackSnapshot | null {
@@ -105,8 +340,11 @@ export function cloneProductionOrderTechPackSnapshot(
     patternFiles: clonePatternFiles(snapshot.patternFiles),
     processEntries: cloneProcessEntries(snapshot.processEntries),
     sizeTable: cloneSizeTable(snapshot.sizeTable),
+    sizeMeasurements: cloneSizeMeasurements(snapshot.sizeMeasurements),
     qualityRules: cloneQualityRules(snapshot.qualityRules),
     colorMaterialMappings: cloneColorMappings(snapshot.colorMaterialMappings),
+    cutPieceParts: cloneCutPieceParts(snapshot.cutPieceParts),
+    imageSnapshot: cloneImageSnapshot(snapshot.imageSnapshot),
     patternDesigns: clonePatternDesigns(snapshot.patternDesigns),
     attachments: cloneAttachments(snapshot.attachments),
     linkedRevisionTaskIds: [...snapshot.linkedRevisionTaskIds],
@@ -129,6 +367,18 @@ function buildSnapshotFromSource(input: {
   snapshotBy: string
 }): ProductionOrderTechPackSnapshot {
   const { productionOrderId, productionOrderNo, style, record, content, snapshotAt, snapshotBy } = input
+  const bomItems = cloneBomItems(content.bomItems as TechPackBomItemSnapshot[])
+  const patternFiles = normalizePatternFiles(content.patternFiles, {
+    bomItems,
+    sizeTable: content.sizeTable,
+    versionLabel: record.versionLabel,
+  })
+  const patternDesigns = clonePatternDesigns(content.patternDesigns)
+  const imageSnapshot = buildImageSnapshot({
+    bomItems,
+    patternFiles,
+    patternDesigns,
+  })
   return {
     snapshotId: createSnapshotId(productionOrderNo),
     productionOrderId,
@@ -136,6 +386,8 @@ function buildSnapshotFromSource(input: {
     styleId: style.styleId,
     styleCode: style.styleCode,
     styleName: style.styleName,
+    status: 'RELEASED',
+    versionLabel: record.versionLabel,
     sourceTechPackVersionId: record.technicalVersionId,
     sourceTechPackVersionCode: record.technicalVersionCode,
     sourceTechPackVersionLabel: record.versionLabel,
@@ -143,13 +395,20 @@ function buildSnapshotFromSource(input: {
     snapshotAt,
     snapshotBy,
     patternDesc: content.patternDesc || '',
-    bomItems: cloneBomItems(content.bomItems),
-    patternFiles: clonePatternFiles(content.patternFiles),
+    bomItems,
+    patternFiles,
     processEntries: cloneProcessEntries(content.processEntries),
     sizeTable: cloneSizeTable(content.sizeTable),
+    sizeMeasurements: buildSizeMeasurements(content.sizeTable),
     qualityRules: cloneQualityRules(content.qualityRules),
     colorMaterialMappings: cloneColorMappings(content.colorMaterialMappings),
-    patternDesigns: clonePatternDesigns(content.patternDesigns),
+    cutPieceParts: buildCutPieceParts({
+      patternFiles,
+      bomItems,
+      sizeTable: content.sizeTable,
+    }),
+    imageSnapshot,
+    patternDesigns,
     attachments: cloneAttachments(content.attachments),
     linkedRevisionTaskIds: [...record.linkedRevisionTaskIds],
     linkedPatternTaskIds: [...record.linkedPatternTaskIds],
@@ -190,6 +449,119 @@ export function buildSeedProductionOrderTechPackSnapshot(input: {
     demand.techPackStatus === 'RELEASED'
       ? demand.techPackVersionLabel || 'v1.0'
       : '草稿快照'
+  const bomItems: TechPackBomItemSnapshot[] = [
+    {
+      id: `seed-bom-${productionOrderId}-1`,
+      type: '面料',
+      name: '主面料',
+      spec: `${primaryColor} 主面料`,
+      colorLabel: primaryColor,
+      unitConsumption: 1.2,
+      lossRate: 0.03,
+      supplier: '历史供应商',
+      applicableSkuCodes: [primarySkuCode],
+      linkedPatternIds: [`seed-pattern-${productionOrderId}-1`, `seed-pattern-${productionOrderId}-2`],
+      usageProcessCodes: ['SEW'],
+    },
+    {
+      id: `seed-bom-${productionOrderId}-2`,
+      type: '辅料',
+      name: '辅料包',
+      spec: `适配 ${primarySize}`,
+      unitConsumption: 1,
+      lossRate: 0.01,
+      supplier: '历史辅料商',
+      applicableSkuCodes: [primarySkuCode],
+      linkedPatternIds: [],
+      usageProcessCodes: ['PACK'],
+    },
+  ]
+  const patternFiles: TechPackPatternFileSnapshot[] = [
+    {
+      id: `seed-pattern-${productionOrderId}-1`,
+      patternFileId: `seed-pattern-${productionOrderId}-1`,
+      fileName: `${demand.spuCode}-针织纸样.dxf`,
+      patternFileName: `${demand.spuCode}-针织纸样.dxf`,
+      patternVersion: sourceVersionLabel,
+      patternMaterialType: 'KNIT',
+      patternMaterialTypeLabel: patternMaterialTypeLabels.KNIT,
+      patternSoftwareName: '',
+      sizeRange: 'S / M / L / XL',
+      fileUrl: `local://seed-pattern/${productionOrderId}/knit`,
+      uploadedAt: snapshotAt,
+      uploadedBy: snapshotBy,
+      linkedBomItemId: `seed-bom-${productionOrderId}-1`,
+      totalPieceCount: 6,
+      pieceRows: [
+        {
+          id: `seed-piece-${productionOrderId}-front`,
+          name: '前片',
+          count: 1,
+          applicableSkuCodes: [primarySkuCode],
+        },
+        {
+          id: `seed-piece-${productionOrderId}-back`,
+          name: '后片',
+          count: 1,
+          applicableSkuCodes: [primarySkuCode],
+        },
+        {
+          id: `seed-piece-${productionOrderId}-sleeve`,
+          name: '袖子',
+          count: 2,
+          applicableSkuCodes: [primarySkuCode],
+        },
+      ],
+    },
+    {
+      id: `seed-pattern-${productionOrderId}-2`,
+      patternFileId: `seed-pattern-${productionOrderId}-2`,
+      fileName: `${demand.spuCode}-布料纸样.dxf`,
+      patternFileName: `${demand.spuCode}-布料纸样.dxf`,
+      patternVersion: sourceVersionLabel,
+      patternMaterialType: 'WOVEN',
+      patternMaterialTypeLabel: patternMaterialTypeLabels.WOVEN,
+      patternSoftwareName: '',
+      sizeRange: 'S / M / L / XL',
+      fileUrl: `local://seed-pattern/${productionOrderId}/woven`,
+      uploadedAt: snapshotAt,
+      uploadedBy: snapshotBy,
+      linkedBomItemId: `seed-bom-${productionOrderId}-1`,
+      totalPieceCount: 4,
+      pieceRows: [
+        {
+          id: `seed-piece-${productionOrderId}-front-woven`,
+          name: '前片',
+          count: 1,
+          applicableSkuCodes: [primarySkuCode],
+        },
+        {
+          id: `seed-piece-${productionOrderId}-back-woven`,
+          name: '后片',
+          count: 1,
+          applicableSkuCodes: [primarySkuCode],
+        },
+      ],
+    },
+  ]
+  const sizeTable = buildFallbackSizeTable(demand)
+  const cutPieceParts = buildCutPieceParts({
+    patternFiles,
+    bomItems,
+    sizeTable,
+  })
+  const patternDesigns = clonePatternDesigns([
+    {
+      id: `seed-design-${productionOrderId}-1`,
+      name: `${demand.spuName} 花型图`,
+      imageUrl: '',
+    },
+  ])
+  const imageSnapshot = buildImageSnapshot({
+    bomItems,
+    patternFiles,
+    patternDesigns,
+  })
 
   return {
     snapshotId: createSnapshotId(productionOrderNo),
@@ -198,6 +570,8 @@ export function buildSeedProductionOrderTechPackSnapshot(input: {
     styleId: '',
     styleCode: demand.spuCode,
     styleName: demand.spuName,
+    status: 'RELEASED',
+    versionLabel: sourceVersionLabel,
     sourceTechPackVersionId: `seed-tech-pack-${productionOrderId}`,
     sourceTechPackVersionCode: `TP-SNAPSHOT-${productionOrderNo}`,
     sourceTechPackVersionLabel: sourceVersionLabel,
@@ -205,57 +579,8 @@ export function buildSeedProductionOrderTechPackSnapshot(input: {
     snapshotAt,
     snapshotBy,
     patternDesc: '历史生产单初始化快照',
-    bomItems: [
-      {
-        id: `seed-bom-${productionOrderId}-1`,
-        type: '面料',
-        name: '主面料',
-        spec: `${primaryColor} 主面料`,
-        colorLabel: primaryColor,
-        unitConsumption: 1.2,
-        lossRate: 0.03,
-        supplier: '历史供应商',
-        applicableSkuCodes: [primarySkuCode],
-        linkedPatternIds: [`seed-pattern-${productionOrderId}-1`],
-        usageProcessCodes: ['SEW'],
-      },
-      {
-        id: `seed-bom-${productionOrderId}-2`,
-        type: '辅料',
-        name: '辅料包',
-        spec: `适配 ${primarySize}`,
-        unitConsumption: 1,
-        lossRate: 0.01,
-        supplier: '历史辅料商',
-        applicableSkuCodes: [primarySkuCode],
-        linkedPatternIds: [],
-        usageProcessCodes: ['PACK'],
-      },
-    ],
-    patternFiles: [
-      {
-        id: `seed-pattern-${productionOrderId}-1`,
-        fileName: `${demand.spuCode}-纸样.dxf`,
-        fileUrl: `local://seed-pattern/${productionOrderId}`,
-        uploadedAt: snapshotAt,
-        uploadedBy: snapshotBy,
-        totalPieceCount: 6,
-        pieceRows: [
-          {
-            id: `seed-piece-${productionOrderId}-1`,
-            name: '前片',
-            count: 2,
-            applicableSkuCodes: [primarySkuCode],
-          },
-          {
-            id: `seed-piece-${productionOrderId}-2`,
-            name: '后片',
-            count: 2,
-            applicableSkuCodes: [primarySkuCode],
-          },
-        ],
-      },
-    ],
+    bomItems,
+    patternFiles,
     processEntries: [
       {
         id: `seed-process-${productionOrderId}-1`,
@@ -286,7 +611,8 @@ export function buildSeedProductionOrderTechPackSnapshot(input: {
         timeUnit: '分钟/件',
       },
     ],
-    sizeTable: buildFallbackSizeTable(demand),
+    sizeTable,
+    sizeMeasurements: buildSizeMeasurements(sizeTable),
     qualityRules: [
       {
         id: `seed-quality-${productionOrderId}-1`,
@@ -319,13 +645,9 @@ export function buildSeedProductionOrderTechPackSnapshot(input: {
         ],
       },
     ],
-    patternDesigns: [
-      {
-        id: `seed-design-${productionOrderId}-1`,
-        name: `${demand.spuName} 设计稿`,
-        imageUrl: '/placeholder.svg?height=80&width=80',
-      },
-    ],
+    cutPieceParts,
+    imageSnapshot,
+    patternDesigns,
     attachments: [
       {
         id: `seed-attachment-${productionOrderId}-1`,

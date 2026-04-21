@@ -6,7 +6,7 @@ import { listPrepRequirementDemands } from '../data/fcs/page-adapters/process-pr
 
 type DemandStatusZh = '待满足' | '部分满足' | '已满足' | '已完成交接'
 type PreparationStatusZh = '待配料' | '部分配料' | '已完成配料'
-type TraceBatchStatusZh = '已入裁片仓' | '质检中' | '待入库'
+type TraceBatchStatusZh = '已到中转区域' | '质检中' | '待入库'
 type CreateModeZh = '按需求创建' | '按备货创建'
 type Unit = '米'
 
@@ -79,7 +79,7 @@ const PAGE_SIZE_OPTIONS: PageSize[] = [10, 20, 50]
 const RULES = [
   '自动生成：生产单依据技术资料快照自动生成染色需求单',
   '一单一料：一张需求单只对应一条物料需求',
-  '染色回货先进入 WMS 裁片仓',
+  '染色回货先进入中转区域审核',
   '仓配满足：仓库对对应生产单完成配料后需求才满足',
   '进入下一工序前需完成：仓库完成配料',
 ]
@@ -114,7 +114,7 @@ const DEMANDS: DyeRequirementDemand[] = listPrepRequirementDemands('DYE').map((i
       batchSupplyQty: trace.batchSupplyQty,
       usedQty: trace.usedQty,
       unit: '米',
-      batchStatus: trace.batchStatus,
+      batchStatus: trace.batchStatus === '已入裁片仓' ? '已到中转区域' : trace.batchStatus,
     })),
   })),
   linkedOrders: item.linkedOrders.map((order) => ({
@@ -536,7 +536,7 @@ function renderDetailDrawer(): string {
                               <thead><tr class="border-b bg-muted/40 text-left"><th class="px-3 py-2 font-medium">加工单号</th><th class="px-3 py-2 font-medium">回货批次号</th><th class="px-3 py-2 font-medium">批次供料数量</th><th class="px-3 py-2 font-medium">本配料单使用数量</th><th class="px-3 py-2 font-medium">批次状态</th></tr></thead>
                               <tbody>
                                 ${focusedPreparation.traceLines
-                                  .map((trace) => `<tr class="border-b last:border-b-0"><td class="px-3 py-2 font-mono text-xs">${escapeHtml(trace.processOrderNo)}</td><td class="px-3 py-2 font-mono text-xs">${escapeHtml(trace.batchNo)}</td><td class="px-3 py-2">${escapeHtml(formatQty(trace.batchSupplyQty, trace.unit))}</td><td class="px-3 py-2">${escapeHtml(formatQty(trace.usedQty, trace.unit))}</td><td class="px-3 py-2">${renderBadge(trace.batchStatus, trace.batchStatus === '已入裁片仓' ? 'border-green-200 bg-green-50 text-green-700' : trace.batchStatus === '质检中' ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-slate-200 bg-slate-50 text-slate-700')}</td></tr>`)
+                                  .map((trace) => `<tr class="border-b last:border-b-0"><td class="px-3 py-2 font-mono text-xs">${escapeHtml(trace.processOrderNo)}</td><td class="px-3 py-2 font-mono text-xs">${escapeHtml(trace.batchNo)}</td><td class="px-3 py-2">${escapeHtml(formatQty(trace.batchSupplyQty, trace.unit))}</td><td class="px-3 py-2">${escapeHtml(formatQty(trace.usedQty, trace.unit))}</td><td class="px-3 py-2">${renderBadge(trace.batchStatus, trace.batchStatus === '已到中转区域' ? 'border-green-200 bg-green-50 text-green-700' : trace.batchStatus === '质检中' ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-slate-200 bg-slate-50 text-slate-700')}</td></tr>`)
                                   .join('')}
                               </tbody>
                             </table>

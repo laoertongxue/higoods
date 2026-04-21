@@ -1,0 +1,157 @@
+import fs from 'node:fs'
+import path from 'node:path'
+import process from 'node:process'
+import assert from 'node:assert/strict'
+
+import {
+  getDyeOrderHandoverSummary,
+  getDyeWorkOrderByTaskId,
+  hasDirectPackingToReviewOrCompleteTransition,
+  listDyeFormulaRecords,
+  listDyeReportRows,
+  listDyeReviewRecords,
+  listDyeVatSchedules,
+  listDyeWorkOrders,
+  validateDyeStartPayload,
+} from '../src/data/fcs/dyeing-task-domain.ts'
+
+const repoRoot = process.cwd()
+const dyePages = [
+  'src/pages/process-factory/dyeing/work-orders.ts',
+  'src/pages/process-factory/dyeing/dye-orders.ts',
+  'src/pages/process-factory/dyeing/reports.ts',
+]
+
+function readFile(relativePath: string): string {
+  return fs.readFileSync(path.join(repoRoot, relativePath), 'utf8')
+}
+
+function assertIncludes(source: string, expected: string, label: string): void {
+  assert(source.includes(expected), `${label} 缺少：${expected}`)
+}
+
+function assertNotIncludes(source: string, disallowed: string, label: string): void {
+  assert(!source.includes(disallowed), `${label} 不应包含：${disallowed}`)
+}
+
+function makeText(parts: string[]): string {
+  return parts.join('')
+}
+
+function main(): void {
+  const dyePdaTerms = [
+    makeText(['染色', 'PDA']),
+    makeText(['染色', ' ', 'PDA']),
+    makeText(['Dyeing', ' ', 'PDA']),
+    makeText(['PDA', '染色']),
+  ]
+  const placeholderTerms = [
+    makeText(['sca', 'ffold']),
+    makeText(['Sca', 'ffold']),
+    makeText(['占', '位']),
+    makeText(['TO', 'DO']),
+    makeText(['coming', ' soon']),
+    makeText(['敬', '请', '期待']),
+    makeText(['骨', '架']),
+    makeText(['仅', '展示']),
+    makeText(['mo', 'ck']),
+  ]
+  const printTerms = [
+    makeText(['print', 'Order']),
+    makeText(['print', 'OrderNo']),
+    makeText(['pattern', 'No']),
+    makeText(['印', '花']),
+    makeText(['花', '型']),
+    makeText(['打', '印', '机']),
+    makeText(['转', '印']),
+    makeText(['printer', 'No']),
+    makeText(['trans', 'fer']),
+  ]
+
+  for (const file of dyePages) {
+    const source = readFile(file)
+    placeholderTerms.forEach((term) => assertNotIncludes(source, term, file))
+    dyePdaTerms.forEach((term) => assertNotIncludes(source, term, file))
+  }
+
+  const workOrdersSource = readFile('src/pages/process-factory/dyeing/work-orders.ts')
+  const formulaSource = readFile('src/pages/process-factory/dyeing/dye-orders.ts')
+  const reportsSource = readFile('src/pages/process-factory/dyeing/reports.ts')
+  const taskDetailSource = readFile('src/pages/pda-exec-detail.ts')
+  const handoverSource = readFile('src/pages/pda-handover.ts')
+  const handoverDetailSource = readFile('src/pages/pda-handover-detail.ts')
+
+  assertIncludes(workOrdersSource, '染色加工单', '染色加工单页面')
+  assertIncludes(formulaSource, '染料单', '染料单页面')
+  assertIncludes(reportsSource, '等待原因', '染色报表页面')
+  assertIncludes(reportsSource, '节点耗时', '染色报表页面')
+  assertIncludes(reportsSource, '染缸利用', '染色报表页面')
+  assertIncludes(reportsSource, '交出差异', '染色报表页面')
+  assertIncludes(reportsSource, '数量异议', '染色报表页面')
+  assertIncludes(taskDetailSource, '染色任务', '任务详情页面')
+  assertIncludes(taskDetailSource, '染缸编号', '任务详情页面')
+  assertIncludes(taskDetailSource, '待送货', '任务详情页面')
+
+  const orders = listDyeWorkOrders()
+  assert(orders.length >= 6, '染色加工单数据不足')
+  assert(orders.every((order) => Boolean(order.taskId && order.taskNo)), '染色加工单必须关联染色任务')
+  assert(orders.every((order) => order.taskQrValue.startsWith('FCS:TASK:v1:')), '染色任务必须有任务二维码')
+  assert(orders.some((order) => order.status === 'WAIT_HANDOVER'), '染色任务必须包含待送货状态')
+  assert(orders.some((order) => order.status === 'WAIT_REVIEW'), '染色任务必须包含待审核状态')
+  assert(orders.every((order) => order.receiverName === '中转区域' || order.receiverName === '仓库'), '接收方必须是中转区域或仓库')
+  assert(orders.every((order) => !order.targetTransferWarehouseName.includes('裁床仓') && !order.targetTransferWarehouseName.includes('裁片仓')), '染色完成后不能直接进入裁床仓')
+  assert(orders.some((order) => Boolean(order.handoverOrderId)), '开工后的染色任务必须有交出单')
+
+  const waitReviewOrder = orders.find((order) => order.status === 'WAIT_REVIEW')
+  assert(waitReviewOrder, '需要至少一条待审核染色加工单')
+  assert(getDyeOrderHandoverSummary(waitReviewOrder.dyeOrderId).writtenBackQty > 0, '接收方回写后才能进入待审核')
+
+  const startValidation = validateDyeStartPayload({})
+  assert(!startValidation.ok, '没有染缸编号时不能进入染色中')
+
+  const vatSchedules = listDyeVatSchedules()
+  assert(vatSchedules.length > 0, '需要染缸排期数据')
+  assert(vatSchedules.every((item) => Boolean(item.dyeVatNo && item.capacityQty > 0)), '染缸排期必须包含染缸编号和容量')
+
+  const formulas = listDyeFormulaRecords()
+  assert(formulas.length > 0, '需要染料单数据')
+  assert(formulas.every((item) => Boolean(item.dyeOrderId || item.taskId)), '染料单必须关联染色加工单或染色任务')
+  assert(formulas.every((item) => !('handoverOrderId' in item) && !('taskQrValue' in item)), '染料单不能创建交出单或任务二维码')
+
+  const reportRows = listDyeReportRows()
+  assert(reportRows.length === orders.length, '染色报表需要覆盖所有加工单')
+  assert(reportRows.some((row) => row.waitingReason.length > 0), '报表必须展示等待原因')
+  assert(reportRows.some((row) => row.durationHours >= 0), '报表必须展示节点耗时')
+  assert(reportRows.some((row) => row.dyeVatNo), '报表必须展示染缸利用')
+
+  const reviews = listDyeReviewRecords()
+  assert(reviews.some((review) => review.reviewStatus === 'REJECTED' && Boolean(review.rejectReason)), '审核驳回必须有驳回原因')
+  assert(!hasDirectPackingToReviewOrCompleteTransition(), '包装后必须先进入待送货')
+
+  const handoverLinkedOrders = orders.filter((order) => getDyeOrderHandoverSummary(order.dyeOrderId).recordCount > 0)
+  assert(handoverLinkedOrders.length > 0, '染色交出必须使用通用交出单和交出记录')
+  assert(handoverLinkedOrders.every((order) => getDyeOrderHandoverSummary(order.dyeOrderId).recordCount >= 1), '每条染色交出记录都要存在')
+
+  const packingOrder = orders.find((order) => order.status === 'WAIT_HANDOVER')
+  assert(packingOrder, '包装完成后必须进入待送货')
+  assert(getDyeWorkOrderByTaskId(packingOrder.taskId)?.status === 'WAIT_HANDOVER', '包装后待送货节点缺失')
+
+  printTerms.forEach((term) => {
+    assertNotIncludes(workOrdersSource, term, '染色加工单页面')
+    assertNotIncludes(formulaSource, term, '染料单页面')
+    assertNotIncludes(reportsSource, term, '染色报表页面')
+    const dyeDataSource = readFile('src/data/fcs/dyeing-task-domain.ts')
+    assertNotIncludes(dyeDataSource, term, '染色数据域')
+  })
+
+  assertNotIncludes(handoverSource, '交出头', '交出单列表页面')
+  assertNotIncludes(handoverDetailSource, '交出头', '交出单详情页面')
+
+  console.log('[check-dyeing-workflow] PASS')
+  console.log(`  染色加工单: ${orders.length}`)
+  console.log(`  染料单: ${formulas.length}`)
+  console.log(`  染缸排期: ${vatSchedules.length}`)
+  console.log(`  待审核: ${reviews.filter((review) => review.reviewStatus === 'WAIT_REVIEW').length}`)
+}
+
+main()

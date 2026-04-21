@@ -58,6 +58,9 @@ export interface ReplenishmentSuggestionRecord {
   markerTotalPieces: number
   markerNetLength: number
   perPieceConsumption: number
+  spreadingLayerCount: number
+  fabricHeadLength: number
+  fabricTailLength: number
   hasMarkerImage: boolean
   spreadingRecordCount: number
   totalSpreadLength: number
@@ -112,6 +115,9 @@ export const replenishmentSuggestionRecords: ReplenishmentSuggestionRecord[] = [
     markerTotalPieces: 124,
     markerNetLength: 12.8,
     perPieceConsumption: 0.103,
+    spreadingLayerCount: 82,
+    fabricHeadLength: 3.2,
+    fabricTailLength: 2.6,
     hasMarkerImage: true,
     spreadingRecordCount: 2,
     totalSpreadLength: 442.7,
@@ -166,6 +172,9 @@ export const replenishmentSuggestionRecords: ReplenishmentSuggestionRecord[] = [
     markerTotalPieces: 46,
     markerNetLength: 6.4,
     perPieceConsumption: 0.139,
+    spreadingLayerCount: 64,
+    fabricHeadLength: 2.1,
+    fabricTailLength: 1.8,
     hasMarkerImage: false,
     spreadingRecordCount: 0,
     totalSpreadLength: 0,
@@ -220,6 +229,9 @@ export const replenishmentSuggestionRecords: ReplenishmentSuggestionRecord[] = [
     markerTotalPieces: 96,
     markerNetLength: 10.2,
     perPieceConsumption: 0.106,
+    spreadingLayerCount: 76,
+    fabricHeadLength: 2.8,
+    fabricTailLength: 2.2,
     hasMarkerImage: true,
     spreadingRecordCount: 1,
     totalSpreadLength: 177.8,
@@ -274,6 +286,9 @@ export const replenishmentSuggestionRecords: ReplenishmentSuggestionRecord[] = [
     markerTotalPieces: 70,
     markerNetLength: 8.4,
     perPieceConsumption: 0.12,
+    spreadingLayerCount: 58,
+    fabricHeadLength: 1.9,
+    fabricTailLength: 1.6,
     hasMarkerImage: true,
     spreadingRecordCount: 2,
     totalSpreadLength: 270,
@@ -328,6 +343,9 @@ export const replenishmentSuggestionRecords: ReplenishmentSuggestionRecord[] = [
     markerTotalPieces: 88,
     markerNetLength: 9.1,
     perPieceConsumption: 0.104,
+    spreadingLayerCount: 69,
+    fabricHeadLength: 2.4,
+    fabricTailLength: 1.9,
     hasMarkerImage: false,
     spreadingRecordCount: 0,
     totalSpreadLength: 0,

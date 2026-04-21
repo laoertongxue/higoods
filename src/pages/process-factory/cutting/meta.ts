@@ -102,7 +102,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     pageTitle: '仓库配料领料',
     pageSubtitle: '',
     isPlaceholder: false,
-    shortDescription: '查看配料、领料与裁片单主码。',
+    shortDescription: '查看配料、领料与裁片单二维码。',
   },
   'marker-list': {
     key: 'marker-list',

@@ -1,5 +1,5 @@
 import { renderDetailDrawer as uiDetailDrawer } from '../../../components/ui'
-import type { CuttingFabricStockRecord } from '../../../data/fcs/cutting/warehouse-management'
+import type { CuttingFabricStockRecord } from '../../../data/fcs/cutting/warehouse-runtime.ts'
 import { appStore } from '../../../state/store'
 import { escapeHtml, formatDateTime } from '../../../utils'
 import {
@@ -154,7 +154,7 @@ function renderStatsCards(): string {
   const summary = getViewModel().summary
   return `
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-      ${renderCompactKpiCard('面料 SKU 数', summary.stockItemCount, '当前裁床仓库存对象', 'text-slate-900')}
+      ${renderCompactKpiCard('面料 SKU 数', summary.stockItemCount, '当前面料卷标签对象', 'text-slate-900')}
       ${renderCompactKpiCard('卷数', summary.rollCount, '当前卷级明细总量', 'text-blue-600')}
       ${renderCompactKpiCard('配置长度总量', formatFabricWarehouseLength(summary.configuredLengthTotal), '来自仓库配料领料', 'text-emerald-600')}
       ${renderCompactKpiCard('剩余长度总量', formatFabricWarehouseLength(summary.remainingLengthTotal), '裁床侧当前可用余量', 'text-violet-600')}
@@ -184,7 +184,7 @@ function renderFilterStateBar(): string {
   const labels: string[] = []
   if (state.filters.keyword.trim()) labels.push(`关键词：${state.filters.keyword.trim()}`)
   if (state.filters.materialCategory !== 'ALL') labels.push(`面料类别：${fabricWarehouseMaterialMeta[state.filters.materialCategory].label}`)
-  if (state.filters.status !== 'ALL') labels.push(`库存状态：${fabricWarehouseStatusMeta[state.filters.status].label}`)
+  if (state.filters.status !== 'ALL') labels.push(`状态：${fabricWarehouseStatusMeta[state.filters.status].label}`)
   if (state.filters.risk !== 'ALL') {
     const riskLabelMap: Record<FabricWarehouseRiskKey, string> = {
       LOW_REMAINING: '低余量',
@@ -231,11 +231,11 @@ function renderFilterArea(): string {
           { value: 'SOLID', label: '面料' },
           { value: 'LINING', label: '里布' },
         ])}
-        ${renderFilterSelect('状态筛选', 'status', state.filters.status, [
+        ${renderFilterSelect('状态', 'status', state.filters.status, [
           { value: 'ALL', label: '全部' },
-          { value: 'READY', label: '库存正常' },
-          { value: 'PARTIAL_USED', label: '部分已用' },
-          { value: 'NEED_RECHECK', label: '待核对' },
+          { value: 'READY', label: '可用' },
+          { value: 'PARTIAL_USED', label: '已领料' },
+          { value: 'NEED_RECHECK', label: '待审核' },
         ])}
         ${renderFilterSelect('风险筛选', 'risk', state.filters.risk, [
           { value: 'ALL', label: '全部' },
@@ -258,10 +258,11 @@ function renderTable(items: FabricWarehouseStockItem[]): string {
       <thead class="sticky top-0 z-10 bg-muted/95 text-xs uppercase tracking-wide text-muted-foreground">
         <tr>
           <th class="px-4 py-3 text-left">面料 SKU</th>
-          <th class="px-4 py-3 text-left">面料类别</th>
+          <th class="px-4 py-3 text-left">面料中文名</th>
           <th class="px-4 py-3 text-right">卷数</th>
-          <th class="px-4 py-3 text-right">配置长度</th>
-          <th class="px-4 py-3 text-right">剩余长度</th>
+          <th class="px-4 py-3 text-right">标签长度</th>
+          <th class="px-4 py-3 text-right">实测长度</th>
+          <th class="px-4 py-3 text-left">当前区域</th>
           <th class="px-4 py-3 text-right">关联原始裁片单数</th>
           <th class="px-4 py-3 text-left">风险提示</th>
           <th class="px-4 py-3 text-left">操作</th>
@@ -284,11 +285,12 @@ function renderTable(items: FabricWarehouseStockItem[]): string {
                     ${renderTag(fabricWarehouseStatusMeta[item.status].label, fabricWarehouseStatusMeta[item.status].className)}
                     ${isFocused ? renderTag('重点关注', 'bg-amber-100 text-amber-700 border border-amber-200') : ''}
                   </div>
-                  <div class="mt-1 text-xs text-muted-foreground">幅宽：${escapeHtml(item.widthSummary || '待补')}</div>
+                  <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.rolls[0]?.materialSpuNameCn || item.materialName || '暂无数据')}</div>
                 </td>
                 <td class="px-4 py-3 text-right font-medium tabular-nums">${item.rollCount}</td>
                 <td class="px-4 py-3 text-right tabular-nums">${escapeHtml(formatFabricWarehouseLength(item.configuredLengthTotal))}</td>
                 <td class="px-4 py-3 text-right tabular-nums">${escapeHtml(formatFabricWarehouseLength(item.remainingLengthTotal))}</td>
+                <td class="px-4 py-3">${escapeHtml(item.rolls[0]?.currentAreaName || '暂无数据')}</td>
                 <td class="px-4 py-3 text-right tabular-nums">${item.sourceOriginalCutOrderNos.length}</td>
                 <td class="px-4 py-3">
                   <div class="flex flex-wrap gap-1.5">${item.riskTags.length ? item.riskTags.map((tag) => renderTag(tag.label, tag.className)).join('') : '<span class="text-xs text-muted-foreground">无明显风险</span>'}</div>
@@ -343,18 +345,21 @@ function renderDetailDrawer(): string {
 
         <section class="rounded-lg border bg-card">
           <div class="border-b px-4 py-3">
-            <h3 class="text-sm font-semibold text-foreground">卷级明细</h3>
-            <p class="mt-1 text-xs text-muted-foreground">保留卷号、长度、幅宽与当前是否仍在裁床仓。</p>
+            <h3 class="text-sm font-semibold text-foreground">面料卷标签</h3>
+            <p class="mt-1 text-xs text-muted-foreground">只保留轻量桥接字段，供后续仓储迁移承接。</p>
           </div>
           <div class="overflow-auto">
             <table class="min-w-full text-sm">
               <thead class="bg-muted/60 text-xs text-muted-foreground">
                 <tr>
-                  <th class="px-3 py-2 text-left">卷号</th>
-                  <th class="px-3 py-2 text-right">幅宽</th>
-                  <th class="px-3 py-2 text-right">标注米数</th>
-                  <th class="px-3 py-2 text-right">剩余长度</th>
-                  <th class="px-3 py-2 text-left">来源原始裁片单</th>
+                  <th class="px-3 py-2 text-left">面料卷号</th>
+                  <th class="px-3 py-2 text-left">卷条码</th>
+                  <th class="px-3 py-2 text-left">批次号 / 序号</th>
+                  <th class="px-3 py-2 text-left">面料中文名</th>
+                  <th class="px-3 py-2 text-right">标签长度</th>
+                  <th class="px-3 py-2 text-right">实测长度</th>
+                  <th class="px-3 py-2 text-left">来源</th>
+                  <th class="px-3 py-2 text-left">当前区域</th>
                   <th class="px-3 py-2 text-left">状态</th>
                 </tr>
               </thead>
@@ -363,12 +368,15 @@ function renderDetailDrawer(): string {
                   .map(
                     (roll) => `
                       <tr class="border-t align-top">
-                        <td class="px-3 py-2 font-medium text-foreground">${escapeHtml(roll.rollNo)}</td>
-                        <td class="px-3 py-2 text-right tabular-nums">${roll.width} cm</td>
+                        <td class="px-3 py-2 font-medium text-foreground">${escapeHtml(roll.fabricRollNo)}</td>
+                        <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(roll.rollBarcode)}</td>
+                        <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(`${roll.batchNo} / ${roll.batchSeqNo}`)}</td>
+                        <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(roll.materialSpuNameCn || '暂无数据')}</td>
                         <td class="px-3 py-2 text-right tabular-nums">${escapeHtml(formatFabricWarehouseLength(roll.labeledLength))}</td>
-                        <td class="px-3 py-2 text-right tabular-nums">${escapeHtml(formatFabricWarehouseLength(roll.remainingLength))}</td>
-                        <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(`${roll.sourceOriginalCutOrderNo} / ${roll.sourceProductionOrderNo}`)}</td>
-                        <td class="px-3 py-2">${renderTag(roll.status === 'IN_STOCK' ? '在仓' : '已用', roll.status === 'IN_STOCK' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-700 border border-slate-200')}</td>
+                        <td class="px-3 py-2 text-right tabular-nums">${escapeHtml(formatFabricWarehouseLength(roll.actualLength))}</td>
+                        <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(`${roll.sourceProcessType === 'RAW' ? '原布' : roll.sourceProcessType === 'PRINT' ? '印花' : '染色'} / ${roll.sourceProcessOrderNo}`)}</td>
+                        <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(roll.currentAreaName)}</td>
+                        <td class="px-3 py-2">${renderTag(roll.status === 'IN_STOCK' ? '可用' : '已领料', roll.status === 'IN_STOCK' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-700 border border-slate-200')}</td>
                       </tr>
                     `,
                   )
@@ -397,7 +405,7 @@ function renderDetailDrawer(): string {
           <div class="flex items-center justify-between gap-3">
             <div>
               <h3 class="text-sm font-semibold text-foreground">关注与后续链路</h3>
-              <p class="mt-1 text-xs text-muted-foreground">当前只承接裁床仓库存视角，不在此页做真实出入库确认。</p>
+              <p class="mt-1 text-xs text-muted-foreground">当前只承接面料卷标签与区域提示，不在此页做完整仓储。</p>
             </div>
             <button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-white" data-fabric-warehouse-action="toggle-focus" data-stock-id="${escapeHtml(item.stockItemId)}">${state.focusedStockIds.includes(item.stockItemId) ? '取消重点关注' : '标记低余量关注'}</button>
           </div>

@@ -4,6 +4,8 @@
  * 当前原型仓直接使用的质量域类型定义文件
  */
 
+import type { PostExecutionMode, PostRouteCurrentNode } from './post-process-route.ts'
+
 export type QcStatus = 'DRAFT' | 'SUBMITTED' | 'CLOSED'
 export type QcDisposition = 'ACCEPT_AS_DEFECT' | 'SCRAP' | 'ACCEPT'
 export type RootCauseType = 'PROCESS' | 'MATERIAL' | 'DYE_PRINT' | 'CUTTING' | 'PATTERN_TECH' | 'UNKNOWN'
@@ -63,7 +65,22 @@ export interface ReturnBatch {
 // 回货入仓（新主模型，V1 并行兼容）
 // =============================================
 export type ReturnInboundProcessType = 'PRINT' | 'DYE' | 'CUT_PANEL' | 'SEW' | 'OTHER' | 'DYE_PRINT'
-export type ReturnInboundScene = 'RETURN_INBOUND'
+export type InspectionScene =
+  | 'SEW_RETURN_RECEIVING_QC'
+  | 'POST_FINAL_RECHECK'
+  | 'PRINT_RECEIVING_QC'
+  | 'DYE_RECEIVING_QC'
+  | 'CUT_PIECE_RECEIVING_QC'
+export type ReturnInboundScene = 'RETURN_INBOUND' | InspectionScene
+export type InspectionType = 'QC' | 'RECHECK'
+export type InspectionMethod = 'COUNT_ONLY' | 'SAMPLING' | 'FULL_INSPECTION'
+export type InspectionResult = 'PASS' | 'PARTIAL_PASS' | 'FAIL' | 'WAIT_CONFIRM'
+export type InspectionNextAction =
+  | 'ENTER_POST_PROCESS'
+  | 'ENTER_FINAL_RECHECK'
+  | 'HANDOVER_FINISHED_WAREHOUSE'
+  | 'REWORK'
+  | 'WAIT_EXCEPTION_HANDLE'
 export type ReturnInboundQcPolicy = 'REQUIRED' | 'OPTIONAL' | 'SKIPPED'
 export type LiabilityDecisionStage = 'SEW_RETURN_INBOUND_FINAL' | 'GENERAL'
 export type DeductionDecision = 'DEDUCT' | 'NO_DEDUCT'
@@ -73,8 +90,9 @@ export type ReturnInboundBatchStatus =
   | 'PASS_CLOSED'
   | 'FAIL_IN_QC'
   | 'QC_CLOSED'
-export type SewPostProcessMode = 'SEW_WITH_POST' | 'SEW_WITHOUT_POST_WAREHOUSE_INTEGRATED'
+export type SewPostProcessMode = PostExecutionMode
 export type ReturnInboundSourceBusinessType = 'TASK' | 'DYE_PRINT_ORDER' | 'RETURN_BATCH' | 'OTHER'
+export type InspectionSourceType = 'HANDOVER_ORDER' | 'HANDOVER_RECORD' | 'RETURN_BATCH'
 
 export interface ReturnInboundBatch {
   batchId: string
@@ -87,6 +105,10 @@ export interface ReturnInboundBatch {
   returnFactoryName?: string
   warehouseId?: string
   warehouseName?: string
+  managedPostFactoryId?: string
+  managedPostFactoryName?: string
+  finishedWarehouseId?: string
+  finishedWarehouseName?: string
   inboundAt: string
   inboundBy: string
   qcPolicy: ReturnInboundQcPolicy
@@ -95,6 +117,20 @@ export interface ReturnInboundBatch {
   sourceType?: ReturnInboundSourceBusinessType
   sourceId?: string
   sewPostProcessMode?: SewPostProcessMode
+  postExecutionMode?: PostExecutionMode
+  postRouteId?: string
+  postRouteCurrentNode?: PostRouteCurrentNode
+  requiresReceivingQc?: boolean
+  requiresPostExecution?: boolean
+  requiresFinalRecheck?: boolean
+  handoverOrderId?: string
+  handoverRecordIds?: string[]
+  receiverKind?: 'WAREHOUSE' | 'MANAGED_POST_FACTORY'
+  receiverId?: string
+  receiverName?: string
+  submittedQty?: number
+  receiverWrittenQty?: number
+  receiverWrittenAt?: string
   createdAt: string
   createdBy: string
   updatedAt?: string
@@ -281,6 +317,11 @@ export interface QualityInspection {
   sourceOrderId?: string
   sourceReturnId?: string
   inspectionScene?: ReturnInboundScene
+  inspectionType?: InspectionType
+  inspectionMethod?: InspectionMethod
+  inspectionResult?: InspectionResult
+  sourceType?: InspectionSourceType
+  sourceId?: string
   returnBatchId?: string
   returnProcessType?: ReturnInboundProcessType
   qcPolicy?: ReturnInboundQcPolicy
@@ -288,9 +329,33 @@ export interface QualityInspection {
   returnFactoryName?: string
   warehouseId?: string
   warehouseName?: string
+  managedPostFactoryId?: string
+  managedPostFactoryName?: string
+  finishedWarehouseId?: string
+  finishedWarehouseName?: string
   sourceBusinessType?: ReturnInboundSourceBusinessType
   sourceBusinessId?: string
   sewPostProcessMode?: SewPostProcessMode
+  postExecutionMode?: PostExecutionMode
+  postRouteId?: string
+  postRouteCurrentNode?: PostRouteCurrentNode
+  requiresReceivingQc?: boolean
+  requiresPostExecution?: boolean
+  requiresFinalRecheck?: boolean
+  handoverOrderId?: string
+  handoverRecordIds?: string[]
+  receiverKind?: 'WAREHOUSE' | 'MANAGED_POST_FACTORY'
+  receiverId?: string
+  receiverName?: string
+  declaredQty?: number
+  receivedQty?: number
+  samplingQty?: number
+  samplingRatio?: number
+  shortQty?: number
+  overQty?: number
+  nextAction?: InspectionNextAction
+  finishedAt?: string
+  evidenceFiles?: Array<{ name: string; url?: string; type?: string }>
   writebackAvailableQty?: number
   writebackAcceptedAsDefectQty?: number
   writebackScrapQty?: number

@@ -376,6 +376,84 @@ function matchPrefilter(itemValues: Array<string | undefined>, search?: string):
   return itemValues.some((value) => value?.includes(search))
 }
 
+function formatTransferBagAssemblyText(value: {
+  originalCutOrderNo?: string
+  fabricRollNo?: string
+  fabricColor?: string
+  size?: string
+  bundleNo?: string
+}): string {
+  const segments = [
+    value.originalCutOrderNo,
+    value.fabricRollNo,
+    value.fabricColor,
+    value.size,
+    value.bundleNo,
+  ].map((item) => String(item || '').trim()).filter(Boolean)
+  return segments.length ? segments.join(' / ') : '暂无数据'
+}
+
+function renderTransferBagSiblingNos(ticketNos?: string[]): string {
+  const values = (ticketNos || []).filter(Boolean)
+  return values.length ? escapeHtml(values.join(' / ')) : '暂无数据'
+}
+
+function renderTransferBagGroupedPieces(bindings: TransferBagBindingItem[]): string {
+  const groups = new Map<string, TransferBagBindingItem[]>()
+  bindings.forEach((binding) => {
+    const groupKey = binding.assemblyGroupKey || `${binding.originalCutOrderNo}-${binding.ticketNo}`
+    if (!groups.has(groupKey)) groups.set(groupKey, [])
+    groups.get(groupKey)!.push(binding)
+  })
+
+  if (!groups.size) {
+    return '<div class="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">暂无数据</div>'
+  }
+
+  return Array.from(groups.values())
+    .map((groupBindings) => {
+      const head = groupBindings[0]
+      return `
+        <details class="rounded-lg border bg-muted/10 p-3" data-default-open="collapsed">
+          <summary class="cursor-pointer text-sm font-medium text-foreground">${escapeHtml(formatTransferBagAssemblyText(head))}</summary>
+          <div class="mt-3 overflow-auto">
+            <table class="min-w-[920px] text-sm">
+              <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
+                <tr>
+                  <th class="px-3 py-2">面料卷号</th>
+                  <th class="px-3 py-2">布料颜色</th>
+                  <th class="px-3 py-2">尺码</th>
+                  <th class="px-3 py-2">裁片部位</th>
+                  <th class="px-3 py-2">数量</th>
+                  <th class="px-3 py-2">扎号</th>
+                  <th class="px-3 py-2">菲票号</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${groupBindings
+                  .map(
+                    (binding) => `
+                      <tr class="border-b bg-card">
+                        <td class="px-3 py-2">${escapeHtml(binding.fabricRollNo || binding.ticket?.fabricRollNo || '暂无数据')}</td>
+                        <td class="px-3 py-2">${escapeHtml(binding.fabricColor || binding.ticket?.fabricColor || '暂无数据')}</td>
+                        <td class="px-3 py-2">${escapeHtml(binding.size || binding.ticket?.size || '暂无数据')}</td>
+                        <td class="px-3 py-2">${escapeHtml(binding.partName || binding.ticket?.partName || '暂无数据')}</td>
+                        <td class="px-3 py-2">${escapeHtml(String(binding.garmentQty || binding.qty || 0))}</td>
+                        <td class="px-3 py-2">${escapeHtml(binding.bundleNo || binding.ticket?.bundleNo || '暂无数据')}</td>
+                        <td class="px-3 py-2">${escapeHtml(binding.ticketNo)}</td>
+                      </tr>
+                    `,
+                  )
+                  .join('')}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      `
+    })
+    .join('')
+}
+
 function matchesUsagePrefilter(item: TransferBagUsageItem, prefilter: TransferBagPrefilter | null = state.prefilter): boolean {
   if (!prefilter) return true
   const bindingItems = item.bindingItems || []
@@ -1348,7 +1426,7 @@ function renderTransferBagTraceabilityBlock(focusedUsage: TransferBagUsageItem |
       <details class="mt-3 rounded-lg border bg-background/70 p-3" data-testid="transfer-bags-traceability-fold" data-default-open="collapsed">
         <summary class="cursor-pointer text-sm font-medium text-foreground">追溯信息</summary>
         <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          ${renderDetailMetric('PDA回写流水', focusedUsage.spreadingSourceWritebackId || '当前尚无 PDA 回写流水')}
+          ${renderDetailMetric('工厂端回写流水', focusedUsage.spreadingSourceWritebackId || '当前尚无工厂端回写流水')}
           ${renderDetailMetric('铺布颜色摘要', focusedUsage.spreadingColorSummary || focusedUsage.colorSummary || '待补')}
           ${renderDetailMetric('先装袋后入仓规则', focusedUsage.bagFirstRuleLabel, focusedUsage.bagFirstSatisfied ? 'text-emerald-700' : 'text-rose-700')}
         </div>
@@ -1911,6 +1989,7 @@ function renderWorkbenchSection(): string {
                 <div><span class="text-muted-foreground">当前袋内成衣件数（件）：</span><span class="font-medium text-foreground">${escapeHtml(String(currentSummary?.quantityTotal || 0))}</span></div>
                 <div><span class="text-muted-foreground">原始裁片单数：</span><span class="font-medium text-foreground">${escapeHtml(String(currentSummary?.originalCutOrderCount || 0))}</span></div>
                 <div><span class="text-muted-foreground">生产单数：</span><span class="font-medium text-foreground">${escapeHtml(String(currentSummary?.productionOrderCount || 0))}</span></div>
+                <div><span class="text-muted-foreground">同组裁片组数：</span><span class="font-medium text-foreground">${escapeHtml(String(currentSummary?.assemblyGroupCount || 0))}</span></div>
                 <div><span class="text-muted-foreground">合并裁剪批次汇总：</span><span class="font-medium text-foreground">${escapeHtml(activeUsage.mergeBatchNos.join(' / ') || '无')}</span></div>
                 <div><span class="text-muted-foreground">容量状态：</span><span class="font-medium ${capacityExceeded ? 'text-amber-700' : 'text-foreground'}">${capacityExceeded ? '已超容量' : '未超容量'}</span></div>
               </div>
@@ -1929,13 +2008,16 @@ function renderWorkbenchSection(): string {
                       <thead class="sticky top-0 z-10 bg-muted/95 text-xs uppercase tracking-wide text-muted-foreground">
                         <tr>
                           <th class="px-3 py-2 text-left">菲票码</th>
-                          <th class="px-3 py-2 text-left">款号</th>
-                          <th class="px-3 py-2 text-left">面料 SKU</th>
+                          <th class="px-3 py-2 text-left">面料卷号</th>
+                          <th class="px-3 py-2 text-left">布料颜色</th>
+                          <th class="px-3 py-2 text-left">尺码</th>
                           <th class="px-3 py-2 text-left">部位</th>
-                          <th class="px-3 py-2 text-right">成衣件数（件）</th>
+                          <th class="px-3 py-2 text-right">数量</th>
+                          <th class="px-3 py-2 text-left">扎号</th>
                           <th class="px-3 py-2 text-left">原始裁片单</th>
                           <th class="px-3 py-2 text-left">生产单</th>
                           <th class="px-3 py-2 text-left">合并裁剪批次</th>
+                          <th class="px-3 py-2 text-left">同组裁片</th>
                           <th class="px-3 py-2 text-left">菲票状态</th>
                           <th class="px-3 py-2 text-left">操作</th>
                         </tr>
@@ -1946,16 +2028,19 @@ function renderWorkbenchSection(): string {
                             (binding) => `
                               <tr class="border-b bg-card">
                                 <td class="px-3 py-2">${escapeHtml(binding.ticketNo)}</td>
-                                <td class="px-3 py-2">${escapeHtml(binding.ticket?.styleCode || activeUsage.styleCode || '待补')}</td>
-                                <td class="px-3 py-2">
-                                  <div class="font-medium text-foreground">${escapeHtml(binding.ticket?.materialSku || '待补')}</div>
-                                  <div class="text-xs text-muted-foreground">${escapeHtml(binding.ticket ? `${binding.ticket.color || '待补颜色'} / ${binding.ticket.size || '待补尺码'}` : '待补')}</div>
-                                </td>
-                                <td class="px-3 py-2">${escapeHtml(binding.ticket?.partName || '待补部位')}</td>
+                                <td class="px-3 py-2">${escapeHtml(binding.fabricRollNo || binding.ticket?.fabricRollNo || '暂无数据')}</td>
+                                <td class="px-3 py-2">${escapeHtml(binding.fabricColor || binding.ticket?.fabricColor || '暂无数据')}</td>
+                                <td class="px-3 py-2">${escapeHtml(binding.size || binding.ticket?.size || '暂无数据')}</td>
+                                <td class="px-3 py-2">${escapeHtml(binding.partName || binding.ticket?.partName || '待补部位')}</td>
                                 <td class="px-3 py-2 text-right tabular-nums">${escapeHtml(String(binding.qty))}</td>
+                                <td class="px-3 py-2">${escapeHtml(binding.bundleNo || binding.ticket?.bundleNo || '暂无数据')}</td>
                                 <td class="px-3 py-2">${escapeHtml(binding.originalCutOrderNo)}</td>
                                 <td class="px-3 py-2">${escapeHtml(binding.productionOrderNo)}</td>
                                 <td class="px-3 py-2">${escapeHtml(binding.mergeBatchNo || binding.裁剪批次No || '无')}</td>
+                                <td class="px-3 py-2">
+                                  <div class="text-xs text-foreground">${escapeHtml(formatTransferBagAssemblyText(binding))}</div>
+                                  <div class="mt-1 text-[11px] text-muted-foreground">${renderTransferBagSiblingNos(binding.siblingPartTicketNos || binding.ticket?.siblingPartTicketNos)}</div>
+                                </td>
                                 <td class="px-3 py-2">${escapeHtml(binding.ticket?.ticketStatus === 'VOIDED' ? '已作废' : '有效')}</td>
                                 <td class="px-3 py-2">
                                   ${
@@ -1973,6 +2058,16 @@ function renderWorkbenchSection(): string {
                   `, 'max-h-[28vh]')
                 : '<div class="px-3 py-8 text-center text-sm text-muted-foreground">当前使用周期暂无已绑定菲票。</div>'}
             </div>
+            ${
+              currentBindings.length
+                ? `
+                  <div class="rounded-lg border bg-card p-3">
+                    <div class="mb-3 text-sm font-medium text-foreground">同组裁片</div>
+                    ${renderTransferBagGroupedPieces(currentBindings)}
+                  </div>
+                `
+                : ''
+            }
           `
           : '<div class="rounded-lg border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">当前尚未选中使用周期。请先创建或从发出台账中选择一个使用周期。</div>'}
       </article>
@@ -2517,9 +2612,16 @@ function renderBindingSection(): string {
                   <th class="px-4 py-3 text-left">中转袋码</th>
                   <th class="px-4 py-3 text-left">使用周期号</th>
                   <th class="px-4 py-3 text-left">菲票码</th>
+                  <th class="px-4 py-3 text-left">面料卷号</th>
+                  <th class="px-4 py-3 text-left">布料颜色</th>
+                  <th class="px-4 py-3 text-left">尺码</th>
+                  <th class="px-4 py-3 text-left">裁片部位</th>
+                  <th class="px-4 py-3 text-left">数量</th>
+                  <th class="px-4 py-3 text-left">扎号</th>
                   <th class="px-4 py-3 text-left">原始裁片单号</th>
                   <th class="px-4 py-3 text-left">生产单号</th>
                   <th class="px-4 py-3 text-left">合并裁剪批次号</th>
+                  <th class="px-4 py-3 text-left">同组裁片</th>
                   <th class="px-4 py-3 text-left">绑定时间</th>
                   <th class="px-4 py-3 text-left">绑定人</th>
                   <th class="px-4 py-3 text-left">备注</th>
@@ -2533,9 +2635,19 @@ function renderBindingSection(): string {
                         <td class="px-4 py-3">${escapeHtml(item.bagCode)}</td>
                         <td class="px-4 py-3">${escapeHtml(item.usage?.usageNo || '待补')}</td>
                         <td class="px-4 py-3">${escapeHtml(item.ticketNo)}</td>
+                        <td class="px-4 py-3">${escapeHtml(item.fabricRollNo || item.ticket?.fabricRollNo || '暂无数据')}</td>
+                        <td class="px-4 py-3">${escapeHtml(item.fabricColor || item.ticket?.fabricColor || '暂无数据')}</td>
+                        <td class="px-4 py-3">${escapeHtml(item.size || item.ticket?.size || '暂无数据')}</td>
+                        <td class="px-4 py-3">${escapeHtml(item.partName || item.ticket?.partName || '暂无数据')}</td>
+                        <td class="px-4 py-3">${escapeHtml(String(item.garmentQty || item.qty || 0))}</td>
+                        <td class="px-4 py-3">${escapeHtml(item.bundleNo || item.ticket?.bundleNo || '暂无数据')}</td>
                         <td class="px-4 py-3">${escapeHtml(item.originalCutOrderNo)}</td>
                         <td class="px-4 py-3">${escapeHtml(item.productionOrderNo)}</td>
                         <td class="px-4 py-3">${escapeHtml(item.mergeBatchNo || item.裁剪批次No || '无')}</td>
+                        <td class="px-4 py-3">
+                          <div class="text-xs text-foreground">${escapeHtml(formatTransferBagAssemblyText(item))}</div>
+                          <div class="mt-1 text-[11px] text-muted-foreground">${renderTransferBagSiblingNos(item.siblingPartTicketNos || item.ticket?.siblingPartTicketNos)}</div>
+                        </td>
                         <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(formatDateTime(item.boundAt))}</td>
                         <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(item.boundBy)}</td>
                         <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(item.note || '无')}</td>
@@ -3009,6 +3121,7 @@ function renderBaggingReviewStepCard(
             ${renderDetailMetric('已绑菲票数', String(currentSummary.ticketCount))}
             ${renderDetailMetric('来源原始裁片单数', String(currentSummary.originalCutOrderCount))}
             ${renderDetailMetric('来源生产单数', String(currentSummary.productionOrderCount))}
+            ${renderDetailMetric('同组裁片组数', String(currentSummary.assemblyGroupCount))}
             ${renderDetailMetric('当前款号', focusedUsage.styleCode || '待锁定')}
             ${renderDetailMetric('容量状态', capacityExceeded ? '已超容量' : '容量正常', capacityExceeded ? 'text-amber-700' : 'text-foreground')}
           </div>
@@ -3020,11 +3133,14 @@ function renderBaggingReviewStepCard(
                       <thead class="sticky top-0 z-10 bg-muted/95 text-xs uppercase tracking-wide text-muted-foreground">
                         <tr>
                           <th class="px-3 py-2 text-left">菲票码</th>
-                          <th class="px-3 py-2 text-left">款号</th>
-                          <th class="px-3 py-2 text-left">面料 SKU</th>
+                          <th class="px-3 py-2 text-left">面料卷号</th>
+                          <th class="px-3 py-2 text-left">布料颜色</th>
+                          <th class="px-3 py-2 text-left">尺码</th>
                           <th class="px-3 py-2 text-left">部位</th>
-                          <th class="px-3 py-2 text-right">成衣件数（件）</th>
+                          <th class="px-3 py-2 text-right">数量</th>
+                          <th class="px-3 py-2 text-left">扎号</th>
                           <th class="px-3 py-2 text-left">原始裁片单</th>
+                          <th class="px-3 py-2 text-left">同组裁片</th>
                           <th class="px-3 py-2 text-left">状态</th>
                           <th class="px-3 py-2 text-left">操作</th>
                         </tr>
@@ -3035,11 +3151,17 @@ function renderBaggingReviewStepCard(
                             (binding) => `
                               <tr class="border-b bg-card">
                                 <td class="px-3 py-2 font-medium text-foreground">${escapeHtml(binding.ticketNo)}</td>
-                                <td class="px-3 py-2">${escapeHtml(binding.ticket?.styleCode || focusedUsage.styleCode || '待补')}</td>
-                                <td class="px-3 py-2">${escapeHtml(binding.ticket?.materialSku || '待补')}</td>
-                                <td class="px-3 py-2">${escapeHtml(binding.ticket?.partName || '待补')}</td>
+                                <td class="px-3 py-2">${escapeHtml(binding.fabricRollNo || binding.ticket?.fabricRollNo || '暂无数据')}</td>
+                                <td class="px-3 py-2">${escapeHtml(binding.fabricColor || binding.ticket?.fabricColor || '暂无数据')}</td>
+                                <td class="px-3 py-2">${escapeHtml(binding.size || binding.ticket?.size || '暂无数据')}</td>
+                                <td class="px-3 py-2">${escapeHtml(binding.partName || binding.ticket?.partName || '暂无数据')}</td>
                                 <td class="px-3 py-2 text-right tabular-nums">${escapeHtml(String(binding.qty))}</td>
+                                <td class="px-3 py-2">${escapeHtml(binding.bundleNo || binding.ticket?.bundleNo || '暂无数据')}</td>
                                 <td class="px-3 py-2">${escapeHtml(binding.originalCutOrderNo || '—')}</td>
+                                <td class="px-3 py-2">
+                                  <div class="text-xs text-foreground">${escapeHtml(formatTransferBagAssemblyText(binding))}</div>
+                                  <div class="mt-1 text-[11px] text-muted-foreground">${renderTransferBagSiblingNos(binding.siblingPartTicketNos || binding.ticket?.siblingPartTicketNos)}</div>
+                                </td>
                                 <td class="px-3 py-2">${escapeHtml(binding.ticket?.ticketStatus === 'VOIDED' ? '已作废' : '有效')}</td>
                                 <td class="px-3 py-2">
                                   ${
@@ -3063,6 +3185,16 @@ function renderBaggingReviewStepCard(
             ${currentBindings.length ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="print-manifest" data-usage-id="${escapeHtml(focusedUsage.usageId)}">打印装袋清单</button>` : ''}
             ${currentBindings.length && ['DRAFT', 'PACKING'].includes(focusedUsage.usageStatus) ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="mark-ready" data-usage-id="${escapeHtml(focusedUsage.usageId)}">完成装袋</button>` : ''}
           </div>
+          ${
+            currentBindings.length
+              ? `
+                <div class="space-y-2 rounded-lg border bg-card p-3">
+                  <div class="text-sm font-medium text-foreground">同组裁片</div>
+                  ${renderTransferBagGroupedPieces(currentBindings)}
+                </div>
+              `
+              : ''
+          }
           ${currentBindings.length
             ? ''
             : '<div class="text-sm text-muted-foreground">当前还没有装入菲票，暂不能完成装袋。</div>'}

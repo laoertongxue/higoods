@@ -114,7 +114,7 @@ export function deriveSpecialProcessTypeExecutionMeta(processType: SpecialProces
     integrationLevel: 'PLACEHOLDER',
     readinessLabel: '预留类型',
     integrationLabel: '暂未接入执行链',
-    disabledReason: '洗水工艺当前仅保留结构占位，暂不进入裁片执行链。',
+    disabledReason: '洗水工艺当前仅保留结构预留，暂不进入裁片执行链。',
   }
 }
 

@@ -2,7 +2,10 @@ import {
   productionOrders,
   type ProductionOrder,
 } from '../production-orders.ts'
-import { getProductionOrderCompatTechPack } from '../production-order-tech-pack-runtime.ts'
+import {
+  getProductionOrderCompatTechPack,
+  getProductionOrderCutPieceParts,
+} from '../production-order-tech-pack-runtime.ts'
 import type { TechPack, TechPackBomItem, TechPackColorMaterialMappingLine } from '../tech-packs.ts'
 import type { CuttingMaterialType } from './types.ts'
 
@@ -148,6 +151,22 @@ function buildMockSt081OriginalCutOrders(order: ProductionOrder): GeneratedOrigi
   const skuScopeLines = buildSkuScopeLines(order)
   const totalQty = skuScopeLines.reduce((sum, item) => sum + item.plannedQty, 0)
   const colorScope = unique(skuScopeLines.map((line) => line.color).filter(Boolean))
+  const cutPieceParts = getProductionOrderCutPieceParts(order.productionOrderId)
+  const buildResolvedPieceRows = (materialSku: string, fallbackRows: GeneratedOriginalCutOrderPieceRow[]): GeneratedOriginalCutOrderPieceRow[] => {
+    const matchedRows = cutPieceParts
+      .filter((item) => !item.materialSku || item.materialSku === materialSku)
+      .map((item) => ({
+        partCode: item.partCode,
+        partName: item.partNameCn,
+        pieceCountPerUnit: item.pieceCountPerGarment,
+        patternId: item.partCode,
+        patternName: item.partNameCn,
+        applicableSkuCodes: skuScopeLines.map((line) => line.skuCode),
+      }))
+      .filter((item) => item.partName && item.pieceCountPerUnit > 0)
+
+    return matchedRows.length ? matchedRows : fallbackRows
+  }
   const materials: Array<{
     materialSku: string
     materialType: CuttingMaterialType
@@ -158,7 +177,7 @@ function buildMockSt081OriginalCutOrders(order: ProductionOrder): GeneratedOrigi
       materialSku: 'FAB-SKU-PRINT-001',
       materialType: 'PRINT',
       materialLabel: '主布面料',
-      pieceRows: [
+      pieceRows: buildResolvedPieceRows('FAB-SKU-PRINT-001', [
         {
           partCode: 'tee-front',
           partName: '前片',
@@ -175,7 +194,15 @@ function buildMockSt081OriginalCutOrders(order: ProductionOrder): GeneratedOrigi
           patternName: 'T 恤后片',
           applicableSkuCodes: skuScopeLines.map((line) => line.skuCode),
         },
-      ],
+        {
+          partCode: 'tee-sleeve',
+          partName: '袖子',
+          pieceCountPerUnit: 2,
+          patternId: 'tee-sleeve',
+          patternName: 'T 恤袖子',
+          applicableSkuCodes: skuScopeLines.map((line) => line.skuCode),
+        },
+      ]),
     },
     {
       materialSku: 'FAB-SKU-LINING-001',

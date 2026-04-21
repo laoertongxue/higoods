@@ -651,6 +651,12 @@ const FACTORY_CALENDAR_WINDOW_OPTIONS: FactoryCalendarWindowOption[] = [
   { value: 15, label: '未来 15 天' },
   { value: 30, label: '未来 30 天' },
 ]
+const POST_CAPACITY_NODE_LABELS: Record<string, string> = {
+  BUTTONHOLE: '开扣眼',
+  BUTTON_ATTACH: '装扣子',
+  IRONING: '熨烫',
+  PACKAGING: '包装',
+}
 const TASK_RISK_CONCLUSION_OPTIONS: CapacityRiskFilterOption[] = [
   { value: '', label: '全部风险结论' },
   { value: 'CAPABLE', label: TASK_SAM_RISK_CONCLUSION_LABEL.CAPABLE },
@@ -759,17 +765,29 @@ function pickFirstValidDate(
   return null
 }
 
+function normalizeTaskDemandIdentity(identity: TaskDemandIdentity): TaskDemandIdentity {
+  const postNodeName = POST_CAPACITY_NODE_LABELS[identity.processCode]
+  if (!postNodeName) return identity
+
+  return {
+    processCode: 'POST_FINISHING',
+    processName: '后道',
+    craftCode: identity.processCode,
+    craftName: postNodeName,
+  }
+}
+
 function buildDemandIdentity(task: RuntimeProcessTask): TaskDemandIdentity {
   const processCode = task.processBusinessCode ?? task.processCode
   const processName = task.processBusinessName ?? task.processNameZh ?? processCode
   const craftCode = task.craftCode ?? processCode
   const craftName = task.craftName ?? processName
-  return {
+  return normalizeTaskDemandIdentity({
     processCode,
     processName,
     craftCode,
     craftName,
-  }
+  })
 }
 
 function buildDemandKey(input: {
@@ -848,21 +866,21 @@ function resolveUsageIdentity(
   const task = taskMap.get(input.taskId)
   if (task) {
     const identity = buildDemandIdentity(task)
-    return {
+    return normalizeTaskDemandIdentity({
       processCode: input.processCode,
       processName: identity.processName,
       craftCode: input.craftCode,
       craftName: identity.craftName,
-    }
+    })
   }
 
   const label = displayLabels.get(`${input.processCode}::${input.craftCode}`)
-  return {
+  return normalizeTaskDemandIdentity({
     processCode: input.processCode,
     processName: label?.processName ?? input.processCode,
     craftCode: input.craftCode,
     craftName: label?.craftName ?? input.craftCode,
-  }
+  })
 }
 
 function appendUnique(items: string[], value: string): string[] {
@@ -1985,12 +2003,12 @@ export function buildFactoryCalendarData(input?: {
 
   if (selectedFactoryId) {
     for (const { row, entry } of listFactoryCapacityEntries(selectedFactoryId)) {
-      const identity: TaskDemandIdentity = {
+      const identity = normalizeTaskDemandIdentity({
         processCode: row.processCode,
         processName: row.processName,
         craftCode: row.craftCode,
         craftName: row.craftName,
-      }
+      })
       registerIdentity(identity)
       const dailySupplySam = roundSam(Math.max(computeFactoryCapacityEntryResult(row, entry.values).resultValue ?? 0, 0))
 
@@ -2503,12 +2521,12 @@ export function buildCapacityBottleneckData(input?: {
 
   for (const factory of factories) {
     for (const { row, entry } of listFactoryCapacityEntries(factory.id)) {
-      const identity: TaskDemandIdentity = {
+      const identity = normalizeTaskDemandIdentity({
         processCode: row.processCode,
         processName: row.processName,
         craftCode: row.craftCode,
         craftName: row.craftName,
-      }
+      })
       registerIdentity(identity)
       const dailySupplySam = roundSam(Math.max(computeFactoryCapacityEntryResult(row, entry.values).resultValue ?? 0, 0))
       for (const date of dates) {

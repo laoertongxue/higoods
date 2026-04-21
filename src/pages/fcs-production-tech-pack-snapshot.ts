@@ -4,11 +4,13 @@ import { productionOrders } from '../data/fcs/production-orders.ts'
 import {
   getProductionOrderAttachments,
   getProductionOrderBomItems,
+  getProductionOrderCutPieceParts,
   getProductionOrderColorMaterialMappings,
   getProductionOrderPatternDesigns,
   getProductionOrderPatternFiles,
   getProductionOrderProcessEntries,
   getProductionOrderQualityRules,
+  getProductionOrderSizeMeasurements,
   getProductionOrderSizeTable,
   getProductionOrderTechPackSnapshot,
 } from '../data/fcs/production-order-tech-pack-runtime.ts'
@@ -49,38 +51,156 @@ function renderEmptyState(text: string): string {
   return `<div class="rounded-lg border border-dashed bg-muted/10 px-4 py-8 text-center text-sm text-muted-foreground">${escapeHtml(text)}</div>`
 }
 
+function renderTextValue(value: string | number | undefined | null): string {
+  const normalized = String(value ?? '').trim()
+  return normalized ? escapeHtml(normalized) : '暂无数据'
+}
+
+function renderYesNo(value: boolean): string {
+  return value ? '需要' : '不需要'
+}
+
+function isAllowedLocalImage(url: string | undefined | null): url is string {
+  const normalized = String(url || '').trim()
+  if (!normalized || normalized === '#') return false
+  if (normalized.startsWith('http://') || normalized.startsWith('https://')) return false
+  return !['/placeholder.svg', 'picsum', 'unsplash', 'dummyimage', 'loremflickr'].some((marker) =>
+    normalized.includes(marker),
+  )
+}
+
 function renderPatternTab(productionOrderId: string): string {
   const rows = getProductionOrderPatternFiles(productionOrderId)
-  if (rows.length === 0) return renderEmptyState('当前快照未冻结纸样内容。')
+  const cutPieceParts = getProductionOrderCutPieceParts(productionOrderId)
+  const sizeMeasurements = getProductionOrderSizeMeasurements(productionOrderId)
+
+  if (rows.length === 0 && cutPieceParts.length === 0) return renderEmptyState('当前快照未冻结纸样内容。')
 
   return `
-    <div class="overflow-x-auto rounded-lg border">
-      <table class="w-full text-sm">
-        <thead class="border-b bg-muted/20 text-xs text-muted-foreground">
-          <tr>
-            <th class="px-3 py-2 text-left font-medium">纸样文件</th>
-            <th class="px-3 py-2 text-left font-medium">关联物料</th>
-            <th class="px-3 py-2 text-left font-medium">总裁片数</th>
-            <th class="px-3 py-2 text-left font-medium">冻结时间</th>
-            <th class="px-3 py-2 text-left font-medium">冻结人</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows
-            .map(
-              (row) => `
-                <tr class="border-b last:border-0">
-                  <td class="px-3 py-2">${escapeHtml(row.fileName)}</td>
-                  <td class="px-3 py-2">${escapeHtml(row.linkedBomItemId || '-')}</td>
-                  <td class="px-3 py-2">${escapeHtml(String(row.totalPieceCount || 0))}</td>
-                  <td class="px-3 py-2">${escapeHtml(row.uploadedAt || '-')}</td>
-                  <td class="px-3 py-2">${escapeHtml(row.uploadedBy || '-')}</td>
-                </tr>
-              `,
-            )
-            .join('')}
-        </tbody>
-      </table>
+    <div class="space-y-4">
+      <div class="overflow-x-auto rounded-lg border">
+        <table class="w-full min-w-[1100px] text-sm">
+          <thead class="border-b bg-muted/20 text-xs text-muted-foreground">
+            <tr>
+              <th class="px-3 py-2 text-left font-medium">纸样类型</th>
+              <th class="px-3 py-2 text-left font-medium">纸样文件</th>
+              <th class="px-3 py-2 text-left font-medium">纸样版本</th>
+              <th class="px-3 py-2 text-left font-medium">打版软件</th>
+              <th class="px-3 py-2 text-left font-medium">尺码范围</th>
+              <th class="px-3 py-2 text-left font-medium">关联物料</th>
+              <th class="px-3 py-2 text-right font-medium">总裁片数</th>
+              <th class="px-3 py-2 text-left font-medium">冻结时间</th>
+              <th class="px-3 py-2 text-left font-medium">冻结人</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${
+              rows.length === 0
+                ? `
+                  <tr>
+                    <td colspan="9" class="px-3 py-6 text-center text-sm text-muted-foreground">暂无数据</td>
+                  </tr>
+                `
+                : rows
+                    .map(
+                      (row) => `
+                        <tr class="border-b last:border-0">
+                          <td class="px-3 py-2">${escapeHtml(row.patternMaterialTypeLabel)}</td>
+                          <td class="px-3 py-2">${renderTextValue(row.patternFileName)}</td>
+                          <td class="px-3 py-2">${renderTextValue(row.patternVersion)}</td>
+                          <td class="px-3 py-2">${renderTextValue(row.patternSoftwareName)}</td>
+                          <td class="px-3 py-2">${renderTextValue(row.sizeRange)}</td>
+                          <td class="px-3 py-2">${renderTextValue(row.linkedBomItemId)}</td>
+                          <td class="px-3 py-2 text-right">${renderTextValue(row.totalPieceCount)}</td>
+                          <td class="px-3 py-2">${renderTextValue(row.uploadedAt)}</td>
+                          <td class="px-3 py-2">${renderTextValue(row.uploadedBy)}</td>
+                        </tr>
+                      `,
+                    )
+                    .join('')
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div>
+        <h4 class="mb-2 text-sm font-medium text-foreground">裁片部位</h4>
+      </div>
+      <div class="overflow-x-auto rounded-lg border">
+        <table class="w-full min-w-[920px] text-sm">
+          <thead class="border-b bg-muted/20 text-xs text-muted-foreground">
+            <tr>
+              <th class="px-3 py-2 text-left font-medium">部位名称</th>
+              <th class="px-3 py-2 text-right font-medium">每件用片数</th>
+              <th class="px-3 py-2 text-left font-medium">对应面料</th>
+              <th class="px-3 py-2 text-left font-medium">适用颜色</th>
+              <th class="px-3 py-2 text-left font-medium">适用尺码</th>
+              <th class="px-3 py-2 text-left font-medium">人工确认</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${
+              cutPieceParts.length === 0
+                ? `
+                  <tr>
+                    <td colspan="6" class="px-3 py-6 text-center text-sm text-muted-foreground">暂无数据</td>
+                  </tr>
+                `
+                : cutPieceParts
+                    .map(
+                      (row) => `
+                        <tr class="border-b last:border-0">
+                          <td class="px-3 py-2 font-medium">${escapeHtml(row.partNameCn)}</td>
+                          <td class="px-3 py-2 text-right">${escapeHtml(String(row.pieceCountPerGarment))}</td>
+                          <td class="px-3 py-2">${renderTextValue(row.materialName || row.materialSku)}</td>
+                          <td class="px-3 py-2">${row.applicableColorList.length ? escapeHtml(row.applicableColorList.join('、')) : '暂无数据'}</td>
+                          <td class="px-3 py-2">${row.applicableSizeList.length ? escapeHtml(row.applicableSizeList.join('、')) : '暂无数据'}</td>
+                          <td class="px-3 py-2">${escapeHtml(renderYesNo(row.manualConfirmRequired))}</td>
+                        </tr>
+                      `,
+                    )
+                    .join('')
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="overflow-x-auto rounded-lg border">
+        <table class="w-full min-w-[720px] text-sm">
+          <thead class="border-b bg-muted/20 text-xs text-muted-foreground">
+            <tr>
+              <th class="px-3 py-2 text-left font-medium">尺寸表</th>
+              <th class="px-3 py-2 text-left font-medium">尺码</th>
+              <th class="px-3 py-2 text-right font-medium">尺寸值</th>
+              <th class="px-3 py-2 text-left font-medium">单位</th>
+              <th class="px-3 py-2 text-right font-medium">公差</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${
+              sizeMeasurements.length === 0
+                ? `
+                  <tr>
+                    <td colspan="5" class="px-3 py-6 text-center text-sm text-muted-foreground">暂无数据</td>
+                  </tr>
+                `
+                : sizeMeasurements
+                    .map(
+                      (row) => `
+                        <tr class="border-b last:border-0">
+                          <td class="px-3 py-2">${escapeHtml(row.measurementPart)}</td>
+                          <td class="px-3 py-2">${escapeHtml(row.sizeCode)}</td>
+                          <td class="px-3 py-2 text-right">${renderTextValue(row.measurementValue)}</td>
+                          <td class="px-3 py-2">${renderTextValue(row.measurementUnit)}</td>
+                          <td class="px-3 py-2 text-right">${renderTextValue(row.tolerance)}</td>
+                        </tr>
+                      `,
+                    )
+                    .join('')
+            }
+          </tbody>
+        </table>
+      </div>
     </div>
   `
 }
@@ -278,7 +398,11 @@ function renderDesignTab(productionOrderId: string): string {
           (row) => `
             <section class="rounded-lg border bg-card p-4">
               <p class="text-sm font-medium">${escapeHtml(row.name)}</p>
-              <p class="mt-2 text-xs text-muted-foreground">${escapeHtml(row.imageUrl || '-')}</p>
+              ${
+                isAllowedLocalImage(row.imageUrl)
+                  ? `<img src="${escapeHtml(row.imageUrl)}" alt="${escapeHtml(row.name)}" class="mt-3 h-40 w-full rounded-lg border object-cover" />`
+                  : '<div class="mt-3 rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">暂无图片</div>'
+              }
             </section>
           `,
         )

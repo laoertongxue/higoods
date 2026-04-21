@@ -2131,7 +2131,7 @@ function renderStatementDrawer(): string {
         `,
       )}
       ${renderStatementDetailSection(
-        '后续预付款占位信息',
+        '后续预付款信息',
         `
           ${renderRow('当前阶段', progress.summary)}
           ${renderRow('是否可进入预付款', progress.canEnterSettlement ? '可进入预付款批次' : '暂不可进入预付款批次')}

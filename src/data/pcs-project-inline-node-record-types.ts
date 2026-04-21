@@ -133,6 +133,13 @@ export interface FeasibilityReviewDetailSnapshot {
 export interface SampleShootFitPayload {
   shootPlan: string
   fitFeedback: string
+  sampleFlatImageIds: string[]
+  sampleTryOnImageIds: string[]
+  sampleDetailImageIds: string[]
+  sampleVideoUrls: string[]
+  shootImageNote: string
+  listingCandidateImageIds: string[]
+  styleArchiveCandidateImageIds: string[]
 }
 
 export interface SampleShootFitDetailSnapshot {

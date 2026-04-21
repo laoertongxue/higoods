@@ -13,6 +13,9 @@ import {
 import type { ClaimDisputeRecord } from '../../../models/fcs-claim-dispute.ts'
 import { getLatestClaimDisputeByOriginalCutOrderNo, listClaimDisputesByOriginalCutOrderNo } from '../../../state/fcs-claim-dispute-store.ts'
 import {
+  buildCutOrderQrValue,
+} from '../../../data/fcs/cutting/qr-codes.ts'
+import {
   listPdaPickupWritebacks,
   type PdaPickupWritebackRecord,
 } from '../../../data/fcs/cutting/pda-execution-writeback-ledger.ts'
@@ -82,18 +85,19 @@ export interface MaterialPrepLineItem {
   materialName: string
   materialCategory: string
   materialAttr: string
+  materialTypeName: '印花面料' | '染色面料' | '纯色面料' | '里布'
   requiredQty: number
   configuredQty: number
   claimedQty: number
   shortageQty: number
   configuredRollCount: number
   claimedRollCount: number
+  sourceType?: 'PRINT_REVIEW' | 'DYE_REVIEW' | 'MANUAL' | 'REPLENISHMENT_PENDING_PREP'
   linePrepStatus: MaterialPrepSummaryMeta<CuttingConfigStatus>
   lineClaimStatus: MaterialPrepSummaryMeta<MaterialPrepClaimAggregateKey>
   hasClaimException: boolean
   note: string
   latestActionText: string
-  sourceType?: 'NORMAL_PREP' | 'REPLENISHMENT_PENDING_PREP'
   sourceLabel?: string
   replenishmentPendingPrepQty?: number
   sourceReplenishmentRequestId?: string
@@ -125,6 +129,7 @@ export interface MaterialPrepRow {
   urgencyLabel: string
   urgencyClassName: string
   sameCodeValue: string
+  cutOrderQrValue: string
   qrCodeValue: string
   qrCodeLabel: string
   shouldDisplayQr: boolean
@@ -215,6 +220,7 @@ export interface IssueListPrintPayload {
   printTime: string
   originalCutOrderNo: string
   sameCodeValue: string
+  cutOrderQrValue: string
   qrCodeValue: string
   qrCodeLabel: string
   shouldPrintQr: boolean
@@ -225,7 +231,10 @@ export interface IssueListPrintPayload {
   styleName: string
   materialLineItems: Array<{
     materialSku: string
+    materialTypeName: string
     materialCategory: string
+    configuredRollCount: number
+    claimedRollCount: number
     requiredQty: number
     configuredQty: number
     claimedQty: number
@@ -242,8 +251,8 @@ export const materialPrepMeta: Record<CuttingConfigStatus, { label: string; clas
 export const materialClaimMeta: Record<MaterialPrepClaimAggregateKey, { label: string; className: string }> = {
   NOT_RECEIVED: { label: '待领料', className: 'bg-slate-100 text-slate-700' },
   PARTIAL: { label: '部分领取', className: 'bg-orange-100 text-orange-700' },
-  RECEIVED: { label: '领料成功', className: 'bg-emerald-100 text-emerald-700' },
-  EXCEPTION: { label: '领料不齐', className: 'bg-rose-100 text-rose-700' },
+  RECEIVED: { label: '已领料', className: 'bg-emerald-100 text-emerald-700' },
+  EXCEPTION: { label: '异常提交', className: 'bg-rose-100 text-rose-700' },
 }
 
 export const materialSchedulingMeta: Record<MaterialPrepSchedulingKey, { label: string; className: string }> = {
@@ -291,6 +300,13 @@ function materialCategoryLabel(line: CuttingMaterialLine): string {
   return '主料'
 }
 
+function materialTypeName(line: CuttingMaterialLine): '印花面料' | '染色面料' | '纯色面料' | '里布' {
+  if (line.materialType === 'PRINT') return '印花面料'
+  if (line.materialType === 'DYE') return '染色面料'
+  if (line.materialType === 'LINING') return '里布'
+  return '纯色面料'
+}
+
 function inferRequiredQty(line: CuttingMaterialLine): number {
   const baseline = Math.max(line.configuredLength, line.receivedLength, 60)
   if (line.configStatus === 'CONFIGURED' && line.receiveStatus === 'RECEIVED') return baseline
@@ -335,7 +351,7 @@ export function deriveMaterialPrepStatus(lineItems: MaterialPrepLineItem[]): Mat
 
 export function deriveMaterialClaimStatus(lineItems: MaterialPrepLineItem[]): MaterialPrepSummaryMeta<MaterialPrepClaimAggregateKey> {
   if (lineItems.some((item) => item.hasClaimException)) {
-    return buildSummaryMeta('EXCEPTION', materialClaimMeta.EXCEPTION.label, materialClaimMeta.EXCEPTION.className, '当前存在领料不齐 / 差异，需仓库复核。')
+    return buildSummaryMeta('EXCEPTION', materialClaimMeta.EXCEPTION.label, materialClaimMeta.EXCEPTION.className, '当前存在领料差异，待仓库复核。')
   }
 
   const total = lineItems.length
@@ -365,7 +381,7 @@ export function buildSameCodeValue(originalCutOrderNo: string): string {
 }
 
 function buildQrCodeValue(originalCutOrderNo: string): string {
-  return `QR-${originalCutOrderNo}`
+  return buildCutOrderQrValue(originalCutOrderNo)
 }
 
 function deriveCurrentStage(
@@ -412,7 +428,7 @@ function buildInitialClaimRecords(
       result,
       summary:
         result === 'SUCCESS'
-          ? `已回写 ${formatQty(lineItem.claimedQty)} 米领料结果。`
+          ? `已回写 ${formatQty(lineItem.claimedQty)} 米。`
           : result === 'PARTIAL'
             ? `已回写部分领料 ${formatQty(lineItem.claimedQty)} 米。`
             : '领料存在差异，待仓库复核。',
@@ -434,7 +450,7 @@ function buildPdaPickupClaimSummary(record: PdaPickupWritebackRecord): string {
   if (!isPickupWritebackSuccess(record.resultLabel)) {
     return `${record.resultLabel}：${record.discrepancyNote || '待仓库复核'}`
   }
-  return `PDA 已回写 ${record.actualReceivedQtyText || '领料结果'}。`
+  return `已回写 ${record.actualReceivedQtyText || '领料结果'}。`
 }
 
 function applyPdaPickupWritebacksToRow(
@@ -493,12 +509,19 @@ function buildLineItem(record: CuttingOrderProgressRecord, line: CuttingMaterial
       materialName: line.materialLabel,
       materialCategory: materialCategoryLabel(line),
       materialAttr: line.color || '待补',
+      materialTypeName: materialTypeName(line),
       requiredQty,
       configuredQty,
       claimedQty,
       shortageQty: Math.max(requiredQty - claimedQty, 0),
       configuredRollCount: line.configuredRollCount,
       claimedRollCount: line.receivedRollCount,
+      sourceType:
+        line.materialType === 'PRINT'
+          ? 'PRINT_REVIEW'
+          : line.materialType === 'DYE'
+            ? 'DYE_REVIEW'
+            : 'MANUAL',
       linePrepStatus: buildSummaryMeta('NOT_CONFIGURED', '', '', ''),
       lineClaimStatus: buildSummaryMeta('NOT_RECEIVED', '', '', ''),
       hasClaimException,
@@ -514,12 +537,19 @@ function buildLineItem(record: CuttingOrderProgressRecord, line: CuttingMaterial
       materialName: line.materialLabel,
       materialCategory: materialCategoryLabel(line),
       materialAttr: line.color || '待补',
+      materialTypeName: materialTypeName(line),
       requiredQty,
       configuredQty,
       claimedQty,
       shortageQty: Math.max(requiredQty - claimedQty, 0),
       configuredRollCount: line.configuredRollCount,
       claimedRollCount: line.receivedRollCount,
+      sourceType:
+        line.materialType === 'PRINT'
+          ? 'PRINT_REVIEW'
+          : line.materialType === 'DYE'
+            ? 'DYE_REVIEW'
+            : 'MANUAL',
       linePrepStatus,
       lineClaimStatus: buildSummaryMeta('NOT_RECEIVED', '', '', ''),
       hasClaimException,
@@ -534,12 +564,19 @@ function buildLineItem(record: CuttingOrderProgressRecord, line: CuttingMaterial
     materialName: line.materialLabel,
     materialCategory: materialCategoryLabel(line),
     materialAttr: line.color || '待补',
+    materialTypeName: materialTypeName(line),
     requiredQty,
     configuredQty,
     claimedQty,
     shortageQty: Math.max(requiredQty - claimedQty, 0),
     configuredRollCount: line.configuredRollCount,
     claimedRollCount: line.receivedRollCount,
+    sourceType:
+      line.materialType === 'PRINT'
+        ? 'PRINT_REVIEW'
+        : line.materialType === 'DYE'
+          ? 'DYE_REVIEW'
+          : 'MANUAL',
     linePrepStatus,
     lineClaimStatus,
     hasClaimException,
@@ -665,8 +702,9 @@ function createRow(
     urgencyLabel: urgency.label,
     urgencyClassName: urgency.className,
     sameCodeValue: buildSameCodeValue(originalCutOrderNo),
+    cutOrderQrValue: buildQrCodeValue(originalCutOrderNo),
     qrCodeValue: buildQrCodeValue(originalCutOrderNo),
-    qrCodeLabel: '裁片单主码',
+    qrCodeLabel: '裁片单二维码',
     shouldDisplayQr: false,
     shouldDisplayQrLabel: false,
     canViewQr: false,
@@ -747,12 +785,26 @@ function applyPendingPrepFollowupsToRow(
     row.replenishmentPendingPrepSummary = '当前无补料待配料'
     row.hasReplenishmentPendingPrep = false
     row.materialLineItems = row.materialLineItems.map((item) => ({
-      ...item,
-      sourceType: item.sourceType === 'REPLENISHMENT_PENDING_PREP' ? 'NORMAL_PREP' : item.sourceType,
-      sourceLabel: item.sourceType === 'REPLENISHMENT_PENDING_PREP' ? '正常配料' : item.sourceLabel || '正常配料',
-      replenishmentPendingPrepQty: 0,
-      sourceReplenishmentRequestId: '',
-      sourceSpreadingSessionId: '',
+        ...item,
+        sourceType:
+          item.sourceType === 'REPLENISHMENT_PENDING_PREP'
+            ? item.materialTypeName === '印花面料'
+              ? 'PRINT_REVIEW'
+              : item.materialTypeName === '染色面料'
+                ? 'DYE_REVIEW'
+                : 'MANUAL'
+            : item.sourceType,
+        sourceLabel:
+          item.sourceType === 'REPLENISHMENT_PENDING_PREP'
+            ? item.materialTypeName === '印花面料'
+              ? '印花审核通过'
+              : item.materialTypeName === '染色面料'
+                ? '染色审核通过'
+                : '手动配置'
+            : item.sourceLabel || '手动配置',
+        replenishmentPendingPrepQty: 0,
+        sourceReplenishmentRequestId: '',
+        sourceSpreadingSessionId: '',
     }))
     return row
   }
@@ -774,8 +826,18 @@ function applyPendingPrepFollowupsToRow(
     if (!pendingItem) {
       return {
         ...item,
-        sourceType: 'NORMAL_PREP',
-        sourceLabel: '正常配料',
+        sourceType:
+          item.materialTypeName === '印花面料'
+            ? 'PRINT_REVIEW'
+            : item.materialTypeName === '染色面料'
+              ? 'DYE_REVIEW'
+              : 'MANUAL',
+        sourceLabel:
+          item.materialTypeName === '印花面料'
+            ? '印花审核通过'
+            : item.materialTypeName === '染色面料'
+              ? '染色审核通过'
+              : '手动配置',
       }
     }
     return {
@@ -1001,10 +1063,11 @@ export function findMaterialPrepRowByPrefilter(
 
 export function buildIssueListPrintPayload(row: MaterialPrepRow): IssueListPrintPayload {
   return {
-    title: '发料清单',
+    title: '配料单',
     printTime: new Date().toLocaleString('zh-CN', { hour12: false }),
     originalCutOrderNo: row.originalCutOrderNo,
     sameCodeValue: row.sameCodeValue,
+    cutOrderQrValue: row.cutOrderQrValue,
     qrCodeValue: row.qrCodeValue,
     qrCodeLabel: row.qrCodeLabel,
     shouldPrintQr: row.shouldPrintQr,
@@ -1015,7 +1078,10 @@ export function buildIssueListPrintPayload(row: MaterialPrepRow): IssueListPrint
     styleName: row.styleName,
     materialLineItems: row.materialLineItems.map((item) => ({
       materialSku: item.materialSku,
+      materialTypeName: item.materialTypeName,
       materialCategory: item.materialCategory,
+      configuredRollCount: item.configuredRollCount,
+      claimedRollCount: item.claimedRollCount,
       requiredQty: item.requiredQty,
       configuredQty: item.configuredQty,
       claimedQty: item.claimedQty,

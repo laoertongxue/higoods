@@ -266,7 +266,7 @@ export const replenishmentSourceMeta: Record<ReplenishmentSourceType, { label: s
   'original-order': { label: '原始裁片单', className: 'bg-slate-100 text-slate-700' },
   'merge-batch': { label: '合并裁剪批次', className: 'bg-violet-100 text-violet-700' },
   'spreading-session': { label: '铺布记录', className: 'bg-sky-100 text-sky-700' },
-  'pda-feedback': { label: 'PDA 补料反馈', className: 'bg-amber-100 text-amber-700' },
+  'pda-feedback': { label: '现场补料反馈', className: 'bg-amber-100 text-amber-700' },
 }
 
 export const replenishmentStatusMetaMap: Record<ReplenishmentStatusKey, ReplenishmentStatusMeta> = {
@@ -841,7 +841,7 @@ function buildBlockingSummary(row: {
 
 function buildPdaFeedbackSummary(record: PdaReplenishmentFeedbackWritebackRecord | null): string {
   if (!record) return ''
-  return `PDA 反馈：${record.reasonLabel}，由 ${record.operatorName} 于 ${record.submittedAt} 提交`
+  return `现场反馈：${record.reasonLabel}，由 ${record.operatorName} 于 ${record.submittedAt} 提交`
 }
 
 function matchesPdaFeedbackWithSuggestion(
@@ -925,7 +925,7 @@ function buildSyntheticFeedbackRow(
   const statusMeta = replenishmentStatusMetaMap.PENDING_REVIEW
   const row = {
     suggestionId: `rep-pda-feedback-${feedback.writebackId}`,
-    suggestionNo: `PDA-${formatDateToken(feedback.submittedAt)}-${feedback.originalCutOrderNo.slice(-2) || '01'}`,
+    suggestionNo: `BL-${formatDateToken(feedback.submittedAt)}-${feedback.originalCutOrderNo.slice(-2) || '01'}`,
     contextId: `ctx-${feedback.writebackId}`,
     sourceType: 'pda-feedback' as const,
     originalCutOrderIds: [feedback.originalCutOrderId],
@@ -946,7 +946,7 @@ function buildSyntheticFeedbackRow(
     actualCutGarmentQty: 0,
     shortageGarmentQty: 0,
     actualLengthTotal: 0,
-    summaryRuleText: '待人工确认 PDA 反馈后补齐判定依据',
+    summaryRuleText: '待人工确认现场反馈后补齐判定依据',
     requiredQty: 0,
     estimatedCapacityQty: 0,
     shortageQty: 0,
@@ -955,7 +955,7 @@ function buildSyntheticFeedbackRow(
     usableLengthTotal: 0,
     shortageLengthTotal: 0,
     varianceLength: 0,
-    suggestedAction: '请先确认这条 PDA 补料反馈，并补齐正式补料建议。',
+    suggestedAction: '请先确认这条现场补料反馈，并补齐正式补料建议。',
     riskLevel: 'MEDIUM' as const,
     createdAt: feedback.submittedAt,
     status: 'PENDING_REVIEW' as const,
@@ -963,7 +963,7 @@ function buildSyntheticFeedbackRow(
     lines: [],
     context: buildSyntheticFeedbackContext(feedback),
     sourceLabel: replenishmentSourceMeta['pda-feedback'].label,
-    sourceSummary: `PDA 反馈 · ${feedback.originalCutOrderNo}`,
+    sourceSummary: `现场反馈 · ${feedback.originalCutOrderNo}`,
     sourceProductionSummary: feedback.productionOrderNo,
     sourceOrderSummary: feedback.originalCutOrderNo,
     differenceSummary: `原因 ${feedback.reasonLabel} / 凭证 ${feedback.photoProofCount} 个`,
@@ -977,7 +977,7 @@ function buildSyntheticFeedbackRow(
       needReconfigureMaterial: false,
       needReclaimMaterial: false,
       needPendingPrep: false,
-      impactSummary: '待根据 PDA 反馈确认影响范围。',
+      impactSummary: '待根据现场反馈确认影响范围。',
       applied: false,
       appliedAt: '',
       appliedBy: '',

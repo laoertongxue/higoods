@@ -66,6 +66,7 @@ export interface PcsProjectRecord {
   targetAudienceTags: string[]
   priceRangeLabel: string
   targetChannelCodes: string[]
+  // 兼容字段：创建草稿和历史迁移来源仍保留 URL 数组，页面主输入和主展示改走项目图片资产池。
   projectAlbumUrls: string[]
   sampleSourceType: SampleSourceType | ''
   sampleSupplierId: string
@@ -203,6 +204,7 @@ export interface PcsProjectCreateDraft {
   targetAudienceTags: string[]
   priceRangeLabel: string
   targetChannelCodes: string[]
+  // 创建页上传的参考图片在创建完成后会写入项目图片资产池，这里仅保留本地创建草稿。
   projectAlbumUrls: string[]
   sampleSourceType: SampleSourceType | ''
   sampleSupplierId: string

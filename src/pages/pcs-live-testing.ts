@@ -404,6 +404,7 @@ function getWorkItemStatusLabel(status: SessionStatus): string {
 
 function getLiveWorkItemSnapshot(session: SessionViewModel): {
   actionItem: SessionItemViewModel | null
+  mainImageUrl: string
   rows: Array<{ label: string; value: string }>
 } {
   const actionItem = session.items.find((item) => item.intent === 'TEST') ?? session.items[0] ?? null
@@ -411,16 +412,23 @@ function getLiveWorkItemSnapshot(session: SessionViewModel): {
     actionItem?.relatedProjectId && actionItem.liveLineId
       ? findProjectChannelProductByLiveLine(actionItem.relatedProjectId, actionItem.liveLineId)
       : null
+  const mainImageUrl =
+    linkedChannelProduct?.listingImages.find((item) => item.imageId === linkedChannelProduct.listingMainImageId)?.imageUrl ||
+    linkedChannelProduct?.listingImages[0]?.imageUrl ||
+    linkedChannelProduct?.mainImageUrls[0] ||
+    ''
   const gmvValue = actionItem?.gmv ?? session.gmvTotal ?? 0
   const orderValue = actionItem?.order ?? session.orderTotal ?? 0
   return {
     actionItem,
+    mainImageUrl,
     rows: [
       { label: '工作项状态', value: getWorkItemStatusLabel(session.status) },
       { label: '正式操作', value: '关联直播测款记录' },
       { label: '渠道店铺商品', value: linkedChannelProduct?.channelProductId || actionItem?.productRef || '-' },
       { label: '渠道店铺商品编码', value: linkedChannelProduct?.channelProductCode || actionItem?.productRef || '-' },
-      { label: '上游渠道商品编码', value: linkedChannelProduct?.upstreamChannelProductCode || '-' },
+      { label: '渠道商品主图', value: mainImageUrl || '-' },
+      { label: '上游款式商品编号', value: linkedChannelProduct?.upstreamProductId || linkedChannelProduct?.upstreamChannelProductCode || '-' },
       { label: '直播测款', value: session.id },
       { label: '直播挂车明细', value: actionItem?.liveLineCode || actionItem?.liveLineId || '-' },
       { label: '曝光量', value: formatInteger(actionItem?.exposure ?? session.exposureTotal) },
@@ -1629,6 +1637,16 @@ function renderDetailSidebar(session: SessionViewModel, relatedProjects: Array<{
       </section>
       <section class="rounded-lg border bg-white p-4">
         <h3 class="text-sm font-semibold text-slate-900">工作项字段</h3>
+        ${
+          workItemSnapshot.mainImageUrl
+            ? `<div class="mt-4">
+                <div class="mb-2 text-xs text-slate-500">渠道商品主图</div>
+                <div class="overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+                  <img src="${escapeHtml(workItemSnapshot.mainImageUrl)}" alt="渠道商品主图" class="h-40 w-full object-cover" />
+                </div>
+              </div>`
+            : ''
+        }
         <div class="mt-4 space-y-3 text-sm">
           ${workItemSnapshot.rows
             .map(

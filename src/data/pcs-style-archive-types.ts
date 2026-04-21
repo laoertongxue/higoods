@@ -38,8 +38,11 @@ export interface StyleArchiveShellRecord {
   currentTechPackVersionStatus: string
   currentTechPackVersionActivatedAt: string
   currentTechPackVersionActivatedBy: string
+  mainImageId: string
   mainImageUrl: string
+  galleryImageIds: string[]
   galleryImageUrls: string[]
+  imageSource: string
   sellingPointText: string
   detailDescription: string
   packagingInfo: string

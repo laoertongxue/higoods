@@ -1,6 +1,12 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
+import {
+  buildCapacityBottleneckData,
+  buildFactoryCalendarData,
+  buildCapacityRiskData,
+} from '../src/data/fcs/capacity-calendar.ts'
+
 const ROOT = '/Users/laoer/Documents/higoods'
 const CAPACITY_PAGE_PATH = path.join(ROOT, 'src/pages/capacity.ts')
 const CAPACITY_DATA_PATH = path.join(ROOT, 'src/data/fcs/capacity-calendar.ts')
@@ -14,6 +20,9 @@ function assert(condition: unknown, message: string): asserts condition {
 function main(): void {
   const pageSource = fs.readFileSync(CAPACITY_PAGE_PATH, 'utf8')
   const dataSource = fs.readFileSync(CAPACITY_DATA_PATH, 'utf8')
+  const bottleneckData = buildCapacityBottleneckData()
+  const riskData = buildCapacityRiskData()
+  const washCalendar = buildFactoryCalendarData({ factoryId: 'ID-F008' })
 
   const riskSectionMatch = pageSource.match(/export function renderCapacityRiskPage\(\): string \{[\s\S]*?function filterBottleneckCraftRows/)
   const bottleneckSectionMatch = pageSource.match(/export function renderCapacityBottleneckPage\(\): string \{[\s\S]*?export function renderCapacityConstraintsPage/)
@@ -57,6 +66,18 @@ function main(): void {
   assert(pageSource.includes('windowFrozenSam'), '工艺瓶颈页未展示已冻结标准工时主线')
   assert(pageSource.includes('unallocatedSam'), '工艺瓶颈页未展示待分配标准工时主线')
   assert(pageSource.includes('unscheduledSam'), '工艺瓶颈页未展示未排期标准工时主线')
+  assert(
+    bottleneckData.craftRows.some((row) => row.processCode === 'POST_FINISHING' && row.craftCode === 'BUTTONHOLE'),
+    '工艺瓶颈数据缺少“后道 / 开扣眼”节点',
+  )
+  assert(
+    !bottleneckData.craftRows.some((row) => ['BUTTONHOLE', 'BUTTON_ATTACH', 'IRONING', 'PACKAGING'].includes(row.processCode)),
+    '工艺瓶颈数据仍把后道节点当成独立任务工序',
+  )
+  assert(
+    washCalendar.rows.some((row) => row.processCode === 'SPECIAL_CRAFT' && row.craftName === '洗水'),
+    '产能日历未按“特殊工艺 - 洗水”纳入能力计算',
+  )
   assert(!bottleneckSection.includes('染印'), '工艺瓶颈页仍残留染印统计')
   assert(!bottleneckSection.includes('质检'), '工艺瓶颈页仍残留质检统计')
   assert(!bottleneckSection.includes('异常数'), '工艺瓶颈页仍残留旧异常统计')

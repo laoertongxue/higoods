@@ -1,4 +1,3 @@
-import { buildStyleFixture } from './pcs-product-archive-fixtures.ts'
 import {
   bindStyleArchiveToProjectChannelProduct,
   listProjectChannelProductsByProjectId,
@@ -20,6 +19,10 @@ import {
   updateStyleArchive,
 } from './pcs-style-archive-repository.ts'
 import type { StyleArchiveGenerateResult, StyleArchiveShellRecord } from './pcs-style-archive-types.ts'
+import {
+  resolveStyleArchiveImageSelection,
+  type StyleArchiveImageSelectionInput,
+} from './pcs-style-archive-image-selection.ts'
 
 export interface StyleArchiveGenerationStatus {
   allowed: boolean
@@ -45,6 +48,11 @@ export interface StyleArchiveFormalizeResult {
   message: string
   style: StyleArchiveShellRecord | null
   missingFields: StyleArchiveFormalizationField[]
+}
+
+export interface StyleArchiveGenerationInput {
+  styleMainImageId: string
+  styleGalleryImageIds?: string[]
 }
 
 const STYLE_ARCHIVE_REQUIRED_FIELDS: StyleArchiveFormalizationField[] = [
@@ -215,6 +223,7 @@ export function getStyleArchiveGenerationStatus(projectId: string): StyleArchive
 export function generateStyleArchiveFromProjectNode(
   projectId: string,
   operatorName = '当前用户',
+  input?: StyleArchiveGenerationInput,
 ): StyleArchiveGenerateResult {
   const status = getStyleArchiveGenerationStatus(projectId)
   if (!status.allowed && !status.existed) {
@@ -248,14 +257,29 @@ export function generateStyleArchiveFromProjectNode(
 
   const identity = nextStyleIdentity()
   const timestamp = identity.timestamp
-  const fixture = buildStyleFixture(identity.styleCode, project.projectName)
+  const imageSelection = resolveStyleArchiveImageSelection({
+    projectId,
+    styleMainImageId: input?.styleMainImageId || '',
+    styleGalleryImageIds: input?.styleGalleryImageIds || [],
+    operatorName,
+    timestamp,
+  } satisfies StyleArchiveImageSelectionInput)
+
+  if (!imageSelection.ok) {
+    return {
+      ok: false,
+      existed: false,
+      message: imageSelection.message,
+      style: null,
+    }
+  }
 
   try {
     const created = createStyleArchiveShell({
       styleId: identity.styleId,
       styleCode: identity.styleCode,
       styleName: project.projectName,
-      styleNameEn: fixture.styleNameEn,
+      styleNameEn: '',
       styleNumber: project.styleNumber || identity.styleCode,
       styleType: project.styleType,
       sourceProjectId: project.projectId,
@@ -289,11 +313,14 @@ export function generateStyleArchiveFromProjectNode(
       currentTechPackVersionStatus: '',
       currentTechPackVersionActivatedAt: '',
       currentTechPackVersionActivatedBy: '',
-      mainImageUrl: fixture.mainImageUrl,
-      galleryImageUrls: fixture.galleryImageUrls,
-      sellingPointText: fixture.sellingPointText,
-      detailDescription: fixture.detailDescription,
-      packagingInfo: fixture.packagingInfo,
+      mainImageId: imageSelection.mainImageId,
+      mainImageUrl: imageSelection.mainImageUrl,
+      galleryImageIds: imageSelection.galleryImageIds,
+      galleryImageUrls: imageSelection.galleryImageUrls,
+      imageSource: imageSelection.imageSource,
+      sellingPointText: '',
+      detailDescription: '',
+      packagingInfo: '',
       remark: project.remark || '',
       generatedAt: timestamp,
       generatedBy: operatorName,
@@ -349,7 +376,7 @@ export function generateStyleArchiveFromProjectNode(
         latestInstanceId: created.styleId,
         latestInstanceCode: created.styleCode,
         latestResultType: '已生成款式档案草稿',
-        latestResultText: '已从商品项目生成款式档案草稿，待补齐正式建档信息。',
+        latestResultText: '已生成款式档案草稿，并确认档案主图与图册。',
         pendingActionType: '补齐款式资料',
         pendingActionText: '请在款式档案页补齐基础资料后，再正式生成款式档案。',
         updatedAt: timestamp,

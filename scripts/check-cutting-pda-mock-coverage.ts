@@ -148,6 +148,7 @@ function main(): void {
     const receive = countReceiveStage(processName)
     const exec = countExecStage(processName)
     const handover = countHandoverStage(processName)
+    const requiresHandoverStage = !['IRONING', 'PACKAGING'].includes(processDef.key)
 
     ensure(
       todo >= PDA_MOBILE_TASK_STAGE_MINIMUMS.TODO,
@@ -164,11 +165,13 @@ function main(): void {
       errors,
       `${processName} 执行阶段少于 ${PDA_MOBILE_TASK_STAGE_MINIMUMS.EXEC} 条`,
     )
-    ensure(
-      handover >= PDA_MOBILE_TASK_STAGE_MINIMUMS.HANDOVER,
-      errors,
-      `${processName} 交接阶段少于 ${PDA_MOBILE_TASK_STAGE_MINIMUMS.HANDOVER} 条`,
-    )
+    if (requiresHandoverStage) {
+      ensure(
+        handover >= PDA_MOBILE_TASK_STAGE_MINIMUMS.HANDOVER,
+        errors,
+        `${processName} 交接阶段少于 ${PDA_MOBILE_TASK_STAGE_MINIMUMS.HANDOVER} 条`,
+      )
+    }
   })
 
   const acceptanceStatuses = new Set(tasks.map((task) => task.acceptanceStatus).filter(Boolean))

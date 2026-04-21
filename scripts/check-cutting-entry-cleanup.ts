@@ -5,7 +5,7 @@ import path from 'node:path'
 import process from 'node:process'
 
 const MENU_FILE = 'src/data/app-shell-config.ts'
-const ROUTES_FILE = 'src/router/routes.ts'
+const ROUTES_FILES = ['src/router/routes.ts', 'src/router/routes-fcs.ts']
 const STORE_FILE = 'src/state/store.ts'
 const PLATFORM_ROUTE_FILES = [
   'src/domain/cutting-platform/overview.adapter.ts',
@@ -59,6 +59,10 @@ function readFile(file: string): string {
   return fs.readFileSync(path.resolve(file), 'utf8')
 }
 
+function readRouteSources(): string {
+  return ROUTES_FILES.map(readFile).join('\n')
+}
+
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
 }
@@ -70,13 +74,13 @@ function assertNoIncludes(source: string, file: string, values: string[], label:
 }
 
 function assertAliasRoutesRedirect(): void {
-  const source = readFile(ROUTES_FILE)
+  const source = readRouteSources()
   for (const { alias, target } of REQUIRED_ALIAS_REDIRECTS) {
     const matcher = new RegExp(
       `'${alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}':\\s*\\(\\)\\s*=>\\s*renderRouteRedirect\\('${target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}'`,
       'm',
     )
-    assert(matcher.test(source), `routes.ts 中旧 alias 路由未正确 redirect：${alias} -> ${target}`)
+    assert(matcher.test(source), `路由文件中旧 alias 路由未正确 redirect：${alias} -> ${target}`)
   }
 }
 
@@ -89,11 +93,11 @@ function assertWarehouseCompatRemoved(): void {
     assert(!fs.existsSync(path.resolve(file)), `旧入口文件仍存在：${file}`)
   }
 
-  const routeSource = readFile(ROUTES_FILE)
+  const routeSource = readRouteSources()
   const cuttingIndexSource = readFile('src/pages/process-factory/cutting/index.ts')
   const processFactoryIndexSource = readFile('src/pages/process-factory/index.ts')
   const fcsHandlersSource = readFile('src/main-handlers/fcs-handlers.ts')
-  assert(!routeSource.includes('renderCraftCuttingWarehouseManagementPage'), 'routes.ts 仍残留旧仓库总页 render')
+  assert(!routeSource.includes('renderCraftCuttingWarehouseManagementPage'), '路由文件仍残留旧仓库总页 render')
   assert(!cuttingIndexSource.includes('warehouse-management'), 'cutting/index.ts 仍残留旧仓库总页导出')
   assert(!processFactoryIndexSource.includes('renderCraftCuttingWarehouseManagementPage'), 'process-factory/index.ts 仍残留旧仓库总页导出')
   assert(!fcsHandlersSource.includes('handleCraftCuttingWarehouseManagementEvent'), 'fcs-handlers.ts 仍残留旧仓库总页事件处理')

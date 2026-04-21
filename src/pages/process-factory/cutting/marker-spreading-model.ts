@@ -159,7 +159,7 @@ export interface MarkerRecord {
   spreadTotalLength?: number
   materialCategory?: string
   materialAttr?: string
-  plannedSizeRatioText?: string
+  sizeRatioPlanText?: string
   plannedLayerCount?: number
   plannedMarkerCount?: number
   markerLength?: number
@@ -1084,7 +1084,7 @@ function normalizeMarkerRecord(marker: MarkerRecord): MarkerRecord {
     colorSummary:
       marker.colorSummary ||
       uniqueStrings([...lineItems.map((item) => item.color), ...highLowCuttingRows.map((item) => item.color), ...highLowPatternRows.map((item) => item.color)]).join(' / '),
-    plannedSizeRatioText: marker.plannedSizeRatioText || buildPlannedSizeRatioText(sizeDistribution),
+    sizeRatioPlanText: marker.sizeRatioPlanText || buildPlannedSizeRatioText(sizeDistribution),
     markerLength: marker.markerLength ?? marker.netLength,
     adjustmentRequired: Boolean(marker.adjustmentRequired),
     adjustmentNote: marker.adjustmentNote || marker.adjustmentSummary || '',
@@ -1778,7 +1778,7 @@ function buildSeedMarker(context: MarkerSpreadingContext): MarkerRecord {
     spreadTotalLength: Number((netLength * 1.1).toFixed(2)),
     materialCategory: context.materialPrepRows[0]?.materialCategory || '',
     materialAttr: context.materialPrepRows[0]?.materialLabel || '',
-    plannedSizeRatioText: buildPlannedSizeRatioText(sizeDistribution),
+    sizeRatioPlanText: buildPlannedSizeRatioText(sizeDistribution),
     plannedLayerCount: Math.max(Math.ceil(totalPieces / 20), 1),
     plannedMarkerCount: context.materialPrepRows.length,
     markerLength: netLength,
@@ -3575,7 +3575,7 @@ export function upsertMarkerRecord(marker: MarkerRecord, store: MarkerSpreadingS
       (deriveMarkerTemplateByMode(marker.markerMode) === 'row-template'
         ? computeNormalMarkerSpreadTotalLength(marker.lineItems || [])
         : Number(marker.actualMaterialMeter ?? 0)),
-    plannedSizeRatioText: marker.plannedSizeRatioText || buildPlannedSizeRatioText(marker.sizeDistribution),
+    sizeRatioPlanText: marker.sizeRatioPlanText || buildPlannedSizeRatioText(marker.sizeDistribution),
     updatedAt: nowText(now),
     updatedBy: marker.updatedBy || '唛架编辑页',
   })

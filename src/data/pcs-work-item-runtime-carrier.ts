@@ -148,7 +148,7 @@ const PCS_WORK_ITEM_RUNTIME_CARRIERS: Record<PcsProjectWorkItemCode, PcsWorkItem
     listRoute: '/pcs/products/channel-products',
     hasStandaloneInstanceList: true,
     projectDisplayMode: '项目节点负责发起，正式实例沉淀在渠道店铺商品模块，并回写项目关系。',
-    carrierReason: '渠道店铺商品是 SKU 级正式业务对象，必须在独立模块内维护实例列表、状态流和上游编码。',
+    carrierReason: '渠道店铺商品按款式上架批次承载正式记录，必须在独立模块内维护规格明细、状态流和上游编号。',
   },
   VIDEO_TEST: {
     workItemTypeCode: 'VIDEO_TEST',

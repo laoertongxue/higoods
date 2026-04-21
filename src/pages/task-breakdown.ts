@@ -1,5 +1,9 @@
 import { productionOrders, type ProductionOrder } from '../data/fcs/production-orders'
 import {
+  getProcessDefinitionByCode,
+  isExternalTaskProcess,
+} from '../data/fcs/process-craft-dict'
+import {
   isRuntimeTaskExecutionTask,
   listRuntimeProcessTasks,
   listRuntimeTaskSplitGroupsByOrder,
@@ -49,6 +53,7 @@ const state: TaskBreakdownState = {
 }
 
 const STAGE_ORDER = ['PREP', 'CUTTING', 'SEWING', 'SPECIAL', 'POST']
+const DEFAULT_POST_CHILD_TEXT = '开扣眼、装扣子、熨烫、包装'
 
 function taskDisplayName(task: RuntimeProcessTask): string {
   return getTaskTypeDisplayName(task)
@@ -128,7 +133,15 @@ function getAllProcessTasks(): RuntimeProcessTask[] {
     result.push(...tasks)
   }
 
-  return result
+  return result.filter((task) => {
+    if (task.defaultDocType === 'DEMAND') return false
+    if (task.processBusinessCode && isExternalTaskProcess(task.processBusinessCode)) return true
+    if (task.processBusinessCode) {
+      const process = getProcessDefinitionByCode(task.processBusinessCode)
+      if (process) return process.generatesExternalTask
+    }
+    return true
+  })
 }
 
 function getTaskMaterialSet(allTasks: RuntimeProcessTask[]): Set<string> {
@@ -255,8 +268,18 @@ function getTaskDetailRows(task: RuntimeProcessTask) {
 
 function renderTaskDetailSummary(task: RuntimeProcessTask): string {
   const detailRows = getTaskDetailRows(task)
+  const rolledUpChildNames = task.rolledUpChildProcessNames?.length
+    ? task.rolledUpChildProcessNames.join('、')
+    : DEFAULT_POST_CHILD_TEXT
   if (detailRows.length === 0) {
-    return '<p class="mt-1 text-[11px] text-muted-foreground">任务明细行：0 条</p>'
+    return `
+      <p class="mt-1 text-[11px] text-muted-foreground">任务明细行：0 条</p>
+      ${
+        task.processBusinessCode === 'POST_FINISHING'
+          ? `<p class="text-[11px] text-muted-foreground">内含：${escapeHtml(rolledUpChildNames)}</p>`
+          : ''
+      }
+    `
   }
 
   const summary = summarizeTaskDetailRows(detailRows, 2)
@@ -270,6 +293,11 @@ function renderTaskDetailSummary(task: RuntimeProcessTask): string {
     <p class="mt-1 text-[11px] text-muted-foreground">任务明细行：${summary.count} 条（合计 ${summary.totalQty}件）</p>
     <p class="text-[11px] text-muted-foreground">${escapeHtml(previewText)}</p>
     <p class="text-[11px] text-muted-foreground">维度：${escapeHtml(firstRowDimensions)}</p>
+    ${
+      task.processBusinessCode === 'POST_FINISHING'
+        ? `<p class="text-[11px] text-muted-foreground">内含：${escapeHtml(rolledUpChildNames)}</p>`
+        : ''
+    }
   `
 }
 

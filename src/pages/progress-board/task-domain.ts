@@ -241,10 +241,10 @@ function renderPickupTab(task: ProcessTask): string {
         'data-progress-task-pickup-section=\"execution\"',
       )}
       ${renderDrawerSectionTable(
-        'PDA 领料记录',
+        '领料记录',
         ['领料头单号', '当前状态', '应领数量', '已领数量', '最新领料时间', '差异 / 异议'],
         pickupRecordRows,
-        '当前任务暂无 PDA 领料记录。',
+        '当前任务暂无领料记录。',
         'data-progress-task-pickup-section=\"records\"',
       )}
     </div>
@@ -261,7 +261,7 @@ function renderHandoverTab(task: ProcessTask): string {
         : head.summaryStatus === 'WRITTEN_BACK'
           ? '已交出完成'
           : head.summaryStatus === 'PARTIAL_WRITTEN_BACK'
-            ? '待仓库确认'
+            ? '待接收方回写'
             : '已发起交出',
     ),
     String(head.qtyExpectedTotal),
@@ -316,15 +316,15 @@ function renderHandoverTab(task: ProcessTask): string {
         </div>
       </section>
       ${renderDrawerSectionTable(
-        '交出单头',
+        '交出单',
         ['交出单号', '当前状态', '应交数量', '已交数量', '最新操作时间'],
         handoutHeadRows,
-        '当前任务暂无交出单头。',
+        '当前任务暂无交出单。',
         'data-progress-task-handover-section=\"heads\"',
       )}
       ${renderDrawerSectionTable(
         '交出记录',
-        ['记录号', '提交时间', '状态', '回写数量', '仓库回写时间', '是否有异议'],
+        ['记录号', '提交时间', '状态', '回写数量', '接收方回写时间', '是否有异议'],
         handoutRecordRows,
         '当前任务暂无交出记录。',
         'data-progress-task-handover-section=\"records\"',

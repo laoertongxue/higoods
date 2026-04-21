@@ -560,7 +560,7 @@ const legacyCuttingOrderProgressSeedRecords: CuttingOrderProgressRecord[] = [
         printSlipStatus: 'PRINTED',
         qrStatus: 'GENERATED',
         issueFlags: ['INBOUND_PENDING'],
-        latestActionText: '领料完成，待仓库确认入仓。',
+        latestActionText: '领料完成，待接收方回写入仓。',
       },
       {
         cutPieceOrderNo: 'CUT-260313-086-02',

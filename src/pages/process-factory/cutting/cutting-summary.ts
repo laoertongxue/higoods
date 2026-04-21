@@ -429,6 +429,42 @@ function renderStats(viewModel: CuttingSummaryViewModel): string {
   `
 }
 
+function renderCuttingStatusOverview(rows: CuttingSummaryRow[]): string {
+  const total = rows.length || 1
+  const configuredCount = rows.filter((row) => row.materialPrepSummary.includes('已配置')).length
+  const claimedCount = rows.filter((row) => row.mainReceiveStatusLabel.includes('已领料')).length
+  const markerCount = rows.filter((row) => row.relatedOriginalCutOrderNos.length > 0).length
+  const spreadingCount = rows.filter((row) => row.spreadingSummary && row.spreadingSummary !== '暂无数据').length
+  const ticketCount = rows.filter((row) => row.ticketSummary && row.ticketSummary !== '暂无数据').length
+  const replenishmentCount = rows.filter((row) => row.pendingReplenishmentCount > 0).length
+  const warehouseCount = rows.filter((row) => row.warehouseSummary && row.warehouseSummary !== '暂无数据').length
+
+  const cards = [
+    { label: '配料状态', value: `${configuredCount}/${total} 已配置` },
+    { label: '领料状态', value: `${claimedCount}/${total} 已领料` },
+    { label: '唛架状态', value: `${markerCount}/${total} 已建单` },
+    { label: '铺布状态', value: `${spreadingCount}/${total} 已铺布` },
+    { label: '菲票状态', value: `${ticketCount}/${total} 已生成` },
+    { label: '补料状态', value: replenishmentCount ? `${replenishmentCount} 条待处理` : '正常' },
+    { label: '裁片仓状态', value: `${warehouseCount}/${total} 已入仓` },
+  ]
+
+  return `
+    <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      ${cards
+        .map(
+          (card) => `
+            <article class="rounded-lg border bg-card px-4 py-3">
+              <p class="text-xs text-muted-foreground">${escapeHtml(card.label)}</p>
+              <p class="mt-2 text-sm font-semibold text-foreground">${escapeHtml(card.value)}</p>
+            </article>
+          `,
+        )
+        .join('')}
+    </section>
+  `
+}
+
 function renderPrefilterBar(): string {
   if (!state.drillContext) return ''
   const chips = buildCuttingDrillChipLabels(state.drillContext)
@@ -1238,6 +1274,7 @@ function renderPage(): string {
       ${renderFilterBar()}
       ${renderIssueBoard(issues)}
       ${renderCheckStateBar(filteredRows)}
+      ${renderCuttingStatusOverview(filteredRows)}
       ${renderMainTable(filteredRows)}
       <section class="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(360px,1fr)]">
         <div class="space-y-4">

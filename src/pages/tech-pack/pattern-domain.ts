@@ -5,6 +5,15 @@ import {
   state,
 } from './context.ts'
 
+function isAllowedPatternImage(value: string): boolean {
+  const normalized = String(value || '').trim()
+  if (!normalized || normalized === '#') return false
+  if (normalized.startsWith('http://') || normalized.startsWith('https://')) return false
+  return !['/placeholder.svg', 'picsum', 'unsplash', 'dummyimage', 'loremflickr'].some((marker) =>
+    normalized.includes(marker),
+  )
+}
+
 export function renderPatternTab(): string {
   const bomById = new Map(state.bomItems.map((item) => [item.id, item]))
   const readonly = false
@@ -111,7 +120,7 @@ export function renderPatternDialog(): string {
     pattern.linkedBomItemId.length > 0
       ? state.bomItems.find((item) => item.id === pattern.linkedBomItemId) ?? null
       : null
-  const image = pattern.image ? `/placeholder.svg?height=96&width=96` : '/placeholder.svg?height=96&width=96'
+  const image = isAllowedPatternImage(pattern.image) ? pattern.image : ''
   const pieceRows = pattern.pieceRows
   const pieceTotal =
     Number.isFinite(pattern.totalPieceCount) && pattern.totalPieceCount > 0
@@ -126,7 +135,11 @@ export function renderPatternDialog(): string {
         </header>
         <div class="space-y-4 px-6 py-4 text-sm">
           <div class="flex items-center gap-4">
-            <img src="${escapeHtml(image)}" alt="${escapeHtml(pattern.name)}" class="h-24 w-24 rounded border object-cover" />
+            ${
+              image
+                ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(pattern.name)}" class="h-24 w-24 rounded border object-cover" />`
+                : '<div class="flex h-24 w-24 items-center justify-center rounded border border-dashed text-xs text-muted-foreground">暂无图片</div>'
+            }
             <div>
               <h4 class="text-lg font-semibold">${escapeHtml(pattern.name)}</h4>
               <p class="text-sm text-muted-foreground">${escapeHtml(pattern.type)}</p>
@@ -148,6 +161,14 @@ export function renderPatternDialog(): string {
             <div>
               <p class="text-xs text-muted-foreground">纸样文件</p>
               <p class="mt-1 text-muted-foreground">${escapeHtml(pattern.file || '-')}</p>
+            </div>
+            <div>
+              <p class="text-xs text-muted-foreground">纸样版本</p>
+              <p class="mt-1 text-muted-foreground">暂无数据</p>
+            </div>
+            <div>
+              <p class="text-xs text-muted-foreground">打版软件</p>
+              <p class="mt-1 text-muted-foreground">暂无数据</p>
             </div>
           </div>
           <div class="space-y-2">

@@ -5,6 +5,7 @@ import {
   getProcessCraftDictRowByCode,
   SAM_FACTORY_FIELD_GROUP_LABEL,
   listSamFactoryFieldDefinitions,
+  listProcessCraftDictRows,
   processCraftDictRows,
   type CraftStageCode,
   type ProcessCraftDictRow,
@@ -19,6 +20,7 @@ type CraftDictState = {
   keyword: string
   filterStage: 'ALL' | CraftStageCode
   filterGranularity: 'ALL' | ProcessAssignmentGranularity
+  filterStatus: 'ACTIVE' | 'HISTORICAL' | 'ALL'
   viewCraftCode: string
   detailTab: 'IDEAL' | 'CURRENT' | 'BASIC'
   page: number
@@ -29,6 +31,7 @@ const state: CraftDictState = {
   keyword: '',
   filterStage: 'ALL',
   filterGranularity: 'ALL',
+  filterStatus: 'ACTIVE',
   viewCraftCode: '',
   detailTab: 'CURRENT',
   page: 1,
@@ -37,8 +40,11 @@ const state: CraftDictState = {
 
 function filteredCraftRows(): ProcessCraftDictRow[] {
   const keyword = state.keyword.trim().toLowerCase()
+  const rows = state.filterStatus === 'ACTIVE'
+    ? processCraftDictRows
+    : listProcessCraftDictRows(true).filter((row) => state.filterStatus === 'ALL' || !row.isActive)
 
-  return processCraftDictRows.filter((row) => {
+  return rows.filter((row) => {
     if (state.filterStage !== 'ALL' && row.stageCode !== state.filterStage) return false
     if (state.filterGranularity !== 'ALL' && row.assignmentGranularity !== state.filterGranularity) {
       return false
@@ -50,7 +56,10 @@ function filteredCraftRows(): ProcessCraftDictRow[] {
       row.craftCode.toLowerCase().includes(keyword) ||
       row.craftName.toLowerCase().includes(keyword) ||
       row.processName.toLowerCase().includes(keyword) ||
-      row.stageName.toLowerCase().includes(keyword)
+      row.stageName.toLowerCase().includes(keyword) ||
+      row.processRoleLabel.toLowerCase().includes(keyword) ||
+      row.statusLabel.toLowerCase().includes(keyword) ||
+      row.legacyCraftName.toLowerCase().includes(keyword)
     )
   })
 }
@@ -114,11 +123,10 @@ function renderCraftBasicPanel(row: ProcessCraftDictRow): string {
       ${renderCompactDetailFields([
         ['老系统值', String(row.legacyValue)],
         ['老系统工艺名称', row.legacyCraftName],
+        ['任务口径', row.processRoleLabel],
+        ['是否生成任务', row.generatesExternalTaskLabel],
+        ['状态', row.statusLabel],
         ['工艺规则来源', row.ruleSourceLabel],
-        [
-          '规则继承说明',
-          row.ruleSource === 'INHERIT_PROCESS' ? '当前工艺继承工序默认规则' : '当前工艺使用工艺级覆盖规则',
-        ],
         ['工艺规则拆分方式', row.detailSplitModeLabel],
         ['工艺规则拆分维度', row.detailSplitDimensionsText],
         ['工序默认可分配粒度', row.processAssignmentGranularityLabel],
@@ -321,8 +329,10 @@ function renderCraftDetailSheet(row: ProcessCraftDictRow): string {
             ${[
               ['老系统值', String(row.legacyValue)],
               ['老系统工艺名称', row.legacyCraftName],
-              ['工艺规则来源', row.ruleSourceLabel],
               ['是否特殊工艺', row.isSpecialCraft ? '是' : '否'],
+              ['任务口径', row.processRoleLabel],
+              ['是否生成任务', row.generatesExternalTaskLabel],
+              ['状态', row.statusLabel],
             ]
               .map(
                 ([label, value]) => `
@@ -400,7 +410,7 @@ export function renderProductionCraftDictPage(): string {
   const paging = getPagination(filtered)
   state.page = paging.currentPage
   const selected = getProcessCraftDictRowByCode(state.viewCraftCode)
-  const hasFilters = state.keyword || state.filterStage !== 'ALL' || state.filterGranularity !== 'ALL'
+  const hasFilters = state.keyword || state.filterStage !== 'ALL' || state.filterGranularity !== 'ALL' || state.filterStatus !== 'ACTIVE'
 
   return `
     <div class="space-y-4">
@@ -437,6 +447,11 @@ export function renderProductionCraftDictPage(): string {
             <option value="SKU" ${state.filterGranularity === 'SKU' ? 'selected' : ''}>按SKU</option>
             <option value="DETAIL" ${state.filterGranularity === 'DETAIL' ? 'selected' : ''}>按明细行</option>
           </select>
+          <select class="h-8 w-32 rounded-md border bg-background px-2 text-xs" data-craft-dict-field="filterStatus">
+            <option value="ACTIVE" ${state.filterStatus === 'ACTIVE' ? 'selected' : ''}>可用</option>
+            <option value="HISTORICAL" ${state.filterStatus === 'HISTORICAL' ? 'selected' : ''}>历史停用</option>
+            <option value="ALL" ${state.filterStatus === 'ALL' ? 'selected' : ''}>全部状态</option>
+          </select>
           ${
             hasFilters
               ? '<button class="inline-flex h-8 items-center rounded-md px-2 text-xs hover:bg-muted" data-craft-dict-action="clear-filters">清除筛选</button>'
@@ -449,12 +464,12 @@ export function renderProductionCraftDictPage(): string {
             <table class="w-full min-w-[980px] border-collapse">
               <thead>
                 <tr class="bg-muted/30 text-xs">
-                  <th class="px-3 py-2 text-left">工序工艺编码</th>
+                  <th class="px-3 py-2 text-left">工序名称</th>
                   <th class="px-3 py-2 text-left">工艺名称</th>
-                  <th class="px-3 py-2 text-left">所属工序</th>
-                  <th class="px-3 py-2 text-left">所属阶段</th>
-                  <th class="px-3 py-2 text-left">分配粒度</th>
-                  <th class="px-3 py-2 text-left">工艺规则拆分维度</th>
+                  <th class="px-3 py-2 text-left">阶段</th>
+                  <th class="px-3 py-2 text-left">任务口径</th>
+                  <th class="px-3 py-2 text-left">是否生成任务</th>
+                  <th class="px-3 py-2 text-left">状态</th>
                 </tr>
               </thead>
               <tbody>
@@ -465,22 +480,26 @@ export function renderProductionCraftDictPage(): string {
                         .map(
                           (row) => `
                             <tr class="border-t text-xs hover:bg-muted/30">
-                              <td class="whitespace-nowrap px-3 py-2 font-mono">
+                              <td class="whitespace-nowrap px-3 py-2">
+                                <div class="font-medium">${escapeHtml(row.processName)}</div>
+                                ${row.parentProcessName ? `<div class="text-[11px] text-muted-foreground">归属：${escapeHtml(row.parentProcessName)}</div>` : ''}
+                              </td>
+                              <td class="whitespace-nowrap px-3 py-2 font-medium">
                                 <button
                                   class="rounded px-1 text-left text-primary hover:bg-muted"
                                   data-craft-dict-action="open-detail"
                                   data-craft-code="${escapeHtml(row.craftCode)}"
                                 >
-                                  ${escapeHtml(row.craftCode)}
+                                  ${escapeHtml(row.craftName)}
                                 </button>
+                                <div class="text-[11px] text-muted-foreground">${escapeHtml(row.craftCode)}</div>
                               </td>
-                              <td class="whitespace-nowrap px-3 py-2 font-medium">${escapeHtml(row.craftName)}</td>
-                              <td class="whitespace-nowrap px-3 py-2">${escapeHtml(row.processName)}</td>
                               <td class="whitespace-nowrap px-3 py-2">${escapeHtml(row.stageName)}</td>
                               <td class="whitespace-nowrap px-3 py-2">
-                                <span class="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-700">${escapeHtml(row.assignmentGranularityLabel)}</span>
+                                <span class="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-700">${escapeHtml(row.taskScopeLabel)}</span>
                               </td>
-                              <td class="max-w-[360px] px-3 py-2 text-muted-foreground">${escapeHtml(row.detailSplitDimensionsText)}</td>
+                              <td class="whitespace-nowrap px-3 py-2">${escapeHtml(row.generatesExternalTaskLabel)}</td>
+                              <td class="whitespace-nowrap px-3 py-2">${escapeHtml(row.statusLabel)}</td>
                             </tr>
                           `,
                         )
@@ -529,6 +548,11 @@ export function handleProductionCraftDictEvent(target: HTMLElement): boolean {
       state.page = 1
       return true
     }
+    if (field === 'filterStatus') {
+      state.filterStatus = fieldNode.value as CraftDictState['filterStatus']
+      state.page = 1
+      return true
+    }
     if (field === 'pageSize' && fieldNode instanceof HTMLSelectElement) {
       state.pageSize = Number(fieldNode.value) || 10
       state.page = 1
@@ -546,6 +570,7 @@ export function handleProductionCraftDictEvent(target: HTMLElement): boolean {
     state.keyword = ''
     state.filterStage = 'ALL'
     state.filterGranularity = 'ALL'
+    state.filterStatus = 'ACTIVE'
     state.page = 1
     return true
   }

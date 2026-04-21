@@ -179,6 +179,8 @@ import {
   handleCraftCuttingSummaryEvent,
   isCraftCuttingSummaryDialogOpen,
 } from '../pages/process-factory/cutting/cutting-summary'
+import { handleCraftDyeingEvent } from '../pages/process-factory/dyeing/events'
+import { handleCraftPrintingEvent } from '../pages/process-factory/printing/events'
 
 export function dispatchFcsPageEvent(target: HTMLElement): boolean {
   return (
@@ -232,6 +234,8 @@ export function dispatchFcsPageEvent(target: HTMLElement): boolean {
     handleCraftCuttingReplenishmentEvent(target) ||
     handleCraftCuttingSpecialProcessesEvent(target) ||
     handleCraftCuttingSummaryEvent(target) ||
+    handleCraftDyeingEvent(target) ||
+    handleCraftPrintingEvent(target) ||
     handleDeductionAnalysisEvent(target) ||
     handleDyePrintOrdersEvent(target) ||
     handleTaskBreakdownEvent(target)

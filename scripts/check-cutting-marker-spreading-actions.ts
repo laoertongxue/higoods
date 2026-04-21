@@ -79,7 +79,7 @@ function main(): void {
   if (editStatusSelectMatch) {
     assert(!editStatusSelectMatch[0].includes("value: 'DONE'"), `${pageFile} 的铺布编辑页状态下拉不应直接提供 DONE`)
   }
-  assert(!pageSource.includes('data-cutting-spreading-draft-field="colorSummary"'), `${pageFile} 的颜色摘要不应继续作为可编辑输入`)
+  assert(!pageSource.includes('data-cutting-spreading-draft-field="colorSummary"'), `${pageFile} 的颜色概览不应继续作为可编辑输入`)
   assert(!pageSource.includes('data-cutting-spreading-draft-field="theoreticalSpreadTotalLength"'), `${pageFile} 的理论铺布总长度不应继续作为可编辑输入`)
   assert(!pageSource.includes('data-cutting-spreading-draft-field="theoreticalActualCutPieceQty"'), `${pageFile} 的理论裁剪成衣件数不应继续作为可编辑输入`)
   ;[

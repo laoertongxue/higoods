@@ -106,7 +106,7 @@ function assertCarrierCutover(): void {
   assertIncludes(transferBagsPage, '步骤 2：扫菲票码', '装袋流程必须再扫菲票码')
   assertIncludes(transferBagsPage, '必须先扫口袋码，再扫菲票子码', '装袋流程必须明确先装袋后入仓约束')
   assertIncludes(transferBagsPage, '来源铺布', '装袋详情必须展示来源铺布')
-  assertIncludes(transferBagsPage, 'PDA回写流水', '装袋详情必须展示 PDA 回写流水')
+  assertIncludes(transferBagsPage, '工厂端回写流水', '装袋详情必须展示工厂端回写流水')
   assertIncludes(transferBagsPage, '先装袋后入仓规则', '装袋详情必须展示先装袋后入仓规则')
   assertIncludes(transferBagsPage, 'ticketId', 'transfer-bags.ts 应支持 ticketId 正式锚点')
   assertIncludes(transferBagsPage, 'bagId', 'transfer-bags.ts 应支持 bagId 正式锚点')

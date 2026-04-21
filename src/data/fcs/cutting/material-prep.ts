@@ -1,3 +1,6 @@
+import { getDyeWorkOrderById, listDyeReviewRecords } from '../dyeing-task-domain.ts'
+import { getPrintWorkOrderById, listPrintReviewRecords } from '../printing-task-domain.ts'
+import { buildCutOrderQrValue } from './qr-codes.ts'
 import type {
   CuttingConfigStatus,
   CuttingMaterialType,
@@ -9,6 +12,28 @@ import type {
 
 export type CuttingDiscrepancyStatus = 'NONE' | 'RECHECK_REQUIRED' | 'PHOTO_SUBMITTED'
 export type CuttingReceiveResultStatus = 'MATCHED' | 'RECHECK' | 'PHOTO_SUBMITTED'
+export type MaterialPrepSourceType = 'PRINT_REVIEW' | 'DYE_REVIEW' | 'MANUAL'
+
+export interface TransferMaterialAvailableLot {
+  transferLotId: string
+  sourceProcessType: 'PRINT' | 'DYE'
+  sourceOrderId: string
+  sourceOrderNo: string
+  materialSku: string
+  materialColor: string
+  availableRollCount: number
+  availableLength: number
+  lengthUnit: string
+  availableQty?: number
+  qtyUnit?: string
+  reviewStatus: 'PASS' | 'PARTIAL_PASS'
+  configuredRollCount: number
+  configuredLength: number
+  remainingRollCount: number
+  remainingLength: number
+  targetTransferWarehouseName: string
+  createdAt: string
+}
 
 export interface CuttingMaterialPrepBatch {
   batchNo: string
@@ -37,8 +62,13 @@ export interface CuttingMaterialPrepLine {
   id: string
   cutPieceOrderNo: string
   productionOrderNo: string
+  cutOrderQrValue?: string
   materialSku: string
   materialType: CuttingMaterialType
+  sourceType?: MaterialPrepSourceType
+  sourceOrderId?: string
+  sourceOrderNo?: string
+  sourceReviewId?: string
   materialLabel: string
   reviewStatus: CuttingReviewStatus
   demandRollCount: number
@@ -392,7 +422,7 @@ export const cuttingMaterialPrepGroups: CuttingMaterialPrepGroup[] = [
         printSlipStatus: 'NOT_PRINTED',
         qrStatus: 'NOT_GENERATED',
         qrCodeValue: 'CPQR-CP-202603-024-02',
-        qrVersionNote: '有配置即启用裁片单主码。',
+        qrVersionNote: '有配置即启用裁片单二维码。',
         latestConfigBatchNo: '',
         latestPrintedAt: '',
         printCount: 0,
@@ -452,7 +482,7 @@ export const cuttingMaterialPrepGroups: CuttingMaterialPrepGroup[] = [
         discrepancyNote: '少领 1 卷，现场已附差异照片并备注湿损。',
         photoProofCount: 3,
         issueFlags: ['已提交照片', '待入仓'],
-        latestActionText: '现场已扫码并上传湿损照片，等待仓库确认。',
+        latestActionText: '现场已扫码并上传湿损照片，等待仓库核对。',
         configBatches: [
           {
             batchNo: 'CFG-031-01',
@@ -485,7 +515,7 @@ export const cuttingMaterialPrepGroups: CuttingMaterialPrepGroup[] = [
             receivedAt: '2026-03-22 11:18',
             resultStatus: 'PHOTO_SUBMITTED',
             photoProofCount: 3,
-            note: '少领 1 卷并上传差异照片，等待仓库确认。',
+            note: '少领 1 卷并上传差异照片，等待仓库核对。',
           },
         ],
       },
@@ -551,15 +581,100 @@ export const cuttingMaterialPrepGroups: CuttingMaterialPrepGroup[] = [
   },
 ]
 
+function inferMaterialPrepSourceType(line: CuttingMaterialPrepLine): MaterialPrepSourceType {
+  if (line.materialType === 'PRINT') return 'PRINT_REVIEW'
+  if (line.materialType === 'DYE') return 'DYE_REVIEW'
+  return 'MANUAL'
+}
+
+function normalizeMaterialPrepLine(line: CuttingMaterialPrepLine): CuttingMaterialPrepLine {
+  const cutOrderQrValue = line.cutOrderQrValue || buildCutOrderQrValue(line.cutPieceOrderNo)
+  return {
+    ...line,
+    cutOrderQrValue,
+    qrCodeValue: cutOrderQrValue,
+    sourceType: line.sourceType || inferMaterialPrepSourceType(line),
+    sourceOrderId: line.sourceOrderId,
+    sourceOrderNo: line.sourceOrderNo,
+    sourceReviewId: line.sourceReviewId,
+  }
+}
+
+function buildTransferMaterialAvailableLots(): TransferMaterialAvailableLot[] {
+  const printLots = listPrintReviewRecords()
+    .filter((record) => record.reviewStatus === 'PASS' || record.reviewStatus === 'PARTIAL_PASS')
+    .map((record) => {
+      const order = getPrintWorkOrderById(record.printOrderId)
+      const availableRollCount = Math.max(record.receivedRollCount || 0, 1)
+      const availableLength = Math.max(record.receivedLength || 0, record.receivedQty || 0)
+      return {
+        transferLotId: `PRINT-${record.reviewRecordId}`,
+        sourceProcessType: 'PRINT' as const,
+        sourceOrderId: record.printOrderId,
+        sourceOrderNo: order?.printOrderNo || record.printOrderId,
+        materialSku: order?.materialSku || 'ML-PRINT-240327-09',
+        materialColor: order?.materialColor || '暂无数据',
+        availableRollCount,
+        availableLength,
+        lengthUnit: record.lengthUnit || '米',
+        availableQty: record.receivedQty,
+        qtyUnit: '米',
+        reviewStatus: record.reviewStatus,
+        configuredRollCount: 0,
+        configuredLength: 0,
+        remainingRollCount: availableRollCount,
+        remainingLength: availableLength,
+        targetTransferWarehouseName: record.receiverName || order?.targetTransferWarehouseName || '中转区域',
+        createdAt: record.reviewedAt || '',
+      }
+    })
+
+  const dyeLots = listDyeReviewRecords()
+    .filter((record) => record.reviewStatus === 'PASS' || record.reviewStatus === 'PARTIAL_PASS')
+    .map((record) => {
+      const order = getDyeWorkOrderById(record.dyeOrderId)
+      const availableRollCount = Math.max(record.receivedRollCount || 0, 1)
+      const availableLength = Math.max(record.receivedLength || 0, record.receivedQty || 0)
+      return {
+        transferLotId: `DYE-${record.reviewRecordId}`,
+        sourceProcessType: 'DYE' as const,
+        sourceOrderId: record.dyeOrderId,
+        sourceOrderNo: order?.dyeOrderNo || record.dyeOrderId,
+        materialSku: order?.rawMaterialSku || 'ML-DYE-240315-02',
+        materialColor: order?.targetColor || '暂无数据',
+        availableRollCount,
+        availableLength,
+        lengthUnit: record.lengthUnit || '米',
+        availableQty: record.receivedQty,
+        qtyUnit: '米',
+        reviewStatus: record.reviewStatus,
+        configuredRollCount: 0,
+        configuredLength: 0,
+        remainingRollCount: availableRollCount,
+        remainingLength: availableLength,
+        targetTransferWarehouseName: record.receiverName || order?.targetTransferWarehouseName || '中转区域',
+        createdAt: record.reviewedAt || '',
+      }
+    })
+
+  return [...printLots, ...dyeLots]
+}
+
+const transferMaterialAvailableLots = buildTransferMaterialAvailableLots()
+
 export function cloneCuttingMaterialPrepGroups(): CuttingMaterialPrepGroup[] {
   return cuttingMaterialPrepGroups.map((group) => ({
     ...group,
     riskFlags: [...group.riskFlags],
     materialLines: group.materialLines.map((line) => ({
-      ...line,
+      ...normalizeMaterialPrepLine(line),
       issueFlags: [...line.issueFlags],
       configBatches: line.configBatches.map((batch) => ({ ...batch })),
       receiveRecords: line.receiveRecords.map((record) => ({ ...record })),
     })),
   }))
+}
+
+export function listTransferMaterialAvailableLots(): TransferMaterialAvailableLot[] {
+  return transferMaterialAvailableLots.map((item) => ({ ...item }))
 }

@@ -627,8 +627,12 @@ function createReturnInboundBatches(taskContexts: LinkedTaskContext[]): LinkedRe
           returnedQty: qtyPlan[batchIndex],
           returnFactoryId: taskContext.factory.id,
           returnFactoryName: taskContext.factory.name,
-          warehouseId: `WH-LINK-${String((taskContext.taskIndex % 3) + 1).padStart(2, '0')}`,
-          warehouseName: ['雅加达中心仓', '万隆成衣仓', '泗水成衣仓'][taskContext.taskIndex % 3],
+          warehouseId: 'POST-FACTORY-OWN',
+          warehouseName: '我方后道工厂',
+          managedPostFactoryId: 'POST-FACTORY-OWN',
+          managedPostFactoryName: '我方后道工厂',
+          finishedWarehouseId: 'WH-GARMENT-HANDOFF',
+          finishedWarehouseName: '成衣仓交接点',
           inboundAt,
           inboundBy: `仓管员-${(taskContext.taskIndex % 5) + 1}`,
           qcPolicy: 'REQUIRED',
@@ -636,7 +640,15 @@ function createReturnInboundBatches(taskContexts: LinkedTaskContext[]): LinkedRe
           sourceType: 'TASK',
           sourceId: taskContext.task.taskId,
           sewPostProcessMode:
-            batchIndex % 2 === 0 ? 'SEW_WITH_POST' : 'SEW_WITHOUT_POST_WAREHOUSE_INTEGRATED',
+            batchIndex % 2 === 0 ? 'SEW_FACTORY_INCLUDES_POST' : 'MANAGED_POST_FACTORY_EXECUTES',
+          postExecutionMode:
+            batchIndex % 2 === 0 ? 'SEW_FACTORY_INCLUDES_POST' : 'MANAGED_POST_FACTORY_EXECUTES',
+          receiverKind: 'MANAGED_POST_FACTORY',
+          receiverId: 'POST-FACTORY-OWN',
+          receiverName: '我方后道工厂',
+          submittedQty: qtyPlan[batchIndex],
+          receiverWrittenQty: qtyPlan[batchIndex],
+          receiverWrittenAt: addDays(inboundAt, 0, 2),
           createdAt: inboundAt,
           createdBy: `仓管员-${(taskContext.taskIndex % 5) + 1}`,
           updatedAt: inboundAt,
@@ -658,7 +670,7 @@ function createReturnInboundBatches(taskContexts: LinkedTaskContext[]): LinkedRe
 
 function buildEvidenceRefs(batchId: string, count: number): Array<{ name: string; type?: string; url?: string }> {
   return Array.from({ length: count }).map((_, index) => ({
-    name: `${batchId} 仓库证据-${index + 1}`,
+    name: `${batchId} 检查证据-${index + 1}`,
     type: index === count - 1 ? '文档' : '图片',
   }))
 }
@@ -685,7 +697,7 @@ function createQcScenarios(batchContexts: LinkedReturnBatchContext[]): LinkedRet
       returnFactoryId: batchContext.taskContext.factory.id,
       returnFactoryName: batchContext.taskContext.factory.name,
       warehouseId: batchContext.batch.warehouseId ?? 'WH-LINK-01',
-      warehouseName: batchContext.batch.warehouseName ?? '雅加达中心仓',
+      warehouseName: batchContext.batch.warehouseName ?? '我方后道工厂',
       inboundAt: batchContext.batch.inboundAt,
       inboundBy: batchContext.batch.inboundBy,
       qcPolicy: batchContext.batch.qcPolicy,

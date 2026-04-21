@@ -51,10 +51,18 @@ export interface TransferBagSeedTicketLike {
   mergeBatchNo: string
   styleCode: string
   spuCode: string
+  fabricRollNo?: string
+  fabricColor?: string
   color: string
   size?: string
+  partCode?: string
   partName?: string
+  bundleNo?: string
   qty?: number
+  actualCutPieceQty?: number
+  assemblyGroupKey?: string
+  siblingPartTicketNos?: string[]
+  garmentQty?: number
   materialSku: string
   sourceContextType: string
   status: 'PRINTED' | 'VOIDED'
@@ -133,7 +141,17 @@ export interface CarrierCycleItemBinding {
   originalCutOrderNo: string
   productionOrderNo: string
   mergeBatchNo: string
+  fabricRollNo?: string
+  fabricColor?: string
+  size?: string
+  partCode?: string
+  partName?: string
+  bundleNo?: string
   qty: number
+  actualCutPieceQty?: number
+  garmentQty?: number
+  assemblyGroupKey?: string
+  siblingPartTicketNos?: string[]
   boundAt: string
   boundBy: string
   operator: string
@@ -458,7 +476,17 @@ export function createCarrierCycleBinding(options: {
     originalCutOrderNo: options.ticket.originalCutOrderNo,
     productionOrderNo: options.ticket.productionOrderNo,
     mergeBatchNo: options.ticket.mergeBatchNo,
+    fabricRollNo: options.ticket.fabricRollNo || '',
+    fabricColor: options.ticket.fabricColor || '',
+    size: options.ticket.size || '',
+    partCode: options.ticket.partCode || '',
+    partName: options.ticket.partName || '',
+    bundleNo: options.ticket.bundleNo || '',
     qty: Math.max(options.ticket.qty || 1, 1),
+    actualCutPieceQty: Math.max(options.ticket.actualCutPieceQty || options.ticket.qty || 1, 1),
+    garmentQty: Math.max(options.ticket.garmentQty || options.ticket.qty || 1, 1),
+    assemblyGroupKey: options.ticket.assemblyGroupKey || '',
+    siblingPartTicketNos: [...(options.ticket.siblingPartTicketNos || [])],
     boundAt: options.boundAt,
     boundBy: options.operator,
     operator: options.operator,

@@ -168,6 +168,14 @@ function renderBadge(text: string, tone: Tone = 'secondary', className = ''): st
   return `<span class="inline-flex items-center rounded border px-2 py-0.5 text-xs ${toneClassMap[tone]} ${className}">${escapeHtml(text)}</span>`
 }
 
+function formatCapacityScopeText(processName: string | undefined, craftName: string | undefined): string {
+  const process = (processName ?? '').trim()
+  const craft = (craftName ?? '').trim()
+  if (!process) return craft
+  if (!craft || craft === process) return process
+  return `${process} - ${craft}`
+}
+
 function renderStatCard(label: string, value: number, valueClass = ''): string {
   return `
     <article class="rounded-lg border bg-card">
@@ -713,7 +721,7 @@ function renderFactoryCalendarDetailPanel(
     >
       <div class="space-y-1">
         <h2 class="text-sm font-semibold text-foreground">来源明细</h2>
-        <p class="text-xs text-muted-foreground">${escapeHtml(calendar.selectedFactoryName)} / ${escapeHtml(selectedRow.date)} / ${escapeHtml(selectedRow.processName)} / ${escapeHtml(selectedRow.craftName)}</p>
+        <p class="text-xs text-muted-foreground">${escapeHtml(calendar.selectedFactoryName)} / ${escapeHtml(selectedRow.date)} / ${escapeHtml(formatCapacityScopeText(selectedRow.processName, selectedRow.craftName))}</p>
       </div>
 
       <div class="grid gap-3 sm:grid-cols-2" data-testid="factory-calendar-detail-summary">
@@ -1689,7 +1697,7 @@ function renderBottleneckCraftDetailPanel(row: CapacityBottleneckCraftRow | null
   return `
     <aside class="rounded-md border bg-card" data-bottleneck-craft-detail>
       <div class="border-b bg-muted/30 px-4 py-3">
-        <h3 class="text-sm font-semibold text-foreground">${escapeHtml(`${row.processName} / ${row.craftName}`)}</h3>
+        <h3 class="text-sm font-semibold text-foreground">${escapeHtml(formatCapacityScopeText(row.processName, row.craftName))}</h3>
         <p class="mt-1 text-xs text-muted-foreground">窗口总供给 ${escapeHtml(formatSamValue(row.windowSupplySam))} / 已占用 ${escapeHtml(formatSamValue(row.windowCommittedSam))} / 已冻结 ${escapeHtml(formatSamValue(row.windowFrozenSam))} / 剩余 ${escapeHtml(formatSamValue(row.windowRemainingSam))}</p>
       </div>
       <div class="space-y-4 p-4">
@@ -2115,7 +2123,7 @@ export function renderCapacityConstraintsPage(): string {
             <option value="">全部工艺</option>
             ${calendar.craftOptions
               .map(
-                (craft) => `<option value="${escapeHtml(`${craft.processCode}::${craft.craftCode}`)}" ${`${craft.processCode}::${craft.craftCode}` === selectedCraftValue ? 'selected' : ''}>${escapeHtml(`${craft.processName} / ${craft.craftName}`)}</option>`,
+                (craft) => `<option value="${escapeHtml(`${craft.processCode}::${craft.craftCode}`)}" ${`${craft.processCode}::${craft.craftCode}` === selectedCraftValue ? 'selected' : ''}>${escapeHtml(formatCapacityScopeText(craft.processName, craft.craftName))}</option>`,
               )
               .join('')}
           </select>
@@ -2317,7 +2325,7 @@ export function renderCapacityPoliciesPage(): string {
       : overrideRows
           .map((row) => {
             const scopeText = row.craftName
-              ? `${row.processName ?? row.processCode} / ${row.craftName}`
+              ? formatCapacityScopeText(row.processName ?? row.processCode, row.craftName)
               : row.processName ?? '整厂暂停'
             const actionLabel = row.stateLabel === '生效中' ? '失效' : '删除'
             return `

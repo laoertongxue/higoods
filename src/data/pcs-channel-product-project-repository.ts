@@ -16,11 +16,6 @@ import {
 } from './pcs-project-relation-repository.ts'
 import { getProjectPhaseNameByCode } from './pcs-project-phase-definitions.ts'
 import { getStyleArchiveById, updateStyleArchive } from './pcs-style-archive-repository.ts'
-import {
-  findSkuArchiveByCode,
-  getSkuArchiveById,
-  listSkuArchivesByStyleId,
-} from './pcs-sku-archive-repository.ts'
 import { getLiveProductLineById, getLiveSessionRecordById } from './pcs-live-testing-repository.ts'
 import { getVideoTestRecordById } from './pcs-video-testing-repository.ts'
 import {
@@ -34,6 +29,11 @@ import {
   updateTechnicalDataVersionRecord,
 } from './pcs-technical-data-version-repository.ts'
 import {
+  createProjectImageAssetRecords,
+  getProjectImageAssetById,
+  upsertProjectImageAssets,
+} from './pcs-project-image-repository.ts'
+import {
   getLatestProjectInlineNodeRecord,
   upsertProjectInlineNodeRecord,
 } from './pcs-project-inline-node-record-repository.ts'
@@ -45,6 +45,31 @@ import type { ProjectRelationRecord } from './pcs-project-relation-types.ts'
 import type { PcsProjectChannelProductRecord } from './pcs-project-domain-contract.ts'
 import { syncProjectNodeInstanceRuntime } from './pcs-project-node-instance-registry.ts'
 import { completeDecisionNodeWithResult } from './pcs-project-decision-flow-service.ts'
+import { markProjectNodeCompletedAndUnlockNext } from './pcs-project-flow-service.ts'
+import type {
+  ChannelListingSpecLineInput,
+  ChannelListingSpecLineRecord,
+} from './pcs-channel-listing-spec-types.ts'
+import type {
+  ChannelListingImageInput,
+  ChannelListingImageRecord,
+} from './pcs-channel-listing-image-types.ts'
+import {
+  cloneChannelListingImages,
+  deriveListingImageIds,
+  deriveListingMainImageId,
+  normalizeChannelListingImages,
+  validateChannelListingImagesForUpload,
+} from './pcs-channel-listing-image-utils.ts'
+import {
+  buildChannelListingSellerSku,
+  buildUploadedUpstreamSkuId,
+  countUploadedChannelListingSpecLines,
+  cloneChannelListingSpecLines,
+  normalizeChannelListingSpecLines,
+  validateChannelListingSpecLinesForCreate,
+  validateChannelListingSpecLinesForUpload,
+} from './pcs-channel-listing-spec-utils.ts'
 
 export type ProjectChannelProductScenario =
   | 'MEASURING'
@@ -81,6 +106,8 @@ export interface ProjectChannelProductChainSummary {
   projectName: string
   currentChannelProductId: string
   currentChannelProductCode: string
+  currentChannelProductMainImageId: string
+  currentChannelProductMainImageUrl: string
   currentUpstreamChannelProductCode: string
   currentChannelProductStatus: string
   currentUpstreamSyncStatus: string
@@ -133,19 +160,34 @@ export interface ProjectChannelProductListingPayload {
   targetChannelCode?: string
   targetStoreId?: string
   listingTitle?: string
+  listingDescription?: string
+  defaultPriceAmount?: number
   listingPrice?: number
+  currencyCode?: string
   currency?: string
-  skuId?: string
-  skuCode?: string
-  skuName?: string
+  listingMainImageId?: string
+  listingImageIds?: string[]
+  listingImages?: ChannelListingImageInput[]
+  mainImageUrls?: string[]
+  detailImageUrls?: string[]
+  listingRemark?: string
+  specLines?: ChannelListingSpecLineInput[]
 }
 
 interface ResolvedProjectChannelProductListingPayload {
   targetChannelCode: string
   targetStoreId: string
   listingTitle: string
-  listingPrice: number
-  currency: string
+  listingDescription: string
+  defaultPriceAmount: number
+  currencyCode: string
+  listingMainImageId: string
+  listingImageIds: string[]
+  listingImages: ChannelListingImageInput[]
+  mainImageUrls: string[]
+  detailImageUrls: string[]
+  listingRemark: string
+  specLines: ChannelListingSpecLineInput[]
 }
 
 export interface ProjectTestingSummaryPayload {
@@ -261,7 +303,14 @@ function nowText(): string {
 }
 
 function cloneRecord(record: ProjectChannelProductRecord): ProjectChannelProductRecord {
-  return { ...record }
+  return {
+    ...record,
+    listingImageIds: [...(record.listingImageIds || [])],
+    listingImages: cloneChannelListingImages(record.listingImages || []),
+    mainImageUrls: [...(record.mainImageUrls || [])],
+    detailImageUrls: [...(record.detailImageUrls || [])],
+    specLines: cloneChannelListingSpecLines(record.specLines || []),
+  }
 }
 
 function cloneSnapshot(snapshot: ChannelProductStoreSnapshot): ChannelProductStoreSnapshot {
@@ -299,9 +348,11 @@ function resolveListingPayload(
   const targetChannelCode = payload.targetChannelCode || project?.targetChannelCodes[0] || 'tiktok-shop'
   const targetStoreId = payload.targetStoreId || getDefaultStoreId(targetChannelCode)
   const channelMeta = getChannelMeta(targetChannelCode, targetStoreId)
-  const listingPrice =
-    typeof payload.listingPrice === 'number' && Number.isFinite(payload.listingPrice)
-      ? payload.listingPrice
+  const defaultPriceAmount =
+    typeof payload.defaultPriceAmount === 'number' && Number.isFinite(payload.defaultPriceAmount)
+      ? payload.defaultPriceAmount
+      : typeof payload.listingPrice === 'number' && Number.isFinite(payload.listingPrice)
+        ? payload.listingPrice
       : typeof project?.sampleUnitPrice === 'number' && Number.isFinite(project.sampleUnitPrice)
         ? project.sampleUnitPrice
         : 199
@@ -310,8 +361,19 @@ function resolveListingPayload(
     targetChannelCode,
     targetStoreId,
     listingTitle: payload.listingTitle?.trim() || `${project?.projectName || '商品项目'} 测款渠道店铺商品`,
-    listingPrice,
-    currency: payload.currency?.trim() || resolvePcsStoreCurrency(targetStoreId, targetChannelCode),
+    listingDescription: payload.listingDescription?.trim() || '',
+    defaultPriceAmount,
+    currencyCode:
+      payload.currencyCode?.trim() ||
+      payload.currency?.trim() ||
+      resolvePcsStoreCurrency(targetStoreId, targetChannelCode),
+    listingMainImageId: payload.listingMainImageId?.trim() || '',
+    listingImageIds: [...(payload.listingImageIds || [])],
+    listingImages: [...(payload.listingImages || [])],
+    mainImageUrls: [...(payload.mainImageUrls || [])],
+    detailImageUrls: [...(payload.detailImageUrls || [])],
+    listingRemark: payload.listingRemark?.trim() || '',
+    specLines: [...(payload.specLines || [])],
   }
 }
 
@@ -346,82 +408,243 @@ function buildUpstreamCode(projectCode: string, sequence: string): string {
   return `UP-${projectCode.slice(-7).replace(/-/g, '')}-${sequence}`
 }
 
-function normalizeSkuBaseCode(value: string): string {
-  const normalized = value
-    .trim()
-    .replace(/^SPU-/i, 'SKU-')
-    .replace(/[^a-zA-Z0-9-]/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
-  if (!normalized) return 'SKU-AUTO'
-  return normalized.startsWith('SKU-') ? normalized : `SKU-${normalized}`
+function buildLegacySpecSnapshot(
+  record: Pick<
+    ProjectChannelProductRecord,
+    | 'channelProductId'
+    | 'channelProductCode'
+    | 'projectCode'
+    | 'listingPrice'
+    | 'defaultPriceAmount'
+    | 'currency'
+    | 'currencyCode'
+    | 'skuCode'
+    | 'skuName'
+    | 'upstreamProductId'
+    | 'upstreamChannelProductCode'
+  >,
+): ChannelListingSpecLineRecord[] {
+  if (!record.skuCode && !record.skuName && !record.listingPrice && !record.defaultPriceAmount) {
+    return []
+  }
+
+  const listingBatchCode = record.channelProductCode || record.channelProductId
+  const upstreamProductId = record.upstreamProductId || record.upstreamChannelProductCode || ''
+  const priceAmount = record.defaultPriceAmount || record.listingPrice || 0
+  const currencyCode = record.currencyCode || record.currency || ''
+  const sellerSku =
+    record.skuCode ||
+    buildChannelListingSellerSku({
+      projectCode: record.projectCode,
+      colorName: '',
+      sizeName: '',
+      index: 0,
+    })
+
+  return [
+    {
+      specLineId: `${record.channelProductId}__spec_01`,
+      specLineCode: `${listingBatchCode}-SPEC-01`,
+      listingBatchId: record.channelProductId,
+      colorName: '',
+      sizeName: '',
+      printName: '',
+      sellerSku,
+      priceAmount,
+      currencyCode,
+      stockQty: 0,
+      lineStatus: upstreamProductId ? '已上传' : '待上传',
+      upstreamSkuId: '',
+      uploadResultText: upstreamProductId ? '旧记录已回填上游款式商品编号，规格编号待补齐。' : '',
+    },
+  ]
 }
 
-function resolveChannelProductSku(input: {
-  channelProductId: string
-  projectCode: string
-  projectName: string
-  styleId?: string
-  styleCode?: string
-  styleName?: string
-  skuId?: string
-  skuCode?: string
-  skuName?: string
-}): Pick<ProjectChannelProductRecord, 'skuId' | 'skuCode' | 'skuName'> {
-  const exactSku =
-    (input.skuId ? getSkuArchiveById(input.skuId) : null) ||
-    (input.skuCode ? findSkuArchiveByCode(input.skuCode) : null)
-  if (exactSku) {
-    return {
-      skuId: exactSku.skuId,
-      skuCode: exactSku.skuCode,
-      skuName: exactSku.skuName,
-    }
-  }
+function buildListingImageSourceText(listingImages: ChannelListingImageRecord[]): string {
+  const sourceTypes = Array.from(new Set(listingImages.map((item) => item.sourceType)))
+  return sourceTypes.join('、')
+}
 
-  if (input.styleId) {
-    const relatedSku = listSkuArchivesByStyleId(input.styleId)[0] || null
-    if (relatedSku) {
-      return {
-        skuId: relatedSku.skuId,
-        skuCode: relatedSku.skuCode,
-        skuName: relatedSku.skuName,
-      }
-    }
-  }
+function deriveLegacyListingImageUrls(record: Pick<ProjectChannelProductRecord, 'mainImageUrls' | 'detailImageUrls'>): string[] {
+  return [...new Set([...(record.mainImageUrls || []), ...(record.detailImageUrls || [])].map((item) => item.trim()).filter(Boolean))]
+}
 
-  const fallbackSkuCode = normalizeSkuBaseCode(input.skuCode || input.styleCode || input.projectCode)
-  return {
-    skuId: input.skuId || `sku_${input.channelProductId.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()}`,
-    skuCode: fallbackSkuCode,
-    skuName: input.skuName || input.styleName || input.projectName,
-  }
+function ensureLegacyListingImageAssets(record: ProjectChannelProductRecord): ChannelListingImageRecord[] {
+  const legacyUrls = deriveLegacyListingImageUrls(record)
+  if (legacyUrls.length === 0) return []
+  const legacyAssets = createProjectImageAssetRecords(
+    {
+      projectId: record.projectId,
+      projectCode: record.projectCode,
+      projectName: record.projectName,
+    },
+    legacyUrls.map((imageUrl, index) => ({
+      imageId: `${record.channelProductId}-listing-image-${String(index + 1).padStart(2, '0')}`,
+      imageUrl,
+      imageName: `上架图片 ${index + 1}`,
+      imageType: '上架图',
+      sourceNodeCode: 'CHANNEL_PRODUCT_LISTING',
+      sourceRecordId: record.channelProductId,
+      sourceType: '商品上架',
+      usageScopes: ['商品上架', '项目资料归档'],
+      imageStatus: '可用于上架',
+      mainFlag: index === 0,
+      sortNo: index + 1,
+    })),
+    '系统迁移',
+    record.updatedAt || record.createdAt || nowText(),
+  )
+  upsertProjectImageAssets(legacyAssets)
+  return normalizeChannelListingImages({
+    listingBatchId: record.channelProductId,
+    imageInputs: legacyAssets.map((asset, index) => ({
+      imageId: asset.imageId,
+      sortNo: index + 1,
+      mainFlag: index === 0,
+    })),
+    mainImageId: legacyAssets[0]?.imageId || '',
+    imageAssets: legacyAssets,
+  })
+}
+
+function buildListingImagesFromPayload(input: {
+  listingBatchId: string
+  listingImageIds: string[]
+  listingImages: ChannelListingImageInput[]
+  listingMainImageId: string
+}): ChannelListingImageRecord[] {
+  const imageInputs =
+    input.listingImages.length > 0
+      ? input.listingImages
+      : input.listingImageIds.map((imageId, index) => ({
+          imageId,
+          sortNo: index + 1,
+          mainFlag: imageId === input.listingMainImageId,
+        }))
+  const imageAssets = imageInputs
+    .map((item) => getProjectImageAssetById(item.imageId))
+    .filter((item): item is NonNullable<typeof item> => Boolean(item))
+  const mainImageId = input.listingMainImageId || imageInputs[0]?.imageId || ''
+  return normalizeChannelListingImages({
+    listingBatchId: input.listingBatchId,
+    imageInputs,
+    mainImageId,
+    imageAssets,
+  })
 }
 
 function normalizeChannelProductRecord(record: ProjectChannelProductRecord): ProjectChannelProductRecord {
-  const sku = resolveChannelProductSku({
-    channelProductId: record.channelProductId,
+  const linkedStyle = record.styleId ? getStyleArchiveById(record.styleId) : null
+  const listingBatchCode = record.listingBatchCode || record.channelProductCode
+  const specLines = normalizeChannelListingSpecLines({
+    listingBatchId: record.channelProductId,
+    listingBatchCode,
     projectCode: record.projectCode,
-    projectName: record.projectName,
-    styleId: record.styleId,
-    styleCode: record.styleCode,
-    styleName: record.styleName,
-    skuId: record.skuId,
-    skuCode: record.skuCode,
-    skuName: record.skuName,
+    defaultPriceAmount: record.defaultPriceAmount || record.listingPrice || 0,
+    currencyCode: record.currencyCode || record.currency || '',
+    specLines: record.specLines?.length
+      ? record.specLines.map((line) => ({
+          specLineId: line.specLineId,
+          specLineCode: line.specLineCode,
+          colorName: line.colorName,
+          sizeName: line.sizeName,
+          printName: line.printName,
+          sellerSku: line.sellerSku,
+          priceAmount: line.priceAmount,
+          currencyCode: line.currencyCode,
+          stockQty: line.stockQty,
+          lineStatus: line.lineStatus,
+          upstreamSkuId: line.upstreamSkuId,
+          uploadResultText: line.uploadResultText,
+        }))
+      : buildLegacySpecSnapshot(record),
+  }).map((line) => {
+    const legacyUploaded = Boolean(record.upstreamProductId || record.upstreamChannelProductCode)
+    if (line.upstreamSkuId || !legacyUploaded) return line
+    return {
+      ...line,
+      lineStatus: '已上传',
+      uploadResultText: line.uploadResultText || '旧记录已回填上游款式商品编号，规格编号待补齐。',
+    }
   })
-  const skuRecord = sku.skuId ? getSkuArchiveById(sku.skuId) : null
-  const linkedStyle =
-    (record.styleId ? getStyleArchiveById(record.styleId) : null) ||
-    (skuRecord?.styleId ? getStyleArchiveById(skuRecord.styleId) : null)
+  const upstreamProductId = record.upstreamProductId || record.upstreamChannelProductCode || ''
+  const uploadedSpecLineCount = countUploadedChannelListingSpecLines(specLines)
+  const listingBatchStatus =
+    record.listingBatchStatus ||
+    (record.channelProductStatus === '已上架待测款'
+      ? '已完成'
+      : upstreamProductId
+        ? '已上传待确认'
+        : record.channelProductStatus === '待上传'
+          ? '待上传'
+          : record.channelProductStatus)
+  const primarySpec = specLines[0] || null
+  const listingImages =
+    record.listingImages?.length > 0
+      ? normalizeChannelListingImages({
+          listingBatchId: record.channelProductId,
+          imageInputs: record.listingImages.map((item) => ({
+            imageId: item.imageId,
+            sortNo: item.sortNo,
+            mainFlag: item.mainFlag,
+          })),
+          mainImageId: record.listingMainImageId || deriveListingMainImageId(record.listingImages),
+          imageAssets: record.listingImages
+            .map((item) => getProjectImageAssetById(item.imageId))
+            .filter((item): item is NonNullable<typeof item> => Boolean(item)),
+        })
+      : ensureLegacyListingImageAssets(record)
+  const listingImageIds = record.listingImageIds?.length
+    ? [...record.listingImageIds]
+    : deriveListingImageIds(listingImages)
+  const listingMainImageId = record.listingMainImageId || deriveListingMainImageId(listingImages)
+  const mainImageRecord = listingImages.find((item) => item.imageId === listingMainImageId) || listingImages[0] || null
+  const detailImageUrls = listingImages
+    .filter((item) => item.imageId !== listingMainImageId)
+    .sort((left, right) => left.sortNo - right.sortNo)
+    .map((item) => item.imageUrl)
+  const derivedSkuName =
+    primarySpec && (primarySpec.colorName || primarySpec.sizeName || primarySpec.printName)
+      ? [primarySpec.colorName, primarySpec.sizeName, primarySpec.printName].filter(Boolean).join(' / ')
+      : record.skuName || ''
   return {
     ...cloneRecord(record),
-    skuId: sku.skuId,
-    skuCode: sku.skuCode,
-    skuName: sku.skuName,
+    listingBatchCode,
+    upstreamProductId,
+    upstreamChannelProductCode: upstreamProductId,
     styleId: record.styleId || linkedStyle?.styleId || '',
     styleCode: record.styleCode || linkedStyle?.styleCode || '',
     styleName: record.styleName || linkedStyle?.styleName || '',
+    styleListingTitle: record.styleListingTitle || record.listingTitle,
+    listingDescription: record.listingDescription || '',
+    defaultPriceAmount: record.defaultPriceAmount || record.listingPrice || 0,
+    currencyCode: record.currencyCode || record.currency || '',
+    listingMainImageId,
+    listingImageIds,
+    listingImageSource: record.listingImageSource || buildListingImageSourceText(listingImages),
+    listingImageConfirmedAt: record.listingImageConfirmedAt || (listingImages.length > 0 ? record.updatedAt : ''),
+    listingImageConfirmedBy: record.listingImageConfirmedBy || (listingImages.length > 0 ? record.updatedBy || '系统迁移' : ''),
+    listingImages,
+    mainImageUrls: mainImageRecord ? [mainImageRecord.imageUrl] : [],
+    detailImageUrls,
+    listingRemark: record.listingRemark || '',
+    specLines,
+    specLineCount: specLines.length,
+    uploadedSpecLineCount,
+    listingBatchStatus,
+    uploadResultText:
+      record.uploadResultText ||
+      (listingBatchStatus === '已上传待确认'
+        ? '旧记录已上传到渠道，待确认并补齐规格上游编号。'
+        : ''),
+    uploadedAt: record.uploadedAt || (upstreamProductId ? record.updatedAt : ''),
+    channelProductStatus:
+      record.channelProductStatus,
+    listingPrice: record.listingPrice || record.defaultPriceAmount || 0,
+    currency: record.currency || record.currencyCode || '',
+    skuId: record.skuId || primarySpec?.specLineId || '',
+    skuCode: record.skuCode || primarySpec?.sellerSku || primarySpec?.specLineCode || '',
+    skuName: derivedSkuName,
   }
 }
 
@@ -433,19 +656,51 @@ function buildSeedRecord(seed: ChannelSeed): ProjectChannelProductRecord | null 
   if (!project || !listingNode) return null
   const channelMeta = getChannelMeta(seed.channelCode, seed.storeId)
   const channelProductId = buildChannelProductId(seed.projectCode, seed.sequence)
-  const sku = resolveChannelProductSku({
-    channelProductId,
+  const channelProductCode = buildChannelProductCode(seed.projectCode, seed.sequence)
+  const upstreamProductId =
+    seed.channelProductStatus === '待上传'
+      ? ''
+      : buildUpstreamCode(seed.projectCode, seed.sequence)
+  const baseSpecInputs: ChannelListingSpecLineInput[] = [
+    {
+      colorName: seed.sequence === '02' ? '米白' : '黑色',
+      sizeName: 'M',
+      priceAmount: seed.listingPrice,
+      currencyCode: resolvePcsStoreCurrency(seed.storeId, seed.channelCode) || seed.currency,
+      stockQty: 30,
+    },
+    {
+      colorName: seed.sequence === '02' ? '米白' : '黑色',
+      sizeName: 'L',
+      priceAmount: seed.listingPrice,
+      currencyCode: resolvePcsStoreCurrency(seed.storeId, seed.channelCode) || seed.currency,
+      stockQty: 24,
+    },
+  ]
+  const specLines = normalizeChannelListingSpecLines({
+    listingBatchId: channelProductId,
+    listingBatchCode: channelProductCode,
     projectCode: project.projectCode,
-    projectName: project.projectName,
-    styleId: seed.styleId,
-    styleCode: seed.styleCode,
-    styleName: seed.styleName,
-  })
+    defaultPriceAmount: seed.listingPrice,
+    currencyCode: resolvePcsStoreCurrency(seed.storeId, seed.channelCode) || seed.currency,
+    specLines: baseSpecInputs,
+  }).map((line) =>
+    upstreamProductId
+      ? {
+          ...line,
+          lineStatus: '已上传',
+          upstreamSkuId: buildUploadedUpstreamSkuId(upstreamProductId, line.specLineCode),
+          uploadResultText: '已上传到渠道。',
+        }
+      : line,
+  )
+  const primarySpec = specLines[0] || null
   return {
     channelProductId,
-    channelProductCode: buildChannelProductCode(seed.projectCode, seed.sequence),
-    upstreamChannelProductCode:
-      seed.channelProductStatus === '待上架' ? '' : buildUpstreamCode(seed.projectCode, seed.sequence),
+    channelProductCode,
+    listingBatchCode: channelProductCode,
+    upstreamChannelProductCode: upstreamProductId,
+    upstreamProductId,
     projectId: project.projectId,
     projectCode: project.projectCode,
     projectName: project.projectName,
@@ -454,14 +709,35 @@ function buildSeedRecord(seed: ChannelSeed): ProjectChannelProductRecord | null 
     channelName: channelMeta.channelName,
     storeId: seed.storeId,
     storeName: channelMeta.storeName,
+    styleListingTitle: seed.listingTitle,
     listingTitle: seed.listingTitle,
+    listingDescription: '',
     listingPrice: seed.listingPrice,
+    defaultPriceAmount: seed.listingPrice,
     currency: resolvePcsStoreCurrency(seed.storeId, seed.channelCode) || seed.currency,
-    channelProductStatus: seed.channelProductStatus,
+    currencyCode: resolvePcsStoreCurrency(seed.storeId, seed.channelCode) || seed.currency,
+    listingMainImageId: '',
+    listingImageIds: [],
+    listingImageSource: '',
+    listingImageConfirmedAt: '',
+    listingImageConfirmedBy: '',
+    listingImages: [],
+    mainImageUrls: [],
+    detailImageUrls: [],
+    listingRemark: '',
+    specLines,
+    specLineCount: specLines.length,
+    uploadedSpecLineCount: countUploadedChannelListingSpecLines(specLines),
+    listingBatchStatus:
+      seed.channelProductStatus,
+    uploadResultText: upstreamProductId ? '历史初始化数据已回填上游款式商品编号。' : '',
+    uploadedAt: upstreamProductId ? seed.updatedAt : '',
+    channelProductStatus:
+      seed.channelProductStatus,
     upstreamSyncStatus: seed.upstreamSyncStatus,
-    skuId: sku.skuId,
-    skuCode: sku.skuCode,
-    skuName: sku.skuName,
+    skuId: primarySpec?.specLineId || '',
+    skuCode: primarySpec?.sellerSku || '',
+    skuName: [primarySpec?.colorName, primarySpec?.sizeName].filter(Boolean).join(' / '),
     styleId: seed.styleId || '',
     styleCode: seed.styleCode || '',
     styleName: seed.styleName || '',
@@ -548,7 +824,7 @@ function seedSnapshot(): ChannelProductStoreSnapshot {
       listingTitle: '印尼风格碎花连衣裙历史重测款',
       listingPrice: 269,
       currency: 'CNY',
-      channelProductStatus: '待上架',
+      channelProductStatus: '待上传',
       upstreamSyncStatus: '无需更新',
       createdAt: '2026-03-26 09:30',
       updatedAt: '2026-03-26 09:30',
@@ -1407,7 +1683,12 @@ function getCurrentChannelProduct(records: ProjectChannelProductRecord[]): Proje
 }
 
 function listLaunchReadyChannelProducts(records: ProjectChannelProductRecord[]): ProjectChannelProductRecord[] {
-  return listValidChannelProducts(records).filter((item) => Boolean(item.upstreamChannelProductCode))
+  return listValidChannelProducts(records).filter(
+    (item) =>
+      item.listingBatchStatus === '已完成' ||
+      item.channelProductStatus === '已上架待测款' ||
+      item.channelProductStatus === '已生效',
+  )
 }
 
 function listTestingConclusionTargetRecords(records: ProjectChannelProductRecord[]): ProjectChannelProductRecord[] {
@@ -1415,7 +1696,7 @@ function listTestingConclusionTargetRecords(records: ProjectChannelProductRecord
   if (launchReadyRecords.length > 0) return launchReadyRecords
 
   return [...records]
-    .filter((item) => Boolean(item.upstreamChannelProductCode))
+    .filter((item) => Boolean(item.upstreamProductId || item.upstreamChannelProductCode))
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
 }
 
@@ -1423,14 +1704,12 @@ function findOpenChannelProductByChannelStore(
   projectId: string,
   targetChannelCode: string,
   targetStoreId: string,
-  skuCode = '',
 ): ProjectChannelProductRecord | null {
   return (
     listValidChannelProducts(listProjectChannelProductsByProjectId(projectId)).find(
       (item) =>
         item.channelCode === targetChannelCode &&
-        item.storeId === targetStoreId &&
-        item.skuCode === skuCode,
+        item.storeId === targetStoreId,
     ) || null
   )
 }
@@ -2202,6 +2481,32 @@ export function listProjectChannelProductsByProjectId(projectId: string): Projec
   return listProjectChannelProducts().filter((item) => item.projectId === projectId)
 }
 
+export function repairChannelListingNodeInstanceConsistency(operatorName = '系统修复'): void {
+  listProjects().forEach((project) => {
+    const listingNode = getProjectNodeRecordByWorkItemTypeCode(project.projectId, 'CHANNEL_PRODUCT_LISTING')
+    if (!listingNode || listingNode.currentStatus !== '进行中') {
+      return
+    }
+
+    const activeRecords = listValidChannelProducts(listProjectChannelProductsByProjectId(project.projectId))
+    if (activeRecords.length > 0) {
+      return
+    }
+    updateProjectNodeRecord(
+      project.projectId,
+      listingNode.projectNodeId,
+      {
+        latestResultType: '待创建款式上架批次',
+        latestResultText: '当前尚未创建款式上架批次，请先填写规格明细并创建上架批次。',
+        pendingActionType: '创建款式上架批次',
+        pendingActionText: '请先创建款式上架批次，再上传到渠道。',
+        updatedAt: nowText(),
+      },
+      operatorName,
+    )
+  })
+}
+
 export function getProjectChannelProductById(channelProductId: string): ProjectChannelProductRecord | null {
   return listProjectChannelProducts().find((item) => item.channelProductId === channelProductId) || null
 }
@@ -2249,8 +2554,14 @@ export function buildProjectChannelProductChainSummary(projectId: string): Proje
     projectName: project.projectName,
     currentChannelProductId: currentRecord?.channelProductId || '',
     currentChannelProductCode: currentRecord?.channelProductCode || '',
-    currentUpstreamChannelProductCode: currentRecord?.upstreamChannelProductCode || '',
-    currentChannelProductStatus: currentRecord?.channelProductStatus || '',
+    currentChannelProductMainImageId: currentRecord?.listingMainImageId || '',
+    currentChannelProductMainImageUrl: currentRecord?.mainImageUrls?.[0] || currentRecord?.listingImages?.[0]?.imageUrl || '',
+    currentUpstreamChannelProductCode:
+      currentRecord?.upstreamProductId || currentRecord?.upstreamChannelProductCode || '',
+    currentChannelProductStatus:
+      currentRecord?.listingBatchStatus === '已完成'
+        ? '已上架待测款'
+        : currentRecord?.listingBatchStatus || currentRecord?.channelProductStatus || '',
     currentUpstreamSyncStatus: currentRecord?.upstreamSyncStatus || '',
     currentUpstreamSyncNote: currentRecord?.upstreamSyncNote || '',
     currentUpstreamSyncTime: currentRecord?.lastUpstreamSyncAt || '',
@@ -2301,23 +2612,17 @@ export function createProjectChannelProductFromListingNode(
   }
 
   const resolvedPayload = resolveListingPayload(projectId, payload)
+  const createSpecError = validateChannelListingSpecLinesForCreate(resolvedPayload.specLines)
+  if (createSpecError) {
+    return { ok: false, message: createSpecError, record: null }
+  }
+  const uploadSpecError = validateChannelListingSpecLinesForUpload(resolvedPayload.specLines)
+  if (uploadSpecError) {
+    return { ok: false, message: uploadSpecError, record: null }
+  }
   const sequence = nextChannelProductSequence(projectId)
   const channelProductId = buildChannelProductId(project.projectCode, sequence)
-  const resolvedSku = resolveChannelProductSku({
-    channelProductId,
-    projectCode: project.projectCode,
-    projectName: project.projectName,
-    styleId: payload.skuId ? getSkuArchiveById(payload.skuId)?.styleId || project.linkedStyleId : project.linkedStyleId,
-    styleCode: project.linkedStyleCode || project.styleNumber,
-    styleName: project.linkedStyleName || project.projectName,
-    skuId: payload.skuId,
-    skuCode: payload.skuCode,
-    skuName: payload.skuName,
-  })
-  const skuArchive = resolvedSku.skuId ? getSkuArchiveById(resolvedSku.skuId) : null
-  const linkedStyle =
-    (project.linkedStyleId ? getStyleArchiveById(project.linkedStyleId) : null) ||
-    (skuArchive?.styleId ? getStyleArchiveById(skuArchive.styleId) : null)
+  const linkedStyle = project.linkedStyleId ? getStyleArchiveById(project.linkedStyleId) : null
   if (
     project.targetChannelCodes.length > 0 &&
     !project.targetChannelCodes.includes(resolvedPayload.targetChannelCode)
@@ -2332,7 +2637,6 @@ export function createProjectChannelProductFromListingNode(
     projectId,
     resolvedPayload.targetChannelCode,
     resolvedPayload.targetStoreId,
-    resolvedSku.skuCode,
   )
   const channelStoreError = validateListingStoreChannel(
     resolvedPayload.targetChannelCode,
@@ -2348,16 +2652,72 @@ export function createProjectChannelProductFromListingNode(
   if (duplicateRecord) {
     return {
       ok: false,
-      message: `当前项目在该渠道 / 店铺下已存在有效渠道店铺商品 ${duplicateRecord.channelProductCode}（规格 ${duplicateRecord.skuCode}）；同一渠道、同一店铺、同一规格不能重复创建，请改用其他渠道、店铺或规格继续并行上架。`,
+      message: `当前项目在该渠道 / 店铺下已存在有效款式上架批次 ${duplicateRecord.channelProductCode}；同一渠道、同一店铺不能重复创建，请改用其他渠道或店铺继续并行上架。`,
       record: duplicateRecord,
     }
   }
   const channelMeta = getChannelMeta(resolvedPayload.targetChannelCode, resolvedPayload.targetStoreId)
   const timestamp = nowText()
+  const channelProductCode = buildChannelProductCode(project.projectCode, sequence)
+  const specLines = normalizeChannelListingSpecLines({
+    listingBatchId: channelProductId,
+    listingBatchCode: channelProductCode,
+    projectCode: project.projectCode,
+    defaultPriceAmount: resolvedPayload.defaultPriceAmount,
+    currencyCode: resolvedPayload.currencyCode,
+    specLines: resolvedPayload.specLines,
+  })
+  const migratedListingImages =
+    resolvedPayload.listingImageIds.length === 0 &&
+    resolvedPayload.listingImages.length === 0 &&
+    [...resolvedPayload.mainImageUrls, ...resolvedPayload.detailImageUrls].some(Boolean)
+      ? createProjectImageAssetRecords(
+          project,
+          [...new Set([...resolvedPayload.mainImageUrls, ...resolvedPayload.detailImageUrls].map((item) => item.trim()).filter(Boolean))]
+            .map((imageUrl, index) => ({
+              imageUrl,
+              imageName: `上架图片 ${index + 1}`,
+              imageType: '上架图',
+              sourceNodeCode: 'CHANNEL_PRODUCT_LISTING',
+              sourceRecordId: channelProductId,
+              sourceType: '商品上架',
+              usageScopes: ['商品上架', '项目资料归档'],
+              imageStatus: '可用于上架',
+              mainFlag: index === 0,
+              sortNo: index + 1,
+            })),
+          operatorName,
+          timestamp,
+        )
+      : []
+  if (migratedListingImages.length > 0) {
+    upsertProjectImageAssets(migratedListingImages)
+  }
+  const listingImages = buildListingImagesFromPayload({
+    listingBatchId: channelProductId,
+    listingImageIds:
+      resolvedPayload.listingImageIds.length > 0
+        ? resolvedPayload.listingImageIds
+        : migratedListingImages.map((item) => item.imageId),
+    listingImages:
+      resolvedPayload.listingImages.length > 0
+        ? resolvedPayload.listingImages
+        : migratedListingImages.map((item, index) => ({
+            imageId: item.imageId,
+            sortNo: index + 1,
+            mainFlag: index === 0,
+          })),
+    listingMainImageId: resolvedPayload.listingMainImageId || migratedListingImages[0]?.imageId || '',
+  })
+  const listingMainImageId = deriveListingMainImageId(listingImages)
+  const mainImageRecord = listingImages.find((item) => item.imageId === listingMainImageId) || null
+  const primarySpec = specLines[0] || null
   const record: ProjectChannelProductRecord = {
     channelProductId,
-    channelProductCode: buildChannelProductCode(project.projectCode, sequence),
+    channelProductCode,
+    listingBatchCode: channelProductCode,
     upstreamChannelProductCode: '',
+    upstreamProductId: '',
     projectId: project.projectId,
     projectCode: project.projectCode,
     projectName: project.projectName,
@@ -2366,14 +2726,35 @@ export function createProjectChannelProductFromListingNode(
     channelName: channelMeta.channelName,
     storeId: resolvedPayload.targetStoreId,
     storeName: channelMeta.storeName,
+    styleListingTitle: resolvedPayload.listingTitle,
     listingTitle: resolvedPayload.listingTitle,
-    listingPrice: resolvedPayload.listingPrice,
-    currency: resolvedPayload.currency,
-    channelProductStatus: '待上架',
+    listingDescription: resolvedPayload.listingDescription,
+    listingPrice: resolvedPayload.defaultPriceAmount,
+    defaultPriceAmount: resolvedPayload.defaultPriceAmount,
+    currency: resolvedPayload.currencyCode,
+    currencyCode: resolvedPayload.currencyCode,
+    listingMainImageId,
+    listingImageIds: deriveListingImageIds(listingImages),
+    listingImageSource: buildListingImageSourceText(listingImages),
+    listingImageConfirmedAt: listingImages.length > 0 ? timestamp : '',
+    listingImageConfirmedBy: listingImages.length > 0 ? operatorName : '',
+    listingImages,
+    mainImageUrls: mainImageRecord ? [mainImageRecord.imageUrl] : [],
+    detailImageUrls: listingImages
+      .filter((item) => item.imageId !== listingMainImageId)
+      .map((item) => item.imageUrl),
+    listingRemark: resolvedPayload.listingRemark,
+    specLines,
+    specLineCount: specLines.length,
+    uploadedSpecLineCount: 0,
+    listingBatchStatus: '待上传',
+    uploadResultText: '已创建款式上架批次，待上传到渠道。',
+    uploadedAt: '',
+    channelProductStatus: '待上传',
     upstreamSyncStatus: '无需更新',
-    skuId: resolvedSku.skuId,
-    skuCode: resolvedSku.skuCode,
-    skuName: resolvedSku.skuName,
+    skuId: primarySpec?.specLineId || '',
+    skuCode: primarySpec?.sellerSku || '',
+    skuName: [primarySpec?.colorName, primarySpec?.sizeName, primarySpec?.printName].filter(Boolean).join(' / '),
     styleId: linkedStyle?.styleId || '',
     styleCode: linkedStyle?.styleCode || '',
     styleName: linkedStyle?.styleName || '',
@@ -2393,10 +2774,10 @@ export function createProjectChannelProductFromListingNode(
     linkedLiveLineCode: '',
     linkedVideoRecordId: '',
     linkedVideoRecordCode: '',
-    upstreamSyncNote: '渠道店铺商品已创建，等待发起上架。',
+    upstreamSyncNote: '款式上架批次已创建，等待上传到渠道。',
     upstreamSyncResult: '待执行',
     upstreamSyncBy: '',
-    upstreamSyncLog: '渠道店铺商品已创建，等待发起上架。',
+    upstreamSyncLog: '款式上架批次已创建，等待上传到渠道。',
   }
 
   replaceRecord(record, operatorName)
@@ -2409,10 +2790,10 @@ export function createProjectChannelProductFromListingNode(
       latestInstanceId: record.channelProductId,
       latestInstanceCode: record.channelProductCode,
       validInstanceCount: (listingNode.validInstanceCount || 0) + 1,
-      latestResultType: '已创建渠道店铺商品',
-      latestResultText: `已创建渠道店铺商品 ${record.channelProductCode}，规格 ${record.skuCode}，等待发起上架。`,
-      pendingActionType: '发起上架',
-      pendingActionText: '请将当前渠道店铺商品提交到上游渠道并回填上游渠道商品编码。',
+      latestResultType: '已创建款式上架批次',
+      latestResultText: `已创建款式上架批次 ${record.listingBatchCode}，待上传到渠道。`,
+      pendingActionType: '上传款式到渠道',
+      pendingActionText: '请补齐规格明细并上传款式到渠道。',
       updatedAt: timestamp,
     },
     operatorName,
@@ -2421,7 +2802,7 @@ export function createProjectChannelProductFromListingNode(
 
   return {
     ok: true,
-    message: `已创建渠道店铺商品 ${record.channelProductCode}（规格 ${record.skuCode}）。`,
+    message: '已创建款式上架批次，待上传到渠道。',
     record,
   }
 }
@@ -2432,28 +2813,55 @@ export function launchProjectChannelProductListing(
 ): ProjectChannelProductWriteResult {
   const record = getProjectChannelProductById(channelProductId)
   if (!record) {
-    return { ok: false, message: '未找到对应渠道店铺商品，不能发起上架。', record: null }
+    return { ok: false, message: '未找到对应款式上架批次，不能上传到渠道。', record: null }
   }
   if (record.channelProductStatus === '已作废') {
-    return { ok: false, message: '当前渠道店铺商品已作废，不能再次发起上架。', record }
+    return { ok: false, message: '当前款式上架批次已作废，不能再次上传到渠道。', record }
   }
-  if (record.upstreamChannelProductCode) {
-    return { ok: false, message: '当前渠道店铺商品已完成上架，不需要重复提交。', record }
+  if (record.listingBatchStatus === '已完成') {
+    return { ok: false, message: '当前款式上架批次已完成，不需要重复上传。', record }
+  }
+  const uploadSpecError = validateChannelListingSpecLinesForUpload(record.specLines)
+  if (uploadSpecError) {
+    return { ok: false, message: uploadSpecError, record }
+  }
+  const uploadImageError = validateChannelListingImagesForUpload({
+    listingImages: record.listingImages || [],
+    listingMainImageId: record.listingMainImageId || '',
+    getImageAssetById: getProjectImageAssetById,
+  })
+  if (uploadImageError) {
+    return { ok: false, message: uploadImageError, record }
   }
 
   const timestamp = nowText()
+  const upstreamProductId = buildUpstreamCode(
+    record.projectCode,
+    String(parseSequenceFromChannelProductCode(record.channelProductCode)).padStart(2, '0'),
+  )
+  const nextSpecLines = cloneChannelListingSpecLines(record.specLines).map((line) => ({
+    ...line,
+    lineStatus: '已上传',
+    upstreamSkuId: buildUploadedUpstreamSkuId(upstreamProductId, line.specLineCode),
+    uploadResultText: '已上传到渠道。',
+  }))
   const nextRecord: ProjectChannelProductRecord = {
     ...record,
-    upstreamChannelProductCode: buildUpstreamCode(
-      record.projectCode,
-      String(parseSequenceFromChannelProductCode(record.channelProductCode)).padStart(2, '0'),
-    ),
-    channelProductStatus: '已上架待测款',
+    upstreamProductId,
+    upstreamChannelProductCode: upstreamProductId,
+    specLines: nextSpecLines,
+    uploadedSpecLineCount: nextSpecLines.length,
+    listingBatchStatus: '已上传待确认',
+    channelProductStatus: '已上传待确认',
+    uploadedAt: timestamp,
+    uploadResultText: `已上传款式到渠道，已回填 ${nextSpecLines.length} 条规格编号。`,
+    listingImageConfirmedAt: timestamp,
+    listingImageConfirmedBy: operatorName,
     updatedAt: timestamp,
-    testingStatusText: '已完成上架，正在测款',
+    testingStatusText: '已上传款式到渠道，待确认完成',
     upstreamSyncStatus: '无需更新',
-    upstreamSyncNote: '已完成商品上架，等待直播或短视频正式测款。',
-    upstreamSyncLog: `${timestamp} 已提交上游渠道并回填上游渠道商品编码。`,
+    upstreamSyncNote: '已上传款式到渠道，请确认后标记商品上架完成。',
+    upstreamSyncLog: `${timestamp} 已上传款式到渠道并回填上游款式商品编号与规格编号。`,
   }
 
   replaceRecord(nextRecord, operatorName)
@@ -2463,23 +2871,104 @@ export function launchProjectChannelProductListing(
       record.projectId,
       listingNode.projectNodeId,
       {
-        currentStatus: '进行中',
-        latestInstanceId: nextRecord.channelProductId,
-        latestInstanceCode: nextRecord.channelProductCode,
-        latestResultType: '已完成商品上架',
-        latestResultText: `已回填上游渠道商品编码 ${nextRecord.upstreamChannelProductCode}，可进入正式测款。`,
-        pendingActionType: '进入测款',
-        pendingActionText: '请在直播测款或短视频测款节点建立正式测款关联。',
-        updatedAt: timestamp,
-      },
-      operatorName,
-    )
-    syncProjectNodeInstanceRuntime(record.projectId, listingNode.projectNodeId, operatorName, timestamp)
+      currentStatus: '进行中',
+      latestInstanceId: nextRecord.channelProductId,
+      latestInstanceCode: nextRecord.channelProductCode,
+      latestResultType: '款式已上传到渠道',
+      latestResultText: `已回填上游款式商品编号 ${nextRecord.upstreamProductId}，请确认后标记商品上架完成。`,
+      pendingActionType: '确认并标记商品上架完成',
+      pendingActionText: '请确认上传结果并标记商品上架完成。',
+      updatedAt: timestamp,
+    },
+    operatorName,
+  )
+  syncProjectNodeInstanceRuntime(record.projectId, listingNode.projectNodeId, operatorName, timestamp)
   }
 
   return {
     ok: true,
-    message: `已完成商品上架，当前上游渠道商品编码为 ${nextRecord.upstreamChannelProductCode}。`,
+    message: '已上传款式到渠道，请确认后标记商品上架完成。',
+    record: nextRecord,
+  }
+}
+
+export function markProjectChannelProductListingCompleted(
+  channelProductId: string,
+  operatorName = '当前用户',
+): ProjectChannelProductWriteResult {
+  const record = getProjectChannelProductById(channelProductId)
+  if (!record) {
+    return { ok: false, message: '未找到对应款式上架批次，不能标记完成。', record: null }
+  }
+  if (record.channelProductStatus === '已作废') {
+    return { ok: false, message: '当前款式上架批次已作废，不能标记完成。', record }
+  }
+  if (record.listingBatchStatus === '已完成' || record.channelProductStatus === '已上架待测款') {
+    return { ok: false, message: '当前款式上架批次已完成，不需要重复标记。', record }
+  }
+  if (record.listingBatchStatus !== '已上传待确认') {
+    return { ok: false, message: '当前款式尚未成功上传到渠道，不能标记完成。', record }
+  }
+  if (!record.upstreamProductId) {
+    return { ok: false, message: '当前款式尚未回填上游款式商品编号，不能标记完成。', record }
+  }
+  if (record.specLines.some((item) => !item.upstreamSkuId)) {
+    return { ok: false, message: '存在未上传成功的规格，不能标记完成。', record }
+  }
+  const uploadImageError = validateChannelListingImagesForUpload({
+    listingImages: record.listingImages || [],
+    listingMainImageId: record.listingMainImageId || '',
+    getImageAssetById: getProjectImageAssetById,
+  })
+  if (uploadImageError) {
+    return { ok: false, message: uploadImageError, record }
+  }
+
+  const timestamp = nowText()
+  const nextRecord: ProjectChannelProductRecord = {
+    ...record,
+    listingBatchStatus: '已完成',
+    channelProductStatus: '已上架待测款',
+    updatedAt: timestamp,
+    testingStatusText: '已完成上架，正在测款',
+    uploadResultText: '商品上架已完成，可进入正式测款。',
+    upstreamSyncNote: '商品上架已完成，等待直播或短视频正式测款。',
+    upstreamSyncLog: `${timestamp} 已确认商品上架完成。`,
+  }
+
+  replaceRecord(nextRecord, operatorName)
+  const listingNode = getProjectNodeRecordByWorkItemTypeCode(record.projectId, 'CHANNEL_PRODUCT_LISTING')
+  if (listingNode) {
+    updateProjectNodeRecord(
+      record.projectId,
+      listingNode.projectNodeId,
+      {
+        latestInstanceId: nextRecord.channelProductId,
+        latestInstanceCode: nextRecord.channelProductCode,
+        latestResultType: '商品上架已完成',
+        latestResultText: `款式上架批次 ${nextRecord.listingBatchCode} 已完成，已进入下一工作项。`,
+        pendingActionType: '',
+        pendingActionText: '',
+        updatedAt: timestamp,
+      },
+      operatorName,
+    )
+  }
+
+  const result = markProjectNodeCompletedAndUnlockNext(record.projectId, record.projectNodeId, {
+    operatorName,
+    timestamp,
+    resultType: '商品上架已完成',
+    resultText: `款式上架批次 ${nextRecord.listingBatchCode} 已完成。`,
+  })
+  if (!result.ok) {
+    return { ok: false, message: result.message, record: nextRecord }
+  }
+  syncProjectNodeInstanceRuntime(record.projectId, record.projectNodeId, operatorName, timestamp)
+
+  return {
+    ok: true,
+    message: '商品上架已完成，已进入下一工作项。',
     record: nextRecord,
   }
 }

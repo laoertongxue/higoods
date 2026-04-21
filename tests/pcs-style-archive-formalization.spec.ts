@@ -14,6 +14,11 @@ import {
 import { resetProjectRelationRepository } from '../src/data/pcs-project-relation-repository.ts'
 import { resetProjectChannelProductRepository } from '../src/data/pcs-channel-product-project-repository.ts'
 import {
+  createProjectImageAssetRecords,
+  resetProjectImageAssets,
+  upsertProjectImageAssets,
+} from '../src/data/pcs-project-image-repository.ts'
+import {
   formalizeStyleArchive,
   generateStyleArchiveFromProjectNode,
   getStyleArchiveFormalizationCheck,
@@ -29,6 +34,7 @@ resetProjectRepository()
 resetStyleArchiveRepository()
 resetProjectRelationRepository()
 resetProjectChannelProductRepository()
+resetProjectImageAssets()
 
 const catalog = getProjectCreateCatalog()
 const template = listActiveProjectTemplates()[0]
@@ -119,7 +125,30 @@ replaceProjectStore({
   }),
 })
 
-const generated = generateStyleArchiveFromProjectNode(projectId, '测试用户')
+const [styleImage] = createProjectImageAssetRecords(
+  created.project,
+  [
+    {
+      imageUrl: 'mock://style-formalization-main-image',
+      imageName: '档案主图候选',
+      imageType: '上架图',
+      sourceNodeCode: 'CHANNEL_PRODUCT_LISTING',
+      sourceRecordId: 'listing_batch_demo',
+      sourceType: '商品上架',
+      usageScopes: ['商品上架', '项目资料归档'],
+      imageStatus: '可用于上架',
+      mainFlag: true,
+      sortNo: 1,
+    },
+  ],
+  '测试用户',
+)
+upsertProjectImageAssets([styleImage])
+
+const generated = generateStyleArchiveFromProjectNode(projectId, '测试用户', {
+  styleMainImageId: styleImage.imageId,
+  styleGalleryImageIds: [styleImage.imageId],
+})
 assert.equal(generated.ok, true, '应先能生成款式档案草稿')
 assert.ok(generated.style, '应返回已生成的草稿款式档案')
 

@@ -15,6 +15,7 @@ export interface OwnerSuggestion {
 export interface TemplateStep {
   seq: number
   processCode: string
+  craftName?: string
   assignmentMode: AssignmentMode
   ownerSuggestion: OwnerSuggestion
   qcPoints?: string[]
@@ -67,14 +68,13 @@ export const routingTemplates: RoutingTemplate[] = [
     matchRule: {
       mode: 'AUTO',
       requiredProcessCodes: ['PROC_CUT', 'PROC_SEW'],
-      optionalProcessCodes: ['PROC_IRON', 'PROC_PACK'],
+      optionalProcessCodes: ['PROC_FINISHING'],
       keywords: ['T恤', '基础', '常规', '简单'],
     },
     steps: [
       { seq: 1, processCode: 'PROC_CUT', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' } },
       { seq: 2, processCode: 'PROC_SEW', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [1] },
-      { seq: 3, processCode: 'PROC_IRON', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [2] },
-      { seq: 4, processCode: 'PROC_PACK', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [3] },
+      { seq: 3, processCode: 'PROC_FINISHING', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [2] },
     ],
     createdAt: '2024-01-15 10:00:00',
     createdBy: '系统',
@@ -93,15 +93,14 @@ export const routingTemplates: RoutingTemplate[] = [
     matchRule: {
       mode: 'AUTO',
       requiredProcessCodes: ['PROC_CUT', 'PROC_DATIAO', 'PROC_SEW'],
-      optionalProcessCodes: ['PROC_IRON', 'PROC_PACK'],
+      optionalProcessCodes: ['PROC_FINISHING'],
       keywords: ['打条', '装饰条', '领条', '袖条'],
     },
     steps: [
       { seq: 1, processCode: 'PROC_CUT', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' } },
       { seq: 2, processCode: 'PROC_DATIAO', assignmentMode: 'BIDDING', ownerSuggestion: { kind: 'RECOMMENDED_FACTORY_POOL', recommendedTier: 'ANY', recommendedTypes: ['SEWING', 'SPECIAL_PROCESS'] }, dependsOnSeq: [1] },
       { seq: 3, processCode: 'PROC_SEW', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [2] },
-      { seq: 4, processCode: 'PROC_IRON', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [3] },
-      { seq: 5, processCode: 'PROC_PACK', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [4] },
+      { seq: 4, processCode: 'PROC_FINISHING', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [3] },
     ],
     createdAt: '2024-01-20 09:00:00',
     createdBy: '系统',
@@ -120,15 +119,14 @@ export const routingTemplates: RoutingTemplate[] = [
     matchRule: {
       mode: 'AUTO',
       requiredProcessCodes: ['PROC_CUT', 'PROC_KUNTIAO', 'PROC_SEW'],
-      optionalProcessCodes: ['PROC_IRON', 'PROC_PACK'],
+      optionalProcessCodes: ['PROC_FINISHING'],
       keywords: ['捆条', '绑条', '包边', '滚边'],
     },
     steps: [
       { seq: 1, processCode: 'PROC_CUT', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' } },
       { seq: 2, processCode: 'PROC_KUNTIAO', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [1] },
       { seq: 3, processCode: 'PROC_SEW', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [2] },
-      { seq: 4, processCode: 'PROC_IRON', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [3] },
-      { seq: 5, processCode: 'PROC_PACK', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [4] },
+      { seq: 4, processCode: 'PROC_FINISHING', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [3] },
     ],
     createdAt: '2024-01-22 11:00:00',
     createdBy: '系统',
@@ -147,43 +145,39 @@ export const routingTemplates: RoutingTemplate[] = [
     matchRule: {
       mode: 'AUTO',
       requiredProcessCodes: ['PROC_CUT', 'PROC_TANGTIAO', 'PROC_SEW'],
-      optionalProcessCodes: ['PROC_IRON', 'PROC_PACK'],
+      optionalProcessCodes: ['PROC_FINISHING'],
       keywords: ['搪条', '包边', '滚边'],
     },
     steps: [
       { seq: 1, processCode: 'PROC_CUT', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' } },
       { seq: 2, processCode: 'PROC_TANGTIAO', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [1] },
       { seq: 3, processCode: 'PROC_SEW', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [2] },
-      { seq: 4, processCode: 'PROC_IRON', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [3] },
-      { seq: 5, processCode: 'PROC_PACK', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [4] },
+      { seq: 4, processCode: 'PROC_FINISHING', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [3] },
     ],
     createdAt: '2024-01-25 14:00:00',
     createdBy: '系统',
     updatedAt: '2024-02-25 09:00:00',
     updatedBy: 'Admin',
   },
-  // 5. 含扣眼/打扣
+  // 5. 含后道
   {
     templateId: 'RT-202603-0005',
-    name: '含扣眼打扣工艺',
+    name: '含后道工艺',
     status: 'ACTIVE',
     version: 'v1.0',
-    description: '适用于需要开扣眼和打扣的衬衫类款式',
-    tags: ['扣眼', '打扣', '衬衫'],
+    description: '适用于需要开扣眼、装扣子等后道处理的衬衫类款式',
+    tags: ['后道', '衬衫', '纽扣'],
     applicableCategory: '梭织',
     matchRule: {
       mode: 'AUTO',
-      requiredProcessCodes: ['PROC_CUT', 'PROC_SEW', 'PROC_BUTTONHOLE', 'PROC_MACHINE_BUTTON'],
-      optionalProcessCodes: ['PROC_IRON', 'PROC_PACK'],
-      keywords: ['扣眼', '开扣眼', '打扣', '衬衫', '纽扣'],
+      requiredProcessCodes: ['PROC_CUT', 'PROC_SEW', 'PROC_FINISHING'],
+      optionalProcessCodes: [],
+      keywords: ['扣眼', '开扣眼', '装扣子', '衬衫', '纽扣'],
     },
     steps: [
       { seq: 1, processCode: 'PROC_CUT', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' } },
       { seq: 2, processCode: 'PROC_SEW', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [1] },
-      { seq: 3, processCode: 'PROC_BUTTONHOLE', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [2] },
-      { seq: 4, processCode: 'PROC_MACHINE_BUTTON', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [3] },
-      { seq: 5, processCode: 'PROC_IRON', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [4] },
-      { seq: 6, processCode: 'PROC_PACK', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [5] },
+      { seq: 3, processCode: 'PROC_FINISHING', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [2] },
     ],
     createdAt: '2024-02-01 10:00:00',
     createdBy: '系统',
@@ -202,7 +196,7 @@ export const routingTemplates: RoutingTemplate[] = [
     matchRule: {
       mode: 'AUTO',
       requiredProcessCodes: ['PROC_CUT', 'PROC_LASER_CUT', 'PROC_EMBROIDER', 'PROC_SEW'],
-      optionalProcessCodes: ['PROC_IRON', 'PROC_PACK'],
+      optionalProcessCodes: ['PROC_FINISHING'],
       keywords: ['激光', '绣花', '刺绣', '镂空', '特种'],
     },
     steps: [
@@ -210,8 +204,7 @@ export const routingTemplates: RoutingTemplate[] = [
       { seq: 2, processCode: 'PROC_LASER_CUT', assignmentMode: 'BIDDING', ownerSuggestion: { kind: 'RECOMMENDED_FACTORY_POOL', recommendedTier: 'CENTRAL', recommendedTypes: ['SPECIAL_PROCESS', 'LASER'] }, dependsOnSeq: [1] },
       { seq: 3, processCode: 'PROC_EMBROIDER', assignmentMode: 'BIDDING', ownerSuggestion: { kind: 'RECOMMENDED_FACTORY_POOL', recommendedTier: 'CENTRAL', recommendedTypes: ['EMBROIDERY'] }, dependsOnSeq: [1] },
       { seq: 4, processCode: 'PROC_SEW', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [2, 3] },
-      { seq: 5, processCode: 'PROC_IRON', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [4] },
-      { seq: 6, processCode: 'PROC_PACK', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [5] },
+      { seq: 5, processCode: 'PROC_FINISHING', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [4] },
     ],
     createdAt: '2024-02-10 09:00:00',
     createdBy: '系统',
@@ -229,16 +222,15 @@ export const routingTemplates: RoutingTemplate[] = [
     applicableCategory: '牛仔',
     matchRule: {
       mode: 'AUTO',
-      requiredProcessCodes: ['PROC_CUT', 'PROC_SEW', 'PROC_WASH'],
-      optionalProcessCodes: ['PROC_IRON', 'PROC_PACK'],
+      requiredProcessCodes: ['PROC_CUT', 'PROC_SEW', 'PROC_SPECIAL_CRAFT', 'PROC_FINISHING'],
+      optionalProcessCodes: [],
       keywords: ['牛仔', '洗水', 'denim', '水洗', '做旧'],
     },
     steps: [
       { seq: 1, processCode: 'PROC_CUT', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' } },
       { seq: 2, processCode: 'PROC_SEW', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [1] },
-      { seq: 3, processCode: 'PROC_WASH', assignmentMode: 'BIDDING', ownerSuggestion: { kind: 'RECOMMENDED_FACTORY_POOL', recommendedTier: 'THIRD_PARTY', recommendedTypes: ['WASHING', 'DENIM'] }, dependsOnSeq: [2] },
-      { seq: 4, processCode: 'PROC_IRON', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [3] },
-      { seq: 5, processCode: 'PROC_PACK', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [4] },
+      { seq: 3, processCode: 'PROC_SPECIAL_CRAFT', craftName: '洗水', assignmentMode: 'BIDDING', ownerSuggestion: { kind: 'RECOMMENDED_FACTORY_POOL', recommendedTier: 'THIRD_PARTY', recommendedTypes: ['SPECIAL_PROCESS', 'DENIM'] }, dependsOnSeq: [2] },
+      { seq: 4, processCode: 'PROC_FINISHING', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [3] },
     ],
     createdAt: '2024-02-15 11:00:00',
     createdBy: '系统',
@@ -257,7 +249,7 @@ export const routingTemplates: RoutingTemplate[] = [
     matchRule: {
       mode: 'AUTO',
       requiredProcessCodes: ['PROC_CUT', 'PROC_SEW'],
-      optionalProcessCodes: ['PROC_PRINT', 'PROC_EMBROIDER', 'PROC_PLEAT', 'PROC_TANHUA', 'PROC_IRON', 'PROC_PACK'],
+      optionalProcessCodes: ['PROC_PRINT', 'PROC_EMBROIDER', 'PROC_PLEAT', 'PROC_TANHUA', 'PROC_FINISHING'],
       keywords: ['复杂', '特种', '印花', '绣花', '压褶', '烫画'],
     },
     steps: [
@@ -266,15 +258,14 @@ export const routingTemplates: RoutingTemplate[] = [
       { seq: 3, processCode: 'PROC_EMBROIDER', assignmentMode: 'BIDDING', ownerSuggestion: { kind: 'RECOMMENDED_FACTORY_POOL', recommendedTier: 'CENTRAL', recommendedTypes: ['EMBROIDERY'] }, dependsOnSeq: [1], qcPoints: ['绣花完整', '线迹密度'] },
       { seq: 4, processCode: 'PROC_PLEAT', assignmentMode: 'BIDDING', ownerSuggestion: { kind: 'RECOMMENDED_FACTORY_POOL', recommendedTier: 'CENTRAL', recommendedTypes: ['SPECIAL_PROCESS'] }, dependsOnSeq: [1], qcPoints: ['褶皱均匀', '定型牢固'] },
       { seq: 5, processCode: 'PROC_SEW', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [2, 3, 4] },
-      { seq: 6, processCode: 'PROC_IRON', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [5] },
-      { seq: 7, processCode: 'PROC_PACK', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [6] },
+      { seq: 6, processCode: 'PROC_FINISHING', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [5] },
     ],
     createdAt: '2024-02-20 14:00:00',
     createdBy: '系统',
     updatedAt: '2024-03-20 09:00:00',
     updatedBy: 'Admin',
   },
-  // 9. 手工盘扣（中式）
+  // 9. 中式装饰扣（历史模板）
   {
     templateId: 'RT-202603-0009',
     name: '中式盘扣款',
@@ -285,16 +276,14 @@ export const routingTemplates: RoutingTemplate[] = [
     applicableCategory: '梭织',
     matchRule: {
       mode: 'AUTO',
-      requiredProcessCodes: ['PROC_CUT', 'PROC_SEW', 'PROC_PANKOU'],
-      optionalProcessCodes: ['PROC_IRON', 'PROC_PACK'],
+      requiredProcessCodes: ['PROC_CUT', 'PROC_SEW', 'PROC_FINISHING'],
+      optionalProcessCodes: [],
       keywords: ['盘扣', '中式', '旗袍', '唐装', '手工扣'],
     },
     steps: [
       { seq: 1, processCode: 'PROC_CUT', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' } },
       { seq: 2, processCode: 'PROC_SEW', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [1] },
-      { seq: 3, processCode: 'PROC_PANKOU', assignmentMode: 'BIDDING', ownerSuggestion: { kind: 'RECOMMENDED_FACTORY_POOL', recommendedTier: 'CENTRAL', recommendedTypes: ['SPECIAL_PROCESS'] }, dependsOnSeq: [2], qcPoints: ['盘扣造型', '缝合牢固'] },
-      { seq: 4, processCode: 'PROC_IRON', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [3] },
-      { seq: 5, processCode: 'PROC_PACK', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [4] },
+      { seq: 3, processCode: 'PROC_FINISHING', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [2], qcPoints: ['盘扣造型', '缝合牢固'] },
     ],
     createdAt: '2024-03-01 10:00:00',
     createdBy: '系统',
@@ -330,7 +319,7 @@ export const routingTemplates: RoutingTemplate[] = [
 // 模板审计日志
 export const templateAuditLogs: TemplateAuditLog[] = [
   { id: 'TAL-001', templateId: 'RT-202603-0001', action: 'CREATE', detail: '创建基础款模板', at: '2024-01-15 10:00:00', by: '系统' },
-  { id: 'TAL-002', templateId: 'RT-202603-0001', action: 'UPDATE', detail: '添加包装工序', at: '2024-03-01 14:30:00', by: 'Admin' },
+  { id: 'TAL-002', templateId: 'RT-202603-0001', action: 'UPDATE', detail: '添加后道工序', at: '2024-03-01 14:30:00', by: 'Admin' },
   { id: 'TAL-003', templateId: 'RT-202603-0010', action: 'STATUS_CHANGE', detail: '状态从ACTIVE变更为INACTIVE', at: '2024-01-10 09:00:00', by: 'Admin' },
 ]
 

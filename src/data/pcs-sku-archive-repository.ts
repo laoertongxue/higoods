@@ -208,7 +208,7 @@ function buildSeedRecord(
   const fixture = buildSkuFixture(style.styleCode, style.styleName, input.color, input.size)
 
   return normalizeRecord({
-    skuId: `sku_seed_${style.styleId}_${String(skuIndex + 1).padStart(3, '0')}`,
+    skuId: `skuSeed_${style.styleId}_${String(skuIndex + 1).padStart(3, '0')}`,
     skuCode: input.skuCode,
     styleId: style.styleId,
     styleCode: style.styleCode,

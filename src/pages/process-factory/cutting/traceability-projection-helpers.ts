@@ -443,7 +443,7 @@ function ensureTraceabilityBagFirstSeed(options: {
       dispatchBy: operatorName,
       signoffStatus: 'PENDING',
       note: session!.sourceWritebackId
-        ? `由 ${sessionNo}（PDA回写 ${session!.sourceWritebackId}）完成后自动补齐正式装袋链路。`
+        ? `由 ${sessionNo}（工厂端回写 ${session!.sourceWritebackId}）完成后自动补齐正式装袋链路。`
         : `由 ${sessionNo} 完成后自动补齐正式装袋链路。`,
     }
 
@@ -478,7 +478,7 @@ function ensureTraceabilityBagFirstSeed(options: {
       operator: operatorName,
       status: 'BOUND',
       note: traceAnchor?.sourceWritebackId
-        ? `由 ${sessionNo}（PDA回写 ${traceAnchor.sourceWritebackId}）形成正式装袋绑定。`
+        ? `由 ${sessionNo}（工厂端回写 ${traceAnchor.sourceWritebackId}）形成正式装袋绑定。`
         : `由 ${sessionNo} 形成正式装袋绑定。`,
     }))
     const summary = {

@@ -791,14 +791,14 @@ function getTaskHandoutSummary(taskId: string): TaskHandoutSummary {
   if (pendingRows.length > 0 && completedRows.length > 0) {
     const summary = {
       statusKey: 'WAIT_WAREHOUSE_CONFIRM',
-      statusLabel: '待仓库确认',
+      statusLabel: '待接收方回写',
       tone: 'blue',
-      hintText: `${pendingRows.length} 条交出记录 / 待仓库确认`,
+      hintText: `${pendingRows.length} 条交出记录 / 待接收方回写`,
       latestOccurredAt,
       hasException: false,
       handoutHeads,
       handoutRecords,
-      nextActionLabel: '等待仓库完成剩余回写',
+      nextActionLabel: '等待接收方回写剩余数量',
     }
     taskBoardSummaryCache.handoutSummariesByTaskId.set(taskId, summary)
     return summary
@@ -809,12 +809,12 @@ function getTaskHandoutSummary(taskId: string): TaskHandoutSummary {
       statusKey: 'INITIATED',
       statusLabel: '已发起交出',
       tone: 'amber',
-      hintText: `${handoutHeads.length || pendingRows.length} 张交出单 / 待仓库确认`,
+      hintText: `${handoutHeads.length || pendingRows.length} 张交出单 / 待接收方回写`,
       latestOccurredAt,
       hasException: false,
       handoutHeads,
       handoutRecords,
-      nextActionLabel: '继续跟踪仓库回写结果',
+      nextActionLabel: '继续跟踪接收方回写结果',
     }
     taskBoardSummaryCache.handoutSummariesByTaskId.set(taskId, summary)
     return summary

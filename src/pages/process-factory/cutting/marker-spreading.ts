@@ -91,7 +91,7 @@ import {
   type MarkerListRow,
   type SpreadingListRow,
 } from './marker-spreading-utils'
-import { buildGeneratedFeiTicketTraceMatrix } from '../../../data/fcs/cutting/generated-fei-tickets.ts'
+import { buildGeneratedFeiTicketTraceMatrix, listSpreadingPieceOutputLines } from '../../../data/fcs/cutting/generated-fei-tickets.ts'
 import { buildFeiTicketPrintProjection } from './fei-ticket-print-projection'
 import { buildTransferBagsProjection } from './transfer-bags-projection'
 import { buildCutPieceWarehouseProjection } from './cut-piece-warehouse-projection'
@@ -171,7 +171,7 @@ type MarkerDraftField =
   | 'spreadTotalLength'
   | 'materialCategory'
   | 'materialAttr'
-  | 'plannedSizeRatioText'
+  | 'sizeRatioPlanText'
   | 'plannedLayerCount'
   | 'plannedMarkerCount'
   | 'markerLength'
@@ -524,6 +524,77 @@ function formatLength(value: number): string {
 
 function formatQty(value: number): string {
   return new Intl.NumberFormat('zh-CN').format(Math.max(value || 0, 0))
+}
+
+function formatSpreadingAssemblyText(value: {
+  originalCutOrderNo?: string
+  fabricRollNo?: string
+  fabricColor?: string
+  sizeCode?: string
+  bundleNo?: string
+}): string {
+  const segments = [
+    value.originalCutOrderNo,
+    value.fabricRollNo,
+    value.fabricColor,
+    value.sizeCode,
+    value.bundleNo,
+  ].map((item) => String(item || '').trim()).filter(Boolean)
+  return segments.length ? segments.join(' / ') : '暂无数据'
+}
+
+function renderSpreadingOutputMatrix(sessionId: string): string {
+  const rows = listSpreadingPieceOutputLines().filter((item) => item.spreadingSessionId === sessionId)
+  const matrixTable = `
+    <table class="min-w-[1320px] text-sm">
+      <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
+        <tr>
+          <th class="px-3 py-2">面料卷号</th>
+          <th class="px-3 py-2">布料颜色</th>
+          <th class="px-3 py-2">尺码</th>
+          <th class="px-3 py-2">裁片部位</th>
+          <th class="px-3 py-2">数量</th>
+          <th class="px-3 py-2">扎号</th>
+          <th class="px-3 py-2">原始裁片单</th>
+          <th class="px-3 py-2">生产单</th>
+          <th class="px-3 py-2">同组裁片</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${
+          rows.length
+            ? rows
+                .map(
+                  (row) => `
+                    <tr class="border-b align-top">
+                      <td class="px-3 py-2">${escapeHtml(row.fabricRollNo || '暂无数据')}</td>
+                      <td class="px-3 py-2">${escapeHtml(row.fabricColor || '暂无数据')}</td>
+                      <td class="px-3 py-2">${escapeHtml(row.sizeCode || '暂无数据')}</td>
+                      <td class="px-3 py-2">${escapeHtml(row.partName || '暂无数据')}</td>
+                      <td class="px-3 py-2">${escapeHtml(`${formatQty(row.bundleQty || 0)} 件`)}</td>
+                      <td class="px-3 py-2">${escapeHtml(row.bundleNo || '暂无数据')}</td>
+                      <td class="px-3 py-2">${escapeHtml(row.originalCutOrderNo || '暂无数据')}</td>
+                      <td class="px-3 py-2">${escapeHtml(row.productionOrderNo || '暂无数据')}</td>
+                      <td class="px-3 py-2">${escapeHtml(formatSpreadingAssemblyText(row))}</td>
+                    </tr>
+                  `,
+                )
+                .join('')
+            : '<tr><td colspan="9" class="px-3 py-6 text-center text-xs text-muted-foreground">暂无数据</td></tr>'
+        }
+      </tbody>
+    </table>
+  `
+
+  return `
+    <div class="mt-3 space-y-2 rounded-lg border border-dashed bg-background/60 p-3">
+      <div class="flex items-center justify-between gap-2">
+        <div class="text-sm font-medium text-foreground">铺布产出</div>
+        <div class="text-xs text-muted-foreground">${escapeHtml(`共 ${formatQty(rows.length)} 行`)}</div>
+      </div>
+      ${renderStickyTableScroller(matrixTable, 'max-h-[28vh]')}
+    </div>
+  `
 }
 
 function formatCurrency(value: number | null | undefined): string {
@@ -1125,7 +1196,7 @@ function createFallbackMarkerDraft(): MarkerRecord {
     spreadTotalLength: 0,
     materialCategory: '',
     materialAttr: '',
-    plannedSizeRatioText: '',
+    sizeRatioPlanText: '',
     plannedLayerCount: 0,
     plannedMarkerCount: 0,
     markerLength: 0,
@@ -2735,7 +2806,7 @@ function renderMarkerPlanMetricsSection(
     renderInfoGrid([
       { label: '面料类别', value: marker.materialCategory || '待补' },
       { label: '面料属性', value: marker.materialAttr || '待补' },
-      { label: '计划尺码配比文本', value: marker.plannedSizeRatioText || '待补' },
+      { label: '计划尺码配比文本', value: marker.sizeRatioPlanText || '待补' },
       { label: '计划铺布层数（层）', value: `${formatQty(marker.plannedLayerCount || 0)} 层` },
       { label: '计划唛架张数（张）', value: `${formatQty(marker.plannedMarkerCount || 0)} 张` },
       { label: '面料 SKU', value: marker.fabricSku || '待补' },
@@ -3036,7 +3107,7 @@ function renderMarkerDetailPage(): string {
         `
           ${renderInfoGrid([
             { label: '唛架成衣件数（件）', value: `${formatQty(row.totalPieces)} 件` },
-            { label: '计划尺码配比', value: detailView.plannedSizeRatioText || '待补' },
+            { label: '计划尺码配比', value: detailView.sizeRatioPlanText || '待补' },
             { label: '配比摘要', value: detailView.lineSummary.summaryText },
           ])}
           <div class="mt-4 overflow-auto">
@@ -3462,7 +3533,7 @@ function renderMarkerEditPage(): string {
             ])}
             <div class="rounded-lg border border-dashed bg-muted/10 px-3 py-2 text-sm text-muted-foreground">
               <p>当前不做复杂审批和版本系统。</p>
-              <p class="mt-1">本次只维护调整标记与调整说明，不额外挂占位动作。</p>
+              <p class="mt-1">本次只维护调整标记与调整说明，不额外挂预留动作。</p>
             </div>
           </div>
           <div class="mt-3">
@@ -3720,6 +3791,7 @@ function renderSpreadingDetailPage(): string {
             </tbody>
           </table>
         </div>
+        ${renderSpreadingOutputMatrix(session.spreadingSessionId)}
       `,
     )
 
@@ -4232,7 +4304,7 @@ function renderSpreadingEditPage(): string {
         <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
           <div class="flex flex-wrap gap-2">
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="add-roll">新增卷记录</button>
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="sync-spreading-rolls-from-pda">从 PDA 同步</button>
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="sync-spreading-rolls-from-pda">同步回写</button>
           </div>
         </div>
         <div class="overflow-auto">
@@ -4309,6 +4381,7 @@ function renderSpreadingEditPage(): string {
             </tbody>
           </table>
         </div>
+        ${renderSpreadingOutputMatrix(draft.spreadingSessionId)}
       `,
     )
 
@@ -5017,8 +5090,8 @@ function saveCurrentMarker(goDetail: boolean, successMessage?: string): boolean 
           : '') || draft.techPackSpuCode || '',
       totalPieces,
       singlePieceUsage: draft.singlePieceUsage || computeSinglePieceUsage(draft.netLength, totalPieces),
-      plannedSizeRatioText:
-        draft.plannedSizeRatioText ||
+      sizeRatioPlanText:
+        draft.sizeRatioPlanText ||
         draft.sizeDistribution
           .filter((item) => item.quantity > 0)
           .map((item) => `${item.sizeLabel}×${item.quantity}`)
@@ -5116,18 +5189,18 @@ function syncDraftRollFromPlanUnit(draft: SpreadingSession, roll: SpreadingRollR
 function syncSpreadingDraftFromStoredPdaWriteback(draft: SpreadingSession): boolean {
   const stored = getStoredSpreadingSession(draft.spreadingSessionId)
   if (!stored) {
-    state.feedback = { tone: 'warning', message: '当前铺布还没有可同步的 PDA 回写记录。' }
+    state.feedback = { tone: 'warning', message: '当前铺布还没有可同步的工厂端回写记录。' }
     return true
   }
   const hasPdaSource =
     stored.rolls.some((roll) => roll.sourceChannel === 'PDA_WRITEBACK' || Boolean(roll.sourceWritebackId)) ||
     stored.operators.some((operator) => operator.sourceChannel === 'PDA_WRITEBACK' || Boolean(operator.sourceWritebackId))
   if (!hasPdaSource) {
-    state.feedback = { tone: 'warning', message: '当前铺布还没有来自 PDA 的卷或人员回写。' }
+    state.feedback = { tone: 'warning', message: '当前铺布还没有来自工厂端的卷或人员回写。' }
     return true
   }
   state.spreadingDraft = cloneSpreadingSession(stored)
-  state.feedback = { tone: 'success', message: '已同步当前铺布的 PDA 卷记录与换班记录。' }
+  state.feedback = { tone: 'success', message: '已同步当前铺布的工厂端卷记录与换班记录。' }
   return true
 }
 

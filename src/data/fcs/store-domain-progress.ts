@@ -1415,11 +1415,11 @@ function createProgressExceptionCandidates(): ProgressExceptionCandidate[] {
           relatedOrderIds,
           relatedTaskIds,
           linkedFactoryName,
-          summary: '工序回货待仓库确认',
+          summary: '工序回货待接收方回写',
           detail:
             returnDocs.length === 0
               ? `${fact.processNameZh}（${fact.scopeLabel}）已完工但未生成回货单，请补齐回仓链路`
-              : `${fact.processNameZh}（${fact.scopeLabel}）已交出，等待仓库确认入仓`,
+              : `${fact.processNameZh}（${fact.scopeLabel}）已交出，等待接收方回写入仓`,
           closureReady: returnDocs.every((doc) => isDocClosed(doc.status)),
           eventAt,
         })

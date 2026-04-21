@@ -129,7 +129,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           icon: 'Factory',
           children: [
             { key: 'factories-profile', title: '工厂档案', icon: 'Factory', href: '/fcs/factories/profile' },
-            { key: 'factories-capacity-profile', title: '产能档案', icon: 'Gauge', href: '/fcs/factories/capacity-profile' },
+            { key: 'factories-capacity-profile', title: '工厂产能档案', icon: 'Gauge', href: '/fcs/factories/capacity-profile' },
             { key: 'factories-capability', title: '能力标签', icon: 'Tags', href: '/fcs/factories/capability' },
             { key: 'factories-settlement', title: '结算信息', icon: 'Receipt', href: '/fcs/factories/settlement' },
             { key: 'factories-status', title: '工厂状态', icon: 'ToggleLeft', href: '/fcs/factories/status' },
@@ -304,11 +304,11 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           title: '印花管理',
           icon: 'Palette',
           children: [
-            { key: 'craft-printing-work-orders', title: '印花工单', icon: 'ClipboardList', href: '/fcs/craft/printing/work-orders' },
-            { key: 'craft-printing-pending-review', title: '待审核工单', icon: 'ClipboardCheck', href: '/fcs/craft/printing/pending-review' },
-            { key: 'craft-printing-progress', title: '生产进度', icon: 'KanbanSquare', href: '/fcs/craft/printing/progress' },
-            { key: 'craft-printing-statistics', title: '数据统计', icon: 'BarChart3', href: '/fcs/craft/printing/statistics' },
-            { key: 'craft-printing-dashboards', title: '生产大屏', icon: 'Monitor', href: '/fcs/craft/printing/dashboards' },
+            { key: 'craft-printing-work-orders', title: '印花加工单', icon: 'ClipboardList', href: '/fcs/craft/printing/work-orders' },
+            { key: 'craft-printing-pending-review', title: '印花审核', icon: 'ClipboardCheck', href: '/fcs/craft/printing/pending-review' },
+            { key: 'craft-printing-progress', title: '印花进度', icon: 'KanbanSquare', href: '/fcs/craft/printing/progress' },
+            { key: 'craft-printing-statistics', title: '印花统计', icon: 'BarChart3', href: '/fcs/craft/printing/statistics' },
+            { key: 'craft-printing-dashboards', title: '印花大屏', icon: 'Monitor', href: '/fcs/craft/printing/dashboards' },
           ],
         },
         {
@@ -316,7 +316,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           title: '染色管理',
           icon: 'Droplet',
           children: [
-            { key: 'craft-dyeing-work-orders', title: '染色工单', icon: 'ClipboardList', href: '/fcs/craft/dyeing/work-orders' },
+            { key: 'craft-dyeing-work-orders', title: '染色加工单', icon: 'ClipboardList', href: '/fcs/craft/dyeing/work-orders' },
             { key: 'craft-dyeing-dye-orders', title: '染料单', icon: 'Package', href: '/fcs/craft/dyeing/dye-orders' },
             { key: 'craft-dyeing-reports', title: '染色报表', icon: 'BarChart3', href: '/fcs/craft/dyeing/reports' },
           ],

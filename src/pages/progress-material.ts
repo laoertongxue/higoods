@@ -1,6 +1,7 @@
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
 import { productionOrders } from '../data/fcs/production-orders'
+import { cuttingMaterialPrepGroups } from '../data/fcs/cutting/material-prep'
 import {
   getTaskTypeLabel,
   listMaterialRequests,
@@ -22,6 +23,13 @@ import {
   listRuntimeTasksByBaseTaskId,
   type RuntimeProcessTask,
 } from '../data/fcs/runtime-process-tasks'
+import { buildReplenishmentProjection } from './process-factory/cutting/replenishment-projection'
+import {
+  buildCutOrderLink,
+  buildMaterialPrepLink,
+  buildProductionOrderLink,
+  buildReplenishmentLink,
+} from '../data/fcs/fcs-route-links'
 
 type ExecutionStatusFilter = 'ALL' | 'NO_DOC' | WarehouseExecutionStatus
 
@@ -51,6 +59,22 @@ interface OrderExecutionRow {
   requiredDeliveryDate: string
   summary: ReturnType<typeof getWarehouseExecutionSummaryByOrder>
   latestDoc: WarehouseExecutionDoc | null
+}
+
+interface CuttingMaterialProgressRow {
+  productionOrderNo: string
+  originalCutOrderNo: string
+  materialSku: string
+  materialTypeLabel: string
+  configuredRollCount: number
+  configuredLength: number
+  receivedRollCount: number
+  receivedLength: number
+  configStatusLabel: string
+  pickupStatusLabel: string
+  replenishmentStatusLabel: string
+  cutOrderQrValue: string
+  differenceText: string
 }
 
 const DOC_TYPE_LABEL: Record<WarehouseExecutionDocType, string> = {
@@ -125,6 +149,27 @@ const hasShortageOptions: Array<{ value: HasShortageFilter; label: string }> = [
   { value: 'YES', label: '是' },
   { value: 'NO', label: '否' },
 ]
+
+const CUTTING_CONFIG_STATUS_LABEL: Record<string, string> = {
+  NOT_CONFIGURED: '未配置',
+  PARTIAL: '部分配置',
+  CONFIGURED: '已配置',
+}
+
+const CUTTING_PICKUP_STATUS_LABEL: Record<string, string> = {
+  NOT_RECEIVED: '待领料',
+  PARTIAL: '部分领取',
+  RECEIVED: '已领料',
+  REJECTED: '已驳回',
+  EXCEPTION: '异常提交',
+}
+
+const CUTTING_MATERIAL_TYPE_LABEL: Record<string, string> = {
+  PRINT: '印花面料',
+  DYE: '染色面料',
+  SOLID: '纯色面料',
+  LINING: '里布',
+}
 
 function getCurrentQueryString(): string {
   const pathname = appStore.getState().pathname
@@ -296,6 +341,143 @@ function getAggregatedSummary(rows: OrderExecutionRow[]): {
   }
 }
 
+function buildCuttingMaterialProgressRows(poId?: string | null): CuttingMaterialProgressRow[] {
+  const replenishmentRows = buildReplenishmentProjection().viewModel.rows
+  const replenishmentMap = replenishmentRows.reduce<Record<string, string>>((accumulator, row) => {
+    row.originalCutOrderNos.forEach((originalCutOrderNo) => {
+      accumulator[originalCutOrderNo] = accumulator[originalCutOrderNo] || row.statusMeta.label
+    })
+    return accumulator
+  }, {})
+
+  return cuttingMaterialPrepGroups
+    .flatMap((group) =>
+      group.materialLines.map((line) => ({
+        productionOrderNo: line.productionOrderNo,
+        originalCutOrderNo: line.cutPieceOrderNo,
+        materialSku: line.materialSku,
+        materialTypeLabel: CUTTING_MATERIAL_TYPE_LABEL[line.materialType] || '暂无数据',
+        configuredRollCount: line.configuredRollCount,
+        configuredLength: line.configuredLength,
+        receivedRollCount: line.receivedRollCount,
+        receivedLength: line.receivedLength,
+        configStatusLabel: CUTTING_CONFIG_STATUS_LABEL[line.configStatus] || '暂无数据',
+        pickupStatusLabel: CUTTING_PICKUP_STATUS_LABEL[line.receiveStatus] || '暂无数据',
+        replenishmentStatusLabel: replenishmentMap[line.cutPieceOrderNo] || '暂无数据',
+        cutOrderQrValue: line.cutOrderQrValue || line.qrCodeValue,
+        differenceText:
+          line.configuredRollCount === line.receivedRollCount
+            ? '—'
+            : `${line.configuredRollCount - line.receivedRollCount > 0 ? '少领' : '多领'} ${Math.abs(line.configuredRollCount - line.receivedRollCount)} 卷`,
+      })),
+    )
+    .filter((row) => !poId || row.productionOrderNo === poId)
+}
+
+function renderCuttingMaterialProgressSection(poId?: string | null): string {
+  const rows = buildCuttingMaterialProgressRows(poId)
+  const configuredCount = rows.filter((row) => row.configStatusLabel === '已配置').length
+  const partialConfigCount = rows.filter((row) => row.configStatusLabel === '部分配置').length
+  const claimedCount = rows.filter((row) => row.pickupStatusLabel === '已领料').length
+  const diffCount = rows.filter((row) => row.differenceText !== '—').length
+  const replenishmentCount = rows.filter((row) => row.replenishmentStatusLabel !== '暂无数据').length
+
+  return `
+    <section class="space-y-4 rounded-lg border bg-card p-4">
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <h2 class="text-base font-semibold">配料进度</h2>
+          <p class="text-xs text-muted-foreground">按原始裁片单汇总配置状态、领料状态、差异和补料</p>
+        </div>
+        <span class="text-xs text-muted-foreground">共 ${rows.length} 条</span>
+      </div>
+      <div class="grid gap-3 md:grid-cols-5">
+        <article class="rounded-lg border bg-muted/20 px-3 py-3">
+          <p class="text-xs text-muted-foreground">已配置</p>
+          <p class="mt-2 text-xl font-semibold">${configuredCount}</p>
+        </article>
+        <article class="rounded-lg border bg-muted/20 px-3 py-3">
+          <p class="text-xs text-muted-foreground">部分配置</p>
+          <p class="mt-2 text-xl font-semibold">${partialConfigCount}</p>
+        </article>
+        <article class="rounded-lg border bg-muted/20 px-3 py-3">
+          <p class="text-xs text-muted-foreground">已领料</p>
+          <p class="mt-2 text-xl font-semibold">${claimedCount}</p>
+        </article>
+        <article class="rounded-lg border bg-muted/20 px-3 py-3">
+          <p class="text-xs text-muted-foreground">差异</p>
+          <p class="mt-2 text-xl font-semibold ${diffCount > 0 ? 'text-red-600' : ''}">${diffCount}</p>
+        </article>
+        <article class="rounded-lg border bg-muted/20 px-3 py-3">
+          <p class="text-xs text-muted-foreground">补料</p>
+          <p class="mt-2 text-xl font-semibold">${replenishmentCount}</p>
+        </article>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[1560px] text-sm">
+          <thead>
+            <tr class="border-b bg-muted/40 text-left">
+              <th class="px-3 py-2 font-medium">生产单</th>
+              <th class="px-3 py-2 font-medium">原始裁片单</th>
+              <th class="px-3 py-2 font-medium">面料 SKU</th>
+              <th class="px-3 py-2 font-medium">面料类型</th>
+              <th class="px-3 py-2 font-medium">配置状态</th>
+              <th class="px-3 py-2 font-medium">配置卷数</th>
+              <th class="px-3 py-2 font-medium">配置长度</th>
+              <th class="px-3 py-2 font-medium">领料状态</th>
+              <th class="px-3 py-2 font-medium">实领卷数</th>
+              <th class="px-3 py-2 font-medium">实领长度</th>
+              <th class="px-3 py-2 font-medium">差异</th>
+              <th class="px-3 py-2 font-medium">补料状态</th>
+              <th class="px-3 py-2 font-medium">裁片单二维码</th>
+              <th class="px-3 py-2 text-right font-medium">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${
+              rows.length === 0
+                ? `
+                    <tr>
+                      <td colspan="14" class="px-3 py-8 text-center text-muted-foreground">暂无数据</td>
+                    </tr>
+                  `
+                : rows
+                    .map(
+                      (row) => `
+                        <tr class="border-b last:border-b-0">
+                          <td class="px-3 py-2 font-medium text-primary">${escapeHtml(row.productionOrderNo)}</td>
+                          <td class="px-3 py-2 font-mono text-xs">${escapeHtml(row.originalCutOrderNo)}</td>
+                          <td class="px-3 py-2 font-mono text-xs">${escapeHtml(row.materialSku)}</td>
+                          <td class="px-3 py-2">${escapeHtml(row.materialTypeLabel)}</td>
+                          <td class="px-3 py-2">${escapeHtml(row.configStatusLabel)}</td>
+                          <td class="px-3 py-2">${row.configuredRollCount}</td>
+                          <td class="px-3 py-2">${row.configuredLength}</td>
+                          <td class="px-3 py-2">${escapeHtml(row.pickupStatusLabel)}</td>
+                          <td class="px-3 py-2">${row.receivedRollCount}</td>
+                          <td class="px-3 py-2">${row.receivedLength}</td>
+                          <td class="px-3 py-2">${escapeHtml(row.differenceText)}</td>
+                          <td class="px-3 py-2">${escapeHtml(row.replenishmentStatusLabel)}</td>
+                          <td class="px-3 py-2 font-mono text-xs">${escapeHtml(row.cutOrderQrValue)}</td>
+                          <td class="px-3 py-2">
+                            <div class="flex justify-end gap-2">
+                              <button class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted" data-nav="${escapeHtml(buildProductionOrderLink(row.productionOrderNo))}">生产单</button>
+                              <button class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted" data-nav="${escapeHtml(buildCutOrderLink(row.originalCutOrderNo))}">裁片单</button>
+                              <button class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted" data-nav="${escapeHtml(buildMaterialPrepLink(row.originalCutOrderNo))}">配料</button>
+                              <button class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted" data-nav="${escapeHtml(buildReplenishmentLink(row.originalCutOrderNo))}">补料</button>
+                            </div>
+                          </td>
+                        </tr>
+                      `,
+                    )
+                    .join('')
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  `
+}
+
 function renderMaterialRequestSection(rows: MaterialRequestRecord[]): string {
   return `
     <section class="rounded-lg border bg-card">
@@ -461,9 +643,9 @@ function renderMaterialListView(): string {
         <div>
           <h1 class="flex items-center gap-2 text-xl font-semibold">
             <i data-lucide="package-search" class="h-5 w-5"></i>
-            领料进度跟踪
+            领料/配料进度
           </h1>
-          <p class="text-sm text-muted-foreground">正式领料需求与仓库执行联动视图</p>
+          <p class="text-sm text-muted-foreground">汇总裁床配料、领料、差异和补料状态</p>
         </div>
       </div>
 
@@ -493,6 +675,8 @@ function renderMaterialListView(): string {
           <p class="mt-2 text-lg font-semibold">${formatPercent(summary.completenessRate)} / ${formatPercent(summary.completionRate)}</p>
         </article>
       </section>
+
+      ${renderCuttingMaterialProgressSection()}
 
       <section class="rounded-lg border bg-card">
         <div class="p-4">
@@ -789,7 +973,7 @@ function renderMaterialDetailView(poId: string, docIdFromQuery: string | null): 
           </button>
           <h1 class="flex items-center gap-2 text-xl font-semibold">
             <i data-lucide="package-search" class="h-5 w-5"></i>
-            领料进度跟踪
+            领料/配料进度
           </h1>
         </div>
       </div>
@@ -816,6 +1000,8 @@ function renderMaterialDetailView(poId: string, docIdFromQuery: string | null): 
           `
           : ''
       }
+
+      ${renderCuttingMaterialProgressSection(poId)}
 
       <section class="rounded-lg border bg-card">
         <header class="px-4 pb-3 pt-4">

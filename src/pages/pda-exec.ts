@@ -692,7 +692,7 @@ function renderDoneCard(task: ProcessTask): string {
             data-tab="handout"
           >
             <i data-lucide="arrow-left-right" class="mr-1 h-3 w-3"></i>
-            去交接
+            去交出
           </button>
 
           <button

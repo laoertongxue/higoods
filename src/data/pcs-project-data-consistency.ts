@@ -308,6 +308,46 @@ function validateStyleArchiveNode(project: PcsProjectViewRecord, node: PcsProjec
   }
 }
 
+function validateChannelListingNode(project: PcsProjectViewRecord, node: PcsProjectNodeRecord): ProjectNodeCompletionValidationResult {
+  const activeRecords = listProjectChannelProductsByProjectId(project.projectId).filter(
+    (item) => item.projectNodeId === node.projectNodeId && item.channelProductStatus !== '已作废',
+  )
+  if (activeRecords.length === 0) {
+    return {
+      ok: false,
+      project,
+      node,
+      message: '当前节点缺少正式款式上架批次。',
+      missingFieldLabels: ['款式上架批次'],
+    }
+  }
+
+  const latestRecord = [...activeRecords].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0]
+  const missingFieldLabels: string[] = []
+
+  if (!latestRecord.upstreamProductId) missingFieldLabels.push('上游款式商品编号')
+  if (!latestRecord.specLines.length) missingFieldLabels.push('规格明细')
+  if (latestRecord.specLines.some((item) => !item.upstreamSkuId)) missingFieldLabels.push('上游规格编号')
+  if (
+    latestRecord.listingBatchStatus !== '已完成' &&
+    latestRecord.channelProductStatus !== '已上架待测款' &&
+    latestRecord.channelProductStatus !== '已生效'
+  ) {
+    missingFieldLabels.push('商品上架完成状态')
+  }
+
+  return {
+    ok: missingFieldLabels.length === 0,
+    project,
+    node,
+    message:
+      missingFieldLabels.length === 0
+        ? '商品上架节点已完成且规格上传完整。'
+        : `当前节点仍缺少字段：${missingFieldLabels.join('、')}。`,
+    missingFieldLabels,
+  }
+}
+
 export function validateProjectNodeCompletion(
   projectId: string,
   projectNodeId: string,
@@ -374,6 +414,10 @@ export function validateProjectNodeCompletion(
 
   if (node.workItemTypeCode === 'STYLE_ARCHIVE_CREATE') {
     return validateStyleArchiveNode(project, node)
+  }
+
+  if (node.workItemTypeCode === 'CHANNEL_PRODUCT_LISTING') {
+    return validateChannelListingNode(project, node)
   }
 
   const instance = pickPrimaryNodeInstance(projectId, projectNodeId, node.workItemTypeCode)

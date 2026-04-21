@@ -8,6 +8,7 @@ import {
 import { buildTemplateBusinessSummary } from './pcs-template-domain-view-model.ts'
 import { removeSampleRetainReviewFromProjectSnapshot } from './pcs-remove-sample-retain-review-migration.ts'
 import { migrateProjectDecisionSnapshot } from './pcs-project-decision-migration.ts'
+import { migrateProjectAlbumUrlsToProjectImages } from './pcs-project-image-migration.ts'
 import { createBootstrapProjectSnapshot } from './pcs-project-bootstrap.ts'
 import {
   buildProjectNodeRecordsFromTemplate,
@@ -520,6 +521,7 @@ function loadSnapshot(): PcsProjectStoreSnapshot {
     const raw = localStorage.getItem(PROJECT_STORAGE_KEY)
     if (!raw) {
       memorySnapshot = hydrateSnapshot(seedSnapshot())
+      migrateProjectAlbumUrlsToProjectImages(memorySnapshot.projects)
       localStorage.setItem(PROJECT_STORAGE_KEY, JSON.stringify(memorySnapshot))
       return cloneSnapshot(memorySnapshot)
     }
@@ -537,10 +539,12 @@ function loadSnapshot(): PcsProjectStoreSnapshot {
       phases: parsed.phases as PcsProjectPhaseRecord[],
       nodes: parsed.nodes as PcsProjectNodeRecord[],
     })
+    migrateProjectAlbumUrlsToProjectImages(memorySnapshot.projects)
     localStorage.setItem(PROJECT_STORAGE_KEY, JSON.stringify(memorySnapshot))
     return cloneSnapshot(memorySnapshot)
   } catch {
     memorySnapshot = hydrateSnapshot(seedSnapshot())
+    migrateProjectAlbumUrlsToProjectImages(memorySnapshot.projects)
     if (canUseStorage()) {
       localStorage.setItem(PROJECT_STORAGE_KEY, JSON.stringify(memorySnapshot))
     }
@@ -550,6 +554,7 @@ function loadSnapshot(): PcsProjectStoreSnapshot {
 
 function persistSnapshot(snapshot: PcsProjectStoreSnapshot): void {
   memorySnapshot = hydrateSnapshot(snapshot)
+  migrateProjectAlbumUrlsToProjectImages(memorySnapshot.projects)
   if (canUseStorage()) {
     localStorage.setItem(PROJECT_STORAGE_KEY, JSON.stringify(memorySnapshot))
   }
@@ -1537,6 +1542,17 @@ export function updateProjectRecord(
   })
 
   return getProjectById(projectId)
+}
+
+export function updateProjectAlbumUrls(projectId: string, imageUrls: string[], operatorName = '当前用户'): PcsProjectViewRecord | null {
+  return updateProjectRecord(
+    projectId,
+    {
+      projectAlbumUrls: imageUrls.map((item) => item.trim()).filter(Boolean),
+      updatedAt: nowText(),
+    },
+    operatorName,
+  )
 }
 
 export function resetProjectRepository(): void {

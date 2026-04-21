@@ -9,6 +9,9 @@ export type ProcessAssignmentGranularity = 'ORDER' | 'COLOR' | 'SKU' | 'DETAIL'
 export type CraftStageCode = 'PREP' | 'PROD' | 'POST'
 export type ProcessDocType = 'DEMAND' | 'TASK'
 export type TaskTypeMode = 'PROCESS' | 'CRAFT'
+export type ProcessRole = 'EXTERNAL_TASK' | 'INTERNAL_CAPACITY_NODE'
+export type CapacityRollupMode = 'SELF' | 'CHILD_NODES' | 'NONE'
+export type FactoryMobileExecutionMode = 'FULL_TASK' | 'INTERNAL_RECORD_ONLY' | 'NONE'
 export type DetailSplitMode = 'COMPOSITE'
 export type DetailSplitDimension = 'PATTERN' | 'MATERIAL_SKU' | 'GARMENT_COLOR' | 'GARMENT_SKU'
 export type RuleSource = 'INHERIT_PROCESS' | 'OVERRIDE_CRAFT'
@@ -62,6 +65,15 @@ export interface ProcessDefinition {
   processName: string
   stageCode: CraftStageCode
   sort: number
+  processRole: ProcessRole
+  parentProcessCode?: string
+  generatesExternalTask: boolean
+  requiresTaskQr: boolean
+  requiresHandoverOrder: boolean
+  capacityEnabled: boolean
+  capacityRollupMode: CapacityRollupMode
+  factoryMobileExecutionMode: FactoryMobileExecutionMode
+  isActive: boolean
   assignmentGranularity: ProcessAssignmentGranularity
   defaultDocType: ProcessDocType
   taskTypeMode: TaskTypeMode
@@ -94,6 +106,15 @@ export interface ProcessCraftDefinition {
   processCode: string
   systemProcessCode: string
   stageCode: CraftStageCode
+  processRole: ProcessRole
+  parentProcessCode?: string
+  generatesExternalTask: boolean
+  requiresTaskQr: boolean
+  requiresHandoverOrder: boolean
+  capacityEnabled: boolean
+  capacityRollupMode: CapacityRollupMode
+  factoryMobileExecutionMode: FactoryMobileExecutionMode
+  isActive: boolean
   assignmentGranularity: ProcessAssignmentGranularity
   ruleSource: RuleSource
   defaultDocType: ProcessDocType
@@ -127,6 +148,7 @@ export interface LegacyCraftMappingDefinition {
   craftName: string
   processCode: string
   isSpecialCraft: boolean
+  isActive?: boolean
   defaultDocument: string
   ruleSource?: RuleSource
   assignmentGranularity?: ProcessAssignmentGranularity
@@ -142,6 +164,23 @@ export type ProcessCraftDictRow = {
   processName: string
   stageCode: CraftStageCode
   stageName: string
+  isActive: boolean
+  statusLabel: string
+  processRole: ProcessRole
+  processRoleLabel: string
+  taskScopeLabel: string
+  parentProcessCode?: string
+  parentProcessName?: string
+  generatesExternalTask: boolean
+  generatesExternalTaskLabel: string
+  requiresTaskQr: boolean
+  requiresTaskQrLabel: string
+  requiresHandoverOrder: boolean
+  requiresHandoverOrderLabel: string
+  capacityEnabled: boolean
+  capacityEnabledLabel: string
+  capacityRollupMode: CapacityRollupMode
+  factoryMobileExecutionMode: FactoryMobileExecutionMode
   assignmentGranularity: ProcessAssignmentGranularity
   assignmentGranularityLabel: string
   ruleSource: RuleSource
@@ -198,6 +237,11 @@ export const PROCESS_ASSIGNMENT_GRANULARITY_LABEL: Record<ProcessAssignmentGranu
   DETAIL: '按明细行',
 }
 
+export const PROCESS_ROLE_LABEL: Record<ProcessRole, string> = {
+  EXTERNAL_TASK: '对外任务',
+  INTERNAL_CAPACITY_NODE: '产能节点',
+}
+
 export const DETAIL_SPLIT_MODE_LABEL: Record<DetailSplitMode, string> = {
   COMPOSITE: '组合维度',
 }
@@ -217,6 +261,14 @@ export const RULE_SOURCE_LABEL: Record<RuleSource, string> = {
 export const PROCESS_DOC_TYPE_LABEL: Record<ProcessDocType, string> = {
   DEMAND: '需求单',
   TASK: '任务单',
+}
+
+function toYesNoLabel(value: boolean): string {
+  return value ? '是' : '否'
+}
+
+function toStatusLabel(isActive: boolean): string {
+  return isActive ? '可用' : '历史停用'
 }
 
 export const TASK_TYPE_MODE_LABEL: Record<TaskTypeMode, string> = {
@@ -419,13 +471,11 @@ const PROCESS_CURRENT_TEMPLATE_BY_CODE: Record<string, FactorySupplyFormulaTempl
   SEW: 'A',
   SPECIAL_CRAFT: 'B',
   SHRINKING: 'D',
-  WASHING: 'D',
+  POST_FINISHING: 'B',
   BUTTONHOLE: 'B',
-  BUTTON_ATTACH: 'A',
-  HARDWARE: 'B',
-  FROG_BUTTON: 'A',
+  BUTTON_ATTACH: 'B',
   IRONING: 'B',
-  PACKAGING: 'A',
+  PACKAGING: 'B',
 }
 
 function resolveProcessCurrentTemplate(processCode: string): FactorySupplyFormulaTemplate {
@@ -495,15 +545,15 @@ const PROCESS_SAM_RULES: Record<string, ProcessSamRule> = {
     samDefaultInputUnit: 'KG',
     samConstraintSource: 'BOTH',
     samIdealFieldKeys: [...BATCH_PROCESS_FIELD_KEYS],
-    samIdealReason: '缩水属于批次型能力，完整口径要同时保留装载量单位和人员效率单位，便于解释批次设备能力与人工能力。 ',
+    samIdealReason: '缩水属于批次型能力，完整口径要同时保留装载量单位和人员效率单位，便于解释批次设备能力与人工能力。',
   },
-  WASHING: {
+  POST_FINISHING: {
     samEnabled: true,
-    samCalcMode: 'BATCH',
-    samDefaultInputUnit: 'KG',
+    samCalcMode: 'DISCRETE',
+    samDefaultInputUnit: 'PIECE',
     samConstraintSource: 'BOTH',
-    samIdealFieldKeys: [...BATCH_PROCESS_FIELD_KEYS],
-    samIdealReason: '洗水同样是批次型能力，完整口径除了装载量和循环时间，还要保留装载量单位与人员效率单位作为解释字段。',
+    samIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
+    samIdealReason: '后道对外任务按子节点汇总产能，完整口径需保留设备、人员与准备时间字段，便于解释后道整体供给节拍。',
   },
   BUTTONHOLE: {
     samEnabled: true,
@@ -511,31 +561,15 @@ const PROCESS_SAM_RULES: Record<string, ProcessSamRule> = {
     samDefaultInputUnit: 'PIECE',
     samConstraintSource: 'BOTH',
     samIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
-    samIdealReason: '开扣眼既受设备数量与效率影响，也受操作人与调机时间影响，完整口径需要保留设备与人员效率单位说明。 ',
+    samIdealReason: '开扣眼既受设备数量与效率影响，也受操作人与调机时间影响，完整口径需要保留设备与人员效率单位说明。',
   },
   BUTTON_ATTACH: {
     samEnabled: true,
     samCalcMode: 'DISCRETE',
-    samDefaultInputUnit: 'PIECE',
-    samConstraintSource: 'STAFF',
-    samIdealFieldKeys: [...STAFF_ONLY_FIELD_KEYS],
-    samIdealReason: '钉扣工序默认按人工离散作业理解，完整口径保留人员效率单位；需要设备能力的具体工艺再在工艺级覆盖。',
-  },
-  HARDWARE: {
-    samEnabled: true,
-    samCalcMode: 'DISCRETE',
-    samDefaultInputUnit: 'PIECE',
     samConstraintSource: 'BOTH',
     samIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
-    samIdealReason: '五金类工序典型地受设备、模具与人员共同影响，完整口径需要保留设备与人员效率单位解释供给节拍。',
-  },
-  FROG_BUTTON: {
-    samEnabled: true,
-    samCalcMode: 'DISCRETE',
     samDefaultInputUnit: 'PIECE',
-    samConstraintSource: 'STAFF',
-    samIdealFieldKeys: [...STAFF_ONLY_FIELD_KEYS],
-    samIdealReason: '手工盘扣主要受人工数量与熟练度影响，完整口径保留人员效率单位用于解释人工效率口径。',
+    samIdealReason: '装扣子既包含人工动作，也可能依赖专机与调机，完整口径需要保留设备、人员与准备时间字段。',
   },
   IRONING: {
     samEnabled: true,
@@ -549,9 +583,9 @@ const PROCESS_SAM_RULES: Record<string, ProcessSamRule> = {
     samEnabled: true,
     samCalcMode: 'DISCRETE',
     samDefaultInputUnit: 'PIECE',
-    samConstraintSource: 'STAFF',
-    samIdealFieldKeys: [...STAFF_ONLY_FIELD_KEYS],
-    samIdealReason: '包装在完整口径下仍以人员供给能力为主，并保留人员效率单位解释人工效率口径。',
+    samConstraintSource: 'BOTH',
+    samIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
+    samIdealReason: '包装产能节点需要同时考虑工位、设备与人员投入，完整口径保留设备、人员与准备时间字段以解释真实供给能力。',
   },
 }
 
@@ -597,6 +631,13 @@ const CRAFT_SAM_RULE_OVERRIDES_BY_LEGACY_VALUE: Record<number, CraftSamRuleOverr
     samConstraintSource: 'BOTH',
     samIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
     samIdealReason: '直喷供给能力受设备打印效率与校机准备时间影响明显，完整口径需要保留设备、人员与准备时间字段。',
+  },
+  128: {
+    samCalcMode: 'BATCH',
+    samDefaultInputUnit: 'KG',
+    samConstraintSource: 'BOTH',
+    samIdealFieldKeys: [...BATCH_PROCESS_FIELD_KEYS],
+    samIdealReason: '洗水按批次处理，供给能力取决于设备装载量、循环时间和人员配置。',
   },
   131072: {
     samCalcMode: 'CONTINUOUS',
@@ -706,11 +747,9 @@ const PROCESS_SYSTEM_CODE_MAP: Record<string, string> = {
   SEW: 'PROC_SEW',
   SPECIAL_CRAFT: 'PROC_SPECIAL_CRAFT',
   SHRINKING: 'PROC_SHRINK',
-  WASHING: 'PROC_WASH',
+  POST_FINISHING: 'PROC_FINISHING',
   BUTTONHOLE: 'PROC_BUTTONHOLE',
-  BUTTON_ATTACH: 'PROC_MACHINE_BUTTON',
-  HARDWARE: 'PROC_EYELET',
-  FROG_BUTTON: 'PROC_PANKOU',
+  BUTTON_ATTACH: 'PROC_BUTTON_ATTACH',
   IRONING: 'PROC_IRON',
   PACKAGING: 'PROC_PACK',
 }
@@ -757,13 +796,11 @@ const CARRY_SUGGESTION_BY_PROCESS_CODE: Record<string, string> = {
   SEW: '车缝厂优先',
   SPECIAL_CRAFT: '特殊工艺厂优先',
   SHRINKING: '缩水工艺厂优先',
-  WASHING: '洗水厂优先',
-  BUTTONHOLE: '后道辅料厂优先',
-  BUTTON_ATTACH: '后道辅料厂优先',
-  HARDWARE: '五金/辅料厂优先',
-  FROG_BUTTON: '盘扣工艺厂优先',
-  IRONING: '后道整烫优先',
-  PACKAGING: '后道包装优先',
+  POST_FINISHING: '后道工厂优先',
+  BUTTONHOLE: '后道产能优先',
+  BUTTON_ATTACH: '后道产能优先',
+  IRONING: '后道产能优先',
+  PACKAGING: '后道产能优先',
 }
 
 type ProcessDefaultRule = {
@@ -813,7 +850,7 @@ const PROCESS_DEFAULT_RULES: Record<string, ProcessDefaultRule> = {
     detailSplitMode: 'COMPOSITE',
     detailSplitDimensions: ['GARMENT_SKU'],
   },
-  WASHING: {
+  POST_FINISHING: {
     assignmentGranularity: 'SKU',
     detailSplitMode: 'COMPOSITE',
     detailSplitDimensions: ['GARMENT_SKU'],
@@ -824,16 +861,6 @@ const PROCESS_DEFAULT_RULES: Record<string, ProcessDefaultRule> = {
     detailSplitDimensions: ['GARMENT_SKU'],
   },
   BUTTON_ATTACH: {
-    assignmentGranularity: 'SKU',
-    detailSplitMode: 'COMPOSITE',
-    detailSplitDimensions: ['GARMENT_SKU'],
-  },
-  HARDWARE: {
-    assignmentGranularity: 'SKU',
-    detailSplitMode: 'COMPOSITE',
-    detailSplitDimensions: ['GARMENT_SKU'],
-  },
-  FROG_BUTTON: {
     assignmentGranularity: 'SKU',
     detailSplitMode: 'COMPOSITE',
     detailSplitDimensions: ['GARMENT_SKU'],
@@ -867,19 +894,19 @@ export const processStageDefinitions: ProcessStageDefinition[] = [
     stageCode: 'PREP',
     stageName: '准备阶段',
     sort: 10,
-    description: '仅包含印花和染色两个工序，不属于成衣主体制造阶段',
+    description: '印花、染色、缩水等产前处理阶段',
   },
   {
     stageCode: 'PROD',
     stageName: '生产阶段',
     sort: 20,
-    description: '属于成衣主体制造阶段',
+    description: '裁片、绣花、压褶、车缝、特殊工艺等主体生产阶段',
   },
   {
     stageCode: 'POST',
     stageName: '后道阶段',
     sort: 30,
-    description: '属于成衣后整理与辅料安装阶段',
+    description: '后道任务与后道产能节点阶段',
   },
 ]
 
@@ -909,7 +936,6 @@ const processDefinitionSeeds: Array<
     | 'samReason'
   > & {
     defaultDocument: string
-    isGarmentManufacturing: boolean
   }
 > = [
   {
@@ -917,7 +943,14 @@ const processDefinitionSeeds: Array<
     processName: '印花',
     stageCode: 'PREP',
     sort: 10,
-    isGarmentManufacturing: false,
+    processRole: 'EXTERNAL_TASK',
+    generatesExternalTask: true,
+    requiresTaskQr: true,
+    requiresHandoverOrder: true,
+    capacityEnabled: true,
+    capacityRollupMode: 'SELF',
+    factoryMobileExecutionMode: 'FULL_TASK',
+    isActive: true,
     defaultDocument: '需求单',
     description: '由BOM上的印花要求触发',
     triggerSource: 'BOM上存在印花要求',
@@ -927,37 +960,201 @@ const processDefinitionSeeds: Array<
     processName: '染色',
     stageCode: 'PREP',
     sort: 20,
-    isGarmentManufacturing: false,
+    processRole: 'EXTERNAL_TASK',
+    generatesExternalTask: true,
+    requiresTaskQr: true,
+    requiresHandoverOrder: true,
+    capacityEnabled: true,
+    capacityRollupMode: 'SELF',
+    factoryMobileExecutionMode: 'FULL_TASK',
+    isActive: true,
     defaultDocument: '需求单',
     description: '由BOM上的染色要求触发',
     triggerSource: 'BOM上存在染色要求',
   },
-  { processCode: 'CUT_PANEL', processName: '裁片', stageCode: 'PROD', sort: 10, isGarmentManufacturing: true, defaultDocument: '任务单' },
-  { processCode: 'EMBROIDERY', processName: '绣花', stageCode: 'PROD', sort: 20, isGarmentManufacturing: true, defaultDocument: '任务单' },
-  { processCode: 'PLEATING', processName: '压褶', stageCode: 'PROD', sort: 30, isGarmentManufacturing: true, defaultDocument: '任务单' },
-  { processCode: 'SEW', processName: '车缝', stageCode: 'PROD', sort: 40, isGarmentManufacturing: true, defaultDocument: '任务单' },
+  {
+    processCode: 'SHRINKING',
+    processName: '缩水',
+    stageCode: 'PREP',
+    sort: 30,
+    processRole: 'EXTERNAL_TASK',
+    generatesExternalTask: true,
+    requiresTaskQr: true,
+    requiresHandoverOrder: true,
+    capacityEnabled: true,
+    capacityRollupMode: 'SELF',
+    factoryMobileExecutionMode: 'FULL_TASK',
+    isActive: true,
+    defaultDocument: '任务单',
+  },
+  {
+    processCode: 'CUT_PANEL',
+    processName: '裁片',
+    stageCode: 'PROD',
+    sort: 10,
+    processRole: 'EXTERNAL_TASK',
+    generatesExternalTask: true,
+    requiresTaskQr: true,
+    requiresHandoverOrder: true,
+    capacityEnabled: true,
+    capacityRollupMode: 'SELF',
+    factoryMobileExecutionMode: 'FULL_TASK',
+    isActive: true,
+    defaultDocument: '任务单',
+  },
+  {
+    processCode: 'EMBROIDERY',
+    processName: '绣花',
+    stageCode: 'PROD',
+    sort: 20,
+    processRole: 'EXTERNAL_TASK',
+    generatesExternalTask: true,
+    requiresTaskQr: true,
+    requiresHandoverOrder: true,
+    capacityEnabled: true,
+    capacityRollupMode: 'SELF',
+    factoryMobileExecutionMode: 'FULL_TASK',
+    isActive: true,
+    defaultDocument: '任务单',
+  },
+  {
+    processCode: 'PLEATING',
+    processName: '压褶',
+    stageCode: 'PROD',
+    sort: 30,
+    processRole: 'EXTERNAL_TASK',
+    generatesExternalTask: true,
+    requiresTaskQr: true,
+    requiresHandoverOrder: true,
+    capacityEnabled: true,
+    capacityRollupMode: 'SELF',
+    factoryMobileExecutionMode: 'FULL_TASK',
+    isActive: true,
+    defaultDocument: '任务单',
+  },
+  {
+    processCode: 'SEW',
+    processName: '车缝',
+    stageCode: 'PROD',
+    sort: 40,
+    processRole: 'EXTERNAL_TASK',
+    generatesExternalTask: true,
+    requiresTaskQr: true,
+    requiresHandoverOrder: true,
+    capacityEnabled: true,
+    capacityRollupMode: 'SELF',
+    factoryMobileExecutionMode: 'FULL_TASK',
+    isActive: true,
+    defaultDocument: '任务单',
+  },
   {
     processCode: 'SPECIAL_CRAFT',
     processName: '特殊工艺',
     stageCode: 'PROD',
     sort: 50,
-    isGarmentManufacturing: true,
+    processRole: 'EXTERNAL_TASK',
+    generatesExternalTask: true,
+    requiresTaskQr: true,
+    requiresHandoverOrder: true,
+    capacityEnabled: true,
+    capacityRollupMode: 'SELF',
+    factoryMobileExecutionMode: 'FULL_TASK',
+    isActive: true,
     defaultDocument: '任务单',
     description: '用于打揽、打条、捆条、激光切、烫画、直喷等',
   },
-  { processCode: 'SHRINKING', processName: '缩水', stageCode: 'PROD', sort: 60, isGarmentManufacturing: true, defaultDocument: '任务单' },
-  { processCode: 'WASHING', processName: '洗水', stageCode: 'POST', sort: 10, isGarmentManufacturing: true, defaultDocument: '任务单' },
-  { processCode: 'BUTTONHOLE', processName: '开扣眼', stageCode: 'POST', sort: 20, isGarmentManufacturing: true, defaultDocument: '任务单' },
-  { processCode: 'BUTTON_ATTACH', processName: '钉扣', stageCode: 'POST', sort: 30, isGarmentManufacturing: true, defaultDocument: '任务单' },
-  { processCode: 'HARDWARE', processName: '五金', stageCode: 'POST', sort: 40, isGarmentManufacturing: true, defaultDocument: '任务单' },
-  { processCode: 'FROG_BUTTON', processName: '盘扣', stageCode: 'POST', sort: 50, isGarmentManufacturing: true, defaultDocument: '任务单' },
-  { processCode: 'IRONING', processName: '熨烫', stageCode: 'POST', sort: 60, isGarmentManufacturing: true, defaultDocument: '任务单' },
-  { processCode: 'PACKAGING', processName: '包装', stageCode: 'POST', sort: 70, isGarmentManufacturing: true, defaultDocument: '任务单' },
+  {
+    processCode: 'POST_FINISHING',
+    processName: '后道',
+    stageCode: 'POST',
+    sort: 10,
+    processRole: 'EXTERNAL_TASK',
+    generatesExternalTask: true,
+    requiresTaskQr: true,
+    requiresHandoverOrder: true,
+    capacityEnabled: true,
+    capacityRollupMode: 'CHILD_NODES',
+    factoryMobileExecutionMode: 'FULL_TASK',
+    isActive: true,
+    defaultDocument: '任务单',
+  },
+  {
+    processCode: 'BUTTONHOLE',
+    processName: '开扣眼',
+    stageCode: 'POST',
+    sort: 20,
+    processRole: 'INTERNAL_CAPACITY_NODE',
+    parentProcessCode: 'POST_FINISHING',
+    generatesExternalTask: false,
+    requiresTaskQr: false,
+    requiresHandoverOrder: false,
+    capacityEnabled: true,
+    capacityRollupMode: 'SELF',
+    factoryMobileExecutionMode: 'NONE',
+    isActive: true,
+    defaultDocument: '任务单',
+  },
+  {
+    processCode: 'BUTTON_ATTACH',
+    processName: '装扣子',
+    stageCode: 'POST',
+    sort: 30,
+    processRole: 'INTERNAL_CAPACITY_NODE',
+    parentProcessCode: 'POST_FINISHING',
+    generatesExternalTask: false,
+    requiresTaskQr: false,
+    requiresHandoverOrder: false,
+    capacityEnabled: true,
+    capacityRollupMode: 'SELF',
+    factoryMobileExecutionMode: 'NONE',
+    isActive: true,
+    defaultDocument: '任务单',
+  },
+  {
+    processCode: 'IRONING',
+    processName: '熨烫',
+    stageCode: 'POST',
+    sort: 40,
+    processRole: 'INTERNAL_CAPACITY_NODE',
+    parentProcessCode: 'POST_FINISHING',
+    generatesExternalTask: false,
+    requiresTaskQr: false,
+    requiresHandoverOrder: false,
+    capacityEnabled: true,
+    capacityRollupMode: 'SELF',
+    factoryMobileExecutionMode: 'NONE',
+    isActive: true,
+    defaultDocument: '任务单',
+  },
+  {
+    processCode: 'PACKAGING',
+    processName: '包装',
+    stageCode: 'POST',
+    sort: 50,
+    processRole: 'INTERNAL_CAPACITY_NODE',
+    parentProcessCode: 'POST_FINISHING',
+    generatesExternalTask: false,
+    requiresTaskQr: false,
+    requiresHandoverOrder: false,
+    capacityEnabled: true,
+    capacityRollupMode: 'SELF',
+    factoryMobileExecutionMode: 'NONE',
+    isActive: true,
+    defaultDocument: '任务单',
+  },
 ]
 
 function resolveProcessGranularity(processCode: string): ProcessAssignmentGranularity {
   if (processCode === 'PRINT' || processCode === 'DYE') return 'COLOR'
-  if (processCode === 'SEW' || processCode === 'IRONING' || processCode === 'PACKAGING') return 'SKU'
+  if (
+    processCode === 'SEW'
+    || processCode === 'SHRINKING'
+    || processCode === 'POST_FINISHING'
+    || processCode === 'BUTTONHOLE'
+    || processCode === 'BUTTON_ATTACH'
+    || processCode === 'IRONING'
+    || processCode === 'PACKAGING'
+  ) return 'SKU'
   return 'ORDER'
 }
 
@@ -1029,6 +1226,15 @@ export const processDefinitions: ProcessDefinition[] = processDefinitionSeeds.ma
     processName: seed.processName,
     stageCode: seed.stageCode,
     sort: seed.sort,
+    processRole: seed.processRole,
+    parentProcessCode: seed.parentProcessCode,
+    generatesExternalTask: seed.generatesExternalTask,
+    requiresTaskQr: seed.requiresTaskQr,
+    requiresHandoverOrder: seed.requiresHandoverOrder,
+    capacityEnabled: seed.capacityEnabled,
+    capacityRollupMode: seed.capacityRollupMode,
+    factoryMobileExecutionMode: seed.factoryMobileExecutionMode,
+    isActive: seed.isActive,
     assignmentGranularity: defaultRule.assignmentGranularity,
     detailSplitMode: defaultRule.detailSplitMode,
     detailSplitDimensions: [...defaultRule.detailSplitDimensions],
@@ -1062,16 +1268,16 @@ export const legacyProcessCraftMappings: LegacyCraftMappingDefinition[] = [
   { legacyValue: 16, legacyCraftName: '定向裁', craftName: '定向裁', processCode: 'CUT_PANEL', isSpecialCraft: false, defaultDocument: '任务单' },
   { legacyValue: 32, legacyCraftName: '打条', craftName: '打条', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '已明确按特殊工艺生成任务单' },
   { legacyValue: 64, legacyCraftName: '激光切', craftName: '激光切', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '已明确按特殊工艺生成任务单' },
-  { legacyValue: 128, legacyCraftName: '洗水', craftName: '洗水', processCode: 'WASHING', isSpecialCraft: false, defaultDocument: '任务单' },
+  { legacyValue: 128, legacyCraftName: '洗水', craftName: '洗水', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, isActive: true, defaultDocument: '任务单', remark: '洗水归生产阶段特殊工艺，不再作为独立工序' },
   { legacyValue: 256, legacyCraftName: '手缝扣', craftName: '手缝扣', processCode: 'BUTTON_ATTACH', isSpecialCraft: false, defaultDocument: '任务单' },
   { legacyValue: 512, legacyCraftName: '机打扣', craftName: '机打扣', processCode: 'BUTTON_ATTACH', isSpecialCraft: false, defaultDocument: '任务单' },
   { legacyValue: 1024, legacyCraftName: '四爪扣', craftName: '四爪扣', processCode: 'BUTTON_ATTACH', isSpecialCraft: false, defaultDocument: '任务单' },
-  { legacyValue: 2048, legacyCraftName: '鸡眼扣', craftName: '鸡眼扣', processCode: 'HARDWARE', isSpecialCraft: false, defaultDocument: '任务单' },
-  { legacyValue: 4096, legacyCraftName: '缩水', craftName: '缩水', processCode: 'SHRINKING', isSpecialCraft: false, defaultDocument: '任务单', remark: '准备阶段只保留印花和染色，因此缩水归生产阶段' },
+  { legacyValue: 2048, legacyCraftName: '鸡眼扣', craftName: '鸡眼扣', processCode: 'BUTTON_ATTACH', isSpecialCraft: false, isActive: false, defaultDocument: '任务单', remark: '历史停用，不再生成新任务' },
+  { legacyValue: 4096, legacyCraftName: '缩水', craftName: '缩水', processCode: 'SHRINKING', isSpecialCraft: false, isActive: true, defaultDocument: '任务单', remark: '缩水归准备阶段' },
   { legacyValue: 8192, legacyCraftName: '烫画', craftName: '烫画', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '通常用于纯色T-shirt，已明确按特殊工艺生成任务单' },
   { legacyValue: 16384, legacyCraftName: '直喷', craftName: '直喷', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '通常用于纯色T-shirt，已明确按特殊工艺生成任务单' },
   { legacyValue: 32768, legacyCraftName: '布包扣', craftName: '布包扣', processCode: 'BUTTON_ATTACH', isSpecialCraft: false, defaultDocument: '任务单' },
-  { legacyValue: 65536, legacyCraftName: '手工盘扣', craftName: '手工盘扣', processCode: 'FROG_BUTTON', isSpecialCraft: false, defaultDocument: '任务单' },
+  { legacyValue: 65536, legacyCraftName: '手工盘扣', craftName: '手工盘扣', processCode: 'BUTTON_ATTACH', isSpecialCraft: false, isActive: false, defaultDocument: '任务单', remark: '历史停用，不再生成新任务' },
   { legacyValue: 131072, legacyCraftName: '捆条', craftName: '捆条', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '已明确按特殊工艺生成任务单' },
   { legacyValue: 262144, legacyCraftName: '曲牙', craftName: '曲牙', processCode: 'SEW', isSpecialCraft: false, defaultDocument: '任务单', remark: '当前先按车缝归类' },
   { legacyValue: 262145, legacyCraftName: '基础连接', craftName: '基础连接', processCode: 'SEW', isSpecialCraft: false, defaultDocument: '任务单', remark: '当前按普通车缝基线归类' },
@@ -1110,15 +1316,15 @@ const supplementalProcessCraftMappings: LegacyCraftMappingDefinition[] = [
     detailSplitDimensions: ['GARMENT_SKU'],
     remark: '特殊工艺任务，使用工艺级覆盖规则',
   },
-  { legacyValue: 2000005, legacyCraftName: '熨烫', craftName: '熨烫', processCode: 'IRONING', isSpecialCraft: false, defaultDocument: '任务单' },
-  { legacyValue: 2000006, legacyCraftName: '包装', craftName: '包装', processCode: 'PACKAGING', isSpecialCraft: false, defaultDocument: '任务单' },
+  { legacyValue: 2000005, legacyCraftName: '熨烫', craftName: '熨烫', processCode: 'IRONING', isSpecialCraft: false, isActive: true, defaultDocument: '任务单' },
+  { legacyValue: 2000006, legacyCraftName: '包装', craftName: '包装', processCode: 'PACKAGING', isSpecialCraft: false, isActive: true, defaultDocument: '任务单' },
 ]
 
 const processDefinitionByCode = new Map(processDefinitions.map((item) => [item.processCode, item]))
 const processDefinitionBySystemCode = new Map(processDefinitions.map((item) => [item.systemProcessCode, item]))
 const stageDefinitionByCode = new Map(processStageDefinitions.map((item) => [item.stageCode, item]))
 
-export const processCraftDefinitions: ProcessCraftDefinition[] = [...legacyProcessCraftMappings, ...supplementalProcessCraftMappings]
+export const allProcessCraftDefinitions: ProcessCraftDefinition[] = [...legacyProcessCraftMappings, ...supplementalProcessCraftMappings]
   .slice()
   .sort((a, b) => a.legacyValue - b.legacyValue)
   .map((item) => {
@@ -1161,6 +1367,15 @@ export const processCraftDefinitions: ProcessCraftDefinition[] = [...legacyProce
       processCode: item.processCode,
       systemProcessCode: CRAFT_SYSTEM_CODE_BY_LEGACY_VALUE[item.legacyValue] ?? process?.systemProcessCode ?? `PROC_${item.processCode}`,
       stageCode: process?.stageCode ?? 'PROD',
+      processRole: process?.processRole ?? 'EXTERNAL_TASK',
+      parentProcessCode: process?.parentProcessCode,
+      generatesExternalTask: (item.isActive ?? true) && (process?.generatesExternalTask ?? false),
+      requiresTaskQr: (item.isActive ?? true) && (process?.requiresTaskQr ?? false),
+      requiresHandoverOrder: (item.isActive ?? true) && (process?.requiresHandoverOrder ?? false),
+      capacityEnabled: process?.capacityEnabled ?? true,
+      capacityRollupMode: process?.capacityRollupMode ?? 'SELF',
+      factoryMobileExecutionMode: process?.factoryMobileExecutionMode ?? 'FULL_TASK',
+      isActive: item.isActive ?? true,
       assignmentGranularity: resolvedAssignmentGranularity,
       ruleSource: resolvedRuleSource,
       defaultDocType,
@@ -1194,8 +1409,10 @@ export const processCraftDefinitions: ProcessCraftDefinition[] = [...legacyProce
     }
   })
 
-const processCraftByCode = new Map(processCraftDefinitions.map((item) => [item.craftCode, item]))
-const processCraftByLegacyValue = new Map(processCraftDefinitions.map((item) => [item.legacyValue, item]))
+export const processCraftDefinitions: ProcessCraftDefinition[] = allProcessCraftDefinitions.filter((item) => item.isActive)
+
+const processCraftByCode = new Map(allProcessCraftDefinitions.map((item) => [item.craftCode, item]))
+const processCraftByLegacyValue = new Map(allProcessCraftDefinitions.map((item) => [item.legacyValue, item]))
 
 export const craftStageDict = processStageDefinitions
 
@@ -1226,11 +1443,36 @@ export function getProcessDefinitionBySystemCode(systemProcessCode: string): Pro
   return processDefinitionBySystemCode.get(systemProcessCode)
 }
 
+export function isExternalTaskProcess(processCode: string): boolean {
+  return getProcessDefinitionByCode(processCode)?.generatesExternalTask ?? false
+}
+
+export function isPostCapacityNode(processCode: string): boolean {
+  const process = getProcessDefinitionByCode(processCode)
+  return process?.stageCode === 'POST' && process.processRole === 'INTERNAL_CAPACITY_NODE'
+}
+
 export function listProcessesByStageCode(stageCode: CraftStageCode): ProcessDefinition[] {
   return listProcessDefinitions().filter((item) => item.stageCode === stageCode)
 }
 
 export function listProcessCraftDefinitions(): ProcessCraftDefinition[] {
+  return processCraftDefinitions.slice()
+}
+
+export function listAllProcessCraftDefinitions(): ProcessCraftDefinition[] {
+  return allProcessCraftDefinitions.slice()
+}
+
+export function listInactiveProcessCraftDefinitions(): ProcessCraftDefinition[] {
+  return allProcessCraftDefinitions.filter((item) => !item.isActive)
+}
+
+export function listProcessCraftDefinitionsByStatus(isActive: boolean): ProcessCraftDefinition[] {
+  return allProcessCraftDefinitions.filter((item) => item.isActive === isActive)
+}
+
+export function listActiveProcessCraftDefinitions(): ProcessCraftDefinition[] {
   return processCraftDefinitions.slice()
 }
 
@@ -1324,12 +1566,13 @@ export function getResolvedProcessCraftSamRuleByCode(
   }
 }
 
-export const processCraftDictRows: ProcessCraftDictRow[] = processCraftDefinitions.map((item) => {
+export const allProcessCraftDictRows: ProcessCraftDictRow[] = allProcessCraftDefinitions.map((item) => {
   const process = processDefinitionByCode.get(item.processCode)
   const stage = stageDefinitionByCode.get(item.stageCode)
   const processAssignmentGranularity = process?.assignmentGranularity ?? 'ORDER'
   const processDetailSplitMode = process?.detailSplitMode ?? 'COMPOSITE'
   const processDetailSplitDimensions = [...(process?.detailSplitDimensions ?? ['PATTERN', 'MATERIAL_SKU'])]
+  const parentProcess = item.parentProcessCode ? processDefinitionByCode.get(item.parentProcessCode) : undefined
   const samRule =
     getResolvedProcessCraftSamRuleByCode(item.craftCode) ??
     ({
@@ -1352,6 +1595,23 @@ export const processCraftDictRows: ProcessCraftDictRow[] = processCraftDefinitio
     processName: process?.processName ?? item.processCode,
     stageCode: item.stageCode,
     stageName: stage?.stageName ?? item.stageCode,
+    isActive: item.isActive,
+    statusLabel: toStatusLabel(item.isActive),
+    processRole: item.processRole,
+    processRoleLabel: PROCESS_ROLE_LABEL[item.processRole],
+    taskScopeLabel: PROCESS_ROLE_LABEL[item.processRole],
+    parentProcessCode: item.parentProcessCode,
+    parentProcessName: parentProcess?.processName,
+    generatesExternalTask: item.generatesExternalTask,
+    generatesExternalTaskLabel: toYesNoLabel(item.generatesExternalTask),
+    requiresTaskQr: item.requiresTaskQr,
+    requiresTaskQrLabel: toYesNoLabel(item.requiresTaskQr),
+    requiresHandoverOrder: item.requiresHandoverOrder,
+    requiresHandoverOrderLabel: toYesNoLabel(item.requiresHandoverOrder),
+    capacityEnabled: item.capacityEnabled,
+    capacityEnabledLabel: toYesNoLabel(item.capacityEnabled),
+    capacityRollupMode: item.capacityRollupMode,
+    factoryMobileExecutionMode: item.factoryMobileExecutionMode,
     assignmentGranularity: item.assignmentGranularity,
     assignmentGranularityLabel: PROCESS_ASSIGNMENT_GRANULARITY_LABEL[item.assignmentGranularity],
     ruleSource: item.ruleSource,
@@ -1403,6 +1663,12 @@ export const processCraftDictRows: ProcessCraftDictRow[] = processCraftDefinitio
   }
 })
 
+export const processCraftDictRows: ProcessCraftDictRow[] = allProcessCraftDictRows.filter((item) => item.isActive)
+
+export function listProcessCraftDictRows(includeHistorical: boolean = false): ProcessCraftDictRow[] {
+  return includeHistorical ? allProcessCraftDictRows.slice() : processCraftDictRows.slice()
+}
+
 export function getProcessCraftDictRowByCode(craftCode: string): ProcessCraftDictRow | undefined {
-  return processCraftDictRows.find((item) => item.craftCode === craftCode)
+  return allProcessCraftDictRows.find((item) => item.craftCode === craftCode)
 }

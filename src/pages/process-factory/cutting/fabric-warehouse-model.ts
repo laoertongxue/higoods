@@ -20,10 +20,23 @@ export interface FabricWarehouseRiskTag {
 export interface FabricWarehouseRollItem {
   rollItemId: string
   stockItemId: string
+  fabricRollId: string
+  fabricRollNo: string
   rollNo: string
+  rollBarcode: string
+  batchNo: string
+  batchSeqNo: string
+  materialSku: string
+  materialSpuNameCn: string
+  fabricColor: string
   width: number
   labeledLength: number
+  actualLength: number
+  lengthUnit: string
   remainingLength: number
+  sourceProcessType: 'RAW' | 'PRINT' | 'DYE'
+  sourceProcessOrderNo: string
+  currentAreaName: string
   status: 'IN_STOCK' | 'USED'
   locationHint: string
   note: string
@@ -98,9 +111,9 @@ export const fabricWarehouseMaterialMeta: Record<CuttingMaterialType, { label: s
 }
 
 export const fabricWarehouseStatusMeta: Record<CuttingFabricStockStatus, { label: string; className: string }> = {
-  READY: { label: '库存正常', className: 'bg-emerald-100 text-emerald-700 border border-emerald-200' },
-  PARTIAL_USED: { label: '部分已用', className: 'bg-sky-100 text-sky-700 border border-sky-200' },
-  NEED_RECHECK: { label: '待核对', className: 'bg-rose-100 text-rose-700 border border-rose-200' },
+  READY: { label: '可用', className: 'bg-emerald-100 text-emerald-700 border border-emerald-200' },
+  PARTIAL_USED: { label: '已领料', className: 'bg-sky-100 text-sky-700 border border-sky-200' },
+  NEED_RECHECK: { label: '待审核', className: 'bg-rose-100 text-rose-700 border border-rose-200' },
 }
 
 export function formatFabricWarehouseLength(value: number): string {
@@ -127,15 +140,30 @@ function buildRolls(record: CuttingFabricStockRecord): FabricWarehouseRollItem[]
   return Array.from({ length: totalRolls }, (_, index) => {
     const sequence = index + 1
     const inStock = sequence <= remainingRollCount
+    const sourceProcessType = record.materialType === 'PRINT' ? 'PRINT' : record.materialType === 'DYE' ? 'DYE' : 'RAW'
+    const materialSpuNameCn = materialNameFromLabel(record.materialLabel)
     return {
       rollItemId: `${record.id}-roll-${sequence}`,
       stockItemId: record.id,
+      fabricRollId: `${record.id}-roll-${sequence}`,
+      fabricRollNo: `${record.materialSku}-R${String(sequence).padStart(2, '0')}`,
       rollNo: `${record.materialSku}-R${String(sequence).padStart(2, '0')}`,
+      rollBarcode: `RB-${record.materialSku}-${String(sequence).padStart(3, '0')}`,
+      batchNo: record.mergeBatchNo || record.originalCutOrderNo,
+      batchSeqNo: String(sequence).padStart(2, '0'),
+      materialSku: record.materialSku,
+      materialSpuNameCn,
+      fabricColor: record.materialLabel.split('·')[1]?.trim() || '待补',
       width,
       labeledLength: avgLength,
+      actualLength: inStock ? avgRemaining : avgLength,
+      lengthUnit: '米',
       remainingLength: inStock ? avgRemaining : 0,
+      sourceProcessType,
+      sourceProcessOrderNo: sourceProcessType === 'RAW' ? record.originalCutOrderNo : record.originalCutOrderNo,
+      currentAreaName: inStock ? 'A区' : '已领料',
       status: inStock ? 'IN_STOCK' : 'USED',
-      locationHint: inStock ? '裁床仓主架位' : '已领用 / 待回收位',
+      locationHint: inStock ? 'A区' : '已领料',
       note: record.note,
       sourceOriginalCutOrderNo: record.originalCutOrderNo,
       sourceProductionOrderNo: record.productionOrderNo,

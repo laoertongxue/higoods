@@ -37,6 +37,13 @@ interface EarlyPhaseProjectScenario {
   reviewRisk: string
   shootPlan: string
   fitFeedback: string
+  sampleFlatImageIds: string[]
+  sampleTryOnImageIds: string[]
+  sampleDetailImageIds: string[]
+  sampleVideoUrls: string[]
+  shootImageNote: string
+  listingCandidateImageIds: string[]
+  styleArchiveCandidateImageIds: string[]
   shootDate: string
   shootLocation: string
   photographer: string
@@ -177,6 +184,13 @@ const PROJECT_SCENARIOS: Record<string, EarlyPhaseProjectScenario> = {
     reviewRisk: '需关注领口包边稳定性。',
     shootPlan: '安排直播前模特试穿与棚拍各一轮。',
     fitFeedback: '上身廓形自然，腰线位置合适。',
+    sampleFlatImageIds: [],
+    sampleTryOnImageIds: [],
+    sampleDetailImageIds: [],
+    sampleVideoUrls: [],
+    shootImageNote: '',
+    listingCandidateImageIds: [],
+    styleArchiveCandidateImageIds: [],
     shootDate: '2026-02-06',
     shootLocation: '深圳棚拍一号间',
     photographer: '陈影',
@@ -223,6 +237,13 @@ const PROJECT_SCENARIOS: Record<string, EarlyPhaseProjectScenario> = {
     reviewRisk: '需关注面料缩率。',
     shootPlan: '快反款以挂拍补充为主。',
     fitFeedback: '试穿轮廓利落，适配通勤客群。',
+    sampleFlatImageIds: [],
+    sampleTryOnImageIds: [],
+    sampleDetailImageIds: [],
+    sampleVideoUrls: [],
+    shootImageNote: '',
+    listingCandidateImageIds: [],
+    styleArchiveCandidateImageIds: [],
     shootDate: '2026-02-12',
     shootLocation: '深圳直播间',
     photographer: '李影',
@@ -269,6 +290,13 @@ const PROJECT_SCENARIOS: Record<string, EarlyPhaseProjectScenario> = {
     reviewRisk: '需观察花型在强光下的表现。',
     shootPlan: '安排模特棚拍并补充印花细节特写。',
     fitFeedback: '裙摆动态表现较好，印花识别度高。',
+    sampleFlatImageIds: [],
+    sampleTryOnImageIds: [],
+    sampleDetailImageIds: [],
+    sampleVideoUrls: [],
+    shootImageNote: '',
+    listingCandidateImageIds: [],
+    styleArchiveCandidateImageIds: [],
     shootDate: '2026-02-16',
     shootLocation: '深圳摄影棚二号间',
     photographer: '周影',
@@ -315,6 +343,13 @@ const PROJECT_SCENARIOS: Record<string, EarlyPhaseProjectScenario> = {
     reviewRisk: '需确认后腰工艺与洗水稳定性。',
     shootPlan: '改版款不安排完整拍摄，仅补充上身图。',
     fitFeedback: '腰臀包容性较好。',
+    sampleFlatImageIds: [],
+    sampleTryOnImageIds: [],
+    sampleDetailImageIds: [],
+    sampleVideoUrls: [],
+    shootImageNote: '',
+    listingCandidateImageIds: [],
+    styleArchiveCandidateImageIds: [],
     shootDate: '2026-02-20',
     shootLocation: '深圳产品体验区',
     photographer: '杨摄',
@@ -361,6 +396,13 @@ const PROJECT_SCENARIOS: Record<string, EarlyPhaseProjectScenario> = {
     reviewRisk: '肩部结构仍需细看。',
     shootPlan: '安排半天试穿拍摄。',
     fitFeedback: '肩线利落，通勤感明确。',
+    sampleFlatImageIds: [],
+    sampleTryOnImageIds: [],
+    sampleDetailImageIds: [],
+    sampleVideoUrls: [],
+    shootImageNote: '',
+    listingCandidateImageIds: [],
+    styleArchiveCandidateImageIds: [],
     shootDate: '2026-02-23',
     shootLocation: '深圳试衣间',
     photographer: '吴摄',
@@ -407,6 +449,13 @@ const PROJECT_SCENARIOS: Record<string, EarlyPhaseProjectScenario> = {
     reviewRisk: '需观察纽扣牢度。',
     shootPlan: '安排直播预热视频和上身拍摄。',
     fitFeedback: '上身柔和，适合基础测款。',
+    sampleFlatImageIds: [],
+    sampleTryOnImageIds: [],
+    sampleDetailImageIds: [],
+    sampleVideoUrls: [],
+    shootImageNote: '',
+    listingCandidateImageIds: [],
+    styleArchiveCandidateImageIds: [],
     shootDate: '2026-02-27',
     shootLocation: '深圳直播间二号位',
     photographer: '林摄',
@@ -719,6 +768,13 @@ function buildSeedForNode(projectCode: string, workItemTypeCode: PcsProjectInlin
       payload: {
         shootPlan: scenario.shootPlan,
         fitFeedback: scenario.fitFeedback,
+        sampleFlatImageIds: scenario.sampleFlatImageIds,
+        sampleTryOnImageIds: scenario.sampleTryOnImageIds,
+        sampleDetailImageIds: scenario.sampleDetailImageIds,
+        sampleVideoUrls: scenario.sampleVideoUrls,
+        shootImageNote: scenario.shootImageNote,
+        listingCandidateImageIds: scenario.listingCandidateImageIds,
+        styleArchiveCandidateImageIds: scenario.styleArchiveCandidateImageIds,
       },
       detailSnapshot: {
         shootDate: scenario.shootDate,
@@ -1236,6 +1292,13 @@ function buildGenericInlineSeed(
       payload: {
         shootPlan: '已完成拍摄与试穿安排',
         fitFeedback: node.latestResultText || '试穿反馈已整理。',
+        sampleFlatImageIds: [],
+        sampleTryOnImageIds: [],
+        sampleDetailImageIds: [],
+        sampleVideoUrls: [],
+        shootImageNote: '',
+        listingCandidateImageIds: [],
+        styleArchiveCandidateImageIds: [],
       },
       detailSnapshot: {
         shootDate: businessDate,

@@ -2,7 +2,13 @@ import {
   buildCompatTechPackFromProductionSnapshot,
   cloneProductionOrderTechPackSnapshot,
 } from './production-tech-pack-snapshot-builder.ts'
-import type { ProductionOrderTechPackSnapshot } from './production-tech-pack-snapshot-types.ts'
+import type {
+  ProductionOrderTechPackSnapshot,
+  TechPackCutPiecePartSnapshot,
+  TechPackImageSnapshot,
+  TechPackPatternFileSnapshot,
+  TechPackSizeMeasurementSnapshot,
+} from './production-tech-pack-snapshot-types.ts'
 import { getProductionOrderTechPackSnapshot as getOrderSnapshot } from './production-orders.ts'
 import type { TechnicalQualityRule } from '../pcs-technical-data-version-types.ts'
 import type {
@@ -11,7 +17,6 @@ import type {
   TechPackBomItem,
   TechPackColorMaterialMapping,
   TechPackPatternDesign,
-  TechPackPatternFile,
   TechPackProcessEntry,
   TechPackSizeRow,
 } from './tech-packs.ts'
@@ -25,7 +30,7 @@ function cloneBomItems(items: TechPackBomItem[]): TechPackBomItem[] {
   }))
 }
 
-function clonePatternFiles(items: TechPackPatternFile[]): TechPackPatternFile[] {
+function clonePatternFiles(items: TechPackPatternFileSnapshot[]): TechPackPatternFileSnapshot[] {
   return items.map((item) => ({
     ...item,
     pieceRows: item.pieceRows?.map((row) => ({
@@ -68,6 +73,31 @@ function cloneAttachments(items: TechPackAttachment[]): TechPackAttachment[] {
   return items.map((item) => ({ ...item }))
 }
 
+function cloneSizeMeasurements(items: TechPackSizeMeasurementSnapshot[]): TechPackSizeMeasurementSnapshot[] {
+  return items.map((item) => ({ ...item }))
+}
+
+function cloneCutPieceParts(items: TechPackCutPiecePartSnapshot[]): TechPackCutPiecePartSnapshot[] {
+  return items.map((item) => ({
+    ...item,
+    applicableColorList: [...item.applicableColorList],
+    applicableSizeList: [...item.applicableSizeList],
+  }))
+}
+
+function cloneImageSnapshot(snapshot: TechPackImageSnapshot): TechPackImageSnapshot {
+  return {
+    productImages: [...snapshot.productImages],
+    styleImages: [...snapshot.styleImages],
+    sampleImages: [...snapshot.sampleImages],
+    materialImages: [...snapshot.materialImages],
+    accessoryImages: [...snapshot.accessoryImages],
+    patternImages: [...snapshot.patternImages],
+    markerImages: [...snapshot.markerImages],
+    artworkImages: [...snapshot.artworkImages],
+  }
+}
+
 function buildCompatTechPack(snapshot: ProductionOrderTechPackSnapshot): TechPack {
   return buildCompatTechPackFromProductionSnapshot(snapshot)
 }
@@ -89,7 +119,7 @@ export function getProductionOrderBomItems(productionOrderId: string): TechPackB
   return snapshot ? cloneBomItems(snapshot.bomItems) : []
 }
 
-export function getProductionOrderPatternFiles(productionOrderId: string): TechPackPatternFile[] {
+export function getProductionOrderPatternFiles(productionOrderId: string): TechPackPatternFileSnapshot[] {
   const snapshot = getProductionOrderTechPackSnapshot(productionOrderId)
   return snapshot ? clonePatternFiles(snapshot.patternFiles) : []
 }
@@ -124,4 +154,25 @@ export function getProductionOrderPatternDesigns(productionOrderId: string): Tec
 export function getProductionOrderAttachments(productionOrderId: string): TechPackAttachment[] {
   const snapshot = getProductionOrderTechPackSnapshot(productionOrderId)
   return snapshot ? cloneAttachments(snapshot.attachments) : []
+}
+
+export function getProductionOrderSizeMeasurements(
+  productionOrderId: string,
+): TechPackSizeMeasurementSnapshot[] {
+  const snapshot = getProductionOrderTechPackSnapshot(productionOrderId)
+  return snapshot ? cloneSizeMeasurements(snapshot.sizeMeasurements) : []
+}
+
+export function getProductionOrderCutPieceParts(
+  productionOrderId: string,
+): TechPackCutPiecePartSnapshot[] {
+  const snapshot = getProductionOrderTechPackSnapshot(productionOrderId)
+  return snapshot ? cloneCutPieceParts(snapshot.cutPieceParts) : []
+}
+
+export function getProductionOrderTechPackImageSnapshot(
+  productionOrderId: string,
+): TechPackImageSnapshot | null {
+  const snapshot = getProductionOrderTechPackSnapshot(productionOrderId)
+  return snapshot ? cloneImageSnapshot(snapshot.imageSnapshot) : null
 }

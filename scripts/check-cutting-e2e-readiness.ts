@@ -20,6 +20,15 @@ function read(rel: string): string {
   return fs.readFileSync(abs(rel), 'utf8')
 }
 
+function readRouteSources(): string {
+  return [
+    'src/router/routes.ts',
+    'src/router/routes-pda.ts',
+  ]
+    .map((file) => read(file))
+    .join('\n')
+}
+
 function listTsFiles(rootDir: string): string[] {
   const result: string[] = []
 
@@ -183,13 +192,13 @@ function assertFormalAnchorsUnified(): void {
   assert(pdaSpreading.includes('FOLD_NORMAL'), 'PDA 铺布页缺少 FOLD_NORMAL 模式文案')
   assert(pdaSpreading.includes('FOLD_HIGH_LOW'), 'PDA 铺布页缺少 FOLD_HIGH_LOW 模式文案')
 
-  const routes = read('src/router/routes.ts')
+  const routes = readRouteSources()
   const releaseAcceptanceCheck = read('scripts/check-cutting-release-acceptance.ts')
   const playwrightPreflight = read('scripts/check-playwright-preflight.ts')
   assert(
     routes.includes('renderPdaCuttingExecutionUnitPage') &&
       routes.includes('pattern: /^\\/fcs\\/pda\\/cutting\\/unit\\/([^/]+)\\/([^/]+)$/'),
-    'routes.ts 缺少 PDA execution-unit route',
+    '路由文件缺少 PDA execution-unit route',
   )
 
   const releaseAcceptance = read('tests/cutting-release-acceptance.spec.ts')
@@ -244,7 +253,7 @@ function assertFormalAnchorsUnified(): void {
   assert(!cuttingSummary.includes('mayAffectDyeingCount'), 'cutting-summary.ts 不应再统计 mayAffectDyeingCount')
 
   const platformOverview = read('src/domain/cutting-platform/overview.adapter.ts')
-  assert(platformOverview.includes('pendingPrepCount'), 'overview.adapter.ts 缺少 pendingPrepCount 平台摘要')
+  assert(platformOverview.includes('pendingPrepCount'), 'overview.adapter.ts 缺少 pendingPrepCount 平台概览')
   assert(!platformOverview.includes('mayAffectPrintingCount'), 'overview.adapter.ts 不应再统计 mayAffectPrintingCount')
   assert(!platformOverview.includes('mayAffectDyeingCount'), 'overview.adapter.ts 不应再统计 mayAffectDyeingCount')
 

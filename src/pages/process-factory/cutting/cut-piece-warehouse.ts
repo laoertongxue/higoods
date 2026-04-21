@@ -346,7 +346,7 @@ function renderTable(items: CutPieceWarehouseItem[]): string {
           <th class="px-4 py-3 text-left">原始裁片单号</th>
           <th class="px-4 py-3 text-left">来源生产单号</th>
           <th class="px-4 py-3 text-left">合并裁剪批次 / 裁床组</th>
-          <th class="px-4 py-3 text-left">区域 / 库位</th>
+          <th class="px-4 py-3 text-left">区域 / 提示</th>
           <th class="px-4 py-3 text-right">裁片片数（片）</th>
           <th class="px-4 py-3 text-left">仓状态</th>
           <th class="px-4 py-3 text-left">交接状态</th>
@@ -372,7 +372,7 @@ function renderTable(items: CutPieceWarehouseItem[]): string {
                   <div class="flex flex-wrap gap-1.5">
                     ${renderTag(cutPieceWarehouseZoneMeta[item.zoneCode].label, cutPieceWarehouseZoneMeta[item.zoneCode].className)}
                   </div>
-                  <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.locationCode || '待补库位')}</div>
+                  <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.locationCode || '待补区域')}</div>
                 </td>
                 <td class="px-4 py-3 text-right tabular-nums">${escapeHtml(formatCutPieceQuantity(item.quantity))}</td>
                 <td class="px-4 py-3">
@@ -492,8 +492,8 @@ function renderDetailDrawer(): string {
             <summary class="cursor-pointer text-sm font-medium text-foreground">追溯信息</summary>
             <dl class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               <div class="rounded-lg border bg-muted/10 p-3">
-                <dt class="text-xs text-muted-foreground">PDA回写流水</dt>
-                <dd class="mt-1 font-medium text-foreground">${escapeHtml(item.sourceWritebackId || '当前尚无 PDA 回写流水')}</dd>
+                <dt class="text-xs text-muted-foreground">工厂端回写流水</dt>
+                <dd class="mt-1 font-medium text-foreground">${escapeHtml(item.sourceWritebackId || '当前尚无工厂端回写流水')}</dd>
               </div>
               <div class="rounded-lg border bg-muted/10 p-3">
                 <dt class="text-xs text-muted-foreground">中转袋使用周期</dt>
@@ -515,7 +515,7 @@ function renderDetailDrawer(): string {
           <div class="flex items-start justify-between gap-3">
             <div>
               <h3 class="text-sm font-semibold text-foreground">区位信息</h3>
-              <p class="mt-1 text-xs text-muted-foreground">当前预留 zoneCode 与 locationCode 两层，不在本步进入真实库位系统。</p>
+              <p class="mt-1 text-xs text-muted-foreground">当前只保留 A区 / B区 / C区与区域提示。</p>
             </div>
           </div>
           <div class="mt-4 grid gap-3 md:grid-cols-3">
@@ -526,7 +526,7 @@ function renderDetailDrawer(): string {
               { value: 'UNASSIGNED', label: '未分配' },
             ], 'data-cut-piece-warehouse-detail-field')}
             <label class="space-y-2 md:col-span-2">
-              <span class="text-sm font-medium text-foreground">locationCode / 库位说明</span>
+              <span class="text-sm font-medium text-foreground">区域提示</span>
               <input
                 type="text"
                 value="${escapeHtml(state.detailDraft.locationCode)}"
@@ -544,7 +544,7 @@ function renderDetailDrawer(): string {
             </label>
           </div>
           <div class="mt-4 flex flex-wrap gap-2">
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cut-piece-warehouse-action="save-location" data-item-id="${escapeHtml(item.warehouseItemId)}">保存区位</button>
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cut-piece-warehouse-action="save-location" data-item-id="${escapeHtml(item.warehouseItemId)}">保存区域</button>
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cut-piece-warehouse-action="mark-inbound" data-item-id="${escapeHtml(item.warehouseItemId)}">标记入仓</button>
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cut-piece-warehouse-action="mark-waiting-handoff" data-item-id="${escapeHtml(item.warehouseItemId)}">标记待交接</button>
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cut-piece-warehouse-action="mark-handed-over" data-item-id="${escapeHtml(item.warehouseItemId)}">标记已交接</button>
@@ -664,7 +664,7 @@ function submitWarehouseAction(
       materialSku: item.materialSku,
     },
     zoneCode: state.detailDraft.zoneCode,
-    locationCode: state.detailDraft.locationCode.trim() || item.locationCode || '待补库位',
+    locationCode: state.detailDraft.locationCode.trim() || item.locationCode || '待补区域',
     handoverTarget: actionType === 'CUT_PIECE_WAREHOUSE_MARK_HANDED_OVER' ? '已交接至后道 / 中转袋后续' : item.handoffTarget,
     note: state.detailDraft.note.trim() || item.note,
   })

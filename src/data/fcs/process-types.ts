@@ -3,11 +3,12 @@
 
 import {
   getProcessDefinitionByCode,
-  listProcessCraftDefinitions,
+  listActiveProcessCraftDefinitions,
   listProcessDefinitions,
   type DetailSplitDimension,
   type DetailSplitMode,
   type ProcessAssignmentGranularity as DictProcessAssignmentGranularity,
+  type ProcessRole,
   type RuleSource,
 } from './process-craft-dict.ts'
 
@@ -20,6 +21,10 @@ export interface ProcessType {
   code: string
   nameZh: string
   stage: ProcessStage
+  taskVisibility: 'EXTERNAL' | 'INTERNAL'
+  processRole?: ProcessRole
+  parentProcessCode?: string
+  isActive?: boolean
   assignmentGranularity: ProcessAssignmentGranularity
   canOutsource: boolean
   isExternalConstraint: boolean
@@ -51,10 +56,10 @@ const processAssignmentGranularityOverrides: Partial<Record<string, ProcessAssig
   PROC_PRINT: 'COLOR',
   PROC_DYE: 'COLOR',
   PROC_SEW: 'SKU',
+  PROC_FINISHING: 'SKU',
   PROC_IRON: 'SKU',
   PROC_PACK: 'SKU',
   PROC_QC: 'SKU',
-  PROC_FINISHING: 'SKU',
 }
 
 function mapToLegacyStage(processCode: string, systemProcessCode: string, stageCode: 'PREP' | 'PROD' | 'POST'): ProcessStage {
@@ -69,8 +74,11 @@ function mapToLegacyStage(processCode: string, systemProcessCode: string, stageC
   return 'SEWING'
 }
 
-function getRecommendedOwnerTypes(stage: ProcessStage, processCode: string): string[] {
+function getRecommendedOwnerTypes(stage: ProcessStage, processCode: string, taskVisibility: 'EXTERNAL' | 'INTERNAL'): string[] {
+  if (taskVisibility === 'INTERNAL' && stage === 'POST') return ['FINISHING']
   if (processCode === 'PRINT' || processCode === 'DYE') return ['PRINTING', 'DYEING']
+  if (processCode === 'SHRINKING') return ['DYEING', 'SPECIAL_PROCESS']
+  if (processCode === 'POST_FINISHING') return ['FINISHING', 'WAREHOUSE']
   if (stage === 'CUTTING') return ['CUTTING', 'SEWING']
   if (stage === 'POST') return ['FINISHING', 'WAREHOUSE']
   if (stage === 'SPECIAL') return ['SPECIAL_PROCESS', 'SEWING']
@@ -88,16 +96,21 @@ function upsertProcessType(item: ProcessType): void {
 for (const processDef of listProcessDefinitions()) {
   const stage = mapToLegacyStage(processDef.processCode, processDef.systemProcessCode, processDef.stageCode)
   const isExternalConstraint = processDef.processCode === 'PRINT' || processDef.processCode === 'DYE'
+  const taskVisibility = processDef.generatesExternalTask ? 'EXTERNAL' : 'INTERNAL'
   upsertProcessType({
     code: processDef.systemProcessCode,
     nameZh: processDef.processName,
     stage,
+    taskVisibility,
+    processRole: processDef.processRole,
+    parentProcessCode: processDef.parentProcessCode,
+    isActive: processDef.isActive,
     assignmentGranularity: processDef.assignmentGranularity,
-    canOutsource: true,
+    canOutsource: processDef.generatesExternalTask,
     isExternalConstraint,
     recommendedAssignmentMode: isExternalConstraint ? 'BIDDING' : 'DIRECT',
     recommendedOwnerTier: isExternalConstraint ? 'THIRD_PARTY' : 'ANY',
-    recommendedOwnerTypes: getRecommendedOwnerTypes(stage, processDef.processCode),
+    recommendedOwnerTypes: getRecommendedOwnerTypes(stage, processDef.processCode, taskVisibility),
     defaultQcPoints: [],
     defaultParamKeys: [],
     processCode: processDef.processCode,
@@ -110,21 +123,26 @@ for (const processDef of listProcessDefinitions()) {
   })
 }
 
-for (const craftDef of listProcessCraftDefinitions()) {
+for (const craftDef of listActiveProcessCraftDefinitions()) {
   if (processTypeMap.has(craftDef.systemProcessCode)) continue
 
   const processDef = getProcessDefinitionByCode(craftDef.processCode)
   const stage = mapToLegacyStage(craftDef.processCode, craftDef.systemProcessCode, craftDef.stageCode)
+  const taskVisibility = craftDef.generatesExternalTask ? 'EXTERNAL' : 'INTERNAL'
   upsertProcessType({
     code: craftDef.systemProcessCode,
     nameZh: craftDef.craftName,
     stage,
+    taskVisibility,
+    processRole: craftDef.processRole,
+    parentProcessCode: craftDef.parentProcessCode,
+    isActive: craftDef.isActive,
     assignmentGranularity: craftDef.assignmentGranularity,
-    canOutsource: true,
+    canOutsource: craftDef.generatesExternalTask,
     isExternalConstraint: false,
     recommendedAssignmentMode: craftDef.isSpecialCraft ? 'BIDDING' : 'DIRECT',
     recommendedOwnerTier: craftDef.isSpecialCraft ? 'CENTRAL' : 'ANY',
-    recommendedOwnerTypes: getRecommendedOwnerTypes(stage, craftDef.processCode),
+    recommendedOwnerTypes: getRecommendedOwnerTypes(stage, craftDef.processCode, taskVisibility),
     defaultQcPoints: [],
     defaultParamKeys: [],
     processCode: craftDef.processCode,
@@ -141,12 +159,16 @@ for (const craftDef of listProcessCraftDefinitions()) {
       code: processDef.systemProcessCode,
       nameZh: processDef.processName,
       stage: mapToLegacyStage(processDef.processCode, processDef.systemProcessCode, processDef.stageCode),
+      taskVisibility: processDef.generatesExternalTask ? 'EXTERNAL' : 'INTERNAL',
+      processRole: processDef.processRole,
+      parentProcessCode: processDef.parentProcessCode,
+      isActive: processDef.isActive,
       assignmentGranularity: processDef.assignmentGranularity,
-      canOutsource: true,
+      canOutsource: processDef.generatesExternalTask,
       isExternalConstraint: false,
       recommendedAssignmentMode: 'DIRECT',
       recommendedOwnerTier: 'ANY',
-      recommendedOwnerTypes: getRecommendedOwnerTypes(stage, processDef.processCode),
+      recommendedOwnerTypes: getRecommendedOwnerTypes(stage, processDef.processCode, processDef.generatesExternalTask ? 'EXTERNAL' : 'INTERNAL'),
       defaultQcPoints: [],
       defaultParamKeys: [],
       processCode: processDef.processCode,
@@ -165,6 +187,10 @@ const compatibilitySeeds: ProcessType[] = [
     code: 'PROC_IRON',
     nameZh: '熨烫',
     stage: 'POST',
+    taskVisibility: 'INTERNAL',
+    processRole: 'INTERNAL_CAPACITY_NODE',
+    parentProcessCode: 'POST_FINISHING',
+    isActive: true,
     assignmentGranularity: 'SKU',
     canOutsource: false,
     isExternalConstraint: false,
@@ -185,6 +211,10 @@ const compatibilitySeeds: ProcessType[] = [
     code: 'PROC_PACK',
     nameZh: '包装',
     stage: 'POST',
+    taskVisibility: 'INTERNAL',
+    processRole: 'INTERNAL_CAPACITY_NODE',
+    parentProcessCode: 'POST_FINISHING',
+    isActive: true,
     assignmentGranularity: 'SKU',
     canOutsource: false,
     isExternalConstraint: false,
@@ -205,6 +235,7 @@ const compatibilitySeeds: ProcessType[] = [
     code: 'PROC_QC',
     nameZh: '质检',
     stage: 'POST',
+    taskVisibility: 'EXTERNAL',
     assignmentGranularity: 'SKU',
     canOutsource: false,
     isExternalConstraint: false,
@@ -223,8 +254,9 @@ const compatibilitySeeds: ProcessType[] = [
   },
   {
     code: 'PROC_FINISHING',
-    nameZh: '后整理',
+    nameZh: '后道',
     stage: 'POST',
+    taskVisibility: 'EXTERNAL',
     assignmentGranularity: 'SKU',
     canOutsource: false,
     isExternalConstraint: false,
@@ -233,7 +265,7 @@ const compatibilitySeeds: ProcessType[] = [
     recommendedOwnerTypes: ['FINISHING', 'WAREHOUSE'],
     defaultQcPoints: [],
     defaultParamKeys: [],
-    processCode: 'POST',
+    processCode: 'POST_FINISHING',
     defaultDocType: 'TASK',
     taskTypeMode: 'PROCESS',
     isSpecialCraft: false,
@@ -245,6 +277,7 @@ const compatibilitySeeds: ProcessType[] = [
     code: 'PROC_MATERIAL_PREP',
     nameZh: '物料准备',
     stage: 'MATERIAL',
+    taskVisibility: 'EXTERNAL',
     assignmentGranularity: 'ORDER',
     canOutsource: false,
     isExternalConstraint: false,
@@ -265,6 +298,7 @@ const compatibilitySeeds: ProcessType[] = [
     code: 'PROC_WAREHOUSE_IN',
     nameZh: '入库',
     stage: 'WAREHOUSE',
+    taskVisibility: 'EXTERNAL',
     assignmentGranularity: 'ORDER',
     canOutsource: false,
     isExternalConstraint: false,

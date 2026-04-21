@@ -28,7 +28,7 @@ const executionUnitSteps: ExecutionUnitStepDefinition[] = [
   { code: 'PICKUP', label: '去领料', routeKey: 'pickup' },
   { code: 'SPREADING', label: '去铺布', routeKey: 'spreading' },
   { code: 'REPLENISHMENT', label: '去补料', routeKey: 'replenishment-feedback' },
-  { code: 'HANDOVER', label: '去交接', routeKey: 'handover' },
+  { code: 'HANDOVER', label: '去交出', routeKey: 'handover' },
   { code: 'INBOUND', label: '去入仓', routeKey: 'inbound' },
 ]
 

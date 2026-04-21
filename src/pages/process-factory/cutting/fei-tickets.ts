@@ -1,6 +1,7 @@
 import { appStore } from '../../../state/store'
 import { escapeHtml } from '../../../utils'
 import {
+  buildFeiTicketFiveDimTitle,
   buildPrintableUnitDetailViewModel,
   canVoidTicketCard,
   CUTTING_FEI_TICKET_PRINT_JOBS_STORAGE_KEY,
@@ -10,6 +11,7 @@ import {
   getPrintableUnitStatusMeta,
   serializeFeiTicketPrintJobsStorage,
   serializeFeiTicketRecordsStorage,
+  isFeiTicketFiveDimComplete,
   type FeiTicketLabelRecord,
   type FeiTicketPrintJob,
   type PrintableUnit,
@@ -23,6 +25,7 @@ import {
   type TicketSplitDetail,
   voidTicketCard,
 } from './fei-tickets-model'
+import { renderRealQrPlaceholder } from '../../../components/real-qr'
 import {
   renderStickyFilterShell,
   renderStickyTableScroller,
@@ -194,6 +197,22 @@ function truncate(value: string, maxLength = 36): string {
   if (!value) return '—'
   if (value.length <= maxLength) return value
   return `${value.slice(0, maxLength)}...`
+}
+
+function formatAssemblyGroupText(item: Pick<TicketCard | TicketSplitDetail, 'sourceCutOrderNo' | 'fabricRollNo' | 'fabricColor' | 'size' | 'bundleNo'>): string {
+  const segments = [
+    item.sourceCutOrderNo || '',
+    item.fabricRollNo || '',
+    item.fabricColor || '',
+    item.size || '',
+    item.bundleNo || '',
+  ].filter(Boolean)
+  return segments.length ? segments.join(' / ') : '暂无数据'
+}
+
+function renderSiblingTicketNos(ticketNos: string[]): string {
+  if (!ticketNos.length) return '暂无数据'
+  return escapeHtml(ticketNos.join(' / '))
 }
 
 function formatOperationTypeLabel(value: TicketPrintRecord['operationType']): string {
@@ -957,16 +976,16 @@ function renderSplitDetailsTab(detailView: PrintableUnitDetailViewModel): string
     <table class="min-w-full text-sm">
       <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
         <tr>
-          <th class="px-3 py-3 text-left font-medium">部位名称</th>
-          <th class="px-3 py-3 text-left font-medium">颜色</th>
+          <th class="px-3 py-3 text-left font-medium">面料卷号</th>
+          <th class="px-3 py-3 text-left font-medium">布料颜色</th>
           <th class="px-3 py-3 text-left font-medium">尺码</th>
-          <th class="px-3 py-3 text-left font-medium">成衣件数（件）</th>
-          <th class="px-3 py-3 text-left font-medium">来源原始裁片单号</th>
-          <th class="px-3 py-3 text-left font-medium">来源生产单号</th>
-          <th class="px-3 py-3 text-left font-medium">所属合并裁剪批次号</th>
-          <th class="px-3 py-3 text-left font-medium">应生成菲票数（张）</th>
-          <th class="px-3 py-3 text-left font-medium">已生成有效菲票数（张）</th>
-          <th class="px-3 py-3 text-left font-medium">缺口菲票数（张）</th>
+          <th class="px-3 py-3 text-left font-medium">裁片部位</th>
+          <th class="px-3 py-3 text-left font-medium">数量</th>
+          <th class="px-3 py-3 text-left font-medium">扎号</th>
+          <th class="px-3 py-3 text-left font-medium">原始裁片单</th>
+          <th class="px-3 py-3 text-left font-medium">生产单</th>
+          <th class="px-3 py-3 text-left font-medium">同组裁片</th>
+          <th class="px-3 py-3 text-left font-medium">缺口菲票数</th>
         </tr>
       </thead>
       <tbody class="divide-y divide-slate-100 bg-white">
@@ -974,15 +993,15 @@ function renderSplitDetailsTab(detailView: PrintableUnitDetailViewModel): string
           .map(
             (detail) => `
               <tr>
-                <td class="px-3 py-3 font-medium text-slate-900">${escapeHtml(detail.partName)}</td>
-                <td class="px-3 py-3 text-slate-700">${escapeHtml(detail.color || '待补颜色')}</td>
+                <td class="px-3 py-3 font-medium text-slate-900">${escapeHtml(detail.fabricRollNo || '暂无数据')}</td>
+                <td class="px-3 py-3 text-slate-700">${escapeHtml(detail.fabricColor || '暂无数据')}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(detail.size || '待补尺码')}</td>
+                <td class="px-3 py-3 text-slate-700">${escapeHtml(detail.partName)}</td>
                 <td class="px-3 py-3 text-slate-700">${formatCount(detail.quantity)}</td>
+                <td class="px-3 py-3 text-slate-700">${escapeHtml(detail.bundleNo || '暂无数据')}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(detail.sourceCutOrderNo)}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(detail.sourceProductionOrderNo)}</td>
-                <td class="px-3 py-3 text-slate-700">${escapeHtml(detail.batchNo || '—')}</td>
-                <td class="px-3 py-3 text-slate-700">${formatCount(detail.requiredTicketCount)}</td>
-                <td class="px-3 py-3 text-slate-700">${formatCount(detail.validPrintedTicketCount)}</td>
+                <td class="px-3 py-3 text-slate-700">${renderSiblingTicketNos(detail.siblingPartTicketNos)}</td>
                 <td class="px-3 py-3 text-slate-700">${formatCount(detail.gapCount)}</td>
               </tr>
             `,
@@ -1017,6 +1036,7 @@ function renderTicketPreviewPanel(unit: PrintableUnit, ticket: TicketCard | null
   const bundle = getDataBundle()
   const craftTrace = findCraftTraceItem(bundle, ticket)
   const panel = getCurrentSearchParams().get('panel') || 'qr'
+  const fiveDimTitle = buildFeiTicketFiveDimTitle(ticket)
   const title = panel === 'void-info' ? '作废与替代信息' : panel === 'preview' ? '打印预览' : '菲票码预览'
   const body =
     panel === 'void-info'
@@ -1036,50 +1056,87 @@ function renderTicketPreviewPanel(unit: PrintableUnit, ticket: TicketCard | null
         ? `
           <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <p class="text-xs uppercase tracking-wide text-slate-500">裁片菲票预览</p>
-            <div class="mt-3 grid gap-3 md:grid-cols-2">
-              <div>
-                <p class="text-sm text-slate-500">票号</p>
-                <p class="text-lg font-semibold text-slate-900">${escapeHtml(ticket.ticketNo)}</p>
+            <div class="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+              <p class="text-lg font-semibold text-slate-900">${escapeHtml(fiveDimTitle)}</p>
+            </div>
+            <div class="mt-3 grid gap-3 md:grid-cols-[1fr,140px]">
+              <div class="grid gap-3 md:grid-cols-2">
+                <div>
+                  <p class="text-sm text-slate-500">票号</p>
+                  <p class="text-lg font-semibold text-slate-900">${escapeHtml(ticket.ticketNo)}</p>
+                </div>
+                <div>
+                  <p class="text-sm text-slate-500">原始裁片单 / 生产单</p>
+                  <p class="text-sm font-semibold text-slate-900">${escapeHtml(`${craftTrace?.originalCutOrderNo || ticket.sourceCutOrderNo} / ${craftTrace?.productionOrderNo || ticket.sourceProductionOrderNo || '待补生产单'}`)}</p>
+                </div>
+                <div>
+                  <p class="text-sm text-slate-500">面料 SKU / 面料卷号</p>
+                  <p class="text-lg font-semibold text-slate-900">${escapeHtml(craftTrace?.materialSku || unit.fabricSku || '待补')}</p>
+                  <p class="mt-1 text-xs text-slate-500">${escapeHtml(ticket.fabricRollNo || '暂无数据')}</p>
+                </div>
+                <div>
+                  <p class="text-sm text-slate-500">布料颜色 / 成衣颜色</p>
+                  <p class="text-lg font-semibold text-slate-900">${escapeHtml(ticket.fabricColor || '暂无数据')}</p>
+                  <p class="mt-1 text-xs text-slate-500">${escapeHtml(ticket.color || '暂无数据')}</p>
+                </div>
+                <div>
+                  <p class="text-sm text-slate-500">裁片部位 / 扎号</p>
+                  <p class="text-lg font-semibold text-slate-900">${escapeHtml(ticket.partName)}</p>
+                  <p class="mt-1 text-xs text-slate-500">${escapeHtml(ticket.bundleNo || '暂无数据')}</p>
+                </div>
+                <div>
+                  <p class="text-sm text-slate-500">数量 / 裁片数</p>
+                  <p class="text-lg font-semibold text-slate-900">${formatCount(ticket.quantity)}</p>
+                  <p class="mt-1 text-xs text-slate-500">${escapeHtml(`${formatCount(ticket.actualCutPieceQty)} 片`)}</p>
+                </div>
+                <div>
+                  <p class="text-sm text-slate-500">同组裁片</p>
+                  <p class="text-sm font-semibold text-slate-900">${escapeHtml(formatAssemblyGroupText(ticket))}</p>
+                  <p class="mt-1 text-xs text-slate-500">${renderSiblingTicketNos(ticket.siblingPartTicketNos)}</p>
+                </div>
+                <div>
+                  <p class="text-sm text-slate-500">工艺顺序</p>
+                  <p class="text-sm font-semibold text-slate-900">${escapeHtml(craftTrace?.secondaryCrafts.join(' → ') || '未配置')}</p>
+                  <p class="mt-1 text-xs text-slate-500">${escapeHtml(`版本 ${craftTrace?.craftSequenceVersion || '待补'} / 当前 ${craftTrace?.currentCraftStage || '未开始'}`)}</p>
+                </div>
               </div>
               <div>
-                <p class="text-sm text-slate-500">面料 SKU</p>
-                <p class="text-lg font-semibold text-slate-900">${escapeHtml(craftTrace?.materialSku || unit.fabricSku || '待补')}</p>
-                <p class="mt-1 text-xs text-slate-500">${escapeHtml(`${ticket.color} / ${ticket.size}`)}</p>
-              </div>
-              <div>
-                <p class="text-sm text-slate-500">裁片部位</p>
-                <p class="text-lg font-semibold text-slate-900">${escapeHtml(ticket.partName)}</p>
-              </div>
-              <div>
-                <p class="text-sm text-slate-500">原始裁片单 / 生产单</p>
-                <p class="text-sm font-semibold text-slate-900">${escapeHtml(`${craftTrace?.originalCutOrderNo || ticket.sourceCutOrderNo} / ${craftTrace?.productionOrderNo || ticket.sourceProductionOrderNo || '待补生产单'}`)}</p>
-              </div>
-              <div>
-                <p class="text-sm text-slate-500">工艺顺序</p>
-                <p class="text-sm font-semibold text-slate-900">${escapeHtml(craftTrace?.secondaryCrafts.join(' → ') || '未配置')}</p>
-                <p class="mt-1 text-xs text-slate-500">${escapeHtml(`版本 ${craftTrace?.craftSequenceVersion || '待补'} / 当前 ${craftTrace?.currentCraftStage || '未开始'}`)}</p>
-              </div>
-              <div class="md:col-span-2">
-                <p class="text-sm text-slate-500">顺序校验 / 载具绑定</p>
-                <p class="text-sm font-semibold ${craftTrace?.validation.allowed ? 'text-emerald-700' : 'text-amber-700'}">${escapeHtml(craftTrace?.validation.reason || '待补校验结果')}</p>
-                <p class="mt-1 text-xs text-slate-500">${escapeHtml(craftTrace?.carrierCode ? `已装入 ${craftTrace.carrierCode} / 周期 ${craftTrace.usageNo || '待补'}` : '当前未装袋')}</p>
-              </div>
-              <div>
-                <p class="text-sm text-slate-500">成衣件数（件）</p>
-                <p class="text-lg font-semibold text-slate-900">${formatCount(ticket.quantity)}</p>
+                ${
+                  isFeiTicketFiveDimComplete(ticket)
+                    ? renderRealQrPlaceholder({
+                        value: ticket.qrPayload,
+                        size: 128,
+                        title: '菲票二维码',
+                        label: `菲票 ${ticket.ticketNo}`,
+                      })
+                    : '<div class="inline-flex h-[128px] w-[128px] items-center justify-center rounded-lg border border-dashed text-xs text-slate-500">缺少数据</div>'
+                }
+                <p class="mt-2 text-center text-xs text-slate-500">菲票二维码</p>
               </div>
             </div>
           </div>
         `
         : `
           <div class="rounded-lg border border-blue-200 bg-blue-50 p-4">
-            <p class="text-xs text-blue-600">菲票码值</p>
-            <p class="mt-2 break-all text-sm font-medium text-blue-900">${escapeHtml(ticket.qrPayload)}</p>
-            <div class="mt-3 grid gap-2 text-xs text-blue-900/80 md:grid-cols-2">
-              <div>原始裁片单：${escapeHtml(craftTrace?.originalCutOrderNo || ticket.sourceCutOrderNo)}</div>
-              <div>生产单：${escapeHtml(craftTrace?.productionOrderNo || ticket.sourceProductionOrderNo || '待补')}</div>
-              <div>面料 SKU：${escapeHtml(craftTrace?.materialSku || unit.fabricSku || '待补')}</div>
-              <div>工艺版本：${escapeHtml(craftTrace?.craftSequenceVersion || '待补')}</div>
+            <div class="flex flex-wrap items-start gap-4">
+              ${
+                isFeiTicketFiveDimComplete(ticket)
+                  ? renderRealQrPlaceholder({
+                      value: ticket.qrPayload,
+                      size: 128,
+                      title: '菲票二维码',
+                      label: `菲票 ${ticket.ticketNo}`,
+                    })
+                  : '<div class="inline-flex h-[128px] w-[128px] items-center justify-center rounded-lg border border-dashed text-xs text-blue-600">缺少数据</div>'
+              }
+              <div class="grid flex-1 gap-2 text-sm text-blue-900">
+                <div class="font-semibold">${escapeHtml(fiveDimTitle)}</div>
+                <div>原始裁片单：${escapeHtml(craftTrace?.originalCutOrderNo || ticket.sourceCutOrderNo)}</div>
+                <div>生产单：${escapeHtml(craftTrace?.productionOrderNo || ticket.sourceProductionOrderNo || '待补')}</div>
+                <div>面料 SKU：${escapeHtml(craftTrace?.materialSku || unit.fabricSku || '待补')}</div>
+                <div>扎号：${escapeHtml(ticket.bundleNo || '暂无数据')}</div>
+                <div>同组裁片：${escapeHtml(formatAssemblyGroupText(ticket))}</div>
+              </div>
             </div>
           </div>
         `
@@ -1088,22 +1145,21 @@ function renderTicketPreviewPanel(unit: PrintableUnit, ticket: TicketCard | null
 }
 
 function renderPrintedTicketsTab(unit: PrintableUnit, detailView: PrintableUnitDetailViewModel): string {
-  const craftTraceProjection = getDataBundle().craftTraceProjection
   const selectedTicket = findTicketCard(detailView)
   const tableHtml = `
     <table class="min-w-full text-sm">
       <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
         <tr>
           <th class="px-3 py-3 text-left font-medium">菲票号</th>
-          <th class="px-3 py-3 text-left font-medium">款号</th>
-          <th class="px-3 py-3 text-left font-medium">面料 SKU</th>
+          <th class="px-3 py-3 text-left font-medium">原始裁片单</th>
+          <th class="px-3 py-3 text-left font-medium">生产单</th>
+          <th class="px-3 py-3 text-left font-medium">面料卷号</th>
+          <th class="px-3 py-3 text-left font-medium">布料颜色</th>
+          <th class="px-3 py-3 text-left font-medium">尺码</th>
           <th class="px-3 py-3 text-left font-medium">裁片部位</th>
-          <th class="px-3 py-3 text-left font-medium">打印件数（件）</th>
-          <th class="px-3 py-3 text-left font-medium">来源原始裁片单号</th>
-          <th class="px-3 py-3 text-left font-medium">来源生产单号</th>
-          <th class="px-3 py-3 text-left font-medium">所属合并裁剪批次号</th>
-          <th class="px-3 py-3 text-left font-medium">二级工艺标签</th>
-          <th class="px-3 py-3 text-left font-medium">菲票码</th>
+          <th class="px-3 py-3 text-left font-medium">数量</th>
+          <th class="px-3 py-3 text-left font-medium">扎号</th>
+          <th class="px-3 py-3 text-left font-medium">同组裁片</th>
           <th class="px-3 py-3 text-left font-medium">打印版本号</th>
           <th class="px-3 py-3 text-left font-medium">打印状态</th>
           <th class="px-3 py-3 text-left font-medium">中转袋绑定</th>
@@ -1122,6 +1178,7 @@ function renderPrintedTicketsTab(unit: PrintableUnit, detailView: PrintableUnitD
                 ? [
                     { label: '查看菲票码', href: buildTicketPanelHref(unit, ticket, 'qr') },
                     { label: '查看打印预览', href: buildTicketPanelHref(unit, ticket, 'preview') },
+                    { label: '查看同组', href: buildTicketPanelHref(unit, ticket, 'preview') },
                     ...(!ticket.downstreamLocked
                       ? [{ label: '发起作废', href: buildActionHref('fei-ticket-void', unit, { ticketRecordId: ticket.ticketId }) }]
                       : []),
@@ -1143,18 +1200,15 @@ function renderPrintedTicketsTab(unit: PrintableUnit, detailView: PrintableUnitD
             return `
               <tr>
                 <td class="px-3 py-3 font-medium text-slate-900">${escapeHtml(ticket.ticketNo)}</td>
-                <td class="px-3 py-3 text-slate-700">${escapeHtml(ticket.styleCode)}</td>
-                <td class="px-3 py-3 text-slate-700">
-                  <div class="font-medium text-slate-900">${escapeHtml(craftTraceProjection.itemsByTicketId[ticket.ticketId]?.materialSku || craftTraceProjection.itemsByTicketNo[ticket.ticketNo]?.materialSku || unit.fabricSku || '待补')}</div>
-                  <div class="text-xs text-slate-500">${escapeHtml(`${ticket.color} / ${ticket.size}`)}</div>
-                </td>
-                <td class="px-3 py-3 text-slate-700">${escapeHtml(ticket.partName)}</td>
-                <td class="px-3 py-3 text-slate-700">${formatCount(ticket.quantity)}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(ticket.sourceCutOrderNo)}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(ticket.sourceProductionOrderNo)}</td>
-                <td class="px-3 py-3 text-slate-700">${escapeHtml(ticket.batchNo || '—')}</td>
-                <td class="px-3 py-3 text-slate-700">${ticket.processTags.length ? escapeHtml(ticket.processTags.join(' / ')) : '—'}</td>
-                <td class="px-3 py-3 text-xs leading-5 text-slate-600">${escapeHtml(truncate(ticket.qrPayload, 42))}</td>
+                <td class="px-3 py-3 text-slate-700">${escapeHtml(ticket.fabricRollNo || '暂无数据')}</td>
+                <td class="px-3 py-3 text-slate-700">${escapeHtml(ticket.fabricColor || '暂无数据')}</td>
+                <td class="px-3 py-3 text-slate-700">${escapeHtml(ticket.size)}</td>
+                <td class="px-3 py-3 text-slate-700">${escapeHtml(ticket.partName)}</td>
+                <td class="px-3 py-3 text-slate-700">${formatCount(ticket.quantity)}</td>
+                <td class="px-3 py-3 text-slate-700">${escapeHtml(ticket.bundleNo || '暂无数据')}</td>
+                <td class="px-3 py-3 text-slate-700">${renderSiblingTicketNos(ticket.siblingPartTicketNos)}</td>
                 <td class="px-3 py-3 text-slate-700">V${formatCount(ticket.version)}</td>
                 <td class="px-3 py-3">
                   <div class="space-y-1">
@@ -1308,11 +1362,13 @@ function buildOperationPreviewRows(rows: TicketSplitDetail[]): string {
     <table class="min-w-full text-sm">
       <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
         <tr>
-          <th class="px-3 py-3 text-left font-medium">部位</th>
-          <th class="px-3 py-3 text-left font-medium">颜色</th>
+          <th class="px-3 py-3 text-left font-medium">面料卷号</th>
+          <th class="px-3 py-3 text-left font-medium">布料颜色</th>
           <th class="px-3 py-3 text-left font-medium">尺码</th>
-          <th class="px-3 py-3 text-left font-medium">来源原始裁片单号</th>
-          <th class="px-3 py-3 text-left font-medium">来源生产单号</th>
+          <th class="px-3 py-3 text-left font-medium">裁片部位</th>
+          <th class="px-3 py-3 text-left font-medium">数量</th>
+          <th class="px-3 py-3 text-left font-medium">扎号</th>
+          <th class="px-3 py-3 text-left font-medium">原始裁片单</th>
           <th class="px-3 py-3 text-left font-medium">当前缺口数</th>
         </tr>
       </thead>
@@ -1321,11 +1377,13 @@ function buildOperationPreviewRows(rows: TicketSplitDetail[]): string {
           .map(
             (detail) => `
               <tr>
-                <td class="px-3 py-3 font-medium text-slate-900">${escapeHtml(detail.partName)}</td>
-                <td class="px-3 py-3 text-slate-700">${escapeHtml(detail.color)}</td>
+                <td class="px-3 py-3 font-medium text-slate-900">${escapeHtml(detail.fabricRollNo || '暂无数据')}</td>
+                <td class="px-3 py-3 text-slate-700">${escapeHtml(detail.fabricColor || '暂无数据')}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(detail.size)}</td>
+                <td class="px-3 py-3 text-slate-700">${escapeHtml(detail.partName)}</td>
+                <td class="px-3 py-3 text-slate-700">${formatCount(detail.quantity)}</td>
+                <td class="px-3 py-3 text-slate-700">${escapeHtml(detail.bundleNo || '暂无数据')}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(detail.sourceCutOrderNo)}</td>
-                <td class="px-3 py-3 text-slate-700">${escapeHtml(detail.sourceProductionOrderNo)}</td>
                 <td class="px-3 py-3 text-slate-700">${formatCount(detail.gapCount)}</td>
               </tr>
             `,
@@ -1415,6 +1473,10 @@ function renderOperationPage(pageKey: OperationPageKey): string {
   }
 
   const previewDetails = pageKey === 'fei-ticket-print' || pageKey === 'fei-ticket-continue-print' || pageKey === 'fei-ticket-reprint' ? detailView.missingSplitDetails : []
+  const invalidPreviewDetails = previewDetails.filter((detail) => !isFeiTicketFiveDimComplete(detail))
+  if (invalidPreviewDetails.length) {
+    return renderOperationValidation('当前存在缺少五维字段的菲票，不能打印。', unit, pageKey)
+  }
   const planCount = previewDetails.length
   const buttonMeta = getOperationButtonMeta(pageKey)
   const infoGrid = `

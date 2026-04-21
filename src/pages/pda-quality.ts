@@ -284,7 +284,7 @@ function renderInfoGrid(items: Array<{ label: string; value: string }>): string 
 function renderEvidenceAssets(
   assets: QualityEvidenceAsset[],
   emptyText: string,
-  prefix: '仓库证据' | '工厂异议证据',
+  prefix: '检查证据' | '工厂异议证据',
 ): string {
   if (assets.length === 0) {
     return `<div class="rounded-xl border border-dashed px-3 py-4 text-xs text-muted-foreground">${escapeHtml(emptyText)}</div>`
@@ -503,7 +503,7 @@ function renderListCard(item: FutureMobileFactoryQcListItem): string {
         item.canConfirm || item.canDispute
           ? `
             <div class="mt-3 rounded-xl border border-primary/20 bg-primary/5 px-3 py-3">
-              <div class="text-[11px] leading-5 text-muted-foreground">当前需要工厂处理。可先进入详情核对仓库证据和金额影响，再确认处理或发起异议。</div>
+              <div class="text-[11px] leading-5 text-muted-foreground">当前需要工厂处理，可先核对检查证据和金额影响。</div>
               <div class="mt-3 grid grid-cols-2 gap-2">
                 ${
                   item.canDispute
@@ -569,8 +569,8 @@ export function renderPdaQualityPage(): string {
         <header class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
           <div class="flex items-start justify-between gap-3">
             <div>
-              <div class="text-lg font-semibold text-foreground">结算中的质检扣款处理</div>
-              <div class="mt-1 text-xs leading-5 text-muted-foreground">围绕同一条质检记录统一查看事实、冻结影响、异议进度与平台裁决结果，已并入结算主工作台。</div>
+              <div class="text-lg font-semibold text-foreground">检查记录</div>
+              <div class="mt-1 text-xs text-muted-foreground">查看回货质检、后道复检、异议进度和金额影响。</div>
             </div>
             <div class="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary">${escapeHtml(factoryId)}</div>
           </div>
@@ -584,7 +584,7 @@ export function renderPdaQualityPage(): string {
             <label class="text-[11px] text-muted-foreground">关键词</label>
             <input
               class="mt-1 h-10 w-full rounded-xl border bg-background px-3 text-sm"
-              placeholder="输入质检单号 / 回货批次号 / 生产单号"
+              placeholder="输入检查单号 / 回货批次号 / 生产单号"
               data-pda-quality-field="keyword"
               value="${escapeAttr(state.keyword)}"
             />
@@ -645,34 +645,37 @@ function renderDetailSections(detail: FutureMobileFactoryQcDetail): string {
     renderSectionCard(
       '基本信息',
       renderInfoGrid([
-        { label: '质检单号', value: escapeHtml(detail.qcNo) },
+        { label: '检查单号', value: escapeHtml(detail.qcNo) },
         { label: '来源类型', value: escapeHtml(detail.sourceTypeLabel) },
         { label: '回货批次号', value: escapeHtml(detail.returnInboundBatchNo) },
         { label: '生产单号', value: escapeHtml(detail.productionOrderNo) },
+        { label: '检查场景', value: escapeHtml(detail.inspectionSceneLabel ?? '回货质检') },
+        { label: '检查类型', value: escapeHtml(detail.inspectionTypeLabel ?? '质检') },
+        { label: '检查方式', value: escapeHtml(detail.inspectionMethodLabel ?? '抽检') },
         { label: '回货环节', value: escapeHtml(detail.processLabel) },
         { label: '工厂', value: escapeHtml(detail.returnFactoryName) },
-        { label: '仓库', value: escapeHtml(detail.warehouseName) },
-        { label: '质检策略', value: escapeHtml(detail.qcPolicyLabel) },
-        { label: '质检人', value: escapeHtml(detail.inspectorUserName) },
-        { label: '质检时间', value: escapeHtml(formatDateTime(detail.inspectedAt)) },
+        { label: '接收方', value: escapeHtml(detail.receiverName) },
+        { label: '检查人', value: escapeHtml(detail.inspectorUserName) },
+        { label: '完成时间', value: escapeHtml(formatDateTime(detail.inspectedAt)) },
       ]),
     ),
     renderSectionCard(
       '数量与责任',
       renderInfoGrid([
-        { label: '总检数量', value: formatQty(detail.inspectedQty) },
+        { label: '工厂交出', value: formatQty(detail.declaredQty) },
+        { label: '接收方实收', value: formatQty(detail.receivedQty) },
+        { label: '质检数量', value: formatQty(detail.inspectedQty) },
         { label: '合格数量', value: formatQty(detail.qualifiedQty) },
         { label: '不合格数量', value: formatQty(detail.unqualifiedQty) },
-        { label: '质检结果', value: renderStatusBadge(detail.qcResultLabel, getResultBadgeClass(detail.qcResultLabel)) },
+        { label: '检查结果', value: renderStatusBadge(detail.qcResultLabel, getResultBadgeClass(detail.qcResultLabel)) },
         { label: '工厂责任数量', value: formatQty(detail.factoryLiabilityQty) },
         { label: '非工厂责任数量', value: formatQty(detail.nonFactoryLiabilityQty) },
         { label: '责任状态', value: renderStatusBadge(detail.liabilityStatusLabel, getBadgeClass(detail.liabilityStatus === 'FACTORY' ? 'red' : detail.liabilityStatus === 'MIXED' ? 'amber' : detail.liabilityStatus === 'NON_FACTORY' ? 'green' : 'gray')) },
         { label: '责任说明', value: escapeHtml(detail.responsibilitySummary) },
       ]),
-      '“部分合格”会同时展示合格与不合格数量，工厂责任数量单独列出，避免只看 badge 看不清判定依据。',
     ),
     renderSectionCard(
-      '缺陷与仓库证据',
+      '缺陷与检查证据',
       `
         <div class="rounded-xl bg-muted/40 px-3 py-3 text-xs leading-5 text-foreground">
           <div class="font-medium">缺陷说明</div>
@@ -680,10 +683,9 @@ function renderDetailSections(detail: FutureMobileFactoryQcDetail): string {
             detail.unqualifiedReasonSummary || detail.defectItems.map((item) => `${item.defectName}×${item.qty}`).join('、') || '当前无额外缺陷说明',
           )}</div>
         </div>
-        <div class="mt-3 text-[11px] text-muted-foreground">仓库证据 ${detail.warehouseEvidenceCount} 份</div>
-        <div class="mt-2">${renderEvidenceAssets(detail.warehouseEvidenceAssets, '当前无仓库证据。', '仓库证据')}</div>
+        <div class="mt-3 text-[11px] text-muted-foreground">检查证据 ${detail.warehouseEvidenceCount} 份</div>
+        <div class="mt-2">${renderEvidenceAssets(detail.warehouseEvidenceAssets, '当前无检查证据。', '检查证据')}</div>
       `,
-      '这里仅展示仓库质检证据，工厂异议证据在下方“异议与平台处理结果”单独展示。',
     ),
     renderSectionCard(
       '工厂处理与金额影响',
@@ -717,7 +719,6 @@ function renderDetailSections(detail: FutureMobileFactoryQcDetail): string {
         ? `<div class="mt-3 rounded-xl bg-muted/40 px-3 py-3 text-xs leading-5 text-muted-foreground">${escapeHtml(detail.responseComment)}</div>`
         : '') +
         '',
-      '先看当前是否需要处理、还剩多久，再看这件事对待确认质量扣款记录和正式质量扣款流水的影响。',
     ),
     renderSectionCard(
       '异议与平台处理结果',
@@ -756,7 +757,6 @@ function renderDetailSections(detail: FutureMobileFactoryQcDetail): string {
             `
         }
       `,
-      '仓库证据与工厂异议证据在双端都分开展示，平台处理异议时能直接看到工厂上传的素材。',
     ),
   ].join('')
 }
@@ -766,7 +766,7 @@ function renderBottomActionBar(detail: FutureMobileFactoryQcDetail): string {
 
   return `
     <div class="sticky bottom-0 z-20 mt-4 rounded-t-2xl border border-border bg-background/95 px-4 py-3 backdrop-blur">
-      <div class="mb-2 text-[11px] text-muted-foreground">当前需要工厂处理。请先查看证据与金额影响，再确认处理或发起异议。</div>
+      <div class="mb-2 text-[11px] text-muted-foreground">当前需要工厂处理，请先核对数量与证据。</div>
       <div class="flex gap-2">
         <button
           class="flex-1 rounded-xl border border-primary px-3 py-3 text-sm font-medium text-primary hover:bg-primary/5"
@@ -795,9 +795,7 @@ function renderConfirmDialog(detail: FutureMobileFactoryQcDetail): string {
       <button class="absolute inset-0 bg-black/45" data-pda-quality-action="close-confirm" aria-label="关闭确认弹层"></button>
       <section class="absolute bottom-[72px] left-0 right-0 rounded-t-3xl border bg-background px-4 py-4 shadow-2xl">
         <div class="text-base font-semibold text-foreground">确认处理</div>
-        <div class="mt-2 text-sm leading-6 text-muted-foreground">
-          确认后，将把当前质检记录写回为“工厂已确认”，平台端同步看到响应时间与响应人；对应待确认质量扣款记录会生成正式质量扣款流水。
-        </div>
+        <div class="mt-2 text-sm leading-6 text-muted-foreground">确认后会同步工厂处理时间，并更新对应金额链路。</div>
         <div class="mt-4 rounded-xl bg-muted/40 px-3 py-3 text-xs leading-5">
           <div>工厂责任数量：${formatQty(detail.factoryLiabilityQty)}</div>
           <div>冻结加工费金额：${formatCny(detail.blockedProcessingFeeAmount)}</div>

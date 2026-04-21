@@ -6,7 +6,9 @@ import type {
   DeductionBasisItem,
   DeductionBasisStatus,
   DefectItem,
+  InspectionMethod,
   LiabilityDecisionStage,
+  InspectionScene,
   QcDisposition,
   QualityInspection,
   ReturnInboundBatch,
@@ -16,6 +18,7 @@ import type {
   RootCauseType,
   SettlementPartyType,
 } from './store-domain-quality-types'
+import { getPostProcessRouteByProductionOrderId } from './post-process-route.ts'
 
 interface CreateReturnInboundBatchRecordInput {
   batches: ReturnInboundBatch[]
@@ -29,6 +32,10 @@ interface CreateReturnInboundBatchRecordInput {
   returnFactoryName?: string
   warehouseId?: string
   warehouseName?: string
+  managedPostFactoryId?: string
+  managedPostFactoryName?: string
+  finishedWarehouseId?: string
+  finishedWarehouseName?: string
   inboundAt?: string
   inboundBy: string
   qcPolicy: ReturnInboundQcPolicy
@@ -36,6 +43,14 @@ interface CreateReturnInboundBatchRecordInput {
   sourceType?: ReturnInboundSourceBusinessType
   sourceId?: string
   sewPostProcessMode?: ReturnInboundBatch['sewPostProcessMode']
+  handoverOrderId?: string
+  handoverRecordIds?: string[]
+  receiverKind?: ReturnInboundBatch['receiverKind']
+  receiverId?: string
+  receiverName?: string
+  submittedQty?: number
+  receiverWrittenQty?: number
+  receiverWrittenAt?: string
   now?: string
 }
 
@@ -99,6 +114,20 @@ function nowTimestamp(date: Date = new Date()): string {
   return date.toISOString().replace('T', ' ').slice(0, 19)
 }
 
+function resolveInspectionScene(batch: ReturnInboundBatch): InspectionScene {
+  if (batch.processType === 'SEW') return 'SEW_RETURN_RECEIVING_QC'
+  if (batch.processType === 'PRINT') return 'PRINT_RECEIVING_QC'
+  if (batch.processType === 'DYE' || batch.processType === 'DYE_PRINT') return 'DYE_RECEIVING_QC'
+  if (batch.processType === 'CUT_PANEL') return 'CUT_PIECE_RECEIVING_QC'
+  return 'SEW_RETURN_RECEIVING_QC'
+}
+
+function resolveInspectionMethod(batch: ReturnInboundBatch): InspectionMethod {
+  if (batch.processType === 'SEW') return 'SAMPLING'
+  if (batch.processType === 'PRINT' || batch.processType === 'DYE' || batch.processType === 'DYE_PRINT') return 'SAMPLING'
+  return 'FULL_INSPECTION'
+}
+
 let returnInboundGeneratedSeq = 1
 
 function ensureUniqueId(prefix: string, hasId: (id: string) => boolean): string {
@@ -127,6 +156,10 @@ export function createReturnInboundBatchRecord(input: CreateReturnInboundBatchRe
     returnFactoryName: input.returnFactoryName,
     warehouseId: input.warehouseId,
     warehouseName: input.warehouseName,
+    managedPostFactoryId: input.managedPostFactoryId,
+    managedPostFactoryName: input.managedPostFactoryName,
+    finishedWarehouseId: input.finishedWarehouseId,
+    finishedWarehouseName: input.finishedWarehouseName,
     inboundAt: input.inboundAt ?? ts,
     inboundBy: input.inboundBy,
     qcPolicy: input.qcPolicy,
@@ -134,6 +167,15 @@ export function createReturnInboundBatchRecord(input: CreateReturnInboundBatchRe
     sourceType: input.sourceType,
     sourceId: input.sourceId,
     sewPostProcessMode: input.sewPostProcessMode,
+    postExecutionMode: input.sewPostProcessMode,
+    handoverOrderId: input.handoverOrderId,
+    handoverRecordIds: input.handoverRecordIds,
+    receiverKind: input.receiverKind,
+    receiverId: input.receiverId,
+    receiverName: input.receiverName,
+    submittedQty: input.submittedQty,
+    receiverWrittenQty: input.receiverWrittenQty,
+    receiverWrittenAt: input.receiverWrittenAt,
     createdAt: ts,
     createdBy: input.inboundBy,
     updatedAt: ts,
@@ -174,7 +216,15 @@ export function updateReturnInboundBatchStatus(input: UpdateReturnInboundBatchSt
 }
 
 export function isReturnInboundInspection(qc: QualityInspection): boolean {
-  return qc.inspectionScene === 'RETURN_INBOUND' || qc.refType === 'RETURN_BATCH' || Boolean(qc.returnBatchId)
+  return (
+    qc.inspectionScene === 'RETURN_INBOUND' ||
+    qc.inspectionScene === 'SEW_RETURN_RECEIVING_QC' ||
+    qc.inspectionScene === 'PRINT_RECEIVING_QC' ||
+    qc.inspectionScene === 'DYE_RECEIVING_QC' ||
+    qc.inspectionScene === 'CUT_PIECE_RECEIVING_QC' ||
+    qc.refType === 'RETURN_BATCH' ||
+    Boolean(qc.returnBatchId)
+  )
 }
 
 export function isSewReturnInboundQc(qc: QualityInspection, batches: ReturnInboundBatch[] = []): boolean {
@@ -207,8 +257,15 @@ export function createQcFromReturnInboundBatch(input: CreateQcFromReturnInboundB
   const refTypeMode = input.refTypeMode ?? 'RETURN_BATCH'
   const refId = refTypeMode === 'RETURN_BATCH' ? input.batch.batchId : input.refTaskId || input.batch.sourceTaskId || input.batch.batchId
   const finalDecisionRequired = input.batch.processType === 'SEW'
+  if (typeof input.batch.receiverWrittenQty !== 'number') {
+    throw new Error(`回货批次 ${input.batch.batchId} 尚未完成接收方回写，不能创建回货质检记录`)
+  }
 
   const qcId = ensureUniqueId('QC-RIB', (id) => input.inspections.some((item) => item.qcId === id))
+  const route = getPostProcessRouteByProductionOrderId(input.productionOrderId)
+  const inspectionMethod = resolveInspectionMethod(input.batch)
+  const declaredQty = input.batch.submittedQty ?? input.batch.returnedQty
+  const receivedQty = input.batch.receiverWrittenQty
 
   const defects =
     input.defectItems && input.defectItems.length > 0
@@ -249,7 +306,12 @@ export function createQcFromReturnInboundBatch(input: CreateQcFromReturnInboundB
         ? (input.sourceBusinessId ?? input.batch.sourceId)
         : undefined,
     sourceReturnId: input.batch.batchId,
-    inspectionScene: 'RETURN_INBOUND',
+    inspectionScene: resolveInspectionScene(input.batch),
+    inspectionType: 'QC',
+    inspectionMethod,
+    inspectionResult: result === 'PASS' ? 'PASS' : 'FAIL',
+    sourceType: 'HANDOVER_RECORD',
+    sourceId: input.batch.handoverRecordIds?.[0] ?? input.batch.sourceTaskId ?? input.batch.batchId,
     returnBatchId: input.batch.batchId,
     returnProcessType: input.batch.processType,
     qcPolicy: input.batch.qcPolicy,
@@ -257,9 +319,38 @@ export function createQcFromReturnInboundBatch(input: CreateQcFromReturnInboundB
     returnFactoryName: input.batch.returnFactoryName,
     warehouseId: input.batch.warehouseId,
     warehouseName: input.batch.warehouseName,
+    managedPostFactoryId: input.batch.managedPostFactoryId,
+    managedPostFactoryName: input.batch.managedPostFactoryName,
+    finishedWarehouseId: input.batch.finishedWarehouseId,
+    finishedWarehouseName: input.batch.finishedWarehouseName,
     sourceBusinessType: input.sourceBusinessType ?? input.batch.sourceType,
     sourceBusinessId: input.sourceBusinessId ?? input.batch.sourceId,
     sewPostProcessMode: input.batch.sewPostProcessMode,
+    postExecutionMode: input.batch.postExecutionMode,
+    postRouteId: input.batch.postRouteId ?? route?.postRouteId,
+    postRouteCurrentNode: input.batch.postRouteCurrentNode ?? route?.currentNode,
+    requiresReceivingQc: input.batch.requiresReceivingQc,
+    requiresPostExecution: input.batch.requiresPostExecution,
+    requiresFinalRecheck: input.batch.requiresFinalRecheck,
+    handoverOrderId: input.batch.handoverOrderId,
+    handoverRecordIds: input.batch.handoverRecordIds,
+    receiverKind: input.batch.receiverKind,
+    receiverId: input.batch.receiverId,
+    receiverName: input.batch.receiverName,
+    declaredQty,
+    receivedQty,
+    samplingQty: inspectionMethod === 'SAMPLING' ? Math.max(1, Math.round(receivedQty * 0.2)) : undefined,
+    samplingRatio: inspectionMethod === 'SAMPLING' ? 0.2 : undefined,
+    shortQty: receivedQty < declaredQty ? declaredQty - receivedQty : 0,
+    overQty: receivedQty > declaredQty ? receivedQty - declaredQty : 0,
+    nextAction:
+      result === 'PASS'
+        ? input.batch.requiresPostExecution
+          ? 'ENTER_POST_PROCESS'
+          : input.batch.processType === 'SEW'
+            ? 'ENTER_FINAL_RECHECK'
+            : 'HANDOVER_FINISHED_WAREHOUSE'
+        : 'WAIT_EXCEPTION_HANDLE',
     auditLogs: [
       {
         id: ensureUniqueId('QAL-RIB', () => false),

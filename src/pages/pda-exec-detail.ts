@@ -1,7 +1,16 @@
 import { appStore } from '../state/store'
+import { renderRealQrPlaceholder } from '../components/real-qr'
 import { escapeHtml } from '../utils'
 import { type ExecProofFile, type PauseReasonCode, type ProcessTask, type StartProofFile } from '../data/fcs/process-tasks'
 import { indonesiaFactories } from '../data/fcs/indonesia-factories'
+import {
+  ensureHandoverOrderForStartedTask,
+  getHandoverOrderById,
+  listHandoverOrdersByTaskId,
+  type HandoverOrderStatus,
+  type HandoverReceiverKind,
+  type PdaHandoverHead,
+} from '../data/fcs/pda-handover-events.ts'
 import {
   getTaskProcessDisplayName,
 } from '../data/fcs/page-adapters/task-execution-adapter'
@@ -28,6 +37,47 @@ import {
   reportTaskPause,
   syncMilestoneOverdueExceptions,
 } from '../data/fcs/pda-exec-link'
+import { buildTaskQrValue } from '../data/fcs/task-qr.ts'
+import {
+  completeColorTest,
+  completePrinting,
+  completeTransfer,
+  getPrintExecutionNodeRecord,
+  getPrintOrderHandoverSummary,
+  getPrintReviewRecordByOrderId,
+  getPrintWorkOrderById,
+  getPrintWorkOrderByTaskId,
+  getPrintWorkOrderStatusLabel,
+  listPrintMachineOptions,
+  startColorTest,
+  startPrinting,
+  startTransfer,
+  type PrintWorkOrder,
+} from '../data/fcs/printing-task-domain.ts'
+import {
+  completeDyeMaterialReady,
+  completeDyeMaterialWait,
+  completeDyeNode,
+  completeDyeSampleTest,
+  completeDyeSampleWait,
+  completeDyeing,
+  getDyeExecutionNodeRecord,
+  getDyeOrderHandoverSummary,
+  getDyeReviewRecordByOrderId,
+  getDyeWorkOrderById,
+  getDyeWorkOrderByTaskId,
+  getDyeWorkOrderStatusLabel,
+  getSampleWaitTypeLabel,
+  listDyeVatOptions,
+  planDyeVat,
+  startDyeMaterialReady,
+  startDyeMaterialWait,
+  startDyeNode,
+  startDyeSampleTest,
+  startDyeSampleWait,
+  startDyeing,
+  type DyeWorkOrder,
+} from '../data/fcs/dyeing-task-domain.ts'
 import { renderPdaCuttingTaskDetailPage } from './pda-cutting-task-detail'
 import { renderPdaFrame } from './pda-shell'
 
@@ -44,6 +94,17 @@ interface PdaExecDetailState {
   pauseRemark: string
   pauseTime: string
   fromPauseAction: boolean
+}
+
+type TaskWithHandoverFields = ProcessTask & {
+  startHeadcount?: number
+  startProofFiles?: StartProofFile[]
+  taskQrValue?: string
+  handoverOrderId?: string
+  handoverStatus?: HandoverOrderStatus | 'NOT_CREATED'
+  receiverKind?: HandoverReceiverKind
+  receiverName?: string
+  handoverAutoCreatePolicy?: 'CREATE_ON_START'
 }
 
 const detailState: PdaExecDetailState = {
@@ -84,6 +145,720 @@ function getQtyUnitLabel(unit: string | undefined): string {
   if (unit === 'ROLL' || unit === '卷') return '卷'
   if (unit === 'LAYER' || unit === '层') return '层'
   return unit
+}
+
+function getTaskQrValue(task: TaskWithHandoverFields): string {
+  return task.taskQrValue || buildTaskQrValue(task.taskId)
+}
+
+function getReceiverKindLabel(kind: HandoverReceiverKind | undefined): string {
+  if (kind === 'WAREHOUSE') return '仓库'
+  if (kind === 'MANAGED_POST_FACTORY') return '我方后道工厂'
+  return ''
+}
+
+function getReceiverDisplayText(task: TaskWithHandoverFields): string {
+  if (task.receiverName?.trim()) return task.receiverName.trim()
+  return getReceiverKindLabel(task.receiverKind) || '未配置'
+}
+
+function getHandoverOrderStatusLabel(status: HandoverOrderStatus | undefined): string {
+  if (!status) return '未生成'
+  const labelMap: Record<HandoverOrderStatus, string> = {
+    AUTO_CREATED: '已创建',
+    OPEN: '可交出',
+    PARTIAL_SUBMITTED: '已部分交出',
+    WAIT_RECEIVER_WRITEBACK: '待回写',
+    PARTIAL_WRITTEN_BACK: '部分回写',
+    WRITTEN_BACK: '已回写',
+    DIFF_WAIT_FACTORY_CONFIRM: '差异待确认',
+    HAS_OBJECTION: '有异议',
+    OBJECTION_PROCESSING: '异议处理中',
+    CLOSED: '已关闭',
+  }
+  return labelMap[status]
+}
+
+function canTaskUseHandover(task: TaskWithHandoverFields): boolean {
+  return task.handoverAutoCreatePolicy === 'CREATE_ON_START' || Boolean(task.taskQrValue)
+}
+
+function syncTaskHandoverFields(task: TaskWithHandoverFields, handoverOrder: PdaHandoverHead | null): void {
+  if (!handoverOrder) return
+  task.handoverOrderId = handoverOrder.handoverOrderId || handoverOrder.handoverId
+  if (handoverOrder.handoverOrderStatus) {
+    task.handoverStatus = handoverOrder.handoverOrderStatus
+  }
+  if (handoverOrder.receiverKind) {
+    task.receiverKind = handoverOrder.receiverKind
+  }
+  if (handoverOrder.receiverName) {
+    task.receiverName = handoverOrder.receiverName
+  }
+}
+
+function getTaskHandoverOrder(task: TaskWithHandoverFields): PdaHandoverHead | null {
+  let handoverOrder = task.handoverOrderId ? getHandoverOrderById(task.handoverOrderId) ?? null : null
+  if (!handoverOrder) {
+    handoverOrder = listHandoverOrdersByTaskId(task.taskId)[0] ?? null
+  }
+
+  const started =
+    Boolean(task.startedAt)
+    || task.status === 'IN_PROGRESS'
+    || task.status === 'DONE'
+    || task.status === 'BLOCKED'
+  if (!handoverOrder && started && canTaskUseHandover(task)) {
+    try {
+      const ensured = ensureHandoverOrderForStartedTask(task.taskId)
+      handoverOrder = getHandoverOrderById(ensured.handoverOrderId) ?? null
+    } catch {
+      handoverOrder = null
+    }
+  }
+
+  syncTaskHandoverFields(task, handoverOrder)
+  return handoverOrder
+}
+
+function renderHandoverOrderCard(handoverOrder: PdaHandoverHead): string {
+  const handoverOrderId = handoverOrder.handoverOrderId || handoverOrder.handoverId
+  const unitLabel = getQtyUnitLabel(handoverOrder.qtyUnit)
+  return `
+    <article class="rounded-lg border bg-card">
+      <header class="border-b px-4 py-3">
+        <h2 class="flex items-center gap-2 text-sm font-semibold">
+          <i data-lucide="archive" class="h-4 w-4"></i>
+          交出单
+        </h2>
+      </header>
+
+      <div class="p-4 text-sm">
+        <div class="grid grid-cols-2 gap-x-4 gap-y-1">
+          <span class="text-xs text-muted-foreground">交出单号</span>
+          <span class="text-xs font-medium">${escapeHtml(handoverOrder.handoverOrderNo || handoverOrderId)}</span>
+          <span class="text-xs text-muted-foreground">状态</span>
+          <span class="text-xs font-medium">${escapeHtml(getHandoverOrderStatusLabel(handoverOrder.handoverOrderStatus))}</span>
+          <span class="text-xs text-muted-foreground">已交出</span>
+          <span class="text-xs">${handoverOrder.submittedQtyTotal ?? 0} ${escapeHtml(unitLabel)}</span>
+          <span class="text-xs text-muted-foreground">已回写</span>
+          <span class="text-xs">${handoverOrder.writtenBackQtyTotal ?? 0} ${escapeHtml(unitLabel)}</span>
+          <span class="text-xs text-muted-foreground">差异</span>
+          <span class="text-xs">${handoverOrder.diffQtyTotal ?? 0} ${escapeHtml(unitLabel)}</span>
+          <span class="text-xs text-muted-foreground">异议</span>
+          <span class="text-xs">${handoverOrder.objectionCount} 条</span>
+          <span class="text-xs text-muted-foreground">待回写</span>
+          <span class="text-xs">${handoverOrder.pendingWritebackCount} 条</span>
+        </div>
+      </div>
+    </article>
+  `
+}
+
+function renderPrintingStatusBadge(label: string, tone: 'muted' | 'info' | 'warning' | 'success' | 'danger'): string {
+  const className =
+    tone === 'success'
+      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+      : tone === 'warning'
+        ? 'border-amber-200 bg-amber-50 text-amber-700'
+        : tone === 'danger'
+          ? 'border-red-200 bg-red-50 text-red-700'
+          : tone === 'info'
+            ? 'border-blue-200 bg-blue-50 text-blue-700'
+            : 'border-slate-200 bg-slate-50 text-slate-700'
+
+  return `<span class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs ${className}">${escapeHtml(label)}</span>`
+}
+
+function canOperatePrintingNode(task: ProcessTask): boolean {
+  return task.status !== 'NOT_STARTED' && task.status !== 'CANCELLED'
+}
+
+function renderPrintingTaskCard(
+  task: TaskWithHandoverFields,
+  printOrder: PrintWorkOrder,
+  handoverOrder: PdaHandoverHead | null,
+): string {
+  const colorTestNode = getPrintExecutionNodeRecord(printOrder.printOrderId, 'COLOR_TEST')
+  const printNode = getPrintExecutionNodeRecord(printOrder.printOrderId, 'PRINT')
+  const transferNode = getPrintExecutionNodeRecord(printOrder.printOrderId, 'TRANSFER')
+  const review = getPrintReviewRecordByOrderId(printOrder.printOrderId)
+  const handoverSummary = getPrintOrderHandoverSummary(printOrder.printOrderId)
+  const printMachines = listPrintMachineOptions(printOrder.printFactoryId)
+  const canOperate = canOperatePrintingNode(task)
+
+  const colorTestBadge = colorTestNode?.finishedAt
+    ? renderPrintingStatusBadge('花型测试完成', 'success')
+    : colorTestNode?.startedAt
+      ? renderPrintingStatusBadge('待调色测试', 'info')
+      : renderPrintingStatusBadge('待花型图', 'muted')
+  const printBadge = printNode?.finishedAt
+    ? renderPrintingStatusBadge('打印完成', 'success')
+    : printNode?.startedAt
+      ? renderPrintingStatusBadge('打印中', 'info')
+      : renderPrintingStatusBadge('等打印', 'muted')
+  const transferBadge = transferNode?.finishedAt
+    ? renderPrintingStatusBadge('转印完成', 'success')
+    : transferNode?.startedAt
+      ? renderPrintingStatusBadge('转印中', 'info')
+      : renderPrintingStatusBadge('等转印', 'muted')
+  const handoverBadge =
+    printOrder.status === 'WAIT_HANDOVER'
+      ? renderPrintingStatusBadge('待送货', 'warning')
+      : printOrder.status === 'HANDOVER_SUBMITTED'
+        ? renderPrintingStatusBadge('已交出待回写', 'warning')
+        : handoverSummary.writtenBackQty > 0
+          ? renderPrintingStatusBadge('接收方已回写', 'info')
+          : renderPrintingStatusBadge('未开始', 'muted')
+  const reviewBadge = review
+    ? review.reviewStatus === 'PASS'
+      ? renderPrintingStatusBadge('已完成', 'success')
+      : review.reviewStatus === 'REJECTED'
+        ? renderPrintingStatusBadge('已驳回', 'danger')
+        : renderPrintingStatusBadge('待审核', 'warning')
+    : renderPrintingStatusBadge('待审核', 'muted')
+
+  return `
+    <article class="rounded-lg border bg-card">
+      <header class="border-b px-4 py-3">
+        <div class="flex items-center justify-between gap-2">
+          <h2 class="flex items-center gap-2 text-sm font-semibold">
+            <i data-lucide="palette" class="h-4 w-4"></i>
+            印花任务
+          </h2>
+          ${renderPrintingStatusBadge(getPrintWorkOrderStatusLabel(printOrder.status), printOrder.status === 'COMPLETED' ? 'success' : printOrder.status === 'REJECTED' ? 'danger' : printOrder.status === 'WAIT_HANDOVER' || printOrder.status === 'HANDOVER_SUBMITTED' || printOrder.status === 'WAIT_REVIEW' ? 'warning' : 'info')}
+        </div>
+      </header>
+
+      <div class="space-y-4 p-4 text-sm">
+        <div class="grid grid-cols-2 gap-x-4 gap-y-1">
+          <span class="text-xs text-muted-foreground">印花加工单</span>
+          <span class="text-xs font-medium">${escapeHtml(printOrder.printOrderNo)}</span>
+          <span class="text-xs text-muted-foreground">花型</span>
+          <span class="text-xs">${escapeHtml(printOrder.patternNo)} / ${escapeHtml(printOrder.patternVersion)}</span>
+          <span class="text-xs text-muted-foreground">当前状态</span>
+          <span class="text-xs">${escapeHtml(getPrintWorkOrderStatusLabel(printOrder.status))}</span>
+          <span class="text-xs text-muted-foreground">接收方</span>
+          <span class="text-xs">${escapeHtml(printOrder.targetTransferWarehouseName)}</span>
+          <span class="text-xs text-muted-foreground">打印机候选</span>
+          <span class="text-xs">${printMachines.length > 0 ? escapeHtml(printMachines.map((item) => item.printerNo).join(' / ')) : '未配置'}</span>
+        </div>
+
+        <div class="grid gap-3 xl:grid-cols-2">
+          <section class="rounded-lg border bg-background p-3">
+            <div class="flex items-center justify-between gap-2">
+              <h3 class="text-sm font-medium">花型测试</h3>
+              ${colorTestBadge}
+            </div>
+            <div class="mt-3 space-y-1 text-xs">
+              <div><span class="text-muted-foreground">开始时间：</span>${escapeHtml(colorTestNode?.startedAt || '—')}</div>
+              <div><span class="text-muted-foreground">完成时间：</span>${escapeHtml(colorTestNode?.finishedAt || '—')}</div>
+              <div><span class="text-muted-foreground">结果：</span>${escapeHtml(colorTestNode?.remark || '待调色测试')}</div>
+            </div>
+            <div class="mt-3 grid grid-cols-2 gap-2">
+              <button
+                class="inline-flex h-8 items-center justify-center rounded-md border text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                data-pda-execd-action="print-start-color-test"
+                data-print-order-id="${escapeHtml(printOrder.printOrderId)}"
+                ${!canOperate || Boolean(colorTestNode?.startedAt) ? 'disabled' : ''}
+              >
+                开始
+              </button>
+              <button
+                class="inline-flex h-8 items-center justify-center rounded-md border text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                data-pda-execd-action="print-complete-color-test"
+                data-print-order-id="${escapeHtml(printOrder.printOrderId)}"
+                ${!canOperate || !colorTestNode?.startedAt || Boolean(colorTestNode?.finishedAt) ? 'disabled' : ''}
+              >
+                完成
+              </button>
+            </div>
+          </section>
+
+          <section class="rounded-lg border bg-background p-3">
+            <div class="flex items-center justify-between gap-2">
+              <h3 class="text-sm font-medium">打印</h3>
+              ${printBadge}
+            </div>
+            <div class="mt-3 space-y-1 text-xs">
+              <div><span class="text-muted-foreground">打印机编号：</span>${escapeHtml(printNode?.printerNo || '未开始')}</div>
+              <div><span class="text-muted-foreground">打印速度：</span>${printNode?.printerSpeedPerHour ? `${printNode.printerSpeedPerHour} 米/小时` : '—'}</div>
+              <div><span class="text-muted-foreground">开始时间：</span>${escapeHtml(printNode?.startedAt || '—')}</div>
+              <div><span class="text-muted-foreground">结束时间：</span>${escapeHtml(printNode?.finishedAt || '—')}</div>
+              <div><span class="text-muted-foreground">完成数量：</span>${printNode?.outputQty ?? 0} ${escapeHtml(getQtyUnitLabel(printOrder.qtyUnit))}</div>
+            </div>
+            <div class="mt-3 grid grid-cols-2 gap-2">
+              <button
+                class="inline-flex h-8 items-center justify-center rounded-md border text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                data-pda-execd-action="print-start-printing"
+                data-print-order-id="${escapeHtml(printOrder.printOrderId)}"
+                ${!canOperate || !colorTestNode?.finishedAt || Boolean(printNode?.startedAt) ? 'disabled' : ''}
+              >
+                开始
+              </button>
+              <button
+                class="inline-flex h-8 items-center justify-center rounded-md border text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                data-pda-execd-action="print-complete-printing"
+                data-print-order-id="${escapeHtml(printOrder.printOrderId)}"
+                ${!canOperate || !printNode?.startedAt || Boolean(printNode?.finishedAt) ? 'disabled' : ''}
+              >
+                完成
+              </button>
+            </div>
+          </section>
+
+          <section class="rounded-lg border bg-background p-3">
+            <div class="flex items-center justify-between gap-2">
+              <h3 class="text-sm font-medium">转印</h3>
+              ${transferBadge}
+            </div>
+            <div class="mt-3 space-y-1 text-xs">
+              <div><span class="text-muted-foreground">开始时间：</span>${escapeHtml(transferNode?.startedAt || '—')}</div>
+              <div><span class="text-muted-foreground">结束时间：</span>${escapeHtml(transferNode?.finishedAt || '—')}</div>
+              <div><span class="text-muted-foreground">原料使用：</span>${transferNode?.usedMaterialQty ?? 0} ${escapeHtml(getQtyUnitLabel(printOrder.qtyUnit))}</div>
+              <div><span class="text-muted-foreground">实际完成：</span>${transferNode?.actualCompletedQty ?? 0} ${escapeHtml(getQtyUnitLabel(printOrder.qtyUnit))}</div>
+            </div>
+            <div class="mt-3 grid grid-cols-2 gap-2">
+              <button
+                class="inline-flex h-8 items-center justify-center rounded-md border text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                data-pda-execd-action="print-start-transfer"
+                data-print-order-id="${escapeHtml(printOrder.printOrderId)}"
+                ${!canOperate || !printNode?.finishedAt || Boolean(transferNode?.startedAt) ? 'disabled' : ''}
+              >
+                开始
+              </button>
+              <button
+                class="inline-flex h-8 items-center justify-center rounded-md border text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                data-pda-execd-action="print-complete-transfer"
+                data-print-order-id="${escapeHtml(printOrder.printOrderId)}"
+                ${!canOperate || !transferNode?.startedAt || Boolean(transferNode?.finishedAt) ? 'disabled' : ''}
+              >
+                完成
+              </button>
+            </div>
+          </section>
+
+          <section class="rounded-lg border bg-background p-3">
+            <div class="flex items-center justify-between gap-2">
+              <h3 class="text-sm font-medium">待送货</h3>
+              ${handoverBadge}
+            </div>
+            <div class="mt-3 space-y-1 text-xs">
+              <div><span class="text-muted-foreground">交出单：</span>${escapeHtml(handoverOrder?.handoverOrderNo || printOrder.handoverOrderNo || printOrder.handoverOrderId || '未生成')}</div>
+              <div><span class="text-muted-foreground">交出记录：</span>${handoverSummary.recordCount} 条</div>
+              <div><span class="text-muted-foreground">待回写：</span>${handoverSummary.pendingWritebackCount} 条</div>
+              <div><span class="text-muted-foreground">实收数量：</span>${handoverSummary.writtenBackQty} ${escapeHtml(getQtyUnitLabel(printOrder.qtyUnit))}</div>
+            </div>
+            <div class="mt-3 grid grid-cols-2 gap-2">
+              <button
+                class="inline-flex h-8 items-center justify-center rounded-md border text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                data-pda-execd-action="view-handover-order"
+                data-handover-order-id="${escapeHtml(handoverOrder?.handoverOrderId || handoverOrder?.handoverId || '')}"
+                ${!handoverOrder ? 'disabled' : ''}
+              >
+                查看交出单
+              </button>
+              <button
+                class="inline-flex h-8 items-center justify-center rounded-md border text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                data-pda-execd-action="new-handover-record"
+                data-handover-order-id="${escapeHtml(handoverOrder?.handoverOrderId || handoverOrder?.handoverId || '')}"
+                ${!handoverOrder || printOrder.status === 'WAIT_PRINT' || printOrder.status === 'PRINTING' || printOrder.status === 'WAIT_TRANSFER' || printOrder.status === 'TRANSFERRING' ? 'disabled' : ''}
+              >
+                新增交出记录
+              </button>
+            </div>
+          </section>
+
+          <section class="rounded-lg border bg-background p-3 xl:col-span-2">
+            <div class="flex items-center justify-between gap-2">
+              <h3 class="text-sm font-medium">审核</h3>
+              ${reviewBadge}
+            </div>
+            <div class="mt-3 grid gap-x-4 gap-y-1 text-xs sm:grid-cols-2">
+              <div><span class="text-muted-foreground">接收方：</span>${escapeHtml(printOrder.targetTransferWarehouseName)}</div>
+              <div><span class="text-muted-foreground">实收数量：</span>${review?.receivedQty ?? handoverSummary.writtenBackQty} ${escapeHtml(getQtyUnitLabel(printOrder.qtyUnit))}</div>
+              <div><span class="text-muted-foreground">差异：</span>${review?.diffQty ?? handoverSummary.diffQty}</div>
+              <div><span class="text-muted-foreground">审核状态：</span>${escapeHtml(review ? review.reviewStatus === 'PASS' ? '已完成' : review.reviewStatus === 'REJECTED' ? '已驳回' : '待审核' : '待审核')}</div>
+              <div class="sm:col-span-2"><span class="text-muted-foreground">备注：</span>${escapeHtml(review?.remark || '接收方回写后进入待审核')}</div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </article>
+  `
+}
+
+function canOperateDyeingNode(task: ProcessTask): boolean {
+  return task.status !== 'NOT_STARTED' && task.status !== 'CANCELLED'
+}
+
+function renderDyeingTaskCard(
+  task: TaskWithHandoverFields,
+  dyeOrder: DyeWorkOrder,
+  handoverOrder: PdaHandoverHead | null,
+): string {
+  const sampleNode = getDyeExecutionNodeRecord(dyeOrder.dyeOrderId, 'SAMPLE')
+  const materialReadyNode = getDyeExecutionNodeRecord(dyeOrder.dyeOrderId, 'MATERIAL_READY')
+  const vatPlanNode = getDyeExecutionNodeRecord(dyeOrder.dyeOrderId, 'VAT_PLAN')
+  const dyeNode = getDyeExecutionNodeRecord(dyeOrder.dyeOrderId, 'DYE')
+  const dehydrateNode = getDyeExecutionNodeRecord(dyeOrder.dyeOrderId, 'DEHYDRATE')
+  const dryNode = getDyeExecutionNodeRecord(dyeOrder.dyeOrderId, 'DRY')
+  const setNode = getDyeExecutionNodeRecord(dyeOrder.dyeOrderId, 'SET')
+  const rollNode = getDyeExecutionNodeRecord(dyeOrder.dyeOrderId, 'ROLL')
+  const packNode = getDyeExecutionNodeRecord(dyeOrder.dyeOrderId, 'PACK')
+  const review = getDyeReviewRecordByOrderId(dyeOrder.dyeOrderId)
+  const handoverSummary = getDyeOrderHandoverSummary(dyeOrder.dyeOrderId)
+  const vatOptions = listDyeVatOptions(dyeOrder.dyeFactoryId)
+  const selectedVat = vatOptions.find((item) => item.dyeVatNo === (dyeNode?.dyeVatNo || vatPlanNode?.dyeVatNo))
+  const canOperate = canOperateDyeingNode(task)
+  const sampleReady = !dyeOrder.isFirstOrder || Boolean(dyeOrder.sampleWaitFinishedAt) || dyeOrder.sampleWaitType === 'NONE'
+  const canPlanVat = Boolean(materialReadyNode?.finishedAt) && (dyeOrder.sampleStatus === 'DONE' || dyeOrder.sampleStatus === 'NOT_REQUIRED')
+
+  const sampleWaitBadge = dyeOrder.sampleWaitFinishedAt
+    ? renderPrintingStatusBadge('等样衣/色样完成', 'success')
+    : dyeOrder.sampleWaitStartedAt
+      ? renderPrintingStatusBadge('等样衣/色样', 'warning')
+      : renderPrintingStatusBadge('等样衣/色样', 'muted')
+  const materialWaitBadge = dyeOrder.materialWaitFinishedAt
+    ? renderPrintingStatusBadge('等原料完成', 'success')
+    : dyeOrder.materialWaitStartedAt
+      ? renderPrintingStatusBadge('等原料', 'warning')
+      : renderPrintingStatusBadge('等原料', 'muted')
+  const sampleTestBadge = sampleNode?.finishedAt
+    ? renderPrintingStatusBadge('打样完成', 'success')
+    : sampleNode?.startedAt
+      ? renderPrintingStatusBadge('打样中', 'info')
+      : renderPrintingStatusBadge('待打样', 'muted')
+  const materialReadyBadge = materialReadyNode?.finishedAt
+    ? renderPrintingStatusBadge('备料完成', 'success')
+    : materialReadyNode?.startedAt
+      ? renderPrintingStatusBadge('备料中', 'info')
+      : renderPrintingStatusBadge('待备料', 'muted')
+  const vatBadge = vatPlanNode?.finishedAt
+    ? renderPrintingStatusBadge('已排染缸', 'success')
+    : renderPrintingStatusBadge('待排染缸', 'warning')
+  const dyeBadge = dyeNode?.finishedAt
+    ? renderPrintingStatusBadge('染色完成', 'success')
+    : dyeNode?.startedAt
+      ? renderPrintingStatusBadge('染色中', 'info')
+      : renderPrintingStatusBadge('待染色', 'muted')
+  const handoverBadge =
+    dyeOrder.status === 'WAIT_HANDOVER'
+      ? renderPrintingStatusBadge('待送货', 'warning')
+      : dyeOrder.status === 'HANDOVER_SUBMITTED'
+        ? renderPrintingStatusBadge('已交出待回写', 'warning')
+        : handoverSummary.writtenBackQty > 0
+          ? renderPrintingStatusBadge('接收方已回写', 'info')
+          : renderPrintingStatusBadge('未开始', 'muted')
+  const reviewBadge = review
+    ? review.reviewStatus === 'PASS'
+      ? renderPrintingStatusBadge('已完成', 'success')
+      : review.reviewStatus === 'REJECTED'
+        ? renderPrintingStatusBadge('已驳回', 'danger')
+        : renderPrintingStatusBadge('待审核', 'warning')
+    : renderPrintingStatusBadge('待审核', 'muted')
+
+  const postProcessRows = [
+    { label: '脱水', code: 'DEHYDRATE' as const, record: dehydrateNode, requireFinished: Boolean(dyeNode?.finishedAt) },
+    { label: '烘干', code: 'DRY' as const, record: dryNode, requireFinished: Boolean(dehydrateNode?.finishedAt) },
+    { label: '定型', code: 'SET' as const, record: setNode, requireFinished: Boolean(dryNode?.finishedAt) },
+    { label: '打卷', code: 'ROLL' as const, record: rollNode, requireFinished: Boolean(setNode?.finishedAt) },
+    { label: '包装', code: 'PACK' as const, record: packNode, requireFinished: Boolean(rollNode?.finishedAt) },
+  ]
+
+  return `
+    <article class="rounded-lg border bg-card">
+      <header class="border-b px-4 py-3">
+        <div class="flex items-center justify-between gap-2">
+          <h2 class="flex items-center gap-2 text-sm font-semibold">
+            <i data-lucide="droplets" class="h-4 w-4"></i>
+            染色任务
+          </h2>
+          ${renderPrintingStatusBadge(getDyeWorkOrderStatusLabel(dyeOrder.status), dyeOrder.status === 'COMPLETED' ? 'success' : dyeOrder.status === 'REJECTED' ? 'danger' : dyeOrder.status === 'WAIT_HANDOVER' || dyeOrder.status === 'HANDOVER_SUBMITTED' || dyeOrder.status === 'WAIT_REVIEW' ? 'warning' : 'info')}
+        </div>
+      </header>
+
+      <div class="space-y-4 p-4 text-sm">
+        <div class="grid grid-cols-2 gap-x-4 gap-y-1">
+          <span class="text-xs text-muted-foreground">染色加工单</span>
+          <span class="text-xs font-medium">${escapeHtml(dyeOrder.dyeOrderNo)}</span>
+          <span class="text-xs text-muted-foreground">当前状态</span>
+          <span class="text-xs">${escapeHtml(getDyeWorkOrderStatusLabel(dyeOrder.status))}</span>
+          <span class="text-xs text-muted-foreground">目标颜色</span>
+          <span class="text-xs">${escapeHtml(dyeOrder.targetColor)}</span>
+          <span class="text-xs text-muted-foreground">色号</span>
+          <span class="text-xs">${escapeHtml(dyeOrder.colorNo || '待确认')}</span>
+          <span class="text-xs text-muted-foreground">接收方</span>
+          <span class="text-xs">${escapeHtml(dyeOrder.targetTransferWarehouseName)}</span>
+          <span class="text-xs text-muted-foreground">染缸候选</span>
+          <span class="text-xs">${vatOptions.length > 0 ? escapeHtml(vatOptions.map((item) => item.dyeVatNo).join(' / ')) : '未配置'}</span>
+        </div>
+
+        <div class="grid gap-3 xl:grid-cols-2">
+          <section class="rounded-lg border bg-background p-3">
+            <div class="flex items-center justify-between gap-2">
+              <h3 class="text-sm font-medium">等样衣/色样</h3>
+              ${sampleWaitBadge}
+            </div>
+            <div class="mt-3 space-y-1 text-xs">
+              <div><span class="text-muted-foreground">等待类型：</span>${escapeHtml(getSampleWaitTypeLabel(dyeOrder.sampleWaitType))}</div>
+              <div><span class="text-muted-foreground">开始时间：</span>${escapeHtml(dyeOrder.sampleWaitStartedAt || '—')}</div>
+              <div><span class="text-muted-foreground">完成时间：</span>${escapeHtml(dyeOrder.sampleWaitFinishedAt || '—')}</div>
+            </div>
+            <div class="mt-3 grid grid-cols-2 gap-2">
+              <button
+                class="inline-flex h-8 items-center justify-center rounded-md border text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                data-pda-execd-action="dye-start-sample-wait"
+                data-dye-order-id="${escapeHtml(dyeOrder.dyeOrderId)}"
+                ${!canOperate || Boolean(dyeOrder.sampleWaitStartedAt) ? 'disabled' : ''}
+              >
+                开始
+              </button>
+              <button
+                class="inline-flex h-8 items-center justify-center rounded-md border text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                data-pda-execd-action="dye-complete-sample-wait"
+                data-dye-order-id="${escapeHtml(dyeOrder.dyeOrderId)}"
+                ${!canOperate || !dyeOrder.sampleWaitStartedAt || Boolean(dyeOrder.sampleWaitFinishedAt) ? 'disabled' : ''}
+              >
+                完成
+              </button>
+            </div>
+          </section>
+
+          <section class="rounded-lg border bg-background p-3">
+            <div class="flex items-center justify-between gap-2">
+              <h3 class="text-sm font-medium">等原料</h3>
+              ${materialWaitBadge}
+            </div>
+            <div class="mt-3 space-y-1 text-xs">
+              <div><span class="text-muted-foreground">原料面料：</span>${escapeHtml(dyeOrder.rawMaterialSku)}</div>
+              <div><span class="text-muted-foreground">开始时间：</span>${escapeHtml(dyeOrder.materialWaitStartedAt || '—')}</div>
+              <div><span class="text-muted-foreground">完成时间：</span>${escapeHtml(dyeOrder.materialWaitFinishedAt || '—')}</div>
+            </div>
+            <div class="mt-3 grid grid-cols-2 gap-2">
+              <button
+                class="inline-flex h-8 items-center justify-center rounded-md border text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                data-pda-execd-action="dye-start-material-wait"
+                data-dye-order-id="${escapeHtml(dyeOrder.dyeOrderId)}"
+                ${!canOperate || Boolean(dyeOrder.materialWaitStartedAt) ? 'disabled' : ''}
+              >
+                开始
+              </button>
+              <button
+                class="inline-flex h-8 items-center justify-center rounded-md border text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                data-pda-execd-action="dye-complete-material-wait"
+                data-dye-order-id="${escapeHtml(dyeOrder.dyeOrderId)}"
+                ${!canOperate || !dyeOrder.materialWaitStartedAt || Boolean(dyeOrder.materialWaitFinishedAt) ? 'disabled' : ''}
+              >
+                完成
+              </button>
+            </div>
+          </section>
+
+          <section class="rounded-lg border bg-background p-3">
+            <div class="flex items-center justify-between gap-2">
+              <h3 class="text-sm font-medium">打样</h3>
+              ${sampleTestBadge}
+            </div>
+            <div class="mt-3 space-y-1 text-xs">
+              <div><span class="text-muted-foreground">开始时间：</span>${escapeHtml(sampleNode?.startedAt || '—')}</div>
+              <div><span class="text-muted-foreground">完成时间：</span>${escapeHtml(sampleNode?.finishedAt || '—')}</div>
+              <div><span class="text-muted-foreground">色号：</span>${escapeHtml(dyeOrder.colorNo || '待确认')}</div>
+            </div>
+            <div class="mt-3 grid grid-cols-2 gap-2">
+              <button
+                class="inline-flex h-8 items-center justify-center rounded-md border text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                data-pda-execd-action="dye-start-sample-test"
+                data-dye-order-id="${escapeHtml(dyeOrder.dyeOrderId)}"
+                ${!canOperate || !sampleReady || Boolean(sampleNode?.startedAt) ? 'disabled' : ''}
+              >
+                开始
+              </button>
+              <button
+                class="inline-flex h-8 items-center justify-center rounded-md border text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                data-pda-execd-action="dye-complete-sample-test"
+                data-dye-order-id="${escapeHtml(dyeOrder.dyeOrderId)}"
+                ${!canOperate || !sampleNode?.startedAt || Boolean(sampleNode?.finishedAt) ? 'disabled' : ''}
+              >
+                完成
+              </button>
+            </div>
+          </section>
+
+          <section class="rounded-lg border bg-background p-3">
+            <div class="flex items-center justify-between gap-2">
+              <h3 class="text-sm font-medium">备料</h3>
+              ${materialReadyBadge}
+            </div>
+            <div class="mt-3 space-y-1 text-xs">
+              <div><span class="text-muted-foreground">开始时间：</span>${escapeHtml(materialReadyNode?.startedAt || '—')}</div>
+              <div><span class="text-muted-foreground">完成时间：</span>${escapeHtml(materialReadyNode?.finishedAt || '—')}</div>
+              <div><span class="text-muted-foreground">完成数量：</span>${materialReadyNode?.outputQty ?? 0} ${escapeHtml(getQtyUnitLabel(dyeOrder.qtyUnit))}</div>
+            </div>
+            <div class="mt-3 grid grid-cols-2 gap-2">
+              <button
+                class="inline-flex h-8 items-center justify-center rounded-md border text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                data-pda-execd-action="dye-start-material-ready"
+                data-dye-order-id="${escapeHtml(dyeOrder.dyeOrderId)}"
+                ${!canOperate || !dyeOrder.materialWaitFinishedAt || Boolean(materialReadyNode?.startedAt) ? 'disabled' : ''}
+              >
+                开始
+              </button>
+              <button
+                class="inline-flex h-8 items-center justify-center rounded-md border text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                data-pda-execd-action="dye-complete-material-ready"
+                data-dye-order-id="${escapeHtml(dyeOrder.dyeOrderId)}"
+                ${!canOperate || !materialReadyNode?.startedAt || Boolean(materialReadyNode?.finishedAt) ? 'disabled' : ''}
+              >
+                完成
+              </button>
+            </div>
+          </section>
+
+          <section class="rounded-lg border bg-background p-3">
+            <div class="flex items-center justify-between gap-2">
+              <h3 class="text-sm font-medium">待排染缸</h3>
+              ${vatBadge}
+            </div>
+            <div class="mt-3 space-y-1 text-xs">
+              <div><span class="text-muted-foreground">染缸编号：</span>${escapeHtml(vatPlanNode?.dyeVatNo || '未选择')}</div>
+              <div><span class="text-muted-foreground">染缸容量：</span>${selectedVat ? `${selectedVat.capacityQty} ${escapeHtml(selectedVat.capacityUnit)}` : '—'}</div>
+              <div><span class="text-muted-foreground">可染类型：</span>${selectedVat ? escapeHtml(selectedVat.supportedMaterialTypes.join(' / ')) : '—'}</div>
+            </div>
+            <div class="mt-3">
+              <button
+                class="inline-flex h-8 w-full items-center justify-center rounded-md border text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                data-pda-execd-action="dye-plan-vat"
+                data-dye-order-id="${escapeHtml(dyeOrder.dyeOrderId)}"
+                ${!canOperate || !canPlanVat ? 'disabled' : ''}
+              >
+                选择染缸
+              </button>
+            </div>
+          </section>
+
+          <section class="rounded-lg border bg-background p-3">
+            <div class="flex items-center justify-between gap-2">
+              <h3 class="text-sm font-medium">染色</h3>
+              ${dyeBadge}
+            </div>
+            <div class="mt-3 space-y-1 text-xs">
+              <div><span class="text-muted-foreground">染缸编号：</span>${escapeHtml(dyeNode?.dyeVatNo || vatPlanNode?.dyeVatNo || '未选择')}</div>
+              <div><span class="text-muted-foreground">开始时间：</span>${escapeHtml(dyeNode?.startedAt || '—')}</div>
+              <div><span class="text-muted-foreground">完成时间：</span>${escapeHtml(dyeNode?.finishedAt || '—')}</div>
+              <div><span class="text-muted-foreground">投入数量：</span>${dyeNode?.inputQty ?? 0} ${escapeHtml(getQtyUnitLabel(dyeOrder.qtyUnit))}</div>
+              <div><span class="text-muted-foreground">完成数量：</span>${dyeNode?.outputQty ?? 0} ${escapeHtml(getQtyUnitLabel(dyeOrder.qtyUnit))}</div>
+            </div>
+            <div class="mt-3 grid grid-cols-2 gap-2">
+              <button
+                class="inline-flex h-8 items-center justify-center rounded-md border text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                data-pda-execd-action="dye-start-dye"
+                data-dye-order-id="${escapeHtml(dyeOrder.dyeOrderId)}"
+                ${!canOperate || !canPlanVat || Boolean(dyeNode?.startedAt) ? 'disabled' : ''}
+              >
+                开始
+              </button>
+              <button
+                class="inline-flex h-8 items-center justify-center rounded-md border text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                data-pda-execd-action="dye-complete-dye"
+                data-dye-order-id="${escapeHtml(dyeOrder.dyeOrderId)}"
+                ${!canOperate || !dyeNode?.startedAt || Boolean(dyeNode?.finishedAt) ? 'disabled' : ''}
+              >
+                完成
+              </button>
+            </div>
+          </section>
+
+          <section class="rounded-lg border bg-background p-3 xl:col-span-2">
+            <div class="flex items-center justify-between gap-2">
+              <h3 class="text-sm font-medium">后处理</h3>
+              ${renderPrintingStatusBadge(packNode?.finishedAt ? '包装完成' : dyeOrder.status === 'WAIT_HANDOVER' || dyeOrder.status === 'HANDOVER_SUBMITTED' ? '待送货' : '按节点推进', packNode?.finishedAt ? 'success' : 'info')}
+            </div>
+            <div class="mt-3 space-y-2">
+              ${postProcessRows
+                .map(
+                  ({ label, code, record, requireFinished }) => `
+                    <div class="grid grid-cols-[88px_1fr_150px] items-center gap-2 rounded-md border px-3 py-2 text-xs">
+                      <div class="font-medium">${escapeHtml(label)}</div>
+                      <div class="space-y-1">
+                        <div>开始：${escapeHtml(record?.startedAt || '—')}</div>
+                        <div>完成：${escapeHtml(record?.finishedAt || '—')}</div>
+                      </div>
+                      <div class="grid grid-cols-2 gap-2">
+                        <button
+                          class="inline-flex h-7 items-center justify-center rounded-md border hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                          data-pda-execd-action="dye-start-node"
+                          data-dye-order-id="${escapeHtml(dyeOrder.dyeOrderId)}"
+                          data-node-code="${escapeHtml(code)}"
+                          ${!canOperate || !requireFinished || Boolean(record?.startedAt) ? 'disabled' : ''}
+                        >
+                          开始
+                        </button>
+                        <button
+                          class="inline-flex h-7 items-center justify-center rounded-md border hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                          data-pda-execd-action="dye-complete-node"
+                          data-dye-order-id="${escapeHtml(dyeOrder.dyeOrderId)}"
+                          data-node-code="${escapeHtml(code)}"
+                          ${!canOperate || !record?.startedAt || Boolean(record?.finishedAt) ? 'disabled' : ''}
+                        >
+                          完成
+                        </button>
+                      </div>
+                    </div>
+                  `,
+                )
+                .join('')}
+            </div>
+          </section>
+
+          <section class="rounded-lg border bg-background p-3">
+            <div class="flex items-center justify-between gap-2">
+              <h3 class="text-sm font-medium">待送货</h3>
+              ${handoverBadge}
+            </div>
+            <div class="mt-3 space-y-1 text-xs">
+              <div><span class="text-muted-foreground">交出单：</span>${escapeHtml(handoverOrder?.handoverOrderNo || dyeOrder.handoverOrderNo || dyeOrder.handoverOrderId || '未生成')}</div>
+              <div><span class="text-muted-foreground">交出记录：</span>${handoverSummary.recordCount} 条</div>
+              <div><span class="text-muted-foreground">待回写：</span>${handoverSummary.pendingWritebackCount} 条</div>
+              <div><span class="text-muted-foreground">实收数量：</span>${handoverSummary.writtenBackQty} ${escapeHtml(getQtyUnitLabel(dyeOrder.qtyUnit))}</div>
+            </div>
+            <div class="mt-3 grid grid-cols-2 gap-2">
+              <button
+                class="inline-flex h-8 items-center justify-center rounded-md border text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                data-pda-execd-action="view-handover-order"
+                data-handover-order-id="${escapeHtml(handoverOrder?.handoverOrderId || handoverOrder?.handoverId || '')}"
+                ${!handoverOrder ? 'disabled' : ''}
+              >
+                查看交出单
+              </button>
+              <button
+                class="inline-flex h-8 items-center justify-center rounded-md border text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                data-pda-execd-action="new-handover-record"
+                data-handover-order-id="${escapeHtml(handoverOrder?.handoverOrderId || handoverOrder?.handoverId || '')}"
+                ${!handoverOrder || (dyeOrder.status !== 'WAIT_HANDOVER' && dyeOrder.status !== 'HANDOVER_SUBMITTED') ? 'disabled' : ''}
+              >
+                新增交出记录
+              </button>
+            </div>
+          </section>
+
+          <section class="rounded-lg border bg-background p-3">
+            <div class="flex items-center justify-between gap-2">
+              <h3 class="text-sm font-medium">审核</h3>
+              ${reviewBadge}
+            </div>
+            <div class="mt-3 space-y-1 text-xs">
+              <div><span class="text-muted-foreground">接收方：</span>${escapeHtml(dyeOrder.targetTransferWarehouseName)}</div>
+              <div><span class="text-muted-foreground">实收数量：</span>${review?.receivedQty ?? handoverSummary.writtenBackQty} ${escapeHtml(getQtyUnitLabel(dyeOrder.qtyUnit))}</div>
+              <div><span class="text-muted-foreground">差异：</span>${review?.diffQty ?? handoverSummary.diffQty}</div>
+              <div><span class="text-muted-foreground">审核状态：</span>${escapeHtml(review ? review.reviewStatus === 'PASS' ? '已完成' : review.reviewStatus === 'REJECTED' ? '已驳回' : '待审核' : '待审核')}</div>
+              <div><span class="text-muted-foreground">备注：</span>${escapeHtml(review?.remark || '接收方回写后进入待审核')}</div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </article>
+  `
 }
 
 function resolveTaskQtyDisplayMeta(task: ProcessTask, displayProcessName = getTaskProcessDisplayName(task)): { label: string; valueText: string } {
@@ -417,20 +1192,17 @@ function renderProofViewSection(files: StartProofFile[]): string {
 function mutateStartTask(
   taskId: string,
   by: string,
-  payload: { startTime: string; headcount: number; proofFiles: StartProofFile[] },
+  payload: { startTime: string; headcount?: number; proofFiles: StartProofFile[] },
 ): void {
   const now = nowTimestamp()
   const task = getTaskFactById(taskId)
   if (!task) return
 
-  const writableTask = task as ProcessTask & {
-    startHeadcount?: number
-    startProofFiles?: StartProofFile[]
-  }
+  const writableTask = task as TaskWithHandoverFields
 
   task.status = 'IN_PROGRESS'
   task.startedAt = payload.startTime
-  writableTask.startHeadcount = payload.headcount
+  writableTask.startHeadcount = undefined
   writableTask.startProofFiles = [...payload.proofFiles]
   task.updatedAt = now
   task.auditLogs = [
@@ -438,7 +1210,7 @@ function mutateStartTask(
     {
       id: `AL-START-${Date.now()}`,
       action: 'START_TASK',
-      detail: `任务开工，开工时间：${payload.startTime}，本次开工人数：${payload.headcount}，开工凭证：${payload.proofFiles.length}个`,
+      detail: `任务开工，开工时间：${payload.startTime}，开工凭证：${payload.proofFiles.length}个`,
       at: now,
       by,
     },
@@ -560,14 +1332,15 @@ export function renderPdaExecDetailPage(taskId: string): string {
   const assignedFactory = task.assignedFactoryId
     ? indonesiaFactories.find((factory) => factory.id === task.assignedFactoryId)
     : undefined
-
-  const handoutStatus =
-    (task as ProcessTask & { handoutStatus?: 'PENDING' | 'HANDED_OUT' }).handoutStatus || 'PENDING'
-  const handoutLabel = handoutStatus === 'HANDED_OUT' ? '已交出' : '待交出'
   const pauseReasonLabel = (task as ProcessTask & { pauseReasonLabel?: string | null }).pauseReasonLabel || ''
   const pauseReportedAt = (task as ProcessTask & { pauseReportedAt?: string | null }).pauseReportedAt || ''
   const displayProcessName = getTaskProcessDisplayName(task)
   const qtyDisplayMeta = resolveTaskQtyDisplayMeta(task, displayProcessName)
+  const handoverOrder = getTaskHandoverOrder(task as TaskWithHandoverFields)
+  const printWorkOrder = getPrintWorkOrderByTaskId(task.taskId)
+  const dyeWorkOrder = getDyeWorkOrderByTaskId(task.taskId)
+  const taskQrValue = getTaskQrValue(task as TaskWithHandoverFields)
+  const receiverDisplayText = getReceiverDisplayText(task as TaskWithHandoverFields)
 
   const pricing = getTaskPricing(task)
 
@@ -578,7 +1351,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
           <i data-lucide="arrow-left" class="mr-1 h-4 w-4"></i>
           返回
         </button>
-        <h1 class="text-base font-semibold">执行详情</h1>
+        <h1 class="text-base font-semibold">任务详情</h1>
       </div>
 
       <article class="rounded-lg border bg-card">
@@ -609,6 +1382,8 @@ export function renderPdaExecDetailPage(taskId: string): string {
             }
             <span class="text-xs text-muted-foreground">派发方式</span>
             <span class="text-xs">${task.assignmentMode === 'DIRECT' ? '直接派发' : '分配接收'}</span>
+            <span class="text-xs text-muted-foreground">接收方</span>
+            <span class="text-xs">${escapeHtml(receiverDisplayText)}</span>
             ${
               (task as ProcessTask & { taskDeadline?: string }).taskDeadline
                 ? `
@@ -635,8 +1410,26 @@ export function renderPdaExecDetailPage(taskId: string): string {
                 `
               : ''
           }
+
+          <div class="flex items-center justify-between gap-3 rounded-lg border bg-muted/20 px-3 py-3">
+            <div class="space-y-1">
+              <div class="text-xs font-medium">任务二维码</div>
+              <div class="text-[11px] text-muted-foreground">${escapeHtml(getTaskDisplayNo(task))}</div>
+            </div>
+            ${renderRealQrPlaceholder({
+              value: taskQrValue,
+              size: 96,
+              title: `任务二维码 ${getTaskDisplayNo(task)}`,
+              label: `任务 ${getTaskDisplayNo(task)} 二维码`,
+              className: 'rounded-md border bg-white p-1.5 shadow-sm',
+            })}
+          </div>
         </div>
       </article>
+
+      ${handoverOrder ? renderHandoverOrderCard(handoverOrder) : ''}
+      ${printWorkOrder ? renderPrintingTaskCard(task as TaskWithHandoverFields, printWorkOrder, handoverOrder) : ''}
+      ${dyeWorkOrder ? renderDyeingTaskCard(task as TaskWithHandoverFields, dyeWorkOrder, handoverOrder) : ''}
 
       ${
         milestone.required
@@ -849,15 +1642,13 @@ export function renderPdaExecDetailPage(taskId: string): string {
             <span class="text-xs font-medium ${startDueInfo.startRiskStatus === 'OVERDUE' ? 'text-red-700' : startDueInfo.startRiskStatus === 'DUE_SOON' ? 'text-amber-700' : 'text-foreground'}">${escapeHtml(startRiskText)}</span>
             <span class="text-xs text-muted-foreground">开工时间</span>
             <span class="text-xs">${escapeHtml(task.startedAt || toStoreDateTime(detailState.startTime) || '—')}</span>
-            <span class="text-xs text-muted-foreground">本次开工人数</span>
-            <span class="text-xs">${escapeHtml(String((task as ProcessTask & { startHeadcount?: number }).startHeadcount || detailState.startHeadcount || '—'))}</span>
             <span class="text-xs text-muted-foreground">完工时间</span>
             <span class="text-xs">${escapeHtml(task.finishedAt || '—')}</span>
             ${
-              status === 'DONE'
+              handoverOrder
                 ? `
-                    <span class="text-xs text-muted-foreground">交接状态</span>
-                    <span class="text-xs font-medium ${handoutStatus === 'HANDED_OUT' ? 'text-green-700' : 'text-amber-700'}">${handoutLabel}</span>
+                    <span class="text-xs text-muted-foreground">交出状态</span>
+                    <span class="text-xs font-medium">${escapeHtml(getHandoverOrderStatusLabel(handoverOrder.handoverOrderStatus))}</span>
                   `
                 : ''
             }
@@ -888,7 +1679,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
             status === 'NOT_STARTED'
               ? `
                   <div class="rounded-md border border-slate-200 bg-slate-50 p-3">
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div class="grid grid-cols-1 gap-3">
                       <label class="space-y-1">
                         <span class="text-xs text-muted-foreground">开工时间 *</span>
                         <input
@@ -898,20 +1689,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
                           value="${escapeHtml(detailState.startTime)}"
                         />
                       </label>
-                      <label class="space-y-1">
-                        <span class="text-xs text-muted-foreground">本次开工人数 *</span>
-                        <input
-                          type="number"
-                          min="1"
-                          step="1"
-                          class="h-9 w-full rounded-md border bg-background px-3 text-sm"
-                          data-pda-execd-field="startHeadcount"
-                          value="${escapeHtml(detailState.startHeadcount)}"
-                          placeholder="请输入人数"
-                        />
-                      </label>
                     </div>
-                    <p class="mt-2 text-xs text-muted-foreground">车缝可按上车位人数填写；其他工序填写本次实际投入人数</p>
                   </div>
                   <div class="rounded-lg border">
                     <div class="border-b px-3 py-2 text-sm font-medium">开工凭证（选填）</div>
@@ -979,7 +1757,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
                       ${canStart ? '' : 'disabled'}
                     >
                       <i data-lucide="play" class="mr-2 h-4 w-4"></i>
-                      确认开工
+                      开工
                     </button>
                   `
                 : `
@@ -1002,16 +1780,69 @@ export function renderPdaExecDetailPage(taskId: string): string {
                       <i data-lucide="alert-triangle" class="mr-2 h-4 w-4"></i>
                       上报暂停
                     </button>
-                    <button
-                      class="inline-flex h-9 items-center justify-center rounded-md bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
-                      data-pda-execd-action="finish-task"
-                      data-task-id="${escapeHtml(task.taskId)}"
-                      ${canFinish ? '' : 'disabled'}
-                    >
-                      <i data-lucide="check-circle" class="mr-2 h-4 w-4"></i>
-                      完工
-                    </button>
+                    ${
+                      printWorkOrder || dyeWorkOrder
+                        ? `
+                            <button
+                              class="inline-flex h-9 items-center justify-center rounded-md border text-sm text-muted-foreground"
+                              disabled
+                            >
+                              ${printWorkOrder ? '印花审核通过后完成' : '染色审核通过后完成'}
+                            </button>
+                          `
+                        : `
+                            <button
+                              class="inline-flex h-9 items-center justify-center rounded-md bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+                              data-pda-execd-action="finish-task"
+                              data-task-id="${escapeHtml(task.taskId)}"
+                              ${canFinish ? '' : 'disabled'}
+                            >
+                              <i data-lucide="check-circle" class="mr-2 h-4 w-4"></i>
+                              完工
+                            </button>
+                          `
+                    }
                   </div>
+                  ${
+                    handoverOrder
+                      ? `
+                          ${
+                            (printWorkOrder && printWorkOrder.status === 'WAIT_HANDOVER')
+                            || (dyeWorkOrder && dyeWorkOrder.status === 'WAIT_HANDOVER')
+                              ? `
+                                  <div class="grid grid-cols-2 gap-2">
+                                    <button
+                                      class="inline-flex h-9 items-center justify-center rounded-md border text-sm hover:bg-muted"
+                                      data-pda-execd-action="view-handover-order"
+                                      data-handover-order-id="${escapeHtml(handoverOrder.handoverOrderId || handoverOrder.handoverId)}"
+                                    >
+                                      <i data-lucide="arrow-left-right" class="mr-2 h-4 w-4"></i>
+                                      查看交出单
+                                    </button>
+                                    <button
+                                      class="inline-flex h-9 items-center justify-center rounded-md border text-sm hover:bg-muted"
+                                      data-pda-execd-action="new-handover-record"
+                                      data-handover-order-id="${escapeHtml(handoverOrder.handoverOrderId || handoverOrder.handoverId)}"
+                                    >
+                                      <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
+                                      新增交出记录
+                                    </button>
+                                  </div>
+                                `
+                              : `
+                                  <button
+                                    class="inline-flex h-9 w-full items-center justify-center rounded-md border text-sm hover:bg-muted"
+                                    data-pda-execd-action="view-handover-order"
+                                    data-handover-order-id="${escapeHtml(handoverOrder.handoverOrderId || handoverOrder.handoverId)}"
+                                  >
+                                    <i data-lucide="arrow-left-right" class="mr-2 h-4 w-4"></i>
+                                    查看交出单
+                                  </button>
+                                `
+                          }
+                        `
+                      : ''
+                  }
                 `
               : ''
           }
@@ -1020,6 +1851,20 @@ export function renderPdaExecDetailPage(taskId: string): string {
             status === 'BLOCKED'
               ? `
                   <div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">已上报暂停，待平台处理。平台允许继续后任务将自动恢复进行中。</div>
+                  ${
+                    handoverOrder
+                      ? `
+                          <button
+                            class="inline-flex h-9 w-full items-center justify-center rounded-md border text-sm hover:bg-muted"
+                            data-pda-execd-action="view-handover-order"
+                            data-handover-order-id="${escapeHtml(handoverOrder.handoverOrderId || handoverOrder.handoverId)}"
+                          >
+                            <i data-lucide="arrow-left-right" class="mr-2 h-4 w-4"></i>
+                            查看交出单
+                          </button>
+                        `
+                      : ''
+                  }
                 `
               : ''
           }
@@ -1028,14 +1873,29 @@ export function renderPdaExecDetailPage(taskId: string): string {
             status === 'DONE'
               ? `
                   ${
-                    handoutStatus !== 'HANDED_OUT'
-                      ? '<div class="mb-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">完工不等于结束，还需完成交出交接</div>'
-                      : ''
+                    handoverOrder
+                      ? `
+                          <div class="grid grid-cols-2 gap-2">
+                            <button
+                              class="inline-flex h-9 items-center justify-center rounded-md border text-sm hover:bg-muted"
+                              data-pda-execd-action="view-handover-order"
+                              data-handover-order-id="${escapeHtml(handoverOrder.handoverOrderId || handoverOrder.handoverId)}"
+                            >
+                              <i data-lucide="arrow-left-right" class="mr-2 h-4 w-4"></i>
+                              查看交出单
+                            </button>
+                            <button
+                              class="inline-flex h-9 items-center justify-center rounded-md bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                              data-pda-execd-action="new-handover-record"
+                              data-handover-order-id="${escapeHtml(handoverOrder.handoverOrderId || handoverOrder.handoverId)}"
+                            >
+                              <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
+                              新增交出记录
+                            </button>
+                          </div>
+                        `
+                      : '<button class="inline-flex h-9 w-full items-center justify-center rounded-md border text-sm text-muted-foreground" disabled>交出单未生成</button>'
                   }
-                  <button class="inline-flex h-9 w-full items-center justify-center rounded-md border text-sm hover:bg-muted" data-pda-execd-action="go-handover" data-tab="handout">
-                    <i data-lucide="arrow-left-right" class="mr-2 h-4 w-4"></i>
-                    去交接（待交出）
-                  </button>
                 `
               : ''
           }
@@ -1140,6 +2000,258 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
     return true
   }
 
+  if (action === 'view-handover-order' || action === 'new-handover-record') {
+    const handoverOrderId = actionNode.dataset.handoverOrderId
+    if (!handoverOrderId) {
+      showPdaExecDetailToast('交出单未生成')
+      return true
+    }
+    appStore.navigate(
+      action === 'new-handover-record'
+        ? `/fcs/pda/handover/${handoverOrderId}?action=new-record`
+        : `/fcs/pda/handover/${handoverOrderId}`,
+    )
+    return true
+  }
+
+  if (
+    action === 'print-start-color-test'
+    || action === 'print-complete-color-test'
+    || action === 'print-start-printing'
+    || action === 'print-complete-printing'
+    || action === 'print-start-transfer'
+    || action === 'print-complete-transfer'
+  ) {
+    const printOrderId = actionNode.dataset.printOrderId
+    if (!printOrderId) return true
+
+    const printOrder = getPrintWorkOrderById(printOrderId)
+    if (!printOrder) return true
+
+    const task = getTaskFactById(printOrder.taskId)
+    if (!task) return true
+    if (!canOperatePrintingNode(task)) {
+      showPdaExecDetailToast('请先开工')
+      return true
+    }
+
+    try {
+      if (action === 'print-start-color-test') {
+        startColorTest(printOrderId, '印花工厂')
+        showPdaExecDetailToast('花型测试已开始')
+        return true
+      }
+
+      if (action === 'print-complete-color-test') {
+        const passed = window.confirm('花型测试是否通过？')
+        const remark = window.prompt('请填写结果说明（可选）') || undefined
+        completeColorTest(printOrderId, { passed, operatorName: '印花工厂', remark })
+        showPdaExecDetailToast(passed ? '花型测试已完成，已进入等打印' : '花型测试未通过，已回到待花型图')
+        return true
+      }
+
+      if (action === 'print-start-printing') {
+        const defaultPrinterNo = listPrintMachineOptions(printOrder.printFactoryId)[0]?.printerNo || ''
+        const printerNo = window.prompt('请输入打印机编号', defaultPrinterNo)?.trim() || ''
+        if (!printerNo) {
+          showPdaExecDetailToast('请填写打印机编号')
+          return true
+        }
+        startPrinting(printOrderId, { printerNo, operatorName: '印花工厂' })
+        showPdaExecDetailToast('打印开始已记录')
+        return true
+      }
+
+      if (action === 'print-complete-printing') {
+        const outputQtyText = window.prompt('请输入完成数量', String(printOrder.plannedQty))?.trim() || ''
+        const wasteQtyText = window.prompt('请输入损耗数量（可选）', '0')?.trim() || '0'
+        completePrinting(printOrderId, {
+          outputQty: Number(outputQtyText),
+          wasteQty: Number(wasteQtyText),
+          operatorName: '印花工厂',
+        })
+        showPdaExecDetailToast('打印完成已记录')
+        return true
+      }
+
+      if (action === 'print-start-transfer') {
+        startTransfer(printOrderId, '印花工厂')
+        showPdaExecDetailToast('转印开始已记录')
+        return true
+      }
+
+      const usedMaterialQtyText = window.prompt('请输入原料使用', String(printOrder.plannedQty))?.trim() || ''
+      const actualCompletedQtyText = window.prompt('请输入实际完成', String(printOrder.plannedQty))?.trim() || ''
+      completeTransfer(printOrderId, {
+        usedMaterialQty: Number(usedMaterialQtyText),
+        actualCompletedQty: Number(actualCompletedQtyText),
+        operatorName: '印花工厂',
+      })
+      showPdaExecDetailToast('转印完成，已进入待送货')
+      return true
+    } catch (error) {
+      showPdaExecDetailToast(error instanceof Error ? error.message : '保存失败')
+      return true
+    }
+  }
+
+  if (
+    action === 'dye-start-sample-wait'
+    || action === 'dye-complete-sample-wait'
+    || action === 'dye-start-material-wait'
+    || action === 'dye-complete-material-wait'
+    || action === 'dye-start-sample-test'
+    || action === 'dye-complete-sample-test'
+    || action === 'dye-start-material-ready'
+    || action === 'dye-complete-material-ready'
+    || action === 'dye-plan-vat'
+    || action === 'dye-start-dye'
+    || action === 'dye-complete-dye'
+    || action === 'dye-start-node'
+    || action === 'dye-complete-node'
+  ) {
+    const dyeOrderId = actionNode.dataset.dyeOrderId
+    if (!dyeOrderId) return true
+
+    const dyeOrder = getDyeWorkOrderById(dyeOrderId)
+    if (!dyeOrder) return true
+
+    const task = getTaskFactById(dyeOrder.taskId)
+    if (!task) return true
+    if (!canOperateDyeingNode(task)) {
+      showPdaExecDetailToast('请先开工')
+      return true
+    }
+
+    try {
+      if (action === 'dye-start-sample-wait') {
+        const waitTypeText = window.prompt(
+          '请输入等待类型：样衣 / 色样',
+          dyeOrder.sampleWaitType === 'WAIT_COLOR_CARD' ? '色样' : '样衣',
+        )?.trim() || ''
+        const waitType = waitTypeText.includes('色') ? 'WAIT_COLOR_CARD' : 'WAIT_SAMPLE_GARMENT'
+        startDyeSampleWait(dyeOrderId, { waitType, operatorName: '染色工厂' })
+        showPdaExecDetailToast('等样衣/色样已开始')
+        return true
+      }
+
+      if (action === 'dye-complete-sample-wait') {
+        completeDyeSampleWait(dyeOrderId, '染色工厂')
+        showPdaExecDetailToast('等样衣/色样已完成')
+        return true
+      }
+
+      if (action === 'dye-start-material-wait') {
+        startDyeMaterialWait(dyeOrderId, '染色工厂')
+        showPdaExecDetailToast('等原料已开始')
+        return true
+      }
+
+      if (action === 'dye-complete-material-wait') {
+        completeDyeMaterialWait(dyeOrderId, '染色工厂')
+        showPdaExecDetailToast('等原料已完成')
+        return true
+      }
+
+      if (action === 'dye-start-sample-test') {
+        startDyeSampleTest(dyeOrderId, '染色工厂')
+        showPdaExecDetailToast('打样开始已记录')
+        return true
+      }
+
+      if (action === 'dye-complete-sample-test') {
+        const colorNo = window.prompt('请输入色号', dyeOrder.colorNo || '')?.trim() || ''
+        if (!colorNo) {
+          showPdaExecDetailToast('请填写色号')
+          return true
+        }
+        completeDyeSampleTest(dyeOrderId, { colorNo, operatorName: '染色工厂' })
+        showPdaExecDetailToast('打样完成已记录')
+        return true
+      }
+
+      if (action === 'dye-start-material-ready') {
+        startDyeMaterialReady(dyeOrderId, '染色工厂')
+        showPdaExecDetailToast('备料开始已记录')
+        return true
+      }
+
+      if (action === 'dye-complete-material-ready') {
+        const outputQtyText = window.prompt('请输入备料数量（可选）', String(dyeOrder.plannedQty))?.trim() || ''
+        completeDyeMaterialReady(dyeOrderId, {
+          outputQty: outputQtyText ? Number(outputQtyText) : undefined,
+          operatorName: '染色工厂',
+        })
+        showPdaExecDetailToast('备料完成已记录')
+        return true
+      }
+
+      if (action === 'dye-plan-vat') {
+        const defaultVatNo = getDyeExecutionNodeRecord(dyeOrderId, 'VAT_PLAN')?.dyeVatNo || listDyeVatOptions(dyeOrder.dyeFactoryId)[0]?.dyeVatNo || ''
+        const dyeVatNo = window.prompt('请输入染缸编号', defaultVatNo)?.trim() || ''
+        if (!dyeVatNo) {
+          showPdaExecDetailToast('请填写染缸编号')
+          return true
+        }
+        planDyeVat(dyeOrderId, { dyeVatNo, operatorName: '染色工厂' })
+        showPdaExecDetailToast('染缸已排入计划')
+        return true
+      }
+
+      if (action === 'dye-start-dye') {
+        const defaultVatNo = getDyeExecutionNodeRecord(dyeOrderId, 'DYE')?.dyeVatNo || getDyeExecutionNodeRecord(dyeOrderId, 'VAT_PLAN')?.dyeVatNo || listDyeVatOptions(dyeOrder.dyeFactoryId)[0]?.dyeVatNo || ''
+        const dyeVatNo = window.prompt('请输入染缸编号', defaultVatNo)?.trim() || ''
+        if (!dyeVatNo) {
+          showPdaExecDetailToast('请填写染缸编号')
+          return true
+        }
+        startDyeing(dyeOrderId, { dyeVatNo, operatorName: '染色工厂' })
+        showPdaExecDetailToast('染色开始已记录')
+        return true
+      }
+
+      if (action === 'dye-complete-dye') {
+        const inputQtyText = window.prompt('请输入投入数量（可选）', String(dyeOrder.plannedQty))?.trim() || ''
+        const outputQtyText = window.prompt('请输入完成数量（可选）', String(dyeOrder.plannedQty))?.trim() || ''
+        completeDyeing(dyeOrderId, {
+          inputQty: inputQtyText ? Number(inputQtyText) : undefined,
+          outputQty: outputQtyText ? Number(outputQtyText) : undefined,
+          operatorName: '染色工厂',
+        })
+        showPdaExecDetailToast('染色完成，已进入脱水')
+        return true
+      }
+
+      const nodeCode = actionNode.dataset.nodeCode as 'DEHYDRATE' | 'DRY' | 'SET' | 'ROLL' | 'PACK' | undefined
+      if (!nodeCode) return true
+
+      const nodeLabelMap: Record<'DEHYDRATE' | 'DRY' | 'SET' | 'ROLL' | 'PACK', string> = {
+        DEHYDRATE: '脱水',
+        DRY: '烘干',
+        SET: '定型',
+        ROLL: '打卷',
+        PACK: '包装',
+      }
+
+      if (action === 'dye-start-node') {
+        startDyeNode(dyeOrderId, nodeCode, '染色工厂')
+        showPdaExecDetailToast(`${nodeLabelMap[nodeCode]}开始已记录`)
+        return true
+      }
+
+      const outputQtyText = window.prompt('请输入完成数量（可选）', String(dyeOrder.plannedQty))?.trim() || ''
+      completeDyeNode(dyeOrderId, nodeCode, {
+        outputQty: outputQtyText ? Number(outputQtyText) : undefined,
+        operatorName: '染色工厂',
+      })
+      showPdaExecDetailToast(nodeCode === 'PACK' ? '包装完成，已进入待送货' : `${nodeLabelMap[nodeCode]}完成已记录`)
+      return true
+    } catch (error) {
+      showPdaExecDetailToast(error instanceof Error ? error.message : '保存失败')
+      return true
+    }
+  }
+
   if (action === 'add-proof-image') {
     const scope = (actionNode.dataset.proofScope as 'start' | 'milestone' | 'pause' | undefined) || 'start'
     addProofFile(scope, 'IMAGE')
@@ -1189,24 +2301,28 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       return true
     }
 
-    const headcount = Number.parseInt(detailState.startHeadcount, 10)
-    if (!Number.isInteger(headcount) || headcount <= 0) {
-      showPdaExecDetailToast('请填写有效的本次开工人数')
-      return true
-    }
+    const headcount = undefined
 
     mutateStartTask(taskId, 'PDA', {
       startTime,
       headcount,
       proofFiles: detailState.startProofFiles,
     })
+    let startToast = '开工成功'
+    try {
+      const ensured = ensureHandoverOrderForStartedTask(taskId)
+      const updatedTask = getTaskFactById(taskId) as TaskWithHandoverFields | null
+      const handoverOrder = getHandoverOrderById(ensured.handoverOrderId) ?? null
+      if (updatedTask) {
+        syncTaskHandoverFields(updatedTask, handoverOrder)
+      }
+      startToast = ensured.created ? '开工成功，交出单已生成' : '开工成功，交出单已就绪'
+    } catch {
+      startToast = '开工成功'
+    }
     syncPdaStartRiskAndExceptions()
     syncMilestoneOverdueExceptions()
-    showPdaExecDetailToast(
-      detailState.startProofFiles.length > 0
-        ? `开工成功，已上传 ${detailState.startProofFiles.length} 个开工凭证`
-        : '开工成功',
-    )
+    showPdaExecDetailToast(startToast)
     return true
   }
 
@@ -1304,7 +2420,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
     }
 
     mutateFinishTask(taskId, 'PDA')
-    showPdaExecDetailToast('完工成功，请前往交接模块完成交出')
+    showPdaExecDetailToast('完工成功')
     return true
   }
 

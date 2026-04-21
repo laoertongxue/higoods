@@ -325,7 +325,7 @@ function renderProfileDrawer(): string {
           <form data-settle-form="profile" class="flex flex-1 flex-col">
             <div class="flex-1 space-y-4 overflow-y-auto px-6 py-6">
               <div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
-                新增版本沿用“初始化结算信息”结构，仅支持修改结算配置和扣款规则。收款账号请由工厂端（PDA）发起修改申请。
+                新增版本沿用“初始化结算信息”结构，仅支持修改结算配置和扣款规则。收款账号请由工厂端移动应用发起修改申请。
               </div>
 
               <div class="inline-flex rounded-md border bg-muted/30 p-1">
@@ -680,7 +680,7 @@ function renderDetailAccountsTab(effectiveInfo: SettlementEffectiveInfo | null):
   return `
     <div class="space-y-4">
       <div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-        收款账号除初始化外，只能由工厂端（PDA）发起修改申请，平台侧当前仅支持查看。
+        收款账号除初始化外，只能由工厂端移动应用发起修改申请，平台侧当前仅支持查看。
       </div>
 
       <div class="overflow-x-auto rounded-md border">

@@ -11,6 +11,8 @@ type MatchRecord = {
   content: string
 }
 
+type ScanMode = 'source' | 'guardrail' | 'page-visible'
+
 const SOURCE_FILES = [
   'src/data/app-shell-config.ts',
   'src/router/routes.ts',
@@ -62,6 +64,32 @@ const BANNED_TERMS = [
   'reversal',
 ]
 
+const PAGE_VISIBLE_BANNED_TERMS = [
+  '去交接（待交出）',
+  '去交接',
+  '交出头',
+  '仓库自动回写',
+  '工厂只查看',
+  '仓库确认',
+  '后道仓一体',
+  '车缝直接回成衣仓',
+  '印花 PDA',
+  '染色 PDA',
+  '印花PDA',
+  '染色PDA',
+  'PDA质检',
+  'PDA裁床',
+  'PDA领料',
+  'PDA配料',
+  'PDA 质检',
+  'PDA 裁床',
+  'PDA 领料',
+  'PDA 配料',
+  'PDA 执行',
+  '查看 PDA',
+  'PDA任务号',
+]
+
 const SOURCE_ALLOWED_PATTERNS: Array<{ file: string; allow: RegExp }> = [
   { file: 'src/state/store.ts', allow: /'\S+':\s*'预结算流水'|'\S+':\s*'预付款批次'|^[^']*应付调整:\s*'预结算流水'|^[^']*结算批次:\s*'预付款批次'/ },
   { file: 'src/data/fcs/quality-deduction-domain.ts', allow: /兼容保留|当前主链不再/ },
@@ -80,18 +108,20 @@ function isGuardrailAssertion(lineText: string): boolean {
     lineText.includes('assert(!') ||
     lineText.includes('.not.toContain(') ||
     lineText.includes('.not.toContainText(') ||
-    lineText.includes('.not.toMatch(')
+    lineText.includes('.not.toMatch(') ||
+    lineText.includes('BANNED_TERMS') ||
+    lineText.includes('PAGE_VISIBLE_BANNED_TERMS')
   )
 }
 
-function collectMatches(files: string[], mode: 'source' | 'guardrail'): MatchRecord[] {
+function collectMatches(files: string[], terms: string[], mode: ScanMode): MatchRecord[] {
   const matches: MatchRecord[] = []
   for (const file of files) {
     const absolutePath = path.resolve(file)
     const source = fs.readFileSync(absolutePath, 'utf8')
     const lines = source.split('\n')
     lines.forEach((lineText, index) => {
-      for (const term of BANNED_TERMS) {
+      for (const term of terms) {
         if (!lineText.includes(term)) continue
         if (mode === 'source' && shouldAllowSourceMatch(file, lineText)) continue
         if (mode === 'guardrail' && isGuardrailAssertion(lineText)) continue
@@ -107,19 +137,42 @@ function collectMatches(files: string[], mode: 'source' | 'guardrail'): MatchRec
   return matches
 }
 
+function walkFiles(rootDir: string): string[] {
+  const absoluteRoot = path.resolve(rootDir)
+  const results: string[] = []
+  const queue = [absoluteRoot]
+  while (queue.length > 0) {
+    const current = queue.pop()
+    if (!current) continue
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      const next = path.join(current, entry.name)
+      if (entry.isDirectory()) {
+        queue.push(next)
+        continue
+      }
+      if (/\.(ts|tsx|js|jsx|mjs)$/.test(entry.name)) {
+        results.push(path.relative(path.resolve('.'), next))
+      }
+    }
+  }
+  return results.sort()
+}
+
 function main(): void {
-  const sourceMatches = collectMatches(SOURCE_FILES, 'source')
-  const guardrailMatches = collectMatches(SCRIPT_AND_TEST_FILES, 'guardrail')
-  const allMatches = [...sourceMatches, ...guardrailMatches]
+  const pageVisibleFiles = [...walkFiles('src/pages'), ...walkFiles('src/components')]
+  const sourceMatches = collectMatches(SOURCE_FILES, BANNED_TERMS, 'source')
+  const guardrailMatches = collectMatches(SCRIPT_AND_TEST_FILES, BANNED_TERMS, 'guardrail')
+  const pageVisibleMatches = collectMatches(pageVisibleFiles, PAGE_VISIBLE_BANNED_TERMS, 'page-visible')
+  const allMatches = [...sourceMatches, ...guardrailMatches, ...pageVisibleMatches]
 
   assert(allMatches.length === 0, `当前结算主链仍残留旧口径：${allMatches[0]?.file}:${allMatches[0]?.line} ${allMatches[0]?.term}`)
 
   console.log(
     JSON.stringify(
       {
-        校验范围文件数: SOURCE_FILES.length + SCRIPT_AND_TEST_FILES.length,
+        校验范围文件数: SOURCE_FILES.length + SCRIPT_AND_TEST_FILES.length + pageVisibleFiles.length,
         旧口径命中数: 0,
-        说明: '当前结算主链页面、数据层、检查脚本与 Playwright 用例仅通过负向断言保留旧词守卫。',
+        说明: '当前结算主链、FCS 页面和检查脚本仅通过负向断言保留旧词守卫。',
       },
       null,
       2,

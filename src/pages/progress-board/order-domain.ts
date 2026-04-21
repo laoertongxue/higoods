@@ -22,6 +22,57 @@ import {
   type PoLifecycle,
   type PoViewRow,
 } from './context.ts'
+import {
+  buildProductionConfirmationLink,
+  buildProductionOrderLink,
+  buildQualityRecordLink,
+  buildTaskDetailLink,
+} from '../../data/fcs/fcs-route-links.ts'
+import { getQcViewRows } from '../qc-records/context.ts'
+
+function getStartedTaskCount(row: PoViewRow): number {
+  return row.inProgressTasks + row.doneTasks + row.blockedTasks
+}
+
+function getPendingHandoverCount(row: PoViewRow): number {
+  return row.handoverStatusLabel.includes('待交出') ? Math.max(row.handoverPendingCount, 1) : 0
+}
+
+function getPendingWritebackCount(row: PoViewRow): number {
+  return row.handoverStatusLabel.includes('回写') ? Math.max(row.handoverPendingCount, 1) : 0
+}
+
+function getDifferenceCount(row: PoViewRow): number {
+  return row.handoverStatusLabel.includes('差异') ? Math.max(row.handoverObjectionCount, 1) : 0
+}
+
+function getQcStatusLabel(row: PoViewRow): string {
+  if (row.lifecycle === 'PENDING_QC') return '待处理'
+  if (row.lifecycle === 'PENDING_SETTLEMENT' || row.lifecycle === 'CLOSED') return '已完成'
+  return '正常'
+}
+
+function getRecheckStatusLabel(row: PoViewRow): string {
+  return row.risks.some((risk) => risk.includes('质检') || risk.includes('复检')) ? '待处理' : '正常'
+}
+
+function getRiskStatusLabel(row: PoViewRow): string {
+  return row.risks.length > 0 ? '风险' : '正常'
+}
+
+function getReceivingQcLink(orderId: string): string {
+  const row = getQcViewRows().find(
+    (item) => item.productionOrderId === orderId && item.qc.inspectionScene !== 'POST_FINAL_RECHECK',
+  )
+  return row ? buildQualityRecordLink(row.qcId) : ''
+}
+
+function getFinalRecheckLink(orderId: string): string {
+  const row = getQcViewRows().find(
+    (item) => item.productionOrderId === orderId && item.qc.inspectionScene === 'POST_FINAL_RECHECK',
+  )
+  return row ? buildQualityRecordLink(row.qcId) : ''
+}
 
 function renderOrderActionMenu(row: PoViewRow): string {
   const isOpen = state.orderActionMenuId === row.orderId
@@ -59,7 +110,7 @@ function renderOrderListView(rows: PoViewRow[]): string {
   return `
     <section class="rounded-lg border bg-card">
       <div class="overflow-x-auto">
-        <table class="w-full min-w-[1520px] text-sm">
+        <table class="w-full min-w-[2160px] text-sm">
           <thead>
             <tr class="border-b bg-muted/40 text-left">
               <th class="px-3 py-2 font-medium">生产单号</th>
@@ -67,6 +118,15 @@ function renderOrderListView(rows: PoViewRow[]): string {
               <th class="px-3 py-2 font-medium">主工厂</th>
               <th class="px-3 py-2 font-medium">生命周期</th>
               <th class="px-3 py-2 font-medium">任务进度</th>
+              <th class="px-3 py-2 font-medium">已开工</th>
+              <th class="px-3 py-2 font-medium">已完工</th>
+              <th class="px-3 py-2 font-medium">待交出</th>
+              <th class="px-3 py-2 font-medium">待回写</th>
+              <th class="px-3 py-2 font-medium">差异</th>
+              <th class="px-3 py-2 font-medium">异议</th>
+              <th class="px-3 py-2 font-medium">回货质检</th>
+              <th class="px-3 py-2 font-medium">后道复检</th>
+              <th class="px-3 py-2 font-medium">交期风险</th>
               <th class="px-3 py-2 font-medium">执行情况</th>
               <th class="px-3 py-2 font-medium">风险</th>
               <th class="px-3 py-2 font-medium">当前卡点</th>
@@ -75,16 +135,16 @@ function renderOrderListView(rows: PoViewRow[]): string {
             </tr>
           </thead>
           <tbody>
-            ${
-              rows.length === 0
-                ? `
+              ${
+                rows.length === 0
+                  ? `
                   <tr>
-                    <td colspan="10" class="px-3 py-10 text-center text-muted-foreground">暂无数据</td>
+                    <td colspan="19" class="px-3 py-10 text-center text-muted-foreground">暂无数据</td>
                   </tr>
                 `
-                : rows
-                    .map((row) => {
-                      const progress = row.totalTasks > 0 ? Math.round((row.doneTasks / row.totalTasks) * 100) : 0
+                  : rows
+                      .map((row) => {
+                        const progress = row.totalTasks > 0 ? Math.round((row.doneTasks / row.totalTasks) * 100) : 0
 
                       return `
                         <tr class="cursor-pointer border-b hover:bg-muted/50" data-progress-action="open-order-detail" data-order-id="${escapeAttr(row.orderId)}">
@@ -104,6 +164,17 @@ function renderOrderListView(rows: PoViewRow[]): string {
                                 <span class="block h-full rounded-full bg-green-500" style="width:${progress}%"></span>
                               </div>
                             </div>
+                          </td>
+                          <td class="px-3 py-2 text-sm">${getStartedTaskCount(row)}</td>
+                          <td class="px-3 py-2 text-sm">${row.doneTasks}</td>
+                          <td class="px-3 py-2 text-sm">${getPendingHandoverCount(row)}</td>
+                          <td class="px-3 py-2 text-sm">${getPendingWritebackCount(row)}</td>
+                          <td class="px-3 py-2 text-sm">${getDifferenceCount(row)}</td>
+                          <td class="px-3 py-2 text-sm">${row.handoverObjectionCount}</td>
+                          <td class="px-3 py-2 text-sm">${escapeHtml(getQcStatusLabel(row))}</td>
+                          <td class="px-3 py-2 text-sm">${escapeHtml(getRecheckStatusLabel(row))}</td>
+                          <td class="px-3 py-2">
+                            ${renderBadge(getRiskStatusLabel(row), row.risks.length > 0 ? 'border-red-200 bg-red-100 text-red-700' : 'border-emerald-200 bg-emerald-100 text-emerald-700')}
                           </td>
                           <td class="px-3 py-2">
                             <div class="flex flex-wrap gap-1">
@@ -285,6 +356,8 @@ function renderOrderDrawer(rows: PoViewRow[]): string {
 
   const orderTasks = listBoardTasks().filter((task) => task.productionOrderId === row.orderId)
   const progress = row.totalTasks > 0 ? Math.round((row.doneTasks / row.totalTasks) * 100) : 0
+  const receivingQcLink = getReceivingQcLink(row.orderId)
+  const finalRecheckLink = getFinalRecheckLink(row.orderId)
 
   return `
     <div class="fixed inset-0 z-50">
@@ -339,6 +412,21 @@ function renderOrderDrawer(rows: PoViewRow[]): string {
                 ${row.blockedTasks > 0 ? `<span class="text-red-600">生产暂停 ${row.blockedTasks}</span>` : ''}
                 ${row.unassignedTasks > 0 ? `<span class="text-orange-600">待分配 ${row.unassignedTasks}</span>` : ''}
               </div>
+            </div>
+          </div>
+
+          <div>
+            <p class="text-xs text-muted-foreground">生产进度</p>
+            <div class="mt-1.5 grid grid-cols-3 gap-2 text-sm md:grid-cols-5">
+              ${renderDetailSummaryChip('已开工', String(getStartedTaskCount(row)))}
+              ${renderDetailSummaryChip('已完工', String(row.doneTasks))}
+              ${renderDetailSummaryChip('待交出', String(getPendingHandoverCount(row)))}
+              ${renderDetailSummaryChip('待回写', String(getPendingWritebackCount(row)))}
+              ${renderDetailSummaryChip('差异', String(getDifferenceCount(row)))}
+              ${renderDetailSummaryChip('异议', String(row.handoverObjectionCount))}
+              ${renderDetailSummaryChip('回货质检', getQcStatusLabel(row))}
+              ${renderDetailSummaryChip('后道复检', getRecheckStatusLabel(row))}
+              ${renderDetailSummaryChip('交期风险', getRiskStatusLabel(row))}
             </div>
           </div>
 
@@ -406,6 +494,19 @@ function renderOrderDrawer(rows: PoViewRow[]): string {
           <div>
             <p class="text-xs text-muted-foreground">相关入口</p>
             <div class="mt-2 flex flex-wrap gap-2">
+              <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-nav="${escapeAttr(buildProductionOrderLink(row.orderId))}">
+                <i data-lucide="file-text" class="mr-1.5 h-4 w-4"></i>生产单详情
+              </button>
+              <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-nav="${escapeAttr(buildProductionConfirmationLink(row.orderId))}">
+                <i data-lucide="printer" class="mr-1.5 h-4 w-4"></i>打印预览
+              </button>
+              ${
+                orderTasks[0]
+                  ? `<button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-nav="${escapeAttr(buildTaskDetailLink(orderTasks[0].taskId))}">
+                      <i data-lucide="scan-line" class="mr-1.5 h-4 w-4"></i>任务详情
+                    </button>`
+                  : ''
+              }
               <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="order-view-tasks" data-order-id="${escapeAttr(row.orderId)}">
                 <i data-lucide="clipboard-list" class="mr-1.5 h-4 w-4"></i>查看任务清单
               </button>
@@ -418,10 +519,33 @@ function renderOrderDrawer(rows: PoViewRow[]): string {
               <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="order-action-handover" data-order-id="${escapeAttr(row.orderId)}">
                 <i data-lucide="scan-line" class="mr-1.5 h-4 w-4"></i>交接链路
               </button>
+              ${
+                receivingQcLink
+                  ? `<button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-nav="${escapeAttr(receivingQcLink)}">
+                      <i data-lucide="shield-check" class="mr-1.5 h-4 w-4"></i>质检记录
+                    </button>`
+                  : ''
+              }
+              ${
+                finalRecheckLink
+                  ? `<button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-nav="${escapeAttr(finalRecheckLink)}">
+                      <i data-lucide="clipboard-check" class="mr-1.5 h-4 w-4"></i>复检记录
+                    </button>`
+                  : ''
+              }
             </div>
           </div>
         </div>
       </section>
+    </div>
+  `
+}
+
+function renderDetailSummaryChip(label: string, value: string): string {
+  return `
+    <div class="rounded-md border bg-card px-3 py-2">
+      <div class="text-xs text-muted-foreground">${escapeHtml(label)}</div>
+      <div class="mt-1 text-sm font-medium text-foreground">${escapeHtml(value)}</div>
     </div>
   `
 }

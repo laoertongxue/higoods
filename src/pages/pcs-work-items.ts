@@ -415,7 +415,7 @@ function renderFieldGroups(groups: PcsProjectNodeFieldGroupDefinition[]): string
                                 <p>来源：${escapeHtml(field.sourceKind)} / ${escapeHtml(field.sourceRef)}</p>
                                 <p>业务含义：${escapeHtml(field.meaning)}</p>
                                 <p>业务逻辑：${escapeHtml(field.businessLogic)}</p>
-                                ${field.placeholder ? `<p class="text-xs text-slate-500">占位文本：${escapeHtml(field.placeholder)}</p>` : ''}
+                                ${field.placeholder ? `<p class="text-xs text-slate-500">提示文本：${escapeHtml(field.placeholder)}</p>` : ''}
                                 ${field.conditionalRequired ? `<p class="text-xs text-amber-700">条件必填：${escapeHtml(field.conditionalRequired)}</p>` : ''}
                                 ${
                                   field.options && field.options.length > 0

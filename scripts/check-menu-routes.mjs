@@ -6,7 +6,12 @@ import process from 'node:process'
 
 const repoRoot = process.cwd()
 const appShellConfigPath = path.join(repoRoot, 'src/data/app-shell-config.ts')
-const routesPath = path.join(repoRoot, 'src/router/routes.ts')
+const routeSourcePaths = [
+  path.join(repoRoot, 'src/router/routes.ts'),
+  path.join(repoRoot, 'src/router/routes-fcs.ts'),
+  path.join(repoRoot, 'src/router/routes-pcs.ts'),
+  path.join(repoRoot, 'src/router/routes-pda.ts'),
+]
 
 const DEFAULT_SYSTEMS = ['fcs', 'pcs']
 
@@ -64,11 +69,15 @@ function collectMenuHrefs(configSource, systems) {
   return { hrefs, uniqueHrefs }
 }
 
-function collectExactRouteKeys(routesSource) {
-  const routeBlockMatch = routesSource.match(/const exactRoutes:\s*Record<string,\s*RouteRenderer>\s*=\s*\{([\s\S]*?)\n\}/)
-  const routeBlockSource = routeBlockMatch ? routeBlockMatch[1] : routesSource
-  const routeMatches = [...routeBlockSource.matchAll(/'([^']+)'\s*:\s*\(\)\s*=>/g)]
-  return new Set(routeMatches.map((match) => match[1]))
+function collectRegisteredMenuPaths(routeSources) {
+  const directMatches = routeSources.flatMap((source) => [...source.matchAll(/'([^']+)'\s*:\s*\(\)\s*=>/g)])
+  const exactRouteBlockMatches = routeSources.flatMap((source) => {
+    const blockMatch = source.match(/exactRoutes:\s*\{([\s\S]*?)\}\s*,\s*dynamicRoutes:/)
+    if (!blockMatch) return []
+    return [...blockMatch[1].matchAll(/'([^']+)'\s*:/g)]
+  })
+
+  return new Set([...directMatches, ...exactRouteBlockMatches].map((match) => match[1]))
 }
 
 function formatList(lines) {
@@ -79,13 +88,15 @@ function formatList(lines) {
 function main() {
   const options = parseArgs(process.argv.slice(2))
   const configSource = readFile(appShellConfigPath)
-  const routesSource = readFile(routesPath)
+  const routeSources = routeSourcePaths
+    .filter((filePath) => fs.existsSync(filePath))
+    .map((filePath) => readFile(filePath))
 
   const { hrefs, uniqueHrefs } = collectMenuHrefs(configSource, options.systems)
-  const exactRouteKeys = collectExactRouteKeys(routesSource)
+  const registeredMenuPaths = collectRegisteredMenuPaths(routeSources)
 
   const duplicates = [...new Set(hrefs.filter((href, index) => hrefs.indexOf(href) !== index))].sort()
-  const uncovered = uniqueHrefs.filter((href) => !exactRouteKeys.has(href)).sort()
+  const uncovered = uniqueHrefs.filter((href) => !registeredMenuPaths.has(href)).sort()
 
   const systemLabel = options.systems.length === 0 ? 'ALL' : options.systems.join(', ')
 
@@ -102,7 +113,7 @@ function main() {
   }
 
   if (uncovered.length > 0) {
-    console.log('\n[菜单存在但无 exact route 的 href]')
+    console.log('\n[菜单存在但无精确路由的 href]')
     console.log(formatList(uncovered))
     process.exit(1)
   }

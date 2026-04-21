@@ -32,6 +32,7 @@ import {
   TASK_TYPE_MODE_LABEL,
   getProcessCraftByCode,
   getProcessDefinitionByCode,
+  listAllProcessCraftDefinitions,
   listProcessCraftDefinitions,
   listProcessDefinitions,
   listProcessesByStageCode,
@@ -1671,7 +1672,7 @@ function buildTechniquesFromTechPack(
 
   return syncBomDrivenPrepTechniques(
     techPack.processes.map((item, index) => {
-      const craft = listProcessCraftDefinitions().find((craftItem) => craftItem.craftName === item.name)
+      const craft = listAllProcessCraftDefinitions().find((craftItem) => craftItem.craftName === item.name)
       if (craft) {
         const processDef = getProcessDefinitionByCode(craft.processCode)
         const referenceMeta = getTechniqueReferenceMetaByCraftCode(craft.craftCode)

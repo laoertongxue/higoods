@@ -15,6 +15,16 @@ function read(rel: string): string {
   return fs.readFileSync(abs(rel), 'utf8')
 }
 
+function readRouteSources(): string {
+  return [
+    'src/router/routes.ts',
+    'src/router/routes-fcs.ts',
+    'src/router/routes-pda.ts',
+  ]
+    .map((file) => read(file))
+    .join('\n')
+}
+
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
 }
@@ -108,7 +118,7 @@ function assertLegacySourcesRetired(): void {
 function assertSpreadingAndPdaFormalCutover(): void {
   const appShell = read('src/data/app-shell-config.ts')
   const meta = read('src/pages/process-factory/cutting/meta.ts')
-  const routes = read('src/router/routes.ts')
+  const routes = readRouteSources()
   const pdaSource = read('src/data/fcs/pda-cutting-execution-source.ts')
   const pdaTaskHelpers = read('src/pages/pda-cutting-task-detail-helpers.ts')
 
@@ -117,8 +127,8 @@ function assertSpreadingAndPdaFormalCutover(): void {
   assert(appShell.includes("title: '裁后处理'"), 'app-shell-config.ts 缺少裁后处理组')
   assert(meta.includes("canonicalPath: '/fcs/craft/cutting/spreading-list'"), 'meta.ts 缺少 canonical spreading-list')
   assert(meta.includes("canonicalPath: '/fcs/craft/cutting/spreading-create'"), 'meta.ts 缺少 canonical spreading-create')
-  assert(routes.includes("'/fcs/craft/cutting/spreading-list': () => renderCraftCuttingSpreadingListPage()"), 'routes.ts 未接 canonical spreading-list renderer')
-  assert(routes.includes("'/fcs/craft/cutting/spreading-create': () => renderCraftCuttingSpreadingCreatePage()"), 'routes.ts 未接 canonical spreading-create renderer')
+  assert(routes.includes("'/fcs/craft/cutting/spreading-list': () => renderCraftCuttingSpreadingListPage()"), '路由文件未接 canonical spreading-list renderer')
+  assert(routes.includes("'/fcs/craft/cutting/spreading-create': () => renderCraftCuttingSpreadingCreatePage()"), '路由文件未接 canonical spreading-create renderer')
   assert(!pdaSource.includes("targetType: 'context'"), 'pda-cutting-execution-source.ts 不应残留 context 型铺布目标')
   assert(pdaSource.includes('primaryExecutionRouteKey'), 'pda-cutting-execution-source.ts 缺少 primaryExecutionRouteKey')
   assert(pdaSource.includes('FOLD_NORMAL') && pdaSource.includes('FOLD_HIGH_LOW'), 'pda-cutting-execution-source.ts 缺少 4 模式铺布 token')
@@ -196,12 +206,10 @@ function main(): void {
     '印花补料',
     '染色补料',
     '净色补料',
-    '印花面料',
-    '染色面料',
     '净色面料',
     '可能影响印花',
     '可能影响染色',
-    '裁剪批次摘要',
+    '裁剪批次概览',
     '来源裁剪批次',
     'allocationStatus ≠ balanced',
     'layoutStatus ≠ done',

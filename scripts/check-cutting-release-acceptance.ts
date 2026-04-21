@@ -110,7 +110,7 @@ function assertCopyCleanupSpec(): void {
     'ROLL',
     'LAYER',
     '创建裁剪批次',
-    '裁剪批次摘要',
+    '裁剪批次概览',
     '来源裁剪批次',
   ].forEach((token) => {
     assert(source.includes(token), `${copyCleanupSpecRel} 缺少中文文案 / 工程词清场覆盖点：${token}`)

@@ -29,13 +29,24 @@ export interface FeiTicketQrPayload extends CuttingQrPayloadBase<'FEI_TICKET'> {
   originalCutOrderNo: string
   productionOrderId: string
   productionOrderNo: string
+  sourceOutputLineId: string
+  fabricRollId: string
+  fabricRollNo: string
+  fabricColor: string
   materialSku: string
+  garmentSkuId: string
+  garmentColor: string
   pieceScope: string[]
   pieceGroup: string
   bundleScope: string
   skuColor: string
   skuSize: string
+  partCode: string
   partName: string
+  bundleNo: string
+  bundleQty: number
+  actualCutPieceQty: number
+  assemblyGroupKey: string
   qty: number
   secondaryCrafts: string[]
   craftSequenceVersion: string
@@ -111,13 +122,24 @@ export function buildFeiTicketQrPayload(input: {
   originalCutOrderNo: string
   productionOrderId: string
   productionOrderNo: string
+  sourceOutputLineId: string
+  fabricRollId: string
+  fabricRollNo: string
+  fabricColor: string
   materialSku: string
+  garmentSkuId: string
+  garmentColor: string
   pieceScope: string[]
   pieceGroup: string
   bundleScope: string
   skuColor: string
   skuSize: string
+  partCode: string
   partName: string
+  bundleNo: string
+  bundleQty: number
+  actualCutPieceQty: number
+  assemblyGroupKey: string
   qty: number
   secondaryCrafts: string[]
   craftSequenceVersion: string
@@ -134,13 +156,24 @@ export function buildFeiTicketQrPayload(input: {
     originalCutOrderNo: input.originalCutOrderNo,
     productionOrderId: input.productionOrderId,
     productionOrderNo: input.productionOrderNo,
+    sourceOutputLineId: input.sourceOutputLineId,
+    fabricRollId: input.fabricRollId,
+    fabricRollNo: input.fabricRollNo,
+    fabricColor: input.fabricColor,
     materialSku: input.materialSku,
+    garmentSkuId: input.garmentSkuId,
+    garmentColor: input.garmentColor,
     pieceScope: [...input.pieceScope],
     pieceGroup: input.pieceGroup,
     bundleScope: input.bundleScope,
     skuColor: input.skuColor,
     skuSize: input.skuSize,
+    partCode: input.partCode,
     partName: input.partName,
+    bundleNo: input.bundleNo,
+    bundleQty: Math.max(input.bundleQty, 0),
+    actualCutPieceQty: Math.max(input.actualCutPieceQty, 0),
+    assemblyGroupKey: input.assemblyGroupKey,
     qty: Math.max(input.qty, 0),
     secondaryCrafts: [...input.secondaryCrafts],
     craftSequenceVersion: input.craftSequenceVersion,

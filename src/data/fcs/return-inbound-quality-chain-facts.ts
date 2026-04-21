@@ -5,6 +5,10 @@ import type {
   DeductionBasisStatus,
   DefectItem,
   DeductionDecision,
+  InspectionMethod,
+  InspectionNextAction,
+  InspectionScene,
+  InspectionType,
   LiabilityStatus,
   QcDisposition,
   QcStatus,
@@ -17,6 +21,10 @@ import type {
   SettlementPartyType,
   SewPostProcessMode,
 } from './store-domain-quality-types.ts'
+import {
+  getPostProcessRouteByProductionOrderId,
+  type PostExecutionMode,
+} from './post-process-route.ts'
 
 export type QualityDisputeStatus = 'OPEN' | 'REJECTED' | 'ADJUSTED' | 'ARCHIVED'
 export type SettlementImpactStatus =
@@ -63,6 +71,10 @@ export interface ReturnInboundQcChainScenario {
   returnFactoryName: string
   warehouseId: string
   warehouseName: string
+  managedPostFactoryId?: string
+  managedPostFactoryName?: string
+  finishedWarehouseId?: string
+  finishedWarehouseName?: string
   inboundAt: string
   inboundBy: string
   qcPolicy: ReturnInboundQcPolicy
@@ -93,6 +105,20 @@ export interface ReturnInboundQcChainScenario {
   dispositionRemark?: string
   settlementFreezeReason?: string
   sewPostProcessMode?: SewPostProcessMode
+  postExecutionMode?: PostExecutionMode
+  handoverOrderId?: string
+  handoverRecordIds?: string[]
+  receiverKind?: 'WAREHOUSE' | 'MANAGED_POST_FACTORY'
+  receiverId?: string
+  receiverName?: string
+  declaredQty?: number
+  receivedQty?: number
+  inspectionScene?: InspectionScene
+  inspectionType?: InspectionType
+  inspectionMethod?: InspectionMethod
+  samplingQty?: number
+  samplingRatio?: number
+  nextAction?: InspectionNextAction
   writeback?: {
     availableQty?: number
     acceptedAsDefectQty?: number
@@ -131,8 +157,94 @@ const PROCESS_LABEL: Record<ReturnInboundProcessType, string> = {
 }
 
 const SEW_MODE_LABEL: Record<SewPostProcessMode, string> = {
-  SEW_WITH_POST: '车缝（含后道）',
-  SEW_WITHOUT_POST_WAREHOUSE_INTEGRATED: '车缝（后道仓一体）',
+  SEW_FACTORY_INCLUDES_POST: '车缝厂含后道',
+  MANAGED_POST_FACTORY_EXECUTES: '我方后道工厂执行后道',
+}
+
+function resolveScenarioRoute(scenario: ReturnInboundQcChainScenario) {
+  return getPostProcessRouteByProductionOrderId(scenario.productionOrderId)
+}
+
+function resolveScenarioPostExecutionMode(scenario: ReturnInboundQcChainScenario): PostExecutionMode | undefined {
+  return scenario.postExecutionMode ?? scenario.sewPostProcessMode ?? resolveScenarioRoute(scenario)?.postExecutionMode
+}
+
+function resolveScenarioReceiver(scenario: ReturnInboundQcChainScenario) {
+  if (scenario.processType === 'SEW') {
+    const route = resolveScenarioRoute(scenario)
+    return {
+      receiverKind: scenario.receiverKind ?? 'MANAGED_POST_FACTORY',
+      receiverId: scenario.receiverId ?? route?.managedPostFactoryId ?? 'POST-FACTORY-OWN',
+      receiverName: scenario.receiverName ?? route?.managedPostFactoryName ?? '我方后道工厂',
+      warehouseId: route?.managedPostFactoryId ?? scenario.warehouseId,
+      warehouseName: route?.managedPostFactoryName ?? scenario.warehouseName,
+      managedPostFactoryId: route?.managedPostFactoryId ?? scenario.managedPostFactoryId ?? 'POST-FACTORY-OWN',
+      managedPostFactoryName: route?.managedPostFactoryName ?? scenario.managedPostFactoryName ?? '我方后道工厂',
+      finishedWarehouseId: route?.finishedWarehouseId ?? scenario.finishedWarehouseId ?? 'WH-GARMENT-HANDOFF',
+      finishedWarehouseName: route?.finishedWarehouseName ?? scenario.finishedWarehouseName ?? '成衣仓交接点',
+    }
+  }
+
+  return {
+    receiverKind: scenario.receiverKind ?? 'WAREHOUSE',
+    receiverId: scenario.receiverId ?? scenario.warehouseId,
+    receiverName: scenario.receiverName ?? scenario.warehouseName,
+    warehouseId: scenario.warehouseId,
+    warehouseName: scenario.warehouseName,
+    managedPostFactoryId: scenario.managedPostFactoryId,
+    managedPostFactoryName: scenario.managedPostFactoryName,
+    finishedWarehouseId: scenario.finishedWarehouseId,
+    finishedWarehouseName: scenario.finishedWarehouseName,
+  }
+}
+
+function resolveScenarioReceivedQty(scenario: ReturnInboundQcChainScenario): number {
+  if (typeof scenario.receivedQty === 'number') return scenario.receivedQty
+  if (typeof scenario.writeback?.availableQty === 'number' || typeof scenario.writeback?.acceptedAsDefectQty === 'number' || typeof scenario.writeback?.scrapQty === 'number') {
+    return (scenario.writeback?.availableQty ?? 0) + (scenario.writeback?.acceptedAsDefectQty ?? 0) + (scenario.writeback?.scrapQty ?? 0)
+  }
+  return scenario.returnedQty
+}
+
+function resolveScenarioDeclaredQty(scenario: ReturnInboundQcChainScenario): number {
+  return scenario.declaredQty ?? scenario.returnedQty
+}
+
+function resolveScenarioInspectionScene(scenario: ReturnInboundQcChainScenario): InspectionScene {
+  if (scenario.inspectionScene) return scenario.inspectionScene
+  if (scenario.processType === 'SEW') return 'SEW_RETURN_RECEIVING_QC'
+  if (scenario.processType === 'PRINT') return 'PRINT_RECEIVING_QC'
+  if (scenario.processType === 'DYE' || scenario.processType === 'DYE_PRINT') return 'DYE_RECEIVING_QC'
+  if (scenario.processType === 'CUT_PANEL') return 'CUT_PIECE_RECEIVING_QC'
+  return 'SEW_RETURN_RECEIVING_QC'
+}
+
+function resolveScenarioInspectionMethod(scenario: ReturnInboundQcChainScenario): InspectionMethod {
+  if (scenario.inspectionMethod) return scenario.inspectionMethod
+  if (scenario.processType === 'SEW') {
+    return scenario.result === 'PASS' ? 'FULL_INSPECTION' : 'SAMPLING'
+  }
+  if (scenario.processType === 'PRINT' || scenario.processType === 'DYE' || scenario.processType === 'DYE_PRINT') {
+    return 'SAMPLING'
+  }
+  return 'FULL_INSPECTION'
+}
+
+function resolveScenarioNextAction(scenario: ReturnInboundQcChainScenario): InspectionNextAction {
+  if (scenario.nextAction) return scenario.nextAction
+  if (scenario.result !== 'PASS') return 'WAIT_EXCEPTION_HANDLE'
+  const route = resolveScenarioRoute(scenario)
+  if (scenario.processType !== 'SEW') return 'HANDOVER_FINISHED_WAREHOUSE'
+  if (route?.requiresPostExecution) return 'ENTER_POST_PROCESS'
+  return 'ENTER_FINAL_RECHECK'
+}
+
+function resolveScenarioHandoverOrderId(scenario: ReturnInboundQcChainScenario): string {
+  return scenario.handoverOrderId ?? `HORD-${scenario.taskId}`
+}
+
+function resolveScenarioHandoverRecordIds(scenario: ReturnInboundQcChainScenario): string[] {
+  return scenario.handoverRecordIds?.length ? [...scenario.handoverRecordIds] : [`HREC-${scenario.batchId}-01`]
 }
 
 function createQcAuditLogs(scenario: ReturnInboundQcChainScenario) {
@@ -189,7 +301,18 @@ function resolveBatchStatus(scenario: ReturnInboundQcChainScenario): ReturnInbou
 }
 
 function createInspection(scenario: ReturnInboundQcChainScenario): QualityInspection {
-  const inspectedQty = scenario.inspectedQty ?? scenario.returnedQty
+  const receiver = resolveScenarioReceiver(scenario)
+  const route = resolveScenarioRoute(scenario)
+  const declaredQty = resolveScenarioDeclaredQty(scenario)
+  const receivedQty = resolveScenarioReceivedQty(scenario)
+  const inspectionMethod = resolveScenarioInspectionMethod(scenario)
+  const inspectedQty =
+    scenario.inspectedQty ??
+    (inspectionMethod === 'FULL_INSPECTION'
+      ? receivedQty
+      : inspectionMethod === 'SAMPLING'
+        ? scenario.samplingQty ?? Math.max(1, Math.round(receivedQty * 0.2))
+        : receivedQty)
   const unqualifiedQty =
     scenario.unqualifiedQty ??
     (scenario.result === 'PASS'
@@ -240,20 +363,61 @@ function createInspection(scenario: ReturnInboundQcChainScenario): QualityInspec
     arbitrationRemark: scenario.basis?.arbitrationRemark,
     arbitratedAt: scenario.dispute?.resolvedAt,
     arbitratedBy: scenario.dispute?.resolvedBy,
-    inspectionScene: 'RETURN_INBOUND',
+    inspectionScene: resolveScenarioInspectionScene(scenario),
+    inspectionType: scenario.inspectionType ?? 'QC',
+    inspectionMethod,
+    inspectionResult:
+      scenario.result === 'PASS'
+        ? 'PASS'
+        : qualifiedQty > 0
+          ? 'PARTIAL_PASS'
+          : 'FAIL',
+    sourceType: 'HANDOVER_RECORD',
+    sourceId: resolveScenarioHandoverRecordIds(scenario)[0],
     returnBatchId: scenario.batchId,
     returnProcessType: scenario.processType,
     sourceProcessType: scenario.processType,
     qcPolicy: scenario.qcPolicy,
     returnFactoryId: scenario.returnFactoryId,
     returnFactoryName: scenario.returnFactoryName,
-    warehouseId: scenario.warehouseId,
-    warehouseName: scenario.warehouseName,
+    warehouseId: receiver.warehouseId,
+    warehouseName: receiver.warehouseName,
+    managedPostFactoryId: receiver.managedPostFactoryId,
+    managedPostFactoryName: receiver.managedPostFactoryName,
+    finishedWarehouseId: receiver.finishedWarehouseId,
+    finishedWarehouseName: receiver.finishedWarehouseName,
     sourceBusinessType: scenario.sourceBusinessType,
     sourceBusinessId: scenario.sourceBusinessId,
     sourceOrderId: scenario.sourceOrderId,
     sourceReturnId: scenario.batchId,
-    sewPostProcessMode: scenario.sewPostProcessMode,
+    sewPostProcessMode: resolveScenarioPostExecutionMode(scenario),
+    postExecutionMode: resolveScenarioPostExecutionMode(scenario),
+    postRouteId: route?.postRouteId,
+    postRouteCurrentNode: route?.currentNode,
+    requiresReceivingQc: route?.requiresReceivingQc ?? (scenario.processType === 'SEW'),
+    requiresPostExecution: route?.requiresPostExecution ?? false,
+    requiresFinalRecheck: route?.requiresFinalRecheck ?? (scenario.processType === 'SEW'),
+    handoverOrderId: resolveScenarioHandoverOrderId(scenario),
+    handoverRecordIds: resolveScenarioHandoverRecordIds(scenario),
+    receiverKind: receiver.receiverKind,
+    receiverId: receiver.receiverId,
+    receiverName: receiver.receiverName,
+    declaredQty,
+    receivedQty,
+    samplingQty:
+      inspectionMethod === 'SAMPLING'
+        ? scenario.samplingQty ?? Math.max(1, Math.round(receivedQty * 0.2))
+        : undefined,
+    samplingRatio: inspectionMethod === 'SAMPLING' ? scenario.samplingRatio ?? 0.2 : undefined,
+    shortQty: receivedQty < declaredQty ? declaredQty - receivedQty : 0,
+    overQty: receivedQty > declaredQty ? receivedQty - declaredQty : 0,
+    nextAction: resolveScenarioNextAction(scenario),
+    finishedAt: scenario.inspectedAt,
+    evidenceFiles: (scenario.basis?.evidenceRefs ?? []).map((item) => ({
+      name: item.name,
+      url: item.url,
+      type: item.type,
+    })),
     writebackAvailableQty: scenario.writeback?.availableQty,
     writebackAcceptedAsDefectQty: scenario.writeback?.acceptedAsDefectQty,
     writebackScrapQty: scenario.writeback?.scrapQty,
@@ -273,20 +437,27 @@ function createInspection(scenario: ReturnInboundQcChainScenario): QualityInspec
 }
 
 function createBatch(scenario: ReturnInboundQcChainScenario): ReturnInboundBatch {
+  const receiver = resolveScenarioReceiver(scenario)
+  const route = resolveScenarioRoute(scenario)
+  const postExecutionMode = resolveScenarioPostExecutionMode(scenario)
   return {
     batchId: scenario.batchId,
     productionOrderId: scenario.productionOrderId,
     sourceTaskId: scenario.taskId,
     processType: scenario.processType,
     processLabel:
-      scenario.processType === 'SEW' && scenario.sewPostProcessMode
-        ? SEW_MODE_LABEL[scenario.sewPostProcessMode]
+      scenario.processType === 'SEW' && postExecutionMode
+        ? SEW_MODE_LABEL[postExecutionMode]
         : PROCESS_LABEL[scenario.processType],
     returnedQty: scenario.returnedQty,
     returnFactoryId: scenario.returnFactoryId,
     returnFactoryName: scenario.returnFactoryName,
-    warehouseId: scenario.warehouseId,
-    warehouseName: scenario.warehouseName,
+    warehouseId: receiver.warehouseId,
+    warehouseName: receiver.warehouseName,
+    managedPostFactoryId: receiver.managedPostFactoryId,
+    managedPostFactoryName: receiver.managedPostFactoryName,
+    finishedWarehouseId: receiver.finishedWarehouseId,
+    finishedWarehouseName: receiver.finishedWarehouseName,
     inboundAt: scenario.inboundAt,
     inboundBy: scenario.inboundBy,
     qcPolicy: scenario.qcPolicy,
@@ -294,7 +465,21 @@ function createBatch(scenario: ReturnInboundQcChainScenario): ReturnInboundBatch
     linkedQcId: scenario.qcId,
     sourceType: scenario.sourceBusinessType,
     sourceId: scenario.sourceBusinessId,
-    sewPostProcessMode: scenario.sewPostProcessMode,
+    sewPostProcessMode: postExecutionMode,
+    postExecutionMode,
+    postRouteId: route?.postRouteId,
+    postRouteCurrentNode: route?.currentNode,
+    requiresReceivingQc: route?.requiresReceivingQc ?? (scenario.processType === 'SEW'),
+    requiresPostExecution: route?.requiresPostExecution ?? false,
+    requiresFinalRecheck: route?.requiresFinalRecheck ?? (scenario.processType === 'SEW'),
+    handoverOrderId: resolveScenarioHandoverOrderId(scenario),
+    handoverRecordIds: resolveScenarioHandoverRecordIds(scenario),
+    receiverKind: receiver.receiverKind,
+    receiverId: receiver.receiverId,
+    receiverName: receiver.receiverName,
+    submittedQty: resolveScenarioDeclaredQty(scenario),
+    receiverWrittenQty: resolveScenarioReceivedQty(scenario),
+    receiverWrittenAt: scenario.writeback?.completedAt,
     createdAt: scenario.inboundAt,
     createdBy: scenario.inboundBy,
     updatedAt: scenario.writeback?.completedAt ?? scenario.liabilityDecidedAt ?? scenario.inspectedAt,
@@ -443,11 +628,11 @@ const LEGACY_RETURN_INBOUND_QC_CHAIN_SCENARIOS: ReturnInboundQcChainScenario[] =
     responsiblePartyName: 'PT Sinar Garment Indonesia',
     deductionDecision: 'DEDUCT',
     deductionAmount: 1260,
-    deductionDecisionRemark: '仓库质检已生成扣款依据，工厂申诉中，先冻结对应结算。',
+    deductionDecisionRemark: '回货质检已生成扣款依据，工厂申诉中，先冻结对应结算。',
     liabilityDecidedAt: '2026-03-08 16:11:00',
     liabilityDecidedBy: '质检主管',
     dispositionRemark: '先接受瑕疵品，等待争议结果再决定是否调整金额',
-    sewPostProcessMode: 'SEW_WITH_POST',
+    sewPostProcessMode: 'SEW_FACTORY_INCLUDES_POST',
     basis: {
       basisId: 'DBI-RIB-202603-0002',
       sourceType: 'QC_DEFECT_ACCEPT',
@@ -459,7 +644,7 @@ const LEGACY_RETURN_INBOUND_QC_CHAIN_SCENARIOS: ReturnInboundQcChainScenario[] =
       deductionAmountEditable: false,
       summary: '车缝回货入仓不合格，已生成扣款依据并进入争议',
       evidenceRefs: [
-        { name: '仓库开箱照片 12 张', type: '图片' },
+        { name: '接收开箱照片 12 张', type: '图片' },
         { name: '跳针视频记录 1 个', type: '视频' },
         { name: '质检判责纪要', type: '文档' },
       ],
@@ -521,7 +706,7 @@ const LEGACY_RETURN_INBOUND_QC_CHAIN_SCENARIOS: ReturnInboundQcChainScenario[] =
     liabilityDecidedAt: '2026-03-09 11:22:00',
     liabilityDecidedBy: '质检主管',
     dispositionRemark: '瑕疵接收后用于次级订单',
-    sewPostProcessMode: 'SEW_WITHOUT_POST_WAREHOUSE_INTEGRATED',
+    sewPostProcessMode: 'MANAGED_POST_FACTORY_EXECUTES',
     writeback: {
       availableQty: 612,
       acceptedAsDefectQty: 28,
@@ -580,7 +765,7 @@ const LEGACY_RETURN_INBOUND_QC_CHAIN_SCENARIOS: ReturnInboundQcChainScenario[] =
     liabilityStatus: 'DRAFT',
     sourceBusinessType: 'TASK',
     sourceBusinessId: 'TASK-RIB-202603-0004',
-    sewPostProcessMode: 'SEW_WITH_POST',
+    sewPostProcessMode: 'SEW_FACTORY_INCLUDES_POST',
     writeback: {
       availableQty: 900,
       completedAt: '2026-03-10 09:45:00',
@@ -631,7 +816,7 @@ const LEGACY_RETURN_INBOUND_QC_CHAIN_SCENARIOS: ReturnInboundQcChainScenario[] =
     liabilityDecidedAt: '2026-03-11 09:02:00',
     liabilityDecidedBy: '平台质检经理',
     dispositionRemark: '瑕疵品留作尾货销售',
-    sewPostProcessMode: 'SEW_WITH_POST',
+    sewPostProcessMode: 'SEW_FACTORY_INCLUDES_POST',
     writeback: {
       availableQty: 689,
       acceptedAsDefectQty: 31,
@@ -651,7 +836,7 @@ const LEGACY_RETURN_INBOUND_QC_CHAIN_SCENARIOS: ReturnInboundQcChainScenario[] =
       summary: '车缝回货已判责，扣款依据已生成，当前仍有部分冻结',
       evidenceRefs: [
         { name: '领口扭曲照片 6 张', type: '图片' },
-        { name: '仓库质检复核表', type: '文档' },
+        { name: '回货质检复核表', type: '文档' },
       ],
       createdAt: '2026-03-11 09:03:00',
       updatedAt: '2026-03-11 10:00:00',
@@ -700,7 +885,7 @@ const LEGACY_RETURN_INBOUND_QC_CHAIN_SCENARIOS: ReturnInboundQcChainScenario[] =
     liabilityDecidedAt: '2026-03-11 14:36:00',
     liabilityDecidedBy: '质检主管',
     dispositionRemark: '先接受瑕疵品，仲裁后决定是否继续扣款',
-    sewPostProcessMode: 'SEW_WITH_POST',
+    sewPostProcessMode: 'SEW_FACTORY_INCLUDES_POST',
     basis: {
       basisId: 'DBI-015',
       sourceType: 'QC_FAIL',
@@ -851,7 +1036,7 @@ const LEGACY_RETURN_INBOUND_QC_CHAIN_SCENARIOS: ReturnInboundQcChainScenario[] =
     liabilityDecidedAt: '2026-03-12 16:00:00',
     liabilityDecidedBy: '平台质检经理',
     dispositionRemark: '瑕疵品已转次品订单',
-    sewPostProcessMode: 'SEW_WITHOUT_POST_WAREHOUSE_INTEGRATED',
+    sewPostProcessMode: 'MANAGED_POST_FACTORY_EXECUTES',
     writeback: {
       availableQty: 634,
       acceptedAsDefectQty: 26,
@@ -919,6 +1104,9 @@ const LEGACY_RETURN_INBOUND_QC_CHAIN_SCENARIOS: ReturnInboundQcChainScenario[] =
     inspector: '质检员B',
     inspectedAt: '2026-03-13 09:20:00',
     result: 'FAIL',
+    inspectionMethod: 'SAMPLING',
+    samplingQty: 56,
+    samplingRatio: 0.112,
     inspectedQty: 56,
     qualifiedQty: 0,
     unqualifiedQty: 56,
@@ -1308,7 +1496,7 @@ const LEGACY_RETURN_INBOUND_QC_CHAIN_SCENARIOS: ReturnInboundQcChainScenario[] =
     liabilityDecidedAt: '2026-03-16 09:30:00',
     liabilityDecidedBy: '平台质检经理',
     dispositionRemark: '次品入二级库存',
-    sewPostProcessMode: 'SEW_WITH_POST',
+    sewPostProcessMode: 'SEW_FACTORY_INCLUDES_POST',
     writeback: {
       availableQty: 856,
       acceptedAsDefectQty: 24,
@@ -1345,11 +1533,128 @@ const LEGACY_RETURN_INBOUND_QC_CHAIN_SCENARIOS: ReturnInboundQcChainScenario[] =
   },
 ]
 
-export const RETURN_INBOUND_QC_CHAIN_SCENARIOS: ReturnInboundQcChainScenario[] = [
-  ...LEGACY_RETURN_INBOUND_QC_CHAIN_SCENARIOS,
+export const RETURN_INBOUND_QC_CHAIN_SCENARIOS: ReturnInboundQcChainScenario[] = [...LEGACY_RETURN_INBOUND_QC_CHAIN_SCENARIOS]
+
+const POST_FINAL_RECHECK_SEEDS: QualityInspection[] = [
+  {
+    qcId: 'QC-RECHECK-202603-0002',
+    refType: 'HANDOVER',
+    refId: 'HORD-TASK-RIB-202603-0002',
+    refTaskId: 'TASK-RIB-202603-0002',
+    productionOrderId: 'PO-202603-0002',
+    inspector: '后道复检员A',
+    inspectedAt: '2026-03-08 19:20:00',
+    finishedAt: '2026-03-08 19:20:00',
+    result: 'PASS',
+    inspectedQty: 860,
+    qualifiedQty: 860,
+    unqualifiedQty: 0,
+    defectItems: [],
+    remark: '复检按数量复核通过，可待交成衣仓。',
+    status: 'CLOSED',
+    rootCauseType: 'UNKNOWN',
+    liabilityStatus: 'DRAFT',
+    inspectionScene: 'POST_FINAL_RECHECK',
+    inspectionType: 'RECHECK',
+    inspectionMethod: 'COUNT_ONLY',
+    inspectionResult: 'PASS',
+    sourceType: 'HANDOVER_ORDER',
+    sourceId: 'HORD-TASK-RIB-202603-0002',
+    handoverOrderId: 'HORD-TASK-RIB-202603-0002',
+    handoverRecordIds: ['HREC-RIB-202603-0002-01'],
+    returnProcessType: 'SEW',
+    sourceProcessType: 'SEW',
+    qcPolicy: 'REQUIRED',
+    returnFactoryId: 'ID-F001',
+    returnFactoryName: 'PT Sinar Garment Indonesia',
+    warehouseId: 'POST-FACTORY-OWN',
+    warehouseName: '我方后道工厂',
+    managedPostFactoryId: 'POST-FACTORY-OWN',
+    managedPostFactoryName: '我方后道工厂',
+    finishedWarehouseId: 'WH-GARMENT-HANDOFF',
+    finishedWarehouseName: '成衣仓交接点',
+    sourceBusinessType: 'TASK',
+    sourceBusinessId: 'TASK-RIB-202603-0002',
+    sewPostProcessMode: 'SEW_FACTORY_INCLUDES_POST',
+    postExecutionMode: 'SEW_FACTORY_INCLUDES_POST',
+    postRouteId: 'POST-ROUTE-202603-0002',
+    postRouteCurrentNode: 'WAIT_WAREHOUSE_HANDOVER',
+    requiresReceivingQc: true,
+    requiresPostExecution: false,
+    requiresFinalRecheck: true,
+    receiverKind: 'MANAGED_POST_FACTORY',
+    receiverId: 'POST-FACTORY-OWN',
+    receiverName: '我方后道工厂',
+    declaredQty: 860,
+    receivedQty: 860,
+    nextAction: 'HANDOVER_FINISHED_WAREHOUSE',
+    auditLogs: [],
+    createdAt: '2026-03-08 19:00:00',
+    updatedAt: '2026-03-08 19:20:00',
+  },
+  {
+    qcId: 'QC-RECHECK-202603-0003',
+    refType: 'HANDOVER',
+    refId: 'HORD-TASK-RIB-202603-0003',
+    refTaskId: 'TASK-RIB-202603-0003',
+    productionOrderId: 'PO-202603-0003',
+    inspector: '后道复检员B',
+    inspectedAt: '2026-03-09 16:10:00',
+    finishedAt: '2026-03-09 16:10:00',
+    result: 'PASS',
+    inspectedQty: 612,
+    qualifiedQty: 612,
+    unqualifiedQty: 0,
+    defectItems: [],
+    remark: '后道完成后按数量复核通过，可待交成衣仓。',
+    status: 'CLOSED',
+    rootCauseType: 'UNKNOWN',
+    liabilityStatus: 'DRAFT',
+    inspectionScene: 'POST_FINAL_RECHECK',
+    inspectionType: 'RECHECK',
+    inspectionMethod: 'COUNT_ONLY',
+    inspectionResult: 'PASS',
+    sourceType: 'HANDOVER_ORDER',
+    sourceId: 'HORD-TASK-RIB-202603-0003',
+    handoverOrderId: 'HORD-TASK-RIB-202603-0003',
+    handoverRecordIds: ['HREC-RIB-202603-0003-01'],
+    returnProcessType: 'SEW',
+    sourceProcessType: 'SEW',
+    qcPolicy: 'REQUIRED',
+    returnFactoryId: 'ID-F004',
+    returnFactoryName: 'PT Mulia Cutting Center',
+    warehouseId: 'POST-FACTORY-OWN',
+    warehouseName: '我方后道工厂',
+    managedPostFactoryId: 'POST-FACTORY-OWN',
+    managedPostFactoryName: '我方后道工厂',
+    finishedWarehouseId: 'WH-GARMENT-HANDOFF',
+    finishedWarehouseName: '成衣仓交接点',
+    sourceBusinessType: 'TASK',
+    sourceBusinessId: 'TASK-RIB-202603-0003',
+    sewPostProcessMode: 'MANAGED_POST_FACTORY_EXECUTES',
+    postExecutionMode: 'MANAGED_POST_FACTORY_EXECUTES',
+    postRouteId: 'POST-ROUTE-202603-0003',
+    postRouteCurrentNode: 'WAIT_WAREHOUSE_HANDOVER',
+    requiresReceivingQc: true,
+    requiresPostExecution: true,
+    requiresFinalRecheck: true,
+    receiverKind: 'MANAGED_POST_FACTORY',
+    receiverId: 'POST-FACTORY-OWN',
+    receiverName: '我方后道工厂',
+    declaredQty: 640,
+    receivedQty: 612,
+    shortQty: 28,
+    nextAction: 'HANDOVER_FINISHED_WAREHOUSE',
+    auditLogs: [],
+    createdAt: '2026-03-09 15:50:00',
+    updatedAt: '2026-03-09 16:10:00',
+  },
 ]
 
-export const returnInboundChainQualityInspections: QualityInspection[] = RETURN_INBOUND_QC_CHAIN_SCENARIOS.map(createInspection)
+export const returnInboundChainQualityInspections: QualityInspection[] = [
+  ...RETURN_INBOUND_QC_CHAIN_SCENARIOS.map(createInspection),
+  ...POST_FINAL_RECHECK_SEEDS,
+]
 
 export const returnInboundChainBatches: ReturnInboundBatch[] = RETURN_INBOUND_QC_CHAIN_SCENARIOS.map(createBatch)
 

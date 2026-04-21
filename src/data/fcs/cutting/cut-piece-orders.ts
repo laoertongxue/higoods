@@ -463,7 +463,7 @@ const rawCutPieceOrderRecords: CutPieceOrderSeed[] = [
         enteredBy: '郑海燕',
         enteredAt: '2026-03-22 10:55',
         sourceType: 'PDA',
-        note: '湿损位置已拍照，待仓库确认。',
+        note: '湿损位置已拍照，待仓库核对。',
       },
     ],
     linkedDocuments: [

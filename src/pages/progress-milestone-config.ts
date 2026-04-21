@@ -183,7 +183,7 @@ function renderHeader(): string {
       <div class="flex items-start justify-between gap-3">
         <div class="space-y-1">
           <h1 class="text-xl font-semibold">节点上报配置</h1>
-          <p class="text-sm text-muted-foreground">按工序工艺统一配置关键节点上报要求，启用后同工序任务在 PDA 中按同一规则执行。</p>
+          <p class="text-sm text-muted-foreground">按工序工艺统一配置关键节点上报要求，启用后同工序任务在工厂端移动应用中按同一规则执行。</p>
           <p class="text-xs text-muted-foreground">若开启超时异常：任务开工后超过设定时限仍未上报，会自动进入异常定位与处理（执行异常｜关键节点未上报）。</p>
         </div>
         <button class="inline-flex h-9 items-center rounded-md border bg-primary px-3 text-sm text-primary-foreground hover:opacity-90" data-milestone-action="open-create-config">
@@ -398,7 +398,7 @@ function renderDrawer(): string {
               </label>
 
               <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
-                PDA 展示文案：${escapeHtml(getCurrentRuleLabelPreview())}
+                移动端展示文案：${escapeHtml(getCurrentRuleLabelPreview())}
               </div>
             </div>
           </section>

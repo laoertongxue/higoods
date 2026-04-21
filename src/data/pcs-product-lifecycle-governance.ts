@@ -7,6 +7,7 @@ export type TechPackAggregateStatusKey = 'UNCREATED' | 'DRAFT' | 'PUBLISHED_PEND
 export type TechPackVersionBusinessStatusKey = 'DRAFT' | 'PUBLISHED_PENDING' | 'ACTIVE' | 'ARCHIVED'
 export type ChannelProductBusinessStatusKey =
   | 'PENDING_LISTING'
+  | 'UPLOADED_PENDING_CONFIRM'
   | 'LISTED_TESTING'
   | 'ACTIVE_PENDING_SYNC'
   | 'ACTIVE_SYNCED'
@@ -98,10 +99,17 @@ export const TECH_PACK_AGGREGATE_STATUS_RULES: Record<TechPackAggregateStatusKey
 export const CHANNEL_PRODUCT_STATUS_RULES: Record<ChannelProductBusinessStatusKey, LifecycleStatusRule> = {
   PENDING_LISTING: {
     key: 'PENDING_LISTING',
-    label: '待上架',
+    label: '待上传',
     className: 'border-slate-200 bg-slate-50 text-slate-600',
-    scene: '渠道店铺商品实例已建立，但尚未完成上架动作。',
-    operations: ['执行上架', '查看来源项目'],
+    scene: '款式上架批次已建立，但尚未上传到上游渠道。',
+    operations: ['上传款式到渠道', '查看来源项目'],
+  },
+  UPLOADED_PENDING_CONFIRM: {
+    key: 'UPLOADED_PENDING_CONFIRM',
+    label: '已上传待确认',
+    className: 'border-amber-200 bg-amber-50 text-amber-700',
+    scene: '款式已上传到上游渠道，等待项目内确认并标记商品上架完成。',
+    operations: ['确认上传结果', '标记商品上架完成'],
   },
   LISTED_TESTING: {
     key: 'LISTED_TESTING',
@@ -221,7 +229,9 @@ export function resolveChannelProductBusinessStatus(
   record: Pick<PcsProjectChannelProductRecord, 'channelProductStatus' | 'upstreamSyncStatus'>,
 ): ChannelProductBusinessStatusKey {
   if (record.channelProductStatus === '已作废') return 'INVALIDATED'
-  if (record.channelProductStatus === '待上架') return 'PENDING_LISTING'
+  if (record.channelProductStatus === '待上传') return 'PENDING_LISTING'
+  if (record.channelProductStatus === '已上传待确认') return 'UPLOADED_PENDING_CONFIRM'
+  if (record.channelProductStatus === '已完成') return 'LISTED_TESTING'
   if (record.channelProductStatus === '已上架待测款') return 'LISTED_TESTING'
   if (record.channelProductStatus === '已生效' && record.upstreamSyncStatus === '已更新') return 'ACTIVE_SYNCED'
   return 'ACTIVE_PENDING_SYNC'

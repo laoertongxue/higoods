@@ -44,6 +44,47 @@ import {
   getOrderMergedAuditLogs,
   renderMaterialDraftDrawer,
 } from './orders-domain.ts'
+import {
+  getProductionConfirmationByOrderId,
+  isProductionConfirmationPrintable,
+  productionConfirmationStatusLabels,
+} from '../../data/fcs/production-confirmation.ts'
+
+function getDetailConfirmationPreviewState(order: ProductionOrder): {
+  available: boolean
+  href: string
+  buttonTitle: string
+  statusLabel: string
+} {
+  const href = `/fcs/production/orders/${encodeURIComponent(order.productionOrderId)}/confirmation-print`
+  const confirmation = getProductionConfirmationByOrderId(order.productionOrderId)
+  const printable = isProductionConfirmationPrintable(order.productionOrderId)
+
+  if (confirmation) {
+    return {
+      available: true,
+      href,
+      buttonTitle: '打印预览',
+      statusLabel: productionConfirmationStatusLabels[confirmation.status],
+    }
+  }
+
+  if (printable.printable) {
+    return {
+      available: true,
+      href,
+      buttonTitle: '打印预览',
+      statusLabel: '可打印',
+    }
+  }
+
+  return {
+    available: false,
+    href,
+    buttonTitle: '工厂分配完成后可打印',
+    statusLabel: '未完成分配',
+  }
+}
 
 function renderDetailLogsDialog(order: ProductionOrder): string {
   if (!state.detailLogsOpen) return ''
@@ -704,6 +745,7 @@ export function renderProductionOrderDetailPage(orderId: string): string {
   const canAssign =
     breakdown.isBrokenDown &&
     (order.status === 'WAIT_ASSIGNMENT' || order.status === 'ASSIGNING')
+  const confirmationPreviewState = getDetailConfirmationPreviewState(order)
 
   const breakdownDisabledReason =
     getOrderBusinessTechPackStatus(order.techPackSnapshot) !== 'RELEASED'
@@ -737,6 +779,7 @@ export function renderProductionOrderDetailPage(orderId: string): string {
           <p class="text-sm text-muted-foreground">关联需求：${escapeHtml(order.demandId)} | 旧单号：${escapeHtml(
             order.legacyOrderNo,
           )}</p>
+          <p class="mt-1 text-sm text-muted-foreground">生产确认单：${escapeHtml(confirmationPreviewState.statusLabel)}</p>
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
@@ -753,6 +796,13 @@ export function renderProductionOrderDetailPage(orderId: string): string {
           <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="open-order-tech-pack-snapshot" data-order-id="${escapeHtml(
             order.productionOrderId,
           )}">查看技术包快照</button>
+          <button
+            class="rounded-md border px-3 py-2 text-sm ${
+              confirmationPreviewState.available ? 'hover:bg-muted' : 'pointer-events-none opacity-50'
+            }"
+            title="${escapeHtml(confirmationPreviewState.buttonTitle)}"
+            data-nav="${escapeHtml(confirmationPreviewState.href)}"
+          >打印预览</button>
           <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="detail-open-logs">查看日志</button>
           <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="/fcs/progress/urge?po=${escapeHtml(
             order.productionOrderId,

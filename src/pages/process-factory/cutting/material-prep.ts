@@ -1,6 +1,7 @@
 // 本文件继续复用旧导出名承接 canonical 页面“仓库配料领料”。
 // 页面主对象冻结为原始裁片单；同一码回落原始裁片单，配料 / 领料只表达仓库到裁床的准备衔接。
 import { renderDetailDrawer as uiDetailDrawer, renderDialog as uiDialog, renderFormDialog as uiFormDialog } from '../../../components/ui'
+import { listTransferMaterialAvailableLots } from '../../../data/fcs/cutting/material-prep.ts'
 import { appStore } from '../../../state/store'
 import { escapeHtml } from '../../../utils'
 import { getPrepQrHiddenText } from './material-prep.helpers'
@@ -64,7 +65,7 @@ type FilterField =
 
 type DialogType = 'CONFIG' | 'CLAIM' | 'SCHEDULE' | 'RECORDS'
 type FeedbackTone = 'success' | 'warning'
-type ClaimDraftResult = MaterialClaimRecord['result']
+type ClaimDraftResult = 'CONFIRM' | 'REJECT' | 'EXCEPTION_SUBMIT'
 
 let sourceRecordMap = new Map<string, import('../../../data/fcs/cutting/types.ts').CuttingOrderProgressRecord>()
 
@@ -111,8 +112,10 @@ interface MaterialPrepPageState {
   feedback: MaterialPrepFeedback | null
   configDrafts: Record<string, string>
   claimDrafts: Record<string, string>
+  claimRollDrafts: Record<string, string>
   claimResult: ClaimDraftResult
   claimNote: string
+  claimPhotoDraft: string
   scheduleDraft: string
 }
 
@@ -129,8 +132,10 @@ const state: MaterialPrepPageState = {
   feedback: null,
   configDrafts: {},
   claimDrafts: {},
-  claimResult: 'PARTIAL',
+  claimRollDrafts: {},
+  claimResult: 'CONFIRM',
   claimNote: '',
+  claimPhotoDraft: '',
   scheduleDraft: '',
 }
 
@@ -501,6 +506,7 @@ function renderClaimCell(row: MaterialPrepRow): string {
     <div class="space-y-1">
       ${renderBadge(row.materialClaimStatus.label, row.materialClaimStatus.className)}
       <p class="text-xs text-muted-foreground">${escapeHtml(row.latestClaimRecordSummary)}</p>
+      <p class="text-xs text-muted-foreground">${escapeHtml(row.materialLineItems.map((item) => `${item.claimedRollCount}/${item.configuredRollCount} 卷`).join(' · ') || '待填写实领卷数')}</p>
     </div>
   `
 }
@@ -572,7 +578,7 @@ function renderTable(rows: MaterialPrepRow[]): string {
           <thead class="sticky top-0 z-10 border-b bg-muted/95 text-muted-foreground backdrop-blur">
             <tr>
               <th class="px-4 py-3 text-left font-medium">原始裁片单号</th>
-              <th class="px-4 py-3 text-left font-medium">裁片单主码</th>
+              <th class="px-4 py-3 text-left font-medium">裁片单二维码</th>
               <th class="px-4 py-3 text-left font-medium">来源生产单号</th>
               <th class="px-4 py-3 text-left font-medium">款号 / SPU</th>
               <th class="px-4 py-3 text-left font-medium">面料摘要</th>
@@ -628,7 +634,7 @@ function renderTable(rows: MaterialPrepRow[]): string {
                           <td class="px-4 py-3 align-top">
                             <div class="flex flex-wrap gap-2">
                               <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-prep-action="open-detail" data-record-id="${escapeHtml(row.id)}">查看详情</button>
-                              <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-prep-action="print-issue-list" data-record-id="${escapeHtml(row.id)}">打印发料清单</button>
+                              <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-prep-action="print-issue-list" data-record-id="${escapeHtml(row.id)}">打印配料单</button>
                               <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-prep-action="open-records-dialog" data-record-id="${escapeHtml(row.id)}">查看领料记录</button>
                               <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-prep-action="open-schedule-dialog" data-record-id="${escapeHtml(row.id)}">分配裁床组</button>
                               <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-prep-action="go-marker-plan" data-record-id="${escapeHtml(row.id)}">去唛架</button>
@@ -693,10 +699,10 @@ function renderMaterialLineTable(row: MaterialPrepRow): string {
         <thead class="border-b bg-muted/60 text-muted-foreground">
           <tr>
             <th class="px-3 py-2 text-left font-medium">面料 SKU</th>
-            <th class="px-3 py-2 text-left font-medium">面料类别 / 属性</th>
-            <th class="px-3 py-2 text-left font-medium">需求量</th>
-            <th class="px-3 py-2 text-left font-medium">已配置量</th>
-            <th class="px-3 py-2 text-left font-medium">已领取量</th>
+            <th class="px-3 py-2 text-left font-medium">面料类型 / 颜色</th>
+            <th class="px-3 py-2 text-left font-medium">需求长度</th>
+            <th class="px-3 py-2 text-left font-medium">配置卷数 / 长度</th>
+            <th class="px-3 py-2 text-left font-medium">实领卷数 / 长度</th>
             <th class="px-3 py-2 text-left font-medium">缺口量</th>
             <th class="px-3 py-2 text-left font-medium">来源</th>
             <th class="px-3 py-2 text-left font-medium">配料状态</th>
@@ -714,16 +720,22 @@ function renderMaterialLineTable(row: MaterialPrepRow): string {
                     <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.materialName)}</p>
                   </td>
                   <td class="px-3 py-2 align-top">
-                    <div>${escapeHtml(item.materialCategory)}</div>
+                    <div>${escapeHtml(item.materialTypeName)}</div>
                     <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.materialAttr)}</p>
                   </td>
                   <td class="px-3 py-2 align-top">${escapeHtml(`${formatQty(item.requiredQty)} 米`)}</td>
-                  <td class="px-3 py-2 align-top">${escapeHtml(`${formatQty(item.configuredQty)} 米`)}</td>
-                  <td class="px-3 py-2 align-top">${escapeHtml(`${formatQty(item.claimedQty)} 米`)}</td>
+                  <td class="px-3 py-2 align-top">
+                    <div>${escapeHtml(`${item.configuredRollCount} 卷`)}</div>
+                    <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(`${formatQty(item.configuredQty)} 米`)}</p>
+                  </td>
+                  <td class="px-3 py-2 align-top">
+                    <div>${escapeHtml(`${item.claimedRollCount} 卷`)}</div>
+                    <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(`${formatQty(item.claimedQty)} 米`)}</p>
+                  </td>
                   <td class="px-3 py-2 align-top">${escapeHtml(`${formatQty(item.shortageQty)} 米`)}</td>
                   <td class="px-3 py-2 align-top">
                     <div class="flex flex-wrap gap-1">
-                      ${renderBadge(item.sourceLabel || '正常配料', item.sourceType === 'REPLENISHMENT_PENDING_PREP' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700')}
+                      ${renderBadge(item.sourceLabel || '手动配置', item.sourceType === 'REPLENISHMENT_PENDING_PREP' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700')}
                     </div>
                     ${
                       item.sourceType === 'REPLENISHMENT_PENDING_PREP'
@@ -799,6 +811,64 @@ function renderReplenishmentPendingPrepSection(row: MaterialPrepRow): string {
   )
 }
 
+function renderTransferMaterialSection(row: MaterialPrepRow): string {
+  const lots = listTransferMaterialAvailableLots().filter((lot) =>
+    row.materialLineItems.some(
+      (item) =>
+        item.materialSku === lot.materialSku &&
+        ((item.sourceType === 'PRINT_REVIEW' && lot.sourceProcessType === 'PRINT') ||
+          (item.sourceType === 'DYE_REVIEW' && lot.sourceProcessType === 'DYE')),
+    ),
+  )
+
+  if (!lots.length) {
+    return renderDetailSection(
+      '中转可配置',
+      '<div class="text-sm text-muted-foreground">当前裁片单没有印花 / 染色审核通过后的中转可配置面料。</div>',
+    )
+  }
+
+  return renderDetailSection(
+    '中转可配置',
+    `
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[860px] text-sm">
+          <thead class="border-b bg-muted/60 text-muted-foreground">
+            <tr>
+              <th class="px-3 py-2 text-left font-medium">来源</th>
+              <th class="px-3 py-2 text-left font-medium">面料 SKU</th>
+              <th class="px-3 py-2 text-left font-medium">布料颜色</th>
+              <th class="px-3 py-2 text-left font-medium">可配置卷数</th>
+              <th class="px-3 py-2 text-left font-medium">可配置长度</th>
+              <th class="px-3 py-2 text-left font-medium">剩余卷数</th>
+              <th class="px-3 py-2 text-left font-medium">剩余长度</th>
+              <th class="px-3 py-2 text-left font-medium">接收方</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y">
+            ${lots
+              .map(
+                (lot) => `
+                  <tr>
+                    <td class="px-3 py-2 align-top">${escapeHtml(`${lot.sourceProcessType === 'PRINT' ? '印花面料' : '染色面料'} / ${lot.sourceOrderNo}`)}</td>
+                    <td class="px-3 py-2 align-top">${escapeHtml(lot.materialSku)}</td>
+                    <td class="px-3 py-2 align-top">${escapeHtml(lot.materialColor)}</td>
+                    <td class="px-3 py-2 align-top">${escapeHtml(`${lot.availableRollCount} 卷`)}</td>
+                    <td class="px-3 py-2 align-top">${escapeHtml(`${lot.availableLength} ${lot.lengthUnit}`)}</td>
+                    <td class="px-3 py-2 align-top">${escapeHtml(`${lot.remainingRollCount} 卷`)}</td>
+                    <td class="px-3 py-2 align-top">${escapeHtml(`${lot.remainingLength} ${lot.lengthUnit}`)}</td>
+                    <td class="px-3 py-2 align-top">${escapeHtml(lot.targetTransferWarehouseName)}</td>
+                  </tr>
+                `,
+              )
+              .join('')}
+          </tbody>
+        </table>
+      </div>
+    `,
+  )
+}
+
 function renderClaimRecords(row: MaterialPrepRow): string {
   if (!row.claimRecords.length) {
     return '<div class="rounded-lg border border-dashed px-4 py-6 text-sm text-muted-foreground">当前尚无领料记录，后续仓库回写将在这里沉淀。</div>'
@@ -831,9 +901,9 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
   const extraButtons = `
     <div class="flex flex-wrap items-center gap-2">
       <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-prep-action="open-config-dialog" data-record-id="${escapeHtml(row.id)}">编辑配置结果</button>
-      <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-prep-action="open-claim-dialog" data-record-id="${escapeHtml(row.id)}">记录领料结果</button>
+      <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-prep-action="open-claim-dialog" data-record-id="${escapeHtml(row.id)}">裁床领料</button>
       <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-prep-action="open-schedule-dialog" data-record-id="${escapeHtml(row.id)}">分配裁床组</button>
-      <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-prep-action="print-issue-list" data-record-id="${escapeHtml(row.id)}">打印发料清单</button>
+      <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-prep-action="print-issue-list" data-record-id="${escapeHtml(row.id)}">打印配料单</button>
     </div>
   `
 
@@ -847,8 +917,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
               { label: '原始裁片单号', value: row.originalCutOrderNo, tone: 'strong' },
               ...(row.shouldDisplayQr
                 ? [
-                    { label: '裁片单主码', value: row.sameCodeValue },
-                    { label: '主码值', value: row.qrCodeValue, hint: row.shouldDisplayQrLabel ? row.qrCodeLabel : '' },
+                    { label: '裁片单二维码', value: row.qrCodeValue, hint: row.sameCodeValue },
                   ]
                 : []),
               { label: '来源生产单号', value: row.productionOrderNo },
@@ -897,10 +966,11 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
       )}
 
       ${renderDetailSection('面料行项目表', renderMaterialLineTable(row))}
+      ${renderTransferMaterialSection(row)}
       ${renderReplenishmentPendingPrepSection(row)}
 
       ${renderDetailSection(
-        '发料清单区',
+        '配料单',
         `
           <div class="space-y-3">
             ${renderInfoGrid([
@@ -917,7 +987,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
                   </div>
                 `
             }
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="print-issue-list" data-record-id="${escapeHtml(row.id)}">打印发料清单</button>
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="print-issue-list" data-record-id="${escapeHtml(row.id)}">打印配料单</button>
           </div>
         `,
       )}
@@ -1026,7 +1096,7 @@ function renderConfigDialog(viewModel = getViewModel()): string {
   const content = `
     <div class="space-y-4">
       <div class="rounded-lg border bg-muted/10 px-3 py-3 text-sm text-muted-foreground">
-        当前操作对象：${escapeHtml(row.originalCutOrderNo)} · 裁片单主码 ${escapeHtml(buildSameCodeValue(row.originalCutOrderNo))}
+        当前操作对象：${escapeHtml(row.originalCutOrderNo)} · 裁片单二维码 ${escapeHtml(row.qrCodeValue)}
       </div>
       ${row.materialLineItems
         .map(
@@ -1076,15 +1146,18 @@ function renderClaimDialog(viewModel = getViewModel()): string {
 
   const content = `
     <div class="space-y-4">
+      <div class="rounded-lg border bg-muted/10 px-3 py-3 text-sm text-muted-foreground">
+        当前操作对象：${escapeHtml(row.originalCutOrderNo)} · 裁片单二维码 ${escapeHtml(row.qrCodeValue)}
+      </div>
       <div class="flex flex-wrap gap-2">
-        <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-prep-action="fill-claim-success">回写全部领料成功</button>
+        <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-prep-action="fill-claim-success">回填一致卷数</button>
       </div>
       <label class="space-y-2">
-        <span class="text-sm font-medium text-foreground">领料结果</span>
+        <span class="text-sm font-medium text-foreground">领料处理</span>
         <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-cutting-prep-claim-field="result">
-          <option value="SUCCESS" ${state.claimResult === 'SUCCESS' ? 'selected' : ''}>全部领料成功</option>
-          <option value="PARTIAL" ${state.claimResult === 'PARTIAL' ? 'selected' : ''}>部分领取</option>
-          <option value="EXCEPTION" ${state.claimResult === 'EXCEPTION' ? 'selected' : ''}>领料不齐 / 异常</option>
+          <option value="CONFIRM" ${state.claimResult === 'CONFIRM' ? 'selected' : ''}>确认领料</option>
+          <option value="REJECT" ${state.claimResult === 'REJECT' ? 'selected' : ''}>驳回</option>
+          <option value="EXCEPTION_SUBMIT" ${state.claimResult === 'EXCEPTION_SUBMIT' ? 'selected' : ''}>异常提交</option>
         </select>
       </label>
       ${row.materialLineItems
@@ -1092,39 +1165,63 @@ function renderClaimDialog(viewModel = getViewModel()): string {
           (item) => `
             <article class="rounded-lg border px-3 py-3">
               <div class="font-medium">${escapeHtml(item.materialSku)}</div>
-              <p class="mt-1 text-xs text-muted-foreground">需求 ${escapeHtml(`${formatQty(item.requiredQty)} 米`)} · 当前已领 ${escapeHtml(`${formatQty(item.claimedQty)} 米`)}</p>
-              <label class="mt-3 block space-y-2">
-                <span class="text-sm font-medium text-foreground">本次回写领取量（米）</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value="${escapeHtml(state.claimDrafts[item.materialLineId] ?? String(item.claimedQty))}"
-                  class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                  data-cutting-prep-claim-line-id="${item.materialLineId}"
-                />
-              </label>
+              <p class="mt-1 text-xs text-muted-foreground">配置 ${escapeHtml(`${item.configuredRollCount} 卷 / ${formatQty(item.configuredQty)} 米`)} · 当前已领 ${escapeHtml(`${item.claimedRollCount} 卷 / ${formatQty(item.claimedQty)} 米`)}</p>
+              <div class="mt-3 grid gap-3 md:grid-cols-2">
+                <label class="space-y-2">
+                  <span class="text-sm font-medium text-foreground">实领卷数</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value="${escapeHtml(state.claimRollDrafts[item.materialLineId] ?? String(item.claimedRollCount))}"
+                    class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                    data-cutting-prep-claim-roll-line-id="${item.materialLineId}"
+                  />
+                </label>
+                <label class="space-y-2">
+                  <span class="text-sm font-medium text-foreground">实领长度</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value="${escapeHtml(state.claimDrafts[item.materialLineId] ?? String(item.claimedQty))}"
+                    class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                    data-cutting-prep-claim-line-id="${item.materialLineId}"
+                  />
+                </label>
+              </div>
             </article>
           `,
         )
         .join('')}
       <label class="space-y-2">
-        <span class="text-sm font-medium text-foreground">异常说明</span>
+        <span class="text-sm font-medium text-foreground">差异原因</span>
         <textarea
           class="min-h-24 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="补充领料不齐、差异原因或本次回写说明"
+          placeholder="填写差异原因"
           data-cutting-prep-claim-field="note"
         >${escapeHtml(state.claimNote)}</textarea>
+      </label>
+      <label class="space-y-2">
+        <span class="text-sm font-medium text-foreground">照片</span>
+        <input
+          type="text"
+          value="${escapeHtml(state.claimPhotoDraft)}"
+          placeholder="上传照片"
+          class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+          data-cutting-prep-claim-field="photo"
+        />
+        ${state.claimResult === 'EXCEPTION_SUBMIT' && !state.claimPhotoDraft.trim() ? '<p class="text-xs text-rose-600">请上传照片</p>' : ''}
       </label>
     </div>
   `
 
   return uiFormDialog(
     {
-      title: '记录领料结果',
+      title: '裁床领料',
       description: '',
       closeAction: { prefix: 'cuttingPrep', action: 'close-overlay' },
-      submitAction: { prefix: 'cuttingPrep', action: 'save-claim', label: '保存领料结果' },
+      submitAction: { prefix: 'cuttingPrep', action: 'save-claim', label: state.claimResult === 'CONFIRM' ? '确认领料' : state.claimResult === 'REJECT' ? '驳回' : '异常提交' },
       width: 'lg',
     },
     content,
@@ -1239,8 +1336,10 @@ function openDialog(type: DialogType, recordId: string | undefined): boolean {
   state.activeDialog = type
   state.configDrafts = Object.fromEntries(row.materialLineItems.map((item) => [item.materialLineId, String(item.configuredQty)]))
   state.claimDrafts = Object.fromEntries(row.materialLineItems.map((item) => [item.materialLineId, String(item.claimedQty)]))
-  state.claimResult = row.materialClaimStatus.key === 'EXCEPTION' ? 'EXCEPTION' : row.materialClaimStatus.key === 'RECEIVED' ? 'SUCCESS' : 'PARTIAL'
+  state.claimRollDrafts = Object.fromEntries(row.materialLineItems.map((item) => [item.materialLineId, String(item.claimedRollCount)]))
+  state.claimResult = row.materialClaimStatus.key === 'EXCEPTION' ? 'EXCEPTION_SUBMIT' : 'CONFIRM'
   state.claimNote = row.claimRecords[0]?.note || ''
+  state.claimPhotoDraft = ''
   state.scheduleDraft = row.assignedCuttingGroup
   return true
 }
@@ -1301,20 +1400,54 @@ function saveClaim(): boolean {
   const row = getActiveRow()
   if (!row) return false
 
+  const receivedRolls = row.materialLineItems.map((item) => ({
+    item,
+    rollCount: Math.max(0, Number(state.claimRollDrafts[item.materialLineId] || 0) || 0),
+    length: Math.max(0, Number(state.claimDrafts[item.materialLineId] || 0) || 0),
+  }))
+  const hasEmptyRollCount = row.materialLineItems.some(
+    (item) => String(state.claimRollDrafts[item.materialLineId] ?? '').trim() === '',
+  )
+  if (hasEmptyRollCount) {
+    setFeedback('warning', '请填写实领卷数。')
+    return true
+  }
+
+  const hasRollDiff = receivedRolls.some(({ item, rollCount }) => rollCount !== item.configuredRollCount)
+  if (state.claimResult === 'CONFIRM' && hasRollDiff) {
+    setFeedback('warning', '实领卷数不一致，请驳回或异常提交。')
+    return true
+  }
+  if (state.claimResult !== 'CONFIRM' && !hasRollDiff) {
+    setFeedback('warning', '卷数一致时请直接确认领料。')
+    return true
+  }
+  if (state.claimResult !== 'CONFIRM' && !state.claimNote.trim()) {
+    setFeedback('warning', '请填写差异原因。')
+    return true
+  }
+  if (state.claimResult === 'EXCEPTION_SUBMIT' && !state.claimPhotoDraft.trim()) {
+    setFeedback('warning', '请上传照片。')
+    return true
+  }
+
   row.materialLineItems = row.materialLineItems.map((item) => {
-    const draftValue = Math.max(0, Number(state.claimDrafts[item.materialLineId] || item.claimedQty) || 0)
-    const nextQty = state.claimResult === 'SUCCESS' ? item.requiredQty : draftValue
+    const draft = receivedRolls.find((entry) => entry.item.materialLineId === item.materialLineId)
+    const nextQty = state.claimResult === 'CONFIRM' ? item.configuredQty : draft?.length || item.claimedQty
+    const nextRollCount = state.claimResult === 'CONFIRM' ? item.configuredRollCount : draft?.rollCount || item.claimedRollCount
+    const actionText =
+      state.claimResult === 'CONFIRM'
+        ? `已领料：实领 ${nextRollCount} 卷。`
+        : state.claimResult === 'REJECT'
+          ? `已驳回：实领 ${nextRollCount} 卷，${state.claimNote.trim()}`
+          : `异常提交：实领 ${nextRollCount} 卷，已上传照片。`
     return {
       ...item,
       claimedQty: nextQty,
-      hasClaimException: state.claimResult === 'EXCEPTION',
+      claimedRollCount: nextRollCount,
+      hasClaimException: state.claimResult !== 'CONFIRM',
       note: state.claimNote || item.note,
-      latestActionText:
-        state.claimResult === 'SUCCESS'
-          ? '已回写全部领料成功。'
-          : state.claimResult === 'EXCEPTION'
-            ? '已回写领料不齐 / 差异。'
-            : '已回写部分领取结果。',
+      latestActionText: actionText,
     }
   })
 
@@ -1323,14 +1456,17 @@ function saveClaim(): boolean {
     originalCutOrderId: row.originalCutOrderId,
     claimedAt: nowText(),
     claimedBy: '仓库配料页回写',
-    result: state.claimResult,
+    result: state.claimResult === 'CONFIRM' ? 'SUCCESS' : state.claimResult === 'REJECT' ? 'PARTIAL' : 'EXCEPTION',
     summary:
-      state.claimResult === 'SUCCESS'
-        ? '已回写全部领料成功。'
-        : state.claimResult === 'EXCEPTION'
-          ? '已回写领料不齐 / 异常。'
-          : '已回写部分领取结果。',
-    note: state.claimNote || '仓库领料结果已在原型页补录。',
+      state.claimResult === 'CONFIRM'
+        ? '已领料'
+        : state.claimResult === 'REJECT'
+          ? '已驳回'
+          : '异常提交',
+    note:
+      state.claimResult === 'EXCEPTION_SUBMIT'
+        ? `${state.claimNote || '存在差异'}；照片：${state.claimPhotoDraft}`
+        : state.claimNote || '仓库领料结果已在原型页补录。',
   })
 
   recalculateMaterialPrepRow(row, sourceRecordMap.get(row.id))
@@ -1366,9 +1502,11 @@ function printIssueList(recordId: string | undefined): boolean {
       (item) => `
         <tr>
           <td>${escapeHtml(item.materialSku)}</td>
-          <td>${escapeHtml(item.materialCategory)}</td>
+          <td>${escapeHtml(item.materialTypeName)}</td>
+          <td>${escapeHtml(`${item.configuredRollCount} 卷`)}</td>
           <td>${escapeHtml(`${formatQty(item.requiredQty)} 米`)}</td>
           <td>${escapeHtml(`${formatQty(item.configuredQty)} 米`)}</td>
+          <td>${escapeHtml(`${item.claimedRollCount} 卷`)}</td>
           <td>${escapeHtml(`${formatQty(item.claimedQty)} 米`)}</td>
           <td>${escapeHtml(`${formatQty(item.shortageQty)} 米`)}</td>
         </tr>
@@ -1396,10 +1534,10 @@ function printIssueList(recordId: string | undefined): boolean {
         </style>
       </head>
       <body>
-        <h1>发料清单</h1>
+        <h1>配料单</h1>
         <div class="meta">
           <div class="meta-item"><div class="label">原始裁片单号</div><div class="value">${escapeHtml(payload.originalCutOrderNo)}</div></div>
-          <div class="meta-item"><div class="label">裁片单主码</div><div class="value">${payload.shouldPrintQr ? `${escapeHtml(payload.sameCodeValue)} / ${escapeHtml(payload.qrCodeValue)}` : escapeHtml(payload.qrHiddenHint)}</div></div>
+          <div class="meta-item"><div class="label">裁片单二维码</div><div class="value">${payload.shouldPrintQr ? escapeHtml(payload.cutOrderQrValue) : escapeHtml(payload.qrHiddenHint)}</div></div>
           <div class="meta-item"><div class="label">来源生产单号</div><div class="value">${escapeHtml(payload.productionOrderNo)}</div></div>
           <div class="meta-item"><div class="label">款号 / SPU</div><div class="value">${escapeHtml(`${payload.styleCode || payload.spuCode} / ${payload.styleName || payload.spuCode}`)}</div></div>
           <div class="meta-item"><div class="label">打印时间</div><div class="value">${escapeHtml(payload.printTime)}</div></div>
@@ -1408,10 +1546,12 @@ function printIssueList(recordId: string | undefined): boolean {
           <thead>
             <tr>
               <th>面料 SKU</th>
-              <th>面料类别</th>
-              <th>需求量</th>
-              <th>已配置量</th>
-              <th>已领取量</th>
+              <th>面料类型</th>
+              <th>配置卷数</th>
+              <th>需求长度</th>
+              <th>配置长度</th>
+              <th>实领卷数</th>
+              <th>实领长度</th>
               <th>缺口量</th>
             </tr>
           </thead>
@@ -1425,7 +1565,7 @@ function printIssueList(recordId: string | undefined): boolean {
   row.printedAt = nowText()
   row.printedBy = '仓库配料页打印'
   recalculateMaterialPrepRow(row, sourceRecordMap.get(row.id))
-  setFeedback('success', `${row.originalCutOrderNo} 已打开发料清单打印视图。`)
+  setFeedback('success', `${row.originalCutOrderNo} 已打开配料单打印视图。`)
 
   setTimeout(() => {
     printWindow.focus()
@@ -1486,6 +1626,18 @@ export function handleCraftCuttingMaterialPrepEvent(target: Element): boolean {
     return true
   }
 
+  const claimRollFieldNode = target.closest<HTMLElement>('[data-cutting-prep-claim-roll-line-id]')
+  if (claimRollFieldNode) {
+    const lineId = claimRollFieldNode.dataset.cuttingPrepClaimRollLineId
+    if (!lineId) return false
+    const input = claimRollFieldNode as HTMLInputElement
+    state.claimRollDrafts = {
+      ...state.claimRollDrafts,
+      [lineId]: input.value,
+    }
+    return true
+  }
+
   const claimInputNode = target.closest<HTMLElement>('[data-cutting-prep-claim-field]')
   if (claimInputNode) {
     const field = claimInputNode.dataset.cuttingPrepClaimField
@@ -1496,6 +1648,9 @@ export function handleCraftCuttingMaterialPrepEvent(target: Element): boolean {
     }
     if (field === 'note') {
       state.claimNote = input.value
+    }
+    if (field === 'photo') {
+      state.claimPhotoDraft = input.value
     }
     return true
   }
@@ -1581,8 +1736,9 @@ export function handleCraftCuttingMaterialPrepEvent(target: Element): boolean {
   if (action === 'fill-claim-success') {
     const row = getActiveRow()
     if (!row) return false
-    state.claimResult = 'SUCCESS'
-    state.claimDrafts = Object.fromEntries(row.materialLineItems.map((item) => [item.materialLineId, String(item.requiredQty)]))
+    state.claimResult = 'CONFIRM'
+    state.claimDrafts = Object.fromEntries(row.materialLineItems.map((item) => [item.materialLineId, String(item.configuredQty)]))
+    state.claimRollDrafts = Object.fromEntries(row.materialLineItems.map((item) => [item.materialLineId, String(item.configuredRollCount)]))
     return true
   }
 

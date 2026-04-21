@@ -1,6 +1,8 @@
 import {
   confirmPdaPickupRecordReceived,
+  getPdaPickupRecordsByHead,
   findPdaPickupRecord,
+  listPdaHandoverHeads,
   markPdaPickupRecordWarehouseHanded,
 } from '../src/data/fcs/pda-handover-events.ts'
 import { getProgressExceptionById } from '../src/data/fcs/store-domain-progress.ts'
@@ -53,7 +55,13 @@ function checkFactoryConfirmFlow(): void {
 }
 
 function checkPickupDisputeFlow(): void {
-  const recordId = 'PKH-MOCK-IRON-403-003'
+  const disputeCandidate = listPdaHandoverHeads()
+    .filter((head) => head.headType === 'PICKUP')
+    .flatMap((head) => getPdaPickupRecordsByHead(head.handoverId))
+    .find((record) => record.status === 'PENDING_FACTORY_CONFIRM' && record.recordId !== 'PKH-MOCK-SEW-400-003')
+
+  assert(disputeCandidate, '未找到可用于校验领料数量异议的待工厂确认记录')
+  const recordId = disputeCandidate.recordId
   const disputeCreated = createPdaPickupDisputeCase(recordId, {
     factoryReportedQty: 15,
     objectionReason: '工厂实收少于仓库扫码交付数量',

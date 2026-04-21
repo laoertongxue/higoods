@@ -2,6 +2,10 @@ import type {
   DeductionBasisAuditLog,
   DeductionBasisSourceType,
   DefectItem,
+  InspectionMethod,
+  InspectionNextAction,
+  InspectionScene,
+  InspectionType,
   QcDisposition,
   QcAuditLog,
   QcStatus,
@@ -12,6 +16,7 @@ import type {
   SettlementPartyType,
   SewPostProcessMode,
 } from './store-domain-quality-types'
+import type { PostExecutionMode, PostRouteCurrentNode } from './post-process-route.ts'
 
 export type QualityDeductionQcResult = 'QUALIFIED' | 'PARTIALLY_QUALIFIED' | 'UNQUALIFIED'
 
@@ -159,10 +164,30 @@ export interface QcRecordFact {
   warehouseName?: string
   inboundAt?: string
   inboundBy?: string
+  managedPostFactoryId?: string
+  managedPostFactoryName?: string
+  finishedWarehouseId?: string
+  finishedWarehouseName?: string
   sourceBusinessType?: ReturnInboundSourceBusinessType
   sourceBusinessId?: string
   sourceOrderId?: string
   sewPostProcessMode?: SewPostProcessMode
+  postExecutionMode?: PostExecutionMode
+  postRouteId?: string
+  postRouteCurrentNode?: PostRouteCurrentNode
+  inspectionScene?: InspectionScene
+  inspectionType?: InspectionType
+  inspectionMethod?: InspectionMethod
+  handoverOrderId?: string
+  handoverRecordIds?: string[]
+  receiverKind?: 'WAREHOUSE' | 'MANAGED_POST_FACTORY'
+  receiverId?: string
+  receiverName?: string
+  declaredQty?: number
+  receivedQty?: number
+  samplingQty?: number
+  samplingRatio?: number
+  nextAction?: InspectionNextAction
   writebackAvailableQty?: number
   writebackAcceptedAsDefectQty?: number
   writebackScrapQty?: number

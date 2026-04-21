@@ -7,8 +7,6 @@ import {
   CHANNEL_PRODUCT_STATUS_RULES,
   resolveChannelProductBusinessStatus,
 } from '../data/pcs-product-lifecycle-governance.ts'
-import { getStyleArchiveById } from '../data/pcs-style-archive-repository.ts'
-import { findSkuArchiveByCode, getSkuArchiveById } from '../data/pcs-sku-archive-repository.ts'
 import { escapeHtml, formatDateTime, toClassName } from '../utils.ts'
 
 const PREFERRED_PROJECT_ORDER = [
@@ -35,9 +33,9 @@ function listDisplayRecords(): ProjectChannelProductRecord[] {
 
 function getChannelLabel(channelCode: string): string {
   if (channelCode === 'shopee') return 'Shopee'
-  if (channelCode === 'wechat-mini-program') return 'wechat-mini-program'
+  if (channelCode === 'wechat-mini-program') return '微信小程序'
   if (channelCode === 'lazada') return 'Lazada'
-  return 'tiktok-shop'
+  return 'TikTok Shop'
 }
 
 function getStoreLabel(record: ProjectChannelProductRecord): string {
@@ -54,7 +52,7 @@ function getViewLabel(record: ProjectChannelProductRecord): string {
 
 function getLinkageDescription(record: ProjectChannelProductRecord): string {
   if (record.channelProductStatus === '已作废') {
-    return record.testingStatusText || record.invalidatedReason || record.upstreamSyncNote || '当前渠道店铺商品已作废'
+    return record.testingStatusText || record.invalidatedReason || record.upstreamSyncNote || '当前款式上架批次已作废'
   }
   if (record.styleCode && record.upstreamSyncStatus === '已更新') {
     return '测款通过，已关联款式档案并完成上游最终更新'
@@ -63,7 +61,7 @@ function getLinkageDescription(record: ProjectChannelProductRecord): string {
     return '测款通过，已生成款式档案，待启用技术包'
   }
   if (record.channelProductStatus === '已上架待测款') {
-    return '已完成上架，等待直播 / 短视频正式测款结论'
+    return '已完成上架，等待直播或短视频正式测款'
   }
   return record.upstreamSyncNote || record.testingStatusText || '-'
 }
@@ -76,6 +74,7 @@ function renderChannelStatusBadge(status: ProjectChannelProductRecord['channelPr
   if (status === '已生效') return renderBadge(status, 'bg-emerald-100 text-emerald-700')
   if (status === '已作废') return renderBadge(status, 'bg-rose-100 text-rose-700')
   if (status === '已上架待测款') return renderBadge(status, 'bg-blue-100 text-blue-700')
+  if (status === '已上传待确认') return renderBadge(status, 'bg-amber-100 text-amber-700')
   return renderBadge(status, 'bg-slate-100 text-slate-600')
 }
 
@@ -102,9 +101,42 @@ function renderDateTimeCell(value: string): string {
   `
 }
 
+function renderSpecLineSummary(record: ProjectChannelProductRecord): string {
+  return `
+    <div class="space-y-1">
+      <div class="text-[15px] font-medium leading-6 text-slate-900">${escapeHtml(String(record.specLineCount || record.specLines.length || 0))} 条</div>
+      <div class="text-xs leading-5 text-slate-500">已上传 ${escapeHtml(String(record.uploadedSpecLineCount || 0))} 条</div>
+    </div>
+  `
+}
+
+function getListingMainImage(record: ProjectChannelProductRecord): {
+  url: string
+  title: string
+} | null {
+  const mainImage =
+    record.listingImages.find((item) => item.imageId === record.listingMainImageId) ||
+    record.listingImages[0] ||
+    null
+  if (mainImage) {
+    return {
+      url: mainImage.imageUrl,
+      title: mainImage.imageName,
+    }
+  }
+  if (record.mainImageUrls[0]) {
+    return {
+      url: record.mainImageUrls[0],
+      title: '上架主图',
+    }
+  }
+  return null
+}
+
 function renderListRow(record: ProjectChannelProductRecord): string {
   const detailHref = `/pcs/products/channel-products/${encodeURIComponent(record.channelProductId)}`
   const projectHref = `/pcs/projects/${encodeURIComponent(record.projectId)}`
+  const mainImage = getListingMainImage(record)
 
   return `
     <tr class="border-t border-slate-200 align-top">
@@ -114,16 +146,23 @@ function renderListRow(record: ProjectChannelProductRecord): string {
         <div class="mt-1 max-w-[156px] text-xs leading-5 text-slate-500">${escapeHtml(record.projectName)}</div>
       </td>
       <td class="px-4 py-4">
-        <div class="text-[15px] font-medium leading-6 text-slate-900">${escapeHtml(record.listingInstanceCode)}</div>
-        <div class="mt-1 text-xs leading-5 text-slate-500">${escapeHtml(record.projectNodeId)}</div>
+        <div class="text-[15px] font-medium leading-6 text-slate-900">${escapeHtml(record.listingBatchCode || record.channelProductCode)}</div>
+        <div class="mt-1 text-xs leading-5 text-slate-500">${escapeHtml(record.listingInstanceCode || '-')}</div>
       </td>
       <td class="px-4 py-4 text-[15px] leading-6 text-slate-900">${escapeHtml(`${getChannelLabel(record.channelCode)} / ${getStoreLabel(record)}`)}</td>
-      <td class="px-4 py-4 text-[15px] leading-6 text-slate-900">${escapeHtml(getViewLabel(record))}</td>
-      <td class="px-4 py-4">${renderChannelStatusBadge(record.channelProductStatus)}</td>
-      <td class="px-4 py-4">${renderUpstreamStatusBadge(record.upstreamSyncStatus)}</td>
-      <td class="px-4 py-4 text-[15px] leading-6 text-slate-900">${escapeHtml(record.styleCode || '尚未关联')}</td>
-      <td class="px-4 py-4 text-[15px] leading-6 text-slate-900">${escapeHtml(record.skuCode || '尚未关联')}</td>
-      <td class="px-4 py-4 text-[15px] leading-6 text-slate-900">${escapeHtml(record.upstreamChannelProductCode || '-')}</td>
+      <td class="px-4 py-4">
+        <div class="max-w-[220px] text-[15px] leading-6 text-slate-900">${escapeHtml(record.styleListingTitle || record.listingTitle || '-')}</div>
+      </td>
+      <td class="px-4 py-4">
+        ${
+          mainImage
+            ? `<button type="button" class="group block h-16 w-16 overflow-hidden rounded-lg border border-slate-200 bg-slate-50" data-nav="${escapeHtml(detailHref)}"><img src="${escapeHtml(mainImage.url)}" alt="${escapeHtml(mainImage.title)}" class="h-full w-full object-cover transition group-hover:scale-105" /></button>`
+            : '<div class="flex h-16 w-16 items-center justify-center rounded-lg border border-dashed border-slate-200 text-[11px] text-slate-400">暂无主图</div>'
+        }
+      </td>
+      <td class="px-4 py-4">${renderSpecLineSummary(record)}</td>
+      <td class="px-4 py-4">${renderBusinessStatusBadge(record)}</td>
+      <td class="px-4 py-4 text-[15px] leading-6 text-slate-900">${escapeHtml(record.upstreamProductId || record.upstreamChannelProductCode || '-')}</td>
       <td class="px-4 py-4">
         <div class="max-w-[200px] text-xs leading-5 text-slate-500">${escapeHtml(getLinkageDescription(record))}</div>
       </td>
@@ -147,20 +186,34 @@ function renderDetailField(label: string, value: string): string {
   `
 }
 
-function renderCodeBox(label: string, value: string): string {
-  return `
-    <div class="rounded-xl border border-slate-200 bg-white px-4 py-3">
-      <div class="text-sm text-slate-500">${escapeHtml(label)}</div>
-      <div class="mt-1.5 text-base font-semibold text-slate-900">${escapeHtml(value || '-')}</div>
-    </div>
-  `
-}
-
 function renderDetailButton(label: string, href: string | null): string {
   if (!href) {
     return `<button type="button" class="inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-300" disabled>${escapeHtml(label)}</button>`
   }
   return `<button type="button" class="inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50" data-nav="${escapeHtml(href)}">${escapeHtml(label)}</button>`
+}
+
+function renderSpecLineRows(record: ProjectChannelProductRecord): string {
+  if (!record.specLines.length) {
+    return '<tr><td colspan="9" class="px-3 py-4 text-center text-xs text-slate-400">暂无规格明细</td></tr>'
+  }
+  return record.specLines
+    .map(
+      (line) => `
+        <tr>
+          <td class="px-3 py-2 text-slate-700">${escapeHtml(line.colorName || '-')}</td>
+          <td class="px-3 py-2 text-slate-700">${escapeHtml(line.sizeName || '-')}</td>
+          <td class="px-3 py-2 text-slate-700">${escapeHtml(line.printName || '-')}</td>
+          <td class="px-3 py-2 text-slate-700">${escapeHtml(line.sellerSku || line.specLineCode || '-')}</td>
+          <td class="px-3 py-2 text-slate-700">${escapeHtml(String(line.priceAmount || '-'))}</td>
+          <td class="px-3 py-2 text-slate-700">${escapeHtml(line.currencyCode || '-')}</td>
+          <td class="px-3 py-2 text-slate-700">${escapeHtml(line.stockQty ? String(line.stockQty) : '-')}</td>
+          <td class="px-3 py-2 text-slate-700">${escapeHtml(line.upstreamSkuId || '-')}</td>
+          <td class="px-3 py-2 text-slate-700">${escapeHtml(line.lineStatus || '-')}</td>
+        </tr>
+      `,
+    )
+    .join('')
 }
 
 export function renderPcsChannelProductListPage(): string {
@@ -172,8 +225,8 @@ export function renderPcsChannelProductListPage(): string {
         <div class="border-b border-slate-200 px-5 py-4">
           <div class="flex items-start justify-between gap-4">
             <div>
-              <h1 class="text-[22px] font-semibold text-slate-900">渠道店铺商品</h1>
-              <p class="mt-1 text-sm text-slate-500">聚合来源项目、商品上架节点、渠道店铺、款式档案与上游更新链路。</p>
+              <h1 class="text-[22px] font-semibold text-slate-900">渠道商品上架批次</h1>
+              <p class="mt-1 text-sm text-slate-500">按项目渠道上架批次查看款式、店铺、规格明细与上游回填结果。</p>
             </div>
             <div class="rounded-xl bg-slate-50 px-3 py-2 text-right">
               <div class="text-xs text-slate-500">当前记录</div>
@@ -182,19 +235,18 @@ export function renderPcsChannelProductListPage(): string {
           </div>
         </div>
         <div class="overflow-x-auto">
-          <table class="min-w-[1760px] table-fixed">
+          <table class="min-w-[1600px] table-fixed">
             <thead class="bg-slate-50 text-left text-[13px] font-semibold text-slate-500">
               <tr>
-                <th class="w-[132px] px-4 py-3">渠道店铺商品编码</th>
+                <th class="w-[132px] px-4 py-3">批次编码</th>
                 <th class="w-[176px] px-4 py-3">来源项目</th>
-                <th class="w-[290px] px-4 py-3">来源商品上架实例</th>
-                <th class="w-[255px] px-4 py-3">渠道 / 店铺</th>
-                <th class="w-[118px] px-4 py-3">测款来源视角</th>
-                <th class="w-[112px] px-4 py-3">渠道店铺商品状态</th>
-                <th class="w-[112px] px-4 py-3">上游更新状态</th>
-                <th class="w-[152px] px-4 py-3">关联款式档案</th>
-                <th class="w-[152px] px-4 py-3">关联规格档案</th>
-                <th class="w-[130px] px-4 py-3">关联上游编码</th>
+                <th class="w-[220px] px-4 py-3">来源商品上架批次</th>
+                <th class="w-[235px] px-4 py-3">渠道 / 店铺</th>
+              <th class="w-[220px] px-4 py-3">上架标题</th>
+                <th class="w-[110px] px-4 py-3">上架主图</th>
+                <th class="w-[132px] px-4 py-3">规格数量</th>
+                <th class="w-[120px] px-4 py-3">上架状态</th>
+                <th class="w-[160px] px-4 py-3">上游款式商品编号</th>
                 <th class="w-[260px] px-4 py-3">链路状态</th>
                 <th class="w-[130px] px-4 py-3">更新时间</th>
                 <th class="w-[110px] px-4 py-3 text-right">操作</th>
@@ -217,7 +269,7 @@ export function renderPcsChannelProductDetailPage(channelProductId: string): str
     return `
       <div class="p-4">
         <section class="rounded-[20px] border border-slate-200 bg-white px-6 py-8 shadow-sm">
-          <h1 class="text-2xl font-semibold text-slate-900">未找到渠道店铺商品</h1>
+          <h1 class="text-2xl font-semibold text-slate-900">未找到渠道商品上架批次</h1>
           <p class="mt-3 text-sm text-slate-500">请返回列表重新选择。</p>
           <button type="button" class="mt-6 inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50" data-nav="/pcs/products/channel-products">
             返回列表
@@ -227,14 +279,14 @@ export function renderPcsChannelProductDetailPage(channelProductId: string): str
     `
   }
 
-  const style = record.styleId ? getStyleArchiveById(record.styleId) : null
-  const sku = (record.skuId ? getSkuArchiveById(record.skuId) : null) || (record.skuCode ? findSkuArchiveByCode(record.skuCode) : null)
   const projectHref = `/pcs/projects/${encodeURIComponent(record.projectId)}`
-  const styleHref = style ? `/pcs/products/styles/${encodeURIComponent(style.styleId)}` : null
-  const skuHref = sku ? `/pcs/products/specifications/${encodeURIComponent(sku.skuId)}` : null
+  const styleHref = record.styleId ? `/pcs/products/styles/${encodeURIComponent(record.styleId)}` : null
   const completedUpstreamUpdate = record.upstreamSyncStatus === '已更新'
   const upstreamUpdateTime = record.lastUpstreamSyncAt || (completedUpstreamUpdate ? record.updatedAt : '')
   const currentRule = CHANNEL_PRODUCT_STATUS_RULES[resolveChannelProductBusinessStatus(record)]
+  const listingImages = record.listingImages
+    .slice()
+    .sort((left, right) => left.sortNo - right.sortNo)
 
   return `
     <div class="p-4">
@@ -245,63 +297,60 @@ export function renderPcsChannelProductDetailPage(channelProductId: string): str
               <button type="button" class="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50" data-nav="/pcs/products/channel-products">
                 <i data-lucide="arrow-left" class="h-4 w-4"></i>返回列表
               </button>
-              <div class="mt-3 text-xs text-slate-500">商品档案 / 渠道店铺商品 / 项目测款来源</div>
+              <div class="mt-3 text-xs text-slate-500">商品档案 / 渠道商品上架批次</div>
               <div class="mt-2 flex flex-wrap items-center gap-2">
-                <h1 class="text-[20px] font-semibold text-slate-900">${escapeHtml(record.channelProductCode)}</h1>
+                <h1 class="text-[20px] font-semibold text-slate-900">${escapeHtml(record.listingBatchCode || record.channelProductCode)}</h1>
                 ${renderBusinessStatusBadge(record)}
               </div>
-              <div class="mt-2 text-sm text-slate-500">${escapeHtml(`${getChannelLabel(record.channelCode)} / ${getStoreLabel(record)} ｜ 渠道标题 ${record.listingTitle}`)}</div>
+              <div class="mt-2 text-sm text-slate-500">${escapeHtml(`${getChannelLabel(record.channelCode)} / ${getStoreLabel(record)} ｜ ${record.styleListingTitle || record.listingTitle || '-'}`)}</div>
             </div>
             <div class="flex flex-wrap items-center gap-3">
               ${renderDetailButton('查看来源项目', projectHref)}
               ${renderDetailButton('查看款式档案', styleHref)}
-              ${renderDetailButton('查看规格档案', skuHref)}
             </div>
           </div>
         </section>
 
         <div class="grid gap-4 xl:grid-cols-3">
           <section class="rounded-xl border border-slate-200 bg-white px-4 py-4">
-            <h2 class="text-base font-semibold text-slate-900">来源与节点</h2>
+            <h2 class="text-base font-semibold text-slate-900">来源与上架信息</h2>
             <div class="mt-4 space-y-3">
               ${renderDetailField('来源项目', record.projectCode)}
               ${renderDetailField('项目名称', record.projectName)}
-              ${renderDetailField('来源商品上架实例', record.listingInstanceCode)}
+              ${renderDetailField('来源商品上架批次', record.listingInstanceCode || record.channelProductCode)}
               ${renderDetailField('来源工作项节点', record.projectNodeId)}
               ${renderDetailField('渠道 / 店铺', `${getChannelLabel(record.channelCode)} / ${getStoreLabel(record)}`)}
-              ${renderDetailField('规格档案编码', record.skuCode || '—')}
-              ${renderDetailField('币种 / 售价', `${record.currency} / ${record.listingPrice}`)}
+              ${renderDetailField('上架标题', record.styleListingTitle || record.listingTitle || '—')}
+              ${renderDetailField('默认售价 / 币种', `${record.defaultPriceAmount || record.listingPrice || '—'} / ${record.currencyCode || record.currency || '—'}`)}
             </div>
           </section>
 
           <section class="rounded-xl border border-slate-200 bg-white px-4 py-4">
-            <h2 class="text-base font-semibold text-slate-900">测款与作废状态</h2>
+            <h2 class="text-base font-semibold text-slate-900">规格上传结果</h2>
+            <div class="mt-4 space-y-3">
+              ${renderDetailField('规格数量', String(record.specLineCount || record.specLines.length || 0))}
+              ${renderDetailField('已上传规格数量', String(record.uploadedSpecLineCount || 0))}
+              ${renderDetailField('上架批次状态', record.listingBatchStatus || record.channelProductStatus)}
+              ${renderDetailField('上游款式商品编号', record.upstreamProductId || record.upstreamChannelProductCode || '—')}
+              ${renderDetailField('上传结果', record.uploadResultText || '—')}
+              ${renderDetailField('上传时间', record.uploadedAt ? formatDateTime(record.uploadedAt) : '—')}
+            </div>
+          </section>
+
+          <section class="rounded-xl border border-slate-200 bg-white px-4 py-4">
+            <h2 class="text-base font-semibold text-slate-900">测款与链路状态</h2>
             <div class="mt-4 space-y-3">
               ${renderDetailField('当前测款状态', getLinkageDescription(record))}
-              ${renderDetailField('渠道店铺商品状态', record.channelProductStatus)}
+              ${renderDetailField('渠道商品状态', record.channelProductStatus)}
               ${renderDetailField('是否已作废', record.channelProductStatus === '已作废' ? '是' : '否')}
               ${renderDetailField('作废原因', record.invalidatedReason || '—')}
               ${renderDetailField('关联改版任务', record.linkedRevisionTaskCode || '—')}
             </div>
           </section>
-
-          <section class="rounded-xl border border-slate-200 bg-white px-4 py-4">
-            <h2 class="text-base font-semibold text-slate-900">款式档案与上游更新</h2>
-            <div class="mt-4 space-y-3">
-              ${renderDetailField('款式档案编码', record.styleCode || '—')}
-              ${renderDetailField('规格档案编码', record.skuCode || '—')}
-              ${renderDetailField('规格档案名称', record.skuName || sku?.skuName || '—')}
-              ${renderDetailField('上游渠道商品编码', record.upstreamChannelProductCode || '—')}
-              ${renderDetailField('上游更新状态', record.upstreamSyncStatus)}
-              ${renderDetailField('是否已完成上游最终更新', completedUpstreamUpdate ? '是' : '否')}
-              ${renderDetailField('最后一次上游更新时间', upstreamUpdateTime ? formatDateTime(upstreamUpdateTime) : '—')}
-            </div>
-          </section>
         </div>
 
         <section class="rounded-xl border border-slate-200 bg-white px-4 py-4">
-          <h2 class="text-base font-semibold text-slate-900">渠道店铺商品状态口径</h2>
-          <div class="mt-4 grid gap-4 xl:grid-cols-[1.3fr,1fr]">
+          <div class="grid gap-4 xl:grid-cols-[1.3fr,1fr]">
             <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
               <div class="flex flex-wrap items-center gap-2">
                 ${renderBusinessStatusBadge(record)}
@@ -319,12 +368,52 @@ export function renderPcsChannelProductDetailPage(channelProductId: string): str
         </section>
 
         <section class="rounded-xl border border-slate-200 bg-white px-4 py-4">
-          <h2 class="text-base font-semibold text-slate-900">项目 / 款式 / 规格 / 渠道关联结果</h2>
-          <div class="mt-4 grid gap-3 xl:grid-cols-4">
-            ${renderCodeBox('款式档案编码', record.styleCode || '—')}
-            ${renderCodeBox('规格档案编码', record.skuCode || '—')}
-            ${renderCodeBox('渠道店铺商品编码', record.channelProductCode)}
-            ${renderCodeBox('上游渠道商品编码', record.upstreamChannelProductCode || '—')}
+          <h2 class="text-base font-semibold text-slate-900">上架图片</h2>
+          <div class="mt-4">
+            ${
+              listingImages.length > 0
+                ? `<div class="flex flex-wrap gap-3">
+                    ${listingImages
+                      .map(
+                        (image) => `
+                          <div class="w-24">
+                            <div class="relative overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+                              <img src="${escapeHtml(image.imageUrl)}" alt="${escapeHtml(image.imageName)}" class="h-24 w-24 object-cover" />
+                              ${image.imageId === record.listingMainImageId ? '<span class="absolute left-1 top-1 rounded bg-blue-600 px-1.5 py-0.5 text-[10px] text-white">主图</span>' : ''}
+                            </div>
+                            <div class="mt-1 text-[11px] text-slate-500">${escapeHtml(image.imageName)}</div>
+                            <div class="text-[11px] text-slate-400">排序 ${escapeHtml(String(image.sortNo))}</div>
+                          </div>
+                        `,
+                      )
+                      .join('')}
+                  </div>`
+                : '<div class="rounded-lg border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-400">暂无上架图片</div>'
+            }
+          </div>
+        </section>
+
+        <section class="rounded-xl border border-slate-200 bg-white px-4 py-4">
+          <h2 class="text-base font-semibold text-slate-900">规格明细</h2>
+          <div class="mt-4 overflow-x-auto">
+            <table class="min-w-full text-sm">
+              <thead class="bg-slate-50 text-left text-slate-500">
+                <tr>
+                  <th class="px-3 py-2 font-medium">颜色</th>
+                  <th class="px-3 py-2 font-medium">尺码</th>
+                  <th class="px-3 py-2 font-medium">花型</th>
+                  <th class="px-3 py-2 font-medium">平台销售 SKU</th>
+                  <th class="px-3 py-2 font-medium">价格</th>
+                  <th class="px-3 py-2 font-medium">币种</th>
+                  <th class="px-3 py-2 font-medium">初始库存</th>
+                  <th class="px-3 py-2 font-medium">上游规格编号</th>
+                  <th class="px-3 py-2 font-medium">状态</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-200 bg-white">
+                ${renderSpecLineRows(record)}
+              </tbody>
+            </table>
           </div>
         </section>
 
@@ -333,6 +422,28 @@ export function renderPcsChannelProductDetailPage(channelProductId: string): str
           <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
             <div class="text-sm font-semibold text-slate-900">${escapeHtml(record.upstreamSyncNote || record.upstreamSyncLog || '当前暂无上游更新日志。')}</div>
             <div class="mt-1.5 text-xs leading-5 text-slate-500">${escapeHtml(record.upstreamSyncLog || (upstreamUpdateTime ? `${formatDateTime(upstreamUpdateTime)} 记录当前状态。` : '尚未触发上游更新。'))}</div>
+          </div>
+        </section>
+
+        <section class="rounded-xl border border-slate-200 bg-white px-4 py-4">
+          <h2 class="text-base font-semibold text-slate-900">关联对象</h2>
+          <div class="mt-4 grid gap-3 xl:grid-cols-4">
+            <div class="rounded-xl border border-slate-200 bg-white px-4 py-3">
+              <div class="text-sm text-slate-500">款式档案编码</div>
+              <div class="mt-1.5 text-base font-semibold text-slate-900">${escapeHtml(record.styleCode || '—')}</div>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-white px-4 py-3">
+              <div class="text-sm text-slate-500">渠道商品批次编码</div>
+              <div class="mt-1.5 text-base font-semibold text-slate-900">${escapeHtml(record.channelProductCode)}</div>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-white px-4 py-3">
+              <div class="text-sm text-slate-500">上游款式商品编号</div>
+              <div class="mt-1.5 text-base font-semibold text-slate-900">${escapeHtml(record.upstreamProductId || record.upstreamChannelProductCode || '—')}</div>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-white px-4 py-3">
+              <div class="text-sm text-slate-500">最后一次上游更新时间</div>
+              <div class="mt-1.5 text-base font-semibold text-slate-900">${escapeHtml(upstreamUpdateTime ? formatDateTime(upstreamUpdateTime) : '—')}</div>
+            </div>
           </div>
         </section>
       </div>

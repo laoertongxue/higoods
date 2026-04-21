@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import { menusBySystem } from '../src/data/app-shell-config.ts'
+import { buildFactoryCalendarData } from '../src/data/fcs/capacity-calendar.ts'
 
 const ROOT = '/Users/laoer/Documents/higoods'
 const CAPACITY_PAGE_PATH = path.join(ROOT, 'src/pages/capacity.ts')
@@ -26,6 +27,7 @@ function main(): void {
   )
 
   const capacitySource = fs.readFileSync(CAPACITY_PAGE_PATH, 'utf8')
+  const factoryCalendar = buildFactoryCalendarData({ factoryId: 'ID-F010' })
 
   assert(capacitySource.includes('type OverviewTab = \'comparison\' | \'unallocated\' | \'unscheduled\''), 'overviewTab 未收口成 3 个 Tab')
   assert(capacitySource.includes('renderTabButton(\'overview\', \'comparison\''), '缺少“工厂供需明细”Tab')
@@ -41,6 +43,24 @@ function main(): void {
   assert(!capacitySource.includes('data-testid="capacity-policies-rules-section"'), '仍残留规则大文档区')
   assert(!capacitySource.includes('data-testid="capacity-policies-thresholds-section"'), '仍残留阈值说明大区块')
   assert(capacitySource.includes('当前阶段人工动态例外只支持整厂、工序、工艺三级暂停。'), '顶部轻量规则提示未明确当前阶段只支持暂停')
+  assert(
+    factoryCalendar.rows.some((row) => row.processCode === 'POST_FINISHING' && row.craftCode === 'BUTTONHOLE'),
+    '工厂日历未生成“后道 / 开扣眼”产能明细',
+  )
+  assert(
+    factoryCalendar.rows.some((row) => row.processCode === 'POST_FINISHING' && row.craftCode === 'BUTTON_ATTACH'),
+    '工厂日历未生成“后道 / 装扣子”产能明细',
+  )
+  assert(
+    factoryCalendar.rows.some((row) => row.processCode === 'POST_FINISHING' && row.craftCode === 'IRONING'),
+    '工厂日历未生成“后道 / 熨烫”产能明细',
+  )
+  assert(
+    factoryCalendar.rows.some((row) => row.processCode === 'POST_FINISHING' && row.craftCode === 'PACKAGING'),
+    '工厂日历未生成“后道 / 包装”产能明细',
+  )
+  assert(!capacitySource.includes('印花 PDA'), 'capacity 页面出现“印花 PDA”')
+  assert(!capacitySource.includes('染色 PDA'), 'capacity 页面出现“染色 PDA”')
 
   console.log('产能日历信息架构检查通过：菜单、overview Tabs、暂停例外页面收口均已生效。')
 }

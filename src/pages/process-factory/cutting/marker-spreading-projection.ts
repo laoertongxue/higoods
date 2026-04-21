@@ -188,7 +188,7 @@ function buildMarkerRecordFromPlan(
     spreadTotalLength: plan.plannedSpreadLength,
     materialCategory: context.sourceMaterialPrepRows[0]?.materialCategory || '',
     materialAttr: context.sourceMaterialPrepRows[0]?.materialLabel || '',
-    plannedSizeRatioText: plan.sizeRatioRows.filter((row) => row.qty > 0).map((row) => `${row.sizeCode}×${row.qty}`).join(' / '),
+    sizeRatioPlanText: plan.sizeRatioRows.filter((row) => row.qty > 0).map((row) => `${row.sizeCode}×${row.qty}`).join(' / '),
     plannedLayerCount: plan.plannedLayerCount,
     plannedMarkerCount: Math.max(plan.layoutLines.length, plan.modeDetailLines.length, 1),
     markerLength: plan.netLength,

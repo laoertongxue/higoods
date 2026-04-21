@@ -299,7 +299,7 @@ export function getRelatedObjects(exc: ExceptionCase): Array<{ typeLabel: string
   for (const orderId of exc.relatedOrderIds) pushUnique('生产单', orderId, 'order')
   for (const taskId of exc.relatedTaskIds) pushUnique('任务', taskId, 'task')
   for (const tenderId of exc.relatedTenderIds) pushUnique('招标单', tenderId, 'tender')
-  if (/^PDA-/.test(exc.sourceId)) pushUnique('PDA任务', exc.sourceId, 'pda')
+  if (/^PDA-/.test(exc.sourceId)) pushUnique('工厂端任务', exc.sourceId, 'pda')
   if (/^HO-/.test(exc.sourceId)) pushUnique('交出单', exc.sourceId, 'handover')
   if (rows.length === 0 && exc.sourceId) pushUnique('来源单据', exc.sourceId, 'other')
 
@@ -458,7 +458,7 @@ export function getResolveJudgeResult(exc: ExceptionCase): ResolveJudgeResult {
         ruleText: '关键节点按规则完成上报后，系统自动判定为已解决。',
         currentResultText: resolved
           ? '当前已满足：任务已补报关键节点，可进入关闭流程。'
-          : '当前未满足：关键节点仍未上报，请先在 PDA 侧完成节点上报。',
+          : '当前未满足：关键节点仍未上报，请先在工厂端移动应用中完成节点上报。',
         resolvedDetail: '任务已补报关键节点，系统自动判定为已解决',
         resolvedRuleCode: 'EXEC_MILESTONE_REPORTED',
       }

@@ -2,6 +2,7 @@ import {
   PUBLISHED_SAM_UNIT_LABEL,
   getProcessCraftByCode,
   getProcessDefinitionByCode,
+  listAllProcessCraftDefinitions,
   listProcessCraftDefinitions,
   type PublishedSamUnit,
   type DetailSplitDimension,
@@ -268,7 +269,7 @@ const STAGE_NAME_BY_CODE: Record<TechPackProcessEntry['stageCode'], string> = {
 }
 
 const processCraftByName = new Map(
-  listProcessCraftDefinitions().map((item) => [item.craftName, item]),
+  listAllProcessCraftDefinitions().map((item) => [item.craftName, item]),
 )
 
 function createCraftProcessEntry(

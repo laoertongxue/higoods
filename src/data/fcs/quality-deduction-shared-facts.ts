@@ -104,8 +104,8 @@ const PROCESS_LABEL: Record<ReturnInboundProcessType, string> = {
 }
 
 const SEW_MODE_LABEL: Record<string, string> = {
-  SEW_WITH_POST: '车缝（含后道）',
-  SEW_WITHOUT_POST_WAREHOUSE_INTEGRATED: '车缝（后道仓一体）',
+  SEW_FACTORY_INCLUDES_POST: '车缝厂含后道',
+  MANAGED_POST_FACTORY_EXECUTES: '我方后道工厂执行后道',
 }
 
 const PROCESSING_FEE_RATE: Record<ReturnInboundProcessType, number> = {
@@ -767,10 +767,28 @@ function createQcRecordFact(scenario: RawCaseSeed): QcRecordFact {
     warehouseName: scenario.warehouseName,
     inboundAt: scenario.inboundAt,
     inboundBy: scenario.inboundBy,
+    managedPostFactoryId: scenario.managedPostFactoryId,
+    managedPostFactoryName: scenario.managedPostFactoryName,
+    finishedWarehouseId: scenario.finishedWarehouseId,
+    finishedWarehouseName: scenario.finishedWarehouseName,
     sourceBusinessType: scenario.sourceBusinessType,
     sourceBusinessId: scenario.sourceBusinessId,
     sourceOrderId: scenario.sourceOrderId,
     sewPostProcessMode: scenario.sewPostProcessMode,
+    postExecutionMode: scenario.postExecutionMode ?? scenario.sewPostProcessMode,
+    inspectionScene: scenario.inspectionScene,
+    inspectionType: scenario.inspectionType,
+    inspectionMethod: scenario.inspectionMethod,
+    handoverOrderId: scenario.handoverOrderId,
+    handoverRecordIds: scenario.handoverRecordIds,
+    receiverKind: scenario.receiverKind,
+    receiverId: scenario.receiverId,
+    receiverName: scenario.receiverName,
+    declaredQty: scenario.declaredQty,
+    receivedQty: scenario.receivedQty,
+    samplingQty: scenario.samplingQty,
+    samplingRatio: scenario.samplingRatio,
+    nextAction: scenario.nextAction,
     writebackAvailableQty: scenario.writeback?.availableQty,
     writebackAcceptedAsDefectQty: scenario.writeback?.acceptedAsDefectQty,
     writebackScrapQty: scenario.writeback?.scrapQty,

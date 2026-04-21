@@ -356,7 +356,7 @@ function recomputeAutoNotifications(): number {
 
   const handoverRows = getHandoverLedgerRows()
 
-  // A. 交出后待仓库确认超过 24 小时（示例规则）
+  // A. 交出后待接收方回写超过 24 小时（示例规则）
   const warehouseOverdueByTask = new Map<string, (typeof handoverRows)[number]>()
   handoverRows.forEach((row) => {
     if (row.statusCode !== 'HANDOUT_RECORD_PENDING_WRITEBACK') return
@@ -374,8 +374,8 @@ function recomputeAutoNotifications(): number {
     const summary = getProductionOrderHandoverSummary(row.productionOrderId, handoverRows)
     const notification: Omit<Notification, 'notificationId' | 'createdAt'> = {
       level: 'WARN',
-      title: '交出后待仓库确认超时',
-      content: `生产单${row.productionOrderId} 任务${row.taskNo}交出后待仓库确认已超过24小时，请尽快核实（当前卡点：${summary.currentBottleneckLabel}）`,
+      title: '交出后待接收方回写超时',
+      content: `生产单${row.productionOrderId} 任务${row.taskNo}交出后待接收方回写已超过24小时，请尽快核实（当前卡点：${summary.currentBottleneckLabel}）`,
       recipientType: 'INTERNAL_USER',
       recipientId: 'U001',
       recipientName: '管理员',

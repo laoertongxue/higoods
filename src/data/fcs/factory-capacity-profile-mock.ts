@@ -1,5 +1,6 @@
 import { getFactoryMasterRecordById, listFactoryMasterRecords } from './factory-master-store.ts'
 import {
+  getProcessDefinitionByCode,
   getProcessCraftDictRowByCode,
   listCraftsByProcessCode,
   listProcessStages,
@@ -14,7 +15,77 @@ import type {
   FactoryCapacityEntry,
   FactoryCapacityFieldValue,
   FactoryCapacityProfile,
+  FactoryDyeVatCapacity,
+  FactoryPostCapacityNode,
+  FactoryPostCapacityNodeCode,
+  FactoryPrintMachineCapacity,
 } from './factory-types.ts'
+
+const POST_CAPACITY_NODE_CODES = ['BUTTONHOLE', 'BUTTON_ATTACH', 'IRONING', 'PACKAGING'] as const satisfies FactoryPostCapacityNodeCode[]
+const POST_CAPACITY_NODE_MACHINE_TYPE: Record<FactoryPostCapacityNodeCode, string> = {
+  BUTTONHOLE: '锁眼机',
+  BUTTON_ATTACH: '装扣机',
+  IRONING: '整烫工位',
+  PACKAGING: '包装工位',
+}
+const POST_CAPACITY_NODE_REFERENCE_CRAFTS: Record<FactoryPostCapacityNodeCode, string[]> = {
+  BUTTONHOLE: ['开扣眼'],
+  BUTTON_ATTACH: ['机打扣', '四爪扣', '布包扣', '手缝扣'],
+  IRONING: ['熨烫'],
+  PACKAGING: ['包装'],
+}
+
+function isPostCapacityNodeProcess(processCode: string): processCode is FactoryPostCapacityNodeCode {
+  return POST_CAPACITY_NODE_CODES.includes(processCode as FactoryPostCapacityNodeCode)
+}
+
+function buildPostCapacityNodeRow(processCode: FactoryPostCapacityNodeCode): ProcessCraftDictRow {
+  const process = getProcessDefinitionByCode(processCode)
+  const availableRows = listCraftsByProcessCode(processCode)
+    .map((craft) => getProcessCraftDictRowByCode(craft.craftCode))
+    .filter((row): row is ProcessCraftDictRow => Boolean(row))
+  const referenceRow = POST_CAPACITY_NODE_REFERENCE_CRAFTS[processCode]
+    .map((craftName) => availableRows.find((row) => row.craftName === craftName))
+    .find((row): row is ProcessCraftDictRow => Boolean(row))
+    ?? availableRows[0]
+
+  if (!process || !referenceRow) {
+    throw new Error(`缺少后道产能节点定义：${processCode}`)
+  }
+
+  const parentProcess = getProcessDefinitionByCode(process.parentProcessCode ?? 'POST_FINISHING')
+
+  return {
+    ...referenceRow,
+    processCode: parentProcess?.processCode ?? 'POST_FINISHING',
+    processName: parentProcess?.processName ?? '后道',
+    craftCode: processCode,
+    craftName: process.processName,
+    systemProcessCode: process.systemProcessCode,
+    legacyCraftName: process.processName,
+    processRole: process.processRole,
+    processRoleLabel: '产能节点',
+    taskScopeLabel: '产能节点',
+    generatesExternalTask: false,
+    generatesExternalTaskLabel: '否',
+    parentProcessCode: process.parentProcessCode,
+  }
+}
+
+function resolveAbilitySupportedRows(ability: Factory['processAbilities'][number]): ProcessCraftDictRow[] {
+  if ((ability.status ?? 'ACTIVE') === 'DISABLED') return []
+
+  if (ability.processCode === 'POST_FINISHING') {
+    const nodeCodes = ability.capacityNodeCodes?.length ? ability.capacityNodeCodes : POST_CAPACITY_NODE_CODES
+    return nodeCodes.map((nodeCode) => buildPostCapacityNodeRow(nodeCode))
+  }
+
+  const craftSet = new Set(ability.craftCodes)
+  return listCraftsByProcessCode(ability.processCode)
+    .filter((craft) => craftSet.has(craft.craftCode))
+    .map((craft) => getProcessCraftDictRowByCode(craft.craftCode))
+    .filter((row): row is ProcessCraftDictRow => Boolean(row))
+}
 
 export interface FactoryCapacityResolvedEntry {
   row: ProcessCraftDictRow
@@ -78,17 +149,17 @@ function createEmptyProfile(factoryId: string): FactoryCapacityProfile {
 }
 
 function resolveFactorySupportedCraftRows(factory: Factory): ProcessCraftDictRow[] {
-  return listProcessStages().flatMap((stage) =>
-    listProcessesByStageCode(stage.stageCode).flatMap((process) => {
-      const ability = factory.processAbilities.find((item) => item.processCode === process.processCode)
-      if (!ability) return []
-      const craftSet = new Set(ability.craftCodes)
-      return listCraftsByProcessCode(process.processCode)
-        .filter((craft) => craftSet.has(craft.craftCode))
-        .map((craft) => getProcessCraftDictRowByCode(craft.craftCode))
-        .filter((row): row is ProcessCraftDictRow => Boolean(row))
-    }),
-  )
+  const stageWeight = new Map(listProcessStages().map((stage, index) => [stage.stageCode, index] as const))
+
+  return factory.processAbilities
+    .flatMap((ability) => resolveAbilitySupportedRows(ability))
+    .sort((left, right) => {
+      const stageCompare = (stageWeight.get(left.stageCode) ?? 0) - (stageWeight.get(right.stageCode) ?? 0)
+      if (stageCompare !== 0) return stageCompare
+      const processCompare = left.processName.localeCompare(right.processName)
+      if (processCompare !== 0) return processCompare
+      return left.craftName.localeCompare(right.craftName)
+    })
 }
 
 function getBaseSeed(factoryId: string, craftCode: string): number {
@@ -447,6 +518,131 @@ export function calculateFactoryCapacityCompletion(factoryId: string): number {
 
   if (!totalFields) return 0
   return Math.round((filledFields / totalFields) * 100)
+}
+
+function getEntryNumericValue(
+  entry: FactoryCapacityEntry,
+  fieldKey: SamCurrentFieldKey,
+): number | undefined {
+  const value = entry.values[fieldKey]
+  if (value === undefined || value === null || String(value).trim() === '') return undefined
+  const numericValue = Number(value)
+  return Number.isFinite(numericValue) ? numericValue : undefined
+}
+
+function resolveEquipmentStatus(factoryId: string, processCode: string): FactoryEquipmentStatus {
+  const factory = getFactoryMasterRecordById(factoryId)
+  if (!factory) return 'DISABLED'
+  if ((factory.processAbilities.find((item) => item.processCode === processCode)?.status ?? 'ACTIVE') === 'PAUSED') return 'PAUSED'
+  if (factory.status === 'paused') return 'PAUSED'
+  if (factory.status === 'inactive' || factory.status === 'blacklist') return 'DISABLED'
+  return 'ACTIVE'
+}
+
+export function listFactoryPostCapacityNodes(factoryId: string): FactoryPostCapacityNode[] {
+  const entryMap = new Map(
+    listFactoryCapacityEntries(factoryId)
+      .filter(({ row }) => isPostCapacityNodeProcess(row.craftCode))
+      .map(({ row, entry }) => [row.craftCode, { row, entry }] as const),
+  )
+
+  return POST_CAPACITY_NODE_CODES.flatMap((nodeCode) => {
+    const resolved = entryMap.get(nodeCode)
+    if (!resolved) return []
+
+    const { row, entry } = resolved
+    const deviceCount = getEntryNumericValue(entry, 'deviceCount') ?? 0
+    const operatorCount = getEntryNumericValue(entry, 'staffCount')
+    const shiftMinutes = getEntryNumericValue(entry, 'staffShiftMinutes')
+      ?? getEntryNumericValue(entry, 'deviceShiftMinutes')
+      ?? 0
+    const efficiencyValue = getEntryNumericValue(entry, 'staffEfficiencyValue')
+      ?? getEntryNumericValue(entry, 'deviceEfficiencyValue')
+      ?? getEntryNumericValue(entry, 'efficiencyFactor')
+
+    return [{
+      capacityNodeId: `${factoryId}::${nodeCode}`,
+      factoryId,
+      parentProcessCode: 'POST_FINISHING',
+      nodeCode,
+      nodeName: row.craftName,
+      machineType: POST_CAPACITY_NODE_MACHINE_TYPE[nodeCode],
+      machineCount: deviceCount,
+      operatorCount,
+      shiftMinutes,
+      efficiencyValue,
+      efficiencyUnit: efficiencyValue == null ? undefined : '系数',
+      setupMinutes: getEntryNumericValue(entry, 'setupMinutes'),
+      switchMinutes: getEntryNumericValue(entry, 'switchMinutes'),
+      status: resolveEquipmentStatus(factoryId, 'POST_FINISHING'),
+      effectiveFrom: getFactoryMasterRecordById(factoryId)?.updatedAt,
+    }]
+  })
+}
+
+const PRINT_MACHINE_SEEDS: FactoryPrintMachineCapacity[] = [
+  {
+    printerId: 'PRINTER-ID-F002-01',
+    factoryId: 'ID-F002',
+    printerNo: 'PR-01',
+    printerName: '平网印花机 A',
+    speedValue: 180,
+    speedUnit: '米/小时',
+    shiftMinutes: 540,
+    status: 'ACTIVE',
+    remark: '主线机台',
+  },
+  {
+    printerId: 'PRINTER-ID-F002-02',
+    factoryId: 'ID-F002',
+    printerNo: 'PR-02',
+    printerName: '数码直喷机 B',
+    speedValue: 120,
+    speedUnit: '米/小时',
+    shiftMinutes: 480,
+    status: 'MAINTENANCE',
+    remark: '当前做喷头保养',
+  },
+]
+
+const DYE_VAT_SEEDS: FactoryDyeVatCapacity[] = [
+  {
+    dyeVatId: 'DYEVAT-ID-F003-01',
+    factoryId: 'ID-F003',
+    dyeVatNo: 'VAT-01',
+    capacityQty: 650,
+    capacityUnit: 'kg/缸',
+    supportedMaterialTypes: ['针织棉', '涤棉'],
+    shiftMinutes: 540,
+    status: 'ACTIVE',
+    remark: '常规深色批次',
+  },
+  {
+    dyeVatId: 'DYEVAT-ID-F003-02',
+    factoryId: 'ID-F003',
+    dyeVatNo: 'VAT-02',
+    capacityQty: 900,
+    capacityUnit: 'kg/缸',
+    supportedMaterialTypes: ['牛仔布', '厚磅梭织'],
+    shiftMinutes: 600,
+    status: 'PAUSED',
+    remark: '当前等待排期释放',
+  },
+]
+
+export function listFactoryPrintMachineCapacities(factoryId?: string): FactoryPrintMachineCapacity[] {
+  return PRINT_MACHINE_SEEDS
+    .filter((item) => !factoryId || item.factoryId === factoryId)
+    .map((item) => ({ ...item }))
+}
+
+export function listFactoryDyeVatCapacities(factoryId?: string): FactoryDyeVatCapacity[] {
+  return DYE_VAT_SEEDS
+    .filter((item) => !factoryId || item.factoryId === factoryId)
+    .map((item) => ({
+      ...item,
+      supportedMaterialTypes: [...item.supportedMaterialTypes],
+    }))
 }
 
 export function auditFactoryCapacityProfile(factoryId: string): FactoryCapacityAuditIssue[] {

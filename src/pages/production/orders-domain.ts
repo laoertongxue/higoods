@@ -48,6 +48,34 @@ import {
   renderOrdersFromDemandDialog,
   renderDemandConfirmDialog,
 } from './demand-domain.ts'
+import {
+  getProductionConfirmationByOrderId,
+  isProductionConfirmationPrintable,
+} from '../../data/fcs/production-confirmation.ts'
+
+function getOrderConfirmationPreviewState(order: ProductionOrder): {
+  available: boolean
+  href: string
+  title: string
+} {
+  const href = `/fcs/production/orders/${encodeURIComponent(order.productionOrderId)}/confirmation-print`
+  const confirmation = getProductionConfirmationByOrderId(order.productionOrderId)
+  const printable = isProductionConfirmationPrintable(order.productionOrderId)
+
+  if (confirmation || printable.printable) {
+    return {
+      available: true,
+      href,
+      title: '打印预览',
+    }
+  }
+
+  return {
+    available: false,
+    href,
+    title: '工厂分配完成后可打印',
+  }
+}
 
 function renderOrderRiskFlags(flags: RiskFlag[]): string {
   if (flags.length === 0) {
@@ -989,6 +1017,16 @@ export function renderProductionOrdersPage(): string {
                                           <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-prod-action="open-order-tech-pack-snapshot" data-order-id="${escapeHtml(order.productionOrderId)}">
                                             <i data-lucide="file-text" class="mr-2 h-4 w-4"></i>
                                             查看技术包快照
+                                          </button>
+                                          <button
+                                            class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm ${
+                                              getOrderConfirmationPreviewState(order).available ? 'hover:bg-muted' : 'pointer-events-none opacity-50'
+                                            }"
+                                            title="${escapeHtml(getOrderConfirmationPreviewState(order).title)}"
+                                            data-nav="${escapeHtml(getOrderConfirmationPreviewState(order).href)}"
+                                          >
+                                            <i data-lucide="printer" class="mr-2 h-4 w-4"></i>
+                                            打印预览
                                           </button>
                                           <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-prod-action="open-orders-dispatch-center" data-order-id="${order.productionOrderId}">
                                             <i data-lucide="send" class="mr-2 h-4 w-4"></i>

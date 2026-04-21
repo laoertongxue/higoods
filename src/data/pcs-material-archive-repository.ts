@@ -1025,7 +1025,7 @@ export function createMaterialSkuRecord(materialId: string, input: MaterialSkuDr
   const existingSkuRecords = snapshot.skuRecords.filter((item) => item.materialId === materialId)
   const materialSkuCode = buildNextMaterialSkuCode(material.materialCode, normalizedInput, existingSkuRecords)
   const record = normalizeSkuRecord({
-    materialSkuId: `${materialId}_sku_${String(existingSkuRecords.length + 1).padStart(3, '0')}`,
+    materialSkuId: `${materialId}_materialLine_${String(existingSkuRecords.length + 1).padStart(3, '0')}`,
     materialId,
     materialCode: material.materialCode,
     materialSkuCode,

@@ -8,6 +8,11 @@ import {
   type PdaHandoverRecord,
   type PdaPickupRecord,
 } from './pda-handover-events'
+import {
+  getRecordReceiverWrittenAt,
+  getRecordReceiverWrittenQty,
+  getReceiverDisplayName,
+} from './task-handover-domain'
 import { processTasks } from './process-tasks'
 import { listRuntimeProcessTasks, type RuntimeProcessTask } from './runtime-process-tasks'
 
@@ -72,7 +77,7 @@ export type HandoverTimelineProcessStatusLabel =
   | '暂无事件'
   | '待领料'
   | '已领料待交出'
-  | '已交出待仓库确认'
+  | '已交出待接收方回写'
   | '有异议'
   | '异议处理中'
   | '厂内连续流转'
@@ -164,7 +169,7 @@ function buildPickupHeadRow(head: PdaHandoverHead): HandoverLedgerRow {
   let statusLabel = '待领料'
   let statusGroup: HandoverLedgerStatusGroup = 'PENDING'
   let statusTone: HandoverLedgerStatusTone = 'warning'
-  let nextActionHint = '去 PDA 领料详情查看记录'
+  let nextActionHint = '去领料详情查看记录'
 
   if (head.summaryStatus === 'SUBMITTED') {
     statusCode = 'PICKUP_SUBMITTED'
@@ -200,7 +205,7 @@ function buildPickupHeadRow(head: PdaHandoverHead): HandoverLedgerRow {
     statusGroup,
     statusTone,
     occurredAt: head.lastRecordAt || head.completedByWarehouseAt || '',
-    sourceModuleLabel: 'PDA 领料',
+    sourceModuleLabel: '领料单',
     nextActionHint,
     handoverId: head.handoverId,
     qtyDiff: head.qtyDiffTotal,
@@ -246,7 +251,7 @@ function buildPickupRecordRow(head: PdaHandoverHead, record: PdaPickupRecord): H
     statusGroup,
     statusTone,
     occurredAt: record.submittedAt,
-    sourceModuleLabel: 'PDA 领料',
+    sourceModuleLabel: '领料记录',
     nextActionHint,
     handoverId: head.handoverId,
     recordId: record.recordId,
@@ -258,7 +263,7 @@ function buildHandoutHeadRow(head: PdaHandoverHead): HandoverLedgerRow {
   let statusLabel = '待交出'
   let statusGroup: HandoverLedgerStatusGroup = 'PENDING'
   let statusTone: HandoverLedgerStatusTone = 'warning'
-  let nextActionHint = '去 PDA 交出详情发起记录'
+  let nextActionHint = '去交出单详情发起记录'
 
   if (head.summaryStatus === 'SUBMITTED') {
     statusCode = 'HANDOUT_SUBMITTED'
@@ -270,13 +275,13 @@ function buildHandoutHeadRow(head: PdaHandoverHead): HandoverLedgerRow {
     statusLabel = '部分已回写'
     statusGroup = 'IN_PROGRESS'
     statusTone = 'info'
-    nextActionHint = '等待仓库完成剩余回写'
+    nextActionHint = '等待接收方完成剩余回写'
   } else if (head.summaryStatus === 'WRITTEN_BACK') {
     statusCode = 'HANDOUT_WRITTEN'
     statusLabel = '已回写待完成'
     statusGroup = 'IN_PROGRESS'
     statusTone = 'success'
-    nextActionHint = '可由仓库发起交出完成'
+    nextActionHint = '可关闭交出单'
   } else if (head.summaryStatus === 'HAS_OBJECTION') {
     statusCode = 'HANDOUT_HAS_OBJECTION'
     statusLabel = '存在数量异议'
@@ -289,19 +294,19 @@ function buildHandoutHeadRow(head: PdaHandoverHead): HandoverLedgerRow {
     rowId: `HOH-${head.handoverId}`,
     sourceType: 'HANDOUT_HEAD',
     eventTypeCode: 'HANDOUT_HEAD',
-    eventTypeLabel: '交出头',
+    eventTypeLabel: '交出单',
     productionOrderId: head.productionOrderNo,
     taskId: head.taskId,
     taskNo: head.taskNo,
     processName: head.processName,
-    directionLabel: '工厂 → 仓库',
-    qtySummary: `应交 ${head.qtyExpectedTotal} ${head.qtyUnit} / 回写 ${head.qtyActualTotal} ${head.qtyUnit}（${formatQtyDiff(head.qtyDiffTotal, head.qtyUnit)}）`,
+    directionLabel: `工厂 → ${getReceiverDisplayName(head)}`,
+    qtySummary: `已交出 ${head.submittedQtyTotal} ${head.qtyUnit} / 已回写 ${head.writtenBackQtyTotal} ${head.qtyUnit}（${formatQtyDiff(head.diffQtyTotal, head.qtyUnit)}）`,
     statusCode,
     statusLabel,
     statusGroup,
     statusTone,
     occurredAt: head.lastRecordAt || head.completedByWarehouseAt || '',
-    sourceModuleLabel: 'PDA 交出',
+    sourceModuleLabel: '交出单',
     nextActionHint,
     handoverId: head.handoverId,
     qtyDiff: head.qtyDiffTotal,
@@ -312,20 +317,35 @@ function buildHandoutRecordRow(head: PdaHandoverHead, record: PdaHandoverRecord)
   let eventTypeCode: HandoverLedgerEventTypeCode = 'HANDOUT_RECORD'
   let eventTypeLabel = '交出记录'
   let statusCode = 'HANDOUT_RECORD_PENDING_WRITEBACK'
-  let statusLabel = '待仓库确认'
+  let statusLabel = '待回写'
   let statusGroup: HandoverLedgerStatusGroup = 'PENDING'
   let statusTone: HandoverLedgerStatusTone = 'warning'
-  let nextActionHint = '等待仓库回写数量'
+  let nextActionHint = '等待接收方回写实收数量'
 
-  if (record.status === 'WRITTEN_BACK') {
+  if (
+    record.handoverRecordStatus === 'WRITTEN_BACK_MATCHED'
+    || record.handoverRecordStatus === 'WRITTEN_BACK_DIFF'
+    || record.handoverRecordStatus === 'DIFF_ACCEPTED'
+  ) {
     eventTypeCode = 'WAREHOUSE_CONFIRMED'
-    eventTypeLabel = '仓库确认'
-    statusCode = 'HANDOUT_RECORD_WRITTEN'
-    statusLabel = '已回写'
-    statusGroup = 'DONE'
-    statusTone = 'success'
-    nextActionHint = '已完成仓库回写'
-  } else if (record.status === 'OBJECTION_REPORTED') {
+    eventTypeLabel = '接收方回写'
+    statusCode =
+      record.handoverRecordStatus === 'WRITTEN_BACK_DIFF'
+        ? 'HANDOUT_RECORD_DIFF'
+        : record.handoverRecordStatus === 'DIFF_ACCEPTED'
+          ? 'HANDOUT_RECORD_DIFF_ACCEPTED'
+          : 'HANDOUT_RECORD_WRITTEN'
+    statusLabel =
+      record.handoverRecordStatus === 'WRITTEN_BACK_DIFF'
+        ? '差异待确认'
+        : record.handoverRecordStatus === 'DIFF_ACCEPTED'
+          ? '已接受差异'
+          : '已回写'
+    statusGroup = record.handoverRecordStatus === 'WRITTEN_BACK_DIFF' ? 'EXCEPTION' : 'DONE'
+    statusTone = record.handoverRecordStatus === 'WRITTEN_BACK_DIFF' ? 'danger' : 'success'
+    nextActionHint =
+      record.handoverRecordStatus === 'WRITTEN_BACK_DIFF' ? '等待工厂确认差异' : '接收方回写已完成'
+  } else if (record.handoverRecordStatus === 'OBJECTION_REPORTED') {
     eventTypeCode = 'HANDOUT_OBJECTION'
     eventTypeLabel = '数量异议'
     statusCode = 'HANDOUT_OBJECTION_REPORTED'
@@ -333,7 +353,7 @@ function buildHandoutRecordRow(head: PdaHandoverHead, record: PdaHandoverRecord)
     statusGroup = 'EXCEPTION'
     statusTone = 'danger'
     nextActionHint = '等待平台跟进处理异议'
-  } else if (record.status === 'OBJECTION_PROCESSING') {
+  } else if (record.handoverRecordStatus === 'OBJECTION_PROCESSING') {
     eventTypeCode = 'HANDOUT_OBJECTION_PROCESSING'
     eventTypeLabel = '异议跟进'
     statusCode = 'HANDOUT_OBJECTION_PROCESSING'
@@ -341,7 +361,7 @@ function buildHandoutRecordRow(head: PdaHandoverHead, record: PdaHandoverRecord)
     statusGroup = 'EXCEPTION'
     statusTone = 'danger'
     nextActionHint = '平台处理中，待结论'
-  } else if (record.status === 'OBJECTION_RESOLVED') {
+  } else if (record.handoverRecordStatus === 'OBJECTION_RESOLVED') {
     eventTypeCode = 'HANDOUT_OBJECTION_RESOLVED'
     eventTypeLabel = '异议处理'
     statusCode = 'HANDOUT_OBJECTION_RESOLVED'
@@ -351,7 +371,8 @@ function buildHandoutRecordRow(head: PdaHandoverHead, record: PdaHandoverRecord)
     nextActionHint = '异议已处理，可继续跟踪完成态'
   }
 
-  const writtenText = typeof record.warehouseWrittenQty === 'number' ? `${record.warehouseWrittenQty} ${head.qtyUnit}` : '待仓库确认'
+  const writtenQty = getRecordReceiverWrittenQty(record)
+  const writtenText = typeof writtenQty === 'number' ? `${writtenQty} ${head.qtyUnit}` : '待回写'
 
   return {
     rowId: `HOR-${record.recordId}`,
@@ -362,14 +383,14 @@ function buildHandoutRecordRow(head: PdaHandoverHead, record: PdaHandoverRecord)
     taskId: head.taskId,
     taskNo: head.taskNo,
     processName: head.processName,
-    directionLabel: '工厂 → 仓库',
+    directionLabel: `工厂 → ${getReceiverDisplayName(head)}`,
     qtySummary: writtenText,
     statusCode,
     statusLabel,
     statusGroup,
     statusTone,
-    occurredAt: record.warehouseWrittenAt || record.factorySubmittedAt,
-    sourceModuleLabel: 'PDA 交出',
+    occurredAt: getRecordReceiverWrittenAt(record) || record.factorySubmittedAt,
+    sourceModuleLabel: '交出记录',
     nextActionHint,
     handoverId: head.handoverId,
     recordId: record.recordId,
@@ -386,15 +407,15 @@ function buildCompletedHeadRow(head: PdaHandoverHead): HandoverLedgerRow {
     taskId: head.taskId,
     taskNo: head.taskNo,
     processName: head.processName,
-    directionLabel: head.headType === 'PICKUP' ? '仓库 → 工厂' : '工厂 → 仓库',
+    directionLabel: head.headType === 'PICKUP' ? '仓库 → 工厂' : `工厂 → ${getReceiverDisplayName(head)}`,
     qtySummary: `应交 ${head.qtyExpectedTotal} ${head.qtyUnit} / 实际 ${head.qtyActualTotal} ${head.qtyUnit}（${formatQtyDiff(head.qtyDiffTotal, head.qtyUnit)}）`,
     statusCode: 'HEAD_COMPLETED',
     statusLabel: '已完成',
     statusGroup: 'DONE',
     statusTone: 'success',
     occurredAt: head.completedByWarehouseAt || head.lastRecordAt || '',
-    sourceModuleLabel: '仓库完成回传',
-    nextActionHint: '由仓库侧发起完成',
+    sourceModuleLabel: head.headType === 'PICKUP' ? '领料完成' : '交出单闭环',
+    nextActionHint: head.headType === 'PICKUP' ? '领料头已完成' : '交出单已关闭',
     handoverId: head.handoverId,
     qtyDiff: head.qtyDiffTotal,
   }
@@ -447,7 +468,7 @@ function buildWarehouseWorkshopRow(task: RuntimeProcessTask): HandoverLedgerRow 
     nextActionHint:
       task.status === 'DONE'
         ? '仓内后道处理已完成'
-        : '仓内后道不走外部工厂 PDA，等待仓内流转到位',
+        : '仓内后道不走外部工厂任务，等待仓内流转到位',
     handoverId: `WHW-${task.taskId}`,
   }
 }
@@ -569,6 +590,14 @@ function deriveProcessSectionStatus(events: HandoverLedgerRow[]): {
     }
   }
 
+  if (statusCodes.has('HANDOUT_RECORD_DIFF')) {
+    return {
+      label: '有异议',
+      tone: 'danger',
+      nextActionHint: '当前存在数量差异，等待工厂确认',
+    }
+  }
+
   if (statusCodes.has('HANDOUT_OBJECTION_PROCESSING')) {
     return {
       label: '异议处理中',
@@ -584,9 +613,9 @@ function deriveProcessSectionStatus(events: HandoverLedgerRow[]): {
     statusCodes.has('HANDOUT_RECORD_WRITTEN')
   ) {
     return {
-      label: '已交出待仓库确认',
+      label: '已交出待接收方回写',
       tone: 'warning',
-      nextActionHint: '当前等待仓库确认',
+      nextActionHint: '当前等待接收方回写',
     }
   }
 
@@ -631,7 +660,7 @@ function getSectionPriority(label: HandoverTimelineProcessStatusLabel): number {
       return 1
     case '异议处理中':
       return 2
-    case '已交出待仓库确认':
+    case '已交出待接收方回写':
       return 3
     case '已领料待交出':
       return 4
@@ -653,7 +682,7 @@ function getSectionPriority(label: HandoverTimelineProcessStatusLabel): number {
 function resolveFocusByStatusLabel(label: string): HandoverFocus | undefined {
   if (label === '待领料') return 'pickup'
   if (label === '已领料待交出') return 'handout'
-  if (label === '已交出待仓库确认') return 'warehouse-confirm'
+  if (label === '已交出待接收方回写') return 'warehouse-confirm'
   if (label === '有异议' || label === '异议处理中') return 'objection'
   return undefined
 }

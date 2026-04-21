@@ -139,3 +139,21 @@ export function listLinkedProductionOrders(): ProductionOrderUpstreamLink[] {
 export function resolveLinkedDemandForProductionOrder(orderId: string): ProductionDemand | null {
   return productionDemands.find((demand) => demand.productionOrderId === orderId) ?? null
 }
+
+export function resolveReleasedTechPackForProductionOrder(
+  orderId: string,
+): ProductionOrderTechPackSnapshot | null {
+  const demand = resolveLinkedDemandForProductionOrder(orderId)
+  if (!demand) {
+    return null
+  }
+
+  const validation = validateDemandTechPackOrderLink({
+    productionOrderId: orderId,
+    demandId: demand.demandId,
+    snapshotAt: demand.updatedAt,
+    snapshotBy: '系统初始化',
+  })
+
+  return validation.ok ? validation.techPackSnapshot : null
+}

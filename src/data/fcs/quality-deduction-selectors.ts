@@ -2,6 +2,7 @@ import type {
   DeductionBasisItem,
   DeductionBasisSourceType,
   DeductionBasisStatus,
+  InspectionMethod,
   QualityInspection,
   QcDisposition,
   QcStatus,
@@ -322,8 +323,12 @@ export interface FutureMobileFactoryQcDetail {
   productionOrderNo: string
   returnInboundBatchNo: string
   sourceTypeLabel: string
+  inspectionSceneLabel?: string
+  inspectionTypeLabel?: string
+  inspectionMethodLabel?: string
   processLabel: string
   returnFactoryName: string
+  receiverName: string
   warehouseName: string
   qcPolicyLabel: string
   qcResult: QualityDeductionQcResult
@@ -343,6 +348,8 @@ export interface FutureMobileFactoryQcDetail {
   factoryLiabilityQty: number
   nonFactoryLiabilityQty: number
   responsibilitySummary: string
+  declaredQty: number
+  receivedQty: number
   blockedProcessingFeeAmount: number
   effectiveQualityDeductionAmount: number
   settlementImpactStatus: QualityDeductionSettlementImpactStatus
@@ -580,6 +587,26 @@ function getQcPolicyLabel(policy: ReturnInboundQcPolicy): string {
   return '免检'
 }
 
+function getInspectionMethodLabel(method?: InspectionMethod): string {
+  if (method === 'COUNT_ONLY') return '数量复核'
+  if (method === 'SAMPLING') return '抽检'
+  if (method === 'FULL_INSPECTION') return '全检'
+  return '未配置'
+}
+
+function getInspectionTypeLabel(type?: 'QC' | 'RECHECK'): string {
+  return type === 'RECHECK' ? '复检' : '质检'
+}
+
+function getInspectionSceneLabel(scene?: string): string {
+  if (scene === 'SEW_RETURN_RECEIVING_QC') return '回货质检'
+  if (scene === 'POST_FINAL_RECHECK') return '后道复检'
+  if (scene === 'PRINT_RECEIVING_QC') return '印花回货质检'
+  if (scene === 'DYE_RECEIVING_QC') return '染色回货质检'
+  if (scene === 'CUT_PIECE_RECEIVING_QC') return '裁片回货质检'
+  return '回货质检'
+}
+
 function getQcStatusLabel(status: QcStatus): string {
   if (status === 'DRAFT') return '草稿'
   if (status === 'SUBMITTED') return '已提交'
@@ -728,7 +755,9 @@ export function toCompatibilityQualityInspection(caseFact: QualityDeductionCaseF
     sourceProcessType: qcRecord.processType,
     sourceOrderId: qcRecord.sourceOrderId,
     sourceReturnId: qcRecord.returnInboundBatchNo,
-    inspectionScene: 'RETURN_INBOUND',
+    inspectionScene: qcRecord.inspectionScene ?? 'SEW_RETURN_RECEIVING_QC',
+    inspectionType: qcRecord.inspectionType ?? 'QC',
+    inspectionMethod: qcRecord.inspectionMethod,
     returnBatchId: qcRecord.returnInboundBatchNo,
     returnProcessType: qcRecord.processType,
     qcPolicy: qcRecord.qcPolicy,
@@ -736,9 +765,24 @@ export function toCompatibilityQualityInspection(caseFact: QualityDeductionCaseF
     returnFactoryName: qcRecord.returnFactoryName,
     warehouseId: qcRecord.warehouseId,
     warehouseName: qcRecord.warehouseName,
+    managedPostFactoryId: qcRecord.managedPostFactoryId,
+    managedPostFactoryName: qcRecord.managedPostFactoryName,
+    finishedWarehouseId: qcRecord.finishedWarehouseId,
+    finishedWarehouseName: qcRecord.finishedWarehouseName,
     sourceBusinessType: qcRecord.sourceBusinessType,
     sourceBusinessId: qcRecord.sourceBusinessId,
     sewPostProcessMode: qcRecord.sewPostProcessMode as QualityInspection['sewPostProcessMode'],
+    postExecutionMode: qcRecord.postExecutionMode as QualityInspection['postExecutionMode'],
+    handoverOrderId: qcRecord.handoverOrderId,
+    handoverRecordIds: qcRecord.handoverRecordIds,
+    receiverKind: qcRecord.receiverKind,
+    receiverId: qcRecord.receiverId,
+    receiverName: qcRecord.receiverName,
+    declaredQty: qcRecord.declaredQty,
+    receivedQty: qcRecord.receivedQty,
+    samplingQty: qcRecord.samplingQty,
+    samplingRatio: qcRecord.samplingRatio,
+    nextAction: qcRecord.nextAction,
     writebackAvailableQty: qcRecord.writebackAvailableQty,
     writebackAcceptedAsDefectQty: qcRecord.writebackAcceptedAsDefectQty,
     writebackScrapQty: qcRecord.writebackScrapQty,
@@ -1209,8 +1253,12 @@ export function getFutureMobileFactoryQcDetail(qcId: string, factoryId?: string)
     productionOrderNo: qcRecord.productionOrderNo,
     returnInboundBatchNo: qcRecord.returnInboundBatchNo,
     sourceTypeLabel: qcRecord.sourceTypeLabel,
+    inspectionSceneLabel: getInspectionSceneLabel(qcRecord.inspectionScene),
+    inspectionTypeLabel: getInspectionTypeLabel(qcRecord.inspectionType),
+    inspectionMethodLabel: getInspectionMethodLabel(qcRecord.inspectionMethod),
     processLabel: qcRecord.processLabel,
     returnFactoryName: qcRecord.returnFactoryName ?? '-',
+    receiverName: qcRecord.receiverName ?? qcRecord.warehouseName ?? '-',
     warehouseName: qcRecord.warehouseName ?? '-',
     qcPolicyLabel: getQcPolicyLabel(qcRecord.qcPolicy),
     qcResult: qcRecord.qcResult,
@@ -1230,6 +1278,8 @@ export function getFutureMobileFactoryQcDetail(qcId: string, factoryId?: string)
     factoryLiabilityQty: qcRecord.factoryLiabilityQty,
     nonFactoryLiabilityQty: qcRecord.nonFactoryLiabilityQty,
     responsibilitySummary: getResponsibilitySummary(caseFact),
+    declaredQty: qcRecord.declaredQty ?? qcRecord.inspectedQty,
+    receivedQty: qcRecord.receivedQty ?? qcRecord.inspectedQty,
     blockedProcessingFeeAmount: settlementImpact.blockedProcessingFeeAmount,
     effectiveQualityDeductionAmount: formalLedger?.originalAmount ?? settlementImpact.effectiveQualityDeductionAmount,
     settlementImpactStatus: settlementImpact.status,

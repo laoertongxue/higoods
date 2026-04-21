@@ -101,7 +101,7 @@ export const SETTLEMENT_FLOW_BOUNDARIES: Record<SettlementBoundaryId, Settlement
     layer: 'INPUT_SOURCE',
     definition: '质检记录和扣款分析属于专项输入层，只能向预结算流水和对账单输送质量影响结果，不与对账单和预付款批次平级竞争菜单地位。',
     responsibilities: ['输出质量影响', '输出争议与裁决结果', '输出冻结和调整结果'],
-    upstream: ['仓库质检', '工厂响应', '平台裁决'],
+    upstream: ['回货质检', '工厂响应', '平台裁决'],
     downstream: ['预结算流水', '对账单'],
     excludes: ['不是对账与结算主对象'],
     pageIntro: '质量与扣款属于专项输入层，只向预结算流水和对账单输送结果。',

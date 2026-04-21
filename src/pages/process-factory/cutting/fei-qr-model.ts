@@ -233,12 +233,23 @@ function normalizeBasePayload(input: {
     productionOrderId: input.owner.productionOrderId,
     productionOrderNo: input.owner.productionOrderNo,
     materialSku: input.owner.materialSku,
+    sourceOutputLineId: generated?.sourceOutputLineId || input.ticketRecord.sourceOutputLineId || '',
+    fabricRollId: generated?.fabricRollId || input.ticketRecord.fabricRollId || '',
+    fabricRollNo: generated?.fabricRollNo || input.ticketRecord.fabricRollNo || '',
+    fabricColor: generated?.fabricColor || input.ticketRecord.fabricColor || normalizeText(input.ticketRecord.color) || normalizeText(input.owner.color) || '待补颜色',
+    garmentSkuId: generated?.garmentSkuId || input.ticketRecord.garmentSkuId || '',
+    garmentColor: generated?.garmentColor || input.ticketRecord.garmentColor || normalizeText(input.ticketRecord.color) || normalizeText(input.owner.color) || '待补颜色',
     pieceScope: generated?.pieceScope || unique([normalizeText(input.ticketRecord.partName), normalizeText(input.ticketRecord.size)].filter(Boolean)),
     pieceGroup: generated?.pieceGroup || normalizeText(input.ticketRecord.partName) || '整单裁片',
-    bundleScope: generated?.bundleScope || `BUNDLE-${String(input.ticketRecord.sequenceNo || 1).padStart(3, '0')}`,
-    skuColor: generated?.skuColor || normalizeText(input.ticketRecord.color) || normalizeText(input.owner.color) || '待补颜色',
+    bundleScope: generated?.bundleScope || normalizeText(input.ticketRecord.bundleNo) || `BUNDLE-${String(input.ticketRecord.sequenceNo || 1).padStart(3, '0')}`,
+    skuColor: generated?.skuColor || input.ticketRecord.fabricColor || normalizeText(input.ticketRecord.color) || normalizeText(input.owner.color) || '待补颜色',
     skuSize: generated?.skuSize || normalizeText(input.ticketRecord.size) || '均码',
+    partCode: generated?.partCode || normalizeText(input.ticketRecord.partCode) || normalizeText(input.ticketRecord.partName) || '整单裁片',
     partName: generated?.partName || normalizeText(input.ticketRecord.partName) || '整单裁片',
+    bundleNo: generated?.bundleNo || normalizeText(input.ticketRecord.bundleNo) || `BUNDLE-${String(input.ticketRecord.sequenceNo || 1).padStart(3, '0')}`,
+    bundleQty: Math.max(generated?.bundleQty || input.ticketRecord.quantity || 1, 1),
+    actualCutPieceQty: Math.max(generated?.actualCutPieceQty || input.ticketRecord.actualCutPieceQty || input.ticketRecord.quantity || 1, 1),
+    assemblyGroupKey: generated?.assemblyGroupKey || normalizeText(input.ticketRecord.assemblyGroupKey),
     qty: Math.max(generated?.qty || input.ticketRecord.quantity || 1, 1),
     secondaryCrafts: generated?.secondaryCrafts || unique((input.ticketRecord.processTags || []).map((item) => normalizeText(item))),
     craftSequenceVersion: generated?.craftSequenceVersion || `${input.ticketRecord.schemaVersion || CUTTING_QR_VERSION}:compat`,
@@ -308,6 +319,10 @@ export function validateFeiQrPayload(payload: FeiQrPayload): FeiQrValidationResu
   if (!payload.originalCutOrderId || !payload.originalCutOrderNo) warnings.push('当前菲票缺少原始裁片单主码引用。')
   if (!payload.productionOrderNo) warnings.push('当前菲票缺少生产单号。')
   if (!payload.materialSku) warnings.push('当前菲票缺少面料 SKU。')
+  if (!payload.fabricRollNo) warnings.push('当前菲票缺少面料卷号。')
+  if (!payload.fabricColor) warnings.push('当前菲票缺少布料颜色。')
+  if (!payload.skuSize) warnings.push('当前菲票缺少尺码。')
+  if (!payload.partName) warnings.push('当前菲票缺少裁片部位。')
   if (!payload.feiTicketNo) warnings.push('当前菲票缺少菲票号。')
   const craftValidation = payload.secondaryCrafts.length
     ? validateFeiCraftSequence(payload, payload.currentCraftStage || payload.secondaryCrafts[0], [])
@@ -336,13 +351,24 @@ function toCanonicalPayload(payload: FeiQrPayload): CanonicalFeiTicketQrPayload 
     originalCutOrderNo: payload.originalCutOrderNo,
     productionOrderId: payload.productionOrderId,
     productionOrderNo: payload.productionOrderNo,
+    sourceOutputLineId: payload.sourceOutputLineId,
+    fabricRollId: payload.fabricRollId,
+    fabricRollNo: payload.fabricRollNo,
+    fabricColor: payload.fabricColor,
     materialSku: payload.materialSku,
+    garmentSkuId: payload.garmentSkuId,
+    garmentColor: payload.garmentColor,
     pieceScope: [...payload.pieceScope],
     pieceGroup: payload.pieceGroup,
     bundleScope: payload.bundleScope,
     skuColor: payload.skuColor,
     skuSize: payload.skuSize,
+    partCode: payload.partCode,
     partName: payload.partName,
+    bundleNo: payload.bundleNo,
+    bundleQty: payload.bundleQty,
+    actualCutPieceQty: payload.actualCutPieceQty,
+    assemblyGroupKey: payload.assemblyGroupKey,
     qty: payload.qty,
     secondaryCrafts: [...payload.secondaryCrafts],
     craftSequenceVersion: payload.craftSequenceVersion,

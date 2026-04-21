@@ -126,7 +126,7 @@ function handleTaskAction(action: string, actionNode: HTMLElement): boolean {
   }
 
   if (action === 'task-action-material' && poId) {
-    openLinkedPage('领料进度跟踪', `/fcs/progress/material?po=${encodeURIComponent(poId)}`)
+    openLinkedPage('领料/配料进度', `/fcs/progress/material?po=${encodeURIComponent(poId)}`)
     state.taskActionMenuId = null
     return true
   }

@@ -12,7 +12,24 @@ import {
   listProjectNodes,
   listProjectPhases,
   listProjects,
+  updateProjectAlbumUrls,
 } from '../data/pcs-project-repository.ts'
+import {
+  findProjectImageViewModelById,
+  listProjectListingCandidateImageViewModels,
+  listProjectReferenceImageViewModels,
+  type PcsProjectImageAssetViewModel,
+} from '../data/pcs-project-image-view-model.ts'
+import {
+  buildProjectImageCompatRef,
+  createProjectImageAssetRecords,
+  createProjectImageAssetRecordsFromFiles,
+  listProjectReferenceImages,
+  markProjectImageAssetUsableForListing,
+  markProjectImageAssetUsableForStyleArchive,
+  removeProjectImageAsset,
+  upsertProjectImageAssets,
+} from '../data/pcs-project-image-repository.ts'
 import { PROJECT_STATUS_TERMINATED } from '../data/pcs-project-types.ts'
 import type {
   PcsProjectCreateDraft,
@@ -55,11 +72,19 @@ import {
   type PcsProjectInlineNodeRecordWorkItemTypeCode,
 } from '../data/pcs-project-inline-node-record-types.ts'
 import type { ProjectRelationRecord } from '../data/pcs-project-relation-types.ts'
+import {
+  repairChannelListingNodeInstanceConsistency,
+} from '../data/pcs-channel-product-project-repository.ts'
 import type {
+  ProjectChannelProductListingPayload,
+  ProjectChannelProductRecord,
   ProjectTestingSummaryAggregate,
   ProjectTestingSummaryBreakdownItem,
+  ProjectChannelProductWriteResult,
 } from '../data/pcs-channel-product-project-repository.ts'
 import {
+  getDefaultPcsStoreIdByChannel,
+  listPcsChannelStoreMasterRecords,
   resolvePcsStoreCurrency,
   resolvePcsStoreDisplayName,
 } from '../data/pcs-channel-store-master.ts'
@@ -81,12 +106,23 @@ import {
   getStyleArchiveGenerationStatus,
 } from '../data/pcs-project-style-archive-generation.ts'
 import {
+  listStyleArchiveImageCandidates,
+  type StyleArchiveImageCandidate,
+} from '../data/pcs-style-archive-image-selection.ts'
+import {
   createPatternTaskWithProjectRelation,
   createPlateMakingTaskWithProjectRelation,
   createRevisionTaskWithProjectRelation,
   syncExistingProjectEngineeringTaskNodes,
 } from '../data/pcs-task-project-relation-writeback.ts'
 import { findStyleArchiveByProjectId } from '../data/pcs-style-archive-repository.ts'
+import {
+  appendSampleShootImages,
+  listSampleShootImageAssets,
+  removeSampleShootImage,
+  updateSampleShootImageUsage,
+  type SampleShootImageFieldKey,
+} from '../data/pcs-sample-shoot-image-service.ts'
 
 type ProjectListViewMode = 'list' | 'grid'
 type ProjectListSort = 'updatedAt' | 'pendingDecision' | 'risk' | 'progressLow'
@@ -114,6 +150,12 @@ interface ProjectListState {
 interface ProjectCreateState {
   routeKey: string
   draft: PcsProjectCreateDraft
+  referenceImages: Array<{
+    tempId: string
+    imageName: string
+    imageUrl: string
+    file: File
+  }>
   error: string | null
 }
 
@@ -146,7 +188,7 @@ interface RecordDialogState {
   projectNodeId: string
   businessDate: string
   note: string
-  values: Record<string, string>
+  values: Record<string, unknown>
 }
 
 interface RevisionTaskCreateDraft {
@@ -195,6 +237,34 @@ interface ProjectImagePreviewState {
   title: string
 }
 
+interface ChannelListingSpecDraft {
+  colorName: string
+  sizeName: string
+  printName: string
+  sellerSku: string
+  priceAmount: string
+  currencyCode: string
+  stockQty: string
+}
+
+interface ChannelListingDraft {
+  targetChannelCode: string
+  targetStoreId: string
+  listingTitle: string
+  listingDescription: string
+  defaultPriceAmount: string
+  currencyCode: string
+  listingRemark: string
+  listingMainImageId: string
+  listingImageIds: string[]
+  specLines: ChannelListingSpecDraft[]
+}
+
+interface StyleArchiveImageDraft {
+  styleMainImageId: string
+  styleGalleryImageIds: string[]
+}
+
 interface ProjectPageState {
   list: ProjectListState
   create: ProjectCreateState
@@ -208,6 +278,8 @@ interface ProjectPageState {
   recordDialog: RecordDialogState
   engineeringCreateDialog: EngineeringTaskCreateDialogState
   imagePreview: ProjectImagePreviewState
+  channelListingDrafts: Record<string, ChannelListingDraft>
+  styleArchiveImageDrafts: Record<string, StyleArchiveImageDraft>
 }
 
 interface ProjectNodeViewModel {
@@ -294,6 +366,7 @@ const PROJECT_NODE_FIELD_MODULE_EXCEPTIONS = new Set([
   'PRE_PRODUCTION_SAMPLE',
 ])
 const PROJECT_NODE_MANUAL_COMPLETE_BLOCKED_TYPES = new Set([
+  'CHANNEL_PRODUCT_LISTING',
   'REVISION_TASK',
   'PATTERN_TASK',
   'PATTERN_ARTWORK_TASK',
@@ -401,6 +474,7 @@ const state: ProjectPageState = {
   create: {
     routeKey: '',
     draft: createEmptyProjectDraft(),
+    referenceImages: [],
     error: null,
   },
   detail: {
@@ -434,6 +508,8 @@ const state: ProjectPageState = {
     url: '',
     title: '',
   },
+  channelListingDrafts: {},
+  styleArchiveImageDrafts: {},
 }
 
 type ProjectRelationRepositoryModule = Pick<
@@ -450,7 +526,11 @@ type ProjectTechPackTaskGenerationModule = Pick<
 >
 type ProjectChannelProductProjectRepositoryModule = Pick<
   typeof import('../data/pcs-channel-product-project-repository.ts'),
-  'getProjectTestingSummaryAggregate' | 'listProjectChannelProductsByProjectId'
+  | 'getProjectTestingSummaryAggregate'
+  | 'listProjectChannelProductsByProjectId'
+  | 'createProjectChannelProductFromListingNode'
+  | 'launchProjectChannelProductListing'
+  | 'markProjectChannelProductListingCompleted'
 >
 type ProjectDetailSupportModule = Pick<
   typeof import('../data/pcs-project-detail-support.ts'),
@@ -621,11 +701,13 @@ async function ensureProjectDetailSupportReady(): Promise<void> {
 function ensureProjectDemoDataReadySync(): void {
   if (listProjects().length >= PROJECT_DEMO_SEED_IMPORT_THRESHOLD) {
     syncExistingProjectEngineeringTaskNodes('系统同步')
+    repairChannelListingNodeInstanceConsistency('系统同步')
     return
   }
 
   projectDemoSeedServiceModule?.ensurePcsProjectDemoDataReady()
   syncExistingProjectEngineeringTaskNodes('系统同步')
+  repairChannelListingNodeInstanceConsistency('系统同步')
 }
 
 function listProjectRelationsByProjectNodeSafe(projectId: string, projectNodeId: string): ProjectRelationRecord[] {
@@ -718,6 +800,47 @@ function listProjectChannelProductsByProjectIdSafe(projectId: string) {
   }
 
   return projectChannelProductProjectRepositoryModule.listProjectChannelProductsByProjectId(projectId)
+}
+
+function createProjectChannelProductFromListingNodeSafe(
+  projectId: string,
+  payload: ProjectChannelProductListingPayload = {},
+  operatorName = '当前用户',
+): ProjectChannelProductWriteResult {
+  if (!projectChannelProductProjectRepositoryModule) {
+    return { ok: false, message: '渠道店铺商品模块尚未加载完成，请稍后再试。', record: null }
+  }
+
+  return projectChannelProductProjectRepositoryModule.createProjectChannelProductFromListingNode(
+    projectId,
+    payload,
+    operatorName,
+  )
+}
+
+function launchProjectChannelProductListingSafe(
+  channelProductId: string,
+  operatorName = '当前用户',
+): ProjectChannelProductWriteResult {
+  if (!projectChannelProductProjectRepositoryModule) {
+    return { ok: false, message: '渠道店铺商品模块尚未加载完成，请稍后再试。', record: null }
+  }
+
+  return projectChannelProductProjectRepositoryModule.launchProjectChannelProductListing(channelProductId, operatorName)
+}
+
+function markProjectChannelProductListingCompletedSafe(
+  channelProductId: string,
+  operatorName = '当前用户',
+): ProjectChannelProductWriteResult {
+  if (!projectChannelProductProjectRepositoryModule) {
+    return { ok: false, message: '渠道店铺商品模块尚未加载完成，请稍后再试。', record: null }
+  }
+
+  return projectChannelProductProjectRepositoryModule.markProjectChannelProductListingCompleted(
+    channelProductId,
+    operatorName,
+  )
 }
 
 function getProjectArchiveByIdSafe(projectArchiveId: string): ProjectArchiveRecordMaybe {
@@ -1193,7 +1316,11 @@ function renderEngineeringTaskCreateDialog(): string {
               <input type="file" accept="image/*" multiple class="hidden" data-pcs-project-field="engineering-revision-evidence-images" />
             </label>
           </div>
-          ${draft.evidenceImageUrls.length > 0 ? renderProjectImageThumbnailGrid(draft.evidenceImageUrls, true) : '<div class="rounded-md border border-dashed border-slate-200 px-3 py-6 text-center text-xs text-slate-400">暂未上传证据图片</div>'}
+          ${
+            draft.evidenceImageUrls.length > 0
+              ? renderProjectImageThumbnailGrid(draft.evidenceImageUrls, { removable: true })
+              : '<div class="rounded-md border border-dashed border-slate-200 px-3 py-6 text-center text-xs text-slate-400">暂未上传证据图片</div>'
+          }
         </section>
         ${renderProjectTextarea('说明', 'engineering-revision-note', draft.note, '补充本次改版方案、边界说明和执行要求')}
       </section>
@@ -1276,7 +1403,17 @@ const INLINE_NODE_PAYLOAD_KEYS: Record<PcsProjectInlineNodeRecordWorkItemTypeCod
   SAMPLE_ACQUIRE: ['sampleSourceType', 'sampleSupplierId', 'sampleLink', 'sampleUnitPrice'],
   SAMPLE_INBOUND_CHECK: ['sampleCode', 'arrivalTime', 'checkResult'],
   FEASIBILITY_REVIEW: ['reviewConclusion', 'reviewRisk'],
-  SAMPLE_SHOOT_FIT: ['shootPlan', 'fitFeedback'],
+  SAMPLE_SHOOT_FIT: [
+    'shootPlan',
+    'fitFeedback',
+    'sampleFlatImageIds',
+    'sampleTryOnImageIds',
+    'sampleDetailImageIds',
+    'sampleVideoUrls',
+    'shootImageNote',
+    'listingCandidateImageIds',
+    'styleArchiveCandidateImageIds',
+  ],
   SAMPLE_CONFIRM: ['confirmResult', 'confirmNote'],
   SAMPLE_COST_REVIEW: ['costTotal', 'costNote'],
   SAMPLE_PRICING: ['priceRange', 'pricingNote'],
@@ -1310,6 +1447,17 @@ function getInlineEditableFieldKeys(workItemTypeCode: string): Set<string> {
   return new Set(INLINE_NODE_PAYLOAD_KEYS[workItemTypeCode])
 }
 
+const SAMPLE_SHOOT_IMAGE_GROUPS: Array<{
+  fieldKey: SampleShootImageFieldKey
+  label: string
+  uploadField: string
+  emptyText: string
+}> = [
+  { fieldKey: 'sampleFlatImageIds', label: '样衣平铺图', uploadField: 'sample-shoot-flat-images', emptyText: '暂未上传样衣平铺图' },
+  { fieldKey: 'sampleTryOnImageIds', label: '试穿图', uploadField: 'sample-shoot-try-on-images', emptyText: '暂未上传试穿图' },
+  { fieldKey: 'sampleDetailImageIds', label: '细节图', uploadField: 'sample-shoot-detail-images', emptyText: '暂未上传细节图' },
+]
+
 function buildInstanceFieldMap(instance: PcsProjectInstanceItem | null | undefined): Record<string, string> {
   if (!instance) return {}
   return instance.fields.reduce<Record<string, string>>((result, field) => {
@@ -1342,6 +1490,16 @@ function getStoreDisplayName(storeId: string, channelCode = ''): string {
 
 function getDefaultChannelCurrency(channelCode: string): string {
   return resolvePcsStoreCurrency('', channelCode)
+}
+
+function listPcsChannelStores() {
+  return listPcsChannelStoreMasterRecords().flatMap((record) =>
+    record.linkedProjectStoreIds.map((storeId) => ({
+      storeId,
+      storeName: record.storeName,
+      channelCode: record.channelCode,
+    })),
+  )
 }
 
 function getStyleArchiveStatusText(status: string): string {
@@ -1540,6 +1698,500 @@ function getCurrentChannelProductRelation(projectId: string): PcsProjectInstance
   )
 }
 
+function isChannelListingNode(node: ProjectNodeViewModel): boolean {
+  return node.node.workItemTypeCode === 'CHANNEL_PRODUCT_LISTING'
+}
+
+function getChannelListingStatusBadgeClass(status: string): string {
+  if (status === '已生效') return 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200'
+  if (status === '已上架待测款') return 'bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-200'
+  if (status === '已上传待确认') return 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200'
+  if (status === '待上传') return 'bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-200'
+  if (status === '已作废') return 'bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-200'
+  return 'bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-200'
+}
+
+function renderChannelListingSpecRows(record: ProjectChannelProductRecord): string {
+  if (!record.specLines.length) {
+    return '<tr><td colspan="9" class="px-3 py-4 text-center text-xs text-slate-400">暂无规格明细</td></tr>'
+  }
+
+  return record.specLines
+    .map(
+      (line) => `
+        <tr>
+          <td class="px-3 py-2 text-slate-700">${escapeHtml(line.colorName || '-')}</td>
+          <td class="px-3 py-2 text-slate-700">${escapeHtml(line.sizeName || '-')}</td>
+          <td class="px-3 py-2 text-slate-700">${escapeHtml(line.printName || '-')}</td>
+          <td class="px-3 py-2 text-slate-700">${escapeHtml(line.sellerSku || line.specLineCode || '-')}</td>
+          <td class="px-3 py-2 text-slate-700">${escapeHtml(formatValue(line.priceAmount))}</td>
+          <td class="px-3 py-2 text-slate-700">${escapeHtml(line.currencyCode || '-')}</td>
+          <td class="px-3 py-2 text-slate-700">${escapeHtml(line.stockQty ? String(line.stockQty) : '-')}</td>
+          <td class="px-3 py-2 text-slate-700">${escapeHtml(line.upstreamSkuId || '-')}</td>
+          <td class="px-3 py-2 text-slate-700">${escapeHtml(line.lineStatus || '-')}</td>
+        </tr>
+      `,
+    )
+    .join('')
+}
+
+function getChannelListingCreateSuggestion(project: PcsProjectRecord): ProjectChannelProductListingPayload {
+  const records = listProjectChannelProductsByProjectIdSafe(project.projectId).filter(
+    (item) => item.channelProductStatus !== '已作废',
+  )
+  const targetChannelCodes = project.targetChannelCodes.length > 0 ? project.targetChannelCodes : ['tiktok-shop']
+  const usedKeys = new Set(records.map((item) => `${item.channelCode}::${item.storeId}`))
+
+  for (const channelCode of targetChannelCodes) {
+    const storeId = getDefaultPcsStoreIdByChannel(channelCode)
+    if (!storeId) continue
+    const pairKey = `${channelCode}::${storeId}`
+    if (!usedKeys.has(pairKey)) {
+      return {
+        targetChannelCode: channelCode,
+        targetStoreId: storeId,
+      }
+    }
+  }
+
+  const fallbackChannelCode = targetChannelCodes[0] || 'tiktok-shop'
+  return {
+    targetChannelCode: fallbackChannelCode,
+    targetStoreId: getDefaultPcsStoreIdByChannel(fallbackChannelCode),
+  }
+}
+
+function createEmptyChannelListingSpecDraft(currencyCode = 'CNY'): ChannelListingSpecDraft {
+  return {
+    colorName: '',
+    sizeName: '',
+    printName: '',
+    sellerSku: '',
+    priceAmount: '',
+    currencyCode,
+    stockQty: '',
+  }
+}
+
+function buildChannelListingDraftKey(projectId: string, projectNodeId: string): string {
+  return `${projectId}::${projectNodeId}`
+}
+
+function getChannelListingDraft(project: PcsProjectRecord, node: ProjectNodeViewModel): ChannelListingDraft {
+  const key = buildChannelListingDraftKey(project.projectId, node.node.projectNodeId)
+  const existing = state.channelListingDrafts[key]
+  if (existing) return existing
+
+  const suggestion = getChannelListingCreateSuggestion(project)
+  const currencyCode =
+    resolvePcsStoreCurrency(suggestion.targetStoreId || '', suggestion.targetChannelCode || '') || 'CNY'
+  const draft: ChannelListingDraft = {
+    targetChannelCode: suggestion.targetChannelCode || 'tiktok-shop',
+    targetStoreId: suggestion.targetStoreId || '',
+    listingTitle: `${project.projectName} 测款渠道商品`,
+    listingDescription: '',
+    defaultPriceAmount: project.sampleUnitPrice ? String(project.sampleUnitPrice) : '199',
+    currencyCode,
+    listingRemark: '',
+    listingMainImageId: '',
+    listingImageIds: [],
+    specLines: [createEmptyChannelListingSpecDraft(currencyCode)],
+  }
+  state.channelListingDrafts[key] = draft
+  return draft
+}
+
+function updateChannelListingDraft(
+  project: PcsProjectRecord,
+  node: ProjectNodeViewModel,
+  patch: Partial<ChannelListingDraft>,
+): void {
+  const current = getChannelListingDraft(project, node)
+  state.channelListingDrafts[buildChannelListingDraftKey(project.projectId, node.node.projectNodeId)] = {
+    ...current,
+    ...patch,
+    listingImageIds: patch.listingImageIds ? [...patch.listingImageIds] : [...current.listingImageIds],
+    specLines: patch.specLines ? [...patch.specLines] : [...current.specLines],
+  }
+}
+
+function buildStyleArchiveImageDraftKey(projectId: string, projectNodeId: string): string {
+  return `${projectId}::${projectNodeId}::style-images`
+}
+
+function getStyleArchiveImageDraft(project: PcsProjectRecord, node: ProjectNodeViewModel): StyleArchiveImageDraft {
+  const key = buildStyleArchiveImageDraftKey(project.projectId, node.node.projectNodeId)
+  const existing = state.styleArchiveImageDrafts[key]
+  if (existing) return existing
+
+  const style = findStyleArchiveByProjectId(project.projectId)
+  const draft: StyleArchiveImageDraft = {
+    styleMainImageId: style?.mainImageId || '',
+    styleGalleryImageIds: Array.isArray(style?.galleryImageIds) ? [...style!.galleryImageIds] : [],
+  }
+  state.styleArchiveImageDrafts[key] = draft
+  return draft
+}
+
+function updateStyleArchiveImageDraft(
+  project: PcsProjectRecord,
+  node: ProjectNodeViewModel,
+  patch: Partial<StyleArchiveImageDraft>,
+): void {
+  const current = getStyleArchiveImageDraft(project, node)
+  state.styleArchiveImageDrafts[buildStyleArchiveImageDraftKey(project.projectId, node.node.projectNodeId)] = {
+    ...current,
+    ...patch,
+    styleGalleryImageIds: patch.styleGalleryImageIds ? [...patch.styleGalleryImageIds] : [...current.styleGalleryImageIds],
+  }
+}
+
+function resolveStyleArchiveDraftImages(
+  projectId: string,
+  draft: StyleArchiveImageDraft,
+): PcsProjectImageAssetViewModel[] {
+  return draft.styleGalleryImageIds
+    .map((imageId) => findProjectImageViewModelById(projectId, imageId))
+    .filter((item): item is PcsProjectImageAssetViewModel => Boolean(item))
+}
+
+function resolveStyleArchiveCandidateImages(projectId: string, draft: StyleArchiveImageDraft): StyleArchiveImageCandidate[] {
+  const selectedIds = new Set(draft.styleGalleryImageIds)
+  return listStyleArchiveImageCandidates(projectId).filter((item) => !selectedIds.has(item.imageId))
+}
+
+function renderChannelListingNodeWorkspace(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
+  const draft = getChannelListingDraft(project, node)
+  const records: ProjectChannelProductRecord[] = listProjectChannelProductsByProjectIdSafe(project.projectId)
+  const activeRecords = records.filter((item) => item.channelProductStatus !== '已作废')
+  const uploadedRecords = activeRecords.filter((item) => item.listingBatchStatus === '已上传待确认')
+  const completedRecords = activeRecords.filter(
+    (item) => item.listingBatchStatus === '已完成' || item.channelProductStatus === '已上架待测款',
+  )
+  const latestPendingRecord = activeRecords.find((item) => item.listingBatchStatus === '待上传') || null
+  const latestUploadedRecord = uploadedRecords[0] || null
+  const latestRecord = records[0] || null
+  const latestCompletedRecord = completedRecords[0] || null
+  const targetChannels = getChannelNamesByCodes(project.targetChannelCodes)
+  const canOperate = node.displayStatus !== '未解锁' && node.node.currentStatus !== '已取消' && node.node.currentStatus !== '已完成'
+  const availableStores = listPcsChannelStores()
+    .filter((item) => item.channelCode === draft.targetChannelCode)
+    .sort((left, right) => left.storeName.localeCompare(right.storeName, 'zh-Hans-CN'))
+
+  return `
+    <div class="space-y-4">
+      <section class="rounded-lg border bg-white p-4">
+        <div class="flex items-center justify-between gap-3">
+          <h3 class="text-base font-semibold text-slate-900">项目级策略</h3>
+          <span class="text-xs text-slate-500">${escapeHtml(node.displayStatus)}</span>
+        </div>
+        <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <article class="rounded-lg border border-slate-200 bg-slate-50 p-4 md:col-span-2">
+            <p class="text-xs text-slate-500">目标上架渠道</p>
+            <div class="mt-3 flex flex-wrap gap-2">
+              ${
+                targetChannels.length > 0
+                  ? targetChannels
+                      .map(
+                        (channelName) =>
+                          `<span class="inline-flex items-center rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-700">${escapeHtml(channelName)}</span>`,
+                      )
+                      .join('')
+                  : '<span class="text-sm text-slate-400">-</span>'
+              }
+            </div>
+          </article>
+          <article class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <p class="text-xs text-slate-500">当前有效上架批次数</p>
+            <p class="mt-3 text-2xl font-semibold text-slate-900">${escapeHtml(String(activeRecords.length))}</p>
+          </article>
+          <article class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <p class="text-xs text-slate-500">已上传待确认批次数</p>
+            <p class="mt-3 text-2xl font-semibold text-slate-900">${escapeHtml(String(uploadedRecords.length))}</p>
+          </article>
+          <article class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <p class="text-xs text-slate-500">已完成上架批次数</p>
+            <p class="mt-3 text-2xl font-semibold text-slate-900">${escapeHtml(String(completedRecords.length))}</p>
+          </article>
+          <article class="rounded-lg border border-slate-200 bg-slate-50 p-4 md:col-span-2 xl:col-span-3">
+            <p class="text-xs text-slate-500">最近上游款式商品编号</p>
+            <p class="mt-3 text-sm font-medium text-slate-900">${escapeHtml(latestCompletedRecord?.upstreamProductId || latestUploadedRecord?.upstreamProductId || '-')}</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="rounded-lg border bg-white p-4">
+        <div class="flex items-center justify-between gap-3">
+          <h3 class="text-base font-semibold text-slate-900">创建上架批次</h3>
+          <span class="text-xs text-slate-500">按款式上传到渠道，当前节点内维护规格明细</span>
+        </div>
+        <div class="mt-4 grid gap-3 md:grid-cols-2">
+          <label class="space-y-1">
+            <span class="text-xs text-slate-500">渠道</span>
+            <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" data-pcs-project-field="channel-listing-target-channel">
+              ${(project.targetChannelCodes.length > 0 ? project.targetChannelCodes : ['tiktok-shop'])
+                .map((channelCode) => `<option value="${escapeHtml(channelCode)}" ${channelCode === draft.targetChannelCode ? 'selected' : ''}>${escapeHtml(getChannelDisplayName(channelCode))}</option>`)
+                .join('')}
+            </select>
+          </label>
+          <label class="space-y-1">
+            <span class="text-xs text-slate-500">店铺</span>
+            <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" data-pcs-project-field="channel-listing-target-store">
+              ${availableStores
+                .map((store) => `<option value="${escapeHtml(store.storeId)}" ${store.storeId === draft.targetStoreId ? 'selected' : ''}>${escapeHtml(store.storeName)}</option>`)
+                .join('')}
+            </select>
+          </label>
+          <label class="space-y-1 md:col-span-2">
+            <span class="text-xs text-slate-500">上架标题</span>
+            <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" value="${escapeHtml(draft.listingTitle)}" data-pcs-project-field="channel-listing-title" />
+          </label>
+          <label class="space-y-1 md:col-span-2">
+            <span class="text-xs text-slate-500">上架描述</span>
+            <textarea class="min-h-[88px] w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500" data-pcs-project-field="channel-listing-description">${escapeHtml(draft.listingDescription)}</textarea>
+          </label>
+          <label class="space-y-1">
+            <span class="text-xs text-slate-500">默认售价</span>
+            <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" value="${escapeHtml(draft.defaultPriceAmount)}" data-pcs-project-field="channel-listing-default-price" />
+          </label>
+          <label class="space-y-1">
+            <span class="text-xs text-slate-500">币种</span>
+            <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" value="${escapeHtml(draft.currencyCode)}" data-pcs-project-field="channel-listing-currency" />
+          </label>
+          <label class="space-y-1 md:col-span-2">
+            <span class="text-xs text-slate-500">上架备注</span>
+            <textarea class="min-h-[88px] w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500" data-pcs-project-field="channel-listing-remark">${escapeHtml(draft.listingRemark)}</textarea>
+          </label>
+        </div>
+        <div class="mt-4 rounded-lg border border-slate-200">
+          <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+            <h4 class="text-sm font-semibold text-slate-900">规格明细</h4>
+            <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-pcs-project-action="add-channel-listing-spec-line">新增规格</button>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+              <thead class="bg-slate-50 text-left text-slate-500">
+                <tr>
+                  <th class="px-3 py-2 font-medium">颜色</th>
+                  <th class="px-3 py-2 font-medium">尺码</th>
+                  <th class="px-3 py-2 font-medium">花型</th>
+                  <th class="px-3 py-2 font-medium">平台销售 SKU</th>
+                  <th class="px-3 py-2 font-medium">价格</th>
+                  <th class="px-3 py-2 font-medium">币种</th>
+                  <th class="px-3 py-2 font-medium">初始库存</th>
+                  <th class="px-3 py-2 font-medium text-right">操作</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-200 bg-white">
+                ${draft.specLines
+                  .map(
+                    (line, index) => `
+                      <tr>
+                        <td class="px-3 py-2"><input class="h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" value="${escapeHtml(line.colorName)}" data-pcs-project-field="channel-listing-spec-color" data-spec-index="${index}" /></td>
+                        <td class="px-3 py-2"><input class="h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" value="${escapeHtml(line.sizeName)}" data-pcs-project-field="channel-listing-spec-size" data-spec-index="${index}" /></td>
+                        <td class="px-3 py-2"><input class="h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" value="${escapeHtml(line.printName)}" data-pcs-project-field="channel-listing-spec-print" data-spec-index="${index}" /></td>
+                        <td class="px-3 py-2"><input class="h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" value="${escapeHtml(line.sellerSku)}" data-pcs-project-field="channel-listing-spec-seller-sku" data-spec-index="${index}" /></td>
+                        <td class="px-3 py-2"><input class="h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" value="${escapeHtml(line.priceAmount)}" data-pcs-project-field="channel-listing-spec-price" data-spec-index="${index}" /></td>
+                        <td class="px-3 py-2"><input class="h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" value="${escapeHtml(line.currencyCode)}" data-pcs-project-field="channel-listing-spec-currency" data-spec-index="${index}" /></td>
+                        <td class="px-3 py-2"><input class="h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" value="${escapeHtml(line.stockQty)}" data-pcs-project-field="channel-listing-spec-stock" data-spec-index="${index}" /></td>
+                        <td class="px-3 py-2 text-right"><button type="button" class="inline-flex h-8 items-center rounded-md border border-rose-200 bg-rose-50 px-3 text-xs text-rose-700 hover:bg-rose-100" data-pcs-project-action="remove-channel-listing-spec-line" data-spec-index="${index}">删除</button></td>
+                      </tr>
+                    `,
+                  )
+                  .join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="mt-4">
+          ${renderChannelListingCandidateImagePicker(project, draft)}
+        </div>
+      </section>
+
+      <section class="rounded-lg border bg-white p-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <h3 class="text-base font-semibold text-slate-900">上架实例列表</h3>
+          <span class="text-xs text-slate-500">共 ${records.length} 条</span>
+        </div>
+        <div class="mt-4 overflow-hidden rounded-lg border border-slate-200">
+          <table class="min-w-full text-sm">
+            <thead class="bg-slate-50 text-left text-slate-600">
+              <tr>
+                <th class="px-3 py-2 font-medium">批次编号</th>
+                <th class="px-3 py-2 font-medium">渠道 / 店铺</th>
+                <th class="px-3 py-2 font-medium">上架信息</th>
+                <th class="px-3 py-2 font-medium">上架主图</th>
+                <th class="px-3 py-2 font-medium">规格数量</th>
+                <th class="px-3 py-2 font-medium">已上传规格</th>
+                <th class="px-3 py-2 font-medium">状态</th>
+                <th class="px-3 py-2 font-medium">上游款式商品编号</th>
+                <th class="px-3 py-2 font-medium">更新时间</th>
+                <th class="px-3 py-2 font-medium">操作</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200 bg-white">
+              ${
+                records.length === 0
+                  ? '<tr><td colspan="10" class="px-3 py-8 text-center text-sm text-slate-500">暂无上架实例</td></tr>'
+                  : records
+                      .map((record) => {
+                        const storeName =
+                          record.storeName || resolvePcsStoreDisplayName(record.storeId, record.channelCode) || '-'
+                        const canLaunch = record.channelProductStatus !== '已作废' && record.listingBatchStatus === '待上传'
+                        const canComplete = record.channelProductStatus !== '已作废' && record.listingBatchStatus === '已上传待确认'
+                        const mainImageUrl = record.mainImageUrls[0] || record.listingImages[0]?.imageUrl || ''
+                        const mainImageName = record.listingImages.find((item) => item.imageId === record.listingMainImageId)?.imageName || '上架主图'
+                        return `
+                          <tr class="align-top">
+                            <td class="px-3 py-3 align-top">
+                              <div class="space-y-1">
+                                <div class="font-medium text-slate-900">${escapeHtml(record.listingBatchCode || record.channelProductCode || '-')}</div>
+                                <div class="text-xs text-slate-500">${escapeHtml(record.listingInstanceCode || '-')}</div>
+                              </div>
+                            </td>
+                            <td class="px-3 py-3 align-top">
+                              <div class="space-y-1">
+                                <div class="text-slate-900">${escapeHtml(record.channelName || '-')}</div>
+                                <div class="text-xs text-slate-500">${escapeHtml(storeName)}</div>
+                              </div>
+                            </td>
+                            <td class="px-3 py-3 align-top">
+                              <div class="space-y-1">
+                                <div class="text-slate-900">${escapeHtml(record.listingTitle || '-')}</div>
+                                <div class="text-xs text-slate-500">${escapeHtml(`${formatValue(record.defaultPriceAmount || record.listingPrice)} ${record.currencyCode || record.currency || ''}`.trim() || '-')}</div>
+                              </div>
+                            </td>
+                            <td class="px-3 py-3 align-top">
+                              ${
+                                mainImageUrl
+                                  ? `<button type="button" class="group block h-16 w-16 overflow-hidden rounded-md border border-slate-200 bg-slate-50" data-pcs-project-action="open-image-preview" data-url="${escapeHtml(mainImageUrl)}" data-title="${escapeHtml(mainImageName)}" aria-label="查看上架主图"><img src="${escapeHtml(mainImageUrl)}" alt="${escapeHtml(mainImageName)}" class="h-full w-full object-cover transition group-hover:scale-105" /></button>`
+                                  : '<div class="flex h-16 w-16 items-center justify-center rounded-md border border-dashed border-slate-200 text-[11px] text-slate-400">暂无主图</div>'
+                              }
+                            </td>
+                            <td class="px-3 py-3 align-top text-slate-700">${escapeHtml(String(record.specLineCount || record.specLines.length || 0))}</td>
+                            <td class="px-3 py-3 align-top text-slate-700">${escapeHtml(String(record.uploadedSpecLineCount || 0))}</td>
+                            <td class="px-3 py-3 align-top">
+                              <div class="space-y-1">
+                                <span class="inline-flex rounded-full px-2 py-0.5 text-xs ${getChannelListingStatusBadgeClass(record.listingBatchStatus || record.channelProductStatus)}">${escapeHtml(record.listingBatchStatus || record.channelProductStatus || '-')}</span>
+                                <div class="text-xs text-slate-500">${escapeHtml(record.upstreamSyncStatus || '-')}</div>
+                              </div>
+                            </td>
+                            <td class="px-3 py-3 align-top text-slate-700">${escapeHtml(record.upstreamProductId || record.upstreamChannelProductCode || '-')}</td>
+                            <td class="px-3 py-3 align-top text-slate-500">${escapeHtml(formatDateTime(record.updatedAt))}</td>
+                            <td class="px-3 py-3 align-top">
+                              <div class="flex flex-wrap gap-2">
+                                ${
+                                  canLaunch
+                                    ? `<button type="button" class="inline-flex h-8 items-center rounded-md border border-blue-200 bg-blue-50 px-3 text-xs font-medium text-blue-700 hover:bg-blue-100" data-pcs-project-action="launch-channel-listing-instance" data-channel-product-id="${escapeHtml(record.channelProductId)}">上传款式到渠道</button>`
+                                    : ''
+                                }
+                                ${
+                                  canComplete
+                                    ? `<button type="button" class="inline-flex h-8 items-center rounded-md border border-emerald-200 bg-emerald-50 px-3 text-xs font-medium text-emerald-700 hover:bg-emerald-100" data-pcs-project-action="complete-channel-listing-instance" data-channel-product-id="${escapeHtml(record.channelProductId)}">标记商品上架完成</button>`
+                                    : ''
+                                }
+                                <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/products/channel-products/${encodeURIComponent(record.channelProductId)}">查看</button>
+                              </div>
+                            </td>
+                          </tr>
+                          <tr class="bg-slate-50/60">
+                            <td colspan="10" class="px-3 pb-3 pt-0">
+                              <div class="rounded-lg border border-slate-200 bg-white p-3">
+                                <div class="mb-3">
+                                  <div class="mb-2 text-xs font-medium text-slate-500">上架图片</div>
+                                  ${
+                                    record.listingImages.length > 0
+                                      ? `<div class="flex flex-wrap gap-3">
+                                          ${record.listingImages
+                                            .slice()
+                                            .sort((left, right) => left.sortNo - right.sortNo)
+                                            .map(
+                                              (image) => `
+                                                <button type="button" class="group block w-20" data-pcs-project-action="open-image-preview" data-url="${escapeHtml(image.imageUrl)}" data-title="${escapeHtml(image.imageName)}" aria-label="${escapeHtml(`查看${image.imageName}`)}">
+                                                  <div class="relative overflow-hidden rounded-md border border-slate-200 bg-slate-50">
+                                                    <img src="${escapeHtml(image.imageUrl)}" alt="${escapeHtml(image.imageName)}" class="h-20 w-20 object-cover transition group-hover:scale-105" />
+                                                    ${image.imageId === record.listingMainImageId ? '<span class="absolute left-1 top-1 rounded bg-blue-600 px-1.5 py-0.5 text-[10px] text-white">主图</span>' : ''}
+                                                  </div>
+                                                  <div class="mt-1 text-[11px] text-slate-500">排序 ${escapeHtml(String(image.sortNo))}</div>
+                                                </button>
+                                              `,
+                                            )
+                                            .join('')}
+                                        </div>`
+                                      : '<div class="rounded-md border border-dashed border-slate-200 px-3 py-4 text-center text-xs text-slate-400">暂无上架图片</div>'
+                                  }
+                                </div>
+                                <div class="mb-2 text-xs font-medium text-slate-500">规格明细</div>
+                                <table class="min-w-full text-xs">
+                                  <thead class="bg-slate-50 text-left text-slate-500">
+                                    <tr>
+                                      <th class="px-3 py-2 font-medium">颜色</th>
+                                      <th class="px-3 py-2 font-medium">尺码</th>
+                                      <th class="px-3 py-2 font-medium">花型</th>
+                                      <th class="px-3 py-2 font-medium">平台销售 SKU</th>
+                                      <th class="px-3 py-2 font-medium">价格</th>
+                                      <th class="px-3 py-2 font-medium">币种</th>
+                                      <th class="px-3 py-2 font-medium">初始库存</th>
+                                      <th class="px-3 py-2 font-medium">上游规格编号</th>
+                                      <th class="px-3 py-2 font-medium">状态</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody class="divide-y divide-slate-200 bg-white">
+                                    ${renderChannelListingSpecRows(record)}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </td>
+                          </tr>
+                        `
+                      })
+                      .join('')
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="rounded-lg border bg-white p-4">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div class="grid flex-1 gap-3 md:grid-cols-2">
+            <article class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <p class="text-xs text-slate-500">最近结果</p>
+              <p class="mt-3 text-sm font-medium leading-6 text-slate-900">${escapeHtml(node.node.latestResultText || '-')}</p>
+            </article>
+            <article class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <p class="text-xs text-slate-500">当前待办</p>
+              <p class="mt-3 text-sm font-medium leading-6 text-slate-900">${escapeHtml(node.node.pendingActionText || '-')}</p>
+            </article>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            ${
+              canOperate
+                ? `<button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-project-action="create-channel-listing-instance">创建上架批次</button>`
+                : ''
+            }
+            ${
+              canOperate && latestPendingRecord
+                ? `<button type="button" class="inline-flex h-9 items-center rounded-md border border-blue-200 bg-blue-50 px-4 text-sm font-medium text-blue-700 hover:bg-blue-100" data-pcs-project-action="launch-channel-listing-instance" data-channel-product-id="${escapeHtml(latestPendingRecord.channelProductId)}">上传最近待上传批次</button>`
+                : ''
+            }
+            ${
+              canOperate && latestUploadedRecord
+                ? `<button type="button" class="inline-flex h-9 items-center rounded-md border border-emerald-200 bg-emerald-50 px-4 text-sm font-medium text-emerald-700 hover:bg-emerald-100" data-pcs-project-action="complete-channel-listing-instance" data-channel-product-id="${escapeHtml(latestUploadedRecord.channelProductId)}">标记最近批次完成</button>`
+                : ''
+            }
+            ${
+              latestRecord
+                ? `<button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/products/channel-products/${encodeURIComponent(latestRecord.channelProductId)}">打开最近实例</button>`
+                : '<button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-400" disabled>暂无可打开实例</button>'
+            }
+          </div>
+        </div>
+      </section>
+    </div>
+  `
+}
+
 function getProjectTestingAggregate(projectId: string): {
   liveRelationIds: string[]
   liveRelationCodes: string[]
@@ -1707,7 +2359,6 @@ function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel
     priceRange: project.priceRangeLabel,
     projectAlbumUrls: project.projectAlbumUrls,
     activeListingCount: activeListingCount || Number(nodeRelationMeta.activeListingCount || 0),
-    listingScopeRule: '单实例 = 单渠道 + 单店铺 + 单 Listing；同一项目可多渠道并行，同一渠道可多店铺并行。',
     targetChannelCode: currentChannelName || defaultChannelName,
     targetStoreId: currentStoreName,
     listingTitle: currentChannelMeta.listingTitle || nodeRelationMeta.listingTitle || `${project.projectName} 测款渠道店铺商品`,
@@ -1886,9 +2537,16 @@ function formatDraftFieldValue(type: PcsProjectNodeFieldGroupDefinition['fields'
 
 function normalizeDraftFieldValue(
   field: PcsProjectNodeFieldGroupDefinition['fields'][number],
-  value: string,
+  value: unknown,
 ): unknown {
-  const trimmed = value.trim()
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean)
+  }
+  const text = typeof value === 'string' ? value : String(value ?? '')
+  const trimmed = text.trim()
+  if (field.type === 'image-list') {
+    return getDraftStringArray(value)
+  }
   if (!trimmed) return ''
   if (field.type === 'number') {
     const parsed = Number(trimmed)
@@ -1930,7 +2588,7 @@ function deriveRecordSummaryNote(workItemTypeCode: string, values: Record<string
     case 'FEASIBILITY_REVIEW':
       return pickFirst('reviewRisk', 'reviewConclusion') || '已更新可行性判断。'
     case 'SAMPLE_SHOOT_FIT':
-      return pickFirst('fitFeedback', 'shootPlan') || '已补充样衣拍摄与试穿反馈。'
+      return pickFirst('fitFeedback', 'shootImageNote', 'shootPlan') || '已补充样衣拍摄与试穿反馈。'
     case 'SAMPLE_CONFIRM':
       return pickFirst('confirmNote', 'confirmResult') || '已更新样衣确认结果。'
     case 'SAMPLE_COST_REVIEW':
@@ -1958,7 +2616,12 @@ function buildRecordDraftDefaults(project: PcsProjectRecord, node: ProjectNodeVi
       .filter((field) => !field.readonly && editableKeys.has(field.fieldKey))
       .map((field) => {
         const rawValue = node.latestRecord?.payload?.[field.fieldKey] ?? getNodeFieldValue(project, node, field.fieldKey) ?? ''
-        return [field.fieldKey, formatDraftFieldValue(field.type, rawValue)]
+        return [
+          field.fieldKey,
+          shouldKeepDraftArrayValue(node.node.workItemTypeCode, field.fieldKey, field.type)
+            ? cloneDraftValue(rawValue)
+            : formatDraftFieldValue(field.type, rawValue),
+        ]
       }),
   )
 
@@ -1972,6 +2635,11 @@ function buildRecordDraftDefaults(project: PcsProjectRecord, node: ProjectNodeVi
     ),
     values,
   }
+}
+
+function cloneDraftValue(value: unknown): unknown {
+  if (Array.isArray(value)) return [...value]
+  return value
 }
 
 function getNodeRecordDraft(project: PcsProjectRecord, node: ProjectNodeViewModel): RecordDialogState {
@@ -2109,6 +2777,20 @@ function getBusinessRuleValidationErrors(
     const aggregate = getProjectTestingAggregate(project.projectId)
     if (aggregate.liveRelationIds.length + aggregate.videoRelationIds.length === 0) {
       errors.push('至少关联 1 条正式直播或短视频测款事实后，才能提交测款汇总。')
+    }
+  }
+
+  if (node.node.workItemTypeCode === 'SAMPLE_SHOOT_FIT') {
+    const listingCandidateImageIds = getDraftStringArray(values.listingCandidateImageIds)
+    const styleArchiveCandidateImageIds = getDraftStringArray(values.styleArchiveCandidateImageIds)
+    const sampleShootImages = listSampleShootImageAssets(project.projectId)
+    const hasListingUsableImage = sampleShootImages.some((item) => item.imageStatus === '可用于上架')
+    const hasStyleArchiveUsableImage = sampleShootImages.some((item) => item.imageStatus === '可用于款式档案')
+    if (hasListingUsableImage && listingCandidateImageIds.length === 0) {
+      errors.push('已标记可用于商品上架的图片时，至少保留 1 张商品上架候选图。')
+    }
+    if (hasStyleArchiveUsableImage && styleArchiveCandidateImageIds.length === 0) {
+      errors.push('已标记可用于款式档案的图片时，至少保留 1 张款式档案候选图。')
     }
   }
 
@@ -2258,6 +2940,17 @@ function renderProjectTextarea(label: string, field: string, value: string, plac
   `
 }
 
+function renderProjectReadonlyBlock(label: string, value: unknown): string {
+  return `
+    <div class="flex flex-col gap-2 text-sm text-slate-600">
+      <span>${escapeHtml(label)}</span>
+      <div class="min-h-[96px] rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm leading-6 text-slate-700">
+        ${renderReadonlyValue(value)}
+      </div>
+    </div>
+  `
+}
+
 function renderProjectSelectInput(label: string, field: string, value: string, options: Array<{ value: string; label: string }>): string {
   return `
     <label class="flex flex-col gap-2 text-sm text-slate-600">
@@ -2309,19 +3002,723 @@ function renderProjectImagePreviewModal(): string {
   `
 }
 
-function renderProjectImageThumbnailGrid(imageUrls: string[], removable = false): string {
+function renderProjectImageThumbnailGrid(
+  imageUrls: string[],
+  options: {
+    removable?: boolean
+    removeAction?: string
+    titlePrefix?: string
+    removeLabel?: string
+  } = {},
+): string {
   if (!imageUrls.length) return ''
+  const removable = options.removable === true
+  const removeAction = options.removeAction || 'remove-engineering-evidence-image'
+  const titlePrefix = options.titlePrefix || '证据图片'
+  const removeLabel = options.removeLabel || '删除证据图片'
   return `
     <div class="grid grid-cols-4 gap-3 sm:grid-cols-5">
       ${imageUrls.map((url, index) => `
         <div class="group relative overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
-          <button type="button" class="block h-20 w-full overflow-hidden" data-pcs-project-action="open-image-preview" data-url="${escapeHtml(url)}" data-title="证据图片 ${index + 1}">
-            <img src="${escapeHtml(url)}" alt="证据图片 ${index + 1}" class="h-full w-full object-cover transition group-hover:scale-105" />
+          <button type="button" class="block h-20 w-full overflow-hidden" data-pcs-project-action="open-image-preview" data-url="${escapeHtml(url)}" data-title="${escapeHtml(`${titlePrefix} ${index + 1}`)}" aria-label="${escapeHtml(`查看${titlePrefix} ${index + 1}`)}">
+            <img src="${escapeHtml(url)}" alt="${escapeHtml(`${titlePrefix} ${index + 1}`)}" class="h-full w-full object-cover transition group-hover:scale-105" />
           </button>
-          ${removable ? `<button type="button" class="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-xs text-slate-600 shadow hover:bg-white" data-pcs-project-action="remove-engineering-evidence-image" data-image-index="${index}" aria-label="删除证据图片">×</button>` : ''}
+          ${removable ? `<button type="button" class="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-xs text-slate-600 shadow hover:bg-white" data-pcs-project-action="${escapeHtml(removeAction)}" data-image-index="${index}" aria-label="${escapeHtml(removeLabel)}">×</button>` : ''}
         </div>
       `).join('')}
     </div>
+  `
+}
+
+function createRuntimeFileUrl(file: File): string {
+  if (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
+    return URL.createObjectURL(file)
+  }
+  return `mock://project-create-image/${encodeURIComponent(file.name || `${Date.now()}`)}`
+}
+
+function revokeRuntimeFileUrl(imageUrl: string): void {
+  if (!imageUrl.startsWith('blob:')) return
+  if (typeof URL !== 'undefined' && typeof URL.revokeObjectURL === 'function') {
+    URL.revokeObjectURL(imageUrl)
+  }
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '')
+    reader.onerror = () => reject(new Error(`读取图片失败：${file.name}`))
+    reader.readAsDataURL(file)
+  })
+}
+
+async function appendCreateReferenceImages(files: File[]): Promise<void> {
+  if (!files.length) return
+  const nextImages = files.map((file, index) => ({
+    tempId: `create-reference-${Date.now()}-${index}-${file.name}`,
+    imageName: file.name || `参考图片 ${state.create.referenceImages.length + index + 1}`,
+    imageUrl: createRuntimeFileUrl(file),
+    file,
+  }))
+  state.create.referenceImages = [...state.create.referenceImages, ...nextImages]
+  state.create.error = null
+  window.dispatchEvent(new Event('higood:request-render'))
+}
+
+async function appendProjectInitReferenceImages(project: PcsProjectRecord, files: File[]): Promise<void> {
+  if (!files.length) return
+  const currentImages = listProjectReferenceImages(project.projectId)
+  const created = await createProjectImageAssetRecordsFromFiles(
+    project,
+    files,
+    (file, index) => ({
+      imageName: file.name || `参考图片 ${currentImages.length + index + 1}`,
+      imageType: '项目参考图',
+      sourceNodeCode: 'PROJECT_INIT',
+      sourceRecordId: '',
+      sourceType: '商品项目立项',
+      usageScopes: ['立项参考', '项目资料归档'],
+      imageStatus: '待确认',
+      mainFlag: false,
+      sortNo: currentImages.length + index + 1,
+    }),
+    '当前用户',
+  )
+  upsertProjectImageAssets(created)
+  const compatRefs = listProjectReferenceImages(project.projectId).map((item) => buildProjectImageCompatRef(item))
+  updateProjectAlbumUrls(project.projectId, compatRefs, '当前用户')
+  state.notice = '参考图片已更新。'
+  window.dispatchEvent(new Event('higood:request-render'))
+}
+
+function resolveChannelListingDraftImageItems(
+  projectId: string,
+  draft: ChannelListingDraft,
+): PcsProjectImageAssetViewModel[] {
+  return draft.listingImageIds
+    .map((imageId) => findProjectImageViewModelById(projectId, imageId))
+    .filter((item): item is PcsProjectImageAssetViewModel => Boolean(item))
+}
+
+function resolveChannelListingCandidateImages(
+  projectId: string,
+  draft: ChannelListingDraft,
+): PcsProjectImageAssetViewModel[] {
+  const selectedIds = new Set(draft.listingImageIds)
+  return listProjectListingCandidateImageViewModels(projectId).filter((item) => !selectedIds.has(item.imageId))
+}
+
+function canUseImageForListing(image: PcsProjectImageAssetViewModel): boolean {
+  return (
+    image.usageScopes.includes('商品上架') &&
+    (image.imageStatus === '可用于上架' || image.imageStatus === '已选为上架图')
+  )
+}
+
+async function appendChannelListingSupplementImages(
+  project: PcsProjectRecord,
+  node: ProjectNodeViewModel,
+  files: File[],
+): Promise<void> {
+  if (!files.length) return
+  const draft = getChannelListingDraft(project, node)
+  const timestamp = new Date().toISOString()
+  const created = await createProjectImageAssetRecordsFromFiles(
+    project,
+    files,
+    (file, index) => ({
+      imageName: files[index]?.name || `上架补充图 ${index + 1}`,
+      imageType: '上架图',
+      sourceNodeCode: 'CHANNEL_PRODUCT_LISTING',
+      sourceRecordId: buildChannelListingDraftKey(project.projectId, node.node.projectNodeId),
+      sourceType: '商品上架',
+      usageScopes: ['商品上架', '项目资料归档'],
+      imageStatus: '可用于上架',
+      mainFlag: false,
+      sortNo: draft.listingImageIds.length + index + 1,
+    }),
+    '当前用户',
+    timestamp,
+  )
+  upsertProjectImageAssets(created)
+  const nextImageIds = [...draft.listingImageIds, ...created.map((item) => item.imageId)]
+  updateChannelListingDraft(project, node, {
+    listingImageIds: nextImageIds,
+    listingMainImageId: draft.listingMainImageId || created[0]?.imageId || '',
+  })
+  state.notice = '上架补充图片已加入当前批次。'
+  window.dispatchEvent(new Event('higood:request-render'))
+}
+
+function renderChannelListingSelectedImages(
+  project: PcsProjectRecord,
+  draft: ChannelListingDraft,
+): string {
+  const images = resolveChannelListingDraftImageItems(project.projectId, draft)
+  if (images.length === 0) {
+    return `
+      <div class="rounded-md border border-dashed border-slate-200 px-3 py-6 text-center text-xs text-slate-400">
+        暂无上架图片
+      </div>
+    `
+  }
+
+  return `
+    <div class="grid gap-3 md:grid-cols-3 xl:grid-cols-4">
+      ${images
+        .map((image, index) => {
+          const isMain = image.imageId === draft.listingMainImageId
+          return `
+            <article class="rounded-lg border border-slate-200 bg-white p-3">
+              <button type="button" class="block h-40 w-full overflow-hidden rounded-md bg-slate-100" data-pcs-project-action="open-image-preview" data-url="${escapeHtml(image.imageUrl)}" data-title="${escapeHtml(image.previewTitle)}" aria-label="${escapeHtml(`查看${image.imageName}`)}">
+                <img src="${escapeHtml(image.imageUrl)}" alt="${escapeHtml(image.imageName)}" class="h-full w-full object-cover" />
+              </button>
+              <div class="mt-3 space-y-2">
+                <div>
+                  <p class="text-sm font-medium text-slate-900">${escapeHtml(image.imageName)}</p>
+                  <p class="mt-1 text-xs text-slate-500">${escapeHtml(image.imageType)} · ${escapeHtml(image.imageStatus || '-')}</p>
+                </div>
+                <div class="flex flex-wrap gap-1">
+                  ${image.usageScopes.map((scope) => `<span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">${escapeHtml(scope)}</span>`).join('')}
+                </div>
+                <div class="flex flex-wrap gap-2">
+                  <button type="button" class="inline-flex h-7 items-center rounded-md border px-2 text-[11px] ${isMain ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}" data-pcs-project-action="set-channel-listing-main-image" data-image-id="${escapeHtml(image.imageId)}">${isMain ? '当前主图' : '设为主图'}</button>
+                  <button type="button" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2 text-[11px] text-slate-600 hover:bg-slate-50" data-pcs-project-action="move-channel-listing-image-up" data-image-id="${escapeHtml(image.imageId)}" ${index === 0 ? 'disabled' : ''}>上移</button>
+                  <button type="button" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2 text-[11px] text-slate-600 hover:bg-slate-50" data-pcs-project-action="move-channel-listing-image-down" data-image-id="${escapeHtml(image.imageId)}" ${index === images.length - 1 ? 'disabled' : ''}>下移</button>
+                  <button type="button" class="inline-flex h-7 items-center rounded-md border border-rose-200 bg-white px-2 text-[11px] text-rose-600 hover:bg-rose-50" data-pcs-project-action="remove-channel-listing-image" data-image-id="${escapeHtml(image.imageId)}">移除</button>
+                </div>
+              </div>
+            </article>
+          `
+        })
+        .join('')}
+    </div>
+  `
+}
+
+function renderChannelListingCandidateImagePicker(
+  project: PcsProjectRecord,
+  draft: ChannelListingDraft,
+): string {
+  const candidates = resolveChannelListingCandidateImages(project.projectId, draft)
+  return `
+    <div class="rounded-lg border border-slate-200">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+        <div>
+          <h4 class="text-sm font-semibold text-slate-900">上架图片</h4>
+          <p class="mt-1 text-xs text-slate-500">从项目图片资产池选择，或补充上传上架图片。</p>
+        </div>
+        <label class="inline-flex h-8 cursor-pointer items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50">
+          上传上架补图
+          <input type="file" accept="image/*" multiple class="hidden" data-pcs-project-field="channel-listing-supplement-images" />
+        </label>
+      </div>
+      <div class="space-y-4 p-4">
+        <div>
+          <div class="mb-2 text-xs font-medium text-slate-500">已选上架图片</div>
+          ${renderChannelListingSelectedImages(project, draft)}
+        </div>
+        <div>
+          <div class="mb-2 text-xs font-medium text-slate-500">项目图片资产池候选图</div>
+          ${
+            candidates.length === 0
+              ? '<div class="rounded-md border border-dashed border-slate-200 px-3 py-6 text-center text-xs text-slate-400">暂无可选图片</div>'
+              : `
+                <div class="grid gap-3 md:grid-cols-3 xl:grid-cols-4">
+                  ${candidates
+                    .map((image) => {
+                      const usable = canUseImageForListing(image)
+                      const action = usable ? 'add-channel-listing-image' : 'confirm-add-channel-listing-image'
+                      const buttonText = usable ? '加入上架图片' : '确认可用于上架并加入'
+                      return `
+                        <article class="rounded-lg border border-slate-200 bg-white p-3">
+                          <button type="button" class="block h-32 w-full overflow-hidden rounded-md bg-slate-100" data-pcs-project-action="open-image-preview" data-url="${escapeHtml(image.imageUrl)}" data-title="${escapeHtml(image.previewTitle)}" aria-label="${escapeHtml(`查看${image.imageName}`)}">
+                            <img src="${escapeHtml(image.imageUrl)}" alt="${escapeHtml(image.imageName)}" class="h-full w-full object-cover" />
+                          </button>
+                          <div class="mt-3 space-y-2">
+                            <div>
+                              <p class="text-sm font-medium text-slate-900">${escapeHtml(image.imageName)}</p>
+                              <p class="mt-1 text-xs text-slate-500">${escapeHtml(image.imageType)} · ${escapeHtml(image.imageStatus)}</p>
+                            </div>
+                            <div class="flex flex-wrap gap-1">
+                              ${image.usageScopes.map((scope) => `<span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">${escapeHtml(scope)}</span>`).join('')}
+                            </div>
+                            <button type="button" class="inline-flex h-8 items-center rounded-md border ${usable ? 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100' : 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'} px-3 text-xs font-medium" data-pcs-project-action="${action}" data-image-id="${escapeHtml(image.imageId)}">${escapeHtml(buttonText)}</button>
+                          </div>
+                        </article>
+                      `
+                    })
+                    .join('')}
+                </div>
+              `
+          }
+        </div>
+      </div>
+    </div>
+  `
+}
+
+async function appendStyleArchiveSupplementImages(
+  project: PcsProjectRecord,
+  node: ProjectNodeViewModel,
+  files: File[],
+): Promise<void> {
+  if (!files.length) return
+  const draft = getStyleArchiveImageDraft(project, node)
+  const timestamp = new Date().toISOString()
+  const created = await createProjectImageAssetRecordsFromFiles(
+    project,
+    files,
+    (file, index) => ({
+      imageName: files[index]?.name || `档案补充图 ${index + 1}`,
+      imageType: '款式档案图',
+      sourceNodeCode: 'STYLE_ARCHIVE_CREATE',
+      sourceRecordId: buildStyleArchiveImageDraftKey(project.projectId, node.node.projectNodeId),
+      sourceType: '生成款式档案',
+      usageScopes: ['款式档案', '项目资料归档'],
+      imageStatus: '可用于款式档案',
+      mainFlag: false,
+      sortNo: draft.styleGalleryImageIds.length + index + 1,
+    }),
+    '当前用户',
+    timestamp,
+  )
+  upsertProjectImageAssets(created)
+  const nextImageIds = [...draft.styleGalleryImageIds, ...created.map((item) => item.imageId)]
+  updateStyleArchiveImageDraft(project, node, {
+    styleGalleryImageIds: nextImageIds,
+    styleMainImageId: draft.styleMainImageId || created[0]?.imageId || '',
+  })
+  state.notice = '档案补充图片已加入当前款式档案选择。'
+  window.dispatchEvent(new Event('higood:request-render'))
+}
+
+function renderStyleArchiveSelectedImages(
+  project: PcsProjectRecord,
+  draft: StyleArchiveImageDraft,
+  editable: boolean,
+): string {
+  const images = resolveStyleArchiveDraftImages(project.projectId, draft)
+  if (images.length === 0) {
+    return `
+      <div class="rounded-md border border-dashed border-slate-200 px-3 py-6 text-center text-xs text-slate-400">
+        暂未选择档案图片
+      </div>
+    `
+  }
+
+  return `
+    <div class="grid gap-3 md:grid-cols-3 xl:grid-cols-4">
+      ${images
+        .map((image, index) => {
+          const isMain = image.imageId === draft.styleMainImageId
+          return `
+            <article class="rounded-lg border border-slate-200 bg-white p-3">
+              <button type="button" class="block h-40 w-full overflow-hidden rounded-md bg-slate-100" data-pcs-project-action="open-image-preview" data-url="${escapeHtml(image.imageUrl)}" data-title="${escapeHtml(image.previewTitle)}" aria-label="${escapeHtml(`查看${image.imageName}`)}">
+                <img src="${escapeHtml(image.imageUrl)}" alt="${escapeHtml(image.imageName)}" class="h-full w-full object-cover" />
+              </button>
+              <div class="mt-3 space-y-2">
+                <div>
+                  <p class="text-sm font-medium text-slate-900">${escapeHtml(image.imageName)}</p>
+                  <p class="mt-1 text-xs text-slate-500">${escapeHtml(image.imageType)} · ${escapeHtml(image.imageStatus || '-')}</p>
+                </div>
+                <div class="flex flex-wrap gap-1">
+                  ${image.usageScopes.map((scope) => `<span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">${escapeHtml(scope)}</span>`).join('')}
+                </div>
+                ${
+                  editable
+                    ? `<div class="flex flex-wrap gap-2">
+                        <button type="button" class="inline-flex h-7 items-center rounded-md border px-2 text-[11px] ${isMain ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}" data-pcs-project-action="set-style-archive-main-image" data-image-id="${escapeHtml(image.imageId)}">${isMain ? '当前主图' : '设为主图'}</button>
+                        <button type="button" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2 text-[11px] text-slate-600 hover:bg-slate-50" data-pcs-project-action="move-style-archive-image-up" data-image-id="${escapeHtml(image.imageId)}" ${index === 0 ? 'disabled' : ''}>上移</button>
+                        <button type="button" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2 text-[11px] text-slate-600 hover:bg-slate-50" data-pcs-project-action="move-style-archive-image-down" data-image-id="${escapeHtml(image.imageId)}" ${index === images.length - 1 ? 'disabled' : ''}>下移</button>
+                        <button type="button" class="inline-flex h-7 items-center rounded-md border border-rose-200 bg-white px-2 text-[11px] text-rose-600 hover:bg-rose-50" data-pcs-project-action="remove-style-archive-image" data-image-id="${escapeHtml(image.imageId)}">移除</button>
+                      </div>`
+                    : isMain
+                      ? '<span class="inline-flex rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] text-blue-700">档案主图</span>'
+                      : ''
+                }
+              </div>
+            </article>
+          `
+        })
+        .join('')}
+    </div>
+  `
+}
+
+function renderStyleArchiveCandidateImagePicker(
+  project: PcsProjectRecord,
+  draft: StyleArchiveImageDraft,
+  editable: boolean,
+): string {
+  const candidates = resolveStyleArchiveCandidateImages(project.projectId, draft)
+  return `
+    <div class="rounded-lg border border-slate-200">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+        <div>
+          <h4 class="text-sm font-semibold text-slate-900">档案主图与图册</h4>
+          <p class="mt-1 text-xs text-slate-500">优先选择商品上架图片，其次选择可用于款式档案的样衣拍摄图片。项目参考图需确认后使用。</p>
+        </div>
+        ${
+          editable
+            ? `<label class="inline-flex h-8 cursor-pointer items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50">
+                上传档案补充图
+                <input type="file" accept="image/*" multiple class="hidden" data-pcs-project-field="style-archive-supplement-images" />
+              </label>`
+            : ''
+        }
+      </div>
+      <div class="space-y-4 p-4">
+        <div>
+          <div class="mb-2 text-xs font-medium text-slate-500">已选档案图册</div>
+          ${renderStyleArchiveSelectedImages(project, draft, editable)}
+        </div>
+        <div>
+          <div class="mb-2 text-xs font-medium text-slate-500">候选图片</div>
+          ${
+            candidates.length === 0
+              ? '<div class="rounded-md border border-dashed border-slate-200 px-3 py-6 text-center text-xs text-slate-400">暂无可选图片，请先选择或上传图片。</div>'
+              : `
+                <div class="grid gap-3 md:grid-cols-3 xl:grid-cols-4">
+                  ${candidates
+                    .map((image) => {
+                      const action = image.requiresConfirmation ? 'confirm-add-style-archive-image' : 'add-style-archive-image'
+                      const buttonText = image.requiresConfirmation ? '确认可用于款式档案并加入' : '加入档案图册'
+                      return `
+                        <article class="rounded-lg border border-slate-200 bg-white p-3">
+                          <button type="button" class="block h-32 w-full overflow-hidden rounded-md bg-slate-100" data-pcs-project-action="open-image-preview" data-url="${escapeHtml(image.imageUrl)}" data-title="${escapeHtml(image.imageName)}" aria-label="${escapeHtml(`查看${image.imageName}`)}">
+                            <img src="${escapeHtml(image.imageUrl)}" alt="${escapeHtml(image.imageName)}" class="h-full w-full object-cover" />
+                          </button>
+                          <div class="mt-3 space-y-2">
+                            <div class="flex items-start justify-between gap-2">
+                              <div>
+                                <p class="text-sm font-medium text-slate-900">${escapeHtml(image.imageName)}</p>
+                                <p class="mt-1 text-xs text-slate-500">${escapeHtml(image.sourceLabel)} · ${escapeHtml(image.imageStatus)}</p>
+                              </div>
+                              ${image.requiresConfirmation ? '<span class="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] text-amber-700">需确认后使用</span>' : ''}
+                            </div>
+                            <div class="flex flex-wrap gap-1">
+                              ${image.usageScopes.map((scope) => `<span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">${escapeHtml(scope)}</span>`).join('')}
+                            </div>
+                            ${
+                              editable
+                                ? `<div class="flex flex-wrap gap-2">
+                                    <button type="button" class="inline-flex h-8 items-center rounded-md border ${image.requiresConfirmation ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100' : 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100'} px-3 text-xs font-medium" data-pcs-project-action="${action}" data-image-id="${escapeHtml(image.imageId)}">${escapeHtml(buttonText)}</button>
+                                    <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-pcs-project-action="${action}" data-image-id="${escapeHtml(image.imageId)}" data-set-main="true">设为主图并加入</button>
+                                  </div>`
+                                : ''
+                            }
+                          </div>
+                        </article>
+                      `
+                    })
+                    .join('')}
+                </div>
+              `
+          }
+        </div>
+      </div>
+    </div>
+  `
+}
+
+function renderStyleArchiveCreateWorkspace(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
+  const draft = getStyleArchiveImageDraft(project, node)
+  const style = findStyleArchiveByProjectId(project.projectId)
+  const editable =
+    node.displayStatus !== '未解锁' &&
+    node.node.currentStatus !== '已取消' &&
+    !style
+
+  return `
+    <div class="space-y-4">
+      <section class="rounded-lg border bg-white p-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 class="text-base font-semibold text-slate-900">款式档案图片确认</h3>
+            <p class="mt-1 text-xs text-slate-500">${style ? `当前已生成款式档案 ${style.styleCode}。` : '先确认档案主图和图册，再生成款式档案。'}</p>
+          </div>
+          ${style ? `<button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/products/styles/${escapeHtml(style.styleId)}">查看款式档案</button>` : ''}
+        </div>
+        ${
+          style
+            ? `<div class="mt-4 grid gap-3 md:grid-cols-3">
+                <article class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                  <p class="text-xs text-slate-500">档案主图</p>
+                  <p class="mt-2 text-sm font-medium text-slate-900">${escapeHtml(style.mainImageId || '未记录')}</p>
+                </article>
+                <article class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                  <p class="text-xs text-slate-500">图册数量</p>
+                  <p class="mt-2 text-sm font-medium text-slate-900">${escapeHtml(String(style.galleryImageIds?.length || style.galleryImageUrls?.length || 0))}</p>
+                </article>
+                <article class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                  <p class="text-xs text-slate-500">图片来源</p>
+                  <p class="mt-2 text-sm font-medium text-slate-900">${escapeHtml(style.imageSource || '未记录')}</p>
+                </article>
+              </div>`
+            : ''
+        }
+      </section>
+      ${renderStyleArchiveCandidateImagePicker(project, draft, editable)}
+    </div>
+  `
+}
+
+function isSampleShootFitNode(node: ProjectNodeViewModel): boolean {
+  return node.node.workItemTypeCode === 'SAMPLE_SHOOT_FIT'
+}
+
+function canEditSampleShootFitNode(node: ProjectNodeViewModel): boolean {
+  return node.displayStatus !== '未解锁' && (node.node.currentStatus === '进行中' || node.node.currentStatus === '待确认')
+}
+
+function shouldKeepDraftArrayValue(
+  workItemTypeCode: string,
+  fieldKey: string,
+  fieldType: PcsProjectNodeFieldGroupDefinition['fields'][number]['type'],
+): boolean {
+  if (fieldType === 'image-list') return true
+  if (workItemTypeCode !== 'SAMPLE_SHOOT_FIT') return false
+  return (
+    fieldKey === 'sampleVideoUrls' ||
+    fieldKey === 'listingCandidateImageIds' ||
+    fieldKey === 'styleArchiveCandidateImageIds'
+  )
+}
+
+function getDraftStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean)
+  }
+  if (typeof value === 'string') {
+    return value
+      .split(/[、,\n]/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+  }
+  return []
+}
+
+function resolveSampleShootImageIds(draft: RecordDialogState, fieldKey: string): string[] {
+  return getDraftStringArray(draft.values[fieldKey])
+}
+
+function resolveSampleShootImageItems(projectId: string, imageIds: string[]): PcsProjectImageAssetViewModel[] {
+  return imageIds
+    .map((imageId) => findProjectImageViewModelById(projectId, imageId))
+    .filter((item): item is PcsProjectImageAssetViewModel => Boolean(item))
+}
+
+function renderSampleShootImageUsageButtons(
+  image: PcsProjectImageAssetViewModel,
+  editable: boolean,
+): string {
+  if (!editable) return ''
+
+  const actionButton = (usage: string, label: string, active: boolean, tone: 'blue' | 'emerald' | 'amber' | 'rose' | 'slate' = 'slate') => {
+    const activeClass =
+      tone === 'blue'
+        ? 'border-blue-200 bg-blue-50 text-blue-700'
+        : tone === 'emerald'
+          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+          : tone === 'amber'
+            ? 'border-amber-200 bg-amber-50 text-amber-700'
+            : tone === 'rose'
+              ? 'border-rose-200 bg-rose-50 text-rose-700'
+              : 'border-slate-300 bg-slate-100 text-slate-700'
+    return `<button type="button" class="inline-flex h-7 items-center rounded-md border px-2 text-[11px] ${active ? activeClass : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'}" data-pcs-project-action="set-sample-shoot-image-usage" data-image-id="${escapeHtml(image.imageId)}" data-usage="${escapeHtml(usage)}">${escapeHtml(label)}</button>`
+  }
+
+  const listingActive = image.usageScopes.includes('商品上架') && image.imageStatus === '可用于上架'
+  const archiveActive = image.usageScopes.includes('款式档案') && image.imageStatus === '可用于款式档案'
+  const evaluateActive = image.imageStatus === '待确认'
+  const retakeActive = image.imageStatus === '需重拍'
+  const discardedActive = image.imageStatus === '已弃用'
+
+  return `
+    <div class="mt-2 flex flex-wrap gap-2">
+      ${actionButton('listing', '可用于商品上架', listingActive, 'blue')}
+      ${actionButton('styleArchive', '可用于款式档案', archiveActive, 'emerald')}
+      ${actionButton('evaluateOnly', '仅用于样衣评估', evaluateActive, 'slate')}
+      ${actionButton('retake', '需重拍', retakeActive, 'amber')}
+      ${actionButton('discarded', '已弃用', discardedActive, 'rose')}
+      <button type="button" class="inline-flex h-7 items-center rounded-md border border-rose-200 bg-white px-2 text-[11px] text-rose-600 hover:bg-rose-50" data-pcs-project-action="remove-sample-shoot-image" data-image-id="${escapeHtml(image.imageId)}">删除图片</button>
+    </div>
+  `
+}
+
+function renderSampleShootImageCards(
+  items: PcsProjectImageAssetViewModel[],
+  editable: boolean,
+  emptyText: string,
+): string {
+  if (items.length === 0) {
+    return `<div class="rounded-md border border-dashed border-slate-200 px-3 py-6 text-center text-xs text-slate-400">${escapeHtml(emptyText)}</div>`
+  }
+
+  return `
+    <div class="grid gap-3 md:grid-cols-3 xl:grid-cols-4">
+      ${items
+        .map(
+          (image) => `
+            <article class="rounded-lg border border-slate-200 bg-white p-3">
+              <button type="button" class="block h-40 w-full overflow-hidden rounded-md bg-slate-100" data-pcs-project-action="open-image-preview" data-url="${escapeHtml(image.imageUrl)}" data-title="${escapeHtml(image.previewTitle)}" aria-label="${escapeHtml(`查看${image.imageName}`)}">
+                <img src="${escapeHtml(image.imageUrl)}" alt="${escapeHtml(image.imageName)}" class="h-full w-full object-cover" />
+              </button>
+              <div class="mt-3 space-y-2">
+                <div>
+                  <p class="text-sm font-medium text-slate-900">${escapeHtml(image.imageName)}</p>
+                  <p class="mt-1 text-xs text-slate-500">${escapeHtml(image.imageType)} · ${escapeHtml(image.imageStatus)}</p>
+                </div>
+                <div class="flex flex-wrap gap-1">
+                  ${image.usageScopes.map((scope) => `<span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">${escapeHtml(scope)}</span>`).join('')}
+                </div>
+                ${renderSampleShootImageUsageButtons(image, editable)}
+              </div>
+            </article>
+          `,
+        )
+        .join('')}
+    </div>
+  `
+}
+
+function renderSampleShootVideoSection(draft: RecordDialogState, editable: boolean): string {
+  const videoUrls = getDraftStringArray(draft.values.sampleVideoUrls)
+  return `
+    <section class="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <h3 class="text-sm font-semibold text-slate-900">视频素材</h3>
+          <p class="mt-1 text-xs text-slate-500">可填写视频链接或本地记录，每行一条。</p>
+        </div>
+      </div>
+      ${
+        editable
+          ? renderProjectTextarea(
+              '视频素材',
+              'sample-shoot-video-urls',
+              videoUrls.join('\n'),
+              '请输入视频素材链接或本地记录，每行一条',
+            )
+          : videoUrls.length > 0
+            ? renderReadonlyValue(videoUrls)
+            : '<div class="rounded-md border border-dashed border-slate-200 px-3 py-6 text-center text-xs text-slate-400">暂未记录视频素材</div>'
+      }
+    </section>
+  `
+}
+
+function renderSampleShootFitWorkspace(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
+  const draft = getNodeRecordDraft(project, node)
+  const editable = canEditSampleShootFitNode(node)
+  const listingCandidates = resolveSampleShootImageItems(project.projectId, resolveSampleShootImageIds(draft, 'listingCandidateImageIds'))
+  const archiveCandidates = resolveSampleShootImageItems(project.projectId, resolveSampleShootImageIds(draft, 'styleArchiveCandidateImageIds'))
+
+  return `
+    <section class="space-y-4">
+      <article class="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 md:grid-cols-2">
+        ${
+          editable
+            ? renderProjectTextarea('拍摄安排', 'sample-shoot-plan', String(draft.values.shootPlan || ''), '请输入拍摄安排')
+            : renderProjectReadonlyBlock('拍摄安排', draft.values.shootPlan)
+        }
+        ${
+          editable
+            ? renderProjectTextarea('试穿反馈', 'sample-shoot-feedback', String(draft.values.fitFeedback || ''), '请输入试穿反馈')
+            : renderProjectReadonlyBlock('试穿反馈', draft.values.fitFeedback)
+        }
+        <div class="md:col-span-2">
+          ${
+            editable
+              ? renderProjectTextarea('图片补充说明', 'sample-shoot-image-note', String(draft.values.shootImageNote || ''), '补充说明图片用途、问题点或重拍要求')
+              : renderProjectReadonlyBlock('图片补充说明', draft.values.shootImageNote)
+          }
+        </div>
+      </article>
+      ${SAMPLE_SHOOT_IMAGE_GROUPS.map((group) => {
+        const imageIds = resolveSampleShootImageIds(draft, group.fieldKey)
+        const items = resolveSampleShootImageItems(project.projectId, imageIds)
+        return `
+          <section class="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 class="text-sm font-semibold text-slate-900">${escapeHtml(group.label)}</h3>
+                <p class="mt-1 text-xs text-slate-500">上传后进入项目图片资产池，可按用途继续标记。</p>
+              </div>
+              ${
+                editable
+                  ? `
+                    <label class="inline-flex h-9 cursor-pointer items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50">
+                      上传${escapeHtml(group.label)}
+                      <input type="file" accept="image/*" multiple class="hidden" data-pcs-project-field="${escapeHtml(group.uploadField)}" />
+                    </label>
+                  `
+                  : ''
+              }
+            </div>
+            ${renderSampleShootImageCards(items, editable, group.emptyText)}
+          </section>
+        `
+      }).join('')}
+      ${renderSampleShootVideoSection(draft, editable)}
+      <section class="grid gap-4 md:grid-cols-2">
+        <article class="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
+          <div class="flex items-center justify-between gap-3">
+            <h3 class="text-sm font-semibold text-slate-900">商品上架候选图</h3>
+            <span class="text-xs text-slate-500">${listingCandidates.length} 张</span>
+          </div>
+          ${renderSampleShootImageCards(listingCandidates, false, '暂未标记商品上架候选图')}
+        </article>
+        <article class="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
+          <div class="flex items-center justify-between gap-3">
+            <h3 class="text-sm font-semibold text-slate-900">款式档案候选图</h3>
+            <span class="text-xs text-slate-500">${archiveCandidates.length} 张</span>
+          </div>
+          ${renderSampleShootImageCards(archiveCandidates, false, '暂未标记款式档案候选图')}
+        </article>
+      </section>
+      ${
+        !editable
+          ? ''
+          : `
+            <div class="flex flex-wrap justify-end gap-2 border-t border-slate-200 pt-4">
+              <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-project-action="save-formal-fields">保存正式字段</button>
+              <button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-project-action="save-formal-fields-and-complete">保存并流转节点</button>
+            </div>
+          `
+      }
+    </section>
+  `
+}
+
+function renderCreateReferenceImageSection(
+  referenceImages: Array<{ imageUrl: string; imageName: string }>,
+): string {
+  return `
+    <section class="space-y-3 rounded-lg border border-slate-200 px-3 py-3">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p class="text-sm font-medium text-slate-900">参考图片</p>
+          <p class="mt-1 text-xs text-slate-500">上传商品项目立项参考图片，用于项目识别和后续节点参考。</p>
+        </div>
+        <label class="inline-flex h-9 cursor-pointer items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50">
+          上传参考图片
+          <input type="file" accept="image/*" multiple class="hidden" data-pcs-project-field="create-reference-images" />
+        </label>
+      </div>
+      ${
+        referenceImages.length > 0
+          ? renderProjectImageThumbnailGrid(referenceImages.map((item) => item.imageUrl), {
+              removable: true,
+              removeAction: 'remove-create-reference-image',
+              titlePrefix: '参考图片',
+              removeLabel: '删除参考图片',
+            })
+          : '<div class="rounded-md border border-dashed border-slate-200 px-3 py-6 text-center text-xs text-slate-400">暂未上传参考图片</div>'
+      }
+    </section>
   `
 }
 
@@ -2625,6 +4022,7 @@ function ensureCreateState(): void {
   state.create = {
     routeKey: 'create',
     error: null,
+    referenceImages: [],
     draft: {
       ...createEmptyProjectDraft(),
       projectType: getProjectTypeLabel(defaultStyleType),
@@ -2665,7 +4063,7 @@ function hasCreateDraftChanges(): boolean {
       draft.productPositioningIds.length > 0 ||
       draft.collaboratorIds.length > 0 ||
       draft.priceRangeLabel.trim() ||
-      draft.projectAlbumUrls.length > 0 ||
+      state.create.referenceImages.length > 0 ||
       draft.targetChannelCodes.length !== 2 ||
       draft.styleType !== '基础款',
   )
@@ -3494,10 +4892,7 @@ function renderCreatePage(): string {
             </div>
           </div>
 
-          <label class="space-y-1">
-            <span class="text-sm font-medium text-slate-900">项目图册链接</span>
-            <textarea class="min-h-[96px] w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100" placeholder="每行一个链接" data-pcs-project-field="create-project-album-urls">${escapeHtml(draft.projectAlbumUrls.join('\n'))}</textarea>
-          </label>
+          ${renderCreateReferenceImageSection(state.create.referenceImages)}
 
           <label class="space-y-1">
             <span class="text-sm font-medium text-slate-900">项目说明</span>
@@ -4007,7 +5402,79 @@ function renderKeyOutputCards(node: ProjectNodeViewModel, project: PcsProjectRec
 
 function renderProjectInitSnapshot(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
   const groups = listProjectWorkItemFieldGroups('PROJECT_INIT')
-  return `<div class="space-y-4">${groups.map((group) => renderFieldGroupValues(group, project, node, groups.length > 1)).join('')}</div>`
+  const referenceImages = listProjectReferenceImageViewModels(project.projectId)
+  const editable = node.displayStatus !== '未解锁' && (node.node.currentStatus === '进行中' || node.node.currentStatus === '待确认')
+
+  return `
+    <div class="space-y-4">
+      ${groups
+        .map((group) => `
+          <section class="space-y-3">
+            ${groups.length > 1 ? `<h3 class="text-sm font-semibold text-slate-900">${escapeHtml(group.groupTitle)}</h3>` : ''}
+            <div class="grid gap-3 md:grid-cols-2">
+              ${group.fields
+                .map((field) => {
+                  if (field.fieldKey === 'projectAlbumUrls') {
+                    return `
+                      <div class="space-y-3 rounded-md border border-slate-200 bg-white px-3 py-3 md:col-span-2">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <p class="text-xs text-slate-500">${escapeHtml(field.label)}</p>
+                            <p class="mt-1 text-sm text-slate-700">立项参考图片仅用于项目识别和后续节点参考。</p>
+                          </div>
+                          ${
+                            editable
+                              ? `
+                                <label class="inline-flex h-9 cursor-pointer items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50">
+                                  上传参考图片
+                                  <input type="file" accept="image/*" multiple class="hidden" data-pcs-project-field="project-init-reference-images" />
+                                </label>
+                              `
+                              : ''
+                          }
+                        </div>
+                        ${
+                          referenceImages.length > 0
+                            ? `
+                                <div class="grid grid-cols-4 gap-3 sm:grid-cols-5">
+                                  ${referenceImages
+                                    .map(
+                                      (item, index) => `
+                                        <div class="group relative overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+                                          <button type="button" class="block h-20 w-full overflow-hidden" data-pcs-project-action="open-image-preview" data-url="${escapeHtml(item.imageUrl)}" data-title="${escapeHtml(item.previewTitle)}" aria-label="${escapeHtml(`查看参考图片 ${index + 1}`)}">
+                                            <img src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(item.imageName)}" class="h-full w-full object-cover transition group-hover:scale-105" />
+                                          </button>
+                                          ${
+                                            editable
+                                              ? `<button type="button" class="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-xs text-slate-600 shadow hover:bg-white" data-pcs-project-action="remove-project-reference-image" data-image-id="${escapeHtml(item.imageId)}" aria-label="删除参考图片">×</button>`
+                                              : ''
+                                          }
+                                        </div>
+                                      `,
+                                    )
+                                    .join('')}
+                                </div>
+                              `
+                            : '<div class="rounded-md border border-dashed border-slate-200 px-3 py-6 text-center text-xs text-slate-400">暂未上传参考图片</div>'
+                        }
+                      </div>
+                    `
+                  }
+
+                  return `
+                    <div class="rounded-md border border-slate-200 bg-white px-3 py-3">
+                      <p class="text-xs text-slate-500">${escapeHtml(field.label)}</p>
+                      <div class="mt-2 text-sm leading-6 text-slate-700">${renderReadonlyValue(getNodeFieldValue(project, node, field.fieldKey))}</div>
+                    </div>
+                  `
+                })
+                .join('')}
+            </div>
+          </section>
+        `)
+        .join('')}
+    </div>
+  `
 }
 
 function renderLatestRecordSummary(node: ProjectNodeViewModel): string {
@@ -4111,6 +5578,18 @@ function renderReadonlyFieldSection(project: PcsProjectRecord, node: ProjectNode
 function renderProjectNodeInlineContent(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
   if (node.node.workItemTypeCode === 'PROJECT_INIT') {
     return renderProjectInitSnapshot(project, node)
+  }
+
+  if (isSampleShootFitNode(node)) {
+    return renderSampleShootFitWorkspace(project, node)
+  }
+
+  if (isChannelListingNode(node)) {
+    return renderChannelListingNodeWorkspace(project, node)
+  }
+
+  if (node.node.workItemTypeCode === 'STYLE_ARCHIVE_CREATE') {
+    return renderStyleArchiveCreateWorkspace(project, node)
   }
 
   if (isDecisionNode(node)) {
@@ -4259,7 +5738,9 @@ function renderProjectDetailPage(projectId: string): string {
                     </div>
                     <div class="flex flex-wrap gap-2">
                       ${
-                        isDecisionNode(selectedNode)
+                        isChannelListingNode(selectedNode)
+                          ? ''
+                          : isDecisionNode(selectedNode)
                           ? `${
                               canOpenDecisionAction(selectedNode)
                                 ? '<button type="button" class="inline-flex h-9 items-center rounded-md bg-amber-500 px-4 text-sm font-medium text-white hover:bg-amber-600" data-pcs-project-action="open-decision" data-source="detail">做出决策</button>'
@@ -4338,7 +5819,7 @@ function renderEditableFieldGroups(
         .map((field) => {
           const editable = !field.readonly && editableKeys.has(field.fieldKey)
           const value = editable
-            ? draft.values[field.fieldKey] ?? ''
+            ? formatDraftFieldValue(field.type, draft.values[field.fieldKey] ?? '')
             : formatDraftFieldValue(field.type, getNodeFieldValue(project, node, field.fieldKey))
 
           return `
@@ -4458,10 +5939,25 @@ function renderWorkItemTabs(viewModel: ProjectViewModel, node: ProjectNodeViewMo
 }
 
 function renderWorkItemFullInfo(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
+  if (isChannelListingNode(node)) {
+    return renderChannelListingNodeWorkspace(project, node)
+  }
+
   const groups = listProjectWorkItemFieldGroups(node.node.workItemTypeCode as PcsProjectWorkItemCode)
   if (node.displayStatus === '未解锁') {
     return `<section class="rounded-lg border bg-white p-4 text-sm text-slate-600">当前节点尚未解锁，请先完成前序工作项。</section>`
   }
+
+  const bodyContent =
+    node.node.workItemTypeCode === 'PROJECT_INIT'
+      ? renderProjectInitSnapshot(project, node)
+      : node.node.workItemTypeCode === 'SAMPLE_SHOOT_FIT'
+        ? renderSampleShootFitWorkspace(project, node)
+      : `
+        ${renderEngineeringTaskCompletionSection(project, node)}
+        ${renderFormalFieldEntrySection(project, node)}
+        ${groups.map((group) => renderFieldGroupValues(group, project, node)).join('')}
+      `
 
   return `
     <div class="space-y-4">
@@ -4473,9 +5969,7 @@ function renderWorkItemFullInfo(project: PcsProjectRecord, node: ProjectNodeView
           <div class="rounded-lg bg-slate-50 p-3"><p class="text-xs text-slate-500">关联渠道</p><p class="mt-2 text-sm font-semibold text-slate-900">${escapeHtml(getChannelNamesByCodes(project.targetChannelCodes).join('、') || '-')}</p></div>
         </div>
       </article>
-      ${renderEngineeringTaskCompletionSection(project, node)}
-      ${renderFormalFieldEntrySection(project, node)}
-      ${groups.map((group) => renderFieldGroupValues(group, project, node)).join('')}
+      ${bodyContent}
     </div>
   `
 }
@@ -4854,7 +6348,9 @@ function renderProjectWorkItemDetailPage(projectId: string, projectNodeId: strin
           </div>
           <div class="flex flex-wrap gap-2">
             ${
-              isDecisionNode(node)
+              isChannelListingNode(node)
+                ? ''
+                : isDecisionNode(node)
                 ? `${
                     canOpenDecisionAction(node)
                       ? '<button type="button" class="inline-flex h-9 items-center rounded-md bg-amber-500 px-4 text-sm font-medium text-white hover:bg-amber-600" data-pcs-project-action="open-decision" data-source="work-item">做出决策</button>'
@@ -5119,11 +6615,147 @@ export function handlePcsProjectsInput(target: Element): boolean {
     state.create.draft.sampleUnitPrice = fieldNode.value
     return true
   }
-  if (field === 'create-project-album-urls' && fieldNode instanceof HTMLTextAreaElement) {
-    state.create.draft.projectAlbumUrls = fieldNode.value
-      .split('\n')
-      .map((item) => item.trim())
-      .filter(Boolean)
+  if (field === 'create-reference-images' && fieldNode instanceof HTMLInputElement) {
+    const files = Array.from(fieldNode.files || [])
+    if (!files.length) return true
+    void appendCreateReferenceImages(files).catch((error) => {
+      state.create.error = error instanceof Error ? error.message : '上传参考图片失败。'
+      window.dispatchEvent(new Event('higood:request-render'))
+    })
+    fieldNode.value = ''
+    return true
+  }
+  if (field === 'project-init-reference-images' && fieldNode instanceof HTMLInputElement) {
+    const files = Array.from(fieldNode.files || [])
+    if (!files.length) return true
+    const context = getCurrentProjectNodeContext()
+    if (!context || context.node.node.workItemTypeCode !== 'PROJECT_INIT') {
+      state.notice = '当前节点不是商品项目立项。'
+      return true
+    }
+    void appendProjectInitReferenceImages(context.project, files).catch((error) => {
+      state.notice = error instanceof Error ? error.message : '上传参考图片失败。'
+      window.dispatchEvent(new Event('higood:request-render'))
+    })
+    fieldNode.value = ''
+    return true
+  }
+  if (field === 'channel-listing-supplement-images' && fieldNode instanceof HTMLInputElement) {
+    const context = getCurrentProjectNodeContext()
+    const files = Array.from(fieldNode.files || [])
+    fieldNode.value = ''
+    if (!context || !isChannelListingNode(context.node)) {
+      state.notice = '当前节点不是商品上架。'
+      return true
+    }
+    void appendChannelListingSupplementImages(context.project, context.node, files).catch((error) => {
+      state.notice = error instanceof Error ? error.message : '上传上架补图失败。'
+      window.dispatchEvent(new Event('higood:request-render'))
+    })
+    return true
+  }
+  if (field === 'style-archive-supplement-images' && fieldNode instanceof HTMLInputElement) {
+    const context = getCurrentProjectNodeContext()
+    const files = Array.from(fieldNode.files || [])
+    fieldNode.value = ''
+    if (!context || context.node.node.workItemTypeCode !== 'STYLE_ARCHIVE_CREATE') {
+      state.notice = '当前节点不是生成款式档案。'
+      return true
+    }
+    void appendStyleArchiveSupplementImages(context.project, context.node, files).catch((error) => {
+      state.notice = error instanceof Error ? error.message : '上传档案补充图失败。'
+      window.dispatchEvent(new Event('higood:request-render'))
+    })
+    return true
+  }
+  if (
+    field === 'sample-shoot-flat-images' ||
+    field === 'sample-shoot-try-on-images' ||
+    field === 'sample-shoot-detail-images'
+  ) {
+    const files = Array.from((fieldNode as HTMLInputElement).files || [])
+    if (!files.length) return true
+    const context = getCurrentProjectNodeContext()
+    if (!context || !isSampleShootFitNode(context.node) || !canEditSampleShootFitNode(context.node)) {
+      state.notice = '当前节点暂不可上传样衣拍摄图片。'
+      return true
+    }
+    const fieldKey: SampleShootImageFieldKey =
+      field === 'sample-shoot-flat-images'
+        ? 'sampleFlatImageIds'
+        : field === 'sample-shoot-try-on-images'
+          ? 'sampleTryOnImageIds'
+          : 'sampleDetailImageIds'
+    void Promise.all(files.map((file) => readFileAsDataUrl(file)))
+      .then((imageUrls) => {
+        const records = appendSampleShootImages(
+          context.project.projectId,
+          fieldKey,
+          imageUrls.filter(Boolean),
+          '当前用户',
+          context.node.latestRecord?.recordId || '',
+        )
+        const draft = getNodeRecordDraft(context.project, context.node)
+        const currentIds = resolveSampleShootImageIds(draft, fieldKey)
+        setRecordDraftState(context.project, context.node, {
+          open: state.recordDialog.open,
+          values: {
+            [fieldKey]: [...currentIds, ...records.map((item) => item.imageId)],
+          },
+        })
+        state.notice = `${SAMPLE_SHOOT_IMAGE_GROUPS.find((item) => item.fieldKey === fieldKey)?.label || '样衣图片'}已上传。`
+        window.dispatchEvent(new Event('higood:request-render'))
+      })
+      .catch((error) => {
+        state.notice = error instanceof Error ? error.message : '上传样衣拍摄图片失败。'
+        window.dispatchEvent(new Event('higood:request-render'))
+      })
+    ;(fieldNode as HTMLInputElement).value = ''
+    return true
+  }
+  if (field === 'sample-shoot-plan' && fieldNode instanceof HTMLTextAreaElement) {
+    const context = getCurrentProjectNodeContext()
+    if (context && isSampleShootFitNode(context.node)) {
+      setRecordDraftState(context.project, context.node, {
+        open: state.recordDialog.open,
+        values: { shootPlan: fieldNode.value },
+      })
+    }
+    return true
+  }
+  if (field === 'sample-shoot-feedback' && fieldNode instanceof HTMLTextAreaElement) {
+    const context = getCurrentProjectNodeContext()
+    if (context && isSampleShootFitNode(context.node)) {
+      setRecordDraftState(context.project, context.node, {
+        open: state.recordDialog.open,
+        values: { fitFeedback: fieldNode.value },
+      })
+    }
+    return true
+  }
+  if (field === 'sample-shoot-image-note' && fieldNode instanceof HTMLTextAreaElement) {
+    const context = getCurrentProjectNodeContext()
+    if (context && isSampleShootFitNode(context.node)) {
+      setRecordDraftState(context.project, context.node, {
+        open: state.recordDialog.open,
+        values: { shootImageNote: fieldNode.value },
+      })
+    }
+    return true
+  }
+  if (field === 'sample-shoot-video-urls' && fieldNode instanceof HTMLTextAreaElement) {
+    const context = getCurrentProjectNodeContext()
+    if (context && isSampleShootFitNode(context.node)) {
+      setRecordDraftState(context.project, context.node, {
+        open: state.recordDialog.open,
+        values: {
+          sampleVideoUrls: fieldNode.value
+            .split('\n')
+            .map((item) => item.trim())
+            .filter(Boolean),
+        },
+      })
+    }
     return true
   }
   if (field === 'create-remark' && fieldNode instanceof HTMLTextAreaElement) {
@@ -5168,6 +6800,97 @@ export function handlePcsProjectsInput(target: Element): boolean {
         [fieldKey]: value,
       },
     })
+    return true
+  }
+  if (
+    field.startsWith('channel-listing-') &&
+    field !== 'channel-listing-spec-color' &&
+    field !== 'channel-listing-spec-size' &&
+    field !== 'channel-listing-spec-print' &&
+    field !== 'channel-listing-spec-seller-sku' &&
+    field !== 'channel-listing-spec-price' &&
+    field !== 'channel-listing-spec-currency' &&
+    field !== 'channel-listing-spec-stock'
+  ) {
+    const context = getCurrentProjectNodeContext()
+    if (!context || !isChannelListingNode(context.node)) return true
+    const draft = getChannelListingDraft(context.project, context.node)
+    const value =
+      fieldNode instanceof HTMLInputElement || fieldNode instanceof HTMLTextAreaElement || fieldNode instanceof HTMLSelectElement
+        ? fieldNode.value
+        : ''
+    if (field === 'channel-listing-target-channel') {
+      const nextStoreId = getDefaultPcsStoreIdByChannel(value) || ''
+      const nextCurrency = resolvePcsStoreCurrency(nextStoreId, value) || draft.currencyCode || 'CNY'
+      updateChannelListingDraft(context.project, context.node, {
+        targetChannelCode: value,
+        targetStoreId: nextStoreId,
+        currencyCode: nextCurrency,
+        specLines: draft.specLines.map((item) => ({ ...item, currencyCode: item.currencyCode || nextCurrency })),
+      })
+      return true
+    }
+    if (field === 'channel-listing-target-store') {
+      const nextCurrency = resolvePcsStoreCurrency(value, draft.targetChannelCode) || draft.currencyCode || 'CNY'
+      updateChannelListingDraft(context.project, context.node, {
+        targetStoreId: value,
+        currencyCode: nextCurrency,
+        specLines: draft.specLines.map((item) => ({ ...item, currencyCode: item.currencyCode || nextCurrency })),
+      })
+      return true
+    }
+    if (field === 'channel-listing-title') {
+      updateChannelListingDraft(context.project, context.node, { listingTitle: value })
+      return true
+    }
+    if (field === 'channel-listing-description') {
+      updateChannelListingDraft(context.project, context.node, { listingDescription: value })
+      return true
+    }
+    if (field === 'channel-listing-default-price') {
+      updateChannelListingDraft(context.project, context.node, { defaultPriceAmount: value })
+      return true
+    }
+    if (field === 'channel-listing-currency') {
+      updateChannelListingDraft(context.project, context.node, {
+        currencyCode: value,
+        specLines: draft.specLines.map((item) => ({ ...item, currencyCode: value })),
+      })
+      return true
+    }
+    if (field === 'channel-listing-remark') {
+      updateChannelListingDraft(context.project, context.node, { listingRemark: value })
+      return true
+    }
+  }
+  if (
+    field === 'channel-listing-spec-color' ||
+    field === 'channel-listing-spec-size' ||
+    field === 'channel-listing-spec-print' ||
+    field === 'channel-listing-spec-seller-sku' ||
+    field === 'channel-listing-spec-price' ||
+    field === 'channel-listing-spec-currency' ||
+    field === 'channel-listing-spec-stock'
+  ) {
+    const context = getCurrentProjectNodeContext()
+    const specIndex = Number(fieldNode.dataset.specIndex || '-1')
+    if (!context || !isChannelListingNode(context.node) || specIndex < 0) return true
+    const draft = getChannelListingDraft(context.project, context.node)
+    const nextSpecLines = [...draft.specLines]
+    const currentLine = nextSpecLines[specIndex]
+    if (!currentLine) return true
+    const value =
+      fieldNode instanceof HTMLInputElement || fieldNode instanceof HTMLTextAreaElement || fieldNode instanceof HTMLSelectElement
+        ? fieldNode.value
+        : ''
+    if (field === 'channel-listing-spec-color') currentLine.colorName = value
+    if (field === 'channel-listing-spec-size') currentLine.sizeName = value
+    if (field === 'channel-listing-spec-print') currentLine.printName = value
+    if (field === 'channel-listing-spec-seller-sku') currentLine.sellerSku = value
+    if (field === 'channel-listing-spec-price') currentLine.priceAmount = value
+    if (field === 'channel-listing-spec-currency') currentLine.currencyCode = value
+    if (field === 'channel-listing-spec-stock') currentLine.stockQty = value
+    updateChannelListingDraft(context.project, context.node, { specLines: nextSpecLines })
     return true
   }
   if (field === 'engineering-revision-title' && fieldNode instanceof HTMLInputElement) {
@@ -5639,6 +7362,8 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
     return true
   }
   if (action === 'confirm-create-cancel') {
+    state.create.referenceImages.forEach((item) => revokeRuntimeFileUrl(item.imageUrl))
+    state.create.referenceImages = []
     closeAllDialogs()
     appStore.navigate('/pcs/projects')
     return true
@@ -5649,15 +7374,45 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
     return true
   }
   if (action === 'create-project') {
-    try {
-      const created = createProject(state.create.draft, '当前用户')
-      state.notice = `项目「${created.project.projectName}」已创建。`
-      state.create.routeKey = ''
-      closeAllDialogs()
-      appStore.navigate(`/pcs/projects/${created.project.projectId}`)
-    } catch (error) {
-      state.create.error = error instanceof Error ? error.message : '创建项目失败，请稍后重试。'
-    }
+    void (async () => {
+      try {
+        const draft = {
+          ...state.create.draft,
+          projectAlbumUrls: [],
+        }
+        const created = createProject(draft, '当前用户')
+        if (state.create.referenceImages.length > 0) {
+          const assets = await createProjectImageAssetRecordsFromFiles(
+            created.project,
+            state.create.referenceImages.map((item) => item.file),
+            (file, index) => ({
+              imageName: state.create.referenceImages[index]?.imageName || file.name || `参考图片 ${index + 1}`,
+              imageType: '项目参考图',
+              sourceNodeCode: 'PROJECT_INIT',
+              sourceRecordId: '',
+              sourceType: '商品项目立项',
+              usageScopes: ['立项参考', '项目资料归档'],
+              imageStatus: '待确认',
+              mainFlag: false,
+              sortNo: index + 1,
+            }),
+            '当前用户',
+          )
+          upsertProjectImageAssets(assets)
+          const compatRefs = listProjectReferenceImages(created.project.projectId).map((item) => buildProjectImageCompatRef(item))
+          updateProjectAlbumUrls(created.project.projectId, compatRefs, '当前用户')
+          state.create.referenceImages.forEach((item) => revokeRuntimeFileUrl(item.imageUrl))
+        }
+        state.notice = `项目「${created.project.projectName}」已创建。`
+        state.create.routeKey = ''
+        state.create.referenceImages = []
+        closeAllDialogs()
+        appStore.navigate(`/pcs/projects/${created.project.projectId}`)
+      } catch (error) {
+        state.create.error = error instanceof Error ? error.message : '创建项目失败，请稍后重试。'
+      }
+      window.dispatchEvent(new Event('higood:request-render'))
+    })()
     return true
   }
   if (action === 'toggle-phase') {
@@ -5670,6 +7425,258 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
     const projectNodeId = actionNode.dataset.projectNodeId
     if (!projectNodeId) return true
     state.detail.selectedNodeId = projectNodeId
+    return true
+  }
+  if (action === 'add-channel-listing-spec-line') {
+    const context = getCurrentProjectNodeContext()
+    if (!context || !isChannelListingNode(context.node)) {
+      state.notice = '当前节点不是商品上架。'
+      return true
+    }
+    const draft = getChannelListingDraft(context.project, context.node)
+    updateChannelListingDraft(context.project, context.node, {
+      specLines: [...draft.specLines, createEmptyChannelListingSpecDraft(draft.currencyCode || 'CNY')],
+    })
+    return true
+  }
+  if (action === 'remove-channel-listing-spec-line') {
+    const context = getCurrentProjectNodeContext()
+    const specIndex = Number(actionNode.dataset.specIndex || '-1')
+    if (!context || !isChannelListingNode(context.node) || specIndex < 0) {
+      state.notice = '未找到待删除的规格明细。'
+      return true
+    }
+    const draft = getChannelListingDraft(context.project, context.node)
+    if (draft.specLines.length <= 1) {
+      state.notice = '至少保留一条规格明细。'
+      return true
+    }
+    updateChannelListingDraft(context.project, context.node, {
+      specLines: draft.specLines.filter((_, index) => index !== specIndex),
+    })
+    return true
+  }
+  if (action === 'add-channel-listing-image' || action === 'confirm-add-channel-listing-image') {
+    const context = getCurrentProjectNodeContext()
+    const imageId = actionNode.dataset.imageId || ''
+    if (!context || !isChannelListingNode(context.node) || !imageId) {
+      state.notice = '未找到待加入的上架图片。'
+      return true
+    }
+    if (action === 'confirm-add-channel-listing-image') {
+      const updated = markProjectImageAssetUsableForListing(imageId, '当前用户')
+      if (!updated) {
+        state.notice = '未找到待确认的图片资产。'
+        return true
+      }
+    }
+    const draft = getChannelListingDraft(context.project, context.node)
+    if (draft.listingImageIds.includes(imageId)) {
+      state.notice = '该图片已在当前上架批次中。'
+      return true
+    }
+    updateChannelListingDraft(context.project, context.node, {
+      listingImageIds: [...draft.listingImageIds, imageId],
+      listingMainImageId: draft.listingMainImageId || imageId,
+    })
+    state.notice = action === 'confirm-add-channel-listing-image' ? '图片已确认可用于上架并加入当前批次。' : '图片已加入当前上架批次。'
+    return true
+  }
+  if (action === 'add-style-archive-image' || action === 'confirm-add-style-archive-image') {
+    const context = getCurrentProjectNodeContext()
+    const imageId = actionNode.dataset.imageId || ''
+    const setMain = actionNode.dataset.setMain === 'true'
+    if (!context || context.node.node.workItemTypeCode !== 'STYLE_ARCHIVE_CREATE' || !imageId) {
+      state.notice = '未找到待加入的档案图片。'
+      return true
+    }
+    if (action === 'confirm-add-style-archive-image') {
+      const updated = markProjectImageAssetUsableForStyleArchive(imageId, '当前用户')
+      if (!updated) {
+        state.notice = '未找到待确认的图片资产。'
+        return true
+      }
+    }
+    const draft = getStyleArchiveImageDraft(context.project, context.node)
+    if (draft.styleGalleryImageIds.includes(imageId)) {
+      state.notice = '该图片已在当前档案图册中。'
+      return true
+    }
+    updateStyleArchiveImageDraft(context.project, context.node, {
+      styleGalleryImageIds: [...draft.styleGalleryImageIds, imageId],
+      styleMainImageId: setMain ? imageId : draft.styleMainImageId || imageId,
+    })
+    state.notice =
+      action === 'confirm-add-style-archive-image'
+        ? '图片已确认可用于款式档案并加入当前图册。'
+        : '图片已加入当前档案图册。'
+    return true
+  }
+  if (action === 'remove-style-archive-image') {
+    const context = getCurrentProjectNodeContext()
+    const imageId = actionNode.dataset.imageId || ''
+    if (!context || context.node.node.workItemTypeCode !== 'STYLE_ARCHIVE_CREATE' || !imageId) {
+      state.notice = '未找到待移除的档案图片。'
+      return true
+    }
+    const draft = getStyleArchiveImageDraft(context.project, context.node)
+    const nextImageIds = draft.styleGalleryImageIds.filter((item) => item !== imageId)
+    updateStyleArchiveImageDraft(context.project, context.node, {
+      styleGalleryImageIds: nextImageIds,
+      styleMainImageId:
+        draft.styleMainImageId === imageId
+          ? nextImageIds[0] || ''
+          : draft.styleMainImageId,
+    })
+    return true
+  }
+  if (action === 'set-style-archive-main-image') {
+    const context = getCurrentProjectNodeContext()
+    const imageId = actionNode.dataset.imageId || ''
+    if (!context || context.node.node.workItemTypeCode !== 'STYLE_ARCHIVE_CREATE' || !imageId) {
+      state.notice = '未找到待设置的档案主图。'
+      return true
+    }
+    const draft = getStyleArchiveImageDraft(context.project, context.node)
+    if (!draft.styleGalleryImageIds.includes(imageId)) {
+      state.notice = '当前图片不在档案图册中。'
+      return true
+    }
+    updateStyleArchiveImageDraft(context.project, context.node, { styleMainImageId: imageId })
+    return true
+  }
+  if (action === 'move-style-archive-image-up' || action === 'move-style-archive-image-down') {
+    const context = getCurrentProjectNodeContext()
+    const imageId = actionNode.dataset.imageId || ''
+    if (!context || context.node.node.workItemTypeCode !== 'STYLE_ARCHIVE_CREATE' || !imageId) {
+      state.notice = '未找到待调整顺序的档案图片。'
+      return true
+    }
+    const draft = getStyleArchiveImageDraft(context.project, context.node)
+    const currentIndex = draft.styleGalleryImageIds.findIndex((item) => item === imageId)
+    if (currentIndex < 0) {
+      state.notice = '当前图片不在档案图册中。'
+      return true
+    }
+    const nextIndex = action === 'move-style-archive-image-up' ? currentIndex - 1 : currentIndex + 1
+    if (nextIndex < 0 || nextIndex >= draft.styleGalleryImageIds.length) {
+      return true
+    }
+    const nextImageIds = [...draft.styleGalleryImageIds]
+    ;[nextImageIds[currentIndex], nextImageIds[nextIndex]] = [nextImageIds[nextIndex], nextImageIds[currentIndex]]
+    updateStyleArchiveImageDraft(context.project, context.node, { styleGalleryImageIds: nextImageIds })
+    return true
+  }
+  if (action === 'remove-channel-listing-image') {
+    const context = getCurrentProjectNodeContext()
+    const imageId = actionNode.dataset.imageId || ''
+    if (!context || !isChannelListingNode(context.node) || !imageId) {
+      state.notice = '未找到待移除的上架图片。'
+      return true
+    }
+    const draft = getChannelListingDraft(context.project, context.node)
+    const nextImageIds = draft.listingImageIds.filter((item) => item !== imageId)
+    updateChannelListingDraft(context.project, context.node, {
+      listingImageIds: nextImageIds,
+      listingMainImageId:
+        draft.listingMainImageId === imageId
+          ? nextImageIds[0] || ''
+          : draft.listingMainImageId,
+    })
+    return true
+  }
+  if (action === 'set-channel-listing-main-image') {
+    const context = getCurrentProjectNodeContext()
+    const imageId = actionNode.dataset.imageId || ''
+    if (!context || !isChannelListingNode(context.node) || !imageId) {
+      state.notice = '未找到待设置的上架主图。'
+      return true
+    }
+    const draft = getChannelListingDraft(context.project, context.node)
+    if (!draft.listingImageIds.includes(imageId)) {
+      state.notice = '当前图片不在上架图片集合中。'
+      return true
+    }
+    updateChannelListingDraft(context.project, context.node, { listingMainImageId: imageId })
+    return true
+  }
+  if (action === 'move-channel-listing-image-up' || action === 'move-channel-listing-image-down') {
+    const context = getCurrentProjectNodeContext()
+    const imageId = actionNode.dataset.imageId || ''
+    if (!context || !isChannelListingNode(context.node) || !imageId) {
+      state.notice = '未找到待调整顺序的图片。'
+      return true
+    }
+    const draft = getChannelListingDraft(context.project, context.node)
+    const currentIndex = draft.listingImageIds.findIndex((item) => item === imageId)
+    if (currentIndex < 0) {
+      state.notice = '当前图片不在上架图片集合中。'
+      return true
+    }
+    const nextIndex = action === 'move-channel-listing-image-up' ? currentIndex - 1 : currentIndex + 1
+    if (nextIndex < 0 || nextIndex >= draft.listingImageIds.length) {
+      return true
+    }
+    const nextImageIds = [...draft.listingImageIds]
+    ;[nextImageIds[currentIndex], nextImageIds[nextIndex]] = [nextImageIds[nextIndex], nextImageIds[currentIndex]]
+    updateChannelListingDraft(context.project, context.node, { listingImageIds: nextImageIds })
+    return true
+  }
+  if (action === 'create-channel-listing-instance') {
+    const context = getCurrentProjectNodeContext()
+    if (!context || !isChannelListingNode(context.node)) {
+      state.notice = '当前节点不是商品上架。'
+      return true
+    }
+    const draft = getChannelListingDraft(context.project, context.node)
+    const result = createProjectChannelProductFromListingNodeSafe(
+      context.project.projectId,
+      {
+        targetChannelCode: draft.targetChannelCode,
+        targetStoreId: draft.targetStoreId,
+        listingTitle: draft.listingTitle,
+        listingDescription: draft.listingDescription,
+        defaultPriceAmount: Number(draft.defaultPriceAmount || '0'),
+        currencyCode: draft.currencyCode,
+        listingMainImageId: draft.listingMainImageId,
+        listingImageIds: draft.listingImageIds,
+        listingRemark: draft.listingRemark,
+        specLines: draft.specLines.map((line) => ({
+          colorName: line.colorName.trim(),
+          sizeName: line.sizeName.trim(),
+          printName: line.printName.trim(),
+          sellerSku: line.sellerSku.trim(),
+          priceAmount: Number(line.priceAmount || '0'),
+          currencyCode: (line.currencyCode || draft.currencyCode).trim(),
+          stockQty: Number(line.stockQty || '0'),
+        })),
+      },
+      '当前用户',
+    )
+    state.notice = result.message
+    if (result.ok) {
+      delete state.channelListingDrafts[buildChannelListingDraftKey(context.project.projectId, context.node.node.projectNodeId)]
+    }
+    return true
+  }
+  if (action === 'launch-channel-listing-instance') {
+    const channelProductId = actionNode.dataset.channelProductId
+    if (!channelProductId) {
+      state.notice = '未找到待发起上架的实例。'
+      return true
+    }
+    const result = launchProjectChannelProductListingSafe(channelProductId, '当前用户')
+    state.notice = result.message
+    return true
+  }
+  if (action === 'complete-channel-listing-instance') {
+    const channelProductId = actionNode.dataset.channelProductId
+    if (!channelProductId) {
+      state.notice = '未找到待确认的上架批次。'
+      return true
+    }
+    const result = markProjectChannelProductListingCompletedSafe(channelProductId, '当前用户')
+    state.notice = result.message
     return true
   }
   if (action === 'mark-node-complete') {
@@ -5702,9 +7709,20 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
       state.notice = '未找到对应商品项目。'
       return true
     }
-    const result = generateStyleArchiveFromProjectNode(projectId, '当前用户')
+    const context = getCurrentProjectNodeContext()
+    const draft =
+      context && context.project.projectId === projectId && context.node.node.workItemTypeCode === 'STYLE_ARCHIVE_CREATE'
+        ? getStyleArchiveImageDraft(context.project, context.node)
+        : { styleMainImageId: '', styleGalleryImageIds: [] }
+    const result = generateStyleArchiveFromProjectNode(projectId, '当前用户', {
+      styleMainImageId: draft.styleMainImageId,
+      styleGalleryImageIds: draft.styleGalleryImageIds,
+    })
     state.notice = result.message
     if (result.ok && result.style) {
+      if (context && context.project.projectId === projectId && context.node.node.workItemTypeCode === 'STYLE_ARCHIVE_CREATE') {
+        delete state.styleArchiveImageDrafts[buildStyleArchiveImageDraftKey(context.project.projectId, context.node.node.projectNodeId)]
+      }
       appStore.navigate(`/pcs/products/styles/${result.style.styleId}`)
     }
     return true
@@ -5764,6 +7782,90 @@ export function handlePcsProjectsEvent(target: HTMLElement): boolean {
     if (index >= 0) {
       state.engineeringCreateDialog.revisionDraft.evidenceImageUrls =
         state.engineeringCreateDialog.revisionDraft.evidenceImageUrls.filter((_, itemIndex) => itemIndex !== index)
+    }
+    return true
+  }
+  if (action === 'remove-create-reference-image') {
+    const index = Number(actionNode.dataset.imageIndex || '-1')
+    if (index >= 0) {
+      const removed = state.create.referenceImages[index]
+      if (removed) {
+        revokeRuntimeFileUrl(removed.imageUrl)
+      }
+      state.create.referenceImages = state.create.referenceImages.filter((_, itemIndex) => itemIndex !== index)
+    }
+    return true
+  }
+  if (action === 'remove-project-reference-image') {
+    const imageId = actionNode.dataset.imageId || ''
+    const context = getCurrentProjectNodeContext()
+    if (!imageId || !context || context.node.node.workItemTypeCode !== 'PROJECT_INIT') {
+      state.notice = '未找到待删除的参考图片。'
+      return true
+    }
+    removeProjectImageAsset(imageId)
+    const nextRefs = listProjectReferenceImages(context.project.projectId).map((item) => buildProjectImageCompatRef(item))
+    updateProjectAlbumUrls(context.project.projectId, nextRefs, '当前用户')
+    state.notice = '参考图片已删除。'
+    return true
+  }
+  if (action === 'set-sample-shoot-image-usage') {
+    const imageId = actionNode.dataset.imageId || ''
+    const usage = actionNode.dataset.usage || ''
+    const context = getCurrentProjectNodeContext()
+    if (!imageId || !context || !isSampleShootFitNode(context.node) || !canEditSampleShootFitNode(context.node)) {
+      state.notice = '当前节点暂不可调整样衣图片用途。'
+      return true
+    }
+    try {
+      updateSampleShootImageUsage(
+        context.project.projectId,
+        imageId,
+        usage as 'listing' | 'styleArchive' | 'evaluateOnly' | 'retake' | 'discarded',
+        '当前用户',
+      )
+      const draft = getNodeRecordDraft(context.project, context.node)
+      const nextListingIds = resolveSampleShootImageIds(draft, 'listingCandidateImageIds').filter((item) => item !== imageId)
+      const nextArchiveIds = resolveSampleShootImageIds(draft, 'styleArchiveCandidateImageIds').filter((item) => item !== imageId)
+      if (usage === 'listing') nextListingIds.push(imageId)
+      if (usage === 'styleArchive') nextArchiveIds.push(imageId)
+      setRecordDraftState(context.project, context.node, {
+        open: state.recordDialog.open,
+        values: {
+          listingCandidateImageIds: [...new Set(nextListingIds)],
+          styleArchiveCandidateImageIds: [...new Set(nextArchiveIds)],
+        },
+      })
+      state.notice = '样衣图片用途已更新。'
+    } catch (error) {
+      state.notice = error instanceof Error ? error.message : '更新样衣图片用途失败。'
+    }
+    return true
+  }
+  if (action === 'remove-sample-shoot-image') {
+    const imageId = actionNode.dataset.imageId || ''
+    const context = getCurrentProjectNodeContext()
+    if (!imageId || !context || !isSampleShootFitNode(context.node) || !canEditSampleShootFitNode(context.node)) {
+      state.notice = '当前节点暂不可删除样衣图片。'
+      return true
+    }
+    try {
+      removeSampleShootImage(context.project.projectId, imageId)
+      const draft = getNodeRecordDraft(context.project, context.node)
+      const nextValues: Record<string, unknown> = {
+        sampleFlatImageIds: resolveSampleShootImageIds(draft, 'sampleFlatImageIds').filter((item) => item !== imageId),
+        sampleTryOnImageIds: resolveSampleShootImageIds(draft, 'sampleTryOnImageIds').filter((item) => item !== imageId),
+        sampleDetailImageIds: resolveSampleShootImageIds(draft, 'sampleDetailImageIds').filter((item) => item !== imageId),
+        listingCandidateImageIds: resolveSampleShootImageIds(draft, 'listingCandidateImageIds').filter((item) => item !== imageId),
+        styleArchiveCandidateImageIds: resolveSampleShootImageIds(draft, 'styleArchiveCandidateImageIds').filter((item) => item !== imageId),
+      }
+      setRecordDraftState(context.project, context.node, {
+        open: state.recordDialog.open,
+        values: nextValues,
+      })
+      state.notice = '样衣图片已删除。'
+    } catch (error) {
+      state.notice = error instanceof Error ? error.message : '删除样衣图片失败。'
     }
     return true
   }

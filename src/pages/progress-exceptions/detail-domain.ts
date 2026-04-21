@@ -492,7 +492,7 @@ export function renderSourceTab(detailCase: ExceptionCase): string {
         <p class="text-sm font-medium text-amber-700">执行异常来源明细</p>
         <div class="grid grid-cols-2 gap-2">
           ${renderKv('任务号', firstTaskId)}
-          ${renderKv('PDA任务号', detailCase.sourceId.startsWith('PDA-') ? detailCase.sourceId : '-')}
+          ${renderKv('任务号', detailCase.sourceId.startsWith('PDA-') ? detailCase.sourceId : '-')}
           ${renderKv('工厂', getCaseFactoryName(detailCase))}
           ${renderKv('当前工序', getCaseProcessName(detailCase))}
           ${renderKv('任务状态', getTaskStatusLabel(task))}
@@ -706,7 +706,7 @@ export function renderActionsTab(detailCase: ExceptionCase): string {
           <i data-lucide="play" class="h-5 w-5 text-green-600"></i>
           <div>
             <p class="font-medium">去开工</p>
-            <p class="text-xs text-muted-foreground">进入 PDA 执行详情补齐开工信息</p>
+            <p class="text-xs text-muted-foreground">进入任务详情补齐开工信息</p>
           </div>
         </div>
       </button>
@@ -716,7 +716,7 @@ export function renderActionsTab(detailCase: ExceptionCase): string {
         <div class="flex items-center gap-2">
           <i data-lucide="smartphone" class="h-5 w-5 text-blue-600"></i>
           <div>
-            <p class="font-medium">查看 PDA 任务</p>
+            <p class="font-medium">查看任务</p>
             <p class="text-xs text-muted-foreground">查看工厂端当前任务状态</p>
           </div>
         </div>
@@ -754,7 +754,7 @@ export function renderActionsTab(detailCase: ExceptionCase): string {
         <div class="flex items-center gap-2">
           <i data-lucide="smartphone" class="h-5 w-5 text-indigo-600"></i>
           <div>
-            <p class="font-medium">查看 PDA 任务</p>
+            <p class="font-medium">查看任务</p>
             <p class="text-xs text-muted-foreground">查看工厂暂停任务状态</p>
           </div>
         </div>
@@ -787,7 +787,7 @@ export function renderActionsTab(detailCase: ExceptionCase): string {
         <div class="flex items-center gap-2">
           <i data-lucide="smartphone" class="h-5 w-5 text-indigo-600"></i>
           <div>
-            <p class="font-medium">查看 PDA 任务</p>
+            <p class="font-medium">查看任务</p>
             <p class="text-xs text-muted-foreground">查看执行进度与当前现场状态</p>
           </div>
         </div>
@@ -827,7 +827,7 @@ export function renderActionsTab(detailCase: ExceptionCase): string {
           <i data-lucide="scan-line" class="h-5 w-5 text-cyan-600"></i>
           <div>
             <p class="font-medium">查看交接链路</p>
-            <p class="text-xs text-muted-foreground">查看交出头、交出记录、仓库确认和异议处理</p>
+            <p class="text-xs text-muted-foreground">查看交出单、交出记录、接收方回写和异议处理</p>
           </div>
         </div>
       </button>
