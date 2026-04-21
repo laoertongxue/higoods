@@ -29,6 +29,7 @@
     "check:payment-writeback": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-payment-writeback.ts",
     "check:fcs-end-to-end": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-fcs-end-to-end.ts",
     "check:fcs-production-tech-pack-snapshot": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-fcs-production-tech-pack-snapshot.ts",
+    "check:fcs-tech-pack-pattern-parser": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-fcs-tech-pack-pattern-parser.ts",
     "check:fcs-tech-pack-snapshot-consumption": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-fcs-tech-pack-snapshot-consumption.ts",
     "check:production-confirmation": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-production-confirmation.ts",
     "check:tech-pack-pattern-and-images": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-tech-pack-pattern-and-images.ts",
@@ -42,6 +43,7 @@
     "check:post-route-qc-recheck": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-post-route-qc-recheck.ts",
     "check:process-craft-sam-rules": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-process-craft-sam-rules.ts",
     "check:process-craft-final-taxonomy": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-process-craft-final-taxonomy.ts",
+    "check:fcs-inactive-process-craft-usage": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-fcs-inactive-process-craft-usage.ts",
     "check:production-craft-dict-page": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-production-craft-dict-page.ts",
     "check:factory-capacity-profile": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-factory-capacity-profile.ts",
     "check:capacity-equipment-linkage": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-capacity-equipment-linkage.ts",
@@ -51,6 +53,7 @@
     "check:capacity-calendar-ia": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-capacity-calendar-ia.ts",
     "check:capacity-factory-calendar-page": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-capacity-factory-calendar-page.ts",
     "check:capacity-risk-and-bottleneck": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-capacity-risk-and-bottleneck.ts",
+    "check:capacity-risk-process-craft-source": "tsx scripts/check-capacity-risk-process-craft-source.ts",
     "check:fcs-progress-and-routes": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-fcs-progress-and-routes.ts",
     "check:fcs-final-acceptance": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-fcs-final-acceptance.ts",
     "check:followup-cleanup": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-followup-cleanup.ts",
@@ -128,6 +131,7 @@
     "autoprefixer": "^10.4.20",
     "postcss": "^8.5.3",
     "tailwindcss": "^4.1.7",
+    "tsx": "^4.20.6",
     "typescript": "^5.8.3",
     "vite": "^6.2.0"
   }

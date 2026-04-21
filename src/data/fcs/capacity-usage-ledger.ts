@@ -4,6 +4,14 @@ import {
   listFactoryCapacityEntries,
 } from './factory-capacity-profile-mock.ts'
 import {
+  getProcessCraftByCode,
+  getProcessDefinitionByCode,
+  getProcessDefinitionBySystemCode,
+  listCraftsByProcessCode,
+  listProcessCraftDefinitions,
+  resolveProcessCraft,
+} from './process-craft-dict.ts'
+import {
   CAPACITY_DATE_INCOMPLETE_NOTE,
   CAPACITY_TIGHT_THRESHOLD_RATIO,
   calculateCapacityRemainingStandardHours,
@@ -74,6 +82,7 @@ export interface CapacityUsageTaskLike {
   processBusinessName?: string
   craftCode?: string
   craftName?: string
+  rolledUpChildProcessCodes?: string[]
   assignmentMode?: string
   assignmentStatus?: string
   acceptanceStatus?: AcceptanceStatus
@@ -203,6 +212,16 @@ const JUDGEMENT_DEADLINE_CANDIDATES: Array<{ field: keyof CapacityUsageTaskLike;
 
 const capacityFreezes = new Map<string, CapacityFreeze>()
 const capacityCommitments = new Map<string, CapacityCommitment>()
+const DEFAULT_COMPAT_CRAFT_NAME_BY_PROCESS_CODE: Partial<Record<string, string>> = {
+  CUT_PANEL: '定位裁',
+  SEW: '基础连接',
+}
+const activeCraftByNameAndProcess = new Map(
+  listProcessCraftDefinitions().map((item) => [`${item.processCode}::${item.craftName}`, item] as const),
+)
+const activeCraftBySystemCode = new Map(
+  listProcessCraftDefinitions().map((item) => [item.systemProcessCode, item] as const),
+)
 
 function nowTimestamp(date: Date = new Date()): string {
   return date.toISOString().replace('T', ' ').slice(0, 19)
@@ -279,13 +298,86 @@ function appendUsageNote(base: string | undefined, addition: string | undefined)
   return Array.from(new Set(parts)).join('；')
 }
 
-function resolveUsageIdentity(task: Pick<CapacityUsageTaskLike, 'processCode' | 'processNameZh' | 'processBusinessCode' | 'processBusinessName' | 'craftCode' | 'craftName'>): {
+function normalizeUsageProcessCode(processCode: string | undefined): string {
+  const value = processCode?.trim() ?? ''
+  if (!value) return ''
+  return getProcessDefinitionByCode(value)?.processCode
+    ?? getProcessDefinitionBySystemCode(value)?.processCode
+    ?? value
+}
+
+function resolveCompatibleUsageCraftCode(
+  task: Pick<CapacityUsageTaskLike, 'processCode' | 'processBusinessCode' | 'craftCode' | 'craftName' | 'rolledUpChildProcessCodes'>,
+  processCode: string,
+): string | null {
+  const rawCraftCode = task.craftCode?.trim() ?? ''
+  if (rawCraftCode) {
+    const direct = resolveProcessCraft(processCode, rawCraftCode)
+    if (direct) return direct.craftCode
+
+    const directCraft = getProcessCraftByCode(rawCraftCode)
+    if (directCraft?.isActive && directCraft.processCode === processCode) {
+      return directCraft.craftCode
+    }
+
+    const craftBySystemCode = activeCraftBySystemCode.get(rawCraftCode)
+    if (craftBySystemCode?.processCode === processCode) {
+      return craftBySystemCode.craftCode
+    }
+
+    const processAlias = getProcessDefinitionBySystemCode(rawCraftCode)
+    if (processAlias?.processRole === 'INTERNAL_CAPACITY_NODE' && processAlias.parentProcessCode === processCode) {
+      return processAlias.processCode
+    }
+  }
+
+  if (processCode === 'POST_FINISHING') {
+    const rolledUpChildCode = (task.rolledUpChildProcessCodes ?? [])
+      .map((item) => item.trim())
+      .find((item) => Boolean(resolveProcessCraft('POST_FINISHING', item)))
+    if (rolledUpChildCode) return rolledUpChildCode
+  }
+
+  const craftName = task.craftName?.trim() ?? ''
+  if (craftName) {
+    const namedCraft = activeCraftByNameAndProcess.get(`${processCode}::${craftName}`)
+    if (namedCraft) return namedCraft.craftCode
+  }
+
+  const processCrafts = listCraftsByProcessCode(processCode)
+  if (processCrafts.length === 1) return processCrafts[0].craftCode
+
+  const defaultCraftName = DEFAULT_COMPAT_CRAFT_NAME_BY_PROCESS_CODE[processCode]
+  if (defaultCraftName) {
+    return activeCraftByNameAndProcess.get(`${processCode}::${defaultCraftName}`)?.craftCode ?? null
+  }
+
+  return null
+}
+
+export function resolveCapacityUsageTaskIdentity(
+  task: Pick<CapacityUsageTaskLike, 'processCode' | 'processBusinessCode' | 'craftCode' | 'craftName' | 'rolledUpChildProcessCodes'>,
+): {
+  processCode: string
+  craftCode: string
+} | null {
+  const processCode = normalizeUsageProcessCode(task.processBusinessCode ?? task.processCode)
+  if (!processCode) return null
+  const craftCode = resolveCompatibleUsageCraftCode(task, processCode)
+  if (!craftCode) return null
+  return { processCode, craftCode }
+}
+
+function resolveUsageIdentity(task: Pick<CapacityUsageTaskLike, 'processCode' | 'processNameZh' | 'processBusinessCode' | 'processBusinessName' | 'craftCode' | 'craftName' | 'rolledUpChildProcessCodes'>): {
   processCode: string
   craftCode: string
 } {
+  const resolved = resolveCapacityUsageTaskIdentity(task)
+  if (resolved) return resolved
+
   return {
-    processCode: task.processBusinessCode ?? task.processCode,
-    craftCode: task.craftCode ?? task.processBusinessCode ?? task.processCode,
+    processCode: normalizeUsageProcessCode(task.processBusinessCode ?? task.processCode),
+    craftCode: task.craftCode ?? normalizeUsageProcessCode(task.processBusinessCode ?? task.processCode),
   }
 }
 
@@ -849,7 +941,8 @@ function buildUsageInputFromTask(
 ): CapacityUsageAllocationUnitInput | null {
   const standardSamTotal = normalizeSam(options?.standardSamTotal ?? task.publishedSamTotal)
   if (!standardSamTotal) return null
-  const identity = resolveUsageIdentity(task)
+  const identity = resolveCapacityUsageTaskIdentity(task)
+  if (!identity) return null
   const window = resolveCapacityUsageWindow(task)
   return {
     factoryId,

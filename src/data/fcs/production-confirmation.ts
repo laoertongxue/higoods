@@ -8,6 +8,7 @@ import {
   getProductionOrderTechPackSnapshot,
 } from './production-order-tech-pack-runtime.ts'
 import {
+  patternMaterialFileTypeLabels,
   patternMaterialTypeLabels,
   type PatternMaterialType,
   type TechPackCutPiecePartSnapshot,
@@ -65,6 +66,9 @@ export interface ProductionConfirmationPatternFileSnapshot {
   patternMaterialType: PatternMaterialType
   patternMaterialTypeLabel: string
   patternFileName?: string
+  dxfFileName?: string
+  rulFileName?: string
+  singlePatternFileName?: string
   patternVersion?: string
   patternSoftwareName?: string
   sizeRange?: string
@@ -236,7 +240,15 @@ function inferOrderType(order: ProductionOrder): string {
 }
 
 function resolvePatternMaterialTypeLabel(value: PatternMaterialType): string {
-  return patternMaterialTypeLabels[value] || '暂无数据'
+  return patternMaterialFileTypeLabels[value] || patternMaterialTypeLabels[value] || '暂无数据'
+}
+
+function buildConfirmationPatternFileName(item: Partial<TechPackPatternFileSnapshot>): string {
+  const paired = [item.dxfFileName, item.rulFileName].map((value) => String(value || '').trim()).filter(Boolean)
+  if (paired.length > 0) return paired.join(' / ')
+  const single = String(item.singlePatternFileName || '').trim()
+  if (single) return single
+  return String(item.patternFileName || item.fileName || '').trim()
 }
 
 function cloneCutPieceParts(
@@ -452,12 +464,15 @@ function buildPatternSnapshot(order: ProductionOrder): ProductionConfirmationSna
     ? techPackSnapshot.patternFiles
     : [
         {
-          patternMaterialType: inferPatternMaterialType(order),
-          patternMaterialTypeLabel: resolvePatternMaterialTypeLabel(inferPatternMaterialType(order)),
-          patternFileName: '',
-          patternVersion: versionLabel || '',
-          patternSoftwareName: '',
-          sizeRange: '',
+      patternMaterialType: inferPatternMaterialType(order),
+      patternMaterialTypeLabel: resolvePatternMaterialTypeLabel(inferPatternMaterialType(order)),
+      patternFileName: '',
+      dxfFileName: '',
+      rulFileName: '',
+      singlePatternFileName: '',
+      patternVersion: versionLabel || '',
+      patternSoftwareName: '',
+      sizeRange: '',
           widthCm: undefined,
           markerLengthM: undefined,
           totalPieceCount: undefined,
@@ -481,7 +496,10 @@ function buildPatternSnapshot(order: ProductionOrder): ProductionConfirmationSna
     rows: patternRows.map((item) => ({
       patternMaterialType: item.patternMaterialType || inferPatternMaterialType(order),
       patternMaterialTypeLabel: item.patternMaterialTypeLabel || resolvePatternMaterialTypeLabel(item.patternMaterialType || inferPatternMaterialType(order)),
-      patternFileName: item.patternFileName || item.fileName,
+      patternFileName: buildConfirmationPatternFileName(item),
+      dxfFileName: item.dxfFileName,
+      rulFileName: item.rulFileName,
+      singlePatternFileName: item.singlePatternFileName,
       patternVersion: item.patternVersion || versionLabel,
       patternSoftwareName: item.patternSoftwareName,
       sizeRange: item.sizeRange,

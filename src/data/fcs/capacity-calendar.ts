@@ -11,6 +11,7 @@ import {
   createCapacityStandardTimeEvaluationContext,
   listCapacityCommitments,
   listCapacityFreezes,
+  resolveCapacityUsageTaskIdentity,
   resolveCapacityStandardTimeWindow,
   resolveFactoryTaskStandardTimeJudgement,
   type CapacityStandardTimeEvaluationContext,
@@ -27,9 +28,12 @@ import {
   listFactoryMasterRecords,
 } from './factory-master-store.ts'
 import {
+  assertProcessCraftExists,
+  getActiveCraftOptionsByProcess,
+  getActiveProcessOptions,
   getCapacityNodeProcessCraftOptions,
   getCapacityProcessCraftOptions,
-  getExternalTaskProcessCraftOptions,
+  resolveProcessCraft,
 } from './process-craft-dict.ts'
 import {
   listRuntimeExecutionTasks,
@@ -39,6 +43,7 @@ import {
   type RuntimeTaskAllocatableGroup,
 } from './runtime-process-tasks.ts'
 import { productionOrders } from './production-orders.ts'
+import { getProductionOrderProcessEntries } from './production-order-tech-pack-runtime.ts'
 
 export type CapacityCalendarStatus = 'NORMAL' | 'TIGHT' | 'OVERLOADED' | 'PAUSED'
 export type CapacityCalendarConstraintStatus = CapacityCalendarStatus | 'DATE_INCOMPLETE' | 'SAM_MISSING'
@@ -657,12 +662,6 @@ const FACTORY_CALENDAR_WINDOW_OPTIONS: FactoryCalendarWindowOption[] = [
   { value: 15, label: '未来 15 天' },
   { value: 30, label: '未来 30 天' },
 ]
-const POST_CAPACITY_NODE_LABELS: Record<string, string> = {
-  BUTTONHOLE: '开扣眼',
-  BUTTON_ATTACH: '装扣子',
-  IRONING: '熨烫',
-  PACKAGING: '包装',
-}
 const TASK_RISK_CONCLUSION_OPTIONS: CapacityRiskFilterOption[] = [
   { value: '', label: '全部风险结论' },
   { value: 'CAPABLE', label: TASK_SAM_RISK_CONCLUSION_LABEL.CAPABLE },
@@ -772,27 +771,117 @@ function pickFirstValidDate(
 }
 
 function normalizeTaskDemandIdentity(identity: TaskDemandIdentity): TaskDemandIdentity {
-  const postNodeName = POST_CAPACITY_NODE_LABELS[identity.processCode]
-  if (!postNodeName) return identity
+  const resolved = assertProcessCraftExists(
+    identity.processCode,
+    identity.craftCode,
+    `产能任务字典映射 ${identity.processCode} / ${identity.craftCode}`,
+  )
 
   return {
-    processCode: 'POST_FINISHING',
-    processName: '后道',
-    craftCode: identity.processCode,
-    craftName: postNodeName,
+    processCode: resolved.processCode,
+    processName: resolved.processName,
+    craftCode: resolved.craftCode,
+    craftName: resolved.craftName,
   }
 }
 
-function buildDemandIdentity(task: RuntimeProcessTask): TaskDemandIdentity {
-  const processCode = task.processBusinessCode ?? task.processCode
-  const processName = task.processBusinessName ?? task.processNameZh ?? processCode
-  const craftCode = task.craftCode ?? processCode
-  const craftName = task.craftName ?? processName
+function resolvePostRollupCraftCode(task: RuntimeProcessTask): string {
+  const childProcessCodes = Array.from(
+    new Set(
+      (task.rolledUpChildProcessCodes ?? [])
+        .map((item) => item.trim())
+        .filter((item) => Boolean(item))
+        .filter((item) => Boolean(resolveProcessCraft('POST_FINISHING', item))),
+    ),
+  )
+
+  if (childProcessCodes.length === 0) return task.craftCode ?? ''
+  if (childProcessCodes.length === 1) return childProcessCodes[0]
+
+  const nodeSamByProcessCode = new Map<string, number>()
+  const childProcessCodeSet = new Set(childProcessCodes)
+  for (const entry of getProductionOrderProcessEntries(task.productionOrderId)) {
+    if (!childProcessCodeSet.has(entry.processCode)) continue
+    if (!resolveProcessCraft('POST_FINISHING', entry.processCode)) continue
+    const standardTimeMinutes = Number(entry.standardTimeMinutes)
+    if (!Number.isFinite(standardTimeMinutes) || standardTimeMinutes <= 0) continue
+    nodeSamByProcessCode.set(
+      entry.processCode,
+      roundSam((nodeSamByProcessCode.get(entry.processCode) ?? 0) + standardTimeMinutes),
+    )
+  }
+
+  return childProcessCodes
+    .slice()
+    .sort((left, right) => {
+      const rightSam = nodeSamByProcessCode.get(right) ?? 0
+      const leftSam = nodeSamByProcessCode.get(left) ?? 0
+      if (rightSam !== leftSam) return rightSam - leftSam
+      return left.localeCompare(right)
+    })[0]
+}
+
+function resolveDemandIdentityFromSourceEntry(task: RuntimeProcessTask): TaskDemandIdentity | null {
+  const sourceEntryId = task.sourceEntryId?.trim()
+  if (!sourceEntryId) return null
+
+  const matchedEntry = getProductionOrderProcessEntries(task.productionOrderId).find(
+    (entry) => entry.id === sourceEntryId,
+  )
+  if (!matchedEntry?.craftCode) return null
+
   return normalizeTaskDemandIdentity({
-    processCode,
-    processName,
-    craftCode,
-    craftName,
+    processCode: matchedEntry.processCode,
+    craftCode: matchedEntry.craftCode,
+    processName: matchedEntry.processName,
+    craftName: matchedEntry.craftName ?? matchedEntry.craftCode,
+  })
+}
+
+function buildDemandIdentity(task: RuntimeProcessTask): TaskDemandIdentity {
+  const resolvedProcessCode = task.processBusinessCode ?? task.processCode
+  if (resolvedProcessCode === 'POST_FINISHING') {
+    const craftCode = resolvePostRollupCraftCode(task)
+    return normalizeTaskDemandIdentity({
+      processCode: resolvedProcessCode,
+      craftCode,
+      processName: task.processBusinessName ?? task.processNameZh ?? resolvedProcessCode,
+      craftName: task.craftName ?? task.processBusinessName ?? task.processNameZh ?? craftCode,
+    })
+  }
+
+  const rawCraftCode = task.craftCode?.trim() ?? ''
+  const hasDirectDictionaryMapping = Boolean(
+    task.processBusinessCode && rawCraftCode && resolveProcessCraft(task.processBusinessCode, rawCraftCode),
+  )
+
+  if (!hasDirectDictionaryMapping) {
+    const sourceEntryIdentity = resolveDemandIdentityFromSourceEntry(task)
+    if (sourceEntryIdentity) return sourceEntryIdentity
+  }
+
+  const resolvedIdentity = resolveCapacityUsageTaskIdentity({
+    processCode: task.processCode,
+    processBusinessCode: task.processBusinessCode,
+    craftCode: task.craftCode,
+    craftName: task.craftName,
+    rolledUpChildProcessCodes: task.rolledUpChildProcessCodes,
+  })
+  if (resolvedIdentity) {
+    return normalizeTaskDemandIdentity({
+      processCode: resolvedIdentity.processCode,
+      craftCode: resolvedIdentity.craftCode,
+      processName: task.processBusinessName ?? task.processNameZh ?? resolvedIdentity.processCode,
+      craftName: task.craftName ?? task.processBusinessName ?? task.processNameZh ?? resolvedIdentity.craftCode,
+    })
+  }
+
+  const fallbackCraftCode = rawCraftCode || resolvedProcessCode
+  return normalizeTaskDemandIdentity({
+    processCode: resolvedProcessCode,
+    craftCode: fallbackCraftCode,
+    processName: task.processBusinessName ?? task.processNameZh ?? resolvedProcessCode,
+    craftName: task.craftName ?? task.processBusinessName ?? task.processNameZh ?? fallbackCraftCode,
   })
 }
 
@@ -868,24 +957,28 @@ function resolveUsageIdentity(
   input: Pick<CapacityFreeze | CapacityCommitment, 'processCode' | 'craftCode' | 'taskId'>,
   taskMap: Map<string, RuntimeProcessTask>,
   displayLabels: Map<string, { processName?: string; craftName?: string }>,
-): TaskDemandIdentity {
+): TaskDemandIdentity | null {
   const task = taskMap.get(input.taskId)
   if (task) {
-    const identity = buildDemandIdentity(task)
-    return normalizeTaskDemandIdentity({
-      processCode: input.processCode,
-      processName: identity.processName,
-      craftCode: input.craftCode,
-      craftName: identity.craftName,
-    })
+    return buildDemandIdentity(task)
   }
 
-  const label = displayLabels.get(`${input.processCode}::${input.craftCode}`)
-  return normalizeTaskDemandIdentity({
+  const resolved = resolveCapacityUsageTaskIdentity({
     processCode: input.processCode,
-    processName: label?.processName ?? input.processCode,
     craftCode: input.craftCode,
-    craftName: label?.craftName ?? input.craftCode,
+    craftName: displayLabels.get(`${input.processCode}::${input.craftCode}`)?.craftName,
+  })
+  if (!resolved) return null
+
+  return normalizeTaskDemandIdentity({
+    processCode: resolved.processCode,
+    craftCode: resolved.craftCode,
+    processName: displayLabels.get(`${resolved.processCode}::${resolved.craftCode}`)?.processName
+      ?? displayLabels.get(`${input.processCode}::${input.craftCode}`)?.processName
+      ?? resolved.processCode,
+    craftName: displayLabels.get(`${resolved.processCode}::${resolved.craftCode}`)?.craftName
+      ?? displayLabels.get(`${input.processCode}::${input.craftCode}`)?.craftName
+      ?? resolved.craftCode,
   })
 }
 
@@ -1532,6 +1625,7 @@ export function buildCapacityCalendarData(): CapacityCalendarData {
 
   for (const commitment of activeCommitments) {
     const identity = resolveUsageIdentity(commitment, taskMap, overrideLabels)
+    if (!identity) continue
     relevantCraftKeys.add(`${identity.processCode}::${identity.craftCode}`)
     const task = taskMap.get(commitment.taskId)
     const schedule = buildUsageSchedule(
@@ -1586,6 +1680,7 @@ export function buildCapacityCalendarData(): CapacityCalendarData {
 
   for (const freeze of activeFreezes) {
     const identity = resolveUsageIdentity(freeze, taskMap, overrideLabels)
+    if (!identity) continue
     relevantCraftKeys.add(`${identity.processCode}::${identity.craftCode}`)
     const task = taskMap.get(freeze.taskId)
     const schedule = buildUsageSchedule(
@@ -3240,28 +3335,23 @@ export function resolveProductionOrderRisk(taskRows: CapacityRiskTaskRow[]): Cap
 
 function buildRiskProcessOptions(taskRows: CapacityRiskTaskRow[]): CapacityRiskFilterOption[] {
   const processCodeSet = new Set(taskRows.map((row) => row.processCode))
-  return getExternalTaskProcessCraftOptions()
+  return getActiveProcessOptions()
     .filter((item) => processCodeSet.has(item.processCode))
-    .reduce<CapacityRiskFilterOption[]>((result, item) => {
-      if (!result.some((option) => option.value === item.processCode)) {
-        result.push({
-          value: item.processCode,
-          label: item.processName,
-        })
-      }
-      return result
-    }, [])
+    .map((item) => ({
+      value: item.processCode,
+      label: item.processName,
+    }))
 }
 
 function buildRiskCraftOptions(taskRows: CapacityRiskTaskRow[]): Array<CapacityRiskFilterOption & { processCode: string }> {
   const craftKeySet = new Set(taskRows.map((row) => `${row.processCode}::${row.craftCode}`))
-  return getExternalTaskProcessCraftOptions()
+  return getActiveCraftOptionsByProcess()
+    .filter((item) => craftKeySet.has(item.processCraftKey))
     .map((item) => ({
-      value: `${item.processCode}::${item.craftCode}`,
-      label: item.label,
+      value: item.processCraftKey,
+      label: item.processCraftLabel,
       processCode: item.processCode,
     }))
-    .filter((item) => craftKeySet.has(item.value))
 }
 
 function summarizeTaskRiskRows(rows: CapacityRiskTaskRow[]): CapacityRiskSummary {
@@ -3330,7 +3420,7 @@ export function filterCapacityRiskTaskRows(input: {
   windowDays?: number
 }): CapacityRiskTaskRow[] {
   const keyword = (input.keyword ?? '').trim().toLowerCase()
-  const craftCode = input.craftValue?.split('::')[1] ?? ''
+  const [selectedCraftProcessCode = '', selectedCraftCode = ''] = input.craftValue?.split('::') ?? []
   const range = buildRiskWindowOverlapFilter(resolveFactoryCalendarWindowDays(input.windowDays))
 
   return input.rows.filter((row) => {
@@ -3349,7 +3439,9 @@ export function filterCapacityRiskTaskRows(input: {
     }
 
     if (input.processCode && row.processCode !== input.processCode) return false
-    if (craftCode && row.craftCode !== craftCode) return false
+    if (selectedCraftCode && (row.processCode !== selectedCraftProcessCode || row.craftCode !== selectedCraftCode)) {
+      return false
+    }
     if (input.conclusion && row.conclusion !== input.conclusion) return false
     if (!doesWindowOverlapRange(row, range)) return false
     return true

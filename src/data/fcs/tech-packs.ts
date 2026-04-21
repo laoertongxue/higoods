@@ -2,7 +2,6 @@ import {
   PUBLISHED_SAM_UNIT_LABEL,
   getProcessCraftByCode,
   getProcessDefinitionByCode,
-  listAllProcessCraftDefinitions,
   listProcessCraftDefinitions,
   type PublishedSamUnit,
   type DetailSplitDimension,
@@ -13,24 +12,98 @@ import {
 // 历史兼容快照：正式技术资料版本主来源已切换到 PCS 技术资料版本仓储。
 export type TechPackStatus = 'MISSING' | 'BETA' | 'RELEASED'
 
+export type TechPackPatternMaterialType = 'WOVEN' | 'KNIT' | 'UNKNOWN'
+export type TechPackPatternFileMode = 'PAIRED_DXF_RUL' | 'SINGLE_FILE'
+export type TechPackPatternParseStatus =
+  | 'NOT_PARSED'
+  | 'PARSING'
+  | 'PARSED'
+  | 'FAILED'
+  | 'NOT_REQUIRED'
+export type TechPackPatternPieceSourceType = 'PARSED_PATTERN' | 'MANUAL'
+
+export const TECH_PACK_PATTERN_MATERIAL_TYPE_LABELS: Record<TechPackPatternMaterialType, string> = {
+  WOVEN: '布料纸样',
+  KNIT: '针织纸样',
+  UNKNOWN: '暂无数据',
+}
+
+export const TECH_PACK_PATTERN_PARSE_STATUS_LABELS: Record<TechPackPatternParseStatus, string> = {
+  NOT_PARSED: '待解析',
+  PARSING: '解析中',
+  PARSED: '已解析',
+  FAILED: '解析失败',
+  NOT_REQUIRED: '无需解析',
+}
+
+export const TECH_PACK_PATTERN_CATEGORY_OPTIONS = ['主体片', '结构片', '装饰片', '其他'] as const
+export type TechPackPatternCategory = (typeof TECH_PACK_PATTERN_CATEGORY_OPTIONS)[number]
+
+export interface TechPackPatternPieceRow {
+  id: string
+  name: string
+  count: number
+  note?: string
+  applicableSkuCodes?: string[]
+  sourceType?: TechPackPatternPieceSourceType
+  missingName?: boolean
+  missingCount?: boolean
+  sourcePartName?: string
+  systemPieceName?: string
+  candidatePartNames?: string[]
+  sizeCode?: string
+  quantityText?: string
+  annotation?: string
+  category?: string
+  width?: number
+  height?: number
+  area?: number
+  perimeter?: number
+  geometryHash?: string
+  previewSvg?: string
+  parserStatus?: '解析成功' | '待人工矫正' | '解析异常'
+  machineReadyStatus?: '可模板机处理' | '待评估' | '不适用'
+  rawTextLabels?: string[]
+}
+
 export interface TechPackPatternFile {
   id: string
+  patternName?: string
+  patternCategory?: TechPackPatternCategory | string
+  patternMaterialType?: TechPackPatternMaterialType
+  patternMaterialTypeLabel?: string
+  patternFileMode?: TechPackPatternFileMode
   fileName: string
   fileUrl: string
   uploadedAt: string
   uploadedBy: string
+  dxfFileName?: string
+  dxfFileSize?: number
+  dxfLastModified?: string
+  rulFileName?: string
+  rulFileSize?: number
+  rulLastModified?: string
+  singlePatternFileName?: string
+  singlePatternFileSize?: number
+  singlePatternFileLastModified?: string
+  parseStatus?: TechPackPatternParseStatus
+  parseStatusLabel?: string
+  parseError?: string
+  parsedAt?: string
+  dxfEncoding?: string
+  rulEncoding?: string
+  rulSizeList?: string[]
+  rulSampleSize?: string
+  patternSoftwareName?: string
+  sizeRange?: string
+  imageUrl?: string
+  remark?: string
   // 纸样结构化信息（门幅单位：cm，排料长度单位：m，pieces 为裁片片数）
   linkedBomItemId?: string
   widthCm?: number
   markerLengthM?: number
   totalPieceCount?: number
-  pieceRows?: Array<{
-    id: string
-    name: string
-    count: number
-    note?: string
-    applicableSkuCodes?: string[]
-  }>
+  pieceRows?: TechPackPatternPieceRow[]
 }
 
 export interface TechPackProcess {
@@ -269,7 +342,7 @@ const STAGE_NAME_BY_CODE: Record<TechPackProcessEntry['stageCode'], string> = {
 }
 
 const processCraftByName = new Map(
-  listAllProcessCraftDefinitions().map((item) => [item.craftName, item]),
+  listProcessCraftDefinitions().map((item) => [item.craftName, item]),
 )
 
 function createCraftProcessEntry(
@@ -281,7 +354,7 @@ function createCraftProcessEntry(
 ): TechPackProcessEntry {
   const craft = processCraftByName.get(craftName)
   if (!craft) {
-    throw new Error(`未找到工艺定义：${craftName}`)
+    throw new Error(`未找到可用工艺定义：${craftName}`)
   }
   const process = getProcessDefinitionByCode(craft.processCode)
   if (!process) {
@@ -986,7 +1059,7 @@ export const techPacks: TechPack[] = [
   },
   {
     spuCode: 'SPU-2024-005',
-    spuName: '中式盘扣上衣',
+    spuName: '中式布包扣上衣',
     status: 'RELEASED',
     versionLabel: 'v1.2',
     completenessScore: 100,
@@ -997,7 +1070,7 @@ export const techPacks: TechPack[] = [
       { id: 'pf-5', fileName: '开衫前片.pdf', fileUrl: '#', uploadedAt: '2024-03-20', uploadedBy: 'Siti' },
       { id: 'pf-6', fileName: '开衫后片.pdf', fileUrl: '#', uploadedAt: '2024-03-20', uploadedBy: 'Siti' },
     ],
-    patternDesc: '中式短款版型，门襟盘扣结构，局部装饰打条与绣饰工艺。',
+    patternDesc: '中式短款版型，门襟布包扣结构，局部装饰打条与绣饰工艺。',
     processes: [
       { id: 'p-9', seq: 1, name: '裁剪', timeMinutes: 6, difficulty: 'LOW', qcPoint: '检查尺寸' },
       { id: 'p-10', seq: 2, name: '缝合', timeMinutes: 15, difficulty: 'MEDIUM', qcPoint: '检查针距' },
@@ -1007,8 +1080,8 @@ export const techPacks: TechPack[] = [
       createCraftProcessEntry('tpe-005-01', '贝壳绣', 2.5, 'HIGH', '门襟装饰按贝壳绣处理。'),
       createCraftProcessEntry('tpe-005-02', '打揽', 1.2, 'MEDIUM', '袖口收褶按打揽维护。'),
       createCraftProcessEntry('tpe-005-03', '打条', 0.8, 'MEDIUM', '门襟滚边按米维护。'),
-      createCraftProcessEntry('tpe-005-04', '手工盘扣', 1.75, 'HIGH', '当前款核心识别工艺。'),
-      createCraftProcessEntry('tpe-005-05', '布包扣', 0.48, 'MEDIUM', '备用装饰扣按布包扣维护。'),
+      createCraftProcessEntry('tpe-005-04', '布包扣', 0.58, 'HIGH', '当前款主扣型按布包扣维护。'),
+      createCraftProcessEntry('tpe-005-05', '手缝扣', 0.48, 'MEDIUM', '内襟定位扣按手缝扣维护。'),
       createCraftProcessEntry('tpe-005-06', '四爪扣', 0.35, 'LOW', '里襟定位扣按四爪扣维护。'),
       createCraftProcessEntry('tpe-005-07', '基础连接', 1.05, 'MEDIUM', '主体拼接仍使用基础连接基线。'),
       createCraftProcessEntry('tpe-005-08', '包装', 0.32, 'LOW', '成衣折叠包装。'),
@@ -1035,8 +1108,8 @@ export const techPacks: TechPack[] = [
       {
         id: 'b-6',
         type: '辅料',
-        name: '盘扣辅料组',
-        spec: '手工盘扣 + 备用布包扣',
+        name: '装饰扣辅料组',
+        spec: '布包扣 + 备用四爪扣',
         colorLabel: '全部SKU（当前未区分颜色）',
         unitConsumption: 6,
         lossRate: 2,
@@ -1117,7 +1190,7 @@ export const techPacks: TechPack[] = [
       createCraftProcessEntry('tpe-006-01', '定向裁', 0.62, 'MEDIUM', '牛仔纹路需要统一定向裁。'),
       createCraftProcessEntry('tpe-006-02', '绣花', 1.95, 'HIGH', '后背标识绣花按当前款上调。'),
       createCraftProcessEntry('tpe-006-03', '洗水', 78, 'HIGH', '牛仔做旧洗水按批次维护。'),
-      createCraftProcessEntry('tpe-006-04', '鸡眼扣', 0.3, 'LOW', '抽绳孔位按鸡眼扣维护。'),
+      createCraftProcessEntry('tpe-006-04', '四爪扣', 0.3, 'LOW', '袖口定位扣按四爪扣维护。'),
       createCraftProcessEntry('tpe-006-05', '开扣眼', 0.38, 'LOW', '前门襟扣眼基线。'),
       createCraftProcessEntry('tpe-006-06', '机打扣', 0.31, 'LOW', '门襟机打扣维护。'),
       createCraftProcessEntry('tpe-006-07', '熨烫', 0.46, 'LOW', '后道整烫。'),

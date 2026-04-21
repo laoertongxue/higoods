@@ -13,7 +13,7 @@ import {
 } from '../data/pcs-engineering-task-field-policy.ts'
 import {
   getTechPackGenerationBlockedReason,
-  getPatternTechPackActionLabel,
+  getPatternTechPackActionMeta,
   getRevisionTechPackActionLabel,
   isTechPackGenerationAllowedStatus,
 } from '../data/pcs-tech-pack-task-generation.ts'
@@ -1848,6 +1848,7 @@ function renderPatternListPage(): string {
   const paged = paginate(filtered, state.patternList.currentPage)
   const rows = paged.map((task) => {
     const asset = listPatternAssets().find((item) => item.source_task_id === task.patternTaskId)
+    const techPackAction = getPatternTechPackActionMeta(task.patternTaskId)
     return `
       <tr class="hover:bg-slate-50/70">
         <td class="px-4 py-4">
@@ -1866,7 +1867,13 @@ function renderPatternListPage(): string {
         <td class="px-4 py-4">
           <div class="flex flex-wrap gap-2">
             <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/patterns/colors/${escapeHtml(task.patternTaskId)}">查看</button>
-            <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="pattern-generate-tech-pack" data-task-id="${escapeHtml(task.patternTaskId)}">${escapeHtml(getPatternTechPackActionLabel(task.patternTaskId))}</button>
+            <button
+              type="button"
+              class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:bg-white"
+              data-pcs-engineering-action="pattern-generate-tech-pack"
+              data-task-id="${escapeHtml(task.patternTaskId)}"
+              ${techPackAction.disabled ? `disabled title="${escapeHtml(techPackAction.disabledReason)}"` : ''}
+            >${escapeHtml(techPackAction.label)}</button>
             <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="pattern-publish-library" data-task-id="${escapeHtml(task.patternTaskId)}">${escapeHtml(asset ? '打开花型库' : '沉淀花型库')}</button>
           </div>
         </td>
@@ -1926,6 +1933,7 @@ function renderPatternDetailPage(patternTaskId: string): string {
   syncExistingProjectEngineeringTaskNodes('系统同步')
   const task = getPatternTaskById(patternTaskId)
   if (!task) return renderEmptyDetail('花型任务', '/pcs/patterns/colors')
+  const techPackAction = getPatternTechPackActionMeta(task.patternTaskId)
   const detailDraft = ensurePatternDetailDraft(task)
   const fieldPolicy = getEngineeringTaskFieldPolicy('PATTERN_ARTWORK_TASK')
   const completionMissingFields = getPatternTaskCompletionMissingFields(task)
@@ -1945,7 +1953,7 @@ function renderPatternDetailPage(patternTaskId: string): string {
       ...(task.status !== '已完成' && task.status !== '已取消'
         ? [`<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="complete-pattern-task" data-task-id="${escapeHtml(task.patternTaskId)}">完成任务</button>`]
         : []),
-      `<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="pattern-generate-tech-pack" data-task-id="${escapeHtml(task.patternTaskId)}">${escapeHtml(getPatternTechPackActionLabel(task.patternTaskId))}</button>`,
+      `<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:bg-white" data-pcs-engineering-action="pattern-generate-tech-pack" data-task-id="${escapeHtml(task.patternTaskId)}" ${techPackAction.disabled ? `disabled title="${escapeHtml(techPackAction.disabledReason)}"` : ''}>${escapeHtml(techPackAction.label)}</button>`,
       `<button type="button" class="inline-flex h-10 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-engineering-action="pattern-publish-library" data-task-id="${escapeHtml(task.patternTaskId)}">${escapeHtml(asset ? '打开花型库' : '沉淀花型库')}</button>`,
     ].join(''),
   )

@@ -33,9 +33,12 @@ function cloneBomItems(items: TechPackBomItem[]): TechPackBomItem[] {
 function clonePatternFiles(items: TechPackPatternFileSnapshot[]): TechPackPatternFileSnapshot[] {
   return items.map((item) => ({
     ...item,
+    rulSizeList: [...(item.rulSizeList ?? [])],
     pieceRows: item.pieceRows?.map((row) => ({
       ...row,
       applicableSkuCodes: [...(row.applicableSkuCodes ?? [])],
+      candidatePartNames: [...(row.candidatePartNames ?? [])],
+      rawTextLabels: [...(row.rawTextLabels ?? [])],
     })),
   }))
 }

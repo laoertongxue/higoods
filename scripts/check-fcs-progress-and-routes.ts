@@ -47,7 +47,8 @@ const cuttingSummarySource = read('src/pages/process-factory/cutting/cutting-sum
 const capacitySource =
   read('src/pages/capacity.ts') +
   read('src/pages/factory-capacity-profile.ts') +
-  read('src/data/fcs/capacity-calendar.ts')
+  read('src/data/fcs/capacity-calendar.ts') +
+  read('src/data/fcs/process-craft-dict.ts')
 const routeSources =
   read('src/data/app-shell-config.ts') +
   read('src/router/routes.ts') +

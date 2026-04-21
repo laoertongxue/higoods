@@ -8,7 +8,7 @@ import type { StyleArchiveShellRecord } from '../pcs-style-archive-types.ts'
 import type { TechPack } from './tech-packs.ts'
 import type { ProductionDemand } from './production-demands.ts'
 import {
-  patternMaterialTypeLabels,
+  patternMaterialFileTypeLabels,
   type PatternMaterialType,
   type ProductionOrderTechPackSnapshot,
   type TechPackBomItemSnapshot,
@@ -57,6 +57,29 @@ const FALLBACK_PATTERN_PARTS = [
   { partCode: 'tech-sleeve', partNameCn: '袖子', pieceCountPerGarment: 2, manualConfirmRequired: true },
 ] as const
 
+function buildPatternFileDisplayName(input: {
+  patternFileMode?: string
+  dxfFileName?: string
+  rulFileName?: string
+  singlePatternFileName?: string
+  fileName?: string
+}): string {
+  if (input.patternFileMode === 'PAIRED_DXF_RUL') {
+    const paired = [normalizeText(input.dxfFileName), normalizeText(input.rulFileName)].filter(Boolean)
+    if (paired.length > 0) return paired.join(' / ')
+  }
+
+  if (input.patternFileMode === 'SINGLE_FILE') {
+    const single = normalizeText(input.singlePatternFileName)
+    if (single) return single
+  }
+
+  const fallbackPaired = [normalizeText(input.dxfFileName), normalizeText(input.rulFileName)].filter(Boolean)
+  if (fallbackPaired.length > 0) return fallbackPaired.join(' / ')
+
+  return normalizeText(input.singlePatternFileName) || normalizeText(input.fileName)
+}
+
 function normalizeText(value: string | undefined | null): string {
   return String(value || '').trim()
 }
@@ -80,6 +103,32 @@ function inferPatternMaterialTypeFromText(input: string): PatternMaterialType {
   return 'UNKNOWN'
 }
 
+function inferPatternFileMode(materialType: PatternMaterialType, item: { patternFileMode?: string }): 'PAIRED_DXF_RUL' | 'SINGLE_FILE' {
+  if (item.patternFileMode === 'PAIRED_DXF_RUL' || item.patternFileMode === 'SINGLE_FILE') {
+    return item.patternFileMode
+  }
+  return materialType === 'WOVEN' ? 'PAIRED_DXF_RUL' : 'SINGLE_FILE'
+}
+
+function inferPatternParseStatus(input: {
+  materialType: PatternMaterialType
+  parseStatus?: string
+  pieceRows?: Array<unknown>
+}): 'NOT_PARSED' | 'PARSING' | 'PARSED' | 'FAILED' | 'NOT_REQUIRED' {
+  if (
+    input.parseStatus === 'NOT_PARSED'
+    || input.parseStatus === 'PARSING'
+    || input.parseStatus === 'PARSED'
+    || input.parseStatus === 'FAILED'
+    || input.parseStatus === 'NOT_REQUIRED'
+  ) {
+    return input.parseStatus
+  }
+  if (input.materialType === 'KNIT') return 'NOT_REQUIRED'
+  if ((input.pieceRows ?? []).length > 0) return 'PARSED'
+  return 'NOT_PARSED'
+}
+
 function formatSizeRange(sizeTable: TechnicalSizeRow[]): string {
   const order = ['S', 'M', 'L', 'XL']
   const available = order.filter((sizeCode) => sizeTable.some((row) => Number.isFinite(row[sizeCode as keyof TechnicalSizeRow] as number)))
@@ -89,9 +138,12 @@ function formatSizeRange(sizeTable: TechnicalSizeRow[]): string {
 function clonePatternFiles(items: TechPackPatternFileSnapshot[]): TechPackPatternFileSnapshot[] {
   return items.map((item) => ({
     ...item,
+    rulSizeList: [...(item.rulSizeList ?? [])],
     pieceRows: item.pieceRows?.map((row) => ({
       ...row,
       applicableSkuCodes: [...(row.applicableSkuCodes ?? [])],
+      candidatePartNames: [...(row.candidatePartNames ?? [])],
+      rawTextLabels: [...(row.rawTextLabels ?? [])],
     })),
   }))
 }
@@ -174,23 +226,51 @@ function normalizePatternFiles(
   const defaultSizeRange = formatSizeRange(options.sizeTable)
   return patternFiles.map((item, index) => {
     const linkedBom = options.bomItems.find((bom) => bom.id === item.linkedBomItemId) || null
-    const patternMaterialType = inferPatternMaterialTypeFromText([
-      linkedBom?.name,
-      linkedBom?.spec,
-      linkedBom?.type,
-      item.fileName,
-    ].join(' '))
+    const explicitPatternMaterialType = (item as { patternMaterialType?: string }).patternMaterialType
+    const patternMaterialType =
+      explicitPatternMaterialType === 'KNIT' || explicitPatternMaterialType === 'WOVEN'
+        ? explicitPatternMaterialType
+        : inferPatternMaterialTypeFromText([
+            linkedBom?.name,
+            linkedBom?.spec,
+            linkedBom?.type,
+            (item as { singlePatternFileName?: string }).singlePatternFileName,
+            (item as { dxfFileName?: string }).dxfFileName,
+            (item as { rulFileName?: string }).rulFileName,
+            item.fileName,
+          ].join(' '))
     const sequence = index + 1
+    const patternFileMode = inferPatternFileMode(patternMaterialType, item as { patternFileMode?: string })
+    const patternFileName = buildPatternFileDisplayName({
+      patternFileMode,
+      dxfFileName: (item as { dxfFileName?: string }).dxfFileName,
+      rulFileName: (item as { rulFileName?: string }).rulFileName,
+      singlePatternFileName: (item as { singlePatternFileName?: string }).singlePatternFileName,
+      fileName: item.fileName,
+    })
+    const parseStatus = inferPatternParseStatus({
+      materialType: patternMaterialType,
+      parseStatus: (item as { parseStatus?: string }).parseStatus,
+      pieceRows: item.pieceRows,
+    })
 
     return {
       ...item,
       patternFileId: item.id,
-      patternFileName: item.fileName,
+      patternFileName,
       patternVersion: options.versionLabel || `V${sequence}`,
       patternMaterialType,
-      patternMaterialTypeLabel: patternMaterialTypeLabels[patternMaterialType],
+      patternMaterialTypeLabel: patternMaterialFileTypeLabels[patternMaterialType],
+      patternFileMode,
+      dxfFileName: normalizeText((item as { dxfFileName?: string }).dxfFileName) || undefined,
+      rulFileName: normalizeText((item as { rulFileName?: string }).rulFileName) || undefined,
+      singlePatternFileName: normalizeText((item as { singlePatternFileName?: string }).singlePatternFileName) || undefined,
       patternSoftwareName: normalizeText((item as { patternSoftwareName?: string }).patternSoftwareName) || undefined,
       sizeRange: normalizeText((item as { sizeRange?: string }).sizeRange) || defaultSizeRange || undefined,
+      rulSizeList: [...(((item as { rulSizeList?: string[] }).rulSizeList ?? []).filter(Boolean))],
+      rulSampleSize: normalizeText((item as { rulSampleSize?: string }).rulSampleSize) || undefined,
+      parseStatus,
+      parsedAt: normalizeText((item as { parsedAt?: string }).parsedAt) || undefined,
       imageUrl: isAllowedSnapshotImage((item as { imageUrl?: string }).imageUrl)
         ? normalizeText((item as { imageUrl?: string }).imageUrl)
         : undefined,
@@ -480,12 +560,16 @@ export function buildSeedProductionOrderTechPackSnapshot(input: {
     {
       id: `seed-pattern-${productionOrderId}-1`,
       patternFileId: `seed-pattern-${productionOrderId}-1`,
-      fileName: `${demand.spuCode}-针织纸样.dxf`,
-      patternFileName: `${demand.spuCode}-针织纸样.dxf`,
+      fileName: `${demand.spuCode}-针织纸样.pdf`,
+      patternFileName: `${demand.spuCode}-针织纸样.pdf`,
       patternVersion: sourceVersionLabel,
       patternMaterialType: 'KNIT',
-      patternMaterialTypeLabel: patternMaterialTypeLabels.KNIT,
-      patternSoftwareName: '',
+      patternMaterialTypeLabel: patternMaterialFileTypeLabels.KNIT,
+      patternFileMode: 'SINGLE_FILE',
+      singlePatternFileName: `${demand.spuCode}-针织纸样.pdf`,
+      parseStatus: 'NOT_REQUIRED',
+      rulSizeList: [],
+      patternSoftwareName: 'Gerber',
       sizeRange: 'S / M / L / XL',
       fileUrl: `local://seed-pattern/${productionOrderId}/knit`,
       uploadedAt: snapshotAt,
@@ -498,30 +582,40 @@ export function buildSeedProductionOrderTechPackSnapshot(input: {
           name: '前片',
           count: 1,
           applicableSkuCodes: [primarySkuCode],
+          sourceType: 'MANUAL',
         },
         {
           id: `seed-piece-${productionOrderId}-back`,
           name: '后片',
           count: 1,
           applicableSkuCodes: [primarySkuCode],
+          sourceType: 'MANUAL',
         },
         {
           id: `seed-piece-${productionOrderId}-sleeve`,
           name: '袖子',
           count: 2,
           applicableSkuCodes: [primarySkuCode],
+          sourceType: 'MANUAL',
         },
       ],
     },
     {
       id: `seed-pattern-${productionOrderId}-2`,
       patternFileId: `seed-pattern-${productionOrderId}-2`,
-      fileName: `${demand.spuCode}-布料纸样.dxf`,
-      patternFileName: `${demand.spuCode}-布料纸样.dxf`,
+      fileName: `${demand.spuCode}-前后片.dxf / ${demand.spuCode}-前后片.rul`,
+      patternFileName: `${demand.spuCode}-前后片.dxf / ${demand.spuCode}-前后片.rul`,
       patternVersion: sourceVersionLabel,
       patternMaterialType: 'WOVEN',
-      patternMaterialTypeLabel: patternMaterialTypeLabels.WOVEN,
-      patternSoftwareName: '',
+      patternMaterialTypeLabel: patternMaterialFileTypeLabels.WOVEN,
+      patternFileMode: 'PAIRED_DXF_RUL',
+      dxfFileName: `${demand.spuCode}-前后片.dxf`,
+      rulFileName: `${demand.spuCode}-前后片.rul`,
+      parseStatus: 'PARSED',
+      parsedAt: snapshotAt,
+      rulSizeList: ['S', 'M', 'L', 'XL'],
+      rulSampleSize: 'M',
+      patternSoftwareName: 'Lectra',
       sizeRange: 'S / M / L / XL',
       fileUrl: `local://seed-pattern/${productionOrderId}/woven`,
       uploadedAt: snapshotAt,
@@ -533,12 +627,24 @@ export function buildSeedProductionOrderTechPackSnapshot(input: {
           id: `seed-piece-${productionOrderId}-front-woven`,
           name: '前片',
           count: 1,
+          sourceType: 'PARSED_PATTERN',
+          sourcePartName: 'FRONT',
+          systemPieceName: '前片',
+          quantityText: '1',
+          sizeCode: primarySize,
+          parserStatus: '解析成功',
           applicableSkuCodes: [primarySkuCode],
         },
         {
           id: `seed-piece-${productionOrderId}-back-woven`,
           name: '后片',
           count: 1,
+          sourceType: 'PARSED_PATTERN',
+          sourcePartName: 'BACK',
+          systemPieceName: '后片',
+          quantityText: '1',
+          sizeCode: primarySize,
+          parserStatus: '解析成功',
           applicableSkuCodes: [primarySkuCode],
         },
       ],

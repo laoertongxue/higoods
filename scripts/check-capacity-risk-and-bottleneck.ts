@@ -7,9 +7,12 @@ import {
   buildCapacityRiskData,
   buildFactoryCalendarData,
 } from '../src/data/fcs/capacity-calendar.ts'
+import { createFreezeFromDirectDispatch } from '../src/data/fcs/capacity-usage-ledger.ts'
 import {
+  getActiveCraftOptionsByProcess,
+  getActiveProcessOptions,
   getCapacityProcessCraftOptions,
-  getExternalTaskProcessCraftOptions,
+  resolveProcessCraft,
 } from '../src/data/fcs/process-craft-dict.ts'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
@@ -39,32 +42,32 @@ function main(): void {
   const bottleneckSection = bottleneckSectionMatch[0]
   const capacityOptions = getCapacityProcessCraftOptions()
   const capacityOptionKeys = new Set(capacityOptions.map((item) => `${item.processCode}::${item.craftCode}`))
-  const capacityProcessMap = new Map(
-    capacityOptions.reduce<Array<[string, string]>>((result, item) => {
-      if (!result.some(([processCode]) => processCode === item.processCode)) {
-        result.push([item.processCode, item.processName])
-      }
-      return result
-    }, []),
+  const riskProcessMap = new Map(getActiveProcessOptions().map((item) => [item.processCode, item.processName] as const))
+  const riskCraftMap = new Map(
+    getActiveCraftOptionsByProcess().map((item) => [item.processCraftKey, item.processCraftLabel] as const),
   )
 
-  assert(dataSource.includes('getExternalTaskProcessCraftOptions()'), '任务工时风险筛选未从工序工艺字典读取')
+  assert(dataSource.includes('getActiveProcessOptions()'), '任务工时风险筛选未从工序工艺字典读取')
+  assert(dataSource.includes('getActiveCraftOptionsByProcess()'), '任务工时风险工艺筛选未从工序工艺字典读取')
+  assert(dataSource.includes('assertProcessCraftExists('), '任务工时风险数据未按工序工艺字典校验')
+  assert(dataSource.includes('resolveDemandIdentityFromSourceEntry('), '任务工时风险未补齐 sourceEntryId 的技术包回捞')
+  assert(dataSource.includes('getProductionOrderProcessEntries(task.productionOrderId)'), '任务工时风险未从技术包工序定义兜底解析旧任务')
   assert(dataSource.includes('getCapacityProcessCraftOptions()'), '工艺瓶颈筛选未从工序工艺字典读取')
   assert(!dataSource.includes('特殊工艺 / 印花工艺'), '产能风险数据层仍硬编码印花专属筛选')
   assert(!dataSource.includes('特殊工艺 / 染色工艺'), '产能风险数据层仍硬编码染色专属筛选')
 
-  assert(getExternalTaskProcessCraftOptions().length > 0, '任务工时风险缺少工序工艺字典选项')
+  assert(getActiveCraftOptionsByProcess().length > 0, '任务工时风险缺少工序工艺字典选项')
   assert(capacityOptions.length > 0, '工艺瓶颈缺少工序工艺字典选项')
   assert(
-    riskData.processOptions.every((option) => capacityProcessMap.get(option.value) === option.label),
+    riskData.processOptions.every((option) => riskProcessMap.get(option.value) === option.label),
     '任务工时风险工序筛选未完全来自工序工艺字典',
   )
   assert(
-    riskData.craftOptions.every((option) => capacityOptionKeys.has(option.value)),
+    riskData.craftOptions.every((option) => riskCraftMap.get(option.value) === option.label),
     '任务工时风险工艺筛选未完全来自工序工艺字典',
   )
   assert(
-    bottleneckData.processOptions.every((option) => capacityProcessMap.get(option.value) === option.label),
+    bottleneckData.processOptions.every((option) => riskProcessMap.get(option.value) === option.label),
     '工艺瓶颈工序筛选未完全来自工序工艺字典',
   )
   assert(
@@ -108,6 +111,7 @@ function main(): void {
   assert(riskSection.includes('data-capacity-risk-order-table'), '生产单风险表缺少测试锚点')
   assert(!riskSection.includes('染印'), '任务工时风险页仍残留染印统计')
   assert(!riskSection.includes('质检'), '任务工时风险页仍残留质检统计')
+  assert(!riskSection.includes('裁片 - 定位裁'), '任务工时风险页仍残留固定样例')
 
   assert(bottleneckSection.includes('工艺瓶颈榜'), '工艺瓶颈页缺少工艺瓶颈榜 Tab')
   assert(bottleneckSection.includes('日期瓶颈榜'), '工艺瓶颈页缺少日期瓶颈榜 Tab')
@@ -132,6 +136,67 @@ function main(): void {
     washCalendar.rows.some((row) => row.processCode === 'SPECIAL_CRAFT' && row.craftName === '洗水'),
     '产能日历未按“特殊工艺 - 洗水”纳入能力计算',
   )
+
+  assert(
+    riskData.taskRows.every((row) => {
+      const resolved = resolveProcessCraft(row.processCode, row.craftCode)
+      return resolved
+        && resolved.processName === row.processName
+        && resolved.craftName === row.craftName
+    }),
+    '任务工时风险列表中的工序 / 工艺未完全来自工序工艺字典',
+  )
+  assert(
+    !riskData.taskRows.some((row) => row.processCode === 'POST_FINISHING' && row.craftCode === 'POST_FINISHING'),
+    '任务工时风险中仍存在“后道 / 后道”自造组合',
+  )
+  assert(
+    !riskData.taskRows.some((row) =>
+      row.processCode === 'WASHING'
+      || row.processCode === 'HARDWARE'
+      || row.processCode === 'FROG_BUTTON'
+      || row.craftName === '鸡眼扣'
+      || row.craftName === '手工盘扣'
+    ),
+    '任务工时风险中仍存在 WASHING / 五金 / 盘扣历史口径',
+  )
+
+  const legacyFreeze = createFreezeFromDirectDispatch(
+    {
+      taskId: 'LEGACY-PROC-SEW-COMPAT',
+      processCode: 'PROC_SEW',
+      processNameZh: '车缝',
+      publishedSamTotal: 180,
+      startDueAt: '2026-04-12 09:00:00',
+      taskDeadline: '2026-04-12 18:00:00',
+    },
+    {
+      factoryId: 'ID-F011',
+      note: '兼容旧系统工序码 PROC_SEW 的回归校验样例。',
+    },
+  )
+  assert(legacyFreeze?.processCode === 'SEW', '旧系统工序码 PROC_SEW 未归一到 SEW')
+  assert(legacyFreeze?.craftCode === 'CRAFT_262145', '旧系统工序码 PROC_SEW 未回退到“基础连接”基线工艺')
+
+  const legacyCutFreeze = createFreezeFromDirectDispatch(
+    {
+      taskId: 'LEGACY-PROC-CUT-COMPAT',
+      processCode: 'PROC_CUT',
+      processNameZh: '裁片',
+      publishedSamTotal: 120,
+      startDueAt: '2026-04-12 09:00:00',
+      taskDeadline: '2026-04-12 18:00:00',
+    },
+    {
+      factoryId: 'ID-F011',
+      note: '兼容旧系统工序码 PROC_CUT 的回归校验样例。',
+    },
+  )
+  assert(legacyCutFreeze?.processCode === 'CUT_PANEL', '旧系统工序码 PROC_CUT 未归一到 CUT_PANEL')
+  assert(legacyCutFreeze?.craftCode === 'CRAFT_000001', '旧系统工序码 PROC_CUT 未回退到“定位裁”基线工艺')
+
+  buildFactoryCalendarData({ factoryId: 'ID-F011' })
+  buildCapacityRiskData()
 
   console.log('任务工时风险与工艺瓶颈检查通过：筛选来自工序工艺字典，风险页无印花/染色专属细维度，固定右侧卡片已移除。')
 }

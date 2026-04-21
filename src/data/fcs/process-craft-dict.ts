@@ -1761,3 +1761,152 @@ export function listProcessCraftDictRows(includeHistorical: boolean = false): Pr
 export function getProcessCraftDictRowByCode(craftCode: string): ProcessCraftDictRow | undefined {
   return allProcessCraftDictRows.find((item) => item.craftCode === craftCode)
 }
+
+export interface ActiveProcessCraftRow {
+  stageCode: CraftStageCode
+  stageName: string
+  processCode: string
+  processName: string
+  craftCode: string
+  craftName: string
+  processCraftKey: string
+  processCraftLabel: string
+  isExternalTask: boolean
+  isCapacityNode: boolean
+}
+
+export interface ActiveProcessOption {
+  processCode: string
+  processName: string
+}
+
+export type ResolvedProcessCraft = ActiveProcessCraftRow
+
+function buildActiveProcessCraftRow(definition: ProcessCraftDefinition): ActiveProcessCraftRow | null {
+  if (!definition.isActive) return null
+
+  const process = getProcessDefinitionByCode(definition.processCode)
+  if (!process || !process.isActive) return null
+
+  if (process.processRole === 'INTERNAL_CAPACITY_NODE' && process.parentProcessCode) {
+    const parent = getProcessDefinitionByCode(process.parentProcessCode)
+    if (!parent || !parent.isActive) return null
+
+    return {
+      stageCode: parent.stageCode,
+      stageName: getProcessStageByCode(parent.stageCode)?.stageName ?? parent.stageCode,
+      processCode: parent.processCode,
+      processName: parent.processName,
+      craftCode: process.processCode,
+      craftName: process.processName,
+      processCraftKey: `${parent.processCode}::${process.processCode}`,
+      processCraftLabel: `${parent.processName} / ${process.processName}`,
+      isExternalTask: false,
+      isCapacityNode: true,
+    }
+  }
+
+  return {
+    stageCode: definition.stageCode,
+    stageName: getProcessStageByCode(definition.stageCode)?.stageName ?? definition.stageCode,
+    processCode: process.processCode,
+    processName: process.processName,
+    craftCode: definition.craftCode,
+    craftName: definition.craftName,
+    processCraftKey: `${process.processCode}::${definition.craftCode}`,
+    processCraftLabel: `${process.processName} / ${definition.craftName}`,
+    isExternalTask: process.generatesExternalTask,
+    isCapacityNode: false,
+  }
+}
+
+function sortActiveProcessCraftRows(left: ActiveProcessCraftRow, right: ActiveProcessCraftRow): number {
+  const leftStageSort = getProcessStageByCode(left.stageCode)?.sort ?? Number.MAX_SAFE_INTEGER
+  const rightStageSort = getProcessStageByCode(right.stageCode)?.sort ?? Number.MAX_SAFE_INTEGER
+  if (leftStageSort !== rightStageSort) return leftStageSort - rightStageSort
+  const processCompare = left.processName.localeCompare(right.processName, 'zh-CN')
+  if (processCompare !== 0) return processCompare
+  return left.craftName.localeCompare(right.craftName, 'zh-CN')
+}
+
+const activeProcessCraftRows = (() => {
+  const rowMap = new Map<string, ActiveProcessCraftRow>()
+  for (const definition of listActiveProcessCraftDefinitions()) {
+    const row = buildActiveProcessCraftRow(definition)
+    if (!row) continue
+    rowMap.set(row.processCraftKey, row)
+  }
+  return [...rowMap.values()].sort(sortActiveProcessCraftRows)
+})()
+
+const activeProcessCraftRowByKey = new Map(
+  activeProcessCraftRows.map((item) => [item.processCraftKey, item] as const),
+)
+
+export function getActiveProcessCraftRows(): ActiveProcessCraftRow[] {
+  return activeProcessCraftRows.slice()
+}
+
+export function getActiveProcessOptions(): ActiveProcessOption[] {
+  const optionMap = new Map<string, ActiveProcessOption>()
+  for (const row of activeProcessCraftRows) {
+    if (!optionMap.has(row.processCode)) {
+      optionMap.set(row.processCode, {
+        processCode: row.processCode,
+        processName: row.processName,
+      })
+    }
+  }
+
+  return [...optionMap.values()].sort((left, right) => left.processName.localeCompare(right.processName, 'zh-CN'))
+}
+
+export function getActiveCraftOptionsByProcess(processCode?: string): ActiveProcessCraftRow[] {
+  return activeProcessCraftRows.filter((row) => (processCode ? row.processCode === processCode : true))
+}
+
+export function resolveProcessCraft(
+  processCode: string,
+  craftCode: string,
+): ResolvedProcessCraft | null {
+  const normalized = activeProcessCraftRowByKey.get(`${processCode}::${craftCode}`)
+  if (normalized) return { ...normalized }
+
+  const craft = getProcessCraftByCode(craftCode)
+  if (craft?.isActive && craft.processCode === processCode) {
+    const process = getProcessDefinitionByCode(processCode)
+    if (!process || !process.isActive) return null
+    return {
+      stageCode: craft.stageCode,
+      stageName: getProcessStageByCode(craft.stageCode)?.stageName ?? craft.stageCode,
+      processCode,
+      processName: process.processName,
+      craftCode: craft.craftCode,
+      craftName: craft.craftName,
+      processCraftKey: `${processCode}::${craft.craftCode}`,
+      processCraftLabel: `${process.processName} / ${craft.craftName}`,
+      isExternalTask: process.generatesExternalTask,
+      isCapacityNode: process.processRole === 'INTERNAL_CAPACITY_NODE',
+    }
+  }
+
+  const process = getProcessDefinitionByCode(processCode)
+  if (process?.processRole === 'INTERNAL_CAPACITY_NODE' && process.parentProcessCode && craftCode === process.processCode) {
+    const mapped = activeProcessCraftRowByKey.get(`${process.parentProcessCode}::${process.processCode}`)
+    return mapped ? { ...mapped } : null
+  }
+
+  return null
+}
+
+export function assertProcessCraftExists(
+  processCode: string,
+  craftCode: string,
+  context: string = '工序工艺校验',
+): ResolvedProcessCraft {
+  const resolved = resolveProcessCraft(processCode, craftCode)
+  if (!resolved) {
+    throw new Error(`${context}：未找到有效工序工艺组合 ${processCode} / ${craftCode}`)
+  }
+  return resolved
+}

@@ -411,6 +411,21 @@ function shouldBypassClickDispatch(target: Element): boolean {
   return false
 }
 
+function shouldSkipInputRerender(target: Element): boolean {
+  const techFieldNode = target.closest<HTMLElement>('[data-tech-field]')
+  if (!techFieldNode) return false
+
+  if (techFieldNode instanceof HTMLTextAreaElement) return true
+
+  if (techFieldNode instanceof HTMLInputElement) {
+    const inputType = (techFieldNode.type || 'text').toLowerCase()
+    const rerenderDrivenTypes = new Set(['checkbox', 'radio', 'file', 'range', 'color'])
+    return !rerenderDrivenTypes.has(inputType)
+  }
+
+  return false
+}
+
 function resolveEventElementTarget(eventTarget: EventTarget | null): Element | null {
   if (eventTarget instanceof Element) return eventTarget
   if (eventTarget instanceof Node) return eventTarget.parentElement
@@ -559,6 +574,7 @@ root.addEventListener('input', async (event) => {
   }
 
   if (await dispatchPageEvent(target)) {
+    if (shouldSkipInputRerender(target)) return
     await renderWithFocusRestore(focusSnapshot)
   }
 })
@@ -574,6 +590,7 @@ root.addEventListener('compositionend', async (event) => {
   }
 
   if (await dispatchPageEvent(target)) {
+    if (shouldSkipInputRerender(target)) return
     await renderWithFocusRestore(focusSnapshot)
   }
 })

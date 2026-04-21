@@ -265,25 +265,25 @@ export const routingTemplates: RoutingTemplate[] = [
     updatedAt: '2024-03-20 09:00:00',
     updatedBy: 'Admin',
   },
-  // 9. 中式装饰扣（历史模板）
+  // 9. 中式装饰扣
   {
     templateId: 'RT-202603-0009',
-    name: '中式盘扣款',
+    name: '中式布包扣款',
     status: 'ACTIVE',
     version: 'v1.0',
-    description: '适用于需要手工盘扣的中式服装，盘扣建议竞价',
-    tags: ['盘扣', '中式', '手工'],
+    description: '适用于需要布包扣装饰的中式服装，装饰扣建议竞价',
+    tags: ['布包扣', '中式', '装饰扣'],
     applicableCategory: '梭织',
     matchRule: {
       mode: 'AUTO',
       requiredProcessCodes: ['PROC_CUT', 'PROC_SEW', 'PROC_FINISHING'],
       optionalProcessCodes: [],
-      keywords: ['盘扣', '中式', '旗袍', '唐装', '手工扣'],
+      keywords: ['布包扣', '中式', '旗袍', '唐装', '装饰扣'],
     },
     steps: [
       { seq: 1, processCode: 'PROC_CUT', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' } },
       { seq: 2, processCode: 'PROC_SEW', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [1] },
-      { seq: 3, processCode: 'PROC_FINISHING', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [2], qcPoints: ['盘扣造型', '缝合牢固'] },
+      { seq: 3, processCode: 'PROC_FINISHING', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [2], qcPoints: ['扣型造型', '缝合牢固'] },
     ],
     createdAt: '2024-03-01 10:00:00',
     createdBy: '系统',

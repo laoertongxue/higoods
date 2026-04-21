@@ -993,6 +993,46 @@ export function getPlateTechPackActionLabel(): string {
   return ['生成', '技术包版本'].join('')
 }
 
+export interface PatternTechPackActionMeta {
+  label: string
+  disabled: boolean
+  disabledReason: string
+}
+
+function buildPatternTechPackDisabledLabel(reason: string): string {
+  if (reason.includes('未绑定正式款式档案')) return '待关联款式档案'
+  if (reason.includes('先完成制版任务生成技术包')) return '待生成技术包'
+  if (reason.includes('尚未确认产出')) return '待任务确认'
+  return '写入技术包花型'
+}
+
+function getPatternTechPackDisabledReason(patternTaskId: string): string {
+  const task = getPatternTaskById(patternTaskId)
+  if (!task) return '未找到花型任务。'
+  if (!isTechPackGenerationAllowedStatus(task.status)) {
+    return getTechPackGenerationBlockedReason(task.status) || '当前花型任务尚未确认产出，不能写入技术包。'
+  }
+  try {
+    const style = ensureStyleArchive(
+      { styleId: '', styleCode: task.productStyleCode, projectId: task.projectId, spuCode: task.spuCode },
+      '当前花型任务未绑定正式款式档案，不能写入技术包。',
+    )
+    const effectiveVersion = getCurrentTechPackVersionByStyleId(style.styleId)
+    const plateDraftVersion = getLatestPlateWritableVersion(style.styleId)
+    const targetVersion = effectiveVersion || plateDraftVersion
+    if (!targetVersion) {
+      return '当前款式没有可写入花型的技术包版本，请先完成制版任务生成技术包。'
+    }
+    const targetContent = getTechnicalDataVersionContent(targetVersion.technicalVersionId)
+    if (!targetContent) {
+      return '未找到目标技术包版本内容，不能写入花型。'
+    }
+    return ''
+  } catch (error) {
+    return error instanceof Error ? error.message : '当前花型任务暂不能写入技术包。'
+  }
+}
+
 function resolvePatternTaskTargetMode(patternTaskId: string): 'WRITE' | 'NEW_VERSION' {
   const task = getPatternTaskById(patternTaskId)
   if (!task) return 'WRITE'
@@ -1011,6 +1051,22 @@ function resolvePatternTaskTargetMode(patternTaskId: string): 'WRITE' | 'NEW_VER
 
 export function getPatternTechPackActionLabel(patternTaskId: string): string {
   return resolvePatternTaskTargetMode(patternTaskId) === 'NEW_VERSION' ? '生成花型新版本' : '写入技术包花型'
+}
+
+export function getPatternTechPackActionMeta(patternTaskId: string): PatternTechPackActionMeta {
+  const disabledReason = getPatternTechPackDisabledReason(patternTaskId)
+  if (disabledReason) {
+    return {
+      label: buildPatternTechPackDisabledLabel(disabledReason),
+      disabled: true,
+      disabledReason,
+    }
+  }
+  return {
+    label: getPatternTechPackActionLabel(patternTaskId),
+    disabled: false,
+    disabledReason: '',
+  }
 }
 
 export function getTechPackVersionById(technicalVersionId: string): TechnicalDataVersionRecord | null {

@@ -42,7 +42,13 @@ const patternDomainSource = read('src/pages/tech-pack/pattern-domain.ts')
 ;[
   'patternFiles: TechPackPatternFileSnapshot[]',
   'patternMaterialType: PatternMaterialType',
+  'patternFileMode: TechPackPatternFileMode',
+  'dxfFileName?: string',
+  'rulFileName?: string',
+  'singlePatternFileName?: string',
   'patternSoftwareName?: string',
+  'rulSizeList: string[]',
+  'parseStatus: TechPackPatternParseStatus',
   'cutPieceParts: TechPackCutPiecePartSnapshot[]',
   'imageSnapshot: TechPackImageSnapshot',
 ].forEach((token) => {
@@ -57,7 +63,7 @@ const patternDomainSource = read('src/pages/tech-pack/pattern-domain.ts')
   'buildCutPieceParts',
   'buildImageSnapshot',
   'buildSizeMeasurements',
-  'patternMaterialTypeLabels',
+  'patternMaterialFileTypeLabels',
 ].forEach((token) => {
   assertIncludes(snapshotBuilderSource, token, `技术包快照构建缺少逻辑：${token}`)
 })
@@ -147,6 +153,12 @@ assertIncludes(generatedOriginalCutOrdersSource, 'getProductionOrderCutPiecePart
 })
 
 assertIncludes(patternDomainSource, '暂无图片', '纸样详情缺图时必须显示暂无图片')
+;['纸样文件类型', '布料纸样', '针织纸样', '纸样分类', '解析纸样'].forEach((token) => {
+  assertIncludes(patternDomainSource, token, `纸样页必须展示：${token}`)
+})
+;['解析模板', '部位模板库'].forEach((token) => {
+  assertNotIncludes(patternDomainSource, token, `FCS 纸样页不得展示：${token}`)
+})
 assertIncludes(snapshotPageSource, '暂无图片', '技术包快照页缺图时必须显示暂无图片')
 assertIncludes(confirmationPageSource, '暂无图片', '确认单缺图时必须显示暂无图片')
 

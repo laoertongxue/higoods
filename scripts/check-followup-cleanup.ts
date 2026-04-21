@@ -72,11 +72,29 @@ const hardcodedPathPattern = new RegExp(
 )
 const scriptFiles = walk('scripts')
 const packageSource = read('package.json')
+const capacityPageSource = read('src/pages/capacity.ts')
+const capacityDataSource = read('src/data/fcs/capacity-calendar.ts')
 
 for (const file of [...scriptFiles, 'package.json']) {
   const source = file === 'package.json' ? packageSource : read(file)
   assertNoMatch(source, hardcodedPathPattern, `${file} 仍包含硬编码本地路径`)
 }
+
+assertIncludes(packageSource, 'check:capacity-risk-process-craft-source', 'package.json 缺少任务工时风险工序工艺来源检查命令')
+assert(fs.existsSync(resolveRepoPath('scripts/check-capacity-risk-process-craft-source.ts')), '缺少任务工时风险工序工艺来源检查脚本')
+assertIncludes(packageSource, 'check:fcs-inactive-process-craft-usage', 'package.json 缺少停用工序工艺核查命令')
+assert(fs.existsSync(resolveRepoPath('scripts/check-fcs-inactive-process-craft-usage.ts')), '缺少停用工序工艺核查脚本')
+assertIncludes(capacityDataSource, 'getActiveProcessOptions()', '任务工时风险数据层未改为工序工艺字典 helper')
+assertIncludes(capacityDataSource, 'getActiveCraftOptionsByProcess()', '任务工时风险工艺筛选未改为工序工艺字典 helper')
+assertIncludes(capacityDataSource, 'assertProcessCraftExists(', '任务工时风险数据层未校验工序工艺字典')
+assertNoMatch(capacityPageSource, /特殊工艺 \/ 印花工艺|特殊工艺 \/ 染色工艺|裁片 - 定位裁/, '任务工时风险页仍残留固定工序工艺样例')
+
+const techPackSource = read('src/data/fcs/tech-packs.ts')
+const routingTemplateSource = read('src/data/fcs/routing-templates.ts')
+const techPackContextSource = read('src/pages/tech-pack/context.ts')
+assertNoMatch(techPackSource, /手工盘扣|鸡眼扣|盘扣/, 'FCS 技术包演示数据仍残留停用工艺口径')
+assertNoMatch(routingTemplateSource, /手工盘扣|鸡眼扣|盘扣/, 'FCS 工艺路线模板仍残留停用工艺口径')
+assertNoMatch(techPackContextSource, /listAllProcessCraftDefinitions\(\)\.find\(\(craftItem\) => craftItem\.craftName === item\.name\)/, '技术包页面仍回填历史停用工艺')
 
 const legacyCheckSource = read('scripts/check-legacy-terminology-cleanup.ts')
 assertIncludes(legacyCheckSource, "listDirectoryFiles('tests'", 'legacy 检查缺少 tests 目录安全扫描')

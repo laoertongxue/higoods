@@ -3,23 +3,81 @@ export type TechnicalDomainStatus = 'EMPTY' | 'DRAFT' | 'COMPLETE'
 export type TechPackSourceTaskType = 'REVISION' | 'PLATE' | 'ARTWORK'
 export type TechPackVersionChangeScope = '制版生成' | '花型写入' | '花型替换' | '改版生成'
 
+export type TechnicalPatternMaterialType = 'WOVEN' | 'KNIT' | 'UNKNOWN'
+export type TechnicalPatternFileMode = 'PAIRED_DXF_RUL' | 'SINGLE_FILE'
+export type TechnicalPatternParseStatus =
+  | 'NOT_PARSED'
+  | 'PARSING'
+  | 'PARSED'
+  | 'FAILED'
+  | 'NOT_REQUIRED'
+export type TechnicalPatternPieceSourceType = 'PARSED_PATTERN' | 'MANUAL'
+export type TechnicalPatternCategory = '主体片' | '结构片' | '装饰片' | '其他'
+
+export interface TechnicalPatternPieceRow {
+  id: string
+  name: string
+  count: number
+  note?: string
+  applicableSkuCodes?: string[]
+  sourceType?: TechnicalPatternPieceSourceType
+  missingName?: boolean
+  missingCount?: boolean
+  sourcePartName?: string
+  systemPieceName?: string
+  candidatePartNames?: string[]
+  sizeCode?: string
+  quantityText?: string
+  annotation?: string
+  category?: string
+  width?: number
+  height?: number
+  area?: number
+  perimeter?: number
+  geometryHash?: string
+  previewSvg?: string
+  parserStatus?: '解析成功' | '待人工矫正' | '解析异常'
+  machineReadyStatus?: '可模板机处理' | '待评估' | '不适用'
+  rawTextLabels?: string[]
+}
+
 export interface TechnicalPatternFile {
   id: string
+  patternName?: string
+  patternCategory?: TechnicalPatternCategory | string
+  patternMaterialType?: TechnicalPatternMaterialType
+  patternMaterialTypeLabel?: string
+  patternFileMode?: TechnicalPatternFileMode
   fileName: string
   fileUrl: string
   uploadedAt: string
   uploadedBy: string
+  dxfFileName?: string
+  dxfFileSize?: number
+  dxfLastModified?: string
+  rulFileName?: string
+  rulFileSize?: number
+  rulLastModified?: string
+  singlePatternFileName?: string
+  singlePatternFileSize?: number
+  singlePatternFileLastModified?: string
+  parseStatus?: TechnicalPatternParseStatus
+  parseStatusLabel?: string
+  parseError?: string
+  parsedAt?: string
+  dxfEncoding?: string
+  rulEncoding?: string
+  rulSizeList?: string[]
+  rulSampleSize?: string
+  patternSoftwareName?: string
+  sizeRange?: string
+  imageUrl?: string
+  remark?: string
   linkedBomItemId?: string
   widthCm?: number
   markerLengthM?: number
   totalPieceCount?: number
-  pieceRows?: Array<{
-    id: string
-    name: string
-    count: number
-    note?: string
-    applicableSkuCodes?: string[]
-  }>
+  pieceRows?: TechnicalPatternPieceRow[]
 }
 
 export interface TechnicalProcessEntry {

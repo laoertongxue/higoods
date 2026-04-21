@@ -8,6 +8,10 @@ import type {
   TechnicalQualityRule,
   TechnicalSizeRow,
 } from '../pcs-technical-data-version-types.ts'
+import type {
+  TechPackPatternFileMode,
+  TechPackPatternParseStatus,
+} from './tech-packs.ts'
 
 export type PatternMaterialType = 'KNIT' | 'WOVEN' | 'UNKNOWN'
 
@@ -17,14 +21,28 @@ export const patternMaterialTypeLabels: Record<PatternMaterialType, string> = {
   UNKNOWN: '暂无数据',
 }
 
+export const patternMaterialFileTypeLabels: Record<PatternMaterialType, string> = {
+  KNIT: '针织纸样',
+  WOVEN: '布料纸样',
+  UNKNOWN: '暂无数据',
+}
+
 export interface TechPackPatternFileSnapshot extends TechnicalPatternFile {
   patternFileId: string
   patternFileName: string
   patternVersion: string
   patternMaterialType: PatternMaterialType
   patternMaterialTypeLabel: string
+  patternFileMode: TechPackPatternFileMode
+  dxfFileName?: string
+  rulFileName?: string
+  singlePatternFileName?: string
   patternSoftwareName?: string
   sizeRange?: string
+  rulSizeList: string[]
+  rulSampleSize?: string
+  parseStatus: TechPackPatternParseStatus
+  parsedAt?: string
   imageUrl?: string
   remark?: string
 }

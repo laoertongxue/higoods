@@ -28,9 +28,11 @@ const requiredCommands = [
   'check:production-craft-dict-page',
   'check:process-craft-sam-rules',
   'check:process-craft-final-taxonomy',
+  'check:fcs-inactive-process-craft-usage',
   'check:factory-capacity-profile',
   'check:capacity-equipment-linkage',
   'check:capacity-calendar-ia',
+  'check:capacity-risk-process-craft-source',
   'check:capacity-risk-and-bottleneck',
   'check:fcs-handover-domain',
   'check:pda-exec-task-detail',
@@ -43,6 +45,7 @@ const requiredCommands = [
   'check:quality-deduction-platform',
   'check:production-confirmation',
   'check:fcs-production-tech-pack-snapshot',
+  'check:fcs-tech-pack-pattern-parser',
   'check:fcs-tech-pack-snapshot-consumption',
   'check:printing-workflow',
   'check:dyeing-workflow',
@@ -70,12 +73,16 @@ const requiredFiles = [
   'src/data/fcs/process-craft-dict.ts',
   'src/data/fcs/factory-capacity-profile-mock.ts',
   'scripts/check-capacity-equipment-linkage.ts',
+  'scripts/check-capacity-risk-process-craft-source.ts',
+  'scripts/check-fcs-inactive-process-craft-usage.ts',
+  'scripts/check-fcs-tech-pack-pattern-parser.ts',
   'src/data/fcs/task-qr.ts',
   'src/data/fcs/task-handover-domain.ts',
   'src/data/fcs/production-confirmation.ts',
   'src/data/fcs/printing-task-domain.ts',
   'src/data/fcs/dyeing-task-domain.ts',
   'src/data/fcs/production-tech-pack-snapshot-types.ts',
+  'src/data/fcs/fcs-pattern-file-parser.ts',
   'src/data/fcs/cutting/generated-fei-tickets.ts',
   'src/data/fcs/cutting/material-prep.ts',
   'src/data/fcs/cutting/replenishment.ts',
@@ -169,10 +176,16 @@ const cuttingSource =
 const techPackSource =
   read('src/data/fcs/production-tech-pack-snapshot-types.ts') +
   read('src/data/fcs/production-tech-pack-snapshot-builder.ts') +
+  read('src/data/fcs/fcs-pattern-file-parser.ts') +
+  read('src/pages/tech-pack/pattern-domain.ts') +
+  read('src/pages/tech-pack/events.ts') +
   read('src/pages/fcs-production-tech-pack-snapshot.ts') +
   read('src/pages/production/confirmation-print.ts')
 ;['patternFiles', '纸样类型', '针织', '布料', '打版软件', '裁片部位', '暂无图片'].forEach((token) => {
   assert(techPackSource.includes(token), `技术包口径缺少：${token}`)
+})
+;['纸样文件类型', '布料纸样', '针织纸样', '纸样分类', '解析纸样'].forEach((token) => {
+  assert(techPackSource.includes(token), `技术包解析迁移口径缺少：${token}`)
 })
 
 const progressSource =

@@ -1,0 +1,241 @@
+- generic [ref=e410]:
+  - banner [ref=e411]:
+    - generic [ref=e413]:
+      - generic [ref=e414]: HG
+      - generic [ref=e415]: HiGood
+    - generic [ref=e417]:
+      - button "商品中心系统 (PCS)" [ref=e418]:
+        - generic [ref=e419]: 商品中心系统
+        - generic [ref=e420]: (PCS)
+      - button "采购管理系统 (PMS)" [ref=e422]:
+        - generic [ref=e423]: 采购管理系统
+        - generic [ref=e424]: (PMS)
+      - button "工厂生产协同系统 (FCS)" [ref=e425]:
+        - generic [ref=e426]: 工厂生产协同系统
+        - generic [ref=e427]: (FCS)
+      - button "仓储物流系统 (WLS)" [ref=e428]:
+        - generic [ref=e429]: 仓储物流系统
+        - generic [ref=e430]: (WLS)
+      - button "直播运营系统 (LOS)" [ref=e431]:
+        - generic [ref=e432]: 直播运营系统
+        - generic [ref=e433]: (LOS)
+      - button "订单管理系统 (OMS)" [ref=e434]:
+        - generic [ref=e435]: 订单管理系统
+        - generic [ref=e436]: (OMS)
+      - button "业财一体化系统 (BFIS)" [ref=e437]:
+        - generic [ref=e438]: 业财一体化系统
+        - generic [ref=e439]: (BFIS)
+      - button "数据决策系统 (DDS)" [ref=e440]:
+        - generic [ref=e441]: 数据决策系统
+        - generic [ref=e442]: (DDS)
+    - generic [ref=e443]:
+      - button "通知" [ref=e444]:
+        - img [ref=e445]
+      - button "管理员" [ref=e449]:
+        - img [ref=e451]
+        - generic [ref=e454]: 管理员
+        - img [ref=e455]
+  - generic [ref=e457]:
+    - complementary [ref=e458]:
+      - generic [ref=e459]:
+        - generic [ref=e460]:
+          - generic [ref=e461]:
+            - heading "商品中心系统" [level=2] [ref=e462]
+            - paragraph [ref=e463]: PCS
+          - button "收起菜单" [ref=e464]:
+            - img [ref=e465]
+        - generic [ref=e470]:
+          - button "商品中心系统" [ref=e471]:
+            - generic [ref=e473]: 商品中心系统
+            - img [ref=e474]
+          - generic [ref=e476]:
+            - button "工作台" [ref=e478]:
+              - img [ref=e480]
+              - generic [ref=e485]: 工作台
+              - img [ref=e486]
+            - button "商品项目管理" [ref=e489]:
+              - img [ref=e491]
+              - generic [ref=e493]: 商品项目管理
+              - img [ref=e494]
+            - button "测款与渠道管理" [ref=e497]:
+              - img [ref=e499]
+              - generic [ref=e501]: 测款与渠道管理
+              - img [ref=e502]
+            - button "工程开发与打样管理" [ref=e505]:
+              - img [ref=e507]
+              - generic [ref=e513]: 工程开发与打样管理
+              - img [ref=e514]
+            - button "商品档案" [ref=e517]:
+              - img [ref=e519]
+              - generic [ref=e522]: 商品档案
+              - img [ref=e523]
+            - button "物料档案" [ref=e526]:
+              - img [ref=e528]
+              - generic [ref=e532]: 物料档案
+              - img [ref=e533]
+            - button "系统设置" [ref=e536]:
+              - img [ref=e538]
+              - generic [ref=e541]: 系统设置
+              - img [ref=e542]
+    - main [ref=e544]:
+      - generic [ref=e547]:
+        - generic [ref=e548]:
+          - generic [ref=e549]:
+            - generic [ref=e550]:
+              - button "返回" [ref=e551]:
+                - img [ref=e552]
+              - heading "技术包版本 - TDV-LEGACY-011" [level=1] [ref=e554]
+              - generic [ref=e555]: 已发布待启用
+              - generic [ref=e556]: (V1)
+            - paragraph [ref=e557]: Sweater Rajut Wanita
+            - generic [ref=e558]:
+              - generic [ref=e559]: 当前版本状态：已发布待启用
+              - generic [ref=e560]: 是否当前生效版本：否
+              - generic [ref=e561]: 来源任务链：未记录来源任务链
+          - generic [ref=e562]:
+            - generic [ref=e563]:
+              - generic [ref=e564]: "关键项检查:"
+              - generic [ref=e565]:
+                - generic [ref=e566]: 物料清单
+                - generic [ref=e567]: 已完成
+              - generic [ref=e568]:
+                - generic [ref=e569]: 纸样管理
+                - generic [ref=e570]: 已完成
+              - generic [ref=e571]:
+                - generic [ref=e572]: 工序工艺
+                - generic [ref=e573]: 已完成
+              - generic [ref=e574]:
+                - generic [ref=e575]: 放码规则
+                - generic [ref=e576]: 已完成
+              - generic [ref=e577]:
+                - generic [ref=e578]: 质检标准
+                - generic [ref=e579]: 未完成
+              - generic [ref=e580]:
+                - generic [ref=e581]: 款色用料对应
+                - generic [ref=e582]: 已完成
+              - generic [ref=e583]:
+                - generic [ref=e584]: 花型设计
+                - generic [ref=e585]: 可选
+            - button "发布版本":
+              - img
+              - text: 发布版本
+        - generic [ref=e586]:
+          - generic [ref=e587]:
+            - heading "技术包版本日志" [level=2] [ref=e588]
+            - generic [ref=e589]: 共 0 条
+          - generic [ref=e590]: 暂无技术包版本日志。
+        - generic [ref=e591]:
+          - button "物料清单" [ref=e592]:
+            - img [ref=e593]
+            - text: 物料清单
+          - button "纸样管理" [ref=e596]:
+            - img [ref=e597]
+            - text: 纸样管理
+          - button "工序工艺" [ref=e600]:
+            - img [ref=e601]
+            - text: 工序工艺
+          - button "放码规则" [ref=e607]:
+            - img [ref=e608]
+            - text: 放码规则
+          - button "质检标准" [ref=e614]:
+            - img [ref=e615]
+            - text: 质检标准
+          - button "款色用料对应" [ref=e618]:
+            - img [ref=e619]
+            - text: 款色用料对应
+          - button "花型设计" [ref=e623]:
+            - img [ref=e624]
+            - text: 花型设计
+          - button "附件" [ref=e628]:
+            - img [ref=e629]
+            - text: 附件
+        - generic [ref=e632]:
+          - generic [ref=e633]:
+            - heading "纸样管理" [level=3] [ref=e634]
+            - button "添加纸样" [ref=e635]:
+              - img [ref=e636]
+              - text: 添加纸样
+          - table [ref=e638]:
+            - rowgroup [ref=e639]:
+              - row "纸样名称 纸样文件类型 纸样分类 关联物料 规格 裁片总片数 裁片明细 纸样文件 备注 操作" [ref=e640]:
+                - columnheader "纸样名称" [ref=e641]
+                - columnheader "纸样文件类型" [ref=e642]
+                - columnheader "纸样分类" [ref=e643]
+                - columnheader "关联物料" [ref=e644]
+                - columnheader "规格" [ref=e645]
+                - columnheader "裁片总片数" [ref=e646]
+                - columnheader "裁片明细" [ref=e647]
+                - columnheader "纸样文件" [ref=e648]
+                - columnheader "备注" [ref=e649]
+                - columnheader "操作" [ref=e650]
+            - rowgroup [ref=e651]:
+              - row "SPU-2024-011-pattern 暂无数据 主体片 SPU-2024-011-bom-1 · 羊毛混纺主布 160cm × 8.4m 4 片 3 项明细 SPU-2024-011-pattern.pdf -" [ref=e652]:
+                - cell "SPU-2024-011-pattern" [ref=e653]
+                - cell "暂无数据" [ref=e654]:
+                  - generic [ref=e655]: 暂无数据
+                - cell "主体片" [ref=e656]:
+                  - generic [ref=e657]: 主体片
+                - cell "SPU-2024-011-bom-1 · 羊毛混纺主布" [ref=e658]:
+                  - button "SPU-2024-011-bom-1 · 羊毛混纺主布" [ref=e659]
+                - cell "160cm × 8.4m" [ref=e660]
+                - cell "4 片" [ref=e661]
+                - cell "3 项明细" [ref=e662]:
+                  - button "3 项明细" [ref=e663]
+                - cell "SPU-2024-011-pattern.pdf" [ref=e664]
+                - cell "-" [ref=e665]
+                - cell [ref=e666]:
+                  - generic [ref=e667]:
+                    - button [ref=e668]:
+                      - img [ref=e669]
+                    - button [ref=e671]:
+                      - img [ref=e672]
+                    - button [ref=e675]:
+                      - img [ref=e676]
+        - generic [ref=e680]:
+          - heading "新增纸样" [level=3] [ref=e682]
+          - generic [ref=e683]:
+            - generic [ref=e684]:
+              - generic [ref=e685]:
+                - generic [ref=e686]: 纸样名称 *
+                - textbox "纸样名称 *" [ref=e687]:
+                  - /placeholder: 例如 前片纸样
+              - generic [ref=e688]:
+                - generic [ref=e689]: 纸样文件类型 *
+                - combobox "纸样文件类型 *" [ref=e690]:
+                  - option "请选择" [selected]
+                  - option "布料纸样"
+                  - option "针织纸样"
+              - generic [ref=e691]:
+                - text: 纸样分类
+                - combobox "纸样分类" [ref=e692]:
+                  - option "主体片" [selected]
+                  - option "结构片"
+                  - option "装饰片"
+                  - option "其他"
+              - generic [ref=e693]:
+                - text: 关联物料（物料清单）
+                - combobox "关联物料（物料清单）" [ref=e694]:
+                  - option "请选择关联物料" [selected]
+                  - option "SPU-2024-011-bom-1 · 羊毛混纺主布"
+              - generic [ref=e695]:
+                - text: 门幅（cm）
+                - spinbutton "门幅（cm）" [ref=e696]
+              - generic [ref=e697]:
+                - text: 排料长度（m）
+                - spinbutton "排料长度（m）" [ref=e698]
+              - generic [ref=e699]:
+                - text: 打版软件
+                - textbox "打版软件" [ref=e700]:
+                  - /placeholder: 例如 Lectra
+              - generic [ref=e701]:
+                - text: 尺码范围
+                - textbox "尺码范围" [ref=e702]:
+                  - /placeholder: 例如 S / M / L / XL
+              - generic [ref=e703]:
+                - text: 备注
+                - textbox "备注" [ref=e704]:
+                  - /placeholder: 备注信息
+            - generic [ref=e705]: 请先选择纸样文件类型
+          - generic [ref=e706]:
+            - button "取消" [ref=e707]
+            - button "确认"

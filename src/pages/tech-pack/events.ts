@@ -1,6 +1,13 @@
 import { appStore } from '../../state/store.ts'
+import {
+  parseFcsPatternFilePair,
+  resolveFcsPatternFilePair,
+} from '../../data/fcs/fcs-pattern-file-parser.ts'
 import { publishTechnicalDataVersion } from '../../data/pcs-project-technical-data-writeback.ts'
 import {
+  TECH_PACK_PATTERN_CATEGORY_OPTIONS,
+  buildPatternDisplayFile,
+  buildPatternFormStateFromItem,
   closeAllDialogs,
   canEditTechnique,
   copySystemDraftToManual,
@@ -9,6 +16,8 @@ import {
   dedupeStrings,
   getBaselineProcessByCode,
   getCraftOptionByCode,
+  getPatternMaterialTypeLabel,
+  getPatternParseStatusLabel,
   getPatternById,
   getPatternPieceById,
   getTechniqueReferenceMetaByCraftCode,
@@ -17,6 +26,7 @@ import {
   getSelectedDraftMeta,
   getSkuOptionsForCurrentSpu,
   normalizePatternPieceRows,
+  requestTechPackRender,
   resetAttachmentForm,
   resetBomForm,
   resetColorMappingToSystemSuggestion,
@@ -38,6 +48,7 @@ import type {
   BomItemRow,
   TechPackAssignmentGranularity,
   TechPackDetailSplitDimension,
+  TechPackPatternMaterialType,
   TechPackSizeRow,
   TechPackTab,
   TechniqueItem,
@@ -53,6 +64,176 @@ function updateTechnique(techId: string, updater: (item: TechniqueItem) => Techn
   syncTechPackToStore()
 }
 
+function clearParsedPatternRows(): void {
+  state.newPattern.pieceRows = []
+  state.newPattern.totalPieceCount = 0
+}
+
+function clearWovenFileState(): void {
+  state.newPattern.selectedDxfFile = null
+  state.newPattern.selectedRulFile = null
+  state.newPattern.dxfFileName = ''
+  state.newPattern.dxfFileSize = 0
+  state.newPattern.dxfLastModified = ''
+  state.newPattern.rulFileName = ''
+  state.newPattern.rulFileSize = 0
+  state.newPattern.rulLastModified = ''
+  state.newPattern.dxfEncoding = ''
+  state.newPattern.rulEncoding = ''
+  state.newPattern.rulSizeList = []
+  state.newPattern.rulSampleSize = ''
+  state.newPattern.file = ''
+}
+
+function clearKnitFileState(): void {
+  state.newPattern.selectedSinglePatternFile = null
+  state.newPattern.singlePatternFileName = ''
+  state.newPattern.singlePatternFileSize = 0
+  state.newPattern.singlePatternFileLastModified = ''
+  if (state.newPattern.patternFileMode === 'SINGLE_FILE') {
+    state.newPattern.file = ''
+  }
+}
+
+function clearPatternParseState(status: 'NOT_PARSED' | 'NOT_REQUIRED' = 'NOT_PARSED'): void {
+  state.newPattern.patternParsing = false
+  state.newPattern.parseStatus = status
+  state.newPattern.parseStatusLabel = getPatternParseStatusLabel(status)
+  state.newPattern.parseError = ''
+  state.newPattern.parsedAt = ''
+}
+
+function toFileLastModifiedText(file: File): string {
+  return new Date(file.lastModified).toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  })
+}
+
+function applyPatternMaterialTypeChange(nextType: TechPackPatternMaterialType): void {
+  state.newPattern.patternMaterialType = nextType
+  state.newPattern.patternMaterialTypeLabel = getPatternMaterialTypeLabel(nextType)
+
+  if (nextType === 'WOVEN') {
+    clearKnitFileState()
+    clearParsedPatternRows()
+    state.newPattern.patternFileMode = 'PAIRED_DXF_RUL'
+    clearPatternParseState('NOT_PARSED')
+    return
+  }
+
+  if (nextType === 'KNIT') {
+    clearWovenFileState()
+    clearParsedPatternRows()
+    state.newPattern.patternFileMode = 'SINGLE_FILE'
+    clearPatternParseState('NOT_REQUIRED')
+    return
+  }
+
+  state.newPattern.patternFileMode = 'SINGLE_FILE'
+  clearWovenFileState()
+  clearKnitFileState()
+  clearParsedPatternRows()
+  clearPatternParseState('NOT_PARSED')
+}
+
+async function startPatternParsing(): Promise<void> {
+  if (state.newPattern.patternMaterialType !== 'WOVEN') return
+  if (!state.newPattern.name.trim()) {
+    state.newPattern.parseError = '请先填写纸样名称'
+    requestTechPackRender()
+    return
+  }
+
+  state.newPattern.patternParsing = true
+  state.newPattern.parseStatus = 'PARSING'
+  state.newPattern.parseStatusLabel = getPatternParseStatusLabel('PARSING')
+  state.newPattern.parseError = ''
+  requestTechPackRender()
+
+  try {
+    const pair = resolveFcsPatternFilePair([
+      state.newPattern.selectedDxfFile,
+      state.newPattern.selectedRulFile,
+    ].filter((file): file is File => Boolean(file)))
+
+    if (!pair) {
+      throw new Error('请成对上传 1 个 DXF 和 1 个 RUL 文件')
+    }
+
+    const parsed = await parseFcsPatternFilePair({
+      patternName: state.newPattern.name.trim(),
+      dxfFile: pair.dxfFile,
+      rulFile: pair.rulFile,
+    })
+
+    const normalizedRows = normalizePatternPieceRows(parsed.pieceRows, state.editPatternItemId || `PAT-${Date.now()}`)
+    state.newPattern.dxfFileName = parsed.dxfFileName
+    state.newPattern.rulFileName = parsed.rulFileName
+    state.newPattern.dxfEncoding = parsed.dxfEncoding
+    state.newPattern.rulEncoding = parsed.rulEncoding
+    state.newPattern.parsedAt = parsed.parsedAt
+    state.newPattern.rulSizeList = [...parsed.sizeList]
+    state.newPattern.rulSampleSize = parsed.sampleSize || ''
+    state.newPattern.parseStatus = 'PARSED'
+    state.newPattern.parseStatusLabel = getPatternParseStatusLabel('PARSED')
+    state.newPattern.parseError = ''
+    state.newPattern.pieceRows = normalizedRows
+    state.newPattern.totalPieceCount = normalizedRows.reduce((sum, row) => sum + row.count, 0)
+    state.newPattern.file = buildPatternDisplayFile({
+      patternFileMode: 'PAIRED_DXF_RUL',
+      dxfFileName: parsed.dxfFileName,
+      rulFileName: parsed.rulFileName,
+    })
+  } catch (error) {
+    clearParsedPatternRows()
+    state.newPattern.parseStatus = 'FAILED'
+    state.newPattern.parseStatusLabel = getPatternParseStatusLabel('FAILED')
+    state.newPattern.parseError = error instanceof Error ? error.message : '解析失败'
+    state.newPattern.parsedAt = ''
+  } finally {
+    state.newPattern.patternParsing = false
+    requestTechPackRender()
+  }
+}
+
+function validatePatternForm(): string | null {
+  if (!state.newPattern.name.trim()) return '请先填写纸样名称'
+  if (state.newPattern.patternMaterialType === 'UNKNOWN') return '请选择纸样文件类型'
+
+  if (state.newPattern.patternMaterialType === 'WOVEN') {
+    if (state.newPattern.parseStatus !== 'PARSED') return '布料纸样需先解析纸样'
+    if (state.newPattern.pieceRows.length === 0) return '布料纸样解析不到裁片明细，不能保存'
+    const invalidRow = state.newPattern.pieceRows.find(
+      (row) =>
+        row.sourceType !== 'PARSED_PATTERN'
+        || !row.name.trim()
+        || Number(row.count) <= 0
+        || row.missingName
+        || row.missingCount,
+    )
+    if (invalidRow?.missingName) return '布料纸样存在名称缺失，不能保存'
+    if (invalidRow?.missingCount) return '布料纸样存在数量缺失，不能保存'
+    if (invalidRow) return '布料纸样解析结果不完整，不能保存'
+    return null
+  }
+
+  if (!state.newPattern.singlePatternFileName.trim() && !state.newPattern.file.trim()) {
+    return '针织纸样需先选择纸样文件'
+  }
+  if (state.newPattern.pieceRows.length === 0) return '针织纸样至少保留 1 行裁片明细'
+  const invalidRow = state.newPattern.pieceRows.find(
+    (row) => row.sourceType !== 'MANUAL' || !row.name.trim() || Number(row.count) <= 0,
+  )
+  if (invalidRow) return '针织纸样裁片名称和片数必须填写完整'
+  return null
+}
+
 function handleTechPackField(
   node: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,
 ): boolean {
@@ -66,12 +247,62 @@ function handleTechPackField(
     state.newPattern.name = value
     return true
   }
+  if (field === 'new-pattern-material-type') {
+    applyPatternMaterialTypeChange(
+      value === 'WOVEN' || value === 'KNIT' ? value : 'UNKNOWN',
+    )
+    return true
+  }
   if (field === 'new-pattern-type') {
-    state.newPattern.type = value
+    state.newPattern.type = TECH_PACK_PATTERN_CATEGORY_OPTIONS.includes(value as never)
+      ? value
+      : '其他'
     return true
   }
   if (field === 'new-pattern-image') {
     state.newPattern.image = value
+    return true
+  }
+  if (field === 'new-pattern-dxf-file' && node instanceof HTMLInputElement) {
+    const file = node.files?.[0] ?? null
+    state.newPattern.selectedDxfFile = file
+    state.newPattern.dxfFileName = file?.name || ''
+    state.newPattern.dxfFileSize = file?.size || 0
+    state.newPattern.dxfLastModified = file ? toFileLastModifiedText(file) : ''
+    clearParsedPatternRows()
+    clearPatternParseState('NOT_PARSED')
+    state.newPattern.file = buildPatternDisplayFile({
+      patternFileMode: 'PAIRED_DXF_RUL',
+      dxfFileName: state.newPattern.dxfFileName,
+      rulFileName: state.newPattern.rulFileName,
+    })
+    return true
+  }
+  if (field === 'new-pattern-rul-file' && node instanceof HTMLInputElement) {
+    const file = node.files?.[0] ?? null
+    state.newPattern.selectedRulFile = file
+    state.newPattern.rulFileName = file?.name || ''
+    state.newPattern.rulFileSize = file?.size || 0
+    state.newPattern.rulLastModified = file ? toFileLastModifiedText(file) : ''
+    clearParsedPatternRows()
+    clearPatternParseState('NOT_PARSED')
+    state.newPattern.file = buildPatternDisplayFile({
+      patternFileMode: 'PAIRED_DXF_RUL',
+      dxfFileName: state.newPattern.dxfFileName,
+      rulFileName: state.newPattern.rulFileName,
+    })
+    return true
+  }
+  if (field === 'new-pattern-single-file' && node instanceof HTMLInputElement) {
+    const file = node.files?.[0] ?? null
+    state.newPattern.selectedSinglePatternFile = file
+    state.newPattern.singlePatternFileName = file?.name || ''
+    state.newPattern.singlePatternFileSize = file?.size || 0
+    state.newPattern.singlePatternFileLastModified = file ? toFileLastModifiedText(file) : ''
+    state.newPattern.file = buildPatternDisplayFile({
+      patternFileMode: 'SINGLE_FILE',
+      singlePatternFileName: state.newPattern.singlePatternFileName,
+    })
     return true
   }
   if (field === 'new-pattern-file') {
@@ -80,6 +311,14 @@ function handleTechPackField(
   }
   if (field === 'new-pattern-remark') {
     state.newPattern.remark = value
+    return true
+  }
+  if (field === 'new-pattern-pattern-software-name') {
+    state.newPattern.patternSoftwareName = value
+    return true
+  }
+  if (field === 'new-pattern-size-range') {
+    state.newPattern.sizeRange = value
     return true
   }
   if (field === 'new-pattern-linked-bom-item') {
@@ -99,6 +338,7 @@ function handleTechPackField(
     return true
   }
   if (field === 'new-pattern-piece-name') {
+    if (state.newPattern.patternMaterialType === 'WOVEN') return true
     const pieceId = node.dataset.pieceId
     if (!pieceId) return true
     state.newPattern.pieceRows = state.newPattern.pieceRows.map((row) =>
@@ -107,6 +347,7 @@ function handleTechPackField(
     return true
   }
   if (field === 'new-pattern-piece-count') {
+    if (state.newPattern.patternMaterialType === 'WOVEN') return true
     const pieceId = node.dataset.pieceId
     if (!pieceId) return true
     state.newPattern.pieceRows = state.newPattern.pieceRows.map((row) =>
@@ -115,6 +356,7 @@ function handleTechPackField(
     return true
   }
   if (field === 'new-pattern-piece-note') {
+    if (state.newPattern.patternMaterialType === 'WOVEN') return true
     const pieceId = node.dataset.pieceId
     if (!pieceId) return true
     state.newPattern.pieceRows = state.newPattern.pieceRows.map((row) =>
@@ -761,18 +1003,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     if (!pattern) return true
 
     state.editPatternItemId = pattern.id
-    state.newPattern = {
-      name: pattern.name,
-      type: pattern.type,
-      image: pattern.image,
-      file: pattern.file,
-      remark: pattern.remark,
-      linkedBomItemId: pattern.linkedBomItemId,
-      widthCm: pattern.widthCm,
-      markerLengthM: pattern.markerLengthM,
-      totalPieceCount: pattern.totalPieceCount,
-      pieceRows: pattern.pieceRows.map((row) => ({ ...row })),
-    }
+    state.newPattern = buildPatternFormStateFromItem(pattern)
     state.addPatternDialogOpen = true
     return true
   }
@@ -785,20 +1016,87 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     return true
   }
   if (action === 'save-pattern') {
-    if (!state.newPattern.name.trim()) return true
+    const validationError = validatePatternForm()
+    if (validationError) {
+      state.newPattern.parseError = validationError
+      return true
+    }
     const nowId = state.editPatternItemId || `PAT-${Date.now()}`
     const normalizedPieceRows = normalizePatternPieceRows(
       state.newPattern.pieceRows.map((row) => ({ ...row })),
       nowId,
     )
+    const totalPieceCount = normalizedPieceRows.reduce((sum, row) => sum + row.count, 0)
+    const nextPattern = {
+      name: state.newPattern.name.trim(),
+      type: state.newPattern.type,
+      image: state.newPattern.image,
+      file:
+        state.newPattern.patternMaterialType === 'WOVEN'
+          ? buildPatternDisplayFile({
+              patternFileMode: 'PAIRED_DXF_RUL',
+              dxfFileName: state.newPattern.dxfFileName,
+              rulFileName: state.newPattern.rulFileName,
+            })
+          : buildPatternDisplayFile({
+              patternFileMode: 'SINGLE_FILE',
+              singlePatternFileName: state.newPattern.singlePatternFileName,
+            }),
+      remark: state.newPattern.remark,
+      linkedBomItemId: state.newPattern.linkedBomItemId,
+      widthCm: state.newPattern.widthCm,
+      markerLengthM: state.newPattern.markerLengthM,
+      totalPieceCount,
+      patternMaterialType: state.newPattern.patternMaterialType,
+      patternMaterialTypeLabel: getPatternMaterialTypeLabel(state.newPattern.patternMaterialType),
+      patternFileMode: state.newPattern.patternFileMode,
+      parseStatus:
+        state.newPattern.patternMaterialType === 'KNIT'
+          ? 'NOT_REQUIRED'
+          : state.newPattern.parseStatus,
+      parseStatusLabel:
+        state.newPattern.patternMaterialType === 'KNIT'
+          ? getPatternParseStatusLabel('NOT_REQUIRED')
+          : state.newPattern.parseStatusLabel,
+      parseError: '',
+      parsedAt: state.newPattern.patternMaterialType === 'WOVEN' ? state.newPattern.parsedAt : '',
+      dxfFileName: state.newPattern.patternMaterialType === 'WOVEN' ? state.newPattern.dxfFileName : '',
+      dxfFileSize: state.newPattern.patternMaterialType === 'WOVEN' ? state.newPattern.dxfFileSize : 0,
+      dxfLastModified: state.newPattern.patternMaterialType === 'WOVEN' ? state.newPattern.dxfLastModified : '',
+      rulFileName: state.newPattern.patternMaterialType === 'WOVEN' ? state.newPattern.rulFileName : '',
+      rulFileSize: state.newPattern.patternMaterialType === 'WOVEN' ? state.newPattern.rulFileSize : 0,
+      rulLastModified: state.newPattern.patternMaterialType === 'WOVEN' ? state.newPattern.rulLastModified : '',
+      singlePatternFileName:
+        state.newPattern.patternMaterialType === 'KNIT' ? state.newPattern.singlePatternFileName : '',
+      singlePatternFileSize:
+        state.newPattern.patternMaterialType === 'KNIT' ? state.newPattern.singlePatternFileSize : 0,
+      singlePatternFileLastModified:
+        state.newPattern.patternMaterialType === 'KNIT' ? state.newPattern.singlePatternFileLastModified : '',
+      dxfEncoding: state.newPattern.patternMaterialType === 'WOVEN' ? state.newPattern.dxfEncoding : '',
+      rulEncoding: state.newPattern.patternMaterialType === 'WOVEN' ? state.newPattern.rulEncoding : '',
+      rulSizeList:
+        state.newPattern.patternMaterialType === 'WOVEN' ? [...state.newPattern.rulSizeList] : [],
+      rulSampleSize:
+        state.newPattern.patternMaterialType === 'WOVEN' ? state.newPattern.rulSampleSize : '',
+      patternSoftwareName: state.newPattern.patternSoftwareName,
+      sizeRange: state.newPattern.sizeRange,
+      pieceRows:
+        state.newPattern.patternMaterialType === 'WOVEN'
+          ? normalizedPieceRows.map((row) => ({ ...row, sourceType: 'PARSED_PATTERN' as const }))
+          : normalizedPieceRows.map((row) => ({
+              ...row,
+              sourceType: 'MANUAL' as const,
+              missingName: false,
+              missingCount: false,
+            })),
+    }
 
     if (state.editPatternItemId) {
       state.patternItems = state.patternItems.map((item) =>
         item.id === state.editPatternItemId
           ? {
               ...item,
-              ...state.newPattern,
-              pieceRows: normalizedPieceRows,
+              ...nextPattern,
             }
           : item,
       )
@@ -807,17 +1105,50 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
         ...state.patternItems,
         {
           id: nowId,
-          ...state.newPattern,
-          pieceRows: normalizedPieceRows,
+          ...nextPattern,
         },
       ]
     }
 
     syncTechPackToStore()
     state.addPatternDialogOpen = false
+    resetPatternForm()
+    return true
+  }
+  if (action === 'open-pattern-dxf-picker') {
+    document.getElementById('tech-pack-pattern-dxf-input')?.click()
+    return false
+  }
+  if (action === 'open-pattern-rul-picker') {
+    document.getElementById('tech-pack-pattern-rul-input')?.click()
+    return false
+  }
+  if (action === 'open-pattern-single-file-picker') {
+    document.getElementById('tech-pack-pattern-single-input')?.click()
+    return false
+  }
+  if (action === 'clear-pattern-uploaded-files') {
+    if (state.newPattern.patternMaterialType === 'WOVEN') {
+      clearWovenFileState()
+      clearParsedPatternRows()
+      clearPatternParseState('NOT_PARSED')
+      const dxfInput = document.getElementById('tech-pack-pattern-dxf-input')
+      const rulInput = document.getElementById('tech-pack-pattern-rul-input')
+      if (dxfInput instanceof HTMLInputElement) dxfInput.value = ''
+      if (rulInput instanceof HTMLInputElement) rulInput.value = ''
+    } else {
+      clearKnitFileState()
+      const singleInput = document.getElementById('tech-pack-pattern-single-input')
+      if (singleInput instanceof HTMLInputElement) singleInput.value = ''
+    }
+    return true
+  }
+  if (action === 'parse-pattern') {
+    void startPatternParsing()
     return true
   }
   if (action === 'add-new-pattern-piece-row') {
+    if (state.newPattern.patternMaterialType !== 'KNIT') return true
     state.newPattern.pieceRows = [
       ...state.newPattern.pieceRows,
       {
@@ -826,11 +1157,13 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
         count: 1,
         note: '',
         applicableSkuCodes: [],
+        sourceType: 'MANUAL',
       },
     ]
     return true
   }
   if (action === 'delete-new-pattern-piece-row') {
+    if (state.newPattern.patternMaterialType !== 'KNIT') return true
     const pieceId = actionNode.dataset.pieceId
     if (!pieceId) return true
     state.newPattern.pieceRows = state.newPattern.pieceRows.filter((row) => row.id !== pieceId)

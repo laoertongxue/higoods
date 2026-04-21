@@ -1,6 +1,9 @@
 import { appStore } from '../../state/store.ts'
 import { escapeHtml } from '../../utils.ts'
 import {
+  TECH_PACK_PATTERN_CATEGORY_OPTIONS,
+  TECH_PACK_PATTERN_MATERIAL_TYPE_LABELS,
+  TECH_PACK_PATTERN_PARSE_STATUS_LABELS,
   type TechPack,
   type TechPackSkuLine,
   type TechPackAssignmentGranularity,
@@ -8,6 +11,12 @@ import {
   type TechPackColorMappingStatus,
   type TechPackColorMaterialMapping,
   type TechPackColorMaterialMappingLine,
+  type TechPackPatternCategory,
+  type TechPackPatternFileMode,
+  type TechPackPatternMaterialType,
+  type TechPackPatternParseStatus,
+  type TechPackPatternPieceRow,
+  type TechPackPatternPieceSourceType,
   type TechPackProcessEntry,
   type TechPackProcessEntryType,
   type TechPackRuleSource,
@@ -32,7 +41,6 @@ import {
   TASK_TYPE_MODE_LABEL,
   getProcessCraftByCode,
   getProcessDefinitionByCode,
-  listAllProcessCraftDefinitions,
   listProcessCraftDefinitions,
   listProcessDefinitions,
   listProcessesByStageCode,
@@ -145,6 +153,25 @@ type PatternPieceRow = {
   count: number
   note: string
   applicableSkuCodes: string[]
+  sourceType: TechPackPatternPieceSourceType
+  sourcePartName?: string
+  systemPieceName?: string
+  candidatePartNames?: string[]
+  sizeCode?: string
+  quantityText?: string
+  annotation?: string
+  category?: string
+  width?: number
+  height?: number
+  area?: number
+  perimeter?: number
+  geometryHash?: string
+  previewSvg?: string
+  parserStatus?: '解析成功' | '待人工矫正' | '解析异常'
+  machineReadyStatus?: '可模板机处理' | '待评估' | '不适用'
+  rawTextLabels?: string[]
+  missingName?: boolean
+  missingCount?: boolean
 }
 
 type SkuOption = {
@@ -156,7 +183,7 @@ type SkuOption = {
 type PatternItem = {
   id: string
   name: string
-  type: string
+  type: TechPackPatternCategory | string
   image: string
   file: string
   remark: string
@@ -164,7 +191,36 @@ type PatternItem = {
   widthCm: number
   markerLengthM: number
   totalPieceCount: number
+  patternMaterialType: TechPackPatternMaterialType
+  patternMaterialTypeLabel: string
+  patternFileMode: TechPackPatternFileMode
+  parseStatus: TechPackPatternParseStatus
+  parseStatusLabel: string
+  parseError: string
+  parsedAt: string
+  dxfFileName: string
+  dxfFileSize: number
+  dxfLastModified: string
+  rulFileName: string
+  rulFileSize: number
+  rulLastModified: string
+  singlePatternFileName: string
+  singlePatternFileSize: number
+  singlePatternFileLastModified: string
+  dxfEncoding: string
+  rulEncoding: string
+  rulSizeList: string[]
+  rulSampleSize: string
+  patternSoftwareName: string
+  sizeRange: string
   pieceRows: PatternPieceRow[]
+}
+
+type PatternFormState = Omit<PatternItem, 'id'> & {
+  selectedDxfFile: File | null
+  selectedRulFile: File | null
+  selectedSinglePatternFile: File | null
+  patternParsing: boolean
 }
 
 type ColorMaterialMappingLineRow = {
@@ -258,6 +314,114 @@ const tabItems: Array<{ key: TechPackTab; icon: string; label: string }> = [
 
 const printOptions = ['无', '数码印', '丝网印', '胶浆印', '烫金', '烫银', '转印', '其他']
 const dyeOptions = ['无', '匹染', '成衣染', '扎染', '渐变染', '其他']
+
+function requestTechPackRender(): void {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('higood:request-render'))
+  }
+}
+
+function normalizePatternMaterialType(
+  value: string | null | undefined,
+): TechPackPatternMaterialType {
+  if (value === 'WOVEN' || value === 'KNIT' || value === 'UNKNOWN') return value
+  return 'UNKNOWN'
+}
+
+function getPatternMaterialTypeLabel(value: TechPackPatternMaterialType): string {
+  return TECH_PACK_PATTERN_MATERIAL_TYPE_LABELS[value] || '暂无数据'
+}
+
+function normalizePatternParseStatus(
+  value: string | null | undefined,
+): TechPackPatternParseStatus {
+  if (
+    value === 'NOT_PARSED'
+    || value === 'PARSING'
+    || value === 'PARSED'
+    || value === 'FAILED'
+    || value === 'NOT_REQUIRED'
+  ) {
+    return value
+  }
+  return 'NOT_PARSED'
+}
+
+function getPatternParseStatusLabel(value: TechPackPatternParseStatus): string {
+  return TECH_PACK_PATTERN_PARSE_STATUS_LABELS[value] || '待解析'
+}
+
+function inferPatternMaterialTypeFromPatternFile(input: {
+  fileName?: string
+  singlePatternFileName?: string
+  dxfFileName?: string
+  linkedBomItemId?: string
+  linkedBomName?: string
+  linkedBomSpec?: string
+  linkedBomType?: string
+}): TechPackPatternMaterialType {
+  const haystack = [
+    input.fileName,
+    input.singlePatternFileName,
+    input.dxfFileName,
+    input.linkedBomName,
+    input.linkedBomSpec,
+    input.linkedBomType,
+  ]
+    .map((item) => String(item || '').trim().toLowerCase())
+    .join(' ')
+
+  if (haystack.includes('针织') || haystack.includes('knit')) return 'KNIT'
+  if (haystack.includes('布料') || haystack.includes('梭织') || haystack.includes('woven')) return 'WOVEN'
+  return 'UNKNOWN'
+}
+
+function inferPatternFileMode(materialType: TechPackPatternMaterialType): TechPackPatternFileMode {
+  return materialType === 'WOVEN' ? 'PAIRED_DXF_RUL' : 'SINGLE_FILE'
+}
+
+function createEmptyPatternFormState(): PatternFormState {
+  const patternMaterialType: TechPackPatternMaterialType = 'UNKNOWN'
+  const parseStatus: TechPackPatternParseStatus = 'NOT_PARSED'
+  return {
+    name: '',
+    type: '主体片',
+    image: '',
+    file: '',
+    remark: '',
+    linkedBomItemId: '',
+    widthCm: 0,
+    markerLengthM: 0,
+    totalPieceCount: 0,
+    patternMaterialType,
+    patternMaterialTypeLabel: getPatternMaterialTypeLabel(patternMaterialType),
+    patternFileMode: inferPatternFileMode(patternMaterialType),
+    parseStatus,
+    parseStatusLabel: getPatternParseStatusLabel(parseStatus),
+    parseError: '',
+    parsedAt: '',
+    dxfFileName: '',
+    dxfFileSize: 0,
+    dxfLastModified: '',
+    rulFileName: '',
+    rulFileSize: 0,
+    rulLastModified: '',
+    singlePatternFileName: '',
+    singlePatternFileSize: 0,
+    singlePatternFileLastModified: '',
+    dxfEncoding: '',
+    rulEncoding: '',
+    rulSizeList: [],
+    rulSampleSize: '',
+    patternSoftwareName: '',
+    sizeRange: '',
+    pieceRows: [],
+    selectedDxfFile: null,
+    selectedRulFile: null,
+    selectedSinglePatternFile: null,
+    patternParsing: false,
+  }
+}
 const currencyOptions = ['人民币', '美元', '印尼盾']
 const materialUnitOptions = ['人民币/米', '人民币/码', '人民币/件', '美元/米', '美元/件', '印尼盾/件']
 const processUnitOptions = ['人民币/件', '人民币/批', '美元/件', '美元/批', '印尼盾/件', '印尼盾/批']
@@ -333,10 +497,32 @@ const DEFAULT_PATTERN_ITEMS: PatternItem[] = [
     widthCm: 142,
     markerLengthM: 2.62,
     totalPieceCount: 6,
+    patternMaterialType: 'KNIT',
+    patternMaterialTypeLabel: getPatternMaterialTypeLabel('KNIT'),
+    patternFileMode: 'SINGLE_FILE',
+    parseStatus: 'NOT_REQUIRED',
+    parseStatusLabel: getPatternParseStatusLabel('NOT_REQUIRED'),
+    parseError: '',
+    parsedAt: '',
+    dxfFileName: '',
+    dxfFileSize: 0,
+    dxfLastModified: '',
+    rulFileName: '',
+    rulFileSize: 0,
+    rulLastModified: '',
+    singlePatternFileName: 'front.dxf',
+    singlePatternFileSize: 0,
+    singlePatternFileLastModified: '',
+    dxfEncoding: '',
+    rulEncoding: '',
+    rulSizeList: [],
+    rulSampleSize: '',
+    patternSoftwareName: '',
+    sizeRange: '',
     pieceRows: [
-      { id: 'PAT-001-R1', name: '前片', count: 2, note: '', applicableSkuCodes: [] },
-      { id: 'PAT-001-R2', name: '门襟', count: 2, note: '', applicableSkuCodes: [] },
-      { id: 'PAT-001-R3', name: '口袋贴', count: 2, note: '可选口袋款', applicableSkuCodes: [] },
+      { id: 'PAT-001-R1', name: '前片', count: 2, note: '', applicableSkuCodes: [], sourceType: 'MANUAL' },
+      { id: 'PAT-001-R2', name: '门襟', count: 2, note: '', applicableSkuCodes: [], sourceType: 'MANUAL' },
+      { id: 'PAT-001-R3', name: '口袋贴', count: 2, note: '可选口袋款', applicableSkuCodes: [], sourceType: 'MANUAL' },
     ],
   },
   {
@@ -350,9 +536,31 @@ const DEFAULT_PATTERN_ITEMS: PatternItem[] = [
     widthCm: 142,
     markerLengthM: 2.2,
     totalPieceCount: 4,
+    patternMaterialType: 'KNIT',
+    patternMaterialTypeLabel: getPatternMaterialTypeLabel('KNIT'),
+    patternFileMode: 'SINGLE_FILE',
+    parseStatus: 'NOT_REQUIRED',
+    parseStatusLabel: getPatternParseStatusLabel('NOT_REQUIRED'),
+    parseError: '',
+    parsedAt: '',
+    dxfFileName: '',
+    dxfFileSize: 0,
+    dxfLastModified: '',
+    rulFileName: '',
+    rulFileSize: 0,
+    rulLastModified: '',
+    singlePatternFileName: 'back.dxf',
+    singlePatternFileSize: 0,
+    singlePatternFileLastModified: '',
+    dxfEncoding: '',
+    rulEncoding: '',
+    rulSizeList: [],
+    rulSampleSize: '',
+    patternSoftwareName: '',
+    sizeRange: '',
     pieceRows: [
-      { id: 'PAT-002-R1', name: '后片', count: 2, note: '', applicableSkuCodes: [] },
-      { id: 'PAT-002-R2', name: '肩部补强片', count: 2, note: '', applicableSkuCodes: [] },
+      { id: 'PAT-002-R1', name: '后片', count: 2, note: '', applicableSkuCodes: [], sourceType: 'MANUAL' },
+      { id: 'PAT-002-R2', name: '肩部补强片', count: 2, note: '', applicableSkuCodes: [], sourceType: 'MANUAL' },
     ],
   },
 ]
@@ -532,7 +740,7 @@ interface TechPackPageState {
   editPatternItemId: string | null
   editBomItemId: string | null
   editTechniqueId: string | null
-  newPattern: Omit<PatternItem, 'id'>
+  newPattern: PatternFormState
   newBomItem: {
     type: string
     colorLabel: string
@@ -625,18 +833,7 @@ const state: TechPackPageState = {
   editPatternItemId: null,
   editBomItemId: null,
   editTechniqueId: null,
-  newPattern: {
-    name: '',
-    type: '主体片',
-    image: '',
-    file: '',
-    remark: '',
-    linkedBomItemId: '',
-    widthCm: 0,
-    markerLengthM: 0,
-    totalPieceCount: 0,
-    pieceRows: [],
-  },
+  newPattern: createEmptyPatternFormState(),
   newBomItem: {
     type: '面料',
     colorLabel: '',
@@ -1503,11 +1700,59 @@ function getPatternBySelectionKey(selectionKey: string): PatternItem | null {
 function normalizePatternPieceRows(rows: PatternPieceRow[], patternId: string): PatternPieceRow[] {
   return rows.map((row, index) => ({
     id: row.id || `${patternId}-piece-${index + 1}`,
-    name: row.name || `裁片-${index + 1}`,
-    count: Number.isFinite(row.count) ? Number(row.count) : 0,
-    note: row.note || '',
+    name: String(row.name || '').trim(),
+    count: Number.isFinite(row.count) ? Number(row.count) : Number.parseInt(String(row.count || ''), 10) || 0,
+    note: String(row.note || '').trim(),
     applicableSkuCodes: dedupeStrings([...(row.applicableSkuCodes ?? [])]),
+    sourceType: row.sourceType === 'PARSED_PATTERN' ? 'PARSED_PATTERN' : 'MANUAL',
+    sourcePartName: row.sourcePartName?.trim() || undefined,
+    systemPieceName: row.systemPieceName?.trim() || undefined,
+    candidatePartNames: dedupeStrings([...(row.candidatePartNames ?? [])]),
+    sizeCode: row.sizeCode?.trim() || undefined,
+    quantityText: row.quantityText?.trim() || undefined,
+    annotation: row.annotation?.trim() || undefined,
+    category: row.category?.trim() || undefined,
+    width: Number.isFinite(row.width) ? Number(row.width) : undefined,
+    height: Number.isFinite(row.height) ? Number(row.height) : undefined,
+    area: Number.isFinite(row.area) ? Number(row.area) : undefined,
+    perimeter: Number.isFinite(row.perimeter) ? Number(row.perimeter) : undefined,
+    geometryHash: row.geometryHash?.trim() || undefined,
+    previewSvg: row.previewSvg?.trim() || undefined,
+    parserStatus: row.parserStatus || undefined,
+    machineReadyStatus: row.machineReadyStatus || undefined,
+    rawTextLabels: dedupeStrings([...(row.rawTextLabels ?? [])]),
+    missingName: Boolean(row.missingName),
+    missingCount: Boolean(row.missingCount),
   }))
+}
+
+function buildPatternDisplayFile(input: {
+  patternFileMode: TechPackPatternFileMode
+  dxfFileName?: string
+  rulFileName?: string
+  singlePatternFileName?: string
+  fileName?: string
+}): string {
+  if (input.patternFileMode === 'PAIRED_DXF_RUL') {
+    const dxf = String(input.dxfFileName || '').trim()
+    const rul = String(input.rulFileName || '').trim()
+    if (dxf && rul) return `${dxf} / ${rul}`
+    return dxf || rul || String(input.fileName || '').trim()
+  }
+  return String(input.singlePatternFileName || input.fileName || '').trim()
+}
+
+function buildPatternName(input: {
+  patternName?: string
+  fileName?: string
+  singlePatternFileName?: string
+  dxfFileName?: string
+}, fallbackIndex: number): string {
+  const explicitName = String(input.patternName || '').trim()
+  if (explicitName) return explicitName
+  const fallbackFileName = String(input.singlePatternFileName || input.dxfFileName || input.fileName || '').trim()
+  if (fallbackFileName) return fallbackFileName.replace(/\.[^/.]+$/, '')
+  return `纸样${fallbackIndex + 1}`
 }
 
 function buildPatternItemsFromTechPack(techPack: TechPack): PatternItem[] {
@@ -1520,6 +1765,7 @@ function buildPatternItemsFromTechPack(techPack: TechPack): PatternItem[] {
 
   return techPack.patternFiles.map((item, index) => {
     const patternId = item.id || `PAT-${index + 1}`
+    const linkedBom = techPack.bomItems.find((bom) => bom.id === item.linkedBomItemId) || null
     const normalizedRows = normalizePatternPieceRows(
       (item.pieceRows ?? []).map((row) => ({
         id: row.id || '',
@@ -1527,18 +1773,72 @@ function buildPatternItemsFromTechPack(techPack: TechPack): PatternItem[] {
         count: Number(row.count),
         note: row.note || '',
         applicableSkuCodes: [...(row.applicableSkuCodes ?? [])],
+        sourceType: row.sourceType === 'PARSED_PATTERN' ? 'PARSED_PATTERN' : 'MANUAL',
+        sourcePartName: row.sourcePartName,
+        systemPieceName: row.systemPieceName,
+        candidatePartNames: [...(row.candidatePartNames ?? [])],
+        sizeCode: row.sizeCode,
+        quantityText: row.quantityText,
+        annotation: row.annotation,
+        category: row.category,
+        width: row.width,
+        height: row.height,
+        area: row.area,
+        perimeter: row.perimeter,
+        geometryHash: row.geometryHash,
+        previewSvg: row.previewSvg,
+        parserStatus: row.parserStatus,
+        machineReadyStatus: row.machineReadyStatus,
+        rawTextLabels: [...(row.rawTextLabels ?? [])],
+        missingName: (row as PatternPieceRow).missingName,
+        missingCount: (row as PatternPieceRow).missingCount,
       })),
       patternId,
     )
     const inferredPieceCount = normalizedRows.reduce((sum, row) => sum + row.count, 0)
+    const patternMaterialType =
+      normalizePatternMaterialType(item.patternMaterialType)
+      || inferPatternMaterialTypeFromPatternFile({
+        fileName: item.fileName,
+        singlePatternFileName: item.singlePatternFileName,
+        dxfFileName: item.dxfFileName,
+        linkedBomItemId: item.linkedBomItemId,
+        linkedBomName: linkedBom?.name,
+        linkedBomSpec: linkedBom?.spec,
+        linkedBomType: linkedBom?.type,
+      })
+    const normalizedMaterialType =
+      patternMaterialType === 'UNKNOWN'
+        ? inferPatternMaterialTypeFromPatternFile({
+            fileName: item.fileName,
+            singlePatternFileName: item.singlePatternFileName,
+            dxfFileName: item.dxfFileName,
+            linkedBomItemId: item.linkedBomItemId,
+            linkedBomName: linkedBom?.name,
+            linkedBomSpec: linkedBom?.spec,
+            linkedBomType: linkedBom?.type,
+          })
+        : patternMaterialType
+    const patternFileMode =
+      item.patternFileMode === 'PAIRED_DXF_RUL' || item.patternFileMode === 'SINGLE_FILE'
+        ? item.patternFileMode
+        : inferPatternFileMode(normalizedMaterialType)
+    const parseStatus = normalizePatternParseStatus(item.parseStatus)
+    const patternName = buildPatternName(item, index)
 
     return {
       id: patternId,
-      name: item.fileName.replace(/\.[^/.]+$/, ''),
-      type: '主体片',
-      image: '',
-      file: item.fileName,
-      remark: '',
+      name: patternName,
+      type: (item.patternCategory as TechPackPatternCategory) || '主体片',
+      image: item.imageUrl || '',
+      file: buildPatternDisplayFile({
+        patternFileMode,
+        dxfFileName: item.dxfFileName,
+        rulFileName: item.rulFileName,
+        singlePatternFileName: item.singlePatternFileName,
+        fileName: item.fileName,
+      }),
+      remark: item.remark || '',
       linkedBomItemId: item.linkedBomItemId ?? '',
       // 门幅单位固定 cm
       widthCm: Number.isFinite(item.widthCm) ? Number(item.widthCm) : 0,
@@ -1549,6 +1849,31 @@ function buildPatternItemsFromTechPack(techPack: TechPack): PatternItem[] {
         Number.isFinite(item.totalPieceCount) && Number(item.totalPieceCount) > 0
           ? Number(item.totalPieceCount)
           : inferredPieceCount,
+      patternMaterialType: normalizedMaterialType,
+      patternMaterialTypeLabel:
+        String(item.patternMaterialTypeLabel || '').trim() || getPatternMaterialTypeLabel(normalizedMaterialType),
+      patternFileMode,
+      parseStatus,
+      parseStatusLabel:
+        String(item.parseStatusLabel || '').trim() || getPatternParseStatusLabel(parseStatus),
+      parseError: item.parseError || '',
+      parsedAt: item.parsedAt || '',
+      dxfFileName: item.dxfFileName || '',
+      dxfFileSize: Number.isFinite(item.dxfFileSize) ? Number(item.dxfFileSize) : 0,
+      dxfLastModified: item.dxfLastModified || '',
+      rulFileName: item.rulFileName || '',
+      rulFileSize: Number.isFinite(item.rulFileSize) ? Number(item.rulFileSize) : 0,
+      rulLastModified: item.rulLastModified || '',
+      singlePatternFileName: item.singlePatternFileName || '',
+      singlePatternFileSize:
+        Number.isFinite(item.singlePatternFileSize) ? Number(item.singlePatternFileSize) : 0,
+      singlePatternFileLastModified: item.singlePatternFileLastModified || '',
+      dxfEncoding: item.dxfEncoding || '',
+      rulEncoding: item.rulEncoding || '',
+      rulSizeList: [...(item.rulSizeList ?? [])],
+      rulSampleSize: item.rulSampleSize || '',
+      patternSoftwareName: item.patternSoftwareName || '',
+      sizeRange: item.sizeRange || '',
       pieceRows: normalizedRows,
     }
   })
@@ -1672,7 +1997,7 @@ function buildTechniquesFromTechPack(
 
   return syncBomDrivenPrepTechniques(
     techPack.processes.map((item, index) => {
-      const craft = listAllProcessCraftDefinitions().find((craftItem) => craftItem.craftName === item.name)
+      const craft = listProcessCraftDefinitions().find((craftItem) => craftItem.craftName === item.name)
       if (craft) {
         const processDef = getProcessDefinitionByCode(craft.processCode)
         const referenceMeta = getTechniqueReferenceMetaByCraftCode(craft.craftCode)
@@ -1907,12 +2232,45 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
     patternFiles: state.patternItems.map((item) => {
       const pieceRows = normalizePatternPieceRows(item.pieceRows, item.id)
       const inferredPieceCount = pieceRows.reduce((sum, row) => sum + row.count, 0)
+      const legacyFileName = buildPatternDisplayFile({
+        patternFileMode: item.patternFileMode,
+        dxfFileName: item.dxfFileName,
+        rulFileName: item.rulFileName,
+        singlePatternFileName: item.singlePatternFileName,
+        fileName: item.file,
+      }) || `${item.name}.dxf`
       return {
         id: item.id,
-        fileName: item.file || `${item.name}.dxf`,
+        patternName: item.name,
+        patternCategory: item.type,
+        patternMaterialType: item.patternMaterialType,
+        patternMaterialTypeLabel: item.patternMaterialTypeLabel,
+        patternFileMode: item.patternFileMode,
+        fileName: legacyFileName,
         fileUrl: '#',
         uploadedAt: state.techPack?.lastUpdatedAt || toTimestamp(),
         uploadedBy: currentUser.name,
+        dxfFileName: item.dxfFileName || undefined,
+        dxfFileSize: item.dxfFileSize > 0 ? item.dxfFileSize : undefined,
+        dxfLastModified: item.dxfLastModified || undefined,
+        rulFileName: item.rulFileName || undefined,
+        rulFileSize: item.rulFileSize > 0 ? item.rulFileSize : undefined,
+        rulLastModified: item.rulLastModified || undefined,
+        singlePatternFileName: item.singlePatternFileName || undefined,
+        singlePatternFileSize: item.singlePatternFileSize > 0 ? item.singlePatternFileSize : undefined,
+        singlePatternFileLastModified: item.singlePatternFileLastModified || undefined,
+        parseStatus: item.parseStatus,
+        parseStatusLabel: item.parseStatusLabel,
+        parseError: item.parseError || undefined,
+        parsedAt: item.parsedAt || undefined,
+        dxfEncoding: item.dxfEncoding || undefined,
+        rulEncoding: item.rulEncoding || undefined,
+        rulSizeList: item.rulSizeList.length > 0 ? [...item.rulSizeList] : undefined,
+        rulSampleSize: item.rulSampleSize || undefined,
+        patternSoftwareName: item.patternSoftwareName || undefined,
+        sizeRange: item.sizeRange || undefined,
+        imageUrl: item.image || undefined,
+        remark: item.remark || undefined,
         linkedBomItemId: item.linkedBomItemId || undefined,
         // 门幅单位固定 cm；排料长度单位固定 m
         widthCm: Number.isFinite(item.widthCm) ? item.widthCm : 0,
@@ -1929,6 +2287,29 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
           note: row.note || undefined,
           applicableSkuCodes:
             row.applicableSkuCodes.length > 0 ? [...row.applicableSkuCodes] : undefined,
+          sourceType: row.sourceType,
+          missingName: row.missingName || undefined,
+          missingCount: row.missingCount || undefined,
+          sourcePartName: row.sourcePartName || undefined,
+          systemPieceName: row.systemPieceName || undefined,
+          candidatePartNames:
+            row.candidatePartNames && row.candidatePartNames.length > 0
+              ? [...row.candidatePartNames]
+              : undefined,
+          sizeCode: row.sizeCode || undefined,
+          quantityText: row.quantityText || undefined,
+          annotation: row.annotation || undefined,
+          category: row.category || undefined,
+          width: row.width,
+          height: row.height,
+          area: row.area,
+          perimeter: row.perimeter,
+          geometryHash: row.geometryHash || undefined,
+          previewSvg: row.previewSvg || undefined,
+          parserStatus: row.parserStatus || undefined,
+          machineReadyStatus: row.machineReadyStatus || undefined,
+          rawTextLabels:
+            row.rawTextLabels && row.rawTextLabels.length > 0 ? [...row.rawTextLabels] : undefined,
         })),
       }
     }),
@@ -2072,19 +2453,54 @@ function closeAllDialogs(): void {
   state.patternDialogOpen = false
 }
 
-function resetPatternForm(): void {
-  state.newPattern = {
-    name: '',
-    type: '主体片',
-    image: '',
-    file: '',
-    remark: '',
-    linkedBomItemId: '',
-    widthCm: 0,
-    markerLengthM: 0,
-    totalPieceCount: 0,
-    pieceRows: [],
+function buildPatternFormStateFromItem(item: PatternItem): PatternFormState {
+  return {
+    name: item.name,
+    type: item.type,
+    image: item.image,
+    file: item.file,
+    remark: item.remark,
+    linkedBomItemId: item.linkedBomItemId,
+    widthCm: item.widthCm,
+    markerLengthM: item.markerLengthM,
+    totalPieceCount: item.totalPieceCount,
+    patternMaterialType: item.patternMaterialType,
+    patternMaterialTypeLabel: item.patternMaterialTypeLabel,
+    patternFileMode: item.patternFileMode,
+    parseStatus: item.parseStatus,
+    parseStatusLabel: item.parseStatusLabel,
+    parseError: item.parseError,
+    parsedAt: item.parsedAt,
+    dxfFileName: item.dxfFileName,
+    dxfFileSize: item.dxfFileSize,
+    dxfLastModified: item.dxfLastModified,
+    rulFileName: item.rulFileName,
+    rulFileSize: item.rulFileSize,
+    rulLastModified: item.rulLastModified,
+    singlePatternFileName: item.singlePatternFileName,
+    singlePatternFileSize: item.singlePatternFileSize,
+    singlePatternFileLastModified: item.singlePatternFileLastModified,
+    dxfEncoding: item.dxfEncoding,
+    rulEncoding: item.rulEncoding,
+    rulSizeList: [...item.rulSizeList],
+    rulSampleSize: item.rulSampleSize,
+    patternSoftwareName: item.patternSoftwareName,
+    sizeRange: item.sizeRange,
+    pieceRows: item.pieceRows.map((row) => ({
+      ...row,
+      applicableSkuCodes: [...row.applicableSkuCodes],
+      candidatePartNames: [...(row.candidatePartNames ?? [])],
+      rawTextLabels: [...(row.rawTextLabels ?? [])],
+    })),
+    selectedDxfFile: null,
+    selectedRulFile: null,
+    selectedSinglePatternFile: null,
+    patternParsing: false,
   }
+}
+
+function resetPatternForm(): void {
+  state.newPattern = createEmptyPatternFormState()
   state.editPatternItemId = null
 }
 
@@ -2263,6 +2679,7 @@ export {
   appStore,
   escapeHtml,
   currentUser,
+  TECH_PACK_PATTERN_CATEGORY_OPTIONS,
   techPackStatusConfig,
   DETAIL_SPLIT_DIMENSION_LABEL,
   DETAIL_SPLIT_MODE_LABEL,
@@ -2327,6 +2744,11 @@ export {
   getPatternBySelectionKey,
   normalizePatternPieceRows,
   buildPatternItemsFromTechPack,
+  requestTechPackRender,
+  getPatternMaterialTypeLabel,
+  getPatternParseStatusLabel,
+  buildPatternDisplayFile,
+  buildPatternFormStateFromItem,
   buildBomItemsFromTechPack,
   toTechniqueItemFromEntry,
   buildTechniquesFromTechPack,
@@ -2362,6 +2784,7 @@ export type {
   PatternPieceRow,
   SkuOption,
   PatternItem,
+  PatternFormState,
   ColorMaterialMappingLineRow,
   ColorMaterialMappingRow,
   MaterialCostRow,
@@ -2374,6 +2797,8 @@ export type {
   TechPackColorMappingStatus,
   TechPackColorMaterialMapping,
   TechPackColorMaterialMappingLine,
+  TechPackPatternMaterialType,
+  TechPackPatternParseStatus,
   TechPackProcessEntry,
   TechPackProcessEntryType,
   TechPackRuleSource,
