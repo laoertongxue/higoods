@@ -44,6 +44,7 @@ import {
   getProcessCraftByCode,
   getProcessDefinitionByCode,
   listProcessCraftDefinitions,
+  listSelectableSpecialCraftDefinitions,
   listProcessDefinitions,
   listProcessesByStageCode,
   listProcessStages,
@@ -1051,9 +1052,9 @@ function applyTechPackState(
   state.compatibilitySourceNote = ''
   state.compatibilitySourceNoteOpen = false
 
-  state.patternItems = buildPatternItemsFromTechPack(nextTechPack)
   state.bomItems = buildBomItemsFromTechPack(nextTechPack)
   state.techniques = buildTechniquesFromTechPack(nextTechPack, state.bomItems)
+  state.patternItems = buildPatternItemsFromTechPack(nextTechPack)
   state.qualityRules = cloneQualityRules(options.qualityRules)
   state.materialCostRows = buildMaterialCostRows(state.bomItems, nextTechPack)
   state.processCostRows = buildProcessCostRows(state.techniques, nextTechPack)
@@ -1691,24 +1692,40 @@ function getBomColorOptionsForPattern(linkedBomItemId?: string): PatternBomColor
   return buildBomColorOptions(allBomItems, skuOptions)
 }
 
-function getSpecialCraftOptionsForPatternPiece(): TechPackPatternPieceSpecialCraft[] {
+function getPatternPieceSpecialCraftOptionsFromCurrentTechPack(): TechPackPatternPieceSpecialCraft[] {
+  const validDefinitionsByCode = new Map(
+    listSelectableSpecialCraftDefinitions().map((item) => [item.craftCode, item] as const),
+  )
+
   return dedupeByKey(
-    listProcessCraftDefinitions()
-      .filter((item) => item.isActive && item.isSpecialCraft)
+    state.techniques
+      .filter(
+        (item) =>
+          item.entryType === 'CRAFT'
+          && item.isSpecialCraft
+          && item.processCode === 'SPECIAL_CRAFT'
+          && String(item.craftCode || '').trim().length > 0,
+      )
       .map((item) => {
-        const processDefinition = getProcessDefinitionByCode(item.processCode)
+        const definition = validDefinitionsByCode.get(item.craftCode)
+        if (!definition) return null
+        const processDefinition = getProcessDefinitionByCode(definition.processCode)
         const processName = processDefinition?.processName || '特殊工艺'
         return {
-          processCode: item.processCode,
+          processCode: definition.processCode,
           processName,
-          craftCode: item.craftCode,
-          craftName: item.craftName,
-          displayName: item.craftName,
+          craftCode: definition.craftCode,
+          craftName: definition.craftName,
+          displayName: definition.craftName,
         }
       })
-      .filter((item) => item.processName === '特殊工艺'),
+      .filter((item): item is TechPackPatternPieceSpecialCraft => Boolean(item) && item.processName === '特殊工艺'),
     (item) => `${item.processCode}:${item.craftCode}`,
   )
+}
+
+function getSpecialCraftOptionsForPatternPiece(): TechPackPatternPieceSpecialCraft[] {
+  return getPatternPieceSpecialCraftOptionsFromCurrentTechPack()
 }
 
 function getSkuCodesByColor(colorCodeOrName: string): string[] {
@@ -2018,7 +2035,18 @@ function normalizePatternPieceSpecialCrafts(
         const processCode = String(item.processCode || '').trim()
         const craftCode = String(item.craftCode || '').trim()
         const matched = optionByCode.get(`${processCode}:${craftCode}`)
-        return matched ? { ...matched } : null
+        if (matched) return { ...matched }
+
+        const craftName = String(item.craftName || item.displayName || '').trim()
+        if (!processCode || !craftCode || !craftName) return null
+
+        return {
+          processCode,
+          processName: String(item.processName || '特殊工艺').trim() || '特殊工艺',
+          craftCode,
+          craftName,
+          displayName: craftName,
+        }
       })
       .filter((item): item is TechPackPatternPieceSpecialCraft => Boolean(item)),
     (item) => `${item.processCode}:${item.craftCode}`,
@@ -3151,6 +3179,7 @@ export {
   getSkuCodesByColor,
   getSizeCodeOptionsFromSizeRules,
   getBomColorOptionsForPattern,
+  getPatternPieceSpecialCraftOptionsFromCurrentTechPack,
   getSpecialCraftOptionsForPatternPiece,
   getPatternById,
   getPatternPieceById,

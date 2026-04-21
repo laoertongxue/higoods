@@ -31,6 +31,7 @@
     "check:fcs-production-tech-pack-snapshot": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-fcs-production-tech-pack-snapshot.ts",
     "check:fcs-tech-pack-pattern-parser": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-fcs-tech-pack-pattern-parser.ts",
     "check:fcs-tech-pack-pattern-piece-detail": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-fcs-tech-pack-pattern-piece-detail.ts",
+    "check:fcs-tech-pack-special-craft-source-and-dialog-stability": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-fcs-tech-pack-special-craft-source-and-dialog-stability.ts",
     "check:fcs-tech-pack-snapshot-consumption": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-fcs-tech-pack-snapshot-consumption.ts",
     "check:production-confirmation": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-production-confirmation.ts",
     "check:tech-pack-pattern-and-images": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-tech-pack-pattern-and-images.ts",

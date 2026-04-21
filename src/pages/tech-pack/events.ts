@@ -17,12 +17,12 @@ import {
   getBaselineProcessByCode,
   getCraftOptionByCode,
   getBomColorOptionsForPattern,
+  getPatternPieceSpecialCraftOptionsFromCurrentTechPack,
   getPatternMaterialTypeLabel,
   getPatternParseStatusLabel,
   getPatternById,
   getPatternPieceById,
   getSizeCodeOptionsFromSizeRules,
-  getSpecialCraftOptionsForPatternPiece,
   getTechniqueReferenceMetaByCraftCode,
   isBomDrivenPrepTechnique,
   isPrepStage,
@@ -144,7 +144,7 @@ function getPatternBomColorNameSet(): Set<string> {
 
 function getPatternSpecialCraftKeySet(): Set<string> {
   return new Set(
-    getSpecialCraftOptionsForPatternPiece().map((item) => `${item.processCode}:${item.craftCode}`),
+    getPatternPieceSpecialCraftOptionsFromCurrentTechPack().map((item) => `${item.processCode}:${item.craftCode}`),
   )
 }
 
@@ -1317,7 +1317,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     const processCode = actionNode.dataset.processCode
     const craftCode = actionNode.dataset.craftCode
     if (!pieceId || !processCode || !craftCode) return true
-    const specialCraft = getSpecialCraftOptionsForPatternPiece().find(
+    const specialCraft = getPatternPieceSpecialCraftOptionsFromCurrentTechPack().find(
       (item) => item.processCode === processCode && item.craftCode === craftCode,
     )
     if (!specialCraft) return true

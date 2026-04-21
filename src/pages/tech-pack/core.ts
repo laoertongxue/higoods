@@ -164,7 +164,7 @@ export function renderTechPackPage(
       : null
 
   return `
-    <div class="space-y-4">
+    <div data-tech-pack-page-root="true" class="space-y-4">
       <header class="flex items-start justify-between">
         <div>
           <div class="mb-1 flex items-center gap-2">

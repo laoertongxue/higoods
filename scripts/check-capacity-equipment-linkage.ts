@@ -27,6 +27,10 @@ const routesSource =
 const equipmentOptions = new Set(
   getCapacityProcessCraftOptions().map((item) => `${item.processCode}::${item.craftCode}`),
 )
+assert(
+  !getCapacityProcessCraftOptions().some((item) => /印花工艺|染色工艺/.test(item.label) || /印花工艺|染色工艺/.test(item.craftName)),
+  '设备维护可选工序工艺中不应暴露印花工艺 / 染色工艺',
+)
 
 assert(pageSource.includes('详情'), '工厂产能档案缺少详情态文案')
 assert(pageSource.includes('编辑'), '工厂产能档案缺少编辑态文案')

@@ -6,9 +6,12 @@ import path from 'node:path'
 
 import {
   getProcessDefinitionByCode,
+  getActiveProcessCraftOptions,
+  getCapacityProcessCraftOptions,
   isPostCapacityNode,
   listActiveProcessCraftDefinitions,
   listInactiveProcessCraftDefinitions,
+  listProcessCraftDictRows,
   listProcessDefinitions,
 } from '../src/data/fcs/process-craft-dict.ts'
 
@@ -19,6 +22,9 @@ function read(relativePath: string): string {
 const processDefinitions = listProcessDefinitions()
 const activeCrafts = listActiveProcessCraftDefinitions()
 const inactiveCrafts = listInactiveProcessCraftDefinitions()
+const activeOptions = getActiveProcessCraftOptions()
+const capacityOptions = getCapacityProcessCraftOptions()
+const craftDictRows = listProcessCraftDictRows(true)
 
 assert(!processDefinitions.some((item) => item.processCode === 'WASHING'), '活跃工序中不应保留独立 WASHING')
 assert(!processDefinitions.some((item) => item.processCode === 'HARDWARE'), '活跃工序中不应保留五金工序')
@@ -41,6 +47,10 @@ assert(!activeCrafts.some((item) => item.craftName === '印花工艺'), '活跃�
 assert(!activeCrafts.some((item) => item.craftName === '染色工艺'), '活跃工艺中不应保留染色工艺')
 assert(!inactiveCrafts.some((item) => item.craftName === '印花工艺'), '历史停用工艺中不应保留印花工艺伪映射')
 assert(!inactiveCrafts.some((item) => item.craftName === '染色工艺'), '历史停用工艺中不应保留染色工艺伪映射')
+assert(!craftDictRows.some((item) => item.craftName === '印花工艺'), '工序工艺字典行中不应保留印花工艺')
+assert(!craftDictRows.some((item) => item.craftName === '染色工艺'), '工序工艺字典行中不应保留染色工艺')
+assert(!activeOptions.some((item) => /印花工艺|染色工艺/.test(item.label) || /印花工艺|染色工艺/.test(item.craftName)), '活跃工序工艺选项中不应暴露印花工艺 / 染色工艺')
+assert(!capacityOptions.some((item) => /印花工艺|染色工艺/.test(item.label) || /印花工艺|染色工艺/.test(item.craftName)), '产能工序工艺选项中不应暴露印花工艺 / 染色工艺')
 
 const postFinishing = getProcessDefinitionByCode('POST_FINISHING')
 assert(postFinishing, '缺少后道父任务定义')

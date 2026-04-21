@@ -8,9 +8,6 @@ type PcsHandlersModule = typeof import('./main-handlers/pcs-handlers')
 type PdaHandlersModule = typeof import('./main-handlers/pda-handlers')
 type RoutesModule = typeof import('./router/routes')
 
-const PLACEHOLDER_PAGE_CONTENT =
-  '<section class="rounded-lg border border-border bg-white p-4 text-sm text-muted-foreground">页面内容加载中…</section>'
-
 let fcsHandlersModulePromise: Promise<FcsHandlersModule> | null = null
 let pcsHandlersModulePromise: Promise<PcsHandlersModule> | null = null
 let pdaHandlersModulePromise: Promise<PdaHandlersModule> | null = null
@@ -202,10 +199,6 @@ async function closeDialogsOnEscape(): Promise<boolean> {
 
 let renderSerial = 0
 
-function renderLoadingContent(): string {
-  return PLACEHOLDER_PAGE_CONTENT
-}
-
 async function renderCurrentPageContent(pathname: string): Promise<string> {
   try {
     const { resolvePage } = await getRoutesModule()
@@ -220,10 +213,6 @@ async function render(): Promise<void> {
   const currentSerial = ++renderSerial
   const state = appStore.getState()
 
-  root.innerHTML = renderAppShell(state, renderLoadingContent())
-  hydrateIcons(root)
-  hydrateRealQRCodes(root)
-
   const pageContent = await renderCurrentPageContent(state.pathname)
   if (currentSerial !== renderSerial) {
     return
@@ -232,6 +221,50 @@ async function render(): Promise<void> {
   root.innerHTML = renderAppShell(state, pageContent)
   hydrateIcons(root)
   hydrateRealQRCodes(root)
+}
+
+function getPageContentHost(): HTMLDivElement | null {
+  const host = root.querySelector('[data-page-content-root="true"]')
+  return host instanceof HTMLDivElement ? host : null
+}
+
+function normalizePathname(pathname: string): string {
+  return pathname.split('?')[0].split('#')[0] || '/'
+}
+
+function isTechPackPageMounted(): boolean {
+  return Boolean(root.querySelector('[data-tech-pack-page-root="true"]'))
+}
+
+function shouldUseTechPackScopedRender(target: Element | null, previousPathname: string, nextPathname: string): boolean {
+  if (!(target instanceof Element)) return false
+  if (normalizePathname(previousPathname) !== normalizePathname(nextPathname)) return false
+  if (!target.closest('[data-tech-pack-page-root="true"]')) return false
+
+  const actionNode = target.closest<HTMLElement>('[data-tech-action]')
+  const action = actionNode?.dataset.techAction
+  if (action === 'tech-back') return false
+
+  return true
+}
+
+async function renderPageContentOnly(): Promise<void> {
+  const currentSerial = ++renderSerial
+  const state = appStore.getState()
+  const pageContent = await renderCurrentPageContent(state.pathname)
+  if (currentSerial !== renderSerial) {
+    return
+  }
+
+  const pageContentHost = getPageContentHost()
+  if (!pageContentHost) {
+    await render()
+    return
+  }
+
+  pageContentHost.innerHTML = pageContent
+  hydrateIcons(pageContentHost)
+  hydrateRealQRCodes(pageContentHost)
 }
 
 interface FocusSnapshot {
@@ -365,6 +398,11 @@ function restoreFocusSnapshot(snapshot: FocusSnapshot | null): void {
 
 async function renderWithFocusRestore(snapshot: FocusSnapshot | null): Promise<void> {
   await render()
+  restoreFocusSnapshot(snapshot)
+}
+
+async function renderPageContentOnlyWithFocusRestore(snapshot: FocusSnapshot | null): Promise<void> {
+  await renderPageContentOnly()
   restoreFocusSnapshot(snapshot)
 }
 
@@ -523,6 +561,8 @@ function handleShellAction(actionNode: HTMLElement): boolean {
 root.addEventListener('click', async (event) => {
   const target = resolveEventElementTarget(event.target)
   if (!target) return
+  const focusSnapshot = captureFocusSnapshot()
+  const previousPathname = appStore.getState().pathname
 
   if (shouldBypassClickDispatch(target)) return
 
@@ -542,7 +582,12 @@ root.addEventListener('click', async (event) => {
 
   if (await dispatchPageEvent(target)) {
     event.preventDefault()
-    await render()
+    const nextPathname = appStore.getState().pathname
+    if (shouldUseTechPackScopedRender(target, previousPathname, nextPathname)) {
+      await renderPageContentOnlyWithFocusRestore(focusSnapshot)
+    } else {
+      await renderWithFocusRestore(focusSnapshot)
+    }
     return
   }
 
@@ -567,6 +612,7 @@ root.addEventListener('input', async (event) => {
   if (!target) return
   if (isComposingInputEvent(event)) return
   const focusSnapshot = captureFocusSnapshot()
+  const previousPathname = appStore.getState().pathname
 
   if (await dispatchPcsInputEvent(target)) {
     await renderWithFocusRestore(focusSnapshot)
@@ -575,7 +621,12 @@ root.addEventListener('input', async (event) => {
 
   if (await dispatchPageEvent(target)) {
     if (shouldSkipInputRerender(target)) return
-    await renderWithFocusRestore(focusSnapshot)
+    const nextPathname = appStore.getState().pathname
+    if (shouldUseTechPackScopedRender(target, previousPathname, nextPathname)) {
+      await renderPageContentOnlyWithFocusRestore(focusSnapshot)
+    } else {
+      await renderWithFocusRestore(focusSnapshot)
+    }
   }
 })
 
@@ -583,6 +634,7 @@ root.addEventListener('compositionend', async (event) => {
   const target = resolveEventElementTarget(event.target)
   if (!target) return
   const focusSnapshot = captureFocusSnapshot()
+  const previousPathname = appStore.getState().pathname
 
   if (await dispatchPcsInputEvent(target)) {
     await renderWithFocusRestore(focusSnapshot)
@@ -591,7 +643,12 @@ root.addEventListener('compositionend', async (event) => {
 
   if (await dispatchPageEvent(target)) {
     if (shouldSkipInputRerender(target)) return
-    await renderWithFocusRestore(focusSnapshot)
+    const nextPathname = appStore.getState().pathname
+    if (shouldUseTechPackScopedRender(target, previousPathname, nextPathname)) {
+      await renderPageContentOnlyWithFocusRestore(focusSnapshot)
+    } else {
+      await renderWithFocusRestore(focusSnapshot)
+    }
   }
 })
 
@@ -599,9 +656,15 @@ root.addEventListener('change', async (event) => {
   const target = resolveEventElementTarget(event.target)
   if (!target) return
   const focusSnapshot = captureFocusSnapshot()
+  const previousPathname = appStore.getState().pathname
 
   if (await dispatchPageEvent(target)) {
-    await renderWithFocusRestore(focusSnapshot)
+    const nextPathname = appStore.getState().pathname
+    if (shouldUseTechPackScopedRender(target, previousPathname, nextPathname)) {
+      await renderPageContentOnlyWithFocusRestore(focusSnapshot)
+    } else {
+      await renderWithFocusRestore(focusSnapshot)
+    }
   }
 })
 
@@ -618,8 +681,13 @@ root.addEventListener('submit', async (event) => {
 document.addEventListener('keydown', async (event) => {
   if (event.key !== 'Escape') return
 
+  const shouldUseScopedRender = isTechPackPageMounted()
   if (await closeDialogsOnEscape()) {
-    await render()
+    if (shouldUseScopedRender) {
+      await renderPageContentOnly()
+    } else {
+      await render()
+    }
     return
   }
 
@@ -637,6 +705,11 @@ appStore.subscribe(() => {
   void render()
 })
 window.addEventListener('higood:request-render', () => {
-  void render()
+  const focusSnapshot = captureFocusSnapshot()
+  if (isTechPackPageMounted()) {
+    void renderPageContentOnlyWithFocusRestore(focusSnapshot)
+    return
+  }
+  void renderWithFocusRestore(focusSnapshot)
 })
 void render()

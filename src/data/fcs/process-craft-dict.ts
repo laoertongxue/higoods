@@ -1276,11 +1276,28 @@ const supplementalProcessCraftMappings: LegacyCraftMappingDefinition[] = [
   { legacyValue: 2000006, legacyCraftName: '包装', craftName: '包装', processCode: 'PACKAGING', isSpecialCraft: false, isActive: true, defaultDocument: '任务单' },
 ]
 
+const DISALLOWED_PSEUDO_SPECIAL_CRAFT_NAMES = new Set([
+  '\u5370\u82b1\u5de5\u827a',
+  '\u67d3\u8272\u5de5\u827a',
+])
+
+function isDisallowedPseudoSpecialCraft(input: {
+  craftName: string
+  legacyCraftName: string
+  processCode: string
+  isSpecialCraft: boolean
+}): boolean {
+  if (!input.isSpecialCraft && input.processCode !== 'SPECIAL_CRAFT') return false
+  return DISALLOWED_PSEUDO_SPECIAL_CRAFT_NAMES.has(input.craftName)
+    || DISALLOWED_PSEUDO_SPECIAL_CRAFT_NAMES.has(input.legacyCraftName)
+}
+
 const processDefinitionByCode = new Map(processDefinitions.map((item) => [item.processCode, item]))
 const processDefinitionBySystemCode = new Map(processDefinitions.map((item) => [item.systemProcessCode, item]))
 const stageDefinitionByCode = new Map(processStageDefinitions.map((item) => [item.stageCode, item]))
 
 export const allProcessCraftDefinitions: ProcessCraftDefinition[] = [...legacyProcessCraftMappings, ...supplementalProcessCraftMappings]
+  .filter((item) => !isDisallowedPseudoSpecialCraft(item))
   .slice()
   .sort((a, b) => a.legacyValue - b.legacyValue)
   .map((item) => {
@@ -1448,6 +1465,15 @@ export function listCraftsByStageCode(stageCode: CraftStageCode): ProcessCraftDe
   return processCraftDefinitions.filter((item) => item.stageCode === stageCode)
 }
 
+export function listSelectableSpecialCraftDefinitions(): ProcessCraftDefinition[] {
+  return processCraftDefinitions.filter(
+    (item) =>
+      item.isSpecialCraft
+      && item.processCode === 'SPECIAL_CRAFT'
+      && !isDisallowedPseudoSpecialCraft(item),
+  )
+}
+
 export interface ProcessCraftOption {
   processCode: string
   processName: string
@@ -1460,6 +1486,7 @@ export interface ProcessCraftOption {
 }
 
 function buildProcessCraftOption(definition: ProcessCraftDefinition): ProcessCraftOption | null {
+  if (isDisallowedPseudoSpecialCraft(definition)) return null
   const row = getProcessCraftDictRowByCode(definition.craftCode)
   if (!row || !row.isActive) return null
 
@@ -1739,6 +1766,7 @@ export interface ActiveProcessOption {
 export type ResolvedProcessCraft = ActiveProcessCraftRow
 
 function buildActiveProcessCraftRow(definition: ProcessCraftDefinition): ActiveProcessCraftRow | null {
+  if (isDisallowedPseudoSpecialCraft(definition)) return null
   if (!definition.isActive) return null
 
   const process = getProcessDefinitionByCode(definition.processCode)

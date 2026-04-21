@@ -313,7 +313,7 @@ export function renderAppShell(state: AppState, pageContent: string): string {
         <main class="flex min-h-0 min-w-0 flex-1 flex-col">
           ${renderTabsBar(state)}
           <div class="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
-            <div class="max-w-full p-4 lg:p-6">
+            <div data-page-content-root="true" class="max-w-full p-4 lg:p-6">
               ${pageContent}
             </div>
           </div>

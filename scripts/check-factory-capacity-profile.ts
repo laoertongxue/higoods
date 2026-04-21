@@ -37,6 +37,10 @@ const activeCraftMap = new Map(
 const capacityOptionKeys = new Set(
   getCapacityProcessCraftOptions().map((item) => `${item.processCode}::${item.craftCode}`),
 )
+assert(
+  !getCapacityProcessCraftOptions().some((item) => /印花工艺|染色工艺/.test(item.label) || /印花工艺|染色工艺/.test(item.craftName)),
+  '工厂产能档案可选工序工艺中不应暴露印花工艺 / 染色工艺',
+)
 
 assert(factories.length === profiles.length, '产能档案数量必须与工厂主数据数量一致')
 assert(profileStoreIds.length === profiles.length, '产能档案缓存数量必须与当前 profile 数量一致')

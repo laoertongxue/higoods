@@ -3,9 +3,9 @@ import {
   escapeHtml,
   formatPatternSpec,
   getBomColorOptionsForPattern,
+  getPatternPieceSpecialCraftOptionsFromCurrentTechPack,
   getPatternBySelectionKey,
   getSizeCodeOptionsFromSizeRules,
-  getSpecialCraftOptionsForPatternPiece,
   state,
 } from './context.ts'
 
@@ -528,12 +528,15 @@ function renderPatternPieceColorCountEditor(
 function renderPatternPieceSpecialCraftSelector(
   row: (typeof state.newPattern.pieceRows)[number],
 ): string {
-  const specialCraftOptions = getSpecialCraftOptionsForPatternPiece()
+  const specialCraftOptions = getPatternPieceSpecialCraftOptionsFromCurrentTechPack()
   if (specialCraftOptions.length === 0) {
     return '<span class="text-muted-foreground">无</span>'
   }
   const selectedCraftKeys = new Set(
     row.specialCrafts.map((item) => `${item.processCode}:${item.craftCode}`),
+  )
+  const invalidHistoryCrafts = row.specialCrafts.filter(
+    (item) => !specialCraftOptions.some((option) => option.processCode === item.processCode && option.craftCode === item.craftCode),
   )
   return `<div class="flex flex-wrap gap-1.5">${specialCraftOptions
     .map((craft) => {
@@ -547,6 +550,12 @@ function renderPatternPieceSpecialCraftSelector(
         data-craft-code="${escapeHtml(craft.craftCode)}"
       >${escapeHtml(craft.displayName)}</button>`
     })
+    .join('')}${invalidHistoryCrafts
+    .map(
+      (craft) => `<span class="inline-flex rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-[11px] text-amber-700">${escapeHtml(
+        `${craft.displayName || craft.craftName}（历史值）`,
+      )}</span>`,
+    )
     .join('')}</div>`
 }
 

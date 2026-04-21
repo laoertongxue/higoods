@@ -47,6 +47,7 @@ const requiredCommands = [
   'check:fcs-production-tech-pack-snapshot',
   'check:fcs-tech-pack-pattern-parser',
   'check:fcs-tech-pack-pattern-piece-detail',
+  'check:fcs-tech-pack-special-craft-source-and-dialog-stability',
   'check:fcs-tech-pack-snapshot-consumption',
   'check:printing-workflow',
   'check:dyeing-workflow',
@@ -78,6 +79,7 @@ const requiredFiles = [
   'scripts/check-fcs-inactive-process-craft-usage.ts',
   'scripts/check-fcs-tech-pack-pattern-parser.ts',
   'scripts/check-fcs-tech-pack-pattern-piece-detail.ts',
+  'scripts/check-fcs-tech-pack-special-craft-source-and-dialog-stability.ts',
   'src/data/fcs/task-qr.ts',
   'src/data/fcs/task-handover-domain.ts',
   'src/data/fcs/production-confirmation.ts',
@@ -111,6 +113,10 @@ const activeCrafts = listActiveProcessCraftDefinitions()
 assert(!activeCrafts.some((item) => item.processCode === 'WASHING'), '活跃工艺中不应存在 WASHING')
 assert(!activeCrafts.some((item) => item.processCode === 'HARDWARE'), '活跃工艺中不应存在五金工序')
 assert(!activeCrafts.some((item) => item.processCode === 'FROG_BUTTON'), '活跃工艺中不应存在盘扣工序')
+assert(!activeCrafts.some((item) => item.craftName === '印花工艺'), '活跃工艺中不应存在印花工艺伪特殊工艺')
+assert(!activeCrafts.some((item) => item.craftName === '染色工艺'), '活跃工艺中不应存在染色工艺伪特殊工艺')
+assert(!read('src/data/fcs/process-craft-dict.ts').includes('印花工艺'), '工序工艺字典源码不应保留印花工艺伪特殊工艺')
+assert(!read('src/data/fcs/process-craft-dict.ts').includes('染色工艺'), '工序工艺字典源码不应保留染色工艺伪特殊工艺')
 assert(getProcessDefinitionByCode('SHRINKING')?.stageCode === 'PREP', '缩水必须归准备阶段')
 assert(getProcessDefinitionByCode('POST_FINISHING')?.generatesExternalTask === true, '后道父任务必须生成任务')
 
@@ -186,7 +192,7 @@ const techPackSource =
 ;['patternFiles', '纸样类型', '针织', '布料', '打版软件', '裁片部位', '暂无图片'].forEach((token) => {
   assert(techPackSource.includes(token), `技术包口径缺少：${token}`)
 })
-;['纸样文件类型', '布料纸样', '针织纸样', '纸样分类', '解析纸样', '部位名称', '适用颜色', '每种颜色的片数', '特殊工艺', 'selectedSizeCodes', 'colorAllocations', 'specialCrafts'].forEach((token) => {
+;['纸样文件类型', '布料纸样', '针织纸样', '纸样分类', '解析纸样', '部位名称', '适用颜色', '每种颜色的片数', '特殊工艺', 'selectedSizeCodes', 'colorAllocations', 'specialCrafts', 'getPatternPieceSpecialCraftOptionsFromCurrentTechPack'].forEach((token) => {
   assert(techPackSource.includes(token), `技术包解析迁移口径缺少：${token}`)
 })
 
