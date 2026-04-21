@@ -18,6 +18,77 @@ function renderTextValue(value: string | number | undefined | null): string {
   return escapeHtml(String(value))
 }
 
+function renderPatternSizeSummary(selectedSizeCodes: string[], sizeRange?: string): string {
+  if (selectedSizeCodes.length > 0) {
+    return escapeHtml(selectedSizeCodes.join(' / '))
+  }
+  return renderTextValue(sizeRange)
+}
+
+function renderPatternPieceDetailTable(snapshot: ProductionConfirmationSnapshot): string {
+  const rows = snapshot.patternSnapshot.rows.flatMap((patternRow) =>
+    patternRow.pieceRows.map((pieceRow) => ({
+      patternName: patternRow.patternFileName || '暂无数据',
+      ...pieceRow,
+    })),
+  )
+
+  if (rows.length === 0) {
+    return '<div class="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">暂无数据</div>'
+  }
+
+  return `
+    <div class="overflow-x-auto rounded-lg border">
+      <table class="w-full min-w-[980px] text-sm">
+        <thead class="border-b bg-muted/20 text-xs text-muted-foreground">
+          <tr>
+            <th class="px-3 py-2 text-left font-medium">纸样</th>
+            <th class="px-3 py-2 text-left font-medium">部位名称</th>
+            <th class="px-3 py-2 text-right font-medium">片数</th>
+            <th class="px-3 py-2 text-left font-medium">适用颜色</th>
+            <th class="px-3 py-2 text-left font-medium">每种颜色的片数</th>
+            <th class="px-3 py-2 text-left font-medium">特殊工艺</th>
+            <th class="px-3 py-2 text-left font-medium">备注</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows
+            .map(
+              (row) => `
+                <tr class="border-b last:border-0">
+                  <td class="px-3 py-2">${escapeHtml(row.patternName)}</td>
+                  <td class="px-3 py-2 font-medium">${escapeHtml(row.name)}</td>
+                  <td class="px-3 py-2 text-right">${escapeHtml(String(row.count))}</td>
+                  <td class="px-3 py-2">${
+                    row.colorAllocations.length > 0
+                      ? escapeHtml(row.colorAllocations.map((allocation) => allocation.colorName).join('、'))
+                      : '<span class="text-muted-foreground">暂无数据</span>'
+                  }</td>
+                  <td class="px-3 py-2">${
+                    row.colorAllocations.length > 0
+                      ? escapeHtml(
+                          row.colorAllocations
+                            .map((allocation) => `${allocation.colorName}：${allocation.pieceCount}`)
+                            .join('；'),
+                        )
+                      : '<span class="text-muted-foreground">暂无数据</span>'
+                  }</td>
+                  <td class="px-3 py-2">${
+                    row.specialCrafts.length > 0
+                      ? escapeHtml(row.specialCrafts.map((craft) => craft.displayName || craft.craftName).join('、'))
+                      : '<span class="text-muted-foreground">无</span>'
+                  }</td>
+                  <td class="px-3 py-2">${renderTextValue(row.note)}</td>
+                </tr>
+              `,
+            )
+            .join('')}
+        </tbody>
+      </table>
+    </div>
+  `
+}
+
 function renderImageGroup(title: string, images: ProductionConfirmationImage[]): string {
   return `
     <section class="rounded-lg border bg-card p-4">
@@ -212,6 +283,7 @@ function renderPatternSection(snapshot: ProductionConfirmationSnapshot): string 
           <thead class="border-b bg-muted/20 text-xs text-muted-foreground">
             <tr>
               <th class="px-3 py-2 text-left font-medium">纸样类型</th>
+              <th class="px-3 py-2 text-left font-medium">纸样分类</th>
               <th class="px-3 py-2 text-left font-medium">纸样文件</th>
               <th class="px-3 py-2 text-left font-medium">纸样版本</th>
               <th class="px-3 py-2 text-left font-medium">打版软件</th>
@@ -226,7 +298,7 @@ function renderPatternSection(snapshot: ProductionConfirmationSnapshot): string 
               patternRows.length === 0
                 ? `
                   <tr>
-                    <td colspan="8" class="px-3 py-6 text-center text-sm text-muted-foreground">暂无数据</td>
+                    <td colspan="9" class="px-3 py-6 text-center text-sm text-muted-foreground">暂无数据</td>
                   </tr>
                 `
                 : patternRows
@@ -234,10 +306,11 @@ function renderPatternSection(snapshot: ProductionConfirmationSnapshot): string 
                       (row) => `
                         <tr class="border-b last:border-0">
                           <td class="px-3 py-2">${escapeHtml(row.patternMaterialTypeLabel)}</td>
+                          <td class="px-3 py-2">${renderTextValue(row.patternCategory)}</td>
                           <td class="px-3 py-2">${renderTextValue(row.patternFileName)}</td>
                           <td class="px-3 py-2">${renderTextValue(row.patternVersion)}</td>
                           <td class="px-3 py-2">${renderTextValue(row.patternSoftwareName)}</td>
-                          <td class="px-3 py-2">${renderTextValue(row.sizeRange)}</td>
+                          <td class="px-3 py-2">${renderPatternSizeSummary(row.selectedSizeCodes, row.sizeRange)}</td>
                           <td class="px-3 py-2 text-right">${renderTextValue(row.widthCm)}</td>
                           <td class="px-3 py-2 text-right">${renderTextValue(row.markerLengthM)}</td>
                           <td class="px-3 py-2 text-right">${renderTextValue(row.totalPieceCount)}</td>
@@ -249,6 +322,11 @@ function renderPatternSection(snapshot: ProductionConfirmationSnapshot): string 
           </tbody>
         </table>
       </div>
+
+      <div>
+        <h4 class="mb-2 text-sm font-medium text-foreground">裁片明细</h4>
+      </div>
+      ${renderPatternPieceDetailTable(snapshot)}
 
       <div>
         <h4 class="mb-2 text-sm font-medium text-foreground">裁片部位</h4>

@@ -4,12 +4,18 @@ import {
   suggestStandardPartName,
   type ParsedPartInstance,
 } from '../../utils/pcs-part-template-parser.ts'
+import type {
+  TechPackPatternPieceColorAllocation,
+  TechPackPatternPieceSpecialCraft,
+} from './tech-packs.ts'
 
 export interface FcsParsedPatternPieceRow {
   id: string
   name: string
   count: number
   note: string
+  colorAllocations: TechPackPatternPieceColorAllocation[]
+  specialCrafts: TechPackPatternPieceSpecialCraft[]
   sourceType: 'PARSED_PATTERN'
   sourcePartName?: string
   systemPieceName?: string
@@ -81,6 +87,8 @@ function mapPartToRow(part: ParsedPartInstance, index: number): FcsParsedPattern
     name,
     count: parsedCount ?? 0,
     note: buildRowNote(part),
+    colorAllocations: [],
+    specialCrafts: [],
     sourceType: 'PARSED_PATTERN',
     sourcePartName: normalizeText(part.sourcePartName) || undefined,
     systemPieceName: normalizeText(part.systemPieceName) || undefined,

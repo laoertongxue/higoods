@@ -598,9 +598,10 @@ root.addEventListener('compositionend', async (event) => {
 root.addEventListener('change', async (event) => {
   const target = resolveEventElementTarget(event.target)
   if (!target) return
+  const focusSnapshot = captureFocusSnapshot()
 
   if (await dispatchPageEvent(target)) {
-    await render()
+    await renderWithFocusRestore(focusSnapshot)
   }
 })
 

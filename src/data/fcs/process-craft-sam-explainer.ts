@@ -32,8 +32,8 @@ const TEMPLATE_B_CRAFT_NAMES = [
   '熨烫',
   '包装',
 ] as const
-const TEMPLATE_C_CRAFT_NAMES = ['丝网印', '数码印', '压褶', '打条', '激光切', '捆条', '印花工艺'] as const
-const TEMPLATE_D_CRAFT_NAMES = ['匹染', '色织', '染色工艺', '缩水', '洗水'] as const
+const TEMPLATE_C_CRAFT_NAMES = ['丝网印', '数码印', '压褶', '打条', '激光切', '捆条'] as const
+const TEMPLATE_D_CRAFT_NAMES = ['匹染', '色织', '缩水', '洗水'] as const
 
 export const FACTORY_SUPPLY_TEMPLATE_BY_CRAFT_NAME: Record<string, FactorySupplyFormulaTemplate> = Object.fromEntries(
   [

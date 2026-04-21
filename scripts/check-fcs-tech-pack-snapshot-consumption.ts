@@ -56,9 +56,18 @@ assert.ok(productionEventsSource.includes('open-order-tech-pack-snapshot'), '生
 assert.ok(!productionEventsSource.includes('/fcs/tech-pack/'), '生产页不得再打开旧的 FCS 技术包兼容路由')
 
 const snapshotPageSource = read('src/pages/fcs-production-tech-pack-snapshot.ts')
+const confirmationPageSource = read('src/pages/production/confirmation-print.ts')
+const runtimeSource = read('src/data/fcs/production-order-tech-pack-runtime.ts')
 assert.ok(snapshotPageSource.includes('技术包快照 - '), 'FCS 技术包快照页必须使用新的页面标题')
 ;['保存', '发布', '新增', '删除', '替换', '上传'].forEach((keyword) => {
   assert.ok(!snapshotPageSource.includes(keyword), `FCS 技术包快照页不得出现可编辑动作：${keyword}`)
+})
+;['纸样分类', '适用颜色', '每种颜色的片数', '特殊工艺'].forEach((token) => {
+  assert.ok(snapshotPageSource.includes(token), `技术包快照页必须展示：${token}`)
+  assert.ok(confirmationPageSource.includes(token), `生产确认单打印页必须展示：${token}`)
+})
+;['selectedSizeCodes', 'colorAllocations', 'specialCrafts'].forEach((token) => {
+  assert.ok(runtimeSource.includes(token), `生产单技术包运行时克隆必须保留：${token}`)
 })
 
 ;[

@@ -56,6 +56,79 @@ function renderTextValue(value: string | number | undefined | null): string {
   return normalized ? escapeHtml(normalized) : '暂无数据'
 }
 
+function renderPatternSizeSummary(selectedSizeCodes: string[], sizeRange?: string): string {
+  if (selectedSizeCodes.length > 0) {
+    return escapeHtml(selectedSizeCodes.join(' / '))
+  }
+  return renderTextValue(sizeRange)
+}
+
+function renderPatternPieceDetailTable(
+  rows: ReturnType<typeof getProductionOrderPatternFiles>,
+): string {
+  const pieceRows = rows.flatMap((patternRow) =>
+    (patternRow.pieceRows ?? []).map((pieceRow) => ({
+      patternName: patternRow.patternFileName || '暂无数据',
+      ...pieceRow,
+    })),
+  )
+
+  if (pieceRows.length === 0) {
+    return renderEmptyState('当前快照未冻结裁片明细。')
+  }
+
+  return `
+    <div class="overflow-x-auto rounded-lg border">
+      <table class="w-full min-w-[980px] text-sm">
+        <thead class="border-b bg-muted/20 text-xs text-muted-foreground">
+          <tr>
+            <th class="px-3 py-2 text-left font-medium">纸样</th>
+            <th class="px-3 py-2 text-left font-medium">部位名称</th>
+            <th class="px-3 py-2 text-right font-medium">片数</th>
+            <th class="px-3 py-2 text-left font-medium">适用颜色</th>
+            <th class="px-3 py-2 text-left font-medium">每种颜色的片数</th>
+            <th class="px-3 py-2 text-left font-medium">特殊工艺</th>
+            <th class="px-3 py-2 text-left font-medium">备注</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${pieceRows
+            .map(
+              (row) => `
+                <tr class="border-b last:border-0">
+                  <td class="px-3 py-2">${escapeHtml(row.patternName)}</td>
+                  <td class="px-3 py-2 font-medium">${escapeHtml(row.name)}</td>
+                  <td class="px-3 py-2 text-right">${escapeHtml(String(row.count))}</td>
+                  <td class="px-3 py-2">${
+                    (row.colorAllocations ?? []).length > 0
+                      ? escapeHtml((row.colorAllocations ?? []).map((allocation) => allocation.colorName).join('、'))
+                      : '暂无数据'
+                  }</td>
+                  <td class="px-3 py-2">${
+                    (row.colorAllocations ?? []).length > 0
+                      ? escapeHtml(
+                          (row.colorAllocations ?? [])
+                            .map((allocation) => `${allocation.colorName}：${allocation.pieceCount}`)
+                            .join('；'),
+                        )
+                      : '暂无数据'
+                  }</td>
+                  <td class="px-3 py-2">${
+                    (row.specialCrafts ?? []).length > 0
+                      ? escapeHtml((row.specialCrafts ?? []).map((craft) => craft.displayName || craft.craftName).join('、'))
+                      : '无'
+                  }</td>
+                  <td class="px-3 py-2">${renderTextValue(row.note)}</td>
+                </tr>
+              `,
+            )
+            .join('')}
+        </tbody>
+      </table>
+    </div>
+  `
+}
+
 function renderYesNo(value: boolean): string {
   return value ? '需要' : '不需要'
 }
@@ -83,6 +156,7 @@ function renderPatternTab(productionOrderId: string): string {
           <thead class="border-b bg-muted/20 text-xs text-muted-foreground">
             <tr>
               <th class="px-3 py-2 text-left font-medium">纸样类型</th>
+              <th class="px-3 py-2 text-left font-medium">纸样分类</th>
               <th class="px-3 py-2 text-left font-medium">纸样文件</th>
               <th class="px-3 py-2 text-left font-medium">纸样版本</th>
               <th class="px-3 py-2 text-left font-medium">打版软件</th>
@@ -98,7 +172,7 @@ function renderPatternTab(productionOrderId: string): string {
               rows.length === 0
                 ? `
                   <tr>
-                    <td colspan="9" class="px-3 py-6 text-center text-sm text-muted-foreground">暂无数据</td>
+                    <td colspan="10" class="px-3 py-6 text-center text-sm text-muted-foreground">暂无数据</td>
                   </tr>
                 `
                 : rows
@@ -106,10 +180,11 @@ function renderPatternTab(productionOrderId: string): string {
                       (row) => `
                         <tr class="border-b last:border-0">
                           <td class="px-3 py-2">${escapeHtml(row.patternMaterialTypeLabel)}</td>
+                          <td class="px-3 py-2">${renderTextValue(row.patternCategory)}</td>
                           <td class="px-3 py-2">${renderTextValue(row.patternFileName)}</td>
                           <td class="px-3 py-2">${renderTextValue(row.patternVersion)}</td>
                           <td class="px-3 py-2">${renderTextValue(row.patternSoftwareName)}</td>
-                          <td class="px-3 py-2">${renderTextValue(row.sizeRange)}</td>
+                          <td class="px-3 py-2">${renderPatternSizeSummary(row.selectedSizeCodes ?? [], row.sizeRange)}</td>
                           <td class="px-3 py-2">${renderTextValue(row.linkedBomItemId)}</td>
                           <td class="px-3 py-2 text-right">${renderTextValue(row.totalPieceCount)}</td>
                           <td class="px-3 py-2">${renderTextValue(row.uploadedAt)}</td>
@@ -122,6 +197,11 @@ function renderPatternTab(productionOrderId: string): string {
           </tbody>
         </table>
       </div>
+
+      <div>
+        <h4 class="mb-2 text-sm font-medium text-foreground">裁片明细</h4>
+      </div>
+      ${renderPatternPieceDetailTable(rows)}
 
       <div>
         <h4 class="mb-2 text-sm font-medium text-foreground">裁片部位</h4>

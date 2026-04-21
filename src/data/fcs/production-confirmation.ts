@@ -65,6 +65,7 @@ export interface ProductionConfirmationBomSnapshotRow {
 export interface ProductionConfirmationPatternFileSnapshot {
   patternMaterialType: PatternMaterialType
   patternMaterialTypeLabel: string
+  patternCategory?: string
   patternFileName?: string
   dxfFileName?: string
   rulFileName?: string
@@ -72,9 +73,24 @@ export interface ProductionConfirmationPatternFileSnapshot {
   patternVersion?: string
   patternSoftwareName?: string
   sizeRange?: string
+  selectedSizeCodes: string[]
   widthCm?: number
   markerLengthM?: number
   totalPieceCount?: number
+  pieceRows: Array<{
+    id: string
+    name: string
+    count: number
+    note?: string
+    colorAllocations: Array<{
+      colorName: string
+      pieceCount: number
+    }>
+    specialCrafts: Array<{
+      displayName: string
+      craftName: string
+    }>
+  }>
 }
 
 export interface ProductionConfirmationSizeMeasurementRow {
@@ -466,6 +482,7 @@ function buildPatternSnapshot(order: ProductionOrder): ProductionConfirmationSna
         {
       patternMaterialType: inferPatternMaterialType(order),
       patternMaterialTypeLabel: resolvePatternMaterialTypeLabel(inferPatternMaterialType(order)),
+      patternCategory: '',
       patternFileName: '',
       dxfFileName: '',
       rulFileName: '',
@@ -473,9 +490,11 @@ function buildPatternSnapshot(order: ProductionOrder): ProductionConfirmationSna
       patternVersion: versionLabel || '',
       patternSoftwareName: '',
       sizeRange: '',
+      selectedSizeCodes: [],
           widthCm: undefined,
           markerLengthM: undefined,
           totalPieceCount: undefined,
+          pieceRows: [],
         } as unknown as TechPackPatternFileSnapshot,
       ]
   const sizeMeasurements = techPackSnapshot.sizeMeasurements.length
@@ -496,6 +515,7 @@ function buildPatternSnapshot(order: ProductionOrder): ProductionConfirmationSna
     rows: patternRows.map((item) => ({
       patternMaterialType: item.patternMaterialType || inferPatternMaterialType(order),
       patternMaterialTypeLabel: item.patternMaterialTypeLabel || resolvePatternMaterialTypeLabel(item.patternMaterialType || inferPatternMaterialType(order)),
+      patternCategory: item.patternCategory,
       patternFileName: buildConfirmationPatternFileName(item),
       dxfFileName: item.dxfFileName,
       rulFileName: item.rulFileName,
@@ -503,9 +523,24 @@ function buildPatternSnapshot(order: ProductionOrder): ProductionConfirmationSna
       patternVersion: item.patternVersion || versionLabel,
       patternSoftwareName: item.patternSoftwareName,
       sizeRange: item.sizeRange,
+      selectedSizeCodes: [...(item.selectedSizeCodes ?? [])],
       widthCm: item.widthCm,
       markerLengthM: item.markerLengthM,
       totalPieceCount: item.totalPieceCount,
+      pieceRows: (item.pieceRows ?? []).map((row) => ({
+        id: row.id,
+        name: row.name,
+        count: row.count,
+        note: row.note,
+        colorAllocations: (row.colorAllocations ?? []).map((allocation) => ({
+          colorName: allocation.colorName,
+          pieceCount: allocation.pieceCount,
+        })),
+        specialCrafts: (row.specialCrafts ?? []).map((craft) => ({
+          displayName: craft.displayName,
+          craftName: craft.craftName,
+        })),
+      })),
     })),
     sizeMeasurements,
     cutPieceParts: cloneCutPieceParts(techPackSnapshot.cutPieceParts),

@@ -46,6 +46,7 @@ const requiredCommands = [
   'check:production-confirmation',
   'check:fcs-production-tech-pack-snapshot',
   'check:fcs-tech-pack-pattern-parser',
+  'check:fcs-tech-pack-pattern-piece-detail',
   'check:fcs-tech-pack-snapshot-consumption',
   'check:printing-workflow',
   'check:dyeing-workflow',
@@ -76,6 +77,7 @@ const requiredFiles = [
   'scripts/check-capacity-risk-process-craft-source.ts',
   'scripts/check-fcs-inactive-process-craft-usage.ts',
   'scripts/check-fcs-tech-pack-pattern-parser.ts',
+  'scripts/check-fcs-tech-pack-pattern-piece-detail.ts',
   'src/data/fcs/task-qr.ts',
   'src/data/fcs/task-handover-domain.ts',
   'src/data/fcs/production-confirmation.ts',
@@ -184,7 +186,7 @@ const techPackSource =
 ;['patternFiles', '纸样类型', '针织', '布料', '打版软件', '裁片部位', '暂无图片'].forEach((token) => {
   assert(techPackSource.includes(token), `技术包口径缺少：${token}`)
 })
-;['纸样文件类型', '布料纸样', '针织纸样', '纸样分类', '解析纸样'].forEach((token) => {
+;['纸样文件类型', '布料纸样', '针织纸样', '纸样分类', '解析纸样', '部位名称', '适用颜色', '每种颜色的片数', '特殊工艺', 'selectedSizeCodes', 'colorAllocations', 'specialCrafts'].forEach((token) => {
   assert(techPackSource.includes(token), `技术包解析迁移口径缺少：${token}`)
 })
 

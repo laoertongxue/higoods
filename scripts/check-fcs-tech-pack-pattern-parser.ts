@@ -37,6 +37,12 @@ const cuttingFeiSource = read('src/data/fcs/cutting/generated-fei-tickets.ts')
   assertIncludes(patternDomainSource, token, `纸样表单缺少文案：${token}`)
 })
 assertNotIncludes(patternDomainSource, '<span class="text-sm">纸样类型</span>', '主体片/结构片选择不得继续使用“纸样类型”字段名')
+;['部位名称', '片数', '适用颜色', '每种颜色的片数', '特殊工艺', '备注'].forEach((token) => {
+  assertIncludes(patternDomainSource, token, `裁片明细表缺少字段：${token}`)
+})
+;['selectedSizeCodes', 'colorAllocations', 'specialCrafts'].forEach((token) => {
+  assertIncludes(patternContextSource, token, `纸样上下文缺少新字段：${token}`)
+})
 
 ;[
   'DXF 文件',
@@ -88,6 +94,13 @@ assertIncludes(patternEventsSource, "if (state.newPattern.patternMaterialType !=
 assertIncludes(patternEventsSource, 'open-pattern-dxf-picker', '布料纸样必须支持 DXF 选择按钮')
 assertIncludes(patternEventsSource, 'open-pattern-rul-picker', '布料纸样必须支持 RUL 选择按钮')
 assertIncludes(patternEventsSource, 'open-pattern-single-file-picker', '针织纸样必须支持单文件选择按钮')
+assertIncludes(patternDomainSource, 'toggle-pattern-size-code', '尺码范围必须改为放码规则标签选择')
+assertNotIncludes(patternDomainSource, 'data-tech-field="new-pattern-size-range"', '尺码范围不得保留文本框输入')
+assertIncludes(patternEventsSource, 'selectedSizeCodes.length === 0', '保存校验必须要求尺码范围至少选择 1 个')
+assertIncludes(patternDomainSource, 'toggle-pattern-piece-color', '裁片适用颜色必须支持标签选择')
+assertIncludes(patternDomainSource, 'toggle-pattern-piece-special-craft', '裁片特殊工艺必须支持标签选择')
+assertIncludes(patternEventsSource, 'row.colorAllocations.length === 0', '保存校验必须要求每行至少选择 1 个颜色')
+assertIncludes(patternEventsSource, 'allocation.pieceCount) <= 0', '保存校验必须要求每个颜色片数大于 0')
 
 ;[
   'patternMaterialType',
@@ -127,6 +140,9 @@ assert(seedSnapshot.patternFiles.some((item) => item.parseStatus === 'PARSED'), 
 assert(seedSnapshot.patternFiles.some((item) => item.parseStatus === 'NOT_REQUIRED'), '针织纸样快照必须保留无需解析状态')
 assert(seedSnapshot.patternFiles.some((item) => item.pieceRows?.some((row) => row.sourceType === 'PARSED_PATTERN')), '布料纸样裁片明细必须保留解析来源')
 assert(seedSnapshot.patternFiles.some((item) => item.pieceRows?.some((row) => row.sourceType === 'MANUAL')), '针织纸样裁片明细必须保留人工来源')
+assert(seedSnapshot.patternFiles.every((item) => Array.isArray(item.selectedSizeCodes ?? [])), '技术包快照必须保留尺码数组')
+assert(seedSnapshot.patternFiles.flatMap((item) => item.pieceRows ?? []).every((row) => Array.isArray(row.colorAllocations ?? [])), '技术包快照必须保留颜色分配')
+assert(seedSnapshot.patternFiles.flatMap((item) => item.pieceRows ?? []).every((row) => Array.isArray(row.specialCrafts ?? [])), '技术包快照必须保留特殊工艺')
 
 const productionOrder =
   productionOrders.find((item) => buildProductionConfirmationSnapshot(item.productionOrderId).patternSnapshot.rows.length > 0)
@@ -142,6 +158,9 @@ assert(confirmationSnapshot.patternSnapshot.rows.every((row) => row.patternMater
 const confirmationHtml = renderProductionConfirmationPrintPage(productionOrder.productionOrderId)
 ;['纸样类型', '纸样文件', '打版软件', '裁片部位'].forEach((token) => {
   assertIncludes(confirmationHtml, token, `生产确认单必须展示：${token}`)
+})
+;['纸样分类', '适用颜色', '每种颜色的片数', '特殊工艺'].forEach((token) => {
+  assertIncludes(confirmationHtml, token, `生产确认单必须展示新字段：${token}`)
 })
 assertNotIncludes(confirmationHtml, '>WOVEN<', '生产确认单不得直接显示 WOVEN')
 assertNotIncludes(confirmationHtml, '>KNIT<', '生产确认单不得直接显示 KNIT')

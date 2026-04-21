@@ -33,12 +33,18 @@ function cloneBomItems(items: TechPackBomItem[]): TechPackBomItem[] {
 function clonePatternFiles(items: TechPackPatternFileSnapshot[]): TechPackPatternFileSnapshot[] {
   return items.map((item) => ({
     ...item,
+    selectedSizeCodes: [...(item.selectedSizeCodes ?? [])],
     rulSizeList: [...(item.rulSizeList ?? [])],
     pieceRows: item.pieceRows?.map((row) => ({
       ...row,
       applicableSkuCodes: [...(row.applicableSkuCodes ?? [])],
       candidatePartNames: [...(row.candidatePartNames ?? [])],
       rawTextLabels: [...(row.rawTextLabels ?? [])],
+      colorAllocations: row.colorAllocations?.map((allocation) => ({
+        ...allocation,
+        skuCodes: [...(allocation.skuCodes ?? [])],
+      })),
+      specialCrafts: row.specialCrafts?.map((craft) => ({ ...craft })),
     })),
   }))
 }

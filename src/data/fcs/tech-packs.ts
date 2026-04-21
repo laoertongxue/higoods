@@ -39,12 +39,30 @@ export const TECH_PACK_PATTERN_PARSE_STATUS_LABELS: Record<TechPackPatternParseS
 export const TECH_PACK_PATTERN_CATEGORY_OPTIONS = ['主体片', '结构片', '装饰片', '其他'] as const
 export type TechPackPatternCategory = (typeof TECH_PACK_PATTERN_CATEGORY_OPTIONS)[number]
 
+export interface TechPackPatternPieceColorAllocation {
+  id: string
+  colorName: string
+  colorCode?: string
+  skuCodes?: string[]
+  pieceCount: number
+}
+
+export interface TechPackPatternPieceSpecialCraft {
+  processCode: string
+  processName: string
+  craftCode: string
+  craftName: string
+  displayName: string
+}
+
 export interface TechPackPatternPieceRow {
   id: string
   name: string
   count: number
   note?: string
   applicableSkuCodes?: string[]
+  colorAllocations?: TechPackPatternPieceColorAllocation[]
+  specialCrafts?: TechPackPatternPieceSpecialCraft[]
   sourceType?: TechPackPatternPieceSourceType
   missingName?: boolean
   missingCount?: boolean
@@ -96,6 +114,7 @@ export interface TechPackPatternFile {
   rulSampleSize?: string
   patternSoftwareName?: string
   sizeRange?: string
+  selectedSizeCodes?: string[]
   imageUrl?: string
   remark?: string
   // 纸样结构化信息（门幅单位：cm，排料长度单位：m，pieces 为裁片片数）
@@ -1299,8 +1318,8 @@ export const techPacks: TechPack[] = [
       createCraftProcessEntry('tpe-017-03', '烫画', 0.76, 'MEDIUM', '胸前标识按烫画维护。'),
       createCraftProcessEntry('tpe-017-04', '直喷', 0.9, 'MEDIUM', '局部数字编号按直喷维护。'),
       createCraftProcessEntry('tpe-017-05', '捆条', 1.02, 'HIGH', '帽口与袖口按捆条收边。'),
-      createCraftProcessEntry('tpe-017-06', '印花工艺', 1.38, 'HIGH', '特殊反光印花按工艺级任务维护。'),
-      createCraftProcessEntry('tpe-017-07', '染色工艺', 92, 'HIGH', '功能染色工艺单独维护当前款基线。'),
+      createCraftProcessEntry('tpe-017-06', '数码印', 1.38, 'HIGH', '特殊反光印花按数码印维护。'),
+      createCraftProcessEntry('tpe-017-07', '匹染', 92, 'HIGH', '功能染色按匹染维护当前款基线。'),
       createCraftProcessEntry('tpe-017-08', '缩水', 68, 'MEDIUM', '主布上线前先做缩水预处理。'),
     ],
     sizeTable: [

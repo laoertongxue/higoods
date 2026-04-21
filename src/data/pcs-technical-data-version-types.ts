@@ -14,12 +14,30 @@ export type TechnicalPatternParseStatus =
 export type TechnicalPatternPieceSourceType = 'PARSED_PATTERN' | 'MANUAL'
 export type TechnicalPatternCategory = '主体片' | '结构片' | '装饰片' | '其他'
 
+export interface TechnicalPatternPieceColorAllocation {
+  id: string
+  colorName: string
+  colorCode?: string
+  skuCodes?: string[]
+  pieceCount: number
+}
+
+export interface TechnicalPatternPieceSpecialCraft {
+  processCode: string
+  processName: string
+  craftCode: string
+  craftName: string
+  displayName: string
+}
+
 export interface TechnicalPatternPieceRow {
   id: string
   name: string
   count: number
   note?: string
   applicableSkuCodes?: string[]
+  colorAllocations?: TechnicalPatternPieceColorAllocation[]
+  specialCrafts?: TechnicalPatternPieceSpecialCraft[]
   sourceType?: TechnicalPatternPieceSourceType
   missingName?: boolean
   missingCount?: boolean
@@ -71,6 +89,7 @@ export interface TechnicalPatternFile {
   rulSampleSize?: string
   patternSoftwareName?: string
   sizeRange?: string
+  selectedSizeCodes?: string[]
   imageUrl?: string
   remark?: string
   linkedBomItemId?: string

@@ -135,13 +135,30 @@ function formatSizeRange(sizeTable: TechnicalSizeRow[]): string {
   return available.length ? available.join(' / ') : ''
 }
 
+function parseSizeRangeText(sizeRange?: string): string[] {
+  const normalized = normalizeText(sizeRange)
+  if (!normalized) return []
+  return uniqueStrings(
+    normalized
+      .split(/[\/,，、;；\s]+/)
+      .map((item) => item.trim())
+      .filter(Boolean),
+  )
+}
+
 function clonePatternFiles(items: TechPackPatternFileSnapshot[]): TechPackPatternFileSnapshot[] {
   return items.map((item) => ({
     ...item,
     rulSizeList: [...(item.rulSizeList ?? [])],
+    selectedSizeCodes: [...(item.selectedSizeCodes ?? [])],
     pieceRows: item.pieceRows?.map((row) => ({
       ...row,
       applicableSkuCodes: [...(row.applicableSkuCodes ?? [])],
+      colorAllocations: row.colorAllocations?.map((allocation) => ({
+        ...allocation,
+        skuCodes: [...(allocation.skuCodes ?? [])],
+      })),
+      specialCrafts: row.specialCrafts?.map((craft) => ({ ...craft })),
       candidatePartNames: [...(row.candidatePartNames ?? [])],
       rawTextLabels: [...(row.rawTextLabels ?? [])],
     })),
@@ -266,7 +283,17 @@ function normalizePatternFiles(
       rulFileName: normalizeText((item as { rulFileName?: string }).rulFileName) || undefined,
       singlePatternFileName: normalizeText((item as { singlePatternFileName?: string }).singlePatternFileName) || undefined,
       patternSoftwareName: normalizeText((item as { patternSoftwareName?: string }).patternSoftwareName) || undefined,
-      sizeRange: normalizeText((item as { sizeRange?: string }).sizeRange) || defaultSizeRange || undefined,
+      selectedSizeCodes: uniqueStrings([
+        ...(((item as { selectedSizeCodes?: string[] }).selectedSizeCodes ?? []).filter(Boolean)),
+        ...parseSizeRangeText((item as { sizeRange?: string }).sizeRange),
+      ]),
+      sizeRange:
+        uniqueStrings([
+          ...(((item as { selectedSizeCodes?: string[] }).selectedSizeCodes ?? []).filter(Boolean)),
+          ...parseSizeRangeText((item as { sizeRange?: string }).sizeRange),
+        ]).join(' / ')
+        || defaultSizeRange
+        || undefined,
       rulSizeList: [...(((item as { rulSizeList?: string[] }).rulSizeList ?? []).filter(Boolean))],
       rulSampleSize: normalizeText((item as { rulSampleSize?: string }).rulSampleSize) || undefined,
       parseStatus,
@@ -306,15 +333,21 @@ function buildCutPieceParts(input: {
   const partMap = new Map<string, TechPackCutPiecePartSnapshot>()
   input.patternFiles.forEach((patternFile) => {
     const linkedBom = input.bomItems.find((bom) => bom.id === patternFile.linkedBomItemId) || input.bomItems[0] || null
-    const applicableColors = uniqueStrings([
-      linkedBom?.colorLabel,
-      ...(linkedBom?.applicableSkuCodes ?? []).map((skuCode) => skuCode.split('-')[1]),
+    const patternSizeCodes = uniqueStrings([
+      ...(patternFile.selectedSizeCodes ?? []),
+      ...parseSizeRangeText(patternFile.sizeRange),
     ])
 
     ;(patternFile.pieceRows ?? []).forEach((pieceRow) => {
       const partCode = normalizeText((pieceRow as { partCode?: string }).partCode) || normalizeText(pieceRow.id) || normalizeText(pieceRow.name)
       const partNameCn = normalizeText(pieceRow.name)
       if (!partCode || !partNameCn) return
+
+      const applicableColors = uniqueStrings([
+        linkedBom?.colorLabel,
+        ...(linkedBom?.applicableSkuCodes ?? []).map((skuCode) => skuCode.split('-')[1]),
+        ...((pieceRow.colorAllocations ?? []).map((allocation) => allocation.colorName)),
+      ])
 
       const existing = partMap.get(partCode)
       const mergedColors = uniqueStrings([
@@ -324,6 +357,7 @@ function buildCutPieceParts(input: {
       const mergedSizes = uniqueStrings([
         ...(existing?.applicableSizeList ?? []),
         ...(pieceRow.applicableSkuCodes ?? []).map((skuCode) => skuCode.split('-').pop()),
+        ...patternSizeCodes,
         ...sizeRange,
       ])
 

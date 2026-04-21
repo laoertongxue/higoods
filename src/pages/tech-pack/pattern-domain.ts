@@ -2,7 +2,10 @@ import {
   TECH_PACK_PATTERN_CATEGORY_OPTIONS,
   escapeHtml,
   formatPatternSpec,
+  getBomColorOptionsForPattern,
   getPatternBySelectionKey,
+  getSizeCodeOptionsFromSizeRules,
+  getSpecialCraftOptionsForPatternPiece,
   state,
 } from './context.ts'
 
@@ -84,6 +87,58 @@ function renderPatternPiecePreview(previewSvg?: string): string {
   `
 }
 
+function renderReadonlyTagList(labels: string[], emptyText = '暂无数据'): string {
+  if (labels.length === 0) {
+    return `<span class="text-muted-foreground">${escapeHtml(emptyText)}</span>`
+  }
+  return `<div class="flex flex-wrap gap-1">${labels
+    .map((label) => `<span class="inline-flex rounded border px-1.5 py-0.5 text-[10px]">${escapeHtml(label)}</span>`)
+    .join('')}</div>`
+}
+
+function renderPatternSizeSummary(selectedSizeCodes: string[], sizeRange?: string): string {
+  if (selectedSizeCodes.length > 0) return escapeHtml(selectedSizeCodes.join(' / '))
+  return renderTextValue(sizeRange)
+}
+
+function renderPatternPieceColorSummary(
+  row: { colorAllocations: Array<{ colorName: string; pieceCount: number }>; applicableSkuCodes: string[] },
+): string {
+  if (row.colorAllocations.length > 0) {
+    return renderReadonlyTagList(row.colorAllocations.map((allocation) => allocation.colorName))
+  }
+  if (row.applicableSkuCodes.length > 0) {
+    return renderReadonlyTagList(row.applicableSkuCodes)
+  }
+  return '<span class="text-muted-foreground">暂无数据</span>'
+}
+
+function renderPatternPieceColorCountSummary(
+  row: { colorAllocations: Array<{ colorName: string; pieceCount: number }> },
+): string {
+  if (row.colorAllocations.length === 0) {
+    return '<span class="text-muted-foreground">暂无数据</span>'
+  }
+  return `<div class="space-y-1">${row.colorAllocations
+    .map(
+      (allocation) =>
+        `<div class="text-xs"><span class="text-muted-foreground">${escapeHtml(allocation.colorName)}</span>：${escapeHtml(String(allocation.pieceCount))}</div>`,
+    )
+    .join('')}</div>`
+}
+
+function renderPatternPieceSpecialCraftSummary(
+  row: { specialCrafts: Array<{ displayName: string; craftName: string }> },
+): string {
+  if (row.specialCrafts.length === 0) {
+    return '<span class="text-muted-foreground">无</span>'
+  }
+  return renderReadonlyTagList(
+    row.specialCrafts.map((craft) => craft.displayName || craft.craftName),
+    '无',
+  )
+}
+
 function hasExtension(fileName: string, extension: string): boolean {
   return fileName.trim().toLowerCase().endsWith(extension)
 }
@@ -118,9 +173,21 @@ function canParseWovenPattern(): boolean {
 
 function canSavePatternForm(): boolean {
   if (!state.newPattern.name.trim()) return false
+  const sizeOptions = getSizeCodeOptionsFromSizeRules()
+  if (sizeOptions.length === 0 || state.newPattern.selectedSizeCodes.length === 0) return false
+  const colorOptions = getBomColorOptionsForPattern(state.newPattern.linkedBomItemId)
+  if (colorOptions.length === 0) return false
+
+  const hasInvalidColorAllocations = state.newPattern.pieceRows.some(
+    (row) =>
+      row.colorAllocations.length === 0
+      || row.colorAllocations.some((allocation) => Number(allocation.pieceCount) <= 0),
+  )
+
   if (state.newPattern.patternMaterialType === 'WOVEN') {
     if (state.newPattern.parseStatus !== 'PARSED') return false
     if (state.newPattern.pieceRows.length === 0) return false
+    if (hasInvalidColorAllocations) return false
     return !state.newPattern.pieceRows.some(
       (row) => !row.name.trim() || Number(row.count) <= 0 || row.missingName || row.missingCount,
     )
@@ -129,6 +196,7 @@ function canSavePatternForm(): boolean {
   if (state.newPattern.patternMaterialType === 'KNIT') {
     if (!state.newPattern.singlePatternFileName.trim() && !state.newPattern.file.trim()) return false
     if (state.newPattern.pieceRows.length === 0) return false
+    if (hasInvalidColorAllocations) return false
     return !state.newPattern.pieceRows.some((row) => !row.name.trim() || Number(row.count) <= 0)
   }
 
@@ -154,65 +222,19 @@ function renderPatternDetailPieceTable(): string {
   const pattern = getPatternBySelectionKey(state.selectedPattern || '')
   if (!pattern) return ''
 
-  const isWoven = pattern.patternMaterialType === 'WOVEN'
   if (pattern.pieceRows.length === 0) {
     return '<div class="rounded-md border border-dashed px-3 py-3 text-xs text-muted-foreground">暂无数据</div>'
-  }
-
-  if (isWoven) {
-    return `
-      <table class="w-full text-xs">
-        <thead>
-          <tr class="border-b bg-muted/20">
-            <th class="px-2 py-1 text-left">裁片名称</th>
-            <th class="px-2 py-1 text-left">原始名称</th>
-            <th class="px-2 py-1 text-left">尺码</th>
-            <th class="px-2 py-1 text-right">片数</th>
-            <th class="px-2 py-1 text-left">解析状态</th>
-            <th class="px-2 py-1 text-left">预览</th>
-            <th class="px-2 py-1 text-left">备注</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${pattern.pieceRows
-            .map(
-              (row) => `
-                <tr class="border-b align-top last:border-0">
-                  <td class="px-2 py-1">
-                    ${
-                      row.name.trim()
-                        ? escapeHtml(row.name)
-                        : '<span class="text-red-600">名称缺失</span>'
-                    }
-                  </td>
-                  <td class="px-2 py-1 text-muted-foreground">${renderTextValue(row.sourcePartName || row.systemPieceName)}</td>
-                  <td class="px-2 py-1 text-muted-foreground">${renderTextValue(row.sizeCode)}</td>
-                  <td class="px-2 py-1 text-right">
-                    ${
-                      Number(row.count) > 0
-                        ? escapeHtml(String(row.count))
-                        : '<span class="text-red-600">数量缺失</span>'
-                    }
-                  </td>
-                  <td class="px-2 py-1">${renderTextValue(row.parserStatus)}</td>
-                  <td class="px-2 py-1">${renderPatternPiecePreview(row.previewSvg)}</td>
-                  <td class="px-2 py-1 text-muted-foreground">${renderTextValue(row.note || row.annotation)}</td>
-                </tr>
-              `,
-            )
-            .join('')}
-        </tbody>
-      </table>
-    `
   }
 
   return `
     <table class="w-full text-xs">
       <thead>
         <tr class="border-b bg-muted/20">
-          <th class="px-2 py-1 text-left">裁片名称</th>
+          <th class="px-2 py-1 text-left">部位名称</th>
           <th class="px-2 py-1 text-right">片数</th>
-          <th class="px-2 py-1 text-left">适用 SKU</th>
+          <th class="px-2 py-1 text-left">适用颜色</th>
+          <th class="px-2 py-1 text-left">每种颜色的片数</th>
+          <th class="px-2 py-1 text-left">特殊工艺</th>
           <th class="px-2 py-1 text-left">备注</th>
         </tr>
       </thead>
@@ -223,18 +245,9 @@ function renderPatternDetailPieceTable(): string {
               <tr class="border-b last:border-0">
                 <td class="px-2 py-1">${escapeHtml(row.name)}</td>
                 <td class="px-2 py-1 text-right">${row.count}</td>
-                <td class="px-2 py-1">
-                  ${
-                    row.applicableSkuCodes.length === 0
-                      ? '<span class="text-muted-foreground">全部 SKU</span>'
-                      : `<div class="flex flex-wrap gap-1">${row.applicableSkuCodes
-                          .map(
-                            (skuCode) =>
-                              `<span class="inline-flex rounded border px-1 py-0.5 text-[10px]">${escapeHtml(skuCode)}</span>`,
-                          )
-                          .join('')}</div>`
-                  }
-                </td>
+                <td class="px-2 py-1">${renderPatternPieceColorSummary(row)}</td>
+                <td class="px-2 py-1">${renderPatternPieceColorCountSummary(row)}</td>
+                <td class="px-2 py-1">${renderPatternPieceSpecialCraftSummary(row)}</td>
                 <td class="px-2 py-1 text-muted-foreground">${escapeHtml(row.note || '-')}</td>
               </tr>
             `,
@@ -255,7 +268,7 @@ export function renderPatternTab(): string {
     <section class="rounded-lg border bg-card">
       <header class="flex items-center justify-between border-b px-4 py-3">
         <h3 class="text-base font-semibold">纸样管理</h3>
-        ${readonly ? '' : `<button class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-tech-action="open-add-pattern">
+        ${readonly ? '' : `<button type="button" class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-tech-action="open-add-pattern">
           <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
           添加纸样
         </button>`}
@@ -299,7 +312,7 @@ export function renderPatternTab(): string {
                           <td class="px-3 py-2">
                             ${
                               item.pieceRows.length > 0
-                                ? `<button class="text-blue-600 hover:underline" data-tech-action="open-pattern-detail" data-pattern-id="${item.id}">${item.pieceRows.length} 项明细</button>`
+                                ? `<button type="button" class="text-blue-600 hover:underline" data-tech-action="open-pattern-detail" data-pattern-id="${item.id}">${item.pieceRows.length} 项明细</button>`
                                 : '<span class="text-sm text-muted-foreground">暂无数据</span>'
                             }
                           </td>
@@ -307,13 +320,13 @@ export function renderPatternTab(): string {
                           <td class="px-3 py-2 text-sm text-muted-foreground">${escapeHtml(item.remark || '-')}</td>
                           <td class="px-3 py-2">
                             <div class="flex items-center gap-1">
-                              ${readonly ? '' : `<button class="inline-flex h-8 w-8 items-center justify-center rounded hover:bg-muted" data-tech-action="edit-pattern" data-pattern-id="${item.id}">
+                              ${readonly ? '' : `<button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded hover:bg-muted" data-tech-action="edit-pattern" data-pattern-id="${item.id}">
                                 <i data-lucide="edit-2" class="h-4 w-4"></i>
                               </button>`}
-                              <button class="inline-flex h-8 w-8 items-center justify-center rounded hover:bg-muted" data-tech-action="open-pattern-detail" data-pattern-id="${item.id}">
+                              <button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded hover:bg-muted" data-tech-action="open-pattern-detail" data-pattern-id="${item.id}">
                                 <i data-lucide="eye" class="h-4 w-4"></i>
                               </button>
-                              ${readonly ? '' : `<button class="inline-flex h-8 w-8 items-center justify-center rounded text-red-600 hover:bg-red-50" data-tech-action="delete-pattern" data-pattern-id="${item.id}">
+                              ${readonly ? '' : `<button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded text-red-600 hover:bg-red-50" data-tech-action="delete-pattern" data-pattern-id="${item.id}">
                                 <i data-lucide="trash-2" class="h-4 w-4"></i>
                               </button>`}
                             </div>
@@ -396,7 +409,7 @@ export function renderPatternDialog(): string {
             </div>
             <div>
               <p class="text-xs text-muted-foreground">尺码范围</p>
-              <p class="mt-1">${renderTextValue(pattern.sizeRange)}</p>
+              <p class="mt-1">${renderPatternSizeSummary(pattern.selectedSizeCodes, pattern.sizeRange)}</p>
             </div>
             <div>
               <p class="text-xs text-muted-foreground">RUL 基码</p>
@@ -433,10 +446,172 @@ export function renderPatternDialog(): string {
           }
         </div>
         <footer class="flex items-center justify-end border-t px-6 py-4">
-          <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-tech-action="close-pattern-detail">关闭</button>
+          <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-tech-action="close-pattern-detail">关闭</button>
         </footer>
       </section>
     </div>
+  `
+}
+
+function renderPatternSizeSelector(): string {
+  const sizeOptions = getSizeCodeOptionsFromSizeRules()
+  if (sizeOptions.length === 0) {
+    return '<div class="rounded-md border border-dashed px-3 py-3 text-sm text-amber-600">请先维护放码规则</div>'
+  }
+
+  const selectedSizeSet = new Set(state.newPattern.selectedSizeCodes)
+  return `<div class="flex flex-wrap gap-2">${sizeOptions
+    .map((option) => {
+      const selected = selectedSizeSet.has(option.sizeCode)
+      return `<button
+        type="button"
+        class="inline-flex rounded-md border px-3 py-2 text-sm ${selected ? 'border-blue-500 bg-blue-50 text-blue-700' : 'hover:bg-muted'}"
+        data-tech-action="toggle-pattern-size-code"
+        data-size-code="${escapeHtml(option.sizeCode)}"
+      >${escapeHtml(option.label)}</button>`
+    })
+    .join('')}</div>`
+}
+
+function renderPatternPieceColorSelector(
+  row: (typeof state.newPattern.pieceRows)[number],
+): string {
+  const colorOptions = getBomColorOptionsForPattern(state.newPattern.linkedBomItemId)
+  if (colorOptions.length === 0) {
+    return '<span class="text-muted-foreground">请先维护物料清单颜色</span>'
+  }
+
+  const selectedColorSet = new Set(
+    row.colorAllocations.map((allocation) => allocation.colorName.trim().toLowerCase()),
+  )
+
+  return `<div class="flex flex-wrap gap-1.5">${colorOptions
+    .map((option) => {
+      const selected = selectedColorSet.has(option.colorName.trim().toLowerCase())
+      return `<button
+        type="button"
+        class="inline-flex rounded-md border px-2 py-1 text-[11px] ${selected ? 'border-blue-500 bg-blue-50 text-blue-700' : 'hover:bg-muted'}"
+        data-tech-action="toggle-pattern-piece-color"
+        data-piece-id="${row.id}"
+        data-color-name="${escapeHtml(option.colorName)}"
+      >${escapeHtml(option.colorName)}</button>`
+    })
+    .join('')}</div>`
+}
+
+function renderPatternPieceColorCountEditor(
+  row: (typeof state.newPattern.pieceRows)[number],
+): string {
+  if (row.colorAllocations.length === 0) {
+    return '<span class="text-muted-foreground">请先选择颜色</span>'
+  }
+  return `<div class="space-y-2">${row.colorAllocations
+    .map(
+      (allocation) => `
+        <label class="flex items-center gap-2 text-xs">
+          <span class="min-w-0 flex-1 truncate text-muted-foreground">${escapeHtml(allocation.colorName)}</span>
+          <input
+            type="number"
+            min="1"
+            class="h-8 w-20 rounded border px-2 text-right text-xs"
+            data-tech-field="new-pattern-piece-color-count"
+            data-piece-id="${row.id}"
+            data-color-name="${escapeHtml(allocation.colorName)}"
+            value="${escapeHtml(String(allocation.pieceCount || 0))}"
+          />
+        </label>
+      `,
+    )
+    .join('')}</div>`
+}
+
+function renderPatternPieceSpecialCraftSelector(
+  row: (typeof state.newPattern.pieceRows)[number],
+): string {
+  const specialCraftOptions = getSpecialCraftOptionsForPatternPiece()
+  if (specialCraftOptions.length === 0) {
+    return '<span class="text-muted-foreground">无</span>'
+  }
+  const selectedCraftKeys = new Set(
+    row.specialCrafts.map((item) => `${item.processCode}:${item.craftCode}`),
+  )
+  return `<div class="flex flex-wrap gap-1.5">${specialCraftOptions
+    .map((craft) => {
+      const selected = selectedCraftKeys.has(`${craft.processCode}:${craft.craftCode}`)
+      return `<button
+        type="button"
+        class="inline-flex rounded-md border px-2 py-1 text-[11px] ${selected ? 'border-blue-500 bg-blue-50 text-blue-700' : 'hover:bg-muted'}"
+        data-tech-action="toggle-pattern-piece-special-craft"
+        data-piece-id="${row.id}"
+        data-process-code="${escapeHtml(craft.processCode)}"
+        data-craft-code="${escapeHtml(craft.craftCode)}"
+      >${escapeHtml(craft.displayName)}</button>`
+    })
+    .join('')}</div>`
+}
+
+function renderPatternPieceEditorTable(isWoven: boolean): string {
+  if (state.newPattern.pieceRows.length === 0) {
+    return '<div class="rounded border border-dashed px-3 py-3 text-xs text-muted-foreground">暂无数据</div>'
+  }
+
+  return `
+    <table class="w-full text-xs">
+      <thead>
+        <tr class="border-b bg-muted/20">
+          <th class="px-2 py-1 text-left">部位名称</th>
+          <th class="px-2 py-1 text-right">片数</th>
+          <th class="px-2 py-1 text-left">适用颜色</th>
+          <th class="px-2 py-1 text-left">每种颜色的片数</th>
+          <th class="px-2 py-1 text-left">特殊工艺</th>
+          <th class="px-2 py-1 text-left">备注</th>
+          <th class="px-2 py-1 text-right">操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${state.newPattern.pieceRows
+          .map(
+            (row) => `
+              <tr class="border-b align-top last:border-0">
+                <td class="px-2 py-1">
+                  ${
+                    isWoven
+                      ? row.name.trim()
+                        ? escapeHtml(row.name)
+                        : '<span class="text-red-600">名称缺失</span>'
+                      : `<input class="h-8 w-full rounded border px-2 text-xs" data-tech-field="new-pattern-piece-name" data-piece-id="${row.id}" value="${escapeHtml(row.name)}" placeholder="例如 前片" />`
+                  }
+                </td>
+                <td class="px-2 py-1">
+                  ${
+                    isWoven
+                      ? Number(row.count) > 0
+                        ? `<div class="pt-1 text-right">${escapeHtml(String(row.count))}</div>`
+                        : '<span class="text-red-600">数量缺失</span>'
+                      : `<input type="number" min="1" class="h-8 w-20 rounded border px-2 text-right text-xs" data-tech-field="new-pattern-piece-count" data-piece-id="${row.id}" value="${escapeHtml(String(row.count || 0))}" />`
+                  }
+                </td>
+                <td class="px-2 py-1">${renderPatternPieceColorSelector(row)}</td>
+                <td class="px-2 py-1">${renderPatternPieceColorCountEditor(row)}</td>
+                <td class="px-2 py-1">${renderPatternPieceSpecialCraftSelector(row)}</td>
+                <td class="px-2 py-1">
+                  <input class="h-8 w-full rounded border px-2 text-xs" data-tech-field="new-pattern-piece-note" data-piece-id="${row.id}" value="${escapeHtml(row.note)}" placeholder="备注" />
+                </td>
+                <td class="px-2 py-1 text-right">
+                  ${
+                    isWoven
+                      ? '<span class="text-muted-foreground">-</span>'
+                      : `<button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded text-red-600 hover:bg-red-50" data-tech-action="delete-new-pattern-piece-row" data-piece-id="${row.id}">
+                          <i data-lucide="trash-2" class="h-3 w-3"></i>
+                        </button>`
+                  }
+                </td>
+              </tr>
+            `,
+          )
+          .join('')}
+      </tbody>
+    </table>
   `
 }
 
@@ -446,6 +621,8 @@ export function renderPatternFormDialog(): string {
   const bomOptions = state.bomItems
   const isWoven = state.newPattern.patternMaterialType === 'WOVEN'
   const isKnit = state.newPattern.patternMaterialType === 'KNIT'
+  const sizeOptions = getSizeCodeOptionsFromSizeRules()
+  const bomColorOptions = getBomColorOptionsForPattern(state.newPattern.linkedBomItemId)
   const parseButtonLabel =
     state.newPattern.patternParsing
       ? '解析中'
@@ -508,14 +685,25 @@ export function renderPatternFormDialog(): string {
               <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-pattern-software-name" value="${escapeHtml(state.newPattern.patternSoftwareName || '')}" placeholder="例如 Lectra" />
             </label>
             <label class="space-y-1">
-              <span class="text-sm">尺码范围</span>
-              <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-size-range" value="${escapeHtml(state.newPattern.sizeRange || '')}" placeholder="例如 S / M / L / XL" />
+              <span class="text-sm">尺码范围 <span class="text-red-500">*</span></span>
+              ${renderPatternSizeSelector()}
             </label>
             <label class="space-y-1 md:col-span-2">
               <span class="text-sm">备注</span>
               <textarea rows="2" class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-remark" placeholder="备注信息">${escapeHtml(state.newPattern.remark)}</textarea>
             </label>
           </div>
+
+          ${
+            sizeOptions.length === 0
+              ? '<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">请先维护放码规则</div>'
+              : ''
+          }
+          ${
+            bomColorOptions.length === 0
+              ? '<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">请先维护物料清单颜色</div>'
+              : ''
+          }
 
           ${
             state.newPattern.patternMaterialType === 'UNKNOWN'
@@ -568,57 +756,10 @@ export function renderPatternFormDialog(): string {
                   </div>
                   <section class="space-y-2 rounded-md border p-3">
                     <div class="flex items-center justify-between">
-                      <h4 class="text-sm font-medium">解析结果</h4>
-                      <span class="text-xs text-muted-foreground">裁片明细</span>
+                      <h4 class="text-sm font-medium">裁片明细</h4>
+                      <span class="text-xs text-muted-foreground">解析结果只读部位名称和片数</span>
                     </div>
-                    ${
-                      state.newPattern.pieceRows.length === 0
-                        ? '<div class="rounded border border-dashed px-3 py-3 text-xs text-muted-foreground">暂无数据</div>'
-                        : `
-                          <table class="w-full text-xs">
-                            <thead>
-                              <tr class="border-b bg-muted/20">
-                                <th class="px-2 py-1 text-left">裁片名称</th>
-                                <th class="px-2 py-1 text-left">原始名称</th>
-                                <th class="px-2 py-1 text-left">尺码</th>
-                                <th class="px-2 py-1 text-right">片数</th>
-                                <th class="px-2 py-1 text-left">解析状态</th>
-                                <th class="px-2 py-1 text-left">预览</th>
-                                <th class="px-2 py-1 text-left">备注</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              ${state.newPattern.pieceRows
-                                .map(
-                                  (row) => `
-                                    <tr class="border-b align-top last:border-0">
-                                      <td class="px-2 py-1">
-                                        ${
-                                          row.name.trim()
-                                            ? escapeHtml(row.name)
-                                            : '<span class="text-red-600">名称缺失</span>'
-                                        }
-                                      </td>
-                                      <td class="px-2 py-1 text-muted-foreground">${renderTextValue(row.sourcePartName || row.systemPieceName)}</td>
-                                      <td class="px-2 py-1 text-muted-foreground">${renderTextValue(row.sizeCode)}</td>
-                                      <td class="px-2 py-1 text-right">
-                                        ${
-                                          Number(row.count) > 0
-                                            ? escapeHtml(String(row.count))
-                                            : '<span class="text-red-600">数量缺失</span>'
-                                        }
-                                      </td>
-                                      <td class="px-2 py-1">${renderTextValue(row.parserStatus)}</td>
-                                      <td class="px-2 py-1">${renderPatternPiecePreview(row.previewSvg)}</td>
-                                      <td class="px-2 py-1 text-muted-foreground">${renderTextValue(row.note || row.annotation)}</td>
-                                    </tr>
-                                  `,
-                                )
-                                .join('')}
-                            </tbody>
-                          </table>
-                        `
-                    }
+                    ${renderPatternPieceEditorTable(true)}
                   </section>
                 </section>
               `
@@ -645,60 +786,21 @@ export function renderPatternFormDialog(): string {
                         新增裁片
                       </button>
                     </div>
-                    ${
-                      state.newPattern.pieceRows.length === 0
-                        ? '<div class="rounded border border-dashed px-3 py-3 text-xs text-muted-foreground">暂无数据</div>'
-                        : `
-                          <table class="w-full text-xs">
-                            <thead>
-                              <tr class="border-b bg-muted/20">
-                                <th class="px-2 py-1 text-left">裁片名称</th>
-                                <th class="px-2 py-1 text-right">片数</th>
-                                <th class="px-2 py-1 text-left">备注</th>
-                                <th class="px-2 py-1 text-right">操作</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              ${state.newPattern.pieceRows
-                                .map(
-                                  (row) => `
-                                    <tr class="border-b last:border-0">
-                                      <td class="px-2 py-1">
-                                        <input class="h-8 w-full rounded border px-2 text-xs" data-tech-field="new-pattern-piece-name" data-piece-id="${row.id}" value="${escapeHtml(row.name)}" placeholder="例如 前片" />
-                                      </td>
-                                      <td class="px-2 py-1">
-                                        <input type="number" class="h-8 w-20 rounded border px-2 text-right text-xs" data-tech-field="new-pattern-piece-count" data-piece-id="${row.id}" value="${escapeHtml(String(row.count || 0))}" />
-                                      </td>
-                                      <td class="px-2 py-1">
-                                        <input class="h-8 w-full rounded border px-2 text-xs" data-tech-field="new-pattern-piece-note" data-piece-id="${row.id}" value="${escapeHtml(row.note)}" placeholder="备注" />
-                                      </td>
-                                      <td class="px-2 py-1 text-right">
-                                        <button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded text-red-600 hover:bg-red-50" data-tech-action="delete-new-pattern-piece-row" data-piece-id="${row.id}">
-                                          <i data-lucide="trash-2" class="h-3 w-3"></i>
-                                        </button>
-                                      </td>
-                                    </tr>
-                                  `,
-                                )
-                                .join('')}
-                            </tbody>
-                          </table>
-                        `
-                    }
+                    ${renderPatternPieceEditorTable(false)}
                   </section>
                 </section>
               `
               : ''
           }
           ${
-            state.newPattern.parseError && !isWoven
+            state.newPattern.parseError
               ? `<div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">${escapeHtml(state.newPattern.parseError)}</div>`
               : ''
           }
         </div>
         <footer class="flex items-center justify-end gap-2 border-t px-6 py-4">
-          <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-tech-action="close-add-pattern">取消</button>
-          <button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 ${canSavePatternForm() ? '' : 'pointer-events-none opacity-50'}" data-tech-action="save-pattern">确认</button>
+          <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-tech-action="close-add-pattern">取消</button>
+          <button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 ${canSavePatternForm() ? '' : 'pointer-events-none opacity-50'}" data-tech-action="save-pattern">确认</button>
         </footer>
       </section>
     </div>

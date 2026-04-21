@@ -15,7 +15,9 @@ import {
   type TechPackPatternFileMode,
   type TechPackPatternMaterialType,
   type TechPackPatternParseStatus,
+  type TechPackPatternPieceColorAllocation,
   type TechPackPatternPieceRow,
+  type TechPackPatternPieceSpecialCraft,
   type TechPackPatternPieceSourceType,
   type TechPackProcessEntry,
   type TechPackProcessEntryType,
@@ -153,6 +155,8 @@ type PatternPieceRow = {
   count: number
   note: string
   applicableSkuCodes: string[]
+  colorAllocations: TechPackPatternPieceColorAllocation[]
+  specialCrafts: TechPackPatternPieceSpecialCraft[]
   sourceType: TechPackPatternPieceSourceType
   sourcePartName?: string
   systemPieceName?: string
@@ -213,6 +217,7 @@ type PatternItem = {
   rulSampleSize: string
   patternSoftwareName: string
   sizeRange: string
+  selectedSizeCodes: string[]
   pieceRows: PatternPieceRow[]
 }
 
@@ -415,6 +420,7 @@ function createEmptyPatternFormState(): PatternFormState {
     rulSampleSize: '',
     patternSoftwareName: '',
     sizeRange: '',
+    selectedSizeCodes: [],
     pieceRows: [],
     selectedDxfFile: null,
     selectedRulFile: null,
@@ -518,11 +524,39 @@ const DEFAULT_PATTERN_ITEMS: PatternItem[] = [
     rulSizeList: [],
     rulSampleSize: '',
     patternSoftwareName: '',
-    sizeRange: '',
+    sizeRange: 'S / M / L / XL',
+    selectedSizeCodes: ['S', 'M', 'L', 'XL'],
     pieceRows: [
-      { id: 'PAT-001-R1', name: '前片', count: 2, note: '', applicableSkuCodes: [], sourceType: 'MANUAL' },
-      { id: 'PAT-001-R2', name: '门襟', count: 2, note: '', applicableSkuCodes: [], sourceType: 'MANUAL' },
-      { id: 'PAT-001-R3', name: '口袋贴', count: 2, note: '可选口袋款', applicableSkuCodes: [], sourceType: 'MANUAL' },
+      {
+        id: 'PAT-001-R1',
+        name: '前片',
+        count: 2,
+        note: '',
+        applicableSkuCodes: [],
+        colorAllocations: [],
+        specialCrafts: [],
+        sourceType: 'MANUAL',
+      },
+      {
+        id: 'PAT-001-R2',
+        name: '门襟',
+        count: 2,
+        note: '',
+        applicableSkuCodes: [],
+        colorAllocations: [],
+        specialCrafts: [],
+        sourceType: 'MANUAL',
+      },
+      {
+        id: 'PAT-001-R3',
+        name: '口袋贴',
+        count: 2,
+        note: '可选口袋款',
+        applicableSkuCodes: [],
+        colorAllocations: [],
+        specialCrafts: [],
+        sourceType: 'MANUAL',
+      },
     ],
   },
   {
@@ -557,10 +591,29 @@ const DEFAULT_PATTERN_ITEMS: PatternItem[] = [
     rulSizeList: [],
     rulSampleSize: '',
     patternSoftwareName: '',
-    sizeRange: '',
+    sizeRange: 'S / M / L / XL',
+    selectedSizeCodes: ['S', 'M', 'L', 'XL'],
     pieceRows: [
-      { id: 'PAT-002-R1', name: '后片', count: 2, note: '', applicableSkuCodes: [], sourceType: 'MANUAL' },
-      { id: 'PAT-002-R2', name: '肩部补强片', count: 2, note: '', applicableSkuCodes: [], sourceType: 'MANUAL' },
+      {
+        id: 'PAT-002-R1',
+        name: '后片',
+        count: 2,
+        note: '',
+        applicableSkuCodes: [],
+        colorAllocations: [],
+        specialCrafts: [],
+        sourceType: 'MANUAL',
+      },
+      {
+        id: 'PAT-002-R2',
+        name: '肩部补强片',
+        count: 2,
+        note: '',
+        applicableSkuCodes: [],
+        colorAllocations: [],
+        specialCrafts: [],
+        sourceType: 'MANUAL',
+      },
     ],
   },
 ]
@@ -925,9 +978,15 @@ function cloneTechPack(techPack: TechPack): TechPack {
     ...techPack,
     patternFiles: techPack.patternFiles.map((item) => ({
       ...item,
+      selectedSizeCodes: [...(item.selectedSizeCodes ?? [])],
       pieceRows: (item.pieceRows ?? []).map((row) => ({
         ...row,
         applicableSkuCodes: [...(row.applicableSkuCodes ?? [])],
+        colorAllocations: row.colorAllocations?.map((allocation) => ({
+          ...allocation,
+          skuCodes: [...(allocation.skuCodes ?? [])],
+        })),
+        specialCrafts: row.specialCrafts?.map((craft) => ({ ...craft })),
       })),
     })),
     processes: techPack.processes.map((item) => ({ ...item })),
@@ -1342,6 +1401,16 @@ function dedupeStrings(values: string[]): string[] {
   return Array.from(new Set(values.filter((item) => item.trim().length > 0)))
 }
 
+function dedupeByKey<T>(items: T[], getKey: (item: T) => string): T[] {
+  const seen = new Set<string>()
+  return items.filter((item) => {
+    const key = getKey(item)
+    if (!key || seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
 function formatDetailSplitDimensionsText(dimensions: TechPackDetailSplitDimension[]): string {
   if (dimensions.length === 0) return '-'
   return dimensions.map((item) => DETAIL_SPLIT_DIMENSION_LABEL[item]).join(' + ')
@@ -1450,6 +1519,196 @@ function getSkuOptionsForCurrentSpu(): SkuOption[] {
   }
 
   return Array.from(byCode.values())
+}
+
+function extractSizeCodeOptionsFromSizeTable(
+  sizeTable: TechPackSizeRow[],
+): Array<{ sizeCode: string; label: string }> {
+  const reservedKeys = new Set(['id', 'part', 'tolerance'])
+  const seen = new Set<string>()
+  const options: Array<{ sizeCode: string; label: string }> = []
+
+  sizeTable.forEach((row) => {
+    Object.keys(row).forEach((key) => {
+      if (reservedKeys.has(key) || seen.has(key)) return
+      seen.add(key)
+      options.push({
+        sizeCode: key,
+        label: key,
+      })
+    })
+  })
+
+  return options
+}
+
+function splitLegacySizeRange(sizeRange: string): string[] {
+  const normalized = String(sizeRange || '').trim()
+  if (!normalized) return []
+  const separatorSplit = normalized
+    .split(/[\/,，、;；]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+  if (separatorSplit.length > 1) return separatorSplit
+  return normalized
+    .split(/\s+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function normalizeSelectedSizeCodes(
+  selectedSizeCodes: string[],
+  sizeRange = '',
+  sizeTable: TechPackSizeRow[] = state.techPack?.sizeTable ?? [],
+): string[] {
+  const options = extractSizeCodeOptionsFromSizeTable(sizeTable)
+  const optionCodeSet = new Set(options.map((item) => item.sizeCode))
+  const normalizedSelected = dedupeStrings(selectedSizeCodes)
+    .map((item) => item.trim())
+    .filter((item) => optionCodeSet.has(item))
+
+  if (normalizedSelected.length > 0) return normalizedSelected
+
+  const legacyTokens = splitLegacySizeRange(sizeRange)
+  if (legacyTokens.length === 0) return []
+
+  const optionMap = new Map(options.map((item) => [item.label.trim().toLowerCase(), item.sizeCode]))
+  return dedupeStrings(
+    legacyTokens
+      .map((token) => optionMap.get(token.trim().toLowerCase()) || '')
+      .filter(Boolean),
+  )
+}
+
+function getSizeCodeOptionsFromSizeRules(): Array<{ sizeCode: string; label: string }> {
+  if (!state.techPack) return []
+  return extractSizeCodeOptionsFromSizeTable(state.techPack.sizeTable)
+}
+
+type PatternBomColorOption = {
+  colorName: string
+  colorCode?: string
+  skuCodes: string[]
+  sourceBomItemIds: string[]
+}
+
+function isSelectableBomColorName(colorName: string): boolean {
+  const normalized = String(colorName || '').trim()
+  if (!normalized) return false
+  return !['全部SKU（当前未区分颜色）', '未识别颜色', '多颜色'].includes(normalized)
+}
+
+function buildBomColorOptions(
+  bomItems: BomItemRow[],
+  skuOptions: SkuOption[],
+): PatternBomColorOption[] {
+  const skuByCode = new Map(skuOptions.map((item) => [item.skuCode, item]))
+  const byColor = new Map<string, PatternBomColorOption>()
+
+  const upsert = (colorName: string, skuCodes: string[], sourceBomItemId: string): void => {
+    const trimmedName = colorName.trim()
+    if (!isSelectableBomColorName(trimmedName)) return
+    const key = trimmedName.toLowerCase()
+    const current = byColor.get(key)
+    const normalizedSkuCodes = dedupeStrings(skuCodes)
+    if (current) {
+      current.skuCodes = dedupeStrings([...current.skuCodes, ...normalizedSkuCodes])
+      current.sourceBomItemIds = dedupeStrings([...current.sourceBomItemIds, sourceBomItemId])
+      return
+    }
+    byColor.set(key, {
+      colorName: trimmedName,
+      colorCode: trimmedName,
+      skuCodes: normalizedSkuCodes,
+      sourceBomItemIds: sourceBomItemId ? [sourceBomItemId] : [],
+    })
+  }
+
+  bomItems.forEach((item) => {
+    const explicitColorName = String(item.colorLabel || '').trim()
+    const applicableSkuCodes =
+      item.applicableSkuCodes.length > 0 ? item.applicableSkuCodes : skuOptions.map((sku) => sku.skuCode)
+    const applicableSkuOptions = applicableSkuCodes
+      .map((skuCode) => skuByCode.get(skuCode) ?? null)
+      .filter((sku): sku is SkuOption => Boolean(sku))
+
+    if (isSelectableBomColorName(explicitColorName)) {
+      const matchedSkuCodes =
+        applicableSkuOptions.length > 0
+          ? applicableSkuOptions
+              .filter((sku) => sku.color.trim() === explicitColorName)
+              .map((sku) => sku.skuCode)
+          : skuOptions
+              .filter((sku) => sku.color.trim() === explicitColorName)
+              .map((sku) => sku.skuCode)
+      upsert(explicitColorName, matchedSkuCodes, item.id)
+      return
+    }
+
+    const colorsByName = new Map<string, string[]>()
+    applicableSkuOptions.forEach((sku) => {
+      const colorName = sku.color.trim()
+      if (!isSelectableBomColorName(colorName)) return
+      const current = colorsByName.get(colorName) ?? []
+      current.push(sku.skuCode)
+      colorsByName.set(colorName, current)
+    })
+
+    colorsByName.forEach((skuCodes, colorName) => {
+      upsert(colorName, skuCodes, item.id)
+    })
+  })
+
+  return Array.from(byColor.values())
+}
+
+function getBomColorOptionsForPattern(linkedBomItemId?: string): PatternBomColorOption[] {
+  if (!state.techPack) return []
+  const skuOptions = getSkuOptionsForCurrentSpu()
+  const allBomItems = state.techPack.bomItems.map((item) => ({
+    id: item.id,
+    type: item.type,
+    colorLabel: item.colorLabel || '',
+    materialCode: item.name,
+    materialName: item.name,
+    spec: item.spec,
+    patternPieces: [],
+    linkedPatternIds: [...(item.linkedPatternIds ?? [])],
+    applicableSkuCodes: [...(item.applicableSkuCodes ?? [])],
+    usageProcessCodes: [...(item.usageProcessCodes ?? [])],
+    usage: item.unitConsumption,
+    lossRate: item.lossRate,
+    printRequirement: item.printRequirement || '无',
+    dyeRequirement: item.dyeRequirement || '无',
+  }))
+
+  if (linkedBomItemId) {
+    const linkedItem = allBomItems.find((item) => item.id === linkedBomItemId)
+    const linkedOptions = linkedItem ? buildBomColorOptions([linkedItem], skuOptions) : []
+    if (linkedOptions.length > 0) return linkedOptions
+  }
+
+  return buildBomColorOptions(allBomItems, skuOptions)
+}
+
+function getSpecialCraftOptionsForPatternPiece(): TechPackPatternPieceSpecialCraft[] {
+  return dedupeByKey(
+    listProcessCraftDefinitions()
+      .filter((item) => item.isActive && item.isSpecialCraft)
+      .map((item) => {
+        const processDefinition = getProcessDefinitionByCode(item.processCode)
+        const processName = processDefinition?.processName || '特殊工艺'
+        return {
+          processCode: item.processCode,
+          processName,
+          craftCode: item.craftCode,
+          craftName: item.craftName,
+          displayName: item.craftName,
+        }
+      })
+      .filter((item) => item.processName === '特殊工艺'),
+    (item) => `${item.processCode}:${item.craftCode}`,
+  )
 }
 
 function getSkuCodesByColor(colorCodeOrName: string): string[] {
@@ -1697,33 +1956,137 @@ function getPatternBySelectionKey(selectionKey: string): PatternItem | null {
   )
 }
 
-function normalizePatternPieceRows(rows: PatternPieceRow[], patternId: string): PatternPieceRow[] {
-  return rows.map((row, index) => ({
-    id: row.id || `${patternId}-piece-${index + 1}`,
-    name: String(row.name || '').trim(),
-    count: Number.isFinite(row.count) ? Number(row.count) : Number.parseInt(String(row.count || ''), 10) || 0,
-    note: String(row.note || '').trim(),
-    applicableSkuCodes: dedupeStrings([...(row.applicableSkuCodes ?? [])]),
-    sourceType: row.sourceType === 'PARSED_PATTERN' ? 'PARSED_PATTERN' : 'MANUAL',
-    sourcePartName: row.sourcePartName?.trim() || undefined,
-    systemPieceName: row.systemPieceName?.trim() || undefined,
-    candidatePartNames: dedupeStrings([...(row.candidatePartNames ?? [])]),
-    sizeCode: row.sizeCode?.trim() || undefined,
-    quantityText: row.quantityText?.trim() || undefined,
-    annotation: row.annotation?.trim() || undefined,
-    category: row.category?.trim() || undefined,
-    width: Number.isFinite(row.width) ? Number(row.width) : undefined,
-    height: Number.isFinite(row.height) ? Number(row.height) : undefined,
-    area: Number.isFinite(row.area) ? Number(row.area) : undefined,
-    perimeter: Number.isFinite(row.perimeter) ? Number(row.perimeter) : undefined,
-    geometryHash: row.geometryHash?.trim() || undefined,
-    previewSvg: row.previewSvg?.trim() || undefined,
-    parserStatus: row.parserStatus || undefined,
-    machineReadyStatus: row.machineReadyStatus || undefined,
-    rawTextLabels: dedupeStrings([...(row.rawTextLabels ?? [])]),
-    missingName: Boolean(row.missingName),
-    missingCount: Boolean(row.missingCount),
+function normalizePatternPieceColorAllocations(
+  allocations: Array<Partial<TechPackPatternPieceColorAllocation>>,
+  pieceId: string,
+  fallbackPieceCount: number,
+): TechPackPatternPieceColorAllocation[] {
+  return dedupeByKey(
+    allocations
+      .map((allocation, index) => ({
+        id: allocation.id?.trim() || `${pieceId}-color-${index + 1}`,
+        colorName: String(allocation.colorName || '').trim(),
+        colorCode: allocation.colorCode?.trim() || undefined,
+        skuCodes: dedupeStrings([...(allocation.skuCodes ?? [])]),
+        pieceCount:
+          Number.isFinite(Number(allocation.pieceCount)) && Number(allocation.pieceCount) > 0
+            ? Number(allocation.pieceCount)
+            : fallbackPieceCount,
+      }))
+      .filter((allocation) => allocation.colorName.length > 0),
+    (allocation) => allocation.colorName.trim().toLowerCase(),
+  )
+}
+
+function deriveColorAllocationsFromApplicableSkuCodes(
+  skuCodes: string[],
+  pieceId: string,
+  fallbackPieceCount: number,
+): TechPackPatternPieceColorAllocation[] {
+  if (skuCodes.length === 0) return []
+  const skuByCode = new Map(getSkuOptionsForCurrentSpu().map((item) => [item.skuCode, item]))
+  const colorMap = new Map<string, string[]>()
+
+  skuCodes.forEach((skuCode) => {
+    const sku = skuByCode.get(skuCode)
+    const colorName = sku?.color?.trim() || ''
+    if (!isSelectableBomColorName(colorName)) return
+    const current = colorMap.get(colorName) ?? []
+    current.push(skuCode)
+    colorMap.set(colorName, current)
+  })
+
+  return Array.from(colorMap.entries()).map(([colorName, matchedSkuCodes], index) => ({
+    id: `${pieceId}-legacy-color-${index + 1}`,
+    colorName,
+    colorCode: colorName,
+    skuCodes: dedupeStrings(matchedSkuCodes),
+    pieceCount: fallbackPieceCount,
   }))
+}
+
+function normalizePatternPieceSpecialCrafts(
+  specialCrafts: Array<Partial<TechPackPatternPieceSpecialCraft>>,
+): TechPackPatternPieceSpecialCraft[] {
+  const optionByCode = new Map(
+    getSpecialCraftOptionsForPatternPiece().map((item) => [`${item.processCode}:${item.craftCode}`, item]),
+  )
+
+  return dedupeByKey(
+    specialCrafts
+      .map((item) => {
+        const processCode = String(item.processCode || '').trim()
+        const craftCode = String(item.craftCode || '').trim()
+        const matched = optionByCode.get(`${processCode}:${craftCode}`)
+        return matched ? { ...matched } : null
+      })
+      .filter((item): item is TechPackPatternPieceSpecialCraft => Boolean(item)),
+    (item) => `${item.processCode}:${item.craftCode}`,
+  )
+}
+
+function normalizePatternPieceRows(
+  rows: PatternPieceRow[],
+  patternId: string,
+  linkedBomItemId = '',
+): PatternPieceRow[] {
+  const bomOptions = getBomColorOptionsForPattern(linkedBomItemId)
+
+  return rows.map((row, index) => {
+    const normalizedPieceId = row.id || `${patternId}-piece-${index + 1}`
+    const normalizedCount = Number.isFinite(row.count)
+      ? Number(row.count)
+      : Number.parseInt(String(row.count || ''), 10) || 0
+    const explicitColorAllocations = normalizePatternPieceColorAllocations(
+      row.colorAllocations ?? [],
+      normalizedPieceId,
+      normalizedCount,
+    )
+    const normalizedColorAllocations =
+      explicitColorAllocations.length > 0
+        ? explicitColorAllocations
+        : deriveColorAllocationsFromApplicableSkuCodes(
+            [...(row.applicableSkuCodes ?? [])],
+            normalizedPieceId,
+            normalizedCount,
+          )
+    const derivedSkuCodes = normalizedColorAllocations.flatMap((allocation) => {
+      if (allocation.skuCodes.length > 0) return allocation.skuCodes
+      const matched = bomOptions.find(
+        (option) => option.colorName.trim().toLowerCase() === allocation.colorName.trim().toLowerCase(),
+      )
+      return matched?.skuCodes ?? []
+    })
+
+    return {
+      id: normalizedPieceId,
+      name: String(row.name || '').trim(),
+      count: normalizedCount,
+      note: String(row.note || '').trim(),
+      applicableSkuCodes: dedupeStrings([...(row.applicableSkuCodes ?? []), ...derivedSkuCodes]),
+      colorAllocations: normalizedColorAllocations,
+      specialCrafts: normalizePatternPieceSpecialCrafts(row.specialCrafts ?? []),
+      sourceType: row.sourceType === 'PARSED_PATTERN' ? 'PARSED_PATTERN' : 'MANUAL',
+      sourcePartName: row.sourcePartName?.trim() || undefined,
+      systemPieceName: row.systemPieceName?.trim() || undefined,
+      candidatePartNames: dedupeStrings([...(row.candidatePartNames ?? [])]),
+      sizeCode: row.sizeCode?.trim() || undefined,
+      quantityText: row.quantityText?.trim() || undefined,
+      annotation: row.annotation?.trim() || undefined,
+      category: row.category?.trim() || undefined,
+      width: Number.isFinite(row.width) ? Number(row.width) : undefined,
+      height: Number.isFinite(row.height) ? Number(row.height) : undefined,
+      area: Number.isFinite(row.area) ? Number(row.area) : undefined,
+      perimeter: Number.isFinite(row.perimeter) ? Number(row.perimeter) : undefined,
+      geometryHash: row.geometryHash?.trim() || undefined,
+      previewSvg: row.previewSvg?.trim() || undefined,
+      parserStatus: row.parserStatus || undefined,
+      machineReadyStatus: row.machineReadyStatus || undefined,
+      rawTextLabels: dedupeStrings([...(row.rawTextLabels ?? [])]),
+      missingName: Boolean(row.missingName),
+      missingCount: Boolean(row.missingCount),
+    }
+  })
 }
 
 function buildPatternDisplayFile(input: {
@@ -1759,7 +2122,18 @@ function buildPatternItemsFromTechPack(techPack: TechPack): PatternItem[] {
   if (techPack.patternFiles.length === 0) {
     return DEFAULT_PATTERN_ITEMS.map((item) => ({
       ...item,
-      pieceRows: item.pieceRows.map((row) => ({ ...row })),
+      selectedSizeCodes: [...item.selectedSizeCodes],
+      pieceRows: item.pieceRows.map((row) => ({
+        ...row,
+        applicableSkuCodes: [...row.applicableSkuCodes],
+        colorAllocations: row.colorAllocations.map((allocation) => ({
+          ...allocation,
+          skuCodes: [...(allocation.skuCodes ?? [])],
+        })),
+        specialCrafts: row.specialCrafts.map((craft) => ({ ...craft })),
+        candidatePartNames: [...(row.candidatePartNames ?? [])],
+        rawTextLabels: [...(row.rawTextLabels ?? [])],
+      })),
     }))
   }
 
@@ -1773,6 +2147,11 @@ function buildPatternItemsFromTechPack(techPack: TechPack): PatternItem[] {
         count: Number(row.count),
         note: row.note || '',
         applicableSkuCodes: [...(row.applicableSkuCodes ?? [])],
+        colorAllocations: (row.colorAllocations ?? []).map((allocation) => ({
+          ...allocation,
+          skuCodes: [...(allocation.skuCodes ?? [])],
+        })),
+        specialCrafts: (row.specialCrafts ?? []).map((craft) => ({ ...craft })),
         sourceType: row.sourceType === 'PARSED_PATTERN' ? 'PARSED_PATTERN' : 'MANUAL',
         sourcePartName: row.sourcePartName,
         systemPieceName: row.systemPieceName,
@@ -1794,6 +2173,7 @@ function buildPatternItemsFromTechPack(techPack: TechPack): PatternItem[] {
         missingCount: (row as PatternPieceRow).missingCount,
       })),
       patternId,
+      item.linkedBomItemId ?? '',
     )
     const inferredPieceCount = normalizedRows.reduce((sum, row) => sum + row.count, 0)
     const patternMaterialType =
@@ -1873,7 +2253,14 @@ function buildPatternItemsFromTechPack(techPack: TechPack): PatternItem[] {
       rulSizeList: [...(item.rulSizeList ?? [])],
       rulSampleSize: item.rulSampleSize || '',
       patternSoftwareName: item.patternSoftwareName || '',
-      sizeRange: item.sizeRange || '',
+      selectedSizeCodes: normalizeSelectedSizeCodes(
+        [...(item.selectedSizeCodes ?? [])],
+        item.sizeRange || '',
+        techPack.sizeTable,
+      ),
+      sizeRange:
+        normalizeSelectedSizeCodes([...(item.selectedSizeCodes ?? [])], item.sizeRange || '', techPack.sizeTable)
+          .join(' / ') || item.sizeRange || '',
       pieceRows: normalizedRows,
     }
   })
@@ -2230,8 +2617,13 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
   const next: TechPack = {
     ...state.techPack,
     patternFiles: state.patternItems.map((item) => {
-      const pieceRows = normalizePatternPieceRows(item.pieceRows, item.id)
+      const pieceRows = normalizePatternPieceRows(item.pieceRows, item.id, item.linkedBomItemId)
       const inferredPieceCount = pieceRows.reduce((sum, row) => sum + row.count, 0)
+      const selectedSizeCodes = normalizeSelectedSizeCodes(
+        [...(item.selectedSizeCodes ?? [])],
+        item.sizeRange,
+      )
+      const sizeRange = selectedSizeCodes.join(' / ')
       const legacyFileName = buildPatternDisplayFile({
         patternFileMode: item.patternFileMode,
         dxfFileName: item.dxfFileName,
@@ -2268,7 +2660,8 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
         rulSizeList: item.rulSizeList.length > 0 ? [...item.rulSizeList] : undefined,
         rulSampleSize: item.rulSampleSize || undefined,
         patternSoftwareName: item.patternSoftwareName || undefined,
-        sizeRange: item.sizeRange || undefined,
+        sizeRange: sizeRange || item.sizeRange || undefined,
+        selectedSizeCodes: selectedSizeCodes.length > 0 ? [...selectedSizeCodes] : undefined,
         imageUrl: item.image || undefined,
         remark: item.remark || undefined,
         linkedBomItemId: item.linkedBomItemId || undefined,
@@ -2287,6 +2680,26 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
           note: row.note || undefined,
           applicableSkuCodes:
             row.applicableSkuCodes.length > 0 ? [...row.applicableSkuCodes] : undefined,
+          colorAllocations:
+            row.colorAllocations.length > 0
+              ? row.colorAllocations.map((allocation) => ({
+                  id: allocation.id,
+                  colorName: allocation.colorName,
+                  colorCode: allocation.colorCode || undefined,
+                  skuCodes: allocation.skuCodes.length > 0 ? [...allocation.skuCodes] : undefined,
+                  pieceCount: allocation.pieceCount,
+                }))
+              : undefined,
+          specialCrafts:
+            row.specialCrafts.length > 0
+              ? row.specialCrafts.map((craft) => ({
+                  processCode: craft.processCode,
+                  processName: craft.processName,
+                  craftCode: craft.craftCode,
+                  craftName: craft.craftName,
+                  displayName: craft.displayName,
+                }))
+              : undefined,
           sourceType: row.sourceType,
           missingName: row.missingName || undefined,
           missingCount: row.missingCount || undefined,
@@ -2454,6 +2867,10 @@ function closeAllDialogs(): void {
 }
 
 function buildPatternFormStateFromItem(item: PatternItem): PatternFormState {
+  const selectedSizeCodes = normalizeSelectedSizeCodes(
+    [...(item.selectedSizeCodes ?? [])],
+    item.sizeRange,
+  )
   return {
     name: item.name,
     type: item.type,
@@ -2485,10 +2902,16 @@ function buildPatternFormStateFromItem(item: PatternItem): PatternFormState {
     rulSizeList: [...item.rulSizeList],
     rulSampleSize: item.rulSampleSize,
     patternSoftwareName: item.patternSoftwareName,
-    sizeRange: item.sizeRange,
+    sizeRange: selectedSizeCodes.join(' / ') || item.sizeRange,
+    selectedSizeCodes,
     pieceRows: item.pieceRows.map((row) => ({
       ...row,
       applicableSkuCodes: [...row.applicableSkuCodes],
+      colorAllocations: row.colorAllocations.map((allocation) => ({
+        ...allocation,
+        skuCodes: [...(allocation.skuCodes ?? [])],
+      })),
+      specialCrafts: row.specialCrafts.map((craft) => ({ ...craft })),
       candidatePartNames: [...(row.candidatePartNames ?? [])],
       rawTextLabels: [...(row.rawTextLabels ?? [])],
     })),
@@ -2726,6 +3149,9 @@ export {
   buildColorMaterialMappings,
   getSkuOptionsForCurrentSpu,
   getSkuCodesByColor,
+  getSizeCodeOptionsFromSizeRules,
+  getBomColorOptionsForPattern,
+  getSpecialCraftOptionsForPatternPiece,
   getPatternById,
   getPatternPieceById,
   hasDyeDemand,

@@ -186,8 +186,6 @@ const expectedTemplateMap: Record<string, FactorySupplyFormulaTemplate> = {
   烫画: 'B',
   直喷: 'B',
   捆条: 'C',
-  印花工艺: 'C',
-  染色工艺: 'D',
   缩水: 'D',
   洗水: 'D',
   开扣眼: 'B',

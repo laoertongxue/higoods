@@ -76,7 +76,7 @@ export const capabilityTagsFull: CapabilityTagFull[] = [
     name: '印花',
     categoryId: 'cat-002',
     categoryName: '工艺能力',
-    description: '印花工艺能力',
+    description: '印花能力',
     status: 'active',
     usageCount: 9,
     isSystemTag: false,

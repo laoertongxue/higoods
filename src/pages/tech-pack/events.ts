@@ -16,10 +16,13 @@ import {
   dedupeStrings,
   getBaselineProcessByCode,
   getCraftOptionByCode,
+  getBomColorOptionsForPattern,
   getPatternMaterialTypeLabel,
   getPatternParseStatusLabel,
   getPatternById,
   getPatternPieceById,
+  getSizeCodeOptionsFromSizeRules,
+  getSpecialCraftOptionsForPatternPiece,
   getTechniqueReferenceMetaByCraftCode,
   isBomDrivenPrepTechnique,
   isPrepStage,
@@ -103,6 +106,48 @@ function clearPatternParseState(status: 'NOT_PARSED' | 'NOT_REQUIRED' = 'NOT_PAR
   state.newPattern.parsedAt = ''
 }
 
+function updatePatternPieceRow(
+  pieceId: string,
+  updater: (row: (typeof state.newPattern.pieceRows)[number]) => (typeof state.newPattern.pieceRows)[number],
+): void {
+  state.newPattern.pieceRows = state.newPattern.pieceRows.map((row) =>
+    row.id === pieceId ? updater(row) : row,
+  )
+}
+
+function buildColorAllocationId(pieceId: string, colorName: string): string {
+  return `${pieceId}-${colorName.trim().replace(/\s+/g, '-')}`
+}
+
+function syncPieceApplicableSkuCodes(pieceId: string): void {
+  updatePatternPieceRow(pieceId, (row) => ({
+    ...row,
+    applicableSkuCodes: dedupeStrings(
+      row.colorAllocations.flatMap((allocation) => allocation.skuCodes ?? []),
+    ),
+  }))
+}
+
+function getPatternSizeCodeSet(): Set<string> {
+  return new Set(getSizeCodeOptionsFromSizeRules().map((item) => item.sizeCode))
+}
+
+function getPatternBomColorOptions() {
+  return getBomColorOptionsForPattern(state.newPattern.linkedBomItemId)
+}
+
+function getPatternBomColorNameSet(): Set<string> {
+  return new Set(
+    getPatternBomColorOptions().map((item) => item.colorName.trim().toLowerCase()),
+  )
+}
+
+function getPatternSpecialCraftKeySet(): Set<string> {
+  return new Set(
+    getSpecialCraftOptionsForPatternPiece().map((item) => `${item.processCode}:${item.craftCode}`),
+  )
+}
+
 function toFileLastModifiedText(file: File): string {
   return new Date(file.lastModified).toLocaleString('zh-CN', {
     year: 'numeric',
@@ -172,7 +217,11 @@ async function startPatternParsing(): Promise<void> {
       rulFile: pair.rulFile,
     })
 
-    const normalizedRows = normalizePatternPieceRows(parsed.pieceRows, state.editPatternItemId || `PAT-${Date.now()}`)
+    const normalizedRows = normalizePatternPieceRows(
+      parsed.pieceRows,
+      state.editPatternItemId || `PAT-${Date.now()}`,
+      state.newPattern.linkedBomItemId,
+    )
     state.newPattern.dxfFileName = parsed.dxfFileName
     state.newPattern.rulFileName = parsed.rulFileName
     state.newPattern.dxfEncoding = parsed.dxfEncoding
@@ -183,7 +232,12 @@ async function startPatternParsing(): Promise<void> {
     state.newPattern.parseStatus = 'PARSED'
     state.newPattern.parseStatusLabel = getPatternParseStatusLabel('PARSED')
     state.newPattern.parseError = ''
-    state.newPattern.pieceRows = normalizedRows
+    state.newPattern.pieceRows = normalizedRows.map((row) => ({
+      ...row,
+      colorAllocations: [],
+      specialCrafts: [],
+      note: row.note || row.annotation || '',
+    }))
     state.newPattern.totalPieceCount = normalizedRows.reduce((sum, row) => sum + row.count, 0)
     state.newPattern.file = buildPatternDisplayFile({
       patternFileMode: 'PAIRED_DXF_RUL',
@@ -205,6 +259,37 @@ async function startPatternParsing(): Promise<void> {
 function validatePatternForm(): string | null {
   if (!state.newPattern.name.trim()) return '请先填写纸样名称'
   if (state.newPattern.patternMaterialType === 'UNKNOWN') return '请选择纸样文件类型'
+  const sizeCodeSet = getPatternSizeCodeSet()
+  if (sizeCodeSet.size === 0) return '请先维护放码规则'
+  if (
+    state.newPattern.selectedSizeCodes.length === 0
+    || state.newPattern.selectedSizeCodes.some((code) => !sizeCodeSet.has(code))
+  ) {
+    return '请至少选择 1 个尺码'
+  }
+
+  const bomColorOptions = getPatternBomColorOptions()
+  if (bomColorOptions.length === 0) return '请先维护物料清单颜色'
+  const bomColorNameSet = getPatternBomColorNameSet()
+  const validSpecialCraftKeys = getPatternSpecialCraftKeySet()
+
+  const invalidColorRow = state.newPattern.pieceRows.find((row) => {
+    if (row.colorAllocations.length === 0) return true
+    return row.colorAllocations.some(
+      (allocation) =>
+        !bomColorNameSet.has(allocation.colorName.trim().toLowerCase())
+        || !Number.isFinite(Number(allocation.pieceCount))
+        || Number(allocation.pieceCount) <= 0,
+    )
+  })
+  if (invalidColorRow) return '每行裁片必须至少选择 1 个适用颜色，并填写每种颜色的片数'
+
+  const invalidSpecialCraftRow = state.newPattern.pieceRows.find((row) =>
+    row.specialCrafts.some(
+      (craft) => !validSpecialCraftKeys.has(`${craft.processCode}:${craft.craftCode}`),
+    ),
+  )
+  if (invalidSpecialCraftRow) return '特殊工艺必须来自工序工艺字典'
 
   if (state.newPattern.patternMaterialType === 'WOVEN') {
     if (state.newPattern.parseStatus !== 'PARSED') return '布料纸样需先解析纸样'
@@ -317,12 +402,17 @@ function handleTechPackField(
     state.newPattern.patternSoftwareName = value
     return true
   }
-  if (field === 'new-pattern-size-range') {
-    state.newPattern.sizeRange = value
-    return true
-  }
   if (field === 'new-pattern-linked-bom-item') {
     state.newPattern.linkedBomItemId = value
+    state.newPattern.pieceRows = state.newPattern.pieceRows.map((row) => ({
+      ...row,
+      colorAllocations: row.colorAllocations.filter((allocation) =>
+        getBomColorOptionsForPattern(value).some(
+          (option) => option.colorName.trim().toLowerCase() === allocation.colorName.trim().toLowerCase(),
+        ),
+      ),
+    }))
+    state.newPattern.pieceRows.forEach((row) => syncPieceApplicableSkuCodes(row.id))
     return true
   }
   if (field === 'new-pattern-width-cm') {
@@ -341,27 +431,43 @@ function handleTechPackField(
     if (state.newPattern.patternMaterialType === 'WOVEN') return true
     const pieceId = node.dataset.pieceId
     if (!pieceId) return true
-    state.newPattern.pieceRows = state.newPattern.pieceRows.map((row) =>
-      row.id === pieceId ? { ...row, name: value } : row,
-    )
+    updatePatternPieceRow(pieceId, (row) => ({ ...row, name: value }))
     return true
   }
   if (field === 'new-pattern-piece-count') {
     if (state.newPattern.patternMaterialType === 'WOVEN') return true
     const pieceId = node.dataset.pieceId
     if (!pieceId) return true
-    state.newPattern.pieceRows = state.newPattern.pieceRows.map((row) =>
-      row.id === pieceId ? { ...row, count: Number.parseInt(value, 10) || 0 } : row,
-    )
+    const nextCount = Number.parseInt(value, 10) || 0
+    updatePatternPieceRow(pieceId, (row) => ({
+      ...row,
+      count: nextCount,
+      colorAllocations: row.colorAllocations.map((allocation) =>
+        allocation.pieceCount > 0 ? allocation : { ...allocation, pieceCount: nextCount }
+      ),
+    }))
     return true
   }
   if (field === 'new-pattern-piece-note') {
-    if (state.newPattern.patternMaterialType === 'WOVEN') return true
     const pieceId = node.dataset.pieceId
     if (!pieceId) return true
-    state.newPattern.pieceRows = state.newPattern.pieceRows.map((row) =>
-      row.id === pieceId ? { ...row, note: value } : row,
-    )
+    updatePatternPieceRow(pieceId, (row) => ({ ...row, note: value }))
+    return true
+  }
+  if (field === 'new-pattern-piece-color-count') {
+    const pieceId = node.dataset.pieceId
+    const colorName = node.dataset.colorName
+    if (!pieceId || !colorName) return true
+    const pieceCount = Number.parseInt(value, 10) || 0
+    updatePatternPieceRow(pieceId, (row) => ({
+      ...row,
+      colorAllocations: row.colorAllocations.map((allocation) =>
+        allocation.colorName === colorName
+          ? { ...allocation, pieceCount }
+          : allocation,
+      ),
+    }))
+    syncPieceApplicableSkuCodes(pieceId)
     return true
   }
 
@@ -1025,8 +1131,11 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     const normalizedPieceRows = normalizePatternPieceRows(
       state.newPattern.pieceRows.map((row) => ({ ...row })),
       nowId,
+      state.newPattern.linkedBomItemId,
     )
     const totalPieceCount = normalizedPieceRows.reduce((sum, row) => sum + row.count, 0)
+    const selectedSizeCodes = dedupeStrings([...state.newPattern.selectedSizeCodes])
+    const sizeRange = selectedSizeCodes.join(' / ')
     const nextPattern = {
       name: state.newPattern.name.trim(),
       type: state.newPattern.type,
@@ -1079,13 +1188,23 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       rulSampleSize:
         state.newPattern.patternMaterialType === 'WOVEN' ? state.newPattern.rulSampleSize : '',
       patternSoftwareName: state.newPattern.patternSoftwareName,
-      sizeRange: state.newPattern.sizeRange,
+      selectedSizeCodes,
+      sizeRange,
       pieceRows:
         state.newPattern.patternMaterialType === 'WOVEN'
-          ? normalizedPieceRows.map((row) => ({ ...row, sourceType: 'PARSED_PATTERN' as const }))
+          ? normalizedPieceRows.map((row) => ({
+              ...row,
+              sourceType: 'PARSED_PATTERN' as const,
+              applicableSkuCodes: dedupeStrings(
+                row.colorAllocations.flatMap((allocation) => allocation.skuCodes ?? []),
+              ),
+            }))
           : normalizedPieceRows.map((row) => ({
               ...row,
               sourceType: 'MANUAL' as const,
+              applicableSkuCodes: dedupeStrings(
+                row.colorAllocations.flatMap((allocation) => allocation.skuCodes ?? []),
+              ),
               missingName: false,
               missingCount: false,
             })),
@@ -1147,6 +1266,76 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     void startPatternParsing()
     return true
   }
+  if (action === 'toggle-pattern-size-code') {
+    const sizeCode = actionNode.dataset.sizeCode
+    if (!sizeCode) return true
+    const current = new Set(state.newPattern.selectedSizeCodes)
+    if (current.has(sizeCode)) {
+      current.delete(sizeCode)
+    } else {
+      current.add(sizeCode)
+    }
+    state.newPattern.selectedSizeCodes = Array.from(current)
+    state.newPattern.sizeRange = state.newPattern.selectedSizeCodes.join(' / ')
+    return true
+  }
+  if (action === 'toggle-pattern-piece-color') {
+    const pieceId = actionNode.dataset.pieceId
+    const colorName = actionNode.dataset.colorName
+    if (!pieceId || !colorName) return true
+    const colorOption = getPatternBomColorOptions().find(
+      (option) => option.colorName.trim().toLowerCase() === colorName.trim().toLowerCase(),
+    )
+    if (!colorOption) return true
+    updatePatternPieceRow(pieceId, (row) => {
+      const exists = row.colorAllocations.some(
+        (allocation) => allocation.colorName.trim().toLowerCase() === colorName.trim().toLowerCase(),
+      )
+      return {
+        ...row,
+        colorAllocations: exists
+          ? row.colorAllocations.filter(
+              (allocation) => allocation.colorName.trim().toLowerCase() !== colorName.trim().toLowerCase(),
+            )
+          : [
+              ...row.colorAllocations,
+              {
+                id: buildColorAllocationId(pieceId, colorName),
+                colorName: colorOption.colorName,
+                colorCode: colorOption.colorCode,
+                skuCodes: [...colorOption.skuCodes],
+                pieceCount: row.count,
+              },
+            ],
+      }
+    })
+    syncPieceApplicableSkuCodes(pieceId)
+    return true
+  }
+  if (action === 'toggle-pattern-piece-special-craft') {
+    const pieceId = actionNode.dataset.pieceId
+    const processCode = actionNode.dataset.processCode
+    const craftCode = actionNode.dataset.craftCode
+    if (!pieceId || !processCode || !craftCode) return true
+    const specialCraft = getSpecialCraftOptionsForPatternPiece().find(
+      (item) => item.processCode === processCode && item.craftCode === craftCode,
+    )
+    if (!specialCraft) return true
+    updatePatternPieceRow(pieceId, (row) => {
+      const exists = row.specialCrafts.some(
+        (item) => item.processCode === processCode && item.craftCode === craftCode,
+      )
+      return {
+        ...row,
+        specialCrafts: exists
+          ? row.specialCrafts.filter(
+              (item) => !(item.processCode === processCode && item.craftCode === craftCode),
+            )
+          : [...row.specialCrafts, { ...specialCraft }],
+      }
+    })
+    return true
+  }
   if (action === 'add-new-pattern-piece-row') {
     if (state.newPattern.patternMaterialType !== 'KNIT') return true
     state.newPattern.pieceRows = [
@@ -1157,6 +1346,8 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
         count: 1,
         note: '',
         applicableSkuCodes: [],
+        colorAllocations: [],
+        specialCrafts: [],
         sourceType: 'MANUAL',
       },
     ]

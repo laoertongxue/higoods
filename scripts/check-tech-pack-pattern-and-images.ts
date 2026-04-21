@@ -54,6 +54,9 @@ const patternDomainSource = read('src/pages/tech-pack/pattern-domain.ts')
 ].forEach((token) => {
   assertIncludes(snapshotTypesSource, token, `技术包快照类型缺少字段：${token}`)
 })
+;['selectedSizeCodes', 'colorAllocations', 'specialCrafts'].forEach((token) => {
+  assertIncludes(snapshotBuilderSource, token, `技术包快照构建缺少新字段：${token}`)
+})
 
 ;['KNIT', 'WOVEN', 'UNKNOWN', '针织', '布料', '暂无数据'].forEach((token) => {
   assertIncludes(snapshotTypesSource, token, `纸样类型映射缺少字段：${token}`)
@@ -90,6 +93,7 @@ assert(Array.isArray(seedSnapshot.patternFiles), '技术包快照必须支持 pa
 assert(seedSnapshot.patternFiles.some((item) => item.patternMaterialType === 'KNIT'), '必须支持针织纸样')
 assert(seedSnapshot.patternFiles.some((item) => item.patternMaterialType === 'WOVEN'), '必须支持布料纸样')
 assert(seedSnapshot.patternFiles.every((item) => 'patternSoftwareName' in item), '纸样必须支持打版软件字段')
+assert(seedSnapshot.patternFiles.every((item) => Array.isArray(item.selectedSizeCodes ?? [])), '技术包快照必须支持尺码数组')
 assert(seedSnapshot.sizeMeasurements.length > 0, '技术包快照必须支持尺寸表快照')
 assert(seedSnapshot.cutPieceParts.length >= 3, '技术包快照必须支持裁片部位库')
 assert(seedSnapshot.cutPieceParts.some((item) => item.partNameCn === '前片'), '裁片部位库必须包含前片')
@@ -103,7 +107,7 @@ const runtimeOrder = productionOrders.find((order) => getProductionOrderTechPack
 assert(runtimeOrder, '至少应存在一个已冻结技术包快照的生产单')
 
 const snapshotPageHtml = renderFcsProductionTechPackSnapshotPage(runtimeOrder.productionOrderId)
-;['纸样类型', '纸样文件', '纸样版本', '打版软件', '尺码范围', '裁片部位', '每件用片数', '对应面料', '人工确认'].forEach((token) => {
+;['纸样类型', '纸样文件', '纸样版本', '打版软件', '尺码范围', '纸样分类', '裁片部位', '每件用片数', '对应面料', '人工确认', '适用颜色', '每种颜色的片数', '特殊工艺'].forEach((token) => {
   assert(snapshotPageHtml.includes(token), `技术包快照页必须展示：${token}`)
 })
 assertNotIncludes(snapshotPageHtml, '>KNIT<', '技术包快照页不得直接显示 KNIT')
@@ -120,9 +124,18 @@ const confirmationSnapshot = buildProductionConfirmationSnapshot(printableOrder.
 assert(confirmationSnapshot.patternSnapshot.rows.length > 0, '生产确认单必须展示纸样类型')
 assert(Array.isArray(confirmationSnapshot.patternSnapshot.cutPieceParts), '生产确认单必须支持裁片部位')
 assert('patternSoftwareName' in confirmationSnapshot.patternSnapshot.rows[0], '生产确认单必须读取打版软件字段')
+assert(confirmationSnapshot.patternSnapshot.rows.every((row) => Array.isArray(row.selectedSizeCodes)), '生产确认单必须读取尺码数组')
+assert(
+  confirmationSnapshot.patternSnapshot.rows.flatMap((row) => row.pieceRows).every((piece) => Array.isArray(piece.colorAllocations)),
+  '生产确认单必须读取裁片颜色分配',
+)
+assert(
+  confirmationSnapshot.patternSnapshot.rows.flatMap((row) => row.pieceRows).every((piece) => Array.isArray(piece.specialCrafts)),
+  '生产确认单必须读取裁片特殊工艺',
+)
 
 const confirmationHtml = renderProductionConfirmationPrintPage(printableOrder.productionOrderId)
-;['纸样类型', '打版软件', '裁片部位', '商品图片', '款式图片', '样衣图片', '面料图片', '辅料图片', '纸样图片', '唛架图', '花型图'].forEach((token) => {
+;['纸样类型', '纸样分类', '打版软件', '适用颜色', '每种颜色的片数', '特殊工艺', '裁片部位', '商品图片', '款式图片', '样衣图片', '面料图片', '辅料图片', '纸样图片', '唛架图', '花型图'].forEach((token) => {
   assert(confirmationHtml.includes(token), `生产确认单必须展示：${token}`)
 })
 assert(confirmationHtml.includes('暂无图片') || confirmationHtml.includes('<img '), '生产确认单必须处理无图片兜底')
@@ -153,7 +166,7 @@ assertIncludes(generatedOriginalCutOrdersSource, 'getProductionOrderCutPiecePart
 })
 
 assertIncludes(patternDomainSource, '暂无图片', '纸样详情缺图时必须显示暂无图片')
-;['纸样文件类型', '布料纸样', '针织纸样', '纸样分类', '解析纸样'].forEach((token) => {
+;['纸样文件类型', '布料纸样', '针织纸样', '纸样分类', '解析纸样', '适用颜色', '每种颜色的片数', '特殊工艺'].forEach((token) => {
   assertIncludes(patternDomainSource, token, `纸样页必须展示：${token}`)
 })
 ;['解析模板', '部位模板库'].forEach((token) => {

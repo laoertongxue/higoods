@@ -26,9 +26,15 @@ export function buildLegacyTechPackFromTechnicalVersion(
     lastUpdatedBy: record.updatedBy,
     patternFiles: content.patternFiles.map((item) => ({
       ...item,
+      selectedSizeCodes: [...(item.selectedSizeCodes ?? [])],
       pieceRows: item.pieceRows?.map((row) => ({
         ...row,
         applicableSkuCodes: [...(row.applicableSkuCodes ?? [])],
+        colorAllocations: row.colorAllocations?.map((allocation) => ({
+          ...allocation,
+          skuCodes: [...(allocation.skuCodes ?? [])],
+        })),
+        specialCrafts: row.specialCrafts?.map((craft) => ({ ...craft })),
       })),
     })),
     patternDesc: content.patternDesc,
@@ -79,9 +85,15 @@ export function buildTechnicalContentPatchFromLegacyTechPack(
   return {
     patternFiles: techPack.patternFiles.map((item) => ({
       ...item,
+      selectedSizeCodes: [...(item.selectedSizeCodes ?? [])],
       pieceRows: item.pieceRows?.map((row) => ({
         ...row,
         applicableSkuCodes: [...(row.applicableSkuCodes ?? [])],
+        colorAllocations: row.colorAllocations?.map((allocation) => ({
+          ...allocation,
+          skuCodes: [...(allocation.skuCodes ?? [])],
+        })),
+        specialCrafts: row.specialCrafts?.map((craft) => ({ ...craft })),
       })),
     })),
     patternDesc: techPack.patternDesc || '',
