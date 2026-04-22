@@ -851,8 +851,11 @@ interface TechPackPageState {
   addAttachmentDialogOpen: boolean
   patternDialogOpen: boolean
   patternTemplateDialogOpen: boolean
+  designPreviewDialogOpen: boolean
 
   selectedPattern: string | null
+  designPreviewDesignId: string | null
+  designPreviewSource: 'front' | 'inside' | null
 
   editPatternItemId: string | null
   editBomItemId: string | null
@@ -956,8 +959,11 @@ const state: TechPackPageState = {
   addAttachmentDialogOpen: false,
   patternDialogOpen: false,
   patternTemplateDialogOpen: false,
+  designPreviewDialogOpen: false,
 
   selectedPattern: null,
+  designPreviewDesignId: null,
+  designPreviewSource: null,
 
   editPatternItemId: null,
   editBomItemId: null,
@@ -1769,6 +1775,26 @@ function getPatternDesignPreviewUrl(input: {
   imageUrl?: string
 }): string {
   return String(input.previewThumbnailDataUrl || input.imageUrl || '').trim()
+}
+
+function getPatternDesignPreviewAssetById(designId?: string): {
+  id: string
+  name: string
+  previewUrl: string
+  sideType: TechPackPatternDesignSideType | null
+} | null {
+  const normalizedId = String(designId || '').trim()
+  if (!state.techPack || !normalizedId) return null
+
+  const design = state.techPack.patternDesigns.find((item) => item.id === normalizedId)
+  if (!design) return null
+
+  return {
+    id: design.id,
+    name: String(design.name || '').trim(),
+    previewUrl: getPatternDesignPreviewUrl(design),
+    sideType: design.designSideType || null,
+  }
 }
 
 function getPatternDesignOptionsBySide(
@@ -3068,6 +3094,9 @@ function closeAllDialogs(): void {
   state.addAttachmentDialogOpen = false
   state.patternDialogOpen = false
   state.patternTemplateDialogOpen = false
+  state.designPreviewDialogOpen = false
+  state.designPreviewDesignId = null
+  state.designPreviewSource = null
 }
 
 function buildPatternFormStateFromItem(item: PatternItem): PatternFormState {
@@ -3353,6 +3382,7 @@ export {
   getSizeCodeOptionsFromSizeRules,
   getBomColorOptionsForPattern,
   getPatternDesignOptionsBySide,
+  getPatternDesignPreviewAssetById,
   getPatternDesignPreviewUrl,
   getPatternPieceSpecialCraftOptionsFromCurrentTechPack,
   getSpecialCraftOptionsForPatternPiece,

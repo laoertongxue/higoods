@@ -3,6 +3,7 @@ import { state } from './context.ts'
 export function isTechPackDialogOpen(): boolean {
   return (
     state.releaseDialogOpen ||
+    state.designPreviewDialogOpen ||
     state.addPatternDialogOpen ||
     state.addBomDialogOpen ||
     state.addTechniqueDialogOpen ||

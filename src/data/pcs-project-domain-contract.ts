@@ -1242,12 +1242,12 @@ const channelListingFields = [
       },
       {
         key: 'activeListingCount',
-        label: '当前有效上架实例数',
+        label: '当前有效上架商品数',
         type: 'number',
         sourceKind: '系统生成',
         sourceRef: '渠道店铺商品主档',
-        meaning: '当前项目下未作废的款式上架批次数量',
-        logic: '用于表达节点承载的是多批次上架能力，而不是单条规格记录。',
+        meaning: '当前项目下未作废的已上架商品数量',
+        logic: '用于表达当前项目已建立的款式上架批次结果。',
         required: false,
         readonly: true,
       },
@@ -1255,7 +1255,7 @@ const channelListingFields = [
   }),
   ...groupFields({
     id: 'channel-listing-target',
-    title: '款式上架批次',
+    title: '创建上架批次',
     description: '每条款式上架批次单独绑定一个渠道、一个店铺、一组规格明细和一条 Listing。',
     fields: [
       { key: 'targetChannelCode', label: '渠道', type: 'single-select', sourceKind: '渠道主数据', sourceRef: '渠道主数据', meaning: '当前批次的目标上架渠道', logic: '每条款式上架批次只承接一个渠道；多个渠道需要拆成多条批次。', placeholder: '请选择渠道' },

@@ -238,6 +238,9 @@ interface ProjectImagePreviewState {
 }
 
 interface ChannelListingSpecDraft {
+  productImageId: string
+  productImageUrl: string
+  productImageName: string
   colorName: string
   sizeName: string
   printName: string
@@ -531,6 +534,7 @@ type ProjectChannelProductProjectRepositoryModule = Pick<
   | 'createProjectChannelProductFromListingNode'
   | 'launchProjectChannelProductListing'
   | 'markProjectChannelProductListingCompleted'
+  | 'completeProjectChannelListingNode'
 >
 type ProjectDetailSupportModule = Pick<
   typeof import('../data/pcs-project-detail-support.ts'),
@@ -699,12 +703,6 @@ async function ensureProjectDetailSupportReady(): Promise<void> {
 }
 
 function ensureProjectDemoDataReadySync(): void {
-  if (listProjects().length >= PROJECT_DEMO_SEED_IMPORT_THRESHOLD) {
-    syncExistingProjectEngineeringTaskNodes('系统同步')
-    repairChannelListingNodeInstanceConsistency('系统同步')
-    return
-  }
-
   projectDemoSeedServiceModule?.ensurePcsProjectDemoDataReady()
   syncExistingProjectEngineeringTaskNodes('系统同步')
   repairChannelListingNodeInstanceConsistency('系统同步')
@@ -841,6 +839,17 @@ function markProjectChannelProductListingCompletedSafe(
     channelProductId,
     operatorName,
   )
+}
+
+function completeProjectChannelListingNodeSafe(
+  projectId: string,
+  operatorName = '当前用户',
+): ProjectChannelProductWriteResult {
+  if (!projectChannelProductProjectRepositoryModule) {
+    return { ok: false, message: '渠道店铺商品模块尚未加载完成，请稍后再试。', record: null }
+  }
+
+  return projectChannelProductProjectRepositoryModule.completeProjectChannelListingNode(projectId, operatorName)
 }
 
 function getProjectArchiveByIdSafe(projectArchiveId: string): ProjectArchiveRecordMaybe {
@@ -1713,13 +1722,29 @@ function getChannelListingStatusBadgeClass(status: string): string {
 
 function renderChannelListingSpecRows(record: ProjectChannelProductRecord): string {
   if (!record.specLines.length) {
-    return '<tr><td colspan="9" class="px-3 py-4 text-center text-xs text-slate-400">暂无规格明细</td></tr>'
+    return '<tr><td colspan="10" class="px-3 py-4 text-center text-xs text-slate-400">暂无规格明细</td></tr>'
   }
 
   return record.specLines
     .map(
-      (line) => `
+      (line) => {
+        const image =
+          line.productImageId
+            ? findProjectImageViewModelById(record.projectId, line.productImageId)
+            : null
+        const imageUrl = line.productImageUrl || image?.imageUrl || ''
+        const imageName = line.productImageName || image?.imageName || '商品图片'
+        return `
         <tr>
+          <td class="px-3 py-2">
+            ${
+              imageUrl
+                ? `<button type="button" class="group block h-12 w-12 overflow-hidden rounded-md border border-slate-200 bg-slate-50" data-pcs-project-action="open-image-preview" data-url="${escapeHtml(imageUrl)}" data-title="${escapeHtml(imageName)}" aria-label="${escapeHtml(`查看${imageName}`)}"><img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(imageName)}" class="h-full w-full object-cover transition group-hover:scale-105" /></button>`
+                : line.productImageId
+                  ? '<div class="flex h-12 w-12 items-center justify-center rounded-md border border-dashed border-slate-200 text-[11px] text-slate-400">图片已删除</div>'
+                  : '<div class="flex h-12 w-12 items-center justify-center rounded-md border border-dashed border-slate-200 text-[11px] text-slate-400">未选择</div>'
+            }
+          </td>
           <td class="px-3 py-2 text-slate-700">${escapeHtml(line.colorName || '-')}</td>
           <td class="px-3 py-2 text-slate-700">${escapeHtml(line.sizeName || '-')}</td>
           <td class="px-3 py-2 text-slate-700">${escapeHtml(line.printName || '-')}</td>
@@ -1730,9 +1755,368 @@ function renderChannelListingSpecRows(record: ProjectChannelProductRecord): stri
           <td class="px-3 py-2 text-slate-700">${escapeHtml(line.upstreamSkuId || '-')}</td>
           <td class="px-3 py-2 text-slate-700">${escapeHtml(line.lineStatus || '-')}</td>
         </tr>
-      `,
+      `
+      },
     )
     .join('')
+}
+
+function resolveChannelListingImagePoolItems(projectId: string): PcsProjectImageAssetViewModel[] {
+  return listProjectListingCandidateImageViewModels(projectId).sort((left, right) => {
+    if (left.sortNo !== right.sortNo) return left.sortNo - right.sortNo
+    return left.imageName.localeCompare(right.imageName, 'zh-Hans-CN')
+  })
+}
+
+function resolveUsableChannelListingImagePoolItems(projectId: string): PcsProjectImageAssetViewModel[] {
+  return resolveChannelListingImagePoolItems(projectId).filter(canUseImageForListing)
+}
+
+function buildChannelListingBatchImageIds(draft: ChannelListingDraft): string[] {
+  return [...new Set([
+    draft.listingMainImageId,
+    ...draft.specLines.map((line) => line.productImageId),
+  ].filter(Boolean))]
+}
+
+function findChannelListingPoolImage(projectId: string, imageId: string): PcsProjectImageAssetViewModel | null {
+  if (!imageId) return null
+  return findProjectImageViewModelById(projectId, imageId)
+}
+
+function countChannelListingImageUsage(
+  projectId: string,
+  draft: ChannelListingDraft,
+  imageId: string,
+): number {
+  const draftUsage = draft.specLines.filter((line) => line.productImageId === imageId).length
+  const draftMainUsage = draft.listingMainImageId === imageId ? 1 : 0
+  const recordUsage = listProjectChannelProductsByProjectIdSafe(projectId).reduce((total, record) => {
+    const listingUsage = record.listingImageIds.filter((item) => item === imageId).length
+    const specUsage = record.specLines.filter((line) => line.productImageId === imageId).length
+    const mainUsage = record.listingMainImageId === imageId ? 1 : 0
+    return total + listingUsage + specUsage + mainUsage
+  }, 0)
+  return draftUsage + draftMainUsage + recordUsage
+}
+
+function resolveChannelListingRecordImage(record: ProjectChannelProductRecord): {
+  imageUrl: string
+  imageName: string
+} | null {
+  const primaryLine = record.specLines.find((line) => Boolean(line.productImageId)) || record.specLines[0] || null
+  if (primaryLine?.productImageId) {
+    const image = findProjectImageViewModelById(record.projectId, primaryLine.productImageId)
+    if (image) {
+      return {
+        imageUrl: image.imageUrl,
+        imageName: image.imageName,
+      }
+    }
+    if (primaryLine.productImageUrl) {
+      return {
+        imageUrl: primaryLine.productImageUrl,
+        imageName: primaryLine.productImageName || '商品图片',
+      }
+    }
+  }
+  const listingMain =
+    record.listingImages.find((item) => item.imageId === record.listingMainImageId) ||
+    record.listingImages[0] ||
+    null
+  if (!listingMain) return null
+  return {
+    imageUrl: listingMain.imageUrl,
+    imageName: listingMain.imageName,
+  }
+}
+
+function renderChannelListingSpecImageCell(
+  project: PcsProjectRecord,
+  node: ProjectNodeViewModel,
+  draft: ChannelListingDraft,
+  line: ChannelListingSpecDraft,
+  index: number,
+): string {
+  const selectableImages = resolveUsableChannelListingImagePoolItems(project.projectId)
+  const currentImage = findChannelListingPoolImage(project.projectId, line.productImageId)
+  const previewUrl = line.productImageUrl || currentImage?.imageUrl || ''
+  const previewTitle = line.productImageName || currentImage?.imageName || '商品图片'
+
+  return `
+    <div class="space-y-2">
+      <select class="h-9 w-full rounded-md border border-slate-200 px-2 text-sm outline-none focus:border-blue-500" data-pcs-project-field="channel-listing-spec-product-image" data-spec-index="${index}">
+        <option value="">选择图片</option>
+        ${selectableImages
+          .map((image) => `<option value="${escapeHtml(image.imageId)}" ${image.imageId === line.productImageId ? 'selected' : ''}>${escapeHtml(image.imageName)}</option>`)
+          .join('')}
+      </select>
+      <div class="flex items-center gap-2">
+        ${
+          previewUrl
+            ? `<button type="button" class="group block h-10 w-10 overflow-hidden rounded-md border border-slate-200 bg-slate-50" data-pcs-project-action="open-image-preview" data-url="${escapeHtml(previewUrl)}" data-title="${escapeHtml(previewTitle)}" aria-label="${escapeHtml(`查看${previewTitle}`)}"><img src="${escapeHtml(previewUrl)}" alt="${escapeHtml(previewTitle)}" class="h-full w-full object-cover transition group-hover:scale-105" /></button>`
+            : '<div class="flex h-10 w-10 items-center justify-center rounded-md border border-dashed border-slate-200 text-[11px] text-slate-400">未选</div>'
+        }
+        <div class="flex flex-wrap gap-2">
+          ${
+            line.productImageId
+              ? `<button type="button" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2 text-[11px] text-slate-600 hover:bg-slate-50" data-pcs-project-action="clear-channel-listing-spec-image" data-spec-index="${index}">清除</button>`
+              : ''
+          }
+          ${
+            line.productImageId && draft.listingMainImageId !== line.productImageId
+              ? `<button type="button" class="inline-flex h-7 items-center rounded-md border border-blue-200 bg-blue-50 px-2 text-[11px] text-blue-700 hover:bg-blue-100" data-pcs-project-action="set-channel-listing-main-image" data-image-id="${escapeHtml(line.productImageId)}">设为主图</button>`
+              : ''
+          }
+        </div>
+      </div>
+    </div>
+  `
+}
+
+function renderChannelListingUploadedProductsSection(
+  project: PcsProjectRecord,
+  records: ProjectChannelProductRecord[],
+): string {
+  return `
+    <section class="rounded-lg border bg-white p-4">
+      <div class="flex items-center justify-between gap-3">
+        <h3 class="text-base font-semibold text-slate-900">已上架商品</h3>
+        <span class="text-xs text-slate-500">共 ${records.length} 条</span>
+      </div>
+      <div class="mt-4 overflow-hidden rounded-lg border border-slate-200">
+        <table class="min-w-full text-sm">
+          <thead class="bg-slate-50 text-left text-slate-600">
+            <tr>
+              <th class="px-3 py-2 font-medium">商品图片</th>
+              <th class="px-3 py-2 font-medium">上架标题</th>
+              <th class="px-3 py-2 font-medium">渠道</th>
+              <th class="px-3 py-2 font-medium">店铺</th>
+              <th class="px-3 py-2 font-medium">规格数量</th>
+              <th class="px-3 py-2 font-medium">已上传规格数量</th>
+              <th class="px-3 py-2 font-medium">上游款式商品编号</th>
+              <th class="px-3 py-2 font-medium">上架状态</th>
+              <th class="px-3 py-2 font-medium">操作</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-200 bg-white">
+            ${
+              records.length === 0
+                ? '<tr><td colspan="9" class="px-3 py-8 text-center text-sm text-slate-500">暂无已上架商品</td></tr>'
+                : records
+                    .map((record) => {
+                      const image = resolveChannelListingRecordImage(record)
+                      const storeName =
+                        record.storeName || resolvePcsStoreDisplayName(record.storeId, record.channelCode) || '-'
+                      const canLaunch =
+                        record.channelProductStatus !== '已作废' &&
+                        record.listingBatchStatus === '待上传'
+                      return `
+                        <tr class="align-top">
+                          <td class="px-3 py-3">
+                            ${
+                              image
+                                ? `<button type="button" class="group block h-14 w-14 overflow-hidden rounded-md border border-slate-200 bg-slate-50" data-pcs-project-action="open-image-preview" data-url="${escapeHtml(image.imageUrl)}" data-title="${escapeHtml(image.imageName)}" aria-label="${escapeHtml(`查看${image.imageName}`)}"><img src="${escapeHtml(image.imageUrl)}" alt="${escapeHtml(image.imageName)}" class="h-full w-full object-cover transition group-hover:scale-105" /></button>`
+                                : '<div class="flex h-14 w-14 items-center justify-center rounded-md border border-dashed border-slate-200 text-[11px] text-slate-400">未选择</div>'
+                            }
+                          </td>
+                          <td class="px-3 py-3 text-slate-900">${escapeHtml(record.listingTitle || '-')}</td>
+                          <td class="px-3 py-3 text-slate-700">${escapeHtml(record.channelName || getChannelDisplayName(record.channelCode))}</td>
+                          <td class="px-3 py-3 text-slate-700">${escapeHtml(storeName)}</td>
+                          <td class="px-3 py-3 text-slate-700">${escapeHtml(String(record.specLineCount || record.specLines.length || 0))}</td>
+                          <td class="px-3 py-3 text-slate-700">${escapeHtml(String(record.uploadedSpecLineCount || 0))}</td>
+                          <td class="px-3 py-3 text-slate-700">${escapeHtml(record.upstreamProductId || record.upstreamChannelProductCode || '-')}</td>
+                          <td class="px-3 py-3">
+                            <span class="inline-flex rounded-full px-2 py-0.5 text-xs ${getChannelListingStatusBadgeClass(record.listingBatchStatus || record.channelProductStatus)}">${escapeHtml(record.listingBatchStatus || record.channelProductStatus || '-')}</span>
+                          </td>
+                          <td class="px-3 py-3">
+                            <div class="flex flex-wrap gap-2">
+                              ${
+                                canLaunch
+                                  ? `<button type="button" class="inline-flex h-8 items-center rounded-md border border-blue-200 bg-blue-50 px-3 text-xs font-medium text-blue-700 hover:bg-blue-100" data-pcs-project-action="launch-channel-listing-instance" data-channel-product-id="${escapeHtml(record.channelProductId)}">上传到渠道</button>`
+                                  : ''
+                              }
+                              <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/products/channel-products/${encodeURIComponent(record.channelProductId)}">查看详情</button>
+                            </div>
+                          </td>
+                        </tr>
+                      `
+                    })
+                    .join('')
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  `
+}
+
+function renderChannelListingImagePoolSection(
+  project: PcsProjectRecord,
+  node: ProjectNodeViewModel,
+  draft: ChannelListingDraft,
+): string {
+  const poolImages = resolveChannelListingImagePoolItems(project.projectId)
+
+  return `
+    <section class="rounded-lg border bg-white p-4">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h3 class="text-base font-semibold text-slate-900">商品图片池</h3>
+        <label class="inline-flex h-8 cursor-pointer items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50">
+          上传商品图片
+          <input type="file" accept="image/*" multiple class="hidden" data-pcs-project-field="channel-listing-supplement-images" />
+        </label>
+      </div>
+      ${
+        poolImages.length === 0
+          ? '<div class="mt-4 rounded-md border border-dashed border-slate-200 px-3 py-8 text-center text-sm text-slate-500">暂无商品图片</div>'
+          : `
+            <div class="mt-4 grid gap-3 md:grid-cols-3 xl:grid-cols-4">
+              ${poolImages
+                .map((image) => {
+                  const usageCount = countChannelListingImageUsage(project.projectId, draft, image.imageId)
+                  const canDelete = image.sourceNodeCode === 'CHANNEL_PRODUCT_LISTING'
+                  const isMain = draft.listingMainImageId === image.imageId
+                  const usable = canUseImageForListing(image)
+                  return `
+                    <article class="rounded-lg border border-slate-200 bg-white p-3">
+                      <button type="button" class="block h-36 w-full overflow-hidden rounded-md bg-slate-100" data-pcs-project-action="open-image-preview" data-url="${escapeHtml(image.imageUrl)}" data-title="${escapeHtml(image.previewTitle)}" aria-label="${escapeHtml(`查看${image.imageName}`)}">
+                        <img src="${escapeHtml(image.imageUrl)}" alt="${escapeHtml(image.imageName)}" class="h-full w-full object-cover" />
+                      </button>
+                      <div class="mt-3 space-y-2">
+                        <div class="flex items-start justify-between gap-2">
+                          <div>
+                            <p class="text-sm font-medium text-slate-900">${escapeHtml(image.imageName)}</p>
+                            <p class="mt-1 text-xs text-slate-500">${escapeHtml(image.sourceType)} · ${escapeHtml(formatDateTime(image.updatedAt || image.createdAt))}</p>
+                          </div>
+                          ${
+                            isMain
+                              ? '<span class="inline-flex rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] text-blue-700">主图</span>'
+                              : ''
+                          }
+                        </div>
+                        <div class="text-xs text-slate-500">当前被使用次数：${escapeHtml(String(usageCount))}</div>
+                        <div class="flex flex-wrap gap-2">
+                          ${
+                            usable
+                              ? `<button type="button" class="inline-flex h-8 items-center rounded-md border ${isMain ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'} px-3 text-xs font-medium" data-pcs-project-action="set-channel-listing-main-image" data-image-id="${escapeHtml(image.imageId)}">${isMain ? '当前主图' : '设为主图'}</button>`
+                              : `<button type="button" class="inline-flex h-8 items-center rounded-md border border-amber-200 bg-amber-50 px-3 text-xs font-medium text-amber-700 hover:bg-amber-100" data-pcs-project-action="confirm-channel-listing-pool-image" data-image-id="${escapeHtml(image.imageId)}">确认可用于上架</button>`
+                          }
+                          ${
+                            canDelete
+                              ? `<button type="button" class="inline-flex h-8 items-center rounded-md border border-rose-200 bg-white px-3 text-xs font-medium text-rose-600 hover:bg-rose-50" data-pcs-project-action="delete-channel-listing-pool-image" data-image-id="${escapeHtml(image.imageId)}">删除图片</button>`
+                              : ''
+                          }
+                        </div>
+                      </div>
+                    </article>
+                  `
+                })
+                .join('')}
+            </div>
+          `
+      }
+    </section>
+  `
+}
+
+function renderChannelListingCreateBatchSection(
+  project: PcsProjectRecord,
+  node: ProjectNodeViewModel,
+  draft: ChannelListingDraft,
+): string {
+  const availableStores = listPcsChannelStores()
+    .filter((item) => item.channelCode === draft.targetChannelCode)
+    .sort((left, right) => left.storeName.localeCompare(right.storeName, 'zh-Hans-CN'))
+
+  return `
+    <section class="rounded-lg border bg-white p-4">
+      <div class="flex items-center justify-between gap-3">
+        <h3 class="text-base font-semibold text-slate-900">创建上架批次</h3>
+        <button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-project-action="create-channel-listing-instance">创建上架批次</button>
+      </div>
+      <div class="mt-4 grid gap-3 md:grid-cols-2">
+        <label class="space-y-1">
+          <span class="text-xs text-slate-500">渠道</span>
+          <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" data-pcs-project-field="channel-listing-target-channel">
+            ${(project.targetChannelCodes.length > 0 ? project.targetChannelCodes : ['tiktok-shop'])
+              .map((channelCode) => `<option value="${escapeHtml(channelCode)}" ${channelCode === draft.targetChannelCode ? 'selected' : ''}>${escapeHtml(getChannelDisplayName(channelCode))}</option>`)
+              .join('')}
+          </select>
+        </label>
+        <label class="space-y-1">
+          <span class="text-xs text-slate-500">店铺</span>
+          <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" data-pcs-project-field="channel-listing-target-store">
+            ${availableStores
+              .map((store) => `<option value="${escapeHtml(store.storeId)}" ${store.storeId === draft.targetStoreId ? 'selected' : ''}>${escapeHtml(store.storeName)}</option>`)
+              .join('')}
+          </select>
+        </label>
+        <label class="space-y-1 md:col-span-2">
+          <span class="text-xs text-slate-500">上架标题</span>
+          <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" value="${escapeHtml(draft.listingTitle)}" data-pcs-project-field="channel-listing-title" />
+        </label>
+        <label class="space-y-1 md:col-span-2">
+          <span class="text-xs text-slate-500">上架描述</span>
+          <textarea class="min-h-[88px] w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500" data-pcs-project-field="channel-listing-description">${escapeHtml(draft.listingDescription)}</textarea>
+        </label>
+        <label class="space-y-1">
+          <span class="text-xs text-slate-500">默认售价</span>
+          <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" value="${escapeHtml(draft.defaultPriceAmount)}" data-pcs-project-field="channel-listing-default-price" />
+        </label>
+        <label class="space-y-1">
+          <span class="text-xs text-slate-500">币种</span>
+          <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" value="${escapeHtml(draft.currencyCode)}" data-pcs-project-field="channel-listing-currency" />
+        </label>
+        <label class="space-y-1 md:col-span-2">
+          <span class="text-xs text-slate-500">上架备注</span>
+          <textarea class="min-h-[88px] w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500" data-pcs-project-field="channel-listing-remark">${escapeHtml(draft.listingRemark)}</textarea>
+        </label>
+      </div>
+      <div class="mt-4 rounded-lg border border-slate-200">
+        <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+          <h4 class="text-sm font-semibold text-slate-900">规格明细</h4>
+          <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-pcs-project-action="add-channel-listing-spec-line">新增规格</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-sm">
+            <thead class="bg-slate-50 text-left text-slate-500">
+              <tr>
+                <th class="px-3 py-2 font-medium">商品图片</th>
+                <th class="px-3 py-2 font-medium">颜色</th>
+                <th class="px-3 py-2 font-medium">尺码</th>
+                <th class="px-3 py-2 font-medium">花型</th>
+                <th class="px-3 py-2 font-medium">平台销售 SKU</th>
+                <th class="px-3 py-2 font-medium">价格</th>
+                <th class="px-3 py-2 font-medium">币种</th>
+                <th class="px-3 py-2 font-medium">初始库存</th>
+                <th class="px-3 py-2 font-medium text-right">操作</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200 bg-white">
+              ${draft.specLines
+                .map(
+                  (line, index) => `
+                    <tr>
+                      <td class="min-w-[240px] px-3 py-2">${renderChannelListingSpecImageCell(project, node, draft, line, index)}</td>
+                      <td class="px-3 py-2"><input class="h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" value="${escapeHtml(line.colorName)}" data-pcs-project-field="channel-listing-spec-color" data-spec-index="${index}" /></td>
+                      <td class="px-3 py-2"><input class="h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" value="${escapeHtml(line.sizeName)}" data-pcs-project-field="channel-listing-spec-size" data-spec-index="${index}" /></td>
+                      <td class="px-3 py-2"><input class="h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" value="${escapeHtml(line.printName)}" data-pcs-project-field="channel-listing-spec-print" data-spec-index="${index}" /></td>
+                      <td class="px-3 py-2"><input class="h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" value="${escapeHtml(line.sellerSku)}" data-pcs-project-field="channel-listing-spec-seller-sku" data-spec-index="${index}" /></td>
+                      <td class="px-3 py-2"><input class="h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" value="${escapeHtml(line.priceAmount)}" data-pcs-project-field="channel-listing-spec-price" data-spec-index="${index}" /></td>
+                      <td class="px-3 py-2"><input class="h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" value="${escapeHtml(line.currencyCode)}" data-pcs-project-field="channel-listing-spec-currency" data-spec-index="${index}" /></td>
+                      <td class="px-3 py-2"><input class="h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" value="${escapeHtml(line.stockQty)}" data-pcs-project-field="channel-listing-spec-stock" data-spec-index="${index}" /></td>
+                      <td class="px-3 py-2 text-right"><button type="button" class="inline-flex h-8 items-center rounded-md border border-rose-200 bg-rose-50 px-3 text-xs text-rose-700 hover:bg-rose-100" data-pcs-project-action="remove-channel-listing-spec-line" data-spec-index="${index}">删除</button></td>
+                    </tr>
+                  `,
+                )
+                .join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  `
 }
 
 function getChannelListingCreateSuggestion(project: PcsProjectRecord): ProjectChannelProductListingPayload {
@@ -1763,6 +2147,9 @@ function getChannelListingCreateSuggestion(project: PcsProjectRecord): ProjectCh
 
 function createEmptyChannelListingSpecDraft(currencyCode = 'CNY'): ChannelListingSpecDraft {
   return {
+    productImageId: '',
+    productImageUrl: '',
+    productImageName: '',
     colorName: '',
     sizeName: '',
     printName: '',
@@ -1868,15 +2255,8 @@ function renderChannelListingNodeWorkspace(project: PcsProjectRecord, node: Proj
   const completedRecords = activeRecords.filter(
     (item) => item.listingBatchStatus === '已完成' || item.channelProductStatus === '已上架待测款',
   )
-  const latestPendingRecord = activeRecords.find((item) => item.listingBatchStatus === '待上传') || null
-  const latestUploadedRecord = uploadedRecords[0] || null
-  const latestRecord = records[0] || null
-  const latestCompletedRecord = completedRecords[0] || null
+  const latestCompletedRecord = completedRecords[0] || uploadedRecords[0] || null
   const targetChannels = getChannelNamesByCodes(project.targetChannelCodes)
-  const canOperate = node.displayStatus !== '未解锁' && node.node.currentStatus !== '已取消' && node.node.currentStatus !== '已完成'
-  const availableStores = listPcsChannelStores()
-    .filter((item) => item.channelCode === draft.targetChannelCode)
-    .sort((left, right) => left.storeName.localeCompare(right.storeName, 'zh-Hans-CN'))
 
   return `
     <div class="space-y-4">
@@ -1915,279 +2295,13 @@ function renderChannelListingNodeWorkspace(project: PcsProjectRecord, node: Proj
           </article>
           <article class="rounded-lg border border-slate-200 bg-slate-50 p-4 md:col-span-2 xl:col-span-3">
             <p class="text-xs text-slate-500">最近上游款式商品编号</p>
-            <p class="mt-3 text-sm font-medium text-slate-900">${escapeHtml(latestCompletedRecord?.upstreamProductId || latestUploadedRecord?.upstreamProductId || '-')}</p>
+            <p class="mt-3 text-sm font-medium text-slate-900">${escapeHtml(latestCompletedRecord?.upstreamProductId || '-')}</p>
           </article>
         </div>
       </section>
-
-      <section class="rounded-lg border bg-white p-4">
-        <div class="flex items-center justify-between gap-3">
-          <h3 class="text-base font-semibold text-slate-900">创建上架批次</h3>
-          <span class="text-xs text-slate-500">按款式上传到渠道，当前节点内维护规格明细</span>
-        </div>
-        <div class="mt-4 grid gap-3 md:grid-cols-2">
-          <label class="space-y-1">
-            <span class="text-xs text-slate-500">渠道</span>
-            <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" data-pcs-project-field="channel-listing-target-channel">
-              ${(project.targetChannelCodes.length > 0 ? project.targetChannelCodes : ['tiktok-shop'])
-                .map((channelCode) => `<option value="${escapeHtml(channelCode)}" ${channelCode === draft.targetChannelCode ? 'selected' : ''}>${escapeHtml(getChannelDisplayName(channelCode))}</option>`)
-                .join('')}
-            </select>
-          </label>
-          <label class="space-y-1">
-            <span class="text-xs text-slate-500">店铺</span>
-            <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" data-pcs-project-field="channel-listing-target-store">
-              ${availableStores
-                .map((store) => `<option value="${escapeHtml(store.storeId)}" ${store.storeId === draft.targetStoreId ? 'selected' : ''}>${escapeHtml(store.storeName)}</option>`)
-                .join('')}
-            </select>
-          </label>
-          <label class="space-y-1 md:col-span-2">
-            <span class="text-xs text-slate-500">上架标题</span>
-            <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" value="${escapeHtml(draft.listingTitle)}" data-pcs-project-field="channel-listing-title" />
-          </label>
-          <label class="space-y-1 md:col-span-2">
-            <span class="text-xs text-slate-500">上架描述</span>
-            <textarea class="min-h-[88px] w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500" data-pcs-project-field="channel-listing-description">${escapeHtml(draft.listingDescription)}</textarea>
-          </label>
-          <label class="space-y-1">
-            <span class="text-xs text-slate-500">默认售价</span>
-            <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" value="${escapeHtml(draft.defaultPriceAmount)}" data-pcs-project-field="channel-listing-default-price" />
-          </label>
-          <label class="space-y-1">
-            <span class="text-xs text-slate-500">币种</span>
-            <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" value="${escapeHtml(draft.currencyCode)}" data-pcs-project-field="channel-listing-currency" />
-          </label>
-          <label class="space-y-1 md:col-span-2">
-            <span class="text-xs text-slate-500">上架备注</span>
-            <textarea class="min-h-[88px] w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500" data-pcs-project-field="channel-listing-remark">${escapeHtml(draft.listingRemark)}</textarea>
-          </label>
-        </div>
-        <div class="mt-4 rounded-lg border border-slate-200">
-          <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-            <h4 class="text-sm font-semibold text-slate-900">规格明细</h4>
-            <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-pcs-project-action="add-channel-listing-spec-line">新增规格</button>
-          </div>
-          <div class="overflow-x-auto">
-            <table class="min-w-full text-sm">
-              <thead class="bg-slate-50 text-left text-slate-500">
-                <tr>
-                  <th class="px-3 py-2 font-medium">颜色</th>
-                  <th class="px-3 py-2 font-medium">尺码</th>
-                  <th class="px-3 py-2 font-medium">花型</th>
-                  <th class="px-3 py-2 font-medium">平台销售 SKU</th>
-                  <th class="px-3 py-2 font-medium">价格</th>
-                  <th class="px-3 py-2 font-medium">币种</th>
-                  <th class="px-3 py-2 font-medium">初始库存</th>
-                  <th class="px-3 py-2 font-medium text-right">操作</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-slate-200 bg-white">
-                ${draft.specLines
-                  .map(
-                    (line, index) => `
-                      <tr>
-                        <td class="px-3 py-2"><input class="h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" value="${escapeHtml(line.colorName)}" data-pcs-project-field="channel-listing-spec-color" data-spec-index="${index}" /></td>
-                        <td class="px-3 py-2"><input class="h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" value="${escapeHtml(line.sizeName)}" data-pcs-project-field="channel-listing-spec-size" data-spec-index="${index}" /></td>
-                        <td class="px-3 py-2"><input class="h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" value="${escapeHtml(line.printName)}" data-pcs-project-field="channel-listing-spec-print" data-spec-index="${index}" /></td>
-                        <td class="px-3 py-2"><input class="h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" value="${escapeHtml(line.sellerSku)}" data-pcs-project-field="channel-listing-spec-seller-sku" data-spec-index="${index}" /></td>
-                        <td class="px-3 py-2"><input class="h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" value="${escapeHtml(line.priceAmount)}" data-pcs-project-field="channel-listing-spec-price" data-spec-index="${index}" /></td>
-                        <td class="px-3 py-2"><input class="h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" value="${escapeHtml(line.currencyCode)}" data-pcs-project-field="channel-listing-spec-currency" data-spec-index="${index}" /></td>
-                        <td class="px-3 py-2"><input class="h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" value="${escapeHtml(line.stockQty)}" data-pcs-project-field="channel-listing-spec-stock" data-spec-index="${index}" /></td>
-                        <td class="px-3 py-2 text-right"><button type="button" class="inline-flex h-8 items-center rounded-md border border-rose-200 bg-rose-50 px-3 text-xs text-rose-700 hover:bg-rose-100" data-pcs-project-action="remove-channel-listing-spec-line" data-spec-index="${index}">删除</button></td>
-                      </tr>
-                    `,
-                  )
-                  .join('')}
-              </tbody>
-            </table>
-          </div>
-        </div>
-        <div class="mt-4">
-          ${renderChannelListingCandidateImagePicker(project, draft)}
-        </div>
-      </section>
-
-      <section class="rounded-lg border bg-white p-4">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <h3 class="text-base font-semibold text-slate-900">上架实例列表</h3>
-          <span class="text-xs text-slate-500">共 ${records.length} 条</span>
-        </div>
-        <div class="mt-4 overflow-hidden rounded-lg border border-slate-200">
-          <table class="min-w-full text-sm">
-            <thead class="bg-slate-50 text-left text-slate-600">
-              <tr>
-                <th class="px-3 py-2 font-medium">批次编号</th>
-                <th class="px-3 py-2 font-medium">渠道 / 店铺</th>
-                <th class="px-3 py-2 font-medium">上架信息</th>
-                <th class="px-3 py-2 font-medium">上架主图</th>
-                <th class="px-3 py-2 font-medium">规格数量</th>
-                <th class="px-3 py-2 font-medium">已上传规格</th>
-                <th class="px-3 py-2 font-medium">状态</th>
-                <th class="px-3 py-2 font-medium">上游款式商品编号</th>
-                <th class="px-3 py-2 font-medium">更新时间</th>
-                <th class="px-3 py-2 font-medium">操作</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-200 bg-white">
-              ${
-                records.length === 0
-                  ? '<tr><td colspan="10" class="px-3 py-8 text-center text-sm text-slate-500">暂无上架实例</td></tr>'
-                  : records
-                      .map((record) => {
-                        const storeName =
-                          record.storeName || resolvePcsStoreDisplayName(record.storeId, record.channelCode) || '-'
-                        const canLaunch = record.channelProductStatus !== '已作废' && record.listingBatchStatus === '待上传'
-                        const canComplete = record.channelProductStatus !== '已作废' && record.listingBatchStatus === '已上传待确认'
-                        const mainImageUrl = record.mainImageUrls[0] || record.listingImages[0]?.imageUrl || ''
-                        const mainImageName = record.listingImages.find((item) => item.imageId === record.listingMainImageId)?.imageName || '上架主图'
-                        return `
-                          <tr class="align-top">
-                            <td class="px-3 py-3 align-top">
-                              <div class="space-y-1">
-                                <div class="font-medium text-slate-900">${escapeHtml(record.listingBatchCode || record.channelProductCode || '-')}</div>
-                                <div class="text-xs text-slate-500">${escapeHtml(record.listingInstanceCode || '-')}</div>
-                              </div>
-                            </td>
-                            <td class="px-3 py-3 align-top">
-                              <div class="space-y-1">
-                                <div class="text-slate-900">${escapeHtml(record.channelName || '-')}</div>
-                                <div class="text-xs text-slate-500">${escapeHtml(storeName)}</div>
-                              </div>
-                            </td>
-                            <td class="px-3 py-3 align-top">
-                              <div class="space-y-1">
-                                <div class="text-slate-900">${escapeHtml(record.listingTitle || '-')}</div>
-                                <div class="text-xs text-slate-500">${escapeHtml(`${formatValue(record.defaultPriceAmount || record.listingPrice)} ${record.currencyCode || record.currency || ''}`.trim() || '-')}</div>
-                              </div>
-                            </td>
-                            <td class="px-3 py-3 align-top">
-                              ${
-                                mainImageUrl
-                                  ? `<button type="button" class="group block h-16 w-16 overflow-hidden rounded-md border border-slate-200 bg-slate-50" data-pcs-project-action="open-image-preview" data-url="${escapeHtml(mainImageUrl)}" data-title="${escapeHtml(mainImageName)}" aria-label="查看上架主图"><img src="${escapeHtml(mainImageUrl)}" alt="${escapeHtml(mainImageName)}" class="h-full w-full object-cover transition group-hover:scale-105" /></button>`
-                                  : '<div class="flex h-16 w-16 items-center justify-center rounded-md border border-dashed border-slate-200 text-[11px] text-slate-400">暂无主图</div>'
-                              }
-                            </td>
-                            <td class="px-3 py-3 align-top text-slate-700">${escapeHtml(String(record.specLineCount || record.specLines.length || 0))}</td>
-                            <td class="px-3 py-3 align-top text-slate-700">${escapeHtml(String(record.uploadedSpecLineCount || 0))}</td>
-                            <td class="px-3 py-3 align-top">
-                              <div class="space-y-1">
-                                <span class="inline-flex rounded-full px-2 py-0.5 text-xs ${getChannelListingStatusBadgeClass(record.listingBatchStatus || record.channelProductStatus)}">${escapeHtml(record.listingBatchStatus || record.channelProductStatus || '-')}</span>
-                                <div class="text-xs text-slate-500">${escapeHtml(record.upstreamSyncStatus || '-')}</div>
-                              </div>
-                            </td>
-                            <td class="px-3 py-3 align-top text-slate-700">${escapeHtml(record.upstreamProductId || record.upstreamChannelProductCode || '-')}</td>
-                            <td class="px-3 py-3 align-top text-slate-500">${escapeHtml(formatDateTime(record.updatedAt))}</td>
-                            <td class="px-3 py-3 align-top">
-                              <div class="flex flex-wrap gap-2">
-                                ${
-                                  canLaunch
-                                    ? `<button type="button" class="inline-flex h-8 items-center rounded-md border border-blue-200 bg-blue-50 px-3 text-xs font-medium text-blue-700 hover:bg-blue-100" data-pcs-project-action="launch-channel-listing-instance" data-channel-product-id="${escapeHtml(record.channelProductId)}">上传款式到渠道</button>`
-                                    : ''
-                                }
-                                ${
-                                  canComplete
-                                    ? `<button type="button" class="inline-flex h-8 items-center rounded-md border border-emerald-200 bg-emerald-50 px-3 text-xs font-medium text-emerald-700 hover:bg-emerald-100" data-pcs-project-action="complete-channel-listing-instance" data-channel-product-id="${escapeHtml(record.channelProductId)}">标记商品上架完成</button>`
-                                    : ''
-                                }
-                                <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/products/channel-products/${encodeURIComponent(record.channelProductId)}">查看</button>
-                              </div>
-                            </td>
-                          </tr>
-                          <tr class="bg-slate-50/60">
-                            <td colspan="10" class="px-3 pb-3 pt-0">
-                              <div class="rounded-lg border border-slate-200 bg-white p-3">
-                                <div class="mb-3">
-                                  <div class="mb-2 text-xs font-medium text-slate-500">上架图片</div>
-                                  ${
-                                    record.listingImages.length > 0
-                                      ? `<div class="flex flex-wrap gap-3">
-                                          ${record.listingImages
-                                            .slice()
-                                            .sort((left, right) => left.sortNo - right.sortNo)
-                                            .map(
-                                              (image) => `
-                                                <button type="button" class="group block w-20" data-pcs-project-action="open-image-preview" data-url="${escapeHtml(image.imageUrl)}" data-title="${escapeHtml(image.imageName)}" aria-label="${escapeHtml(`查看${image.imageName}`)}">
-                                                  <div class="relative overflow-hidden rounded-md border border-slate-200 bg-slate-50">
-                                                    <img src="${escapeHtml(image.imageUrl)}" alt="${escapeHtml(image.imageName)}" class="h-20 w-20 object-cover transition group-hover:scale-105" />
-                                                    ${image.imageId === record.listingMainImageId ? '<span class="absolute left-1 top-1 rounded bg-blue-600 px-1.5 py-0.5 text-[10px] text-white">主图</span>' : ''}
-                                                  </div>
-                                                  <div class="mt-1 text-[11px] text-slate-500">排序 ${escapeHtml(String(image.sortNo))}</div>
-                                                </button>
-                                              `,
-                                            )
-                                            .join('')}
-                                        </div>`
-                                      : '<div class="rounded-md border border-dashed border-slate-200 px-3 py-4 text-center text-xs text-slate-400">暂无上架图片</div>'
-                                  }
-                                </div>
-                                <div class="mb-2 text-xs font-medium text-slate-500">规格明细</div>
-                                <table class="min-w-full text-xs">
-                                  <thead class="bg-slate-50 text-left text-slate-500">
-                                    <tr>
-                                      <th class="px-3 py-2 font-medium">颜色</th>
-                                      <th class="px-3 py-2 font-medium">尺码</th>
-                                      <th class="px-3 py-2 font-medium">花型</th>
-                                      <th class="px-3 py-2 font-medium">平台销售 SKU</th>
-                                      <th class="px-3 py-2 font-medium">价格</th>
-                                      <th class="px-3 py-2 font-medium">币种</th>
-                                      <th class="px-3 py-2 font-medium">初始库存</th>
-                                      <th class="px-3 py-2 font-medium">上游规格编号</th>
-                                      <th class="px-3 py-2 font-medium">状态</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody class="divide-y divide-slate-200 bg-white">
-                                    ${renderChannelListingSpecRows(record)}
-                                  </tbody>
-                                </table>
-                              </div>
-                            </td>
-                          </tr>
-                        `
-                      })
-                      .join('')
-              }
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section class="rounded-lg border bg-white p-4">
-        <div class="flex flex-wrap items-start justify-between gap-4">
-          <div class="grid flex-1 gap-3 md:grid-cols-2">
-            <article class="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <p class="text-xs text-slate-500">最近结果</p>
-              <p class="mt-3 text-sm font-medium leading-6 text-slate-900">${escapeHtml(node.node.latestResultText || '-')}</p>
-            </article>
-            <article class="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <p class="text-xs text-slate-500">当前待办</p>
-              <p class="mt-3 text-sm font-medium leading-6 text-slate-900">${escapeHtml(node.node.pendingActionText || '-')}</p>
-            </article>
-          </div>
-          <div class="flex flex-wrap gap-2">
-            ${
-              canOperate
-                ? `<button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-project-action="create-channel-listing-instance">创建上架批次</button>`
-                : ''
-            }
-            ${
-              canOperate && latestPendingRecord
-                ? `<button type="button" class="inline-flex h-9 items-center rounded-md border border-blue-200 bg-blue-50 px-4 text-sm font-medium text-blue-700 hover:bg-blue-100" data-pcs-project-action="launch-channel-listing-instance" data-channel-product-id="${escapeHtml(latestPendingRecord.channelProductId)}">上传最近待上传批次</button>`
-                : ''
-            }
-            ${
-              canOperate && latestUploadedRecord
-                ? `<button type="button" class="inline-flex h-9 items-center rounded-md border border-emerald-200 bg-emerald-50 px-4 text-sm font-medium text-emerald-700 hover:bg-emerald-100" data-pcs-project-action="complete-channel-listing-instance" data-channel-product-id="${escapeHtml(latestUploadedRecord.channelProductId)}">标记最近批次完成</button>`
-                : ''
-            }
-            ${
-              latestRecord
-                ? `<button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/products/channel-products/${encodeURIComponent(latestRecord.channelProductId)}">打开最近实例</button>`
-                : '<button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-400" disabled>暂无可打开实例</button>'
-            }
-          </div>
-        </div>
-      </section>
+      ${renderChannelListingUploadedProductsSection(project, records)}
+      ${renderChannelListingImagePoolSection(project, node, draft)}
+      ${renderChannelListingCreateBatchSection(project, node, draft)}
     </div>
   `
 }
@@ -3092,23 +3206,6 @@ async function appendProjectInitReferenceImages(project: PcsProjectRecord, files
   window.dispatchEvent(new Event('higood:request-render'))
 }
 
-function resolveChannelListingDraftImageItems(
-  projectId: string,
-  draft: ChannelListingDraft,
-): PcsProjectImageAssetViewModel[] {
-  return draft.listingImageIds
-    .map((imageId) => findProjectImageViewModelById(projectId, imageId))
-    .filter((item): item is PcsProjectImageAssetViewModel => Boolean(item))
-}
-
-function resolveChannelListingCandidateImages(
-  projectId: string,
-  draft: ChannelListingDraft,
-): PcsProjectImageAssetViewModel[] {
-  const selectedIds = new Set(draft.listingImageIds)
-  return listProjectListingCandidateImageViewModels(projectId).filter((item) => !selectedIds.has(item.imageId))
-}
-
 function canUseImageForListing(image: PcsProjectImageAssetViewModel): boolean {
   return (
     image.usageScopes.includes('商品上架') &&
@@ -3142,121 +3239,11 @@ async function appendChannelListingSupplementImages(
     timestamp,
   )
   upsertProjectImageAssets(created)
-  const nextImageIds = [...draft.listingImageIds, ...created.map((item) => item.imageId)]
   updateChannelListingDraft(project, node, {
-    listingImageIds: nextImageIds,
     listingMainImageId: draft.listingMainImageId || created[0]?.imageId || '',
   })
-  state.notice = '上架补充图片已加入当前批次。'
+  state.notice = '商品图片已加入图片池。'
   window.dispatchEvent(new Event('higood:request-render'))
-}
-
-function renderChannelListingSelectedImages(
-  project: PcsProjectRecord,
-  draft: ChannelListingDraft,
-): string {
-  const images = resolveChannelListingDraftImageItems(project.projectId, draft)
-  if (images.length === 0) {
-    return `
-      <div class="rounded-md border border-dashed border-slate-200 px-3 py-6 text-center text-xs text-slate-400">
-        暂无上架图片
-      </div>
-    `
-  }
-
-  return `
-    <div class="grid gap-3 md:grid-cols-3 xl:grid-cols-4">
-      ${images
-        .map((image, index) => {
-          const isMain = image.imageId === draft.listingMainImageId
-          return `
-            <article class="rounded-lg border border-slate-200 bg-white p-3">
-              <button type="button" class="block h-40 w-full overflow-hidden rounded-md bg-slate-100" data-pcs-project-action="open-image-preview" data-url="${escapeHtml(image.imageUrl)}" data-title="${escapeHtml(image.previewTitle)}" aria-label="${escapeHtml(`查看${image.imageName}`)}">
-                <img src="${escapeHtml(image.imageUrl)}" alt="${escapeHtml(image.imageName)}" class="h-full w-full object-cover" />
-              </button>
-              <div class="mt-3 space-y-2">
-                <div>
-                  <p class="text-sm font-medium text-slate-900">${escapeHtml(image.imageName)}</p>
-                  <p class="mt-1 text-xs text-slate-500">${escapeHtml(image.imageType)} · ${escapeHtml(image.imageStatus || '-')}</p>
-                </div>
-                <div class="flex flex-wrap gap-1">
-                  ${image.usageScopes.map((scope) => `<span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">${escapeHtml(scope)}</span>`).join('')}
-                </div>
-                <div class="flex flex-wrap gap-2">
-                  <button type="button" class="inline-flex h-7 items-center rounded-md border px-2 text-[11px] ${isMain ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}" data-pcs-project-action="set-channel-listing-main-image" data-image-id="${escapeHtml(image.imageId)}">${isMain ? '当前主图' : '设为主图'}</button>
-                  <button type="button" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2 text-[11px] text-slate-600 hover:bg-slate-50" data-pcs-project-action="move-channel-listing-image-up" data-image-id="${escapeHtml(image.imageId)}" ${index === 0 ? 'disabled' : ''}>上移</button>
-                  <button type="button" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2 text-[11px] text-slate-600 hover:bg-slate-50" data-pcs-project-action="move-channel-listing-image-down" data-image-id="${escapeHtml(image.imageId)}" ${index === images.length - 1 ? 'disabled' : ''}>下移</button>
-                  <button type="button" class="inline-flex h-7 items-center rounded-md border border-rose-200 bg-white px-2 text-[11px] text-rose-600 hover:bg-rose-50" data-pcs-project-action="remove-channel-listing-image" data-image-id="${escapeHtml(image.imageId)}">移除</button>
-                </div>
-              </div>
-            </article>
-          `
-        })
-        .join('')}
-    </div>
-  `
-}
-
-function renderChannelListingCandidateImagePicker(
-  project: PcsProjectRecord,
-  draft: ChannelListingDraft,
-): string {
-  const candidates = resolveChannelListingCandidateImages(project.projectId, draft)
-  return `
-    <div class="rounded-lg border border-slate-200">
-      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
-        <div>
-          <h4 class="text-sm font-semibold text-slate-900">上架图片</h4>
-          <p class="mt-1 text-xs text-slate-500">从项目图片资产池选择，或补充上传上架图片。</p>
-        </div>
-        <label class="inline-flex h-8 cursor-pointer items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50">
-          上传上架补图
-          <input type="file" accept="image/*" multiple class="hidden" data-pcs-project-field="channel-listing-supplement-images" />
-        </label>
-      </div>
-      <div class="space-y-4 p-4">
-        <div>
-          <div class="mb-2 text-xs font-medium text-slate-500">已选上架图片</div>
-          ${renderChannelListingSelectedImages(project, draft)}
-        </div>
-        <div>
-          <div class="mb-2 text-xs font-medium text-slate-500">项目图片资产池候选图</div>
-          ${
-            candidates.length === 0
-              ? '<div class="rounded-md border border-dashed border-slate-200 px-3 py-6 text-center text-xs text-slate-400">暂无可选图片</div>'
-              : `
-                <div class="grid gap-3 md:grid-cols-3 xl:grid-cols-4">
-                  ${candidates
-                    .map((image) => {
-                      const usable = canUseImageForListing(image)
-                      const action = usable ? 'add-channel-listing-image' : 'confirm-add-channel-listing-image'
-                      const buttonText = usable ? '加入上架图片' : '确认可用于上架并加入'
-                      return `
-                        <article class="rounded-lg border border-slate-200 bg-white p-3">
-                          <button type="button" class="block h-32 w-full overflow-hidden rounded-md bg-slate-100" data-pcs-project-action="open-image-preview" data-url="${escapeHtml(image.imageUrl)}" data-title="${escapeHtml(image.previewTitle)}" aria-label="${escapeHtml(`查看${image.imageName}`)}">
-                            <img src="${escapeHtml(image.imageUrl)}" alt="${escapeHtml(image.imageName)}" class="h-full w-full object-cover" />
-                          </button>
-                          <div class="mt-3 space-y-2">
-                            <div>
-                              <p class="text-sm font-medium text-slate-900">${escapeHtml(image.imageName)}</p>
-                              <p class="mt-1 text-xs text-slate-500">${escapeHtml(image.imageType)} · ${escapeHtml(image.imageStatus)}</p>
-                            </div>
-                            <div class="flex flex-wrap gap-1">
-                              ${image.usageScopes.map((scope) => `<span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">${escapeHtml(scope)}</span>`).join('')}
-                            </div>
-                            <button type="button" class="inline-flex h-8 items-center rounded-md border ${usable ? 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100' : 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'} px-3 text-xs font-medium" data-pcs-project-action="${action}" data-image-id="${escapeHtml(image.imageId)}">${escapeHtml(buttonText)}</button>
-                          </div>
-                        </article>
-                      `
-                    })
-                    .join('')}
-                </div>
-              `
-          }
-        </div>
-      </div>
-    </div>
-  `
 }
 
 async function appendStyleArchiveSupplementImages(
@@ -6392,6 +6379,7 @@ function renderProjectWorkItemDetailPage(projectId: string, projectNodeId: strin
 }
 
 export async function renderPcsProjectListPage(): Promise<string> {
+  await ensureProjectDemoSeedServiceReady()
   ensureProjectDemoDataReadySync()
   const { filtered, paged, totalPages } = getPagedProjects()
   const phaseOptions = buildProjectPhaseOptions(filtered)
@@ -6411,19 +6399,13 @@ export async function renderPcsProjectCreatePage(): Promise<string> {
 }
 
 export async function renderPcsProjectDetailPage(projectId: string): Promise<string> {
-  const loadingTasks: Array<Promise<unknown>> = [ensureProjectDetailSupportReady()]
-  if (listProjects().length < PROJECT_DEMO_SEED_IMPORT_THRESHOLD) {
-    loadingTasks.push(ensureProjectDemoSeedServiceReady())
-  }
+  const loadingTasks: Array<Promise<unknown>> = [ensureProjectDetailSupportReady(), ensureProjectDemoSeedServiceReady()]
   await Promise.all(loadingTasks)
   return renderProjectDetailPage(projectId)
 }
 
 export async function renderPcsProjectWorkItemDetailPage(projectId: string, projectNodeId: string): Promise<string> {
-  const loadingTasks: Array<Promise<unknown>> = [ensureProjectDetailSupportReady()]
-  if (listProjects().length < PROJECT_DEMO_SEED_IMPORT_THRESHOLD) {
-    loadingTasks.push(ensureProjectDemoSeedServiceReady())
-  }
+  const loadingTasks: Array<Promise<unknown>> = [ensureProjectDetailSupportReady(), ensureProjectDemoSeedServiceReady()]
   await Promise.all(loadingTasks)
   return renderProjectWorkItemDetailPage(projectId, projectNodeId)
 }

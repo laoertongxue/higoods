@@ -1320,6 +1320,10 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
   if (action === 'close-dialog') {
     if (state.releaseDialogOpen) {
       state.releaseDialogOpen = false
+    } else if (state.designPreviewDialogOpen) {
+      state.designPreviewDialogOpen = false
+      state.designPreviewDesignId = null
+      state.designPreviewSource = null
     } else if (state.addPatternDialogOpen) {
       state.addPatternDialogOpen = false
       closePatternTemplateDialog(false)
@@ -2129,6 +2133,25 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     const previewUrl = String(design?.previewThumbnailDataUrl || design?.imageUrl || '').trim()
     if (!previewUrl) return true
     window.open(previewUrl, '_blank', 'noopener,noreferrer')
+    return true
+  }
+  if (action === 'open-design-thumbnail-preview') {
+    const designId = String(actionNode.dataset.designId || '').trim()
+    const designSource = actionNode.dataset.designSource === 'inside' ? 'inside' : 'front'
+    if (!designId || !state.techPack) return true
+
+    const design = state.techPack.patternDesigns.find((item) => item.id === designId)
+    if (!design) return true
+
+    state.designPreviewDialogOpen = true
+    state.designPreviewDesignId = designId
+    state.designPreviewSource = designSource
+    return true
+  }
+  if (action === 'close-design-thumbnail-preview') {
+    state.designPreviewDialogOpen = false
+    state.designPreviewDesignId = null
+    state.designPreviewSource = null
     return true
   }
   if (action === 'download-design-original-file') {

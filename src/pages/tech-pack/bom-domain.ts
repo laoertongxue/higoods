@@ -3,6 +3,7 @@ import {
   bomUsageProcessOptions,
   dyeOptions,
   escapeHtml,
+  getPatternDesignPreviewAssetById,
   getPatternDesignOptionsBySide,
   getSkuOptionsForCurrentSpu,
   printOptions,
@@ -20,11 +21,6 @@ function renderPrintSideModeLabel(mode: BomItemRow['printSideMode']): string {
   return '-'
 }
 
-function getPatternDesignNameById(designId: string): string {
-  if (!state.techPack || !designId.trim()) return ''
-  return state.techPack.patternDesigns.find((item) => item.id === designId)?.name || ''
-}
-
 function renderBomPrintBindingCell(item: BomItemRow, side: 'FRONT' | 'INSIDE'): string {
   if (!item.printRequirement || item.printRequirement === '无') {
     return '<span class="text-muted-foreground">-</span>'
@@ -39,10 +35,86 @@ function renderBomPrintBindingCell(item: BomItemRow, side: 'FRONT' | 'INSIDE'): 
   }
 
   const designId = side === 'FRONT' ? item.frontPatternDesignId : item.insidePatternDesignId
-  const designName = getPatternDesignNameById(designId)
-  return designName
-    ? escapeHtml(designName)
-    : '<span class="text-amber-600">待配置</span>'
+  const design = getPatternDesignPreviewAssetById(designId)
+  if (!design) {
+    return '<span class="text-amber-600">待配置</span>'
+  }
+
+  const source = side === 'FRONT' ? 'front' : 'inside'
+  const sourceLabel = side === 'FRONT' ? '正面花型' : '里面花型'
+  const designName = design.name || '未命名花型'
+
+  return `
+    <button
+      type="button"
+      class="inline-flex max-w-full items-center rounded text-blue-600 transition hover:text-blue-700 hover:underline"
+      data-tech-action="open-design-thumbnail-preview"
+      data-design-id="${escapeHtml(design.id)}"
+      data-design-source="${source}"
+      data-bom-id="${escapeHtml(item.id)}"
+      data-tech-preview-trigger="${source}"
+      title="查看${sourceLabel}缩略图"
+      aria-label="查看${sourceLabel}缩略图"
+    >
+      <span class="truncate">${escapeHtml(designName)}</span>
+    </button>
+  `
+}
+
+export function renderDesignThumbnailPreviewDialog(): string {
+  if (!state.designPreviewDialogOpen) return ''
+
+  const design = getPatternDesignPreviewAssetById(state.designPreviewDesignId || '')
+  const sourceLabel = state.designPreviewSource === 'inside' ? '里面花型' : '正面花型'
+  const designName = design?.name || '暂无数据'
+  const previewUrl = design?.previewUrl || ''
+
+  return `
+    <div class="fixed inset-0 z-[70] flex items-center justify-center p-4">
+      <button
+        type="button"
+        class="absolute inset-0 bg-black/45"
+        data-tech-action="close-design-thumbnail-preview"
+        data-tech-preview-backdrop="true"
+        aria-label="关闭花型缩略图预览"
+      ></button>
+      <section
+        class="relative flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border bg-background shadow-2xl"
+        data-dialog-panel="true"
+        data-tech-preview-dialog="design-thumbnail"
+      >
+        <header class="flex items-start justify-between gap-4 border-b px-6 py-4">
+          <div class="min-w-0">
+            <h3 class="text-lg font-semibold">花型缩略图预览</h3>
+            <p class="mt-1 text-sm text-muted-foreground" data-tech-preview-source="${escapeHtml(state.designPreviewSource || '')}">
+              ${escapeHtml(sourceLabel)} · ${escapeHtml(designName)}
+            </p>
+          </div>
+          <button
+            type="button"
+            class="inline-flex h-8 w-8 items-center justify-center rounded-md border text-muted-foreground hover:bg-muted"
+            data-tech-action="close-design-thumbnail-preview"
+            data-tech-preview-close="true"
+            aria-label="关闭花型缩略图预览"
+          >
+            <i data-lucide="x" class="h-4 w-4"></i>
+          </button>
+        </header>
+        <div class="flex min-h-[320px] items-center justify-center px-6 py-6">
+          ${
+            previewUrl
+              ? `<img
+                  src="${escapeHtml(previewUrl)}"
+                  alt="${escapeHtml(`${designName} 缩略图`)}"
+                  class="max-h-[70vh] w-full object-contain"
+                  data-tech-preview-image="true"
+                />`
+              : '<div class="rounded-md border border-dashed px-6 py-12 text-center text-sm text-muted-foreground" data-tech-preview-empty="true">暂无缩略图</div>'
+          }
+        </div>
+      </section>
+    </div>
+  `
 }
 
 export function renderBomTab(): string {
@@ -182,8 +254,8 @@ export function renderBomTab(): string {
                                   </select>
                                 </td>
                                 <td class="px-3 py-2">${item.printRequirement === '无' ? '<span class="text-muted-foreground">-</span>' : item.printSideMode ? escapeHtml(renderPrintSideModeLabel(item.printSideMode)) : '<span class="text-amber-600">待配置</span>'}</td>
-                                <td class="px-3 py-2">${renderBomPrintBindingCell(item, 'FRONT')}</td>
-                                <td class="px-3 py-2">${renderBomPrintBindingCell(item, 'INSIDE')}</td>
+                                <td class="px-3 py-2" data-tech-preview-cell="front" data-bom-id="${item.id}">${renderBomPrintBindingCell(item, 'FRONT')}</td>
+                                <td class="px-3 py-2" data-tech-preview-cell="inside" data-bom-id="${item.id}">${renderBomPrintBindingCell(item, 'INSIDE')}</td>
                                 <td class="px-3 py-2">
                                   <select class="h-8 w-24 rounded-md border px-2 text-sm" data-tech-field="bom-dye" data-bom-id="${item.id}" ${readonly ? 'disabled' : ''}>
                                     ${dyeOptions

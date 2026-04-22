@@ -19,7 +19,7 @@ import {
   resolveTechPackVersionBusinessStatus,
 } from '../../data/pcs-product-lifecycle-governance.ts'
 import { renderAttachmentsTab, renderAddAttachmentDialog, renderAddDesignDialog, renderDesignTab } from './asset-domain.ts'
-import { renderBomFormDialog, renderBomTab } from './bom-domain.ts'
+import { renderBomFormDialog, renderBomTab, renderDesignThumbnailPreviewDialog } from './bom-domain.ts'
 import { renderColorMappingTab } from './color-mapping-domain.ts'
 import { renderCostTab } from './cost-domain.ts'
 import {
@@ -207,6 +207,7 @@ export function renderTechPackPage(
       ${renderReleaseDialog()}
       ${renderPatternFormDialog()}
       ${renderBomFormDialog()}
+      ${renderDesignThumbnailPreviewDialog()}
       ${renderAddTechniqueDialog()}
       ${renderAddSizeDialog()}
       ${renderAddQualityDialog()}

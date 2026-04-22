@@ -324,9 +324,18 @@ function validateChannelListingNode(project: PcsProjectViewRecord, node: PcsProj
 
   const latestRecord = [...activeRecords].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0]
   const missingFieldLabels: string[] = []
+  const effectiveRecords = activeRecords.filter(
+    (item) =>
+      item.listingBatchStatus === '已上传待确认' ||
+      item.listingBatchStatus === '已完成' ||
+      item.channelProductStatus === '已上架待测款' ||
+      item.channelProductStatus === '已生效',
+  )
 
+  if (effectiveRecords.length === 0) missingFieldLabels.push('已上架商品')
   if (!latestRecord.upstreamProductId) missingFieldLabels.push('上游款式商品编号')
   if (!latestRecord.specLines.length) missingFieldLabels.push('规格明细')
+  if (latestRecord.specLines.some((item) => !item.productImageId)) missingFieldLabels.push('商品图片')
   if (latestRecord.specLines.some((item) => !item.upstreamSkuId)) missingFieldLabels.push('上游规格编号')
   if (
     latestRecord.listingBatchStatus !== '已完成' &&

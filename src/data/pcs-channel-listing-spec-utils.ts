@@ -68,8 +68,13 @@ export function normalizeChannelListingSpecLines(input: {
   defaultPriceAmount: number
   currencyCode: string
   specLines: ChannelListingSpecLineInput[]
+  resolveProductImage?: (
+    imageId: string,
+  ) => { imageUrl: string; imageName: string } | null
 }): ChannelListingSpecLineRecord[] {
   return input.specLines.map((line, index) => {
+    const productImageId = String(line.productImageId || '').trim()
+    const resolvedImage = productImageId ? input.resolveProductImage?.(productImageId) || null : null
     const colorName = String(line.colorName || '').trim()
     const sizeName = String(line.sizeName || '').trim()
     const printName = String(line.printName || '').trim()
@@ -91,6 +96,9 @@ export function normalizeChannelListingSpecLines(input: {
       specLineId: String(line.specLineId || buildChannelListingSpecLineId(input.listingBatchId, index)).trim(),
       specLineCode: String(line.specLineCode || buildChannelListingSpecLineCode(input.listingBatchCode, index)).trim(),
       listingBatchId: String(line.listingBatchId || input.listingBatchId).trim(),
+      productImageId,
+      productImageUrl: String(line.productImageUrl || resolvedImage?.imageUrl || '').trim(),
+      productImageName: String(line.productImageName || resolvedImage?.imageName || '').trim(),
       colorName,
       sizeName,
       printName,
@@ -112,6 +120,12 @@ export function validateChannelListingSpecLinesForCreate(
   if (!Array.isArray(specLines) || specLines.length === 0) {
     return '请先补齐至少一条规格明细。'
   }
+
+  for (const line of specLines) {
+    if (!String(line.productImageId || '').trim()) {
+      return '存在未选择商品图片的规格，不能创建上架批次。'
+    }
+  }
   return null
 }
 
@@ -123,6 +137,9 @@ export function validateChannelListingSpecLinesForUpload(
   }
 
   for (const line of specLines) {
+    if (!line.productImageId.trim()) {
+      return '存在未选择商品图片的规格，不能上传到渠道。'
+    }
     if (!line.colorName.trim()) {
       return '存在未填写颜色的规格，不能上传到渠道。'
     }

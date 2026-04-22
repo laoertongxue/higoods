@@ -533,9 +533,50 @@ function buildListingImagesFromPayload(input: {
   })
 }
 
+function resolveListingImageAssetSnapshot(imageId: string): { imageUrl: string; imageName: string } | null {
+  const asset = getProjectImageAssetById(imageId)
+  if (!asset) return null
+  return {
+    imageUrl: asset.imageUrl,
+    imageName: asset.imageName,
+  }
+}
+
+function getDefaultSpecProductImageId(input: {
+  listingMainImageId: string
+  listingImageIds: string[]
+  mainImageUrls: string[]
+  detailImageUrls: string[]
+}): string {
+  if (input.listingMainImageId) return input.listingMainImageId
+  if (input.listingImageIds[0]) return input.listingImageIds[0]
+  if (input.mainImageUrls[0] || input.detailImageUrls[0]) return ''
+  return ''
+}
+
+function hasListingSpecProductImages(specLines: ChannelListingSpecLineRecord[]): boolean {
+  return specLines.every((item) => Boolean(item.productImageId))
+}
+
+function isNodeCompletableChannelProduct(record: ProjectChannelProductRecord): boolean {
+  if (record.channelProductStatus === '已作废') return false
+  return (
+    record.listingBatchStatus === '已上传待确认' ||
+    record.listingBatchStatus === '已完成' ||
+    record.channelProductStatus === '已上架待测款' ||
+    record.channelProductStatus === '已生效'
+  )
+}
+
 function normalizeChannelProductRecord(record: ProjectChannelProductRecord): ProjectChannelProductRecord {
   const linkedStyle = record.styleId ? getStyleArchiveById(record.styleId) : null
   const listingBatchCode = record.listingBatchCode || record.channelProductCode
+  const defaultSpecProductImageId = getDefaultSpecProductImageId({
+    listingMainImageId: record.listingMainImageId || '',
+    listingImageIds: record.listingImageIds || [],
+    mainImageUrls: record.mainImageUrls || [],
+    detailImageUrls: record.detailImageUrls || [],
+  })
   const specLines = normalizeChannelListingSpecLines({
     listingBatchId: record.channelProductId,
     listingBatchCode,
@@ -546,6 +587,9 @@ function normalizeChannelProductRecord(record: ProjectChannelProductRecord): Pro
       ? record.specLines.map((line) => ({
           specLineId: line.specLineId,
           specLineCode: line.specLineCode,
+          productImageId: line.productImageId || defaultSpecProductImageId,
+          productImageUrl: line.productImageUrl,
+          productImageName: line.productImageName,
           colorName: line.colorName,
           sizeName: line.sizeName,
           printName: line.printName,
@@ -557,7 +601,11 @@ function normalizeChannelProductRecord(record: ProjectChannelProductRecord): Pro
           upstreamSkuId: line.upstreamSkuId,
           uploadResultText: line.uploadResultText,
         }))
-      : buildLegacySpecSnapshot(record),
+      : buildLegacySpecSnapshot(record).map((line) => ({
+          ...line,
+          productImageId: defaultSpecProductImageId,
+        })),
+    resolveProductImage: resolveListingImageAssetSnapshot,
   }).map((line) => {
     const legacyUploaded = Boolean(record.upstreamProductId || record.upstreamChannelProductCode)
     if (line.upstreamSkuId || !legacyUploaded) return line
@@ -2666,6 +2714,7 @@ export function createProjectChannelProductFromListingNode(
     defaultPriceAmount: resolvedPayload.defaultPriceAmount,
     currencyCode: resolvedPayload.currencyCode,
     specLines: resolvedPayload.specLines,
+    resolveProductImage: resolveListingImageAssetSnapshot,
   })
   const migratedListingImages =
     resolvedPayload.listingImageIds.length === 0 &&
@@ -2970,6 +3019,91 @@ export function markProjectChannelProductListingCompleted(
     ok: true,
     message: '商品上架已完成，已进入下一工作项。',
     record: nextRecord,
+  }
+}
+
+export function completeProjectChannelListingNode(
+  projectId: string,
+  operatorName = '当前用户',
+): ProjectChannelProductWriteResult {
+  const project = getProjectById(projectId)
+  if (!project) {
+    return { ok: false, message: '未找到对应商品项目，不能标记完成。', record: null }
+  }
+
+  const { node: listingNode, message } = getProjectNodeOrMessage(projectId, 'CHANNEL_PRODUCT_LISTING', '商品上架')
+  if (!listingNode) {
+    return { ok: false, message, record: null }
+  }
+
+  const effectiveRecords = listProjectChannelProductsByProjectId(projectId)
+    .filter((item) => item.projectNodeId === listingNode.projectNodeId)
+    .filter(isNodeCompletableChannelProduct)
+
+  if (effectiveRecords.length === 0) {
+    return { ok: false, message: '当前尚无已上架商品，不能标记完成。', record: null }
+  }
+
+  for (const record of effectiveRecords) {
+    if (!record.upstreamProductId) {
+      return { ok: false, message: '当前商品尚未上传到渠道，不能标记完成。', record }
+    }
+    if (!record.specLines.length) {
+      return { ok: false, message: '当前尚无已上架商品，不能标记完成。', record }
+    }
+    if (!hasListingSpecProductImages(record.specLines)) {
+      return { ok: false, message: '存在未选择商品图片的规格，不能标记完成。', record }
+    }
+  }
+
+  const timestamp = nowText()
+  let latestRecord = effectiveRecords[0] || null
+  effectiveRecords.forEach((record) => {
+    if (record.listingBatchStatus === '已上传待确认') {
+      const nextRecord: ProjectChannelProductRecord = {
+        ...record,
+        listingBatchStatus: '已完成',
+        channelProductStatus: '已上架待测款',
+        updatedAt: timestamp,
+        testingStatusText: '已完成上架，正在测款',
+        uploadResultText: '商品上架已完成，可进入正式测款。',
+        upstreamSyncNote: '商品上架已完成，等待直播或短视频正式测款。',
+        upstreamSyncLog: `${timestamp} 已确认商品上架完成。`,
+      }
+      replaceRecord(nextRecord, operatorName)
+      latestRecord = nextRecord
+    }
+  })
+
+  const flowResult = markProjectNodeCompletedAndUnlockNext(projectId, listingNode.projectNodeId, {
+    operatorName,
+    timestamp,
+    resultType: '商品上架已完成',
+    resultText: '商品上架已完成。',
+  })
+
+  if (!flowResult.ok) {
+    return { ok: false, message: flowResult.message, record: latestRecord }
+  }
+
+  updateProjectNodeRecord(
+    projectId,
+    listingNode.projectNodeId,
+    {
+      latestResultType: '商品上架已完成',
+      latestResultText: '商品上架已完成。',
+      pendingActionType: '',
+      pendingActionText: '',
+      updatedAt: timestamp,
+    },
+    operatorName,
+  )
+  syncProjectNodeInstanceRuntime(projectId, listingNode.projectNodeId, operatorName, timestamp)
+
+  return {
+    ok: true,
+    message: '商品上架已完成，已进入下一工作项。',
+    record: latestRecord,
   }
 }
 

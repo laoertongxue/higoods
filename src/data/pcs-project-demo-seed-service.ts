@@ -47,7 +47,7 @@ import {
 
 const DEMO_OPERATOR = '系统演示'
 const DEMO_SEED_VERSION_STORAGE_KEY = 'higood-pcs-project-demo-seed-version'
-const DEMO_SEED_VERSION = '2026-04-17-revision-template-remove-feasibility'
+const DEMO_SEED_VERSION = '2026-04-22-listing-node-demo-project'
 const EXISTING_COVERAGE_PROJECT_THRESHOLD = 40
 
 let projectDemoSeedReady = false
@@ -1548,54 +1548,9 @@ function ensureExistingProjectDemoConsistency(): void {
   })
 }
 
-export function ensurePcsProjectDemoDataReady(): void {
-  if (projectDemoSeedReady) return
-  const existingProjects = listProjects()
-  const hasLegacyDemoSeed = existingProjects.some((project) => project.projectName.includes('双渠道归档项目'))
-  const hasCoverageScaleData = existingProjects.length >= EXISTING_COVERAGE_PROJECT_THRESHOLD
-  const seedVersion = getDemoSeedVersion()
-
-  if (seedVersion === DEMO_SEED_VERSION || hasCoverageScaleData) {
-    if (hasCoverageScaleData && seedVersion !== DEMO_SEED_VERSION) {
-      persistDemoSeedVersion()
-    }
-    projectDemoSeedReady = true
-    return
-  }
-
-  if (!hasLegacyDemoSeed) {
-  const pendingProject = createProject(
-    buildDemoDraft({
-      projectName: '2026夏季宽松基础T恤',
-      styleType: '基础款',
-      projectSourceType: '企划提案',
-      categoryName: '上衣',
-      ownerName: '张丽',
-      teamName: '商品企划组',
-      brandName: 'Chicmore',
-      styleCodeName: '1-Casul Shirt-18-30休闲衬衫',
-      styleTags: ['休闲', '基础'],
-      channels: ['tiktok-shop', 'shopee'],
-      remark: '等待负责人补齐并完成立项。',
-    }),
-    DEMO_OPERATOR,
-  ).project
-  updateProjectRecord(
-    pendingProject.projectId,
-    {
-      createdAt: '2026-04-13 09:10',
-      updatedAt: '2026-04-13 09:10',
-    },
-    DEMO_OPERATOR,
-  )
-  seedNodeStatus(pendingProject.projectId, 'PROJECT_INIT', {
-    updatedAt: '2026-04-13 09:10',
-    latestResultType: '已创建项目',
-    latestResultText: '商品项目已创建，请补齐并完成立项信息。',
-    lastEventType: '创建项目',
-    lastEventTime: '2026-04-13 09:10',
-  })
-  syncProjectLifecycle(pendingProject.projectId, DEMO_OPERATOR, '2026-04-13 09:10')
+function ensureListingNodeDemoProject(): void {
+  const existingProject = listProjects().find((project) => project.projectName === '2026夏季印花短袖快反项目')
+  if (existingProject) return
 
   const ongoingProject = createProject(
     buildDemoDraft({
@@ -1625,6 +1580,10 @@ export function ensurePcsProjectDemoDataReady(): void {
   seedInlineRecordAndComplete(ongoingProject.projectId, 'FEASIBILITY_REVIEW', {
     businessDate: '2026-04-11',
     note: '渠道适配度良好，建议继续推进。',
+  })
+  seedInlineRecordAndComplete(ongoingProject.projectId, 'SAMPLE_SHOOT_FIT', {
+    businessDate: '2026-04-11',
+    note: '已完成样衣平铺、试穿和细节拍摄，试穿反馈已确认。',
   })
   seedInlineRecordAndComplete(ongoingProject.projectId, 'SAMPLE_CONFIRM', {
     businessDate: '2026-04-11',
@@ -1686,6 +1645,62 @@ export function ensurePcsProjectDemoDataReady(): void {
     DEMO_OPERATOR,
   )
   syncProjectLifecycle(ongoingProject.projectId, DEMO_OPERATOR, '2026-04-12 18:40')
+}
+
+export function ensurePcsProjectDemoDataReady(): void {
+  if (projectDemoSeedReady) return
+  const existingProjects = listProjects()
+  const hasLegacyDemoSeed = existingProjects.some((project) => project.projectName.includes('双渠道归档项目'))
+  const hasCoverageScaleData = existingProjects.length >= EXISTING_COVERAGE_PROJECT_THRESHOLD
+  const seedVersion = getDemoSeedVersion()
+
+  if (seedVersion === DEMO_SEED_VERSION || hasCoverageScaleData) {
+    ensureListingNodeDemoProject()
+    if (hasCoverageScaleData && seedVersion !== DEMO_SEED_VERSION) {
+      persistDemoSeedVersion()
+    }
+    if (seedVersion !== DEMO_SEED_VERSION) {
+      persistDemoSeedVersion()
+    }
+    projectDemoSeedReady = true
+    return
+  }
+
+  if (!hasLegacyDemoSeed) {
+  const pendingProject = createProject(
+    buildDemoDraft({
+      projectName: '2026夏季宽松基础T恤',
+      styleType: '基础款',
+      projectSourceType: '企划提案',
+      categoryName: '上衣',
+      ownerName: '张丽',
+      teamName: '商品企划组',
+      brandName: 'Chicmore',
+      styleCodeName: '1-Casul Shirt-18-30休闲衬衫',
+      styleTags: ['休闲', '基础'],
+      channels: ['tiktok-shop', 'shopee'],
+      remark: '等待负责人补齐并完成立项。',
+    }),
+    DEMO_OPERATOR,
+  ).project
+  updateProjectRecord(
+    pendingProject.projectId,
+    {
+      createdAt: '2026-04-13 09:10',
+      updatedAt: '2026-04-13 09:10',
+    },
+    DEMO_OPERATOR,
+  )
+  seedNodeStatus(pendingProject.projectId, 'PROJECT_INIT', {
+    updatedAt: '2026-04-13 09:10',
+    latestResultType: '已创建项目',
+    latestResultText: '商品项目已创建，请补齐并完成立项信息。',
+    lastEventType: '创建项目',
+    lastEventTime: '2026-04-13 09:10',
+  })
+  syncProjectLifecycle(pendingProject.projectId, DEMO_OPERATOR, '2026-04-13 09:10')
+
+  ensureListingNodeDemoProject()
 
   const decisionProject = createProject(
     buildDemoDraft({

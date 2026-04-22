@@ -4,6 +4,9 @@ export interface ChannelListingSpecLineRecord {
   specLineId: string
   specLineCode: string
   listingBatchId: string
+  productImageId: string
+  productImageUrl: string
+  productImageName: string
   colorName: string
   sizeName: string
   printName: string
@@ -20,6 +23,9 @@ export interface ChannelListingSpecLineInput {
   specLineId?: string
   specLineCode?: string
   listingBatchId?: string
+  productImageId?: string
+  productImageUrl?: string
+  productImageName?: string
   colorName?: string
   sizeName?: string
   printName?: string

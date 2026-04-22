@@ -20,6 +20,8 @@ export interface PcsProjectImageAssetViewModel extends PcsProjectReferenceImageV
   sourceType: PcsProjectImageAssetRecord['sourceType']
   usageScopes: PcsProjectImageAssetRecord['usageScopes']
   usageScopeText: string
+  createdAt: string
+  updatedAt: string
 }
 
 function toImageViewModel(record: PcsProjectImageAssetRecord): PcsProjectImageAssetViewModel {
@@ -35,6 +37,8 @@ function toImageViewModel(record: PcsProjectImageAssetRecord): PcsProjectImageAs
     sourceType: record.sourceType,
     usageScopes: [...record.usageScopes],
     usageScopeText: record.usageScopes.join('、'),
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
   }
 }
 

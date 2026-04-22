@@ -1006,11 +1006,24 @@ function buildPatternTechPackDisabledLabel(reason: string): string {
   return '写入技术包花型'
 }
 
-function getPatternTechPackDisabledReason(patternTaskId: string): string {
+interface PatternTechPackTargetResolution {
+  mode: 'WRITE' | 'NEW_VERSION'
+  disabledReason: string
+}
+
+function resolvePatternTechPackTarget(patternTaskId: string): PatternTechPackTargetResolution {
   const task = getPatternTaskById(patternTaskId)
-  if (!task) return '未找到花型任务。'
+  if (!task) {
+    return {
+      mode: 'WRITE',
+      disabledReason: '未找到花型任务。',
+    }
+  }
   if (!isTechPackGenerationAllowedStatus(task.status)) {
-    return getTechPackGenerationBlockedReason(task.status) || '当前花型任务尚未确认产出，不能写入技术包。'
+    return {
+      mode: 'WRITE',
+      disabledReason: getTechPackGenerationBlockedReason(task.status) || '当前花型任务尚未确认产出，不能写入技术包。',
+    }
   }
   try {
     const style = ensureStyleArchive(
@@ -1021,32 +1034,36 @@ function getPatternTechPackDisabledReason(patternTaskId: string): string {
     const plateDraftVersion = getLatestPlateWritableVersion(style.styleId)
     const targetVersion = effectiveVersion || plateDraftVersion
     if (!targetVersion) {
-      return '当前款式没有可写入花型的技术包版本，请先完成制版任务生成技术包。'
+      return {
+        mode: 'WRITE',
+        disabledReason: '当前款式没有可写入花型的技术包版本，请先完成制版任务生成技术包。',
+      }
     }
     const targetContent = getTechnicalDataVersionContent(targetVersion.technicalVersionId)
     if (!targetContent) {
-      return '未找到目标技术包版本内容，不能写入花型。'
+      return {
+        mode: 'WRITE',
+        disabledReason: '未找到目标技术包版本内容，不能写入花型。',
+      }
     }
-    return ''
+    return {
+      mode: hasArtworkContent(targetVersion, targetContent) ? 'NEW_VERSION' : 'WRITE',
+      disabledReason: '',
+    }
   } catch (error) {
-    return error instanceof Error ? error.message : '当前花型任务暂不能写入技术包。'
+    return {
+      mode: 'WRITE',
+      disabledReason: error instanceof Error ? error.message : '当前花型任务暂不能写入技术包。',
+    }
   }
 }
 
+function getPatternTechPackDisabledReason(patternTaskId: string): string {
+  return resolvePatternTechPackTarget(patternTaskId).disabledReason
+}
+
 function resolvePatternTaskTargetMode(patternTaskId: string): 'WRITE' | 'NEW_VERSION' {
-  const task = getPatternTaskById(patternTaskId)
-  if (!task) return 'WRITE'
-  const style = ensureStyleArchive(
-    { styleId: '', styleCode: task.productStyleCode, projectId: task.projectId, spuCode: task.spuCode },
-    '当前花型任务未绑定正式款式档案，不能写入技术包。',
-  )
-  const effectiveVersion = getCurrentTechPackVersionByStyleId(style.styleId)
-  const plateDraftVersion = getLatestPlateWritableVersion(style.styleId)
-  const targetVersion = effectiveVersion || plateDraftVersion
-  if (!targetVersion) return 'WRITE'
-  const targetContent = getTechnicalDataVersionContent(targetVersion.technicalVersionId)
-  if (!targetContent) return 'WRITE'
-  return hasArtworkContent(targetVersion, targetContent) ? 'NEW_VERSION' : 'WRITE'
+  return resolvePatternTechPackTarget(patternTaskId).mode
 }
 
 export function getPatternTechPackActionLabel(patternTaskId: string): string {
