@@ -1,5 +1,6 @@
 import type { RouteRegistry } from './route-types'
 import {
+  renderPdaLoginPage,
   renderPdaNotifyDetailPage,
   renderPdaNotifyDueSoonPage,
   renderPdaNotifyPage,
@@ -20,10 +21,16 @@ import {
   renderPdaCuttingSpreadingPage,
   renderPdaCuttingTaskDetailPage,
 } from './route-renderers'
+import { renderRouteRedirect } from './route-utils'
+import { getPdaSession } from '../data/fcs/store-domain-pda.ts'
 
 export const routes: RouteRegistry = {
   exactRoutes: {
-    '/fcs/pda': () => renderPdaNotifyPage(),
+    '/fcs/pda': () =>
+      getPdaSession()
+        ? renderRouteRedirect('/fcs/pda/notify', '工厂端移动应用')
+        : renderRouteRedirect('/fcs/pda/login', '工厂端移动应用登录'),
+    '/fcs/pda/login': () => renderPdaLoginPage(),
     '/fcs/pda/notify': () => renderPdaNotifyPage(),
     '/fcs/pda/notify/due-soon': () => renderPdaNotifyDueSoonPage(),
     '/fcs/pda/quality': () => renderPdaQualityPage(),

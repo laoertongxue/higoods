@@ -26,6 +26,11 @@ import {
   syncMilestoneOverdueExceptions,
 } from '../data/fcs/pda-exec-link'
 import { renderPdaFrame } from './pda-shell'
+import {
+  ensurePdaSessionForAction,
+  getPdaRuntimeContext,
+  renderPdaLoginRedirect,
+} from './pda-runtime'
 
 type TaskStatusTab = 'NOT_STARTED' | 'IN_PROGRESS' | 'BLOCKED' | 'DONE'
 
@@ -158,29 +163,8 @@ function nowTimestamp(date: Date = new Date()): string {
 }
 
 function getCurrentFactoryId(): string {
-  if (state.selectedFactoryId) return state.selectedFactoryId
-  if (typeof window === 'undefined') return 'ID-F001'
-
-  try {
-    const localFactoryId = window.localStorage.getItem('fcs_pda_factory_id')
-    if (localFactoryId) {
-      state.selectedFactoryId = localFactoryId
-      return localFactoryId
-    }
-
-    const rawSession = window.localStorage.getItem('fcs_pda_session')
-    if (rawSession) {
-      const parsed = JSON.parse(rawSession) as { factoryId?: string }
-      if (parsed.factoryId) {
-        state.selectedFactoryId = parsed.factoryId
-        return parsed.factoryId
-      }
-    }
-  } catch {
-    // ignore parse errors
-  }
-
-  state.selectedFactoryId = 'ID-F001'
+  const runtime = getPdaRuntimeContext()
+  state.selectedFactoryId = runtime?.factoryId ?? ''
   return state.selectedFactoryId
 }
 
@@ -709,11 +693,17 @@ function renderDoneCard(task: ProcessTask): string {
 }
 
 export function renderPdaExecPage(): string {
+  const runtime = getPdaRuntimeContext()
+  if (!runtime) {
+    return renderPdaLoginRedirect()
+  }
+
   syncPdaStartRiskAndExceptions()
   syncMilestoneOverdueExceptions()
   syncTabWithQuery()
 
   const selectedFactoryId = getCurrentFactoryId()
+  const factoryName = runtime.factoryName || getFactoryName(selectedFactoryId)
   const acceptedTasks = getAcceptedTasks(selectedFactoryId)
 
   const tasksByStatus: Record<TaskStatusTab, ProcessTask[]> = {
@@ -762,14 +752,9 @@ export function renderPdaExecPage(): string {
 
         <div class="flex items-center gap-2">
           <span class="shrink-0 text-sm text-muted-foreground">当前工厂:</span>
-          <select class="h-9 flex-1 rounded-md border bg-background px-3 text-sm" data-pda-exec-field="factoryId">
-            ${indonesiaFactories
-              .map(
-                (factory) =>
-                  `<option value="${escapeHtml(factory.id)}" ${factory.id === selectedFactoryId ? 'selected' : ''}>${escapeHtml(factory.name)}</option>`,
-              )
-              .join('')}
-          </select>
+          <div class="flex h-9 flex-1 items-center rounded-md border bg-muted/20 px-3 text-sm text-foreground">
+            ${escapeHtml(factoryName)}
+          </div>
         </div>
 
         <div class="relative">
@@ -828,22 +813,12 @@ export function renderPdaExecPage(): string {
 }
 
 export function handlePdaExecEvent(target: HTMLElement): boolean {
+  if (!ensurePdaSessionForAction()) return true
+
   const fieldNode = target.closest<HTMLElement>('[data-pda-exec-field]')
   if (fieldNode instanceof HTMLInputElement || fieldNode instanceof HTMLSelectElement) {
     const field = fieldNode.dataset.pdaExecField
     if (!field) return true
-
-    if (field === 'factoryId') {
-      state.selectedFactoryId = fieldNode.value
-      if (typeof window !== 'undefined') {
-        try {
-          window.localStorage.setItem('fcs_pda_factory_id', fieldNode.value)
-        } catch {
-          // ignore storage errors
-        }
-      }
-      return true
-    }
 
     if (field === 'searchKeyword') {
       state.searchKeyword = fieldNode.value

@@ -14,10 +14,13 @@ import {
   createEmptyMappingLine,
   currentUser,
   dedupeStrings,
+  buildPatternPiecePartKey,
   getBaselineProcessByCode,
   getCraftOptionByCode,
   getBomColorOptionsForPattern,
+  getPartTemplateRecordById,
   getPatternPieceSpecialCraftOptionsFromCurrentTechPack,
+  getPatternDesignOptionsBySide,
   getPatternMaterialTypeLabel,
   getPatternParseStatusLabel,
   getPatternById,
@@ -106,6 +109,155 @@ function clearPatternParseState(status: 'NOT_PARSED' | 'NOT_REQUIRED' = 'NOT_PAR
   state.newPattern.parsedAt = ''
 }
 
+function revokeDraftDesignPreview(): void {
+}
+
+function resetDesignDraft(): void {
+  revokeDraftDesignPreview()
+  state.newDesignName = ''
+  state.newDesignSideType = 'FRONT'
+  state.newDesignFileName = ''
+  state.newDesignOriginalFileMimeType = ''
+  state.newDesignOriginalFileDataUrl = ''
+  state.newDesignPreviewThumbnailDataUrl = ''
+  state.selectedDesignFile = null
+}
+
+function buildDesignPlaceholderImage(fileName: string, sideType: 'FRONT' | 'INSIDE'): string {
+  const label = sideType === 'FRONT' ? '正面花型' : '里面花型'
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320"><rect width="100%" height="100%" fill="#f3f4f6"/><rect x="24" y="24" width="272" height="272" rx="16" fill="#ffffff" stroke="#d1d5db"/><text x="160" y="138" text-anchor="middle" font-size="26" fill="#111827" font-family="Arial, sans-serif">${label}</text><text x="160" y="182" text-anchor="middle" font-size="16" fill="#6b7280" font-family="Arial, sans-serif">${fileName || '设计稿文件'}</text></svg>`
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+}
+
+function isImageDesignFile(file: File): boolean {
+  if (file.type.startsWith('image/')) return true
+  return /\.(png|jpe?g|webp|svg)$/i.test(file.name)
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result || ''))
+    reader.onerror = () => reject(reader.error || new Error('读取设计稿文件失败'))
+    reader.readAsDataURL(file)
+  })
+}
+
+function loadImage(source: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => resolve(image)
+    image.onerror = () => reject(new Error('生成设计稿缩略图失败'))
+    image.src = source
+  })
+}
+
+async function buildDesignThumbnailDataUrl(
+  originalFileDataUrl: string,
+  fileName: string,
+  sideType: 'FRONT' | 'INSIDE',
+): Promise<string> {
+  if (!originalFileDataUrl.startsWith('data:image/')) {
+    return buildDesignPlaceholderImage(fileName, sideType)
+  }
+
+  const image = await loadImage(originalFileDataUrl)
+  const maxSize = 320
+  const scale = Math.min(maxSize / image.width, maxSize / image.height, 1)
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.max(1, Math.round(image.width * scale))
+  canvas.height = Math.max(1, Math.round(image.height * scale))
+  const context = canvas.getContext('2d')
+  if (!context) return buildDesignPlaceholderImage(fileName, sideType)
+  context.fillStyle = '#f8fafc'
+  context.fillRect(0, 0, canvas.width, canvas.height)
+  context.drawImage(image, 0, 0, canvas.width, canvas.height)
+  return canvas.toDataURL('image/png')
+}
+
+async function applySelectedDesignFile(file: File | null): Promise<void> {
+  state.selectedDesignFile = file
+  state.newDesignFileName = file?.name || ''
+  state.newDesignOriginalFileMimeType = file?.type || ''
+  state.newDesignOriginalFileDataUrl = ''
+  state.newDesignPreviewThumbnailDataUrl = file
+    ? buildDesignPlaceholderImage(file.name, state.newDesignSideType)
+    : ''
+
+  if (!file) {
+    requestTechPackRender()
+    return
+  }
+
+  try {
+    const originalFileDataUrl = await readFileAsDataUrl(file)
+    const previewThumbnailDataUrl = isImageDesignFile(file)
+      ? await buildDesignThumbnailDataUrl(originalFileDataUrl, file.name, state.newDesignSideType)
+      : buildDesignPlaceholderImage(file.name, state.newDesignSideType)
+
+    if (state.selectedDesignFile !== file) return
+
+    state.newDesignOriginalFileDataUrl = originalFileDataUrl
+    state.newDesignPreviewThumbnailDataUrl = previewThumbnailDataUrl
+  } catch {
+    if (state.selectedDesignFile !== file) return
+    state.newDesignOriginalFileDataUrl = ''
+    state.newDesignPreviewThumbnailDataUrl = buildDesignPlaceholderImage(file.name, state.newDesignSideType)
+  }
+
+  requestTechPackRender()
+}
+
+function triggerDataUrlDownload(dataUrl: string, fileName: string): void {
+  const anchor = document.createElement('a')
+  anchor.href = dataUrl
+  anchor.download = fileName || '设计稿文件'
+  anchor.rel = 'noopener'
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+}
+
+function getPatternPieceTemplateConflict(
+  pieceId: string,
+  templateId: string,
+): (typeof state.newPattern.pieceRows)[number] | null {
+  const activeRow = state.newPattern.pieceRows.find((row) => row.id === pieceId)
+  if (!activeRow) return null
+  const partKey = buildPatternPiecePartKey(activeRow)
+  if (!partKey) return null
+
+  return (
+    state.newPattern.pieceRows.find(
+      (row) =>
+        row.id !== pieceId
+        && row.isTemplate
+        && String(row.partTemplateId || '').trim()
+        && buildPatternPiecePartKey(row) === partKey
+        && String(row.partTemplateId || '').trim() !== templateId,
+    ) ?? null
+  )
+}
+
+function applyBomPrintRequirementChange(nextRequirement: string): void {
+  state.newBomItem.printRequirement = nextRequirement
+  if (nextRequirement === '无') {
+    state.newBomItem.printSideMode = ''
+    state.newBomItem.frontPatternDesignId = ''
+    state.newBomItem.insidePatternDesignId = ''
+  }
+}
+
+function applyBomPrintSideModeChange(nextMode: '' | 'SINGLE' | 'DOUBLE'): void {
+  state.newBomItem.printSideMode = nextMode
+  if (nextMode !== 'DOUBLE') {
+    state.newBomItem.insidePatternDesignId = ''
+  }
+  if (nextMode === '') {
+    state.newBomItem.frontPatternDesignId = ''
+  }
+}
+
 function updatePatternPieceRow(
   pieceId: string,
   updater: (row: (typeof state.newPattern.pieceRows)[number]) => (typeof state.newPattern.pieceRows)[number],
@@ -113,6 +265,36 @@ function updatePatternPieceRow(
   state.newPattern.pieceRows = state.newPattern.pieceRows.map((row) =>
     row.id === pieceId ? updater(row) : row,
   )
+}
+
+function clearPatternPieceTemplate(pieceId: string): void {
+  updatePatternPieceRow(pieceId, (row) => ({
+    ...row,
+    isTemplate: false,
+    partTemplateId: undefined,
+    partTemplateName: undefined,
+    partTemplatePreviewSvg: undefined,
+    partTemplateShapeDescription: undefined,
+  }))
+}
+
+function openPatternTemplateDialogForPiece(pieceId: string): void {
+  state.activePatternTemplatePieceId = pieceId
+  state.patternTemplateDialogOpen = true
+  state.patternTemplateSearchKeyword = ''
+}
+
+function closePatternTemplateDialog(restoreIfMissing = true): void {
+  const activePieceId = state.activePatternTemplatePieceId
+  if (restoreIfMissing && activePieceId) {
+    const activeRow = state.newPattern.pieceRows.find((row) => row.id === activePieceId)
+    if (activeRow?.isTemplate && !String(activeRow.partTemplateId || '').trim()) {
+      clearPatternPieceTemplate(activePieceId)
+    }
+  }
+  state.patternTemplateDialogOpen = false
+  state.activePatternTemplatePieceId = null
+  state.patternTemplateSearchKeyword = ''
 }
 
 function buildColorAllocationId(pieceId: string, colorName: string): string {
@@ -236,6 +418,11 @@ async function startPatternParsing(): Promise<void> {
       ...row,
       colorAllocations: [],
       specialCrafts: [],
+      isTemplate: false,
+      partTemplateId: undefined,
+      partTemplateName: undefined,
+      partTemplatePreviewSvg: undefined,
+      partTemplateShapeDescription: undefined,
       note: row.note || row.annotation || '',
     }))
     state.newPattern.totalPieceCount = normalizedRows.reduce((sum, row) => sum + row.count, 0)
@@ -290,6 +477,24 @@ function validatePatternForm(): string | null {
     ),
   )
   if (invalidSpecialCraftRow) return '特殊工艺必须来自工序工艺字典'
+
+  const invalidTemplateRow = state.newPattern.pieceRows.find(
+    (row) => row.isTemplate && !String(row.partTemplateId || '').trim(),
+  )
+  if (invalidTemplateRow) return '选择了模板裁片后，必须指定具体部位模板'
+
+  const templateIdsByPartKey = new Map<string, Set<string>>()
+  state.newPattern.pieceRows.forEach((row) => {
+    if (!row.isTemplate || !String(row.partTemplateId || '').trim()) return
+    const partKey = buildPatternPiecePartKey(row)
+    if (!partKey) return
+    const current = templateIdsByPartKey.get(partKey) || new Set<string>()
+    current.add(String(row.partTemplateId || '').trim())
+    templateIdsByPartKey.set(partKey, current)
+  })
+  if (Array.from(templateIdsByPartKey.values()).some((item) => item.size > 1)) {
+    return '同一部位只能绑定一个模板，请统一模板绑定后再保存'
+  }
 
   if (state.newPattern.patternMaterialType === 'WOVEN') {
     if (state.newPattern.parseStatus !== 'PARSED') return '布料纸样需先解析纸样'
@@ -454,6 +659,17 @@ function handleTechPackField(
     updatePatternPieceRow(pieceId, (row) => ({ ...row, note: value }))
     return true
   }
+  if (field === 'new-pattern-piece-is-template') {
+    const pieceId = node.dataset.pieceId
+    if (!pieceId) return true
+    if (value === 'true') {
+      updatePatternPieceRow(pieceId, (row) => ({ ...row, isTemplate: true }))
+      openPatternTemplateDialogForPiece(pieceId)
+    } else {
+      clearPatternPieceTemplate(pieceId)
+    }
+    return true
+  }
   if (field === 'new-pattern-piece-color-count') {
     const pieceId = node.dataset.pieceId
     const colorName = node.dataset.colorName
@@ -500,11 +716,23 @@ function handleTechPackField(
     return true
   }
   if (field === 'new-bom-print-requirement') {
-    state.newBomItem.printRequirement = value
+    applyBomPrintRequirementChange(value)
     return true
   }
   if (field === 'new-bom-dye-requirement') {
     state.newBomItem.dyeRequirement = value
+    return true
+  }
+  if (field === 'new-bom-print-side-mode') {
+    applyBomPrintSideModeChange((value === 'SINGLE' || value === 'DOUBLE' ? value : '') as '' | 'SINGLE' | 'DOUBLE')
+    return true
+  }
+  if (field === 'new-bom-front-pattern-design-id') {
+    state.newBomItem.frontPatternDesignId = value
+    return true
+  }
+  if (field === 'new-bom-inside-pattern-design-id') {
+    state.newBomItem.insidePatternDesignId = value
     return true
   }
   if (field === 'new-bom-apply-all-sku') {
@@ -648,7 +876,19 @@ function handleTechPackField(
     const bomId = node.dataset.bomId
     if (!bomId) return true
     state.bomItems = state.bomItems.map((item) =>
-      item.id === bomId ? { ...item, printRequirement: value } : item,
+      item.id === bomId
+        ? {
+            ...item,
+            printRequirement: value,
+            ...(value === '无'
+              ? {
+                  printSideMode: '',
+                  frontPatternDesignId: '',
+                  insidePatternDesignId: '',
+                }
+              : {}),
+          }
+        : item,
     )
     syncTechPackToStore()
     return true
@@ -977,6 +1217,27 @@ function handleTechPackField(
     state.newDesignName = value
     return true
   }
+  if (field === 'new-design-side-type') {
+    state.newDesignSideType = value === 'INSIDE' ? 'INSIDE' : 'FRONT'
+    if (state.selectedDesignFile && !isImageDesignFile(state.selectedDesignFile)) {
+      state.newDesignPreviewThumbnailDataUrl = buildDesignPlaceholderImage(
+        state.selectedDesignFile.name,
+        state.newDesignSideType,
+      )
+    }
+    return true
+  }
+  if (field === 'new-design-file') {
+    if (!(node instanceof HTMLInputElement)) return true
+    const file = node.files?.[0] ?? null
+    revokeDraftDesignPreview()
+    void applySelectedDesignFile(file)
+    return true
+  }
+  if (field === 'pattern-template-search-keyword') {
+    state.patternTemplateSearchKeyword = value
+    return true
+  }
 
   if (field === 'new-attachment-file-name') {
     state.newAttachment.fileName = value
@@ -1061,6 +1322,8 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       state.releaseDialogOpen = false
     } else if (state.addPatternDialogOpen) {
       state.addPatternDialogOpen = false
+      closePatternTemplateDialog(false)
+      resetPatternForm()
     } else if (state.addBomDialogOpen) {
       state.addBomDialogOpen = false
     } else if (state.addTechniqueDialogOpen) {
@@ -1073,6 +1336,8 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       state.addAttachmentDialogOpen = false
     } else if (state.patternDialogOpen) {
       state.patternDialogOpen = false
+    } else if (state.patternTemplateDialogOpen) {
+      closePatternTemplateDialog(true)
     } else {
       return false
     }
@@ -1099,6 +1364,8 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
   }
   if (action === 'close-add-pattern') {
     state.addPatternDialogOpen = false
+    closePatternTemplateDialog(false)
+    resetPatternForm()
     return true
   }
   if (action === 'edit-pattern') {
@@ -1231,6 +1498,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
 
     syncTechPackToStore()
     state.addPatternDialogOpen = false
+    closePatternTemplateDialog(false)
     resetPatternForm()
     return true
   }
@@ -1336,6 +1604,39 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     })
     return true
   }
+  if (action === 'open-pattern-piece-template-dialog') {
+    const pieceId = actionNode.dataset.pieceId
+    if (!pieceId) return true
+    updatePatternPieceRow(pieceId, (row) => ({ ...row, isTemplate: true }))
+    openPatternTemplateDialogForPiece(pieceId)
+    return true
+  }
+  if (action === 'close-pattern-template-dialog') {
+    closePatternTemplateDialog(true)
+    return true
+  }
+  if (action === 'select-pattern-template') {
+    const pieceId = state.activePatternTemplatePieceId
+    const templateId = actionNode.dataset.templateId
+    if (!pieceId || !templateId) return true
+    const templateRecord = getPartTemplateRecordById(templateId)
+    if (!templateRecord) return true
+    const conflictRow = getPatternPieceTemplateConflict(pieceId, templateRecord.id)
+    if (conflictRow) {
+      state.newPattern.parseError = '同一部位只能绑定一个模板，请与同部位裁片保持一致'
+      return true
+    }
+    updatePatternPieceRow(pieceId, (row) => ({
+      ...row,
+      isTemplate: true,
+      partTemplateId: templateRecord.id,
+      partTemplateName: templateRecord.templateName,
+      partTemplatePreviewSvg: templateRecord.previewSvg,
+      partTemplateShapeDescription: templateRecord.shapeDescription?.autoDescription,
+    }))
+    closePatternTemplateDialog(false)
+    return true
+  }
   if (action === 'add-new-pattern-piece-row') {
     if (state.newPattern.patternMaterialType !== 'KNIT') return true
     state.newPattern.pieceRows = [
@@ -1345,6 +1646,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
         name: '',
         count: 1,
         note: '',
+        isTemplate: false,
         applicableSkuCodes: [],
         colorAllocations: [],
         specialCrafts: [],
@@ -1400,6 +1702,9 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       lossRate: String(bom.lossRate),
       printRequirement: bom.printRequirement,
       dyeRequirement: bom.dyeRequirement,
+      printSideMode: bom.printSideMode,
+      frontPatternDesignId: bom.frontPatternDesignId,
+      insidePatternDesignId: bom.insidePatternDesignId,
     }
     state.addBomDialogOpen = true
     return true
@@ -1410,6 +1715,22 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
   }
   if (action === 'save-bom') {
     if (!state.newBomItem.materialName.trim()) return true
+    if (state.newBomItem.printRequirement !== '无' && !state.newBomItem.printSideMode) {
+      window.alert('请选择单面印或双面印')
+      return true
+    }
+    if (state.newBomItem.printRequirement !== '无' && state.newBomItem.printSideMode === 'SINGLE' && !state.newBomItem.frontPatternDesignId.trim()) {
+      window.alert('请选择正面花型')
+      return true
+    }
+    if (
+      state.newBomItem.printRequirement !== '无'
+      && state.newBomItem.printSideMode === 'DOUBLE'
+      && (!state.newBomItem.frontPatternDesignId.trim() || !state.newBomItem.insidePatternDesignId.trim())
+    ) {
+      window.alert('双面印必须同时选择正面花型和里面花型')
+      return true
+    }
     const editingBom = state.editBomItemId
       ? state.bomItems.find((item) => item.id === state.editBomItemId) ?? null
       : null
@@ -1446,6 +1767,18 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       lossRate: Number.parseFloat(state.newBomItem.lossRate) || 0,
       printRequirement: state.newBomItem.printRequirement,
       dyeRequirement: state.newBomItem.dyeRequirement,
+      printSideMode:
+        state.newBomItem.printRequirement === '无'
+          ? ''
+          : state.newBomItem.printSideMode,
+      frontPatternDesignId:
+        state.newBomItem.printRequirement === '无'
+          ? ''
+          : state.newBomItem.frontPatternDesignId,
+      insidePatternDesignId:
+        state.newBomItem.printRequirement === '无' || state.newBomItem.printSideMode !== 'DOUBLE'
+          ? ''
+          : state.newBomItem.insidePatternDesignId,
     }
 
     if (state.editBomItemId) {
@@ -1775,16 +2108,51 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'open-add-design') {
-    state.newDesignName = ''
+    resetDesignDraft()
     state.addDesignDialogOpen = true
     return true
   }
   if (action === 'close-add-design') {
     state.addDesignDialogOpen = false
+    resetDesignDraft()
+    const fileInput = document.getElementById('tech-pack-design-file-input')
+    if (fileInput instanceof HTMLInputElement) fileInput.value = ''
+    return true
+  }
+  if (action === 'open-design-file-picker') {
+    document.getElementById('tech-pack-design-file-input')?.click()
+    return false
+  }
+  if (action === 'preview-design-thumbnail') {
+    const designId = actionNode.dataset.designId
+    const design = state.techPack?.patternDesigns.find((item) => item.id === designId)
+    const previewUrl = String(design?.previewThumbnailDataUrl || design?.imageUrl || '').trim()
+    if (!previewUrl) return true
+    window.open(previewUrl, '_blank', 'noopener,noreferrer')
+    return true
+  }
+  if (action === 'download-design-original-file') {
+    const designId = actionNode.dataset.designId
+    const design = state.techPack?.patternDesigns.find((item) => item.id === designId)
+    const originalFileDataUrl = String(design?.originalFileDataUrl || '').trim()
+    const originalFileName = String(design?.originalFileName || design?.fileName || '').trim()
+    if (!originalFileDataUrl || !originalFileName) {
+      window.alert('设计稿原文件缺失，无法下载')
+      return true
+    }
+    triggerDataUrlDownload(originalFileDataUrl, originalFileName)
     return true
   }
   if (action === 'save-design') {
-    if (!state.techPack || !state.newDesignName.trim()) return true
+    if (!state.techPack || !state.newDesignName.trim() || !state.newDesignFileName.trim()) return true
+    if (!state.newDesignOriginalFileDataUrl.trim()) {
+      window.alert('设计稿文件处理中，请稍后再保存')
+      return true
+    }
+
+    const previewThumbnailDataUrl =
+      state.newDesignPreviewThumbnailDataUrl
+      || buildDesignPlaceholderImage(state.newDesignFileName, state.newDesignSideType)
 
     state.techPack = {
       ...state.techPack,
@@ -1792,19 +2160,36 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
         ...state.techPack.patternDesigns,
         {
           id: `design-${Date.now()}`,
-          name: state.newDesignName,
-          imageUrl: '/placeholder.svg',
+          name: state.newDesignName.trim(),
+          imageUrl: previewThumbnailDataUrl,
+          designSideType: state.newDesignSideType,
+          fileName: state.newDesignFileName,
+          originalFileName: state.newDesignFileName,
+          originalFileMimeType: state.newDesignOriginalFileMimeType || undefined,
+          originalFileDataUrl: state.newDesignOriginalFileDataUrl,
+          previewThumbnailDataUrl,
+          uploadedAt: toTimestamp(),
         },
       ],
     }
 
     syncTechPackToStore()
     state.addDesignDialogOpen = false
+    resetDesignDraft()
+    const fileInput = document.getElementById('tech-pack-design-file-input')
+    if (fileInput instanceof HTMLInputElement) fileInput.value = ''
     return true
   }
   if (action === 'delete-design') {
     const designId = actionNode.dataset.designId
     if (!state.techPack || !designId) return true
+    const referencedByBom = state.bomItems.find(
+      (item) => item.frontPatternDesignId === designId || item.insidePatternDesignId === designId,
+    )
+    if (referencedByBom) {
+      window.alert('该花型已被物料清单引用，请先解除引用后再删除')
+      return true
+    }
 
     state.techPack = {
       ...state.techPack,

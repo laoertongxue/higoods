@@ -10,5 +10,6 @@ export function isTechPackDialogOpen(): boolean {
     state.addDesignDialogOpen ||
     state.addAttachmentDialogOpen ||
     state.patternDialogOpen
+    || state.patternTemplateDialogOpen
   )
 }

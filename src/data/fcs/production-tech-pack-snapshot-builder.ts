@@ -440,8 +440,30 @@ function buildImageSnapshot(input: {
     accessoryImages,
     patternImages: input.patternFiles.map((item) => normalizeText(item.imageUrl)).filter(isAllowedSnapshotImage),
     markerImages: [],
-    artworkImages: input.patternDesigns.map((item) => normalizeText(item.imageUrl)).filter(isAllowedSnapshotImage),
+    artworkImages: input.patternDesigns
+      .map((item) => normalizeText(item.previewThumbnailDataUrl || item.imageUrl))
+      .filter(isAllowedSnapshotImage),
   }
+}
+
+function buildSeedArtworkAssetData(label: string) {
+  const previewThumbnailDataUrl = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220">
+      <rect width="320" height="220" rx="20" fill="#eff6ff" />
+      <rect x="24" y="24" width="272" height="172" rx="16" fill="#bfdbfe" />
+      <text x="160" y="118" font-size="24" font-family="sans-serif" text-anchor="middle" fill="#1e3a8a">${label}</text>
+      <text x="160" y="148" font-size="13" font-family="sans-serif" text-anchor="middle" fill="#475569">缩略图预览</text>
+    </svg>
+  `)}`
+  const originalFileDataUrl = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 720">
+      <rect width="960" height="720" rx="40" fill="#eff6ff" />
+      <rect x="72" y="72" width="816" height="520" rx="32" fill="#bfdbfe" />
+      <text x="480" y="340" font-size="56" font-family="sans-serif" text-anchor="middle" fill="#1e3a8a">${label}</text>
+      <text x="480" y="410" font-size="24" font-family="sans-serif" text-anchor="middle" fill="#475569">原文件下载</text>
+    </svg>
+  `)}`
+  return { originalFileDataUrl, previewThumbnailDataUrl }
 }
 
 export function cloneProductionOrderTechPackSnapshot(
@@ -690,11 +712,18 @@ export function buildSeedProductionOrderTechPackSnapshot(input: {
     bomItems,
     sizeTable,
   })
+  const seedArtworkAsset = buildSeedArtworkAssetData(`${demand.spuName} 花型图`)
   const patternDesigns = clonePatternDesigns([
     {
       id: `seed-design-${productionOrderId}-1`,
       name: `${demand.spuName} 花型图`,
-      imageUrl: '',
+      designSideType: 'FRONT',
+      fileName: `${demand.spuCode}-front-artwork.png`,
+      originalFileName: `${demand.spuCode}-front-artwork.png`,
+      originalFileMimeType: 'image/svg+xml',
+      ...seedArtworkAsset,
+      imageUrl: seedArtworkAsset.previewThumbnailDataUrl,
+      uploadedAt: snapshotAt,
     },
   ])
   const imageSnapshot = buildImageSnapshot({

@@ -63,6 +63,15 @@ function renderPatternSizeSummary(selectedSizeCodes: string[], sizeRange?: strin
   return renderTextValue(sizeRange)
 }
 
+function renderTemplatePreview(previewSvg?: string): string {
+  if (!previewSvg) return '暂无数据'
+  return `
+    <div class="flex h-12 w-16 items-center justify-center overflow-hidden rounded border bg-white">
+      ${previewSvg}
+    </div>
+  `
+}
+
 function renderPatternPieceDetailTable(
   rows: ReturnType<typeof getProductionOrderPatternFiles>,
 ): string {
@@ -88,7 +97,9 @@ function renderPatternPieceDetailTable(
             <th class="px-3 py-2 text-left font-medium">适用颜色</th>
             <th class="px-3 py-2 text-left font-medium">每种颜色的片数</th>
             <th class="px-3 py-2 text-left font-medium">特殊工艺</th>
-            <th class="px-3 py-2 text-left font-medium">备注</th>
+            <th class="px-3 py-2 text-left font-medium">是否为模板</th>
+            <th class="px-3 py-2 text-left font-medium">部位模板ID</th>
+            <th class="px-3 py-2 text-left font-medium">部位模板缩略图</th>
           </tr>
         </thead>
         <tbody>
@@ -118,7 +129,9 @@ function renderPatternPieceDetailTable(
                       ? escapeHtml((row.specialCrafts ?? []).map((craft) => craft.displayName || craft.craftName).join('、'))
                       : '无'
                   }</td>
-                  <td class="px-3 py-2">${renderTextValue(row.note)}</td>
+                  <td class="px-3 py-2">${row.isTemplate ? '是' : '否'}</td>
+                  <td class="px-3 py-2">${renderTextValue(row.partTemplateId)}</td>
+                  <td class="px-3 py-2">${renderTemplatePreview(row.partTemplatePreviewSvg)}</td>
                 </tr>
               `,
             )
@@ -479,8 +492,8 @@ function renderDesignTab(productionOrderId: string): string {
             <section class="rounded-lg border bg-card p-4">
               <p class="text-sm font-medium">${escapeHtml(row.name)}</p>
               ${
-                isAllowedLocalImage(row.imageUrl)
-                  ? `<img src="${escapeHtml(row.imageUrl)}" alt="${escapeHtml(row.name)}" class="mt-3 h-40 w-full rounded-lg border object-cover" />`
+                isAllowedLocalImage(row.previewThumbnailDataUrl || row.imageUrl)
+                  ? `<img src="${escapeHtml(row.previewThumbnailDataUrl || row.imageUrl || '')}" alt="${escapeHtml(row.name)}" class="mt-3 h-40 w-full rounded-lg border object-cover" />`
                   : '<div class="mt-3 rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">暂无图片</div>'
               }
             </section>

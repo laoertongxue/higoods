@@ -1,3 +1,4 @@
+import { handlePdaLoginEvent } from '../pages/pda-login'
 import { handlePdaNotifyEvent } from '../pages/pda-notify'
 import { handlePdaNotifyDueSoonEvent } from '../pages/pda-notify-due-soon'
 import { handlePdaNotifyDetailEvent } from '../pages/pda-notify-detail'
@@ -18,6 +19,7 @@ import { handlePdaCuttingReplenishmentFeedbackEvent } from '../pages/pda-cutting
 
 export function dispatchPdaPageEvent(target: HTMLElement): boolean {
   return (
+    handlePdaLoginEvent(target) ||
     handlePdaNotifyEvent(target) ||
     handlePdaNotifyDueSoonEvent(target) ||
     handlePdaNotifyDetailEvent(target) ||

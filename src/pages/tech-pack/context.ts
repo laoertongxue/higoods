@@ -12,6 +12,7 @@ import {
   type TechPackColorMaterialMapping,
   type TechPackColorMaterialMappingLine,
   type TechPackPatternCategory,
+  type TechPackPatternDesignSideType,
   type TechPackPatternFileMode,
   type TechPackPatternMaterialType,
   type TechPackPatternParseStatus,
@@ -33,6 +34,7 @@ import {
   getTechnicalDataVersionById,
   getTechnicalDataVersionContent,
 } from '../../data/pcs-technical-data-version-repository.ts'
+import { listPartTemplateRecords, type PartTemplateRecord } from '../../data/pcs-part-template-library.ts'
 import {
   DETAIL_SPLIT_DIMENSION_LABEL,
   DETAIL_SPLIT_MODE_LABEL,
@@ -148,6 +150,9 @@ type BomItemRow = {
   lossRate: number
   printRequirement: string
   dyeRequirement: string
+  printSideMode: '' | 'SINGLE' | 'DOUBLE'
+  frontPatternDesignId: string
+  insidePatternDesignId: string
 }
 
 type PatternPieceRow = {
@@ -155,6 +160,11 @@ type PatternPieceRow = {
   name: string
   count: number
   note: string
+  isTemplate: boolean
+  partTemplateId?: string
+  partTemplateName?: string
+  partTemplatePreviewSvg?: string
+  partTemplateShapeDescription?: string
   applicableSkuCodes: string[]
   colorAllocations: TechPackPatternPieceColorAllocation[]
   specialCrafts: TechPackPatternPieceSpecialCraft[]
@@ -178,6 +188,11 @@ type PatternPieceRow = {
   missingName?: boolean
   missingCount?: boolean
 }
+
+type PatternPiecePartKeyInput = Pick<
+  PatternPieceRow,
+  'name' | 'sourcePartName' | 'systemPieceName' | 'sizeCode'
+>
 
 type SkuOption = {
   skuCode: string
@@ -429,6 +444,27 @@ function createEmptyPatternFormState(): PatternFormState {
     patternParsing: false,
   }
 }
+
+function createEmptyBomFormState(): TechPackPageState['newBomItem'] {
+  return {
+    type: '面料',
+    colorLabel: '',
+    materialCode: '',
+    materialName: '',
+    spec: '',
+    patternPieces: [],
+    linkedPatternIds: [],
+    applicableSkuCodes: [],
+    usageProcessCodes: [],
+    usage: '',
+    lossRate: '',
+    printRequirement: '无',
+    dyeRequirement: '无',
+    printSideMode: '',
+    frontPatternDesignId: '',
+    insidePatternDesignId: '',
+  }
+}
 const currencyOptions = ['人民币', '美元', '印尼盾']
 const materialUnitOptions = ['人民币/米', '人民币/码', '人民币/件', '美元/米', '美元/件', '印尼盾/件']
 const processUnitOptions = ['人民币/件', '人民币/批', '美元/件', '美元/批', '印尼盾/件', '印尼盾/批']
@@ -492,39 +528,43 @@ const craftOptions: CraftOption[] = listProcessCraftDefinitions()
   })
   .sort((a, b) => a.craftName.localeCompare(b.craftName, 'zh-Hans-CN'))
 
+const defaultPartTemplateRecords = listPartTemplateRecords()
+const defaultFrontTemplate = defaultPartTemplateRecords[0] ?? null
+const defaultInsideTemplate = defaultPartTemplateRecords[1] ?? defaultFrontTemplate
+
 const DEFAULT_PATTERN_ITEMS: PatternItem[] = [
   {
     id: 'PAT-001',
     name: '前片',
     type: '主体片',
     image: 'pattern-front.png',
-    file: 'front.dxf',
+    file: 'front-panel.dxf / front-panel.rul',
     remark: '标准前片',
     linkedBomItemId: 'bom-1',
     widthCm: 142,
     markerLengthM: 2.62,
     totalPieceCount: 6,
-    patternMaterialType: 'KNIT',
-    patternMaterialTypeLabel: getPatternMaterialTypeLabel('KNIT'),
-    patternFileMode: 'SINGLE_FILE',
-    parseStatus: 'NOT_REQUIRED',
-    parseStatusLabel: getPatternParseStatusLabel('NOT_REQUIRED'),
+    patternMaterialType: 'WOVEN',
+    patternMaterialTypeLabel: getPatternMaterialTypeLabel('WOVEN'),
+    patternFileMode: 'PAIRED_DXF_RUL',
+    parseStatus: 'PARSED',
+    parseStatusLabel: getPatternParseStatusLabel('PARSED'),
     parseError: '',
-    parsedAt: '',
-    dxfFileName: '',
+    parsedAt: '2026-04-20 09:20:00',
+    dxfFileName: 'front-panel.dxf',
     dxfFileSize: 0,
-    dxfLastModified: '',
-    rulFileName: '',
+    dxfLastModified: '2026-04-20 09:10:00',
+    rulFileName: 'front-panel.rul',
     rulFileSize: 0,
-    rulLastModified: '',
-    singlePatternFileName: 'front.dxf',
+    rulLastModified: '2026-04-20 09:11:00',
+    singlePatternFileName: '',
     singlePatternFileSize: 0,
     singlePatternFileLastModified: '',
-    dxfEncoding: '',
-    rulEncoding: '',
-    rulSizeList: [],
-    rulSampleSize: '',
-    patternSoftwareName: '',
+    dxfEncoding: 'UTF-8',
+    rulEncoding: 'UTF-8',
+    rulSizeList: ['S', 'M', 'L', 'XL'],
+    rulSampleSize: 'M',
+    patternSoftwareName: 'Lectra',
     sizeRange: 'S / M / L / XL',
     selectedSizeCodes: ['S', 'M', 'L', 'XL'],
     pieceRows: [
@@ -533,30 +573,37 @@ const DEFAULT_PATTERN_ITEMS: PatternItem[] = [
         name: '前片',
         count: 2,
         note: '',
+        isTemplate: Boolean(defaultFrontTemplate),
+        partTemplateId: defaultFrontTemplate?.id,
+        partTemplateName: defaultFrontTemplate?.templateName,
+        partTemplatePreviewSvg: defaultFrontTemplate?.previewSvg,
+        partTemplateShapeDescription: defaultFrontTemplate?.shapeDescription?.autoDescription,
         applicableSkuCodes: [],
         colorAllocations: [],
         specialCrafts: [],
-        sourceType: 'MANUAL',
+        sourceType: 'PARSED_PATTERN',
       },
       {
         id: 'PAT-001-R2',
         name: '门襟',
         count: 2,
         note: '',
+        isTemplate: false,
         applicableSkuCodes: [],
         colorAllocations: [],
         specialCrafts: [],
-        sourceType: 'MANUAL',
+        sourceType: 'PARSED_PATTERN',
       },
       {
         id: 'PAT-001-R3',
         name: '口袋贴',
         count: 2,
         note: '可选口袋款',
+        isTemplate: false,
         applicableSkuCodes: [],
         colorAllocations: [],
         specialCrafts: [],
-        sourceType: 'MANUAL',
+        sourceType: 'PARSED_PATTERN',
       },
     ],
   },
@@ -600,6 +647,11 @@ const DEFAULT_PATTERN_ITEMS: PatternItem[] = [
         name: '后片',
         count: 2,
         note: '',
+        isTemplate: Boolean(defaultInsideTemplate),
+        partTemplateId: defaultInsideTemplate?.id,
+        partTemplateName: defaultInsideTemplate?.templateName,
+        partTemplatePreviewSvg: defaultInsideTemplate?.previewSvg,
+        partTemplateShapeDescription: defaultInsideTemplate?.shapeDescription?.autoDescription,
         applicableSkuCodes: [],
         colorAllocations: [],
         specialCrafts: [],
@@ -610,6 +662,7 @@ const DEFAULT_PATTERN_ITEMS: PatternItem[] = [
         name: '肩部补强片',
         count: 2,
         note: '',
+        isTemplate: false,
         applicableSkuCodes: [],
         colorAllocations: [],
         specialCrafts: [],
@@ -635,6 +688,9 @@ const DEFAULT_BOM_ITEMS: BomItemRow[] = [
     lossRate: 3,
     printRequirement: '数码印',
     dyeRequirement: '无',
+    printSideMode: 'SINGLE',
+    frontPatternDesignId: 'design-front-1',
+    insidePatternDesignId: '',
   },
   {
     id: 'bom-2',
@@ -651,6 +707,9 @@ const DEFAULT_BOM_ITEMS: BomItemRow[] = [
     lossRate: 5,
     printRequirement: '无',
     dyeRequirement: '匹染',
+    printSideMode: '',
+    frontPatternDesignId: '',
+    insidePatternDesignId: '',
   },
   {
     id: 'bom-3',
@@ -667,6 +726,9 @@ const DEFAULT_BOM_ITEMS: BomItemRow[] = [
     lossRate: 2,
     printRequirement: '无',
     dyeRequirement: '无',
+    printSideMode: '',
+    frontPatternDesignId: '',
+    insidePatternDesignId: '',
   },
 ]
 
@@ -788,12 +850,15 @@ interface TechPackPageState {
   addDesignDialogOpen: boolean
   addAttachmentDialogOpen: boolean
   patternDialogOpen: boolean
+  patternTemplateDialogOpen: boolean
 
   selectedPattern: string | null
 
   editPatternItemId: string | null
   editBomItemId: string | null
   editTechniqueId: string | null
+  activePatternTemplatePieceId: string | null
+  patternTemplateSearchKeyword: string
   newPattern: PatternFormState
   newBomItem: {
     type: string
@@ -809,6 +874,9 @@ interface TechPackPageState {
     lossRate: string
     printRequirement: string
     dyeRequirement: string
+    printSideMode: '' | 'SINGLE' | 'DOUBLE'
+    frontPatternDesignId: string
+    insidePatternDesignId: string
   }
   newTechnique: {
     stageCode: '' | 'PREP' | 'PROD' | 'POST'
@@ -840,6 +908,12 @@ interface TechPackPageState {
     note: string
   }
   newDesignName: string
+  newDesignSideType: TechPackPatternDesignSideType
+  newDesignFileName: string
+  newDesignOriginalFileMimeType: string
+  newDesignOriginalFileDataUrl: string
+  newDesignPreviewThumbnailDataUrl: string
+  selectedDesignFile: File | null
   newAttachment: {
     fileName: string
     fileType: string
@@ -881,28 +955,17 @@ const state: TechPackPageState = {
   addDesignDialogOpen: false,
   addAttachmentDialogOpen: false,
   patternDialogOpen: false,
+  patternTemplateDialogOpen: false,
 
   selectedPattern: null,
 
   editPatternItemId: null,
   editBomItemId: null,
   editTechniqueId: null,
+  activePatternTemplatePieceId: null,
+  patternTemplateSearchKeyword: '',
   newPattern: createEmptyPatternFormState(),
-  newBomItem: {
-    type: '面料',
-    colorLabel: '',
-    materialCode: '',
-    materialName: '',
-    spec: '',
-    patternPieces: [],
-    linkedPatternIds: [],
-    applicableSkuCodes: [],
-    usageProcessCodes: [],
-    usage: '',
-    lossRate: '',
-    printRequirement: '无',
-    dyeRequirement: '无',
-  },
+  newBomItem: createEmptyBomFormState(),
   newTechnique: {
     stageCode: '',
     processCode: '',
@@ -933,6 +996,12 @@ const state: TechPackPageState = {
     note: '',
   },
   newDesignName: '',
+  newDesignSideType: 'FRONT',
+  newDesignFileName: '',
+  newDesignOriginalFileMimeType: '',
+  newDesignOriginalFileDataUrl: '',
+  newDesignPreviewThumbnailDataUrl: '',
+  selectedDesignFile: null,
   newAttachment: {
     fileName: '',
     fileType: 'PDF',
@@ -1681,6 +1750,9 @@ function getBomColorOptionsForPattern(linkedBomItemId?: string): PatternBomColor
     lossRate: item.lossRate,
     printRequirement: item.printRequirement || '无',
     dyeRequirement: item.dyeRequirement || '无',
+    printSideMode: item.printSideMode || '',
+    frontPatternDesignId: item.frontPatternDesignId || '',
+    insidePatternDesignId: item.insidePatternDesignId || '',
   }))
 
   if (linkedBomItemId) {
@@ -1690,6 +1762,73 @@ function getBomColorOptionsForPattern(linkedBomItemId?: string): PatternBomColor
   }
 
   return buildBomColorOptions(allBomItems, skuOptions)
+}
+
+function getPatternDesignPreviewUrl(input: {
+  previewThumbnailDataUrl?: string
+  imageUrl?: string
+}): string {
+  return String(input.previewThumbnailDataUrl || input.imageUrl || '').trim()
+}
+
+function getPatternDesignOptionsBySide(
+  sideType: TechPackPatternDesignSideType,
+): Array<{ id: string; name: string; previewThumbnailDataUrl: string; originalFileName: string; uploadedAt: string }> {
+  if (!state.techPack) return []
+  return state.techPack.patternDesigns
+    .filter((item) => item.designSideType === sideType)
+    .map((item) => ({
+      id: item.id,
+      name: item.name,
+      previewThumbnailDataUrl: getPatternDesignPreviewUrl(item),
+      originalFileName: String(item.originalFileName || item.fileName || '').trim(),
+      uploadedAt: String(item.uploadedAt || '').trim(),
+    }))
+}
+
+function getPartTemplateOptions(): PartTemplateRecord[] {
+  return listPartTemplateRecords()
+}
+
+function getPartTemplateRecordById(partTemplateId?: string): PartTemplateRecord | null {
+  const normalizedId = String(partTemplateId || '').trim()
+  if (!normalizedId) return null
+  return getPartTemplateOptions().find((record) => record.id === normalizedId) ?? null
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function normalizePatternPiecePartName(value: string): string {
+  return String(value || '').trim().replace(/\s+/g, ' ').toLowerCase()
+}
+
+function stripPatternPieceSizeSuffix(value: string, sizeTokens: string[]): string {
+  let normalized = value
+  sizeTokens
+    .filter(Boolean)
+    .forEach((token) => {
+      const escapedToken = escapeRegExp(token)
+      normalized = normalized.replace(new RegExp(`[\\s\\-_/（(]*${escapedToken}[）)]*$`, 'i'), '').trim()
+    })
+  return normalized
+}
+
+function buildPatternPiecePartKey(row: PatternPiecePartKeyInput): string {
+  const primaryName =
+    normalizePatternPiecePartName(row.name)
+    || normalizePatternPiecePartName(row.sourcePartName || '')
+    || normalizePatternPiecePartName(row.systemPieceName || '')
+
+  if (!primaryName) return ''
+
+  const sizeTokens = dedupeStrings([
+    row.sizeCode || '',
+    ...getSizeCodeOptionsFromSizeRules().map((item) => item.sizeCode),
+  ]).map((item) => item.trim().toLowerCase())
+
+  return stripPatternPieceSizeSuffix(primaryName, sizeTokens) || primaryName
 }
 
 function getPatternPieceSpecialCraftOptionsFromCurrentTechPack(): TechPackPatternPieceSpecialCraft[] {
@@ -2062,6 +2201,8 @@ function normalizePatternPieceRows(
 
   return rows.map((row, index) => {
     const normalizedPieceId = row.id || `${patternId}-piece-${index + 1}`
+    const templateRecord = getPartTemplateRecordById(row.partTemplateId)
+    const isTemplate = Boolean(row.isTemplate && (templateRecord || String(row.partTemplateId || '').trim()))
     const normalizedCount = Number.isFinite(row.count)
       ? Number(row.count)
       : Number.parseInt(String(row.count || ''), 10) || 0
@@ -2091,6 +2232,24 @@ function normalizePatternPieceRows(
       name: String(row.name || '').trim(),
       count: normalizedCount,
       note: String(row.note || '').trim(),
+      isTemplate,
+      partTemplateId: isTemplate ? String(row.partTemplateId || templateRecord?.id || '').trim() || undefined : undefined,
+      partTemplateName:
+        isTemplate
+          ? String(row.partTemplateName || templateRecord?.templateName || '').trim() || undefined
+          : undefined,
+      partTemplatePreviewSvg:
+        isTemplate
+          ? String(row.partTemplatePreviewSvg || templateRecord?.previewSvg || '').trim() || undefined
+          : undefined,
+      partTemplateShapeDescription:
+        isTemplate
+          ? String(
+              row.partTemplateShapeDescription
+              || templateRecord?.shapeDescription?.autoDescription
+              || '',
+            ).trim() || undefined
+          : undefined,
       applicableSkuCodes: dedupeStrings([...(row.applicableSkuCodes ?? []), ...derivedSkuCodes]),
       colorAllocations: normalizedColorAllocations,
       specialCrafts: normalizePatternPieceSpecialCrafts(row.specialCrafts ?? []),
@@ -2174,6 +2333,11 @@ function buildPatternItemsFromTechPack(techPack: TechPack): PatternItem[] {
         name: row.name,
         count: Number(row.count),
         note: row.note || '',
+        isTemplate: Boolean(row.isTemplate),
+        partTemplateId: row.partTemplateId,
+        partTemplateName: row.partTemplateName,
+        partTemplatePreviewSvg: row.partTemplatePreviewSvg,
+        partTemplateShapeDescription: row.partTemplateShapeDescription,
         applicableSkuCodes: [...(row.applicableSkuCodes ?? [])],
         colorAllocations: (row.colorAllocations ?? []).map((allocation) => ({
           ...allocation,
@@ -2339,6 +2503,9 @@ function buildBomItemsFromTechPack(techPack: TechPack): BomItemRow[] {
       lossRate: item.lossRate,
       printRequirement: item.printRequirement ?? '无',
       dyeRequirement: item.dyeRequirement ?? '无',
+      printSideMode: item.printSideMode ?? '',
+      frontPatternDesignId: item.frontPatternDesignId ?? '',
+      insidePatternDesignId: item.insidePatternDesignId ?? '',
     }
   })
 }
@@ -2706,6 +2873,11 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
           name: row.name,
           count: row.count,
           note: row.note || undefined,
+          isTemplate: row.isTemplate || undefined,
+          partTemplateId: row.partTemplateId || undefined,
+          partTemplateName: row.partTemplateName || undefined,
+          partTemplatePreviewSvg: row.partTemplatePreviewSvg || undefined,
+          partTemplateShapeDescription: row.partTemplateShapeDescription || undefined,
           applicableSkuCodes:
             row.applicableSkuCodes.length > 0 ? [...row.applicableSkuCodes] : undefined,
           colorAllocations:
@@ -2795,6 +2967,9 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
       supplier: '-',
       printRequirement: item.printRequirement || '无',
       dyeRequirement: item.dyeRequirement || '无',
+      printSideMode: item.printSideMode || undefined,
+      frontPatternDesignId: item.frontPatternDesignId || undefined,
+      insidePatternDesignId: item.insidePatternDesignId || undefined,
       applicableSkuCodes: dedupeStrings([...(item.applicableSkuCodes ?? [])]),
       linkedPatternIds: dedupeStrings([
         ...(item.linkedPatternIds ?? []),
@@ -2892,6 +3067,7 @@ function closeAllDialogs(): void {
   state.addDesignDialogOpen = false
   state.addAttachmentDialogOpen = false
   state.patternDialogOpen = false
+  state.patternTemplateDialogOpen = false
 }
 
 function buildPatternFormStateFromItem(item: PatternItem): PatternFormState {
@@ -2953,25 +3129,14 @@ function buildPatternFormStateFromItem(item: PatternItem): PatternFormState {
 function resetPatternForm(): void {
   state.newPattern = createEmptyPatternFormState()
   state.editPatternItemId = null
+  state.patternTemplateDialogOpen = false
+  state.activePatternTemplatePieceId = null
+  state.patternTemplateSearchKeyword = ''
 }
 
 function resetBomForm(): void {
   state.editBomItemId = null
-  state.newBomItem = {
-    type: '面料',
-    colorLabel: '',
-    materialCode: '',
-    materialName: '',
-    spec: '',
-    patternPieces: [],
-    linkedPatternIds: [],
-    applicableSkuCodes: [],
-    usageProcessCodes: [],
-    usage: '',
-    lossRate: '',
-    printRequirement: '无',
-    dyeRequirement: '无',
-  }
+  state.newBomItem = createEmptyBomFormState()
 }
 
 function resetTechniqueForm(): void {
@@ -3060,6 +3225,14 @@ function ensureTechPackPageState(rawSpuCode: string, seed: TechPackPageInitSeed 
   resetQualityRuleForm()
   resetAttachmentForm()
   state.newDesignName = ''
+  state.newDesignSideType = 'FRONT'
+  state.newDesignFileName = ''
+  state.newDesignOriginalFileMimeType = ''
+  state.newDesignOriginalFileDataUrl = ''
+  state.newDesignPreviewThumbnailDataUrl = ''
+  state.selectedDesignFile = null
+  state.patternTemplateSearchKeyword = ''
+  state.activePatternTemplatePieceId = null
 
   state.selectedPattern = null
 
@@ -3179,8 +3352,13 @@ export {
   getSkuCodesByColor,
   getSizeCodeOptionsFromSizeRules,
   getBomColorOptionsForPattern,
+  getPatternDesignOptionsBySide,
+  getPatternDesignPreviewUrl,
   getPatternPieceSpecialCraftOptionsFromCurrentTechPack,
   getSpecialCraftOptionsForPatternPiece,
+  getPartTemplateOptions,
+  getPartTemplateRecordById,
+  buildPatternPiecePartKey,
   getPatternById,
   getPatternPieceById,
   hasDyeDemand,

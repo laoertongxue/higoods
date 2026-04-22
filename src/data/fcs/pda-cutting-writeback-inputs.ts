@@ -7,11 +7,13 @@ import {
   type PdaCuttingTaskOrderLine,
 } from './pda-cutting-execution-source.ts'
 import {
+  findFactoryPdaRoleById,
+  getCurrentPdaUser,
   getPdaSession,
-  initialFactoryPdaUsers,
   initialFactoryUsers,
   pdaRoleTemplates,
   defaultFactoryRoles,
+  listFactoryPdaUsers,
 } from './store-domain-pda.ts'
 
 export type CuttingPdaActionType =
@@ -99,6 +101,7 @@ function resolveFactoryName(factoryId: string): string {
 function resolveRoleNameByRoleId(roleId: string | undefined): string {
   if (!roleId) return '现场操作员'
   return pdaRoleTemplates.find((item) => item.roleId === roleId)?.roleName
+    || findFactoryPdaRoleById(roleId)?.roleName
     || defaultFactoryRoles.find((item) => item.roleId === roleId)?.roleName
     || roleId
 }
@@ -111,33 +114,31 @@ function resolveRoleNameByRoleIds(roleIds: string[] | undefined): string {
 function resolveFactoryContext(taskId: string): { factoryId: string; factoryName: string } {
   const session = getPdaSession()
   const task = getTaskChainTaskById(taskId)
-  const factoryId = session.factoryId || task?.assignedFactoryId || 'ID-F001'
+  const factoryId = session?.factoryId || task?.assignedFactoryId || ''
   return {
     factoryId,
-    factoryName: task?.assignedFactoryName || resolveFactoryName(factoryId) || '默认工厂',
+    factoryName: session?.factoryName || task?.assignedFactoryName || resolveFactoryName(factoryId) || '待补工厂',
   }
 }
 
 function resolveOperatorFromSession(taskId: string, operatorName?: string): CuttingPdaWritebackOperatorInput {
   const session = getPdaSession()
+  const currentPdaUser = getCurrentPdaUser()
   const normalizedName = operatorName?.trim() || ''
   const { factoryId, factoryName } = resolveFactoryContext(taskId)
 
-  const sessionPdaUser = session.userId
-    ? initialFactoryPdaUsers.find((item) => item.userId === session.userId)
-    : null
-  if (sessionPdaUser) {
+  if (session && currentPdaUser) {
     return {
-      operatorAccountId: sessionPdaUser.userId,
-      operatorName: normalizedName || sessionPdaUser.name,
-      operatorRole: resolveRoleNameByRoleId(sessionPdaUser.roleId),
-      operatorFactoryId: sessionPdaUser.factoryId,
+      operatorAccountId: currentPdaUser.userId,
+      operatorName: normalizedName || currentPdaUser.name,
+      operatorRole: resolveRoleNameByRoleId(currentPdaUser.roleId),
+      operatorFactoryId: currentPdaUser.factoryId,
       operatorFactoryName: factoryName,
     }
   }
 
   const matchedPdaUser = normalizedName
-    ? initialFactoryPdaUsers.find((item) => item.factoryId === factoryId && item.name === normalizedName)
+    ? listFactoryPdaUsers(factoryId).find((item) => item.name === normalizedName)
     : null
   if (matchedPdaUser) {
     return {

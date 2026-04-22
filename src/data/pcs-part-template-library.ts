@@ -113,10 +113,155 @@ function formatDateTime(date: Date): string {
   return `${year}-${month}-${day} ${hours}:${minutes}`
 }
 
+function buildSeedPreviewSvg(label: string, fill: string): string {
+  return `
+    <svg viewBox="0 0 160 120" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${label}">
+      <rect width="160" height="120" rx="12" fill="#f8fafc" />
+      <path d="M30 28c10-8 26-8 36 0l16 14 16-14c10-8 26-8 36 0l-12 24v40c0 10-8 18-18 18H60c-10 0-18-8-18-18V52L30 28Z" fill="${fill}" stroke="#334155" stroke-width="4" stroke-linejoin="round" />
+      <text x="80" y="104" font-size="12" text-anchor="middle" fill="#0f172a">${label}</text>
+    </svg>
+  `.trim()
+}
+
+function createSeedRecord(input: {
+  id: string
+  templatePackageId: string
+  templateName: string
+  standardPartName: string
+  sourcePartName: string
+  sizeCode?: string
+  quantity?: string
+  category?: string
+  previewSvg: string
+  width: number
+  height: number
+  area: number
+  perimeter: number
+  normalizedShapeSignature: string
+  parserStatus: PartTemplateRecord['parserStatus']
+  machineReadyStatus: PartTemplateRecord['machineReadyStatus']
+  hotStyleNames: string[]
+}): PartTemplateRecord {
+  const geometryFeatures = createFallbackGeometryFeatures({
+    width: input.width,
+    height: input.height,
+    area: input.area,
+    perimeter: input.perimeter,
+    normalizedShapeSignature: input.normalizedShapeSignature,
+  })
+
+  return normalizeRecord({
+    id: input.id,
+    templatePackageId: input.templatePackageId,
+    templateName: input.templateName,
+    sourceDxfFileName: `${input.templateName}.dxf`,
+    sourceRulFileName: `${input.templateName}.rul`,
+    parsedAt: '2026-04-20 09:20',
+    updatedAt: '2026-04-20 09:20',
+    standardPartName: input.standardPartName,
+    sourcePartName: input.sourcePartName,
+    systemPieceName: input.standardPartName,
+    sourceMarkerText: input.sourcePartName,
+    candidatePartNames: [input.standardPartName, input.sourcePartName],
+    sizeCode: input.sizeCode,
+    quantity: input.quantity,
+    annotation: '',
+    category: input.category,
+    width: input.width,
+    height: input.height,
+    area: input.area,
+    perimeter: input.perimeter,
+    geometryHash: `${input.id}-geo`,
+    normalizedShapeSignature: input.normalizedShapeSignature,
+    previewSvg: input.previewSvg,
+    geometryFeatures,
+    shapeDescription: buildPartShapeDescription(geometryFeatures),
+    parserStatus: input.parserStatus,
+    machineReadyStatus: input.machineReadyStatus,
+    reuseHitCount: 18,
+    hotStyleCount: input.hotStyleNames.length,
+    cumulativeOrderQty: 1680,
+    lastMatchedAt: '2026-04-19 16:30',
+    hotStyleNames: input.hotStyleNames,
+  })
+}
+
 function getDefaultStore(): PartTemplateStore {
+  const packageId = 'ptpkg-seed-shirt-core'
+  const templatePackage: PartTemplatePackage = {
+    id: packageId,
+    templateName: '衬衫基础模板包',
+    sourceDxfFileName: 'shirt-core.dxf',
+    sourceRulFileName: 'shirt-core.rul',
+    parsedAt: '2026-04-20 09:20',
+    rulSummary: {
+      units: 'cm',
+      sampleSize: 'M',
+      sizeList: ['S', 'M', 'L', 'XL'],
+    },
+  }
+
   return {
-    packages: [],
-    records: [],
+    packages: [templatePackage],
+    records: [
+      createSeedRecord({
+        id: 'PT-001',
+        templatePackageId: packageId,
+        templateName: '前片基础模板',
+        standardPartName: '前片',
+        sourcePartName: 'FRONT_PANEL',
+        sizeCode: 'M',
+        quantity: '2',
+        category: '主体片',
+        previewSvg: buildSeedPreviewSvg('前片', '#dbeafe'),
+        width: 42,
+        height: 68,
+        area: 2400,
+        perimeter: 210,
+        normalizedShapeSignature: '42-68-2400-210',
+        parserStatus: '解析成功',
+        machineReadyStatus: '可模板机处理',
+        hotStyleNames: ['春夏休闲T恤', '基础衬衫'],
+      }),
+      createSeedRecord({
+        id: 'PT-002',
+        templatePackageId: packageId,
+        templateName: '后片基础模板',
+        standardPartName: '后片',
+        sourcePartName: 'BACK_PANEL',
+        sizeCode: 'M',
+        quantity: '2',
+        category: '主体片',
+        previewSvg: buildSeedPreviewSvg('后片', '#dcfce7'),
+        width: 40,
+        height: 70,
+        area: 2360,
+        perimeter: 208,
+        normalizedShapeSignature: '40-70-2360-208',
+        parserStatus: '解析成功',
+        machineReadyStatus: '可模板机处理',
+        hotStyleNames: ['运动上衣', '基础衬衫'],
+      }),
+      createSeedRecord({
+        id: 'PT-003',
+        templatePackageId: packageId,
+        templateName: '袖片通用模板',
+        standardPartName: '袖片',
+        sourcePartName: 'SLEEVE',
+        sizeCode: 'M',
+        quantity: '2',
+        category: '结构片',
+        previewSvg: buildSeedPreviewSvg('袖片', '#fef3c7'),
+        width: 28,
+        height: 52,
+        area: 1320,
+        perimeter: 164,
+        normalizedShapeSignature: '28-52-1320-164',
+        parserStatus: '解析成功',
+        machineReadyStatus: '待评估',
+        hotStyleNames: ['运动外套', '针织卫衣'],
+      }),
+    ],
   }
 }
 
@@ -189,10 +334,14 @@ function loadStore(): PartTemplateStore {
     }
 
     const parsed = JSON.parse(raw) as PartTemplateStore
-    cachedStore = {
+    const normalizedStore = {
       packages: Array.isArray(parsed.packages) ? parsed.packages : [],
       records: Array.isArray(parsed.records) ? parsed.records.map((record) => normalizeRecord(record as PartTemplateRecord)) : [],
     }
+    cachedStore =
+      normalizedStore.packages.length === 0 && normalizedStore.records.length === 0
+        ? getDefaultStore()
+        : normalizedStore
     return cachedStore
   } catch {
     cachedStore = getDefaultStore()

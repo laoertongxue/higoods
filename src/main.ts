@@ -451,14 +451,52 @@ function shouldBypassClickDispatch(target: Element): boolean {
 
 function shouldSkipInputRerender(target: Element): boolean {
   const techFieldNode = target.closest<HTMLElement>('[data-tech-field]')
-  if (!techFieldNode) return false
+  if (techFieldNode) {
+    const field = techFieldNode.dataset.techField || ''
+    if (field === 'pattern-template-search-keyword') return false
 
-  if (techFieldNode instanceof HTMLTextAreaElement) return true
+    if (techFieldNode instanceof HTMLTextAreaElement) return true
 
-  if (techFieldNode instanceof HTMLInputElement) {
-    const inputType = (techFieldNode.type || 'text').toLowerCase()
-    const rerenderDrivenTypes = new Set(['checkbox', 'radio', 'file', 'range', 'color'])
-    return !rerenderDrivenTypes.has(inputType)
+    if (techFieldNode instanceof HTMLInputElement) {
+      const inputType = (techFieldNode.type || 'text').toLowerCase()
+      const rerenderDrivenTypes = new Set(['checkbox', 'radio', 'file', 'range', 'color'])
+      return !rerenderDrivenTypes.has(inputType)
+    }
+
+    return false
+  }
+
+  const pdaLoginFieldNode = target.closest<HTMLElement>('[data-pda-login-field]')
+  if (pdaLoginFieldNode instanceof HTMLInputElement || pdaLoginFieldNode instanceof HTMLTextAreaElement) {
+    return true
+  }
+
+  return false
+}
+
+function shouldSkipChangeRerender(target: Element): boolean {
+  const techFieldNode = target.closest<HTMLElement>('[data-tech-field]')
+  if (techFieldNode) {
+    const field = techFieldNode.dataset.techField || ''
+    const rerenderDrivenFields = new Set([
+      'new-pattern-material-type',
+      'new-pattern-linked-bom-item',
+      'new-pattern-dxf-file',
+      'new-pattern-rul-file',
+      'new-pattern-single-file',
+      'new-pattern-piece-is-template',
+      'pattern-template-search-keyword',
+      'new-bom-print-requirement',
+      'new-bom-print-side-mode',
+      'new-design-file',
+    ])
+
+    return !rerenderDrivenFields.has(field)
+  }
+
+  const pdaLoginFieldNode = target.closest<HTMLElement>('[data-pda-login-field]')
+  if (pdaLoginFieldNode instanceof HTMLInputElement || pdaLoginFieldNode instanceof HTMLTextAreaElement) {
+    return true
   }
 
   return false
@@ -659,6 +697,7 @@ root.addEventListener('change', async (event) => {
   const previousPathname = appStore.getState().pathname
 
   if (await dispatchPageEvent(target)) {
+    if (shouldSkipChangeRerender(target)) return
     const nextPathname = appStore.getState().pathname
     if (shouldUseTechPackScopedRender(target, previousPathname, nextPathname)) {
       await renderPageContentOnlyWithFocusRestore(focusSnapshot)

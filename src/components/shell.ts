@@ -80,9 +80,9 @@ function renderTopBar(state: AppState): string {
 
 function renderMenuItem(item: MenuItem, state: AppState, collapsed: boolean): string {
   const hasChildren = (item.children?.length ?? 0) > 0
-  const expanded = state.expandedItems[item.key] ?? false
   const isActive = item.href === state.pathname
   const childActive = item.children?.some((child) => child.href === state.pathname) ?? false
+  const expanded = childActive || (state.expandedItems[item.key] ?? false)
 
   const baseButtonClass = toClassName(
     'flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',

@@ -13,6 +13,11 @@ import {
 import type { QualityEvidenceAsset } from '../data/fcs/quality-deduction-domain'
 import { escapeHtml, formatDateTime } from '../utils'
 import { renderPdaFrame } from './pda-shell'
+import {
+  ensurePdaSessionForAction,
+  getPdaRuntimeContext,
+  renderPdaLoginRedirect,
+} from './pda-runtime'
 
 type QualityViewKey = 'pending' | 'disputing' | 'processed' | 'history'
 
@@ -45,13 +50,6 @@ const DISPUTE_REASON_OPTIONS = [
   { code: 'EVIDENCE_MISMATCH', name: '证据判定异议' },
 ]
 
-const DEFAULT_FACTORY_OPERATOR_BY_ID: Record<string, string> = {
-  'ID-F001': '工厂财务-Adi',
-  'ID-F002': '工厂财务-Dewi',
-  'ID-F003': '工厂财务-Budi',
-  'ID-F004': '工厂厂长-Siti',
-}
-
 const state: PdaQualityState = {
   selectedFactoryId: '',
   activeView: 'pending',
@@ -81,64 +79,16 @@ function getCurrentSearchParams(): URLSearchParams {
   return new URLSearchParams(getCurrentQueryString())
 }
 
-function getFactoryIdFromSettlementContext(): string | null {
-  const params = getCurrentSearchParams()
-  if (params.get('back') !== 'settlement') return null
-
-  const cycleId = params.get('cycleId')
-  if (!cycleId) return null
-
-  const matched = decodeURIComponent(cycleId).match(/^(ID-F\d{3})-/)
-  return matched?.[1] ?? null
-}
-
 function getCurrentFactoryId(): string {
-  const settlementFactoryId = getFactoryIdFromSettlementContext()
-  if (settlementFactoryId) {
-    state.selectedFactoryId = settlementFactoryId
-    return settlementFactoryId
-  }
-
-  if (state.selectedFactoryId) return state.selectedFactoryId
-  if (typeof window === 'undefined') {
-    state.selectedFactoryId = 'ID-F001'
-    return state.selectedFactoryId
-  }
-
-  try {
-    const localFactoryId = window.localStorage.getItem('fcs_pda_factory_id')
-    if (localFactoryId) {
-      state.selectedFactoryId = localFactoryId
-      return localFactoryId
-    }
-
-    const rawSession = window.localStorage.getItem('fcs_pda_session')
-    if (rawSession) {
-      const parsed = JSON.parse(rawSession) as { factoryId?: string }
-      if (parsed.factoryId) {
-        state.selectedFactoryId = parsed.factoryId
-        return parsed.factoryId
-      }
-    }
-  } catch {
-    // ignore session parsing errors
-  }
-
-  state.selectedFactoryId = 'ID-F001'
+  const runtime = getPdaRuntimeContext()
+  state.selectedFactoryId = runtime?.factoryId ?? ''
   return state.selectedFactoryId
 }
 
 function getCurrentFactoryOperatorName(factoryId: string): string {
-  if (typeof window !== 'undefined') {
-    try {
-      const explicit = window.localStorage.getItem('fcs_pda_user_name')
-      if (explicit) return explicit
-    } catch {
-      // ignore storage errors
-    }
-  }
-
-  return DEFAULT_FACTORY_OPERATOR_BY_ID[factoryId] ?? '工厂处理人'
+  const runtime = getPdaRuntimeContext()
+  if (runtime?.userName) return runtime.userName
+  return factoryId ? '工厂处理人' : ''
 }
 
 function getBackPath(): string {
@@ -559,6 +509,10 @@ function renderListEmptyState(viewLabel: string): string {
 }
 
 export function renderPdaQualityPage(): string {
+  if (!getPdaRuntimeContext()) {
+    return renderPdaLoginRedirect()
+  }
+
   const factoryId = getCurrentFactoryId()
   const activeLabel = QUALITY_VIEWS.find((item) => item.key === state.activeView)?.label ?? '待处理'
   const items = getListItemsByView(factoryId, state.activeView).filter((item) => matchesKeyword(item, state.keyword))
@@ -930,6 +884,10 @@ function renderDetailEmptyState(): string {
 }
 
 export function renderPdaQualityDetailPage(qcId: string): string {
+  if (!getPdaRuntimeContext()) {
+    return renderPdaLoginRedirect()
+  }
+
   const detail = getFutureMobileFactoryQcDetail(qcId, getCurrentFactoryId())
   if (!detail) return renderDetailEmptyState()
 
@@ -948,6 +906,8 @@ export function renderPdaQualityDetailPage(qcId: string): string {
 }
 
 export function handlePdaQualityEvent(target: HTMLElement): boolean {
+  if (!ensurePdaSessionForAction()) return true
+
   const fieldNode = target.closest<HTMLElement>('[data-pda-quality-field]')
   if (
     fieldNode instanceof HTMLInputElement ||

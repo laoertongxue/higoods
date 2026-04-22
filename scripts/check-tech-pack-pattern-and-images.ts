@@ -169,6 +169,9 @@ assertIncludes(patternDomainSource, '暂无图片', '纸样详情缺图时必须
 ;['纸样文件类型', '布料纸样', '针织纸样', '纸样分类', '解析纸样', '适用颜色', '每种颜色的片数', '特殊工艺'].forEach((token) => {
   assertIncludes(patternDomainSource, token, `纸样页必须展示：${token}`)
 })
+;['<span class="text-sm">备注</span>', '备注：', '<th class="px-3 py-2 text-left">备注</th>'].forEach((token) => {
+  assertNotIncludes(patternDomainSource, token, `纸样页不应继续展示备注字段：${token}`)
+})
 ;['解析模板', '部位模板库'].forEach((token) => {
   assertNotIncludes(patternDomainSource, token, `FCS 纸样页不得展示：${token}`)
 })

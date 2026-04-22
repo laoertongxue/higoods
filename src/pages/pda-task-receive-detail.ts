@@ -27,6 +27,11 @@ import {
   buildPdaCuttingTaskEntryAction,
   getPdaCuttingTaskStateBadgeClass,
 } from './pda-cutting-task-rollup'
+import {
+  ensurePdaSessionForAction,
+  getPdaRuntimeContext,
+  renderPdaLoginRedirect,
+} from './pda-runtime'
 
 interface TaskReceiveDetailState {
   rejectDialogOpen: boolean
@@ -67,22 +72,7 @@ function nowTimestamp(date: Date = new Date()): string {
 }
 
 function getCurrentFactoryId(): string {
-  if (typeof window === 'undefined') return 'ID-F001'
-
-  try {
-    const localFactoryId = window.localStorage.getItem('fcs_pda_factory_id')
-    if (localFactoryId) return localFactoryId
-
-    const rawSession = window.localStorage.getItem('fcs_pda_session')
-    if (rawSession) {
-      const parsed = JSON.parse(rawSession) as { factoryId?: string }
-      if (parsed.factoryId) return parsed.factoryId
-    }
-  } catch {
-    // ignore parsing errors
-  }
-
-  return 'ID-F001'
+  return getPdaRuntimeContext()?.factoryId ?? ''
 }
 
 function getFactoryName(factoryId: string): string {
@@ -783,6 +773,10 @@ function renderPdaTaskReceiveCuttingDetailPage(task: PdaReceiveTask): string {
 }
 
 export function renderPdaTaskReceiveDetailPage(taskId: string): string {
+  if (!getPdaRuntimeContext()) {
+    return renderPdaLoginRedirect()
+  }
+
   const task = getTaskFactById(taskId)
 
   if (isCuttingSpecialTask(task)) {
@@ -988,6 +982,8 @@ export function renderPdaTaskReceiveDetailPage(taskId: string): string {
 }
 
 export function handlePdaTaskReceiveDetailEvent(target: HTMLElement): boolean {
+  if (!ensurePdaSessionForAction()) return true
+
   const fieldNode = target.closest<HTMLElement>('[data-pda-trd-field]')
   if (fieldNode instanceof HTMLTextAreaElement) {
     const field = fieldNode.dataset.pdaTrdField

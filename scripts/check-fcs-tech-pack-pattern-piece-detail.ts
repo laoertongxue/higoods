@@ -36,10 +36,13 @@ const mainSource = read('src/main.ts')
 const fieldHandlingSection =
   patternEventsSource.split('if (field) {')[1]?.split('const action = actionNode?.dataset.techAction')[0] ?? ''
 
-;['纸样文件类型', '纸样分类', '部位名称', '片数', '适用颜色', '每种颜色的片数', '特殊工艺', '备注'].forEach((token) => {
+;['纸样文件类型', '纸样分类', '部位名称', '片数', '适用颜色', '每种颜色的片数', '特殊工艺', '是否为模板', '部位模板'].forEach((token) => {
   assertIncludes(patternDomainSource, token, `纸样弹窗缺少业务字段：${token}`)
 })
 assertNotIncludes(patternDomainSource, '<span class="text-sm">纸样类型</span>', '主体片/结构片字段不得继续显示为“纸样类型”')
+assertNotIncludes(patternDomainSource, '<span class="text-sm">备注</span>', '纸样新增/编辑弹窗不应再显示备注字段')
+assertNotIncludes(patternDomainSource, '备注：', '纸样详情不应再展示备注摘要')
+assertNotIncludes(patternDomainSource, '<th class="px-3 py-2 text-left">备注</th>', '纸样列表不应再保留备注列')
 
 ;[
   'PatternPieceColorAllocation',

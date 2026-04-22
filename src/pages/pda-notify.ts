@@ -14,6 +14,11 @@ import {
   listFutureMobileFactorySoonOverdueQcItems,
 } from '../data/fcs/quality-deduction-selectors'
 import { renderPdaFrame } from './pda-shell'
+import {
+  ensurePdaSessionForAction,
+  getPdaRuntimeContext,
+  renderPdaLoginRedirect,
+} from './pda-runtime'
 
 type NotifyTab = 'todo' | 'inbox'
 type NotifFilter = 'all' | 'unread' | 'read'
@@ -129,22 +134,7 @@ function escapeAttr(value: string): string {
 }
 
 function getCurrentFactoryId(): string {
-  if (typeof window === 'undefined') return 'ID-F001'
-
-  try {
-    const localFactoryId = window.localStorage.getItem('fcs_pda_factory_id')
-    if (localFactoryId) return localFactoryId
-
-    const rawSession = window.localStorage.getItem('fcs_pda_session')
-    if (rawSession) {
-      const parsed = JSON.parse(rawSession) as { factoryId?: string }
-      if (parsed.factoryId) return parsed.factoryId
-    }
-  } catch {
-    // ignore parse errors
-  }
-
-  return 'ID-F001'
+  return getPdaRuntimeContext()?.factoryId ?? ''
 }
 
 function markNotificationRead(notificationId: string): void {
@@ -707,20 +697,12 @@ function renderNotificationItem(notification: Notification): string {
 }
 
 export function renderPdaNotifyPage(): string {
+  if (!getPdaRuntimeContext()) {
+    return renderPdaLoginRedirect()
+  }
+
   const { selectedFactoryId, summaryCards, totalTodo, unreadCount, todoItems, notifications } =
     getNotifyPageData()
-
-  if (!selectedFactoryId) {
-    const content = `
-      <div class="min-h-[760px] bg-muted/30 p-4">
-        <h1 class="mb-4 text-base font-semibold">待办</h1>
-        <article class="rounded-lg border bg-background">
-          <div class="px-4 py-8 text-center text-sm text-muted-foreground">请先登录工厂账号</div>
-        </article>
-      </div>
-    `
-    return renderPdaFrame(content, 'notify')
-  }
 
   const content = `
     <div class="flex min-h-[760px] flex-col bg-muted/30">
@@ -859,6 +841,8 @@ export function renderPdaNotifyPage(): string {
 }
 
 export function handlePdaNotifyEvent(target: HTMLElement): boolean {
+  if (!ensurePdaSessionForAction()) return true
+
   const actionNode = target.closest<HTMLElement>('[data-pda-notify-action]')
   if (!actionNode) return false
 

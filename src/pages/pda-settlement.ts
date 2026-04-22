@@ -42,6 +42,11 @@ import {
 import { deriveSettlementCycleFields } from '../data/fcs/store-domain-statement-grain'
 import { getSettlementPageBoundary } from '../data/fcs/settlement-flow-boundaries'
 import { escapeHtml, formatDateTime, toClassName } from '../utils'
+import {
+  ensurePdaSessionForAction,
+  getPdaRuntimeContext,
+  renderPdaLoginRedirect,
+} from './pda-runtime'
 import type {
   FactoryFeedbackStatus,
   FeishuPaymentApproval,
@@ -144,16 +149,6 @@ interface SettlementLedgerDetailViewModel {
   trace: ReturnType<typeof tracePreSettlementLedgerSource>
 }
 
-const DEFAULT_FACTORY_ID = 'ID-F004'
-
-const DEFAULT_FACTORY_OPERATOR_BY_ID: Record<string, string> = {
-  'ID-F001': '工厂财务-Adi',
-  'ID-F002': '工厂财务-Dewi',
-  'ID-F003': '工厂财务-Budi',
-  'ID-F004': '工厂厂长-Siti',
-  'ID-F005': '工厂财务-Rina',
-}
-
 const FX_RATE_TABLE: Record<string, { rate: number; appliedAt: string }> = {
   'CNY->IDR': { rate: 2175, appliedAt: '2026-03-12 10:00:00' },
   'IDR->CNY': { rate: 0.00046, appliedAt: '2026-03-12 10:00:00' },
@@ -209,38 +204,14 @@ function getCurrentSettlementSearchParams(): URLSearchParams {
   return new URLSearchParams(query || '')
 }
 
-function getFactoryIdFromStorage(): string {
-  if (typeof window === 'undefined') return DEFAULT_FACTORY_ID
-  try {
-    const explicit = window.localStorage.getItem('fcs_pda_factory_id')
-    if (explicit) return explicit
-    const rawSession = window.localStorage.getItem('fcs_pda_session')
-    if (rawSession) {
-      const parsed = JSON.parse(rawSession) as { factoryId?: string }
-      if (parsed.factoryId) return parsed.factoryId
-    }
-  } catch {
-    // ignore storage read errors
-  }
-  return DEFAULT_FACTORY_ID
-}
-
 function getCurrentFactoryContext(): FactoryContext {
-  const currentFactoryId = getFactoryIdFromStorage()
+  const runtime = getPdaRuntimeContext()
+  const currentFactoryId = runtime?.factoryId || ''
   const matchedFactory =
     indonesiaFactories.find((item) => item.id === currentFactoryId || item.code === currentFactoryId) ??
-    indonesiaFactories.find((item) => item.id === DEFAULT_FACTORY_ID) ??
     indonesiaFactories[0]
 
-  let operatorName = DEFAULT_FACTORY_OPERATOR_BY_ID[matchedFactory.id] ?? '工厂处理人'
-  if (typeof window !== 'undefined') {
-    try {
-      const explicit = window.localStorage.getItem('fcs_pda_user_name')
-      if (explicit) operatorName = explicit
-    } catch {
-      // ignore storage read errors
-    }
-  }
+  const operatorName = runtime?.userName || '工厂处理人'
 
   return {
     factoryId: matchedFactory.id,
@@ -2274,10 +2245,16 @@ function renderSettlementContent(): string {
 }
 
 export function renderPdaSettlementPage(): string {
+  if (!getPdaRuntimeContext()) {
+    return renderPdaLoginRedirect()
+  }
+
   return renderPdaFrame(renderSettlementContent(), 'settlement')
 }
 
 export function handlePdaSettlementEvent(target: HTMLElement): boolean {
+  if (!ensurePdaSessionForAction()) return true
+
   const actionNode = target.closest<HTMLElement>('[data-pda-sett-action]')
   const fieldNode = target.closest<HTMLInputElement | HTMLTextAreaElement>('[data-pda-sett-field]')
 

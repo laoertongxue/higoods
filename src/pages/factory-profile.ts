@@ -25,14 +25,22 @@ import {
 } from '../data/fcs/process-craft-dict'
 import {
   DEFAULT_FACTORY_MOBILE_APP_ROLE_ID,
-  createFactoryPdaUsersForFactory,
+  createFactoryPdaUser,
+  ensureFactoryPdaSeed,
   type FactoryPdaRole,
   type FactoryPdaUser,
   type PermissionKey,
-  generatePresetRolesForFactory,
-  initialFactoryPdaRoles,
-  initialFactoryPdaUsers,
+  findFactoryPdaUserByLoginId,
+  listAllFactoryPdaRoles,
+  listAllFactoryPdaUsers,
+  listFactoryPdaRoles,
+  listFactoryPdaUsers,
   permissionCatalog,
+  removeFactoryPdaDataByFactory,
+  resetFactoryPdaUserPassword,
+  replaceFactoryPdaRoles,
+  setFactoryPdaUserRole,
+  toggleFactoryPdaUserLock,
 } from '../data/fcs/store-domain-pda'
 import { escapeHtml } from '../utils'
 import { renderConfirmDialog } from '../components/ui/dialog'
@@ -107,7 +115,13 @@ interface FactoryPageState {
   pdaAddOpen: boolean
   pdaNewName: string
   pdaNewLoginId: string
+  pdaNewPassword: string
+  pdaNewPasswordConfirm: string
   pdaNewRoleId: string
+  pdaResetPasswordOpen: boolean
+  pdaResetPasswordUserId: string | null
+  pdaResetPasswordValue: string
+  pdaResetPasswordConfirm: string
   pdaRoleFormOpen: boolean
   pdaEditingRoleId: string | null
   pdaRoleFormName: string
@@ -140,7 +154,7 @@ const DEFAULT_FORM_DATA: FactoryFormData = {
 function mapInitialPdaUsersByFactory(): Record<string, PdaUserRecord[]> {
   const grouped: Record<string, PdaUserRecord[]> = {}
 
-  for (const user of initialFactoryPdaUsers) {
+  for (const user of listAllFactoryPdaUsers()) {
     const record: PdaUserRecord = {
       userId: user.userId,
       factoryId: user.factoryId,
@@ -175,7 +189,7 @@ function clonePdaUserRecord(user: FactoryPdaUser): PdaUserRecord {
 function mapInitialPdaRolesByFactory(): Record<string, FactoryPdaRole[]> {
   const grouped: Record<string, FactoryPdaRole[]> = {}
 
-  for (const role of initialFactoryPdaRoles) {
+  for (const role of listAllFactoryPdaRoles()) {
     if (!grouped[role.factoryId]) grouped[role.factoryId] = []
     grouped[role.factoryId].push({
       ...role,
@@ -206,7 +220,13 @@ const state: FactoryPageState = {
   pdaAddOpen: false,
   pdaNewName: '',
   pdaNewLoginId: '',
+  pdaNewPassword: '',
+  pdaNewPasswordConfirm: '',
   pdaNewRoleId: DEFAULT_FACTORY_MOBILE_APP_ROLE_ID,
+  pdaResetPasswordOpen: false,
+  pdaResetPasswordUserId: null,
+  pdaResetPasswordValue: '',
+  pdaResetPasswordConfirm: '',
   pdaRoleFormOpen: false,
   pdaEditingRoleId: null,
   pdaRoleFormName: '',
@@ -344,7 +364,13 @@ function resetPdaEditorState(): void {
   state.pdaAddOpen = false
   state.pdaNewName = ''
   state.pdaNewLoginId = ''
+  state.pdaNewPassword = ''
+  state.pdaNewPasswordConfirm = ''
   state.pdaNewRoleId = DEFAULT_FACTORY_MOBILE_APP_ROLE_ID
+  state.pdaResetPasswordOpen = false
+  state.pdaResetPasswordUserId = null
+  state.pdaResetPasswordValue = ''
+  state.pdaResetPasswordConfirm = ''
   state.pdaRoleFormOpen = false
   state.pdaEditingRoleId = null
   state.pdaRoleFormName = ''
@@ -353,23 +379,32 @@ function resetPdaEditorState(): void {
   state.pdaError = ''
 }
 
+function requestFactoryRender(): void {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('higood:request-render'))
+  }
+}
+
 function getCurrentDialogFactoryId(): string | null {
   return state.dialog.type === 'edit' ? state.dialog.factoryId : null
 }
 
 function ensurePdaDataForFactory(factory: Factory): void {
-  const isActiveFactory = factory.status === 'active'
-
-  if (!state.pdaUsersByFactory[factory.id] || (isActiveFactory && state.pdaUsersByFactory[factory.id].length === 0)) {
-    state.pdaUsersByFactory[factory.id] = isActiveFactory
-      ? createFactoryPdaUsersForFactory(factory.id, factory.name).map(clonePdaUserRecord)
-      : []
+  if (factory.pdaEnabled && factory.status === 'active') {
+    ensureFactoryPdaSeed(factory.id, factory.name)
   }
 
-  if (!state.pdaRolesByFactory[factory.id] || (isActiveFactory && state.pdaRolesByFactory[factory.id].length === 0)) {
-    state.pdaRolesByFactory[factory.id] = isActiveFactory
-      ? generatePresetRolesForFactory(factory.id, new Date().toISOString().slice(0, 19).replace('T', ' '))
-      : []
+  state.pdaUsersByFactory = {
+    ...state.pdaUsersByFactory,
+    [factory.id]: listFactoryPdaUsers(factory.id).map(clonePdaUserRecord),
+  }
+  state.pdaRolesByFactory = {
+    ...state.pdaRolesByFactory,
+    [factory.id]: listFactoryPdaRoles(factory.id).map((role) => ({
+      ...role,
+      permissionKeys: [...role.permissionKeys],
+      auditLogs: [...role.auditLogs],
+    })),
   }
 }
 
@@ -389,6 +424,7 @@ function setFactoryPdaUsers(factoryId: string, users: PdaUserRecord[]): void {
 }
 
 function setFactoryPdaRoles(factoryId: string, roles: FactoryPdaRole[]): void {
+  replaceFactoryPdaRoles(factoryId, roles)
   state.pdaRolesByFactory = {
     ...state.pdaRolesByFactory,
     [factoryId]: roles,
@@ -401,6 +437,14 @@ function setPdaError(message: string): void {
 
 function clearPdaError(): void {
   state.pdaError = ''
+}
+
+function validatePdaPasswordDraft(password: string, confirmPassword: string): string | null {
+  if (!password) return '请输入登录密码'
+  if (!confirmPassword) return '请再次输入登录密码'
+  if (password.length < 6) return '登录密码至少 6 位'
+  if (password !== confirmPassword) return '两次输入的密码不一致'
+  return null
 }
 
 function openRoleFormCreate(): void {
@@ -461,9 +505,11 @@ function setRoleGroupPermissions(group: string, selectAll: boolean): void {
   clearPdaError()
 }
 
-function createPdaUser(factoryId: string): void {
+async function createPdaUser(factoryId: string): Promise<void> {
   const name = state.pdaNewName.trim()
   const loginId = state.pdaNewLoginId.trim()
+  const password = state.pdaNewPassword
+  const confirmPassword = state.pdaNewPasswordConfirm
   const roleId = state.pdaNewRoleId
 
   if (!name || !loginId) {
@@ -471,7 +517,11 @@ function createPdaUser(factoryId: string): void {
     return
   }
 
-  const users = getFactoryPdaUsers(factoryId)
+  if (findFactoryPdaUserByLoginId(loginId)) {
+    setPdaError('登录账户已存在，必须在所有工厂中唯一')
+    return
+  }
+
   const roles = getFactoryPdaRoles(factoryId)
   const activeRoles = roles.filter((role) => role.status === 'ACTIVE')
 
@@ -480,44 +530,42 @@ function createPdaUser(factoryId: string): void {
     return
   }
 
-  if (users.some((item) => item.loginId.toLowerCase() === loginId.toLowerCase())) {
-    setPdaError('登录ID已存在，请使用其他登录ID。')
+  const passwordError = validatePdaPasswordDraft(password, confirmPassword)
+  if (passwordError) {
+    setPdaError(passwordError)
     return
   }
 
   const selectedRole = activeRoles.find((item) => item.roleId === roleId) ?? activeRoles[0]
-  const now = new Date().toISOString().slice(0, 19).replace('T', ' ')
-
-  const newUser: PdaUserRecord = {
-    userId: `PDAU-${Date.now()}`,
-    factoryId,
-    name,
-    loginId,
-    status: 'ACTIVE',
-    roleId: selectedRole.roleId,
-    createdAt: now,
+  try {
+    await createFactoryPdaUser({
+      factoryId,
+      name,
+      loginId,
+      password,
+      roleId: selectedRole.roleId,
+      createdBy: 'ADMIN',
+    })
+  } catch (error) {
+    setPdaError(error instanceof Error ? error.message : '新增账号失败。')
+    requestFactoryRender()
+    return
   }
 
-  setFactoryPdaUsers(factoryId, [newUser, ...users])
+  setFactoryPdaUsers(factoryId, listFactoryPdaUsers(factoryId).map(clonePdaUserRecord))
   state.pdaAddOpen = false
   state.pdaNewName = ''
   state.pdaNewLoginId = ''
+  state.pdaNewPassword = ''
+  state.pdaNewPasswordConfirm = ''
   state.pdaNewRoleId = selectedRole.roleId
   clearPdaError()
+  requestFactoryRender()
 }
 
 function togglePdaUserLock(factoryId: string, userId: string): void {
-  const users = getFactoryPdaUsers(factoryId)
-  const nextUsers: PdaUserRecord[] = users.map((user) =>
-    user.userId === userId
-      ? {
-          ...user,
-          status: user.status === 'ACTIVE' ? 'LOCKED' : 'ACTIVE',
-          updatedAt: new Date().toISOString().slice(0, 19).replace('T', ' '),
-        }
-      : user,
-  )
-  setFactoryPdaUsers(factoryId, nextUsers)
+  toggleFactoryPdaUserLock(userId, 'ADMIN')
+  setFactoryPdaUsers(factoryId, listFactoryPdaUsers(factoryId).map(clonePdaUserRecord))
   clearPdaError()
 }
 
@@ -529,18 +577,55 @@ function setPdaUserRole(factoryId: string, userId: string, roleId: string): void
     return
   }
 
-  const users = getFactoryPdaUsers(factoryId)
-  const nextUsers = users.map((user) =>
-    user.userId === userId
-      ? {
-          ...user,
-          roleId,
-          updatedAt: new Date().toISOString().slice(0, 19).replace('T', ' '),
-        }
-      : user,
-  )
-  setFactoryPdaUsers(factoryId, nextUsers)
+  setFactoryPdaUserRole(userId, roleId, 'ADMIN')
+  setFactoryPdaUsers(factoryId, listFactoryPdaUsers(factoryId).map(clonePdaUserRecord))
   clearPdaError()
+}
+
+function openPdaResetPassword(factoryId: string, userId: string): void {
+  const user = getFactoryPdaUsers(factoryId).find((item) => item.userId === userId)
+  if (!user) {
+    setPdaError('未找到账号，无法重置密码。')
+    return
+  }
+  state.pdaResetPasswordOpen = true
+  state.pdaResetPasswordUserId = userId
+  state.pdaResetPasswordValue = ''
+  state.pdaResetPasswordConfirm = ''
+  clearPdaError()
+}
+
+async function submitPdaResetPassword(factoryId: string): Promise<void> {
+  const userId = state.pdaResetPasswordUserId
+  if (!userId) {
+    setPdaError('未找到账号，无法重置密码。')
+    return
+  }
+
+  const passwordError = validatePdaPasswordDraft(
+    state.pdaResetPasswordValue,
+    state.pdaResetPasswordConfirm,
+  )
+  if (passwordError) {
+    setPdaError(passwordError)
+    return
+  }
+
+  try {
+    await resetFactoryPdaUserPassword(userId, state.pdaResetPasswordValue, 'ADMIN')
+  } catch (error) {
+    setPdaError(error instanceof Error ? error.message : '重置密码失败。')
+    requestFactoryRender()
+    return
+  }
+
+  setFactoryPdaUsers(factoryId, listFactoryPdaUsers(factoryId).map(clonePdaUserRecord))
+  state.pdaResetPasswordOpen = false
+  state.pdaResetPasswordUserId = null
+  state.pdaResetPasswordValue = ''
+  state.pdaResetPasswordConfirm = ''
+  clearPdaError()
+  requestFactoryRender()
 }
 
 function savePdaRole(factoryId: string): void {
@@ -818,6 +903,10 @@ function renderPdaUsersSection(factoryId: string, pdaEnabled: boolean): string {
   const roles = getFactoryPdaRoles(factoryId)
   const roleMap = new Map(roles.map((role) => [role.roleId, role]))
   const activeRoles = roles.filter((role) => role.status === 'ACTIVE')
+  const resetTargetUser =
+    state.pdaResetPasswordOpen && state.pdaResetPasswordUserId
+      ? users.find((item) => item.userId === state.pdaResetPasswordUserId) ?? null
+      : null
 
   return `
     <div class="space-y-3">
@@ -873,9 +962,14 @@ function renderPdaUsersSection(factoryId: string, pdaEnabled: boolean): string {
                           </td>
                           <td class="px-3 py-2 text-sm">${permissionCount}</td>
                           <td class="px-3 py-2">
-                            <button type="button" data-factory-action="toggle-user-lock" data-user-id="${user.userId}" class="rounded px-2 py-1 text-xs hover:bg-muted ${!pdaEnabled ? 'pointer-events-none opacity-50' : ''}">
-                              ${user.status === 'ACTIVE' ? '锁定' : '解锁'}
-                            </button>
+                            <div class="flex flex-wrap items-center gap-1">
+                              <button type="button" data-factory-action="toggle-user-lock" data-user-id="${user.userId}" class="rounded px-2 py-1 text-xs hover:bg-muted ${!pdaEnabled ? 'pointer-events-none opacity-50' : ''}">
+                                ${user.status === 'ACTIVE' ? '锁定' : '解锁'}
+                              </button>
+                              <button type="button" data-factory-action="open-reset-user-password" data-user-id="${user.userId}" class="rounded px-2 py-1 text-xs hover:bg-muted ${!pdaEnabled ? 'pointer-events-none opacity-50' : ''}">
+                                重置密码
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       `
@@ -902,8 +996,16 @@ function renderPdaUsersSection(factoryId: string, pdaEnabled: boolean): string {
                   <input data-pda-field="new-user-name" value="${escapeHtml(state.pdaNewName)}" class="h-8 w-full rounded border px-2 text-sm" placeholder="请输入账号姓名" />
                 </label>
                 <label class="space-y-1">
-                  <span class="text-xs text-muted-foreground">登录ID *</span>
-                  <input data-pda-field="new-user-login" value="${escapeHtml(state.pdaNewLoginId)}" class="h-8 w-full rounded border px-2 text-sm" placeholder="请输入唯一登录ID" />
+                  <span class="text-xs text-muted-foreground">登录账户 *</span>
+                  <input data-pda-field="new-user-login" value="${escapeHtml(state.pdaNewLoginId)}" class="h-8 w-full rounded border px-2 text-sm" placeholder="请输入唯一登录账户" />
+                </label>
+                <label class="space-y-1">
+                  <span class="text-xs text-muted-foreground">登录密码 *</span>
+                  <input type="password" data-pda-field="new-user-password" value="${escapeHtml(state.pdaNewPassword)}" class="h-8 w-full rounded border px-2 text-sm" placeholder="请输入登录密码" />
+                </label>
+                <label class="space-y-1">
+                  <span class="text-xs text-muted-foreground">确认密码 *</span>
+                  <input type="password" data-pda-field="new-user-password-confirm" value="${escapeHtml(state.pdaNewPasswordConfirm)}" class="h-8 w-full rounded border px-2 text-sm" placeholder="请再次输入登录密码" />
                 </label>
               </div>
               <label class="mt-3 block space-y-1">
@@ -920,6 +1022,30 @@ function renderPdaUsersSection(factoryId: string, pdaEnabled: boolean): string {
               <div class="mt-3 flex gap-2">
                 <button type="button" data-factory-action="cancel-add-user" class="rounded border px-3 py-1.5 text-xs hover:bg-muted">取消</button>
                 <button type="button" data-factory-action="create-pda-user" class="rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700">创建账号</button>
+              </div>
+            </div>
+          `
+          : ''
+      }
+
+      ${
+        state.pdaResetPasswordOpen
+          ? `
+            <div class="rounded-md border bg-muted/30 p-4">
+              <div class="mb-3 text-xs text-muted-foreground">重置密码账号：${escapeHtml(resetTargetUser?.loginId || '暂无数据')}</div>
+              <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <label class="space-y-1">
+                  <span class="text-xs text-muted-foreground">新密码 *</span>
+                  <input type="password" data-pda-field="reset-user-password" value="${escapeHtml(state.pdaResetPasswordValue)}" class="h-8 w-full rounded border px-2 text-sm" placeholder="请输入新密码" />
+                </label>
+                <label class="space-y-1">
+                  <span class="text-xs text-muted-foreground">确认新密码 *</span>
+                  <input type="password" data-pda-field="reset-user-password-confirm" value="${escapeHtml(state.pdaResetPasswordConfirm)}" class="h-8 w-full rounded border px-2 text-sm" placeholder="请再次输入新密码" />
+                </label>
+              </div>
+              <div class="mt-3 flex gap-2">
+                <button type="button" data-factory-action="cancel-reset-user-password" class="rounded border px-3 py-1.5 text-xs hover:bg-muted">取消</button>
+                <button type="button" data-factory-action="confirm-reset-user-password" class="rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 ${!pdaEnabled ? 'pointer-events-none opacity-50' : ''}">确认重置</button>
               </div>
             </div>
           `
@@ -1577,6 +1703,9 @@ function upsertFactory(data: FactoryFormData, editingFactory: Factory | null): v
 
     upsertFactoryMasterRecord(nextFactory)
     state.factories = listFactoryMasterRecords()
+    if (nextFactory.pdaEnabled && nextFactory.status === 'active') {
+      ensurePdaDataForFactory(nextFactory)
+    }
 
     return
   }
@@ -1607,6 +1736,9 @@ function upsertFactory(data: FactoryFormData, editingFactory: Factory | null): v
 
   upsertFactoryMasterRecord(newFactory)
   state.factories = listFactoryMasterRecords()
+  if (newFactory.pdaEnabled && newFactory.status === 'active') {
+    ensurePdaDataForFactory(newFactory)
+  }
 }
 
 export function handleFactoryPageEvent(target: HTMLElement): boolean {
@@ -1775,6 +1907,18 @@ export function handleFactoryPageEvent(target: HTMLElement): boolean {
       return true
     }
 
+    if (field === 'new-user-password') {
+      state.pdaNewPassword = pdaField.value
+      clearPdaError()
+      return true
+    }
+
+    if (field === 'new-user-password-confirm') {
+      state.pdaNewPasswordConfirm = pdaField.value
+      clearPdaError()
+      return true
+    }
+
     if (field === 'new-user-role') {
       state.pdaNewRoleId = pdaField.value
       clearPdaError()
@@ -1793,6 +1937,18 @@ export function handleFactoryPageEvent(target: HTMLElement): boolean {
       if (factoryId && pdaField.value) {
         copyRolePermissions(factoryId, pdaField.value)
       }
+      clearPdaError()
+      return true
+    }
+
+    if (field === 'reset-user-password') {
+      state.pdaResetPasswordValue = pdaField.value
+      clearPdaError()
+      return true
+    }
+
+    if (field === 'reset-user-password-confirm') {
+      state.pdaResetPasswordConfirm = pdaField.value
       clearPdaError()
       return true
     }
@@ -1864,6 +2020,9 @@ export function handleFactoryPageEvent(target: HTMLElement): boolean {
     const factoryId = actionNode.dataset.factoryId
     if (!factoryId) return true
     removeFactoryMasterRecord(factoryId)
+    removeFactoryPdaDataByFactory(factoryId)
+    delete state.pdaUsersByFactory[factoryId]
+    delete state.pdaRolesByFactory[factoryId]
     state.factories = listFactoryMasterRecords()
     closeDialog()
     return true
@@ -1898,6 +2057,8 @@ export function handleFactoryPageEvent(target: HTMLElement): boolean {
     state.pdaAddOpen = false
     state.pdaNewName = ''
     state.pdaNewLoginId = ''
+    state.pdaNewPassword = ''
+    state.pdaNewPasswordConfirm = ''
     state.pdaNewRoleId = DEFAULT_FACTORY_MOBILE_APP_ROLE_ID
     clearPdaError()
     return true
@@ -1910,7 +2071,7 @@ export function handleFactoryPageEvent(target: HTMLElement): boolean {
       return true
     }
 
-    createPdaUser(factoryId)
+    void createPdaUser(factoryId)
     return true
   }
 
@@ -1919,6 +2080,30 @@ export function handleFactoryPageEvent(target: HTMLElement): boolean {
     const userId = actionNode.dataset.userId
     if (!factoryId || !userId) return true
     togglePdaUserLock(factoryId, userId)
+    return true
+  }
+
+  if (action === 'open-reset-user-password') {
+    const factoryId = getCurrentDialogFactoryId()
+    const userId = actionNode.dataset.userId
+    if (!factoryId || !userId) return true
+    openPdaResetPassword(factoryId, userId)
+    return true
+  }
+
+  if (action === 'cancel-reset-user-password') {
+    state.pdaResetPasswordOpen = false
+    state.pdaResetPasswordUserId = null
+    state.pdaResetPasswordValue = ''
+    state.pdaResetPasswordConfirm = ''
+    clearPdaError()
+    return true
+  }
+
+  if (action === 'confirm-reset-user-password') {
+    const factoryId = getCurrentDialogFactoryId()
+    if (!factoryId) return true
+    void submitPdaResetPassword(factoryId)
     return true
   }
 

@@ -21,6 +21,7 @@ export type TechPackPatternParseStatus =
   | 'FAILED'
   | 'NOT_REQUIRED'
 export type TechPackPatternPieceSourceType = 'PARSED_PATTERN' | 'MANUAL'
+export type TechPackPatternDesignSideType = 'FRONT' | 'INSIDE'
 
 export const TECH_PACK_PATTERN_MATERIAL_TYPE_LABELS: Record<TechPackPatternMaterialType, string> = {
   WOVEN: '布料纸样',
@@ -60,6 +61,11 @@ export interface TechPackPatternPieceRow {
   name: string
   count: number
   note?: string
+  isTemplate?: boolean
+  partTemplateId?: string
+  partTemplateName?: string
+  partTemplatePreviewSvg?: string
+  partTemplateShapeDescription?: string
   applicableSkuCodes?: string[]
   colorAllocations?: TechPackPatternPieceColorAllocation[]
   specialCrafts?: TechPackPatternPieceSpecialCraft[]
@@ -190,6 +196,9 @@ export interface TechPackBomItem {
   supplier: string
   printRequirement?: string
   dyeRequirement?: string
+  printSideMode?: '' | 'SINGLE' | 'DOUBLE'
+  frontPatternDesignId?: string
+  insidePatternDesignId?: string
   // 适用 SKU 范围；为空表示默认适用全部 SKU
   applicableSkuCodes?: string[]
   // 与纸样形成结构化双向关联
@@ -271,7 +280,14 @@ export interface TechPackSkuLine {
 export interface TechPackPatternDesign {
   id: string
   name: string
-  imageUrl: string
+  imageUrl?: string
+  designSideType: TechPackPatternDesignSideType
+  fileName?: string
+  originalFileName?: string
+  originalFileMimeType?: string
+  originalFileDataUrl?: string
+  previewThumbnailDataUrl?: string
+  uploadedAt?: string
 }
 
 export interface TechPackAttachment {
@@ -407,6 +423,29 @@ function createCraftProcessEntry(
   }
 }
 
+function buildSeedDesignSvg(label: string, fill: string, width: number, height: number, subtitle: string): string {
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}">
+      <rect width="${width}" height="${height}" rx="20" fill="#f8fafc" />
+      <rect x="24" y="24" width="${width - 48}" height="${height - 72}" rx="16" fill="${fill}" />
+      <text x="${width / 2}" y="${Math.round(height / 2) - 8}" font-size="26" font-family="sans-serif" text-anchor="middle" fill="#0f172a">${label}</text>
+      <text x="${width / 2}" y="${Math.round(height / 2) + 28}" font-size="14" font-family="sans-serif" text-anchor="middle" fill="#475569">${subtitle}</text>
+    </svg>
+  `)}`
+}
+
+function buildSeedDesignAsset(label: string, fill: string, fileName: string) {
+  const originalFileDataUrl = buildSeedDesignSvg(label, fill, 960, 720, fileName)
+  const previewThumbnailDataUrl = buildSeedDesignSvg(label, fill, 320, 220, '缩略图预览')
+  return {
+    imageUrl: previewThumbnailDataUrl,
+    originalFileName: fileName,
+    originalFileMimeType: 'image/svg+xml',
+    originalFileDataUrl,
+    previewThumbnailDataUrl,
+  }
+}
+
 // Mock 数据
 export const techPacks: TechPack[] = [
   {
@@ -425,6 +464,18 @@ export const techPacks: TechPack[] = [
         fileUrl: '#',
         uploadedAt: '2024-03-10',
         uploadedBy: 'Budi',
+        patternMaterialType: 'WOVEN',
+        patternMaterialTypeLabel: '布料纸样',
+        patternFileMode: 'PAIRED_DXF_RUL',
+        patternCategory: '主体片',
+        dxfFileName: '前片纸样.dxf',
+        rulFileName: '前片纸样.rul',
+        parseStatus: 'PARSED',
+        parsedAt: '2024-03-10 09:20:00',
+        rulSizeList: ['S', 'M', 'L', 'XL'],
+        rulSampleSize: 'M',
+        patternSoftwareName: 'Lectra',
+        selectedSizeCodes: ['S', 'M', 'L', 'XL'],
         linkedBomItemId: 'b-1',
         widthCm: 142,
         markerLengthM: 2.62,
@@ -434,20 +485,73 @@ export const techPacks: TechPack[] = [
             id: 'pf-1-piece-1',
             name: '前片',
             count: 2,
+            sourceType: 'PARSED_PATTERN',
+            sourcePartName: 'FRONT_PANEL',
+            sizeCode: 'M',
+            parserStatus: '解析成功',
+            isTemplate: true,
+            partTemplateId: 'PT-001',
             applicableSkuCodes: ['SKU-001-S-WHT', 'SKU-001-M-WHT', 'SKU-001-L-WHT', 'SKU-001-XL-WHT', 'SKU-001-S-BLK', 'SKU-001-M-BLK', 'SKU-001-L-BLK', 'SKU-001-XL-BLK'],
+            colorAllocations: [
+              {
+                id: 'pf-1-piece-1-white',
+                colorName: 'White',
+                skuCodes: ['SKU-001-S-WHT', 'SKU-001-M-WHT', 'SKU-001-L-WHT', 'SKU-001-XL-WHT'],
+                pieceCount: 2,
+              },
+              {
+                id: 'pf-1-piece-1-black',
+                colorName: 'Black',
+                skuCodes: ['SKU-001-S-BLK', 'SKU-001-M-BLK', 'SKU-001-L-BLK', 'SKU-001-XL-BLK'],
+                pieceCount: 2,
+              },
+            ],
+            specialCrafts: [],
           },
           {
             id: 'pf-1-piece-2',
             name: '门襟',
             count: 2,
+            sourceType: 'PARSED_PATTERN',
+            sourcePartName: 'PLACKET',
+            sizeCode: 'M',
+            parserStatus: '解析成功',
             applicableSkuCodes: ['SKU-001-S-WHT', 'SKU-001-M-WHT', 'SKU-001-L-WHT', 'SKU-001-XL-WHT', 'SKU-001-S-BLK', 'SKU-001-M-BLK', 'SKU-001-L-BLK', 'SKU-001-XL-BLK'],
+            colorAllocations: [
+              {
+                id: 'pf-1-piece-2-white',
+                colorName: 'White',
+                skuCodes: ['SKU-001-S-WHT', 'SKU-001-M-WHT', 'SKU-001-L-WHT', 'SKU-001-XL-WHT'],
+                pieceCount: 2,
+              },
+            ],
+            specialCrafts: [],
           },
           {
             id: 'pf-1-piece-3',
             name: '口袋贴',
             count: 2,
             note: '可选口袋款',
+            sourceType: 'PARSED_PATTERN',
+            sourcePartName: 'PATCH_POCKET',
+            sizeCode: 'M',
+            parserStatus: '解析成功',
             applicableSkuCodes: ['SKU-001-M-WHT', 'SKU-001-L-WHT', 'SKU-001-M-BLK', 'SKU-001-L-BLK'],
+            colorAllocations: [
+              {
+                id: 'pf-1-piece-3-white',
+                colorName: 'White',
+                skuCodes: ['SKU-001-M-WHT', 'SKU-001-L-WHT'],
+                pieceCount: 2,
+              },
+              {
+                id: 'pf-1-piece-3-black',
+                colorName: 'Black',
+                skuCodes: ['SKU-001-M-BLK', 'SKU-001-L-BLK'],
+                pieceCount: 2,
+              },
+            ],
+            specialCrafts: [],
           },
         ],
       },
@@ -457,6 +561,14 @@ export const techPacks: TechPack[] = [
         fileUrl: '#',
         uploadedAt: '2024-03-10',
         uploadedBy: 'Budi',
+        patternMaterialType: 'KNIT',
+        patternMaterialTypeLabel: '针织纸样',
+        patternFileMode: 'SINGLE_FILE',
+        patternCategory: '主体片',
+        singlePatternFileName: '后片纸样.pdf',
+        parseStatus: 'NOT_REQUIRED',
+        patternSoftwareName: 'Gerber',
+        selectedSizeCodes: ['S', 'M', 'L', 'XL'],
         linkedBomItemId: 'b-1',
         widthCm: 142,
         markerLengthM: 2.2,
@@ -466,13 +578,41 @@ export const techPacks: TechPack[] = [
             id: 'pf-2-piece-1',
             name: '后片',
             count: 2,
+            sourceType: 'MANUAL',
+            isTemplate: true,
+            partTemplateId: 'PT-002',
             applicableSkuCodes: ['SKU-001-S-WHT', 'SKU-001-M-WHT', 'SKU-001-L-WHT', 'SKU-001-XL-WHT', 'SKU-001-S-BLK', 'SKU-001-M-BLK', 'SKU-001-L-BLK', 'SKU-001-XL-BLK'],
+            colorAllocations: [
+              {
+                id: 'pf-2-piece-1-white',
+                colorName: 'White',
+                skuCodes: ['SKU-001-S-WHT', 'SKU-001-M-WHT', 'SKU-001-L-WHT', 'SKU-001-XL-WHT'],
+                pieceCount: 2,
+              },
+              {
+                id: 'pf-2-piece-1-black',
+                colorName: 'Black',
+                skuCodes: ['SKU-001-S-BLK', 'SKU-001-M-BLK', 'SKU-001-L-BLK', 'SKU-001-XL-BLK'],
+                pieceCount: 2,
+              },
+            ],
+            specialCrafts: [],
           },
           {
             id: 'pf-2-piece-2',
             name: '肩部补强片',
             count: 2,
+            sourceType: 'MANUAL',
             applicableSkuCodes: ['SKU-001-S-WHT', 'SKU-001-M-WHT', 'SKU-001-L-WHT', 'SKU-001-XL-WHT', 'SKU-001-S-BLK', 'SKU-001-M-BLK', 'SKU-001-L-BLK', 'SKU-001-XL-BLK'],
+            colorAllocations: [
+              {
+                id: 'pf-2-piece-2-white',
+                colorName: 'White',
+                skuCodes: ['SKU-001-S-WHT', 'SKU-001-M-WHT', 'SKU-001-L-WHT', 'SKU-001-XL-WHT'],
+                pieceCount: 2,
+              },
+            ],
+            specialCrafts: [],
           },
         ],
       },
@@ -540,6 +680,9 @@ export const techPacks: TechPack[] = [
         supplier: 'PT Textile Indo',
         printRequirement: '丝网印',
         dyeRequirement: '无',
+        printSideMode: 'SINGLE',
+        frontPatternDesignId: 'pd-1-front',
+        insidePatternDesignId: '',
         applicableSkuCodes: ['SKU-001-S-WHT', 'SKU-001-M-WHT', 'SKU-001-L-WHT', 'SKU-001-XL-WHT'],
         linkedPatternIds: ['pf-1', 'pf-2'],
         usageProcessCodes: ['PROC_CUT'],
@@ -568,8 +711,11 @@ export const techPacks: TechPack[] = [
         unitConsumption: 0.16,
         lossRate: 5,
         supplier: 'CV Knit Delta',
-        printRequirement: '无',
+        printRequirement: '数码印',
         dyeRequirement: '匹染',
+        printSideMode: 'DOUBLE',
+        frontPatternDesignId: 'pd-1-front',
+        insidePatternDesignId: 'pd-1-inside',
         applicableSkuCodes: ['SKU-001-S-WHT', 'SKU-001-M-WHT', 'SKU-001-L-WHT', 'SKU-001-XL-WHT'],
         linkedPatternIds: ['pf-3'],
         usageProcessCodes: ['PROC_CUT', 'PROC_SEW'],
@@ -748,7 +894,22 @@ export const techPacks: TechPack[] = [
       },
     ],
     patternDesigns: [
-      { id: 'pd-1', name: '胸前Logo', imageUrl: '/placeholder.svg' },
+      {
+        id: 'pd-1-front',
+        name: '正面胸前花型',
+        designSideType: 'FRONT',
+        fileName: 'front-artwork.png',
+        uploadedAt: '2026-04-20 10:30:00',
+        ...buildSeedDesignAsset('正面花型', '#dbeafe', 'front-artwork.png'),
+      },
+      {
+        id: 'pd-1-inside',
+        name: '里面里衬花型',
+        designSideType: 'INSIDE',
+        fileName: 'inside-artwork.png',
+        uploadedAt: '2026-04-20 10:32:00',
+        ...buildSeedDesignAsset('里面花型', '#fee2e2', 'inside-artwork.png'),
+      },
     ],
     attachments: [
       { id: 'a-1', fileName: '工艺说明书.pdf', fileType: 'PDF', fileSize: '2.3MB', uploadedAt: '2024-03-12', uploadedBy: 'Dewi', downloadUrl: '#' },
@@ -1180,7 +1341,14 @@ export const techPacks: TechPack[] = [
       },
     ],
     patternDesigns: [
-      { id: 'pd-2', name: '袖口花纹', imageUrl: '/placeholder.svg' },
+      {
+        id: 'pd-2',
+        name: '袖口花纹',
+        designSideType: 'FRONT',
+        fileName: 'cuff-artwork.png',
+        uploadedAt: '2026-04-19 14:10:00',
+        ...buildSeedDesignAsset('袖口花纹', '#fef3c7', 'cuff-artwork.png'),
+      },
     ],
     attachments: [
       { id: 'a-2', fileName: '针织工艺说明.pdf', fileType: 'PDF', fileSize: '1.8MB', uploadedAt: '2024-03-21', uploadedBy: 'Siti', downloadUrl: '#' },
@@ -1288,7 +1456,14 @@ export const techPacks: TechPack[] = [
       },
     ],
     patternDesigns: [
-      { id: 'pd-3', name: '后背刺绣', imageUrl: '/placeholder.svg' },
+      {
+        id: 'pd-3',
+        name: '后背刺绣',
+        designSideType: 'FRONT',
+        fileName: 'back-embroidery.png',
+        uploadedAt: '2026-04-19 16:00:00',
+        ...buildSeedDesignAsset('后背刺绣', '#dcfce7', 'back-embroidery.png'),
+      },
     ],
     attachments: [],
   },

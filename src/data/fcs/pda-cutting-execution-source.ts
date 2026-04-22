@@ -24,7 +24,12 @@ import {
 import { findPdaHandoverHead } from './pda-handover-events.ts'
 import { getTaskChainTaskById, listTaskChainTasks } from './page-adapters/task-chain-pages-adapter.ts'
 import type { ProcessTask } from './process-tasks.ts'
-import { getPdaSession, initialFactoryPdaUsers, initialFactoryUsers } from './store-domain-pda.ts'
+import {
+  findFactoryPdaRoleById,
+  getCurrentPdaUser,
+  getPdaSession,
+  initialFactoryUsers,
+} from './store-domain-pda.ts'
 import type {
   PdaCutPieceHandoverWritebackRecord,
   PdaCutPieceInboundWritebackRecord,
@@ -423,11 +428,14 @@ function getSnapshot(snapshot?: CuttingDomainSnapshot): CuttingDomainSnapshot {
 
 function canAccessManualSpreadingEntry(): boolean {
   const session = getPdaSession()
-  if (!session.userId) return false
-  const pdaUser = initialFactoryPdaUsers.find((item) => item.userId === session.userId)
-  if (pdaUser) {
-    return pdaUser.roleId === 'ROLE_ADMIN' || pdaUser.roleId === 'ROLE_DISPATCH'
+  const pdaUser = getCurrentPdaUser()
+  if (session?.userId && pdaUser) {
+    const roleName =
+      findFactoryPdaRoleById(pdaUser.roleId, pdaUser.factoryId)?.roleName ||
+      pdaUser.roleId
+    return pdaUser.roleId === 'ROLE_ADMIN' || pdaUser.roleId === 'ROLE_DISPATCH' || roleName === '调度员'
   }
+  if (!session?.userId) return false
   const factoryUser = initialFactoryUsers.find((item) => item.userId === session.userId)
   if (!factoryUser) return false
   return factoryUser.roleIds.includes('ROLE_ADMIN') || factoryUser.roleIds.includes('ROLE_DISPATCH')

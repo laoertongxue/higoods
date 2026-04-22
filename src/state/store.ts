@@ -57,6 +57,7 @@ const REMOVED_CUTTING_TAB_PATHS = new Set([
 ])
 const REMOVED_FCS_TAB_KEYS = new Set(['workbench-risks', 'process-dependencies', 'process-qc-standards'])
 const REMOVED_FCS_TAB_PATHS = new Set(['/fcs/workbench/risks', '/fcs/process/dependencies', '/fcs/process/qc-standards'])
+const PFOS_ROUTE_PREFIX = '/fcs/craft'
 
 function createEmptyTabs(): AllSystemTabs {
   const tabs: AllSystemTabs = {}
@@ -84,9 +85,11 @@ function getStoredTabs(): AllSystemTabs {
       }
     }
 
-    const migrated = migratePcsTabs(
-      pruneRemovedFcsTabs(
-        migrateFcsTabTitles(migrateCuttingTabs(migrateLegacyDispatchExceptionsTabs(parsed))),
+    const migrated = migrateCraftTabsToPfos(
+      migratePcsTabs(
+        pruneRemovedFcsTabs(
+          migrateFcsTabTitles(migrateCuttingTabs(migrateLegacyDispatchExceptionsTabs(parsed))),
+        ),
       ),
     )
     localStorage.setItem(TABS_STORAGE_KEY, JSON.stringify(migrated))
@@ -319,6 +322,103 @@ function migrateFcsTabTitles(allTabs: AllSystemTabs): AllSystemTabs {
   }
 }
 
+function isPfosPath(pathname: string): boolean {
+  const normalizedPathname = normalizePathname(pathname)
+  return normalizedPathname === PFOS_ROUTE_PREFIX || normalizedPathname.startsWith(`${PFOS_ROUTE_PREFIX}/`)
+}
+
+function migrateCraftTabsToPfos(allTabs: AllSystemTabs): AllSystemTabs {
+  const fcsTabs = allTabs.fcs
+  const pfosTabs = allTabs.pfos
+  if (!fcsTabs || !pfosTabs) return allTabs
+
+  const craftTabsFromFcs = fcsTabs.tabs.filter((tab) => isPfosPath(tab.href))
+  if (craftTabsFromFcs.length === 0 && pfosTabs.tabs.length === 0) {
+    return allTabs
+  }
+
+  let changed = false
+  const nextFcsTabs = fcsTabs.tabs.filter((tab) => !isPfosPath(tab.href))
+  if (nextFcsTabs.length !== fcsTabs.tabs.length) {
+    changed = true
+  }
+
+  const nextPfosTabs: Tab[] = []
+  const seenKeys = new Set<string>()
+
+  const pushTab = (tab: Tab): void => {
+    const normalizedHref = normalizePathname(tab.href)
+    const canonicalItem = findMenuItemByPath(normalizedHref)
+    const nextTab: Tab = {
+      ...tab,
+      key: canonicalItem?.key ?? tab.key,
+      title: canonicalItem?.title ?? tab.title,
+      href: normalizedHref,
+    }
+    if (
+      nextTab.key !== tab.key ||
+      nextTab.title !== tab.title ||
+      nextTab.href !== tab.href
+    ) {
+      changed = true
+    }
+    if (seenKeys.has(nextTab.key)) {
+      changed = true
+      return
+    }
+    seenKeys.add(nextTab.key)
+    nextPfosTabs.push(nextTab)
+  }
+
+  for (const tab of pfosTabs.tabs) {
+    pushTab(tab)
+  }
+
+  for (const tab of craftTabsFromFcs) {
+    pushTab(tab)
+  }
+
+  const activeCraftTab = fcsTabs.tabs.find(
+    (tab) => tab.key === fcsTabs.activeKey && isPfosPath(tab.href),
+  )
+  const normalizedActiveCraftKey = activeCraftTab
+    ? (findMenuItemByPath(activeCraftTab.href)?.key ?? activeCraftTab.key)
+    : ''
+
+  const nextFcsActiveKey = nextFcsTabs.some((tab) => tab.key === fcsTabs.activeKey)
+    ? fcsTabs.activeKey
+    : ''
+  const nextPfosActiveKey = normalizedActiveCraftKey && nextPfosTabs.some((tab) => tab.key === normalizedActiveCraftKey)
+    ? normalizedActiveCraftKey
+    : nextPfosTabs.some((tab) => tab.key === pfosTabs.activeKey)
+      ? pfosTabs.activeKey
+      : nextPfosTabs[0]?.key ?? ''
+
+  if (
+    nextPfosTabs.length !== pfosTabs.tabs.length ||
+    nextFcsActiveKey !== fcsTabs.activeKey ||
+    nextPfosActiveKey !== pfosTabs.activeKey
+  ) {
+    changed = true
+  }
+
+  if (!changed) return allTabs
+
+  return {
+    ...allTabs,
+    fcs: {
+      ...fcsTabs,
+      tabs: nextFcsTabs,
+      activeKey: nextFcsActiveKey,
+    },
+    pfos: {
+      ...pfosTabs,
+      tabs: nextPfosTabs,
+      activeKey: nextPfosActiveKey,
+    },
+  }
+}
+
 function saveTabs(allTabs: AllSystemTabs): void {
   try {
     localStorage.setItem(TABS_STORAGE_KEY, JSON.stringify(allTabs))
@@ -328,7 +428,12 @@ function saveTabs(allTabs: AllSystemTabs): void {
 }
 
 function getCurrentSystemId(pathname: string): string {
-  const segments = pathname.split('/').filter(Boolean)
+  const normalizedPathname = normalizePathname(pathname)
+  if (isPfosPath(normalizedPathname)) {
+    return 'pfos'
+  }
+
+  const segments = normalizedPathname.split('/').filter(Boolean)
   const candidate = segments[0]
   const matched = systems.find((system) => system.id === candidate)
   return matched?.id ?? 'fcs'

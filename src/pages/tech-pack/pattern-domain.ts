@@ -3,6 +3,7 @@ import {
   escapeHtml,
   formatPatternSpec,
   getBomColorOptionsForPattern,
+  getPartTemplateOptions,
   getPatternPieceSpecialCraftOptionsFromCurrentTechPack,
   getPatternBySelectionKey,
   getSizeCodeOptionsFromSizeRules,
@@ -83,6 +84,48 @@ function renderPatternPiecePreview(previewSvg?: string): string {
   return `
     <div class="flex h-12 w-16 items-center justify-center overflow-hidden rounded border bg-white">
       ${previewSvg}
+    </div>
+  `
+}
+
+function renderTemplatePreview(previewSvg?: string, emptyText = '-'): string {
+  if (!previewSvg) {
+    return `<span class="text-muted-foreground">${escapeHtml(emptyText)}</span>`
+  }
+
+  return `
+    <div class="flex h-12 w-16 items-center justify-center overflow-hidden rounded border bg-white">
+      ${previewSvg}
+    </div>
+  `
+}
+
+function renderTemplateFlag(isTemplate?: boolean): string {
+  return isTemplate ? '是' : '否'
+}
+
+function renderTemplateBindingSummary(
+  row: {
+    isTemplate?: boolean
+    partTemplateId?: string
+    partTemplateName?: string
+    partTemplatePreviewSvg?: string
+    partTemplateShapeDescription?: string
+  },
+): string {
+  if (!row.isTemplate) {
+    return '<span class="text-muted-foreground">-</span>'
+  }
+
+  const summary = [row.partTemplateId, row.partTemplateName, row.partTemplateShapeDescription]
+    .map((item) => String(item || '').trim())
+    .filter(Boolean)
+    .join(' · ')
+
+  return `
+    <div class="space-y-2">
+      <div class="text-xs">${summary ? escapeHtml(summary) : '<span class="text-red-600">待选择模板</span>'}</div>
+      ${renderTemplatePreview(row.partTemplatePreviewSvg, '暂无模板缩略图')}
     </div>
   `
 }
@@ -226,29 +269,67 @@ function renderPatternDetailPieceTable(): string {
     return '<div class="rounded-md border border-dashed px-3 py-3 text-xs text-muted-foreground">暂无数据</div>'
   }
 
+  const isWoven = pattern.patternMaterialType === 'WOVEN'
+
   return `
     <table class="w-full text-xs">
       <thead>
         <tr class="border-b bg-muted/20">
           <th class="px-2 py-1 text-left">部位名称</th>
+          ${
+            isWoven
+              ? `
+                <th class="px-2 py-1 text-left">原始名称</th>
+                <th class="px-2 py-1 text-left">尺码</th>
+              `
+              : ''
+          }
           <th class="px-2 py-1 text-right">片数</th>
+          ${
+            isWoven
+              ? `
+                <th class="px-2 py-1 text-left">解析状态</th>
+                <th class="px-2 py-1 text-left">预览</th>
+              `
+              : ''
+          }
           <th class="px-2 py-1 text-left">适用颜色</th>
           <th class="px-2 py-1 text-left">每种颜色的片数</th>
           <th class="px-2 py-1 text-left">特殊工艺</th>
-          <th class="px-2 py-1 text-left">备注</th>
+          <th class="px-2 py-1 text-left">是否为模板</th>
+          <th class="px-2 py-1 text-left">部位模板ID</th>
+          <th class="px-2 py-1 text-left">部位模板缩略图</th>
         </tr>
       </thead>
       <tbody>
         ${pattern.pieceRows
           .map(
             (row) => `
-              <tr class="border-b last:border-0">
+              <tr class="border-b align-top last:border-0">
                 <td class="px-2 py-1">${escapeHtml(row.name)}</td>
+                ${
+                  isWoven
+                    ? `
+                      <td class="px-2 py-1">${renderTextValue(row.sourcePartName || row.systemPieceName)}</td>
+                      <td class="px-2 py-1">${renderTextValue(row.sizeCode)}</td>
+                    `
+                    : ''
+                }
                 <td class="px-2 py-1 text-right">${row.count}</td>
+                ${
+                  isWoven
+                    ? `
+                      <td class="px-2 py-1">${renderTextValue(row.parserStatus)}</td>
+                      <td class="px-2 py-1">${renderPatternPiecePreview(row.previewSvg)}</td>
+                    `
+                    : ''
+                }
                 <td class="px-2 py-1">${renderPatternPieceColorSummary(row)}</td>
                 <td class="px-2 py-1">${renderPatternPieceColorCountSummary(row)}</td>
                 <td class="px-2 py-1">${renderPatternPieceSpecialCraftSummary(row)}</td>
-                <td class="px-2 py-1 text-muted-foreground">${escapeHtml(row.note || '-')}</td>
+                <td class="px-2 py-1">${renderTemplateFlag(row.isTemplate)}</td>
+                <td class="px-2 py-1">${renderTextValue(row.partTemplateId)}</td>
+                <td class="px-2 py-1">${renderTemplatePreview(row.partTemplatePreviewSvg)}</td>
               </tr>
             `,
           )
@@ -289,7 +370,6 @@ export function renderPatternTab(): string {
                     <th class="px-3 py-2 text-right">裁片总片数</th>
                     <th class="px-3 py-2 text-left">裁片明细</th>
                     <th class="px-3 py-2 text-left">纸样文件</th>
-                    <th class="px-3 py-2 text-left">备注</th>
                     <th class="px-3 py-2 text-left">操作</th>
                   </tr>
                 </thead>
@@ -317,7 +397,6 @@ export function renderPatternTab(): string {
                             }
                           </td>
                           <td class="px-3 py-2 text-sm text-muted-foreground">${renderTextValue(item.file)}</td>
-                          <td class="px-3 py-2 text-sm text-muted-foreground">${escapeHtml(item.remark || '-')}</td>
                           <td class="px-3 py-2">
                             <div class="flex items-center gap-1">
                               ${readonly ? '' : `<button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded hover:bg-muted" data-tech-action="edit-pattern" data-pattern-id="${item.id}">
@@ -439,11 +518,6 @@ export function renderPatternDialog(): string {
             </div>
             ${renderPatternDetailPieceTable()}
           </div>
-          ${
-            pattern.remark
-              ? `<p class="rounded-md border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">备注：${escapeHtml(pattern.remark)}</p>`
-              : ''
-          }
         </div>
         <footer class="flex items-center justify-end border-t px-6 py-4">
           <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-tech-action="close-pattern-detail">关闭</button>
@@ -573,7 +647,8 @@ function renderPatternPieceEditorTable(isWoven: boolean): string {
           <th class="px-2 py-1 text-left">适用颜色</th>
           <th class="px-2 py-1 text-left">每种颜色的片数</th>
           <th class="px-2 py-1 text-left">特殊工艺</th>
-          <th class="px-2 py-1 text-left">备注</th>
+          <th class="px-2 py-1 text-left">是否为模板</th>
+          <th class="px-2 py-1 text-left">部位模板</th>
           <th class="px-2 py-1 text-right">操作</th>
         </tr>
       </thead>
@@ -604,7 +679,34 @@ function renderPatternPieceEditorTable(isWoven: boolean): string {
                 <td class="px-2 py-1">${renderPatternPieceColorCountEditor(row)}</td>
                 <td class="px-2 py-1">${renderPatternPieceSpecialCraftSelector(row)}</td>
                 <td class="px-2 py-1">
-                  <input class="h-8 w-full rounded border px-2 text-xs" data-tech-field="new-pattern-piece-note" data-piece-id="${row.id}" value="${escapeHtml(row.note)}" placeholder="备注" />
+                  <select
+                    class="h-8 w-24 rounded border px-2 text-xs"
+                    data-tech-field="new-pattern-piece-is-template"
+                    data-piece-id="${row.id}"
+                  >
+                    <option value="false" ${row.isTemplate ? '' : 'selected'}>否</option>
+                    <option value="true" ${row.isTemplate ? 'selected' : ''}>是</option>
+                  </select>
+                </td>
+                <td class="px-2 py-1">
+                  ${
+                    row.isTemplate
+                      ? `
+                        <div class="space-y-2">
+                          <div class="text-xs">${row.partTemplateId ? escapeHtml(`${row.partTemplateId}${row.partTemplateName ? ` · ${row.partTemplateName}` : ''}`) : '<span class="text-red-600">待选择模板</span>'}</div>
+                          ${renderTemplatePreview(row.partTemplatePreviewSvg, '暂无模板缩略图')}
+                          <button
+                            type="button"
+                            class="inline-flex items-center rounded border px-2 py-1 text-[11px] hover:bg-muted"
+                            data-tech-action="open-pattern-piece-template-dialog"
+                            data-piece-id="${row.id}"
+                          >
+                            ${row.partTemplateId ? '更换模板' : '选择模板'}
+                          </button>
+                        </div>
+                      `
+                      : '<span class="text-muted-foreground">-</span>'
+                  }
                 </td>
                 <td class="px-2 py-1 text-right">
                   ${
@@ -641,11 +743,12 @@ export function renderPatternFormDialog(): string {
 
   return `
     <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
-      <section class="w-full max-w-5xl rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
+      <section class="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
         <header class="border-b px-6 py-4">
           <h3 class="text-lg font-semibold">${state.editPatternItemId ? '编辑纸样' : '新增纸样'}</h3>
         </header>
-        <div class="space-y-4 px-6 py-4">
+        <div class="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+          <div class="space-y-4">
           <input id="tech-pack-pattern-dxf-input" type="file" accept=".dxf" data-tech-field="new-pattern-dxf-file" class="hidden" />
           <input id="tech-pack-pattern-rul-input" type="file" accept=".rul" data-tech-field="new-pattern-rul-file" class="hidden" />
           <input id="tech-pack-pattern-single-input" type="file" accept=".dxf,.rul,.zip,.pdf,.jpg,.jpeg,.png,.ai,.cdr" data-tech-field="new-pattern-single-file" class="hidden" />
@@ -696,10 +799,6 @@ export function renderPatternFormDialog(): string {
             <label class="space-y-1">
               <span class="text-sm">尺码范围 <span class="text-red-500">*</span></span>
               ${renderPatternSizeSelector()}
-            </label>
-            <label class="space-y-1 md:col-span-2">
-              <span class="text-sm">备注</span>
-              <textarea rows="2" class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-remark" placeholder="备注信息">${escapeHtml(state.newPattern.remark)}</textarea>
             </label>
           </div>
 
@@ -807,10 +906,107 @@ export function renderPatternFormDialog(): string {
               : ''
           }
         </div>
+        </div>
         <footer class="flex items-center justify-end gap-2 border-t px-6 py-4">
           <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-tech-action="close-add-pattern">取消</button>
           <button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 ${canSavePatternForm() ? '' : 'pointer-events-none opacity-50'}" data-tech-action="save-pattern">确认</button>
         </footer>
+      </section>
+    </div>
+  `
+}
+
+export function renderPatternTemplateDialog(): string {
+  if (!state.patternTemplateDialogOpen || !state.activePatternTemplatePieceId) return ''
+
+  const keyword = state.patternTemplateSearchKeyword.trim().toLowerCase()
+  const templateOptions = getPartTemplateOptions().filter((record) => {
+    if (!keyword) return true
+    return [
+      record.id,
+      record.templateName,
+      record.standardPartName,
+      record.sourcePartName,
+    ].some((item) => String(item || '').toLowerCase().includes(keyword))
+  })
+
+  return `
+    <div class="fixed inset-0 z-[70] flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
+      <section class="w-full max-w-5xl rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
+        <header class="border-b px-6 py-4">
+          <div class="flex items-center justify-between gap-4">
+            <div>
+              <h3 class="text-lg font-semibold">选择部位模板</h3>
+              <p class="mt-1 text-sm text-muted-foreground">支持按模板 ID、模板名称、标准部位名称、原始部位名称搜索。</p>
+            </div>
+            <button
+              type="button"
+              class="rounded-md border px-4 py-2 text-sm hover:bg-muted"
+              data-tech-action="close-pattern-template-dialog"
+            >
+              关闭
+            </button>
+          </div>
+        </header>
+        <div class="space-y-4 px-6 py-4">
+          <label class="block space-y-1">
+            <span class="text-sm">搜索</span>
+            <input
+              class="w-full rounded-md border px-3 py-2 text-sm"
+              data-tech-field="pattern-template-search-keyword"
+              value="${escapeHtml(state.patternTemplateSearchKeyword)}"
+              placeholder="输入模板 ID、模板名称、标准部位名称或原始部位名称"
+            />
+          </label>
+          <div class="max-h-[60vh] overflow-y-auto rounded-lg border">
+            ${
+              templateOptions.length === 0
+                ? '<div class="px-4 py-10 text-center text-sm text-muted-foreground">暂无可选部位模板</div>'
+                : `
+                  <table class="w-full min-w-[980px] text-sm">
+                    <thead class="border-b bg-muted/20 text-xs text-muted-foreground">
+                      <tr>
+                        <th class="px-3 py-2 text-left font-medium">部位模板ID</th>
+                        <th class="px-3 py-2 text-left font-medium">部位模板名称</th>
+                        <th class="px-3 py-2 text-left font-medium">模板形状说明</th>
+                        <th class="px-3 py-2 text-left font-medium">部位模板缩略图</th>
+                        <th class="px-3 py-2 text-right font-medium">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${templateOptions
+                        .map(
+                          (record) => `
+                            <tr class="border-b align-top last:border-0">
+                              <td class="px-3 py-2 font-mono text-xs">${escapeHtml(record.id)}</td>
+                              <td class="px-3 py-2">
+                                <div class="font-medium">${escapeHtml(record.templateName)}</div>
+                                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(
+                                  [record.standardPartName, record.sourcePartName].filter(Boolean).join(' · ') || '暂无数据',
+                                )}</div>
+                              </td>
+                              <td class="px-3 py-2">${renderTextValue(record.shapeDescription?.autoDescription)}</td>
+                              <td class="px-3 py-2">${renderTemplatePreview(record.previewSvg, '暂无模板缩略图')}</td>
+                              <td class="px-3 py-2 text-right">
+                                <button
+                                  type="button"
+                                  class="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                                  data-tech-action="select-pattern-template"
+                                  data-template-id="${escapeHtml(record.id)}"
+                                >
+                                  选择
+                                </button>
+                              </td>
+                            </tr>
+                          `,
+                        )
+                        .join('')}
+                    </tbody>
+                  </table>
+                `
+            }
+          </div>
+        </div>
       </section>
     </div>
   `

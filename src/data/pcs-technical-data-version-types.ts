@@ -13,6 +13,7 @@ export type TechnicalPatternParseStatus =
   | 'NOT_REQUIRED'
 export type TechnicalPatternPieceSourceType = 'PARSED_PATTERN' | 'MANUAL'
 export type TechnicalPatternCategory = '主体片' | '结构片' | '装饰片' | '其他'
+export type TechnicalPatternDesignSideType = 'FRONT' | 'INSIDE'
 
 export interface TechnicalPatternPieceColorAllocation {
   id: string
@@ -35,6 +36,11 @@ export interface TechnicalPatternPieceRow {
   name: string
   count: number
   note?: string
+  isTemplate?: boolean
+  partTemplateId?: string
+  partTemplateName?: string
+  partTemplatePreviewSvg?: string
+  partTemplateShapeDescription?: string
   applicableSkuCodes?: string[]
   colorAllocations?: TechnicalPatternPieceColorAllocation[]
   specialCrafts?: TechnicalPatternPieceSpecialCraft[]
@@ -147,6 +153,9 @@ export interface TechnicalBomItem {
   supplier: string
   printRequirement?: string
   dyeRequirement?: string
+  printSideMode?: '' | 'SINGLE' | 'DOUBLE'
+  frontPatternDesignId?: string
+  insidePatternDesignId?: string
   applicableSkuCodes?: string[]
   linkedPatternIds?: string[]
   usageProcessCodes?: string[]
@@ -185,7 +194,14 @@ export interface TechnicalColorMaterialMapping {
 export interface TechnicalPatternDesign {
   id: string
   name: string
-  imageUrl: string
+  imageUrl?: string
+  designSideType: TechnicalPatternDesignSideType
+  fileName?: string
+  originalFileName?: string
+  originalFileMimeType?: string
+  originalFileDataUrl?: string
+  previewThumbnailDataUrl?: string
+  uploadedAt?: string
 }
 
 export interface TechnicalAttachment {

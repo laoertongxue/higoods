@@ -6,6 +6,11 @@ import { formatRemainingHours, getTaskStartDueInfo, syncPdaStartRiskAndException
 import { syncMilestoneOverdueExceptions } from '../data/fcs/pda-exec-link'
 import { listFutureMobileFactorySoonOverdueQcItems } from '../data/fcs/quality-deduction-selectors'
 import { renderPdaFrame } from './pda-shell'
+import {
+  ensurePdaSessionForAction,
+  getPdaRuntimeContext,
+  renderPdaLoginRedirect,
+} from './pda-runtime'
 
 type DueSoonCategory = '全部' | '接单类' | '报价类' | '交接类' | '执行类' | '结算类'
 
@@ -82,22 +87,7 @@ function isSoonDue(deadline: string): boolean {
 }
 
 function getCurrentFactoryId(): string {
-  if (typeof window === 'undefined') return 'ID-F001'
-
-  try {
-    const localFactoryId = window.localStorage.getItem('fcs_pda_factory_id')
-    if (localFactoryId) return localFactoryId
-
-    const rawSession = window.localStorage.getItem('fcs_pda_session')
-    if (rawSession) {
-      const parsed = JSON.parse(rawSession) as { factoryId?: string }
-      if (parsed.factoryId) return parsed.factoryId
-    }
-  } catch {
-    // ignore parse errors
-  }
-
-  return 'ID-F001'
+  return getPdaRuntimeContext()?.factoryId ?? ''
 }
 
 function getFactoryName(factoryId: string): string {
@@ -480,6 +470,10 @@ function renderDueSoonCard(item: DueSoonItem): string {
 }
 
 export function renderPdaNotifyDueSoonPage(): string {
+  if (!getPdaRuntimeContext()) {
+    return renderPdaLoginRedirect()
+  }
+
   const allItems = getAllItems()
   const countByCategory = getCountByCategory(allItems)
   const filtered = getFilteredItems(allItems)
@@ -569,6 +563,8 @@ export function renderPdaNotifyDueSoonPage(): string {
 }
 
 export function handlePdaNotifyDueSoonEvent(target: HTMLElement): boolean {
+  if (!ensurePdaSessionForAction()) return true
+
   const fieldNode = target.closest<HTMLElement>('[data-pda-due-field]')
   if (fieldNode instanceof HTMLInputElement) {
     const field = fieldNode.dataset.pdaDueField

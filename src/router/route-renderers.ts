@@ -360,6 +360,7 @@ export const renderTraceParentCodesPage = createAsyncRenderer(() => import('../p
 export const renderTraceUnitPricePage = createAsyncRenderer(() => import('../pages/trace'), 'renderTraceUnitPricePage')
 export const renderTraceUniqueCodesPage = createAsyncRenderer(() => import('../pages/trace'), 'renderTraceUniqueCodesPage')
 export const renderPdaNotifyPage = createAsyncRenderer(() => import('../pages/pda-notify'), 'renderPdaNotifyPage')
+export const renderPdaLoginPage = createAsyncRenderer(() => import('../pages/pda-login'), 'renderPdaLoginPage')
 export const renderPdaNotifyDueSoonPage = createAsyncRenderer(
   () => import('../pages/pda-notify-due-soon'),
   'renderPdaNotifyDueSoonPage',

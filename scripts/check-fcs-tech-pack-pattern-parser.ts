@@ -37,9 +37,12 @@ const cuttingFeiSource = read('src/data/fcs/cutting/generated-fei-tickets.ts')
   assertIncludes(patternDomainSource, token, `纸样表单缺少文案：${token}`)
 })
 assertNotIncludes(patternDomainSource, '<span class="text-sm">纸样类型</span>', '主体片/结构片选择不得继续使用“纸样类型”字段名')
-;['部位名称', '片数', '适用颜色', '每种颜色的片数', '特殊工艺', '备注'].forEach((token) => {
+;['部位名称', '片数', '适用颜色', '每种颜色的片数', '特殊工艺', '是否为模板', '部位模板'].forEach((token) => {
   assertIncludes(patternDomainSource, token, `裁片明细表缺少字段：${token}`)
 })
+assertNotIncludes(patternDomainSource, '<span class="text-sm">备注</span>', '纸样新增/编辑弹窗不应再显示备注字段')
+assertNotIncludes(patternDomainSource, '备注：', '纸样详情不应再展示备注摘要')
+assertNotIncludes(patternDomainSource, '<th class="px-3 py-2 text-left">备注</th>', '纸样列表不应再保留备注列')
 ;['selectedSizeCodes', 'colorAllocations', 'specialCrafts'].forEach((token) => {
   assertIncludes(patternContextSource, token, `纸样上下文缺少新字段：${token}`)
 })

@@ -13,12 +13,15 @@ import {
 } from '../data/fcs/pda-cutting-writeback-inputs.ts'
 import { writePdaSpreadingToFcs } from '../domain/cutting-pda-writeback/bridge.ts'
 import {
+  findFactoryPdaRoleById,
+  getCurrentPdaUser,
   defaultFactoryRoles,
   getPdaSession,
-  initialFactoryPdaUsers,
   initialFactoryUsers,
+  listFactoryPdaUsers,
   pdaRoleTemplates,
 } from '../data/fcs/store-domain-pda.ts'
+import { ensurePdaSessionForAction, getPdaRuntimeContext, renderPdaLoginRedirect } from './pda-runtime'
 import {
   buildPdaCuttingExecutionStateKey,
   normalizePdaCuttingHandoverResultLabel,
@@ -69,9 +72,14 @@ function getSpreadingDetail(taskId: string, executionKey?: string | null) {
 
 function canUseManualSpreadingEntry(): boolean {
   const session = getPdaSession()
-  if (!session.userId) return false
-  const pdaUser = initialFactoryPdaUsers.find((item) => item.userId === session.userId)
-  if (pdaUser) return pdaUser.roleId === 'ROLE_ADMIN' || pdaUser.roleId === 'ROLE_DISPATCH'
+  const pdaUser = getCurrentPdaUser()
+  if (session?.userId && pdaUser) {
+    const roleName =
+      findFactoryPdaRoleById(pdaUser.roleId, pdaUser.factoryId)?.roleName ||
+      pdaUser.roleId
+    return pdaUser.roleId === 'ROLE_ADMIN' || pdaUser.roleId === 'ROLE_DISPATCH' || roleName === '调度员'
+  }
+  if (!session?.userId) return false
   const factoryUser = initialFactoryUsers.find((item) => item.userId === session.userId)
   if (!factoryUser) return false
   return factoryUser.roleIds.includes('ROLE_ADMIN') || factoryUser.roleIds.includes('ROLE_DISPATCH')
@@ -192,24 +200,25 @@ function renderFeedbackBlock(form: SpreadingFormState): string {
 
 function resolveRoleName(roleId: string): string {
   return pdaRoleTemplates.find((item) => item.roleId === roleId)?.roleName
+    || findFactoryPdaRoleById(roleId)?.roleName
     || defaultFactoryRoles.find((item) => item.roleId === roleId)?.roleName
     || roleId
 }
 
 function resolveCurrentOperator(taskId: string, detail: PdaCuttingTaskDetailData): CuttingPdaWritebackOperatorInput {
   const session = getPdaSession()
-  if (session.userId) {
-    const pdaUser = initialFactoryPdaUsers.find((item) => item.userId === session.userId)
-    if (pdaUser) {
-      return {
-        operatorAccountId: pdaUser.userId,
-        operatorName: pdaUser.name,
-        operatorRole: resolveRoleName(pdaUser.roleId),
-        operatorFactoryId: pdaUser.factoryId,
-        operatorFactoryName: detail.assigneeFactoryName,
-      }
+  const pdaUser = getCurrentPdaUser()
+  if (session?.userId && pdaUser) {
+    return {
+      operatorAccountId: pdaUser.userId,
+      operatorName: pdaUser.name,
+      operatorRole: resolveRoleName(pdaUser.roleId),
+      operatorFactoryId: pdaUser.factoryId,
+      operatorFactoryName: detail.assigneeFactoryName,
     }
+  }
 
+  if (session?.userId) {
     const factoryUser = initialFactoryUsers.find((item) => item.userId === session.userId)
     if (factoryUser) {
       return {
@@ -228,8 +237,8 @@ function resolveCurrentOperator(taskId: string, detail: PdaCuttingTaskDetailData
 function buildHandoverOptions(taskId: string, detail: PdaCuttingTaskDetailData): Array<{ accountId: string; name: string }> {
   const currentOperator = resolveCurrentOperator(taskId, detail)
   const factoryId = currentOperator.operatorFactoryId
-  const pdaOptions = initialFactoryPdaUsers
-    .filter((item) => item.factoryId === factoryId && item.userId !== currentOperator.operatorAccountId)
+  const pdaOptions = listFactoryPdaUsers(factoryId)
+    .filter((item) => item.userId !== currentOperator.operatorAccountId)
     .map((item) => ({ accountId: item.userId, name: item.name }))
   const factoryOptions = initialFactoryUsers
     .filter((item) => item.factoryId === factoryId && item.userId !== currentOperator.operatorAccountId)
@@ -525,6 +534,10 @@ function syncSpreadingFormDom(taskId: string, executionOrderId?: string | null, 
 }
 
 export function renderPdaCuttingSpreadingPage(taskId: string): string {
+  if (!getPdaRuntimeContext()) {
+    return renderPdaLoginRedirect()
+  }
+
   const context = buildPdaCuttingExecutionContext(taskId, 'spreading')
   const detail = context.detail
 
@@ -576,6 +589,8 @@ export function renderPdaCuttingSpreadingPage(taskId: string): string {
 }
 
 export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
+  if (!ensurePdaSessionForAction()) return true
+
   const fieldNode = target.closest<HTMLElement>('[data-pda-cut-spreading-field]')
   if (
     fieldNode instanceof HTMLInputElement ||

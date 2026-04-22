@@ -25,6 +25,17 @@ function renderPatternSizeSummary(selectedSizeCodes: string[], sizeRange?: strin
   return renderTextValue(sizeRange)
 }
 
+function renderTemplatePreview(previewSvg?: string): string {
+  if (!previewSvg) {
+    return '<span class="text-muted-foreground">-</span>'
+  }
+  return `
+    <div class="flex h-12 w-16 items-center justify-center overflow-hidden rounded border bg-white">
+      ${previewSvg}
+    </div>
+  `
+}
+
 function renderPatternPieceDetailTable(snapshot: ProductionConfirmationSnapshot): string {
   const rows = snapshot.patternSnapshot.rows.flatMap((patternRow) =>
     patternRow.pieceRows.map((pieceRow) => ({
@@ -48,7 +59,9 @@ function renderPatternPieceDetailTable(snapshot: ProductionConfirmationSnapshot)
             <th class="px-3 py-2 text-left font-medium">适用颜色</th>
             <th class="px-3 py-2 text-left font-medium">每种颜色的片数</th>
             <th class="px-3 py-2 text-left font-medium">特殊工艺</th>
-            <th class="px-3 py-2 text-left font-medium">备注</th>
+            <th class="px-3 py-2 text-left font-medium">是否为模板</th>
+            <th class="px-3 py-2 text-left font-medium">部位模板ID</th>
+            <th class="px-3 py-2 text-left font-medium">部位模板缩略图</th>
           </tr>
         </thead>
         <tbody>
@@ -78,7 +91,9 @@ function renderPatternPieceDetailTable(snapshot: ProductionConfirmationSnapshot)
                       ? escapeHtml(row.specialCrafts.map((craft) => craft.displayName || craft.craftName).join('、'))
                       : '<span class="text-muted-foreground">无</span>'
                   }</td>
-                  <td class="px-3 py-2">${renderTextValue(row.note)}</td>
+                  <td class="px-3 py-2">${row.isTemplate ? '是' : '否'}</td>
+                  <td class="px-3 py-2">${renderTextValue(row.partTemplateId)}</td>
+                  <td class="px-3 py-2">${renderTemplatePreview(row.partTemplatePreviewSvg)}</td>
                 </tr>
               `,
             )

@@ -3,11 +3,47 @@ import {
   bomUsageProcessOptions,
   dyeOptions,
   escapeHtml,
+  getPatternDesignOptionsBySide,
   getSkuOptionsForCurrentSpu,
   printOptions,
   state,
 } from './context.ts'
 import type { BomItemRow } from './context.ts'
+
+function renderTextValue(value: string): string {
+  return value.trim().length > 0 ? escapeHtml(value) : '<span class="text-muted-foreground">-</span>'
+}
+
+function renderPrintSideModeLabel(mode: BomItemRow['printSideMode']): string {
+  if (mode === 'SINGLE') return '单面印'
+  if (mode === 'DOUBLE') return '双面印'
+  return '-'
+}
+
+function getPatternDesignNameById(designId: string): string {
+  if (!state.techPack || !designId.trim()) return ''
+  return state.techPack.patternDesigns.find((item) => item.id === designId)?.name || ''
+}
+
+function renderBomPrintBindingCell(item: BomItemRow, side: 'FRONT' | 'INSIDE'): string {
+  if (!item.printRequirement || item.printRequirement === '无') {
+    return '<span class="text-muted-foreground">-</span>'
+  }
+
+  if (!item.printSideMode) {
+    return '<span class="text-amber-600">待配置</span>'
+  }
+
+  if (side === 'INSIDE' && item.printSideMode === 'SINGLE') {
+    return '<span class="text-muted-foreground">-</span>'
+  }
+
+  const designId = side === 'FRONT' ? item.frontPatternDesignId : item.insidePatternDesignId
+  const designName = getPatternDesignNameById(designId)
+  return designName
+    ? escapeHtml(designName)
+    : '<span class="text-amber-600">待配置</span>'
+}
 
 export function renderBomTab(): string {
   const readonly = false
@@ -62,7 +98,7 @@ export function renderBomTab(): string {
         <div>
           <h3 class="text-base font-semibold">物料清单</h3>
         </div>
-        ${readonly ? '' : `<button class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-tech-action="open-add-bom">
+        ${readonly ? '' : `<button type="button" class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-tech-action="open-add-bom">
           <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
           添加物料
         </button>`}
@@ -84,6 +120,9 @@ export function renderBomTab(): string {
                     <th class="px-3 py-2 text-right">单位用量</th>
                     <th class="px-3 py-2 text-right">损耗率(%)</th>
                     <th class="px-3 py-2 text-left">印花需求</th>
+                    <th class="px-3 py-2 text-left">印花面别</th>
+                    <th class="px-3 py-2 text-left">正面花型</th>
+                    <th class="px-3 py-2 text-left">里面花型</th>
                     <th class="px-3 py-2 text-left">染色需求</th>
                     <th class="px-3 py-2 text-left">操作</th>
                   </tr>
@@ -142,6 +181,9 @@ export function renderBomTab(): string {
                                       .join('')}
                                   </select>
                                 </td>
+                                <td class="px-3 py-2">${item.printRequirement === '无' ? '<span class="text-muted-foreground">-</span>' : item.printSideMode ? escapeHtml(renderPrintSideModeLabel(item.printSideMode)) : '<span class="text-amber-600">待配置</span>'}</td>
+                                <td class="px-3 py-2">${renderBomPrintBindingCell(item, 'FRONT')}</td>
+                                <td class="px-3 py-2">${renderBomPrintBindingCell(item, 'INSIDE')}</td>
                                 <td class="px-3 py-2">
                                   <select class="h-8 w-24 rounded-md border px-2 text-sm" data-tech-field="bom-dye" data-bom-id="${item.id}" ${readonly ? 'disabled' : ''}>
                                     ${dyeOptions
@@ -151,10 +193,10 @@ export function renderBomTab(): string {
                                 </td>
                                 <td class="px-3 py-2">
                                   <div class="flex items-center gap-1">
-                                    ${readonly ? '' : `<button class="inline-flex h-8 w-8 items-center justify-center rounded hover:bg-muted" data-tech-action="edit-bom" data-bom-id="${item.id}">
+                                    ${readonly ? '' : `<button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded hover:bg-muted" data-tech-action="edit-bom" data-bom-id="${item.id}">
                                       <i data-lucide="edit-2" class="h-4 w-4"></i>
                                     </button>`}
-                                    ${readonly ? '' : `<button class="inline-flex h-8 w-8 items-center justify-center rounded text-red-600 hover:bg-red-50" data-tech-action="delete-bom" data-bom-id="${item.id}">
+                                    ${readonly ? '' : `<button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded text-red-600 hover:bg-red-50" data-tech-action="delete-bom" data-bom-id="${item.id}">
                                       <i data-lucide="trash-2" class="h-4 w-4"></i>
                                     </button>`}
                                   </div>
@@ -181,14 +223,20 @@ export function renderBomFormDialog(): string {
   const skuOptions = getSkuOptionsForCurrentSpu()
   const colorOptions = dedupeStrings(skuOptions.map((item) => item.color))
   const applyAllSku = state.newBomItem.applicableSkuCodes.length === 0
+  const frontDesignOptions = getPatternDesignOptionsBySide('FRONT')
+  const insideDesignOptions = getPatternDesignOptionsBySide('INSIDE')
+  const hasPrintDemand = state.newBomItem.printRequirement !== '无'
+  const showFrontDesign = hasPrintDemand && (state.newBomItem.printSideMode === 'SINGLE' || state.newBomItem.printSideMode === 'DOUBLE')
+  const showInsideDesign = hasPrintDemand && state.newBomItem.printSideMode === 'DOUBLE'
 
   return `
     <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
-      <section class="w-full max-w-2xl rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
+      <section class="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
         <header class="border-b px-6 py-4">
           <h3 class="text-lg font-semibold">${state.editBomItemId ? '编辑物料' : '添加物料'}</h3>
         </header>
-        <div class="grid grid-cols-1 gap-6 px-6 py-4 md:grid-cols-2">
+        <div class="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+          <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
           <div class="space-y-4">
             <label class="space-y-1">
               <span class="text-sm">物料类型</span>
@@ -299,6 +347,56 @@ export function renderBomFormDialog(): string {
                   .join('')}
               </select>
             </label>
+            ${
+              hasPrintDemand
+                ? `
+                  <label class="space-y-1">
+                    <span class="text-sm">印花面别 <span class="text-red-500">*</span></span>
+                    <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-print-side-mode">
+                      <option value="" ${state.newBomItem.printSideMode === '' ? 'selected' : ''}>请选择</option>
+                      <option value="SINGLE" ${state.newBomItem.printSideMode === 'SINGLE' ? 'selected' : ''}>单面印</option>
+                      <option value="DOUBLE" ${state.newBomItem.printSideMode === 'DOUBLE' ? 'selected' : ''}>双面印</option>
+                    </select>
+                  </label>
+                `
+                : ''
+            }
+            ${
+              showFrontDesign
+                ? `
+                  <label class="space-y-1">
+                    <span class="text-sm">正面花型 <span class="text-red-500">*</span></span>
+                    <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-front-pattern-design-id">
+                      <option value="">请选择正面花型</option>
+                      ${frontDesignOptions
+                        .map(
+                          (item) =>
+                            `<option value="${item.id}" ${state.newBomItem.frontPatternDesignId === item.id ? 'selected' : ''}>${escapeHtml(item.name)}</option>`,
+                        )
+                        .join('')}
+                    </select>
+                  </label>
+                `
+                : ''
+            }
+            ${
+              showInsideDesign
+                ? `
+                  <label class="space-y-1">
+                    <span class="text-sm">里面花型 <span class="text-red-500">*</span></span>
+                    <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-inside-pattern-design-id">
+                      <option value="">请选择里面花型</option>
+                      ${insideDesignOptions
+                        .map(
+                          (item) =>
+                            `<option value="${item.id}" ${state.newBomItem.insidePatternDesignId === item.id ? 'selected' : ''}>${escapeHtml(item.name)}</option>`,
+                        )
+                        .join('')}
+                    </select>
+                  </label>
+                `
+                : ''
+            }
             <label class="space-y-1">
               <span class="text-sm">染色需求</span>
               <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-dye-requirement">
@@ -309,10 +407,11 @@ export function renderBomFormDialog(): string {
             </label>
           </div>
         </div>
+        </div>
 
         <footer class="flex items-center justify-end gap-2 border-t px-6 py-4">
-          <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-tech-action="close-add-bom">取消</button>
-          <button class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 ${
+          <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-tech-action="close-add-bom">取消</button>
+          <button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 ${
             state.newBomItem.materialName.trim() ? '' : 'pointer-events-none opacity-50'
           }" data-tech-action="save-bom">确认</button>
         </footer>

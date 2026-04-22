@@ -13,7 +13,8 @@ const routeSourcePaths = [
   path.join(repoRoot, 'src/router/routes-pda.ts'),
 ]
 
-const DEFAULT_SYSTEMS = ['fcs', 'pcs']
+const DEFAULT_SYSTEMS = ['fcs', 'pfos', 'pcs']
+const EXACT_ROUTE_SYSTEMS = new Set(['fcs', 'pfos', 'pcs'])
 
 function parseArgs(argv) {
   const options = {
@@ -49,6 +50,9 @@ function readFile(filePath) {
 }
 
 function getSystemIdFromPath(routePath) {
+  if (routePath === '/fcs/craft' || routePath.startsWith('/fcs/craft/')) {
+    return 'pfos'
+  }
   const segments = routePath.split('/').filter(Boolean)
   return segments[0] ?? ''
 }
@@ -57,6 +61,10 @@ function shouldIncludeRoute(routePath, systems) {
   if (systems.length === 0) return true
   const systemId = getSystemIdFromPath(routePath)
   return systems.includes(systemId)
+}
+
+function requiresExactRouteCoverage(routePath) {
+  return EXACT_ROUTE_SYSTEMS.has(getSystemIdFromPath(routePath))
 }
 
 function collectMenuHrefs(configSource, systems) {
@@ -96,7 +104,9 @@ function main() {
   const registeredMenuPaths = collectRegisteredMenuPaths(routeSources)
 
   const duplicates = [...new Set(hrefs.filter((href, index) => hrefs.indexOf(href) !== index))].sort()
-  const uncovered = uniqueHrefs.filter((href) => !registeredMenuPaths.has(href)).sort()
+  const uncovered = uniqueHrefs
+    .filter((href) => requiresExactRouteCoverage(href) && !registeredMenuPaths.has(href))
+    .sort()
 
   const systemLabel = options.systems.length === 0 ? 'ALL' : options.systems.join(', ')
 

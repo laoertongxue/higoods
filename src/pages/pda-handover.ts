@@ -17,6 +17,11 @@ import {
   getReceiverKindLabel,
 } from '../data/fcs/task-handover-domain'
 import { resolvePdaHandoverDetailPath } from '../data/fcs/pda-cutting-execution-source.ts'
+import {
+  ensurePdaSessionForAction,
+  getPdaRuntimeContext,
+  renderPdaLoginRedirect,
+} from './pda-runtime'
 
 type HandoverTab = 'pickup' | 'handout' | 'done'
 
@@ -58,29 +63,8 @@ function syncTabWithQuery(): void {
 }
 
 function getCurrentFactoryId(): string {
-  if (state.selectedFactoryId) return state.selectedFactoryId
-  if (typeof window === 'undefined') return 'ID-F001'
-
-  try {
-    const localFactoryId = window.localStorage.getItem('fcs_pda_factory_id')
-    if (localFactoryId) {
-      state.selectedFactoryId = localFactoryId
-      return localFactoryId
-    }
-
-    const rawSession = window.localStorage.getItem('fcs_pda_session')
-    if (rawSession) {
-      const parsed = JSON.parse(rawSession) as { factoryId?: string }
-      if (parsed.factoryId) {
-        state.selectedFactoryId = parsed.factoryId
-        return parsed.factoryId
-      }
-    }
-  } catch {
-    // ignore parse errors
-  }
-
-  state.selectedFactoryId = 'ID-F001'
+  const runtime = getPdaRuntimeContext()
+  state.selectedFactoryId = runtime?.factoryId ?? ''
   return state.selectedFactoryId
 }
 
@@ -423,6 +407,10 @@ function renderEmptyState(message: string): string {
 }
 
 export function renderPdaHandoverPage(): string {
+  if (!getPdaRuntimeContext()) {
+    return renderPdaLoginRedirect()
+  }
+
   syncTabWithQuery()
   const selectedFactoryId = getCurrentFactoryId()
   const pickupHeads = getPdaPickupHeads(selectedFactoryId)
@@ -513,6 +501,8 @@ export function renderPdaHandoverPage(): string {
 }
 
 export function handlePdaHandoverEvent(target: HTMLElement): boolean {
+  if (!ensurePdaSessionForAction()) return true
+
   const actionNode = target.closest<HTMLElement>('[data-pda-handover-action]')
   if (!actionNode) return false
 

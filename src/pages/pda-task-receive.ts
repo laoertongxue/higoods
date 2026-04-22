@@ -41,6 +41,11 @@ import {
   filterReceivePendingAcceptTasks,
   filterReceiveQuotedTenders,
 } from '../data/fcs/pda-receive-scope.ts'
+import {
+  ensurePdaSessionForAction,
+  getPdaRuntimeContext,
+  renderPdaLoginRedirect,
+} from './pda-runtime'
 
 type TabKey = 'pending-accept' | 'pending-quote' | 'quoted' | 'awarded'
 
@@ -218,29 +223,8 @@ function parseDateMs(value: string): number {
 }
 
 function getCurrentFactoryId(): string {
-  if (state.selectedFactoryId) return state.selectedFactoryId
-  if (typeof window === 'undefined') return 'ID-F001'
-
-  try {
-    const localFactoryId = window.localStorage.getItem('fcs_pda_factory_id')
-    if (localFactoryId) {
-      state.selectedFactoryId = localFactoryId
-      return localFactoryId
-    }
-
-    const rawSession = window.localStorage.getItem('fcs_pda_session')
-    if (rawSession) {
-      const parsed = JSON.parse(rawSession) as { factoryId?: string }
-      if (parsed.factoryId) {
-        state.selectedFactoryId = parsed.factoryId
-        return parsed.factoryId
-      }
-    }
-  } catch {
-    // ignore parsing errors
-  }
-
-  state.selectedFactoryId = 'ID-F001'
+  const runtime = getPdaRuntimeContext()
+  state.selectedFactoryId = runtime?.factoryId ?? ''
   return state.selectedFactoryId
 }
 
@@ -1054,6 +1038,10 @@ function renderRejectDialog(): string {
 }
 
 export function renderPdaTaskReceivePage(): string {
+  if (!getPdaRuntimeContext()) {
+    return renderPdaLoginRedirect()
+  }
+
   syncTabWithQuery()
 
   const selectedFactoryId = getCurrentFactoryId()
@@ -1234,6 +1222,8 @@ function closeRejectDialog(): void {
 }
 
 export function handlePdaTaskReceiveEvent(target: HTMLElement): boolean {
+  if (!ensurePdaSessionForAction()) return true
+
   const fieldNode = target.closest<HTMLElement>('[data-pda-tr-field]')
   if (
     fieldNode instanceof HTMLInputElement ||

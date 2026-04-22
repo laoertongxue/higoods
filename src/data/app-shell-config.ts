@@ -10,6 +10,7 @@ export const systems: System[] = [
   { id: 'pcs', name: '商品中心系统', shortName: 'PCS', defaultPage: '/pcs/workspace/overview' },
   { id: 'pms', name: '采购管理系统', shortName: 'PMS', defaultPage: '/pms/purchase-order' },
   { id: 'fcs', name: '工厂生产协同系统', shortName: 'FCS', defaultPage: '/fcs/workbench/overview' },
+  { id: 'pfos', name: '工艺工厂运营系统', shortName: 'PFOS', defaultPage: '/fcs/craft/workbench/overview' },
   { id: 'wls', name: '仓储物流系统', shortName: 'WLS', defaultPage: '/wls/inventory' },
   { id: 'los', name: '直播运营系统', shortName: 'LOS', defaultPage: '/los/live-schedule' },
   { id: 'oms', name: '订单管理系统', shortName: 'OMS', defaultPage: '/oms/order-list' },
@@ -232,98 +233,6 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
       ],
     } as MenuGroup & { icon: string },
     {
-      title: '工艺工厂运营系统',
-      icon: 'Factory',
-      items: [
-        {
-          key: 'craft-workbench',
-          title: '工作台',
-          icon: 'LayoutDashboard',
-          children: [
-            { key: 'craft-workbench-overview', title: '总览', icon: 'LayoutDashboard', href: '/fcs/craft/workbench/overview' },
-          ],
-        },
-        // 裁片域菜单按“主对象 + 主责任”先收口成 3 组主入口，而不是继续用单一“裁片管理”平铺页面。
-        // 这样做是为了把生产单、原始裁片单、合并裁剪批次、仓交接载具等对象边界固定下来，
-        // 避免后续实现再次把仓库管理、菲票、合批和生产单视图混成一个菜单域。
-        // 本组菜单标题必须直接使用 canonical 名称，不能再把旧页面名当作主名称继续外露。
-        {
-          key: 'craft-cutting-overview',
-          title: '裁片总览',
-          icon: 'Scissors',
-          children: [
-            { key: 'craft-cutting-production-progress', title: '生产单进度', icon: 'ListTodo', href: '/fcs/craft/cutting/production-progress' },
-            { key: 'craft-cutting-cuttable-pool', title: '可裁排产', icon: 'CalendarClock', href: '/fcs/craft/cutting/cuttable-pool' },
-            { key: 'craft-cutting-merge-batches', title: '合并裁剪批次', icon: 'Layers', href: '/fcs/craft/cutting/merge-batches' },
-          ],
-        },
-        {
-          key: 'craft-cutting-prep',
-          title: '裁前准备',
-          icon: 'PackageSearch',
-          children: [
-            { key: 'craft-cutting-original-orders', title: '原始裁片单', icon: 'ClipboardList', href: '/fcs/craft/cutting/original-orders' },
-            { key: 'craft-cutting-material-prep', title: '仓库配料领料', icon: 'PackageSearch', href: '/fcs/craft/cutting/material-prep' },
-            { key: 'craft-cutting-marker-list', title: '唛架列表', icon: 'Ruler', href: '/fcs/craft/cutting/marker-list' },
-          ],
-        },
-        {
-          key: 'craft-cutting-execution',
-          title: '铺布执行',
-          icon: 'Rows3',
-          children: [
-            { key: 'craft-cutting-spreading-list', title: '铺布列表', icon: 'Rows3', href: '/fcs/craft/cutting/spreading-list' },
-          ],
-        },
-        {
-          key: 'craft-cutting-closed-loop',
-          title: '裁后处理',
-          icon: 'PackageCheck',
-          children: [
-            { key: 'craft-cutting-replenishment', title: '补料管理', icon: 'ShieldAlert', href: '/fcs/craft/cutting/replenishment' },
-            { key: 'craft-cutting-fei-tickets', title: '打印菲票', icon: 'Ticket', href: '/fcs/craft/cutting/fei-tickets' },
-            { key: 'craft-cutting-transfer-bags', title: '中转袋流转', icon: 'PackageCheck', href: '/fcs/craft/cutting/transfer-bags' },
-            { key: 'craft-cutting-cut-piece-warehouse', title: '裁片仓', icon: 'Archive', href: '/fcs/craft/cutting/cut-piece-warehouse' },
-            { key: 'craft-cutting-special-processes', title: '特殊工艺', icon: 'Sparkles', href: '/fcs/craft/cutting/special-processes' },
-            { key: 'craft-cutting-closing-summary', title: '裁剪总结', icon: 'ClipboardPen', href: '/fcs/craft/cutting/summary' },
-          ],
-        },
-        {
-          key: 'craft-cutting-handover',
-          title: '裁片仓交接',
-          icon: 'Warehouse',
-          // 旧“仓库管理”被拆成裁床仓 / 裁片仓 / 样衣仓 / 中转袋流转，
-          // 因为这些页面分别对应库存对象、样衣对象和独立载具对象，不能继续用一个仓库总名覆盖。
-          children: [
-            { key: 'craft-cutting-fabric-warehouse', title: '裁床仓', icon: 'Warehouse', href: '/fcs/craft/cutting/fabric-warehouse' },
-            { key: 'craft-cutting-sample-warehouse', title: '样衣仓', icon: 'Shirt', href: '/fcs/craft/cutting/sample-warehouse' },
-          ],
-        },
-        {
-          key: 'craft-printing',
-          title: '印花管理',
-          icon: 'Palette',
-          children: [
-            { key: 'craft-printing-work-orders', title: '印花加工单', icon: 'ClipboardList', href: '/fcs/craft/printing/work-orders' },
-            { key: 'craft-printing-pending-review', title: '印花审核', icon: 'ClipboardCheck', href: '/fcs/craft/printing/pending-review' },
-            { key: 'craft-printing-progress', title: '印花进度', icon: 'KanbanSquare', href: '/fcs/craft/printing/progress' },
-            { key: 'craft-printing-statistics', title: '印花统计', icon: 'BarChart3', href: '/fcs/craft/printing/statistics' },
-            { key: 'craft-printing-dashboards', title: '印花大屏', icon: 'Monitor', href: '/fcs/craft/printing/dashboards' },
-          ],
-        },
-        {
-          key: 'craft-dyeing',
-          title: '染色管理',
-          icon: 'Droplet',
-          children: [
-            { key: 'craft-dyeing-work-orders', title: '染色加工单', icon: 'ClipboardList', href: '/fcs/craft/dyeing/work-orders' },
-            { key: 'craft-dyeing-dye-orders', title: '染料单', icon: 'Package', href: '/fcs/craft/dyeing/dye-orders' },
-            { key: 'craft-dyeing-reports', title: '染色报表', icon: 'BarChart3', href: '/fcs/craft/dyeing/reports' },
-          ],
-        },
-      ],
-    } as MenuGroup & { icon: string },
-    {
       title: '工厂端移动应用',
       icon: 'Smartphone',
       items: [
@@ -332,6 +241,112 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
         { key: 'pda-exec', title: '执行', icon: 'Play', href: '/fcs/pda/exec' },
         { key: 'pda-handover', title: '交接', icon: 'ArrowLeftRight', href: '/fcs/pda/handover' },
         { key: 'pda-settlement', title: '结算', icon: 'Wallet', href: '/fcs/pda/settlement' },
+      ],
+    } as MenuGroup & { icon: string },
+  ],
+  pfos: [
+    {
+      title: '工作台',
+      icon: 'LayoutDashboard',
+      items: [
+        {
+          key: 'pfos-workbench',
+          title: '工作台',
+          icon: 'LayoutDashboard',
+          children: [
+            { key: 'pfos-workbench-overview', title: '总览', icon: 'LayoutDashboard', href: '/fcs/craft/workbench/overview' },
+          ],
+        },
+      ],
+    } as MenuGroup & { icon: string },
+    {
+      title: '裁床厂管理',
+      icon: 'Scissors',
+      items: [
+        {
+          key: 'pfos-cutting-overview',
+          title: '裁床总览',
+          icon: 'Scissors',
+          children: [
+            { key: 'pfos-cutting-production-progress', title: '生产单进度', icon: 'ListTodo', href: '/fcs/craft/cutting/production-progress' },
+            { key: 'pfos-cutting-cuttable-pool', title: '可裁排产', icon: 'CalendarClock', href: '/fcs/craft/cutting/cuttable-pool' },
+            { key: 'pfos-cutting-merge-batches', title: '合并裁剪批次', icon: 'Layers', href: '/fcs/craft/cutting/merge-batches' },
+          ],
+        },
+        {
+          key: 'pfos-cutting-prep',
+          title: '裁前准备',
+          icon: 'PackageSearch',
+          children: [
+            { key: 'pfos-cutting-original-orders', title: '原始裁片单', icon: 'ClipboardList', href: '/fcs/craft/cutting/original-orders' },
+            { key: 'pfos-cutting-material-prep', title: '仓库配料领料', icon: 'PackageSearch', href: '/fcs/craft/cutting/material-prep' },
+            { key: 'pfos-cutting-marker-list', title: '唛架列表', icon: 'Ruler', href: '/fcs/craft/cutting/marker-list' },
+          ],
+        },
+        {
+          key: 'pfos-cutting-execution',
+          title: '铺布执行',
+          icon: 'Rows3',
+          children: [
+            { key: 'pfos-cutting-spreading-list', title: '铺布列表', icon: 'Rows3', href: '/fcs/craft/cutting/spreading-list' },
+          ],
+        },
+        {
+          key: 'pfos-cutting-post',
+          title: '裁后处理',
+          icon: 'PackageCheck',
+          children: [
+            { key: 'pfos-cutting-replenishment', title: '补料管理', icon: 'ShieldAlert', href: '/fcs/craft/cutting/replenishment' },
+            { key: 'pfos-cutting-fei-tickets', title: '打印菲票', icon: 'Ticket', href: '/fcs/craft/cutting/fei-tickets' },
+            { key: 'pfos-cutting-transfer-bags', title: '中转袋流转', icon: 'PackageCheck', href: '/fcs/craft/cutting/transfer-bags' },
+            { key: 'pfos-cutting-cut-piece-warehouse', title: '裁片仓', icon: 'Archive', href: '/fcs/craft/cutting/cut-piece-warehouse' },
+            { key: 'pfos-cutting-special-processes', title: '特殊工艺', icon: 'Sparkles', href: '/fcs/craft/cutting/special-processes' },
+            { key: 'pfos-cutting-summary', title: '裁剪总结', icon: 'ClipboardPen', href: '/fcs/craft/cutting/summary' },
+          ],
+        },
+        {
+          key: 'pfos-cutting-handover',
+          title: '裁片仓交接',
+          icon: 'Warehouse',
+          children: [
+            { key: 'pfos-cutting-fabric-warehouse', title: '裁床仓', icon: 'Warehouse', href: '/fcs/craft/cutting/fabric-warehouse' },
+            { key: 'pfos-cutting-sample-warehouse', title: '样衣仓', icon: 'Shirt', href: '/fcs/craft/cutting/sample-warehouse' },
+          ],
+        },
+      ],
+    } as MenuGroup & { icon: string },
+    {
+      title: '印花厂管理',
+      icon: 'Palette',
+      items: [
+        {
+          key: 'pfos-printing',
+          title: '印花管理',
+          icon: 'Palette',
+          children: [
+            { key: 'pfos-printing-work-orders', title: '印花加工单', icon: 'ClipboardList', href: '/fcs/craft/printing/work-orders' },
+            { key: 'pfos-printing-pending-review', title: '印花审核', icon: 'ClipboardCheck', href: '/fcs/craft/printing/pending-review' },
+            { key: 'pfos-printing-progress', title: '印花进度', icon: 'KanbanSquare', href: '/fcs/craft/printing/progress' },
+            { key: 'pfos-printing-statistics', title: '印花统计', icon: 'BarChart3', href: '/fcs/craft/printing/statistics' },
+            { key: 'pfos-printing-dashboards', title: '印花大屏', icon: 'Monitor', href: '/fcs/craft/printing/dashboards' },
+          ],
+        },
+      ],
+    } as MenuGroup & { icon: string },
+    {
+      title: '染厂管理',
+      icon: 'Droplet',
+      items: [
+        {
+          key: 'pfos-dyeing',
+          title: '染厂管理',
+          icon: 'Droplet',
+          children: [
+            { key: 'pfos-dyeing-work-orders', title: '染色加工单', icon: 'ClipboardList', href: '/fcs/craft/dyeing/work-orders' },
+            { key: 'pfos-dyeing-dye-orders', title: '染料单', icon: 'Package', href: '/fcs/craft/dyeing/dye-orders' },
+            { key: 'pfos-dyeing-reports', title: '染色报表', icon: 'BarChart3', href: '/fcs/craft/dyeing/reports' },
+          ],
+        },
       ],
     } as MenuGroup & { icon: string },
   ],

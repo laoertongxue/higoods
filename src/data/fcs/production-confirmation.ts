@@ -81,7 +81,10 @@ export interface ProductionConfirmationPatternFileSnapshot {
     id: string
     name: string
     count: number
-    note?: string
+    isTemplate?: boolean
+    partTemplateId?: string
+    partTemplateName?: string
+    partTemplatePreviewSvg?: string
     colorAllocations: Array<{
       colorName: string
       pieceCount: number
@@ -531,7 +534,10 @@ function buildPatternSnapshot(order: ProductionOrder): ProductionConfirmationSna
         id: row.id,
         name: row.name,
         count: row.count,
-        note: row.note,
+        isTemplate: row.isTemplate,
+        partTemplateId: row.partTemplateId,
+        partTemplateName: row.partTemplateName,
+        partTemplatePreviewSvg: row.partTemplatePreviewSvg,
         colorAllocations: (row.colorAllocations ?? []).map((allocation) => ({
           colorName: allocation.colorName,
           pieceCount: allocation.pieceCount,
@@ -595,7 +601,7 @@ function buildImageSnapshot(order: ProductionOrder): ProductionConfirmationSnaps
   const artworkImages = uniqueImageList([
     ...toSnapshotImages('花型图', techPackImages?.artworkImages),
     ...(techPackSnapshot?.patternDesigns ?? [])
-      .map((item) => toConfirmationImage(item.name || '花型图', item.imageUrl)),
+      .map((item) => toConfirmationImage(item.name || '花型图', item.previewThumbnailDataUrl || item.imageUrl)),
   ])
 
   return {
