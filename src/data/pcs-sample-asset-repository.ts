@@ -95,6 +95,10 @@ export function listSampleAssets(): SampleAssetRecord[] {
   return loadSnapshot().assets.map(cloneAsset).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
 }
 
+export function listSampleAssetsBySourceTask(sourceDocId: string): SampleAssetRecord[] {
+  return listSampleAssets().filter((item) => item.sourceDocId === sourceDocId)
+}
+
 export function getSampleAssetById(sampleAssetId: string): SampleAssetRecord | null {
   const asset = loadSnapshot().assets.find((item) => item.sampleAssetId === sampleAssetId)
   return asset ? cloneAsset(asset) : null

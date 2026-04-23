@@ -35,16 +35,26 @@ const REVISION_TASK_FIELD_POLICY: EngineeringTaskFieldPolicy = {
     { fieldKey: 'ownerName', label: '负责人', description: '节点推进时必须指定当前主责人。' },
     { fieldKey: 'dueAt', label: '截止时间', description: '用于锁定本次改版的计划完成时间。' },
     { fieldKey: 'revisionScopeCodes', label: '改版范围', description: '明确本次改版涉及的版型、工艺、花型等范围。' },
+    { fieldKey: 'baseStyleCode', label: '旧款信息', description: '明确本次改版基于的既有款式。' },
     { fieldKey: 'issueSummary', label: '问题点', description: '记录本次改版要解决的核心问题。' },
     { fieldKey: 'evidenceSummary', label: '证据说明', description: '记录支撑改版的评审、反馈和比对证据。' },
   ],
   detailEditableFields: [
     { fieldKey: 'participantNames', label: '参与人', description: '在实例详情中补齐实际参与执行的人员。' },
     { fieldKey: 'revisionVersion', label: '改版版次', description: '在实例详情中补齐本次改版产出的版次标记。' },
+    { fieldKey: 'sampleQty', label: '样衣数量', description: '记录本次改版需要产出的样衣数量。' },
+    { fieldKey: 'materialAdjustmentLines', label: '面辅料变化', description: '记录本次改版涉及的面辅料变化明细。' },
+    { fieldKey: 'newPatternSpuCode', label: '新花型 SPU', description: '记录改版涉及的新花型方向。' },
+    { fieldKey: 'patternPieceImageIds', label: '纸样图片', description: '记录本次改版产生或引用的纸样图片。' },
+    { fieldKey: 'patternFileIds', label: '纸样文件', description: '记录本次改版产生或引用的纸样文件。' },
+    { fieldKey: 'liveRetestStatus', label: '回直播验证状态', description: '记录改版样衣是否已回直播验证。' },
   ],
   completionRequiredFields: [
-    { fieldKey: 'participantNames', label: '参与人', description: '完成前必须能明确谁参与了本次改版。' },
-    { fieldKey: 'revisionVersion', label: '改版版次', description: '完成前必须沉淀本次改版的正式版次。' },
+    { fieldKey: 'baseStyleCode', label: '旧款信息', description: '完成前必须明确旧款。' },
+    { fieldKey: 'revisionScopeNames', label: '改版范围', description: '完成前必须明确改版范围。' },
+    { fieldKey: 'revisionSuggestionRichText', label: '修改建议', description: '完成前必须记录本次改版建议。' },
+    { fieldKey: 'generatedNewTechPackVersionFlag', label: '新技术包版本', description: '完成前必须生成新技术包版本。' },
+    { fieldKey: 'liveRetestStatus', label: '回直播验证', description: '需要回直播验证时，完成前必须形成验证结果。' },
   ],
   nodeWritebacks: [
     {
@@ -69,26 +79,37 @@ const PLATE_TASK_FIELD_POLICY: EngineeringTaskFieldPolicy = {
   taskLabel: '制版任务',
   createRequiredFields: [
     { fieldKey: 'title', label: '任务标题', description: '在项目节点创建时明确本次制版目标。' },
-    { fieldKey: 'ownerName', label: '负责人', description: '节点推进时必须指定当前制版负责人。' },
+    { fieldKey: 'patternMakerName', label: '版师', description: '节点推进时必须指定当前版师。' },
     { fieldKey: 'dueAt', label: '截止时间', description: '用于锁定本次制版的计划完成时间。' },
+    { fieldKey: 'productHistoryType', label: '产品历史属性', description: '明确该款是未卖过还是已卖过补纸样。' },
+    { fieldKey: 'patternArea', label: '打版区域', description: '明确本次打版在印尼或深圳执行。' },
     { fieldKey: 'patternType', label: '版型类型', description: '明确本次制版对应的版型类别。' },
     { fieldKey: 'sizeRange', label: '尺码范围', description: '明确本次制版覆盖的尺码范围。' },
   ],
   detailEditableFields: [
     { fieldKey: 'participantNames', label: '参与人', description: '在实例详情中补齐实际参与制版的人员。' },
     { fieldKey: 'patternVersion', label: '制版版次', description: '在实例详情中补齐最终输出的纸样版次。' },
+    { fieldKey: 'materialRequirementLines', label: '面辅料明细', description: '在实例详情中补齐面辅料输入。' },
+    { fieldKey: 'colorRequirementText', label: '花色需求', description: '记录本次纸样开发涉及的花色要求。' },
+    { fieldKey: 'patternImageLineItems', label: '纸样图片明细', description: '按部位、说明和片数补齐纸样图片。' },
+    { fieldKey: 'patternPdfFileIds', label: 'PDF 文件', description: '单独记录 PDF 纸样文件。' },
+    { fieldKey: 'patternDxfFileIds', label: 'DXF 文件', description: '单独记录 DXF 纸样文件。' },
+    { fieldKey: 'patternRulFileIds', label: 'RUL 文件', description: '单独记录 RUL 纸样文件。' },
+    { fieldKey: 'partTemplateLinks', label: '部位模板关联', description: '记录已关联的部位模板和匹配部位。' },
   ],
   completionRequiredFields: [
-    { fieldKey: 'participantNames', label: '参与人', description: '完成前必须沉淀本次制版的参与人员。' },
-    { fieldKey: 'patternVersion', label: '制版版次', description: '完成前必须沉淀本次制版产出的正式版次。' },
+    { fieldKey: 'patternMakerName', label: '版师', description: '完成前必须明确版师。' },
+    { fieldKey: 'productHistoryType', label: '产品历史属性', description: '完成前必须明确产品历史属性。' },
+    { fieldKey: 'patternArea', label: '打版区域', description: '完成前必须明确打版区域。' },
+    { fieldKey: 'patternDeliverables', label: '纸样资料', description: '完成前必须至少存在纸样图片或 PDF / DXF / RUL 文件。' },
   ],
   nodeWritebacks: [
     {
       phase: '创建后',
       resultType: '已创建制版任务',
-      resultText: '已创建制版任务，待在实例详情补齐版次信息。',
-      pendingActionType: '输出纸样版本',
-      pendingActionText: '请在制版任务详情补齐参与人和制版版次，并输出纸样版本。',
+      resultText: '已创建制版任务，待在实例详情补齐纸样执行信息。',
+      pendingActionType: '输出纸样资料',
+      pendingActionText: '请在制版任务详情补齐纸样图片、纸样文件和模板关联。',
     },
     {
       phase: '完成后',
@@ -158,15 +179,28 @@ export function getEngineeringTaskFieldPolicy(
 
 export function getRevisionTaskCompletionMissingFields(task: RevisionTaskRecord): string[] {
   const missing: string[] = []
-  if (task.participantNames.length === 0) missing.push('参与人')
-  if (!task.revisionVersion.trim()) missing.push('改版版次')
+  if (!(task.baseStyleCode || task.styleCode || task.productStyleCode).trim()) missing.push('旧款信息')
+  if ((task.revisionScopeNames || []).length === 0 && (task.revisionScopeCodes || []).length === 0) missing.push('改版范围')
+  if (!(task.revisionSuggestionRichText || task.issueSummary).trim()) missing.push('修改建议')
+  if (task.liveRetestRequired) {
+    if (task.liveRetestStatus === '待回直播验证') missing.push('回直播验证状态')
+    if ((task.liveRetestRelationIds || []).length === 0 && !task.liveRetestSummary.trim()) missing.push('回直播验证结论')
+  }
+  if (!task.generatedNewTechPackVersionFlag && !task.linkedTechPackVersionId) missing.push('新技术包版本')
   return missing
 }
 
 export function getPlateTaskCompletionMissingFields(task: PlateMakingTaskRecord): string[] {
   const missing: string[] = []
-  if (task.participantNames.length === 0) missing.push('参与人')
-  if (!task.patternVersion.trim()) missing.push('制版版次')
+  if (!(task.patternMakerName || task.ownerName).trim()) missing.push('版师')
+  if (!task.productHistoryType) missing.push('产品历史属性')
+  if (!task.patternArea) missing.push('打版区域')
+  const hasPatternImage = (task.patternImageLineItems || []).length > 0
+  const hasPatternFile =
+    (task.patternPdfFileIds || []).length > 0
+    || (task.patternDxfFileIds || []).length > 0
+    || (task.patternRulFileIds || []).length > 0
+  if (!hasPatternImage && !hasPatternFile && !task.patternVersion.trim()) missing.push('纸样资料')
   return missing
 }
 

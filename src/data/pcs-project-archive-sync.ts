@@ -6,6 +6,7 @@ import {
 import { upsertProjectRelation } from './pcs-project-relation-repository.ts'
 import type { ProjectRelationRecord } from './pcs-project-relation-types.ts'
 import { getStyleArchiveById } from './pcs-style-archive-repository.ts'
+import { updateTechnicalDataVersionRecord } from './pcs-technical-data-version-repository.ts'
 import {
   collectProjectArchiveAutoData,
   computeProjectArchiveMissingItems,
@@ -179,6 +180,20 @@ function computeArchiveSnapshot(archive: ProjectArchiveRecord): {
   }
 }
 
+function markCollectedTechnicalVersions(documents: ProjectArchiveDocumentRecord[], timestamp: string): void {
+  const versionIds = new Set(
+    documents
+      .filter((document) => document.sourceObjectType === '技术包版本' && document.sourceObjectId)
+      .map((document) => document.sourceObjectId),
+  )
+  versionIds.forEach((technicalVersionId) => {
+    updateTechnicalDataVersionRecord(technicalVersionId, {
+      archiveCollectedFlag: true,
+      archiveCollectedAt: timestamp,
+    })
+  })
+}
+
 function updateProjectAndNodeFromArchive(
   archive: ProjectArchiveRecord,
   operatorName: string,
@@ -256,6 +271,12 @@ export function createProjectArchive(projectId: string, operatorName = '商品�
     currentTechnicalVersionId: '',
     currentTechnicalVersionCode: '',
     currentTechnicalVersionLabel: '',
+    currentPatternAssetIds: [],
+    currentPatternAssetCodes: [],
+    currentPatternAssetCount: 0,
+    currentTechPackLogCount: 0,
+    closureSnapshotAt: '',
+    closureSnapshotBy: '',
     archiveStatus: 'DRAFT',
     documentCount: 0,
     fileCount: 0,
@@ -276,6 +297,7 @@ export function createProjectArchive(projectId: string, operatorName = '商品�
   replaceProjectArchiveDocuments(archive.projectArchiveId, snapshot.documents)
   replaceProjectArchiveFiles(archive.projectArchiveId, snapshot.files)
   replaceProjectArchiveMissingItems(archive.projectArchiveId, snapshot.missingItems)
+  markCollectedTechnicalVersions(snapshot.documents, timestamp)
   archive = upsertProjectArchive({
     ...snapshot.archive,
     updatedBy: operatorName,
@@ -294,16 +316,19 @@ export function createProjectArchive(projectId: string, operatorName = '商品�
 export function syncProjectArchive(projectArchiveId: string, operatorName = '商品中心'): ProjectArchiveRecord {
   const current = getProjectArchiveById(projectArchiveId)
   if (!current) throw new Error('未找到项目资料归档对象。')
+  const timestamp = nowText()
   const snapshot = computeArchiveSnapshot({
     ...current,
+    updatedAt: timestamp,
     updatedBy: operatorName,
   })
   replaceProjectArchiveDocuments(projectArchiveId, snapshot.documents)
   replaceProjectArchiveFiles(projectArchiveId, snapshot.files)
   replaceProjectArchiveMissingItems(projectArchiveId, snapshot.missingItems)
+  markCollectedTechnicalVersions(snapshot.documents, timestamp)
   const archive = upsertProjectArchive({
     ...snapshot.archive,
-    updatedAt: nowText(),
+    updatedAt: timestamp,
     updatedBy: operatorName,
   })
   upsertProjectRelation(buildRelation(archive, operatorName))

@@ -4,11 +4,17 @@ import {
 } from './production-order-tech-pack-runtime.ts'
 import { productionOrders, type ProductionOrder } from './production-orders.ts'
 import type { ProductionOrderTechPackSnapshot } from './production-tech-pack-snapshot-types.ts'
-import { getProcessCraftByCode } from './process-craft-dict.ts'
 import {
+  getProcessCraftByCode,
+  normalizeSpecialCraftTargetObjectLabel,
+} from './process-craft-dict.ts'
+import {
+  getDefaultSpecialCraftTargetObject,
   getSpecialCraftOperationByCraftCode,
+  isSpecialCraftTargetObjectSupported,
   listEnabledSpecialCraftOperationDefinitions,
   type SpecialCraftOperationDefinition,
+  type SpecialCraftTargetObject,
 } from './special-craft-operations.ts'
 import type {
   SpecialCraftTaskAbnormalRecord,
@@ -94,14 +100,14 @@ function resolveProductionOrderVersion(order: ProductionOrder): string {
   return 'POV-CURRENT'
 }
 
-function resolveSuggestedFactory(operation: SpecialCraftOperationDefinition): {
+function resolveSuggestedFactory(operation: SpecialCraftOperationDefinition, targetObject = operation.targetObject): {
   suggestedFactoryId?: string
   suggestedFactoryName?: string
 } {
   const matched = mockFactories
     .filter((factory) => factory.processAbilities.some((ability) => ability.craftCodes.includes(operation.craftCode)))
     .sort((left, right) => left.name.localeCompare(right.name, 'zh-CN'))
-  const preferred = operation.targetObject === '面料'
+  const preferred = targetObject === '完整面料' || targetObject === '面料'
     ? matched.find((factory) => factory.factoryType === 'CENTRAL_DENIM_WASH')
     : matched.find((factory) => factory.factoryType === 'CENTRAL_SPECIAL' || factory.factoryType === 'SATELLITE_FINISHING')
   const resolved = preferred || matched[0]
@@ -126,6 +132,23 @@ function isForbiddenSpecialCraft(operation: SpecialCraftOperationDefinition): bo
   return operation.craftName === '印花' || operation.craftName === '染色'
 }
 
+function resolveSelectedTargetObject(
+  selectedTargetObject: string | undefined,
+  operation: SpecialCraftOperationDefinition,
+): SpecialCraftTargetObject {
+  const normalized = normalizeSpecialCraftTargetObjectLabel(selectedTargetObject)
+  if (normalized && isSpecialCraftTargetObjectSupported(operation, normalized)) {
+    return normalized
+  }
+  return getDefaultSpecialCraftTargetObject(operation)
+}
+
+function getDemandLineUnit(targetObject: SpecialCraftTargetObject): string {
+  if (targetObject === '已裁部位' || targetObject === '裁片') return '片'
+  if (targetObject === '完整面料' || targetObject === '面料') return '米'
+  return '件'
+}
+
 function validateSpecialCraftReference(
   order: ProductionOrder,
   snapshot: ProductionOrderTechPackSnapshot,
@@ -134,10 +157,12 @@ function validateSpecialCraftReference(
   partName: string,
   processCode: string,
   craftCode: string,
+  selectedTargetObject?: string,
   colorName = '',
   sizeCode = '',
 ): {
   operation?: SpecialCraftOperationDefinition
+  selectedTargetObject?: SpecialCraftTargetObject
   error?: SpecialCraftTaskGenerationError
 } {
   const operation = getSpecialCraftOperationByCraftCode(craftCode)
@@ -193,7 +218,8 @@ function validateSpecialCraftReference(
       }),
     }
   }
-  if (!operation.targetObject) {
+  const resolvedTargetObject = resolveSelectedTargetObject(selectedTargetObject, operation)
+  if (!resolvedTargetObject) {
     return {
       error: buildBlockingError({
         productionOrderId: order.productionOrderId,
@@ -210,7 +236,7 @@ function validateSpecialCraftReference(
       }),
     }
   }
-  return { operation }
+  return { operation, selectedTargetObject: resolvedTargetObject }
 }
 
 export function validateSpecialCraftDemandLine(
@@ -350,6 +376,7 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
           partName,
           craft.processCode,
           craft.craftCode,
+          craft.selectedTargetObject,
         )
         if (reference.error) {
           errors.push(reference.error)
@@ -357,6 +384,7 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
         }
         const operation = reference.operation
         if (!operation || !operationIdSet.has(operation.operationId)) return
+        const selectedTargetObject = reference.selectedTargetObject || operation.targetObject
 
         colorAllocations.forEach((allocation) => {
           const pieceCountPerGarment = Number(allocation.pieceCount)
@@ -401,7 +429,7 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
               return
             }
             const demandLine: SpecialCraftTaskDemandLine = {
-              demandLineId: `SCDL-${stableHash([productionOrder.productionOrderId, pieceRow.id, operation.operationId, orderLine.skuCode].join('|'))}`,
+              demandLineId: `SCDL-${stableHash([productionOrder.productionOrderId, pieceRow.id, operation.operationId, selectedTargetObject, orderLine.skuCode].join('|'))}`,
               taskOrderId: '',
               productionOrderId: productionOrder.productionOrderId,
               productionOrderNo: productionOrder.productionOrderNo,
@@ -415,16 +443,18 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
               pieceCountPerGarment,
               orderQty,
               planPieceQty: pieceCountPerGarment * orderQty,
-              specialCraftKey: `${operation.processCode}:${operation.craftCode}`,
+              specialCraftKey: `${operation.processCode}:${operation.craftCode}:${selectedTargetObject}`,
               operationId: operation.operationId,
               operationName: operation.operationName,
               processCode: operation.processCode,
               processName: operation.processName,
               craftCode: operation.craftCode,
               craftName: operation.craftName,
-              targetObject: operation.targetObject,
-              unit: operation.targetObject === '裁片' ? '片' : operation.targetObject === '面料' ? '米' : '件',
+              targetObject: selectedTargetObject,
+              unit: getDemandLineUnit(selectedTargetObject),
               feiTicketNos: [],
+              bundleLengthCm: pieceRow.bundleLengthCm,
+              bundleWidthCm: pieceRow.bundleWidthCm,
               remark: '',
             }
             errors.push(...validateSpecialCraftDemandLine(demandLine))
@@ -528,7 +558,8 @@ function mergeDemandLinesIntoTaskOrder(input: {
   const partName = summarizeSingleValue(demandLines.map((line) => line.partName), `${sourcePieceRowIds.length}个部位`)
   const fabricColor = summarizeSingleValue(demandLines.map((line) => line.colorName), '多颜色')
   const sizeCode = summarizeSingleValue(demandLines.map((line) => line.sizeCode), '多尺码')
-  const { suggestedFactoryId, suggestedFactoryName } = resolveSuggestedFactory(operation)
+  const targetObject = demandLines[0]?.targetObject || operation.targetObject
+  const { suggestedFactoryId, suggestedFactoryName } = resolveSuggestedFactory(operation, targetObject)
   const productionOrderVersion = resolveProductionOrderVersion(order)
 
   const taskOrder: SpecialCraftTaskOrder = {
@@ -549,7 +580,7 @@ function mergeDemandLinesIntoTaskOrder(input: {
     techPackVersion: snapshot.sourceTechPackVersionLabel || snapshot.versionLabel,
     sourceTaskId: existingTask?.sourceTaskId,
     sourceTaskNo: existingTask?.sourceTaskNo,
-    targetObject: operation.targetObject,
+    targetObject,
     partName,
     fabricColor,
     sizeCode,
@@ -743,7 +774,7 @@ export function generateSpecialCraftTaskOrdersFromProductionOrder(input: {
       productionOrderVersion,
       techPackSnapshotId: techPackSnapshot.snapshotId,
       operationId: operation.operationId,
-      targetObject: operation.targetObject,
+      targetObject: groupDemandLines[0]?.targetObject || operation.targetObject,
       demandLines: groupDemandLines,
     })
     const existingTask = existingByGenerationKey.get(generationKey)

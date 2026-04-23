@@ -242,7 +242,7 @@ function renderPickupTab(task: ProcessTask): string {
       )}
       ${renderDrawerSectionTable(
         '领料记录',
-        ['领料头单号', '当前状态', '应领数量', '已领数量', '最新领料时间', '差异 / 异议'],
+        ['领料单号', '当前状态', '应领数量', '已领数量', '最新领料时间', '差异 / 异议'],
         pickupRecordRows,
         '当前任务暂无领料记录。',
         'data-progress-task-pickup-section=\"records\"',

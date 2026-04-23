@@ -6,6 +6,7 @@ import {
 import { getStyleArchiveById, listStyleArchives } from './pcs-style-archive-repository.ts'
 import { buildTechPackVersionSourceTaskSummary } from './pcs-tech-pack-task-generation.ts'
 import { listTechPackVersionLogsByVersionId } from './pcs-tech-pack-version-log-repository.ts'
+import { listPatternAssetsForTechPackVersions } from './pcs-pattern-library-archive-linkage.ts'
 import {
   getCurrentTechPackVersionByStyleId,
   getTechnicalDataVersionById,
@@ -36,6 +37,8 @@ export interface TechnicalVersionListItemViewModel {
   updatedAt: string
   publishedAt: string
   versionLogCount: number
+  linkedPatternAssetCount: number
+  archiveStatusText: string
   canPublish: boolean
   canActivate: boolean
 }
@@ -51,6 +54,8 @@ export interface TechnicalVersionDetailViewModel {
   canPublish: boolean
   compatibilityMode: boolean
   versionLogs: TechPackVersionLogRecord[]
+  linkedPatternAssets: ReturnType<typeof listPatternAssetsForTechPackVersions>
+  archiveStatusText: string
 }
 
 export function getTechnicalVersionStatusLabel(status: TechnicalVersionStatus): string {
@@ -97,6 +102,8 @@ export function buildTechnicalVersionListByStyle(styleId: string): TechnicalVers
     updatedAt: record.updatedAt,
     publishedAt: record.publishedAt,
     versionLogCount: listTechPackVersionLogsByVersionId(record.technicalVersionId).length,
+    linkedPatternAssetCount: listPatternAssetsForTechPackVersions([record]).length,
+    archiveStatusText: record.archiveCollectedFlag ? '已进入项目资料归档' : '未进入项目资料归档',
     canPublish: canPublishTechnicalVersion(record) && record.versionStatus === 'DRAFT',
     canActivate: record.versionStatus === 'PUBLISHED' && style?.currentTechPackVersionId !== record.technicalVersionId,
   }))
@@ -122,6 +129,8 @@ export function buildTechnicalVersionListByProject(projectId: string): Technical
       updatedAt: record.updatedAt,
       publishedAt: record.publishedAt,
       versionLogCount: listTechPackVersionLogsByVersionId(record.technicalVersionId).length,
+      linkedPatternAssetCount: listPatternAssetsForTechPackVersions([record]).length,
+      archiveStatusText: record.archiveCollectedFlag ? '已进入项目资料归档' : '未进入项目资料归档',
       canPublish: canPublishTechnicalVersion(record) && record.versionStatus === 'DRAFT',
       canActivate:
         record.versionStatus === 'PUBLISHED' && style?.currentTechPackVersionId !== record.technicalVersionId,
@@ -152,6 +161,8 @@ export function buildTechnicalVersionDetailViewModel(
     canPublish: canPublishTechnicalVersion(record) && record.versionStatus === 'DRAFT',
     compatibilityMode: false,
     versionLogs: listTechPackVersionLogsByVersionId(record.technicalVersionId),
+    linkedPatternAssets: listPatternAssetsForTechPackVersions([record]),
+    archiveStatusText: record.archiveCollectedFlag ? '已进入项目资料归档' : '未进入项目资料归档',
   }
 }
 

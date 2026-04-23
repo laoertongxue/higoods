@@ -381,6 +381,44 @@ export interface PdaHandoverRecord {
   objectionStatus?: 'REPORTED' | 'PROCESSING' | 'RESOLVED'
   followUpRemark?: string
   resolvedRemark?: string
+  expectedTransferBagCount?: number
+  receivedTransferBagCount?: number
+  expectedFeiTicketCount?: number
+  receivedFeiTicketCount?: number
+  transferBagWritebackLines?: TransferBagWritebackLine[]
+  feiTicketWritebackLines?: TransferBagFeiTicketWritebackLine[]
+  writebackMode?: '按袋' | '按袋 + 菲票'
+  combinedWritebackStatus?: '待回写' | '部分回写' | '已回写' | '差异' | '异议中'
+}
+
+export interface TransferBagWritebackLine {
+  lineId: string
+  handoverRecordId: string
+  transferBagId: string
+  transferBagNo: string
+  expectedFeiTicketCount: number
+  receivedFeiTicketCount: number
+  expectedQty: number
+  actualQty: number
+  differenceQty: number
+  status: '待回写' | '已回写' | '差异'
+  remark?: string
+}
+
+export interface TransferBagFeiTicketWritebackLine {
+  lineId: string
+  handoverRecordId: string
+  transferBagId: string
+  transferBagNo: string
+  feiTicketNo: string
+  partName: string
+  colorName: string
+  sizeCode: string
+  expectedQty: number
+  actualQty: number
+  differenceQty: number
+  status: '待回写' | '已回写' | '差异'
+  remark?: string
 }
 
 export type PdaPickupRecordStatus =
@@ -677,7 +715,7 @@ function hydrateHandoverHeadDomain(head: PdaHandoverHead, records: PdaHandoverRe
     plannedQty: head.plannedQty ?? head.qtyExpectedTotal,
     factoryMarkedComplete,
     factoryMarkedCompleteAt: head.factoryMarkedCompleteAt || head.completedByWarehouseAt,
-    receiverClosedAt: head.receiverClosedAt || head.completedByWarehouseAt,
+    receiverClosedAt: head.receiverClosedAt,
     qtyActualTotal: writtenBackQtyTotal,
     qtyDiffTotal: head.qtyExpectedTotal - writtenBackQtyTotal,
   }
@@ -1799,6 +1837,11 @@ function parseDateMs(value: string | undefined): number {
   return new Date(value.replace(' ', 'T')).getTime()
 }
 
+function roundNumber(value: number | undefined): number {
+  if (!Number.isFinite(value)) return 0
+  return Math.round(Number(value) * 100) / 100
+}
+
 function cloneProofFiles(files: HandoverProofFile[]): HandoverProofFile[] {
   return files.map((file) => ({ ...file }))
 }
@@ -2854,6 +2897,11 @@ function savePickupRecord(record: PdaPickupRecord): void {
     return
   }
 
+  const head = findHead(record.handoverId)
+  if (head?.completionStatus === 'COMPLETED') {
+    throw new Error('领料单已完成，不允许新增领料记录')
+  }
+
   const list = pickupRecordAdditions.get(record.handoverId) ?? []
   const index = list.findIndex((item) => item.recordId === record.recordId)
   if (index >= 0) {
@@ -2871,6 +2919,12 @@ function saveHandoutRecord(record: PdaHandoverRecord): void {
     handoutRecordOverrides.set(record.recordId, { ...existedOverride, ...record })
     invalidatePdaHandoverHeadCache()
     return
+  }
+
+  const existingRecord = findRecord(record.recordId)
+  const head = findHead(record.handoverId)
+  if (!existingRecord && head?.completionStatus === 'COMPLETED') {
+    throw new Error('交出单已完成，不允许新增交出记录')
   }
 
   const list = handoutRecordAdditions.get(record.handoverId) ?? []
@@ -3047,6 +3101,103 @@ export function getPdaPickupRecordsByHead(handoverId: string): PdaPickupRecord[]
 export function findPdaPickupRecord(recordId: string): PdaPickupRecord | undefined {
   const found = findPickupRecord(recordId)
   return found ? clonePickupRecord(found) : undefined
+}
+
+export function getPdaHandoverHeadBusinessLabel(headType: PdaHandoverHeadType): '领料单' | '交出单' {
+  return headType === 'PICKUP' ? '领料单' : '交出单'
+}
+
+export function getPdaPickupOrderDisplayNo(head: PdaHandoverHead): string {
+  return head.handoverOrderNo || head.handoverOrderId || head.handoverId
+}
+
+export function getPdaHandoutOrderDisplayNo(head: PdaHandoverHead): string {
+  return head.handoverOrderNo || head.handoverOrderId || head.handoverId
+}
+
+function getHeadCompletionBasisQty(head: PdaHandoverHead | undefined): number {
+  if (!head) return 0
+  const basisQty = head.plannedQty ?? head.qtyExpectedTotal
+  return Number.isFinite(basisQty) ? Number(basisQty) : 0
+}
+
+export function getPickupHeadCompletionBasisQty(handoverId: string): number {
+  return getHeadCompletionBasisQty(findPdaPickupHead(handoverId))
+}
+
+export function getHandoutHeadCompletionBasisQty(handoverId: string): number {
+  return getHeadCompletionBasisQty(findPdaHandoutHead(handoverId))
+}
+
+function getPickupRecordEffectiveCompletedQty(record: PdaPickupRecord): number {
+  if (record.status === 'REJECTED') return 0
+  if (record.status === 'RECEIVED') return roundNumber(record.factoryConfirmedQty ?? record.qtyActual ?? record.warehouseHandedQty ?? 0)
+  if (record.status === 'OBJECTION_RESOLVED') return roundNumber(record.finalResolvedQty ?? record.qtyActual ?? record.factoryReportedQty ?? 0)
+  if (record.status === 'OBJECTION_REPORTED' || record.status === 'OBJECTION_PROCESSING') {
+    return roundNumber(record.factoryReportedQty ?? record.qtyActual ?? 0)
+  }
+  return 0
+}
+
+function getHandoutRecordEffectiveCompletedQty(record: PdaHandoverRecord): number {
+  if ((record.handoverRecordStatus || mapRecordLifecycleStatus(record)) === 'VOIDED') return 0
+  return roundNumber(record.submittedQty ?? record.plannedQty ?? 0)
+}
+
+export function getPickupHeadEffectiveCompletedQty(handoverId: string): number {
+  return roundNumber(getPdaPickupRecordsByHead(handoverId).reduce((sum, record) => sum + getPickupRecordEffectiveCompletedQty(record), 0))
+}
+
+export function getHandoutHeadEffectiveCompletedQty(handoverId: string): number {
+  return roundNumber(getPdaHandoverRecordsByHead(handoverId).reduce((sum, record) => sum + getHandoutRecordEffectiveCompletedQty(record), 0))
+}
+
+function isPickupRecordStillWaiting(record: PdaPickupRecord): boolean {
+  return (
+    record.status === 'PENDING_WAREHOUSE_DISPATCH'
+    || record.status === 'PENDING_FACTORY_PICKUP'
+    || record.status === 'PENDING_FACTORY_CONFIRM'
+  )
+}
+
+function validateCompletionRange(label: '领料单' | '交出单', basisQty: number, effectiveQty: number): { ok: boolean; message: string } {
+  if (!Number.isFinite(basisQty) || basisQty <= 0) {
+    return { ok: false, message: `缺少计划数量，无法完成${label}` }
+  }
+  if (effectiveQty < basisQty * 0.8) {
+    return { ok: false, message: `累计${label === '领料单' ? '领料' : '交出'}数量未达到计划数量的 80%，暂不可完成${label}` }
+  }
+  if (effectiveQty > basisQty * 1.2) {
+    return { ok: false, message: `累计${label === '领料单' ? '领料' : '交出'}数量超出计划数量的 20%，请先核对后再完成${label}` }
+  }
+  return { ok: true, message: `可完成${label}` }
+}
+
+export function canCompletePdaPickupHead(handoverId: string): { ok: boolean; message: string; basisQty: number; effectiveQty: number } {
+  const head = findPdaPickupHead(handoverId)
+  const basisQty = getPickupHeadCompletionBasisQty(handoverId)
+  const effectiveQty = getPickupHeadEffectiveCompletedQty(handoverId)
+  if (!head) return { ok: false, message: '未找到领料单', basisQty, effectiveQty }
+  if (head.completionStatus === 'COMPLETED') return { ok: false, message: '该领料单已完成', basisQty, effectiveQty }
+  const records = getPdaPickupRecordsByHead(handoverId)
+  if (records.length === 0) return { ok: false, message: '暂无领料记录，无法完成领料单', basisQty, effectiveQty }
+  if (records.some(isPickupRecordStillWaiting)) {
+    return { ok: false, message: '仍有待确认的领料记录，暂不可完成领料单', basisQty, effectiveQty }
+  }
+  const rangeResult = validateCompletionRange('领料单', basisQty, effectiveQty)
+  return { ...rangeResult, basisQty, effectiveQty }
+}
+
+export function canCompletePdaHandoutHead(handoverId: string): { ok: boolean; message: string; basisQty: number; effectiveQty: number } {
+  const head = findPdaHandoutHead(handoverId)
+  const basisQty = getHandoutHeadCompletionBasisQty(handoverId)
+  const effectiveQty = getHandoutHeadEffectiveCompletedQty(handoverId)
+  if (!head) return { ok: false, message: '未找到交出单', basisQty, effectiveQty }
+  if (head.completionStatus === 'COMPLETED') return { ok: false, message: '该交出单已完成', basisQty, effectiveQty }
+  const records = getPdaHandoverRecordsByHead(handoverId)
+  if (records.length === 0) return { ok: false, message: '暂无交出记录，无法完成交出单', basisQty, effectiveQty }
+  const rangeResult = validateCompletionRange('交出单', basisQty, effectiveQty)
+  return { ...rangeResult, basisQty, effectiveQty }
 }
 
 export function listHandoverOrdersByTaskId(taskId: string): PdaHandoverHead[] {
@@ -3254,6 +3405,9 @@ export function createFactoryHandoverRecord(input: {
   if (!head || head.headType !== 'HANDOUT') {
     throw new Error(`未找到交出单：${input.handoverOrderId}`)
   }
+  if (head.completionStatus === 'COMPLETED') {
+    throw new Error('交出单已完成，不允许新增交出记录')
+  }
 
   const existing = getPdaHandoverRecordsByHead(head.handoverId)
   const sequenceNo = existing.reduce((max, record) => Math.max(max, record.sequenceNo), 0) + 1
@@ -3310,11 +3464,21 @@ export function upsertPdaHandoverHeadMock(head: PdaHandoverHead): PdaHandoverHea
 }
 
 export function upsertPdaPickupRecordMock(record: PdaPickupRecord): PdaPickupRecord {
+  const exists = findPickupRecord(record.recordId)
+  const head = findHead(record.handoverId)
+  if (!exists && head?.completionStatus === 'COMPLETED') {
+    throw new Error('领料单已完成，不允许新增领料记录')
+  }
   savePickupRecord(record)
   return findPdaPickupRecord(record.recordId) ?? clonePickupRecord(record)
 }
 
 export function upsertPdaHandoutRecordMock(record: PdaHandoverRecord): PdaHandoverRecord {
+  const exists = findRecord(record.recordId)
+  const head = findHead(record.handoverId)
+  if (!exists && head?.completionStatus === 'COMPLETED') {
+    throw new Error('交出单已完成，不允许新增交出记录')
+  }
   saveHandoutRecord(record)
   return findPdaHandoverRecord(record.recordId) ?? cloneRecord(record)
 }
@@ -3583,7 +3747,10 @@ export function createPdaHandoverRecord(
   },
 ): PdaHandoverRecord | undefined {
   const head = findHead(handoverId)
-  if (!head || head.headType !== 'HANDOUT' || head.completionStatus === 'COMPLETED') return undefined
+  if (!head || head.headType !== 'HANDOUT') return undefined
+  if (head.completionStatus === 'COMPLETED') {
+    throw new Error('交出单已完成，不允许新增交出记录')
+  }
   return createFactoryHandoverRecord({
     handoverOrderId: head.handoverOrderId || handoverId,
     submittedQty: Math.max(head.qtyExpectedTotal - (head.submittedQtyTotal ?? 0), 0),
@@ -3620,15 +3787,8 @@ export function markPdaPickupHeadCompleted(
   handoverId: string,
   completedAt: string,
 ): { ok: boolean; message: string; data?: PdaHandoverHead } {
-  const head = findHead(handoverId)
-  if (!head || head.headType !== 'PICKUP') return { ok: false, message: '未找到领料头' }
-  if (head.completionStatus === 'COMPLETED') return { ok: false, message: '该领料头已完成' }
-
-  const records = getPdaPickupRecordsByHead(handoverId)
-  if (records.length === 0) return { ok: false, message: '暂无领料记录，无法发起完成' }
-  if (records.some((record) => record.status !== 'RECEIVED')) {
-    return { ok: false, message: '仍有未完成的领料记录，暂不可标记完成' }
-  }
+  const validation = canCompletePdaPickupHead(handoverId)
+  if (!validation.ok) return { ok: false, message: validation.message }
 
   headCompletionOverrides.set(handoverId, {
     completionStatus: 'COMPLETED',
@@ -3638,26 +3798,16 @@ export function markPdaPickupHeadCompleted(
 
   const updated = findHead(handoverId)
   return updated
-    ? { ok: true, message: '已标记领料完成', data: cloneHead(updated) }
-    : { ok: true, message: '已标记领料完成' }
+    ? { ok: true, message: '已完成领料单', data: cloneHead(updated) }
+    : { ok: true, message: '已完成领料单' }
 }
 
 export function markPdaHandoutHeadCompleted(
   handoverId: string,
   completedAt: string,
 ): { ok: boolean; message: string; data?: PdaHandoverHead } {
-  const head = findHead(handoverId)
-  if (!head || head.headType !== 'HANDOUT') return { ok: false, message: '未找到交出单' }
-  if (head.completionStatus === 'COMPLETED') return { ok: false, message: '该交出单已完成' }
-
-  const records = getPdaHandoverRecordsByHead(handoverId)
-  if (records.length === 0) return { ok: false, message: '暂无交出记录，无法发起完成' }
-  if (records.some((record) => record.handoverRecordStatus === 'SUBMITTED_WAIT_WRITEBACK')) {
-    return { ok: false, message: '仍有待接收方回写记录，暂不可标记完成' }
-  }
-  if (records.some((record) => record.status === 'OBJECTION_REPORTED' || record.status === 'OBJECTION_PROCESSING')) {
-    return { ok: false, message: '仍有未处理完成的数量异议，暂不可标记完成' }
-  }
+  const validation = canCompletePdaHandoutHead(handoverId)
+  if (!validation.ok) return { ok: false, message: validation.message }
 
   headCompletionOverrides.set(handoverId, {
     completionStatus: 'COMPLETED',
@@ -3667,8 +3817,8 @@ export function markPdaHandoutHeadCompleted(
 
   const updated = findHead(handoverId)
   return updated
-    ? { ok: true, message: '已标记交出完成', data: cloneHead(updated) }
-    : { ok: true, message: '已标记交出完成' }
+    ? { ok: true, message: '已完成交出单', data: cloneHead(updated) }
+    : { ok: true, message: '已完成交出单' }
 }
 
 export function reportPdaHandoverQtyObjection(

@@ -15,6 +15,13 @@ export type FactoryMobileExecutionMode = 'FULL_TASK' | 'INTERNAL_RECORD_ONLY' | 
 export type DetailSplitMode = 'COMPOSITE'
 export type DetailSplitDimension = 'PATTERN' | 'MATERIAL_SKU' | 'GARMENT_COLOR' | 'GARMENT_SKU'
 export type RuleSource = 'INHERIT_PROCESS' | 'OVERRIDE_CRAFT'
+export type SpecialCraftSupportedTargetObject = 'CUT_PIECE' | 'FULL_FABRIC'
+export type SpecialCraftTargetObjectLabel = '已裁部位' | '完整面料'
+export type SpecialCraftVisibleFactoryType =
+  | 'CENTRAL_SPECIAL'
+  | 'SATELLITE_FINISHING'
+  | 'CENTRAL_DENIM_WASH'
+  | 'CENTRAL_CUTTING'
 export type SamCalcMode = 'DISCRETE' | 'CONTINUOUS' | 'BATCH'
 export type SamInputUnit = 'PIECE' | 'METER' | 'KG' | 'BATCH'
 export type PublishedSamUnit =
@@ -122,6 +129,9 @@ export interface ProcessCraftDefinition {
   detailSplitMode: DetailSplitMode
   detailSplitDimensions: DetailSplitDimension[]
   isSpecialCraft: boolean
+  supportedTargetObjects: SpecialCraftSupportedTargetObject[]
+  supportedTargetObjectLabels: SpecialCraftTargetObjectLabel[]
+  visibleFactoryTypes: SpecialCraftVisibleFactoryType[]
   referencePublishedSamValue: number
   referencePublishedSamUnit: PublishedSamUnit
   referencePublishedSamNote: string
@@ -193,6 +203,10 @@ export type ProcessCraftDictRow = {
   legacyValue: number
   legacyCraftName: string
   isSpecialCraft: boolean
+  supportedTargetObjects: SpecialCraftSupportedTargetObject[]
+  supportedTargetObjectLabels: SpecialCraftTargetObjectLabel[]
+  supportedTargetObjectText: string
+  visibleFactoryTypes: SpecialCraftVisibleFactoryType[]
   defaultDocument: string
   defaultDocType: ProcessDocType
   taskTypeMode: TaskTypeMode
@@ -235,6 +249,69 @@ export const PROCESS_ASSIGNMENT_GRANULARITY_LABEL: Record<ProcessAssignmentGranu
   COLOR: '按颜色',
   SKU: '按SKU',
   DETAIL: '按明细行',
+}
+
+export const SPECIAL_CRAFT_TARGET_OBJECT_LABEL: Record<SpecialCraftSupportedTargetObject, SpecialCraftTargetObjectLabel> = {
+  CUT_PIECE: '已裁部位',
+  FULL_FABRIC: '完整面料',
+}
+
+const SPECIAL_CRAFT_SUPPORTED_TARGET_OBJECTS_BY_LEGACY_VALUE: Record<number, SpecialCraftSupportedTargetObject[]> = {
+  8: ['CUT_PIECE'],
+  32: ['CUT_PIECE'],
+  64: ['CUT_PIECE'],
+  128: ['FULL_FABRIC'],
+  8192: ['CUT_PIECE'],
+  16384: ['CUT_PIECE', 'FULL_FABRIC'],
+  131072: ['CUT_PIECE'],
+}
+
+const SPECIAL_CRAFT_VISIBLE_FACTORY_TYPES_BY_LEGACY_VALUE: Record<number, SpecialCraftVisibleFactoryType[]> = {
+  8: ['CENTRAL_SPECIAL', 'SATELLITE_FINISHING'],
+  32: ['CENTRAL_SPECIAL', 'SATELLITE_FINISHING'],
+  64: ['CENTRAL_SPECIAL', 'SATELLITE_FINISHING'],
+  128: ['CENTRAL_DENIM_WASH'],
+  8192: ['CENTRAL_SPECIAL', 'SATELLITE_FINISHING'],
+  16384: ['CENTRAL_SPECIAL', 'SATELLITE_FINISHING'],
+  131072: ['CENTRAL_SPECIAL', 'SATELLITE_FINISHING'],
+}
+
+function resolveSpecialCraftSupportedTargetObjects(
+  item: Pick<LegacyCraftMappingDefinition, 'legacyValue' | 'isSpecialCraft'>,
+): SpecialCraftSupportedTargetObject[] {
+  if (!item.isSpecialCraft) return []
+  return [...(SPECIAL_CRAFT_SUPPORTED_TARGET_OBJECTS_BY_LEGACY_VALUE[item.legacyValue] ?? ['CUT_PIECE'])]
+}
+
+function resolveSpecialCraftVisibleFactoryTypes(
+  item: Pick<LegacyCraftMappingDefinition, 'legacyValue' | 'isSpecialCraft'>,
+): SpecialCraftVisibleFactoryType[] {
+  if (!item.isSpecialCraft) return []
+  return [...(SPECIAL_CRAFT_VISIBLE_FACTORY_TYPES_BY_LEGACY_VALUE[item.legacyValue] ?? ['CENTRAL_SPECIAL'])]
+}
+
+export function getSpecialCraftTargetObjectLabel(
+  targetObject: SpecialCraftSupportedTargetObject,
+): SpecialCraftTargetObjectLabel {
+  return SPECIAL_CRAFT_TARGET_OBJECT_LABEL[targetObject]
+}
+
+export function getSpecialCraftSupportedTargetObjectLabels(
+  targetObjects: SpecialCraftSupportedTargetObject[],
+): SpecialCraftTargetObjectLabel[] {
+  return targetObjects.map((item) => SPECIAL_CRAFT_TARGET_OBJECT_LABEL[item])
+}
+
+export function isSpecialCraftTargetObjectLabel(value: string | undefined): value is SpecialCraftTargetObjectLabel {
+  return value === '已裁部位' || value === '完整面料'
+}
+
+export function normalizeSpecialCraftTargetObjectLabel(
+  value: string | undefined,
+): SpecialCraftTargetObjectLabel | '' {
+  if (value === '裁片') return '已裁部位'
+  if (value === '面料') return '完整面料'
+  return isSpecialCraftTargetObjectLabel(value) ? value : ''
 }
 
 export const PROCESS_ROLE_LABEL: Record<ProcessRole, string> = {
@@ -1333,6 +1410,11 @@ export const allProcessCraftDefinitions: ProcessCraftDefinition[] = [...legacyPr
       detailSplitMode: resolvedDetailSplitMode,
       detailSplitDimensions: resolvedDetailSplitDimensions,
       isSpecialCraft: item.isSpecialCraft,
+      supportedTargetObjects: resolveSpecialCraftSupportedTargetObjects(item),
+      supportedTargetObjectLabels: getSpecialCraftSupportedTargetObjectLabels(
+        resolveSpecialCraftSupportedTargetObjects(item),
+      ),
+      visibleFactoryTypes: resolveSpecialCraftVisibleFactoryTypes(item),
       referencePublishedSamValue: referencePublishedSam.value,
       referencePublishedSamUnit: referencePublishedSam.unit,
       referencePublishedSamNote: getReferencePublishedSamNote(referencePublishedSam.unit),
@@ -1432,6 +1514,18 @@ export function getProcessCraftByCode(craftCode: string): ProcessCraftDefinition
 
 export function getProcessCraftByLegacyValue(legacyValue: number): ProcessCraftDefinition | undefined {
   return processCraftByLegacyValue.get(legacyValue)
+}
+
+export function getSpecialCraftSupportedTargetObjectsByCraftCode(
+  craftCode: string,
+): SpecialCraftSupportedTargetObject[] {
+  return [...(getProcessCraftByCode(craftCode)?.supportedTargetObjects ?? [])]
+}
+
+export function getSpecialCraftVisibleFactoryTypesByCraftCode(
+  craftCode: string,
+): SpecialCraftVisibleFactoryType[] {
+  return [...(getProcessCraftByCode(craftCode)?.visibleFactoryTypes ?? [])]
 }
 
 export function listCraftsByProcessCode(processCode: string): ProcessCraftDefinition[] {
@@ -1671,6 +1765,10 @@ export const allProcessCraftDictRows: ProcessCraftDictRow[] = allProcessCraftDef
     legacyValue: item.legacyValue,
     legacyCraftName: item.legacyCraftName,
     isSpecialCraft: item.isSpecialCraft,
+    supportedTargetObjects: [...item.supportedTargetObjects],
+    supportedTargetObjectLabels: [...item.supportedTargetObjectLabels],
+    supportedTargetObjectText: item.supportedTargetObjectLabels.join('、'),
+    visibleFactoryTypes: [...item.visibleFactoryTypes],
     defaultDocument: PROCESS_DOC_TYPE_LABEL[item.defaultDocType],
     defaultDocType: item.defaultDocType,
     taskTypeMode: item.taskTypeMode,

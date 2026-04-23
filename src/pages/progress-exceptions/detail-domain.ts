@@ -190,7 +190,7 @@ function renderPdaPickupDisputeSourcePanel(detailCase: ExceptionCase): string {
         <span class="inline-flex items-center rounded-full border border-teal-200 bg-background px-2.5 py-1 text-xs text-teal-700">${escapeHtml(getSubCategoryLabel(detailCase))}</span>
       </div>
       <div class="grid grid-cols-2 gap-2">
-        ${renderKv('领料头', head.handoverId)}
+        ${renderKv('领料单', head.handoverId)}
         ${renderKv('领料记录', record.recordId)}
         ${renderKv('生产单号', head.productionOrderNo)}
         ${renderKv('任务号', head.taskNo)}

@@ -107,6 +107,7 @@ import {
   renderSpecialCraftStatisticsPage,
   renderSpecialCraftTaskDetailPage,
   renderSpecialCraftTaskOrdersPage,
+  renderSpecialCraftWorkOrderDetailPage,
   renderSpecialCraftWarehousePage,
   renderTraceMappingPage,
   renderTraceParentCodesPage,
@@ -329,6 +330,10 @@ export const routes: RouteRegistry = {
     {
       pattern: /^\/fcs\/process-factory\/special-craft\/([^/]+)\/tasks\/([^/]+)$/,
       render: (match) => renderSpecialCraftTaskDetailPage(match[1], decodeURIComponent(match[2])),
+    },
+    {
+      pattern: /^\/fcs\/process-factory\/special-craft\/([^/]+)\/work-orders\/([^/]+)$/,
+      render: (match) => renderSpecialCraftWorkOrderDetailPage(match[1], decodeURIComponent(match[2])),
     },
   ],
 }

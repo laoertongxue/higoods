@@ -5,9 +5,9 @@ import type {
 } from './pcs-technical-data-version-types.ts'
 
 function mapLegacyStatus(status: TechnicalDataVersionRecord['versionStatus']): TechPack['status'] {
-  if (status === 'PUBLISHED') return 'RELEASED'
-  if (status === 'ARCHIVED') return 'RELEASED'
-  return 'BETA'
+  if (status === 'PUBLISHED') return 'ENABLED'
+  if (status === 'ARCHIVED') return 'DISABLED'
+  return 'DRAFT'
 }
 
 export function buildLegacyTechPackFromTechnicalVersion(
@@ -34,7 +34,11 @@ export function buildLegacyTechPackFromTechnicalVersion(
           ...allocation,
           skuCodes: [...(allocation.skuCodes ?? [])],
         })),
-        specialCrafts: row.specialCrafts?.map((craft) => ({ ...craft })),
+        specialCrafts: row.specialCrafts?.map((craft) => ({
+          ...craft,
+          supportedTargetObjects: [...(craft.supportedTargetObjects ?? [])],
+          supportedTargetObjectLabels: [...(craft.supportedTargetObjectLabels ?? [])],
+        })),
       })),
     })),
     patternDesc: content.patternDesc,
@@ -49,6 +53,9 @@ export function buildLegacyTechPackFromTechnicalVersion(
     processEntries: content.processEntries.map((item) => ({
       ...item,
       detailSplitDimensions: [...(item.detailSplitDimensions ?? [])],
+      supportedTargetObjects: [...(item.supportedTargetObjects ?? [])],
+      supportedTargetObjectLabels: [...(item.supportedTargetObjectLabels ?? [])],
+      visibleFactoryTypes: [...(item.visibleFactoryTypes ?? [])],
     })),
     sizeTable: content.sizeTable.map((item) => ({ ...item })),
     bomItems: content.bomItems.map((item) => ({
@@ -93,13 +100,20 @@ export function buildTechnicalContentPatchFromLegacyTechPack(
           ...allocation,
           skuCodes: [...(allocation.skuCodes ?? [])],
         })),
-        specialCrafts: row.specialCrafts?.map((craft) => ({ ...craft })),
+        specialCrafts: row.specialCrafts?.map((craft) => ({
+          ...craft,
+          supportedTargetObjects: [...(craft.supportedTargetObjects ?? [])],
+          supportedTargetObjectLabels: [...(craft.supportedTargetObjectLabels ?? [])],
+        })),
       })),
     })),
     patternDesc: techPack.patternDesc || '',
     processEntries: (techPack.processEntries ?? []).map((item) => ({
       ...item,
       detailSplitDimensions: [...(item.detailSplitDimensions ?? [])],
+      supportedTargetObjects: [...(item.supportedTargetObjects ?? [])],
+      supportedTargetObjectLabels: [...(item.supportedTargetObjectLabels ?? [])],
+      visibleFactoryTypes: [...(item.visibleFactoryTypes ?? [])],
     })),
     sizeTable: techPack.sizeTable.map((item) => ({ ...item })),
     bomItems: techPack.bomItems.map((item) => ({

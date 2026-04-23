@@ -20,6 +20,11 @@ import {
   listPdaTaskFlowTasks,
 } from '../data/fcs/pda-cutting-execution-source.ts'
 import {
+  getSpecialCraftFeiTicketScanSummary,
+  linkSpecialCraftCompletionToReturnWaitHandoverStock,
+  listCuttingSpecialCraftFeiTicketBindings,
+} from '../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
+import {
   formatRemainingHours,
   formatStartDueSourceText,
   getStartPrerequisite,
@@ -94,6 +99,8 @@ interface PdaExecDetailState {
   pauseRemark: string
   pauseTime: string
   fromPauseAction: boolean
+  specialCraftScrapQty: string
+  specialCraftDamageQty: string
 }
 
 type TaskWithHandoverFields = ProcessTask & {
@@ -120,6 +127,8 @@ const detailState: PdaExecDetailState = {
   pauseRemark: '',
   pauseTime: '',
   fromPauseAction: false,
+  specialCraftScrapQty: '0',
+  specialCraftDamageQty: '0',
 }
 
 function listTaskFacts(): ProcessTask[] {
@@ -1260,6 +1269,100 @@ function getTaskPricing(task: ProcessTask): {
   return { unitPrice, currency, unit, estimatedIncome }
 }
 
+function isSpecialCraftExecutionTask(task: ProcessTask, displayProcessName = getTaskProcessDisplayName(task)): boolean {
+  const stage = (task as ProcessTask & { stage?: string; processStage?: string; processCode?: string }).stage
+  const processStage = (task as ProcessTask & { processStage?: string; processCode?: string }).processStage
+  const processCode = (task as ProcessTask & { processCode?: string }).processCode
+  return stage === 'SPECIAL'
+    || processStage === 'SPECIAL'
+    || processCode === 'SPECIAL_CRAFT'
+    || /特殊工艺|绣花|打揽|打条|激光切|洗水|烫画|直喷|捆条/.test(displayProcessName)
+}
+
+function getSpecialCraftExecBindings(task: ProcessTask) {
+  const taskNo = task.taskNo || task.taskId
+  const rootTaskNo = task.rootTaskNo || ''
+  return listCuttingSpecialCraftFeiTicketBindings().filter((binding) =>
+    binding.taskOrderId === task.taskId
+    || binding.taskOrderNo === taskNo
+    || binding.workOrderId === task.taskId
+    || binding.workOrderNo === taskNo
+    || binding.taskOrderNo === rootTaskNo
+    || binding.workOrderNo === rootTaskNo
+    || binding.productionOrderId === task.productionOrderId
+    || binding.productionOrderNo === task.productionOrderId,
+  )
+}
+
+function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, displayProcessName: string): string {
+  const bindings = getSpecialCraftExecBindings(task)
+  if (!isSpecialCraftExecutionTask(task, displayProcessName) && bindings.length === 0) return ''
+
+  const summaries = bindings.map((binding) => getSpecialCraftFeiTicketScanSummary(binding.feiTicketNo))
+  const ticketRows = summaries.length > 0
+    ? summaries
+        .map(
+          (summary) => `
+            <div class="rounded-md border bg-muted/20 px-3 py-2 text-xs">
+              <div class="flex items-center justify-between gap-2">
+                <span class="font-medium">${escapeHtml(summary.feiTicketNo)}</span>
+                <span>${escapeHtml(summary.currentFlowStatus)}</span>
+              </div>
+              <div class="mt-1 grid grid-cols-2 gap-x-3 gap-y-1">
+                <span>当前特殊工艺：${escapeHtml(summary.currentOperationName || '—')}</span>
+                <span>已完成特殊工艺：${escapeHtml(summary.completedOperationNames.join('、') || '无')}</span>
+                <span>原数量：${summary.originalQty}</span>
+                <span>当前数量：${summary.currentQty}</span>
+                <span>累计报废：${summary.cumulativeScrapQty}</span>
+                <span>累计货损：${summary.cumulativeDamageQty}</span>
+              </div>
+            </div>
+          `,
+        )
+        .join('')
+    : '<div class="rounded-md border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">暂无绑定菲票</div>'
+
+  const firstBinding = bindings[0]
+  const receivedQty = firstBinding?.receivedQty || firstBinding?.currentQty || firstBinding?.openingQty || 0
+  const scrapQty = Number(detailState.specialCraftScrapQty || 0)
+  const damageQty = Number(detailState.specialCraftDamageQty || 0)
+  const completedQty = Math.max(receivedQty - (Number.isFinite(scrapQty) ? scrapQty : 0) - (Number.isFinite(damageQty) ? damageQty : 0), 0)
+
+  return `
+    <article class="rounded-lg border bg-card">
+      <header class="border-b px-4 py-3">
+        <h2 class="flex items-center gap-2 text-sm font-semibold">
+          <i data-lucide="scan-line" class="h-4 w-4"></i>
+          特殊工艺菲票
+        </h2>
+      </header>
+      <div class="space-y-3 p-4 text-sm">
+        <div class="space-y-2">${ticketRows}</div>
+        ${
+          status === 'IN_PROGRESS'
+            ? `
+                <div class="grid gap-3 sm:grid-cols-3">
+                  <label class="space-y-1">
+                    <span class="text-xs text-muted-foreground">报废数量</span>
+                    <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" type="number" min="0" data-pda-execd-field="specialCraftScrapQty" value="${escapeHtml(detailState.specialCraftScrapQty)}" />
+                  </label>
+                  <label class="space-y-1">
+                    <span class="text-xs text-muted-foreground">货损数量</span>
+                    <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" type="number" min="0" data-pda-execd-field="specialCraftDamageQty" value="${escapeHtml(detailState.specialCraftDamageQty)}" />
+                  </label>
+                  <div class="rounded-md border bg-muted/20 px-3 py-2 text-xs">
+                    <div class="text-muted-foreground">完工后数量</div>
+                    <div class="mt-1 text-sm font-semibold">${completedQty}</div>
+                  </div>
+                </div>
+              `
+            : ''
+        }
+      </div>
+    </article>
+  `
+}
+
 export function renderPdaExecDetailPage(taskId: string): string {
   syncPdaStartRiskAndExceptions()
   syncMilestoneOverdueExceptions()
@@ -1343,6 +1446,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
   const receiverDisplayText = getReceiverDisplayText(task as TaskWithHandoverFields)
 
   const pricing = getTaskPricing(task)
+  const specialCraftExecutionPanel = renderSpecialCraftExecutionPanel(task, status, displayProcessName)
 
   const content = `
     <div class="space-y-4 bg-background p-4 pb-6">
@@ -1430,6 +1534,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
       ${handoverOrder ? renderHandoverOrderCard(handoverOrder) : ''}
       ${printWorkOrder ? renderPrintingTaskCard(task as TaskWithHandoverFields, printWorkOrder, handoverOrder) : ''}
       ${dyeWorkOrder ? renderDyeingTaskCard(task as TaskWithHandoverFields, dyeWorkOrder, handoverOrder) : ''}
+      ${specialCraftExecutionPanel}
 
       ${
         milestone.required
@@ -1981,6 +2086,16 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       detailState.pauseTime = fieldNode.value
       return true
     }
+
+    if (field === 'specialCraftScrapQty' && fieldNode instanceof HTMLInputElement) {
+      detailState.specialCraftScrapQty = fieldNode.value
+      return true
+    }
+
+    if (field === 'specialCraftDamageQty' && fieldNode instanceof HTMLInputElement) {
+      detailState.specialCraftDamageQty = fieldNode.value
+      return true
+    }
   }
 
   const actionNode = target.closest<HTMLElement>('[data-pda-execd-action]')
@@ -2417,6 +2532,33 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
     if (!isTaskMilestoneReported(task)) {
       showPdaExecDetailToast('请先完成关键节点上报')
       return true
+    }
+
+    const displayProcessName = getTaskProcessDisplayName(task)
+    const specialCraftBindings = getSpecialCraftExecBindings(task)
+    if (isSpecialCraftExecutionTask(task, displayProcessName) && specialCraftBindings.length > 0) {
+      const scrapQty = Number(detailState.specialCraftScrapQty || 0)
+      const damageQty = Number(detailState.specialCraftDamageQty || 0)
+      if (!Number.isFinite(scrapQty) || scrapQty < 0 || !Number.isFinite(damageQty) || damageQty < 0) {
+        showPdaExecDetailToast('请填写有效报废和货损数量')
+        return true
+      }
+      specialCraftBindings.forEach((binding, index) => {
+        const bindingScrapQty = index === 0 ? scrapQty : 0
+        const bindingDamageQty = index === 0 ? damageQty : 0
+        const receivedQty = binding.receivedQty || binding.currentQty || binding.openingQty || binding.qty
+        linkSpecialCraftCompletionToReturnWaitHandoverStock({
+          taskOrderId: binding.taskOrderId,
+          completedFeiTicketNos: [binding.feiTicketNo],
+          completedQty: Math.max(receivedQty - bindingScrapQty - bindingDamageQty, 0),
+          scrapQty: bindingScrapQty,
+          damageQty: bindingDamageQty,
+          operatorName: '现场操作员',
+          completedAt: nowTimestamp(),
+        })
+      })
+      detailState.specialCraftScrapQty = '0'
+      detailState.specialCraftDamageQty = '0'
     }
 
     mutateFinishTask(taskId, 'PDA')

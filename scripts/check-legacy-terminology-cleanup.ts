@@ -65,7 +65,8 @@ const BANNED_TERMS = [
 const PAGE_VISIBLE_BANNED_TERMS = [
   '去交接（待交出）',
   '去交接',
-  '交出头',
+  ['领料', '头'].join(''),
+  ['交出', '头'].join(''),
   '仓库自动回写',
   '工厂只查看',
   '仓库确认',

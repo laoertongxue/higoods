@@ -49,6 +49,13 @@ import {
   upsertPlateMakingTaskPendingItem,
 } from './pcs-plate-making-repository.ts'
 import type { PlateMakingTaskRecord } from './pcs-plate-making-types.ts'
+import type { PlateMakingMaterialLine } from './pcs-plate-making-material-types.ts'
+import type {
+  PlateMakingPartTemplateLink,
+  PlateMakingPatternArea,
+  PlateMakingPatternImageLine,
+  PlateMakingProductHistoryType,
+} from './pcs-plate-making-pattern-file-types.ts'
 import {
   getPreProductionSampleTaskById,
   listPreProductionSampleTasks,
@@ -57,6 +64,17 @@ import {
 } from './pcs-pre-production-sample-repository.ts'
 import type { PreProductionSampleTaskRecord } from './pcs-pre-production-sample-types.ts'
 import {
+  createDefaultSamplePlanLines,
+  normalizeSamplePlanLines,
+} from './pcs-sample-chain-service.ts'
+import type {
+  FirstSamplePurpose,
+  SampleChainMode,
+  SampleMaterialMode,
+  SamplePlanLine,
+  SampleSpecialSceneReasonCode,
+} from './pcs-sample-chain-types.ts'
+import {
   getRevisionTaskById,
   listRevisionTasks,
   updateRevisionTask,
@@ -64,6 +82,8 @@ import {
   upsertRevisionTaskPendingItem,
 } from './pcs-revision-task-repository.ts'
 import type { RevisionTaskRecord } from './pcs-revision-task-types.ts'
+import type { RevisionTaskMaterialLine } from './pcs-revision-task-material-types.ts'
+import type { RevisionTaskLiveRetestStatus, RevisionTaskPatternArea } from './pcs-revision-task-file-types.ts'
 import { findStyleArchiveByCode, getStyleArchiveById } from './pcs-style-archive-repository.ts'
 import type { StyleArchiveShellRecord } from './pcs-style-archive-types.ts'
 import {
@@ -113,6 +133,33 @@ export interface RevisionTaskCreateInput extends BaseTaskCreateInput {
   issueSummary?: string
   evidenceSummary?: string
   evidenceImageUrls?: string[]
+  baseStyleId?: string
+  baseStyleCode?: string
+  baseStyleName?: string
+  baseStyleImageIds?: string[]
+  targetStyleCodeCandidate?: string
+  targetStyleNameCandidate?: string
+  targetStyleImageIds?: string[]
+  sampleQty?: number
+  stylePreference?: string
+  patternMakerId?: string
+  patternMakerName?: string
+  revisionSuggestionRichText?: string
+  paperPrintAt?: string
+  deliveryAddress?: string
+  patternArea?: RevisionTaskPatternArea
+  materialAdjustmentLines?: RevisionTaskMaterialLine[]
+  newPatternImageIds?: string[]
+  newPatternSpuCode?: string
+  patternChangeNote?: string
+  patternPieceImageIds?: string[]
+  patternFileIds?: string[]
+  mainImageIds?: string[]
+  designDraftImageIds?: string[]
+  liveRetestRequired?: boolean
+  liveRetestStatus?: RevisionTaskLiveRetestStatus
+  liveRetestRelationIds?: string[]
+  liveRetestSummary?: string
 }
 
 export interface PlateMakingTaskCreateInput extends BaseTaskCreateInput {
@@ -127,9 +174,26 @@ export interface PlateMakingTaskCreateInput extends BaseTaskCreateInput {
   spuCode?: string
   participantNames?: string[]
   dueAt?: string
+  productHistoryType?: PlateMakingProductHistoryType
+  patternMakerId?: string
+  patternMakerName?: string
+  sampleConfirmedAt?: string
+  urgentFlag?: boolean
+  patternArea?: PlateMakingPatternArea
   patternType?: string
   sizeRange?: string
   patternVersion?: string
+  colorRequirementText?: string
+  newPatternSpuCode?: string
+  flowerImageIds?: string[]
+  materialRequirementLines?: PlateMakingMaterialLine[]
+  patternImageLineItems?: PlateMakingPatternImageLine[]
+  patternPdfFileIds?: string[]
+  patternDxfFileIds?: string[]
+  patternRulFileIds?: string[]
+  supportImageIds?: string[]
+  supportVideoIds?: string[]
+  partTemplateLinks?: PlateMakingPartTemplateLink[]
 }
 
 export interface PatternTaskCreateInput extends BaseTaskCreateInput {
@@ -188,6 +252,23 @@ export interface FirstSampleTaskCreateInput extends BaseTaskCreateInput {
   trackingNo?: string
   sampleAssetId?: string
   sampleCode?: string
+  sourceTechPackVersionId?: string
+  sourceTechPackVersionCode?: string
+  sourceTechPackVersionLabel?: string
+  sourceTaskType?: string
+  sourceTaskId?: string
+  sourceTaskCode?: string
+  sampleMaterialMode?: SampleMaterialMode
+  samplePurpose?: FirstSamplePurpose
+  sampleAssetIds?: string[]
+  sampleImageIds?: string[]
+  reuseAsPreProductionFlag?: boolean
+  reuseAsPreProductionConfirmedAt?: string
+  reuseAsPreProductionConfirmedBy?: string
+  reuseAsPreProductionNote?: string
+  fitConfirmationSummary?: string
+  artworkConfirmationSummary?: string
+  productionReadinessNote?: string
 }
 
 export interface PreProductionSampleTaskCreateInput extends BaseTaskCreateInput {
@@ -207,6 +288,22 @@ export interface PreProductionSampleTaskCreateInput extends BaseTaskCreateInput 
   trackingNo?: string
   sampleAssetId?: string
   sampleCode?: string
+  sourceTechPackVersionId?: string
+  sourceTechPackVersionCode?: string
+  sourceTechPackVersionLabel?: string
+  sourceFirstSampleTaskId?: string
+  sourceFirstSampleTaskCode?: string
+  sourceFirstSampleAssetId?: string
+  sourceFirstSampleCode?: string
+  sampleChainMode?: SampleChainMode
+  specialSceneReasonCodes?: SampleSpecialSceneReasonCode[]
+  specialSceneReasonText?: string
+  productionReferenceRequiredFlag?: boolean
+  chinaReviewRequiredFlag?: boolean
+  correctFabricRequiredFlag?: boolean
+  samplePlanLines?: SamplePlanLine[]
+  finalReferenceSampleAssetIds?: string[]
+  finalReferenceNote?: string
 }
 
 function normalizePatternAssignment(input: Pick<PatternTaskCreateInput, 'assignedTeamCode' | 'assignedMemberId'>): {
@@ -232,6 +329,70 @@ function normalizePatternDemandSource(input: PatternTaskCreateInput): PatternTas
   if (input.sourceType === '改版任务') return '改版任务'
   if (input.sourceType === '花型复用调色') return '设计师款'
   return '预售测款通过'
+}
+
+function plateExecutionFields(input: PlateMakingTaskCreateInput, existing?: PlateMakingTaskRecord | null) {
+  return {
+    productHistoryType: input.productHistoryType ?? existing?.productHistoryType ?? '',
+    patternMakerId: input.patternMakerId ?? existing?.patternMakerId ?? '',
+    patternMakerName: input.patternMakerName ?? existing?.patternMakerName ?? '',
+    sampleConfirmedAt: input.sampleConfirmedAt ?? existing?.sampleConfirmedAt ?? '',
+    urgentFlag: input.urgentFlag ?? existing?.urgentFlag ?? false,
+    patternArea: input.patternArea ?? existing?.patternArea ?? '',
+    colorRequirementText: input.colorRequirementText ?? existing?.colorRequirementText ?? '',
+    newPatternSpuCode: input.newPatternSpuCode ?? existing?.newPatternSpuCode ?? '',
+    flowerImageIds: [...(input.flowerImageIds ?? existing?.flowerImageIds ?? [])],
+    materialRequirementLines: (input.materialRequirementLines ?? existing?.materialRequirementLines ?? []).map((line) => ({ ...line })),
+    patternImageLineItems: (input.patternImageLineItems ?? existing?.patternImageLineItems ?? []).map((line) => ({ ...line })),
+    patternPdfFileIds: [...(input.patternPdfFileIds ?? existing?.patternPdfFileIds ?? [])],
+    patternDxfFileIds: [...(input.patternDxfFileIds ?? existing?.patternDxfFileIds ?? [])],
+    patternRulFileIds: [...(input.patternRulFileIds ?? existing?.patternRulFileIds ?? [])],
+    supportImageIds: [...(input.supportImageIds ?? existing?.supportImageIds ?? [])],
+    supportVideoIds: [...(input.supportVideoIds ?? existing?.supportVideoIds ?? [])],
+    partTemplateLinks: (input.partTemplateLinks ?? existing?.partTemplateLinks ?? []).map((link) => ({
+      ...link,
+      matchedPartNames: [...(link.matchedPartNames || [])],
+    })),
+    primaryTechPackGeneratedFlag: existing?.primaryTechPackGeneratedFlag ?? false,
+    primaryTechPackGeneratedAt: existing?.primaryTechPackGeneratedAt ?? '',
+  }
+}
+
+function revisionExecutionFields(input: RevisionTaskCreateInput, existing?: RevisionTaskRecord | null) {
+  const sourceStyleId = input.baseStyleId ?? existing?.baseStyleId ?? input.styleId ?? ''
+  const sourceStyleCode = input.baseStyleCode ?? existing?.baseStyleCode ?? input.styleCode ?? input.productStyleCode ?? input.spuCode ?? ''
+  const sourceStyleName = input.baseStyleName ?? existing?.baseStyleName ?? input.styleName ?? ''
+  return {
+    baseStyleId: sourceStyleId,
+    baseStyleCode: sourceStyleCode,
+    baseStyleName: sourceStyleName,
+    baseStyleImageIds: [...(input.baseStyleImageIds ?? existing?.baseStyleImageIds ?? [])],
+    targetStyleCodeCandidate: input.targetStyleCodeCandidate ?? existing?.targetStyleCodeCandidate ?? '',
+    targetStyleNameCandidate: input.targetStyleNameCandidate ?? existing?.targetStyleNameCandidate ?? '',
+    targetStyleImageIds: [...(input.targetStyleImageIds ?? existing?.targetStyleImageIds ?? [])],
+    sampleQty: Number(input.sampleQty ?? existing?.sampleQty ?? 0),
+    stylePreference: input.stylePreference ?? existing?.stylePreference ?? '',
+    patternMakerId: input.patternMakerId ?? existing?.patternMakerId ?? '',
+    patternMakerName: input.patternMakerName ?? existing?.patternMakerName ?? input.ownerName ?? '',
+    revisionSuggestionRichText: input.revisionSuggestionRichText ?? existing?.revisionSuggestionRichText ?? input.issueSummary ?? '',
+    paperPrintAt: input.paperPrintAt ?? existing?.paperPrintAt ?? '',
+    deliveryAddress: input.deliveryAddress ?? existing?.deliveryAddress ?? '',
+    patternArea: input.patternArea ?? existing?.patternArea ?? '',
+    materialAdjustmentLines: (input.materialAdjustmentLines ?? existing?.materialAdjustmentLines ?? []).map((line) => ({ ...line })),
+    newPatternImageIds: [...(input.newPatternImageIds ?? existing?.newPatternImageIds ?? [])],
+    newPatternSpuCode: input.newPatternSpuCode ?? existing?.newPatternSpuCode ?? '',
+    patternChangeNote: input.patternChangeNote ?? existing?.patternChangeNote ?? '',
+    patternPieceImageIds: [...(input.patternPieceImageIds ?? existing?.patternPieceImageIds ?? [])],
+    patternFileIds: [...(input.patternFileIds ?? existing?.patternFileIds ?? [])],
+    mainImageIds: [...(input.mainImageIds ?? existing?.mainImageIds ?? input.evidenceImageUrls ?? [])],
+    designDraftImageIds: [...(input.designDraftImageIds ?? existing?.designDraftImageIds ?? [])],
+    liveRetestRequired: input.liveRetestRequired ?? existing?.liveRetestRequired ?? false,
+    liveRetestStatus: input.liveRetestStatus ?? existing?.liveRetestStatus ?? (input.liveRetestRequired ? '待回直播验证' : '不需要'),
+    liveRetestRelationIds: [...(input.liveRetestRelationIds ?? existing?.liveRetestRelationIds ?? [])],
+    liveRetestSummary: input.liveRetestSummary ?? existing?.liveRetestSummary ?? '',
+    generatedNewTechPackVersionFlag: existing?.generatedNewTechPackVersionFlag ?? false,
+    generatedNewTechPackVersionAt: existing?.generatedNewTechPackVersionAt ?? '',
+  }
 }
 
 interface TaskWritebackSuccess<TTask> {
@@ -432,7 +593,10 @@ function ensureFormalSource(
   upstreamObjectCode: string,
   fallbackSourceField: string,
 ): string | null {
-  if (sourceType === '人工创建' || sourceType === '项目模板阶段' || sourceType === '既有商品改款' || sourceType === '既有商品二次开发' || sourceType === '花型复用调色') {
+  if (sourceType === '人工创建') {
+    return fallbackSourceField ? null : `${taskType}缺少正式来源对象，当前不能正式创建。`
+  }
+  if (sourceType === '项目模板阶段' || sourceType === '既有商品改款' || sourceType === '既有商品二次开发' || sourceType === '花型复用调色') {
     return null
   }
   if (upstreamObjectId || upstreamObjectCode || fallbackSourceField) {
@@ -582,6 +746,8 @@ export function saveRevisionTaskDraft(input: RevisionTaskCreateInput): RevisionT
     revisionVersion: input.revisionVersion || '',
     issueSummary: input.issueSummary || '',
     evidenceSummary: input.evidenceSummary || '',
+    evidenceImageUrls: [...(input.evidenceImageUrls || [])],
+    ...revisionExecutionFields(input),
     linkedTechPackVersionId: '',
     linkedTechPackVersionCode: '',
     linkedTechPackVersionLabel: '',
@@ -617,6 +783,7 @@ export function savePlateMakingTaskDraft(input: PlateMakingTaskCreateInput): Pla
     upstreamObjectCode: input.upstreamObjectCode || '',
     productStyleCode: input.productStyleCode || '',
     spuCode: input.spuCode || '',
+    ...plateExecutionFields(input),
     patternType: input.patternType || '',
     sizeRange: input.sizeRange || '',
     patternVersion: input.patternVersion || '',
@@ -728,6 +895,102 @@ function buildFirstSampleCode(targetSite: string, count: number): string {
   return `SY-${targetSite === '雅加达' ? 'JKT' : 'SZ'}-${String(count + 21).padStart(5, '0')}`
 }
 
+function firstSampleChainFields(
+  input: FirstSampleTaskCreateInput,
+  existing?: FirstSampleTaskRecord | null,
+): Pick<FirstSampleTaskRecord,
+  'sourceTechPackVersionId' | 'sourceTechPackVersionCode' | 'sourceTechPackVersionLabel' | 'sourceTaskType' | 'sourceTaskId' | 'sourceTaskCode' | 'sampleMaterialMode' | 'samplePurpose' | 'sampleAssetIds' | 'sampleImageIds' | 'reuseAsPreProductionFlag' | 'reuseAsPreProductionConfirmedAt' | 'reuseAsPreProductionConfirmedBy' | 'reuseAsPreProductionNote' | 'fitConfirmationSummary' | 'artworkConfirmationSummary' | 'productionReadinessNote'
+> {
+  const sampleAssetIds = [...(input.sampleAssetIds || existing?.sampleAssetIds || [])]
+  const sampleAssetId = input.sampleAssetId || existing?.sampleAssetId || ''
+  if (sampleAssetId && !sampleAssetIds.includes(sampleAssetId)) sampleAssetIds.unshift(sampleAssetId)
+  const reuseFlag = Boolean(input.reuseAsPreProductionFlag ?? existing?.reuseAsPreProductionFlag)
+  return {
+    sourceTechPackVersionId: input.sourceTechPackVersionId || existing?.sourceTechPackVersionId || '',
+    sourceTechPackVersionCode: input.sourceTechPackVersionCode || existing?.sourceTechPackVersionCode || '',
+    sourceTechPackVersionLabel: input.sourceTechPackVersionLabel || existing?.sourceTechPackVersionLabel || '',
+    sourceTaskType: input.sourceTaskType || existing?.sourceTaskType || input.upstreamObjectType || input.upstreamModule || '',
+    sourceTaskId: input.sourceTaskId || existing?.sourceTaskId || input.upstreamObjectId || '',
+    sourceTaskCode: input.sourceTaskCode || existing?.sourceTaskCode || input.upstreamObjectCode || '',
+    sampleMaterialMode: input.sampleMaterialMode || existing?.sampleMaterialMode || '正确布',
+    samplePurpose: input.samplePurpose || existing?.samplePurpose || (reuseFlag ? '产前复用候选' : '首版确认'),
+    sampleAssetIds,
+    sampleImageIds: [...(input.sampleImageIds || existing?.sampleImageIds || [])],
+    reuseAsPreProductionFlag: reuseFlag,
+    reuseAsPreProductionConfirmedAt: input.reuseAsPreProductionConfirmedAt || existing?.reuseAsPreProductionConfirmedAt || '',
+    reuseAsPreProductionConfirmedBy: input.reuseAsPreProductionConfirmedBy || existing?.reuseAsPreProductionConfirmedBy || '',
+    reuseAsPreProductionNote: input.reuseAsPreProductionNote || existing?.reuseAsPreProductionNote || '',
+    fitConfirmationSummary: input.fitConfirmationSummary || existing?.fitConfirmationSummary || '',
+    artworkConfirmationSummary: input.artworkConfirmationSummary || existing?.artworkConfirmationSummary || '',
+    productionReadinessNote: input.productionReadinessNote || existing?.productionReadinessNote || '',
+  }
+}
+
+function resolveSourceFirstSample(
+  input: PreProductionSampleTaskCreateInput,
+  projectId: string,
+): Pick<PreProductionSampleTaskRecord, 'sourceFirstSampleTaskId' | 'sourceFirstSampleTaskCode' | 'sourceFirstSampleAssetId' | 'sourceFirstSampleCode'> {
+  const fromInput = {
+    sourceFirstSampleTaskId: input.sourceFirstSampleTaskId || '',
+    sourceFirstSampleTaskCode: input.sourceFirstSampleTaskCode || '',
+    sourceFirstSampleAssetId: input.sourceFirstSampleAssetId || '',
+    sourceFirstSampleCode: input.sourceFirstSampleCode || '',
+  }
+  if (fromInput.sourceFirstSampleTaskId || fromInput.sourceFirstSampleTaskCode || fromInput.sourceFirstSampleAssetId) return fromInput
+  const matched = listFirstSampleTasks()
+    .filter((task) => task.projectId === projectId)
+    .find(
+      (task) =>
+        task.firstSampleTaskId === input.upstreamObjectId ||
+        task.firstSampleTaskCode === input.upstreamObjectCode ||
+        task.workItemTypeCode === 'FIRST_SAMPLE',
+    )
+  return {
+    sourceFirstSampleTaskId: matched?.firstSampleTaskId || (input.upstreamObjectType?.includes('首版') ? input.upstreamObjectId || '' : ''),
+    sourceFirstSampleTaskCode: matched?.firstSampleTaskCode || (input.upstreamObjectType?.includes('首版') ? input.upstreamObjectCode || '' : ''),
+    sourceFirstSampleAssetId: matched?.sampleAssetId || '',
+    sourceFirstSampleCode: matched?.sampleCode || '',
+  }
+}
+
+function preProductionChainFields(
+  input: PreProductionSampleTaskCreateInput,
+  projectId: string,
+  existing?: PreProductionSampleTaskRecord | null,
+): Pick<PreProductionSampleTaskRecord,
+  'sourceTechPackVersionId' | 'sourceTechPackVersionCode' | 'sourceTechPackVersionLabel' | 'sourceFirstSampleTaskId' | 'sourceFirstSampleTaskCode' | 'sourceFirstSampleAssetId' | 'sourceFirstSampleCode' | 'sampleChainMode' | 'specialSceneReasonCodes' | 'specialSceneReasonText' | 'productionReferenceRequiredFlag' | 'chinaReviewRequiredFlag' | 'correctFabricRequiredFlag' | 'samplePlanLines' | 'finalReferenceSampleAssetIds' | 'finalReferenceNote'
+> {
+  const sourceFirst = resolveSourceFirstSample(input, projectId)
+  const sampleChainMode = input.sampleChainMode || existing?.sampleChainMode || '直接复用首版样衣'
+  const finalReferenceSampleAssetIds = [
+    ...(input.finalReferenceSampleAssetIds || existing?.finalReferenceSampleAssetIds || []),
+  ]
+  if (sampleChainMode === '直接复用首版样衣' && sourceFirst.sourceFirstSampleAssetId && finalReferenceSampleAssetIds.length === 0) {
+    finalReferenceSampleAssetIds.push(sourceFirst.sourceFirstSampleAssetId)
+  }
+  const defaultLines = createDefaultSamplePlanLines(sampleChainMode, sourceFirst.sourceFirstSampleAssetId, sourceFirst.sourceFirstSampleCode)
+  return {
+    sourceTechPackVersionId: input.sourceTechPackVersionId || existing?.sourceTechPackVersionId || '',
+    sourceTechPackVersionCode: input.sourceTechPackVersionCode || existing?.sourceTechPackVersionCode || '',
+    sourceTechPackVersionLabel: input.sourceTechPackVersionLabel || existing?.sourceTechPackVersionLabel || '',
+    ...sourceFirst,
+    sampleChainMode,
+    specialSceneReasonCodes: [...(input.specialSceneReasonCodes || existing?.specialSceneReasonCodes || [])],
+    specialSceneReasonText: input.specialSceneReasonText || existing?.specialSceneReasonText || '',
+    productionReferenceRequiredFlag: Boolean(input.productionReferenceRequiredFlag ?? existing?.productionReferenceRequiredFlag),
+    chinaReviewRequiredFlag: Boolean(input.chinaReviewRequiredFlag ?? existing?.chinaReviewRequiredFlag),
+    correctFabricRequiredFlag: Boolean(input.correctFabricRequiredFlag ?? existing?.correctFabricRequiredFlag),
+    samplePlanLines: normalizeSamplePlanLines(
+      sampleChainMode,
+      input.samplePlanLines || existing?.samplePlanLines || defaultLines,
+      sourceFirst.sourceFirstSampleAssetId,
+      sourceFirst.sourceFirstSampleCode,
+    ),
+    finalReferenceSampleAssetIds,
+    finalReferenceNote: input.finalReferenceNote || existing?.finalReferenceNote || '',
+  }
+}
+
 export function saveFirstSampleTaskDraft(input: FirstSampleTaskCreateInput): FirstSampleTaskRecord {
   const now = nowTaskText()
   const taskId = input.firstSampleTaskId || nextCode('FSD', listFirstSampleTasks().length)
@@ -753,6 +1016,9 @@ export function saveFirstSampleTaskDraft(input: FirstSampleTaskCreateInput): Fir
     trackingNo: input.trackingNo || '',
     sampleAssetId: input.sampleAssetId || '',
     sampleCode: input.sampleCode || buildFirstSampleCode(input.targetSite || '深圳', listFirstSampleTasks().length),
+    ...firstSampleChainFields(input),
+    acceptedAt: '',
+    confirmedAt: '',
     status: '草稿',
     ownerId: input.ownerId || '',
     ownerName: input.ownerName || '',
@@ -794,6 +1060,9 @@ export function savePreProductionSampleTaskDraft(input: PreProductionSampleTaskC
     trackingNo: input.trackingNo || '',
     sampleAssetId: input.sampleAssetId || '',
     sampleCode: input.sampleCode || buildFirstSampleCode(input.targetSite || '深圳', listPreProductionSampleTasks().length + 50),
+    ...preProductionChainFields(input, input.projectId || ''),
+    acceptedAt: '',
+    confirmedAt: '',
     status: '草稿',
     ownerId: input.ownerId || '',
     ownerName: input.ownerName || '',
@@ -875,6 +1144,18 @@ export function createRevisionTaskWithProjectRelation(input: RevisionTaskCreateI
       upsertRevisionTaskPendingItem(pendingItem)
       return { ok: false, message: pendingItem.reason, pendingItem }
     }
+    const upstreamError = ensureFormalSource(
+      '改版任务',
+      input.sourceType,
+      input.referenceObjectId || input.referenceObjectCode || '',
+      input.referenceObjectCode || input.referenceObjectName || '',
+      input.referenceObjectId || input.referenceObjectCode || input.referenceObjectName || '',
+    )
+    if (upstreamError) {
+      const pendingItem = makePendingItem('改版任务', rawCode, '', input.styleCode || input.productStyleCode || input.spuCode || '', upstreamError)
+      upsertRevisionTaskPendingItem(pendingItem)
+      return { ok: false, message: upstreamError, pendingItem }
+    }
   }
 
   const now = nowTaskText()
@@ -936,9 +1217,18 @@ export function createRevisionTaskWithProjectRelation(input: RevisionTaskCreateI
     revisionScopeCodes: input.revisionScopeCodes || [],
     revisionScopeNames: input.revisionScopeNames || [],
     revisionVersion: input.revisionVersion || '',
-    issueSummary: input.issueSummary.trim(),
-    evidenceSummary: input.evidenceSummary.trim(),
+    issueSummary: (input.issueSummary || '').trim(),
+    evidenceSummary: (input.evidenceSummary || '').trim(),
     evidenceImageUrls: [...(input.evidenceImageUrls || [])],
+    ...revisionExecutionFields(
+      {
+        ...input,
+        baseStyleId: input.baseStyleId || sourceStyleId,
+        baseStyleCode: input.baseStyleCode || sourceStyleCode,
+        baseStyleName: input.baseStyleName || sourceStyleName,
+      },
+      existing,
+    ),
     linkedTechPackVersionId: existing?.linkedTechPackVersionId || '',
     linkedTechPackVersionCode: existing?.linkedTechPackVersionCode || '',
     linkedTechPackVersionLabel: existing?.linkedTechPackVersionLabel || '',
@@ -1050,6 +1340,7 @@ export function createPlateMakingTaskWithProjectRelation(
     ...upstream,
     productStyleCode: input.productStyleCode || project.styleNumber || '',
     spuCode: input.spuCode || '',
+    ...plateExecutionFields(input, existing),
     patternType: input.patternType || '',
     sizeRange: input.sizeRange || '',
     patternVersion: input.patternVersion || '',
@@ -1561,6 +1852,7 @@ export function createFirstSampleTaskWithProjectRelation(
     trackingNo: input.trackingNo || '',
     sampleAssetId: input.sampleAssetId || '',
     sampleCode: input.sampleCode || buildFirstSampleCode(input.targetSite || '深圳', listFirstSampleTasks().length),
+    ...firstSampleChainFields(input, existing),
     acceptedAt: existing?.acceptedAt || '',
     confirmedAt: existing?.confirmedAt || '',
     status: '待发样',
@@ -1663,6 +1955,7 @@ export function createPreProductionSampleTaskWithProjectRelation(
     trackingNo: input.trackingNo || '',
     sampleAssetId: input.sampleAssetId || '',
     sampleCode: input.sampleCode || buildFirstSampleCode(input.targetSite || '深圳', listPreProductionSampleTasks().length + 50),
+    ...preProductionChainFields(input, project.projectId, existing),
     acceptedAt: existing?.acceptedAt || '',
     confirmedAt: existing?.confirmedAt || '',
     status: '待发样',

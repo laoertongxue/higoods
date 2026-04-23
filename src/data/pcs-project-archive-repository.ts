@@ -18,7 +18,11 @@ function canUseStorage(): boolean {
 }
 
 function cloneRecord(record: ProjectArchiveRecord): ProjectArchiveRecord {
-  return { ...record }
+  return {
+    ...record,
+    currentPatternAssetIds: [...(record.currentPatternAssetIds ?? [])],
+    currentPatternAssetCodes: [...(record.currentPatternAssetCodes ?? [])],
+  }
 }
 
 function cloneDocument(record: ProjectArchiveDocumentRecord): ProjectArchiveDocumentRecord {
@@ -72,6 +76,12 @@ function normalizeRecord(record: ProjectArchiveRecord): ProjectArchiveRecord {
     currentTechnicalVersionId: record.currentTechnicalVersionId || '',
     currentTechnicalVersionCode: record.currentTechnicalVersionCode || '',
     currentTechnicalVersionLabel: record.currentTechnicalVersionLabel || '',
+    currentPatternAssetIds: [...(record.currentPatternAssetIds ?? [])],
+    currentPatternAssetCodes: [...(record.currentPatternAssetCodes ?? [])],
+    currentPatternAssetCount: Number.isFinite(record.currentPatternAssetCount) ? record.currentPatternAssetCount : 0,
+    currentTechPackLogCount: Number.isFinite(record.currentTechPackLogCount) ? record.currentTechPackLogCount : 0,
+    closureSnapshotAt: record.closureSnapshotAt || '',
+    closureSnapshotBy: record.closureSnapshotBy || '',
     archiveStatus: record.archiveStatus || 'DRAFT',
     documentCount: Number.isFinite(record.documentCount) ? record.documentCount : 0,
     fileCount: Number.isFinite(record.fileCount) ? record.fileCount : 0,
@@ -443,4 +453,3 @@ export function resetProjectArchiveRepository(): void {
     localStorage.setItem(PROJECT_ARCHIVE_STORAGE_KEY, JSON.stringify(snapshot))
   }
 }
-

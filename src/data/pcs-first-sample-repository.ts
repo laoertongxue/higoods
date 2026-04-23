@@ -12,7 +12,11 @@ function canUseStorage(): boolean {
 }
 
 function cloneTask(task: FirstSampleTaskRecord): FirstSampleTaskRecord {
-  return { ...task }
+  return {
+    ...task,
+    sampleAssetIds: [...(task.sampleAssetIds || [])],
+    sampleImageIds: [...(task.sampleImageIds || [])],
+  }
 }
 
 function clonePendingItem(item: PcsTaskPendingItem): PcsTaskPendingItem {
@@ -37,10 +41,31 @@ function seedSnapshot(): FirstSampleTaskStoreSnapshot {
 }
 
 function normalizeTask(task: FirstSampleTaskRecord): FirstSampleTaskRecord {
+  const sampleAssetIds = Array.isArray(task.sampleAssetIds) ? [...task.sampleAssetIds] : []
+  if (task.sampleAssetId && !sampleAssetIds.includes(task.sampleAssetId)) {
+    sampleAssetIds.unshift(task.sampleAssetId)
+  }
   return {
     ...cloneTask(task),
     note: task.note || '',
+    sourceTechPackVersionId: task.sourceTechPackVersionId || '',
+    sourceTechPackVersionCode: task.sourceTechPackVersionCode || '',
+    sourceTechPackVersionLabel: task.sourceTechPackVersionLabel || '',
+    sourceTaskType: task.sourceTaskType || task.upstreamObjectType || task.upstreamModule || '',
+    sourceTaskId: task.sourceTaskId || task.upstreamObjectId || '',
+    sourceTaskCode: task.sourceTaskCode || task.upstreamObjectCode || '',
+    sampleMaterialMode: task.sampleMaterialMode || '正确布',
+    samplePurpose: task.samplePurpose || (task.reuseAsPreProductionFlag ? '产前复用候选' : '首版确认'),
     sampleAssetId: task.sampleAssetId || '',
+    sampleAssetIds,
+    sampleImageIds: Array.isArray(task.sampleImageIds) ? [...task.sampleImageIds] : [],
+    reuseAsPreProductionFlag: Boolean(task.reuseAsPreProductionFlag),
+    reuseAsPreProductionConfirmedAt: task.reuseAsPreProductionConfirmedAt || '',
+    reuseAsPreProductionConfirmedBy: task.reuseAsPreProductionConfirmedBy || '',
+    reuseAsPreProductionNote: task.reuseAsPreProductionNote || '',
+    fitConfirmationSummary: task.fitConfirmationSummary || '',
+    artworkConfirmationSummary: task.artworkConfirmationSummary || '',
+    productionReadinessNote: task.productionReadinessNote || '',
     acceptedAt: task.acceptedAt || '',
     confirmedAt: task.confirmedAt || '',
     trackingNo: task.trackingNo || '',

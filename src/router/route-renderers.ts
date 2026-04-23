@@ -386,6 +386,10 @@ export const renderPdaHandoverDetailPage = createAsyncRenderer(
   () => import('../pages/pda-handover-detail'),
   'renderPdaHandoverDetailPage',
 )
+export const renderPdaTransferBagDetailPage = createAsyncRenderer(
+  () => import('../pages/pda-transfer-bag-detail'),
+  'renderPdaTransferBagDetailPage',
+)
 export const renderPdaSettlementPage = createAsyncRenderer(() => import('../pages/pda-settlement'), 'renderPdaSettlementPage')
 export const renderPdaWarehousePage = createAsyncRenderer(() => import('../pages/pda-warehouse'), 'renderPdaWarehousePage')
 export const renderPdaWarehouseWaitProcessPage = createAsyncRenderer(

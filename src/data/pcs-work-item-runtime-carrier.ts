@@ -264,8 +264,8 @@ const PCS_WORK_ITEM_RUNTIME_CARRIERS: Record<PcsProjectWorkItemCode, PcsWorkItem
     moduleName: '首版样衣打样',
     listRoute: '/pcs/samples/first-sample',
     hasStandaloneInstanceList: true,
-    projectDisplayMode: '项目节点负责查看与回写，正式实例承载在首版样衣打样模块。',
-    carrierReason: '首版样衣打样有独立任务流、发样和到样记录，必须保留独立实例模块。',
+    projectDisplayMode: '项目节点负责查看与回写，正式实例承载在首版样衣打样模块，并可作为产前版参照来源。',
+    carrierReason: '首版样衣打样有独立任务流、发样、到样和产前复用记录，必须保留正式实例模块。',
   },
   PRE_PRODUCTION_SAMPLE: {
     workItemTypeCode: 'PRE_PRODUCTION_SAMPLE',
@@ -277,8 +277,8 @@ const PCS_WORK_ITEM_RUNTIME_CARRIERS: Record<PcsProjectWorkItemCode, PcsWorkItem
     moduleName: '产前版样衣',
     listRoute: '/pcs/samples/pre-production',
     hasStandaloneInstanceList: true,
-    projectDisplayMode: '项目节点负责查看与回写，正式实例承载在产前版样衣模块。',
-    carrierReason: '产前版样衣有独立正式任务模块和签收、验收记录，必须单独承载。',
+    projectDisplayMode: '项目节点负责查看与回写，正式实例承载在产前版样衣模块，并按链路模式复用首版或新增样衣计划。',
+    carrierReason: '产前版样衣承接生产参照决策、双样衣和工厂参照样计划，必须保留正式实例模块。',
   },
   SAMPLE_RETURN_HANDLE: {
     workItemTypeCode: 'SAMPLE_RETURN_HANDLE',

@@ -92,13 +92,15 @@ function cloneAttachments(items: TechnicalAttachment[]): TechnicalAttachment[] {
 function cloneRecord(record: TechnicalDataVersionRecord): TechnicalDataVersionRecord {
   return {
     ...record,
-    linkedRevisionTaskIds: [...record.linkedRevisionTaskIds],
-    linkedPatternTaskIds: [...record.linkedPatternTaskIds],
-    linkedArtworkTaskIds: [...record.linkedArtworkTaskIds],
-    linkedPartTemplateIds: [...record.linkedPartTemplateIds],
-    linkedPatternLibraryVersionIds: [...record.linkedPatternLibraryVersionIds],
-    missingItemCodes: [...record.missingItemCodes],
-    missingItemNames: [...record.missingItemNames],
+    linkedRevisionTaskIds: [...(record.linkedRevisionTaskIds ?? [])],
+    linkedPatternTaskIds: [...(record.linkedPatternTaskIds ?? [])],
+    linkedArtworkTaskIds: [...(record.linkedArtworkTaskIds ?? [])],
+    linkedPartTemplateIds: [...(record.linkedPartTemplateIds ?? [])],
+    linkedPatternLibraryVersionIds: [...(record.linkedPatternLibraryVersionIds ?? [])],
+    linkedPatternAssetIds: [...(record.linkedPatternAssetIds ?? [])],
+    linkedPatternAssetCodes: [...(record.linkedPatternAssetCodes ?? [])],
+    missingItemCodes: [...(record.missingItemCodes ?? [])],
+    missingItemNames: [...(record.missingItemNames ?? [])],
   }
 }
 
@@ -311,6 +313,12 @@ function applyDerivedFields(
     baseTechnicalVersionCode: record.baseTechnicalVersionCode || '',
     changeScope: normalizeChangeScope(record.changeScope),
     changeSummary: record.changeSummary || '',
+    linkedPartTemplateIds: [...(record.linkedPartTemplateIds ?? [])],
+    linkedPatternLibraryVersionIds: [...(record.linkedPatternLibraryVersionIds ?? [])],
+    linkedPatternAssetIds: [...(record.linkedPatternAssetIds ?? [])],
+    linkedPatternAssetCodes: [...(record.linkedPatternAssetCodes ?? [])],
+    archiveCollectedFlag: Boolean(record.archiveCollectedFlag),
+    archiveCollectedAt: record.archiveCollectedAt || '',
     publishedAt: record.publishedAt || '',
     publishedBy: record.publishedBy || '',
     createdAt: record.createdAt || record.updatedAt || nowText(),

@@ -45,6 +45,13 @@ function checkSourceCopy(): void {
   assertIncludes('diffQtyTotal', '任务详情页缺少交出单差异汇总字段')
   assertIncludes('pendingWritebackCount', '任务详情页缺少交出单待回写汇总字段')
   assertIncludes('objectionCount', '任务详情页缺少交出单异议汇总字段')
+  assertIncludes('报废数量', '任务详情页缺少特殊工艺报废数量')
+  assertIncludes('货损数量', '任务详情页缺少特殊工艺货损数量')
+  assertIncludes('完工后数量', '任务详情页缺少特殊工艺完工后数量')
+  assertIncludes('绑定菲票', '任务详情页缺少特殊工艺绑定菲票')
+  assertIncludes('原数量', '任务详情页缺少特殊工艺原数量')
+  assertIncludes('当前数量', '任务详情页缺少特殊工艺当前数量')
+  assertIncludes('linkSpecialCraftCompletionToReturnWaitHandoverStock', '特殊工艺完工未接入待交出仓 helper')
 
   ;[
     '去交接（待交出）',
@@ -54,7 +61,7 @@ function checkSourceCopy(): void {
     legacyMobileCopy('染色', ' ', 'PDA'),
     legacyMobileCopy('印花', 'PDA'),
     legacyMobileCopy('染色', 'PDA'),
-    '交出头',
+    legacyMobileCopy('交出', '头'),
     '后道内部记录',
     '折叠区',
     '开扣眼',

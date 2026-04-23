@@ -95,11 +95,16 @@ export function renderSpecialCraftTaskOrdersPage(operationSlug: string): string 
           <td class="px-3 py-3">${escapeHtml(taskOrder.sizeCode || '—')}</td>
           <td class="px-3 py-3">${String(demandLineCount)}</td>
           <td class="px-3 py-3">${String(bindingSummary.linkedFeiTicketCount)}</td>
+          <td class="px-3 py-3">${String(bindingSummary.childWorkOrderCount)}</td>
+          <td class="px-3 py-3">${formatQty(bindingSummary.currentQty)}${escapeHtml(taskOrder.unit)}</td>
+          <td class="px-3 py-3">${formatQty(bindingSummary.cumulativeScrapQty)}${escapeHtml(taskOrder.unit)}</td>
+          <td class="px-3 py-3">${formatQty(bindingSummary.cumulativeDamageQty)}${escapeHtml(taskOrder.unit)}</td>
           <td class="px-3 py-3">${String(bindingSummary.dispatchedFeiTicketCount)}</td>
           <td class="px-3 py-3">${String(bindingSummary.receivedFeiTicketCount)}</td>
           <td class="px-3 py-3">${String(bindingSummary.completedFeiTicketCount)}</td>
           <td class="px-3 py-3">${String(bindingSummary.returnedFeiTicketCount)}</td>
-          <td class="px-3 py-3">${String(bindingSummary.differenceFeiTicketCount)}</td>
+          <td class="px-3 py-3">${String(bindingSummary.receiveDifferenceTicketCount)}</td>
+          <td class="px-3 py-3">${String(bindingSummary.returnDifferenceTicketCount)}</td>
           <td class="px-3 py-3">${renderStatusBadge(bindingSummary.returnStatus)}</td>
           <td class="px-3 py-3">${escapeHtml(taskOrder.feiTicketNos.join('、') || '—')}</td>
           <td class="px-3 py-3">${escapeHtml(taskOrder.transferBagNos.join('、') || '—')}</td>
@@ -142,11 +147,16 @@ export function renderSpecialCraftTaskOrdersPage(operationSlug: string): string 
               '尺码',
               '明细数',
               '关联菲票数',
+              '子工艺单数',
+              '当前数量',
+              '累计报废',
+              '累计货损',
               '已发料菲票数',
               '已接收菲票数',
               '已完成菲票数',
               '已回仓菲票数',
-              '差异菲票数',
+              '接收差异菲票数',
+              '回仓差异菲票数',
               '回仓状态',
               '菲票号',
               '中转袋号',

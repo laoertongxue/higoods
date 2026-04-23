@@ -18,6 +18,10 @@ import {
   getTechnicalDataVersionContent,
   listTechnicalDataVersionsByStyleId,
 } from './pcs-technical-data-version-repository.ts'
+import { listTechPackVersionLogsForArchive } from './pcs-tech-pack-archive-linkage.ts'
+import { listPatternAssetsByProjectId, listPatternAssetsForTechPackVersions } from './pcs-pattern-library-archive-linkage.ts'
+import type { PatternAssetRecord } from './pcs-pattern-library.ts'
+import type { TechPackVersionLogRecord } from './pcs-tech-pack-version-log-types.ts'
 import type { TechnicalDataVersionRecord } from './pcs-technical-data-version-types.ts'
 import type {
   ProjectArchiveDocumentGroup,
@@ -48,6 +52,7 @@ export const PROJECT_ARCHIVE_GROUP_LABELS: Record<ProjectArchiveDocumentGroup, s
   PROJECT_BASE: '项目基础资料',
   STYLE_ARCHIVE: '款式档案',
   TECHNICAL_DATA: '技术包版本',
+  TECH_PACK_LOG: '技术包版本日志',
   PATTERN_DRAWING: '纸样图纸',
   ARTWORK_ASSET: '花型资料',
   SAMPLE_ASSET: '样衣资料',
@@ -332,6 +337,139 @@ function buildStyleArchiveDocument(
   )
 }
 
+function pushTechPackLogDocuments(
+  archive: ProjectArchiveRecord,
+  project: PcsProjectRecord,
+  logs: TechPackVersionLogRecord[],
+  documents: ProjectArchiveDocumentRecord[],
+): void {
+  logs.forEach((log) => {
+    const documentId = buildDocumentId(
+      archive.projectArchiveId,
+      '技术包',
+      '技术包版本日志',
+      log.logId,
+      log.technicalVersionId,
+      log.logType,
+      false,
+    )
+    documents.push(
+      createDocumentRecord({
+        archiveDocumentId: documentId,
+        projectArchiveId: archive.projectArchiveId,
+        projectId: project.projectId,
+        projectCode: project.projectCode,
+        projectNodeId: '',
+        workItemTypeCode: '',
+        workItemTypeName: '',
+        sourceModule: '技术包',
+        sourceObjectType: '技术包版本日志',
+        sourceObjectId: log.logId,
+        sourceObjectCode: log.logType,
+        sourceVersionId: log.technicalVersionId,
+        sourceVersionCode: log.technicalVersionCode,
+        sourceVersionLabel: log.versionLabel,
+        documentGroup: 'TECH_PACK_LOG',
+        documentCategory: '技术包版本日志',
+        documentType: log.logType,
+        documentTitle: `${log.versionLabel} / ${log.logType}`,
+        documentStatus: '已记录',
+        manualFlag: false,
+        reusableFlag: true,
+        fileCount: 0,
+        primaryFileId: '',
+        primaryFileName: '',
+        previewUrl: '',
+        businessDate: log.createdAt,
+        ownerName: log.createdBy,
+        createdAt: archive.createdAt,
+        createdBy: archive.createdBy,
+        updatedAt: log.createdAt,
+        updatedBy: log.createdBy,
+        legacySourceRef: log.sourceTaskCode,
+      }),
+    )
+  })
+}
+
+function pushPatternAssetDocuments(
+  archive: ProjectArchiveRecord,
+  project: PcsProjectRecord,
+  assets: PatternAssetRecord[],
+  documents: ProjectArchiveDocumentRecord[],
+  files: ProjectArchiveFileRecord[],
+): void {
+  assets.forEach((asset) => {
+    const currentVersion = asset.currentVersion
+    const documentId = buildDocumentId(
+      archive.projectArchiveId,
+      '花型库',
+      '花型库资产',
+      asset.id,
+      currentVersion?.id || '',
+      '花型库资产',
+      false,
+    )
+    const assetFile = currentVersion
+      ? createFileRecord({
+          archiveFileId: buildFileId(archive.projectArchiveId, documentId, currentVersion.id, currentVersion.original_filename),
+          projectArchiveId: archive.projectArchiveId,
+          archiveDocumentId: documentId,
+          sourceModule: '花型库',
+          sourceObjectType: '花型文件当前版本',
+          sourceObjectId: asset.id,
+          sourceFileId: currentVersion.id,
+          fileName: currentVersion.original_filename,
+          fileType: currentVersion.file_ext || '花型文件',
+          previewUrl: currentVersion.preview_url || currentVersion.thumbnail_url || currentVersion.file_url || '',
+          isPrimary: true,
+          sortOrder: 1,
+          uploadedAt: currentVersion.created_at,
+          uploadedBy: asset.updated_by || asset.created_by,
+        })
+      : null
+    pushDocumentWithFiles(
+      documents,
+      files,
+      createDocumentRecord({
+        archiveDocumentId: documentId,
+        projectArchiveId: archive.projectArchiveId,
+        projectId: project.projectId,
+        projectCode: project.projectCode,
+        projectNodeId: '',
+        workItemTypeCode: asset.source_task_type || 'PATTERN_ARTWORK_TASK',
+        workItemTypeName: asset.source_task_type ? '花型任务' : '',
+        sourceModule: '花型库',
+        sourceObjectType: '花型库资产',
+        sourceObjectId: asset.id,
+        sourceObjectCode: asset.pattern_code,
+        sourceVersionId: currentVersion?.id || asset.current_version_id || '',
+        sourceVersionCode: currentVersion?.version_no || '',
+        sourceVersionLabel: currentVersion?.version_no || '',
+        documentGroup: 'ARTWORK_ASSET',
+        documentCategory: '花型库资产',
+        documentType: asset.usage_type || '花型资产',
+        documentTitle: `${asset.pattern_code} / ${asset.pattern_name}`,
+        documentStatus: asset.review_status,
+        manualFlag: false,
+        reusableFlag: asset.lifecycle_status === 'active',
+        fileCount: assetFile ? 1 : 0,
+        primaryFileId: assetFile?.archiveFileId || '',
+        primaryFileName: assetFile?.fileName || '',
+        previewUrl: assetFile?.previewUrl || '',
+        businessDate: asset.updated_at,
+        ownerName: asset.updated_by || asset.created_by,
+        createdAt: archive.createdAt,
+        createdBy: archive.createdBy,
+        updatedAt: asset.updated_at,
+        updatedBy: asset.updated_by,
+        legacySourceRef: asset.source_task_code || asset.source_task_id || '',
+      }),
+      assetFile ? [assetFile] : [],
+    )
+  })
+}
+
 function buildTechnicalDocuments(
   archive: ProjectArchiveRecord,
   project: PcsProjectRecord,
@@ -608,6 +746,19 @@ function buildTechnicalDocuments(
     })
   })
 
+  pushTechPackLogDocuments(
+    archive,
+    project,
+    listTechPackVersionLogsForArchive({ projectId: project.projectId, styleId: style.styleId, versions }),
+    documents,
+  )
+
+  const patternAssetMap = new Map<string, PatternAssetRecord>()
+  ;[...listPatternAssetsForTechPackVersions(versions), ...listPatternAssetsByProjectId(project.projectId)].forEach((asset) => {
+    patternAssetMap.set(asset.id, asset)
+  })
+  pushPatternAssetDocuments(archive, project, Array.from(patternAssetMap.values()), documents, files)
+
   return getCurrentTechPackVersionByStyleId(style.styleId)
 }
 
@@ -615,11 +766,70 @@ function buildRevisionDocuments(
   archive: ProjectArchiveRecord,
   project: PcsProjectRecord,
   documents: ProjectArchiveDocumentRecord[],
+  files: ProjectArchiveFileRecord[],
 ): void {
   listRevisionTasksByProject(project.projectId).forEach((task) => {
-    documents.push(
+    const documentId = buildDocumentId(archive.projectArchiveId, '改版任务', '改版任务', task.revisionTaskId, '', '改版任务', false)
+    const revisionFiles = [
+      ...(task.materialAdjustmentLines || []).map((line, index) => ({
+        sourceFileId: line.materialImageId,
+        fileName: archiveFileNameFromUrl(line.materialImageId, `改版面辅料-${index + 1}.png`),
+        fileType: '面辅料变化',
+        previewUrl: line.materialImageId,
+      })),
+      ...(task.newPatternImageIds || []).map((fileId, index) => ({
+        sourceFileId: fileId,
+        fileName: archiveFileNameFromUrl(fileId, `新花型图片-${index + 1}.png`),
+        fileType: '花型变化',
+        previewUrl: fileId,
+      })),
+      ...(task.patternPieceImageIds || []).map((fileId, index) => ({
+        sourceFileId: fileId,
+        fileName: archiveFileNameFromUrl(fileId, `纸样图片-${index + 1}.png`),
+        fileType: '纸样图片',
+        previewUrl: fileId,
+      })),
+      ...(task.patternFileIds || []).map((fileId, index) => ({
+        sourceFileId: fileId,
+        fileName: archiveFileNameFromUrl(fileId, `纸样文件-${index + 1}`),
+        fileType: '纸样文件',
+        previewUrl: fileId,
+      })),
+      ...(task.mainImageIds || []).map((fileId, index) => ({
+        sourceFileId: fileId,
+        fileName: archiveFileNameFromUrl(fileId, `主图图片-${index + 1}.png`),
+        fileType: '主图图片',
+        previewUrl: fileId,
+      })),
+      ...(task.designDraftImageIds || []).map((fileId, index) => ({
+        sourceFileId: fileId,
+        fileName: archiveFileNameFromUrl(fileId, `新图设计稿-${index + 1}.png`),
+        fileType: '新图设计稿',
+        previewUrl: fileId,
+      })),
+    ].filter((file) => file.sourceFileId)
+    const archiveFiles = revisionFiles.map((file, index) => createFileRecord({
+      archiveFileId: buildFileId(archive.projectArchiveId, documentId, file.sourceFileId, file.fileName),
+      projectArchiveId: archive.projectArchiveId,
+      archiveDocumentId: documentId,
+      sourceModule: '改版任务',
+      sourceObjectType: '改版任务',
+      sourceObjectId: task.revisionTaskId,
+      sourceFileId: file.sourceFileId,
+      fileName: file.fileName,
+      fileType: file.fileType,
+      previewUrl: file.previewUrl,
+      isPrimary: index === 0,
+      sortOrder: index + 1,
+      uploadedAt: task.updatedAt || task.createdAt,
+      uploadedBy: task.updatedBy || task.ownerName,
+    }))
+
+    pushDocumentWithFiles(
+      documents,
+      files,
       createDocumentRecord({
-        archiveDocumentId: buildDocumentId(archive.projectArchiveId, '改版任务', '改版任务', task.revisionTaskId, '', '改版任务', false),
+        archiveDocumentId: documentId,
         projectArchiveId: archive.projectArchiveId,
         projectId: project.projectId,
         projectCode: project.projectCode,
@@ -640,10 +850,10 @@ function buildRevisionDocuments(
         documentStatus: task.status,
         manualFlag: false,
         reusableFlag: true,
-        fileCount: 0,
-        primaryFileId: '',
-        primaryFileName: '',
-        previewUrl: '',
+        fileCount: archiveFiles.length,
+        primaryFileId: archiveFiles[0]?.archiveFileId || '',
+        primaryFileName: archiveFiles[0]?.fileName || '',
+        previewUrl: archiveFiles[0]?.previewUrl || '',
         businessDate: task.updatedAt || task.createdAt,
         ownerName: task.ownerName,
         createdAt: archive.createdAt,
@@ -652,6 +862,7 @@ function buildRevisionDocuments(
         updatedBy: task.updatedBy,
         legacySourceRef: task.legacyUpstreamRef,
       }),
+      archiveFiles,
     )
   })
 }
@@ -660,11 +871,75 @@ function buildPatternTaskDocuments(
   archive: ProjectArchiveRecord,
   project: PcsProjectRecord,
   documents: ProjectArchiveDocumentRecord[],
+  files: ProjectArchiveFileRecord[],
 ): void {
   listPlateMakingTasksByProject(project.projectId).forEach((task) => {
-    documents.push(
+    const documentId = buildDocumentId(archive.projectArchiveId, '制版任务', '制版任务', task.plateTaskId, '', '制版任务', false)
+    const plateFiles = [
+      ...(task.materialRequirementLines || []).map((line, index) => ({
+        sourceFileId: line.materialImageId,
+        fileName: archiveFileNameFromUrl(line.materialImageId, `面辅料图片-${index + 1}.png`),
+        fileType: '面辅料图片',
+        previewUrl: line.materialImageId,
+      })),
+      ...(task.patternImageLineItems || []).map((line, index) => ({
+        sourceFileId: line.imageId,
+        fileName: archiveFileNameFromUrl(line.imageId, `纸样图片-${line.materialPartName || index + 1}.png`),
+        fileType: '纸样图片',
+        previewUrl: line.imageId,
+      })),
+      ...(task.patternPdfFileIds || []).map((fileId, index) => ({
+        sourceFileId: fileId,
+        fileName: archiveFileNameFromUrl(fileId, `纸样文件-${index + 1}.pdf`),
+        fileType: 'PDF',
+        previewUrl: fileId,
+      })),
+      ...(task.patternDxfFileIds || []).map((fileId, index) => ({
+        sourceFileId: fileId,
+        fileName: archiveFileNameFromUrl(fileId, `纸样文件-${index + 1}.dxf`),
+        fileType: 'DXF',
+        previewUrl: fileId,
+      })),
+      ...(task.patternRulFileIds || []).map((fileId, index) => ({
+        sourceFileId: fileId,
+        fileName: archiveFileNameFromUrl(fileId, `纸样文件-${index + 1}.rul`),
+        fileType: 'RUL',
+        previewUrl: fileId,
+      })),
+      ...(task.supportImageIds || []).map((fileId, index) => ({
+        sourceFileId: fileId,
+        fileName: archiveFileNameFromUrl(fileId, `补充图片-${index + 1}.png`),
+        fileType: '补充图片',
+        previewUrl: fileId,
+      })),
+      ...(task.supportVideoIds || []).map((fileId, index) => ({
+        sourceFileId: fileId,
+        fileName: archiveFileNameFromUrl(fileId, `补充视频-${index + 1}.mp4`),
+        fileType: '补充视频',
+        previewUrl: fileId,
+      })),
+    ].filter((file) => file.sourceFileId).map((file, index) => createFileRecord({
+      archiveFileId: buildFileId(archive.projectArchiveId, documentId, file.sourceFileId, file.fileName),
+      projectArchiveId: archive.projectArchiveId,
+      archiveDocumentId: documentId,
+      sourceModule: '制版任务',
+      sourceObjectType: '制版任务资料',
+      sourceObjectId: task.plateTaskId,
+      sourceFileId: file.sourceFileId,
+      fileName: file.fileName,
+      fileType: file.fileType,
+      previewUrl: file.previewUrl,
+      isPrimary: index === 0,
+      sortOrder: index + 1,
+      uploadedAt: task.updatedAt || task.createdAt,
+      uploadedBy: task.updatedBy || task.ownerName,
+    }))
+
+    pushDocumentWithFiles(
+      documents,
+      files,
       createDocumentRecord({
-        archiveDocumentId: buildDocumentId(archive.projectArchiveId, '制版任务', '制版任务', task.plateTaskId, '', '制版任务', false),
+        archiveDocumentId: documentId,
         projectArchiveId: archive.projectArchiveId,
         projectId: project.projectId,
         projectCode: project.projectCode,
@@ -685,10 +960,10 @@ function buildPatternTaskDocuments(
         documentStatus: task.status,
         manualFlag: false,
         reusableFlag: true,
-        fileCount: 0,
-        primaryFileId: '',
-        primaryFileName: '',
-        previewUrl: '',
+        fileCount: plateFiles.length,
+        primaryFileId: plateFiles[0]?.archiveFileId || '',
+        primaryFileName: plateFiles[0]?.fileName || '',
+        previewUrl: plateFiles[0]?.previewUrl || '',
         businessDate: task.updatedAt || task.createdAt,
         ownerName: task.ownerName,
         createdAt: archive.createdAt,
@@ -697,6 +972,7 @@ function buildPatternTaskDocuments(
         updatedBy: task.updatedBy,
         legacySourceRef: task.legacyUpstreamRef,
       }),
+      plateFiles,
     )
   })
 
@@ -818,6 +1094,7 @@ function buildSampleDocuments(
   }
 
   listFirstSampleTasksByProject(project.projectId).forEach((task) => {
+    const firstSampleImageCount = task.sampleImageIds.length
     documents.push(
       createDocumentRecord({
         archiveDocumentId: buildDocumentId(archive.projectArchiveId, '首版样衣打样', '首版样衣打样任务', task.firstSampleTaskId, '', '首版样衣打样', false),
@@ -837,11 +1114,11 @@ function buildSampleDocuments(
         documentGroup: 'SAMPLE_ASSET',
         documentCategory: '首版样衣打样',
         documentType: '样衣打样任务',
-        documentTitle: task.title,
+        documentTitle: `${task.title} / ${task.reuseAsPreProductionFlag ? '可复用为产前版' : '首版确认'} / 样衣图片${firstSampleImageCount}`,
         documentStatus: task.status,
         manualFlag: false,
         reusableFlag: true,
-        fileCount: 0,
+        fileCount: firstSampleImageCount,
         primaryFileId: '',
         primaryFileName: '',
         previewUrl: '',
@@ -857,6 +1134,8 @@ function buildSampleDocuments(
   })
 
   listPreProductionSampleTasksByProject(project.projectId).forEach((task) => {
+    const samplePlanLines = task.samplePlanLines
+    const factoryReferenceCount = samplePlanLines.filter((line) => line.sampleRole === '工厂参照样').length
     documents.push(
       createDocumentRecord({
         archiveDocumentId: buildDocumentId(archive.projectArchiveId, '产前版样衣', '产前版样衣任务', task.preProductionSampleTaskId, '', '产前版样衣', false),
@@ -876,11 +1155,11 @@ function buildSampleDocuments(
         documentGroup: 'SAMPLE_ASSET',
         documentCategory: '产前版样衣',
         documentType: '产前版样衣任务',
-        documentTitle: task.title,
+        documentTitle: `${task.title} / ${task.sampleChainMode} / 工厂参照样${factoryReferenceCount}`,
         documentStatus: task.status,
         manualFlag: false,
         reusableFlag: true,
-        fileCount: 0,
+        fileCount: samplePlanLines.length,
         primaryFileId: '',
         primaryFileName: '',
         previewUrl: '',
@@ -1047,8 +1326,8 @@ export function collectProjectArchiveAutoData(
     currentTechnicalVersion = buildTechnicalDocuments(archive, project, style, documents, files)
   }
 
-  buildRevisionDocuments(archive, project, documents)
-  buildPatternTaskDocuments(archive, project, documents)
+  buildRevisionDocuments(archive, project, documents, files)
+  buildPatternTaskDocuments(archive, project, documents, files)
   buildSampleDocuments(archive, project, documents, files)
   buildConclusionDocument(archive, project, documents)
 
@@ -1123,6 +1402,23 @@ export function computeProjectArchiveMissingItems(input: {
   if (!hasGroup('SAMPLE_ASSET')) {
     missingItems.push(buildMissingItem(archive, transferNodeId, 'SAMPLE_DATA', '缺少样衣资料，请补齐样衣任务、样衣资产或关键样衣事件。'))
   }
+  const archivedPatternAssetIds = new Set(
+    documents
+      .filter((item) => item.documentGroup === 'ARTWORK_ASSET' && item.sourceObjectType === '花型库资产')
+      .map((item) => item.sourceObjectId),
+  )
+  ;(currentTechnicalVersion?.linkedPatternAssetIds || []).forEach((assetId) => {
+    if (!archivedPatternAssetIds.has(assetId)) {
+      missingItems.push(
+        buildMissingItem(
+          archive,
+          transferNodeId,
+          `ARTWORK_ASSET_${assetId}`,
+          '技术包已引用花型库资产，但项目资料归档尚未采集到对应花型库资产。',
+        ),
+      )
+    }
+  })
   if (!hasCategory('INSPECTION_FILE', '检测资料')) {
     missingItems.push(buildMissingItem(archive, transferNodeId, 'INSPECTION_FILE', '缺少检测资料，请上传至少 1 份检测资料。'))
   }
@@ -1150,6 +1446,12 @@ export function deriveProjectArchiveState(input: {
   | 'currentTechnicalVersionId'
   | 'currentTechnicalVersionCode'
   | 'currentTechnicalVersionLabel'
+  | 'currentPatternAssetIds'
+  | 'currentPatternAssetCodes'
+  | 'currentPatternAssetCount'
+  | 'currentTechPackLogCount'
+  | 'closureSnapshotAt'
+  | 'closureSnapshotBy'
 > {
   const { documents, files, missingItems, currentTechnicalVersion } = input
   const documentCount = documents.length
@@ -1157,6 +1459,12 @@ export function deriveProjectArchiveState(input: {
   const autoCollectedCount = documents.filter((item) => !item.manualFlag).length
   const manualUploadedCount = documents.filter((item) => item.manualFlag).length
   const missingItemCount = missingItems.length
+  const currentPatternAssetDocuments = documents.filter(
+    (item) => item.documentGroup === 'ARTWORK_ASSET' && item.sourceObjectType === '花型库资产',
+  )
+  const currentPatternAssetIds = uniqueStrings(currentPatternAssetDocuments.map((item) => item.sourceObjectId))
+  const currentPatternAssetCodes = uniqueStrings(currentPatternAssetDocuments.map((item) => item.sourceObjectCode))
+  const currentTechPackLogCount = documents.filter((item) => item.documentGroup === 'TECH_PACK_LOG').length
   const readyForFinalize = missingItemCount === 0 && Boolean(input.archive.styleId) && Boolean(currentTechnicalVersion)
 
   const archiveStatus: ProjectArchiveStatus =
@@ -1179,5 +1487,11 @@ export function deriveProjectArchiveState(input: {
     currentTechnicalVersionId: currentTechnicalVersion?.technicalVersionId || '',
     currentTechnicalVersionCode: currentTechnicalVersion?.technicalVersionCode || '',
     currentTechnicalVersionLabel: currentTechnicalVersion?.versionLabel || '',
+    currentPatternAssetIds,
+    currentPatternAssetCodes,
+    currentPatternAssetCount: currentPatternAssetIds.length,
+    currentTechPackLogCount,
+    closureSnapshotAt: input.archive.updatedAt,
+    closureSnapshotBy: input.archive.updatedBy,
   }
 }

@@ -98,6 +98,11 @@ function renderDetailDrawer(): string {
             { label: '菲票号', value: row.feiTicketNo || '-' },
             { label: '特殊工艺', value: specialCraftSummary ? specialCraftSummary.operationNames.join(' / ') || '无' : '-' },
             { label: '当前所在', value: specialCraftSummary?.currentLocation || '-' },
+            { label: '已完成特殊工艺', value: specialCraftSummary?.completedOperationNames.join(' / ') || '-' },
+            { label: '当前特殊工艺', value: specialCraftSummary?.currentOperationName || '-' },
+            { label: '原数量 / 当前数量', value: specialCraftSummary ? `${specialCraftSummary.originalQty} / ${specialCraftSummary.currentQty}` : '-' },
+            { label: '报废数量 / 货损数量', value: specialCraftSummary ? `${specialCraftSummary.cumulativeScrapQty} / ${specialCraftSummary.cumulativeDamageQty}` : '-' },
+            { label: '差异状态', value: specialCraftSummary ? [specialCraftSummary.receiveDifferenceStatus, specialCraftSummary.returnDifferenceStatus].filter((item) => item && item !== '—').join(' / ') || '无' : '-' },
             { label: '发料状态 / 回仓状态', value: specialCraftSummary ? `${specialCraftSummary.dispatchStatus} / ${specialCraftSummary.returnStatus}` : '-' },
             { label: '中转袋号', value: row.transferBagNo || '-' },
             { label: '卷号', value: row.fabricRollNo || '-' },
@@ -155,12 +160,16 @@ export function renderPdaWarehouseOutboundRecordsPage(): string {
                         <div>物料 / 裁片类型：${escapeHtml(`${row.itemKind} / ${row.itemName}`)}</div>
                         <div>面料 SKU / 裁片部位：${escapeHtml(row.materialSku || row.partName || '-')}</div>
                         <div>颜色 / 尺码：${escapeHtml(row.fabricColor || '-')} / ${escapeHtml(row.sizeCode || '-')}</div>
-                        <div>菲票号 / 中转袋号：${escapeHtml(row.feiTicketNo || '-')} / ${escapeHtml(row.transferBagNo || '-')}</div>
+                        <div>菲票号 / 中转袋号 / 袋内菲票数：${escapeHtml(row.feiTicketNo || '-')} / ${escapeHtml(row.transferBagNo || '-')} / ${row.transferBagNo ? '查看中转袋' : '-'}</div>
                         ${
                           row.feiTicketNo
                             ? (() => {
                                 const specialCraftSummary = getSpecialCraftFeiTicketSummary(row.feiTicketNo)
                                 return `<div>特殊工艺 / 当前所在：${escapeHtml(specialCraftSummary.operationNames.join(' / ') || '无')} / ${escapeHtml(specialCraftSummary.currentLocation)}</div>
+                                        <div>当前特殊工艺 / 已完成特殊工艺：${escapeHtml(specialCraftSummary.currentOperationName)} / ${escapeHtml(specialCraftSummary.completedOperationNames.join(' / ') || '无')}</div>
+                                        <div>原数量 / 当前数量：${specialCraftSummary.originalQty} / ${specialCraftSummary.currentQty}</div>
+                                        <div>报废数量 / 货损数量：${specialCraftSummary.cumulativeScrapQty} / ${specialCraftSummary.cumulativeDamageQty}</div>
+                                        <div>差异状态：${escapeHtml([specialCraftSummary.receiveDifferenceStatus, specialCraftSummary.returnDifferenceStatus].filter((item) => item && item !== '—').join(' / ') || '无')}</div>
                                         <div>发料状态 / 回仓状态：${escapeHtml(specialCraftSummary.dispatchStatus)} / ${escapeHtml(specialCraftSummary.returnStatus)}</div>`
                               })()
                             : ''

@@ -12,7 +12,22 @@ function canUseStorage(): boolean {
 }
 
 function cloneTask(task: PlateMakingTaskRecord): PlateMakingTaskRecord {
-  return { ...task, participantNames: [...task.participantNames] }
+  return {
+    ...task,
+    participantNames: [...task.participantNames],
+    flowerImageIds: [...(task.flowerImageIds || [])],
+    materialRequirementLines: (task.materialRequirementLines || []).map((line) => ({ ...line })),
+    patternImageLineItems: (task.patternImageLineItems || []).map((line) => ({ ...line })),
+    patternPdfFileIds: [...(task.patternPdfFileIds || [])],
+    patternDxfFileIds: [...(task.patternDxfFileIds || [])],
+    patternRulFileIds: [...(task.patternRulFileIds || [])],
+    supportImageIds: [...(task.supportImageIds || [])],
+    supportVideoIds: [...(task.supportVideoIds || [])],
+    partTemplateLinks: (task.partTemplateLinks || []).map((link) => ({
+      ...link,
+      matchedPartNames: [...(link.matchedPartNames || [])],
+    })),
+  }
 }
 
 function clonePendingItem(item: PcsTaskPendingItem): PcsTaskPendingItem {
@@ -40,11 +55,51 @@ function normalizeTask(task: PlateMakingTaskRecord): PlateMakingTaskRecord {
   return {
     ...cloneTask(task),
     participantNames: [...(task.participantNames || [])],
+    productHistoryType: task.productHistoryType || '',
+    patternMakerId: task.patternMakerId || '',
+    patternMakerName: task.patternMakerName || '',
+    sampleConfirmedAt: task.sampleConfirmedAt || '',
+    urgentFlag: Boolean(task.urgentFlag),
+    patternArea: task.patternArea || '',
+    colorRequirementText: task.colorRequirementText || '',
+    newPatternSpuCode: task.newPatternSpuCode || '',
+    flowerImageIds: [...(task.flowerImageIds || [])],
+    materialRequirementLines: (task.materialRequirementLines || []).map((line, index) => ({
+      lineId: line.lineId || `${task.plateTaskId}_material_${index + 1}`,
+      materialImageId: line.materialImageId || '',
+      materialName: line.materialName || '',
+      materialSku: line.materialSku || '',
+      printRequirement: line.printRequirement || '',
+      quantity: Number(line.quantity || 0),
+      unitPrice: Number(line.unitPrice || 0),
+      amount: Number(line.amount || 0),
+      note: line.note || '',
+    })),
+    patternImageLineItems: (task.patternImageLineItems || []).map((line, index) => ({
+      lineId: line.lineId || `${task.plateTaskId}_pattern_image_${index + 1}`,
+      imageId: line.imageId || '',
+      materialPartName: line.materialPartName || '',
+      materialDescription: line.materialDescription || '',
+      pieceCount: Number(line.pieceCount || 0),
+    })),
+    patternPdfFileIds: [...(task.patternPdfFileIds || [])],
+    patternDxfFileIds: [...(task.patternDxfFileIds || [])],
+    patternRulFileIds: [...(task.patternRulFileIds || [])],
+    supportImageIds: [...(task.supportImageIds || [])],
+    supportVideoIds: [...(task.supportVideoIds || [])],
+    partTemplateLinks: (task.partTemplateLinks || []).map((link) => ({
+      templateId: link.templateId || '',
+      templateCode: link.templateCode || '',
+      templateName: link.templateName || '',
+      matchedPartNames: [...(link.matchedPartNames || [])],
+    })),
     linkedTechPackVersionId: task.linkedTechPackVersionId || '',
     linkedTechPackVersionCode: task.linkedTechPackVersionCode || '',
     linkedTechPackVersionLabel: task.linkedTechPackVersionLabel || '',
     linkedTechPackVersionStatus: task.linkedTechPackVersionStatus || '',
     linkedTechPackUpdatedAt: task.linkedTechPackUpdatedAt || '',
+    primaryTechPackGeneratedFlag: Boolean(task.primaryTechPackGeneratedFlag),
+    primaryTechPackGeneratedAt: task.primaryTechPackGeneratedAt || '',
     acceptedAt: task.acceptedAt || '',
     confirmedAt: task.confirmedAt || '',
     note: task.note || '',

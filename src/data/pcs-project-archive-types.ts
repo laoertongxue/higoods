@@ -4,6 +4,7 @@ export type ProjectArchiveDocumentGroup =
   | 'PROJECT_BASE'
   | 'STYLE_ARCHIVE'
   | 'TECHNICAL_DATA'
+  | 'TECH_PACK_LOG'
   | 'PATTERN_DRAWING'
   | 'ARTWORK_ASSET'
   | 'SAMPLE_ASSET'
@@ -27,6 +28,12 @@ export interface ProjectArchiveRecord {
   currentTechnicalVersionId: string
   currentTechnicalVersionCode: string
   currentTechnicalVersionLabel: string
+  currentPatternAssetIds: string[]
+  currentPatternAssetCodes: string[]
+  currentPatternAssetCount: number
+  currentTechPackLogCount: number
+  closureSnapshotAt: string
+  closureSnapshotBy: string
   archiveStatus: ProjectArchiveStatus
   documentCount: number
   fileCount: number
@@ -136,4 +143,3 @@ export interface ProjectArchiveCreateResult {
   message: string
   archive: ProjectArchiveRecord | null
 }
-

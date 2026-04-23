@@ -22,6 +22,8 @@ import {
 } from '../factory-warehouse-linkage.ts'
 import type { SpecialCraftTaskDemandLine, SpecialCraftTaskOrder } from '../special-craft-task-orders.ts'
 import {
+  getSpecialCraftTaskWorkOrderLineByDemandLineId,
+  getSpecialCraftTaskWorkOrdersByTaskOrderId,
   getSpecialCraftTaskOrderById,
   listSpecialCraftTaskOrders,
 } from '../special-craft-task-orders.ts'
@@ -70,6 +72,9 @@ export interface CuttingSpecialCraftFeiTicketBinding {
   taskOrderId: string
   taskOrderNo: string
   demandLineId: string
+  workOrderId: string
+  workOrderNo: string
+  workOrderLineId?: string
   operationId: string
   operationName: string
   processCode: string
@@ -84,6 +89,16 @@ export interface CuttingSpecialCraftFeiTicketBinding {
   colorName: string
   sizeCode: string
   qty: number
+  originalQty: number
+  openingQty: number
+  receivedQty: number
+  scrapQty: number
+  damageQty: number
+  closingQty: number
+  returnedQty: number
+  currentQty: number
+  cumulativeScrapQty: number
+  cumulativeDamageQty: number
   unit: string
   feiTicketStatus: string
   specialCraftFlowStatus:
@@ -116,10 +131,76 @@ export interface CuttingSpecialCraftFeiTicketBinding {
   returnHandoverRecordNo?: string
   receiverWrittenQty?: number
   differenceQty?: number
+  receiveDifferenceReportId?: string
+  receiveDifferenceStatus?: '待处理' | '处理中' | '已处理'
+  returnDifferenceReportId?: string
+  returnDifferenceStatus?: '待处理' | '处理中' | '已处理'
   objectionStatus?: string
   abnormalReason?: string
+  flowEventIds: string[]
+  completedOperationNames: string[]
+  nextOperationName?: string
   createdAt: string
   updatedAt: string
+}
+
+export interface SpecialCraftQtyDifferenceReport {
+  reportId: string
+  reportPhase: '接收差异' | '回仓差异'
+  productionOrderId: string
+  productionOrderNo: string
+  taskOrderId: string
+  taskOrderNo: string
+  workOrderId: string
+  workOrderNo: string
+  operationId: string
+  operationName: string
+  feiTicketNo: string
+  expectedQty: number
+  actualQty: number
+  differenceQty: number
+  unit: string
+  sourceRecordId?: string
+  sourceRecordNo?: string
+  reportedBy: string
+  reportedAt: string
+  reason: string
+  platformStatus: '待处理' | '处理中' | '已处理'
+  processRemark?: string
+  resolvedAt?: string
+}
+
+export interface SpecialCraftFeiTicketFlowEvent {
+  eventId: string
+  bindingId: string
+  productionOrderId: string
+  taskOrderId: string
+  workOrderId: string
+  operationId: string
+  operationName: string
+  feiTicketNo: string
+  eventType:
+    | '绑定'
+    | '发料'
+    | '接收'
+    | '接收差异上报'
+    | '开工'
+    | '报废'
+    | '货损'
+    | '完工'
+    | '待回仓'
+    | '回仓交出'
+    | '回仓接收'
+    | '回仓差异上报'
+    | '平台处理'
+  beforeQty?: number
+  changedQty?: number
+  afterQty?: number
+  operatorName: string
+  occurredAt: string
+  relatedRecordId?: string
+  relatedRecordNo?: string
+  remark?: string
 }
 
 export interface CuttingSpecialCraftDispatchView {
@@ -189,13 +270,15 @@ interface InternalBinding extends CuttingSpecialCraftFeiTicketBinding {
 
 interface FlowStore {
   bindings: InternalBinding[]
+  differenceReports: SpecialCraftQtyDifferenceReport[]
+  flowEvents: SpecialCraftFeiTicketFlowEvent[]
   warnings: string[]
   errors: string[]
   pendingBindingViews: Prompt7PendingBindingView[]
   pickupRecordToDispatchRecordId: Map<string, string>
 }
 
-const CUTTING_SPECIAL_FACTORY_STATUSES = new Set(['待发料', '已发料', '已接收', '待回仓', '已回仓', '差异', '异议中'])
+const CUTTING_SPECIAL_FACTORY_STATUSES = new Set(['待发料', '已发料', '已接收', '加工中', '已完成', '待回仓', '已回仓'])
 const PROMPT7_SEED_OPERATOR = '系统示例'
 const PROMPT7_SEED_TIME = '2026-04-23 10:30:00'
 const PROMPT7_CUTTING_FACTORY_ID = 'ID-F004'
@@ -211,6 +294,10 @@ function normalizeText(value: string | null | undefined): string {
   return String(value || '').trim()
 }
 
+function isCutPieceSpecialCraftTask(taskOrder: SpecialCraftTaskOrder): boolean {
+  return taskOrder.targetObject === '裁片' || taskOrder.targetObject === '已裁部位'
+}
+
 function roundQty(value: number | undefined): number {
   if (!Number.isFinite(value)) return 0
   return Math.round(Number(value) * 100) / 100
@@ -218,6 +305,127 @@ function roundQty(value: number | undefined): number {
 
 function getNowText(): string {
   return PROMPT7_SEED_TIME
+}
+
+function getBindingFlowQty(binding: Pick<CuttingSpecialCraftFeiTicketBinding, 'currentQty' | 'openingQty' | 'qty'>): number {
+  return roundQty(binding.currentQty || binding.openingQty || binding.qty || 0)
+}
+
+function getBindingCompletionQty(binding: Pick<CuttingSpecialCraftFeiTicketBinding, 'closingQty' | 'currentQty' | 'qty'>): number {
+  return roundQty(binding.closingQty || binding.currentQty || binding.qty || 0)
+}
+
+function getOpenDifferenceStatus(status?: string): '待处理' | '处理中' | undefined {
+  if (status === '待处理' || status === '处理中') return status
+  return undefined
+}
+
+function getDifferenceDisplayStatus(status?: string): string {
+  const openStatus = getOpenDifferenceStatus(status)
+  return openStatus ? '差异待处理' : status || '—'
+}
+
+function getWorkOrderTarget(taskOrder: SpecialCraftTaskOrder, demandLineId: string, partName: string) {
+  const line = getSpecialCraftTaskWorkOrderLineByDemandLineId(taskOrder.taskOrderId, demandLineId)
+  if (line) {
+    const workOrder = getSpecialCraftTaskWorkOrdersByTaskOrderId(taskOrder.taskOrderId).find((item) => item.workOrderId === line.workOrderId)
+    if (workOrder) {
+      return {
+        workOrderId: workOrder.workOrderId,
+        workOrderNo: workOrder.workOrderNo,
+        workOrderLineId: line.lineId,
+      }
+    }
+  }
+  const workOrder = getSpecialCraftTaskWorkOrdersByTaskOrderId(taskOrder.taskOrderId).find((item) => item.partName === partName)
+  return {
+    workOrderId: workOrder?.workOrderId || `${taskOrder.taskOrderId}-WO-001`,
+    workOrderNo: workOrder?.workOrderNo || `${taskOrder.taskOrderNo}-部位01`,
+    workOrderLineId: line?.lineId,
+  }
+}
+
+function makeFlowEvent(
+  binding: Pick<CuttingSpecialCraftFeiTicketBinding, 'bindingId' | 'productionOrderId' | 'taskOrderId' | 'workOrderId' | 'operationId' | 'operationName' | 'feiTicketNo'>,
+  input: Omit<SpecialCraftFeiTicketFlowEvent, 'eventId' | 'bindingId' | 'productionOrderId' | 'taskOrderId' | 'workOrderId' | 'operationId' | 'operationName' | 'feiTicketNo'>,
+): SpecialCraftFeiTicketFlowEvent {
+  return {
+    eventId: `SCFE-${binding.bindingId}-${String((flowStore?.flowEvents.length || 0) + 1).padStart(4, '0')}`,
+    bindingId: binding.bindingId,
+    productionOrderId: binding.productionOrderId,
+    taskOrderId: binding.taskOrderId,
+    workOrderId: binding.workOrderId,
+    operationId: binding.operationId,
+    operationName: binding.operationName,
+    feiTicketNo: binding.feiTicketNo,
+    ...input,
+  }
+}
+
+function appendFlowEvent(store: FlowStore, binding: InternalBinding, event: SpecialCraftFeiTicketFlowEvent): InternalBinding {
+  store.flowEvents.push(event)
+  return updateBinding(store, binding.bindingId, (current) => ({
+    ...current,
+    flowEventIds: [...new Set([...current.flowEventIds, event.eventId])],
+    updatedAt: event.occurredAt,
+  }))
+}
+
+function createQtyDifferenceReport(
+  store: FlowStore,
+  binding: InternalBinding,
+  input: {
+    reportPhase: '接收差异' | '回仓差异'
+    expectedQty: number
+    actualQty: number
+    sourceRecordId?: string
+    sourceRecordNo?: string
+    reportedBy: string
+    reportedAt: string
+    reason?: string
+  },
+): SpecialCraftQtyDifferenceReport {
+  const differenceQty = roundQty(input.actualQty - input.expectedQty)
+  const report: SpecialCraftQtyDifferenceReport = {
+    reportId: `SCQDR-${binding.bindingId}-${input.reportPhase === '接收差异' ? 'RCV' : 'RET'}-${String(store.differenceReports.length + 1).padStart(3, '0')}`,
+    reportPhase: input.reportPhase,
+    productionOrderId: binding.productionOrderId,
+    productionOrderNo: binding.productionOrderNo,
+    taskOrderId: binding.taskOrderId,
+    taskOrderNo: binding.taskOrderNo,
+    workOrderId: binding.workOrderId,
+    workOrderNo: binding.workOrderNo,
+    operationId: binding.operationId,
+    operationName: binding.operationName,
+    feiTicketNo: binding.feiTicketNo,
+    expectedQty: input.expectedQty,
+    actualQty: input.actualQty,
+    differenceQty,
+    unit: binding.unit,
+    sourceRecordId: input.sourceRecordId,
+    sourceRecordNo: input.sourceRecordNo,
+    reportedBy: input.reportedBy,
+    reportedAt: input.reportedAt,
+    reason: input.reason || '数量不符',
+    platformStatus: '待处理',
+  }
+  store.differenceReports.push(report)
+  appendFlowEvent(
+    store,
+    binding,
+    makeFlowEvent(binding, {
+      eventType: input.reportPhase === '接收差异' ? '接收差异上报' : '回仓差异上报',
+      beforeQty: input.expectedQty,
+      changedQty: differenceQty,
+      afterQty: input.actualQty,
+      operatorName: input.reportedBy,
+      occurredAt: input.reportedAt,
+      relatedRecordId: input.sourceRecordId,
+      relatedRecordNo: input.sourceRecordNo,
+      remark: input.reason || '数量不符',
+    }),
+  )
+  return report
 }
 
 function getCuttingFactory() {
@@ -277,6 +485,7 @@ function getPositionSeed(
 }
 
 function getBindingRecordLine(binding: CuttingSpecialCraftFeiTicketBinding): PdaCutPieceHandoutLine {
+  const pieceQty = getBindingFlowQty(binding)
   return {
     lineId: `SC-LINE-${binding.bindingId}`,
     piecePartLabel: binding.partName,
@@ -285,8 +494,8 @@ function getBindingRecordLine(binding: CuttingSpecialCraftFeiTicketBinding): Pda
     garmentSkuLabel: binding.productionOrderNo,
     colorLabel: binding.colorName,
     sizeLabel: binding.sizeCode,
-    pieceQty: binding.qty,
-    garmentEquivalentQty: binding.qty,
+    pieceQty,
+    garmentEquivalentQty: pieceQty,
   }
 }
 
@@ -622,7 +831,7 @@ export function buildSpecialCraftFeiTicketBindingsFromGeneratedFeiTickets(input?
   specialCraftOperations?: SpecialCraftOperationDefinition[]
 }): BindingBuildResult {
   const taskOrders = (input?.specialCraftTaskOrders || listSpecialCraftTaskOrders()).filter(
-    (taskOrder) => taskOrder.targetObject === '裁片',
+    isCutPieceSpecialCraftTask,
   )
   const generatedFeiTickets = input?.generatedFeiTickets || listGeneratedFeiTickets()
   const cuttingWarehouseItems = input?.cuttingWarehouseItems || listFormalCutPieceWarehouseRecords()
@@ -685,6 +894,8 @@ export function buildSpecialCraftFeiTicketBindingsFromGeneratedFeiTickets(input?
       }
       occupiedBindingKeys.add(occupiedKey)
       const locationLabel = ticketLocationMap.get(ticket.originalCutOrderNo) || '裁床厂待交出仓'
+      const workOrderTarget = getWorkOrderTarget(taskOrder, line.demandLineId, line.partName)
+      const originalQty = roundQty(ticket.qty)
       bindings.push({
         bindingId: buildBindingId(taskOrder.taskOrderId, line.demandLineId, ticket.feiTicketNo, operation.operationId),
         productionOrderId: taskOrder.productionOrderId,
@@ -694,6 +905,9 @@ export function buildSpecialCraftFeiTicketBindingsFromGeneratedFeiTickets(input?
         taskOrderId: taskOrder.taskOrderId,
         taskOrderNo: taskOrder.taskOrderNo,
         demandLineId: line.demandLineId,
+        workOrderId: workOrderTarget.workOrderId,
+        workOrderNo: workOrderTarget.workOrderNo,
+        workOrderLineId: workOrderTarget.workOrderLineId,
         operationId: operation.operationId,
         operationName: operation.operationName,
         processCode: operation.processCode,
@@ -707,16 +921,137 @@ export function buildSpecialCraftFeiTicketBindingsFromGeneratedFeiTickets(input?
         partName: line.partName,
         colorName: line.colorName,
         sizeCode: line.sizeCode,
-        qty: roundQty(ticket.qty),
+        qty: originalQty,
+        originalQty,
+        openingQty: originalQty,
+        receivedQty: 0,
+        scrapQty: 0,
+        damageQty: 0,
+        closingQty: 0,
+        returnedQty: 0,
+        currentQty: originalQty,
+        cumulativeScrapQty: 0,
+        cumulativeDamageQty: 0,
         unit: line.unit || '片',
         feiTicketStatus: index === 0 ? '待发料' : '待确认顺序',
         specialCraftFlowStatus: index === 0 ? '待发料' : '待确认顺序',
         currentLocation: '裁床厂待交出仓',
+        flowEventIds: [],
+        completedOperationNames: [],
+        nextOperationName: sortedMatchedLines[index + 1]?.line.operationName,
         createdAt: ticket.issuedAt || getNowText(),
         updatedAt: ticket.issuedAt || getNowText(),
       })
     })
   })
+
+  taskOrders.forEach((taskOrder) => {
+    ;(taskOrder.demandLines || []).forEach((line) => {
+      const operation = specialCraftOperations.find((item) => item.operationId === line.operationId)
+      if (!operation || !operation.requiresFeiTicketScan) return
+      const targetFactory = resolveBindingTargetFactory(taskOrder, operation)
+      const ticketNos = [...new Set(line.feiTicketNos || [])]
+      ticketNos.forEach((feiTicketNo) => {
+        const occupiedKey = `${feiTicketNo}__${operation.operationId}`
+        if (occupiedBindingKeys.has(occupiedKey)) return
+        occupiedBindingKeys.add(occupiedKey)
+        const generatedTicket = getFeiTicketByNo(feiTicketNo)
+        const fallbackQty = roundQty(line.planPieceQty / Math.max(ticketNos.length, 1))
+        const originalQty = roundQty(generatedTicket?.qty || fallbackQty)
+        const workOrderTarget = getWorkOrderTarget(taskOrder, line.demandLineId, line.partName)
+        bindings.push({
+          bindingId: buildBindingId(taskOrder.taskOrderId, line.demandLineId, feiTicketNo, operation.operationId),
+          productionOrderId: taskOrder.productionOrderId,
+          productionOrderNo: taskOrder.productionOrderNo,
+          cuttingOrderId: generatedTicket?.originalCutOrderId || line.patternFileId,
+          cuttingOrderNo: generatedTicket?.originalCutOrderNo || line.patternFileName || '待绑定裁片单',
+          taskOrderId: taskOrder.taskOrderId,
+          taskOrderNo: taskOrder.taskOrderNo,
+          demandLineId: line.demandLineId,
+          workOrderId: workOrderTarget.workOrderId,
+          workOrderNo: workOrderTarget.workOrderNo,
+          workOrderLineId: workOrderTarget.workOrderLineId,
+          operationId: operation.operationId,
+          operationName: operation.operationName,
+          processCode: operation.processCode,
+          processName: operation.processName,
+          craftCode: operation.craftCode,
+          craftName: operation.craftName,
+          targetFactoryId: targetFactory.targetFactoryId,
+          targetFactoryName: targetFactory.targetFactoryName,
+          feiTicketId: generatedTicket?.feiTicketId || feiTicketNo,
+          feiTicketNo,
+          partName: line.partName,
+          colorName: line.colorName,
+          sizeCode: line.sizeCode,
+          qty: originalQty,
+          originalQty,
+          openingQty: originalQty,
+          receivedQty: 0,
+          scrapQty: 0,
+          damageQty: 0,
+          closingQty: 0,
+          returnedQty: 0,
+          currentQty: originalQty,
+          cumulativeScrapQty: 0,
+          cumulativeDamageQty: 0,
+          unit: line.unit || '片',
+          feiTicketStatus: '待发料',
+          specialCraftFlowStatus: '待发料',
+          currentLocation: '裁床厂待交出仓',
+          flowEventIds: [],
+          completedOperationNames: [],
+          createdAt: generatedTicket?.issuedAt || taskOrder.createdAt || getNowText(),
+          updatedAt: generatedTicket?.issuedAt || taskOrder.createdAt || getNowText(),
+        })
+      })
+    })
+  })
+
+  const hasMultiOperationTicket = new Set(bindings.map((binding) => binding.feiTicketNo)).size < bindings.length
+  if (!hasMultiOperationTicket && bindings.length >= 2) {
+    const firstBinding = bindings[0]
+    const nextOperationBinding = bindings.find((binding) => binding.operationId !== firstBinding.operationId)
+    if (nextOperationBinding) {
+      bindings.push({
+        ...nextOperationBinding,
+        bindingId: buildBindingId(
+          nextOperationBinding.taskOrderId,
+          nextOperationBinding.demandLineId,
+          firstBinding.feiTicketNo,
+          nextOperationBinding.operationId,
+        ),
+        productionOrderId: firstBinding.productionOrderId,
+        productionOrderNo: firstBinding.productionOrderNo,
+        cuttingOrderId: firstBinding.cuttingOrderId,
+        cuttingOrderNo: firstBinding.cuttingOrderNo,
+        feiTicketId: firstBinding.feiTicketId,
+        feiTicketNo: firstBinding.feiTicketNo,
+        partName: firstBinding.partName,
+        colorName: firstBinding.colorName,
+        sizeCode: firstBinding.sizeCode,
+        qty: firstBinding.originalQty,
+        originalQty: firstBinding.originalQty,
+        openingQty: firstBinding.originalQty,
+        receivedQty: 0,
+        scrapQty: 0,
+        damageQty: 0,
+        closingQty: 0,
+        returnedQty: 0,
+        currentQty: firstBinding.originalQty,
+        cumulativeScrapQty: 0,
+        cumulativeDamageQty: 0,
+        feiTicketStatus: '待发料',
+        specialCraftFlowStatus: '待发料',
+        currentLocation: '裁床厂待交出仓',
+        flowEventIds: [],
+        completedOperationNames: [],
+        nextOperationName: undefined,
+        createdAt: firstBinding.createdAt,
+        updatedAt: firstBinding.updatedAt,
+      })
+    }
+  }
 
   const pendingBindingViews = buildPendingBindingViews(taskOrders, bindings)
   if (pendingBindingViews.length > 0) {
@@ -737,13 +1072,25 @@ function buildInternalBindings(): {
   pendingBindingViews: Prompt7PendingBindingView[]
 } {
   const buildResult = buildSpecialCraftFeiTicketBindingsFromGeneratedFeiTickets()
-  const taskOrders = listSpecialCraftTaskOrders().filter((taskOrder) => taskOrder.targetObject === '裁片')
+  const taskOrders = listSpecialCraftTaskOrders().filter(isCutPieceSpecialCraftTask)
   const pendingBindingViews = buildPendingBindingViews(taskOrders, buildResult.bindings)
+  const fallbackSequenceMap = new Map<string, string[]>()
+  buildResult.bindings.forEach((binding) => {
+    const matchedTicket = getFeiTicketByNo(binding.feiTicketNo)
+    if (matchedTicket?.secondaryCrafts.includes(binding.operationName)) return
+    const list = fallbackSequenceMap.get(binding.feiTicketNo) || []
+    list.push(binding.bindingId)
+    fallbackSequenceMap.set(binding.feiTicketNo, list)
+  })
   const internalBindings = buildResult.bindings
     .map((binding) => {
       const matchedTicket = getFeiTicketByNo(binding.feiTicketNo)
-      const sequenceIndex = matchedTicket?.secondaryCrafts.indexOf(binding.operationName) ?? -1
-      const sequenceTotal = matchedTicket?.secondaryCrafts.length ?? 0
+      const fallbackSequence = fallbackSequenceMap.get(binding.feiTicketNo) || []
+      const matchedSequenceIndex = matchedTicket?.secondaryCrafts.indexOf(binding.operationName) ?? -1
+      const sequenceIndex = matchedSequenceIndex >= 0
+        ? matchedSequenceIndex
+        : Math.max(fallbackSequence.indexOf(binding.bindingId), 0)
+      const sequenceTotal = matchedTicket?.secondaryCrafts.length || fallbackSequence.length || 1
       const taskSortIndex = matchedTicket && sequenceIndex >= 0 ? sequenceIndex : 999
       return {
         ...binding,
@@ -807,15 +1154,38 @@ function recomputeSequenceGate(store: FlowStore, productionOrderId?: string, fei
   byTicket.forEach((list) => {
     const sorted = [...list].sort((left, right) => left.sequenceIndex - right.sequenceIndex)
     sorted.forEach((binding, index) => {
-      if (index === 0) return
+      const completedOperationNames = sorted
+        .slice(0, index)
+        .filter((item) => item.specialCraftFlowStatus === '已回仓' && item.currentLocation === '裁床厂待交出仓')
+        .map((item) => item.operationName)
+      if (index === 0) {
+        updateBinding(store, binding.bindingId, (current) => ({
+          ...current,
+          completedOperationNames,
+          nextOperationName: sorted[index + 1]?.operationName,
+        }))
+        return
+      }
       const previous = sorted[index - 1]
-      const canDispatch = previous.specialCraftFlowStatus === '已回仓'
+      const canDispatch =
+        previous.specialCraftFlowStatus === '已回仓'
+        && previous.currentLocation === '裁床厂待交出仓'
+        && previous.currentQty > 0
       updateBinding(store, binding.bindingId, (current) => {
         if (CUTTING_SPECIAL_FACTORY_STATUSES.has(current.specialCraftFlowStatus) && current.dispatchHandoverRecordId) {
-          return current
+          return {
+            ...current,
+            completedOperationNames,
+            nextOperationName: sorted[index + 1]?.operationName,
+          }
         }
+        const openingQty = canDispatch ? previous.returnedQty || previous.currentQty : current.openingQty
         return {
           ...current,
+          openingQty,
+          currentQty: canDispatch ? openingQty : current.currentQty,
+          completedOperationNames,
+          nextOperationName: sorted[index + 1]?.operationName,
           feiTicketStatus: canDispatch ? '待发料' : '待确认顺序',
           specialCraftFlowStatus: canDispatch ? '待发料' : '待确认顺序',
           updatedAt: getNowText(),
@@ -835,6 +1205,7 @@ export function assertSpecialCraftDispatchAllowed(input: {
   if (!binding) throw new Error(`菲票 ${input.feiTicketNo} 未绑定对应特殊工艺任务。`)
   if (binding.targetFactoryId !== input.targetFactoryId) throw new Error('目标工厂与特殊工艺任务不一致。')
   if (binding.currentLocation !== '裁床厂待交出仓') throw new Error('当前菲票不在裁床厂待交出仓。')
+  if (binding.currentQty <= 0) throw new Error('当前数量为 0，不能发料。')
   if (binding.specialCraftFlowStatus !== '待发料') {
     if (binding.specialCraftFlowStatus === '待确认顺序') {
       throw new Error('当前特殊工艺顺序未满足，暂不可发料。')
@@ -896,6 +1267,7 @@ function buildPickupRecordFromBinding(
   operatorName: string,
   submittedAt: string,
 ): PdaPickupRecord {
+  const handedQty = getBindingFlowQty(binding)
   return {
     recordId: `SCPR-${binding.bindingId}`,
     handoverId: pickupHeadId,
@@ -911,13 +1283,13 @@ function buildPickupRecordFromBinding(
     pickupMode: 'WAREHOUSE_DELIVERY',
     pickupModeLabel: '仓库配送到厂',
     materialSummary: `${binding.operationName} / 菲票 ${binding.feiTicketNo}`,
-    qtyExpected: binding.qty,
+    qtyExpected: handedQty,
     qtyActual: undefined,
     qtyUnit: binding.unit,
     submittedAt,
     status: 'PENDING_FACTORY_CONFIRM',
     qrCodeValue: buildTaskQrValue(`SCPR-${binding.bindingId}`),
-    warehouseHandedQty: binding.qty,
+    warehouseHandedQty: handedQty,
     warehouseHandedAt: submittedAt,
     warehouseHandedBy: operatorName,
     remark: '特殊工艺发料待领料',
@@ -956,13 +1328,14 @@ export function createSpecialCraftDispatchHandoverFromFeiTickets(input: {
   const updatedBindings: CuttingSpecialCraftFeiTicketBinding[] = []
 
   selectedBindings.forEach((binding, index) => {
+    const handoverQty = getBindingFlowQty(binding)
     if (binding.dispatchHandoverRecordId) {
       updatedBindings.push(cloneValue(binding))
       return
     }
     const record = createFactoryHandoverRecord({
       handoverOrderId: handoverOrder.handoverOrderId || handoverOrder.handoverId,
-      submittedQty: binding.qty,
+      submittedQty: handoverQty,
       qtyUnit: binding.unit,
       factorySubmittedAt: input.submittedAt,
       factorySubmittedBy: input.operatorName,
@@ -970,7 +1343,7 @@ export function createSpecialCraftDispatchHandoverFromFeiTickets(input: {
       objectType: 'CUT_PIECE',
       handoutObjectType: 'CUT_PIECE',
       handoutItemLabel: `${binding.partName} / ${binding.colorName} / ${binding.sizeCode}`,
-      garmentEquivalentQty: binding.qty,
+      garmentEquivalentQty: handoverQty,
       materialCode: binding.craftCode,
       materialName: binding.operationName,
       materialSpec: binding.partName,
@@ -1002,7 +1375,7 @@ export function createSpecialCraftDispatchHandoverFromFeiTickets(input: {
       fabricColor: binding.colorName,
       sizeCode: binding.sizeCode,
       feiTicketNo: binding.feiTicketNo,
-      submittedQty: binding.qty,
+      submittedQty: handoverQty,
       unit: binding.unit,
       operatorName: input.operatorName,
       submittedAt: input.submittedAt,
@@ -1018,8 +1391,22 @@ export function createSpecialCraftDispatchHandoverFromFeiTickets(input: {
       currentLocation: '特殊工艺厂待领料',
       updatedAt: input.submittedAt,
     }))
+    const eventBinding = appendFlowEvent(
+      flowStore!,
+      nextBinding,
+      makeFlowEvent(nextBinding, {
+        eventType: '发料',
+        beforeQty: binding.currentQty,
+        changedQty: 0,
+        afterQty: handoverQty,
+        operatorName: input.operatorName,
+        occurredAt: input.submittedAt,
+        relatedRecordId: record.handoverRecordId || record.recordId,
+        relatedRecordNo: record.handoverRecordNo || record.recordId,
+      }),
+    )
     flowStore!.pickupRecordToDispatchRecordId.set(`SCPR-${binding.bindingId}`, record.handoverRecordId || record.recordId)
-    updatedBindings.push(cloneValue(nextBinding))
+    updatedBindings.push(cloneValue(eventBinding))
     void outboundLink
   })
 
@@ -1089,8 +1476,9 @@ export function markSpecialCraftFactoryReceivedFromHandover(input: {
     const pickupRecordId = `SCPR-${binding.bindingId}`
     const pickupRecord = findPdaPickupRecord(pickupRecordId)
     if (!pickupRecord) return
-    const receivedQty = targetBindings.length === 1 ? input.receiverWrittenQty : binding.qty
-    const differenceQty = roundQty(receivedQty - binding.qty)
+    const expectedQty = binding.openingQty || binding.currentQty || binding.qty
+    const receivedQty = targetBindings.length === 1 ? input.receiverWrittenQty : expectedQty
+    const differenceQty = roundQty(receivedQty - expectedQty)
     if (differenceQty !== 0) {
       upsertPdaPickupRecordMock({
         ...pickupRecord,
@@ -1126,7 +1514,7 @@ export function markSpecialCraftFactoryReceivedFromHandover(input: {
       fabricColor: binding.colorName,
       sizeCode: binding.sizeCode,
       feiTicketNo: binding.feiTicketNo,
-      expectedQty: binding.qty,
+      expectedQty,
       receivedQty,
       unit: binding.unit,
       receiverName: input.receiverName,
@@ -1139,13 +1527,48 @@ export function markSpecialCraftFactoryReceivedFromHandover(input: {
       ...current,
       receiverWrittenQty: receivedQty,
       differenceQty,
-      feiTicketStatus: differenceQty !== 0 ? '差异' : '已接收',
-      specialCraftFlowStatus: differenceQty !== 0 ? '差异' : '已接收',
-      currentLocation: differenceQty !== 0 ? '差异待处理' : '特殊工艺厂待加工仓',
+      receivedQty,
+      currentQty: receivedQty,
+      feiTicketStatus: '已接收',
+      specialCraftFlowStatus: '已接收',
+      currentLocation: '特殊工艺厂待加工仓',
       abnormalReason: differenceQty !== 0 ? input.differenceReason || '数量不符' : undefined,
       updatedAt: input.receivedAt,
     }))
-    updatedBindings.push(cloneValue(nextBinding))
+    const receivedBinding = appendFlowEvent(
+      flowStore!,
+      nextBinding,
+      makeFlowEvent(nextBinding, {
+        eventType: '接收',
+        beforeQty: expectedQty,
+        changedQty: differenceQty,
+        afterQty: receivedQty,
+        operatorName: input.receiverName,
+        occurredAt: input.receivedAt,
+        relatedRecordId: pickupRecordId,
+        relatedRecordNo: pickupRecordId,
+      }),
+    )
+    if (differenceQty !== 0) {
+      const report = createQtyDifferenceReport(flowStore!, receivedBinding, {
+        reportPhase: '接收差异',
+        expectedQty,
+        actualQty: receivedQty,
+        sourceRecordId: pickupRecordId,
+        sourceRecordNo: pickupRecordId,
+        reportedBy: input.receiverName,
+        reportedAt: input.receivedAt,
+        reason: input.differenceReason || '数量不符',
+      })
+      const reportedBinding = updateBinding(flowStore!, receivedBinding.bindingId, (current) => ({
+        ...current,
+        receiveDifferenceReportId: report.reportId,
+        receiveDifferenceStatus: report.platformStatus,
+      }))
+      updatedBindings.push(cloneValue(reportedBinding))
+      return
+    }
+    updatedBindings.push(cloneValue(receivedBinding))
   })
 
   const pickupHeadId = targetBindings[0] ? buildPickupHeadId(targetBindings[0].operationId, targetBindings[0].targetFactoryId) : ''
@@ -1159,11 +1582,78 @@ export function markSpecialCraftFactoryReceivedFromHandover(input: {
   }
 }
 
+export function recordSpecialCraftFeiTicketLossAndDamage(input: {
+  bindingId?: string
+  feiTicketNo?: string
+  operationId?: string
+  scrapQty: number
+  damageQty: number
+  reason?: string
+  operatorName: string
+  operatedAt: string
+}): CuttingSpecialCraftFeiTicketBinding {
+  ensureSpecialCraftFeiTicketFlowSeeded()
+  const binding = input.bindingId
+    ? flowStore!.bindings.find((item) => item.bindingId === input.bindingId)
+    : input.feiTicketNo && input.operationId
+      ? findBindingByFeiTicketAndOperation(flowStore!, input.feiTicketNo, input.operationId)
+      : undefined
+  if (!binding) throw new Error('未找到特殊工艺菲票记录。')
+  const scrapQty = roundQty(input.scrapQty)
+  const damageQty = roundQty(input.damageQty)
+  if (scrapQty + damageQty <= 0) throw new Error('报废数量和货损数量必须大于 0。')
+  const sourceQty = binding.receivedQty || binding.currentQty || binding.openingQty
+  if (scrapQty + damageQty > sourceQty) throw new Error('报废和货损数量不能超过当前实收数量。')
+  let nextBinding = updateBinding(flowStore!, binding.bindingId, (current) => ({
+    ...current,
+    scrapQty,
+    damageQty,
+    closingQty: roundQty(sourceQty - scrapQty - damageQty),
+    currentQty: roundQty(sourceQty - scrapQty - damageQty),
+    cumulativeScrapQty: roundQty(current.cumulativeScrapQty + scrapQty),
+    cumulativeDamageQty: roundQty(current.cumulativeDamageQty + damageQty),
+    updatedAt: input.operatedAt,
+  }))
+  if (scrapQty > 0) {
+    nextBinding = appendFlowEvent(
+      flowStore!,
+      nextBinding,
+      makeFlowEvent(nextBinding, {
+        eventType: '报废',
+        beforeQty: sourceQty,
+        changedQty: -scrapQty,
+        afterQty: roundQty(sourceQty - scrapQty),
+        operatorName: input.operatorName,
+        occurredAt: input.operatedAt,
+        remark: input.reason,
+      }),
+    )
+  }
+  if (damageQty > 0) {
+    nextBinding = appendFlowEvent(
+      flowStore!,
+      nextBinding,
+      makeFlowEvent(nextBinding, {
+        eventType: '货损',
+        beforeQty: roundQty(sourceQty - scrapQty),
+        changedQty: -damageQty,
+        afterQty: nextBinding.closingQty,
+        operatorName: input.operatorName,
+        occurredAt: input.operatedAt,
+        remark: input.reason,
+      }),
+    )
+  }
+  return cloneValue(nextBinding)
+}
+
 export function linkSpecialCraftCompletionToReturnWaitHandoverStock(input: {
   taskOrderId: string
   completedFeiTicketNos: string[]
   completedQty: number
   lossQty?: number
+  scrapQty?: number
+  damageQty?: number
   operatorName: string
   completedAt: string
 }): {
@@ -1184,7 +1674,13 @@ export function linkSpecialCraftCompletionToReturnWaitHandoverStock(input: {
   const returnHead = targetBindings[0] ? ensureReturnHead(targetBindings[0], targetBindings) : undefined
 
   targetBindings.forEach((binding) => {
-    const completedQty = targetBindings.length === 1 ? input.completedQty : binding.qty
+    const receivedQty = binding.receivedQty || binding.currentQty || binding.openingQty || binding.qty
+    const scrapQty = targetBindings.length === 1 ? roundQty(input.scrapQty ?? input.lossQty ?? binding.scrapQty ?? 0) : binding.scrapQty || 0
+    const damageQty = targetBindings.length === 1 ? roundQty(input.damageQty ?? binding.damageQty ?? 0) : binding.damageQty || 0
+    const closingQty = targetBindings.length === 1
+      ? roundQty(input.completedQty || receivedQty - scrapQty - damageQty)
+      : roundQty(receivedQty - scrapQty - damageQty)
+    if (closingQty < 0) throw new Error('完工后数量不能小于 0。')
     const result = linkTaskCompletionToWaitHandoverStock({
       taskId: taskOrder.taskOrderId,
       taskNo: taskOrder.taskOrderNo,
@@ -1200,8 +1696,8 @@ export function linkSpecialCraftCompletionToReturnWaitHandoverStock(input: {
       fabricColor: binding.colorName,
       sizeCode: binding.sizeCode,
       feiTicketNo: binding.feiTicketNo,
-      completedQty,
-      lossQty: input.lossQty || 0,
+      completedQty: closingQty,
+      lossQty: scrapQty + damageQty,
       unit: binding.unit,
       receiverKind: '裁床厂',
       receiverName: getCuttingFactory().name,
@@ -1210,12 +1706,48 @@ export function linkSpecialCraftCompletionToReturnWaitHandoverStock(input: {
     waitHandoverStockItems.push(result.waitHandoverStockItem)
     const nextBinding = updateBinding(flowStore!, binding.bindingId, (current) => ({
       ...current,
+      receivedQty,
+      scrapQty,
+      damageQty,
+      closingQty,
+      currentQty: closingQty,
+      cumulativeScrapQty: roundQty(current.cumulativeScrapQty + Math.max(scrapQty - current.scrapQty, 0)),
+      cumulativeDamageQty: roundQty(current.cumulativeDamageQty + Math.max(damageQty - current.damageQty, 0)),
       feiTicketStatus: '待回仓',
       specialCraftFlowStatus: '待回仓',
       currentLocation: '特殊工艺厂待交出仓',
       updatedAt: input.completedAt,
     }))
-    updatedBindings.push(cloneValue(nextBinding))
+    const completedBinding = appendFlowEvent(
+      flowStore!,
+      nextBinding,
+      makeFlowEvent(nextBinding, {
+        eventType: '完工',
+        beforeQty: receivedQty,
+        changedQty: roundQty(closingQty - receivedQty),
+        afterQty: closingQty,
+        operatorName: input.operatorName,
+        occurredAt: input.completedAt,
+        relatedRecordId: result.waitHandoverStockItem.stockItemId,
+        relatedRecordNo: result.waitHandoverStockItem.handoverOrderNo,
+        remark: scrapQty || damageQty ? `报废 ${scrapQty}，货损 ${damageQty}` : undefined,
+      }),
+    )
+    const waitReturnBinding = appendFlowEvent(
+      flowStore!,
+      completedBinding,
+      makeFlowEvent(completedBinding, {
+        eventType: '待回仓',
+        beforeQty: closingQty,
+        changedQty: 0,
+        afterQty: closingQty,
+        operatorName: '系统',
+        occurredAt: input.completedAt,
+        relatedRecordId: result.waitHandoverStockItem.stockItemId,
+        relatedRecordNo: result.waitHandoverStockItem.handoverOrderNo,
+      }),
+    )
+    updatedBindings.push(cloneValue(waitReturnBinding))
   })
 
   return { waitHandoverStockItems, updatedBindings }
@@ -1249,13 +1781,14 @@ export function createSpecialCraftReturnHandover(input: {
   let latestRecord: PdaHandoverRecord | null = null
   const updatedBindings: CuttingSpecialCraftFeiTicketBinding[] = []
   selectedBindings.forEach((binding) => {
+    const returnQty = getBindingCompletionQty(binding)
     if (binding.returnHandoverRecordId) {
       updatedBindings.push(cloneValue(binding))
       return
     }
     const record = createFactoryHandoverRecord({
       handoverOrderId: handoverOrder.handoverOrderId || handoverOrder.handoverId,
-      submittedQty: binding.qty,
+      submittedQty: returnQty,
       qtyUnit: binding.unit,
       factorySubmittedAt: input.submittedAt,
       factorySubmittedBy: input.operatorName,
@@ -1263,7 +1796,7 @@ export function createSpecialCraftReturnHandover(input: {
       objectType: 'CUT_PIECE',
       handoutObjectType: 'CUT_PIECE',
       handoutItemLabel: `${binding.partName} / ${binding.colorName} / ${binding.sizeCode}`,
-      garmentEquivalentQty: binding.qty,
+      garmentEquivalentQty: returnQty,
       materialCode: binding.craftCode,
       materialName: binding.operationName,
       materialSpec: binding.partName,
@@ -1292,7 +1825,7 @@ export function createSpecialCraftReturnHandover(input: {
       fabricColor: binding.colorName,
       sizeCode: binding.sizeCode,
       feiTicketNo: binding.feiTicketNo,
-      submittedQty: binding.qty,
+      submittedQty: returnQty,
       unit: binding.unit,
       operatorName: input.operatorName,
       submittedAt: input.submittedAt,
@@ -1308,7 +1841,21 @@ export function createSpecialCraftReturnHandover(input: {
       currentLocation: '回仓途中',
       updatedAt: input.submittedAt,
     }))
-    updatedBindings.push(cloneValue(nextBinding))
+    const eventBinding = appendFlowEvent(
+      flowStore!,
+      nextBinding,
+      makeFlowEvent(nextBinding, {
+        eventType: '回仓交出',
+        beforeQty: returnQty,
+        changedQty: 0,
+        afterQty: returnQty,
+        operatorName: input.operatorName,
+        occurredAt: input.submittedAt,
+        relatedRecordId: record.handoverRecordId || record.recordId,
+        relatedRecordNo: record.handoverRecordNo || record.recordId,
+      }),
+    )
+    updatedBindings.push(cloneValue(eventBinding))
   })
   syncHandoutHeadSummary(handoverOrder.handoverId)
   return {
@@ -1352,7 +1899,7 @@ export function receiveSpecialCraftReturnToCuttingWaitHandoverWarehouse(input: {
     receiverWrittenQty: input.receiverWrittenQty,
     receiverWrittenAt: input.receivedAt,
     receiverWrittenBy: input.receiverName,
-    differenceQty: targetBindings.length === 1 ? roundQty(input.receiverWrittenQty - targetBindings[0].qty) : 0,
+    differenceQty: targetBindings.length === 1 ? roundQty(input.receiverWrittenQty - getBindingCompletionQty(targetBindings[0])) : 0,
   })
   const cuttingWarehouse = getCuttingWaitHandoverWarehouse()
   const cuttingWaitHandoverStockItems: FactoryWaitHandoverStockItem[] = []
@@ -1360,8 +1907,9 @@ export function receiveSpecialCraftReturnToCuttingWaitHandoverWarehouse(input: {
   const updatedBindings: CuttingSpecialCraftFeiTicketBinding[] = []
 
   targetBindings.forEach((binding) => {
-    const receivedQty = targetBindings.length === 1 ? input.receiverWrittenQty : binding.qty
-    const differenceQty = roundQty(receivedQty - binding.qty)
+    const expectedQty = getBindingCompletionQty(binding)
+    const receivedQty = targetBindings.length === 1 ? input.receiverWrittenQty : expectedQty
+    const differenceQty = roundQty(receivedQty - expectedQty)
     const position = getPositionSeed(cuttingWarehouse, binding, differenceQty !== 0 ? '异常区' : '待确认区')
     const inboundRecord = upsertFactoryWarehouseInboundRecord({
       inboundRecordId: `SC-RET-INB-${binding.bindingId}`,
@@ -1387,7 +1935,7 @@ export function receiveSpecialCraftReturnToCuttingWaitHandoverWarehouse(input: {
       fabricColor: binding.colorName,
       sizeCode: binding.sizeCode,
       feiTicketNo: binding.feiTicketNo,
-      expectedQty: binding.qty,
+      expectedQty,
       receivedQty,
       differenceQty,
       unit: binding.unit,
@@ -1441,7 +1989,7 @@ export function receiveSpecialCraftReturnToCuttingWaitHandoverWarehouse(input: {
       shelfNo: position.shelfNo,
       locationNo: position.locationNo,
       locationText: position.locationText,
-      status: differenceQty !== 0 ? '差异' : '待交出',
+      status: '待交出',
       photoList: [],
       abnormalReason: differenceQty !== 0 ? input.differenceReason || '数量不符' : undefined,
       remark: '特殊工艺回仓进入裁床厂待交出仓',
@@ -1451,13 +1999,48 @@ export function receiveSpecialCraftReturnToCuttingWaitHandoverWarehouse(input: {
       ...current,
       receiverWrittenQty: receivedQty,
       differenceQty,
-      feiTicketStatus: differenceQty !== 0 ? '差异' : '已回仓',
-      specialCraftFlowStatus: differenceQty !== 0 ? '差异' : '已回仓',
-      currentLocation: differenceQty !== 0 ? '差异待处理' : '裁床厂待交出仓',
+      returnedQty: receivedQty,
+      currentQty: receivedQty,
+      feiTicketStatus: '已回仓',
+      specialCraftFlowStatus: '已回仓',
+      currentLocation: '裁床厂待交出仓',
       abnormalReason: differenceQty !== 0 ? input.differenceReason || '数量不符' : undefined,
       updatedAt: input.receivedAt,
     }))
-    updatedBindings.push(cloneValue(nextBinding))
+    const receivedBinding = appendFlowEvent(
+      flowStore!,
+      nextBinding,
+      makeFlowEvent(nextBinding, {
+        eventType: '回仓接收',
+        beforeQty: expectedQty,
+        changedQty: differenceQty,
+        afterQty: receivedQty,
+        operatorName: input.receiverName,
+        occurredAt: input.receivedAt,
+        relatedRecordId: input.returnHandoverRecordId,
+        relatedRecordNo: binding.returnHandoverRecordNo || input.returnHandoverRecordId,
+      }),
+    )
+    if (differenceQty !== 0) {
+      const report = createQtyDifferenceReport(flowStore!, receivedBinding, {
+        reportPhase: '回仓差异',
+        expectedQty,
+        actualQty: receivedQty,
+        sourceRecordId: input.returnHandoverRecordId,
+        sourceRecordNo: binding.returnHandoverRecordNo || input.returnHandoverRecordId,
+        reportedBy: input.receiverName,
+        reportedAt: input.receivedAt,
+        reason: input.differenceReason || '数量不符',
+      })
+      const reportedBinding = updateBinding(flowStore!, receivedBinding.bindingId, (current) => ({
+        ...current,
+        returnDifferenceReportId: report.reportId,
+        returnDifferenceStatus: report.platformStatus,
+      }))
+      updatedBindings.push(cloneValue(reportedBinding))
+      return
+    }
+    updatedBindings.push(cloneValue(receivedBinding))
   })
 
   recomputeSequenceGate(flowStore!, targetBindings[0]?.productionOrderId, targetBindings[0]?.feiTicketNo)
@@ -1487,9 +2070,10 @@ export function syncSpecialCraftReturnObjectionByHandoverRecord(input: {
     updateBinding(flowStore!, binding.bindingId, (current) => ({
       ...current,
       objectionStatus: '异议中',
-      feiTicketStatus: '异议中',
-      specialCraftFlowStatus: '异议中',
-      currentLocation: '差异待处理',
+      returnDifferenceStatus: current.returnDifferenceStatus === '已处理' ? '已处理' : '处理中',
+      feiTicketStatus: current.specialCraftFlowStatus,
+      specialCraftFlowStatus: current.specialCraftFlowStatus,
+      currentLocation: current.currentLocation,
       updatedAt: getNowText(),
     })),
   )
@@ -1534,13 +2118,25 @@ export function getCuttingSpecialCraftReturnStatusByProductionOrder(productionOr
       binding.specialCraftFlowStatus === '待回仓' || binding.currentLocation === '回仓途中',
   ).length
   const returnedCount = orderBindings.filter((binding) => binding.specialCraftFlowStatus === '已回仓').length
-  const differenceCount = orderBindings.filter((binding) => binding.specialCraftFlowStatus === '差异').length
-  const objectionCount = orderBindings.filter((binding) => binding.specialCraftFlowStatus === '异议中').length
+  const differenceCount = orderBindings.filter(
+    (binding) => getOpenDifferenceStatus(binding.receiveDifferenceStatus) || getOpenDifferenceStatus(binding.returnDifferenceStatus),
+  ).length
+  const objectionCount = orderBindings.filter((binding) => binding.objectionStatus === '异议中').length
+  const lastByFeiTicket = new Map<string, InternalBinding>()
+  orderBindings.forEach((binding) => {
+    const existing = lastByFeiTicket.get(binding.feiTicketNo)
+    if (!existing || binding.sequenceIndex > existing.sequenceIndex) {
+      lastByFeiTicket.set(binding.feiTicketNo, binding)
+    }
+  })
   const allReturned =
-    totalNeedSpecialCraftFeiTickets > 0
-    && returnedCount + orderBindings.filter((binding) => binding.sequenceIndex > 0 && binding.specialCraftFlowStatus === '待发料').length === totalNeedSpecialCraftFeiTickets
-    && differenceCount === 0
-    && objectionCount === 0
+    lastByFeiTicket.size > 0
+    && [...lastByFeiTicket.values()].every(
+      (binding) =>
+        binding.specialCraftFlowStatus === '已回仓'
+        && binding.currentLocation === '裁床厂待交出仓'
+        && binding.currentQty > 0,
+    )
   return {
     productionOrderNo,
     totalNeedSpecialCraftFeiTickets,
@@ -1569,7 +2165,13 @@ export function getSpecialCraftBindingSummaryByTaskOrderId(taskOrderId: string):
   receivedFeiTicketCount: number
   completedFeiTicketCount: number
   returnedFeiTicketCount: number
+  receiveDifferenceTicketCount: number
+  returnDifferenceTicketCount: number
   differenceFeiTicketCount: number
+  cumulativeScrapQty: number
+  cumulativeDamageQty: number
+  currentQty: number
+  childWorkOrderCount: number
   returnStatus: string
 } {
   const bindings = getSpecialCraftBindingsByTaskOrderId(taskOrderId)
@@ -1578,16 +2180,20 @@ export function getSpecialCraftBindingSummaryByTaskOrderId(taskOrderId: string):
   const receivedFeiTicketCount = bindings.filter((binding) => binding.specialCraftFlowStatus === '已接收').length
   const completedFeiTicketCount = bindings.filter((binding) => binding.specialCraftFlowStatus === '待回仓').length
   const returnedFeiTicketCount = bindings.filter((binding) => binding.specialCraftFlowStatus === '已回仓').length
-  const differenceFeiTicketCount = bindings.filter(
-    (binding) => binding.specialCraftFlowStatus === '差异' || binding.specialCraftFlowStatus === '异议中',
-  ).length
+  const receiveDifferenceTicketCount = bindings.filter((binding) => getOpenDifferenceStatus(binding.receiveDifferenceStatus)).length
+  const returnDifferenceTicketCount = bindings.filter((binding) => getOpenDifferenceStatus(binding.returnDifferenceStatus)).length
+  const differenceFeiTicketCount = receiveDifferenceTicketCount + returnDifferenceTicketCount
+  const cumulativeScrapQty = roundQty(bindings.reduce((total, binding) => total + binding.cumulativeScrapQty, 0))
+  const cumulativeDamageQty = roundQty(bindings.reduce((total, binding) => total + binding.cumulativeDamageQty, 0))
+  const currentQty = roundQty(bindings.reduce((total, binding) => total + binding.currentQty, 0))
+  const childWorkOrderCount = new Set(bindings.map((binding) => binding.workOrderId).filter(Boolean)).size
   const returnStatus =
-    differenceFeiTicketCount > 0
-      ? '差异'
-      : completedFeiTicketCount > 0
+    completedFeiTicketCount > 0
         ? '待回仓'
         : returnedFeiTicketCount > 0 && returnedFeiTicketCount === linkedFeiTicketCount
-          ? '已回仓'
+          ? differenceFeiTicketCount > 0
+            ? '已回仓 · 差异待处理'
+            : '已回仓'
           : dispatchedFeiTicketCount > 0
             ? '处理中'
             : linkedFeiTicketCount > 0
@@ -1599,55 +2205,176 @@ export function getSpecialCraftBindingSummaryByTaskOrderId(taskOrderId: string):
     receivedFeiTicketCount,
     completedFeiTicketCount,
     returnedFeiTicketCount,
+    receiveDifferenceTicketCount,
+    returnDifferenceTicketCount,
     differenceFeiTicketCount,
+    cumulativeScrapQty,
+    cumulativeDamageQty,
+    currentQty,
+    childWorkOrderCount,
     returnStatus,
+  }
+}
+
+export function getSpecialCraftFeiTicketScanSummary(feiTicketNo: string): {
+  hasSpecialCraft: boolean
+  operationNames: string[]
+  completedOperationNames: string[]
+  currentOperationName: string
+  nextOperationName: string
+  currentFlowStatus: string
+  currentLocation: string
+  originalQty: number
+  currentQty: number
+  cumulativeScrapQty: number
+  cumulativeDamageQty: number
+  hasOpenReceiveDifference: boolean
+  hasOpenReturnDifference: boolean
+  blockingReason: string
+  parentTaskOrderNo: string
+  workOrderNo: string
+} {
+  ensureSpecialCraftFeiTicketFlowSeeded()
+  const bindings = (flowStore?.bindings || [])
+    .filter((binding) => binding.feiTicketNo === feiTicketNo)
+    .sort((left, right) => left.sequenceIndex - right.sequenceIndex)
+  if (!bindings.length) {
+    return {
+      hasSpecialCraft: false,
+      operationNames: [],
+      completedOperationNames: [],
+      currentOperationName: '无特殊工艺',
+      nextOperationName: '',
+      currentFlowStatus: '无特殊工艺',
+      currentLocation: '裁床厂待交出仓',
+      originalQty: getFeiTicketByNo(feiTicketNo)?.qty || 0,
+      currentQty: getFeiTicketByNo(feiTicketNo)?.qty || 0,
+      cumulativeScrapQty: 0,
+      cumulativeDamageQty: 0,
+      hasOpenReceiveDifference: false,
+      hasOpenReturnDifference: false,
+      blockingReason: '',
+      parentTaskOrderNo: '',
+      workOrderNo: '',
+    }
+  }
+  const current =
+    bindings.find((binding) => binding.specialCraftFlowStatus !== '已回仓')
+    || bindings[bindings.length - 1]
+  const completedOperationNames = bindings
+    .filter((binding) => binding.specialCraftFlowStatus === '已回仓')
+    .map((binding) => binding.operationName)
+  const hasOpenReceiveDifference = bindings.some((binding) => getOpenDifferenceStatus(binding.receiveDifferenceStatus))
+  const hasOpenReturnDifference = bindings.some((binding) => getOpenDifferenceStatus(binding.returnDifferenceStatus))
+  const blockingReason =
+    current.specialCraftFlowStatus === '待确认顺序'
+      ? '等待前一道回仓'
+      : current.currentQty <= 0
+        ? '当前数量为 0'
+        : ''
+  return {
+    hasSpecialCraft: true,
+    operationNames: bindings.map((binding) => binding.operationName),
+    completedOperationNames,
+    currentOperationName: current.operationName,
+    nextOperationName: current.nextOperationName || '',
+    currentFlowStatus: current.specialCraftFlowStatus,
+    currentLocation: current.currentLocation,
+    originalQty: bindings[0].originalQty,
+    currentQty: current.currentQty,
+    cumulativeScrapQty: roundQty(bindings.reduce((total, binding) => total + binding.cumulativeScrapQty, 0)),
+    cumulativeDamageQty: roundQty(bindings.reduce((total, binding) => total + binding.cumulativeDamageQty, 0)),
+    hasOpenReceiveDifference,
+    hasOpenReturnDifference,
+    blockingReason,
+    parentTaskOrderNo: current.taskOrderNo,
+    workOrderNo: current.workOrderNo,
   }
 }
 
 export function getSpecialCraftFeiTicketSummary(feiTicketNo: string): {
   needSpecialCraft: boolean
   operationNames: string[]
+  completedOperationNames: string[]
+  currentOperationName: string
+  nextOperationName: string
   taskOrderNos: string[]
   dispatchStatus: string
   returnStatus: string
   currentLocation: string
+  originalQty: number
+  currentQty: number
+  cumulativeScrapQty: number
+  cumulativeDamageQty: number
+  receiveDifferenceStatus: string
+  returnDifferenceStatus: string
 } {
-  ensureSpecialCraftFeiTicketFlowSeeded()
+  const scanSummary = getSpecialCraftFeiTicketScanSummary(feiTicketNo)
   const bindings = flowStore?.bindings.filter((binding) => binding.feiTicketNo === feiTicketNo) || []
-  if (!bindings.length) {
+  if (!scanSummary.hasSpecialCraft) {
     return {
       needSpecialCraft: false,
       operationNames: [],
+      completedOperationNames: [],
+      currentOperationName: '无特殊工艺',
+      nextOperationName: '',
       taskOrderNos: [],
       dispatchStatus: '无',
       returnStatus: '无',
       currentLocation: '裁床厂待交出仓',
+      originalQty: scanSummary.originalQty,
+      currentQty: scanSummary.currentQty,
+      cumulativeScrapQty: 0,
+      cumulativeDamageQty: 0,
+      receiveDifferenceStatus: '—',
+      returnDifferenceStatus: '—',
     }
   }
-  const latest = bindings.find((binding) => binding.specialCraftFlowStatus === '异议中')
-    || bindings.find((binding) => binding.specialCraftFlowStatus === '差异')
-    || bindings.find((binding) => binding.specialCraftFlowStatus === '已回仓')
-    || bindings[0]
+  const latest = bindings.find((binding) => binding.operationName === scanSummary.currentOperationName) || bindings[bindings.length - 1]
   return {
     needSpecialCraft: true,
-    operationNames: Array.from(new Set(bindings.map((binding) => binding.operationName))),
+    operationNames: scanSummary.operationNames,
+    completedOperationNames: scanSummary.completedOperationNames,
+    currentOperationName: scanSummary.currentOperationName,
+    nextOperationName: scanSummary.nextOperationName,
     taskOrderNos: Array.from(new Set(bindings.map((binding) => binding.taskOrderNo))),
-    dispatchStatus: latest?.specialCraftFlowStatus || '待发料',
+    dispatchStatus: scanSummary.currentFlowStatus,
     returnStatus:
       latest?.specialCraftFlowStatus === '已回仓'
-        ? '已回仓'
+        ? scanSummary.hasOpenReturnDifference ? '已回仓 · 差异待处理' : '已回仓'
         : latest?.currentLocation === '回仓途中'
           ? '回仓途中'
           : latest?.specialCraftFlowStatus === '待回仓'
             ? '待回仓'
             : latest?.specialCraftFlowStatus || '待发料',
-    currentLocation: latest?.currentLocation || '裁床厂待交出仓',
+    currentLocation: scanSummary.currentLocation,
+    originalQty: scanSummary.originalQty,
+    currentQty: scanSummary.currentQty,
+    cumulativeScrapQty: scanSummary.cumulativeScrapQty,
+    cumulativeDamageQty: scanSummary.cumulativeDamageQty,
+    receiveDifferenceStatus: scanSummary.hasOpenReceiveDifference ? '差异待处理' : '—',
+    returnDifferenceStatus: scanSummary.hasOpenReturnDifference ? '差异待处理' : '—',
   }
 }
 
 export function listCuttingSpecialCraftFeiTicketBindings(): CuttingSpecialCraftFeiTicketBinding[] {
   ensureSpecialCraftFeiTicketFlowSeeded()
   return flowStore!.bindings.map(cloneValue)
+}
+
+export function listSpecialCraftQtyDifferenceReports(): SpecialCraftQtyDifferenceReport[] {
+  ensureSpecialCraftFeiTicketFlowSeeded()
+  return flowStore!.differenceReports.map(cloneValue)
+}
+
+export function getSpecialCraftQtyDifferenceReportsByTaskOrderId(taskOrderId: string): SpecialCraftQtyDifferenceReport[] {
+  ensureSpecialCraftFeiTicketFlowSeeded()
+  return flowStore!.differenceReports.filter((report) => report.taskOrderId === taskOrderId).map(cloneValue)
+}
+
+export function getSpecialCraftFeiTicketFlowEventsByWorkOrderId(workOrderId: string): SpecialCraftFeiTicketFlowEvent[] {
+  ensureSpecialCraftFeiTicketFlowSeeded()
+  return flowStore!.flowEvents.filter((event) => event.workOrderId === workOrderId).map(cloneValue)
 }
 
 export function listCuttingSpecialCraftDispatchViews(): CuttingSpecialCraftDispatchView[] {
@@ -1662,13 +2389,11 @@ export function listCuttingSpecialCraftDispatchViews(): CuttingSpecialCraftDispa
     partName: binding.partName,
     colorName: binding.colorName,
     sizeCode: binding.sizeCode,
-    qty: binding.qty,
+    qty: binding.currentQty || binding.qty,
     dispatchStatus:
       binding.specialCraftFlowStatus === '待确认顺序'
         ? '待确认顺序'
-        : binding.specialCraftFlowStatus === '差异'
-          ? '差异'
-          : binding.specialCraftFlowStatus === '异议中'
+        : binding.objectionStatus === '异议中'
             ? '异议中'
             : binding.specialCraftFlowStatus === '已接收'
               ? '已接收'
@@ -1680,20 +2405,18 @@ export function listCuttingSpecialCraftDispatchViews(): CuttingSpecialCraftDispa
     handoverRecordNo: binding.dispatchHandoverRecordNo || '未创建',
     receiverStatus:
       binding.specialCraftFlowStatus === '已接收'
-        ? '已接收'
-        : binding.specialCraftFlowStatus === '差异'
-          ? '差异'
-          : binding.specialCraftFlowStatus === '异议中'
-            ? '异议中'
-            : '待接收',
+        ? getOpenDifferenceStatus(binding.receiveDifferenceStatus)
+          ? '已接收 · 差异待处理'
+          : '已接收'
+        : binding.objectionStatus === '异议中'
+          ? '异议中'
+          : '待接收',
     returnStatus:
       binding.specialCraftFlowStatus === '已回仓'
         ? '已回仓'
-        : binding.specialCraftFlowStatus === '差异'
-          ? '差异'
-          : binding.specialCraftFlowStatus === '异议中'
-            ? '异议中'
-            : binding.currentLocation === '回仓途中'
+        : binding.objectionStatus === '异议中'
+          ? '异议中'
+          : binding.currentLocation === '回仓途中'
               ? '回仓途中'
               : binding.specialCraftFlowStatus === '待回仓'
                 ? '待回仓'
@@ -1735,17 +2458,15 @@ export function listCuttingSpecialCraftReturnViews(): CuttingSpecialCraftReturnV
       feiTicketNo: binding.feiTicketNo,
       partName: binding.partName,
       colorName: binding.colorName,
-      sizeCode: binding.sizeCode,
-      qty: binding.qty,
+    sizeCode: binding.sizeCode,
+      qty: binding.currentQty || binding.qty,
       returnHandoverRecordNo: binding.returnHandoverRecordNo || '未创建',
       receiverWrittenQty: binding.receiverWrittenQty,
       differenceQty: binding.differenceQty,
       returnStatus:
         binding.specialCraftFlowStatus === '已回仓'
           ? '已回仓'
-          : binding.specialCraftFlowStatus === '差异'
-            ? '差异'
-            : binding.specialCraftFlowStatus === '异议中'
+          : binding.objectionStatus === '异议中'
               ? '异议中'
               : binding.currentLocation === '回仓途中'
                 ? '回仓途中'
@@ -2012,11 +2733,33 @@ function ensureFlowStore(): FlowStore {
   const built = buildInternalBindings()
   flowStore = {
     bindings: built.bindings,
+    differenceReports: [],
+    flowEvents: built.bindings.map((binding, index) => ({
+      eventId: `SCFE-${binding.bindingId}-${String(index + 1).padStart(4, '0')}`,
+      bindingId: binding.bindingId,
+      productionOrderId: binding.productionOrderId,
+      taskOrderId: binding.taskOrderId,
+      workOrderId: binding.workOrderId,
+      operationId: binding.operationId,
+      operationName: binding.operationName,
+      feiTicketNo: binding.feiTicketNo,
+      eventType: '绑定',
+      beforeQty: binding.originalQty,
+      changedQty: 0,
+      afterQty: binding.currentQty,
+      operatorName: '系统',
+      occurredAt: binding.createdAt,
+      remark: '由特殊工艺任务明细绑定菲票',
+    })),
     warnings: built.warnings,
     errors: built.errors,
     pendingBindingViews: built.pendingBindingViews,
     pickupRecordToDispatchRecordId: new Map<string, string>(),
   }
+  flowStore.bindings = flowStore.bindings.map((binding, index) => ({
+    ...binding,
+    flowEventIds: [flowStore!.flowEvents[index].eventId],
+  }))
   seedPrompt7Scenario(flowStore)
   return flowStore
 }

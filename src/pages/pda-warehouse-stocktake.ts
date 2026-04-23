@@ -88,28 +88,36 @@ function renderDetailDrawer(): string {
                   <div class="mt-4 grid grid-cols-2 gap-2">
                     <label class="text-xs text-muted-foreground">
                       实盘数量
-                      <input
-                        type="number"
-                        min="0"
-                        step="1"
-                        class="mt-1 h-10 w-full rounded-xl border bg-background px-3 text-sm"
-                        data-pda-warehouse-field="stocktake-counted-qty"
-                        data-order-id="${escapeAttr(order.stocktakeOrderId)}"
-                        data-line-id="${escapeAttr(line.lineId)}"
-                        value="${line.countedQty ?? ''}"
-                      />
+                      ${
+                        order.status === '盘点中'
+                          ? `<input
+                              type="number"
+                              min="0"
+                              step="1"
+                              class="mt-1 h-10 w-full rounded-xl border bg-background px-3 text-sm"
+                              data-pda-warehouse-field="stocktake-counted-qty"
+                              data-order-id="${escapeAttr(order.stocktakeOrderId)}"
+                              data-line-id="${escapeAttr(line.lineId)}"
+                              value="${line.countedQty ?? ''}"
+                            />`
+                          : `<div class="mt-1 h-10 rounded-xl border bg-muted/40 px-3 py-2 text-sm text-foreground">${escapeHtml(line.countedQty === undefined ? '-' : String(line.countedQty))}</div>`
+                      }
                     </label>
                     <label class="text-xs text-muted-foreground">
                       差异原因
-                      <input
-                        type="text"
-                        class="mt-1 h-10 w-full rounded-xl border bg-background px-3 text-sm"
-                        data-pda-warehouse-field="stocktake-difference-reason"
-                        data-order-id="${escapeAttr(order.stocktakeOrderId)}"
-                        data-line-id="${escapeAttr(line.lineId)}"
-                        value="${escapeAttr(line.differenceReason || '')}"
-                        placeholder="差异时必填"
-                      />
+                      ${
+                        order.status === '盘点中'
+                          ? `<input
+                              type="text"
+                              class="mt-1 h-10 w-full rounded-xl border bg-background px-3 text-sm"
+                              data-pda-warehouse-field="stocktake-difference-reason"
+                              data-order-id="${escapeAttr(order.stocktakeOrderId)}"
+                              data-line-id="${escapeAttr(line.lineId)}"
+                              value="${escapeAttr(line.differenceReason || '')}"
+                              placeholder="差异时必填"
+                            />`
+                          : `<div class="mt-1 h-10 rounded-xl border bg-muted/40 px-3 py-2 text-sm text-foreground">${escapeHtml(line.differenceReason || '-')}</div>`
+                      }
                     </label>
                   </div>
                   <div class="mt-2 text-xs text-muted-foreground">差异数量：${escapeHtml(buildWarehouseDifferenceText(line.differenceQty))}</div>
@@ -121,7 +129,7 @@ function renderDetailDrawer(): string {
         <div class="sticky bottom-0 mt-4 border-t bg-background py-3">
           <div class="flex gap-2">
             <button type="button" class="flex-1 rounded-xl border px-3 py-2.5 text-sm" data-pda-warehouse-action="close-stocktake-detail">返回</button>
-            <button type="button" class="flex-1 rounded-xl bg-primary px-3 py-2.5 text-sm font-medium text-primary-foreground" data-pda-warehouse-action="complete-stocktake" data-order-id="${escapeAttr(order.stocktakeOrderId)}">完成盘点</button>
+            ${order.status === '盘点中' ? `<button type="button" class="flex-1 rounded-xl bg-primary px-3 py-2.5 text-sm font-medium text-primary-foreground" data-pda-warehouse-action="complete-stocktake" data-order-id="${escapeAttr(order.stocktakeOrderId)}">完成盘点</button>` : `<div class="flex-1 rounded-xl border px-3 py-2.5 text-center text-sm text-muted-foreground">${order.status === '待确认' ? '已提交差异待审核' : escapeHtml(order.status)}</div>`}
           </div>
         </div>
       </section>
@@ -135,7 +143,7 @@ export function renderPdaWarehouseStocktakePage(): string {
   const rows = getRows()
   const content = `
     <div class="space-y-4 px-4 pb-5 pt-4">
-      ${renderWarehouseSummaryHeader('盘点', '只支持全盘，记录差异，不生成完整库存调整单。', runtime.overview)}
+      ${renderWarehouseSummaryHeader('盘点', '只支持全盘，盘点差异需提交审核，审核通过后生成调整单。', runtime.overview)}
       <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
         <div class="flex items-center justify-between gap-3">
           <div>

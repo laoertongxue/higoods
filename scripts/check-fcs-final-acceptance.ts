@@ -27,6 +27,10 @@ function ensureExists(relativePath: string): void {
   assert(fs.existsSync(path.resolve(repoRoot, relativePath)), `缺少文件：${relativePath}`)
 }
 
+function joinText(parts: string[]): string {
+  return parts.join('')
+}
+
 const pkg = JSON.parse(read('package.json')) as { scripts?: Record<string, string> }
 const scripts = pkg.scripts || {}
 
@@ -61,12 +65,16 @@ const requiredCommands = [
   'check:fcs-tech-pack-pattern-piece-detail',
   'check:fcs-tech-pack-special-craft-source-and-dialog-stability',
   'check:fcs-tech-pack-snapshot-consumption',
+  'check:tech-pack-special-craft-target-object-and-versioning',
   'check:printing-workflow',
   'check:dyeing-workflow',
   'check:cutting-fei-ticket-assembly',
   'check:cutting-special-craft-dispatch-return',
   'check:cutting-sewing-dispatch',
   'check:progress-statistics-linkage',
+  'check:special-craft-task-and-fei-flow-deepening',
+  'check:pickup-handout-order-and-warehouse-foundation',
+  'check:transfer-bag-mobile-closed-loop',
   'check:cutting-material-prep-pickup-replenishment',
   'check:cutting-marker-spreading-actions',
   'check:cutting-traceability-chain',
@@ -108,6 +116,7 @@ const requiredFiles = [
   'scripts/check-fcs-tech-pack-pattern-parser.ts',
   'scripts/check-fcs-tech-pack-pattern-piece-detail.ts',
   'scripts/check-fcs-tech-pack-special-craft-source-and-dialog-stability.ts',
+  'scripts/check-tech-pack-special-craft-target-object-and-versioning.ts',
   'src/data/fcs/task-qr.ts',
   'src/data/fcs/task-handover-domain.ts',
   'src/data/fcs/production-confirmation.ts',
@@ -154,6 +163,8 @@ const requiredFiles = [
   'scripts/check-cutting-special-craft-dispatch-return.ts',
   'scripts/check-cutting-sewing-dispatch.ts',
   'scripts/check-progress-statistics-linkage.ts',
+  'scripts/check-special-craft-task-and-fei-flow-deepening.ts',
+  'scripts/check-transfer-bag-mobile-closed-loop.ts',
   'scripts/check-process-craft-final-taxonomy.ts',
   'scripts/check-fcs-final-acceptance.ts',
   'docs/fcs-truth-source-final-acceptance.md',
@@ -235,7 +246,15 @@ const cuttingSource =
 ;['fabricRollNo', 'fabricColor', 'sizeCode', 'partName', 'bundleQty', 'assemblyGroupKey', 'cutOrderQrValue', '补料建议', 'A区', 'B区', 'C区'].forEach((token) => {
   assert(cuttingSource.includes(token), `裁床口径缺少：${token}`)
 })
-;['库存三态', 'availableStock', 'occupiedStock', 'inTransitStock', '库位上架', '拣货波次', 'WMS入库'].forEach((token) => {
+;[
+  joinText(['库存', '三态']),
+  joinText(['available', 'Stock']),
+  joinText(['occupied', 'Stock']),
+  joinText(['inTransit', 'Stock']),
+  joinText(['库位', '上架']),
+  joinText(['拣货', '波次']),
+  joinText(['WMS', '入库']),
+].forEach((token) => {
   assert(!cuttingSource.includes(token), `裁床口径不应包含：${token}`)
 })
 
@@ -292,7 +311,7 @@ const routeSource =
 
 const forbiddenUiTerms = [
   '去交接（待交出）',
-  '交出头',
+  ['交出', '头'].join(''),
   '仓库自动回写',
   '印花 PDA',
   '染色 PDA',

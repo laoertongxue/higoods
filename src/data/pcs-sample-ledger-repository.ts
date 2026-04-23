@@ -158,6 +158,14 @@ export function listSampleLedgerEventsBySample(sampleAssetId: string): SampleLed
     .map(cloneEvent)
 }
 
+export function listSampleLedgerEventsBySourceTask(sourceDocId: string): SampleLedgerEventRecord[] {
+  return loadSnapshot()
+    .events
+    .filter((item) => item.sourceDocId === sourceDocId)
+    .sort((a, b) => b.businessDate.localeCompare(a.businessDate))
+    .map(cloneEvent)
+}
+
 export function getSampleLedgerEventById(ledgerEventId: string): SampleLedgerEventRecord | null {
   const event = loadSnapshot().events.find((item) => item.ledgerEventId === ledgerEventId)
   return event ? cloneEvent(event) : null

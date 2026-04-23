@@ -46,7 +46,7 @@ function buildPickupDisputeSummary(head: PdaHandoverHead, record: PdaPickupRecor
 
 function buildPickupDisputeDetail(head: PdaHandoverHead, record: PdaPickupRecord): string {
   return [
-    `领料头：${head.handoverId}`,
+    `领料单：${head.handoverId}`,
     `领料记录：${record.recordId}`,
     `生产单：${head.productionOrderNo}`,
     `任务号：${head.taskNo}`,
@@ -183,7 +183,7 @@ export function createPdaPickupDisputeCase(
 
   const head = findPdaPickupHead(record.handoverId)
   if (!head) {
-    return { record: null, exceptionCase: null, issues: ['未找到对应领料头'] }
+    return { record: null, exceptionCase: null, issues: ['未找到对应领料单'] }
   }
 
   const caseId = generateCaseId()

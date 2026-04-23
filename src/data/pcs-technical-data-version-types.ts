@@ -29,6 +29,9 @@ export interface TechnicalPatternPieceSpecialCraft {
   craftCode: string
   craftName: string
   displayName: string
+  selectedTargetObject?: '已裁部位' | '完整面料'
+  supportedTargetObjects?: Array<'CUT_PIECE' | 'FULL_FABRIC'>
+  supportedTargetObjectLabels?: Array<'已裁部位' | '完整面料'>
 }
 
 export interface TechnicalPatternPieceRow {
@@ -44,6 +47,8 @@ export interface TechnicalPatternPieceRow {
   applicableSkuCodes?: string[]
   colorAllocations?: TechnicalPatternPieceColorAllocation[]
   specialCrafts?: TechnicalPatternPieceSpecialCraft[]
+  bundleLengthCm?: number
+  bundleWidthCm?: number
   sourceType?: TechnicalPatternPieceSourceType
   missingName?: boolean
   missingCount?: boolean
@@ -121,6 +126,10 @@ export interface TechnicalProcessEntry {
   defaultDocType: 'DEMAND' | 'TASK'
   taskTypeMode: 'PROCESS' | 'CRAFT'
   isSpecialCraft: boolean
+  selectedTargetObject?: '已裁部位' | '完整面料'
+  supportedTargetObjects?: Array<'CUT_PIECE' | 'FULL_FABRIC'>
+  supportedTargetObjectLabels?: Array<'已裁部位' | '完整面料'>
+  visibleFactoryTypes?: string[]
   triggerSource?: string
   standardTimeMinutes?: number
   timeUnit?: string
@@ -249,6 +258,10 @@ export interface TechnicalDataVersionRecord {
   changeSummary: string
   linkedPartTemplateIds: string[]
   linkedPatternLibraryVersionIds: string[]
+  linkedPatternAssetIds?: string[]
+  linkedPatternAssetCodes?: string[]
+  archiveCollectedFlag?: boolean
+  archiveCollectedAt?: string
   versionStatus: TechnicalVersionStatus
   bomStatus: TechnicalDomainStatus
   patternStatus: TechnicalDomainStatus

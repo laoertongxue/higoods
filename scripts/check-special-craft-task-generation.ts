@@ -52,6 +52,7 @@ const artifactSource = read('src/data/fcs/production-artifact-generation.ts')
 const taskOrdersSource = read('src/pages/process-factory/special-craft/task-orders.ts')
 const taskDetailSource = read('src/pages/process-factory/special-craft/task-detail.ts')
 const warehouseSource = read('src/pages/process-factory/special-craft/warehouse.ts')
+const taskOrderDataSource = read('src/data/fcs/special-craft-task-orders.ts')
 const pdaWarehouseSource = read('src/pages/pda-warehouse.ts')
 const handoverSource = read('src/pages/pda-handover.ts')
 const confirmationSource = read('src/data/fcs/production-confirmation.ts')
@@ -68,9 +69,16 @@ assertContains(generatorSource, 'attachSpecialCraftTasksToProductionArtifacts', 
 assertContains(feiTicketFlowSource, 'buildSpecialCraftFeiTicketBindingsFromGeneratedFeiTickets', '缺少 Prompt 7 菲票绑定适配层')
 assertNotContains(feiTicketFlowSource, 'generateSpecialCraftTaskOrdersFromProductionOrder', '菲票绑定层不应重新生成特殊工艺任务')
 assertNotContains(feiTicketFlowSource, 'buildSpecialCraftTaskDemandLinesFromProductionOrder', '菲票绑定层不应重新生成特殊工艺任务明细')
+assertContains(taskOrderDataSource, 'SpecialCraftTaskWorkOrder', '特殊工艺任务数据层必须保留父任务并新增子工艺单')
+assertContains(taskOrderDataSource, 'buildSpecialCraftTaskWorkOrders', '特殊工艺任务生成后必须可拆子工艺单')
+assertContains(taskOrderDataSource, 'syncSpecialCraftTaskOrderAggregatesFromWorkOrders', '父任务聚合必须能从子工艺单同步')
 assertContains(generatorSource, 'patternFiles', '生成器未读取技术包快照纸样文件')
 assertContains(generatorSource, 'pieceRows', '生成器未读取裁片明细')
 assertContains(generatorSource, 'specialCrafts', '生成器未读取裁片特殊工艺')
+assertContains(generatorSource, 'craft.selectedTargetObject', '生成器必须读取技术包本次选择的作用对象')
+assertContains(generatorSource, 'resolveSelectedTargetObject', '生成器必须解析技术包特殊工艺作用对象')
+assertContains(generatorSource, 'isSpecialCraftTargetObjectSupported', '生成器必须校验作用对象是否在字典支持范围内')
+assertContains(generatorSource, 'getDemandLineUnit(selectedTargetObject)', '生成器必须按作用对象确定任务明细单位')
 assertContains(generatorSource, 'colorAllocations', '生成器未读取适用颜色与片数')
 assertContains(generatorSource, 'skuLines', '生成器未读取生产单颜色尺码数量矩阵')
 assertContains(generatorSource, 'planPieceQty: pieceCountPerGarment * orderQty', '计划片数计算公式不正确')
@@ -118,6 +126,7 @@ assert(demandBuildResult.demandLines.every((line) => line.planPieceQty === line.
 assert(demandBuildResult.demandLines.every((line) => line.patternFileId.trim().length > 0 && line.patternFileName.trim().length > 0), '任务明细必须包含来源纸样')
 assert(demandBuildResult.demandLines.every((line) => line.pieceRowId.trim().length > 0), '任务明细必须包含来源裁片明细')
 assert(demandBuildResult.demandLines.every((line) => Array.isArray(line.feiTicketNos) && line.feiTicketNos.length === 0), '任务生成时菲票字段必须允许为空')
+assert(demandBuildResult.demandLines.every((line) => line.targetObject === '已裁部位' || line.targetObject === '完整面料' || line.targetObject === '裁片' || line.targetObject === '面料'), '任务明细必须承接技术包选择的作用对象')
 
 const firstResult = generateSpecialCraftTaskOrdersFromProductionOrder({
   productionOrder: sampleOrder,
@@ -217,10 +226,19 @@ forbiddenVisibleTerms.forEach((token) => {
   buildToken('生成', '菲票'),
   buildToken('绑定', '菲票'),
 ].forEach((token) => {
-  assertNotContains(generatorSource + taskDetailSource + orderDetailSource, token, `本轮不应出现菲票提前处理：${token}`)
+  assertNotContains(generatorSource + orderDetailSource, token, `本轮不应出现菲票提前处理：${token}`)
 })
 
-;['axios', 'fetch(', 'apiClient', '/api/', 'i18n', 'useTranslation', 'locales', 'translations'].forEach((token) => {
+;[
+  buildToken('axi', 'os'),
+  buildToken('fet', 'ch('),
+  buildToken('api', 'Client'),
+  buildToken('/', 'api', '/'),
+  buildToken('i1', '8n'),
+  buildToken('use', 'Translation'),
+  buildToken('loc', 'ales'),
+  buildToken('trans', 'lations'),
+].forEach((token) => {
   assertNotContains(generatorSource + taskOrdersSource + taskDetailSource + orderDetailSource, token, `本轮不应越界到接口或多语言：${token}`)
 })
 

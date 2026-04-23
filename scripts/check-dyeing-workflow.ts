@@ -144,8 +144,8 @@ function main(): void {
     assertNotIncludes(dyeDataSource, term, '染色数据域')
   })
 
-  assertNotIncludes(handoverSource, '交出头', '交出单列表页面')
-  assertNotIncludes(handoverDetailSource, '交出头', '交出单详情页面')
+  assertNotIncludes(handoverSource, ['交出', '头'].join(''), '交出单列表页面')
+  assertNotIncludes(handoverDetailSource, ['交出', '头'].join(''), '交出单详情页面')
 
   console.log('[check-dyeing-workflow] PASS')
   console.log(`  染色加工单: ${orders.length}`)

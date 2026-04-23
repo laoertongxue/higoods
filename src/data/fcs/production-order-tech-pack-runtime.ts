@@ -44,7 +44,14 @@ function clonePatternFiles(items: TechPackPatternFileSnapshot[]): TechPackPatter
         ...allocation,
         skuCodes: [...(allocation.skuCodes ?? [])],
       })),
-      specialCrafts: row.specialCrafts?.map((craft) => ({ ...craft })),
+      specialCrafts: row.specialCrafts?.map((craft) => ({
+        ...craft,
+        selectedTargetObject: craft.selectedTargetObject,
+        supportedTargetObjects: [...(craft.supportedTargetObjects ?? [])],
+        supportedTargetObjectLabels: [...(craft.supportedTargetObjectLabels ?? [])],
+      })),
+      bundleLengthCm: row.bundleLengthCm,
+      bundleWidthCm: row.bundleWidthCm,
     })),
   }))
 }
@@ -52,7 +59,11 @@ function clonePatternFiles(items: TechPackPatternFileSnapshot[]): TechPackPatter
 function cloneProcessEntries(items: TechPackProcessEntry[]): TechPackProcessEntry[] {
   return items.map((item) => ({
     ...item,
+    selectedTargetObject: item.selectedTargetObject,
     detailSplitDimensions: [...(item.detailSplitDimensions ?? [])],
+    supportedTargetObjects: [...(item.supportedTargetObjects ?? [])],
+    supportedTargetObjectLabels: [...(item.supportedTargetObjectLabels ?? [])],
+    visibleFactoryTypes: [...(item.visibleFactoryTypes ?? [])],
   }))
 }
 
@@ -91,6 +102,12 @@ function cloneCutPieceParts(items: TechPackCutPiecePartSnapshot[]): TechPackCutP
     ...item,
     applicableColorList: [...item.applicableColorList],
     applicableSizeList: [...item.applicableSizeList],
+    specialCrafts: item.specialCrafts?.map((craft) => ({
+      ...craft,
+      selectedTargetObject: craft.selectedTargetObject,
+      supportedTargetObjects: [...(craft.supportedTargetObjects ?? [])],
+      supportedTargetObjectLabels: [...(craft.supportedTargetObjectLabels ?? [])],
+    })),
   }))
 }
 

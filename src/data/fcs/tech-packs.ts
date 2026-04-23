@@ -1,16 +1,29 @@
 import {
   PUBLISHED_SAM_UNIT_LABEL,
+  getSpecialCraftSupportedTargetObjectLabels,
+  getSpecialCraftTargetObjectLabel,
   getProcessCraftByCode,
   getProcessDefinitionByCode,
+  normalizeSpecialCraftTargetObjectLabel,
   listProcessCraftDefinitions,
   type PublishedSamUnit,
   type DetailSplitDimension,
   type DetailSplitMode,
   type RuleSource,
+  type SpecialCraftSupportedTargetObject,
+  type SpecialCraftTargetObjectLabel,
+  type SpecialCraftVisibleFactoryType,
 } from './process-craft-dict.ts'
 
-// 历史兼容快照：正式技术资料版本主来源已切换到 PCS 技术资料版本仓储。
-export type TechPackStatus = 'MISSING' | 'BETA' | 'RELEASED'
+// 历史兼容数据仍来自本地原型，技术包生命周期只保留三态。
+export type TechPackStatus = 'DRAFT' | 'ENABLED' | 'DISABLED'
+export type TechPackSpecialCraftTargetObject = SpecialCraftTargetObjectLabel
+
+export const TECH_PACK_STATUS_LABEL: Record<TechPackStatus, string> = {
+  DRAFT: '草稿',
+  ENABLED: '已启用',
+  DISABLED: '未启用',
+}
 
 export type TechPackPatternMaterialType = 'WOVEN' | 'KNIT' | 'UNKNOWN'
 export type TechPackPatternFileMode = 'PAIRED_DXF_RUL' | 'SINGLE_FILE'
@@ -54,6 +67,9 @@ export interface TechPackPatternPieceSpecialCraft {
   craftCode: string
   craftName: string
   displayName: string
+  selectedTargetObject: TechPackSpecialCraftTargetObject
+  supportedTargetObjects: SpecialCraftSupportedTargetObject[]
+  supportedTargetObjectLabels: SpecialCraftTargetObjectLabel[]
 }
 
 export interface TechPackPatternPieceRow {
@@ -69,6 +85,8 @@ export interface TechPackPatternPieceRow {
   applicableSkuCodes?: string[]
   colorAllocations?: TechPackPatternPieceColorAllocation[]
   specialCrafts?: TechPackPatternPieceSpecialCraft[]
+  bundleLengthCm?: number
+  bundleWidthCm?: number
   sourceType?: TechPackPatternPieceSourceType
   missingName?: boolean
   missingCount?: boolean
@@ -164,6 +182,10 @@ export interface TechPackProcessEntry {
   defaultDocType: TechPackProcessDocType
   taskTypeMode: TechPackTaskTypeMode
   isSpecialCraft: boolean
+  selectedTargetObject?: TechPackSpecialCraftTargetObject
+  supportedTargetObjects?: SpecialCraftSupportedTargetObject[]
+  supportedTargetObjectLabels?: SpecialCraftTargetObjectLabel[]
+  visibleFactoryTypes?: SpecialCraftVisibleFactoryType[]
   triggerSource?: string
   standardTimeMinutes?: number
   timeUnit?: string
@@ -305,6 +327,8 @@ export interface TechPack {
   spuName: string
   status: TechPackStatus
   versionLabel: string
+  officialVersionNo?: number
+  draftSourceVersionLabel?: string
   completenessScore: number
   missingChecklist: string[]
   lastUpdatedAt: string
@@ -386,6 +410,7 @@ function createCraftProcessEntry(
   standardTimeMinutes: number,
   difficulty: NonNullable<TechPackProcessEntry['difficulty']>,
   remark?: string,
+  selectedTargetObject?: TechPackSpecialCraftTargetObject,
 ): TechPackProcessEntry {
   const craft = processCraftByName.get(craftName)
   if (!craft) {
@@ -395,6 +420,14 @@ function createCraftProcessEntry(
   if (!process) {
     throw new Error(`未找到工序定义：${craft.processCode}`)
   }
+  const supportedTargetObjectLabels = getSpecialCraftSupportedTargetObjectLabels(craft.supportedTargetObjects)
+  const normalizedTargetObject = normalizeSpecialCraftTargetObjectLabel(selectedTargetObject)
+  const resolvedSelectedTargetObject =
+    craft.isSpecialCraft
+      ? normalizedTargetObject && supportedTargetObjectLabels.includes(normalizedTargetObject)
+        ? normalizedTargetObject
+        : supportedTargetObjectLabels[0]
+      : undefined
 
   return {
     id,
@@ -412,6 +445,10 @@ function createCraftProcessEntry(
     defaultDocType: craft.defaultDocType,
     taskTypeMode: craft.taskTypeMode,
     isSpecialCraft: craft.isSpecialCraft,
+    selectedTargetObject: resolvedSelectedTargetObject,
+    supportedTargetObjects: craft.isSpecialCraft ? [...craft.supportedTargetObjects] : undefined,
+    supportedTargetObjectLabels: craft.isSpecialCraft ? [...supportedTargetObjectLabels] : undefined,
+    visibleFactoryTypes: craft.isSpecialCraft ? [...craft.visibleFactoryTypes] : undefined,
     standardTimeMinutes,
     timeUnit: PUBLISHED_SAM_UNIT_LABEL[craft.referencePublishedSamUnit],
     referencePublishedSamValue: craft.referencePublishedSamValue,
@@ -432,6 +469,10 @@ function createPatternPieceSpecialCraft(craftName: string): TechPackPatternPiece
   if (!process) {
     throw new Error(`未找到特殊工艺工序定义：${craft.processCode}`)
   }
+  const supportedTargetObjectLabels = getSpecialCraftSupportedTargetObjectLabels(craft.supportedTargetObjects)
+  if (!supportedTargetObjectLabels.includes('已裁部位')) {
+    throw new Error(`特殊工艺「${craftName}」不支持已裁部位`)
+  }
 
   return {
     processCode: craft.processCode,
@@ -439,6 +480,9 @@ function createPatternPieceSpecialCraft(craftName: string): TechPackPatternPiece
     craftCode: craft.craftCode,
     craftName: craft.craftName,
     displayName: craft.craftName,
+    selectedTargetObject: '已裁部位',
+    supportedTargetObjects: [...craft.supportedTargetObjects],
+    supportedTargetObjectLabels,
   }
 }
 
@@ -470,7 +514,7 @@ export const techPacks: TechPack[] = [
   {
     spuCode: 'SPU-2024-001',
     spuName: '春季休闲T恤',
-    status: 'RELEASED',
+    status: 'ENABLED',
     versionLabel: 'v1.0',
     completenessScore: 100,
     missingChecklist: [],
@@ -679,8 +723,10 @@ export const techPacks: TechPack[] = [
       createCraftProcessEntry('tpe-001-01', '丝网印', 1.3, 'MEDIUM', '平台参考用于印花定位，当前款按 T 恤门幅略上调。'),
       createCraftProcessEntry('tpe-001-02', '匹染', 82, 'MEDIUM', '当前款主布统一按匹染准备。'),
       createCraftProcessEntry('tpe-001-03', '定位裁', 0.62, 'LOW', '当前款图案需要按定位裁执行。'),
-      createCraftProcessEntry('tpe-001-04', '基础连接', 1.0, 'MEDIUM', '作为当前款主体缝制基线。'),
-      createCraftProcessEntry('tpe-001-05', '包装', 0.33, 'LOW', '包装按独立袋装口径维护。'),
+      createCraftProcessEntry('tpe-001-04', '激光切', 0.68, 'MEDIUM', '前后片按已裁部位执行激光切。', '已裁部位'),
+      createCraftProcessEntry('tpe-001-05', '打揽', 0.74, 'MEDIUM', '门襟与口袋贴按已裁部位执行打揽。', '已裁部位'),
+      createCraftProcessEntry('tpe-001-06', '基础连接', 1.0, 'MEDIUM', '作为当前款主体缝制基线。'),
+      createCraftProcessEntry('tpe-001-07', '包装', 0.33, 'LOW', '包装按独立袋装口径维护。'),
     ],
     sizeTable: [
       { id: 's-1', part: '胸围', S: 96, M: 100, L: 104, XL: 108, tolerance: 4 },
@@ -937,8 +983,8 @@ export const techPacks: TechPack[] = [
   {
     spuCode: 'SPU-2024-002',
     spuName: '商务休闲裤',
-    status: 'BETA',
-    versionLabel: 'beta',
+    status: 'DRAFT',
+    versionLabel: '',
     completenessScore: 65,
     missingChecklist: ['花型设计', '附件'],
     lastUpdatedAt: '2024-03-18 10:00:00',
@@ -1109,8 +1155,8 @@ export const techPacks: TechPack[] = [
   {
     spuCode: 'SPU-2024-003',
     spuName: '女装褶皱连衣裙',
-    status: 'BETA',
-    versionLabel: 'beta',
+    status: 'DRAFT',
+    versionLabel: '',
     completenessScore: 45,
     missingChecklist: ['工序表', '花型设计', '附件'],
     lastUpdatedAt: '2024-03-20 09:15:00',
@@ -1241,8 +1287,8 @@ export const techPacks: TechPack[] = [
   {
     spuCode: 'SPU-2024-004',
     spuName: '运动短裤',
-    status: 'MISSING',
-    versionLabel: '-',
+    status: 'DRAFT',
+    versionLabel: '',
     completenessScore: 0,
     missingChecklist: ['制版文件', '工序表', '尺码表', 'BOM物料', '花型设计', '附件'],
     lastUpdatedAt: '-',
@@ -1259,14 +1305,43 @@ export const techPacks: TechPack[] = [
   {
     spuCode: 'SPU-2024-005',
     spuName: '中式布包扣上衣',
-    status: 'RELEASED',
+    status: 'ENABLED',
     versionLabel: 'v1.2',
     completenessScore: 100,
     missingChecklist: [],
     lastUpdatedAt: '2024-03-22 16:45:00',
     lastUpdatedBy: 'Siti Rahayu',
     patternFiles: [
-      { id: 'pf-5', fileName: '开衫前片.pdf', fileUrl: '#', uploadedAt: '2024-03-20', uploadedBy: 'Siti' },
+      {
+        id: 'pf-5',
+        fileName: '开衫前片.pdf',
+        fileUrl: '#',
+        uploadedAt: '2024-03-20',
+        uploadedBy: 'Siti',
+        selectedSizeCodes: ['S', 'M', 'L', 'XL'],
+        pieceRows: [
+          {
+            id: 'pf-5-piece-1',
+            name: '袖口',
+            count: 2,
+            sourceType: 'MANUAL',
+            colorAllocations: [
+              { id: 'pf-5-piece-1-grey', colorName: 'Grey', colorCode: 'GRY', skuCodes: ['SKU-005-S-GRY', 'SKU-005-M-GRY', 'SKU-005-L-GRY', 'SKU-005-XL-GRY'], pieceCount: 2 },
+            ],
+            specialCrafts: [createPatternPieceSpecialCraft('打揽')],
+          },
+          {
+            id: 'pf-5-piece-2',
+            name: '门襟滚边',
+            count: 2,
+            sourceType: 'MANUAL',
+            colorAllocations: [
+              { id: 'pf-5-piece-2-grey', colorName: 'Grey', colorCode: 'GRY', skuCodes: ['SKU-005-S-GRY', 'SKU-005-M-GRY', 'SKU-005-L-GRY', 'SKU-005-XL-GRY'], pieceCount: 2 },
+            ],
+            specialCrafts: [createPatternPieceSpecialCraft('打条')],
+          },
+        ],
+      },
       { id: 'pf-6', fileName: '开衫后片.pdf', fileUrl: '#', uploadedAt: '2024-03-20', uploadedBy: 'Siti' },
     ],
     patternDesc: '中式短款版型，门襟布包扣结构，局部装饰打条与绣饰工艺。',
@@ -1376,8 +1451,8 @@ export const techPacks: TechPack[] = [
   {
     spuCode: 'SPU-2024-006',
     spuName: '牛仔水洗外套',
-    status: 'BETA',
-    versionLabel: 'beta',
+    status: 'DRAFT',
+    versionLabel: '',
     completenessScore: 80,
     missingChecklist: ['附件'],
     lastUpdatedAt: '2024-03-23 11:20:00',
@@ -1489,7 +1564,7 @@ export const techPacks: TechPack[] = [
   {
     spuCode: 'SPU-2024-017',
     spuName: '运动功能外套',
-    status: 'RELEASED',
+    status: 'ENABLED',
     versionLabel: 'v1.0',
     completenessScore: 72,
     missingChecklist: ['工序表', '花型设计', '附件'],
@@ -1574,6 +1649,8 @@ export const techPacks: TechPack[] = [
               },
             ],
             specialCrafts: [createPatternPieceSpecialCraft('捆条')],
+            bundleLengthCm: 58,
+            bundleWidthCm: 3.2,
           },
         ],
       },
@@ -1823,7 +1900,7 @@ function createSupplementalReleasedTechPack(config: SupplementalReleasedTechPack
   return {
     spuCode: config.spuCode,
     spuName: config.spuName,
-    status: 'RELEASED',
+    status: 'ENABLED',
     versionLabel: config.versionLabel,
     completenessScore: 100,
     missingChecklist: [],
@@ -2457,18 +2534,47 @@ function applySupplementalReleasedTechPacks(): void {
 
 applySupplementalReleasedTechPacks()
 
-// 根据SPU获取技术包
-export function getTechPackBySpuCode(spuCode: string): TechPack | undefined {
-  return techPacks.find(tp => tp.spuCode === spuCode)
+function cloneTechPack(techPack: TechPack): TechPack {
+  return JSON.parse(JSON.stringify(techPack)) as TechPack
 }
 
-// 创建空白beta技术包
+function getOfficialVersionNo(versionLabel: string): number {
+  const matched = versionLabel.match(/v(\d+(?:\.\d+)?)/i)
+  if (!matched) return 0
+  return Number.parseFloat(matched[1]) || 0
+}
+
+function buildNextOfficialVersionLabel(spuCode: string): string {
+  const maxVersion = techPacks
+    .filter((item) => item.spuCode === spuCode && item.status !== 'DRAFT')
+    .reduce((max, item) => Math.max(max, item.officialVersionNo ?? getOfficialVersionNo(item.versionLabel)), 0)
+  return `v${(Math.floor(maxVersion) + 1).toFixed(1)}`
+}
+
+export function listTechPacksBySpuCode(spuCode: string): TechPack[] {
+  return techPacks.filter((tp) => tp.spuCode === spuCode)
+}
+
+export function getDraftTechPackBySpuCode(spuCode: string): TechPack | undefined {
+  return techPacks.find((tp) => tp.spuCode === spuCode && tp.status === 'DRAFT')
+}
+
+export function getEnabledTechPackBySpuCode(spuCode: string): TechPack | undefined {
+  return techPacks.find((tp) => tp.spuCode === spuCode && tp.status === 'ENABLED')
+}
+
+// 根据SPU获取技术包，优先进入草稿，其次读取已启用版本。
+export function getTechPackBySpuCode(spuCode: string): TechPack | undefined {
+  return getDraftTechPackBySpuCode(spuCode) || getEnabledTechPackBySpuCode(spuCode) || techPacks.find(tp => tp.spuCode === spuCode)
+}
+
+// 创建空白草稿技术包
 export function createBetaTechPack(spuCode: string, spuName: string): TechPack {
   return {
     spuCode,
     spuName,
-    status: 'BETA',
-    versionLabel: 'beta',
+    status: 'DRAFT',
+    versionLabel: '',
     completenessScore: 0,
     missingChecklist: ['制版文件', '工序表', '尺码表', 'BOM物料', '花型设计', '附件'],
     lastUpdatedAt: new Date().toISOString().replace('T', ' ').slice(0, 19),
@@ -2488,11 +2594,126 @@ export function createBetaTechPack(spuCode: string, spuName: string): TechPack {
   }
 }
 
-// 获取或创建技术包（如果不存在则创建beta版本）
+export const createDraftTechPack = createBetaTechPack
+
+export function createDraftTechPackForSpu(spuCode: string, spuName?: string): {
+  ok: boolean
+  message: string
+  techPack: TechPack
+} {
+  const existingDraft = getDraftTechPackBySpuCode(spuCode)
+  if (existingDraft) {
+    return {
+      ok: false,
+      message: '当前有草稿版本的技术包',
+      techPack: existingDraft,
+    }
+  }
+
+  const enabled = getEnabledTechPackBySpuCode(spuCode)
+  const draft = enabled
+    ? {
+        ...cloneTechPack(enabled),
+        status: 'DRAFT' as const,
+        versionLabel: '',
+        officialVersionNo: undefined,
+        draftSourceVersionLabel: enabled.versionLabel,
+        lastUpdatedAt: new Date().toISOString().replace('T', ' ').slice(0, 19),
+        lastUpdatedBy: 'System',
+      }
+    : createBetaTechPack(spuCode, spuName || spuCode)
+
+  techPacks.push(draft)
+  return {
+    ok: true,
+    message: '已创建草稿',
+    techPack: draft,
+  }
+}
+
+export function validateTechPackForPublish(techPack: TechPack): string[] {
+  const pieceSpecialCraftKeys = new Set<string>()
+  const errors: string[] = []
+
+  techPack.patternFiles.forEach((patternFile) => {
+    ;(patternFile.pieceRows ?? []).forEach((pieceRow) => {
+      const partName = String(pieceRow.name || '').trim() || '未命名部位'
+      ;(pieceRow.specialCrafts ?? []).forEach((craft) => {
+        const selectedTargetObject = normalizeSpecialCraftTargetObjectLabel(craft.selectedTargetObject) || '已裁部位'
+        pieceSpecialCraftKeys.add(`${craft.craftCode}:${selectedTargetObject}`)
+        if (craft.craftName === '捆条') {
+          if (!Number.isFinite(pieceRow.bundleLengthCm) || Number(pieceRow.bundleLengthCm) <= 0) {
+            errors.push(`裁片部位「${partName}」已关联捆条，但未填写捆条长度`)
+          }
+          if (!Number.isFinite(pieceRow.bundleWidthCm) || Number(pieceRow.bundleWidthCm) <= 0) {
+            errors.push(`裁片部位「${partName}」已关联捆条，但未填写捆条宽度`)
+          }
+        }
+      })
+    })
+  })
+
+  ;(techPack.processEntries ?? [])
+    .filter((entry) => entry.entryType === 'CRAFT' && entry.isSpecialCraft && entry.craftCode)
+    .forEach((entry) => {
+      const craft = getProcessCraftByCode(entry.craftCode || '')
+      const supportedLabels = entry.supportedTargetObjectLabels?.length
+        ? entry.supportedTargetObjectLabels
+        : getSpecialCraftSupportedTargetObjectLabels(craft?.supportedTargetObjects ?? [])
+      const selectedTargetObject =
+        normalizeSpecialCraftTargetObjectLabel(entry.selectedTargetObject)
+        || (supportedLabels.length === 1 ? supportedLabels[0] : '')
+
+      if (!selectedTargetObject) {
+        errors.push(`特殊工艺「${entry.craftName || entry.processName}」未选择作用对象`)
+        return
+      }
+      if (!supportedLabels.includes(selectedTargetObject)) {
+        errors.push(`特殊工艺「${entry.craftName || entry.processName}」选择的作用对象不在字典范围内`)
+        return
+      }
+      if (selectedTargetObject === '已裁部位' && !pieceSpecialCraftKeys.has(`${entry.craftCode}:${selectedTargetObject}`)) {
+        errors.push(`特殊工艺「${entry.craftName || entry.processName}」选择了已裁部位，但纸样管理中没有关联裁片部位`)
+      }
+    })
+
+  return Array.from(new Set(errors))
+}
+
+export function publishTechPackDraft(spuCode: string): {
+  ok: boolean
+  message: string
+  techPack?: TechPack
+  errors: string[]
+} {
+  const draft = getDraftTechPackBySpuCode(spuCode)
+  if (!draft) {
+    return { ok: false, message: '未找到草稿', errors: ['未找到草稿'] }
+  }
+  const errors = validateTechPackForPublish(draft)
+  if (errors.length > 0) {
+    return { ok: false, message: errors[0], techPack: draft, errors }
+  }
+
+  const nextVersionLabel = buildNextOfficialVersionLabel(spuCode)
+  techPacks.forEach((item) => {
+    if (item.spuCode === spuCode && item.status === 'ENABLED') {
+      item.status = 'DISABLED'
+    }
+  })
+  draft.status = 'ENABLED'
+  draft.versionLabel = nextVersionLabel
+  draft.officialVersionNo = getOfficialVersionNo(nextVersionLabel)
+  draft.draftSourceVersionLabel = undefined
+  draft.lastUpdatedAt = new Date().toISOString().replace('T', ' ').slice(0, 19)
+  return { ok: true, message: '已启用', techPack: draft, errors: [] }
+}
+
+// 获取或创建技术包（如果不存在则创建草稿版本）
 export function getOrCreateTechPack(spuCode: string, spuName?: string): TechPack {
   let techPack = getTechPackBySpuCode(spuCode)
   if (!techPack) {
-    // 如果没有提供spuName，尝试从已有的MISSING技术包或使用spuCode
+    // 如果没有提供spuName，使用spuCode创建草稿
     const finalSpuName = spuName || spuCode
     techPack = createBetaTechPack(spuCode, finalSpuName)
     techPacks.push(techPack)
@@ -2536,6 +2757,18 @@ export function resolveTechPackProcessEntryRule(entry: TechPackProcessEntry): Te
 
   const forcedInherit = entry.entryType === 'PROCESS_BASELINE'
   const forcedOverride = entry.entryType === 'CRAFT' && (entry.isSpecialCraft || craftDef?.isSpecialCraft)
+  const supportedTargetObjects = craftDef?.isSpecialCraft
+    ? [...(entry.supportedTargetObjects?.length ? entry.supportedTargetObjects : craftDef.supportedTargetObjects)]
+    : undefined
+  const supportedTargetObjectLabels = craftDef?.isSpecialCraft
+    ? (entry.supportedTargetObjectLabels?.length
+        ? [...entry.supportedTargetObjectLabels]
+        : getSpecialCraftSupportedTargetObjectLabels(supportedTargetObjects ?? []))
+    : undefined
+  const selectedTargetObject = craftDef?.isSpecialCraft
+    ? normalizeSpecialCraftTargetObjectLabel(entry.selectedTargetObject)
+      || (supportedTargetObjectLabels?.length === 1 ? supportedTargetObjectLabels[0] : undefined)
+    : undefined
   const defaultRuleSource: TechPackRuleSource = forcedOverride
     ? 'OVERRIDE_CRAFT'
     : craftDef?.ruleSource ?? 'INHERIT_PROCESS'
@@ -2577,6 +2810,10 @@ export function resolveTechPackProcessEntryRule(entry: TechPackProcessEntry): Te
     referencePublishedSamUnit: craftDef?.referencePublishedSamUnit,
     referencePublishedSamUnitLabel,
     referencePublishedSamNote: craftDef?.referencePublishedSamNote,
+    selectedTargetObject,
+    supportedTargetObjects,
+    supportedTargetObjectLabels,
+    visibleFactoryTypes: craftDef?.isSpecialCraft ? [...(entry.visibleFactoryTypes ?? craftDef.visibleFactoryTypes)] : undefined,
   }
 }
 

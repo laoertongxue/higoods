@@ -4,6 +4,7 @@ import type {
   PreProductionSampleTaskRecord,
   PreProductionSampleTaskStoreSnapshot,
 } from './pcs-pre-production-sample-types.ts'
+import { normalizeSamplePlanLines } from './pcs-sample-chain-service.ts'
 
 const STORAGE_KEY = 'higood-pcs-pre-production-sample-store-v1'
 const STORE_VERSION = 1
@@ -15,7 +16,12 @@ function canUseStorage(): boolean {
 }
 
 function cloneTask(task: PreProductionSampleTaskRecord): PreProductionSampleTaskRecord {
-  return { ...task }
+  return {
+    ...task,
+    specialSceneReasonCodes: [...(task.specialSceneReasonCodes || [])],
+    samplePlanLines: (task.samplePlanLines || []).map((line) => ({ ...line })),
+    finalReferenceSampleAssetIds: [...(task.finalReferenceSampleAssetIds || [])],
+  }
 }
 
 function clonePendingItem(item: PcsTaskPendingItem): PcsTaskPendingItem {
@@ -40,9 +46,41 @@ function seedSnapshot(): PreProductionSampleTaskStoreSnapshot {
 }
 
 function normalizeTask(task: PreProductionSampleTaskRecord): PreProductionSampleTaskRecord {
+  const sampleChainMode =
+    task.sampleChainMode ||
+    (task.sampleAssetId && task.sourceFirstSampleAssetId && task.sampleAssetId === task.sourceFirstSampleAssetId
+      ? '直接复用首版样衣'
+      : task.sampleAssetId
+        ? '新增一件产前版样衣'
+        : '直接复用首版样衣')
+  const sourceFirstSampleAssetId = task.sourceFirstSampleAssetId || (sampleChainMode === '直接复用首版样衣' ? task.sampleAssetId || '' : '')
+  const sourceFirstSampleCode = task.sourceFirstSampleCode || (sampleChainMode === '直接复用首版样衣' ? task.sampleCode || '' : '')
+  const finalReferenceSampleAssetIds = Array.isArray(task.finalReferenceSampleAssetIds)
+    ? [...task.finalReferenceSampleAssetIds]
+    : []
+  if (finalReferenceSampleAssetIds.length === 0) {
+    if (sampleChainMode === '直接复用首版样衣' && sourceFirstSampleAssetId) finalReferenceSampleAssetIds.push(sourceFirstSampleAssetId)
+    else if (task.sampleAssetId) finalReferenceSampleAssetIds.push(task.sampleAssetId)
+  }
   return {
     ...cloneTask(task),
     note: task.note || '',
+    sourceTechPackVersionId: task.sourceTechPackVersionId || '',
+    sourceTechPackVersionCode: task.sourceTechPackVersionCode || '',
+    sourceTechPackVersionLabel: task.sourceTechPackVersionLabel || '',
+    sourceFirstSampleTaskId: task.sourceFirstSampleTaskId || (task.upstreamObjectType.includes('首版') ? task.upstreamObjectId : ''),
+    sourceFirstSampleTaskCode: task.sourceFirstSampleTaskCode || (task.upstreamObjectType.includes('首版') ? task.upstreamObjectCode : ''),
+    sourceFirstSampleAssetId,
+    sourceFirstSampleCode,
+    sampleChainMode,
+    specialSceneReasonCodes: Array.isArray(task.specialSceneReasonCodes) ? [...task.specialSceneReasonCodes] : [],
+    specialSceneReasonText: task.specialSceneReasonText || '',
+    productionReferenceRequiredFlag: Boolean(task.productionReferenceRequiredFlag),
+    chinaReviewRequiredFlag: Boolean(task.chinaReviewRequiredFlag),
+    correctFabricRequiredFlag: Boolean(task.correctFabricRequiredFlag),
+    samplePlanLines: normalizeSamplePlanLines(sampleChainMode, task.samplePlanLines, sourceFirstSampleAssetId, sourceFirstSampleCode),
+    finalReferenceSampleAssetIds,
+    finalReferenceNote: task.finalReferenceNote || '',
     sampleAssetId: task.sampleAssetId || '',
     acceptedAt: task.acceptedAt || '',
     confirmedAt: task.confirmedAt || '',

@@ -131,6 +131,80 @@ function taskRelationRecord(input: {
   }
 }
 
+function revisionExecutionSeed(input: {
+  styleId?: string
+  styleCode?: string
+  styleName?: string
+  ownerName?: string
+  imageId?: string
+  sampleQty?: number
+  liveRetestRequired?: boolean
+}): Pick<
+  RevisionTaskRecord,
+  | 'baseStyleId'
+  | 'baseStyleCode'
+  | 'baseStyleName'
+  | 'baseStyleImageIds'
+  | 'targetStyleCodeCandidate'
+  | 'targetStyleNameCandidate'
+  | 'targetStyleImageIds'
+  | 'sampleQty'
+  | 'stylePreference'
+  | 'patternMakerId'
+  | 'patternMakerName'
+  | 'revisionSuggestionRichText'
+  | 'paperPrintAt'
+  | 'deliveryAddress'
+  | 'patternArea'
+  | 'materialAdjustmentLines'
+  | 'newPatternImageIds'
+  | 'newPatternSpuCode'
+  | 'patternChangeNote'
+  | 'patternPieceImageIds'
+  | 'patternFileIds'
+  | 'mainImageIds'
+  | 'designDraftImageIds'
+  | 'liveRetestRequired'
+  | 'liveRetestStatus'
+  | 'liveRetestRelationIds'
+  | 'liveRetestSummary'
+  | 'generatedNewTechPackVersionFlag'
+  | 'generatedNewTechPackVersionAt'
+> {
+  const imageId = input.imageId || ''
+  return {
+    baseStyleId: input.styleId || '',
+    baseStyleCode: input.styleCode || '',
+    baseStyleName: input.styleName || '',
+    baseStyleImageIds: imageId ? [imageId] : [],
+    targetStyleCodeCandidate: input.styleCode ? `${input.styleCode}-R` : '',
+    targetStyleNameCandidate: input.styleName ? `${input.styleName}改版款` : '',
+    targetStyleImageIds: imageId ? [imageId] : [],
+    sampleQty: input.sampleQty || 2,
+    stylePreference: '保留旧款卖点，优化直播呈现。',
+    patternMakerId: '',
+    patternMakerName: input.ownerName || '',
+    revisionSuggestionRichText: '按测款反馈调整版型、面辅料或花型细节。',
+    paperPrintAt: '',
+    deliveryAddress: '深圳样衣室',
+    patternArea: '深圳',
+    materialAdjustmentLines: [],
+    newPatternImageIds: [],
+    newPatternSpuCode: '',
+    patternChangeNote: '',
+    patternPieceImageIds: [],
+    patternFileIds: [],
+    mainImageIds: imageId ? [imageId] : [],
+    designDraftImageIds: [],
+    liveRetestRequired: Boolean(input.liveRetestRequired),
+    liveRetestStatus: input.liveRetestRequired ? '待回直播验证' : '不需要',
+    liveRetestRelationIds: [],
+    liveRetestSummary: '',
+    generatedNewTechPackVersionFlag: false,
+    generatedNewTechPackVersionAt: '',
+  }
+}
+
 function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: PcsTaskPendingItem[] } {
   const tasks: RevisionTaskRecord[] = []
   const projectA = pickProjectByCode('PRJ-20251216-001')
@@ -179,6 +253,14 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
       revisionVersion: '',
       issueSummary: '领口开口偏大，腰节位置偏低，面料克重不利于直播镜头呈现。',
       evidenceSummary: '直播测款评论、试穿反馈和面料手感评审记录已确认上述问题。',
+      evidenceImageUrls: [],
+      ...revisionExecutionSeed({
+        styleId: styleA?.styleId || '',
+        styleCode: styleA?.styleCode || 'SPU-LY-2401',
+        styleName: styleA?.styleName || projectA.projectName,
+        ownerName: '李版师',
+        liveRetestRequired: true,
+      }),
       linkedTechPackVersionId: '',
       linkedTechPackVersionCode: '',
       linkedTechPackVersionLabel: '',
@@ -231,6 +313,14 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
       revisionVersion: 'R1',
       issueSummary: '原款花型节奏偏密、主色偏暗，既有商品复刻后缺少夏季轻快感。',
       evidenceSummary: '对比门店反馈、竞品陈列照片和既有款销售评论后确认需要调整。',
+      evidenceImageUrls: [],
+      ...revisionExecutionSeed({
+        styleId: styleB.styleId,
+        styleCode: styleB.styleCode,
+        styleName: styleB.styleName,
+        ownerName: '王版师',
+        liveRetestRequired: true,
+      }),
       linkedTechPackVersionId: '',
       linkedTechPackVersionCode: '',
       linkedTechPackVersionLabel: '',
@@ -340,6 +430,14 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
       revisionVersion: '',
       issueSummary: '测款与评审结论已汇总，需要据此调整当前款式的重点问题。',
       evidenceSummary: '来源于测款结论、样衣评审和复盘记录的正式结论摘要。',
+      evidenceImageUrls: [],
+      ...revisionExecutionSeed({
+        styleId: style?.styleId || '',
+        styleCode: style?.styleCode || item.productStyleCode,
+        styleName: style?.styleName || project.projectName,
+        ownerName: item.ownerName,
+        liveRetestRequired: true,
+      }),
       linkedTechPackVersionId: '',
       linkedTechPackVersionCode: '',
       linkedTechPackVersionLabel: '',
@@ -392,6 +490,14 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
       revisionVersion: 'R1',
       issueSummary: '设计评审认为花型留白不足、裤脚展开角度偏保守，影响设计识别度。',
       evidenceSummary: '来源于设计评审纪要和试穿对照图，不依赖上游自动汇集。',
+      evidenceImageUrls: [],
+      ...revisionExecutionSeed({
+        styleId: manualStyle.styleId,
+        styleCode: manualStyle.styleCode,
+        styleName: manualStyle.styleName,
+        ownerName: '陈版师',
+        liveRetestRequired: false,
+      }),
       linkedTechPackVersionId: '',
       linkedTechPackVersionCode: '',
       linkedTechPackVersionLabel: '',
@@ -412,6 +518,68 @@ function createRevisionSeeds(): { tasks: RevisionTaskRecord[]; pendingItems: Pcs
     pendingItems: [
       pendingItem('改版任务', 'RT-LEGACY-404', 'PRJ-404-NOT-FOUND', 'WI-LEGACY-001', '历史改版任务引用的商品项目不存在。', '2026-01-09 14:30:00'),
     ],
+  }
+}
+
+function plateExecutionSeed(taskId: string, input: {
+  makerName: string
+  area: '印尼' | '深圳'
+  urgent?: boolean
+  sampleConfirmedAt?: string
+  colorRequirementText?: string
+  newPatternSpuCode?: string
+  materialName?: string
+  materialSku?: string
+  templateCode?: string
+  templateName?: string
+}): Partial<PlateMakingTaskRecord> {
+  return {
+    productHistoryType: '未卖过',
+    patternMakerId: `maker_${input.makerName}`,
+    patternMakerName: input.makerName,
+    sampleConfirmedAt: input.sampleConfirmedAt || '',
+    urgentFlag: Boolean(input.urgent),
+    patternArea: input.area,
+    colorRequirementText: input.colorRequirementText || '按测款反馈保留肩宽和腰节，花色以轻量碎花方向为准。',
+    newPatternSpuCode: input.newPatternSpuCode || '',
+    flowerImageIds: [`mock://plate-flower/${taskId}/1`],
+    materialRequirementLines: [
+      {
+        lineId: `${taskId}_material_1`,
+        materialImageId: `mock://plate-material/${taskId}/1`,
+        materialName: input.materialName || '雪纺印花面料',
+        materialSku: input.materialSku || 'FAB-PRINT-001',
+        printRequirement: '按主花色对位，色差控制在样衣确认范围内',
+        quantity: 1,
+        unitPrice: 0,
+        amount: 0,
+        note: '制版阶段输入，后续技术包 BOM 可参考。',
+      },
+    ],
+    patternImageLineItems: [
+      {
+        lineId: `${taskId}_pattern_image_1`,
+        imageId: `mock://plate-pattern-image/${taskId}/front`,
+        materialPartName: '前片',
+        materialDescription: '前片纸样图片，含领口和腰节线',
+        pieceCount: 2,
+      },
+    ],
+    patternPdfFileIds: [`mock://plate-file/${taskId}/pattern.pdf`],
+    patternDxfFileIds: [`mock://plate-file/${taskId}/pattern.dxf`],
+    patternRulFileIds: [`mock://plate-file/${taskId}/pattern.rul`],
+    supportImageIds: [`mock://plate-support/${taskId}/1`],
+    supportVideoIds: [],
+    partTemplateLinks: [
+      {
+        templateId: `${taskId}_template_1`,
+        templateCode: input.templateCode || 'PART-TPL-DRESS-001',
+        templateName: input.templateName || '连衣裙基础前后片模板',
+        matchedPartNames: ['前片', '后片'],
+      },
+    ],
+    primaryTechPackGeneratedFlag: false,
+    primaryTechPackGeneratedAt: '',
   }
 }
 
@@ -440,6 +608,13 @@ function createPlateSeeds(): { tasks: PlateMakingTaskRecord[]; pendingItems: Pcs
       upstreamObjectCode: 'RT-20260109-003',
       productStyleCode: 'SPU-001',
       spuCode: 'SPU-001',
+      ...plateExecutionSeed('PT-20260109-002', {
+        makerName: '王版师',
+        area: '印尼',
+        urgent: true,
+        sampleConfirmedAt: '2026-01-13 16:00:00',
+        newPatternSpuCode: 'PAT-SPU-001',
+      }),
       patternType: '连衣裙',
       sizeRange: 'S-XL',
       patternVersion: 'P1',
@@ -482,6 +657,14 @@ function createPlateSeeds(): { tasks: PlateMakingTaskRecord[]; pendingItems: Pcs
       upstreamObjectCode: projectB.templateVersion,
       productStyleCode: 'SPU-002',
       spuCode: 'SPU-002',
+      ...plateExecutionSeed('PT-20260109-001', {
+        makerName: '李版师',
+        area: '深圳',
+        materialName: '精梳棉汗布',
+        materialSku: 'FAB-COTTON-002',
+        templateCode: 'PART-TPL-TEE-001',
+        templateName: '基础 T 恤前后片模板',
+      }),
       patternType: '上衣',
       sizeRange: 'XS-XXL',
       patternVersion: '',
@@ -597,6 +780,13 @@ function createPlateSeeds(): { tasks: PlateMakingTaskRecord[]; pendingItems: Pcs
       upstreamObjectCode: item.upstreamObjectCode,
       productStyleCode: item.productStyleCode,
       spuCode: item.spuCode,
+      ...plateExecutionSeed(item.plateTaskId, {
+        makerName: item.ownerName,
+        area: item.projectCode === 'PRJ-20251216-014' ? '深圳' : '印尼',
+        urgent: item.priorityLevel === '高',
+        sampleConfirmedAt: item.status === '已完成' ? item.updatedAt : '',
+        newPatternSpuCode: item.projectCode === 'PRJ-20251216-011' ? 'PAT-SPU-081' : '',
+      }),
       patternType: item.patternType,
       sizeRange: item.sizeRange,
       patternVersion: item.patternVersion,
@@ -865,6 +1055,132 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
   }
 }
 
+function firstSampleChainSeed(input: {
+  upstreamObjectType: string
+  upstreamObjectId: string
+  upstreamObjectCode: string
+  sampleAssetId?: string
+  sampleCode?: string
+  reusable?: boolean
+  confirmedAt?: string
+}): Pick<FirstSampleTaskRecord,
+  'sourceTechPackVersionId' | 'sourceTechPackVersionCode' | 'sourceTechPackVersionLabel' | 'sourceTaskType' | 'sourceTaskId' | 'sourceTaskCode' | 'sampleMaterialMode' | 'samplePurpose' | 'sampleAssetIds' | 'sampleImageIds' | 'reuseAsPreProductionFlag' | 'reuseAsPreProductionConfirmedAt' | 'reuseAsPreProductionConfirmedBy' | 'reuseAsPreProductionNote' | 'fitConfirmationSummary' | 'artworkConfirmationSummary' | 'productionReadinessNote' | 'acceptedAt' | 'confirmedAt'
+> {
+  const reusable = Boolean(input.reusable)
+  return {
+    sourceTechPackVersionId: '',
+    sourceTechPackVersionCode: '',
+    sourceTechPackVersionLabel: '',
+    sourceTaskType: input.upstreamObjectType,
+    sourceTaskId: input.upstreamObjectId,
+    sourceTaskCode: input.upstreamObjectCode,
+    sampleMaterialMode: '正确布',
+    samplePurpose: reusable ? '产前复用候选' : '首版确认',
+    sampleAssetIds: input.sampleAssetId ? [input.sampleAssetId] : [],
+    sampleImageIds: input.sampleAssetId ? [`mock://sample-image/${input.sampleCode || input.sampleAssetId}`] : [],
+    reuseAsPreProductionFlag: reusable,
+    reuseAsPreProductionConfirmedAt: reusable ? input.confirmedAt || '' : '',
+    reuseAsPreProductionConfirmedBy: reusable ? '系统初始化' : '',
+    reuseAsPreProductionNote: reusable ? '首版样衣可作为产前版参照。' : '',
+    fitConfirmationSummary: reusable ? '版型可作为生产参照。' : '',
+    artworkConfirmationSummary: reusable ? '外观和花型效果可接受。' : '',
+    productionReadinessNote: reusable ? '可进入产前参照准备。' : '',
+    acceptedAt: '',
+    confirmedAt: input.confirmedAt || '',
+  }
+}
+
+function preProductionChainSeed(input: {
+  upstreamObjectId: string
+  upstreamObjectCode: string
+  sampleAssetId?: string
+  sampleCode?: string
+  mode?: PreProductionSampleTaskRecord['sampleChainMode']
+  factoryReference?: boolean
+  dualSample?: boolean
+}): Pick<PreProductionSampleTaskRecord,
+  'sourceTechPackVersionId' | 'sourceTechPackVersionCode' | 'sourceTechPackVersionLabel' | 'sourceFirstSampleTaskId' | 'sourceFirstSampleTaskCode' | 'sourceFirstSampleAssetId' | 'sourceFirstSampleCode' | 'sampleChainMode' | 'specialSceneReasonCodes' | 'specialSceneReasonText' | 'productionReferenceRequiredFlag' | 'chinaReviewRequiredFlag' | 'correctFabricRequiredFlag' | 'samplePlanLines' | 'finalReferenceSampleAssetIds' | 'finalReferenceNote' | 'acceptedAt' | 'confirmedAt'
+> {
+  const mode = input.dualSample ? '双样衣' : input.mode || (input.sampleAssetId ? '新增一件产前版样衣' : '直接复用首版样衣')
+  const reuseAssetId = mode === '直接复用首版样衣' ? input.sampleAssetId || '' : ''
+  const reuseCode = mode === '直接复用首版样衣' ? input.sampleCode || '' : ''
+  const samplePlanLines = mode === '双样衣'
+    ? [
+        {
+          lineId: 'dual-substitute-01',
+          sampleRole: '替代布确认样' as const,
+          materialMode: '替代布' as const,
+          quantity: 1,
+          targetFactoryId: '',
+          targetFactoryName: '',
+          linkedSampleAssetId: '',
+          linkedSampleCode: '',
+          status: '待计划' as const,
+          note: '先用替代布确认版型和工艺。',
+        },
+        {
+          lineId: 'dual-correct-01',
+          sampleRole: '正确布确认样' as const,
+          materialMode: '正确布' as const,
+          quantity: 1,
+          targetFactoryId: '',
+          targetFactoryName: '',
+          linkedSampleAssetId: '',
+          linkedSampleCode: '',
+          status: '待计划' as const,
+          note: '再用正确布确认生产参照。',
+        },
+      ]
+    : [
+        {
+          lineId: mode === '直接复用首版样衣' ? 'reuse-first-sample-01' : 'new-correct-sample-01',
+          sampleRole: mode === '直接复用首版样衣' ? '复用首版样衣' as const : '正确布确认样' as const,
+          materialMode: mode === '直接复用首版样衣' ? '复用首版' as const : '正确布' as const,
+          quantity: 1,
+          targetFactoryId: '',
+          targetFactoryName: '',
+          linkedSampleAssetId: reuseAssetId,
+          linkedSampleCode: reuseCode,
+          status: reuseAssetId ? '已确认' as const : '待计划' as const,
+          note: mode === '直接复用首版样衣' ? '直接复用首版样衣作为产前参照。' : '',
+        },
+      ]
+  if (input.factoryReference) {
+    samplePlanLines.push({
+      lineId: 'factory-reference-01',
+      sampleRole: '工厂参照样',
+      materialMode: '正确布',
+      quantity: 3,
+      targetFactoryId: 'factory-reference',
+      targetFactoryName: '参与生产工厂',
+      linkedSampleAssetId: '',
+      linkedSampleCode: '',
+      status: '待计划',
+      note: '大货前分发给生产工厂参照。',
+    })
+  }
+  return {
+    sourceTechPackVersionId: '',
+    sourceTechPackVersionCode: '',
+    sourceTechPackVersionLabel: '',
+    sourceFirstSampleTaskId: input.upstreamObjectId,
+    sourceFirstSampleTaskCode: input.upstreamObjectCode,
+    sourceFirstSampleAssetId: reuseAssetId,
+    sourceFirstSampleCode: reuseCode,
+    sampleChainMode: mode,
+    specialSceneReasonCodes: input.dualSample ? ['定位印', '正确布确认'] : input.factoryReference ? ['大货量大', '工厂参照样'] : [],
+    specialSceneReasonText: input.dualSample ? '定位印需要替代布和正确布双样衣确认。' : '',
+    productionReferenceRequiredFlag: Boolean(input.factoryReference),
+    chinaReviewRequiredFlag: Boolean(input.dualSample),
+    correctFabricRequiredFlag: Boolean(input.dualSample),
+    samplePlanLines,
+    finalReferenceSampleAssetIds: reuseAssetId ? [reuseAssetId] : [],
+    finalReferenceNote: reuseAssetId ? '最终参照首版样衣。' : '',
+    acceptedAt: '',
+    confirmedAt: '',
+  }
+}
+
 function createFirstSampleSeeds(): { tasks: FirstSampleTaskRecord[]; pendingItems: PcsTaskPendingItem[] } {
   const tasks: FirstSampleTaskRecord[] = []
   const projectA = pickProjectByCode('PRJ-20251216-010')
@@ -895,6 +1211,11 @@ function createFirstSampleSeeds(): { tasks: FirstSampleTaskRecord[]; pendingItem
       trackingNo: 'FS-TRACK-3',
       sampleAssetId: '',
       sampleCode: 'SY-SZ-00088',
+      ...firstSampleChainSeed({
+        upstreamObjectType: '改版任务',
+        upstreamObjectId: 'RT-20260108-002',
+        upstreamObjectCode: 'RT-20260108-002',
+      }),
       status: '待发样',
       ownerId: projectA.ownerId,
       ownerName: projectA.ownerName,
@@ -932,6 +1253,11 @@ function createFirstSampleSeeds(): { tasks: FirstSampleTaskRecord[]; pendingItem
       trackingNo: 'FS-TRACK-1',
       sampleAssetId: '',
       sampleCode: 'SY-JKT-00031',
+      ...firstSampleChainSeed({
+        upstreamObjectType: '制版任务',
+        upstreamObjectId: 'PT-20260109-002',
+        upstreamObjectCode: 'PT-20260109-002',
+      }),
       status: '在途',
       ownerId: projectB.ownerId,
       ownerName: projectB.ownerName,
@@ -1013,6 +1339,12 @@ function createFirstSampleSeeds(): { tasks: FirstSampleTaskRecord[]; pendingItem
       trackingNo: item.trackingNo,
       sampleAssetId: '',
       sampleCode: item.sampleCode,
+      ...firstSampleChainSeed({
+        upstreamObjectType: item.upstreamObjectType,
+        upstreamObjectId: item.upstreamObjectId,
+        upstreamObjectCode: item.upstreamObjectCode,
+        reusable: item.status === '已完成',
+      }),
       status: item.status,
       ownerId: project.ownerId,
       ownerName: project.ownerName,
@@ -1067,6 +1399,11 @@ function createPreProductionSeeds(): { tasks: PreProductionSampleTaskRecord[]; p
       trackingNo: 'PP-TRACK-3',
       sampleAssetId: '',
       sampleCode: 'SY-JKT-00068',
+      ...preProductionChainSeed({
+        upstreamObjectId: 'FS-20260119-003',
+        upstreamObjectCode: 'FS-20260119-003',
+        factoryReference: true,
+      }),
       status: '待发样',
       ownerId: projectA.ownerId,
       ownerName: projectA.ownerName,
@@ -1106,6 +1443,10 @@ function createPreProductionSeeds(): { tasks: PreProductionSampleTaskRecord[]; p
       trackingNo: 'PP-TRACK-1',
       sampleAssetId: '',
       sampleCode: 'SY-SZ-00052',
+      ...preProductionChainSeed({
+        upstreamObjectId: 'PT-20260109-002',
+        upstreamObjectCode: 'PT-20260109-002',
+      }),
       status: '在途',
       ownerId: projectB.ownerId,
       ownerName: projectB.ownerName,
@@ -1193,6 +1534,11 @@ function createPreProductionSeeds(): { tasks: PreProductionSampleTaskRecord[]; p
       trackingNo: item.trackingNo,
       sampleAssetId: '',
       sampleCode: item.sampleCode,
+      ...preProductionChainSeed({
+        upstreamObjectId: item.upstreamObjectId,
+        upstreamObjectCode: item.upstreamObjectCode,
+        dualSample: item.projectCode === 'PRJ-20251216-013',
+      }),
       status: item.status,
       ownerId: project.ownerId,
       ownerName: project.ownerName,

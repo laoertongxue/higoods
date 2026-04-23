@@ -4,7 +4,9 @@ import {
   TECH_PACK_PATTERN_CATEGORY_OPTIONS,
   TECH_PACK_PATTERN_MATERIAL_TYPE_LABELS,
   TECH_PACK_PATTERN_PARSE_STATUS_LABELS,
+  TECH_PACK_STATUS_LABEL,
   type TechPack,
+  type TechPackStatus,
   type TechPackSkuLine,
   type TechPackAssignmentGranularity,
   type TechPackColorMappingGeneratedMode,
@@ -23,6 +25,7 @@ import {
   type TechPackProcessEntry,
   type TechPackProcessEntryType,
   type TechPackRuleSource,
+  type TechPackSpecialCraftTargetObject,
   type TechPackDetailSplitMode,
   type TechPackDetailSplitDimension,
   type TechPackSizeRow,
@@ -45,11 +48,15 @@ import {
   TASK_TYPE_MODE_LABEL,
   getProcessCraftByCode,
   getProcessDefinitionByCode,
+  getSpecialCraftSupportedTargetObjectLabels,
   listProcessCraftDefinitions,
   listSelectableSpecialCraftDefinitions,
   listProcessDefinitions,
   listProcessesByStageCode,
   listProcessStages,
+  normalizeSpecialCraftTargetObjectLabel,
+  type SpecialCraftSupportedTargetObject,
+  type SpecialCraftTargetObjectLabel,
 } from '../../data/fcs/process-craft-dict.ts'
 import { productionOrders } from '../../data/fcs/production-orders.ts'
 
@@ -89,6 +96,9 @@ type TechniqueItem = {
   defaultDocType: 'DEMAND' | 'TASK'
   taskTypeMode: 'PROCESS' | 'CRAFT'
   isSpecialCraft: boolean
+  selectedTargetObject?: TechPackSpecialCraftTargetObject
+  supportedTargetObjects?: SpecialCraftSupportedTargetObject[]
+  supportedTargetObjectLabels?: SpecialCraftTargetObjectLabel[]
   triggerSource: string
   standardTime: number
   timeUnit: string
@@ -129,6 +139,8 @@ type CraftOption = {
   defaultDocType: 'DEMAND' | 'TASK'
   taskTypeMode: 'PROCESS' | 'CRAFT'
   isSpecialCraft: boolean
+  supportedTargetObjects?: SpecialCraftSupportedTargetObject[]
+  supportedTargetObjectLabels?: SpecialCraftTargetObjectLabel[]
   referencePublishedSamValue: number
   referencePublishedSamUnit: string
   referencePublishedSamUnitLabel: string
@@ -168,6 +180,8 @@ type PatternPieceRow = {
   applicableSkuCodes: string[]
   colorAllocations: TechPackPatternPieceColorAllocation[]
   specialCrafts: TechPackPatternPieceSpecialCraft[]
+  bundleLengthCm?: number
+  bundleWidthCm?: number
   sourceType: TechPackPatternPieceSourceType
   sourcePartName?: string
   systemPieceName?: string
@@ -316,10 +330,10 @@ const currentUser = {
   role: 'ADMIN' as const,
 }
 
-const techPackStatusConfig: Record<string, { label: string; className: string }> = {
-  MISSING: { label: '缺失', className: 'bg-red-100 text-red-700' },
-  BETA: { label: '草稿中', className: 'bg-yellow-100 text-yellow-700' },
-  RELEASED: { label: '已发布待启用', className: 'bg-green-100 text-green-700' },
+const techPackStatusConfig: Record<TechPackStatus, { label: string; className: string }> = {
+  DRAFT: { label: TECH_PACK_STATUS_LABEL.DRAFT, className: 'bg-yellow-100 text-yellow-700' },
+  ENABLED: { label: TECH_PACK_STATUS_LABEL.ENABLED, className: 'bg-green-100 text-green-700' },
+  DISABLED: { label: TECH_PACK_STATUS_LABEL.DISABLED, className: 'bg-slate-100 text-slate-600' },
 }
 
 const tabItems: Array<{ key: TechPackTab; icon: string; label: string }> = [
@@ -520,6 +534,10 @@ const craftOptions: CraftOption[] = listProcessCraftDefinitions()
       defaultDocType: item.defaultDocType,
       taskTypeMode: item.taskTypeMode,
       isSpecialCraft: item.isSpecialCraft,
+      supportedTargetObjects: item.isSpecialCraft ? [...item.supportedTargetObjects] : undefined,
+      supportedTargetObjectLabels: item.isSpecialCraft
+        ? getSpecialCraftSupportedTargetObjectLabels(item.supportedTargetObjects)
+        : undefined,
       referencePublishedSamValue: item.referencePublishedSamValue,
       referencePublishedSamUnit: item.referencePublishedSamUnit,
       referencePublishedSamUnitLabel: PUBLISHED_SAM_UNIT_LABEL[item.referencePublishedSamUnit],
@@ -887,6 +905,7 @@ interface TechPackPageState {
     entryType: TechPackProcessEntryType
     baselineProcessCode: string
     craftCode: string
+    selectedTargetObject: TechPackSpecialCraftTargetObject | ''
     ruleSource: TechPackRuleSource
     assignmentGranularity: TechPackAssignmentGranularity
     detailSplitMode: TechPackDetailSplitMode
@@ -978,6 +997,7 @@ const state: TechPackPageState = {
     entryType: 'CRAFT',
     baselineProcessCode: '',
     craftCode: '',
+    selectedTargetObject: '',
     ruleSource: 'INHERIT_PROCESS',
     assignmentGranularity: 'ORDER',
     detailSplitMode: 'COMPOSITE',
@@ -1339,6 +1359,18 @@ function getCraftOptionByCode(code: string): CraftOption | null {
   return craftOptions.find((item) => item.craftCode === code) ?? null
 }
 
+function getDefaultSelectedTargetObject(craft: Pick<CraftOption, 'isSpecialCraft' | 'supportedTargetObjectLabels'>): TechPackSpecialCraftTargetObject | '' {
+  if (!craft.isSpecialCraft) return ''
+  return craft.supportedTargetObjectLabels?.length === 1 ? craft.supportedTargetObjectLabels[0] : ''
+}
+
+function getSelectedTargetObjectForCraft(craft: Pick<CraftOption, 'isSpecialCraft' | 'supportedTargetObjectLabels'>): TechPackSpecialCraftTargetObject | '' {
+  if (!craft.isSpecialCraft) return ''
+  const normalized = normalizeSpecialCraftTargetObjectLabel(state.newTechnique.selectedTargetObject)
+  if (normalized && craft.supportedTargetObjectLabels?.includes(normalized)) return normalized
+  return getDefaultSelectedTargetObject(craft)
+}
+
 function getTechniqueReferenceMetaByCraftCode(craftCode: string): Pick<
   TechniqueItem,
   | 'referencePublishedSamValue'
@@ -1380,6 +1412,9 @@ function getSelectedDraftMeta():
       defaultDocType: 'DEMAND' | 'TASK'
       taskTypeMode: 'PROCESS' | 'CRAFT'
       isSpecialCraft: boolean
+      selectedTargetObject?: TechPackSpecialCraftTargetObject
+      supportedTargetObjects?: SpecialCraftSupportedTargetObject[]
+      supportedTargetObjectLabels?: SpecialCraftTargetObjectLabel[]
       triggerSource: string
     }
   | null {
@@ -1389,6 +1424,8 @@ function getSelectedDraftMeta():
       state.newTechnique.processCode,
     ).find((item) => item.craftCode === state.newTechnique.craftCode)
     if (!craft) return null
+    const selectedTargetObject = getSelectedTargetObjectForCraft(craft)
+    if (craft.isSpecialCraft && !selectedTargetObject) return null
     return {
       entryType: 'CRAFT',
       stageCode: craft.stageCode,
@@ -1404,6 +1441,9 @@ function getSelectedDraftMeta():
       defaultDocType: craft.defaultDocType,
       taskTypeMode: craft.taskTypeMode,
       isSpecialCraft: craft.isSpecialCraft,
+      selectedTargetObject,
+      supportedTargetObjects: craft.supportedTargetObjects ? [...craft.supportedTargetObjects] : undefined,
+      supportedTargetObjectLabels: craft.supportedTargetObjectLabels ? [...craft.supportedTargetObjectLabels] : undefined,
       triggerSource: '',
     }
   }
@@ -1426,12 +1466,17 @@ function getSelectedDraftMeta():
       defaultDocType: baseline.defaultDocType,
       taskTypeMode: baseline.taskTypeMode,
       isSpecialCraft: false,
+      selectedTargetObject: undefined,
+      supportedTargetObjects: undefined,
+      supportedTargetObjectLabels: undefined,
       triggerSource: baseline.triggerSource,
     }
   }
 
   const craft = getCraftOptionByCode(state.newTechnique.craftCode)
   if (!craft) return null
+  const selectedTargetObject = getSelectedTargetObjectForCraft(craft)
+  if (craft.isSpecialCraft && !selectedTargetObject) return null
   const forceOverride = craft.isSpecialCraft
   const ruleSource = forceOverride ? 'OVERRIDE_CRAFT' : state.newTechnique.ruleSource
   const effectiveRuleSource: TechPackRuleSource = ruleSource === 'OVERRIDE_CRAFT' ? 'OVERRIDE_CRAFT' : 'INHERIT_PROCESS'
@@ -1464,6 +1509,9 @@ function getSelectedDraftMeta():
     defaultDocType: craft.defaultDocType,
     taskTypeMode: craft.taskTypeMode,
     isSpecialCraft: craft.isSpecialCraft,
+    selectedTargetObject,
+    supportedTargetObjects: craft.supportedTargetObjects ? [...craft.supportedTargetObjects] : undefined,
+    supportedTargetObjectLabels: craft.supportedTargetObjectLabels ? [...craft.supportedTargetObjectLabels] : undefined,
     triggerSource: '',
   }
 }
@@ -1874,18 +1922,29 @@ function getPatternPieceSpecialCraftOptionsFromCurrentTechPack(): TechPackPatter
       .map((item) => {
         const definition = validDefinitionsByCode.get(item.craftCode)
         if (!definition) return null
+        const selectedTargetObject = normalizeSpecialCraftTargetObjectLabel(item.selectedTargetObject)
+        if (selectedTargetObject !== '已裁部位') return null
         const processDefinition = getProcessDefinitionByCode(definition.processCode)
         const processName = processDefinition?.processName || '特殊工艺'
+        const supportedTargetObjects = item.supportedTargetObjects?.length
+          ? [...item.supportedTargetObjects]
+          : [...definition.supportedTargetObjects]
+        const supportedTargetObjectLabels = item.supportedTargetObjectLabels?.length
+          ? [...item.supportedTargetObjectLabels]
+          : getSpecialCraftSupportedTargetObjectLabels(supportedTargetObjects)
         return {
           processCode: definition.processCode,
           processName,
           craftCode: definition.craftCode,
           craftName: definition.craftName,
           displayName: definition.craftName,
+          selectedTargetObject,
+          supportedTargetObjects,
+          supportedTargetObjectLabels,
         }
       })
       .filter((item): item is TechPackPatternPieceSpecialCraft => Boolean(item) && item.processName === '特殊工艺'),
-    (item) => `${item.processCode}:${item.craftCode}`,
+    (item) => `${item.processCode}:${item.craftCode}:${item.selectedTargetObject}`,
   )
 }
 
@@ -2191,7 +2250,7 @@ function normalizePatternPieceSpecialCrafts(
   specialCrafts: Array<Partial<TechPackPatternPieceSpecialCraft>>,
 ): TechPackPatternPieceSpecialCraft[] {
   const optionByCode = new Map(
-    getSpecialCraftOptionsForPatternPiece().map((item) => [`${item.processCode}:${item.craftCode}`, item]),
+    getSpecialCraftOptionsForPatternPiece().map((item) => [`${item.processCode}:${item.craftCode}:${item.selectedTargetObject}`, item]),
   )
 
   return dedupeByKey(
@@ -2199,12 +2258,17 @@ function normalizePatternPieceSpecialCrafts(
       .flatMap((item) => {
         const processCode = String(item.processCode || '').trim()
         const craftCode = String(item.craftCode || '').trim()
-        const matched = optionByCode.get(`${processCode}:${craftCode}`)
+        const selectedTargetObject = normalizeSpecialCraftTargetObjectLabel(item.selectedTargetObject) || '已裁部位'
+        const matched = optionByCode.get(`${processCode}:${craftCode}:${selectedTargetObject}`)
         return matched ? [{ ...matched }] : []
       })
       .filter((item): item is TechPackPatternPieceSpecialCraft => Boolean(item)),
-    (item) => `${item.processCode}:${item.craftCode}`,
+    (item) => `${item.processCode}:${item.craftCode}:${item.selectedTargetObject}`,
   )
+}
+
+function hasBundleSpecialCraft(specialCrafts: TechPackPatternPieceSpecialCraft[]): boolean {
+  return specialCrafts.some((craft) => craft.craftName === '捆条' || craft.displayName === '捆条')
 }
 
 function normalizePatternPieceRows(
@@ -2241,6 +2305,9 @@ function normalizePatternPieceRows(
       )
       return matched?.skuCodes ?? []
     })
+    const normalizedSpecialCrafts = normalizePatternPieceSpecialCrafts(row.specialCrafts ?? [])
+    const bundleLengthCm = Number(row.bundleLengthCm)
+    const bundleWidthCm = Number(row.bundleWidthCm)
 
     return {
       id: normalizedPieceId,
@@ -2267,7 +2334,15 @@ function normalizePatternPieceRows(
           : undefined,
       applicableSkuCodes: dedupeStrings([...(row.applicableSkuCodes ?? []), ...derivedSkuCodes]),
       colorAllocations: normalizedColorAllocations,
-      specialCrafts: normalizePatternPieceSpecialCrafts(row.specialCrafts ?? []),
+      specialCrafts: normalizedSpecialCrafts,
+      bundleLengthCm:
+        hasBundleSpecialCraft(normalizedSpecialCrafts) && Number.isFinite(bundleLengthCm) && bundleLengthCm > 0
+          ? bundleLengthCm
+          : undefined,
+      bundleWidthCm:
+        hasBundleSpecialCraft(normalizedSpecialCrafts) && Number.isFinite(bundleWidthCm) && bundleWidthCm > 0
+          ? bundleWidthCm
+          : undefined,
       sourceType: row.sourceType === 'PARSED_PATTERN' ? 'PARSED_PATTERN' : 'MANUAL',
       sourcePartName: row.sourcePartName?.trim() || undefined,
       systemPieceName: row.systemPieceName?.trim() || undefined,
@@ -2359,6 +2434,8 @@ function buildPatternItemsFromTechPack(techPack: TechPack): PatternItem[] {
           skuCodes: [...(allocation.skuCodes ?? [])],
         })),
         specialCrafts: (row.specialCrafts ?? []).map((craft) => ({ ...craft })),
+        bundleLengthCm: row.bundleLengthCm,
+        bundleWidthCm: row.bundleWidthCm,
         sourceType: row.sourceType === 'PARSED_PATTERN' ? 'PARSED_PATTERN' : 'MANUAL',
         sourcePartName: row.sourcePartName,
         systemPieceName: row.systemPieceName,
@@ -2546,6 +2623,13 @@ function toTechniqueItemFromEntry(entry: TechPackProcessEntry, fallbackIndex: nu
     defaultDocType: normalizedEntry.defaultDocType,
     taskTypeMode: normalizedEntry.taskTypeMode,
     isSpecialCraft: normalizedEntry.isSpecialCraft,
+    selectedTargetObject: normalizeSpecialCraftTargetObjectLabel(normalizedEntry.selectedTargetObject) || undefined,
+    supportedTargetObjects: normalizedEntry.supportedTargetObjects
+      ? [...normalizedEntry.supportedTargetObjects]
+      : undefined,
+    supportedTargetObjectLabels: normalizedEntry.supportedTargetObjectLabels
+      ? [...normalizedEntry.supportedTargetObjectLabels]
+      : undefined,
     triggerSource: normalizedEntry.triggerSource || '',
     standardTime: Number.isFinite(normalizedEntry.standardTimeMinutes)
       ? Number(normalizedEntry.standardTimeMinutes)
@@ -2598,6 +2682,9 @@ function buildTechniquesFromTechPack(
       if (craft) {
         const processDef = getProcessDefinitionByCode(craft.processCode)
         const referenceMeta = getTechniqueReferenceMetaByCraftCode(craft.craftCode)
+        const supportedTargetObjectLabels = craft.isSpecialCraft
+          ? getSpecialCraftSupportedTargetObjectLabels(craft.supportedTargetObjects)
+          : undefined
         return {
           id: item.id || `tech-${index + 1}`,
           entryType: 'CRAFT',
@@ -2614,6 +2701,12 @@ function buildTechniquesFromTechPack(
           defaultDocType: craft.defaultDocType,
           taskTypeMode: craft.taskTypeMode,
           isSpecialCraft: craft.isSpecialCraft,
+          selectedTargetObject:
+            craft.isSpecialCraft && supportedTargetObjectLabels?.length === 1
+              ? supportedTargetObjectLabels[0]
+              : undefined,
+          supportedTargetObjects: craft.isSpecialCraft ? [...craft.supportedTargetObjects] : undefined,
+          supportedTargetObjectLabels,
           triggerSource: '',
           standardTime: item.timeMinutes,
           timeUnit: referenceMeta.referencePublishedSamUnitLabel || '分钟/件',
@@ -2913,8 +3006,13 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
                   craftCode: craft.craftCode,
                   craftName: craft.craftName,
                   displayName: craft.displayName,
+                  selectedTargetObject: craft.selectedTargetObject,
+                  supportedTargetObjects: craft.supportedTargetObjects ? [...craft.supportedTargetObjects] : undefined,
+                  supportedTargetObjectLabels: craft.supportedTargetObjectLabels ? [...craft.supportedTargetObjectLabels] : undefined,
                 }))
               : undefined,
+          bundleLengthCm: row.bundleLengthCm,
+          bundleWidthCm: row.bundleWidthCm,
           sourceType: row.sourceType,
           missingName: row.missingName || undefined,
           missingCount: row.missingCount || undefined,
@@ -2965,6 +3063,9 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
       defaultDocType: item.defaultDocType,
       taskTypeMode: item.taskTypeMode,
       isSpecialCraft: item.isSpecialCraft,
+      selectedTargetObject: item.selectedTargetObject,
+      supportedTargetObjects: item.supportedTargetObjects ? [...item.supportedTargetObjects] : undefined,
+      supportedTargetObjectLabels: item.supportedTargetObjectLabels ? [...item.supportedTargetObjectLabels] : undefined,
       triggerSource: item.triggerSource || undefined,
       standardTimeMinutes: Number(item.standardTime) || 0,
       timeUnit: item.timeUnit,
@@ -3165,6 +3266,7 @@ function resetTechniqueForm(): void {
     entryType: 'CRAFT',
     baselineProcessCode: '',
     craftCode: '',
+    selectedTargetObject: '',
     ruleSource: 'INHERIT_PROCESS',
     assignmentGranularity: 'ORDER',
     detailSplitMode: 'COMPOSITE',
@@ -3261,7 +3363,7 @@ function ensureTechPackPageState(rawSpuCode: string, seed: TechPackPageInitSeed 
 }
 
 function renderStatusBadge(status: string): string {
-  const config = techPackStatusConfig[status] ?? techPackStatusConfig.BETA
+  const config = techPackStatusConfig[status] ?? techPackStatusConfig.DRAFT
   return `<span class="inline-flex rounded border px-2 py-0.5 text-xs ${config.className}">${escapeHtml(config.label)}</span>`
 }
 

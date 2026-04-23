@@ -3,7 +3,11 @@ import {
   parseFcsPatternFilePair,
   resolveFcsPatternFilePair,
 } from '../../data/fcs/fcs-pattern-file-parser.ts'
-import { publishTechnicalDataVersion } from '../../data/pcs-project-technical-data-writeback.ts'
+import {
+  publishTechPackDraft,
+  validateTechPackForPublish,
+  type TechPackSpecialCraftTargetObject,
+} from '../../data/fcs/tech-packs.ts'
 import {
   TECH_PACK_PATTERN_CATEGORY_OPTIONS,
   buildPatternDisplayFile,
@@ -326,7 +330,7 @@ function getPatternBomColorNameSet(): Set<string> {
 
 function getPatternSpecialCraftKeySet(): Set<string> {
   return new Set(
-    getPatternPieceSpecialCraftOptionsFromCurrentTechPack().map((item) => `${item.processCode}:${item.craftCode}`),
+    getPatternPieceSpecialCraftOptionsFromCurrentTechPack().map((item) => `${item.processCode}:${item.craftCode}:${item.selectedTargetObject}`),
   )
 }
 
@@ -473,10 +477,18 @@ function validatePatternForm(): string | null {
 
   const invalidSpecialCraftRow = state.newPattern.pieceRows.find((row) =>
     row.specialCrafts.some(
-      (craft) => !validSpecialCraftKeys.has(`${craft.processCode}:${craft.craftCode}`),
+      (craft) => !validSpecialCraftKeys.has(`${craft.processCode}:${craft.craftCode}:${craft.selectedTargetObject}`),
     ),
   )
-  if (invalidSpecialCraftRow) return '特殊工艺必须来自工序工艺字典'
+  if (invalidSpecialCraftRow) return '特殊工艺必须来自当前技术包且作用对象为已裁部位'
+
+  const bundleRows = state.newPattern.pieceRows.filter((row) =>
+    row.specialCrafts.some((craft) => craft.craftName === '捆条' || craft.displayName === '捆条'),
+  )
+  const missingBundleLengthRow = bundleRows.find((row) => !Number.isFinite(Number(row.bundleLengthCm)) || Number(row.bundleLengthCm) <= 0)
+  if (missingBundleLengthRow) return `裁片部位「${missingBundleLengthRow.name || '未命名'}」已关联捆条，但未填写捆条长度`
+  const missingBundleWidthRow = bundleRows.find((row) => !Number.isFinite(Number(row.bundleWidthCm)) || Number(row.bundleWidthCm) <= 0)
+  if (missingBundleWidthRow) return `裁片部位「${missingBundleWidthRow.name || '未命名'}」已关联捆条，但未填写捆条宽度`
 
   const invalidTemplateRow = state.newPattern.pieceRows.find(
     (row) => row.isTemplate && !String(row.partTemplateId || '').trim(),
@@ -659,6 +671,18 @@ function handleTechPackField(
     updatePatternPieceRow(pieceId, (row) => ({ ...row, note: value }))
     return true
   }
+  if (field === 'new-pattern-piece-bundle-length-cm') {
+    const pieceId = node.dataset.pieceId
+    if (!pieceId) return true
+    updatePatternPieceRow(pieceId, (row) => ({ ...row, bundleLengthCm: Number.parseFloat(value) || undefined }))
+    return true
+  }
+  if (field === 'new-pattern-piece-bundle-width-cm') {
+    const pieceId = node.dataset.pieceId
+    if (!pieceId) return true
+    updatePatternPieceRow(pieceId, (row) => ({ ...row, bundleWidthCm: Number.parseFloat(value) || undefined }))
+    return true
+  }
   if (field === 'new-pattern-piece-is-template') {
     const pieceId = node.dataset.pieceId
     if (!pieceId) return true
@@ -787,6 +811,7 @@ function handleTechPackField(
       entryType,
       baselineProcessCode: '',
       craftCode: '',
+      selectedTargetObject: '',
       ruleSource: entryType === 'PROCESS_BASELINE' ? 'INHERIT_PROCESS' : 'INHERIT_PROCESS',
       assignmentGranularity: 'ORDER',
       detailSplitMode: 'COMPOSITE',
@@ -803,6 +828,7 @@ function handleTechPackField(
       ...state.newTechnique,
       processCode: value,
       craftCode: '',
+      selectedTargetObject: '',
     }
     return true
   }
@@ -823,12 +849,21 @@ function handleTechPackField(
   }
   if (field === 'new-technique-craft-code') {
     const craft = getCraftOptionByCode(value)
+    const selectedTargetObject =
+      craft?.isSpecialCraft && craft.supportedTargetObjectLabels?.length === 1
+        ? craft.supportedTargetObjectLabels[0]
+        : ''
     state.newTechnique = {
       ...state.newTechnique,
       craftCode: value,
+      selectedTargetObject,
       standardTime: craft ? String(craft.referencePublishedSamValue) : state.newTechnique.standardTime,
       timeUnit: craft ? craft.referencePublishedSamUnitLabel : state.newTechnique.timeUnit,
     }
+    return true
+  }
+  if (field === 'new-technique-target-object') {
+    state.newTechnique.selectedTargetObject = value as TechPackSpecialCraftTargetObject
     return true
   }
   if (field === 'new-technique-rule-source') {
@@ -1256,14 +1291,23 @@ function handleTechPackField(
 }
 
 function performRelease(): void {
-  if (!state.currentTechnicalVersionId) return
-  // 发布只更新技术包版本本身，当前生效版本需回到款式档案页单独启用。
-  const record = publishTechnicalDataVersion(state.currentTechnicalVersionId, currentUser.name)
-  ensureTechPackPageState(record.technicalVersionId, {
-    styleId: record.styleId,
-    technicalVersionId: record.technicalVersionId,
-    activeTab: state.activeTab,
-  })
+  if (!state.techPack) return
+  syncTechPackToStore()
+  const validation = validateTechPackForPublish(state.techPack)
+  if (validation.length > 0) {
+    state.compatibilityMessage = validation[0] || '请检查技术包'
+    state.releaseDialogOpen = false
+    return
+  }
+  const result = publishTechPackDraft(state.techPack.spuCode)
+  if (!result.ok) {
+    state.compatibilityMessage = result.message || '请检查技术包'
+    state.techPack = result.techPack
+    state.releaseDialogOpen = false
+    return
+  }
+  state.techPack = result.techPack
+  state.compatibilityMessage = ''
   state.releaseDialogOpen = false
 }
 
@@ -1588,22 +1632,36 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     const pieceId = actionNode.dataset.pieceId
     const processCode = actionNode.dataset.processCode
     const craftCode = actionNode.dataset.craftCode
-    if (!pieceId || !processCode || !craftCode) return true
+    const selectedTargetObject = actionNode.dataset.targetObject as TechPackSpecialCraftTargetObject | undefined
+    if (!pieceId || !processCode || !craftCode || !selectedTargetObject) return true
     const specialCraft = getPatternPieceSpecialCraftOptionsFromCurrentTechPack().find(
-      (item) => item.processCode === processCode && item.craftCode === craftCode,
+      (item) =>
+        item.processCode === processCode
+        && item.craftCode === craftCode
+        && item.selectedTargetObject === selectedTargetObject,
     )
     if (!specialCraft) return true
     updatePatternPieceRow(pieceId, (row) => {
       const exists = row.specialCrafts.some(
-        (item) => item.processCode === processCode && item.craftCode === craftCode,
+        (item) =>
+          item.processCode === processCode
+          && item.craftCode === craftCode
+          && item.selectedTargetObject === selectedTargetObject,
       )
+      const nextSpecialCrafts = exists
+        ? row.specialCrafts.filter(
+            (item) =>
+              !(item.processCode === processCode
+                && item.craftCode === craftCode
+                && item.selectedTargetObject === selectedTargetObject),
+          )
+        : [...row.specialCrafts, { ...specialCraft }]
+      const stillHasBundle = nextSpecialCrafts.some((item) => item.craftName === '捆条' || item.displayName === '捆条')
       return {
         ...row,
-        specialCrafts: exists
-          ? row.specialCrafts.filter(
-              (item) => !(item.processCode === processCode && item.craftCode === craftCode),
-            )
-          : [...row.specialCrafts, { ...specialCraft }],
+        specialCrafts: nextSpecialCrafts,
+        bundleLengthCm: stillHasBundle ? row.bundleLengthCm : undefined,
+        bundleWidthCm: stillHasBundle ? row.bundleWidthCm : undefined,
       }
     })
     return true
@@ -1933,6 +1991,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       entryType: target.entryType,
       baselineProcessCode: target.entryType === 'PROCESS_BASELINE' ? target.processCode : '',
       craftCode: target.entryType === 'CRAFT' ? target.craftCode : '',
+      selectedTargetObject: target.selectedTargetObject || '',
       ruleSource: target.ruleSource,
       assignmentGranularity: target.assignmentGranularity,
       detailSplitMode: target.detailSplitMode,
@@ -1977,10 +2036,26 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
             defaultDocType: editingTarget.defaultDocType,
             taskTypeMode: editingTarget.taskTypeMode,
             isSpecialCraft: editingTarget.isSpecialCraft,
+            selectedTargetObject: editingTarget.selectedTargetObject,
+            supportedTargetObjects: editingTarget.supportedTargetObjects ? [...editingTarget.supportedTargetObjects] : undefined,
+            supportedTargetObjectLabels: editingTarget.supportedTargetObjectLabels ? [...editingTarget.supportedTargetObjectLabels] : undefined,
             triggerSource: editingTarget.triggerSource,
           }
         : null
     const effectiveMeta = immutablePrepMeta ?? selectedMeta
+
+    if (effectiveMeta.isSpecialCraft) {
+      const duplicate = state.techniques.some((item) =>
+        item.id !== state.editTechniqueId
+        && item.entryType === 'CRAFT'
+        && item.craftCode === effectiveMeta.craftCode
+        && item.selectedTargetObject === effectiveMeta.selectedTargetObject,
+      )
+      if (duplicate) {
+        window.alert('该特殊工艺和作用对象已存在')
+        return true
+      }
+    }
 
     const nextItem: TechniqueItem = {
       ...getTechniqueReferenceMetaByCraftCode(effectiveMeta.craftCode),
@@ -1999,6 +2074,9 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       defaultDocType: effectiveMeta.defaultDocType,
       taskTypeMode: effectiveMeta.taskTypeMode,
       isSpecialCraft: effectiveMeta.isSpecialCraft,
+      selectedTargetObject: effectiveMeta.selectedTargetObject,
+      supportedTargetObjects: effectiveMeta.supportedTargetObjects ? [...effectiveMeta.supportedTargetObjects] : undefined,
+      supportedTargetObjectLabels: effectiveMeta.supportedTargetObjectLabels ? [...effectiveMeta.supportedTargetObjectLabels] : undefined,
       triggerSource: effectiveMeta.triggerSource,
       standardTime: Number.parseFloat(state.newTechnique.standardTime) || 0,
       timeUnit: state.newTechnique.timeUnit,

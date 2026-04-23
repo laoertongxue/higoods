@@ -71,6 +71,18 @@ export interface TechPackCutPiecePartSnapshot {
   fabricColor?: string
   applicableColorList: string[]
   applicableSizeList: string[]
+  specialCrafts?: Array<{
+    processCode: string
+    processName: string
+    craftCode: string
+    craftName: string
+    displayName: string
+    selectedTargetObject?: '已裁部位' | '完整面料'
+    supportedTargetObjects?: Array<'CUT_PIECE' | 'FULL_FABRIC'>
+    supportedTargetObjectLabels?: Array<'已裁部位' | '完整面料'>
+  }>
+  bundleLengthCm?: number
+  bundleWidthCm?: number
   manualConfirmRequired: boolean
   remark?: string
 }

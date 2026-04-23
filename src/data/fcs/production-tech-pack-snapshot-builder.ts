@@ -158,7 +158,13 @@ function clonePatternFiles(items: TechPackPatternFileSnapshot[]): TechPackPatter
         ...allocation,
         skuCodes: [...(allocation.skuCodes ?? [])],
       })),
-      specialCrafts: row.specialCrafts?.map((craft) => ({ ...craft })),
+      specialCrafts: row.specialCrafts?.map((craft) => ({
+        ...craft,
+        supportedTargetObjects: [...(craft.supportedTargetObjects ?? [])],
+        supportedTargetObjectLabels: [...(craft.supportedTargetObjectLabels ?? [])],
+      })),
+      bundleLengthCm: row.bundleLengthCm,
+      bundleWidthCm: row.bundleWidthCm,
       candidatePartNames: [...(row.candidatePartNames ?? [])],
       rawTextLabels: [...(row.rawTextLabels ?? [])],
     })),
@@ -216,6 +222,11 @@ function cloneCutPieceParts(items: TechPackCutPiecePartSnapshot[]): TechPackCutP
     ...item,
     applicableColorList: [...item.applicableColorList],
     applicableSizeList: [...item.applicableSizeList],
+    specialCrafts: item.specialCrafts?.map((craft) => ({
+      ...craft,
+      supportedTargetObjects: [...(craft.supportedTargetObjects ?? [])],
+      supportedTargetObjectLabels: [...(craft.supportedTargetObjectLabels ?? [])],
+    })),
   }))
 }
 
@@ -302,6 +313,17 @@ function normalizePatternFiles(
         ? normalizeText((item as { imageUrl?: string }).imageUrl)
         : undefined,
       remark: normalizeText((item as { remark?: string }).remark) || undefined,
+      pieceRows: item.pieceRows?.map((row) => ({
+        ...row,
+        bundleLengthCm: row.bundleLengthCm,
+        bundleWidthCm: row.bundleWidthCm,
+        specialCrafts: row.specialCrafts?.map((craft) => ({
+          ...craft,
+          selectedTargetObject: craft.selectedTargetObject,
+          supportedTargetObjects: [...(craft.supportedTargetObjects ?? [])],
+          supportedTargetObjectLabels: [...(craft.supportedTargetObjectLabels ?? [])],
+        })),
+      })),
     }
   })
 }
@@ -372,6 +394,21 @@ function buildCutPieceParts(input: {
         fabricColor: normalizeText(linkedBom?.colorLabel) || existing?.fabricColor || undefined,
         applicableColorList: mergedColors,
         applicableSizeList: mergedSizes,
+        specialCrafts:
+          (pieceRow.specialCrafts ?? []).length > 0
+            ? pieceRow.specialCrafts?.map((craft) => ({
+                ...craft,
+                selectedTargetObject: craft.selectedTargetObject,
+                supportedTargetObjects: [...(craft.supportedTargetObjects ?? [])],
+                supportedTargetObjectLabels: [...(craft.supportedTargetObjectLabels ?? [])],
+              }))
+            : existing?.specialCrafts,
+        bundleLengthCm: Number.isFinite(Number((pieceRow as { bundleLengthCm?: number }).bundleLengthCm))
+          ? Number((pieceRow as { bundleLengthCm?: number }).bundleLengthCm)
+          : existing?.bundleLengthCm,
+        bundleWidthCm: Number.isFinite(Number((pieceRow as { bundleWidthCm?: number }).bundleWidthCm))
+          ? Number((pieceRow as { bundleWidthCm?: number }).bundleWidthCm)
+          : existing?.bundleWidthCm,
         manualConfirmRequired:
           Boolean(existing?.manualConfirmRequired)
           || partNameCn.includes('袖')
@@ -638,6 +675,26 @@ export function buildSeedProductionOrderTechPackSnapshot(input: {
           name: '前片',
           count: 1,
           applicableSkuCodes: [primarySkuCode],
+          colorAllocations: [
+            {
+              id: `seed-piece-${productionOrderId}-front-${primarySkuCode}`,
+              colorName: primaryColor,
+              skuCodes: [primarySkuCode],
+              pieceCount: 1,
+            },
+          ],
+          specialCrafts: [
+            {
+              processCode: 'SPECIAL_CRAFT',
+              processName: '特殊工艺',
+              craftCode: 'CRAFT_000008',
+              craftName: '打揽',
+              displayName: '打揽',
+              selectedTargetObject: '已裁部位',
+              supportedTargetObjects: ['CUT_PIECE'],
+              supportedTargetObjectLabels: ['已裁部位'],
+            },
+          ],
           sourceType: 'MANUAL',
         },
         {

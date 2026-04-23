@@ -39,6 +39,8 @@ export type FactoryWarehouseReceiverKind =
 export type FactoryWarehouseStocktakeScope = '全盘'
 export type FactoryWarehouseStocktakeStatus = '盘点中' | '待确认' | '已完成' | '已取消'
 export type FactoryWarehouseStocktakeLineStatus = '未盘' | '已盘' | '差异'
+export type FactoryWarehouseStocktakeReviewStatus = '待审核' | '审核通过' | '已驳回' | '已调整'
+export type FactoryWarehouseAdjustmentOrderStatus = '待执行' | '已完成' | '已作废'
 
 export interface FactoryWarehouseLocation {
   locationId: string
@@ -258,6 +260,10 @@ export interface FactoryWarehouseStocktakeLine {
   differenceReason?: string
   photoList: string[]
   status: FactoryWarehouseStocktakeLineStatus
+  reviewStatus?: FactoryWarehouseStocktakeReviewStatus
+  differenceReviewId?: string
+  adjustmentOrderId?: string
+  adjustedAt?: string
 }
 
 export interface FactoryWarehouseStocktakeOrder {
@@ -275,6 +281,72 @@ export interface FactoryWarehouseStocktakeOrder {
   startedAt?: string
   completedAt?: string
   lineList: FactoryWarehouseStocktakeLine[]
+  remark?: string
+}
+
+export interface FactoryWarehouseStocktakeDifferenceReview {
+  reviewId: string
+  stocktakeOrderId: string
+  stocktakeOrderNo: string
+  lineId: string
+  stockItemId: string
+  warehouseId: string
+  warehouseName: string
+  factoryId: string
+  factoryName: string
+  warehouseKind: FactoryInternalWarehouseKind
+  itemKind: FactoryWarehouseItemKind
+  itemName: string
+  materialSku?: string
+  partName?: string
+  fabricColor?: string
+  sizeCode?: string
+  feiTicketNo?: string
+  transferBagNo?: string
+  fabricRollNo?: string
+  bookQty: number
+  countedQty: number
+  differenceQty: number
+  unit: string
+  reviewStatus: FactoryWarehouseStocktakeReviewStatus
+  reviewRemark?: string
+  reviewedBy?: string
+  reviewedAt?: string
+  adjustmentOrderId?: string
+  createdAt: string
+}
+
+export interface FactoryWarehouseAdjustmentOrder {
+  adjustmentOrderId: string
+  adjustmentOrderNo: string
+  sourceStocktakeOrderId: string
+  sourceStocktakeOrderNo: string
+  sourceLineId: string
+  reviewId: string
+  warehouseId: string
+  warehouseName: string
+  factoryId: string
+  factoryName: string
+  warehouseKind: FactoryInternalWarehouseKind
+  stockItemId: string
+  itemKind: FactoryWarehouseItemKind
+  itemName: string
+  materialSku?: string
+  partName?: string
+  fabricColor?: string
+  sizeCode?: string
+  feiTicketNo?: string
+  transferBagNo?: string
+  fabricRollNo?: string
+  bookQty: number
+  countedQty: number
+  adjustmentQty: number
+  unit: string
+  status: FactoryWarehouseAdjustmentOrderStatus
+  createdAt: string
+  createdBy: string
+  executedAt?: string
+  executedBy?: string
   remark?: string
 }
 
@@ -303,9 +375,12 @@ interface FactoryInternalWarehouseStore {
   inboundRecords: FactoryWarehouseInboundRecord[]
   outboundRecords: FactoryWarehouseOutboundRecord[]
   stocktakeOrders: FactoryWarehouseStocktakeOrder[]
+  stocktakeDifferenceReviews: FactoryWarehouseStocktakeDifferenceReview[]
+  adjustmentOrders: FactoryWarehouseAdjustmentOrder[]
 }
 
-const DEFAULT_AREA_NAMES = ['A区', 'B区', '异常区', '待确认区'] as const
+const DEFAULT_AREA_NAMES = ['A区', 'B区', 'C区', 'D区', 'E区', 'F区', '异常区', '待确认区'] as const
+const NORMAL_AREA_NAMES = ['A区', 'B区', 'C区', 'D区', 'E区', 'F区'] as const
 const SEWING_FACTORY_TYPES = new Set<FactoryType>(['CENTRAL_GARMENT', 'SATELLITE_SEWING', 'THIRD_SEWING'])
 let internalWarehouseStore: FactoryInternalWarehouseStore | null = null
 
@@ -462,9 +537,7 @@ function pickWarehouseLocation(
       ? '异常区'
       : status === '待领料' || status === '待确认'
         ? '待确认区'
-        : hashCode(seed) % 2 === 0
-          ? 'A区'
-          : 'B区'
+        : NORMAL_AREA_NAMES[hashCode(seed) % NORMAL_AREA_NAMES.length]
 
   const area = warehouse.areaList.find((item) => item.areaName === preferredAreaName) || warehouse.areaList[0]
   const shelf = area.shelfList[0]
@@ -493,7 +566,14 @@ function resolveWaitProcessStockStatus(record: FactoryWarehouseInboundRecord): F
 
 function resolveHandoutStatus(record: PdaHandoverRecord): FactoryOutboundRecordStatus {
   if (record.status === 'OBJECTION_REPORTED' || record.status === 'OBJECTION_PROCESSING') return '异议中'
-  if (typeof record.receiverWrittenQty === 'number' && roundQty(record.diffQty) !== 0) return '差异'
+  const handoverDiffQty = roundQty(
+    record.diffQty ?? (
+      typeof record.receiverWrittenQty === 'number'
+        ? record.receiverWrittenQty - (record.submittedQty ?? record.plannedQty ?? 0)
+        : 0
+    ),
+  )
+  if (typeof record.receiverWrittenQty === 'number' && handoverDiffQty !== 0) return '差异'
   if (typeof record.receiverWrittenQty === 'number') return '已回写'
   return '已出库'
 }
@@ -1114,6 +1194,7 @@ function buildStocktakeLineFromWaitProcess(
     differenceReason: differenceQty !== 0 ? '数量不符' : '',
     photoList: differenceQty !== 0 ? ['/placeholder.svg'] : [],
     status: differenceQty !== 0 ? '差异' : '已盘',
+    reviewStatus: differenceQty !== 0 ? '待审核' : undefined,
   }
 }
 
@@ -1147,7 +1228,79 @@ function buildStocktakeLineFromWaitHandover(
     differenceReason: differenceQty !== 0 ? '漏扫' : '',
     photoList: differenceQty !== 0 ? ['/placeholder.svg'] : [],
     status: differenceQty !== 0 ? '差异' : '已盘',
+    reviewStatus: differenceQty !== 0 ? '待审核' : undefined,
   }
+}
+
+function buildStocktakeDifferenceReview(
+  order: FactoryWarehouseStocktakeOrder,
+  line: FactoryWarehouseStocktakeLine,
+  createdAt = nowTimestamp(),
+): FactoryWarehouseStocktakeDifferenceReview {
+  return {
+    reviewId: `STR-${line.lineId.replace(/[^A-Za-z0-9]/g, '').slice(-16)}`,
+    stocktakeOrderId: order.stocktakeOrderId,
+    stocktakeOrderNo: order.stocktakeOrderNo,
+    lineId: line.lineId,
+    stockItemId: line.stockItemId,
+    warehouseId: order.warehouseId,
+    warehouseName: order.warehouseName,
+    factoryId: order.factoryId,
+    factoryName: order.factoryName,
+    warehouseKind: order.warehouseKind,
+    itemKind: line.itemKind,
+    itemName: line.itemName,
+    materialSku: line.materialSku,
+    partName: line.partName,
+    fabricColor: line.fabricColor,
+    sizeCode: line.sizeCode,
+    feiTicketNo: line.feiTicketNo,
+    transferBagNo: line.transferBagNo,
+    fabricRollNo: line.fabricRollNo,
+    bookQty: line.bookQty,
+    countedQty: roundQty(line.countedQty ?? 0),
+    differenceQty: roundQty(line.differenceQty ?? 0),
+    unit: line.unit,
+    reviewStatus: line.reviewStatus || '待审核',
+    reviewRemark: line.differenceReason,
+    adjustmentOrderId: line.adjustmentOrderId,
+    createdAt,
+  }
+}
+
+function ensureStocktakeDifferenceReviewForLine(
+  store: FactoryInternalWarehouseStore,
+  order: FactoryWarehouseStocktakeOrder,
+  line: FactoryWarehouseStocktakeLine,
+): FactoryWarehouseStocktakeDifferenceReview {
+  const existed = store.stocktakeDifferenceReviews.find(
+    (item) => item.stocktakeOrderId === order.stocktakeOrderId && item.lineId === line.lineId,
+  )
+  if (existed) {
+    existed.bookQty = line.bookQty
+    existed.countedQty = roundQty(line.countedQty ?? 0)
+    existed.differenceQty = roundQty(line.differenceQty ?? 0)
+    existed.reviewRemark = line.differenceReason || existed.reviewRemark
+    existed.reviewStatus = line.reviewStatus || existed.reviewStatus
+    existed.adjustmentOrderId = line.adjustmentOrderId || existed.adjustmentOrderId
+    line.differenceReviewId = existed.reviewId
+    line.reviewStatus = existed.reviewStatus
+    return existed
+  }
+  const review = buildStocktakeDifferenceReview(order, line)
+  store.stocktakeDifferenceReviews.unshift(review)
+  line.differenceReviewId = review.reviewId
+  line.reviewStatus = review.reviewStatus
+  return review
+}
+
+function refreshStocktakeOrderStatusAfterAdjustment(order: FactoryWarehouseStocktakeOrder): void {
+  const differenceLines = order.lineList.filter((line) => (line.differenceQty ?? 0) !== 0)
+  if (differenceLines.length === 0) {
+    order.status = '已完成'
+    return
+  }
+  order.status = differenceLines.every((line) => line.reviewStatus === '已调整') ? '已完成' : '待确认'
 }
 
 function seedFactoryWarehouseStore(): FactoryInternalWarehouseStore {
@@ -1239,6 +1392,40 @@ function seedFactoryWarehouseStore(): FactoryInternalWarehouseStore {
       })
     })
 
+  if (!outboundRecords.some((record) => record.status === '差异')) {
+    const baseOutbound = outboundRecords.find((record) => record.status === '已回写') || outboundRecords[0]
+    if (baseOutbound) {
+      const diffOutbound: FactoryWarehouseOutboundRecord = {
+        ...baseOutbound,
+        outboundRecordId: 'OUT-FIW-DIFF-SEED-001',
+        outboundRecordNo: 'CK-FIW-DIFF-SEED-001',
+        handoverOrderId: 'HOH-FIW-DIFF-SEED',
+        handoverOrderNo: 'HDO-FIW-DIFF-SEED',
+        handoverRecordId: 'HOR-FIW-DIFF-SEED-001',
+        handoverRecordNo: 'HDR-FIW-DIFF-SEED-001',
+        receiverWrittenQty: Math.max(baseOutbound.outboundQty - 1, 0),
+        differenceQty: -1,
+        status: '差异',
+        abnormalReason: '数量不符',
+      }
+      const diffWaitHandoverStockItem: FactoryWaitHandoverStockItem = {
+        ...buildFactoryWaitHandoverStockItemFromOutboundRecord(diffOutbound),
+        stockItemId: 'WHS-FIW-DIFF-SEED-001',
+        handoverOrderId: diffOutbound.handoverOrderId,
+        handoverOrderNo: diffOutbound.handoverOrderNo,
+        handoverRecordId: diffOutbound.handoverRecordId,
+        handoverRecordNo: diffOutbound.handoverRecordNo,
+        receiverWrittenQty: diffOutbound.receiverWrittenQty,
+        differenceQty: diffOutbound.differenceQty,
+        status: '差异',
+        abnormalReason: '数量不符',
+      }
+      diffOutbound.relatedWaitHandoverStockItemId = diffWaitHandoverStockItem.stockItemId
+      outboundRecords.push(diffOutbound)
+      waitHandoverStockItems.push(diffWaitHandoverStockItem)
+    }
+  }
+
   const completionSeedFactory = factoryMap.get('ID-F002')
   const completionSeedWarehouse = completionSeedFactory ? waitHandoverWarehouseMap.get(completionSeedFactory.id) : undefined
   if (completionSeedFactory && completionSeedWarehouse) {
@@ -1315,6 +1502,20 @@ function seedFactoryWarehouseStore(): FactoryInternalWarehouseStore {
       remark: '存在差异待确认',
     },
   ]
+  const stocktakeDifferenceReviews: FactoryWarehouseStocktakeDifferenceReview[] = []
+  const adjustmentOrders: FactoryWarehouseAdjustmentOrder[] = []
+  stocktakeOrders
+    .filter((order) => order.status === '待确认')
+    .forEach((order) => {
+      order.lineList
+        .filter((line) => (line.differenceQty ?? 0) !== 0)
+        .forEach((line) => {
+          const review = buildStocktakeDifferenceReview(order, line, order.completedAt || nowTimestamp())
+          line.differenceReviewId = review.reviewId
+          line.reviewStatus = review.reviewStatus
+          stocktakeDifferenceReviews.push(review)
+        })
+    })
 
   return {
     warehouses,
@@ -1323,6 +1524,8 @@ function seedFactoryWarehouseStore(): FactoryInternalWarehouseStore {
     inboundRecords,
     outboundRecords,
     stocktakeOrders,
+    stocktakeDifferenceReviews,
+    adjustmentOrders,
   }
 }
 
@@ -1395,6 +1598,32 @@ export function listFactoryWarehouseOutboundRecords(): FactoryWarehouseOutboundR
 
 export function listFactoryWarehouseStocktakeOrders(): FactoryWarehouseStocktakeOrder[] {
   return cloneValue(ensureFactoryInternalWarehouseStore().stocktakeOrders)
+}
+
+export function listFactoryWarehouseStocktakeDifferenceReviews(): FactoryWarehouseStocktakeDifferenceReview[] {
+  return cloneValue(ensureFactoryInternalWarehouseStore().stocktakeDifferenceReviews)
+}
+
+export function listFactoryWarehouseStocktakeDifferenceReviewsByOrder(stocktakeOrderId: string): FactoryWarehouseStocktakeDifferenceReview[] {
+  return cloneValue(ensureFactoryInternalWarehouseStore().stocktakeDifferenceReviews.filter((item) => item.stocktakeOrderId === stocktakeOrderId))
+}
+
+export function getFactoryWarehouseStocktakeDifferenceReview(reviewId: string): FactoryWarehouseStocktakeDifferenceReview | undefined {
+  const review = ensureFactoryInternalWarehouseStore().stocktakeDifferenceReviews.find((item) => item.reviewId === reviewId)
+  return review ? cloneValue(review) : undefined
+}
+
+export function listFactoryWarehouseAdjustmentOrders(): FactoryWarehouseAdjustmentOrder[] {
+  return cloneValue(ensureFactoryInternalWarehouseStore().adjustmentOrders)
+}
+
+export function listFactoryWarehouseAdjustmentOrdersByStocktake(stocktakeOrderId: string): FactoryWarehouseAdjustmentOrder[] {
+  return cloneValue(ensureFactoryInternalWarehouseStore().adjustmentOrders.filter((item) => item.sourceStocktakeOrderId === stocktakeOrderId))
+}
+
+export function getFactoryWarehouseAdjustmentOrder(adjustmentOrderId: string): FactoryWarehouseAdjustmentOrder | undefined {
+  const order = ensureFactoryInternalWarehouseStore().adjustmentOrders.find((item) => item.adjustmentOrderId === adjustmentOrderId)
+  return order ? cloneValue(order) : undefined
 }
 
 export function getFactoryWarehouseSourceRecordTypeLabel(sourceRecordType: FactoryWarehouseSourceRecordType): string {
@@ -1840,6 +2069,10 @@ export function createFactoryWarehouseStocktakeOrder(
       differenceReason: '',
       photoList: [],
       status: '未盘',
+      reviewStatus: undefined,
+      differenceReviewId: undefined,
+      adjustmentOrderId: undefined,
+      adjustedAt: undefined,
     })),
     remark: '全盘',
   }
@@ -1867,10 +2100,20 @@ export function updateFactoryWarehouseStocktakeLine(
   line.differenceQty = line.countedQty === undefined ? undefined : roundQty(countedQty - line.bookQty)
   if (line.countedQty === undefined) {
     line.status = '未盘'
+    line.reviewStatus = undefined
+    line.differenceReviewId = undefined
+    line.adjustmentOrderId = undefined
+    line.adjustedAt = undefined
   } else if (line.differenceQty !== 0) {
     line.status = '差异'
+    line.reviewStatus = '待审核'
+    line.adjustedAt = undefined
   } else {
     line.status = '已盘'
+    line.reviewStatus = undefined
+    line.differenceReviewId = undefined
+    line.adjustmentOrderId = undefined
+    line.adjustedAt = undefined
   }
   return true
 }
@@ -1879,9 +2122,160 @@ export function completeFactoryWarehouseStocktakeOrder(stocktakeOrderId: string)
   const store = ensureFactoryInternalWarehouseStore()
   const order = store.stocktakeOrders.find((item) => item.stocktakeOrderId === stocktakeOrderId)
   if (!order) return false
-  order.status = order.lineList.some((line) => (line.differenceQty ?? 0) !== 0) ? '待确认' : '已完成'
+  const differenceLines = order.lineList.filter((line) => (line.differenceQty ?? 0) !== 0)
+  if (differenceLines.length > 0) {
+    differenceLines.forEach((line) => {
+      line.reviewStatus = line.reviewStatus || '待审核'
+      ensureStocktakeDifferenceReviewForLine(store, order, line)
+    })
+    order.status = '待确认'
+  } else {
+    order.status = '已完成'
+  }
   order.completedAt = nowTimestamp()
   return true
+}
+
+export function getFactoryWarehouseCurrentQtyByStockItemId(stockItemId: string): number {
+  const store = ensureFactoryInternalWarehouseStore()
+  const waitProcessItem = store.waitProcessStockItems.find((item) => item.stockItemId === stockItemId)
+  if (waitProcessItem) return waitProcessItem.receivedQty
+  const waitHandoverItem = store.waitHandoverStockItems.find((item) => item.stockItemId === stockItemId)
+  if (waitHandoverItem) return waitHandoverItem.waitHandoverQty
+  return 0
+}
+
+export function approveFactoryWarehouseStocktakeDifferenceReview(input: {
+  reviewId: string
+  reviewedBy: string
+  reviewedAt?: string
+  reviewRemark?: string
+}): FactoryWarehouseAdjustmentOrder | null {
+  const store = ensureFactoryInternalWarehouseStore()
+  const review = store.stocktakeDifferenceReviews.find((item) => item.reviewId === input.reviewId)
+  if (!review) return null
+  const order = store.stocktakeOrders.find((item) => item.stocktakeOrderId === review.stocktakeOrderId)
+  const line = order?.lineList.find((item) => item.lineId === review.lineId)
+  if (!order || !line) return null
+  const now = input.reviewedAt || nowTimestamp()
+  review.reviewStatus = '审核通过'
+  review.reviewedBy = input.reviewedBy
+  review.reviewedAt = now
+  review.reviewRemark = input.reviewRemark?.trim() || review.reviewRemark || '盘点差异审核通过'
+  line.reviewStatus = '审核通过'
+  line.differenceReviewId = review.reviewId
+  const adjustmentOrderId = `ADJ-${review.reviewId.replace(/[^A-Za-z0-9]/g, '').slice(-12)}`
+  let adjustment = store.adjustmentOrders.find((item) => item.adjustmentOrderId === adjustmentOrderId)
+  if (!adjustment) {
+    adjustment = {
+      adjustmentOrderId,
+      adjustmentOrderNo: `TZ-${review.stocktakeOrderNo.replace(/[^A-Za-z0-9]/g, '').slice(-8)}-${String(store.adjustmentOrders.length + 1).padStart(3, '0')}`,
+      sourceStocktakeOrderId: review.stocktakeOrderId,
+      sourceStocktakeOrderNo: review.stocktakeOrderNo,
+      sourceLineId: review.lineId,
+      reviewId: review.reviewId,
+      warehouseId: review.warehouseId,
+      warehouseName: review.warehouseName,
+      factoryId: review.factoryId,
+      factoryName: review.factoryName,
+      warehouseKind: review.warehouseKind,
+      stockItemId: review.stockItemId,
+      itemKind: review.itemKind,
+      itemName: review.itemName,
+      materialSku: review.materialSku,
+      partName: review.partName,
+      fabricColor: review.fabricColor,
+      sizeCode: review.sizeCode,
+      feiTicketNo: review.feiTicketNo,
+      transferBagNo: review.transferBagNo,
+      fabricRollNo: review.fabricRollNo,
+      bookQty: review.bookQty,
+      countedQty: review.countedQty,
+      adjustmentQty: roundQty(review.countedQty - review.bookQty),
+      unit: review.unit,
+      status: '待执行',
+      createdAt: now,
+      createdBy: input.reviewedBy,
+      remark: review.reviewRemark,
+    }
+    store.adjustmentOrders.unshift(adjustment)
+  }
+  review.adjustmentOrderId = adjustment.adjustmentOrderId
+  line.adjustmentOrderId = adjustment.adjustmentOrderId
+  return cloneValue(adjustment)
+}
+
+export function rejectFactoryWarehouseStocktakeDifferenceReview(input: {
+  reviewId: string
+  reviewedBy: string
+  reviewedAt?: string
+  reviewRemark?: string
+}): FactoryWarehouseStocktakeDifferenceReview | null {
+  const store = ensureFactoryInternalWarehouseStore()
+  const review = store.stocktakeDifferenceReviews.find((item) => item.reviewId === input.reviewId)
+  if (!review) return null
+  const order = store.stocktakeOrders.find((item) => item.stocktakeOrderId === review.stocktakeOrderId)
+  const line = order?.lineList.find((item) => item.lineId === review.lineId)
+  const now = input.reviewedAt || nowTimestamp()
+  review.reviewStatus = '已驳回'
+  review.reviewedBy = input.reviewedBy
+  review.reviewedAt = now
+  review.reviewRemark = input.reviewRemark?.trim() || '盘点差异已驳回'
+  if (line) {
+    line.reviewStatus = '已驳回'
+  }
+  if (order) {
+    order.status = '待确认'
+  }
+  return cloneValue(review)
+}
+
+export function executeFactoryWarehouseAdjustmentOrder(input: {
+  adjustmentOrderId: string
+  executedBy: string
+  executedAt?: string
+  remark?: string
+}): FactoryWarehouseAdjustmentOrder | null {
+  const store = ensureFactoryInternalWarehouseStore()
+  const adjustment = store.adjustmentOrders.find((item) => item.adjustmentOrderId === input.adjustmentOrderId)
+  if (!adjustment || adjustment.status !== '待执行') return adjustment ? cloneValue(adjustment) : null
+  const now = input.executedAt || nowTimestamp()
+  if (adjustment.warehouseKind === 'WAIT_PROCESS') {
+    const stockItem = store.waitProcessStockItems.find((item) => item.stockItemId === adjustment.stockItemId)
+    if (stockItem) {
+      stockItem.receivedQty = roundQty(adjustment.countedQty)
+      stockItem.differenceQty = roundQty(stockItem.receivedQty - stockItem.expectedQty)
+      stockItem.status = stockItem.differenceQty === 0 ? '已入待加工仓' : '差异待处理'
+    }
+  } else {
+    const stockItem = store.waitHandoverStockItems.find((item) => item.stockItemId === adjustment.stockItemId)
+    if (stockItem) {
+      stockItem.waitHandoverQty = roundQty(adjustment.countedQty)
+      stockItem.differenceQty = roundQty(stockItem.waitHandoverQty - stockItem.completedQty)
+      stockItem.status = stockItem.differenceQty === 0 ? '待交出' : '差异'
+    }
+  }
+  adjustment.status = '已完成'
+  adjustment.executedAt = now
+  adjustment.executedBy = input.executedBy
+  adjustment.remark = input.remark?.trim() || adjustment.remark
+  const review = store.stocktakeDifferenceReviews.find((item) => item.reviewId === adjustment.reviewId)
+  const order = store.stocktakeOrders.find((item) => item.stocktakeOrderId === adjustment.sourceStocktakeOrderId)
+  const line = order?.lineList.find((item) => item.lineId === adjustment.sourceLineId)
+  if (review) {
+    review.reviewStatus = '已调整'
+    review.adjustmentOrderId = adjustment.adjustmentOrderId
+    review.reviewRemark = input.remark?.trim() || review.reviewRemark
+  }
+  if (line) {
+    line.reviewStatus = '已调整'
+    line.adjustmentOrderId = adjustment.adjustmentOrderId
+    line.adjustedAt = now
+  }
+  if (order) {
+    refreshStocktakeOrderStatusAfterAdjustment(order)
+  }
+  return cloneValue(adjustment)
 }
 
 export function getFactoryWarehousePositionStatusOptions(): Array<{ value: FactoryWarehouseLocationStatus; label: string }> {
@@ -1906,6 +2300,8 @@ export function getFactoryWarehouseSummary(input: {
   differenceQty: number
   abnormalCount: number
   stocktakeDifferenceCount: number
+  stocktakeWaitReviewCount: number
+  stocktakeAdjustedCount: number
 } {
   const store = ensureFactoryInternalWarehouseStore()
   const keyword = input.keyword?.trim().toLowerCase() || ''
@@ -1975,6 +2371,14 @@ export function getFactoryWarehouseSummary(input: {
   const stocktakeDifferenceCount = store.stocktakeOrders
     .filter((order) => (!input.factoryId || order.factoryId === input.factoryId))
     .reduce((sum, order) => sum + order.lineList.filter((line) => (line.differenceQty ?? 0) !== 0).length, 0)
+  const stocktakeWaitReviewCount = store.stocktakeDifferenceReviews
+    .filter((review) => (!input.factoryId || review.factoryId === input.factoryId))
+    .filter((review) => review.reviewStatus === '待审核' || review.reviewStatus === '审核通过' || review.reviewStatus === '已驳回')
+    .length
+  const stocktakeAdjustedCount = store.stocktakeDifferenceReviews
+    .filter((review) => (!input.factoryId || review.factoryId === input.factoryId))
+    .filter((review) => review.reviewStatus === '已调整')
+    .length
 
   return {
     waitReceiveQty: roundQty(waitReceiveQty),
@@ -1984,6 +2388,8 @@ export function getFactoryWarehouseSummary(input: {
     differenceQty: roundQty(differenceQty),
     abnormalCount,
     stocktakeDifferenceCount,
+    stocktakeWaitReviewCount,
+    stocktakeAdjustedCount,
   }
 }
 

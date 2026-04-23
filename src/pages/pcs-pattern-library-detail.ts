@@ -298,6 +298,15 @@ function renderBasicInfoTab(): string {
             <p>解析状态：${PATTERN_PARSE_STATUS_LABELS[asset.parse_status]}</p>
           </div>
         </article>
+        <article class="rounded-lg border bg-white p-4">
+          <h3 class="text-sm font-semibold">来源与归档</h3>
+          <div class="mt-3 space-y-1 text-sm text-gray-600">
+            <p>来源项目：${escapeHtml(asset.source_project_id || '-')}</p>
+            <p>来源任务：${escapeHtml(asset.source_task_code || asset.source_task_id || '-')}</p>
+            <p>来源技术包版本：${escapeHtml(asset.source_tech_pack_version_code || '-')}</p>
+            <p>归档状态：${asset.archive_collected_flag ? '已进入项目资料归档' : '未进入项目资料归档'}</p>
+          </div>
+        </article>
       </div>
       <div class="space-y-4 xl:col-span-7">
         <section class="rounded-lg border bg-white p-4">

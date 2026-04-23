@@ -17,6 +17,7 @@ import {
   listFactoryWaitProcessStockItems,
   listFactoryWarehouseInboundRecords,
   listFactoryWarehouseOutboundRecords,
+  listFactoryWarehouseStocktakeDifferenceReviews,
   listFactoryWarehouseStocktakeOrders,
 } from './factory-internal-warehouse.ts'
 import {
@@ -132,6 +133,12 @@ export interface SpecialCraftProgressSnapshot {
   objectionFeiTicketCount: number
   abnormalCount: number
   blockingCount: number
+  groupBy: '工艺'
+  receiveDifferenceTicketCount: number
+  returnDifferenceTicketCount: number
+  scrapQty: number
+  damageQty: number
+  currentQty: number
   statusDistribution: Record<SpecialCraftTaskStatus, number>
   updatedAt: string
 }
@@ -152,6 +159,8 @@ export interface FactoryWarehouseProgressSnapshot {
   outboundDifferenceCount: number
   objectionCount: number
   stocktakeDifferenceCount: number
+  stocktakeWaitReviewCount: number
+  stocktakeAdjustedCount: number
   overdueCount: number
   updatedAt: string
 }
@@ -188,6 +197,9 @@ export interface SewingDispatchProgressSnapshot {
   completedTransferBagCount: number
   dispatchedTransferBagCount: number
   writtenBackTransferBagCount: number
+  bagWritebackLineCount: number
+  feiTicketWritebackLineCount: number
+  partialWrittenBackTransferBagCount: number
   differenceTransferBagCount: number
   objectionTransferBagCount: number
   canCreateNextBatch: boolean
@@ -298,9 +310,9 @@ function resolveSpecialCraftStatus(order: ProductionOrder): ProductionProgressSn
   const tasks = getSpecialCraftTasksByProductionOrder(order.productionOrderId)
   if (!tasks.length) return '无特殊工艺'
   const returnStatus = getCuttingSpecialCraftReturnStatusByProductionOrder(order.productionOrderId)
-  if (returnStatus.differenceCount > 0) return '差异'
-  if (returnStatus.objectionCount > 0) return '异议中'
   if (returnStatus.totalNeedSpecialCraftFeiTickets > 0 && returnStatus.allReturned) return '已回仓'
+  if (returnStatus.objectionCount > 0) return '异议中'
+  if (returnStatus.differenceCount > 0) return '差异'
   if (returnStatus.waitReturnCount > 0) return '待回仓'
   if (returnStatus.receivedBySpecialFactoryCount > 0 || tasks.some((task) => task.status === '加工中')) return '加工中'
   return '待发料'
@@ -309,9 +321,9 @@ function resolveSpecialCraftStatus(order: ProductionOrder): ProductionProgressSn
 function resolveSpecialCraftReturnStatus(order: ProductionOrder): ProductionProgressSnapshot['specialCraftReturnStatus'] {
   const status = getCuttingSpecialCraftReturnStatusByProductionOrder(order.productionOrderId)
   if (status.totalNeedSpecialCraftFeiTickets === 0) return '不需要回仓'
-  if (status.differenceCount > 0) return '差异'
-  if (status.objectionCount > 0) return '异议中'
   if (status.allReturned) return '已回仓'
+  if (status.objectionCount > 0) return '异议中'
+  if (status.differenceCount > 0) return '差异'
   if (status.returnedCount > 0) return '部分回仓'
   return '未回仓'
 }
@@ -335,6 +347,9 @@ export function buildSewingDispatchProgressSnapshot(order: ProductionOrder): Sew
     completedTransferBagCount: transferBags.filter((bag) => bag.completeStatus === '已配齐').length,
     dispatchedTransferBagCount: progress.dispatchedTransferBagCount,
     writtenBackTransferBagCount: progress.writtenBackTransferBagCount,
+    bagWritebackLineCount: transferBags.filter((bag) => bag.receivedAt || bag.packStatus === '已扫码接收' || bag.packStatus === '已回写').length,
+    feiTicketWritebackLineCount: transferBags.reduce((total, bag) => total + (bag.receivedFeiTicketCount || 0), 0),
+    partialWrittenBackTransferBagCount: transferBags.filter((bag) => bag.packStatus === '部分回写').length,
     differenceTransferBagCount: progress.differenceTransferBagCount,
     objectionTransferBagCount: progress.objectionTransferBagCount,
     canCreateNextBatch: progress.canCreateNextBatch,
@@ -615,6 +630,12 @@ export function buildSpecialCraftProgressSnapshots(): SpecialCraftProgressSnapsh
       objectionFeiTicketCount: 0,
       abnormalCount: 0,
       blockingCount: 0,
+      groupBy: '工艺',
+      receiveDifferenceTicketCount: 0,
+      returnDifferenceTicketCount: 0,
+      scrapQty: 0,
+      damageQty: 0,
+      currentQty: 0,
       statusDistribution: emptyStatusDistribution(),
       updatedAt: DEMO_TODAY,
     }
@@ -639,16 +660,28 @@ export function buildSpecialCraftProgressSnapshots(): SpecialCraftProgressSnapsh
     if (binding.specialCraftFlowStatus === '加工中') existing.processingFeiTicketCount += 1
     if (binding.specialCraftFlowStatus === '待回仓' || binding.specialCraftFlowStatus === '已完成') existing.waitReturnFeiTicketCount += 1
     if (binding.specialCraftFlowStatus === '已回仓') existing.returnedFeiTicketCount += 1
-    if (binding.specialCraftFlowStatus === '差异') existing.differenceFeiTicketCount += 1
-    if (binding.specialCraftFlowStatus === '异议中') existing.objectionFeiTicketCount += 1
+    if (binding.receiveDifferenceStatus === '待处理' || binding.receiveDifferenceStatus === '处理中') {
+      existing.receiveDifferenceTicketCount += 1
+      existing.differenceFeiTicketCount += 1
+    }
+    if (binding.returnDifferenceStatus === '待处理' || binding.returnDifferenceStatus === '处理中') {
+      existing.returnDifferenceTicketCount += 1
+      existing.differenceFeiTicketCount += 1
+    }
+    if (binding.objectionStatus === '异议中') existing.objectionFeiTicketCount += 1
+    existing.scrapQty += binding.cumulativeScrapQty
+    existing.damageQty += binding.cumulativeDamageQty
+    existing.currentQty += binding.currentQty
   })
 
   groups.forEach((snapshot) => {
     snapshot.blockingCount =
       snapshot.waitDispatchFeiTicketCount
       + snapshot.waitReturnFeiTicketCount
-      + snapshot.differenceFeiTicketCount
       + snapshot.objectionFeiTicketCount
+    snapshot.scrapQty = Math.round(snapshot.scrapQty * 100) / 100
+    snapshot.damageQty = Math.round(snapshot.damageQty * 100) / 100
+    snapshot.currentQty = Math.round(snapshot.currentQty * 100) / 100
   })
 
   return Array.from(groups.values())
@@ -664,6 +697,7 @@ export function buildFactoryWarehouseProgressSnapshots(): FactoryWarehouseProgre
       const inbound = listFactoryWarehouseInboundRecords().filter((item) => item.factoryId === warehouse.factoryId)
       const outbound = listFactoryWarehouseOutboundRecords().filter((item) => item.factoryId === warehouse.factoryId)
       const stocktake = listFactoryWarehouseStocktakeOrders().filter((item) => item.factoryId === warehouse.factoryId)
+      const stocktakeReviews = listFactoryWarehouseStocktakeDifferenceReviews().filter((item) => item.factoryId === warehouse.factoryId)
       result.push({
         snapshotId: `FWPS-${warehouse.factoryId}`,
         factoryId: warehouse.factoryId,
@@ -680,6 +714,8 @@ export function buildFactoryWarehouseProgressSnapshots(): FactoryWarehouseProgre
         outboundDifferenceCount: outbound.filter((item) => (item.differenceQty || 0) !== 0 || item.status === '差异').length,
         objectionCount: outbound.filter((item) => item.status === '异议中').length + waitHandover.filter((item) => item.status === '异议中').length,
         stocktakeDifferenceCount: stocktake.reduce((count, order) => count + order.lineList.filter((line) => (line.differenceQty || 0) !== 0).length, 0),
+        stocktakeWaitReviewCount: stocktakeReviews.filter((item) => item.reviewStatus !== '已调整').length,
+        stocktakeAdjustedCount: stocktakeReviews.filter((item) => item.reviewStatus === '已调整').length,
         overdueCount: waitProcess.filter((item) => item.status === '待领料' || item.status === '差异待处理').length + waitHandover.filter((item) => item.status === '待交出').length,
         updatedAt: DEMO_TODAY,
       })

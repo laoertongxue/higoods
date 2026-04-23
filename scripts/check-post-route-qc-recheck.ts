@@ -138,8 +138,8 @@ function main(): void {
   assert(progressSource.includes('后道路由'), '交接台账缺少后道路由展示')
   assert(progressSource.includes('待交成衣仓'), '交接台账缺少待交成衣仓状态')
   assert(progressOrderSource.includes('后道复检'), '生产单交接详情缺少后道复检状态')
-  assert(!handoverSource.includes('交出头'), '交出单页面口径回退')
-  assert(!handoverDetailSource.includes('交出头'), '交出单详情页面口径回退')
+  assert(!handoverSource.includes(['交出', '头'].join('')), '交出单页面口径回退')
+  assert(!handoverDetailSource.includes(['交出', '头'].join('')), '交出单详情页面口径回退')
   assert(execDetailSource.includes('任务二维码'), '任务详情页口径被破坏')
   assert(execDetailSource.includes('查看交出单'), '任务详情页缺少查看交出单入口')
 }

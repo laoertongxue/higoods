@@ -1250,7 +1250,7 @@ export function ensureUsageContextLockedByTicket(options: {
       if (resolved.ok && resolved.sewingTask && resolved.sewingTask.sewingTaskId !== lockedTask.sewingTaskId) {
         return {
           ok: false,
-          reason: `当前袋已锁定到 ${lockedTask.sewingFactoryName} / ${lockedTask.styleCode || lockedTask.spuCode}，不可混装。`,
+          reason: `当前袋已锁定到 ${lockedTask.sewingFactoryName} / ${lockedTask.styleCode || lockedTask.spuCode}，请确认同属本次发料批次。`,
           sewingTask: null,
           source: 'usage-locked',
         }
@@ -1263,7 +1263,7 @@ export function ensureUsageContextLockedByTicket(options: {
     ) {
       return {
         ok: false,
-        reason: `当前袋已锁定到 ${lockedTask.sewingFactoryName} / ${lockedTask.styleCode || lockedTask.spuCode}，不可混装。`,
+        reason: `当前袋已锁定到 ${lockedTask.sewingFactoryName} / ${lockedTask.styleCode || lockedTask.spuCode}，请确认同属本次发料批次。`,
         sewingTask: null,
         source: 'usage-locked',
       }
@@ -1493,7 +1493,7 @@ export function validateBagToSewingTaskBinding(usage: TransferBagUsage | null, s
   if (!usage) return { ok: false, reason: '当前没有可绑定的使用周期，请先创建使用周期草稿。' }
   if (!sewingTaskId) return { ok: false, reason: '当前使用周期尚未绑定车缝任务。' }
   if (usage.sewingTaskId && usage.sewingTaskId !== sewingTaskId) {
-    return { ok: false, reason: '同一次使用周期只能归属一个车缝任务，请不要混装到多个车缝任务。' }
+    return { ok: false, reason: '同一次使用周期只能归属一个车缝任务，请确认同属本次发料批次。' }
   }
   return { ok: true, reason: '' }
 }

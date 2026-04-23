@@ -115,7 +115,7 @@ function getPickupSummaryMeta(head: PdaHandoverHead): { label: string; className
   return {
     label: '已完成确认',
     className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-    hint: '领料记录已确认/裁定完成，等待仓库侧发起头单完成',
+    hint: '领料记录已确认/裁定完成，等待完成领料单',
   }
 }
 
@@ -124,7 +124,7 @@ function getHandoutSummaryMeta(head: PdaHandoverHead): { label: string; classNam
     return {
       label: '暂无交出记录',
       className: 'border-border bg-background text-muted-foreground',
-      hint: '当前可新增交出记录',
+      hint: '当前可新增交出记录，也可按交出数量完成交出单',
     }
   }
   if (head.summaryStatus === 'SUBMITTED') {
@@ -145,7 +145,7 @@ function getHandoutSummaryMeta(head: PdaHandoverHead): { label: string; classNam
     return {
       label: '存在数量异议',
       className: 'border-red-200 bg-red-50 text-red-700',
-      hint: '异议未处理完前不可发起完成',
+      hint: '异议可继续处理，交出单仍可按交出数量完成',
     }
   }
   return {
@@ -218,7 +218,7 @@ function renderHandoutObjectBlock(head: PdaHandoverHead, compact = false): strin
 
 function renderOpenHeadCard(head: PdaHandoverHead): string {
   const meta = head.headType === 'PICKUP' ? getPickupSummaryMeta(head) : getHandoutSummaryMeta(head)
-  const headLabel = head.headType === 'PICKUP' ? '领料头' : '交出单'
+  const headLabel = head.headType === 'PICKUP' ? '领料单' : '交出单'
   const actionLabel = head.headType === 'PICKUP' ? '去领料' : '查看交出单'
 
   if (head.headType === 'PICKUP') {
@@ -227,7 +227,7 @@ function renderOpenHeadCard(head: PdaHandoverHead): string {
         ? `有 ${head.objectionCount} 条记录在处理差异`
         : head.pendingWritebackCount > 0
           ? `还有 ${head.pendingWritebackCount} 条记录待处理`
-          : '当前等待仓库完成头单'
+          : '当前等待完成领料单'
 
     return `
       <article
@@ -348,7 +348,7 @@ function renderOpenHeadCard(head: PdaHandoverHead): string {
 }
 
 function renderDoneHeadCard(head: PdaHandoverHead): string {
-  const doneTypeLabel = head.headType === 'PICKUP' ? '领料完成' : '交出完成'
+  const doneTypeLabel = head.headType === 'PICKUP' ? '领料单已完成' : '交出单已完成'
   const diffLabel = `${head.qtyDiffTotal > 0 ? '-' : head.qtyDiffTotal < 0 ? '+' : ''}${Math.abs(head.qtyDiffTotal)} ${head.qtyUnit}`
   const receiverName = getReceiverDisplayName(head)
 
@@ -363,7 +363,7 @@ function renderDoneHeadCard(head: PdaHandoverHead): string {
         <div class="flex items-center justify-between gap-2">
           <div class="flex min-w-0 items-center gap-1.5">
             <span class="inline-flex shrink-0 items-center rounded border border-green-200 bg-green-50 px-1.5 py-0 text-[10px] text-green-700">${doneTypeLabel}</span>
-            <span class="inline-flex shrink-0 items-center rounded border border-border bg-muted px-1.5 py-0 text-[10px]">已关闭</span>
+            <span class="inline-flex shrink-0 items-center rounded border border-border bg-muted px-1.5 py-0 text-[10px]">${head.headType === 'HANDOUT' && !head.receiverClosedAt ? '接收方回写中' : '已完成'}</span>
           </div>
           <i data-lucide="chevron-right" class="h-4 w-4 shrink-0 text-muted-foreground"></i>
         </div>
@@ -376,7 +376,7 @@ function renderDoneHeadCard(head: PdaHandoverHead): string {
           <div><span class="text-muted-foreground">完成时间：</span>${escapeHtml(head.completedByWarehouseAt || '—')}</div>
           <div><span class="text-muted-foreground">交接范围：</span>${escapeHtml(head.scopeLabel || '整单')}</div>
           <div><span class="text-muted-foreground">交接方式：</span>${escapeHtml(getExecutorLabel(head))}</div>
-          <div class="col-span-2"><span class="text-muted-foreground">${head.headType === 'PICKUP' ? '领料头编号' : '交出单号'}：</span>${escapeHtml(head.headType === 'PICKUP' ? head.handoverId : head.handoverOrderNo || head.handoverId)}</div>
+          <div class="col-span-2"><span class="text-muted-foreground">${head.headType === 'PICKUP' ? '领料单号' : '交出单号'}：</span>${escapeHtml(head.headType === 'PICKUP' ? head.handoverId : head.handoverOrderNo || head.handoverId)}</div>
         </div>
 
         <div class="grid grid-cols-2 gap-2 rounded border bg-muted/20 px-2.5 py-2 text-xs">
@@ -460,7 +460,7 @@ export function renderPdaHandoverPage(): string {
               <p class="text-xs text-muted-foreground">仓库回写生成领料记录；交付后确认数量或发起差异。</p>
               ${
                 pickupHeads.length === 0
-                  ? renderEmptyState('暂无待领料头单')
+                  ? renderEmptyState('暂无待处理领料单')
                   : pickupHeads.map((head) => renderOpenHeadCard(head)).join('')
               }
             `
@@ -470,7 +470,7 @@ export function renderPdaHandoverPage(): string {
         ${
           state.activeTab === 'handout'
             ? `
-              <p class="text-xs text-muted-foreground">交出记录由工厂发起，接收方回写实收数量；车缝厂接收裁床发料时可查看中转单、中转袋、菲票数和本次发料件数。</p>
+              <p class="text-xs text-muted-foreground">交出记录由工厂发起，接收方回写实收数量；裁床厂可看待装袋、装袋中、已装袋待交出，车缝厂可看待收中转袋、部分回写、差异。</p>
               ${
                 handoutHeads.length === 0
                   ? renderEmptyState('暂无待处理交出单')
@@ -484,8 +484,8 @@ export function renderPdaHandoverPage(): string {
           state.activeTab === 'done'
             ? `
               <div class="grid grid-cols-2 gap-2 rounded border bg-muted/20 px-3 py-2 text-xs">
-                <div>领料完成：<span class="font-medium">${donePickupCount}</span></div>
-                <div>交出完成：<span class="font-medium">${doneHandoutCount}</span></div>
+                <div>领料单已完成：<span class="font-medium">${donePickupCount}</span></div>
+                <div>交出单已完成：<span class="font-medium">${doneHandoutCount}</span></div>
               </div>
               ${
                 doneHeads.length === 0

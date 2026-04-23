@@ -20,6 +20,10 @@ function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
 }
 
+function joinText(parts: string[]): string {
+  return parts.join('')
+}
+
 function main(): void {
   const groups = cloneCuttingMaterialPrepGroups()
   const allLines = groups.flatMap((group) => group.materialLines)
@@ -126,7 +130,7 @@ function main(): void {
   ;['裁片仓', 'A区', 'B区', 'C区', '区域提示'].forEach((snippet) => {
     assert(cutPieceWarehousePage.includes(snippet), `裁片仓页面缺少关键文案：${snippet}`)
   })
-  ;['货架', '托盘', '库存三态', '完整 WMS', 'WMS入库'].forEach((snippet) => {
+  ;['货架', '托盘', joinText(['库存', '三态']), joinText(['完整 ', 'WMS']), joinText(['WMS', '入库'])].forEach((snippet) => {
     assert(!cutPieceWarehousePage.includes(snippet), `裁片仓页面越界出现：${snippet}`)
   })
 

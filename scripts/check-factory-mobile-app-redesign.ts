@@ -168,12 +168,19 @@ assertContains(warehouseSource, '仓管', '缺少仓管首页')
   assertContains(warehouseSource + sharedWarehouseSource, token, `仓管首页缺少：${token}`)
 })
 assert(warehouseCards.length === 6, '仓管首页卡片数量必须为 6')
+assert.deepEqual(
+  warehouseCards.map((card) => card.cardId),
+  ['wait-process', 'wait-handover', 'inbound-records', 'outbound-records', 'stocktake', 'difference'],
+  '仓管首页 6 张卡顺序必须保持：待加工仓 / 待交出仓 / 入库记录 / 出库记录 / 盘点 / 差异',
+)
 assert(warehouseCards.some((card) => card.title === '待加工仓'), '仓管首页缺少待加工仓卡片')
 assert(warehouseCards.some((card) => card.title === '待交出仓'), '仓管首页缺少待交出仓卡片')
 assert(warehouseCards.some((card) => card.title === '入库记录'), '仓管首页缺少入库记录卡片')
 assert(warehouseCards.some((card) => card.title === '出库记录'), '仓管首页缺少出库记录卡片')
 assert(warehouseCards.some((card) => card.title === '盘点'), '仓管首页缺少盘点卡片')
 assert(warehouseCards.some((card) => card.title === '差异'), '仓管首页缺少差异卡片')
+assert(warehouseOverview.stocktakeWaitReviewCount >= 0, '仓管概览缺少待审核差异统计')
+assert(warehouseOverview.stocktakeAdjustedCount >= 0, '仓管概览缺少已调整差异统计')
 
 ;[
   '来源单号',
@@ -251,6 +258,11 @@ assertNotContains(stocktakeSource, joinText(['抽', '盘']), '盘点页面不应
 assertNotContains(stocktakeSource, joinText(['循环', '盘']), '盘点页面不应支持循环盘')
 
 assertContains(warehouseViewSource, "from './factory-internal-warehouse.ts'", '仓管视图层未复用 Prompt 2 工厂内部仓模型')
+assertContains(warehouseViewSource, 'getFactoryMobileTransferBagPackTasks', '仓管视图层缺少中转袋装袋任务')
+assertContains(warehouseViewSource, 'getFactoryMobileTransferBagReceiveTasks', '仓管视图层缺少中转袋接收任务')
+assertContains(warehouseViewSource, 'isSewingLightweight', '车缝厂仓管必须走轻量接收回写口径')
+assertContains(warehouseSource + sharedWarehouseSource, '待收中转袋', '车缝厂仓管缺少待收中转袋')
+assertContains(warehouseSource + sharedWarehouseSource, '菲票回写', '车缝厂仓管缺少菲票回写')
 assertNotContains(warehouseViewSource, 'interface FactoryWaitProcessStockItem', '仓管视图层不应重复定义库存主模型')
 assertNotContains(warehouseViewSource, 'interface FactoryWaitHandoverStockItem', '仓管视图层不应重复定义待交出库存主模型')
 

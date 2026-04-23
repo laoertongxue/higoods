@@ -48,6 +48,7 @@ import {
   type TemplateStyleType,
 } from '../data/pcs-templates.ts'
 import { getPcsWorkItemDefinition } from '../data/pcs-work-items.ts'
+import { buildProjectClosureViewModel } from '../data/pcs-project-closure-view-model.ts'
 import {
   getProjectWorkItemContract,
   getProjectWorkItemContractById,
@@ -199,6 +200,10 @@ interface RevisionTaskCreateDraft {
   evidenceSummary: string
   evidenceImageUrls: string[]
   scopeCodes: string[]
+  sampleQty: string
+  stylePreference: string
+  patternMakerName: string
+  liveRetestRequired: boolean
   note: string
 }
 
@@ -433,6 +438,10 @@ function createEmptyRevisionTaskCreateDraft(): RevisionTaskCreateDraft {
     evidenceSummary: '',
     evidenceImageUrls: [],
     scopeCodes: ['PATTERN'],
+    sampleQty: '2',
+    stylePreference: '',
+    patternMakerName: '',
+    liveRetestRequired: true,
     note: '',
   }
 }
@@ -1177,6 +1186,16 @@ function submitEngineeringTaskCreateDialog(): { ok: boolean; message: string; ro
       issueSummary: draft.issueSummary.trim(),
       evidenceSummary: draft.evidenceSummary.trim(),
       evidenceImageUrls: [...draft.evidenceImageUrls],
+      baseStyleId: linkedStyle?.styleId || '',
+      baseStyleCode: productStyleCode,
+      baseStyleName: linkedStyle?.styleName || project.linkedStyleName || project.projectName,
+      sampleQty: Number(draft.sampleQty || 0),
+      stylePreference: draft.stylePreference.trim(),
+      patternMakerName: draft.patternMakerName.trim() || draft.ownerName.trim(),
+      revisionSuggestionRichText: draft.issueSummary.trim(),
+      mainImageIds: [...draft.evidenceImageUrls],
+      liveRetestRequired: draft.liveRetestRequired,
+      liveRetestStatus: draft.liveRetestRequired ? '待回直播验证' : '不需要',
     })
     if (!result.ok) return { ok: false, message: result.message }
     return { ok: true, message: result.message, route: `/pcs/patterns/revision/${encodeURIComponent(result.task.revisionTaskId)}` }
@@ -1298,6 +1317,8 @@ function renderEngineeringTaskCreateDialog(): string {
           ${renderProjectSelectInput('负责人', 'engineering-revision-owner', draft.ownerName, ownerOptions)}
           ${renderProjectDateTimeInput('截止时间', 'engineering-revision-due-at', draft.dueAt)}
           ${renderProjectTextInput('关联款式编码', 'engineering-revision-style-code', styleCode, '自动带入', true)}
+          ${renderProjectTextInput('样衣数量', 'engineering-revision-sample-qty', draft.sampleQty, '例如：2')}
+          ${renderProjectTextInput('打版人', 'engineering-revision-pattern-maker', draft.patternMakerName, '默认负责人')}
         </div>
         <div class="space-y-3">
           <p class="text-sm font-medium text-slate-900">改版范围</p>
@@ -1313,7 +1334,12 @@ function renderEngineeringTaskCreateDialog(): string {
         <div class="grid gap-4 md:grid-cols-2">
           ${renderProjectTextarea('问题点', 'engineering-revision-issue-summary', draft.issueSummary, '请填写本次改版要解决的问题点')}
           ${renderProjectTextarea('证据说明', 'engineering-revision-evidence-summary', draft.evidenceSummary, '请填写评审、反馈、对比记录等证据说明')}
+          ${renderProjectTextarea('风格偏好', 'engineering-revision-style-preference', draft.stylePreference, '记录新款方向和直播表现要求')}
         </div>
+        <label class="inline-flex items-center gap-2 text-sm text-slate-700">
+          <input type="checkbox" ${draft.liveRetestRequired ? 'checked' : ''} data-pcs-project-field="engineering-revision-live-retest-required" />
+          <span>需要回直播验证</span>
+        </label>
         <section class="space-y-3 rounded-lg border border-slate-200 px-3 py-3">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -5629,6 +5655,7 @@ function renderProjectLogs(logs: ProjectLogItem[]): string {
 }
 
 function renderProjectOverviewCard(viewModel: ProjectViewModel): string {
+  const closure = buildProjectClosureViewModel(viewModel.project.projectId)
   return `
     <article class="rounded-lg border bg-white p-4">
       <h2 class="text-base font-semibold text-slate-900">项目概览</h2>
@@ -5638,6 +5665,18 @@ function renderProjectOverviewCard(viewModel: ProjectViewModel): string {
         <div class="flex items-center justify-between gap-3"><span>当前待办</span><span class="text-right font-medium text-slate-900">${escapeHtml(viewModel.nextNode?.node.workItemTypeName || '无')}</span></div>
         <div class="flex items-center justify-between gap-3"><span>风险状态</span><span class="text-right font-medium ${viewModel.project.riskStatus === '延期' ? 'text-amber-600' : 'text-emerald-600'}">${escapeHtml(getRiskText(viewModel.project))}</span></div>
         <div class="flex items-center justify-between gap-3"><span>测款渠道</span><span class="text-right font-medium text-slate-900">${escapeHtml(viewModel.channelNames.join('、') || '-')}</span></div>
+        ${closure ? `
+          <div class="border-t border-slate-100 pt-3">
+            <div class="text-xs font-medium text-slate-500">项目资料归档闭环</div>
+            <div class="mt-2 space-y-2">
+              <div class="flex items-center justify-between gap-3"><span>当前款式档案</span><span class="text-right font-medium text-slate-900">${escapeHtml(closure.styleText)}</span></div>
+              <div class="flex items-center justify-between gap-3"><span>当前技术包版本</span><span class="text-right font-medium text-slate-900">${escapeHtml(closure.currentTechnicalVersionText)}</span></div>
+              <div class="flex items-center justify-between gap-3"><span>当前花型资产</span><span class="text-right font-medium text-slate-900">${escapeHtml(closure.currentPatternAssetText)}</span></div>
+              <div class="flex items-center justify-between gap-3"><span>技术包版本日志</span><span class="text-right font-medium text-slate-900">${escapeHtml(closure.techPackLogText)}</span></div>
+              <div class="flex items-center justify-between gap-3"><span>归档状态</span><span class="text-right font-medium text-slate-900">${escapeHtml(closure.archiveStatusText)}</span></div>
+            </div>
+          </div>
+        ` : ''}
       </div>
     </article>
   `
@@ -6887,12 +6926,28 @@ export function handlePcsProjectsInput(target: Element): boolean {
     state.engineeringCreateDialog.revisionDraft.dueAt = fromDateTimeLocalValue(fieldNode.value)
     return true
   }
+  if (field === 'engineering-revision-sample-qty' && fieldNode instanceof HTMLInputElement) {
+    state.engineeringCreateDialog.revisionDraft.sampleQty = fieldNode.value
+    return true
+  }
+  if (field === 'engineering-revision-pattern-maker' && fieldNode instanceof HTMLInputElement) {
+    state.engineeringCreateDialog.revisionDraft.patternMakerName = fieldNode.value
+    return true
+  }
   if (field === 'engineering-revision-issue-summary' && fieldNode instanceof HTMLTextAreaElement) {
     state.engineeringCreateDialog.revisionDraft.issueSummary = fieldNode.value
     return true
   }
   if (field === 'engineering-revision-evidence-summary' && fieldNode instanceof HTMLTextAreaElement) {
     state.engineeringCreateDialog.revisionDraft.evidenceSummary = fieldNode.value
+    return true
+  }
+  if (field === 'engineering-revision-style-preference' && fieldNode instanceof HTMLTextAreaElement) {
+    state.engineeringCreateDialog.revisionDraft.stylePreference = fieldNode.value
+    return true
+  }
+  if (field === 'engineering-revision-live-retest-required' && fieldNode instanceof HTMLInputElement) {
+    state.engineeringCreateDialog.revisionDraft.liveRetestRequired = fieldNode.checked
     return true
   }
   if (field === 'engineering-revision-note' && fieldNode instanceof HTMLTextAreaElement) {

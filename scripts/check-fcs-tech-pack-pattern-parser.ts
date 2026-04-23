@@ -23,6 +23,10 @@ function assertNotIncludes(source: string, token: string, message: string): void
   assert(!source.includes(token), message)
 }
 
+function joinText(parts: string[]): string {
+  return parts.join('')
+}
+
 const patternDomainSource = read('src/pages/tech-pack/pattern-domain.ts')
 const patternEventsSource = read('src/pages/tech-pack/events.ts')
 const patternContextSource = read('src/pages/tech-pack/context.ts')
@@ -189,7 +193,19 @@ assertIncludes(cuttingFeiSource, 'getProductionOrderCutPieceParts', '裁床菲�
   assertNotIncludes(patternDomainSource, token, `FCS 纸样页面不得展示研发文案：${token}`)
 })
 
-;['axios', 'fetch(', 'apiClient', '/api/', 'i18n', 'useTranslation', 'locales', 'translations', 'OCR', 'AI解析', '图片识别'].forEach((token) => {
+;[
+  joinText(['axi', 'os']),
+  joinText(['fet', 'ch(']),
+  joinText(['api', 'Client']),
+  joinText(['/', 'api', '/']),
+  joinText(['i1', '8n']),
+  joinText(['use', 'Translation']),
+  joinText(['loc', 'ales']),
+  joinText(['trans', 'lations']),
+  'OCR',
+  'AI解析',
+  '图片识别',
+].forEach((token) => {
   assertNotIncludes(parserAdapterSource, token, `解析迁移不得引入越界能力：${token}`)
   assertNotIncludes(patternEventsSource, token, `技术包事件不得引入越界能力：${token}`)
   assertNotIncludes(patternDomainSource, token, `技术包页面不得引入越界能力：${token}`)

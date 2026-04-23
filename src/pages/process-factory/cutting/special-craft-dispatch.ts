@@ -8,6 +8,7 @@ import {
 import {
   createSpecialCraftDispatchHandoverFromFeiTickets,
   ensureSpecialCraftFeiTicketFlowSeeded,
+  getSpecialCraftFeiTicketScanSummary,
   listCuttingSpecialCraftDispatchViews,
   listCuttingSpecialCraftFeiTicketBindings,
   type CuttingSpecialCraftDispatchView,
@@ -227,6 +228,7 @@ function renderFilters(rows: CuttingSpecialCraftDispatchView[]): string {
 
 function renderSelectionBar(rows: CuttingSpecialCraftDispatchView[]): string {
   const selectedRows = rows.filter((row) => state.selectedFeiTicketNos.includes(row.feiTicketNo))
+  const selectedSummaries = selectedRows.map((row) => getSpecialCraftFeiTicketScanSummary(row.feiTicketNo))
   return `
     <section class="rounded-2xl border bg-white p-4 shadow-sm">
       <div class="flex flex-wrap items-center justify-between gap-3">
@@ -269,6 +271,28 @@ function renderSelectionBar(rows: CuttingSpecialCraftDispatchView[]): string {
                       <span class="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs text-blue-700">
                         ${escapeHtml(row.feiTicketNo)}
                       </span>
+                    `,
+                  )
+                  .join('')}
+              </div>
+              <div class="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                ${selectedSummaries
+                  .map(
+                    (summary) => `
+                      <div class="rounded-xl border bg-slate-50/70 p-3 text-xs">
+                        <div class="font-medium text-slate-800">${escapeHtml(summary.parentTaskOrderNo || '无特殊工艺')}</div>
+                        <div class="mt-1 text-muted-foreground">当前特殊工艺：${escapeHtml(summary.currentOperationName)}</div>
+                        <div class="mt-1 text-muted-foreground">已完成特殊工艺：${escapeHtml(summary.completedOperationNames.join('、') || '—')}</div>
+                        <div class="mt-1 text-muted-foreground">原数量 ${summary.originalQty} · 当前数量 ${summary.currentQty}</div>
+                        <div class="mt-1 text-muted-foreground">累计报废 ${summary.cumulativeScrapQty} · 累计货损 ${summary.cumulativeDamageQty}</div>
+                        ${
+                          summary.blockingReason
+                            ? `<div class="mt-1 text-amber-700">${escapeHtml(summary.blockingReason)}</div>`
+                            : summary.hasOpenReceiveDifference || summary.hasOpenReturnDifference
+                              ? '<div class="mt-1 text-amber-700">差异待处理不阻断</div>'
+                              : ''
+                        }
+                      </div>
                     `,
                   )
                   .join('')}
@@ -319,6 +343,7 @@ function renderTable(rows: CuttingSpecialCraftDispatchView[]): string {
           ${rows
             .map((row) => {
               const binding = getBindingForDispatchRow(row)
+              const scanSummary = row.feiTicketNo === '待绑定' ? null : getSpecialCraftFeiTicketScanSummary(row.feiTicketNo)
               const selected = state.selectedFeiTicketNos.includes(row.feiTicketNo)
               const taskHref =
                 binding && getSpecialCraftOperationById(binding.operationId)
@@ -337,9 +362,15 @@ function renderTable(rows: CuttingSpecialCraftDispatchView[]): string {
                   <td class="px-3 py-3">${escapeHtml(row.partName)}</td>
                   <td class="px-3 py-3">${escapeHtml(row.colorName)}</td>
                   <td class="px-3 py-3">${escapeHtml(row.sizeCode)}</td>
-                  <td class="px-3 py-3">${row.qty}</td>
+                  <td class="px-3 py-3">
+                    <div>${row.qty}</div>
+                    ${scanSummary ? `<div class="text-xs text-muted-foreground">当前 ${scanSummary.currentQty} / 报废 ${scanSummary.cumulativeScrapQty} / 货损 ${scanSummary.cumulativeDamageQty}</div>` : ''}
+                  </td>
                   <td class="px-3 py-3">${escapeHtml(row.currentLocation)}</td>
-                  <td class="px-3 py-3">${renderStatusPill(row.dispatchStatus)}</td>
+                  <td class="px-3 py-3">
+                    ${renderStatusPill(row.dispatchStatus)}
+                    ${scanSummary?.blockingReason ? `<div class="mt-1 text-xs text-amber-700">${escapeHtml(scanSummary.blockingReason)}</div>` : ''}
+                  </td>
                   <td class="px-3 py-3">${renderStatusPill(row.returnStatus)}</td>
                   <td class="px-3 py-3">${escapeHtml(row.handoverRecordNo || '未创建')}</td>
                   <td class="px-3 py-3">

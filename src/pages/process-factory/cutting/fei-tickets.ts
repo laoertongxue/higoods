@@ -1064,6 +1064,14 @@ function renderSpecialCraftFlowBlock(ticketNo: string): string {
           <p class="text-sm font-semibold text-slate-900">${escapeHtml(summary.operationNames.join(' / ') || '待绑定')}</p>
         </div>
         <div>
+          <p class="text-xs text-slate-500">已完成特殊工艺</p>
+          <p class="text-sm font-semibold text-slate-900">${escapeHtml(summary.completedOperationNames.join(' / ') || '—')}</p>
+        </div>
+        <div>
+          <p class="text-xs text-slate-500">当前特殊工艺</p>
+          <p class="text-sm font-semibold text-slate-900">${escapeHtml(summary.currentOperationName)}</p>
+        </div>
+        <div>
           <p class="text-xs text-slate-500">特殊工艺任务</p>
           <p class="text-sm font-semibold text-slate-900">${escapeHtml(summary.taskOrderNos.join(' / ') || '待绑定')}</p>
         </div>
@@ -1078,6 +1086,18 @@ function renderSpecialCraftFlowBlock(ticketNo: string): string {
         <div>
           <p class="text-xs text-slate-500">当前所在</p>
           <p class="text-sm font-semibold text-slate-900">${escapeHtml(summary.currentLocation)}</p>
+        </div>
+        <div>
+          <p class="text-xs text-slate-500">原数量 / 当前数量</p>
+          <p class="text-sm font-semibold text-slate-900">${formatCount(summary.originalQty)} / ${formatCount(summary.currentQty)}</p>
+        </div>
+        <div>
+          <p class="text-xs text-slate-500">累计报废 / 累计货损</p>
+          <p class="text-sm font-semibold text-slate-900">${formatCount(summary.cumulativeScrapQty)} / ${formatCount(summary.cumulativeDamageQty)}</p>
+        </div>
+        <div>
+          <p class="text-xs text-slate-500">差异状态</p>
+          <p class="text-sm font-semibold text-slate-900">${escapeHtml([summary.receiveDifferenceStatus, summary.returnDifferenceStatus].filter((item) => item !== '—').join(' / ') || '无')}</p>
         </div>
       </div>
     </div>
@@ -1225,12 +1245,23 @@ function renderPrintedTicketsTab(unit: PrintableUnit, detailView: PrintableUnitD
           <th class="px-3 py-3 text-left font-medium">扎号</th>
           <th class="px-3 py-3 text-left font-medium">是否需要特殊工艺</th>
           <th class="px-3 py-3 text-left font-medium">特殊工艺</th>
+          <th class="px-3 py-3 text-left font-medium">特殊工艺顺序</th>
+          <th class="px-3 py-3 text-left font-medium">已完成特殊工艺</th>
+          <th class="px-3 py-3 text-left font-medium">当前特殊工艺</th>
           <th class="px-3 py-3 text-left font-medium">特殊工艺任务</th>
+          <th class="px-3 py-3 text-left font-medium">原数量</th>
+          <th class="px-3 py-3 text-left font-medium">当前数量</th>
+          <th class="px-3 py-3 text-left font-medium">累计报废</th>
+          <th class="px-3 py-3 text-left font-medium">累计货损</th>
+          <th class="px-3 py-3 text-left font-medium">接收差异状态</th>
+          <th class="px-3 py-3 text-left font-medium">回仓差异状态</th>
           <th class="px-3 py-3 text-left font-medium">发料状态</th>
           <th class="px-3 py-3 text-left font-medium">回仓状态</th>
           <th class="px-3 py-3 text-left font-medium">当前所在</th>
           <th class="px-3 py-3 text-left font-medium">中转单号</th>
           <th class="px-3 py-3 text-left font-medium">中转袋号</th>
+          <th class="px-3 py-3 text-left font-medium">袋内状态</th>
+          <th class="px-3 py-3 text-left font-medium">所属交出记录</th>
           <th class="px-3 py-3 text-left font-medium">发车缝状态</th>
           <th class="px-3 py-3 text-left font-medium">是否已装袋</th>
           <th class="px-3 py-3 text-left font-medium">是否已交出</th>
@@ -1265,6 +1296,10 @@ function renderPrintedTicketsTab(unit: PrintableUnit, detailView: PrintableUnitD
                     {
                       label: '查看中转袋',
                       href: `${getCanonicalCuttingPath('transfer-bags')}?keyword=${encodeURIComponent(sewingDispatchSummary.transferBag?.transferBagNo || ticket.ticketNo)}`,
+                    },
+                    {
+                      label: sewingDispatchSummary.transferBag?.editableBeforeHandover ? '已装袋未交出可移出' : '已交出后不可移出',
+                      href: `${getCanonicalCuttingPath('sewing-dispatch')}?keyword=${encodeURIComponent(ticket.ticketNo)}`,
                     },
                     ...(specialCraftSummary.needSpecialCraft
                       ? [
@@ -1310,12 +1345,23 @@ function renderPrintedTicketsTab(unit: PrintableUnit, detailView: PrintableUnitD
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(ticket.bundleNo || '暂无数据')}</td>
                 <td class="px-3 py-3 text-slate-700">${specialCraftSummary.needSpecialCraft ? '是' : '无'}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(specialCraftSummary.operationNames.join(' / ') || '待绑定')}</td>
+                <td class="px-3 py-3 text-slate-700">${escapeHtml(specialCraftSummary.operationNames.join(' → ') || '无')}</td>
+                <td class="px-3 py-3 text-slate-700">${escapeHtml(specialCraftSummary.completedOperationNames.join(' / ') || '—')}</td>
+                <td class="px-3 py-3 text-slate-700">${escapeHtml(specialCraftSummary.currentOperationName)}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(specialCraftSummary.taskOrderNos.join(' / ') || '待绑定')}</td>
+                <td class="px-3 py-3 text-slate-700">${formatCount(specialCraftSummary.originalQty)}</td>
+                <td class="px-3 py-3 text-slate-700">${formatCount(specialCraftSummary.currentQty)}</td>
+                <td class="px-3 py-3 text-slate-700">${formatCount(specialCraftSummary.cumulativeScrapQty)}</td>
+                <td class="px-3 py-3 text-slate-700">${formatCount(specialCraftSummary.cumulativeDamageQty)}</td>
+                <td class="px-3 py-3 text-slate-700">${escapeHtml(specialCraftSummary.receiveDifferenceStatus)}</td>
+                <td class="px-3 py-3 text-slate-700">${escapeHtml(specialCraftSummary.returnDifferenceStatus)}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(specialCraftSummary.dispatchStatus)}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(specialCraftSummary.returnStatus)}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(specialCraftSummary.currentLocation)}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(sewingDispatchSummary.dispatchBatch?.transferOrderNo || '未装袋')}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(sewingDispatchSummary.transferBag?.transferBagNo || '未装袋')}</td>
+                <td class="px-3 py-3 text-slate-700">${escapeHtml(sewingDispatchSummary.transferBag ? sewingDispatchSummary.transferBag.packStatus : '未装袋')}</td>
+                <td class="px-3 py-3 text-slate-700">${escapeHtml(sewingDispatchSummary.dispatchBatch?.handoverRecordNo || '待提交')}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(sewingDispatchSummary.feiTicketSewingStatus)}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(sewingDispatchSummary.transferBag ? '已装袋' : '未装袋')}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(['已交出', '已回写', '差异', '异议中'].includes(sewingDispatchSummary.feiTicketSewingStatus) ? '已交出' : '未交出')}</td>

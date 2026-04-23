@@ -1,9 +1,18 @@
 import {
+  getSpecialCraftSupportedTargetObjectLabels,
+  getSpecialCraftTargetObjectLabel,
   listSelectableSpecialCraftDefinitions,
   type ProcessCraftDefinition,
+  type SpecialCraftSupportedTargetObject,
+  type SpecialCraftTargetObjectLabel,
+  type SpecialCraftVisibleFactoryType,
 } from './process-craft-dict.ts'
 
-export type SpecialCraftTargetObject = '裁片' | '面料' | '成衣半成品'
+export type SpecialCraftTargetObject =
+  | SpecialCraftTargetObjectLabel
+  | '裁片'
+  | '面料'
+  | '成衣半成品'
 
 export interface SpecialCraftOperationDefinition {
   operationId: string
@@ -12,7 +21,11 @@ export interface SpecialCraftOperationDefinition {
   processCode: string
   processName: string
   operationName: string
+  supportedTargetObjects: SpecialCraftSupportedTargetObject[]
+  supportedTargetObjectLabels: SpecialCraftTargetObjectLabel[]
+  defaultTargetObject: SpecialCraftTargetObjectLabel
   targetObject: SpecialCraftTargetObject
+  visibleFactoryTypes: SpecialCraftVisibleFactoryType[]
   requiresTaskOrder: boolean
   requiresFactoryWarehouse: boolean
   requiresStatistics: boolean
@@ -24,7 +37,7 @@ export interface SpecialCraftOperationDefinition {
 
 interface SpecialCraftOperationSeed {
   operationId: string
-  targetObject: SpecialCraftTargetObject
+  defaultTargetObject: SpecialCraftSupportedTargetObject
   requiresFeiTicketScan: boolean
   mustReturnToCuttingFactory: boolean
   remark: string
@@ -33,49 +46,49 @@ interface SpecialCraftOperationSeed {
 const specialCraftOperationSeedByName: Record<string, SpecialCraftOperationSeed> = {
   打揽: {
     operationId: 'SC-OP-008',
-    targetObject: '裁片',
+    defaultTargetObject: 'CUT_PIECE',
     requiresFeiTicketScan: true,
     mustReturnToCuttingFactory: true,
     remark: '按裁片任务单管理，完成后回裁床厂待交出仓。',
   },
   打条: {
     operationId: 'SC-OP-032',
-    targetObject: '裁片',
+    defaultTargetObject: 'CUT_PIECE',
     requiresFeiTicketScan: true,
     mustReturnToCuttingFactory: true,
     remark: '按裁片任务单管理，完成后回裁床厂待交出仓。',
   },
   激光切: {
     operationId: 'SC-OP-064',
-    targetObject: '裁片',
+    defaultTargetObject: 'CUT_PIECE',
     requiresFeiTicketScan: true,
     mustReturnToCuttingFactory: true,
     remark: '按裁片任务单管理，完成后回裁床厂待交出仓。',
   },
   洗水: {
     operationId: 'SC-OP-128',
-    targetObject: '面料',
+    defaultTargetObject: 'FULL_FABRIC',
     requiresFeiTicketScan: false,
     mustReturnToCuttingFactory: false,
     remark: '按面料任务单管理，保留后续工厂仓口径扩展位。',
   },
   烫画: {
     operationId: 'SC-OP-8192',
-    targetObject: '裁片',
+    defaultTargetObject: 'CUT_PIECE',
     requiresFeiTicketScan: true,
     mustReturnToCuttingFactory: true,
     remark: '按裁片任务单管理，完成后回裁床厂待交出仓。',
   },
   直喷: {
     operationId: 'SC-OP-16384',
-    targetObject: '裁片',
+    defaultTargetObject: 'CUT_PIECE',
     requiresFeiTicketScan: true,
     mustReturnToCuttingFactory: true,
     remark: '按裁片任务单管理，完成后回裁床厂待交出仓。',
   },
   捆条: {
     operationId: 'SC-OP-131072',
-    targetObject: '裁片',
+    defaultTargetObject: 'CUT_PIECE',
     requiresFeiTicketScan: true,
     mustReturnToCuttingFactory: true,
     remark: '按裁片任务单管理，完成后回裁床厂待交出仓。',
@@ -86,6 +99,12 @@ function buildOperationDefinition(
   craftDefinition: ProcessCraftDefinition,
   seed: SpecialCraftOperationSeed,
 ): SpecialCraftOperationDefinition {
+  const supportedTargetObjects = craftDefinition.supportedTargetObjects.length > 0
+    ? [...craftDefinition.supportedTargetObjects]
+    : [seed.defaultTargetObject]
+  const defaultTargetObject = supportedTargetObjects.includes(seed.defaultTargetObject)
+    ? getSpecialCraftTargetObjectLabel(seed.defaultTargetObject)
+    : getSpecialCraftTargetObjectLabel(supportedTargetObjects[0])
   return {
     operationId: seed.operationId,
     craftCode: craftDefinition.craftCode,
@@ -93,7 +112,11 @@ function buildOperationDefinition(
     processCode: craftDefinition.processCode,
     processName: '特殊工艺',
     operationName: craftDefinition.craftName,
-    targetObject: seed.targetObject,
+    supportedTargetObjects,
+    supportedTargetObjectLabels: getSpecialCraftSupportedTargetObjectLabels(supportedTargetObjects),
+    defaultTargetObject,
+    targetObject: defaultTargetObject,
+    visibleFactoryTypes: [...craftDefinition.visibleFactoryTypes],
     requiresTaskOrder: true,
     requiresFactoryWarehouse: true,
     requiresStatistics: true,
@@ -125,23 +148,63 @@ function normalizeOperationSlug(value: string): string {
 }
 
 export function listSpecialCraftOperationDefinitions(): SpecialCraftOperationDefinition[] {
-  return specialCraftOperationDefinitions.map((item) => ({ ...item }))
+  return specialCraftOperationDefinitions.map((item) => ({
+    ...item,
+    supportedTargetObjects: [...item.supportedTargetObjects],
+    supportedTargetObjectLabels: [...item.supportedTargetObjectLabels],
+    visibleFactoryTypes: [...item.visibleFactoryTypes],
+  }))
 }
 
 export function listEnabledSpecialCraftOperationDefinitions(): SpecialCraftOperationDefinition[] {
   return specialCraftOperationDefinitions
     .filter((item) => item.isEnabled)
-    .map((item) => ({ ...item }))
+    .map((item) => ({
+      ...item,
+      supportedTargetObjects: [...item.supportedTargetObjects],
+      supportedTargetObjectLabels: [...item.supportedTargetObjectLabels],
+      visibleFactoryTypes: [...item.visibleFactoryTypes],
+    }))
 }
 
 export function getSpecialCraftOperationById(operationId: string): SpecialCraftOperationDefinition | undefined {
   const matched = specialCraftOperationById.get(operationId)
-  return matched ? { ...matched } : undefined
+  return matched ? {
+    ...matched,
+    supportedTargetObjects: [...matched.supportedTargetObjects],
+    supportedTargetObjectLabels: [...matched.supportedTargetObjectLabels],
+    visibleFactoryTypes: [...matched.visibleFactoryTypes],
+  } : undefined
 }
 
 export function getSpecialCraftOperationByCraftCode(craftCode: string): SpecialCraftOperationDefinition | undefined {
   const matched = specialCraftOperationByCraftCode.get(craftCode)
-  return matched ? { ...matched } : undefined
+  return matched ? {
+    ...matched,
+    supportedTargetObjects: [...matched.supportedTargetObjects],
+    supportedTargetObjectLabels: [...matched.supportedTargetObjectLabels],
+    visibleFactoryTypes: [...matched.visibleFactoryTypes],
+  } : undefined
+}
+
+export function getDefaultSpecialCraftTargetObject(
+  operation: Pick<SpecialCraftOperationDefinition, 'defaultTargetObject' | 'targetObject'>,
+): SpecialCraftTargetObjectLabel {
+  if (operation.defaultTargetObject === '已裁部位' || operation.defaultTargetObject === '完整面料') {
+    return operation.defaultTargetObject
+  }
+  return operation.targetObject === '面料' || operation.targetObject === '完整面料'
+    ? '完整面料'
+    : '已裁部位'
+}
+
+export function isSpecialCraftTargetObjectSupported(
+  operation: Pick<SpecialCraftOperationDefinition, 'supportedTargetObjectLabels'>,
+  selectedTargetObject: string | undefined,
+): selectedTargetObject is SpecialCraftTargetObjectLabel {
+  return selectedTargetObject === '已裁部位' || selectedTargetObject === '完整面料'
+    ? operation.supportedTargetObjectLabels.includes(selectedTargetObject)
+    : false
 }
 
 export function buildSpecialCraftOperationSlug(
@@ -171,6 +234,14 @@ export function buildSpecialCraftTaskDetailPath(
 ): string {
   const slug = typeof input === 'string' ? normalizeOperationSlug(input) : buildSpecialCraftOperationSlug(input)
   return `${buildSpecialCraftTaskOrdersPath(slug)}/${encodeURIComponent(taskOrderId)}`
+}
+
+export function buildSpecialCraftWorkOrderDetailPath(
+  input: Pick<SpecialCraftOperationDefinition, 'operationId'> | string,
+  workOrderId: string,
+): string {
+  const slug = typeof input === 'string' ? normalizeOperationSlug(input) : buildSpecialCraftOperationSlug(input)
+  return `/fcs/process-factory/special-craft/${slug}/work-orders/${encodeURIComponent(workOrderId)}`
 }
 
 export function buildSpecialCraftWarehousePath(

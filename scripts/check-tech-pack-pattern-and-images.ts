@@ -54,7 +54,7 @@ const patternDomainSource = read('src/pages/tech-pack/pattern-domain.ts')
 ].forEach((token) => {
   assertIncludes(snapshotTypesSource, token, `技术包快照类型缺少字段：${token}`)
 })
-;['selectedSizeCodes', 'colorAllocations', 'specialCrafts'].forEach((token) => {
+;['selectedSizeCodes', 'colorAllocations', 'specialCrafts', 'selectedTargetObject', 'supportedTargetObjects', 'bundleLengthCm', 'bundleWidthCm'].forEach((token) => {
   assertIncludes(snapshotBuilderSource, token, `技术包快照构建缺少新字段：${token}`)
 })
 

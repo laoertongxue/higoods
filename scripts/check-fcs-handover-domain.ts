@@ -5,6 +5,8 @@ import path from 'node:path'
 import process from 'node:process'
 
 import {
+  canCompletePdaHandoutHead,
+  canCompletePdaPickupHead,
   ensureHandoverOrderForStartedTask,
   getHandoverOrderById,
   getPdaHandoverRecordsByHead,
@@ -258,6 +260,18 @@ function checkPickupCompatibility(): void {
   assert(pickupHeads.length > 0, 'pickup 领料样例丢失')
 }
 
+function checkPickupAndHandoutCompletionSemantics(): void {
+  const pickupHeads = listPdaHandoverHeads().filter((head) => head.headType === 'PICKUP')
+  const handoutHeads = listPdaHandoverHeads().filter((head) => head.headType === 'HANDOUT')
+  assert(pickupHeads.some((head) => canCompletePdaPickupHead(head.handoverId).message.includes('领料单')), '领料单完成校验必须返回业务文案')
+  assert(handoutHeads.some((head) => canCompletePdaHandoutHead(head.handoverId).message.includes('交出单')), '交出单完成校验必须返回业务文案')
+  handoutHeads.forEach((head) => {
+    const result = canCompletePdaHandoutHead(head.handoverId)
+    assert(!result.message.includes('回写'), '完成交出单不得要求全部回写完成')
+    assert(!result.message.includes('异议关闭'), '完成交出单不得要求全部异议关闭')
+  })
+}
+
 function checkNoPostCapacityHandover(): void {
   const handoutHeads = listPdaHandoverHeads().filter((head) => head.headType === 'HANDOUT')
   handoutHeads.forEach((head) => {
@@ -276,6 +290,7 @@ function main(): void {
   checkWritebacksAndObjections()
   checkRequiredScenarios()
   checkPickupCompatibility()
+  checkPickupAndHandoutCompletionSemantics()
   checkNoPostCapacityHandover()
   console.log('check:fcs-handover-domain passed')
 }

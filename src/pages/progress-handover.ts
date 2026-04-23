@@ -1593,7 +1593,7 @@ function renderDetailDrawer(rows: HandoverLedgerRow[]): string {
   const headType: PdaHandoverHeadType | null = row.sourceType === 'PICKUP_HEAD' ? 'PICKUP' : row.sourceType === 'HANDOUT_HEAD' ? 'HANDOUT' : null
   const sourceTypeLabel =
     row.sourceType === 'PICKUP_HEAD'
-      ? '领料头'
+      ? '领料单'
       : row.sourceType === 'PICKUP_RECORD'
         ? '领料记录'
         : row.sourceType === 'HANDOUT_HEAD'

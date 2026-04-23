@@ -147,7 +147,7 @@ assertIncludes(routeSources, 'pattern: /^\\/fcs\\/pda\\/handover\\/([^/]+)$/', '
 
 ;[
   '去交接（待交出）',
-  '交出头',
+  ['交出', '头'].join(''),
   '仓库自动回写',
   '印花 PDA',
   '染色 PDA',

@@ -22,6 +22,10 @@ export function renderProcessTechniqueCard(item: TechniqueItem): string {
     item.referencePublishedSamValue !== null && item.referencePublishedSamUnitLabel
       ? `${item.referencePublishedSamValue} ${item.referencePublishedSamUnitLabel}`
       : '当前为工序级项，需选定具体工艺后才有平台参考值'
+  const targetObjectText =
+    item.isSpecialCraft && item.selectedTargetObject
+      ? `<span class="rounded border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">作用对象：${escapeHtml(item.selectedTargetObject)}</span>`
+      : ''
   return `
     <article class="space-y-3 rounded-lg border bg-muted/20 p-3">
       <div class="flex items-start justify-between gap-3">
@@ -29,6 +33,7 @@ export function renderProcessTechniqueCard(item: TechniqueItem): string {
           <div class="flex flex-wrap items-center gap-2">
             <span class="text-sm font-semibold">${escapeHtml(item.technique)}</span>
             <span class="rounded border border-slate-200 bg-background px-2 py-0.5 text-[11px] font-medium text-slate-700">${escapeHtml(item.process)}</span>
+            ${targetObjectText}
             <span class="rounded border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">当前款发布工时 SAM 基线</span>
           </div>
           <p class="text-xs text-muted-foreground">平台字典给理论参考值与推荐单位，这里维护的是当前这款的覆盖基线，不是平台永久统一口径。</p>
@@ -197,6 +202,8 @@ export function renderAddTechniqueDialog(): string {
     state.newTechnique.stageCode,
     state.newTechnique.processCode,
   )
+  const selectedCraft = availableCraftOptions.find((item) => item.craftCode === state.newTechnique.craftCode) ?? null
+  const targetOptions = selectedCraft?.isSpecialCraft ? selectedCraft.supportedTargetObjectLabels ?? [] : []
   const draftReferenceMeta = getTechniqueReferenceMetaByCraftCode(state.newTechnique.craftCode)
   const draftReferenceText =
     draftReferenceMeta.referencePublishedSamValue !== null && draftReferenceMeta.referencePublishedSamUnitLabel
@@ -242,6 +249,26 @@ export function renderAddTechniqueDialog(): string {
                 .join('')}
             </select>
           </label>
+
+          ${
+            selectedCraft?.isSpecialCraft
+              ? `
+                <label class="space-y-1">
+                  <span class="text-sm">作用对象 <span class="text-red-500">*</span></span>
+                  ${
+                    targetOptions.length <= 1
+                      ? `<div class="w-full rounded-md border bg-muted/20 px-3 py-2 text-sm text-slate-700">${escapeHtml(targetOptions[0] || '请选择')}</div>`
+                      : `<select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-technique-target-object">
+                          <option value="">请选择作用对象</option>
+                          ${targetOptions
+                            .map((item) => `<option value="${item}" ${state.newTechnique.selectedTargetObject === item ? 'selected' : ''}>${item}</option>`)
+                            .join('')}
+                        </select>`
+                  }
+                </label>
+              `
+              : ''
+          }
 
           <div class="rounded-md border border-blue-100 bg-blue-50/60 px-3 py-3">
             <p class="text-xs font-medium text-blue-700">工艺理论标准（参考）</p>

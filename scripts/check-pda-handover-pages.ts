@@ -34,7 +34,8 @@ function legacyMobileCopy(...parts: string[]): string {
 
 function checkForbiddenCopy(): void {
   const forbiddenTerms = [
-    '交出头',
+    legacyMobileCopy('领料', '头'),
+    legacyMobileCopy('交出', '头'),
     '仓库自动回写',
     '工厂只查看',
     '仓库确认',
@@ -65,8 +66,14 @@ function checkPageSignals(): void {
     assert(listPage.includes(term), `pda-handover.ts 缺少列表关键信号：${term}`)
   })
 
-  ;['交出单二维码', '交出记录二维码', '新增交出记录', '接收方回写', '发起异议', '接受差异', '入库记录', '出库记录', '已入待加工仓', '已生成出库记录', '已驳回'].forEach((term) => {
+  ;['交出单二维码', '交出记录二维码', '新增交出记录', '完成领料单', '完成交出单', '接收方回写', '发起异议', '接受差异', '入库记录', '出库记录', '已入待加工仓', '已生成出库记录', '已驳回'].forEach((term) => {
     assert(detailPage.includes(term), `pda-handover-detail.ts 缺少详情关键信号：${term}`)
+  })
+  ;['中转袋', '扫码装袋', '移除菲票', '完成装袋', '扫描中转袋', '按袋回写', '按菲票回写', '袋内明细'].forEach((term) => {
+    assert((detailPage + readFile('src/pages/pda-transfer-bag-detail.ts')).includes(term), `移动端交接缺少中转袋闭环字段：${term}`)
+  })
+  ;['特殊工艺菲票', '原数量', '当前数量', '报废数量', '货损数量', '已完成特殊工艺', '差异状态'].forEach((term) => {
+    assert(detailPage.includes(term), `pda-handover-detail.ts 缺少特殊工艺深化字段：${term}`)
   })
 
   assert(

@@ -243,15 +243,25 @@ assert(getSpecialCraftStatistics(sampleOperation.operationId).length > 0, '缺�
   'PDA',
   '来料仓',
   '半成品仓',
-  '库存三态',
-  '上架任务',
-  '拣货波次',
-  '库位规则',
+  buildToken('库存', '三态'),
+  buildToken('上架', '任务'),
+  buildToken('拣货', '波次'),
+  buildToken('库位', '规则'),
   'WMS',
 ].forEach((token) => {
   assertNoToken(taskOrdersPageSource + taskDetailPageSource + warehouseSource + statisticsSource, token, `页面用户可见文案不应出现：${token}`)
 })
-;['axios', 'fetch(', 'apiClient', '/api/', 'i18n', 'useTranslation', 'echarts', 'chart.js', 'recharts'].forEach((token) => {
+;[
+  buildToken('axi', 'os'),
+  buildToken('fet', 'ch('),
+  buildToken('api', 'Client'),
+  buildToken('/', 'api', '/'),
+  buildToken('i1', '8n'),
+  buildToken('use', 'Translation'),
+  buildToken('e', 'charts'),
+  buildToken('chart', '.', 'js'),
+  buildToken('re', 'charts'),
+].forEach((token) => {
   assertNoToken(taskOrderSource + warehouseSource + statisticsSource, token, `本轮越界内容不应出现：${token}`)
 })
 

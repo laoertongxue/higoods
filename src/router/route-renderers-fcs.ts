@@ -359,6 +359,10 @@ export const renderSpecialCraftTaskDetailPage = createAsyncRenderer(
   () => import('../pages/process-factory/special-craft/task-detail'),
   'renderSpecialCraftTaskDetailPage',
 )
+export const renderSpecialCraftWorkOrderDetailPage = createAsyncRenderer(
+  () => import('../pages/process-factory/special-craft/work-order-detail'),
+  'renderSpecialCraftWorkOrderDetailPage',
+)
 export const renderSpecialCraftWarehousePage = createAsyncRenderer(
   () => import('../pages/process-factory/special-craft/warehouse'),
   'renderSpecialCraftWarehousePage',

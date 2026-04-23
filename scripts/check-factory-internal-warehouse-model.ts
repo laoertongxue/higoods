@@ -8,15 +8,20 @@ import { fileURLToPath } from 'node:url'
 import { menusBySystem } from '../src/data/app-shell-config.ts'
 import { mockFactories } from '../src/data/fcs/factory-mock-data.ts'
 import {
+  approveFactoryWarehouseStocktakeDifferenceReview,
   buildDefaultFactoryInternalWarehouses,
   buildInboundRecordFromPickup,
   buildOutboundRecordFromHandoverRecord,
+  executeFactoryWarehouseAdjustmentOrder,
   getFactoryWarehouseKindLabel,
+  getFactoryWarehouseCurrentQtyByStockItemId,
   listFactoryInternalWarehouses,
   listFactoryWaitHandoverStockItems,
   listFactoryWaitProcessStockItems,
+  listFactoryWarehouseAdjustmentOrders,
   listFactoryWarehouseInboundRecords,
   listFactoryWarehouseOutboundRecords,
+  listFactoryWarehouseStocktakeDifferenceReviews,
   listFactoryWarehouseStocktakeOrders,
 } from '../src/data/fcs/factory-internal-warehouse.ts'
 import { getPdaHandoverRecordsByHead, listPdaHandoverHeads } from '../src/data/fcs/pda-handover-events.ts'
@@ -127,7 +132,10 @@ sewingFactories.forEach((factory) => {
 })
 assert(defaultWarehouses.every((item) => item.warehouseName.includes(item.warehouseShortName)), '仓库名称应包含仓库短名')
 assert(defaultWarehouses.every((item) => getFactoryWarehouseKindLabel(item.warehouseKind) === item.warehouseShortName), '仓库短名与仓库类型标签不一致')
-assert(defaultWarehouses.every((item) => item.areaList.length >= 4), '默认仓库缺少轻量库区')
+assert(defaultWarehouses.every((item) => item.areaList.length >= 8), '默认仓库必须包含 A-F、异常区、待确认区')
+;['A区', 'B区', 'C区', 'D区', 'E区', 'F区', '异常区', '待确认区'].forEach((areaName) => {
+  assert(defaultWarehouses.every((warehouse) => warehouse.areaList.some((area) => area.areaName === areaName)), `默认仓库缺少库区：${areaName}`)
+})
 assert(defaultWarehouses.every((item) => item.areaList.every((area) => area.shelfList.length > 0)), '默认库区缺少货架')
 assert(
   defaultWarehouses.every((item) => item.areaList.every((area) => area.shelfList.every((shelf) => shelf.locationList.length > 0))),
@@ -147,6 +155,26 @@ assert(waitHandoverItems.length > 0, '缺少待交出仓库存明细')
 assert(inboundRecords.length > 0, '缺少入库记录')
 assert(outboundRecords.length > 0, '缺少出库记录')
 assert(stocktakeOrders.length > 0, '缺少盘点记录')
+assertContains(dataSource, 'FactoryWarehouseStocktakeDifferenceReview', '缺少盘点差异审核模型')
+assertContains(dataSource, 'FactoryWarehouseAdjustmentOrder', '缺少盘点调整单模型')
+assertContains(dataSource, 'approveFactoryWarehouseStocktakeDifferenceReview', '缺少盘点差异审核通过 helper')
+assertContains(dataSource, 'executeFactoryWarehouseAdjustmentOrder', '缺少调整单执行 helper')
+const review = listFactoryWarehouseStocktakeDifferenceReviews().find((item) => item.reviewStatus === '待审核')
+assert(review, '缺少待审核盘点差异样例')
+const adjustmentOrder = approveFactoryWarehouseStocktakeDifferenceReview({
+  reviewId: review!.reviewId,
+  reviewedBy: '检查脚本',
+  reviewRemark: '工厂内部仓检查生成调整单',
+})
+assert(adjustmentOrder, '审核通过后必须生成调整单')
+assert(listFactoryWarehouseAdjustmentOrders().some((item) => item.adjustmentOrderId === adjustmentOrder!.adjustmentOrderId), '调整单未进入列表')
+const executedAdjustment = executeFactoryWarehouseAdjustmentOrder({
+  adjustmentOrderId: adjustmentOrder!.adjustmentOrderId,
+  executedBy: '检查脚本',
+  remark: '工厂内部仓检查执行调整单',
+})
+assert(executedAdjustment?.status === '已完成', '执行调整单后状态必须为已完成')
+assert.equal(getFactoryWarehouseCurrentQtyByStockItemId(review!.stockItemId), review!.countedQty, '执行调整单后轻量库存数量未更新')
 
 assert(waitProcessItems.every((item) => item.warehouseName.includes('待加工仓')), '待加工仓库存未落入待加工仓')
 assert(waitHandoverItems.every((item) => item.warehouseName.includes('待交出仓')), '待交出仓库存未落入待交出仓')

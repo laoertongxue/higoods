@@ -193,7 +193,7 @@ function buildPickupHeadRow(head: PdaHandoverHead): HandoverLedgerRow {
     rowId: `PKH-${head.handoverId}`,
     sourceType: 'PICKUP_HEAD',
     eventTypeCode: 'PICKUP_HEAD',
-    eventTypeLabel: '领料头',
+    eventTypeLabel: '领料单',
     productionOrderId: head.productionOrderNo,
     taskId: head.taskId,
     taskNo: head.taskNo,
@@ -415,7 +415,7 @@ function buildCompletedHeadRow(head: PdaHandoverHead): HandoverLedgerRow {
     statusTone: 'success',
     occurredAt: head.completedByWarehouseAt || head.lastRecordAt || '',
     sourceModuleLabel: head.headType === 'PICKUP' ? '领料完成' : '交出单闭环',
-    nextActionHint: head.headType === 'PICKUP' ? '领料头已完成' : '交出单已关闭',
+    nextActionHint: head.headType === 'PICKUP' ? '领料单已完成' : head.receiverClosedAt ? '交出单已闭合' : '交出单已完成，接收方回写可继续',
     handoverId: head.handoverId,
     qtyDiff: head.qtyDiffTotal,
   }

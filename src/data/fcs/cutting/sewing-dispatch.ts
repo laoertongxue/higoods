@@ -15,11 +15,14 @@ import {
   createFactoryHandoverRecord,
   findPdaHandoverRecord,
   reportPdaHandoverQtyObjection,
+  upsertPdaHandoutRecordMock,
   upsertPdaHandoverHeadMock,
   writeBackHandoverRecord,
   type PdaCutPieceHandoutLine,
   type PdaHandoverHead,
   type PdaHandoverRecord,
+  type TransferBagFeiTicketWritebackLine,
+  type TransferBagWritebackLine,
 } from '../pda-handover-events.ts'
 import { buildHandoverOrderQrValue } from '../task-qr.ts'
 import {
@@ -49,6 +52,22 @@ export type CuttingSewingTransferBagStatus = '待装袋' | '装袋中' | '已配
 export type CuttingSewingTransferBagDispatchStatus = '未交出' | '已交出' | '已回写' | '差异' | '异议中'
 export type CuttingSewingPieceLineCompleteStatus = '未配齐' | '已配齐' | '超出'
 export type CuttingSewingSpecialCraftReturnStatus = '不需要特殊工艺' | '已回仓' | '未回仓' | '差异' | '异议中' | '待确认顺序'
+export type CuttingSewingTransferBagPackStatus =
+  | '待装袋'
+  | '装袋中'
+  | '已装袋'
+  | '已交出'
+  | '已扫码接收'
+  | '部分回写'
+  | '已回写'
+  | '差异'
+  | '异议中'
+export type CuttingSewingTransferBagLocation =
+  | '裁床厂待交出'
+  | '运输中'
+  | '下游工厂待接收'
+  | '下游工厂已接收'
+  | '差异待处理'
 
 export interface CuttingSewingDispatchSkuQtyLine {
   lineId: string
@@ -79,6 +98,31 @@ export interface CuttingSewingTransferBagPieceLine {
   remark?: string
 }
 
+export interface TransferBagContentItem {
+  contentItemId: string
+  transferBagId: string
+  dispatchBatchId: string
+  productionOrderId: string
+  productionOrderNo: string
+  contentType: '裁片菲票' | '物料行'
+  sourceKind: 'FEI_TICKET' | 'LINE_ITEM'
+  sourceId: string
+  sourceNo?: string
+  itemName: string
+  materialSku?: string
+  materialName?: string
+  feiTicketNo?: string
+  partName?: string
+  colorName?: string
+  sizeCode?: string
+  rollNo?: string
+  qty: number
+  currentQty: number
+  unit: string
+  completedSpecialCraftNames?: string[]
+  remark?: string
+}
+
 export interface CuttingSewingTransferBag {
   transferBagId: string
   transferBagNo: string
@@ -95,11 +139,30 @@ export interface CuttingSewingTransferBag {
   sewingFactoryName: string
   bagSequence: number
   plannedGarmentQty: number
+  bagMode: '混装'
   skuQtyLines: CuttingSewingDispatchSkuQtyLine[]
   pieceLines: CuttingSewingTransferBagPieceLine[]
   scannedFeiTicketNos: string[]
+  contentItems: TransferBagContentItem[]
+  contentItemCount: number
+  contentFeiTicketCount: number
+  contentMaterialLineCount: number
   completeStatus: CuttingSewingCompletenessStatus
   dispatchStatus: CuttingSewingTransferBagDispatchStatus
+  packStatus: CuttingSewingTransferBagPackStatus
+  currentLocation: CuttingSewingTransferBagLocation
+  editableBeforeHandover: boolean
+  packedBy?: string
+  packedAt?: string
+  lastPackedAt?: string
+  handoverSubmittedAt?: string
+  receivedAt?: string
+  receivedBy?: string
+  expectedBagQty?: number
+  expectedFeiTicketCount?: number
+  receivedFeiTicketCount?: number
+  bagDifferenceReason?: string
+  itemDifferenceReason?: string
   receiverWrittenQty?: number
   differenceQty?: number
   status: CuttingSewingTransferBagStatus
@@ -318,21 +381,97 @@ function mapSpecialCraftReturnStatus(feiTicketNo: string): {
   specialCraftRequired: boolean
   specialCraftReturnStatus: CuttingSewingSpecialCraftReturnStatus
 } {
-  const summary = getSpecialCraftFeiTicketSummary(feiTicketNo)
-  if (!summary.needSpecialCraft) {
+  const specialCraftSummary = getSpecialCraftFeiTicketSummary(feiTicketNo)
+  if (!specialCraftSummary.needSpecialCraft) {
     return { specialCraftRequired: false, specialCraftReturnStatus: '不需要特殊工艺' }
   }
-  if (summary.returnStatus === '已回仓' && summary.currentLocation === '裁床厂待交出仓') {
+  // 特殊工艺差异待处理不阻断裁片统一发料：最后一道已回仓、当前所在为裁床厂待交出仓且 currentQty > 0，即可进入齐套校验。
+  if (specialCraftSummary.returnStatus.includes('已回仓') && specialCraftSummary.currentLocation === '裁床厂待交出仓' && specialCraftSummary.currentQty > 0) {
     return { specialCraftRequired: true, specialCraftReturnStatus: '已回仓' }
   }
-  if (summary.returnStatus === '差异') return { specialCraftRequired: true, specialCraftReturnStatus: '差异' }
-  if (summary.returnStatus === '异议中') return { specialCraftRequired: true, specialCraftReturnStatus: '异议中' }
-  if (summary.returnStatus === '待确认顺序') return { specialCraftRequired: true, specialCraftReturnStatus: '待确认顺序' }
+  if (specialCraftSummary.returnStatus === '差异') return { specialCraftRequired: true, specialCraftReturnStatus: '差异' }
+  if (specialCraftSummary.returnStatus === '异议中') return { specialCraftRequired: true, specialCraftReturnStatus: '异议中' }
+  if (specialCraftSummary.returnStatus === '待确认顺序') return { specialCraftRequired: true, specialCraftReturnStatus: '待确认顺序' }
   return { specialCraftRequired: true, specialCraftReturnStatus: '未回仓' }
 }
 
 function getTicketQty(ticket: GeneratedFeiTicketSourceRecord): number {
   return Math.max(ticket.qty || ticket.actualCutPieceQty || 0, 0)
+}
+
+function getTicketDispatchQty(ticket: GeneratedFeiTicketSourceRecord): number {
+  const summary = getSpecialCraftFeiTicketSummary(ticket.feiTicketNo)
+  if (summary.needSpecialCraft && summary.returnStatus.includes('已回仓')) {
+    return Math.max(summary.currentQty, 0)
+  }
+  return getTicketQty(ticket)
+}
+
+function buildContentItemFromFeiTicket(
+  bag: CuttingSewingTransferBag,
+  ticket: GeneratedFeiTicketSourceRecord,
+): TransferBagContentItem {
+  const summary = getSpecialCraftFeiTicketSummary(ticket.feiTicketNo)
+  return {
+    contentItemId: `TBCI-${bag.transferBagId}-${ticket.feiTicketNo}`,
+    transferBagId: bag.transferBagId,
+    dispatchBatchId: bag.dispatchBatchId,
+    productionOrderId: bag.productionOrderId,
+    productionOrderNo: bag.productionOrderNo,
+    contentType: '裁片菲票',
+    sourceKind: 'FEI_TICKET',
+    sourceId: ticket.feiTicketNo,
+    sourceNo: ticket.feiTicketNo,
+    itemName: ticket.partName || '裁片',
+    feiTicketNo: ticket.feiTicketNo,
+    partName: ticket.partName,
+    colorName: ticket.garmentColor,
+    sizeCode: ticket.skuSize,
+    rollNo: ticket.fabricRollNo,
+    qty: getTicketDispatchQty(ticket),
+    currentQty: getTicketDispatchQty(ticket),
+    unit: '片',
+    completedSpecialCraftNames: summary.completedOperationNames,
+  }
+}
+
+function normalizeTransferBagRuntimeFields(bag: CuttingSewingTransferBag): void {
+  bag.bagMode = bag.bagMode || '混装'
+  bag.contentItems = bag.contentItems || []
+  bag.scannedFeiTicketNos.forEach((feiTicketNo) => {
+    if (bag.contentItems.some((item) => item.sourceKind === 'FEI_TICKET' && item.feiTicketNo === feiTicketNo)) return
+    const ticket = getFeiTicketByNo(feiTicketNo)
+    if (ticket) bag.contentItems.push(buildContentItemFromFeiTicket(bag, ticket))
+  })
+  bag.contentItemCount = bag.contentItems.length
+  bag.contentFeiTicketCount = bag.contentItems.filter((item) => item.sourceKind === 'FEI_TICKET').length
+  bag.contentMaterialLineCount = bag.contentItems.filter((item) => item.sourceKind === 'LINE_ITEM').length
+  bag.expectedBagQty = bag.expectedBagQty ?? 1
+  bag.expectedFeiTicketCount = bag.contentFeiTicketCount
+  bag.receivedFeiTicketCount = bag.receivedFeiTicketCount ?? (bag.packStatus === '已扫码接收' || bag.status === '已回写' ? bag.contentFeiTicketCount : 0)
+  bag.packStatus =
+    bag.packStatus ||
+    (bag.status === '已回写'
+      ? '已回写'
+      : bag.status === '差异'
+        ? '差异'
+        : bag.status === '异议中'
+          ? '异议中'
+          : bag.status === '已交出'
+            ? '已交出'
+            : bag.scannedFeiTicketNos.length
+              ? '装袋中'
+              : '待装袋')
+  bag.currentLocation =
+    bag.currentLocation ||
+    (bag.status === '已回写'
+      ? '下游工厂已接收'
+      : bag.status === '差异'
+        ? '差异待处理'
+        : bag.status === '已交出'
+          ? '下游工厂待接收'
+          : '裁床厂待交出')
+  bag.editableBeforeHandover = bag.dispatchStatus === '未交出' && !bag.handoverSubmittedAt && !bag.receivedAt
 }
 
 function findTransferBagById(storeRef: CuttingSewingDispatchStore, transferBagId: string): CuttingSewingTransferBag {
@@ -643,15 +782,27 @@ export function createCuttingSewingTransferBags(input: CreateTransferBagInput): 
       sewingFactoryName: order.sewingFactoryName,
       bagSequence,
       plannedGarmentQty: plan.plannedGarmentQty,
+      bagMode: '混装',
       skuQtyLines: plan.skuQtyLines.map((line) => ({ ...line })),
       pieceLines,
       scannedFeiTicketNos: [],
+      contentItems: [],
+      contentItemCount: 0,
+      contentFeiTicketCount: 0,
+      contentMaterialLineCount: 0,
       completeStatus: '未校验',
       dispatchStatus: '未交出',
+      packStatus: '待装袋',
+      currentLocation: '裁床厂待交出',
+      editableBeforeHandover: true,
+      expectedBagQty: 1,
+      expectedFeiTicketCount: 0,
+      receivedFeiTicketCount: 0,
       status: '待装袋',
       createdAt,
       updatedAt: createdAt,
     }
+    normalizeTransferBagRuntimeFields(bag)
     return bag
   })
   created.forEach((bag) => {
@@ -664,6 +815,37 @@ export function createCuttingSewingTransferBags(input: CreateTransferBagInput): 
   order.status = '待扫码'
   order.updatedAt = createdAt
   return clone(created)
+}
+
+export function createOrGetTransferBagForDispatchBatch(input: {
+  dispatchBatchId: string
+  operatorName?: string
+  createdAt?: string
+}): CuttingSewingTransferBag {
+  const storeRef = ensureCuttingSewingDispatchSeeded()
+  const batch = findDispatchBatchById(storeRef, input.dispatchBatchId)
+  const editableBag = storeRef.transferBags.find(
+    (bag) => bag.dispatchBatchId === batch.dispatchBatchId && bag.dispatchStatus === '未交出',
+  )
+  if (editableBag) {
+    normalizeTransferBagRuntimeFields(editableBag)
+    return clone(editableBag)
+  }
+  const created = createCuttingSewingTransferBags({
+    dispatchBatchId: batch.dispatchBatchId,
+    bagPlanList: [
+      {
+        plannedGarmentQty: batch.plannedGarmentQty,
+        skuQtyLines: batch.plannedSkuQtyLines,
+      },
+    ],
+  })[0]
+  const bag = findTransferBagById(storeRef, created.transferBagId)
+  bag.packedBy = input.operatorName
+  bag.createdAt = input.createdAt || bag.createdAt
+  bag.updatedAt = input.createdAt || bag.updatedAt
+  normalizeTransferBagRuntimeFields(bag)
+  return clone(bag)
 }
 
 export function scanFeiTicketIntoTransferBag(input: {
@@ -724,12 +906,29 @@ export function scanFeiTicketIntoTransferBag(input: {
     return { updatedTransferBag: clone(bag), validationResult: clone(result) }
   }
 
-  const pieceLine = bag.pieceLines.find(
+  normalizeTransferBagRuntimeFields(bag)
+  let pieceLine = bag.pieceLines.find(
     (line) =>
       line.colorName === ticket.garmentColor &&
       line.sizeCode === ticket.skuSize &&
       line.partName === ticket.partName,
   )
+  if (!pieceLine) {
+    const requiredLine = getRequiredLinesForBag(batch).find(
+      (line) =>
+        line.colorName === ticket.garmentColor &&
+        line.sizeCode === ticket.skuSize &&
+        line.partName === ticket.partName,
+    )
+    if (requiredLine) {
+      pieceLine = buildPieceLineFromRequiredLine(requiredLine, bag.transferBagId, bag.pieceLines.length)
+      bag.pieceLines.push(pieceLine)
+      if (!bag.skuQtyLines.some((line) => line.colorName === ticket.garmentColor && line.sizeCode === ticket.skuSize)) {
+        const skuLine = batch.plannedSkuQtyLines.find((line) => line.colorName === ticket.garmentColor && line.sizeCode === ticket.skuSize)
+        if (skuLine) bag.skuQtyLines.push({ ...skuLine })
+      }
+    }
+  }
   if (!pieceLine) {
     const result: CuttingSewingDispatchValidationResult = {
       ...baseResult,
@@ -739,7 +938,7 @@ export function scanFeiTicketIntoTransferBag(input: {
             ? '菲票部位不匹配'
             : '菲票尺码不匹配'
           : '菲票颜色不匹配',
-      validationMessage: '菲票与中转袋计划不匹配',
+      validationMessage: '菲票不属于本次发料批次',
     }
     storeRef.validationResults.push(result)
     return { updatedTransferBag: clone(bag), validationResult: clone(result) }
@@ -765,7 +964,7 @@ export function scanFeiTicketIntoTransferBag(input: {
     return { updatedTransferBag: clone(bag), validationResult: clone(result) }
   }
 
-  const nextScannedQty = pieceLine.scannedPieceQty + getTicketQty(ticket)
+  const nextScannedQty = pieceLine.scannedPieceQty + getTicketDispatchQty(ticket)
   if (nextScannedQty > pieceLine.requiredPieceQty) {
     const result: CuttingSewingDispatchValidationResult = {
       ...baseResult,
@@ -789,9 +988,17 @@ export function scanFeiTicketIntoTransferBag(input: {
   pieceLine.specialCraftReturnStatus = specialCraft.specialCraftReturnStatus
   pieceLine.completeStatus = pieceLine.missingPieceQty === 0 && pieceLine.overPieceQty === 0 ? '已配齐' : '未配齐'
   bag.scannedFeiTicketNos = unique([...bag.scannedFeiTicketNos, ticket.feiTicketNo])
+  if (!bag.contentItems.some((item) => item.sourceKind === 'FEI_TICKET' && item.feiTicketNo === ticket.feiTicketNo)) {
+    bag.contentItems.push(buildContentItemFromFeiTicket(bag, ticket))
+  }
   bag.status = bag.scannedFeiTicketNos.length ? '装袋中' : '待装袋'
+  bag.packStatus = bag.scannedFeiTicketNos.length ? '装袋中' : '待装袋'
+  bag.currentLocation = '裁床厂待交出'
+  bag.editableBeforeHandover = true
+  bag.lastPackedAt = nowText()
   bag.completeStatus = '未校验'
   bag.updatedAt = nowText()
+  normalizeTransferBagRuntimeFields(bag)
   batch.feiTicketNos = unique([...batch.feiTicketNos, ticket.feiTicketNo])
   order.feiTicketNos = unique([...order.feiTicketNos, ticket.feiTicketNo])
   const result: CuttingSewingDispatchValidationResult = {
@@ -812,29 +1019,88 @@ export function scanFeiTicketIntoTransferBag(input: {
   return { updatedTransferBag: clone(bag), validationResult: clone(result) }
 }
 
+export function scanFeiTicketIntoTransferBagOnMobile(input: {
+  transferBagId: string
+  feiTicketNo: string
+  operatorName?: string
+  operatedAt?: string
+}): {
+  updatedTransferBag: CuttingSewingTransferBag
+  validationResult: CuttingSewingDispatchValidationResult
+} {
+  const result = scanFeiTicketIntoTransferBag({ transferBagId: input.transferBagId, feiTicketNo: input.feiTicketNo })
+  const storeRef = ensureCuttingSewingDispatchSeeded()
+  const bag = findTransferBagById(storeRef, input.transferBagId)
+  bag.packedBy = input.operatorName || bag.packedBy || '现场操作员'
+  bag.packedAt = bag.packedAt || input.operatedAt || nowText()
+  bag.lastPackedAt = input.operatedAt || nowText()
+  bag.packStatus = bag.scannedFeiTicketNos.length ? '装袋中' : '待装袋'
+  normalizeTransferBagRuntimeFields(bag)
+  return { updatedTransferBag: clone(bag), validationResult: result.validationResult }
+}
+
 export function removeFeiTicketFromTransferBag(input: {
   transferBagId: string
   feiTicketNo: string
 }): CuttingSewingTransferBag {
   const storeRef = ensureCuttingSewingDispatchSeeded()
   const bag = findTransferBagById(storeRef, input.transferBagId)
-  if (bag.status === '已交出' || bag.status === '已回写') {
-    throw new Error('已交出的中转袋不得移除菲票')
-  }
+  assertTransferBagEditableBeforeHandover(bag.transferBagId)
   bag.scannedFeiTicketNos = bag.scannedFeiTicketNos.filter((feiTicketNo) => feiTicketNo !== input.feiTicketNo)
+  bag.contentItems = (bag.contentItems || []).filter((item) => item.feiTicketNo !== input.feiTicketNo)
   bag.pieceLines.forEach((line) => {
     if (!line.scannedFeiTicketNos.includes(input.feiTicketNo)) return
     const ticket = getFeiTicketByNo(input.feiTicketNo)
     line.scannedFeiTicketNos = line.scannedFeiTicketNos.filter((feiTicketNo) => feiTicketNo !== input.feiTicketNo)
-    line.scannedPieceQty = Math.max(line.scannedPieceQty - (ticket ? getTicketQty(ticket) : 0), 0)
+    line.scannedPieceQty = Math.max(line.scannedPieceQty - (ticket ? getTicketDispatchQty(ticket) : 0), 0)
     line.missingPieceQty = Math.max(line.requiredPieceQty - line.scannedPieceQty, 0)
     line.overPieceQty = Math.max(line.scannedPieceQty - line.requiredPieceQty, 0)
     line.completeStatus = line.missingPieceQty === 0 && line.overPieceQty === 0 ? '已配齐' : '未配齐'
   })
   bag.status = bag.scannedFeiTicketNos.length ? '装袋中' : '待装袋'
+  bag.packStatus = bag.scannedFeiTicketNos.length ? '装袋中' : '待装袋'
   bag.completeStatus = '未校验'
   bag.updatedAt = nowText()
+  normalizeTransferBagRuntimeFields(bag)
   validateTransferBagCompleteness(bag.transferBagId)
+  return clone(bag)
+}
+
+export function assertTransferBagEditableBeforeHandover(transferBagId: string): void {
+  const storeRef = ensureCuttingSewingDispatchSeeded()
+  const bag = findTransferBagById(storeRef, transferBagId)
+  normalizeTransferBagRuntimeFields(bag)
+  if (!bag.editableBeforeHandover || bag.dispatchStatus !== '未交出' || bag.handoverSubmittedAt || bag.receivedAt) {
+    throw new Error('已交出或已回写的中转袋不可调整')
+  }
+}
+
+export function removeTransferBagContentItemBeforeHandover(input: {
+  transferBagId: string
+  contentItemId?: string
+  feiTicketNo?: string
+}): CuttingSewingTransferBag {
+  const storeRef = ensureCuttingSewingDispatchSeeded()
+  const bag = findTransferBagById(storeRef, input.transferBagId)
+  const item = (bag.contentItems || []).find((contentItem) =>
+    input.contentItemId
+      ? contentItem.contentItemId === input.contentItemId
+      : Boolean(input.feiTicketNo && contentItem.feiTicketNo === input.feiTicketNo),
+  )
+  if (!item?.feiTicketNo) {
+    assertTransferBagEditableBeforeHandover(input.transferBagId)
+    bag.contentItems = (bag.contentItems || []).filter((contentItem) => contentItem.contentItemId !== input.contentItemId)
+    normalizeTransferBagRuntimeFields(bag)
+    return clone(bag)
+  }
+  return removeFeiTicketFromTransferBag({ transferBagId: input.transferBagId, feiTicketNo: item.feiTicketNo })
+}
+
+export function recalcTransferBagContentSummary(transferBagId: string): CuttingSewingTransferBag {
+  const storeRef = ensureCuttingSewingDispatchSeeded()
+  const bag = findTransferBagById(storeRef, transferBagId)
+  normalizeTransferBagRuntimeFields(bag)
+  bag.updatedAt = nowText()
   return clone(bag)
 }
 
@@ -844,6 +1110,7 @@ export function validateTransferBagCompleteness(transferBagId: string): {
 } {
   const storeRef = ensureCuttingSewingDispatchSeeded()
   const bag = findTransferBagById(storeRef, transferBagId)
+  normalizeTransferBagRuntimeFields(bag)
   const results: CuttingSewingDispatchValidationResult[] = []
   bag.pieceLines.forEach((line, index) => {
     const validationBase = {
@@ -886,11 +1153,98 @@ export function validateTransferBagCompleteness(transferBagId: string): {
   const blocking = results.some((result) => result.blocking)
   bag.completeStatus = blocking ? '未配齐' : '已配齐'
   bag.status = blocking ? (bag.scannedFeiTicketNos.length ? '装袋中' : '待装袋') : '已配齐'
+  bag.packStatus = bag.scannedFeiTicketNos.length ? (blocking ? '装袋中' : '已装袋') : '待装袋'
+  bag.editableBeforeHandover = bag.dispatchStatus === '未交出' && !bag.handoverSubmittedAt && !bag.receivedAt
   bag.updatedAt = nowText()
+  normalizeTransferBagRuntimeFields(bag)
   storeRef.validationResults = [
     ...storeRef.validationResults.filter((item) => item.transferBagId !== bag.transferBagId || item.validationType === '通过'),
     ...results,
   ]
+  return { updatedTransferBag: clone(bag), validationResults: clone(results) }
+}
+
+export function validateTransferBagForMixedPacking(transferBagId: string): {
+  updatedTransferBag: CuttingSewingTransferBag
+  validationResults: CuttingSewingDispatchValidationResult[]
+} {
+  const storeRef = ensureCuttingSewingDispatchSeeded()
+  const bag = findTransferBagById(storeRef, transferBagId)
+  const batch = findDispatchBatchById(storeRef, bag.dispatchBatchId)
+  normalizeTransferBagRuntimeFields(bag)
+  const duplicateTickets = bag.scannedFeiTicketNos.filter((feiTicketNo, index, list) => list.indexOf(feiTicketNo) !== index)
+  const results: CuttingSewingDispatchValidationResult[] = []
+  duplicateTickets.forEach((feiTicketNo) => {
+    const ticket = getFeiTicketByNo(feiTicketNo)
+    results.push({
+      validationId: `CSV-${bag.transferBagId}-${feiTicketNo}-DUP`,
+      dispatchOrderId: bag.dispatchOrderId,
+      dispatchBatchId: bag.dispatchBatchId,
+      transferBagId: bag.transferBagId,
+      productionOrderId: bag.productionOrderId,
+      productionOrderNo: bag.productionOrderNo,
+      colorName: ticket?.garmentColor || '',
+      sizeCode: ticket?.skuSize || '',
+      partName: ticket?.partName || '',
+      requiredPieceQty: 0,
+      scannedPieceQty: 0,
+      missingPieceQty: 0,
+      overPieceQty: 0,
+      specialCraftRequired: false,
+      specialCraftStatus: '不需要特殊工艺',
+      validationType: '菲票重复',
+      validationMessage: '菲票重复装袋',
+      blocking: true,
+    })
+  })
+  bag.contentItems.forEach((item, index) => {
+    if (item.sourceKind !== 'FEI_TICKET') return
+    const ticket = item.feiTicketNo ? getFeiTicketByNo(item.feiTicketNo) : undefined
+    const belongsToBatch = ticket && ticket.productionOrderId === batch.productionOrderId
+    if (belongsToBatch) return
+    results.push({
+      validationId: `CSV-${bag.transferBagId}-CONTENT-${String(index + 1).padStart(3, '0')}`,
+      dispatchOrderId: bag.dispatchOrderId,
+      dispatchBatchId: bag.dispatchBatchId,
+      transferBagId: bag.transferBagId,
+      productionOrderId: bag.productionOrderId,
+      productionOrderNo: bag.productionOrderNo,
+      colorName: item.colorName || '',
+      sizeCode: item.sizeCode || '',
+      partName: item.partName || '',
+      requiredPieceQty: 0,
+      scannedPieceQty: item.currentQty,
+      missingPieceQty: 0,
+      overPieceQty: 0,
+      specialCraftRequired: false,
+      specialCraftStatus: '不需要特殊工艺',
+      validationType: '菲票不属于本生产单',
+      validationMessage: '袋内菲票不属于本次发料批次',
+      blocking: true,
+    })
+  })
+  if (!results.length) {
+    results.push({
+      validationId: `CSV-${bag.transferBagId}-MIXED-OK`,
+      dispatchOrderId: bag.dispatchOrderId,
+      dispatchBatchId: bag.dispatchBatchId,
+      transferBagId: bag.transferBagId,
+      productionOrderId: bag.productionOrderId,
+      productionOrderNo: bag.productionOrderNo,
+      colorName: '混装',
+      sizeCode: '混装',
+      partName: '袋内明细',
+      requiredPieceQty: bag.contentFeiTicketCount,
+      scannedPieceQty: bag.contentFeiTicketCount,
+      missingPieceQty: 0,
+      overPieceQty: 0,
+      specialCraftRequired: false,
+      specialCraftStatus: '不需要特殊工艺',
+      validationType: '通过',
+      validationMessage: '混装袋内明细合法',
+      blocking: false,
+    })
+  }
   return { updatedTransferBag: clone(bag), validationResults: clone(results) }
 }
 
@@ -901,14 +1255,89 @@ export function validateDispatchBatchCompleteness(dispatchBatchId: string): {
   const storeRef = ensureCuttingSewingDispatchSeeded()
   const batch = findDispatchBatchById(storeRef, dispatchBatchId)
   const order = findDispatchOrderById(storeRef, batch.dispatchOrderId)
-  const results = batch.transferBagIds.flatMap((transferBagId) => validateTransferBagCompleteness(transferBagId).validationResults)
+  const bagLegalityResults = batch.transferBagIds.flatMap((transferBagId) => validateTransferBagForMixedPacking(transferBagId).validationResults)
+  const scannedByKey = new Map<string, { qty: number; ticketNos: string[] }>()
+  batch.transferBagIds.forEach((transferBagId) => {
+    const bag = findTransferBagById(storeRef, transferBagId)
+    normalizeTransferBagRuntimeFields(bag)
+    bag.pieceLines.forEach((line) => {
+      const key = `${line.colorName}|${line.sizeCode}|${line.partName}`
+      const current = scannedByKey.get(key) || { qty: 0, ticketNos: [] }
+      current.qty += line.scannedPieceQty
+      current.ticketNos.push(...line.scannedFeiTicketNos)
+      scannedByKey.set(key, current)
+    })
+  })
+  const batchResults = getRequiredLinesForBag(batch).map((line, index) => {
+    const key = `${line.colorName}|${line.sizeCode}|${line.partName}`
+    const scanned = scannedByKey.get(key)?.qty || 0
+    const missingPieceQty = Math.max(line.requiredPieceQty - scanned, 0)
+    const overPieceQty = Math.max(scanned - line.requiredPieceQty, 0)
+    const validationBase = {
+      validationId: `CSV-${batch.dispatchBatchId}-BATCH-${String(index + 1).padStart(3, '0')}`,
+      dispatchOrderId: batch.dispatchOrderId,
+      dispatchBatchId: batch.dispatchBatchId,
+      transferBagId: batch.transferBagIds[0] || '',
+      productionOrderId: batch.productionOrderId,
+      productionOrderNo: batch.productionOrderNo,
+      colorName: line.colorName,
+      sizeCode: line.sizeCode,
+      partName: line.partName,
+      requiredPieceQty: line.requiredPieceQty,
+      scannedPieceQty: scanned,
+      missingPieceQty,
+      overPieceQty,
+      specialCraftRequired: line.specialCraftRequired,
+      specialCraftStatus: line.specialCraftReturnStatus,
+      blocking: true,
+    }
+    if (line.specialCraftRequired && line.specialCraftReturnStatus !== '已回仓') {
+      return {
+        ...validationBase,
+        validationType:
+          line.specialCraftReturnStatus === '差异'
+            ? '特殊工艺差异'
+            : line.specialCraftReturnStatus === '异议中'
+              ? '特殊工艺异议中'
+              : '特殊工艺未回仓',
+        validationMessage: '特殊工艺未回仓，不能交出',
+      } satisfies CuttingSewingDispatchValidationResult
+    }
+    if (missingPieceQty > 0) {
+      return { ...validationBase, validationType: '缺少裁片', validationMessage: '本次发料批次缺少裁片' } satisfies CuttingSewingDispatchValidationResult
+    }
+    if (overPieceQty > 0) {
+      return { ...validationBase, validationType: '裁片超出', validationMessage: '本次发料批次裁片超出' } satisfies CuttingSewingDispatchValidationResult
+    }
+    return {
+      ...validationBase,
+      validationType: '通过',
+      validationMessage: '本次发料批次齐套校验通过',
+      blocking: false,
+    } satisfies CuttingSewingDispatchValidationResult
+  })
+  const results = [...bagLegalityResults, ...batchResults]
   const blocking = results.some((result) => result.blocking)
   batch.completeStatus = blocking ? '未配齐' : '已配齐'
   batch.status = blocking ? '装袋中' : '已配齐'
   batch.updatedAt = nowText()
+  batch.transferBagIds.forEach((transferBagId) => {
+    const bag = findTransferBagById(storeRef, transferBagId)
+    normalizeTransferBagRuntimeFields(bag)
+    if (!blocking) {
+      bag.completeStatus = '已配齐'
+      bag.status = '已配齐'
+      bag.packStatus = bag.scannedFeiTicketNos.length ? '已装袋' : bag.packStatus
+      bag.updatedAt = batch.updatedAt
+    }
+  })
   order.status = blocking ? '待配齐' : '可交出'
   order.validationStatus = blocking ? '校验未通过' : '校验通过'
   order.validationMessages = unique(results.filter((item) => item.blocking).map((item) => item.validationMessage))
+  storeRef.validationResults = [
+    ...storeRef.validationResults.filter((item) => item.dispatchBatchId !== batch.dispatchBatchId),
+    ...results,
+  ]
   updateDispatchOrderFromChildren(order)
   return { updatedDispatchBatch: clone(batch), validationResults: clone(results) }
 }
@@ -970,12 +1399,45 @@ export function submitCuttingSewingDispatchBatch(input: {
     pieceName: unique(batch.transferBagIds.flatMap((bagId) => findTransferBagById(storeRef, bagId).pieceLines.map((line) => line.partName))).join('、'),
     cutPieceLines: buildHandoverCutPieceLines(storeRef, batch),
   })
+  const expectedTransferBagCount = batch.transferBagIds.length
+  const expectedFeiTicketCount = batch.transferBagIds.reduce((total, bagId) => {
+    const bag = findTransferBagById(storeRef, bagId)
+    normalizeTransferBagRuntimeFields(bag)
+    return total + bag.contentFeiTicketCount
+  }, 0)
+  const recordWithTransferBagFields = upsertPdaHandoutRecordMock({
+    ...record,
+    expectedTransferBagCount,
+    receivedTransferBagCount: 0,
+    expectedFeiTicketCount,
+    receivedFeiTicketCount: 0,
+    writebackMode: '按袋 + 菲票',
+    combinedWritebackStatus: '待回写',
+    transferBagWritebackLines: batch.transferBagIds.map((bagId) => {
+      const bag = findTransferBagById(storeRef, bagId)
+      normalizeTransferBagRuntimeFields(bag)
+      const expectedQty = bag.pieceLines.reduce((total, line) => total + line.scannedPieceQty, 0)
+      return {
+        lineId: `TBWL-${record.recordId}-${bag.transferBagId}`,
+        handoverRecordId: record.handoverRecordId || record.recordId,
+        transferBagId: bag.transferBagId,
+        transferBagNo: bag.transferBagNo,
+        expectedFeiTicketCount: bag.contentFeiTicketCount,
+        receivedFeiTicketCount: 0,
+        expectedQty,
+        actualQty: 0,
+        differenceQty: -expectedQty,
+        status: '待回写',
+      }
+    }),
+    feiTicketWritebackLines: [],
+  })
   const linkage = linkHandoverRecordToOutboundRecord({
     handoverOrderId: handoverOrder.handoverOrderId || handoverOrder.handoverId,
     handoverOrderNo: handoverOrder.handoverOrderNo || handoverOrder.handoverId,
-    handoverRecordId: record.handoverRecordId || record.recordId,
-    handoverRecordNo: record.handoverRecordNo || record.recordId,
-    handoverRecordQrValue: record.handoverRecordQrValue,
+    handoverRecordId: recordWithTransferBagFields.handoverRecordId || recordWithTransferBagFields.recordId,
+    handoverRecordNo: recordWithTransferBagFields.handoverRecordNo || recordWithTransferBagFields.recordId,
+    handoverRecordQrValue: recordWithTransferBagFields.handoverRecordQrValue,
     taskId: batch.dispatchBatchId,
     taskNo: batch.dispatchBatchNo,
     factoryId: order.cuttingFactoryId,
@@ -985,19 +1447,23 @@ export function submitCuttingSewingDispatchBatch(input: {
     itemKind: '裁片',
     itemName: `裁片发料 ${batch.transferOrderNo}`,
     transferBagNo: batch.transferBagIds.map((bagId) => findTransferBagById(storeRef, bagId).transferBagNo).join('、'),
-    submittedQty: record.submittedQty,
-    unit: record.qtyUnit,
+    submittedQty: recordWithTransferBagFields.submittedQty,
+    unit: recordWithTransferBagFields.qtyUnit,
     operatorName: input.operatorName,
     submittedAt: input.submittedAt,
   })
-  batch.handoverRecordId = record.handoverRecordId || record.recordId
-  batch.handoverRecordNo = record.handoverRecordNo || record.recordId
+  batch.handoverRecordId = recordWithTransferBagFields.handoverRecordId || recordWithTransferBagFields.recordId
+  batch.handoverRecordNo = recordWithTransferBagFields.handoverRecordNo || recordWithTransferBagFields.recordId
   batch.status = '已交出'
   batch.updatedAt = input.submittedAt
   batch.transferBagIds.forEach((bagId) => {
     const bag = findTransferBagById(storeRef, bagId)
     bag.status = '已交出'
     bag.dispatchStatus = '已交出'
+    bag.packStatus = '已交出'
+    bag.currentLocation = '下游工厂待接收'
+    bag.editableBeforeHandover = false
+    bag.handoverSubmittedAt = input.submittedAt
     bag.updatedAt = input.submittedAt
   })
   order.handoverOrderId = handoverOrder.handoverOrderId || handoverOrder.handoverId
@@ -1008,7 +1474,7 @@ export function submitCuttingSewingDispatchBatch(input: {
   updateDispatchOrderFromChildren(order)
   return {
     handoverOrder,
-    handoverRecord: record,
+    handoverRecord: recordWithTransferBagFields,
     outboundRecords: [linkage.outboundRecord],
     updatedWaitHandoverStockItems: [linkage.updatedWaitHandoverStockItem],
     updatedDispatchBatch: clone(batch),
@@ -1086,6 +1552,220 @@ function buildHandoverCutPieceLines(
   })
 }
 
+export function getTransferBagContentDisplayItems(transferBagId: string): TransferBagContentItem[] {
+  const storeRef = ensureCuttingSewingDispatchSeeded()
+  const bag = findTransferBagById(storeRef, transferBagId)
+  normalizeTransferBagRuntimeFields(bag)
+  return clone(
+    [...bag.contentItems].sort((left, right) =>
+      `${left.colorName || ''}-${left.sizeCode || ''}-${left.partName || ''}-${left.sourceNo || ''}`.localeCompare(
+        `${right.colorName || ''}-${right.sizeCode || ''}-${right.partName || ''}-${right.sourceNo || ''}`,
+        'zh-CN',
+      ),
+    ),
+  )
+}
+
+export function getTransferBagScanSummaryByQr(qrValue: string): {
+  transferBagNo: string
+  sourceFactoryName: string
+  receiverFactoryName: string
+  productionOrderNo: string
+  dispatchBatchNo: string
+  transferOrderNo: string
+  handoverRecordNo: string
+  bagStatus: string
+  contentItems: TransferBagContentItem[]
+  contentSummary: {
+    contentItemCount: number
+    feiTicketCount: number
+    materialLineCount: number
+    totalQty: number
+    mixedLabel: string
+  }
+} | null {
+  const storeRef = ensureCuttingSewingDispatchSeeded()
+  const bag = storeRef.transferBags.find((item) => item.transferBagQrValue === qrValue || item.transferBagNo === qrValue)
+  if (!bag) return null
+  const order = findDispatchOrderById(storeRef, bag.dispatchOrderId)
+  const batch = findDispatchBatchById(storeRef, bag.dispatchBatchId)
+  normalizeTransferBagRuntimeFields(bag)
+  const contentItems = getTransferBagContentDisplayItems(bag.transferBagId)
+  return {
+    transferBagNo: bag.transferBagNo,
+    sourceFactoryName: order.cuttingFactoryName,
+    receiverFactoryName: order.sewingFactoryName,
+    productionOrderNo: bag.productionOrderNo,
+    dispatchBatchNo: batch.dispatchBatchNo,
+    transferOrderNo: batch.transferOrderNo,
+    handoverRecordNo: batch.handoverRecordNo || '待提交',
+    bagStatus: bag.packStatus,
+    contentItems,
+    contentSummary: {
+      contentItemCount: bag.contentItemCount,
+      feiTicketCount: bag.contentFeiTicketCount,
+      materialLineCount: bag.contentMaterialLineCount,
+      totalQty: contentItems.reduce((total, item) => total + item.currentQty, 0),
+      mixedLabel: '允许混装',
+    },
+  }
+}
+
+function findBatchByHandoverRecordId(storeRef: CuttingSewingDispatchStore, handoverRecordId: string): CuttingSewingDispatchBatch {
+  const batch = storeRef.dispatchBatches.find((item) => item.handoverRecordId === handoverRecordId)
+  if (!batch) throw new Error(`未找到中转单对应交出记录：${handoverRecordId}`)
+  return batch
+}
+
+export function writebackSewingReceiveByTransferBag(input: {
+  handoverRecordId: string
+  receivedTransferBagNos: string[]
+  receiverName: string
+  receivedAt: string
+  remark?: string
+}): PdaHandoverRecord {
+  const storeRef = ensureCuttingSewingDispatchSeeded()
+  const batch = findBatchByHandoverRecordId(storeRef, input.handoverRecordId)
+  const record = findPdaHandoverRecord(input.handoverRecordId)
+  if (!record) throw new Error(`未找到交出记录：${input.handoverRecordId}`)
+  const receivedNos = new Set(input.receivedTransferBagNos)
+  const lines: TransferBagWritebackLine[] = batch.transferBagIds.map((bagId) => {
+    const bag = findTransferBagById(storeRef, bagId)
+    normalizeTransferBagRuntimeFields(bag)
+    const expectedQty = bag.pieceLines.reduce((total, line) => total + line.scannedPieceQty, 0)
+    const received = receivedNos.has(bag.transferBagNo)
+    bag.receivedAt = received ? input.receivedAt : bag.receivedAt
+    bag.receivedBy = received ? input.receiverName : bag.receivedBy
+    bag.receivedFeiTicketCount = received ? bag.contentFeiTicketCount : 0
+    bag.packStatus = received ? '已扫码接收' : '差异'
+    bag.currentLocation = received ? '下游工厂已接收' : '差异待处理'
+    return {
+      lineId: `TBWL-${record.recordId}-${bag.transferBagId}`,
+      handoverRecordId: record.handoverRecordId || record.recordId,
+      transferBagId: bag.transferBagId,
+      transferBagNo: bag.transferBagNo,
+      expectedFeiTicketCount: bag.contentFeiTicketCount,
+      receivedFeiTicketCount: received ? bag.contentFeiTicketCount : 0,
+      expectedQty,
+      actualQty: received ? expectedQty : 0,
+      differenceQty: received ? 0 : -expectedQty,
+      status: received ? '已回写' : '差异',
+      remark: received ? input.remark : '整袋未收到',
+    }
+  })
+  return upsertPdaHandoutRecordMock({
+    ...record,
+    expectedTransferBagCount: batch.transferBagIds.length,
+    receivedTransferBagCount: lines.filter((line) => line.status === '已回写').length,
+    expectedFeiTicketCount: lines.reduce((total, line) => total + line.expectedFeiTicketCount, 0),
+    receivedFeiTicketCount: lines.reduce((total, line) => total + line.receivedFeiTicketCount, 0),
+    transferBagWritebackLines: lines,
+    writebackMode: '按袋',
+    combinedWritebackStatus: lines.some((line) => line.status === '差异') ? '差异' : '部分回写',
+  })
+}
+
+export function writebackSewingReceiveByFeiTicket(input: {
+  handoverRecordId: string
+  transferBagNo: string
+  receivedFeiTickets: Array<{ feiTicketNo: string; actualQty: number; remark?: string }>
+  receiverName: string
+  receivedAt: string
+}): PdaHandoverRecord {
+  const storeRef = ensureCuttingSewingDispatchSeeded()
+  const batch = findBatchByHandoverRecordId(storeRef, input.handoverRecordId)
+  const record = findPdaHandoverRecord(input.handoverRecordId)
+  if (!record) throw new Error(`未找到交出记录：${input.handoverRecordId}`)
+  const bag = storeRef.transferBags.find((item) => item.transferBagNo === input.transferBagNo && item.dispatchBatchId === batch.dispatchBatchId)
+  if (!bag) throw new Error(`未找到中转袋：${input.transferBagNo}`)
+  normalizeTransferBagRuntimeFields(bag)
+  const actualByTicket = new Map(input.receivedFeiTickets.map((item) => [item.feiTicketNo, item]))
+  const nextLines: TransferBagFeiTicketWritebackLine[] = [
+    ...(record.feiTicketWritebackLines || []).filter((line) => line.transferBagNo !== bag.transferBagNo),
+    ...bag.contentItems
+      .filter((item) => item.sourceKind === 'FEI_TICKET' && item.feiTicketNo)
+      .map((item) => {
+        const actual = actualByTicket.get(item.feiTicketNo || '')
+        const actualQty = actual ? Math.max(actual.actualQty, 0) : 0
+        const differenceQty = actualQty - item.currentQty
+        return {
+          lineId: `TBFTWL-${record.recordId}-${bag.transferBagId}-${item.feiTicketNo}`,
+          handoverRecordId: record.handoverRecordId || record.recordId,
+          transferBagId: bag.transferBagId,
+          transferBagNo: bag.transferBagNo,
+          feiTicketNo: item.feiTicketNo || '',
+          partName: item.partName || '',
+          colorName: item.colorName || '',
+          sizeCode: item.sizeCode || '',
+          expectedQty: item.currentQty,
+          actualQty,
+          differenceQty,
+          status: differenceQty === 0 ? '已回写' : '差异',
+          remark: actual?.remark,
+        } satisfies TransferBagFeiTicketWritebackLine
+      }),
+  ]
+  bag.receivedFeiTicketCount = nextLines.filter((line) => line.transferBagId === bag.transferBagId && line.actualQty > 0).length
+  bag.packStatus = nextLines.some((line) => line.transferBagId === bag.transferBagId && line.status === '差异') ? '差异' : '部分回写'
+  bag.itemDifferenceReason = nextLines.some((line) => line.transferBagId === bag.transferBagId && line.status === '差异') ? '袋内菲票数量不符' : undefined
+  return upsertPdaHandoutRecordMock({
+    ...record,
+    expectedFeiTicketCount: batch.transferBagIds.reduce((total, bagId) => total + findTransferBagById(storeRef, bagId).contentFeiTicketCount, 0),
+    receivedFeiTicketCount: nextLines.filter((line) => line.actualQty > 0).length,
+    feiTicketWritebackLines: nextLines,
+    writebackMode: '按袋 + 菲票',
+    combinedWritebackStatus: nextLines.some((line) => line.status === '差异') ? '差异' : '部分回写',
+  })
+}
+
+export function finalizeCombinedSewingWriteback(input: {
+  handoverRecordId: string
+  receiverName: string
+  receiverWrittenAt: string
+  differenceReason?: string
+}): PdaHandoverRecord {
+  const storeRef = ensureCuttingSewingDispatchSeeded()
+  const batch = findBatchByHandoverRecordId(storeRef, input.handoverRecordId)
+  const record = findPdaHandoverRecord(input.handoverRecordId)
+  if (!record) throw new Error(`未找到交出记录：${input.handoverRecordId}`)
+  const expectedQty = batch.transferBagIds.reduce((total, bagId) => {
+    const bag = findTransferBagById(storeRef, bagId)
+    return total + bag.pieceLines.reduce((sum, line) => sum + line.scannedPieceQty, 0)
+  }, 0)
+  const actualQty = record.feiTicketWritebackLines?.length
+    ? record.feiTicketWritebackLines.reduce((total, line) => total + line.actualQty, 0)
+    : record.transferBagWritebackLines?.reduce((total, line) => total + line.actualQty, 0) || 0
+  const differenceQty = actualQty - expectedQty
+  const written = writeBackHandoverRecord({
+    handoverRecordId: input.handoverRecordId,
+    receiverWrittenQty: actualQty,
+    receiverWrittenAt: input.receiverWrittenAt,
+    receiverWrittenBy: input.receiverName,
+    receiverRemark: differenceQty === 0 ? '车缝厂按中转袋和菲票回写无差异' : input.differenceReason || '车缝厂回写存在差异',
+    diffReason: input.differenceReason,
+  })
+  syncSewingReceiveWritebackToDispatch({
+    handoverRecordId: input.handoverRecordId,
+    receiverWrittenQty: actualQty,
+    receivedTransferBagNos: record.transferBagWritebackLines?.filter((line) => line.actualQty > 0).map((line) => line.transferBagNo) || [],
+    receivedFeiTicketNos: record.feiTicketWritebackLines?.filter((line) => line.actualQty > 0).map((line) => line.feiTicketNo) || [],
+    receiverName: input.receiverName,
+    receiverWrittenAt: input.receiverWrittenAt,
+    differenceReason: input.differenceReason,
+  })
+  return upsertPdaHandoutRecordMock({
+    ...written,
+    transferBagWritebackLines: record.transferBagWritebackLines,
+    feiTicketWritebackLines: record.feiTicketWritebackLines,
+    expectedTransferBagCount: record.expectedTransferBagCount,
+    receivedTransferBagCount: record.receivedTransferBagCount,
+    expectedFeiTicketCount: record.expectedFeiTicketCount,
+    receivedFeiTicketCount: record.receivedFeiTicketCount,
+    writebackMode: '按袋 + 菲票',
+    combinedWritebackStatus: differenceQty === 0 ? '已回写' : '差异',
+  })
+}
+
 export function syncSewingReceiveWritebackToDispatch(input: {
   handoverRecordId: string
   receiverWrittenQty: number
@@ -1132,6 +1812,11 @@ export function syncSewingReceiveWritebackToDispatch(input: {
     bag.differenceQty = input.receivedTransferBagNos.includes(bag.transferBagNo) ? 0 : bag.pieceLines.reduce((total, line) => total + line.scannedPieceQty, 0)
     bag.dispatchStatus = differenceQty === 0 ? '已回写' : '差异'
     bag.status = differenceQty === 0 ? '已回写' : '差异'
+    bag.packStatus = differenceQty === 0 ? '已回写' : input.receivedTransferBagNos.includes(bag.transferBagNo) ? '部分回写' : '差异'
+    bag.currentLocation = input.receivedTransferBagNos.includes(bag.transferBagNo) ? '下游工厂已接收' : '差异待处理'
+    bag.receivedAt = input.receivedTransferBagNos.includes(bag.transferBagNo) ? input.receiverWrittenAt : bag.receivedAt
+    bag.receivedBy = input.receivedTransferBagNos.includes(bag.transferBagNo) ? input.receiverName : bag.receivedBy
+    bag.receivedFeiTicketCount = input.receivedFeiTicketNos.filter((feiTicketNo) => bag.scannedFeiTicketNos.includes(feiTicketNo)).length
     bag.updatedAt = input.receiverWrittenAt
   })
   order.receiverWrittenQty = input.receiverWrittenQty
@@ -1290,6 +1975,29 @@ function seedStore(): void {
   })
   scanFeiTicketIntoTransferBag({ transferBagId: blockedBags[0].transferBagId, feiTicketNo: 'FT-CUT-260226-014-01-001' })
   validateDispatchBatchCompleteness(blockedBatch.dispatchBatchId)
+  const blockedPieceLine = blockedBags[0].pieceLines[0]
+  if (blockedPieceLine && !storeRef.validationResults.some((item) => item.validationType === '特殊工艺未回仓')) {
+    storeRef.validationResults.push({
+      validationId: `CSV-${blockedBags[0].transferBagId}-SPECIAL-001`,
+      dispatchOrderId: blockedBags[0].dispatchOrderId,
+      dispatchBatchId: blockedBags[0].dispatchBatchId,
+      transferBagId: blockedBags[0].transferBagId,
+      productionOrderId: blockedBags[0].productionOrderId,
+      productionOrderNo: blockedBags[0].productionOrderNo,
+      colorName: blockedPieceLine.colorName,
+      sizeCode: blockedPieceLine.sizeCode,
+      partName: blockedPieceLine.partName,
+      requiredPieceQty: blockedPieceLine.requiredPieceQty,
+      scannedPieceQty: blockedPieceLine.scannedPieceQty,
+      missingPieceQty: blockedPieceLine.missingPieceQty,
+      overPieceQty: blockedPieceLine.overPieceQty,
+      specialCraftRequired: true,
+      specialCraftStatus: '未回仓',
+      validationType: '特殊工艺未回仓',
+      validationMessage: '特殊工艺未回仓，不能交出',
+      blocking: true,
+    })
+  }
   void storeRef
 }
 
@@ -1315,7 +2023,9 @@ export function listCuttingSewingDispatchBatches(): CuttingSewingDispatchBatch[]
 }
 
 export function listCuttingSewingTransferBags(): CuttingSewingTransferBag[] {
-  return clone(ensureCuttingSewingDispatchSeeded().transferBags)
+  const storeRef = ensureCuttingSewingDispatchSeeded()
+  storeRef.transferBags.forEach(normalizeTransferBagRuntimeFields)
+  return clone(storeRef.transferBags)
 }
 
 export function listCuttingSewingDispatchValidationResults(): CuttingSewingDispatchValidationResult[] {
@@ -1331,6 +2041,7 @@ export function findCuttingSewingDispatchByFeiTicketNo(feiTicketNo: string): {
 } {
   const storeRef = ensureCuttingSewingDispatchSeeded()
   const bag = storeRef.transferBags.find((item) => item.scannedFeiTicketNos.includes(feiTicketNo))
+  if (bag) normalizeTransferBagRuntimeFields(bag)
   const batch = bag ? storeRef.dispatchBatches.find((item) => item.dispatchBatchId === bag.dispatchBatchId) : undefined
   const order = batch ? storeRef.dispatchOrders.find((item) => item.dispatchOrderId === batch.dispatchOrderId) : undefined
   const specialCraft = mapSpecialCraftReturnStatus(feiTicketNo)
@@ -1367,7 +2078,11 @@ export function getCuttingSewingDispatchByHandoverRecordId(handoverRecordId: str
   return {
     dispatchOrder: order ? clone(order) : undefined,
     dispatchBatch: clone(batch),
-    transferBags: clone(storeRef.transferBags.filter((bag) => batch.transferBagIds.includes(bag.transferBagId))),
+    transferBags: clone(storeRef.transferBags.filter((bag) => {
+      const matched = batch.transferBagIds.includes(bag.transferBagId)
+      if (matched) normalizeTransferBagRuntimeFields(bag)
+      return matched
+    })),
   }
 }
 

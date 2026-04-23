@@ -34,6 +34,8 @@ import {
 import { getRecordDiffQty } from './task-handover-domain.ts'
 import type { WarehouseIssueOrder } from './warehouse-material-execution.ts'
 
+const NORMAL_AREA_NAMES = ['A区', 'B区', 'C区', 'D区', 'E区', 'F区'] as const
+
 function roundQty(value: number | undefined): number {
   if (!Number.isFinite(value)) return 0
   return Math.round(Number(value) * 100) / 100
@@ -74,9 +76,7 @@ function pickWarehousePosition(
       ? '异常区'
       : status === '待领料' || status === '已交出'
         ? '待确认区'
-        : hashCode(seed) % 2 === 0
-          ? 'A区'
-          : 'B区'
+        : NORMAL_AREA_NAMES[hashCode(seed) % NORMAL_AREA_NAMES.length]
   const area = warehouse.areaList.find((item) => item.areaName === preferredAreaName) || warehouse.areaList[0]
   const shelf = area.shelfList[0]
   const location = shelf.locationList[hashCode(seed) % shelf.locationList.length]

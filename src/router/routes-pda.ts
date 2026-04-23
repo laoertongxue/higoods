@@ -13,6 +13,7 @@ import {
   renderPdaExecPage,
   renderPdaHandoverDetailPage,
   renderPdaHandoverPage,
+  renderPdaTransferBagDetailPage,
   renderPdaCuttingExecutionUnitPage,
   renderPdaCuttingHandoverPage,
   renderPdaCuttingInboundPage,
@@ -43,6 +44,7 @@ export const routes: RouteRegistry = {
     '/fcs/pda/task-receive': () => renderPdaTaskReceivePage(),
     '/fcs/pda/exec': () => renderPdaExecPage(),
     '/fcs/pda/handover': () => renderPdaHandoverPage(),
+    '/fcs/pda/transfer-bag-detail': () => renderPdaTransferBagDetailPage(),
     '/fcs/pda/warehouse': () => renderPdaWarehousePage(),
     '/fcs/pda/warehouse/wait-process': () => renderPdaWarehouseWaitProcessPage(),
     '/fcs/pda/warehouse/wait-handover': () => renderPdaWarehouseWaitHandoverPage(),
@@ -99,6 +101,10 @@ export const routes: RouteRegistry = {
     {
       pattern: /^\/fcs\/pda\/handover\/([^/]+)$/,
       render: (match) => renderPdaHandoverDetailPage(match[1]),
+    },
+    {
+      pattern: /^\/fcs\/pda\/transfer-bag\/([^/]+)$/,
+      render: (match) => renderPdaTransferBagDetailPage(match[1]),
     },
   ],
 }

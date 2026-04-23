@@ -627,11 +627,15 @@ function renderRow(record: PatternAssetRecord): string {
       <td class="px-3 py-3"><div class="flex flex-wrap gap-1">${record.style_tags.map((tag) => `<span class="inline-flex rounded-full border px-2 py-0.5 text-xs">${escapeHtml(tag)}</span>`).join('') || '<span class="text-xs text-gray-400">-</span>'}</div></td>
       <td class="px-3 py-3 text-sm">${escapeHtml(record.color_tags.join(' / ') || '-')}</td>
       <td class="px-3 py-3 text-sm">${record.hot_flag ? '是' : '否'}</td>
+      <td class="px-3 py-3 text-sm">${escapeHtml(record.source_project_id || '-')}</td>
+      <td class="px-3 py-3 text-sm">${escapeHtml(record.source_task_code || record.source_task_id || '-')}</td>
+      <td class="px-3 py-3 text-sm">${escapeHtml(record.source_tech_pack_version_code || '-')}</td>
       <td class="px-3 py-3">${getStatusBadge(PATTERN_LICENSE_STATUS_LABELS[record.license_status], record.license_status === 'authorized' ? 'green' : record.license_status === 'restricted' ? 'amber' : 'rose')}</td>
       <td class="px-3 py-3 text-sm">${record.maintenance_status}</td>
       <td class="px-3 py-3">${getStatusBadge(PATTERN_PARSE_STATUS_LABELS[record.parse_status], record.parse_status === 'success' ? 'green' : record.parse_status === 'failed' ? 'rose' : 'amber')}</td>
       <td class="px-3 py-3">${getStatusBadge(PATTERN_DUPLICATE_STATUS_LABELS[record.duplicate_status], record.duplicate_status === 'suspected' ? 'amber' : 'slate')}</td>
       <td class="px-3 py-3 text-sm">${record.reference_count}</td>
+      <td class="px-3 py-3 text-sm">${record.archive_collected_flag ? '已进入项目资料归档' : '未进入项目资料归档'}</td>
       <td class="px-3 py-3 text-xs text-gray-500">${formatDateTime(record.updated_at)}</td>
       <td class="px-3 py-3">
         <div class="flex flex-wrap gap-2">
@@ -647,7 +651,7 @@ function renderTable(records: PatternAssetRecord[]): string {
   return `
     <section class="overflow-hidden rounded-lg border bg-white">
       <div class="overflow-x-auto">
-        <table class="w-full min-w-[1800px] text-sm">
+        <table class="w-full min-w-[2100px] text-sm">
           <thead>
             <tr class="border-b bg-gray-50 text-left text-gray-600">
               <th class="px-3 py-3"><input type="checkbox" class="h-4 w-4 rounded border" ${records.length > 0 && state.selectedIds.length === records.length ? 'checked' : ''} data-pattern-library-action="toggle-select-all" /></th>
@@ -660,11 +664,15 @@ function renderTable(records: PatternAssetRecord[]): string {
               <th class="px-3 py-3 font-medium">风格标签</th>
               <th class="px-3 py-3 font-medium">主色系</th>
               <th class="px-3 py-3 font-medium">是否爆款</th>
+              <th class="px-3 py-3 font-medium">来源项目</th>
+              <th class="px-3 py-3 font-medium">来源花型任务</th>
+              <th class="px-3 py-3 font-medium">来源技术包版本</th>
               <th class="px-3 py-3 font-medium">授权状态</th>
               <th class="px-3 py-3 font-medium">维护状态</th>
               <th class="px-3 py-3 font-medium">解析状态</th>
               <th class="px-3 py-3 font-medium">重复检测状态</th>
               <th class="px-3 py-3 font-medium">引用次数</th>
+              <th class="px-3 py-3 font-medium">归档状态</th>
               <th class="px-3 py-3 font-medium">最近更新时间</th>
               <th class="px-3 py-3 font-medium">操作</th>
             </tr>
@@ -672,7 +680,7 @@ function renderTable(records: PatternAssetRecord[]): string {
           <tbody>
             ${records.length === 0 ? `
               <tr>
-                <td colspan="17" class="px-4 py-16 text-center text-sm text-gray-500">
+                <td colspan="21" class="px-4 py-16 text-center text-sm text-gray-500">
                   <i data-lucide="image-off" class="mx-auto h-10 w-10 text-gray-300"></i>
                   <p class="mt-3">当前筛选条件下暂无花型资产</p>
                 </td>

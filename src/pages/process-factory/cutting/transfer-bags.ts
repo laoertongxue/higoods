@@ -1607,7 +1607,7 @@ function renderSewingDispatchTransferBagPanel(): string {
       <div class="flex items-center justify-between border-b px-4 py-3">
         <div>
           <h2 class="text-sm font-semibold text-foreground">裁片发料中转袋</h2>
-          <p class="mt-1 text-xs text-muted-foreground">中转袋归属中转单，展示发料批次、袋内菲票、齐套状态、发料状态、回写状态和差异。</p>
+          <p class="mt-1 text-xs text-muted-foreground">中转袋归属中转单，展示发料批次、袋内明细、齐套状态、发料状态、回写状态和差异。</p>
         </div>
         <button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-nav="${escapeHtml(getCanonicalCuttingPath('sewing-dispatch'))}">查看裁片发料</button>
       </div>
@@ -2903,7 +2903,7 @@ function buildBaggingStepSummary(
 
 function buildBaggingStepHelperText(step: TransferBagBaggingStepView): string {
   if (step.id === 'scan') {
-    return step.state === 'locked' ? '本次周转完成后才能再次扫码装袋' : '扫描首张菲票后自动锁定车缝厂 / 当前款号，后续不允许混装'
+    return step.state === 'locked' ? '本次周转完成后才能再次扫码装袋' : '支持一个中转袋混装，仍按发料批次齐套校验'
   }
   if (step.id === 'review') {
     return step.state === 'locked' ? '请先扫码装袋，再核对袋内内容' : '核对袋内内容，确认后完成装袋'
@@ -3923,7 +3923,7 @@ function bindTicketByInput(): boolean {
   }
   const context = resolveLockedUsageContext(usage, ticket)
   if (!context.ok || !context.sewingTask) {
-    setFeedback('warning', context.reason || '当前袋已锁定到其他车缝厂 / 款号，不可混装。')
+    setFeedback('warning', context.reason || '请确认袋内菲票属于本次发料批次。')
     return true
   }
   const validation = validateTicketBindingEligibility({

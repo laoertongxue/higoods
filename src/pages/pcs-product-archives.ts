@@ -1325,6 +1325,8 @@ function renderStyleDetailVersions(style: StyleArchiveShellRecord): string {
           <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.sourceTaskText)}</td>
           <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.sourceProjectText)}</td>
           <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(String(item.versionLogCount))} 条</td>
+          <td class="px-4 py-3 text-sm text-slate-700">当前花型资产 ${escapeHtml(String(item.linkedPatternAssetCount))} 个</td>
+          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.archiveStatusText)}</td>
           <td class="px-4 py-3 text-sm text-slate-500">${escapeHtml(formatDateTime(item.updatedAt))}</td>
           <td class="px-4 py-3">
             <div class="flex flex-wrap gap-2">
@@ -1352,11 +1354,13 @@ function renderStyleDetailVersions(style: StyleArchiveShellRecord): string {
               <th class="px-4 py-3 font-medium">来源任务</th>
               <th class="px-4 py-3 font-medium">来源项目</th>
               <th class="px-4 py-3 font-medium">版本日志</th>
+              <th class="px-4 py-3 font-medium">花型库资产</th>
+              <th class="px-4 py-3 font-medium">归档状态</th>
               <th class="px-4 py-3 font-medium">更新时间</th>
               <th class="px-4 py-3 font-medium">操作</th>
             </tr>
           </thead>
-          <tbody>${rows || '<tr><td colspan="8" class="px-4 py-10 text-center text-sm text-slate-500">当前款式尚未建立技术包版本。</td></tr>'}</tbody>
+          <tbody>${rows || '<tr><td colspan="10" class="px-4 py-10 text-center text-sm text-slate-500">当前款式尚未建立技术包版本。</td></tr>'}</tbody>
         </table>
       </div>
     </section>

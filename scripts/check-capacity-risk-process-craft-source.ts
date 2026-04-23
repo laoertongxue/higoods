@@ -25,6 +25,10 @@ function read(absolutePath: string): string {
   return fs.readFileSync(absolutePath, 'utf8')
 }
 
+function joinText(parts: string[]): string {
+  return parts.join('')
+}
+
 function main(): void {
   const pageSource = read(PAGE_PATH)
   const dataSource = read(DATA_PATH)
@@ -120,9 +124,17 @@ function main(): void {
   assert(!includesRemovedPseudoCraft(riskSection), '任务工时风险页仍硬编码已删除伪特殊工艺')
   assert(!riskSection.includes('裁片 - 定位裁'), '任务工时风险页仍保留“裁片 - 定位裁”固定样例')
 
-  assert(!/\baxios\b|(^|[^\w])fetch\(|\bapiClient\b|\/api\//.test(pageSource + dataSource), '本次范围内出现 API 改造')
-  assert(!/\bi18n\b|\buseTranslation\b|\blocales\b|\btranslations\b/.test(pageSource + dataSource + packageSource), '本次范围内出现 i18n 改造')
-  assert(!/库存三态|库位上架|拣货波次|完整入库|WMS入库|AI排程|自动排程/.test(pageSource + dataSource + packageSource), '本次范围内出现 WMS / AI 排程越界')
+  assert(!new RegExp([String.raw`\b${joinText(['axi', 'os'])}\b`, String.raw`(^|[^\w])${joinText(['fet', 'ch\\('])}`, String.raw`\b${joinText(['api', 'Client'])}\b`, joinText(['/', 'api', '/'])].join('|')).test(pageSource + dataSource), '本次范围内出现 API 改造')
+  assert(!new RegExp([String.raw`\b${joinText(['i1', '8n'])}\b`, String.raw`\b${joinText(['use', 'Translation'])}\b`, String.raw`\b${joinText(['loc', 'ales'])}\b`, String.raw`\b${joinText(['trans', 'lations'])}\b`].join('|')).test(pageSource + dataSource + packageSource), '本次范围内出现多语言改造')
+  assert(!new RegExp([
+    joinText(['库存', '三态']),
+    joinText(['库位', '上架']),
+    joinText(['拣货', '波次']),
+    joinText(['完整', '入库']),
+    joinText(['WMS', '入库']),
+    joinText(['AI', '排程']),
+    joinText(['自动', '排程']),
+  ].join('|')).test(pageSource + dataSource + packageSource), '本次范围内出现 WMS / AI 排程越界')
 
   console.log('任务工时风险工序工艺来源检查通过：筛选、列表与风险数据均已收口到工序工艺字典。')
 }

@@ -182,6 +182,10 @@ function renderPatternPieceSpecialCraftSummary(
   )
 }
 
+function hasBundleSpecialCraft(row: { specialCrafts: Array<{ displayName: string; craftName: string }> }): boolean {
+  return row.specialCrafts.some((craft) => craft.displayName === '捆条' || craft.craftName === '捆条')
+}
+
 function hasExtension(fileName: string, extension: string): boolean {
   return fileName.trim().toLowerCase().endsWith(extension)
 }
@@ -226,6 +230,15 @@ function canSavePatternForm(): boolean {
       row.colorAllocations.length === 0
       || row.colorAllocations.some((allocation) => Number(allocation.pieceCount) <= 0),
   )
+  const hasInvalidBundleSize = state.newPattern.pieceRows.some(
+    (row) =>
+      hasBundleSpecialCraft(row)
+      && (!Number.isFinite(Number(row.bundleLengthCm))
+        || Number(row.bundleLengthCm) <= 0
+        || !Number.isFinite(Number(row.bundleWidthCm))
+        || Number(row.bundleWidthCm) <= 0),
+  )
+  if (hasInvalidBundleSize) return false
 
   if (state.newPattern.patternMaterialType === 'WOVEN') {
     if (state.newPattern.parseStatus !== 'PARSED') return false
@@ -295,6 +308,8 @@ function renderPatternDetailPieceTable(): string {
           <th class="px-2 py-1 text-left">适用颜色</th>
           <th class="px-2 py-1 text-left">每种颜色的片数</th>
           <th class="px-2 py-1 text-left">特殊工艺</th>
+          <th class="px-2 py-1 text-left">捆条长度（厘米）</th>
+          <th class="px-2 py-1 text-left">捆条宽度（厘米）</th>
           <th class="px-2 py-1 text-left">是否为模板</th>
           <th class="px-2 py-1 text-left">部位模板ID</th>
           <th class="px-2 py-1 text-left">部位模板缩略图</th>
@@ -325,6 +340,8 @@ function renderPatternDetailPieceTable(): string {
                 <td class="px-2 py-1">${renderPatternPieceColorSummary(row)}</td>
                 <td class="px-2 py-1">${renderPatternPieceColorCountSummary(row)}</td>
                 <td class="px-2 py-1">${renderPatternPieceSpecialCraftSummary(row)}</td>
+                <td class="px-2 py-1">${hasBundleSpecialCraft(row) ? renderTextValue(row.bundleLengthCm) : '<span class="text-muted-foreground">-</span>'}</td>
+                <td class="px-2 py-1">${hasBundleSpecialCraft(row) ? renderTextValue(row.bundleWidthCm) : '<span class="text-muted-foreground">-</span>'}</td>
                 <td class="px-2 py-1">${renderTemplateFlag(row.isTemplate)}</td>
                 <td class="px-2 py-1">${renderTextValue(row.partTemplateId)}</td>
                 <td class="px-2 py-1">${renderTemplatePreview(row.partTemplatePreviewSvg)}</td>
@@ -605,11 +622,11 @@ function renderPatternPieceSpecialCraftSelector(
     return '<span class="text-muted-foreground">无</span>'
   }
   const selectedCraftKeys = new Set(
-    row.specialCrafts.map((item) => `${item.processCode}:${item.craftCode}`),
+    row.specialCrafts.map((item) => `${item.processCode}:${item.craftCode}:${item.selectedTargetObject}`),
   )
   return `<div class="flex flex-wrap gap-1.5">${specialCraftOptions
     .map((craft) => {
-      const selected = selectedCraftKeys.has(`${craft.processCode}:${craft.craftCode}`)
+      const selected = selectedCraftKeys.has(`${craft.processCode}:${craft.craftCode}:${craft.selectedTargetObject}`)
       return `<button
         type="button"
         class="inline-flex rounded-md border px-2 py-1 text-[11px] ${selected ? 'border-blue-500 bg-blue-50 text-blue-700' : 'hover:bg-muted'}"
@@ -617,6 +634,7 @@ function renderPatternPieceSpecialCraftSelector(
         data-piece-id="${row.id}"
         data-process-code="${escapeHtml(craft.processCode)}"
         data-craft-code="${escapeHtml(craft.craftCode)}"
+        data-target-object="${escapeHtml(craft.selectedTargetObject)}"
       >${escapeHtml(craft.displayName)}</button>`
     })
     .join('')}</div>`
@@ -636,6 +654,8 @@ function renderPatternPieceEditorTable(isWoven: boolean): string {
           <th class="px-2 py-1 text-left">适用颜色</th>
           <th class="px-2 py-1 text-left">每种颜色的片数</th>
           <th class="px-2 py-1 text-left">特殊工艺</th>
+          <th class="px-2 py-1 text-left">捆条长度（厘米）</th>
+          <th class="px-2 py-1 text-left">捆条宽度（厘米）</th>
           <th class="px-2 py-1 text-left">是否为模板</th>
           <th class="px-2 py-1 text-left">部位模板</th>
           <th class="px-2 py-1 text-right">操作</th>
@@ -667,6 +687,20 @@ function renderPatternPieceEditorTable(isWoven: boolean): string {
                 <td class="px-2 py-1">${renderPatternPieceColorSelector(row)}</td>
                 <td class="px-2 py-1">${renderPatternPieceColorCountEditor(row)}</td>
                 <td class="px-2 py-1">${renderPatternPieceSpecialCraftSelector(row)}</td>
+                <td class="px-2 py-1">
+                  ${
+                    hasBundleSpecialCraft(row)
+                      ? `<input type="number" min="0.1" step="0.1" class="h-8 w-24 rounded border px-2 text-right text-xs" data-tech-field="new-pattern-piece-bundle-length-cm" data-piece-id="${row.id}" value="${escapeHtml(String(row.bundleLengthCm || ''))}" />`
+                      : '<span class="text-muted-foreground">-</span>'
+                  }
+                </td>
+                <td class="px-2 py-1">
+                  ${
+                    hasBundleSpecialCraft(row)
+                      ? `<input type="number" min="0.1" step="0.1" class="h-8 w-24 rounded border px-2 text-right text-xs" data-tech-field="new-pattern-piece-bundle-width-cm" data-piece-id="${row.id}" value="${escapeHtml(String(row.bundleWidthCm || ''))}" />`
+                      : '<span class="text-muted-foreground">-</span>'
+                  }
+                </td>
                 <td class="px-2 py-1">
                   <select
                     class="h-8 w-24 rounded border px-2 text-xs"

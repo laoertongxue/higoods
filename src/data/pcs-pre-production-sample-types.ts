@@ -1,4 +1,5 @@
 import type { PcsTaskPendingItem } from './pcs-project-types.ts'
+import type { SampleChainMode, SamplePlanLine, SampleSpecialSceneReasonCode } from './pcs-sample-chain-types.ts'
 import type { PreProductionSampleTaskSourceType } from './pcs-task-source-normalizer.ts'
 
 export const PRE_PRODUCTION_SAMPLE_TASK_STATUS_LIST = ['草稿', '待发样', '在途', '已到样待入库', '验收中', '已完成', '已取消'] as const
@@ -19,6 +20,13 @@ export interface PreProductionSampleTaskRecord {
   upstreamObjectType: string
   upstreamObjectId: string
   upstreamObjectCode: string
+  sourceTechPackVersionId: string
+  sourceTechPackVersionCode: string
+  sourceTechPackVersionLabel: string
+  sourceFirstSampleTaskId: string
+  sourceFirstSampleTaskCode: string
+  sourceFirstSampleAssetId: string
+  sourceFirstSampleCode: string
   factoryId: string
   factoryName: string
   targetSite: string
@@ -26,6 +34,15 @@ export interface PreProductionSampleTaskRecord {
   artworkVersion: string
   expectedArrival: string
   trackingNo: string
+  sampleChainMode: SampleChainMode
+  specialSceneReasonCodes: SampleSpecialSceneReasonCode[]
+  specialSceneReasonText: string
+  productionReferenceRequiredFlag: boolean
+  chinaReviewRequiredFlag: boolean
+  correctFabricRequiredFlag: boolean
+  samplePlanLines: SamplePlanLine[]
+  finalReferenceSampleAssetIds: string[]
+  finalReferenceNote: string
   sampleAssetId: string
   sampleCode: string
   acceptedAt: string

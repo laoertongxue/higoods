@@ -6,6 +6,7 @@ import {
 } from '../../../data/fcs/special-craft-operations.ts'
 import {
   ensureSpecialCraftFeiTicketFlowSeeded,
+  getSpecialCraftFeiTicketScanSummary,
   getSpecialCraftReturnBindingsByHandoverRecordId,
   listCuttingSpecialCraftFeiTicketBindings,
   listCuttingSpecialCraftReturnViews,
@@ -187,6 +188,7 @@ function renderFilters(rows: CuttingSpecialCraftReturnView[]): string {
 
 function renderSelectionBar(rows: CuttingSpecialCraftReturnView[]): string {
   const selectedRows = rows.filter((row) => state.selectedFeiTicketNos.includes(row.feiTicketNo))
+  const selectedSummaries = selectedRows.map((row) => getSpecialCraftFeiTicketScanSummary(row.feiTicketNo))
   return `
     <section class="rounded-2xl border bg-white p-4 shadow-sm">
       <div class="flex flex-wrap items-center justify-between gap-3">
@@ -207,6 +209,22 @@ function renderSelectionBar(rows: CuttingSpecialCraftReturnView[]): string {
         selectedRows.length > 0
           ? `<div class="mt-3 flex flex-wrap gap-2">
               ${selectedRows.map((row) => `<span class="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs text-blue-700">${escapeHtml(row.feiTicketNo)}</span>`).join('')}
+            </div>
+            <div class="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+              ${selectedSummaries
+                .map(
+                  (summary) => `
+                    <div class="rounded-xl border bg-slate-50/70 p-3 text-xs">
+                      <div class="font-medium text-slate-800">${escapeHtml(summary.workOrderNo || summary.parentTaskOrderNo)}</div>
+                      <div class="mt-1 text-muted-foreground">当前特殊工艺：${escapeHtml(summary.currentOperationName)}</div>
+                      <div class="mt-1 text-muted-foreground">原数量 ${summary.originalQty} · 当前数量 ${summary.currentQty}</div>
+                      <div class="mt-1 text-muted-foreground">累计报废 ${summary.cumulativeScrapQty} · 累计货损 ${summary.cumulativeDamageQty}</div>
+                      <div class="mt-1 text-muted-foreground">当前所在：${escapeHtml(summary.currentLocation)}</div>
+                      ${summary.hasOpenReturnDifference ? '<div class="mt-1 text-amber-700">已回仓 · 差异待处理</div>' : ''}
+                    </div>
+                  `,
+                )
+                .join('')}
             </div>`
           : ''
       }
@@ -239,6 +257,10 @@ function renderTable(rows: CuttingSpecialCraftReturnView[]): string {
               '颜色',
               '尺码',
               '数量',
+              '原数量',
+              '当前数量',
+              '报废',
+              '货损',
               '回仓记录',
               '回写数量',
               '差异数量',
@@ -254,6 +276,7 @@ function renderTable(rows: CuttingSpecialCraftReturnView[]): string {
           ${rows
             .map((row) => {
               const binding = getBindingForReturnRow(row)
+              const scanSummary = row.feiTicketNo === '待绑定' ? null : getSpecialCraftFeiTicketScanSummary(row.feiTicketNo)
               const selected = state.selectedFeiTicketNos.includes(row.feiTicketNo)
               const taskHref =
                 binding && getSpecialCraftOperationById(binding.operationId)
@@ -273,11 +296,18 @@ function renderTable(rows: CuttingSpecialCraftReturnView[]): string {
                   <td class="px-3 py-3">${escapeHtml(row.colorName)}</td>
                   <td class="px-3 py-3">${escapeHtml(row.sizeCode)}</td>
                   <td class="px-3 py-3">${row.qty}</td>
+                  <td class="px-3 py-3">${scanSummary?.originalQty ?? '—'}</td>
+                  <td class="px-3 py-3">${scanSummary?.currentQty ?? '—'}</td>
+                  <td class="px-3 py-3">${scanSummary?.cumulativeScrapQty ?? '—'}</td>
+                  <td class="px-3 py-3">${scanSummary?.cumulativeDamageQty ?? '—'}</td>
                   <td class="px-3 py-3">${escapeHtml(row.returnHandoverRecordNo || '未创建')}</td>
                   <td class="px-3 py-3">${row.receiverWrittenQty ?? '-'}</td>
                   <td class="px-3 py-3">${row.differenceQty ?? '-'}</td>
                   <td class="px-3 py-3">${escapeHtml(row.currentLocation)}</td>
-                  <td class="px-3 py-3">${renderStatusPill(row.returnStatus)}</td>
+                  <td class="px-3 py-3">
+                    ${renderStatusPill(row.returnStatus)}
+                    ${scanSummary?.hasOpenReturnDifference ? '<div class="mt-1 text-xs text-amber-700">已回仓 · 差异待处理</div>' : ''}
+                  </td>
                   <td class="px-3 py-3">
                     <div class="flex flex-wrap gap-2">
                       <button

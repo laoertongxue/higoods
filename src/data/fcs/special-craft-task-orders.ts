@@ -98,6 +98,63 @@ export interface SpecialCraftTaskDemandLine {
   targetObject: SpecialCraftTargetObject
   unit: string
   feiTicketNos: string[]
+  bundleWidthCm?: number
+  bundleLengthCm?: number
+  stripCount?: number
+  remark?: string
+}
+
+export interface SpecialCraftTaskWorkOrderLine {
+  lineId: string
+  workOrderId: string
+  taskOrderId: string
+  demandLineId: string
+  partName: string
+  colorName: string
+  colorCode: string
+  sizeCode: string
+  pieceCountPerGarment: number
+  orderQty: number
+  planPieceQty: number
+  currentQty: number
+  feiTicketNos: string[]
+  bundleWidthCm?: number
+  bundleLengthCm?: number
+  stripCount?: number
+  remark?: string
+}
+
+export interface SpecialCraftTaskWorkOrder {
+  workOrderId: string
+  workOrderNo: string
+  taskOrderId: string
+  taskOrderNo: string
+  productionOrderId: string
+  productionOrderNo: string
+  operationId: string
+  operationName: string
+  processCode: string
+  processName: string
+  craftCode: string
+  craftName: string
+  factoryId: string
+  factoryName: string
+  targetObject: string
+  partName: string
+  planQty: number
+  receivedQty: number
+  scrapQty: number
+  damageQty: number
+  currentQty: number
+  returnedQty: number
+  waitReturnQty: number
+  status: string
+  openDifferenceReportCount: number
+  openObjectionCount: number
+  feiTicketNos: string[]
+  lineIds: string[]
+  createdAt: string
+  updatedAt: string
   remark?: string
 }
 
@@ -227,6 +284,9 @@ export interface SpecialCraftTaskOrder {
   receivedQty: number
   completedQty: number
   lossQty: number
+  damageQty?: number
+  currentQty?: number
+  returnedQty?: number
   waitHandoverQty: number
   unit: string
   status: SpecialCraftTaskStatus
@@ -239,6 +299,9 @@ export interface SpecialCraftTaskOrder {
   inboundRecordIds?: string[]
   outboundRecordIds?: string[]
   validationWarnings?: string[]
+  workOrderIds?: string[]
+  openDifferenceReportCount?: number
+  openObjectionCount?: number
   isGenerated?: boolean
   isManualCreated?: boolean
   generationKey?: string
@@ -349,6 +412,8 @@ interface WarehouseArtifacts {
 
 interface SpecialCraftTaskStore {
   taskOrders: SpecialCraftTaskOrder[]
+  workOrders: SpecialCraftTaskWorkOrder[]
+  workOrderLines: SpecialCraftTaskWorkOrderLine[]
   statistics: SpecialCraftTaskStatistic[]
   generationBatches: SpecialCraftTaskGenerationBatch[]
   generationErrors: SpecialCraftTaskGenerationError[]
@@ -376,7 +441,7 @@ function resolveOperationFactories(operation: SpecialCraftOperationDefinition): 
   const matched = mockFactories.filter((factory) =>
     factory.processAbilities.some((ability) => ability.craftCodes.includes(operation.craftCode)),
   )
-  const preferred = operation.targetObject === '面料'
+  const preferred = operation.targetObject === '完整面料' || operation.targetObject === '面料'
     ? matched.filter((factory) => factory.factoryType === 'CENTRAL_DENIM_WASH')
     : matched.filter((factory) => factory.factoryType === 'SATELLITE_FINISHING' || factory.factoryType === 'CENTRAL_SPECIAL')
   const pool = preferred.length > 0 ? preferred : matched
@@ -416,19 +481,19 @@ function pickWarehousePosition(
 }
 
 function getTaskUnit(targetObject: SpecialCraftTargetObject): string {
-  if (targetObject === '面料') return '卷'
+  if (targetObject === '完整面料' || targetObject === '面料') return '卷'
   if (targetObject === '成衣半成品') return '件'
   return '片'
 }
 
 function getTaskItemKind(targetObject: SpecialCraftTargetObject): '裁片' | '面料' | '成衣半成品' {
-  if (targetObject === '面料') return '面料'
+  if (targetObject === '完整面料' || targetObject === '面料') return '面料'
   if (targetObject === '成衣半成品') return '成衣半成品'
   return '裁片'
 }
 
 function getTaskItemName(operation: SpecialCraftOperationDefinition, targetObject: SpecialCraftTargetObject, partName?: string): string {
-  if (targetObject === '面料') {
+  if (targetObject === '完整面料' || targetObject === '面料') {
     return `${operation.operationName}面料批次`
   }
   if (targetObject === '成衣半成品') {
@@ -451,7 +516,9 @@ function getReceiverName(operation: SpecialCraftOperationDefinition): string {
 function buildTaskSeed(operation: SpecialCraftOperationDefinition, operationIndex: number, variantIndex: number): TaskSeedContext {
   const factory = pickFactoryForOperation(operation, variantIndex)
   const baseSuffix = `${String(operationIndex + 1).padStart(2, '0')}${String(variantIndex + 1).padStart(2, '0')}`
-  const planQty = operation.targetObject === '面料' ? 6 + operationIndex + variantIndex : 180 + operationIndex * 40 + variantIndex * 26
+  const isFabricTarget = operation.targetObject === '完整面料' || operation.targetObject === '面料'
+  const isCutPieceTarget = operation.targetObject === '已裁部位' || operation.targetObject === '裁片'
+  const planQty = isFabricTarget ? 6 + operationIndex + variantIndex : 180 + operationIndex * 40 + variantIndex * 26
   const receivedQty =
     variantIndex === 0 && PRIMARY_STATUSES[operationIndex % PRIMARY_STATUSES.length] === '待领料'
       ? 0
@@ -460,13 +527,13 @@ function buildTaskSeed(operation: SpecialCraftOperationDefinition, operationInde
   const lossQty = roundQty(Math.max(receivedQty - completedQty, 0))
   const waitHandoverQty = roundQty(Math.max(completedQty - (variantIndex === 1 ? (operationIndex % 3) * 12 : 0), 0))
   const targetObject = operation.targetObject
-  const partName = targetObject === '裁片' ? PART_NAMES[(operationIndex + variantIndex) % PART_NAMES.length] : undefined
+  const partName = isCutPieceTarget ? PART_NAMES[(operationIndex + variantIndex) % PART_NAMES.length] : undefined
   const fabricColor = FABRIC_COLORS[(operationIndex + variantIndex) % FABRIC_COLORS.length]
-  const sizeCode = targetObject === '裁片' ? SIZE_CODES[(operationIndex + variantIndex) % SIZE_CODES.length] : undefined
-  const feiTicketNos = targetObject === '裁片' ? [`FP-${baseSuffix}-01`, `FP-${baseSuffix}-02`] : []
-  const transferBagNos = targetObject === '裁片' && variantIndex === 1 ? [`TB-${baseSuffix}`] : []
-  const fabricRollNos = targetObject === '面料' ? [`ROLL-${baseSuffix}-A`, `ROLL-${baseSuffix}-B`] : []
-  const materialSku = targetObject === '面料' ? `FAB-${String(operationIndex + 1).padStart(3, '0')}` : `PANEL-${String(operationIndex + 1).padStart(3, '0')}`
+  const sizeCode = isCutPieceTarget ? SIZE_CODES[(operationIndex + variantIndex) % SIZE_CODES.length] : undefined
+  const feiTicketNos = isCutPieceTarget ? [`FP-${baseSuffix}-01`, `FP-${baseSuffix}-02`] : []
+  const transferBagNos = isCutPieceTarget && variantIndex === 1 ? [`TB-${baseSuffix}`] : []
+  const fabricRollNos = isFabricTarget ? [`ROLL-${baseSuffix}-A`, `ROLL-${baseSuffix}-B`] : []
+  const materialSku = isFabricTarget ? `FAB-${String(operationIndex + 1).padStart(3, '0')}` : `PANEL-${String(operationIndex + 1).padStart(3, '0')}`
   const status = variantIndex === 0
     ? PRIMARY_STATUSES[operationIndex % PRIMARY_STATUSES.length]
     : FLOW_STATUSES[operationIndex % FLOW_STATUSES.length]
@@ -474,9 +541,9 @@ function buildTaskSeed(operation: SpecialCraftOperationDefinition, operationInde
     ? PRIMARY_ABNORMALS[operationIndex % PRIMARY_ABNORMALS.length]
     : FLOW_ABNORMALS[operationIndex % FLOW_ABNORMALS.length]
   const sourceAction: '领料确认' | '交出接收' =
-    variantIndex === 0 || operation.targetObject === '面料' ? '领料确认' : '交出接收'
+    variantIndex === 0 || isFabricTarget ? '领料确认' : '交出接收'
   const sourceRecordType: FactoryWarehouseInboundRecord['sourceRecordType'] =
-    sourceAction === '领料确认' && operation.targetObject === '面料' ? 'MATERIAL_PICKUP' : 'HANDOVER_RECEIVE'
+    sourceAction === '领料确认' && isFabricTarget ? 'MATERIAL_PICKUP' : 'HANDOVER_RECEIVE'
 
   return {
     operation,
@@ -514,7 +581,7 @@ function buildTaskSeed(operation: SpecialCraftOperationDefinition, operationInde
     sourceRecordNo: `${sourceAction === '领料确认' ? 'LL' : 'JS'}-${operation.operationId.slice(-6)}-${baseSuffix}`,
     sourceObjectName:
       sourceAction === '领料确认'
-        ? operation.targetObject === '面料'
+        ? isFabricTarget
           ? '面辅料仓'
           : mockFactories.find((factoryItem) => factoryItem.factoryType === 'CENTRAL_CUTTING')?.name ?? '裁床厂'
         : mockFactories.find((factoryItem) => factoryItem.factoryType === 'CENTRAL_CUTTING')?.name ?? '裁床厂',
@@ -1249,6 +1316,167 @@ function buildStatistics(taskOrders: SpecialCraftTaskOrder[]): SpecialCraftTaskS
   )
 }
 
+function normalizeWorkOrderPartName(line: SpecialCraftTaskDemandLine, taskOrder: SpecialCraftTaskOrder): string {
+  return line.partName || taskOrder.partName || '未命名部位'
+}
+
+function buildWorkOrderKey(taskOrder: SpecialCraftTaskOrder, line: SpecialCraftTaskDemandLine): string {
+  return [
+    taskOrder.taskOrderId,
+    taskOrder.factoryId || 'WAIT_ASSIGN',
+    normalizeWorkOrderPartName(line, taskOrder),
+  ].join('::')
+}
+
+function buildWorkOrderId(taskOrder: SpecialCraftTaskOrder, partName: string, index: number): string {
+  return `${taskOrder.taskOrderId}-WO-${String(index + 1).padStart(3, '0')}-${partName}`.replace(/[^A-Za-z0-9-]/g, '')
+}
+
+function buildWorkOrdersFromTaskOrders(taskOrders: SpecialCraftTaskOrder[]): {
+  workOrders: SpecialCraftTaskWorkOrder[]
+  workOrderLines: SpecialCraftTaskWorkOrderLine[]
+  syncedTaskOrders: SpecialCraftTaskOrder[]
+} {
+  const workOrders: SpecialCraftTaskWorkOrder[] = []
+  const workOrderLines: SpecialCraftTaskWorkOrderLine[] = []
+  const taskWorkOrderIds = new Map<string, string[]>()
+
+  taskOrders.forEach((taskOrder) => {
+    const grouped = new Map<string, SpecialCraftTaskDemandLine[]>()
+    const lines = taskOrder.demandLines?.length
+      ? taskOrder.demandLines
+      : [
+          {
+            demandLineId: `${taskOrder.taskOrderId}-LINE-01`,
+            taskOrderId: taskOrder.taskOrderId,
+            productionOrderId: taskOrder.productionOrderId,
+            productionOrderNo: taskOrder.productionOrderNo,
+            patternFileId: taskOrder.sourcePatternFileIds?.[0] || `PF-${taskOrder.taskOrderId}`,
+            patternFileName: `${taskOrder.operationName}纸样`,
+            pieceRowId: taskOrder.sourcePieceRowIds?.[0] || `PR-${taskOrder.taskOrderId}`,
+            partName: taskOrder.partName || '未命名部位',
+            colorName: taskOrder.fabricColor || '默认色',
+            colorCode: taskOrder.fabricColor || 'DEFAULT',
+            sizeCode: taskOrder.sizeCode || '均码',
+            pieceCountPerGarment: 1,
+            orderQty: taskOrder.planQty,
+            planPieceQty: taskOrder.planQty,
+            specialCraftKey: `${taskOrder.processCode}:${taskOrder.craftCode}`,
+            operationId: taskOrder.operationId,
+            operationName: taskOrder.operationName,
+            processCode: taskOrder.processCode,
+            processName: taskOrder.processName,
+            craftCode: taskOrder.craftCode,
+            craftName: taskOrder.craftName,
+            targetObject: taskOrder.targetObject,
+            unit: taskOrder.unit,
+            feiTicketNos: [...taskOrder.feiTicketNos],
+          },
+        ]
+
+    lines.forEach((line) => {
+      const key = buildWorkOrderKey(taskOrder, line)
+      const list = grouped.get(key) || []
+      list.push(line)
+      grouped.set(key, list)
+    })
+
+    Array.from(grouped.entries()).forEach(([, groupLines], groupIndex) => {
+      const firstLine = groupLines[0]
+      const partName = normalizeWorkOrderPartName(firstLine, taskOrder)
+      const workOrderId = buildWorkOrderId(taskOrder, partName, groupIndex)
+      const planQty = roundQty(groupLines.reduce((total, line) => total + line.planPieceQty, 0))
+      const lineIds = groupLines.map((line, lineIndex) => `${workOrderId}-LINE-${String(lineIndex + 1).padStart(3, '0')}`)
+      const feiTicketNos = [...new Set(groupLines.flatMap((line) => line.feiTicketNos))]
+      const receivedQty = groupIndex === 0 ? taskOrder.receivedQty : 0
+      const scrapQty = groupIndex === 0 ? taskOrder.lossQty || 0 : 0
+      const damageQty = groupIndex === 0 ? taskOrder.damageQty || 0 : 0
+      const returnedQty = groupIndex === 0 ? taskOrder.returnedQty || (taskOrder.status === '已回写' ? taskOrder.waitHandoverQty : 0) : 0
+      const currentQty = groupIndex === 0
+        ? taskOrder.currentQty ?? Math.max(taskOrder.completedQty || taskOrder.receivedQty || 0, 0)
+        : 0
+
+      const workOrder: SpecialCraftTaskWorkOrder = {
+        workOrderId,
+        workOrderNo: `${taskOrder.taskOrderNo}-部位${String(groupIndex + 1).padStart(2, '0')}`,
+        taskOrderId: taskOrder.taskOrderId,
+        taskOrderNo: taskOrder.taskOrderNo,
+        productionOrderId: taskOrder.productionOrderId,
+        productionOrderNo: taskOrder.productionOrderNo,
+        operationId: taskOrder.operationId,
+        operationName: taskOrder.operationName,
+        processCode: taskOrder.processCode,
+        processName: taskOrder.processName,
+        craftCode: taskOrder.craftCode,
+        craftName: taskOrder.craftName,
+        factoryId: taskOrder.factoryId || 'WAIT_ASSIGN',
+        factoryName: taskOrder.factoryName || '待分配',
+        targetObject: taskOrder.targetObject,
+        partName,
+        planQty,
+        receivedQty,
+        scrapQty,
+        damageQty,
+        currentQty,
+        returnedQty,
+        waitReturnQty: groupIndex === 0 ? taskOrder.waitHandoverQty || 0 : 0,
+        status: taskOrder.status,
+        openDifferenceReportCount: taskOrder.abnormalStatus === '数量差异' || taskOrder.status === '差异' ? 1 : 0,
+        openObjectionCount: taskOrder.status === '异议中' ? 1 : 0,
+        feiTicketNos,
+        lineIds,
+        createdAt: taskOrder.createdAt,
+        updatedAt: taskOrder.updatedAt || taskOrder.createdAt,
+        remark: '按裁片部位拆分的特殊工艺工艺单',
+      }
+      workOrders.push(workOrder)
+      taskWorkOrderIds.set(taskOrder.taskOrderId, [...(taskWorkOrderIds.get(taskOrder.taskOrderId) || []), workOrderId])
+
+      groupLines.forEach((line, lineIndex) => {
+        workOrderLines.push({
+          lineId: lineIds[lineIndex],
+          workOrderId,
+          taskOrderId: taskOrder.taskOrderId,
+          demandLineId: line.demandLineId,
+          partName: line.partName,
+          colorName: line.colorName,
+          colorCode: line.colorCode,
+          sizeCode: line.sizeCode,
+          pieceCountPerGarment: line.pieceCountPerGarment,
+          orderQty: line.orderQty,
+          planPieceQty: line.planPieceQty,
+          currentQty: 0,
+          feiTicketNos: [...line.feiTicketNos],
+          bundleWidthCm: line.bundleWidthCm,
+          bundleLengthCm: line.bundleLengthCm,
+          stripCount: line.stripCount,
+          remark: line.remark,
+        })
+      })
+    })
+  })
+
+  const syncedTaskOrders = taskOrders.map((taskOrder) => {
+    const matchedWorkOrders = workOrders.filter((workOrder) => workOrder.taskOrderId === taskOrder.taskOrderId)
+    return {
+      ...taskOrder,
+      workOrderIds: taskWorkOrderIds.get(taskOrder.taskOrderId) || [],
+      damageQty: roundQty(matchedWorkOrders.reduce((total, workOrder) => total + workOrder.damageQty, 0)),
+      currentQty: roundQty(matchedWorkOrders.reduce((total, workOrder) => total + workOrder.currentQty, 0)),
+      returnedQty: roundQty(matchedWorkOrders.reduce((total, workOrder) => total + workOrder.returnedQty, 0)),
+      openDifferenceReportCount: matchedWorkOrders.reduce((total, workOrder) => total + workOrder.openDifferenceReportCount, 0),
+      openObjectionCount: matchedWorkOrders.reduce((total, workOrder) => total + workOrder.openObjectionCount, 0),
+      feiTicketNos: [...new Set([...taskOrder.feiTicketNos, ...matchedWorkOrders.flatMap((workOrder) => workOrder.feiTicketNos)])],
+    }
+  })
+
+  return {
+    workOrders,
+    workOrderLines,
+    syncedTaskOrders,
+  }
+}
+
 function ensureStore(): SpecialCraftTaskStore {
   if (!specialCraftTaskStore) {
     const seedTaskOrders = buildSeedTaskOrders()
@@ -1267,9 +1495,12 @@ function ensureStore(): SpecialCraftTaskStore {
       mergedTaskOrders.push(taskOrder)
     })
 
+    const workOrderBuild = buildWorkOrdersFromTaskOrders(mergedTaskOrders)
     specialCraftTaskStore = {
-      taskOrders: mergedTaskOrders,
-      statistics: buildStatistics(mergedTaskOrders),
+      taskOrders: workOrderBuild.syncedTaskOrders,
+      workOrders: workOrderBuild.workOrders,
+      workOrderLines: workOrderBuild.workOrderLines,
+      statistics: buildStatistics(workOrderBuild.syncedTaskOrders),
       generationBatches,
       generationErrors,
     }
@@ -1340,6 +1571,69 @@ export function getSpecialCraftTaskOrders(
 
 export function getSpecialCraftTaskOrderById(taskOrderId: string): SpecialCraftTaskOrder | undefined {
   return ensureStore().taskOrders.find((taskOrder) => taskOrder.taskOrderId === taskOrderId)
+}
+
+export function buildSpecialCraftTaskWorkOrders(taskOrders: SpecialCraftTaskOrder[] = listSpecialCraftTaskOrders()): {
+  workOrders: SpecialCraftTaskWorkOrder[]
+  workOrderLines: SpecialCraftTaskWorkOrderLine[]
+} {
+  const result = buildWorkOrdersFromTaskOrders(taskOrders)
+  return {
+    workOrders: result.workOrders,
+    workOrderLines: result.workOrderLines,
+  }
+}
+
+export function listSpecialCraftTaskWorkOrders(): SpecialCraftTaskWorkOrder[] {
+  return [...ensureStore().workOrders]
+}
+
+export function listSpecialCraftTaskWorkOrderLines(): SpecialCraftTaskWorkOrderLine[] {
+  return [...ensureStore().workOrderLines]
+}
+
+export function getSpecialCraftTaskWorkOrdersByTaskOrderId(taskOrderId: string): SpecialCraftTaskWorkOrder[] {
+  return ensureStore().workOrders.filter((workOrder) => workOrder.taskOrderId === taskOrderId)
+}
+
+export function getSpecialCraftTaskWorkOrderLinesByWorkOrderId(workOrderId: string): SpecialCraftTaskWorkOrderLine[] {
+  return ensureStore().workOrderLines.filter((line) => line.workOrderId === workOrderId)
+}
+
+export function getSpecialCraftTaskWorkOrderById(workOrderId: string): SpecialCraftTaskWorkOrder | undefined {
+  return ensureStore().workOrders.find((workOrder) => workOrder.workOrderId === workOrderId)
+}
+
+export function getSpecialCraftTaskWorkOrderLineByDemandLineId(
+  taskOrderId: string,
+  demandLineId: string,
+): SpecialCraftTaskWorkOrderLine | undefined {
+  return ensureStore().workOrderLines.find((line) => line.taskOrderId === taskOrderId && line.demandLineId === demandLineId)
+}
+
+export function syncSpecialCraftTaskOrderAggregatesFromWorkOrders(taskOrderId: string): SpecialCraftTaskOrder | undefined {
+  const store = ensureStore()
+  const taskOrderIndex = store.taskOrders.findIndex((taskOrder) => taskOrder.taskOrderId === taskOrderId)
+  if (taskOrderIndex < 0) return undefined
+  const workOrders = store.workOrders.filter((workOrder) => workOrder.taskOrderId === taskOrderId)
+  const taskOrder = store.taskOrders[taskOrderIndex]
+  const nextTaskOrder: SpecialCraftTaskOrder = {
+    ...taskOrder,
+    receivedQty: roundQty(workOrders.reduce((total, workOrder) => total + workOrder.receivedQty, 0)) || taskOrder.receivedQty,
+    lossQty: roundQty(workOrders.reduce((total, workOrder) => total + workOrder.scrapQty, 0)),
+    damageQty: roundQty(workOrders.reduce((total, workOrder) => total + workOrder.damageQty, 0)),
+    currentQty: roundQty(workOrders.reduce((total, workOrder) => total + workOrder.currentQty, 0)),
+    returnedQty: roundQty(workOrders.reduce((total, workOrder) => total + workOrder.returnedQty, 0)),
+    waitHandoverQty: roundQty(workOrders.reduce((total, workOrder) => total + workOrder.waitReturnQty, 0)) || taskOrder.waitHandoverQty,
+    openDifferenceReportCount: workOrders.reduce((total, workOrder) => total + workOrder.openDifferenceReportCount, 0),
+    openObjectionCount: workOrders.reduce((total, workOrder) => total + workOrder.openObjectionCount, 0),
+    feiTicketNos: [...new Set(workOrders.flatMap((workOrder) => workOrder.feiTicketNos))],
+    workOrderIds: workOrders.map((workOrder) => workOrder.workOrderId),
+    updatedAt: formatDay(0),
+  }
+  store.taskOrders[taskOrderIndex] = nextTaskOrder
+  store.statistics = buildStatistics(store.taskOrders)
+  return nextTaskOrder
 }
 
 export function getSpecialCraftWarehouseView(

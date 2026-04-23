@@ -11,6 +11,7 @@ import { getRevisionTaskById, updateRevisionTask } from './pcs-revision-task-rep
 import { getPlateMakingTaskById, updatePlateMakingTask } from './pcs-plate-making-repository.ts'
 import { getPatternTaskById, updatePatternTask } from './pcs-pattern-task-repository.ts'
 import { appendTechPackVersionLog } from './pcs-tech-pack-version-log-repository.ts'
+import { listPatternAssets, updatePatternAsset } from './pcs-pattern-library.ts'
 import {
   findStyleArchiveByCode,
   findStyleArchiveByProjectId,
@@ -141,12 +142,65 @@ function cloneContent(content: TechnicalDataVersionContent, technicalVersionId: 
 }
 
 function createPlatePatternFiles(task: PlateMakingTaskRecord, operatorName: string): TechnicalPatternFile[] {
+  const uploadedAt = task.confirmedAt || task.updatedAt || nowText()
+  const rows = (task.patternImageLineItems || []).map((line) => ({
+    id: line.lineId,
+    name: line.materialPartName || '纸样部位',
+    count: line.pieceCount || 1,
+    note: line.materialDescription || '',
+    applicableSkuCodes: [],
+    sourceType: 'MANUAL' as const,
+  }))
+  const files: TechnicalPatternFile[] = []
+  ;(task.patternDxfFileIds || []).forEach((fileId, index) => {
+    files.push({
+      id: `${task.plateTaskId}_dxf_${index + 1}`,
+      fileName: `${fileId}.dxf`,
+      fileUrl: fileId,
+      uploadedAt,
+      uploadedBy: operatorName,
+      dxfFileName: `${fileId}.dxf`,
+      patternFileMode: 'SINGLE_FILE',
+      parseStatus: 'NOT_PARSED',
+      sizeRange: task.sizeRange,
+      pieceRows: rows,
+    })
+  })
+  ;(task.patternRulFileIds || []).forEach((fileId, index) => {
+    files.push({
+      id: `${task.plateTaskId}_rul_${index + 1}`,
+      fileName: `${fileId}.rul`,
+      fileUrl: fileId,
+      uploadedAt,
+      uploadedBy: operatorName,
+      rulFileName: `${fileId}.rul`,
+      patternFileMode: 'SINGLE_FILE',
+      parseStatus: 'NOT_PARSED',
+      sizeRange: task.sizeRange,
+      pieceRows: rows,
+    })
+  })
+  ;(task.patternPdfFileIds || []).forEach((fileId, index) => {
+    files.push({
+      id: `${task.plateTaskId}_pdf_${index + 1}`,
+      fileName: `${fileId}.pdf`,
+      fileUrl: fileId,
+      uploadedAt,
+      uploadedBy: operatorName,
+      singlePatternFileName: `${fileId}.pdf`,
+      patternFileMode: 'SINGLE_FILE',
+      parseStatus: 'NOT_REQUIRED',
+      sizeRange: task.sizeRange,
+      pieceRows: rows,
+    })
+  })
+  if (files.length > 0) return files
   return [
     {
       id: `${task.plateTaskId}_pattern_file`,
       fileName: `${task.plateTaskCode}-${task.patternVersion || 'P1'}.dxf`,
       fileUrl: `mock://tech-pack/pattern/${task.plateTaskCode}`,
-      uploadedAt: task.confirmedAt || task.updatedAt || nowText(),
+      uploadedAt,
       uploadedBy: operatorName,
       widthCm: 148,
       markerLengthM: 2.35,
@@ -371,7 +425,14 @@ function getProjectNodeBindingByTaskType(
 
 function buildChangeSummaryFromRevision(task: RevisionTaskRecord): string {
   const scopes = task.revisionScopeNames.length ? task.revisionScopeNames.join('、') : task.revisionScopeCodes.join('、')
-  return [task.title, scopes ? `改版范围：${scopes}` : '', task.issueSummary ? `问题点：${task.issueSummary}` : '']
+  return [
+    task.title,
+    task.baseStyleCode ? `旧款：${task.baseStyleCode}` : '',
+    task.targetStyleCodeCandidate ? `新款候选：${task.targetStyleCodeCandidate}` : '',
+    scopes ? `改版范围：${scopes}` : '',
+    task.revisionSuggestionRichText ? `修改建议：${task.revisionSuggestionRichText}` : task.issueSummary ? `问题点：${task.issueSummary}` : '',
+    task.liveRetestRequired ? `回直播验证：${task.liveRetestStatus}` : '',
+  ]
     .filter(Boolean)
     .join('；')
 }
@@ -395,6 +456,8 @@ function buildTechPackVersionRecord(input: {
   linkedPatternTaskIds?: string[]
   linkedArtworkTaskIds?: string[]
   linkedPatternLibraryVersionIds?: string[]
+  linkedPatternAssetIds?: string[]
+  linkedPatternAssetCodes?: string[]
   changeScope: TechPackVersionChangeScope
   changeSummary: string
   note?: string
@@ -430,6 +493,10 @@ function buildTechPackVersionRecord(input: {
     changeSummary: input.changeSummary,
     linkedPartTemplateIds: base?.linkedPartTemplateIds ? [...base.linkedPartTemplateIds] : [],
     linkedPatternLibraryVersionIds: [...(input.linkedPatternLibraryVersionIds ?? base?.linkedPatternLibraryVersionIds ?? [])],
+    linkedPatternAssetIds: [...(input.linkedPatternAssetIds ?? base?.linkedPatternAssetIds ?? [])],
+    linkedPatternAssetCodes: [...(input.linkedPatternAssetCodes ?? base?.linkedPatternAssetCodes ?? [])],
+    archiveCollectedFlag: false,
+    archiveCollectedAt: '',
     versionStatus: 'DRAFT',
     bomStatus: 'EMPTY',
     patternStatus: 'EMPTY',
@@ -680,7 +747,13 @@ function ensurePlateTaskReady(task: PlateMakingTaskRecord): PlateMakingTaskRecor
   if (!isTechPackGenerationAllowedStatus(task.status)) {
     throw new Error(getTechPackGenerationBlockedReason(task.status) || '当前制版任务尚未确认产出，不能建立技术包版本。')
   }
-  if (!task.patternVersion) {
+  const hasPatternOutput =
+    Boolean(task.patternVersion)
+    || (task.patternImageLineItems || []).length > 0
+    || (task.patternPdfFileIds || []).length > 0
+    || (task.patternDxfFileIds || []).length > 0
+    || (task.patternRulFileIds || []).length > 0
+  if (!hasPatternOutput) {
     throw new Error('当前制版任务缺少生成技术包所需资料')
   }
   return task
@@ -713,6 +786,45 @@ function buildPatternLibraryRefs(task: PatternTaskRecord, baseVersion: Technical
   return artworkVersion
     ? appendUnique(baseVersion.linkedPatternLibraryVersionIds, artworkVersion)
     : [...baseVersion.linkedPatternLibraryVersionIds]
+}
+
+function buildPatternAssetRefs(
+  task: PatternTaskRecord,
+  baseVersion: Pick<TechnicalDataVersionRecord, 'linkedPatternAssetIds' | 'linkedPatternAssetCodes'>,
+): { linkedPatternAssetIds: string[]; linkedPatternAssetCodes: string[] } {
+  const asset =
+    (task.patternAssetId ? listPatternAssets().find((item) => item.id === task.patternAssetId) : null) ||
+    listPatternAssets().find((item) => item.source_task_id === task.patternTaskId) ||
+    null
+  return {
+    linkedPatternAssetIds: asset ? appendUnique(baseVersion.linkedPatternAssetIds ?? [], asset.id) : [...(baseVersion.linkedPatternAssetIds ?? [])],
+    linkedPatternAssetCodes: asset ? appendUnique(baseVersion.linkedPatternAssetCodes ?? [], asset.pattern_code) : [...(baseVersion.linkedPatternAssetCodes ?? [])],
+  }
+}
+
+function syncPatternAssetTechPackLineage(
+  task: PatternTaskRecord,
+  record: TechnicalDataVersionRecord,
+  operatorName: string,
+): void {
+  const asset =
+    (task.patternAssetId ? listPatternAssets().find((item) => item.id === task.patternAssetId) : null) ||
+    listPatternAssets().find((item) => item.source_task_id === task.patternTaskId)
+  if (!asset) return
+  updatePatternAsset(asset.id, {
+    source_task_code: task.patternTaskCode,
+    source_task_type: task.workItemTypeCode,
+    source_task_name: task.title,
+    source_tech_pack_version_id: record.technicalVersionId,
+    source_tech_pack_version_code: record.technicalVersionCode,
+    buyer_review_status: task.buyerReviewStatus,
+    difficulty_grade: task.difficultyGrade,
+    assigned_team_code: task.assignedTeamCode,
+    assigned_team_name: task.assignedTeamName,
+    assigned_member_id: task.assignedMemberId,
+    assigned_member_name: task.assignedMemberName,
+    updatedBy: operatorName,
+  })
 }
 
 export function generateTechPackVersionFromPlateTask(
@@ -774,6 +886,8 @@ export function generateTechPackVersionFromPlateTask(
     linkedTechPackVersionLabel: createdRecord.versionLabel,
     linkedTechPackVersionStatus: createdRecord.versionStatus,
     linkedTechPackUpdatedAt: createdRecord.updatedAt,
+    primaryTechPackGeneratedFlag: true,
+    primaryTechPackGeneratedAt: createdRecord.updatedAt,
     updatedAt: createdRecord.updatedAt,
     updatedBy: operatorName,
   })
@@ -806,6 +920,7 @@ export function generateTechPackVersionFromPatternTask(
 
   const nextDesigns = buildArtworkDesign(task)
   const nextPatternLibraryRefs = buildPatternLibraryRefs(task, targetVersion)
+  const nextPatternAssetRefs = buildPatternAssetRefs(task, targetVersion)
 
   if (!hasArtworkContent(targetVersion, targetContent)) {
     updateTechnicalDataVersionContent(targetVersion.technicalVersionId, {
@@ -814,6 +929,8 @@ export function generateTechPackVersionFromPatternTask(
     const updatedRecord = updateTechnicalDataVersionRecord(targetVersion.technicalVersionId, {
       linkedArtworkTaskIds: appendUnique(targetVersion.linkedArtworkTaskIds, task.patternTaskId),
       linkedPatternLibraryVersionIds: nextPatternLibraryRefs,
+      linkedPatternAssetIds: nextPatternAssetRefs.linkedPatternAssetIds,
+      linkedPatternAssetCodes: nextPatternAssetRefs.linkedPatternAssetCodes,
       changeScope: '花型写入',
       changeSummary: `${task.title} 首次写入花型内容。`,
       updatedAt: nowText(),
@@ -844,6 +961,7 @@ export function generateTechPackVersionFromPatternTask(
       updatedAt: updatedRecord.updatedAt,
       updatedBy: operatorName,
     })
+    syncPatternAssetTechPackLineage(task, updatedRecord, operatorName)
     return finalizeGeneration(updatedRecord, 'WRITTEN', '花型写入技术包', operatorName, 'ARTWORK')
   }
 
@@ -866,6 +984,8 @@ export function generateTechPackVersionFromPatternTask(
     linkedPatternTaskIds: [...targetVersion.linkedPatternTaskIds],
     linkedArtworkTaskIds: appendUnique(targetVersion.linkedArtworkTaskIds, task.patternTaskId),
     linkedPatternLibraryVersionIds: nextPatternLibraryRefs,
+    linkedPatternAssetIds: nextPatternAssetRefs.linkedPatternAssetIds,
+    linkedPatternAssetCodes: nextPatternAssetRefs.linkedPatternAssetCodes,
     changeScope: '花型替换',
     changeSummary: `${task.title} 仅调整花型内容，其它技术包域保持不变。`,
     note: task.note,
@@ -876,6 +996,7 @@ export function generateTechPackVersionFromPatternTask(
     patternDesigns: nextDesigns,
   }
   const createdRecord = createTechnicalDataVersionDraft(nextRecord, newContent)
+  syncPatternAssetTechPackLineage(task, createdRecord, operatorName)
   writeVersionLog({
     record: createdRecord,
     logType: '花型生成新版本',
@@ -970,6 +1091,8 @@ export function generateTechPackVersionFromRevisionTask(
     linkedTechPackVersionLabel: createdRecord.versionLabel,
     linkedTechPackVersionStatus: createdRecord.versionStatus,
     linkedTechPackUpdatedAt: createdRecord.updatedAt,
+    generatedNewTechPackVersionFlag: true,
+    generatedNewTechPackVersionAt: createdRecord.updatedAt,
     updatedAt: createdRecord.updatedAt,
     updatedBy: operatorName,
   })

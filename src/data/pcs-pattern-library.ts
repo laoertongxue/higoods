@@ -62,6 +62,17 @@ export interface PatternAssetDraftInput {
   hotFlag: boolean
   sourceType: string
   sourceNote?: string
+  sourceTaskCode?: string
+  sourceTaskType?: string
+  sourceTaskName?: string
+  sourceTechPackVersionId?: string
+  sourceTechPackVersionCode?: string
+  buyerReviewStatus?: string
+  difficultyGrade?: string
+  assignedTeamCode?: string
+  assignedTeamName?: string
+  assignedMemberId?: string
+  assignedMemberName?: string
   applicableCategories: string[]
   applicableParts: string[]
   relatedPartTemplateIds: string[]
@@ -220,14 +231,29 @@ function migrateStoreSnapshot(store: PatternLibraryStoreSnapshot): { store: Patt
       || asset.category_primary !== selection.primary
       || asset.category_secondary !== selection.secondary
 
-    if (!changed) return asset
-    migrated = true
-    return {
+    const withLineageDefaults = {
       ...asset,
       category: normalizedCategory,
       category_primary: selection.primary,
       category_secondary: selection.secondary,
+      source_task_code: asset.source_task_code || asset.source_task_id || '',
+      source_task_type: asset.source_task_type || '',
+      source_task_name: asset.source_task_name || '',
+      source_tech_pack_version_id: asset.source_tech_pack_version_id || '',
+      source_tech_pack_version_code: asset.source_tech_pack_version_code || '',
+      buyer_review_status: asset.buyer_review_status || asset.source_pattern_task_snapshot?.buyer_review_status || '',
+      difficulty_grade: asset.difficulty_grade || '',
+      assigned_team_code: asset.assigned_team_code || '',
+      assigned_team_name: asset.assigned_team_name || asset.source_pattern_task_snapshot?.assigned_team_name || '',
+      assigned_member_id: asset.assigned_member_id || '',
+      assigned_member_name: asset.assigned_member_name || asset.source_pattern_task_snapshot?.assigned_member_name || '',
+      archive_collected_flag: Boolean(asset.archive_collected_flag),
+      archive_collected_at: asset.archive_collected_at || '',
     }
+    const lineageChanged = JSON.stringify(withLineageDefaults) !== JSON.stringify(asset)
+    if (!changed && !lineageChanged) return asset
+    migrated = true
+    return withLineageDefaults
   })
 
   return { store: nextStore, migrated }
@@ -1298,7 +1324,20 @@ export function createPatternAsset(draft: PatternAssetDraftInput): PatternAssetR
       license_status: normalizeLicenseStatus(draft.license.license_status),
       parse_status: draft.parsedFile.parseStatus,
       source_task_id: draft.sourceTaskId,
+      source_task_code: draft.sourceTaskCode || draft.sourceTaskId || '',
+      source_task_type: draft.sourceTaskType || '',
+      source_task_name: draft.sourceTaskName || sourceTask?.name || '',
       source_project_id: draft.sourceProjectId ?? sourceTask?.projectId,
+      source_tech_pack_version_id: draft.sourceTechPackVersionId || '',
+      source_tech_pack_version_code: draft.sourceTechPackVersionCode || '',
+      buyer_review_status: draft.buyerReviewStatus || draft.sourcePatternTaskSnapshot?.buyer_review_status || '',
+      difficulty_grade: draft.difficultyGrade || '',
+      assigned_team_code: draft.assignedTeamCode || '',
+      assigned_team_name: draft.assignedTeamName || draft.sourcePatternTaskSnapshot?.assigned_team_name || '',
+      assigned_member_id: draft.assignedMemberId || '',
+      assigned_member_name: draft.assignedMemberName || draft.sourcePatternTaskSnapshot?.assigned_member_name || '',
+      archive_collected_flag: false,
+      archive_collected_at: '',
       source_pattern_task_snapshot: draft.sourcePatternTaskSnapshot,
       reference_count: 0,
       created_by: draft.createdBy,
@@ -1441,6 +1480,19 @@ export function updatePatternAsset(
       | 'related_part_template_ids'
       | 'process_direction'
       | 'maintenance_status'
+      | 'source_task_code'
+      | 'source_task_type'
+      | 'source_task_name'
+      | 'source_tech_pack_version_id'
+      | 'source_tech_pack_version_code'
+      | 'buyer_review_status'
+      | 'difficulty_grade'
+      | 'assigned_team_code'
+      | 'assigned_team_name'
+      | 'assigned_member_id'
+      | 'assigned_member_name'
+      | 'archive_collected_flag'
+      | 'archive_collected_at'
       | 'manual_review_conclusion'
       | 'review_comment'
     >

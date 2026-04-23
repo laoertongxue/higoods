@@ -293,13 +293,13 @@ function renderTransferBagRows(bags: CuttingSewingTransferBag[]): string {
     <section class="rounded-xl border bg-card">
       <div class="border-b px-4 py-3">
         <h2 class="text-sm font-semibold">中转袋</h2>
-        <p class="mt-1 text-xs text-muted-foreground">每个中转袋必须扫码菲票装袋，并通过齐套校验后才能交出。</p>
+        <p class="mt-1 text-xs text-muted-foreground">中转袋正式支持混装，允许混装；已装袋未交出可调整，发料批次仍按整体齐套校验后交出。</p>
       </div>
       ${renderStickyTableScroller(`
         <table class="min-w-[1240px] w-full text-sm">
           <thead class="bg-muted/60 text-xs text-muted-foreground">
             <tr>
-              ${['中转袋号', '中转单号', '生产单', '车缝厂', '颜色', '尺码', '本袋件数', '应配部位数', '已配部位数', '菲票数', '齐套状态', '发料状态', '回写状态', '差异数量', '二维码', '操作']
+              ${['中转袋号', '中转单号', '生产单', '车缝厂', '是否混装', '装袋状态', '内容项数', '菲票数', '当前所在', '颜色', '尺码', '本袋件数', '应配部位数', '已配部位数', '齐套状态', '发料状态', '回写状态', '差异数量', '二维码', '操作']
                 .map((label) => `<th class="px-3 py-3 text-left font-medium">${escapeHtml(label)}</th>`)
                 .join('')}
             </tr>
@@ -313,6 +313,11 @@ function renderTransferBagRows(bags: CuttingSewingTransferBag[]): string {
                     <td class="px-3 py-3">${escapeHtml(bag.transferOrderNo)}</td>
                     <td class="px-3 py-3">${escapeHtml(bag.productionOrderNo)}</td>
                     <td class="px-3 py-3">${escapeHtml(bag.sewingFactoryName)}</td>
+                    <td class="px-3 py-3">${escapeHtml(bag.bagMode || '混装')}</td>
+                    <td class="px-3 py-3">${renderBadge(bag.packStatus || bag.status, statusClass(bag.packStatus || bag.status))}</td>
+                    <td class="px-3 py-3">${escapeHtml(String(bag.contentItemCount || bag.scannedFeiTicketNos.length))}</td>
+                    <td class="px-3 py-3">${escapeHtml(String(bag.contentFeiTicketCount || bag.scannedFeiTicketNos.length))}</td>
+                    <td class="px-3 py-3">${escapeHtml(bag.currentLocation || '裁床厂待交出')}</td>
                     <td class="px-3 py-3">${escapeHtml(unique(bag.skuQtyLines.map((line) => line.colorName)).join('、'))}</td>
                     <td class="px-3 py-3">${escapeHtml(unique(bag.skuQtyLines.map((line) => line.sizeCode)).join('、'))}</td>
                     <td class="px-3 py-3">${escapeHtml(String(bag.plannedGarmentQty))}</td>
@@ -326,9 +331,10 @@ function renderTransferBagRows(bags: CuttingSewingTransferBag[]): string {
                     <td class="px-3 py-3">${renderRealQrPlaceholder({ value: bag.transferBagQrValue, size: 64, title: '中转袋二维码', label: `中转袋 ${bag.transferBagNo}` })}</td>
                     <td class="px-3 py-3">
                       <div class="flex flex-wrap gap-2">
-                        <button class="rounded-md border px-2 py-1 text-xs">查看</button>
+                        <button class="rounded-md border px-2 py-1 text-xs">查看袋内明细</button>
                         <button class="rounded-md border px-2 py-1 text-xs">扫菲票装袋</button>
                         <button class="rounded-md border px-2 py-1 text-xs">移除菲票</button>
+                        <button class="rounded-md border px-2 py-1 text-xs">已装袋未交出可调整</button>
                         <button class="rounded-md border px-2 py-1 text-xs">查看齐套</button>
                         <button class="rounded-md border px-2 py-1 text-xs">查看二维码</button>
                         <button class="rounded-md border px-2 py-1 text-xs">打印袋码</button>
@@ -468,7 +474,7 @@ function renderWritebackRows(batches: CuttingSewingDispatchBatch[], bags: Cuttin
         <table class="min-w-[980px] w-full text-sm">
           <thead class="bg-muted/60 text-xs text-muted-foreground">
             <tr>
-              ${['中转单', '中转袋', '交出记录', '车缝厂', '应收件数', '实收件数', '应收菲票数', '实收菲票数', '差异数量', '差异原因', '异议状态', '是否阻塞生产单', '操作']
+              ${['中转单', '中转袋', '交出记录', '车缝厂', '按袋回写', '按菲票回写', '应收件数', '实收件数', '应收菲票数', '实收菲票数', '差异数量', '差异原因', '异议状态', '是否阻塞生产单', '操作']
                 .map((label) => `<th class="px-3 py-3 text-left font-medium">${escapeHtml(label)}</th>`)
                 .join('')}
             </tr>
@@ -486,6 +492,8 @@ function renderWritebackRows(batches: CuttingSewingDispatchBatch[], bags: Cuttin
                         <td class="px-3 py-3">${escapeHtml(bag.transferBagNo)}</td>
                         <td class="px-3 py-3">${escapeHtml(batch.handoverRecordNo || '')}</td>
                         <td class="px-3 py-3">${escapeHtml(order?.sewingFactoryName || '车缝厂')}</td>
+                        <td class="px-3 py-3">${escapeHtml(bag.receivedAt ? '已收袋' : '待收袋')}</td>
+                        <td class="px-3 py-3">${escapeHtml(bag.receivedFeiTicketCount === undefined ? '待回写' : `${bag.receivedFeiTicketCount}/${bag.contentFeiTicketCount || bag.scannedFeiTicketNos.length}`)}</td>
                         <td class="px-3 py-3">${escapeHtml(String(batch.plannedGarmentQty))}</td>
                         <td class="px-3 py-3">${escapeHtml(bag.receiverWrittenQty === undefined ? '待回写' : String(bag.receiverWrittenQty))}</td>
                         <td class="px-3 py-3">${escapeHtml(String(bag.scannedFeiTicketNos.length))}</td>

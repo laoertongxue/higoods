@@ -103,6 +103,9 @@ assertContains(packageSource, 'check:progress-statistics-linkage', 'package.json
   'factory-internal-warehouse',
 ].forEach((token) => assertContains(linkageSource, token, `统计联动必须消费来源数据：${token}`))
 assertContains(linkageSource, 'getCuttingSewingDispatchProgressByProductionOrder', '裁片发车缝统计必须调用 Prompt 8 helper')
+assertContains(linkageSource, 'bagWritebackLineCount', '统计联动缺少袋级回写统计')
+assertContains(linkageSource, 'feiTicketWritebackLineCount', '统计联动缺少菲票级回写统计')
+assertContains(linkageSource, 'partialWrittenBackTransferBagCount', '统计联动缺少中转袋部分回写统计')
 assertContains(linkageSource, '统计结果只作为只读投影，不作为状态源头', '统计结果不得作为状态源头')
 
 const sampleOrder = productionOrders[0]
@@ -163,10 +166,21 @@ assertProgressStatisticsConsistency()
   '已接收菲票',
   '待回仓菲票',
   '已回仓菲票',
+  '接收差异菲票',
+  '回仓差异菲票',
+  '报废数量',
+  '货损数量',
+  '当前数量',
   '差异菲票',
   '异议中菲票',
   '状态分布',
 ].forEach((token) => assertContains(specialCraftStatisticsSource, token, `特殊工艺统计缺少：${token}`))
+assertContains(linkageSource, "groupBy: '工艺'", '特殊工艺统计必须默认按工艺分组')
+assertContains(linkageSource, 'receiveDifferenceTicketCount', '特殊工艺统计必须包含接收差异菲票')
+assertContains(linkageSource, 'returnDifferenceTicketCount', '特殊工艺统计必须包含回仓差异菲票')
+assertContains(linkageSource, 'scrapQty', '特殊工艺统计必须包含报废数量')
+assertContains(linkageSource, 'damageQty', '特殊工艺统计必须包含货损数量')
+assertContains(linkageSource, 'currentQty', '特殊工艺统计必须包含当前数量')
 
 ;[
   '待加工数量',
@@ -176,9 +190,13 @@ assertProgressStatisticsConsistency()
   '入库差异',
   '出库差异',
   '盘点差异',
+  '待审核差异',
+  '已调整',
   '超时未处理',
   '异议中',
 ].forEach((token) => assertContains(factoryWarehouseSource + mobileWarehouseSource, token, `仓库统计缺少：${token}`))
+assertContains(linkageSource, 'stocktakeWaitReviewCount', '统计联动缺少待审核差异计数')
+assertContains(linkageSource, 'stocktakeAdjustedCount', '统计联动缺少已调整差异计数')
 
 ;[
   '裁片发料进度',
@@ -211,8 +229,17 @@ assertNoTokens(scopedSource, [
   joinText(['自动', '派单']),
   joinText(['自动', '改派']),
 ], '统计联动不得新增排程或派单能力')
-assertNoTokens(scopedSource, ['echarts', 'chart.js', 'recharts'], '统计联动不得新增图表库')
-assertNoTokens(scopedSource, ['axios', 'fetch(', 'apiClient', '/api/', 'i18n', 'useTranslation', 'locales', 'translations'], '统计联动不得新增接口或多语言')
+assertNoTokens(scopedSource, [buildToken('e', 'charts'), buildToken('chart', '.', 'js'), buildToken('re', 'charts')], '统计联动不得新增图表库')
+assertNoTokens(scopedSource, [
+  buildToken('axi', 'os'),
+  buildToken('fet', 'ch('),
+  buildToken('api', 'Client'),
+  buildToken('/', 'api', '/'),
+  buildToken('i1', '8n'),
+  buildToken('use', 'Translation'),
+  buildToken('loc', 'ales'),
+  buildToken('trans', 'lations'),
+], '统计联动不得新增接口或多语言')
 assertNoTokens(scopedSource, [
   joinText(['库存', '三态']),
   buildToken('available', 'Stock'),

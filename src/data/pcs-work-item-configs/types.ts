@@ -13,7 +13,11 @@ export interface FieldConfig {
     | 'date'
     | 'datetime'
     | 'image'
+    | 'image-list'
     | 'file'
+    | 'file-list'
+    | 'table'
+    | 'boolean'
     | 'cascade-select'
     | 'single-select'
     | 'user-select'
@@ -94,4 +98,3 @@ export interface WorkItemTemplateConfig {
   createdAt: string
   updatedAt: string
 }
-

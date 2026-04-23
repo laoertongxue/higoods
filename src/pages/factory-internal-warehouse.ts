@@ -5,6 +5,8 @@ import {
   createFactoryWarehouseShelf,
   createFactoryWarehouseStocktakeOrder,
   completeFactoryWarehouseStocktakeOrder,
+  approveFactoryWarehouseStocktakeDifferenceReview,
+  executeFactoryWarehouseAdjustmentOrder,
   findFactoryInternalWarehouseById,
   findFactoryWarehouseInboundRecordBySourceRecordId,
   findFactoryWarehouseOutboundRecordByHandoverRecordId,
@@ -26,7 +28,10 @@ import {
   listFactoryWarehouseInboundRecords,
   listFactoryWarehouseNodeRows,
   listFactoryWarehouseOutboundRecords,
+  listFactoryWarehouseAdjustmentOrdersByStocktake,
+  listFactoryWarehouseStocktakeDifferenceReviewsByOrder,
   listFactoryWarehouseStocktakeOrders,
+  rejectFactoryWarehouseStocktakeDifferenceReview,
   toggleFactoryWarehouseNodeStatus,
   updateFactoryWarehouseNodeRemark,
   updateFactoryWarehouseStocktakeLine,
@@ -465,6 +470,8 @@ function renderSummaryCards(): string {
       result.outboundDifferenceCount += item.outboundDifferenceCount
       result.objectionCount += item.objectionCount
       result.stocktakeDifferenceCount += item.stocktakeDifferenceCount
+      result.stocktakeWaitReviewCount += item.stocktakeWaitReviewCount
+      result.stocktakeAdjustedCount += item.stocktakeAdjustedCount
       result.overdueCount += item.overdueCount
       return result
     },
@@ -477,6 +484,8 @@ function renderSummaryCards(): string {
       outboundDifferenceCount: 0,
       objectionCount: 0,
       stocktakeDifferenceCount: 0,
+      stocktakeWaitReviewCount: 0,
+      stocktakeAdjustedCount: 0,
       overdueCount: 0,
     },
   )
@@ -490,6 +499,8 @@ function renderSummaryCards(): string {
     { label: '出库差异', value: String(progressSummary.outboundDifferenceCount), tone: 'red' as const },
     { label: '异议中', value: String(progressSummary.objectionCount), tone: 'red' as const },
     { label: '盘点差异', value: String(progressSummary.stocktakeDifferenceCount || summary.stocktakeDifferenceCount), tone: 'amber' as const },
+    { label: '待审核差异', value: String(progressSummary.stocktakeWaitReviewCount || summary.stocktakeWaitReviewCount), tone: 'amber' as const },
+    { label: '已调整', value: String(progressSummary.stocktakeAdjustedCount || summary.stocktakeAdjustedCount), tone: 'green' as const },
     { label: '超时未处理', value: String(progressSummary.overdueCount), tone: 'amber' as const },
   ]
 
@@ -992,10 +1003,13 @@ function renderStocktakeTab(): string {
   const targetWarehouse = getTargetWarehouseForMaintenance()
   const body =
     rows.length === 0
-      ? `<tr><td colspan="11" class="px-3 py-8 text-center text-muted-foreground">暂无数据</td></tr>`
+      ? `<tr><td colspan="13" class="px-3 py-8 text-center text-muted-foreground">暂无数据</td></tr>`
       : rows
           .map((item) => {
             const differenceCount = item.lineList.filter((line) => (line.differenceQty ?? 0) !== 0).length
+            const reviews = listFactoryWarehouseStocktakeDifferenceReviewsByOrder(item.stocktakeOrderId)
+            const waitReviewCount = reviews.filter((review) => review.reviewStatus !== '已调整').length
+            const adjustedCount = reviews.filter((review) => review.reviewStatus === '已调整').length
             return `
               <tr class="border-b last:border-b-0">
                 <td class="px-3 py-2 font-mono text-xs">${escapeHtml(item.stocktakeOrderNo)}</td>
@@ -1007,6 +1021,8 @@ function renderStocktakeTab(): string {
                 <td class="px-3 py-2">${escapeHtml(item.completedAt ? formatDateTime(item.completedAt) : '—')}</td>
                 <td class="px-3 py-2">${item.lineList.length}</td>
                 <td class="px-3 py-2 ${differenceCount > 0 ? 'text-rose-600' : ''}">${differenceCount}</td>
+                <td class="px-3 py-2 ${waitReviewCount > 0 ? 'text-amber-600' : ''}">${waitReviewCount}</td>
+                <td class="px-3 py-2 text-emerald-700">${adjustedCount}</td>
                 <td class="px-3 py-2">${renderStatusBadge(item.status, getStatusTone(item.status))}</td>
                 <td class="px-3 py-2">
                   <div class="flex flex-wrap justify-end gap-2">
@@ -1039,7 +1055,7 @@ function renderStocktakeTab(): string {
           创建全盘
         </button>
       </div>
-      ${renderTableWrapper(['盘点单号', '工厂', '仓库', '盘点范围', '盘点人', '开始时间', '完成时间', '明细数', '差异数', '状态', '操作'], body, 'min-w-[1080px]')}
+      ${renderTableWrapper(['盘点单号', '工厂', '仓库', '盘点范围', '盘点人', '开始时间', '完成时间', '明细数', '差异数', '待审核差异', '已调整', '状态', '操作'], body, 'min-w-[1200px]')}
     </div>
   `
 }
@@ -1260,6 +1276,8 @@ function renderNodeRemarkDrawer(drawerState: Extract<FactoryWarehouseDrawer, { t
 
 function renderStocktakeDetail(order: FactoryWarehouseStocktakeOrder): string {
   const lines = order.lineList
+  const reviews = listFactoryWarehouseStocktakeDifferenceReviewsByOrder(order.stocktakeOrderId)
+  const adjustments = listFactoryWarehouseAdjustmentOrdersByStocktake(order.stocktakeOrderId)
   return renderDetailDrawer(
     {
       title: '盘点详情',
@@ -1275,9 +1293,11 @@ function renderStocktakeDetail(order: FactoryWarehouseStocktakeOrder): string {
           ${renderKeyValueItem('盘点范围', escapeHtml(order.stocktakeScope))}
           ${renderKeyValueItem('盘点人', escapeHtml(order.createdBy))}
           ${renderKeyValueItem('状态', escapeHtml(order.status))}
+          ${renderKeyValueItem('待审核差异', escapeHtml(String(reviews.filter((review) => review.reviewStatus !== '已调整').length)))}
+          ${renderKeyValueItem('已调整差异', escapeHtml(String(reviews.filter((review) => review.reviewStatus === '已调整').length)))}
         </div>
         <div class="overflow-x-auto">
-          <table class="w-full min-w-[1480px] text-sm">
+          <table class="w-full min-w-[1780px] text-sm">
             <thead>
               <tr class="border-b bg-muted/40 text-left">
                 <th class="px-3 py-2 font-medium">物料 / 裁片类型</th>
@@ -1295,12 +1315,20 @@ function renderStocktakeDetail(order: FactoryWarehouseStocktakeOrder): string {
                 <th class="px-3 py-2 font-medium">库位</th>
                 <th class="px-3 py-2 font-medium">差异原因</th>
                 <th class="px-3 py-2 font-medium">状态</th>
+                <th class="px-3 py-2 font-medium">审核状态</th>
+                <th class="px-3 py-2 font-medium">调整单</th>
+                <th class="px-3 py-2 font-medium">操作</th>
               </tr>
             </thead>
             <tbody>
               ${lines
                 .map(
-                  (line) => `
+                  (line) => {
+                    const review = reviews.find((item) => item.lineId === line.lineId)
+                    const adjustment = adjustments.find((item) => item.sourceLineId === line.lineId)
+                    const canReview = Boolean(review && review.reviewStatus === '待审核')
+                    const canExecuteAdjustment = Boolean(adjustment && adjustment.status === '待执行')
+                    return `
                     <tr class="border-b last:border-b-0">
                       <td class="px-3 py-2">${escapeHtml(line.itemKind)}</td>
                       <td class="px-3 py-2">${escapeHtml(line.materialSku || line.partName || line.itemName)}</td>
@@ -1329,8 +1357,26 @@ function renderStocktakeDetail(order: FactoryWarehouseStocktakeOrder): string {
                         }
                       </td>
                       <td class="px-3 py-2">${renderStatusBadge(line.status, getStatusTone(line.status))}</td>
+                      <td class="px-3 py-2">${line.reviewStatus ? renderStatusBadge(line.reviewStatus, line.reviewStatus === '已调整' ? 'green' : line.reviewStatus === '已驳回' ? 'red' : 'amber') : '—'}</td>
+                      <td class="px-3 py-2">${adjustment ? `${escapeHtml(adjustment.adjustmentOrderNo)} · ${escapeHtml(adjustment.status)}` : '—'}</td>
+                      <td class="px-3 py-2">
+                        <div class="flex flex-wrap gap-2">
+                          ${
+                            canReview
+                              ? `<button type="button" class="inline-flex h-8 items-center rounded-md border px-2 text-xs hover:bg-muted" data-factory-warehouse-action="approve-stocktake-review" data-review-id="${escapeHtml(review?.reviewId || '')}">审核通过</button>
+                                <button type="button" class="inline-flex h-8 items-center rounded-md border px-2 text-xs text-rose-600 hover:bg-rose-50" data-factory-warehouse-action="reject-stocktake-review" data-review-id="${escapeHtml(review?.reviewId || '')}">审核驳回</button>`
+                              : ''
+                          }
+                          ${
+                            canExecuteAdjustment
+                              ? `<button type="button" class="inline-flex h-8 items-center rounded-md border px-2 text-xs text-emerald-700 hover:bg-emerald-50" data-factory-warehouse-action="execute-adjustment-order" data-adjustment-order-id="${escapeHtml(adjustment?.adjustmentOrderId || '')}">执行调整</button>`
+                              : ''
+                          }
+                        </div>
+                      </td>
                     </tr>
-                  `,
+                  `
+                  },
                 )
                 .join('')}
             </tbody>
@@ -1772,7 +1818,44 @@ export function handleFactoryInternalWarehouseEvent(target: HTMLElement): boolea
     const stocktakeOrderId = actionNode.dataset.stocktakeOrderId
     if (!stocktakeOrderId) return true
     const success = completeFactoryWarehouseStocktakeOrder(stocktakeOrderId)
-    state.notice = success ? '盘点已完成' : '盘点完成失败'
+    const order = success ? getStocktakeOrderById(stocktakeOrderId) : null
+    state.notice = success ? (order?.status === '待确认' ? '盘点差异已提交审核' : '盘点已完成') : '盘点完成失败'
+    return true
+  }
+
+  if (action === 'approve-stocktake-review') {
+    const reviewId = actionNode.dataset.reviewId
+    if (!reviewId) return true
+    const adjustment = approveFactoryWarehouseStocktakeDifferenceReview({
+      reviewId,
+      reviewedBy: '仓库主管',
+      reviewRemark: '差异审核通过，生成调整单',
+    })
+    state.notice = adjustment ? `已生成调整单：${adjustment.adjustmentOrderNo}` : '审核失败'
+    return true
+  }
+
+  if (action === 'reject-stocktake-review') {
+    const reviewId = actionNode.dataset.reviewId
+    if (!reviewId) return true
+    const review = rejectFactoryWarehouseStocktakeDifferenceReview({
+      reviewId,
+      reviewedBy: '仓库主管',
+      reviewRemark: '差异驳回，需重新核对',
+    })
+    state.notice = review ? '已驳回盘点差异' : '驳回失败'
+    return true
+  }
+
+  if (action === 'execute-adjustment-order') {
+    const adjustmentOrderId = actionNode.dataset.adjustmentOrderId
+    if (!adjustmentOrderId) return true
+    const adjustment = executeFactoryWarehouseAdjustmentOrder({
+      adjustmentOrderId,
+      executedBy: '仓库主管',
+      remark: '按审核结果调整轻量库存数量',
+    })
+    state.notice = adjustment ? '调整单已完成' : '调整失败'
     return true
   }
 

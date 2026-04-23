@@ -117,7 +117,20 @@ export interface PatternAsset {
   license_status: PatternLicenseStatus
   parse_status: PatternParseStatus
   source_task_id?: string
+  source_task_code?: string
+  source_task_type?: string
+  source_task_name?: string
   source_project_id?: string
+  source_tech_pack_version_id?: string
+  source_tech_pack_version_code?: string
+  buyer_review_status?: string
+  difficulty_grade?: string
+  assigned_team_code?: string
+  assigned_team_name?: string
+  assigned_member_id?: string
+  assigned_member_name?: string
+  archive_collected_flag?: boolean
+  archive_collected_at?: string
   source_pattern_task_snapshot?: {
     demand_source_type?: string
     process_type?: string

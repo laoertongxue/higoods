@@ -42,9 +42,14 @@ export function renderSpecialCraftStatisticsPage(operationSlug: string): string 
       result.returned += item.returnedFeiTicketCount
       result.difference += item.differenceFeiTicketCount
       result.objection += item.objectionFeiTicketCount
+      result.receiveDifference += item.receiveDifferenceTicketCount
+      result.returnDifference += item.returnDifferenceTicketCount
+      result.scrapQty += item.scrapQty
+      result.damageQty += item.damageQty
+      result.currentQty += item.currentQty
       return result
     },
-    { waitDispatch: 0, dispatched: 0, received: 0, processing: 0, waitReturn: 0, returned: 0, difference: 0, objection: 0 },
+    { waitDispatch: 0, dispatched: 0, received: 0, processing: 0, waitReturn: 0, returned: 0, difference: 0, objection: 0, receiveDifference: 0, returnDifference: 0, scrapQty: 0, damageQty: 0, currentQty: 0 },
   )
 
   const filters = renderFilterGrid([
@@ -70,7 +75,12 @@ export function renderSpecialCraftStatisticsPage(operationSlug: string): string 
     { label: '待回仓菲票', value: String(feiTicketTotals.waitReturn), tone: 'amber' },
     { label: '已回仓菲票', value: String(feiTicketTotals.returned), tone: 'green' },
     { label: '差异菲票', value: String(feiTicketTotals.difference || totalDifferenceCount), tone: 'red' },
+    { label: '接收差异菲票', value: String(feiTicketTotals.receiveDifference), tone: 'red' },
+    { label: '回仓差异菲票', value: String(feiTicketTotals.returnDifference), tone: 'red' },
     { label: '异议中菲票', value: String(feiTicketTotals.objection || totalObjectionCount), tone: 'red' },
+    { label: '报废数量', value: formatQty(feiTicketTotals.scrapQty), tone: 'red' },
+    { label: '货损数量', value: formatQty(feiTicketTotals.damageQty), tone: 'red' },
+    { label: '当前数量', value: formatQty(feiTicketTotals.currentQty), tone: 'blue' },
     { label: '异常', value: String(totalAbnormalCount), tone: 'red' },
   ])
 
@@ -112,7 +122,7 @@ export function renderSpecialCraftStatisticsPage(operationSlug: string): string 
     ${metrics}
     <section class="rounded-2xl border bg-white p-4 shadow-sm">
       <h2 class="text-base font-semibold text-foreground">节点状态</h2>
-      <p class="mt-1 text-xs text-muted-foreground">状态分布同步任务单节点，并补充菲票回仓统计。</p>
+      <p class="mt-1 text-xs text-muted-foreground">默认按工艺分组，状态分布同步任务单节点，并补充菲票回仓统计。</p>
       <div class="mt-4">${nodeStatusCards}</div>
     </section>
     ${
@@ -125,7 +135,7 @@ export function renderSpecialCraftStatisticsPage(operationSlug: string): string 
   return renderSpecialCraftPageLayout({
     operation,
     title: `${operation.operationName}统计`,
-    description: '按时间周期汇总当前特殊工艺的任务量、节点状态与异常情况，不引入图表库或大屏能力。',
+    description: '按时间周期汇总当前特殊工艺的任务量、节点状态与差异情况。',
     activeSubNav: 'statistics',
     content,
   })

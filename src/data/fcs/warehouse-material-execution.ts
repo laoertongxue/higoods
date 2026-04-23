@@ -526,6 +526,57 @@ function buildExecutionDocuments(): {
     }
   })
 
+  if (issueOrders.length === 0) {
+    issueOrders.push({
+      id: 'WIE-FALLBACK-001',
+      docNo: 'LL-FALLBACK-001',
+      docType: 'ISSUE',
+      status: 'ISSUED',
+      productionOrderId: 'PO-FALLBACK-001',
+      baseTaskId: 'TASK-FALLBACK-001',
+      runtimeTaskId: 'TASK-FALLBACK-001',
+      taskNo: 'TASK-FALLBACK-001',
+      processCode: 'SPECIAL_CRAFT',
+      processNameZh: '特殊工艺',
+      scopeType: 'ORDER',
+      scopeKey: 'PO-FALLBACK-001',
+      scopeLabel: 'PO-FALLBACK-001',
+      targetType: 'EXTERNAL_FACTORY',
+      targetFactoryId: 'ID-F002',
+      targetFactoryName: 'PT Prima Printing Center',
+      executorKind: 'EXTERNAL_FACTORY',
+      warehouseId: WAREHOUSE_SEEDS[0].id,
+      warehouseName: WAREHOUSE_SEEDS[0].name,
+      createdAt: '2026-04-23 09:00:00',
+      updatedAt: '2026-04-23 09:30:00',
+      remark: '演示领料记录',
+      lines: [
+        {
+          lineId: 'WIE-FALLBACK-001-L01',
+          docId: 'WIE-FALLBACK-001',
+          materialCode: 'FAB-FALLBACK-001',
+          materialName: '特殊工艺裁片',
+          materialSpec: '标准批次',
+          unit: '片',
+          plannedQty: 120,
+          preparedQty: 120,
+          shortQty: 0,
+          skuCode: 'SKU-FALLBACK-001',
+          skuColor: '标准色',
+          skuSize: 'M',
+          pieceName: '前片',
+          pieceCountPerUnit: 1,
+          sourceType: 'SPECIAL_CRAFT',
+          sourceTaskId: 'TASK-FALLBACK-001',
+          sourceProcessCode: 'SPECIAL_CRAFT',
+          issuedQty: 120,
+          returnedQty: 0,
+          transferredQty: 0,
+        },
+      ],
+    })
+  }
+
   const orderIds = Array.from(
     new Set([
       ...requests.map((request) => request.productionOrderNo),
