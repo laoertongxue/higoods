@@ -6,6 +6,11 @@ import {
   getProductionOrderTechPackSnapshot,
 } from './production-order-tech-pack-runtime.ts'
 import {
+  attachSpecialCraftTasksToProductionArtifacts,
+  type ProductionArtifactSpecialCraftAttachment,
+} from './special-craft-task-generation.ts'
+import type { SpecialCraftTaskOrder, SpecialCraftTaskGenerationBatch, SpecialCraftTaskGenerationError } from './special-craft-task-orders.ts'
+import {
   getProcessCraftByCode,
   getProcessDefinitionByCode,
   getProcessStageByCode,
@@ -73,6 +78,15 @@ export interface GeneratedTaskArtifact extends GeneratedProductionArtifactBase {
 export type GeneratedProductionArtifact = GeneratedDemandArtifact | GeneratedTaskArtifact
 export type ProductionDemandArtifact = GeneratedDemandArtifact
 export type ProductionTaskArtifact = GeneratedTaskArtifact
+
+export interface GeneratedProductionArtifactBundle {
+  orderId: string
+  artifacts: GeneratedProductionArtifact[]
+  specialCraftTaskOrders: SpecialCraftTaskOrder[]
+  specialCraftGenerationBatch: SpecialCraftTaskGenerationBatch
+  specialCraftGenerationErrors: SpecialCraftTaskGenerationError[]
+  specialCraftGenerationWarnings: string[]
+}
 
 interface ResolvedEntryContext {
   orderId: string
@@ -437,6 +451,24 @@ export function generateProductionArtifactsForOrder(orderId: string): GeneratedP
   return artifacts.sort((a, b) => a.sortKey.localeCompare(b.sortKey))
 }
 
+export function generateProductionArtifactBundleForOrder(orderId: string): GeneratedProductionArtifactBundle {
+  const artifacts = generateProductionArtifactsForOrder(orderId)
+  const attachment: ProductionArtifactSpecialCraftAttachment<GeneratedProductionArtifact> =
+    attachSpecialCraftTasksToProductionArtifacts({
+      orderId,
+      artifacts,
+    })
+
+  return {
+    orderId,
+    artifacts: attachment.artifacts,
+    specialCraftTaskOrders: attachment.specialCraftTaskOrders,
+    specialCraftGenerationBatch: attachment.specialCraftGenerationBatch,
+    specialCraftGenerationErrors: attachment.specialCraftGenerationErrors,
+    specialCraftGenerationWarnings: attachment.specialCraftGenerationWarnings,
+  }
+}
+
 export function generateDemandArtifactsForOrder(orderId: string): GeneratedDemandArtifact[] {
   return generateProductionArtifactsForOrder(orderId).filter(
     (item): item is GeneratedDemandArtifact => item.artifactType === 'DEMAND',
@@ -458,6 +490,10 @@ export function generateProductionArtifactsForAllOrders(): GeneratedProductionAr
     })
 }
 
+export function generateProductionArtifactBundlesForAllOrders(): GeneratedProductionArtifactBundle[] {
+  return productionOrders.map((order) => generateProductionArtifactBundleForOrder(order.productionOrderId))
+}
+
 export function generateDemandArtifactsForAllOrders(): GeneratedDemandArtifact[] {
   return generateProductionArtifactsForAllOrders().filter(
     (item): item is GeneratedDemandArtifact => item.artifactType === 'DEMAND',
@@ -474,6 +510,10 @@ export function generateTaskArtifactsForAllOrders(): GeneratedTaskArtifact[] {
 
 export function listGeneratedProductionTaskArtifacts(): GeneratedTaskArtifact[] {
   return generateTaskArtifactsForAllOrders()
+}
+
+export function listGeneratedSpecialCraftTaskArtifacts(): SpecialCraftTaskOrder[] {
+  return generateProductionArtifactBundlesForAllOrders().flatMap((bundle) => bundle.specialCraftTaskOrders)
 }
 
 export const artifactGenerationScenarioOrderIds = {

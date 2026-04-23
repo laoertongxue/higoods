@@ -5,11 +5,11 @@ import {
   type HandoverRecordLifecycleStatus,
   type PdaHandoverHead,
   type PdaHandoverRecord,
-} from './pda-handover-events'
+} from './pda-handover-events.ts'
 import {
   buildHandoverOrderQrValue,
   buildHandoverRecordQrValue,
-} from './task-qr'
+} from './task-qr.ts'
 
 export function getReceiverKindLabel(kind?: HandoverReceiverKind): string {
   if (kind === 'MANAGED_POST_FACTORY') return '我方后道工厂'

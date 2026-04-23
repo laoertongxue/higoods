@@ -1,5 +1,6 @@
 import { escapeHtml } from '../../utils.ts'
 import {
+  buildProductionConfirmationSnapshot,
   getOrCreateProductionConfirmation,
   getPostIncludedRemark,
   getProductionConfirmationByOrderId,
@@ -251,7 +252,12 @@ function renderTaskAssignmentTable(snapshot: ProductionConfirmationSnapshot): st
             <th class="px-3 py-2 text-left font-medium">阶段</th>
             <th class="px-3 py-2 text-left font-medium">工序</th>
             <th class="px-3 py-2 text-left font-medium">工艺</th>
+            <th class="px-3 py-2 text-left font-medium">作用对象</th>
+            <th class="px-3 py-2 text-left font-medium">裁片部位</th>
+            <th class="px-3 py-2 text-left font-medium">颜色</th>
+            <th class="px-3 py-2 text-left font-medium">尺码</th>
             <th class="px-3 py-2 text-left font-medium">工厂</th>
+            <th class="px-3 py-2 text-left font-medium">分配状态</th>
             <th class="px-3 py-2 text-left font-medium">分配方式</th>
             <th class="px-3 py-2 text-left font-medium">分配时间</th>
             <th class="px-3 py-2 text-right font-medium">数量</th>
@@ -269,7 +275,12 @@ function renderTaskAssignmentTable(snapshot: ProductionConfirmationSnapshot): st
                   <td class="px-3 py-2">${escapeHtml(row.stageName)}</td>
                   <td class="px-3 py-2 font-medium">${escapeHtml(row.processName)}</td>
                   <td class="px-3 py-2">${renderTextValue(row.craftName)}</td>
+                  <td class="px-3 py-2">${renderTextValue(row.targetObject)}</td>
+                  <td class="px-3 py-2">${renderTextValue(row.partName)}</td>
+                  <td class="px-3 py-2">${renderTextValue(row.colorName)}</td>
+                  <td class="px-3 py-2">${renderTextValue(row.sizeCode)}</td>
                   <td class="px-3 py-2">${escapeHtml(row.assignedFactoryName)}</td>
+                  <td class="px-3 py-2">${renderTextValue(row.assignmentStatus)}</td>
                   <td class="px-3 py-2">${escapeHtml(row.assignmentMode)}</td>
                   <td class="px-3 py-2">${renderTextValue(row.assignedAt)}</td>
                   <td class="px-3 py-2 text-right">${escapeHtml(String(row.taskQty))}</td>
@@ -446,10 +457,13 @@ function renderConfirmationDocument(snapshot: ProductionConfirmationSnapshot, st
   printedAt?: string
   printedBy?: string
   historyCount: number
+  noticeText?: string
+  canPrint?: boolean
 }): string {
   const orderInfo = snapshot.productionOrderSnapshot
   const styleInfo = snapshot.styleSnapshot
   const hasPostTask = snapshot.taskAssignmentSnapshot.some((item) => item.processName === '后道')
+  const canPrint = meta.canPrint !== false
 
   return `
     <style>
@@ -470,11 +484,15 @@ function renderConfirmationDocument(snapshot: ProductionConfirmationSnapshot, st
       <header class="print-actions flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 class="text-xl font-semibold">生产确认单</h1>
-          <p class="mt-1 text-sm text-muted-foreground">工厂分配完成后可打印</p>
+          <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(meta.noticeText || '工厂分配完成后可打印')}</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
           <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="/fcs/production/orders/${escapeHtml(snapshot.productionOrderId)}">返回</button>
-          <button class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" onclick="window.print()">打印</button>
+          ${
+            canPrint
+              ? '<button class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" onclick="window.print()">打印</button>'
+              : '<button class="cursor-not-allowed rounded-md border border-muted-foreground/20 bg-muted px-3 py-2 text-sm text-muted-foreground" type="button" disabled>待分配后打印</button>'
+          }
         </div>
       </header>
 
@@ -576,17 +594,18 @@ export function renderProductionConfirmationPrintPage(productionOrderId: string)
     || (printableState.printable ? getOrCreateProductionConfirmation(productionOrderId) : undefined)
 
   if (!confirmation) {
-    return `
-      <div class="space-y-4 p-4">
-        <header class="flex items-center justify-between gap-3">
-          <h1 class="text-xl font-semibold">生产确认单</h1>
-          <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="/fcs/production/orders/${escapeHtml(productionOrderId)}">返回</button>
-        </header>
-        <section class="rounded-xl border bg-background p-6">
-          <div class="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">${escapeHtml(printableState.reason || '未完成工厂分配')}</div>
-        </section>
-      </div>
-    `
+    const snapshot = buildProductionConfirmationSnapshot(productionOrderId)
+    return renderConfirmationDocument(
+      snapshot,
+      '待分配',
+      {
+        confirmationNo: '待生成',
+        confirmationVersion: 0,
+        historyCount: 0,
+        noticeText: printableState.reason || '未完成工厂分配',
+        canPrint: false,
+      },
+    )
   }
 
   const snapshot = getProductionConfirmationSnapshotById(confirmation.snapshotId)

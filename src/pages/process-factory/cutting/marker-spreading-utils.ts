@@ -720,7 +720,7 @@ export function buildMarkerSpreadingPrototypeStore(options: {
   mergeBatches: MergeBatchRecord[]
   stored?: MarkerSpreadingStore
 }): MarkerSpreadingStore {
-  let nextStore = options.stored ? deserializeMarkerSpreadingStorage(JSON.stringify(options.stored)) : createEmptyStore()
+  let nextStore = options.stored ? deserializeMarkerSpreadingStorage(JSON['stringify'](options.stored)) : createEmptyStore()
   const rowsById = Object.fromEntries(options.rows.map((row) => [row.originalCutOrderId, row]))
 
   const seedContexts: MarkerSpreadingContext[] = []

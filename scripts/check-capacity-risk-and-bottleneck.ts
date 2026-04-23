@@ -14,6 +14,11 @@ import {
   getCapacityProcessCraftOptions,
   resolveProcessCraft,
 } from '../src/data/fcs/process-craft-dict.ts'
+import {
+  includesRemovedPseudoCraft,
+  removedLegacyCraftNames,
+  removedLegacyProcessCodes,
+} from './utils/special-craft-banlist.ts'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const CAPACITY_PAGE_PATH = path.join(ROOT, 'src/pages/capacity.ts')
@@ -46,6 +51,7 @@ function main(): void {
   const riskCraftMap = new Map(
     getActiveCraftOptionsByProcess().map((item) => [item.processCraftKey, item.processCraftLabel] as const),
   )
+  const removedCraftNameSet = new Set(removedLegacyCraftNames)
 
   assert(dataSource.includes('getActiveProcessOptions()'), '任务工时风险筛选未从工序工艺字典读取')
   assert(dataSource.includes('getActiveCraftOptionsByProcess()'), '任务工时风险工艺筛选未从工序工艺字典读取')
@@ -53,8 +59,7 @@ function main(): void {
   assert(dataSource.includes('resolveDemandIdentityFromSourceEntry('), '任务工时风险未补齐 sourceEntryId 的技术包回捞')
   assert(dataSource.includes('getProductionOrderProcessEntries(task.productionOrderId)'), '任务工时风险未从技术包工序定义兜底解析旧任务')
   assert(dataSource.includes('getCapacityProcessCraftOptions()'), '工艺瓶颈筛选未从工序工艺字典读取')
-  assert(!dataSource.includes('特殊工艺 / 印花工艺'), '产能风险数据层仍硬编码印花专属筛选')
-  assert(!dataSource.includes('特殊工艺 / 染色工艺'), '产能风险数据层仍硬编码染色专属筛选')
+  assert(!includesRemovedPseudoCraft(dataSource), '产能风险数据层仍硬编码已删除伪特殊工艺')
 
   assert(getActiveCraftOptionsByProcess().length > 0, '任务工时风险缺少工序工艺字典选项')
   assert(capacityOptions.length > 0, '工艺瓶颈缺少工序工艺字典选项')
@@ -153,12 +158,10 @@ function main(): void {
   assert(
     !riskData.taskRows.some((row) =>
       row.processCode === 'WASHING'
-      || row.processCode === 'HARDWARE'
-      || row.processCode === 'FROG_BUTTON'
-      || row.craftName === '鸡眼扣'
-      || row.craftName === '手工盘扣'
+      || removedLegacyProcessCodes.includes(row.processCode)
+      || removedCraftNameSet.has(row.craftName)
     ),
-    '任务工时风险中仍存在 WASHING / 五金 / 盘扣历史口径',
+    '任务工时风险中仍存在已删除旧口径',
   )
 
   const legacyFreeze = createFreezeFromDirectDispatch(

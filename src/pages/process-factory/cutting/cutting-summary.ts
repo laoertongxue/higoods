@@ -52,7 +52,10 @@ import {
   buildFcsCuttingSummaryDetailProjection,
   buildFcsCuttingSummaryProjection,
   type FcsCuttingSummaryProjection,
-} from './runtime-projections'
+} from './runtime-projections.ts'
+import { getCuttingSpecialCraftReturnStatusByProductionOrder } from '../../../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
+import { getCuttingSewingDispatchProgressByProductionOrder } from '../../../data/fcs/cutting/sewing-dispatch.ts'
+import { getCuttingProgressSnapshots } from '../../../data/fcs/progress-statistics-linkage.ts'
 
 type SummaryFilterField =
   | 'keyword'
@@ -425,6 +428,161 @@ function renderStats(viewModel: CuttingSummaryViewModel): string {
           return `<button type="button" class="text-left" ${attrs}>${renderCompactKpiCard(card.label, card.value, card.hint, card.accentClass)}</button>`
         })
         .join('')}
+    </section>
+  `
+}
+
+function renderSpecialCraftReturnOverview(rows: CuttingSummaryRow[]): string {
+  const summaries = rows
+    .map((row) => getCuttingSpecialCraftReturnStatusByProductionOrder(row.productionOrderId))
+    .filter((item) => item.totalNeedSpecialCraftFeiTickets > 0)
+
+  if (summaries.length === 0) return ''
+
+  const aggregated = summaries.reduce(
+    (result, item) => {
+      result.totalNeed += item.totalNeedSpecialCraftFeiTickets
+      result.waitDispatch += item.waitDispatchCount
+      result.dispatched += item.dispatchedCount
+      result.received += item.receivedBySpecialFactoryCount
+      result.waitReturn += item.waitReturnCount
+      result.returned += item.returnedCount
+      result.difference += item.differenceCount
+      result.objection += item.objectionCount
+      return result
+    },
+    {
+      totalNeed: 0,
+      waitDispatch: 0,
+      dispatched: 0,
+      received: 0,
+      waitReturn: 0,
+      returned: 0,
+      difference: 0,
+      objection: 0,
+    },
+  )
+  const allReturned = summaries.every((item) => item.allReturned)
+
+  return `
+    <section class="rounded-lg border bg-card px-4 py-4">
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <p class="text-sm font-semibold text-foreground">特殊工艺回仓汇总</p>
+          <p class="mt-1 text-xs text-muted-foreground">给后续裁床统一发料提供状态基础，不在本页发车缝。</p>
+        </div>
+        <span class="inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${allReturned ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700'}">是否全部回仓：${allReturned ? '是' : '否'}</span>
+      </div>
+      <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        ${renderCompactKpiCard('需要特殊工艺菲票数', aggregated.totalNeed, '需执行特殊工艺', 'text-slate-900')}
+        ${renderCompactKpiCard('待发料菲票数', aggregated.waitDispatch, '裁床厂待发料', 'text-amber-600')}
+        ${renderCompactKpiCard('已发料菲票数', aggregated.dispatched, '已创建交出记录', 'text-blue-600')}
+        ${renderCompactKpiCard('已接收菲票数', aggregated.received, '特殊工艺厂已接收', 'text-cyan-600')}
+        ${renderCompactKpiCard('待回仓菲票数', aggregated.waitReturn, '特殊工艺厂待回仓', 'text-amber-600')}
+        ${renderCompactKpiCard('已回仓菲票数', aggregated.returned, '已回裁床厂待交出仓', 'text-emerald-600')}
+        ${renderCompactKpiCard('差异菲票数', aggregated.difference, '发料或回仓差异', 'text-rose-600')}
+        ${renderCompactKpiCard('异议中菲票数', aggregated.objection, '数量异议处理中', 'text-rose-600')}
+      </div>
+    </section>
+  `
+}
+
+function renderSewingDispatchOverview(rows: CuttingSummaryRow[]): string {
+  const summaries = rows.map((row) => getCuttingSewingDispatchProgressByProductionOrder(row.productionOrderId))
+  const total = summaries.reduce(
+    (result, item) => {
+      result.totalProductionQty += item.totalProductionQty
+      result.cumulativeDispatchedGarmentQty += item.cumulativeDispatchedGarmentQty
+      result.remainingGarmentQty += item.remainingGarmentQty
+      result.dispatchBatchCount += item.dispatchBatchCount
+      result.transferBagCount += item.transferBagCount
+      result.writtenBackTransferBagCount += item.writtenBackTransferBagCount
+      result.differenceTransferBagCount += item.differenceTransferBagCount
+      result.objectionTransferBagCount += item.objectionTransferBagCount
+      item.blockingReasons.forEach((reason) => result.blockingReasons.add(reason))
+      return result
+    },
+    {
+      totalProductionQty: 0,
+      cumulativeDispatchedGarmentQty: 0,
+      remainingGarmentQty: 0,
+      dispatchBatchCount: 0,
+      transferBagCount: 0,
+      writtenBackTransferBagCount: 0,
+      differenceTransferBagCount: 0,
+      objectionTransferBagCount: 0,
+      blockingReasons: new Set<string>(),
+    },
+  )
+  const reasons = Array.from(total.blockingReasons)
+
+  return `
+    <section class="rounded-lg border bg-card px-4 py-4">
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <p class="text-sm font-semibold text-foreground">裁片发料汇总</p>
+          <p class="mt-1 text-xs text-muted-foreground">裁床厂统一发料给车缝厂，按中转单和中转袋追溯齐套与回写。</p>
+        </div>
+        <span class="inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${reasons.length ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}">是否可继续发料：${reasons.length ? '否' : '是'}</span>
+      </div>
+      <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        ${renderCompactKpiCard('生产总数', total.totalProductionQty, '', 'text-slate-900')}
+        ${renderCompactKpiCard('累计已发车缝件数', total.cumulativeDispatchedGarmentQty, '', 'text-blue-600')}
+        ${renderCompactKpiCard('剩余未发件数', total.remainingGarmentQty, '', 'text-amber-600')}
+        ${renderCompactKpiCard('发料批次数', total.dispatchBatchCount, '', 'text-slate-700')}
+        ${renderCompactKpiCard('中转袋数', total.transferBagCount, '', 'text-slate-700')}
+        ${renderCompactKpiCard('已回写袋数', total.writtenBackTransferBagCount, '', 'text-emerald-600')}
+        ${renderCompactKpiCard('差异袋数', total.differenceTransferBagCount, '', 'text-rose-600')}
+        ${renderCompactKpiCard('异议中袋数', total.objectionTransferBagCount, '', 'text-rose-600')}
+        ${renderCompactKpiCard('阻塞原因', reasons.length ? reasons.join('、') : '无', '裁片未配齐 / 特殊工艺未回仓 / 存在差异 / 存在异议 / 菲票被占用 / 数量超过剩余未发', 'text-amber-600')}
+      </div>
+    </section>
+  `
+}
+
+function renderProgressStatisticsSummary(rows: CuttingSummaryRow[]): string {
+  const rowIds = new Set(rows.map((row) => row.productionOrderId))
+  const snapshots = getCuttingProgressSnapshots().filter((snapshot) => rowIds.has(snapshot.productionOrderId))
+  if (!snapshots.length) return ''
+  const sewingSummaries = rows.map((row) => getCuttingSewingDispatchProgressByProductionOrder(row.productionOrderId))
+
+  const totalProductionQty = snapshots.reduce((sum, item) => sum + item.sewingDispatchProgress.plannedQty, 0)
+  const cuttingCompletedQty = snapshots.reduce((sum, item) => sum + item.cuttingProgress.completedQty, 0)
+  const feiTicketQty = snapshots.reduce((sum, item) => sum + item.feiTicketProgress.completedQty, 0)
+  const warehouseQty = snapshots.reduce((sum, item) => sum + item.cutPieceWarehouseProgress.completedQty, 0)
+  const needSpecialCraft = snapshots.reduce((sum, item) => sum + item.specialCraftReturnProgress.plannedQty, 0)
+  const returnedSpecialCraft = snapshots.reduce((sum, item) => sum + item.specialCraftReturnProgress.completedQty, 0)
+  const transferBagCount = sewingSummaries.reduce((sum, item) => sum + item.transferBagCount, 0)
+  const completedTransferBagCount = sewingSummaries.reduce((sum, item) => sum + item.writtenBackTransferBagCount + item.dispatchedTransferBagCount, 0)
+  const shippedQty = snapshots.reduce((sum, item) => sum + item.sewingDispatchProgress.completedQty, 0)
+  const remainingQty = Math.max(totalProductionQty - shippedQty, 0)
+  const differenceCount = snapshots.reduce((sum, item) => sum + item.sewingDispatchProgress.differenceQty + item.specialCraftReturnProgress.differenceQty, 0)
+  const objectionCount = snapshots.reduce((sum, item) => sum + item.sewingDispatchProgress.abnormalCount + item.specialCraftReturnProgress.abnormalCount, 0)
+  const blockingReasons = Array.from(new Set(snapshots.flatMap((snapshot) => snapshot.blockingReasons.map((reason) => reason.blockingLabel))))
+
+  return `
+    <section class="rounded-lg border bg-card px-4 py-4">
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <p class="text-sm font-semibold text-foreground">裁剪总结进度联动</p>
+          <p class="mt-1 text-xs text-muted-foreground">汇总生产数量、裁剪完成、菲票、裁床厂待交出仓、特殊工艺回仓、中转袋和发车缝进度。</p>
+        </div>
+        <span class="inline-flex rounded-full border px-3 py-1 text-xs ${blockingReasons.length ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}">阻塞原因：${escapeHtml(blockingReasons[0] || '无')}</span>
+      </div>
+      <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        ${renderCompactKpiCard('生产数量', totalProductionQty, '', 'text-slate-900')}
+        ${renderCompactKpiCard('裁剪完成数量', cuttingCompletedQty, '', 'text-violet-600')}
+        ${renderCompactKpiCard('菲票数量', feiTicketQty, '', 'text-cyan-600')}
+        ${renderCompactKpiCard('裁片入裁床厂待交出仓数量', warehouseQty, '', 'text-blue-600')}
+        ${renderCompactKpiCard('需要特殊工艺菲票数', needSpecialCraft, '', 'text-slate-900')}
+        ${renderCompactKpiCard('已回仓菲票数', returnedSpecialCraft, '', 'text-emerald-600')}
+        ${renderCompactKpiCard('未回仓菲票数', Math.max(needSpecialCraft - returnedSpecialCraft, 0), '', 'text-amber-600')}
+        ${renderCompactKpiCard('中转袋数', transferBagCount, '', 'text-slate-700')}
+        ${renderCompactKpiCard('已配齐中转袋数', completedTransferBagCount, '', 'text-emerald-600')}
+        ${renderCompactKpiCard('已发车缝件数', shippedQty, '', 'text-blue-600')}
+        ${renderCompactKpiCard('剩余未发件数', remainingQty, '', 'text-amber-600')}
+        ${renderCompactKpiCard('差异数量', differenceCount, `异议数量 ${objectionCount}`, 'text-rose-600')}
+      </div>
     </section>
   `
 }
@@ -1274,6 +1432,9 @@ function renderPage(): string {
       ${renderFilterBar()}
       ${renderIssueBoard(issues)}
       ${renderCheckStateBar(filteredRows)}
+      ${renderSpecialCraftReturnOverview(filteredRows)}
+      ${renderSewingDispatchOverview(filteredRows)}
+      ${renderProgressStatisticsSummary(filteredRows)}
       ${renderCuttingStatusOverview(filteredRows)}
       ${renderMainTable(filteredRows)}
       <section class="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(360px,1fr)]">

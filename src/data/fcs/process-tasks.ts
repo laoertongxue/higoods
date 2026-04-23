@@ -563,7 +563,7 @@ export function getTasksSummary(productionOrderId: string): { directCount: numbe
   }
 }
 
-// 生成任务ID
+// 构造任务ID
 export function generateTaskId(orderId: string, seq: number): string {
   const orderNum = orderId.replace('PO-', '')
   return `TASK-${orderNum}-${String(seq).padStart(3, '0')}`

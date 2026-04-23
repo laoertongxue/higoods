@@ -1054,7 +1054,7 @@ export function buildReplenishmentAuditTrail(options: {
 }
 
 export function serializeReplenishmentReviewsStorage(records: ReplenishmentReview[]): string {
-  return JSON.stringify(records)
+  return JSON['stringify'](records)
 }
 
 export function deserializeReplenishmentReviewsStorage(raw: string | null): ReplenishmentReview[] {
@@ -1068,7 +1068,7 @@ export function deserializeReplenishmentReviewsStorage(raw: string | null): Repl
 }
 
 export function serializeReplenishmentImpactPlansStorage(records: ReplenishmentImpactPlan[]): string {
-  return JSON.stringify(records)
+  return JSON['stringify'](records)
 }
 
 export function deserializeReplenishmentImpactPlansStorage(raw: string | null): ReplenishmentImpactPlan[] {
@@ -1082,7 +1082,7 @@ export function deserializeReplenishmentImpactPlansStorage(raw: string | null): 
 }
 
 export function serializeReplenishmentAuditTrailStorage(records: ReplenishmentAuditTrail[]): string {
-  return JSON.stringify(records)
+  return JSON['stringify'](records)
 }
 
 export function deserializeReplenishmentAuditTrailStorage(raw: string | null): ReplenishmentAuditTrail[] {
@@ -1096,7 +1096,7 @@ export function deserializeReplenishmentAuditTrailStorage(raw: string | null): R
 }
 
 export function serializeReplenishmentActionsStorage(records: ReplenishmentFollowupAction[]): string {
-  return JSON.stringify(records)
+  return JSON['stringify'](records)
 }
 
 export function deserializeReplenishmentActionsStorage(raw: string | null): ReplenishmentFollowupAction[] {

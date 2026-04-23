@@ -1,3 +1,6 @@
+import fs from 'node:fs'
+import path from 'node:path'
+
 import { getTaskProcessDisplayName } from '../src/data/fcs/page-adapters/task-execution-adapter.ts'
 import {
   listPdaCuttingTaskScenarios,
@@ -25,6 +28,14 @@ import {
 
 function fail(message: string): never {
   throw new Error(`[check-pda-task-receive-scope] ${message}`)
+}
+
+function read(relativePath: string): string {
+  return fs.readFileSync(path.resolve(relativePath), 'utf8')
+}
+
+function buildToken(...parts: string[]): string {
+  return parts.join('')
 }
 
 function assertNoExcludedProcess(values: string[], label: string): void {
@@ -168,6 +179,23 @@ PDA_RECEIVE_EXCLUDED_PROCESS_NAMES.forEach((processName) => {
     fail(`执行链已找不到 ${processName} 任务，说明接单范围过滤误伤了其他 PDA 模块`)
   }
 })
+
+const handoverDetailSource = read('src/pages/pda-handover-detail.ts')
+const warehouseWaitProcessSource = read('src/pages/pda-warehouse-wait-process.ts')
+const warehouseInboundSource = read('src/pages/pda-warehouse-inbound-records.ts')
+
+if (!handoverDetailSource.includes('confirm-pickup-record')) {
+  fail('待领料确认主流程不在原交接详情页')
+}
+if (warehouseWaitProcessSource.includes(buildToken('确认', '领料'))) {
+  fail('待加工仓页面不应替代待领料确认主流程')
+}
+if (
+  warehouseInboundSource.includes(buildToken('手动', '入库'))
+  || warehouseInboundSource.includes(buildToken('新增', '入库记录'))
+) {
+  fail('入库记录页面不应替代待领料入库主流程')
+}
 
 console.log('[check-pda-task-receive-scope] 接单模块范围过滤通过')
 console.table(

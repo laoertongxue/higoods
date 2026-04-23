@@ -19,7 +19,7 @@ const listHtml = await renderPcsProjectListPage()
 
 assert.match(listHtml, /商品项目列表/, '列表页应渲染商品项目标题')
 assert.match(listHtml, /新建商品项目/, '列表页应提供新建项目入口')
-assert.match(listHtml, /设计款中式盘扣上衣|双渠道归档项目/, '列表页应包含演示项目数据')
+assert.match(listHtml, /设计款中式结饰上衣|双渠道归档项目/, '列表页应包含演示项目数据')
 
 const project = listProjects()[0]
 assert.ok(project, '应存在可用的演示项目')

@@ -7,6 +7,7 @@ import { productionOrders } from '../src/data/fcs/production-orders.ts'
 import { getProductionOrderTechPackSnapshot } from '../src/data/fcs/production-order-tech-pack-runtime.ts'
 import { buildProductionConfirmationSnapshot } from '../src/data/fcs/production-confirmation.ts'
 import { renderProductionConfirmationPrintPage } from '../src/pages/production/confirmation-print.ts'
+import { removedPseudoCraftNames } from './utils/special-craft-banlist.ts'
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 
@@ -83,8 +84,9 @@ assertIncludes(processCraftSource, 'export function listSelectableSpecialCraftDe
 assertIncludes(processCraftSource, "item.isSpecialCraft", '统一特殊工艺出口必须限制特殊工艺')
 assertIncludes(processCraftSource, "item.processCode === 'SPECIAL_CRAFT'", '统一特殊工艺出口必须只返回特殊工艺工序')
 assertIncludes(processCraftSource, 'SPECIAL_CRAFT', '工序工艺字典必须存在特殊工艺工序')
-assertNotIncludes(patternContextSource, '印花工艺', '技术包特殊工艺 helper 不得再暴露印花工艺')
-assertNotIncludes(patternContextSource, '染色工艺', '技术包特殊工艺 helper 不得再暴露染色工艺')
+removedPseudoCraftNames.forEach((token) => {
+  assertNotIncludes(patternContextSource, token, '技术包特殊工艺 helper 不得暴露已删除伪特殊工艺')
+})
 
 assertIncludes(patternEventsSource, "if (state.newPattern.patternMaterialType !== 'KNIT') return true", '新增裁片入口必须只对针织纸样开放')
 assertIncludes(patternDomainSource, '新增裁片', '针织纸样必须显示新增裁片入口')

@@ -10,6 +10,11 @@ import {
   getActiveProcessOptions,
   resolveProcessCraft,
 } from '../src/data/fcs/process-craft-dict.ts'
+import {
+  includesRemovedPseudoCraft,
+  removedLegacyCraftNames,
+  removedLegacyProcessCodes,
+} from './utils/special-craft-banlist.ts'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const PAGE_PATH = path.join(ROOT, 'src/pages/capacity.ts')
@@ -25,6 +30,7 @@ function main(): void {
   const dataSource = read(DATA_PATH)
   const packageSource = read(PACKAGE_PATH)
   const riskData = buildCapacityRiskData()
+  const removedCraftNameSet = new Set(removedLegacyCraftNames)
 
   const riskSectionMatch = pageSource.match(/export function renderCapacityRiskPage\(\): string \{[\s\S]*?function filterBottleneckCraftRows/)
   assert(riskSectionMatch, '未找到任务工时风险页面渲染函数')
@@ -91,12 +97,10 @@ function main(): void {
   assert(
     !riskData.taskRows.some((row) =>
       row.processCode === 'WASHING'
-      || row.processCode === 'HARDWARE'
-      || row.processCode === 'FROG_BUTTON'
-      || row.craftName === '鸡眼扣'
-      || row.craftName === '手工盘扣'
+      || removedLegacyProcessCodes.includes(row.processCode)
+      || removedCraftNameSet.has(row.craftName)
     ),
-    '任务工时风险中仍存在 WASHING / 五金 / 盘扣历史口径',
+    '任务工时风险中仍存在已删除旧口径',
   )
 
   ;[
@@ -113,8 +117,7 @@ function main(): void {
     assert(!riskSection.includes(token), `任务工时风险页仍展示专属细维度：${token}`)
   })
 
-  assert(!riskSection.includes('特殊工艺 / 印花工艺'), '任务工时风险页仍硬编码“特殊工艺 / 印花工艺”')
-  assert(!riskSection.includes('特殊工艺 / 染色工艺'), '任务工时风险页仍硬编码“特殊工艺 / 染色工艺”')
+  assert(!includesRemovedPseudoCraft(riskSection), '任务工时风险页仍硬编码已删除伪特殊工艺')
   assert(!riskSection.includes('裁片 - 定位裁'), '任务工时风险页仍保留“裁片 - 定位裁”固定样例')
 
   assert(!/\baxios\b|(^|[^\w])fetch\(|\bapiClient\b|\/api\//.test(pageSource + dataSource), '本次范围内出现 API 改造')

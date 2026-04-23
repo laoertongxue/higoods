@@ -43,6 +43,9 @@ import {
   resolveFeiTicketScanInput,
 } from './traceability-projection-helpers'
 import {
+  listCuttingSewingTransferBags,
+} from '../../../data/fcs/cutting/sewing-dispatch.ts'
+import {
   buildBagUsageAuditTrail,
   buildTransferBagParentChildSummary,
   createTransferBagDispatchManifest,
@@ -1595,6 +1598,61 @@ function renderDemoFixturePanel(): string {
   return ''
 }
 
+function renderSewingDispatchTransferBagPanel(): string {
+  const sewingBags = listCuttingSewingTransferBags()
+  if (!sewingBags.length) return ''
+
+  return `
+    <section class="rounded-lg border bg-card">
+      <div class="flex items-center justify-between border-b px-4 py-3">
+        <div>
+          <h2 class="text-sm font-semibold text-foreground">裁片发料中转袋</h2>
+          <p class="mt-1 text-xs text-muted-foreground">中转袋归属中转单，展示发料批次、袋内菲票、齐套状态、发料状态、回写状态和差异。</p>
+        </div>
+        <button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-nav="${escapeHtml(getCanonicalCuttingPath('sewing-dispatch'))}">查看裁片发料</button>
+      </div>
+      ${renderStickyTableScroller(`
+        <table class="min-w-[1080px] w-full text-sm">
+          <thead class="bg-muted/60 text-xs text-muted-foreground">
+            <tr>
+              <th class="px-4 py-3 text-left">中转袋号</th>
+              <th class="px-4 py-3 text-left">中转单号</th>
+              <th class="px-4 py-3 text-left">发料批次</th>
+              <th class="px-4 py-3 text-left">生产单</th>
+              <th class="px-4 py-3 text-left">车缝厂</th>
+              <th class="px-4 py-3 text-left">袋内菲票</th>
+              <th class="px-4 py-3 text-left">齐套状态</th>
+              <th class="px-4 py-3 text-left">发料状态</th>
+              <th class="px-4 py-3 text-left">回写状态</th>
+              <th class="px-4 py-3 text-left">差异数量</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${sewingBags
+              .map(
+                (bag) => `
+                  <tr class="border-t">
+                    <td class="px-4 py-3 font-medium text-blue-700">${escapeHtml(bag.transferBagNo)}</td>
+                    <td class="px-4 py-3">${escapeHtml(bag.transferOrderNo)}</td>
+                    <td class="px-4 py-3">${escapeHtml(bag.dispatchBatchId)}</td>
+                    <td class="px-4 py-3">${escapeHtml(bag.productionOrderNo)}</td>
+                    <td class="px-4 py-3">${escapeHtml(bag.sewingFactoryName)}</td>
+                    <td class="px-4 py-3">${escapeHtml(`${bag.scannedFeiTicketNos.length} 张`)}</td>
+                    <td class="px-4 py-3">${escapeHtml(bag.completeStatus)}</td>
+                    <td class="px-4 py-3">${escapeHtml(bag.dispatchStatus)}</td>
+                    <td class="px-4 py-3">${escapeHtml(bag.receiverWrittenQty === undefined ? '待回写' : bag.differenceQty ? '差异' : '已回写')}</td>
+                    <td class="px-4 py-3">${escapeHtml(String(bag.differenceQty || 0))}</td>
+                  </tr>
+                `,
+              )
+              .join('')}
+          </tbody>
+        </table>
+      `)}
+    </section>
+  `
+}
+
 function renderMasterSection(): string {
   const { filteredItems, pageSlice } = getPagedMasters()
   const items = pageSlice.items
@@ -2667,6 +2725,7 @@ function renderListPage(): string {
       ${renderPrefilterBar()}
       ${renderLandingBanner()}
       ${renderFeedbackBar()}
+      ${renderSewingDispatchTransferBagPanel()}
       ${renderMasterSection()}
     </div>
   `

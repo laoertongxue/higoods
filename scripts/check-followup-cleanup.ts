@@ -5,6 +5,11 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import {
+  getRemovedLegacyTermPattern,
+  getRemovedPseudoCraftPattern,
+} from './utils/special-craft-banlist.ts'
+
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 
 function resolveRepoPath(...segments: string[]): string {
@@ -58,6 +63,14 @@ function assertIncludes(source: string, token: string, message: string): void {
   assert(source.includes(token), message)
 }
 
+function joinText(parts: string[]): string {
+  return parts.join('')
+}
+
+function buildToken(...parts: string[]): string {
+  return parts.join('')
+}
+
 const hardcodedPathPattern = new RegExp(
   [
     ['/U', 'sers/'].join(''),
@@ -83,6 +96,22 @@ for (const file of [...scriptFiles, 'package.json']) {
 
 assertIncludes(packageSource, 'check:capacity-risk-process-craft-source', 'package.json 缺少任务工时风险工序工艺来源检查命令')
 assert(fs.existsSync(resolveRepoPath('scripts/check-capacity-risk-process-craft-source.ts')), '缺少任务工时风险工序工艺来源检查脚本')
+assertIncludes(packageSource, 'check:factory-internal-warehouse-model', 'package.json 缺少工厂内部仓模型检查命令')
+assert(fs.existsSync(resolveRepoPath('scripts/check-factory-internal-warehouse-model.ts')), '缺少工厂内部仓模型检查脚本')
+assertIncludes(packageSource, 'check:factory-mobile-app-redesign', 'package.json 缺少工厂端移动应用改造检查命令')
+assert(fs.existsSync(resolveRepoPath('scripts/check-factory-mobile-app-redesign.ts')), '缺少工厂端移动应用改造检查脚本')
+assertIncludes(packageSource, 'check:factory-handover-warehouse-linkage', 'package.json 缺少交接与仓管联动检查命令')
+assert(fs.existsSync(resolveRepoPath('scripts/check-factory-handover-warehouse-linkage.ts')), '缺少交接与仓管联动检查脚本')
+assertIncludes(packageSource, 'check:special-craft-operation-menus', 'package.json 缺少特殊工艺一级菜单检查命令')
+assert(fs.existsSync(resolveRepoPath('scripts/check-special-craft-operation-menus.ts')), '缺少特殊工艺一级菜单检查脚本')
+assertIncludes(packageSource, 'check:special-craft-task-generation', 'package.json 缺少生产单特殊工艺任务生成检查命令')
+assert(fs.existsSync(resolveRepoPath('scripts/check-special-craft-task-generation.ts')), '缺少生产单特殊工艺任务生成检查脚本')
+assertIncludes(packageSource, 'check:cutting-special-craft-dispatch-return', 'package.json 缺少裁床特殊工艺发料与回仓检查命令')
+assert(fs.existsSync(resolveRepoPath('scripts/check-cutting-special-craft-dispatch-return.ts')), '缺少裁床特殊工艺发料与回仓检查脚本')
+assertIncludes(packageSource, 'check:cutting-sewing-dispatch', 'package.json 缺少裁片发料检查命令')
+assert(fs.existsSync(resolveRepoPath('scripts/check-cutting-sewing-dispatch.ts')), '缺少裁片发料检查脚本')
+assertIncludes(packageSource, 'check:progress-statistics-linkage', 'package.json 缺少统计与进度联动检查命令')
+assert(fs.existsSync(resolveRepoPath('scripts/check-progress-statistics-linkage.ts')), '缺少统计与进度联动检查脚本')
 assertIncludes(packageSource, 'check:fcs-inactive-process-craft-usage', 'package.json 缺少停用工序工艺核查命令')
 assert(fs.existsSync(resolveRepoPath('scripts/check-fcs-inactive-process-craft-usage.ts')), '缺少停用工序工艺核查脚本')
 assertIncludes(packageSource, 'check:fcs-tech-pack-special-craft-source-and-dialog-stability', 'package.json 缺少技术包特殊工艺来源与弹窗稳定性检查命令')
@@ -90,17 +119,18 @@ assert(fs.existsSync(resolveRepoPath('scripts/check-fcs-tech-pack-special-craft-
 assertIncludes(capacityDataSource, 'getActiveProcessOptions()', '任务工时风险数据层未改为工序工艺字典 helper')
 assertIncludes(capacityDataSource, 'getActiveCraftOptionsByProcess()', '任务工时风险工艺筛选未改为工序工艺字典 helper')
 assertIncludes(capacityDataSource, 'assertProcessCraftExists(', '任务工时风险数据层未校验工序工艺字典')
-assertNoMatch(capacityPageSource, /特殊工艺 \/ 印花工艺|特殊工艺 \/ 染色工艺|裁片 - 定位裁/, '任务工时风险页仍残留固定工序工艺样例')
-assertNoMatch(processCraftDictSource, /印花工艺|染色工艺/, '工序工艺字典源码仍残留印花工艺 / 染色工艺伪特殊工艺')
+assertNoMatch(capacityPageSource, /裁片 - 定位裁/, '任务工时风险页仍残留固定工序工艺样例')
+assertNoMatch(capacityPageSource, getRemovedPseudoCraftPattern(), '任务工时风险页仍残留已删除伪特殊工艺')
+assertNoMatch(processCraftDictSource, getRemovedPseudoCraftPattern(), '工序工艺字典源码仍残留已删除伪特殊工艺')
 
 const techPackSource = read('src/data/fcs/tech-packs.ts')
 const routingTemplateSource = read('src/data/fcs/routing-templates.ts')
 const techPackContextSource = read('src/pages/tech-pack/context.ts')
-assertNoMatch(techPackSource, /手工盘扣|鸡眼扣|盘扣/, 'FCS 技术包演示数据仍残留停用工艺口径')
-assertNoMatch(routingTemplateSource, /手工盘扣|鸡眼扣|盘扣/, 'FCS 工艺路线模板仍残留停用工艺口径')
+assertNoMatch(techPackSource, getRemovedLegacyTermPattern(), 'FCS 技术包演示数据仍残留已删除旧项')
+assertNoMatch(routingTemplateSource, getRemovedLegacyTermPattern(), 'FCS 工艺路线模板仍残留已删除旧项')
 assertNoMatch(techPackContextSource, /listAllProcessCraftDefinitions\(\)\.find\(\(craftItem\) => craftItem\.craftName === item\.name\)/, '技术包页面仍回填历史停用工艺')
 assertIncludes(techPackContextSource, 'getPatternPieceSpecialCraftOptionsFromCurrentTechPack', '技术包页面缺少基于当前技术包的特殊工艺 helper')
-assertNoMatch(techPackContextSource, /印花工艺|染色工艺/, '技术包上下文仍残留印花工艺 / 染色工艺')
+assertNoMatch(techPackContextSource, getRemovedPseudoCraftPattern(), '技术包上下文仍残留已删除伪特殊工艺')
 
 const legacyCheckSource = read('scripts/check-legacy-terminology-cleanup.ts')
 assertIncludes(legacyCheckSource, "listDirectoryFiles('tests'", 'legacy 检查缺少 tests 目录安全扫描')
@@ -197,6 +227,279 @@ assertNoMatch(
 const noWmsScopeSource = [materialPrepPage, materialPrepData, readIfExists('src/pages/process-factory/cutting/sample-warehouse.ts')].join('\n')
 assertNoMatch(noWmsScopeSource, /库存三态|availableStock|occupiedStock|inTransitStock|库位上架|拣货波次|完整入库|WMS入库|locationRule/, '本轮范围内出现完整 WMS 越界')
 
+const factoryWarehouseSource = [
+  read('src/data/fcs/factory-internal-warehouse.ts'),
+  read('src/data/fcs/factory-warehouse-linkage.ts'),
+  read('src/pages/factory-internal-warehouse.ts'),
+].join('\n')
+const specialCraftSource = [
+  read('src/data/fcs/special-craft-operations.ts'),
+  read('src/data/fcs/special-craft-task-orders.ts'),
+  read('src/pages/process-factory/special-craft/task-orders.ts'),
+  read('src/pages/process-factory/special-craft/task-detail.ts'),
+  read('src/pages/process-factory/special-craft/warehouse.ts'),
+  read('src/pages/process-factory/special-craft/statistics.ts'),
+  read('src/pages/process-factory/cutting/special-processes.ts'),
+  read('src/data/app-shell-config.ts'),
+  read('src/router/routes-fcs.ts'),
+  read('src/router/route-renderers-fcs.ts'),
+].join('\n')
+const factoryMobileSource = [
+  read('src/pages/pda-shell.ts'),
+  read('src/pages/pda-notify.ts'),
+  read('src/pages/pda-notify-detail.ts'),
+  read('src/pages/pda-warehouse.ts'),
+  read('src/pages/pda-warehouse-wait-process.ts'),
+  read('src/pages/pda-warehouse-wait-handover.ts'),
+  read('src/pages/pda-warehouse-inbound-records.ts'),
+  read('src/pages/pda-warehouse-outbound-records.ts'),
+  read('src/pages/pda-warehouse-stocktake.ts'),
+  read('src/data/fcs/factory-mobile-todos.ts'),
+  read('src/data/fcs/factory-mobile-warehouse.ts'),
+].join('\n')
+const cuttingSpecialCraftPageSource = [
+  read('src/pages/process-factory/cutting/special-craft-dispatch.ts'),
+  read('src/pages/process-factory/cutting/special-craft-return.ts'),
+  read('src/pages/process-factory/cutting/fei-tickets.ts'),
+  read('src/pages/process-factory/cutting/production-progress.ts'),
+  read('src/pages/process-factory/cutting/cutting-summary.ts'),
+  read('src/pages/process-factory/special-craft/task-detail.ts'),
+  read('src/pages/process-factory/special-craft/warehouse.ts'),
+].join('\n')
+const cuttingSpecialCraftFlowSource = [
+  read('src/data/fcs/cutting/special-craft-fei-ticket-flow.ts'),
+  cuttingSpecialCraftPageSource,
+].join('\n')
+const cuttingSewingDispatchSource = [
+  read('src/data/fcs/cutting/sewing-dispatch.ts'),
+  read('src/pages/process-factory/cutting/sewing-dispatch.ts'),
+  read('src/pages/process-factory/cutting/transfer-bags.ts'),
+  read('src/pages/process-factory/cutting/fei-tickets.ts'),
+  read('src/pages/process-factory/cutting/production-progress.ts'),
+  read('src/pages/process-factory/cutting/cutting-summary.ts'),
+  read('src/pages/production/detail-domain.ts'),
+  read('src/pages/pda-handover.ts'),
+  read('src/pages/pda-handover-detail.ts'),
+].join('\n')
+const progressStatisticsSource = [
+  read('src/data/fcs/progress-statistics-linkage.ts'),
+  read('src/pages/progress-board/core.ts'),
+  read('src/pages/production/detail-domain.ts'),
+  read('src/pages/process-factory/cutting/production-progress.ts'),
+  read('src/pages/process-factory/cutting/cutting-summary.ts'),
+  read('src/pages/process-factory/special-craft/statistics.ts'),
+  read('src/pages/factory-internal-warehouse.ts'),
+  read('src/pages/pda-warehouse-shared.ts'),
+].join('\n')
+const legacyWarehouseCopyPattern = new RegExp(
+  [joinText(['来', '料仓']), joinText(['半成品', '仓'])].map((token) => escapeRegExp(token)).join('|'),
+)
+const buildLegacyMobileCopy = (...parts: string[]): string => parts.join('')
+const visiblePdaCopyPattern = new RegExp(
+  [
+    `>[^<]*${buildLegacyMobileCopy('PD', 'A')}`,
+    buildLegacyMobileCopy('PDA', '执行'),
+    buildLegacyMobileCopy('PDA', '交接'),
+    buildLegacyMobileCopy('PDA', '仓管'),
+    buildLegacyMobileCopy('PDA', '待办'),
+    buildLegacyMobileCopy('PDA', '扫码'),
+    buildLegacyMobileCopy('PDA', '质检'),
+  ]
+    .join('|'),
+)
+const mobileWarehouseNoWmsPattern = new RegExp(
+  [
+    joinText(['库存', '三态']),
+    joinText(['可用', '库存']),
+    joinText(['占用', '库存']),
+    joinText(['在途', '库存']),
+    ['available', 'Stock'].join(''),
+    ['occupied', 'Stock'].join(''),
+    ['inTransit', 'Stock'].join(''),
+    joinText(['上架', '任务']),
+    joinText(['拣货', '波次']),
+    joinText(['拣货', '路径']),
+    joinText(['库位', '规则']),
+    joinText(['完整', '库存账']),
+  ]
+    .map((token) => escapeRegExp(token))
+    .join('|'),
+)
+const mobileWarehouseNoManualFlowPattern = new RegExp(
+  [
+    joinText(['确认', '领料']),
+    joinText(['手动', '入库']),
+    joinText(['手动', '出库']),
+  ]
+    .map((token) => escapeRegExp(token))
+    .join('|'),
+)
+const specialCraftNoManualTaskPattern = new RegExp(
+  [
+    joinText(['新增', '任务']),
+    joinText(['生', '成任务']),
+    joinText(['从', '裁片仓', '生成']),
+  ]
+    .map((token) => escapeRegExp(token))
+    .join('|'),
+)
+const specialCraftNoManualWarehousePattern = new RegExp(
+  [
+    joinText(['手动', '入库']),
+    joinText(['手动', '出库']),
+    joinText(['新增', '库存']),
+  ]
+    .map((token) => escapeRegExp(token))
+    .join('|'),
+)
+const specialCraftNoEarlyFeiPattern = new RegExp(
+  [
+    ['bind', 'Fei'].join(''),
+    joinText(['绑定', '菲票']),
+    joinText(['生', '成菲票']),
+  ]
+    .map((token) => escapeRegExp(token))
+    .join('|'),
+)
+const cuttingSpecialCraftDirectShipPattern = new RegExp(
+  [
+    joinText(['直接发', '车', '缝']),
+    joinText(['直发', '车缝']),
+    joinText(['直接发', '成衣', '仓']),
+  ]
+    .map((token) => escapeRegExp(token))
+    .join('|'),
+)
+const cuttingSpecialCraftNoMainModelPattern = new RegExp(
+  [
+    'CuttingSpecialCraftDispatchOrder',
+    'CuttingSpecialCraftReturnOrder',
+    joinText(['特殊工艺', '发料单']),
+    joinText(['特殊工艺', '回仓单']),
+  ]
+    .map((token) => escapeRegExp(token))
+    .join('|'),
+)
+const cuttingSpecialCraftNoTaskGenerationPattern = new RegExp(
+  [
+    joinText(['从', '裁片仓', '生成']),
+    joinText(['裁片', '入仓', '后生成']),
+    'generateSpecialCraftTask',
+  ]
+    .map((token) => escapeRegExp(token))
+    .join('|'),
+)
+const cuttingSewingNoDirectShipPattern = new RegExp(
+  [
+    joinText(['特殊工艺', '厂', '直接发', '车', '缝']),
+    joinText(['直接发', '车', '缝']),
+    joinText(['直接发', '成衣', '仓']),
+  ]
+    .map((token) => escapeRegExp(token))
+    .join('|'),
+)
+const cuttingSewingNoIncompleteDispatchPattern = new RegExp(
+  [
+    joinText(['强制', '通过']),
+    joinText(['忽略', '校验']),
+    joinText(['未配齐', '提交交出']),
+  ]
+    .map((token) => escapeRegExp(token))
+    .join('|'),
+)
+const cuttingSewingNoSecondHandoverPattern = new RegExp(
+  [
+    buildToken('Warehouse', 'HandoverOrder'),
+    buildToken('Factory', 'OutboundOrder'),
+    joinText(['仓库', '交出单']),
+    joinText(['新', '交出框架']),
+    buildToken('Cutting', 'Sewing', 'HandoverOrder'),
+  ]
+    .map((token) => escapeRegExp(token))
+    .join('|'),
+)
+const cuttingSewingNoSewingWarehousePattern = new RegExp(
+  [
+    joinText(['车', '缝厂', '待加工仓']),
+    joinText(['车', '缝厂', '待交出仓']),
+    ['sew', 'ing', 'WAIT_PROCESS'].join('.*'),
+    ['sew', 'ing', 'WAIT_HANDOVER'].join('.*'),
+  ].join('|'),
+)
+assertIncludes(factoryWarehouseSource, '待加工仓', '工厂内部仓缺少待加工仓口径')
+assertIncludes(factoryWarehouseSource, '待交出仓', '工厂内部仓缺少待交出仓口径')
+assertIncludes(factoryWarehouseSource, '创建全盘', '工厂内部仓缺少全盘入口')
+assertNoMatch(factoryWarehouseSource, /库存三态|availableStock|occupiedStock|inTransitStock|上架任务|拣货波次|拣货路径|库位规则|完整库存账/, '工厂内部仓出现 WMS 越界')
+assertNoMatch(factoryWarehouseSource, legacyWarehouseCopyPattern, '工厂内部仓仍保留旧仓库称呼')
+assertIncludes(factoryMobileSource, "label: '接单'", '工厂端移动应用缺少接单 Tab')
+assertIncludes(factoryMobileSource, "label: '执行'", '工厂端移动应用缺少执行 Tab')
+assertIncludes(factoryMobileSource, "label: '交接'", '工厂端移动应用缺少交接 Tab')
+assertIncludes(factoryMobileSource, "label: '仓管'", '工厂端移动应用缺少仓管 Tab')
+assertIncludes(factoryMobileSource, "label: '结算'", '工厂端移动应用缺少结算 Tab')
+assertNoMatch(factoryMobileSource, /label:\s*'待办'/, '工厂端移动应用底部 Tab 仍保留待办')
+assertIncludes(factoryMobileSource, '当前待办', '工厂端移动应用缺少当前待办弹窗')
+assertIncludes(factoryMobileSource, '待办汇总', '工厂端移动应用缺少待办汇总页')
+assertIncludes(factoryMobileSource, '待办详情', '工厂端移动应用缺少待办详情页')
+assertIncludes(factoryMobileSource, '待加工仓', '工厂端仓管缺少待加工仓')
+assertIncludes(factoryMobileSource, '待交出仓', '工厂端仓管缺少待交出仓')
+assertIncludes(factoryMobileSource, '入库记录', '工厂端仓管缺少入库记录')
+assertIncludes(factoryMobileSource, '出库记录', '工厂端仓管缺少出库记录')
+assertIncludes(factoryMobileSource, '盘点', '工厂端仓管缺少盘点')
+assertNoMatch(factoryMobileSource, visiblePdaCopyPattern, '工厂端移动应用仍残留 PDA 用户可见文案')
+assertNoMatch(factoryMobileSource, mobileWarehouseNoWmsPattern, '工厂端仓管出现 WMS 越界口径')
+assertNoMatch(factoryMobileSource, legacyWarehouseCopyPattern, '工厂端仓管仍保留旧仓库称呼')
+assertIncludes(factoryWarehouseSource, 'linkPickupConfirmToInboundRecord', '交接与仓管联动适配层缺少待领料到入库联动')
+assertIncludes(factoryWarehouseSource, 'linkHandoverRecordToOutboundRecord', '交接与仓管联动适配层缺少交出到出库联动')
+assertNoMatch(factoryMobileSource, mobileWarehouseNoManualFlowPattern, '工厂端仓管不应承接手动交接主流程')
+const duplicateWarehouseMainModelPattern = new RegExp(
+  [
+    buildToken('仓库', '领料单'),
+    buildToken('仓库', '交出单'),
+    buildToken('Factory', 'PickupOrder'),
+    buildToken('Warehouse', 'PickupOrder'),
+    buildToken('Factory', 'OutboundOrder'),
+  ]
+    .map((token) => escapeRegExp(token))
+    .join('|'),
+)
+assertNoMatch(factoryWarehouseSource, duplicateWarehouseMainModelPattern, '源码仍残留重复仓库领料/交出主模型')
+assertIncludes(specialCraftSource, 'special-craft', '缺少特殊工艺一级菜单与页面接入')
+assertIncludes(specialCraftSource, '任务单', '特殊工艺页面缺少任务单口径')
+assertIncludes(specialCraftSource, '仓库管理', '特殊工艺页面缺少仓库管理口径')
+assertIncludes(specialCraftSource, '统计', '特殊工艺页面缺少统计口径')
+assertNoMatch(specialCraftSource, specialCraftNoManualTaskPattern, '特殊工艺页面不应提供任务生成主流程')
+assertNoMatch(specialCraftSource, specialCraftNoManualWarehousePattern, '特殊工艺页面不应提供手工仓库主流程')
+assertNoMatch(specialCraftSource, specialCraftNoEarlyFeiPattern, `特殊工艺页面不应提前${buildToken('绑定', '菲票')}`)
+assertNoMatch(specialCraftSource, /库存三态|availableStock|occupiedStock|inTransitStock|上架任务|拣货波次|拣货路径|库位规则|完整库存账/, '特殊工艺页面不应扩展为完整 WMS')
+assertNoMatch(specialCraftSource, /axios|(^|[^\w])fetch\(|apiClient|\/api\/|i18n|useTranslation|locales|translations|echarts|chart\.js|recharts|AI排程|自动排程/, '特殊工艺页面不应越界到 API、i18n、图表库或自动排程')
+assertNoMatch(specialCraftSource, /PDA|来料仓|半成品仓/, '特殊工艺页面不应保留旧文案')
+assertNoMatch(cuttingSpecialCraftFlowSource, cuttingSpecialCraftDirectShipPattern, '裁床特殊工艺发料与回仓不应允许越过裁床统一发料')
+assertNoMatch(cuttingSpecialCraftFlowSource, cuttingSpecialCraftNoMainModelPattern, '裁床特殊工艺发料与回仓不应新增主模型')
+assertNoMatch(cuttingSpecialCraftFlowSource, cuttingSpecialCraftNoTaskGenerationPattern, '裁床特殊工艺发料与回仓不应重新生成特殊工艺任务')
+assertNoMatch(cuttingSpecialCraftPageSource, /QR payload|FCS:|qrPayload|handoverRecordQrValue|feiTicketQrValue|JSON\.stringify/, '裁床特殊工艺页面不应直显二维码 payload 或 JSON')
+assertIncludes(cuttingSewingDispatchSource, 'CuttingSewingDispatchOrder', '裁片发料缺少发料单模型')
+assertIncludes(cuttingSewingDispatchSource, 'CuttingSewingDispatchBatch', '裁片发料缺少本次发料批次模型')
+assertIncludes(cuttingSewingDispatchSource, 'CuttingSewingTransferBag', '裁片发料缺少中转袋模型')
+assertIncludes(cuttingSewingDispatchSource, 'validateTransferBagCompleteness', '裁片发料缺少中转袋齐套校验')
+assertIncludes(cuttingSewingDispatchSource, 'validateDispatchBatchCompleteness', '裁片发料缺少本次发料齐套校验')
+assertIncludes(cuttingSewingDispatchSource, 'submitCuttingSewingDispatchBatch', '裁片发料缺少提交交出逻辑')
+assertIncludes(cuttingSewingDispatchSource, 'syncSewingReceiveWritebackToDispatch', '裁片发料缺少车缝厂回写同步')
+assertNoMatch(cuttingSewingDispatchSource, cuttingSewingNoDirectShipPattern, '裁片发料不应允许越过裁床统一发料')
+assertNoMatch(cuttingSewingDispatchSource, cuttingSewingNoIncompleteDispatchPattern, '裁片发料不应允许未配齐交出')
+assertNoMatch(cuttingSewingDispatchSource, cuttingSewingNoSecondHandoverPattern, '裁片发料不应新增第二套交出框架')
+assertNoMatch(cuttingSewingDispatchSource, cuttingSewingNoSewingWarehousePattern, '裁片发料不应给车缝厂生成内部仓')
+assertNoMatch(cuttingSewingDispatchSource, /QR payload|FCS:|JSON\.stringify/, '裁片发料页面不应直显二维码原始内容')
+assertIncludes(progressStatisticsSource, 'progress-statistics-linkage', '统计与进度联动缺少统一聚合文件')
+assertIncludes(progressStatisticsSource, 'buildProductionProgressSnapshot', '统计与进度联动缺少生产进度聚合')
+assertIncludes(progressStatisticsSource, 'buildSewingDispatchProgressSnapshot', '统计与进度联动缺少裁片发料进度聚合')
+assertIncludes(progressStatisticsSource, '统计结果只作为只读投影，不作为状态源头', '统计结果不得成为状态源头')
+assertIncludes(progressStatisticsSource, '特殊工艺未回仓', '统计联动必须保留特殊工艺未回仓阻塞')
+assertNoMatch(progressStatisticsSource, /未知原因|系统异常|其他原因/, '统计联动阻塞原因不应使用不可解释口径')
+assertNoMatch(progressStatisticsSource, /自动排程|AI排程|智能调度|自动派单|自动改派|autoSchedule|smartSchedule|scheduleSuggestion/, '统计联动不应新增自动排程或派单')
+assertNoMatch(progressStatisticsSource, /echarts|chart\.js|recharts/, '统计联动不应新增图表库')
+assertNoMatch(progressStatisticsSource, /axios|(^|[^\w])fetch\(|apiClient|\/api\/|i18n|useTranslation|locales|translations/, '统计联动不应新增 API 或 i18n')
+assertNoMatch(progressStatisticsSource, /库存三态|availableStock|occupiedStock|inTransitStock|上架任务|拣货波次|拣货路径|库位规则|完整库存账/, '统计联动不应扩展完整 WMS')
+
 console.log(
   JSON.stringify(
     {
@@ -207,6 +510,11 @@ console.log(
       中转可配置面料: '通过',
       样衣仓轻量能力: '通过',
       前端动作权限: '通过',
+      工厂端移动应用: '通过',
+      交接仓管联动: '通过',
+      特殊工艺一级菜单: '通过',
+      裁床特殊工艺发料回仓: '通过',
+      裁片统一发车缝: '通过',
     },
     null,
     2,

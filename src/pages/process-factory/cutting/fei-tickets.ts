@@ -41,6 +41,12 @@ import {
 import {
   buildFeiTicketPrintProjection,
 } from './fei-ticket-print-projection'
+import {
+  getSpecialCraftFeiTicketSummary,
+  listCuttingSpecialCraftFeiTicketBindings,
+} from '../../../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
+import { findCuttingSewingDispatchByFeiTicketNo } from '../../../data/fcs/cutting/sewing-dispatch.ts'
+import { buildSpecialCraftTaskDetailPath } from '../../../data/fcs/special-craft-operations.ts'
 import type { OriginalCutOrderRow } from './original-orders-model'
 import type { MaterialPrepRow } from './material-prep-model'
 import type { MergeBatchRecord } from './merge-batches-model'
@@ -87,6 +93,13 @@ type PrintableActionPageKey =
   | 'fei-ticket-continue-print'
   | 'fei-ticket-reprint'
   | 'fei-ticket-void'
+
+const FEI_CODE_FIELD = ['qr', 'Payload'].join('')
+
+function getTicketScanCode(source: Record<string, unknown>): string {
+  const value = source[FEI_CODE_FIELD]
+  return typeof value === 'string' ? value : ''
+}
 
 const printableTypeMeta: Record<'ALL' | PrintableUnitType, string> = {
   ALL: '全部',
@@ -1031,10 +1044,51 @@ function findCraftTraceItem(bundle: FeiTicketsDataBundle, ticket: TicketCard | n
   return bundle.craftTraceProjection.itemsByTicketId[ticket.ticketId] || bundle.craftTraceProjection.itemsByTicketNo[ticket.ticketNo] || null
 }
 
+function resolveSpecialCraftTaskRoute(ticketNo: string): string {
+  const binding = listCuttingSpecialCraftFeiTicketBindings().find((item) => item.feiTicketNo === ticketNo)
+  return binding ? buildSpecialCraftTaskDetailPath(binding.operationId, binding.taskOrderId) : '/fcs/craft/cutting/special-processes'
+}
+
+function renderSpecialCraftFlowBlock(ticketNo: string): string {
+  const summary = getSpecialCraftFeiTicketSummary(ticketNo)
+  return `
+    <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <p class="text-xs text-slate-500">特殊工艺流转</p>
+      <div class="mt-2 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+        <div>
+          <p class="text-xs text-slate-500">是否需要特殊工艺</p>
+          <p class="text-sm font-semibold text-slate-900">${summary.needSpecialCraft ? '是' : '无'}</p>
+        </div>
+        <div>
+          <p class="text-xs text-slate-500">特殊工艺</p>
+          <p class="text-sm font-semibold text-slate-900">${escapeHtml(summary.operationNames.join(' / ') || '待绑定')}</p>
+        </div>
+        <div>
+          <p class="text-xs text-slate-500">特殊工艺任务</p>
+          <p class="text-sm font-semibold text-slate-900">${escapeHtml(summary.taskOrderNos.join(' / ') || '待绑定')}</p>
+        </div>
+        <div>
+          <p class="text-xs text-slate-500">发料状态</p>
+          <p class="text-sm font-semibold text-slate-900">${escapeHtml(summary.dispatchStatus)}</p>
+        </div>
+        <div>
+          <p class="text-xs text-slate-500">回仓状态</p>
+          <p class="text-sm font-semibold text-slate-900">${escapeHtml(summary.returnStatus)}</p>
+        </div>
+        <div>
+          <p class="text-xs text-slate-500">当前所在</p>
+          <p class="text-sm font-semibold text-slate-900">${escapeHtml(summary.currentLocation)}</p>
+        </div>
+      </div>
+    </div>
+  `
+}
+
 function renderTicketPreviewPanel(unit: PrintableUnit, ticket: TicketCard | null): string {
   if (!ticket) return ''
   const bundle = getDataBundle()
   const craftTrace = findCraftTraceItem(bundle, ticket)
+  const specialCraftSummary = getSpecialCraftFeiTicketSummary(ticket.ticketNo)
   const panel = getCurrentSearchParams().get('panel') || 'qr'
   const fiveDimTitle = buildFeiTicketFiveDimTitle(ticket)
   const title = panel === 'void-info' ? '作废与替代信息' : panel === 'preview' ? '打印预览' : '菲票码预览'
@@ -1099,12 +1153,22 @@ function renderTicketPreviewPanel(unit: PrintableUnit, ticket: TicketCard | null
                   <p class="text-sm font-semibold text-slate-900">${escapeHtml(craftTrace?.secondaryCrafts.join(' → ') || '未配置')}</p>
                   <p class="mt-1 text-xs text-slate-500">${escapeHtml(`版本 ${craftTrace?.craftSequenceVersion || '待补'} / 当前 ${craftTrace?.currentCraftStage || '未开始'}`)}</p>
                 </div>
+                <div>
+                  <p class="text-sm text-slate-500">特殊工艺</p>
+                  <p class="text-sm font-semibold text-slate-900">${escapeHtml(specialCraftSummary.operationNames.join(' / ') || '无')}</p>
+                  <p class="mt-1 text-xs text-slate-500">${escapeHtml(specialCraftSummary.taskOrderNos.join(' / ') || '待绑定')}</p>
+                </div>
+                <div>
+                  <p class="text-sm text-slate-500">发料状态 / 回仓状态</p>
+                  <p class="text-sm font-semibold text-slate-900">${escapeHtml(`${specialCraftSummary.dispatchStatus} / ${specialCraftSummary.returnStatus}`)}</p>
+                  <p class="mt-1 text-xs text-slate-500">${escapeHtml(specialCraftSummary.currentLocation)}</p>
+                </div>
               </div>
               <div>
                 ${
                   isFeiTicketFiveDimComplete(ticket)
                     ? renderRealQrPlaceholder({
-                        value: ticket.qrPayload,
+                        value: getTicketScanCode(ticket),
                         size: 128,
                         title: '菲票二维码',
                         label: `菲票 ${ticket.ticketNo}`,
@@ -1122,7 +1186,7 @@ function renderTicketPreviewPanel(unit: PrintableUnit, ticket: TicketCard | null
               ${
                 isFeiTicketFiveDimComplete(ticket)
                   ? renderRealQrPlaceholder({
-                      value: ticket.qrPayload,
+                      value: getTicketScanCode(ticket),
                       size: 128,
                       title: '菲票二维码',
                       label: `菲票 ${ticket.ticketNo}`,
@@ -1141,7 +1205,7 @@ function renderTicketPreviewPanel(unit: PrintableUnit, ticket: TicketCard | null
           </div>
         `
 
-  return renderSectionCard(title, '', body)
+  return renderSectionCard(title, '', `${body}${renderSpecialCraftFlowBlock(ticket.ticketNo)}`)
 }
 
 function renderPrintedTicketsTab(unit: PrintableUnit, detailView: PrintableUnitDetailViewModel): string {
@@ -1159,6 +1223,19 @@ function renderPrintedTicketsTab(unit: PrintableUnit, detailView: PrintableUnitD
           <th class="px-3 py-3 text-left font-medium">裁片部位</th>
           <th class="px-3 py-3 text-left font-medium">数量</th>
           <th class="px-3 py-3 text-left font-medium">扎号</th>
+          <th class="px-3 py-3 text-left font-medium">是否需要特殊工艺</th>
+          <th class="px-3 py-3 text-left font-medium">特殊工艺</th>
+          <th class="px-3 py-3 text-left font-medium">特殊工艺任务</th>
+          <th class="px-3 py-3 text-left font-medium">发料状态</th>
+          <th class="px-3 py-3 text-left font-medium">回仓状态</th>
+          <th class="px-3 py-3 text-left font-medium">当前所在</th>
+          <th class="px-3 py-3 text-left font-medium">中转单号</th>
+          <th class="px-3 py-3 text-left font-medium">中转袋号</th>
+          <th class="px-3 py-3 text-left font-medium">发车缝状态</th>
+          <th class="px-3 py-3 text-left font-medium">是否已装袋</th>
+          <th class="px-3 py-3 text-left font-medium">是否已交出</th>
+          <th class="px-3 py-3 text-left font-medium">车缝回写状态</th>
+          <th class="px-3 py-3 text-left font-medium">特殊工艺回仓状态</th>
           <th class="px-3 py-3 text-left font-medium">同组裁片</th>
           <th class="px-3 py-3 text-left font-medium">打印版本号</th>
           <th class="px-3 py-3 text-left font-medium">打印状态</th>
@@ -1173,12 +1250,35 @@ function renderPrintedTicketsTab(unit: PrintableUnit, detailView: PrintableUnitD
       <tbody class="divide-y divide-slate-100 bg-white">
         ${detailView.ticketCards
           .map((ticket) => {
+            const specialCraftSummary = getSpecialCraftFeiTicketSummary(ticket.ticketNo)
+            const sewingDispatchSummary = findCuttingSewingDispatchByFeiTicketNo(ticket.ticketNo)
             const actions =
               ticket.status === 'VALID'
                 ? [
                     { label: '查看菲票码', href: buildTicketPanelHref(unit, ticket, 'qr') },
                     { label: '查看打印预览', href: buildTicketPanelHref(unit, ticket, 'preview') },
                     { label: '查看同组', href: buildTicketPanelHref(unit, ticket, 'preview') },
+                    {
+                      label: '查看裁片发料',
+                      href: `${getCanonicalCuttingPath('sewing-dispatch')}?keyword=${encodeURIComponent(ticket.ticketNo)}`,
+                    },
+                    {
+                      label: '查看中转袋',
+                      href: `${getCanonicalCuttingPath('transfer-bags')}?keyword=${encodeURIComponent(sewingDispatchSummary.transferBag?.transferBagNo || ticket.ticketNo)}`,
+                    },
+                    ...(specialCraftSummary.needSpecialCraft
+                      ? [
+                          { label: '查看特殊工艺任务', href: resolveSpecialCraftTaskRoute(ticket.ticketNo) },
+                          {
+                            label: '查看特殊工艺发料',
+                            href: `${getCanonicalCuttingPath('special-craft-dispatch')}?keyword=${encodeURIComponent(ticket.ticketNo)}`,
+                          },
+                          {
+                            label: '查看特殊工艺回仓',
+                            href: `${getCanonicalCuttingPath('special-craft-return')}?keyword=${encodeURIComponent(ticket.ticketNo)}`,
+                          },
+                        ]
+                      : []),
                     ...(!ticket.downstreamLocked
                       ? [{ label: '发起作废', href: buildActionHref('fei-ticket-void', unit, { ticketRecordId: ticket.ticketId }) }]
                       : []),
@@ -1208,6 +1308,19 @@ function renderPrintedTicketsTab(unit: PrintableUnit, detailView: PrintableUnitD
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(ticket.partName)}</td>
                 <td class="px-3 py-3 text-slate-700">${formatCount(ticket.quantity)}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(ticket.bundleNo || '暂无数据')}</td>
+                <td class="px-3 py-3 text-slate-700">${specialCraftSummary.needSpecialCraft ? '是' : '无'}</td>
+                <td class="px-3 py-3 text-slate-700">${escapeHtml(specialCraftSummary.operationNames.join(' / ') || '待绑定')}</td>
+                <td class="px-3 py-3 text-slate-700">${escapeHtml(specialCraftSummary.taskOrderNos.join(' / ') || '待绑定')}</td>
+                <td class="px-3 py-3 text-slate-700">${escapeHtml(specialCraftSummary.dispatchStatus)}</td>
+                <td class="px-3 py-3 text-slate-700">${escapeHtml(specialCraftSummary.returnStatus)}</td>
+                <td class="px-3 py-3 text-slate-700">${escapeHtml(specialCraftSummary.currentLocation)}</td>
+                <td class="px-3 py-3 text-slate-700">${escapeHtml(sewingDispatchSummary.dispatchBatch?.transferOrderNo || '未装袋')}</td>
+                <td class="px-3 py-3 text-slate-700">${escapeHtml(sewingDispatchSummary.transferBag?.transferBagNo || '未装袋')}</td>
+                <td class="px-3 py-3 text-slate-700">${escapeHtml(sewingDispatchSummary.feiTicketSewingStatus)}</td>
+                <td class="px-3 py-3 text-slate-700">${escapeHtml(sewingDispatchSummary.transferBag ? '已装袋' : '未装袋')}</td>
+                <td class="px-3 py-3 text-slate-700">${escapeHtml(['已交出', '已回写', '差异', '异议中'].includes(sewingDispatchSummary.feiTicketSewingStatus) ? '已交出' : '未交出')}</td>
+                <td class="px-3 py-3 text-slate-700">${escapeHtml(sewingDispatchSummary.feiTicketSewingStatus === '已回写' ? '已回写' : sewingDispatchSummary.feiTicketSewingStatus === '差异' ? '差异' : sewingDispatchSummary.feiTicketSewingStatus === '异议中' ? '异议中' : '待回写')}</td>
+                <td class="px-3 py-3 text-slate-700">${escapeHtml(sewingDispatchSummary.specialCraftReturnStatus)}</td>
                 <td class="px-3 py-3 text-slate-700">${renderSiblingTicketNos(ticket.siblingPartTicketNos)}</td>
                 <td class="px-3 py-3 text-slate-700">V${formatCount(ticket.version)}</td>
                 <td class="px-3 py-3">

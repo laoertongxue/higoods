@@ -30,6 +30,10 @@ export const renderFactoryCapacityProfilePage = createAsyncRenderer(
   () => import('../pages/factory-capacity-profile'),
   'renderFactoryCapacityProfilePage',
 )
+export const renderFactoryInternalWarehousePage = createAsyncRenderer(
+  () => import('../pages/factory-internal-warehouse'),
+  'renderFactoryInternalWarehousePage',
+)
 export const renderFactoryPerformancePage = createAsyncRenderer(
   () => import('../pages/factory-performance'),
   'renderFactoryPerformancePage',
@@ -263,6 +267,18 @@ export const renderCraftCuttingReplenishmentPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/replenishment'),
   'renderCraftCuttingReplenishmentPage',
 )
+export const renderCraftCuttingSpecialCraftDispatchPage = createAsyncRenderer(
+  () => import('../pages/process-factory/cutting/special-craft-dispatch'),
+  'renderCraftCuttingSpecialCraftDispatchPage',
+)
+export const renderCraftCuttingSpecialCraftReturnPage = createAsyncRenderer(
+  () => import('../pages/process-factory/cutting/special-craft-return'),
+  'renderCraftCuttingSpecialCraftReturnPage',
+)
+export const renderCraftCuttingSewingDispatchPage = createAsyncRenderer(
+  () => import('../pages/process-factory/cutting/sewing-dispatch'),
+  'renderCraftCuttingSewingDispatchPage',
+)
 export const renderCraftCuttingSampleWarehousePage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/sample-warehouse'),
   'renderCraftCuttingSampleWarehousePage',
@@ -334,6 +350,22 @@ export const renderCraftDyeingReportsPage = createAsyncRenderer(
 export const renderCraftDyeingWorkOrdersPage = createAsyncRenderer(
   () => import('../pages/process-factory/dyeing/work-orders'),
   'renderCraftDyeingWorkOrdersPage',
+)
+export const renderSpecialCraftTaskOrdersPage = createAsyncRenderer(
+  () => import('../pages/process-factory/special-craft/task-orders'),
+  'renderSpecialCraftTaskOrdersPage',
+)
+export const renderSpecialCraftTaskDetailPage = createAsyncRenderer(
+  () => import('../pages/process-factory/special-craft/task-detail'),
+  'renderSpecialCraftTaskDetailPage',
+)
+export const renderSpecialCraftWarehousePage = createAsyncRenderer(
+  () => import('../pages/process-factory/special-craft/warehouse'),
+  'renderSpecialCraftWarehousePage',
+)
+export const renderSpecialCraftStatisticsPage = createAsyncRenderer(
+  () => import('../pages/process-factory/special-craft/statistics'),
+  'renderSpecialCraftStatisticsPage',
 )
 export const renderTraceMappingPage = createAsyncRenderer(() => import('../pages/trace'), 'renderTraceMappingPage')
 export const renderTraceParentCodesPage = createAsyncRenderer(

@@ -126,6 +126,26 @@ function resolvePieceRows(
     .filter((pieceRow) => pieceRow.partName && pieceRow.pieceCountPerUnit > 0)
 }
 
+function resolveFallbackPieceRowsForOrder(
+  order: ProductionOrder,
+  materialSku: string,
+  skuScopeLines: GeneratedOriginalCutOrderSkuScopeLine[],
+): GeneratedOriginalCutOrderPieceRow[] {
+  const cutPieceParts = getProductionOrderCutPieceParts(order.productionOrderId)
+    .filter((item) => !item.materialSku || item.materialSku === materialSku)
+    .map((item) => ({
+      partCode: item.partCode,
+      partName: item.partNameCn,
+      pieceCountPerUnit: item.pieceCountPerGarment,
+      patternId: item.partCode,
+      patternName: item.partNameCn,
+      applicableSkuCodes: skuScopeLines.map((line) => line.skuCode),
+    }))
+    .filter((item) => item.partName && item.pieceCountPerUnit > 0)
+
+  return cutPieceParts
+}
+
 function makeOriginalCutOrderNo(order: ProductionOrder, index: number): string {
   const normalizedDate = order.createdAt.slice(2, 10).replace(/-/g, '')
   const orderSuffix = order.productionOrderId.replace(/\D/g, '').slice(-3).padStart(3, '0')
@@ -345,6 +365,12 @@ function buildRecordsForOrder(order: ProductionOrder): GeneratedOriginalCutOrder
   return orderedMaterialKeys.map((materialKey, index) => {
     const bucket = scopeByMaterialKey.get(materialKey)!
     const skuScopeLines = Array.from(bucket.scopeBySkuKey.values())
+    const resolvedPieceRows = bucket.pieceRows.length > 0
+      ? bucket.pieceRows.map((item) => ({
+        ...item,
+        applicableSkuCodes: [...item.applicableSkuCodes],
+      }))
+      : resolveFallbackPieceRowsForOrder(order, bucket.materialSku, skuScopeLines)
     const requiredQty = skuScopeLines.reduce((sum, item) => sum + item.plannedQty, 0)
     return {
       originalCutOrderId: makeOriginalCutOrderNo(order, index),
@@ -362,13 +388,10 @@ function buildRecordsForOrder(order: ProductionOrder): GeneratedOriginalCutOrder
       sourceTechPackSpuCode: order.techPackSnapshot?.styleCode || order.demandSnapshot.spuCode,
       colorScope: Array.from(bucket.colors.values()),
       skuScopeLines,
-      pieceRows: bucket.pieceRows.map((item) => ({
-        ...item,
-        applicableSkuCodes: [...item.applicableSkuCodes],
-      })),
+      pieceRows: resolvedPieceRows,
       pieceSummary:
-        bucket.pieceRows.length > 0
-          ? bucket.pieceRows.map((item) => `${item.partName}×${item.pieceCountPerUnit}`).join('、')
+        resolvedPieceRows.length > 0
+          ? resolvedPieceRows.map((item) => `${item.partName}×${item.pieceCountPerUnit}`).join('、')
           : '待补纸样裁片映射',
     }
   })

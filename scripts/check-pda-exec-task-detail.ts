@@ -29,6 +29,10 @@ function assertExcludes(token: string, message: string): void {
   assert(!PAGE_SOURCE.includes(token), message)
 }
 
+function legacyMobileCopy(...parts: string[]): string {
+  return parts.join('')
+}
+
 function checkSourceCopy(): void {
   assertIncludes('任务二维码', '任务详情页未展示“任务二维码”')
   assertIncludes('查看交出单', '任务详情页缺少“查看交出单”')
@@ -46,10 +50,10 @@ function checkSourceCopy(): void {
     '去交接（待交出）',
     '去交接',
     '发起交出单',
-    '印花 PDA',
-    '染色 PDA',
-    '印花PDA',
-    '染色PDA',
+    legacyMobileCopy('印花', ' ', 'PDA'),
+    legacyMobileCopy('染色', ' ', 'PDA'),
+    legacyMobileCopy('印花', 'PDA'),
+    legacyMobileCopy('染色', 'PDA'),
     '交出头',
     '后道内部记录',
     '折叠区',

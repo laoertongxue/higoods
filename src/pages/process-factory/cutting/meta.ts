@@ -36,6 +36,9 @@ export type CuttingCanonicalPageKey =
   | 'transfer-bags'
   | 'transfer-bag-detail'
   | 'replenishment'
+  | 'special-craft-dispatch'
+  | 'special-craft-return'
+  | 'sewing-dispatch'
   | 'special-processes'
   | 'summary'
 
@@ -333,6 +336,36 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     pageSubtitle: '',
     isPlaceholder: false,
     shortDescription: '查看补料建议与影响。',
+  },
+  'special-craft-dispatch': {
+    key: 'special-craft-dispatch',
+    canonicalPath: '/fcs/craft/cutting/special-craft-dispatch',
+    aliases: [],
+    menuGroupTitle: '裁后处理',
+    pageTitle: '特殊工艺发料',
+    pageSubtitle: '',
+    isPlaceholder: false,
+    shortDescription: '按菲票发料到特殊工艺厂。',
+  },
+  'special-craft-return': {
+    key: 'special-craft-return',
+    canonicalPath: '/fcs/craft/cutting/special-craft-return',
+    aliases: [],
+    menuGroupTitle: '裁后处理',
+    pageTitle: '特殊工艺回仓',
+    pageSubtitle: '',
+    isPlaceholder: false,
+    shortDescription: '按菲票确认特殊工艺回仓。',
+  },
+  'sewing-dispatch': {
+    key: 'sewing-dispatch',
+    canonicalPath: '/fcs/craft/cutting/sewing-dispatch',
+    aliases: ['/fcs/process-factory/cutting/sewing-dispatch'],
+    menuGroupTitle: '裁后处理',
+    pageTitle: '裁片发料',
+    pageSubtitle: '',
+    isPlaceholder: false,
+    shortDescription: '按本次发料件数齐套后统一发给车缝厂。',
   },
   'special-processes': {
     key: 'special-processes',

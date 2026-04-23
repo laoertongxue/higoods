@@ -54,13 +54,13 @@ async function submitLogin(): Promise<void> {
   setPdaSession(createPdaSessionFromUser(result.user))
   state.password = ''
   state.errorText = ''
-  appStore.navigate('/fcs/pda/notify', { historyMode: 'replace' })
+  appStore.navigate('/fcs/pda/task-receive', { historyMode: 'replace' })
   requestPdaLoginRender()
 }
 
 export function renderPdaLoginPage(): string {
   if (getPdaSession()) {
-    return renderRouteRedirect('/fcs/pda/notify', '工厂端移动应用')
+    return renderRouteRedirect('/fcs/pda/task-receive', '工厂端移动应用')
   }
 
   return `

@@ -958,7 +958,7 @@ const SCENARIO_PROJECT_SEEDS: BootstrapProjectSeed[] = [
     linkedTechPackVersionPublishedAt: '2026-04-05 10:50',
   }),
   createScenarioProjectSeed('015', {
-    projectName: '设计款中式盘扣上衣',
+    projectName: '设计款中式结饰上衣',
     projectType: '设计研发',
     projectSourceType: '外部灵感',
     templateId: 'TPL-004',
@@ -998,7 +998,7 @@ const SCENARIO_PROJECT_SEEDS: BootstrapProjectSeed[] = [
     updatedAt: '2026-04-06 14:40',
     linkedStyleId: 'style_seed_005',
     linkedStyleCode: 'SPU-2024-005',
-    linkedStyleName: '中式盘扣上衣',
+    linkedStyleName: '中式结饰上衣',
     linkedStyleGeneratedAt: '2026-03-30 11:15',
     linkedTechPackVersionId: 'tdv_seed_005',
     linkedTechPackVersionCode: 'TDV-LEGACY-005',

@@ -423,6 +423,25 @@ function createCraftProcessEntry(
   }
 }
 
+function createPatternPieceSpecialCraft(craftName: string): TechPackPatternPieceSpecialCraft {
+  const craft = processCraftByName.get(craftName)
+  if (!craft || !craft.isActive || !craft.isSpecialCraft || craft.processCode !== 'SPECIAL_CRAFT') {
+    throw new Error(`未找到可用特殊工艺定义：${craftName}`)
+  }
+  const process = getProcessDefinitionByCode(craft.processCode)
+  if (!process) {
+    throw new Error(`未找到特殊工艺工序定义：${craft.processCode}`)
+  }
+
+  return {
+    processCode: craft.processCode,
+    processName: process.processName,
+    craftCode: craft.craftCode,
+    craftName: craft.craftName,
+    displayName: craft.craftName,
+  }
+}
+
 function buildSeedDesignSvg(label: string, fill: string, width: number, height: number, subtitle: string): string {
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}">
@@ -506,7 +525,7 @@ export const techPacks: TechPack[] = [
                 pieceCount: 2,
               },
             ],
-            specialCrafts: [],
+            specialCrafts: [createPatternPieceSpecialCraft('激光切')],
           },
           {
             id: 'pf-1-piece-2',
@@ -525,7 +544,7 @@ export const techPacks: TechPack[] = [
                 pieceCount: 2,
               },
             ],
-            specialCrafts: [],
+            specialCrafts: [createPatternPieceSpecialCraft('打揽')],
           },
           {
             id: 'pf-1-piece-3',
@@ -551,7 +570,7 @@ export const techPacks: TechPack[] = [
                 pieceCount: 2,
               },
             ],
-            specialCrafts: [],
+            specialCrafts: [createPatternPieceSpecialCraft('打揽')],
           },
         ],
       },
@@ -596,7 +615,7 @@ export const techPacks: TechPack[] = [
                 pieceCount: 2,
               },
             ],
-            specialCrafts: [],
+            specialCrafts: [createPatternPieceSpecialCraft('激光切')],
           },
           {
             id: 'pf-2-piece-2',
@@ -612,7 +631,7 @@ export const techPacks: TechPack[] = [
                 pieceCount: 2,
               },
             ],
-            specialCrafts: [],
+            specialCrafts: [createPatternPieceSpecialCraft('打揽')],
           },
         ],
       },
@@ -1483,6 +1502,80 @@ export const techPacks: TechPack[] = [
         fileUrl: '#',
         uploadedAt: '2026-03-15',
         uploadedBy: 'Yudi',
+        patternMaterialType: 'WOVEN',
+        patternMaterialTypeLabel: '布料纸样',
+        patternFileMode: 'PAIRED_DXF_RUL',
+        patternCategory: '主体片',
+        dxfFileName: '运动功能外套.dxf',
+        rulFileName: '运动功能外套.rul',
+        parseStatus: 'PARSED',
+        parsedAt: '2026-03-15 09:20:00',
+        rulSizeList: ['S', 'M', 'L', 'XL'],
+        rulSampleSize: 'M',
+        patternSoftwareName: 'Lectra',
+        selectedSizeCodes: ['S', 'M', 'L', 'XL'],
+        widthCm: 150,
+        markerLengthM: 3.18,
+        totalPieceCount: 9,
+        pieceRows: [
+          {
+            id: 'pf-17-1-piece-1',
+            name: '前片',
+            count: 2,
+            sourceType: 'PARSED_PATTERN',
+            sourcePartName: 'FRONT_PANEL',
+            parserStatus: '解析成功',
+            applicableSkuCodes: ['SKU-017-S-NVY', 'SKU-017-M-NVY', 'SKU-017-L-NVY', 'SKU-017-XL-NVY'],
+            colorAllocations: [
+              {
+                id: 'pf-17-1-piece-1-navy',
+                colorName: 'Navy',
+                skuCodes: ['SKU-017-S-NVY', 'SKU-017-M-NVY', 'SKU-017-L-NVY', 'SKU-017-XL-NVY'],
+                pieceCount: 2,
+              },
+            ],
+            specialCrafts: [
+              createPatternPieceSpecialCraft('激光切'),
+              createPatternPieceSpecialCraft('烫画'),
+            ],
+          },
+          {
+            id: 'pf-17-1-piece-2',
+            name: '后片',
+            count: 1,
+            sourceType: 'PARSED_PATTERN',
+            sourcePartName: 'BACK_PANEL',
+            parserStatus: '解析成功',
+            applicableSkuCodes: ['SKU-017-S-NVY', 'SKU-017-M-NVY', 'SKU-017-L-NVY', 'SKU-017-XL-NVY'],
+            colorAllocations: [
+              {
+                id: 'pf-17-1-piece-2-navy',
+                colorName: 'Navy',
+                skuCodes: ['SKU-017-S-NVY', 'SKU-017-M-NVY', 'SKU-017-L-NVY', 'SKU-017-XL-NVY'],
+                pieceCount: 1,
+              },
+            ],
+            specialCrafts: [createPatternPieceSpecialCraft('直喷')],
+          },
+          {
+            id: 'pf-17-1-piece-3',
+            name: '帽口包边片',
+            count: 2,
+            sourceType: 'MANUAL',
+            sourcePartName: 'HOOD_BINDING',
+            parserStatus: '解析成功',
+            applicableSkuCodes: ['SKU-017-S-NVY', 'SKU-017-M-NVY', 'SKU-017-L-NVY', 'SKU-017-XL-NVY'],
+            colorAllocations: [
+              {
+                id: 'pf-17-1-piece-3-navy',
+                colorName: 'Navy',
+                skuCodes: ['SKU-017-S-NVY', 'SKU-017-M-NVY', 'SKU-017-L-NVY', 'SKU-017-XL-NVY'],
+                pieceCount: 2,
+              },
+            ],
+            specialCrafts: [createPatternPieceSpecialCraft('捆条')],
+          },
+        ],
       },
     ],
     patternDesc: '功能面料运动外套，包含激光切、捆条、缩水与复合印花类工艺。',

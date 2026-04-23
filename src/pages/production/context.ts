@@ -1047,8 +1047,8 @@ function getOrderDisplayBreakdownSnapshot(order: ProductionOrder): {
   return {
     isBrokenDown: false,
     phase: 'INITIAL_TASK',
-    label: initialTaskCount > 0 ? '已生成任务' : '未建任务',
-    detailText: initialTaskCount > 0 ? `初始任务 ${initialTaskCount}` : '尚未生成任务',
+    label: initialTaskCount > 0 ? '已有任务' : '未建任务',
+    detailText: initialTaskCount > 0 ? `初始任务 ${initialTaskCount}` : '尚未建任务',
     badgeClassName: initialTaskCount > 0 ? 'bg-slate-100 text-slate-700' : 'bg-gray-100 text-gray-600',
     lastBreakdownAt: lastAt,
     lastBreakdownBy: lastBy,

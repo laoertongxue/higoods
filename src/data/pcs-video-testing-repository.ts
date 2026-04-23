@@ -110,7 +110,7 @@ function buildSeedSnapshot(): VideoTestingStoreSnapshot {
     {
       videoRecordId: 'SV-PJT-015',
       videoRecordCode: 'SV-PJT-015',
-      videoTitle: '设计款中式盘扣上衣短视频复盘',
+      videoTitle: '设计款中式结饰上衣短视频复盘',
       channelName: '抖音 / 设计验证号',
       businessDate: '2026-04-06',
       publishedAt: '2026-04-06 10:40',

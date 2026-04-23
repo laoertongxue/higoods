@@ -12,9 +12,14 @@ import {
 } from '../src/data/fcs/process-craft-dict.ts'
 import { routingTemplates } from '../src/data/fcs/routing-templates.ts'
 import { techPacks } from '../src/data/fcs/tech-packs.ts'
+import {
+  getRemovedLegacyTermPattern,
+  removedLegacyCraftNames,
+  removedLegacyProcessCodes,
+} from './utils/special-craft-banlist.ts'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
-const RETIRED_PROCESS_CODES = ['WASHING', 'HARDWARE', 'FROG_BUTTON'] as const
+const RETIRED_PROCESS_CODES = ['WASHING', ...removedLegacyProcessCodes] as const
 const SAFE_SOURCE_FILES = new Set([
   'src/data/fcs/process-craft-dict.ts',
   'src/data/fcs/process-craft-sam-explainer.ts',
@@ -54,16 +59,14 @@ const inactiveCraftNames = Array.from(
   new Set(listInactiveProcessCraftDefinitions().map((item) => item.craftName)),
 )
 const activeCraftCodes = new Set(listProcessCraftDefinitions().map((item) => item.craftCode))
-const bannedSourceTokens = [...inactiveCraftNames, '盘扣', ...RETIRED_PROCESS_CODES]
+const bannedSourcePattern = getRemovedLegacyTermPattern()
 
 const scanFiles = [...walk('src/data/fcs'), ...walk('src/pages')]
   .filter((file) => !SAFE_SOURCE_FILES.has(file))
 
 for (const file of scanFiles) {
   const source = read(file)
-  for (const token of bannedSourceTokens) {
-    assert(!source.includes(token), `${file} 仍包含停用工艺/工序口径：${token}`)
-  }
+  assert(!bannedSourcePattern.test(source), `${file} 仍包含已删除旧项`)
 }
 
 for (const techPack of techPacks) {
@@ -78,9 +81,7 @@ for (const techPack of techPacks) {
 
 for (const template of routingTemplates) {
   const snapshot = JSON.stringify(template)
-  for (const token of bannedSourceTokens) {
-    assert(!snapshot.includes(token), `${template.templateId} 仍包含停用工艺/工序口径：${token}`)
-  }
+  assert(!bannedSourcePattern.test(snapshot), `${template.templateId} 仍包含已删除旧项`)
 }
 
 const techPackDataSource = read('src/data/fcs/tech-packs.ts')
@@ -97,6 +98,10 @@ const techPackContextSource = read('src/pages/tech-pack/context.ts')
 assert(
   !techPackContextSource.includes('listAllProcessCraftDefinitions().find((craftItem) => craftItem.craftName === item.name)'),
   '技术包页面仍会用全部工艺字典回填历史停用工艺',
+)
+assert(
+  !inactiveCraftNames.some((item) => removedLegacyCraftNames.includes(item)),
+  '工序工艺字典仍保留已删除旧项的历史映射',
 )
 
 console.log(

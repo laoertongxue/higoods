@@ -8,6 +8,10 @@ import {
   isFactoryCapacityProfileDialogOpen,
 } from '../pages/factory-capacity-profile'
 import {
+  handleFactoryInternalWarehouseEvent,
+  isFactoryInternalWarehouseDialogOpen,
+} from '../pages/factory-internal-warehouse'
+import {
   handleCapabilityEvent,
   handleCapabilitySubmit,
   isCapabilityDialogOpen,
@@ -167,6 +171,14 @@ import {
   isCraftCuttingReplenishmentDialogOpen,
 } from '../pages/process-factory/cutting/replenishment'
 import {
+  handleCraftCuttingSpecialCraftDispatchEvent,
+  isCraftCuttingSpecialCraftDispatchDialogOpen,
+} from '../pages/process-factory/cutting/special-craft-dispatch'
+import {
+  handleCraftCuttingSpecialCraftReturnEvent,
+  isCraftCuttingSpecialCraftReturnDialogOpen,
+} from '../pages/process-factory/cutting/special-craft-return'
+import {
   handleCraftCuttingSpecialProcessesEvent,
   isCraftCuttingSpecialProcessesDialogOpen,
 } from '../pages/process-factory/cutting/special-processes'
@@ -186,6 +198,7 @@ export function dispatchFcsPageEvent(target: HTMLElement): boolean {
   return (
     handleFactoryPageEvent(target) ||
     handleFactoryCapacityProfileEvent(target) ||
+    handleFactoryInternalWarehouseEvent(target) ||
     handleCapabilityEvent(target) ||
     handleFactoryStatusEvent(target) ||
     handleFactoryPerformanceEvent(target) ||
@@ -232,6 +245,8 @@ export function dispatchFcsPageEvent(target: HTMLElement): boolean {
     handleCraftCuttingTransferBagsEvent(target) ||
     handleCraftCuttingOriginalOrdersEvent(target) ||
     handleCraftCuttingReplenishmentEvent(target) ||
+    handleCraftCuttingSpecialCraftDispatchEvent(target) ||
+    handleCraftCuttingSpecialCraftReturnEvent(target) ||
     handleCraftCuttingSpecialProcessesEvent(target) ||
     handleCraftCuttingSummaryEvent(target) ||
     handleCraftDyeingEvent(target) ||
@@ -252,6 +267,13 @@ export function dispatchFcsPageSubmit(form: HTMLFormElement): boolean {
 }
 
 export function closeFcsDialogsOnEscape(): boolean {
+  if (isFactoryInternalWarehouseDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.factoryWarehouseAction = 'close-detail'
+    handleFactoryInternalWarehouseEvent(fakeButton)
+    return true
+  }
+
   if (isFactoryCapacityProfileDialogOpen()) {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.capacityAction = 'close-detail'
@@ -539,6 +561,20 @@ export function closeFcsDialogsOnEscape(): boolean {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.cuttingReplenishAction = 'close-overlay'
     handleCraftCuttingReplenishmentEvent(fakeButton)
+    return true
+  }
+
+  if (isCraftCuttingSpecialCraftDispatchDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.cuttingSpecialDispatchAction = 'close-overlay'
+    handleCraftCuttingSpecialCraftDispatchEvent(fakeButton)
+    return true
+  }
+
+  if (isCraftCuttingSpecialCraftReturnDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.cuttingSpecialReturnAction = 'close-overlay'
+    handleCraftCuttingSpecialCraftReturnEvent(fakeButton)
     return true
   }
 

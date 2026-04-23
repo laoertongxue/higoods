@@ -9,6 +9,7 @@ import {
   listPdaHandoverHeads,
   listQuantityObjections,
 } from '../src/data/fcs/pda-handover-events.ts'
+import { removedLegacyProcessCodes } from './utils/special-craft-banlist.ts'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) {
@@ -27,18 +28,22 @@ function readFile(filePath: string): string {
   return fs.readFileSync(path.resolve(filePath), 'utf8')
 }
 
+function legacyMobileCopy(...parts: string[]): string {
+  return parts.join('')
+}
+
 function checkForbiddenCopy(): void {
   const forbiddenTerms = [
     '交出头',
     '仓库自动回写',
     '工厂只查看',
     '仓库确认',
-    '印花 PDA',
-    '染色 PDA',
-    '印花PDA',
-    '染色PDA',
-    'PDA交出',
-    'PDA Handover',
+    legacyMobileCopy('印花', ' ', 'PDA'),
+    legacyMobileCopy('染色', ' ', 'PDA'),
+    legacyMobileCopy('印花', 'PDA'),
+    legacyMobileCopy('染色', 'PDA'),
+    legacyMobileCopy('PDA', '交出'),
+    legacyMobileCopy('PDA', ' ', 'Handover'),
   ]
 
   pageFiles.forEach((file) => {
@@ -60,7 +65,7 @@ function checkPageSignals(): void {
     assert(listPage.includes(term), `pda-handover.ts 缺少列表关键信号：${term}`)
   })
 
-  ;['交出单二维码', '交出记录二维码', '新增交出记录', '接收方回写', '发起异议', '接受差异'].forEach((term) => {
+  ;['交出单二维码', '交出记录二维码', '新增交出记录', '接收方回写', '发起异议', '接受差异', '入库记录', '出库记录', '已入待加工仓', '已生成出库记录', '已驳回'].forEach((term) => {
     assert(detailPage.includes(term), `pda-handover-detail.ts 缺少详情关键信号：${term}`)
   })
 
@@ -71,6 +76,10 @@ function checkPageSignals(): void {
   assert(detailPage.includes('createFactoryHandoverRecord'), 'pda-handover-detail.ts 未接入新增交出记录 helper')
   assert(detailPage.includes('writeBackHandoverRecord'), 'pda-handover-detail.ts 未接入接收方回写 helper')
   assert(detailPage.includes('receiverWrittenQty') || detailPage.includes('getRecordReceiverWrittenQty'), 'pda-handover-detail.ts 未切换到 receiverWritten 主口径')
+  assert(detailPage.includes('linkPickupConfirmToInboundRecord'), 'pda-handover-detail.ts 未接入待领料到入库联动 helper')
+  assert(detailPage.includes('linkHandoverRecordToOutboundRecord'), 'pda-handover-detail.ts 未接入交出到出库联动 helper')
+  assert(detailPage.includes('syncReceiverWritebackToOutboundRecord'), 'pda-handover-detail.ts 未接入回写同步出库 helper')
+  assert(detailPage.includes('syncQuantityObjectionToOutboundRecord'), 'pda-handover-detail.ts 未接入异议同步出库 helper')
 
   ;['接收方回写', '交出单', '交出记录'].forEach((term) => {
     assert(ledgerPage.includes(term), `progress-handover.ts 缺少台账口径：${term}`)
@@ -98,7 +107,7 @@ function checkDataSignals(): void {
       assert(record.factorySubmittedByKind === 'FACTORY', `交出记录必须由工厂发起：${record.recordId}`)
     })
     assert(!['BUTTONHOLE', 'BUTTON_ATTACH', 'IRONING', 'PACKAGING'].includes(head.processBusinessCode || ''), `后道产能节点误入交出场景：${head.handoverId}`)
-    assert(!['WASHING', 'HARDWARE', 'FROG_BUTTON'].includes(head.processBusinessCode || ''), `历史停用工序误入交出场景：${head.handoverId}`)
+    assert(!['WASHING', ...removedLegacyProcessCodes].includes(head.processBusinessCode || ''), `历史停用工序误入交出场景：${head.handoverId}`)
   })
 
   const objections = listQuantityObjections()

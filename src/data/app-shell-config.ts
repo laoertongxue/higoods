@@ -4,6 +4,48 @@
  */
 
 import type { System, MenuGroup } from './app-shell-types.ts'
+import {
+  buildSpecialCraftOperationSlug,
+  buildSpecialCraftStatisticsPath,
+  buildSpecialCraftTaskOrdersPath,
+  buildSpecialCraftWarehousePath,
+  listEnabledSpecialCraftOperationDefinitions,
+} from './fcs/special-craft-operations.ts'
+
+const specialCraftMenuGroups: MenuGroup[] = [
+  {
+    title: '特殊工艺',
+    icon: 'Sparkles',
+    items: listEnabledSpecialCraftOperationDefinitions().map((operation) => {
+      const operationSlug = buildSpecialCraftOperationSlug(operation)
+      return {
+        key: `pfos-special-${operationSlug}`,
+        title: operation.operationName,
+        icon: 'Sparkles',
+        children: [
+          {
+            key: `pfos-special-${operationSlug}-tasks`,
+            title: `${operation.operationName}任务单`,
+            icon: 'ClipboardList',
+            href: buildSpecialCraftTaskOrdersPath(operation),
+          },
+          {
+            key: `pfos-special-${operationSlug}-warehouse`,
+            title: `${operation.operationName}仓库管理`,
+            icon: 'Warehouse',
+            href: buildSpecialCraftWarehousePath(operation),
+          },
+          {
+            key: `pfos-special-${operationSlug}-statistics`,
+            title: `${operation.operationName}统计`,
+            icon: 'BarChart3',
+            href: buildSpecialCraftStatisticsPath(operation),
+          },
+        ],
+      }
+    }),
+  } as MenuGroup & { icon: string },
+]
 
 // 系统列表
 export const systems: System[] = [
@@ -130,6 +172,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           icon: 'Factory',
           children: [
             { key: 'factories-profile', title: '工厂档案', icon: 'Factory', href: '/fcs/factories/profile' },
+            { key: 'factories-warehouse', title: '工厂仓库', icon: 'Warehouse', href: '/fcs/factory/warehouse' },
             { key: 'factories-capacity-profile', title: '工厂产能档案', icon: 'Gauge', href: '/fcs/factories/capacity-profile' },
             { key: 'factories-capability', title: '能力标签', icon: 'Tags', href: '/fcs/factories/capability' },
             { key: 'factories-settlement', title: '结算信息', icon: 'Receipt', href: '/fcs/factories/settlement' },
@@ -236,10 +279,10 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
       title: '工厂端移动应用',
       icon: 'Smartphone',
       items: [
-        { key: 'pda-todo', title: '待办', icon: 'Bell', href: '/fcs/pda/notify' },
         { key: 'pda-task-receive', title: '接单', icon: 'ClipboardList', href: '/fcs/pda/task-receive' },
         { key: 'pda-exec', title: '执行', icon: 'Play', href: '/fcs/pda/exec' },
         { key: 'pda-handover', title: '交接', icon: 'ArrowLeftRight', href: '/fcs/pda/handover' },
+        { key: 'pda-warehouse', title: '仓管', icon: 'Warehouse', href: '/fcs/pda/warehouse' },
         { key: 'pda-settlement', title: '结算', icon: 'Wallet', href: '/fcs/pda/settlement' },
       ],
     } as MenuGroup & { icon: string },
@@ -298,9 +341,11 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           children: [
             { key: 'pfos-cutting-replenishment', title: '补料管理', icon: 'ShieldAlert', href: '/fcs/craft/cutting/replenishment' },
             { key: 'pfos-cutting-fei-tickets', title: '打印菲票', icon: 'Ticket', href: '/fcs/craft/cutting/fei-tickets' },
+            { key: 'pfos-cutting-special-craft-dispatch', title: '特殊工艺发料', icon: 'ScanLine', href: '/fcs/craft/cutting/special-craft-dispatch' },
+            { key: 'pfos-cutting-special-craft-return', title: '特殊工艺回仓', icon: 'Undo2', href: '/fcs/craft/cutting/special-craft-return' },
+            { key: 'pfos-cutting-sewing-dispatch', title: '裁片发料', icon: 'Truck', href: '/fcs/craft/cutting/sewing-dispatch' },
             { key: 'pfos-cutting-transfer-bags', title: '中转袋流转', icon: 'PackageCheck', href: '/fcs/craft/cutting/transfer-bags' },
             { key: 'pfos-cutting-cut-piece-warehouse', title: '裁片仓', icon: 'Archive', href: '/fcs/craft/cutting/cut-piece-warehouse' },
-            { key: 'pfos-cutting-special-processes', title: '特殊工艺', icon: 'Sparkles', href: '/fcs/craft/cutting/special-processes' },
             { key: 'pfos-cutting-summary', title: '裁剪总结', icon: 'ClipboardPen', href: '/fcs/craft/cutting/summary' },
           ],
         },
@@ -349,6 +394,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
         },
       ],
     } as MenuGroup & { icon: string },
+    ...specialCraftMenuGroups,
   ],
   wls: [
     {

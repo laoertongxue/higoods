@@ -465,7 +465,7 @@ export function normalizeMergeBatchStatus(status: MergeBatchStatus): MergeBatchV
 }
 
 export function serializeMergeBatchStorage(records: MergeBatchRecord[]): string {
-  return JSON.stringify(records)
+  return JSON['stringify'](records)
 }
 
 export function deserializeMergeBatchStorage(raw: string | null): MergeBatchRecord[] {

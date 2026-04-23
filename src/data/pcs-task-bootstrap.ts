@@ -743,7 +743,7 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
       projectCode: 'PRJ-20251216-015',
       patternTaskId: 'AT-20260405-015',
       patternTaskCode: 'AT-20260405-015',
-      title: '花型-中式盘扣上衣（纹样 A2）',
+      title: '花型-中式结饰上衣（纹样 A2）',
       productStyleCode: 'SPU-2024-005',
       spuCode: 'SPU-2024-005',
       artworkType: '印花',

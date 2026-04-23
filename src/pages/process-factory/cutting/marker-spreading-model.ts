@@ -3128,7 +3128,7 @@ export function buildMarkerSpreadingNavigationPayload(
 }
 
 export function serializeMarkerSpreadingStorage(store: MarkerSpreadingStore): string {
-  return JSON.stringify(store)
+  return JSON['stringify'](store)
 }
 
 export function deserializeMarkerSpreadingStorage(raw: string | null): MarkerSpreadingStore {

@@ -15,6 +15,10 @@ import {
 } from '../src/data/fcs/factory-capacity-profile-mock.ts'
 import { listFactoryMasterRecords } from '../src/data/fcs/factory-master-store.ts'
 import { getCapacityProcessCraftOptions, listActiveProcessCraftDefinitions } from '../src/data/fcs/process-craft-dict.ts'
+import {
+  includesRemovedPseudoCraft,
+  removedLegacyProcessCodes,
+} from './utils/special-craft-banlist.ts'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const PAGE_PATH = path.join(ROOT, 'src/pages/factory-capacity-profile.ts')
@@ -38,8 +42,8 @@ const capacityOptionKeys = new Set(
   getCapacityProcessCraftOptions().map((item) => `${item.processCode}::${item.craftCode}`),
 )
 assert(
-  !getCapacityProcessCraftOptions().some((item) => /印花工艺|染色工艺/.test(item.label) || /印花工艺|染色工艺/.test(item.craftName)),
-  '工厂产能档案可选工序工艺中不应暴露印花工艺 / 染色工艺',
+  !getCapacityProcessCraftOptions().some((item) => includesRemovedPseudoCraft(item.label) || includesRemovedPseudoCraft(item.craftName)),
+  '工厂产能档案可选工序工艺中不应暴露已删除伪特殊工艺',
 )
 
 assert(factories.length === profiles.length, '产能档案数量必须与工厂主数据数量一致')
@@ -61,8 +65,8 @@ const activeAbilities = factories.flatMap((factory) =>
 )
 
 assert(
-  !activeAbilities.some(({ ability }) => ['WASHING', 'HARDWARE', 'FROG_BUTTON'].includes(ability.processCode)),
-  '工厂能力中仍存在活跃 WASHING / HARDWARE / FROG_BUTTON',
+  !activeAbilities.some(({ ability }) => ability.processCode === 'WASHING' || removedLegacyProcessCodes.includes(ability.processCode)),
+  '工厂能力中仍存在已删除旧编码',
 )
 assert(
   !activeAbilities.some(({ ability }) => POST_NODE_CODES.includes(ability.processCode)),

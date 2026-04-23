@@ -20,6 +20,7 @@ import {
   listRuntimeExecutionTasksByOrder,
   type RuntimeProcessTask,
 } from './runtime-process-tasks.ts'
+import { getSpecialCraftTasksByProductionOrder } from './special-craft-task-orders.ts'
 
 export type ProductionConfirmationStatus = 'PRINTABLE' | 'PRINTED' | 'VOIDED'
 
@@ -34,6 +35,11 @@ export interface ProductionConfirmationTaskAssignmentSnapshot {
   stageName: string
   processName: string
   craftName?: string
+  targetObject?: string
+  partName?: string
+  colorName?: string
+  sizeCode?: string
+  assignmentStatus?: string
   taskDisplayName: string
   assignedFactoryId?: string
   assignedFactoryName: string
@@ -382,7 +388,7 @@ function buildTaskAssignmentSnapshot(order: ProductionOrder): ProductionConfirma
       return (a.taskNo || a.taskId).localeCompare(b.taskNo || b.taskId)
     })
 
-  return runtimeTasks.map((task) => {
+  const runtimeRows = runtimeTasks.map((task) => {
     const processName = formatConfirmationTaskDisplayName({
       processCode: task.processBusinessCode || task.processCode,
       processName: task.processBusinessName || task.processNameZh,
@@ -410,6 +416,39 @@ function buildTaskAssignmentSnapshot(order: ProductionOrder): ProductionConfirma
         : task.dispatchRemark,
     }
   })
+
+  const specialCraftRows = getSpecialCraftTasksByProductionOrder(order.productionOrderId).map((task) => ({
+    taskId: task.taskOrderId,
+    taskNo: task.taskOrderNo,
+    stageName: '特殊工艺',
+    processName: '特殊工艺',
+    craftName: task.operationName,
+    targetObject: task.targetObject,
+    partName: task.partName,
+    colorName: task.fabricColor,
+    sizeCode: task.sizeCode,
+    assignmentStatus: task.assignmentStatusLabel || '待分配',
+    taskDisplayName: `${task.operationName}任务单`,
+    assignedFactoryId: task.assignedFactoryId || task.factoryId || undefined,
+    assignedFactoryName: task.assignedFactoryName || task.factoryName || '待分配',
+    assignmentMode: task.assignmentStatus === 'ASSIGNED' ? (task.assignmentMode || '已分配') : '待分配',
+    assignedAt: task.assignmentStatus === 'ASSIGNED' ? task.updatedAt || task.createdAt : undefined,
+    taskQty: task.planQty,
+    qtyUnit: task.unit,
+    taskDeadline: task.dueAt,
+    receiverName: undefined,
+    remark: [
+      task.targetObject,
+      task.partName,
+      task.fabricColor,
+      task.sizeCode,
+      task.generationSourceLabel || '生产单生成',
+    ]
+      .filter(Boolean)
+      .join(' / '),
+  }))
+
+  return [...runtimeRows, ...specialCraftRows]
 }
 
 function buildBomSnapshot(order: ProductionOrder): ProductionConfirmationBomSnapshotRow[] {

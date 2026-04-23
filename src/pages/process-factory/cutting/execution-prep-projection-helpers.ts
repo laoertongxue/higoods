@@ -5,7 +5,7 @@ import {
 } from '../../../domain/fcs-cutting-runtime/index.ts'
 import {
   mapCuttingDomainSnapshotToSummaryBuildOptions,
-} from './runtime-projections'
+} from './runtime-projections.ts'
 import type { CuttingSummaryBuildOptions } from './summary-model'
 
 export interface CuttingExecutionPrepProjectionContext {

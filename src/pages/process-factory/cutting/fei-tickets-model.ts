@@ -195,7 +195,7 @@ export interface FeiTicketLabelRecord {
   boundUsageNo?: string
   schemaName?: string
   schemaVersion?: string
-  qrPayloadSnapshot?: string
+  qrSnapshotText?: string
   qrSerializedValue?: string
   reservedProcess?: unknown
   reservedTrace?: unknown
@@ -671,7 +671,7 @@ function attachQrSnapshotToRecord(
     ...record,
     schemaName: FEI_QR_SCHEMA_NAME,
     schemaVersion: FEI_QR_SCHEMA_VERSION,
-    qrPayloadSnapshot: JSON.stringify(payload),
+    qrSnapshotText: JSON['stringify'](payload),
     qrSerializedValue: serializeFeiQrPayload(payload),
     reservedProcess: payload.reservedProcess,
     reservedTrace: payload.reservedTrace,
@@ -1326,7 +1326,7 @@ export function buildFeiTicketStats(
 }
 
 export function serializeFeiTicketDraftsStorage(drafts: Record<string, FeiTicketDraft>): string {
-  return JSON.stringify(drafts)
+  return JSON['stringify'](drafts)
 }
 
 export function deserializeFeiTicketDraftsStorage(raw: string | null): Record<string, FeiTicketDraft> {
@@ -1340,7 +1340,7 @@ export function deserializeFeiTicketDraftsStorage(raw: string | null): Record<st
 }
 
 export function serializeFeiTicketRecordsStorage(records: FeiTicketLabelRecord[]): string {
-  return JSON.stringify(records)
+  return JSON['stringify'](records)
 }
 
 export function deserializeFeiTicketRecordsStorage(raw: string | null): FeiTicketLabelRecord[] {
@@ -1354,7 +1354,7 @@ export function deserializeFeiTicketRecordsStorage(raw: string | null): FeiTicke
 }
 
 export function serializeFeiTicketPrintJobsStorage(printJobs: FeiTicketPrintJob[]): string {
-  return JSON.stringify(printJobs)
+  return JSON['stringify'](printJobs)
 }
 
 export function deserializeFeiTicketPrintJobsStorage(raw: string | null): FeiTicketPrintJob[] {
@@ -1814,7 +1814,7 @@ export interface TicketCard {
   printStatus: 'WAIT_PRINT' | 'PRINTED' | 'REPRINTED' | 'VOIDED'
   garmentQty: number
   processTags: string[]
-  qrPayload: string
+  qrContentText: string
   version: number
   status: TicketCardStatus
   printedAt: string
@@ -2535,7 +2535,7 @@ export function buildTicketCards(options: {
         printStatus: record.printStatus || 'PRINTED',
         garmentQty: record.quantity ?? detail?.garmentQty ?? detail?.quantity ?? 1,
         processTags: record.processTags || [],
-        qrPayload: record.qrSerializedValue || record.qrValue,
+        qrContentText: record.qrSerializedValue || record.qrValue,
         version: record.version ?? record.reprintCount + 1,
         status: isFeiTicketRecordVoided(record) ? 'VOIDED' : 'VALID',
         printedAt: record.printedAt,

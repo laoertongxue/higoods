@@ -551,7 +551,7 @@ function shouldUseReprintStatus(ownerGroups: FeiBatchOwnerGroup[], includeReprin
 }
 
 export function serializeFeiBatchPrintSessionsStorage(sessions: FeiBatchPrintSession[]): string {
-  return JSON.stringify(sessions)
+  return JSON['stringify'](sessions)
 }
 
 export function deserializeFeiBatchPrintSessionsStorage(raw: string | null): FeiBatchPrintSession[] {

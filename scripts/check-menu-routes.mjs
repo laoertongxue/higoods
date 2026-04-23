@@ -3,11 +3,11 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
+import { pathToFileURL } from 'node:url'
 
 const repoRoot = process.cwd()
 const appShellConfigPath = path.join(repoRoot, 'src/data/app-shell-config.ts')
-const routeSourcePaths = [
-  path.join(repoRoot, 'src/router/routes.ts'),
+const routeModulePaths = [
   path.join(repoRoot, 'src/router/routes-fcs.ts'),
   path.join(repoRoot, 'src/router/routes-pcs.ts'),
   path.join(repoRoot, 'src/router/routes-pda.ts'),
@@ -15,6 +15,7 @@ const routeSourcePaths = [
 
 const DEFAULT_SYSTEMS = ['fcs', 'pfos', 'pcs']
 const EXACT_ROUTE_SYSTEMS = new Set(['fcs', 'pfos', 'pcs'])
+const PFOS_ROUTE_PREFIXES = ['/fcs/craft', '/fcs/process-factory/special-craft']
 
 function parseArgs(argv) {
   const options = {
@@ -39,18 +40,18 @@ function parseArgs(argv) {
   return options
 }
 
-function readFile(filePath) {
+async function loadModule(filePath) {
   try {
-    return fs.readFileSync(filePath, 'utf8')
+    return await import(pathToFileURL(filePath).href)
   } catch (error) {
-    console.error(`[check-menu-routes] 无法读取文件: ${filePath}`)
+    console.error(`[check-menu-routes] 无法加载模块: ${filePath}`)
     console.error(error instanceof Error ? error.message : String(error))
     process.exit(1)
   }
 }
 
 function getSystemIdFromPath(routePath) {
-  if (routePath === '/fcs/craft' || routePath.startsWith('/fcs/craft/')) {
+  if (PFOS_ROUTE_PREFIXES.some((prefix) => routePath === prefix || routePath.startsWith(`${prefix}/`))) {
     return 'pfos'
   }
   const segments = routePath.split('/').filter(Boolean)
@@ -67,25 +68,31 @@ function requiresExactRouteCoverage(routePath) {
   return EXACT_ROUTE_SYSTEMS.has(getSystemIdFromPath(routePath))
 }
 
-function collectMenuHrefs(configSource, systems) {
-  const hrefMatches = [...configSource.matchAll(/href:\s*'([^']+)'/g)]
-  const hrefs = hrefMatches
-    .map((match) => match[1])
-    .filter((href) => shouldIncludeRoute(href, systems))
+function flattenMenuItems(groups) {
+  return groups.flatMap((group) =>
+    group.items.flatMap((item) => [item, ...(item.children ?? [])]),
+  )
+}
+
+function collectMenuHrefs(menusBySystem, systems) {
+  const hrefs = Object.values(menusBySystem)
+    .flatMap((groups) => flattenMenuItems(groups))
+    .map((item) => item.href)
+    .filter((href) => typeof href === 'string' && shouldIncludeRoute(href, systems))
 
   const uniqueHrefs = [...new Set(hrefs)]
   return { hrefs, uniqueHrefs }
 }
 
-function collectRegisteredMenuPaths(routeSources) {
-  const directMatches = routeSources.flatMap((source) => [...source.matchAll(/'([^']+)'\s*:\s*\(\)\s*=>/g)])
-  const exactRouteBlockMatches = routeSources.flatMap((source) => {
-    const blockMatch = source.match(/exactRoutes:\s*\{([\s\S]*?)\}\s*,\s*dynamicRoutes:/)
-    if (!blockMatch) return []
-    return [...blockMatch[1].matchAll(/'([^']+)'\s*:/g)]
-  })
-
-  return new Set([...directMatches, ...exactRouteBlockMatches].map((match) => match[1]))
+function collectRegisteredMenuPaths(routeModules) {
+  return new Set(
+    routeModules
+      .flatMap((module) => {
+        const registry = module.routes
+        if (!registry?.exactRoutes) return []
+        return Object.keys(registry.exactRoutes)
+      }),
+  )
 }
 
 function formatList(lines) {
@@ -93,15 +100,20 @@ function formatList(lines) {
   return lines.map((line) => `  - ${line}`).join('\n')
 }
 
-function main() {
+async function main() {
   const options = parseArgs(process.argv.slice(2))
-  const configSource = readFile(appShellConfigPath)
-  const routeSources = routeSourcePaths
-    .filter((filePath) => fs.existsSync(filePath))
-    .map((filePath) => readFile(filePath))
+  if (!fs.existsSync(appShellConfigPath)) {
+    console.error('[check-menu-routes] 未找到菜单配置文件')
+    process.exit(1)
+  }
 
-  const { hrefs, uniqueHrefs } = collectMenuHrefs(configSource, options.systems)
-  const registeredMenuPaths = collectRegisteredMenuPaths(routeSources)
+  const [{ menusBySystem }, ...routeModules] = await Promise.all([
+    loadModule(appShellConfigPath),
+    ...routeModulePaths.filter((filePath) => fs.existsSync(filePath)).map((filePath) => loadModule(filePath)),
+  ])
+
+  const { hrefs, uniqueHrefs } = collectMenuHrefs(menusBySystem, options.systems)
+  const registeredMenuPaths = collectRegisteredMenuPaths(routeModules)
 
   const duplicates = [...new Set(hrefs.filter((href, index) => hrefs.indexOf(href) !== index))].sort()
   const uncovered = uniqueHrefs
@@ -131,4 +143,4 @@ function main() {
   console.log('\n[check-menu-routes] PASS')
 }
 
-main()
+await main()

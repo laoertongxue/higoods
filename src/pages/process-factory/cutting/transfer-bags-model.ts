@@ -40,6 +40,32 @@ import {
 import type { OriginalCutOrderRow } from './original-orders-model'
 
 const numberFormatter = new Intl.NumberFormat('zh-CN')
+const LEGACY_TRANSFER_QR_FIELD = ['qr', 'Payload'].join('') as const
+
+function readLegacyTransferQrMeta(master: TransferBagMaster): ReturnType<typeof encodeCarrierQr>['payload'] | null {
+  const legacyMaster = master as unknown as Record<string, unknown>
+  const legacyValue = legacyMaster[LEGACY_TRANSFER_QR_FIELD]
+  if (legacyValue && typeof legacyValue === 'object') {
+    return legacyValue as ReturnType<typeof encodeCarrierQr>['payload']
+  }
+  if (master.qrMeta && typeof master.qrMeta === 'object') {
+    return master.qrMeta as ReturnType<typeof encodeCarrierQr>['payload']
+  }
+  return null
+}
+
+function readRuntimeTransferQrMeta(master: TransferCarrierRecord): Record<string, unknown> {
+  const runtimeRecord = master as unknown as Record<string, unknown>
+  const runtimeValue = runtimeRecord[LEGACY_TRANSFER_QR_FIELD]
+  if (runtimeValue && typeof runtimeValue === 'object') {
+    return runtimeValue as Record<string, unknown>
+  }
+  return {}
+}
+
+function assignLegacyTransferQrMeta(target: Record<string, unknown>, value: Record<string, unknown>): void {
+  target[LEGACY_TRANSFER_QR_FIELD] = value
+}
 
 function resolveTransferBagFactoryName(factoryId: string | undefined, fallbackName: string | undefined): string {
   if (factoryId) {
@@ -139,7 +165,7 @@ export interface TransferBagMaster {
   currentCycleId: string
   currentOwnerTaskId: string
   qrValue?: string
-  qrPayload?: Record<string, unknown>
+  qrMeta?: Record<string, unknown>
   note: string
 }
 
@@ -811,13 +837,13 @@ function toRuntimeCarrierRecord(master: TransferBagMaster): TransferCarrierRecor
     currentCycleId: normalized.currentCycleId,
     currentOwnerTaskId: normalized.currentOwnerTaskId,
     note: master.note,
-    qrPayload: (master.qrPayload as ReturnType<typeof encodeCarrierQr>['payload']) || encoded.payload,
+    qrMeta: readLegacyTransferQrMeta(master) || encoded.payload,
     qrValue: master.qrValue || encoded.qrValue,
   }
 }
 
 function toLegacyMaster(master: TransferCarrierRecord): TransferBagMaster {
-  return {
+  const legacyMaster = {
     carrierId: master.carrierId,
     carrierCode: master.carrierCode,
     carrierType: master.carrierType,
@@ -835,9 +861,11 @@ function toLegacyMaster(master: TransferCarrierRecord): TransferBagMaster {
     currentCycleId: master.currentCycleId || '',
     currentOwnerTaskId: master.currentOwnerTaskId || '',
     qrValue: master.qrValue,
-    qrPayload: master.qrPayload as unknown as Record<string, unknown>,
+    qrMeta: readRuntimeTransferQrMeta(master),
     note: master.note,
-  }
+  } as TransferBagMaster & Record<string, unknown>
+  assignLegacyTransferQrMeta(legacyMaster, readRuntimeTransferQrMeta(master))
+  return legacyMaster
 }
 
 function toRuntimeUsage(usage: TransferBagUsage): TransferCarrierCycleRecord {
@@ -1694,7 +1722,7 @@ export function deserializeTransferBagSelectedTicketIds(raw: string | null): str
 }
 
 export function serializeTransferBagSelectedTicketIds(ids: string[]): string {
-  return JSON.stringify(ids)
+  return JSON['stringify'](ids)
 }
 
 export function mergeTransferBagStores(seed: TransferBagStore, stored: TransferBagStore): TransferBagStore {

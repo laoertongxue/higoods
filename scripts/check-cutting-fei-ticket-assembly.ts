@@ -33,6 +33,8 @@ function main(): void {
   const spreadingPage = read('src/pages/process-factory/cutting/marker-spreading.ts')
   const transferBagsPage = read('src/pages/process-factory/cutting/transfer-bags.ts')
   const qrPayloadSource = read('src/data/fcs/cutting/qr-payload.ts')
+  const specialCraftFlowSource = read('src/data/fcs/cutting/special-craft-fei-ticket-flow.ts')
+  const sewingDispatchSource = read('src/data/fcs/cutting/sewing-dispatch.ts')
 
   ;[
     'export interface SpreadingPieceOutputLine',
@@ -98,6 +100,19 @@ function main(): void {
     '同组裁片',
     '查看同组',
     '当前存在缺少五维字段的菲票，不能打印。',
+    '是否需要特殊工艺',
+    '特殊工艺',
+    '特殊工艺任务',
+    '发料状态',
+    '回仓状态',
+    '当前所在',
+    '中转单号',
+    '中转袋号',
+    '发车缝状态',
+    '是否已装袋',
+    '是否已交出',
+    '车缝回写状态',
+    '特殊工艺回仓状态',
   ].forEach((token) => {
     assert(feiPage.includes(token), `菲票页面缺少业务文案或校验：${token}`)
   })
@@ -136,6 +151,13 @@ function main(): void {
     'assemblyGroupKey',
   ].forEach((token) => {
     assertIncludes(qrPayloadSource, token, `菲票二维码 payload 缺少字段：${token}`)
+  })
+
+  ;['待绑定', '待发料', '已发料', '已接收', '待回仓', '已回仓', '差异', '异议中', '待确认顺序'].forEach((token) => {
+    assertIncludes(specialCraftFlowSource, token, `菲票特殊工艺流转缺少状态：${token}`)
+  })
+  ;['CuttingSewingDispatchOrder', 'CuttingSewingTransferBag', '齐套校验', '中转单号', '中转袋号'].forEach((token) => {
+    assertIncludes(sewingDispatchSource + feiPage + transferBagsPage, token, `菲票发车缝与中转袋齐套缺少：${token}`)
   })
 
   console.log(

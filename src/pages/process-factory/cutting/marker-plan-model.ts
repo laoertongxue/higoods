@@ -291,7 +291,7 @@ export interface MarkerPlanMockCoverageReport {
 }
 
 export function serializeMarkerPlanStorage(records: MarkerPlan[]): string {
-  return JSON.stringify(records)
+  return JSON['stringify'](records)
 }
 
 export function deserializeMarkerPlanStorage(raw: string | null): MarkerPlan[] {

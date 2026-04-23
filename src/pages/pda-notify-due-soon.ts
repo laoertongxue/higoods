@@ -559,7 +559,7 @@ export function renderPdaNotifyDueSoonPage(): string {
     </div>
   `
 
-  return renderPdaFrame(content, 'notify')
+  return renderPdaFrame(content, null, { headerTitle: '待办汇总' })
 }
 
 export function handlePdaNotifyDueSoonEvent(target: HTMLElement): boolean {

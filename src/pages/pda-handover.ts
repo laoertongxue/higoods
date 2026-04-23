@@ -22,6 +22,7 @@ import {
   getPdaRuntimeContext,
   renderPdaLoginRedirect,
 } from './pda-runtime'
+import { ensureSpecialCraftFeiTicketFlowSeeded } from '../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
 
 type HandoverTab = 'pickup' | 'handout' | 'done'
 
@@ -411,6 +412,7 @@ export function renderPdaHandoverPage(): string {
     return renderPdaLoginRedirect()
   }
 
+  ensureSpecialCraftFeiTicketFlowSeeded()
   syncTabWithQuery()
   const selectedFactoryId = getCurrentFactoryId()
   const pickupHeads = getPdaPickupHeads(selectedFactoryId)
@@ -468,7 +470,7 @@ export function renderPdaHandoverPage(): string {
         ${
           state.activeTab === 'handout'
             ? `
-              <p class="text-xs text-muted-foreground">交出记录由工厂发起，接收方回写实收数量。</p>
+              <p class="text-xs text-muted-foreground">交出记录由工厂发起，接收方回写实收数量；车缝厂接收裁床发料时可查看中转单、中转袋、菲票数和本次发料件数。</p>
               ${
                 handoutHeads.length === 0
                   ? renderEmptyState('暂无待处理交出单')

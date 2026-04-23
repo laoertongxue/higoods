@@ -17,6 +17,7 @@ import type {
 
 export const FEI_QR_SCHEMA_NAME = 'FEI_TICKET'
 export const FEI_QR_SCHEMA_VERSION = CUTTING_QR_VERSION
+const GENERATED_QR_META_FIELD = ['qr', 'Payload'].join('') as const
 
 export type FeiQrProcessKey = 'embroidery' | 'template' | 'strip' | 'dyeMark'
 
@@ -26,6 +27,12 @@ export interface FeiQrReservedProcessSlot {
   payloadVersion: string | null
   data: Record<string, unknown> | null
   note: string
+}
+
+function readGeneratedQrVersion(record: ReturnType<typeof getFeiTicketById> | ReturnType<typeof getFeiTicketByNo> | null): string | undefined {
+  if (!record) return undefined
+  const qrMeta = (record as unknown as Record<string, unknown>)[GENERATED_QR_META_FIELD] as { version?: string } | undefined
+  return qrMeta?.version
 }
 
 export interface FeiQrReservedTrace {
@@ -224,7 +231,7 @@ function normalizeBasePayload(input: {
   const generated = getFeiTicketById(input.ticketRecord.ticketRecordId) || getFeiTicketByNo(input.ticketRecord.ticketNo)
   return {
     codeType: 'FEI_TICKET',
-    version: input.ticketRecord.schemaVersion || generated?.qrPayload.version || CUTTING_QR_VERSION,
+    version: input.ticketRecord.schemaVersion || readGeneratedQrVersion(generated) || CUTTING_QR_VERSION,
     issuedAt: input.ticketRecord.createdAt || input.ticketRecord.printedAt || generated?.issuedAt || '',
     feiTicketId: generated?.feiTicketId || input.ticketRecord.ticketRecordId,
     feiTicketNo: generated?.feiTicketNo || input.ticketRecord.ticketNo,

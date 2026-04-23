@@ -62,7 +62,7 @@ const tiktokResult = createProjectChannelProductFromListingNode(
   {
     targetChannelCode: 'tiktok-shop',
     targetStoreId: 'ST-002',
-    listingTitle: '设计款中式盘扣上衣 TikTok 第二店铺正式测款款',
+    listingTitle: '设计款中式结饰上衣 TikTok 第二店铺正式测款款',
     defaultPriceAmount: 319,
     currencyCode: 'VND',
     specLines: [

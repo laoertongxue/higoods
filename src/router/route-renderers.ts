@@ -387,6 +387,27 @@ export const renderPdaHandoverDetailPage = createAsyncRenderer(
   'renderPdaHandoverDetailPage',
 )
 export const renderPdaSettlementPage = createAsyncRenderer(() => import('../pages/pda-settlement'), 'renderPdaSettlementPage')
+export const renderPdaWarehousePage = createAsyncRenderer(() => import('../pages/pda-warehouse'), 'renderPdaWarehousePage')
+export const renderPdaWarehouseWaitProcessPage = createAsyncRenderer(
+  () => import('../pages/pda-warehouse-wait-process'),
+  'renderPdaWarehouseWaitProcessPage',
+)
+export const renderPdaWarehouseWaitHandoverPage = createAsyncRenderer(
+  () => import('../pages/pda-warehouse-wait-handover'),
+  'renderPdaWarehouseWaitHandoverPage',
+)
+export const renderPdaWarehouseInboundRecordsPage = createAsyncRenderer(
+  () => import('../pages/pda-warehouse-inbound-records'),
+  'renderPdaWarehouseInboundRecordsPage',
+)
+export const renderPdaWarehouseOutboundRecordsPage = createAsyncRenderer(
+  () => import('../pages/pda-warehouse-outbound-records'),
+  'renderPdaWarehouseOutboundRecordsPage',
+)
+export const renderPdaWarehouseStocktakePage = createAsyncRenderer(
+  () => import('../pages/pda-warehouse-stocktake'),
+  'renderPdaWarehouseStocktakePage',
+)
 export const renderPdaCuttingTaskDetailPage = createAsyncRenderer(
   () => import('../pages/pda-cutting-task-detail'),
   'renderPdaCuttingTaskDetailPage',

@@ -1,25 +1,30 @@
-import { productionOrders, type ProductionOrder } from '../data/fcs/production-orders'
+import { productionOrders, type ProductionOrder } from '../data/fcs/production-orders.ts'
 import {
   getProcessDefinitionByCode,
   isExternalTaskProcess,
-} from '../data/fcs/process-craft-dict'
+} from '../data/fcs/process-craft-dict.ts'
 import {
   isRuntimeTaskExecutionTask,
   listRuntimeProcessTasks,
   listRuntimeTaskSplitGroupsByOrder,
   type RuntimeProcessTask,
-} from '../data/fcs/runtime-process-tasks'
+} from '../data/fcs/runtime-process-tasks.ts'
 import {
   resolveTaskStandardTimeSnapshot,
   sumTaskStandardTimeTotals,
-} from '../data/fcs/process-tasks'
-import { listGeneratedProductionDemandArtifacts } from '../data/fcs/production-artifact-generation'
-import { getTaskTypeDisplayName } from '../data/fcs/page-adapters/task-execution-adapter'
+} from '../data/fcs/process-tasks.ts'
+import { listGeneratedProductionDemandArtifacts } from '../data/fcs/production-artifact-generation.ts'
+import { listSpecialCraftTaskOrders } from '../data/fcs/special-craft-task-orders.ts'
+import {
+  buildSpecialCraftTaskDetailPath,
+  buildSpecialCraftTaskOrdersPath,
+} from '../data/fcs/special-craft-operations.ts'
+import { getTaskTypeDisplayName } from '../data/fcs/page-adapters/task-execution-adapter.ts'
 import {
   formatTaskDetailDimensionsText,
   summarizeTaskDetailRows,
-} from '../data/fcs/task-detail-rows'
-import { escapeHtml, toClassName } from '../utils'
+} from '../data/fcs/task-detail-rows.ts'
+import { escapeHtml, toClassName } from '../utils.ts'
 
 type TaskBreakdownTab = 'by-order' | 'all'
 
@@ -27,6 +32,7 @@ interface TaskBreakdownState {
   keyword: string
   activeTab: TaskBreakdownTab
   chainDetailOrderId: string | null
+  specialCraftOperationFilter: string
 }
 
 interface OrderRow {
@@ -50,6 +56,7 @@ const state: TaskBreakdownState = {
   keyword: '',
   activeTab: 'by-order',
   chainDetailOrderId: null,
+  specialCraftOperationFilter: '全部',
 }
 
 const STAGE_ORDER = ['PREP', 'CUTTING', 'SEWING', 'SPECIAL', 'POST']
@@ -254,6 +261,115 @@ function renderNeedBadge(need: boolean, className: string): string {
     return '<span class="text-xs text-muted-foreground">不需要</span>'
   }
   return `<span class="inline-flex rounded-md border px-2 py-0.5 text-[11px] ${className}">需要</span>`
+}
+
+function renderSpecialCraftTaskSection(keyword: string): string {
+  const allSpecialCraftTasks = listSpecialCraftTaskOrders().filter((task) => task.generationSource === 'PRODUCTION_ORDER')
+  const operationNames = Array.from(new Set(allSpecialCraftTasks.map((task) => task.operationName))).sort((a, b) => a.localeCompare(b, 'zh-CN'))
+  const filteredTasks = allSpecialCraftTasks.filter((task) => {
+    if (state.specialCraftOperationFilter !== '全部' && task.operationName !== state.specialCraftOperationFilter) {
+      return false
+    }
+    if (!keyword) return true
+    const tokens = [
+      task.taskOrderNo,
+      task.productionOrderNo,
+      task.operationName,
+      ...(task.demandLines?.map((line) => `${line.partName} ${line.colorName} ${line.sizeCode}`) ?? []),
+    ]
+      .join(' ')
+      .toLowerCase()
+    return tokens.includes(keyword)
+  })
+  const totalLineCount = filteredTasks.reduce((sum, task) => sum + (task.demandLines?.length || 0), 0)
+
+  return `
+    <section class="rounded-lg border bg-card p-4 space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 class="text-base font-semibold">特殊工艺任务</h2>
+          <p class="mt-1 text-sm text-muted-foreground">仅展示生产单生成时根据技术包快照自动生成的特殊工艺任务。</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="text-xs text-muted-foreground">特殊工艺</label>
+          <select
+            data-breakdown-field="specialCraftOperation"
+            class="h-9 rounded-md border bg-background px-3 text-sm"
+          >
+            <option value="全部" ${state.specialCraftOperationFilter === '全部' ? 'selected' : ''}>全部</option>
+            ${operationNames
+              .map((name) => `<option value="${escapeHtml(name)}" ${state.specialCraftOperationFilter === name ? 'selected' : ''}>${escapeHtml(name)}</option>`)
+              .join('')}
+          </select>
+        </div>
+      </div>
+
+      <div class="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        <article class="rounded-lg border bg-muted/10 p-3">
+          <div class="text-xs text-muted-foreground">特殊工艺任务数</div>
+          <div class="mt-1 text-2xl font-semibold">${filteredTasks.length}</div>
+        </article>
+        <article class="rounded-lg border bg-muted/10 p-3">
+          <div class="text-xs text-muted-foreground">任务明细数</div>
+          <div class="mt-1 text-2xl font-semibold">${totalLineCount}</div>
+        </article>
+        <article class="rounded-lg border bg-muted/10 p-3">
+          <div class="text-xs text-muted-foreground">待分配</div>
+          <div class="mt-1 text-2xl font-semibold">${filteredTasks.filter((task) => task.assignmentStatus === 'WAIT_ASSIGN').length}</div>
+        </article>
+        <article class="rounded-lg border bg-muted/10 p-3">
+          <div class="text-xs text-muted-foreground">待领料</div>
+          <div class="mt-1 text-2xl font-semibold">${filteredTasks.filter((task) => task.executionStatus === 'WAIT_PICKUP').length}</div>
+        </article>
+      </div>
+
+      ${
+        filteredTasks.length === 0
+          ? '<div class="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">暂无特殊工艺任务</div>'
+          : `
+            <div class="overflow-x-auto rounded-lg border">
+              <table class="w-full min-w-[1120px] text-sm">
+                <thead class="border-b bg-muted/20 text-xs text-muted-foreground">
+                  <tr>
+                    <th class="px-3 py-2 text-left font-medium">生产单</th>
+                    <th class="px-3 py-2 text-left font-medium">特殊工艺</th>
+                    <th class="px-3 py-2 text-left font-medium">任务号</th>
+                    <th class="px-3 py-2 text-right font-medium">明细数</th>
+                    <th class="px-3 py-2 text-right font-medium">计划数量</th>
+                    <th class="px-3 py-2 text-left font-medium">分配状态</th>
+                    <th class="px-3 py-2 text-left font-medium">执行状态</th>
+                    <th class="px-3 py-2 text-left font-medium">来源</th>
+                    <th class="px-3 py-2 text-left font-medium">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${filteredTasks
+                    .map((task) => `
+                      <tr class="border-b last:border-0">
+                        <td class="px-3 py-2">${escapeHtml(task.productionOrderNo)}</td>
+                        <td class="px-3 py-2">${escapeHtml(task.operationName)}</td>
+                        <td class="px-3 py-2 font-medium text-blue-700">${escapeHtml(task.taskOrderNo)}</td>
+                        <td class="px-3 py-2 text-right">${task.demandLines?.length || 0}</td>
+                        <td class="px-3 py-2 text-right">${escapeHtml(String(task.planQty))}</td>
+                        <td class="px-3 py-2">${escapeHtml(task.assignmentStatusLabel || '待分配')}</td>
+                        <td class="px-3 py-2">${escapeHtml(task.executionStatusLabel || task.status)}</td>
+                        <td class="px-3 py-2">${escapeHtml(task.generationSourceLabel || '生产单生成')}</td>
+                        <td class="px-3 py-2">
+                          <div class="flex flex-wrap gap-2">
+                            <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-nav="${buildSpecialCraftTaskDetailPath(task.operationId, task.taskOrderId)}">查看任务</button>
+                            <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-nav="${buildSpecialCraftTaskOrdersPath(task.operationId)}">查看任务单</button>
+                          </div>
+                        </td>
+                      </tr>
+                    `)
+                    .join('')}
+                </tbody>
+              </table>
+            </div>
+          `
+      }
+    </section>
+  `
 }
 
 function formatStandardTimeMinutes(value: number | undefined): string {
@@ -751,7 +867,7 @@ export function renderTaskBreakdownPage(): string {
       <header>
         <h1 class="text-2xl font-semibold text-foreground">任务清单</h1>
         <p class="mt-1 text-sm text-muted-foreground">
-          展示生产单已生成任务的组成与顺序关系。
+          展示生产单已有任务的组成与顺序关系。
         </p>
       </header>
 
@@ -817,6 +933,8 @@ export function renderTaskBreakdownPage(): string {
         </div>
       </section>
 
+      ${renderSpecialCraftTaskSection(keyword)}
+
       <section class="space-y-3">
         <div class="inline-flex items-center rounded-md bg-muted p-1 text-sm">
           <button
@@ -863,10 +981,14 @@ export function renderTaskBreakdownPage(): string {
 
 export function handleTaskBreakdownEvent(target: HTMLElement): boolean {
   const fieldNode = target.closest<HTMLElement>('[data-breakdown-field]')
-  if (fieldNode instanceof HTMLInputElement) {
+  if (fieldNode instanceof HTMLInputElement || fieldNode instanceof HTMLSelectElement) {
     const field = fieldNode.dataset.breakdownField
     if (field === 'keyword') {
       state.keyword = fieldNode.value
+      return true
+    }
+    if (field === 'specialCraftOperation') {
+      state.specialCraftOperationFilter = fieldNode.value || '全部'
       return true
     }
   }

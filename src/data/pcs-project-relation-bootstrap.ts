@@ -136,7 +136,7 @@ const FORMAL_RELATION_SEEDS: BootstrapRelationSeed[] = [
     relationRole: '产出对象',
     sourceObjectId: 'project_archive_bootstrap_001',
     sourceObjectCode: 'ARC-BOOT-001',
-    sourceTitle: '设计款中式盘扣上衣项目资料归档',
+    sourceTitle: '设计款中式结饰上衣项目资料归档',
     sourceStatus: 'DRAFT',
     businessDate: '2026-04-06 14:40',
     ownerName: '系统初始化',

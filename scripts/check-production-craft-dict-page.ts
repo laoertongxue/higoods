@@ -6,6 +6,11 @@ import process from 'node:process'
 
 import { generateProductionArtifactsForOrder } from '../src/data/fcs/production-artifact-generation.ts'
 import { listProcessCraftDictRows } from '../src/data/fcs/process-craft-dict.ts'
+import {
+  assertNoRemovedLegacyTerm,
+  removedLegacyCraftNames,
+  removedLegacyProcessCodes,
+} from './utils/special-craft-banlist.ts'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) {
@@ -33,12 +38,12 @@ try {
 
   includesAll(
     craftDictPageSource,
-    ['工序名称', '工艺名称', '阶段', '任务口径', '是否生成任务', '状态', '可用', '历史停用'],
+    ['工序名称', '工艺名称', '阶段', '任务口径', '是否出任务', '状态', '可用', '历史停用'],
     '工序工艺字典页面字段口径不完整',
   )
   includesAll(
     craftDictPageSource,
-    ['data-craft-dict-field="filterStatus"', '任务口径', '是否生成任务'],
+    ['data-craft-dict-field="filterStatus"', '任务口径', '是否出任务'],
     '工序工艺字典页面缺少状态与任务口径筛选',
   )
   excludesAll(
@@ -60,13 +65,14 @@ try {
 
   const activeRows = listProcessCraftDictRows()
   const historicalRows = listProcessCraftDictRows(true).filter((row) => !row.isActive)
+  const removedCraftNameSet = new Set(removedLegacyCraftNames)
 
   assert(activeRows.every((row) => row.isActive), '默认工序工艺字典列表应只包含可用项')
   assert(!activeRows.some((row) => row.processCode === 'WASHING'), '默认字典中不应存在活跃独立洗水工序')
-  assert(!activeRows.some((row) => row.processCode === 'HARDWARE'), '默认字典中不应存在活跃五金工序')
-  assert(!activeRows.some((row) => row.processCode === 'FROG_BUTTON'), '默认字典中不应存在活跃盘扣工序')
-  assert(!activeRows.some((row) => row.craftName === '鸡眼扣'), '默认字典中不应显示鸡眼扣')
-  assert(!activeRows.some((row) => row.craftName === '手工盘扣'), '默认字典中不应显示手工盘扣')
+  removedLegacyProcessCodes.forEach((processCode) => {
+    assert(!activeRows.some((row) => row.processCode === processCode), '默认字典中不应出现已删除旧编码')
+  })
+  assert(!activeRows.some((row) => removedCraftNameSet.has(row.craftName)), '默认字典中不应显示已删除旧项')
 
   const washRow = activeRows.find((row) => row.craftName === '洗水')
   assert(washRow, '默认字典中缺少洗水工艺')
@@ -100,12 +106,8 @@ try {
     assert(row.generatesExternalTaskLabel === '否', `${craftName} 不得生成独立任务`)
   }
 
-  const chickenEyeRow = historicalRows.find((row) => row.craftName === '鸡眼扣')
-  const frogButtonRow = historicalRows.find((row) => row.craftName === '手工盘扣')
-  assert(chickenEyeRow?.statusLabel === '历史停用', '鸡眼扣必须按历史停用展示')
-  assert(chickenEyeRow?.generatesExternalTask === false, '鸡眼扣不得生成新任务')
-  assert(frogButtonRow?.statusLabel === '历史停用', '手工盘扣必须按历史停用展示')
-  assert(frogButtonRow?.generatesExternalTask === false, '手工盘扣不得生成新任务')
+  assert(!historicalRows.some((row) => removedCraftNameSet.has(row.craftName)), '历史停用区不应保留已删除旧项')
+  assertNoRemovedLegacyTerm(craftDictPageSource, assert, '工序工艺字典页面源码不应保留已删除旧项')
 
   const orderIds = ['PO-202603-0002', 'PO-202603-0015']
   const artifacts = orderIds.flatMap((orderId) => generateProductionArtifactsForOrder(orderId))

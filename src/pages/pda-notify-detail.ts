@@ -1,7 +1,9 @@
+import { initialNotifications, type Notification } from '../data/fcs/store-domain-progress.ts'
+import { getFactoryMobileTodoActionRoute, getFactoryMobileTodoById } from '../data/fcs/factory-mobile-todos.ts'
 import { appStore } from '../state/store'
 import { escapeHtml, toClassName } from '../utils'
-import { initialNotifications, type Notification } from '../data/fcs/store-domain-progress.ts'
 import { renderPdaFrame } from './pda-shell'
+import { ensurePdaSessionForAction, renderPdaLoginRedirect } from './pda-runtime'
 
 const TYPE_LABELS: Record<string, string> = {
   NEW_TASK: '新派单通知',
@@ -9,7 +11,7 @@ const TYPE_LABELS: Record<string, string> = {
   TENDER_AWARDED: '中标通知',
   HANDOVER: '交接提醒',
   EXEC_RISK: '执行风险提醒',
-  QUALITY: '质量/争议提醒',
+  QUALITY: '质量提醒',
   SETTLEMENT: '结算提醒',
 }
 
@@ -21,63 +23,90 @@ const SOURCE_LABELS: Record<string, string> = {
   系统: '系统',
 }
 
-const NEEDS_EVIDENCE_TYPES = new Set(['HANDOVER', 'QUALITY'])
-
 function nowTimestamp(date: Date = new Date()): string {
   return date.toISOString().replace('T', ' ').slice(0, 19)
-}
-
-function buildPath(path: string, query?: Record<string, string>): string {
-  if (!query) return path
-  const search = new URLSearchParams(query).toString()
-  return search ? `${path}?${search}` : path
 }
 
 function markNotificationRead(notificationId: string): void {
   const index = initialNotifications.findIndex((item) => item.notificationId === notificationId)
   if (index < 0) return
-
-  const current = initialNotifications[index]
-  if (current.readAt) return
-
+  if (initialNotifications[index].readAt) return
   initialNotifications[index] = {
-    ...current,
+    ...initialNotifications[index],
     readAt: nowTimestamp(),
   }
 }
 
-function renderLevelBadge(level: Notification['level']): string {
-  if (level === 'CRITICAL') {
-    return '<span class="inline-flex h-4 items-center rounded bg-destructive px-1.5 py-0 text-[10px] text-destructive-foreground">紧急</span>'
+function renderTodoDetail(todoId: string): string {
+  const todo = getFactoryMobileTodoById(todoId)
+  if (!todo) {
+    return renderPdaFrame(
+      `
+        <div class="px-4 py-10">
+          <div class="rounded-2xl border border-dashed bg-card px-4 py-10 text-center">
+            <div class="text-base font-medium text-foreground">待办不存在</div>
+            <div class="mt-2 text-xs text-muted-foreground">请返回待办汇总重新选择处理项。</div>
+            <button type="button" class="mt-4 rounded-xl border px-4 py-2 text-sm" data-pda-notify-detail-action="back">返回</button>
+          </div>
+        </div>
+      `,
+      null,
+      { headerTitle: '待办详情' },
+    )
   }
 
-  if (level === 'WARN') {
-    return '<span class="inline-flex h-4 items-center rounded bg-amber-500 px-1.5 py-0 text-[10px] text-white">警告</span>'
-  }
+  const content = `
+    <div class="space-y-4 px-4 pb-5 pt-4">
+      <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
+        <button type="button" class="mb-3 inline-flex items-center gap-1 text-xs text-muted-foreground" data-pda-notify-detail-action="back">
+          <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>返回
+        </button>
+        <div class="text-lg font-semibold text-foreground">待办详情</div>
+        <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(todo.todoType)} · ${escapeHtml(todo.todoNo)}</div>
+      </section>
 
-  return '<span class="inline-flex h-4 items-center rounded bg-secondary px-1.5 py-0 text-[10px] text-secondary-foreground">通知</span>'
+      <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
+        <div class="space-y-2 text-sm">
+          <div><span class="text-muted-foreground">待办类型：</span>${escapeHtml(todo.todoType)}</div>
+          <div><span class="text-muted-foreground">待办标题：</span>${escapeHtml(todo.todoTitle)}</div>
+          <div><span class="text-muted-foreground">关联单号：</span>${escapeHtml(todo.relatedTaskNo || todo.relatedHandoverOrderId || todo.relatedSettlementId || '-')}</div>
+          <div><span class="text-muted-foreground">所属工厂：</span>${escapeHtml(todo.factoryName)}</div>
+          <div><span class="text-muted-foreground">关联任务：</span>${escapeHtml(todo.relatedTaskId || '-')}</div>
+          <div><span class="text-muted-foreground">关联交出单：</span>${escapeHtml(todo.relatedHandoverOrderId || '-')}</div>
+          <div><span class="text-muted-foreground">关联交出记录：</span>${escapeHtml(todo.relatedHandoverRecordId || '-')}</div>
+          <div><span class="text-muted-foreground">关联入库记录：</span>${escapeHtml(todo.relatedInboundRecordId || '-')}</div>
+          <div><span class="text-muted-foreground">关联出库记录：</span>${escapeHtml(todo.relatedOutboundRecordId || '-')}</div>
+          <div><span class="text-muted-foreground">优先级：</span>${escapeHtml(todo.priority)}</div>
+          <div><span class="text-muted-foreground">到期时间：</span>${escapeHtml(todo.dueAt || '-')}</div>
+          <div><span class="text-muted-foreground">状态：</span>${escapeHtml(todo.status)}</div>
+          <div><span class="text-muted-foreground">操作建议：</span>${escapeHtml(todo.actionLabel)}</div>
+        </div>
+        <div class="mt-4 flex gap-2">
+          <button type="button" class="flex-1 rounded-xl bg-primary px-3 py-2.5 text-sm font-medium text-primary-foreground" data-nav="${escapeHtml(getFactoryMobileTodoActionRoute(todo))}">去处理</button>
+          <button type="button" class="flex-1 rounded-xl border px-3 py-2.5 text-sm" data-pda-notify-detail-action="back">返回</button>
+        </div>
+      </section>
+    </div>
+  `
+
+  return renderPdaFrame(content, null, { headerTitle: '待办详情' })
 }
 
-export function renderPdaNotifyDetailPage(notificationId: string): string {
+function renderNotificationDetail(notificationId: string): string {
   const found = initialNotifications.find((item) => item.notificationId === notificationId)
-
   if (!found) {
-    const content = `
-      <div class="flex min-h-[760px] flex-col bg-muted/30">
-        <header class="sticky top-0 z-20 border-b bg-background px-4 py-3">
-          <button class="inline-flex items-center gap-1 text-sm text-muted-foreground" data-pda-notify-detail-action="back">
-            <i data-lucide="arrow-left" class="h-4 w-4"></i>
-            返回
-          </button>
-        </header>
-
-        <div class="px-4 py-16 text-center text-muted-foreground">
-          <i data-lucide="alert-circle" class="mx-auto mb-2 h-10 w-10 opacity-30"></i>
-          <p class="text-sm">通知不存在或已删除</p>
+    return renderPdaFrame(
+      `
+        <div class="px-4 py-10">
+          <div class="rounded-2xl border border-dashed bg-card px-4 py-10 text-center">
+            <div class="text-base font-medium text-foreground">通知不存在</div>
+            <button type="button" class="mt-4 rounded-xl border px-4 py-2 text-sm" data-pda-notify-detail-action="back">返回</button>
+          </div>
         </div>
-      </div>
-    `
-    return renderPdaFrame(content, 'notify')
+      `,
+      null,
+      { headerTitle: '待办详情' },
+    )
   }
 
   if (!found.readAt) {
@@ -85,180 +114,49 @@ export function renderPdaNotifyDetailPage(notificationId: string): string {
   }
 
   const notification = initialNotifications.find((item) => item.notificationId === notificationId) || found
-  const n = notification as Notification & {
-    notificationType?: string
-    sourceModule?: string
-    body?: string
-    actionLabel?: string
-  }
-
-  const notifType = n.notificationType || 'NEW_TASK'
-  const sourceModule = n.sourceModule || '系统'
-  const isRead = !!notification.readAt
-  const needsEvidence = NEEDS_EVIDENCE_TYPES.has(notifType)
-  const related = n.related as (typeof n.related & { settlementId?: string }) | undefined
-
-  const relatedItems: Array<{ label: string; value: string }> = []
-  if (related?.taskId) relatedItems.push({ label: '任务编号', value: related.taskId })
-  if (related?.tenderId) relatedItems.push({ label: '招标单号', value: related.tenderId })
-  if (related?.productionOrderId) relatedItems.push({ label: '生产单号', value: related.productionOrderId })
-  if (related?.handoverEventId) relatedItems.push({ label: '交接事件号', value: related.handoverEventId })
-  if (related?.settlementId) relatedItems.push({ label: '结算周期号', value: related.settlementId })
-  if (related?.caseId) relatedItems.push({ label: '异常单号', value: related.caseId })
-
-  const actionHref = n.deepLink?.path ? buildPath(n.deepLink.path, n.deepLink.query) : ''
-
+  const actionHref = notification.deepLink?.path || '/fcs/pda/notify'
   const content = `
-    <div class="flex min-h-[760px] flex-col bg-muted/30">
-      <header class="sticky top-0 z-20 flex items-center gap-3 border-b bg-background px-4 py-3">
-        <button
-          class="flex items-center gap-1 text-muted-foreground transition-colors hover:text-foreground"
-          aria-label="返回"
-          data-pda-notify-detail-action="back"
-        >
-          <i data-lucide="arrow-left" class="h-5 w-5"></i>
+    <div class="space-y-4 px-4 pb-5 pt-4">
+      <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
+        <button type="button" class="mb-3 inline-flex items-center gap-1 text-xs text-muted-foreground" data-pda-notify-detail-action="back">
+          <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>返回
         </button>
-        <h1 class="flex-1 truncate text-base font-semibold">通知详情</h1>
-        <span class="rounded-full border px-2 py-0.5 text-xs ${toClassName(
-          isRead
-            ? 'border-border bg-muted text-muted-foreground'
-            : 'border-primary/40 bg-primary/5 text-primary',
-        )}">${isRead ? '已读' : '未读'}</span>
-      </header>
-
-      <div class="flex-1 space-y-3 p-4">
-        <article class="rounded-lg border bg-background p-4">
-          <div class="space-y-3">
-            <div class="flex flex-wrap items-center gap-2">
-              ${renderLevelBadge(notification.level)}
-              <span class="rounded border border-border px-1.5 py-0.5 text-xs text-muted-foreground">${escapeHtml(
-                TYPE_LABELS[notifType] || notifType,
-              )}</span>
-              <span class="rounded border border-border px-1.5 py-0.5 text-xs text-muted-foreground">来源：${escapeHtml(
-                SOURCE_LABELS[sourceModule] || sourceModule,
-              )}</span>
-            </div>
-
-            <h2 class="text-base font-semibold leading-snug">${escapeHtml(notification.title)}</h2>
-
-            <div class="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-              <i data-lucide="clock" class="h-3.5 w-3.5"></i>
-              <span>${escapeHtml(notification.createdAt)}</span>
-              ${
-                isRead && notification.readAt
-                  ? `<span class="mx-1">·</span><i data-lucide="check-circle-2" class="h-3.5 w-3.5 text-green-500"></i><span class="text-green-600">已读 ${escapeHtml(notification.readAt.slice(5, 16))}</span>`
-                  : ''
-              }
-            </div>
-          </div>
-        </article>
-
-        <article class="rounded-lg border bg-background p-4">
-          <div class="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground">
-            <i data-lucide="file-text" class="h-3.5 w-3.5"></i>
-            通知正文
-          </div>
-          <p class="text-sm leading-relaxed text-foreground">${escapeHtml(n.content || n.body || '暂无详情')}</p>
-        </article>
-
-        ${
-          relatedItems.length > 0
-            ? `
-              <article class="rounded-lg border bg-background p-4">
-                <div class="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground">
-                  <i data-lucide="link-2" class="h-3.5 w-3.5"></i>
-                  关联对象
-                </div>
-                <div class="space-y-1.5">
-                  ${relatedItems
-                    .map(
-                      (item) =>
-                        `<div class="flex items-center justify-between text-sm"><span class="text-xs text-muted-foreground">${escapeHtml(
-                          item.label,
-                        )}</span><span class="font-mono text-xs font-medium">${escapeHtml(item.value)}</span></div>`,
-                    )
-                    .join('')}
-                </div>
-              </article>
-            `
-            : ''
-        }
-
-        ${
-          needsEvidence
-            ? `
-              <article class="rounded-lg border bg-background p-4">
-                <div class="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground">
-                  <i data-lucide="camera" class="h-3.5 w-3.5"></i>
-                  相关凭证
-                </div>
-                <div class="flex gap-2">
-                  <button class="flex h-8 flex-1 items-center justify-center rounded-md border px-2 text-xs text-muted-foreground hover:bg-muted" data-pda-notify-detail-action="open-evidence">
-                    <i data-lucide="camera" class="mr-1 h-3.5 w-3.5"></i>
-                    查看凭证
-                  </button>
-                  <button class="flex h-8 flex-1 items-center justify-center rounded-md border px-2 text-xs text-muted-foreground hover:bg-muted" data-pda-notify-detail-action="upload-evidence">
-                    <i data-lucide="upload" class="mr-1 h-3.5 w-3.5"></i>
-                    去上传凭证
-                  </button>
-                </div>
-                <p class="mt-2 text-[10px] text-muted-foreground">当前通知页只保留凭证入口，预览与上传请到对应业务页面处理。</p>
-              </article>
-            `
-            : ''
-        }
-
-        ${
-          n.actionLabel && actionHref
-            ? `
-              <div class="pt-1">
-                <button
-                  class="inline-flex h-9 w-full items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:opacity-90"
-                  data-pda-notify-detail-action="open-action"
-                  data-href="${escapeHtml(actionHref)}"
-                >
-                  ${escapeHtml(n.actionLabel)}
-                </button>
-              </div>
-            `
-            : ''
-        }
-      </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">${escapeHtml(TYPE_LABELS[notification.notificationType || 'NEW_TASK'] || '通知')}</span>
+          <span class="rounded-full px-2 py-0.5 text-[11px] ${toClassName(notification.readAt ? 'bg-muted text-muted-foreground' : 'bg-primary/10 text-primary')}">${notification.readAt ? '已读' : '未读'}</span>
+        </div>
+        <div class="mt-3 text-lg font-semibold text-foreground">${escapeHtml(notification.title)}</div>
+        <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(notification.createdAt)} · ${escapeHtml(SOURCE_LABELS[notification.sourceModule || '系统'] || '系统')}</div>
+      </section>
+      <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
+        <div class="text-sm leading-6 text-foreground">${escapeHtml(notification.content || '暂无详情')}</div>
+        <div class="mt-4 flex gap-2">
+          <button type="button" class="flex-1 rounded-xl bg-primary px-3 py-2.5 text-sm font-medium text-primary-foreground" data-nav="${escapeHtml(actionHref)}">去处理</button>
+          <button type="button" class="flex-1 rounded-xl border px-3 py-2.5 text-sm" data-pda-notify-detail-action="back">返回</button>
+        </div>
+      </section>
     </div>
   `
+  return renderPdaFrame(content, null, { headerTitle: '待办详情' })
+}
 
-  return renderPdaFrame(content, 'notify')
+export function renderPdaNotifyDetailPage(id: string): string {
+  if (!ensurePdaSessionForAction()) {
+    return renderPdaLoginRedirect()
+  }
+  if (id.startsWith('todo-')) {
+    return renderTodoDetail(id)
+  }
+  return renderNotificationDetail(id)
 }
 
 export function handlePdaNotifyDetailEvent(target: HTMLElement): boolean {
+  if (!ensurePdaSessionForAction()) return true
   const actionNode = target.closest<HTMLElement>('[data-pda-notify-detail-action]')
-  if (!actionNode) return false
-
-  const action = actionNode.dataset.pdaNotifyDetailAction
-  if (!action) return false
-
+  const action = actionNode?.dataset.pdaNotifyDetailAction
   if (action === 'back') {
     appStore.navigate('/fcs/pda/notify')
     return true
   }
-
-  if (action === 'open-action') {
-    const href = actionNode.dataset.href
-    if (href) {
-      appStore.navigate(href)
-    }
-    return true
-  }
-
-  if (action === 'open-evidence') {
-    window.alert('当前通知详情页还未接入凭证预览，请到对应业务页面查看。')
-    return true
-  }
-
-  if (action === 'upload-evidence') {
-    window.alert('当前通知详情页还未接入凭证上传，请先到对应业务页面处理。')
-    return true
-  }
-
   return false
 }

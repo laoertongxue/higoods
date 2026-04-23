@@ -45,6 +45,9 @@ import {
   type CuttingNavigationTarget,
 } from './navigation-context'
 import { buildProductionProgressProjection } from './production-progress-projection'
+import { getCuttingSpecialCraftReturnStatusByProductionOrder } from '../../../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
+import { getCuttingSewingDispatchProgressByProductionOrder } from '../../../data/fcs/cutting/sewing-dispatch.ts'
+import { getCuttingProgressSnapshots } from '../../../data/fcs/progress-statistics-linkage.ts'
 
 type ProductionProgressQuickFilter = 'URGENT_ONLY' | 'PREP_DELAY' | 'CLAIM_EXCEPTION' | 'CUTTING_ACTIVE'
 type ProductionProgressQuickFilterExtended =
@@ -282,6 +285,146 @@ function renderStatsCards(rows: ProductionProgressRow[]): string {
       ${renderCompactKpiCard('领料异常单', summary.claimExceptionCount, '待领取或现场差异', 'text-orange-600')}
       ${renderCompactKpiCard('裁剪中单数', summary.cuttingCount, '含待入仓', 'text-violet-600')}
       ${renderCompactKpiCard('已完成单数', summary.doneCount, '已完成', 'text-emerald-600')}
+    </section>
+  `
+}
+
+function renderSpecialCraftReturnCards(rows: ProductionProgressRow[]): string {
+  const summaries = rows
+    .map((row) => getCuttingSpecialCraftReturnStatusByProductionOrder(row.productionOrderId))
+    .filter((item) => item.totalNeedSpecialCraftFeiTickets > 0)
+
+  if (summaries.length === 0) return ''
+
+  const aggregated = summaries.reduce(
+    (result, item) => {
+      result.totalNeed += item.totalNeedSpecialCraftFeiTickets
+      result.waitDispatch += item.waitDispatchCount
+      result.dispatched += item.dispatchedCount
+      result.received += item.receivedBySpecialFactoryCount
+      result.waitReturn += item.waitReturnCount
+      result.returned += item.returnedCount
+      result.difference += item.differenceCount
+      result.objection += item.objectionCount
+      return result
+    },
+    {
+      totalNeed: 0,
+      waitDispatch: 0,
+      dispatched: 0,
+      received: 0,
+      waitReturn: 0,
+      returned: 0,
+      difference: 0,
+      objection: 0,
+    },
+  )
+
+  const allReturned = summaries.every((item) => item.allReturned)
+
+  return `
+    <section class="rounded-lg border bg-white p-4 shadow-sm">
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <div class="text-sm font-semibold text-foreground">特殊工艺回仓汇总</div>
+          <div class="mt-1 text-xs text-muted-foreground">只统计需要特殊工艺的菲票，用于后续裁床统一发料前校验。</div>
+        </div>
+        <div class="text-sm font-medium ${allReturned ? 'text-emerald-600' : 'text-amber-600'}">是否全部回仓：${allReturned ? '是' : '否'}</div>
+      </div>
+      <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        ${renderCompactKpiCard('需要特殊工艺菲票数', aggregated.totalNeed, '需经过特殊工艺流转', 'text-slate-900')}
+        ${renderCompactKpiCard('待发料菲票数', aggregated.waitDispatch, '裁床厂待交出仓待发料', 'text-amber-600')}
+        ${renderCompactKpiCard('已发料菲票数', aggregated.dispatched, '裁床厂已创建交出记录', 'text-blue-600')}
+        ${renderCompactKpiCard('已接收菲票数', aggregated.received, '特殊工艺厂已入待加工仓', 'text-cyan-600')}
+        ${renderCompactKpiCard('待回仓菲票数', aggregated.waitReturn, '特殊工艺厂待交出仓待回仓', 'text-amber-600')}
+        ${renderCompactKpiCard('已回仓菲票数', aggregated.returned, '已回裁床厂待交出仓', 'text-emerald-600')}
+        ${renderCompactKpiCard('差异菲票数', aggregated.difference, '发料或回仓存在差异', 'text-rose-600')}
+        ${renderCompactKpiCard('异议中菲票数', aggregated.objection, '数量异议处理中', 'text-rose-600')}
+      </div>
+    </section>
+  `
+}
+
+function renderSewingDispatchProgressCards(rows: ProductionProgressRow[]): string {
+  const summaries = rows.map((row) => getCuttingSewingDispatchProgressByProductionOrder(row.productionOrderId))
+  const aggregated = summaries.reduce(
+    (result, item) => {
+      result.totalProductionQty += item.totalProductionQty
+      result.cumulativeDispatchedGarmentQty += item.cumulativeDispatchedGarmentQty
+      result.remainingGarmentQty += item.remainingGarmentQty
+      result.dispatchBatchCount += item.dispatchBatchCount
+      result.transferBagCount += item.transferBagCount
+      result.writtenBackTransferBagCount += item.writtenBackTransferBagCount
+      result.differenceTransferBagCount += item.differenceTransferBagCount
+      result.objectionTransferBagCount += item.objectionTransferBagCount
+      item.blockingReasons.forEach((reason) => result.blockingReasons.add(reason))
+      return result
+    },
+    {
+      totalProductionQty: 0,
+      cumulativeDispatchedGarmentQty: 0,
+      remainingGarmentQty: 0,
+      dispatchBatchCount: 0,
+      transferBagCount: 0,
+      writtenBackTransferBagCount: 0,
+      differenceTransferBagCount: 0,
+      objectionTransferBagCount: 0,
+      blockingReasons: new Set<string>(),
+    },
+  )
+  const reasons = Array.from(aggregated.blockingReasons)
+
+  return `
+    <section class="rounded-lg border bg-white p-4 shadow-sm">
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <div class="text-sm font-semibold text-foreground">裁片发料汇总</div>
+          <div class="mt-1 text-xs text-muted-foreground">统计裁床厂统一发给车缝厂的中转单、中转袋和回写结果。</div>
+        </div>
+        <div class="text-sm font-medium ${reasons.length ? 'text-amber-600' : 'text-emerald-600'}">是否可继续发料：${reasons.length ? '否' : '是'}</div>
+      </div>
+      <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        ${renderCompactKpiCard('生产总数', aggregated.totalProductionQty, '', 'text-slate-900')}
+        ${renderCompactKpiCard('累计已发车缝件数', aggregated.cumulativeDispatchedGarmentQty, '', 'text-blue-600')}
+        ${renderCompactKpiCard('剩余未发件数', aggregated.remainingGarmentQty, '', 'text-amber-600')}
+        ${renderCompactKpiCard('发料批次数', aggregated.dispatchBatchCount, '', 'text-slate-700')}
+        ${renderCompactKpiCard('中转袋数', aggregated.transferBagCount, '', 'text-slate-700')}
+        ${renderCompactKpiCard('已回写袋数', aggregated.writtenBackTransferBagCount, '', 'text-emerald-600')}
+        ${renderCompactKpiCard('差异袋数', aggregated.differenceTransferBagCount, '', 'text-rose-600')}
+        ${renderCompactKpiCard('异议中袋数', aggregated.objectionTransferBagCount, '', 'text-rose-600')}
+        ${renderCompactKpiCard('阻塞原因', reasons.length ? reasons.join('、') : '无', '裁片未配齐 / 特殊工艺未回仓 / 存在差异 / 存在异议 / 菲票被占用 / 数量超过剩余未发', 'text-amber-600')}
+      </div>
+    </section>
+  `
+}
+
+function renderProgressStatisticsLinkageCards(rows: ProductionProgressRow[]): string {
+  const rowIds = new Set(rows.map((row) => row.productionOrderId))
+  const snapshots = getCuttingProgressSnapshots().filter((item) => rowIds.has(item.productionOrderId))
+  if (!snapshots.length) return ''
+
+  const countBy = (getter: (snapshot: (typeof snapshots)[number]) => boolean): number => snapshots.filter(getter).length
+  const blockingReasons = Array.from(new Set(snapshots.flatMap((snapshot) => snapshot.blockingReasons.map((reason) => reason.blockingLabel))))
+
+  return `
+    <section class="rounded-lg border bg-white p-4 shadow-sm">
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <div class="text-sm font-semibold text-foreground">裁床进度联动</div>
+          <div class="mt-1 text-xs text-muted-foreground">按生产单汇总配料、领料、裁剪、菲票、特殊工艺回仓、裁片发车缝和阻塞原因。</div>
+        </div>
+        <div class="text-sm font-medium ${snapshots.every((item) => item.canCreateSewingDispatchBatch) ? 'text-emerald-600' : 'text-amber-600'}">是否可继续发料：${snapshots.every((item) => item.canCreateSewingDispatchBatch) ? '是' : '否'}</div>
+      </div>
+      <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        ${renderCompactKpiCard('配料进度', countBy((item) => item.materialPrepProgress.status === '已配置'), `共 ${snapshots.length} 单`, 'text-slate-900')}
+        ${renderCompactKpiCard('领料进度', countBy((item) => item.pickupProgress.status === '已领料'), `差异 ${countBy((item) => item.pickupProgress.status === '差异待处理')} 单`, 'text-blue-600')}
+        ${renderCompactKpiCard('裁剪进度', countBy((item) => item.cuttingProgress.status === '已裁剪'), `共 ${snapshots.length} 单`, 'text-violet-600')}
+        ${renderCompactKpiCard('菲票进度', countBy((item) => item.feiTicketProgress.status === '已生成'), `部分 / 未生成 ${countBy((item) => item.feiTicketProgress.status !== '已生成')} 单`, 'text-cyan-600')}
+        ${renderCompactKpiCard('特殊工艺回仓', countBy((item) => item.specialCraftReturnProgress.status === '已回仓' || item.specialCraftReturnProgress.status === '不需要回仓'), `未回仓 ${countBy((item) => item.specialCraftReturnProgress.status.includes('未回仓'))} 单`, 'text-emerald-600')}
+        ${renderCompactKpiCard('裁片发车缝', snapshots.reduce((sum, item) => sum + item.sewingDispatchProgress.completedQty, 0), '累计已发件数', 'text-blue-600')}
+        ${renderCompactKpiCard('差异 / 异议', countBy((item) => item.blockingReasons.some((reason) => reason.blockingLabel.includes('差异') || reason.blockingLabel.includes('异议'))), '阻塞生产单', 'text-rose-600')}
+        ${renderCompactKpiCard('阻塞原因', blockingReasons.length ? blockingReasons.slice(0, 3).join('、') : '无', '可按阻塞原因筛选', 'text-amber-600')}
+      </div>
     </section>
   `
 }
@@ -950,6 +1093,9 @@ export function renderCraftCuttingProductionProgressPage(): string {
       })}
 
       ${renderStatsCards(rows)}
+      ${renderSpecialCraftReturnCards(rows)}
+      ${renderSewingDispatchProgressCards(rows)}
+      ${renderProgressStatisticsLinkageCards(rows)}
       ${renderStageOverview(rows)}
 
       ${renderStickyFilterShell(`

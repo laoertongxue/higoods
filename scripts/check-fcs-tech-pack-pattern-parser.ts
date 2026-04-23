@@ -7,6 +7,7 @@ import { productionOrders } from '../src/data/fcs/production-orders.ts'
 import { buildSeedProductionOrderTechPackSnapshot } from '../src/data/fcs/production-tech-pack-snapshot-builder.ts'
 import { buildProductionConfirmationSnapshot } from '../src/data/fcs/production-confirmation.ts'
 import { renderProductionConfirmationPrintPage } from '../src/pages/production/confirmation-print.ts'
+import { removedPseudoCraftNames } from './utils/special-craft-banlist.ts'
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 
@@ -183,8 +184,7 @@ assertIncludes(cuttingFeiSource, 'getProductionOrderCutPieceParts', '裁床菲�
 ;[
   '解析模板',
   '部位模板库',
-  '印花工艺',
-  '染色工艺',
+  ...removedPseudoCraftNames,
 ].forEach((token) => {
   assertNotIncludes(patternDomainSource, token, `FCS 纸样页面不得展示研发文案：${token}`)
 })

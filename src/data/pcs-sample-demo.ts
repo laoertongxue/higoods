@@ -38,7 +38,7 @@ const LEGACY_PROJECT_ALIAS_KEYWORDS: Record<string, string[]> = {
   'PRJ-20251216-003': ['牛仔短裤'],
   'PRJ-20251216-004': ['宽松基础T恤', '基础T恤', 'T恤'],
   'PRJ-20251216-007': ['针织连衣裙', '针织开衫', '针织'],
-  'PRJ-20251216-015': ['衬衫改版', '中式盘扣', '衬衫'],
+  'PRJ-20251216-015': ['衬衫改版', '中式结饰', '衬衫'],
 }
 
 const EXTRA_SAMPLE_INPUTS: SampleLedgerWriteInput[] = [

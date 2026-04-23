@@ -10,6 +10,12 @@ import {
   getProcessDefinitionByCode,
   listActiveProcessCraftDefinitions,
 } from '../src/data/fcs/process-craft-dict.ts'
+import { listSpecialCraftOperationDefinitions } from '../src/data/fcs/special-craft-operations.ts'
+import {
+  assertNoRemovedLegacyTerm,
+  removedLegacyCraftNames,
+  removedLegacyProcessCodes,
+} from './utils/special-craft-banlist.ts'
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 
@@ -25,6 +31,12 @@ const pkg = JSON.parse(read('package.json')) as { scripts?: Record<string, strin
 const scripts = pkg.scripts || {}
 
 const requiredCommands = [
+  'check:special-craft-business-taxonomy',
+  'check:special-craft-operation-menus',
+  'check:special-craft-task-generation',
+  'check:factory-internal-warehouse-model',
+  'check:factory-mobile-app-redesign',
+  'check:factory-handover-warehouse-linkage',
   'check:production-craft-dict-page',
   'check:process-craft-sam-rules',
   'check:process-craft-final-taxonomy',
@@ -52,6 +64,9 @@ const requiredCommands = [
   'check:printing-workflow',
   'check:dyeing-workflow',
   'check:cutting-fei-ticket-assembly',
+  'check:cutting-special-craft-dispatch-return',
+  'check:cutting-sewing-dispatch',
+  'check:progress-statistics-linkage',
   'check:cutting-material-prep-pickup-replenishment',
   'check:cutting-marker-spreading-actions',
   'check:cutting-traceability-chain',
@@ -73,7 +88,20 @@ requiredCommands.forEach((command) => {
 
 const requiredFiles = [
   'src/data/fcs/process-craft-dict.ts',
+  'src/data/fcs/special-craft-operations.ts',
+  'src/data/fcs/special-craft-task-orders.ts',
+  'src/data/fcs/special-craft-task-generation.ts',
+  'src/data/fcs/factory-internal-warehouse.ts',
+  'src/data/fcs/factory-mobile-todos.ts',
+  'src/data/fcs/factory-mobile-warehouse.ts',
+  'src/data/fcs/factory-warehouse-linkage.ts',
   'src/data/fcs/factory-capacity-profile-mock.ts',
+  'scripts/check-special-craft-business-taxonomy.ts',
+  'scripts/check-special-craft-operation-menus.ts',
+  'scripts/check-special-craft-task-generation.ts',
+  'scripts/check-factory-internal-warehouse-model.ts',
+  'scripts/check-factory-mobile-app-redesign.ts',
+  'scripts/check-factory-handover-warehouse-linkage.ts',
   'scripts/check-capacity-equipment-linkage.ts',
   'scripts/check-capacity-risk-process-craft-source.ts',
   'scripts/check-fcs-inactive-process-craft-usage.ts',
@@ -88,13 +116,34 @@ const requiredFiles = [
   'src/data/fcs/production-tech-pack-snapshot-types.ts',
   'src/data/fcs/fcs-pattern-file-parser.ts',
   'src/data/fcs/cutting/generated-fei-tickets.ts',
+  'src/data/fcs/cutting/special-craft-fei-ticket-flow.ts',
+  'src/data/fcs/cutting/sewing-dispatch.ts',
+  'src/data/fcs/progress-statistics-linkage.ts',
   'src/data/fcs/cutting/material-prep.ts',
   'src/data/fcs/cutting/replenishment.ts',
   'src/pages/pda-exec-detail.ts',
+  'src/pages/pda-shell.ts',
+  'src/pages/pda-notify.ts',
+  'src/pages/pda-notify-detail.ts',
+  'src/pages/pda-warehouse.ts',
+  'src/pages/pda-warehouse-wait-process.ts',
+  'src/pages/pda-warehouse-wait-handover.ts',
+  'src/pages/pda-warehouse-inbound-records.ts',
+  'src/pages/pda-warehouse-outbound-records.ts',
+  'src/pages/pda-warehouse-stocktake.ts',
   'src/pages/progress-handover.ts',
+  'src/pages/factory-internal-warehouse.ts',
+  'src/pages/process-factory/special-craft/shared.ts',
+  'src/pages/process-factory/special-craft/task-orders.ts',
+  'src/pages/process-factory/special-craft/task-detail.ts',
+  'src/pages/process-factory/special-craft/warehouse.ts',
+  'src/pages/process-factory/special-craft/statistics.ts',
   'src/pages/process-factory/printing/statistics.ts',
   'src/pages/process-factory/dyeing/reports.ts',
   'src/pages/process-factory/cutting/fei-tickets.ts',
+  'src/pages/process-factory/cutting/special-craft-dispatch.ts',
+  'src/pages/process-factory/cutting/special-craft-return.ts',
+  'src/pages/process-factory/cutting/sewing-dispatch.ts',
   'src/pages/process-factory/cutting/material-prep.ts',
   'src/pages/fcs-production-tech-pack-snapshot.ts',
   'src/pages/progress-board.ts',
@@ -102,6 +151,9 @@ const requiredFiles = [
   'src/router/routes-fcs.ts',
   'src/router/route-renderers-fcs.ts',
   'scripts/check-menu-routes.mjs',
+  'scripts/check-cutting-special-craft-dispatch-return.ts',
+  'scripts/check-cutting-sewing-dispatch.ts',
+  'scripts/check-progress-statistics-linkage.ts',
   'scripts/check-process-craft-final-taxonomy.ts',
   'scripts/check-fcs-final-acceptance.ts',
   'docs/fcs-truth-source-final-acceptance.md',
@@ -110,15 +162,21 @@ const requiredFiles = [
 requiredFiles.forEach(ensureExists)
 
 const activeCrafts = listActiveProcessCraftDefinitions()
+const removedCraftNameSet = new Set(removedLegacyCraftNames)
+const specialCraftOperations = listSpecialCraftOperationDefinitions()
 assert(!activeCrafts.some((item) => item.processCode === 'WASHING'), '活跃工艺中不应存在 WASHING')
-assert(!activeCrafts.some((item) => item.processCode === 'HARDWARE'), '活跃工艺中不应存在五金工序')
-assert(!activeCrafts.some((item) => item.processCode === 'FROG_BUTTON'), '活跃工艺中不应存在盘扣工序')
-assert(!activeCrafts.some((item) => item.craftName === '印花工艺'), '活跃工艺中不应存在印花工艺伪特殊工艺')
-assert(!activeCrafts.some((item) => item.craftName === '染色工艺'), '活跃工艺中不应存在染色工艺伪特殊工艺')
-assert(!read('src/data/fcs/process-craft-dict.ts').includes('印花工艺'), '工序工艺字典源码不应保留印花工艺伪特殊工艺')
-assert(!read('src/data/fcs/process-craft-dict.ts').includes('染色工艺'), '工序工艺字典源码不应保留染色工艺伪特殊工艺')
+removedLegacyProcessCodes.forEach((processCode) => {
+  assert(!activeCrafts.some((item) => item.processCode === processCode), '活跃工艺中不应存在已删除旧编码')
+})
+assert(!activeCrafts.some((item) => removedCraftNameSet.has(item.craftName)), '活跃工艺中不应存在已删除旧项')
+assertNoRemovedLegacyTerm(read('src/data/fcs/process-craft-dict.ts'), assert, '工序工艺字典源码不应保留已删除旧项')
 assert(getProcessDefinitionByCode('SHRINKING')?.stageCode === 'PREP', '缩水必须归准备阶段')
-assert(getProcessDefinitionByCode('POST_FINISHING')?.generatesExternalTask === true, '后道父任务必须生成任务')
+assert(getProcessDefinitionByCode('POST_FINISHING')?.generatesExternalTask === true, '后道父任务必须产出任务')
+assert(specialCraftOperations.length > 0, '缺少特殊工艺运营分类基础数据')
+assert(
+  specialCraftOperations.every((item) => item.processCode === 'SPECIAL_CRAFT' && !removedCraftNameSet.has(item.craftName)),
+  '特殊工艺运营分类存在非法工艺引用',
+)
 
 const handoverSource =
   read('src/data/fcs/process-tasks.ts') +
@@ -216,12 +274,17 @@ const routeSource =
   read('src/router/route-renderers.ts')
 ;[
   '/fcs/production/orders',
+  '/fcs/factory/warehouse',
   '/fcs/progress/board',
   '/fcs/progress/handover',
   '/fcs/progress/material',
   '/fcs/craft/printing/statistics',
   '/fcs/craft/dyeing/reports',
   '/fcs/craft/cutting/production-progress',
+  'special-craft',
+  'renderSpecialCraftTaskOrdersPage',
+  'renderSpecialCraftWarehousePage',
+  'renderSpecialCraftStatisticsPage',
   '/confirmation-print',
 ].forEach((token) => {
   assert(routeSource.includes(token), `路由注册缺少：${token}`)

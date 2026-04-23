@@ -20,6 +20,12 @@ import {
   renderPdaCuttingReplenishmentFeedbackPage,
   renderPdaCuttingSpreadingPage,
   renderPdaCuttingTaskDetailPage,
+  renderPdaWarehousePage,
+  renderPdaWarehouseWaitProcessPage,
+  renderPdaWarehouseWaitHandoverPage,
+  renderPdaWarehouseInboundRecordsPage,
+  renderPdaWarehouseOutboundRecordsPage,
+  renderPdaWarehouseStocktakePage,
 } from './route-renderers'
 import { renderRouteRedirect } from './route-utils'
 import { getPdaSession } from '../data/fcs/store-domain-pda.ts'
@@ -28,7 +34,7 @@ export const routes: RouteRegistry = {
   exactRoutes: {
     '/fcs/pda': () =>
       getPdaSession()
-        ? renderRouteRedirect('/fcs/pda/notify', '工厂端移动应用')
+        ? renderRouteRedirect('/fcs/pda/task-receive', '工厂端移动应用')
         : renderRouteRedirect('/fcs/pda/login', '工厂端移动应用登录'),
     '/fcs/pda/login': () => renderPdaLoginPage(),
     '/fcs/pda/notify': () => renderPdaNotifyPage(),
@@ -37,6 +43,12 @@ export const routes: RouteRegistry = {
     '/fcs/pda/task-receive': () => renderPdaTaskReceivePage(),
     '/fcs/pda/exec': () => renderPdaExecPage(),
     '/fcs/pda/handover': () => renderPdaHandoverPage(),
+    '/fcs/pda/warehouse': () => renderPdaWarehousePage(),
+    '/fcs/pda/warehouse/wait-process': () => renderPdaWarehouseWaitProcessPage(),
+    '/fcs/pda/warehouse/wait-handover': () => renderPdaWarehouseWaitHandoverPage(),
+    '/fcs/pda/warehouse/inbound-records': () => renderPdaWarehouseInboundRecordsPage(),
+    '/fcs/pda/warehouse/outbound-records': () => renderPdaWarehouseOutboundRecordsPage(),
+    '/fcs/pda/warehouse/stocktake': () => renderPdaWarehouseStocktakePage(),
     '/fcs/pda/settlement': () => renderPdaSettlementPage(),
   },
   dynamicRoutes: [

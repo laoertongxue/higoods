@@ -11,6 +11,7 @@ import {
   getProductionConfirmationByOrderId,
   isProductionConfirmationPrintable,
 } from '../src/data/fcs/production-confirmation.ts'
+import { getSpecialCraftTasksByProductionOrder } from '../src/data/fcs/special-craft-task-orders.ts'
 import { renderProductionConfirmationPrintPage } from '../src/pages/production/confirmation-print.ts'
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
@@ -88,6 +89,33 @@ assert(
   '确认单纸样快照必须保留特殊工艺',
 )
 
+const specialCraftOrder = productionOrders.find((order) => getSpecialCraftTasksByProductionOrder(order.productionOrderId).length > 0)
+if (!specialCraftOrder) {
+  fail('至少应存在一个含特殊工艺任务的生产单')
+}
+
+const specialCraftTasks = getSpecialCraftTasksByProductionOrder(specialCraftOrder.productionOrderId)
+assert(specialCraftTasks.length > 0, '特殊工艺任务数据源必须可按生产单读取')
+assert(specialCraftTasks.every((task) => task.generationSourceLabel === '生产单生成'), '特殊工艺任务来源必须标记为生产单生成')
+
+const specialCraftSnapshot = buildProductionConfirmationSnapshot(specialCraftOrder.productionOrderId)
+const specialCraftTask = specialCraftTasks[0]
+assert(specialCraftTask, '必须存在示例特殊工艺任务')
+const specialCraftRows = specialCraftSnapshot.taskAssignmentSnapshot.filter((row) => row.taskNo === specialCraftTask.taskOrderNo)
+assert(specialCraftRows.length > 0, '生产确认单快照必须包含特殊工艺任务分配行')
+assert(specialCraftRows.every((row) => row.stageName === '特殊工艺'), '特殊工艺任务在确认单中必须归特殊工艺阶段')
+assert(
+  specialCraftRows.every(
+    (row) =>
+      Boolean(row.targetObject?.trim())
+      && Boolean(row.partName?.trim())
+      && Boolean(row.colorName?.trim())
+      && Boolean(row.sizeCode?.trim())
+      && Boolean(row.assignmentStatus?.trim()),
+  ),
+  '特殊工艺任务确认单行必须包含作用对象、裁片部位、颜色、尺码和分配状态',
+)
+
 const previewHtml = renderProductionConfirmationPrintPage(printableOrder.productionOrderId)
 assert(previewHtml.includes('生产确认单'), '预览页必须输出生产确认单标题')
 assert(previewHtml.includes('生产单号'), '预览页必须展示生产单基本信息')
@@ -112,6 +140,16 @@ assert(!previewHtml.includes('techPackSnapshot'), '预览页不得显示 techPac
 assert(!previewHtml.includes('patternMaterialType'), '预览页不得显示 patternMaterialType')
 assert(!previewHtml.includes('colorAllocations'), '预览页不得显示 colorAllocations')
 assert(!previewHtml.includes('specialCrafts'), '预览页不得显示 specialCrafts')
+assert(previewHtml.includes('分配状态'), '预览页必须展示分配状态列')
+
+const specialCraftPreviewHtml = renderProductionConfirmationPrintPage(specialCraftOrder.productionOrderId)
+assert(specialCraftPreviewHtml.includes('工序工艺任务分配'), '含特殊工艺任务的确认单页面必须展示任务分配区块')
+assert(specialCraftPreviewHtml.includes('待分配'), '未分配特殊工艺任务必须显示待分配')
+assert(specialCraftPreviewHtml.includes(specialCraftTask.operationName), '确认单页面必须展示特殊工艺名称')
+assert(specialCraftPreviewHtml.includes(specialCraftTask.productionOrderNo), '确认单页面必须展示特殊工艺所属生产单号')
+;['作用对象', '裁片部位', '颜色', '尺码', '分配状态'].forEach((token) => {
+  assert(specialCraftPreviewHtml.includes(token), `确认单页面缺少特殊工艺字段：${token}`)
+})
 
 const blockedHtml = renderProductionConfirmationPrintPage(nonPrintableOrder.productionOrderId)
 assert(blockedHtml.includes(nonPrintableState.reason || '未完成工厂分配'), '不可打印页面必须显示短中文原因')

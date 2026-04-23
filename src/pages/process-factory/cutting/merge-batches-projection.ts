@@ -5,7 +5,7 @@ import {
 import type { CuttingSummaryBuildOptions } from './summary-model'
 import {
   mapCuttingDomainSnapshotToSummaryBuildOptions,
-} from './runtime-projections'
+} from './runtime-projections.ts'
 import {
   buildCuttablePoolViewModel,
   type CuttablePoolViewModel,

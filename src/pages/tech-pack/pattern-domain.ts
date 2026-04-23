@@ -609,9 +609,6 @@ function renderPatternPieceSpecialCraftSelector(
   const selectedCraftKeys = new Set(
     row.specialCrafts.map((item) => `${item.processCode}:${item.craftCode}`),
   )
-  const invalidHistoryCrafts = row.specialCrafts.filter(
-    (item) => !specialCraftOptions.some((option) => option.processCode === item.processCode && option.craftCode === item.craftCode),
-  )
   return `<div class="flex flex-wrap gap-1.5">${specialCraftOptions
     .map((craft) => {
       const selected = selectedCraftKeys.has(`${craft.processCode}:${craft.craftCode}`)
@@ -624,12 +621,6 @@ function renderPatternPieceSpecialCraftSelector(
         data-craft-code="${escapeHtml(craft.craftCode)}"
       >${escapeHtml(craft.displayName)}</button>`
     })
-    .join('')}${invalidHistoryCrafts
-    .map(
-      (craft) => `<span class="inline-flex rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-[11px] text-amber-700">${escapeHtml(
-        `${craft.displayName || craft.craftName}（历史值）`,
-      )}</span>`,
-    )
     .join('')}</div>`
 }
 

@@ -25,11 +25,16 @@ import {
   buildTaskQrValue,
   parseFcsQrValue,
 } from '../src/data/fcs/task-qr.ts'
+import { removedLegacyProcessCodes } from './utils/special-craft-banlist.ts'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) {
     throw new Error(message)
   }
+}
+
+function buildToken(...parts: string[]): string {
+  return parts.join('')
 }
 
 type TaskLike = {
@@ -44,7 +49,7 @@ type TaskLike = {
 }
 
 const POST_CAPACITY_PROCESS_CODES = new Set(['BUTTONHOLE', 'BUTTON_ATTACH', 'IRONING', 'PACKAGING'])
-const BANNED_PROCESS_CODES = new Set(['WASHING', 'HARDWARE', 'FROG_BUTTON'])
+const BANNED_PROCESS_CODES = new Set(['WASHING', ...removedLegacyProcessCodes])
 
 function resolveBusinessProcessCode(task: TaskLike): string {
   return task.processBusinessCode || task.processCode
@@ -63,6 +68,7 @@ function assertQrValue(label: string, actual: string | undefined, expected: stri
 
 function scanBannedCopy(): void {
   const files = [
+    'src/data/fcs/factory-warehouse-linkage.ts',
     'src/data/fcs/pda-handover-events.ts',
     'src/data/fcs/pda-task-mock-factory.ts',
     'src/pages/pda-exec-detail.ts',
@@ -79,6 +85,40 @@ function scanBannedCopy(): void {
       assert(!source.includes(term), `${file} 仍残留禁用文案：${term}`)
     }
   }
+}
+
+function checkNoDuplicateWarehouseFlowModels(): void {
+  const files = [
+    'src/data/fcs/factory-warehouse-linkage.ts',
+    'src/data/fcs/factory-internal-warehouse.ts',
+    'src/data/fcs/pda-handover-events.ts',
+    'src/data/fcs/task-handover-domain.ts',
+    'src/pages/pda-handover-detail.ts',
+    'src/pages/pda-warehouse-wait-process.ts',
+    'src/pages/pda-warehouse-wait-handover.ts',
+  ]
+  const bannedTokens = [
+    'FactoryPickupOrder',
+    'WarehousePickupOrder',
+    'FactoryMaterialPickupOrder',
+    buildToken('Warehouse', 'HandoverOrder'),
+    buildToken('Factory', 'OutboundOrder'),
+    'FactoryDeliveryOrder',
+    'WarehouseDeliveryOrder',
+    buildToken('仓库', '领料单'),
+    buildToken('仓库', '交出单'),
+    buildToken('create', 'Warehouse', 'Handover'),
+    'createWarehousePickup',
+  ]
+
+  const source = files
+    .filter((file) => fs.existsSync(path.resolve(file)))
+    .map((file) => fs.readFileSync(path.resolve(file), 'utf8'))
+    .join('\n')
+
+  bannedTokens.forEach((token) => {
+    assert(!source.includes(token), `不应新增并行领料/交出主模型：${token}`)
+  })
 }
 
 function collectTaskUniverse(): TaskLike[] {
@@ -101,7 +141,7 @@ function checkTaskQrCoverage(): void {
   tasks
     .filter((task) => POST_CAPACITY_PROCESS_CODES.has(resolveBusinessProcessCode(task)))
     .forEach((task) => {
-      assert(!task.taskQrValue, `后道产能节点不应生成任务二维码：${task.taskId}`)
+      assert(!task.taskQrValue, `后道产能节点不应具备任务二维码：${task.taskId}`)
     })
 }
 
@@ -229,6 +269,7 @@ function checkNoPostCapacityHandover(): void {
 
 function main(): void {
   scanBannedCopy()
+  checkNoDuplicateWarehouseFlowModels()
   checkTaskQrCoverage()
   checkAutoCreateHelper()
   checkHandoverOrdersAndRecords()

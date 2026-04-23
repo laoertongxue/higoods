@@ -2196,22 +2196,11 @@ function normalizePatternPieceSpecialCrafts(
 
   return dedupeByKey(
     specialCrafts
-      .map((item) => {
+      .flatMap((item) => {
         const processCode = String(item.processCode || '').trim()
         const craftCode = String(item.craftCode || '').trim()
         const matched = optionByCode.get(`${processCode}:${craftCode}`)
-        if (matched) return { ...matched }
-
-        const craftName = String(item.craftName || item.displayName || '').trim()
-        if (!processCode || !craftCode || !craftName) return null
-
-        return {
-          processCode,
-          processName: String(item.processName || '特殊工艺').trim() || '特殊工艺',
-          craftCode,
-          craftName,
-          displayName: craftName,
-        }
+        return matched ? [{ ...matched }] : []
       })
       .filter((item): item is TechPackPatternPieceSpecialCraft => Boolean(item)),
     (item) => `${item.processCode}:${item.craftCode}`,

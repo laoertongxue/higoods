@@ -124,7 +124,7 @@ function renderCraftBasicPanel(row: ProcessCraftDictRow): string {
         ['老系统值', String(row.legacyValue)],
         ['老系统工艺名称', row.legacyCraftName],
         ['任务口径', row.processRoleLabel],
-        ['是否生成任务', row.generatesExternalTaskLabel],
+        ['是否出任务', row.generatesExternalTaskLabel],
         ['状态', row.statusLabel],
         ['工艺规则来源', row.ruleSourceLabel],
         ['工艺规则拆分方式', row.detailSplitModeLabel],
@@ -331,7 +331,7 @@ function renderCraftDetailSheet(row: ProcessCraftDictRow): string {
               ['老系统工艺名称', row.legacyCraftName],
               ['是否特殊工艺', row.isSpecialCraft ? '是' : '否'],
               ['任务口径', row.processRoleLabel],
-              ['是否生成任务', row.generatesExternalTaskLabel],
+              ['是否出任务', row.generatesExternalTaskLabel],
               ['状态', row.statusLabel],
             ]
               .map(
@@ -468,7 +468,7 @@ export function renderProductionCraftDictPage(): string {
                   <th class="px-3 py-2 text-left">工艺名称</th>
                   <th class="px-3 py-2 text-left">阶段</th>
                   <th class="px-3 py-2 text-left">任务口径</th>
-                  <th class="px-3 py-2 text-left">是否生成任务</th>
+                  <th class="px-3 py-2 text-left">是否出任务</th>
                   <th class="px-3 py-2 text-left">状态</th>
                 </tr>
               </thead>

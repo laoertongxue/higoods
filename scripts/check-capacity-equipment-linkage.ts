@@ -9,6 +9,7 @@ import {
   listFactoryCapacityEquipments,
 } from '../src/data/fcs/factory-capacity-profile-mock.ts'
 import { getCapacityProcessCraftOptions } from '../src/data/fcs/process-craft-dict.ts'
+import { includesRemovedPseudoCraft } from './utils/special-craft-banlist.ts'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 
@@ -28,8 +29,8 @@ const equipmentOptions = new Set(
   getCapacityProcessCraftOptions().map((item) => `${item.processCode}::${item.craftCode}`),
 )
 assert(
-  !getCapacityProcessCraftOptions().some((item) => /印花工艺|染色工艺/.test(item.label) || /印花工艺|染色工艺/.test(item.craftName)),
-  '设备维护可选工序工艺中不应暴露印花工艺 / 染色工艺',
+  !getCapacityProcessCraftOptions().some((item) => includesRemovedPseudoCraft(item.label) || includesRemovedPseudoCraft(item.craftName)),
+  '设备维护可选工序工艺中不应暴露已删除伪特殊工艺',
 )
 
 assert(pageSource.includes('详情'), '工厂产能档案缺少详情态文案')

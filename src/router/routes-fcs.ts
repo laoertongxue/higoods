@@ -1,10 +1,18 @@
 import type { RouteRegistry } from './route-types'
+import {
+  buildSpecialCraftOperationSlug,
+  buildSpecialCraftStatisticsPath,
+  buildSpecialCraftTaskOrdersPath,
+  buildSpecialCraftWarehousePath,
+  listEnabledSpecialCraftOperationDefinitions,
+} from '../data/fcs/special-craft-operations'
 import { buildDeductionEntryHrefByBasisId } from '../data/fcs/quality-chain-adapter'
 import { renderRouteRedirect } from './route-utils'
 import {
   renderTaskBreakdownPage,
   renderCapabilityPage,
   renderFactoryCapacityProfilePage,
+  renderFactoryInternalWarehousePage,
   renderFactoryPerformancePage,
   renderFactoryProfilePage,
   renderFactoryStatusPage,
@@ -76,6 +84,9 @@ import {
   renderCraftCuttingMarkerSpreadingPage,
   renderCraftCuttingReplenishmentPage,
   renderCraftCuttingSampleWarehousePage,
+  renderCraftCuttingSpecialCraftDispatchPage,
+  renderCraftCuttingSpecialCraftReturnPage,
+  renderCraftCuttingSewingDispatchPage,
   renderCraftCuttingSpecialProcessesPage,
   renderCraftCuttingSpreadingCreatePage,
   renderCraftCuttingSpreadingDetailPage,
@@ -93,6 +104,10 @@ import {
   renderCraftDyeingDyeOrdersPage,
   renderCraftDyeingReportsPage,
   renderCraftDyeingWorkOrdersPage,
+  renderSpecialCraftStatisticsPage,
+  renderSpecialCraftTaskDetailPage,
+  renderSpecialCraftTaskOrdersPage,
+  renderSpecialCraftWarehousePage,
   renderTraceMappingPage,
   renderTraceParentCodesPage,
   renderTraceUniqueCodesPage,
@@ -100,9 +115,21 @@ import {
   renderCuttingSettlementInputPage,
 } from './route-renderers-fcs'
 
+const specialCraftExactRoutes = Object.fromEntries(
+  listEnabledSpecialCraftOperationDefinitions().flatMap((operation) => {
+    const operationSlug = buildSpecialCraftOperationSlug(operation)
+    return [
+      [buildSpecialCraftTaskOrdersPath(operation), () => renderSpecialCraftTaskOrdersPage(operationSlug)],
+      [buildSpecialCraftWarehousePath(operation), () => renderSpecialCraftWarehousePage(operationSlug)],
+      [buildSpecialCraftStatisticsPath(operation), () => renderSpecialCraftStatisticsPage(operationSlug)],
+    ]
+  }),
+)
+
 export const routes: RouteRegistry = {
   exactRoutes: {
     '/fcs/factories/profile': () => renderFactoryProfilePage(),
+    '/fcs/factory/warehouse': () => renderFactoryInternalWarehousePage(),
     '/fcs/factories/capacity-profile': () => renderFactoryCapacityProfilePage(),
     '/fcs/factories/capability': () => renderCapabilityPage(),
     '/fcs/factories/status': () => renderFactoryStatusPage(),
@@ -189,6 +216,11 @@ export const routes: RouteRegistry = {
     '/fcs/craft/cutting/sample-warehouse': () => renderCraftCuttingSampleWarehousePage(),
     '/fcs/craft/cutting/transfer-bags': () => renderCraftCuttingTransferBagsPage(),
     '/fcs/craft/cutting/transfer-bag-detail': () => renderCraftCuttingTransferBagDetailPage(),
+    '/fcs/craft/cutting/special-craft-dispatch': () => renderCraftCuttingSpecialCraftDispatchPage(),
+    '/fcs/craft/cutting/special-craft-return': () => renderCraftCuttingSpecialCraftReturnPage(),
+    '/fcs/craft/cutting/sewing-dispatch': () => renderCraftCuttingSewingDispatchPage(),
+    '/fcs/process-factory/cutting/sewing-dispatch': () =>
+      renderRouteRedirect('/fcs/craft/cutting/sewing-dispatch', '正在跳转到裁片发料'),
     '/fcs/craft/cutting/special-processes': () => renderCraftCuttingSpecialProcessesPage(),
     '/fcs/craft/cutting/summary': () => renderCraftCuttingSummaryPage(),
     '/fcs/craft/cutting/order-progress': () =>
@@ -233,6 +265,7 @@ export const routes: RouteRegistry = {
     '/fcs/craft/dyeing/batches': () => renderCraftDyeingDyeOrdersPage(),
     '/fcs/craft/dyeing/stats': () => renderCraftDyeingReportsPage(),
     '/fcs/craft/dyeing/reports': () => renderCraftDyeingReportsPage(),
+    ...specialCraftExactRoutes,
     '/fcs/production/create': () =>
       renderPlaceholderPage(
         '生成生产单',
@@ -292,6 +325,10 @@ export const routes: RouteRegistry = {
     {
       pattern: /^\/fcs\/progress\/handover\/order\/([^/]+)$/,
       render: (match) => renderProgressHandoverOrderPage(match[1]),
+    },
+    {
+      pattern: /^\/fcs\/process-factory\/special-craft\/([^/]+)\/tasks\/([^/]+)$/,
+      render: (match) => renderSpecialCraftTaskDetailPage(match[1], decodeURIComponent(match[2])),
     },
   ],
 }

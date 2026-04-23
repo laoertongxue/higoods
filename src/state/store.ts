@@ -57,7 +57,7 @@ const REMOVED_CUTTING_TAB_PATHS = new Set([
 ])
 const REMOVED_FCS_TAB_KEYS = new Set(['workbench-risks', 'process-dependencies', 'process-qc-standards'])
 const REMOVED_FCS_TAB_PATHS = new Set(['/fcs/workbench/risks', '/fcs/process/dependencies', '/fcs/process/qc-standards'])
-const PFOS_ROUTE_PREFIX = '/fcs/craft'
+const PFOS_ROUTE_PREFIXES = ['/fcs/craft', '/fcs/process-factory/special-craft'] as const
 
 function createEmptyTabs(): AllSystemTabs {
   const tabs: AllSystemTabs = {}
@@ -324,7 +324,9 @@ function migrateFcsTabTitles(allTabs: AllSystemTabs): AllSystemTabs {
 
 function isPfosPath(pathname: string): boolean {
   const normalizedPathname = normalizePathname(pathname)
-  return normalizedPathname === PFOS_ROUTE_PREFIX || normalizedPathname.startsWith(`${PFOS_ROUTE_PREFIX}/`)
+  return PFOS_ROUTE_PREFIXES.some(
+    (prefix) => normalizedPathname === prefix || normalizedPathname.startsWith(`${prefix}/`),
+  )
 }
 
 function migrateCraftTabsToPfos(allTabs: AllSystemTabs): AllSystemTabs {

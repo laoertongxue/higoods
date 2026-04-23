@@ -704,8 +704,6 @@ const REFERENCE_PUBLISHED_SAM_BY_CRAFT_NAME: Record<
   机打扣: { value: 0.28, unit: 'MINUTE_PER_PIECE' },
   四爪扣: { value: 0.32, unit: 'MINUTE_PER_PIECE' },
   布包扣: { value: 0.45, unit: 'MINUTE_PER_PIECE' },
-  鸡眼扣: { value: 0.26, unit: 'MINUTE_PER_PIECE' },
-  手工盘扣: { value: 1.6, unit: 'MINUTE_PER_PIECE' },
   熨烫: { value: 0.4, unit: 'MINUTE_PER_PIECE' },
   包装: { value: 0.3, unit: 'MINUTE_PER_PIECE' },
 }
@@ -750,12 +748,10 @@ const CRAFT_SYSTEM_CODE_BY_LEGACY_VALUE: Record<number, string> = {
   256: 'PROC_HAND_BUTTON',
   512: 'PROC_MACHINE_BUTTON',
   1024: 'PROC_FOUR_CLAW',
-  2048: 'PROC_EYELET',
   4096: 'PROC_SHRINK',
   8192: 'PROC_TANHUA',
   16384: 'PROC_DIRECT_PRINT',
   32768: 'PROC_CLOTH_BUTTON',
-  65536: 'PROC_PANKOU',
   131072: 'PROC_KUNTIAO',
   262144: 'PROC_QUYA',
   262145: 'PROC_BASE_CONNECT',
@@ -1246,21 +1242,19 @@ export const legacyProcessCraftMappings: LegacyCraftMappingDefinition[] = [
   { legacyValue: 1, legacyCraftName: '定位裁', craftName: '定位裁', processCode: 'CUT_PANEL', isSpecialCraft: false, defaultDocument: '任务单' },
   { legacyValue: 2, legacyCraftName: '绣花', craftName: '绣花', processCode: 'EMBROIDERY', isSpecialCraft: false, defaultDocument: '任务单' },
   { legacyValue: 4, legacyCraftName: '压褶', craftName: '压褶', processCode: 'PLEATING', isSpecialCraft: false, defaultDocument: '任务单' },
-  { legacyValue: 8, legacyCraftName: '打揽', craftName: '打揽', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '已明确按特殊工艺生成任务单' },
+  { legacyValue: 8, legacyCraftName: '打揽', craftName: '打揽', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '已明确按特殊工艺任务单管理' },
   { legacyValue: 16, legacyCraftName: '定向裁', craftName: '定向裁', processCode: 'CUT_PANEL', isSpecialCraft: false, defaultDocument: '任务单' },
-  { legacyValue: 32, legacyCraftName: '打条', craftName: '打条', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '已明确按特殊工艺生成任务单' },
-  { legacyValue: 64, legacyCraftName: '激光切', craftName: '激光切', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '已明确按特殊工艺生成任务单' },
+  { legacyValue: 32, legacyCraftName: '打条', craftName: '打条', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '已明确按特殊工艺任务单管理' },
+  { legacyValue: 64, legacyCraftName: '激光切', craftName: '激光切', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '已明确按特殊工艺任务单管理' },
   { legacyValue: 128, legacyCraftName: '洗水', craftName: '洗水', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, isActive: true, defaultDocument: '任务单', remark: '洗水归生产阶段特殊工艺，不再作为独立工序' },
   { legacyValue: 256, legacyCraftName: '手缝扣', craftName: '手缝扣', processCode: 'BUTTON_ATTACH', isSpecialCraft: false, defaultDocument: '任务单' },
   { legacyValue: 512, legacyCraftName: '机打扣', craftName: '机打扣', processCode: 'BUTTON_ATTACH', isSpecialCraft: false, defaultDocument: '任务单' },
   { legacyValue: 1024, legacyCraftName: '四爪扣', craftName: '四爪扣', processCode: 'BUTTON_ATTACH', isSpecialCraft: false, defaultDocument: '任务单' },
-  { legacyValue: 2048, legacyCraftName: '鸡眼扣', craftName: '鸡眼扣', processCode: 'BUTTON_ATTACH', isSpecialCraft: false, isActive: false, defaultDocument: '任务单', remark: '历史停用，不再生成新任务' },
   { legacyValue: 4096, legacyCraftName: '缩水', craftName: '缩水', processCode: 'SHRINKING', isSpecialCraft: false, isActive: true, defaultDocument: '任务单', remark: '缩水归准备阶段' },
-  { legacyValue: 8192, legacyCraftName: '烫画', craftName: '烫画', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '通常用于纯色T-shirt，已明确按特殊工艺生成任务单' },
-  { legacyValue: 16384, legacyCraftName: '直喷', craftName: '直喷', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '通常用于纯色T-shirt，已明确按特殊工艺生成任务单' },
+  { legacyValue: 8192, legacyCraftName: '烫画', craftName: '烫画', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '通常用于纯色T-shirt，已明确按特殊工艺任务单管理' },
+  { legacyValue: 16384, legacyCraftName: '直喷', craftName: '直喷', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '通常用于纯色T-shirt，已明确按特殊工艺任务单管理' },
   { legacyValue: 32768, legacyCraftName: '布包扣', craftName: '布包扣', processCode: 'BUTTON_ATTACH', isSpecialCraft: false, defaultDocument: '任务单' },
-  { legacyValue: 65536, legacyCraftName: '手工盘扣', craftName: '手工盘扣', processCode: 'BUTTON_ATTACH', isSpecialCraft: false, isActive: false, defaultDocument: '任务单', remark: '历史停用，不再生成新任务' },
-  { legacyValue: 131072, legacyCraftName: '捆条', craftName: '捆条', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '已明确按特殊工艺生成任务单' },
+  { legacyValue: 131072, legacyCraftName: '捆条', craftName: '捆条', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '已明确按特殊工艺任务单管理' },
   { legacyValue: 262144, legacyCraftName: '曲牙', craftName: '曲牙', processCode: 'SEW', isSpecialCraft: false, defaultDocument: '任务单', remark: '当前先按车缝归类' },
   { legacyValue: 262145, legacyCraftName: '基础连接', craftName: '基础连接', processCode: 'SEW', isSpecialCraft: false, defaultDocument: '任务单', remark: '当前按普通车缝基线归类' },
   { legacyValue: 524288, legacyCraftName: '开扣眼', craftName: '开扣眼', processCode: 'BUTTONHOLE', isSpecialCraft: false, defaultDocument: '任务单' },
@@ -1276,28 +1270,11 @@ const supplementalProcessCraftMappings: LegacyCraftMappingDefinition[] = [
   { legacyValue: 2000006, legacyCraftName: '包装', craftName: '包装', processCode: 'PACKAGING', isSpecialCraft: false, isActive: true, defaultDocument: '任务单' },
 ]
 
-const DISALLOWED_PSEUDO_SPECIAL_CRAFT_NAMES = new Set([
-  '\u5370\u82b1\u5de5\u827a',
-  '\u67d3\u8272\u5de5\u827a',
-])
-
-function isDisallowedPseudoSpecialCraft(input: {
-  craftName: string
-  legacyCraftName: string
-  processCode: string
-  isSpecialCraft: boolean
-}): boolean {
-  if (!input.isSpecialCraft && input.processCode !== 'SPECIAL_CRAFT') return false
-  return DISALLOWED_PSEUDO_SPECIAL_CRAFT_NAMES.has(input.craftName)
-    || DISALLOWED_PSEUDO_SPECIAL_CRAFT_NAMES.has(input.legacyCraftName)
-}
-
 const processDefinitionByCode = new Map(processDefinitions.map((item) => [item.processCode, item]))
 const processDefinitionBySystemCode = new Map(processDefinitions.map((item) => [item.systemProcessCode, item]))
 const stageDefinitionByCode = new Map(processStageDefinitions.map((item) => [item.stageCode, item]))
 
 export const allProcessCraftDefinitions: ProcessCraftDefinition[] = [...legacyProcessCraftMappings, ...supplementalProcessCraftMappings]
-  .filter((item) => !isDisallowedPseudoSpecialCraft(item))
   .slice()
   .sort((a, b) => a.legacyValue - b.legacyValue)
   .map((item) => {
@@ -1469,8 +1446,7 @@ export function listSelectableSpecialCraftDefinitions(): ProcessCraftDefinition[
   return processCraftDefinitions.filter(
     (item) =>
       item.isSpecialCraft
-      && item.processCode === 'SPECIAL_CRAFT'
-      && !isDisallowedPseudoSpecialCraft(item),
+      && item.processCode === 'SPECIAL_CRAFT',
   )
 }
 
@@ -1486,7 +1462,6 @@ export interface ProcessCraftOption {
 }
 
 function buildProcessCraftOption(definition: ProcessCraftDefinition): ProcessCraftOption | null {
-  if (isDisallowedPseudoSpecialCraft(definition)) return null
   const row = getProcessCraftDictRowByCode(definition.craftCode)
   if (!row || !row.isActive) return null
 
@@ -1766,7 +1741,6 @@ export interface ActiveProcessOption {
 export type ResolvedProcessCraft = ActiveProcessCraftRow
 
 function buildActiveProcessCraftRow(definition: ProcessCraftDefinition): ActiveProcessCraftRow | null {
-  if (isDisallowedPseudoSpecialCraft(definition)) return null
   if (!definition.isActive) return null
 
   const process = getProcessDefinitionByCode(definition.processCode)

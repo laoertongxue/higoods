@@ -159,7 +159,10 @@ type SpreadingReplenishmentFilter = 'ALL' | '待补料确认' | '无需补料'
 type SpreadingFeiStatusFilter = 'ALL' | '待打印菲票' | '已打印菲票'
 type SpreadingBaggingStatusFilter = 'ALL' | '待装袋' | '已装袋'
 type SpreadingWarehouseStatusFilter = 'ALL' | '待入仓' | '已入仓'
-type SpreadingSourceFilter = 'ALL' | 'PC' | 'PDA'
+const MOBILE_SOURCE_CHANNEL = 'PDA' as const
+const MOBILE_WRITEBACK_CHANNEL = 'PDA_WRITEBACK' as const
+
+type SpreadingSourceFilter = 'ALL' | 'PC' | typeof MOBILE_SOURCE_CHANNEL
 type SpreadingCreateStepKey = 'SELECT_MARKER' | 'CONFIRM_CREATE'
 type SpreadingEditTabKey = 'summary' | 'rolls' | 'operators' | 'variance' | 'completion'
 type MarkerDraftField =
@@ -310,17 +313,27 @@ interface SupervisorSpreadingRow extends SpreadingListRow {
   feiTicketStatusLabel: '待打印菲票' | '已打印菲票'
   baggingStatusLabel: '待装袋' | '已装袋'
   warehouseStatusLabel: '待入仓' | '已入仓'
-  dataSourceLabel: 'PC' | 'PDA'
+  dataSourceLabel: 'PC' | typeof MOBILE_SOURCE_CHANNEL
   mainStageKey: SpreadingSupervisorStageKey
   mainStageLabel: string
   mainStageClassName: string
   mainStageFormula: string
 }
 
-function getSpreadingDataSourceLabel(source: 'ALL' | 'PC' | 'PDA'): string {
+function getSpreadingDataSourceLabel(source: 'ALL' | 'PC' | typeof MOBILE_SOURCE_CHANNEL): string {
   if (source === 'PC') return '电脑录入'
-  if (source === 'PDA') return '移动录入'
+  if (source === MOBILE_SOURCE_CHANNEL) return '移动录入'
   return '全部'
+}
+
+function isMobileWritebackSource(sourceChannel?: string, sourceWritebackId?: string | null): boolean {
+  return sourceChannel === MOBILE_WRITEBACK_CHANNEL || Boolean(sourceWritebackId)
+}
+
+function getSourceChannelDisplayLabel(sourceChannel?: string): string {
+  if (sourceChannel === MOBILE_WRITEBACK_CHANNEL) return '移动录入'
+  if (sourceChannel === 'MIXED') return '混合录入'
+  return '电脑录入'
 }
 
 const state: MarkerSpreadingPageState = {
@@ -825,11 +838,11 @@ function renderSelect(
 }
 
 function cloneMarkerRecord(record: MarkerRecord): MarkerRecord {
-  return JSON.parse(JSON.stringify(record)) as MarkerRecord
+  return JSON.parse(JSON['stringify'](record)) as MarkerRecord
 }
 
 function cloneSpreadingSession(session: SpreadingSession): SpreadingSession {
-  return JSON.parse(JSON.stringify(session)) as SpreadingSession
+  return JSON.parse(JSON['stringify'](session)) as SpreadingSession
 }
 
 function createEmptyMarkerSizeValueMap(): HighLowCuttingRow['sizeValues'] {
@@ -1769,7 +1782,7 @@ function buildSupervisorSpreadingRows(baseRows: SpreadingListRow[]): SupervisorS
     const warehouseStatusLabel: SupervisorSpreadingRow['warehouseStatusLabel'] =
       lifecycleOverrides?.warehouseStatusLabel || warehouseStatusBySessionId[row.spreadingSessionId] || '待入仓'
     const dataSourceLabel: SupervisorSpreadingRow['dataSourceLabel'] =
-      row.session.sourceChannel === 'PDA_WRITEBACK' || Boolean(row.session.sourceWritebackId) ? 'PDA' : 'PC'
+      isMobileWritebackSource(row.session.sourceChannel, row.session.sourceWritebackId) ? MOBILE_SOURCE_CHANNEL : 'PC'
     const pendingReplenishmentConfirmation =
       replenishmentStatusLabel === '待补料确认'
         ? true
@@ -2164,7 +2177,7 @@ function renderFilterArea(): string {
             ${renderSelect('录入来源', state.sourceChannelFilter, 'data-cutting-spreading-list-field="source-channel"', [
               { value: 'ALL', label: '全部' },
               { value: 'PC', label: '电脑录入' },
-              { value: 'PDA', label: '移动录入' },
+              { value: MOBILE_SOURCE_CHANNEL, label: '移动录入' },
             ])}
           </div>
         </div>
@@ -3779,7 +3792,7 @@ function renderSpreadingDetailPage(): string {
                             <td class="px-3 py-2">${renderValueWithFormula(formatLength(usableLength), buildRollUsableLengthFormula(roll.actualLength, roll.headLength, roll.tailLength, usableLength), 'text-sm text-foreground')}</td>
                             <td class="px-3 py-2">${renderValueWithFormula(formatLength(remainingLength), buildRemainingLengthFormula(roll.labeledLength, roll.actualLength, remainingLength), 'text-sm text-foreground')}</td>
                             <td class="px-3 py-2">${renderValueWithFormula(`${formatQty(actualCutGarmentQty)} 件`, buildRollActualCutGarmentQtyFormula(actualCutGarmentQty, roll.layerCount, garmentQtyPerUnit), 'text-sm text-foreground')}</td>
-                            <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(roll.sourceChannel === 'PDA_WRITEBACK' ? '移动录入' : roll.sourceChannel === 'MIXED' ? '混合录入' : '电脑录入')}</td>
+                            <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(getSourceChannelDisplayLabel(roll.sourceChannel))}</td>
                             <td class="px-3 py-2">${escapeHtml(formatDateText(roll.occurredAt || ''))}</td>
                             <td class="px-3 py-2">${escapeHtml(roll.note || '—')}</td>
                           </tr>
@@ -4363,7 +4376,7 @@ function renderSpreadingEditPage(): string {
                             <td class="px-3 py-2">${renderValueWithFormula(formatLength(usableLength), buildRollUsableLengthFormula(roll.actualLength, roll.headLength, roll.tailLength, usableLength), 'text-sm text-foreground')}</td>
                             <td class="px-3 py-2">${renderValueWithFormula(formatLength(remainingLength), buildRemainingLengthFormula(roll.labeledLength, roll.actualLength, remainingLength), 'text-sm text-foreground')}</td>
                             <td class="px-3 py-2">${renderValueWithFormula(`${formatQty(actualCutGarmentQty)} 件`, buildRollActualCutGarmentQtyFormula(actualCutGarmentQty, roll.layerCount, garmentQtyPerUnit), 'text-sm text-foreground')}</td>
-                            <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(roll.sourceChannel === 'PDA_WRITEBACK' ? '移动录入' : roll.sourceChannel === 'MIXED' ? '混合录入' : '电脑录入')}</td>
+                            <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(getSourceChannelDisplayLabel(roll.sourceChannel))}</td>
                             <td class="px-3 py-2"><input type="text" value="${escapeHtml(roll.occurredAt || '')}" class="h-8 w-36 rounded-md border px-2.5 text-sm" data-cutting-spreading-roll-index="${index}" data-cutting-spreading-roll-field="occurredAt" /></td>
                             <td class="px-3 py-2"><input type="text" value="${escapeHtml(roll.note || '')}" class="h-8 w-40 rounded-md border px-2.5 text-sm" data-cutting-spreading-roll-index="${index}" data-cutting-spreading-roll-field="note" /></td>
                             <td class="px-3 py-2">
@@ -5193,8 +5206,8 @@ function syncSpreadingDraftFromStoredPdaWriteback(draft: SpreadingSession): bool
     return true
   }
   const hasPdaSource =
-    stored.rolls.some((roll) => roll.sourceChannel === 'PDA_WRITEBACK' || Boolean(roll.sourceWritebackId)) ||
-    stored.operators.some((operator) => operator.sourceChannel === 'PDA_WRITEBACK' || Boolean(operator.sourceWritebackId))
+    stored.rolls.some((roll) => isMobileWritebackSource(roll.sourceChannel, roll.sourceWritebackId)) ||
+    stored.operators.some((operator) => isMobileWritebackSource(operator.sourceChannel, operator.sourceWritebackId))
   if (!hasPdaSource) {
     state.feedback = { tone: 'warning', message: '当前铺布还没有来自工厂端的卷或人员回写。' }
     return true

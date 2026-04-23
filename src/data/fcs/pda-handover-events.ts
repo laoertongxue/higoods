@@ -388,6 +388,7 @@ export type PdaPickupRecordStatus =
   | 'PENDING_FACTORY_PICKUP'
   | 'PENDING_FACTORY_CONFIRM'
   | 'RECEIVED'
+  | 'REJECTED'
   | 'OBJECTION_REPORTED'
   | 'OBJECTION_PROCESSING'
   | 'OBJECTION_RESOLVED'
@@ -1374,9 +1375,13 @@ const PDA_MOCK_HANDOUT_RECORDS: Record<string, PdaHandoverRecord[]> = {
       plannedQty: 80,
       qtyUnit: '片',
       factorySubmittedAt: '2026-03-22 14:10:00',
-      factoryRemark: '罗纹领口待仓库回写',
+      factoryRemark: '罗纹领口已签收但存在数量差异',
       factoryProofFiles: [],
-      status: 'PENDING_WRITEBACK',
+      status: 'WRITTEN_BACK',
+      warehouseReturnNo: 'RET-MOCK-CUT-093-002',
+      warehouseWrittenQty: 70,
+      warehouseWrittenAt: '2026-03-22 14:35:00',
+      diffReason: '主厂签收数量少于工厂交出数量',
     },
   ],
   'HOH-MOCK-CUT-094': [
@@ -1481,9 +1486,18 @@ const PDA_MOCK_HANDOUT_RECORDS: Record<string, PdaHandoverRecord[]> = {
       plannedQty: 180,
       qtyUnit: '片',
       factorySubmittedAt: '2026-03-24 16:10:00',
-      factoryRemark: '尾批已发出，待主厂回写签收',
+      factoryRemark: '尾批已发出，主厂回写后已发起数量异议',
       factoryProofFiles: [],
-      status: 'PENDING_WRITEBACK',
+      status: 'OBJECTION_REPORTED',
+      warehouseReturnNo: 'RET-MOCK-CUT-103-OPEN-001',
+      warehouseWrittenQty: 168,
+      warehouseWrittenAt: '2026-03-24 16:40:00',
+      diffReason: '主厂签收数量少于交出数量',
+      quantityObjectionId: 'QO-HOR-MOCK-CUT103-OPEN-001',
+      objectionReason: '主厂签收数量少于交出数量',
+      objectionRemark: '工厂已发起数量异议',
+      factoryDiffDecision: 'RAISE_OBJECTION',
+      followUpRemark: '等待双方复核处理',
     },
   ],
   'HOH-MOCK-CUT-103-F004-DONE': [
@@ -1540,12 +1554,16 @@ function buildTaskBoardPickupRecordSeeds(head: PdaHandoverHead): PdaPickupRecord
         qtyActual: 0,
         qtyUnit: head.qtyUnit || '件',
         submittedAt: '2026-03-20 12:20:00',
-        status: 'PENDING_FACTORY_CONFIRM',
+        status: 'REJECTED',
         qrCodeValue: buildPickupQrCodeValue('PKR-SEED-TASKGEN0003001-001'),
         warehouseHandedQty: Math.max(head.qtyExpectedTotal, 120),
         warehouseHandedAt: '2026-03-20 12:15:00',
         warehouseHandedBy: '一仓发料员',
-        remark: '首批已配送到厂，待工厂确认',
+        factoryConfirmedAt: '2026-03-20 12:28:00',
+        objectionReason: '到货数量与领料内容不符',
+        objectionRemark: '已驳回，等待仓库重新发料',
+        followUpRemark: '工厂已驳回本次领料',
+        remark: '首批已驳回，不进入待加工仓',
       },
     ]
   }
@@ -1713,9 +1731,13 @@ function buildTaskBoardHandoutRecordSeeds(head: PdaHandoverHead): PdaHandoverRec
         plannedQty: Math.max(head.qtyExpectedTotal - Math.max(Math.round(head.qtyExpectedTotal * 0.6), 90), 40),
         qtyUnit: head.qtyUnit || '件',
         factorySubmittedAt: '2026-03-21 11:45:00',
-        factoryRemark: '尾批待接收方回写',
+        factoryRemark: '尾批已回写，存在数量差异',
         factoryProofFiles: [],
-        status: 'PENDING_WRITEBACK',
+        status: 'WRITTEN_BACK',
+        warehouseReturnNo: 'RET-TASKGEN0002005-002',
+        warehouseWrittenQty: Math.max(head.qtyExpectedTotal - Math.max(Math.round(head.qtyExpectedTotal * 0.6), 90), 40) - 8,
+        warehouseWrittenAt: '2026-03-21 12:05:00',
+        diffReason: '接收方签收数量少于交出数量',
       },
     ]
   }
@@ -3216,6 +3238,17 @@ export function createFactoryHandoverRecord(input: {
   factoryRemark?: string
   factoryProofFiles?: HandoverProofFile[]
   objectType?: HandoverObjectType
+  handoutObjectType?: PdaHandoutObjectType
+  handoutItemLabel?: string
+  garmentEquivalentQty?: number
+  materialCode?: string
+  materialName?: string
+  materialSpec?: string
+  skuCode?: string
+  skuColor?: string
+  skuSize?: string
+  pieceName?: string
+  cutPieceLines?: PdaCutPieceHandoutLine[]
 }): PdaHandoverRecord {
   const head = getHandoverOrderById(input.handoverOrderId)
   if (!head || head.headType !== 'HANDOUT') {
@@ -3234,9 +3267,21 @@ export function createFactoryHandoverRecord(input: {
       taskId: head.taskId,
       sourceTaskId: head.taskId,
       sequenceNo,
+      handoutItemLabel: input.handoutItemLabel,
       objectType: input.objectType,
+      garmentEquivalentQty: input.garmentEquivalentQty,
+      materialCode: input.materialCode,
+      materialName: input.materialName,
+      materialSpec: input.materialSpec,
+      skuCode: input.skuCode,
+      skuColor: input.skuColor,
+      skuSize: input.skuSize,
+      pieceName: input.pieceName,
+      cutPieceLines: input.cutPieceLines?.map((line) => ({ ...line })),
       handoutObjectType:
-        input.objectType === 'CUT_PIECE'
+        input.handoutObjectType
+          ? input.handoutObjectType
+          : input.objectType === 'CUT_PIECE'
           ? 'CUT_PIECE'
           : input.objectType === 'FABRIC'
             ? 'FABRIC'
@@ -3256,6 +3301,22 @@ export function createFactoryHandoverRecord(input: {
 
   saveHandoutRecord(created)
   return cloneRecord(created)
+}
+
+export function upsertPdaHandoverHeadMock(head: PdaHandoverHead): PdaHandoverHead {
+  handoverHeadAdditions.set(head.handoverId, cloneHead(head))
+  invalidatePdaHandoverHeadCache()
+  return findPdaHandoverHead(head.handoverId) ?? cloneHead(head)
+}
+
+export function upsertPdaPickupRecordMock(record: PdaPickupRecord): PdaPickupRecord {
+  savePickupRecord(record)
+  return findPdaPickupRecord(record.recordId) ?? clonePickupRecord(record)
+}
+
+export function upsertPdaHandoutRecordMock(record: PdaHandoverRecord): PdaHandoverRecord {
+  saveHandoutRecord(record)
+  return findPdaHandoverRecord(record.recordId) ?? cloneRecord(record)
 }
 
 export function writeBackHandoverRecord(input: {
@@ -3375,6 +3436,37 @@ export function confirmPdaPickupRecordReceived(
     factoryConfirmedAt: payload.factoryConfirmedAt,
     status: 'RECEIVED',
     objectionStatus: undefined,
+  }
+  savePickupRecord(updated)
+  return clonePickupRecord(updated)
+}
+
+export function rejectPdaPickupRecord(
+  recordId: string,
+  payload: {
+    rejectedAt: string
+    rejectedBy: string
+    rejectReason: string
+    rejectRemark?: string
+  },
+): PdaPickupRecord | undefined {
+  const current = findPickupRecord(recordId)
+  if (!current || current.status !== 'PENDING_FACTORY_CONFIRM') return undefined
+
+  const updated: PdaPickupRecord = {
+    ...current,
+    status: 'REJECTED',
+    objectionReason: payload.rejectReason.trim(),
+    objectionRemark: payload.rejectRemark?.trim() || undefined,
+    followUpRemark: payload.rejectRemark?.trim() || payload.rejectReason.trim(),
+    resolvedRemark: undefined,
+    factoryConfirmedQty: undefined,
+    factoryConfirmedAt: payload.rejectedAt,
+    factoryReportedQty: undefined,
+    finalResolvedQty: undefined,
+    finalResolvedAt: undefined,
+    objectionStatus: undefined,
+    remark: payload.rejectReason.trim(),
   }
   savePickupRecord(updated)
   return clonePickupRecord(updated)

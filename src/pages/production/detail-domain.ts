@@ -49,6 +49,21 @@ import {
   isProductionConfirmationPrintable,
   productionConfirmationStatusLabels,
 } from '../../data/fcs/production-confirmation.ts'
+import {
+  getSpecialCraftGenerationBatchByOrderId,
+  getSpecialCraftTasksByProductionOrder,
+} from '../../data/fcs/special-craft-task-orders.ts'
+import {
+  buildSpecialCraftTaskDetailPath,
+  buildSpecialCraftTaskOrdersPath,
+} from '../../data/fcs/special-craft-operations.ts'
+import {
+  getCuttingSewingDispatchProgressByProductionOrder,
+  listCuttingSewingDispatchBatches,
+  listCuttingSewingDispatchOrders,
+  listCuttingSewingTransferBags,
+} from '../../data/fcs/cutting/sewing-dispatch.ts'
+import { getProductionProgressSnapshotByOrder } from '../../data/fcs/progress-statistics-linkage.ts'
 
 function getDetailConfirmationPreviewState(order: ProductionOrder): {
   available: boolean
@@ -84,6 +99,290 @@ function getDetailConfirmationPreviewState(order: ProductionOrder): {
     buttonTitle: '工厂分配完成后可打印',
     statusLabel: '未完成分配',
   }
+}
+
+function summarizeSpecialCraftDemandValues(values: string[]): string {
+  const normalized = Array.from(new Set(values.map((item) => item.trim()).filter(Boolean)))
+  if (normalized.length === 0) return '—'
+  if (normalized.length <= 2) return normalized.join('、')
+  return `${normalized.slice(0, 2).join('、')}等${normalized.length}项`
+}
+
+function renderSpecialCraftTasksSection(order: ProductionOrder): string {
+  const taskOrders = getSpecialCraftTasksByProductionOrder(order.productionOrderId)
+  const generationBatch = getSpecialCraftGenerationBatchByOrderId(order.productionOrderId)
+
+  if (taskOrders.length === 0) {
+    const failureBlock = generationBatch?.status === '生成失败'
+      ? `
+        <div class="rounded-md border border-red-200 bg-red-50 px-3 py-3 text-sm text-red-700">
+          <p class="font-medium">生成失败</p>
+          <p class="mt-1">请检查技术包</p>
+          ${
+            generationBatch.errorList.length > 0
+              ? `<ul class="mt-2 list-disc space-y-1 pl-5">
+                   ${generationBatch.errorList
+                     .slice(0, 4)
+                     .map((error) => `<li>${escapeHtml(error.errorMessage)}${error.partName ? `：${escapeHtml(error.partName)}` : ''}</li>`)
+                     .join('')}
+                 </ul>`
+              : ''
+          }
+        </div>
+      `
+      : ''
+
+    return `
+      <section class="rounded-lg border bg-card p-4 space-y-3">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-base font-semibold">特殊工艺任务</h3>
+            <p class="mt-1 text-xs text-muted-foreground">生产单生成时根据技术包快照自动识别特殊工艺任务。</p>
+          </div>
+        </div>
+        ${failureBlock}
+        <div class="rounded-md border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">暂无特殊工艺任务</div>
+      </section>
+    `
+  }
+
+  return `
+    <section class="rounded-lg border bg-card p-4 space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 class="text-base font-semibold">特殊工艺任务</h3>
+          <p class="mt-1 text-xs text-muted-foreground">来源：生产单生成</p>
+        </div>
+        ${
+          generationBatch
+            ? `<div class="text-xs text-muted-foreground">生成批次：${escapeHtml(generationBatch.generationBatchId)}</div>`
+            : ''
+        }
+      </div>
+
+      <div class="overflow-x-auto rounded-md border">
+        <table class="w-full min-w-[1180px] text-sm">
+          <thead class="border-b bg-muted/30 text-xs text-muted-foreground">
+            <tr>
+              <th class="px-3 py-2 text-left font-medium">任务号</th>
+              <th class="px-3 py-2 text-left font-medium">特殊工艺</th>
+              <th class="px-3 py-2 text-left font-medium">作用对象</th>
+              <th class="px-3 py-2 text-left font-medium">裁片部位</th>
+              <th class="px-3 py-2 text-left font-medium">颜色</th>
+              <th class="px-3 py-2 text-left font-medium">尺码</th>
+              <th class="px-3 py-2 text-right font-medium">计划数量</th>
+              <th class="px-3 py-2 text-left font-medium">分配状态</th>
+              <th class="px-3 py-2 text-left font-medium">执行工厂</th>
+              <th class="px-3 py-2 text-left font-medium">执行状态</th>
+              <th class="px-3 py-2 text-left font-medium">来源</th>
+              <th class="px-3 py-2 text-left font-medium">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${taskOrders
+              .map((taskOrder) => {
+                const detailHref = buildSpecialCraftTaskDetailPath(taskOrder.operationId, taskOrder.taskOrderId)
+                const listHref = buildSpecialCraftTaskOrdersPath(taskOrder.operationId)
+                const partSummary = summarizeSpecialCraftDemandValues(taskOrder.demandLines?.map((item) => item.partName) || [taskOrder.partName || ''])
+                const colorSummary = summarizeSpecialCraftDemandValues(taskOrder.demandLines?.map((item) => item.colorName) || [taskOrder.fabricColor || ''])
+                const sizeSummary = summarizeSpecialCraftDemandValues(taskOrder.demandLines?.map((item) => item.sizeCode) || [taskOrder.sizeCode || ''])
+                return `
+                  <tr class="border-b last:border-0">
+                    <td class="px-3 py-2 font-medium text-blue-700">${escapeHtml(taskOrder.taskOrderNo)}</td>
+                    <td class="px-3 py-2">${escapeHtml(taskOrder.operationName)}</td>
+                    <td class="px-3 py-2">${escapeHtml(taskOrder.targetObject)}</td>
+                    <td class="px-3 py-2">${escapeHtml(partSummary)}</td>
+                    <td class="px-3 py-2">${escapeHtml(colorSummary)}</td>
+                    <td class="px-3 py-2">${escapeHtml(sizeSummary)}</td>
+                    <td class="px-3 py-2 text-right">${escapeHtml(String(taskOrder.planQty))}</td>
+                    <td class="px-3 py-2">${renderBadge(taskOrder.assignmentStatusLabel || '待分配', taskOrder.assignmentStatus === 'ASSIGNED' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700')}</td>
+                    <td class="px-3 py-2">${escapeHtml(taskOrder.factoryName || taskOrder.assignedFactoryName || '待分配')}</td>
+                    <td class="px-3 py-2">${renderBadge(taskOrder.executionStatusLabel || taskOrder.status, 'bg-slate-100 text-slate-700')}</td>
+                    <td class="px-3 py-2">${escapeHtml(taskOrder.generationSourceLabel || '生产单生成')}</td>
+                    <td class="px-3 py-2">
+                      <div class="flex flex-wrap gap-2">
+                        <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${detailHref}">查看任务</button>
+                        <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${listHref}">查看特殊工艺任务单</button>
+                      </div>
+                    </td>
+                  </tr>
+                `
+              })
+              .join('')}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  `
+}
+
+function renderCuttingSewingDispatchSection(order: ProductionOrder): string {
+  const progress = getCuttingSewingDispatchProgressByProductionOrder(order.productionOrderId)
+  const dispatchOrders = listCuttingSewingDispatchOrders().filter((item) => item.productionOrderId === order.productionOrderId)
+  const dispatchBatches = listCuttingSewingDispatchBatches().filter((item) => item.productionOrderId === order.productionOrderId)
+  const transferBags = listCuttingSewingTransferBags().filter((item) => item.productionOrderId === order.productionOrderId)
+  const latestBatch = dispatchBatches.at(-1)
+  const latestOrder = dispatchOrders.at(-1)
+  const writtenBackQty = dispatchBatches.reduce((total, item) => total + (item.receiverWrittenQty || 0), 0)
+  const differenceQty = dispatchBatches.reduce((total, item) => total + Math.abs(item.differenceQty || 0), 0)
+  const objectionStatus = dispatchBatches.some((item) => item.status === '异议中') ? '异议中' : '无'
+  const dispatchHref = '/fcs/craft/cutting/sewing-dispatch'
+  const transferBagHref = '/fcs/craft/cutting/transfer-bags'
+  const handoverHref = latestBatch?.handoverRecordId
+    ? `/fcs/pda/handover-detail/${encodeURIComponent(latestBatch.handoverRecordId)}`
+    : '/fcs/pda/handover'
+
+  if (!dispatchOrders.length) {
+    return `
+      <section class="rounded-lg border bg-card p-4 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 class="text-base font-semibold">裁片发料</h3>
+            <p class="mt-1 text-xs text-muted-foreground">裁床厂统一发给车缝厂；生产单详情只展示进度并跳转发料页面。</p>
+          </div>
+          <button class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-nav="${dispatchHref}">查看裁片发料</button>
+        </div>
+        <div class="rounded-md border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">暂无裁片发料</div>
+      </section>
+    `
+  }
+
+  return `
+    <section class="rounded-lg border bg-card p-4 space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 class="text-base font-semibold">裁片发料</h3>
+          <p class="mt-1 text-xs text-muted-foreground">裁床厂统一发料给车缝厂；每次发料必须生成中转单、中转袋并通过齐套校验。</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-nav="${dispatchHref}">查看裁片发料</button>
+          <button class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-nav="${transferBagHref}">查看中转袋</button>
+          <button class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-nav="${handoverHref}">查看交出记录</button>
+        </div>
+      </div>
+
+      <div class="grid gap-3 md:grid-cols-4">
+        ${[
+          ['生产总数', `${progress.totalProductionQty} 件`],
+          ['累计已发件数', `${progress.cumulativeDispatchedGarmentQty} 件`],
+          ['剩余未发件数', `${progress.remainingGarmentQty} 件`],
+          ['最近中转单', latestBatch?.transferOrderNo || '—'],
+          ['中转袋数', `${transferBags.length} 袋`],
+          ['已回写数量', `${writtenBackQty} 件`],
+          ['差异数量', `${differenceQty} 件`],
+          ['异议状态', objectionStatus],
+        ]
+          .map(
+            ([label, value]) => `
+              <article class="rounded-md border bg-muted/20 p-3">
+                <p class="text-xs text-muted-foreground">${escapeHtml(label)}</p>
+                <p class="mt-1 text-base font-semibold">${escapeHtml(value)}</p>
+              </article>
+            `,
+          )
+          .join('')}
+      </div>
+
+      <div class="overflow-x-auto rounded-md border">
+        <table class="w-full min-w-[900px] text-sm">
+          <thead class="border-b bg-muted/30 text-xs text-muted-foreground">
+            <tr>
+              <th class="px-3 py-2 text-left font-medium">发料单号</th>
+              <th class="px-3 py-2 text-left font-medium">生产单</th>
+              <th class="px-3 py-2 text-left font-medium">车缝厂</th>
+              <th class="px-3 py-2 text-right font-medium">累计已发件数</th>
+              <th class="px-3 py-2 text-right font-medium">剩余未发件数</th>
+              <th class="px-3 py-2 text-left font-medium">配齐状态</th>
+              <th class="px-3 py-2 text-left font-medium">发料状态</th>
+              <th class="px-3 py-2 text-left font-medium">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${dispatchOrders
+              .map(
+                (dispatchOrder) => `
+                  <tr class="border-b last:border-0">
+                    <td class="px-3 py-2 font-medium text-blue-700">${escapeHtml(dispatchOrder.dispatchOrderNo)}</td>
+                    <td class="px-3 py-2">${escapeHtml(dispatchOrder.productionOrderNo)}</td>
+                    <td class="px-3 py-2">${escapeHtml(dispatchOrder.sewingFactoryName)}</td>
+                    <td class="px-3 py-2 text-right">${dispatchOrder.cumulativeDispatchedGarmentQty}</td>
+                    <td class="px-3 py-2 text-right">${dispatchOrder.remainingGarmentQty}</td>
+                    <td class="px-3 py-2">${renderBadge(dispatchOrder.validationStatus, dispatchOrder.validationStatus === '校验通过' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700')}</td>
+                    <td class="px-3 py-2">${renderBadge(dispatchOrder.status, dispatchOrder.status === '已回写' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-700')}</td>
+                    <td class="px-3 py-2">
+                      <div class="flex flex-wrap gap-2">
+                        <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${dispatchHref}">查看裁片发料</button>
+                        <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${transferBagHref}">查看中转袋</button>
+                      </div>
+                    </td>
+                  </tr>
+                `,
+              )
+              .join('')}
+          </tbody>
+        </table>
+      </div>
+
+      ${
+        latestOrder?.validationMessages.length
+          ? `<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">阻塞原因：${escapeHtml(latestOrder.validationMessages.join('、'))}</div>`
+          : ''
+      }
+    </section>
+  `
+}
+
+function renderProductionProgressOverviewSection(order: ProductionOrder): string {
+  const snapshot = getProductionProgressSnapshotByOrder(order.productionOrderId)
+  if (!snapshot) {
+    return ''
+  }
+
+  const blockingText = snapshot.blockingReasons.length
+    ? snapshot.blockingReasons.map((item) => item.blockingLabel).join('、')
+    : '暂无阻塞'
+
+  const fields = [
+    { label: '面料配置', value: snapshot.materialPrepStatus },
+    { label: '裁床领料', value: snapshot.cuttingPickupStatus },
+    { label: '裁剪', value: snapshot.cuttingStatus },
+    { label: '菲票', value: snapshot.feiTicketStatus },
+    { label: '特殊工艺回仓', value: snapshot.specialCraftReturnStatus },
+    { label: '裁片发料', value: snapshot.sewingDispatchStatus },
+    { label: '车缝回写', value: snapshot.sewingReceiveStatus },
+    { label: '差异 / 异议', value: `${snapshot.differenceStatus} / ${snapshot.objectionStatus}` },
+    { label: '当前阻塞', value: blockingText },
+    { label: '下一步', value: snapshot.nextActionLabel },
+  ]
+
+  return `
+    <section class="rounded-lg border bg-card p-4">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 class="text-base font-semibold text-foreground">进度总览</h2>
+          <p class="mt-1 text-xs text-muted-foreground">从生产单、裁床、特殊工艺、裁片发料、交接与仓管记录聚合，只展示进度，不直接处理业务。</p>
+        </div>
+        ${renderBadge(snapshot.canProceedToSewingDispatch ? '可发车缝' : '不可发车缝', snapshot.canProceedToSewingDispatch ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700')}
+      </div>
+      <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        ${fields
+          .map(
+            (field) => `
+              <div class="rounded-lg border bg-muted/20 px-3 py-3">
+                <div class="text-xs text-muted-foreground">${escapeHtml(field.label)}</div>
+                <div class="mt-1 text-sm font-medium text-foreground">${escapeHtml(field.value)}</div>
+              </div>
+            `,
+          )
+          .join('')}
+      </div>
+      <div class="mt-3 flex flex-wrap gap-2">
+        <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-route="/fcs/craft/cutting/production-progress">查看裁床进度</button>
+        <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-route="/fcs/craft/cutting/sewing-dispatch">查看裁片发料</button>
+        <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-route="/fcs/progress/handover">查看交接记录</button>
+      </div>
+    </section>
+  `
 }
 
 function renderDetailLogsDialog(order: ProductionOrder): string {
@@ -918,6 +1217,10 @@ export function renderProductionOrderDetailPage(orderId: string): string {
           >${detailMaterialSummary.pendingCount > 0 ? '去确认领料' : '查看领料草稿'}</button>
         </article>
       </section>
+
+      ${renderProductionProgressOverviewSection(order)}
+      ${renderSpecialCraftTasksSection(order)}
+      ${renderCuttingSewingDispatchSection(order)}
 
       ${renderOrderDetailTabButtons(state.detailTab)}
       ${renderOrderDetailTabContent(order)}

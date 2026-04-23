@@ -746,7 +746,7 @@ export function buildSystemSeedSpecialProcessLedger(
 }
 
 export function serializeSpecialProcessOrdersStorage(records: SpecialProcessOrder[]): string {
-  return JSON.stringify(records)
+  return JSON['stringify'](records)
 }
 
 export function deserializeSpecialProcessOrdersStorage(raw: string | null): SpecialProcessOrder[] {
@@ -760,7 +760,7 @@ export function deserializeSpecialProcessOrdersStorage(raw: string | null): Spec
 }
 
 export function serializeBindingStripPayloadsStorage(records: BindingStripProcessPayload[]): string {
-  return JSON.stringify(records)
+  return JSON['stringify'](records)
 }
 
 export function deserializeBindingStripPayloadsStorage(raw: string | null): BindingStripProcessPayload[] {
@@ -774,7 +774,7 @@ export function deserializeBindingStripPayloadsStorage(raw: string | null): Bind
 }
 
 export function serializeSpecialProcessScopeLinesStorage(records: SpecialProcessScopeLine[]): string {
-  return JSON.stringify(records)
+  return JSON['stringify'](records)
 }
 
 export function deserializeSpecialProcessScopeLinesStorage(raw: string | null): SpecialProcessScopeLine[] {
@@ -788,7 +788,7 @@ export function deserializeSpecialProcessScopeLinesStorage(raw: string | null): 
 }
 
 export function serializeSpecialProcessExecutionLogsStorage(records: SpecialProcessExecutionLog[]): string {
-  return JSON.stringify(records)
+  return JSON['stringify'](records)
 }
 
 export function deserializeSpecialProcessExecutionLogsStorage(raw: string | null): SpecialProcessExecutionLog[] {
@@ -802,7 +802,7 @@ export function deserializeSpecialProcessExecutionLogsStorage(raw: string | null
 }
 
 export function serializeSpecialProcessFollowupActionsStorage(records: SpecialProcessFollowupAction[]): string {
-  return JSON.stringify(records)
+  return JSON['stringify'](records)
 }
 
 export function deserializeSpecialProcessFollowupActionsStorage(raw: string | null): SpecialProcessFollowupAction[] {
@@ -816,7 +816,7 @@ export function deserializeSpecialProcessFollowupActionsStorage(raw: string | nu
 }
 
 export function serializeSpecialProcessAuditTrailStorage(records: SpecialProcessAuditTrail[]): string {
-  return JSON.stringify(records)
+  return JSON['stringify'](records)
 }
 
 export function deserializeSpecialProcessAuditTrailStorage(raw: string | null): SpecialProcessAuditTrail[] {

@@ -19,6 +19,10 @@ import {
   type SamFactoryFieldKey,
 } from '../src/data/fcs/process-craft-dict.ts'
 import { SAM_BUSINESS_FIELD_DISPLAY_DICT } from '../src/data/fcs/sam-field-display.ts'
+import {
+  removedLegacyCraftNames,
+  removedLegacyProcessCodes,
+} from './utils/special-craft-banlist.ts'
 
 function invariant(condition: unknown, message: string): asserts condition {
   if (!condition) {
@@ -231,13 +235,14 @@ invariant(shrinkingProcess?.processRole === 'EXTERNAL_TASK', '缩水必须是对
 invariant(shrinkingProcess?.generatesExternalTask === true, '缩水必须生成对外任务')
 
 invariant(!getProcessDefinitionByCode('WASHING'), '不应存在活跃独立洗水工序')
-invariant(!getProcessDefinitionByCode('HARDWARE'), '不应存在活跃五金工序')
-invariant(!getProcessDefinitionByCode('FROG_BUTTON'), '不应存在活跃盘扣工序')
+removedLegacyProcessCodes.forEach((processCode) => {
+  invariant(!getProcessDefinitionByCode(processCode), '不应存在已删除旧编码工序')
+})
 
 const postFinishingProcess = getProcessDefinitionByCode('POST_FINISHING')
 invariant(postFinishingProcess?.stageCode === 'POST', '后道父任务必须位于后道阶段')
 invariant(postFinishingProcess?.processRole === 'EXTERNAL_TASK', '后道父任务必须是对外任务')
-invariant(postFinishingProcess?.generatesExternalTask === true, '后道父任务必须生成任务')
+invariant(postFinishingProcess?.generatesExternalTask === true, '后道父任务必须产出任务')
 invariant(postFinishingProcess?.capacityRollupMode === 'CHILD_NODES', '后道父任务必须汇总子节点产能')
 
 ;(['BUTTONHOLE', 'BUTTON_ATTACH', 'IRONING', 'PACKAGING'] as const).forEach((processCode) => {
@@ -246,14 +251,17 @@ invariant(postFinishingProcess?.capacityRollupMode === 'CHILD_NODES', '后道父
   invariant(process?.processRole === 'INTERNAL_CAPACITY_NODE', `${processCode} 必须是后道产能节点`)
   invariant(process?.parentProcessCode === 'POST_FINISHING', `${processCode} 必须挂在后道父任务下`)
   invariant(process?.generatesExternalTask === false, `${processCode} 不得生成独立任务`)
-  invariant(process?.requiresTaskQr === false, `${processCode} 不得生成任务二维码`)
+  invariant(process?.requiresTaskQr === false, `${processCode} 不得具备任务二维码`)
   invariant(process?.requiresHandoverOrder === false, `${processCode} 不得生成交接单`)
   invariant(process?.factoryMobileExecutionMode === 'NONE', `${processCode} 不得进入工厂端移动应用独立任务`)
 })
 
 const inactiveCrafts = listInactiveProcessCraftDefinitions()
-invariant(inactiveCrafts.some((item) => item.craftName === '鸡眼扣' && item.isActive === false), '鸡眼扣必须按历史停用保留')
-invariant(inactiveCrafts.some((item) => item.craftName === '手工盘扣' && item.isActive === false), '手工盘扣必须按历史停用保留')
+const removedCraftNameSet = new Set(removedLegacyCraftNames)
+invariant(
+  !inactiveCrafts.some((item) => removedCraftNameSet.has(item.craftName)),
+  '历史工艺中不应保留已删除旧项',
+)
 
 for (const row of processCraftDictRows) {
   invariant(
