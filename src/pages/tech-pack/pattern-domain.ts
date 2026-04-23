@@ -288,7 +288,6 @@ function renderPatternDetailPieceTable(): string {
           ${
             isWoven
               ? `
-                <th class="px-2 py-1 text-left">解析状态</th>
                 <th class="px-2 py-1 text-left">预览</th>
               `
               : ''
@@ -315,11 +314,10 @@ function renderPatternDetailPieceTable(): string {
                     `
                     : ''
                 }
-                <td class="px-2 py-1 text-right">${row.count}</td>
-                ${
-                  isWoven
-                    ? `
-                      <td class="px-2 py-1">${renderTextValue(row.parserStatus)}</td>
+                  <td class="px-2 py-1 text-right">${row.count}</td>
+                  ${
+                    isWoven
+                      ? `
                       <td class="px-2 py-1">${renderPatternPiecePreview(row.previewSvg)}</td>
                     `
                     : ''
