@@ -6,7 +6,7 @@ import {
 import {
   mapCuttingDomainSnapshotToSummaryBuildOptions,
 } from './runtime-projections.ts'
-import type { CuttingSummaryBuildOptions } from './summary-model'
+import type { CuttingSummaryBuildOptions } from './summary-model.ts'
 
 export interface CuttingExecutionPrepProjectionContext {
   snapshot: CuttingDomainSnapshot

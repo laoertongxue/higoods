@@ -93,6 +93,30 @@ export function renderWarehouseSummaryHeader(
           .join('')}
       </div>
       ${
+        !overview.isSewingLightweight
+          ? `
+            <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
+              <div class="rounded-2xl border bg-background px-3 py-2">
+                <div class="text-muted-foreground">已完成领料单</div>
+                <div class="mt-1 font-semibold">${overview.pickupCompletedOrderCount} 单</div>
+              </div>
+              <div class="rounded-2xl border bg-background px-3 py-2">
+                <div class="text-muted-foreground">已完成交出单</div>
+                <div class="mt-1 font-semibold">${overview.handoutCompletedOrderCount} 单</div>
+              </div>
+              <div class="rounded-2xl border bg-background px-3 py-2">
+                <div class="text-muted-foreground">待审核差异</div>
+                <div class="mt-1 font-semibold">${overview.stocktakeWaitReviewCount} 条</div>
+              </div>
+              <div class="rounded-2xl border bg-background px-3 py-2">
+                <div class="text-muted-foreground">已调整差异</div>
+                <div class="mt-1 font-semibold">${overview.stocktakeAdjustedCount} 条</div>
+              </div>
+            </div>
+          `
+          : ''
+      }
+      ${
         overview.isSewingLightweight
           ? `
             <div class="mt-3 grid grid-cols-2 gap-2 text-xs">

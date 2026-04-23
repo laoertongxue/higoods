@@ -5,8 +5,8 @@ import type {
   ReplenishmentRiskLevel,
   ReplenishmentSourceType,
   ReplenishmentSuggestionRecord,
-} from '../../../data/fcs/cutting/replenishment'
-import type { CuttingMaterialType } from '../../../data/fcs/cutting/types'
+} from '../../../data/fcs/cutting/replenishment.ts'
+import type { CuttingMaterialType } from '../../../data/fcs/cutting/types.ts'
 
 export const materialTypeMeta: Record<CuttingMaterialType, { label: string; className: string }> = {
   PRINT: { label: '面料', className: 'bg-slate-100 text-slate-700' },

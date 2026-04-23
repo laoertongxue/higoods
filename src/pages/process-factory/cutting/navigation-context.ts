@@ -1,4 +1,4 @@
-import { getCanonicalCuttingPath } from './meta'
+import { getCanonicalCuttingPath } from './meta.ts'
 
 export type CuttingPageContextKey =
   | 'cutting-summary'

@@ -1,6 +1,6 @@
-import type { CuttingConfigStatus, CuttingReceiveStatus } from '../../../data/fcs/cutting/types'
-import { appStore } from '../../../state/store'
-import { escapeHtml } from '../../../utils'
+import type { CuttingConfigStatus, CuttingReceiveStatus } from '../../../data/fcs/cutting/types.ts'
+import { appStore } from '../../../state/store.ts'
+import { escapeHtml } from '../../../utils.ts'
 import {
   areOriginalCutOrdersCompatibleForBatching,
   buildQuickMergeableBuckets,
@@ -13,25 +13,25 @@ import {
   type CuttableStyleGroup,
   type CuttableViewMode,
   type QuickMergeableBucket,
-} from './cuttable-pool-model'
-import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta'
+} from './cuttable-pool-model.ts'
+import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta.ts'
 import {
   createReadyMergeBatchFromCuttableSelection,
   CUTTING_MERGE_BATCH_LEDGER_STORAGE_KEY,
   deserializeMergeBatchStorage,
   serializeMergeBatchStorage,
   type MergeBatchRecord,
-} from './merge-batches-model'
-import { buildMergeBatchesProjection } from './merge-batches-projection'
-import type { ProductionProgressUrgencyKey } from './production-progress-model'
-import { urgencyMeta } from './production-progress-model'
-import { buildCuttablePoolProjection } from './cuttable-pool-projection'
+} from './merge-batches-model.ts'
+import { buildMergeBatchesProjection } from './merge-batches-projection.ts'
+import type { ProductionProgressUrgencyKey } from './production-progress-model.ts'
+import { urgencyMeta } from './production-progress-model.ts'
+import { buildCuttablePoolProjection } from './cuttable-pool-projection.ts'
 import {
   renderCompactKpiCard,
   renderStickyFilterShell,
   renderWorkbenchFilterChip,
   renderWorkbenchStateBar,
-} from './layout.helpers'
+} from './layout.helpers.ts'
 
 type FilterField = 'keyword' | 'urgency' | 'cuttable' | 'coverage' | 'config' | 'claim'
 

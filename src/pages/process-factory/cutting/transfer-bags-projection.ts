@@ -2,13 +2,13 @@ import {
   buildFcsCuttingDomainSnapshot,
   type CuttingDomainSnapshot,
 } from '../../../domain/fcs-cutting-runtime/index.ts'
-import type { TransferBagStore } from './transfer-bags-model'
+import type { TransferBagStore } from './transfer-bags-model.ts'
 import {
   buildCraftTraceProjection,
-} from './craft-trace-projection'
+} from './craft-trace-projection.ts'
 import {
   buildCuttingTraceabilityProjectionContext,
-} from './traceability-projection-helpers'
+} from './traceability-projection-helpers.ts'
 
 export function buildTransferBagsProjection(
   snapshot: CuttingDomainSnapshot = buildFcsCuttingDomainSnapshot(),

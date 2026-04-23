@@ -1,24 +1,24 @@
-import type { CutPieceWarehouseItem } from './cut-piece-warehouse-model'
+import type { CutPieceWarehouseItem } from './cut-piece-warehouse-model.ts'
 import type {
   FeiTicketLabelRecord,
   FeiTicketPrintJob,
   OriginalCutOrderTicketOwner,
-} from './fei-tickets-model'
-import type { MarkerSpreadingStore, SpreadingSession } from './marker-spreading-model'
-import type { MaterialPrepRow } from './material-prep-model'
-import type { MergeBatchRecord } from './merge-batches-model'
-import type { OriginalCutOrderRow } from './original-orders-model'
+} from './fei-tickets-model.ts'
+import type { MarkerSpreadingStore, SpreadingSession } from './marker-spreading-model.ts'
+import type { MaterialPrepRow } from './material-prep-model.ts'
+import type { MergeBatchRecord } from './merge-batches-model.ts'
+import type { OriginalCutOrderRow } from './original-orders-model.ts'
 import type {
   ProductionProgressRow,
   ProductionProgressStageKey,
-} from './production-progress-model'
-import type { ReplenishmentSuggestionRow } from './replenishment-model'
-import type { SpecialProcessRow } from './special-processes-model'
+} from './production-progress-model.ts'
+import type { ReplenishmentSuggestionRow } from './replenishment-model.ts'
+import type { SpecialProcessRow } from './special-processes-model.ts'
 import type {
   TransferBagConditionDecisionItem,
   TransferBagReturnUsageItem,
-} from './transfer-bag-return-model'
-import type { TransferBagUsageItem } from './transfer-bags-model'
+} from './transfer-bag-return-model.ts'
+import type { TransferBagUsageItem } from './transfer-bags-model.ts'
 
 export type CuttingCheckSectionKey =
   | 'MATERIAL_PREP'

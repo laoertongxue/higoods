@@ -40,7 +40,7 @@ import {
   listLegacyLikeQualityInspectionsForTailPages,
 } from '../data/fcs/page-adapters/long-tail-pages-adapter'
 import { listFactoryCapacityEntries } from '../data/fcs/factory-capacity-profile-mock'
-import { listFactoryMasterRecords } from '../data/fcs/factory-master-store'
+import { listBusinessFactoryMasterRecords, listFactoryMasterRecords } from '../data/fcs/factory-master-store'
 import { syncDispatchCapacityUsageLedger } from './dispatch-board/context'
 import { escapeHtml, toClassName } from '../utils'
 
@@ -242,7 +242,7 @@ function buildPoliciesFormFromOverride(overrideId: string): CapacityPoliciesForm
 }
 
 function getPoliciesFactoryOptions() {
-  return listFactoryMasterRecords()
+  return listBusinessFactoryMasterRecords()
     .filter((factory) => factory.status === 'active')
     .map((factory) => ({
       value: factory.id,

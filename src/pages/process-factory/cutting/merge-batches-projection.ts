@@ -2,14 +2,14 @@ import {
   buildFcsCuttingDomainSnapshot,
   type CuttingDomainSnapshot,
 } from '../../../domain/fcs-cutting-runtime/index.ts'
-import type { CuttingSummaryBuildOptions } from './summary-model'
+import type { CuttingSummaryBuildOptions } from './summary-model.ts'
 import {
   mapCuttingDomainSnapshotToSummaryBuildOptions,
 } from './runtime-projections.ts'
 import {
   buildCuttablePoolViewModel,
   type CuttablePoolViewModel,
-} from './cuttable-pool-model'
+} from './cuttable-pool-model.ts'
 
 export interface MergeBatchesProjection {
   snapshot: CuttingDomainSnapshot

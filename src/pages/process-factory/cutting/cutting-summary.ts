@@ -1,8 +1,8 @@
-import { appStore } from '../../../state/store'
-import { escapeHtml } from '../../../utils'
+import { appStore } from '../../../state/store.ts'
+import { escapeHtml } from '../../../utils.ts'
 import {
   type ProductionPieceTruthCompletionKey,
-} from '../../../domain/fcs-cutting-piece-truth'
+} from '../../../domain/fcs-cutting-piece-truth/index.ts'
 import {
   renderCompactKpiCard,
   renderStickyFilterShell,
@@ -10,9 +10,9 @@ import {
   renderWorkbenchFilterChip,
   renderWorkbenchSecondaryPanel,
   renderWorkbenchStateBar,
-} from './layout.helpers'
-import { getCanonicalCuttingMeta, getCanonicalCuttingPath, renderCuttingPageHeader } from './meta'
-import type { ProductionProgressStageKey } from './production-progress-model'
+} from './layout.helpers.ts'
+import { getCanonicalCuttingMeta, getCanonicalCuttingPath, renderCuttingPageHeader } from './meta.ts'
+import type { ProductionProgressStageKey } from './production-progress-model.ts'
 import {
   buildCuttingSummaryIssues,
   cuttingSummaryIssueMetaMap,
@@ -28,8 +28,8 @@ import {
   type CuttingSummarySourceObjectItem,
   type CuttingSummaryTraceNode,
   type CuttingSummaryViewModel,
-} from './summary-model'
-import { getWarehouseSearchParams } from './warehouse-shared'
+} from './summary-model.ts'
+import { getWarehouseSearchParams } from './warehouse-shared.ts'
 import {
   buildCuttingDrillChipLabels,
   buildCuttingDrillSummary,
@@ -39,7 +39,7 @@ import {
   readCuttingDrillContextFromLocation,
   type CuttingDrillContext,
   type CuttingNavigationTarget,
-} from './navigation-context'
+} from './navigation-context.ts'
 import {
   cuttingCheckSectionLabelMap,
   type CuttingCheckBlockerItem,
@@ -47,7 +47,7 @@ import {
   type CuttingCheckSectionKey,
   type CuttingCheckSectionState,
   type CuttingCheckSourceObjectType,
-} from './cutting-summary-checks'
+} from './cutting-summary-checks.ts'
 import {
   buildFcsCuttingSummaryDetailProjection,
   buildFcsCuttingSummaryProjection,

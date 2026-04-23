@@ -1,10 +1,10 @@
-import { appStore } from '../../../state/store'
-import { hydrateRealQRCodes, renderRealQrPlaceholder } from '../../../components/real-qr'
-import { escapeHtml, formatDateTime } from '../../../utils'
+import { appStore } from '../../../state/store.ts'
+import { hydrateRealQRCodes, renderRealQrPlaceholder } from '../../../components/real-qr.ts'
+import { escapeHtml, formatDateTime } from '../../../utils.ts'
 import {
   CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY,
   serializeFeiTicketRecordsStorage,
-} from './fei-tickets-model'
+} from './fei-tickets-model.ts'
 import {
   paginateItems,
   renderCompactKpiCard,
@@ -15,11 +15,11 @@ import {
   renderWorkbenchPagination,
   renderWorkbenchSecondaryPanel,
   renderWorkbenchStateBar,
-} from './layout.helpers'
-import { getCanonicalCuttingMeta, getCanonicalCuttingPath, renderCuttingPageHeader } from './meta'
+} from './layout.helpers.ts'
+import { getCanonicalCuttingMeta, getCanonicalCuttingPath, renderCuttingPageHeader } from './meta.ts'
 import {
   getWarehouseSearchParams,
-} from './warehouse-shared'
+} from './warehouse-shared.ts'
 import {
   buildCuttingTraceabilityId,
 } from '../../../data/fcs/cutting/qr-codes.ts'
@@ -34,14 +34,14 @@ import {
   readCuttingDrillContextFromLocation,
   type CuttingDrillContext,
   type CuttingNavigationTarget,
-} from './navigation-context'
+} from './navigation-context.ts'
 import {
   buildTransferBagsProjection,
-} from './transfer-bags-projection'
+} from './transfer-bags-projection.ts'
 import {
   resolveCarrierScanInput,
   resolveFeiTicketScanInput,
-} from './traceability-projection-helpers'
+} from './traceability-projection-helpers.ts'
 import {
   listCuttingSewingTransferBags,
 } from '../../../data/fcs/cutting/sewing-dispatch.ts'
@@ -71,7 +71,7 @@ import {
   type TransferBagUsageItem,
   type TransferBagUsageStatusKey,
   type TransferBagVisibleStatusKey,
-} from './transfer-bags-model'
+} from './transfer-bags-model.ts'
 import {
   buildBagReturnAuditTrail,
   buildReuseCycleSummary,
@@ -87,7 +87,7 @@ import {
   type TransferBagDiscrepancyType,
   type TransferBagReusableDecision,
   type TransferBagReturnReceipt,
-} from './transfer-bag-return-model'
+} from './transfer-bag-return-model.ts'
 
 type MasterStatusFilter = 'ALL' | TransferBagVisibleStatusKey
 

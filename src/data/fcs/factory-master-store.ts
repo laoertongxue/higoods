@@ -28,6 +28,11 @@ export function listFactoryMasterRecords(): Factory[] {
   return factoryMasterRecords.map((factory) => cloneFactory(factory))
 }
 
+export function listBusinessFactoryMasterRecords(input: { includeTestFactories?: boolean } = {}): Factory[] {
+  const includeTestFactories = input.includeTestFactories === true
+  return listFactoryMasterRecords().filter((factory) => includeTestFactories || !factory.isTestFactory)
+}
+
 function isSewingFactory(factory: Factory): boolean {
   if (factory.status !== 'active') return false
   if (factory.processAbilities.some((item) => item.processCode === 'SEW')) return true

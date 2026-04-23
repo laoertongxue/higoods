@@ -7,6 +7,8 @@ import {
   type SpecialCraftTargetObjectLabel,
   type SpecialCraftVisibleFactoryType,
 } from './process-craft-dict.ts'
+import { getFactoryMasterRecordById, listFactoryMasterRecords } from './factory-master-store.ts'
+import type { FactoryType } from './factory-types.ts'
 
 export type SpecialCraftTargetObject =
   | SpecialCraftTargetObjectLabel
@@ -26,6 +28,7 @@ export interface SpecialCraftOperationDefinition {
   defaultTargetObject: SpecialCraftTargetObjectLabel
   targetObject: SpecialCraftTargetObject
   visibleFactoryTypes: SpecialCraftVisibleFactoryType[]
+  visibleFactoryIds?: string[]
   requiresTaskOrder: boolean
   requiresFactoryWarehouse: boolean
   requiresStatistics: boolean
@@ -105,6 +108,14 @@ function buildOperationDefinition(
   const defaultTargetObject = supportedTargetObjects.includes(seed.defaultTargetObject)
     ? getSpecialCraftTargetObjectLabel(seed.defaultTargetObject)
     : getSpecialCraftTargetObjectLabel(supportedTargetObjects[0])
+  const visibleFactoryTypes =
+    craftDefinition.craftName === '洗水'
+      ? Array.from(new Set([...craftDefinition.visibleFactoryTypes, 'CENTRAL_AUX']))
+      : []
+  const visibleFactoryIds =
+    craftDefinition.craftName === '洗水'
+      ? []
+      : []
   return {
     operationId: seed.operationId,
     craftCode: craftDefinition.craftCode,
@@ -116,7 +127,8 @@ function buildOperationDefinition(
     supportedTargetObjectLabels: getSpecialCraftSupportedTargetObjectLabels(supportedTargetObjects),
     defaultTargetObject,
     targetObject: defaultTargetObject,
-    visibleFactoryTypes: [...craftDefinition.visibleFactoryTypes],
+    visibleFactoryTypes,
+    visibleFactoryIds,
     requiresTaskOrder: true,
     requiresFactoryWarehouse: true,
     requiresStatistics: true,
@@ -124,6 +136,16 @@ function buildOperationDefinition(
     mustReturnToCuttingFactory: seed.mustReturnToCuttingFactory,
     isEnabled: craftDefinition.isActive,
     remark: seed.remark,
+  }
+}
+
+function cloneOperationDefinition(item: SpecialCraftOperationDefinition): SpecialCraftOperationDefinition {
+  return {
+    ...item,
+    supportedTargetObjects: [...item.supportedTargetObjects],
+    supportedTargetObjectLabels: [...item.supportedTargetObjectLabels],
+    visibleFactoryTypes: [...item.visibleFactoryTypes],
+    visibleFactoryIds: [...(item.visibleFactoryIds ?? [])],
   }
 }
 
@@ -148,43 +170,73 @@ function normalizeOperationSlug(value: string): string {
 }
 
 export function listSpecialCraftOperationDefinitions(): SpecialCraftOperationDefinition[] {
-  return specialCraftOperationDefinitions.map((item) => ({
-    ...item,
-    supportedTargetObjects: [...item.supportedTargetObjects],
-    supportedTargetObjectLabels: [...item.supportedTargetObjectLabels],
-    visibleFactoryTypes: [...item.visibleFactoryTypes],
-  }))
+  return specialCraftOperationDefinitions.map((item) => cloneOperationDefinition(item))
 }
 
 export function listEnabledSpecialCraftOperationDefinitions(): SpecialCraftOperationDefinition[] {
   return specialCraftOperationDefinitions
     .filter((item) => item.isEnabled)
-    .map((item) => ({
-      ...item,
-      supportedTargetObjects: [...item.supportedTargetObjects],
-      supportedTargetObjectLabels: [...item.supportedTargetObjectLabels],
-      visibleFactoryTypes: [...item.visibleFactoryTypes],
-    }))
+    .map((item) => cloneOperationDefinition(item))
 }
 
 export function getSpecialCraftOperationById(operationId: string): SpecialCraftOperationDefinition | undefined {
   const matched = specialCraftOperationById.get(operationId)
-  return matched ? {
-    ...matched,
-    supportedTargetObjects: [...matched.supportedTargetObjects],
-    supportedTargetObjectLabels: [...matched.supportedTargetObjectLabels],
-    visibleFactoryTypes: [...matched.visibleFactoryTypes],
-  } : undefined
+  return matched ? cloneOperationDefinition(matched) : undefined
 }
 
 export function getSpecialCraftOperationByCraftCode(craftCode: string): SpecialCraftOperationDefinition | undefined {
   const matched = specialCraftOperationByCraftCode.get(craftCode)
-  return matched ? {
-    ...matched,
-    supportedTargetObjects: [...matched.supportedTargetObjects],
-    supportedTargetObjectLabels: [...matched.supportedTargetObjectLabels],
-    visibleFactoryTypes: [...matched.visibleFactoryTypes],
-  } : undefined
+  return matched ? cloneOperationDefinition(matched) : undefined
+}
+
+function matchesFactoryAbility(factoryId: string, operation: SpecialCraftOperationDefinition): boolean {
+  const factory = getFactoryMasterRecordById(factoryId)
+  if (!factory) return false
+  return factory.processAbilities.some((ability) =>
+    (ability.status ?? 'ACTIVE') !== 'DISABLED'
+    && ability.canReceiveTask !== false
+    && ability.processCode === operation.processCode
+    && ability.craftCodes.includes(operation.craftCode),
+  )
+}
+
+function matchesFactoryVisibility(
+  input: {
+    factoryId: string
+    factoryType: FactoryType
+  },
+  operation: SpecialCraftOperationDefinition,
+): boolean {
+  const typeMatched =
+    operation.visibleFactoryTypes.length === 0
+      || operation.visibleFactoryTypes.includes(input.factoryType as SpecialCraftVisibleFactoryType)
+  const idMatched =
+    !operation.visibleFactoryIds?.length
+      || operation.visibleFactoryIds.includes(input.factoryId)
+  return typeMatched && idMatched
+}
+
+export function canFactorySeeSpecialCraftOperation(factoryId: string, operationId: string): boolean {
+  const factory = getFactoryMasterRecordById(factoryId)
+  const operation = getSpecialCraftOperationById(operationId)
+  if (!factory || !operation || !operation.isEnabled) return false
+  return matchesFactoryAbility(factoryId, operation) && matchesFactoryVisibility(
+    { factoryId, factoryType: factory.factoryType },
+    operation,
+  )
+}
+
+export function listVisibleSpecialCraftOperationsForFactory(factoryId: string): SpecialCraftOperationDefinition[] {
+  return listEnabledSpecialCraftOperationDefinitions().filter((operation) =>
+    canFactorySeeSpecialCraftOperation(factoryId, operation.operationId),
+  )
+}
+
+export function listVisibleSpecialCraftOperationsForFactoryType(factoryType: FactoryType): SpecialCraftOperationDefinition[] {
+  const matchingFactories = listFactoryMasterRecords().filter((factory) => factory.factoryType === factoryType)
+  return listEnabledSpecialCraftOperationDefinitions().filter((operation) =>
+    matchingFactories.some((factory) => canFactorySeeSpecialCraftOperation(factory.id, operation.operationId)),
+  )
 }
 
 export function getDefaultSpecialCraftTargetObject(

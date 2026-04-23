@@ -2,11 +2,11 @@ import {
   buildFcsCuttingDomainSnapshot,
   type CuttingDomainSnapshot,
 } from '../../../domain/fcs-cutting-runtime/index.ts'
-import type { CuttingSummaryBuildOptions } from './summary-model'
+import type { CuttingSummaryBuildOptions } from './summary-model.ts'
 import {
   mapCuttingDomainSnapshotToSummaryBuildOptions,
 } from './runtime-projections.ts'
-import type { OriginalCutOrderRow, OriginalCutOrderViewModel } from './original-orders-model'
+import type { OriginalCutOrderRow, OriginalCutOrderViewModel } from './original-orders-model.ts'
 
 export interface OriginalOrdersProjection {
   snapshot: CuttingDomainSnapshot

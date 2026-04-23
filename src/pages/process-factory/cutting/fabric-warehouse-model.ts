@@ -1,11 +1,11 @@
-import type { CuttingMaterialType } from '../../../data/fcs/cutting/types'
+import type { CuttingMaterialType } from '../../../data/fcs/cutting/types.ts'
 import {
   listFormalFabricWarehouseRecords,
   type CuttingFabricStockRecord,
   type CuttingFabricStockStatus,
-} from '../../../data/fcs/cutting/warehouse-runtime'
-import type { OriginalCutOrderRow } from './original-orders-model'
-import { buildWarehouseQueryPayload, type WarehouseNavigationPayload } from './warehouse-shared'
+} from '../../../data/fcs/cutting/warehouse-runtime.ts'
+import type { OriginalCutOrderRow } from './original-orders-model.ts'
+import { buildWarehouseQueryPayload, type WarehouseNavigationPayload } from './warehouse-shared.ts'
 
 const numberFormatter = new Intl.NumberFormat('zh-CN')
 

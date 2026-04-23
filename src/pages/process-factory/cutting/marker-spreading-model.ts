@@ -1,5 +1,5 @@
-import type { MaterialPrepRow } from './material-prep-model'
-import type { MergeBatchRecord } from './merge-batches-model'
+import type { MaterialPrepRow } from './material-prep-model.ts'
+import type { MergeBatchRecord } from './merge-batches-model.ts'
 import { getProductionOrderCompatTechPack } from '../../../data/fcs/production-order-tech-pack-runtime.ts'
 
 const numberFormatter = new Intl.NumberFormat('zh-CN')

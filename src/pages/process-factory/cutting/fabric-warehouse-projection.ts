@@ -2,8 +2,8 @@ import type {
   CuttingFabricStockRecord,
 } from '../../../data/fcs/cutting/warehouse-runtime.ts'
 import type { CuttingDomainSnapshot } from '../../../domain/fcs-cutting-runtime/index.ts'
-import { buildFabricWarehouseViewModel } from './fabric-warehouse-model'
-import { buildExecutionPrepProjectionContext } from './execution-prep-projection-helpers'
+import { buildFabricWarehouseViewModel } from './fabric-warehouse-model.ts'
+import { buildExecutionPrepProjectionContext } from './execution-prep-projection-helpers.ts'
 
 export interface FabricWarehouseProjection {
   snapshot: CuttingDomainSnapshot

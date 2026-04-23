@@ -5,8 +5,8 @@ import type {
   CuttingSummaryRiskLevel,
   CuttingSummaryStatus,
   CuttingSummaryUpdatedSource,
-} from '../../../data/fcs/cutting/cutting-summary'
-import type { CuttingUrgencyLevel } from '../../../data/fcs/cutting/types'
+} from '../../../data/fcs/cutting/cutting-summary.ts'
+import type { CuttingUrgencyLevel } from '../../../data/fcs/cutting/types.ts'
 
 export const urgencyMeta: Record<CuttingUrgencyLevel, { label: string; className: string }> = {
   AA: { label: 'AA 紧急', className: 'bg-rose-50 text-rose-700' },

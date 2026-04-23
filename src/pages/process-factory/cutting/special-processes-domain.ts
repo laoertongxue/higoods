@@ -1,6 +1,6 @@
-import { getCanonicalCuttingPath } from './meta'
-import type { MergeBatchRecord } from './merge-batches-model'
-import type { OriginalCutOrderRow } from './original-orders-model'
+import { getCanonicalCuttingPath } from './meta.ts'
+import type { MergeBatchRecord } from './merge-batches-model.ts'
+import type { OriginalCutOrderRow } from './original-orders-model.ts'
 import type {
   BindingStripProcessPayload,
   SpecialProcessExecutionLog,
@@ -14,7 +14,7 @@ import type {
   SpecialProcessStatusKey,
   SpecialProcessType,
   SpecialProcessTypeExecutionMeta,
-} from './special-processes-model'
+} from './special-processes-model.ts'
 
 function nowText(date = new Date()): string {
   const year = date.getFullYear()

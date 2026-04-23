@@ -100,6 +100,10 @@ function resolveProductionOrderVersion(order: ProductionOrder): string {
   return 'POV-CURRENT'
 }
 
+function resolveProductionOrderNo(order: Pick<ProductionOrder, 'productionOrderId' | 'productionOrderNo'>): string {
+  return normalizeText(order.productionOrderNo) || normalizeText(order.productionOrderId) || 'UNKNOWN-PO'
+}
+
 function resolveSuggestedFactory(operation: SpecialCraftOperationDefinition, targetObject = operation.targetObject): {
   suggestedFactoryId?: string
   suggestedFactoryName?: string
@@ -170,7 +174,7 @@ function validateSpecialCraftReference(
     return {
       error: buildBlockingError({
         productionOrderId: order.productionOrderId,
-        productionOrderNo: order.productionOrderNo,
+        productionOrderNo: resolveProductionOrderNo(order),
         patternFileId,
         pieceRowId,
         partName,
@@ -188,7 +192,7 @@ function validateSpecialCraftReference(
     return {
       error: buildBlockingError({
         productionOrderId: order.productionOrderId,
-        productionOrderNo: order.productionOrderNo,
+        productionOrderNo: resolveProductionOrderNo(order),
         patternFileId,
         pieceRowId,
         partName,
@@ -205,7 +209,7 @@ function validateSpecialCraftReference(
     return {
       error: buildBlockingError({
         productionOrderId: order.productionOrderId,
-        productionOrderNo: order.productionOrderNo,
+        productionOrderNo: resolveProductionOrderNo(order),
         patternFileId,
         pieceRowId,
         partName,
@@ -223,7 +227,7 @@ function validateSpecialCraftReference(
     return {
       error: buildBlockingError({
         productionOrderId: order.productionOrderId,
-        productionOrderNo: order.productionOrderNo,
+        productionOrderNo: resolveProductionOrderNo(order),
         patternFileId,
         pieceRowId,
         partName,
@@ -303,6 +307,7 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
   specialCraftOperations?: SpecialCraftOperationDefinition[]
 }): SpecialCraftTaskDemandLineBuildResult {
   const { productionOrder } = input
+  const productionOrderNo = resolveProductionOrderNo(productionOrder)
   const techPackSnapshot = input.techPackSnapshot ?? getProductionOrderTechPackSnapshot(productionOrder.productionOrderId)
   const enabledOperations = input.specialCraftOperations ?? listEnabledSpecialCraftOperationDefinitions()
   const operationIdSet = new Set(enabledOperations.map((item) => item.operationId))
@@ -311,7 +316,7 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
   const warnings: string[] = []
 
   if (!techPackSnapshot) {
-    warnings.push(`生产单 ${productionOrder.productionOrderNo} 缺少技术包快照`)
+    warnings.push(`生产单 ${productionOrderNo} 缺少技术包快照`)
     return { demandLines, errors, warnings }
   }
 
@@ -333,7 +338,7 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
           errors.push(
             buildBlockingError({
               productionOrderId: productionOrder.productionOrderId,
-              productionOrderNo: productionOrder.productionOrderNo,
+              productionOrderNo,
               patternFileId,
               pieceRowId: pieceRow.id,
               partName: '',
@@ -353,7 +358,7 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
           errors.push(
             buildBlockingError({
               productionOrderId: productionOrder.productionOrderId,
-              productionOrderNo: productionOrder.productionOrderNo,
+              productionOrderNo,
               patternFileId,
               pieceRowId: pieceRow.id,
               partName,
@@ -392,7 +397,7 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
             errors.push(
               buildBlockingError({
                 productionOrderId: productionOrder.productionOrderId,
-                productionOrderNo: productionOrder.productionOrderNo,
+                productionOrderNo,
                 patternFileId,
                 pieceRowId: pieceRow.id,
                 partName,
@@ -417,7 +422,7 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
 
           if (candidateOrderLines.length === 0) {
             warnings.push(
-              `${productionOrder.productionOrderNo} / ${patternFileName} / ${partName} / ${allocation.colorName} 未匹配到生产数量`,
+              `${productionOrderNo} / ${patternFileName} / ${partName} / ${allocation.colorName} 未匹配到生产数量`,
             )
             return
           }
@@ -432,7 +437,7 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
               demandLineId: `SCDL-${stableHash([productionOrder.productionOrderId, pieceRow.id, operation.operationId, selectedTargetObject, orderLine.skuCode].join('|'))}`,
               taskOrderId: '',
               productionOrderId: productionOrder.productionOrderId,
-              productionOrderNo: productionOrder.productionOrderNo,
+              productionOrderNo,
               patternFileId,
               patternFileName,
               pieceRowId: pieceRow.id,
@@ -535,7 +540,7 @@ function buildTaskOrderId(order: ProductionOrder, operation: SpecialCraftOperati
 }
 
 function buildTaskOrderNo(order: ProductionOrder, operation: SpecialCraftOperationDefinition, index: number): string {
-  const orderNo = order.productionOrderNo.replace(/^PO-/, '')
+  const orderNo = resolveProductionOrderNo(order).replace(/^PO-/, '')
   const craftShortCode = operation.craftCode.replace('CRAFT_', '').replace(/^0+/, '').slice(-4) || operation.operationId.slice(-4)
   return `SC-${orderNo}-${craftShortCode}-${String(index + 1).padStart(2, '0')}`
 }
@@ -561,6 +566,7 @@ function mergeDemandLinesIntoTaskOrder(input: {
   const targetObject = demandLines[0]?.targetObject || operation.targetObject
   const { suggestedFactoryId, suggestedFactoryName } = resolveSuggestedFactory(operation, targetObject)
   const productionOrderVersion = resolveProductionOrderVersion(order)
+  const productionOrderNo = resolveProductionOrderNo(order)
 
   const taskOrder: SpecialCraftTaskOrder = {
     taskOrderId: existingTask?.taskOrderId || buildTaskOrderId(order, operation, generationKey, taskIndex),
@@ -574,7 +580,7 @@ function mergeDemandLinesIntoTaskOrder(input: {
     factoryId: existingTask?.factoryId || '',
     factoryName: existingTask?.factoryName || '待分配',
     productionOrderId: order.productionOrderId,
-    productionOrderNo: order.productionOrderNo,
+    productionOrderNo,
     productionOrderVersion,
     techPackSnapshotId: snapshot.snapshotId,
     techPackVersion: snapshot.sourceTechPackVersionLabel || snapshot.versionLabel,
@@ -673,7 +679,7 @@ export function generateSpecialCraftTaskOrdersFromProductionOrder(input: {
     const generationBatch: SpecialCraftTaskGenerationBatch = {
       generationBatchId,
       productionOrderId: productionOrder.productionOrderId,
-      productionOrderNo: productionOrder.productionOrderNo,
+      productionOrderNo: resolveProductionOrderNo(productionOrder),
       productionOrderVersion,
       techPackSnapshotId: '',
       techPackVersion: '',
@@ -704,7 +710,7 @@ export function generateSpecialCraftTaskOrdersFromProductionOrder(input: {
     const generationBatch: SpecialCraftTaskGenerationBatch = {
       generationBatchId,
       productionOrderId: productionOrder.productionOrderId,
-      productionOrderNo: productionOrder.productionOrderNo,
+      productionOrderNo: resolveProductionOrderNo(productionOrder),
       productionOrderVersion,
       techPackSnapshotId: techPackSnapshot.snapshotId,
       techPackVersion: techPackSnapshot.sourceTechPackVersionLabel || techPackSnapshot.versionLabel,
@@ -729,7 +735,7 @@ export function generateSpecialCraftTaskOrdersFromProductionOrder(input: {
     const generationBatch: SpecialCraftTaskGenerationBatch = {
       generationBatchId,
       productionOrderId: productionOrder.productionOrderId,
-      productionOrderNo: productionOrder.productionOrderNo,
+      productionOrderNo: resolveProductionOrderNo(productionOrder),
       productionOrderVersion,
       techPackSnapshotId: techPackSnapshot.snapshotId,
       techPackVersion: techPackSnapshot.sourceTechPackVersionLabel || techPackSnapshot.versionLabel,
@@ -797,7 +803,7 @@ export function generateSpecialCraftTaskOrdersFromProductionOrder(input: {
   const generationBatch: SpecialCraftTaskGenerationBatch = {
     generationBatchId,
     productionOrderId: productionOrder.productionOrderId,
-    productionOrderNo: productionOrder.productionOrderNo,
+    productionOrderNo: resolveProductionOrderNo(productionOrder),
     productionOrderVersion,
     techPackSnapshotId: techPackSnapshot.snapshotId,
     techPackVersion: techPackSnapshot.sourceTechPackVersionLabel || techPackSnapshot.versionLabel,

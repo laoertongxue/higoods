@@ -1,9 +1,9 @@
-import { renderDrawer as uiDrawer } from '../../../components/ui'
-import { appStore } from '../../../state/store'
-import { escapeHtml } from '../../../utils'
+import { renderDrawer as uiDrawer } from '../../../components/ui/index.ts'
+import { appStore } from '../../../state/store.ts'
+import { escapeHtml } from '../../../utils.ts'
 import {
   buildMarkerPlanProjection,
-} from './marker-plan-projection'
+} from './marker-plan-projection.ts'
 import {
   buildMarkerPlanBalanceRows,
   buildMarkerPlanContextTypeOptions,
@@ -35,7 +35,7 @@ import {
   type MarkerPlanExplosionSummary,
   type MarkerPlanListStats,
   type MarkerPlanViewRow,
-} from './marker-plan-model'
+} from './marker-plan-model.ts'
 import {
   MARKER_SIZE_CODES,
   buildMarkerExplodedPieceQtyFormula,
@@ -69,15 +69,15 @@ import {
   type MarkerPlanStatusKey,
   type MarkerPlanTabKey,
   type MarkerSizeCode,
-} from './marker-plan-domain'
-import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta'
+} from './marker-plan-domain.ts'
+import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta.ts'
 import {
   renderCompactKpiCard,
   renderStickyFilterShell,
   renderStickyTableScroller,
   renderWorkbenchFilterChip,
   renderWorkbenchStateBar,
-} from './layout.helpers'
+} from './layout.helpers.ts'
 
 type MarkerPlanRouteKind = 'LIST' | 'CREATE' | 'EDIT' | 'DETAIL' | 'OTHER'
 type MarkerPlanListTab = 'PENDING' | 'PLANS' | 'EXCEPTIONS'

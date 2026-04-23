@@ -8,9 +8,11 @@ import { escapeHtml } from '../../../utils.ts'
 import {
   formatQty,
   renderEmptyState,
+  renderSpecialCraftFactoryContextBlockedLayout,
   renderFilterGrid,
   renderMetricCards,
   renderSpecialCraftPageLayout,
+  resolveSpecialCraftFactoryContextGuard,
   renderStatusBadge,
   renderTable,
 } from './shared.ts'
@@ -19,6 +21,16 @@ export function renderSpecialCraftStatisticsPage(operationSlug: string): string 
   const operation = getSpecialCraftOperationBySlug(operationSlug)
   if (!operation) {
     return renderEmptyState('未找到对应特殊工艺统计页面。')
+  }
+  const factoryGuard = resolveSpecialCraftFactoryContextGuard(operation)
+  if (factoryGuard.blocked) {
+    return renderSpecialCraftFactoryContextBlockedLayout({
+      operation,
+      title: `${operation.operationName}统计`,
+      description: '按工艺汇总当前特殊工艺的任务量、数量变化和差异状态。',
+      activeSubNav: 'statistics',
+      factoryName: factoryGuard.factoryName,
+    })
   }
 
   const taskOrders = getSpecialCraftTaskOrders(operation.operationId)
@@ -51,11 +63,26 @@ export function renderSpecialCraftStatisticsPage(operationSlug: string): string 
     },
     { waitDispatch: 0, dispatched: 0, received: 0, processing: 0, waitReturn: 0, returned: 0, difference: 0, objection: 0, receiveDifference: 0, returnDifference: 0, scrapQty: 0, damageQty: 0, currentQty: 0 },
   )
+  const targetObjectSummary = Array.from(
+    new Set(progressSnapshots.flatMap((item) => item.targetObjectSummary).filter(Boolean)),
+  )
+  const supportedTargetObjectSummary = Array.from(
+    new Set(progressSnapshots.flatMap((item) => item.supportedTargetObjectSummary).filter(Boolean)),
+  )
+  const totalWorkOrderCount = progressSnapshots.reduce((sum, item) => sum + item.workOrderCount, 0)
+  const bundleWidthValues = Array.from(
+    new Set(progressSnapshots.flatMap((item) => item.bundleWidthCmValues).filter((value) => value > 0)),
+  )
+  const bundleLengthValues = Array.from(
+    new Set(progressSnapshots.flatMap((item) => item.bundleLengthCmValues).filter((value) => value > 0)),
+  )
+  const stripCountTotal = progressSnapshots.reduce((sum, item) => sum + item.stripCountTotal, 0)
 
   const filters = renderFilterGrid([
     { label: '时间周期', value: '今日 / 近 7 天 / 近 30 天 / 自定义' },
     { label: '工厂', value: '全部关联工厂' },
     { label: '生产单', value: '全部生产单' },
+    { label: '默认分组', value: '按工艺分组' },
     { label: '状态', value: '全部状态' },
     { label: '异常类型', value: '全部异常类型' },
     { label: '是否已回仓', value: '全部 / 已回仓 / 未回仓' },
@@ -63,6 +90,7 @@ export function renderSpecialCraftStatisticsPage(operationSlug: string): string 
 
   const metrics = renderMetricCards([
     { label: '任务总数', value: String(taskOrders.length), tone: 'blue' },
+    { label: '子工艺单数', value: String(totalWorkOrderCount), tone: 'violet' },
     { label: '计划数量', value: formatQty(totalPlanQty), tone: 'blue' },
     { label: '已接收数量', value: formatQty(totalReceivedQty), tone: 'green' },
     { label: '已完成数量', value: formatQty(totalCompletedQty), tone: 'green' },
@@ -99,21 +127,26 @@ export function renderSpecialCraftStatisticsPage(operationSlug: string): string 
 
   const rows = statistics
     .map(
-      (item) => `
+      (item) => {
+        const matchedSnapshots = progressSnapshots.filter((snapshot) => snapshot.factoryId === item.factoryId)
+        return `
         <tr>
           <td class="px-3 py-3">${escapeHtml(item.date)}</td>
           <td class="px-3 py-3">${escapeHtml(item.factoryName)}</td>
           <td class="px-3 py-3">${escapeHtml(item.operationName)}</td>
+          <td class="px-3 py-3">${escapeHtml(Array.from(new Set(matchedSnapshots.flatMap((snapshot) => snapshot.targetObjectSummary))).join('、') || '—')}</td>
+          <td class="px-3 py-3">${String(matchedSnapshots.reduce((sum, snapshot) => sum + snapshot.workOrderCount, 0))}</td>
           <td class="px-3 py-3">${String(item.taskCount)}</td>
           <td class="px-3 py-3">${formatQty(item.planQty)}</td>
           <td class="px-3 py-3">${formatQty(item.receivedQty)}</td>
           <td class="px-3 py-3">${formatQty(item.completedQty)}</td>
           <td class="px-3 py-3">${formatQty(item.waitHandoverQty)}</td>
-          <td class="px-3 py-3">${String(progressSnapshots.filter((snapshot) => snapshot.factoryId === item.factoryId && snapshot.returnedFeiTicketCount > 0).reduce((sum, snapshot) => sum + snapshot.returnedFeiTicketCount, 0))}</td>
-          <td class="px-3 py-3">${renderStatusBadge(String(progressSnapshots.filter((snapshot) => snapshot.factoryId === item.factoryId).reduce((sum, snapshot) => sum + snapshot.differenceFeiTicketCount, 0) || item.differenceTaskCount))}</td>
+          <td class="px-3 py-3">${String(matchedSnapshots.filter((snapshot) => snapshot.returnedFeiTicketCount > 0).reduce((sum, snapshot) => sum + snapshot.returnedFeiTicketCount, 0))}</td>
+          <td class="px-3 py-3">${renderStatusBadge(String(matchedSnapshots.reduce((sum, snapshot) => sum + snapshot.differenceFeiTicketCount, 0) || item.differenceTaskCount))}</td>
           <td class="px-3 py-3">${renderStatusBadge(String(item.abnormalTaskCount))}</td>
         </tr>
-      `,
+      `
+      },
     )
     .join('')
 
@@ -122,12 +155,41 @@ export function renderSpecialCraftStatisticsPage(operationSlug: string): string 
     ${metrics}
     <section class="rounded-2xl border bg-white p-4 shadow-sm">
       <h2 class="text-base font-semibold text-foreground">节点状态</h2>
-      <p class="mt-1 text-xs text-muted-foreground">默认按工艺分组，状态分布同步任务单节点，并补充菲票回仓统计。</p>
+      <p class="mt-1 text-xs text-muted-foreground">默认按工艺分组，状态分布同步任务单节点，并补充菲票回仓、作用对象和数量变化。</p>
       <div class="mt-4">${nodeStatusCards}</div>
+    </section>
+    <section class="rounded-2xl border bg-white p-4 shadow-sm">
+      <h2 class="text-base font-semibold text-foreground">工艺补充口径</h2>
+      <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div class="rounded-2xl border bg-slate-50/60 p-3">
+          <div class="text-xs text-muted-foreground">作用对象</div>
+          <div class="mt-1 text-sm font-medium text-foreground">${escapeHtml(targetObjectSummary.join('、') || '—')}</div>
+        </div>
+        <div class="rounded-2xl border bg-slate-50/60 p-3">
+          <div class="text-xs text-muted-foreground">支持作用对象</div>
+          <div class="mt-1 text-sm font-medium text-foreground">${escapeHtml(supportedTargetObjectSummary.join('、') || '—')}</div>
+        </div>
+        ${
+          bundleWidthValues.length || bundleLengthValues.length
+            ? `
+              <div class="rounded-2xl border bg-slate-50/60 p-3">
+                <div class="text-xs text-muted-foreground">捆条宽度（厘米）</div>
+                <div class="mt-1 text-sm font-medium text-foreground">${escapeHtml(bundleWidthValues.join(' / ') || '—')}</div>
+              </div>
+              <div class="rounded-2xl border bg-slate-50/60 p-3">
+                <div class="text-xs text-muted-foreground">捆条长度 / 条数</div>
+                <div class="mt-1 text-sm font-medium text-foreground">${escapeHtml(
+                  `${bundleLengthValues.join(' / ') || '—'}${stripCountTotal > 0 ? ` · ${stripCountTotal} 条` : ''}`,
+                )}</div>
+              </div>
+            `
+            : ''
+        }
+      </div>
     </section>
     ${
       statistics.length > 0
-        ? renderTable(['日期', '工厂', '特殊工艺', '任务数', '计划数量', '已接收数量', '已完成数量', '待交出数量', '已回仓菲票', '差异菲票', '异常'], rows, 'min-w-[1240px]')
+        ? renderTable(['日期', '工厂', '特殊工艺', '作用对象', '子工艺单数', '任务数', '计划数量', '已接收数量', '已完成数量', '待交出数量', '已回仓菲票', '差异菲票', '异常'], rows, 'min-w-[1440px]')
         : renderEmptyState()
     }
   `

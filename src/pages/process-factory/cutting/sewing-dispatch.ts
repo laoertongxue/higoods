@@ -1,5 +1,5 @@
-import { escapeHtml } from '../../../utils'
-import { renderRealQrPlaceholder } from '../../../components/real-qr'
+import { escapeHtml } from '../../../utils.ts'
+import { renderRealQrPlaceholder } from '../../../components/real-qr.ts'
 import {
   assertSewingDispatchAllowed,
   getCuttingSewingDispatchSummary,
@@ -17,13 +17,13 @@ import { productionOrders } from '../../../data/fcs/production-orders.ts'
 import {
   renderCompactKpiCard,
   renderStickyTableScroller,
-} from './layout.helpers'
+} from './layout.helpers.ts'
 import {
   getCanonicalCuttingMeta,
   getCanonicalCuttingPath,
   isCuttingAliasPath,
   renderCuttingPageHeader,
-} from './meta'
+} from './meta.ts'
 
 function renderBadge(label: string, className = 'bg-slate-100 text-slate-700'): string {
   return `<span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${className}">${escapeHtml(label)}</span>`
@@ -34,6 +34,18 @@ function statusClass(status: string): string {
   if (status.includes('差异') || status.includes('异议')) return 'bg-rose-100 text-rose-700'
   if (status.includes('未配齐') || status.includes('待')) return 'bg-amber-100 text-amber-700'
   return 'bg-slate-100 text-slate-700'
+}
+
+function getTransferBagWritebackStatusLabel(bag: CuttingSewingTransferBag): string {
+  if (bag.status === '异议中' || bag.packStatus === '异议中') return '异议中'
+  if (bag.differenceQty || bag.packStatus === '差异') return '差异'
+  if (bag.packStatus === '部分回写') return '部分回写'
+  const expectedFeiTicketCount = bag.contentFeiTicketCount || bag.scannedFeiTicketNos.length
+  if (expectedFeiTicketCount > 0 && typeof bag.receivedFeiTicketCount === 'number' && bag.receivedFeiTicketCount < expectedFeiTicketCount) {
+    return '部分回写'
+  }
+  if (bag.receiverWrittenQty === undefined && bag.receivedFeiTicketCount === undefined) return '待回写'
+  return '已回写'
 }
 
 function renderSkuLines(batch: CuttingSewingDispatchBatch): string {
@@ -326,7 +338,7 @@ function renderTransferBagRows(bags: CuttingSewingTransferBag[]): string {
                     <td class="px-3 py-3">${escapeHtml(String(bag.scannedFeiTicketNos.length))}</td>
                     <td class="px-3 py-3">${renderBadge(bag.completeStatus, statusClass(bag.completeStatus))}</td>
                     <td class="px-3 py-3">${renderBadge(bag.dispatchStatus, statusClass(bag.dispatchStatus))}</td>
-                    <td class="px-3 py-3">${escapeHtml(bag.receiverWrittenQty === undefined ? '待回写' : bag.differenceQty ? '差异' : '已回写')}</td>
+                    <td class="px-3 py-3">${escapeHtml(getTransferBagWritebackStatusLabel(bag))}</td>
                     <td class="px-3 py-3">${escapeHtml(String(bag.differenceQty || 0))}</td>
                     <td class="px-3 py-3">${renderRealQrPlaceholder({ value: bag.transferBagQrValue, size: 64, title: '中转袋二维码', label: `中转袋 ${bag.transferBagNo}` })}</td>
                     <td class="px-3 py-3">
@@ -495,9 +507,9 @@ function renderWritebackRows(batches: CuttingSewingDispatchBatch[], bags: Cuttin
                         <td class="px-3 py-3">${escapeHtml(bag.receivedAt ? '已收袋' : '待收袋')}</td>
                         <td class="px-3 py-3">${escapeHtml(bag.receivedFeiTicketCount === undefined ? '待回写' : `${bag.receivedFeiTicketCount}/${bag.contentFeiTicketCount || bag.scannedFeiTicketNos.length}`)}</td>
                         <td class="px-3 py-3">${escapeHtml(String(batch.plannedGarmentQty))}</td>
-                        <td class="px-3 py-3">${escapeHtml(bag.receiverWrittenQty === undefined ? '待回写' : String(bag.receiverWrittenQty))}</td>
+                        <td class="px-3 py-3">${escapeHtml(getTransferBagWritebackStatusLabel(bag) === '待回写' ? '待回写' : String(bag.receiverWrittenQty ?? ''))}</td>
                         <td class="px-3 py-3">${escapeHtml(String(bag.scannedFeiTicketNos.length))}</td>
-                        <td class="px-3 py-3">${escapeHtml(bag.receiverWrittenQty === undefined ? '待回写' : String(bag.scannedFeiTicketNos.length))}</td>
+                        <td class="px-3 py-3">${escapeHtml(getTransferBagWritebackStatusLabel(bag) === '待回写' ? '待回写' : String(bag.scannedFeiTicketNos.length))}</td>
                         <td class="px-3 py-3">${escapeHtml(String(bag.differenceQty || 0))}</td>
                         <td class="px-3 py-3">${escapeHtml(bag.differenceQty ? '数量不符' : '无')}</td>
                         <td class="px-3 py-3">${escapeHtml(bag.status === '异议中' ? '异议中' : '无')}</td>

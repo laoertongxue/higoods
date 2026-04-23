@@ -3,16 +3,16 @@ import {
   type SampleFlowHistoryItem,
   type SampleLocationStage,
   type SampleWarehouseRecord,
-} from '../../../data/fcs/cutting/warehouse-runtime'
+} from '../../../data/fcs/cutting/warehouse-runtime.ts'
 import {
   listSampleWarehouseWritebacks,
   type SampleWarehouseActionType,
   type SampleWarehouseWritebackLocationType,
   type SampleWarehouseWritebackRecord,
 } from '../../../data/fcs/cutting/warehouse-writeback-ledger.ts'
-import type { OriginalCutOrderRow } from './original-orders-model'
-import { buildWarehouseQueryPayload, type WarehouseNavigationPayload } from './warehouse-shared'
-import { getBrowserLocalStorage } from '../../../data/browser-storage'
+import type { OriginalCutOrderRow } from './original-orders-model.ts'
+import { buildWarehouseQueryPayload, type WarehouseNavigationPayload } from './warehouse-shared.ts'
+import { getBrowserLocalStorage } from '../../../data/browser-storage.ts'
 
 export type SampleWarehouseStatusKey = 'AVAILABLE' | 'BORROWED' | 'IN_FACTORY' | 'INSPECTION' | 'PENDING_RETURN'
 export type SampleLocationType = 'cutting-room' | 'production-center' | 'factory' | 'inspection'

@@ -35,6 +35,7 @@ import {
   getProductionOrderHandoverSummary,
   getTaskHandoverSummary,
 } from '../../data/fcs/handover-ledger-view.ts'
+import { sortProductionProgressByDefaultDueDate } from '../../data/fcs/progress-statistics-linkage.ts'
 import {
   listMaterialRequestDraftsByOrder,
   type MaterialRequestDraft,
@@ -152,9 +153,12 @@ interface TaskBoardSummaryCache {
 
 interface PoViewRow {
   orderId: string
+  productionOrderNo: string
   spuCode: string
   spuName: string
   mainFactory: string
+  dueDate: string
+  urgencyLevel: string
   qty: number
   lifecycle: PoLifecycle
   totalTasks: number
@@ -172,6 +176,8 @@ interface PoViewRow {
   handoverLatestOccurredAt: string
   handoverFocus: string
 }
+
+const PO_LARGE_ORDER_QTY_THRESHOLD = 4500
 
 interface ProgressBoardState {
   initializedByQuery: boolean
@@ -990,6 +996,25 @@ function getTaskKpiStats(): {
   }
 }
 
+function getOrderDueDate(order: ProductionOrder | undefined): string {
+  return order?.demandSnapshot?.requiredDeliveryDate || ''
+}
+
+function buildOrderUrgencyLevel(order: ProductionOrder | undefined, qty: number): string {
+  const dueDate = getOrderDueDate(order)
+  if (!dueDate) return ''
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const targetDate = new Date(dueDate)
+  targetDate.setHours(0, 0, 0, 0)
+  const diffDays = Math.floor((targetDate.getTime() - today.getTime()) / (24 * 60 * 60 * 1000))
+
+  if (diffDays <= 8) return '十万火急'
+  if (diffDays <= 10) return '紧急 A'
+  if (diffDays <= 13) return '紧急 B'
+  return qty >= PO_LARGE_ORDER_QTY_THRESHOLD ? 'C' : 'D'
+}
+
 function getPoViewRows(): PoViewRow[] {
   const handoverRows = getHandoverLedgerRows()
   const boardTasks = listBoardTasks()
@@ -1002,6 +1027,9 @@ function getPoViewRows(): PoViewRow[] {
     const mainFactoryId = order?.mainFactoryId ?? tasks.find((task) => task.assignedFactoryId)?.assignedFactoryId
     const mainFactory = mainFactoryId ? getFactoryById(mainFactoryId)?.name ?? mainFactoryId : '未指定'
     const lifecycle = deriveLifecycle(tasks, order)
+    const qty = getOrderQty(order, tasks)
+    const dueDate = getOrderDueDate(order)
+    const urgencyLevel = buildOrderUrgencyLevel(order, qty)
 
     const risks: string[] = []
     if (tasks.some((task) => task.status === 'BLOCKED')) risks.push('有生产暂停')
@@ -1011,10 +1039,13 @@ function getPoViewRows(): PoViewRow[] {
 
     return {
       orderId,
+      productionOrderNo: order?.productionOrderNo || orderId,
       spuCode: getOrderSpuCode(order, orderId),
       spuName: getOrderSpuName(order),
       mainFactory,
-      qty: getOrderQty(order, tasks),
+      dueDate,
+      urgencyLevel,
+      qty,
       lifecycle,
       totalTasks: tasks.length,
       doneTasks: tasks.filter((task) => task.status === 'DONE').length,
@@ -1055,7 +1086,7 @@ function getPoKpiStats(rows: PoViewRow[]): {
 function getFilteredPoRows(rows: PoViewRow[]): PoViewRow[] {
   const keyword = state.poKeyword.trim().toLowerCase()
 
-  return rows.filter((row) => {
+  const filteredRows = rows.filter((row) => {
     if (keyword) {
       const target = `${row.orderId} ${row.spuCode} ${row.spuName} ${row.mainFactory}`.toLowerCase()
       if (!target.includes(keyword)) return false
@@ -1067,6 +1098,8 @@ function getFilteredPoRows(rows: PoViewRow[]): PoViewRow[] {
 
     return true
   })
+
+  return sortProductionProgressByDefaultDueDate(filteredRows)
 }
 
 function getPoKanbanGroups(rows: PoViewRow[]): Record<PoLifecycle, PoViewRow[]> {

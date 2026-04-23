@@ -21,7 +21,6 @@ import type {
   PatternTaskTeamCode,
 } from '../data/pcs-pattern-task-types.ts'
 import {
-  getEngineeringTaskFieldPolicy,
   getPatternTaskCompletionMissingFields,
   getPlateTaskCompletionMissingFields,
   getRevisionTaskCompletionMissingFields,
@@ -956,44 +955,24 @@ function ensurePatternDetailDraft(task: ReturnType<typeof getPatternTaskById>): 
   return state.patternDetailDraft
 }
 
-function renderTaskCompletionSection(
-  policy: ReturnType<typeof getEngineeringTaskFieldPolicy>,
-  completionMissingFields: string[],
-  detailEditorHtml: string,
-): string {
-  return renderSectionCard(
-    '任务补齐项',
-    `
-      <div class="grid gap-4 xl:grid-cols-3">
-        <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
-          <p class="text-sm font-medium text-slate-900">节点创建必填</p>
-          <ul class="mt-3 space-y-2 text-sm text-slate-600">
-            ${policy.createRequiredFields.map((field) => `<li><span class="font-medium text-slate-900">${escapeHtml(field.label)}</span></li>`).join('')}
-          </ul>
-        </div>
-        <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
-          <p class="text-sm font-medium text-slate-900">实例详情补齐</p>
-          <ul class="mt-3 space-y-2 text-sm text-slate-600">
-            ${policy.detailEditableFields.map((field) => `<li><span class="font-medium text-slate-900">${escapeHtml(field.label)}</span></li>`).join('')}
-          </ul>
-          <div class="mt-4 border-t border-slate-200 pt-4">${detailEditorHtml}</div>
-        </div>
-        <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
-          <p class="text-sm font-medium text-slate-900">完成回写</p>
-          <ul class="mt-3 space-y-2 text-sm text-slate-600">
-            ${policy.nodeWritebacks.map((item) => `<li><span class="font-medium text-slate-900">${escapeHtml(item.phase)}</span><span class="text-slate-500">：${escapeHtml(item.resultType)} / ${escapeHtml(item.pendingActionType || '无待办')}</span></li>`).join('')}
-          </ul>
-          <div class="mt-4 rounded-lg border ${completionMissingFields.length === 0 ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700'} px-3 py-3 text-sm">
-            ${
-              completionMissingFields.length === 0
-                ? '当前实例补齐字段已满足，允许完成任务。'
-                : `当前仍缺少：${escapeHtml(completionMissingFields.join('、'))}。完成任务前需要先补齐。`
-            }
-          </div>
-        </div>
-      </div>
-    `,
-  )
+function renderTaskCompletionHint(completionMissingFields: string[]): string {
+  return `
+    <div class="rounded-lg border ${completionMissingFields.length === 0 ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700'} px-3 py-3 text-sm">
+      ${
+        completionMissingFields.length === 0
+          ? '当前任务已满足完成条件，可直接完成任务。'
+          : `完成前仍缺少：${escapeHtml(completionMissingFields.join('、'))}。`
+      }
+    </div>
+  `
+}
+
+function renderTaskSaveBar(action: string, taskId: string, label = '保存任务'): string {
+  return `
+    <div class="mt-4 flex justify-end">
+      <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="${escapeHtml(action)}" data-task-id="${escapeHtml(taskId)}">${escapeHtml(label)}</button>
+    </div>
+  `
 }
 
 function renderTextInput(label: string, field: string, value: string, placeholder: string): string {
@@ -1699,7 +1678,6 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
   const task = getRevisionTaskById(revisionTaskId)
   if (!task) return renderEmptyDetail('改版任务', '/pcs/patterns/revision')
   const detailDraft = ensureRevisionDetailDraft(task)
-  const fieldPolicy = getEngineeringTaskFieldPolicy('REVISION_TASK')
   const completionMissingFields = getRevisionTaskCompletionMissingFields(task)
 
   const style = getRevisionTaskStyle(task)
@@ -1763,6 +1741,15 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
         ${renderFileChips('旧款图片', task.baseStyleImageIds || [])}
         ${renderFileChips('新款参考图', task.targetStyleImageIds || [])}
       </div>
+      <div class="mt-4 grid gap-4 md:grid-cols-2">
+        ${renderTextInput('旧款编码', 'revision-detail-base-style-code', detailDraft.baseStyleCode, '旧款编码')}
+        ${renderTextInput('旧款名称', 'revision-detail-base-style-name', detailDraft.baseStyleName, '旧款名称')}
+        ${renderTextInput('新款候选编码', 'revision-detail-target-style-code', detailDraft.targetStyleCodeCandidate, '新款候选编码')}
+        ${renderTextInput('新款候选名称', 'revision-detail-target-style-name', detailDraft.targetStyleNameCandidate, '新款候选名称')}
+      </div>
+      <div class="mt-4">
+        ${renderTextarea('新款参考图', 'revision-detail-target-style-images', detailDraft.targetStyleImageIdsText, '每行一个图片地址')}
+      </div>
     `,
   )
 
@@ -1779,10 +1766,28 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
         <p class="text-xs text-slate-500">修改建议</p>
         <p class="mt-2 whitespace-pre-wrap text-sm text-slate-900">${escapeHtml(task.revisionSuggestionRichText || task.issueSummary || '-')}</p>
       </div>
+      <div class="mt-4 grid gap-4 md:grid-cols-2">
+        ${renderTextInput('参与人', 'revision-detail-participants', detailDraft.participantNamesText, '多个姓名请用顿号分隔')}
+        ${renderTextInput('改版版次', 'revision-detail-version', detailDraft.revisionVersion, '例如：R2')}
+        ${renderTextInput('样衣数量', 'revision-detail-sample-qty', detailDraft.sampleQty, '例如：2')}
+        ${renderTextInput('打版人', 'revision-detail-pattern-maker-name', detailDraft.patternMakerName, '打版人')}
+      </div>
+      <div class="mt-4 grid gap-4 md:grid-cols-2">
+        ${renderTextarea('风格偏好', 'revision-detail-style-preference', detailDraft.stylePreference, '记录新款方向')}
+        ${renderTextarea('修改建议', 'revision-detail-suggestion', detailDraft.revisionSuggestionRichText, '记录改版执行建议')}
+      </div>
     `,
   )
 
-  const materialChanges = renderSectionCard('面辅料变化', renderRevisionMaterialRows(task))
+  const materialChanges = renderSectionCard(
+    '面辅料变化',
+    `
+      ${renderRevisionMaterialRows(task)}
+      <div class="mt-4">
+        ${renderTextarea('面辅料变化明细', 'revision-detail-material-lines', detailDraft.materialAdjustmentLinesText, '每行：图片|名称|SKU|印花要求|数量|单价|金额|备注')}
+      </div>
+    `,
+  )
   const patternChanges = renderSectionCard(
     '花型变化',
     `
@@ -1791,6 +1796,13 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
         { label: '花型变化说明', value: escapeHtml(task.patternChangeNote || '-') },
       ], 2)}
       <div class="mt-4">${renderFileChips('新花型图片', task.newPatternImageIds || [])}</div>
+      <div class="mt-4 grid gap-4 md:grid-cols-2">
+        ${renderTextInput('新花型 SPU', 'revision-detail-new-pattern-spu', detailDraft.newPatternSpuCode, '新花型 SPU')}
+        ${renderTextarea('花型变化说明', 'revision-detail-pattern-change-note', detailDraft.patternChangeNote, '记录花型变化说明')}
+      </div>
+      <div class="mt-4">
+        ${renderTextarea('新花型图片', 'revision-detail-new-pattern-images', detailDraft.newPatternImageIdsText, '每行一个图片地址')}
+      </div>
     `,
   )
 
@@ -1809,6 +1821,17 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
         ${renderFileChips('主图图片', task.mainImageIds || [])}
         ${renderFileChips('新图设计稿', task.designDraftImageIds || [])}
       </div>
+      <div class="mt-4 grid gap-4 md:grid-cols-2">
+        ${renderDateTimeInput('纸样打印时间', 'revision-detail-paper-print-at', detailDraft.paperPrintAt)}
+        ${renderSelectInput('打版区域', 'revision-detail-pattern-area', detailDraft.patternArea, buildSelectOptions(['', '印尼', '深圳']))}
+      </div>
+      <div class="mt-4 grid gap-4 md:grid-cols-2">
+        ${renderTextarea('寄送地址', 'revision-detail-delivery-address', detailDraft.deliveryAddress, '记录纸样或样衣寄送地址')}
+        ${renderTextarea('纸样图片', 'revision-detail-pattern-piece-images', detailDraft.patternPieceImageIdsText, '每行一个图片地址')}
+        ${renderTextarea('纸样文件', 'revision-detail-pattern-files', detailDraft.patternFileIdsText, '每行一个文件地址')}
+        ${renderTextarea('主图图片', 'revision-detail-main-images', detailDraft.mainImageIdsText, '每行一个图片地址')}
+        ${renderTextarea('新图设计稿', 'revision-detail-design-drafts', detailDraft.designDraftImageIdsText, '每行一个图片地址')}
+      </div>
     `,
   )
 
@@ -1821,6 +1844,18 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
         { label: '关联直播 / 测款记录', value: escapeHtml((task.liveRetestRelationIds || []).join('、') || '-') },
         { label: '验证说明', value: escapeHtml(task.liveRetestSummary || '-') },
       ], 2)}
+      <div class="mt-4 grid gap-4 md:grid-cols-2">
+        ${renderSelectInput('回直播验证状态', 'revision-detail-live-retest-status', detailDraft.liveRetestStatus, buildSelectOptions(['不需要', '待回直播验证', '已回直播验证', '验证通过', '验证未通过']))}
+        ${renderTextarea('回直播验证关系', 'revision-detail-live-retest-relations', detailDraft.liveRetestRelationIdsText, '每行一个关系 ID')}
+        ${renderTextarea('回直播验证说明', 'revision-detail-live-retest-summary', detailDraft.liveRetestSummary, '记录验证结论')}
+      </div>
+      <div class="mt-4 flex flex-wrap items-center gap-3">
+        <label class="inline-flex items-center gap-2 text-sm text-slate-700">
+          <input type="checkbox" ${detailDraft.liveRetestRequired ? 'checked' : ''} data-pcs-engineering-field="revision-detail-live-retest-required" />
+          <span>需要回直播验证</span>
+        </label>
+      </div>
+      ${renderTaskSaveBar('save-revision-detail-fields', task.revisionTaskId)}
     `,
   )
 
@@ -1869,53 +1904,8 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
       </div>
     `,
   )
-  const completionSection = renderTaskCompletionSection(
-    fieldPolicy,
-    completionMissingFields,
-    `
-      <div class="grid gap-4 md:grid-cols-2">
-        ${renderTextInput('参与人', 'revision-detail-participants', detailDraft.participantNamesText, '多个姓名请用顿号分隔')}
-        ${renderTextInput('改版版次', 'revision-detail-version', detailDraft.revisionVersion, '例如：R2')}
-        ${renderTextInput('旧款编码', 'revision-detail-base-style-code', detailDraft.baseStyleCode, '旧款编码')}
-        ${renderTextInput('旧款名称', 'revision-detail-base-style-name', detailDraft.baseStyleName, '旧款名称')}
-        ${renderTextInput('新款候选编码', 'revision-detail-target-style-code', detailDraft.targetStyleCodeCandidate, '新款候选编码')}
-        ${renderTextInput('新款候选名称', 'revision-detail-target-style-name', detailDraft.targetStyleNameCandidate, '新款候选名称')}
-        ${renderTextInput('样衣数量', 'revision-detail-sample-qty', detailDraft.sampleQty, '例如：2')}
-        ${renderTextInput('打版人', 'revision-detail-pattern-maker-name', detailDraft.patternMakerName, '打版人')}
-        ${renderTextInput('新花型 SPU', 'revision-detail-new-pattern-spu', detailDraft.newPatternSpuCode, '新花型 SPU')}
-        ${renderDateTimeInput('纸样打印时间', 'revision-detail-paper-print-at', detailDraft.paperPrintAt)}
-        ${renderSelectInput('打版区域', 'revision-detail-pattern-area', detailDraft.patternArea, buildSelectOptions(['', '印尼', '深圳']))}
-        ${renderSelectInput('回直播验证状态', 'revision-detail-live-retest-status', detailDraft.liveRetestStatus, buildSelectOptions(['不需要', '待回直播验证', '已回直播验证', '验证通过', '验证未通过']))}
-      </div>
-      <div class="mt-4 grid gap-4 md:grid-cols-2">
-        ${renderTextarea('风格偏好', 'revision-detail-style-preference', detailDraft.stylePreference, '记录新款方向')}
-        ${renderTextarea('修改建议', 'revision-detail-suggestion', detailDraft.revisionSuggestionRichText, '记录改版执行建议')}
-        ${renderTextarea('寄送地址', 'revision-detail-delivery-address', detailDraft.deliveryAddress, '记录纸样或样衣寄送地址')}
-        ${renderTextarea('面辅料变化明细', 'revision-detail-material-lines', detailDraft.materialAdjustmentLinesText, '每行：图片|名称|SKU|印花要求|数量|单价|金额|备注')}
-        ${renderTextarea('花型变化说明', 'revision-detail-pattern-change-note', detailDraft.patternChangeNote, '记录花型变化说明')}
-        ${renderTextarea('回直播验证说明', 'revision-detail-live-retest-summary', detailDraft.liveRetestSummary, '记录验证结论')}
-        ${renderTextarea('新款参考图', 'revision-detail-target-style-images', detailDraft.targetStyleImageIdsText, '每行一个图片地址')}
-        ${renderTextarea('新花型图片', 'revision-detail-new-pattern-images', detailDraft.newPatternImageIdsText, '每行一个图片地址')}
-        ${renderTextarea('纸样图片', 'revision-detail-pattern-piece-images', detailDraft.patternPieceImageIdsText, '每行一个图片地址')}
-        ${renderTextarea('纸样文件', 'revision-detail-pattern-files', detailDraft.patternFileIdsText, '每行一个文件地址')}
-        ${renderTextarea('主图图片', 'revision-detail-main-images', detailDraft.mainImageIdsText, '每行一个图片地址')}
-        ${renderTextarea('新图设计稿', 'revision-detail-design-drafts', detailDraft.designDraftImageIdsText, '每行一个图片地址')}
-        ${renderTextarea('回直播验证关系', 'revision-detail-live-retest-relations', detailDraft.liveRetestRelationIdsText, '每行一个关系 ID')}
-      </div>
-      <div class="mt-4">
-        <label class="inline-flex items-center gap-2 text-sm text-slate-700">
-          <input type="checkbox" ${detailDraft.liveRetestRequired ? 'checked' : ''} data-pcs-engineering-field="revision-detail-live-retest-required" />
-          <span>需要回直播验证</span>
-        </label>
-      </div>
-      <div class="mt-4 flex justify-end">
-        <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="save-revision-detail-fields" data-task-id="${escapeHtml(task.revisionTaskId)}">保存实例补齐字段</button>
-      </div>
-    `,
-  )
-
   const mainContent = state.revisionTab === 'plan'
-    ? `${basicInfo}${styleCompare}${revisionPlan}${materialChanges}${patternChanges}${patternAndDrafts}${liveRetest}${outputs}${completionSection}${renderRevisionContext(task)}`
+    ? `${basicInfo}${styleCompare}${revisionPlan}${materialChanges}${patternChanges}${patternAndDrafts}${liveRetest}${outputs}${renderRevisionContext(task)}`
     : state.revisionTab === 'issues'
       ? renderRevisionIssues(task)
       : state.revisionTab === 'samples'
@@ -1954,6 +1944,7 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
           2,
         ),
       )}
+      ${renderSectionCard('完成校验', renderTaskCompletionHint(completionMissingFields))}
     </div>
   `
 
@@ -2252,7 +2243,6 @@ function renderPlateDetailPage(plateTaskId: string): string {
   const task = getPlateMakingTaskById(plateTaskId)
   if (!task) return renderEmptyDetail('制版任务', '/pcs/patterns')
   const detailDraft = ensurePlateDetailDraft(task)
-  const fieldPolicy = getEngineeringTaskFieldPolicy('PATTERN_TASK')
   const completionMissingFields = getPlateTaskCompletionMissingFields(task)
   const downstreamFirst = listFirstSampleTasks().filter((item) => item.upstreamObjectId === task.plateTaskId || item.upstreamObjectCode === task.plateTaskCode)
   const downstreamPre = listPreProductionSampleTasks().filter((item) => item.upstreamObjectId === task.plateTaskId || item.upstreamObjectCode === task.plateTaskCode)
@@ -2272,41 +2262,6 @@ function renderPlateDetailPage(plateTaskId: string): string {
         : []),
       `<button type="button" class="inline-flex h-10 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="plate-generate-tech-pack" data-task-id="${escapeHtml(task.plateTaskId)}">生成技术包版本</button>`,
     ].join(''),
-  )
-
-  const completionSection = renderTaskCompletionSection(
-    fieldPolicy,
-    completionMissingFields,
-    `
-      <div class="grid gap-4 md:grid-cols-2">
-        ${renderTextInput('参与人', 'plate-detail-participants', detailDraft.participantNamesText, '多个姓名请用顿号分隔')}
-        ${renderTextInput('制版版次', 'plate-detail-version', detailDraft.patternVersion, '例如：P2')}
-        ${renderSelectInput('产品历史属性', 'plate-detail-product-history-type', detailDraft.productHistoryType, [{ value: '', label: '请选择' }, ...['未卖过', '已卖过补纸样'].map((item) => ({ value: item, label: item }))])}
-        ${renderTextInput('版师', 'plate-detail-pattern-maker', detailDraft.patternMakerName, '例如：李版师')}
-        ${renderSelectInput('打版区域', 'plate-detail-pattern-area', detailDraft.patternArea, [{ value: '', label: '请选择' }, ...['印尼', '深圳'].map((item) => ({ value: item, label: item }))])}
-        ${renderDateTimeInput('样板确认时间', 'plate-detail-sample-confirmed-at', detailDraft.sampleConfirmedAt)}
-      </div>
-      <label class="mt-4 inline-flex items-center gap-2 text-sm text-slate-700">
-        <input type="checkbox" ${detailDraft.urgentFlag ? 'checked' : ''} data-pcs-engineering-action="toggle-plate-detail-urgent" />
-        <span>是否紧急</span>
-      </label>
-      <div class="mt-4 grid gap-4 md:grid-cols-2">
-        ${renderTextarea('花色需求', 'plate-detail-color-requirement', detailDraft.colorRequirementText, '记录花色、印花方向和色系要求')}
-        ${renderTextInput('新花型 SPU', 'plate-detail-new-pattern-spu', detailDraft.newPatternSpuCode, '可选')}
-        ${renderTextarea('花型图片', 'plate-detail-flower-images', detailDraft.flowerImageIdsText, '每行一个图片地址或资产 ID')}
-        ${renderTextarea('面辅料明细', 'plate-detail-material-lines', detailDraft.materialRequirementLinesText, '每行：面辅料 | SKU | 印花要求 | 数量 | 单价 | 备注')}
-        ${renderTextarea('纸样图片明细', 'plate-detail-pattern-image-lines', detailDraft.patternImageLineItemsText, '每行：图片ID | 部位说明 | 描述 | 片数')}
-        ${renderTextarea('部位模板关联', 'plate-detail-template-links', detailDraft.partTemplateLinksText, '每行：模板ID | 模板编码 | 模板名称 | 匹配部位')}
-        ${renderTextarea('PDF 文件', 'plate-detail-pdf-files', detailDraft.patternPdfFileIdsText, '每行一个 PDF 文件 ID')}
-        ${renderTextarea('DXF 文件', 'plate-detail-dxf-files', detailDraft.patternDxfFileIdsText, '每行一个 DXF 文件 ID')}
-        ${renderTextarea('RUL 文件', 'plate-detail-rul-files', detailDraft.patternRulFileIdsText, '每行一个 RUL 文件 ID')}
-        ${renderTextarea('补充图片', 'plate-detail-support-images', detailDraft.supportImageIdsText, '每行一个图片 ID')}
-        ${renderTextarea('补充视频', 'plate-detail-support-videos', detailDraft.supportVideoIdsText, '每行一个视频 ID')}
-      </div>
-      <div class="mt-4 flex justify-end">
-        <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="save-plate-detail-fields" data-task-id="${escapeHtml(task.plateTaskId)}">保存实例补齐字段</button>
-      </div>
-    `,
   )
 
   const downstream = renderSectionCard(
@@ -2342,16 +2297,30 @@ function renderPlateDetailPage(plateTaskId: string): string {
       { label: '来源对象', value: escapeHtml(task.upstreamObjectCode || task.upstreamObjectId || '-') },
       { label: '当前状态', value: renderStatusBadge(task.status) },
     ], 3)),
-    renderSectionCard('制版执行', renderKeyValueGrid([
-      { label: '产品历史属性', value: escapeHtml(task.productHistoryType || '-') },
-      { label: '版师', value: escapeHtml(task.patternMakerName || task.ownerName || '-') },
-      { label: '打版区域', value: escapeHtml(task.patternArea || '-') },
-      { label: '是否紧急', value: escapeHtml(task.urgentFlag ? '是' : '否') },
-      { label: '样板确认时间', value: escapeHtml(formatDateTime(task.sampleConfirmedAt || '')) },
-      { label: '版型类型', value: escapeHtml(task.patternType || '-') },
-      { label: '尺码范围', value: escapeHtml(task.sizeRange || '-') },
-      { label: '制版版次', value: escapeHtml(task.patternVersion || '-') },
-    ], 4)),
+    renderSectionCard('制版执行', `
+      ${renderKeyValueGrid([
+        { label: '产品历史属性', value: escapeHtml(task.productHistoryType || '-') },
+        { label: '版师', value: escapeHtml(task.patternMakerName || task.ownerName || '-') },
+        { label: '打版区域', value: escapeHtml(task.patternArea || '-') },
+        { label: '是否紧急', value: escapeHtml(task.urgentFlag ? '是' : '否') },
+        { label: '样板确认时间', value: escapeHtml(formatDateTime(task.sampleConfirmedAt || '')) },
+        { label: '版型类型', value: escapeHtml(task.patternType || '-') },
+        { label: '尺码范围', value: escapeHtml(task.sizeRange || '-') },
+        { label: '制版版次', value: escapeHtml(task.patternVersion || '-') },
+      ], 4)}
+      <div class="mt-4 grid gap-4 md:grid-cols-2">
+        ${renderTextInput('参与人', 'plate-detail-participants', detailDraft.participantNamesText, '多个姓名请用顿号分隔')}
+        ${renderTextInput('制版版次', 'plate-detail-version', detailDraft.patternVersion, '例如：P2')}
+        ${renderSelectInput('产品历史属性', 'plate-detail-product-history-type', detailDraft.productHistoryType, [{ value: '', label: '请选择' }, ...['未卖过', '已卖过补纸样'].map((item) => ({ value: item, label: item }))])}
+        ${renderTextInput('版师', 'plate-detail-pattern-maker', detailDraft.patternMakerName, '例如：李版师')}
+        ${renderSelectInput('打版区域', 'plate-detail-pattern-area', detailDraft.patternArea, [{ value: '', label: '请选择' }, ...['印尼', '深圳'].map((item) => ({ value: item, label: item }))])}
+        ${renderDateTimeInput('样板确认时间', 'plate-detail-sample-confirmed-at', detailDraft.sampleConfirmedAt)}
+      </div>
+      <label class="mt-4 inline-flex items-center gap-2 text-sm text-slate-700">
+        <input type="checkbox" ${detailDraft.urgentFlag ? 'checked' : ''} data-pcs-engineering-action="toggle-plate-detail-urgent" />
+        <span>是否紧急</span>
+      </label>
+    `),
     renderSectionCard('面辅料与花色', `
       ${renderPlateMaterialRows(task)}
       <div class="mt-4">${renderKeyValueGrid([
@@ -2359,8 +2328,19 @@ function renderPlateDetailPage(plateTaskId: string): string {
         { label: '新花型 SPU', value: escapeHtml(task.newPatternSpuCode || '-') },
         { label: '花型图片', value: escapeHtml((task.flowerImageIds || []).join('、') || '-') },
       ], 3)}</div>
+      <div class="mt-4 grid gap-4 md:grid-cols-2">
+        ${renderTextarea('花色需求', 'plate-detail-color-requirement', detailDraft.colorRequirementText, '记录花色、印花方向和色系要求')}
+        ${renderTextInput('新花型 SPU', 'plate-detail-new-pattern-spu', detailDraft.newPatternSpuCode, '可选')}
+        ${renderTextarea('花型图片', 'plate-detail-flower-images', detailDraft.flowerImageIdsText, '每行一个图片地址或资产 ID')}
+        ${renderTextarea('面辅料明细', 'plate-detail-material-lines', detailDraft.materialRequirementLinesText, '每行：面辅料 | SKU | 印花要求 | 数量 | 单价 | 备注')}
+      </div>
     `),
-    renderSectionCard('纸样图片', renderPlatePatternImageRows(task)),
+    renderSectionCard('纸样图片', `
+      ${renderPlatePatternImageRows(task)}
+      <div class="mt-4">
+        ${renderTextarea('纸样图片明细', 'plate-detail-pattern-image-lines', detailDraft.patternImageLineItemsText, '每行：图片ID | 部位说明 | 描述 | 片数')}
+      </div>
+    `),
     renderSectionCard('纸样文件', `
       <div class="grid gap-4 md:grid-cols-3">
         ${renderFileChips('PDF', task.patternPdfFileIds || [])}
@@ -2371,14 +2351,26 @@ function renderPlateDetailPage(plateTaskId: string): string {
         ${renderFileChips('补充图片', task.supportImageIds || [])}
         ${renderFileChips('补充视频', task.supportVideoIds || [])}
       </div>
+      <div class="mt-4 grid gap-4 md:grid-cols-2">
+        ${renderTextarea('PDF 文件', 'plate-detail-pdf-files', detailDraft.patternPdfFileIdsText, '每行一个 PDF 文件 ID')}
+        ${renderTextarea('DXF 文件', 'plate-detail-dxf-files', detailDraft.patternDxfFileIdsText, '每行一个 DXF 文件 ID')}
+        ${renderTextarea('RUL 文件', 'plate-detail-rul-files', detailDraft.patternRulFileIdsText, '每行一个 RUL 文件 ID')}
+        ${renderTextarea('补充图片', 'plate-detail-support-images', detailDraft.supportImageIdsText, '每行一个图片 ID')}
+        ${renderTextarea('补充视频', 'plate-detail-support-videos', detailDraft.supportVideoIdsText, '每行一个视频 ID')}
+      </div>
     `),
-    renderSectionCard('模板关联', renderPlateTemplateRows(task)),
+    renderSectionCard('模板关联', `
+      ${renderPlateTemplateRows(task)}
+      <div class="mt-4">
+        ${renderTextarea('部位模板关联', 'plate-detail-template-links', detailDraft.partTemplateLinksText, '每行：模板ID | 模板编码 | 模板名称 | 匹配部位')}
+      </div>
+      ${renderTaskSaveBar('save-plate-detail-fields', task.plateTaskId)}
+    `),
     renderSectionCard('技术包', renderKeyValueGrid([
       { label: '当前关联技术包版本', value: task.linkedTechPackVersionId ? `${techPackLinkByProject(task.projectId, task.linkedTechPackVersionId, task.linkedTechPackVersionCode || task.linkedTechPackVersionLabel || '查看关联技术包')}<span class="mx-2 text-slate-300">/</span>${techPackLinkByProject(task.projectId, task.linkedTechPackVersionId, '查看版本日志')}` : '<span class="text-slate-400">尚未生成</span>' },
       { label: '是否主挂载生成', value: escapeHtml(task.primaryTechPackGeneratedFlag ? '是' : '否') },
       { label: '主挂载生成时间', value: escapeHtml(formatDateTime(task.primaryTechPackGeneratedAt || '')) },
     ], 3)),
-    completionSection,
     downstream,
     renderSectionCard('操作记录', renderLogs(logs)),
   ].join('')
@@ -2397,6 +2389,7 @@ function renderPlateDetailPage(plateTaskId: string): string {
         { label: '上游对象', value: escapeHtml(task.upstreamObjectCode || task.upstreamObjectId || '-') },
         { label: '制版状态', value: renderStatusBadge(task.status) },
       ], 2))}
+      ${renderSectionCard('完成校验', renderTaskCompletionHint(completionMissingFields))}
     </div>
   `
 
@@ -2546,7 +2539,6 @@ function renderPatternDetailPage(patternTaskId: string): string {
   if (!task) return renderEmptyDetail('花型任务', '/pcs/patterns/colors')
   const techPackAction = getPatternTechPackActionMeta(task.patternTaskId)
   const detailDraft = ensurePatternDetailDraft(task)
-  const fieldPolicy = getEngineeringTaskFieldPolicy('PATTERN_ARTWORK_TASK')
   const completionMissingFields = getPatternTaskCompletionMissingFields(task)
   const asset = listPatternAssets().find((item) => item.source_task_id === task.patternTaskId)
   const sampleTasks = listFirstSampleTasks().filter((item) => item.upstreamObjectId === task.patternTaskId || item.upstreamObjectCode === task.patternTaskCode)
@@ -2568,119 +2560,6 @@ function renderPatternDetailPage(patternTaskId: string): string {
       `<button type="button" class="inline-flex h-10 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-engineering-action="pattern-publish-library" data-task-id="${escapeHtml(task.patternTaskId)}">${escapeHtml(asset ? '打开花型库' : '沉淀花型库')}</button>`,
     ].join(''),
   )
-  const tabBar = renderTabBar(state.patternTab, [
-    { key: 'plan', label: '花型方案' },
-    { key: 'color', label: '色彩与色卡' },
-    { key: 'production', label: '生产文件与工艺' },
-    { key: 'samples', label: '关联样衣与参考' },
-    { key: 'library', label: '花型库沉淀' },
-    { key: 'logs', label: '日志与评审' },
-  ], 'set-pattern-tab')
-
-  const plan = `${renderProjectContext(task)}${renderSectionCard('花型定义', renderKeyValueGrid([
-    { label: '花型名称', value: escapeHtml(task.artworkName || task.title) },
-    { label: '花型类型', value: escapeHtml(task.artworkType || '-') },
-    { label: '图案方式', value: escapeHtml(task.patternMode || '-') },
-    { label: '版本号', value: escapeHtml(task.artworkVersion || '-') },
-    { label: '来源对象', value: escapeHtml(task.upstreamObjectCode || task.upstreamObjectId || '项目模板阶段') },
-    { label: '款式档案', value: styleArchiveLinkByProject(task.projectId) },
-  ], 3))}
-  ${renderSectionCard('花型文件', `<div class="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600"><p>${escapeHtml(task.note || '暂无备注')}</p></div>`)}
-  ${renderTaskCompletionSection(
-    fieldPolicy,
-    completionMissingFields,
-    `
-      <div class="grid gap-4 md:grid-cols-2">
-        ${renderTextInput('花型版次', 'pattern-detail-version', detailDraft.artworkVersion, '例如：A2')}
-      </div>
-      <div class="mt-4 flex justify-end">
-        <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="save-pattern-detail-fields" data-task-id="${escapeHtml(task.patternTaskId)}">保存实例补齐字段</button>
-      </div>
-    `,
-  )}`
-
-  const color = renderSectionCard(
-    '色彩与色卡',
-    `
-      <div class="grid gap-4 md:grid-cols-2">
-        <div class="rounded-lg border border-slate-200 p-4">
-          <p class="text-xs text-slate-500">主色方案</p>
-          <div class="mt-3 flex flex-wrap gap-2">
-            ${['#D32F2F', '#F59E0B', '#10B981', '#0F766E'].map((colorValue) => `<span class="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-700"><span class="h-3 w-3 rounded-full" style="background:${colorValue}"></span>${escapeHtml(colorValue)}</span>`).join('')}
-          </div>
-        </div>
-        <div class="rounded-lg border border-slate-200 p-4">
-          <p class="text-xs text-slate-500">色卡状态</p>
-          <p class="mt-2 text-sm text-slate-900">${escapeHtml(task.status === '已确认' || task.status === '已完成' ? '已确认' : '待确认')}</p>
-          <p class="mt-2 text-xs text-slate-500">花型类型为 ${escapeHtml(task.artworkType || '-') }，图案方式为 ${escapeHtml(task.patternMode || '-')}。</p>
-        </div>
-      </div>
-    `,
-  )
-
-  const production = renderSectionCard(
-    '生产文件与工艺',
-    `
-      <div class="grid gap-4 md:grid-cols-2">
-        <div class="rounded-lg border border-slate-200 p-4">
-          <p class="text-xs text-slate-500">花型生产文件</p>
-          <p class="mt-2 text-sm text-slate-900">${escapeHtml(task.artworkName || task.patternTaskCode)}.pdf</p>
-          <p class="mt-2 text-xs text-slate-500">可作为花型包、生产文件和 FCS 技术包附件来源。</p>
-        </div>
-        <div class="rounded-lg border border-slate-200 p-4">
-          <p class="text-xs text-slate-500">技术包状态</p>
-          <div class="mt-2 text-sm text-slate-900">${task.linkedTechPackVersionId ? `${techPackLinkByProject(task.projectId, task.linkedTechPackVersionId, task.linkedTechPackVersionCode || task.linkedTechPackVersionLabel || '查看关联技术包')}<span class="mx-2 text-slate-300">/</span>${techPackLinkByProject(task.projectId, task.linkedTechPackVersionId, '查看版本日志')}` : '尚未写入正式技术包'}</div>
-        </div>
-      </div>
-    `,
-  )
-
-  const samples = renderSectionCard(
-    '关联样衣与参考',
-    sampleTasks.length > 0
-      ? `
-          <div class="space-y-3">
-            ${sampleTasks.map((item) => `
-              <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 px-4 py-3">
-                <div>
-                  <p class="text-sm font-medium text-slate-900">${escapeHtml(item.firstSampleTaskCode)}</p>
-                  <p class="mt-1 text-xs text-slate-500">${escapeHtml(item.title)}</p>
-                </div>
-                <div class="flex items-center gap-3">
-                  ${renderStatusBadge(item.status, true)}
-                  <button type="button" class="text-sm font-medium text-blue-700 hover:underline" data-nav="/pcs/samples/first-sample/${escapeHtml(item.firstSampleTaskId)}">打开详情</button>
-                </div>
-              </div>
-            `).join('')}
-          </div>
-        `
-      : '<div class="rounded-lg border border-dashed border-slate-200 px-4 py-10 text-center text-sm text-slate-500">当前花型任务尚未关联正式样衣任务。</div>',
-  )
-
-  const library = renderSectionCard(
-    '花型库沉淀',
-    asset
-      ? `
-          <div class="grid gap-4 md:grid-cols-2">
-            <div class="rounded-lg border border-slate-200 p-4">
-              <p class="text-xs text-slate-500">花型资产编号</p>
-              <p class="mt-2 text-sm font-medium text-slate-900">${escapeHtml(asset.pattern_code)}</p>
-              <p class="mt-2 text-xs text-slate-500">维护状态：${escapeHtml(asset.maintenance_status)}；审核状态：${escapeHtml(asset.review_status)}</p>
-            </div>
-            <div class="rounded-lg border border-slate-200 p-4">
-              <p class="text-xs text-slate-500">打开花型库</p>
-              <button type="button" class="mt-2 text-sm font-medium text-blue-700 hover:underline" data-nav="/pcs/pattern-library/${escapeHtml(asset.id)}">查看花型详情</button>
-              <p class="mt-2 text-xs text-slate-500">当前花型任务已与花型库正式串联。</p>
-            </div>
-          </div>
-        `
-      : `
-          <div class="rounded-lg border border-dashed border-slate-200 px-4 py-10 text-center text-sm text-slate-500">
-            当前花型尚未进入花型库。点击右上角“沉淀花型库”即可直接建立花型主档。
-          </div>
-        `,
-  )
-
   const demandSection = `${renderProjectContext(task)}${renderSectionCard('需求来源', renderKeyValueGrid([
     { label: '来源', value: escapeHtml(task.demandSourceType) },
     { label: '来源编号', value: escapeHtml(task.demandSourceRefCode || task.upstreamObjectCode || '-') },
@@ -2758,17 +2637,14 @@ function renderPatternDetailPage(patternTaskId: string): string {
     `,
   )
 
-  const completionSection = renderTaskCompletionSection(
-    fieldPolicy,
-    completionMissingFields,
+  const completionReviewSection = renderSectionCard(
+    '完成确认',
     `
       <div class="grid gap-4 md:grid-cols-2">
         ${renderTextInput('花型版次', 'pattern-detail-version', detailDraft.artworkVersion, '例如：A2')}
         ${renderImageUploader('完成确认图片', 'pattern-detail-completion-images', detailDraft.completionImageIds, '暂未上传完成确认图片')}
       </div>
-      <div class="mt-4 flex justify-end">
-        <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="save-pattern-detail-fields" data-task-id="${escapeHtml(task.patternTaskId)}">保存执行字段</button>
-      </div>
+      ${renderTaskSaveBar('save-pattern-detail-fields', task.patternTaskId)}
     `,
   )
 
@@ -2808,7 +2684,7 @@ function renderPatternDetailPage(patternTaskId: string): string {
     assignmentSection,
     colorReviewSection,
     buyerReviewSection,
-    completionSection,
+    completionReviewSection,
     librarySection,
     techPackSection,
     renderSectionCard('操作记录', renderLogs(logs)),
@@ -2828,6 +2704,7 @@ function renderPatternDetailPage(patternTaskId: string): string {
         { label: '技术包状态', value: escapeHtml(task.linkedTechPackVersionStatus || '未写回') },
         { label: '正式状态', value: renderStatusBadge(task.status) },
       ], 2))}
+      ${renderSectionCard('完成校验', renderTaskCompletionHint(completionMissingFields))}
     </div>
   `
 
@@ -4424,7 +4301,7 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement): boolean {
       updatedAt: nowText(),
       updatedBy: '当前用户',
     })
-    setNotice('改版任务实例补齐字段已保存。')
+    setNotice('改版任务已保存。')
     return true
   }
   if (action === 'save-plate-detail-fields') {
@@ -4453,7 +4330,7 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement): boolean {
       updatedAt: nowText(),
       updatedBy: '当前用户',
     })
-    setNotice('制版任务实例补齐字段已保存。')
+    setNotice('制版任务已保存。')
     return true
   }
   if (action === 'save-pattern-detail-fields') {
@@ -4469,14 +4346,15 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement): boolean {
       liveReferenceImageIds: [...draft.liveReferenceImageIds],
       imageReferenceIds: [...draft.imageReferenceIds],
       buyerReviewNote: draft.buyerReviewNote.trim(),
+      transferReason: draft.transferReason.trim(),
       patternCategoryCode: draft.patternCategoryCode.trim(),
       patternStyleTags: parseTagsText(draft.patternStyleTagsText),
       hotSellerFlag: draft.hotSellerFlag,
       updatedAt: nowText(),
       updatedBy: '当前用户',
     })
-    pushRuntimeLog('pattern', taskId, '保存执行字段', '已保存花型执行字段。')
-    setNotice('花型任务执行字段已保存。')
+    pushRuntimeLog('pattern', taskId, '保存任务', '已保存花型任务。')
+    setNotice('花型任务已保存。')
     return true
   }
 

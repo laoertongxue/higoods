@@ -1,4 +1,9 @@
-import type { SpecialCraftOperationDefinition } from '../../../data/fcs/special-craft-operations.ts'
+import { getFactoryMasterRecordById } from '../../../data/fcs/factory-master-store.ts'
+import {
+  canFactorySeeSpecialCraftOperation,
+  type SpecialCraftOperationDefinition,
+} from '../../../data/fcs/special-craft-operations.ts'
+import { appStore } from '../../../state/store.ts'
 import {
   buildSpecialCraftStatisticsPath,
   buildSpecialCraftTaskOrdersPath,
@@ -13,6 +18,12 @@ type MetricCard = {
 }
 
 type SubNavKey = 'tasks' | 'warehouse' | 'statistics'
+
+interface SpecialCraftFactoryContextGuard {
+  factoryId: string | null
+  factoryName: string
+  blocked: boolean
+}
 
 function toneClass(tone: MetricCard['tone']): string {
   if (tone === 'green') return 'border-emerald-200 bg-emerald-50 text-emerald-700'
@@ -99,6 +110,55 @@ export function renderEmptyState(message = '暂无数据'): string {
       ${escapeHtml(message)}
     </div>
   `
+}
+
+function getSpecialCraftFactoryContextFactoryId(): string | null {
+  const pathname = appStore.getState().pathname || ''
+  const [, queryString = ''] = pathname.split('?')
+  const params = new URLSearchParams(queryString)
+  return params.get('factoryId') || params.get('currentFactoryId') || params.get('pdaFactoryId')
+}
+
+export function resolveSpecialCraftFactoryContextGuard(
+  operation: Pick<SpecialCraftOperationDefinition, 'operationId'>,
+): SpecialCraftFactoryContextGuard {
+  const factoryId = getSpecialCraftFactoryContextFactoryId()
+  if (!factoryId) {
+    return {
+      factoryId: null,
+      factoryName: '',
+      blocked: false,
+    }
+  }
+
+  const factory = getFactoryMasterRecordById(factoryId)
+  const factoryName = factory?.name || factoryId
+
+  return {
+    factoryId,
+    factoryName,
+    blocked: !canFactorySeeSpecialCraftOperation(factoryId, operation.operationId),
+  }
+}
+
+export function renderSpecialCraftFactoryContextBlockedLayout(input: {
+  operation: SpecialCraftOperationDefinition
+  title: string
+  description: string
+  activeSubNav: SubNavKey
+  factoryName?: string
+}): string {
+  return renderSpecialCraftPageLayout({
+    operation: input.operation,
+    title: input.title,
+    description: input.description,
+    activeSubNav: input.activeSubNav,
+    content: renderEmptyState(
+      input.factoryName
+        ? `${input.factoryName}当前无该特殊工艺入口`
+        : '当前工厂无该特殊工艺入口',
+    ),
+  })
 }
 
 export function renderSpecialCraftPageLayout(input: {

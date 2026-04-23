@@ -309,6 +309,30 @@ assertContains(followupSource, 'check:cutting-sewing-dispatch', '后续清理检
 assertContains(progressStatisticsSource, 'buildSewingDispatchProgressSnapshot', '统计与进度联动缺少裁片发料进度聚合')
 assertContains(progressStatisticsSource, 'getCuttingSewingDispatchProgressByProductionOrder', '裁片发料进度必须被统计联动消费')
 assertContains(progressStatisticsSource, '中转袋未配齐时不可交出', '统计联动必须保留未配齐不可交出的校验')
+;[
+  'mixedTransferBagCount',
+  'packedTransferBagCount',
+  'scannedReceivedTransferBagCount',
+  'partialWritebackTransferBagCount',
+  'bagDifferenceCount',
+  'feiTicketDifferenceCount',
+  'transferBagCombinedWritebackStatus',
+  'receivedTransferBagCount',
+  'receivedFeiTicketCount',
+].forEach((token) => {
+  assertContains(progressStatisticsSource, token, `裁片发料袋级/菲票级回写统计缺少：${token}`)
+})
+;[
+  '允许混装',
+  '已装袋未交出可调整',
+  '按袋回写',
+  '按菲票回写',
+  '部分回写',
+  '已回写',
+  '差异',
+].forEach((token) => {
+  assertContains(sewingDispatchPageSource + transferBagsPageSource + feiTicketsPageSource, token, `裁片发料页面缺少袋级 / 菲票级回写展示：${token}`)
+})
 
 ;[
   buildToken('Warehouse', 'HandoverOrder'),

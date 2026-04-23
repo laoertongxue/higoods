@@ -2,8 +2,8 @@ import type { CuttingDomainSnapshot } from '../../../domain/fcs-cutting-runtime/
 import {
   buildExecutionPrepProjectionContext,
   buildProgressRecordMapByOriginalCutOrder,
-} from './execution-prep-projection-helpers'
-import { buildMaterialPrepStats } from './material-prep-model'
+} from './execution-prep-projection-helpers.ts'
+import { buildMaterialPrepStats } from './material-prep-model.ts'
 
 export interface MaterialPrepProjection {
   snapshot: CuttingDomainSnapshot

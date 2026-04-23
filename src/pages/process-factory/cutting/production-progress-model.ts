@@ -61,6 +61,7 @@ export type ProductionProgressRiskKey =
   | 'REPLENISH_PENDING'
   | 'PIECE_GAP'
 export type ProductionProgressSortKey = 'URGENCY_THEN_SHIP' | 'SHIP_DATE_ASC' | 'ORDER_QTY_DESC'
+export type ProductionProgressViewDimension = 'CUT_ORDER' | 'PRODUCTION_ORDER'
 
 export interface ProductionProgressSummaryMeta<Key extends string> {
   key: Key

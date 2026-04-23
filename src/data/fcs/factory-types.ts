@@ -82,6 +82,8 @@ export interface Factory {
   // 新增：PDA 配置
   pdaEnabled: boolean
   pdaTenantId?: string
+  isTestFactory?: boolean
+  testFactoryScope?: 'ALL_PROCESS_CRAFT'
   // 新增：生产流程开始条件
   eligibility: FactoryEligibility
 }
@@ -101,6 +103,8 @@ export interface FactoryFormData {
   parentFactoryId?: string
   pdaEnabled: boolean
   pdaTenantId?: string
+  isTestFactory?: boolean
+  testFactoryScope?: 'ALL_PROCESS_CRAFT'
   eligibility: FactoryEligibility
 }
 

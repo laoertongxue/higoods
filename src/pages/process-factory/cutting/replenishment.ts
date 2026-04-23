@@ -1,6 +1,6 @@
-import { renderDetailDrawer as uiDetailDrawer } from '../../../components/ui'
-import { appStore } from '../../../state/store'
-import { escapeHtml, formatDateTime } from '../../../utils'
+import { renderDetailDrawer as uiDetailDrawer } from '../../../components/ui/index.ts'
+import { appStore } from '../../../state/store.ts'
+import { escapeHtml, formatDateTime } from '../../../utils.ts'
 import {
   buildReplenishmentAuditTrail,
   deserializeReplenishmentActionsStorage,
@@ -28,8 +28,8 @@ import {
   type ReplenishmentReview,
   type ReplenishmentReviewStatus,
   type ReplenishmentSuggestionRow,
-} from './replenishment-model'
-import { buildReplenishmentProjection } from './replenishment-projection'
+} from './replenishment-model.ts'
+import { buildReplenishmentProjection } from './replenishment-projection.ts'
 import {
   CUTTING_REPLENISHMENT_ACTIONS_STORAGE_KEY,
   CUTTING_REPLENISHMENT_AUDIT_STORAGE_KEY,
@@ -45,17 +45,17 @@ import {
   deserializeMarkerSpreadingStorage,
   serializeMarkerSpreadingStorage,
   updateSpreadingReplenishmentHandled,
-} from './marker-spreading-model'
-import { readMarkerSpreadingPrototypeData } from './marker-spreading-utils'
+} from './marker-spreading-model.ts'
+import { readMarkerSpreadingPrototypeData } from './marker-spreading-utils.ts'
 import {
   renderCompactKpiCard,
   renderStickyFilterShell,
   renderStickyTableScroller,
   renderWorkbenchFilterChip,
   renderWorkbenchStateBar,
-} from './layout.helpers'
-import { getCanonicalCuttingMeta, getCanonicalCuttingPath, renderCuttingPageHeader } from './meta'
-import { getWarehouseSearchParams } from './warehouse-shared'
+} from './layout.helpers.ts'
+import { getCanonicalCuttingMeta, getCanonicalCuttingPath, renderCuttingPageHeader } from './meta.ts'
+import { getWarehouseSearchParams } from './warehouse-shared.ts'
 import {
   buildCuttingDrillChipLabels,
   buildCuttingDrillSummary,
@@ -67,7 +67,7 @@ import {
   readCuttingDrillContextFromLocation,
   type CuttingDrillContext,
   type CuttingNavigationTarget,
-} from './navigation-context'
+} from './navigation-context.ts'
 import {
   ACTION_PERMISSION_DENIED_TEXT,
   canReviewReplenishment,

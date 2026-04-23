@@ -1,7 +1,7 @@
-import { renderDetailDrawer as uiDetailDrawer } from '../../../components/ui'
+import { renderDetailDrawer as uiDetailDrawer } from '../../../components/ui/index.ts'
 import type { CuttingFabricStockRecord } from '../../../data/fcs/cutting/warehouse-runtime.ts'
-import { appStore } from '../../../state/store'
-import { escapeHtml, formatDateTime } from '../../../utils'
+import { appStore } from '../../../state/store.ts'
+import { escapeHtml, formatDateTime } from '../../../utils.ts'
 import {
   buildFabricWarehouseViewModel,
   fabricWarehouseMaterialMeta,
@@ -13,17 +13,17 @@ import {
   type FabricWarehousePrefilter,
   type FabricWarehouseRiskKey,
   type FabricWarehouseStockItem,
-} from './fabric-warehouse-model'
-import { buildFabricWarehouseProjection } from './fabric-warehouse-projection'
+} from './fabric-warehouse-model.ts'
+import { buildFabricWarehouseProjection } from './fabric-warehouse-projection.ts'
 import {
   renderCompactKpiCard,
   renderStickyFilterShell,
   renderStickyTableScroller,
   renderWorkbenchFilterChip,
   renderWorkbenchStateBar,
-} from './layout.helpers'
-import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta'
-import { getWarehouseSearchParams } from './warehouse-shared'
+} from './layout.helpers.ts'
+import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta.ts'
+import { getWarehouseSearchParams } from './warehouse-shared.ts'
 import {
   buildCuttingDrillChipLabels,
   buildCuttingDrillSummary,
@@ -34,7 +34,7 @@ import {
   readCuttingDrillContextFromLocation,
   type CuttingDrillContext,
   type CuttingNavigationTarget,
-} from './navigation-context'
+} from './navigation-context.ts'
 
 type FilterField = 'keyword' | 'materialCategory' | 'status' | 'risk'
 

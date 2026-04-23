@@ -8,6 +8,7 @@ import {
   listPdaGenericBiddingTenderMocks,
   listPdaGenericQuotedTenderMocks,
 } from './pda-task-mock-factory.ts'
+import { TEST_FACTORY_ID } from './factory-mock-data.ts'
 
 export interface PdaMobileBiddingTenderMock {
   tenderId: string
@@ -144,22 +145,52 @@ const NON_CUTTING_AWARDED_TENDER_NOTICES: PdaMobileAwardedTenderNoticeMock[] = [
   },
 ]
 
+const TEST_FACTORY_BIDDING_TENDERS: PdaMobileBiddingTenderMock[] = listPdaGenericBiddingTenderMocks()
+  .slice(0, 3)
+  .map((item, index) => ({
+    ...item,
+    tenderId: `TENDER-PDA-TEST-${index + 1}`,
+    taskId: `TASK-TEST-BID-${index + 1}`,
+    factoryId: TEST_FACTORY_ID,
+  }))
+
+const TEST_FACTORY_QUOTED_TENDERS: PdaMobileQuotedTenderMock[] = listPdaGenericQuotedTenderMocks()
+  .slice(0, 3)
+  .map((item, index) => ({
+    ...item,
+    tenderId: `TENDER-PDA-TEST-QUOTED-${index + 1}`,
+    taskId: `TASK-TEST-QUOTED-${index + 1}`,
+    factoryId: TEST_FACTORY_ID,
+  }))
+
+const TEST_FACTORY_AWARDED_TENDER_NOTICES: PdaMobileAwardedTenderNoticeMock[] = listPdaGenericAwardedTenderNoticeMocks()
+  .slice(0, 2)
+  .map((item, index) => ({
+    ...item,
+    tenderId: `TENDER-PDA-TEST-AWARDED-${index + 1}`,
+    taskId: `TASK-TEST-AWARDED-${index + 1}`,
+    factoryId: TEST_FACTORY_ID,
+  }))
+
 export const PDA_MOCK_BIDDING_TENDERS: PdaMobileBiddingTenderMock[] = [
   ...listPdaCuttingBiddingTenderMocks(),
   ...listPdaGenericBiddingTenderMocks(),
   ...NON_CUTTING_BIDDING_TENDERS,
+  ...TEST_FACTORY_BIDDING_TENDERS,
 ]
 
 export const PDA_MOCK_QUOTED_TENDERS: PdaMobileQuotedTenderMock[] = [
   ...listPdaCuttingQuotedTenderMocks(),
   ...listPdaGenericQuotedTenderMocks(),
   ...NON_CUTTING_QUOTED_TENDERS,
+  ...TEST_FACTORY_QUOTED_TENDERS,
 ]
 
 export const PDA_MOCK_AWARDED_TENDER_NOTICES: PdaMobileAwardedTenderNoticeMock[] = [
   ...listPdaCuttingAwardedTenderNoticeMocks(),
   ...listPdaGenericAwardedTenderNoticeMocks(),
   ...NON_CUTTING_AWARDED_TENDER_NOTICES,
+  ...TEST_FACTORY_AWARDED_TENDER_NOTICES,
 ]
 
 export function listPdaBiddingTendersByFactoryId(factoryId: string): PdaMobileBiddingTenderMock[] {

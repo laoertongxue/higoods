@@ -1,7 +1,7 @@
 // original-orders 是 canonical 页面文件。
-import { renderDetailDrawer as uiDetailDrawer } from '../../../components/ui'
-import { appStore } from '../../../state/store'
-import { escapeHtml } from '../../../utils'
+import { renderDetailDrawer as uiDetailDrawer } from '../../../components/ui/index.ts'
+import { appStore } from '../../../state/store.ts'
+import { escapeHtml } from '../../../utils.ts'
 import {
   CUTTING_REPLENISHMENT_PENDING_PREP_STORAGE_KEY,
   deserializeReplenishmentPendingPrepStorage,
@@ -11,13 +11,13 @@ import {
   buildPrintableUnitViewModel,
   getPrintableUnitStatusMeta,
   type FeiTicketLabelRecord,
-} from './fei-tickets-model'
+} from './fei-tickets-model.ts'
 import {
   FEI_QR_SCHEMA_VERSION,
   buildFeiQrCompatibilityMeta,
   buildFeiQrPayload,
   buildFeiQrPayloadSummary,
-} from './fei-qr-model'
+} from './fei-qr-model.ts'
 import {
   buildOriginalCutOrderStats,
   filterOriginalCutOrderRows,
@@ -28,12 +28,12 @@ import {
   type OriginalCutOrderFilters,
   type OriginalCutOrderPrefilter,
   type OriginalCutOrderRow,
-} from './original-orders-model'
-import { buildMarkerSpreadingCountsByOriginalOrder } from './marker-spreading-utils'
-import { configMeta, receiveMeta } from './production-progress-model'
-import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta'
-import { getClaimDisputeStatusLabel } from '../../../helpers/fcs-claim-dispute'
-import { getLatestClaimDisputeByOriginalCutOrderNo } from '../../../state/fcs-claim-dispute-store'
+} from './original-orders-model.ts'
+import { buildMarkerSpreadingCountsByOriginalOrder } from './marker-spreading-utils.ts'
+import { configMeta, receiveMeta } from './production-progress-model.ts'
+import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta.ts'
+import { getClaimDisputeStatusLabel } from '../../../helpers/fcs-claim-dispute.ts'
+import { getLatestClaimDisputeByOriginalCutOrderNo } from '../../../state/fcs-claim-dispute-store.ts'
 import {
   paginateItems,
   renderCompactKpiCard,
@@ -42,7 +42,7 @@ import {
   renderWorkbenchFilterChip,
   renderWorkbenchPagination,
   renderWorkbenchStateBar,
-} from './layout.helpers'
+} from './layout.helpers.ts'
 import {
   buildCuttingDrillChipLabels,
   buildCuttingDrillSummary,
@@ -53,9 +53,9 @@ import {
   readCuttingDrillContextFromLocation,
   type CuttingDrillContext,
   type CuttingNavigationTarget,
-} from './navigation-context'
-import { buildOriginalOrdersProjection } from './original-orders-projection'
-import type { MergeBatchRecord } from './merge-batches-model'
+} from './navigation-context.ts'
+import { buildOriginalOrdersProjection } from './original-orders-projection.ts'
+import type { MergeBatchRecord } from './merge-batches-model.ts'
 
 type FilterField =
   | 'keyword'

@@ -1,4 +1,4 @@
-import type { MergeBatchRecord } from './merge-batches-model'
+import type { MergeBatchRecord } from './merge-batches-model.ts'
 import {
   buildSpreadingVarianceSummary,
   type MarkerRecord,
@@ -6,9 +6,9 @@ import {
   type MarkerSpreadingStore,
   type SpreadingSession,
   type SpreadingVarianceSummary,
-} from './marker-spreading-model'
-import type { MaterialPrepLineItem, MaterialPrepRow } from './material-prep-model'
-import type { OriginalCutOrderRow } from './original-orders-model'
+} from './marker-spreading-model.ts'
+import type { MaterialPrepLineItem, MaterialPrepRow } from './material-prep-model.ts'
+import type { OriginalCutOrderRow } from './original-orders-model.ts'
 
 export type ReplenishmentContextBaseSourceType = 'original-order' | 'merge-batch'
 export type ReplenishmentContextSourceType = ReplenishmentContextBaseSourceType | 'spreading-session'

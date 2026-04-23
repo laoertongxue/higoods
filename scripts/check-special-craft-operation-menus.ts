@@ -5,12 +5,20 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { menusBySystem } from '../src/data/app-shell-config.ts'
+import {
+  buildSpecialCraftMenuGroups,
+  buildSpecialCraftMenuGroupsForFactory,
+  menusBySystem,
+} from '../src/data/app-shell-config.ts'
+import { TEST_FACTORY_ID } from '../src/data/fcs/factory-mock-data.ts'
 import {
   buildSpecialCraftStatisticsPath,
   buildSpecialCraftTaskOrdersPath,
   buildSpecialCraftWarehousePath,
+  canFactorySeeSpecialCraftOperation,
   listEnabledSpecialCraftOperationDefinitions,
+  listVisibleSpecialCraftOperationsForFactory,
+  listVisibleSpecialCraftOperationsForFactoryType,
 } from '../src/data/fcs/special-craft-operations.ts'
 import {
   getSpecialCraftTaskOrderById,
@@ -51,6 +59,7 @@ function buildToken(...parts: string[]): string {
 }
 
 const packageSource = read('package.json')
+const appShellSource = read('src/data/app-shell-config.ts')
 const routeSource = read('src/router/routes-fcs.ts')
 const rendererSource = read('src/router/route-renderers-fcs.ts')
 const taskOrderSource = read('src/data/fcs/special-craft-task-orders.ts')
@@ -58,6 +67,7 @@ const taskOrdersPageSource = read('src/pages/process-factory/special-craft/task-
 const taskDetailPageSource = read('src/pages/process-factory/special-craft/task-detail.ts')
 const warehouseSource = read('src/pages/process-factory/special-craft/warehouse.ts')
 const statisticsSource = read('src/pages/process-factory/special-craft/statistics.ts')
+const sharedSource = read('src/pages/process-factory/special-craft/shared.ts')
 const cuttingSpecialSource = read('src/pages/process-factory/cutting/special-processes.ts')
 const productionArtifactSource = read('src/data/fcs/production-artifact-generation.ts')
 
@@ -76,6 +86,8 @@ assertContains(packageSource, 'check:special-craft-operation-menus', 'package.js
 const enabledOperations = listEnabledSpecialCraftOperationDefinitions()
 const selectableSpecialCrafts = listSelectableSpecialCraftDefinitions()
 const selectableCraftCodeSet = new Set(selectableSpecialCrafts.map((item) => item.craftCode))
+const globalSpecialCraftMenus = flattenMenuItems(buildSpecialCraftMenuGroups())
+const testFactorySpecialCraftMenus = flattenMenuItems(buildSpecialCraftMenuGroupsForFactory(TEST_FACTORY_ID))
 
 assert(enabledOperations.length > 0, '缺少启用中的特殊工艺运营分类')
 enabledOperations.forEach((operation) => {
@@ -87,6 +99,10 @@ enabledOperations.forEach((operation) => {
 const pfosMenus = flattenMenuItems(menusBySystem.pfos)
 const specialCraftGroup = menusBySystem.pfos.find((group) => group.title === '特殊工艺')
 assert(specialCraftGroup, '工艺工厂运营系统缺少特殊工艺菜单组')
+assert(enabledOperations.length === 7, 'PFOS 特殊工艺启用菜单数量必须为 7')
+assert(globalSpecialCraftMenus.length === enabledOperations.length, 'PFOS 全局特殊工艺菜单必须全量显示启用菜单')
+assertContains(appShellSource, 'buildSpecialCraftMenuGroupsForFactory', '菜单配置缺少工厂上下文特殊工艺菜单 helper')
+assertContains(appShellSource, 'buildSpecialCraftMenuGroups()', '菜单配置缺少 PFOS 全局特殊工艺菜单 helper')
 
 enabledOperations.forEach((operation) => {
   const menuItem = specialCraftGroup!.items.find((item) => item.title === operation.operationName)
@@ -97,7 +113,47 @@ enabledOperations.forEach((operation) => {
   assert(menuItem!.children?.some((child) => child.href === buildSpecialCraftTaskOrdersPath(operation)), `${operation.operationName} 任务单菜单 href 不正确`)
   assert(menuItem!.children?.some((child) => child.href === buildSpecialCraftWarehousePath(operation)), `${operation.operationName} 仓库管理菜单 href 不正确`)
   assert(menuItem!.children?.some((child) => child.href === buildSpecialCraftStatisticsPath(operation)), `${operation.operationName} 统计菜单 href 不正确`)
+  assert(globalSpecialCraftMenus.some((item) => item.title === operation.operationName), `${operation.operationName} 未进入 PFOS 全局特殊工艺菜单 helper`)
 })
+
+const washOperation = enabledOperations.find((operation) => operation.operationName === '洗水')
+assert(washOperation, '缺少洗水特殊工艺菜单定义')
+assert(
+  canFactorySeeSpecialCraftOperation('ID-F008', washOperation.operationId),
+  '洗水至少应对水洗相关工厂可见',
+)
+assert(
+  !canFactorySeeSpecialCraftOperation('ID-F011', washOperation.operationId),
+  '洗水不应默认对普通特殊工艺厂开放',
+)
+assert(
+  listVisibleSpecialCraftOperationsForFactoryType('CENTRAL_DENIM_WASH').some((item) => item.operationId === washOperation.operationId),
+  '工厂类型过滤下，洗水应对水洗相关工厂可见',
+)
+assert(
+  !listVisibleSpecialCraftOperationsForFactoryType('CENTRAL_SPECIAL').some((item) => item.operationId === washOperation.operationId),
+  '工厂类型过滤下，洗水不应默认对普通特殊工艺厂开放',
+)
+assert(
+  listVisibleSpecialCraftOperationsForFactory(TEST_FACTORY_ID).length === enabledOperations.length,
+  '全能力测试工厂应能看到全部启用特殊工艺菜单以覆盖联调场景',
+)
+assert(
+  testFactorySpecialCraftMenus.length === enabledOperations.length,
+  '工厂上下文菜单 helper 对测试工厂应返回全量启用特殊工艺菜单',
+)
+assertContains(routeSource, 'special-craft', '路由文件缺少特殊工艺路由前缀')
+assertContains(routeSource, 'buildSpecialCraftTaskOrdersPath', '特殊工艺路由仍应从启用菜单生成')
+assertContains(
+  taskOrdersPageSource + taskDetailPageSource + warehouseSource + statisticsSource + sharedSource,
+  'resolveSpecialCraftFactoryContextGuard',
+  '特殊工艺页面缺少工厂上下文访问保护',
+)
+assertContains(
+  taskOrdersPageSource + taskDetailPageSource + warehouseSource + statisticsSource + sharedSource,
+  '当前工厂无该特殊工艺入口',
+  '特殊工艺页面缺少工厂上下文空态提示',
+)
 
 assert(
   !pfosMenus.some((item) => item.title.includes(buildToken('印', '花')) && item.key.includes('pfos-special')),

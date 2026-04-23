@@ -1,4 +1,4 @@
-import { escapeHtml } from '../../../utils'
+import { escapeHtml } from '../../../utils.ts'
 
 export function renderCompactKpiCard(
   label: string,

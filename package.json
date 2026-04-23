@@ -52,6 +52,7 @@
     "check:special-craft-task-and-fei-flow-deepening": "tsx scripts/check-special-craft-task-and-fei-flow-deepening.ts",
     "check:pickup-handout-order-and-warehouse-foundation": "tsx scripts/check-pickup-handout-order-and-warehouse-foundation.ts",
     "check:transfer-bag-mobile-closed-loop": "tsx scripts/check-transfer-bag-mobile-closed-loop.ts",
+    "check:menu-visibility-test-factory-and-default-views": "tsx scripts/check-menu-visibility-test-factory-and-default-views.ts",
     "check:factory-internal-warehouse-model": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-factory-internal-warehouse-model.ts",
     "check:factory-mobile-app-redesign": "tsx scripts/check-factory-mobile-app-redesign.ts",
     "check:factory-handover-warehouse-linkage": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-factory-handover-warehouse-linkage.ts",

@@ -1,4 +1,4 @@
-import type { CuttableOriginalOrderItem } from './cuttable-pool-model'
+import type { CuttableOriginalOrderItem } from './cuttable-pool-model.ts'
 
 export const CUTTING_SELECTED_IDS_STORAGE_KEY = 'cuttingSelectedOriginalOrderIds'
 export const CUTTING_SELECTED_COMPATIBILITY_KEY_STORAGE_KEY = 'cuttingSelectedCompatibilityKey'

@@ -7,9 +7,9 @@ import type {
   SpreadingOperatorRecord,
   SpreadingRollRecord,
   SpreadingSession,
-} from './marker-spreading-model'
-import { DEFAULT_HIGH_LOW_PATTERN_KEYS } from './marker-spreading-utils'
-import type { MarkerAllocationSourceRow } from './marker-piece-explosion'
+} from './marker-spreading-model.ts'
+import { DEFAULT_HIGH_LOW_PATTERN_KEYS } from './marker-spreading-utils.ts'
+import type { MarkerAllocationSourceRow } from './marker-piece-explosion.ts'
 
 export interface MarkerSpreadingDraftActionContext {
   action: string

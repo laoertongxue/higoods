@@ -35,6 +35,7 @@ function stripNonUiSource(source: string): string {
 }
 
 const progressBoardSource = read('src/pages/progress-board/order-domain.ts')
+const progressBoardContextSource = read('src/pages/progress-board/context.ts')
 const handoverSource =
   read('src/pages/progress-handover.ts') +
   read('src/pages/progress-handover-order.ts')
@@ -44,6 +45,12 @@ const printingDashboardsSource = read('src/pages/process-factory/printing/dashbo
 const dyeingReportsSource = read('src/pages/process-factory/dyeing/reports.ts')
 const cuttingProgressSource = read('src/pages/process-factory/cutting/production-progress.ts')
 const cuttingSummarySource = read('src/pages/process-factory/cutting/cutting-summary.ts')
+const specialCraftGuardSource =
+  read('src/pages/process-factory/special-craft/shared.ts') +
+  read('src/pages/process-factory/special-craft/task-orders.ts') +
+  read('src/pages/process-factory/special-craft/task-detail.ts') +
+  read('src/pages/process-factory/special-craft/warehouse.ts') +
+  read('src/pages/process-factory/special-craft/statistics.ts')
 const capacitySource =
   read('src/pages/capacity.ts') +
   read('src/pages/factory-capacity-profile.ts') +
@@ -110,6 +117,14 @@ assertIncludesAll(
   ['配料状态', '领料状态', '唛架状态', '铺布状态', '菲票状态', '补料状态', '裁片仓状态'],
   '裁剪总结',
 )
+assertIncludes(progressBoardSource, '默认按交期排序', '生产进度缺少默认按交期排序提示')
+assertIncludes(progressBoardContextSource, 'sortProductionProgressByDefaultDueDate', '生产进度上下文缺少默认交期排序 helper')
+assertIncludes(cuttingProgressSource, "viewDimension: 'CUT_ORDER'", '裁床进度默认视图必须为裁片单维度')
+assertIncludes(cuttingProgressSource, '裁片单维度', '裁床进度缺少裁片单维度')
+assertIncludes(cuttingProgressSource, '生产单维度', '裁床进度缺少生产单维度')
+assertIncludes(cuttingProgressSource, 'originalCutOrderNo', '裁床进度裁片单维度缺少原始裁片单来源')
+assertIncludes(specialCraftGuardSource, 'resolveSpecialCraftFactoryContextGuard', '特殊工艺页面缺少工厂上下文 guard')
+assertIncludes(specialCraftGuardSource, '当前工厂无该特殊工艺入口', '特殊工艺页面缺少工厂上下文空态')
 
 assertIncludesAny(capacitySource, ['后道 - 开扣眼', '后道 / 开扣眼', '开扣眼'], '产能口径')
 assertIncludesAny(capacitySource, ['后道 - 装扣子', '后道 / 装扣子', '装扣子'], '产能口径')

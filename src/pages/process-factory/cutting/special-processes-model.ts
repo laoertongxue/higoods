@@ -1,6 +1,6 @@
-import type { MergeBatchRecord } from './merge-batches-model'
-import { getCanonicalCuttingPath } from './meta'
-import type { OriginalCutOrderRow } from './original-orders-model'
+import type { MergeBatchRecord } from './merge-batches-model.ts'
+import { getCanonicalCuttingPath } from './meta.ts'
+import type { OriginalCutOrderRow } from './original-orders-model.ts'
 import {
   buildDefaultSpecialProcessFollowupActions,
   buildDefaultSpecialProcessScopeLines,
@@ -13,7 +13,7 @@ import {
   normalizeFollowupStatus,
   type SpecialProcessExecutionSnapshot,
   type SpecialProcessSourceOption,
-} from './special-processes-domain'
+} from './special-processes-domain.ts'
 
 export const CUTTING_SPECIAL_PROCESS_ORDERS_STORAGE_KEY = 'cuttingSpecialProcessOrders'
 export const CUTTING_SPECIAL_PROCESS_BINDING_PAYLOAD_STORAGE_KEY = 'cuttingSpecialProcessBindingPayloads'

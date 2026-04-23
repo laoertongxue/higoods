@@ -19,7 +19,7 @@ import {
   type TransferBagUsageItem,
   type TransferBagValidationResult,
   type TransferBagViewModel,
-} from './transfer-bags-model'
+} from './transfer-bags-model.ts'
 import {
   buildCuttingTraceabilityId,
 } from '../../../data/fcs/cutting/qr-codes.ts'

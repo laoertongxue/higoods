@@ -1,5 +1,5 @@
-import { appStore } from '../../../state/store'
-import { escapeHtml } from '../../../utils'
+import { appStore } from '../../../state/store.ts'
+import { escapeHtml } from '../../../utils.ts'
 import {
   buildMarkerSeedDraft,
   finalizeSpreadingCompletion,
@@ -60,7 +60,7 @@ import {
   type SpreadingStatusKey,
   findSpreadingPlanUnitById,
   validateMarkerForSpreadingImport,
-} from './marker-spreading-model'
+} from './marker-spreading-model.ts'
 import {
   buildMarkerDetailViewModel,
   buildMarkerListViewModel,
@@ -90,16 +90,16 @@ import {
   summarizeSpreadingRolls,
   type MarkerListRow,
   type SpreadingListRow,
-} from './marker-spreading-utils'
+} from './marker-spreading-utils.ts'
 import { buildGeneratedFeiTicketTraceMatrix, listSpreadingPieceOutputLines } from '../../../data/fcs/cutting/generated-fei-tickets.ts'
-import { buildFeiTicketPrintProjection } from './fei-ticket-print-projection'
-import { buildTransferBagsProjection } from './transfer-bags-projection'
-import { buildCutPieceWarehouseProjection } from './cut-piece-warehouse-projection'
+import { buildFeiTicketPrintProjection } from './fei-ticket-print-projection.ts'
+import { buildTransferBagsProjection } from './transfer-bags-projection.ts'
+import { buildCutPieceWarehouseProjection } from './cut-piece-warehouse-projection.ts'
 import {
   buildMarkerSpreadingProjection,
   buildSpreadingPlanUnitProjectionLabel,
   type SpreadingCreateSourceRow,
-} from './marker-spreading-projection'
+} from './marker-spreading-projection.ts'
 import {
   buildMarkerAllocationSourceRows,
   buildMarkerPieceExplosionViewModel,
@@ -107,7 +107,7 @@ import {
   type MarkerExplosionAllocationRow,
   type MarkerExplosionPieceDetailRow,
   type MarkerExplosionSkuSummaryRow,
-} from './marker-piece-explosion'
+} from './marker-piece-explosion.ts'
 import {
   addHighLowCuttingRow,
   addHighLowPatternKey,
@@ -126,16 +126,16 @@ import {
   removeMarkerSizeRow,
   removeSpreadingOperator,
   removeSpreadingRoll,
-} from './marker-spreading-draft-actions'
-import { handleMarkerSpreadingSubmitAction } from './marker-spreading-submit-actions'
+} from './marker-spreading-draft-actions.ts'
+import { handleMarkerSpreadingSubmitAction } from './marker-spreading-submit-actions.ts'
 import {
   renderCompactKpiCard,
   renderStickyFilterShell,
   renderStickyTableScroller,
   renderWorkbenchFilterChip,
   renderWorkbenchStateBar,
-} from './layout.helpers'
-import { getCanonicalCuttingMeta, getCanonicalCuttingPath, renderCuttingPageHeader } from './meta'
+} from './layout.helpers.ts'
+import { getCanonicalCuttingMeta, getCanonicalCuttingPath, renderCuttingPageHeader } from './meta.ts'
 import {
   buildCuttingDrillChipLabels,
   buildCuttingDrillSummary,
@@ -147,7 +147,7 @@ import {
   serializeCuttingDrillContext,
   type CuttingDrillContext,
   type CuttingNavigationTarget,
-} from './navigation-context'
+} from './navigation-context.ts'
 
 type ListTabKey = 'ALL' | SpreadingSupervisorStageKey
 type FeedbackTone = 'success' | 'warning'

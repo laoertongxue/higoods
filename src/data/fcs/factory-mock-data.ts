@@ -10,9 +10,15 @@ import {
   indonesiaFactories,
   isFactoryPoolOrganization,
 } from './indonesia-factories.ts'
-import { getProcessDefinitionByCode, listCraftsByProcessCode } from './process-craft-dict.ts'
+import {
+  getProcessDefinitionByCode,
+  listCraftsByProcessCode,
+  listProcessDefinitions,
+} from './process-craft-dict.ts'
 
 const POST_CAPACITY_NODE_CODES = ['BUTTONHOLE', 'BUTTON_ATTACH', 'IRONING', 'PACKAGING'] as const satisfies FactoryPostCapacityNodeCode[]
+export const TEST_FACTORY_ID = 'ID-F090'
+export const TEST_FACTORY_SCOPE = 'ALL_PROCESS_CRAFT' as const
 
 const legacyTagProcessMap: Record<string, string[]> = {
   印花: ['PRINT'],
@@ -122,6 +128,24 @@ function buildProcessAbilities(tags: string[], factoryType: FactoryType): Factor
     .filter((item): item is FactoryProcessAbility => Boolean(item))
 }
 
+function buildAllProcessAbilitiesForTestFactory(): FactoryProcessAbility[] {
+  const processCodes = listProcessDefinitions()
+    .filter((process) => process.isActive && (process.generatesExternalTask || process.processCode === 'POST_FINISHING'))
+    .map((process) => process.processCode)
+
+  return processCodes
+    .map((processCode) => createProcessAbility(processCode, { tags: [], factoryType: 'CENTRAL_AUX' }))
+    .filter((item): item is FactoryProcessAbility => Boolean(item))
+    .map((item) => ({
+      ...item,
+      craftCodes: [...item.craftCodes],
+      capacityNodeCodes: item.capacityNodeCodes ? [...item.capacityNodeCodes] : undefined,
+      craftNames: item.craftNames ? [...item.craftNames] : undefined,
+      canReceiveTask: true,
+      status: 'ACTIVE',
+    }))
+}
+
 function adjustProcessAbilitiesForFactory(factoryId: string, abilities: FactoryProcessAbility[]): FactoryProcessAbility[] {
   if (factoryId !== 'ID-F024') return abilities
 
@@ -179,7 +203,7 @@ function getDefaultParentId(tier: string): string | undefined {
 
 const factoryPoolSourceRecords = indonesiaFactories.filter(isFactoryPoolOrganization)
 
-export const mockFactories: Factory[] = factoryPoolSourceRecords.map((factory, index) => {
+const generatedFactories: Factory[] = factoryPoolSourceRecords.map((factory, index) => {
   const factoryTier = mapTier(factory.tier)
   const factoryType = mapType(factory.tier, factory.type, index)
   const processAbilities = adjustProcessAbilitiesForFactory(
@@ -214,5 +238,35 @@ export const mockFactories: Factory[] = factoryPoolSourceRecords.map((factory, i
     },
   }
 })
+
+const allProcessCraftTestFactory: Factory = {
+  id: TEST_FACTORY_ID,
+  code: 'F090',
+  name: '全能力测试工厂',
+  address: 'Jakarta Test Lane 90, Jakarta, DKI Jakarta',
+  contact: '联调负责人',
+  phone: '+62 21 9000 0090',
+  status: 'active',
+  cooperationMode: 'general',
+  processAbilities: buildAllProcessAbilitiesForTestFactory(),
+  qualityScore: 100,
+  deliveryScore: 100,
+  createdAt: '2026-04-24 09:00:00',
+  updatedAt: '2026-04-24 09:00:00',
+  factoryTier: 'CENTRAL',
+  factoryType: 'CENTRAL_AUX',
+  pdaEnabled: true,
+  pdaTenantId: TEST_FACTORY_ID,
+  isTestFactory: true,
+  testFactoryScope: TEST_FACTORY_SCOPE,
+  eligibility: {
+    allowDispatch: true,
+    allowBid: true,
+    allowExecute: true,
+    allowSettle: true,
+  },
+}
+
+export const mockFactories: Factory[] = [...generatedFactories, allProcessCraftTestFactory]
 
 export { genCode as generateFactoryCode }

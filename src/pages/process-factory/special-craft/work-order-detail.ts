@@ -16,7 +16,9 @@ import { escapeHtml } from '../../../utils.ts'
 import {
   formatQty,
   renderEmptyState,
+  renderSpecialCraftFactoryContextBlockedLayout,
   renderSpecialCraftPageLayout,
+  resolveSpecialCraftFactoryContextGuard,
   renderStatusBadge,
   renderTable,
 } from './shared.ts'
@@ -52,6 +54,16 @@ export function renderSpecialCraftWorkOrderDetailPage(operationSlug: string, wor
   const workOrder = getSpecialCraftTaskWorkOrderById(decodeURIComponent(workOrderId))
   if (!operation || !workOrder || workOrder.operationId !== operation.operationId) {
     return renderEmptyState('未找到对应工艺单。')
+  }
+  const factoryGuard = resolveSpecialCraftFactoryContextGuard(operation)
+  if (factoryGuard.blocked) {
+    return renderSpecialCraftFactoryContextBlockedLayout({
+      operation,
+      title: '工艺单详情',
+      description: '查看工艺单明细、绑定菲票、差异上报和流转事件。',
+      activeSubNav: 'tasks',
+      factoryName: factoryGuard.factoryName,
+    })
   }
   const taskOrder = getSpecialCraftTaskOrderById(workOrder.taskOrderId)
   const bindings = listCuttingSpecialCraftFeiTicketBindings().filter((binding) => binding.workOrderId === workOrder.workOrderId)

@@ -1,60 +1,60 @@
 import type {
   ProductionProgressRow,
   ProductionProgressStageKey,
-} from './production-progress-model'
+} from './production-progress-model.ts'
 import type {
   ProductionPieceTruthCompletionKey,
   ProductionPieceTruthResult,
-} from '../../../domain/fcs-cutting-piece-truth'
+} from '../../../domain/fcs-cutting-piece-truth/index.ts'
 import {
   buildProductionPieceTruthCompletion,
   productionPieceTruthCompletionMetaMap,
-} from '../../../domain/fcs-cutting-piece-truth'
-import type { OriginalCutOrderRow } from './original-orders-model'
-import type { MaterialPrepRow } from './material-prep-model'
-import type { MarkerSpreadingStore, SpreadingSession } from './marker-spreading-model'
+} from '../../../domain/fcs-cutting-piece-truth/index.ts'
+import type { OriginalCutOrderRow } from './original-orders-model.ts'
+import type { MaterialPrepRow } from './material-prep-model.ts'
+import type { MarkerSpreadingStore, SpreadingSession } from './marker-spreading-model.ts'
 import {
   getMergeBatchStatusMeta,
   type MergeBatchRecord,
-} from './merge-batches-model'
+} from './merge-batches-model.ts'
 import type {
   FeiTicketsViewModel,
   FeiTicketLabelRecord,
   FeiTicketPrintJob,
   OriginalCutOrderTicketOwner,
-} from './fei-tickets-model'
-import { getFeiTicketStatusMeta } from './fei-tickets-model'
+} from './fei-tickets-model.ts'
+import { getFeiTicketStatusMeta } from './fei-tickets-model.ts'
 import type {
   FabricWarehouseStockItem,
   FabricWarehouseViewModel,
-} from './fabric-warehouse-model'
+} from './fabric-warehouse-model.ts'
 import type {
   CutPieceWarehouseItem,
   CutPieceWarehouseViewModel,
-} from './cut-piece-warehouse-model'
+} from './cut-piece-warehouse-model.ts'
 import type {
   SampleWarehouseItem,
   SampleWarehouseViewModel,
-} from './sample-warehouse-model'
+} from './sample-warehouse-model.ts'
 import type {
   TransferBagBindingItem,
   TransferBagUsageItem,
   TransferBagViewModel,
-} from './transfer-bags-model'
+} from './transfer-bags-model.ts'
 import type {
   TransferBagConditionDecisionItem,
   TransferBagReuseCycleItem,
   TransferBagReturnUsageItem,
   TransferBagReturnViewModel,
-} from './transfer-bag-return-model'
+} from './transfer-bag-return-model.ts'
 import type {
   ReplenishmentSuggestionRow,
   ReplenishmentViewModel,
-} from './replenishment-model'
+} from './replenishment-model.ts'
 import type {
   SpecialProcessRow,
   SpecialProcessViewModel,
-} from './special-processes-model'
+} from './special-processes-model.ts'
 import {
   buildCuttingCheckResult,
   cuttingCheckSectionLabelMap,
@@ -63,7 +63,7 @@ import {
   type CuttingCheckSectionKey,
   type CuttingCheckSectionState,
   type CuttingCheckSourceObjectType,
-} from './cutting-summary-checks'
+} from './cutting-summary-checks.ts'
 
 const numberFormatter = new Intl.NumberFormat('zh-CN')
 

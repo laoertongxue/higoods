@@ -4,7 +4,7 @@ import type {
   CuttingMaterialType,
   CuttingOrderProgressRecord,
   CuttingReceiveStatus,
-} from '../../../data/fcs/cutting/types'
+} from '../../../data/fcs/cutting/types.ts'
 import {
   listGeneratedOriginalCutOrderSourceRecords,
   type GeneratedOriginalCutOrderSourceRecord,
@@ -17,7 +17,7 @@ import {
   type ProductionProgressUrgencyKey,
   urgencyMeta,
 } from './production-progress-model.ts'
-import type { MergeBatchRecord } from './merge-batches-model'
+import type { MergeBatchRecord } from './merge-batches-model.ts'
 
 const numberFormatter = new Intl.NumberFormat('zh-CN')
 const currencyFormatter = new Intl.NumberFormat('zh-CN', {

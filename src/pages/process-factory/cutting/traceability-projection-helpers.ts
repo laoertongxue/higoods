@@ -2,11 +2,11 @@ import {
   buildFcsCuttingDomainSnapshot,
   type CuttingDomainSnapshot,
 } from '../../../domain/fcs-cutting-runtime/index.ts'
-import type { FeiTicketPrintJob, FeiTicketLabelRecord, PrintableUnitViewModel } from './fei-tickets-model'
+import type { FeiTicketPrintJob, FeiTicketLabelRecord, PrintableUnitViewModel } from './fei-tickets-model.ts'
 import {
   buildPrintableUnitViewModel,
   buildSystemSeedFeiTicketLedger,
-} from './fei-tickets-model'
+} from './fei-tickets-model.ts'
 import {
   buildBagUsageAuditTrail,
   applyPocketBindingLocksToTicketRecords,
@@ -19,7 +19,7 @@ import {
   type TransferBagItemBinding,
   type TransferBagUsage,
   type SewingTaskRef,
-} from './transfer-bags-model'
+} from './transfer-bags-model.ts'
 import {
   buildSpreadingTraceAnchors,
   findSpreadingTraceAnchor,
@@ -27,7 +27,7 @@ import {
   type MarkerSpreadingStore,
   type SpreadingTraceAnchor,
   upsertSpreadingSession,
-} from './marker-spreading-model'
+} from './marker-spreading-model.ts'
 import { buildMarkerSpreadingPrototypeStore } from './marker-spreading-utils.ts'
 import {
   applyWritebackToSpreadingSession,
@@ -36,7 +36,7 @@ import {
 import {
   buildTransferBagReturnViewModel,
   type TransferBagReturnViewModel,
-} from './transfer-bag-return-model'
+} from './transfer-bag-return-model.ts'
 import {
   parseCuttingTraceQr,
 } from '../../../data/fcs/cutting/qr-codes.ts'
@@ -45,7 +45,7 @@ import {
 } from '../../../data/fcs/cutting/transfer-bag-runtime.ts'
 import {
   buildExecutionPrepProjectionContext,
-} from './execution-prep-projection-helpers'
+} from './execution-prep-projection-helpers.ts'
 
 export interface CuttingTraceabilityProjectionContext {
   snapshot: CuttingDomainSnapshot

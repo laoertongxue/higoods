@@ -1,7 +1,7 @@
-import type { OriginalCutOrderRow, OriginalCutOrderNavigationPayload } from './original-orders-model'
-import type { MaterialPrepRow } from './material-prep-model'
-import type { MarkerSpreadingStore } from './marker-spreading-model'
-import type { MergeBatchRecord } from './merge-batches-model'
+import type { OriginalCutOrderRow, OriginalCutOrderNavigationPayload } from './original-orders-model.ts'
+import type { MaterialPrepRow } from './material-prep-model.ts'
+import type { MarkerSpreadingStore } from './marker-spreading-model.ts'
+import type { MergeBatchRecord } from './merge-batches-model.ts'
 import {
   buildCuttingTraceabilityId,
 } from '../../../data/fcs/cutting/qr-codes.ts'

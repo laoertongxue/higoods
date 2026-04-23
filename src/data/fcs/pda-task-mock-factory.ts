@@ -17,6 +17,7 @@ import {
   type PdaMobileProcessKey,
 } from './pda-task-scenario-matrix.ts'
 import { buildTaskQrValue } from './task-qr.ts'
+import { TEST_FACTORY_ID } from './factory-mock-data.ts'
 
 export type PdaTaskMockOrigin =
   | 'DIRECT_PENDING'
@@ -1609,6 +1610,24 @@ const biddingTasks = PROCESS_PROFILES
   .flatMap((profile, index) => buildBiddingTaskSet(profile, index + 71))
 
 const PDA_GENERIC_PROCESS_TASKS: PdaGenericTaskMock[] = [...directTasks, ...biddingTasks]
+const PDA_TEST_FACTORY_PROCESS_TASKS: PdaGenericTaskMock[] = PDA_GENERIC_PROCESS_TASKS
+  .slice(0, 4)
+  .map((task, index) => {
+    const taskId = `${task.taskId}-F090-${index + 1}`
+    return {
+      ...task,
+      taskId,
+      taskNo: taskId,
+      tenderId: task.tenderId ? `${task.tenderId}-F090-${index + 1}` : undefined,
+      assignedFactoryId: TEST_FACTORY_ID,
+      assignedFactoryName: '全能力测试工厂',
+      taskQrValue: task.taskQrValue ? buildTaskQrValue(taskId) : task.taskQrValue,
+      auditLogs: task.auditLogs.map((log, logIndex) => ({
+        ...log,
+        id: `${log.id}-F090-${index + 1}-${logIndex + 1}`,
+      })),
+    }
+  })
 
 const handoverSeedCollections = PROCESS_PROFILES.filter((profile) => isExternalMockProcess(profile)).map((profile, index) =>
   buildHandoverSeeds(
@@ -1673,7 +1692,7 @@ const PDA_GENERIC_AWARDED_TENDER_NOTICES: PdaMobileAwardedTenderNoticeMock[] = P
   }))
 
 export function listPdaGenericProcessTasks(): PdaGenericTaskMock[] {
-  return PDA_GENERIC_PROCESS_TASKS
+  return [...PDA_GENERIC_PROCESS_TASKS, ...PDA_TEST_FACTORY_PROCESS_TASKS]
 }
 
 export function listPdaGenericBiddingTenderMocks(): PdaMobileBiddingTenderMock[] {
@@ -1701,9 +1720,9 @@ export function getPdaGenericHandoutRecordSeedsByHeadId(handoverId: string): Pda
 }
 
 export function listPdaGenericTasksByFactory(factoryId: string): PdaGenericTaskMock[] {
-  return PDA_GENERIC_PROCESS_TASKS.filter((task) => task.assignedFactoryId === factoryId)
+  return listPdaGenericProcessTasks().filter((task) => task.assignedFactoryId === factoryId)
 }
 
 export function listPdaGenericTasksByProcess(processKey: Exclude<PdaMobileProcessKey, 'CUTTING'>): PdaGenericTaskMock[] {
-  return PDA_GENERIC_PROCESS_TASKS.filter((task) => task.mockProcessKey === processKey)
+  return listPdaGenericProcessTasks().filter((task) => task.mockProcessKey === processKey)
 }

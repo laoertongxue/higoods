@@ -2,12 +2,12 @@ import {
   buildFcsCuttingDomainSnapshot,
   type CuttingDomainSnapshot,
 } from '../../../domain/fcs-cutting-runtime/index.ts'
-import type { ProductionProgressRow } from './production-progress-model'
+import type { ProductionProgressRow } from './production-progress-model.ts'
 import {
   buildCuttablePoolViewModel,
   type CuttablePoolViewModel,
-} from './cuttable-pool-model'
-import { buildProductionProgressProjection } from './production-progress-projection'
+} from './cuttable-pool-model.ts'
+import { buildProductionProgressProjection } from './production-progress-projection.ts'
 
 export interface CuttablePoolProjection {
   snapshot: CuttingDomainSnapshot

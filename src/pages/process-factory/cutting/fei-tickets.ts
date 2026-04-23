@@ -1,5 +1,5 @@
-import { appStore } from '../../../state/store'
-import { escapeHtml } from '../../../utils'
+import { appStore } from '../../../state/store.ts'
+import { escapeHtml } from '../../../utils.ts'
 import {
   buildFeiTicketFiveDimTitle,
   buildPrintableUnitDetailViewModel,
@@ -24,35 +24,35 @@ import {
   type TicketPrintRecord,
   type TicketSplitDetail,
   voidTicketCard,
-} from './fei-tickets-model'
-import { renderRealQrPlaceholder } from '../../../components/real-qr'
+} from './fei-tickets-model.ts'
+import { renderRealQrPlaceholder } from '../../../components/real-qr.ts'
 import {
   renderStickyFilterShell,
   renderStickyTableScroller,
-} from './layout.helpers'
-import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta'
+} from './layout.helpers.ts'
+import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta.ts'
 import {
   buildCuttingRouteWithContext,
   buildReturnToSummaryContext,
   hasSummaryReturnContext,
   readCuttingDrillContextFromLocation,
   serializeCuttingDrillContext,
-} from './navigation-context'
+} from './navigation-context.ts'
 import {
   buildFeiTicketPrintProjection,
-} from './fei-ticket-print-projection'
+} from './fei-ticket-print-projection.ts'
 import {
   getSpecialCraftFeiTicketSummary,
   listCuttingSpecialCraftFeiTicketBindings,
 } from '../../../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
 import { findCuttingSewingDispatchByFeiTicketNo } from '../../../data/fcs/cutting/sewing-dispatch.ts'
 import { buildSpecialCraftTaskDetailPath } from '../../../data/fcs/special-craft-operations.ts'
-import type { OriginalCutOrderRow } from './original-orders-model'
-import type { MaterialPrepRow } from './material-prep-model'
-import type { MergeBatchRecord } from './merge-batches-model'
-import type { MarkerSpreadingStore } from './marker-spreading-model'
-import type { TransferBagStore } from './transfer-bags-model'
-import type { CraftTraceProjection, CraftTraceProjectionItem } from './craft-trace-projection'
+import type { OriginalCutOrderRow } from './original-orders-model.ts'
+import type { MaterialPrepRow } from './material-prep-model.ts'
+import type { MergeBatchRecord } from './merge-batches-model.ts'
+import type { MarkerSpreadingStore } from './marker-spreading-model.ts'
+import type { TransferBagStore } from './transfer-bags-model.ts'
+import type { CraftTraceProjection, CraftTraceProjectionItem } from './craft-trace-projection.ts'
 
 interface FeiTicketsPageState {
   filters: PrintableUnitFilters

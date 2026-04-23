@@ -9,9 +9,11 @@ import { escapeHtml } from '../../../utils.ts'
 import {
   formatQty,
   renderEmptyState,
+  renderSpecialCraftFactoryContextBlockedLayout,
   renderFilterGrid,
   renderMetricCards,
   renderSpecialCraftPageLayout,
+  resolveSpecialCraftFactoryContextGuard,
   renderStatusBadge,
   renderTable,
 } from './shared.ts'
@@ -25,7 +27,12 @@ function renderMissingOperation(): string {
       processCode: 'SPECIAL_CRAFT',
       processName: '特殊工艺',
       operationName: '特殊工艺',
-      targetObject: '裁片',
+      supportedTargetObjects: [],
+      supportedTargetObjectLabels: [],
+      defaultTargetObject: '已裁部位',
+      targetObject: '已裁部位',
+      visibleFactoryTypes: [],
+      visibleFactoryIds: [],
       requiresTaskOrder: true,
       requiresFactoryWarehouse: true,
       requiresStatistics: true,
@@ -44,6 +51,16 @@ function renderMissingOperation(): string {
 export function renderSpecialCraftTaskOrdersPage(operationSlug: string): string {
   const operation = getSpecialCraftOperationBySlug(operationSlug)
   if (!operation) return renderMissingOperation()
+  const factoryGuard = resolveSpecialCraftFactoryContextGuard(operation)
+  if (factoryGuard.blocked) {
+    return renderSpecialCraftFactoryContextBlockedLayout({
+      operation,
+      title: `${operation.operationName}任务单`,
+      description: '按任务单查看当前特殊工艺的接单、执行、菲票流转和差异状态。',
+      activeSubNav: 'tasks',
+      factoryName: factoryGuard.factoryName,
+    })
+  }
 
   const taskOrders = getSpecialCraftTaskOrders(operation.operationId)
   const taskCount = taskOrders.length

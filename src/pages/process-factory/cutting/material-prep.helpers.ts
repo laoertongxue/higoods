@@ -4,14 +4,14 @@ import type {
   CuttingMaterialPrepLine,
   CuttingDiscrepancyStatus,
   CuttingReceiveResultStatus,
-} from '../../../data/fcs/cutting/material-prep'
+} from '../../../data/fcs/cutting/material-prep.ts'
 import type {
   CuttingConfigStatus,
   CuttingMaterialType,
   CuttingPrintSlipStatus,
   CuttingQrStatus,
   CuttingReceiveStatus,
-} from '../../../data/fcs/cutting/types'
+} from '../../../data/fcs/cutting/types.ts'
 
 export const materialTypeMeta: Record<CuttingMaterialType, { label: string; className: string }> = {
   PRINT: { label: '面料', className: 'bg-slate-100 text-slate-700' },

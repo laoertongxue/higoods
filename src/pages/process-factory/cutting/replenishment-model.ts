@@ -1,18 +1,18 @@
-import type { MergeBatchRecord } from './merge-batches-model'
-import { buildReplenishmentPreview } from './marker-spreading-model'
-import type { MaterialPrepRow } from './material-prep-model'
-import type { OriginalCutOrderRow } from './original-orders-model'
+import type { MergeBatchRecord } from './merge-batches-model.ts'
+import { buildReplenishmentPreview } from './marker-spreading-model.ts'
+import type { MaterialPrepRow } from './material-prep-model.ts'
+import type { OriginalCutOrderRow } from './original-orders-model.ts'
 import {
   buildReplenishmentContextRecords,
   type ReplenishmentContextRecord,
   type ReplenishmentContextSourceType,
-} from './replenishment-context'
-import type { MarkerSpreadingStore } from './marker-spreading-model'
+} from './replenishment-context.ts'
+import type { MarkerSpreadingStore } from './marker-spreading-model.ts'
 import {
   listPdaReplenishmentFeedbackWritebacks,
   type PdaReplenishmentFeedbackWritebackRecord,
 } from '../../../data/fcs/cutting/pda-execution-writeback-ledger.ts'
-import { getBrowserLocalStorage } from '../../../data/browser-storage'
+import { getBrowserLocalStorage } from '../../../data/browser-storage.ts'
 import {
   CUTTING_REPLENISHMENT_ACTIONS_STORAGE_KEY,
   CUTTING_REPLENISHMENT_AUDIT_STORAGE_KEY,

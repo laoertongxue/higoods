@@ -4,18 +4,18 @@ import type {
   CuttingMaterialLine,
   CuttingOrderProgressRecord,
   CuttingReceiveStatus,
-} from '../../../data/fcs/cutting/types'
+} from '../../../data/fcs/cutting/types.ts'
 import {
   listGeneratedOriginalCutOrderSourceRecords,
   type GeneratedOriginalCutOrderSourceRecord,
-} from '../../../data/fcs/cutting/generated-original-cut-orders'
+} from '../../../data/fcs/cutting/generated-original-cut-orders.ts'
 import {
   buildProductionProgressRows,
   type ProductionProgressRiskTag,
   type ProductionProgressRow,
   type ProductionProgressUrgencyKey,
   urgencyMeta,
-} from './production-progress-model'
+} from './production-progress-model.ts'
 
 export type CuttableViewMode = 'STYLE_GROUP' | 'PRODUCTION_ORDER'
 export type CuttableStateKey =

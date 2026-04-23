@@ -2,26 +2,26 @@ import {
   buildFcsCuttingDomainSnapshot,
   type CuttingDomainSnapshot,
 } from '../../../domain/fcs-cutting-runtime/index.ts'
-import { buildCutPieceWarehouseViewModel } from './cut-piece-warehouse-model'
-import { buildFabricWarehouseViewModel } from './fabric-warehouse-model'
+import { buildCutPieceWarehouseViewModel } from './cut-piece-warehouse-model.ts'
+import { buildFabricWarehouseViewModel } from './fabric-warehouse-model.ts'
 import {
   buildFeiTicketsViewModel,
   buildSystemSeedFeiTicketLedger,
   type FeiTicketDraft,
   type FeiTicketLabelRecord,
   type FeiTicketPrintJob,
-} from './fei-tickets-model'
-import type { MarkerSpreadingStore } from './marker-spreading-model'
-import { buildMaterialPrepViewModel } from './material-prep-model'
-import { buildOriginalCutOrderViewModel, type OriginalCutOrderRow } from './original-orders-model'
-import { buildProductionProgressRows } from './production-progress-model'
+} from './fei-tickets-model.ts'
+import type { MarkerSpreadingStore } from './marker-spreading-model.ts'
+import { buildMaterialPrepViewModel } from './material-prep-model.ts'
+import { buildOriginalCutOrderViewModel, type OriginalCutOrderRow } from './original-orders-model.ts'
+import { buildProductionProgressRows } from './production-progress-model.ts'
 import {
   buildReplenishmentViewModel,
   type ReplenishmentFollowupAction,
   type ReplenishmentImpactPlan,
   type ReplenishmentReview,
-} from './replenishment-model'
-import { buildSampleWarehouseViewModel } from './sample-warehouse-model'
+} from './replenishment-model.ts'
+import { buildSampleWarehouseViewModel } from './sample-warehouse-model.ts'
 import {
   buildSpecialProcessViewModel,
   type BindingStripProcessPayload,
@@ -29,22 +29,22 @@ import {
   type SpecialProcessFollowupAction,
   type SpecialProcessOrder,
   type SpecialProcessScopeLine,
-} from './special-processes-model'
+} from './special-processes-model.ts'
 import {
   buildSummaryDetailPanelData,
   buildCuttingSummaryViewModel,
   type CuttingSummaryBuildOptions,
   type CuttingSummaryDetailPanelData,
   type CuttingSummaryViewModel,
-} from './summary-model'
+} from './summary-model.ts'
 import {
   buildSystemSeedTransferBagStore,
   buildTransferBagViewModel,
   mergeTransferBagStores,
   type TransferBagStore,
-} from './transfer-bags-model'
-import { buildTransferBagReturnViewModel } from './transfer-bag-return-model'
-import type { MergeBatchItem, MergeBatchRecord, MergeBatchStatus } from './merge-batches-model'
+} from './transfer-bags-model.ts'
+import { buildTransferBagReturnViewModel } from './transfer-bag-return-model.ts'
+import type { MergeBatchItem, MergeBatchRecord, MergeBatchStatus } from './merge-batches-model.ts'
 
 export interface FcsCuttingSummaryProjection {
   snapshot: CuttingDomainSnapshot

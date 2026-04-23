@@ -1,5 +1,5 @@
-import { appStore } from '../../../state/store'
-import { escapeHtml } from '../../../utils'
+import { appStore } from '../../../state/store.ts'
+import { escapeHtml } from '../../../utils.ts'
 import {
   buildSpecialCraftTaskDetailPath,
   getSpecialCraftOperationById,
@@ -17,7 +17,7 @@ import {
   getCanonicalCuttingMeta,
   isCuttingAliasPath,
   renderCuttingPageHeader,
-} from './meta'
+} from './meta.ts'
 
 type ReturnStatusFilter = '全部' | '待回仓' | '回仓途中' | '已回仓' | '差异' | '异议中'
 

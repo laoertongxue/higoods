@@ -8,6 +8,7 @@ import {
 } from './factory-internal-warehouse.ts'
 import { mockFactories } from './factory-mock-data.ts'
 import { listCuttingSewingDispatchBatches, listCuttingSewingDispatchOrders, listCuttingSewingTransferBags } from './cutting/sewing-dispatch.ts'
+import { listPdaHandoverHeads } from './pda-handover-events.ts'
 
 export interface FactoryMobileWarehouseOverview {
   factoryId: string
@@ -23,6 +24,8 @@ export interface FactoryMobileWarehouseOverview {
   stocktakeCount: number
   differenceCount: number
   objectionCount: number
+  pickupCompletedOrderCount: number
+  handoutCompletedOrderCount: number
   stocktakeWaitReviewCount: number
   stocktakeAdjustedCount: number
   transferBagPackTaskCount: number
@@ -83,6 +86,7 @@ export function getFactoryMobileWarehouseOverview(factoryId: string, factoryName
   const stocktakeOrders = listFactoryWarehouseStocktakeOrders().filter((item) => item.factoryId === factoryId)
 
   const summary = getFactoryWarehouseSummary({ factoryId, timeRange: '7D' })
+  const handoverHeads = listPdaHandoverHeads().filter((item) => item.factoryId === factoryId)
   const packTasks = getFactoryMobileTransferBagPackTasks(factoryId)
   const receiveTasks = getFactoryMobileTransferBagReceiveTasks(factoryId)
   const sewingLightweight = isSewingFactory(factoryId)
@@ -101,6 +105,8 @@ export function getFactoryMobileWarehouseOverview(factoryId: string, factoryName
     stocktakeCount: stocktakeOrders.filter((item) => item.status === '盘点中' || item.status === '待确认').length,
     differenceCount: sewingLightweight ? receiveTasks.filter((item) => item.packStatus === '差异' || item.status === '差异').length : summary.abnormalCount + summary.stocktakeDifferenceCount,
     objectionCount: sewingLightweight ? receiveTasks.filter((item) => item.packStatus === '异议中').length : waitHandoverItems.filter((item) => item.status === '异议中').length + outboundRecords.filter((item) => item.status === '异议中').length,
+    pickupCompletedOrderCount: handoverHeads.filter((item) => item.headType === 'PICKUP' && item.completionStatus === 'COMPLETED').length,
+    handoutCompletedOrderCount: handoverHeads.filter((item) => item.headType === 'HANDOUT' && item.completionStatus === 'COMPLETED').length,
     stocktakeWaitReviewCount: sewingLightweight ? 0 : summary.stocktakeWaitReviewCount,
     stocktakeAdjustedCount: sewingLightweight ? 0 : summary.stocktakeAdjustedCount,
     transferBagPackTaskCount: packTasks.length,

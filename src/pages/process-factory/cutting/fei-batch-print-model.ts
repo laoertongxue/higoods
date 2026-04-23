@@ -7,7 +7,7 @@ import {
   type FeiTicketPrintJob,
   type FeiTicketsContext,
   type OriginalCutOrderTicketOwner,
-} from './fei-tickets-model'
+} from './fei-tickets-model.ts'
 import {
   buildCuttingTraceabilityId,
 } from '../../../data/fcs/cutting/qr-codes.ts'

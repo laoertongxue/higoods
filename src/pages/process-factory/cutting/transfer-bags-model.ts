@@ -29,15 +29,15 @@ import {
   getFactoryMasterRecordById,
   listSewingFactoryMasterRecords,
 } from '../../../data/fcs/factory-master-store.ts'
-import { FEI_TICKET_DEMO_CASE_IDS, type FeiTicketLabelRecord } from './fei-tickets-model'
-import type { MergeBatchRecord } from './merge-batches-model'
+import { FEI_TICKET_DEMO_CASE_IDS, type FeiTicketLabelRecord } from './fei-tickets-model.ts'
+import type { MergeBatchRecord } from './merge-batches-model.ts'
 import {
   buildSpreadingTraceAnchors,
   findSpreadingTraceAnchor,
   type MarkerSpreadingStore,
   type SpreadingTraceAnchor,
-} from './marker-spreading-model'
-import type { OriginalCutOrderRow } from './original-orders-model'
+} from './marker-spreading-model.ts'
+import type { OriginalCutOrderRow } from './original-orders-model.ts'
 
 const numberFormatter = new Intl.NumberFormat('zh-CN')
 const LEGACY_TRANSFER_QR_FIELD = ['qr', 'Payload'].join('') as const

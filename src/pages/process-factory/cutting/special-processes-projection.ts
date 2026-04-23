@@ -8,8 +8,8 @@ import {
   type SpecialProcessFollowupAction,
   type SpecialProcessOrder,
   type SpecialProcessScopeLine,
-} from './special-processes-model'
-import { buildExecutionPrepProjectionContext } from './execution-prep-projection-helpers'
+} from './special-processes-model.ts'
+import { buildExecutionPrepProjectionContext } from './execution-prep-projection-helpers.ts'
 
 export interface SpecialProcessesProjection {
   snapshot: CuttingDomainSnapshot

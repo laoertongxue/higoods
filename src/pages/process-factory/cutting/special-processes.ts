@@ -2,7 +2,7 @@ import {
   buildSpecialCraftTaskOrdersPath,
   listEnabledSpecialCraftOperationDefinitions,
 } from '../../../data/fcs/special-craft-operations.ts'
-import { escapeHtml } from '../../../utils'
+import { escapeHtml } from '../../../utils.ts'
 
 export function handleCraftCuttingSpecialProcessesEvent(_target: HTMLElement): boolean {
   return false

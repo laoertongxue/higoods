@@ -112,7 +112,9 @@ assertIncludes(packageSource, 'check:cutting-sewing-dispatch', 'package.json 缺
 assert(fs.existsSync(resolveRepoPath('scripts/check-cutting-sewing-dispatch.ts')), '缺少裁片发料检查脚本')
 assertIncludes(packageSource, 'check:progress-statistics-linkage', 'package.json 缺少统计与进度联动检查命令')
 assertIncludes(packageSource, 'check:transfer-bag-mobile-closed-loop', 'package.json 缺少中转袋移动端闭环检查命令')
+assertIncludes(packageSource, 'check:menu-visibility-test-factory-and-default-views', 'package.json 缺少菜单可见性、测试工厂与默认展示收边检查命令')
 assert(fs.existsSync(resolveRepoPath('scripts/check-progress-statistics-linkage.ts')), '缺少统计与进度联动检查脚本')
+assert(fs.existsSync(resolveRepoPath('scripts/check-menu-visibility-test-factory-and-default-views.ts')), '缺少菜单可见性、测试工厂与默认展示收边检查脚本')
 assertIncludes(packageSource, 'check:special-craft-task-and-fei-flow-deepening', 'package.json 缺少特殊工艺任务与菲票流转深化检查命令')
 assert(fs.existsSync(resolveRepoPath('scripts/check-special-craft-task-and-fei-flow-deepening.ts')), '缺少特殊工艺任务与菲票流转深化检查脚本')
 assertIncludes(packageSource, 'check:fcs-inactive-process-craft-usage', 'package.json 缺少停用工序工艺核查命令')
@@ -347,6 +349,16 @@ const progressStatisticsSource = [
   read('src/pages/process-factory/special-craft/statistics.ts'),
   read('src/pages/factory-internal-warehouse.ts'),
   read('src/pages/pda-warehouse-shared.ts'),
+].join('\n')
+const menuVisibilitySource = [
+  read('src/data/app-shell-config.ts'),
+  read('src/data/fcs/special-craft-operations.ts'),
+  read('src/data/fcs/factory-master-store.ts'),
+  read('src/data/fcs/factory-mock-data.ts'),
+  read('src/data/fcs/capacity-calendar.ts'),
+  read('src/pages/process-factory/special-craft/shared.ts'),
+  read('src/pages/factory-profile.ts'),
+  read('src/pages/factory-capacity-profile.ts'),
 ].join('\n')
 const legacyWarehouseCopyPattern = new RegExp(
   [joinText(['来', '料仓']), joinText(['半成品', '仓'])].map((token) => escapeRegExp(token)).join('|'),
@@ -592,11 +604,22 @@ assertIncludes(progressStatisticsSource, 'buildProductionProgressSnapshot', '统
 assertIncludes(progressStatisticsSource, 'buildSewingDispatchProgressSnapshot', '统计与进度联动缺少裁片发料进度聚合')
 assertIncludes(progressStatisticsSource, '统计结果只作为只读投影，不作为状态源头', '统计结果不得成为状态源头')
 assertIncludes(progressStatisticsSource, '特殊工艺未回仓', '统计联动必须保留特殊工艺未回仓阻塞')
+assertIncludes(progressStatisticsSource, 'includeTestFactories', '统计联动缺少测试工厂排除开关')
+assertIncludes(progressStatisticsSource, 'sortProductionProgressByDefaultDueDate', '统计联动缺少默认交期排序 helper')
 assertNoMatch(progressStatisticsSource, /未知原因|系统异常|其他原因/, '统计联动阻塞原因不应使用不可解释口径')
 assertNoMatch(progressStatisticsSource, autoSchedulePattern, '统计联动不应新增排程或派单')
 assertNoMatch(progressStatisticsSource, chartLibraryPattern, '统计联动不应新增图表库')
 assertNoMatch(progressStatisticsSource, noApiI18nPattern, '统计联动不应新增 API 或多语言')
 assertNoMatch(progressStatisticsSource, mobileWarehouseNoWmsPattern, '统计联动不应扩展完整 WMS')
+assertIncludes(menuVisibilitySource, 'buildSpecialCraftMenuGroups()', 'PFOS 全局特殊工艺菜单 helper 缺失')
+assertIncludes(menuVisibilitySource, 'buildSpecialCraftMenuGroupsForFactory', '工厂上下文特殊工艺菜单 helper 缺失')
+assertIncludes(menuVisibilitySource, 'canFactorySeeSpecialCraftOperation', '特殊工艺菜单可见性 helper 缺失')
+assertIncludes(menuVisibilitySource, 'ID-F090', '缺少全能力测试工厂固定 ID')
+assertIncludes(menuVisibilitySource, 'isTestFactory', '测试工厂缺少 isTestFactory 标识')
+assertIncludes(menuVisibilitySource, '测试工厂', '测试工厂页面标签缺失')
+assertIncludes(menuVisibilitySource, 'listBusinessFactoryMasterRecords', '默认业务工厂过滤 helper 缺失')
+assertNoMatch(menuVisibilitySource, /specialCraft(Menu|Operation).*(Acl|Permission)|factorySpecialCraftAcl|specialCraftRoleGuard/, '不得新增第二套菜单权限系统')
+assertNoMatch(menuVisibilitySource, /const specialCraftMenuGroups: MenuGroup\[] = buildSpecialCraftMenuGroupsForFactory/, '不得把 PFOS 全局特殊工艺菜单误改为工厂过滤版本')
 
 console.log(
   JSON.stringify(
@@ -613,6 +636,7 @@ console.log(
       特殊工艺一级菜单: '通过',
       裁床特殊工艺发料回仓: '通过',
       裁片统一发车缝: '通过',
+      菜单可见性与测试工厂: '通过',
     },
     null,
     2,

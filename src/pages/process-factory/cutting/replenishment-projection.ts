@@ -4,8 +4,8 @@ import {
   type ReplenishmentFollowupAction,
   type ReplenishmentImpactPlan,
   type ReplenishmentReview,
-} from './replenishment-model'
-import { buildExecutionPrepProjectionContext } from './execution-prep-projection-helpers'
+} from './replenishment-model.ts'
+import { buildExecutionPrepProjectionContext } from './execution-prep-projection-helpers.ts'
 
 export interface ReplenishmentProjection {
   snapshot: CuttingDomainSnapshot

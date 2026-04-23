@@ -1,4 +1,4 @@
-import type { CuttingNavigationTarget } from './navigation-context'
+import type { CuttingNavigationTarget } from './navigation-context.ts'
 
 export interface CuttingNavigationSpecItem {
   sourcePageKey: string

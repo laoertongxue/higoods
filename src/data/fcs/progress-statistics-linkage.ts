@@ -1,4 +1,5 @@
 import { productionOrders, type ProductionOrder } from './production-orders.ts'
+import { getFactoryMasterRecordById } from './factory-master-store.ts'
 import { cuttingMaterialPrepGroups } from './cutting/material-prep.ts'
 import { listGeneratedFeiTicketsByProductionOrderId } from './cutting/generated-fei-tickets.ts'
 import {
@@ -28,13 +29,27 @@ import {
 } from './pda-handover-events.ts'
 import {
   getSpecialCraftTasksByProductionOrder,
+  listSpecialCraftTaskWorkOrderLines,
+  listSpecialCraftTaskWorkOrders,
   listSpecialCraftTaskOrders,
   type SpecialCraftTaskStatus,
 } from './special-craft-task-orders.ts'
+import { getSpecialCraftOperationById } from './special-craft-operations.ts'
 
 // 统计结果只作为只读投影，不作为状态源头。
 const DEMO_TODAY = '2026-04-23'
 const SEWING_FACTORY_TYPES = new Set(['CENTRAL_GARMENT', 'SATELLITE_SEWING', 'THIRD_SEWING'])
+const PROGRESS_URGENCY_SORT_WEIGHT: Record<string, number> = {
+  十万火急: 4,
+  '紧急 A': 3,
+  '紧急 B': 2,
+  C: 1,
+  D: 0,
+}
+
+export interface ProgressStatisticsBuildOptions {
+  includeTestFactories?: boolean
+}
 
 export interface ProgressBlockingReason {
   reasonId: string
@@ -67,8 +82,17 @@ export interface ProductionProgressSnapshot {
   cuttingWaitHandoverStatus: '未入仓' | '部分入仓' | '已入裁床厂待交出仓'
   specialCraftStatus: '无特殊工艺' | '待发料' | '加工中' | '待回仓' | '已回仓' | '差异' | '异议中'
   specialCraftReturnStatus: '不需要回仓' | '未回仓' | '部分回仓' | '已回仓' | '差异' | '异议中'
+  specialCraftTargetObjectSummary: string[]
+  specialCraftWorkOrderCount: number
+  specialCraftCurrentQty: number
+  specialCraftScrapQty: number
+  specialCraftDamageQty: number
+  specialCraftDifferenceWarning: boolean
   sewingDispatchStatus: '未发料' | '部分发料' | '已全部发料' | '差异' | '异议中'
   sewingReceiveStatus: '未回写' | '部分回写' | '已回写' | '差异' | '异议中'
+  pickupOrderCompleted: boolean
+  handoutOrderCompleted: boolean
+  transferBagCombinedWritebackStatus: string
   handoverStatus: '无交接' | '待回写' | '已回写' | '差异' | '异议中'
   differenceStatus: '无差异' | '差异'
   objectionStatus: '无异议' | '异议中'
@@ -104,6 +128,18 @@ export interface CuttingProgressSnapshot {
   specialCraftDispatchProgress: CuttingProgressMetric
   specialCraftReturnProgress: CuttingProgressMetric
   sewingDispatchProgress: CuttingProgressMetric
+  specialCraftCurrentQty: number
+  specialCraftScrapQty: number
+  specialCraftDamageQty: number
+  specialCraftDifferenceWarning: boolean
+  pickupOrderCompleted: boolean
+  handoutOrderCompleted: boolean
+  transferBagPackStatus: string
+  transferBagCombinedWritebackStatus: string
+  transferBagBagDifferenceCount: number
+  transferBagFeiTicketDifferenceCount: number
+  bundleLengthCmValues: number[]
+  bundleWidthCmValues: number[]
   urgencyLevel: string
   blockingReasons: ProgressBlockingReason[]
   canCreateSewingDispatchBatch: boolean
@@ -118,6 +154,9 @@ export interface SpecialCraftProgressSnapshot {
   factoryName: string
   productionOrderId: string
   productionOrderNo: string
+  targetObjectSummary: string[]
+  supportedTargetObjectSummary: string[]
+  workOrderCount: number
   taskCount: number
   planQty: number
   receivedQty: number
@@ -139,6 +178,9 @@ export interface SpecialCraftProgressSnapshot {
   scrapQty: number
   damageQty: number
   currentQty: number
+  bundleWidthCmValues: number[]
+  bundleLengthCmValues: number[]
+  stripCountTotal: number
   statusDistribution: Record<SpecialCraftTaskStatus, number>
   updatedAt: string
 }
@@ -158,6 +200,8 @@ export interface FactoryWarehouseProgressSnapshot {
   inboundDifferenceCount: number
   outboundDifferenceCount: number
   objectionCount: number
+  pickupCompletedOrderCount: number
+  handoutCompletedOrderCount: number
   stocktakeDifferenceCount: number
   stocktakeWaitReviewCount: number
   stocktakeAdjustedCount: number
@@ -176,6 +220,9 @@ export interface HandoverProgressSnapshot {
   submittedQty: number
   receiverWrittenQty: number
   differenceQty: number
+  pickupCompletedOrderCount: number
+  handoutCompletedOrderCount: number
+  receiverClosedCount: number
   waitWritebackCount: number
   writtenBackCount: number
   differenceCount: number
@@ -194,13 +241,24 @@ export interface SewingDispatchProgressSnapshot {
   dispatchBatchCount: number
   transferOrderCount: number
   transferBagCount: number
+  contentItemCount: number
+  contentFeiTicketCount: number
+  contentMaterialLineCount: number
+  mixedTransferBagCount: number
+  packedTransferBagCount: number
+  receivedTransferBagCount: number
+  receivedFeiTicketCount: number
+  scannedReceivedTransferBagCount: number
   completedTransferBagCount: number
   dispatchedTransferBagCount: number
   writtenBackTransferBagCount: number
   bagWritebackLineCount: number
   feiTicketWritebackLineCount: number
   partialWrittenBackTransferBagCount: number
+  partialWritebackTransferBagCount: number
   differenceTransferBagCount: number
+  bagDifferenceCount: number
+  feiTicketDifferenceCount: number
   objectionTransferBagCount: number
   canCreateNextBatch: boolean
   blockingReasons: string[]
@@ -228,6 +286,44 @@ function unique(values: string[]): string[] {
   return Array.from(new Set(values.filter(Boolean)))
 }
 
+function shouldIncludeFactoryInSnapshots(
+  factoryId: string | undefined,
+  options: ProgressStatisticsBuildOptions = {},
+): boolean {
+  if (!factoryId || options.includeTestFactories) return true
+  return !getFactoryMasterRecordById(factoryId)?.isTestFactory
+}
+
+function shouldIncludeOrderInSnapshots(
+  order: ProductionOrder,
+  options: ProgressStatisticsBuildOptions = {},
+): boolean {
+  return shouldIncludeFactoryInSnapshots(order.mainFactoryId, options)
+}
+
+export function compareProductionProgressByDefaultDueDate<
+  T extends { dueDate?: string; urgencyLevel?: string; productionOrderNo?: string },
+>(left: T, right: T): number {
+  const leftDueDate = left.dueDate || ''
+  const rightDueDate = right.dueDate || ''
+  if (leftDueDate && rightDueDate && leftDueDate !== rightDueDate) {
+    return leftDueDate.localeCompare(rightDueDate)
+  }
+  if (leftDueDate && !rightDueDate) return -1
+  if (!leftDueDate && rightDueDate) return 1
+  const urgencyCompare =
+    (PROGRESS_URGENCY_SORT_WEIGHT[right.urgencyLevel || ''] ?? -1)
+    - (PROGRESS_URGENCY_SORT_WEIGHT[left.urgencyLevel || ''] ?? -1)
+  if (urgencyCompare !== 0) return urgencyCompare
+  return String(left.productionOrderNo || '').localeCompare(String(right.productionOrderNo || ''), 'zh-CN')
+}
+
+export function sortProductionProgressByDefaultDueDate<
+  T extends { dueDate?: string; urgencyLevel?: string; productionOrderNo?: string },
+>(rows: T[]): T[] {
+  return [...rows].sort(compareProductionProgressByDefaultDueDate)
+}
+
 function totalOrderQty(order: ProductionOrder): number {
   return sum(order.demandSnapshot.skuLines.map((line) => line.qty))
 }
@@ -238,6 +334,63 @@ function getStyleNo(order: ProductionOrder): string {
 
 function getStyleName(order: ProductionOrder): string {
   return order.demandSnapshot.spuName || order.legacyOrderNo || order.productionOrderNo
+}
+
+function mapSupportedTargetObjectLabel(value: string): string {
+  if (value === 'CUT_PIECE') return '已裁部位'
+  if (value === 'FULL_FABRIC') return '完整面料'
+  return value
+}
+
+function getTechPackSpecialCraftSourceSummary(order: ProductionOrder): {
+  selectedTargetObjectSummary: string[]
+  supportedTargetObjectSummary: string[]
+  bundleLengthCmValues: number[]
+  bundleWidthCmValues: number[]
+} {
+  const cutPieceCrafts = (order.techPackSnapshot?.cutPieceParts ?? []).flatMap((part) => part.specialCrafts ?? [])
+  const patternPieceCrafts = (order.techPackSnapshot?.patternFiles ?? [])
+    .flatMap((file) => file.pieceRows ?? [])
+    .flatMap((row) => row.specialCrafts ?? [])
+  const allCrafts = [...cutPieceCrafts, ...patternPieceCrafts]
+  const selectedTargetObjectSummary = unique(
+    allCrafts
+      .map((craft) => craft.selectedTargetObject)
+      .filter((value): value is string => Boolean(value)),
+  )
+  const supportedTargetObjectSummary = unique(
+    allCrafts.flatMap((craft) => [
+      ...((craft.supportedTargetObjectLabels ?? []).filter(Boolean)),
+      ...((craft.supportedTargetObjects ?? []).map(mapSupportedTargetObjectLabel).filter(Boolean)),
+    ]),
+  )
+  const bundleLengthCmValues = unique(
+    [
+      ...(order.techPackSnapshot?.cutPieceParts ?? []).map((part) => `${part.bundleLengthCm ?? ''}`),
+      ...(order.techPackSnapshot?.patternFiles ?? [])
+        .flatMap((file) => file.pieceRows ?? [])
+        .map((row) => `${(row as { bundleLengthCm?: number }).bundleLengthCm ?? ''}`),
+    ].filter(Boolean),
+  )
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value))
+  const bundleWidthCmValues = unique(
+    [
+      ...(order.techPackSnapshot?.cutPieceParts ?? []).map((part) => `${part.bundleWidthCm ?? ''}`),
+      ...(order.techPackSnapshot?.patternFiles ?? [])
+        .flatMap((file) => file.pieceRows ?? [])
+        .map((row) => `${(row as { bundleWidthCm?: number }).bundleWidthCm ?? ''}`),
+    ].filter(Boolean),
+  )
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value))
+
+  return {
+    selectedTargetObjectSummary,
+    supportedTargetObjectSummary,
+    bundleLengthCmValues,
+    bundleWidthCmValues,
+  }
 }
 
 function getDueDate(order: ProductionOrder): string {
@@ -333,6 +486,21 @@ export function buildSewingDispatchProgressSnapshot(order: ProductionOrder): Sew
   const dispatchOrders = listCuttingSewingDispatchOrders().filter((item) => item.productionOrderId === order.productionOrderId)
   const dispatchBatches = listCuttingSewingDispatchBatches().filter((item) => item.productionOrderId === order.productionOrderId)
   const transferBags = listCuttingSewingTransferBags().filter((item) => item.productionOrderId === order.productionOrderId)
+  const bagWritebackLineCount = transferBags.filter((bag) => bag.receivedAt || bag.packStatus === '已扫码接收' || bag.packStatus === '已回写').length
+  const feiTicketWritebackLineCount = transferBags.reduce((total, bag) => total + (bag.receivedFeiTicketCount || 0), 0)
+  const bagDifferenceCount = transferBags.filter((bag) =>
+    bag.bagDifferenceReason
+    || bag.packStatus === '差异'
+    || bag.status === '差异',
+  ).length
+  const feiTicketDifferenceCount = dispatchBatches.reduce((total, batch) => {
+    const handoverRecord = batch.handoverRecordId
+      ? listPdaHandoverHeads()
+          .flatMap((head) => getPdaHandoverRecordsByHead(head.handoverId))
+          .find((record) => record.recordId === batch.handoverRecordId)
+      : undefined
+    return total + ((handoverRecord?.feiTicketWritebackLines || []).filter((line) => line.status === '差异').length)
+  }, 0)
   return {
     snapshotId: `SPD-${order.productionOrderId}`,
     productionOrderId: order.productionOrderId,
@@ -344,13 +512,24 @@ export function buildSewingDispatchProgressSnapshot(order: ProductionOrder): Sew
     dispatchBatchCount: progress.dispatchBatchCount,
     transferOrderCount: dispatchBatches.length,
     transferBagCount: progress.transferBagCount,
+    contentItemCount: sum(transferBags.map((bag) => bag.contentItemCount || 0)),
+    contentFeiTicketCount: sum(transferBags.map((bag) => bag.contentFeiTicketCount || 0)),
+    contentMaterialLineCount: sum(transferBags.map((bag) => bag.contentMaterialLineCount || 0)),
+    mixedTransferBagCount: transferBags.filter((bag) => bag.bagMode === '混装').length,
+    packedTransferBagCount: transferBags.filter((bag) => ['已装袋', '已交出', '已扫码接收', '部分回写', '已回写', '差异', '异议中'].includes(bag.packStatus)).length,
+    receivedTransferBagCount: transferBags.filter((bag) => bag.packStatus === '已扫码接收' || bag.packStatus === '部分回写' || bag.packStatus === '已回写' || Boolean(bag.receivedAt)).length,
+    receivedFeiTicketCount: sum(transferBags.map((bag) => bag.receivedFeiTicketCount || 0)),
+    scannedReceivedTransferBagCount: transferBags.filter((bag) => bag.packStatus === '已扫码接收' || Boolean(bag.receivedAt)).length,
     completedTransferBagCount: transferBags.filter((bag) => bag.completeStatus === '已配齐').length,
     dispatchedTransferBagCount: progress.dispatchedTransferBagCount,
     writtenBackTransferBagCount: progress.writtenBackTransferBagCount,
-    bagWritebackLineCount: transferBags.filter((bag) => bag.receivedAt || bag.packStatus === '已扫码接收' || bag.packStatus === '已回写').length,
-    feiTicketWritebackLineCount: transferBags.reduce((total, bag) => total + (bag.receivedFeiTicketCount || 0), 0),
+    bagWritebackLineCount,
+    feiTicketWritebackLineCount,
     partialWrittenBackTransferBagCount: transferBags.filter((bag) => bag.packStatus === '部分回写').length,
+    partialWritebackTransferBagCount: transferBags.filter((bag) => bag.packStatus === '部分回写').length,
     differenceTransferBagCount: progress.differenceTransferBagCount,
+    bagDifferenceCount,
+    feiTicketDifferenceCount,
     objectionTransferBagCount: progress.objectionTransferBagCount,
     canCreateNextBatch: progress.canCreateNextBatch,
     blockingReasons: progress.blockingReasons,
@@ -392,6 +571,9 @@ export function buildHandoverProgressSnapshot(order: ProductionOrder): HandoverP
     submittedQty: sum(records.map((record) => record.submittedQty || record.plannedQty || 0)),
     receiverWrittenQty: sum(records.map((record) => record.receiverWrittenQty || record.warehouseWrittenQty || 0)) + sum(writebacks.map((item) => item.writtenQty)),
     differenceQty: sum(records.map((record) => Math.abs(record.diffQty || 0))) + sum(writebacks.map((item) => Math.abs(item.diffQty || 0))),
+    pickupCompletedOrderCount: heads.filter((head) => head.headType === 'PICKUP' && head.completionStatus === 'COMPLETED').length,
+    handoutCompletedOrderCount: heads.filter((head) => head.headType === 'HANDOUT' && head.completionStatus === 'COMPLETED').length,
+    receiverClosedCount: heads.filter((head) => head.headType === 'HANDOUT' && Boolean(head.receiverClosedAt)).length,
     waitWritebackCount: records.filter((record) => typeof record.receiverWrittenQty !== 'number' && typeof record.warehouseWrittenQty !== 'number').length,
     writtenBackCount: records.filter((record) => typeof record.receiverWrittenQty === 'number' || typeof record.warehouseWrittenQty === 'number').length,
     differenceCount: records.filter((record) => (record.diffQty || 0) !== 0).length + writebacks.filter((item) => item.diffQty !== 0).length,
@@ -508,6 +690,23 @@ export function buildProductionProgressSnapshot(order: ProductionOrder): Product
   const handoverSnapshot = buildHandoverProgressSnapshot(order)
   const specialCraftReturnStatus = resolveSpecialCraftReturnStatus(order)
   const blockingReasons = buildProgressBlockingReasons(order)
+  const specialCraftTasks = getSpecialCraftTasksByProductionOrder(order.productionOrderId)
+  const specialCraftBindings = listCuttingSpecialCraftFeiTicketBindings().filter((binding) => binding.productionOrderId === order.productionOrderId)
+  const specialCraftWorkOrders = listSpecialCraftTaskWorkOrders().filter((workOrder) => workOrder.productionOrderId === order.productionOrderId)
+  const techPackSpecialCraftSource = getTechPackSpecialCraftSourceSummary(order)
+  const transferBagCombinedWritebackStatus = (() => {
+    const recordStatuses = listPdaHandoverHeads()
+      .filter((head) => head.productionOrderNo === order.productionOrderNo)
+      .flatMap((head) => getPdaHandoverRecordsByHead(head.handoverId))
+      .map((record) => record.combinedWritebackStatus)
+      .filter((status): status is string => Boolean(status))
+    if (recordStatuses.includes('异议中')) return '异议中'
+    if (recordStatuses.includes('差异')) return '差异'
+    if (recordStatuses.includes('部分回写')) return '部分回写'
+    if (recordStatuses.includes('已回写')) return '已回写'
+    if (recordStatuses.includes('待回写')) return '待回写'
+    return '无交接'
+  })()
   const partialSnapshot = {
     snapshotId: `PPS-${order.productionOrderId}`,
     productionOrderId: order.productionOrderId,
@@ -524,8 +723,25 @@ export function buildProductionProgressSnapshot(order: ProductionOrder): Product
     cuttingWaitHandoverStatus: resolveCuttingWaitHandoverStatus(order),
     specialCraftStatus: resolveSpecialCraftStatus(order),
     specialCraftReturnStatus,
+    specialCraftTargetObjectSummary: unique([
+      ...specialCraftTasks.map((task) => task.targetObject),
+      ...techPackSpecialCraftSource.selectedTargetObjectSummary,
+    ]),
+    specialCraftWorkOrderCount: specialCraftWorkOrders.length,
+    specialCraftCurrentQty: Math.round(sum(specialCraftBindings.map((binding) => binding.currentQty)) * 100) / 100,
+    specialCraftScrapQty: Math.round(sum(specialCraftBindings.map((binding) => binding.cumulativeScrapQty)) * 100) / 100,
+    specialCraftDamageQty: Math.round(sum(specialCraftBindings.map((binding) => binding.cumulativeDamageQty)) * 100) / 100,
+    specialCraftDifferenceWarning: specialCraftBindings.some((binding) =>
+      binding.receiveDifferenceStatus === '待处理'
+      || binding.receiveDifferenceStatus === '处理中'
+      || binding.returnDifferenceStatus === '待处理'
+      || binding.returnDifferenceStatus === '处理中',
+    ),
     sewingDispatchStatus: resolveSewingDispatchStatus(sewingSnapshot),
     sewingReceiveStatus: resolveSewingReceiveStatus(sewingSnapshot),
+    pickupOrderCompleted: handoverSnapshot.pickupCompletedOrderCount > 0,
+    handoutOrderCompleted: handoverSnapshot.handoutCompletedOrderCount > 0,
+    transferBagCombinedWritebackStatus,
     handoverStatus: resolveHandoverStatus(handoverSnapshot),
     differenceStatus: handoverSnapshot.differenceCount > 0 || sewingSnapshot.differenceTransferBagCount > 0 || specialCraftReturnStatus === '差异' ? '差异' : '无差异',
     objectionStatus: handoverSnapshot.objectionCount > 0 || sewingSnapshot.objectionTransferBagCount > 0 || specialCraftReturnStatus === '异议中' ? '异议中' : '无异议',
@@ -561,7 +777,13 @@ export function buildCuttingProgressSnapshot(order: ProductionOrder): CuttingPro
   const tickets = listGeneratedFeiTicketsByProductionOrderId(order.productionOrderId)
   const specialReturn = getCuttingSpecialCraftReturnStatusByProductionOrder(order.productionOrderId)
   const sewing = buildSewingDispatchProgressSnapshot(order)
+  const handover = buildHandoverProgressSnapshot(order)
   const blockingReasons = buildProgressBlockingReasons(order)
+  const specialCraftBindings = listCuttingSpecialCraftFeiTicketBindings().filter((binding) => binding.productionOrderId === order.productionOrderId)
+  const bundleLines = listSpecialCraftTaskWorkOrderLines().filter((line) =>
+    specialCraftBindings.some((binding) => binding.productionOrderId === order.productionOrderId && binding.workOrderId === line.workOrderId),
+  )
+  const techPackSpecialCraftSource = getTechPackSpecialCraftSourceSummary(order)
   const cuttingOrderNos = unique(prepRows.map((line) => line.cutPieceOrderNo).concat(tickets.map((ticket) => ticket.originalCutOrderNo)))
   return {
     snapshotId: `CPS-${order.productionOrderId}`,
@@ -580,6 +802,43 @@ export function buildCuttingProgressSnapshot(order: ProductionOrder): CuttingPro
     specialCraftDispatchProgress: metric(specialReturn.waitDispatchCount > 0 ? '待发料' : '已发料', specialReturn.totalNeedSpecialCraftFeiTickets, specialReturn.dispatchedCount, specialReturn.differenceCount, specialReturn.objectionCount),
     specialCraftReturnProgress: metric(resolveSpecialCraftReturnStatus(order), specialReturn.totalNeedSpecialCraftFeiTickets, specialReturn.returnedCount, specialReturn.differenceCount, specialReturn.objectionCount),
     sewingDispatchProgress: metric(resolveSewingDispatchStatus(sewing), sewing.totalProductionQty, sewing.cumulativeDispatchedGarmentQty, sewing.differenceTransferBagCount, sewing.objectionTransferBagCount),
+    specialCraftCurrentQty: Math.round(sum(specialCraftBindings.map((binding) => binding.currentQty)) * 100) / 100,
+    specialCraftScrapQty: Math.round(sum(specialCraftBindings.map((binding) => binding.cumulativeScrapQty)) * 100) / 100,
+    specialCraftDamageQty: Math.round(sum(specialCraftBindings.map((binding) => binding.cumulativeDamageQty)) * 100) / 100,
+    specialCraftDifferenceWarning: specialCraftBindings.some((binding) =>
+      binding.receiveDifferenceStatus === '待处理'
+      || binding.receiveDifferenceStatus === '处理中'
+      || binding.returnDifferenceStatus === '待处理'
+      || binding.returnDifferenceStatus === '处理中',
+    ),
+    pickupOrderCompleted: handover.pickupCompletedOrderCount > 0,
+    handoutOrderCompleted: handover.handoutCompletedOrderCount > 0,
+    transferBagPackStatus:
+      sewing.dispatchedTransferBagCount <= 0
+        ? '待装袋'
+        : sewing.packedTransferBagCount < sewing.transferBagCount
+          ? '装袋中'
+          : '已装袋',
+    transferBagCombinedWritebackStatus:
+      sewing.objectionTransferBagCount > 0
+        ? '异议中'
+        : sewing.bagDifferenceCount > 0 || sewing.feiTicketDifferenceCount > 0
+          ? '差异'
+          : sewing.partialWritebackTransferBagCount > 0
+            ? '部分回写'
+            : sewing.writtenBackTransferBagCount > 0
+              ? '已回写'
+              : '待回写',
+    transferBagBagDifferenceCount: sewing.bagDifferenceCount,
+    transferBagFeiTicketDifferenceCount: sewing.feiTicketDifferenceCount,
+    bundleLengthCmValues: unique([
+      ...bundleLines.map((line) => `${line.bundleLengthCm ?? ''}`),
+      ...techPackSpecialCraftSource.bundleLengthCmValues.map(String),
+    ]).filter(Boolean).map((value) => Number(value)).filter((value) => Number.isFinite(value)),
+    bundleWidthCmValues: unique([
+      ...bundleLines.map((line) => `${line.bundleWidthCm ?? ''}`),
+      ...techPackSpecialCraftSource.bundleWidthCmValues.map(String),
+    ]).filter(Boolean).map((value) => Number(value)).filter((value) => Number.isFinite(value)),
     urgencyLevel: resolveUrgencyLevel(order),
     blockingReasons,
     canCreateSewingDispatchBatch: buildProductionProgressSnapshot(order).canProceedToSewingDispatch,
@@ -600,12 +859,25 @@ const emptyStatusDistribution = (): Record<SpecialCraftTaskStatus, number> => ({
   异常: 0,
 })
 
-export function buildSpecialCraftProgressSnapshots(): SpecialCraftProgressSnapshot[] {
+export function buildSpecialCraftProgressSnapshots(options: ProgressStatisticsBuildOptions = {}): SpecialCraftProgressSnapshot[] {
   const tasks = listSpecialCraftTaskOrders()
   const bindings = listCuttingSpecialCraftFeiTicketBindings()
+  const workOrders = listSpecialCraftTaskWorkOrders()
+  const workOrderLines = listSpecialCraftTaskWorkOrderLines()
+  const productionOrderMap = new Map(productionOrders.map((order) => [order.productionOrderId, order] as const))
   const groups = new Map<string, SpecialCraftProgressSnapshot>()
 
   tasks.forEach((task) => {
+    const operation = getSpecialCraftOperationById(task.operationId)
+    const order = productionOrderMap.get(task.productionOrderId)
+    const techPackSpecialCraftSource = order
+      ? getTechPackSpecialCraftSourceSummary(order)
+      : {
+          selectedTargetObjectSummary: [],
+          supportedTargetObjectSummary: [],
+          bundleLengthCmValues: [],
+          bundleWidthCmValues: [],
+        }
     const key = [task.operationId, task.factoryId, task.productionOrderId].join('::')
     const existing = groups.get(key) || {
       snapshotId: `SCPS-${key}`,
@@ -615,6 +887,12 @@ export function buildSpecialCraftProgressSnapshots(): SpecialCraftProgressSnapsh
       factoryName: task.factoryName,
       productionOrderId: task.productionOrderId,
       productionOrderNo: task.productionOrderNo,
+      targetObjectSummary: [...techPackSpecialCraftSource.selectedTargetObjectSummary],
+      supportedTargetObjectSummary: unique([
+        ...(operation?.supportedTargetObjectLabels ?? []),
+        ...techPackSpecialCraftSource.supportedTargetObjectSummary,
+      ]),
+      workOrderCount: 0,
       taskCount: 0,
       planQty: 0,
       receivedQty: 0,
@@ -636,6 +914,9 @@ export function buildSpecialCraftProgressSnapshots(): SpecialCraftProgressSnapsh
       scrapQty: 0,
       damageQty: 0,
       currentQty: 0,
+      bundleWidthCmValues: [...techPackSpecialCraftSource.bundleWidthCmValues],
+      bundleLengthCmValues: [...techPackSpecialCraftSource.bundleLengthCmValues],
+      stripCountTotal: 0,
       statusDistribution: emptyStatusDistribution(),
       updatedAt: DEMO_TODAY,
     }
@@ -646,8 +927,35 @@ export function buildSpecialCraftProgressSnapshots(): SpecialCraftProgressSnapsh
     existing.completedQty += task.completedQty
     existing.waitHandoverQty += task.waitHandoverQty
     existing.abnormalCount += task.abnormalRecords.length + (task.abnormalStatus === '无异常' ? 0 : 1)
+    existing.targetObjectSummary = unique([...existing.targetObjectSummary, task.targetObject])
     existing.statusDistribution[task.status] += 1
     groups.set(key, existing)
+  })
+
+  workOrders.forEach((workOrder) => {
+    const key = [workOrder.operationId, workOrder.factoryId, workOrder.productionOrderId].join('::')
+    const existing = groups.get(key)
+    if (!existing) return
+    existing.workOrderCount += 1
+  })
+
+  workOrderLines.forEach((line) => {
+    const workOrder = workOrders.find((item) => item.workOrderId === line.workOrderId)
+    if (!workOrder) return
+    const key = [workOrder.operationId, workOrder.factoryId, workOrder.productionOrderId].join('::')
+    const existing = groups.get(key)
+    if (!existing) return
+    if (typeof line.bundleWidthCm === 'number' && line.bundleWidthCm > 0) {
+      existing.bundleWidthCmValues = unique([...existing.bundleWidthCmValues.map(String), String(line.bundleWidthCm)])
+        .map((value) => Number(value))
+        .filter((value) => Number.isFinite(value))
+    }
+    if (typeof line.bundleLengthCm === 'number' && line.bundleLengthCm > 0) {
+      existing.bundleLengthCmValues = unique([...existing.bundleLengthCmValues.map(String), String(line.bundleLengthCm)])
+        .map((value) => Number(value))
+        .filter((value) => Number.isFinite(value))
+    }
+    existing.stripCountTotal += line.stripCount || 0
   })
 
   bindings.forEach((binding) => {
@@ -684,12 +992,16 @@ export function buildSpecialCraftProgressSnapshots(): SpecialCraftProgressSnapsh
     snapshot.currentQty = Math.round(snapshot.currentQty * 100) / 100
   })
 
-  return Array.from(groups.values())
+  return Array.from(groups.values()).filter((snapshot) =>
+    shouldIncludeFactoryInSnapshots(snapshot.factoryId, options),
+  )
 }
 
-export function buildFactoryWarehouseProgressSnapshots(): FactoryWarehouseProgressSnapshot[] {
+export function buildFactoryWarehouseProgressSnapshots(options: ProgressStatisticsBuildOptions = {}): FactoryWarehouseProgressSnapshot[] {
+  const heads = listPdaHandoverHeads()
   return listFactoryInternalWarehouses()
     .filter((warehouse) => !SEWING_FACTORY_TYPES.has(warehouse.factoryKind))
+    .filter((warehouse) => shouldIncludeFactoryInSnapshots(warehouse.factoryId, options))
     .reduce<FactoryWarehouseProgressSnapshot[]>((result, warehouse) => {
       if (result.some((item) => item.factoryId === warehouse.factoryId)) return result
       const waitProcess = listFactoryWaitProcessStockItems().filter((item) => item.factoryId === warehouse.factoryId)
@@ -713,6 +1025,8 @@ export function buildFactoryWarehouseProgressSnapshots(): FactoryWarehouseProgre
         inboundDifferenceCount: inbound.filter((item) => item.differenceQty !== 0 || item.status === '差异待处理').length,
         outboundDifferenceCount: outbound.filter((item) => (item.differenceQty || 0) !== 0 || item.status === '差异').length,
         objectionCount: outbound.filter((item) => item.status === '异议中').length + waitHandover.filter((item) => item.status === '异议中').length,
+        pickupCompletedOrderCount: heads.filter((head) => head.factoryId === warehouse.factoryId && head.headType === 'PICKUP' && head.completionStatus === 'COMPLETED').length,
+        handoutCompletedOrderCount: heads.filter((head) => head.factoryId === warehouse.factoryId && head.headType === 'HANDOUT' && head.completionStatus === 'COMPLETED').length,
         stocktakeDifferenceCount: stocktake.reduce((count, order) => count + order.lineList.filter((line) => (line.differenceQty || 0) !== 0).length, 0),
         stocktakeWaitReviewCount: stocktakeReviews.filter((item) => item.reviewStatus !== '已调整').length,
         stocktakeAdjustedCount: stocktakeReviews.filter((item) => item.reviewStatus === '已调整').length,
@@ -743,36 +1057,42 @@ export function getProductionProgressSnapshotByOrder(productionOrderId: string):
   return order ? buildProductionProgressSnapshot(order) : undefined
 }
 
-export function getProductionProgressSnapshots(): ProductionProgressSnapshot[] {
-  return productionOrders.map((order) => buildProductionProgressSnapshot(order))
+export function getProductionProgressSnapshots(options: ProgressStatisticsBuildOptions = {}): ProductionProgressSnapshot[] {
+  return sortProductionProgressByDefaultDueDate(
+    productionOrders
+      .filter((order) => shouldIncludeOrderInSnapshots(order, options))
+      .map((order) => buildProductionProgressSnapshot(order)),
+  )
 }
 
-export function getCuttingProgressSnapshots(): CuttingProgressSnapshot[] {
-  return productionOrders.map((order) => buildCuttingProgressSnapshot(order))
+export function getCuttingProgressSnapshots(options: ProgressStatisticsBuildOptions = {}): CuttingProgressSnapshot[] {
+  return productionOrders
+    .filter((order) => shouldIncludeOrderInSnapshots(order, options))
+    .map((order) => buildCuttingProgressSnapshot(order))
 }
 
-export function getSpecialCraftProgressSnapshots(): SpecialCraftProgressSnapshot[] {
-  return buildSpecialCraftProgressSnapshots()
+export function getSpecialCraftProgressSnapshots(options: ProgressStatisticsBuildOptions = {}): SpecialCraftProgressSnapshot[] {
+  return buildSpecialCraftProgressSnapshots(options)
 }
 
-export function getFactoryWarehouseProgressSnapshots(): FactoryWarehouseProgressSnapshot[] {
-  return buildFactoryWarehouseProgressSnapshots()
+export function getFactoryWarehouseProgressSnapshots(options: ProgressStatisticsBuildOptions = {}): FactoryWarehouseProgressSnapshot[] {
+  return buildFactoryWarehouseProgressSnapshots(options)
 }
 
-export function getProgressStatisticsDashboard(): {
+export function getProgressStatisticsDashboard(options: ProgressStatisticsBuildOptions = {}): {
   kpiSummary: ProductionProgressKpiSummary
   productionSnapshots: ProductionProgressSnapshot[]
   cuttingSnapshots: CuttingProgressSnapshot[]
   specialCraftSnapshots: SpecialCraftProgressSnapshot[]
   factoryWarehouseSnapshots: FactoryWarehouseProgressSnapshot[]
 } {
-  const productionSnapshots = getProductionProgressSnapshots()
+  const productionSnapshots = getProductionProgressSnapshots(options)
   return {
     kpiSummary: buildProductionProgressKpiSummary(productionSnapshots),
     productionSnapshots,
-    cuttingSnapshots: getCuttingProgressSnapshots(),
-    specialCraftSnapshots: getSpecialCraftProgressSnapshots(),
-    factoryWarehouseSnapshots: getFactoryWarehouseProgressSnapshots(),
+    cuttingSnapshots: getCuttingProgressSnapshots(options),
+    specialCraftSnapshots: getSpecialCraftProgressSnapshots(options),
+    factoryWarehouseSnapshots: getFactoryWarehouseProgressSnapshots(options),
   }
 }
 

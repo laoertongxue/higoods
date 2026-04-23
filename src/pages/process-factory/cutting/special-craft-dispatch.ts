@@ -1,5 +1,5 @@
-import { appStore } from '../../../state/store'
-import { escapeHtml } from '../../../utils'
+import { appStore } from '../../../state/store.ts'
+import { escapeHtml } from '../../../utils.ts'
 import { mockFactories } from '../../../data/fcs/factory-mock-data.ts'
 import {
   buildSpecialCraftTaskDetailPath,
@@ -18,7 +18,7 @@ import {
   getCanonicalCuttingPath,
   isCuttingAliasPath,
   renderCuttingPageHeader,
-} from './meta'
+} from './meta.ts'
 
 type DispatchStatusFilter =
   | '全部'

@@ -1,4 +1,4 @@
-import { appStore } from '../../../state/store'
+import { appStore } from '../../../state/store.ts'
 
 export interface WarehouseNavigationPayload {
   originalOrders: Record<string, string | undefined>

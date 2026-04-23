@@ -10,42 +10,64 @@ import {
   buildSpecialCraftTaskOrdersPath,
   buildSpecialCraftWarehousePath,
   listEnabledSpecialCraftOperationDefinitions,
+  listVisibleSpecialCraftOperationsForFactory,
 } from './fcs/special-craft-operations.ts'
 
-const specialCraftMenuGroups: MenuGroup[] = [
-  {
-    title: '特殊工艺',
-    icon: 'Sparkles',
-    items: listEnabledSpecialCraftOperationDefinitions().map((operation) => {
-      const operationSlug = buildSpecialCraftOperationSlug(operation)
-      return {
-        key: `pfos-special-${operationSlug}`,
-        title: operation.operationName,
-        icon: 'Sparkles',
-        children: [
-          {
-            key: `pfos-special-${operationSlug}-tasks`,
-            title: `${operation.operationName}任务单`,
-            icon: 'ClipboardList',
-            href: buildSpecialCraftTaskOrdersPath(operation),
-          },
-          {
-            key: `pfos-special-${operationSlug}-warehouse`,
-            title: `${operation.operationName}仓库管理`,
-            icon: 'Warehouse',
-            href: buildSpecialCraftWarehousePath(operation),
-          },
-          {
-            key: `pfos-special-${operationSlug}-statistics`,
-            title: `${operation.operationName}统计`,
-            icon: 'BarChart3',
-            href: buildSpecialCraftStatisticsPath(operation),
-          },
-        ],
-      }
-    }),
-  } as MenuGroup & { icon: string },
-]
+function buildSpecialCraftMenuItems(factoryId?: string) {
+  const operations = factoryId
+    ? listVisibleSpecialCraftOperationsForFactory(factoryId)
+    : listEnabledSpecialCraftOperationDefinitions()
+  return operations.map((operation) => {
+    const operationSlug = buildSpecialCraftOperationSlug(operation)
+    return {
+      key: `pfos-special-${operationSlug}`,
+      title: operation.operationName,
+      icon: 'Sparkles',
+      children: [
+        {
+          key: `pfos-special-${operationSlug}-tasks`,
+          title: `${operation.operationName}任务单`,
+          icon: 'ClipboardList',
+          href: buildSpecialCraftTaskOrdersPath(operation),
+        },
+        {
+          key: `pfos-special-${operationSlug}-warehouse`,
+          title: `${operation.operationName}仓库管理`,
+          icon: 'Warehouse',
+          href: buildSpecialCraftWarehousePath(operation),
+        },
+        {
+          key: `pfos-special-${operationSlug}-statistics`,
+          title: `${operation.operationName}统计`,
+          icon: 'BarChart3',
+          href: buildSpecialCraftStatisticsPath(operation),
+        },
+      ],
+    }
+  })
+}
+
+export function buildSpecialCraftMenuGroups(): MenuGroup[] {
+  return [
+    {
+      title: '特殊工艺',
+      icon: 'Sparkles',
+      items: buildSpecialCraftMenuItems(),
+    } as MenuGroup & { icon: string },
+  ]
+}
+
+export function buildSpecialCraftMenuGroupsForFactory(factoryId: string): MenuGroup[] {
+  return [
+    {
+      title: '特殊工艺',
+      icon: 'Sparkles',
+      items: buildSpecialCraftMenuItems(factoryId),
+    } as MenuGroup & { icon: string },
+  ]
+}
+
+const specialCraftMenuGroups: MenuGroup[] = buildSpecialCraftMenuGroups()
 
 // 系统列表
 export const systems: System[] = [

@@ -25,6 +25,7 @@ import {
 } from './factory-capacity-profile-mock.ts'
 import {
   getFactoryMasterRecordById,
+  listBusinessFactoryMasterRecords,
   listFactoryMasterRecords,
 } from './factory-master-store.ts'
 import {
@@ -1090,7 +1091,7 @@ function shouldTrackDemand(task: RuntimeProcessTask): boolean {
 
 function resolveOverrideDisplayLabels(): Map<string, { processName?: string; craftName?: string }> {
   const map = new Map<string, { processName?: string; craftName?: string }>()
-  for (const factory of listFactoryMasterRecords()) {
+  for (const factory of listBusinessFactoryMasterRecords()) {
     for (const { row } of listFactoryCapacityEntries(factory.id)) {
       const key = `${row.processCode}::${row.craftCode}`
       if (!map.has(key)) {
@@ -1806,7 +1807,7 @@ export function buildCapacityCalendarData(): CapacityCalendarData {
     : fallbackDisplayDates()
 
   const activeCraftKeys = relevantCraftKeys.size > 0 ? relevantCraftKeys : new Set<string>()
-  for (const factory of listFactoryMasterRecords()) {
+  for (const factory of listBusinessFactoryMasterRecords()) {
     const entries = listFactoryCapacityEntries(factory.id)
     for (const { row, entry } of entries) {
       const craftKey = `${row.processCode}::${row.craftCode}`
@@ -2031,8 +2032,10 @@ export function buildFactoryCalendarData(input?: {
   processCode?: string
   craftCode?: string
   windowDays?: number
+  includeTestFactories?: boolean
 }): FactoryCalendarData {
-  const factoryOptions = listFactoryMasterRecords()
+  const includeTestFactories = input?.includeTestFactories === true || Boolean(input?.factoryId && getFactoryMasterRecordById(input.factoryId)?.isTestFactory)
+  const factoryOptions = listBusinessFactoryMasterRecords({ includeTestFactories })
     .sort((left, right) => {
       const leftKey = left.code || left.name
       const rightKey = right.code || right.name
@@ -2572,11 +2575,12 @@ export function buildCapacityBottleneckData(input?: {
   windowDays?: number
   processCode?: string
   craftCode?: string
+  includeTestFactories?: boolean
 }): CapacityBottleneckData {
   const windowDays = resolveFactoryCalendarWindowDays(input?.windowDays)
   const dates = buildFutureDateWindow(windowDays)
   const dateSet = new Set(dates)
-  const factories = listFactoryMasterRecords()
+  const factories = listBusinessFactoryMasterRecords({ includeTestFactories: input?.includeTestFactories === true })
   const taskMap = new Map(listRuntimeExecutionTasks().map((task) => [task.taskId, task] as const))
   const displayLabels = resolveOverrideDisplayLabels()
   const overrides = listCapacityCalendarOverrides()

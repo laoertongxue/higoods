@@ -1,9 +1,9 @@
-import { renderDetailDrawer as uiDetailDrawer } from '../../../components/ui'
-import type { CutPieceZoneCode } from '../../../data/fcs/cutting/warehouse-runtime'
-import { normalizeCutPieceWarehouseWritebackInput } from '../../../data/fcs/cutting/warehouse-writeback-inputs'
-import { submitCutPieceWarehouseWriteback } from '../../../domain/cutting-warehouse-writeback/bridge'
-import { appStore } from '../../../state/store'
-import { escapeHtml, formatDateTime } from '../../../utils'
+import { renderDetailDrawer as uiDetailDrawer } from '../../../components/ui/index.ts'
+import type { CutPieceZoneCode } from '../../../data/fcs/cutting/warehouse-runtime.ts'
+import { normalizeCutPieceWarehouseWritebackInput } from '../../../data/fcs/cutting/warehouse-writeback-inputs.ts'
+import { submitCutPieceWarehouseWriteback } from '../../../domain/cutting-warehouse-writeback/bridge.ts'
+import { appStore } from '../../../state/store.ts'
+import { escapeHtml, formatDateTime } from '../../../utils.ts'
 import {
   buildCutPieceWarehouseNavigationPayload,
   cutPieceHandoverStatusMeta,
@@ -16,19 +16,19 @@ import {
   type CutPieceWarehouseItem,
   type CutPieceWarehousePrefilter,
   type CutPieceWarehouseRiskKey,
-} from './cut-piece-warehouse-model'
-import { buildCutPieceWarehouseProjection } from './cut-piece-warehouse-projection'
+} from './cut-piece-warehouse-model.ts'
+import { buildCutPieceWarehouseProjection } from './cut-piece-warehouse-projection.ts'
 import {
   renderCompactKpiCard,
   renderStickyFilterShell,
   renderStickyTableScroller,
   renderWorkbenchFilterChip,
   renderWorkbenchStateBar,
-} from './layout.helpers'
-import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta'
+} from './layout.helpers.ts'
+import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta.ts'
 import {
   getWarehouseSearchParams,
-} from './warehouse-shared'
+} from './warehouse-shared.ts'
 import {
   buildCuttingDrillChipLabels,
   buildCuttingDrillSummary,
@@ -39,7 +39,7 @@ import {
   readCuttingDrillContextFromLocation,
   type CuttingDrillContext,
   type CuttingNavigationTarget,
-} from './navigation-context'
+} from './navigation-context.ts'
 
 type FilterField = 'keyword' | 'zoneCode' | 'cuttingGroup' | 'warehouseStatus' | 'risk'
 type DetailField = 'zoneCode' | 'locationCode' | 'note'

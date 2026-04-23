@@ -5,7 +5,7 @@
  * 避免菜单、页面头部和旧路由标题再次漂移。
  * alias 仅保留兼容旧入口；内部跳转优先使用 canonicalPath。
  */
-import { escapeHtml } from '../../../utils'
+import { escapeHtml } from '../../../utils.ts'
 
 export type CuttingCanonicalPageKey =
   | 'production-progress'

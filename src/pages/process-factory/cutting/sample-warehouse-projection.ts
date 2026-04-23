@@ -3,8 +3,8 @@ import type {
 } from '../../../data/fcs/cutting/warehouse-runtime.ts'
 import type { SampleWarehouseWritebackRecord } from '../../../data/fcs/cutting/warehouse-writeback-ledger.ts'
 import type { CuttingDomainSnapshot } from '../../../domain/fcs-cutting-runtime/index.ts'
-import { buildSampleWarehouseViewModel } from './sample-warehouse-model'
-import { buildExecutionPrepProjectionContext } from './execution-prep-projection-helpers'
+import { buildSampleWarehouseViewModel } from './sample-warehouse-model.ts'
+import { buildExecutionPrepProjectionContext } from './execution-prep-projection-helpers.ts'
 
 export interface SampleWarehouseProjection {
   snapshot: CuttingDomainSnapshot

@@ -13,7 +13,7 @@ import type {
   FeiTicketLabelRecord,
   FeiTicketPrintJob,
   OriginalCutOrderTicketOwner,
-} from './fei-tickets-model'
+} from './fei-tickets-model.ts'
 
 export const FEI_QR_SCHEMA_NAME = 'FEI_TICKET'
 export const FEI_QR_SCHEMA_VERSION = CUTTING_QR_VERSION

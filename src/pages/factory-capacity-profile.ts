@@ -62,6 +62,12 @@ const state: FactoryCapacityProfilePageState = {
   draftEquipments: [],
 }
 
+function renderTestFactoryBadge(factory: Pick<Factory, 'isTestFactory'>): string {
+  return factory.isTestFactory
+    ? '<span class="ml-2 inline-flex rounded border border-violet-200 bg-violet-50 px-2 py-0.5 text-[11px] text-violet-700">测试工厂</span>'
+    : ''
+}
+
 function getVisibleFactories(): Factory[] {
   let result = listFactoryMasterRecords()
 
@@ -277,7 +283,7 @@ function renderCapacityTableRows(factories: Factory[]): string {
 
       return `
         <tr class="border-b last:border-0 hover:bg-muted/30" data-capacity-factory-id="${factory.id}">
-          <td class="px-3 py-3 font-medium">${escapeHtml(factory.name)}</td>
+          <td class="px-3 py-3 font-medium">${escapeHtml(factory.name)}${renderTestFactoryBadge(factory)}</td>
           <td class="px-3 py-3 text-sm">${escapeHtml(factoryTypeConfig[factory.factoryType]?.label ?? factory.factoryType)}</td>
           <td class="px-3 py-3">
             <span class="inline-flex rounded border px-2 py-0.5 text-xs ${statusConfig.color}">${escapeHtml(statusConfig.label)}</span>
@@ -845,7 +851,7 @@ function renderCapacityDetailDrawer(): string {
           <div>
             <p class="text-xs uppercase tracking-wide text-muted-foreground">工厂池管理</p>
             <h2 class="mt-1 text-lg font-semibold text-foreground">工厂产能档案</h2>
-            <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(factory.name)}</p>
+            <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(factory.name)}${renderTestFactoryBadge(factory)}</p>
           </div>
           <div class="flex items-center gap-2">
             <span class="rounded border px-2 py-1 text-xs text-muted-foreground">${state.detailMode === 'edit' ? '编辑' : '详情'}</span>

@@ -186,6 +186,12 @@ function clonePdaUserRecord(user: FactoryPdaUser): PdaUserRecord {
   }
 }
 
+function renderTestFactoryBadge(factory: Pick<Factory, 'isTestFactory'>): string {
+  return factory.isTestFactory
+    ? '<span class="ml-2 inline-flex rounded border border-violet-200 bg-violet-50 px-2 py-0.5 text-[11px] text-violet-700">测试工厂</span>'
+    : ''
+}
+
 function mapInitialPdaRolesByFactory(): Record<string, FactoryPdaRole[]> {
   const grouped: Record<string, FactoryPdaRole[]> = {}
 
@@ -802,7 +808,7 @@ function renderFactoryTableRows(factories: Factory[]): string {
       return `
         <tr class="border-b last:border-0 hover:bg-muted/30" data-factory-id="${factory.id}">
           <td class="px-3 py-3 font-mono text-xs whitespace-nowrap">${escapeHtml(factory.code)}</td>
-          <td class="px-3 py-3 font-medium">${escapeHtml(factory.name)}</td>
+          <td class="px-3 py-3 font-medium">${escapeHtml(factory.name)}${renderTestFactoryBadge(factory)}</td>
           <td class="px-3 py-3 text-sm">${escapeHtml(factory.contact ?? '-')}</td>
           <td class="px-3 py-3 text-xs font-mono whitespace-nowrap">${escapeHtml(factory.phone ?? '-')}</td>
           <td class="max-w-[160px] px-3 py-3 text-sm text-muted-foreground truncate" title="${escapeHtml(factory.address ?? '-')}">${escapeHtml(factory.address ?? '-')}</td>

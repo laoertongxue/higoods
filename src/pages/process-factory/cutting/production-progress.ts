@@ -1,14 +1,14 @@
 // production-progress 是 canonical 页面文件。
-import { renderDrawer as uiDrawer } from '../../../components/ui'
-import { appStore } from '../../../state/store'
-import { escapeHtml } from '../../../utils'
+import { renderDrawer as uiDrawer } from '../../../components/ui/index.ts'
+import { appStore } from '../../../state/store.ts'
+import { escapeHtml } from '../../../utils.ts'
 import {
   CUTTING_REPLENISHMENT_PENDING_PREP_STORAGE_KEY,
   deserializeReplenishmentPendingPrepStorage,
   type ReplenishmentPendingPrepFollowupRecord,
 } from '../../../data/fcs/cutting/storage/replenishment-storage.ts'
-import type { CuttingCanonicalPageKey } from './meta'
-import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta'
+import type { CuttingCanonicalPageKey } from './meta.ts'
+import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta.ts'
 import {
   buildProductionProgressSummary,
   configMeta,
@@ -22,8 +22,9 @@ import {
   type ProductionProgressFilters,
   type ProductionProgressRow,
   type ProductionProgressSortKey,
+  type ProductionProgressViewDimension,
   urgencyMeta,
-} from './production-progress-model'
+} from './production-progress-model.ts'
 import {
   paginateItems,
   renderCompactKpiCard,
@@ -32,7 +33,7 @@ import {
   renderWorkbenchFilterChip,
   renderWorkbenchPagination,
   renderWorkbenchStateBar,
-} from './layout.helpers'
+} from './layout.helpers.ts'
 import {
   buildCuttingDrillChipLabels,
   buildCuttingDrillSummary,
@@ -43,8 +44,8 @@ import {
   readCuttingDrillContextFromLocation,
   type CuttingDrillContext,
   type CuttingNavigationTarget,
-} from './navigation-context'
-import { buildProductionProgressProjection } from './production-progress-projection'
+} from './navigation-context.ts'
+import { buildProductionProgressProjection } from './production-progress-projection.ts'
 import { getCuttingSpecialCraftReturnStatusByProductionOrder } from '../../../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
 import { getCuttingSewingDispatchProgressByProductionOrder } from '../../../data/fcs/cutting/sewing-dispatch.ts'
 import { getCuttingProgressSnapshots } from '../../../data/fcs/progress-statistics-linkage.ts'
@@ -96,6 +97,7 @@ const initialFilters: ProductionProgressFilters = {
 
 interface ProductionProgressPageState {
   filters: ProductionProgressFilters
+  viewDimension: ProductionProgressViewDimension
   activeQuickFilter: ProductionProgressQuickFilterExtended | null
   activeDetailId: string | null
   drillContext: CuttingDrillContext | null
@@ -104,8 +106,39 @@ interface ProductionProgressPageState {
   pageSize: number
 }
 
+interface CutOrderDimensionRow {
+  rowId: string
+  parentRowId: string
+  originalCutOrderNo: string
+  productionOrderId: string
+  productionOrderNo: string
+  styleLabel: string
+  styleName: string
+  materialSku: string
+  factoryName: string
+  relatedQty: number
+  plannedShipDateDisplay: string
+  urgencyLabel: string
+  urgencyClassName: string
+  prepLabel: string
+  prepClassName: string
+  pickupLabel: string
+  pickupClassName: string
+  cuttingLabel: string
+  cuttingClassName: string
+  feiTicketLabel: string
+  feiTicketClassName: string
+  specialCraftReturnLabel: string
+  specialCraftReturnDetail: string
+  sewingDispatchLabel: string
+  sewingDispatchDetail: string
+  blockingText: string
+  parentRecordId: string
+}
+
 const state: ProductionProgressPageState = {
   filters: { ...initialFilters },
+  viewDimension: 'CUT_ORDER',
   activeQuickFilter: null,
   activeDetailId: null,
   drillContext: null,
@@ -116,6 +149,95 @@ const state: ProductionProgressPageState = {
 
 function getAllRows(): ProductionProgressRow[] {
   return buildProductionProgressProjection().rows
+}
+
+function buildStateBadgeClass(label: string): string {
+  if (label.includes('已') || label.includes('齐套') || label.includes('可发')) {
+    return 'bg-emerald-100 text-emerald-700'
+  }
+  if (label.includes('差异') || label.includes('异议') || label.includes('异常')) {
+    return 'bg-rose-100 text-rose-700'
+  }
+  if (label.includes('加工中') || label.includes('进行中') || label.includes('部分') || label.includes('回写')) {
+    return 'bg-blue-100 text-blue-700'
+  }
+  return 'bg-amber-100 text-amber-700'
+}
+
+function formatBundleSummary(lengthValues: number[], widthValues: number[]): string {
+  if (!lengthValues.length && !widthValues.length) return ''
+  const lengthText = lengthValues.length ? `长 ${lengthValues.join(' / ')} 厘米` : ''
+  const widthText = widthValues.length ? `宽 ${widthValues.join(' / ')} 厘米` : ''
+  return [lengthText, widthText].filter(Boolean).join(' · ')
+}
+
+function getCutOrderRelatedQty(row: ProductionProgressRow, originalCutOrderNo: string, materialSku: string): number {
+  const skuQtyMap = new Map<string, number>()
+  row.pieceTruth.requirementRows
+    .filter((item) => item.originalCutOrderNo === originalCutOrderNo && item.materialSku === materialSku)
+    .forEach((item) => {
+      const skuKey = [item.skuCode, item.color, item.size].join('::')
+      const current = skuQtyMap.get(skuKey) || 0
+      skuQtyMap.set(skuKey, Math.max(current, item.requiredGarmentQty))
+    })
+  return Array.from(skuQtyMap.values()).reduce((sum, value) => sum + value, 0)
+}
+
+function buildCutOrderDimensionRows(rows: ProductionProgressRow[]): CutOrderDimensionRow[] {
+  const snapshotMap = new Map(getCuttingProgressSnapshots().map((item) => [item.productionOrderId, item] as const))
+
+  return rows.flatMap((row) => {
+    const snapshot = snapshotMap.get(row.productionOrderId)
+    return row.sourceOrderProgressLines.map((sourceLine) => {
+      const specialCraftDetailParts = [
+        snapshot?.specialCraftCurrentQty ? `当前 ${formatQty(snapshot.specialCraftCurrentQty)}` : '',
+        snapshot?.specialCraftScrapQty ? `报废 ${formatQty(snapshot.specialCraftScrapQty)}` : '',
+        snapshot?.specialCraftDamageQty ? `货损 ${formatQty(snapshot.specialCraftDamageQty)}` : '',
+        snapshot?.specialCraftDifferenceWarning ? '差异预警' : '',
+        snapshot ? formatBundleSummary(snapshot.bundleLengthCmValues, snapshot.bundleWidthCmValues) : '',
+      ].filter(Boolean)
+
+      const sewingDispatchDetailParts = [
+        snapshot?.transferBagPackStatus ? `装袋 ${snapshot.transferBagPackStatus}` : '',
+        snapshot?.transferBagCombinedWritebackStatus ? `回写 ${snapshot.transferBagCombinedWritebackStatus}` : '',
+        snapshot?.transferBagBagDifferenceCount ? `袋差异 ${snapshot.transferBagBagDifferenceCount}` : '',
+        snapshot?.transferBagFeiTicketDifferenceCount ? `菲票差异 ${snapshot.transferBagFeiTicketDifferenceCount}` : '',
+      ].filter(Boolean)
+
+      return {
+        rowId: `${row.id}::${sourceLine.originalCutOrderNo}::${sourceLine.materialSku}`,
+        parentRowId: row.id,
+        originalCutOrderNo: sourceLine.originalCutOrderNo,
+        productionOrderId: row.productionOrderId,
+        productionOrderNo: row.productionOrderNo,
+        styleLabel: row.styleCode || row.spuCode || '-',
+        styleName: row.styleName || row.spuCode || '-',
+        materialSku: sourceLine.materialSku || '待补面料 SKU',
+        factoryName: row.assignedFactoryName || '-',
+        relatedQty: getCutOrderRelatedQty(row, sourceLine.originalCutOrderNo, sourceLine.materialSku),
+        plannedShipDateDisplay: row.plannedShipDateDisplay,
+        urgencyLabel: row.urgency.label,
+        urgencyClassName: row.urgency.className,
+        prepLabel: row.materialPrepSummary.label,
+        prepClassName: row.materialPrepSummary.className,
+        pickupLabel: row.materialClaimSummary.label,
+        pickupClassName: row.materialClaimSummary.className,
+        cuttingLabel: sourceLine.currentStateLabel || row.currentStage.label,
+        cuttingClassName: buildStateBadgeClass(sourceLine.currentStateLabel || row.currentStage.label),
+        feiTicketLabel: snapshot?.feiTicketProgress.status || '待生成',
+        feiTicketClassName: buildStateBadgeClass(snapshot?.feiTicketProgress.status || '待生成'),
+        specialCraftReturnLabel: snapshot?.specialCraftReturnProgress.status || '待确认',
+        specialCraftReturnDetail: specialCraftDetailParts.join(' · '),
+        sewingDispatchLabel: snapshot?.sewingDispatchProgress.status || '待发料',
+        sewingDispatchDetail: sewingDispatchDetailParts.join(' · '),
+        blockingText:
+          snapshot?.blockingReasons.length
+            ? snapshot.blockingReasons.map((item) => item.blockingLabel).join('、')
+            : row.riskTags.map((item) => item.label).join('、') || '暂无阻塞',
+        parentRecordId: row.id,
+      }
+    })
+  })
 }
 
 function resetPagination(): void {
@@ -405,6 +527,8 @@ function renderProgressStatisticsLinkageCards(rows: ProductionProgressRow[]): st
 
   const countBy = (getter: (snapshot: (typeof snapshots)[number]) => boolean): number => snapshots.filter(getter).length
   const blockingReasons = Array.from(new Set(snapshots.flatMap((snapshot) => snapshot.blockingReasons.map((reason) => reason.blockingLabel))))
+  const bundleLengthValues = Array.from(new Set(snapshots.flatMap((snapshot) => snapshot.bundleLengthCmValues).filter((value) => value > 0)))
+  const bundleWidthValues = Array.from(new Set(snapshots.flatMap((snapshot) => snapshot.bundleWidthCmValues).filter((value) => value > 0)))
 
   return `
     <section class="rounded-lg border bg-white p-4 shadow-sm">
@@ -422,7 +546,23 @@ function renderProgressStatisticsLinkageCards(rows: ProductionProgressRow[]): st
         ${renderCompactKpiCard('菲票进度', countBy((item) => item.feiTicketProgress.status === '已生成'), `部分 / 未生成 ${countBy((item) => item.feiTicketProgress.status !== '已生成')} 单`, 'text-cyan-600')}
         ${renderCompactKpiCard('特殊工艺回仓', countBy((item) => item.specialCraftReturnProgress.status === '已回仓' || item.specialCraftReturnProgress.status === '不需要回仓'), `未回仓 ${countBy((item) => item.specialCraftReturnProgress.status.includes('未回仓'))} 单`, 'text-emerald-600')}
         ${renderCompactKpiCard('裁片发车缝', snapshots.reduce((sum, item) => sum + item.sewingDispatchProgress.completedQty, 0), '累计已发件数', 'text-blue-600')}
+        ${renderCompactKpiCard('特殊工艺当前数量', formatQty(snapshots.reduce((sum, item) => sum + item.specialCraftCurrentQty, 0)), '已回仓后当前可用数量', 'text-blue-600')}
+        ${renderCompactKpiCard('特殊工艺报废 / 货损', `${formatQty(snapshots.reduce((sum, item) => sum + item.specialCraftScrapQty, 0))} / ${formatQty(snapshots.reduce((sum, item) => sum + item.specialCraftDamageQty, 0))}`, '报废 / 货损', 'text-rose-600')}
+        ${renderCompactKpiCard('领料单已完成', countBy((item) => item.pickupOrderCompleted), '工厂侧完成领料单', 'text-emerald-600')}
+        ${renderCompactKpiCard('交出单已完成', countBy((item) => item.handoutOrderCompleted), '工厂侧完成交出单', 'text-emerald-600')}
+        ${renderCompactKpiCard('装袋 / 回写', countBy((item) => item.transferBagPackStatus === '已装袋' || item.transferBagPackStatus === '已交出'), `部分回写 ${countBy((item) => item.transferBagCombinedWritebackStatus === '部分回写')}`, 'text-blue-600')}
+        ${renderCompactKpiCard('袋级 / 菲票级差异', `${snapshots.reduce((sum, item) => sum + item.transferBagBagDifferenceCount, 0)} / ${snapshots.reduce((sum, item) => sum + item.transferBagFeiTicketDifferenceCount, 0)}`, '中转袋差异 / 菲票差异', 'text-rose-600')}
         ${renderCompactKpiCard('差异 / 异议', countBy((item) => item.blockingReasons.some((reason) => reason.blockingLabel.includes('差异') || reason.blockingLabel.includes('异议'))), '阻塞生产单', 'text-rose-600')}
+        ${
+          bundleLengthValues.length || bundleWidthValues.length
+            ? renderCompactKpiCard(
+                '捆条尺寸',
+                `${bundleLengthValues.length ? `长 ${bundleLengthValues.join(' / ')}` : '长 —'}${bundleWidthValues.length ? ` / 宽 ${bundleWidthValues.join(' / ')}` : ''}`,
+                '仅在捆条已维护尺寸时展示',
+                'text-violet-600',
+              )
+            : ''
+        }
         ${renderCompactKpiCard('阻塞原因', blockingReasons.length ? blockingReasons.slice(0, 3).join('、') : '无', '可按阻塞原因筛选', 'text-amber-600')}
       </div>
     </section>
@@ -714,6 +854,54 @@ const PRODUCTION_PROGRESS_TABLE_HEADERS = [
   '操作',
 ] as const
 
+const CUT_ORDER_PROGRESS_TABLE_HEADERS = [
+  '原始裁片单号',
+  '生产单号',
+  '款号 / SPU',
+  '面料 SKU',
+  '工厂',
+  '关联数量',
+  '计划发货日期',
+  '紧急程度',
+  '配料',
+  '领料',
+  '裁剪',
+  '菲票',
+  '特殊工艺回仓',
+  '裁片发料',
+  '当前阻塞',
+  '操作',
+] as const
+
+function renderViewDimensionSwitch(): string {
+  return `
+    <div class="flex items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3">
+      <div>
+        <div class="text-sm font-semibold text-foreground">展示维度</div>
+        <div class="mt-1 text-xs text-muted-foreground">默认按裁片单维度展开，生产单维度保留汇总视角。</div>
+      </div>
+      <div class="inline-flex rounded-md border">
+        <button
+          type="button"
+          class="px-3 py-2 text-sm ${state.viewDimension === 'CUT_ORDER' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}"
+          data-cutting-progress-action="switch-view-dimension"
+          data-view-dimension="CUT_ORDER"
+        >
+          裁片单维度
+        </button>
+        <button
+          type="button"
+          class="border-l px-3 py-2 text-sm ${state.viewDimension === 'PRODUCTION_ORDER' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}"
+          data-cutting-progress-action="switch-view-dimension"
+          data-view-dimension="PRODUCTION_ORDER"
+        >
+          生产单维度
+        </button>
+      </div>
+    </div>
+  `
+}
+
 function renderSkuCompletionSection(row: ProductionProgressRow): string {
   const rows = row.skuProgressLines
   if (!rows.length) {
@@ -944,7 +1132,7 @@ function renderMappingWarningSection(row: ProductionProgressRow): string {
   `
 }
 
-function renderTable(rows: ProductionProgressRow[]): string {
+function renderProductionOrderTable(rows: ProductionProgressRow[]): string {
   const pagination = paginateItems(rows, state.page, state.pageSize)
   const columnCount = PRODUCTION_PROGRESS_TABLE_HEADERS.length
 
@@ -953,6 +1141,7 @@ function renderTable(rows: ProductionProgressRow[]): string {
       <div class="flex items-center justify-between border-b px-4 py-3">
         <div>
           <h2 class="text-sm font-semibold">生产单主表</h2>
+          <div class="mt-1 text-xs text-muted-foreground">汇总查看当前生产单在裁床的整体推进情况。</div>
         </div>
         <div class="text-xs text-muted-foreground">共 ${pagination.total} 条生产单</div>
       </div>
@@ -1026,6 +1215,99 @@ function renderTable(rows: ProductionProgressRow[]): string {
   `
 }
 
+function renderCutOrderTable(rows: ProductionProgressRow[]): string {
+  const cutOrderRows = buildCutOrderDimensionRows(rows)
+  const pagination = paginateItems(cutOrderRows, state.page, state.pageSize)
+  const columnCount = CUT_ORDER_PROGRESS_TABLE_HEADERS.length
+
+  return `
+    <section class="rounded-lg border bg-card">
+      <div class="flex items-center justify-between border-b px-4 py-3">
+        <div>
+          <h2 class="text-sm font-semibold">裁片单主表</h2>
+          <div class="mt-1 text-xs text-muted-foreground">默认按裁片单维度查看配料、领料、裁剪、特殊工艺回仓和裁片发料。</div>
+        </div>
+        <div class="text-xs text-muted-foreground">共 ${pagination.total} 条裁片单</div>
+      </div>
+      ${renderStickyTableScroller(
+        `
+          <table class="w-full min-w-[1820px] text-sm" data-testid="cutting-production-progress-cut-order-table">
+            <thead class="sticky top-0 z-10 border-b bg-muted/95 text-muted-foreground backdrop-blur">
+              <tr>
+                ${CUT_ORDER_PROGRESS_TABLE_HEADERS.map(
+                  (header) => `<th class="px-4 py-3 text-left font-medium">${header}</th>`,
+                ).join('')}
+              </tr>
+            </thead>
+            <tbody>
+              ${
+                pagination.items.length
+                  ? pagination.items
+                      .map(
+                        (item) => `
+                          <tr class="border-b last:border-b-0 align-top hover:bg-muted/20">
+                            <td class="px-4 py-3 font-medium text-blue-600">${escapeHtml(item.originalCutOrderNo)}</td>
+                            <td class="px-4 py-3">
+                              <button class="font-medium text-blue-600 hover:underline" data-cutting-progress-action="open-detail" data-record-id="${item.parentRecordId}">
+                                ${escapeHtml(item.productionOrderNo)}
+                              </button>
+                            </td>
+                            <td class="px-4 py-3">
+                              <div class="font-medium text-foreground">${escapeHtml(item.styleLabel)}</div>
+                              <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.styleName)}</div>
+                            </td>
+                            <td class="px-4 py-3">${escapeHtml(item.materialSku)}</td>
+                            <td class="px-4 py-3">${escapeHtml(item.factoryName)}</td>
+                            <td class="px-4 py-3 font-medium tabular-nums">${formatQty(item.relatedQty)}</td>
+                            <td class="px-4 py-3">${escapeHtml(item.plannedShipDateDisplay)}</td>
+                            <td class="px-4 py-3">${renderBadge(item.urgencyLabel, item.urgencyClassName)}</td>
+                            <td class="px-4 py-3">${renderBadge(item.prepLabel, item.prepClassName)}</td>
+                            <td class="px-4 py-3">${renderBadge(item.pickupLabel, item.pickupClassName)}</td>
+                            <td class="px-4 py-3">${renderBadge(item.cuttingLabel, item.cuttingClassName)}</td>
+                            <td class="px-4 py-3">${renderBadge(item.feiTicketLabel, item.feiTicketClassName)}</td>
+                            <td class="px-4 py-3">
+                              <div>${renderBadge(item.specialCraftReturnLabel, buildStateBadgeClass(item.specialCraftReturnLabel))}</div>
+                              <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.specialCraftReturnDetail || '当前无额外数量变化')}</div>
+                            </td>
+                            <td class="px-4 py-3">
+                              <div>${renderBadge(item.sewingDispatchLabel, buildStateBadgeClass(item.sewingDispatchLabel))}</div>
+                              <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.sewingDispatchDetail || '当前无袋级 / 菲票级回写')}</div>
+                            </td>
+                            <td class="px-4 py-3 text-sm text-slate-600">${escapeHtml(item.blockingText)}</td>
+                            <td class="px-4 py-3">
+                              <div class="flex flex-wrap gap-2">
+                                <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-cutting-progress-action="open-detail" data-record-id="${item.parentRecordId}">查看详情</button>
+                                <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-cutting-progress-action="go-fei-tickets" data-record-id="${item.parentRecordId}">看菲票</button>
+                                <button class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-cutting-progress-action="go-summary" data-record-id="${item.parentRecordId}">看裁剪总结</button>
+                              </div>
+                            </td>
+                          </tr>
+                        `,
+                      )
+                      .join('')
+                  : `<tr><td colspan="${columnCount}" class="px-6 py-12 text-center text-sm text-muted-foreground">当前筛选条件下暂无匹配裁片单。</td></tr>`
+              }
+            </tbody>
+          </table>
+        `,
+        'max-h-[64vh]',
+      )}
+      ${renderWorkbenchPagination({
+        currentPage: pagination.page,
+        totalPages: pagination.totalPages,
+        pageSize: state.pageSize,
+        pageSizeOptions: [10, 20, 50],
+      })}
+    </section>
+  `
+}
+
+function renderMainTable(rows: ProductionProgressRow[]): string {
+  return state.viewDimension === 'CUT_ORDER'
+    ? renderCutOrderTable(rows)
+    : renderProductionOrderTable(rows)
+}
+
 function renderDetailDrawer(): string {
   const row = getAllRows().find((item) => item.id === state.activeDetailId)
   if (!row) return ''
@@ -1097,6 +1379,7 @@ export function renderCraftCuttingProductionProgressPage(): string {
       ${renderSewingDispatchProgressCards(rows)}
       ${renderProgressStatisticsLinkageCards(rows)}
       ${renderStageOverview(rows)}
+      ${renderViewDimensionSwitch()}
 
       ${renderStickyFilterShell(`
         <div class="space-y-3">
@@ -1190,7 +1473,7 @@ export function renderCraftCuttingProductionProgressPage(): string {
       `)}
 
       ${renderActiveStateBar()}
-      ${renderTable(rows)}
+      ${renderMainTable(rows)}
       ${renderDetailDrawer()}
     </div>
   `
@@ -1282,6 +1565,7 @@ export function handleCraftCuttingProductionProgressEvent(target: Element): bool
 
   if (action === 'clear-filters') {
     state.filters = { ...initialFilters }
+    state.viewDimension = 'CUT_ORDER'
     state.activeQuickFilter = null
     resetPagination()
     return true
@@ -1309,6 +1593,14 @@ export function handleCraftCuttingProductionProgressEvent(target: Element): bool
 
   if (action === 'set-page') {
     state.page = Number(actionNode.dataset.page) || 1
+    return true
+  }
+
+  if (action === 'switch-view-dimension') {
+    const nextDimension = actionNode.dataset.viewDimension as ProductionProgressViewDimension | undefined
+    if (!nextDimension) return false
+    state.viewDimension = nextDimension
+    resetPagination()
     return true
   }
 

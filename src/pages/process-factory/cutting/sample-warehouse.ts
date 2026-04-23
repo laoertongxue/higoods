@@ -1,8 +1,8 @@
-import { renderDetailDrawer as uiDetailDrawer } from '../../../components/ui'
-import { normalizeSampleWarehouseWritebackInput } from '../../../data/fcs/cutting/warehouse-writeback-inputs'
-import { submitSampleWarehouseWriteback } from '../../../domain/cutting-warehouse-writeback/bridge'
-import { appStore } from '../../../state/store'
-import { escapeHtml, formatDateTime } from '../../../utils'
+import { renderDetailDrawer as uiDetailDrawer } from '../../../components/ui/index.ts'
+import { normalizeSampleWarehouseWritebackInput } from '../../../data/fcs/cutting/warehouse-writeback-inputs.ts'
+import { submitSampleWarehouseWriteback } from '../../../domain/cutting-warehouse-writeback/bridge.ts'
+import { appStore } from '../../../state/store.ts'
+import { escapeHtml, formatDateTime } from '../../../utils.ts'
 import {
   filterSampleWarehouseItems,
   findSampleWarehouseByPrefilter,
@@ -13,20 +13,20 @@ import {
   type SampleWarehouseItem,
   type SampleWarehousePrefilter,
   type SampleWarehouseStatusKey,
-} from './sample-warehouse-model'
-import { buildSampleWarehouseProjection } from './sample-warehouse-projection'
+} from './sample-warehouse-model.ts'
+import { buildSampleWarehouseProjection } from './sample-warehouse-projection.ts'
 import {
   renderCompactKpiCard,
   renderStickyFilterShell,
   renderStickyTableScroller,
   renderWorkbenchFilterChip,
   renderWorkbenchStateBar,
-} from './layout.helpers'
-import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta'
+} from './layout.helpers.ts'
+import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta.ts'
 import {
   buildWarehouseRouteWithQuery,
   getWarehouseSearchParams,
-} from './warehouse-shared'
+} from './warehouse-shared.ts'
 
 type FilterField = 'keyword' | 'status' | 'locationType' | 'holder'
 type DetailField = 'locationType' | 'holder' | 'note'

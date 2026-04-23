@@ -324,7 +324,8 @@ function renderOrderDimension(rows: PoViewRow[]): string {
       </div>
 
       <section class="rounded-lg border bg-card p-4">
-        <div class="flex gap-3">
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex gap-3">
           <div class="w-full max-w-sm">
             <input
               class="h-9 w-full rounded-md border bg-background px-3 text-sm"
@@ -340,6 +341,8 @@ function renderOrderDimension(rows: PoViewRow[]): string {
               .join('')}
           </select>
           <button class="h-9 rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="reset-order-filters">重置</button>
+          </div>
+          <div class="text-xs text-muted-foreground">默认按交期排序</div>
         </div>
       </section>
 

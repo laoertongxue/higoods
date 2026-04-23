@@ -4,10 +4,10 @@ import {
 } from '../../../domain/fcs-cutting-runtime/index.ts'
 import {
   buildCraftTraceProjection,
-} from './craft-trace-projection'
+} from './craft-trace-projection.ts'
 import {
   buildCuttingTraceabilityProjectionContext,
-} from './traceability-projection-helpers'
+} from './traceability-projection-helpers.ts'
 
 export function buildFeiTicketsProjection(
   snapshot: CuttingDomainSnapshot = buildFcsCuttingDomainSnapshot(),

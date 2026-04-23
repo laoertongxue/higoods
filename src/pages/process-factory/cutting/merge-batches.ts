@@ -1,6 +1,6 @@
-import { renderDrawer as uiDrawer } from '../../../components/ui'
-import { appStore } from '../../../state/store'
-import { escapeHtml } from '../../../utils'
+import { renderDrawer as uiDrawer } from '../../../components/ui/index.ts'
+import { appStore } from '../../../state/store.ts'
+import { escapeHtml } from '../../../utils.ts'
 import {
   CUTTING_MERGE_BATCH_LEDGER_STORAGE_KEY,
   deserializeMergeBatchStorage,
@@ -10,10 +10,10 @@ import {
   serializeMergeBatchStorage,
   type MergeBatchRecord,
   type MergeBatchStatus,
-} from './merge-batches-model'
-import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta'
-import { renderCompactKpiCard, renderStickyFilterShell } from './layout.helpers'
-import { buildMergeBatchesProjection } from './merge-batches-projection'
+} from './merge-batches-model.ts'
+import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta.ts'
+import { renderCompactKpiCard, renderStickyFilterShell } from './layout.helpers.ts'
+import { buildMergeBatchesProjection } from './merge-batches-projection.ts'
 
 type MergeBatchFilterField = 'keyword' | 'status'
 

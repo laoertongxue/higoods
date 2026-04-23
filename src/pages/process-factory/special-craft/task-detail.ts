@@ -16,7 +16,9 @@ import { escapeHtml } from '../../../utils.ts'
 import {
   formatQty,
   renderEmptyState,
+  renderSpecialCraftFactoryContextBlockedLayout,
   renderSpecialCraftPageLayout,
+  resolveSpecialCraftFactoryContextGuard,
   renderStatusBadge,
   renderTable,
 } from './shared.ts'
@@ -61,6 +63,16 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
 
   if (!operation || !taskOrder || taskOrder.operationId !== operation.operationId) {
     return renderEmptyState('未找到对应特殊工艺任务详情。')
+  }
+  const factoryGuard = resolveSpecialCraftFactoryContextGuard(operation)
+  if (factoryGuard.blocked) {
+    return renderSpecialCraftFactoryContextBlockedLayout({
+      operation,
+      title: `${operation.operationName}任务详情`,
+      description: '查看任务明细、子工艺单、菲票流转和差异上报。',
+      activeSubNav: 'tasks',
+      factoryName: factoryGuard.factoryName,
+    })
   }
 
   const basicInfo = renderInfoGrid([

@@ -5,7 +5,7 @@ import {
 import {
   buildProductionProgressRows,
   type ProductionProgressRow,
-} from './production-progress-model'
+} from './production-progress-model.ts'
 
 export interface ProductionProgressProjection {
   snapshot: CuttingDomainSnapshot

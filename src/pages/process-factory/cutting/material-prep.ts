@@ -1,15 +1,15 @@
 // 本文件继续复用旧导出名承接 canonical 页面“仓库配料领料”。
 // 页面主对象冻结为原始裁片单；同一码回落原始裁片单，配料 / 领料只表达仓库到裁床的准备衔接。
-import { renderDetailDrawer as uiDetailDrawer, renderDialog as uiDialog, renderFormDialog as uiFormDialog } from '../../../components/ui'
+import { renderDetailDrawer as uiDetailDrawer, renderDialog as uiDialog, renderFormDialog as uiFormDialog } from '../../../components/ui/index.ts'
 import { listTransferMaterialAvailableLots } from '../../../data/fcs/cutting/material-prep.ts'
 import {
   ACTION_PERMISSION_DENIED_TEXT,
   canConfigureFabricMaterial,
   resolveFcsDemoRole,
 } from '../../../data/fcs/action-permissions.ts'
-import { appStore } from '../../../state/store'
-import { escapeHtml } from '../../../utils'
-import { getPrepQrHiddenText } from './material-prep.helpers'
+import { appStore } from '../../../state/store.ts'
+import { escapeHtml } from '../../../utils.ts'
+import { getPrepQrHiddenText } from './material-prep.helpers.ts'
 import {
   buildIssueListPrintPayload,
   buildMaterialPrepNavigationPayload,
@@ -33,10 +33,10 @@ import {
   type MaterialPrepPrefilter,
   type MaterialPrepRow,
   type MaterialPrepSchedulingKey,
-} from './material-prep-model'
-import { buildMaterialPrepProjection } from './material-prep-projection'
-import { urgencyMeta } from './production-progress-model'
-import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta'
+} from './material-prep-model.ts'
+import { buildMaterialPrepProjection } from './material-prep-projection.ts'
+import { urgencyMeta } from './production-progress-model.ts'
+import { getCanonicalCuttingMeta, getCanonicalCuttingPath, isCuttingAliasPath, renderCuttingPageHeader } from './meta.ts'
 import {
   paginateItems,
   renderCompactKpiCard,
@@ -45,7 +45,7 @@ import {
   renderWorkbenchFilterChip,
   renderWorkbenchPagination,
   renderWorkbenchStateBar,
-} from './layout.helpers'
+} from './layout.helpers.ts'
 import {
   buildCuttingDrillChipLabels,
   buildCuttingDrillSummary,
@@ -56,7 +56,7 @@ import {
   readCuttingDrillContextFromLocation,
   type CuttingDrillContext,
   type CuttingNavigationTarget,
-} from './navigation-context'
+} from './navigation-context.ts'
 
 type FilterField =
   | 'keyword'

@@ -9,9 +9,11 @@ import { escapeHtml } from '../../../utils.ts'
 import {
   formatQty,
   renderEmptyState,
+  renderSpecialCraftFactoryContextBlockedLayout,
   renderFilterGrid,
   renderMetricCards,
   renderSpecialCraftPageLayout,
+  resolveSpecialCraftFactoryContextGuard,
   renderStatusBadge,
   renderTable,
 } from './shared.ts'
@@ -48,6 +50,16 @@ export function renderSpecialCraftWarehousePage(operationSlug: string): string {
   const operation = getSpecialCraftOperationBySlug(operationSlug)
   if (!operation) {
     return renderEmptyState('未找到对应特殊工艺仓库管理页面。')
+  }
+  const factoryGuard = resolveSpecialCraftFactoryContextGuard(operation)
+  if (factoryGuard.blocked) {
+    return renderSpecialCraftFactoryContextBlockedLayout({
+      operation,
+      title: `${operation.operationName}仓库管理`,
+      description: '查看待加工仓、待交出仓、入库、出库和盘点记录。',
+      activeSubNav: 'warehouse',
+      factoryName: factoryGuard.factoryName,
+    })
   }
 
   const warehouseView = getSpecialCraftWarehouseView(operation.operationId)

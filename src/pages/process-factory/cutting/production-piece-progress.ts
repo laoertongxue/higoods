@@ -1,4 +1,4 @@
-import type { CuttingOrderProgressRecord } from '../../../data/fcs/cutting/types'
+import type { CuttingOrderProgressRecord } from '../../../data/fcs/cutting/types.ts'
 import {
   buildProductionPieceTruth,
   resolveTechPackForProduction,

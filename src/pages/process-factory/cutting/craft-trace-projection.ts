@@ -14,14 +14,14 @@ import {
 import {
   buildActiveTicketPocketBindingMap,
   type TransferBagStore,
-} from './transfer-bags-model'
+} from './transfer-bags-model.ts'
 import {
   deserializeFeiQrPayload,
 } from './fei-qr-model.ts'
-import type { FeiTicketLabelRecord } from './fei-tickets-model'
+import type { FeiTicketLabelRecord } from './fei-tickets-model.ts'
 import {
   buildCuttingTraceabilityProjectionContext,
-} from './traceability-projection-helpers'
+} from './traceability-projection-helpers.ts'
 
 export interface CraftTraceProjectionItem {
   feiTicketId: string

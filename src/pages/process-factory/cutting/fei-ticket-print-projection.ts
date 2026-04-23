@@ -4,7 +4,7 @@ import {
 } from '../../../domain/fcs-cutting-runtime/index.ts'
 import {
   buildFeiTicketsProjection,
-} from './fei-tickets-projection'
+} from './fei-tickets-projection.ts'
 
 export function buildFeiTicketPrintProjection(
   snapshot: CuttingDomainSnapshot = buildFcsCuttingDomainSnapshot(),

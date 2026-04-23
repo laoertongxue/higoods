@@ -1,6 +1,6 @@
-import { appStore } from '../../../state/store'
-import { escapeHtml } from '../../../utils'
-import { type CuttingCanonicalPageKey, getCanonicalCuttingMeta, renderCuttingPageHeader } from './meta'
+import { appStore } from '../../../state/store.ts'
+import { escapeHtml } from '../../../utils.ts'
+import { type CuttingCanonicalPageKey, getCanonicalCuttingMeta, renderCuttingPageHeader } from './meta.ts'
 
 interface CuttingPlaceholderLink {
   label: string

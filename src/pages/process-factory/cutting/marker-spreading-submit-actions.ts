@@ -1,4 +1,4 @@
-import type { SpreadingStatusKey } from './marker-spreading-model'
+import type { SpreadingStatusKey } from './marker-spreading-model.ts'
 
 export interface MarkerSpreadingSubmitActionContext {
   action: string

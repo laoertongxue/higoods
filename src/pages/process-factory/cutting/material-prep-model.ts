@@ -3,7 +3,7 @@ import type {
   CuttingMaterialLine,
   CuttingOrderProgressRecord,
   CuttingReceiveStatus,
-} from '../../../data/fcs/cutting/types'
+} from '../../../data/fcs/cutting/types.ts'
 import {
   buildCraftClaimDisputeSummary,
   formatClaimQty as formatDisputeQty,
