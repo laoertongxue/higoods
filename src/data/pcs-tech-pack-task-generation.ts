@@ -308,7 +308,7 @@ function buildArtworkDesign(task: PatternTaskRecord): TechnicalPatternDesign[] {
     {
       id: `${task.patternTaskId}_design`,
       name: task.artworkName || task.title,
-      imageUrl: `mock://tech-pack/artwork/${task.patternTaskCode}`,
+      imageUrl: task.completionImageIds[0] || task.demandImageIds[0] || `mock://tech-pack/artwork/${task.patternTaskCode}`,
     },
   ]
 }

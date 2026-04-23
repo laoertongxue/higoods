@@ -23,6 +23,19 @@ import {
   upsertPatternTaskPendingItem,
 } from './pcs-pattern-task-repository.ts'
 import type { PatternTaskRecord } from './pcs-pattern-task-types.ts'
+import type {
+  PatternTaskBuyerReviewStatus,
+  PatternTaskColorDepthOption,
+  PatternTaskDemandSourceType,
+  PatternTaskDifficultyGrade,
+  PatternTaskProcessType,
+  PatternTaskTeamCode,
+} from './pcs-pattern-task-types.ts'
+import {
+  assertPatternTaskMemberInTeam,
+  getPatternTaskMember,
+  getPatternTaskTeamName,
+} from './pcs-pattern-task-team-config.ts'
 import {
   getPatternTaskCompletionMissingFields,
   getPlateTaskCompletionMissingFields,
@@ -129,6 +142,30 @@ export interface PatternTaskCreateInput extends BaseTaskCreateInput {
   upstreamObjectCode?: string
   productStyleCode?: string
   spuCode?: string
+  demandSourceType?: PatternTaskDemandSourceType
+  demandSourceRefId?: string
+  demandSourceRefCode?: string
+  demandSourceRefName?: string
+  processType?: PatternTaskProcessType
+  requestQty?: number
+  fabricSku?: string
+  fabricName?: string
+  demandImageIds?: string[]
+  patternSpuCode?: string
+  colorDepthOption?: PatternTaskColorDepthOption
+  difficultyGrade?: PatternTaskDifficultyGrade
+  assignedTeamCode?: PatternTaskTeamCode
+  assignedMemberId?: string
+  liveReferenceImageIds?: string[]
+  imageReferenceIds?: string[]
+  physicalReferenceNote?: string
+  completionImageIds?: string[]
+  buyerReviewStatus?: PatternTaskBuyerReviewStatus
+  buyerReviewerName?: string
+  buyerReviewNote?: string
+  patternCategoryCode?: string
+  patternStyleTags?: string[]
+  hotSellerFlag?: boolean
   artworkType?: string
   patternMode?: string
   artworkName?: string
@@ -170,6 +207,31 @@ export interface PreProductionSampleTaskCreateInput extends BaseTaskCreateInput 
   trackingNo?: string
   sampleAssetId?: string
   sampleCode?: string
+}
+
+function normalizePatternAssignment(input: Pick<PatternTaskCreateInput, 'assignedTeamCode' | 'assignedMemberId'>): {
+  assignedTeamCode: PatternTaskTeamCode
+  assignedTeamName: string
+  assignedMemberId: string
+  assignedMemberName: string
+} {
+  const assignedTeamCode = input.assignedTeamCode || 'CN_TEAM'
+  const assignedMemberId = input.assignedMemberId || 'cn_bing_bing'
+  assertPatternTaskMemberInTeam(assignedTeamCode, assignedMemberId)
+  const member = getPatternTaskMember(assignedTeamCode, assignedMemberId)
+  return {
+    assignedTeamCode,
+    assignedTeamName: getPatternTaskTeamName(assignedTeamCode),
+    assignedMemberId,
+    assignedMemberName: member?.memberName || '',
+  }
+}
+
+function normalizePatternDemandSource(input: PatternTaskCreateInput): PatternTaskDemandSourceType {
+  if (input.demandSourceType) return input.demandSourceType
+  if (input.sourceType === '改版任务') return '改版任务'
+  if (input.sourceType === '花型复用调色') return '设计师款'
+  return '预售测款通过'
 }
 
 interface TaskWritebackSuccess<TTask> {
@@ -563,6 +625,8 @@ export function savePlateMakingTaskDraft(input: PlateMakingTaskCreateInput): Pla
     linkedTechPackVersionLabel: '',
     linkedTechPackVersionStatus: '',
     linkedTechPackUpdatedAt: '',
+    acceptedAt: '',
+    confirmedAt: '',
     status: '草稿',
     ownerId: input.ownerId || '',
     ownerName: input.ownerName || '',
@@ -582,6 +646,8 @@ export function savePlateMakingTaskDraft(input: PlateMakingTaskCreateInput): Pla
 export function savePatternTaskDraft(input: PatternTaskCreateInput): PatternTaskRecord {
   const now = nowTaskText()
   const taskId = input.patternTaskId || nextCode('ATD', listPatternTasks().length)
+  const assignment = normalizePatternAssignment(input)
+  const demandSourceType = normalizePatternDemandSource(input)
   return upsertPatternTask({
     patternTaskId: taskId,
     patternTaskCode: input.patternTaskCode || taskId,
@@ -599,6 +665,41 @@ export function savePatternTaskDraft(input: PatternTaskCreateInput): PatternTask
     upstreamObjectCode: input.upstreamObjectCode || '',
     productStyleCode: input.productStyleCode || '',
     spuCode: input.spuCode || '',
+    demandSourceType,
+    demandSourceRefId: input.demandSourceRefId || input.upstreamObjectId || '',
+    demandSourceRefCode: input.demandSourceRefCode || input.upstreamObjectCode || '',
+    demandSourceRefName: input.demandSourceRefName || input.upstreamModule || '',
+    processType: input.processType || '数码印',
+    requestQty: Number(input.requestQty || 1),
+    fabricSku: input.fabricSku || '',
+    fabricName: input.fabricName || '',
+    demandImageIds: [...(input.demandImageIds || [])],
+    patternSpuCode: input.patternSpuCode || input.productStyleCode || input.spuCode || '',
+    colorDepthOption: input.colorDepthOption || '中间值',
+    difficultyGrade: input.difficultyGrade || 'A',
+    ...assignment,
+    assignedAt: now,
+    liveReferenceImageIds: [...(input.liveReferenceImageIds || [])],
+    imageReferenceIds: [...(input.imageReferenceIds || [])],
+    physicalReferenceNote: input.physicalReferenceNote || '',
+    completionImageIds: [...(input.completionImageIds || [])],
+    buyerReviewStatus: input.buyerReviewStatus || '待买手确认',
+    buyerReviewAt: '',
+    buyerReviewerName: input.buyerReviewerName || '',
+    buyerReviewNote: input.buyerReviewNote || '',
+    transferFromTeamCode: '',
+    transferFromTeamName: '',
+    transferToTeamCode: '',
+    transferToTeamName: '',
+    transferReason: '',
+    transferredAt: '',
+    transferOperatorName: '',
+    patternAssetId: '',
+    patternAssetCode: '',
+    patternCategoryCode: input.patternCategoryCode || '',
+    patternStyleTags: [...(input.patternStyleTags || [])],
+    hotSellerFlag: Boolean(input.hotSellerFlag),
+    colorConfirmNote: '',
     artworkType: input.artworkType || '',
     patternMode: input.patternMode || '',
     artworkName: input.artworkName || '',
@@ -1054,6 +1155,8 @@ export function createPatternTaskWithProjectRelation(input: PatternTaskCreateInp
   const now = nowTaskText()
   const taskId = input.patternTaskId || nextCode('AT', listPatternTasks().length)
   const existing = getPatternTaskById(taskId)
+  const assignment = normalizePatternAssignment(input)
+  const demandSourceType = normalizePatternDemandSource(input)
   const task = upsertPatternTask({
     patternTaskId: taskId,
     patternTaskCode: input.patternTaskCode || taskId,
@@ -1068,6 +1171,41 @@ export function createPatternTaskWithProjectRelation(input: PatternTaskCreateInp
     ...upstream,
     productStyleCode: input.productStyleCode || project.styleNumber || '',
     spuCode: input.spuCode || '',
+    demandSourceType,
+    demandSourceRefId: input.demandSourceRefId || upstream.upstreamObjectId,
+    demandSourceRefCode: input.demandSourceRefCode || upstream.upstreamObjectCode,
+    demandSourceRefName: input.demandSourceRefName || upstream.upstreamModule,
+    processType: input.processType || (input.artworkType === '烫画' ? '烫画' : '数码印'),
+    requestQty: Number(input.requestQty || 1),
+    fabricSku: input.fabricSku || '',
+    fabricName: input.fabricName || '待买手确认',
+    demandImageIds: [...(input.demandImageIds || existing?.demandImageIds || [])],
+    patternSpuCode: input.patternSpuCode || input.productStyleCode || project.styleNumber || input.spuCode || '',
+    colorDepthOption: input.colorDepthOption || existing?.colorDepthOption || '中间值',
+    difficultyGrade: input.difficultyGrade || existing?.difficultyGrade || 'A',
+    ...assignment,
+    assignedAt: existing?.assignedAt || now,
+    liveReferenceImageIds: [...(input.liveReferenceImageIds || existing?.liveReferenceImageIds || [])],
+    imageReferenceIds: [...(input.imageReferenceIds || existing?.imageReferenceIds || [])],
+    physicalReferenceNote: input.physicalReferenceNote || existing?.physicalReferenceNote || '',
+    completionImageIds: [...(input.completionImageIds || existing?.completionImageIds || [])],
+    buyerReviewStatus: input.buyerReviewStatus || existing?.buyerReviewStatus || '待买手确认',
+    buyerReviewAt: existing?.buyerReviewAt || '',
+    buyerReviewerName: input.buyerReviewerName || existing?.buyerReviewerName || '',
+    buyerReviewNote: input.buyerReviewNote || existing?.buyerReviewNote || '',
+    transferFromTeamCode: existing?.transferFromTeamCode || '',
+    transferFromTeamName: existing?.transferFromTeamName || '',
+    transferToTeamCode: existing?.transferToTeamCode || '',
+    transferToTeamName: existing?.transferToTeamName || '',
+    transferReason: existing?.transferReason || '',
+    transferredAt: existing?.transferredAt || '',
+    transferOperatorName: existing?.transferOperatorName || '',
+    patternAssetId: existing?.patternAssetId || '',
+    patternAssetCode: existing?.patternAssetCode || '',
+    patternCategoryCode: input.patternCategoryCode || existing?.patternCategoryCode || '',
+    patternStyleTags: [...(input.patternStyleTags || existing?.patternStyleTags || [])],
+    hotSellerFlag: Boolean(input.hotSellerFlag ?? existing?.hotSellerFlag),
+    colorConfirmNote: existing?.colorConfirmNote || '',
     artworkType: input.artworkType || '',
     patternMode: input.patternMode || '',
     artworkName: input.artworkName || '',
@@ -1116,9 +1254,9 @@ export function createPatternTaskWithProjectRelation(input: PatternTaskCreateInp
     latestInstanceId: task.patternTaskId,
     latestInstanceCode: task.patternTaskCode,
     latestResultType: '已创建花型任务',
-    latestResultText: '已创建花型任务，等待输出花型版本',
-    pendingActionType: '输出花型版本',
-    pendingActionText: '请推进花型任务并输出花型版本',
+    latestResultText: '已创建花型任务，等待执行花型需求',
+    pendingActionType: '执行花型任务',
+    pendingActionText: '请补齐颜色确认、完成图片和买手确认',
   }, Boolean(existing))
   syncExistingProjectArchiveByProjectId(task.projectId, task.updatedBy)
   return { ok: true, task, relation, message: '花型任务已创建，已写项目关系，已更新项目节点。' }
@@ -1629,6 +1767,17 @@ export function createDownstreamTasksFromRevision(
         dueAt: revisionTask.dueAt,
         productStyleCode: revisionTask.productStyleCode,
         spuCode: revisionTask.spuCode,
+        demandSourceType: '改版任务',
+        demandSourceRefId: revisionTask.revisionTaskId,
+        demandSourceRefCode: revisionTask.revisionTaskCode,
+        demandSourceRefName: revisionTask.title,
+        processType: '数码印',
+        requestQty: 1,
+        fabricName: '待买手确认',
+        demandImageIds: [...(revisionTask.evidenceImageUrls || [])],
+        patternSpuCode: revisionTask.productStyleCode || revisionTask.spuCode,
+        assignedTeamCode: 'CN_TEAM',
+        assignedMemberId: 'cn_bing_bing',
         artworkType: '印花',
         patternMode: '定位印',
         artworkName: `${revisionTask.projectName} 花型稿`,

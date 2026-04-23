@@ -635,6 +635,58 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
   const projectB = pickProjectByCode('PRJ-20251216-003')
   const nodeA = projectA ? findProjectNodeByWorkItemTypeCode(projectA.projectId, 'PATTERN_ARTWORK_TASK') : null
   const nodeB = projectB ? findProjectNodeByWorkItemTypeCode(projectB.projectId, 'PATTERN_ARTWORK_TASK') : null
+  const executionFields = (input: {
+    sourceType: PatternTaskRecord['demandSourceType']
+    sourceCode: string
+    processType?: PatternTaskRecord['processType']
+    fabricName?: string
+    teamCode?: PatternTaskRecord['assignedTeamCode']
+    teamName?: string
+    memberId?: string
+    memberName?: string
+    completed?: boolean
+  }): Pick<PatternTaskRecord,
+    'demandSourceType' | 'demandSourceRefId' | 'demandSourceRefCode' | 'demandSourceRefName' | 'processType' | 'requestQty' | 'fabricSku' | 'fabricName' | 'demandImageIds' | 'patternSpuCode' | 'colorDepthOption' | 'difficultyGrade' | 'assignedTeamCode' | 'assignedTeamName' | 'assignedMemberId' | 'assignedMemberName' | 'assignedAt' | 'liveReferenceImageIds' | 'imageReferenceIds' | 'physicalReferenceNote' | 'completionImageIds' | 'buyerReviewStatus' | 'buyerReviewAt' | 'buyerReviewerName' | 'buyerReviewNote' | 'transferFromTeamCode' | 'transferFromTeamName' | 'transferToTeamCode' | 'transferToTeamName' | 'transferReason' | 'transferredAt' | 'transferOperatorName' | 'patternAssetId' | 'patternAssetCode' | 'patternCategoryCode' | 'patternStyleTags' | 'hotSellerFlag' | 'colorConfirmNote'
+  > => ({
+    demandSourceType: input.sourceType,
+    demandSourceRefId: input.sourceCode,
+    demandSourceRefCode: input.sourceCode,
+    demandSourceRefName: input.sourceType,
+    processType: input.processType || '数码印',
+    requestQty: 1,
+    fabricSku: '',
+    fabricName: input.fabricName || '雪纺印花布',
+    demandImageIds: [`mock://pattern-demand/${input.sourceCode}`],
+    patternSpuCode: '',
+    colorDepthOption: '中间值',
+    difficultyGrade: 'A',
+    assignedTeamCode: input.teamCode || 'CN_TEAM',
+    assignedTeamName: input.teamName || '中国团队',
+    assignedMemberId: input.memberId || 'cn_bing_bing',
+    assignedMemberName: input.memberName || 'bing bing',
+    assignedAt: '2026-01-09 09:00:00',
+    liveReferenceImageIds: [],
+    imageReferenceIds: [],
+    physicalReferenceNote: '以实物图和直播图取中间值。',
+    completionImageIds: input.completed ? [`mock://pattern-completion/${input.sourceCode}`] : [],
+    buyerReviewStatus: input.completed ? '买手已通过' : '待买手确认',
+    buyerReviewAt: input.completed ? '2026-01-09 14:00:00' : '',
+    buyerReviewerName: input.completed ? '文锋' : '',
+    buyerReviewNote: '',
+    transferFromTeamCode: '',
+    transferFromTeamName: '',
+    transferToTeamCode: '',
+    transferToTeamName: '',
+    transferReason: '',
+    transferredAt: '',
+    transferOperatorName: '',
+    patternAssetId: '',
+    patternAssetCode: '',
+    patternCategoryCode: '植物与花卉',
+    patternStyleTags: ['休闲', '印花'],
+    hotSellerFlag: false,
+    colorConfirmNote: '直播图、图片图、实物图取中间值。',
+  })
 
   if (projectA && nodeA) {
     tasks.push({
@@ -654,6 +706,7 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
       upstreamObjectCode: 'RT-20260108-002',
       productStyleCode: 'SPU-010',
       spuCode: 'SPU-010',
+      ...executionFields({ sourceType: '改版任务', sourceCode: 'RT-20260108-002', completed: true }),
       artworkType: '印花',
       patternMode: '定位印',
       artworkName: 'Bunga Tropis A1',
@@ -696,6 +749,7 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
       upstreamObjectCode: projectB.templateVersion,
       productStyleCode: 'SPU-003',
       spuCode: 'SPU-003',
+      ...executionFields({ sourceType: '预售测款通过', sourceCode: projectB.projectCode, teamCode: 'BDG_TEAM', teamName: '万隆团队', memberId: 'bdg_ramzi_adli', memberName: 'ramzi adli' }),
       artworkType: '印花',
       patternMode: '满印',
       artworkName: 'Summer Denim',
@@ -778,6 +832,7 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
       upstreamObjectCode: project.templateVersion,
       productStyleCode: item.productStyleCode,
       spuCode: item.spuCode,
+      ...executionFields({ sourceType: '设计师款', sourceCode: project.projectCode, processType: item.artworkType === '贴章' ? '烫画' : '数码印', completed: item.status === '已完成' || item.status === '已确认' }),
       artworkType: item.artworkType,
       patternMode: item.patternMode,
       artworkName: item.artworkName,

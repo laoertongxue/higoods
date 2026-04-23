@@ -71,6 +71,7 @@ export interface PatternAssetDraftInput {
   reviewComment?: string
   sourceTaskId?: string
   sourceProjectId?: string
+  sourcePatternTaskSnapshot?: PatternAsset['source_pattern_task_snapshot']
   createdBy: string
   submitForReview: boolean
   parsedFile: PatternParsedFileResult
@@ -1298,6 +1299,7 @@ export function createPatternAsset(draft: PatternAssetDraftInput): PatternAssetR
       parse_status: draft.parsedFile.parseStatus,
       source_task_id: draft.sourceTaskId,
       source_project_id: draft.sourceProjectId ?? sourceTask?.projectId,
+      source_pattern_task_snapshot: draft.sourcePatternTaskSnapshot,
       reference_count: 0,
       created_by: draft.createdBy,
       updated_by: draft.createdBy,

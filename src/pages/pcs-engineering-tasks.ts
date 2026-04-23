@@ -6,6 +6,21 @@ import { createPatternAsset, getPatternAssetById, listPatternAssets } from '../d
 import type { PatternParsedFileResult } from '../data/pcs-pattern-library-types.ts'
 import { generateTechPackVersionFromPatternTask, generateTechPackVersionFromPlateTask, generateTechPackVersionFromRevisionTask } from '../data/pcs-project-technical-data-writeback.ts'
 import {
+  PATTERN_TASK_TEAMS,
+  listPatternTaskMembersByTeam,
+} from '../data/pcs-pattern-task-team-config.ts'
+import {
+  reviewPatternTaskByBuyer,
+  transferPatternTaskToChinaTeam,
+} from '../data/pcs-pattern-task-flow-service.ts'
+import type {
+  PatternTaskColorDepthOption,
+  PatternTaskDemandSourceType,
+  PatternTaskDifficultyGrade,
+  PatternTaskProcessType,
+  PatternTaskTeamCode,
+} from '../data/pcs-pattern-task-types.ts'
+import {
   getEngineeringTaskFieldPolicy,
   getPatternTaskCompletionMissingFields,
   getPlateTaskCompletionMissingFields,
@@ -99,6 +114,17 @@ interface PatternCreateDraft {
   ownerName: string
   dueAt: string
   productStyleCode: string
+  demandSourceType: PatternTaskDemandSourceType
+  processType: PatternTaskProcessType
+  requestQty: string
+  fabricSku: string
+  fabricName: string
+  demandImageIds: string[]
+  assignedTeamCode: PatternTaskTeamCode
+  assignedMemberId: string
+  patternCategoryCode: string
+  patternStyleTagsText: string
+  hotSellerFlag: boolean
   artworkType: string
   patternMode: string
   artworkName: string
@@ -132,6 +158,18 @@ interface PlateDetailDraft {
 
 interface PatternDetailDraft {
   artworkVersion: string
+  difficultyGrade: PatternTaskDifficultyGrade
+  colorDepthOption: PatternTaskColorDepthOption
+  physicalReferenceNote: string
+  colorConfirmNote: string
+  completionImageIds: string[]
+  liveReferenceImageIds: string[]
+  imageReferenceIds: string[]
+  buyerReviewNote: string
+  transferReason: string
+  patternCategoryCode: string
+  patternStyleTagsText: string
+  hotSellerFlag: boolean
 }
 
 const PAGE_SIZE = 8
@@ -168,6 +206,11 @@ const REVISION_SCOPE_OPTIONS = [
   { value: 'PACKAGE', label: '包装标识' },
 ] as const
 
+const PATTERN_DEMAND_SOURCE_OPTIONS: PatternTaskDemandSourceType[] = ['预售测款通过', '改版任务', '设计师款']
+const PATTERN_PROCESS_OPTIONS: PatternTaskProcessType[] = ['数码印', '烫画', '直喷']
+const PATTERN_COLOR_DEPTH_OPTIONS: PatternTaskColorDepthOption[] = ['浅色', '深色', '中间值']
+const PATTERN_DIFFICULTY_OPTIONS: PatternTaskDifficultyGrade[] = ['A++', 'A+', 'A', 'B', 'C', 'D']
+
 const SAMPLE_SITE_OPTIONS = ['all', '深圳', '雅加达']
 
 const initialRevisionCreateDraft = (): RevisionCreateDraft => ({
@@ -202,10 +245,37 @@ const initialPatternCreateDraft = (): PatternCreateDraft => ({
   ownerName: '',
   dueAt: '',
   productStyleCode: '',
+  demandSourceType: '预售测款通过',
+  processType: '数码印',
+  requestQty: '1',
+  fabricSku: '',
+  fabricName: '',
+  demandImageIds: [],
+  assignedTeamCode: 'CN_TEAM',
+  assignedMemberId: 'cn_bing_bing',
+  patternCategoryCode: '植物与花卉',
+  patternStyleTagsText: '休闲、印花',
+  hotSellerFlag: false,
   artworkType: '印花',
   patternMode: '定位印',
   artworkName: '',
   note: '',
+})
+
+const initialPatternDetailDraft = (): PatternDetailDraft => ({
+  artworkVersion: '',
+  difficultyGrade: 'A',
+  colorDepthOption: '中间值',
+  physicalReferenceNote: '',
+  colorConfirmNote: '',
+  completionImageIds: [],
+  liveReferenceImageIds: [],
+  imageReferenceIds: [],
+  buyerReviewNote: '',
+  transferReason: '',
+  patternCategoryCode: '',
+  patternStyleTagsText: '',
+  hotSellerFlag: false,
 })
 
 const initialSampleCreateDraft = (): SampleCreateDraft => ({
@@ -246,7 +316,7 @@ const state = {
   patternCreateOpen: false,
   patternCreateDraft: initialPatternCreateDraft(),
   patternDetailDraftTaskId: '',
-  patternDetailDraft: { artworkVersion: '' } as PatternDetailDraft,
+  patternDetailDraft: initialPatternDetailDraft(),
 
   firstSampleList: { search: '', status: 'all', owner: 'all', source: 'all', quickFilter: 'all', currentPage: 1, site: 'all' } as SampleListState,
   firstSampleTab: 'overview' as FirstSampleTab,
@@ -602,11 +672,25 @@ function ensurePlateDetailDraft(task: ReturnType<typeof getPlateMakingTaskById>)
 }
 
 function ensurePatternDetailDraft(task: ReturnType<typeof getPatternTaskById>): PatternDetailDraft {
-  if (!task) return { artworkVersion: '' }
+  if (!task) {
+    return initialPatternDetailDraft()
+  }
   if (state.patternDetailDraftTaskId !== task.patternTaskId) {
     state.patternDetailDraftTaskId = task.patternTaskId
     state.patternDetailDraft = {
       artworkVersion: task.artworkVersion,
+      difficultyGrade: task.difficultyGrade,
+      colorDepthOption: task.colorDepthOption,
+      physicalReferenceNote: task.physicalReferenceNote,
+      colorConfirmNote: task.colorConfirmNote,
+      completionImageIds: [...task.completionImageIds],
+      liveReferenceImageIds: [...task.liveReferenceImageIds],
+      imageReferenceIds: [...task.imageReferenceIds],
+      buyerReviewNote: task.buyerReviewNote,
+      transferReason: task.transferReason,
+      patternCategoryCode: task.patternCategoryCode,
+      patternStyleTagsText: task.patternStyleTags.join('、'),
+      hotSellerFlag: task.hotSellerFlag,
     }
   }
   return state.patternDetailDraft
@@ -720,6 +804,53 @@ function renderDateTimeInput(label: string, field: string, value: string): strin
       <input type="datetime-local" class="h-10 rounded-md border border-slate-200 px-3 text-sm text-slate-900 outline-none focus:border-blue-500" value="${escapeHtml(toDateTimeLocalValue(value))}" data-pcs-engineering-field="${escapeHtml(field)}" />
     </label>
   `
+}
+
+function buildSelectOptions(values: readonly string[]): Array<{ value: string; label: string }> {
+  return values.map((value) => ({ value, label: value }))
+}
+
+function parseTagsText(value: string): string[] {
+  return value.split(/[、,，]/).map((item) => item.trim()).filter(Boolean)
+}
+
+function renderImageList(imageIds: string[], emptyText = '暂无图片'): string {
+  if (imageIds.length === 0) {
+    return `<div class="rounded-lg border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-500">${escapeHtml(emptyText)}</div>`
+  }
+  return `
+    <div class="flex flex-wrap gap-3">
+      ${imageIds.map((imageId, index) => `
+        <button type="button" class="group relative overflow-hidden rounded-lg border border-slate-200 bg-slate-50" data-pcs-engineering-action="open-image-preview" data-url="${escapeHtml(imageId)}" data-title="图片 ${index + 1}">
+          <img src="${escapeHtml(imageId)}" alt="花型图片${index + 1}" class="h-20 w-20 object-cover" />
+        </button>
+      `).join('')}
+    </div>
+  `
+}
+
+function renderSmallImage(imageId: string): string {
+  if (!imageId) return '<span class="text-slate-400">未上传</span>'
+  return `<button type="button" class="overflow-hidden rounded-md border border-slate-200 bg-slate-50" data-pcs-engineering-action="open-image-preview" data-url="${escapeHtml(imageId)}" data-title="需求图"><img src="${escapeHtml(imageId)}" alt="需求图" class="h-12 w-12 object-cover" /></button>`
+}
+
+function renderImageUploader(label: string, field: string, imageIds: string[], emptyText = '暂无图片'): string {
+  return `
+    <div class="space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <p class="text-sm font-medium text-slate-900">${escapeHtml(label)}</p>
+        <label class="inline-flex h-8 cursor-pointer items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50">
+          上传图片
+          <input type="file" accept="image/*" multiple class="hidden" data-pcs-engineering-field="${escapeHtml(field)}" />
+        </label>
+      </div>
+      ${renderImageList(imageIds, emptyText)}
+    </div>
+  `
+}
+
+function getPatternMemberOptions(teamCode: string): Array<{ value: string; label: string }> {
+  return listPatternTaskMembersByTeam(teamCode).map((item) => ({ value: item.memberId, label: item.memberName }))
 }
 
 function renderPreviewImageModal(): string {
@@ -894,28 +1025,39 @@ function createPatternAssetFromTask(taskId: string): { ok: boolean; message: str
     parseWarnings: [],
     parseResultJson: {
       sourceTaskId: task.patternTaskId,
-      artworkType: task.artworkType,
-      patternMode: task.patternMode,
+      processType: task.processType,
+      demandSourceType: task.demandSourceType,
       artworkVersion: task.artworkVersion,
+      buyerReviewStatus: task.buyerReviewStatus,
     },
   }
 
   const asset = createPatternAsset({
     patternName: task.artworkName || task.title,
     aliases: [task.patternTaskCode],
-    usageType: task.patternMode || '定位印',
-    category: task.artworkType || '几何图形',
-    categoryPrimary: task.artworkType === '印花' ? '植物与花卉' : '几何与抽象',
-    categorySecondary: task.artworkType === '印花' ? '写实花卉' : '几何图形',
-    styleTags: [task.artworkType, task.patternMode].filter(Boolean),
+    usageType: task.processType || task.patternMode || '数码印',
+    category: task.patternCategoryCode || task.processType || '花型',
+    categoryPrimary: task.patternCategoryCode || '花型分类',
+    categorySecondary: task.processType || '数码印',
+    styleTags: task.patternStyleTags.length > 0 ? task.patternStyleTags : [task.processType, task.colorDepthOption].filter(Boolean),
     colorTags: ['综合色'],
-    hotFlag: false,
+    hotFlag: task.hotSellerFlag,
     sourceType: '自研',
     sourceNote: `由花型任务 ${task.patternTaskCode} 沉淀`,
+    sourcePatternTaskSnapshot: {
+      demand_source_type: task.demandSourceType,
+      process_type: task.processType,
+      request_qty: task.requestQty,
+      fabric_sku: task.fabricSku,
+      fabric_name: task.fabricName,
+      assigned_team_name: task.assignedTeamName,
+      assigned_member_name: task.assignedMemberName,
+      buyer_review_status: task.buyerReviewStatus,
+    },
     applicableCategories: [task.productStyleCode || '成衣'],
     applicableParts: ['前片', '后片'],
     relatedPartTemplateIds: [],
-    processDirection: task.note || '按花型任务输出使用',
+    processDirection: task.colorConfirmNote || task.note || '按花型任务输出使用',
     maintenanceStatus: '已维护',
     createdBy: '当前用户',
     submitForReview: false,
@@ -931,7 +1073,11 @@ function createPatternAssetFromTask(taskId: string): { ok: boolean; message: str
   })
 
   updatePatternTask(task.patternTaskId, {
-    status: task.status === '已完成' ? task.status : '已完成',
+    patternAssetId: asset.id,
+    patternAssetCode: asset.pattern_code,
+    patternCategoryCode: task.patternCategoryCode || asset.category_primary,
+    patternStyleTags: task.patternStyleTags.length > 0 ? task.patternStyleTags : asset.style_tags,
+    hotSellerFlag: task.hotSellerFlag,
     note: `${task.note ? `${task.note}；` : ''}已沉淀花型库：${asset.pattern_code}`,
     updatedAt: nowText(),
     updatedBy: '当前用户',
@@ -1825,14 +1971,14 @@ function getPatternTasksFiltered() {
   const keyword = state.patternList.search.trim().toLowerCase()
   return tasks.filter((task) => {
     if (keyword) {
-      const haystack = [task.patternTaskCode, task.title, task.projectCode, task.projectName, task.ownerName, task.artworkName, task.productStyleCode].join(' ').toLowerCase()
+      const haystack = [task.patternTaskCode, task.title, task.projectCode, task.projectName, task.ownerName, task.artworkName, task.productStyleCode, task.demandSourceType, task.processType, task.assignedTeamName, task.assignedMemberName].join(' ').toLowerCase()
       if (!haystack.includes(keyword)) return false
     }
     if (state.patternList.status !== 'all' && task.status !== state.patternList.status) return false
     if (state.patternList.owner !== 'all' && task.ownerName !== state.patternList.owner) return false
     if (state.patternList.source !== 'all' && task.sourceType !== state.patternList.source) return false
     if (state.patternList.quickFilter === 'mine' && task.ownerName !== '林小美') return false
-    if (state.patternList.quickFilter === 'pending-review' && task.status !== '待确认') return false
+    if (state.patternList.quickFilter === 'pending-review' && task.buyerReviewStatus !== '待买手确认') return false
     if (state.patternList.quickFilter === 'confirmed-no-output' && !(task.status === '已确认' && !task.linkedTechPackVersionId)) return false
     if (state.patternList.quickFilter === 'blocked' && task.status !== '异常待处理') return false
     if (state.patternList.quickFilter === 'overdue' && !isOverdue(task.dueAt, task.status === '已完成' || task.status === '已取消')) return false
@@ -1857,13 +2003,17 @@ function renderPatternListPage(): string {
             <p class="text-xs text-slate-500">${escapeHtml(task.title)}</p>
           </div>
         </td>
-        <td class="px-4 py-4">${projectButton(task.projectId, task.projectCode, task.projectName)}</td>
-        <td class="px-4 py-4">${renderStatusBadge(task.status)}</td>
-        <td class="px-4 py-4">${escapeHtml(task.artworkType || '-')}</td>
-        <td class="px-4 py-4">${escapeHtml(task.patternMode || '-')}</td>
-        <td class="px-4 py-4">${escapeHtml(task.artworkVersion || '-')}</td>
-        <td class="px-4 py-4">${escapeHtml(task.ownerName)}</td>
+        <td class="px-4 py-4">${renderSmallImage(task.demandImageIds[0] || '')}</td>
+        <td class="px-4 py-4">${escapeHtml(task.demandSourceType)}</td>
+        <td class="px-4 py-4">${escapeHtml(task.processType)}</td>
+        <td class="px-4 py-4">${escapeHtml(task.fabricSku || task.fabricName || '-')}</td>
+        <td class="px-4 py-4">${escapeHtml(task.requestQty || '-')}</td>
+        <td class="px-4 py-4">${escapeHtml(task.difficultyGrade || '-')}</td>
+        <td class="px-4 py-4">${escapeHtml(task.assignedTeamName || '-')}</td>
+        <td class="px-4 py-4">${escapeHtml(task.assignedMemberName || '-')}</td>
+        <td class="px-4 py-4">${renderStatusBadge(task.buyerReviewStatus)}</td>
         <td class="px-4 py-4">${asset ? `<button type="button" class="font-medium text-blue-700 hover:underline" data-nav="/pcs/pattern-library/${escapeHtml(asset.id)}">${escapeHtml(asset.pattern_code)}</button>` : '<span class="text-slate-400">未沉淀</span>'}</td>
+        <td class="px-4 py-4">${task.linkedTechPackVersionId ? techPackLinkByProject(task.projectId, task.linkedTechPackVersionId, task.linkedTechPackVersionCode || task.linkedTechPackVersionLabel || '查看技术包') : '<span class="text-slate-400">未写入</span>'}</td>
         <td class="px-4 py-4">
           <div class="flex flex-wrap gap-2">
             <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/patterns/colors/${escapeHtml(task.patternTaskId)}">查看</button>
@@ -1884,9 +2034,9 @@ function renderPatternListPage(): string {
   return `
     <div class="space-y-5 p-4">
       ${renderNotice()}
-      ${renderPageHeader('花型任务', '花型任务由商品项目节点推进自动创建；本页仅查看花型输出、生产文件和技术包写入结果。', '', '')}
+      ${renderPageHeader('花型任务', '', '', '')}
       ${renderListFilters({
-        searchPlaceholder: '搜索任务编号 / 花型名称 / 商品项目 / 负责人',
+        searchPlaceholder: '搜索任务编号 / 花型名称 / 商品项目 / 团队 / 花型师',
         listState: state.patternList,
         searchField: 'pattern-search',
         statusField: 'pattern-status',
@@ -1899,11 +2049,11 @@ function renderPatternListPage(): string {
       <section class="grid gap-4 md:grid-cols-5">
         ${renderMetricButton('全部任务', tasks.length, state.patternList.quickFilter === 'all', 'all', 'set-pattern-quick-filter', '花型任务总量')}
         ${renderMetricButton('我的任务', tasks.filter((item) => item.ownerName === '林小美').length, state.patternList.quickFilter === 'mine', 'mine', 'set-pattern-quick-filter', '默认个人视角')}
-        ${renderMetricButton('待确认', tasks.filter((item) => item.status === '待确认').length, state.patternList.quickFilter === 'pending-review', 'pending-review', 'set-pattern-quick-filter', '待确认花型输出')}
+        ${renderMetricButton('待买手确认', tasks.filter((item) => item.buyerReviewStatus === '待买手确认').length, state.patternList.quickFilter === 'pending-review', 'pending-review', 'set-pattern-quick-filter', '待买手确认')}
         ${renderMetricButton('已确认待沉淀', tasks.filter((item) => item.status === '已确认' && !listPatternAssets().find((asset) => asset.source_task_id === item.patternTaskId)).length, state.patternList.quickFilter === 'confirmed-no-output', 'confirmed-no-output', 'set-pattern-quick-filter', '确认后待进入花型库')}
         ${renderMetricButton('超期任务', tasks.filter((item) => isOverdue(item.dueAt, item.status === '已完成' || item.status === '已取消')).length, state.patternList.quickFilter === 'overdue', 'overdue', 'set-pattern-quick-filter', '超过计划完成时间')}
       </section>
-      ${renderDataTable(['花型任务', '商品项目', '状态', '花型类型', '图案方式', '版本', '负责人', '花型库', '操作'], rows, '暂无花型任务数据', renderPagination(state.patternList.currentPage, filtered.length, 'change-pattern-page'))}
+      ${renderDataTable(['花型任务', '需求图', '来源', '工艺', '面料', '数量', '难易程度', '团队', '花型师', '买手确认状态', '花型库状态', '技术包状态', '操作'], rows, '暂无花型任务数据', renderPagination(state.patternList.currentPage, filtered.length, 'change-pattern-page'))}
       ${renderPatternCreateDialog()}
     </div>
   `
@@ -1911,19 +2061,34 @@ function renderPatternListPage(): string {
 
 function renderPatternCreateDialog(): string {
   const draft = state.patternCreateDraft
+  const teamOptions = PATTERN_TASK_TEAMS.map((team) => ({ value: team.teamCode, label: team.teamName }))
   const body = `
     <div class="grid gap-4 md:grid-cols-2">
       ${renderSelectInput('商品项目', 'pattern-create-project', draft.projectId, buildProjectOptions())}
       ${renderTextInput('负责人', 'pattern-create-owner', draft.ownerName, '默认取项目负责人')}
       ${renderTextInput('任务标题', 'pattern-create-title', draft.title, '例如：花型-碎花连衣裙（定位印 A1）')}
-      ${renderTextInput('截止时间', 'pattern-create-due-at', draft.dueAt, 'YYYY-MM-DD HH:mm:ss')}
+      ${renderDateTimeInput('截止时间', 'pattern-create-due-at', draft.dueAt)}
       ${renderTextInput('款式编码', 'pattern-create-style-code', draft.productStyleCode, 'SPU-xxxx')}
+      ${renderSelectInput('需求来源', 'pattern-create-demand-source', draft.demandSourceType, buildSelectOptions(PATTERN_DEMAND_SOURCE_OPTIONS))}
+      ${renderSelectInput('工艺类型', 'pattern-create-process-type', draft.processType, buildSelectOptions(PATTERN_PROCESS_OPTIONS))}
+      ${renderTextInput('需求数量', 'pattern-create-request-qty', draft.requestQty, '例如：1')}
+      ${renderTextInput('面料 SKU', 'pattern-create-fabric-sku', draft.fabricSku, '例如：FAB-PRINT-001')}
+      ${renderTextInput('面料名称', 'pattern-create-fabric-name', draft.fabricName, '例如：雪纺印花坯布')}
+      ${renderSelectInput('团队', 'pattern-create-team', draft.assignedTeamCode, teamOptions)}
+      ${renderSelectInput('花型师', 'pattern-create-member', draft.assignedMemberId, getPatternMemberOptions(draft.assignedTeamCode))}
       ${renderTextInput('花型名称', 'pattern-create-artwork-name', draft.artworkName, '例如：Bunga Tropis A1')}
-      ${renderSelectInput('花型类型', 'pattern-create-artwork-type', draft.artworkType, [{ value: '印花', label: '印花' }, { value: '贴章', label: '贴章' }, { value: '绣花', label: '绣花' }, { value: '烫画', label: '烫画' }])}
-      ${renderSelectInput('图案方式', 'pattern-create-pattern-mode', draft.patternMode, [{ value: '定位印', label: '定位印' }, { value: '满印', label: '满印' }, { value: '局部', label: '局部' }])}
+      ${renderTextInput('花型库分类', 'pattern-create-category', draft.patternCategoryCode, '例如：植物与花卉')}
+      ${renderTextInput('风格标签', 'pattern-create-style-tags', draft.patternStyleTagsText, '多个标签用顿号分隔')}
+    </div>
+    <div class="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
+      ${renderImageUploader('需求图片', 'pattern-create-demand-images', draft.demandImageIds, '暂未上传需求图片')}
+      <label class="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-700">
+        <input type="checkbox" ${draft.hotSellerFlag ? 'checked' : ''} data-pcs-engineering-field="pattern-create-hot-flag" />
+        <span>标记为爆款花型</span>
+      </label>
     </div>
     <div class="mt-4">
-      ${renderTextarea('说明', 'pattern-create-note', draft.note, '项目模板阶段花型任务，后续可回写技术包并沉淀花型库')}
+      ${renderTextarea('说明', 'pattern-create-note', draft.note, '补充花型需求、边界和执行要求')}
     </div>
   `
   return renderDialog(state.patternCreateOpen, '新建花型任务', body, 'close-pattern-create', 'submit-pattern-create', '创建花型任务')
@@ -2070,17 +2235,138 @@ function renderPatternDetailPage(patternTaskId: string): string {
         `,
   )
 
-  const mainContent = state.patternTab === 'plan'
-    ? plan
-    : state.patternTab === 'color'
-      ? color
-      : state.patternTab === 'production'
-        ? production
-        : state.patternTab === 'samples'
-          ? samples
-          : state.patternTab === 'library'
-            ? library
-            : renderSectionCard('日志与评审', renderLogs(logs))
+  const demandSection = `${renderProjectContext(task)}${renderSectionCard('需求来源', renderKeyValueGrid([
+    { label: '来源', value: escapeHtml(task.demandSourceType) },
+    { label: '来源编号', value: escapeHtml(task.demandSourceRefCode || task.upstreamObjectCode || '-') },
+    { label: '来源名称', value: escapeHtml(task.demandSourceRefName || task.upstreamObjectType || '-') },
+    { label: '款式编码', value: escapeHtml(task.productStyleCode || '-') },
+  ], 2))}`
+
+  const processSection = renderSectionCard('工艺与面料', renderKeyValueGrid([
+    { label: '工艺类型', value: escapeHtml(task.processType) },
+    { label: '需求数量', value: escapeHtml(task.requestQty || '-') },
+    { label: '面料 SKU', value: escapeHtml(task.fabricSku || '-') },
+    { label: '面料名称', value: escapeHtml(task.fabricName || '-') },
+    { label: '花型名称', value: escapeHtml(task.artworkName || task.title) },
+    { label: '花型版次', value: escapeHtml(task.artworkVersion || '-') },
+  ], 3))
+
+  const demandImagesSection = renderSectionCard('需求图片', renderImageList(task.demandImageIds, '暂未上传需求图片'))
+
+  const assignmentSection = renderSectionCard(
+    '团队与成员分配',
+    `
+      ${renderKeyValueGrid([
+        { label: '团队', value: escapeHtml(task.assignedTeamName || '-') },
+        { label: '花型师', value: escapeHtml(task.assignedMemberName || '-') },
+        { label: '分配时间', value: escapeHtml(formatDateTime(task.assignedAt)) },
+        { label: '转派团队', value: escapeHtml(task.transferToTeamName || '-') },
+        { label: '转派原因', value: escapeHtml(task.transferReason || '-') },
+        { label: '原团队', value: escapeHtml(task.transferFromTeamName || '-') },
+      ], 3)}
+      <div class="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_160px]">
+        ${renderTextarea('转派原因', 'pattern-detail-transfer-reason', detailDraft.transferReason, '记录印尼团队转中国团队修改原因')}
+        <div class="flex items-end">
+          <button type="button" class="inline-flex h-10 w-full items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="pattern-transfer-to-cn" data-task-id="${escapeHtml(task.patternTaskId)}">转中国团队</button>
+        </div>
+      </div>
+    `,
+  )
+
+  const colorReviewSection = renderSectionCard(
+    '难易程度与颜色确认',
+    `
+      <div class="grid gap-4 md:grid-cols-2">
+        ${renderSelectInput('难易程度', 'pattern-detail-difficulty', detailDraft.difficultyGrade, buildSelectOptions(PATTERN_DIFFICULTY_OPTIONS))}
+        ${renderSelectInput('颜色深浅', 'pattern-detail-color-depth', detailDraft.colorDepthOption, buildSelectOptions(PATTERN_COLOR_DEPTH_OPTIONS))}
+      </div>
+      <div class="mt-4 grid gap-4 md:grid-cols-2">
+        ${renderImageUploader('直播参考图', 'pattern-detail-live-reference-images', detailDraft.liveReferenceImageIds, '暂未上传直播参考图')}
+        ${renderImageUploader('图片参考图', 'pattern-detail-image-reference-images', detailDraft.imageReferenceIds, '暂未上传图片参考图')}
+      </div>
+      <div class="mt-4 grid gap-4 md:grid-cols-2">
+        ${renderTextarea('实物图说明', 'pattern-detail-physical-note', detailDraft.physicalReferenceNote, '记录实物图观察和取中间值依据')}
+        ${renderTextarea('颜色确认说明', 'pattern-detail-color-note', detailDraft.colorConfirmNote, '记录颜色确认结论')}
+      </div>
+    `,
+  )
+
+  const buyerReviewSection = renderSectionCard(
+    '买手确认',
+    `
+      ${renderKeyValueGrid([
+        { label: '确认状态', value: renderStatusBadge(task.buyerReviewStatus) },
+        { label: '确认人', value: escapeHtml(task.buyerReviewerName || '-') },
+        { label: '确认时间', value: escapeHtml(formatDateTime(task.buyerReviewAt)) },
+        { label: '审核说明', value: escapeHtml(task.buyerReviewNote || '-') },
+      ], 2)}
+      <div class="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_180px_180px]">
+        ${renderTextarea('买手审核说明', 'pattern-detail-buyer-note', detailDraft.buyerReviewNote, '买手通过或驳回说明')}
+        <div class="flex items-end">
+          <button type="button" class="inline-flex h-10 w-full items-center justify-center rounded-md bg-emerald-600 px-4 text-sm font-medium text-white hover:bg-emerald-700" data-pcs-engineering-action="pattern-buyer-approve" data-task-id="${escapeHtml(task.patternTaskId)}">买手通过</button>
+        </div>
+        <div class="flex items-end">
+          <button type="button" class="inline-flex h-10 w-full items-center justify-center rounded-md border border-rose-200 bg-white px-4 text-sm font-medium text-rose-700 hover:bg-rose-50" data-pcs-engineering-action="pattern-buyer-reject" data-task-id="${escapeHtml(task.patternTaskId)}">买手驳回</button>
+        </div>
+      </div>
+    `,
+  )
+
+  const completionSection = renderTaskCompletionSection(
+    fieldPolicy,
+    completionMissingFields,
+    `
+      <div class="grid gap-4 md:grid-cols-2">
+        ${renderTextInput('花型版次', 'pattern-detail-version', detailDraft.artworkVersion, '例如：A2')}
+        ${renderImageUploader('完成确认图片', 'pattern-detail-completion-images', detailDraft.completionImageIds, '暂未上传完成确认图片')}
+      </div>
+      <div class="mt-4 flex justify-end">
+        <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="save-pattern-detail-fields" data-task-id="${escapeHtml(task.patternTaskId)}">保存执行字段</button>
+      </div>
+    `,
+  )
+
+  const librarySection = renderSectionCard(
+    '花型库沉淀',
+    `
+      ${asset
+        ? renderKeyValueGrid([
+            { label: '花型资产', value: `<button type="button" class="font-medium text-blue-700 hover:underline" data-nav="/pcs/pattern-library/${escapeHtml(asset.id)}">${escapeHtml(asset.pattern_code)}</button>` },
+            { label: '维护状态', value: escapeHtml(asset.maintenance_status) },
+            { label: '分类', value: escapeHtml(asset.category_primary || task.patternCategoryCode || '-') },
+            { label: '风格标签', value: escapeHtml(asset.style_tags.join('、') || task.patternStyleTags.join('、') || '-') },
+          ], 2)
+        : '<div class="rounded-lg border border-dashed border-slate-200 px-4 py-6 text-sm text-slate-500">未沉淀花型库</div>'}
+      <div class="mt-4 grid gap-4 md:grid-cols-3">
+        ${renderTextInput('花型库分类', 'pattern-detail-category', detailDraft.patternCategoryCode, '例如：植物与花卉')}
+        ${renderTextInput('风格标签', 'pattern-detail-style-tags', detailDraft.patternStyleTagsText, '多个标签用顿号分隔')}
+        <label class="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-700">
+          <input type="checkbox" ${detailDraft.hotSellerFlag ? 'checked' : ''} data-pcs-engineering-field="pattern-detail-hot-flag" />
+          <span>爆款花型</span>
+        </label>
+      </div>
+    `,
+  )
+
+  const techPackSection = renderSectionCard('技术包写入', renderKeyValueGrid([
+    { label: '关联技术包', value: task.linkedTechPackVersionId ? techPackLinkByProject(task.projectId, task.linkedTechPackVersionId, task.linkedTechPackVersionCode || task.linkedTechPackVersionLabel || '查看技术包') : '未写入' },
+    { label: '技术包状态', value: escapeHtml(task.linkedTechPackVersionStatus || '未写入') },
+    { label: '写入动作', value: escapeHtml(techPackAction.label) },
+    { label: '限制原因', value: escapeHtml(techPackAction.disabledReason || '-') },
+  ], 2))
+
+  const mainContent = [
+    demandSection,
+    processSection,
+    demandImagesSection,
+    assignmentSection,
+    colorReviewSection,
+    buyerReviewSection,
+    completionSection,
+    librarySection,
+    techPackSection,
+    renderSectionCard('操作记录', renderLogs(logs)),
+  ].join('')
 
   const aside = `
     <div class="space-y-4">
@@ -2103,7 +2389,6 @@ function renderPatternDetailPage(patternTaskId: string): string {
     <div class="space-y-5 p-4">
       ${renderNotice()}
       ${header}
-      ${tabBar}
       <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
         <div class="space-y-6">${mainContent}</div>
         ${aside}
@@ -2915,6 +3200,24 @@ function submitPatternCreate(): void {
     setNotice('请先选择商品项目。')
     return
   }
+  const requestQty = Number(draft.requestQty)
+  if (!Number.isFinite(requestQty) || requestQty <= 0) {
+    setNotice('请填写有效的需求数量。')
+    return
+  }
+  if (!draft.fabricSku.trim() && !draft.fabricName.trim()) {
+    setNotice('请填写面料信息。')
+    return
+  }
+  if (draft.demandImageIds.length === 0) {
+    setNotice('请至少上传 1 张需求图片。')
+    return
+  }
+  const selectedMember = listPatternTaskMembersByTeam(draft.assignedTeamCode).find((item) => item.memberId === draft.assignedMemberId)
+  if (!selectedMember) {
+    setNotice('请选择该团队下的花型师。')
+    return
+  }
   const project = getProjectById(draft.projectId)
   const defaults = getProjectDefaultValues(draft.projectId)
   const result = createPatternTaskWithProjectRelation({
@@ -2930,8 +3233,23 @@ function submitPatternCreate(): void {
     dueAt: draft.dueAt.trim() || '',
     productStyleCode: draft.productStyleCode.trim() || defaults.styleCode,
     spuCode: draft.productStyleCode.trim() || defaults.styleCode,
-    artworkType: draft.artworkType || '印花',
-    patternMode: draft.patternMode || '定位印',
+    demandSourceType: draft.demandSourceType,
+    demandSourceRefId: project?.projectId || '',
+    demandSourceRefCode: project?.projectCode || '',
+    demandSourceRefName: project?.projectName || '',
+    processType: draft.processType,
+    requestQty,
+    fabricSku: draft.fabricSku.trim(),
+    fabricName: draft.fabricName.trim(),
+    demandImageIds: [...draft.demandImageIds],
+    patternSpuCode: draft.productStyleCode.trim() || defaults.styleCode,
+    assignedTeamCode: draft.assignedTeamCode,
+    assignedMemberId: draft.assignedMemberId,
+    patternCategoryCode: draft.patternCategoryCode.trim(),
+    patternStyleTags: parseTagsText(draft.patternStyleTagsText),
+    hotSellerFlag: draft.hotSellerFlag,
+    artworkType: draft.processType === '烫画' ? '烫画' : '印花',
+    patternMode: draft.processType,
     artworkName: draft.artworkName.trim() || draft.title.trim() || '新建花型',
     note: draft.note.trim(),
     operatorName: '当前用户',
@@ -3109,6 +3427,43 @@ export function handlePcsEngineeringTaskInput(target: Element): boolean {
     return true
   }
 
+  if (fieldNode instanceof HTMLInputElement && fieldNode.type === 'file') {
+    const files = Array.from(fieldNode.files || []).filter((file) => file.type.startsWith('image/'))
+    if (files.length === 0) return true
+    const imageUrls = files.map((file) => URL.createObjectURL(file))
+    if (field === 'pattern-create-demand-images') {
+      state.patternCreateDraft.demandImageIds = [...state.patternCreateDraft.demandImageIds, ...imageUrls]
+      fieldNode.value = ''
+      return true
+    }
+    if (field === 'pattern-detail-completion-images') {
+      state.patternDetailDraft.completionImageIds = [...state.patternDetailDraft.completionImageIds, ...imageUrls]
+      fieldNode.value = ''
+      return true
+    }
+    if (field === 'pattern-detail-live-reference-images') {
+      state.patternDetailDraft.liveReferenceImageIds = [...state.patternDetailDraft.liveReferenceImageIds, ...imageUrls]
+      fieldNode.value = ''
+      return true
+    }
+    if (field === 'pattern-detail-image-reference-images') {
+      state.patternDetailDraft.imageReferenceIds = [...state.patternDetailDraft.imageReferenceIds, ...imageUrls]
+      fieldNode.value = ''
+      return true
+    }
+  }
+
+  if (fieldNode instanceof HTMLInputElement && fieldNode.type === 'checkbox') {
+    if (field === 'pattern-create-hot-flag') {
+      state.patternCreateDraft.hotSellerFlag = fieldNode.checked
+      return true
+    }
+    if (field === 'pattern-detail-hot-flag') {
+      state.patternDetailDraft.hotSellerFlag = fieldNode.checked
+      return true
+    }
+  }
+
   if (field === 'revision-search' && fieldNode instanceof HTMLInputElement) { state.revisionList.search = fieldNode.value; state.revisionList.currentPage = 1; return true }
   if (field === 'revision-status' && fieldNode instanceof HTMLSelectElement) { state.revisionList.status = fieldNode.value; state.revisionList.currentPage = 1; return true }
   if (field === 'revision-owner' && fieldNode instanceof HTMLSelectElement) { state.revisionList.owner = fieldNode.value; state.revisionList.currentPage = 1; return true }
@@ -3188,13 +3543,40 @@ export function handlePcsEngineeringTaskInput(target: Element): boolean {
       }
       case 'pattern-create-owner': state.patternCreateDraft.ownerName = value; return true
       case 'pattern-create-title': state.patternCreateDraft.title = value; return true
-      case 'pattern-create-due-at': state.patternCreateDraft.dueAt = value; return true
+      case 'pattern-create-due-at': state.patternCreateDraft.dueAt = fromDateTimeLocalValue(value); return true
       case 'pattern-create-style-code': state.patternCreateDraft.productStyleCode = value; return true
+      case 'pattern-create-demand-source': state.patternCreateDraft.demandSourceType = value as PatternTaskDemandSourceType; return true
+      case 'pattern-create-process-type': {
+        state.patternCreateDraft.processType = value as PatternTaskProcessType
+        state.patternCreateDraft.artworkType = value === '烫画' ? '烫画' : '印花'
+        state.patternCreateDraft.patternMode = value
+        return true
+      }
+      case 'pattern-create-request-qty': state.patternCreateDraft.requestQty = value; return true
+      case 'pattern-create-fabric-sku': state.patternCreateDraft.fabricSku = value; return true
+      case 'pattern-create-fabric-name': state.patternCreateDraft.fabricName = value; return true
+      case 'pattern-create-team': {
+        const nextTeamCode = value as PatternTaskTeamCode
+        state.patternCreateDraft.assignedTeamCode = nextTeamCode
+        state.patternCreateDraft.assignedMemberId = getPatternMemberOptions(nextTeamCode)[0]?.value || ''
+        return true
+      }
+      case 'pattern-create-member': state.patternCreateDraft.assignedMemberId = value; return true
       case 'pattern-create-artwork-name': state.patternCreateDraft.artworkName = value; return true
       case 'pattern-create-artwork-type': state.patternCreateDraft.artworkType = value; return true
       case 'pattern-create-pattern-mode': state.patternCreateDraft.patternMode = value; return true
+      case 'pattern-create-category': state.patternCreateDraft.patternCategoryCode = value; return true
+      case 'pattern-create-style-tags': state.patternCreateDraft.patternStyleTagsText = value; return true
       case 'pattern-create-note': state.patternCreateDraft.note = value; return true
       case 'pattern-detail-version': state.patternDetailDraft.artworkVersion = value; return true
+      case 'pattern-detail-difficulty': state.patternDetailDraft.difficultyGrade = value as PatternTaskDifficultyGrade; return true
+      case 'pattern-detail-color-depth': state.patternDetailDraft.colorDepthOption = value as PatternTaskColorDepthOption; return true
+      case 'pattern-detail-physical-note': state.patternDetailDraft.physicalReferenceNote = value; return true
+      case 'pattern-detail-color-note': state.patternDetailDraft.colorConfirmNote = value; return true
+      case 'pattern-detail-buyer-note': state.patternDetailDraft.buyerReviewNote = value; return true
+      case 'pattern-detail-transfer-reason': state.patternDetailDraft.transferReason = value; return true
+      case 'pattern-detail-category': state.patternDetailDraft.patternCategoryCode = value; return true
+      case 'pattern-detail-style-tags': state.patternDetailDraft.patternStyleTagsText = value; return true
       case 'first-sample-create-project': {
         state.firstSampleCreateDraft.projectId = value
         state.firstSampleCreateDraft.ownerName = getProjectById(value)?.ownerName || ''
@@ -3347,10 +3729,58 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement): boolean {
     const draft = state.patternDetailDraft
     updatePatternTask(taskId, {
       artworkVersion: draft.artworkVersion.trim(),
+      difficultyGrade: draft.difficultyGrade,
+      colorDepthOption: draft.colorDepthOption,
+      physicalReferenceNote: draft.physicalReferenceNote.trim(),
+      colorConfirmNote: draft.colorConfirmNote.trim(),
+      completionImageIds: [...draft.completionImageIds],
+      liveReferenceImageIds: [...draft.liveReferenceImageIds],
+      imageReferenceIds: [...draft.imageReferenceIds],
+      buyerReviewNote: draft.buyerReviewNote.trim(),
+      patternCategoryCode: draft.patternCategoryCode.trim(),
+      patternStyleTags: parseTagsText(draft.patternStyleTagsText),
+      hotSellerFlag: draft.hotSellerFlag,
       updatedAt: nowText(),
       updatedBy: '当前用户',
     })
-    setNotice('花型任务实例补齐字段已保存。')
+    pushRuntimeLog('pattern', taskId, '保存执行字段', '已保存花型执行字段。')
+    setNotice('花型任务执行字段已保存。')
+    return true
+  }
+
+  if (action === 'pattern-buyer-approve') {
+    const taskId = actionNode.dataset.taskId || ''
+    try {
+      const task = reviewPatternTaskByBuyer(taskId, '买手已通过', '文锋', state.patternDetailDraft.buyerReviewNote.trim())
+      pushRuntimeLog('pattern', taskId, '买手确认', '买手已通过。')
+      setNotice(`花型任务 ${task.patternTaskCode} 已通过买手确认。`)
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : '买手确认失败。')
+    }
+    return true
+  }
+
+  if (action === 'pattern-buyer-reject') {
+    const taskId = actionNode.dataset.taskId || ''
+    try {
+      const task = reviewPatternTaskByBuyer(taskId, '买手已驳回', '文锋', state.patternDetailDraft.buyerReviewNote.trim())
+      pushRuntimeLog('pattern', taskId, '买手驳回', state.patternDetailDraft.buyerReviewNote.trim() || '买手已驳回，退回花型师调整。')
+      setNotice(`花型任务 ${task.patternTaskCode} 已驳回，回到进行中。`)
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : '买手驳回失败。')
+    }
+    return true
+  }
+
+  if (action === 'pattern-transfer-to-cn') {
+    const taskId = actionNode.dataset.taskId || ''
+    try {
+      const task = transferPatternTaskToChinaTeam(taskId, state.patternDetailDraft.transferReason.trim(), 'cn_bing_bing', '当前用户')
+      pushRuntimeLog('pattern', taskId, '转派中国团队', state.patternDetailDraft.transferReason.trim())
+      setNotice(`花型任务 ${task.patternTaskCode} 已转派中国团队。`)
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : '转派失败。')
+    }
     return true
   }
 
@@ -3464,7 +3894,7 @@ export function resetPcsEngineeringTaskState(): void {
   state.patternCreateOpen = false
   state.patternCreateDraft = initialPatternCreateDraft()
   state.patternDetailDraftTaskId = ''
-  state.patternDetailDraft = { artworkVersion: '' }
+  state.patternDetailDraft = initialPatternDetailDraft()
   state.firstSampleList = { search: '', status: 'all', owner: 'all', source: 'all', quickFilter: 'all', currentPage: 1, site: 'all' }
   state.firstSampleTab = 'overview'
   state.firstSampleCreateOpen = false

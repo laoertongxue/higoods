@@ -1,6 +1,7 @@
 import { createTaskBootstrapSnapshot } from './pcs-task-bootstrap.ts'
 import type { PcsTaskPendingItem } from './pcs-project-types.ts'
 import type { PatternTaskRecord, PatternTaskStoreSnapshot } from './pcs-pattern-task-types.ts'
+import { getPatternTaskMember, getPatternTaskTeamName } from './pcs-pattern-task-team-config.ts'
 
 const STORAGE_KEY = 'higood-pcs-pattern-task-store-v1'
 const STORE_VERSION = 1
@@ -37,8 +38,51 @@ function seedSnapshot(): PatternTaskStoreSnapshot {
 }
 
 function normalizeTask(task: PatternTaskRecord): PatternTaskRecord {
+  const assignedTeamCode = task.assignedTeamCode || 'CN_TEAM'
+  const assignedMemberId = task.assignedMemberId || 'cn_bing_bing'
+  const assignedMember = getPatternTaskMember(assignedTeamCode, assignedMemberId)
+  const demandSourceType = task.demandSourceType || (task.sourceType === '改版任务' ? '改版任务' : '预售测款通过')
+  const processType = task.processType || (task.artworkType === '烫画' ? '烫画' : '数码印')
   return {
     ...cloneTask(task),
+    demandSourceType,
+    demandSourceRefId: task.demandSourceRefId || task.upstreamObjectId || '',
+    demandSourceRefCode: task.demandSourceRefCode || task.upstreamObjectCode || '',
+    demandSourceRefName: task.demandSourceRefName || task.upstreamModule || '',
+    processType,
+    requestQty: Number(task.requestQty || 1),
+    fabricSku: task.fabricSku || '',
+    fabricName: task.fabricName || '待买手确认',
+    demandImageIds: Array.isArray(task.demandImageIds) ? task.demandImageIds : [],
+    patternSpuCode: task.patternSpuCode || task.productStyleCode || task.spuCode || '',
+    colorDepthOption: task.colorDepthOption || '中间值',
+    difficultyGrade: task.difficultyGrade || 'A',
+    assignedTeamCode,
+    assignedTeamName: task.assignedTeamName || getPatternTaskTeamName(assignedTeamCode),
+    assignedMemberId,
+    assignedMemberName: task.assignedMemberName || assignedMember?.memberName || '',
+    assignedAt: task.assignedAt || task.acceptedAt || task.createdAt || '',
+    liveReferenceImageIds: Array.isArray(task.liveReferenceImageIds) ? task.liveReferenceImageIds : [],
+    imageReferenceIds: Array.isArray(task.imageReferenceIds) ? task.imageReferenceIds : [],
+    physicalReferenceNote: task.physicalReferenceNote || '',
+    completionImageIds: Array.isArray(task.completionImageIds) ? task.completionImageIds : [],
+    buyerReviewStatus: task.buyerReviewStatus || '待买手确认',
+    buyerReviewAt: task.buyerReviewAt || '',
+    buyerReviewerName: task.buyerReviewerName || '',
+    buyerReviewNote: task.buyerReviewNote || '',
+    transferFromTeamCode: task.transferFromTeamCode || '',
+    transferFromTeamName: task.transferFromTeamName || '',
+    transferToTeamCode: task.transferToTeamCode || '',
+    transferToTeamName: task.transferToTeamName || '',
+    transferReason: task.transferReason || '',
+    transferredAt: task.transferredAt || '',
+    transferOperatorName: task.transferOperatorName || '',
+    patternAssetId: task.patternAssetId || '',
+    patternAssetCode: task.patternAssetCode || '',
+    patternCategoryCode: task.patternCategoryCode || '',
+    patternStyleTags: Array.isArray(task.patternStyleTags) ? task.patternStyleTags : [],
+    hotSellerFlag: Boolean(task.hotSellerFlag),
+    colorConfirmNote: task.colorConfirmNote || '',
     linkedTechPackVersionId: task.linkedTechPackVersionId || '',
     linkedTechPackVersionCode: task.linkedTechPackVersionCode || '',
     linkedTechPackVersionLabel: task.linkedTechPackVersionLabel || '',

@@ -105,25 +105,34 @@ const PATTERN_TASK_FIELD_POLICY: EngineeringTaskFieldPolicy = {
   taskLabel: '花型任务',
   createRequiredFields: [
     { fieldKey: 'title', label: '任务标题', description: '在项目节点创建时明确本次花型任务主题。' },
-    { fieldKey: 'ownerName', label: '负责人', description: '节点推进时必须指定当前花型负责人。' },
     { fieldKey: 'dueAt', label: '截止时间', description: '用于锁定本次花型任务的计划完成时间。' },
-    { fieldKey: 'artworkType', label: '花型类型', description: '明确本次任务属于印花、贴章、绣花等类型。' },
-    { fieldKey: 'patternMode', label: '图案方式', description: '明确本次任务属于定位印、满印或局部图案。' },
-    { fieldKey: 'artworkName', label: '花型名称', description: '沉淀本次花型任务的正式名称。' },
+    { fieldKey: 'demandSourceType', label: '需求来源', description: '只能来自预售测款通过、改版任务或设计师款。' },
+    { fieldKey: 'processType', label: '工艺', description: '数码印、烫画或直喷。' },
+    { fieldKey: 'requestQty', label: '数量', description: '文锋填写的花型需求数量。' },
+    { fieldKey: 'fabricSku', label: '面料', description: '买手确认的面料编码或名称。' },
+    { fieldKey: 'demandImageIds', label: '需求图片', description: '花型划线或需求图片。' },
+    { fieldKey: 'assignedTeamCode', label: '团队', description: '中国团队、万隆团队或雅加达团队。' },
+    { fieldKey: 'assignedMemberId', label: '花型师', description: '花型师必须来自所选团队。' },
   ],
   detailEditableFields: [
     { fieldKey: 'artworkVersion', label: '花型版次', description: '在实例详情中补齐最终输出的花型版次。' },
+    { fieldKey: 'difficultyGrade', label: '难易程度', description: '记录花型执行难度。' },
+    { fieldKey: 'colorDepthOption', label: '颜色深浅', description: '参考直播图、图片图和实物说明取中间值。' },
+    { fieldKey: 'buyerReviewStatus', label: '买手确认', description: '买手通过后才允许完成。' },
+    { fieldKey: 'completionImageIds', label: '完成确认图片', description: '完成前必须上传至少一张确认图。' },
   ],
   completionRequiredFields: [
     { fieldKey: 'artworkVersion', label: '花型版次', description: '完成前必须沉淀本次花型产出的正式版次。' },
+    { fieldKey: 'buyerReviewStatus', label: '买手确认通过', description: '完成前必须由买手确认通过。' },
+    { fieldKey: 'completionImageIds', label: '完成确认图片', description: '完成前必须有确认图片。' },
   ],
   nodeWritebacks: [
     {
       phase: '创建后',
       resultType: '已创建花型任务',
-      resultText: '已创建花型任务，待在实例详情补齐花型版次。',
-      pendingActionType: '输出花型版本',
-      pendingActionText: '请在花型任务详情补齐花型版次，并输出正式花型版本。',
+      resultText: '已创建花型任务，待在实例详情执行花型需求。',
+      pendingActionType: '执行花型任务',
+      pendingActionText: '请补齐颜色确认、完成图片和买手确认。',
     },
     {
       phase: '完成后',
@@ -164,5 +173,7 @@ export function getPlateTaskCompletionMissingFields(task: PlateMakingTaskRecord)
 export function getPatternTaskCompletionMissingFields(task: PatternTaskRecord): string[] {
   const missing: string[] = []
   if (!task.artworkVersion.trim()) missing.push('花型版次')
+  if (task.buyerReviewStatus !== '买手已通过') missing.push('买手确认通过')
+  if (task.completionImageIds.length === 0) missing.push('完成确认图片')
   return missing
 }

@@ -65,6 +65,7 @@
     "check:fcs-progress-and-routes": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-fcs-progress-and-routes.ts",
     "check:fcs-final-acceptance": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-fcs-final-acceptance.ts",
     "check:followup-cleanup": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-followup-cleanup.ts",
+    "check:pcs-pattern-task-refactor": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pcs-pattern-task-refactor.ts",
     "check:capacity-dynamic-status": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-capacity-dynamic-status.ts",
     "check:cutting-production-progress-columns": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-production-progress-columns.ts",
     "check:cutting-entry-cleanup": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-entry-cleanup.ts",

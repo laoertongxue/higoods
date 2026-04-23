@@ -118,6 +118,16 @@ export interface PatternAsset {
   parse_status: PatternParseStatus
   source_task_id?: string
   source_project_id?: string
+  source_pattern_task_snapshot?: {
+    demand_source_type?: string
+    process_type?: string
+    request_qty?: number
+    fabric_sku?: string
+    fabric_name?: string
+    assigned_team_name?: string
+    assigned_member_name?: string
+    buyer_review_status?: string
+  }
   reference_count: number
   created_by: string
   updated_by: string
