@@ -673,8 +673,8 @@ function updateRevisionNode(node: PcsProjectNodeRecord, task: RevisionTaskRecord
     updateProjectNodeRecord(task.projectId, node.projectNodeId, {
       latestResultType: '已创建改版任务',
       latestResultText: '已创建改版任务',
-      pendingActionType: '等待改版完成',
-      pendingActionText: '请推进改版任务，完成后重新进入测款',
+      pendingActionType: '查看改版任务',
+      pendingActionText: '查看改版任务',
       updatedAt: task.createdAt,
     }, task.ownerName || '当前用户')
   }
@@ -1389,9 +1389,9 @@ export function createPlateMakingTaskWithProjectRelation(
     latestInstanceId: task.plateTaskId,
     latestInstanceCode: task.plateTaskCode,
     latestResultType: '已创建制版任务',
-    latestResultText: '已创建制版任务，等待输出纸样与版本',
-    pendingActionType: '输出纸样版本',
-    pendingActionText: '请推进制版并输出纸样版本',
+    latestResultText: '已创建制版任务',
+    pendingActionType: '查看制版任务',
+    pendingActionText: '查看制版任务',
   }, Boolean(existing))
   syncExistingProjectArchiveByProjectId(task.projectId, task.updatedBy)
   return { ok: true, task, relation, message: '制版任务已创建，已写项目关系，已更新项目节点。' }
@@ -1545,9 +1545,9 @@ export function createPatternTaskWithProjectRelation(input: PatternTaskCreateInp
     latestInstanceId: task.patternTaskId,
     latestInstanceCode: task.patternTaskCode,
     latestResultType: '已创建花型任务',
-    latestResultText: '已创建花型任务，等待执行花型需求',
-    pendingActionType: '执行花型任务',
-    pendingActionText: '请补齐颜色确认、完成图片和买手确认',
+    latestResultText: '已创建花型任务',
+    pendingActionType: '查看花型任务',
+    pendingActionText: '查看花型任务',
   }, Boolean(existing))
   syncExistingProjectArchiveByProjectId(task.projectId, task.updatedBy)
   return { ok: true, task, relation, message: '花型任务已创建，已写项目关系，已更新项目节点。' }

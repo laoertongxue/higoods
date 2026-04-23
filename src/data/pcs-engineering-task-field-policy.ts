@@ -60,9 +60,9 @@ const REVISION_TASK_FIELD_POLICY: EngineeringTaskFieldPolicy = {
     {
       phase: '创建后',
       resultType: '已创建改版任务',
-      resultText: '已创建改版任务，待在实例详情补齐执行信息。',
-      pendingActionType: '补齐改版信息',
-      pendingActionText: '请在改版任务详情补齐参与人和改版版次，并推进执行。',
+      resultText: '已创建改版任务。',
+      pendingActionType: '查看改版任务',
+      pendingActionText: '查看改版任务',
     },
     {
       phase: '完成后',
@@ -107,9 +107,9 @@ const PLATE_TASK_FIELD_POLICY: EngineeringTaskFieldPolicy = {
     {
       phase: '创建后',
       resultType: '已创建制版任务',
-      resultText: '已创建制版任务，待在实例详情补齐纸样执行信息。',
-      pendingActionType: '输出纸样资料',
-      pendingActionText: '请在制版任务详情补齐纸样图片、纸样文件和模板关联。',
+      resultText: '已创建制版任务。',
+      pendingActionType: '查看制版任务',
+      pendingActionText: '查看制版任务',
     },
     {
       phase: '完成后',
@@ -151,9 +151,9 @@ const PATTERN_TASK_FIELD_POLICY: EngineeringTaskFieldPolicy = {
     {
       phase: '创建后',
       resultType: '已创建花型任务',
-      resultText: '已创建花型任务，待在实例详情执行花型需求。',
-      pendingActionType: '执行花型任务',
-      pendingActionText: '请补齐颜色确认、完成图片和买手确认。',
+      resultText: '已创建花型任务。',
+      pendingActionType: '查看花型任务',
+      pendingActionText: '查看花型任务',
     },
     {
       phase: '完成后',

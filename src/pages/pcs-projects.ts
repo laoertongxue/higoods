@@ -59,7 +59,6 @@ import {
 } from '../data/pcs-project-domain-contract.ts'
 import {
   getEngineeringTaskFieldPolicy,
-  type EngineeringTaskFieldDescriptor,
   type EngineeringTaskFieldPolicyCode,
 } from '../data/pcs-engineering-task-field-policy.ts'
 import {
@@ -1277,34 +1276,9 @@ function renderEngineeringTaskCreateDialog(): string {
       </div>
     </section>
   `
-  const policy = getEngineeringTaskFieldPolicy(dialog.workItemTypeCode)
-  const policyPanel = `
-    <section class="rounded-lg border border-slate-200 bg-white p-4">
-      <div class="grid gap-4 lg:grid-cols-3">
-        <div>
-          <p class="text-sm font-medium text-slate-900">节点创建必须填写</p>
-          <ul class="mt-3 space-y-2 text-sm text-slate-600">
-            ${policy.createRequiredFields.map((field) => `<li><span class="font-medium text-slate-900">${escapeHtml(field.label)}</span><span class="text-slate-500">：${escapeHtml(field.description)}</span></li>`).join('')}
-          </ul>
-        </div>
-        <div>
-          <p class="text-sm font-medium text-slate-900">实例详情继续补齐</p>
-          <ul class="mt-3 space-y-2 text-sm text-slate-600">
-            ${policy.detailEditableFields.map((field) => `<li><span class="font-medium text-slate-900">${escapeHtml(field.label)}</span><span class="text-slate-500">：${escapeHtml(field.description)}</span></li>`).join('')}
-          </ul>
-        </div>
-        <div>
-          <p class="text-sm font-medium text-slate-900">完成后回写项目节点</p>
-          <ul class="mt-3 space-y-2 text-sm text-slate-600">
-            ${policy.nodeWritebacks.map((item) => `<li><span class="font-medium text-slate-900">${escapeHtml(item.phase)}</span><span class="text-slate-500">：${escapeHtml(item.resultType)} / ${escapeHtml(item.pendingActionType || '无待办')}</span></li>`).join('')}
-          </ul>
-        </div>
-      </div>
-    </section>
-  `
 
   let title = '创建工程任务'
-  let description = '请在商品项目节点中补齐当前任务创建所需字段。其余运行字段可在任务实例详情中继续完善。'
+  let description = `${project.projectCode} · ${node.workItemTypeName}`
   let body = ''
 
   if (dialog.workItemTypeCode === 'REVISION_TASK') {
@@ -1407,7 +1381,7 @@ function renderEngineeringTaskCreateDialog(): string {
   return renderModalShell(
     title,
     description,
-    `${summary}${policyPanel}${body}`,
+    `${summary}${body}`,
     `
       <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-project-action="close-dialogs">取消</button>
       <button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-project-action="submit-engineering-task-create">创建任务</button>
@@ -5063,170 +5037,118 @@ function renderPhaseNavigator(viewModel: ProjectViewModel): string {
   `
 }
 
-function renderNodeMetricCards(node: ProjectNodeViewModel): string {
-  const payload = node.latestRecord?.payload as Record<string, unknown> | undefined
-  if (payload && typeof payload.totalExposureQty === 'number') {
-    const breakdownSections: Array<{ label: string; lines: string[] }> = [
-      {
-        label: '渠道拆分',
-        lines: Array.isArray(payload.channelBreakdownLines)
-          ? payload.channelBreakdownLines.map((item) => String(item).trim()).filter(Boolean)
-          : [],
-      },
-      {
-        label: '店铺拆分',
-        lines: Array.isArray(payload.storeBreakdownLines)
-          ? payload.storeBreakdownLines.map((item) => String(item).trim()).filter(Boolean)
-          : [],
-      },
-      {
-        label: '渠道店铺商品拆分',
-        lines: Array.isArray(payload.channelProductBreakdownLines)
-          ? payload.channelProductBreakdownLines.map((item) => String(item).trim()).filter(Boolean)
-          : [],
-      },
-      {
-        label: '测款来源拆分',
-        lines: Array.isArray(payload.testingSourceBreakdownLines)
-          ? payload.testingSourceBreakdownLines.map((item) => String(item).trim()).filter(Boolean)
-          : [],
-      },
-      {
-        label: '币种拆分',
-        lines: Array.isArray(payload.currencyBreakdownLines)
-          ? payload.currencyBreakdownLines.map((item) => String(item).trim()).filter(Boolean)
-          : [],
-      },
-    ].filter((section) => section.lines.length > 0)
-
-    return `
-      <div class="space-y-3">
-        <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">曝光量</p><p class="mt-2 text-2xl font-semibold text-slate-900">${formatValue(payload.totalExposureQty)}</p></article>
-          <article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">点击量</p><p class="mt-2 text-2xl font-semibold text-slate-900">${formatValue(payload.totalClickQty)}</p></article>
-          <article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">下单量</p><p class="mt-2 text-2xl font-semibold text-slate-900">${formatValue(payload.totalOrderQty)}</p></article>
-          <article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">GMV</p><p class="mt-2 text-2xl font-semibold text-slate-900">${formatValue(payload.totalGmvAmount)}</p></article>
-        </div>
-        ${
-          breakdownSections.length > 0
-            ? `
-              <div class="grid gap-3 xl:grid-cols-2">
-                ${breakdownSections
-                  .map(
-                    (section) => `
-                      <article class="rounded-lg border bg-white p-4">
-                        <p class="text-xs font-medium text-slate-500">${escapeHtml(section.label)}</p>
-                        <div class="mt-3 space-y-2">
-                          ${section.lines
-                            .map(
-                              (line) => `
-                                <div class="rounded-md bg-slate-50 px-3 py-2 text-sm leading-6 text-slate-700">${escapeHtml(line)}</div>
-                              `,
-                            )
-                            .join('')}
-                        </div>
-                      </article>
-                    `,
-                  )
-                  .join('')}
-              </div>
-            `
-            : ''
-        }
-      </div>
-    `
-  }
-
-  return `
-    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-      <article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">正式记录</p><p class="mt-2 text-2xl font-semibold text-slate-900">${node.instanceModel.formalRecordCount}</p></article>
-      <article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">关联对象</p><p class="mt-2 text-2xl font-semibold text-slate-900">${node.instanceModel.relatedObjectCount}</p></article>
-      <article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">有效实例</p><p class="mt-2 text-2xl font-semibold text-slate-900">${Math.max(node.node.validInstanceCount, node.instanceModel.totalCount)}</p></article>
-      <article class="rounded-lg border bg-white p-4"><p class="text-xs text-slate-500">最近更新</p><p class="mt-2 text-sm font-semibold text-slate-900">${escapeHtml(formatDateTime(node.instanceModel.latestInstance?.updatedAt || node.node.updatedAt || node.latestRecord?.updatedAt || ''))}</p></article>
-    </div>
-  `
-}
-
-interface EngineeringTaskCompletionProgress {
+interface EngineeringTaskBasicField {
   label: string
-  filledCount: number
-  totalCount: number
-  missingLabels: string[]
+  value: string
 }
 
-interface EngineeringTaskCompletionSnapshot {
+interface EngineeringTaskBasicSnapshot {
   taskLabel: string
   taskCode: string
   taskStatus: string
   updatedAt: string
-  createProgress: EngineeringTaskCompletionProgress
-  detailProgress: EngineeringTaskCompletionProgress
-  completionProgress: EngineeringTaskCompletionProgress
+  taskExists: boolean
+  fields: EngineeringTaskBasicField[]
 }
 
 function isEngineeringTaskPolicyCode(code: string): code is EngineeringTaskFieldPolicyCode {
   return code === 'REVISION_TASK' || code === 'PATTERN_TASK' || code === 'PATTERN_ARTWORK_TASK'
 }
 
-function isEngineeringTaskFieldFilled(task: Record<string, unknown>, fieldKey: string): boolean {
+function formatEngineeringTaskBasicFieldValue(task: Record<string, unknown> | null, fieldKey: string): string {
+  if (!task) return '-'
+
+  if (fieldKey === 'revisionScopeCodes') {
+    const names = Array.isArray(task.revisionScopeNames)
+      ? task.revisionScopeNames.map((item) => String(item ?? '').trim()).filter(Boolean)
+      : []
+    const codes = Array.isArray(task.revisionScopeCodes)
+      ? task.revisionScopeCodes.map((item) => String(item ?? '').trim()).filter(Boolean)
+      : []
+    return names.join('、') || codes.join('、') || '-'
+  }
+
+  if (fieldKey === 'baseStyleCode') {
+    const values = [task.baseStyleCode, task.baseStyleName]
+      .map((item) => String(item ?? '').trim())
+      .filter(Boolean)
+    return values.join(' / ') || '-'
+  }
+
+  if (fieldKey === 'fabricSku') {
+    const values = [task.fabricSku, task.fabricName]
+      .map((item) => String(item ?? '').trim())
+      .filter(Boolean)
+    return values.join(' / ') || '-'
+  }
+
+  if (fieldKey === 'assignedTeamCode') {
+    return String(task.assignedTeamName || task.assignedTeamCode || '').trim() || '-'
+  }
+
+  if (fieldKey === 'assignedMemberId') {
+    return String(task.assignedMemberName || task.assignedMemberId || '').trim() || '-'
+  }
+
+  if (fieldKey === 'patternMakerName') {
+    return String(task.patternMakerName || task.ownerName || '').trim() || '-'
+  }
+
+  if (fieldKey === 'demandImageIds' || fieldKey === 'evidenceImageUrls') {
+    const values = Array.isArray(task[fieldKey]) ? task[fieldKey].map((item) => String(item ?? '').trim()).filter(Boolean) : []
+    return values.length > 0 ? `${values.length} 张` : '-'
+  }
+
   const value = task[fieldKey]
   if (Array.isArray(value)) {
-    return value.some((item) => String(item ?? '').trim())
+    const values = value.map((item) => String(item ?? '').trim()).filter(Boolean)
+    return values.join('、') || '-'
   }
   if (typeof value === 'number') {
-    return Number.isFinite(value)
+    return Number.isFinite(value) ? String(value) : '-'
   }
   if (typeof value === 'boolean') {
-    return true
+    return value ? '是' : '否'
   }
-  return String(value ?? '').trim() !== ''
+  const text = String(value ?? '').trim()
+  if (!text) return '-'
+  if (fieldKey.endsWith('At')) return formatDateTime(text)
+  return text
 }
 
-function buildEngineeringTaskCompletionProgress(
-  label: string,
-  task: Record<string, unknown>,
-  fields: EngineeringTaskFieldDescriptor[],
-): EngineeringTaskCompletionProgress {
-  const missingLabels = fields
-    .filter((field) => !isEngineeringTaskFieldFilled(task, field.fieldKey))
-    .map((field) => field.label)
-
-  return {
-    label,
-    filledCount: fields.length - missingLabels.length,
-    totalCount: fields.length,
-    missingLabels,
-  }
-}
-
-function resolveEngineeringTaskCompletionSnapshot(
+function resolveEngineeringTaskBasicSnapshot(
   project: PcsProjectRecord,
   node: ProjectNodeViewModel,
-): EngineeringTaskCompletionSnapshot | null {
+): EngineeringTaskBasicSnapshot | null {
   if (!isEngineeringTaskPolicyCode(node.node.workItemTypeCode)) {
     return null
   }
 
   const policy = getEngineeringTaskFieldPolicy(node.node.workItemTypeCode)
+  const buildSnapshot = (
+    task: Record<string, unknown> | null,
+    taskCode: string,
+    taskStatus: string,
+    updatedAt: string,
+  ): EngineeringTaskBasicSnapshot => ({
+    taskLabel: policy.taskLabel,
+    taskCode,
+    taskStatus,
+    updatedAt,
+    taskExists: Boolean(task),
+    fields: policy.createRequiredFields.map((field) => ({
+      label: field.label,
+      value: formatEngineeringTaskBasicFieldValue(task, field.fieldKey),
+    })),
+  })
+
   if (node.node.workItemTypeCode === 'REVISION_TASK') {
     const relation =
       findLatestNodeRelation(project.projectId, node.node.projectNodeId, '改版任务', '改版任务') ||
       findLatestProjectRelation(project.projectId, '改版任务', '改版任务')
     const taskId = relation?.sourceObjectId || relation?.instanceId || node.node.latestInstanceId || ''
     const task = taskId ? getRevisionTaskByIdSafe(taskId) : null
-    if (!task) {
-      return null
-    }
-
-    return {
-      taskLabel: policy.taskLabel,
-      taskCode: task.revisionTaskCode,
-      taskStatus: task.status,
-      updatedAt: task.updatedAt,
-      createProgress: buildEngineeringTaskCompletionProgress('节点创建必填', task, policy.createRequiredFields),
-      detailProgress: buildEngineeringTaskCompletionProgress('实例详情补齐', task, policy.detailEditableFields),
-      completionProgress: buildEngineeringTaskCompletionProgress('完成前校验', task, policy.completionRequiredFields),
-    }
+    return buildSnapshot(task, task?.revisionTaskCode || '', task?.status || '未创建', task?.updatedAt || node.node.updatedAt || '')
   }
 
   if (node.node.workItemTypeCode === 'PATTERN_TASK') {
@@ -5235,19 +5157,7 @@ function resolveEngineeringTaskCompletionSnapshot(
       findLatestProjectRelation(project.projectId, '制版任务', '制版任务')
     const taskId = relation?.sourceObjectId || relation?.instanceId || node.node.latestInstanceId || ''
     const task = taskId ? getPlateMakingTaskByIdSafe(taskId) : null
-    if (!task) {
-      return null
-    }
-
-    return {
-      taskLabel: policy.taskLabel,
-      taskCode: task.plateTaskCode,
-      taskStatus: task.status,
-      updatedAt: task.updatedAt,
-      createProgress: buildEngineeringTaskCompletionProgress('节点创建必填', task, policy.createRequiredFields),
-      detailProgress: buildEngineeringTaskCompletionProgress('实例详情补齐', task, policy.detailEditableFields),
-      completionProgress: buildEngineeringTaskCompletionProgress('完成前校验', task, policy.completionRequiredFields),
-    }
+    return buildSnapshot(task, task?.plateTaskCode || '', task?.status || '未创建', task?.updatedAt || node.node.updatedAt || '')
   }
 
   const relation =
@@ -5255,161 +5165,40 @@ function resolveEngineeringTaskCompletionSnapshot(
     findLatestProjectRelation(project.projectId, '花型任务', '花型任务')
   const taskId = relation?.sourceObjectId || relation?.instanceId || node.node.latestInstanceId || ''
   const task = taskId ? getPatternTaskByIdSafe(taskId) : null
-  if (!task) {
-    return null
-  }
-
-  return {
-    taskLabel: policy.taskLabel,
-    taskCode: task.patternTaskCode,
-    taskStatus: task.status,
-    updatedAt: task.updatedAt,
-    createProgress: buildEngineeringTaskCompletionProgress('节点创建必填', task, policy.createRequiredFields),
-    detailProgress: buildEngineeringTaskCompletionProgress('实例详情补齐', task, policy.detailEditableFields),
-    completionProgress: buildEngineeringTaskCompletionProgress('完成前校验', task, policy.completionRequiredFields),
-  }
+  return buildSnapshot(task, task?.patternTaskCode || '', task?.status || '未创建', task?.updatedAt || node.node.updatedAt || '')
 }
 
-function renderEngineeringTaskCompletionCard(progress: EngineeringTaskCompletionProgress): string {
-  const percent =
-    progress.totalCount === 0 ? 100 : Math.round((progress.filledCount / progress.totalCount) * 100)
-  const done = progress.missingLabels.length === 0
+function renderEngineeringTaskBasicSection(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
+  const snapshot = resolveEngineeringTaskBasicSnapshot(project, node)
+  if (!snapshot) return ''
+
+  const metaText = snapshot.taskExists
+    ? [snapshot.taskCode, snapshot.taskStatus, formatDateTime(snapshot.updatedAt)].filter(Boolean).join(' · ')
+    : '未创建'
 
   return `
-    <article class="rounded-lg border bg-white p-4">
-      <div class="flex items-center justify-between gap-3">
-        <p class="text-sm font-medium text-slate-900">${escapeHtml(progress.label)}</p>
-        <span class="${toClassName(
-          'inline-flex rounded-full border px-2 py-0.5 text-xs font-medium',
-          done ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700',
-        )}">${done ? '已补齐' : `缺 ${progress.missingLabels.length} 项`}</span>
-      </div>
-      <div class="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
-        <div class="${done ? 'bg-emerald-500' : 'bg-amber-500'} h-full rounded-full transition-all" style="width: ${percent}%"></div>
-      </div>
-      <div class="mt-3 flex items-center justify-between text-xs text-slate-500">
-        <span>完成度 ${percent}%</span>
-        <span>${progress.filledCount}/${progress.totalCount}</span>
-      </div>
-      <p class="mt-3 text-sm leading-6 ${done ? 'text-emerald-700' : 'text-slate-600'}">
-        ${
-          done
-            ? '当前字段已补齐。'
-            : `仍缺：${escapeHtml(progress.missingLabels.join('、'))}`
-        }
-      </p>
-    </article>
-  `
-}
-
-function renderEngineeringTaskCompletionSection(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
-  if (!isEngineeringTaskPolicyCode(node.node.workItemTypeCode)) {
-    return ''
-  }
-
-  const policy = getEngineeringTaskFieldPolicy(node.node.workItemTypeCode)
-  const snapshot = resolveEngineeringTaskCompletionSnapshot(project, node)
-  if (!snapshot) {
-    return `
-      <article class="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4">
-        <div class="flex flex-wrap items-center justify-between gap-3">
+    <section class="space-y-4">
+      <article class="rounded-lg border bg-white p-4">
+        <div class="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h3 class="text-sm font-semibold text-slate-900">任务补齐完成度</h3>
-            <p class="mt-1 text-xs text-slate-500">当前节点尚未创建正式${escapeHtml(policy.taskLabel)}。</p>
+            <h3 class="text-base font-semibold text-slate-900">${escapeHtml(snapshot.taskLabel)}</h3>
+            <p class="mt-1 text-xs text-slate-500">${escapeHtml(metaText)}</p>
           </div>
-          <span class="inline-flex rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs text-slate-500">待创建</span>
         </div>
-        <div class="mt-4 grid gap-3 md:grid-cols-2">
-          <div class="rounded-lg border bg-white p-4">
-            <p class="text-xs font-medium text-slate-500">节点创建时必须填写</p>
-            <p class="mt-2 text-sm leading-6 text-slate-700">${escapeHtml(policy.createRequiredFields.map((field) => field.label).join('、'))}</p>
-          </div>
-          <div class="rounded-lg border bg-white p-4">
-            <p class="text-xs font-medium text-slate-500">实例详情中继续补齐</p>
-            <p class="mt-2 text-sm leading-6 text-slate-700">${escapeHtml(
-              policy.completionRequiredFields.map((field) => field.label).join('、') || '当前没有额外补齐字段',
-            )}</p>
-          </div>
+        <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          ${snapshot.fields
+            .map(
+              (field) => `
+                <article class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                  <p class="text-xs text-slate-500">${escapeHtml(field.label)}</p>
+                  <p class="mt-2 text-sm font-medium leading-6 text-slate-900">${escapeHtml(field.value)}</p>
+                </article>
+              `,
+            )
+            .join('')}
         </div>
       </article>
-    `
-  }
-
-  const remainingLabels = Array.from(
-    new Set([
-      ...snapshot.createProgress.missingLabels,
-      ...snapshot.detailProgress.missingLabels,
-      ...snapshot.completionProgress.missingLabels,
-    ]),
-  )
-  const readyToComplete = remainingLabels.length === 0
-
-  return `
-    <article class="rounded-lg border bg-slate-50/60 p-4">
-      <div class="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h3 class="text-sm font-semibold text-slate-900">任务补齐完成度</h3>
-          <p class="mt-1 text-xs text-slate-500">${escapeHtml(snapshot.taskLabel)} ${escapeHtml(snapshot.taskCode)} · ${escapeHtml(snapshot.taskStatus)} · 最近更新 ${escapeHtml(formatDateTime(snapshot.updatedAt))}</p>
-        </div>
-        <span class="${toClassName(
-          'inline-flex rounded-full border px-2 py-0.5 text-xs font-medium',
-          readyToComplete ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700',
-        )}">${readyToComplete ? '已满足完成条件' : `待补 ${remainingLabels.length} 项`}</span>
-      </div>
-      <div class="mt-4 grid gap-3 xl:grid-cols-3">
-        ${renderEngineeringTaskCompletionCard(snapshot.createProgress)}
-        ${renderEngineeringTaskCompletionCard(snapshot.detailProgress)}
-        ${renderEngineeringTaskCompletionCard(snapshot.completionProgress)}
-      </div>
-      <div class="mt-4 rounded-lg border border-dashed ${readyToComplete ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'} px-4 py-3 text-sm leading-6 ${readyToComplete ? 'text-emerald-700' : 'text-amber-700'}">
-        ${
-          readyToComplete
-            ? '当前任务完成前字段已补齐，用户无需先进入实例详情排查缺项。'
-            : `当前仍需在实例详情补齐：${escapeHtml(remainingLabels.join('、'))}`
-        }
-      </div>
-    </article>
-  `
-}
-
-function renderInstanceFields(fields: PcsProjectInstanceItem['fields']): string {
-  if (fields.length === 0) return '<span class="text-xs text-slate-400">-</span>'
-  return `
-    <div class="space-y-1">
-      ${fields
-        .slice(0, 3)
-        .map(
-          (field) => `
-            <div class="text-xs leading-5 text-slate-500">
-              <span class="text-slate-400">${escapeHtml(field.label)}：</span>${escapeHtml(field.value)}
-            </div>
-          `,
-        )
-        .join('')}
-    </div>
-  `
-}
-
-function renderKeyOutputCards(node: ProjectNodeViewModel, project: PcsProjectRecord): string {
-  const summaries = [
-    { label: '最近结果', value: node.node.latestResultText || '-' },
-    { label: '当前待办', value: node.node.pendingActionText || '-' },
-    { label: '当前问题', value: node.node.currentIssueText || '无' },
-    { label: '目标渠道', value: getChannelNamesByCodes(project.targetChannelCodes).join('、') || '-' },
-  ]
-  return `
-    <div class="grid gap-3 md:grid-cols-2">
-      ${summaries
-        .map(
-          (item) => `
-            <article class="rounded-lg border bg-white p-4">
-              <p class="text-xs text-slate-500">${escapeHtml(item.label)}</p>
-              <p class="mt-2 text-sm leading-6 text-slate-700">${escapeHtml(item.value)}</p>
-            </article>
-          `,
-        )
-        .join('')}
-    </div>
+    </section>
   `
 }
 
@@ -5490,85 +5279,8 @@ function renderProjectInitSnapshot(project: PcsProjectRecord, node: ProjectNodeV
   `
 }
 
-function renderLatestRecordSummary(node: ProjectNodeViewModel): string {
-  const record = node.latestRecord
-  if (!record) {
-    return `
-      <article class="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4">
-        <p class="text-sm font-medium text-slate-700">暂无正式记录</p>
-        <p class="mt-1 text-xs text-slate-500">当前节点还没有沉淀项目内正式记录，可直接在当前节点补充。</p>
-      </article>
-    `
-  }
-
-  const entries = [...Object.entries(record.payload || {}), ...Object.entries(record.detailSnapshot || {})]
-    .filter(([, value]) => value !== undefined && value !== null && value !== '')
-    .slice(0, 6)
-  return `
-    <article class="rounded-lg border p-4">
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p class="text-sm font-medium text-slate-900">最新记录</p>
-          <p class="mt-1 text-xs text-slate-500">${escapeHtml(record.recordCode)} · ${escapeHtml(record.recordStatus)}</p>
-        </div>
-        <span class="text-xs text-slate-400">${escapeHtml(formatDateTime(record.updatedAt))}</span>
-      </div>
-      <div class="mt-4 grid gap-3 md:grid-cols-2">
-        ${entries
-          .map(
-            ([key, value]) => `
-              <div class="rounded-lg bg-slate-50 p-3">
-                <p class="text-xs text-slate-500">${escapeHtml(key)}</p>
-                <p class="mt-2 text-sm text-slate-700">${escapeHtml(formatValue(value))}</p>
-              </div>
-            `,
-          )
-          .join('')}
-      </div>
-    </article>
-  `
-}
-
-function renderRecordListSection(node: ProjectNodeViewModel, projectId: string): string {
-  if (!node.node.multiInstanceFlag || node.records.length <= 1) return ''
-  return `
-    <article class="rounded-lg border p-4">
-      <div class="mb-4 flex items-center justify-between gap-3">
-        <h3 class="text-sm font-medium text-slate-900">多次执行记录</h3>
-      </div>
-      <div class="overflow-hidden rounded-lg border">
-        <table class="min-w-full text-sm">
-          <thead class="bg-slate-50">
-            <tr class="text-left text-slate-600">
-              <th class="px-3 py-2 font-medium">记录编号</th>
-              <th class="px-3 py-2 font-medium">业务日期</th>
-              <th class="px-3 py-2 font-medium">状态</th>
-              <th class="px-3 py-2 font-medium">记录人</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-200">
-            ${node.records
-              .slice(0, 5)
-              .map(
-                (record) => `
-                  <tr>
-                    <td class="px-3 py-2 text-slate-700">${escapeHtml(record.recordCode)}</td>
-                    <td class="px-3 py-2 text-slate-500">${escapeHtml(formatDateTime(record.businessDate))}</td>
-                    <td class="px-3 py-2 text-slate-500">${escapeHtml(record.recordStatus)}</td>
-                    <td class="px-3 py-2 text-slate-500">${escapeHtml(record.ownerName)}</td>
-                  </tr>
-                `,
-              )
-              .join('')}
-          </tbody>
-        </table>
-      </div>
-    </article>
-  `
-}
-
 function isProjectNodeKeyInfoOnly(node: ProjectNodeViewModel): boolean {
-  return PROJECT_NODE_FIELD_MODULE_EXCEPTIONS.has(node.node.workItemTypeCode)
+  return isEngineeringTaskPolicyCode(node.node.workItemTypeCode)
 }
 
 function canEditProjectNodeFields(node: ProjectNodeViewModel): boolean {
@@ -5610,13 +5322,7 @@ function renderProjectNodeInlineContent(project: PcsProjectRecord, node: Project
   }
 
   if (isProjectNodeKeyInfoOnly(node)) {
-    return `
-      ${renderNodeMetricCards(node)}
-      ${renderKeyOutputCards(node, project)}
-      ${renderEngineeringTaskCompletionSection(project, node)}
-      ${renderLatestRecordSummary(node)}
-      ${renderRecordListSection(node, project.projectId)}
-    `
+    return renderEngineeringTaskBasicSection(project, node)
   }
 
   if (canUseInlineRecords(node.node.workItemTypeCode) && canEditProjectNodeFields(node)) {
@@ -5969,6 +5675,10 @@ function renderWorkItemFullInfo(project: PcsProjectRecord, node: ProjectNodeView
     return renderChannelListingNodeWorkspace(project, node)
   }
 
+  if (isEngineeringTaskPolicyCode(node.node.workItemTypeCode)) {
+    return renderEngineeringTaskBasicSection(project, node)
+  }
+
   const groups = listProjectWorkItemFieldGroups(node.node.workItemTypeCode as PcsProjectWorkItemCode)
   if (node.displayStatus === '未解锁') {
     return `<section class="rounded-lg border bg-white p-4 text-sm text-slate-600">当前节点尚未解锁，请先完成前序工作项。</section>`
@@ -5980,7 +5690,6 @@ function renderWorkItemFullInfo(project: PcsProjectRecord, node: ProjectNodeView
       : node.node.workItemTypeCode === 'SAMPLE_SHOOT_FIT'
         ? renderSampleShootFitWorkspace(project, node)
       : `
-        ${renderEngineeringTaskCompletionSection(project, node)}
         ${renderFormalFieldEntrySection(project, node)}
         ${groups.map((group) => renderFieldGroupValues(group, project, node)).join('')}
       `
