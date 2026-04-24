@@ -40,8 +40,16 @@ export function buildPrintingOrderLink(printOrderId: string): string {
   return `/fcs/craft/printing/work-orders?printOrderId=${encodeSegment(printOrderId)}`
 }
 
+export function buildPrintingWorkOrderDetailLink(printOrderId: string): string {
+  return `/fcs/craft/printing/work-orders/${encodeSegment(printOrderId)}`
+}
+
 export function buildDyeingOrderLink(dyeOrderId: string): string {
   return `/fcs/craft/dyeing/work-orders?dyeOrderId=${encodeSegment(dyeOrderId)}`
+}
+
+export function buildDyeingWorkOrderDetailLink(dyeOrderId: string): string {
+  return `/fcs/craft/dyeing/work-orders/${encodeSegment(dyeOrderId)}`
 }
 
 export function buildCutOrderLink(originalCutOrderId: string): string {

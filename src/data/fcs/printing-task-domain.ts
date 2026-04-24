@@ -130,18 +130,18 @@ export interface PrintWorkOrderSummary {
 }
 
 export const PRINT_WORK_ORDER_STATUS_LABEL: Record<PrintWorkOrderStatus, string> = {
-  WAIT_ARTWORK: '待花型图',
+  WAIT_ARTWORK: '待花型',
   WAIT_COLOR_TEST: '待调色测试',
-  COLOR_TEST_DONE: '花型测试完成',
+  COLOR_TEST_DONE: '待调色测试',
   WAIT_PRINT: '等打印',
   PRINTING: '打印中',
   PRINT_DONE: '打印完成',
-  WAIT_TRANSFER: '等转印',
+  WAIT_TRANSFER: '待转印',
   TRANSFERRING: '转印中',
   TRANSFER_DONE: '转印完成',
   WAIT_HANDOVER: '待送货',
-  HANDOVER_SUBMITTED: '已交出待回写',
-  RECEIVER_WRITTEN_BACK: '接收方已回写',
+  HANDOVER_SUBMITTED: '待回写',
+  RECEIVER_WRITTEN_BACK: '待审核',
   WAIT_REVIEW: '待审核',
   REVIEWING: '审核中',
   COMPLETED: '已完成',
@@ -176,6 +176,10 @@ const PRINT_WORK_ORDER_IDS = {
   HANDOVER_SUBMITTED: 'PWO-PRINT-006',
   WAIT_REVIEW: 'PWO-PRINT-007',
   COMPLETED: 'PWO-PRINT-008',
+  TRANSFERRING: 'PWO-PRINT-009',
+  REJECTED: 'PWO-PRINT-010',
+  WAIT_PRINT_EXTRA: 'PWO-PRINT-011',
+  PRINTING_EXTRA: 'PWO-PRINT-012',
 } as const
 
 const workOrderStore = new Map<string, MutablePrintWorkOrder>()
@@ -364,14 +368,13 @@ function addSeedWorkOrder(input: Omit<MutablePrintWorkOrder, 'taskQrValue' | 're
   handoverOrderId?: string
 }): void {
   const task = getPrintingTaskById(input.taskId)
-  if (!task) return
   const handoverOrder = input.handoverOrderId ? getHandoverOrderById(input.handoverOrderId) : getPrimaryHandoverOrder(input.taskId)
 
   workOrderStore.set(input.printOrderId, {
     ...input,
-    taskQrValue: task.taskQrValue || buildTaskQrValue(task.taskId),
-    receiverKind: task.receiverKind || 'WAREHOUSE',
-    receiverName: task.receiverName || '中转区域',
+    taskQrValue: task?.taskQrValue || buildTaskQrValue(input.taskId),
+    receiverKind: task?.receiverKind || 'WAREHOUSE',
+    receiverName: task?.receiverName || '中转区域',
     handoverOrderId: handoverOrder?.handoverOrderId || handoverOrder?.handoverId || input.handoverOrderId,
     handoverOrderNo: handoverOrder?.handoverOrderNo,
   })
@@ -429,6 +432,26 @@ function seedWorkOrders(): void {
     submittedAt: '2026-03-29 14:10:00',
     receiverWrittenAt: '2026-03-29 16:50:00',
     diffReason: '',
+  })
+  syncLinkedTaskState('TASK-PRINT-000716', {
+    status: 'IN_PROGRESS',
+    startedAt: '2026-03-28 13:20:00',
+    acceptanceStatus: 'ACCEPTED',
+  })
+  syncLinkedTaskState('TASK-PRINT-000712', {
+    status: 'DONE',
+    startedAt: '2026-03-28 08:50:00',
+    finishedAt: '2026-03-29 11:20:00',
+    acceptanceStatus: 'ACCEPTED',
+  })
+  const rejectedSeed = ensureSeededHandoverRecord({
+    taskId: 'TASK-PRINT-000712',
+    submittedQty: 742,
+    receiverWrittenQty: 708,
+    submittedAt: '2026-03-29 10:40:00',
+    receiverWrittenAt: '2026-03-29 13:30:00',
+    receiverRemark: '中转区域发现局部花位偏差',
+    diffReason: '局部花位偏差，需退回补送',
   })
   const handoverHead = getPrimaryHandoverOrder('TASK-PRINT-000719')
 
@@ -619,6 +642,59 @@ function seedWorkOrders(): void {
   })
 
   addSeedWorkOrder({
+    printOrderId: PRINT_WORK_ORDER_IDS.TRANSFERRING,
+    printOrderNo: 'PH-20260329-009',
+    sourceType: 'PRODUCTION_ORDER',
+    sourceDemandIds: ['PRD-PRINT-009'],
+    productionOrderIds: ['PO-20260329-079'],
+    isFirstOrder: false,
+    patternNo: 'PAT-HT-061',
+    patternVersion: 'V3',
+    materialSku: 'FAB-PRINT-061',
+    materialColor: '雾蓝底白花',
+    plannedQty: 1010,
+    qtyUnit: '片',
+    plannedRollCount: 8,
+    printFactoryId: 'ID-F002',
+    printFactoryName: 'PT Prima Printing Center',
+    targetTransferWarehouseId: 'WH-TRANSFER',
+    targetTransferWarehouseName: '中转区域',
+    status: 'TRANSFERRING',
+    taskId: 'TASK-PRINT-000716',
+    taskNo: 'TASK-PRINT-000716',
+    createdAt: '2026-03-28 08:40:00',
+    updatedAt: '2026-03-29 14:10:00',
+    remark: '打印已完成，当前正在转印',
+  })
+
+  addSeedWorkOrder({
+    printOrderId: PRINT_WORK_ORDER_IDS.REJECTED,
+    printOrderNo: 'PH-20260329-010',
+    sourceType: 'PRODUCTION_ORDER',
+    sourceDemandIds: ['PRD-PRINT-010'],
+    productionOrderIds: ['PO-20260329-080'],
+    isFirstOrder: true,
+    patternNo: 'PAT-HT-066',
+    patternVersion: 'V1',
+    materialSku: 'FAB-PRINT-066',
+    materialColor: '杏底棕花',
+    plannedQty: 740,
+    qtyUnit: '片',
+    plannedRollCount: 6,
+    printFactoryId: 'ID-F002',
+    printFactoryName: 'PT Prima Printing Center',
+    targetTransferWarehouseId: 'WH-TRANSFER',
+    targetTransferWarehouseName: '中转区域',
+    status: 'REJECTED',
+    taskId: 'TASK-PRINT-000712',
+    taskNo: 'TASK-PRINT-000712',
+    createdAt: '2026-03-28 08:50:00',
+    updatedAt: '2026-03-29 14:20:00',
+    handoverOrderId: rejectedSeed.handoverOrderId,
+    remark: '中转审核驳回，需从待送货节点重新处理',
+  })
+
+  addSeedWorkOrder({
     printOrderId: PRINT_WORK_ORDER_IDS.COMPLETED,
     printOrderNo: 'PH-20260329-008',
     sourceType: 'PRODUCTION_ORDER',
@@ -643,6 +719,58 @@ function seedWorkOrders(): void {
     updatedAt: '2026-03-29 17:10:00',
     handoverOrderId: completedSeed.handoverOrderId,
     remark: '接收方回写后审核通过，可进入中转可配置',
+  })
+
+  addSeedWorkOrder({
+    printOrderId: PRINT_WORK_ORDER_IDS.WAIT_PRINT_EXTRA,
+    printOrderNo: 'PH-20260329-011',
+    sourceType: 'PRODUCTION_ORDER',
+    sourceDemandIds: ['PRD-PRINT-011'],
+    productionOrderIds: ['PO-20260329-081'],
+    isFirstOrder: false,
+    patternNo: 'PAT-HT-071',
+    patternVersion: 'V2',
+    materialSku: 'FAB-PRINT-071',
+    materialColor: '象牙白底蓝灰花',
+    plannedQty: 910,
+    qtyUnit: '片',
+    plannedRollCount: 7,
+    printFactoryId: 'ID-F002',
+    printFactoryName: 'PT Prima Printing Center',
+    targetTransferWarehouseId: 'WH-TRANSFER',
+    targetTransferWarehouseName: '中转区域',
+    status: 'WAIT_PRINT',
+    taskId: 'TASK-PRINT-000722',
+    taskNo: 'TASK-PRINT-000722',
+    createdAt: '2026-03-29 09:10:00',
+    updatedAt: '2026-03-29 10:05:00',
+    remark: '补充统计样本，花型测试通过，等待排机',
+  })
+
+  addSeedWorkOrder({
+    printOrderId: PRINT_WORK_ORDER_IDS.PRINTING_EXTRA,
+    printOrderNo: 'PH-20260329-012',
+    sourceType: 'PRODUCTION_ORDER',
+    sourceDemandIds: ['PRD-PRINT-012'],
+    productionOrderIds: ['PO-20260329-082'],
+    isFirstOrder: true,
+    patternNo: 'PAT-HT-073',
+    patternVersion: 'V1',
+    materialSku: 'FAB-PRINT-073',
+    materialColor: '墨绿底白花',
+    plannedQty: 960,
+    qtyUnit: '片',
+    plannedRollCount: 8,
+    printFactoryId: 'ID-F002',
+    printFactoryName: 'PT Prima Printing Center',
+    targetTransferWarehouseId: 'WH-TRANSFER',
+    targetTransferWarehouseName: '中转区域',
+    status: 'PRINTING',
+    taskId: 'TASK-PRINT-000723',
+    taskNo: 'TASK-PRINT-000723',
+    createdAt: '2026-03-29 09:30:00',
+    updatedAt: '2026-03-29 11:20:00',
+    remark: '补充统计样本，打印机执行中',
   })
 }
 
@@ -707,6 +835,50 @@ function seedNodeRecords(): void {
       printerSpeedPerHour: printingMachine?.speedValue || 180,
       qtyUnit: '片',
       remark: '主线机台开机中',
+    },
+  ])
+  setNodeRecords(PRINT_WORK_ORDER_IDS.WAIT_PRINT_EXTRA, [
+    {
+      nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.WAIT_PRINT_EXTRA, 'COLOR_TEST'),
+      printOrderId: PRINT_WORK_ORDER_IDS.WAIT_PRINT_EXTRA,
+      taskId: 'TASK-PRINT-000722',
+      nodeCode: 'COLOR_TEST',
+      nodeName: PRINT_NODE_LABEL.COLOR_TEST,
+      operatorUserId: 'USR-PRINT-02',
+      operatorName: '陈婷',
+      startedAt: '2026-03-29 09:20:00',
+      finishedAt: '2026-03-29 10:05:00',
+      qtyUnit: '片',
+      remark: '花型测试通过',
+    },
+  ])
+  setNodeRecords(PRINT_WORK_ORDER_IDS.PRINTING_EXTRA, [
+    {
+      nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.PRINTING_EXTRA, 'COLOR_TEST'),
+      printOrderId: PRINT_WORK_ORDER_IDS.PRINTING_EXTRA,
+      taskId: 'TASK-PRINT-000723',
+      nodeCode: 'COLOR_TEST',
+      nodeName: PRINT_NODE_LABEL.COLOR_TEST,
+      operatorUserId: 'USR-PRINT-02',
+      operatorName: '陈婷',
+      startedAt: '2026-03-29 09:35:00',
+      finishedAt: '2026-03-29 10:00:00',
+      qtyUnit: '片',
+      remark: '花型测试通过',
+    },
+    {
+      nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.PRINTING_EXTRA, 'PRINT'),
+      printOrderId: PRINT_WORK_ORDER_IDS.PRINTING_EXTRA,
+      taskId: 'TASK-PRINT-000723',
+      nodeCode: 'PRINT',
+      nodeName: PRINT_NODE_LABEL.PRINT,
+      operatorUserId: 'USR-PRINT-03',
+      operatorName: '苏明',
+      startedAt: '2026-03-29 10:30:00',
+      printerNo: printingMachine?.printerNo || 'PR-01',
+      printerSpeedPerHour: printingMachine?.speedValue || 180,
+      qtyUnit: '片',
+      remark: '补充统计样本打印中',
     },
   ])
   setNodeRecords(PRINT_WORK_ORDER_IDS.WAIT_HANDOVER, [
@@ -851,6 +1023,101 @@ function seedNodeRecords(): void {
     },
   ])
 
+  setNodeRecords(PRINT_WORK_ORDER_IDS.TRANSFERRING, [
+    {
+      nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.TRANSFERRING, 'COLOR_TEST'),
+      printOrderId: PRINT_WORK_ORDER_IDS.TRANSFERRING,
+      taskId: 'TASK-PRINT-000716',
+      nodeCode: 'COLOR_TEST',
+      nodeName: PRINT_NODE_LABEL.COLOR_TEST,
+      operatorUserId: 'USR-PRINT-15',
+      operatorName: '梁可',
+      startedAt: '2026-03-28 09:30:00',
+      finishedAt: '2026-03-28 10:10:00',
+      qtyUnit: '片',
+      remark: '花型测试通过',
+    },
+    {
+      nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.TRANSFERRING, 'PRINT'),
+      printOrderId: PRINT_WORK_ORDER_IDS.TRANSFERRING,
+      taskId: 'TASK-PRINT-000716',
+      nodeCode: 'PRINT',
+      nodeName: PRINT_NODE_LABEL.PRINT,
+      operatorUserId: 'USR-PRINT-16',
+      operatorName: '马倩',
+      startedAt: '2026-03-28 10:30:00',
+      finishedAt: '2026-03-28 12:20:00',
+      printerNo: standbyMachine?.printerNo || printingMachine?.printerNo || 'PR-02',
+      printerSpeedPerHour: standbyMachine?.speedValue || printingMachine?.speedValue || 175,
+      outputQty: 1010,
+      wasteQty: 14,
+      qtyUnit: '片',
+      remark: '打印完成，转入转印',
+    },
+    {
+      nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.TRANSFERRING, 'TRANSFER'),
+      printOrderId: PRINT_WORK_ORDER_IDS.TRANSFERRING,
+      taskId: 'TASK-PRINT-000716',
+      nodeCode: 'TRANSFER',
+      nodeName: PRINT_NODE_LABEL.TRANSFER,
+      operatorUserId: 'USR-PRINT-17',
+      operatorName: '沈楠',
+      startedAt: '2026-03-29 13:20:00',
+      usedMaterialQty: 1016,
+      actualCompletedQty: 620,
+      qtyUnit: '片',
+      remark: '转印中，待完成后送货',
+    },
+  ])
+
+  setNodeRecords(PRINT_WORK_ORDER_IDS.REJECTED, [
+    {
+      nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.REJECTED, 'COLOR_TEST'),
+      printOrderId: PRINT_WORK_ORDER_IDS.REJECTED,
+      taskId: 'TASK-PRINT-000712',
+      nodeCode: 'COLOR_TEST',
+      nodeName: PRINT_NODE_LABEL.COLOR_TEST,
+      operatorUserId: 'USR-PRINT-18',
+      operatorName: '唐钰',
+      startedAt: '2026-03-28 09:10:00',
+      finishedAt: '2026-03-28 09:55:00',
+      qtyUnit: '片',
+      remark: '花型测试通过',
+    },
+    {
+      nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.REJECTED, 'PRINT'),
+      printOrderId: PRINT_WORK_ORDER_IDS.REJECTED,
+      taskId: 'TASK-PRINT-000712',
+      nodeCode: 'PRINT',
+      nodeName: PRINT_NODE_LABEL.PRINT,
+      operatorUserId: 'USR-PRINT-19',
+      operatorName: '罗一',
+      startedAt: '2026-03-28 10:20:00',
+      finishedAt: '2026-03-28 12:30:00',
+      printerNo: printingMachine?.printerNo || 'PR-01',
+      printerSpeedPerHour: printingMachine?.speedValue || 180,
+      outputQty: 742,
+      wasteQty: 12,
+      qtyUnit: '片',
+      remark: '打印完成',
+    },
+    {
+      nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.REJECTED, 'TRANSFER'),
+      printOrderId: PRINT_WORK_ORDER_IDS.REJECTED,
+      taskId: 'TASK-PRINT-000712',
+      nodeCode: 'TRANSFER',
+      nodeName: PRINT_NODE_LABEL.TRANSFER,
+      operatorUserId: 'USR-PRINT-20',
+      operatorName: '魏然',
+      startedAt: '2026-03-29 08:30:00',
+      finishedAt: '2026-03-29 10:20:00',
+      usedMaterialQty: 750,
+      actualCompletedQty: 742,
+      qtyUnit: '片',
+      remark: '转印完成，已送货后被审核驳回',
+    },
+  ])
+
   setNodeRecords(PRINT_WORK_ORDER_IDS.COMPLETED, [
     {
       nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.COMPLETED, 'COLOR_TEST'),
@@ -949,6 +1216,33 @@ function seedReviewRecords(): void {
     reviewedBy: '中转审核员',
     reviewedAt: '2026-03-29 17:10:00',
     remark: '接收方回写后审核通过',
+  })
+
+  const rejectedOrder = workOrderStore.get(PRINT_WORK_ORDER_IDS.REJECTED)
+  if (!rejectedOrder?.handoverOrderId) return
+
+  const rejectedHead = getHandoverOrderById(rejectedOrder.handoverOrderId)
+  if (!rejectedHead) return
+  const rejectedRecords = getPdaHandoverRecordsByHead(rejectedHead.handoverId)
+  if (!rejectedRecords.length) return
+
+  reviewRecordStore.set(rejectedOrder.printOrderId, {
+    reviewRecordId: `PRV-${rejectedOrder.printOrderId}`,
+    printOrderId: rejectedOrder.printOrderId,
+    handoverOrderId: rejectedHead.handoverOrderId || rejectedHead.handoverId,
+    handoverRecordIds: rejectedRecords.map((record) => record.handoverRecordId),
+    receiverName: rejectedOrder.targetTransferWarehouseName,
+    submittedQty: rejectedHead.submittedQtyTotal ?? 0,
+    receivedQty: rejectedHead.writtenBackQtyTotal ?? 0,
+    diffQty: (rejectedHead.writtenBackQtyTotal ?? 0) - (rejectedHead.submittedQtyTotal ?? 0),
+    receivedRollCount: 6,
+    receivedLength: 236,
+    lengthUnit: '米',
+    reviewStatus: 'REJECTED',
+    reviewedBy: '中转审核员',
+    reviewedAt: '2026-03-29 14:20:00',
+    rejectReason: '局部花位偏差，需退回补送',
+    remark: '审核驳回后回到待送货处理',
   })
 }
 

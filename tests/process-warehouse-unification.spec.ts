@@ -1,0 +1,73 @@
+import { expect, test } from '@playwright/test'
+
+test('印花待加工仓与待交出仓读取统一仓模型', async ({ page }) => {
+  await page.goto('/fcs/craft/printing/wait-process-warehouse')
+  await expect(page.getByRole('heading', { name: '印花待加工仓' })).toBeVisible()
+  await expect(page.getByText('待加工面料米数').first()).toBeVisible()
+  await page.getByRole('button', { name: '查看印花加工单' }).first().click()
+  await expect(page).toHaveURL(/\/fcs\/craft\/printing\/work-orders\/.+/)
+  const printDetailUrl = page.url().replace(/\?.*$/, '')
+
+  await page.goto('/fcs/craft/printing/wait-handover-warehouse')
+  await expect(page.getByRole('heading', { name: '印花待交出仓' })).toBeVisible()
+  await expect(page.getByText('待交出面料米数').first()).toBeVisible()
+  await expect(page.getByText('回写面料米数').first()).toBeVisible()
+  await page.goto(`${printDetailUrl}?tab=handover`)
+  await expect(page).toHaveURL(/\/fcs\/craft\/printing\/work-orders\/.+/)
+  await expect(page).toHaveURL(/tab=handover/)
+  await expect(page.getByText('交出面料米数').first()).toBeVisible()
+})
+
+test('染色待加工仓、待交出仓与染色统计统一口径', async ({ page }) => {
+  await page.goto('/fcs/craft/dyeing/wait-process-warehouse')
+  await expect(page.getByRole('heading', { name: '染色待加工仓' })).toBeVisible()
+  await expect(page.getByText('待加工面料米数').first()).toBeVisible()
+  await page.getByRole('button', { name: '查看染色加工单' }).first().click()
+  await expect(page).toHaveURL(/\/fcs\/craft\/dyeing\/work-orders\/.+/)
+  const dyeDetailUrl = page.url().replace(/\?.*$/, '')
+
+  await page.goto('/fcs/craft/dyeing/wait-handover-warehouse')
+  await expect(page.getByRole('heading', { name: '染色待交出仓' })).toBeVisible()
+  await expect(page.getByText('待交出面料米数').first()).toBeVisible()
+  await page.goto(`${dyeDetailUrl}?tab=handover`)
+  await expect(page.getByText('交出面料米数').first()).toBeVisible()
+  await page.getByRole('button', { name: '染色统计' }).click()
+  await expect(page.getByRole('heading', { name: '染色统计' })).toBeVisible()
+  await expect(page.getByText('染色报表')).toHaveCount(0)
+})
+
+test('特殊工艺仓记录可追溯菲票与流转记录', async ({ page }) => {
+  await page.goto('/fcs/process-factory/special-craft/sc-op-008/wait-process-warehouse')
+  await expect(page.getByRole('heading', { name: '打揽待加工仓' })).toBeVisible()
+  await expect(page.getByText('待加工裁片数量').first()).toBeVisible()
+  await expect(page.getByText('关联菲票数量').first()).toBeVisible()
+  await page.getByRole('button', { name: '查看特殊工艺单' }).first().click()
+  await expect(page).toHaveURL(/\/work-orders\/.+/)
+  await expect(page.getByText('统一仓记录').first()).toBeVisible()
+  await page.getByRole('button', { name: '绑定菲票' }).click()
+  await expect(page.getByRole('heading', { name: '绑定菲票' })).toBeVisible()
+
+  await page.goto('/fcs/process-factory/special-craft/sc-op-008/wait-handover-warehouse')
+  await expect(page.getByRole('heading', { name: '打揽待交出仓' })).toBeVisible()
+  await expect(page.getByRole('columnheader', { name: '待交出裁片数量' })).toBeVisible()
+  await expect(page.getByRole('columnheader', { name: '差异裁片数量' }).first()).toBeVisible()
+})
+
+test('后道仓模型只由复检完成生成交出仓', async ({ page }) => {
+  await page.goto('/fcs/craft/post-finishing/wait-process-warehouse')
+  await expect(page.getByRole('heading', { name: '后道待加工仓' })).toBeVisible()
+  await expect(page.getByText('待处理成衣件数').first()).toBeVisible()
+  await expect(page.getByText('待后道').first()).toBeVisible()
+  await expect(page.getByText('待质检').first()).toBeVisible()
+  await expect(page.getByText('待复检').first()).toBeVisible()
+  await expect(page.getByText('开扣眼')).toHaveCount(0)
+  await expect(page.getByText('装扣子')).toHaveCount(0)
+  await expect(page.getByText('熨烫')).toHaveCount(0)
+
+  await page.goto('/fcs/craft/post-finishing/wait-handover-warehouse')
+  await expect(page.getByRole('heading', { name: '后道交出仓' })).toBeVisible()
+  await expect(page.getByRole('columnheader', { name: '待交出成衣件数' })).toBeVisible()
+  await expect(page.getByRole('columnheader', { name: '已交出成衣件数' })).toBeVisible()
+  await expect(page.getByRole('columnheader', { name: '回写成衣件数' })).toBeVisible()
+  await expect(page.getByText('只承接复检完成后的后道工厂待交出记录。')).toBeVisible()
+})

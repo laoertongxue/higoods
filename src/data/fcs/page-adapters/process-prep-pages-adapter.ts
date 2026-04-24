@@ -3,6 +3,10 @@ import {
   type ProductionDemandArtifact,
 } from '../production-artifact-generation.ts'
 import { productionOrders } from '../production-orders.ts'
+import {
+  listProcessWorkOrders,
+  type ProcessWorkOrder,
+} from '../process-work-order-domain.ts'
 
 type PrepProcessCode = 'PRINT' | 'DYE'
 type PrepUnit = '片' | '米'
@@ -116,7 +120,16 @@ export interface PrepOrderBatchDestinationFact {
 }
 
 export interface PrepProcessOrderFact {
+  workOrderId?: string
+  processType?: PrepProcessCode
   orderNo: string
+  workOrderNo?: string
+  statusLabel?: string
+  taskId?: string
+  taskNo?: string
+  handoverOrderId?: string
+  handoverOrderNo?: string
+  reviewRecordId?: string
   status: OrderStatusZh
   createMode: CreateModeZh
   factoryName: string
@@ -408,10 +421,129 @@ function cloneOrders(input: PrepProcessOrderFact[]): PrepProcessOrderFact[] {
 const PRINT_FACTS = buildFacts('PRINT')
 const DYE_FACTS = buildFacts('DYE')
 
+function toPlatformOrderStatus(order: ProcessWorkOrder): OrderStatusZh {
+  if (order.status === 'COMPLETED') return '已完工'
+  if (order.status === 'REJECTED') return '部分回货'
+  if (
+    order.status === 'WAIT_HANDOVER'
+    || order.status === 'HANDOVER_SUBMITTED'
+    || order.status === 'RECEIVER_WRITTEN_BACK'
+    || order.status === 'WAIT_REVIEW'
+    || order.status === 'REVIEWING'
+  ) {
+    return '部分回货'
+  }
+  if (
+    order.status === 'WAIT_ARTWORK'
+    || order.status === 'WAIT_COLOR_TEST'
+    || order.status === 'WAIT_SAMPLE'
+    || order.status === 'WAIT_MATERIAL'
+  ) {
+    return '待开工'
+  }
+  return '加工中'
+}
+
+function toDemandStatusFromOrder(order: ProcessWorkOrder): DemandStatusZh {
+  if (order.status === 'COMPLETED') return '已完成交接'
+  if (order.handoverRecords.length > 0) return '部分满足'
+  return '待满足'
+}
+
+function toReceiptStatusFromOrder(order: ProcessWorkOrder): ReceiptStatusZh {
+  if (order.handoverRecords.length === 0) return '待接收'
+  if (order.status === 'COMPLETED') return '已接收'
+  return '部分接收'
+}
+
+function mapUnifiedWorkOrderToPrepOrder(order: ProcessWorkOrder): PrepProcessOrderFact {
+  const unit = order.plannedUnit === '米' ? '米' : '片'
+  const receivedQty = order.handoverRecords.reduce((sum, record) => sum + (record.receiverWrittenQty ?? record.submittedQty ?? 0), 0)
+  const submittedQty = order.handoverRecords.reduce((sum, record) => sum + (record.submittedQty ?? 0), 0)
+  const satisfiedQty = order.status === 'COMPLETED' ? order.plannedQty : Math.min(order.plannedQty, receivedQty || submittedQty)
+  const demandIds = order.sourceDemandIds.length > 0 ? order.sourceDemandIds : [`${order.processType}-DEMAND-${order.workOrderId}`]
+  const productionOrderIds = order.productionOrderIds.length > 0 ? order.productionOrderIds : ['暂无生产单']
+  const batchNoPrefix = order.processType === 'PRINT' ? 'YHPH' : 'RSPH'
+  const materialName = order.processType === 'PRINT'
+    ? (order.printPayload?.materialColor ? `${order.materialSku} / ${order.printPayload.materialColor}` : order.materialName)
+    : order.materialName
+  const batchNo = `${batchNoPrefix}-${order.workOrderNo}`
+
+  return {
+    workOrderId: order.workOrderId,
+    processType: order.processType,
+    orderNo: order.workOrderNo,
+    workOrderNo: order.workOrderNo,
+    status: toPlatformOrderStatus(order),
+    statusLabel: order.statusLabel,
+    taskId: order.taskId,
+    taskNo: order.taskNo,
+    handoverOrderId: order.handoverOrderId,
+    handoverOrderNo: order.handoverOrderNo,
+    reviewRecordId: order.reviewRecordId,
+    createMode: '按需求创建',
+    factoryName: order.factoryName,
+    plannedFeedQty: order.plannedQty,
+    unit,
+    plannedFinishAt: order.updatedAt,
+    sourceSummary: `来源需求单 ${demandIds.join('、')} / 生产单 ${productionOrderIds.join('、')}`,
+    note: `${order.processType === 'PRINT' ? '印花' : '染色'}加工单统一来源：平台视图与工艺工厂 Web 视图使用同一个加工单号。`,
+    createdAt: order.createdAt,
+    updatedAt: order.updatedAt,
+    linkedDemands: demandIds.map((demandId, index) => ({
+      demandId,
+      sourceProductionOrderId: productionOrderIds[index] || productionOrderIds[0],
+      materialCode: order.materialSku,
+      materialName,
+      requiredQty: order.plannedQty,
+      satisfiedQty,
+      unit,
+      status: toDemandStatusFromOrder(order),
+    })),
+    stockMaterial: {
+      materialCode: order.materialSku,
+      materialName,
+      unit,
+    },
+    materialReceipt: {
+      receiveStatus: toReceiptStatusFromOrder(order),
+      receivedQty: satisfiedQty,
+      receivedAt: order.handoverRecords[0]?.factorySubmittedAt || order.updatedAt,
+      receiptVoucher: order.handoverOrderNo || order.handoverOrderId || '待交出后回填',
+      qualityConclusion: order.status === 'REJECTED' ? '接收方回写后审核驳回，需工厂复核处理。' : '同一加工单事实源回写。',
+    },
+    batches:
+      submittedQty > 0
+        ? [
+            {
+              batchNo,
+              returnedQty: submittedQty,
+              qualifiedQty: Math.max(0, satisfiedQty),
+              availableQty: Math.max(0, satisfiedQty),
+              linkedQty: Math.max(0, satisfiedQty),
+              status: order.status === 'COMPLETED' ? '已关联' : '部分关联',
+              returnedAt: order.handoverRecords[0]?.factorySubmittedAt || order.updatedAt,
+            },
+          ]
+        : [],
+    destinations:
+      satisfiedQty > 0
+        ? [
+            {
+              batchNo,
+              demandId: demandIds[0],
+              fulfilledQty: satisfiedQty,
+              linkedAt: order.handoverRecords[0]?.receiverWrittenAt || order.updatedAt,
+            },
+          ]
+        : [],
+  }
+}
+
 export function listPrepRequirementDemands(processCode: PrepProcessCode): PrepRequirementDemandFact[] {
   return cloneDemands(processCode === 'PRINT' ? PRINT_FACTS.demands : DYE_FACTS.demands)
 }
 
 export function listPrepProcessOrders(processCode: PrepProcessCode): PrepProcessOrderFact[] {
-  return cloneOrders(processCode === 'PRINT' ? PRINT_FACTS.orders : DYE_FACTS.orders)
+  return cloneOrders(listProcessWorkOrders(processCode).map(mapUnifiedWorkOrderToPrepOrder))
 }

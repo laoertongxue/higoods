@@ -17,6 +17,8 @@ import {
 } from './process-craft-dict.ts'
 
 const POST_CAPACITY_NODE_CODES = ['BUTTONHOLE', 'BUTTON_ATTACH', 'IRONING', 'PACKAGING'] as const satisfies FactoryPostCapacityNodeCode[]
+const DEDICATED_POST_ACTION_NAMES = ['后道', '质检', '复检'] as const
+const BASIC_POST_ACTION_NAMES = ['后道'] as const
 export const TEST_FACTORY_ID = 'ID-F090'
 export const TEST_FACTORY_SCOPE = 'ALL_PROCESS_CRAFT' as const
 
@@ -81,13 +83,14 @@ function createProcessAbility(
   }
 
   if (processCode === 'POST_FINISHING') {
+    const isDedicatedPostFactory = options?.factoryType === 'SATELLITE_FINISHING'
     return {
       processCode,
       craftCodes: [],
       capacityNodeCodes: [...POST_CAPACITY_NODE_CODES],
       abilityId: `ABILITY_${processCode}`,
       processName: process.processName,
-      craftNames: POST_CAPACITY_NODE_CODES.map((nodeCode) => getProcessDefinitionByCode(nodeCode)?.processName ?? nodeCode),
+      craftNames: [...(isDedicatedPostFactory ? DEDICATED_POST_ACTION_NAMES : BASIC_POST_ACTION_NAMES)],
       abilityName: process.processName,
       abilityScope: 'PROCESS',
       canReceiveTask: true,
@@ -155,7 +158,7 @@ function adjustProcessAbilitiesForFactory(factoryId: string, abilities: FactoryP
     return {
       ...ability,
       capacityNodeCodes,
-      craftNames: capacityNodeCodes.map((code) => getProcessDefinitionByCode(code)?.processName ?? code),
+      craftNames: [...BASIC_POST_ACTION_NAMES],
     }
   })
 }

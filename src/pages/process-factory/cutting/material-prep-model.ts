@@ -797,9 +797,9 @@ function applyPendingPrepFollowupsToRow(
         sourceLabel:
           item.sourceType === 'REPLENISHMENT_PENDING_PREP'
             ? item.materialTypeName === '印花面料'
-              ? '印花审核通过'
+              ? '印花加工单审核通过'
               : item.materialTypeName === '染色面料'
-                ? '染色审核通过'
+                ? '染色加工单审核通过'
                 : '手动配置'
             : item.sourceLabel || '手动配置',
         replenishmentPendingPrepQty: 0,
@@ -834,9 +834,9 @@ function applyPendingPrepFollowupsToRow(
               : 'MANUAL',
         sourceLabel:
           item.materialTypeName === '印花面料'
-            ? '印花审核通过'
+            ? '印花加工单审核通过'
             : item.materialTypeName === '染色面料'
-              ? '染色审核通过'
+              ? '染色加工单审核通过'
               : '手动配置',
       }
     }

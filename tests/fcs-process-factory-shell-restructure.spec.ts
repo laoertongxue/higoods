@@ -104,22 +104,16 @@ test('PFOS 关键菜单点击有效且高亮归属正确', async ({ page }) => {
       heading: '打印菲票',
     },
     {
-      parentKey: 'pfos-cutting-handover',
-      childKey: 'pfos-cutting-fabric-warehouse',
-      href: /\/fcs\/craft\/cutting\/fabric-warehouse$/,
-      heading: '裁床仓',
+      parentKey: 'pfos-cutting-warehouse-management',
+      childKey: 'pfos-cutting-warehouse-wait-process',
+      href: /\/fcs\/craft\/cutting\/warehouse-management\/wait-process$/,
+      heading: '待加工仓',
     },
     {
       parentKey: 'pfos-printing',
       childKey: 'pfos-printing-work-orders',
       href: /\/fcs\/craft\/printing\/work-orders$/,
       heading: '印花加工单',
-    },
-    {
-      parentKey: 'pfos-printing',
-      childKey: 'pfos-printing-pending-review',
-      href: /\/fcs\/craft\/printing\/pending-review$/,
-      heading: '印花审核',
     },
     {
       parentKey: 'pfos-dyeing',
@@ -129,9 +123,9 @@ test('PFOS 关键菜单点击有效且高亮归属正确', async ({ page }) => {
     },
     {
       parentKey: 'pfos-dyeing',
-      childKey: 'pfos-dyeing-dye-orders',
-      href: /\/fcs\/craft\/dyeing\/dye-orders$/,
-      heading: '染料单',
+      childKey: 'pfos-dyeing-formula',
+      href: /\/fcs\/craft\/dyeing\/work-orders\?tab=formula$/,
+      heading: '染色加工单',
     },
   ] as const
 

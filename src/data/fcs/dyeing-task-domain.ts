@@ -207,12 +207,12 @@ export interface DyeReportRow {
 }
 
 export const DYE_WORK_ORDER_STATUS_LABEL: Record<DyeWorkOrderStatus, string> = {
-  WAIT_SAMPLE: '等样衣/色样',
-  WAIT_MATERIAL: '等原料',
+  WAIT_SAMPLE: '待样衣',
+  WAIT_MATERIAL: '待原料',
   SAMPLE_TESTING: '打样中',
   SAMPLE_DONE: '打样完成',
   MATERIAL_READY: '备料完成',
-  WAIT_VAT_PLAN: '待排染缸',
+  WAIT_VAT_PLAN: '待排缸',
   DYEING: '染色中',
   DEHYDRATING: '脱水中',
   DRYING: '烘干中',
@@ -220,8 +220,8 @@ export const DYE_WORK_ORDER_STATUS_LABEL: Record<DyeWorkOrderStatus, string> = {
   ROLLING: '打卷中',
   PACKING: '包装中',
   WAIT_HANDOVER: '待送货',
-  HANDOVER_SUBMITTED: '已交出待回写',
-  RECEIVER_WRITTEN_BACK: '接收方已回写',
+  HANDOVER_SUBMITTED: '待回写',
+  RECEIVER_WRITTEN_BACK: '待审核',
   WAIT_REVIEW: '待审核',
   REVIEWING: '审核中',
   COMPLETED: '已完成',
@@ -237,7 +237,7 @@ export const SAMPLE_WAIT_TYPE_LABEL: Record<SampleWaitType, string> = {
 export const DYE_NODE_LABEL: Record<DyeExecutionNodeCode, string> = {
   SAMPLE: '打样',
   MATERIAL_READY: '备料',
-  VAT_PLAN: '待排染缸',
+  VAT_PLAN: '染缸安排',
   DYE: '染色',
   DEHYDRATE: '脱水',
   DRY: '烘干',
@@ -267,6 +267,7 @@ const DYE_WORK_ORDER_IDS = [
   'DWO-009',
   'DWO-010',
   'DWO-011',
+  'DWO-012',
 ] as const
 
 type MutableDyeWorkOrder = DyeWorkOrder
@@ -672,14 +673,13 @@ function syncDerivedWorkflow(): void {
 
 function addSeedWorkOrder(input: Omit<MutableDyeWorkOrder, 'taskQrValue' | 'receiverKind' | 'receiverName' | 'handoverOrderNo'>): void {
   const task = getDyeingTaskById(input.taskId)
-  if (!task) return
   const handoverOrder = input.handoverOrderId ? getHandoverOrderById(input.handoverOrderId) : getPrimaryHandoverOrder(input.taskId)
 
   workOrderStore.set(input.dyeOrderId, {
     ...input,
-    taskQrValue: task.taskQrValue || buildTaskQrValue(task.taskId),
-    receiverKind: task.receiverKind || 'WAREHOUSE',
-    receiverName: task.receiverName || '中转区域',
+    taskQrValue: task?.taskQrValue || buildTaskQrValue(input.taskId),
+    receiverKind: task?.receiverKind || 'WAREHOUSE',
+    receiverName: task?.receiverName || '中转区域',
     handoverOrderId: handoverOrder?.handoverOrderId || handoverOrder?.handoverId || input.handoverOrderId,
     handoverOrderNo: handoverOrder?.handoverOrderNo,
   })
@@ -702,6 +702,13 @@ function seedWorkOrders(): void {
     status: 'IN_PROGRESS',
     acceptanceStatus: 'ACCEPTED',
     startedAt: '2026-03-28 09:20:00',
+  })
+  syncLinkedTaskState('TASK-DYE-000725', {
+    status: 'IN_PROGRESS',
+    acceptanceStatus: 'ACCEPTED',
+    startedAt: '2026-03-28 09:40:00',
+    blockReason: undefined,
+    blockRemark: undefined,
   })
   syncLinkedTaskState('TASK-DYE-000727', {
     status: 'IN_PROGRESS',
@@ -953,12 +960,12 @@ function seedWorkOrders(): void {
     dyeFactoryName: 'PT Cahaya Dyeing Sejahtera',
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
-    status: 'WAIT_VAT_PLAN',
+    status: 'DRYING',
     taskId: 'TASK-DYE-000725',
     taskNo: 'TASK-DYE-000725',
-    waitingReason: '待排染缸',
+    waitingReason: '烘干中',
     createdAt: '2026-03-28 07:30:00',
-    updatedAt: '2026-03-28 11:00:00',
+    updatedAt: '2026-03-28 12:50:00',
   })
   setNodeRecords(DYE_WORK_ORDER_IDS[4], [
     {
@@ -988,6 +995,66 @@ function seedWorkOrders(): void {
       outputQty: 980,
       qtyUnit: '米',
       remark: '备料完成',
+    },
+    {
+      nodeRecordId: `${DYE_WORK_ORDER_IDS[4]}-VAT_PLAN`,
+      dyeOrderId: DYE_WORK_ORDER_IDS[4],
+      taskId: 'TASK-DYE-000725',
+      nodeCode: 'VAT_PLAN',
+      nodeName: DYE_NODE_LABEL.VAT_PLAN,
+      operatorUserId: 'USR-DYE-02',
+      operatorName: '染色工厂',
+      startedAt: '2026-03-28 10:20:00',
+      finishedAt: '2026-03-28 10:30:00',
+      dyeVatId: secondaryVat?.dyeVatId,
+      dyeVatNo: secondaryVat?.dyeVatNo,
+      qtyUnit: '米',
+      remark: '已排染缸',
+    },
+    {
+      nodeRecordId: `${DYE_WORK_ORDER_IDS[4]}-DYE`,
+      dyeOrderId: DYE_WORK_ORDER_IDS[4],
+      taskId: 'TASK-DYE-000725',
+      nodeCode: 'DYE',
+      nodeName: DYE_NODE_LABEL.DYE,
+      operatorUserId: 'USR-DYE-02',
+      operatorName: '染色工厂',
+      startedAt: '2026-03-28 10:35:00',
+      finishedAt: '2026-03-28 12:10:00',
+      dyeVatId: secondaryVat?.dyeVatId,
+      dyeVatNo: secondaryVat?.dyeVatNo,
+      inputQty: 980,
+      outputQty: 962,
+      lossQty: 18,
+      qtyUnit: '米',
+      remark: '染色完成',
+    },
+    {
+      nodeRecordId: `${DYE_WORK_ORDER_IDS[4]}-DEHYDRATE`,
+      dyeOrderId: DYE_WORK_ORDER_IDS[4],
+      taskId: 'TASK-DYE-000725',
+      nodeCode: 'DEHYDRATE',
+      nodeName: DYE_NODE_LABEL.DEHYDRATE,
+      operatorUserId: 'USR-DYE-03',
+      operatorName: '染色工厂',
+      startedAt: '2026-03-28 12:15:00',
+      finishedAt: '2026-03-28 12:35:00',
+      outputQty: 960,
+      qtyUnit: '米',
+      remark: '脱水完成',
+    },
+    {
+      nodeRecordId: `${DYE_WORK_ORDER_IDS[4]}-DRY`,
+      dyeOrderId: DYE_WORK_ORDER_IDS[4],
+      taskId: 'TASK-DYE-000725',
+      nodeCode: 'DRY',
+      nodeName: DYE_NODE_LABEL.DRY,
+      operatorUserId: 'USR-DYE-03',
+      operatorName: '染色工厂',
+      startedAt: '2026-03-28 12:40:00',
+      outputQty: 958,
+      qtyUnit: '米',
+      remark: '烘干中',
     },
   ])
 
@@ -1493,6 +1560,56 @@ function seedWorkOrders(): void {
       outputQty: 1172,
       qtyUnit: '米',
       remark: '包装完成',
+    },
+  ])
+
+  addSeedWorkOrder({
+    dyeOrderId: DYE_WORK_ORDER_IDS[11],
+    dyeOrderNo: 'DY-20260329-012',
+    sourceType: 'PRODUCTION_ORDER',
+    sourceDemandIds: ['DM-DYE-012'],
+    productionOrderIds: ['PO-20260329-412'],
+    isFirstOrder: false,
+    sampleWaitType: 'NONE',
+    sampleStatus: 'NOT_REQUIRED',
+    materialWaitStartedAt: '2026-03-29 08:20:00',
+    materialWaitFinishedAt: '2026-03-29 09:05:00',
+    colorNo: 'C-612',
+    rawMaterialSku: 'FAB-DYE-012',
+    composition: '棉麻混纺',
+    width: '152 cm',
+    weightGsm: 190,
+    targetColor: '雾灰',
+    plannedQty: 930,
+    qtyUnit: '米',
+    plannedRollCount: 15,
+    dyeFactoryId: 'ID-F003',
+    dyeFactoryName: 'PT Cahaya Dyeing Sejahtera',
+    targetTransferWarehouseId: 'WH-TRANSFER',
+    targetTransferWarehouseName: '中转区域',
+    status: 'WAIT_VAT_PLAN',
+    taskId: 'TASK-DYE-000732',
+    taskNo: 'TASK-DYE-000732',
+    waitingReason: '备料完成，等待排染缸',
+    createdAt: '2026-03-29 08:00:00',
+    updatedAt: '2026-03-29 09:05:00',
+    remark: '补充统计样本，等待排染缸',
+  })
+  setNodeRecords(DYE_WORK_ORDER_IDS[11], [
+    {
+      nodeRecordId: `${DYE_WORK_ORDER_IDS[11]}-MATERIAL_READY`,
+      dyeOrderId: DYE_WORK_ORDER_IDS[11],
+      taskId: 'TASK-DYE-000732',
+      nodeCode: 'MATERIAL_READY',
+      nodeName: DYE_NODE_LABEL.MATERIAL_READY,
+      operatorUserId: 'USR-DYE-01',
+      operatorName: '染色工厂',
+      startedAt: '2026-03-29 08:25:00',
+      finishedAt: '2026-03-29 09:05:00',
+      inputQty: 930,
+      outputQty: 930,
+      qtyUnit: '米',
+      remark: '备料完成',
     },
   ])
 

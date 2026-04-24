@@ -1,10 +1,6 @@
 import {
   listFactoryInternalWarehouses,
-  listFactoryWaitHandoverStockItems,
-  listFactoryWaitProcessStockItems,
-  listFactoryWarehouseInboundRecords,
   listFactoryWarehouseNodeRows,
-  listFactoryWarehouseOutboundRecords,
   listFactoryWarehouseStocktakeOrders,
   type FactoryInternalWarehouse,
   type FactoryWaitHandoverStockItem,
@@ -15,6 +11,13 @@ import {
   type FactoryWarehouseStocktakeOrder,
 } from './factory-internal-warehouse.ts'
 import { listPrintWorkOrders } from './printing-task-domain.ts'
+import {
+  listProcessHandoverRecords,
+  listWaitHandoverWarehouseRecords,
+  listWaitProcessWarehouseRecords,
+  type ProcessHandoverRecord,
+  type ProcessWarehouseRecord,
+} from './process-warehouse-domain.ts'
 
 export interface PrintingWarehouseViewFilters {
   factoryId?: string
@@ -35,12 +38,6 @@ export interface PrintingWarehouseView {
   warehouses: FactoryInternalWarehouse[]
   nodeRows: FactoryWarehouseNodeRow[]
   stocktakeOrders: FactoryWarehouseStocktakeOrder[]
-}
-
-function isPrintingProcess(processCode?: string, processName?: string): boolean {
-  const code = (processCode || '').toUpperCase()
-  const name = processName || ''
-  return code === 'PRINT' || code === 'PROC_PRINT' || code.includes('PRINT') || name.includes('印花')
 }
 
 function parseDateValue(value: string | undefined): number {
@@ -67,13 +64,159 @@ function matchesStatus(status: string | undefined, filterStatus: string | undefi
   return status === filterStatus
 }
 
-function shouldKeepByTaskOrProcess(input: {
-  taskId?: string
-  processCode?: string
-  processName?: string
-}, taskIds: Set<string>): boolean {
-  if (input.taskId && taskIds.has(input.taskId)) return true
-  return !input.taskId && isPrintingProcess(input.processCode, input.processName)
+function mapWaitProcessRecord(record: ProcessWarehouseRecord): FactoryWaitProcessStockItem {
+  return {
+    stockItemId: record.warehouseRecordId,
+    warehouseId: `${record.targetFactoryId}-PRINT-WAIT-PROCESS`,
+    factoryId: record.targetFactoryId,
+    factoryName: record.targetFactoryName,
+    factoryKind: 'CENTRAL_PRINT',
+    warehouseName: record.targetWarehouseName,
+    processCode: 'PROC_PRINT',
+    processName: '印花',
+    craftCode: 'PRINT',
+    craftName: record.craftName,
+    itemKind: '面料',
+    itemName: record.skuSummary || record.materialName,
+    materialSku: record.materialSku,
+    fabricRollNo: record.batchNo,
+    unit: record.qtyUnit,
+    areaName: '印花待加工区',
+    shelfNo: record.warehouseLocation.split('-').slice(0, 2).join('-') || record.warehouseLocation,
+    locationNo: record.warehouseLocation,
+    locationText: record.warehouseLocation,
+    photoList: [],
+    remark: record.remark,
+    sourceRecordId: record.sourceWorkOrderId,
+    sourceRecordNo: record.warehouseRecordNo,
+    sourceRecordType: 'HANDOVER_RECEIVE',
+    sourceObjectKind: '印花厂',
+    sourceObjectName: record.sourceWorkOrderNo,
+    taskId: record.sourceTaskId,
+    taskNo: record.sourceTaskNo,
+    productionOrderId: record.sourceProductionOrderId,
+    productionOrderNo: record.sourceProductionOrderNo,
+    expectedQty: record.plannedObjectQty,
+    receivedQty: record.receivedObjectQty,
+    differenceQty: record.diffObjectQty,
+    receiverName: record.targetFactoryName,
+    receivedAt: record.inboundAt,
+    status: record.status === '有差异' ? '差异待处理' : '已入待加工仓',
+  }
+}
+
+function mapWaitHandoverRecord(record: ProcessWarehouseRecord): FactoryWaitHandoverStockItem {
+  return {
+    stockItemId: record.warehouseRecordId,
+    warehouseId: `${record.targetFactoryId}-PRINT-WAIT-HANDOVER`,
+    factoryId: record.targetFactoryId,
+    factoryName: record.targetFactoryName,
+    factoryKind: 'CENTRAL_PRINT',
+    warehouseName: record.targetWarehouseName,
+    processCode: 'PROC_PRINT',
+    processName: '印花',
+    craftCode: 'PRINT',
+    craftName: record.craftName,
+    itemKind: '面料',
+    itemName: record.skuSummary || record.materialName,
+    materialSku: record.materialSku,
+    fabricRollNo: record.batchNo,
+    unit: record.qtyUnit,
+    areaName: '印花待交出区',
+    shelfNo: record.warehouseLocation.split('-').slice(0, 2).join('-') || record.warehouseLocation,
+    locationNo: record.warehouseLocation,
+    locationText: record.warehouseLocation,
+    photoList: [],
+    remark: record.remark,
+    taskId: record.sourceTaskId,
+    taskNo: record.sourceTaskNo,
+    productionOrderId: record.sourceProductionOrderId,
+    productionOrderNo: record.sourceProductionOrderNo,
+    completedQty: record.plannedObjectQty,
+    lossQty: 0,
+    waitHandoverQty: record.availableObjectQty,
+    receiverKind: '裁床厂',
+    receiverName: record.targetWarehouseName,
+    handoverRecordId: record.relatedHandoverRecordIds[0],
+    handoverRecordNo: record.relatedHandoverRecordIds[0],
+    receiverWrittenQty: record.writtenBackObjectQty,
+    differenceQty: record.diffObjectQty,
+    status: record.status === '有差异' ? '差异' : record.status === '已回写' ? '已回写' : record.status === '已全部交出' ? '已交出' : '待交出',
+  }
+}
+
+function mapInboundRecord(record: ProcessWarehouseRecord): FactoryWarehouseInboundRecord {
+  const item = mapWaitProcessRecord(record)
+  return {
+    inboundRecordId: record.warehouseRecordId,
+    inboundRecordNo: record.warehouseRecordNo,
+    warehouseId: item.warehouseId,
+    warehouseName: record.targetWarehouseName,
+    factoryId: record.targetFactoryId,
+    factoryName: record.targetFactoryName,
+    factoryKind: 'CENTRAL_PRINT',
+    processCode: 'PROC_PRINT',
+    processName: '印花',
+    craftCode: 'PRINT',
+    craftName: record.craftName,
+    sourceRecordId: record.sourceWorkOrderId,
+    sourceRecordNo: record.sourceWorkOrderNo,
+    sourceRecordType: 'HANDOVER_RECEIVE',
+    sourceObjectName: record.sourceWorkOrderNo,
+    taskId: record.sourceTaskId,
+    taskNo: record.sourceTaskNo,
+    itemKind: '面料',
+    itemName: record.skuSummary || record.materialName,
+    materialSku: record.materialSku,
+    fabricRollNo: record.batchNo,
+    expectedQty: record.plannedObjectQty,
+    receivedQty: record.receivedObjectQty,
+    differenceQty: record.diffObjectQty,
+    unit: record.qtyUnit,
+    receiverName: record.targetFactoryName,
+    receivedAt: record.inboundAt,
+    areaName: item.areaName,
+    shelfNo: item.shelfNo,
+    locationNo: item.locationNo,
+    status: record.status === '有差异' ? '差异待处理' : '已入库',
+    photoList: [],
+    generatedStockItemId: record.warehouseRecordId,
+    remark: record.remark,
+  }
+}
+
+function mapOutboundRecord(record: ProcessHandoverRecord): FactoryWarehouseOutboundRecord {
+  return {
+    outboundRecordId: record.handoverRecordId,
+    outboundRecordNo: record.handoverRecordNo,
+    warehouseId: record.warehouseRecordId,
+    warehouseName: record.receiveWarehouseName,
+    factoryId: record.handoverFactoryId,
+    factoryName: record.handoverFactoryName,
+    factoryKind: 'CENTRAL_PRINT',
+    processCode: 'PROC_PRINT',
+    processName: '印花',
+    craftCode: 'PRINT',
+    craftName: record.craftName,
+    sourceTaskId: record.sourceTaskId,
+    sourceTaskNo: record.sourceTaskNo,
+    handoverRecordId: record.handoverRecordId,
+    handoverRecordNo: record.handoverRecordNo,
+    receiverKind: '裁床厂',
+    receiverName: record.receiveFactoryName || record.receiveWarehouseName,
+    itemKind: '面料',
+    itemName: record.sourceWorkOrderNo,
+    outboundQty: record.handoverObjectQty,
+    receiverWrittenQty: record.receiveObjectQty,
+    differenceQty: record.diffObjectQty,
+    unit: record.qtyUnit,
+    operatorName: record.handoverPerson,
+    outboundAt: record.handoverAt,
+    status: record.status === '有差异' ? '差异' : record.status === '已回写' ? '已回写' : '已出库',
+    photoList: [],
+    relatedWaitHandoverStockItemId: record.warehouseRecordId,
+    remark: record.remark,
+  }
 }
 
 export function getPrintingWarehouseView(filters: PrintingWarehouseViewFilters = {}): PrintingWarehouseView {
@@ -86,36 +229,28 @@ export function getPrintingWarehouseView(filters: PrintingWarehouseViewFilters =
 
   const byFactory = (factoryId: string): boolean => !filters.factoryId || factoryId === filters.factoryId
 
-  const waitProcessItems = listFactoryWaitProcessStockItems().filter((item) =>
-    byFactory(item.factoryId)
-    && shouldKeepByTaskOrProcess(item, taskIds)
+  const waitProcessRecords = listWaitProcessWarehouseRecords({ craftType: 'PRINT' }).filter((item) =>
+    byFactory(item.targetFactoryId)
     && matchesStatus(item.status, filters.status)
-    && matchesKeyword([item.sourceRecordNo, item.taskNo, item.feiTicketNo, item.transferBagNo, item.fabricRollNo, item.itemName], keyword)
-    && withinTimeRange(item.receivedAt, filters.timeRange),
+    && matchesKeyword([item.warehouseRecordNo, item.sourceWorkOrderNo, item.sourceTaskNo, item.batchNo, item.skuSummary], keyword)
+    && withinTimeRange(item.inboundAt, filters.timeRange),
   )
-  const waitHandoverItems = listFactoryWaitHandoverStockItems().filter((item) =>
-    byFactory(item.factoryId)
-    && shouldKeepByTaskOrProcess(item, taskIds)
+  const waitHandoverRecords = listWaitHandoverWarehouseRecords({ craftType: 'PRINT' }).filter((item) =>
+    byFactory(item.targetFactoryId)
     && matchesStatus(item.status, filters.status)
-    && matchesKeyword([item.taskNo, item.handoverOrderNo, item.handoverRecordNo, item.feiTicketNo, item.transferBagNo, item.fabricRollNo, item.itemName], keyword),
+    && matchesKeyword([item.warehouseRecordNo, item.sourceWorkOrderNo, item.sourceTaskNo, item.batchNo, item.skuSummary], keyword),
   )
-  const inboundRecords = listFactoryWarehouseInboundRecords().filter((item) =>
-    byFactory(item.factoryId)
-    && shouldKeepByTaskOrProcess(item, taskIds)
+  const handoverRecords = listProcessHandoverRecords({ craftType: 'PRINT' }).filter((item) =>
+    byFactory(item.handoverFactoryId)
     && matchesStatus(item.status, filters.status)
-    && matchesKeyword([item.inboundRecordNo, item.sourceRecordNo, item.taskNo, item.feiTicketNo, item.transferBagNo, item.fabricRollNo, item.itemName], keyword)
-    && withinTimeRange(item.receivedAt, filters.timeRange),
+    && matchesKeyword([item.handoverRecordNo, item.sourceWorkOrderNo, item.sourceTaskNo], keyword)
+    && withinTimeRange(item.handoverAt, filters.timeRange),
   )
-  const outboundRecords = listFactoryWarehouseOutboundRecords().filter((item) =>
-    byFactory(item.factoryId)
-    && shouldKeepByTaskOrProcess(
-      { taskId: item.sourceTaskId, processCode: item.processCode, processName: item.processName },
-      taskIds,
-    )
-    && matchesStatus(item.status, filters.status)
-    && matchesKeyword([item.outboundRecordNo, item.sourceTaskNo, item.handoverOrderNo, item.handoverRecordNo, item.feiTicketNo, item.transferBagNo, item.fabricRollNo, item.itemName], keyword)
-    && withinTimeRange(item.outboundAt, filters.timeRange),
-  )
+
+  const waitProcessItems = waitProcessRecords.map(mapWaitProcessRecord)
+  const waitHandoverItems = waitHandoverRecords.map(mapWaitHandoverRecord)
+  const inboundRecords = waitProcessRecords.map(mapInboundRecord)
+  const outboundRecords = handoverRecords.map(mapOutboundRecord)
 
   const visibleFactoryIds = new Set([
     ...Array.from(factoryIds),

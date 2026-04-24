@@ -100,12 +100,12 @@ function main(): void {
     "renderRouteRedirect('/fcs/craft/dyeing/wait-process-warehouse', '正在跳转到染色待加工仓')",
     '染色旧仓库入口',
   )
-  assertIncludes(formulaSource, '染料单', '染料单页面')
-  assertIncludes(reportsSource, '等待原因', '染色报表页面')
-  assertIncludes(reportsSource, '节点耗时', '染色报表页面')
-  assertIncludes(reportsSource, '染缸利用', '染色报表页面')
-  assertIncludes(reportsSource, '交出差异', '染色报表页面')
-  assertIncludes(reportsSource, '数量异议', '染色报表页面')
+  assertIncludes(formulaSource, '染色配方', '染色配方页面')
+  assertIncludes(reportsSource, '等待原因', '染色统计页面')
+  assertIncludes(reportsSource, '节点耗时', '染色统计页面')
+  assertIncludes(reportsSource, '染缸利用', '染色统计页面')
+  assertIncludes(reportsSource, '差异面料米数', '染色统计页面')
+  assertIncludes(reportsSource, '染色有差异交出记录数', '染色统计页面')
   assertIncludes(taskDetailSource, '染色任务', '任务详情页面')
   assertIncludes(taskDetailSource, '染缸编号', '任务详情页面')
   assertIncludes(taskDetailSource, '待送货', '任务详情页面')
@@ -132,12 +132,12 @@ function main(): void {
   assert(vatSchedules.every((item) => Boolean(item.dyeVatNo && item.capacityQty > 0)), '染缸排期必须包含染缸编号和容量')
 
   const formulas = listDyeFormulaRecords()
-  assert(formulas.length > 0, '需要染料单数据')
-  assert(formulas.every((item) => Boolean(item.dyeOrderId || item.taskId)), '染料单必须关联染色加工单或染色任务')
-  assert(formulas.every((item) => !('handoverOrderId' in item) && !('taskQrValue' in item)), '染料单不能创建交出单或任务二维码')
+  assert(formulas.length > 0, '需要染色配方数据')
+  assert(formulas.every((item) => Boolean(item.dyeOrderId || item.taskId)), '染色配方必须关联染色加工单或染色任务')
+  assert(formulas.every((item) => !('handoverOrderId' in item) && !('taskQrValue' in item)), '染色配方不能创建交出单或任务二维码')
 
   const reportRows = listDyeReportRows()
-  assert(reportRows.length === orders.length, '染色报表需要覆盖所有加工单')
+  assert(reportRows.length === orders.length, '染色统计需要覆盖所有加工单')
   assert(reportRows.some((row) => row.waitingReason.length > 0), '报表必须展示等待原因')
   assert(reportRows.some((row) => row.durationHours >= 0), '报表必须展示节点耗时')
   assert(reportRows.some((row) => row.dyeVatNo), '报表必须展示染缸利用')
@@ -156,8 +156,8 @@ function main(): void {
 
   printTerms.forEach((term) => {
     assertNotIncludes(workOrdersSource, term, '染色加工单页面')
-    assertNotIncludes(formulaSource, term, '染料单页面')
-    assertNotIncludes(reportsSource, term, '染色报表页面')
+    assertNotIncludes(formulaSource, term, '染色配方页面')
+    assertNotIncludes(reportsSource, term, '染色统计页面')
     const dyeDataSource = readFile('src/data/fcs/dyeing-task-domain.ts')
     assertNotIncludes(dyeDataSource, term, '染色数据域')
   })
@@ -167,7 +167,7 @@ function main(): void {
 
   console.log('[check-dyeing-workflow] PASS')
   console.log(`  染色加工单: ${orders.length}`)
-  console.log(`  染料单: ${formulas.length}`)
+  console.log(`  染色配方: ${formulas.length}`)
   console.log(`  染缸排期: ${vatSchedules.length}`)
   console.log(`  待审核: ${reviews.filter((review) => review.reviewStatus === 'WAIT_REVIEW').length}`)
 }

@@ -74,11 +74,16 @@ function flattenMenuItems(groups) {
   )
 }
 
+function normalizeMenuHref(href) {
+  return href.split('#')[0].split('?')[0] || '/'
+}
+
 function collectMenuHrefs(menusBySystem, systems) {
   const hrefs = Object.values(menusBySystem)
     .flatMap((groups) => flattenMenuItems(groups))
     .map((item) => item.href)
-    .filter((href) => typeof href === 'string' && shouldIncludeRoute(href, systems))
+    .filter((href) => typeof href === 'string' && shouldIncludeRoute(normalizeMenuHref(href), systems))
+    .map((href) => normalizeMenuHref(href))
 
   const uniqueHrefs = [...new Set(hrefs)]
   return { hrefs, uniqueHrefs }

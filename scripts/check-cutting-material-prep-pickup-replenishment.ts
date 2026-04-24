@@ -48,12 +48,12 @@ function main(): void {
 
   const dataSource = read('src/data/fcs/cutting/material-prep.ts')
   assert(dataSource.includes('cutOrderQrValue'), 'material-prep 数据层缺少 cutOrderQrValue')
-  assert(dataSource.includes('PRINT_REVIEW'), 'material-prep 数据层缺少印花审核来源')
+  assert(dataSource.includes('PRINT_REVIEW'), 'material-prep 数据层缺少 PRINT_REVIEW 来源')
   assert(dataSource.includes('DYE_REVIEW'), 'material-prep 数据层缺少染色审核来源')
   assert(dataSource.includes('MANUAL'), 'material-prep 数据层缺少手动配置来源')
   assert(dataSource.includes('TransferMaterialAvailableLot'), 'material-prep 数据层缺少中转可配置模型')
 
-  assert(transferLots.some((lot) => lot.sourceProcessType === 'PRINT'), '缺少印花审核通过后的中转可配置数量')
+  assert(transferLots.some((lot) => lot.sourceProcessType === 'PRINT'), '缺少印花中转审核通过后的可配置数量')
   assert(transferLots.some((lot) => lot.sourceProcessType === 'DYE'), '缺少染色审核通过后的中转可配置数量')
   assert(
     transferLots.every(

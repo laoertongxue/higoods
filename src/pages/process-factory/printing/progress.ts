@@ -5,7 +5,11 @@ import {
   listPrintWorkOrders,
 } from '../../../data/fcs/printing-task-domain.ts'
 import {
-  buildPrintingHref,
+  buildHandoverOrderLink,
+  buildPrintingWorkOrderDetailLink,
+  buildTaskDetailLink,
+} from '../../../data/fcs/fcs-route-links.ts'
+import {
   formatPrintQty,
   formatPrintTime,
   getPrintNodeRecord,
@@ -25,7 +29,7 @@ function renderOrderList(selectedId: string): string {
         <button
           class="w-full rounded-lg border px-3 py-3 text-left ${active ? 'border-blue-300 bg-blue-50' : 'bg-card hover:bg-muted/40'}"
           data-printing-action="navigate"
-          data-href="${escapeHtml(buildPrintingHref('/fcs/craft/printing/progress', order.printOrderId))}"
+          data-href="/fcs/craft/printing/work-orders?printOrderId=${escapeHtml(encodeURIComponent(order.printOrderId))}&tab=progress"
         >
           <div class="flex items-center justify-between gap-2">
             <span class="font-mono text-xs font-medium">${escapeHtml(order.printOrderNo)}</span>
@@ -72,25 +76,25 @@ export function renderCraftPrintingProgressPage(): string {
               <div><span class="text-muted-foreground">印花任务：</span>${escapeHtml(selected.taskNo)}</div>
               <div><span class="text-muted-foreground">花型：</span>${escapeHtml(selected.patternNo)}</div>
               <div><span class="text-muted-foreground">面料：</span>${escapeHtml(selected.materialSku)}${selected.materialColor ? ` / ${escapeHtml(selected.materialColor)}` : ''}</div>
-              <div><span class="text-muted-foreground">计划数量：</span>${formatPrintQty(selected.plannedQty, selected.qtyUnit)}</div>
+              <div><span class="text-muted-foreground">计划印花面料米数：</span>${formatPrintQty(selected.plannedQty, selected.qtyUnit)}</div>
             </div>
           </div>
           <div class="flex flex-wrap gap-2">
             ${renderActionButton({
-              label: '查看任务',
+              label: '打开移动端执行页',
               action: 'navigate',
-              attrs: { href: `/fcs/pda/exec/${selected.taskId}` },
+              attrs: { href: buildTaskDetailLink(selected.taskId) },
             })}
             ${renderActionButton({
-              label: '查看交出单',
+              label: '打开移动端交出页',
               action: 'navigate',
-              attrs: { href: selected.handoverOrderId ? `/fcs/pda/handover/${selected.handoverOrderId}` : '' },
+              attrs: { href: selected.handoverOrderId ? buildHandoverOrderLink(selected.handoverOrderId) : '' },
               disabled: !selected.handoverOrderId,
             })}
             ${renderActionButton({
-              label: '查看审核',
+              label: '查看加工单审核',
               action: 'navigate',
-              attrs: { href: buildPrintingHref('/fcs/craft/printing/pending-review', selected.printOrderId) },
+              attrs: { href: `${buildPrintingWorkOrderDetailLink(selected.printOrderId)}?tab=review` },
             })}
           </div>
         </div>
@@ -130,7 +134,7 @@ export function renderCraftPrintingProgressPage(): string {
             <div><span class="text-muted-foreground">操作人：</span>${escapeHtml(printNode?.operatorName || '—')}</div>
             <div><span class="text-muted-foreground">打印机编号：</span>${escapeHtml(printNode?.printerNo || '未开始')}</div>
             <div><span class="text-muted-foreground">打印速度：</span>${printNode?.printerSpeedPerHour ? `${printNode.printerSpeedPerHour} 米/小时` : '—'}</div>
-            <div><span class="text-muted-foreground">完成数量：</span>${formatPrintQty(printNode?.outputQty, selected.qtyUnit)}</div>
+            <div><span class="text-muted-foreground">打印完成面料米数：</span>${formatPrintQty(printNode?.outputQty, selected.qtyUnit)}</div>
           `,
         )}
         ${renderNodeCard(
@@ -158,8 +162,8 @@ export function renderCraftPrintingProgressPage(): string {
           `
             <div><span class="text-muted-foreground">接收方：</span>${escapeHtml(selected.targetTransferWarehouseName)}</div>
             <div><span class="text-muted-foreground">已交出：</span>${formatPrintQty(handoverSummary.submittedQty, selected.qtyUnit)}</div>
-            <div><span class="text-muted-foreground">实收数量：</span>${formatPrintQty(handoverSummary.writtenBackQty, selected.qtyUnit)}</div>
-            <div><span class="text-muted-foreground">差异：</span>${handoverSummary.diffQty}</div>
+            <div><span class="text-muted-foreground">实收面料米数：</span>${formatPrintQty(handoverSummary.writtenBackQty, selected.qtyUnit)}</div>
+            <div><span class="text-muted-foreground">差异面料米数：</span>${handoverSummary.diffQty} ${escapeHtml(selected.qtyUnit || '米')}</div>
             <div><span class="text-muted-foreground">当前状态：</span>${escapeHtml(handoverSummary.pendingWritebackCount > 0 ? '待回写' : handoverSummary.writtenBackQty > 0 ? '接收方已回写' : '未开始')}</div>
           `,
         )}
@@ -167,8 +171,8 @@ export function renderCraftPrintingProgressPage(): string {
           '审核',
           `
             <div class="flex items-center gap-2">${review ? renderReviewStatusBadge(review.reviewStatus) : '<span class="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-700">待审核</span>'}</div>
-            <div><span class="text-muted-foreground">实收数量：</span>${formatPrintQty(review?.receivedQty ?? handoverSummary.writtenBackQty, selected.qtyUnit)}</div>
-            <div><span class="text-muted-foreground">差异：</span>${review?.diffQty ?? handoverSummary.diffQty}</div>
+            <div><span class="text-muted-foreground">实收面料米数：</span>${formatPrintQty(review?.receivedQty ?? handoverSummary.writtenBackQty, selected.qtyUnit)}</div>
+            <div><span class="text-muted-foreground">差异面料米数：</span>${review?.diffQty ?? handoverSummary.diffQty} ${escapeHtml(selected.qtyUnit || '米')}</div>
             <div><span class="text-muted-foreground">审核状态：</span>${escapeHtml(review ? (review.reviewStatus === 'WAIT_REVIEW' ? '待审核' : review.reviewStatus === 'PASS' ? '审核通过' : review.reviewStatus === 'REJECTED' ? '审核驳回' : '审核中') : '待审核')}</div>
             <div><span class="text-muted-foreground">备注：</span>${escapeHtml(review?.remark || '接收方回写后进入审核')}</div>
           `,
@@ -179,7 +183,7 @@ export function renderCraftPrintingProgressPage(): string {
 
   return `
     <div class="space-y-4 p-4">
-      ${renderPageHeader('印花进度', '')}
+      ${renderPageHeader('印花加工单执行进度视图', '执行进度归属于印花加工单，不作为独立主单。')}
       <div class="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
         ${renderOrderList(selected.printOrderId)}
         ${detail}

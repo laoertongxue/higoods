@@ -1,4 +1,5 @@
 import { consumeProcessCreateDemandIntent } from './process-order-create-bridge'
+import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
 import { listPrepProcessOrders } from '../data/fcs/page-adapters/process-prep-pages-adapter'
 
@@ -59,7 +60,11 @@ interface BatchDestination {
 }
 
 interface DyeProcessOrder {
+  workOrderId: string
   orderNo: string
+  statusLabel?: string
+  taskId?: string
+  handoverOrderId?: string
   status: OrderStatusZh
   createMode: CreateModeZh
   dyeFactoryName: string
@@ -131,7 +136,11 @@ const RULES = [
 ]
 
 const ORDERS: DyeProcessOrder[] = listPrepProcessOrders('DYE').map((item) => ({
+  workOrderId: item.workOrderId || item.orderNo,
   orderNo: item.orderNo,
+  statusLabel: item.statusLabel,
+  taskId: item.taskId,
+  handoverOrderId: item.handoverOrderId,
   status: item.status,
   createMode: item.createMode,
   dyeFactoryName: item.factoryName,
@@ -477,6 +486,7 @@ function renderOrderRow(order: DyeProcessOrder): string {
   const returnedQty = getReturnedQty(order)
   const batchCount = getBatchCount(order)
   const stockMaterial = getOrderStockMaterial(order)
+  const detailHref = `/fcs/craft/dyeing/work-orders/${encodeURIComponent(order.workOrderId)}`
   const stockMaterialText = stockMaterial
     ? `${stockMaterial.materialCode} · ${stockMaterial.materialName}`
     : '—'
@@ -498,7 +508,7 @@ function renderOrderRow(order: DyeProcessOrder): string {
             <div class="md:col-span-2 xl:col-span-3"><span>来源说明：</span><span class="text-foreground">${escapeHtml(order.sourceSummary)}</span></div>
           </div>
           <div class="mt-3 flex flex-wrap gap-2 border-t pt-3">
-            <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-dye-order-action="open-detail" data-order-no="${escapeHtml(order.orderNo)}">查看详情</button>
+            <a role="button" class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" href="${escapeHtml(detailHref)}" data-nav="${escapeHtml(detailHref)}">查看详情</a>
             <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-dye-order-action="open-batches" data-order-no="${escapeHtml(order.orderNo)}">查看回货批次</button>
             <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-dye-order-action="open-demands" data-order-no="${escapeHtml(order.orderNo)}">查看关联需求单</button>
           </div>
@@ -511,7 +521,7 @@ function renderOrderRow(order: DyeProcessOrder): string {
               <div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">已回货数量</span><span class="font-medium">${escapeHtml(formatQty(returnedQty, order.unit))}</span></div>
               <div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">回货批次数</span><span class="font-medium">${batchCount}批</span></div>
               <div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">关联需求单</span><span class="text-right text-xs">${escapeHtml(getDemandNosText(order))}</span></div>
-              <div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">状态</span>${renderBadge(order.status, ORDER_STATUS_CLASS[order.status])}</div>
+              <div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">状态</span>${renderBadge(order.statusLabel || order.status, ORDER_STATUS_CLASS[order.status])}</div>
               <div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">更新时间</span><span class="text-xs">${escapeHtml(order.updatedAt)}</span></div>
             </div>
           </div>
@@ -1067,6 +1077,13 @@ export function handleProcessDyeOrdersEvent(target: HTMLElement): boolean {
   if (!actionNode) return false
   const action = actionNode.dataset.dyeOrderAction
   if (!action) return false
+
+  if (action === 'navigate-detail') {
+    const workOrderId = actionNode.dataset.workOrderId
+    if (!workOrderId) return true
+    appStore.navigate(`/fcs/craft/dyeing/work-orders/${encodeURIComponent(workOrderId)}`)
+    return true
+  }
 
   if (action === 'open-detail') {
     const orderNo = actionNode.dataset.orderNo

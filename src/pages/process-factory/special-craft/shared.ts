@@ -4,12 +4,6 @@ import {
   type SpecialCraftOperationDefinition,
 } from '../../../data/fcs/special-craft-operations.ts'
 import { appStore } from '../../../state/store.ts'
-import {
-  buildSpecialCraftStatisticsPath,
-  buildSpecialCraftTaskOrdersPath,
-  buildSpecialCraftWaitHandoverWarehousePath,
-  buildSpecialCraftWaitProcessWarehousePath,
-} from '../../../data/fcs/special-craft-operations.ts'
 import { escapeHtml, formatDateTime } from '../../../utils.ts'
 
 type MetricCard = {
@@ -169,49 +163,12 @@ export function renderSpecialCraftPageLayout(input: {
   activeSubNav: SubNavKey
   content: string
 }): string {
-  const { operation, title, description, activeSubNav, content } = input
-  const subNavItems: Array<{ key: SubNavKey; label: string; href: string }> = [
-    { key: 'tasks', label: `${operation.operationName}任务单`, href: buildSpecialCraftTaskOrdersPath(operation) },
-    { key: 'wait-process', label: `${operation.operationName}待加工仓`, href: buildSpecialCraftWaitProcessWarehousePath(operation) },
-    { key: 'wait-handover', label: `${operation.operationName}待交出仓`, href: buildSpecialCraftWaitHandoverWarehousePath(operation) },
-    { key: 'statistics', label: `${operation.operationName}统计`, href: buildSpecialCraftStatisticsPath(operation) },
-  ]
+  const { title, content } = input
 
   return `
     <div class="space-y-4">
       <header class="rounded-2xl border bg-white p-5 shadow-sm">
-        <div class="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <div class="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">特殊工艺</div>
-            <h1 class="mt-3 text-2xl font-semibold text-foreground">${escapeHtml(title)}</h1>
-            <p class="mt-2 text-sm text-muted-foreground">${escapeHtml(description)}</p>
-          </div>
-          <div class="rounded-2xl border bg-slate-50 px-4 py-3 text-sm">
-            <div class="text-xs text-muted-foreground">当前特殊工艺</div>
-            <div class="mt-1 font-medium text-foreground">${escapeHtml(operation.operationName)}</div>
-            <div class="mt-2 text-xs text-muted-foreground">作用对象：${escapeHtml(operation.targetObject)}</div>
-          </div>
-        </div>
-        <div class="mt-4 flex flex-wrap gap-2 border-t pt-4">
-          ${subNavItems
-            .map((item) => {
-              const active = item.key === activeSubNav
-              return `
-                <button
-                  type="button"
-                  class="inline-flex items-center rounded-xl border px-3 py-2 text-sm ${
-                    active
-                      ? 'border-blue-200 bg-blue-50 font-medium text-blue-700'
-                      : 'bg-white text-foreground hover:bg-slate-50'
-                  }"
-                  data-nav="${item.href}"
-                >
-                  ${escapeHtml(item.label)}
-                </button>
-              `
-            })
-            .join('')}
-        </div>
+        <h1 class="text-2xl font-semibold text-foreground">${escapeHtml(title)}</h1>
       </header>
       ${content}
     </div>

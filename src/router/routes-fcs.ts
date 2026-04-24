@@ -108,12 +108,20 @@ import {
   renderCraftPrintingStatisticsPage,
   renderCraftPrintingWaitHandoverWarehousePage,
   renderCraftPrintingWaitProcessWarehousePage,
+  renderCraftPrintingWorkOrderDetailPage,
   renderCraftPrintingWorkOrdersPage,
   renderCraftDyeingDyeOrdersPage,
   renderCraftDyeingReportsPage,
   renderCraftDyeingWaitHandoverWarehousePage,
   renderCraftDyeingWaitProcessWarehousePage,
+  renderCraftDyeingWorkOrderDetailPage,
   renderCraftDyeingWorkOrdersPage,
+  renderPostFinishingQcOrdersPage,
+  renderPostFinishingRecheckOrdersPage,
+  renderPostFinishingStatisticsPage,
+  renderPostFinishingWaitHandoverWarehousePage,
+  renderPostFinishingWaitProcessWarehousePage,
+  renderPostFinishingWorkOrdersPage,
   renderSpecialCraftStatisticsPage,
   renderSpecialCraftTaskDetailPage,
   renderSpecialCraftTaskOrdersPage,
@@ -280,9 +288,12 @@ export const routes: RouteRegistry = {
       renderRouteRedirect('/fcs/craft/printing/wait-process-warehouse', '正在跳转到印花待加工仓'),
     '/fcs/craft/printing/warehouse-management': () =>
       renderRouteRedirect('/fcs/craft/printing/wait-process-warehouse', '正在跳转到印花待加工仓'),
-    '/fcs/craft/printing/pending-review': () => renderCraftPrintingPendingReviewPage(),
-    '/fcs/craft/printing/batches': () => renderCraftPrintingPendingReviewPage(),
-    '/fcs/craft/printing/progress': () => renderCraftPrintingProgressPage(),
+    '/fcs/craft/printing/pending-review': () =>
+      renderRouteRedirect('/fcs/craft/printing/work-orders?tab=review', '正在跳转到印花加工单审核视图'),
+    '/fcs/craft/printing/batches': () =>
+      renderRouteRedirect('/fcs/craft/printing/work-orders?tab=review', '正在跳转到印花加工单审核视图'),
+    '/fcs/craft/printing/progress': () =>
+      renderRouteRedirect('/fcs/craft/printing/work-orders?tab=progress', '正在跳转到印花加工单进度视图'),
     '/fcs/craft/printing/stats': () => renderCraftPrintingStatisticsPage(),
     '/fcs/craft/printing/statistics': () => renderCraftPrintingStatisticsPage(),
     '/fcs/craft/printing/dashboards': () => renderCraftPrintingDashboardsPage(),
@@ -295,11 +306,22 @@ export const routes: RouteRegistry = {
       renderRouteRedirect('/fcs/craft/dyeing/wait-process-warehouse', '正在跳转到染色待加工仓'),
     '/fcs/craft/dyeing/warehouse-management': () =>
       renderRouteRedirect('/fcs/craft/dyeing/wait-process-warehouse', '正在跳转到染色待加工仓'),
-    '/fcs/craft/dyeing/orders': () => renderCraftDyeingDyeOrdersPage(),
-    '/fcs/craft/dyeing/dye-orders': () => renderCraftDyeingDyeOrdersPage(),
-    '/fcs/craft/dyeing/batches': () => renderCraftDyeingDyeOrdersPage(),
+    '/fcs/craft/dyeing/orders': () =>
+      renderRouteRedirect('/fcs/craft/dyeing/work-orders?tab=formula', '正在跳转到染色加工单配方视图'),
+    '/fcs/craft/dyeing/dye-orders': () =>
+      renderRouteRedirect('/fcs/craft/dyeing/work-orders?tab=formula', '正在跳转到染色加工单配方视图'),
+    '/fcs/craft/dyeing/batches': () =>
+      renderRouteRedirect('/fcs/craft/dyeing/work-orders?tab=formula', '正在跳转到染色加工单配方视图'),
     '/fcs/craft/dyeing/stats': () => renderCraftDyeingReportsPage(),
     '/fcs/craft/dyeing/reports': () => renderCraftDyeingReportsPage(),
+    '/fcs/craft/post-finishing': () =>
+      renderRouteRedirect('/fcs/craft/post-finishing/work-orders', '正在跳转到后道单'),
+    '/fcs/craft/post-finishing/work-orders': () => renderPostFinishingWorkOrdersPage(),
+    '/fcs/craft/post-finishing/qc-orders': () => renderPostFinishingQcOrdersPage(),
+    '/fcs/craft/post-finishing/recheck-orders': () => renderPostFinishingRecheckOrdersPage(),
+    '/fcs/craft/post-finishing/wait-process-warehouse': () => renderPostFinishingWaitProcessWarehousePage(),
+    '/fcs/craft/post-finishing/wait-handover-warehouse': () => renderPostFinishingWaitHandoverWarehousePage(),
+    '/fcs/craft/post-finishing/statistics': () => renderPostFinishingStatisticsPage(),
     ...specialCraftExactRoutes,
     '/fcs/production/create': () =>
       renderPlaceholderPage(
@@ -376,6 +398,14 @@ export const routes: RouteRegistry = {
     {
       pattern: /^\/fcs\/process-factory\/special-craft\/([^/]+)\/work-orders\/([^/]+)$/,
       render: (match) => renderSpecialCraftWorkOrderDetailPage(match[1], decodeURIComponent(match[2])),
+    },
+    {
+      pattern: /^\/fcs\/craft\/printing\/work-orders\/([^/]+)$/,
+      render: (match) => renderCraftPrintingWorkOrderDetailPage(decodeURIComponent(match[1])),
+    },
+    {
+      pattern: /^\/fcs\/craft\/dyeing\/work-orders\/([^/]+)$/,
+      render: (match) => renderCraftDyeingWorkOrderDetailPage(decodeURIComponent(match[1])),
     },
   ],
 }

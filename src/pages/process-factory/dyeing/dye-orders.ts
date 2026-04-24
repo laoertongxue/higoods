@@ -1,5 +1,6 @@
 import { escapeHtml } from '../../../utils'
 import { listDyeFormulaRecords } from '../../../data/fcs/dyeing-task-domain.ts'
+import { buildDyeingWorkOrderDetailLink, buildTaskDetailLink } from '../../../data/fcs/fcs-route-links.ts'
 import {
   buildDyeingHref,
   getSelectedDyeOrderId,
@@ -27,7 +28,7 @@ function renderFormulaList(selectedId: string): string {
             ${renderActionButton({
               label: '查看明细',
               action: 'navigate',
-              attrs: { href: buildDyeingHref('/fcs/craft/dyeing/dye-orders', record.dyeOrderId) },
+              attrs: { href: `${buildDyeingHref('/fcs/craft/dyeing/work-orders', record.dyeOrderId)}&tab=formula` },
             })}
           </td>
         </tr>
@@ -36,13 +37,16 @@ function renderFormulaList(selectedId: string): string {
     .join('')
 
   return renderSection(
-    '染料单列表',
+    '染色配方列表',
     `
+      <div class="mb-3 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+        染色配方是染色加工单下的子信息；本入口仅保留为加工单配方视图的兼容展示。
+      </div>
       <div class="overflow-x-auto">
         <table class="min-w-full text-left text-sm">
           <thead class="bg-slate-50 text-xs text-muted-foreground">
             <tr>
-              <th class="px-3 py-2 font-medium">染色单号</th>
+              <th class="px-3 py-2 font-medium">染色加工单号</th>
               <th class="px-3 py-2 font-medium">色号</th>
               <th class="px-3 py-2 font-medium">原料面料</th>
               <th class="px-3 py-2 font-medium">目标颜色</th>
@@ -73,7 +77,7 @@ function renderFormulaDetail(selectedId: string): string {
       <div class="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
         <article class="rounded-lg border bg-background p-4 text-sm">
           <div class="grid grid-cols-2 gap-x-4 gap-y-2">
-            <span class="text-xs text-muted-foreground">染色单号</span>
+            <span class="text-xs text-muted-foreground">染色加工单号</span>
             <span class="text-xs font-medium">${escapeHtml(selected.dyeOrderNo || '暂无数据')}</span>
             <span class="text-xs text-muted-foreground">色号</span>
             <span class="text-xs">${escapeHtml(selected.colorNo)}</span>
@@ -88,15 +92,15 @@ function renderFormulaDetail(selectedId: string): string {
           </div>
           <div class="mt-4 flex flex-wrap gap-2">
             ${renderActionButton({
-              label: '查看任务',
+              label: '打开移动端执行页',
               action: 'navigate',
-              attrs: { href: selected.taskId ? `/fcs/pda/exec/${selected.taskId}` : '' },
+              attrs: { href: selected.taskId ? buildTaskDetailLink(selected.taskId) : '' },
               disabled: !selected.taskId,
             })}
             ${renderActionButton({
               label: '查看加工单',
               action: 'navigate',
-              attrs: { href: selected.dyeOrderId ? `/fcs/craft/dyeing/work-orders?dyeOrderId=${encodeURIComponent(selected.dyeOrderId)}` : '' },
+              attrs: { href: selected.dyeOrderId ? `${buildDyeingWorkOrderDetailLink(selected.dyeOrderId)}?tab=formula` : '' },
               disabled: !selected.dyeOrderId,
             })}
           </div>
@@ -141,7 +145,7 @@ export function renderCraftDyeingDyeOrdersPage(): string {
 
   return `
     <div class="space-y-4 p-4">
-      ${renderPageHeader('染料单', '')}
+      ${renderPageHeader('染色配方', '染色配方归属于染色加工单，不作为独立主单。')}
       ${renderFormulaList(selectedId)}
       ${renderFormulaDetail(selectedId)}
     </div>

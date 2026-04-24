@@ -1,10 +1,18 @@
 import {
   buildSpecialCraftTaskOrdersPath,
+  buildSpecialCraftWorkOrderDetailPath,
   getSpecialCraftOperationBySlug,
 } from '../../../data/fcs/special-craft-operations.ts'
 import { buildTaskDeliveryCardPrintLink } from '../../../data/fcs/fcs-route-links.ts'
 import { getSpecialCraftWarehouseView } from '../../../data/fcs/special-craft-task-orders.ts'
 import { getSpecialCraftFeiTicketSummary } from '../../../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
+import {
+  listProcessHandoverRecords,
+  listWaitHandoverWarehouseRecords,
+  listWaitProcessWarehouseRecords,
+  type ProcessHandoverRecord,
+  type ProcessWarehouseRecord,
+} from '../../../data/fcs/process-warehouse-domain.ts'
 import { escapeHtml } from '../../../utils.ts'
 import {
   formatQty,
@@ -51,6 +59,96 @@ function renderSection(title: string, body: string): string {
   `
 }
 
+function renderObjectQty(value: number | undefined, unit: string): string {
+  return `${formatQty(value || 0)} ${escapeHtml(unit)}`
+}
+
+function renderUnifiedWaitProcessRows(
+  operation: NonNullable<ReturnType<typeof getSpecialCraftOperationBySlug>>,
+  records: ProcessWarehouseRecord[],
+): string {
+  return records
+    .map((record) => `
+      <tr class="align-top">
+        <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.warehouseRecordNo)}</td>
+        <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.sourceWorkOrderNo)}</td>
+        <td class="px-3 py-3">${escapeHtml(record.sourceProductionOrderNo || '—')}</td>
+        <td class="px-3 py-3">${escapeHtml(record.craftName)}</td>
+        <td class="px-3 py-3">${escapeHtml(record.targetFactoryName || record.sourceFactoryName)}</td>
+        <td class="px-3 py-3">${escapeHtml(record.materialName || record.skuSummary || '—')}</td>
+        <td class="px-3 py-3">${renderObjectQty(record.availableObjectQty || record.receivedObjectQty, record.qtyUnit)}</td>
+        <td class="px-3 py-3">${String(record.relatedFeiTicketIds.length)}</td>
+        <td class="px-3 py-3">${escapeHtml(record.currentActionName)}</td>
+        <td class="px-3 py-3">${escapeHtml(record.warehouseLocation || '—')}</td>
+        <td class="px-3 py-3">${renderStatusBadge(record.status)}</td>
+        <td class="px-3 py-3">
+          <div class="flex flex-wrap gap-2">
+            <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="${buildSpecialCraftWorkOrderDetailPath(operation, record.sourceWorkOrderId)}">查看特殊工艺单</button>
+            <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="/fcs/factory/warehouse">调整位置</button>
+          </div>
+        </td>
+      </tr>
+    `)
+    .join('')
+}
+
+function renderUnifiedWaitHandoverRows(
+  operation: NonNullable<ReturnType<typeof getSpecialCraftOperationBySlug>>,
+  records: ProcessWarehouseRecord[],
+): string {
+  return records
+    .map((record) => `
+      <tr class="align-top">
+        <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.warehouseRecordNo)}</td>
+        <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.sourceWorkOrderNo)}</td>
+        <td class="px-3 py-3">${escapeHtml(record.sourceProductionOrderNo || '—')}</td>
+        <td class="px-3 py-3">${escapeHtml(record.craftName)}</td>
+        <td class="px-3 py-3">${escapeHtml(record.targetFactoryName || record.sourceFactoryName)}</td>
+        <td class="px-3 py-3">${renderObjectQty(record.availableObjectQty, record.qtyUnit)}</td>
+        <td class="px-3 py-3">${renderObjectQty(record.handedOverObjectQty, record.qtyUnit)}</td>
+        <td class="px-3 py-3">${renderObjectQty(record.writtenBackObjectQty, record.qtyUnit)}</td>
+        <td class="px-3 py-3">${renderObjectQty(record.diffObjectQty, record.qtyUnit)}</td>
+        <td class="px-3 py-3">${String(record.relatedFeiTicketIds.length)}</td>
+        <td class="px-3 py-3">${renderStatusBadge(record.status)}</td>
+        <td class="px-3 py-3">
+          <div class="flex flex-wrap gap-2">
+            <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="${buildSpecialCraftWorkOrderDetailPath(operation, record.sourceWorkOrderId)}">查看特殊工艺单</button>
+            <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="/fcs/pda/handover">查看交出</button>
+          </div>
+        </td>
+      </tr>
+    `)
+    .join('')
+}
+
+function renderUnifiedOutboundRows(records: ProcessHandoverRecord[]): string {
+  return records
+    .map((record) => `
+      <tr class="align-top">
+        <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.handoverRecordNo)}</td>
+        <td class="px-3 py-3">${escapeHtml(record.handoverFactoryName)}</td>
+        <td class="px-3 py-3">${escapeHtml(record.receiveWarehouseName || record.receiveFactoryName)}</td>
+        <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.sourceWorkOrderNo)}</td>
+        <td class="px-3 py-3">${escapeHtml(record.craftName)}</td>
+        <td class="px-3 py-3">${escapeHtml(record.sourceProductionOrderNo || '—')}</td>
+        <td class="px-3 py-3">${renderObjectQty(record.handoverObjectQty, record.qtyUnit)}</td>
+        <td class="px-3 py-3">${renderObjectQty(record.receiveObjectQty, record.qtyUnit)}</td>
+        <td class="px-3 py-3">${renderObjectQty(record.diffObjectQty, record.qtyUnit)}</td>
+        <td class="px-3 py-3">${escapeHtml(record.handoverPerson)}</td>
+        <td class="px-3 py-3">${escapeHtml(record.handoverAt)}</td>
+        <td class="px-3 py-3">${renderStatusBadge(record.status)}</td>
+        <td class="px-3 py-3">
+          <div class="flex flex-wrap gap-2">
+            <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="/fcs/pda/handover">查看交出</button>
+            <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="${buildTaskDeliveryCardPrintLink(record.handoverRecordId)}">打印任务交货卡</button>
+            <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="/fcs/pda/handover">查看回写</button>
+          </div>
+        </td>
+      </tr>
+    `)
+    .join('')
+}
+
 function renderSpecialCraftWarehousePageByMode(
   operationSlug: string,
   mode: SpecialCraftWarehousePageMode,
@@ -72,9 +170,21 @@ function renderSpecialCraftWarehousePageByMode(
   }
 
   const warehouseView = getSpecialCraftWarehouseView(operation.operationId)
+  const unifiedWaitProcessRecords = listWaitProcessWarehouseRecords({
+    craftType: 'SPECIAL_CRAFT',
+    craftName: operation.operationName,
+  })
+  const unifiedWaitHandoverRecords = listWaitHandoverWarehouseRecords({
+    craftType: 'SPECIAL_CRAFT',
+    craftName: operation.operationName,
+  })
+  const unifiedHandoverRecords = listProcessHandoverRecords({
+    craftType: 'SPECIAL_CRAFT',
+    craftName: operation.operationName,
+  })
   const differenceCount =
     warehouseView.inboundRecords.filter((item) => item.status === '差异待处理').length
-    + warehouseView.outboundRecords.filter((item) => item.status === '差异' || item.status === '异议中').length
+    + unifiedHandoverRecords.filter((item) => item.status === '有差异' || Math.abs(item.diffObjectQty) > 0).length
   const stocktakeDifferenceCount = warehouseView.stocktakeOrders.reduce(
     (total, order) => total + order.lineList.filter((line) => line.status === '差异').length,
     0,
@@ -91,16 +201,16 @@ function renderSpecialCraftWarehousePageByMode(
   const metrics = renderMetricCards(
     mode === 'wait-process'
       ? [
-          { label: '待加工数量', value: String(warehouseView.waitProcessItems.length), tone: 'blue' },
+          { label: '待加工仓记录数', value: String(unifiedWaitProcessRecords.length), tone: 'blue' },
           { label: '入库记录', value: String(warehouseView.inboundRecords.length), tone: 'green' },
-          { label: '差异数量', value: String(warehouseView.inboundRecords.filter((item) => item.status === '差异待处理').length), tone: 'red' },
+          { label: '入库差异记录数', value: String(warehouseView.inboundRecords.filter((item) => item.status === '差异待处理').length), tone: 'red' },
           { label: '盘点差异', value: String(stocktakeDifferenceCount), tone: 'red' },
         ]
       : [
-          { label: '待交出数量', value: String(warehouseView.waitHandoverItems.length), tone: 'amber' },
-          { label: '出库记录', value: String(warehouseView.outboundRecords.length), tone: 'blue' },
-          { label: '已回写数量', value: String(warehouseView.outboundRecords.filter((item) => item.status === '已回写').length), tone: 'green' },
-          { label: '差异数量', value: String(differenceCount), tone: 'red' },
+          { label: '待交出仓记录数', value: String(unifiedWaitHandoverRecords.length), tone: 'amber' },
+          { label: '出库记录', value: String(unifiedHandoverRecords.length), tone: 'blue' },
+          { label: '已回写记录数', value: String(unifiedHandoverRecords.filter((item) => item.status === '已回写').length), tone: 'green' },
+          { label: '出库差异记录数', value: String(differenceCount), tone: 'red' },
           { label: '盘点差异', value: String(stocktakeDifferenceCount), tone: 'red' },
         ],
   )
@@ -312,42 +422,33 @@ function renderSpecialCraftWarehousePageByMode(
     )
     .join('')
 
+  const unifiedWaitProcessRows = renderUnifiedWaitProcessRows(operation, unifiedWaitProcessRecords)
+  const unifiedWaitHandoverRows = renderUnifiedWaitHandoverRows(operation, unifiedWaitHandoverRecords)
+  const unifiedOutboundRows = renderUnifiedOutboundRows(unifiedHandoverRecords)
+
   const modeSections =
     mode === 'wait-process'
       ? `
         ${renderSection(
           '待加工仓',
-          warehouseView.waitProcessItems.length > 0
+          unifiedWaitProcessRecords.length > 0
             ? renderTable(
                 [
+                  '仓记录号',
+                  '特殊工艺单号',
+                  '生产单',
+                  '工艺名称',
                   '工厂',
-                  '仓库',
-                  '来源单号',
-                  '来源对象',
-                  '所属任务',
-                  '物料 / 裁片类型',
-                  '面料 SKU / 裁片部位',
-                  '颜色',
-                  '尺码',
-                  '菲票号',
-                  '中转袋号',
-                  '卷号',
-                  '应收数量',
-                  '实收数量',
-                  '差异数量',
-                  '来源动作',
-                  '接收人',
-                  '接收时间',
-                  '当前所在',
-                  '发料状态',
-                  '库区',
-                  '货架',
-                  '库位',
+                  '裁片部位',
+                  '待加工裁片数量',
+                  '关联菲票数量',
+                  '当前动作',
+                  '仓内位置',
                   '状态',
                   '操作',
                 ],
-                waitProcessRows,
-                'min-w-[2100px]',
+                unifiedWaitProcessRows,
+                'min-w-[1320px]',
               )
             : renderEmptyState(),
         )}
@@ -369,9 +470,9 @@ function renderSpecialCraftWarehousePageByMode(
                   '菲票号',
                   '中转袋号',
                   '卷号',
-                  '应收数量',
-                  '实收数量',
-                  '差异数量',
+                  '应收裁片数量',
+                  '实收裁片数量',
+                  '差异裁片数量',
                   '来源动作',
                   '库区',
                   '货架',
@@ -392,72 +493,48 @@ function renderSpecialCraftWarehousePageByMode(
       : `
         ${renderSection(
           '待交出仓',
-          warehouseView.waitHandoverItems.length > 0
+          unifiedWaitHandoverRecords.length > 0
             ? renderTable(
                 [
+                  '仓记录号',
+                  '特殊工艺单号',
+                  '生产单',
+                  '工艺名称',
                   '工厂',
-                  '仓库',
-                  '来源任务',
-                  '物料 / 裁片类型',
-                  '面料 SKU / 裁片部位',
-                  '颜色',
-                  '尺码',
-                  '菲票号',
-                  '中转袋号',
-                  '卷号',
-                  '加工完成数量',
-                  '损耗数量',
-                  '待交出数量',
-                  '接收方',
-                  '交出单',
-                  '交出记录',
-                  '交出二维码',
-                  '回写数量',
-                  '回仓状态',
-                  '当前所在',
-                  '回写状态',
-                  '库区',
-                  '货架',
-                  '库位',
+                  '待交出裁片数量',
+                  '已交出裁片数量',
+                  '回写裁片数量',
+                  '差异裁片数量',
+                  '关联菲票数量',
+                  '状态',
                   '操作',
                 ],
-                waitHandoverRows,
-                'min-w-[2200px]',
+                unifiedWaitHandoverRows,
+                'min-w-[1500px]',
               )
             : renderEmptyState(),
         )}
         ${renderSection(
           '出库记录',
-          warehouseView.outboundRecords.length > 0
+          unifiedHandoverRecords.length > 0
             ? renderTable(
                 [
-                  '出库单号',
+                  '交出记录号',
                   '工厂',
-                  '出库仓',
-                  '来源任务',
-                  '交出单',
-                  '交出记录',
-                  '交出二维码',
                   '接收方',
-                  '物料 / 裁片类型',
-                  '面料 SKU / 裁片部位',
-                  '颜色',
-                  '尺码',
-                  '菲票号',
-                  '中转袋号',
-                  '卷号',
-                  '出库数量',
-                  '回写数量',
-                  '差异数量',
-                  '生成方式',
-                  '回仓状态',
+                  '特殊工艺单号',
+                  '工艺名称',
+                  '生产单',
+                  '已交出裁片数量',
+                  '回写裁片数量',
+                  '差异裁片数量',
                   '操作人',
                   '出库时间',
                   '状态',
                   '操作',
                 ],
-                outboundRows,
-                'min-w-[2100px]',
+                unifiedOutboundRows,
+                'min-w-[1440px]',
               )
             : renderEmptyState(),
         )}
@@ -475,7 +552,7 @@ function renderSpecialCraftWarehousePageByMode(
       '盘点',
       stocktakeRows
         ? renderTable(['盘点单号', '工厂', '仓库', '盘点范围', '盘点人', '开始时间', '完成时间', '明细数', '差异数', '状态', '操作'], stocktakeRows, 'min-w-[1320px]')
-        : renderEmptyState('当前特殊工艺暂无盘点记录，可前往工厂仓库创建全盘。'),
+        : renderEmptyState('该工艺暂无盘点记录，可前往工厂仓库创建全盘。'),
     )}
   `
 

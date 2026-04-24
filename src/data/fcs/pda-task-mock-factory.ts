@@ -1610,6 +1610,42 @@ const biddingTasks = PROCESS_PROFILES
   .flatMap((profile, index) => buildBiddingTaskSet(profile, index + 71))
 
 const PDA_GENERIC_PROCESS_TASKS: PdaGenericTaskMock[] = [...directTasks, ...biddingTasks]
+
+function cloneProcessTaskForStatistics(
+  sourceTaskId: string,
+  nextTaskId: string,
+  productionOrderNo: string,
+  qty: number,
+): PdaGenericTaskMock {
+  const source = PDA_GENERIC_PROCESS_TASKS.find((task) => task.taskId === sourceTaskId)
+  if (!source) {
+    throw new Error(`缺少统计补充任务来源：${sourceTaskId}`)
+  }
+  return {
+    ...source,
+    taskId: nextTaskId,
+    taskNo: nextTaskId,
+    productionOrderId: productionOrderNo,
+    productionOrderNo,
+    tenderId: source.tenderId ? `${source.tenderId}-STATS-${nextTaskId}` : undefined,
+    qty,
+    taskQrValue: buildTaskQrValue(nextTaskId),
+    taskSummaryNote: `${source.processNameZh}统计样本任务`,
+    mockReceiveSummary: `${source.processNameZh}统计样本已接单，支撑统计与大屏真实取数。`,
+    mockExecutionSummary: `${source.processNameZh}统计样本执行中`,
+    mockHandoverSummary: '统计样本待交接',
+    auditLogs: source.auditLogs.map((log, index) => ({
+      ...log,
+      id: `${log.id}-STATS-${nextTaskId}-${index + 1}`,
+    })),
+  }
+}
+
+PDA_GENERIC_PROCESS_TASKS.push(
+  cloneProcessTaskForStatistics('TASK-PRINT-000717', 'TASK-PRINT-000722', 'PO-202604-PRINT-011', 1460),
+  cloneProcessTaskForStatistics('TASK-PRINT-000717', 'TASK-PRINT-000723', 'PO-202604-PRINT-012', 1380),
+  cloneProcessTaskForStatistics('TASK-DYE-000726', 'TASK-DYE-000732', 'PO-202604-DYE-012', 1320),
+)
 const PDA_TEST_FACTORY_PROCESS_TASKS: PdaGenericTaskMock[] = PDA_GENERIC_PROCESS_TASKS
   .slice(0, 4)
   .map((task, index) => {

@@ -355,6 +355,10 @@ export const renderCraftPrintingWorkOrdersPage = createAsyncRenderer(
   () => import('../pages/process-factory/printing/work-orders'),
   'renderCraftPrintingWorkOrdersPage',
 )
+export const renderCraftPrintingWorkOrderDetailPage = createAsyncRenderer(
+  () => import('../pages/process-factory/printing/work-order-detail'),
+  'renderCraftPrintingWorkOrderDetailPage',
+)
 export const renderCraftPrintingWaitProcessWarehousePage = createAsyncRenderer(
   () => import('../pages/process-factory/printing/warehouse'),
   'renderCraftPrintingWaitProcessWarehousePage',
@@ -375,6 +379,10 @@ export const renderCraftDyeingWorkOrdersPage = createAsyncRenderer(
   () => import('../pages/process-factory/dyeing/work-orders'),
   'renderCraftDyeingWorkOrdersPage',
 )
+export const renderCraftDyeingWorkOrderDetailPage = createAsyncRenderer(
+  () => import('../pages/process-factory/dyeing/work-order-detail'),
+  'renderCraftDyeingWorkOrderDetailPage',
+)
 export const renderCraftDyeingWaitProcessWarehousePage = createAsyncRenderer(
   () => import('../pages/process-factory/dyeing/warehouse'),
   'renderCraftDyeingWaitProcessWarehousePage',
@@ -382,6 +390,30 @@ export const renderCraftDyeingWaitProcessWarehousePage = createAsyncRenderer(
 export const renderCraftDyeingWaitHandoverWarehousePage = createAsyncRenderer(
   () => import('../pages/process-factory/dyeing/warehouse'),
   'renderCraftDyeingWaitHandoverWarehousePage',
+)
+export const renderPostFinishingWorkOrdersPage = createAsyncRenderer(
+  () => import('../pages/process-factory/post-finishing/work-orders'),
+  'renderPostFinishingWorkOrdersPage',
+)
+export const renderPostFinishingQcOrdersPage = createAsyncRenderer(
+  () => import('../pages/process-factory/post-finishing/qc-orders'),
+  'renderPostFinishingQcOrdersPage',
+)
+export const renderPostFinishingRecheckOrdersPage = createAsyncRenderer(
+  () => import('../pages/process-factory/post-finishing/recheck-orders'),
+  'renderPostFinishingRecheckOrdersPage',
+)
+export const renderPostFinishingWaitProcessWarehousePage = createAsyncRenderer(
+  () => import('../pages/process-factory/post-finishing/warehouse'),
+  'renderPostFinishingWaitProcessWarehousePage',
+)
+export const renderPostFinishingWaitHandoverWarehousePage = createAsyncRenderer(
+  () => import('../pages/process-factory/post-finishing/warehouse'),
+  'renderPostFinishingWaitHandoverWarehousePage',
+)
+export const renderPostFinishingStatisticsPage = createAsyncRenderer(
+  () => import('../pages/process-factory/post-finishing/statistics'),
+  'renderPostFinishingStatisticsPage',
 )
 export const renderSpecialCraftTaskOrdersPage = createAsyncRenderer(
   () => import('../pages/process-factory/special-craft/task-orders'),

@@ -1,4 +1,9 @@
-import { buildTaskDeliveryCardPrintLink } from '../../../data/fcs/fcs-route-links.ts'
+import {
+  buildDyeingWorkOrderDetailLink,
+  buildHandoverOrderLink,
+  buildTaskDeliveryCardPrintLink,
+  buildTaskDetailLink,
+} from '../../../data/fcs/fcs-route-links.ts'
 import {
   getDyeingWarehouseView,
   type DyeingWarehouseView,
@@ -77,7 +82,8 @@ function renderWaitProcessRows(view: DyeingWarehouseView): string {
           <td class="px-3 py-3">${renderBadge(item.status, item.status.includes('差异') ? 'danger' : 'warning')}</td>
           <td class="px-3 py-3">
             <div class="flex flex-wrap gap-2">
-              <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="/fcs/pda/exec/${escapeHtml(item.taskId || '')}">查看任务</button>
+              <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${buildDyeingWorkOrderDetailLink(item.sourceRecordId)}">查看染色加工单</button>
+              <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${item.taskId ? buildTaskDetailLink(item.taskId) : ''}" ${item.taskId ? '' : 'disabled'}>打开移动端执行页</button>
               <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="/fcs/factory/warehouse">调整位置</button>
             </div>
           </td>
@@ -109,7 +115,7 @@ function renderWaitHandoverRows(view: DyeingWarehouseView): string {
           <td class="px-3 py-3">${renderBadge(item.status, item.status.includes('差异') || item.status.includes('异议') ? 'danger' : 'warning')}</td>
           <td class="px-3 py-3">
             <div class="flex flex-wrap gap-2">
-              <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="/fcs/pda/handover">查看交出</button>
+              <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${item.handoverOrderId ? buildHandoverOrderLink(item.handoverOrderId) : ''}" ${item.handoverOrderId ? '' : 'disabled'}>打开移动端交出页</button>
               <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="/fcs/factory/warehouse">调整位置</button>
             </div>
           </td>
@@ -137,7 +143,7 @@ function renderInboundRows(view: DyeingWarehouseView): string {
           <td class="px-3 py-3">${escapeHtml(item.receiverName)}</td>
           <td class="px-3 py-3">${escapeHtml(item.receivedAt)}</td>
           <td class="px-3 py-3">${renderBadge(item.status, item.status.includes('差异') ? 'danger' : 'success')}</td>
-          <td class="px-3 py-3"><button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="/fcs/pda/handover">查看来源</button></td>
+          <td class="px-3 py-3"><button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${buildDyeingWorkOrderDetailLink(item.sourceRecordId)}">查看染色加工单</button></td>
         </tr>
       `,
     )
@@ -165,13 +171,13 @@ function renderOutboundRows(view: DyeingWarehouseView): string {
           <td class="px-3 py-3">${renderBadge(item.status, item.status.includes('差异') || item.status.includes('异议') ? 'danger' : 'success')}</td>
           <td class="px-3 py-3">
             <div class="flex flex-wrap gap-2">
-              <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="/fcs/pda/handover">查看交出</button>
+              <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${item.handoverOrderId ? buildHandoverOrderLink(item.handoverOrderId) : ''}" ${item.handoverOrderId ? '' : 'disabled'}>查看交出</button>
               ${
                 item.handoverRecordId
                   ? `<button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${buildTaskDeliveryCardPrintLink(item.handoverRecordId)}">打印任务交货卡</button>`
                   : '<button type="button" class="inline-flex cursor-not-allowed items-center rounded-md border px-2 py-1 text-xs opacity-50" disabled>打印任务交货卡</button>'
               }
-              <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="/fcs/pda/handover">查看回写</button>
+              <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${item.handoverOrderId ? buildHandoverOrderLink(item.handoverOrderId) : ''}" ${item.handoverOrderId ? '' : 'disabled'}>查看回写</button>
             </div>
           </td>
         </tr>
@@ -234,28 +240,28 @@ function renderDyeingWarehousePage(mode: DyeingWarehouseMode): string {
   const metrics =
     mode === 'wait-process'
       ? [
-          renderMetricCard('待加工数量', String(view.waitProcessItems.length), '待加工仓记录'),
+          renderMetricCard('待加工仓记录数', String(view.waitProcessItems.length), '待加工仓记录'),
           renderMetricCard('入库记录', String(view.inboundRecords.length), '近 30 天'),
-          renderMetricCard('差异数量', String(inboundDifferenceCount), '入库差异'),
+          renderMetricCard('入库差异记录数', String(inboundDifferenceCount), '入库差异'),
           renderMetricCard('盘点差异', String(stocktakeDifferenceCount), '盘点明细'),
         ].join('')
       : [
-          renderMetricCard('待交出数量', String(view.waitHandoverItems.length), '待交出仓记录'),
+          renderMetricCard('待交出仓记录数', String(view.waitHandoverItems.length), '待交出仓记录'),
           renderMetricCard('出库记录', String(view.outboundRecords.length), '近 30 天'),
-          renderMetricCard('已回写数量', String(view.outboundRecords.filter((item) => item.status === '已回写').length), '接收方回写'),
-          renderMetricCard('差异数量', String(outboundDifferenceCount), '出库差异'),
+          renderMetricCard('已回写记录数', String(view.outboundRecords.filter((item) => item.status === '已回写').length), '接收方回写'),
+          renderMetricCard('出库差异记录数', String(outboundDifferenceCount), '出库差异'),
           renderMetricCard('盘点差异', String(stocktakeDifferenceCount), '盘点明细'),
         ].join('')
 
   const modeSections =
     mode === 'wait-process'
       ? [
-          renderSection('待加工仓', renderTable(['工厂', '仓库', '来源单号', '所属任务', '类型', '物料 / 裁片', '颜色', '尺码', '卷号', '应收数量', '实收数量', '差异数量', '库位', '状态', '操作'], renderWaitProcessRows(view), 'min-w-[1680px]')),
-          renderSection('入库记录', renderTable(['入库单号', '工厂', '入库仓', '来源单号', '所属任务', '物料 / 裁片', '应收数量', '实收数量', '差异数量', '库位', '操作人', '操作时间', '状态', '操作'], renderInboundRows(view), 'min-w-[1680px]')),
+          renderSection('待加工仓', renderTable(['工厂', '仓库', '染色加工单号', '所属任务', '类型', '原料面料 SKU', '颜色', '尺码', '卷号', '计划加工面料米数', '待加工面料米数', '差异面料米数', '库位', '状态', '操作'], renderWaitProcessRows(view), 'min-w-[1680px]')),
+          renderSection('入库记录', renderTable(['入库单号', '工厂', '入库仓', '染色加工单号', '所属任务', '原料面料 SKU', '计划加工面料米数', '入仓面料米数', '差异面料米数', '库位', '操作人', '操作时间', '状态', '操作'], renderInboundRows(view), 'min-w-[1680px]')),
         ].join('')
       : [
-          renderSection('待交出仓', renderTable(['工厂', '仓库', '来源任务', '类型', '物料 / 裁片', '颜色', '卷号', '完成数量', '损耗数量', '待交出数量', '接收方', '交出单', '交出记录', '回写数量', '状态', '操作'], renderWaitHandoverRows(view), 'min-w-[1740px]')),
-          renderSection('出库记录', renderTable(['出库单号', '工厂', '出库仓', '来源任务', '交出单', '交出记录', '接收方', '物料 / 裁片', '出库数量', '回写数量', '差异数量', '操作人', '出库时间', '状态', '操作'], renderOutboundRows(view), 'min-w-[1720px]')),
+          renderSection('待交出仓', renderTable(['工厂', '仓库', '来源任务', '类型', '原料面料 SKU', '颜色', '卷号', '包装完成面料米数', '损耗面料米数', '待交出面料米数', '接收方', '交出单', '交出记录', '回写面料米数', '状态', '操作'], renderWaitHandoverRows(view), 'min-w-[1740px]')),
+          renderSection('出库记录', renderTable(['出库单号', '工厂', '出库仓', '来源任务', '交出单', '交出记录', '接收方', '原料面料 SKU', '已交出面料米数', '回写面料米数', '差异面料米数', '操作人', '出库时间', '状态', '操作'], renderOutboundRows(view), 'min-w-[1720px]')),
         ].join('')
 
   return `

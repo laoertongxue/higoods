@@ -157,7 +157,7 @@ function main(): void {
     + read('src/pages/process-factory/dyeing/work-orders.ts')
     + read('src/pages/process-factory/dyeing/dye-orders.ts')
     + read('src/pages/process-factory/dyeing/reports.ts')
-  ;['染色加工单', '染色任务', '染料单', '染色报表'].forEach((token) => {
+  ;['染色加工单', '染色任务', '染色配方', '染色报表'].forEach((token) => {
     assert(dyeingSource.includes(token), `独立模块缺少：${token}`)
   })
 

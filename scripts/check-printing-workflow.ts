@@ -138,7 +138,14 @@ orders.forEach((order) => {
   }
 
   const handoverHead = getPrintOrderHandoverHead(order.printOrderId)
-  if (task?.startedAt) {
+  const shouldHaveHandover =
+    order.status === 'WAIT_DELIVERY' ||
+    order.status === 'HANDOVER_SUBMITTED' ||
+    order.status === 'RECEIVER_WRITTEN_BACK' ||
+    order.status === 'WAIT_REVIEW' ||
+    order.status === 'COMPLETED' ||
+    order.status === 'REJECTED'
+  if (task?.startedAt && shouldHaveHandover) {
     assert(Boolean(order.handoverOrderId || handoverHead?.handoverOrderId || handoverHead?.handoverId), `${order.printOrderNo} 开工后缺少交出单`)
   }
 

@@ -113,10 +113,26 @@ export function renderActionButton(input: {
         ? 'border-red-300 bg-red-50 text-red-700 hover:bg-red-100'
         : 'border-slate-200 bg-white text-foreground hover:bg-muted'
   const attrs = Object.entries(input.attrs || {})
+    .filter(([key]) => !(input.action === 'navigate' && key === 'href'))
     .filter(([, value]) => value !== undefined && value !== null && value !== '')
     .map(([key, value]) => `data-${key}="${escapeHtml(String(value))}"`)
     .join(' ')
   const widthClass = input.fullWidth ? 'w-full' : ''
+  const href = input.action === 'navigate' ? input.attrs?.href : undefined
+  if (href && !input.disabled) {
+    const escapedHref = escapeHtml(String(href))
+    return `
+      <a
+        role="button"
+        class="inline-flex h-8 items-center justify-center rounded-md border px-3 text-xs ${toneClass} ${widthClass}"
+        href="${escapedHref}"
+        data-nav="${escapedHref}"
+        ${attrs}
+      >
+        ${escapeHtml(input.label)}
+      </a>
+    `
+  }
   return `
     <button
       class="inline-flex h-8 items-center justify-center rounded-md border px-3 text-xs ${toneClass} ${widthClass} disabled:cursor-not-allowed disabled:opacity-50"

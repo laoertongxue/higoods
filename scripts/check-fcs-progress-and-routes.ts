@@ -107,7 +107,7 @@ assertIncludesAll(
 )
 assertIncludesAll(
   printingStatsSource,
-  ['待送货', '待回写', '待审核', '打印机编号', '打印速度', '差异数量', '异议数量', '查看任务', '查看交出单', '查看审核'],
+  ['待送货', '待回写', '待审核', '打印机编号', '打印速度', '差异面料米数', '印花有差异交出记录数', '打开移动端执行页', '打开移动端交出页', '查看加工单审核'],
   '印花统计',
 )
 assertIncludesAll(
@@ -117,8 +117,8 @@ assertIncludesAll(
 )
 assertIncludesAll(
   dyeingReportsSource,
-  ['等待原因', '节点耗时', '染缸利用', '交出差异', '数量异议', '待送货', '待回写', '待审核'],
-  '染色报表',
+  ['等待原因', '节点耗时', '染缸利用', '差异面料米数', '染色有差异交出记录数', '待送货', '待回写', '待审核'],
+  '染色统计',
 )
 assertIncludesAll(
   cuttingProgressSource,

@@ -57,7 +57,7 @@ export function renderSpecialCraftTaskOrdersPage(operationSlug: string): string 
     return renderSpecialCraftFactoryContextBlockedLayout({
       operation,
       title: `${operation.operationName}任务单`,
-      description: '按任务单查看当前特殊工艺的接单、执行、菲票流转和差异状态。',
+      description: '按任务单查看该工艺的接单、执行、菲票流转和差异状态。',
       activeSubNav: 'tasks',
       factoryName: factoryGuard.factoryName,
     })
@@ -179,10 +179,10 @@ export function renderSpecialCraftTaskOrdersPage(operationSlug: string): string 
               '回仓状态',
               '菲票号',
               '中转袋号',
-              '计划数量',
+              '计划裁片数量',
               '已接收数量',
-              '已完成数量',
-              '待交出数量',
+              '已完成裁片数量',
+              '待交出裁片数量',
               '分配状态',
               '执行状态',
               '当前状态',
@@ -200,7 +200,7 @@ export function renderSpecialCraftTaskOrdersPage(operationSlug: string): string 
   return renderSpecialCraftPageLayout({
     operation,
     title: `${operation.operationName}任务单`,
-    description: '展示当前特殊工艺已由生产单沉淀后的任务结果，本页仅承接任务查看与结果追踪。',
+    description: '展示该工艺已由生产单沉淀后的任务结果，本页仅承接任务查看与结果追踪。',
     activeSubNav: 'tasks',
     content,
   })

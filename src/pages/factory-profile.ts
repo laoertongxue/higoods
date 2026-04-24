@@ -47,6 +47,11 @@ import { renderConfirmDialog } from '../components/ui/dialog'
 
 const PAGE_SIZE = 10
 const POST_CAPACITY_NODE_CODES = ['BUTTONHOLE', 'BUTTON_ATTACH', 'IRONING', 'PACKAGING'] as const satisfies FactoryPostCapacityNodeCode[]
+const POST_BUSINESS_ACTIONS = [
+  { craftCode: 'POST_FINISHING', craftName: '后道' },
+  { craftCode: 'POST_QC', craftName: '质检' },
+  { craftCode: 'POST_RECHECK', craftName: '复检' },
+] as const
 
 type SortField = 'code' | 'name' | 'status' | 'tier'
 
@@ -75,6 +80,15 @@ function getPostCapacityNodeOptions() {
       processName: process?.processName ?? processCode,
     }
   })
+}
+function getPostBusinessActionOptions(factoryType: FactoryType) {
+  return factoryType === 'SATELLITE_FINISHING'
+    ? [...POST_BUSINESS_ACTIONS]
+    : [POST_BUSINESS_ACTIONS[0]]
+}
+
+function isDedicatedPostFactoryType(factoryType: FactoryType): boolean {
+  return factoryType === 'SATELLITE_FINISHING'
 }
 type PdaTab = 'users' | 'roles' | 'permissions'
 type PdaUserStatus = 'ACTIVE' | 'LOCKED'
@@ -1434,15 +1448,18 @@ function renderFactoryDrawer(): string {
                           ${processes
                             .map((process) => {
                               const crafts = process.processCode === 'POST_FINISHING'
-                                ? getPostCapacityNodeOptions().map((item) => ({
-                                    craftCode: item.processCode,
-                                    craftName: item.processName,
-                                  }))
+                                ? getPostBusinessActionOptions(draft.factoryType)
                                 : listCraftsByProcessCode(process.processCode)
                               const selectedCraftCodes = getSelectedCraftCodes(draft.processAbilities, process.processCode)
                               const selectedNodeCodes = getSelectedCapacityNodeCodes(draft.processAbilities, process.processCode)
-                              const selectedCodes = process.processCode === 'POST_FINISHING' ? selectedNodeCodes : selectedCraftCodes
-                              const checked = crafts.length > 0 && selectedCodes.length === crafts.length
+                              const hasPostAbility = process.processCode === 'POST_FINISHING' && selectedNodeCodes.length > 0
+                              const selectedCodes = process.processCode === 'POST_FINISHING'
+                                ? hasPostAbility
+                                  ? crafts.map((craft) => craft.craftCode)
+                                  : []
+                                : selectedCraftCodes
+                              const fixedPostAbility = process.processCode === 'POST_FINISHING' && isDedicatedPostFactoryType(draft.factoryType)
+                              const checked = fixedPostAbility || (crafts.length > 0 && selectedCodes.length === crafts.length)
                               return `
                                 <div class="rounded-md border bg-background p-3">
                                   <label class="flex items-center gap-2 text-sm font-medium text-foreground">
@@ -1450,6 +1467,7 @@ function renderFactoryDrawer(): string {
                                       type="checkbox"
                                       data-factory-process-toggle="${process.processCode}"
                                       ${checked ? 'checked' : ''}
+                                      ${fixedPostAbility ? 'disabled' : ''}
                                       class="h-4 w-4 rounded border"
                                     />
                                     <span>${escapeHtml(process.processName)}</span>
@@ -1457,16 +1475,17 @@ function renderFactoryDrawer(): string {
                                   <div class="mt-3 flex flex-wrap gap-x-4 gap-y-2 pl-6">
                                     ${crafts
                                       .map((craft) => {
-                                        const craftChecked = selectedCodes.includes(craft.craftCode)
+                                        const craftChecked = fixedPostAbility || selectedCodes.includes(craft.craftCode)
                                         return `
                                           <label class="inline-flex items-center gap-2 text-sm">
                                             <input
                                               type="checkbox"
                                               ${process.processCode === 'POST_FINISHING'
-                                                ? `data-factory-node-toggle="${craft.craftCode}"`
+                                                ? ''
                                                 : `data-factory-craft-toggle="${craft.craftCode}"`}
                                               data-factory-process-code="${process.processCode}"
                                               ${craftChecked ? 'checked' : ''}
+                                              ${process.processCode === 'POST_FINISHING' ? 'disabled' : ''}
                                               class="h-4 w-4 rounded border"
                                             />
                                             <span>${escapeHtml(craft.craftName)}</span>
@@ -1589,6 +1608,20 @@ export function renderFactoryProfilePage(): string {
           新增工厂
         </button>
       </div>
+
+      <section class="rounded-lg border bg-card p-4">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 class="text-sm font-medium text-foreground">后道接单能力口径</h2>
+            <p class="mt-1 text-xs text-muted-foreground">专门后道工厂固定具备后道、质检、复检；非专门工厂只展示后道，质检和复检由后道工厂承接。</p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <span class="rounded border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700">后道</span>
+            <span class="rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">质检</span>
+            <span class="rounded border border-purple-200 bg-purple-50 px-2 py-1 text-xs font-medium text-purple-700">复检</span>
+          </div>
+        </div>
+      </section>
 
       <div class="flex flex-wrap items-center gap-3">
         <label class="relative min-w-[220px] flex-1 max-w-sm">

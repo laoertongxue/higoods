@@ -4,9 +4,8 @@ import {
   getPrintWorkOrderSummary,
   listPrintWorkOrders,
 } from '../../../data/fcs/printing-task-domain.ts'
-import { buildTaskRouteCardPrintLink } from '../../../data/fcs/fcs-route-links.ts'
+import { buildPrintingWorkOrderDetailLink, buildTaskRouteCardPrintLink } from '../../../data/fcs/fcs-route-links.ts'
 import {
-  buildPrintingHref,
   formatPrintQty,
   getPrintPrinterSummary,
   renderActionButton,
@@ -65,25 +64,14 @@ function renderOrdersTable(): string {
           <td class="px-3 py-3">
             <div class="flex flex-wrap gap-2">
               ${renderActionButton({
-                label: '查看任务',
+                label: '查看详情',
                 action: 'navigate',
-                attrs: { href: `/fcs/pda/exec/${order.taskId}` },
+                attrs: { href: buildPrintingWorkOrderDetailLink(order.printOrderId) },
               })}
               ${renderActionButton({
                 label: '打印任务流转卡',
                 action: 'navigate',
                 attrs: { href: buildTaskRouteCardPrintLink('PRINTING_WORK_ORDER', order.printOrderId) },
-              })}
-              ${renderActionButton({
-                label: '查看交出单',
-                action: 'navigate',
-                attrs: { href: order.handoverOrderId ? `/fcs/pda/handover/${order.handoverOrderId}` : '' },
-                disabled: !order.handoverOrderId,
-              })}
-              ${renderActionButton({
-                label: '查看进度',
-                action: 'navigate',
-                attrs: { href: buildPrintingHref('/fcs/craft/printing/progress', order.printOrderId) },
               })}
             </div>
           </td>
@@ -93,7 +81,7 @@ function renderOrdersTable(): string {
     .join('')
 
   return renderSection(
-    '加工单列表',
+    '印花加工单表格',
     `
       <div class="overflow-x-auto">
         <table class="min-w-full text-left text-sm">
@@ -103,7 +91,7 @@ function renderOrdersTable(): string {
               <th class="px-3 py-2 font-medium">印花任务</th>
               <th class="px-3 py-2 font-medium">花型</th>
               <th class="px-3 py-2 font-medium">面料</th>
-              <th class="px-3 py-2 font-medium">计划数量</th>
+              <th class="px-3 py-2 font-medium">计划印花面料米数</th>
               <th class="px-3 py-2 font-medium">印花工厂</th>
               <th class="px-3 py-2 font-medium">当前状态</th>
               <th class="px-3 py-2 font-medium">打印机</th>

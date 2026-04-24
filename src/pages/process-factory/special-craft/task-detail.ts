@@ -87,10 +87,10 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
     { label: '作用对象', value: escapeHtml(taskOrder.targetObject) },
     { label: '分配状态', value: renderStatusBadge(taskOrder.assignmentStatusLabel || '待分配') },
     { label: '执行状态', value: renderStatusBadge(taskOrder.executionStatusLabel || taskOrder.status) },
-    { label: '计划数量', value: `${formatQty(taskOrder.planQty)}${escapeHtml(taskOrder.unit)}` },
-    { label: '已接收数量', value: `${formatQty(taskOrder.receivedQty)}${escapeHtml(taskOrder.unit)}` },
-    { label: '已完成数量', value: `${formatQty(taskOrder.completedQty)}${escapeHtml(taskOrder.unit)}` },
-    { label: '待交出数量', value: `${formatQty(taskOrder.waitHandoverQty)}${escapeHtml(taskOrder.unit)}` },
+    { label: '计划裁片数量', value: `${formatQty(taskOrder.planQty)}${escapeHtml(taskOrder.unit)}` },
+    { label: '已接收裁片数量', value: `${formatQty(taskOrder.receivedQty)}${escapeHtml(taskOrder.unit)}` },
+    { label: '已完成裁片数量', value: `${formatQty(taskOrder.completedQty)}${escapeHtml(taskOrder.unit)}` },
+    { label: '待交出裁片数量', value: `${formatQty(taskOrder.waitHandoverQty)}${escapeHtml(taskOrder.unit)}` },
     { label: '当前状态', value: renderStatusBadge(taskOrder.status) },
     { label: '异常状态', value: renderStatusBadge(taskOrder.abnormalStatus) },
     { label: '交期', value: escapeHtml(taskOrder.dueAt.slice(0, 10)) },
@@ -279,7 +279,7 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
       '菲票流转',
       bindingRows
         ? renderTable(
-            ['菲票号', '工艺单号', '裁片部位', '颜色', '尺码', '原数量', '当前数量', '累计报废', '累计货损', '当前所在', '发料状态', '回仓状态', '发料交出记录', '回仓交出记录', '差异数量', '接收差异', '回仓差异', '异议状态'],
+            ['菲票号', '工艺单号', '裁片部位', '颜色', '尺码', '原裁片数量', '当前裁片数量', '累计报废裁片数量', '累计货损裁片数量', '当前所在', '发料状态', '回仓状态', '发料交出记录', '回仓交出记录', '差异裁片数量', '接收差异', '回仓差异', '异议状态'],
             bindingRows,
             'min-w-[1880px]',
           )
@@ -289,7 +289,7 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
       '子工艺单',
       workOrderRows
         ? renderTable(
-            ['工艺单号', '裁片部位', '计划数量', '当前数量', '累计报废', '累计货损', '已绑定菲票数', '已回仓菲票数', '接收差异', '回仓差异', '状态', '操作'],
+            ['工艺单号', '裁片部位', '计划裁片数量', '当前裁片数量', '累计报废裁片数量', '累计货损裁片数量', '已绑定菲票数', '已回仓菲票数', '接收差异', '回仓差异', '状态', '操作'],
             workOrderRows,
             'min-w-[1320px]',
           )
@@ -298,7 +298,7 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
     renderSection(
       '接收差异上报 / 回仓差异上报',
       differenceRows
-        ? renderTable(['差异类型', '工艺单号', '菲票号', '应收数量', '实收数量', '差异数量', '来源记录', '原因', '平台状态', '处理备注'], differenceRows, 'min-w-[1280px]')
+        ? renderTable(['差异类型', '工艺单号', '菲票号', '应收裁片数量', '实收裁片数量', '差异裁片数量', '来源记录', '原因', '平台状态', '处理备注'], differenceRows, 'min-w-[1280px]')
         : renderEmptyState('暂无差异上报'),
     ),
     renderSection(

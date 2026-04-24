@@ -204,9 +204,9 @@ assertContains(workOrderDetailPageSource, '流转事件', '子工艺单详情必
   "groupBy: '工艺'",
   '接收差异菲票',
   '回仓差异菲票',
-  '报废数量',
-  '货损数量',
-  '当前数量',
+  '累计报废裁片数量',
+  '累计货损裁片数量',
+  '当前裁片数量',
 ].forEach((item) => assertContains(statisticsPageSource + progressSource, item, `特殊工艺统计缺少深化字段：${item}`))
 assertNotContains(statisticsPageSource + progressSource, '水洗批次', '洗水统计不得新增水洗批次维度')
 if (taskOrdersSource.includes('bundleWidthCm') || taskOrdersSource.includes('stripCount')) {

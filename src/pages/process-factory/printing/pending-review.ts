@@ -5,8 +5,8 @@ import {
   listPrintReviewRecords,
   listPrintWorkOrders,
 } from '../../../data/fcs/printing-task-domain.ts'
+import { buildHandoverOrderLink, buildPrintingWorkOrderDetailLink } from '../../../data/fcs/fcs-route-links.ts'
 import {
-  buildPrintingHref,
   formatPrintQty,
   getSelectedPrintOrderId,
   renderActionButton,
@@ -50,9 +50,9 @@ function renderReviewList(selectedId: string): string {
                 tone: 'danger',
               })}
               ${renderActionButton({
-                label: '查看交出单',
+                label: '打开移动端交出页',
                 action: 'navigate',
-                attrs: { href: order.handoverOrderId ? `/fcs/pda/handover/${order.handoverOrderId}` : '' },
+                attrs: { href: order.handoverOrderId ? buildHandoverOrderLink(order.handoverOrderId) : '' },
                 disabled: !order.handoverOrderId,
               })}
             </div>
@@ -74,11 +74,11 @@ function renderReviewList(selectedId: string): string {
               <th class="px-3 py-2 font-medium">交出记录</th>
               <th class="px-3 py-2 font-medium">印花工厂</th>
               <th class="px-3 py-2 font-medium">接收方</th>
-              <th class="px-3 py-2 font-medium">交出数量</th>
-              <th class="px-3 py-2 font-medium">实收数量</th>
+              <th class="px-3 py-2 font-medium">交出面料米数</th>
+              <th class="px-3 py-2 font-medium">实收面料米数</th>
               <th class="px-3 py-2 font-medium">卷数</th>
               <th class="px-3 py-2 font-medium">长度</th>
-              <th class="px-3 py-2 font-medium">差异</th>
+              <th class="px-3 py-2 font-medium">差异面料米数</th>
               <th class="px-3 py-2 font-medium">审核状态</th>
               <th class="px-3 py-2 font-medium">操作</th>
             </tr>
@@ -139,15 +139,15 @@ export function renderCraftPrintingPendingReviewPage(): string {
                 tone: 'danger',
               })}
               ${renderActionButton({
-                label: '查看交出单',
+                label: '打开移动端交出页',
                 action: 'navigate',
-                attrs: { href: selectedOrder.handoverOrderId ? `/fcs/pda/handover/${selectedOrder.handoverOrderId}` : '' },
+                attrs: { href: selectedOrder.handoverOrderId ? buildHandoverOrderLink(selectedOrder.handoverOrderId) : '' },
                 disabled: !selectedOrder.handoverOrderId,
               })}
               ${renderActionButton({
-                label: '查看进度',
+                label: '查看加工单进度',
                 action: 'navigate',
-                attrs: { href: buildPrintingHref('/fcs/craft/printing/progress', selectedOrder.printOrderId) },
+                attrs: { href: `${buildPrintingWorkOrderDetailLink(selectedOrder.printOrderId)}?tab=progress` },
               })}
             </div>
             ${
@@ -161,7 +161,7 @@ export function renderCraftPrintingPendingReviewPage(): string {
 
   return `
     <div class="space-y-4 p-4">
-      ${renderPageHeader('印花审核', '')}
+      ${renderPageHeader('印花加工单审核视图', '审核记录归属于印花加工单，不作为独立主单。')}
       ${renderReviewList(selectedOrderId)}
       ${detail}
     </div>

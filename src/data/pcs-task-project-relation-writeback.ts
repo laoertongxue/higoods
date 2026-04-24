@@ -2071,7 +2071,14 @@ export function createFirstSampleTaskWithProjectRelation(
     return { ok: false, message: projectPending!.reason, pendingItem: projectPending! }
   }
 
-  const upstreamError = ensureFormalSource('首版样衣打样', input.sourceType, input.upstreamObjectId || '', input.upstreamObjectCode || '', '')
+  const manualProjectSource = input.sourceType === '人工创建'
+  const upstreamError = ensureFormalSource(
+    '首版样衣打样',
+    input.sourceType,
+    input.upstreamObjectId || '',
+    input.upstreamObjectCode || '',
+    manualProjectSource ? project.projectCode : '',
+  )
   if (upstreamError) {
     const pendingItem = makePendingItem('首版样衣打样', rawCode, project.projectCode, input.upstreamObjectCode || input.upstreamObjectId || '', upstreamError)
     upsertFirstSampleTaskPendingItem(pendingItem)
@@ -2104,10 +2111,10 @@ export function createFirstSampleTaskWithProjectRelation(
     workItemTypeCode: 'FIRST_SAMPLE',
     workItemTypeName: '首版样衣打样',
     sourceType: input.sourceType,
-    upstreamModule: input.upstreamModule || '',
-    upstreamObjectType: input.upstreamObjectType || '',
-    upstreamObjectId: input.upstreamObjectId || '',
-    upstreamObjectCode: input.upstreamObjectCode || '',
+    upstreamModule: input.upstreamModule || (manualProjectSource ? '商品项目' : ''),
+    upstreamObjectType: input.upstreamObjectType || (manualProjectSource ? '商品项目' : ''),
+    upstreamObjectId: input.upstreamObjectId || (manualProjectSource ? project.projectId : ''),
+    upstreamObjectCode: input.upstreamObjectCode || (manualProjectSource ? project.projectCode : ''),
     factoryId: input.factoryId || '',
     factoryName: input.factoryName || '',
     targetSite: input.targetSite || '深圳',
@@ -2168,7 +2175,14 @@ export function createFirstOrderSampleTaskWithProjectRelation(
     return { ok: false, message: projectPending!.reason, pendingItem: projectPending! }
   }
 
-  const upstreamError = ensureFormalSource('首单样衣打样', input.sourceType, input.upstreamObjectId || '', input.upstreamObjectCode || '', '')
+  const manualProjectSource = input.sourceType === '人工创建'
+  const upstreamError = ensureFormalSource(
+    '首单样衣打样',
+    input.sourceType,
+    input.upstreamObjectId || '',
+    input.upstreamObjectCode || '',
+    manualProjectSource ? project.projectCode : '',
+  )
   if (upstreamError) {
     const pendingItem = makePendingItem('首单样衣打样', rawCode, project.projectCode, input.upstreamObjectCode || input.upstreamObjectId || '', upstreamError)
     upsertFirstOrderSampleTaskPendingItem(pendingItem)
@@ -2201,10 +2215,10 @@ export function createFirstOrderSampleTaskWithProjectRelation(
     workItemTypeCode: 'FIRST_ORDER_SAMPLE',
     workItemTypeName: '首单样衣打样',
     sourceType: input.sourceType,
-    upstreamModule: input.upstreamModule || '',
-    upstreamObjectType: input.upstreamObjectType || '',
-    upstreamObjectId: input.upstreamObjectId || '',
-    upstreamObjectCode: input.upstreamObjectCode || '',
+    upstreamModule: input.upstreamModule || (manualProjectSource ? '商品项目' : ''),
+    upstreamObjectType: input.upstreamObjectType || (manualProjectSource ? '商品项目' : ''),
+    upstreamObjectId: input.upstreamObjectId || (manualProjectSource ? project.projectId : ''),
+    upstreamObjectCode: input.upstreamObjectCode || (manualProjectSource ? project.projectCode : ''),
     factoryId: input.factoryId || '',
     factoryName: input.factoryName || '',
     targetSite: input.targetSite || '深圳',

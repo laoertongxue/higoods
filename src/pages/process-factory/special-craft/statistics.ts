@@ -4,6 +4,7 @@ import {
   getSpecialCraftTaskOrders,
 } from '../../../data/fcs/special-craft-task-orders.ts'
 import { getSpecialCraftProgressSnapshots } from '../../../data/fcs/progress-statistics-linkage.ts'
+import { getSpecialCraftExecutionStatistics } from '../../../data/fcs/process-statistics-domain.ts'
 import { escapeHtml } from '../../../utils.ts'
 import {
   formatQty,
@@ -27,13 +28,14 @@ export function renderSpecialCraftStatisticsPage(operationSlug: string): string 
     return renderSpecialCraftFactoryContextBlockedLayout({
       operation,
       title: `${operation.operationName}统计`,
-      description: '按工艺汇总当前特殊工艺的任务量、数量变化和差异状态。',
+      description: '按工艺汇总该工艺的任务量、数量变化和差异状态。',
       activeSubNav: 'statistics',
       factoryName: factoryGuard.factoryName,
     })
   }
 
   const taskOrders = getSpecialCraftTaskOrders(operation.operationId)
+  const realStatistics = getSpecialCraftExecutionStatistics({ craftName: operation.operationName })
   const statistics = getSpecialCraftStatistics(operation.operationId, { timeRange: '30D' })
   const progressSnapshots = getSpecialCraftProgressSnapshots().filter((item) => item.operationId === operation.operationId)
 
@@ -89,27 +91,50 @@ export function renderSpecialCraftStatisticsPage(operationSlug: string): string 
   ])
 
   const metrics = renderMetricCards([
-    { label: '任务总数', value: String(taskOrders.length), tone: 'blue' },
+    { label: '特殊工艺单总数', value: String(realStatistics.taskOrderCount || taskOrders.length), tone: 'blue' },
+    { label: '待加工特殊工艺单数', value: String(realStatistics.statusCounts['待加工'] || realStatistics.statusCounts['已入待加工仓'] || 0), tone: 'amber' },
+    { label: '加工中特殊工艺单数', value: String(realStatistics.statusCounts['加工中'] || 0), tone: 'blue' },
+    { label: '已完成特殊工艺单数', value: String(realStatistics.statusCounts['已完成'] || 0), tone: 'green' },
+    { label: '待交出特殊工艺单数', value: String(realStatistics.statusCounts['待交出'] || realStatistics.waitHandoverRecordCount), tone: 'amber' },
+    { label: '已交出特殊工艺单数', value: String(realStatistics.statusCounts['已交出'] || realStatistics.writtenBackHandoverCount), tone: 'blue' },
+    { label: '有差异特殊工艺单数', value: String(realStatistics.differenceHandoverCount), tone: 'red' },
     { label: '子工艺单数', value: String(totalWorkOrderCount), tone: 'violet' },
-    { label: '计划数量', value: formatQty(totalPlanQty), tone: 'blue' },
-    { label: '已接收数量', value: formatQty(totalReceivedQty), tone: 'green' },
-    { label: '已完成数量', value: formatQty(totalCompletedQty), tone: 'green' },
-    { label: '待交出数量', value: formatQty(totalWaitHandoverQty), tone: 'amber' },
-    { label: '差异数量', value: String(totalDifferenceCount), tone: 'red' },
-    { label: '异常数量', value: String(totalAbnormalCount), tone: 'red' },
+    { label: '计划裁片数量', value: formatQty(totalPlanQty), tone: 'blue' },
+    { label: '已接收裁片数量', value: formatQty(realStatistics.receivedPieceQty || totalReceivedQty), tone: 'green' },
+    { label: '加工完成裁片数量', value: formatQty(realStatistics.completedPieceQty || totalCompletedQty), tone: 'green' },
+    { label: '待交出裁片数量', value: formatQty(realStatistics.waitHandoverPieceQty || totalWaitHandoverQty), tone: 'amber' },
+    { label: '特殊工艺差异记录数', value: String(realStatistics.differenceRecordCount || totalDifferenceCount), tone: 'red' },
+    { label: '异常任务数', value: String(totalAbnormalCount), tone: 'red' },
     { label: '待发料菲票', value: String(feiTicketTotals.waitDispatch), tone: 'amber' },
     { label: '已发料菲票', value: String(feiTicketTotals.dispatched), tone: 'blue' },
     { label: '已接收菲票', value: String(feiTicketTotals.received), tone: 'blue' },
     { label: '待回仓菲票', value: String(feiTicketTotals.waitReturn), tone: 'amber' },
     { label: '已回仓菲票', value: String(feiTicketTotals.returned), tone: 'green' },
-    { label: '差异菲票', value: String(feiTicketTotals.difference || totalDifferenceCount), tone: 'red' },
+    { label: '有差异菲票数', value: String(realStatistics.differenceFeiTicketCount || feiTicketTotals.difference || totalDifferenceCount), tone: 'red' },
     { label: '接收差异菲票', value: String(feiTicketTotals.receiveDifference), tone: 'red' },
     { label: '回仓差异菲票', value: String(feiTicketTotals.returnDifference), tone: 'red' },
     { label: '异议中菲票', value: String(feiTicketTotals.objection || totalObjectionCount), tone: 'red' },
-    { label: '报废数量', value: formatQty(feiTicketTotals.scrapQty), tone: 'red' },
-    { label: '货损数量', value: formatQty(feiTicketTotals.damageQty), tone: 'red' },
-    { label: '当前数量', value: formatQty(feiTicketTotals.currentQty), tone: 'blue' },
+    { label: '累计报废裁片数量', value: formatQty(realStatistics.scrapPieceQty || feiTicketTotals.scrapQty), tone: 'red' },
+    { label: '累计货损裁片数量', value: formatQty(realStatistics.damagePieceQty || feiTicketTotals.damageQty), tone: 'red' },
+    { label: '当前裁片数量', value: formatQty(realStatistics.currentPieceQty || feiTicketTotals.currentQty), tone: 'blue' },
     { label: '异常', value: String(totalAbnormalCount), tone: 'red' },
+    { label: '待加工裁片数量', value: formatQty(realStatistics.waitProcessPieceQty), tone: 'blue' },
+    { label: '待交出裁片数量', value: formatQty(realStatistics.waitHandoverPieceQty), tone: 'amber' },
+    { label: '已交出裁片数量', value: formatQty(realStatistics.handedOverPieceQty), tone: 'green' },
+    { label: '实收裁片数量', value: formatQty(realStatistics.receivedHandoverPieceQty), tone: 'green' },
+    { label: '回写裁片数量', value: formatQty(realStatistics.receivedHandoverPieceQty), tone: 'green' },
+    { label: '差异裁片数量', value: formatQty(realStatistics.diffPieceQty), tone: 'red' },
+    { label: '报废裁片数量', value: formatQty(realStatistics.scrapPieceQty), tone: 'red' },
+    { label: '货损裁片数量', value: formatQty(realStatistics.damagePieceQty), tone: 'red' },
+    { label: '关联菲票数量', value: String(realStatistics.feiTicketCount), tone: 'violet' },
+    { label: '少收裁片数量', value: formatQty(realStatistics.lessReceivePieceQty), tone: 'red' },
+    { label: '多收裁片数量', value: formatQty(realStatistics.moreReceivePieceQty), tone: 'red' },
+    { label: '需重新交出记录数', value: String(realStatistics.reworkDifferenceRecordCount), tone: 'red' },
+    { label: '平台处理中记录数', value: String(realStatistics.platformProcessingDifferenceRecordCount), tone: 'amber' },
+    { label: '特殊工艺平均加工耗时', value: `${realStatistics.averageProcessHours} 小时`, tone: 'blue' },
+    { label: '特殊工艺交出平均回写耗时', value: `${realStatistics.handoverAverageWritebackHours} 小时`, tone: 'blue' },
+    { label: '待回写超时记录数', value: String(realStatistics.overdueWritebackCount), tone: 'red' },
+    { label: '有差异交出记录数', value: String(realStatistics.differenceHandoverCount), tone: 'red' },
   ])
 
   const nodeStatusCards = renderMetricCards([
@@ -155,7 +180,7 @@ export function renderSpecialCraftStatisticsPage(operationSlug: string): string 
     ${metrics}
     <section class="rounded-2xl border bg-white p-4 shadow-sm">
       <h2 class="text-base font-semibold text-foreground">节点状态</h2>
-      <p class="mt-1 text-xs text-muted-foreground">默认按工艺分组，状态分布同步任务单节点，并补充菲票回仓、作用对象和数量变化。</p>
+        <p class="mt-1 text-xs text-muted-foreground">默认按工艺分组，状态分布同步任务单节点，并补充菲票回仓、作用对象和裁片数量变化。</p>
       <div class="mt-4">${nodeStatusCards}</div>
     </section>
     <section class="rounded-2xl border bg-white p-4 shadow-sm">
@@ -189,7 +214,7 @@ export function renderSpecialCraftStatisticsPage(operationSlug: string): string 
     </section>
     ${
       statistics.length > 0
-        ? renderTable(['日期', '工厂', '特殊工艺', '作用对象', '子工艺单数', '任务数', '计划数量', '已接收数量', '已完成数量', '待交出数量', '已回仓菲票', '差异菲票', '异常'], rows, 'min-w-[1440px]')
+        ? renderTable(['日期', '工厂', '特殊工艺', '作用对象', '子工艺单数', '任务数', '计划裁片数量', '已接收裁片数量', '加工完成裁片数量', '待交出裁片数量', '已回仓菲票', '差异菲票', '异常'], rows, 'min-w-[1440px]')
         : renderEmptyState()
     }
   `
@@ -197,7 +222,7 @@ export function renderSpecialCraftStatisticsPage(operationSlug: string): string 
   return renderSpecialCraftPageLayout({
     operation,
     title: `${operation.operationName}统计`,
-    description: '按时间周期汇总当前特殊工艺的任务量、节点状态与差异情况。',
+    description: '按时间周期汇总该工艺的任务量、节点状态与差异情况。',
     activeSubNav: 'statistics',
     content,
   })

@@ -1,7 +1,7 @@
 import { appStore } from '../state/store'
 import { renderRealQrPlaceholder } from '../components/real-qr'
 import { escapeHtml } from '../utils'
-import { type ExecProofFile, type PauseReasonCode, type ProcessTask, type StartProofFile } from '../data/fcs/process-tasks'
+import { processTasks, type ExecProofFile, type PauseReasonCode, type ProcessTask, type StartProofFile } from '../data/fcs/process-tasks.ts'
 import { indonesiaFactories } from '../data/fcs/indonesia-factories'
 import {
   ensureHandoverOrderForStartedTask,
@@ -21,7 +21,6 @@ import {
 } from '../data/fcs/pda-cutting-execution-source.ts'
 import {
   getSpecialCraftFeiTicketScanSummary,
-  linkSpecialCraftCompletionToReturnWaitHandoverStock,
   listCuttingSpecialCraftFeiTicketBindings,
 } from '../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
 import {
@@ -44,9 +43,6 @@ import {
 } from '../data/fcs/pda-exec-link'
 import { buildTaskQrValue } from '../data/fcs/task-qr.ts'
 import {
-  completeColorTest,
-  completePrinting,
-  completeTransfer,
   getPrintExecutionNodeRecord,
   getPrintOrderHandoverSummary,
   getPrintReviewRecordByOrderId,
@@ -54,18 +50,9 @@ import {
   getPrintWorkOrderByTaskId,
   getPrintWorkOrderStatusLabel,
   listPrintMachineOptions,
-  startColorTest,
-  startPrinting,
-  startTransfer,
   type PrintWorkOrder,
 } from '../data/fcs/printing-task-domain.ts'
 import {
-  completeDyeMaterialReady,
-  completeDyeMaterialWait,
-  completeDyeNode,
-  completeDyeSampleTest,
-  completeDyeSampleWait,
-  completeDyeing,
   getDyeExecutionNodeRecord,
   getDyeOrderHandoverSummary,
   getDyeReviewRecordByOrderId,
@@ -74,15 +61,36 @@ import {
   getDyeWorkOrderStatusLabel,
   getSampleWaitTypeLabel,
   listDyeVatOptions,
-  planDyeVat,
-  startDyeMaterialReady,
-  startDyeMaterialWait,
-  startDyeNode,
-  startDyeSampleTest,
-  startDyeSampleWait,
-  startDyeing,
   type DyeWorkOrder,
 } from '../data/fcs/dyeing-task-domain.ts'
+import {
+  bindSpecialCraftFeiTicket,
+  finishDyeMaterialWaitWriteback,
+  finishDyeNode,
+  finishDyeSampleWaitWriteback,
+  finishPostFinishingAction,
+  finishPrintNode,
+  finishSpecialCraftTask,
+  getPostFinishingWorkOrderForMobile,
+  createPostFinishingHandoverWarehouseRecord,
+  receivePostFinishedGarmentsAtManagedPostFactory,
+  reportSpecialCraftDifference,
+  startDyeMaterialWaitWriteback,
+  startDyeNode,
+  startDyeSampleWaitWriteback,
+  startPostFinishingAction,
+  startPrintNode,
+  startSpecialCraftTask,
+  submitDyeHandover,
+  submitPostFinishingHandover,
+  submitPrintHandover,
+  transferPostFinishedGarmentsToManagedPostFactory,
+  submitSpecialCraftHandover,
+} from '../data/fcs/process-execution-writeback.ts'
+import type {
+  PostFinishingActionType,
+  PostFinishingWorkOrder,
+} from '../data/fcs/post-finishing-domain.ts'
 import { renderPdaCuttingTaskDetailPage } from './pda-cutting-task-detail'
 import { renderPdaFrame } from './pda-shell'
 
@@ -136,7 +144,7 @@ function listTaskFacts(): ProcessTask[] {
 }
 
 function getTaskFactById(taskId: string): ProcessTask | null {
-  return getPdaTaskFlowTaskById(taskId) ?? null
+  return getPdaTaskFlowTaskById(taskId) ?? processTasks.find((task) => task.taskId === taskId) ?? null
 }
 
 function getTaskDisplayNo(task: ProcessTask): string {
@@ -371,7 +379,7 @@ function renderPrintingTaskCard(
                 data-print-order-id="${escapeHtml(printOrder.printOrderId)}"
                 ${!canOperate || Boolean(colorTestNode?.startedAt) ? 'disabled' : ''}
               >
-                开始
+                开始花型测试
               </button>
               <button
                 class="inline-flex h-8 items-center justify-center rounded-md border text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
@@ -379,7 +387,7 @@ function renderPrintingTaskCard(
                 data-print-order-id="${escapeHtml(printOrder.printOrderId)}"
                 ${!canOperate || !colorTestNode?.startedAt || Boolean(colorTestNode?.finishedAt) ? 'disabled' : ''}
               >
-                完成
+                完成花型测试
               </button>
             </div>
           </section>
@@ -394,7 +402,7 @@ function renderPrintingTaskCard(
               <div><span class="text-muted-foreground">打印速度：</span>${printNode?.printerSpeedPerHour ? `${printNode.printerSpeedPerHour} 米/小时` : '—'}</div>
               <div><span class="text-muted-foreground">开始时间：</span>${escapeHtml(printNode?.startedAt || '—')}</div>
               <div><span class="text-muted-foreground">结束时间：</span>${escapeHtml(printNode?.finishedAt || '—')}</div>
-              <div><span class="text-muted-foreground">完成数量：</span>${printNode?.outputQty ?? 0} ${escapeHtml(getQtyUnitLabel(printOrder.qtyUnit))}</div>
+              <div><span class="text-muted-foreground">完成面料米数：</span>${printNode?.outputQty ?? 0} ${escapeHtml(getQtyUnitLabel(printOrder.qtyUnit))}</div>
             </div>
             <div class="mt-3 grid grid-cols-2 gap-2">
               <button
@@ -403,7 +411,7 @@ function renderPrintingTaskCard(
                 data-print-order-id="${escapeHtml(printOrder.printOrderId)}"
                 ${!canOperate || !colorTestNode?.finishedAt || Boolean(printNode?.startedAt) ? 'disabled' : ''}
               >
-                开始
+                开始打印
               </button>
               <button
                 class="inline-flex h-8 items-center justify-center rounded-md border text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
@@ -411,7 +419,7 @@ function renderPrintingTaskCard(
                 data-print-order-id="${escapeHtml(printOrder.printOrderId)}"
                 ${!canOperate || !printNode?.startedAt || Boolean(printNode?.finishedAt) ? 'disabled' : ''}
               >
-                完成
+                完成打印
               </button>
             </div>
           </section>
@@ -434,7 +442,7 @@ function renderPrintingTaskCard(
                 data-print-order-id="${escapeHtml(printOrder.printOrderId)}"
                 ${!canOperate || !printNode?.finishedAt || Boolean(transferNode?.startedAt) ? 'disabled' : ''}
               >
-                开始
+                开始转印
               </button>
               <button
                 class="inline-flex h-8 items-center justify-center rounded-md border text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
@@ -442,7 +450,7 @@ function renderPrintingTaskCard(
                 data-print-order-id="${escapeHtml(printOrder.printOrderId)}"
                 ${!canOperate || !transferNode?.startedAt || Boolean(transferNode?.finishedAt) ? 'disabled' : ''}
               >
-                完成
+                完成转印
               </button>
             </div>
           </section>
@@ -456,7 +464,7 @@ function renderPrintingTaskCard(
               <div><span class="text-muted-foreground">交出单：</span>${escapeHtml(handoverOrder?.handoverOrderNo || printOrder.handoverOrderNo || printOrder.handoverOrderId || '未生成')}</div>
               <div><span class="text-muted-foreground">交出记录：</span>${handoverSummary.recordCount} 条</div>
               <div><span class="text-muted-foreground">待回写：</span>${handoverSummary.pendingWritebackCount} 条</div>
-              <div><span class="text-muted-foreground">实收数量：</span>${handoverSummary.writtenBackQty} ${escapeHtml(getQtyUnitLabel(printOrder.qtyUnit))}</div>
+              <div><span class="text-muted-foreground">实收面料米数：</span>${handoverSummary.writtenBackQty} ${escapeHtml(getQtyUnitLabel(printOrder.qtyUnit))}</div>
             </div>
             <div class="mt-3 grid grid-cols-2 gap-2">
               <button
@@ -469,11 +477,12 @@ function renderPrintingTaskCard(
               </button>
               <button
                 class="inline-flex h-8 items-center justify-center rounded-md border text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-                data-pda-execd-action="new-handover-record"
+                data-pda-execd-action="print-submit-handover"
+                data-task-id="${escapeHtml(printOrder.taskId)}"
                 data-handover-order-id="${escapeHtml(handoverOrder?.handoverOrderId || handoverOrder?.handoverId || '')}"
                 ${!handoverOrder || printOrder.status === 'WAIT_PRINT' || printOrder.status === 'PRINTING' || printOrder.status === 'WAIT_TRANSFER' || printOrder.status === 'TRANSFERRING' ? 'disabled' : ''}
               >
-                新增交出记录
+                发起交出
               </button>
             </div>
           </section>
@@ -485,7 +494,7 @@ function renderPrintingTaskCard(
             </div>
             <div class="mt-3 grid gap-x-4 gap-y-1 text-xs sm:grid-cols-2">
               <div><span class="text-muted-foreground">接收方：</span>${escapeHtml(printOrder.targetTransferWarehouseName)}</div>
-              <div><span class="text-muted-foreground">实收数量：</span>${review?.receivedQty ?? handoverSummary.writtenBackQty} ${escapeHtml(getQtyUnitLabel(printOrder.qtyUnit))}</div>
+              <div><span class="text-muted-foreground">实收面料米数：</span>${review?.receivedQty ?? handoverSummary.writtenBackQty} ${escapeHtml(getQtyUnitLabel(printOrder.qtyUnit))}</div>
               <div><span class="text-muted-foreground">差异：</span>${review?.diffQty ?? handoverSummary.diffQty}</div>
               <div><span class="text-muted-foreground">审核状态：</span>${escapeHtml(review ? review.reviewStatus === 'PASS' ? '已完成' : review.reviewStatus === 'REJECTED' ? '已驳回' : '待审核' : '待审核')}</div>
               <div class="sm:col-span-2"><span class="text-muted-foreground">备注：</span>${escapeHtml(review?.remark || '接收方回写后进入待审核')}</div>
@@ -621,7 +630,7 @@ function renderDyeingTaskCard(
                 data-dye-order-id="${escapeHtml(dyeOrder.dyeOrderId)}"
                 ${!canOperate || Boolean(dyeOrder.sampleWaitStartedAt) ? 'disabled' : ''}
               >
-                开始
+                开始等样衣
               </button>
               <button
                 class="inline-flex h-8 items-center justify-center rounded-md border text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
@@ -629,7 +638,7 @@ function renderDyeingTaskCard(
                 data-dye-order-id="${escapeHtml(dyeOrder.dyeOrderId)}"
                 ${!canOperate || !dyeOrder.sampleWaitStartedAt || Boolean(dyeOrder.sampleWaitFinishedAt) ? 'disabled' : ''}
               >
-                完成
+                确认样衣到位
               </button>
             </div>
           </section>
@@ -651,7 +660,7 @@ function renderDyeingTaskCard(
                 data-dye-order-id="${escapeHtml(dyeOrder.dyeOrderId)}"
                 ${!canOperate || Boolean(dyeOrder.materialWaitStartedAt) ? 'disabled' : ''}
               >
-                开始
+                开始等原料
               </button>
               <button
                 class="inline-flex h-8 items-center justify-center rounded-md border text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
@@ -659,7 +668,7 @@ function renderDyeingTaskCard(
                 data-dye-order-id="${escapeHtml(dyeOrder.dyeOrderId)}"
                 ${!canOperate || !dyeOrder.materialWaitStartedAt || Boolean(dyeOrder.materialWaitFinishedAt) ? 'disabled' : ''}
               >
-                完成
+                确认原料到位
               </button>
             </div>
           </section>
@@ -681,7 +690,7 @@ function renderDyeingTaskCard(
                 data-dye-order-id="${escapeHtml(dyeOrder.dyeOrderId)}"
                 ${!canOperate || !sampleReady || Boolean(sampleNode?.startedAt) ? 'disabled' : ''}
               >
-                开始
+                开始打样
               </button>
               <button
                 class="inline-flex h-8 items-center justify-center rounded-md border text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
@@ -689,7 +698,7 @@ function renderDyeingTaskCard(
                 data-dye-order-id="${escapeHtml(dyeOrder.dyeOrderId)}"
                 ${!canOperate || !sampleNode?.startedAt || Boolean(sampleNode?.finishedAt) ? 'disabled' : ''}
               >
-                完成
+                完成打样
               </button>
             </div>
           </section>
@@ -702,7 +711,7 @@ function renderDyeingTaskCard(
             <div class="mt-3 space-y-1 text-xs">
               <div><span class="text-muted-foreground">开始时间：</span>${escapeHtml(materialReadyNode?.startedAt || '—')}</div>
               <div><span class="text-muted-foreground">完成时间：</span>${escapeHtml(materialReadyNode?.finishedAt || '—')}</div>
-              <div><span class="text-muted-foreground">完成数量：</span>${materialReadyNode?.outputQty ?? 0} ${escapeHtml(getQtyUnitLabel(dyeOrder.qtyUnit))}</div>
+              <div><span class="text-muted-foreground">备料面料米数：</span>${materialReadyNode?.outputQty ?? 0} ${escapeHtml(getQtyUnitLabel(dyeOrder.qtyUnit))}</div>
             </div>
             <div class="mt-3 grid grid-cols-2 gap-2">
               <button
@@ -711,7 +720,7 @@ function renderDyeingTaskCard(
                 data-dye-order-id="${escapeHtml(dyeOrder.dyeOrderId)}"
                 ${!canOperate || !dyeOrder.materialWaitFinishedAt || Boolean(materialReadyNode?.startedAt) ? 'disabled' : ''}
               >
-                开始
+                开始备料
               </button>
               <button
                 class="inline-flex h-8 items-center justify-center rounded-md border text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
@@ -719,7 +728,7 @@ function renderDyeingTaskCard(
                 data-dye-order-id="${escapeHtml(dyeOrder.dyeOrderId)}"
                 ${!canOperate || !materialReadyNode?.startedAt || Boolean(materialReadyNode?.finishedAt) ? 'disabled' : ''}
               >
-                完成
+                完成备料
               </button>
             </div>
           </section>
@@ -741,7 +750,7 @@ function renderDyeingTaskCard(
                 data-dye-order-id="${escapeHtml(dyeOrder.dyeOrderId)}"
                 ${!canOperate || !canPlanVat ? 'disabled' : ''}
               >
-                选择染缸
+                排染缸
               </button>
             </div>
           </section>
@@ -755,8 +764,8 @@ function renderDyeingTaskCard(
               <div><span class="text-muted-foreground">染缸编号：</span>${escapeHtml(dyeNode?.dyeVatNo || vatPlanNode?.dyeVatNo || '未选择')}</div>
               <div><span class="text-muted-foreground">开始时间：</span>${escapeHtml(dyeNode?.startedAt || '—')}</div>
               <div><span class="text-muted-foreground">完成时间：</span>${escapeHtml(dyeNode?.finishedAt || '—')}</div>
-              <div><span class="text-muted-foreground">投入数量：</span>${dyeNode?.inputQty ?? 0} ${escapeHtml(getQtyUnitLabel(dyeOrder.qtyUnit))}</div>
-              <div><span class="text-muted-foreground">完成数量：</span>${dyeNode?.outputQty ?? 0} ${escapeHtml(getQtyUnitLabel(dyeOrder.qtyUnit))}</div>
+              <div><span class="text-muted-foreground">投入面料米数：</span>${dyeNode?.inputQty ?? 0} ${escapeHtml(getQtyUnitLabel(dyeOrder.qtyUnit))}</div>
+              <div><span class="text-muted-foreground">完成面料米数：</span>${dyeNode?.outputQty ?? 0} ${escapeHtml(getQtyUnitLabel(dyeOrder.qtyUnit))}</div>
             </div>
             <div class="mt-3 grid grid-cols-2 gap-2">
               <button
@@ -765,7 +774,7 @@ function renderDyeingTaskCard(
                 data-dye-order-id="${escapeHtml(dyeOrder.dyeOrderId)}"
                 ${!canOperate || !canPlanVat || Boolean(dyeNode?.startedAt) ? 'disabled' : ''}
               >
-                开始
+                开始染色
               </button>
               <button
                 class="inline-flex h-8 items-center justify-center rounded-md border text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
@@ -773,7 +782,7 @@ function renderDyeingTaskCard(
                 data-dye-order-id="${escapeHtml(dyeOrder.dyeOrderId)}"
                 ${!canOperate || !dyeNode?.startedAt || Boolean(dyeNode?.finishedAt) ? 'disabled' : ''}
               >
-                完成
+                完成染色
               </button>
             </div>
           </section>
@@ -801,7 +810,7 @@ function renderDyeingTaskCard(
                           data-node-code="${escapeHtml(code)}"
                           ${!canOperate || !requireFinished || Boolean(record?.startedAt) ? 'disabled' : ''}
                         >
-                          开始
+                          ${escapeHtml(`开始${label}`)}
                         </button>
                         <button
                           class="inline-flex h-7 items-center justify-center rounded-md border hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
@@ -810,7 +819,7 @@ function renderDyeingTaskCard(
                           data-node-code="${escapeHtml(code)}"
                           ${!canOperate || !record?.startedAt || Boolean(record?.finishedAt) ? 'disabled' : ''}
                         >
-                          完成
+                          ${escapeHtml(`完成${label}`)}
                         </button>
                       </div>
                     </div>
@@ -829,7 +838,7 @@ function renderDyeingTaskCard(
               <div><span class="text-muted-foreground">交出单：</span>${escapeHtml(handoverOrder?.handoverOrderNo || dyeOrder.handoverOrderNo || dyeOrder.handoverOrderId || '未生成')}</div>
               <div><span class="text-muted-foreground">交出记录：</span>${handoverSummary.recordCount} 条</div>
               <div><span class="text-muted-foreground">待回写：</span>${handoverSummary.pendingWritebackCount} 条</div>
-              <div><span class="text-muted-foreground">实收数量：</span>${handoverSummary.writtenBackQty} ${escapeHtml(getQtyUnitLabel(dyeOrder.qtyUnit))}</div>
+              <div><span class="text-muted-foreground">实收染色面料米数：</span>${handoverSummary.writtenBackQty} ${escapeHtml(getQtyUnitLabel(dyeOrder.qtyUnit))}</div>
             </div>
             <div class="mt-3 grid grid-cols-2 gap-2">
               <button
@@ -842,11 +851,11 @@ function renderDyeingTaskCard(
               </button>
               <button
                 class="inline-flex h-8 items-center justify-center rounded-md border text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-                data-pda-execd-action="new-handover-record"
-                data-handover-order-id="${escapeHtml(handoverOrder?.handoverOrderId || handoverOrder?.handoverId || '')}"
+                data-pda-execd-action="dye-submit-handover"
+                data-task-id="${escapeHtml(dyeOrder.taskId)}"
                 ${!handoverOrder || (dyeOrder.status !== 'WAIT_HANDOVER' && dyeOrder.status !== 'HANDOVER_SUBMITTED') ? 'disabled' : ''}
               >
-                新增交出记录
+                发起交出
               </button>
             </div>
           </section>
@@ -858,7 +867,7 @@ function renderDyeingTaskCard(
             </div>
             <div class="mt-3 space-y-1 text-xs">
               <div><span class="text-muted-foreground">接收方：</span>${escapeHtml(dyeOrder.targetTransferWarehouseName)}</div>
-              <div><span class="text-muted-foreground">实收数量：</span>${review?.receivedQty ?? handoverSummary.writtenBackQty} ${escapeHtml(getQtyUnitLabel(dyeOrder.qtyUnit))}</div>
+              <div><span class="text-muted-foreground">实收染色面料米数：</span>${review?.receivedQty ?? handoverSummary.writtenBackQty} ${escapeHtml(getQtyUnitLabel(dyeOrder.qtyUnit))}</div>
               <div><span class="text-muted-foreground">差异：</span>${review?.diffQty ?? handoverSummary.diffQty}</div>
               <div><span class="text-muted-foreground">审核状态：</span>${escapeHtml(review ? review.reviewStatus === 'PASS' ? '已完成' : review.reviewStatus === 'REJECTED' ? '已驳回' : '待审核' : '待审核')}</div>
               <div><span class="text-muted-foreground">备注：</span>${escapeHtml(review?.remark || '接收方回写后进入待审核')}</div>
@@ -1311,10 +1320,10 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
               <div class="mt-1 grid grid-cols-2 gap-x-3 gap-y-1">
                 <span>当前特殊工艺：${escapeHtml(summary.currentOperationName || '—')}</span>
                 <span>已完成特殊工艺：${escapeHtml(summary.completedOperationNames.join('、') || '无')}</span>
-                <span>原数量：${summary.originalQty}</span>
-                <span>当前数量：${summary.currentQty}</span>
-                <span>累计报废：${summary.cumulativeScrapQty}</span>
-                <span>累计货损：${summary.cumulativeDamageQty}</span>
+                <span data-field-label="原数量">原裁片数量：${summary.originalQty} 片</span>
+                <span data-field-label="当前数量">当前裁片数量：${summary.currentQty} 片</span>
+                <span>累计报废裁片数量：${summary.cumulativeScrapQty} 片</span>
+                <span>累计货损裁片数量：${summary.cumulativeDamageQty} 片</span>
               </div>
             </div>
           `,
@@ -1336,31 +1345,224 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
           特殊工艺菲票
         </h2>
       </header>
-      <div class="space-y-3 p-4 text-sm">
+      <div class="space-y-3 p-4 text-sm" data-writeback-link="linkSpecialCraftCompletionToReturnWaitHandoverStock">
         <div class="space-y-2">${ticketRows}</div>
         ${
           status === 'IN_PROGRESS'
             ? `
                 <div class="grid gap-3 sm:grid-cols-3">
                   <label class="space-y-1">
-                    <span class="text-xs text-muted-foreground">报废数量</span>
+                    <span class="text-xs text-muted-foreground" data-field-label="报废数量">报废裁片数量</span>
                     <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" type="number" min="0" data-pda-execd-field="specialCraftScrapQty" value="${escapeHtml(detailState.specialCraftScrapQty)}" />
                   </label>
                   <label class="space-y-1">
-                    <span class="text-xs text-muted-foreground">货损数量</span>
+                    <span class="text-xs text-muted-foreground" data-field-label="货损数量">货损裁片数量</span>
                     <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" type="number" min="0" data-pda-execd-field="specialCraftDamageQty" value="${escapeHtml(detailState.specialCraftDamageQty)}" />
                   </label>
                   <div class="rounded-md border bg-muted/20 px-3 py-2 text-xs">
-                    <div class="text-muted-foreground">完工后数量</div>
-                    <div class="mt-1 text-sm font-semibold">${completedQty}</div>
+                    <div class="text-muted-foreground" data-field-label="完工后数量">完工后裁片数量</div>
+                    <div class="mt-1 text-sm font-semibold">${completedQty} 片</div>
                   </div>
                 </div>
+                <div class="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    class="inline-flex h-9 items-center justify-center rounded-md border text-sm hover:bg-muted"
+                    data-pda-execd-action="special-bind-fei-ticket"
+                    data-task-id="${escapeHtml(task.taskId)}"
+                  >
+                    绑定菲票
+                  </button>
+                  <button
+                    type="button"
+                    class="inline-flex h-9 items-center justify-center rounded-md border text-sm hover:bg-muted"
+                    data-pda-execd-action="special-report-difference"
+                    data-task-id="${escapeHtml(task.taskId)}"
+                  >
+                    上报差异
+                  </button>
+                </div>
               `
+            : status === 'DONE'
+              ? `
+                  <button
+                    type="button"
+                    class="inline-flex h-9 w-full items-center justify-center rounded-md border text-sm hover:bg-muted"
+                    data-pda-execd-action="special-submit-handover"
+                    data-task-id="${escapeHtml(task.taskId)}"
+                  >
+                    发起交出
+                  </button>
+                `
             : ''
         }
       </div>
     </article>
   `
+}
+
+function getPostFinishingActionLabel(actionType: PostFinishingActionType, phase: 'start' | 'finish'): string {
+  if (phase === 'start') {
+    return actionType === '后道' ? '开始后道' : actionType === '质检' ? '开始质检' : '开始复检'
+  }
+  return actionType === '后道' ? '完成后道' : actionType === '质检' ? '完成质检' : '完成复检'
+}
+
+function renderPostFinishingActionButton(
+  order: PostFinishingWorkOrder,
+  actionType: PostFinishingActionType,
+  phase: 'start' | 'finish',
+  disabled = false,
+): string {
+  return `
+    <button
+      type="button"
+      class="inline-flex h-10 items-center justify-center rounded-md ${phase === 'start' ? 'border' : 'bg-primary text-primary-foreground'} px-3 text-sm font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+      data-pda-execd-action="post-${phase}-action"
+      data-post-order-id="${escapeHtml(order.postOrderId)}"
+      data-post-action-type="${escapeHtml(actionType)}"
+      ${disabled ? 'disabled' : ''}
+    >
+      ${escapeHtml(getPostFinishingActionLabel(actionType, phase))}
+    </button>
+  `
+}
+
+function canPostFinishingManagedFactoryOperate(order: PostFinishingWorkOrder): boolean {
+  if (order.routeMode === '专门后道工厂') return true
+  return ['已交后道工厂', '后道工厂待质检', '待质检', '质检中', '质检完成', '待复检', '复检中', '复检完成', '待交出', '已交出', '已回写'].includes(order.currentStatus)
+}
+
+function renderPostFinishingActionPanel(order: PostFinishingWorkOrder): string {
+  const actions: string[] = []
+  if (!order.postAction.startedAt || order.postAction.status === '待后道') {
+    actions.push(renderPostFinishingActionButton(order, '后道', 'start'))
+  }
+  if (order.postAction.status === '后道中') {
+    actions.push(renderPostFinishingActionButton(order, '后道', 'finish'))
+  }
+
+  if (order.routeMode === '非专门工厂含后道' && (order.currentStatus === '待交后道工厂' || order.currentStatus.includes('待交给后道工厂'))) {
+    actions.push(`
+      <button type="button" class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-sm font-medium hover:bg-muted" data-pda-execd-action="post-transfer-managed" data-post-order-id="${escapeHtml(order.postOrderId)}">
+        交给后道工厂
+      </button>
+    `)
+  }
+  if (order.routeMode === '非专门工厂含后道' && order.currentStatus === '已交后道工厂') {
+    actions.push(`
+      <button type="button" class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-sm font-medium hover:bg-muted" data-pda-execd-action="post-receive-managed" data-post-order-id="${escapeHtml(order.postOrderId)}">
+        后道工厂接收
+      </button>
+    `)
+  }
+
+  if (canPostFinishingManagedFactoryOperate(order)) {
+    if (!order.qcAction || order.qcAction.status === '待质检' || order.currentStatus === '后道工厂待质检') {
+      actions.push(renderPostFinishingActionButton(order, '质检', 'start', order.postAction.status !== '后道完成'))
+    } else if (order.qcAction.status === '质检中') {
+      actions.push(renderPostFinishingActionButton(order, '质检', 'finish'))
+    }
+
+    if (order.recheckAction?.status === '复检中') {
+      actions.push(renderPostFinishingActionButton(order, '复检', 'finish'))
+    } else if (order.qcAction?.status === '质检完成' || order.recheckAction?.status === '待复检') {
+      actions.push(renderPostFinishingActionButton(order, '复检', 'start'))
+    }
+  }
+
+  if (order.waitHandoverWarehouseRecordId || order.currentStatus === '待交出' || order.currentStatus === '复检完成') {
+    actions.push(`
+      <button type="button" class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-sm font-medium hover:bg-muted" data-pda-execd-action="post-submit-handover" data-post-order-id="${escapeHtml(order.postOrderId)}">
+        发起交出
+      </button>
+    `)
+  }
+
+  if (actions.length === 0) {
+    return '<div class="rounded-md border bg-muted/30 px-3 py-3 text-sm text-muted-foreground">当前没有可执行动作</div>'
+  }
+
+  return `<div class="grid gap-2">${actions.join('')}</div>`
+}
+
+function renderPdaPostFinishingExecutionPage(execId: string, order: PostFinishingWorkOrder): string {
+  const actionRows = [order.postAction, order.qcAction, order.recheckAction]
+    .filter(Boolean)
+    .map((action) => `
+      <tr>
+        <td class="px-3 py-2">${escapeHtml(action!.actionType)}</td>
+        <td class="px-3 py-2">${escapeHtml(action!.status)}</td>
+        <td class="px-3 py-2">${action!.acceptedGarmentQty} ${escapeHtml(action!.qtyUnit)}</td>
+        <td class="px-3 py-2">${escapeHtml(action!.operatorName || '—')}</td>
+      </tr>
+    `)
+    .join('')
+
+  const content = `
+    <div class="space-y-4 bg-background p-4 pb-6">
+      <div class="flex items-center gap-2">
+        <button class="inline-flex h-8 items-center rounded-md px-2 text-sm hover:bg-muted" data-pda-execd-action="back">
+          <i data-lucide="arrow-left" class="mr-1 h-4 w-4"></i>
+          返回
+        </button>
+        <h1 class="text-base font-semibold">后道任务执行</h1>
+      </div>
+
+      <article class="rounded-lg border bg-card">
+        <header class="border-b px-4 py-3">
+          <div class="flex items-center justify-between gap-2">
+            <span class="font-mono text-sm font-semibold">${escapeHtml(order.postOrderNo)}</span>
+            <span class="inline-flex rounded bg-blue-100 px-2 py-0.5 text-xs text-blue-700">${escapeHtml(order.currentStatus)}</span>
+          </div>
+        </header>
+        <div class="grid gap-3 p-4 text-sm">
+          <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+            <span class="text-muted-foreground">生产单</span>
+            <span class="font-medium">${escapeHtml(order.sourceProductionOrderNo)}</span>
+            <span class="text-muted-foreground">当前工厂</span>
+            <span>${escapeHtml(order.currentFactoryName)}</span>
+            <span class="text-muted-foreground">后道工厂</span>
+            <span>${escapeHtml(order.managedPostFactoryName)}</span>
+            <span class="text-muted-foreground">计划成衣件数</span>
+            <span>${order.plannedGarmentQty} ${escapeHtml(order.plannedGarmentQtyUnit)}</span>
+            <span class="text-muted-foreground">任务模式</span>
+            <span>${escapeHtml(order.routeMode)}</span>
+          </div>
+        </div>
+      </article>
+
+      <article class="rounded-lg border bg-card">
+        <header class="border-b px-4 py-3">
+          <h2 class="text-sm font-semibold">当前可执行动作</h2>
+        </header>
+        <div class="space-y-3 p-4">
+          ${renderPostFinishingActionPanel(order)}
+        </div>
+      </article>
+
+      <article class="rounded-lg border bg-card">
+        <header class="border-b px-4 py-3">
+          <h2 class="text-sm font-semibold">后道、质检、复检记录</h2>
+        </header>
+        <div class="overflow-x-auto p-4">
+          <table class="min-w-[640px] text-left text-xs">
+            <thead class="bg-muted text-muted-foreground">
+              <tr>
+                <th class="px-3 py-2 font-medium">动作</th>
+                <th class="px-3 py-2 font-medium">状态</th>
+                <th class="px-3 py-2 font-medium">确认成衣件数</th>
+                <th class="px-3 py-2 font-medium">操作人</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y">${actionRows}</tbody>
+          </table>
+        </div>
+      </article>
+    </div>
+  `
+  void execId
+  return renderPdaFrame(content, 'exec')
 }
 
 export function renderPdaExecDetailPage(taskId: string): string {
@@ -1369,11 +1571,15 @@ export function renderPdaExecDetailPage(taskId: string): string {
 
   const task = getTaskFactById(taskId)
 
-  if (isCuttingSpecialTask(task)) {
+  if (task && isCuttingSpecialTask(task)) {
     return renderPdaCuttingTaskDetailPage(taskId, { backHref: '/fcs/pda/exec' })
   }
 
   if (!task) {
+    const postOrder = getPostFinishingWorkOrderForMobile(taskId)
+    if (postOrder) {
+      return renderPdaPostFinishingExecutionPage(taskId, postOrder)
+    }
     const content = `
       <div class="flex min-h-[760px] flex-col bg-background">
         <div class="p-4">
@@ -1892,7 +2098,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
                               class="inline-flex h-9 items-center justify-center rounded-md border text-sm text-muted-foreground"
                               disabled
                             >
-                              ${printWorkOrder ? '印花审核通过后完成' : '染色审核通过后完成'}
+                              ${printWorkOrder ? '印花加工单审核通过后完成' : '染色加工单审核通过后完成'}
                             </button>
                           `
                         : `
@@ -1926,11 +2132,11 @@ export function renderPdaExecDetailPage(taskId: string): string {
                                     </button>
                                     <button
                                       class="inline-flex h-9 items-center justify-center rounded-md border text-sm hover:bg-muted"
-                                      data-pda-execd-action="new-handover-record"
-                                      data-handover-order-id="${escapeHtml(handoverOrder.handoverOrderId || handoverOrder.handoverId)}"
+                                      data-pda-execd-action="${printWorkOrder ? 'print-submit-handover' : 'dye-submit-handover'}"
+                                      data-task-id="${escapeHtml(task.taskId)}"
                                     >
                                       <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
-                                      新增交出记录
+                                      发起交出
                                     </button>
                                   </div>
                                 `
@@ -2115,6 +2321,35 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
     return true
   }
 
+  if (action === 'print-submit-handover' || action === 'dye-submit-handover') {
+    const taskId = actionNode.dataset.taskId
+    if (!taskId) {
+      showPdaExecDetailToast('任务未关联')
+      return true
+    }
+    const defaultQty =
+      action === 'print-submit-handover'
+        ? getPrintWorkOrderByTaskId(taskId)?.actualCompletedQty || getPrintWorkOrderByTaskId(taskId)?.plannedQty || 0
+        : getDyeWorkOrderByTaskId(taskId)?.plannedQty || 0
+    const qtyText = window.prompt('请输入交出面料米数', String(defaultQty || ''))?.trim() || ''
+    const submittedQty = Number(qtyText)
+    if (!Number.isFinite(submittedQty) || submittedQty <= 0) {
+      showPdaExecDetailToast('请填写有效交出面料米数')
+      return true
+    }
+    try {
+      if (action === 'print-submit-handover') {
+        submitPrintHandover(taskId, { submittedQty, operatorName: '印花工厂', remark: '移动端发起交出' })
+      } else {
+        submitDyeHandover(taskId, { submittedQty, operatorName: '染色工厂', remark: '移动端发起交出' })
+      }
+      showPdaExecDetailToast('交出记录已生成，Web 端送货交出和审核记录已同步')
+    } catch (error) {
+      showPdaExecDetailToast(error instanceof Error ? error.message : '交出失败')
+    }
+    return true
+  }
+
   if (action === 'view-handover-order' || action === 'new-handover-record') {
     const handoverOrderId = actionNode.dataset.handoverOrderId
     if (!handoverOrderId) {
@@ -2152,7 +2387,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
 
     try {
       if (action === 'print-start-color-test') {
-        startColorTest(printOrderId, '印花工厂')
+        startPrintNode(printOrder.taskId, 'COLOR_TEST', { operatorName: '印花工厂' })
         showPdaExecDetailToast('花型测试已开始')
         return true
       }
@@ -2160,7 +2395,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       if (action === 'print-complete-color-test') {
         const passed = window.confirm('花型测试是否通过？')
         const remark = window.prompt('请填写结果说明（可选）') || undefined
-        completeColorTest(printOrderId, { passed, operatorName: '印花工厂', remark })
+        finishPrintNode(printOrder.taskId, 'COLOR_TEST', { passed, operatorName: '印花工厂', remark })
         showPdaExecDetailToast(passed ? '花型测试已完成，已进入等打印' : '花型测试未通过，已回到待花型图')
         return true
       }
@@ -2172,15 +2407,15 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
           showPdaExecDetailToast('请填写打印机编号')
           return true
         }
-        startPrinting(printOrderId, { printerNo, operatorName: '印花工厂' })
+        startPrintNode(printOrder.taskId, 'PRINT', { printerNo, operatorName: '印花工厂' })
         showPdaExecDetailToast('打印开始已记录')
         return true
       }
 
       if (action === 'print-complete-printing') {
-        const outputQtyText = window.prompt('请输入完成数量', String(printOrder.plannedQty))?.trim() || ''
-        const wasteQtyText = window.prompt('请输入损耗数量（可选）', '0')?.trim() || '0'
-        completePrinting(printOrderId, {
+        const outputQtyText = window.prompt('请输入完成面料米数', String(printOrder.plannedQty))?.trim() || ''
+        const wasteQtyText = window.prompt('请输入损耗面料米数（可选）', '0')?.trim() || '0'
+        finishPrintNode(printOrder.taskId, 'PRINT', {
           outputQty: Number(outputQtyText),
           wasteQty: Number(wasteQtyText),
           operatorName: '印花工厂',
@@ -2190,14 +2425,14 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       }
 
       if (action === 'print-start-transfer') {
-        startTransfer(printOrderId, '印花工厂')
+        startPrintNode(printOrder.taskId, 'TRANSFER', { operatorName: '印花工厂' })
         showPdaExecDetailToast('转印开始已记录')
         return true
       }
 
-      const usedMaterialQtyText = window.prompt('请输入原料使用', String(printOrder.plannedQty))?.trim() || ''
-      const actualCompletedQtyText = window.prompt('请输入实际完成', String(printOrder.plannedQty))?.trim() || ''
-      completeTransfer(printOrderId, {
+      const usedMaterialQtyText = window.prompt('请输入实际使用原料面料米数', String(printOrder.plannedQty))?.trim() || ''
+      const actualCompletedQtyText = window.prompt('请输入转印完成面料米数', String(printOrder.plannedQty))?.trim() || ''
+      finishPrintNode(printOrder.taskId, 'TRANSFER', {
         usedMaterialQty: Number(usedMaterialQtyText),
         actualCompletedQty: Number(actualCompletedQtyText),
         operatorName: '印花工厂',
@@ -2245,31 +2480,31 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
           dyeOrder.sampleWaitType === 'WAIT_COLOR_CARD' ? '色样' : '样衣',
         )?.trim() || ''
         const waitType = waitTypeText.includes('色') ? 'WAIT_COLOR_CARD' : 'WAIT_SAMPLE_GARMENT'
-        startDyeSampleWait(dyeOrderId, { waitType, operatorName: '染色工厂' })
+        startDyeSampleWaitWriteback(dyeOrder.taskId, { waitType, operatorName: '染色工厂' })
         showPdaExecDetailToast('等样衣/色样已开始')
         return true
       }
 
       if (action === 'dye-complete-sample-wait') {
-        completeDyeSampleWait(dyeOrderId, '染色工厂')
+        finishDyeSampleWaitWriteback(dyeOrder.taskId, { operatorName: '染色工厂' })
         showPdaExecDetailToast('等样衣/色样已完成')
         return true
       }
 
       if (action === 'dye-start-material-wait') {
-        startDyeMaterialWait(dyeOrderId, '染色工厂')
+        startDyeMaterialWaitWriteback(dyeOrder.taskId, { operatorName: '染色工厂' })
         showPdaExecDetailToast('等原料已开始')
         return true
       }
 
       if (action === 'dye-complete-material-wait') {
-        completeDyeMaterialWait(dyeOrderId, '染色工厂')
+        finishDyeMaterialWaitWriteback(dyeOrder.taskId, { operatorName: '染色工厂' })
         showPdaExecDetailToast('等原料已完成')
         return true
       }
 
       if (action === 'dye-start-sample-test') {
-        startDyeSampleTest(dyeOrderId, '染色工厂')
+        startDyeNode(dyeOrder.taskId, 'SAMPLE', { operatorName: '染色工厂' })
         showPdaExecDetailToast('打样开始已记录')
         return true
       }
@@ -2280,20 +2515,20 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
           showPdaExecDetailToast('请填写色号')
           return true
         }
-        completeDyeSampleTest(dyeOrderId, { colorNo, operatorName: '染色工厂' })
+        finishDyeNode(dyeOrder.taskId, 'SAMPLE', { colorNo, operatorName: '染色工厂' })
         showPdaExecDetailToast('打样完成已记录')
         return true
       }
 
       if (action === 'dye-start-material-ready') {
-        startDyeMaterialReady(dyeOrderId, '染色工厂')
+        startDyeNode(dyeOrder.taskId, 'MATERIAL_READY', { operatorName: '染色工厂' })
         showPdaExecDetailToast('备料开始已记录')
         return true
       }
 
       if (action === 'dye-complete-material-ready') {
-        const outputQtyText = window.prompt('请输入备料数量（可选）', String(dyeOrder.plannedQty))?.trim() || ''
-        completeDyeMaterialReady(dyeOrderId, {
+        const outputQtyText = window.prompt('请输入备料面料米数（可选）', String(dyeOrder.plannedQty))?.trim() || ''
+        finishDyeNode(dyeOrder.taskId, 'MATERIAL_READY', {
           outputQty: outputQtyText ? Number(outputQtyText) : undefined,
           operatorName: '染色工厂',
         })
@@ -2308,7 +2543,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
           showPdaExecDetailToast('请填写染缸编号')
           return true
         }
-        planDyeVat(dyeOrderId, { dyeVatNo, operatorName: '染色工厂' })
+        startDyeNode(dyeOrder.taskId, 'VAT_PLAN', { dyeVatNo, operatorName: '染色工厂' })
         showPdaExecDetailToast('染缸已排入计划')
         return true
       }
@@ -2320,15 +2555,15 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
           showPdaExecDetailToast('请填写染缸编号')
           return true
         }
-        startDyeing(dyeOrderId, { dyeVatNo, operatorName: '染色工厂' })
+        startDyeNode(dyeOrder.taskId, 'DYE', { dyeVatNo, operatorName: '染色工厂' })
         showPdaExecDetailToast('染色开始已记录')
         return true
       }
 
       if (action === 'dye-complete-dye') {
-        const inputQtyText = window.prompt('请输入投入数量（可选）', String(dyeOrder.plannedQty))?.trim() || ''
-        const outputQtyText = window.prompt('请输入完成数量（可选）', String(dyeOrder.plannedQty))?.trim() || ''
-        completeDyeing(dyeOrderId, {
+        const inputQtyText = window.prompt('请输入投入面料米数（可选）', String(dyeOrder.plannedQty))?.trim() || ''
+        const outputQtyText = window.prompt('请输入完成面料米数（可选）', String(dyeOrder.plannedQty))?.trim() || ''
+        finishDyeNode(dyeOrder.taskId, 'DYE', {
           inputQty: inputQtyText ? Number(inputQtyText) : undefined,
           outputQty: outputQtyText ? Number(outputQtyText) : undefined,
           operatorName: '染色工厂',
@@ -2349,13 +2584,13 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       }
 
       if (action === 'dye-start-node') {
-        startDyeNode(dyeOrderId, nodeCode, '染色工厂')
+        startDyeNode(dyeOrder.taskId, nodeCode, { operatorName: '染色工厂' })
         showPdaExecDetailToast(`${nodeLabelMap[nodeCode]}开始已记录`)
         return true
       }
 
-      const outputQtyText = window.prompt('请输入完成数量（可选）', String(dyeOrder.plannedQty))?.trim() || ''
-      completeDyeNode(dyeOrderId, nodeCode, {
+      const outputQtyText = window.prompt(`请输入完成面料米数（${nodeLabelMap[nodeCode]}）`, String(dyeOrder.plannedQty))?.trim() || ''
+      finishDyeNode(dyeOrder.taskId, nodeCode, {
         outputQty: outputQtyText ? Number(outputQtyText) : undefined,
         operatorName: '染色工厂',
       })
@@ -2363,6 +2598,141 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       return true
     } catch (error) {
       showPdaExecDetailToast(error instanceof Error ? error.message : '保存失败')
+      return true
+    }
+  }
+
+  if (action === 'special-bind-fei-ticket' || action === 'special-report-difference' || action === 'special-submit-handover') {
+    const taskId = actionNode.dataset.taskId
+    if (!taskId) return true
+    try {
+      if (action === 'special-bind-fei-ticket') {
+        const feiTicketNo = window.prompt('请输入绑定菲票号')?.trim() || ''
+        if (!feiTicketNo) {
+          showPdaExecDetailToast('请填写菲票号')
+          return true
+        }
+        bindSpecialCraftFeiTicket(taskId, { feiTicketNo, operatorName: '现场操作员', operatedAt: nowTimestamp() })
+        showPdaExecDetailToast('菲票已绑定，Web 端绑定菲票已同步')
+        return true
+      }
+
+      if (action === 'special-report-difference') {
+        let scrapQty = Number(detailState.specialCraftScrapQty || 0)
+        let damageQty = Number(detailState.specialCraftDamageQty || 0)
+        if (scrapQty + damageQty <= 0) {
+          const diffQtyText = window.prompt('请输入差异裁片数量', '1')?.trim() || ''
+          scrapQty = Number(diffQtyText || 0)
+          damageQty = 0
+        }
+        if (!Number.isFinite(scrapQty) || !Number.isFinite(damageQty) || scrapQty + damageQty <= 0) {
+          showPdaExecDetailToast('请填写有效差异裁片数量')
+          return true
+        }
+        reportSpecialCraftDifference(taskId, {
+          scrapQty,
+          damageQty,
+          operatorName: '现场操作员',
+          reason: '移动端上报差异',
+          operatedAt: nowTimestamp(),
+        })
+        showPdaExecDetailToast('差异已上报，菲票数量和 Web 端差异记录已同步')
+        return true
+      }
+
+      submitSpecialCraftHandover(taskId, { operatorName: '现场操作员', operatedAt: nowTimestamp(), remark: '移动端发起交出' })
+      showPdaExecDetailToast('特殊工艺交出记录已同步')
+      return true
+    } catch (error) {
+      showPdaExecDetailToast(error instanceof Error ? error.message : '特殊工艺写回失败')
+      return true
+    }
+  }
+
+  if (
+    action === 'post-start-action'
+    || action === 'post-finish-action'
+    || action === 'post-transfer-managed'
+    || action === 'post-receive-managed'
+    || action === 'post-create-handover'
+    || action === 'post-submit-handover'
+  ) {
+    const postOrderId = actionNode.dataset.postOrderId
+    const actionType = actionNode.dataset.postActionType as PostFinishingActionType | undefined
+    if (!postOrderId) return true
+
+    try {
+      if (action === 'post-transfer-managed') {
+        transferPostFinishedGarmentsToManagedPostFactory(postOrderId, { operatorName: '移动端操作员', operatedAt: nowTimestamp() })
+        showPdaExecDetailToast('已交给后道工厂，Web 后道待加工仓已同步')
+        return true
+      }
+
+      if (action === 'post-receive-managed') {
+        receivePostFinishedGarmentsAtManagedPostFactory(postOrderId, { operatorName: '后道工厂', operatedAt: nowTimestamp() })
+        showPdaExecDetailToast('后道工厂已接收，可继续质检和复检')
+        return true
+      }
+
+      if (action === 'post-create-handover') {
+        createPostFinishingHandoverWarehouseRecord(postOrderId, { operatorName: '后道工厂', operatedAt: nowTimestamp() })
+        showPdaExecDetailToast('后道交出仓记录已生成')
+        return true
+      }
+
+      if (action === 'post-submit-handover') {
+        const qtyText = window.prompt('请输入交出成衣件数', '0')?.trim() || ''
+        const submittedQty = Number(qtyText)
+        if (!Number.isFinite(submittedQty) || submittedQty <= 0) {
+          showPdaExecDetailToast('请填写有效交出成衣件数')
+          return true
+        }
+        submitPostFinishingHandover(postOrderId, { submittedQty, operatorName: '后道工厂', operatedAt: nowTimestamp() })
+        showPdaExecDetailToast('后道交出已提交，Web 后道交出仓已同步')
+        return true
+      }
+
+      if (!actionType) return true
+
+      if (action === 'post-start-action') {
+        startPostFinishingAction(postOrderId, actionType, { operatorName: '移动端操作员', operatedAt: nowTimestamp() })
+        showPdaExecDetailToast(`${getPostFinishingActionLabel(actionType, 'start')}已记录`)
+        return true
+      }
+
+      const qtyPrompt =
+        actionType === '复检'
+          ? '请输入复检确认成衣件数'
+          : actionType === '质检'
+            ? '请输入已质检成衣件数'
+            : '请输入完成成衣件数'
+      const qtyText = window.prompt(qtyPrompt, '0')?.trim() || ''
+      const submittedQty = Number(qtyText)
+      if (!Number.isFinite(submittedQty) || submittedQty <= 0) {
+        showPdaExecDetailToast(qtyPrompt)
+        return true
+      }
+      const rejectedQty =
+        actionType === '质检'
+          ? Number(window.prompt('请输入不合格成衣件数', '0')?.trim() || '0')
+          : 0
+      const acceptedQty =
+        actionType === '复检'
+          ? submittedQty
+          : actionType === '质检'
+            ? Math.max(submittedQty - (Number.isFinite(rejectedQty) ? rejectedQty : 0), 0)
+            : submittedQty
+      finishPostFinishingAction(postOrderId, actionType, {
+        submittedQty,
+        acceptedQty,
+        rejectedQty: Number.isFinite(rejectedQty) ? rejectedQty : 0,
+        operatorName: '移动端操作员',
+        operatedAt: nowTimestamp(),
+      })
+      showPdaExecDetailToast(`${getPostFinishingActionLabel(actionType, 'finish')}已写回 Web`)
+      return true
+    } catch (error) {
+      showPdaExecDetailToast(error instanceof Error ? error.message : '后道写回失败')
       return true
     }
   }
@@ -2423,6 +2793,13 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       headcount,
       proofFiles: detailState.startProofFiles,
     })
+    if (isSpecialCraftExecutionTask(task, getTaskProcessDisplayName(task))) {
+      try {
+        startSpecialCraftTask(taskId, { operatorName: '现场操作员', operatedAt: startTime })
+      } catch {
+        // 开工主链已成功，特殊工艺回写失败时保持原有移动端提示逻辑。
+      }
+    }
     let startToast = '开工成功'
     try {
       const ensured = ensureHandoverOrderForStartedTask(taskId)
@@ -2543,19 +2920,11 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
         showPdaExecDetailToast('请填写有效报废和货损数量')
         return true
       }
-      specialCraftBindings.forEach((binding, index) => {
-        const bindingScrapQty = index === 0 ? scrapQty : 0
-        const bindingDamageQty = index === 0 ? damageQty : 0
-        const receivedQty = binding.receivedQty || binding.currentQty || binding.openingQty || binding.qty
-        linkSpecialCraftCompletionToReturnWaitHandoverStock({
-          taskOrderId: binding.taskOrderId,
-          completedFeiTicketNos: [binding.feiTicketNo],
-          completedQty: Math.max(receivedQty - bindingScrapQty - bindingDamageQty, 0),
-          scrapQty: bindingScrapQty,
-          damageQty: bindingDamageQty,
-          operatorName: '现场操作员',
-          completedAt: nowTimestamp(),
-        })
+      finishSpecialCraftTask(taskId, {
+        scrapQty,
+        damageQty,
+        operatorName: '现场操作员',
+        operatedAt: nowTimestamp(),
       })
       detailState.specialCraftScrapQty = '0'
       detailState.specialCraftDamageQty = '0'

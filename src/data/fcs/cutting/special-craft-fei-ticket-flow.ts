@@ -1647,6 +1647,118 @@ export function recordSpecialCraftFeiTicketLossAndDamage(input: {
   return cloneValue(nextBinding)
 }
 
+export function applySpecialCraftHandoverDifferenceToFeiTickets(input: {
+  workOrderId: string
+  feiTicketNos?: string[]
+  differenceType: '少收' | '多收' | '破损' | '报废' | '货损' | '错交' | '其他'
+  expectedQty: number
+  actualQty: number
+  diffQty: number
+  sourceRecordId: string
+  sourceRecordNo: string
+  operatorName: string
+  operatedAt: string
+  reason?: string
+}): CuttingSpecialCraftFeiTicketBinding[] {
+  ensureSpecialCraftFeiTicketFlowSeeded()
+  const feiTicketSet = new Set(input.feiTicketNos || [])
+  const targetBindings = flowStore!.bindings.filter((binding) =>
+    binding.workOrderId === input.workOrderId
+    && (!feiTicketSet.size || feiTicketSet.has(binding.feiTicketNo)),
+  )
+  if (!targetBindings.length) return []
+
+  const totalImpactQty = roundQty(Math.abs(input.diffQty))
+  const impactQtyPerBinding = targetBindings.length > 0 ? roundQty(totalImpactQty / targetBindings.length) : 0
+  const updatedBindings: CuttingSpecialCraftFeiTicketBinding[] = []
+
+  targetBindings.forEach((binding, index) => {
+    const impactQty = index === targetBindings.length - 1
+      ? roundQty(totalImpactQty - impactQtyPerBinding * (targetBindings.length - 1))
+      : impactQtyPerBinding
+    const sourceQty = getBindingFlowQty(binding)
+    let nextCurrentQty = binding.currentQty
+    let nextScrapQty = binding.cumulativeScrapQty
+    let nextDamageQty = binding.cumulativeDamageQty
+    let eventType: SpecialCraftFeiTicketFlowEvent['eventType'] = '回仓差异上报'
+
+    if (input.differenceType === '报废') {
+      nextCurrentQty = roundQty(Math.max(sourceQty - impactQty, 0))
+      nextScrapQty = roundQty(binding.cumulativeScrapQty + impactQty)
+      eventType = '报废'
+    } else if (input.differenceType === '货损' || input.differenceType === '破损') {
+      nextCurrentQty = roundQty(Math.max(sourceQty - impactQty, 0))
+      nextDamageQty = roundQty(binding.cumulativeDamageQty + impactQty)
+      eventType = '货损'
+    } else if (input.differenceType === '少收') {
+      nextCurrentQty = roundQty(Math.max(input.actualQty / targetBindings.length, 0))
+    }
+
+    const report = createQtyDifferenceReport(flowStore!, binding, {
+      reportPhase: '回仓差异',
+      expectedQty: input.expectedQty,
+      actualQty: input.actualQty,
+      sourceRecordId: input.sourceRecordId,
+      sourceRecordNo: input.sourceRecordNo,
+      reportedBy: input.operatorName,
+      reportedAt: input.operatedAt,
+      reason: input.reason || input.differenceType,
+    })
+
+    let updated = updateBinding(flowStore!, binding.bindingId, (current) => ({
+      ...current,
+      currentQty: nextCurrentQty,
+      cumulativeScrapQty: nextScrapQty,
+      cumulativeDamageQty: nextDamageQty,
+      returnDifferenceReportId: report.reportId,
+      returnDifferenceStatus: '待处理',
+      differenceQty: input.diffQty,
+      specialCraftFlowStatus: current.specialCraftFlowStatus,
+      currentLocation: '差异待处理',
+      abnormalReason: input.reason || input.differenceType,
+      updatedAt: input.operatedAt,
+    }))
+
+    if (eventType === '报废' || eventType === '货损') {
+      updated = appendFlowEvent(
+        flowStore!,
+        updated,
+        makeFlowEvent(updated, {
+          eventType,
+          beforeQty: sourceQty,
+          changedQty: -impactQty,
+          afterQty: nextCurrentQty,
+          operatorName: input.operatorName,
+          occurredAt: input.operatedAt,
+          relatedRecordId: input.sourceRecordId,
+          relatedRecordNo: input.sourceRecordNo,
+          remark: input.reason || input.differenceType,
+        }),
+      )
+    } else {
+      updated = appendFlowEvent(
+        flowStore!,
+        updated,
+        makeFlowEvent(updated, {
+          eventType: '平台处理',
+          beforeQty: sourceQty,
+          changedQty: input.differenceType === '少收' ? -impactQty : 0,
+          afterQty: nextCurrentQty,
+          operatorName: input.operatorName,
+          occurredAt: input.operatedAt,
+          relatedRecordId: input.sourceRecordId,
+          relatedRecordNo: input.sourceRecordNo,
+          remark: input.reason || `${input.differenceType}待平台确认`,
+        }),
+      )
+    }
+
+    updatedBindings.push(cloneValue(updated))
+  })
+
+  return updatedBindings
+}
+
 export function linkSpecialCraftCompletionToReturnWaitHandoverStock(input: {
   taskOrderId: string
   completedFeiTicketNos: string[]

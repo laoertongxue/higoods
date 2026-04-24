@@ -4,7 +4,7 @@ import {
   getDyeWorkOrderSummary,
   listDyeWorkOrders,
 } from '../../../data/fcs/dyeing-task-domain.ts'
-import { buildTaskRouteCardPrintLink } from '../../../data/fcs/fcs-route-links.ts'
+import { buildDyeingWorkOrderDetailLink, buildTaskRouteCardPrintLink } from '../../../data/fcs/fcs-route-links.ts'
 import {
   formatDyeQty,
   getDyeVatSummary,
@@ -70,9 +70,9 @@ function renderOrdersTable(): string {
           <td class="px-3 py-3">
             <div class="flex flex-wrap gap-2">
               ${renderActionButton({
-                label: '查看任务',
+                label: '查看详情',
                 action: 'navigate',
-                attrs: { href: `/fcs/pda/exec/${order.taskId}` },
+                attrs: { href: buildDyeingWorkOrderDetailLink(order.dyeOrderId) },
               })}
               ${renderActionButton({
                 label: '打印任务流转卡',
@@ -80,15 +80,14 @@ function renderOrdersTable(): string {
                 attrs: { href: buildTaskRouteCardPrintLink('DYEING_WORK_ORDER', order.dyeOrderId) },
               })}
               ${renderActionButton({
-                label: '查看交出单',
+                label: '查看配方',
                 action: 'navigate',
-                attrs: { href: order.handoverOrderId ? `/fcs/pda/handover/${order.handoverOrderId}` : '' },
-                disabled: !order.handoverOrderId,
+                attrs: { href: `${buildDyeingWorkOrderDetailLink(order.dyeOrderId)}?tab=formula` },
               })}
               ${renderActionButton({
-                label: '查看报表',
+                label: '查看统计',
                 action: 'navigate',
-                attrs: { href: `/fcs/craft/dyeing/reports?dyeOrderId=${encodeURIComponent(order.dyeOrderId)}` },
+                attrs: { href: `${buildDyeingWorkOrderDetailLink(order.dyeOrderId)}?tab=statistics` },
               })}
             </div>
           </td>
@@ -98,18 +97,18 @@ function renderOrdersTable(): string {
     .join('')
 
   return renderSection(
-    '加工单列表',
+    '染色加工单表格',
     `
       <div class="overflow-x-auto">
         <table class="min-w-full text-left text-sm">
           <thead class="bg-slate-50 text-xs text-muted-foreground">
             <tr>
-              <th class="px-3 py-2 font-medium">染色单号</th>
+              <th class="px-3 py-2 font-medium">染色加工单号</th>
               <th class="px-3 py-2 font-medium">染色任务</th>
               <th class="px-3 py-2 font-medium">首单/翻单</th>
               <th class="px-3 py-2 font-medium">原料面料</th>
               <th class="px-3 py-2 font-medium">目标颜色</th>
-              <th class="px-3 py-2 font-medium">计划数量</th>
+              <th class="px-3 py-2 font-medium">计划染色面料米数</th>
               <th class="px-3 py-2 font-medium">染色工厂</th>
               <th class="px-3 py-2 font-medium">当前状态</th>
               <th class="px-3 py-2 font-medium">染缸</th>
