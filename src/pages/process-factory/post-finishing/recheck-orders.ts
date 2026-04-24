@@ -1,4 +1,8 @@
-import { listPostFinishingRecheckOrders } from '../../../data/fcs/post-finishing-domain.ts'
+import {
+  buildPostFinishingWaitHandoverWarehouseLink,
+  buildPostFinishingWorkOrderDetailLink,
+} from '../../../data/fcs/fcs-route-links.ts'
+import { getPostFinishingWorkOrderById, listPostFinishingRecheckOrders } from '../../../data/fcs/post-finishing-domain.ts'
 import { escapeHtml } from '../../../utils.ts'
 import {
   formatGarmentQty,
@@ -11,21 +15,29 @@ import {
 
 export function renderPostFinishingRecheckOrdersPage(): string {
   const rows = listPostFinishingRecheckOrders()
-    .map((record) => `
-      <tr class="align-top">
-        <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.actionId)}</td>
-        <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.postOrderNo)}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(record.postOrderId.replace('POST-WO', '生产单'))}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(record.factoryName)}</td>
-        <td class="px-3 py-3 text-sm">${formatGarmentQty(record.submittedGarmentQty - record.rejectedGarmentQty, record.qtyUnit)}</td>
-        <td class="px-3 py-3 text-sm">${formatGarmentQty(record.acceptedGarmentQty, record.qtyUnit)}</td>
-        <td class="px-3 py-3 text-sm">${formatGarmentQty(record.diffGarmentQty, record.qtyUnit)}</td>
-        <td class="px-3 py-3">${renderPostStatusBadge(record.status)}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(record.operatorName)}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(record.finishedAt || record.startedAt || '—')}</td>
-        <td class="px-3 py-3">${renderPostAction('查看交出仓', '/fcs/craft/post-finishing/wait-handover-warehouse')}</td>
-      </tr>
-    `)
+    .map((record) => {
+      const order = getPostFinishingWorkOrderById(record.postOrderId)
+      return `
+        <tr class="align-top">
+          <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.actionId)}</td>
+          <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.postOrderNo)}</td>
+          <td class="px-3 py-3 text-sm">${escapeHtml(order?.sourceProductionOrderNo || record.postOrderId.replace('POST-WO', '生产单'))}</td>
+          <td class="px-3 py-3 text-sm">${escapeHtml(record.factoryName)}</td>
+          <td class="px-3 py-3 text-sm">${formatGarmentQty(record.submittedGarmentQty - record.rejectedGarmentQty, record.qtyUnit)}</td>
+          <td class="px-3 py-3 text-sm">${formatGarmentQty(record.acceptedGarmentQty, record.qtyUnit)}</td>
+          <td class="px-3 py-3 text-sm">${formatGarmentQty(record.diffGarmentQty, record.qtyUnit)}</td>
+          <td class="px-3 py-3">${renderPostStatusBadge(record.status)}</td>
+          <td class="px-3 py-3 text-sm">${escapeHtml(record.operatorName)}</td>
+          <td class="px-3 py-3 text-sm">${escapeHtml(record.finishedAt || record.startedAt || '—')}</td>
+          <td class="px-3 py-3">
+            <div class="flex flex-wrap gap-2">
+              ${renderPostAction('查看后道单', buildPostFinishingWorkOrderDetailLink(record.postOrderId, 'recheck'))}
+              ${renderPostAction('查看交出仓', buildPostFinishingWaitHandoverWarehouseLink(record.postOrderId), !order?.waitHandoverWarehouseRecordId)}
+            </div>
+          </td>
+        </tr>
+      `
+    })
     .join('')
 
   return `

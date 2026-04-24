@@ -10,6 +10,7 @@ import {
   writeBrowserStorageItem,
 } from '../browser-storage.ts'
 import { getFactoryMasterRecordById, listFactoryMasterRecords } from './factory-master-store.ts'
+import { TEST_FACTORY_ID } from './factory-mock-data.ts'
 import { indonesiaFactories, type IndonesiaFactory } from './indonesia-factories'
 
 // =============================================
@@ -256,7 +257,11 @@ export function generateFactoryPdaUsers(
     .flatMap((factory) => createFactoryPdaUsersForFactory(factory.id, factory.name, now))
 }
 
-export const initialFactoryPdaUsers: FactoryPdaUser[] = generateFactoryPdaUsers(indonesiaFactories)
+const fullCapabilityTestFactoryPdaUsers = createFactoryPdaUsersForFactory(TEST_FACTORY_ID, '全能力测试工厂')
+export const initialFactoryPdaUsers: FactoryPdaUser[] = [
+  ...generateFactoryPdaUsers(indonesiaFactories).filter((user) => user.factoryId !== TEST_FACTORY_ID),
+  ...fullCapabilityTestFactoryPdaUsers,
+]
 
 // =============================================
 // Permission Catalog（全局权限字典，只读）
@@ -359,9 +364,12 @@ export function generatePresetRolesForFactory(factoryId: string, now: string): F
 }
 
 const INIT_NOW = '2024-01-01 00:00:00'
-export const initialFactoryPdaRoles: FactoryPdaRole[] = indonesiaFactories
-  .filter((factory) => factory.status === 'ACTIVE')
-  .flatMap((factory) => generatePresetRolesForFactory(factory.id, INIT_NOW))
+export const initialFactoryPdaRoles: FactoryPdaRole[] = [
+  ...indonesiaFactories
+    .filter((factory) => factory.status === 'ACTIVE' && factory.id !== TEST_FACTORY_ID)
+    .flatMap((factory) => generatePresetRolesForFactory(factory.id, INIT_NOW)),
+  ...generatePresetRolesForFactory(TEST_FACTORY_ID, INIT_NOW),
+]
 
 // =============================================
 // 本地持久化 PDA 用户 / 角色 / 会话
@@ -524,6 +532,12 @@ function ensurePdaUserStore(): FactoryPdaUser[] {
           passwordUpdatedAt: item.passwordUpdatedAt || now,
         }
       })
+    const userIds = new Set(cachedPdaUsers.map((item) => item.userId))
+    const missingSeedUsers = initialFactoryPdaUsers.filter((item) => !userIds.has(item.userId)).map(clonePdaUser)
+    if (missingSeedUsers.length > 0) {
+      cachedPdaUsers = [...cachedPdaUsers, ...missingSeedUsers]
+      needsMigration = true
+    }
     if (needsMigration) {
       writeStoredJson(PDA_USER_STORE_KEY, cachedPdaUsers)
     }
@@ -543,6 +557,12 @@ function ensurePdaRoleStore(): FactoryPdaRole[] {
     cachedPdaRoles = stored
       .map((item) => normalizeStoredPdaRole(item))
       .filter((item): item is FactoryPdaRole => Boolean(item))
+    const roleKeys = new Set(cachedPdaRoles.map((item) => `${item.factoryId}:${item.roleId}`))
+    const missingSeedRoles = initialFactoryPdaRoles.filter((item) => !roleKeys.has(`${item.factoryId}:${item.roleId}`)).map(clonePdaRole)
+    if (missingSeedRoles.length > 0) {
+      cachedPdaRoles = [...cachedPdaRoles, ...missingSeedRoles]
+      writeStoredJson(PDA_ROLE_STORE_KEY, cachedPdaRoles)
+    }
     return cachedPdaRoles
   }
 

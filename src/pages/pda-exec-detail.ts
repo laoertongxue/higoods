@@ -1430,6 +1430,8 @@ function renderPostFinishingActionButton(
 
 function canPostFinishingManagedFactoryOperate(order: PostFinishingWorkOrder): boolean {
   if (order.routeMode === '专门后道工厂') return true
+  if (order.currentStatus.includes('待交给后道工厂')) return false
+  if (order.currentStatus.includes('后道工厂')) return true
   return ['已交后道工厂', '后道工厂待质检', '待质检', '质检中', '质检完成', '待复检', '复检中', '复检完成', '待交出', '已交出', '已回写'].includes(order.currentStatus)
 }
 
@@ -1520,14 +1522,24 @@ function renderPdaPostFinishingExecutionPage(execId: string, order: PostFinishin
           <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
             <span class="text-muted-foreground">生产单</span>
             <span class="font-medium">${escapeHtml(order.sourceProductionOrderNo)}</span>
+            <span class="text-muted-foreground">来源任务</span>
+            <span class="font-medium">${escapeHtml(order.sourceTaskNo)}</span>
             <span class="text-muted-foreground">当前工厂</span>
             <span>${escapeHtml(order.currentFactoryName)}</span>
             <span class="text-muted-foreground">后道工厂</span>
             <span>${escapeHtml(order.managedPostFactoryName)}</span>
             <span class="text-muted-foreground">计划成衣件数</span>
             <span>${order.plannedGarmentQty} ${escapeHtml(order.plannedGarmentQtyUnit)}</span>
+            <span class="text-muted-foreground">已完成后道成衣件数</span>
+            <span>${order.postAction.acceptedGarmentQty} ${escapeHtml(order.postAction.qtyUnit)}</span>
+            <span class="text-muted-foreground">当前状态</span>
+            <span>${escapeHtml(order.currentStatus)}</span>
             <span class="text-muted-foreground">任务模式</span>
             <span>${escapeHtml(order.routeMode)}</span>
+            <span class="text-muted-foreground">是否需要质检</span>
+            <span>${order.qcAction ? '需要' : '待后道完成后进入后道工厂'}</span>
+            <span class="text-muted-foreground">是否需要复检</span>
+            <span>${order.recheckAction ? '需要' : '待质检完成后进入复检'}</span>
           </div>
         </div>
       </article>

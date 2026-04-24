@@ -52,6 +52,21 @@ export function buildDyeingWorkOrderDetailLink(dyeOrderId: string): string {
   return `/fcs/craft/dyeing/work-orders/${encodeSegment(dyeOrderId)}`
 }
 
+export function buildPostFinishingWorkOrderDetailLink(postOrderId: string, tab?: string): string {
+  const base = `/fcs/craft/post-finishing/work-orders/${encodeSegment(postOrderId)}`
+  return tab ? `${base}?tab=${encodeSegment(tab)}` : base
+}
+
+export function buildPostFinishingWaitProcessWarehouseLink(postOrderId?: string): string {
+  const base = '/fcs/craft/post-finishing/wait-process-warehouse'
+  return postOrderId ? `${base}?postOrderId=${encodeSegment(postOrderId)}` : base
+}
+
+export function buildPostFinishingWaitHandoverWarehouseLink(postOrderId?: string): string {
+  const base = '/fcs/craft/post-finishing/wait-handover-warehouse'
+  return postOrderId ? `${base}?postOrderId=${encodeSegment(postOrderId)}` : base
+}
+
 export function buildCutOrderLink(originalCutOrderId: string): string {
   return `/fcs/craft/cutting/original-orders?originalCutOrderId=${encodeSegment(originalCutOrderId)}`
 }

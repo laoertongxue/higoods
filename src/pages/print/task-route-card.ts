@@ -40,6 +40,7 @@ function renderRouteCard(doc: TaskRouteCardPrintDoc): string {
     PRINTING_WORK_ORDER: '印花加工单',
     DYEING_WORK_ORDER: '染色加工单',
     SPECIAL_CRAFT_TASK_ORDER: '特殊工艺任务单',
+    POST_FINISHING_WORK_ORDER: '后道单',
     CUTTING_ORIGINAL_ORDER: '原始裁片单',
     CUTTING_MERGE_BATCH: '裁片批次',
   }

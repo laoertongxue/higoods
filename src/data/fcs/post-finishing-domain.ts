@@ -1,6 +1,9 @@
 export type PostFinishingRouteMode = '专门后道工厂' | '非专门工厂含后道'
 export type PostFinishingActionType = '后道' | '质检' | '复检'
 
+const FULL_CAPABILITY_TEST_FACTORY_ID = 'ID-F090'
+const FULL_CAPABILITY_TEST_FACTORY_NAME = '全能力测试工厂'
+
 export interface PostFinishingActionRecord {
   actionId: string
   postOrderId: string
@@ -172,10 +175,10 @@ function buildOrder(index: number, status: string, routeMode: PostFinishingRoute
   const isDedicated = routeMode === '专门后道工厂'
   const postOrderId = `POST-WO-${pad(index)}`
   const postOrderNo = `HD-${new Date().getFullYear()}-${pad(index)}`
-  const currentFactoryId = isDedicated ? 'ID-F011' : 'ID-F024'
-  const currentFactoryName = isDedicated ? '雅加达后道工厂' : '雅加达车缝协作厂'
-  const managedPostFactoryId = 'ID-F011'
-  const managedPostFactoryName = '雅加达后道工厂'
+  const currentFactoryId = isDedicated ? FULL_CAPABILITY_TEST_FACTORY_ID : 'ID-F024'
+  const currentFactoryName = FULL_CAPABILITY_TEST_FACTORY_NAME
+  const managedPostFactoryId = FULL_CAPABILITY_TEST_FACTORY_ID
+  const managedPostFactoryName = FULL_CAPABILITY_TEST_FACTORY_NAME
   const qty = 240 + (index % 9) * 20
   const postAction = buildAction({
     index,

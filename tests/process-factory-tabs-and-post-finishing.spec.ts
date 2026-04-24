@@ -68,7 +68,8 @@ test('后道工厂菜单页面可访问且数据串联', async ({ page }) => {
 
   await page.goto('/fcs/craft/post-finishing/qc-orders')
   await expect(page.getByRole('heading', { name: '质检单', exact: true })).toBeVisible()
-  await expect(page.getByText('雅加达后道工厂').first()).toBeVisible()
+  await expect(page.getByText('全能力测试工厂').first()).toBeVisible()
+  await expect(page.getByText('雅加达后道工厂')).toHaveCount(0)
   await expect(page.getByText('雅加达车缝协作厂')).toHaveCount(0)
 
   await page.goto('/fcs/craft/post-finishing/recheck-orders')

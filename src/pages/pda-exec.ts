@@ -3,6 +3,10 @@ import { escapeHtml, toClassName } from '../utils'
 import { type ProcessTask } from '../data/fcs/process-tasks'
 import { indonesiaFactories } from '../data/fcs/indonesia-factories'
 import {
+  listPostFinishingWorkOrders,
+  type PostFinishingWorkOrder,
+} from '../data/fcs/post-finishing-domain'
+import {
   getTaskProcessDisplayName,
 } from '../data/fcs/page-adapters/task-execution-adapter'
 import {
@@ -61,12 +65,61 @@ const state: PdaExecState = {
   querySignature: '',
 }
 
+function mapPostFinishingStatusToTaskStatus(status: string): ProcessTask['status'] {
+  if (status.includes('数量差异')) return 'BLOCKED'
+  if (status.includes('中')) return 'IN_PROGRESS'
+  if (status.includes('已交出') || status.includes('已回写')) return 'DONE'
+  return 'NOT_STARTED'
+}
+
+function mapPostFinishingOrderToTask(order: PostFinishingWorkOrder, seq: number): ProcessTask {
+  return {
+    taskId: order.sourceTaskId,
+    taskNo: order.postOrderNo,
+    productionOrderId: order.sourceProductionOrderNo,
+    seq,
+    processCode: 'POST_FINISHING',
+    processNameZh: '后道',
+    stage: 'POST',
+    qty: order.plannedGarmentQty,
+    qtyUnit: 'PIECE',
+    assignmentMode: 'DIRECT',
+    assignmentStatus: 'ASSIGNED',
+    ownerSuggestion: {
+      kind: 'RECOMMENDED_FACTORY_POOL',
+      recommendedTypes: ['FINISHING'],
+    },
+    assignedFactoryId: order.managedPostFactoryId,
+    assignedFactoryName: order.managedPostFactoryName,
+    qcPoints: [],
+    attachments: [],
+    status: mapPostFinishingStatusToTaskStatus(order.currentStatus),
+    acceptanceStatus: 'ACCEPTED',
+    acceptedAt: order.createdAt,
+    acceptedBy: order.managedPostFactoryName,
+    dispatchedAt: order.createdAt,
+    dispatchedBy: '系统',
+    dispatchRemark: '后道单同步到工厂端移动应用执行',
+    taskDeadline: order.updatedAt,
+    receiverKind: 'MANAGED_POST_FACTORY',
+    receiverId: order.managedPostFactoryId,
+    receiverName: order.managedPostFactoryName,
+    handoverStatus: order.handoverRecordId ? 'WRITTEN_BACK' : order.waitHandoverWarehouseRecordId ? 'OPEN' : 'NOT_CREATED',
+    handoverOrderId: order.handoverRecordId,
+  }
+}
+
 function listTaskFacts(): ProcessTask[] {
-  return listPdaTaskFlowTasks()
+  const baseTasks = listPdaTaskFlowTasks()
+  const existingTaskIds = new Set(baseTasks.map((task) => task.taskId))
+  const postTasks = listPostFinishingWorkOrders()
+    .filter((order) => !existingTaskIds.has(order.sourceTaskId))
+    .map((order, index) => mapPostFinishingOrderToTask(order, baseTasks.length + index + 1))
+  return [...baseTasks, ...postTasks]
 }
 
 function getTaskFactById(taskId: string): ProcessTask | null {
-  return getPdaTaskFlowTaskById(taskId) ?? null
+  return getPdaTaskFlowTaskById(taskId) ?? listTaskFacts().find((task) => task.taskId === taskId) ?? null
 }
 
 function getTaskDisplayNo(task: ProcessTask): string {

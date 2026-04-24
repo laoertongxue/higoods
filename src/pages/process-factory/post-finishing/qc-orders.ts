@@ -1,4 +1,5 @@
-import { listPostFinishingQcOrders } from '../../../data/fcs/post-finishing-domain.ts'
+import { buildPostFinishingWorkOrderDetailLink } from '../../../data/fcs/fcs-route-links.ts'
+import { getPostFinishingWorkOrderById, listPostFinishingQcOrders } from '../../../data/fcs/post-finishing-domain.ts'
 import { escapeHtml } from '../../../utils.ts'
 import {
   formatGarmentQty,
@@ -11,21 +12,24 @@ import {
 
 export function renderPostFinishingQcOrdersPage(): string {
   const rows = listPostFinishingQcOrders()
-    .map((record) => `
-      <tr class="align-top">
-        <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.actionId)}</td>
-        <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.postOrderNo)}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(record.postOrderId.replace('POST-WO', '生产单'))}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(record.factoryName)}</td>
-        <td class="px-3 py-3 text-sm">${formatGarmentQty(record.submittedGarmentQty, record.qtyUnit)}</td>
-        <td class="px-3 py-3 text-sm">${formatGarmentQty(record.acceptedGarmentQty, record.qtyUnit)}</td>
-        <td class="px-3 py-3 text-sm">${formatGarmentQty(record.rejectedGarmentQty, record.qtyUnit)}</td>
-        <td class="px-3 py-3">${renderPostStatusBadge(record.status)}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(record.operatorName)}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(record.finishedAt || record.startedAt || '—')}</td>
-        <td class="px-3 py-3">${renderPostAction('查看后道单', '/fcs/craft/post-finishing/work-orders')}</td>
-      </tr>
-    `)
+    .map((record) => {
+      const order = getPostFinishingWorkOrderById(record.postOrderId)
+      return `
+        <tr class="align-top">
+          <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.actionId)}</td>
+          <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.postOrderNo)}</td>
+          <td class="px-3 py-3 text-sm">${escapeHtml(order?.sourceProductionOrderNo || record.postOrderId.replace('POST-WO', '生产单'))}</td>
+          <td class="px-3 py-3 text-sm">${escapeHtml(record.factoryName)}</td>
+          <td class="px-3 py-3 text-sm">${formatGarmentQty(record.submittedGarmentQty, record.qtyUnit)}</td>
+          <td class="px-3 py-3 text-sm">${formatGarmentQty(record.acceptedGarmentQty, record.qtyUnit)}</td>
+          <td class="px-3 py-3 text-sm">${formatGarmentQty(record.rejectedGarmentQty, record.qtyUnit)}</td>
+          <td class="px-3 py-3">${renderPostStatusBadge(record.status)}</td>
+          <td class="px-3 py-3 text-sm">${escapeHtml(record.operatorName)}</td>
+          <td class="px-3 py-3 text-sm">${escapeHtml(record.finishedAt || record.startedAt || '—')}</td>
+          <td class="px-3 py-3">${renderPostAction('查看后道单', buildPostFinishingWorkOrderDetailLink(record.postOrderId, 'qc'))}</td>
+        </tr>
+      `
+    })
     .join('')
 
   return `

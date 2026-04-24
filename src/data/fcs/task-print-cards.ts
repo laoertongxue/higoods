@@ -46,6 +46,7 @@ import {
   getSpecialCraftTaskOrderById,
   type SpecialCraftTaskNodeRecord,
 } from './special-craft-task-orders.ts'
+import { getPostFinishingWorkOrderById, type PostFinishingActionRecord } from './post-finishing-domain.ts'
 import {
   getCuttingMergeBatchTaskPrintSourceById,
   getCuttingOriginalOrderTaskPrintSourceById,
@@ -59,6 +60,7 @@ export type TaskRouteCardSourceType =
   | 'PRINTING_WORK_ORDER'
   | 'DYEING_WORK_ORDER'
   | 'SPECIAL_CRAFT_TASK_ORDER'
+  | 'POST_FINISHING_WORK_ORDER'
   | 'CUTTING_ORIGINAL_ORDER'
   | 'CUTTING_MERGE_BATCH'
 
@@ -965,6 +967,69 @@ function buildRouteCardFromSpecialCraftTaskOrder(sourceId: string): TaskRouteCar
   }
 }
 
+function mapPostFinishingActionRecord(record: PostFinishingActionRecord): TaskRouteCardRecordRow {
+  return {
+    rowId: record.actionId,
+    node: record.actionType,
+    startedAt: record.startedAt || '—',
+    finishedAt: record.finishedAt || '—',
+    completedQty: formatQtyText(record.acceptedGarmentQty, record.qtyUnit),
+    exceptionQty: formatQtyText(record.rejectedGarmentQty + record.diffGarmentQty, record.qtyUnit),
+    station: record.factoryName || '—',
+    operator: record.operatorName || '—',
+    remark: record.remark || '—',
+  }
+}
+
+function buildRouteCardFromPostFinishingWorkOrder(sourceId: string): TaskRouteCardBuildResult {
+  const order = getPostFinishingWorkOrderById(sourceId)
+  if (!order) return { ok: false, title: TASK_ROUTE_CARD_NAME, message: `未找到后道单：${sourceId}` }
+  const actionRecords = [order.postAction, order.qcAction, order.recheckAction].filter(Boolean) as PostFinishingActionRecord[]
+
+  return {
+    ok: true,
+    card: {
+      cardName: TASK_ROUTE_CARD_NAME,
+      sourceType: 'POST_FINISHING_WORK_ORDER',
+      sourceId,
+      sourceLabel: '后道单',
+      taskId: order.sourceTaskId,
+      taskNo: order.postOrderNo,
+      productionOrderId: order.sourceProductionOrderId,
+      productionOrderNo: order.sourceProductionOrderNo,
+      processName: '后道',
+      craftName: '后道',
+      factoryName: order.currentFactoryName,
+      statusLabel: order.currentStatus,
+      plannedQty: order.plannedGarmentQty,
+      qtyUnit: order.plannedGarmentQtyUnit,
+      dueAt: order.updatedAt,
+      qrValue: buildTaskQrValue(order.sourceTaskId || order.postOrderId),
+      image: resolvePrintImage({ productionOrderId: order.sourceProductionOrderNo, processName: '后道', craftName: '后道' }),
+      summaryRemark: '后道单按后道、质检、复检节点生成任务流转卡',
+      titleOverride: '后道任务流转卡',
+      summaryRowsOverride: [
+        { label: '后道单号', value: order.postOrderNo },
+        { label: '生产单号', value: order.sourceProductionOrderNo },
+        { label: '来源任务', value: order.sourceTaskNo },
+        { label: '当前工厂', value: order.currentFactoryName },
+        { label: '后道工厂', value: order.managedPostFactoryName },
+        { label: '计划成衣件数', value: formatQtyText(order.plannedGarmentQty, order.plannedGarmentQtyUnit) },
+        { label: '已完成后道成衣件数', value: formatQtyText(order.postAction.acceptedGarmentQty, order.postAction.qtyUnit) },
+        { label: '当前状态', value: order.currentStatus },
+      ],
+      supplementalItems: [
+        { label: '任务模式', value: order.routeMode },
+        { label: '质检节点', value: order.qcAction ? `${order.qcAction.status} / ${formatQtyText(order.qcAction.acceptedGarmentQty, order.qcAction.qtyUnit)}` : '待后道完成后进入后道工厂' },
+        { label: '复检节点', value: order.recheckAction ? `${order.recheckAction.status} / ${formatQtyText(order.recheckAction.acceptedGarmentQty, order.recheckAction.qtyUnit)}` : '待质检完成后进入复检' },
+        { label: '待加工仓记录', value: order.waitProcessWarehouseRecordId },
+        { label: '交出记录', value: order.handoverRecordId || order.waitHandoverWarehouseRecordId || '暂无交出记录' },
+      ],
+      routeRecords: actionRecords.map(mapPostFinishingActionRecord),
+    },
+  }
+}
+
 function buildRouteCardFromCuttingOriginalOrder(sourceId: string): TaskRouteCardBuildResult {
   const source = getCuttingOriginalOrderTaskPrintSourceById(sourceId)
   if (!source) return { ok: false, title: TASK_ROUTE_CARD_NAME, message: `未找到原始裁片单：${sourceId}` }
@@ -1077,6 +1142,8 @@ export function buildTaskRouteCardBySource(
       return buildRouteCardFromDyeWorkOrder(sourceId)
     case 'SPECIAL_CRAFT_TASK_ORDER':
       return buildRouteCardFromSpecialCraftTaskOrder(sourceId)
+    case 'POST_FINISHING_WORK_ORDER':
+      return buildRouteCardFromPostFinishingWorkOrder(sourceId)
     case 'CUTTING_ORIGINAL_ORDER':
       return buildRouteCardFromCuttingOriginalOrder(sourceId)
     case 'CUTTING_MERGE_BATCH':
@@ -1094,6 +1161,7 @@ export function isTaskRouteCardSourceType(value: string): value is TaskRouteCard
     || value === 'PRINTING_WORK_ORDER'
     || value === 'DYEING_WORK_ORDER'
     || value === 'SPECIAL_CRAFT_TASK_ORDER'
+    || value === 'POST_FINISHING_WORK_ORDER'
     || value === 'CUTTING_ORIGINAL_ORDER'
     || value === 'CUTTING_MERGE_BATCH'
   )

@@ -1,4 +1,9 @@
-import { buildTaskRouteCardPrintLink } from '../../../data/fcs/fcs-route-links.ts'
+import {
+  buildPostFinishingWaitHandoverWarehouseLink,
+  buildPostFinishingWaitProcessWarehouseLink,
+  buildPostFinishingWorkOrderDetailLink,
+  buildTaskRouteCardPrintLink,
+} from '../../../data/fcs/fcs-route-links.ts'
 import { listPostFinishingWorkOrders } from '../../../data/fcs/post-finishing-domain.ts'
 import { escapeHtml } from '../../../utils.ts'
 import {
@@ -26,10 +31,14 @@ export function renderPostFinishingWorkOrdersPage(): string {
         <td class="px-3 py-3 text-sm">${order.recheckAction ? '需要' : '待质检完成后进入复检'}</td>
         <td class="px-3 py-3">
           <div class="flex flex-wrap gap-2">
-            ${renderPostAction('查看详情', `/fcs/craft/post-finishing/work-orders?postOrderId=${encodeURIComponent(order.postOrderId)}`)}
-            ${renderPostAction('打印任务流转卡', buildTaskRouteCardPrintLink('RUNTIME_TASK', order.sourceTaskId))}
-            ${renderPostAction('查看待加工仓', '/fcs/craft/post-finishing/wait-process-warehouse')}
-            ${renderPostAction('查看交出记录', '/fcs/craft/post-finishing/wait-handover-warehouse', !order.waitHandoverWarehouseRecordId)}
+            ${renderPostAction('查看详情', buildPostFinishingWorkOrderDetailLink(order.postOrderId))}
+            ${renderPostAction('打印任务流转卡', buildTaskRouteCardPrintLink('POST_FINISHING_WORK_ORDER', order.postOrderId))}
+            ${renderPostAction('查看待加工仓', buildPostFinishingWaitProcessWarehouseLink(order.postOrderId))}
+            ${renderPostAction(
+              order.waitHandoverWarehouseRecordId ? '查看交出记录' : '暂无交出记录',
+              buildPostFinishingWaitHandoverWarehouseLink(order.postOrderId),
+              !order.waitHandoverWarehouseRecordId,
+            )}
           </div>
         </td>
       </tr>
