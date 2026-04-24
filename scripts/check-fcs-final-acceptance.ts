@@ -60,6 +60,11 @@ const requiredCommands = [
   'check:quality-deduction-lifecycle',
   'check:quality-deduction-platform',
   'check:production-confirmation',
+  'check:task-print-cards-foundation',
+  'check:pfos-task-print-entry-spread',
+  'check:process-factory-warehouse-menu-consolidation',
+  'check:cutting-warehouse-management-switch',
+  'check:task-card-entry-and-route-closure',
   'check:fcs-production-tech-pack-snapshot',
   'check:fcs-tech-pack-pattern-parser',
   'check:fcs-tech-pack-pattern-piece-detail',
@@ -121,9 +126,13 @@ const requiredFiles = [
   'scripts/check-tech-pack-special-craft-target-object-and-versioning.ts',
   'src/data/fcs/task-qr.ts',
   'src/data/fcs/task-handover-domain.ts',
+  'src/data/fcs/task-print-cards.ts',
+  'src/data/fcs/cutting-task-print-source.ts',
   'src/data/fcs/production-confirmation.ts',
   'src/data/fcs/printing-task-domain.ts',
+  'src/data/fcs/printing-warehouse-view.ts',
   'src/data/fcs/dyeing-task-domain.ts',
+  'src/data/fcs/dyeing-warehouse-view.ts',
   'src/data/fcs/production-tech-pack-snapshot-types.ts',
   'src/data/fcs/fcs-pattern-file-parser.ts',
   'src/data/fcs/cutting/generated-fei-tickets.ts',
@@ -143,6 +152,8 @@ const requiredFiles = [
   'src/pages/pda-warehouse-outbound-records.ts',
   'src/pages/pda-warehouse-stocktake.ts',
   'src/pages/progress-handover.ts',
+  'src/pages/print/task-route-card.ts',
+  'src/pages/print/task-delivery-card.ts',
   'src/pages/factory-internal-warehouse.ts',
   'src/pages/factory-profile.ts',
   'src/pages/factory-capacity-profile.ts',
@@ -151,9 +162,12 @@ const requiredFiles = [
   'src/pages/process-factory/special-craft/task-detail.ts',
   'src/pages/process-factory/special-craft/warehouse.ts',
   'src/pages/process-factory/special-craft/statistics.ts',
+  'src/pages/process-factory/printing/warehouse.ts',
   'src/pages/process-factory/printing/statistics.ts',
+  'src/pages/process-factory/dyeing/warehouse.ts',
   'src/pages/process-factory/dyeing/reports.ts',
   'src/pages/process-factory/cutting/fei-tickets.ts',
+  'src/pages/process-factory/cutting/warehouse-hub.ts',
   'src/pages/process-factory/cutting/special-craft-dispatch.ts',
   'src/pages/process-factory/cutting/special-craft-return.ts',
   'src/pages/process-factory/cutting/sewing-dispatch.ts',
@@ -164,6 +178,11 @@ const requiredFiles = [
   'src/router/routes-fcs.ts',
   'src/router/route-renderers-fcs.ts',
   'scripts/check-menu-routes.mjs',
+  'scripts/check-task-print-cards-foundation.ts',
+  'scripts/check-pfos-task-print-entry-spread.ts',
+  'scripts/check-process-factory-warehouse-menu-consolidation.ts',
+  'scripts/check-cutting-warehouse-management-switch.ts',
+  'scripts/check-task-card-entry-and-route-closure.ts',
   'scripts/check-cutting-special-craft-dispatch-return.ts',
   'scripts/check-cutting-sewing-dispatch.ts',
   'scripts/check-progress-statistics-linkage.ts',
@@ -280,6 +299,8 @@ const techPackSource =
 
 const progressSource =
   read('src/pages/progress-board.ts') +
+  read('src/pages/progress-board/task-domain.ts') +
+  read('src/pages/progress-board/events.ts') +
   read('src/pages/progress-handover.ts') +
   read('src/pages/progress-material.ts') +
   read('src/pages/process-factory/printing/statistics.ts') +
@@ -288,6 +309,20 @@ const progressSource =
   read('src/pages/process-factory/cutting/cutting-summary.ts')
 ;['待交出', '待回写', '差异', '异议', '回货质检', '后道复检', '补料状态', '裁片仓状态'].forEach((token) => {
   assert(progressSource.includes(token), `进度口径缺少：${token}`)
+})
+;['打印任务流转卡', '打印任务交货卡'].forEach((token) => {
+  assert(progressSource.includes(token), `平台运营入口缺少：${token}`)
+})
+assert(progressSource.includes('buildTaskDeliveryCardPrintLink(recordId)'), '任务进度看板详情交出记录必须按 recordId 打印任务交货卡')
+assert(progressSource.includes('renderTaskDeliveryCardAction(record.recordId)'), '任务进度看板详情交出记录必须传入 record.recordId')
+
+const taskPrintSource =
+  read('src/data/fcs/task-print-cards.ts') +
+  read('src/pages/print/task-route-card.ts') +
+  read('src/pages/print/task-delivery-card.ts') +
+  read('src/data/fcs/fcs-route-links.ts')
+;['任务交货卡', '任务流转卡', 'buildTaskRouteCardPrintDoc', 'buildTaskDeliveryCardPrintDocByRecordId', '任务二维码', '任务交货二维码', '商品图片', '第几次交货'].forEach((token) => {
+  assert(taskPrintSource.includes(token), `任务打印底座缺少：${token}`)
 })
 
 const routeSource =
@@ -301,17 +336,36 @@ const routeSource =
   '/fcs/factory/warehouse',
   '/fcs/progress/board',
   '/fcs/progress/handover',
+  '/fcs/print/task-route-card',
+  '/fcs/print/task-delivery-card',
   '/fcs/progress/material',
   '/fcs/craft/printing/statistics',
+  '/fcs/craft/printing/wait-process-warehouse',
+  '/fcs/craft/printing/wait-handover-warehouse',
+  '/fcs/craft/dyeing/wait-process-warehouse',
+  '/fcs/craft/dyeing/wait-handover-warehouse',
   '/fcs/craft/dyeing/reports',
   '/fcs/craft/cutting/production-progress',
+  '/fcs/craft/cutting/warehouse-management/wait-process',
+  '/fcs/craft/cutting/warehouse-management/wait-handover',
+  '/fcs/craft/cutting/warehouse-management/sample-warehouse',
   'special-craft',
+  'renderSpecialCraftWaitProcessWarehousePage',
+  'renderSpecialCraftWaitHandoverWarehousePage',
   'renderSpecialCraftTaskOrdersPage',
   'renderSpecialCraftWarehousePage',
   'renderSpecialCraftStatisticsPage',
   '/confirmation-print',
 ].forEach((token) => {
   assert(routeSource.includes(token), `路由注册缺少：${token}`)
+})
+;[
+  "renderRouteRedirect('/fcs/craft/printing/wait-process-warehouse', '正在跳转到印花待加工仓')",
+  "renderRouteRedirect('/fcs/craft/dyeing/wait-process-warehouse', '正在跳转到染色待加工仓')",
+  "renderRouteRedirect('/fcs/craft/cutting/warehouse-management/wait-process', '正在跳转到待加工仓')",
+  'renderRouteRedirect(buildSpecialCraftWaitProcessWarehousePath(operation)',
+].forEach((token) => {
+  assert(routeSource.includes(token), `旧仓库入口兼容跳转缺少：${token}`)
 })
 
 const forbiddenUiTerms = [

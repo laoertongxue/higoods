@@ -4,6 +4,7 @@ import {
   getDyeWorkOrderSummary,
   listDyeWorkOrders,
 } from '../../../data/fcs/dyeing-task-domain.ts'
+import { buildTaskRouteCardPrintLink } from '../../../data/fcs/fcs-route-links.ts'
 import {
   formatDyeQty,
   getDyeVatSummary,
@@ -72,6 +73,11 @@ function renderOrdersTable(): string {
                 label: '查看任务',
                 action: 'navigate',
                 attrs: { href: `/fcs/pda/exec/${order.taskId}` },
+              })}
+              ${renderActionButton({
+                label: '打印任务流转卡',
+                action: 'navigate',
+                attrs: { href: buildTaskRouteCardPrintLink('DYEING_WORK_ORDER', order.dyeOrderId) },
               })}
               ${renderActionButton({
                 label: '查看交出单',

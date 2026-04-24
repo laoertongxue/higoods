@@ -27,6 +27,7 @@ import {
   buildTaskQrValue,
   parseFcsQrValue,
 } from '../src/data/fcs/task-qr.ts'
+import { buildTaskDeliveryCardPrintDocByRecordId } from '../src/data/fcs/task-print-cards.ts'
 import { removedLegacyProcessCodes } from './utils/special-craft-banlist.ts'
 
 function assert(condition: unknown, message: string): void {
@@ -281,6 +282,20 @@ function checkNoPostCapacityHandover(): void {
   })
 }
 
+function checkTaskDeliveryCardPrintDoc(): void {
+  const handoutHead = listPdaHandoverHeads().find((head) => head.headType === 'HANDOUT' && getPdaHandoverRecordsByHead(head.handoverId).length > 0)
+  assert(handoutHead, '缺少任务交货卡可用交出单样例')
+  const record = getPdaHandoverRecordsByHead(handoutHead!.handoverId)[0]
+  const handoverRecordId = record.handoverRecordId || record.recordId
+  const doc = buildTaskDeliveryCardPrintDocByRecordId(handoverRecordId)
+  assert(doc.handoverOrderNo === (handoutHead!.handoverOrderNo || handoutHead!.handoverOrderId || handoutHead!.handoverId), '任务交货卡缺少交出单号')
+  assert(doc.handoverRecordId === handoverRecordId, '任务交货卡必须按交出记录生成')
+  assert(doc.sequenceNo === record.sequenceNo, '任务交货卡第几次交货必须来自交出记录 sequenceNo')
+  assert(doc.deliverySequenceLabel === `第 ${record.sequenceNo} 次交货`, '任务交货卡交货次数文案错误')
+  assert(doc.qrValue === (record.handoverRecordQrValue || buildHandoverRecordQrValue(handoverRecordId)), '任务交货卡二维码必须来自交出记录二维码')
+  assert(doc.lineRows.length > 0, '任务交货卡必须展示交出记录明细')
+}
+
 function main(): void {
   scanBannedCopy()
   checkNoDuplicateWarehouseFlowModels()
@@ -292,6 +307,7 @@ function main(): void {
   checkPickupCompatibility()
   checkPickupAndHandoutCompletionSemantics()
   checkNoPostCapacityHandover()
+  checkTaskDeliveryCardPrintDoc()
   console.log('check:fcs-handover-domain passed')
 }
 

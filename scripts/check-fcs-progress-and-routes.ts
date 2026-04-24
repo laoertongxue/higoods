@@ -35,6 +35,7 @@ function stripNonUiSource(source: string): string {
 }
 
 const progressBoardSource = read('src/pages/progress-board/order-domain.ts')
+const progressTaskSource = read('src/pages/progress-board/task-domain.ts') + read('src/pages/progress-board/events.ts')
 const progressBoardContextSource = read('src/pages/progress-board/context.ts')
 const handoverSource =
   read('src/pages/progress-handover.ts') +
@@ -45,6 +46,16 @@ const printingDashboardsSource = read('src/pages/process-factory/printing/dashbo
 const dyeingReportsSource = read('src/pages/process-factory/dyeing/reports.ts')
 const cuttingProgressSource = read('src/pages/process-factory/cutting/production-progress.ts')
 const cuttingSummarySource = read('src/pages/process-factory/cutting/cutting-summary.ts')
+const pfosTaskPrintEntrySource =
+  read('src/pages/process-factory/printing/work-orders.ts') +
+  read('src/pages/process-factory/printing/warehouse.ts') +
+  read('src/pages/process-factory/dyeing/work-orders.ts') +
+  read('src/pages/process-factory/dyeing/warehouse.ts') +
+  read('src/pages/process-factory/special-craft/task-orders.ts') +
+  read('src/pages/process-factory/special-craft/task-detail.ts') +
+  read('src/pages/process-factory/special-craft/warehouse.ts') +
+  read('src/pages/process-factory/cutting/original-orders.ts') +
+  read('src/pages/process-factory/cutting/merge-batches.ts')
 const specialCraftGuardSource =
   read('src/pages/process-factory/special-craft/shared.ts') +
   read('src/pages/process-factory/special-craft/task-orders.ts') +
@@ -58,12 +69,14 @@ const capacitySource =
   read('src/data/fcs/process-craft-dict.ts')
 const routeSources =
   read('src/data/app-shell-config.ts') +
+  read('src/data/fcs/fcs-route-links.ts') +
   read('src/router/routes.ts') +
   read('src/router/routes-fcs.ts') +
   read('src/router/routes-pcs.ts') +
   read('src/router/routes-pda.ts') +
   read('src/router/route-renderers.ts') +
   read('src/router/route-renderers-fcs.ts')
+const stateStoreSource = read('src/state/store.ts')
 const uiSources = [
   progressBoardSource,
   handoverSource,
@@ -119,6 +132,21 @@ assertIncludesAll(
 )
 assertIncludes(progressBoardSource, '默认按交期排序', '生产进度缺少默认按交期排序提示')
 assertIncludes(progressBoardContextSource, 'sortProductionProgressByDefaultDueDate', '生产进度上下文缺少默认交期排序 helper')
+assertIncludes(progressTaskSource, '打印任务流转卡', '任务进度看板缺少打印任务流转卡入口')
+assertIncludes(progressTaskSource, "buildTaskRouteCardPrintLink('RUNTIME_TASK', task.taskId)", '任务进度看板打印任务流转卡入口必须使用 RUNTIME_TASK + taskId')
+assertIncludes(progressTaskSource, '打印任务交货卡', '任务进度看板详情交出记录缺少打印任务交货卡入口')
+assertIncludes(progressTaskSource, 'buildTaskDeliveryCardPrintLink(recordId)', '任务进度看板详情交出记录必须按 recordId 打印任务交货卡')
+assertIncludes(progressTaskSource, 'renderTaskDeliveryCardAction(record.recordId)', '任务进度看板详情交出记录必须传入 record.recordId')
+assertIncludes(handoverSource, '打印任务交货卡', '交接链路页缺少打印任务交货卡入口')
+assertIncludes(handoverSource, 'buildTaskDeliveryCardPrintLink(recordId)', '交接链路页打印任务交货卡入口必须按交出记录进入')
+assertIncludes(pfosTaskPrintEntrySource, "buildTaskRouteCardPrintLink('PRINTING_WORK_ORDER', order.printOrderId)", '印花加工单打印入口必须可达任务流转卡')
+assertIncludes(pfosTaskPrintEntrySource, "buildTaskRouteCardPrintLink('DYEING_WORK_ORDER', order.dyeOrderId)", '染色加工单打印入口必须可达任务流转卡')
+assertIncludes(pfosTaskPrintEntrySource, "buildTaskRouteCardPrintLink('SPECIAL_CRAFT_TASK_ORDER', taskOrder.taskOrderId)", '特殊工艺任务打印入口必须可达任务流转卡')
+assertIncludes(pfosTaskPrintEntrySource, "buildTaskRouteCardPrintLink('CUTTING_ORIGINAL_ORDER', row.originalCutOrderId)", '原始裁片单打印入口必须可达任务流转卡')
+assertIncludes(pfosTaskPrintEntrySource, "buildTaskRouteCardPrintLink('CUTTING_MERGE_BATCH', batch.mergeBatchId)", '裁片批次打印入口必须可达任务流转卡')
+assertIncludes(pfosTaskPrintEntrySource, 'buildTaskDeliveryCardPrintLink(item.handoverRecordId)', '特殊工艺仓库出库记录必须可达任务交货卡')
+assertIncludes(pfosTaskPrintEntrySource, 'renderCraftPrintingWaitHandoverWarehousePage', '印花待交出仓页面必须可达')
+assertIncludes(pfosTaskPrintEntrySource, 'renderCraftDyeingWaitHandoverWarehousePage', '染色待交出仓页面必须可达')
 assertIncludes(cuttingProgressSource, "viewDimension: 'CUT_ORDER'", '裁床进度默认视图必须为裁片单维度')
 assertIncludes(cuttingProgressSource, '裁片单维度', '裁床进度缺少裁片单维度')
 assertIncludes(cuttingProgressSource, '生产单维度', '裁床进度缺少生产单维度')
@@ -138,13 +166,22 @@ assertIncludesAll(
   [
     '/fcs/progress/board',
     '/fcs/progress/handover',
+    '/fcs/print/task-route-card',
+    '/fcs/print/task-delivery-card',
     '/fcs/progress/material',
+    '/fcs/craft/printing/wait-process-warehouse',
+    '/fcs/craft/printing/wait-handover-warehouse',
+    '/fcs/craft/dyeing/wait-process-warehouse',
+    '/fcs/craft/dyeing/wait-handover-warehouse',
     '/fcs/craft/printing/statistics',
     '/fcs/craft/printing/dashboards',
     '/fcs/craft/dyeing/reports',
     '/fcs/craft/cutting/production-progress',
     '/fcs/craft/cutting/material-prep',
     '/fcs/craft/cutting/summary',
+    '/fcs/craft/cutting/warehouse-management/wait-process',
+    '/fcs/craft/cutting/warehouse-management/wait-handover',
+    '/fcs/craft/cutting/warehouse-management/sample-warehouse',
     '/fcs/quality/qc-records',
     '/fcs/production/orders',
     '/confirmation-print',
@@ -153,12 +190,23 @@ assertIncludesAll(
   ],
   '路由注册',
 )
+assertIncludes(routeSources, 'buildSpecialCraftWaitProcessWarehousePath', '缺少特殊工艺待加工仓路由生成')
+assertIncludes(routeSources, 'buildSpecialCraftWaitHandoverWarehousePath', '缺少特殊工艺待交出仓路由生成')
+assertIncludes(routeSources, 'renderRouteRedirect(buildSpecialCraftWaitProcessWarehousePath(operation)', '旧特殊工艺 warehouse 路由必须重定向')
+assertIncludes(routeSources, 'renderCraftCuttingWarehouseManagementWaitProcessPage', '缺少裁床待加工仓汇总渲染器')
+assertIncludes(routeSources, 'renderCraftCuttingWarehouseManagementWaitHandoverPage', '缺少裁床待交出仓汇总渲染器')
+assertIncludes(routeSources, "renderRouteRedirect('/fcs/craft/printing/wait-process-warehouse', '正在跳转到印花待加工仓')", '印花旧 warehouse alias 必须重定向到印花待加工仓')
+assertIncludes(routeSources, "renderRouteRedirect('/fcs/craft/dyeing/wait-process-warehouse', '正在跳转到染色待加工仓')", '染色旧 warehouse alias 必须重定向到染色待加工仓')
+assertIncludes(routeSources, "renderRouteRedirect('/fcs/craft/cutting/warehouse-management/wait-process', '正在跳转到待加工仓')", '裁床旧 warehouse alias 必须重定向到待加工仓')
+assertIncludes(stateStoreSource, "'/fcs/craft/cutting/warehouse-management/wait-process'", '裁床旧 tab redirect 必须指向待加工仓汇总页')
 assertIncludes(routeSources, 'pattern: /^\\/fcs\\/production\\/orders\\/([^/]+)\\/confirmation-print$/', '缺少生产确认单打印预览动态路由')
 assertIncludes(routeSources, 'pattern: /^\\/fcs\\/production\\/orders\\/([^/]+)$/', '缺少生产单详情动态路由')
 assertIncludes(routeSources, 'pattern: /^\\/fcs\\/quality\\/qc-records\\/([^/]+)$/', '缺少质检详情动态路由')
 assertIncludes(routeSources, 'pattern: /^\\/fcs\\/progress\\/handover\\/order\\/([^/]+)$/', '缺少交接详情动态路由')
 assertIncludes(routeSources, 'pattern: /^\\/fcs\\/pda\\/exec\\/([^/]+)$/', '缺少任务详情动态路由')
 assertIncludes(routeSources, 'pattern: /^\\/fcs\\/pda\\/handover\\/([^/]+)$/', '缺少交出单详情动态路由')
+assertIncludes(routeSources, 'renderTaskRouteCardPrintPage', '缺少任务流转卡打印预览渲染器')
+assertIncludes(routeSources, 'renderTaskDeliveryCardPrintPage', '缺少任务交货卡打印预览渲染器')
 
 ;[
   '去交接（待交出）',

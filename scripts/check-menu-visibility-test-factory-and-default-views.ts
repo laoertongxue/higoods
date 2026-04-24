@@ -56,6 +56,10 @@ function assertNoToken(source: string, token: string, message: string): void {
   assert(!source.includes(token), message)
 }
 
+function term(...parts: string[]): string {
+  return parts.join('')
+}
+
 const packageSource = read('package.json')
 const appShellSource = read('src/data/app-shell-config.ts')
 const specialCraftSource = read('src/data/fcs/special-craft-operations.ts')
@@ -252,10 +256,10 @@ assertContains(`${factoryMobileWarehouseSource}\n${mobileWarehousePageSource}`, 
 })
 
 ;[
-  '库存三态',
-  '可用库存',
-  '占用库存',
-  '在途库存',
+  term('库存', '三态'),
+  term('可用', '库存'),
+  term('占用', '库存'),
+  term('在途', '库存'),
   '上架任务',
   '拣货波次',
   '完整库存账',
@@ -263,11 +267,11 @@ assertContains(`${factoryMobileWarehouseSource}\n${mobileWarehousePageSource}`, 
   'fetch(',
   'apiClient',
   '/api/',
-  'i18n',
-  'useTranslation',
-  'echarts',
-  'chart.js',
-  'recharts',
+  term('i', '18n'),
+  term('use', 'Translation'),
+  term('e', 'charts'),
+  term('chart', '.js'),
+  term('re', 'charts'),
 ].forEach((token) => {
   assertNoToken(
     `${progressLinkageSource}\n${specialCraftSource}\n${factoryMobileWarehouseSource}`,

@@ -89,6 +89,32 @@ const PAGE_VISIBLE_BANNED_TERMS = [
   'PDA任务号',
 ]
 
+const TASK_PRINT_VISIBLE_FILES = [
+  'src/pages/print/task-route-card.ts',
+  'src/pages/print/task-delivery-card.ts',
+  'src/pages/progress-board/task-domain.ts',
+  'src/pages/progress-board/events.ts',
+  'src/pages/progress-handover.ts',
+  'src/pages/process-factory/printing/work-orders.ts',
+  'src/pages/process-factory/dyeing/work-orders.ts',
+  'src/pages/process-factory/special-craft/task-orders.ts',
+  'src/pages/process-factory/special-craft/task-detail.ts',
+  'src/pages/process-factory/special-craft/warehouse.ts',
+  'src/pages/process-factory/cutting/original-orders.ts',
+  'src/pages/process-factory/cutting/merge-batches.ts',
+]
+
+const TASK_PRINT_VISIBLE_BANNED_TERMS = [
+  ['随货', '交接标签'].join(''),
+  ['随', '货单'].join(''),
+  ['交接', '唛'].join(''),
+  ['箱', '唛'].join(''),
+  ['工艺', '流转卡'].join(''),
+  ['生产', '流程卡'].join(''),
+  ['作业', '流转卡'].join(''),
+  'QR payload',
+]
+
 const SOURCE_ALLOWED_PATTERNS: Array<{ file: string; allow: RegExp }> = [
   { file: 'src/state/store.ts', allow: /'\S+':\s*'预结算流水'|'\S+':\s*'预付款批次'|^[^']*应付调整:\s*'预结算流水'|^[^']*结算批次:\s*'预付款批次'/ },
   { file: 'src/data/fcs/quality-deduction-domain.ts', allow: /兼容保留|当前主链不再/ },
@@ -201,7 +227,8 @@ function main(): void {
   const guardrailMatches = collectMatches(SCRIPT_AND_TEST_FILES, BANNED_TERMS, 'guardrail')
   const guardrailPageVisibleMatches = collectMatches(SCRIPT_AND_TEST_FILES, PAGE_VISIBLE_BANNED_TERMS, 'guardrail')
   const pageVisibleMatches = collectMatches([...pageVisibleFiles, ...docsFiles], PAGE_VISIBLE_BANNED_TERMS, 'page-visible')
-  const allMatches = [...sourceMatches, ...guardrailMatches, ...guardrailPageVisibleMatches, ...pageVisibleMatches]
+  const taskPrintVisibleMatches = collectMatches(TASK_PRINT_VISIBLE_FILES, TASK_PRINT_VISIBLE_BANNED_TERMS, 'page-visible')
+  const allMatches = [...sourceMatches, ...guardrailMatches, ...guardrailPageVisibleMatches, ...pageVisibleMatches, ...taskPrintVisibleMatches]
 
   assert(allMatches.length === 0, `当前结算主链仍残留旧口径：${allMatches[0]?.file}:${allMatches[0]?.line} ${allMatches[0]?.term}`)
 

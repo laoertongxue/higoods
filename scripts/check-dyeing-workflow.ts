@@ -18,6 +18,7 @@ import {
 const repoRoot = process.cwd()
 const dyePages = [
   'src/pages/process-factory/dyeing/work-orders.ts',
+  'src/pages/process-factory/dyeing/warehouse.ts',
   'src/pages/process-factory/dyeing/dye-orders.ts',
   'src/pages/process-factory/dyeing/reports.ts',
 ]
@@ -75,6 +76,9 @@ function main(): void {
   }
 
   const workOrdersSource = readFile('src/pages/process-factory/dyeing/work-orders.ts')
+  const appShellSource = readFile('src/data/app-shell-config.ts')
+  const warehouseSource = readFile('src/pages/process-factory/dyeing/warehouse.ts')
+  const routesSource = readFile('src/router/routes-fcs.ts')
   const formulaSource = readFile('src/pages/process-factory/dyeing/dye-orders.ts')
   const reportsSource = readFile('src/pages/process-factory/dyeing/reports.ts')
   const taskDetailSource = readFile('src/pages/pda-exec-detail.ts')
@@ -82,6 +86,20 @@ function main(): void {
   const handoverDetailSource = readFile('src/pages/pda-handover-detail.ts')
 
   assertIncludes(workOrdersSource, '染色加工单', '染色加工单页面')
+  assertIncludes(workOrdersSource, '打印任务流转卡', '染色加工单页面')
+  assertIncludes(workOrdersSource, "buildTaskRouteCardPrintLink('DYEING_WORK_ORDER', order.dyeOrderId)", '染色加工单打印任务流转卡必须使用 DYEING_WORK_ORDER + dyeOrderId')
+  assertNotIncludes(workOrdersSource, '打印任务交货卡', '染色加工单页面不得提前增加打印任务交货卡入口')
+  assertIncludes(appShellSource, '染色待加工仓', '染厂管理菜单')
+  assertIncludes(appShellSource, '染色待交出仓', '染厂管理菜单')
+  assertIncludes(warehouseSource, 'renderCraftDyeingWaitHandoverWarehousePage', '染色待交出仓页面')
+  assertIncludes(warehouseSource, '出库记录', '染色待交出仓页面')
+  assertIncludes(warehouseSource, '打印任务交货卡', '染色待交出仓出库记录')
+  assertIncludes(warehouseSource, 'buildTaskDeliveryCardPrintLink(item.handoverRecordId)', '染色任务交货卡必须使用 handoverRecordId')
+  assertIncludes(
+    routesSource,
+    "renderRouteRedirect('/fcs/craft/dyeing/wait-process-warehouse', '正在跳转到染色待加工仓')",
+    '染色旧仓库入口',
+  )
   assertIncludes(formulaSource, '染料单', '染料单页面')
   assertIncludes(reportsSource, '等待原因', '染色报表页面')
   assertIncludes(reportsSource, '节点耗时', '染色报表页面')

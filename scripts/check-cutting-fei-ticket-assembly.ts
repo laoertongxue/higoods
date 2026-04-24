@@ -131,6 +131,10 @@ function main(): void {
   })
 
   assertIncludes(feiPage, 'buildFeiTicketFiveDimTitle', '菲票页面缺少五维打印标题构造')
+  assertIncludes(feiPage, '打印菲票', '菲票打印入口必须保留')
+  assertIncludes(feiPage, 'performPrintOperation', '菲票打印操作必须保留')
+  assert(!feiPage.includes('任务交货卡'), '菲票打印不得被任务交货卡替换')
+  assert(!feiPage.includes('任务流转卡'), '菲票打印不得被任务流转卡替换')
   assertIncludes(read('scripts/check-cutting-fei-ticket-assembly.ts'), SAMPLE_FIVE_DIM_TITLE, '缺少现场五维标题示例')
   assertIncludes(
     read('src/pages/process-factory/cutting/fei-tickets-model.ts'),

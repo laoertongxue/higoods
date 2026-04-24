@@ -67,11 +67,28 @@ function assertPagesConsumeProjection(): void {
   const specialProcessesPage = readRepoFile('src/pages/process-factory/cutting/special-processes.ts')
   const markerUtils = readRepoFile('src/pages/process-factory/cutting/marker-spreading-utils.ts')
 
-  assertIncludes(materialPrepPage, "from './material-prep-projection'", 'material-prep.ts 应消费 material-prep projection')
-  assertIncludes(cutPieceWarehousePage, "from './cut-piece-warehouse-projection'", 'cut-piece-warehouse.ts 应消费 cut-piece-warehouse projection')
-  assertIncludes(sampleWarehousePage, "from './sample-warehouse-projection'", 'sample-warehouse.ts 应消费 sample-warehouse projection')
-  assertIncludes(replenishmentPage, "from './replenishment-projection'", 'replenishment.ts 应消费 replenishment projection')
-  assertIncludes(specialProcessesPage, "from './special-processes-projection'", 'special-processes.ts 应消费 special-processes projection')
+  assert(
+    materialPrepPage.includes("from './material-prep-projection'") || materialPrepPage.includes("from './material-prep-projection.ts'"),
+    'material-prep.ts 应消费 material-prep projection',
+  )
+  assert(
+    cutPieceWarehousePage.includes("from './cut-piece-warehouse-projection'") || cutPieceWarehousePage.includes("from './cut-piece-warehouse-projection.ts'"),
+    'cut-piece-warehouse.ts 应消费 cut-piece-warehouse projection',
+  )
+  assert(
+    sampleWarehousePage.includes("from './sample-warehouse-projection'") || sampleWarehousePage.includes("from './sample-warehouse-projection.ts'"),
+    'sample-warehouse.ts 应消费 sample-warehouse projection',
+  )
+  assert(
+    replenishmentPage.includes("from './replenishment-projection'") || replenishmentPage.includes("from './replenishment-projection.ts'"),
+    'replenishment.ts 应消费 replenishment projection',
+  )
+  assert(
+    specialProcessesPage.includes("from './special-processes-projection'") ||
+      specialProcessesPage.includes("from './special-processes-projection.ts'") ||
+      (specialProcessesPage.includes('兼容入口') && specialProcessesPage.includes('buildSpecialCraftTaskOrdersPath')),
+    'special-processes.ts 应消费 special-processes projection，或作为旧裁床特殊工艺入口兼容跳转页',
+  )
   assert(
     markerUtils.includes("from './marker-spreading-projection'") || markerUtils.includes("from './marker-spreading-projection.ts'"),
     'marker-spreading-utils.ts 应消费 marker-spreading projection',
@@ -118,7 +135,11 @@ function assertMaterialSkuPrimary(): void {
   assertIncludes(cutPieceWarehousePage, 'materialSku', 'cut-piece-warehouse 页面应围绕 materialSku 展示')
   assertIncludes(sampleWarehousePage, 'materialSku', 'sample-warehouse 页面应围绕 materialSku 展示')
   assertIncludes(replenishmentPage, 'materialSku', 'replenishment 页面应围绕 materialSku 展示')
-  assertIncludes(specialProcessesPage, 'materialSku', 'special-processes 页面应围绕 materialSku 展示')
+  assert(
+    specialProcessesPage.includes('materialSku') ||
+      (specialProcessesPage.includes('兼容入口') && specialProcessesPage.includes('buildSpecialCraftTaskOrdersPath')),
+    'special-processes 页面应围绕 materialSku 展示，或作为旧裁床特殊工艺入口兼容跳转页',
+  )
 }
 
 function assertReplenishmentAndSpecialProcesses(): void {

@@ -27,6 +27,7 @@ function assert(condition: unknown, message: string): void {
 
 const pageFiles = [
   'src/pages/process-factory/printing/work-orders.ts',
+  'src/pages/process-factory/printing/warehouse.ts',
   'src/pages/process-factory/printing/progress.ts',
   'src/pages/process-factory/printing/pending-review.ts',
   'src/pages/process-factory/printing/statistics.ts',
@@ -34,6 +35,10 @@ const pageFiles = [
 ]
 
 const pageSources = pageFiles.map((file) => ({ file, source: readFile(file) }))
+const appShellSource = readFile('src/data/app-shell-config.ts')
+const workOrdersPageSource = readFile('src/pages/process-factory/printing/work-orders.ts')
+const warehousePageSource = readFile('src/pages/process-factory/printing/warehouse.ts')
+const routesSource = readFile('src/router/routes-fcs.ts')
 const oldTemplateToken = ['renderProcessFactory', 'Scaf', 'foldPage'].join('')
 const oldPrintTerms = [
   ['印花', 'PDA'].join(''),
@@ -53,6 +58,22 @@ pageSources.forEach(({ file, source }) => {
 })
 
 const taskDetailSource = readFile('src/pages/pda-exec-detail.ts')
+assert(workOrdersPageSource.includes('打印任务流转卡'), '印花加工单页缺少打印任务流转卡入口')
+assert(
+  workOrdersPageSource.includes("buildTaskRouteCardPrintLink('PRINTING_WORK_ORDER', order.printOrderId)"),
+  '印花加工单页打印任务流转卡必须使用 PRINTING_WORK_ORDER + printOrderId',
+)
+assert(!workOrdersPageSource.includes('打印任务交货卡'), '印花加工单页不得提前增加打印任务交货卡入口')
+assert(appShellSource.includes('印花待加工仓'), '印花厂管理菜单缺少印花待加工仓')
+assert(appShellSource.includes('印花待交出仓'), '印花厂管理菜单缺少印花待交出仓')
+assert(warehousePageSource.includes('renderCraftPrintingWaitHandoverWarehousePage'), '印花缺少待交出仓页面')
+assert(warehousePageSource.includes('出库记录'), '印花待交出仓页缺少出库记录')
+assert(warehousePageSource.includes('打印任务交货卡'), '印花待交出仓出库记录缺少打印任务交货卡')
+assert(warehousePageSource.includes('buildTaskDeliveryCardPrintLink(item.handoverRecordId)'), '印花任务交货卡必须按 handoverRecordId 打印')
+assert(
+  routesSource.includes("renderRouteRedirect('/fcs/craft/printing/wait-process-warehouse', '正在跳转到印花待加工仓')"),
+  '印花旧仓库入口必须重定向到印花待加工仓',
+)
 assert(taskDetailSource.includes('印花任务'), '任务详情页缺少印花任务区块')
 assert(taskDetailSource.includes('打印机编号'), '任务详情页缺少打印机编号字段')
 assert(taskDetailSource.includes('原料使用'), '任务详情页缺少原料使用字段')

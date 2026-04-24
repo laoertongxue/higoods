@@ -18,6 +18,16 @@ import {
   listPaymentWritebacks,
   listStatements,
 } from '../src/data/fcs/store-domain-settlement-seeds.ts'
+import {
+  getPdaHandoverRecordsByHead,
+  listPdaHandoverHeads,
+} from '../src/data/fcs/pda-handover-events.ts'
+import { listRuntimeProcessTasks } from '../src/data/fcs/runtime-process-tasks.ts'
+import {
+  buildTaskDeliveryCardPrintDocByRecordId,
+  buildTaskRouteCardPrintDoc,
+} from '../src/data/fcs/task-print-cards.ts'
+import { listPdaGenericProcessTasks } from '../src/data/fcs/pda-task-mock-factory.ts'
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message)
@@ -112,6 +122,17 @@ function main(): void {
     ),
     '打款回写后，正式流水状态或双向关联未同步推进',
   )
+
+  const runtimeTask = listRuntimeProcessTasks()[0] ?? listPdaGenericProcessTasks()[0]
+  assert(runtimeTask, '缺少任务流转卡端到端样例任务')
+  const routeCard = buildTaskRouteCardPrintDoc({ sourceType: 'RUNTIME_TASK', sourceId: runtimeTask.taskId })
+  assert(routeCard.taskId === runtimeTask.taskId && routeCard.qrLabel === '任务二维码', '任务流转卡端到端链路异常')
+  const handoutHead = listPdaHandoverHeads().find((head) => head.headType === 'HANDOUT' && getPdaHandoverRecordsByHead(head.handoverId).length > 0)
+  assert(handoutHead, '缺少任务交货卡端到端交出记录样例')
+  const handoutRecord = getPdaHandoverRecordsByHead(handoutHead.handoverId)[0]
+  const deliveryCard = buildTaskDeliveryCardPrintDocByRecordId(handoutRecord.handoverRecordId || handoutRecord.recordId)
+  assert(deliveryCard.handoverRecordId === (handoutRecord.handoverRecordId || handoutRecord.recordId), '任务交货卡端到端链路异常')
+  assert(deliveryCard.deliverySequenceLabel === `第 ${handoutRecord.sequenceNo} 次交货`, '任务交货卡端到端交货次数异常')
 
   const statementScopeKeys = new Set<string>()
   for (const statement of statements) {

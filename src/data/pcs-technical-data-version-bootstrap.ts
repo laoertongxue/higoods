@@ -9,7 +9,7 @@ import type {
 } from './pcs-technical-data-version-types.ts'
 
 function mapLegacyStatus(status: string): TechnicalVersionStatus {
-  return status === 'RELEASED' ? 'PUBLISHED' : 'DRAFT'
+  return status === 'RELEASED' || status === 'ENABLED' ? 'PUBLISHED' : 'DRAFT'
 }
 
 function parseVersionNo(versionLabel: string, fallback: number): number {

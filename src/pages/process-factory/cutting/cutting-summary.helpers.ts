@@ -42,7 +42,7 @@ export const issueSourceMeta: Record<CuttingSummaryIssue['sourcePage'], { label:
   MATERIAL_PREP: { label: '仓库配料领料', shortLabel: '配料领料' },
   CUT_PIECE_ORDER: { label: '原始裁片单', shortLabel: '原始单' },
   REPLENISHMENT: { label: '补料管理', shortLabel: '补料' },
-  WAREHOUSE: { label: '裁片仓交接', shortLabel: '仓交接' },
+  WAREHOUSE: { label: '裁床仓库管理', shortLabel: '仓管' },
   SAMPLE: { label: '样衣仓', shortLabel: '样衣仓' },
 }
 

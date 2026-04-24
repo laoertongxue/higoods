@@ -331,6 +331,6 @@ export function hydrateIcons(root: ParentNode = document): void {
     },
   })
 
-  // createIcons scans document by default; keeping root param for API symmetry.
+  // createIcons scans document by default; keeping root param for call-site symmetry.
   void root
 }

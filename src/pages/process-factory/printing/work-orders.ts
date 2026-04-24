@@ -4,6 +4,7 @@ import {
   getPrintWorkOrderSummary,
   listPrintWorkOrders,
 } from '../../../data/fcs/printing-task-domain.ts'
+import { buildTaskRouteCardPrintLink } from '../../../data/fcs/fcs-route-links.ts'
 import {
   buildPrintingHref,
   formatPrintQty,
@@ -67,6 +68,11 @@ function renderOrdersTable(): string {
                 label: '查看任务',
                 action: 'navigate',
                 attrs: { href: `/fcs/pda/exec/${order.taskId}` },
+              })}
+              ${renderActionButton({
+                label: '打印任务流转卡',
+                action: 'navigate',
+                attrs: { href: buildTaskRouteCardPrintLink('PRINTING_WORK_ORDER', order.printOrderId) },
               })}
               ${renderActionButton({
                 label: '查看交出单',

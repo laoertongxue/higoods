@@ -1,6 +1,7 @@
 import { renderDrawer as uiDrawer } from '../../../components/ui/index.ts'
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
+import { buildTaskRouteCardPrintLink } from '../../../data/fcs/fcs-route-links.ts'
 import {
   CUTTING_MERGE_BATCH_LEDGER_STORAGE_KEY,
   deserializeMergeBatchStorage,
@@ -189,6 +190,12 @@ function renderHeaderActions(activeBatch: MergeBatchRecord | null): string {
   return `
     <div class="flex flex-wrap items-center gap-2">
       ${renderActionButton('返回可裁排产', 'data-merge-batches-action="go-cuttable-pool"')}
+      ${renderActionButton(
+        '打印任务流转卡',
+        `data-merge-batches-action="print-task-route-card"${activeBatch ? ` data-batch-id="${escapeHtml(activeBatch.mergeBatchId)}"` : ''}`,
+        'secondary',
+        !activeBatch,
+      )}
       ${renderActionButton(
         '去唛架',
         `data-merge-batches-action="go-marker-plan"${activeBatch ? ` data-batch-id="${escapeHtml(activeBatch.mergeBatchId)}"` : ''}`,
@@ -380,7 +387,10 @@ function renderLedgerTable(ledger: MergeBatchRecord[]): string {
                   <td class="px-3 py-3">${batch.sourceProductionOrderCount} 个生产单 / ${batch.sourceOriginalCutOrderCount} 个原始裁片单</td>
                   <td class="px-3 py-3">${escapeHtml(batch.createdAt || '-')}</td>
                   <td class="px-3 py-3">
-                    ${renderActionButton('查看详情', `data-merge-batches-action="open-detail" data-batch-id="${escapeHtml(batch.mergeBatchId)}"`)}
+                    <div class="flex flex-wrap gap-2">
+                      ${renderActionButton('查看详情', `data-merge-batches-action="open-detail" data-batch-id="${escapeHtml(batch.mergeBatchId)}"`)}
+                      ${renderActionButton('打印任务流转卡', `data-merge-batches-action="print-task-route-card" data-batch-id="${escapeHtml(batch.mergeBatchId)}"`)}
+                    </div>
                   </td>
                 </tr>
               `)
@@ -675,6 +685,17 @@ export function handleCraftCuttingMergeBatchesEvent(target: Element): boolean {
 
   if (action === 'go-marker-spreading') {
     return goSpreading(actionNode.dataset.batchId || state.activeBatchId)
+  }
+
+  if (action === 'print-task-route-card') {
+    const batchId = actionNode.dataset.batchId || state.activeBatchId
+    const batch = batchId ? getMergedLedger().find((item) => item.mergeBatchId === batchId) : null
+    if (!batch) {
+      setFeedback('warning', '请先选择一个批次。')
+      return true
+    }
+    appStore.navigate(buildTaskRouteCardPrintLink('CUTTING_MERGE_BATCH', batch.mergeBatchId))
+    return true
   }
 
   if (action === 'go-original-orders-batch') {

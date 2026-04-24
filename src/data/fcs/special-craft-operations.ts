@@ -303,6 +303,36 @@ export function buildSpecialCraftWarehousePath(
   return `/fcs/process-factory/special-craft/${slug}/warehouse`
 }
 
+export function buildSpecialCraftWaitProcessWarehousePath(
+  input: Pick<SpecialCraftOperationDefinition, 'operationId'> | string,
+): string {
+  const slug = typeof input === 'string' ? normalizeOperationSlug(input) : buildSpecialCraftOperationSlug(input)
+  return `/fcs/process-factory/special-craft/${slug}/wait-process-warehouse`
+}
+
+export function buildSpecialCraftWaitHandoverWarehousePath(
+  input: Pick<SpecialCraftOperationDefinition, 'operationId'> | string,
+): string {
+  const slug = typeof input === 'string' ? normalizeOperationSlug(input) : buildSpecialCraftOperationSlug(input)
+  return `/fcs/process-factory/special-craft/${slug}/wait-handover-warehouse`
+}
+
+export function buildSpecialCraftPreferredWarehousePath(
+  input: Pick<SpecialCraftOperationDefinition, 'operationId'> & {
+    waitHandoverQty?: number
+    handoverOrderId?: string
+    handoverRecordNo?: string
+  },
+): string {
+  const shouldOpenWaitHandover =
+    Number(input.waitHandoverQty || 0) > 0
+    || Boolean(input.handoverOrderId)
+    || Boolean(input.handoverRecordNo)
+  return shouldOpenWaitHandover
+    ? buildSpecialCraftWaitHandoverWarehousePath(input)
+    : buildSpecialCraftWaitProcessWarehousePath(input)
+}
+
 export function buildSpecialCraftStatisticsPath(
   input: Pick<SpecialCraftOperationDefinition, 'operationId'> | string,
 ): string {

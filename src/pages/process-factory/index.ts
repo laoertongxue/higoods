@@ -28,6 +28,8 @@ export {
   renderCraftCuttingFabricWarehousePage,
   renderCraftCuttingCutPieceWarehousePage,
   renderCraftCuttingSampleWarehousePage,
+  renderCraftCuttingWarehouseManagementWaitProcessPage,
+  renderCraftCuttingWarehouseManagementWaitHandoverPage,
   renderCraftCuttingTransferBagsPage,
   renderCraftCuttingTransferBagDetailPage,
   renderCraftCuttingReplenishmentPage,

@@ -1,8 +1,9 @@
 import {
   buildSpecialCraftTaskDetailPath,
-  buildSpecialCraftWarehousePath,
+  buildSpecialCraftPreferredWarehousePath,
   getSpecialCraftOperationBySlug,
 } from '../../../data/fcs/special-craft-operations.ts'
+import { buildTaskRouteCardPrintLink } from '../../../data/fcs/fcs-route-links.ts'
 import { getSpecialCraftTaskOrders } from '../../../data/fcs/special-craft-task-orders.ts'
 import { getSpecialCraftBindingSummaryByTaskOrderId } from '../../../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
 import { escapeHtml } from '../../../utils.ts'
@@ -94,7 +95,7 @@ export function renderSpecialCraftTaskOrdersPage(operationSlug: string): string 
   const rows = taskOrders
     .map((taskOrder) => {
       const detailHref = buildSpecialCraftTaskDetailPath(operation, taskOrder.taskOrderId)
-      const warehouseHref = buildSpecialCraftWarehousePath(operation)
+      const warehouseHref = buildSpecialCraftPreferredWarehousePath(taskOrder)
       const demandLineCount = taskOrder.demandLines?.length || 0
       const bindingSummary = getSpecialCraftBindingSummaryByTaskOrderId(taskOrder.taskOrderId)
       return `
@@ -137,6 +138,7 @@ export function renderSpecialCraftTaskOrdersPage(operationSlug: string): string 
           <td class="px-3 py-3">
             <div class="flex flex-wrap gap-2">
               <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="${detailHref}">查看详情</button>
+              <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="${buildTaskRouteCardPrintLink('SPECIAL_CRAFT_TASK_ORDER', taskOrder.taskOrderId)}">打印任务流转卡</button>
               <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="${warehouseHref}">查看仓库记录</button>
               <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="/fcs/pda/handover">查看交出记录</button>
             </div>

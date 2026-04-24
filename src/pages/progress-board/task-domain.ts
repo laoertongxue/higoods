@@ -34,7 +34,10 @@ import {
   type ProcessStage,
 } from './context.ts'
 import { resolveTaskStandardTimeSnapshot } from '../../data/fcs/process-tasks.ts'
-import { buildTaskRouteCardPrintLink } from '../../data/fcs/fcs-route-links.ts'
+import {
+  buildTaskDeliveryCardPrintLink,
+  buildTaskRouteCardPrintLink,
+} from '../../data/fcs/fcs-route-links.ts'
 
 function formatStandardTimeMinutes(value: number | undefined): string {
   if (!Number.isFinite(value) || Number(value) <= 0) return '--'
@@ -126,6 +129,23 @@ function renderDrawerSectionTable(title: string, headers: string[], rows: string
         </table>
       </div>
     </section>
+  `
+}
+
+function renderTaskDeliveryCardAction(recordId: string | undefined): string {
+  if (!recordId) {
+    return '<button type="button" class="inline-flex cursor-not-allowed items-center rounded-md border px-2 py-1 text-xs opacity-50" disabled>打印任务交货卡</button>'
+  }
+
+  return `
+    <button
+      type="button"
+      class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted"
+      data-nav="${escapeAttr(buildTaskDeliveryCardPrintLink(recordId))}"
+      data-progress-stop="true"
+    >
+      打印任务交货卡
+    </button>
   `
 }
 
@@ -282,6 +302,7 @@ function renderHandoverTab(task: ProcessTask): string {
     ),
     escapeHtml(record.warehouseWrittenAt || '--'),
     escapeHtml(record.objectionReason || record.objectionRemark || record.followUpRemark || record.resolvedRemark || '—'),
+    renderTaskDeliveryCardAction(record.recordId),
   ])
   const disputeRows = handoutSummary.handoutRecords
     .filter((record) => ['OBJECTION_REPORTED', 'OBJECTION_PROCESSING', 'OBJECTION_RESOLVED'].includes(record.status))
@@ -325,7 +346,7 @@ function renderHandoverTab(task: ProcessTask): string {
       )}
       ${renderDrawerSectionTable(
         '交出记录',
-        ['记录号', '提交时间', '状态', '回写数量', '接收方回写时间', '是否有异议'],
+        ['记录号', '提交时间', '状态', '回写数量', '接收方回写时间', '是否有异议', '操作'],
         handoutRecordRows,
         '当前任务暂无交出记录。',
         'data-progress-task-handover-section=\"records\"',

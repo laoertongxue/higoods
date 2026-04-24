@@ -14,7 +14,8 @@ import { TEST_FACTORY_ID } from '../src/data/fcs/factory-mock-data.ts'
 import {
   buildSpecialCraftStatisticsPath,
   buildSpecialCraftTaskOrdersPath,
-  buildSpecialCraftWarehousePath,
+  buildSpecialCraftWaitHandoverWarehousePath,
+  buildSpecialCraftWaitProcessWarehousePath,
   canFactorySeeSpecialCraftOperation,
   listEnabledSpecialCraftOperationDefinitions,
   listVisibleSpecialCraftOperationsForFactory,
@@ -107,11 +108,15 @@ assertContains(appShellSource, 'buildSpecialCraftMenuGroups()', '菜单配置缺
 enabledOperations.forEach((operation) => {
   const menuItem = specialCraftGroup!.items.find((item) => item.title === operation.operationName)
   assert(menuItem, `${operation.operationName} 缺少一级菜单`)
-  assert(menuItem!.children?.some((child) => child.title === `${operation.operationName}任务单`), `${operation.operationName} 缺少任务单子菜单`)
-  assert(menuItem!.children?.some((child) => child.title === `${operation.operationName}仓库管理`), `${operation.operationName} 缺少仓库管理子菜单`)
-  assert(menuItem!.children?.some((child) => child.title === `${operation.operationName}统计`), `${operation.operationName} 缺少统计子菜单`)
+  assert.deepEqual(
+    menuItem!.children?.map((child) => child.title),
+    [`${operation.operationName}任务单`, `${operation.operationName}待加工仓`, `${operation.operationName}待交出仓`, `${operation.operationName}统计`],
+    `${operation.operationName} 子菜单必须拆成任务单 / 待加工仓 / 待交出仓 / 统计`,
+  )
+  assert(!menuItem!.children?.some((child) => child.title.includes('仓库管理')), `${operation.operationName} 子菜单不应继续展示仓库管理`)
   assert(menuItem!.children?.some((child) => child.href === buildSpecialCraftTaskOrdersPath(operation)), `${operation.operationName} 任务单菜单 href 不正确`)
-  assert(menuItem!.children?.some((child) => child.href === buildSpecialCraftWarehousePath(operation)), `${operation.operationName} 仓库管理菜单 href 不正确`)
+  assert(menuItem!.children?.some((child) => child.href === buildSpecialCraftWaitProcessWarehousePath(operation)), `${operation.operationName} 待加工仓菜单 href 不正确`)
+  assert(menuItem!.children?.some((child) => child.href === buildSpecialCraftWaitHandoverWarehousePath(operation)), `${operation.operationName} 待交出仓菜单 href 不正确`)
   assert(menuItem!.children?.some((child) => child.href === buildSpecialCraftStatisticsPath(operation)), `${operation.operationName} 统计菜单 href 不正确`)
   assert(globalSpecialCraftMenus.some((item) => item.title === operation.operationName), `${operation.operationName} 未进入 PFOS 全局特殊工艺菜单 helper`)
 })
@@ -166,13 +171,16 @@ assert(
 
 enabledOperations.forEach((operation) => {
   assertContains(routeSource, 'buildSpecialCraftTaskOrdersPath', `${operation.operationName} 缺少任务单路由生成逻辑`)
-  assertContains(routeSource, 'buildSpecialCraftWarehousePath', `${operation.operationName} 缺少仓库管理路由生成逻辑`)
+  assertContains(routeSource, 'buildSpecialCraftWaitProcessWarehousePath', `${operation.operationName} 缺少待加工仓路由生成逻辑`)
+  assertContains(routeSource, 'buildSpecialCraftWaitHandoverWarehousePath', `${operation.operationName} 缺少待交出仓路由生成逻辑`)
+  assertContains(routeSource, 'buildSpecialCraftWarehousePath', `${operation.operationName} 缺少旧 warehouse 兼容路由生成逻辑`)
   assertContains(routeSource, 'buildSpecialCraftStatisticsPath', `${operation.operationName} 缺少统计路由生成逻辑`)
 })
 assertContains(routeSource, 'special-craft', '路由文件缺少特殊工艺路由前缀')
 assertContains(rendererSource, 'renderSpecialCraftTaskOrdersPage', '缺少特殊工艺任务单渲染器')
 assertContains(rendererSource, 'renderSpecialCraftTaskDetailPage', '缺少特殊工艺任务详情渲染器')
-assertContains(rendererSource, 'renderSpecialCraftWarehousePage', '缺少特殊工艺仓库管理渲染器')
+assertContains(rendererSource, 'renderSpecialCraftWaitProcessWarehousePage', '缺少特殊工艺待加工仓渲染器')
+assertContains(rendererSource, 'renderSpecialCraftWaitHandoverWarehousePage', '缺少特殊工艺待交出仓渲染器')
 assertContains(rendererSource, 'renderSpecialCraftStatisticsPage', '缺少特殊工艺统计渲染器')
 
 const sampleOperation = enabledOperations.find((operation) => {
@@ -187,7 +195,8 @@ assert(sampleTask, '缺少可展示的特殊工艺任务样例')
 assert(getSpecialCraftTaskOrderById(sampleTask.taskOrderId), '缺少可展示的特殊工艺任务详情样例')
 assertContains(taskOrdersPageSource, 'renderSpecialCraftTaskOrdersPage', '缺少特殊工艺任务单页面实现')
 assertContains(taskDetailPageSource, 'renderSpecialCraftTaskDetailPage', '缺少特殊工艺任务详情页面实现')
-assertContains(warehouseSource, 'renderSpecialCraftWarehousePage', '缺少特殊工艺仓库管理页面实现')
+assertContains(warehouseSource, 'renderSpecialCraftWaitProcessWarehousePage', '缺少特殊工艺待加工仓页面实现')
+assertContains(warehouseSource, 'renderSpecialCraftWaitHandoverWarehousePage', '缺少特殊工艺待交出仓页面实现')
 assertContains(statisticsSource, 'renderSpecialCraftStatisticsPage', '缺少特殊工艺统计页面实现')
 assertContains(taskOrdersPageSource, '生产单生成', '任务单页面缺少来源展示')
 assertContains(taskOrdersPageSource, '明细数', '任务单页面缺少明细数字段')

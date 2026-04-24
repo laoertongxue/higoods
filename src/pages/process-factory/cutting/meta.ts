@@ -30,6 +30,8 @@ export type CuttingCanonicalPageKey =
   | 'fei-ticket-continue-print'
   | 'fei-ticket-reprint'
   | 'fei-ticket-void'
+  | 'warehouse-management-wait-process'
+  | 'warehouse-management-wait-handover'
   | 'fabric-warehouse'
   | 'cut-piece-warehouse'
   | 'sample-warehouse'
@@ -277,11 +279,31 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     isPlaceholder: false,
     shortDescription: '作废单张菲票。',
   },
+  'warehouse-management-wait-process': {
+    key: 'warehouse-management-wait-process',
+    canonicalPath: '/fcs/craft/cutting/warehouse-management/wait-process',
+    aliases: [],
+    menuGroupTitle: '裁床仓库管理',
+    pageTitle: '待加工仓',
+    pageSubtitle: '',
+    isPlaceholder: false,
+    shortDescription: '集中查看裁床仓与特殊工艺发料。',
+  },
+  'warehouse-management-wait-handover': {
+    key: 'warehouse-management-wait-handover',
+    canonicalPath: '/fcs/craft/cutting/warehouse-management/wait-handover',
+    aliases: [],
+    menuGroupTitle: '裁床仓库管理',
+    pageTitle: '待交出仓',
+    pageSubtitle: '',
+    isPlaceholder: false,
+    shortDescription: '集中查看裁片仓、特殊工艺回仓与裁片发料。',
+  },
   'fabric-warehouse': {
     key: 'fabric-warehouse',
     canonicalPath: '/fcs/craft/cutting/fabric-warehouse',
     aliases: [],
-    menuGroupTitle: '裁片仓交接',
+    menuGroupTitle: '裁床仓库管理',
     pageTitle: '裁床仓',
     pageSubtitle: '',
     isPlaceholder: false,
@@ -291,7 +313,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     key: 'cut-piece-warehouse',
     canonicalPath: '/fcs/craft/cutting/cut-piece-warehouse',
     aliases: [],
-    menuGroupTitle: '裁后处理',
+    menuGroupTitle: '裁床仓库管理',
     pageTitle: '裁片仓',
     pageSubtitle: '',
     isPlaceholder: false,
@@ -301,7 +323,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     key: 'sample-warehouse',
     canonicalPath: '/fcs/craft/cutting/sample-warehouse',
     aliases: [],
-    menuGroupTitle: '裁片仓交接',
+    menuGroupTitle: '裁床仓库管理',
     pageTitle: '样衣仓',
     pageSubtitle: '',
     isPlaceholder: false,
@@ -341,7 +363,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     key: 'special-craft-dispatch',
     canonicalPath: '/fcs/craft/cutting/special-craft-dispatch',
     aliases: [],
-    menuGroupTitle: '裁后处理',
+    menuGroupTitle: '裁床仓库管理',
     pageTitle: '特殊工艺发料',
     pageSubtitle: '',
     isPlaceholder: false,
@@ -351,7 +373,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     key: 'special-craft-return',
     canonicalPath: '/fcs/craft/cutting/special-craft-return',
     aliases: [],
-    menuGroupTitle: '裁后处理',
+    menuGroupTitle: '裁床仓库管理',
     pageTitle: '特殊工艺回仓',
     pageSubtitle: '',
     isPlaceholder: false,
@@ -361,7 +383,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     key: 'sewing-dispatch',
     canonicalPath: '/fcs/craft/cutting/sewing-dispatch',
     aliases: ['/fcs/process-factory/cutting/sewing-dispatch'],
-    menuGroupTitle: '裁后处理',
+    menuGroupTitle: '裁床仓库管理',
     pageTitle: '裁片发料',
     pageSubtitle: '',
     isPlaceholder: false,
@@ -389,13 +411,13 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
   },
 }
 
-// 仓务兼容入口只保留跳转，当前正式语义统一收口到“裁片仓交接”。
+// 仓务兼容入口只保留跳转，当前正式语义统一收口到“裁床仓库管理”。
 const CUTTING_WAREHOUSE_COMPAT_META: CuttingPageMeta = {
   key: 'warehouse-compat',
-  canonicalPath: '/fcs/craft/cutting/fabric-warehouse',
+  canonicalPath: '/fcs/craft/cutting/warehouse-management/wait-process',
   aliases: ['/fcs/craft/cutting/warehouse', '/fcs/craft/cutting/warehouse-management'],
-  menuGroupTitle: '裁片仓交接',
-  pageTitle: '裁片仓交接',
+  menuGroupTitle: '裁床仓库管理',
+  pageTitle: '裁床仓库管理',
   pageSubtitle: '',
   isPlaceholder: false,
   shortDescription: '兼容入口跳转页。',

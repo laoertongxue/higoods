@@ -1,3 +1,5 @@
+import type { TaskRouteCardSourceType } from './task-print-cards.ts'
+
 function encodeSegment(value: string): string {
   return encodeURIComponent(value)
 }
@@ -26,12 +28,12 @@ export function buildProductionConfirmationLink(productionOrderId: string): stri
   return `${buildProductionOrderLink(productionOrderId)}/confirmation-print`
 }
 
-export function buildTaskRouteCardPrintLink(sourceType: string, sourceId: string): string {
-  return `/fcs/task-print/route-card/${encodeSegment(sourceType)}/${encodeSegment(sourceId)}`
+export function buildTaskRouteCardPrintLink(sourceType: TaskRouteCardSourceType, sourceId: string): string {
+  return `/fcs/print/task-route-card?sourceType=${encodeSegment(sourceType)}&sourceId=${encodeSegment(sourceId)}`
 }
 
-export function buildTaskDeliveryCardPrintLink(handoverOrderId: string, handoverRecordId: string): string {
-  return `/fcs/task-print/delivery-card/${encodeSegment(handoverOrderId)}/${encodeSegment(handoverRecordId)}`
+export function buildTaskDeliveryCardPrintLink(handoverRecordId: string): string {
+  return `/fcs/print/task-delivery-card?handoverRecordId=${encodeSegment(handoverRecordId)}`
 }
 
 export function buildPrintingOrderLink(printOrderId: string): string {

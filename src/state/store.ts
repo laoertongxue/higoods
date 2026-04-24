@@ -42,8 +42,8 @@ const CUTTING_TAB_REDIRECTS: Record<string, { href: string; title: string }> = {
   '/fcs/craft/cutting/tasks': { href: '/fcs/craft/cutting/production-progress', title: '生产单进度' },
   '/fcs/craft/cutting/orders': { href: '/fcs/craft/cutting/original-orders', title: '原始裁片单' },
   '/fcs/craft/cutting/cut-piece-orders': { href: '/fcs/craft/cutting/original-orders', title: '原始裁片单' },
-  '/fcs/craft/cutting/warehouse': { href: '/fcs/craft/cutting/fabric-warehouse', title: '裁床仓' },
-  '/fcs/craft/cutting/warehouse-management': { href: '/fcs/craft/cutting/fabric-warehouse', title: '裁床仓' },
+  '/fcs/craft/cutting/warehouse': { href: '/fcs/craft/cutting/warehouse-management/wait-process', title: '待加工仓' },
+  '/fcs/craft/cutting/warehouse-management': { href: '/fcs/craft/cutting/warehouse-management/wait-process', title: '待加工仓' },
   '/fcs/craft/cutting/fei-ticket': { href: '/fcs/craft/cutting/fei-tickets', title: '打印菲票' },
   '/fcs/craft/cutting/fei-list': { href: '/fcs/craft/cutting/fei-tickets', title: '打印菲票' },
 }

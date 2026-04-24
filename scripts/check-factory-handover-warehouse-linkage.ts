@@ -53,6 +53,8 @@ const inboundSource = read('src/pages/pda-warehouse-inbound-records.ts')
 const outboundSource = read('src/pages/pda-warehouse-outbound-records.ts')
 const webWarehouseSource = read('src/pages/factory-internal-warehouse.ts')
 const specialCraftWarehouseSource = read('src/pages/process-factory/special-craft/warehouse.ts')
+const printingWarehouseSource = read('src/pages/process-factory/printing/warehouse.ts')
+const dyeingWarehouseSource = read('src/pages/process-factory/dyeing/warehouse.ts')
 const specialCraftTaskSource = read('src/data/fcs/special-craft-task-orders.ts')
 const specialCraftFeiFlowSource = read('src/data/fcs/cutting/special-craft-fei-ticket-flow.ts')
 const sewingDispatchSource = read('src/data/fcs/cutting/sewing-dispatch.ts') + read('src/pages/process-factory/cutting/sewing-dispatch.ts')
@@ -65,6 +67,8 @@ const warehousePageSource = [
   outboundSource,
   webWarehouseSource,
   specialCraftWarehouseSource,
+  printingWarehouseSource,
+  dyeingWarehouseSource,
 ].join('\n')
 
 assertContains(
@@ -101,6 +105,9 @@ assertContains(pdaHandoverDataSource, 'receiverClosedAt: head.receiverClosedAt',
 assertNotContains(pdaHandoverDataSource, '仍有待接收方回写记录', '完成交出单不得依赖全部回写')
 assertNotContains(pdaHandoverDataSource, '仍有未处理完成的数量异议', '完成交出单不得依赖异议关闭')
 assertContains(specialCraftWarehouseSource, '自动转单', '特殊工艺仓库管理缺少自动转单展示')
+assertContains(printingWarehouseSource, 'buildTaskDeliveryCardPrintLink(item.handoverRecordId)', '印花出库记录打印任务交货卡必须使用 handoverRecordId')
+assertContains(dyeingWarehouseSource, 'buildTaskDeliveryCardPrintLink(item.handoverRecordId)', '染色出库记录打印任务交货卡必须使用 handoverRecordId')
+assertContains(specialCraftWarehouseSource, 'buildTaskDeliveryCardPrintLink(item.handoverRecordId)', '特殊工艺出库记录打印任务交货卡必须使用 handoverRecordId')
 assertContains(specialCraftTaskSource, 'buildFactoryWaitProcessStockItemFromInboundRecord', '特殊工艺任务仓库关联未复用待加工仓转单结果')
 assertContains(specialCraftTaskSource, 'buildFactoryWaitHandoverStockItemFromOutboundRecord', '特殊工艺任务仓库关联未复用待交出仓转单结果')
 assertContains(specialCraftFeiFlowSource, 'receiveSpecialCraftReturnToCuttingWaitHandoverWarehouse', '缺少特殊工艺回仓进入裁床厂待交出仓例外 helper')

@@ -431,7 +431,7 @@ const syncErrors: SyncErrorRecord[] = [
     objectId: 'TT7890123456',
     objectName: '订单 TT7890123456',
     errorType: '订单拉取失败',
-    errorMsg: 'API 限流，稍后重试',
+    errorMsg: '接口限流，稍后重试',
     time: '2026-01-13 11:00',
     status: '已恢复',
   },

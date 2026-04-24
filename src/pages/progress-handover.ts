@@ -2104,10 +2104,9 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
   }
 
   if (action === 'print-delivery-card') {
-    const handoverId = actionNode.dataset.handoverId
     const recordId = actionNode.dataset.recordId
-    if (handoverId && recordId) {
-      openLinkedPage('任务交货卡', buildTaskDeliveryCardPrintLink(handoverId, recordId))
+    if (recordId) {
+      openLinkedPage('任务交货卡', buildTaskDeliveryCardPrintLink(recordId))
     }
     closeRowMenu()
     return true

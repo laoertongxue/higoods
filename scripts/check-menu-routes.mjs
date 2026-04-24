@@ -114,6 +114,10 @@ async function main() {
 
   const { hrefs, uniqueHrefs } = collectMenuHrefs(menusBySystem, options.systems)
   const registeredMenuPaths = collectRegisteredMenuPaths(routeModules)
+  const pfosChildren = (menusBySystem.pfos ?? []).flatMap((group) =>
+    group.items.flatMap((item) => item.children ?? []),
+  )
+  const pfosTitles = new Set(pfosChildren.map((item) => item.title))
 
   const duplicates = [...new Set(hrefs.filter((href, index) => hrefs.indexOf(href) !== index))].sort()
   const uncovered = uniqueHrefs
@@ -139,6 +143,39 @@ async function main() {
     console.log(formatList(uncovered))
     process.exit(1)
   }
+
+  ;[
+    ['印花待加工仓', '/fcs/craft/printing/wait-process-warehouse'],
+    ['印花待交出仓', '/fcs/craft/printing/wait-handover-warehouse'],
+    ['染色待加工仓', '/fcs/craft/dyeing/wait-process-warehouse'],
+    ['染色待交出仓', '/fcs/craft/dyeing/wait-handover-warehouse'],
+    ['待加工仓', '/fcs/craft/cutting/warehouse-management/wait-process'],
+    ['待交出仓', '/fcs/craft/cutting/warehouse-management/wait-handover'],
+    ['样衣仓', '/fcs/craft/cutting/warehouse-management/sample-warehouse'],
+  ].forEach(([title, href]) => {
+    if (!pfosTitles.has(title)) {
+      console.log(`\n[PFOS 仓库菜单缺失] ${title}`)
+      process.exit(1)
+    }
+    if (!registeredMenuPaths.has(href)) {
+      console.log(`\n[PFOS 仓库路由缺失] ${href}`)
+      process.exit(1)
+    }
+  })
+
+  ;[
+    '/fcs/craft/printing/warehouse',
+    '/fcs/craft/printing/warehouse-management',
+    '/fcs/craft/dyeing/warehouse',
+    '/fcs/craft/dyeing/warehouse-management',
+    '/fcs/craft/cutting/warehouse',
+    '/fcs/craft/cutting/warehouse-management',
+  ].forEach((href) => {
+    if (!registeredMenuPaths.has(href)) {
+      console.log(`\n[旧仓库 alias 路由缺失] ${href}`)
+      process.exit(1)
+    }
+  })
 
   console.log('\n[check-menu-routes] PASS')
 }

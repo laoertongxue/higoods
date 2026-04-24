@@ -4,6 +4,8 @@ import {
   buildSpecialCraftStatisticsPath,
   buildSpecialCraftTaskOrdersPath,
   buildSpecialCraftWarehousePath,
+  buildSpecialCraftWaitHandoverWarehousePath,
+  buildSpecialCraftWaitProcessWarehousePath,
   listEnabledSpecialCraftOperationDefinitions,
 } from '../data/fcs/special-craft-operations'
 import { buildDeductionEntryHrefByBasisId } from '../data/fcs/quality-chain-adapter'
@@ -98,19 +100,26 @@ import {
   renderCraftCuttingTransferBagDetailPage,
   renderCraftCuttingTransferBagsPage,
   renderCraftCuttingFabricWarehousePage,
+  renderCraftCuttingWarehouseManagementWaitHandoverPage,
+  renderCraftCuttingWarehouseManagementWaitProcessPage,
   renderCraftPrintingDashboardsPage,
   renderCraftPrintingPendingReviewPage,
   renderCraftPrintingProgressPage,
   renderCraftPrintingStatisticsPage,
+  renderCraftPrintingWaitHandoverWarehousePage,
+  renderCraftPrintingWaitProcessWarehousePage,
   renderCraftPrintingWorkOrdersPage,
   renderCraftDyeingDyeOrdersPage,
   renderCraftDyeingReportsPage,
+  renderCraftDyeingWaitHandoverWarehousePage,
+  renderCraftDyeingWaitProcessWarehousePage,
   renderCraftDyeingWorkOrdersPage,
   renderSpecialCraftStatisticsPage,
   renderSpecialCraftTaskDetailPage,
   renderSpecialCraftTaskOrdersPage,
+  renderSpecialCraftWaitHandoverWarehousePage,
+  renderSpecialCraftWaitProcessWarehousePage,
   renderSpecialCraftWorkOrderDetailPage,
-  renderSpecialCraftWarehousePage,
   renderTraceMappingPage,
   renderTraceParentCodesPage,
   renderTraceUniqueCodesPage,
@@ -123,7 +132,12 @@ const specialCraftExactRoutes = Object.fromEntries(
     const operationSlug = buildSpecialCraftOperationSlug(operation)
     return [
       [buildSpecialCraftTaskOrdersPath(operation), () => renderSpecialCraftTaskOrdersPage(operationSlug)],
-      [buildSpecialCraftWarehousePath(operation), () => renderSpecialCraftWarehousePage(operationSlug)],
+      [buildSpecialCraftWaitProcessWarehousePath(operation), () => renderSpecialCraftWaitProcessWarehousePage(operationSlug)],
+      [buildSpecialCraftWaitHandoverWarehousePath(operation), () => renderSpecialCraftWaitHandoverWarehousePage(operationSlug)],
+      [
+        buildSpecialCraftWarehousePath(operation),
+        () => renderRouteRedirect(buildSpecialCraftWaitProcessWarehousePath(operation), `正在跳转到${operation.operationName}待加工仓`),
+      ],
       [buildSpecialCraftStatisticsPath(operation), () => renderSpecialCraftStatisticsPage(operationSlug)],
     ]
   }),
@@ -183,6 +197,8 @@ export const routes: RouteRegistry = {
     '/fcs/progress/urge': () => renderProgressUrgePage(),
     '/fcs/progress/milestone-config': () => renderProgressMilestoneConfigPage(),
     '/fcs/progress/material': () => renderProgressMaterialPage(),
+    '/fcs/print/task-route-card': () => renderTaskRouteCardPrintPage(),
+    '/fcs/print/task-delivery-card': () => renderTaskDeliveryCardPrintPage(),
     '/fcs/progress/cutting-overview': () => renderProgressCuttingOverviewPage(),
     '/fcs/progress/cutting-exception-center': () => renderProgressCuttingExceptionCenterPage(),
     '/fcs/craft/workbench/overview': () => renderCraftWorkbenchOverviewPage(),
@@ -217,6 +233,10 @@ export const routes: RouteRegistry = {
     '/fcs/craft/cutting/fabric-warehouse': () => renderCraftCuttingFabricWarehousePage(),
     '/fcs/craft/cutting/cut-piece-warehouse': () => renderCraftCuttingCutPieceWarehousePage(),
     '/fcs/craft/cutting/sample-warehouse': () => renderCraftCuttingSampleWarehousePage(),
+    '/fcs/craft/cutting/warehouse-management/wait-process': () => renderCraftCuttingWarehouseManagementWaitProcessPage(),
+    '/fcs/craft/cutting/warehouse-management/wait-handover': () => renderCraftCuttingWarehouseManagementWaitHandoverPage(),
+    '/fcs/craft/cutting/warehouse-management/sample-warehouse': () =>
+      renderRouteRedirect('/fcs/craft/cutting/sample-warehouse', '正在跳转到样衣仓'),
     '/fcs/craft/cutting/transfer-bags': () => renderCraftCuttingTransferBagsPage(),
     '/fcs/craft/cutting/transfer-bag-detail': () => renderCraftCuttingTransferBagDetailPage(),
     '/fcs/craft/cutting/special-craft-dispatch': () => renderCraftCuttingSpecialCraftDispatchPage(),
@@ -240,9 +260,9 @@ export const routes: RouteRegistry = {
     '/fcs/craft/cutting/fei-list': () =>
       renderRouteRedirect('/fcs/craft/cutting/fei-tickets', '正在跳转到打印菲票'),
     '/fcs/craft/cutting/warehouse': () =>
-      renderRouteRedirect('/fcs/craft/cutting/fabric-warehouse', '正在跳转到裁床仓'),
+      renderRouteRedirect('/fcs/craft/cutting/warehouse-management/wait-process', '正在跳转到待加工仓'),
     '/fcs/craft/cutting/warehouse-management': () =>
-      renderRouteRedirect('/fcs/craft/cutting/fabric-warehouse', '正在跳转到裁床仓'),
+      renderRouteRedirect('/fcs/craft/cutting/warehouse-management/wait-process', '正在跳转到待加工仓'),
     '/fcs/craft/cutting/replenishment': () => renderCraftCuttingReplenishmentPage(),
     '/fcs/craft/cutting/stats': () =>
       renderRouteRedirect('/fcs/craft/cutting/summary', '正在跳转到裁剪总表'),
@@ -254,6 +274,12 @@ export const routes: RouteRegistry = {
     '/fcs/craft/printing/work-orders': () => renderCraftPrintingWorkOrdersPage(),
     '/fcs/craft/printing/tasks': () => renderCraftPrintingWorkOrdersPage(),
     '/fcs/craft/printing/orders': () => renderCraftPrintingWorkOrdersPage(),
+    '/fcs/craft/printing/wait-process-warehouse': () => renderCraftPrintingWaitProcessWarehousePage(),
+    '/fcs/craft/printing/wait-handover-warehouse': () => renderCraftPrintingWaitHandoverWarehousePage(),
+    '/fcs/craft/printing/warehouse': () =>
+      renderRouteRedirect('/fcs/craft/printing/wait-process-warehouse', '正在跳转到印花待加工仓'),
+    '/fcs/craft/printing/warehouse-management': () =>
+      renderRouteRedirect('/fcs/craft/printing/wait-process-warehouse', '正在跳转到印花待加工仓'),
     '/fcs/craft/printing/pending-review': () => renderCraftPrintingPendingReviewPage(),
     '/fcs/craft/printing/batches': () => renderCraftPrintingPendingReviewPage(),
     '/fcs/craft/printing/progress': () => renderCraftPrintingProgressPage(),
@@ -263,6 +289,12 @@ export const routes: RouteRegistry = {
     '/fcs/craft/dyeing': () => renderCraftDyeingWorkOrdersPage(),
     '/fcs/craft/dyeing/work-orders': () => renderCraftDyeingWorkOrdersPage(),
     '/fcs/craft/dyeing/tasks': () => renderCraftDyeingWorkOrdersPage(),
+    '/fcs/craft/dyeing/wait-process-warehouse': () => renderCraftDyeingWaitProcessWarehousePage(),
+    '/fcs/craft/dyeing/wait-handover-warehouse': () => renderCraftDyeingWaitHandoverWarehousePage(),
+    '/fcs/craft/dyeing/warehouse': () =>
+      renderRouteRedirect('/fcs/craft/dyeing/wait-process-warehouse', '正在跳转到染色待加工仓'),
+    '/fcs/craft/dyeing/warehouse-management': () =>
+      renderRouteRedirect('/fcs/craft/dyeing/wait-process-warehouse', '正在跳转到染色待加工仓'),
     '/fcs/craft/dyeing/orders': () => renderCraftDyeingDyeOrdersPage(),
     '/fcs/craft/dyeing/dye-orders': () => renderCraftDyeingDyeOrdersPage(),
     '/fcs/craft/dyeing/batches': () => renderCraftDyeingDyeOrdersPage(),

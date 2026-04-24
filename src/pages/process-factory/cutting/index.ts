@@ -34,6 +34,10 @@ export { renderCraftCuttingFabricWarehousePage } from './fabric-warehouse.ts'
 export { renderCraftCuttingCutPieceWarehousePage } from './cut-piece-warehouse.ts'
 export { renderCraftCuttingSampleWarehousePage } from './sample-warehouse.ts'
 export {
+  renderCraftCuttingWarehouseManagementWaitProcessPage,
+  renderCraftCuttingWarehouseManagementWaitHandoverPage,
+} from './warehouse-hub.ts'
+export {
   renderCraftCuttingTransferBagsPage,
   renderCraftCuttingTransferBagDetailPage,
 } from './transfer-bags.ts'

@@ -66,9 +66,9 @@ function assertCanonicalExportsAndRoutes(): void {
   const productionProgress = readRepoFile('src/pages/process-factory/cutting/production-progress.ts')
   const replenishment = readRepoFile('src/pages/process-factory/cutting/replenishment.ts')
 
-  assertIncludes(cuttingIndex, "from './production-progress'", 'cutting/index.ts 应从 production-progress.ts 导出正式页面')
-  assertIncludes(cuttingIndex, "from './original-orders'", 'cutting/index.ts 应从 original-orders.ts 导出正式页面')
-  assertIncludes(cuttingIndex, "from './marker-spreading'", 'cutting/index.ts 应从 marker-spreading.ts 导出铺布正式页面')
+  assertIncludes(cuttingIndex, "from './production-progress.ts'", 'cutting/index.ts 应从 production-progress.ts 导出正式页面')
+  assertIncludes(cuttingIndex, "from './original-orders.ts'", 'cutting/index.ts 应从 original-orders.ts 导出正式页面')
+  assertIncludes(cuttingIndex, "from './marker-spreading.ts'", 'cutting/index.ts 应从 marker-spreading.ts 导出铺布正式页面')
   assertNotIncludes(cuttingIndex, "from './order-progress'", 'cutting/index.ts 不应再从旧 order-progress.ts 导出')
   assertNotIncludes(cuttingIndex, "from './cut-piece-orders'", 'cutting/index.ts 不应再从旧 cut-piece-orders.ts 导出')
 
@@ -123,8 +123,12 @@ function assertCanonicalExportsAndRoutes(): void {
   assertIncludes(navigationContext, "if (target === 'spreadingList')", 'navigation-context.ts 应支持显式 spreadingList target')
 
   assertIncludes(originalOrders, "return navigateToRecordTarget(actionNode.dataset.recordId, 'spreadingList')", 'original-orders.ts 的去铺布动作应走 spreadingList')
+  assertIncludes(originalOrders, '打印任务流转卡', 'original-orders.ts 应存在打印任务流转卡入口')
+  assertIncludes(originalOrders, "buildTaskRouteCardPrintLink('CUTTING_ORIGINAL_ORDER', row.originalCutOrderId)", '原始裁片单打印任务流转卡必须使用 originalCutOrderId')
   assertIncludes(materialPrep, "return navigateToRowTarget(actionNode.dataset.recordId || state.activeOrderId || undefined, 'spreadingList')", 'material-prep.ts 的去铺布动作应走 spreadingList')
   assertIncludes(mergeBatches, "getCanonicalCuttingPath('spreading-list')", 'merge-batches.ts 的去铺布动作应走 spreading-list')
+  assertIncludes(mergeBatches, '打印任务流转卡', 'merge-batches.ts 应存在打印任务流转卡入口')
+  assertIncludes(mergeBatches, "buildTaskRouteCardPrintLink('CUTTING_MERGE_BATCH', batch.mergeBatchId)", '裁片批次打印任务流转卡必须使用 mergeBatchId')
   assertIncludes(productionProgress, "return navigateToRecordTarget(actionNode.dataset.recordId, 'spreading-list')", 'production-progress.ts 的去铺布动作应走 spreading-list')
   assertIncludes(replenishment, "return navigateBySuggestion(actionNode.dataset.suggestionId || state.activeSuggestionId || undefined, 'spreadingList')", 'replenishment.ts 的去铺布动作应走 spreadingList')
 }
@@ -139,22 +143,22 @@ function assertProjectionCutover(): void {
   const originalProjection = readRepoFile('src/pages/process-factory/cutting/original-orders-projection.ts')
   const mergeProjection = readRepoFile('src/pages/process-factory/cutting/merge-batches-projection.ts')
 
-  assertIncludes(productionPage, "from './production-progress-projection'", 'production-progress.ts 应消费 production-progress projection')
+  assertIncludes(productionPage, "from './production-progress-projection.ts'", 'production-progress.ts 应消费 production-progress projection')
   assertNotIncludes(productionPage, 'cuttingOrderProgressRecords', 'production-progress.ts 不应再直接消费 order-progress 平行源')
   assertNotIncludes(productionPage, 'materialLineId', 'production-progress.ts 不应使用 materialLineId 作为 drill-down 锚点')
   assertNotIncludes(productionPage, 'cutPieceOrderNo', 'production-progress.ts 不应使用 cutPieceOrderNo 作为主 drill-down 参数')
 
-  assertIncludes(cuttablePage, "from './cuttable-pool-projection'", 'cuttable-pool.ts 应消费 cuttable-pool projection')
+  assertIncludes(cuttablePage, "from './cuttable-pool-projection.ts'", 'cuttable-pool.ts 应消费 cuttable-pool projection')
   assertNotIncludes(cuttablePage, 'cuttingOrderProgressRecords', 'cuttable-pool.ts 不应再直接消费 order-progress 平行源')
   assertNotIncludes(cuttablePage, 'materialLineId', 'cuttable-pool.ts 不应使用 materialLineId 作为 drill-down 锚点')
 
-  assertIncludes(originalPage, "from './original-orders-projection'", 'original-orders.ts 应消费 original-orders projection')
+  assertIncludes(originalPage, "from './original-orders-projection.ts'", 'original-orders.ts 应消费 original-orders projection')
   assertNotIncludes(originalPage, 'cuttingOrderProgressRecords', 'original-orders.ts 不应再直接消费 order-progress 平行源')
   assertNotIncludes(originalPage, 'buildOriginalCutOrderViewModel', 'original-orders.ts 不应直接回退到旧 model builder 作为主源')
   assertNotIncludes(originalPage, 'buildSystemSeedMergeBatches', 'original-orders.ts 不应继续自己构造旧 merge batch seed')
   assertNotIncludes(originalPage, 'materialLineId', 'original-orders.ts 不应使用 materialLineId 作为 drill-down 锚点')
 
-  assertIncludes(mergePage, "from './merge-batches-projection'", 'merge-batches.ts 应消费 merge-batches projection')
+  assertIncludes(mergePage, "from './merge-batches-projection.ts'", 'merge-batches.ts 应消费 merge-batches projection')
   assertNotIncludes(mergePage, 'buildSystemSeedMergeBatches', 'merge-batches.ts 不应继续使用旧 merge batch seed builder 作为主源')
   assertNotIncludes(mergePage, 'buildCuttablePoolViewModel', 'merge-batches.ts 不应直接拼 cuttable view model')
   assertNotIncludes(mergePage, 'readStoredFeiTicketRecords', 'merge-batches.ts 不应继续直接读取旧 fei storage source')

@@ -1715,7 +1715,7 @@ export function getSpecialCraftGenerationBatchByOrderId(
     || getSpecialCraftGenerationBatchByProductionOrder(productionOrderId, ensureStore().taskOrders)
 }
 
-export function buildSpecialCraftPageTitle(operation: SpecialCraftOperationDefinition, suffix: '任务单' | '任务详情' | '仓库管理' | '统计'): string {
+export function buildSpecialCraftPageTitle(operation: SpecialCraftOperationDefinition, suffix: '任务单' | '任务详情' | '待加工仓' | '待交出仓' | '统计'): string {
   return `${operation.operationName}${suffix}`
 }
 

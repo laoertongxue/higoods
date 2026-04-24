@@ -1919,6 +1919,22 @@ export function getCuttingSewingDispatchProgressByProductionOrder(productionOrde
 
 function seedStore(): void {
   const storeRef = store!
+  const pickSeedFeiTicketNos = (batch: CuttingSewingDispatchBatch, fallback: string[]): string[] => {
+    const requiredLines = getRequiredLinesForBag(batch)
+    const tickets = listGeneratedFeiTickets().filter((ticket) => ticket.productionOrderId === batch.productionOrderId)
+    const picked: string[] = []
+    requiredLines.forEach((line) => {
+      const ticket = tickets.find(
+        (item) =>
+          !picked.includes(item.feiTicketNo) &&
+          item.garmentColor === line.colorName &&
+          item.skuSize === line.sizeCode &&
+          item.partName === line.partName,
+      )
+      if (ticket) picked.push(ticket.feiTicketNo)
+    })
+    return picked.length > 0 ? picked : fallback
+  }
   const readyOrder = createCuttingSewingDispatchOrder({ productionOrderId: 'PO-202603-081', remark: '首批裁片发车缝' })
   const readyBatch = createCuttingSewingDispatchBatch({
     dispatchOrderId: readyOrder.dispatchOrderId,
@@ -1928,12 +1944,12 @@ function seedStore(): void {
     dispatchBatchId: readyBatch.dispatchBatchId,
     bagPlanList: [{ plannedGarmentQty: 1, skuQtyLines: readyBatch.plannedSkuQtyLines }],
   })
-  ;[
+  pickSeedFeiTicketNos(readyBatch, [
     'FT-CUT-260308-081-01-001',
     'FT-CUT-260308-081-01-003',
     'FT-CUT-260308-081-01-005',
     'FT-CUT-260308-081-03-003',
-  ].forEach((feiTicketNo) => {
+  ]).forEach((feiTicketNo) => {
     scanFeiTicketIntoTransferBag({ transferBagId: readyBags[0].transferBagId, feiTicketNo })
   })
   validateDispatchBatchCompleteness(readyBatch.dispatchBatchId)
@@ -1959,7 +1975,7 @@ function seedStore(): void {
     dispatchBatchId: secondBatch.dispatchBatchId,
     bagPlanList: [{ plannedGarmentQty: 1, skuQtyLines: secondBatch.plannedSkuQtyLines }],
   })
-  ;['FT-CUT-260308-081-01-002', 'FT-CUT-260308-081-01-004', 'FT-CUT-260308-081-03-004'].forEach((feiTicketNo) => {
+  pickSeedFeiTicketNos(secondBatch, ['FT-CUT-260308-081-01-002', 'FT-CUT-260308-081-01-004', 'FT-CUT-260308-081-03-004']).forEach((feiTicketNo) => {
     scanFeiTicketIntoTransferBag({ transferBagId: secondBags[0].transferBagId, feiTicketNo })
   })
   validateDispatchBatchCompleteness(secondBatch.dispatchBatchId)

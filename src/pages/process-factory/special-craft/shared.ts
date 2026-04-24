@@ -7,7 +7,8 @@ import { appStore } from '../../../state/store.ts'
 import {
   buildSpecialCraftStatisticsPath,
   buildSpecialCraftTaskOrdersPath,
-  buildSpecialCraftWarehousePath,
+  buildSpecialCraftWaitHandoverWarehousePath,
+  buildSpecialCraftWaitProcessWarehousePath,
 } from '../../../data/fcs/special-craft-operations.ts'
 import { escapeHtml, formatDateTime } from '../../../utils.ts'
 
@@ -17,7 +18,7 @@ type MetricCard = {
   tone?: 'slate' | 'blue' | 'green' | 'amber' | 'red' | 'violet'
 }
 
-type SubNavKey = 'tasks' | 'warehouse' | 'statistics'
+type SubNavKey = 'tasks' | 'wait-process' | 'wait-handover' | 'statistics'
 
 interface SpecialCraftFactoryContextGuard {
   factoryId: string | null
@@ -171,7 +172,8 @@ export function renderSpecialCraftPageLayout(input: {
   const { operation, title, description, activeSubNav, content } = input
   const subNavItems: Array<{ key: SubNavKey; label: string; href: string }> = [
     { key: 'tasks', label: `${operation.operationName}任务单`, href: buildSpecialCraftTaskOrdersPath(operation) },
-    { key: 'warehouse', label: `${operation.operationName}仓库管理`, href: buildSpecialCraftWarehousePath(operation) },
+    { key: 'wait-process', label: `${operation.operationName}待加工仓`, href: buildSpecialCraftWaitProcessWarehousePath(operation) },
+    { key: 'wait-handover', label: `${operation.operationName}待交出仓`, href: buildSpecialCraftWaitHandoverWarehousePath(operation) },
     { key: 'statistics', label: `${operation.operationName}统计`, href: buildSpecialCraftStatisticsPath(operation) },
   ]
 

@@ -124,7 +124,7 @@ function main(): void {
   assert(!includesRemovedPseudoCraft(riskSection), '任务工时风险页仍硬编码已删除伪特殊工艺')
   assert(!riskSection.includes('裁片 - 定位裁'), '任务工时风险页仍保留“裁片 - 定位裁”固定样例')
 
-  assert(!new RegExp([String.raw`\b${joinText(['axi', 'os'])}\b`, String.raw`(^|[^\w])${joinText(['fet', 'ch\\('])}`, String.raw`\b${joinText(['api', 'Client'])}\b`, joinText(['/', 'api', '/'])].join('|')).test(pageSource + dataSource), '本次范围内出现 API 改造')
+  assert(!new RegExp([String.raw`\b${joinText(['axi', 'os'])}\b`, String.raw`(^|[^\w])${joinText(['fet', 'ch\\('])}`, String.raw`\b${joinText(['api', 'Client'])}\b`, joinText(['/', 'api', '/'])].join('|')).test(pageSource + dataSource), '本次范围内出现接口改造')
   assert(!new RegExp([String.raw`\b${joinText(['i1', '8n'])}\b`, String.raw`\b${joinText(['use', 'Translation'])}\b`, String.raw`\b${joinText(['loc', 'ales'])}\b`, String.raw`\b${joinText(['trans', 'lations'])}\b`].join('|')).test(pageSource + dataSource + packageSource), '本次范围内出现多语言改造')
   assert(!new RegExp([
     joinText(['库存', '三态']),

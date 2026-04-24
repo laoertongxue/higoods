@@ -143,7 +143,7 @@ function buildRecord(techPack: (typeof techPacks)[number], index: number): Style
   const fixture = buildStyleFixture(techPack.spuCode, techPack.spuName)
   const versionNo = parseVersionNo(techPack.versionLabel, 1)
   const versionLabel = normalizeVersionLabel(techPack.versionLabel, versionNo)
-  const released = techPack.status === 'RELEASED'
+  const released = techPack.status === 'RELEASED' || techPack.status === 'ENABLED'
   const { categoryName, subCategoryName } = resolveCategory(techPack.spuName)
   const costItemCount = countCostItems(techPack)
 

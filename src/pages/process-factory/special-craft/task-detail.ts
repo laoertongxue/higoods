@@ -1,9 +1,10 @@
 import {
+  buildSpecialCraftPreferredWarehousePath,
   buildSpecialCraftTaskOrdersPath,
   buildSpecialCraftWorkOrderDetailPath,
-  buildSpecialCraftWarehousePath,
   getSpecialCraftOperationBySlug,
 } from '../../../data/fcs/special-craft-operations.ts'
+import { buildTaskRouteCardPrintLink } from '../../../data/fcs/fcs-route-links.ts'
 import {
   getSpecialCraftTaskOrderById,
   getSpecialCraftTaskWorkOrdersByTaskOrderId,
@@ -321,7 +322,8 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
     `
       <div class="flex flex-wrap gap-2">
         <button type="button" class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-slate-50" data-nav="${buildSpecialCraftTaskOrdersPath(operation)}">返回</button>
-        <button type="button" class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-slate-50" data-nav="${buildSpecialCraftWarehousePath(operation)}">查看仓库记录</button>
+        <button type="button" class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-slate-50" data-nav="${buildTaskRouteCardPrintLink('SPECIAL_CRAFT_TASK_ORDER', taskOrder.taskOrderId)}">打印任务流转卡</button>
+        <button type="button" class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-slate-50" data-nav="${buildSpecialCraftPreferredWarehousePath(taskOrder)}">查看仓库记录</button>
         <button type="button" class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-slate-50" data-nav="/fcs/pda/handover">查看交出记录</button>
       </div>
     `,

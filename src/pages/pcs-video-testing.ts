@@ -1696,7 +1696,7 @@ function renderReconcileTab(record: VideoRecordViewModel): string {
             <i data-lucide="download" class="h-4 w-4"></i>下载模板
           </button>
         </div>
-        <div class="mt-4 rounded-lg bg-slate-50 p-4 text-sm text-slate-500">平台 API 对接（v1）：暂未开放，当前原型使用导入和补录方式演示。</div>
+        <div class="mt-4 rounded-lg bg-slate-50 p-4 text-sm text-slate-500">平台接口对接（v1）：暂未开放，当前原型使用导入和补录方式演示。</div>
       </section>
       <section class="rounded-lg border bg-white p-4">
         <h2 class="text-lg font-semibold text-slate-900">核对清单</h2>

@@ -140,11 +140,11 @@ export const renderProductionConfirmationPrintPage = createAsyncRenderer(
   'renderProductionConfirmationPrintPage',
 )
 export const renderTaskDeliveryCardPrintPage = createAsyncRenderer(
-  () => import('../pages/task-print-cards'),
+  () => import('../pages/print/task-delivery-card'),
   'renderTaskDeliveryCardPrintPage',
 )
 export const renderTaskRouteCardPrintPage = createAsyncRenderer(
-  () => import('../pages/task-print-cards'),
+  () => import('../pages/print/task-route-card'),
   'renderTaskRouteCardPrintPage',
 )
 export const renderMaterialStatementsPage = createAsyncRenderer(
@@ -327,6 +327,14 @@ export const renderCraftCuttingFabricWarehousePage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/fabric-warehouse'),
   'renderCraftCuttingFabricWarehousePage',
 )
+export const renderCraftCuttingWarehouseManagementWaitProcessPage = createAsyncRenderer(
+  () => import('../pages/process-factory/cutting/warehouse-hub'),
+  'renderCraftCuttingWarehouseManagementWaitProcessPage',
+)
+export const renderCraftCuttingWarehouseManagementWaitHandoverPage = createAsyncRenderer(
+  () => import('../pages/process-factory/cutting/warehouse-hub'),
+  'renderCraftCuttingWarehouseManagementWaitHandoverPage',
+)
 export const renderCraftPrintingDashboardsPage = createAsyncRenderer(
   () => import('../pages/process-factory/printing/dashboards'),
   'renderCraftPrintingDashboardsPage',
@@ -347,6 +355,14 @@ export const renderCraftPrintingWorkOrdersPage = createAsyncRenderer(
   () => import('../pages/process-factory/printing/work-orders'),
   'renderCraftPrintingWorkOrdersPage',
 )
+export const renderCraftPrintingWaitProcessWarehousePage = createAsyncRenderer(
+  () => import('../pages/process-factory/printing/warehouse'),
+  'renderCraftPrintingWaitProcessWarehousePage',
+)
+export const renderCraftPrintingWaitHandoverWarehousePage = createAsyncRenderer(
+  () => import('../pages/process-factory/printing/warehouse'),
+  'renderCraftPrintingWaitHandoverWarehousePage',
+)
 export const renderCraftDyeingDyeOrdersPage = createAsyncRenderer(
   () => import('../pages/process-factory/dyeing/dye-orders'),
   'renderCraftDyeingDyeOrdersPage',
@@ -358,6 +374,14 @@ export const renderCraftDyeingReportsPage = createAsyncRenderer(
 export const renderCraftDyeingWorkOrdersPage = createAsyncRenderer(
   () => import('../pages/process-factory/dyeing/work-orders'),
   'renderCraftDyeingWorkOrdersPage',
+)
+export const renderCraftDyeingWaitProcessWarehousePage = createAsyncRenderer(
+  () => import('../pages/process-factory/dyeing/warehouse'),
+  'renderCraftDyeingWaitProcessWarehousePage',
+)
+export const renderCraftDyeingWaitHandoverWarehousePage = createAsyncRenderer(
+  () => import('../pages/process-factory/dyeing/warehouse'),
+  'renderCraftDyeingWaitHandoverWarehousePage',
 )
 export const renderSpecialCraftTaskOrdersPage = createAsyncRenderer(
   () => import('../pages/process-factory/special-craft/task-orders'),
@@ -374,6 +398,14 @@ export const renderSpecialCraftWorkOrderDetailPage = createAsyncRenderer(
 export const renderSpecialCraftWarehousePage = createAsyncRenderer(
   () => import('../pages/process-factory/special-craft/warehouse'),
   'renderSpecialCraftWarehousePage',
+)
+export const renderSpecialCraftWaitProcessWarehousePage = createAsyncRenderer(
+  () => import('../pages/process-factory/special-craft/warehouse'),
+  'renderSpecialCraftWaitProcessWarehousePage',
+)
+export const renderSpecialCraftWaitHandoverWarehousePage = createAsyncRenderer(
+  () => import('../pages/process-factory/special-craft/warehouse'),
+  'renderSpecialCraftWaitHandoverWarehousePage',
 )
 export const renderSpecialCraftStatisticsPage = createAsyncRenderer(
   () => import('../pages/process-factory/special-craft/statistics'),

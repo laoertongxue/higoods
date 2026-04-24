@@ -76,7 +76,10 @@ function assertFeiPagesCutover(): void {
   const feiQrModel = readRepoFile('src/pages/process-factory/cutting/fei-qr-model.ts')
   const feiBatchPrintModel = readRepoFile('src/pages/process-factory/cutting/fei-batch-print-model.ts')
 
-  assertIncludes(feiPage, "from './fei-ticket-print-projection'", 'fei-tickets.ts 应消费正式菲票 projection')
+  assert(
+    feiPage.includes("from './fei-ticket-print-projection'") || feiPage.includes("from './fei-ticket-print-projection.ts'"),
+    'fei-tickets.ts 应消费正式菲票 projection',
+  )
   assertIncludes(feiPage, 'craftTraceProjection', 'fei-tickets.ts 应接入工艺扫码追溯 projection')
   assertIncludes(feiPage, 'ticketId', 'fei-tickets.ts 应以 ticketId 作为正式页面锚点')
   assertIncludes(feiPage, 'originalCutOrderId', 'fei-tickets.ts 应透传 originalCutOrderId')
@@ -99,7 +102,10 @@ function assertCarrierCutover(): void {
   const traceabilityHelpers = readRepoFile('src/pages/process-factory/cutting/traceability-projection-helpers.ts')
   const spreadingModel = readRepoFile('src/pages/process-factory/cutting/marker-spreading-model.ts')
 
-  assertIncludes(transferBagsPage, "from './transfer-bags-projection'", 'transfer-bags.ts 应消费正式载具 projection')
+  assert(
+    transferBagsPage.includes("from './transfer-bags-projection'") || transferBagsPage.includes("from './transfer-bags-projection.ts'"),
+    'transfer-bags.ts 应消费正式载具 projection',
+  )
   assertIncludes(transferBagsPage, 'resolveCarrierScanInput', 'transfer-bags.ts 应使用正式父码解析')
   assertIncludes(transferBagsPage, 'resolveFeiTicketScanInput', 'transfer-bags.ts 应使用正式菲票子码解析')
   assertIncludes(transferBagsPage, '步骤 1：扫中转袋码', '装袋流程必须先扫口袋码')

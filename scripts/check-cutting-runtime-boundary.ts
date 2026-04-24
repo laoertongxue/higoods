@@ -97,7 +97,10 @@ function assertConsumersUseNewChain(): void {
   const detailAdapter = readRepoFile('src/domain/cutting-platform/detail.adapter.ts')
 
   assert(!summaryPage.includes('fcs-cutting-runtime/sources'), 'cutting-summary.ts 不应继续依赖旧 runtime sources')
-  assert(summaryPage.includes("from './runtime-projections'"), 'cutting-summary.ts 应改为消费 runtime projections')
+  assert(
+    summaryPage.includes("from './runtime-projections'") || summaryPage.includes("from './runtime-projections.ts'"),
+    'cutting-summary.ts 应改为消费 runtime projections',
+  )
 
   assert(!overviewAdapter.includes('fcs-cutting-runtime/sources'), 'overview.adapter.ts 不应继续依赖旧 runtime sources')
   assert(overviewAdapter.includes('buildFcsCuttingDomainSnapshot'), 'overview.adapter.ts 应直接消费 domain snapshot')
