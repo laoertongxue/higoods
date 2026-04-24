@@ -13,7 +13,7 @@ import type { PcsTaskPendingItem } from './pcs-project-types.ts'
 import type { FirstSampleTaskRecord } from './pcs-first-sample-types.ts'
 import type { PatternTaskRecord } from './pcs-pattern-task-types.ts'
 import type { PlateMakingTaskRecord } from './pcs-plate-making-types.ts'
-import type { PreProductionSampleTaskRecord } from './pcs-pre-production-sample-types.ts'
+import type { FirstOrderSampleTaskRecord } from './pcs-first-order-sample-types.ts'
 import type { RevisionTaskRecord } from './pcs-revision-task-types.ts'
 
 export interface TaskBootstrapSnapshot {
@@ -25,8 +25,8 @@ export interface TaskBootstrapSnapshot {
   patternPendingItems: PcsTaskPendingItem[]
   firstSampleTasks: FirstSampleTaskRecord[]
   firstSamplePendingItems: PcsTaskPendingItem[]
-  preProductionSampleTasks: PreProductionSampleTaskRecord[]
-  preProductionSamplePendingItems: PcsTaskPendingItem[]
+  firstOrderSampleTasks: FirstOrderSampleTaskRecord[]
+  firstOrderSamplePendingItems: PcsTaskPendingItem[]
 }
 
 export interface TaskRelationBootstrapSnapshot {
@@ -1059,12 +1059,11 @@ function firstSampleChainSeed(input: {
   upstreamObjectType: string
   upstreamObjectId: string
   upstreamObjectCode: string
-  sampleAssetId?: string
   sampleCode?: string
   reusable?: boolean
   confirmedAt?: string
 }): Pick<FirstSampleTaskRecord,
-  'sourceTechPackVersionId' | 'sourceTechPackVersionCode' | 'sourceTechPackVersionLabel' | 'sourceTaskType' | 'sourceTaskId' | 'sourceTaskCode' | 'sampleMaterialMode' | 'samplePurpose' | 'sampleAssetIds' | 'sampleImageIds' | 'reuseAsPreProductionFlag' | 'reuseAsPreProductionConfirmedAt' | 'reuseAsPreProductionConfirmedBy' | 'reuseAsPreProductionNote' | 'fitConfirmationSummary' | 'artworkConfirmationSummary' | 'productionReadinessNote' | 'acceptedAt' | 'confirmedAt'
+  'sourceTechPackVersionId' | 'sourceTechPackVersionCode' | 'sourceTechPackVersionLabel' | 'sourceTaskType' | 'sourceTaskId' | 'sourceTaskCode' | 'sampleMaterialMode' | 'samplePurpose' | 'sampleImageIds' | 'reuseAsFirstOrderBasisFlag' | 'reuseAsFirstOrderBasisConfirmedAt' | 'reuseAsFirstOrderBasisConfirmedBy' | 'reuseAsFirstOrderBasisNote' | 'fitConfirmationSummary' | 'artworkConfirmationSummary' | 'productionReadinessNote' | 'confirmedAt'
 > {
   const reusable = Boolean(input.reusable)
   return {
@@ -1075,36 +1074,32 @@ function firstSampleChainSeed(input: {
     sourceTaskId: input.upstreamObjectId,
     sourceTaskCode: input.upstreamObjectCode,
     sampleMaterialMode: '正确布',
-    samplePurpose: reusable ? '产前复用候选' : '首版确认',
-    sampleAssetIds: input.sampleAssetId ? [input.sampleAssetId] : [],
-    sampleImageIds: input.sampleAssetId ? [`mock://sample-image/${input.sampleCode || input.sampleAssetId}`] : [],
-    reuseAsPreProductionFlag: reusable,
-    reuseAsPreProductionConfirmedAt: reusable ? input.confirmedAt || '' : '',
-    reuseAsPreProductionConfirmedBy: reusable ? '系统初始化' : '',
-    reuseAsPreProductionNote: reusable ? '首版样衣可作为产前版参照。' : '',
+    samplePurpose: reusable ? '首单复用候选' : '首版确认',
+    sampleImageIds: input.sampleCode ? [`mock://sample-result/${input.sampleCode}`] : [],
+    reuseAsFirstOrderBasisFlag: reusable,
+    reuseAsFirstOrderBasisConfirmedAt: reusable ? input.confirmedAt || '' : '',
+    reuseAsFirstOrderBasisConfirmedBy: reusable ? '系统初始化' : '',
+    reuseAsFirstOrderBasisNote: reusable ? '首版样衣可作为首单参照。' : '',
     fitConfirmationSummary: reusable ? '版型可作为生产参照。' : '',
     artworkConfirmationSummary: reusable ? '外观和花型效果可接受。' : '',
-    productionReadinessNote: reusable ? '可进入产前参照准备。' : '',
-    acceptedAt: '',
+    productionReadinessNote: reusable ? '可进入首单打样准备。' : '',
     confirmedAt: input.confirmedAt || '',
   }
 }
 
-function preProductionChainSeed(input: {
+function firstOrderChainSeed(input: {
   upstreamObjectId: string
   upstreamObjectCode: string
-  sampleAssetId?: string
   sampleCode?: string
-  mode?: PreProductionSampleTaskRecord['sampleChainMode']
+  mode?: FirstOrderSampleTaskRecord['sampleChainMode']
   factoryReference?: boolean
   dualSample?: boolean
-}): Pick<PreProductionSampleTaskRecord,
-  'sourceTechPackVersionId' | 'sourceTechPackVersionCode' | 'sourceTechPackVersionLabel' | 'sourceFirstSampleTaskId' | 'sourceFirstSampleTaskCode' | 'sourceFirstSampleAssetId' | 'sourceFirstSampleCode' | 'sampleChainMode' | 'specialSceneReasonCodes' | 'specialSceneReasonText' | 'productionReferenceRequiredFlag' | 'chinaReviewRequiredFlag' | 'correctFabricRequiredFlag' | 'samplePlanLines' | 'finalReferenceSampleAssetIds' | 'finalReferenceNote' | 'acceptedAt' | 'confirmedAt'
+}): Pick<FirstOrderSampleTaskRecord,
+  'sourceTechPackVersionId' | 'sourceTechPackVersionCode' | 'sourceTechPackVersionLabel' | 'sourceFirstSampleTaskId' | 'sourceFirstSampleTaskCode' | 'sourceFirstSampleCode' | 'sampleChainMode' | 'specialSceneReasonCodes' | 'specialSceneReasonText' | 'productionReferenceRequiredFlag' | 'chinaReviewRequiredFlag' | 'correctFabricRequiredFlag' | 'samplePlanLines' | 'finalReferenceNote' | 'confirmedAt'
 > {
-  const mode = input.dualSample ? '双样衣' : input.mode || (input.sampleAssetId ? '新增一件产前版样衣' : '直接复用首版样衣')
-  const reuseAssetId = mode === '直接复用首版样衣' ? input.sampleAssetId || '' : ''
-  const reuseCode = mode === '直接复用首版样衣' ? input.sampleCode || '' : ''
-  const samplePlanLines = mode === '双样衣'
+  const mode = input.dualSample ? '替代布与正确布双确认' : input.mode || '复用首版结论'
+  const reuseCode = mode === '复用首版结论' ? input.sampleCode || '' : ''
+  const samplePlanLines = mode === '替代布与正确布双确认'
     ? [
         {
           lineId: 'dual-substitute-01',
@@ -1113,9 +1108,8 @@ function preProductionChainSeed(input: {
           quantity: 1,
           targetFactoryId: '',
           targetFactoryName: '',
-          linkedSampleAssetId: '',
           linkedSampleCode: '',
-          status: '待计划' as const,
+          status: '待确认' as const,
           note: '先用替代布确认版型和工艺。',
         },
         {
@@ -1125,37 +1119,34 @@ function preProductionChainSeed(input: {
           quantity: 1,
           targetFactoryId: '',
           targetFactoryName: '',
-          linkedSampleAssetId: '',
           linkedSampleCode: '',
-          status: '待计划' as const,
+          status: '待确认' as const,
           note: '再用正确布确认生产参照。',
         },
       ]
     : [
         {
-          lineId: mode === '直接复用首版样衣' ? 'reuse-first-sample-01' : 'new-correct-sample-01',
-          sampleRole: mode === '直接复用首版样衣' ? '复用首版样衣' as const : '正确布确认样' as const,
-          materialMode: mode === '直接复用首版样衣' ? '复用首版' as const : '正确布' as const,
+          lineId: mode === '复用首版结论' ? 'reuse-first-sample-01' : 'new-correct-sample-01',
+          sampleRole: mode === '复用首版结论' ? '复用首版结论' as const : '正确布确认样' as const,
+          materialMode: mode === '复用首版结论' ? '沿用首版' as const : '正确布' as const,
           quantity: 1,
           targetFactoryId: '',
           targetFactoryName: '',
-          linkedSampleAssetId: reuseAssetId,
           linkedSampleCode: reuseCode,
-          status: reuseAssetId ? '已确认' as const : '待计划' as const,
-          note: mode === '直接复用首版样衣' ? '直接复用首版样衣作为产前参照。' : '',
+          status: reuseCode ? '已确认' as const : '待确认' as const,
+          note: mode === '复用首版结论' ? '复用首版样衣打样结论作为首单依据。' : '',
         },
       ]
   if (input.factoryReference) {
     samplePlanLines.push({
       lineId: 'factory-reference-01',
-      sampleRole: '工厂参照样',
+      sampleRole: '工厂参照确认',
       materialMode: '正确布',
       quantity: 3,
       targetFactoryId: 'factory-reference',
       targetFactoryName: '参与生产工厂',
-      linkedSampleAssetId: '',
       linkedSampleCode: '',
-      status: '待计划',
+      status: '待确认',
       note: '大货前分发给生产工厂参照。',
     })
   }
@@ -1165,18 +1156,15 @@ function preProductionChainSeed(input: {
     sourceTechPackVersionLabel: '',
     sourceFirstSampleTaskId: input.upstreamObjectId,
     sourceFirstSampleTaskCode: input.upstreamObjectCode,
-    sourceFirstSampleAssetId: reuseAssetId,
     sourceFirstSampleCode: reuseCode,
     sampleChainMode: mode,
     specialSceneReasonCodes: input.dualSample ? ['定位印', '正确布确认'] : input.factoryReference ? ['大货量大', '工厂参照样'] : [],
-    specialSceneReasonText: input.dualSample ? '定位印需要替代布和正确布双样衣确认。' : '',
+    specialSceneReasonText: input.dualSample ? '定位印需要替代布和正确布分别确认。' : '',
     productionReferenceRequiredFlag: Boolean(input.factoryReference),
     chinaReviewRequiredFlag: Boolean(input.dualSample),
     correctFabricRequiredFlag: Boolean(input.dualSample),
     samplePlanLines,
-    finalReferenceSampleAssetIds: reuseAssetId ? [reuseAssetId] : [],
-    finalReferenceNote: reuseAssetId ? '最终参照首版样衣。' : '',
-    acceptedAt: '',
+    finalReferenceNote: reuseCode ? '最终参照首版打样结果。' : '',
     confirmedAt: '',
   }
 }
@@ -1207,16 +1195,13 @@ function createFirstSampleSeeds(): { tasks: FirstSampleTaskRecord[]; pendingItem
       factoryId: 'factory-shenzhen-01',
       factoryName: '深圳工厂01',
       targetSite: '深圳',
-      expectedArrival: '2026-01-20 18:00:00',
-      trackingNo: 'FS-TRACK-3',
-      sampleAssetId: '',
       sampleCode: 'SY-SZ-00088',
       ...firstSampleChainSeed({
         upstreamObjectType: '改版任务',
         upstreamObjectId: 'RT-20260108-002',
         upstreamObjectCode: 'RT-20260108-002',
       }),
-      status: '待发样',
+      status: '待处理',
       ownerId: projectA.ownerId,
       ownerName: projectA.ownerName,
       priorityLevel: '中',
@@ -1249,16 +1234,13 @@ function createFirstSampleSeeds(): { tasks: FirstSampleTaskRecord[]; pendingItem
       factoryId: 'factory-jakarta-02',
       factoryName: '雅加达工厂02',
       targetSite: '雅加达',
-      expectedArrival: '2026-01-13 18:00:00',
-      trackingNo: 'FS-TRACK-1',
-      sampleAssetId: '',
       sampleCode: 'SY-JKT-00031',
       ...firstSampleChainSeed({
         upstreamObjectType: '制版任务',
         upstreamObjectId: 'PT-20260109-002',
         upstreamObjectCode: 'PT-20260109-002',
       }),
-      status: '在途',
+      status: '打样中',
       ownerId: projectB.ownerId,
       ownerName: projectB.ownerName,
       priorityLevel: '高',
@@ -1285,10 +1267,8 @@ function createFirstSampleSeeds(): { tasks: FirstSampleTaskRecord[]; pendingItem
       factoryId: 'factory-jakarta-02',
       factoryName: '雅加达工厂02',
       targetSite: '雅加达',
-      expectedArrival: '2026-04-06 18:00:00',
-      trackingNo: 'FS-TRACK-005',
       sampleCode: 'SY-JKT-00105',
-      status: '在途' as const,
+      status: '打样中' as const,
       priorityLevel: '中' as const,
       createdAt: '2026-04-03 11:00:00',
       updatedAt: '2026-04-03 16:00:00',
@@ -1305,10 +1285,8 @@ function createFirstSampleSeeds(): { tasks: FirstSampleTaskRecord[]; pendingItem
       factoryId: 'factory-shenzhen-02',
       factoryName: '深圳工厂02',
       targetSite: '深圳',
-      expectedArrival: '2026-04-08 18:00:00',
-      trackingNo: 'FS-TRACK-013',
       sampleCode: 'SY-SZ-00113',
-      status: '待发样' as const,
+      status: '待处理' as const,
       priorityLevel: '高' as const,
       createdAt: '2026-04-04 10:40:00',
       updatedAt: '2026-04-04 12:10:00',
@@ -1335,15 +1313,12 @@ function createFirstSampleSeeds(): { tasks: FirstSampleTaskRecord[]; pendingItem
       factoryId: item.factoryId,
       factoryName: item.factoryName,
       targetSite: item.targetSite,
-      expectedArrival: item.expectedArrival,
-      trackingNo: item.trackingNo,
-      sampleAssetId: '',
       sampleCode: item.sampleCode,
       ...firstSampleChainSeed({
         upstreamObjectType: item.upstreamObjectType,
         upstreamObjectId: item.upstreamObjectId,
         upstreamObjectCode: item.upstreamObjectCode,
-        reusable: item.status === '已完成',
+        reusable: item.status === '已通过',
       }),
       status: item.status,
       ownerId: project.ownerId,
@@ -1367,24 +1342,24 @@ function createFirstSampleSeeds(): { tasks: FirstSampleTaskRecord[]; pendingItem
   }
 }
 
-function createPreProductionSeeds(): { tasks: PreProductionSampleTaskRecord[]; pendingItems: PcsTaskPendingItem[] } {
-  const tasks: PreProductionSampleTaskRecord[] = []
+function createFirstOrderSeeds(): { tasks: FirstOrderSampleTaskRecord[]; pendingItems: PcsTaskPendingItem[] } {
+  const tasks: FirstOrderSampleTaskRecord[] = []
   const projectA = pickProjectByCode('PRJ-20251216-010')
   const projectB = pickProjectByCode('PRJ-20251216-003')
-  const nodeA = projectA ? findProjectNodeByWorkItemTypeCode(projectA.projectId, 'PRE_PRODUCTION_SAMPLE') : null
-  const nodeB = projectB ? findProjectNodeByWorkItemTypeCode(projectB.projectId, 'PRE_PRODUCTION_SAMPLE') : null
+  const nodeA = projectA ? findProjectNodeByWorkItemTypeCode(projectA.projectId, 'FIRST_ORDER_SAMPLE') : null
+  const nodeB = projectB ? findProjectNodeByWorkItemTypeCode(projectB.projectId, 'FIRST_ORDER_SAMPLE') : null
 
   if (projectA && nodeA) {
     tasks.push({
-      preProductionSampleTaskId: 'PP-20260124-003',
-      preProductionSampleTaskCode: 'PP-20260124-003',
-      title: `产前版样衣-${projectA.projectName}`,
+      firstOrderSampleTaskId: 'PP-20260124-003',
+      firstOrderSampleTaskCode: 'PP-20260124-003',
+      title: `首单样衣打样-${projectA.projectName}`,
       projectId: projectA.projectId,
       projectCode: projectA.projectCode,
       projectName: projectA.projectName,
       projectNodeId: nodeA.projectNodeId,
-      workItemTypeCode: 'PRE_PRODUCTION_SAMPLE',
-      workItemTypeName: '产前版样衣',
+      workItemTypeCode: 'FIRST_ORDER_SAMPLE',
+      workItemTypeName: '首单样衣打样',
       sourceType: '首版样衣打样',
       upstreamModule: '首版样衣打样',
       upstreamObjectType: '首版样衣打样任务',
@@ -1395,16 +1370,13 @@ function createPreProductionSeeds(): { tasks: PreProductionSampleTaskRecord[]; p
       targetSite: '雅加达',
       patternVersion: 'P2',
       artworkVersion: 'A1',
-      expectedArrival: '2026-01-24 18:00:00',
-      trackingNo: 'PP-TRACK-3',
-      sampleAssetId: '',
       sampleCode: 'SY-JKT-00068',
-      ...preProductionChainSeed({
+      ...firstOrderChainSeed({
         upstreamObjectId: 'FS-20260119-003',
         upstreamObjectCode: 'FS-20260119-003',
         factoryReference: true,
       }),
-      status: '待发样',
+      status: '待处理',
       ownerId: projectA.ownerId,
       ownerName: projectA.ownerName,
       priorityLevel: '中',
@@ -1420,15 +1392,15 @@ function createPreProductionSeeds(): { tasks: PreProductionSampleTaskRecord[]; p
 
   if (projectB && nodeB) {
     tasks.push({
-      preProductionSampleTaskId: 'PP-20260121-001',
-      preProductionSampleTaskCode: 'PP-20260121-001',
-      title: `产前版样衣-${projectB.projectName}`,
+      firstOrderSampleTaskId: 'PP-20260121-001',
+      firstOrderSampleTaskCode: 'PP-20260121-001',
+      title: `首单样衣打样-${projectB.projectName}`,
       projectId: projectB.projectId,
       projectCode: projectB.projectCode,
       projectName: projectB.projectName,
       projectNodeId: nodeB.projectNodeId,
-      workItemTypeCode: 'PRE_PRODUCTION_SAMPLE',
-      workItemTypeName: '产前版样衣',
+      workItemTypeCode: 'FIRST_ORDER_SAMPLE',
+      workItemTypeName: '首单样衣打样',
       sourceType: '制版任务',
       upstreamModule: '制版任务',
       upstreamObjectType: '制版任务',
@@ -1439,15 +1411,12 @@ function createPreProductionSeeds(): { tasks: PreProductionSampleTaskRecord[]; p
       targetSite: '深圳',
       patternVersion: 'P1',
       artworkVersion: '',
-      expectedArrival: '2026-01-23 18:00:00',
-      trackingNo: 'PP-TRACK-1',
-      sampleAssetId: '',
       sampleCode: 'SY-SZ-00052',
-      ...preProductionChainSeed({
+      ...firstOrderChainSeed({
         upstreamObjectId: 'PT-20260109-002',
         upstreamObjectCode: 'PT-20260109-002',
       }),
-      status: '在途',
+      status: '打样中',
       ownerId: projectB.ownerId,
       ownerName: projectB.ownerName,
       priorityLevel: '高',
@@ -1464,9 +1433,9 @@ function createPreProductionSeeds(): { tasks: PreProductionSampleTaskRecord[]; p
   ;[
     {
       projectCode: 'PRJ-20251216-005',
-      preProductionSampleTaskId: 'PP-20260405-005',
-      preProductionSampleTaskCode: 'PP-20260405-005',
-      title: '产前版样衣-法式优雅衬衫连衣裙',
+      firstOrderSampleTaskId: 'PP-20260405-005',
+      firstOrderSampleTaskCode: 'PP-20260405-005',
+      title: '首单样衣打样-法式优雅衬衫连衣裙',
       upstreamModule: '首版样衣打样',
       upstreamObjectType: '首版样衣打样任务',
       upstreamObjectId: 'FS-20260403-005',
@@ -1476,19 +1445,17 @@ function createPreProductionSeeds(): { tasks: PreProductionSampleTaskRecord[]; p
       targetSite: '雅加达',
       patternVersion: 'P2',
       artworkVersion: 'A1',
-      expectedArrival: '2026-04-09 18:00:00',
-      trackingNo: 'PP-TRACK-005',
       sampleCode: 'SY-JKT-00125',
-      status: '在途' as const,
+      status: '打样中' as const,
       priorityLevel: '中' as const,
       createdAt: '2026-04-05 09:20:00',
       updatedAt: '2026-04-05 14:30:00',
     },
     {
       projectCode: 'PRJ-20251216-013',
-      preProductionSampleTaskId: 'PP-20260406-013',
-      preProductionSampleTaskCode: 'PP-20260406-013',
-      title: '产前版样衣-设计款户外轻量夹克',
+      firstOrderSampleTaskId: 'PP-20260406-013',
+      firstOrderSampleTaskCode: 'PP-20260406-013',
+      title: '首单样衣打样-设计款户外轻量夹克',
       upstreamModule: '首版样衣打样',
       upstreamObjectType: '首版样衣打样任务',
       upstreamObjectId: 'FS-20260404-013',
@@ -1498,28 +1465,26 @@ function createPreProductionSeeds(): { tasks: PreProductionSampleTaskRecord[]; p
       targetSite: '深圳',
       patternVersion: 'P2',
       artworkVersion: 'A1',
-      expectedArrival: '2026-04-11 18:00:00',
-      trackingNo: 'PP-TRACK-013',
       sampleCode: 'SY-SZ-00133',
-      status: '待发样' as const,
+      status: '待处理' as const,
       priorityLevel: '高' as const,
       createdAt: '2026-04-06 10:10:00',
       updatedAt: '2026-04-06 12:40:00',
     },
   ].forEach((item) => {
     const project = pickProjectByCode(item.projectCode)
-    const node = project ? findProjectNodeByWorkItemTypeCode(project.projectId, 'PRE_PRODUCTION_SAMPLE') : null
+    const node = project ? findProjectNodeByWorkItemTypeCode(project.projectId, 'FIRST_ORDER_SAMPLE') : null
     if (!project || !node) return
     tasks.push({
-      preProductionSampleTaskId: item.preProductionSampleTaskId,
-      preProductionSampleTaskCode: item.preProductionSampleTaskCode,
+      firstOrderSampleTaskId: item.firstOrderSampleTaskId,
+      firstOrderSampleTaskCode: item.firstOrderSampleTaskCode,
       title: item.title,
       projectId: project.projectId,
       projectCode: project.projectCode,
       projectName: project.projectName,
       projectNodeId: node.projectNodeId,
-      workItemTypeCode: 'PRE_PRODUCTION_SAMPLE',
-      workItemTypeName: '产前版样衣',
+      workItemTypeCode: 'FIRST_ORDER_SAMPLE',
+      workItemTypeName: '首单样衣打样',
       sourceType: '项目模板阶段',
       upstreamModule: item.upstreamModule,
       upstreamObjectType: item.upstreamObjectType,
@@ -1530,11 +1495,8 @@ function createPreProductionSeeds(): { tasks: PreProductionSampleTaskRecord[]; p
       targetSite: item.targetSite,
       patternVersion: item.patternVersion,
       artworkVersion: item.artworkVersion,
-      expectedArrival: item.expectedArrival,
-      trackingNo: item.trackingNo,
-      sampleAssetId: '',
       sampleCode: item.sampleCode,
-      ...preProductionChainSeed({
+      ...firstOrderChainSeed({
         upstreamObjectId: item.upstreamObjectId,
         upstreamObjectCode: item.upstreamObjectCode,
         dualSample: item.projectCode === 'PRJ-20251216-013',
@@ -1547,7 +1509,7 @@ function createPreProductionSeeds(): { tasks: PreProductionSampleTaskRecord[]; p
       createdBy: '系统初始化',
       updatedAt: item.updatedAt,
       updatedBy: '系统初始化',
-      note: '补充的演示产前版样衣任务。',
+      note: '补充的演示首单样衣打样任务。',
       legacyProjectRef: project.projectCode,
       legacyUpstreamRef: item.upstreamObjectCode,
     })
@@ -1556,7 +1518,7 @@ function createPreProductionSeeds(): { tasks: PreProductionSampleTaskRecord[]; p
   return {
     tasks,
     pendingItems: [
-      pendingItem('产前版样衣', 'PP-LEGACY-404', 'PRJ-UNKNOWN-PP', '首单', '历史产前版样衣记录未找到正式项目或节点。', '2026-01-18 16:30:00'),
+      pendingItem('首单样衣打样', 'PP-LEGACY-404', 'PRJ-UNKNOWN-PP', '首单', '历史首单样衣打样记录未找到正式项目或节点。', '2026-01-18 16:30:00'),
     ],
   }
 }
@@ -1566,7 +1528,7 @@ export function createTaskBootstrapSnapshot(): TaskBootstrapSnapshot {
   const plate = createPlateSeeds()
   const pattern = createPatternSeeds()
   const firstSample = createFirstSampleSeeds()
-  const preProduction = createPreProductionSeeds()
+  const firstOrder = createFirstOrderSeeds()
   return {
     revisionTasks: revision.tasks,
     revisionPendingItems: revision.pendingItems,
@@ -1576,8 +1538,8 @@ export function createTaskBootstrapSnapshot(): TaskBootstrapSnapshot {
     patternPendingItems: pattern.pendingItems,
     firstSampleTasks: firstSample.tasks,
     firstSamplePendingItems: firstSample.pendingItems,
-    preProductionSampleTasks: preProduction.tasks,
-    preProductionSamplePendingItems: preProduction.pendingItems,
+    firstOrderSampleTasks: firstOrder.tasks,
+    firstOrderSamplePendingItems: firstOrder.pendingItems,
   }
 }
 
@@ -1655,17 +1617,17 @@ export function createTaskRelationBootstrapSnapshot(): TaskRelationBootstrapSnap
           ownerName: task.ownerName,
         }),
       ),
-      ...snapshot.preProductionSampleTasks.map((task) =>
+      ...snapshot.firstOrderSampleTasks.map((task) =>
         taskRelationRecord({
           projectId: task.projectId,
           projectCode: task.projectCode,
           projectNodeId: task.projectNodeId,
           workItemTypeCode: task.workItemTypeCode,
           workItemTypeName: task.workItemTypeName,
-          sourceModule: '产前版样衣',
-          sourceObjectType: '产前版样衣任务',
-          sourceObjectId: task.preProductionSampleTaskId,
-          sourceObjectCode: task.preProductionSampleTaskCode,
+          sourceModule: '首单样衣打样',
+          sourceObjectType: '首单样衣打样任务',
+          sourceObjectId: task.firstOrderSampleTaskId,
+          sourceObjectCode: task.firstOrderSampleTaskCode,
           sourceTitle: task.title,
           sourceStatus: task.status,
           businessDate: task.createdAt,
@@ -1686,8 +1648,8 @@ export function createTaskRelationBootstrapSnapshot(): TaskRelationBootstrapSnap
       ...snapshot.firstSamplePendingItems.map((item) =>
         relationPendingItem('首版样衣打样', item.rawTaskCode, item.rawProjectField, item.reason, item.discoveredAt, item.rawSourceField),
       ),
-      ...snapshot.preProductionSamplePendingItems.map((item) =>
-        relationPendingItem('产前版样衣', item.rawTaskCode, item.rawProjectField, item.reason, item.discoveredAt, item.rawSourceField),
+      ...snapshot.firstOrderSamplePendingItems.map((item) =>
+        relationPendingItem('首单样衣打样', item.rawTaskCode, item.rawProjectField, item.reason, item.discoveredAt, item.rawSourceField),
       ),
     ],
   }

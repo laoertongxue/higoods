@@ -1,21 +1,21 @@
 import type { PcsTaskPendingItem } from './pcs-project-types.ts'
 import type { SampleChainMode, SamplePlanLine, SampleSpecialSceneReasonCode } from './pcs-sample-chain-types.ts'
-import type { PreProductionSampleTaskSourceType } from './pcs-task-source-normalizer.ts'
+import type { FirstOrderSampleTaskSourceType } from './pcs-task-source-normalizer.ts'
 
-export const PRE_PRODUCTION_SAMPLE_TASK_STATUS_LIST = ['草稿', '待发样', '在途', '已到样待入库', '验收中', '已完成', '已取消'] as const
-export type PreProductionSampleTaskStatus = (typeof PRE_PRODUCTION_SAMPLE_TASK_STATUS_LIST)[number]
+export const FIRST_ORDER_SAMPLE_TASK_STATUS_LIST = ['草稿', '待处理', '打样中', '待确认', '已通过', '需改版', '需补首单', '已取消'] as const
+export type FirstOrderSampleTaskStatus = (typeof FIRST_ORDER_SAMPLE_TASK_STATUS_LIST)[number]
 
-export interface PreProductionSampleTaskRecord {
-  preProductionSampleTaskId: string
-  preProductionSampleTaskCode: string
+export interface FirstOrderSampleTaskRecord {
+  firstOrderSampleTaskId: string
+  firstOrderSampleTaskCode: string
   title: string
   projectId: string
   projectCode: string
   projectName: string
   projectNodeId: string
-  workItemTypeCode: 'PRE_PRODUCTION_SAMPLE'
-  workItemTypeName: '产前版样衣'
-  sourceType: PreProductionSampleTaskSourceType
+  workItemTypeCode: 'FIRST_ORDER_SAMPLE'
+  workItemTypeName: '首单样衣打样'
+  sourceType: FirstOrderSampleTaskSourceType
   upstreamModule: string
   upstreamObjectType: string
   upstreamObjectId: string
@@ -25,15 +25,12 @@ export interface PreProductionSampleTaskRecord {
   sourceTechPackVersionLabel: string
   sourceFirstSampleTaskId: string
   sourceFirstSampleTaskCode: string
-  sourceFirstSampleAssetId: string
   sourceFirstSampleCode: string
   factoryId: string
   factoryName: string
   targetSite: string
   patternVersion: string
   artworkVersion: string
-  expectedArrival: string
-  trackingNo: string
   sampleChainMode: SampleChainMode
   specialSceneReasonCodes: SampleSpecialSceneReasonCode[]
   specialSceneReasonText: string
@@ -41,13 +38,10 @@ export interface PreProductionSampleTaskRecord {
   chinaReviewRequiredFlag: boolean
   correctFabricRequiredFlag: boolean
   samplePlanLines: SamplePlanLine[]
-  finalReferenceSampleAssetIds: string[]
   finalReferenceNote: string
-  sampleAssetId: string
   sampleCode: string
-  acceptedAt: string
   confirmedAt: string
-  status: PreProductionSampleTaskStatus
+  status: FirstOrderSampleTaskStatus
   ownerId: string
   ownerName: string
   priorityLevel: '高' | '中' | '低'
@@ -60,8 +54,8 @@ export interface PreProductionSampleTaskRecord {
   legacyUpstreamRef: string
 }
 
-export interface PreProductionSampleTaskStoreSnapshot {
+export interface FirstOrderSampleTaskStoreSnapshot {
   version: number
-  tasks: PreProductionSampleTaskRecord[]
+  tasks: FirstOrderSampleTaskRecord[]
   pendingItems: PcsTaskPendingItem[]
 }

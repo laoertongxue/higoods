@@ -7,7 +7,6 @@ import {
 } from './pcs-testing-relation-normalizer.ts'
 import { getLiveProductLineById } from './pcs-live-testing-repository.ts'
 import { getProjectById, getProjectStoreSnapshot, listProjects } from './pcs-project-repository.ts'
-import { removeSampleRetainReviewFromRelations } from './pcs-remove-sample-retain-review-migration.ts'
 import { getVideoTestRecordById } from './pcs-video-testing-repository.ts'
 import type {
   ProjectRelationPendingItem,
@@ -104,18 +103,16 @@ function normalizeSourceModule(value: string | null | undefined): ProjectRelatio
     value === '制版任务' ||
     value === '花型任务' ||
     value === '首版样衣打样' ||
-    value === '产前版样衣' ||
+    value === '首单样衣打样' ||
     value === '款式档案' ||
     value === '技术包' ||
     value === '项目资料归档' ||
-    value === '样衣资产' ||
-    value === '样衣台账' ||
     value === '直播' ||
     value === '短视频'
   ) {
     return value === '渠道商品' ? '渠道店铺商品' : value
   }
-  return '样衣台账'
+  return '项目资料归档'
 }
 
 function normalizeSourceObjectType(value: string | null | undefined): ProjectRelationSourceObjectType {
@@ -127,18 +124,16 @@ function normalizeSourceObjectType(value: string | null | undefined): ProjectRel
     value === '制版任务' ||
     value === '花型任务' ||
     value === '首版样衣打样任务' ||
-    value === '产前版样衣任务' ||
+    value === '首单样衣打样任务' ||
     value === '款式档案' ||
     value === '技术包版本' ||
     value === '项目资料归档' ||
-    value === '样衣资产' ||
-    value === '样衣台账事件' ||
     value === '直播商品明细' ||
     value === '短视频记录'
   ) {
     return value === '渠道商品' ? '渠道店铺商品' : value
   }
-  return '样衣台账事件'
+  return '项目资料归档'
 }
 
 function normalizeRelation(record: ProjectRelationRecord): ProjectRelationRecord {
@@ -212,11 +207,10 @@ function dedupePendingItems(items: ProjectRelationPendingItem[]): ProjectRelatio
 }
 
 function cleanRemovedRetainReviewRelations(snapshot: ProjectRelationStoreSnapshot): ProjectRelationStoreSnapshot {
-  const migrated = removeSampleRetainReviewFromRelations(snapshot, getProjectStoreSnapshot())
   return {
     version: PROJECT_RELATION_STORE_VERSION,
-    relations: dedupeRelations(migrated.relations),
-    pendingItems: dedupePendingItems(migrated.pendingItems),
+    relations: dedupeRelations(snapshot.relations),
+    pendingItems: dedupePendingItems(snapshot.pendingItems),
   }
 }
 
@@ -342,7 +336,7 @@ export function listProjectRelationsBySourceObject(input: {
 }
 
 export function listProjectRelationsByTaskSource(
-  sourceModule: '改版任务' | '制版任务' | '花型任务' | '首版样衣打样' | '产前版样衣',
+  sourceModule: '改版任务' | '制版任务' | '花型任务' | '首版样衣打样' | '首单样衣打样',
   sourceObjectId: string,
 ): ProjectRelationRecord[] {
   ensurePcsProjectFormalRelationSeedReady()

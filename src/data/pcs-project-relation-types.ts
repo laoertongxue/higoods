@@ -9,12 +9,10 @@ export const PROJECT_RELATION_SOURCE_MODULES = [
   '制版任务',
   '花型任务',
   '首版样衣打样',
-  '产前版样衣',
+  '首单样衣打样',
   '款式档案',
   '技术包',
   '项目资料归档',
-  '样衣资产',
-  '样衣台账',
   '直播',
   '短视频',
 ] as const
@@ -28,12 +26,10 @@ export const PROJECT_RELATION_SOURCE_OBJECT_TYPES = [
   '制版任务',
   '花型任务',
   '首版样衣打样任务',
-  '产前版样衣任务',
+  '首单样衣打样任务',
   '款式档案',
   '技术包版本',
   '项目资料归档',
-  '样衣资产',
-  '样衣台账事件',
   '直播商品明细',
   '短视频记录',
 ] as const
@@ -44,11 +40,11 @@ export type ProjectRelationTechnicalVersionSourceObjectType = Extract<ProjectRel
 export type ProjectRelationArchiveSourceObjectType = Extract<ProjectRelationSourceObjectType, '项目资料归档'>
 export type ProjectRelationTaskSourceModule = Extract<
   ProjectRelationSourceModule,
-  '改版任务' | '制版任务' | '花型任务' | '首版样衣打样' | '产前版样衣'
+  '改版任务' | '制版任务' | '花型任务' | '首版样衣打样' | '首单样衣打样'
 >
 export type ProjectRelationTaskSourceObjectType = Extract<
   ProjectRelationSourceObjectType,
-  '改版任务' | '制版任务' | '花型任务' | '首版样衣打样任务' | '产前版样衣任务'
+  '改版任务' | '制版任务' | '花型任务' | '首版样衣打样任务' | '首单样衣打样任务'
 >
 
 export interface ProjectRelationRecord {

@@ -2,7 +2,7 @@ import type { PcsTaskPendingItem } from './pcs-project-types.ts'
 import type { FirstSamplePurpose, SampleMaterialMode } from './pcs-sample-chain-types.ts'
 import type { FirstSampleTaskSourceType } from './pcs-task-source-normalizer.ts'
 
-export const FIRST_SAMPLE_TASK_STATUS_LIST = ['草稿', '待发样', '在途', '已到样待入库', '验收中', '已完成', '已取消'] as const
+export const FIRST_SAMPLE_TASK_STATUS_LIST = ['草稿', '待处理', '打样中', '待确认', '已通过', '需改版', '需补样', '已取消'] as const
 export type FirstSampleTaskStatus = (typeof FIRST_SAMPLE_TASK_STATUS_LIST)[number]
 
 export interface FirstSampleTaskRecord {
@@ -29,22 +29,17 @@ export interface FirstSampleTaskRecord {
   factoryId: string
   factoryName: string
   targetSite: string
-  expectedArrival: string
-  trackingNo: string
   sampleMaterialMode: SampleMaterialMode
   samplePurpose: FirstSamplePurpose
-  sampleAssetId: string
   sampleCode: string
-  sampleAssetIds: string[]
   sampleImageIds: string[]
-  reuseAsPreProductionFlag: boolean
-  reuseAsPreProductionConfirmedAt: string
-  reuseAsPreProductionConfirmedBy: string
-  reuseAsPreProductionNote: string
+  reuseAsFirstOrderBasisFlag: boolean
+  reuseAsFirstOrderBasisConfirmedAt: string
+  reuseAsFirstOrderBasisConfirmedBy: string
+  reuseAsFirstOrderBasisNote: string
   fitConfirmationSummary: string
   artworkConfirmationSummary: string
   productionReadinessNote: string
-  acceptedAt: string
   confirmedAt: string
   status: FirstSampleTaskStatus
   ownerId: string

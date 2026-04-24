@@ -57,12 +57,12 @@ import type {
   PlateMakingProductHistoryType,
 } from './pcs-plate-making-pattern-file-types.ts'
 import {
-  getPreProductionSampleTaskById,
-  listPreProductionSampleTasks,
-  upsertPreProductionSampleTask,
-  upsertPreProductionSampleTaskPendingItem,
-} from './pcs-pre-production-sample-repository.ts'
-import type { PreProductionSampleTaskRecord } from './pcs-pre-production-sample-types.ts'
+  getFirstOrderSampleTaskById,
+  listFirstOrderSampleTasks,
+  upsertFirstOrderSampleTask,
+  upsertFirstOrderSampleTaskPendingItem,
+} from './pcs-first-order-sample-repository.ts'
+import type { FirstOrderSampleTaskRecord } from './pcs-first-order-sample-types.ts'
 import {
   createDefaultSamplePlanLines,
   normalizeSamplePlanLines,
@@ -91,7 +91,7 @@ import {
   type FirstSampleTaskSourceType,
   type PatternTaskSourceType,
   type PlateMakingTaskSourceType,
-  type PreProductionSampleTaskSourceType,
+  type FirstOrderSampleTaskSourceType,
   type RevisionTaskSourceType,
 } from './pcs-task-source-normalizer.ts'
 import { syncProjectNodeInstanceRuntime } from './pcs-project-node-instance-registry.ts'
@@ -254,9 +254,6 @@ export interface FirstSampleTaskCreateInput extends BaseTaskCreateInput {
   factoryId?: string
   factoryName?: string
   targetSite?: string
-  expectedArrival?: string
-  trackingNo?: string
-  sampleAssetId?: string
   sampleCode?: string
   sourceTechPackVersionId?: string
   sourceTechPackVersionCode?: string
@@ -266,21 +263,20 @@ export interface FirstSampleTaskCreateInput extends BaseTaskCreateInput {
   sourceTaskCode?: string
   sampleMaterialMode?: SampleMaterialMode
   samplePurpose?: FirstSamplePurpose
-  sampleAssetIds?: string[]
   sampleImageIds?: string[]
-  reuseAsPreProductionFlag?: boolean
-  reuseAsPreProductionConfirmedAt?: string
-  reuseAsPreProductionConfirmedBy?: string
-  reuseAsPreProductionNote?: string
+  reuseAsFirstOrderBasisFlag?: boolean
+  reuseAsFirstOrderBasisConfirmedAt?: string
+  reuseAsFirstOrderBasisConfirmedBy?: string
+  reuseAsFirstOrderBasisNote?: string
   fitConfirmationSummary?: string
   artworkConfirmationSummary?: string
   productionReadinessNote?: string
 }
 
-export interface PreProductionSampleTaskCreateInput extends BaseTaskCreateInput {
-  preProductionSampleTaskId?: string
-  preProductionSampleTaskCode?: string
-  sourceType: PreProductionSampleTaskSourceType
+export interface FirstOrderSampleTaskCreateInput extends BaseTaskCreateInput {
+  firstOrderSampleTaskId?: string
+  firstOrderSampleTaskCode?: string
+  sourceType: FirstOrderSampleTaskSourceType
   upstreamModule?: string
   upstreamObjectType?: string
   upstreamObjectId?: string
@@ -290,16 +286,12 @@ export interface PreProductionSampleTaskCreateInput extends BaseTaskCreateInput 
   targetSite?: string
   patternVersion?: string
   artworkVersion?: string
-  expectedArrival?: string
-  trackingNo?: string
-  sampleAssetId?: string
   sampleCode?: string
   sourceTechPackVersionId?: string
   sourceTechPackVersionCode?: string
   sourceTechPackVersionLabel?: string
   sourceFirstSampleTaskId?: string
   sourceFirstSampleTaskCode?: string
-  sourceFirstSampleAssetId?: string
   sourceFirstSampleCode?: string
   sampleChainMode?: SampleChainMode
   specialSceneReasonCodes?: SampleSpecialSceneReasonCode[]
@@ -308,7 +300,6 @@ export interface PreProductionSampleTaskCreateInput extends BaseTaskCreateInput 
   chinaReviewRequiredFlag?: boolean
   correctFabricRequiredFlag?: boolean
   samplePlanLines?: SamplePlanLine[]
-  finalReferenceSampleAssetIds?: string[]
   finalReferenceNote?: string
 }
 
@@ -714,7 +705,7 @@ function updateRevisionNode(node: PcsProjectNodeRecord, task: RevisionTaskRecord
 
 function updateTaskNode(
   node: PcsProjectNodeRecord,
-  task: PlateMakingTaskRecord | PatternTaskRecord | FirstSampleTaskRecord | PreProductionSampleTaskRecord,
+  task: PlateMakingTaskRecord | PatternTaskRecord | FirstSampleTaskRecord | FirstOrderSampleTaskRecord,
   input: {
     latestInstanceId: string
     latestInstanceCode: string
@@ -931,19 +922,20 @@ export function savePatternTaskDraft(input: PatternTaskCreateInput): PatternTask
 }
 
 function buildFirstSampleCode(targetSite: string, count: number): string {
-  return `SY-${targetSite === '雅加达' ? 'JKT' : 'SZ'}-${String(count + 21).padStart(5, '0')}`
+  return `FS-RESULT-${targetSite === '雅加达' ? 'JKT' : 'SZ'}-${String(count + 21).padStart(4, '0')}`
+}
+
+function buildFirstOrderSampleCode(targetSite: string, count: number): string {
+  return `FO-RESULT-${targetSite === '雅加达' ? 'JKT' : 'SZ'}-${String(count + 51).padStart(4, '0')}`
 }
 
 function firstSampleChainFields(
   input: FirstSampleTaskCreateInput,
   existing?: FirstSampleTaskRecord | null,
 ): Pick<FirstSampleTaskRecord,
-  'sourceTechPackVersionId' | 'sourceTechPackVersionCode' | 'sourceTechPackVersionLabel' | 'sourceTaskType' | 'sourceTaskId' | 'sourceTaskCode' | 'sampleMaterialMode' | 'samplePurpose' | 'sampleAssetIds' | 'sampleImageIds' | 'reuseAsPreProductionFlag' | 'reuseAsPreProductionConfirmedAt' | 'reuseAsPreProductionConfirmedBy' | 'reuseAsPreProductionNote' | 'fitConfirmationSummary' | 'artworkConfirmationSummary' | 'productionReadinessNote'
+  'sourceTechPackVersionId' | 'sourceTechPackVersionCode' | 'sourceTechPackVersionLabel' | 'sourceTaskType' | 'sourceTaskId' | 'sourceTaskCode' | 'sampleMaterialMode' | 'samplePurpose' | 'sampleImageIds' | 'reuseAsFirstOrderBasisFlag' | 'reuseAsFirstOrderBasisConfirmedAt' | 'reuseAsFirstOrderBasisConfirmedBy' | 'reuseAsFirstOrderBasisNote' | 'fitConfirmationSummary' | 'artworkConfirmationSummary' | 'productionReadinessNote'
 > {
-  const sampleAssetIds = [...(input.sampleAssetIds || existing?.sampleAssetIds || [])]
-  const sampleAssetId = input.sampleAssetId || existing?.sampleAssetId || ''
-  if (sampleAssetId && !sampleAssetIds.includes(sampleAssetId)) sampleAssetIds.unshift(sampleAssetId)
-  const reuseFlag = Boolean(input.reuseAsPreProductionFlag ?? existing?.reuseAsPreProductionFlag)
+  const reuseFlag = Boolean(input.reuseAsFirstOrderBasisFlag ?? existing?.reuseAsFirstOrderBasisFlag)
   return {
     sourceTechPackVersionId: input.sourceTechPackVersionId || existing?.sourceTechPackVersionId || '',
     sourceTechPackVersionCode: input.sourceTechPackVersionCode || existing?.sourceTechPackVersionCode || '',
@@ -952,13 +944,12 @@ function firstSampleChainFields(
     sourceTaskId: input.sourceTaskId || existing?.sourceTaskId || input.upstreamObjectId || '',
     sourceTaskCode: input.sourceTaskCode || existing?.sourceTaskCode || input.upstreamObjectCode || '',
     sampleMaterialMode: input.sampleMaterialMode || existing?.sampleMaterialMode || '正确布',
-    samplePurpose: input.samplePurpose || existing?.samplePurpose || (reuseFlag ? '产前复用候选' : '首版确认'),
-    sampleAssetIds,
+    samplePurpose: input.samplePurpose || existing?.samplePurpose || (reuseFlag ? '首单复用候选' : '首版确认'),
     sampleImageIds: [...(input.sampleImageIds || existing?.sampleImageIds || [])],
-    reuseAsPreProductionFlag: reuseFlag,
-    reuseAsPreProductionConfirmedAt: input.reuseAsPreProductionConfirmedAt || existing?.reuseAsPreProductionConfirmedAt || '',
-    reuseAsPreProductionConfirmedBy: input.reuseAsPreProductionConfirmedBy || existing?.reuseAsPreProductionConfirmedBy || '',
-    reuseAsPreProductionNote: input.reuseAsPreProductionNote || existing?.reuseAsPreProductionNote || '',
+    reuseAsFirstOrderBasisFlag: reuseFlag,
+    reuseAsFirstOrderBasisConfirmedAt: input.reuseAsFirstOrderBasisConfirmedAt || existing?.reuseAsFirstOrderBasisConfirmedAt || '',
+    reuseAsFirstOrderBasisConfirmedBy: input.reuseAsFirstOrderBasisConfirmedBy || existing?.reuseAsFirstOrderBasisConfirmedBy || '',
+    reuseAsFirstOrderBasisNote: input.reuseAsFirstOrderBasisNote || existing?.reuseAsFirstOrderBasisNote || '',
     fitConfirmationSummary: input.fitConfirmationSummary || existing?.fitConfirmationSummary || '',
     artworkConfirmationSummary: input.artworkConfirmationSummary || existing?.artworkConfirmationSummary || '',
     productionReadinessNote: input.productionReadinessNote || existing?.productionReadinessNote || '',
@@ -966,16 +957,15 @@ function firstSampleChainFields(
 }
 
 function resolveSourceFirstSample(
-  input: PreProductionSampleTaskCreateInput,
+  input: FirstOrderSampleTaskCreateInput,
   projectId: string,
-): Pick<PreProductionSampleTaskRecord, 'sourceFirstSampleTaskId' | 'sourceFirstSampleTaskCode' | 'sourceFirstSampleAssetId' | 'sourceFirstSampleCode'> {
+): Pick<FirstOrderSampleTaskRecord, 'sourceFirstSampleTaskId' | 'sourceFirstSampleTaskCode' | 'sourceFirstSampleCode'> {
   const fromInput = {
     sourceFirstSampleTaskId: input.sourceFirstSampleTaskId || '',
     sourceFirstSampleTaskCode: input.sourceFirstSampleTaskCode || '',
-    sourceFirstSampleAssetId: input.sourceFirstSampleAssetId || '',
     sourceFirstSampleCode: input.sourceFirstSampleCode || '',
   }
-  if (fromInput.sourceFirstSampleTaskId || fromInput.sourceFirstSampleTaskCode || fromInput.sourceFirstSampleAssetId) return fromInput
+  if (fromInput.sourceFirstSampleTaskId || fromInput.sourceFirstSampleTaskCode || fromInput.sourceFirstSampleCode) return fromInput
   const matched = listFirstSampleTasks()
     .filter((task) => task.projectId === projectId)
     .find(
@@ -987,27 +977,20 @@ function resolveSourceFirstSample(
   return {
     sourceFirstSampleTaskId: matched?.firstSampleTaskId || (input.upstreamObjectType?.includes('首版') ? input.upstreamObjectId || '' : ''),
     sourceFirstSampleTaskCode: matched?.firstSampleTaskCode || (input.upstreamObjectType?.includes('首版') ? input.upstreamObjectCode || '' : ''),
-    sourceFirstSampleAssetId: matched?.sampleAssetId || '',
     sourceFirstSampleCode: matched?.sampleCode || '',
   }
 }
 
-function preProductionChainFields(
-  input: PreProductionSampleTaskCreateInput,
+function firstOrderChainFields(
+  input: FirstOrderSampleTaskCreateInput,
   projectId: string,
-  existing?: PreProductionSampleTaskRecord | null,
-): Pick<PreProductionSampleTaskRecord,
-  'sourceTechPackVersionId' | 'sourceTechPackVersionCode' | 'sourceTechPackVersionLabel' | 'sourceFirstSampleTaskId' | 'sourceFirstSampleTaskCode' | 'sourceFirstSampleAssetId' | 'sourceFirstSampleCode' | 'sampleChainMode' | 'specialSceneReasonCodes' | 'specialSceneReasonText' | 'productionReferenceRequiredFlag' | 'chinaReviewRequiredFlag' | 'correctFabricRequiredFlag' | 'samplePlanLines' | 'finalReferenceSampleAssetIds' | 'finalReferenceNote'
+  existing?: FirstOrderSampleTaskRecord | null,
+): Pick<FirstOrderSampleTaskRecord,
+  'sourceTechPackVersionId' | 'sourceTechPackVersionCode' | 'sourceTechPackVersionLabel' | 'sourceFirstSampleTaskId' | 'sourceFirstSampleTaskCode' | 'sourceFirstSampleCode' | 'sampleChainMode' | 'specialSceneReasonCodes' | 'specialSceneReasonText' | 'productionReferenceRequiredFlag' | 'chinaReviewRequiredFlag' | 'correctFabricRequiredFlag' | 'samplePlanLines' | 'finalReferenceNote'
 > {
   const sourceFirst = resolveSourceFirstSample(input, projectId)
-  const sampleChainMode = input.sampleChainMode || existing?.sampleChainMode || '直接复用首版样衣'
-  const finalReferenceSampleAssetIds = [
-    ...(input.finalReferenceSampleAssetIds || existing?.finalReferenceSampleAssetIds || []),
-  ]
-  if (sampleChainMode === '直接复用首版样衣' && sourceFirst.sourceFirstSampleAssetId && finalReferenceSampleAssetIds.length === 0) {
-    finalReferenceSampleAssetIds.push(sourceFirst.sourceFirstSampleAssetId)
-  }
-  const defaultLines = createDefaultSamplePlanLines(sampleChainMode, sourceFirst.sourceFirstSampleAssetId, sourceFirst.sourceFirstSampleCode)
+  const sampleChainMode = input.sampleChainMode || existing?.sampleChainMode || '复用首版结论'
+  const defaultLines = createDefaultSamplePlanLines(sampleChainMode, sourceFirst.sourceFirstSampleCode)
   return {
     sourceTechPackVersionId: input.sourceTechPackVersionId || existing?.sourceTechPackVersionId || '',
     sourceTechPackVersionCode: input.sourceTechPackVersionCode || existing?.sourceTechPackVersionCode || '',
@@ -1022,10 +1005,8 @@ function preProductionChainFields(
     samplePlanLines: normalizeSamplePlanLines(
       sampleChainMode,
       input.samplePlanLines || existing?.samplePlanLines || defaultLines,
-      sourceFirst.sourceFirstSampleAssetId,
       sourceFirst.sourceFirstSampleCode,
     ),
-    finalReferenceSampleAssetIds,
     finalReferenceNote: input.finalReferenceNote || existing?.finalReferenceNote || '',
   }
 }
@@ -1051,12 +1032,8 @@ export function saveFirstSampleTaskDraft(input: FirstSampleTaskCreateInput): Fir
     factoryId: input.factoryId || '',
     factoryName: input.factoryName || '',
     targetSite: input.targetSite || '深圳',
-    expectedArrival: input.expectedArrival || '',
-    trackingNo: input.trackingNo || '',
-    sampleAssetId: input.sampleAssetId || '',
     sampleCode: input.sampleCode || buildFirstSampleCode(input.targetSite || '深圳', listFirstSampleTasks().length),
     ...firstSampleChainFields(input),
-    acceptedAt: '',
     confirmedAt: '',
     status: '草稿',
     ownerId: input.ownerId || '',
@@ -1072,19 +1049,19 @@ export function saveFirstSampleTaskDraft(input: FirstSampleTaskCreateInput): Fir
   })
 }
 
-export function savePreProductionSampleTaskDraft(input: PreProductionSampleTaskCreateInput): PreProductionSampleTaskRecord {
+export function saveFirstOrderSampleTaskDraft(input: FirstOrderSampleTaskCreateInput): FirstOrderSampleTaskRecord {
   const now = nowTaskText()
-  const taskId = input.preProductionSampleTaskId || nextCode('PPD', listPreProductionSampleTasks().length)
-  return upsertPreProductionSampleTask({
-    preProductionSampleTaskId: taskId,
-    preProductionSampleTaskCode: input.preProductionSampleTaskCode || taskId,
+  const taskId = input.firstOrderSampleTaskId || nextCode('PPD', listFirstOrderSampleTasks().length)
+  return upsertFirstOrderSampleTask({
+    firstOrderSampleTaskId: taskId,
+    firstOrderSampleTaskCode: input.firstOrderSampleTaskCode || taskId,
     title: input.title,
     projectId: input.projectId || '',
     projectCode: '',
     projectName: '',
     projectNodeId: '',
-    workItemTypeCode: 'PRE_PRODUCTION_SAMPLE',
-    workItemTypeName: '产前版样衣',
+    workItemTypeCode: 'FIRST_ORDER_SAMPLE',
+    workItemTypeName: '首单样衣打样',
     sourceType: input.sourceType,
     upstreamModule: input.upstreamModule || '',
     upstreamObjectType: input.upstreamObjectType || '',
@@ -1095,12 +1072,8 @@ export function savePreProductionSampleTaskDraft(input: PreProductionSampleTaskC
     targetSite: input.targetSite || '深圳',
     patternVersion: input.patternVersion || '',
     artworkVersion: input.artworkVersion || '',
-    expectedArrival: input.expectedArrival || '',
-    trackingNo: input.trackingNo || '',
-    sampleAssetId: input.sampleAssetId || '',
-    sampleCode: input.sampleCode || buildFirstSampleCode(input.targetSite || '深圳', listPreProductionSampleTasks().length + 50),
-    ...preProductionChainFields(input, input.projectId || ''),
-    acceptedAt: '',
+    sampleCode: input.sampleCode || buildFirstOrderSampleCode(input.targetSite || '深圳', listFirstOrderSampleTasks().length),
+    ...firstOrderChainFields(input, input.projectId || ''),
     confirmedAt: '',
     status: '草稿',
     ownerId: input.ownerId || '',
@@ -2065,24 +2038,24 @@ export function syncExistingProjectEngineeringTaskNodes(operatorName = '系统�
         operatorName,
       })
     })
-  listPreProductionSampleTasks()
+  listFirstOrderSampleTasks()
     .filter((task) => task.projectId && task.projectNodeId && task.status === '已完成')
     .forEach((task) => {
       syncTaskCompletionToProjectNode({
         projectId: task.projectId,
         projectNodeId: task.projectNodeId,
-        workItemTypeCode: 'PRE_PRODUCTION_SAMPLE',
-        workItemTypeName: '产前版样衣',
-        sourceModule: '产前版样衣',
-        sourceObjectType: '产前版样衣任务',
-        sourceObjectId: task.preProductionSampleTaskId,
-        sourceObjectCode: task.preProductionSampleTaskCode,
+        workItemTypeCode: 'FIRST_ORDER_SAMPLE',
+        workItemTypeName: '首单样衣打样',
+        sourceModule: '首单样衣打样',
+        sourceObjectType: '首单样衣打样任务',
+        sourceObjectId: task.firstOrderSampleTaskId,
+        sourceObjectCode: task.firstOrderSampleTaskCode,
         sourceTitle: task.title,
         sourceStatus: task.status,
         businessDate: task.updatedAt || task.createdAt,
         ownerName: task.ownerName,
-        resultType: '产前版样衣已完成',
-        resultText: '产前版样衣已完成，商品项目节点同步完成。',
+        resultType: '首单样衣打样已完成',
+        resultText: '首单样衣打样已完成，商品项目节点同步完成。',
         operatorName,
       })
     })
@@ -2138,14 +2111,10 @@ export function createFirstSampleTaskWithProjectRelation(
     factoryId: input.factoryId || '',
     factoryName: input.factoryName || '',
     targetSite: input.targetSite || '深圳',
-    expectedArrival: input.expectedArrival || '',
-    trackingNo: input.trackingNo || '',
-    sampleAssetId: input.sampleAssetId || '',
     sampleCode: input.sampleCode || buildFirstSampleCode(input.targetSite || '深圳', listFirstSampleTasks().length),
     ...firstSampleChainFields(input, existing),
-    acceptedAt: existing?.acceptedAt || '',
     confirmedAt: existing?.confirmedAt || '',
-    status: '待发样',
+    status: '待处理',
     ownerId: input.ownerId || project.ownerId,
     ownerName: input.ownerName || project.ownerName,
     priorityLevel: input.priorityLevel || '中',
@@ -2181,56 +2150,56 @@ export function createFirstSampleTaskWithProjectRelation(
     latestInstanceId: task.firstSampleTaskId,
     latestInstanceCode: task.firstSampleTaskCode,
     latestResultType: '已创建首版样衣打样任务',
-    latestResultText: '已创建首版样衣打样任务，等待安排发样',
-    pendingActionType: '安排发样',
-    pendingActionText: '请安排首版样衣发样',
+    latestResultText: '已创建首版样衣打样任务，等待开始打样',
+    pendingActionType: '开始打样',
+    pendingActionText: '请开始首版样衣打样',
   }, Boolean(existing))
   syncExistingProjectArchiveByProjectId(task.projectId, task.updatedBy)
   return { ok: true, task, relation, message: '首版样衣打样任务已创建，已写项目关系，已更新项目节点。' }
 }
 
-export function createPreProductionSampleTaskWithProjectRelation(
-  input: PreProductionSampleTaskCreateInput,
-): TaskWritebackResult<PreProductionSampleTaskRecord> {
-  const rawCode = input.preProductionSampleTaskCode || input.preProductionSampleTaskId || input.title
-  const { project, pendingItem: projectPending } = getProjectOrPending('产前版样衣', input.projectId, rawCode, input.upstreamObjectCode || input.upstreamObjectId || '')
+export function createFirstOrderSampleTaskWithProjectRelation(
+  input: FirstOrderSampleTaskCreateInput,
+): TaskWritebackResult<FirstOrderSampleTaskRecord> {
+  const rawCode = input.firstOrderSampleTaskCode || input.firstOrderSampleTaskId || input.title
+  const { project, pendingItem: projectPending } = getProjectOrPending('首单样衣打样', input.projectId, rawCode, input.upstreamObjectCode || input.upstreamObjectId || '')
   if (!project || projectPending) {
-    upsertPreProductionSampleTaskPendingItem(projectPending!)
+    upsertFirstOrderSampleTaskPendingItem(projectPending!)
     return { ok: false, message: projectPending!.reason, pendingItem: projectPending! }
   }
 
-  const upstreamError = ensureFormalSource('产前版样衣', input.sourceType, input.upstreamObjectId || '', input.upstreamObjectCode || '', '')
+  const upstreamError = ensureFormalSource('首单样衣打样', input.sourceType, input.upstreamObjectId || '', input.upstreamObjectCode || '', '')
   if (upstreamError) {
-    const pendingItem = makePendingItem('产前版样衣', rawCode, project.projectCode, input.upstreamObjectCode || input.upstreamObjectId || '', upstreamError)
-    upsertPreProductionSampleTaskPendingItem(pendingItem)
+    const pendingItem = makePendingItem('首单样衣打样', rawCode, project.projectCode, input.upstreamObjectCode || input.upstreamObjectId || '', upstreamError)
+    upsertFirstOrderSampleTaskPendingItem(pendingItem)
     return { ok: false, message: upstreamError, pendingItem }
   }
 
-  const { node, pendingItem: nodePending } = getNodeOrPending('产前版样衣', project.projectId, project.projectCode, rawCode, 'PRE_PRODUCTION_SAMPLE')
+  const { node, pendingItem: nodePending } = getNodeOrPending('首单样衣打样', project.projectId, project.projectCode, rawCode, 'FIRST_ORDER_SAMPLE')
   if (!node || nodePending) {
-    upsertPreProductionSampleTaskPendingItem(nodePending!)
+    upsertFirstOrderSampleTaskPendingItem(nodePending!)
     return { ok: false, message: nodePending!.reason, pendingItem: nodePending! }
   }
 
-  const cancelledPending = blockCancelledNode('产前版样衣', rawCode, project.projectCode, node)
+  const cancelledPending = blockCancelledNode('首单样衣打样', rawCode, project.projectCode, node)
   if (cancelledPending) {
-    upsertPreProductionSampleTaskPendingItem(cancelledPending)
+    upsertFirstOrderSampleTaskPendingItem(cancelledPending)
     return { ok: false, message: cancelledPending.reason, pendingItem: cancelledPending }
   }
 
   const now = nowTaskText()
-  const taskId = input.preProductionSampleTaskId || nextCode('PP', listPreProductionSampleTasks().length)
-  const existing = getPreProductionSampleTaskById(taskId)
-  const task = upsertPreProductionSampleTask({
-    preProductionSampleTaskId: taskId,
-    preProductionSampleTaskCode: input.preProductionSampleTaskCode || taskId,
+  const taskId = input.firstOrderSampleTaskId || nextCode('PP', listFirstOrderSampleTasks().length)
+  const existing = getFirstOrderSampleTaskById(taskId)
+  const task = upsertFirstOrderSampleTask({
+    firstOrderSampleTaskId: taskId,
+    firstOrderSampleTaskCode: input.firstOrderSampleTaskCode || taskId,
     title: input.title,
     projectId: project.projectId,
     projectCode: project.projectCode,
     projectName: project.projectName,
     projectNodeId: node.projectNodeId,
-    workItemTypeCode: 'PRE_PRODUCTION_SAMPLE',
-    workItemTypeName: '产前版样衣',
+    workItemTypeCode: 'FIRST_ORDER_SAMPLE',
+    workItemTypeName: '首单样衣打样',
     sourceType: input.sourceType,
     upstreamModule: input.upstreamModule || '',
     upstreamObjectType: input.upstreamObjectType || '',
@@ -2241,14 +2210,10 @@ export function createPreProductionSampleTaskWithProjectRelation(
     targetSite: input.targetSite || '深圳',
     patternVersion: input.patternVersion || '',
     artworkVersion: input.artworkVersion || '',
-    expectedArrival: input.expectedArrival || '',
-    trackingNo: input.trackingNo || '',
-    sampleAssetId: input.sampleAssetId || '',
-    sampleCode: input.sampleCode || buildFirstSampleCode(input.targetSite || '深圳', listPreProductionSampleTasks().length + 50),
-    ...preProductionChainFields(input, project.projectId, existing),
-    acceptedAt: existing?.acceptedAt || '',
+    sampleCode: input.sampleCode || buildFirstOrderSampleCode(input.targetSite || '深圳', listFirstOrderSampleTasks().length),
+    ...firstOrderChainFields(input, project.projectId, existing),
     confirmedAt: existing?.confirmedAt || '',
-    status: '待发样',
+    status: '待处理',
     ownerId: input.ownerId || project.ownerId,
     ownerName: input.ownerName || project.ownerName,
     priorityLevel: input.priorityLevel || '中',
@@ -2266,12 +2231,12 @@ export function createPreProductionSampleTaskWithProjectRelation(
       projectId: project.projectId,
       projectCode: project.projectCode,
       projectNodeId: node.projectNodeId,
-      workItemTypeCode: 'PRE_PRODUCTION_SAMPLE',
-      workItemTypeName: '产前版样衣',
-      sourceModule: '产前版样衣',
-      sourceObjectType: '产前版样衣任务',
-      sourceObjectId: task.preProductionSampleTaskId,
-      sourceObjectCode: task.preProductionSampleTaskCode,
+      workItemTypeCode: 'FIRST_ORDER_SAMPLE',
+      workItemTypeName: '首单样衣打样',
+      sourceModule: '首单样衣打样',
+      sourceObjectType: '首单样衣打样任务',
+      sourceObjectId: task.firstOrderSampleTaskId,
+      sourceObjectCode: task.firstOrderSampleTaskCode,
       sourceTitle: task.title,
       sourceStatus: task.status,
       businessDate: task.createdAt,
@@ -2281,15 +2246,15 @@ export function createPreProductionSampleTaskWithProjectRelation(
   )
 
   updateTaskNode(node, task, {
-    latestInstanceId: task.preProductionSampleTaskId,
-    latestInstanceCode: task.preProductionSampleTaskCode,
-    latestResultType: '已创建产前版样衣任务',
-    latestResultText: '已创建产前版样衣任务，等待安排发样',
-    pendingActionType: '安排发样',
-    pendingActionText: '请安排产前版样衣发样',
+    latestInstanceId: task.firstOrderSampleTaskId,
+    latestInstanceCode: task.firstOrderSampleTaskCode,
+    latestResultType: '已创建首单样衣打样任务',
+    latestResultText: '已创建首单样衣打样任务，等待开始打样',
+    pendingActionType: '开始打样',
+    pendingActionText: '请开始首单样衣打样',
   }, Boolean(existing))
   syncExistingProjectArchiveByProjectId(task.projectId, task.updatedBy)
-  return { ok: true, task, relation, message: '产前版样衣任务已创建，已写项目关系，已更新项目节点。' }
+  return { ok: true, task, relation, message: '首单样衣打样任务已创建，已写项目关系，已更新项目节点。' }
 }
 
 export function createDownstreamTasksFromRevision(
@@ -2332,7 +2297,7 @@ export function createDownstreamTasksFromRevision(
     }
   }
 
-  const results: Array<TaskWritebackResult<PlateMakingTaskRecord | PatternTaskRecord | FirstSampleTaskRecord | PreProductionSampleTaskRecord>> = []
+  const results: Array<TaskWritebackResult<PlateMakingTaskRecord | PatternTaskRecord | FirstSampleTaskRecord | FirstOrderSampleTaskRecord>> = []
 
   selectedTypes.forEach((type) => {
     if (type === 'PRINT') {
@@ -2378,7 +2343,7 @@ export function createDownstreamTasksFromRevision(
         task.plateTaskCode ||
         task.patternTaskCode ||
         task.firstSampleTaskCode ||
-        task.preProductionSampleTaskCode ||
+        task.firstOrderSampleTaskCode ||
         ''
       )
     }).filter(Boolean),

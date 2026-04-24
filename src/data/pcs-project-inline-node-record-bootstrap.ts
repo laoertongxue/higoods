@@ -1,5 +1,4 @@
 import { createBootstrapProjectSnapshot } from './pcs-project-bootstrap.ts'
-import { createBootstrapSampleCloseoutSeeds } from './pcs-sample-bootstrap.ts'
 import type { PcsProjectNodeRecord, PcsProjectRecord } from './pcs-project-types.ts'
 import {
   PCS_PROJECT_INLINE_NODE_RECORD_WORK_ITEM_TYPES,
@@ -24,9 +23,6 @@ interface EarlyPhaseProjectScenario {
   quantity: number
   colors: string[]
   sizes: string[]
-  expectedArrivalDate: string
-  trackingNumber: string
-  warehouseLocation: string
   receiver: string
   sampleQuantity: number
   colorCode: string
@@ -171,9 +167,6 @@ const PROJECT_SCENARIOS: Record<string, EarlyPhaseProjectScenario> = {
     quantity: 2,
     colors: ['樱粉', '米白'],
     sizes: ['S', 'M'],
-    expectedArrivalDate: '2026-02-04',
-    trackingNumber: 'SF-EARLY-0001',
-    warehouseLocation: '深圳主仓-A-01-01',
     receiver: '深圳仓管',
     sampleQuantity: 2,
     colorCode: '樱粉 / 米白',
@@ -224,9 +217,6 @@ const PROJECT_SCENARIOS: Record<string, EarlyPhaseProjectScenario> = {
     quantity: 1,
     colors: ['黑底花卉'],
     sizes: ['M'],
-    expectedArrivalDate: '2026-02-11',
-    trackingNumber: 'JT-EARLY-0002',
-    warehouseLocation: '深圳主仓-B-02-03',
     receiver: '快反仓管',
     sampleQuantity: 1,
     colorCode: '黑底花卉',
@@ -277,9 +267,6 @@ const PROJECT_SCENARIOS: Record<string, EarlyPhaseProjectScenario> = {
     quantity: 2,
     colors: ['青绿印花', '暖杏印花'],
     sizes: ['S', 'M'],
-    expectedArrivalDate: '2026-02-14',
-    trackingNumber: 'YD-EARLY-0003',
-    warehouseLocation: '深圳设计样衣区',
     receiver: '设计样衣仓管',
     sampleQuantity: 2,
     colorCode: '青绿印花 / 暖杏印花',
@@ -330,9 +317,6 @@ const PROJECT_SCENARIOS: Record<string, EarlyPhaseProjectScenario> = {
     quantity: 1,
     colors: ['浅牛仔蓝'],
     sizes: ['M'],
-    expectedArrivalDate: '2026-02-19',
-    trackingNumber: 'YTO-EARLY-0004',
-    warehouseLocation: '深圳牛仔样衣区',
     receiver: '牛仔项目仓管',
     sampleQuantity: 1,
     colorCode: '浅牛仔蓝',
@@ -383,9 +367,6 @@ const PROJECT_SCENARIOS: Record<string, EarlyPhaseProjectScenario> = {
     quantity: 1,
     colors: ['炭灰'],
     sizes: ['S'],
-    expectedArrivalDate: '2026-02-22',
-    trackingNumber: 'SF-EARLY-0005',
-    warehouseLocation: '深圳设计试衣区',
     receiver: '设计仓管',
     sampleQuantity: 1,
     colorCode: '炭灰',
@@ -436,9 +417,6 @@ const PROJECT_SCENARIOS: Record<string, EarlyPhaseProjectScenario> = {
     quantity: 2,
     colors: ['奶油白', '薄荷绿'],
     sizes: ['M', 'L'],
-    expectedArrivalDate: '2026-02-25',
-    trackingNumber: 'STO-EARLY-0007',
-    warehouseLocation: '深圳针织样衣区',
     receiver: '针织仓管',
     sampleQuantity: 2,
     colorCode: '奶油白 / 薄荷绿',
@@ -702,11 +680,8 @@ function buildSeedForNode(projectCode: string, workItemTypeCode: PcsProjectInlin
         quantity: scenario.quantity,
         colors: scenario.colors,
         sizes: scenario.sizes,
-        expectedArrivalDate: scenario.expectedArrivalDate,
-        trackingNumber: scenario.trackingNumber,
         sampleCode: scenario.sampleCode,
-        sampleStatus: '已下单待到样',
-        inventoryRecord: recordCode,
+        sampleStatus: '来源已确认',
       },
     }
   }
@@ -715,24 +690,20 @@ function buildSeedForNode(projectCode: string, workItemTypeCode: PcsProjectInlin
     return {
       projectCode,
       workItemTypeCode,
-      sourceModule: '项目样衣留痕',
-      sourceDocType: '到样核对记录',
-      sourceDocCode: `INB-${projectCode.slice(-3)}-001`,
+      sourceModule: '商品项目',
+      sourceDocType: '样衣结果核对记录',
+      sourceDocCode: `SRC-${projectCode.slice(-3)}-001`,
       businessDate,
       payload: {
         sampleCode: scenario.sampleCode,
-        arrivalTime: businessDate,
-        checkResult: '到样数量与规格核对一致',
+        checkResult: '样衣结果与项目输入核对一致',
       },
       detailSnapshot: {
         sampleIds: [scenario.sampleCode],
-        warehouseLocation: scenario.warehouseLocation,
         receiver: scenario.receiver,
         sampleQuantity: scenario.sampleQuantity,
         colorCode: scenario.colorCode,
         sizeCombination: scenario.sizeCombination,
-        trackingNumber: scenario.trackingNumber,
-        inboundVoucher: `RV-${projectCode.slice(-3)}-001`,
       },
     }
   }
@@ -1104,96 +1075,9 @@ function buildSampleCloseoutBootstrapRecords(
   projectMap: ReturnType<typeof buildProjectNodeLookup>['projectMap'],
   nodeMap: ReturnType<typeof buildProjectNodeLookup>['nodeMap'],
 ): PcsProjectInlineNodeRecord[] {
-  return createBootstrapSampleCloseoutSeeds().map((seed) => {
-    const project = projectMap.get(seed.projectCode)
-    if (!project) {
-      throw new Error(`样衣收尾 demo 缺少项目：${seed.projectCode}`)
-    }
-    const workItemTypeCode = 'SAMPLE_RETURN_HANDLE'
-    const node = nodeMap.get(`${project.projectId}::${workItemTypeCode}`)
-    if (!node) {
-      throw new Error(`样衣收尾 demo 缺少项目节点：${seed.projectCode} / ${workItemTypeCode}`)
-    }
-
-    const recordId = `${node.projectNodeId}::${seed.sourceDocId}`.replace(/[^a-zA-Z0-9:_-]/g, '_')
-    const assetStatus = seed.eventType === 'RETURN_SUPPLIER' ? '已退货' : '已处置'
-    const availabilityAfter = '不可用'
-    const locationAfter = seed.eventType === 'RETURN_SUPPLIER' ? '供应商退回完成' : '深圳处置区'
-
-    return {
-      recordId,
-      recordCode: buildSampleCloseoutRecordCode(project.projectCode),
-      projectId: project.projectId,
-      projectCode: project.projectCode,
-      projectName: project.projectName,
-      projectNodeId: node.projectNodeId,
-      workItemTypeCode,
-      workItemTypeName: node.workItemTypeName,
-      businessDate: seed.businessDate,
-      recordStatus: '已完成',
-      ownerId: project.ownerId,
-      ownerName: seed.operatorName,
-      payload: {
-        returnResult: seed.eventType === 'RETURN_SUPPLIER' ? '已完成退回' : '已完成处置',
-      },
-      detailSnapshot: {
-        returnRecipient: seed.returnRecipient || '供应商收货人',
-        returnDepartment: seed.returnDepartment || '样衣管理组',
-        returnAddress: seed.returnAddress || `${seed.responsibleSite} 供应商回寄地址`,
-        returnDate: seed.returnDate || seed.businessDate,
-        logisticsProvider: seed.logisticsProvider || '线下回寄',
-        trackingNumber: seed.trackingNumber || seed.sourceDocCode,
-        modificationReason: seed.modificationReason || seed.note,
-        sampleAssetId: seed.sampleAssetId,
-        sampleCode: seed.sampleCode,
-        sampleLedgerEventId: seed.ledgerEventId,
-        sampleLedgerEventCode: seed.ledgerEventCode,
-        returnDocId: seed.sourceDocId,
-        returnDocCode: seed.sourceDocCode,
-        inventoryStatusAfter: assetStatus,
-        availabilityAfter,
-        locationAfter,
-      },
-      sourceModule: '样衣退货与处理',
-      sourceDocType: seed.eventType === 'RETURN_SUPPLIER' ? '样衣退回单' : '样衣处置单',
-      sourceDocId: seed.sourceDocId,
-      sourceDocCode: seed.sourceDocCode,
-      upstreamRefs: [
-        {
-          refModule: '样衣资产',
-          refType: '样衣资产',
-          refId: seed.sampleAssetId,
-          refCode: seed.sampleCode,
-          refTitle: seed.sampleName,
-          refStatus: assetStatus,
-        },
-        {
-          refModule: '项目样衣留痕',
-          refType: '项目样衣留痕',
-          refId: seed.ledgerEventId,
-          refCode: seed.ledgerEventCode,
-          refTitle: seed.eventType === 'RETURN_SUPPLIER' ? '退货' : '处置',
-          refStatus: assetStatus,
-        },
-      ],
-      downstreamRefs: [
-        {
-          refModule: seed.eventType === 'RETURN_SUPPLIER' ? '样衣退回单' : '样衣处置单',
-          refType: seed.eventType === 'RETURN_SUPPLIER' ? '样衣退回单' : '样衣处置单',
-          refId: seed.sourceDocId,
-          refCode: seed.sourceDocCode,
-          refTitle: seed.note,
-          refStatus: '已完成',
-        },
-      ],
-      createdAt: seed.businessDate,
-      createdBy: seed.operatorName,
-      updatedAt: seed.businessDate,
-      updatedBy: seed.operatorName,
-      legacyProjectRef: project.projectCode,
-      legacyWorkItemInstanceId: null,
-    } as PcsProjectInlineNodeRecord
-  })
+  void projectMap
+  void nodeMap
+  return []
 }
 
 function buildGenericInlineBusinessDate(project: PcsProjectRecord, node: PcsProjectNodeRecord): string {
@@ -1231,8 +1115,7 @@ function buildGenericInlineSeed(
         quantity: 1,
         colors: ['默认色'],
         sizes: ['M'],
-        expectedArrivalDate: businessDate.slice(0, 10),
-        sampleStatus: '已下单待到样',
+        sampleStatus: '来源已确认',
       },
     }
   }
@@ -1241,18 +1124,16 @@ function buildGenericInlineSeed(
     return {
       projectCode,
       workItemTypeCode: 'SAMPLE_INBOUND_CHECK',
-      sourceModule: '项目样衣留痕',
-      sourceDocType: '到样核对记录',
-      sourceDocCode: `INB-${projectCode.slice(-3)}-GEN`,
+      sourceModule: '商品项目',
+      sourceDocType: '样衣结果核对记录',
+      sourceDocCode: `SRC-${projectCode.slice(-3)}-GEN`,
       businessDate,
       payload: {
         sampleCode,
-        arrivalTime: businessDate,
-        checkResult: '到样数量与规格核对一致',
+        checkResult: '样衣结果与项目输入核对一致',
       },
       detailSnapshot: {
         sampleIds: [sampleCode],
-        warehouseLocation: '深圳主仓-A-01-01',
         receiver: project.ownerName,
         sampleQuantity: 1,
         colorCode: '默认色',
@@ -1431,7 +1312,6 @@ function buildGenericInlineSeed(
       },
       detailSnapshot: {
         returnRecipient: '供应商收货人',
-        logisticsProvider: '线下回寄',
         returnDate: businessDate.slice(0, 10),
       },
     }

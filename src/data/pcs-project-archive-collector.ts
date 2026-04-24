@@ -3,9 +3,7 @@ import { listRevisionTasksByProject } from './pcs-revision-task-repository.ts'
 import { listPlateMakingTasksByProject } from './pcs-plate-making-repository.ts'
 import { listPatternTasksByProject } from './pcs-pattern-task-repository.ts'
 import { listFirstSampleTasksByProject } from './pcs-first-sample-repository.ts'
-import { listPreProductionSampleTasksByProject } from './pcs-pre-production-sample-repository.ts'
-import { listSampleAssets } from './pcs-sample-asset-repository.ts'
-import { listSampleLedgerEvents } from './pcs-sample-ledger-repository.ts'
+import { listFirstOrderSampleTasksByProject } from './pcs-first-order-sample-repository.ts'
 import type { PcsProjectRecord } from './pcs-project-types.ts'
 import {
   getProjectImageAssetById,
@@ -31,15 +29,6 @@ import type {
   ProjectArchiveRecord,
   ProjectArchiveStatus,
 } from './pcs-project-archive-types.ts'
-
-const SAMPLE_EVENT_TYPES_FOR_ARCHIVE = new Set([
-  'RECEIVE_ARRIVAL',
-  'CHECKIN_VERIFY',
-  'SHIP_OUT',
-  'DELIVER_SIGNED',
-  'RETURN_SUPPLIER',
-  'DISPOSAL',
-])
 
 export const PROJECT_ARCHIVE_STATUS_LABELS: Record<ProjectArchiveStatus, string> = {
   DRAFT: '待建立',
@@ -1114,7 +1103,7 @@ function buildSampleDocuments(
         documentGroup: 'SAMPLE_ASSET',
         documentCategory: '首版样衣打样',
         documentType: '样衣打样任务',
-        documentTitle: `${task.title} / ${task.reuseAsPreProductionFlag ? '可复用为产前版' : '首版确认'} / 样衣图片${firstSampleImageCount}`,
+        documentTitle: `${task.title} / ${task.reuseAsFirstOrderBasisFlag ? '可复用为首单' : '首版确认'} / 样衣图片${firstSampleImageCount}`,
         documentStatus: task.status,
         manualFlag: false,
         reusableFlag: true,
@@ -1133,28 +1122,28 @@ function buildSampleDocuments(
     )
   })
 
-  listPreProductionSampleTasksByProject(project.projectId).forEach((task) => {
+  listFirstOrderSampleTasksByProject(project.projectId).forEach((task) => {
     const samplePlanLines = task.samplePlanLines
     const factoryReferenceCount = samplePlanLines.filter((line) => line.sampleRole === '工厂参照样').length
     documents.push(
       createDocumentRecord({
-        archiveDocumentId: buildDocumentId(archive.projectArchiveId, '产前版样衣', '产前版样衣任务', task.preProductionSampleTaskId, '', '产前版样衣', false),
+        archiveDocumentId: buildDocumentId(archive.projectArchiveId, '首单样衣打样', '首单样衣打样任务', task.firstOrderSampleTaskId, '', '首单样衣打样', false),
         projectArchiveId: archive.projectArchiveId,
         projectId: project.projectId,
         projectCode: project.projectCode,
         projectNodeId: task.projectNodeId,
         workItemTypeCode: task.workItemTypeCode,
         workItemTypeName: task.workItemTypeName,
-        sourceModule: '产前版样衣',
-        sourceObjectType: '产前版样衣任务',
-        sourceObjectId: task.preProductionSampleTaskId,
-        sourceObjectCode: task.preProductionSampleTaskCode,
+        sourceModule: '首单样衣打样',
+        sourceObjectType: '首单样衣打样任务',
+        sourceObjectId: task.firstOrderSampleTaskId,
+        sourceObjectCode: task.firstOrderSampleTaskCode,
         sourceVersionId: '',
         sourceVersionCode: '',
         sourceVersionLabel: '',
         documentGroup: 'SAMPLE_ASSET',
-        documentCategory: '产前版样衣',
-        documentType: '产前版样衣任务',
+        documentCategory: '首单样衣打样',
+        documentType: '首单样衣打样任务',
         documentTitle: `${task.title} / ${task.sampleChainMode} / 工厂参照样${factoryReferenceCount}`,
         documentStatus: task.status,
         manualFlag: false,
@@ -1174,87 +1163,6 @@ function buildSampleDocuments(
     )
   })
 
-  listSampleAssets()
-    .filter((asset) => asset.projectId === project.projectId)
-    .forEach((asset) => {
-      documents.push(
-        createDocumentRecord({
-          archiveDocumentId: buildDocumentId(archive.projectArchiveId, '样衣资产', '样衣资产', asset.sampleAssetId, '', '样衣资产', false),
-          projectArchiveId: archive.projectArchiveId,
-          projectId: project.projectId,
-          projectCode: project.projectCode,
-          projectNodeId: asset.projectNodeId || '',
-          workItemTypeCode: asset.workItemTypeCode || '',
-          workItemTypeName: asset.workItemTypeName || '',
-          sourceModule: '样衣资产',
-          sourceObjectType: '样衣资产',
-          sourceObjectId: asset.sampleAssetId,
-          sourceObjectCode: asset.sampleCode,
-          sourceVersionId: '',
-          sourceVersionCode: '',
-          sourceVersionLabel: '',
-          documentGroup: 'SAMPLE_ASSET',
-          documentCategory: '样衣资产',
-          documentType: asset.sampleType || '样衣',
-          documentTitle: asset.sampleName,
-          documentStatus: asset.inventoryStatus,
-          manualFlag: false,
-          reusableFlag: true,
-          fileCount: 0,
-          primaryFileId: '',
-          primaryFileName: '',
-          previewUrl: '',
-          businessDate: asset.updatedAt,
-          ownerName: asset.updatedBy || asset.custodianName,
-          createdAt: archive.createdAt,
-          createdBy: archive.createdBy,
-          updatedAt: asset.updatedAt,
-          updatedBy: asset.updatedBy,
-          legacySourceRef: asset.legacyProjectRef || '',
-        }),
-      )
-    })
-
-  listSampleLedgerEvents()
-    .filter((event) => event.projectId === project.projectId && SAMPLE_EVENT_TYPES_FOR_ARCHIVE.has(event.eventType))
-    .forEach((event) => {
-      documents.push(
-        createDocumentRecord({
-          archiveDocumentId: buildDocumentId(archive.projectArchiveId, '样衣台账', '样衣台账事件', event.ledgerEventId, '', event.eventType, false),
-          projectArchiveId: archive.projectArchiveId,
-          projectId: project.projectId,
-          projectCode: project.projectCode,
-          projectNodeId: event.projectNodeId || '',
-          workItemTypeCode: event.workItemTypeCode || '',
-          workItemTypeName: event.workItemTypeName || '',
-          sourceModule: '样衣台账',
-          sourceObjectType: '样衣台账事件',
-          sourceObjectId: event.ledgerEventId,
-          sourceObjectCode: event.ledgerEventCode,
-          sourceVersionId: '',
-          sourceVersionCode: '',
-          sourceVersionLabel: '',
-          documentGroup: 'SAMPLE_ASSET',
-          documentCategory: '样衣台账关键事件',
-          documentType: event.eventName,
-          documentTitle: `${event.sampleName} / ${event.eventName}`,
-          documentStatus: event.inventoryStatusAfter,
-          manualFlag: false,
-          reusableFlag: false,
-          fileCount: 0,
-          primaryFileId: '',
-          primaryFileName: '',
-          previewUrl: '',
-          businessDate: event.businessDate,
-          ownerName: event.operatorName,
-          createdAt: archive.createdAt,
-          createdBy: archive.createdBy,
-          updatedAt: event.businessDate,
-          updatedBy: event.operatorName,
-          legacySourceRef: event.legacyProjectRef || '',
-        }),
-      )
-    })
 }
 
 function buildConclusionDocument(
@@ -1400,7 +1308,7 @@ export function computeProjectArchiveMissingItems(input: {
     )
   }
   if (!hasGroup('SAMPLE_ASSET')) {
-    missingItems.push(buildMissingItem(archive, transferNodeId, 'SAMPLE_DATA', '缺少样衣资料，请补齐样衣任务、样衣资产或关键样衣事件。'))
+    missingItems.push(buildMissingItem(archive, transferNodeId, 'SAMPLE_DATA', '缺少样衣资料，请补齐首版或首单样衣打样任务。'))
   }
   const archivedPatternAssetIds = new Set(
     documents

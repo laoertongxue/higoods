@@ -183,8 +183,6 @@ const PCS_HANDLER_SPECS: PcsHandlerSpec[] = [
         '/pcs/patterns',
         '/pcs/samples/first-sample',
         '/pcs/samples/first-order',
-        '/pcs/samples/pre-production',
-        '/pcs/production/pre-check',
       ]),
     importModule: () => import('../pages/pcs-engineering-tasks'),
     eventExport: 'handlePcsEngineeringTaskEvent',

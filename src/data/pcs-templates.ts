@@ -11,7 +11,6 @@ import {
   listProjectTemplateSchemas,
   type PcsProjectTemplateStyleType,
 } from './pcs-project-domain-contract.ts'
-import { removeSampleRetainReviewFromTemplates } from './pcs-remove-sample-retain-review-migration.ts'
 import { validateTemplateBusinessIntegrity } from './pcs-template-domain-view-model.ts'
 
 export type TemplateStatusCode = 'active' | 'inactive'
@@ -88,8 +87,8 @@ function buildTemplateVersion(updatedAt: string): string {
 }
 
 function buildContractTemplateStore(): ProjectTemplate[] {
-  return removeSampleRetainReviewFromTemplates(
-    buildBuiltinProjectTemplateMatrix().map((item) => ({
+  return buildBuiltinProjectTemplateMatrix()
+    .map((item) => ({
       id: item.templateId,
       name: item.templateName,
       styleType: [...item.styleTypes],
@@ -128,8 +127,8 @@ function buildContractTemplateStore(): ProjectTemplate[] {
         templateVersion: item.updatedAt,
       })),
       pendingNodes: [],
-    })),
-  ).filter(hasRequiredTemplateTerminalNode)
+    }))
+    .filter(hasRequiredTemplateTerminalNode)
 }
 
 let templateStore: ProjectTemplate[] = buildContractTemplateStore()
@@ -165,14 +164,7 @@ function normalizeStructuredTemplate(template: ProjectTemplate): ProjectTemplate
       }
     })
 
-  return removeSampleRetainReviewFromTemplates([
-    {
-      ...template,
-      stages: orderedStages,
-      nodes: orderedNodes,
-      pendingNodes: template.pendingNodes.map(clonePendingNode),
-    },
-  ])[0] ?? {
+  return {
     ...template,
     stages: orderedStages,
     nodes: orderedNodes,

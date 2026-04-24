@@ -136,7 +136,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
             { key: 'pcs-color-tasks', title: '花型任务', icon: 'Palette', href: '/pcs/patterns/colors' },
             { key: 'pcs-pattern-library', title: '花型库', icon: 'Image', href: '/pcs/pattern-library' },
             { key: 'pcs-first-sample', title: '首版样衣打样', icon: 'Droplet', href: '/pcs/samples/first-sample' },
-            { key: 'pcs-pre-production', title: '产前版样衣', icon: 'CheckSquare', href: '/pcs/samples/pre-production' },
+            { key: 'pcs-first-order', title: '首单样衣打样', icon: 'CheckSquare', href: '/pcs/samples/first-order' },
           ],
         },
         {

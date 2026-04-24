@@ -452,7 +452,6 @@ function buildQuickRecordPayload(
           acquireMethod: project.sampleSourceType || '外采',
           acquirePurpose: '商品项目打样准备',
           applicant: project.ownerName,
-          expectedArrivalDate: input.businessDate,
           handler: project.ownerName,
           specNote: note,
         },
@@ -461,14 +460,12 @@ function buildQuickRecordPayload(
       return {
         values: {
           sampleCode: `${project.projectCode}-Y001`,
-          arrivalTime: `${input.businessDate} 10:00`,
           checkResult: note,
         },
         detailSnapshot: {
           receiver: project.ownerName,
-          warehouseLocation: '样衣仓 A-01',
           sampleQuantity: 1,
-          approvalStatus: '已入库',
+          approvalStatus: '已核对',
         },
       }
     case 'FEASIBILITY_REVIEW':
@@ -764,15 +761,14 @@ interface CoverageObjectRefs {
   artworkTaskCode: string
   firstSampleTaskId: string
   firstSampleTaskCode: string
-  preProductionTaskId: string
-  preProductionTaskCode: string
+  firstOrderTaskId: string
+  firstOrderTaskCode: string
   liveSessionId: string
   liveSessionCode: string
   liveLineId: string
   liveLineCode: string
   videoRecordId: string
   videoRecordCode: string
-  sampleAssetId: string
 }
 
 function getDemoStoreMeta(project: PcsProjectRecord, replicaIndex: number): DemoStoreMeta {
@@ -836,15 +832,14 @@ function getCoverageObjectRefs(project: PcsProjectRecord, context: CoverageSeedC
     artworkTaskCode: `ART-${suffix}-${context.replicaIndex + 1}`,
     firstSampleTaskId: `${project.projectId}-first-sample-${context.replicaIndex + 1}`,
     firstSampleTaskCode: `FS-${suffix}-${context.replicaIndex + 1}`,
-    preProductionTaskId: `${project.projectId}-pre-production-${context.replicaIndex + 1}`,
-    preProductionTaskCode: `PPS-${suffix}-${context.replicaIndex + 1}`,
+    firstOrderTaskId: `${project.projectId}-first-order-${context.replicaIndex + 1}`,
+    firstOrderTaskCode: `FO-${suffix}-${context.replicaIndex + 1}`,
     liveSessionId: `${project.projectId}-live-${context.replicaIndex + 1}`,
     liveSessionCode: `LS-${suffix}-${context.replicaIndex + 1}`,
     liveLineId: `${project.projectId}-live-line-${context.replicaIndex + 1}`,
     liveLineCode: `LS-LINE-${suffix}-${context.replicaIndex + 1}`,
     videoRecordId: `${project.projectId}-video-${context.replicaIndex + 1}`,
     videoRecordCode: `SV-${suffix}-${context.replicaIndex + 1}`,
-    sampleAssetId: `${project.projectId}-sample-asset-${context.replicaIndex + 1}`,
   }
 }
 
@@ -1232,51 +1227,43 @@ function ensureFormalNodeRelation(
           factoryId: 'FAC-GZ-001',
           factoryName: '广州样衣一厂',
           targetSite: '广州',
-          expectedArrival: getCoverageBusinessDate(nodeIndex, context.replicaIndex, 2),
-          trackingNo: `${refs.firstSampleTaskCode}-SF`,
-          sampleCode: `${project.projectCode}-SAMPLE-01`,
+          sampleCode: `FS-RESULT-${project.projectCode.slice(-4)}-${context.replicaIndex + 1}`,
           sourceType: '任务打样',
           upstreamModule: '制版任务',
           upstreamObjectType: '制版任务',
           upstreamObjectId: refs.plateTaskId,
           upstreamObjectCode: refs.plateTaskCode,
           taskStatus: latestStatus,
-          acceptedAt: businessDate,
           confirmedAt: nodeIndex < context.currentNodeIndex ? businessDate : '',
-          sampleAssetId: refs.sampleAssetId,
         },
       })
       return
     }
-    case 'PRE_PRODUCTION_SAMPLE': {
+    case 'FIRST_ORDER_SAMPLE': {
       upsertDemoRelation({
         project,
-        workItemTypeCode: 'PRE_PRODUCTION_SAMPLE',
-        sourceModule: '产前版样衣',
-        sourceObjectType: '产前版样衣任务',
-        sourceObjectId: refs.preProductionTaskId,
-        sourceObjectCode: refs.preProductionTaskCode,
-        sourceTitle: `${project.projectName} 产前版样衣`,
+        workItemTypeCode: 'FIRST_ORDER_SAMPLE',
+        sourceModule: '首单样衣打样',
+        sourceObjectType: '首单样衣打样任务',
+        sourceObjectId: refs.firstOrderTaskId,
+        sourceObjectCode: refs.firstOrderTaskCode,
+        sourceTitle: `${project.projectName} 首单样衣打样`,
         sourceStatus: latestStatus,
         businessDate,
         noteMeta: {
           factoryId: 'FAC-SZ-002',
-          factoryName: '深圳产前样二厂',
+          factoryName: '深圳首单样二厂',
           targetSite: '深圳',
-          expectedArrival: getCoverageBusinessDate(nodeIndex, context.replicaIndex, 3),
           patternVersion: 'P2',
           artworkVersion: 'A2',
-          trackingNo: `${refs.preProductionTaskCode}-YT`,
-          sampleCode: `${project.projectCode}-PPS-01`,
-          sourceType: '产前确认',
+          sampleCode: `FO-RESULT-${project.projectCode.slice(-4)}-${context.replicaIndex + 1}`,
+          sourceType: '首单确认',
           upstreamModule: '技术包',
           upstreamObjectType: '技术包版本',
           upstreamObjectId: refs.techPackVersionId,
           upstreamObjectCode: refs.techPackVersionCode,
           taskStatus: latestStatus,
-          acceptedAt: businessDate,
           confirmedAt: nodeIndex < context.currentNodeIndex ? businessDate : '',
-          sampleAssetId: refs.sampleAssetId,
         },
       })
       return
@@ -1721,7 +1708,7 @@ export function ensurePcsProjectDemoDataReady(): void {
   approveProjectInitAndSync(decisionProject.projectId, DEMO_OPERATOR)
   seedInlineRecordAndComplete(decisionProject.projectId, 'SAMPLE_ACQUIRE', {
     businessDate: '2026-04-09',
-    note: '设计样衣已完成采购并入库。',
+    note: '设计样衣来源已确认，进入后续评估。',
   })
   seedInlineRecordAndComplete(decisionProject.projectId, 'SAMPLE_INBOUND_CHECK', {
     businessDate: '2026-04-09',
@@ -2160,9 +2147,7 @@ export function ensurePcsProjectDemoDataReady(): void {
       factoryId: 'FAC-GZ-001',
       factoryName: '广州一厂',
       targetSite: '广州',
-      expectedArrival: '2026-04-08',
-      trackingNo: `${archivedProject.projectCode}-SF001`,
-      sampleCode: `${archivedProject.projectCode}-Y001`,
+      sampleCode: `FS-RESULT-${archivedProject.projectCode.slice(-4)}-001`,
     },
   })
   seedInlineRecord(archivedProject.projectId, 'SAMPLE_ACQUIRE', {
@@ -2171,7 +2156,7 @@ export function ensurePcsProjectDemoDataReady(): void {
   })
   seedInlineRecord(archivedProject.projectId, 'SAMPLE_INBOUND_CHECK', {
     businessDate: '2026-04-01',
-    note: '到样核对完成，样衣状态良好。',
+    note: '样衣结果核对完成，样衣状态良好。',
   })
   seedInlineRecord(archivedProject.projectId, 'FEASIBILITY_REVIEW', {
     businessDate: '2026-04-02',

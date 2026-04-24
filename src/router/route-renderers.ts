@@ -91,30 +91,6 @@ export const renderPcsChannelStoreSyncPage = createAsyncRenderer(
   () => import('../pages/pcs-channel-stores'),
   'renderPcsChannelStoreSyncPage',
 )
-export const renderPcsSampleLedgerPage = createAsyncRenderer(
-  () => import('../pages/pcs-sample-ledger'),
-  'renderPcsSampleLedgerPage',
-)
-export const renderPcsSampleInventoryPage = createAsyncRenderer(
-  () => import('../pages/pcs-sample-inventory'),
-  'renderPcsSampleInventoryPage',
-)
-export const renderPcsSampleTransferPage = createAsyncRenderer(
-  () => import('../pages/pcs-sample-transfer'),
-  'renderPcsSampleTransferPage',
-)
-export const renderPcsSampleReturnPage = createAsyncRenderer(
-  () => import('../pages/pcs-sample-return'),
-  'renderPcsSampleReturnPage',
-)
-export const renderPcsSampleApplicationPage = createAsyncRenderer(
-  () => import('../pages/pcs-sample-application'),
-  'renderPcsSampleApplicationPage',
-)
-export const renderPcsSampleViewPage = createAsyncRenderer(
-  () => import('../pages/pcs-sample-view'),
-  'renderPcsSampleViewPage',
-)
 export const renderPcsStyleArchiveListPage = createAsyncRenderer(
   () => import('../pages/pcs-product-archives'),
   'renderPcsStyleArchiveListPage',
@@ -247,13 +223,13 @@ export const renderPcsFirstSampleTaskDetailPage = createAsyncRenderer(
   () => import('../pages/pcs-engineering-tasks'),
   'renderPcsFirstSampleTaskDetailPage',
 )
-export const renderPcsPreProductionSampleTaskPage = createAsyncRenderer(
+export const renderPcsFirstOrderSampleTaskPage = createAsyncRenderer(
   () => import('../pages/pcs-engineering-tasks'),
-  'renderPcsPreProductionSampleTaskPage',
+  'renderPcsFirstOrderSampleTaskPage',
 )
-export const renderPcsPreProductionSampleTaskDetailPage = createAsyncRenderer(
+export const renderPcsFirstOrderSampleTaskDetailPage = createAsyncRenderer(
   () => import('../pages/pcs-engineering-tasks'),
-  'renderPcsPreProductionSampleTaskDetailPage',
+  'renderPcsFirstOrderSampleTaskDetailPage',
 )
 export const renderCapabilityPage = createAsyncRenderer(() => import('../pages/capability'), 'renderCapabilityPage')
 export const renderFactoryStatusPage = createAsyncRenderer(() => import('../pages/factory-status'), 'renderFactoryStatusPage')

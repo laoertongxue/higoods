@@ -370,7 +370,7 @@ const PROJECT_NODE_FIELD_MODULE_EXCEPTIONS = new Set([
   'PATTERN_TASK',
   'PATTERN_ARTWORK_TASK',
   'FIRST_SAMPLE',
-  'PRE_PRODUCTION_SAMPLE',
+  'FIRST_ORDER_SAMPLE',
 ])
 const PROJECT_NODE_MANUAL_COMPLETE_BLOCKED_TYPES = new Set([
   'CHANNEL_PRODUCT_LISTING',
@@ -554,10 +554,7 @@ type ProjectDetailSupportModule = Pick<
   | 'getPlateMakingTaskById'
   | 'getPatternTaskById'
   | 'getFirstSampleTaskById'
-  | 'getPreProductionSampleTaskById'
-  | 'getSampleAssetByCode'
-  | 'getSampleAssetById'
-  | 'listSampleLedgerEventsBySample'
+  | 'getFirstOrderSampleTaskById'
 >
 type ProjectInstanceModelModule = Pick<
   typeof import('../data/pcs-project-instance-model.ts'),
@@ -924,36 +921,12 @@ function getFirstSampleTaskByIdSafe(firstSampleTaskId: string) {
   return projectDetailSupportModule.getFirstSampleTaskById(firstSampleTaskId)
 }
 
-function getPreProductionSampleTaskByIdSafe(preProductionSampleTaskId: string) {
+function getFirstOrderSampleTaskByIdSafe(firstOrderSampleTaskId: string) {
   if (!projectDetailSupportModule) {
     return null
   }
 
-  return projectDetailSupportModule.getPreProductionSampleTaskById(preProductionSampleTaskId)
-}
-
-function getSampleAssetByCodeSafe(sampleCode: string) {
-  if (!projectDetailSupportModule) {
-    return null
-  }
-
-  return projectDetailSupportModule.getSampleAssetByCode(sampleCode)
-}
-
-function getSampleAssetByIdSafe(sampleAssetId: string) {
-  if (!projectDetailSupportModule) {
-    return null
-  }
-
-  return projectDetailSupportModule.getSampleAssetById(sampleAssetId)
-}
-
-function listSampleLedgerEventsBySampleSafe(sampleAssetId: string) {
-  if (!projectDetailSupportModule) {
-    return []
-  }
-
-  return projectDetailSupportModule.listSampleLedgerEventsBySample(sampleAssetId)
+  return projectDetailSupportModule.getFirstOrderSampleTaskById(firstOrderSampleTaskId)
 }
 
 function nowText(): string {
@@ -1567,40 +1540,6 @@ function findLatestNodeRelation(
 function buildFallbackUpstreamChannelProductCode(channelProductCode: string, projectCode: string): string {
   if (channelProductCode) return `${channelProductCode}-UP`
   return `${projectCode}-UP`
-}
-
-function resolveSampleAcceptedAt(
-  sampleAssetId: string,
-  fallbackAcceptedAt: string,
-  fallbackStatus: string,
-  fallbackUpdatedAt: string,
-): string {
-  if (fallbackAcceptedAt) return fallbackAcceptedAt
-  if (sampleAssetId) {
-    const event = listSampleLedgerEventsBySampleSafe(sampleAssetId).find(
-      (item) => item.eventType === 'DELIVER_SIGNED' || item.eventType === 'RECEIVE_ARRIVAL',
-    )
-    if (event?.businessDate) return event.businessDate
-  }
-  if (fallbackStatus === '已到样待入库' || fallbackStatus === '验收中' || fallbackStatus === '已完成') {
-    return fallbackUpdatedAt
-  }
-  return ''
-}
-
-function resolveSampleConfirmedAt(
-  sampleAssetId: string,
-  fallbackConfirmedAt: string,
-  fallbackStatus: string,
-  fallbackUpdatedAt: string,
-): string {
-  if (fallbackConfirmedAt) return fallbackConfirmedAt
-  if (sampleAssetId) {
-    const event = listSampleLedgerEventsBySampleSafe(sampleAssetId).find((item) => item.eventType === 'CHECKIN_VERIFY')
-    if (event?.businessDate) return event.businessDate
-  }
-  if (fallbackStatus === '已完成') return fallbackUpdatedAt
-  return ''
 }
 
 function getCurrentProjectArchiveRecord(project: PcsProjectRecord) {
@@ -2355,12 +2294,12 @@ function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel
   const firstSampleTask = firstSampleRelation
     ? getFirstSampleTaskByIdSafe(firstSampleRelation.sourceObjectId || firstSampleRelation.instanceId)
     : null
-  const preProductionRelation = findLatestNodeRelation(project.projectId, node.node.projectNodeId, '产前版样衣', '产前版样衣任务')
-  const preProductionTask = preProductionRelation
-    ? getPreProductionSampleTaskByIdSafe(preProductionRelation.sourceObjectId || preProductionRelation.instanceId)
+  const firstOrderRelation = findLatestNodeRelation(project.projectId, node.node.projectNodeId, '首单样衣打样', '首单样衣打样任务')
+  const firstOrderTask = firstOrderRelation
+    ? getFirstOrderSampleTaskByIdSafe(firstOrderRelation.sourceObjectId || firstOrderRelation.instanceId)
     : null
   const currentEngineeringTask =
-    plateTask || artworkTask || firstSampleTask || preProductionTask || null
+    plateTask || artworkTask || firstSampleTask || firstOrderTask || null
   const testingAggregate = getProjectTestingAggregate(project.projectId)
   const defaultChannelCode = getFirstTargetChannelCode(project)
   const defaultChannelName = getChannelDisplayName(defaultChannelCode)
@@ -2409,23 +2348,9 @@ function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel
     String(currentProjectArchive?.archiveStatus || project.projectArchiveStatus || '') === 'FINALIZED' ||
     project.projectArchiveStatus === '已归档' ||
     Boolean(currentProjectArchive?.finalizedAt || project.projectArchiveFinalizedAt)
-  const currentSampleTask = firstSampleTask || preProductionTask || null
-  const currentSampleAsset =
-    (currentSampleTask?.sampleAssetId ? getSampleAssetByIdSafe(currentSampleTask.sampleAssetId) : null) ||
-    (currentSampleTask?.sampleCode ? getSampleAssetByCodeSafe(currentSampleTask.sampleCode) : null)
+  const currentSampleTask = firstSampleTask || firstOrderTask || null
   const currentTaskStatus = String(currentEngineeringTask?.status || '')
-  const currentTaskAcceptedAt = resolveSampleAcceptedAt(
-    currentSampleAsset?.sampleAssetId || currentSampleTask?.sampleAssetId || '',
-    String(currentSampleTask?.acceptedAt || currentEngineeringTask?.acceptedAt || ''),
-    currentTaskStatus,
-    String(currentSampleTask?.updatedAt || currentEngineeringTask?.updatedAt || ''),
-  )
-  const currentTaskConfirmedAt = resolveSampleConfirmedAt(
-    currentSampleAsset?.sampleAssetId || currentSampleTask?.sampleAssetId || '',
-    String(currentSampleTask?.confirmedAt || currentEngineeringTask?.confirmedAt || ''),
-    currentTaskStatus,
-    String(currentSampleTask?.updatedAt || currentEngineeringTask?.updatedAt || ''),
-  )
+  const currentTaskConfirmedAt = String(currentSampleTask?.confirmedAt || currentEngineeringTask?.confirmedAt || '')
   const activeListingCount = listProjectChannelProductsByProjectIdSafe(project.projectId).filter(
     (item) => item.channelProductStatus !== '已作废',
   ).length
@@ -2594,7 +2519,6 @@ function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel
     projectArchiveCompletedFlag,
     projectArchiveFinalizedAt: currentProjectArchive?.finalizedAt || project.projectArchiveFinalizedAt || '',
     taskStatus: currentTaskStatus || node.node.currentStatus,
-    acceptedAt: currentTaskAcceptedAt || String(currentEngineeringTask?.acceptedAt || ''),
     confirmedAt: currentTaskConfirmedAt || String(currentEngineeringTask?.confirmedAt || ''),
     patternBrief:
       plateTask?.note ||
@@ -2604,19 +2528,15 @@ function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel
       node.node.latestResultText,
     productStyleCode: plateTask?.productStyleCode || artworkTask?.productStyleCode || nodeRelationMeta.productStyleCode || currentStyleCode,
     sizeRange: plateTask?.sizeRange || nodeRelationMeta.sizeRange || '',
-    patternVersion: plateTask?.patternVersion || preProductionTask?.patternVersion || nodeRelationMeta.patternVersion || '',
+    patternVersion: plateTask?.patternVersion || firstOrderTask?.patternVersion || nodeRelationMeta.patternVersion || '',
     artworkType: artworkTask?.artworkType || nodeRelationMeta.artworkType || '',
     patternMode: artworkTask?.patternMode || nodeRelationMeta.patternMode || '',
     artworkName: artworkTask?.artworkName || nodeRelationMeta.artworkName || '',
-    artworkVersion: artworkTask?.artworkVersion || preProductionTask?.artworkVersion || nodeRelationMeta.artworkVersion || '',
+    artworkVersion: artworkTask?.artworkVersion || firstOrderTask?.artworkVersion || nodeRelationMeta.artworkVersion || '',
     factoryId: currentSampleTask?.factoryName || currentSampleTask?.factoryId || nodeRelationMeta.factoryName || nodeRelationMeta.factoryId || '',
     targetSite: currentSampleTask?.targetSite || nodeRelationMeta.targetSite || '',
-    expectedArrival: currentSampleTask?.expectedArrival || nodeRelationMeta.expectedArrival || '',
-    trackingNo: currentSampleTask?.trackingNo || nodeRelationMeta.trackingNo || '',
-    sampleAssetId: currentSampleTask?.sampleAssetId || currentSampleAsset?.sampleAssetId || '',
     sampleCode:
       currentSampleTask?.sampleCode ||
-      currentSampleAsset?.sampleCode ||
       nodeRelationMeta.sampleCode ||
       detailSnapshot.sampleCode ||
       '',
@@ -2698,7 +2618,7 @@ function deriveRecordSummaryNote(workItemTypeCode: string, values: Record<string
     case 'SAMPLE_ACQUIRE':
       return pickFirst('sampleSupplierId', 'sampleLink', 'sampleSourceType') || '已登记样衣来源。'
     case 'SAMPLE_INBOUND_CHECK':
-      return pickFirst('checkResult', 'sampleCode') || '已登记到样核对。'
+      return pickFirst('checkResult', 'sampleCode') || '已登记样衣结果核对。'
     case 'FEASIBILITY_REVIEW':
       return pickFirst('reviewRisk', 'reviewConclusion') || '已更新可行性判断。'
     case 'SAMPLE_SHOOT_FIT':

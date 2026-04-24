@@ -56,10 +56,10 @@ import {
 } from './pcs-first-sample-repository.ts'
 import type { FirstSampleTaskRecord } from './pcs-first-sample-types.ts'
 import {
-  listPreProductionSampleTasksByProject,
-  listPreProductionSampleTasksByProjectNode,
-} from './pcs-pre-production-sample-repository.ts'
-import type { PreProductionSampleTaskRecord } from './pcs-pre-production-sample-types.ts'
+  listFirstOrderSampleTasksByProject,
+  listFirstOrderSampleTasksByProjectNode,
+} from './pcs-first-order-sample-repository.ts'
+import type { FirstOrderSampleTaskRecord } from './pcs-first-order-sample-types.ts'
 import { listProjectChannelProductsByProjectId } from './pcs-channel-product-project-repository.ts'
 import { findStyleArchiveByProjectId, getStyleArchiveById } from './pcs-style-archive-repository.ts'
 import {
@@ -67,8 +67,6 @@ import {
   listTechnicalDataVersionsByProjectId,
 } from './pcs-technical-data-version-repository.ts'
 import { getProjectArchiveById, getProjectArchiveByProjectId } from './pcs-project-archive-repository.ts'
-import { listSampleAssets } from './pcs-sample-asset-repository.ts'
-import { listSampleLedgerEvents } from './pcs-sample-ledger-repository.ts'
 import { syncExistingProjectEngineeringTaskNodes } from './pcs-task-project-relation-writeback.ts'
 
 const INLINE_NODE_CODE_SET = new Set<string>(PCS_PROJECT_INLINE_NODE_RECORD_WORK_ITEM_TYPES as readonly string[])
@@ -78,7 +76,7 @@ type CompletedEngineeringTask =
   | PlateMakingTaskRecord
   | PatternTaskRecord
   | FirstSampleTaskRecord
-  | PreProductionSampleTaskRecord
+  | FirstOrderSampleTaskRecord
 
 export type PcsProjectDataConsistencyIssueType =
   | '项目节点与模板定义不一致'
@@ -239,8 +237,8 @@ function getLatestTaskForNode(projectId: string, projectNodeId: string, workItem
   if (workItemTypeCode === 'FIRST_SAMPLE') {
     return pickLatestTask(listFirstSampleTasksByProjectNode(projectId, projectNodeId))
   }
-  if (workItemTypeCode === 'PRE_PRODUCTION_SAMPLE') {
-    return pickLatestTask(listPreProductionSampleTasksByProjectNode(projectId, projectNodeId))
+  if (workItemTypeCode === 'FIRST_ORDER_SAMPLE') {
+    return pickLatestTask(listFirstOrderSampleTasksByProjectNode(projectId, projectNodeId))
   }
   return null
 }
@@ -416,7 +414,7 @@ export function validateProjectNodeCompletion(
     node.workItemTypeCode === 'PATTERN_TASK' ||
     node.workItemTypeCode === 'PATTERN_ARTWORK_TASK' ||
     node.workItemTypeCode === 'FIRST_SAMPLE' ||
-    node.workItemTypeCode === 'PRE_PRODUCTION_SAMPLE'
+    node.workItemTypeCode === 'FIRST_ORDER_SAMPLE'
   ) {
     return validateNodeByTask(project, node)
   }
@@ -694,14 +692,14 @@ function pushModuleRecordIssues(project: PcsProjectViewRecord, issues: PcsProjec
     }
   })
 
-  listPreProductionSampleTasksByProject(project.projectId).forEach((task) => {
+  listFirstOrderSampleTasksByProject(project.projectId).forEach((task) => {
     pushRecordBindingIssue(issues, {
       project,
-      moduleName: '产前版样衣',
-      sourceObjectId: task.preProductionSampleTaskId,
-      sourceObjectCode: task.preProductionSampleTaskCode,
+      moduleName: '首单样衣打样',
+      sourceObjectId: task.firstOrderSampleTaskId,
+      sourceObjectCode: task.firstOrderSampleTaskCode,
       projectNodeId: task.projectNodeId,
-      expectedWorkItemTypeCode: 'PRE_PRODUCTION_SAMPLE',
+      expectedWorkItemTypeCode: 'FIRST_ORDER_SAMPLE',
     })
     if (task.status === '已完成') {
       const node = getProjectNodeRecordById(project.projectId, task.projectNodeId)
@@ -711,10 +709,10 @@ function pushModuleRecordIssues(project: PcsProjectViewRecord, issues: PcsProjec
             '已完成实例未回写项目节点',
             project,
             node,
-            '产前版样衣',
-            task.preProductionSampleTaskId,
-            task.preProductionSampleTaskCode,
-            '产前版样衣任务已完成，但项目节点未同步为已完成。',
+            '首单样衣打样',
+            task.firstOrderSampleTaskId,
+            task.firstOrderSampleTaskCode,
+            '首单样衣打样任务已完成，但项目节点未同步为已完成。',
           ),
         )
       }
@@ -768,31 +766,6 @@ function pushModuleRecordIssues(project: PcsProjectViewRecord, issues: PcsProjec
     }
   }
 
-  listSampleAssets()
-    .filter((asset) => asset.projectId === project.projectId)
-    .forEach((asset) => {
-      pushRecordBindingIssue(issues, {
-        project,
-        moduleName: '样衣资产',
-        sourceObjectId: asset.sampleAssetId,
-        sourceObjectCode: asset.sampleCode,
-        projectNodeId: asset.projectNodeId,
-        expectedWorkItemTypeCode: asset.workItemTypeCode,
-      })
-    })
-
-  listSampleLedgerEvents()
-    .filter((event) => event.projectId === project.projectId)
-    .forEach((event) => {
-      pushRecordBindingIssue(issues, {
-        project,
-        moduleName: '样衣台账',
-        sourceObjectId: event.ledgerEventId,
-        sourceObjectCode: event.ledgerEventCode,
-        projectNodeId: event.projectNodeId,
-        expectedWorkItemTypeCode: event.workItemTypeCode,
-      })
-    })
 }
 
 function pushCompletedNodeIssues(project: PcsProjectViewRecord, issues: PcsProjectDataConsistencyIssue[]): void {

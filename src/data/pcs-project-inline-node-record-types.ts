@@ -76,17 +76,8 @@ export interface SampleAcquireDetailSnapshot {
   colors?: string[]
   sizes?: string[]
   specNote?: string
-  expectedArrivalDate?: string
-  expressCompany?: string
-  trackingNumber?: string
-  shippingCost?: number | string
-  returnDeadline?: string
-  arrivalConfirmer?: string
-  actualArrivalTime?: string
   sampleCode?: string
   sampleStatus?: string
-  warehouse?: string
-  inventoryRecord?: string
   approvalStatus?: string
   approver?: string
   handler?: string
@@ -260,18 +251,10 @@ export interface SampleReturnHandleDetailSnapshot {
   returnDepartment?: string
   returnAddress?: string
   returnDate?: string
-  logisticsProvider?: string
-  trackingNumber?: string
   modificationReason?: string
-  sampleAssetId?: string
   sampleCode?: string
-  sampleLedgerEventId?: string
-  sampleLedgerEventCode?: string
   returnDocId?: string
   returnDocCode?: string
-  inventoryStatusAfter?: string
-  availabilityAfter?: string
-  locationAfter?: string
 }
 
 export interface PcsProjectInlineNodeRecordPayloadMap {

@@ -6,7 +6,6 @@ import {
   type PcsProjectInlineNodeRef,
 } from './pcs-project-inline-node-record-types.ts'
 import { createBootstrapProjectInlineNodeRecordSnapshot } from './pcs-project-inline-node-record-bootstrap.ts'
-import { removeSampleRetainReviewFromInlineRecords } from './pcs-remove-sample-retain-review-migration.ts'
 import { migrateProjectDecisionInlineRecords } from './pcs-project-decision-migration.ts'
 import {
   getProjectById,
@@ -93,17 +92,8 @@ const ALLOWED_DETAIL_SNAPSHOT_KEYS: Record<PcsProjectInlineNodeRecordWorkItemTyp
     'colors',
     'sizes',
     'specNote',
-    'expectedArrivalDate',
-    'expressCompany',
-    'trackingNumber',
-    'shippingCost',
-    'returnDeadline',
-    'arrivalConfirmer',
-    'actualArrivalTime',
     'sampleCode',
     'sampleStatus',
-    'warehouse',
-    'inventoryRecord',
     'approvalStatus',
     'approver',
     'handler',
@@ -204,18 +194,10 @@ const ALLOWED_DETAIL_SNAPSHOT_KEYS: Record<PcsProjectInlineNodeRecordWorkItemTyp
     'returnDepartment',
     'returnAddress',
     'returnDate',
-    'logisticsProvider',
-    'trackingNumber',
     'modificationReason',
-    'sampleAssetId',
     'sampleCode',
-    'sampleLedgerEventId',
-    'sampleLedgerEventCode',
     'returnDocId',
     'returnDocCode',
-    'inventoryStatusAfter',
-    'availabilityAfter',
-    'locationAfter',
   ],
 }
 
@@ -391,11 +373,7 @@ function hydrateSnapshot(
   snapshot: Partial<PcsProjectInlineNodeRecordStoreSnapshot> | null | undefined,
 ): PcsProjectInlineNodeRecordStoreSnapshot {
   const cleanedRecords = Array.isArray(snapshot?.records)
-    ? migrateProjectDecisionInlineRecords(
-        removeSampleRetainReviewFromInlineRecords(
-          snapshot.records as Array<PcsProjectInlineNodeRecord & { workItemTypeCode?: string | null; projectNodeId?: string | null }>,
-        ),
-      )
+    ? migrateProjectDecisionInlineRecords(snapshot.records as Array<PcsProjectInlineNodeRecord & { workItemTypeCode?: string | null; projectNodeId?: string | null }>)
     : []
 
   return {

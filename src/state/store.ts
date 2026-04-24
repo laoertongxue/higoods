@@ -27,14 +27,6 @@ const PCS_TAB_REDIRECTS: Record<string, { href: string; title?: string }> = {
   '/pcs/products/spu': { href: '/pcs/products/styles', title: '款式档案' },
   '/pcs/products/sku': { href: '/pcs/products/specifications', title: '规格档案' },
   '/pcs/products/yarn': { href: '/pcs/materials/yarn', title: '纱线档案' },
-  '/pcs/samples/ledger': { href: '/pcs/projects', title: '商品项目' },
-  '/pcs/samples/inventory': { href: '/pcs/projects', title: '商品项目' },
-  '/pcs/samples/transfer': { href: '/pcs/projects', title: '商品项目' },
-  '/pcs/samples/return': { href: '/pcs/projects', title: '商品项目' },
-  '/pcs/samples/application': { href: '/pcs/projects', title: '商品项目' },
-  '/pcs/samples/view': { href: '/pcs/projects', title: '商品项目' },
-  '/pcs/samples/first-order': { href: '/pcs/samples/first-sample', title: '首版样衣打样' },
-  '/pcs/production/pre-check': { href: '/pcs/samples/pre-production', title: '产前版样衣' },
 }
 const CUTTING_TAB_REDIRECTS: Record<string, { href: string; title: string }> = {
   '/fcs/craft/cutting': { href: '/fcs/craft/cutting/production-progress', title: '生产单进度' },

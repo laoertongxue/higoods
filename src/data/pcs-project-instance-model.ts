@@ -25,15 +25,13 @@ import { getRevisionTaskById } from './pcs-revision-task-repository.ts'
 import { getPlateMakingTaskById } from './pcs-plate-making-repository.ts'
 import { getPatternTaskById } from './pcs-pattern-task-repository.ts'
 import { getFirstSampleTaskById } from './pcs-first-sample-repository.ts'
-import { getPreProductionSampleTaskById } from './pcs-pre-production-sample-repository.ts'
+import { getFirstOrderSampleTaskById } from './pcs-first-order-sample-repository.ts'
 import { getLiveProductLineById, getLiveSessionRecordById } from './pcs-live-testing-repository.ts'
 import { getVideoTestRecordById } from './pcs-video-testing-repository.ts'
 import { getStyleArchiveById } from './pcs-style-archive-repository.ts'
 import { getSkuArchiveById, findSkuArchiveByCode } from './pcs-sku-archive-repository.ts'
 import { getTechnicalDataVersionById } from './pcs-technical-data-version-repository.ts'
 import { getProjectArchiveById } from './pcs-project-archive-repository.ts'
-import { getSampleAssetById } from './pcs-sample-asset-repository.ts'
-import { getSampleLedgerEventById } from './pcs-sample-ledger-repository.ts'
 import { getLiveSessionById, getLiveSessionItems, getVideoItems, getVideoRecordById } from './pcs-testing.ts'
 
 export type PcsProjectInstanceSourceKind = 'PROJECT_RECORD' | 'INLINE_RECORD' | 'RELATION_OBJECT'
@@ -450,10 +448,8 @@ function resolveFirstSampleRelationObject(relation: ProjectRelationRecord): Reso
   const task = getFirstSampleTaskById(relation.sourceObjectId)
   const fields: PcsProjectInstanceField[] = []
   addField(fields, '工厂', task?.factoryName, 'factoryName')
-  addField(fields, '发往地', task?.targetSite, 'targetSite')
-  addField(fields, '预计到样', task?.expectedArrival, 'expectedArrival')
-  addField(fields, '样衣编号', task?.sampleCode, 'sampleCode')
-  addField(fields, '物流单号', task?.trackingNo, 'trackingNo')
+  addField(fields, '打样区域', task?.targetSite, 'targetSite')
+  addField(fields, '结果编号', task?.sampleCode, 'sampleCode')
   return {
     instanceId: task?.firstSampleTaskId || relation.sourceObjectId,
     instanceCode: task?.firstSampleTaskCode || relation.sourceObjectCode,
@@ -468,17 +464,17 @@ function resolveFirstSampleRelationObject(relation: ProjectRelationRecord): Reso
   }
 }
 
-function resolvePreProductionSampleRelationObject(relation: ProjectRelationRecord): ResolvedRelationObjectSnapshot {
-  const task = getPreProductionSampleTaskById(relation.sourceObjectId)
+function resolveFirstOrderSampleRelationObject(relation: ProjectRelationRecord): ResolvedRelationObjectSnapshot {
+  const task = getFirstOrderSampleTaskById(relation.sourceObjectId)
   const fields: PcsProjectInstanceField[] = []
   addField(fields, '工厂', task?.factoryName, 'factoryName')
   addField(fields, '版型版本', task?.patternVersion, 'patternVersion')
   addField(fields, '花型版本', task?.artworkVersion, 'artworkVersion')
-  addField(fields, '样衣编号', task?.sampleCode, 'sampleCode')
-  addField(fields, '物流单号', task?.trackingNo, 'trackingNo')
+  addField(fields, '确认方式', task?.sampleChainMode, 'sampleChainMode')
+  addField(fields, '结果编号', task?.sampleCode, 'sampleCode')
   return {
-    instanceId: task?.preProductionSampleTaskId || relation.sourceObjectId,
-    instanceCode: task?.preProductionSampleTaskCode || relation.sourceObjectCode,
+    instanceId: task?.firstOrderSampleTaskId || relation.sourceObjectId,
+    instanceCode: task?.firstOrderSampleTaskCode || relation.sourceObjectCode,
     title: task?.title || relation.sourceTitle,
     status: task?.status || relation.sourceStatus,
     ownerName: task?.ownerName || relation.ownerName,
@@ -486,8 +482,8 @@ function resolvePreProductionSampleRelationObject(relation: ProjectRelationRecor
     updatedAt: task?.updatedAt || relation.updatedAt,
     summaryText: buildSummaryFromFields(fields, relation.sourceTitle),
     targetRoute: task
-      ? `/pcs/samples/pre-production/${encodeURIComponent(task.preProductionSampleTaskId)}`
-      : '/pcs/samples/pre-production',
+      ? `/pcs/samples/first-order/${encodeURIComponent(task.firstOrderSampleTaskId)}`
+      : '/pcs/samples/first-order',
     fields,
   }
 }
@@ -673,48 +669,6 @@ function resolveProjectArchiveRelationObject(relation: ProjectRelationRecord): R
   }
 }
 
-function resolveSampleAssetRelationObject(relation: ProjectRelationRecord): ResolvedRelationObjectSnapshot {
-  const asset = getSampleAssetById(relation.sourceObjectId)
-  const fields: PcsProjectInstanceField[] = []
-  addField(fields, '样衣编号', asset?.sampleCode, 'sampleCode')
-  addField(fields, '库存状态', asset?.inventoryStatus, 'inventoryStatus')
-  addField(fields, '保管位置', asset?.locationDisplay, 'locationDisplay')
-  addField(fields, '最近事件', asset?.lastEventType, 'lastEventType')
-  return {
-    instanceId: asset?.sampleAssetId || relation.sourceObjectId,
-    instanceCode: asset?.sampleCode || relation.sourceObjectCode,
-    title: asset?.sampleName || relation.sourceTitle,
-    status: asset?.inventoryStatus || relation.sourceStatus,
-    ownerName: asset?.custodianName || relation.ownerName,
-    businessDate: relation.businessDate,
-    updatedAt: asset?.updatedAt || relation.updatedAt,
-    summaryText: buildSummaryFromFields(fields, relation.sourceTitle),
-    targetRoute: relation.projectId ? `/pcs/projects/${encodeURIComponent(relation.projectId)}` : '/pcs/projects',
-    fields,
-  }
-}
-
-function resolveSampleLedgerRelationObject(relation: ProjectRelationRecord): ResolvedRelationObjectSnapshot {
-  const event = getSampleLedgerEventById(relation.sourceObjectId)
-  const fields: PcsProjectInstanceField[] = []
-  addField(fields, '事件类型', event?.eventName, 'eventName')
-  addField(fields, '样衣编号', event?.sampleCode, 'sampleCode')
-  addField(fields, '经办人', event?.operatorName, 'operatorName')
-  addField(fields, '状态变化', event ? `${event.inventoryStatusBefore} -> ${event.inventoryStatusAfter}` : '', 'inventoryStatusDiff')
-  return {
-    instanceId: event?.ledgerEventId || relation.sourceObjectId,
-    instanceCode: event?.ledgerEventCode || relation.sourceObjectCode,
-    title: event?.sampleName || relation.sourceTitle,
-    status: event?.eventName || relation.sourceStatus,
-    ownerName: event?.operatorName || relation.ownerName,
-    businessDate: event?.businessDate || relation.businessDate,
-    updatedAt: event?.createdAt || relation.updatedAt,
-    summaryText: buildSummaryFromFields(fields, relation.sourceTitle),
-    targetRoute: relation.projectId ? `/pcs/projects/${encodeURIComponent(relation.projectId)}` : '/pcs/projects',
-    fields,
-  }
-}
-
 function resolveRelationObjectSnapshot(relation: ProjectRelationRecord): ResolvedRelationObjectSnapshot {
   const meta = parseRelationMeta(relation.note)
   if (relation.sourceObjectType === '渠道店铺商品' || relation.sourceObjectType === '渠道商品') {
@@ -724,14 +678,12 @@ function resolveRelationObjectSnapshot(relation: ProjectRelationRecord): Resolve
   if (relation.sourceObjectType === '制版任务') return resolvePlateTaskRelationObject(relation)
   if (relation.sourceObjectType === '花型任务') return resolvePatternTaskRelationObject(relation)
   if (relation.sourceObjectType === '首版样衣打样任务') return resolveFirstSampleRelationObject(relation)
-  if (relation.sourceObjectType === '产前版样衣任务') return resolvePreProductionSampleRelationObject(relation)
+  if (relation.sourceObjectType === '首单样衣打样任务') return resolveFirstOrderSampleRelationObject(relation)
   if (relation.sourceObjectType === '直播商品明细') return resolveLiveRelationObject(relation)
   if (relation.sourceObjectType === '短视频记录') return resolveVideoRelationObject(relation)
   if (relation.sourceObjectType === '款式档案') return resolveStyleArchiveRelationObject(relation, meta)
   if (relation.sourceObjectType === '技术包版本') return resolveTechnicalVersionRelationObject(relation, meta)
   if (relation.sourceObjectType === '项目资料归档') return resolveProjectArchiveRelationObject(relation)
-  if (relation.sourceObjectType === '样衣资产') return resolveSampleAssetRelationObject(relation)
-  if (relation.sourceObjectType === '样衣台账事件') return resolveSampleLedgerRelationObject(relation)
 
   const fields = buildFallbackRelationFields(relation, meta)
   return {

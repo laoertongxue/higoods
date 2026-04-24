@@ -6,7 +6,6 @@ import {
   type ProjectTemplate,
 } from './pcs-templates.ts'
 import { buildTemplateBusinessSummary } from './pcs-template-domain-view-model.ts'
-import { removeSampleRetainReviewFromProjectSnapshot } from './pcs-remove-sample-retain-review-migration.ts'
 import { migrateProjectDecisionSnapshot } from './pcs-project-decision-migration.ts'
 import { migrateProjectAlbumUrlsToProjectImages } from './pcs-project-image-migration.ts'
 import { createBootstrapProjectSnapshot } from './pcs-project-bootstrap.ts'
@@ -192,9 +191,7 @@ function cloneSnapshot(snapshot: PcsProjectStoreSnapshot): PcsProjectStoreSnapsh
 }
 
 function seedSnapshot(): PcsProjectStoreSnapshot {
-  return migrateProjectDecisionSnapshot(
-    removeSampleRetainReviewFromProjectSnapshot(createBootstrapProjectSnapshot(PROJECT_STORE_VERSION)),
-  )
+  return migrateProjectDecisionSnapshot(createBootstrapProjectSnapshot(PROJECT_STORE_VERSION))
 }
 
 function normalizeNodeStatus(status: LegacyProjectNodeStatus | string | null | undefined): ProjectNodeStatus {
@@ -376,10 +373,10 @@ function migrateRevisionTemplateProject(project: PcsProjectRecord): PcsProjectRe
   if (nextProject.latestNodeCode === 'FEASIBILITY_REVIEW') {
     nextProject.latestNodeCode = 'SAMPLE_INBOUND_CHECK'
     if (!nextProject.latestResultType || nextProject.latestResultType.includes('可行性')) {
-      nextProject.latestResultType = '到样入库与核对'
+      nextProject.latestResultType = '样衣结果核对'
     }
     if (!nextProject.latestResultText || nextProject.latestResultText.includes('可行性')) {
-      nextProject.latestResultText = '样衣已完成到样入库与核对。'
+      nextProject.latestResultText = '样衣已完成结果核对。'
     }
   }
 
@@ -495,8 +492,7 @@ function hydrateSnapshot(snapshot: PcsProjectStoreSnapshot): PcsProjectStoreSnap
     phases: Array.isArray(snapshot.phases) ? snapshot.phases.map(normalizePhase) : [],
     nodes: Array.isArray(snapshot.nodes) ? snapshot.nodes.map(normalizeNode) : [],
   }
-  const migrated = removeSampleRetainReviewFromProjectSnapshot(normalized)
-  const decisionMigrated = migrateProjectDecisionSnapshot(migrated)
+  const decisionMigrated = migrateProjectDecisionSnapshot(normalized)
 
   if (
     decisionMigrated.projects.length === 0 &&
@@ -1376,7 +1372,7 @@ export function approveProjectInit(
   if (!sampleAcquireNode) {
     return {
       ok: false,
-      message: '未找到样衣获取节点，不能完成立项流转。',
+      message: '缺少样衣获取节点，不能完成立项推进。',
       project,
       projectInitNode,
       nextNode: null,

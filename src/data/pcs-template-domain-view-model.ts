@@ -48,7 +48,7 @@ const OPTIONAL_NODE_RULES: Record<TemplateStyleType, Partial<Record<PcsProjectWo
   改版款: {},
   设计款: {
     PATTERN_ARTWORK_TASK: { optional: true, allowDisable: true, allowReorder: true, allowRequiredSwitch: true },
-    PRE_PRODUCTION_SAMPLE: { optional: true, allowDisable: true, allowReorder: true, allowRequiredSwitch: true },
+    FIRST_ORDER_SAMPLE: { optional: true, allowDisable: true, allowReorder: true, allowRequiredSwitch: true },
   },
 }
 
@@ -132,7 +132,7 @@ export function validateTemplateBusinessIntegrity(input: {
 
   const activeCodes = new Set(listActiveNodes(input.nodes).map((item) => item.workItemTypeCode as PcsProjectWorkItemCode))
   const hasMarketTest = activeCodes.has('LIVE_TEST') || activeCodes.has('VIDEO_TEST')
-  const hasDownstreamProduction = ['PATTERN_TASK', 'PATTERN_ARTWORK_TASK', 'FIRST_SAMPLE', 'PRE_PRODUCTION_SAMPLE', 'REVISION_TASK'].some((code) =>
+  const hasDownstreamProduction = ['PATTERN_TASK', 'PATTERN_ARTWORK_TASK', 'FIRST_SAMPLE', 'FIRST_ORDER_SAMPLE', 'REVISION_TASK'].some((code) =>
     activeCodes.has(code as PcsProjectWorkItemCode),
   )
 
@@ -214,7 +214,7 @@ export function buildTemplateBusinessSummary(template: ProjectTemplate): Templat
     hasVideoTest ? '包含短视频测款' : '不含短视频测款',
     activeCodes.has('PATTERN_ARTWORK_TASK') ? '包含花型任务' : '不含花型任务',
     activeCodes.has('FIRST_SAMPLE') ? '包含首版样衣' : '不含首版样衣',
-    activeCodes.has('PRE_PRODUCTION_SAMPLE') ? '包含产前样衣' : '不含产前样衣',
+    activeCodes.has('FIRST_ORDER_SAMPLE') ? '包含首单样衣打样' : '不含首单样衣打样',
   ]
 
   const previewPhases = template.stages

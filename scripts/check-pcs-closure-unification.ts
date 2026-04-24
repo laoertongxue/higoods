@@ -74,7 +74,7 @@ const projectsPage = read('src/pages/pcs-projects.ts')
   'PATTERN_TASK',
   'PATTERN_ARTWORK_TASK',
   'FIRST_SAMPLE',
-  'PRE_PRODUCTION_SAMPLE',
+  'FIRST_ORDER_SAMPLE',
   '关联技术包版本',
   '花型库',
   '归档状态摘要',

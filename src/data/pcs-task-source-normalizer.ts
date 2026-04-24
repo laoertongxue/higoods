@@ -23,8 +23,8 @@ export type PatternTaskSourceType = (typeof PATTERN_TASK_SOURCE_TYPE_LIST)[numbe
 export const FIRST_SAMPLE_SOURCE_TYPE_LIST = ['制版任务', '花型任务', '改版任务', '人工创建'] as const
 export type FirstSampleTaskSourceType = (typeof FIRST_SAMPLE_SOURCE_TYPE_LIST)[number]
 
-export const PRE_PRODUCTION_SOURCE_TYPE_LIST = ['首版样衣打样', '制版任务', '花型任务', '改版任务', '人工创建'] as const
-export type PreProductionSampleTaskSourceType = (typeof PRE_PRODUCTION_SOURCE_TYPE_LIST)[number]
+export const FIRST_ORDER_SAMPLE_SOURCE_TYPE_LIST = ['首版样衣打样', '制版任务', '花型任务', '改版任务', '人工创建'] as const
+export type FirstOrderSampleTaskSourceType = (typeof FIRST_ORDER_SAMPLE_SOURCE_TYPE_LIST)[number]
 
 export function nowTaskText(): string {
   const now = new Date()
@@ -72,9 +72,9 @@ export function normalizeFirstSampleTaskSourceType(value: string | null | undefi
   return '人工创建'
 }
 
-export function normalizePreProductionSampleTaskSourceType(
+export function normalizeFirstOrderSampleTaskSourceType(
   value: string | null | undefined,
-): PreProductionSampleTaskSourceType {
+): FirstOrderSampleTaskSourceType {
   if (value === '首单' || value === '首版样衣打样' || value === '首单样衣打样') return '首版样衣打样'
   if (value === '制版' || value === '制版任务') return '制版任务'
   if (value === '花型' || value === '花型任务') return '花型任务'

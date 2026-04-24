@@ -9,7 +9,7 @@ export const engineeringWorkItemConfigs = BUILTIN_CONFIGS.filter((item) =>
     'PATTERN_TASK',
     'PATTERN_ARTWORK_TASK',
     'FIRST_SAMPLE',
-    'PRE_PRODUCTION_SAMPLE',
+    'FIRST_ORDER_SAMPLE',
     'SAMPLE_RETURN_HANDLE',
   ].includes(item.workItemTypeCode),
 )
