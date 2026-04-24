@@ -34,6 +34,7 @@ import {
   type ProcessStage,
 } from './context.ts'
 import { resolveTaskStandardTimeSnapshot } from '../../data/fcs/process-tasks.ts'
+import { buildTaskRouteCardPrintLink } from '../../data/fcs/fcs-route-links.ts'
 
 function formatStandardTimeMinutes(value: number | undefined): string {
   if (!Number.isFinite(value) || Number(value) <= 0) return '--'
@@ -368,6 +369,9 @@ function renderTaskActionMenu(task: ProcessTask): string {
               </button>
               <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-progress-action="task-action-material" data-po-id="${escapeAttr(po)}" data-progress-stop="true">
                 <i data-lucide="package" class="mr-2 h-4 w-4"></i>领料进度
+              </button>
+              <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-progress-action="task-action-print-route-card" data-task-id="${escapeAttr(task.taskId)}" data-progress-stop="true">
+                <i data-lucide="printer" class="mr-2 h-4 w-4"></i>打印任务流转卡
               </button>
               <div class="my-1 h-px bg-border"></div>
               <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-progress-action="task-action-open-order" data-po-id="${escapeAttr(po)}" data-progress-stop="true">
@@ -801,9 +805,14 @@ function renderTaskDrawer(): string {
                     : ''
                 }
                 <div class="border-t pt-3">
-                  <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="task-action-open-order" data-po-id="${escapeAttr(task.productionOrderId)}">
-                    <i data-lucide="layers" class="mr-2 h-4 w-4"></i>查看生产单生命周期
-                  </button>
+                  <div class="flex flex-wrap gap-2">
+                    <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-progress-action="task-action-open-order" data-po-id="${escapeAttr(task.productionOrderId)}">
+                      <i data-lucide="layers" class="mr-2 h-4 w-4"></i>查看生产单生命周期
+                    </button>
+                    <button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-nav="${escapeAttr(buildTaskRouteCardPrintLink('RUNTIME_TASK', task.taskId))}">
+                      <i data-lucide="printer" class="mr-2 h-4 w-4"></i>打印任务流转卡
+                    </button>
+                  </div>
                 </div>
               `
               : ''

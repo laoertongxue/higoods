@@ -21,11 +21,6 @@ import type {
   PatternTaskTeamCode,
 } from '../data/pcs-pattern-task-types.ts'
 import {
-  getPatternTaskCompletionMissingFields,
-  getPlateTaskCompletionMissingFields,
-  getRevisionTaskCompletionMissingFields,
-} from '../data/pcs-engineering-task-field-policy.ts'
-import {
   getTechPackGenerationBlockedReason,
   getPatternTechPackActionMeta,
   getRevisionTechPackActionLabel,
@@ -37,27 +32,38 @@ import { listRevisionTasks, getRevisionTaskById, updateRevisionTask, resetRevisi
 import { listFirstSampleTasks, getFirstSampleTaskById, updateFirstSampleTask, resetFirstSampleTaskRepository } from '../data/pcs-first-sample-repository.ts'
 import { listPreProductionSampleTasks, getPreProductionSampleTaskById, updatePreProductionSampleTask, resetPreProductionSampleTaskRepository } from '../data/pcs-pre-production-sample-repository.ts'
 import {
-  completePatternTaskWithProjectRelationSync,
-  completePlateMakingTaskWithProjectRelationSync,
-  completeRevisionTaskWithProjectRelationSync,
+  completePatternTask,
+  completePlateMakingTask,
+  completeRevisionTask,
   createDownstreamTasksFromRevision,
   createFirstSampleTaskWithProjectRelation,
-  createPatternTaskWithProjectRelation,
-  createPlateMakingTaskWithProjectRelation,
+  createPatternTask,
+  createPlateMakingTask,
   createPreProductionSampleTaskWithProjectRelation,
-  createRevisionTaskWithProjectRelation,
+  createRevisionTask,
   syncExistingProjectEngineeringTaskNodes,
 } from '../data/pcs-task-project-relation-writeback.ts'
 import { findStyleArchiveByProjectId, getStyleArchiveById, listStyleArchives } from '../data/pcs-style-archive-repository.ts'
 import { getProjectById, listProjects } from '../data/pcs-project-repository.ts'
-import { REVISION_TASK_SOURCE_TYPE_LIST, type RevisionTaskSourceType } from '../data/pcs-task-source-normalizer.ts'
+import {
+  PATTERN_TASK_SOURCE_TYPE_LIST,
+  PLATE_TASK_SOURCE_TYPE_LIST,
+  REVISION_TASK_SOURCE_TYPE_LIST,
+  type PatternTaskSourceType,
+  type PlateMakingTaskSourceType,
+  type RevisionTaskSourceType,
+} from '../data/pcs-task-source-normalizer.ts'
 import type { RevisionTaskLiveRetestStatus, RevisionTaskPatternArea } from '../data/pcs-revision-task-file-types.ts'
+import type { RevisionTaskMaterialLine } from '../data/pcs-revision-task-material-types.ts'
+import type { PlateMakingMaterialLine } from '../data/pcs-plate-making-material-types.ts'
+import type { PlateMakingPatternImageLine } from '../data/pcs-plate-making-pattern-file-types.ts'
 import { getPreProductionSampleChainMissingFields } from '../data/pcs-sample-chain-service.ts'
 import type { SampleChainMode, SampleSpecialSceneReasonCode } from '../data/pcs-sample-chain-types.ts'
 import { tokenizePatternFilename } from '../utils/pcs-pattern-library-services.ts'
 import { escapeHtml, formatDateTime, toClassName } from '../utils.ts'
 
 type ModuleKey = 'revision' | 'plate' | 'pattern' | 'firstSample' | 'preProduction'
+type TaskBindingMode = 'project' | 'style'
 type RevisionTab = 'plan' | 'issues' | 'samples' | 'outputs' | 'downstream' | 'logs'
 type PlateTab = 'overview' | 'version' | 'bom' | 'patterns' | 'outputs' | 'downstream' | 'logs'
 type PatternTab = 'plan' | 'color' | 'production' | 'samples' | 'library' | 'logs'
@@ -85,6 +91,7 @@ interface SampleListState extends ListState {
 }
 
 interface RevisionCreateDraft {
+  bindingMode: TaskBindingMode
   sourceType: RevisionTaskSourceType
   projectId: string
   styleId: string
@@ -100,7 +107,10 @@ interface RevisionCreateDraft {
 }
 
 interface PlateCreateDraft {
+  bindingMode: TaskBindingMode
+  sourceType: PlateMakingTaskSourceType
   projectId: string
+  styleId: string
   title: string
   ownerName: string
   dueAt: string
@@ -115,7 +125,10 @@ interface PlateCreateDraft {
 }
 
 interface PatternCreateDraft {
+  bindingMode: TaskBindingMode
+  sourceType: PatternTaskSourceType
   projectId: string
+  styleId: string
   title: string
   ownerName: string
   dueAt: string
@@ -164,7 +177,7 @@ interface RevisionDetailDraft {
   baseStyleName: string
   targetStyleCodeCandidate: string
   targetStyleNameCandidate: string
-  targetStyleImageIdsText: string
+  targetStyleImageIds: string[]
   sampleQty: string
   stylePreference: string
   patternMakerName: string
@@ -172,14 +185,14 @@ interface RevisionDetailDraft {
   paperPrintAt: string
   deliveryAddress: string
   patternArea: string
-  materialAdjustmentLinesText: string
-  newPatternImageIdsText: string
+  materialAdjustmentLines: RevisionTaskMaterialLine[]
+  newPatternImageIds: string[]
   newPatternSpuCode: string
   patternChangeNote: string
-  patternPieceImageIdsText: string
-  patternFileIdsText: string
-  mainImageIdsText: string
-  designDraftImageIdsText: string
+  patternPieceImageIds: string[]
+  patternFileIds: string[]
+  mainImageIds: string[]
+  designDraftImageIds: string[]
   liveRetestRequired: boolean
   liveRetestStatus: RevisionTaskLiveRetestStatus
   liveRetestRelationIdsText: string
@@ -196,14 +209,14 @@ interface PlateDetailDraft {
   patternArea: string
   colorRequirementText: string
   newPatternSpuCode: string
-  flowerImageIdsText: string
-  materialRequirementLinesText: string
-  patternImageLineItemsText: string
-  patternPdfFileIdsText: string
-  patternDxfFileIdsText: string
-  patternRulFileIdsText: string
-  supportImageIdsText: string
-  supportVideoIdsText: string
+  flowerImageIds: string[]
+  materialRequirementLines: PlateMakingMaterialLine[]
+  patternImageLineItems: PlateMakingPatternImageLine[]
+  patternPdfFileIds: string[]
+  patternDxfFileIds: string[]
+  patternRulFileIds: string[]
+  supportImageIds: string[]
+  supportVideoIds: string[]
   partTemplateLinksText: string
 }
 
@@ -267,6 +280,7 @@ const SAMPLE_CHAIN_MODE_OPTIONS: SampleChainMode[] = ['直接复用首版样衣'
 const SAMPLE_SPECIAL_REASON_OPTIONS: SampleSpecialSceneReasonCode[] = ['定位印', '大货量大', '工厂参照样', '正确布确认', '其它']
 
 const initialRevisionCreateDraft = (): RevisionCreateDraft => ({
+  bindingMode: 'project',
   sourceType: '测款触发',
   projectId: '',
   styleId: '',
@@ -288,7 +302,7 @@ const initialRevisionDetailDraft = (): RevisionDetailDraft => ({
   baseStyleName: '',
   targetStyleCodeCandidate: '',
   targetStyleNameCandidate: '',
-  targetStyleImageIdsText: '',
+  targetStyleImageIds: [],
   sampleQty: '',
   stylePreference: '',
   patternMakerName: '',
@@ -296,14 +310,14 @@ const initialRevisionDetailDraft = (): RevisionDetailDraft => ({
   paperPrintAt: '',
   deliveryAddress: '',
   patternArea: '',
-  materialAdjustmentLinesText: '',
-  newPatternImageIdsText: '',
+  materialAdjustmentLines: [],
+  newPatternImageIds: [],
   newPatternSpuCode: '',
   patternChangeNote: '',
-  patternPieceImageIdsText: '',
-  patternFileIdsText: '',
-  mainImageIdsText: '',
-  designDraftImageIdsText: '',
+  patternPieceImageIds: [],
+  patternFileIds: [],
+  mainImageIds: [],
+  designDraftImageIds: [],
   liveRetestRequired: false,
   liveRetestStatus: '不需要',
   liveRetestRelationIdsText: '',
@@ -311,7 +325,10 @@ const initialRevisionDetailDraft = (): RevisionDetailDraft => ({
 })
 
 const initialPlateCreateDraft = (): PlateCreateDraft => ({
+  bindingMode: 'project',
+  sourceType: '项目模板阶段',
   projectId: '',
+  styleId: '',
   title: '',
   ownerName: '',
   dueAt: '',
@@ -326,7 +343,10 @@ const initialPlateCreateDraft = (): PlateCreateDraft => ({
 })
 
 const initialPatternCreateDraft = (): PatternCreateDraft => ({
+  bindingMode: 'project',
+  sourceType: '项目模板阶段',
   projectId: '',
+  styleId: '',
   title: '',
   ownerName: '',
   dueAt: '',
@@ -358,14 +378,14 @@ const initialPlateDetailDraft = (): PlateDetailDraft => ({
   patternArea: '',
   colorRequirementText: '',
   newPatternSpuCode: '',
-  flowerImageIdsText: '',
-  materialRequirementLinesText: '',
-  patternImageLineItemsText: '',
-  patternPdfFileIdsText: '',
-  patternDxfFileIdsText: '',
-  patternRulFileIdsText: '',
-  supportImageIdsText: '',
-  supportVideoIdsText: '',
+  flowerImageIds: [],
+  materialRequirementLines: [],
+  patternImageLineItems: [],
+  patternPdfFileIds: [],
+  patternDxfFileIds: [],
+  patternRulFileIds: [],
+  supportImageIds: [],
+  supportVideoIds: [],
   partTemplateLinksText: '',
 })
 
@@ -523,7 +543,7 @@ function renderNotice(): string {
   `
 }
 
-function renderPageHeader(title: string, description: string, actionLabel: string, action: string): string {
+function renderPageHeader(title: string, actionLabel: string, action: string): string {
   const createAction = actionLabel && action
     ? `
         <button type="button" class="inline-flex h-10 items-center gap-2 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-engineering-action="${escapeHtml(action)}">
@@ -549,7 +569,7 @@ function renderPageHeader(title: string, description: string, actionLabel: strin
   `
 }
 
-function renderMetricButton(label: string, value: number, active: boolean, quickFilter: string, actionPrefix: string, description: string): string {
+function renderMetricButton(label: string, value: number, active: boolean, quickFilter: string, actionPrefix: string): string {
   return `
     <button
       type="button"
@@ -615,6 +635,40 @@ function styleArchiveLinkByProject(projectId: string): string {
   const style = findStyleArchiveByProjectId(projectId)
   if (!style) return '<span class="text-slate-400">待建立</span>'
   return `<button type="button" class="font-medium text-blue-700 hover:underline" data-nav="/pcs/products/styles/${escapeHtml(style.styleId)}">${escapeHtml(style.styleCode)}</button>`
+}
+
+function styleArchiveLink(
+  styleId: string,
+  styleCode: string,
+  styleName: string,
+  projectId = '',
+): string {
+  if (styleId) return styleArchiveButton(styleId, styleCode, styleName)
+  if (projectId) return styleArchiveLinkByProject(projectId)
+  return '<span class="text-slate-400">未关联款式档案</span>'
+}
+
+function getTaskStyleInfo(task: {
+  styleId?: string
+  styleCode?: string
+  styleName?: string
+  projectId: string
+  productStyleCode?: string
+  spuCode?: string
+}): { styleId: string; styleCode: string; styleName: string } {
+  if (task.styleId) {
+    return {
+      styleId: task.styleId,
+      styleCode: task.styleCode || task.productStyleCode || task.spuCode || '',
+      styleName: task.styleName || '',
+    }
+  }
+  const style = findStyleArchiveByProjectId(task.projectId)
+  return {
+    styleId: style?.styleId || '',
+    styleCode: style?.styleCode || task.styleCode || task.productStyleCode || task.spuCode || '',
+    styleName: style?.styleName || task.styleName || '',
+  }
 }
 
 function techPackLinkByProject(projectId: string, technicalVersionId: string, fallbackLabel: string): string {
@@ -763,58 +817,6 @@ function splitLines(value: string): string[] {
   return value.split(/\n|,|，|、/).map((item) => item.trim()).filter(Boolean)
 }
 
-function serializePlateMaterialLines(lines: Array<{ materialName: string; materialSku: string; printRequirement: string; quantity: number; unitPrice: number; note: string }>): string {
-  return lines.map((line) => [
-    line.materialName,
-    line.materialSku,
-    line.printRequirement,
-    line.quantity || '',
-    line.unitPrice || '',
-    line.note,
-  ].join(' | ')).join('\n')
-}
-
-function parsePlateMaterialLines(value: string, taskId: string) {
-  return value.split('\n').map((row) => row.trim()).filter(Boolean).map((row, index) => {
-    const [materialName = '', materialSku = '', printRequirement = '', quantityText = '0', unitPriceText = '0', note = ''] = row.split('|').map((item) => item.trim())
-    const quantity = Number(quantityText || 0)
-    const unitPrice = Number(unitPriceText || 0)
-    return {
-      lineId: `${taskId}_material_${index + 1}`,
-      materialImageId: '',
-      materialName,
-      materialSku,
-      printRequirement,
-      quantity,
-      unitPrice,
-      amount: Number.isFinite(quantity * unitPrice) ? quantity * unitPrice : 0,
-      note,
-    }
-  })
-}
-
-function serializePlatePatternImageLines(lines: Array<{ imageId: string; materialPartName: string; materialDescription: string; pieceCount: number }>): string {
-  return lines.map((line) => [
-    line.imageId,
-    line.materialPartName,
-    line.materialDescription,
-    line.pieceCount || '',
-  ].join(' | ')).join('\n')
-}
-
-function parsePlatePatternImageLines(value: string, taskId: string) {
-  return value.split('\n').map((row) => row.trim()).filter(Boolean).map((row, index) => {
-    const [imageId = '', materialPartName = '', materialDescription = '', pieceCountText = '0'] = row.split('|').map((item) => item.trim())
-    return {
-      lineId: `${taskId}_pattern_image_${index + 1}`,
-      imageId,
-      materialPartName,
-      materialDescription,
-      pieceCount: Number(pieceCountText || 0),
-    }
-  })
-}
-
 function serializePlateTemplateLinks(links: Array<{ templateId: string; templateCode: string; templateName: string; matchedPartNames: string[] }>): string {
   return links.map((link) => [
     link.templateId,
@@ -836,36 +838,6 @@ function parsePlateTemplateLinks(value: string) {
   })
 }
 
-function serializeRevisionMaterialLines(lines: Array<{ materialImageId: string; materialName: string; materialSku: string; printRequirement: string; quantity: number; unitPrice: number; amount: number; note: string }>): string {
-  return lines.map((line) => [
-    line.materialImageId,
-    line.materialName,
-    line.materialSku,
-    line.printRequirement,
-    String(line.quantity || ''),
-    String(line.unitPrice || ''),
-    String(line.amount || ''),
-    line.note,
-  ].join('|')).join('\n')
-}
-
-function parseRevisionMaterialLines(value: string, taskId: string) {
-  return value.split('\n').map((row) => row.trim()).filter(Boolean).map((row, index) => {
-    const [materialImageId = '', materialName = '', materialSku = '', printRequirement = '', quantity = '', unitPrice = '', amount = '', note = ''] = row.split('|').map((item) => item.trim())
-    return {
-      lineId: `revision_material_${taskId}_${index + 1}`,
-      materialImageId,
-      materialName,
-      materialSku,
-      printRequirement,
-      quantity: Number(quantity || 0),
-      unitPrice: Number(unitPrice || 0),
-      amount: Number(amount || 0),
-      note,
-    }
-  })
-}
-
 function ensureRevisionDetailDraft(task: ReturnType<typeof getRevisionTaskById>): RevisionDetailDraft {
   if (!task) return initialRevisionDetailDraft()
   if (state.revisionDetailDraftTaskId !== task.revisionTaskId) {
@@ -877,7 +849,7 @@ function ensureRevisionDetailDraft(task: ReturnType<typeof getRevisionTaskById>)
       baseStyleName: task.baseStyleName || task.styleName || '',
       targetStyleCodeCandidate: task.targetStyleCodeCandidate || '',
       targetStyleNameCandidate: task.targetStyleNameCandidate || '',
-      targetStyleImageIdsText: (task.targetStyleImageIds || []).join('\n'),
+      targetStyleImageIds: [...(task.targetStyleImageIds || [])],
       sampleQty: task.sampleQty ? String(task.sampleQty) : '',
       stylePreference: task.stylePreference || '',
       patternMakerName: task.patternMakerName || task.ownerName || '',
@@ -885,14 +857,14 @@ function ensureRevisionDetailDraft(task: ReturnType<typeof getRevisionTaskById>)
       paperPrintAt: task.paperPrintAt || '',
       deliveryAddress: task.deliveryAddress || '',
       patternArea: task.patternArea || '',
-      materialAdjustmentLinesText: serializeRevisionMaterialLines(task.materialAdjustmentLines || []),
-      newPatternImageIdsText: (task.newPatternImageIds || []).join('\n'),
+      materialAdjustmentLines: [...(task.materialAdjustmentLines || [])],
+      newPatternImageIds: [...(task.newPatternImageIds || [])],
       newPatternSpuCode: task.newPatternSpuCode || '',
       patternChangeNote: task.patternChangeNote || '',
-      patternPieceImageIdsText: (task.patternPieceImageIds || []).join('\n'),
-      patternFileIdsText: (task.patternFileIds || []).join('\n'),
-      mainImageIdsText: (task.mainImageIds || task.evidenceImageUrls || []).join('\n'),
-      designDraftImageIdsText: (task.designDraftImageIds || []).join('\n'),
+      patternPieceImageIds: [...(task.patternPieceImageIds || [])],
+      patternFileIds: [...(task.patternFileIds || [])],
+      mainImageIds: [...(task.mainImageIds || task.evidenceImageUrls || [])],
+      designDraftImageIds: [...(task.designDraftImageIds || [])],
       liveRetestRequired: Boolean(task.liveRetestRequired),
       liveRetestStatus: task.liveRetestStatus || '不需要',
       liveRetestRelationIdsText: (task.liveRetestRelationIds || []).join('\n'),
@@ -916,14 +888,14 @@ function ensurePlateDetailDraft(task: ReturnType<typeof getPlateMakingTaskById>)
       patternArea: task.patternArea || '',
       colorRequirementText: task.colorRequirementText || '',
       newPatternSpuCode: task.newPatternSpuCode || '',
-      flowerImageIdsText: (task.flowerImageIds || []).join('\n'),
-      materialRequirementLinesText: serializePlateMaterialLines(task.materialRequirementLines || []),
-      patternImageLineItemsText: serializePlatePatternImageLines(task.patternImageLineItems || []),
-      patternPdfFileIdsText: (task.patternPdfFileIds || []).join('\n'),
-      patternDxfFileIdsText: (task.patternDxfFileIds || []).join('\n'),
-      patternRulFileIdsText: (task.patternRulFileIds || []).join('\n'),
-      supportImageIdsText: (task.supportImageIds || []).join('\n'),
-      supportVideoIdsText: (task.supportVideoIds || []).join('\n'),
+      flowerImageIds: [...(task.flowerImageIds || [])],
+      materialRequirementLines: [...(task.materialRequirementLines || [])],
+      patternImageLineItems: [...(task.patternImageLineItems || [])],
+      patternPdfFileIds: [...(task.patternPdfFileIds || [])],
+      patternDxfFileIds: [...(task.patternDxfFileIds || [])],
+      patternRulFileIds: [...(task.patternRulFileIds || [])],
+      supportImageIds: [...(task.supportImageIds || [])],
+      supportVideoIds: [...(task.supportVideoIds || [])],
       partTemplateLinksText: serializePlateTemplateLinks(task.partTemplateLinks || []),
     }
   }
@@ -955,18 +927,6 @@ function ensurePatternDetailDraft(task: ReturnType<typeof getPatternTaskById>): 
   return state.patternDetailDraft
 }
 
-function renderTaskCompletionHint(completionMissingFields: string[]): string {
-  return `
-    <div class="rounded-lg border ${completionMissingFields.length === 0 ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700'} px-3 py-3 text-sm">
-      ${
-        completionMissingFields.length === 0
-          ? '当前任务已满足完成条件，可直接完成任务。'
-          : `完成前仍缺少：${escapeHtml(completionMissingFields.join('、'))}。`
-      }
-    </div>
-  `
-}
-
 function renderTaskSaveBar(action: string, taskId: string, label = '保存任务'): string {
   return `
     <div class="mt-4 flex justify-end">
@@ -975,7 +935,7 @@ function renderTaskSaveBar(action: string, taskId: string, label = '保存任务
   `
 }
 
-function renderTextInput(label: string, field: string, value: string, placeholder: string): string {
+function renderTextInput(label: string, field: string, value: string, placeholder = ''): string {
   return `
     <label class="flex flex-col gap-2 text-sm text-slate-600">
       <span>${escapeHtml(label)}</span>
@@ -984,7 +944,7 @@ function renderTextInput(label: string, field: string, value: string, placeholde
   `
 }
 
-function renderTextarea(label: string, field: string, value: string, placeholder: string): string {
+function renderTextarea(label: string, field: string, value: string, placeholder = ''): string {
   return `
     <label class="flex flex-col gap-2 text-sm text-slate-600">
       <span>${escapeHtml(label)}</span>
@@ -1083,9 +1043,274 @@ function renderImageUploader(label: string, field: string, imageIds: string[], e
           <input type="file" accept="image/*" multiple class="hidden" data-pcs-engineering-field="${escapeHtml(field)}" />
         </label>
       </div>
-      ${renderImageList(imageIds, emptyText)}
+      ${
+        imageIds.length
+          ? `<div class="flex flex-wrap gap-3">
+              ${imageIds.map((imageId, index) => `
+                <div class="group relative overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+                  <button type="button" class="block h-20 w-20 overflow-hidden" data-pcs-engineering-action="open-image-preview" data-url="${escapeHtml(imageId)}" data-title="${escapeHtml(label)} ${index + 1}">
+                    <img src="${escapeHtml(imageId)}" alt="${escapeHtml(label)} ${index + 1}" class="h-full w-full object-cover transition group-hover:scale-105" />
+                  </button>
+                  <button type="button" class="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-xs text-slate-600 shadow hover:bg-white" data-pcs-engineering-action="remove-list-item" data-scope="${escapeHtml(field)}" data-index="${index}" aria-label="删除图片">×</button>
+                </div>
+              `).join('')}
+            </div>`
+          : renderImageList(imageIds, emptyText)
+      }
     </div>
   `
+}
+
+function extractFileLabel(fileId: string): string {
+  if (!fileId) return ''
+  const match = fileId.match(/[^/]+$/)
+  const raw = match ? match[0] : fileId
+  return decodeURIComponent(raw.replace(/^mock-file:\/\//, ''))
+}
+
+function renderFileUploader(label: string, field: string, fileIds: string[], emptyText = '未上传', accept = ''): string {
+  return `
+    <div class="space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <p class="text-sm font-medium text-slate-900">${escapeHtml(label)}</p>
+        <label class="inline-flex h-8 cursor-pointer items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50">
+          上传文件
+          <input type="file" ${accept ? `accept="${escapeHtml(accept)}"` : ''} multiple class="hidden" data-pcs-engineering-field="${escapeHtml(field)}" />
+        </label>
+      </div>
+      ${
+        fileIds.length
+          ? `<div class="flex flex-wrap gap-2">${fileIds.map((fileId, index) => `
+              <span class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700">
+                <span>${escapeHtml(extractFileLabel(fileId))}</span>
+                <button type="button" class="text-slate-500 hover:text-slate-700" data-pcs-engineering-action="remove-list-item" data-scope="${escapeHtml(field)}" data-index="${index}">×</button>
+              </span>
+            `).join('')}</div>`
+          : `<div class="rounded-lg border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-500">${escapeHtml(emptyText)}</div>`
+      }
+    </div>
+  `
+}
+
+function buildMockFileId(file: File): string {
+  return `mock-file://${Date.now()}-${encodeURIComponent(file.name)}`
+}
+
+function appendImageValues(field: string, values: string[]): boolean {
+  if (field === 'revision-detail-target-style-images') {
+    state.revisionDetailDraft.targetStyleImageIds = [...state.revisionDetailDraft.targetStyleImageIds, ...values]
+    return true
+  }
+  if (field === 'revision-detail-new-pattern-images') {
+    state.revisionDetailDraft.newPatternImageIds = [...state.revisionDetailDraft.newPatternImageIds, ...values]
+    return true
+  }
+  if (field === 'revision-detail-pattern-piece-images') {
+    state.revisionDetailDraft.patternPieceImageIds = [...state.revisionDetailDraft.patternPieceImageIds, ...values]
+    return true
+  }
+  if (field === 'revision-detail-main-images') {
+    state.revisionDetailDraft.mainImageIds = [...state.revisionDetailDraft.mainImageIds, ...values]
+    return true
+  }
+  if (field === 'revision-detail-design-drafts') {
+    state.revisionDetailDraft.designDraftImageIds = [...state.revisionDetailDraft.designDraftImageIds, ...values]
+    return true
+  }
+  if (field === 'plate-detail-flower-images') {
+    state.plateDetailDraft.flowerImageIds = [...state.plateDetailDraft.flowerImageIds, ...values]
+    return true
+  }
+  if (field === 'plate-detail-support-images') {
+    state.plateDetailDraft.supportImageIds = [...state.plateDetailDraft.supportImageIds, ...values]
+    return true
+  }
+  if (field === 'pattern-create-demand-images') {
+    state.patternCreateDraft.demandImageIds = [...state.patternCreateDraft.demandImageIds, ...values]
+    return true
+  }
+  if (field === 'pattern-detail-completion-images') {
+    state.patternDetailDraft.completionImageIds = [...state.patternDetailDraft.completionImageIds, ...values]
+    return true
+  }
+  if (field === 'pattern-detail-live-reference-images') {
+    state.patternDetailDraft.liveReferenceImageIds = [...state.patternDetailDraft.liveReferenceImageIds, ...values]
+    return true
+  }
+  if (field === 'pattern-detail-image-reference-images') {
+    state.patternDetailDraft.imageReferenceIds = [...state.patternDetailDraft.imageReferenceIds, ...values]
+    return true
+  }
+  return false
+}
+
+function appendFileValues(field: string, values: string[]): boolean {
+  if (field === 'revision-detail-pattern-files') {
+    state.revisionDetailDraft.patternFileIds = [...state.revisionDetailDraft.patternFileIds, ...values]
+    return true
+  }
+  if (field === 'plate-detail-pdf-files') {
+    state.plateDetailDraft.patternPdfFileIds = [...state.plateDetailDraft.patternPdfFileIds, ...values]
+    return true
+  }
+  if (field === 'plate-detail-dxf-files') {
+    state.plateDetailDraft.patternDxfFileIds = [...state.plateDetailDraft.patternDxfFileIds, ...values]
+    return true
+  }
+  if (field === 'plate-detail-rul-files') {
+    state.plateDetailDraft.patternRulFileIds = [...state.plateDetailDraft.patternRulFileIds, ...values]
+    return true
+  }
+  if (field === 'plate-detail-support-videos') {
+    state.plateDetailDraft.supportVideoIds = [...state.plateDetailDraft.supportVideoIds, ...values]
+    return true
+  }
+  return false
+}
+
+function removeListValue(scope: string, index: number): boolean {
+  if (index < 0) return false
+  if (scope === 'revision-detail-target-style-images') {
+    state.revisionDetailDraft.targetStyleImageIds = state.revisionDetailDraft.targetStyleImageIds.filter((_, itemIndex) => itemIndex !== index)
+    return true
+  }
+  if (scope === 'revision-detail-new-pattern-images') {
+    state.revisionDetailDraft.newPatternImageIds = state.revisionDetailDraft.newPatternImageIds.filter((_, itemIndex) => itemIndex !== index)
+    return true
+  }
+  if (scope === 'revision-detail-pattern-piece-images') {
+    state.revisionDetailDraft.patternPieceImageIds = state.revisionDetailDraft.patternPieceImageIds.filter((_, itemIndex) => itemIndex !== index)
+    return true
+  }
+  if (scope === 'revision-detail-main-images') {
+    state.revisionDetailDraft.mainImageIds = state.revisionDetailDraft.mainImageIds.filter((_, itemIndex) => itemIndex !== index)
+    return true
+  }
+  if (scope === 'revision-detail-design-drafts') {
+    state.revisionDetailDraft.designDraftImageIds = state.revisionDetailDraft.designDraftImageIds.filter((_, itemIndex) => itemIndex !== index)
+    return true
+  }
+  if (scope === 'revision-detail-pattern-files') {
+    state.revisionDetailDraft.patternFileIds = state.revisionDetailDraft.patternFileIds.filter((_, itemIndex) => itemIndex !== index)
+    return true
+  }
+  if (scope === 'plate-detail-flower-images') {
+    state.plateDetailDraft.flowerImageIds = state.plateDetailDraft.flowerImageIds.filter((_, itemIndex) => itemIndex !== index)
+    return true
+  }
+  if (scope === 'plate-detail-pdf-files') {
+    state.plateDetailDraft.patternPdfFileIds = state.plateDetailDraft.patternPdfFileIds.filter((_, itemIndex) => itemIndex !== index)
+    return true
+  }
+  if (scope === 'plate-detail-dxf-files') {
+    state.plateDetailDraft.patternDxfFileIds = state.plateDetailDraft.patternDxfFileIds.filter((_, itemIndex) => itemIndex !== index)
+    return true
+  }
+  if (scope === 'plate-detail-rul-files') {
+    state.plateDetailDraft.patternRulFileIds = state.plateDetailDraft.patternRulFileIds.filter((_, itemIndex) => itemIndex !== index)
+    return true
+  }
+  if (scope === 'plate-detail-support-images') {
+    state.plateDetailDraft.supportImageIds = state.plateDetailDraft.supportImageIds.filter((_, itemIndex) => itemIndex !== index)
+    return true
+  }
+  if (scope === 'plate-detail-support-videos') {
+    state.plateDetailDraft.supportVideoIds = state.plateDetailDraft.supportVideoIds.filter((_, itemIndex) => itemIndex !== index)
+    return true
+  }
+  if (scope === 'pattern-create-demand-images') {
+    state.patternCreateDraft.demandImageIds = state.patternCreateDraft.demandImageIds.filter((_, itemIndex) => itemIndex !== index)
+    return true
+  }
+  if (scope === 'pattern-detail-completion-images') {
+    state.patternDetailDraft.completionImageIds = state.patternDetailDraft.completionImageIds.filter((_, itemIndex) => itemIndex !== index)
+    return true
+  }
+  if (scope === 'pattern-detail-live-reference-images') {
+    state.patternDetailDraft.liveReferenceImageIds = state.patternDetailDraft.liveReferenceImageIds.filter((_, itemIndex) => itemIndex !== index)
+    return true
+  }
+  if (scope === 'pattern-detail-image-reference-images') {
+    state.patternDetailDraft.imageReferenceIds = state.patternDetailDraft.imageReferenceIds.filter((_, itemIndex) => itemIndex !== index)
+    return true
+  }
+  return false
+}
+
+function updateRevisionMaterialLine(index: number, key: string, value: string): void {
+  const line = state.revisionDetailDraft.materialAdjustmentLines[index]
+  if (!line) return
+  if (key === 'quantity' || key === 'unitPrice') {
+    line[key] = Number(value || 0)
+    line.amount = Number((line.quantity || 0) * (line.unitPrice || 0))
+    return
+  }
+  if (key === 'note' || key === 'materialName' || key === 'materialSku' || key === 'printRequirement') {
+    ;(line[key] as string) = value
+  }
+}
+
+function updatePlateMaterialLine(index: number, key: string, value: string): void {
+  const line = state.plateDetailDraft.materialRequirementLines[index]
+  if (!line) return
+  if (key === 'quantity' || key === 'unitPrice') {
+    line[key] = Number(value || 0)
+    line.amount = Number((line.quantity || 0) * (line.unitPrice || 0))
+    return
+  }
+  if (key === 'note' || key === 'materialName' || key === 'materialSku' || key === 'printRequirement') {
+    ;(line[key] as string) = value
+  }
+}
+
+function updatePlatePatternImageLine(index: number, key: string, value: string): void {
+  const line = state.plateDetailDraft.patternImageLineItems[index]
+  if (!line) return
+  if (key === 'pieceCount') {
+    line.pieceCount = Number(value || 0)
+    return
+  }
+  if (key === 'materialPartName' || key === 'materialDescription') {
+    ;(line[key] as string) = value
+  }
+}
+
+function newRevisionMaterialLine(prefix: string): RevisionTaskMaterialLine {
+  return {
+    lineId: `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    materialImageId: '',
+    materialName: '',
+    materialSku: '',
+    printRequirement: '',
+    quantity: 0,
+    unitPrice: 0,
+    amount: 0,
+    note: '',
+  }
+}
+
+function newPlateMaterialLine(prefix: string): PlateMakingMaterialLine {
+  return {
+    lineId: `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    materialImageId: '',
+    materialName: '',
+    materialSku: '',
+    printRequirement: '',
+    quantity: 0,
+    unitPrice: 0,
+    amount: 0,
+    note: '',
+  }
+}
+
+function newPlatePatternImageLine(prefix: string): PlateMakingPatternImageLine {
+  return {
+    lineId: `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    imageId: '',
+    materialPartName: '',
+    materialDescription: '',
+    pieceCount: 0,
+  }
 }
 
 function getPatternMemberOptions(teamCode: string): Array<{ value: string; label: string }> {
@@ -1134,10 +1359,7 @@ function renderRevisionEvidenceUploader(imageUrls: string[]): string {
   return `
     <div class="space-y-3 rounded-lg border border-slate-200 px-3 py-3">
       <div class="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p class="text-sm font-medium text-slate-900">证据图片</p>
-          <p class="mt-1 text-xs text-slate-500">支持上传多张图片，默认展示缩略图，点击可查看大图。</p>
-        </div>
+        <p class="text-sm font-medium text-slate-900">证据图片</p>
         <label class="inline-flex h-9 cursor-pointer items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50">
           上传图片
           <input type="file" accept="image/*" multiple class="hidden" data-pcs-engineering-field="revision-create-evidence-images" />
@@ -1198,6 +1420,147 @@ function getRevisionScopeText(scopeCodes: string[], scopeNames: string[]): strin
 
 function canCreateRevisionPatternTask(scopeCodes: string[], sourceType: RevisionTaskSourceType, projectId: string): boolean {
   return scopeCodes.includes('PRINT') && sourceType === '测款触发' && Boolean(projectId)
+}
+
+function renderRevisionMaterialLineEditor(lines: RevisionTaskMaterialLine[]): string {
+  return `
+    <div class="space-y-3">
+      <div class="flex items-center justify-between gap-3">
+        <p class="text-sm font-medium text-slate-900">面辅料变化</p>
+        <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="add-revision-material-line">新增面辅料</button>
+      </div>
+      ${
+        lines.length
+          ? lines.map((line, index) => `
+              <div class="rounded-lg border border-slate-200 p-4">
+                <div class="grid gap-4 md:grid-cols-[88px_1fr_1fr]">
+                  <div class="space-y-2">
+                    ${line.materialImageId ? renderSmallImage(line.materialImageId) : '<div class="flex h-12 w-12 items-center justify-center rounded-md border border-dashed border-slate-200 text-xs text-slate-400">未上传</div>'}
+                    <label class="inline-flex h-8 cursor-pointer items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50">
+                      上传图片
+                      <input type="file" accept="image/*" class="hidden" data-pcs-engineering-field="revision-material-line-image" data-line-index="${index}" />
+                    </label>
+                  </div>
+                  <div class="grid gap-3 md:grid-cols-2">
+                    ${renderLineInput('materialName', index, 'revision-material', '名称', line.materialName)}
+                    ${renderLineInput('materialSku', index, 'revision-material', 'SKU', line.materialSku)}
+                    ${renderLineInput('printRequirement', index, 'revision-material', '印花要求', line.printRequirement)}
+                    ${renderLineInput('quantity', index, 'revision-material', '数量', String(line.quantity || ''))}
+                    ${renderLineInput('unitPrice', index, 'revision-material', '单价', String(line.unitPrice || ''))}
+                    <div class="flex flex-col gap-2 text-sm text-slate-600">
+                      <span>金额</span>
+                      <div class="h-10 rounded-md border border-slate-200 bg-slate-50 px-3 text-sm leading-10 text-slate-900">${escapeHtml(String(line.amount || (Number(line.quantity || 0) * Number(line.unitPrice || 0)) || ''))}</div>
+                    </div>
+                  </div>
+                  <div class="flex flex-col gap-2 text-sm text-slate-600">
+                    <span>备注</span>
+                    <textarea class="min-h-[96px] rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500" data-pcs-engineering-line-module="revision-material" data-line-index="${index}" data-line-key="note">${escapeHtml(line.note || '')}</textarea>
+                  </div>
+                </div>
+                <div class="mt-3 flex justify-end">
+                  <button type="button" class="text-xs text-rose-600 hover:text-rose-700" data-pcs-engineering-action="remove-revision-material-line" data-line-index="${index}">删除</button>
+                </div>
+              </div>
+            `).join('')
+          : '<div class="rounded-lg border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">暂无面辅料变化</div>'
+      }
+    </div>
+  `
+}
+
+function renderPlateMaterialLineEditor(lines: PlateMakingMaterialLine[]): string {
+  return `
+    <div class="space-y-3">
+      <div class="flex items-center justify-between gap-3">
+        <p class="text-sm font-medium text-slate-900">面辅料明细</p>
+        <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="add-plate-material-line">新增面辅料</button>
+      </div>
+      ${
+        lines.length
+          ? lines.map((line, index) => `
+              <div class="rounded-lg border border-slate-200 p-4">
+                <div class="grid gap-4 md:grid-cols-[88px_1fr_1fr]">
+                  <div class="space-y-2">
+                    ${line.materialImageId ? renderSmallImage(line.materialImageId) : '<div class="flex h-12 w-12 items-center justify-center rounded-md border border-dashed border-slate-200 text-xs text-slate-400">未上传</div>'}
+                    <label class="inline-flex h-8 cursor-pointer items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50">
+                      上传图片
+                      <input type="file" accept="image/*" class="hidden" data-pcs-engineering-field="plate-material-line-image" data-line-index="${index}" />
+                    </label>
+                  </div>
+                  <div class="grid gap-3 md:grid-cols-2">
+                    ${renderLineInput('materialName', index, 'plate-material', '名称', line.materialName)}
+                    ${renderLineInput('materialSku', index, 'plate-material', 'SKU', line.materialSku)}
+                    ${renderLineInput('printRequirement', index, 'plate-material', '印花要求', line.printRequirement)}
+                    ${renderLineInput('quantity', index, 'plate-material', '数量', String(line.quantity || ''))}
+                    ${renderLineInput('unitPrice', index, 'plate-material', '单价', String(line.unitPrice || ''))}
+                    <div class="flex flex-col gap-2 text-sm text-slate-600">
+                      <span>金额</span>
+                      <div class="h-10 rounded-md border border-slate-200 bg-slate-50 px-3 text-sm leading-10 text-slate-900">${escapeHtml(String(line.amount || (Number(line.quantity || 0) * Number(line.unitPrice || 0)) || ''))}</div>
+                    </div>
+                  </div>
+                  <div class="flex flex-col gap-2 text-sm text-slate-600">
+                    <span>备注</span>
+                    <textarea class="min-h-[96px] rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500" data-pcs-engineering-line-module="plate-material" data-line-index="${index}" data-line-key="note">${escapeHtml(line.note || '')}</textarea>
+                  </div>
+                </div>
+                <div class="mt-3 flex justify-end">
+                  <button type="button" class="text-xs text-rose-600 hover:text-rose-700" data-pcs-engineering-action="remove-plate-material-line" data-line-index="${index}">删除</button>
+                </div>
+              </div>
+            `).join('')
+          : '<div class="rounded-lg border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">暂无面辅料明细</div>'
+      }
+    </div>
+  `
+}
+
+function renderPlatePatternImageLineEditor(lines: PlateMakingPatternImageLine[]): string {
+  return `
+    <div class="space-y-3">
+      <div class="flex items-center justify-between gap-3">
+        <p class="text-sm font-medium text-slate-900">纸样图片</p>
+        <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="add-plate-pattern-image-line">新增纸样图</button>
+      </div>
+      ${
+        lines.length
+          ? lines.map((line, index) => `
+              <div class="rounded-lg border border-slate-200 p-4">
+                <div class="grid gap-4 md:grid-cols-[88px_1fr_1fr_120px]">
+                  <div class="space-y-2">
+                    ${line.imageId ? renderSmallImage(line.imageId) : '<div class="flex h-12 w-12 items-center justify-center rounded-md border border-dashed border-slate-200 text-xs text-slate-400">未上传</div>'}
+                    <label class="inline-flex h-8 cursor-pointer items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50">
+                      上传图片
+                      <input type="file" accept="image/*" class="hidden" data-pcs-engineering-field="plate-pattern-line-image" data-line-index="${index}" />
+                    </label>
+                  </div>
+                  ${renderLineInput('materialPartName', index, 'plate-pattern-image', '部位说明', line.materialPartName)}
+                  ${renderLineInput('materialDescription', index, 'plate-pattern-image', '描述', line.materialDescription)}
+                  ${renderLineInput('pieceCount', index, 'plate-pattern-image', '片数', String(line.pieceCount || ''))}
+                </div>
+                <div class="mt-3 flex justify-end">
+                  <button type="button" class="text-xs text-rose-600 hover:text-rose-700" data-pcs-engineering-action="remove-plate-pattern-image-line" data-line-index="${index}">删除</button>
+                </div>
+              </div>
+            `).join('')
+          : '<div class="rounded-lg border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">暂无纸样图片</div>'
+      }
+    </div>
+  `
+}
+
+function renderLineInput(
+  key: string,
+  index: number,
+  module: string,
+  label: string,
+  value: string,
+): string {
+  return `
+    <label class="flex flex-col gap-2 text-sm text-slate-600">
+      <span>${escapeHtml(label)}</span>
+      <input class="h-10 rounded-md border border-slate-200 px-3 text-sm text-slate-900 outline-none focus:border-blue-500" value="${escapeHtml(value)}" data-pcs-engineering-line-module="${escapeHtml(module)}" data-line-index="${index}" data-line-key="${escapeHtml(key)}" />
+    </label>
+  `
 }
 
 function renderLogs(logs: EngineeringLog[]): string {
@@ -1447,7 +1810,20 @@ function renderDataTable(headers: string[], rows: string, emptyText: string, foo
   `
 }
 
-function renderProjectContext(task: { projectId: string; projectCode: string; projectName: string; projectNodeId: string; workItemTypeName: string; sourceType: string; productStyleCode?: string; spuCode?: string }): string {
+function renderProjectContext(task: {
+  projectId: string
+  projectCode: string
+  projectName: string
+  projectNodeId: string
+  workItemTypeName: string
+  sourceType: string
+  productStyleCode?: string
+  spuCode?: string
+  styleId?: string
+  styleCode?: string
+  styleName?: string
+}): string {
+  const style = getTaskStyleInfo(task)
   return renderSectionCard(
     '项目与来源',
     renderKeyValueGrid(
@@ -1455,8 +1831,8 @@ function renderProjectContext(task: { projectId: string; projectCode: string; pr
         { label: '商品项目', value: projectButton(task.projectId, task.projectCode, task.projectName) },
         { label: '工作项节点', value: projectNodeButton(task.projectId, task.projectNodeId, task.workItemTypeName) },
         { label: '来源类型', value: escapeHtml(task.sourceType) },
-        { label: '款式档案', value: styleArchiveLinkByProject(task.projectId) },
-        { label: '款式编码', value: escapeHtml(task.productStyleCode || task.spuCode || '-') },
+        { label: '款式档案', value: styleArchiveLink(style.styleId, style.styleCode, style.styleName, task.projectId) },
+        { label: '款式编码', value: escapeHtml(style.styleCode || task.productStyleCode || task.spuCode || '-') },
       ],
       3,
     ),
@@ -1565,7 +1941,7 @@ function renderRevisionListPage(): string {
   return `
     <div class="space-y-5 p-4">
       ${renderNotice()}
-      ${renderPageHeader('改版任务', '改版任务由商品项目节点推进自动创建；本页仅查看任务结果、补充问题信息和跟踪下游花型任务。', '', '')}
+      ${renderPageHeader('改版任务', '新建改版任务', 'open-revision-create')}
       ${renderListFilters({
         searchPlaceholder: '搜索任务编号 / 商品项目 / 款式 / 负责人 / 参考对象',
         listState: state.revisionList,
@@ -1578,11 +1954,11 @@ function renderRevisionListPage(): string {
         sourceOptions: sources,
       })}
       <section class="grid gap-4 md:grid-cols-5">
-        ${renderMetricButton('全部任务', tasks.length, state.revisionList.quickFilter === 'all', 'all', 'set-revision-quick-filter', '当前改版任务总量')}
-        ${renderMetricButton('我的任务', tasks.filter((item) => item.ownerName === '李版师').length, state.revisionList.quickFilter === 'mine', 'mine', 'set-revision-quick-filter', '当前用户默认视角')}
-        ${renderMetricButton('待确认', tasks.filter((item) => item.status === '待确认').length, state.revisionList.quickFilter === 'pending-review', 'pending-review', 'set-revision-quick-filter', '待确认改版输出')}
-        ${renderMetricButton('已确认未写包', tasks.filter((item) => item.projectId && item.status === '已确认' && !item.linkedTechPackVersionId).length, state.revisionList.quickFilter === 'confirmed-no-output', 'confirmed-no-output', 'set-revision-quick-filter', '确认后待写技术包')}
-        ${renderMetricButton('超期任务', tasks.filter((item) => isOverdue(item.dueAt, item.status === '已完成' || item.status === '已取消')).length, state.revisionList.quickFilter === 'overdue', 'overdue', 'set-revision-quick-filter', '超过计划完成时间')}
+        ${renderMetricButton('全部任务', tasks.length, state.revisionList.quickFilter === 'all', 'all', 'set-revision-quick-filter')}
+        ${renderMetricButton('我的任务', tasks.filter((item) => item.ownerName === '李版师').length, state.revisionList.quickFilter === 'mine', 'mine', 'set-revision-quick-filter')}
+        ${renderMetricButton('待确认', tasks.filter((item) => item.status === '待确认').length, state.revisionList.quickFilter === 'pending-review', 'pending-review', 'set-revision-quick-filter')}
+        ${renderMetricButton('已确认未写包', tasks.filter((item) => item.projectId && item.status === '已确认' && !item.linkedTechPackVersionId).length, state.revisionList.quickFilter === 'confirmed-no-output', 'confirmed-no-output', 'set-revision-quick-filter')}
+        ${renderMetricButton('超期任务', tasks.filter((item) => isOverdue(item.dueAt, item.status === '已完成' || item.status === '已取消')).length, state.revisionList.quickFilter === 'overdue', 'overdue', 'set-revision-quick-filter')}
       </section>
       ${renderDataTable(['商品图', '任务编号', '所属项目', '款式编码', '改版范围', '回直播验证状态', '技术包状态', '当前状态', '更新时间', '操作'], rows, '暂无改版任务数据', renderPagination(state.revisionList.currentPage, filtered.length, 'change-revision-page'))}
       ${renderRevisionCreateDialog()}
@@ -1646,10 +2022,10 @@ function renderRevisionDownstream(task: ReturnType<typeof getRevisionTaskById>):
     path: `/pcs/patterns/colors/${item.patternTaskId}`,
   }))
   const emptyText = !task.projectId
-    ? '当前改版任务未关联商品项目，不能创建花型下游任务。'
+    ? '未关联商品项目'
     : !task.revisionScopeCodes.includes('PRINT')
-      ? '当前改版范围未涉及花型，未生成花型下游任务。'
-      : '当前改版任务尚未生成花型下游任务。'
+      ? '未涉及花型'
+      : '暂无下游任务'
   return renderSectionCard(
     '下游任务',
     rows.length > 0
@@ -1678,8 +2054,6 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
   const task = getRevisionTaskById(revisionTaskId)
   if (!task) return renderEmptyDetail('改版任务', '/pcs/patterns/revision')
   const detailDraft = ensureRevisionDetailDraft(task)
-  const completionMissingFields = getRevisionTaskCompletionMissingFields(task)
-
   const style = getRevisionTaskStyle(task)
   const downstreamTasks = getRevisionDownstreamTasks(task)
   const relatedSamples = listFirstSampleTasks().filter((item) => item.projectId === task.projectId).slice(0, 3)
@@ -1742,13 +2116,13 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
         ${renderFileChips('新款参考图', task.targetStyleImageIds || [])}
       </div>
       <div class="mt-4 grid gap-4 md:grid-cols-2">
-        ${renderTextInput('旧款编码', 'revision-detail-base-style-code', detailDraft.baseStyleCode, '旧款编码')}
-        ${renderTextInput('旧款名称', 'revision-detail-base-style-name', detailDraft.baseStyleName, '旧款名称')}
-        ${renderTextInput('新款候选编码', 'revision-detail-target-style-code', detailDraft.targetStyleCodeCandidate, '新款候选编码')}
-        ${renderTextInput('新款候选名称', 'revision-detail-target-style-name', detailDraft.targetStyleNameCandidate, '新款候选名称')}
+        ${renderTextInput('旧款编码', 'revision-detail-base-style-code', detailDraft.baseStyleCode)}
+        ${renderTextInput('旧款名称', 'revision-detail-base-style-name', detailDraft.baseStyleName)}
+        ${renderTextInput('新款候选编码', 'revision-detail-target-style-code', detailDraft.targetStyleCodeCandidate)}
+        ${renderTextInput('新款候选名称', 'revision-detail-target-style-name', detailDraft.targetStyleNameCandidate)}
       </div>
       <div class="mt-4">
-        ${renderTextarea('新款参考图', 'revision-detail-target-style-images', detailDraft.targetStyleImageIdsText, '每行一个图片地址')}
+        ${renderImageUploader('新款参考图', 'revision-detail-target-style-images', detailDraft.targetStyleImageIds, '未上传')}
       </div>
     `,
   )
@@ -1767,14 +2141,14 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
         <p class="mt-2 whitespace-pre-wrap text-sm text-slate-900">${escapeHtml(task.revisionSuggestionRichText || task.issueSummary || '-')}</p>
       </div>
       <div class="mt-4 grid gap-4 md:grid-cols-2">
-        ${renderTextInput('参与人', 'revision-detail-participants', detailDraft.participantNamesText, '多个姓名请用顿号分隔')}
-        ${renderTextInput('改版版次', 'revision-detail-version', detailDraft.revisionVersion, '例如：R2')}
-        ${renderTextInput('样衣数量', 'revision-detail-sample-qty', detailDraft.sampleQty, '例如：2')}
-        ${renderTextInput('打版人', 'revision-detail-pattern-maker-name', detailDraft.patternMakerName, '打版人')}
+        ${renderTextInput('参与人', 'revision-detail-participants', detailDraft.participantNamesText)}
+        ${renderTextInput('改版版次', 'revision-detail-version', detailDraft.revisionVersion)}
+        ${renderTextInput('样衣数量', 'revision-detail-sample-qty', detailDraft.sampleQty)}
+        ${renderTextInput('打版人', 'revision-detail-pattern-maker-name', detailDraft.patternMakerName)}
       </div>
       <div class="mt-4 grid gap-4 md:grid-cols-2">
-        ${renderTextarea('风格偏好', 'revision-detail-style-preference', detailDraft.stylePreference, '记录新款方向')}
-        ${renderTextarea('修改建议', 'revision-detail-suggestion', detailDraft.revisionSuggestionRichText, '记录改版执行建议')}
+        ${renderTextarea('风格偏好', 'revision-detail-style-preference', detailDraft.stylePreference, '')}
+        ${renderTextarea('修改建议', 'revision-detail-suggestion', detailDraft.revisionSuggestionRichText, '')}
       </div>
     `,
   )
@@ -1784,7 +2158,7 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
     `
       ${renderRevisionMaterialRows(task)}
       <div class="mt-4">
-        ${renderTextarea('面辅料变化明细', 'revision-detail-material-lines', detailDraft.materialAdjustmentLinesText, '每行：图片|名称|SKU|印花要求|数量|单价|金额|备注')}
+        ${renderRevisionMaterialLineEditor(detailDraft.materialAdjustmentLines)}
       </div>
     `,
   )
@@ -1797,11 +2171,11 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
       ], 2)}
       <div class="mt-4">${renderFileChips('新花型图片', task.newPatternImageIds || [])}</div>
       <div class="mt-4 grid gap-4 md:grid-cols-2">
-        ${renderTextInput('新花型 SPU', 'revision-detail-new-pattern-spu', detailDraft.newPatternSpuCode, '新花型 SPU')}
-        ${renderTextarea('花型变化说明', 'revision-detail-pattern-change-note', detailDraft.patternChangeNote, '记录花型变化说明')}
+        ${renderTextInput('新花型 SPU', 'revision-detail-new-pattern-spu', detailDraft.newPatternSpuCode, '')}
+        ${renderTextarea('花型变化说明', 'revision-detail-pattern-change-note', detailDraft.patternChangeNote, '')}
       </div>
       <div class="mt-4">
-        ${renderTextarea('新花型图片', 'revision-detail-new-pattern-images', detailDraft.newPatternImageIdsText, '每行一个图片地址')}
+        ${renderImageUploader('新花型图片', 'revision-detail-new-pattern-images', detailDraft.newPatternImageIds, '未上传')}
       </div>
     `,
   )
@@ -1825,12 +2199,14 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
         ${renderDateTimeInput('纸样打印时间', 'revision-detail-paper-print-at', detailDraft.paperPrintAt)}
         ${renderSelectInput('打版区域', 'revision-detail-pattern-area', detailDraft.patternArea, buildSelectOptions(['', '印尼', '深圳']))}
       </div>
+      <div class="mt-4">
+        ${renderTextarea('寄送地址', 'revision-detail-delivery-address', detailDraft.deliveryAddress, '')}
+      </div>
       <div class="mt-4 grid gap-4 md:grid-cols-2">
-        ${renderTextarea('寄送地址', 'revision-detail-delivery-address', detailDraft.deliveryAddress, '记录纸样或样衣寄送地址')}
-        ${renderTextarea('纸样图片', 'revision-detail-pattern-piece-images', detailDraft.patternPieceImageIdsText, '每行一个图片地址')}
-        ${renderTextarea('纸样文件', 'revision-detail-pattern-files', detailDraft.patternFileIdsText, '每行一个文件地址')}
-        ${renderTextarea('主图图片', 'revision-detail-main-images', detailDraft.mainImageIdsText, '每行一个图片地址')}
-        ${renderTextarea('新图设计稿', 'revision-detail-design-drafts', detailDraft.designDraftImageIdsText, '每行一个图片地址')}
+        ${renderImageUploader('纸样图片', 'revision-detail-pattern-piece-images', detailDraft.patternPieceImageIds, '未上传')}
+        ${renderFileUploader('纸样文件', 'revision-detail-pattern-files', detailDraft.patternFileIds)}
+        ${renderImageUploader('主图图片', 'revision-detail-main-images', detailDraft.mainImageIds, '未上传')}
+        ${renderImageUploader('新图设计稿', 'revision-detail-design-drafts', detailDraft.designDraftImageIds, '未上传')}
       </div>
     `,
   )
@@ -1846,8 +2222,8 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
       ], 2)}
       <div class="mt-4 grid gap-4 md:grid-cols-2">
         ${renderSelectInput('回直播验证状态', 'revision-detail-live-retest-status', detailDraft.liveRetestStatus, buildSelectOptions(['不需要', '待回直播验证', '已回直播验证', '验证通过', '验证未通过']))}
-        ${renderTextarea('回直播验证关系', 'revision-detail-live-retest-relations', detailDraft.liveRetestRelationIdsText, '每行一个关系 ID')}
-        ${renderTextarea('回直播验证说明', 'revision-detail-live-retest-summary', detailDraft.liveRetestSummary, '记录验证结论')}
+        ${renderTextarea('回直播验证关系', 'revision-detail-live-retest-relations', detailDraft.liveRetestRelationIdsText, '')}
+        ${renderTextarea('回直播验证说明', 'revision-detail-live-retest-summary', detailDraft.liveRetestSummary, '')}
       </div>
       <div class="mt-4 flex flex-wrap items-center gap-3">
         <label class="inline-flex items-center gap-2 text-sm text-slate-700">
@@ -1878,7 +2254,7 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
             `).join('')}
           </div>
         `
-      : '<div class="rounded-lg border border-dashed border-slate-200 px-4 py-10 text-center text-sm text-slate-500">当前商品项目暂无关联打样记录。</div>',
+      : '<div class="rounded-lg border border-dashed border-slate-200 px-4 py-10 text-center text-sm text-slate-500">暂无关联样衣</div>',
   )
 
   const outputs = renderSectionCard(
@@ -1888,18 +2264,10 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
         <div class="rounded-lg border border-slate-200 p-4">
           <p class="text-xs text-slate-500">技术包产出</p>
           <div class="mt-2 text-sm text-slate-900">${task.linkedTechPackVersionId ? `${techPackLinkByProject(task.projectId, task.linkedTechPackVersionId, task.linkedTechPackVersionCode || task.linkedTechPackVersionLabel || '查看关联技术包')}<span class="mx-2 text-slate-300">/</span>${techPackLinkByProject(task.projectId, task.linkedTechPackVersionId, '查看版本日志')}` : '尚未建立技术包版本'}</div>
-          <p class="mt-2 text-xs text-slate-500">${escapeHtml(task.linkedTechPackUpdatedAt ? `最近写回：${formatDateTime(task.linkedTechPackUpdatedAt)}` : getTechPackGenerationBlockedReason(task.status) || (task.projectId ? '当前任务可写入技术包版本。' : '当前任务未关联商品项目，暂不写入技术包版本。'))}</p>
         </div>
         <div class="rounded-lg border border-slate-200 p-4">
           <p class="text-xs text-slate-500">花型下游状态</p>
           <p class="mt-2 text-sm text-slate-900">${downstreamTasks.length > 0 ? `已生成 ${downstreamTasks.length} 个花型任务` : '当前未生成花型下游任务'}</p>
-          <p class="mt-2 text-xs text-slate-500">${escapeHtml(
-            !task.projectId
-              ? '未关联商品项目，当前不创建花型下游任务。'
-              : !task.revisionScopeCodes.includes('PRINT')
-                ? '改版范围未涉及花型，当前不创建花型下游任务。'
-                : '涉及花型的改版任务可在创建时同步生成花型任务。',
-          )}</p>
         </div>
       </div>
     `,
@@ -1927,7 +2295,7 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
             { label: '截止时间', value: escapeHtml(formatDateTime(task.dueAt)) },
             { label: '技术包状态', value: escapeHtml(task.linkedTechPackVersionStatus || '未写回') },
             { label: '下游任务', value: downstreamTasks.length > 0 ? escapeHtml(`花型任务 ${downstreamTasks.length} 个`) : '无' },
-            { label: '当前动作', value: escapeHtml(isTechPackGenerationAllowedStatus(task.status) && task.projectId ? getRevisionTechPackActionLabel() : '暂无可执行技术包动作') },
+            { label: '当前动作', value: escapeHtml(isTechPackGenerationAllowedStatus(task.status) && task.projectId ? getRevisionTechPackActionLabel() : '无') },
           ],
           2,
         ),
@@ -1944,7 +2312,6 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
           2,
         ),
       )}
-      ${renderSectionCard('完成校验', renderTaskCompletionHint(completionMissingFields))}
     </div>
   `
 
@@ -1967,63 +2334,49 @@ function renderRevisionCreateDialog(): string {
   const selectedStyle = getStyleArchiveById(draft.styleId)
   const selectedProjectDefaults = draft.projectId ? getProjectDefaultValues(draft.projectId) : { ownerName: '', styleId: '', styleCode: '', styleName: '' }
   const projectStyle = selectedProjectDefaults.styleId ? getStyleArchiveById(selectedProjectDefaults.styleId) : null
-  const showProjectField = draft.sourceType === '测款触发'
-  const showStyleField = draft.sourceType !== '测款触发'
-  const canCreatePatternTask = canCreateRevisionPatternTask(draft.scopeCodes, draft.sourceType, draft.projectId)
+  const showProjectField = draft.bindingMode === 'project'
+  const canCreatePatternTask = canCreateRevisionPatternTask(draft.scopeCodes, draft.sourceType, showProjectField ? draft.projectId : '')
   const body = `
     <div class="grid gap-4 md:grid-cols-2">
+      ${renderSelectInput('创建方式', 'revision-create-binding-mode', draft.bindingMode, [
+        { value: 'project', label: '关联商品项目' },
+        { value: 'style', label: '独立任务' },
+      ])}
       ${renderSelectInput('来源类型', 'revision-create-source-type', draft.sourceType, REVISION_TASK_SOURCE_TYPE_LIST.map((item) => ({ value: item, label: item })))}
-      ${showProjectField ? renderSelectInput('商品项目', 'revision-create-project', draft.projectId, buildProjectOptions()) : showStyleField ? renderSelectInput('款式档案', 'revision-create-style-id', draft.styleId, buildStyleArchiveOptions()) : ''}
+      ${showProjectField ? renderSelectInput('商品项目', 'revision-create-project', draft.projectId, buildProjectOptions()) : renderSelectInput('款式档案', 'revision-create-style-id', draft.styleId, buildStyleArchiveOptions())}
       ${renderSelectInput('负责人', 'revision-create-owner', draft.ownerName, buildRevisionOwnerOptions())}
-      ${renderTextInput('任务标题', 'revision-create-title', draft.title, '例如：碎花连衣裙改版（腰节与花型）')}
+      ${renderTextInput('任务标题', 'revision-create-title', draft.title)}
       ${renderDateTimeInput('截止时间', 'revision-create-due-at', draft.dueAt)}
     </div>
-    <div class="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-      <div class="grid gap-3 md:grid-cols-2">
-        <div>
-          <p class="text-xs text-slate-500">当前款式</p>
-          <p class="mt-1 text-sm text-slate-900">${showProjectField ? escapeHtml(projectStyle?.styleCode ? `${projectStyle.styleCode} · ${projectStyle.styleName}` : '所选项目暂未关联款式档案') : escapeHtml(selectedStyle?.styleCode ? `${selectedStyle.styleCode} · ${selectedStyle.styleName}` : '请先选择款式档案')}</p>
-        </div>
-        <div>
-          <p class="text-xs text-slate-500">下游创建</p>
-          <p class="mt-1 text-sm text-slate-900">${escapeHtml(canCreatePatternTask ? '涉及花型调整，将同步创建花型任务' : draft.scopeCodes.includes('PRINT') ? '涉及花型但未关联商品项目，暂不自动创建花型任务' : '当前范围未涉及花型')}</p>
-        </div>
-      </div>
+    <div class="mt-4 grid gap-4 md:grid-cols-2">
+      <div class="rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-700">${escapeHtml(showProjectField ? (projectStyle?.styleCode ? `${projectStyle.styleCode} · ${projectStyle.styleName}` : '未绑定款式档案') : (selectedStyle?.styleCode ? `${selectedStyle.styleCode} · ${selectedStyle.styleName}` : '未选择款式档案'))}</div>
+      ${draft.scopeCodes.includes('PRINT')
+        ? `<label class="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-700">
+            <input type="checkbox" ${draft.createPatternTask ? 'checked' : ''} ${canCreatePatternTask ? '' : 'disabled'} data-pcs-engineering-action="toggle-revision-create-pattern-task" />
+            <span>同步创建花型任务</span>
+          </label>`
+        : '<div></div>'}
     </div>
     <div class="mt-4">
-      <div class="space-y-2 text-sm text-slate-600">
-        <span>改版范围</span>
-        <div class="grid gap-2 sm:grid-cols-2">
-          ${REVISION_SCOPE_OPTIONS.map((option) => `
-            <label class="inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-700">
-              <input type="checkbox" ${draft.scopeCodes.includes(option.value) ? 'checked' : ''} data-pcs-engineering-action="toggle-revision-scope" data-scope-code="${escapeHtml(option.value)}" />
-              <span>${escapeHtml(option.label)}</span>
-            </label>
-          `).join('')}
-        </div>
+      <div class="grid gap-2 sm:grid-cols-2">
+        ${REVISION_SCOPE_OPTIONS.map((option) => `
+          <label class="inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-700">
+            <input type="checkbox" ${draft.scopeCodes.includes(option.value) ? 'checked' : ''} data-pcs-engineering-action="toggle-revision-scope" data-scope-code="${escapeHtml(option.value)}" />
+            <span>${escapeHtml(option.label)}</span>
+          </label>
+        `).join('')}
       </div>
     </div>
     <div class="mt-4 grid gap-4 md:grid-cols-2">
-      ${renderTextarea('问题点', 'revision-create-issue-summary', draft.issueSummary, '补充本次改版要解决的核心问题')}
+      ${renderTextarea('问题点', 'revision-create-issue-summary', draft.issueSummary)}
       <div class="space-y-4">
-        ${renderTextarea('证据说明', 'revision-create-evidence-summary', draft.evidenceSummary, '补充评审、反馈、对比记录等证据')}
+        ${renderTextarea('证据说明', 'revision-create-evidence-summary', draft.evidenceSummary)}
         ${renderRevisionEvidenceUploader(draft.evidenceImageUrls)}
       </div>
     </div>
     <div class="mt-4">
-      ${renderTextarea('说明', 'revision-create-note', draft.note, '补充改版方案、边界说明和执行要求')}
+      ${renderTextarea('备注', 'revision-create-note', draft.note)}
     </div>
-    ${draft.scopeCodes.includes('PRINT')
-      ? `
-        <div class="mt-4 rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-700">
-          <label class="inline-flex items-center gap-2">
-            <input type="checkbox" ${draft.createPatternTask ? 'checked' : ''} ${canCreatePatternTask ? '' : 'disabled'} data-pcs-engineering-action="toggle-revision-create-pattern-task" />
-            <span>创建改版任务后同步创建花型任务</span>
-          </label>
-          <p class="mt-2 text-xs text-slate-500">${escapeHtml(canCreatePatternTask ? '本次改版涉及花型变更，创建后会同步生成花型任务。' : '只有测款触发且已关联商品项目的改版任务，才可同步创建花型下游任务。')}</p>
-        </div>
-      `
-      : ''}
   `
   return renderDialog(state.revisionCreateOpen, '新建改版任务', body, 'close-revision-create', 'submit-revision-create', '创建改版任务')
 }
@@ -2046,42 +2399,6 @@ function getPlateTasksFiltered() {
     if (state.plateList.quickFilter === 'overdue' && !isOverdue(task.dueAt, task.status === '已完成' || task.status === '已取消')) return false
     return true
   })
-}
-
-function renderPlatePieces(task: ReturnType<typeof getPlateMakingTaskById>): string {
-  if (!task) return ''
-  const pieces = [
-    { name: '前后主身片', format: 'DXF', count: 2, size: task.sizeRange || '待补充', note: '主版片' },
-    { name: '袖片', format: 'DXF', count: 2, size: task.sizeRange || '待补充', note: '袖型跟随主版' },
-    { name: '领口/贴边', format: 'PDF', count: 2, size: task.sizeRange || '待补充', note: '需配合工艺说明' },
-  ]
-  return renderSectionCard(
-    '纸样与版片',
-    `
-      <div class="space-y-3">
-        ${pieces.map((piece) => `
-          <div class="grid gap-3 rounded-lg border border-slate-200 px-4 py-3 md:grid-cols-4">
-            <div>
-              <p class="text-xs text-slate-500">版片名称</p>
-              <p class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(piece.name)}</p>
-            </div>
-            <div>
-              <p class="text-xs text-slate-500">文件格式</p>
-              <p class="mt-1 text-sm text-slate-900">${escapeHtml(piece.format)}</p>
-            </div>
-            <div>
-              <p class="text-xs text-slate-500">适用尺码</p>
-              <p class="mt-1 text-sm text-slate-900">${escapeHtml(piece.size)}</p>
-            </div>
-            <div>
-              <p class="text-xs text-slate-500">说明</p>
-              <p class="mt-1 text-sm text-slate-900">${escapeHtml(piece.note)}</p>
-            </div>
-          </div>
-        `).join('')}
-      </div>
-    `,
-  )
 }
 
 function renderPlateMaterialRows(task: ReturnType<typeof getPlateMakingTaskById>): string {
@@ -2187,7 +2504,7 @@ function renderPlateListPage(): string {
   return `
     <div class="space-y-5 p-4">
       ${renderNotice()}
-      ${renderPageHeader('制版任务', '', '', '')}
+      ${renderPageHeader('制版任务', '新建制版任务', 'open-plate-create')}
       ${renderListFilters({
         searchPlaceholder: '搜索任务编号 / 商品项目 / 款式 / 负责人',
         listState: state.plateList,
@@ -2200,11 +2517,11 @@ function renderPlateListPage(): string {
         sourceOptions: sources,
       })}
       <section class="grid gap-4 md:grid-cols-5">
-        ${renderMetricButton('全部任务', tasks.length, state.plateList.quickFilter === 'all', 'all', 'set-plate-quick-filter', '制版任务总量')}
-        ${renderMetricButton('我的任务', tasks.filter((item) => item.ownerName === '王版师').length, state.plateList.quickFilter === 'mine', 'mine', 'set-plate-quick-filter', '当前默认个人视角')}
-        ${renderMetricButton('待确认', tasks.filter((item) => item.status === '待确认').length, state.plateList.quickFilter === 'pending-review', 'pending-review', 'set-plate-quick-filter', '等待版师确认')}
-        ${renderMetricButton('已确认待写包', tasks.filter((item) => item.status === '已确认' && !item.linkedTechPackVersionId).length, state.plateList.quickFilter === 'confirmed-no-output', 'confirmed-no-output', 'set-plate-quick-filter', '待回写技术包')}
-        ${renderMetricButton('超期任务', tasks.filter((item) => isOverdue(item.dueAt, item.status === '已完成' || item.status === '已取消')).length, state.plateList.quickFilter === 'overdue', 'overdue', 'set-plate-quick-filter', '超过计划完成时间')}
+        ${renderMetricButton('全部任务', tasks.length, state.plateList.quickFilter === 'all', 'all', 'set-plate-quick-filter')}
+        ${renderMetricButton('我的任务', tasks.filter((item) => item.ownerName === '王版师').length, state.plateList.quickFilter === 'mine', 'mine', 'set-plate-quick-filter')}
+        ${renderMetricButton('待确认', tasks.filter((item) => item.status === '待确认').length, state.plateList.quickFilter === 'pending-review', 'pending-review', 'set-plate-quick-filter')}
+        ${renderMetricButton('已确认待写包', tasks.filter((item) => item.status === '已确认' && !item.linkedTechPackVersionId).length, state.plateList.quickFilter === 'confirmed-no-output', 'confirmed-no-output', 'set-plate-quick-filter')}
+        ${renderMetricButton('超期任务', tasks.filter((item) => isOverdue(item.dueAt, item.status === '已完成' || item.status === '已取消')).length, state.plateList.quickFilter === 'overdue', 'overdue', 'set-plate-quick-filter')}
       </section>
       ${renderDataTable(['商品图', '任务编号', '所属项目', '款式编码', '版师', '打版区域', '是否紧急', '纸样版次', '技术包状态', '当前状态', '操作'], rows, '暂无制版任务数据', renderPagination(state.plateList.currentPage, filtered.length, 'change-plate-page'))}
       ${renderPlateCreateDialog()}
@@ -2214,25 +2531,36 @@ function renderPlateListPage(): string {
 
 function renderPlateCreateDialog(): string {
   const draft = state.plateCreateDraft
+  const showProjectField = draft.bindingMode === 'project'
+  const selectedStyle = getStyleArchiveById(draft.styleId)
+  const selectedProjectDefaults = draft.projectId ? getProjectDefaultValues(draft.projectId) : { ownerName: '', styleId: '', styleCode: '', styleName: '' }
+  const projectStyle = selectedProjectDefaults.styleId ? getStyleArchiveById(selectedProjectDefaults.styleId) : null
   const body = `
     <div class="grid gap-4 md:grid-cols-2">
-      ${renderSelectInput('商品项目', 'plate-create-project', draft.projectId, buildProjectOptions())}
-      ${renderTextInput('负责人', 'plate-create-owner', draft.ownerName, '默认取项目负责人')}
-      ${renderTextInput('版师', 'plate-create-pattern-maker', draft.patternMakerName, '例如：李版师')}
-      ${renderTextInput('任务标题', 'plate-create-title', draft.title, '例如：制版-碎花连衣裙(P1)')}
+      ${renderSelectInput('创建方式', 'plate-create-binding-mode', draft.bindingMode, [
+        { value: 'project', label: '关联商品项目' },
+        { value: 'style', label: '独立任务' },
+      ])}
+      ${renderSelectInput('来源类型', 'plate-create-source-type', draft.sourceType, PLATE_TASK_SOURCE_TYPE_LIST.map((item) => ({ value: item, label: item })))}
+      ${showProjectField ? renderSelectInput('商品项目', 'plate-create-project', draft.projectId, buildProjectOptions()) : renderSelectInput('款式档案', 'plate-create-style-id', draft.styleId, buildStyleArchiveOptions())}
+      ${renderTextInput('负责人', 'plate-create-owner', draft.ownerName, '')}
+      ${renderTextInput('版师', 'plate-create-pattern-maker', draft.patternMakerName, '')}
+      ${renderTextInput('任务标题', 'plate-create-title', draft.title, '')}
       ${renderDateTimeInput('截止时间', 'plate-create-due-at', draft.dueAt)}
-      ${renderTextInput('款式编码', 'plate-create-style-code', draft.productStyleCode, 'SPU-xxxx')}
       ${renderSelectInput('产品历史属性', 'plate-create-product-history-type', draft.productHistoryType, ['未卖过', '已卖过补纸样'].map((item) => ({ value: item, label: item })))}
       ${renderSelectInput('打版区域', 'plate-create-pattern-area', draft.patternArea, ['印尼', '深圳'].map((item) => ({ value: item, label: item })))}
-      ${renderTextInput('版型类型', 'plate-create-pattern-type', draft.patternType, '连衣裙 / 衬衫 / 外套')}
-      ${renderTextInput('尺码范围', 'plate-create-size-range', draft.sizeRange, 'S-XL / M-2XL')}
+      ${renderTextInput('版型类型', 'plate-create-pattern-type', draft.patternType, '')}
+      ${renderTextInput('尺码范围', 'plate-create-size-range', draft.sizeRange, '')}
+    </div>
+    <div class="mt-4 rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-700">
+      ${escapeHtml(showProjectField ? (projectStyle?.styleCode ? `${projectStyle.styleCode} · ${projectStyle.styleName}` : '未绑定款式档案') : (selectedStyle?.styleCode ? `${selectedStyle.styleCode} · ${selectedStyle.styleName}` : '未选择款式档案'))}
     </div>
     <label class="mt-4 inline-flex items-center gap-2 text-sm text-slate-700">
       <input type="checkbox" ${draft.urgentFlag ? 'checked' : ''} data-pcs-engineering-action="toggle-plate-create-urgent" />
       <span>是否紧急</span>
     </label>
     <div class="mt-4">
-      ${renderTextarea('说明', 'plate-create-note', draft.note, '项目模板阶段制版，后续可继续写入正式技术包')}
+      ${renderTextarea('备注', 'plate-create-note', draft.note, '')}
     </div>
   `
   return renderDialog(state.plateCreateOpen, '新建制版任务', body, 'close-plate-create', 'submit-plate-create', '创建制版任务')
@@ -2243,7 +2571,7 @@ function renderPlateDetailPage(plateTaskId: string): string {
   const task = getPlateMakingTaskById(plateTaskId)
   if (!task) return renderEmptyDetail('制版任务', '/pcs/patterns')
   const detailDraft = ensurePlateDetailDraft(task)
-  const completionMissingFields = getPlateTaskCompletionMissingFields(task)
+  const style = getTaskStyleInfo(task)
   const downstreamFirst = listFirstSampleTasks().filter((item) => item.upstreamObjectId === task.plateTaskId || item.upstreamObjectCode === task.plateTaskCode)
   const downstreamPre = listPreProductionSampleTasks().filter((item) => item.upstreamObjectId === task.plateTaskId || item.upstreamObjectCode === task.plateTaskCode)
   const logs = mergeLogs('plate', task.plateTaskId, [
@@ -2293,7 +2621,7 @@ function renderPlateDetailPage(plateTaskId: string): string {
     renderSectionCard('任务基本信息', renderKeyValueGrid([
       { label: '任务编号', value: escapeHtml(task.plateTaskCode) },
       { label: '所属项目', value: projectButton(task.projectId, task.projectCode, task.projectName) },
-      { label: '所属款式', value: styleArchiveLinkByProject(task.projectId) },
+      { label: '所属款式', value: styleArchiveLink(style.styleId, style.styleCode, style.styleName, task.projectId) },
       { label: '来源对象', value: escapeHtml(task.upstreamObjectCode || task.upstreamObjectId || '-') },
       { label: '当前状态', value: renderStatusBadge(task.status) },
     ], 3)),
@@ -2309,10 +2637,10 @@ function renderPlateDetailPage(plateTaskId: string): string {
         { label: '制版版次', value: escapeHtml(task.patternVersion || '-') },
       ], 4)}
       <div class="mt-4 grid gap-4 md:grid-cols-2">
-        ${renderTextInput('参与人', 'plate-detail-participants', detailDraft.participantNamesText, '多个姓名请用顿号分隔')}
-        ${renderTextInput('制版版次', 'plate-detail-version', detailDraft.patternVersion, '例如：P2')}
+        ${renderTextInput('参与人', 'plate-detail-participants', detailDraft.participantNamesText, '')}
+        ${renderTextInput('制版版次', 'plate-detail-version', detailDraft.patternVersion, '')}
         ${renderSelectInput('产品历史属性', 'plate-detail-product-history-type', detailDraft.productHistoryType, [{ value: '', label: '请选择' }, ...['未卖过', '已卖过补纸样'].map((item) => ({ value: item, label: item }))])}
-        ${renderTextInput('版师', 'plate-detail-pattern-maker', detailDraft.patternMakerName, '例如：李版师')}
+        ${renderTextInput('版师', 'plate-detail-pattern-maker', detailDraft.patternMakerName, '')}
         ${renderSelectInput('打版区域', 'plate-detail-pattern-area', detailDraft.patternArea, [{ value: '', label: '请选择' }, ...['印尼', '深圳'].map((item) => ({ value: item, label: item }))])}
         ${renderDateTimeInput('样板确认时间', 'plate-detail-sample-confirmed-at', detailDraft.sampleConfirmedAt)}
       </div>
@@ -2326,19 +2654,21 @@ function renderPlateDetailPage(plateTaskId: string): string {
       <div class="mt-4">${renderKeyValueGrid([
         { label: '花色需求', value: escapeHtml(task.colorRequirementText || '-') },
         { label: '新花型 SPU', value: escapeHtml(task.newPatternSpuCode || '-') },
-        { label: '花型图片', value: escapeHtml((task.flowerImageIds || []).join('、') || '-') },
+        { label: '花型图片', value: task.flowerImageIds.length ? `${task.flowerImageIds.length} 张` : '未上传' },
       ], 3)}</div>
       <div class="mt-4 grid gap-4 md:grid-cols-2">
-        ${renderTextarea('花色需求', 'plate-detail-color-requirement', detailDraft.colorRequirementText, '记录花色、印花方向和色系要求')}
-        ${renderTextInput('新花型 SPU', 'plate-detail-new-pattern-spu', detailDraft.newPatternSpuCode, '可选')}
-        ${renderTextarea('花型图片', 'plate-detail-flower-images', detailDraft.flowerImageIdsText, '每行一个图片地址或资产 ID')}
-        ${renderTextarea('面辅料明细', 'plate-detail-material-lines', detailDraft.materialRequirementLinesText, '每行：面辅料 | SKU | 印花要求 | 数量 | 单价 | 备注')}
+        ${renderTextarea('花色需求', 'plate-detail-color-requirement', detailDraft.colorRequirementText, '')}
+        ${renderTextInput('新花型 SPU', 'plate-detail-new-pattern-spu', detailDraft.newPatternSpuCode, '')}
+      </div>
+      <div class="mt-4 grid gap-4 md:grid-cols-2">
+        ${renderImageUploader('花型图片', 'plate-detail-flower-images', detailDraft.flowerImageIds, '未上传')}
+        ${renderPlateMaterialLineEditor(detailDraft.materialRequirementLines)}
       </div>
     `),
     renderSectionCard('纸样图片', `
       ${renderPlatePatternImageRows(task)}
       <div class="mt-4">
-        ${renderTextarea('纸样图片明细', 'plate-detail-pattern-image-lines', detailDraft.patternImageLineItemsText, '每行：图片ID | 部位说明 | 描述 | 片数')}
+        ${renderPlatePatternImageLineEditor(detailDraft.patternImageLineItems)}
       </div>
     `),
     renderSectionCard('纸样文件', `
@@ -2352,17 +2682,17 @@ function renderPlateDetailPage(plateTaskId: string): string {
         ${renderFileChips('补充视频', task.supportVideoIds || [])}
       </div>
       <div class="mt-4 grid gap-4 md:grid-cols-2">
-        ${renderTextarea('PDF 文件', 'plate-detail-pdf-files', detailDraft.patternPdfFileIdsText, '每行一个 PDF 文件 ID')}
-        ${renderTextarea('DXF 文件', 'plate-detail-dxf-files', detailDraft.patternDxfFileIdsText, '每行一个 DXF 文件 ID')}
-        ${renderTextarea('RUL 文件', 'plate-detail-rul-files', detailDraft.patternRulFileIdsText, '每行一个 RUL 文件 ID')}
-        ${renderTextarea('补充图片', 'plate-detail-support-images', detailDraft.supportImageIdsText, '每行一个图片 ID')}
-        ${renderTextarea('补充视频', 'plate-detail-support-videos', detailDraft.supportVideoIdsText, '每行一个视频 ID')}
+        ${renderFileUploader('PDF 文件', 'plate-detail-pdf-files', detailDraft.patternPdfFileIds, '未上传', '.pdf,application/pdf')}
+        ${renderFileUploader('DXF 文件', 'plate-detail-dxf-files', detailDraft.patternDxfFileIds, '未上传', '.dxf')}
+        ${renderFileUploader('RUL 文件', 'plate-detail-rul-files', detailDraft.patternRulFileIds, '未上传', '.rul')}
+        ${renderImageUploader('补充图片', 'plate-detail-support-images', detailDraft.supportImageIds, '未上传')}
+        ${renderFileUploader('补充视频', 'plate-detail-support-videos', detailDraft.supportVideoIds, '未上传', 'video/*')}
       </div>
     `),
     renderSectionCard('模板关联', `
       ${renderPlateTemplateRows(task)}
       <div class="mt-4">
-        ${renderTextarea('部位模板关联', 'plate-detail-template-links', detailDraft.partTemplateLinksText, '每行：模板ID | 模板编码 | 模板名称 | 匹配部位')}
+        ${renderTextarea('部位模板关联', 'plate-detail-template-links', detailDraft.partTemplateLinksText, '')}
       </div>
       ${renderTaskSaveBar('save-plate-detail-fields', task.plateTaskId)}
     `),
@@ -2380,7 +2710,7 @@ function renderPlateDetailPage(plateTaskId: string): string {
       ${renderSectionCard('任务摘要', renderKeyValueGrid([
         { label: '负责人', value: escapeHtml(task.ownerName) },
         { label: '截止时间', value: escapeHtml(formatDateTime(task.dueAt)) },
-        { label: '款式档案', value: styleArchiveLinkByProject(task.projectId) },
+        { label: '款式档案', value: styleArchiveLink(style.styleId, style.styleCode, style.styleName, task.projectId) },
         { label: '技术包状态', value: escapeHtml(task.linkedTechPackVersionStatus || '未写回') },
       ], 2))}
       ${renderSectionCard('正式对象核对', renderKeyValueGrid([
@@ -2389,7 +2719,6 @@ function renderPlateDetailPage(plateTaskId: string): string {
         { label: '上游对象', value: escapeHtml(task.upstreamObjectCode || task.upstreamObjectId || '-') },
         { label: '制版状态', value: renderStatusBadge(task.status) },
       ], 2))}
-      ${renderSectionCard('完成校验', renderTaskCompletionHint(completionMissingFields))}
     </div>
   `
 
@@ -2473,7 +2802,7 @@ function renderPatternListPage(): string {
   return `
     <div class="space-y-5 p-4">
       ${renderNotice()}
-      ${renderPageHeader('花型任务', '', '', '')}
+      ${renderPageHeader('花型任务', '新建花型任务', 'open-pattern-create')}
       ${renderListFilters({
         searchPlaceholder: '搜索任务编号 / 花型名称 / 商品项目 / 团队 / 花型师',
         listState: state.patternList,
@@ -2486,11 +2815,11 @@ function renderPatternListPage(): string {
         sourceOptions: sources,
       })}
       <section class="grid gap-4 md:grid-cols-5">
-        ${renderMetricButton('全部任务', tasks.length, state.patternList.quickFilter === 'all', 'all', 'set-pattern-quick-filter', '花型任务总量')}
-        ${renderMetricButton('我的任务', tasks.filter((item) => item.ownerName === '林小美').length, state.patternList.quickFilter === 'mine', 'mine', 'set-pattern-quick-filter', '默认个人视角')}
-        ${renderMetricButton('待买手确认', tasks.filter((item) => item.buyerReviewStatus === '待买手确认').length, state.patternList.quickFilter === 'pending-review', 'pending-review', 'set-pattern-quick-filter', '待买手确认')}
-        ${renderMetricButton('已确认待沉淀', tasks.filter((item) => item.status === '已确认' && !listPatternAssets().find((asset) => asset.source_task_id === item.patternTaskId)).length, state.patternList.quickFilter === 'confirmed-no-output', 'confirmed-no-output', 'set-pattern-quick-filter', '确认后待进入花型库')}
-        ${renderMetricButton('超期任务', tasks.filter((item) => isOverdue(item.dueAt, item.status === '已完成' || item.status === '已取消')).length, state.patternList.quickFilter === 'overdue', 'overdue', 'set-pattern-quick-filter', '超过计划完成时间')}
+        ${renderMetricButton('全部任务', tasks.length, state.patternList.quickFilter === 'all', 'all', 'set-pattern-quick-filter')}
+        ${renderMetricButton('我的任务', tasks.filter((item) => item.ownerName === '林小美').length, state.patternList.quickFilter === 'mine', 'mine', 'set-pattern-quick-filter')}
+        ${renderMetricButton('待买手确认', tasks.filter((item) => item.buyerReviewStatus === '待买手确认').length, state.patternList.quickFilter === 'pending-review', 'pending-review', 'set-pattern-quick-filter')}
+        ${renderMetricButton('已确认待沉淀', tasks.filter((item) => item.status === '已确认' && !listPatternAssets().find((asset) => asset.source_task_id === item.patternTaskId)).length, state.patternList.quickFilter === 'confirmed-no-output', 'confirmed-no-output', 'set-pattern-quick-filter')}
+        ${renderMetricButton('超期任务', tasks.filter((item) => isOverdue(item.dueAt, item.status === '已完成' || item.status === '已取消')).length, state.patternList.quickFilter === 'overdue', 'overdue', 'set-pattern-quick-filter')}
       </section>
       ${renderDataTable(['花型任务', '需求图', '来源', '工艺', '面料', '数量', '难易程度', '团队', '花型师', '买手确认状态', '花型库状态', '技术包状态', '操作'], rows, '暂无花型任务数据', renderPagination(state.patternList.currentPage, filtered.length, 'change-pattern-page'))}
       ${renderPatternCreateDialog()}
@@ -2501,23 +2830,34 @@ function renderPatternListPage(): string {
 function renderPatternCreateDialog(): string {
   const draft = state.patternCreateDraft
   const teamOptions = PATTERN_TASK_TEAMS.map((team) => ({ value: team.teamCode, label: team.teamName }))
+  const showProjectField = draft.bindingMode === 'project'
+  const selectedStyle = getStyleArchiveById(draft.styleId)
+  const selectedProjectDefaults = draft.projectId ? getProjectDefaultValues(draft.projectId) : { ownerName: '', styleId: '', styleCode: '', styleName: '' }
+  const projectStyle = selectedProjectDefaults.styleId ? getStyleArchiveById(selectedProjectDefaults.styleId) : null
   const body = `
     <div class="grid gap-4 md:grid-cols-2">
-      ${renderSelectInput('商品项目', 'pattern-create-project', draft.projectId, buildProjectOptions())}
-      ${renderTextInput('负责人', 'pattern-create-owner', draft.ownerName, '默认取项目负责人')}
-      ${renderTextInput('任务标题', 'pattern-create-title', draft.title, '例如：花型-碎花连衣裙（定位印 A1）')}
+      ${renderSelectInput('创建方式', 'pattern-create-binding-mode', draft.bindingMode, [
+        { value: 'project', label: '关联商品项目' },
+        { value: 'style', label: '独立任务' },
+      ])}
+      ${renderSelectInput('来源类型', 'pattern-create-source-type', draft.sourceType, PATTERN_TASK_SOURCE_TYPE_LIST.map((item) => ({ value: item, label: item })))}
+      ${showProjectField ? renderSelectInput('商品项目', 'pattern-create-project', draft.projectId, buildProjectOptions()) : renderSelectInput('款式档案', 'pattern-create-style-id', draft.styleId, buildStyleArchiveOptions())}
+      ${renderTextInput('负责人', 'pattern-create-owner', draft.ownerName, '')}
+      ${renderTextInput('任务标题', 'pattern-create-title', draft.title, '')}
       ${renderDateTimeInput('截止时间', 'pattern-create-due-at', draft.dueAt)}
-      ${renderTextInput('款式编码', 'pattern-create-style-code', draft.productStyleCode, 'SPU-xxxx')}
       ${renderSelectInput('需求来源', 'pattern-create-demand-source', draft.demandSourceType, buildSelectOptions(PATTERN_DEMAND_SOURCE_OPTIONS))}
       ${renderSelectInput('工艺类型', 'pattern-create-process-type', draft.processType, buildSelectOptions(PATTERN_PROCESS_OPTIONS))}
-      ${renderTextInput('需求数量', 'pattern-create-request-qty', draft.requestQty, '例如：1')}
-      ${renderTextInput('面料 SKU', 'pattern-create-fabric-sku', draft.fabricSku, '例如：FAB-PRINT-001')}
-      ${renderTextInput('面料名称', 'pattern-create-fabric-name', draft.fabricName, '例如：雪纺印花坯布')}
+      ${renderTextInput('需求数量', 'pattern-create-request-qty', draft.requestQty, '')}
+      ${renderTextInput('面料 SKU', 'pattern-create-fabric-sku', draft.fabricSku, '')}
+      ${renderTextInput('面料名称', 'pattern-create-fabric-name', draft.fabricName, '')}
       ${renderSelectInput('团队', 'pattern-create-team', draft.assignedTeamCode, teamOptions)}
       ${renderSelectInput('花型师', 'pattern-create-member', draft.assignedMemberId, getPatternMemberOptions(draft.assignedTeamCode))}
-      ${renderTextInput('花型名称', 'pattern-create-artwork-name', draft.artworkName, '例如：Bunga Tropis A1')}
-      ${renderTextInput('花型库分类', 'pattern-create-category', draft.patternCategoryCode, '例如：植物与花卉')}
-      ${renderTextInput('风格标签', 'pattern-create-style-tags', draft.patternStyleTagsText, '多个标签用顿号分隔')}
+      ${renderTextInput('花型名称', 'pattern-create-artwork-name', draft.artworkName, '')}
+      ${renderTextInput('花型库分类', 'pattern-create-category', draft.patternCategoryCode, '')}
+      ${renderTextInput('风格标签', 'pattern-create-style-tags', draft.patternStyleTagsText, '')}
+    </div>
+    <div class="mt-4 rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-700">
+      ${escapeHtml(showProjectField ? (projectStyle?.styleCode ? `${projectStyle.styleCode} · ${projectStyle.styleName}` : '未绑定款式档案') : (selectedStyle?.styleCode ? `${selectedStyle.styleCode} · ${selectedStyle.styleName}` : '未选择款式档案'))}
     </div>
     <div class="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
       ${renderImageUploader('需求图片', 'pattern-create-demand-images', draft.demandImageIds, '暂未上传需求图片')}
@@ -2527,7 +2867,7 @@ function renderPatternCreateDialog(): string {
       </label>
     </div>
     <div class="mt-4">
-      ${renderTextarea('说明', 'pattern-create-note', draft.note, '补充花型需求、边界和执行要求')}
+      ${renderTextarea('备注', 'pattern-create-note', draft.note, '')}
     </div>
   `
   return renderDialog(state.patternCreateOpen, '新建花型任务', body, 'close-pattern-create', 'submit-pattern-create', '创建花型任务')
@@ -2539,9 +2879,9 @@ function renderPatternDetailPage(patternTaskId: string): string {
   if (!task) return renderEmptyDetail('花型任务', '/pcs/patterns/colors')
   const techPackAction = getPatternTechPackActionMeta(task.patternTaskId)
   const detailDraft = ensurePatternDetailDraft(task)
-  const completionMissingFields = getPatternTaskCompletionMissingFields(task)
   const asset = listPatternAssets().find((item) => item.source_task_id === task.patternTaskId)
   const sampleTasks = listFirstSampleTasks().filter((item) => item.upstreamObjectId === task.patternTaskId || item.upstreamObjectCode === task.patternTaskCode)
+  const style = getTaskStyleInfo(task)
   const logs = mergeLogs('pattern', task.patternTaskId, [
     ...(task.linkedTechPackVersionId ? [{ time: task.linkedTechPackUpdatedAt || task.updatedAt, action: '技术包写回', user: task.updatedBy, detail: `已写入技术包 ${task.linkedTechPackVersionCode || task.linkedTechPackVersionLabel || task.linkedTechPackVersionId}。` }] : []),
     ...(asset ? [{ time: asset.updated_at, action: '花型库沉淀', user: asset.updated_by, detail: `已形成花型资产 ${asset.pattern_code}。` }] : []),
@@ -2590,7 +2930,7 @@ function renderPatternDetailPage(patternTaskId: string): string {
         { label: '原团队', value: escapeHtml(task.transferFromTeamName || '-') },
       ], 3)}
       <div class="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_160px]">
-        ${renderTextarea('转派原因', 'pattern-detail-transfer-reason', detailDraft.transferReason, '记录印尼团队转中国团队修改原因')}
+        ${renderTextarea('转派原因', 'pattern-detail-transfer-reason', detailDraft.transferReason, '')}
         <div class="flex items-end">
           <button type="button" class="inline-flex h-10 w-full items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="pattern-transfer-to-cn" data-task-id="${escapeHtml(task.patternTaskId)}">转中国团队</button>
         </div>
@@ -2610,8 +2950,8 @@ function renderPatternDetailPage(patternTaskId: string): string {
         ${renderImageUploader('图片参考图', 'pattern-detail-image-reference-images', detailDraft.imageReferenceIds, '暂未上传图片参考图')}
       </div>
       <div class="mt-4 grid gap-4 md:grid-cols-2">
-        ${renderTextarea('实物图说明', 'pattern-detail-physical-note', detailDraft.physicalReferenceNote, '记录实物图观察和取中间值依据')}
-        ${renderTextarea('颜色确认说明', 'pattern-detail-color-note', detailDraft.colorConfirmNote, '记录颜色确认结论')}
+        ${renderTextarea('实物图说明', 'pattern-detail-physical-note', detailDraft.physicalReferenceNote, '')}
+        ${renderTextarea('颜色确认说明', 'pattern-detail-color-note', detailDraft.colorConfirmNote, '')}
       </div>
     `,
   )
@@ -2626,7 +2966,7 @@ function renderPatternDetailPage(patternTaskId: string): string {
         { label: '审核说明', value: escapeHtml(task.buyerReviewNote || '-') },
       ], 2)}
       <div class="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_180px_180px]">
-        ${renderTextarea('买手审核说明', 'pattern-detail-buyer-note', detailDraft.buyerReviewNote, '买手通过或驳回说明')}
+        ${renderTextarea('买手审核说明', 'pattern-detail-buyer-note', detailDraft.buyerReviewNote, '')}
         <div class="flex items-end">
           <button type="button" class="inline-flex h-10 w-full items-center justify-center rounded-md bg-emerald-600 px-4 text-sm font-medium text-white hover:bg-emerald-700" data-pcs-engineering-action="pattern-buyer-approve" data-task-id="${escapeHtml(task.patternTaskId)}">买手通过</button>
         </div>
@@ -2641,7 +2981,7 @@ function renderPatternDetailPage(patternTaskId: string): string {
     '完成确认',
     `
       <div class="grid gap-4 md:grid-cols-2">
-        ${renderTextInput('花型版次', 'pattern-detail-version', detailDraft.artworkVersion, '例如：A2')}
+        ${renderTextInput('花型版次', 'pattern-detail-version', detailDraft.artworkVersion, '')}
         ${renderImageUploader('完成确认图片', 'pattern-detail-completion-images', detailDraft.completionImageIds, '暂未上传完成确认图片')}
       </div>
       ${renderTaskSaveBar('save-pattern-detail-fields', task.patternTaskId)}
@@ -2660,8 +3000,8 @@ function renderPatternDetailPage(patternTaskId: string): string {
           ], 2)
         : '<div class="rounded-lg border border-dashed border-slate-200 px-4 py-6 text-sm text-slate-500">未沉淀花型库</div>'}
       <div class="mt-4 grid gap-4 md:grid-cols-3">
-        ${renderTextInput('花型库分类', 'pattern-detail-category', detailDraft.patternCategoryCode, '例如：植物与花卉')}
-        ${renderTextInput('风格标签', 'pattern-detail-style-tags', detailDraft.patternStyleTagsText, '多个标签用顿号分隔')}
+        ${renderTextInput('花型库分类', 'pattern-detail-category', detailDraft.patternCategoryCode)}
+        ${renderTextInput('风格标签', 'pattern-detail-style-tags', detailDraft.patternStyleTagsText)}
         <label class="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-700">
           <input type="checkbox" ${detailDraft.hotSellerFlag ? 'checked' : ''} data-pcs-engineering-field="pattern-detail-hot-flag" />
           <span>爆款花型</span>
@@ -2695,7 +3035,7 @@ function renderPatternDetailPage(patternTaskId: string): string {
       ${renderSectionCard('任务摘要', renderKeyValueGrid([
         { label: '负责人', value: escapeHtml(task.ownerName) },
         { label: '截止时间', value: escapeHtml(formatDateTime(task.dueAt)) },
-        { label: '款式档案', value: styleArchiveLinkByProject(task.projectId) },
+        { label: '款式档案', value: styleArchiveLink(style.styleId, style.styleCode, style.styleName, task.projectId) },
         { label: '花型库状态', value: asset ? '已沉淀' : '待沉淀' },
       ], 2))}
       ${renderSectionCard('正式对象核对', renderKeyValueGrid([
@@ -2704,7 +3044,6 @@ function renderPatternDetailPage(patternTaskId: string): string {
         { label: '技术包状态', value: escapeHtml(task.linkedTechPackVersionStatus || '未写回') },
         { label: '正式状态', value: renderStatusBadge(task.status) },
       ], 2))}
-      ${renderSectionCard('完成校验', renderTaskCompletionHint(completionMissingFields))}
     </div>
   `
 
@@ -2837,7 +3176,7 @@ function renderFirstSampleListPage(): string {
   return `
     <div class="space-y-5 p-4">
       ${renderNotice()}
-      ${renderPageHeader('首版样衣打样', '参照首单样衣打样原型，跟踪发样、到样、入库和验收闭环，并将样衣信息回写到商品项目。', '新建首版打样', 'open-first-sample-create')}
+      ${renderPageHeader('首版样衣打样', '新建首版打样', 'open-first-sample-create')}
       ${renderListFilters({
         searchPlaceholder: '搜索任务编号 / 商品项目 / 工厂 / 运单 / 样衣编号',
         listState: state.firstSampleList,
@@ -2852,10 +3191,10 @@ function renderFirstSampleListPage(): string {
         sourceOptions: sources,
       })}
       <section class="grid gap-4 md:grid-cols-4">
-        ${renderMetricButton('在途', tasks.filter((item) => item.status === '在途').length, state.firstSampleList.quickFilter === 'in-transit', 'in-transit', 'set-first-sample-quick-filter', '样衣运输途中')}
-        ${renderMetricButton('已到样待入库', tasks.filter((item) => item.status === '已到样待入库').length, state.firstSampleList.quickFilter === 'arrived', 'arrived', 'set-first-sample-quick-filter', '等待核对入库')}
-        ${renderMetricButton('验收中', tasks.filter((item) => item.status === '验收中').length, state.firstSampleList.quickFilter === 'accepting', 'accepting', 'set-first-sample-quick-filter', '等待填写验收结论')}
-        ${renderMetricButton('超期', tasks.filter((item) => isOverdue(item.expectedArrival, item.status === '已完成' || item.status === '已取消')).length, state.firstSampleList.quickFilter === 'overdue', 'overdue', 'set-first-sample-quick-filter', '超过预计到样时间')}
+        ${renderMetricButton('在途', tasks.filter((item) => item.status === '在途').length, state.firstSampleList.quickFilter === 'in-transit', 'in-transit', 'set-first-sample-quick-filter')}
+        ${renderMetricButton('已到样待入库', tasks.filter((item) => item.status === '已到样待入库').length, state.firstSampleList.quickFilter === 'arrived', 'arrived', 'set-first-sample-quick-filter')}
+        ${renderMetricButton('验收中', tasks.filter((item) => item.status === '验收中').length, state.firstSampleList.quickFilter === 'accepting', 'accepting', 'set-first-sample-quick-filter')}
+        ${renderMetricButton('超期', tasks.filter((item) => isOverdue(item.expectedArrival, item.status === '已完成' || item.status === '已取消')).length, state.firstSampleList.quickFilter === 'overdue', 'overdue', 'set-first-sample-quick-filter')}
       </section>
       ${renderDataTable(['首版打样任务', '商品项目', '状态', '目标站点', '预计到样', '运单号', '样衣编号', '产前复用', '操作'], rows, '暂无首版样衣打样数据', renderPagination(state.firstSampleList.currentPage, filtered.length, 'change-first-sample-page'))}
       ${renderFirstSampleCreateDialog()}
@@ -2876,7 +3215,7 @@ function renderFirstSampleCreateDialog(): string {
       ${renderSelectInput('目标站点', 'first-sample-create-site', draft.targetSite, [{ value: '深圳', label: '深圳' }, { value: '雅加达', label: '雅加达' }])}
     </div>
     <div class="mt-4">
-      ${renderTextarea('说明', 'first-sample-create-note', draft.note, '人工创建的首版样衣打样任务，可后续录入运单、到样签收和入库')}
+      ${renderTextarea('说明', 'first-sample-create-note', draft.note, '')}
     </div>
   `
   return renderDialog(state.firstSampleCreateOpen, '新建首版样衣打样', body, 'close-first-sample-create', 'submit-first-sample-create', '创建首版打样')
@@ -2890,7 +3229,7 @@ function renderFirstSampleAcceptanceDialog(): string {
         { value: '需改版', label: '需改版' },
         { value: '需补测', label: '需补测' },
       ])}
-      ${renderTextarea('验收说明', 'first-sample-acceptance-note', state.firstSampleAcceptanceNote, '补充样衣验收说明、问题点和后续建议')}
+      ${renderTextarea('验收说明', 'first-sample-acceptance-note', state.firstSampleAcceptanceNote, '')}
     </div>
   `
   return renderDialog(state.firstSampleAcceptanceOpen, '填写首版验收结论', body, 'close-first-sample-acceptance', 'submit-first-sample-acceptance', '提交验收')
@@ -3076,7 +3415,7 @@ function renderPreProductionListPage(): string {
   return `
     <div class="space-y-5 p-4">
       ${renderNotice()}
-      ${renderPageHeader('产前版样衣打样', '参照产前版样衣原型，管理版本输入、物流、入库、产前结论和门禁确认。', '新建产前打样', 'open-pre-production-create')}
+      ${renderPageHeader('产前版样衣打样', '新建产前打样', 'open-pre-production-create')}
       ${renderListFilters({
         searchPlaceholder: '搜索任务编号 / 商品项目 / 工厂 / 运单 / 样衣编号',
         listState: state.preProductionList,
@@ -3091,10 +3430,10 @@ function renderPreProductionListPage(): string {
         sourceOptions: sources,
       })}
       <section class="grid gap-4 md:grid-cols-4">
-        ${renderMetricButton('在途', tasks.filter((item) => item.status === '在途').length, state.preProductionList.quickFilter === 'in-transit', 'in-transit', 'set-pre-production-quick-filter', '产前样衣运输途中')}
-        ${renderMetricButton('已到样待入库', tasks.filter((item) => item.status === '已到样待入库').length, state.preProductionList.quickFilter === 'arrived', 'arrived', 'set-pre-production-quick-filter', '等待核对入库')}
-        ${renderMetricButton('验收中', tasks.filter((item) => item.status === '验收中').length, state.preProductionList.quickFilter === 'accepting', 'accepting', 'set-pre-production-quick-filter', '等待产前结论与门禁确认')}
-        ${renderMetricButton('超期', tasks.filter((item) => isOverdue(item.expectedArrival, item.status === '已完成' || item.status === '已取消')).length, state.preProductionList.quickFilter === 'overdue', 'overdue', 'set-pre-production-quick-filter', '超过预计到样时间')}
+        ${renderMetricButton('在途', tasks.filter((item) => item.status === '在途').length, state.preProductionList.quickFilter === 'in-transit', 'in-transit', 'set-pre-production-quick-filter')}
+        ${renderMetricButton('已到样待入库', tasks.filter((item) => item.status === '已到样待入库').length, state.preProductionList.quickFilter === 'arrived', 'arrived', 'set-pre-production-quick-filter')}
+        ${renderMetricButton('验收中', tasks.filter((item) => item.status === '验收中').length, state.preProductionList.quickFilter === 'accepting', 'accepting', 'set-pre-production-quick-filter')}
+        ${renderMetricButton('超期', tasks.filter((item) => isOverdue(item.expectedArrival, item.status === '已完成' || item.status === '已取消')).length, state.preProductionList.quickFilter === 'overdue', 'overdue', 'set-pre-production-quick-filter')}
       </section>
       ${renderDataTable(['产前版任务', '商品项目', '状态', '链路模式', '目标站点', '版次', '花型版次', '产前结论', '操作'], rows, '暂无产前版样衣数据', renderPagination(state.preProductionList.currentPage, filtered.length, 'change-pre-production-page'))}
       ${renderPreProductionCreateDialog()}
@@ -3143,7 +3482,7 @@ function renderPreProductionCreateDialog(): string {
       </div>
     </div>
     <div class="mt-4">
-      ${renderTextarea('说明', 'pre-production-create-note', draft.note, '人工创建的产前版样衣任务，后续可填写结论并进行门禁确认')}
+      ${renderTextarea('说明', 'pre-production-create-note', draft.note, '')}
     </div>
   `
   return renderDialog(state.preProductionCreateOpen, '新建产前版样衣', body, 'close-pre-production-create', 'submit-pre-production-create', '创建产前任务')
@@ -3158,7 +3497,7 @@ function renderPreProductionConclusionDialog(): string {
         { value: '需补产前', label: '需补产前' },
         { value: '需改版', label: '需改版' },
       ])}
-      ${renderTextarea('说明', 'pre-production-conclusion-note', state.preProductionConclusionNote, '补充产前验收记录、问题点和量产建议')}
+      ${renderTextarea('说明', 'pre-production-conclusion-note', state.preProductionConclusionNote, '')}
     </div>
   `
   return renderDialog(state.preProductionConclusionOpen, '填写产前结论', body, 'close-pre-production-conclusion', 'submit-pre-production-conclusion', '提交产前结论')
@@ -3558,17 +3897,24 @@ function confirmPreProductionGate(taskId: string): void {
 
 function submitRevisionCreate(): void {
   const draft = state.revisionCreateDraft
-  const projectDefaults = draft.projectId ? getProjectDefaultValues(draft.projectId) : { ownerName: '', styleId: '', styleCode: '', styleName: '' }
-  const selectedStyle = draft.sourceType === '测款触发'
+  const projectMode = draft.bindingMode === 'project'
+  const projectDefaults = projectMode && draft.projectId
+    ? getProjectDefaultValues(draft.projectId)
+    : { ownerName: '', styleId: '', styleCode: '', styleName: '' }
+  const selectedStyle = projectMode
     ? (projectDefaults.styleId ? getStyleArchiveById(projectDefaults.styleId) : null)
     : (draft.styleId ? getStyleArchiveById(draft.styleId) : null)
 
-  if (draft.sourceType === '测款触发' && !draft.projectId) {
-    setNotice('测款触发的改版任务必须先选择商品项目。')
+  if (projectMode && !draft.projectId) {
+    setNotice('请先选择商品项目。')
     return
   }
-  if (draft.sourceType !== '测款触发' && !selectedStyle) {
+  if (!projectMode && !selectedStyle) {
     setNotice('请先选择正式款式档案。')
+    return
+  }
+  if (!projectMode && draft.sourceType === '测款触发') {
+    setNotice('测款触发的改版任务必须关联商品项目。')
     return
   }
   if (!draft.issueSummary.trim()) {
@@ -3579,8 +3925,8 @@ function submitRevisionCreate(): void {
     setNotice('请先填写证据说明。')
     return
   }
-  const result = createRevisionTaskWithProjectRelation({
-    projectId: draft.sourceType === '测款触发' ? draft.projectId : '',
+  const result = createRevisionTask({
+    projectId: projectMode ? draft.projectId : '',
     title: draft.title.trim() || '新建改版任务',
     sourceType: draft.sourceType,
     ownerName: draft.ownerName.trim() || projectDefaults.ownerName || '当前用户',
@@ -3609,7 +3955,7 @@ function submitRevisionCreate(): void {
   }
   state.revisionCreateOpen = false
   state.revisionCreateDraft = initialRevisionCreateDraft()
-  pushRuntimeLog('revision', result.task.revisionTaskId, '新建任务', result.task.projectId ? '已创建改版任务并写入项目关系。' : '已创建改版任务。')
+  pushRuntimeLog('revision', result.task.revisionTaskId, '新建任务', result.task.projectId ? '已创建改版任务并同步商品项目。' : '已创建改版任务。')
   let notice = result.message
   if (draft.createPatternTask && canCreateRevisionPatternTask(draft.scopeCodes, draft.sourceType, result.task.projectId)) {
     const downstreamResult = createDownstreamTasksFromRevision(result.task.revisionTaskId, ['PRINT'])
@@ -3627,25 +3973,39 @@ function submitRevisionCreate(): void {
 
 function submitPlateCreate(): void {
   const draft = state.plateCreateDraft
-  if (!draft.projectId) {
+  const projectMode = draft.bindingMode === 'project'
+  const project = projectMode && draft.projectId ? getProjectById(draft.projectId) : null
+  const defaults = projectMode && draft.projectId
+    ? getProjectDefaultValues(draft.projectId)
+    : { ownerName: '', styleId: '', styleCode: '', styleName: '' }
+  const selectedStyle = projectMode
+    ? (defaults.styleId ? getStyleArchiveById(defaults.styleId) : null)
+    : (draft.styleId ? getStyleArchiveById(draft.styleId) : null)
+
+  if (projectMode && !draft.projectId) {
     setNotice('请先选择商品项目。')
     return
   }
-  const project = getProjectById(draft.projectId)
-  const defaults = getProjectDefaultValues(draft.projectId)
-  const result = createPlateMakingTaskWithProjectRelation({
-    projectId: draft.projectId,
+  if (!projectMode && !selectedStyle) {
+    setNotice('请先选择正式款式档案。')
+    return
+  }
+  const result = createPlateMakingTask({
+    projectId: projectMode ? draft.projectId : '',
     title: draft.title.trim() || '新建制版任务',
-    sourceType: '项目模板阶段',
-    upstreamModule: '项目模板',
-    upstreamObjectType: '模板阶段',
-    upstreamObjectId: project?.templateId || '',
-    upstreamObjectCode: project?.templateVersion || '',
+    sourceType: draft.sourceType,
+    upstreamModule: projectMode ? '项目模板' : '款式档案',
+    upstreamObjectType: projectMode ? '模板阶段' : '款式档案',
+    upstreamObjectId: projectMode ? (project?.templateId || '') : (selectedStyle?.styleId || ''),
+    upstreamObjectCode: projectMode ? (project?.templateVersion || '') : (selectedStyle?.styleCode || ''),
+    styleId: selectedStyle?.styleId || defaults.styleId,
+    styleCode: selectedStyle?.styleCode || defaults.styleCode,
+    styleName: selectedStyle?.styleName || defaults.styleName,
     ownerName: draft.ownerName.trim() || defaults.ownerName || '当前用户',
     priorityLevel: '中',
     dueAt: draft.dueAt.trim() || '',
-    productStyleCode: draft.productStyleCode.trim() || defaults.styleCode,
-    spuCode: draft.productStyleCode.trim() || defaults.styleCode,
+    productStyleCode: selectedStyle?.styleCode || defaults.styleCode,
+    spuCode: selectedStyle?.styleCode || defaults.styleCode,
     productHistoryType: draft.productHistoryType as '未卖过' | '已卖过补纸样',
     patternMakerName: draft.patternMakerName.trim() || draft.ownerName.trim() || defaults.ownerName,
     patternArea: draft.patternArea as '印尼' | '深圳',
@@ -3661,15 +4021,28 @@ function submitPlateCreate(): void {
   }
   state.plateCreateOpen = false
   state.plateCreateDraft = initialPlateCreateDraft()
-  pushRuntimeLog('plate', result.task.plateTaskId, '新建任务', '已创建制版任务并写入项目关系。')
+  pushRuntimeLog('plate', result.task.plateTaskId, '新建任务', result.task.projectId ? '已创建制版任务并同步商品项目。' : '已创建制版任务。')
   setNotice(result.message)
   appStore.navigate(`/pcs/patterns/plate-making/${encodeURIComponent(result.task.plateTaskId)}`)
 }
 
 function submitPatternCreate(): void {
   const draft = state.patternCreateDraft
-  if (!draft.projectId) {
+  const projectMode = draft.bindingMode === 'project'
+  const project = projectMode && draft.projectId ? getProjectById(draft.projectId) : null
+  const defaults = projectMode && draft.projectId
+    ? getProjectDefaultValues(draft.projectId)
+    : { ownerName: '', styleId: '', styleCode: '', styleName: '' }
+  const selectedStyle = projectMode
+    ? (defaults.styleId ? getStyleArchiveById(defaults.styleId) : null)
+    : (draft.styleId ? getStyleArchiveById(draft.styleId) : null)
+
+  if (projectMode && !draft.projectId) {
     setNotice('请先选择商品项目。')
+    return
+  }
+  if (!projectMode && !selectedStyle) {
+    setNotice('请先选择正式款式档案。')
     return
   }
   const requestQty = Number(draft.requestQty)
@@ -3690,31 +4063,32 @@ function submitPatternCreate(): void {
     setNotice('请选择该团队下的花型师。')
     return
   }
-  const project = getProjectById(draft.projectId)
-  const defaults = getProjectDefaultValues(draft.projectId)
-  const result = createPatternTaskWithProjectRelation({
-    projectId: draft.projectId,
+  const result = createPatternTask({
+    projectId: projectMode ? draft.projectId : '',
     title: draft.title.trim() || '新建花型任务',
-    sourceType: '项目模板阶段',
-    upstreamModule: '项目模板',
-    upstreamObjectType: '模板阶段',
-    upstreamObjectId: project?.templateId || '',
-    upstreamObjectCode: project?.templateVersion || '',
+    sourceType: draft.sourceType,
+    upstreamModule: projectMode ? '项目模板' : '款式档案',
+    upstreamObjectType: projectMode ? '模板阶段' : '款式档案',
+    upstreamObjectId: projectMode ? (project?.templateId || '') : (selectedStyle?.styleId || ''),
+    upstreamObjectCode: projectMode ? (project?.templateVersion || '') : (selectedStyle?.styleCode || ''),
+    styleId: selectedStyle?.styleId || defaults.styleId,
+    styleCode: selectedStyle?.styleCode || defaults.styleCode,
+    styleName: selectedStyle?.styleName || defaults.styleName,
     ownerName: draft.ownerName.trim() || defaults.ownerName || '当前用户',
     priorityLevel: '中',
     dueAt: draft.dueAt.trim() || '',
-    productStyleCode: draft.productStyleCode.trim() || defaults.styleCode,
-    spuCode: draft.productStyleCode.trim() || defaults.styleCode,
+    productStyleCode: selectedStyle?.styleCode || defaults.styleCode,
+    spuCode: selectedStyle?.styleCode || defaults.styleCode,
     demandSourceType: draft.demandSourceType,
-    demandSourceRefId: project?.projectId || '',
-    demandSourceRefCode: project?.projectCode || '',
-    demandSourceRefName: project?.projectName || '',
+    demandSourceRefId: project?.projectId || selectedStyle?.styleId || '',
+    demandSourceRefCode: project?.projectCode || selectedStyle?.styleCode || '',
+    demandSourceRefName: project?.projectName || selectedStyle?.styleName || '',
     processType: draft.processType,
     requestQty,
     fabricSku: draft.fabricSku.trim(),
     fabricName: draft.fabricName.trim(),
     demandImageIds: [...draft.demandImageIds],
-    patternSpuCode: draft.productStyleCode.trim() || defaults.styleCode,
+    patternSpuCode: selectedStyle?.styleCode || defaults.styleCode,
     assignedTeamCode: draft.assignedTeamCode,
     assignedMemberId: draft.assignedMemberId,
     patternCategoryCode: draft.patternCategoryCode.trim(),
@@ -3732,7 +4106,7 @@ function submitPatternCreate(): void {
   }
   state.patternCreateOpen = false
   state.patternCreateDraft = initialPatternCreateDraft()
-  pushRuntimeLog('pattern', result.task.patternTaskId, '新建任务', '已创建花型任务并写入项目关系。')
+  pushRuntimeLog('pattern', result.task.patternTaskId, '新建任务', result.task.projectId ? '已创建花型任务并同步商品项目。' : '已创建花型任务。')
   setNotice(result.message)
   appStore.navigate(`/pcs/patterns/colors/${encodeURIComponent(result.task.patternTaskId)}`)
 }
@@ -3895,41 +4269,48 @@ export function handlePcsEngineeringTaskInput(target: Element): boolean {
   const field = fieldNode.dataset.pcsEngineeringField
   if (!field) return false
 
-  if (field === 'revision-create-evidence-images' && fieldNode instanceof HTMLInputElement) {
-    const files = Array.from(fieldNode.files || []).filter((file) => file.type.startsWith('image/'))
+  if (fieldNode instanceof HTMLInputElement && fieldNode.type === 'file') {
+    const files = Array.from(fieldNode.files || [])
     if (files.length === 0) return true
-    state.revisionCreateDraft.evidenceImageUrls = [
-      ...state.revisionCreateDraft.evidenceImageUrls,
-      ...files.map((file) => URL.createObjectURL(file)),
-    ]
+    const lineIndex = Number(fieldNode.dataset.lineIndex || '-1')
+    if (field === 'revision-create-evidence-images') {
+      state.revisionCreateDraft.evidenceImageUrls = [
+        ...state.revisionCreateDraft.evidenceImageUrls,
+        ...files.filter((file) => file.type.startsWith('image/')).map((file) => URL.createObjectURL(file)),
+      ]
+      fieldNode.value = ''
+      return true
+    }
+    if (field === 'revision-material-line-image' && lineIndex >= 0) {
+      const imageUrl = files.find((file) => file.type.startsWith('image/'))
+      if (imageUrl) state.revisionDetailDraft.materialAdjustmentLines[lineIndex]!.materialImageId = URL.createObjectURL(imageUrl)
+      fieldNode.value = ''
+      return true
+    }
+    if (field === 'plate-material-line-image' && lineIndex >= 0) {
+      const imageUrl = files.find((file) => file.type.startsWith('image/'))
+      if (imageUrl) state.plateDetailDraft.materialRequirementLines[lineIndex]!.materialImageId = URL.createObjectURL(imageUrl)
+      fieldNode.value = ''
+      return true
+    }
+    if (field === 'plate-pattern-line-image' && lineIndex >= 0) {
+      const imageUrl = files.find((file) => file.type.startsWith('image/'))
+      if (imageUrl) state.plateDetailDraft.patternImageLineItems[lineIndex]!.imageId = URL.createObjectURL(imageUrl)
+      fieldNode.value = ''
+      return true
+    }
+    const imageUrls = files.filter((file) => file.type.startsWith('image/')).map((file) => URL.createObjectURL(file))
+    if (imageUrls.length > 0 && appendImageValues(field, imageUrls)) {
+      fieldNode.value = ''
+      return true
+    }
+    const fileIds = files.map((file) => buildMockFileId(file))
+    if (appendFileValues(field, fileIds)) {
+      fieldNode.value = ''
+      return true
+    }
     fieldNode.value = ''
     return true
-  }
-
-  if (fieldNode instanceof HTMLInputElement && fieldNode.type === 'file') {
-    const files = Array.from(fieldNode.files || []).filter((file) => file.type.startsWith('image/'))
-    if (files.length === 0) return true
-    const imageUrls = files.map((file) => URL.createObjectURL(file))
-    if (field === 'pattern-create-demand-images') {
-      state.patternCreateDraft.demandImageIds = [...state.patternCreateDraft.demandImageIds, ...imageUrls]
-      fieldNode.value = ''
-      return true
-    }
-    if (field === 'pattern-detail-completion-images') {
-      state.patternDetailDraft.completionImageIds = [...state.patternDetailDraft.completionImageIds, ...imageUrls]
-      fieldNode.value = ''
-      return true
-    }
-    if (field === 'pattern-detail-live-reference-images') {
-      state.patternDetailDraft.liveReferenceImageIds = [...state.patternDetailDraft.liveReferenceImageIds, ...imageUrls]
-      fieldNode.value = ''
-      return true
-    }
-    if (field === 'pattern-detail-image-reference-images') {
-      state.patternDetailDraft.imageReferenceIds = [...state.patternDetailDraft.imageReferenceIds, ...imageUrls]
-      fieldNode.value = ''
-      return true
-    }
   }
 
   if (fieldNode instanceof HTMLInputElement && fieldNode.type === 'checkbox') {
@@ -3947,6 +4328,31 @@ export function handlePcsEngineeringTaskInput(target: Element): boolean {
     if (field === 'pattern-detail-hot-flag') {
       state.patternDetailDraft.hotSellerFlag = fieldNode.checked
       return true
+    }
+  }
+
+  if (
+    fieldNode instanceof HTMLInputElement
+    || fieldNode instanceof HTMLTextAreaElement
+    || fieldNode instanceof HTMLSelectElement
+  ) {
+    const module = fieldNode.dataset.pcsEngineeringLineModule
+    const index = Number(fieldNode.dataset.lineIndex || '-1')
+    const key = fieldNode.dataset.lineKey || ''
+    if (module && index >= 0 && key) {
+      const value = fieldNode.value
+      if (module === 'revision-material') {
+        updateRevisionMaterialLine(index, key, value)
+        return true
+      }
+      if (module === 'plate-material') {
+        updatePlateMaterialLine(index, key, value)
+        return true
+      }
+      if (module === 'plate-pattern-image') {
+        updatePlatePatternImageLine(index, key, value)
+        return true
+      }
     }
   }
 
@@ -3976,6 +4382,15 @@ export function handlePcsEngineeringTaskInput(target: Element): boolean {
   if (fieldNode instanceof HTMLInputElement || fieldNode instanceof HTMLTextAreaElement || fieldNode instanceof HTMLSelectElement) {
     const value = fieldNode.value
     switch (field) {
+      case 'revision-create-binding-mode':
+        state.revisionCreateDraft.bindingMode = value as TaskBindingMode
+        state.revisionCreateDraft.projectId = ''
+        state.revisionCreateDraft.styleId = ''
+        state.revisionCreateDraft.createPatternTask = false
+        if (value === 'style' && state.revisionCreateDraft.sourceType === '测款触发') {
+          state.revisionCreateDraft.sourceType = '既有商品改款'
+        }
+        return true
       case 'revision-create-source-type':
         state.revisionCreateDraft.sourceType = value as RevisionTaskSourceType
         state.revisionCreateDraft.projectId = ''
@@ -3995,7 +4410,10 @@ export function handlePcsEngineeringTaskInput(target: Element): boolean {
         )
         return true
       }
-      case 'revision-create-style-id': state.revisionCreateDraft.styleId = value; return true
+      case 'revision-create-style-id': {
+        state.revisionCreateDraft.styleId = value
+        return true
+      }
       case 'revision-create-owner': state.revisionCreateDraft.ownerName = value; return true
       case 'revision-create-title': state.revisionCreateDraft.title = value; return true
       case 'revision-create-due-at': state.revisionCreateDraft.dueAt = fromDateTimeLocalValue(value); return true
@@ -4008,7 +4426,6 @@ export function handlePcsEngineeringTaskInput(target: Element): boolean {
       case 'revision-detail-base-style-name': state.revisionDetailDraft.baseStyleName = value; return true
       case 'revision-detail-target-style-code': state.revisionDetailDraft.targetStyleCodeCandidate = value; return true
       case 'revision-detail-target-style-name': state.revisionDetailDraft.targetStyleNameCandidate = value; return true
-      case 'revision-detail-target-style-images': state.revisionDetailDraft.targetStyleImageIdsText = value; return true
       case 'revision-detail-sample-qty': state.revisionDetailDraft.sampleQty = value; return true
       case 'revision-detail-style-preference': state.revisionDetailDraft.stylePreference = value; return true
       case 'revision-detail-pattern-maker-name': state.revisionDetailDraft.patternMakerName = value; return true
@@ -4016,22 +4433,32 @@ export function handlePcsEngineeringTaskInput(target: Element): boolean {
       case 'revision-detail-paper-print-at': state.revisionDetailDraft.paperPrintAt = fromDateTimeLocalValue(value); return true
       case 'revision-detail-delivery-address': state.revisionDetailDraft.deliveryAddress = value; return true
       case 'revision-detail-pattern-area': state.revisionDetailDraft.patternArea = value; return true
-      case 'revision-detail-material-lines': state.revisionDetailDraft.materialAdjustmentLinesText = value; return true
-      case 'revision-detail-new-pattern-images': state.revisionDetailDraft.newPatternImageIdsText = value; return true
       case 'revision-detail-new-pattern-spu': state.revisionDetailDraft.newPatternSpuCode = value; return true
       case 'revision-detail-pattern-change-note': state.revisionDetailDraft.patternChangeNote = value; return true
-      case 'revision-detail-pattern-piece-images': state.revisionDetailDraft.patternPieceImageIdsText = value; return true
-      case 'revision-detail-pattern-files': state.revisionDetailDraft.patternFileIdsText = value; return true
-      case 'revision-detail-main-images': state.revisionDetailDraft.mainImageIdsText = value; return true
-      case 'revision-detail-design-drafts': state.revisionDetailDraft.designDraftImageIdsText = value; return true
       case 'revision-detail-live-retest-status': state.revisionDetailDraft.liveRetestStatus = value as RevisionTaskLiveRetestStatus; return true
       case 'revision-detail-live-retest-relations': state.revisionDetailDraft.liveRetestRelationIdsText = value; return true
       case 'revision-detail-live-retest-summary': state.revisionDetailDraft.liveRetestSummary = value; return true
+      case 'plate-create-binding-mode':
+        state.plateCreateDraft.bindingMode = value as TaskBindingMode
+        state.plateCreateDraft.projectId = ''
+        state.plateCreateDraft.styleId = ''
+        state.plateCreateDraft.productStyleCode = ''
+        state.plateCreateDraft.sourceType = value === 'project' ? '项目模板阶段' : '人工创建'
+        return true
+      case 'plate-create-source-type':
+        state.plateCreateDraft.sourceType = value as PlateMakingTaskSourceType
+        return true
       case 'plate-create-project': {
         state.plateCreateDraft.projectId = value
         const defaults = getProjectDefaultValues(value)
         state.plateCreateDraft.ownerName = defaults.ownerName
+        state.plateCreateDraft.styleId = defaults.styleId
         state.plateCreateDraft.productStyleCode = defaults.styleCode
+        return true
+      }
+      case 'plate-create-style-id': {
+        state.plateCreateDraft.styleId = value
+        state.plateCreateDraft.productStyleCode = getStyleArchiveById(value)?.styleCode || ''
         return true
       }
       case 'plate-create-owner': state.plateCreateDraft.ownerName = value; return true
@@ -4052,22 +4479,29 @@ export function handlePcsEngineeringTaskInput(target: Element): boolean {
       case 'plate-detail-pattern-area': state.plateDetailDraft.patternArea = value; return true
       case 'plate-detail-color-requirement': state.plateDetailDraft.colorRequirementText = value; return true
       case 'plate-detail-new-pattern-spu': state.plateDetailDraft.newPatternSpuCode = value; return true
-      case 'plate-detail-flower-images': state.plateDetailDraft.flowerImageIdsText = value; return true
-      case 'plate-detail-material-lines': state.plateDetailDraft.materialRequirementLinesText = value; return true
-      case 'plate-detail-pattern-image-lines': state.plateDetailDraft.patternImageLineItemsText = value; return true
-      case 'plate-detail-pdf-files': state.plateDetailDraft.patternPdfFileIdsText = value; return true
-      case 'plate-detail-dxf-files': state.plateDetailDraft.patternDxfFileIdsText = value; return true
-      case 'plate-detail-rul-files': state.plateDetailDraft.patternRulFileIdsText = value; return true
-      case 'plate-detail-support-images': state.plateDetailDraft.supportImageIdsText = value; return true
-      case 'plate-detail-support-videos': state.plateDetailDraft.supportVideoIdsText = value; return true
       case 'plate-detail-template-links': state.plateDetailDraft.partTemplateLinksText = value; return true
+      case 'pattern-create-binding-mode':
+        state.patternCreateDraft.bindingMode = value as TaskBindingMode
+        state.patternCreateDraft.projectId = ''
+        state.patternCreateDraft.styleId = ''
+        state.patternCreateDraft.productStyleCode = ''
+        state.patternCreateDraft.sourceType = value === 'project' ? '项目模板阶段' : '人工创建'
+        return true
+      case 'pattern-create-source-type':
+        state.patternCreateDraft.sourceType = value as PatternTaskSourceType
+        return true
       case 'pattern-create-project': {
         state.patternCreateDraft.projectId = value
         const defaults = getProjectDefaultValues(value)
         state.patternCreateDraft.ownerName = defaults.ownerName
+        state.patternCreateDraft.styleId = defaults.styleId
         state.patternCreateDraft.productStyleCode = defaults.styleCode
         return true
       }
+      case 'pattern-create-style-id':
+        state.patternCreateDraft.styleId = value
+        state.patternCreateDraft.productStyleCode = getStyleArchiveById(value)?.styleCode || ''
+        return true
       case 'pattern-create-owner': state.patternCreateDraft.ownerName = value; return true
       case 'pattern-create-title': state.patternCreateDraft.title = value; return true
       case 'pattern-create-due-at': state.patternCreateDraft.dueAt = fromDateTimeLocalValue(value); return true
@@ -4148,13 +4582,13 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement): boolean {
   if (action === 'close-notice') { clearNotice(); return true }
   if (action === 'refresh-page') { setNotice('已刷新当前任务页面。'); return true }
 
-  if (action === 'open-revision-create') { setNotice('请在商品项目对应节点中推进并自动创建改版任务。'); return true }
+  if (action === 'open-revision-create') { state.revisionCreateOpen = true; state.revisionCreateDraft = initialRevisionCreateDraft(); clearNotice(); return true }
   if (action === 'close-revision-create') { state.revisionCreateOpen = false; return true }
   if (action === 'submit-revision-create') { submitRevisionCreate(); return true }
-  if (action === 'open-plate-create') { setNotice('请在商品项目对应节点中推进并自动创建制版任务。'); return true }
+  if (action === 'open-plate-create') { state.plateCreateOpen = true; state.plateCreateDraft = initialPlateCreateDraft(); clearNotice(); return true }
   if (action === 'close-plate-create') { state.plateCreateOpen = false; return true }
   if (action === 'submit-plate-create') { submitPlateCreate(); return true }
-  if (action === 'open-pattern-create') { setNotice('请在商品项目对应节点中推进并自动创建花型任务。'); return true }
+  if (action === 'open-pattern-create') { state.patternCreateOpen = true; state.patternCreateDraft = initialPatternCreateDraft(); clearNotice(); return true }
   if (action === 'close-pattern-create') { state.patternCreateOpen = false; return true }
   if (action === 'submit-pattern-create') { submitPatternCreate(); return true }
   if (action === 'open-first-sample-create') { state.firstSampleCreateOpen = true; return true }
@@ -4252,6 +4686,9 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement): boolean {
     }
     return true
   }
+  if (action === 'remove-list-item') {
+    return removeListValue(actionNode.dataset.scope || '', Number(actionNode.dataset.index || '-1'))
+  }
 
   if (action === 'open-image-preview') {
     state.imagePreview = {
@@ -4267,6 +4704,49 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement): boolean {
     return true
   }
 
+  if (action === 'add-revision-material-line') {
+    state.revisionDetailDraft.materialAdjustmentLines = [
+      ...state.revisionDetailDraft.materialAdjustmentLines,
+      newRevisionMaterialLine('revision_material'),
+    ]
+    return true
+  }
+  if (action === 'remove-revision-material-line') {
+    const index = Number(actionNode.dataset.lineIndex || '-1')
+    if (index >= 0) {
+      state.revisionDetailDraft.materialAdjustmentLines = state.revisionDetailDraft.materialAdjustmentLines.filter((_, itemIndex) => itemIndex !== index)
+    }
+    return true
+  }
+  if (action === 'add-plate-material-line') {
+    state.plateDetailDraft.materialRequirementLines = [
+      ...state.plateDetailDraft.materialRequirementLines,
+      newPlateMaterialLine('plate_material'),
+    ]
+    return true
+  }
+  if (action === 'remove-plate-material-line') {
+    const index = Number(actionNode.dataset.lineIndex || '-1')
+    if (index >= 0) {
+      state.plateDetailDraft.materialRequirementLines = state.plateDetailDraft.materialRequirementLines.filter((_, itemIndex) => itemIndex !== index)
+    }
+    return true
+  }
+  if (action === 'add-plate-pattern-image-line') {
+    state.plateDetailDraft.patternImageLineItems = [
+      ...state.plateDetailDraft.patternImageLineItems,
+      newPlatePatternImageLine('plate_pattern_image'),
+    ]
+    return true
+  }
+  if (action === 'remove-plate-pattern-image-line') {
+    const index = Number(actionNode.dataset.lineIndex || '-1')
+    if (index >= 0) {
+      state.plateDetailDraft.patternImageLineItems = state.plateDetailDraft.patternImageLineItems.filter((_, itemIndex) => itemIndex !== index)
+    }
+    return true
+  }
+
   if (action === 'save-revision-detail-fields') {
     const taskId = actionNode.dataset.taskId || ''
     const draft = state.revisionDetailDraft
@@ -4278,7 +4758,7 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement): boolean {
       baseStyleName: draft.baseStyleName.trim(),
       targetStyleCodeCandidate: draft.targetStyleCodeCandidate.trim(),
       targetStyleNameCandidate: draft.targetStyleNameCandidate.trim(),
-      targetStyleImageIds: splitLines(draft.targetStyleImageIdsText),
+      targetStyleImageIds: [...draft.targetStyleImageIds],
       sampleQty: Number(draft.sampleQty || 0),
       stylePreference: draft.stylePreference.trim(),
       patternMakerName: draft.patternMakerName.trim(),
@@ -4286,14 +4766,20 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement): boolean {
       paperPrintAt: draft.paperPrintAt.trim(),
       deliveryAddress: draft.deliveryAddress.trim(),
       patternArea: draft.patternArea as RevisionTaskPatternArea,
-      materialAdjustmentLines: parseRevisionMaterialLines(draft.materialAdjustmentLinesText, taskId),
-      newPatternImageIds: splitLines(draft.newPatternImageIdsText),
+      materialAdjustmentLines: draft.materialAdjustmentLines.map((line) => ({
+        ...line,
+        materialName: line.materialName.trim(),
+        materialSku: line.materialSku.trim(),
+        printRequirement: line.printRequirement.trim(),
+        note: line.note.trim(),
+      })),
+      newPatternImageIds: [...draft.newPatternImageIds],
       newPatternSpuCode: draft.newPatternSpuCode.trim(),
       patternChangeNote: draft.patternChangeNote.trim(),
-      patternPieceImageIds: splitLines(draft.patternPieceImageIdsText),
-      patternFileIds: splitLines(draft.patternFileIdsText),
-      mainImageIds: splitLines(draft.mainImageIdsText),
-      designDraftImageIds: splitLines(draft.designDraftImageIdsText),
+      patternPieceImageIds: [...draft.patternPieceImageIds],
+      patternFileIds: [...draft.patternFileIds],
+      mainImageIds: [...draft.mainImageIds],
+      designDraftImageIds: [...draft.designDraftImageIds],
       liveRetestRequired: draft.liveRetestRequired,
       liveRetestStatus: draft.liveRetestStatus,
       liveRetestRelationIds: splitLines(draft.liveRetestRelationIdsText),
@@ -4301,6 +4787,7 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement): boolean {
       updatedAt: nowText(),
       updatedBy: '当前用户',
     })
+    pushRuntimeLog('revision', taskId, '保存任务', '已保存改版任务。')
     setNotice('改版任务已保存。')
     return true
   }
@@ -4318,18 +4805,29 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement): boolean {
       patternArea: draft.patternArea as '印尼' | '深圳' | '',
       colorRequirementText: draft.colorRequirementText.trim(),
       newPatternSpuCode: draft.newPatternSpuCode.trim(),
-      flowerImageIds: splitLines(draft.flowerImageIdsText),
-      materialRequirementLines: parsePlateMaterialLines(draft.materialRequirementLinesText, taskId),
-      patternImageLineItems: parsePlatePatternImageLines(draft.patternImageLineItemsText, taskId),
-      patternPdfFileIds: splitLines(draft.patternPdfFileIdsText),
-      patternDxfFileIds: splitLines(draft.patternDxfFileIdsText),
-      patternRulFileIds: splitLines(draft.patternRulFileIdsText),
-      supportImageIds: splitLines(draft.supportImageIdsText),
-      supportVideoIds: splitLines(draft.supportVideoIdsText),
+      flowerImageIds: [...draft.flowerImageIds],
+      materialRequirementLines: draft.materialRequirementLines.map((line) => ({
+        ...line,
+        materialName: line.materialName.trim(),
+        materialSku: line.materialSku.trim(),
+        printRequirement: line.printRequirement.trim(),
+        note: line.note.trim(),
+      })),
+      patternImageLineItems: draft.patternImageLineItems.map((line) => ({
+        ...line,
+        materialPartName: line.materialPartName.trim(),
+        materialDescription: line.materialDescription.trim(),
+      })),
+      patternPdfFileIds: [...draft.patternPdfFileIds],
+      patternDxfFileIds: [...draft.patternDxfFileIds],
+      patternRulFileIds: [...draft.patternRulFileIds],
+      supportImageIds: [...draft.supportImageIds],
+      supportVideoIds: [...draft.supportVideoIds],
       partTemplateLinks: parsePlateTemplateLinks(draft.partTemplateLinksText),
       updatedAt: nowText(),
       updatedBy: '当前用户',
     })
+    pushRuntimeLog('plate', taskId, '保存任务', '已保存制版任务。')
     setNotice('制版任务已保存。')
     return true
   }
@@ -4400,13 +4898,14 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement): boolean {
   if (action === 'complete-revision-task') {
     const taskId = actionNode.dataset.taskId || ''
     try {
-      const result = completeRevisionTaskWithProjectRelationSync(taskId, '当前用户')
+      const result = completeRevisionTask(taskId, '当前用户')
       if (!result.ok || !result.task) {
         setNotice(result.message)
         return true
       }
-      pushRuntimeLog('revision', taskId, '完成任务', '已完成改版任务并同步商品项目节点。')
-      setNotice(`改版任务 ${result.task.revisionTaskCode} 已完成，并同步更新商品项目节点。`)
+      const synced = Boolean(result.task.projectId && result.task.projectNodeId)
+      pushRuntimeLog('revision', taskId, '完成任务', synced ? '已完成改版任务并同步商品项目节点。' : '已完成改版任务。')
+      setNotice(`改版任务 ${result.task.revisionTaskCode} 已完成${synced ? '，并同步更新商品项目节点' : ''}。`)
     } catch (error) {
       setNotice(error instanceof Error ? error.message : '改版任务完成失败。')
     }
@@ -4415,9 +4914,14 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement): boolean {
   if (action === 'complete-plate-task') {
     const taskId = actionNode.dataset.taskId || ''
     try {
-      const result = completePlateMakingTaskWithProjectRelationSync(taskId, '当前用户')
-      pushRuntimeLog('plate', taskId, '完成任务', '已完成制版任务并同步商品项目节点。')
-      setNotice(`制版任务 ${result.task.plateTaskCode} 已完成，并同步更新商品项目节点。`)
+      const result = completePlateMakingTask(taskId, '当前用户')
+      if (!result.ok || !result.task) {
+        setNotice(result.message)
+        return true
+      }
+      const synced = Boolean(result.task.projectId && result.task.projectNodeId)
+      pushRuntimeLog('plate', taskId, '完成任务', synced ? '已完成制版任务并同步商品项目节点。' : '已完成制版任务。')
+      setNotice(`制版任务 ${result.task.plateTaskCode} 已完成${synced ? '，并同步更新商品项目节点' : ''}。`)
     } catch (error) {
       setNotice(error instanceof Error ? error.message : '制版任务完成失败。')
     }
@@ -4426,9 +4930,14 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement): boolean {
   if (action === 'complete-pattern-task') {
     const taskId = actionNode.dataset.taskId || ''
     try {
-      const result = completePatternTaskWithProjectRelationSync(taskId, '当前用户')
-      pushRuntimeLog('pattern', taskId, '完成任务', '已完成花型任务并同步商品项目节点。')
-      setNotice(`花型任务 ${result.task.patternTaskCode} 已完成，并同步更新商品项目节点。`)
+      const result = completePatternTask(taskId, '当前用户')
+      if (!result.ok || !result.task) {
+        setNotice(result.message)
+        return true
+      }
+      const synced = Boolean(result.task.projectId && result.task.projectNodeId)
+      pushRuntimeLog('pattern', taskId, '完成任务', synced ? '已完成花型任务并同步商品项目节点。' : '已完成花型任务。')
+      setNotice(`花型任务 ${result.task.patternTaskCode} 已完成${synced ? '，并同步更新商品项目节点' : ''}。`)
     } catch (error) {
       setNotice(error instanceof Error ? error.message : '花型任务完成失败。')
     }

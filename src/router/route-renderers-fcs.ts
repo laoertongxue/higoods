@@ -139,6 +139,14 @@ export const renderProductionConfirmationPrintPage = createAsyncRenderer(
   () => import('../pages/production/confirmation-print'),
   'renderProductionConfirmationPrintPage',
 )
+export const renderTaskDeliveryCardPrintPage = createAsyncRenderer(
+  () => import('../pages/task-print-cards'),
+  'renderTaskDeliveryCardPrintPage',
+)
+export const renderTaskRouteCardPrintPage = createAsyncRenderer(
+  () => import('../pages/task-print-cards'),
+  'renderTaskRouteCardPrintPage',
+)
 export const renderMaterialStatementsPage = createAsyncRenderer(
   () => import('../pages/material-statements'),
   'renderMaterialStatementsPage',

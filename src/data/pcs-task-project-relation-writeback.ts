@@ -170,6 +170,9 @@ export interface PlateMakingTaskCreateInput extends BaseTaskCreateInput {
   upstreamObjectType?: string
   upstreamObjectId?: string
   upstreamObjectCode?: string
+  styleId?: string
+  styleCode?: string
+  styleName?: string
   productStyleCode?: string
   spuCode?: string
   participantNames?: string[]
@@ -204,6 +207,9 @@ export interface PatternTaskCreateInput extends BaseTaskCreateInput {
   upstreamObjectType?: string
   upstreamObjectId?: string
   upstreamObjectCode?: string
+  styleId?: string
+  styleCode?: string
+  styleName?: string
   productStyleCode?: string
   spuCode?: string
   demandSourceType?: PatternTaskDemandSourceType
@@ -617,6 +623,31 @@ function resolveRevisionStyle(
   )
 }
 
+function resolvePlateStyle(
+  input: Pick<PlateMakingTaskCreateInput, 'styleId' | 'styleCode' | 'productStyleCode' | 'spuCode'>,
+): StyleArchiveShellRecord | null {
+  if (input.styleId) return getStyleArchiveById(input.styleId)
+  return (
+    findStyleArchiveByCode(input.styleCode || '') ||
+    findStyleArchiveByCode(input.productStyleCode || '') ||
+    findStyleArchiveByCode(input.spuCode || '') ||
+    null
+  )
+}
+
+function resolvePatternStyle(
+  input: Pick<PatternTaskCreateInput, 'styleId' | 'styleCode' | 'productStyleCode' | 'spuCode' | 'patternSpuCode'>,
+): StyleArchiveShellRecord | null {
+  if (input.styleId) return getStyleArchiveById(input.styleId)
+  return (
+    findStyleArchiveByCode(input.styleCode || '') ||
+    findStyleArchiveByCode(input.patternSpuCode || '') ||
+    findStyleArchiveByCode(input.productStyleCode || '') ||
+    findStyleArchiveByCode(input.spuCode || '') ||
+    null
+  )
+}
+
 function hasRevisionPrintScope(input: Pick<RevisionTaskCreateInput, 'revisionScopeCodes' | 'revisionScopeNames'>): boolean {
   return Boolean(
     input.revisionScopeCodes?.includes('PRINT') ||
@@ -766,6 +797,7 @@ export function saveRevisionTaskDraft(input: RevisionTaskCreateInput): RevisionT
 export function savePlateMakingTaskDraft(input: PlateMakingTaskCreateInput): PlateMakingTaskRecord {
   const now = nowTaskText()
   const taskId = input.plateTaskId || nextCode('PTD', listPlateMakingTasks().length)
+  const style = resolvePlateStyle(input)
   return upsertPlateMakingTask({
     plateTaskId: taskId,
     plateTaskCode: input.plateTaskCode || taskId,
@@ -781,8 +813,11 @@ export function savePlateMakingTaskDraft(input: PlateMakingTaskCreateInput): Pla
     upstreamObjectType: input.upstreamObjectType || '',
     upstreamObjectId: input.upstreamObjectId || '',
     upstreamObjectCode: input.upstreamObjectCode || '',
-    productStyleCode: input.productStyleCode || '',
-    spuCode: input.spuCode || '',
+    styleId: style?.styleId || input.styleId || '',
+    styleCode: style?.styleCode || input.styleCode || input.productStyleCode || input.spuCode || '',
+    styleName: style?.styleName || input.styleName || '',
+    productStyleCode: input.productStyleCode || style?.styleCode || '',
+    spuCode: input.spuCode || style?.styleCode || '',
     ...plateExecutionFields(input),
     patternType: input.patternType || '',
     sizeRange: input.sizeRange || '',
@@ -815,6 +850,7 @@ export function savePatternTaskDraft(input: PatternTaskCreateInput): PatternTask
   const taskId = input.patternTaskId || nextCode('ATD', listPatternTasks().length)
   const assignment = normalizePatternAssignment(input)
   const demandSourceType = normalizePatternDemandSource(input)
+  const style = resolvePatternStyle(input)
   return upsertPatternTask({
     patternTaskId: taskId,
     patternTaskCode: input.patternTaskCode || taskId,
@@ -830,8 +866,11 @@ export function savePatternTaskDraft(input: PatternTaskCreateInput): PatternTask
     upstreamObjectType: input.upstreamObjectType || '',
     upstreamObjectId: input.upstreamObjectId || '',
     upstreamObjectCode: input.upstreamObjectCode || '',
-    productStyleCode: input.productStyleCode || '',
-    spuCode: input.spuCode || '',
+    styleId: style?.styleId || input.styleId || '',
+    styleCode: style?.styleCode || input.styleCode || input.productStyleCode || input.spuCode || input.patternSpuCode || '',
+    styleName: style?.styleName || input.styleName || '',
+    productStyleCode: input.productStyleCode || style?.styleCode || '',
+    spuCode: input.spuCode || style?.styleCode || '',
     demandSourceType,
     demandSourceRefId: input.demandSourceRefId || input.upstreamObjectId || '',
     demandSourceRefCode: input.demandSourceRefCode || input.upstreamObjectCode || '',
@@ -841,7 +880,7 @@ export function savePatternTaskDraft(input: PatternTaskCreateInput): PatternTask
     fabricSku: input.fabricSku || '',
     fabricName: input.fabricName || '',
     demandImageIds: [...(input.demandImageIds || [])],
-    patternSpuCode: input.patternSpuCode || input.productStyleCode || input.spuCode || '',
+    patternSpuCode: input.patternSpuCode || style?.styleCode || input.productStyleCode || input.spuCode || '',
     colorDepthOption: input.colorDepthOption || '中间值',
     difficultyGrade: input.difficultyGrade || 'A',
     ...assignment,
@@ -1140,7 +1179,7 @@ export function createRevisionTaskWithProjectRelation(input: RevisionTaskCreateI
     }
   } else {
     if (!style) {
-      const pendingItem = makePendingItem('改版任务', rawCode, '', input.styleCode || input.productStyleCode || input.spuCode || '', '当前来源必须选择正式款式档案。')
+      const pendingItem = makePendingItem('改版任务', rawCode, '', input.styleCode || input.productStyleCode || input.spuCode || '', '请选择正式款式档案。')
       upsertRevisionTaskPendingItem(pendingItem)
       return { ok: false, message: pendingItem.reason, pendingItem }
     }
@@ -1275,6 +1314,75 @@ export function createRevisionTaskWithProjectRelation(input: RevisionTaskCreateI
   }
 }
 
+function createPlateMakingTaskStandalone(
+  input: PlateMakingTaskCreateInput,
+): TaskWritebackResult<PlateMakingTaskRecord> {
+  const rawCode = input.plateTaskCode || input.plateTaskId || input.title
+  const style = resolvePlateStyle(input)
+  if (!style) {
+    const pendingItem = makePendingItem('制版任务', rawCode, '', input.styleCode || input.productStyleCode || input.spuCode || '', '请选择正式款式档案。')
+    upsertPlateMakingTaskPendingItem(pendingItem)
+    return { ok: false, message: pendingItem.reason, pendingItem }
+  }
+  const upstreamError = ensureFormalSource('制版任务', input.sourceType, input.upstreamObjectId || '', input.upstreamObjectCode || '', style.styleCode)
+  if (upstreamError) {
+    const pendingItem = makePendingItem('制版任务', rawCode, '', style.styleCode, upstreamError)
+    upsertPlateMakingTaskPendingItem(pendingItem)
+    return { ok: false, message: upstreamError, pendingItem }
+  }
+
+  const now = nowTaskText()
+  const taskId = input.plateTaskId || nextCode('PT', listPlateMakingTasks().length)
+  const existing = getPlateMakingTaskById(taskId)
+  const task = upsertPlateMakingTask({
+    plateTaskId: taskId,
+    plateTaskCode: input.plateTaskCode || taskId,
+    title: input.title,
+    projectId: '',
+    projectCode: '',
+    projectName: '',
+    projectNodeId: '',
+    workItemTypeCode: 'PATTERN_TASK',
+    workItemTypeName: '制版任务',
+    sourceType: input.sourceType,
+    upstreamModule: input.upstreamModule || '款式档案',
+    upstreamObjectType: input.upstreamObjectType || '款式档案',
+    upstreamObjectId: input.upstreamObjectId || style.styleId,
+    upstreamObjectCode: input.upstreamObjectCode || style.styleCode,
+    styleId: style.styleId,
+    styleCode: style.styleCode,
+    styleName: style.styleName,
+    productStyleCode: input.productStyleCode || style.styleCode,
+    spuCode: input.spuCode || style.styleCode,
+    ...plateExecutionFields(input, existing),
+    patternType: input.patternType || '',
+    sizeRange: input.sizeRange || '',
+    patternVersion: input.patternVersion || '',
+    linkedTechPackVersionId: existing?.linkedTechPackVersionId || '',
+    linkedTechPackVersionCode: existing?.linkedTechPackVersionCode || '',
+    linkedTechPackVersionLabel: existing?.linkedTechPackVersionLabel || '',
+    linkedTechPackVersionStatus: existing?.linkedTechPackVersionStatus || '',
+    linkedTechPackUpdatedAt: existing?.linkedTechPackUpdatedAt || '',
+    acceptedAt: existing?.acceptedAt || now,
+    confirmedAt: existing?.confirmedAt || '',
+    status: '进行中',
+    ownerId: input.ownerId || '',
+    ownerName: input.ownerName || '',
+    participantNames: input.participantNames || [],
+    priorityLevel: input.priorityLevel || '中',
+    dueAt: input.dueAt || '',
+    createdAt: existing?.createdAt || now,
+    createdBy: existing?.createdBy || input.operatorName || '当前用户',
+    updatedAt: now,
+    updatedBy: input.operatorName || '当前用户',
+    note: input.note || '',
+    legacyProjectRef: '',
+    legacyUpstreamRef: style.styleCode,
+  })
+
+  return { ok: true, task, relation: null, message: '制版任务已创建。' }
+}
+
 function resolvePlateUpstream(project: NonNullable<ReturnType<typeof getProjectById>>, input: PlateMakingTaskCreateInput) {
   if (input.sourceType === '项目模板阶段') return resolveUpstreamForProjectTemplate(project)
   if (input.sourceType === '既有商品二次开发') {
@@ -1338,6 +1446,9 @@ export function createPlateMakingTaskWithProjectRelation(
     workItemTypeName: '制版任务',
     sourceType: input.sourceType,
     ...upstream,
+    styleId: input.styleId || '',
+    styleCode: input.styleCode || input.productStyleCode || project.styleNumber || '',
+    styleName: input.styleName || '',
     productStyleCode: input.productStyleCode || project.styleNumber || '',
     spuCode: input.spuCode || '',
     ...plateExecutionFields(input, existing),
@@ -1395,6 +1506,13 @@ export function createPlateMakingTaskWithProjectRelation(
   }, Boolean(existing))
   syncExistingProjectArchiveByProjectId(task.projectId, task.updatedBy)
   return { ok: true, task, relation, message: '制版任务已创建，已写项目关系，已更新项目节点。' }
+}
+
+export function createPlateMakingTask(
+  input: PlateMakingTaskCreateInput,
+): TaskWritebackResult<PlateMakingTaskRecord> {
+  if (input.projectId) return createPlateMakingTaskWithProjectRelation(input)
+  return createPlateMakingTaskStandalone(input)
 }
 
 function resolvePatternUpstream(project: NonNullable<ReturnType<typeof getProjectById>>, input: PatternTaskCreateInput) {
@@ -1460,6 +1578,9 @@ export function createPatternTaskWithProjectRelation(input: PatternTaskCreateInp
     workItemTypeName: '花型任务',
     sourceType: input.sourceType,
     ...upstream,
+    styleId: input.styleId || '',
+    styleCode: input.styleCode || input.patternSpuCode || input.productStyleCode || project.styleNumber || '',
+    styleName: input.styleName || '',
     productStyleCode: input.productStyleCode || project.styleNumber || '',
     spuCode: input.spuCode || '',
     demandSourceType,
@@ -1553,6 +1674,118 @@ export function createPatternTaskWithProjectRelation(input: PatternTaskCreateInp
   return { ok: true, task, relation, message: '花型任务已创建，已写项目关系，已更新项目节点。' }
 }
 
+function createPatternTaskStandalone(input: PatternTaskCreateInput): TaskWritebackResult<PatternTaskRecord> {
+  const rawCode = input.patternTaskCode || input.patternTaskId || input.title
+  const style = resolvePatternStyle(input)
+  if (!style) {
+    const pendingItem = makePendingItem('花型任务', rawCode, '', input.styleCode || input.patternSpuCode || input.productStyleCode || input.spuCode || '', '请选择正式款式档案。')
+    upsertPatternTaskPendingItem(pendingItem)
+    return { ok: false, message: pendingItem.reason, pendingItem }
+  }
+  const upstreamError = ensureFormalSource('花型任务', input.sourceType, input.upstreamObjectId || '', input.upstreamObjectCode || '', style.styleCode)
+  if (upstreamError) {
+    const pendingItem = makePendingItem('花型任务', rawCode, '', style.styleCode, upstreamError)
+    upsertPatternTaskPendingItem(pendingItem)
+    return { ok: false, message: upstreamError, pendingItem }
+  }
+
+  const now = nowTaskText()
+  const taskId = input.patternTaskId || nextCode('AT', listPatternTasks().length)
+  const existing = getPatternTaskById(taskId)
+  const assignment = normalizePatternAssignment(input)
+  const demandSourceType = normalizePatternDemandSource(input)
+  const task = upsertPatternTask({
+    patternTaskId: taskId,
+    patternTaskCode: input.patternTaskCode || taskId,
+    title: input.title,
+    projectId: '',
+    projectCode: '',
+    projectName: '',
+    projectNodeId: '',
+    workItemTypeCode: 'PATTERN_ARTWORK_TASK',
+    workItemTypeName: '花型任务',
+    sourceType: input.sourceType,
+    upstreamModule: input.upstreamModule || '款式档案',
+    upstreamObjectType: input.upstreamObjectType || '款式档案',
+    upstreamObjectId: input.upstreamObjectId || style.styleId,
+    upstreamObjectCode: input.upstreamObjectCode || style.styleCode,
+    styleId: style.styleId,
+    styleCode: style.styleCode,
+    styleName: style.styleName,
+    productStyleCode: input.productStyleCode || style.styleCode,
+    spuCode: input.spuCode || style.styleCode,
+    demandSourceType,
+    demandSourceRefId: input.demandSourceRefId || input.upstreamObjectId || style.styleId,
+    demandSourceRefCode: input.demandSourceRefCode || input.upstreamObjectCode || style.styleCode,
+    demandSourceRefName: input.demandSourceRefName || input.upstreamModule || style.styleName,
+    processType: input.processType || (input.artworkType === '烫画' ? '烫画' : '数码印'),
+    requestQty: Number(input.requestQty || 1),
+    fabricSku: input.fabricSku || '',
+    fabricName: input.fabricName || '待买手确认',
+    demandImageIds: [...(input.demandImageIds || existing?.demandImageIds || [])],
+    patternSpuCode: input.patternSpuCode || style.styleCode,
+    colorDepthOption: input.colorDepthOption || existing?.colorDepthOption || '中间值',
+    difficultyGrade: input.difficultyGrade || existing?.difficultyGrade || 'A',
+    ...assignment,
+    assignedAt: existing?.assignedAt || now,
+    liveReferenceImageIds: [...(input.liveReferenceImageIds || existing?.liveReferenceImageIds || [])],
+    imageReferenceIds: [...(input.imageReferenceIds || existing?.imageReferenceIds || [])],
+    physicalReferenceNote: input.physicalReferenceNote || existing?.physicalReferenceNote || '',
+    completionImageIds: [...(input.completionImageIds || existing?.completionImageIds || [])],
+    buyerReviewStatus: input.buyerReviewStatus || existing?.buyerReviewStatus || '待买手确认',
+    buyerReviewAt: existing?.buyerReviewAt || '',
+    buyerReviewerName: input.buyerReviewerName || existing?.buyerReviewerName || '',
+    buyerReviewNote: input.buyerReviewNote || existing?.buyerReviewNote || '',
+    transferFromTeamCode: existing?.transferFromTeamCode || '',
+    transferFromTeamName: existing?.transferFromTeamName || '',
+    transferToTeamCode: existing?.transferToTeamCode || '',
+    transferToTeamName: existing?.transferToTeamName || '',
+    transferReason: existing?.transferReason || '',
+    transferredAt: existing?.transferredAt || '',
+    transferOperatorName: existing?.transferOperatorName || '',
+    patternAssetId: existing?.patternAssetId || '',
+    patternAssetCode: existing?.patternAssetCode || '',
+    patternCategoryCode: input.patternCategoryCode || existing?.patternCategoryCode || '',
+    patternStyleTags: [...(input.patternStyleTags || existing?.patternStyleTags || [])],
+    hotSellerFlag: Boolean(input.hotSellerFlag ?? existing?.hotSellerFlag),
+    colorConfirmNote: existing?.colorConfirmNote || '',
+    artworkType: input.artworkType || '',
+    patternMode: input.patternMode || '',
+    artworkName: input.artworkName || '',
+    artworkVersion: input.artworkVersion || '',
+    linkedTechPackVersionId: existing?.linkedTechPackVersionId || '',
+    linkedTechPackVersionCode: existing?.linkedTechPackVersionCode || '',
+    linkedTechPackVersionLabel: existing?.linkedTechPackVersionLabel || '',
+    linkedTechPackVersionStatus: existing?.linkedTechPackVersionStatus || '',
+    linkedTechPackUpdatedAt: existing?.linkedTechPackUpdatedAt || '',
+    acceptedAt: existing?.acceptedAt || now,
+    confirmedAt: existing?.confirmedAt || '',
+    status: '进行中',
+    ownerId: input.ownerId || '',
+    ownerName: input.ownerName || '',
+    priorityLevel: input.priorityLevel || '中',
+    dueAt: input.dueAt || '',
+    createdAt: existing?.createdAt || now,
+    createdBy: existing?.createdBy || input.operatorName || '当前用户',
+    updatedAt: now,
+    updatedBy: input.operatorName || '当前用户',
+    note: input.note || '',
+    legacyProjectRef: '',
+    legacyUpstreamRef: style.styleCode,
+  })
+
+  return { ok: true, task, relation: null, message: '花型任务已创建。' }
+}
+
+export function createPatternTask(input: PatternTaskCreateInput): TaskWritebackResult<PatternTaskRecord> {
+  if (input.projectId) return createPatternTaskWithProjectRelation(input)
+  return createPatternTaskStandalone(input)
+}
+
+export function createRevisionTask(input: RevisionTaskCreateInput): TaskWritebackResult<RevisionTaskRecord> {
+  return createRevisionTaskWithProjectRelation(input)
+}
+
 export function completeRevisionTaskWithProjectRelationSync(
   revisionTaskId: string,
   operatorName = '当前用户',
@@ -1565,7 +1798,7 @@ export function completeRevisionTaskWithProjectRelationSync(
   if (task.status === '已取消') return { ok: false, task, message: '当前改版任务已取消，不能完成。' }
   const missingFields = getRevisionTaskCompletionMissingFields(task)
   if (missingFields.length > 0) {
-    return { ok: false, task, message: `请先在改版任务详情补齐字段：${missingFields.join('、')}。` }
+    return { ok: false, task, message: `缺少字段：${missingFields.join('、')}。` }
   }
 
   const now = nowTaskText()
@@ -1598,6 +1831,25 @@ export function completeRevisionTaskWithProjectRelationSync(
   return { ok: true, task: nextTask, message: '改版任务已完成，已同步商品项目节点。' }
 }
 
+export function completeRevisionTask(
+  revisionTaskId: string,
+  operatorName = '当前用户',
+): TaskCompletionResult<RevisionTaskRecord> {
+  const task = getRevisionTaskById(revisionTaskId)
+  if (!task) return { ok: false, task: null, message: '未找到改版任务。' }
+  if (task.projectId && task.projectNodeId) return completeRevisionTaskWithProjectRelationSync(revisionTaskId, operatorName)
+  if (task.status === '已取消') return { ok: false, task, message: '当前改版任务已取消，不能完成。' }
+  const missing = getRevisionTaskCompletionMissingFields(task)
+  if (missing.length > 0) return { ok: false, task, message: `缺少字段：${missing.join('、')}。` }
+  const nextTask = updateRevisionTask(revisionTaskId, {
+    status: '已完成',
+    confirmedAt: nowTaskText(),
+    updatedAt: nowTaskText(),
+    updatedBy: operatorName,
+  })
+  return nextTask ? { ok: true, task: nextTask, message: '改版任务已完成。' } : { ok: false, task, message: '改版任务完成失败。' }
+}
+
 export function completePlateMakingTaskWithProjectRelationSync(
   plateTaskId: string,
   operatorName = '当前用户',
@@ -1610,7 +1862,7 @@ export function completePlateMakingTaskWithProjectRelationSync(
   if (task.status === '已取消') return { ok: false, task, message: '当前制版任务已取消，不能完成。' }
   const missingFields = getPlateTaskCompletionMissingFields(task)
   if (missingFields.length > 0) {
-    return { ok: false, task, message: `请先在制版任务详情补齐字段：${missingFields.join('、')}。` }
+    return { ok: false, task, message: `缺少字段：${missingFields.join('、')}。` }
   }
 
   const now = nowTaskText()
@@ -1644,6 +1896,25 @@ export function completePlateMakingTaskWithProjectRelationSync(
   return { ok: true, task: nextTask, message: '制版任务已完成，已同步商品项目节点。' }
 }
 
+export function completePlateMakingTask(
+  plateTaskId: string,
+  operatorName = '当前用户',
+): TaskCompletionResult<PlateMakingTaskRecord> {
+  const task = getPlateMakingTaskById(plateTaskId)
+  if (!task) return { ok: false, task: null, message: '未找到制版任务。' }
+  if (task.projectId && task.projectNodeId) return completePlateMakingTaskWithProjectRelationSync(plateTaskId, operatorName)
+  if (task.status === '已取消') return { ok: false, task, message: '当前制版任务已取消，不能完成。' }
+  const missing = getPlateTaskCompletionMissingFields(task)
+  if (missing.length > 0) return { ok: false, task, message: `缺少字段：${missing.join('、')}。` }
+  const nextTask = updatePlateMakingTask(plateTaskId, {
+    status: '已完成',
+    confirmedAt: nowTaskText(),
+    updatedAt: nowTaskText(),
+    updatedBy: operatorName,
+  })
+  return nextTask ? { ok: true, task: nextTask, message: '制版任务已完成。' } : { ok: false, task, message: '制版任务完成失败。' }
+}
+
 export function completePatternTaskWithProjectRelationSync(
   patternTaskId: string,
   operatorName = '当前用户',
@@ -1656,7 +1927,7 @@ export function completePatternTaskWithProjectRelationSync(
   if (task.status === '已取消') return { ok: false, task, message: '当前花型任务已取消，不能完成。' }
   const missingFields = getPatternTaskCompletionMissingFields(task)
   if (missingFields.length > 0) {
-    return { ok: false, task, message: `请先在花型任务详情补齐字段：${missingFields.join('、')}。` }
+    return { ok: false, task, message: `缺少字段：${missingFields.join('、')}。` }
   }
 
   const now = nowTaskText()
@@ -1688,6 +1959,25 @@ export function completePatternTaskWithProjectRelationSync(
   })
 
   return { ok: true, task: nextTask, message: '花型任务已完成，已同步商品项目节点。' }
+}
+
+export function completePatternTask(
+  patternTaskId: string,
+  operatorName = '当前用户',
+): TaskCompletionResult<PatternTaskRecord> {
+  const task = getPatternTaskById(patternTaskId)
+  if (!task) return { ok: false, task: null, message: '未找到花型任务。' }
+  if (task.projectId && task.projectNodeId) return completePatternTaskWithProjectRelationSync(patternTaskId, operatorName)
+  if (task.status === '已取消') return { ok: false, task, message: '当前花型任务已取消，不能完成。' }
+  const missing = getPatternTaskCompletionMissingFields(task)
+  if (missing.length > 0) return { ok: false, task, message: `缺少字段：${missing.join('、')}。` }
+  const nextTask = updatePatternTask(patternTaskId, {
+    status: '已完成',
+    confirmedAt: nowTaskText(),
+    updatedAt: nowTaskText(),
+    updatedBy: operatorName,
+  })
+  return nextTask ? { ok: true, task: nextTask, message: '花型任务已完成。' } : { ok: false, task, message: '花型任务完成失败。' }
 }
 
 export function syncExistingProjectEngineeringTaskNodes(operatorName = '系统同步'): void {

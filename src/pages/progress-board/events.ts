@@ -30,6 +30,7 @@ import {
   createUrge,
   confirmTaskBlock,
 } from './actions.ts'
+import { buildTaskRouteCardPrintLink } from '../../data/fcs/fcs-route-links.ts'
 
 function updateField(field: string, node: HTMLElement): void {
   if (field === 'keyword' && node instanceof HTMLInputElement) {
@@ -127,6 +128,12 @@ function handleTaskAction(action: string, actionNode: HTMLElement): boolean {
 
   if (action === 'task-action-material' && poId) {
     openLinkedPage('领料/配料进度', `/fcs/progress/material?po=${encodeURIComponent(poId)}`)
+    state.taskActionMenuId = null
+    return true
+  }
+
+  if (action === 'task-action-print-route-card' && taskId) {
+    openLinkedPage('任务流转卡', buildTaskRouteCardPrintLink('RUNTIME_TASK', taskId))
     state.taskActionMenuId = null
     return true
   }

@@ -26,6 +26,14 @@ export function buildProductionConfirmationLink(productionOrderId: string): stri
   return `${buildProductionOrderLink(productionOrderId)}/confirmation-print`
 }
 
+export function buildTaskRouteCardPrintLink(sourceType: string, sourceId: string): string {
+  return `/fcs/task-print/route-card/${encodeSegment(sourceType)}/${encodeSegment(sourceId)}`
+}
+
+export function buildTaskDeliveryCardPrintLink(handoverOrderId: string, handoverRecordId: string): string {
+  return `/fcs/task-print/delivery-card/${encodeSegment(handoverOrderId)}/${encodeSegment(handoverRecordId)}`
+}
+
 export function buildPrintingOrderLink(printOrderId: string): string {
   return `/fcs/craft/printing/work-orders?printOrderId=${encodeSegment(printOrderId)}`
 }

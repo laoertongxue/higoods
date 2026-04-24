@@ -37,6 +37,7 @@ import {
   buildHandoverOrderLink,
   buildProductionOrderLink,
   buildQualityRecordLink,
+  buildTaskDeliveryCardPrintLink,
   buildTaskDetailLink,
 } from '../data/fcs/fcs-route-links.ts'
 import {
@@ -843,6 +844,7 @@ function renderRowActionMenu(row: HandoverLedgerRow): string {
     Boolean(row.recordId)
   const canMarkPickupComplete = row.sourceType === 'PICKUP_HEAD'
   const canMarkHandoutComplete = row.sourceType === 'HANDOUT_HEAD'
+  const canPrintDeliveryCard = row.sourceType === 'HANDOUT_RECORD' && Boolean(row.recordId)
 
   let primaryAction = ''
   if (canWriteback) {
@@ -878,6 +880,13 @@ function renderRowActionMenu(row: HandoverLedgerRow): string {
               <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-handover-action="goto-task" data-task-id="${escapeAttr(row.taskId)}">
                 <i data-lucide="list-checks" class="mr-2 h-4 w-4"></i>去任务看板
               </button>
+              ${
+                canPrintDeliveryCard
+                  ? `<button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-handover-action="print-delivery-card" data-handover-id="${escapeAttr(row.handoverId)}" data-record-id="${escapeAttr(row.recordId || '')}">
+                      <i data-lucide="printer" class="mr-2 h-4 w-4"></i>打印任务交货卡
+                    </button>`
+                  : ''
+              }
               ${primaryAction}
               <div class="my-1 h-px bg-border"></div>
               <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-handover-action="view-exception" data-row-id="${escapeAttr(row.rowId)}">
@@ -1631,6 +1640,13 @@ function renderDetailDrawer(rows: HandoverLedgerRow[]): string {
       )}">标记交出完成</button>`,
     )
   }
+  if (row.sourceType === 'HANDOUT_RECORD' && row.recordId) {
+    directActions.push(
+      `<button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-handover-action="print-delivery-card" data-handover-id="${escapeAttr(
+        row.handoverId,
+      )}" data-record-id="${escapeAttr(row.recordId)}">打印任务交货卡</button>`,
+    )
+  }
 
   return `
     <div class="fixed inset-0 z-50">
@@ -2082,6 +2098,16 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
     const rowId = actionNode.dataset.rowId
     if (rowId) {
       state.detailRowId = rowId
+    }
+    closeRowMenu()
+    return true
+  }
+
+  if (action === 'print-delivery-card') {
+    const handoverId = actionNode.dataset.handoverId
+    const recordId = actionNode.dataset.recordId
+    if (handoverId && recordId) {
+      openLinkedPage('任务交货卡', buildTaskDeliveryCardPrintLink(handoverId, recordId))
     }
     closeRowMenu()
     return true

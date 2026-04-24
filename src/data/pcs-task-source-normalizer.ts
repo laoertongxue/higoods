@@ -14,10 +14,10 @@ export type CommonTaskStatus = (typeof COMMON_TASK_STATUS_LIST)[number]
 export const REVISION_TASK_SOURCE_TYPE_LIST = ['测款触发', '既有商品改款', '人工创建'] as const
 export type RevisionTaskSourceType = (typeof REVISION_TASK_SOURCE_TYPE_LIST)[number]
 
-export const PLATE_TASK_SOURCE_TYPE_LIST = ['改版任务', '项目模板阶段', '既有商品二次开发'] as const
+export const PLATE_TASK_SOURCE_TYPE_LIST = ['改版任务', '项目模板阶段', '既有商品二次开发', '人工创建'] as const
 export type PlateMakingTaskSourceType = (typeof PLATE_TASK_SOURCE_TYPE_LIST)[number]
 
-export const PATTERN_TASK_SOURCE_TYPE_LIST = ['改版任务', '项目模板阶段', '花型复用调色'] as const
+export const PATTERN_TASK_SOURCE_TYPE_LIST = ['改版任务', '项目模板阶段', '花型复用调色', '人工创建'] as const
 export type PatternTaskSourceType = (typeof PATTERN_TASK_SOURCE_TYPE_LIST)[number]
 
 export const FIRST_SAMPLE_SOURCE_TYPE_LIST = ['制版任务', '花型任务', '改版任务', '人工创建'] as const
@@ -54,12 +54,14 @@ export function normalizeRevisionTaskSourceType(value: string | null | undefined
 export function normalizePlateTaskSourceType(value: string | null | undefined): PlateMakingTaskSourceType {
   if (value === '项目模板阶段') return '项目模板阶段'
   if (value === '既有商品二次开发') return '既有商品二次开发'
+  if (value === '人工创建') return '人工创建'
   return '改版任务'
 }
 
 export function normalizePatternTaskSourceType(value: string | null | undefined): PatternTaskSourceType {
   if (value === '项目模板阶段') return '项目模板阶段'
   if (value === '花型复用调色') return '花型复用调色'
+  if (value === '人工创建') return '人工创建'
   return '改版任务'
 }
 

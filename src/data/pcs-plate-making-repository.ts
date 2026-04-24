@@ -55,6 +55,9 @@ function normalizeTask(task: PlateMakingTaskRecord): PlateMakingTaskRecord {
   return {
     ...cloneTask(task),
     participantNames: [...(task.participantNames || [])],
+    styleId: task.styleId || '',
+    styleCode: task.styleCode || task.productStyleCode || task.spuCode || '',
+    styleName: task.styleName || '',
     productHistoryType: task.productHistoryType || '',
     patternMakerId: task.patternMakerId || '',
     patternMakerName: task.patternMakerName || '',

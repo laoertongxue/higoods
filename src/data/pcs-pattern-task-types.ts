@@ -25,6 +25,9 @@ export interface PatternTaskRecord {
   upstreamObjectType: string
   upstreamObjectId: string
   upstreamObjectCode: string
+  styleId: string
+  styleCode: string
+  styleName: string
   productStyleCode: string
   spuCode: string
   demandSourceType: PatternTaskDemandSourceType

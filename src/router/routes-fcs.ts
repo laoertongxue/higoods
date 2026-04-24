@@ -27,6 +27,8 @@ import {
   renderProductionCraftDictPage,
   renderProductionDemandInboxPage,
   renderProductionConfirmationPrintPage,
+  renderTaskDeliveryCardPrintPage,
+  renderTaskRouteCardPrintPage,
   renderProductionDeliveryWarehousePage,
   renderProductionOrderDetailPage,
   renderProductionOrdersPage,
@@ -294,6 +296,14 @@ export const routes: RouteRegistry = {
     {
       pattern: /^\/fcs\/production\/orders\/([^/]+)\/confirmation-print$/,
       render: (match) => renderProductionConfirmationPrintPage(match[1]),
+    },
+    {
+      pattern: /^\/fcs\/task-print\/delivery-card\/([^/]+)\/([^/]+)$/,
+      render: (match) => renderTaskDeliveryCardPrintPage(match[1], match[2]),
+    },
+    {
+      pattern: /^\/fcs\/task-print\/route-card\/([^/]+)\/([^/]+)$/,
+      render: (match) => renderTaskRouteCardPrintPage(match[1], match[2]),
     },
     {
       pattern: /^\/fcs\/factories\/settlement\/new\/([^/]+)$/,

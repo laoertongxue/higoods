@@ -45,6 +45,9 @@ function normalizeTask(task: PatternTaskRecord): PatternTaskRecord {
   const processType = task.processType || (task.artworkType === '烫画' ? '烫画' : '数码印')
   return {
     ...cloneTask(task),
+    styleId: task.styleId || '',
+    styleCode: task.styleCode || task.productStyleCode || task.spuCode || task.patternSpuCode || '',
+    styleName: task.styleName || '',
     demandSourceType,
     demandSourceRefId: task.demandSourceRefId || task.upstreamObjectId || '',
     demandSourceRefCode: task.demandSourceRefCode || task.upstreamObjectCode || '',
