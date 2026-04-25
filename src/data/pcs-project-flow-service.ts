@@ -177,10 +177,17 @@ export function completeProjectNode(
 
   const operatorName = input.operatorName ?? '当前用户'
   const timestamp = input.timestamp ?? nowText()
-  const defaultResultType = node.workItemTypeCode === 'FIRST_SAMPLE' ? '首版样衣打样已完成' : '节点完成'
+  const defaultResultType =
+    node.workItemTypeCode === 'FIRST_SAMPLE'
+      ? '首版样衣打样已完成'
+      : node.workItemTypeCode === 'FIRST_ORDER_SAMPLE'
+        ? '首单样衣打样已完成'
+        : '节点完成'
   const defaultResultText =
     node.workItemTypeCode === 'FIRST_SAMPLE'
       ? '首版样衣打样已完成，商品项目节点同步完成。'
+      : node.workItemTypeCode === 'FIRST_ORDER_SAMPLE'
+        ? '首单样衣打样已完成，商品项目节点同步完成。'
       : `${node.workItemTypeName}已完成。`
 
   updateProjectNodeRecord(

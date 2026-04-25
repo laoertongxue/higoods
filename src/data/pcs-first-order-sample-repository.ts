@@ -62,9 +62,16 @@ function normalizeTask(task: FirstOrderSampleTaskRecord): FirstOrderSampleTaskRe
     productionReferenceRequiredFlag: Boolean(task.productionReferenceRequiredFlag),
     chinaReviewRequiredFlag: Boolean(task.chinaReviewRequiredFlag),
     correctFabricRequiredFlag: Boolean(task.correctFabricRequiredFlag),
-    samplePlanLines: normalizeSamplePlanLines(sampleChainMode, task.samplePlanLines, sourceFirstSampleCode),
+    samplePlanLines:
+      Array.isArray(task.samplePlanLines) && task.samplePlanLines.length === 0
+        ? []
+        : normalizeSamplePlanLines(sampleChainMode, task.samplePlanLines, sourceFirstSampleCode),
     finalReferenceNote: task.finalReferenceNote || '',
+    sampleCode: task.sampleCode || '',
+    conclusionResult: task.conclusionResult || '',
+    conclusionNote: task.conclusionNote || '',
     confirmedAt: task.confirmedAt || '',
+    confirmedBy: task.confirmedBy || '',
     legacyProjectRef: task.legacyProjectRef || '',
     legacyUpstreamRef: task.legacyUpstreamRef || '',
   }
@@ -135,7 +142,15 @@ export function listFirstOrderSampleTasksByProjectNode(
   return loadSnapshot()
     .tasks
     .filter((item) => item.projectId === projectId && item.projectNodeId === projectNodeId)
+    .sort((a, b) => (b.updatedAt || b.createdAt).localeCompare(a.updatedAt || a.createdAt))
     .map(cloneTask)
+}
+
+export function getLatestFirstOrderSampleTaskByProjectNode(
+  projectId: string,
+  projectNodeId: string,
+): FirstOrderSampleTaskRecord | null {
+  return listFirstOrderSampleTasksByProjectNode(projectId, projectNodeId)[0] ?? null
 }
 
 export function upsertFirstOrderSampleTask(task: FirstOrderSampleTaskRecord): FirstOrderSampleTaskRecord {

@@ -185,7 +185,7 @@ const PENDING_RELATION_SEEDS: BootstrapRelationSeed[] = [
     sourceObjectId: 'PP-20260115-001',
     sourceObjectCode: 'PP-20260115-001',
     sourceTitle: '首单-碎花连衣裙',
-    sourceStatus: '已完成',
+    sourceStatus: '已通过',
     businessDate: '2026-01-18 16:30',
     ownerName: '王版师',
     projectCode: 'PRJ-20260105-001',

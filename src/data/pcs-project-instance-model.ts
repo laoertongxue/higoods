@@ -494,12 +494,58 @@ function resolveFirstSampleRelationObject(relation: ProjectRelationRecord): Reso
 
 function resolveFirstOrderSampleRelationObject(relation: ProjectRelationRecord): ResolvedRelationObjectSnapshot {
   const task = getFirstOrderSampleTaskById(relation.sourceObjectId)
+  const meta = parseRelationMeta(relation.note)
+  const pick = (key: string): unknown => {
+    if (task && key in task) return (task as unknown as Record<string, unknown>)[key]
+    return meta[key]
+  }
+  const samplePlanLines = pick('samplePlanLines')
+  const samplePlanSummary = Array.isArray(samplePlanLines)
+    ? samplePlanLines
+        .map((line) => {
+          if (!line || typeof line !== 'object') return ''
+          const record = line as Record<string, unknown>
+          return [
+            record.sampleRole,
+            record.materialMode,
+            record.quantity ? `${record.quantity}件` : '',
+            record.linkedSampleCode,
+            record.status,
+          ]
+            .map((item) => String(item || '').trim())
+            .filter(Boolean)
+            .join(' / ')
+        })
+        .filter(Boolean)
+        .join('；')
+    : samplePlanLines
   const fields: PcsProjectInstanceField[] = []
-  addField(fields, '工厂', task?.factoryName, 'factoryName')
-  addField(fields, '版型版本', task?.patternVersion, 'patternVersion')
-  addField(fields, '花型版本', task?.artworkVersion, 'artworkVersion')
-  addField(fields, '确认方式', task?.sampleChainMode, 'sampleChainMode')
-  addField(fields, '结果编号', task?.sampleCode, 'sampleCode')
+  addField(fields, '来源首版样衣任务', pick('sourceFirstSampleTaskCode') || pick('sourceFirstSampleTaskId'), 'sourceFirstSampleTaskCode')
+  addField(fields, '来源首版结果编号', pick('sourceFirstSampleCode'), 'sourceFirstSampleCode')
+  addField(fields, '来源技术包版本ID', pick('sourceTechPackVersionId'), 'sourceTechPackVersionId')
+  addField(fields, '来源技术包版本标签', pick('sourceTechPackVersionLabel'), 'sourceTechPackVersionLabel')
+  addField(fields, '工厂', pick('factoryName') || pick('factoryId'), 'factoryName')
+  addField(fields, '打样区域', pick('targetSite'), 'targetSite')
+  addField(fields, '首单确认方式', pick('sampleChainMode'), 'sampleChainMode')
+  addField(fields, '特殊场景原因', pick('specialSceneReasonText') || pick('specialSceneReasonCodes'), 'specialSceneReasonCodes')
+  addField(fields, '是否需要生产参照', pick('productionReferenceRequiredFlag'), 'productionReferenceRequiredFlag')
+  addField(fields, '是否需要中国确认', pick('chinaReviewRequiredFlag'), 'chinaReviewRequiredFlag')
+  addField(fields, '是否需要正确布确认', pick('correctFabricRequiredFlag'), 'correctFabricRequiredFlag')
+  addField(fields, '样衣计划行', samplePlanSummary, 'samplePlanLines')
+  addField(fields, '最终参照说明', pick('finalReferenceNote'), 'finalReferenceNote')
+  addField(fields, '纸样版本', pick('patternVersion'), 'patternVersion')
+  addField(fields, '花型版本', pick('artworkVersion'), 'artworkVersion')
+  addField(fields, '结果编号', pick('sampleCode'), 'sampleCode')
+  addField(fields, '首单确认结果', pick('conclusionResult'), 'conclusionResult')
+  addField(fields, '首单确认说明', pick('conclusionNote'), 'conclusionNote')
+  addField(fields, '首单确认时间', pick('confirmedAt'), 'confirmedAt')
+  addField(fields, '首单确认人', pick('confirmedBy'), 'confirmedBy')
+  addField(fields, '任务来源类型', pick('sourceType'), 'sourceType')
+  addField(fields, '上游模块', pick('upstreamModule'), 'upstreamModule')
+  addField(fields, '上游对象类型', pick('upstreamObjectType'), 'upstreamObjectType')
+  addField(fields, '上游对象ID', pick('upstreamObjectId'), 'upstreamObjectId')
+  addField(fields, '上游对象编码', pick('upstreamObjectCode'), 'upstreamObjectCode')
+  addField(fields, '任务状态', pick('status') || relation.sourceStatus, 'taskStatus')
   return {
     instanceId: task?.firstOrderSampleTaskId || relation.sourceObjectId,
     instanceCode: task?.firstOrderSampleTaskCode || relation.sourceObjectCode,

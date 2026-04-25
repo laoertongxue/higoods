@@ -147,6 +147,10 @@ export const renderTaskRouteCardPrintPage = createAsyncRenderer(
   () => import('../pages/print/task-route-card'),
   'renderTaskRouteCardPrintPage',
 )
+export const renderPrintPreviewPage = createAsyncRenderer(
+  () => import('../pages/print/print-preview'),
+  'renderPrintPreviewPage',
+)
 export const renderMaterialStatementsPage = createAsyncRenderer(
   () => import('../pages/material-statements'),
   'renderMaterialStatementsPage',

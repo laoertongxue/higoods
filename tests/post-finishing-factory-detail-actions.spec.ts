@@ -35,8 +35,8 @@ test('后道单列表工厂名称、详情和操作入口可用', async ({ page 
 
   await page.goto('/fcs/craft/post-finishing/work-orders')
   await page.getByRole('button', { name: '打印任务流转卡' }).first().click()
-  await expect(page).toHaveURL(/\/fcs\/print\/task-route-card/)
-  await expect(page.getByText('后道任务流转卡')).toBeVisible()
+  await expect(page).toHaveURL(/\/fcs\/print\/preview/)
+  await expect(page.getByText('后道任务流转卡', { exact: true }).first()).toBeVisible()
   await expect(page.getByText(FULL_FACTORY_NAME).first()).toBeVisible()
 
   await page.goto('/fcs/craft/post-finishing/work-orders')

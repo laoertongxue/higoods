@@ -27,10 +27,13 @@ import { listPatternTasks, getPatternTaskById, updatePatternTask, resetPatternTa
 import { listPlateMakingTasks, getPlateMakingTaskById, updatePlateMakingTask, resetPlateMakingTaskRepository } from '../data/pcs-plate-making-repository.ts'
 import { listRevisionTasks, getRevisionTaskById, updateRevisionTask, resetRevisionTaskRepository } from '../data/pcs-revision-task-repository.ts'
 import { listFirstSampleTasks, getFirstSampleTaskById, resetFirstSampleTaskRepository } from '../data/pcs-first-sample-repository.ts'
-import { listFirstOrderSampleTasks, getFirstOrderSampleTaskById, updateFirstOrderSampleTask, resetFirstOrderSampleTaskRepository } from '../data/pcs-first-order-sample-repository.ts'
+import { listFirstOrderSampleTasks, getFirstOrderSampleTaskById, resetFirstOrderSampleTaskRepository } from '../data/pcs-first-order-sample-repository.ts'
 import {
   updateFirstSampleTaskDetailAndSync,
 } from '../data/pcs-first-sample-project-writeback.ts'
+import {
+  updateFirstOrderSampleTaskDetailAndSync,
+} from '../data/pcs-first-order-sample-project-writeback.ts'
 import {
   completePatternTask,
   completePlateMakingTask,
@@ -58,8 +61,9 @@ import type { RevisionTaskMaterialLine } from '../data/pcs-revision-task-materia
 import type { PlateMakingMaterialLine } from '../data/pcs-plate-making-material-types.ts'
 import type { PlateMakingPatternImageLine } from '../data/pcs-plate-making-pattern-file-types.ts'
 import { getFirstOrderSampleChainMissingFields } from '../data/pcs-sample-chain-service.ts'
-import type { SampleChainMode, SampleSpecialSceneReasonCode } from '../data/pcs-sample-chain-types.ts'
+import type { SampleChainMode, SamplePlanLine, SampleSpecialSceneReasonCode } from '../data/pcs-sample-chain-types.ts'
 import type { FirstSampleTaskRecord } from '../data/pcs-first-sample-types.ts'
+import type { FirstOrderSampleTaskRecord } from '../data/pcs-first-order-sample-types.ts'
 import { tokenizePatternFilename } from '../utils/pcs-pattern-library-services.ts'
 import { escapeHtml, formatDateTime, toClassName } from '../utils.ts'
 
@@ -247,6 +251,18 @@ interface FirstSampleDetailDraft {
   reuseAsFirstOrderBasisConfirmedBy: string
   reuseAsFirstOrderBasisNote: string
   confirmedAt: string
+}
+
+interface FirstOrderDetailDraft {
+  patternVersion: string
+  artworkVersion: string
+  samplePlanLinesText: string
+  finalReferenceNote: string
+  sampleCode: string
+  conclusionResult: '' | '通过' | '需改版' | '需补首单'
+  conclusionNote: string
+  confirmedAt: string
+  confirmedBy: string
 }
 
 const PAGE_SIZE = 8
@@ -468,6 +484,73 @@ function buildFirstSampleDetailDraft(task: FirstSampleTaskRecord): FirstSampleDe
   }
 }
 
+const initialFirstOrderDetailDraft = (): FirstOrderDetailDraft => ({
+  patternVersion: '',
+  artworkVersion: '',
+  samplePlanLinesText: '',
+  finalReferenceNote: '',
+  sampleCode: '',
+  conclusionResult: '',
+  conclusionNote: '',
+  confirmedAt: '',
+  confirmedBy: '',
+})
+
+function serializeFirstOrderSamplePlanLines(lines: SamplePlanLine[]): string {
+  return (lines || [])
+    .map((line) =>
+      [
+        line.sampleRole,
+        line.materialMode,
+        line.quantity,
+        line.targetFactoryName,
+        line.linkedSampleCode,
+        line.status,
+        line.note,
+      ]
+        .map((item) => String(item ?? '').trim())
+        .join(' | '),
+    )
+    .join('\n')
+}
+
+function parseFirstOrderSamplePlanLines(text: string, fallback: SamplePlanLine[]): SamplePlanLine[] {
+  const lines = text
+    .split('\n')
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((line, index): SamplePlanLine => {
+      const [sampleRole, materialMode, quantityText, targetFactoryName, linkedSampleCode, status, note] = line.split('|').map((item) => item.trim())
+      const fallbackLine = fallback[index]
+      return {
+        lineId: fallbackLine?.lineId || `fos-plan-${index + 1}`,
+        sampleRole: (sampleRole || fallbackLine?.sampleRole || '复用首版结论') as SamplePlanLine['sampleRole'],
+        materialMode: (materialMode || fallbackLine?.materialMode || '沿用首版') as SamplePlanLine['materialMode'],
+        quantity: Number(quantityText || fallbackLine?.quantity || 1),
+        targetFactoryId: fallbackLine?.targetFactoryId || '',
+        targetFactoryName: targetFactoryName || fallbackLine?.targetFactoryName || '',
+        linkedSampleCode: linkedSampleCode || fallbackLine?.linkedSampleCode || '',
+        status: (status || fallbackLine?.status || '待确认') as SamplePlanLine['status'],
+        note: note || fallbackLine?.note || '',
+      }
+    })
+  return lines.length > 0 ? lines : fallback
+}
+
+function buildFirstOrderDetailDraft(task: FirstOrderSampleTaskRecord): FirstOrderDetailDraft {
+  return {
+    patternVersion: task.patternVersion || '',
+    artworkVersion: task.artworkVersion || '',
+    samplePlanLinesText: serializeFirstOrderSamplePlanLines(task.samplePlanLines),
+    finalReferenceNote: task.finalReferenceNote || '',
+    sampleCode: task.sampleCode || '',
+    conclusionResult: task.conclusionResult || '',
+    conclusionNote: task.conclusionNote || '',
+    confirmedAt: task.confirmedAt || '',
+    confirmedBy: task.confirmedBy || '',
+  }
+}
+
 const state = {
   notice: null as string | null,
   revisionList: { search: '', status: 'all', owner: 'all', source: 'all', quickFilter: 'all', currentPage: 1 } as ListState,
@@ -507,6 +590,8 @@ const state = {
   firstOrderTab: 'overview' as FirstOrderTab,
   firstOrderCreateOpen: false,
   firstOrderCreateDraft: initialFirstOrderCreateDraft(),
+  firstOrderDetailDraftTaskId: '',
+  firstOrderDetailDraft: initialFirstOrderDetailDraft(),
   firstOrderConclusionOpen: false,
   firstOrderConclusionTaskId: '',
   firstOrderConclusionResult: '通过',
@@ -3271,6 +3356,58 @@ function saveFirstSampleDetail(taskId: string): void {
   setNotice('首版样衣打样详情已保存，并同步商品项目节点。')
 }
 
+function getFirstOrderDetailDraft(task: FirstOrderSampleTaskRecord): FirstOrderDetailDraft {
+  if (state.firstOrderDetailDraftTaskId !== task.firstOrderSampleTaskId) {
+    state.firstOrderDetailDraftTaskId = task.firstOrderSampleTaskId
+    state.firstOrderDetailDraft = buildFirstOrderDetailDraft(task)
+  }
+  return state.firstOrderDetailDraft
+}
+
+function saveFirstOrderDetail(taskId: string): void {
+  const task = getFirstOrderSampleTaskById(taskId)
+  if (!task) {
+    setNotice('未找到首单样衣打样任务。')
+    return
+  }
+  const draft = getFirstOrderDetailDraft(task)
+  const samplePlanLines = parseFirstOrderSamplePlanLines(draft.samplePlanLinesText, task.samplePlanLines)
+  const nextStatus = draft.conclusionResult === '通过'
+    ? '待确认'
+    : draft.conclusionResult === '需改版'
+      ? '需改版'
+      : draft.conclusionResult === '需补首单'
+        ? '需补首单'
+        : task.status
+  const result = updateFirstOrderSampleTaskDetailAndSync(taskId, {
+    patternVersion: draft.patternVersion.trim(),
+    artworkVersion: draft.artworkVersion.trim(),
+    samplePlanLines,
+    finalReferenceNote: draft.finalReferenceNote.trim(),
+    sampleCode: draft.sampleCode.trim(),
+    conclusionResult: draft.conclusionResult,
+    conclusionNote: draft.conclusionNote.trim(),
+    confirmedAt: draft.confirmedAt.trim(),
+    confirmedBy: draft.confirmedBy.trim(),
+    status: nextStatus,
+  }, '当前用户')
+  if (!result.ok || !result.task) {
+    setNotice(result.message)
+    return
+  }
+  state.firstOrderDetailDraftTaskId = result.task.firstOrderSampleTaskId
+  state.firstOrderDetailDraft = buildFirstOrderDetailDraft(result.task)
+  if (result.task.conclusionResult) {
+    firstOrderConclusionMap.set(result.task.firstOrderSampleTaskId, {
+      result: result.task.conclusionResult,
+      note: result.task.conclusionNote,
+      updatedAt: result.task.confirmedAt || result.task.updatedAt,
+    })
+  }
+  pushRuntimeLog('firstOrder', result.task.firstOrderSampleTaskId, '保存详情', '已保存首单样衣完整字段并同步商品项目节点。')
+  setNotice('首单样衣打样详情已保存，并同步商品项目节点。')
+}
+
 function renderFirstSampleDetailPage(firstSampleTaskId: string): string {
   const task = getFirstSampleTaskById(firstSampleTaskId)
   if (!task) return renderEmptyDetail('首版样衣打样', '/pcs/samples/first-sample')
@@ -3433,7 +3570,9 @@ function renderFirstOrderListPage(): string {
   const sources = getSources(tasks)
   const paged = paginate(filtered, state.firstOrderList.currentPage)
   const rows = paged.map((task) => {
-    const conclusion = firstOrderConclusionMap.get(task.firstOrderSampleTaskId)
+    const conclusion =
+      firstOrderConclusionMap.get(task.firstOrderSampleTaskId) ||
+      (task.conclusionResult ? { result: task.conclusionResult, note: task.conclusionNote, updatedAt: task.confirmedAt || task.updatedAt } : null)
     return `
       <tr class="hover:bg-slate-50/70">
         <td class="px-4 py-4">
@@ -3448,7 +3587,7 @@ function renderFirstOrderListPage(): string {
         <td class="px-4 py-4">${escapeHtml(task.targetSite)}</td>
         <td class="px-4 py-4">${escapeHtml(task.patternVersion || '-')}</td>
         <td class="px-4 py-4">${escapeHtml(task.artworkVersion || '-')}</td>
-        <td class="px-4 py-4">${escapeHtml(conclusion?.result || (task.status === '已通过' ? '通过' : '-'))}</td>
+        <td class="px-4 py-4">${escapeHtml(conclusion?.result || '-')}</td>
         <td class="px-4 py-4">
           <div class="flex flex-wrap gap-2">
             <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/samples/first-order/${escapeHtml(task.firstOrderSampleTaskId)}">查看</button>
@@ -3539,9 +3678,8 @@ function renderFirstOrderConclusionDialog(): string {
     <div class="space-y-4">
       ${renderSelectInput('首单结论', 'first-order-conclusion-result', state.firstOrderConclusionResult, [
         { value: '通过', label: '通过' },
-        { value: '不通过', label: '不通过' },
-        { value: '需补首单', label: '需补首单' },
         { value: '需改版', label: '需改版' },
+        { value: '需补首单', label: '需补首单' },
       ])}
       ${renderTextarea('说明', 'first-order-conclusion-note', state.firstOrderConclusionNote, '')}
     </div>
@@ -3552,8 +3690,21 @@ function renderFirstOrderConclusionDialog(): string {
 function renderFirstOrderDetailPage(firstOrderSampleTaskId: string): string {
   const task = getFirstOrderSampleTaskById(firstOrderSampleTaskId)
   if (!task) return renderEmptyDetail('首单样衣打样', '/pcs/samples/first-order')
-  const conclusion = firstOrderConclusionMap.get(task.firstOrderSampleTaskId) || (task.status === '已通过' ? { result: '通过', note: task.note || '首单结论通过。', updatedAt: task.updatedAt } : null)
-  const gate = firstOrderGateMap.get(task.firstOrderSampleTaskId) || (task.status === '已通过' ? { confirmedBy: task.updatedBy || '当前用户', confirmedAt: task.confirmedAt || task.updatedAt } : null)
+  if (state.firstOrderDetailDraftTaskId !== task.firstOrderSampleTaskId) {
+    state.firstOrderDetailDraftTaskId = task.firstOrderSampleTaskId
+    state.firstOrderDetailDraft = buildFirstOrderDetailDraft(task)
+  }
+  const detailDraft = state.firstOrderDetailDraft
+  const conclusion =
+    firstOrderConclusionMap.get(task.firstOrderSampleTaskId) ||
+    (task.conclusionResult
+      ? { result: task.conclusionResult, note: task.conclusionNote, updatedAt: task.confirmedAt || task.updatedAt }
+      : null)
+  const gate =
+    firstOrderGateMap.get(task.firstOrderSampleTaskId) ||
+    (task.confirmedAt || task.confirmedBy
+      ? { confirmedBy: task.confirmedBy || task.updatedBy || '当前用户', confirmedAt: task.confirmedAt || task.updatedAt }
+      : null)
   const logs = mergeLogs('firstOrder', task.firstOrderSampleTaskId, [
     ...(conclusion ? [{ time: conclusion.updatedAt, action: '首单结论', user: '当前用户', detail: `结论：${conclusion.result}。${conclusion.note}` }] : []),
     ...(gate ? [{ time: gate.confirmedAt, action: '门禁确认', user: gate.confirmedBy, detail: '已确认首单样衣打样满足量产前门禁条件。' }] : []),
@@ -3581,6 +3732,35 @@ function renderFirstOrderDetailPage(firstOrderSampleTaskId: string): string {
     { label: '来源首版结果', value: escapeHtml(task.sourceFirstSampleCode || '-') },
     { label: '最终参照说明', value: escapeHtml(task.finalReferenceNote || task.specialSceneReasonText || '-') },
   ], 2))
+  const detailEditSection = renderSectionCard(
+    '完整信息录入',
+    `
+      <div class="grid gap-4 md:grid-cols-2">
+        ${renderTextInput('制版版次', 'first-order-detail-pattern-version', detailDraft.patternVersion, '例如：P2')}
+        ${renderTextInput('花型版次', 'first-order-detail-artwork-version', detailDraft.artworkVersion, '例如：A1')}
+        ${renderTextInput('结果编号', 'first-order-detail-sample-code', detailDraft.sampleCode, '例如：FOS-RESULT-25001')}
+        ${renderTextInput('确认人', 'first-order-detail-confirmed-by', detailDraft.confirmedBy, '例如：张娜')}
+        ${renderDateTimeInput('确认时间', 'first-order-detail-confirmed-at', detailDraft.confirmedAt)}
+        ${renderSelectInput('确认结果', 'first-order-detail-conclusion-result', detailDraft.conclusionResult, [
+          { value: '通过', label: '通过' },
+          { value: '需改版', label: '需改版' },
+          { value: '需补首单', label: '需补首单' },
+        ])}
+      </div>
+      <div class="mt-4 grid gap-4 md:grid-cols-2">
+        ${renderTextarea('最终参照说明', 'first-order-detail-final-reference-note', detailDraft.finalReferenceNote, '记录最终参照样衣和使用限制')}
+        ${renderTextarea('确认说明', 'first-order-detail-conclusion-note', detailDraft.conclusionNote, '记录首单确认结论')}
+      </div>
+      <div class="mt-4">
+        <p class="mb-2 text-xs text-slate-500">样衣计划行</p>
+        <textarea class="min-h-[132px] w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500" placeholder="样衣角色 | 材质模式 | 数量 | 工厂 | 结果编号 | 状态 | 说明" data-pcs-engineering-field="first-order-detail-sample-plan-lines">${escapeHtml(detailDraft.samplePlanLinesText)}</textarea>
+        <p class="mt-1 text-xs text-slate-400">每行一条，按“样衣角色 | 材质模式 | 数量 | 工厂 | 结果编号 | 状态 | 说明”填写。</p>
+      </div>
+      <div class="mt-4 flex justify-end">
+        <button type="button" class="inline-flex h-10 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-engineering-action="save-first-order-detail" data-task-id="${escapeHtml(task.firstOrderSampleTaskId)}">保存完整信息</button>
+      </div>
+    `,
+  )
   const header = renderHeaderMeta(
     `${task.firstOrderSampleTaskCode} · ${task.title}`,
     `${task.projectCode} · ${task.projectName} · ${formatDateTime(task.updatedAt)}`,
@@ -3656,13 +3836,13 @@ function renderFirstOrderDetailPage(firstOrderSampleTaskId: string): string {
   )
 
   const mainContent = state.firstOrderTab === 'overview'
-    ? overview
+    ? `${overview}${detailEditSection}`
     : state.firstOrderTab === 'version'
-      ? version
+      ? `${version}${detailEditSection}`
       : state.firstOrderTab === 'result'
-        ? resultSection
+        ? `${resultSection}${detailEditSection}`
         : state.firstOrderTab === 'conclusion'
-          ? conclusionSection
+          ? `${conclusionSection}${detailEditSection}`
           : state.firstOrderTab === 'gate'
             ? gateSection
             : renderSectionCard('日志', renderLogs(logs))
@@ -3744,20 +3924,22 @@ function advanceFirstOrderTask(taskId: string): void {
   const task = getFirstOrderSampleTaskById(taskId)
   if (!task) return
   if (task.status === '草稿' || task.status === '待处理') {
-    updateFirstOrderSampleTask(taskId, { status: '打样中', updatedAt: nowText(), updatedBy: '当前用户' })
+    updateFirstOrderSampleTaskDetailAndSync(taskId, { status: '打样中' }, '当前用户')
     pushRuntimeLog('firstOrder', taskId, '开始首单打样', '已进入首单样衣打样执行。')
     setNotice(`首单样衣任务 ${task.firstOrderSampleTaskCode} 已开始打样。`)
     return
   }
   if (task.status === '打样中') {
-    const sampleCode = task.sampleCode || `FO-RESULT-${task.firstOrderSampleTaskCode.slice(-3)}`
-    updateFirstOrderSampleTask(taskId, {
+    const sampleCode = task.sampleCode || `FOS-RESULT-${task.firstOrderSampleTaskCode.slice(-3)}`
+    const result = updateFirstOrderSampleTaskDetailAndSync(taskId, {
       status: '待确认',
       sampleCode,
       samplePlanLines: task.samplePlanLines.map((line, index) => index === 0 && !line.linkedSampleCode ? { ...line, linkedSampleCode: sampleCode, status: '已确认' } : line),
-      updatedAt: nowText(),
-      updatedBy: '当前用户',
-    })
+    }, '当前用户')
+    if (result.task) {
+      state.firstOrderDetailDraftTaskId = result.task.firstOrderSampleTaskId
+      state.firstOrderDetailDraft = buildFirstOrderDetailDraft(result.task)
+    }
     pushRuntimeLog('firstOrder', taskId, '提交首单结果', `已提交首单打样结果 ${sampleCode}。`)
     setNotice(`首单样衣任务 ${task.firstOrderSampleTaskCode} 已提交打样结果。`)
     return
@@ -3775,7 +3957,9 @@ function advanceFirstOrderTask(taskId: string): void {
 function confirmFirstOrderGate(taskId: string): void {
   const task = getFirstOrderSampleTaskById(taskId)
   if (!task) return
-  const conclusion = firstOrderConclusionMap.get(task.firstOrderSampleTaskId)
+  const conclusion =
+    firstOrderConclusionMap.get(task.firstOrderSampleTaskId) ||
+    (task.conclusionResult ? { result: task.conclusionResult, note: task.conclusionNote, updatedAt: task.confirmedAt || task.updatedAt } : null)
   if (!conclusion || conclusion.result !== '通过') {
     setNotice(`首单样衣任务 ${task.firstOrderSampleTaskCode} 尚未形成“通过”的首单结论，不能门禁确认。`)
     return
@@ -3785,10 +3969,22 @@ function confirmFirstOrderGate(taskId: string): void {
     setNotice(`首单样衣打样信息未完整：${missing.join('、')}。`)
     return
   }
-  firstOrderGateMap.set(task.firstOrderSampleTaskId, { confirmedBy: '当前用户', confirmedAt: nowText() })
-  updateFirstOrderSampleTask(taskId, { status: '已通过', confirmedAt: nowText(), updatedAt: nowText(), updatedBy: '当前用户', note: `${task.note ? `${task.note}；` : ''}首单门禁确认通过` })
+  const timestamp = nowText()
+  firstOrderGateMap.set(task.firstOrderSampleTaskId, { confirmedBy: task.confirmedBy || '当前用户', confirmedAt: task.confirmedAt || timestamp })
+  const result = updateFirstOrderSampleTaskDetailAndSync(taskId, {
+    status: '已通过',
+    conclusionResult: '通过',
+    conclusionNote: task.conclusionNote || conclusion.note || '首单样衣确认通过，可进入后续。',
+    confirmedAt: task.confirmedAt || timestamp,
+    confirmedBy: task.confirmedBy || '当前用户',
+    note: `${task.note ? `${task.note}；` : ''}首单门禁确认通过`,
+  }, '当前用户')
+  if (result.task) {
+    state.firstOrderDetailDraftTaskId = result.task.firstOrderSampleTaskId
+    state.firstOrderDetailDraft = buildFirstOrderDetailDraft(result.task)
+  }
   pushRuntimeLog('firstOrder', taskId, '门禁确认', '已确认满足量产前门禁条件。')
-  setNotice(`首单样衣任务 ${task.firstOrderSampleTaskCode} 已通过门禁确认。`)
+  setNotice(result.ok ? `首单样衣任务 ${task.firstOrderSampleTaskCode} 已通过门禁确认并同步商品项目节点。` : result.message)
 }
 
 function submitRevisionCreate(): void {
@@ -4472,6 +4668,15 @@ export function handlePcsEngineeringTaskInput(target: Element): boolean {
       case 'first-order-create-note': state.firstOrderCreateDraft.note = value; return true
       case 'first-order-conclusion-result': state.firstOrderConclusionResult = value; return true
       case 'first-order-conclusion-note': state.firstOrderConclusionNote = value; return true
+      case 'first-order-detail-pattern-version': state.firstOrderDetailDraft.patternVersion = value; return true
+      case 'first-order-detail-artwork-version': state.firstOrderDetailDraft.artworkVersion = value; return true
+      case 'first-order-detail-sample-code': state.firstOrderDetailDraft.sampleCode = value; return true
+      case 'first-order-detail-final-reference-note': state.firstOrderDetailDraft.finalReferenceNote = value; return true
+      case 'first-order-detail-sample-plan-lines': state.firstOrderDetailDraft.samplePlanLinesText = value; return true
+      case 'first-order-detail-conclusion-result': state.firstOrderDetailDraft.conclusionResult = value as FirstOrderDetailDraft['conclusionResult']; return true
+      case 'first-order-detail-conclusion-note': state.firstOrderDetailDraft.conclusionNote = value; return true
+      case 'first-order-detail-confirmed-at': state.firstOrderDetailDraft.confirmedAt = fromDateTimeLocalValue(value); return true
+      case 'first-order-detail-confirmed-by': state.firstOrderDetailDraft.confirmedBy = value; return true
       default: return false
     }
   }
@@ -4893,20 +5098,38 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'first-order-advance') { advanceFirstOrderTask(actionNode.dataset.taskId || ''); return true }
+  if (action === 'save-first-order-detail') { saveFirstOrderDetail(actionNode.dataset.taskId || state.firstOrderDetailDraftTaskId); return true }
   if (action === 'close-first-order-conclusion') { state.firstOrderConclusionOpen = false; return true }
   if (action === 'submit-first-order-conclusion') {
     const task = getFirstOrderSampleTaskById(state.firstOrderConclusionTaskId)
     if (!task) { setNotice('未找到首单样衣打样任务。'); return true }
-    firstOrderConclusionMap.set(task.firstOrderSampleTaskId, { result: state.firstOrderConclusionResult, note: state.firstOrderConclusionNote.trim(), updatedAt: nowText() })
+    const conclusionResult = state.firstOrderConclusionResult === '通过'
+      ? '通过'
+      : state.firstOrderConclusionResult === '需改版'
+        ? '需改版'
+        : '需补首单'
+    const timestamp = nowText()
+    firstOrderConclusionMap.set(task.firstOrderSampleTaskId, { result: conclusionResult, note: state.firstOrderConclusionNote.trim(), updatedAt: timestamp })
     const nextStatus = state.firstOrderConclusionResult === '通过'
       ? '待确认'
       : state.firstOrderConclusionResult === '需改版'
         ? '需改版'
         : '需补首单'
-    updateFirstOrderSampleTask(task.firstOrderSampleTaskId, { status: nextStatus, updatedAt: nowText(), updatedBy: '当前用户', note: `${task.note ? `${task.note}；` : ''}首单结论：${state.firstOrderConclusionResult}` })
-    pushRuntimeLog('firstOrder', task.firstOrderSampleTaskId, '首单结论', `结论：${state.firstOrderConclusionResult}。${state.firstOrderConclusionNote.trim() || '已记录首单结论。'}`)
+    const result = updateFirstOrderSampleTaskDetailAndSync(task.firstOrderSampleTaskId, {
+      status: nextStatus,
+      conclusionResult,
+      conclusionNote: state.firstOrderConclusionNote.trim(),
+      confirmedAt: task.confirmedAt || timestamp,
+      confirmedBy: task.confirmedBy || '当前用户',
+      note: `${task.note ? `${task.note}；` : ''}首单结论：${conclusionResult}`,
+    }, '当前用户')
+    if (result.task) {
+      state.firstOrderDetailDraftTaskId = result.task.firstOrderSampleTaskId
+      state.firstOrderDetailDraft = buildFirstOrderDetailDraft(result.task)
+    }
+    pushRuntimeLog('firstOrder', task.firstOrderSampleTaskId, '首单结论', `结论：${conclusionResult}。${state.firstOrderConclusionNote.trim() || '已记录首单结论。'}`)
     state.firstOrderConclusionOpen = false
-    setNotice(`首单样衣打样任务 ${task.firstOrderSampleTaskCode} 已提交首单结论。`)
+    setNotice(result.ok ? `首单样衣打样任务 ${task.firstOrderSampleTaskCode} 已提交首单结论并同步商品项目节点。` : result.message)
     return true
   }
   if (action === 'first-order-confirm-gate') { confirmFirstOrderGate(actionNode.dataset.taskId || ''); return true }
@@ -4959,6 +5182,8 @@ export function resetPcsEngineeringTaskState(): void {
   state.firstOrderTab = 'overview'
   state.firstOrderCreateOpen = false
   state.firstOrderCreateDraft = initialFirstOrderCreateDraft()
+  state.firstOrderDetailDraftTaskId = ''
+  state.firstOrderDetailDraft = initialFirstOrderDetailDraft()
   state.firstOrderConclusionOpen = false
   state.firstOrderConclusionTaskId = ''
   state.firstOrderConclusionResult = '通过'

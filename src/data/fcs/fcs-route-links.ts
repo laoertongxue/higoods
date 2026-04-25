@@ -1,4 +1,10 @@
 import type { TaskRouteCardSourceType } from './task-print-cards.ts'
+import {
+  buildLegacyTaskRouteCardPrintLink,
+  buildUnifiedPrintPreviewLink,
+  type PrintDocumentType,
+  type PrintSourceType,
+} from './print-service.ts'
 
 function encodeSegment(value: string): string {
   return encodeURIComponent(value)
@@ -29,7 +35,21 @@ export function buildProductionConfirmationLink(productionOrderId: string): stri
 }
 
 export function buildTaskRouteCardPrintLink(sourceType: TaskRouteCardSourceType, sourceId: string): string {
-  return `/fcs/print/task-route-card?sourceType=${encodeSegment(sourceType)}&sourceId=${encodeSegment(sourceId)}`
+  return buildUnifiedPrintPreviewLink({
+    documentType: 'TASK_ROUTE_CARD',
+    sourceType,
+    sourceId,
+  })
+}
+
+export { buildLegacyTaskRouteCardPrintLink }
+
+export function buildUnifiedPrintPreviewRouteLink(input: {
+  documentType: PrintDocumentType
+  sourceType: PrintSourceType
+  sourceId: string
+}): string {
+  return buildUnifiedPrintPreviewLink(input)
 }
 
 export function buildTaskDeliveryCardPrintLink(handoverRecordId: string): string {

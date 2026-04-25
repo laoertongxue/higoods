@@ -1,5 +1,5 @@
 export type PostFinishingRouteMode = '专门后道工厂完整流程' | '车缝厂已做后道'
-export type PostFinishingActionType = '接收领料' | '后道' | '质检' | '复检'
+export type PostFinishingActionType = '接收领料' | '质检' | '后道' | '复检'
 
 export const FULL_CAPABILITY_TEST_FACTORY_ID = 'ID-F090'
 export const FULL_CAPABILITY_TEST_FACTORY_NAME = '全能力测试工厂'

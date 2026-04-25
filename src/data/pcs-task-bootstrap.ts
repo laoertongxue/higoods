@@ -165,6 +165,41 @@ function firstSampleRelationMeta(task: FirstSampleTaskRecord): string {
   })
 }
 
+function firstOrderRelationMeta(task: FirstOrderSampleTaskRecord): string {
+  return JSON.stringify({
+    sourceFirstSampleTaskId: task.sourceFirstSampleTaskId,
+    sourceFirstSampleTaskCode: task.sourceFirstSampleTaskCode,
+    sourceFirstSampleCode: task.sourceFirstSampleCode,
+    sourceTechPackVersionId: task.sourceTechPackVersionId,
+    sourceTechPackVersionCode: task.sourceTechPackVersionCode,
+    sourceTechPackVersionLabel: task.sourceTechPackVersionLabel,
+    factoryId: task.factoryId,
+    factoryName: task.factoryName,
+    targetSite: task.targetSite,
+    sampleChainMode: task.sampleChainMode,
+    specialSceneReasonCodes: [...task.specialSceneReasonCodes],
+    specialSceneReasonText: task.specialSceneReasonText,
+    productionReferenceRequiredFlag: task.productionReferenceRequiredFlag,
+    chinaReviewRequiredFlag: task.chinaReviewRequiredFlag,
+    correctFabricRequiredFlag: task.correctFabricRequiredFlag,
+    samplePlanLines: task.samplePlanLines.map((line) => ({ ...line })),
+    finalReferenceNote: task.finalReferenceNote,
+    patternVersion: task.patternVersion,
+    artworkVersion: task.artworkVersion,
+    sampleCode: task.sampleCode,
+    conclusionResult: task.conclusionResult,
+    conclusionNote: task.conclusionNote,
+    confirmedAt: task.confirmedAt,
+    confirmedBy: task.confirmedBy,
+    sourceType: task.sourceType,
+    upstreamModule: task.upstreamModule,
+    upstreamObjectType: task.upstreamObjectType,
+    upstreamObjectId: task.upstreamObjectId,
+    upstreamObjectCode: task.upstreamObjectCode,
+    status: task.status,
+  })
+}
+
 function revisionExecutionSeed(input: {
   styleId?: string
   styleCode?: string
@@ -1230,8 +1265,16 @@ function firstOrderChainSeed(input: {
   mode?: FirstOrderSampleTaskRecord['sampleChainMode']
   factoryReference?: boolean
   dualSample?: boolean
+  sourceTechPackVersionId?: string
+  sourceTechPackVersionCode?: string
+  sourceTechPackVersionLabel?: string
+  finalReferenceNote?: string
+  conclusionResult?: FirstOrderSampleTaskRecord['conclusionResult']
+  conclusionNote?: string
+  confirmedAt?: string
+  confirmedBy?: string
 }): Pick<FirstOrderSampleTaskRecord,
-  'sourceTechPackVersionId' | 'sourceTechPackVersionCode' | 'sourceTechPackVersionLabel' | 'sourceFirstSampleTaskId' | 'sourceFirstSampleTaskCode' | 'sourceFirstSampleCode' | 'sampleChainMode' | 'specialSceneReasonCodes' | 'specialSceneReasonText' | 'productionReferenceRequiredFlag' | 'chinaReviewRequiredFlag' | 'correctFabricRequiredFlag' | 'samplePlanLines' | 'finalReferenceNote' | 'confirmedAt'
+  'sourceTechPackVersionId' | 'sourceTechPackVersionCode' | 'sourceTechPackVersionLabel' | 'sourceFirstSampleTaskId' | 'sourceFirstSampleTaskCode' | 'sourceFirstSampleCode' | 'sampleChainMode' | 'specialSceneReasonCodes' | 'specialSceneReasonText' | 'productionReferenceRequiredFlag' | 'chinaReviewRequiredFlag' | 'correctFabricRequiredFlag' | 'samplePlanLines' | 'finalReferenceNote' | 'conclusionResult' | 'conclusionNote' | 'confirmedAt' | 'confirmedBy'
 > {
   const mode = input.dualSample ? '替代布与正确布双确认' : input.mode || '复用首版结论'
   const reuseCode = mode === '复用首版结论' ? input.sampleCode || '' : ''
@@ -1287,9 +1330,9 @@ function firstOrderChainSeed(input: {
     })
   }
   return {
-    sourceTechPackVersionId: '',
-    sourceTechPackVersionCode: '',
-    sourceTechPackVersionLabel: '',
+    sourceTechPackVersionId: input.sourceTechPackVersionId || '',
+    sourceTechPackVersionCode: input.sourceTechPackVersionCode || '',
+    sourceTechPackVersionLabel: input.sourceTechPackVersionLabel || '',
     sourceFirstSampleTaskId: input.upstreamObjectId,
     sourceFirstSampleTaskCode: input.upstreamObjectCode,
     sourceFirstSampleCode: reuseCode,
@@ -1300,8 +1343,13 @@ function firstOrderChainSeed(input: {
     chinaReviewRequiredFlag: Boolean(input.dualSample),
     correctFabricRequiredFlag: Boolean(input.dualSample),
     samplePlanLines,
-    finalReferenceNote: reuseCode ? '最终参照首版打样结果。' : '',
-    confirmedAt: '',
+    finalReferenceNote: Object.prototype.hasOwnProperty.call(input, 'finalReferenceNote')
+      ? input.finalReferenceNote || ''
+      : (reuseCode ? '最终参照首版打样结果。' : ''),
+    conclusionResult: input.conclusionResult || '',
+    conclusionNote: input.conclusionNote || '',
+    confirmedAt: input.confirmedAt || '',
+    confirmedBy: input.confirmedBy || '',
   }
 }
 
@@ -1511,6 +1559,96 @@ function createFirstSampleSeeds(): { tasks: FirstSampleTaskRecord[]; pendingItem
       reuseAsFirstOrderBasisNote: '首版样衣确认通过，可直接复用。',
       confirmedAt: '2026-04-25 10:30',
     },
+    {
+      projectCode: 'PRJ-20251216-028',
+      firstSampleTaskId: 'FSD-20260425-001',
+      firstSampleTaskCode: 'FSD-20260425-001',
+      title: '首版样衣打样-首单未建任务来源',
+      upstreamModule: '制版任务',
+      upstreamObjectType: '制版任务',
+      upstreamObjectId: 'PT-20260425-011',
+      upstreamObjectCode: 'PT-20260425-011',
+      factoryId: 'factory-shenzhen-01',
+      factoryName: '深圳工厂01',
+      targetSite: '深圳',
+      sampleCode: 'FS-RESULT-25002',
+      status: '已通过' as const,
+      priorityLevel: '中' as const,
+      createdAt: '2026-04-25 10:00:00',
+      updatedAt: '2026-04-25 10:40:00',
+      sourceTechPackVersionId: 'TDV-ID-0006',
+      sourceTechPackVersionCode: 'TDV-20260425-006',
+      sourceTechPackVersionLabel: 'V1',
+      sampleMaterialMode: '正确布' as const,
+      samplePurpose: '首单复用候选' as const,
+      sampleImageIds: ['mock://sample-result/fs-25002-1'],
+      fitConfirmationSummary: '首版样衣已确认，可作为首单来源。',
+      artworkConfirmationSummary: '花型位置确认通过。',
+      productionReadinessNote: '可进入首单样衣判断。',
+      reuseAsFirstOrderBasisConfirmedBy: '张娜',
+      reuseAsFirstOrderBasisNote: '首版样衣确认通过，可作为首单输入。',
+      confirmedAt: '2026-04-25 10:40',
+    },
+    {
+      projectCode: 'PRJ-20251216-029',
+      firstSampleTaskId: 'FSD-20260425-002',
+      firstSampleTaskCode: 'FSD-20260425-002',
+      title: '首版样衣打样-首单已建未补齐来源',
+      upstreamModule: '制版任务',
+      upstreamObjectType: '制版任务',
+      upstreamObjectId: 'PT-20260425-012',
+      upstreamObjectCode: 'PT-20260425-012',
+      factoryId: 'factory-shenzhen-01',
+      factoryName: '深圳工厂01',
+      targetSite: '深圳',
+      sampleCode: 'FS-RESULT-25003-PRE',
+      status: '已通过' as const,
+      priorityLevel: '中' as const,
+      createdAt: '2026-04-25 10:10:00',
+      updatedAt: '2026-04-25 10:45:00',
+      sourceTechPackVersionId: 'TDV-ID-0007',
+      sourceTechPackVersionCode: 'TDV-20260425-007',
+      sourceTechPackVersionLabel: 'V1',
+      sampleMaterialMode: '正确布' as const,
+      samplePurpose: '首单复用候选' as const,
+      sampleImageIds: ['mock://sample-result/fs-25003-pre-1'],
+      fitConfirmationSummary: '版型已确认，等待首单补齐计划。',
+      artworkConfirmationSummary: '花型确认通过。',
+      productionReadinessNote: '可进入首单样衣打样。',
+      reuseAsFirstOrderBasisConfirmedBy: '张娜',
+      reuseAsFirstOrderBasisNote: '可作为首单来源。',
+      confirmedAt: '2026-04-25 10:45',
+    },
+    {
+      projectCode: 'PRJ-20251216-030',
+      firstSampleTaskId: 'FSD-20260425-003',
+      firstSampleTaskCode: 'FSD-20260425-003',
+      title: '首版样衣打样-首单完成展示来源',
+      upstreamModule: '制版任务',
+      upstreamObjectType: '制版任务',
+      upstreamObjectId: 'PT-20260425-013',
+      upstreamObjectCode: 'PT-20260425-013',
+      factoryId: 'factory-shenzhen-01',
+      factoryName: '深圳工厂01',
+      targetSite: '深圳',
+      sampleCode: 'FS-RESULT-25003',
+      status: '已通过' as const,
+      priorityLevel: '高' as const,
+      createdAt: '2026-04-25 10:20:00',
+      updatedAt: '2026-04-25 11:00:00',
+      sourceTechPackVersionId: 'TDV-ID-0008',
+      sourceTechPackVersionCode: 'TDV-20260425-008',
+      sourceTechPackVersionLabel: 'V2',
+      sampleMaterialMode: '正确布' as const,
+      samplePurpose: '首单复用候选' as const,
+      sampleImageIds: ['mock://sample-result/fs-25003-1'],
+      fitConfirmationSummary: '首版样衣确认通过。',
+      artworkConfirmationSummary: '花型位置与颜色确认通过。',
+      productionReadinessNote: '可作为首单复用候选。',
+      reuseAsFirstOrderBasisConfirmedBy: '张娜',
+      reuseAsFirstOrderBasisNote: '首版样衣确认通过，可直接复用。',
+      confirmedAt: '2026-04-25 11:00',
+    },
   ].forEach((item) => {
     const project = pickProjectByCode(item.projectCode)
     const node = project ? findProjectNodeByWorkItemTypeCode(project.projectId, 'FIRST_SAMPLE') : null
@@ -1703,6 +1841,66 @@ function createFirstOrderSeeds(): { tasks: FirstOrderSampleTaskRecord[]; pending
       createdAt: '2026-04-06 10:10:00',
       updatedAt: '2026-04-06 12:40:00',
     },
+    {
+      projectCode: 'PRJ-20251216-029',
+      firstOrderSampleTaskId: 'FOS-20260425-002',
+      firstOrderSampleTaskCode: 'FOS-20260425-002',
+      title: '首单样衣打样-已建任务未补齐',
+      upstreamModule: '首版样衣打样',
+      upstreamObjectType: '首版样衣打样任务',
+      upstreamObjectId: 'FSD-20260425-002',
+      upstreamObjectCode: 'FSD-20260425-002',
+      factoryId: 'factory-shenzhen-01',
+      factoryName: '深圳工厂01',
+      targetSite: '深圳',
+      patternVersion: '',
+      artworkVersion: '',
+      sampleCode: '',
+      sourceTechPackVersionId: 'TDV-ID-0007',
+      sourceTechPackVersionCode: 'TDV-20260425-007',
+      sourceTechPackVersionLabel: 'V1',
+      sourceFirstSampleCode: 'FS-RESULT-25003-PRE',
+      finalReferenceNote: '',
+      conclusionResult: '' as const,
+      conclusionNote: '',
+      confirmedAt: '',
+      confirmedBy: '',
+      emptyPlan: true,
+      status: '打样中' as const,
+      priorityLevel: '中' as const,
+      createdAt: '2026-04-25 10:50:00',
+      updatedAt: '2026-04-25 11:00:00',
+    },
+    {
+      projectCode: 'PRJ-20251216-030',
+      firstOrderSampleTaskId: 'FOS-20260425-003',
+      firstOrderSampleTaskCode: 'FOS-20260425-003',
+      title: '首单样衣打样-完成展示',
+      upstreamModule: '首版样衣打样',
+      upstreamObjectType: '首版样衣打样任务',
+      upstreamObjectId: 'FSD-20260425-003',
+      upstreamObjectCode: 'FSD-20260425-003',
+      factoryId: 'factory-shenzhen-01',
+      factoryName: '深圳工厂01',
+      targetSite: '深圳',
+      patternVersion: 'P2',
+      artworkVersion: 'A1',
+      sampleCode: 'FOS-RESULT-25001',
+      sourceTechPackVersionId: 'TDV-ID-0008',
+      sourceTechPackVersionCode: 'TDV-20260425-008',
+      sourceTechPackVersionLabel: 'V2',
+      sourceFirstSampleCode: 'FS-RESULT-25003',
+      finalReferenceNote: '首版样衣确认通过，首单阶段直接沿用。',
+      conclusionResult: '通过' as const,
+      conclusionNote: '首单样衣确认通过，可进入后续。',
+      confirmedAt: '2026-04-25 11:20',
+      confirmedBy: '张娜',
+      emptyPlan: false,
+      status: '已通过' as const,
+      priorityLevel: '高' as const,
+      createdAt: '2026-04-25 11:00:00',
+      updatedAt: '2026-04-25 11:20:00',
+    },
   ].forEach((item) => {
     const project = pickProjectByCode(item.projectCode)
     const node = project ? findProjectNodeByWorkItemTypeCode(project.projectId, 'FIRST_ORDER_SAMPLE') : null
@@ -1731,8 +1929,25 @@ function createFirstOrderSeeds(): { tasks: FirstOrderSampleTaskRecord[]; pending
       ...firstOrderChainSeed({
         upstreamObjectId: item.upstreamObjectId,
         upstreamObjectCode: item.upstreamObjectCode,
+        sampleCode: 'sourceFirstSampleCode' in item ? item.sourceFirstSampleCode : '',
         dualSample: item.projectCode === 'PRJ-20251216-013',
+        sourceTechPackVersionId: 'sourceTechPackVersionId' in item ? item.sourceTechPackVersionId : '',
+        sourceTechPackVersionCode: 'sourceTechPackVersionCode' in item ? item.sourceTechPackVersionCode : '',
+        sourceTechPackVersionLabel: 'sourceTechPackVersionLabel' in item ? item.sourceTechPackVersionLabel : '',
+        finalReferenceNote: 'finalReferenceNote' in item ? item.finalReferenceNote : '',
+        conclusionResult: 'conclusionResult' in item ? item.conclusionResult : '',
+        conclusionNote: 'conclusionNote' in item ? item.conclusionNote : '',
+        confirmedAt: 'confirmedAt' in item ? item.confirmedAt : '',
+        confirmedBy: 'confirmedBy' in item ? item.confirmedBy : '',
       }),
+      samplePlanLines: 'emptyPlan' in item && item.emptyPlan
+        ? []
+        : firstOrderChainSeed({
+            upstreamObjectId: item.upstreamObjectId,
+            upstreamObjectCode: item.upstreamObjectCode,
+            sampleCode: 'sourceFirstSampleCode' in item ? item.sourceFirstSampleCode : '',
+            dualSample: item.projectCode === 'PRJ-20251216-013',
+          }).samplePlanLines,
       status: item.status,
       ownerId: project.ownerId,
       ownerName: project.ownerName,
@@ -1849,6 +2064,8 @@ export function createTaskRelationBootstrapSnapshot(): TaskRelationBootstrapSnap
           sourceStatus: task.status,
           businessDate: task.createdAt,
           ownerName: task.ownerName,
+          relationRole: '执行记录',
+          note: firstSampleRelationMeta(task),
         }),
       ),
       ...snapshot.firstOrderSampleTasks.map((task) =>
@@ -1866,6 +2083,8 @@ export function createTaskRelationBootstrapSnapshot(): TaskRelationBootstrapSnap
           sourceStatus: task.status,
           businessDate: task.createdAt,
           ownerName: task.ownerName,
+          relationRole: '执行记录',
+          note: firstOrderRelationMeta(task),
         }),
       ),
     ],

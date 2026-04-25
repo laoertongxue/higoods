@@ -38,6 +38,10 @@ import {
   getFirstSampleCompletionMissingFields,
   isFirstSampleCompletedStatus,
 } from './pcs-sample-task-field-policy.ts'
+import {
+  getFirstOrderSampleCompletionMissingFields,
+  isFirstOrderSamplePassedStatus,
+} from './pcs-first-order-sample-field-policy.ts'
 import { getProjectTemplateById } from './pcs-templates.ts'
 import {
   listRevisionTasksByProject,
@@ -228,6 +232,9 @@ function buildMissingTaskLabels(task: CompletedEngineeringTask, workItemTypeCode
   if (workItemTypeCode === 'FIRST_SAMPLE') {
     return getFirstSampleCompletionMissingFields(task as FirstSampleTaskRecord)
   }
+  if (workItemTypeCode === 'FIRST_ORDER_SAMPLE') {
+    return getFirstOrderSampleCompletionMissingFields(task as FirstOrderSampleTaskRecord)
+  }
   return []
 }
 
@@ -265,7 +272,9 @@ function validateNodeByTask(project: PcsProjectViewRecord, node: PcsProjectNodeR
   const completed =
     node.workItemTypeCode === 'FIRST_SAMPLE'
       ? isFirstSampleCompletedStatus(task.status)
-      : task.status === '已完成'
+      : node.workItemTypeCode === 'FIRST_ORDER_SAMPLE'
+        ? isFirstOrderSamplePassedStatus(task.status)
+        : task.status === '已完成'
   if (!completed) {
     return {
       ok: false,
@@ -712,7 +721,7 @@ function pushModuleRecordIssues(project: PcsProjectViewRecord, issues: PcsProjec
       projectNodeId: task.projectNodeId,
       expectedWorkItemTypeCode: 'FIRST_ORDER_SAMPLE',
     })
-    if (task.status === '已完成') {
+    if (isFirstOrderSamplePassedStatus(task.status)) {
       const node = getProjectNodeRecordById(project.projectId, task.projectNodeId)
       if (node && node.currentStatus !== '已完成') {
         issues.push(
@@ -723,7 +732,7 @@ function pushModuleRecordIssues(project: PcsProjectViewRecord, issues: PcsProjec
             '首单样衣打样',
             task.firstOrderSampleTaskId,
             task.firstOrderSampleTaskCode,
-            '首单样衣打样任务已完成，但项目节点未同步为已完成。',
+            '首单样衣打样任务已通过，但项目节点未同步为已完成。',
           ),
         )
       }

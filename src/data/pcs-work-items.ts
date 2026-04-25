@@ -8,9 +8,11 @@ import {
 } from './pcs-work-item-configs.ts'
 import { getProjectPhaseContract, type PcsProjectPhaseCode } from './pcs-project-domain-contract.ts'
 import { getFirstSampleTaskFieldPolicySummary } from './pcs-sample-task-field-policy.ts'
+import { getFirstOrderSampleTaskFieldPolicySummary } from './pcs-first-order-sample-field-policy.ts'
 
 export type WorkItemStatus = '标准内置'
 export const FIRST_SAMPLE_WORK_ITEM_CODE = 'FIRST_SAMPLE'
+export const FIRST_ORDER_SAMPLE_WORK_ITEM_CODE = 'FIRST_ORDER_SAMPLE'
 
 export interface PcsWorkItemListItem {
   id: string
@@ -114,4 +116,8 @@ export function getBuiltinProjectWorkItemDefinition(workItemId: string): WorkIte
 
 export function getFirstSampleWorkItemFieldPolicySummary(): ReturnType<typeof getFirstSampleTaskFieldPolicySummary> {
   return getFirstSampleTaskFieldPolicySummary()
+}
+
+export function getFirstOrderSampleWorkItemFieldPolicySummary(): ReturnType<typeof getFirstOrderSampleTaskFieldPolicySummary> {
+  return getFirstOrderSampleTaskFieldPolicySummary()
 }

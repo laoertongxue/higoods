@@ -126,6 +126,9 @@ function buildRelationObjectTitle(relation: ReturnType<typeof listProjectRelatio
   if (relation.sourceModule === '首版样衣打样' && relation.sourceObjectType === '首版样衣打样任务') {
     return `${relation.workItemTypeName || '首版样衣打样'} / ${relation.sourceObjectCode || relation.sourceObjectId}`
   }
+  if (relation.sourceModule === '首单样衣打样' && relation.sourceObjectType === '首单样衣打样任务') {
+    return `${relation.workItemTypeName || '首单样衣打样'} / ${relation.sourceObjectCode || relation.sourceObjectId}`
+  }
   return relation.sourceObjectCode || relation.sourceObjectId || relation.sourceObjectType
 }
 

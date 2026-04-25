@@ -40,7 +40,10 @@ export interface FirstOrderSampleTaskRecord {
   samplePlanLines: SamplePlanLine[]
   finalReferenceNote: string
   sampleCode: string
+  conclusionResult: '' | '通过' | '需改版' | '需补首单'
+  conclusionNote: string
   confirmedAt: string
+  confirmedBy: string
   status: FirstOrderSampleTaskStatus
   ownerId: string
   ownerName: string
@@ -52,6 +55,39 @@ export interface FirstOrderSampleTaskRecord {
   note: string
   legacyProjectRef: string
   legacyUpstreamRef: string
+}
+
+export interface FirstOrderSampleProjectNodeMeta {
+  sourceFirstSampleTaskId: string
+  sourceFirstSampleTaskCode: string
+  sourceFirstSampleCode: string
+  sourceTechPackVersionId: string
+  sourceTechPackVersionCode: string
+  sourceTechPackVersionLabel: string
+  factoryId: string
+  factoryName: string
+  targetSite: string
+  sampleChainMode: SampleChainMode | ''
+  specialSceneReasonCodes: SampleSpecialSceneReasonCode[]
+  specialSceneReasonText: string
+  productionReferenceRequiredFlag: boolean
+  chinaReviewRequiredFlag: boolean
+  correctFabricRequiredFlag: boolean
+  samplePlanLines: SamplePlanLine[]
+  finalReferenceNote: string
+  patternVersion: string
+  artworkVersion: string
+  sampleCode: string
+  conclusionResult: '' | '通过' | '需改版' | '需补首单'
+  conclusionNote: string
+  confirmedAt: string
+  confirmedBy: string
+  sourceType: FirstOrderSampleTaskSourceType | ''
+  upstreamModule: string
+  upstreamObjectType: string
+  upstreamObjectId: string
+  upstreamObjectCode: string
+  status: FirstOrderSampleTaskStatus | ''
 }
 
 export interface FirstOrderSampleTaskStoreSnapshot {

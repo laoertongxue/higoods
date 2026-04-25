@@ -303,6 +303,14 @@ function renderTabsBar(state: AppState): string {
 }
 
 export function renderAppShell(state: AppState, pageContent: string): string {
+  if (state.pathname.startsWith('/fcs/print/') || state.pathname.startsWith('/fcs/task-print/')) {
+    return `
+      <div class="min-h-screen bg-slate-100" data-standalone-print-root="true">
+        ${pageContent}
+      </div>
+    `
+  }
+
   return `
     <div class="flex h-screen flex-col overflow-hidden">
       ${renderTopBar(state)}

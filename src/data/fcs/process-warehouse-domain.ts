@@ -572,7 +572,7 @@ function buildSpecialCraftWarehouseRecords(taskOrders: SpecialCraftTaskOrder[]):
   return records
 }
 
-function postWaitAction(order: PostFinishingWorkOrder): '待接收领料' | '待后道' | '待质检' | '待复检' {
+function postWaitAction(order: PostFinishingWorkOrder): '待接收领料' | '待质检' | '待后道' | '待复检' {
   if (order.currentStatus.includes('接收')) return '待接收领料'
   if (order.currentStatus.includes('复检')) return '待复检'
   if (order.currentStatus.includes('质检')) return '待质检'
@@ -616,8 +616,8 @@ function buildPostFinishingWarehouseRecords(orders: PostFinishingWorkOrder[]): P
           inboundAt: order.createdAt,
           updatedAt: order.updatedAt,
           remark: order.isPostDoneBySewingFactory
-            ? '车缝厂已完成后道，后道工厂接收领料后只做质检和复检'
-            : '专门后道工厂完整流程进入待加工仓：接收领料、质检、后道、复检',
+            ? '车缝厂已完成该环节，接收领料后只做质检和复检'
+            : '完整流程进入待加工仓：接收领料、质检、后道、复检',
         },
         'WAIT_PROCESS',
         records.length + 1,

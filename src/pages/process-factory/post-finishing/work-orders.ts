@@ -2,7 +2,7 @@ import {
   buildPostFinishingWaitHandoverWarehouseLink,
   buildPostFinishingWaitProcessWarehouseLink,
   buildPostFinishingWorkOrderDetailLink,
-  buildTaskRouteCardPrintLink,
+  buildUnifiedPrintPreviewRouteLink,
 } from '../../../data/fcs/fcs-route-links.ts'
 import {
   getPostFinishingFlowText,
@@ -39,7 +39,11 @@ export function renderPostFinishingWorkOrdersPage(): string {
         <td class="px-3 py-3">
           <div class="flex flex-wrap gap-2">
             ${renderPostAction('查看详情', buildPostFinishingWorkOrderDetailLink(order.postOrderId))}
-            ${renderPostAction('打印任务流转卡', buildTaskRouteCardPrintLink('POST_FINISHING_WORK_ORDER', order.postOrderId))}
+            ${renderPostAction('打印任务流转卡', buildUnifiedPrintPreviewRouteLink({
+              documentType: 'TASK_ROUTE_CARD',
+              sourceType: 'POST_FINISHING_WORK_ORDER',
+              sourceId: order.postOrderId,
+            }))}
             ${renderPostAction('查看待加工仓', buildPostFinishingWaitProcessWarehouseLink(order.postOrderId))}
             ${renderPostAction(
               order.waitHandoverWarehouseRecordId ? '查看交出记录' : '暂无交出记录',

@@ -63,10 +63,15 @@ import type {
 import {
   getFirstOrderSampleTaskById,
   listFirstOrderSampleTasks,
+  updateFirstOrderSampleTask,
   upsertFirstOrderSampleTask,
   upsertFirstOrderSampleTaskPendingItem,
 } from './pcs-first-order-sample-repository.ts'
 import type { FirstOrderSampleTaskRecord } from './pcs-first-order-sample-types.ts'
+import {
+  buildFirstOrderProjectMeta,
+  syncFirstOrderSampleTaskToProjectNode,
+} from './pcs-first-order-sample-project-writeback.ts'
 import {
   createDefaultSamplePlanLines,
   normalizeSamplePlanLines,
@@ -306,6 +311,10 @@ export interface FirstOrderSampleTaskCreateInput extends BaseTaskCreateInput {
   correctFabricRequiredFlag?: boolean
   samplePlanLines?: SamplePlanLine[]
   finalReferenceNote?: string
+  conclusionResult?: '' | '通过' | '需改版' | '需补首单'
+  conclusionNote?: string
+  confirmedAt?: string
+  confirmedBy?: string
 }
 
 function normalizePatternAssignment(input: Pick<PatternTaskCreateInput, 'assignedTeamCode' | 'assignedMemberId'>): {
@@ -992,7 +1001,7 @@ function firstOrderChainFields(
   projectId: string,
   existing?: FirstOrderSampleTaskRecord | null,
 ): Pick<FirstOrderSampleTaskRecord,
-  'sourceTechPackVersionId' | 'sourceTechPackVersionCode' | 'sourceTechPackVersionLabel' | 'sourceFirstSampleTaskId' | 'sourceFirstSampleTaskCode' | 'sourceFirstSampleCode' | 'sampleChainMode' | 'specialSceneReasonCodes' | 'specialSceneReasonText' | 'productionReferenceRequiredFlag' | 'chinaReviewRequiredFlag' | 'correctFabricRequiredFlag' | 'samplePlanLines' | 'finalReferenceNote'
+  'sourceTechPackVersionId' | 'sourceTechPackVersionCode' | 'sourceTechPackVersionLabel' | 'sourceFirstSampleTaskId' | 'sourceFirstSampleTaskCode' | 'sourceFirstSampleCode' | 'sampleChainMode' | 'specialSceneReasonCodes' | 'specialSceneReasonText' | 'productionReferenceRequiredFlag' | 'chinaReviewRequiredFlag' | 'correctFabricRequiredFlag' | 'samplePlanLines' | 'finalReferenceNote' | 'conclusionResult' | 'conclusionNote' | 'confirmedAt' | 'confirmedBy'
 > {
   const sourceFirst = resolveSourceFirstSample(input, projectId)
   const sampleChainMode = input.sampleChainMode || existing?.sampleChainMode || '复用首版结论'
@@ -1014,6 +1023,10 @@ function firstOrderChainFields(
       sourceFirst.sourceFirstSampleCode,
     ),
     finalReferenceNote: input.finalReferenceNote || existing?.finalReferenceNote || '',
+    conclusionResult: input.conclusionResult ?? existing?.conclusionResult ?? '',
+    conclusionNote: input.conclusionNote ?? existing?.conclusionNote ?? '',
+    confirmedAt: input.confirmedAt || existing?.confirmedAt || '',
+    confirmedBy: input.confirmedBy || existing?.confirmedBy || '',
   }
 }
 
@@ -1040,8 +1053,9 @@ export function saveFirstSampleTaskDraft(input: FirstSampleTaskCreateInput): Fir
     targetSite: input.targetSite || '深圳',
     sampleCode: input.sampleCode || buildFirstSampleCode(input.targetSite || '深圳', listFirstSampleTasks().length),
     ...firstSampleChainFields(input),
-    confirmedAt: '',
-    status: '草稿',
+	    confirmedAt: input.confirmedAt || '',
+	    confirmedBy: input.confirmedBy || '',
+	    status: '草稿',
     ownerId: input.ownerId || '',
     ownerName: input.ownerName || '',
     priorityLevel: input.priorityLevel || '中',
@@ -1080,7 +1094,8 @@ export function saveFirstOrderSampleTaskDraft(input: FirstOrderSampleTaskCreateI
     artworkVersion: input.artworkVersion || '',
     sampleCode: input.sampleCode || buildFirstOrderSampleCode(input.targetSite || '深圳', listFirstOrderSampleTasks().length),
     ...firstOrderChainFields(input, input.projectId || ''),
-    confirmedAt: '',
+    confirmedAt: input.confirmedAt || '',
+    confirmedBy: input.confirmedBy || '',
     status: '草稿',
     ownerId: input.ownerId || '',
     ownerName: input.ownerName || '',
@@ -2032,23 +2047,10 @@ export function syncExistingProjectEngineeringTaskNodes(operatorName = '系统�
       })
     })
   listFirstOrderSampleTasks()
-    .filter((task) => task.projectId && task.projectNodeId && task.status === '已完成')
+    .filter((task) => task.projectId && task.projectNodeId && task.status === '已通过')
     .forEach((task) => {
-      syncTaskCompletionToProjectNode({
-        projectId: task.projectId,
-        projectNodeId: task.projectNodeId,
-        workItemTypeCode: 'FIRST_ORDER_SAMPLE',
-        workItemTypeName: '首单样衣打样',
-        sourceModule: '首单样衣打样',
-        sourceObjectType: '首单样衣打样任务',
-        sourceObjectId: task.firstOrderSampleTaskId,
-        sourceObjectCode: task.firstOrderSampleTaskCode,
-        sourceTitle: task.title,
-        sourceStatus: task.status,
-        businessDate: task.updatedAt || task.createdAt,
-        ownerName: task.ownerName,
-        resultType: '首单样衣打样已完成',
-        resultText: '首单样衣打样已完成，商品项目节点同步完成。',
+      syncFirstOrderSampleTaskToProjectNode({
+        firstOrderSampleTaskId: task.firstOrderSampleTaskId,
         operatorName,
       })
     })
@@ -2224,7 +2226,8 @@ export function createFirstOrderSampleTaskWithProjectRelation(
     artworkVersion: input.artworkVersion || '',
     sampleCode: input.sampleCode || buildFirstOrderSampleCode(input.targetSite || '深圳', listFirstOrderSampleTasks().length),
     ...firstOrderChainFields(input, project.projectId, existing),
-    confirmedAt: existing?.confirmedAt || '',
+    confirmedAt: input.confirmedAt || existing?.confirmedAt || '',
+    confirmedBy: input.confirmedBy || existing?.confirmedBy || '',
     status: '待处理',
     ownerId: input.ownerId || project.ownerId,
     ownerName: input.ownerName || project.ownerName,
@@ -2238,8 +2241,8 @@ export function createFirstOrderSampleTaskWithProjectRelation(
     legacyUpstreamRef: '',
   })
 
-  const relation = upsertProjectRelation(
-    relationPayload({
+  const relation = upsertProjectRelation({
+    ...relationPayload({
       projectId: project.projectId,
       projectCode: project.projectCode,
       projectNodeId: node.projectNodeId,
@@ -2255,16 +2258,22 @@ export function createFirstOrderSampleTaskWithProjectRelation(
       ownerName: task.ownerName,
       operatorName: input.operatorName || '当前用户',
     }),
-  )
+    relationRole: '执行记录',
+    note: JSON.stringify(buildFirstOrderProjectMeta(task)),
+  })
 
   updateTaskNode(node, task, {
     latestInstanceId: task.firstOrderSampleTaskId,
     latestInstanceCode: task.firstOrderSampleTaskCode,
     latestResultType: '已创建首单样衣打样任务',
-    latestResultText: '已创建首单样衣打样任务，等待开始打样',
-    pendingActionType: '开始打样',
-    pendingActionText: '请开始首单样衣打样',
+    latestResultText: '已创建首单样衣打样任务，待补齐详细信息',
+    pendingActionType: '补齐首单样衣详情',
+    pendingActionText: '请在首单样衣打样详情中补齐样衣计划和确认结果',
   }, Boolean(existing))
+  syncFirstOrderSampleTaskToProjectNode({
+    firstOrderSampleTaskId: task.firstOrderSampleTaskId,
+    operatorName: input.operatorName || '当前用户',
+  })
   syncExistingProjectArchiveByProjectId(task.projectId, task.updatedBy)
   return { ok: true, task, relation, message: '首单样衣打样任务已创建，已写项目关系，已更新项目节点。' }
 }
