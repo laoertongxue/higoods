@@ -66,6 +66,7 @@
     "check:handover-writeback-difference-unification": "tsx scripts/check-handover-writeback-difference-unification.ts",
     "check:statistics-dashboard-real-data": "tsx scripts/check-statistics-dashboard-real-data.ts",
     "check:post-finishing-factory-detail-actions": "tsx scripts/check-post-finishing-factory-detail-actions.ts",
+    "check:post-finishing-flow-correction": "tsx scripts/check-post-finishing-flow-correction.ts",
     "check:factory-handover-warehouse-linkage": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-factory-handover-warehouse-linkage.ts",
     "check:fcs-inactive-process-craft-usage": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-fcs-inactive-process-craft-usage.ts",
     "check:production-craft-dict-page": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-production-craft-dict-page.ts",

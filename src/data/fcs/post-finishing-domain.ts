@@ -1,8 +1,10 @@
-export type PostFinishingRouteMode = '专门后道工厂' | '非专门工厂含后道'
-export type PostFinishingActionType = '后道' | '质检' | '复检'
+export type PostFinishingRouteMode = '专门后道工厂完整流程' | '车缝厂已做后道'
+export type PostFinishingActionType = '接收领料' | '后道' | '质检' | '复检'
 
-const FULL_CAPABILITY_TEST_FACTORY_ID = 'ID-F090'
-const FULL_CAPABILITY_TEST_FACTORY_NAME = '全能力测试工厂'
+export const FULL_CAPABILITY_TEST_FACTORY_ID = 'ID-F090'
+export const FULL_CAPABILITY_TEST_FACTORY_NAME = '全能力测试工厂'
+export const FULL_CAPABILITY_SEWING_FACTORY_ID = 'ID-SEW-FULL'
+export const FULL_CAPABILITY_SEWING_FACTORY_NAME = '全能力测试车缝工厂'
 
 export interface PostFinishingActionRecord {
   actionId: string
@@ -20,6 +22,16 @@ export interface PostFinishingActionRecord {
   rejectedGarmentQty: number
   diffGarmentQty: number
   qtyUnit: '件'
+  receivedGarmentQty?: number
+  inspectedGarmentQty?: number
+  passedGarmentQty?: number
+  defectiveGarmentQty?: number
+  completedPostGarmentQty?: number
+  recheckedGarmentQty?: number
+  confirmedGarmentQty?: number
+  qcResult?: string
+  skipReason?: string
+  evidenceUrls?: string[]
   remark: string
 }
 
@@ -30,11 +42,13 @@ export interface PostFinishingWaitProcessWarehouseRecord {
   postOrderNo: string
   sourceFactoryId: string
   sourceFactoryName: string
+  sourceSewingTaskNo: string
+  postSourceLabel: string
   postFactoryId: string
   postFactoryName: string
   productionOrderNo: string
   skuSummary: string
-  waitAction: PostFinishingActionType
+  waitAction: Exclude<PostFinishingActionType, '接收领料'> | '接收领料'
   inboundGarmentQty: number
   inboundGarmentQtyUnit: '件'
   warehouseLocation: string
@@ -48,6 +62,8 @@ export interface PostFinishingWaitHandoverWarehouseRecord {
   postOrderId: string
   postOrderNo: string
   recheckActionId: string
+  sourceSewingTaskNo: string
+  postSourceLabel: string
   productionOrderNo: string
   postFactoryId: string
   postFactoryName: string
@@ -60,6 +76,16 @@ export interface PostFinishingWaitHandoverWarehouseRecord {
   createdAt: string
 }
 
+export interface PostFinishingHandoverActionSnapshot {
+  waitHandoverWarehouseRecordId?: string
+  handoverRecordId?: string
+  handoverGarmentQty: number
+  receiveGarmentQty: number
+  diffGarmentQty: number
+  qtyUnit: '件'
+  status: string
+}
+
 export interface PostFinishingWorkOrder {
   postOrderId: string
   postOrderNo: string
@@ -68,6 +94,12 @@ export interface PostFinishingWorkOrder {
   sourceProductionOrderNo: string
   sourceTaskId: string
   sourceTaskNo: string
+  sourceSewingTaskId: string
+  sourceSewingTaskNo: string
+  sourcePostTaskId: string
+  sourcePostTaskNo: string
+  sourceSewingFactoryId: string
+  sourceSewingFactoryName: string
   currentFactoryId: string
   currentFactoryName: string
   managedPostFactoryId: string
@@ -77,9 +109,18 @@ export interface PostFinishingWorkOrder {
   plannedGarmentQty: number
   plannedGarmentQtyUnit: '件'
   currentStatus: string
+  isDedicatedPostFactory: boolean
+  isPostDoneBySewingFactory: boolean
+  requiresReceive: boolean
+  requiresQc: boolean
+  requiresPostFinishing: boolean
+  requiresRecheck: boolean
+  requiresHandover: boolean
+  receiveAction: PostFinishingActionRecord
   postAction: PostFinishingActionRecord
-  qcAction?: PostFinishingActionRecord
-  recheckAction?: PostFinishingActionRecord
+  qcAction: PostFinishingActionRecord
+  recheckAction: PostFinishingActionRecord
+  handoverAction?: PostFinishingHandoverActionSnapshot
   waitProcessWarehouseRecordId: string
   waitHandoverWarehouseRecordId?: string
   handoverRecordId?: string
@@ -87,53 +128,112 @@ export interface PostFinishingWorkOrder {
   updatedAt: string
 }
 
+export interface SewingFactoryPostTask {
+  sewingTaskId: string
+  sewingTaskNo: string
+  postTaskId: string
+  postTaskNo: string
+  relatedPostOrderId: string
+  relatedPostOrderNo: string
+  productionOrderNo: string
+  sewingFactoryId: string
+  sewingFactoryName: string
+  managedPostFactoryId: string
+  managedPostFactoryName: string
+  plannedGarmentQty: number
+  completedSewingGarmentQty: number
+  completedPostGarmentQty: number
+  qtyUnit: '件'
+  status: '待车缝' | '车缝中' | '车缝完成' | '待后道' | '后道中' | '后道完成' | '待交后道工厂' | '已交后道工厂'
+  needFactoryPostFinishing: boolean
+  postFinishedAt?: string
+  handedToManagedPostFactoryAt?: string
+}
+
 const dedicatedStatuses = [
-  '待后道',
-  '后道中',
-  '后道完成',
+  '待接收领料',
   '待质检',
-  '质检中',
-  '质检完成',
+  '待后道',
   '待复检',
-  '复检中',
-  '复检完成',
   '待交出',
+  '已完成',
+  '接收中',
+  '质检中',
+  '后道中',
+  '复检中',
   '已交出',
   '已回写',
-  '数量差异',
 ]
 
-const nonDedicatedScenes = [
-  '车缝厂完成后道，待交给后道工厂',
-  '车缝厂已交后道工厂，后道工厂待质检',
-  '后道工厂质检中',
-  '后道工厂待复检',
-  '后道工厂复检完成，生成待交出记录',
+const sewingDoneStatuses = [
+  '待接收领料',
+  '待质检',
+  '待复检',
+  '待交出',
+  '已完成',
+  '有差异',
+  '接收中',
+  '质检中',
+  '复检中',
+  '已交出',
+  '已回写',
+  '平台处理中',
 ]
 
 function pad(value: number): string {
   return String(value).padStart(3, '0')
 }
 
-function hasQc(status: string): boolean {
-  return ['待质检', '质检中', '质检完成', '待复检', '复检中', '复检完成', '待交出', '已交出', '已回写', '数量差异'].includes(status)
-    || status.includes('后道工厂')
+function dateFor(index: number, hour = '09:00'): string {
+  return `2026-04-${String(1 + (index % 24)).padStart(2, '0')} ${hour}`
 }
 
-function hasRecheck(status: string): boolean {
-  return ['待复检', '复检中', '复检完成', '待交出', '已交出', '已回写', '数量差异'].includes(status)
-    || status.includes('待复检')
-    || status.includes('复检完成')
+export function getPostFinishingSourceLabel(order: Pick<PostFinishingWorkOrder, 'isPostDoneBySewingFactory'>): string {
+  return order.isPostDoneBySewingFactory ? '车缝厂已完成后道' : '后道工厂执行'
 }
 
-function hasHandover(status: string): boolean {
-  return ['复检完成', '待交出', '已交出', '已回写', '数量差异'].includes(status) || status.includes('复检完成')
+export function getPostFinishingFlowText(order: Pick<PostFinishingWorkOrder, 'isPostDoneBySewingFactory'>): string {
+  return order.isPostDoneBySewingFactory
+    ? '接收领料 -> 质检 -> 复检 -> 交出'
+    : '接收领料 -> 质检 -> 后道 -> 复检 -> 交出'
 }
 
-function resolveWaitAction(status: string): PostFinishingActionType {
-  if (status.includes('质检')) return '质检'
-  if (status.includes('复检')) return '复检'
-  return '后道'
+function actionStatusFor(status: string, actionType: PostFinishingActionType, isPostDoneBySewingFactory: boolean): string {
+  if (actionType === '接收领料') {
+    if (status === '待接收领料') return '待接收'
+    if (status === '接收中') return '接收中'
+    if (status === '接收差异') return '有差异'
+    return '已接收'
+  }
+  if (actionType === '质检') {
+    if (status === '待接收领料' || status === '接收中') return '待质检'
+    if (status === '待质检') return '待质检'
+    if (status === '质检中') return '质检中'
+    if (status === '质检异常') return '有差异'
+    return '质检完成'
+  }
+  if (actionType === '后道') {
+    if (isPostDoneBySewingFactory) return '跳过后道'
+    if (status === '待接收领料' || status === '接收中' || status === '待质检' || status === '质检中') return '待后道'
+    if (status === '待后道') return '待后道'
+    if (status === '后道中') return '后道中'
+    return '后道完成'
+  }
+  if (status === '待接收领料' || status === '接收中' || status === '待质检' || status === '质检中' || status === '待后道' || status === '后道中') {
+    return '待复检'
+  }
+  if (status === '待复检') return '待复检'
+  if (status === '复检中') return '复检中'
+  if (status === '复检差异' || status === '有差异') return '有差异'
+  return '复检完成'
+}
+
+function isActionStarted(status: string): boolean {
+  return !status.startsWith('待') && status !== '跳过后道'
+}
+
+function isActionFinished(status: string): boolean {
+  return status.includes('完成') || status === '已接收' || status === '跳过后道' || status === '有差异'
 }
 
 function buildAction(input: {
@@ -145,10 +245,13 @@ function buildAction(input: {
   factoryId: string
   factoryName: string
   qty: number
+  skipReason?: string
 }): PostFinishingActionRecord {
-  const done = input.status.includes('完成') || input.status.includes('待') || input.status.includes('已')
-  const rejected = input.actionType === '质检' && input.index % 5 === 0 ? 3 : 0
-  const diff = input.actionType === '复检' && input.index % 7 === 0 ? 2 : 0
+  const started = isActionStarted(input.status)
+  const finished = isActionFinished(input.status)
+  const defectiveQty = input.actionType === '质检' && input.index % 5 === 0 ? 3 : 0
+  const diffQty = input.actionType === '复检' && input.index % 7 === 0 ? 2 : 0
+  const acceptedQty = Math.max(input.qty - defectiveQty - diffQty, 0)
   return {
     actionId: `PFA-${pad(input.index)}-${input.actionType}`,
     postOrderId: input.postOrderId,
@@ -157,63 +260,87 @@ function buildAction(input: {
     factoryId: input.factoryId,
     factoryName: input.factoryName,
     status: input.status,
-    startedAt: done ? `2026-04-${String(8 + (input.index % 12)).padStart(2, '0')} 09:00` : undefined,
-    finishedAt: input.status.includes('完成') || input.status.includes('待') || input.status.includes('已')
-      ? `2026-04-${String(8 + (input.index % 12)).padStart(2, '0')} 17:30`
-      : undefined,
-    operatorName: input.actionType === '后道' ? '后道班长' : input.actionType === '质检' ? '质检员' : '复检员',
+    startedAt: started ? dateFor(input.index, '09:00') : undefined,
+    finishedAt: finished ? dateFor(input.index, '17:30') : undefined,
+    operatorName:
+      input.actionType === '接收领料'
+        ? '接收员'
+        : input.actionType === '质检'
+          ? '质检员'
+          : input.actionType === '后道'
+            ? '后道班长'
+            : '复检员',
     submittedGarmentQty: input.qty,
-    acceptedGarmentQty: Math.max(input.qty - rejected - diff, 0),
-    rejectedGarmentQty: rejected,
-    diffGarmentQty: diff,
+    acceptedGarmentQty: acceptedQty,
+    rejectedGarmentQty: defectiveQty,
+    diffGarmentQty: diffQty,
     qtyUnit: '件',
-    remark: `${input.actionType}记录按成衣件数复核`,
+    receivedGarmentQty: input.actionType === '接收领料' ? acceptedQty : undefined,
+    inspectedGarmentQty: input.actionType === '质检' ? input.qty : undefined,
+    passedGarmentQty: input.actionType === '质检' ? acceptedQty : undefined,
+    defectiveGarmentQty: input.actionType === '质检' ? defectiveQty : undefined,
+    completedPostGarmentQty: input.actionType === '后道' ? acceptedQty : undefined,
+    recheckedGarmentQty: input.actionType === '复检' ? input.qty : undefined,
+    confirmedGarmentQty: input.actionType === '复检' ? acceptedQty : undefined,
+    qcResult: input.actionType === '质检' ? (defectiveQty > 0 ? '有不合格成衣，待平台处理' : '质检通过') : undefined,
+    skipReason: input.skipReason,
+    evidenceUrls: [],
+    remark: input.skipReason || `${input.actionType}记录按成衣件数回写`,
   }
 }
 
 function buildOrder(index: number, status: string, routeMode: PostFinishingRouteMode): PostFinishingWorkOrder {
-  const isDedicated = routeMode === '专门后道工厂'
+  const isPostDoneBySewingFactory = routeMode === '车缝厂已做后道'
   const postOrderId = `POST-WO-${pad(index)}`
   const postOrderNo = `HD-${new Date().getFullYear()}-${pad(index)}`
-  const currentFactoryId = isDedicated ? FULL_CAPABILITY_TEST_FACTORY_ID : 'ID-F024'
-  const currentFactoryName = FULL_CAPABILITY_TEST_FACTORY_NAME
-  const managedPostFactoryId = FULL_CAPABILITY_TEST_FACTORY_ID
-  const managedPostFactoryName = FULL_CAPABILITY_TEST_FACTORY_NAME
   const qty = 240 + (index % 9) * 20
+  const sourceSewingFactoryId = index % 2 === 0 ? FULL_CAPABILITY_SEWING_FACTORY_ID : 'ID-SEW-ALT'
+  const sourceSewingFactoryName = index % 2 === 0 ? FULL_CAPABILITY_SEWING_FACTORY_NAME : '泗水协作车缝工厂'
+  const receiveAction = buildAction({
+    index,
+    postOrderId,
+    postOrderNo,
+    actionType: '接收领料',
+    status: actionStatusFor(status, '接收领料', isPostDoneBySewingFactory),
+    factoryId: FULL_CAPABILITY_TEST_FACTORY_ID,
+    factoryName: FULL_CAPABILITY_TEST_FACTORY_NAME,
+    qty,
+  })
+  const qcAction = buildAction({
+    index,
+    postOrderId,
+    postOrderNo,
+    actionType: '质检',
+    status: actionStatusFor(status, '质检', isPostDoneBySewingFactory),
+    factoryId: FULL_CAPABILITY_TEST_FACTORY_ID,
+    factoryName: FULL_CAPABILITY_TEST_FACTORY_NAME,
+    qty: receiveAction.acceptedGarmentQty,
+  })
   const postAction = buildAction({
     index,
     postOrderId,
     postOrderNo,
     actionType: '后道',
-    status: status.includes('后道中') ? '后道中' : status.includes('待后道') ? '待后道' : '后道完成',
-    factoryId: currentFactoryId,
-    factoryName: currentFactoryName,
-    qty,
+    status: actionStatusFor(status, '后道', isPostDoneBySewingFactory),
+    factoryId: isPostDoneBySewingFactory ? sourceSewingFactoryId : FULL_CAPABILITY_TEST_FACTORY_ID,
+    factoryName: isPostDoneBySewingFactory ? sourceSewingFactoryName : FULL_CAPABILITY_TEST_FACTORY_NAME,
+    qty: qcAction.acceptedGarmentQty,
+    skipReason: isPostDoneBySewingFactory ? '后道已由车缝厂完成' : undefined,
   })
-  const qcAction = hasQc(status)
-    ? buildAction({
-        index,
-        postOrderId,
-        postOrderNo,
-        actionType: '质检',
-        status: status.includes('质检中') ? '质检中' : status.includes('待质检') ? '待质检' : '质检完成',
-        factoryId: managedPostFactoryId,
-        factoryName: managedPostFactoryName,
-        qty: postAction.acceptedGarmentQty,
-      })
-    : undefined
-  const recheckAction = hasRecheck(status)
-    ? buildAction({
-        index,
-        postOrderId,
-        postOrderNo,
-        actionType: '复检',
-        status: status.includes('复检中') ? '复检中' : status.includes('待复检') ? '待复检' : '复检完成',
-        factoryId: managedPostFactoryId,
-        factoryName: managedPostFactoryName,
-        qty: qcAction?.acceptedGarmentQty ?? postAction.acceptedGarmentQty,
-      })
-    : undefined
+  const recheckAction = buildAction({
+    index,
+    postOrderId,
+    postOrderNo,
+    actionType: '复检',
+    status: actionStatusFor(status, '复检', isPostDoneBySewingFactory),
+    factoryId: FULL_CAPABILITY_TEST_FACTORY_ID,
+    factoryName: FULL_CAPABILITY_TEST_FACTORY_NAME,
+    qty: isPostDoneBySewingFactory ? qcAction.acceptedGarmentQty : postAction.acceptedGarmentQty,
+  })
+  const hasHandover = ['复检完成', '待交出', '已交出', '已回写', '已完成', '有差异', '平台处理中'].includes(status)
+  const handoverQty = recheckAction.acceptedGarmentQty
+  const handedOverQty = ['已交出', '已回写', '已完成', '有差异', '平台处理中'].includes(status) ? handoverQty : 0
+  const receiveQty = status === '有差异' ? Math.max(handoverQty - 2, 0) : ['已回写', '已完成'].includes(status) ? handoverQty : 0
 
   return {
     postOrderId,
@@ -223,48 +350,96 @@ function buildOrder(index: number, status: string, routeMode: PostFinishingRoute
     sourceProductionOrderNo: `生产单-${pad(index)}`,
     sourceTaskId: `TASK-POST-${pad(index)}`,
     sourceTaskNo: `后道来源任务-${pad(index)}`,
-    currentFactoryId,
-    currentFactoryName,
-    managedPostFactoryId,
-    managedPostFactoryName,
+    sourceSewingTaskId: `SEW-TASK-${pad(index)}`,
+    sourceSewingTaskNo: `车缝任务-${pad(index)}`,
+    sourcePostTaskId: isPostDoneBySewingFactory ? `SEW-POST-${pad(index)}` : `POST-TASK-${pad(index)}`,
+    sourcePostTaskNo: isPostDoneBySewingFactory ? `车缝后道任务-${pad(index)}` : `后道任务-${pad(index)}`,
+    sourceSewingFactoryId,
+    sourceSewingFactoryName,
+    currentFactoryId: FULL_CAPABILITY_TEST_FACTORY_ID,
+    currentFactoryName: FULL_CAPABILITY_TEST_FACTORY_NAME,
+    managedPostFactoryId: FULL_CAPABILITY_TEST_FACTORY_ID,
+    managedPostFactoryName: FULL_CAPABILITY_TEST_FACTORY_NAME,
     styleNo: `HG-ST-${1000 + index}`,
     skuSummary: `成衣 SKU-${pad(index)} / 黑色 / M-L`,
     plannedGarmentQty: qty,
     plannedGarmentQtyUnit: '件',
     currentStatus: status,
+    isDedicatedPostFactory: true,
+    isPostDoneBySewingFactory,
+    requiresReceive: true,
+    requiresQc: true,
+    requiresPostFinishing: !isPostDoneBySewingFactory,
+    requiresRecheck: true,
+    requiresHandover: true,
+    receiveAction,
     postAction,
     qcAction,
     recheckAction,
+    handoverAction: hasHandover
+      ? {
+          waitHandoverWarehouseRecordId: `PFP-WH-${pad(index)}`,
+          handoverRecordId: handedOverQty > 0 ? `HDR-POST-${pad(index)}` : undefined,
+          handoverGarmentQty: handedOverQty,
+          receiveGarmentQty: receiveQty,
+          diffGarmentQty: Math.max(handedOverQty - receiveQty, 0),
+          qtyUnit: '件',
+          status,
+        }
+      : undefined,
     waitProcessWarehouseRecordId: `PFP-WP-${pad(index)}`,
-    waitHandoverWarehouseRecordId: hasHandover(status) ? `PFP-WH-${pad(index)}` : undefined,
-    handoverRecordId: ['已交出', '已回写', '数量差异'].includes(status) ? `HDR-POST-${pad(index)}` : undefined,
-    createdAt: `2026-04-${String(1 + (index % 20)).padStart(2, '0')} 08:30`,
-    updatedAt: `2026-04-${String(8 + (index % 12)).padStart(2, '0')} 18:00`,
+    waitHandoverWarehouseRecordId: hasHandover ? `PFP-WH-${pad(index)}` : undefined,
+    handoverRecordId: handedOverQty > 0 ? `HDR-POST-${pad(index)}` : undefined,
+    createdAt: dateFor(index, '08:30'),
+    updatedAt: dateFor(index, '18:00'),
   }
 }
 
-const dedicatedOrders = dedicatedStatuses.flatMap((status, statusIndex) =>
-  [0, 1, 2].map((offset) => buildOrder(statusIndex * 3 + offset + 1, status, '专门后道工厂')),
-)
+const dedicatedOrders = dedicatedStatuses.map((status, index) => buildOrder(index + 1, status, '专门后道工厂完整流程'))
+const sewingDoneOrders = sewingDoneStatuses.map((status, index) => buildOrder(101 + index, status, '车缝厂已做后道'))
+const postFinishingWorkOrders: PostFinishingWorkOrder[] = [...dedicatedOrders, ...sewingDoneOrders]
 
-const nonDedicatedOrders = nonDedicatedScenes.flatMap((status, sceneIndex) =>
-  [0, 1, 2].map((offset) => buildOrder(200 + sceneIndex * 3 + offset + 1, status, '非专门工厂含后道')),
-)
-
-const postFinishingWorkOrders: PostFinishingWorkOrder[] = [...dedicatedOrders, ...nonDedicatedOrders]
+const sewingFactoryPostTasks: SewingFactoryPostTask[] = sewingDoneOrders.flatMap((order, index) => {
+  const baseQty = order.plannedGarmentQty
+  return [
+    {
+      sewingTaskId: order.sourceSewingTaskId,
+      sewingTaskNo: order.sourceSewingTaskNo,
+      postTaskId: order.sourcePostTaskId,
+      postTaskNo: order.sourcePostTaskNo,
+      relatedPostOrderId: order.postOrderId,
+      relatedPostOrderNo: order.postOrderNo,
+      productionOrderNo: order.sourceProductionOrderNo,
+      sewingFactoryId: order.sourceSewingFactoryId,
+      sewingFactoryName: order.sourceSewingFactoryName,
+      managedPostFactoryId: order.managedPostFactoryId,
+      managedPostFactoryName: order.managedPostFactoryName,
+      plannedGarmentQty: baseQty,
+      completedSewingGarmentQty: baseQty,
+      completedPostGarmentQty: order.postAction.acceptedGarmentQty,
+      qtyUnit: '件',
+      status: ['待后道', '后道中', '后道完成', '待交后道工厂', '已交后道工厂'][index % 5] as SewingFactoryPostTask['status'],
+      needFactoryPostFinishing: true,
+      postFinishedAt: order.postAction.finishedAt,
+      handedToManagedPostFactoryAt: order.currentStatus !== '待接收领料' ? order.createdAt : undefined,
+    },
+  ]
+})
 
 const waitProcessWarehouseRecords: PostFinishingWaitProcessWarehouseRecord[] = postFinishingWorkOrders.map((order, index) => ({
   warehouseRecordId: order.waitProcessWarehouseRecordId,
   warehouseRecordNo: `HD-RK-${pad(index + 1)}`,
   postOrderId: order.postOrderId,
   postOrderNo: order.postOrderNo,
-  sourceFactoryId: order.currentFactoryId,
-  sourceFactoryName: order.currentFactoryName,
+  sourceFactoryId: order.sourceSewingFactoryId,
+  sourceFactoryName: order.sourceSewingFactoryName,
+  sourceSewingTaskNo: order.sourceSewingTaskNo,
+  postSourceLabel: getPostFinishingSourceLabel(order),
   postFactoryId: order.managedPostFactoryId,
   postFactoryName: order.managedPostFactoryName,
   productionOrderNo: order.sourceProductionOrderNo,
   skuSummary: order.skuSummary,
-  waitAction: resolveWaitAction(order.currentStatus),
+  waitAction: resolveWaitAction(order),
   inboundGarmentQty: order.plannedGarmentQty,
   inboundGarmentQtyUnit: '件',
   warehouseLocation: `HD-A-${(index % 8) + 1}`,
@@ -273,139 +448,137 @@ const waitProcessWarehouseRecords: PostFinishingWaitProcessWarehouseRecord[] = p
 }))
 
 const waitHandoverWarehouseRecords: PostFinishingWaitHandoverWarehouseRecord[] = postFinishingWorkOrders
-  .filter((order) => order.waitHandoverWarehouseRecordId && order.recheckAction)
-  .map((order, index) => {
-    const availableQty = order.recheckAction?.acceptedGarmentQty ?? order.plannedGarmentQty
-    const handedOver = order.currentStatus === '已交出' || order.currentStatus === '已回写' ? availableQty : 0
-    const writtenBack = order.currentStatus === '已回写' ? Math.max(availableQty - (index % 4 === 0 ? 2 : 0), 0) : 0
-    return {
-      handoverWarehouseRecordId: order.waitHandoverWarehouseRecordId || '',
-      handoverWarehouseRecordNo: `HD-CK-${pad(index + 1)}`,
-      postOrderId: order.postOrderId,
-      postOrderNo: order.postOrderNo,
-      recheckActionId: order.recheckAction?.actionId || '',
-      productionOrderNo: order.sourceProductionOrderNo,
-      postFactoryId: order.managedPostFactoryId,
-      postFactoryName: order.managedPostFactoryName,
-      availableHandoverGarmentQty: availableQty,
-      handedOverGarmentQty: handedOver,
-      writtenBackGarmentQty: writtenBack,
-      diffGarmentQty: Math.max(handedOver - writtenBack, 0),
-      qtyUnit: '件',
-      status: order.currentStatus,
-      createdAt: order.updatedAt,
-    }
-  })
+  .filter((order) => order.waitHandoverWarehouseRecordId)
+  .map((order, index) => ({
+    handoverWarehouseRecordId: order.waitHandoverWarehouseRecordId || '',
+    handoverWarehouseRecordNo: `HD-CK-${pad(index + 1)}`,
+    postOrderId: order.postOrderId,
+    postOrderNo: order.postOrderNo,
+    recheckActionId: order.recheckAction.actionId,
+    sourceSewingTaskNo: order.sourceSewingTaskNo,
+    postSourceLabel: getPostFinishingSourceLabel(order),
+    productionOrderNo: order.sourceProductionOrderNo,
+    postFactoryId: order.managedPostFactoryId,
+    postFactoryName: order.managedPostFactoryName,
+    availableHandoverGarmentQty: order.recheckAction.acceptedGarmentQty,
+    handedOverGarmentQty: order.handoverAction?.handoverGarmentQty ?? 0,
+    writtenBackGarmentQty: order.handoverAction?.receiveGarmentQty ?? 0,
+    diffGarmentQty: order.handoverAction?.diffGarmentQty ?? order.recheckAction.diffGarmentQty,
+    qtyUnit: '件',
+    status: order.currentStatus === '复检完成' ? '待交出' : order.currentStatus,
+    createdAt: order.updatedAt,
+  }))
 
 function nowTimestamp(date: Date = new Date()): string {
   return date.toISOString().replace('T', ' ').slice(0, 19)
 }
 
 function cloneActionRecord(record: PostFinishingActionRecord): PostFinishingActionRecord {
-  return { ...record }
+  return { ...record, evidenceUrls: [...(record.evidenceUrls || [])] }
 }
 
 function cloneWorkOrder(order: PostFinishingWorkOrder): PostFinishingWorkOrder {
   return {
     ...order,
+    receiveAction: cloneActionRecord(order.receiveAction),
     postAction: cloneActionRecord(order.postAction),
-    qcAction: order.qcAction ? cloneActionRecord(order.qcAction) : undefined,
-    recheckAction: order.recheckAction ? cloneActionRecord(order.recheckAction) : undefined,
+    qcAction: cloneActionRecord(order.qcAction),
+    recheckAction: cloneActionRecord(order.recheckAction),
+    handoverAction: order.handoverAction ? { ...order.handoverAction } : undefined,
   }
 }
 
 function getMutablePostFinishingWorkOrder(postOrderId: string): PostFinishingWorkOrder {
   const order = postFinishingWorkOrders.find((item) => item.postOrderId === postOrderId)
-  if (!order) {
-    throw new Error(`未找到后道单：${postOrderId}`)
-  }
+  if (!order) throw new Error(`未找到后道单：${postOrderId}`)
   return order
 }
 
-function getOrderIndex(order: PostFinishingWorkOrder): number {
-  const matched = order.postOrderId.match(/(\d+)$/)
-  return matched ? Number(matched[1]) : postFinishingWorkOrders.findIndex((item) => item.postOrderId === order.postOrderId) + 1
+function resolveWaitAction(order: PostFinishingWorkOrder): PostFinishingWaitProcessWarehouseRecord['waitAction'] {
+  if (order.currentStatus.includes('接收')) return '接收领料'
+  if (order.currentStatus.includes('质检')) return '质检'
+  if (!order.isPostDoneBySewingFactory && order.currentStatus.includes('后道')) return '后道'
+  if (order.currentStatus.includes('复检')) return '复检'
+  if (order.currentStatus === '待交出' || order.currentStatus.includes('已')) return '复检'
+  return '接收领料'
 }
 
-function getAction(order: PostFinishingWorkOrder, actionType: PostFinishingActionType): PostFinishingActionRecord | undefined {
+function getAction(order: PostFinishingWorkOrder, actionType: PostFinishingActionType): PostFinishingActionRecord {
+  if (actionType === '接收领料') return order.receiveAction
   if (actionType === '后道') return order.postAction
   if (actionType === '质检') return order.qcAction
   return order.recheckAction
 }
 
-function setAction(order: PostFinishingWorkOrder, action: PostFinishingActionRecord): void {
-  if (action.actionType === '后道') order.postAction = action
-  else if (action.actionType === '质检') order.qcAction = action
-  else order.recheckAction = action
-}
-
-function ensureActionRecord(
-  order: PostFinishingWorkOrder,
-  actionType: PostFinishingActionType,
-  status: string,
-): PostFinishingActionRecord {
-  const current = getAction(order, actionType)
-  if (current) return current
-
-  const factoryId = actionType === '后道' ? order.currentFactoryId : order.managedPostFactoryId
-  const factoryName = actionType === '后道' ? order.currentFactoryName : order.managedPostFactoryName
-  const qty =
-    actionType === '后道'
-      ? order.plannedGarmentQty
-      : actionType === '质检'
-        ? order.postAction.acceptedGarmentQty
-        : order.qcAction?.acceptedGarmentQty ?? order.postAction.acceptedGarmentQty
-  const created = buildAction({
-    index: getOrderIndex(order),
-    postOrderId: order.postOrderId,
-    postOrderNo: order.postOrderNo,
-    actionType,
-    status,
-    factoryId,
-    factoryName,
-    qty,
-  })
-  setAction(order, created)
-  return created
-}
-
 function getStartedStatus(actionType: PostFinishingActionType): string {
+  if (actionType === '接收领料') return '接收中'
   if (actionType === '后道') return '后道中'
   if (actionType === '质检') return '质检中'
   return '复检中'
 }
 
 function getWaitStatus(actionType: PostFinishingActionType): string {
+  if (actionType === '接收领料') return '待接收领料'
   if (actionType === '后道') return '待后道'
   if (actionType === '质检') return '待质检'
   return '待复检'
 }
 
 function getDoneStatus(actionType: PostFinishingActionType): string {
+  if (actionType === '接收领料') return '已接收'
   if (actionType === '后道') return '后道完成'
   if (actionType === '质检') return '质检完成'
   return '复检完成'
 }
 
-function updateWaitProcessRecord(order: PostFinishingWorkOrder, waitAction: PostFinishingActionType, status = order.currentStatus): void {
+function updateActionQty(action: PostFinishingActionRecord, submittedQty: number, acceptedQty: number, rejectedQty: number, diffQty: number, remark?: string): void {
+  action.submittedGarmentQty = submittedQty
+  action.acceptedGarmentQty = acceptedQty
+  action.rejectedGarmentQty = rejectedQty
+  action.diffGarmentQty = diffQty
+  if (action.actionType === '接收领料') action.receivedGarmentQty = acceptedQty
+  if (action.actionType === '质检') {
+    action.inspectedGarmentQty = submittedQty
+    action.passedGarmentQty = acceptedQty
+    action.defectiveGarmentQty = rejectedQty
+    action.qcResult = rejectedQty > 0 ? '有不合格成衣，待平台处理' : '质检通过'
+  }
+  if (action.actionType === '后道') action.completedPostGarmentQty = acceptedQty
+  if (action.actionType === '复检') {
+    action.recheckedGarmentQty = submittedQty
+    action.confirmedGarmentQty = acceptedQty
+  }
+  action.remark = remark || `${action.actionType}完成，按成衣件数回写`
+}
+
+function updateWaitProcessRecord(order: PostFinishingWorkOrder): void {
   const record = waitProcessWarehouseRecords.find((item) => item.warehouseRecordId === order.waitProcessWarehouseRecordId)
   if (!record) return
-  record.waitAction = waitAction
-  record.status = status
+  record.waitAction = resolveWaitAction(order)
+  record.status = order.currentStatus
   record.inboundGarmentQty = order.plannedGarmentQty
-  record.sourceFactoryId = order.currentFactoryId
-  record.sourceFactoryName = order.currentFactoryName
   record.postFactoryId = order.managedPostFactoryId
   record.postFactoryName = order.managedPostFactoryName
 }
 
 function assertPostActionAllowed(order: PostFinishingWorkOrder, actionType: PostFinishingActionType): void {
-  if (actionType === '后道') return
-  if (order.routeMode !== '非专门工厂含后道') return
-  const managedFactoryStage = ['已交后道工厂', '后道工厂待质检', '待质检', '质检中', '质检完成', '待复检', '复检中', '复检完成', '待交出', '已交出', '已回写'].includes(order.currentStatus)
-  if (!managedFactoryStage) {
-    throw new Error('非专门工厂只能执行后道，质检和复检必须由后道工厂执行')
+  if (actionType === '后道' && order.isPostDoneBySewingFactory) {
+    throw new Error('后道已由车缝厂完成，后道工厂不再执行后道动作')
   }
+}
+
+function applyNextStatusAfterFinish(order: PostFinishingWorkOrder, actionType: PostFinishingActionType): void {
+  if (actionType === '接收领料') {
+    order.currentStatus = '待质检'
+  } else if (actionType === '质检') {
+    order.currentStatus = order.isPostDoneBySewingFactory ? '待复检' : '待后道'
+  } else if (actionType === '后道') {
+    order.currentStatus = '待复检'
+  } else {
+    order.currentStatus = '待交出'
+    ensurePostFinishingHandoverWarehouseRecord({ postOrderId: order.postOrderId })
+  }
+  updateWaitProcessRecord(order)
 }
 
 export function getPostFinishingWorkOrderById(postOrderId: string): PostFinishingWorkOrder | undefined {
@@ -414,8 +587,48 @@ export function getPostFinishingWorkOrderById(postOrderId: string): PostFinishin
 }
 
 export function getPostFinishingWorkOrderBySourceTaskId(sourceTaskId: string): PostFinishingWorkOrder | undefined {
-  const order = postFinishingWorkOrders.find((item) => item.sourceTaskId === sourceTaskId || item.sourceTaskNo === sourceTaskId)
+  const order = postFinishingWorkOrders.find((item) =>
+    item.sourceTaskId === sourceTaskId
+    || item.sourceTaskNo === sourceTaskId
+    || item.sourcePostTaskId === sourceTaskId
+    || item.sourcePostTaskNo === sourceTaskId,
+  )
   return order ? cloneWorkOrder(order) : undefined
+}
+
+export function getSewingFactoryPostTaskById(taskId: string): SewingFactoryPostTask | undefined {
+  const task = sewingFactoryPostTasks.find((item) => item.sewingTaskId === taskId || item.postTaskId === taskId)
+  return task ? { ...task } : undefined
+}
+
+function getMutableSewingFactoryPostTask(taskId: string): SewingFactoryPostTask {
+  const task = sewingFactoryPostTasks.find((item) => item.sewingTaskId === taskId || item.postTaskId === taskId)
+  if (!task) throw new Error(`未找到车缝后道任务：${taskId}`)
+  return task
+}
+
+export function startSewingFactoryPostTask(taskId: string): SewingFactoryPostTask {
+  const task = getMutableSewingFactoryPostTask(taskId)
+  if (task.status !== '待后道') throw new Error('当前车缝后道任务不能开始后道')
+  task.status = '后道中'
+  return { ...task }
+}
+
+export function finishSewingFactoryPostTask(taskId: string, completedQty?: number): SewingFactoryPostTask {
+  const task = getMutableSewingFactoryPostTask(taskId)
+  if (task.status !== '后道中') throw new Error('当前车缝后道任务不能完成后道')
+  task.status = '后道完成'
+  task.completedPostGarmentQty = completedQty || task.plannedGarmentQty
+  task.postFinishedAt = nowTimestamp()
+  return { ...task }
+}
+
+export function transferSewingFactoryPostTaskToManagedFactory(taskId: string): SewingFactoryPostTask {
+  const task = getMutableSewingFactoryPostTask(taskId)
+  if (task.status !== '后道完成' && task.status !== '待交后道工厂') throw new Error('当前车缝后道任务不能交给后道工厂')
+  task.status = '已交后道工厂'
+  task.handedToManagedPostFactoryAt = nowTimestamp()
+  return { ...task }
 }
 
 export function applyPostFinishingActionStart(input: {
@@ -427,13 +640,13 @@ export function applyPostFinishingActionStart(input: {
   const order = getMutablePostFinishingWorkOrder(input.postOrderId)
   assertPostActionAllowed(order, input.actionType)
   const now = input.startedAt || nowTimestamp()
-  const action = ensureActionRecord(order, input.actionType, getWaitStatus(input.actionType))
+  const action = getAction(order, input.actionType)
   action.status = getStartedStatus(input.actionType)
   action.startedAt = action.startedAt || now
   action.operatorName = input.operatorName
   order.currentStatus = getStartedStatus(input.actionType)
   order.updatedAt = now
-  updateWaitProcessRecord(order, input.actionType, order.currentStatus)
+  updateWaitProcessRecord(order)
   return cloneWorkOrder(order)
 }
 
@@ -451,7 +664,7 @@ export function applyPostFinishingActionFinish(input: {
   const order = getMutablePostFinishingWorkOrder(input.postOrderId)
   assertPostActionAllowed(order, input.actionType)
   const now = input.finishedAt || nowTimestamp()
-  const action = ensureActionRecord(order, input.actionType, getStartedStatus(input.actionType))
+  const action = getAction(order, input.actionType)
   const submittedQty = input.submittedGarmentQty ?? action.submittedGarmentQty ?? order.plannedGarmentQty
   const rejectedQty = input.rejectedGarmentQty ?? action.rejectedGarmentQty ?? 0
   const diffQty = input.diffGarmentQty ?? action.diffGarmentQty ?? 0
@@ -461,33 +674,8 @@ export function applyPostFinishingActionFinish(input: {
   action.startedAt = action.startedAt || now
   action.finishedAt = now
   action.operatorName = input.operatorName
-  action.submittedGarmentQty = submittedQty
-  action.acceptedGarmentQty = acceptedQty
-  action.rejectedGarmentQty = rejectedQty
-  action.diffGarmentQty = diffQty
-  action.remark = input.remark || `${input.actionType}完成，按成衣件数回写`
-
-  if (input.actionType === '后道') {
-    if (order.routeMode === '非专门工厂含后道') {
-      order.currentStatus = '待交后道工厂'
-      updateWaitProcessRecord(order, '后道', order.currentStatus)
-    } else {
-      order.currentStatus = '待质检'
-      ensureActionRecord(order, '质检', '待质检').status = '待质检'
-      updateWaitProcessRecord(order, '质检', order.currentStatus)
-    }
-  } else if (input.actionType === '质检') {
-    order.currentStatus = '待复检'
-    ensureActionRecord(order, '复检', '待复检').status = '待复检'
-    updateWaitProcessRecord(order, '复检', order.currentStatus)
-  } else {
-    order.currentStatus = '待交出'
-    ensurePostFinishingHandoverWarehouseRecord({
-      postOrderId: order.postOrderId,
-      createdAt: now,
-    })
-  }
-
+  updateActionQty(action, submittedQty, acceptedQty, rejectedQty, diffQty, input.remark)
+  applyNextStatusAfterFinish(order, input.actionType)
   order.updatedAt = now
   return cloneWorkOrder(order)
 }
@@ -499,14 +687,16 @@ export function transferPostFinishingToManagedFactory(input: {
   remark?: string
 }): PostFinishingWorkOrder {
   const order = getMutablePostFinishingWorkOrder(input.postOrderId)
-  if (order.routeMode !== '非专门工厂含后道') {
-    throw new Error('专门后道工厂任务不需要转交后道工厂')
+  if (!order.isPostDoneBySewingFactory) {
+    throw new Error('专门后道工厂完整流程不需要车缝厂转交')
   }
   const now = input.transferredAt || nowTimestamp()
-  order.currentStatus = '已交后道工厂'
+  order.currentStatus = '待接收领料'
   order.updatedAt = now
-  order.postAction.remark = input.remark || '非专门工厂完成后道后交给后道工厂'
-  updateWaitProcessRecord(order, '质检', order.currentStatus)
+  order.postAction.status = '跳过后道'
+  order.postAction.skipReason = '后道已由车缝厂完成'
+  order.postAction.remark = input.remark || '车缝厂完成后道后交给后道工厂接收领料'
+  updateWaitProcessRecord(order)
   return cloneWorkOrder(order)
 }
 
@@ -515,16 +705,12 @@ export function receivePostFinishingAtManagedFactory(input: {
   operatorName: string
   receivedAt?: string
 }): PostFinishingWorkOrder {
-  const order = getMutablePostFinishingWorkOrder(input.postOrderId)
-  if (order.routeMode !== '非专门工厂含后道') {
-    throw new Error('专门后道工厂任务已在本厂处理')
-  }
-  const now = input.receivedAt || nowTimestamp()
-  order.currentStatus = '后道工厂待质检'
-  ensureActionRecord(order, '质检', '待质检').status = '待质检'
-  order.updatedAt = now
-  updateWaitProcessRecord(order, '质检', order.currentStatus)
-  return cloneWorkOrder(order)
+  return applyPostFinishingActionFinish({
+    postOrderId: input.postOrderId,
+    actionType: '接收领料',
+    operatorName: input.operatorName,
+    finishedAt: input.receivedAt,
+  })
 }
 
 export function ensurePostFinishingHandoverWarehouseRecord(input: {
@@ -532,17 +718,18 @@ export function ensurePostFinishingHandoverWarehouseRecord(input: {
   createdAt?: string
 }): PostFinishingWaitHandoverWarehouseRecord {
   const order = getMutablePostFinishingWorkOrder(input.postOrderId)
-  const recheckAction = ensureActionRecord(order, '复检', '复检完成')
+  if (order.recheckAction.status !== '复检完成' && order.currentStatus !== '待交出') {
+    throw new Error('后道交出仓只能由复检完成后生成')
+  }
   const existed = order.waitHandoverWarehouseRecordId
     ? waitHandoverWarehouseRecords.find((record) => record.handoverWarehouseRecordId === order.waitHandoverWarehouseRecordId)
     : undefined
   if (existed) {
-    existed.availableHandoverGarmentQty = recheckAction.acceptedGarmentQty
-    existed.diffGarmentQty = recheckAction.diffGarmentQty
+    existed.availableHandoverGarmentQty = order.recheckAction.acceptedGarmentQty
+    existed.diffGarmentQty = order.recheckAction.diffGarmentQty
     existed.status = order.currentStatus === '复检完成' ? '待交出' : order.currentStatus
     return { ...existed }
   }
-
   const now = input.createdAt || nowTimestamp()
   const id = `PFP-WH-${order.postOrderId.replace(/[^A-Za-z0-9]/g, '').slice(-8)}`
   const created: PostFinishingWaitHandoverWarehouseRecord = {
@@ -550,14 +737,16 @@ export function ensurePostFinishingHandoverWarehouseRecord(input: {
     handoverWarehouseRecordNo: `HD-CK-${pad(waitHandoverWarehouseRecords.length + 1)}`,
     postOrderId: order.postOrderId,
     postOrderNo: order.postOrderNo,
-    recheckActionId: recheckAction.actionId,
+    recheckActionId: order.recheckAction.actionId,
+    sourceSewingTaskNo: order.sourceSewingTaskNo,
+    postSourceLabel: getPostFinishingSourceLabel(order),
     productionOrderNo: order.sourceProductionOrderNo,
     postFactoryId: order.managedPostFactoryId,
     postFactoryName: order.managedPostFactoryName,
-    availableHandoverGarmentQty: recheckAction.acceptedGarmentQty,
+    availableHandoverGarmentQty: order.recheckAction.acceptedGarmentQty,
     handedOverGarmentQty: 0,
     writtenBackGarmentQty: 0,
-    diffGarmentQty: recheckAction.diffGarmentQty,
+    diffGarmentQty: order.recheckAction.diffGarmentQty,
     qtyUnit: '件',
     status: '待交出',
     createdAt: now,
@@ -566,6 +755,14 @@ export function ensurePostFinishingHandoverWarehouseRecord(input: {
   order.waitHandoverWarehouseRecordId = id
   order.currentStatus = '待交出'
   order.updatedAt = now
+  order.handoverAction = {
+    waitHandoverWarehouseRecordId: id,
+    handoverGarmentQty: 0,
+    receiveGarmentQty: 0,
+    diffGarmentQty: order.recheckAction.diffGarmentQty,
+    qtyUnit: '件',
+    status: '待交出',
+  }
   return { ...created }
 }
 
@@ -584,7 +781,16 @@ export function submitPostFinishingHandoverRecord(input: {
     mutableRecord.handedOverGarmentQty = input.submittedGarmentQty ?? mutableRecord.availableHandoverGarmentQty
     mutableRecord.writtenBackGarmentQty = input.writtenBackGarmentQty ?? mutableRecord.handedOverGarmentQty
     mutableRecord.diffGarmentQty = mutableRecord.handedOverGarmentQty - mutableRecord.writtenBackGarmentQty
-    mutableRecord.status = mutableRecord.diffGarmentQty === 0 ? '已回写' : '数量差异'
+    mutableRecord.status = mutableRecord.diffGarmentQty === 0 ? '已回写' : '有差异'
+    order.handoverAction = {
+      waitHandoverWarehouseRecordId: mutableRecord.handoverWarehouseRecordId,
+      handoverRecordId: `HDR-POST-${order.postOrderId.replace(/[^A-Za-z0-9]/g, '').slice(-8)}`,
+      handoverGarmentQty: mutableRecord.handedOverGarmentQty,
+      receiveGarmentQty: mutableRecord.writtenBackGarmentQty,
+      diffGarmentQty: mutableRecord.diffGarmentQty,
+      qtyUnit: '件',
+      status: mutableRecord.status,
+    }
   }
   order.handoverRecordId = `HDR-POST-${order.postOrderId.replace(/[^A-Za-z0-9]/g, '').slice(-8)}`
   order.currentStatus = mutableRecord?.status || '已交出'
@@ -597,7 +803,7 @@ export function listPostFinishingWorkOrders(): PostFinishingWorkOrder[] {
 }
 
 export function listPostFinishingActionRecords(actionType?: PostFinishingActionType): PostFinishingActionRecord[] {
-  const records = postFinishingWorkOrders.flatMap((order) => [order.postAction, order.qcAction, order.recheckAction].filter(Boolean) as PostFinishingActionRecord[])
+  const records = postFinishingWorkOrders.flatMap((order) => [order.receiveAction, order.qcAction, order.postAction, order.recheckAction])
   const filtered = actionType ? records.filter((record) => record.actionType === actionType) : records
   return filtered.map((record) => cloneActionRecord(record))
 }
@@ -608,6 +814,14 @@ export function listPostFinishingQcOrders(): PostFinishingActionRecord[] {
 
 export function listPostFinishingRecheckOrders(): PostFinishingActionRecord[] {
   return listPostFinishingActionRecords('复检')
+}
+
+export function listPostFinishingReceiveOrders(): PostFinishingActionRecord[] {
+  return listPostFinishingActionRecords('接收领料')
+}
+
+export function listSewingFactoryPostTasks(): SewingFactoryPostTask[] {
+  return sewingFactoryPostTasks.map((task) => ({ ...task }))
 }
 
 export function listPostFinishingWaitProcessWarehouseRecords(): PostFinishingWaitProcessWarehouseRecord[] {
@@ -624,12 +838,13 @@ export function getPostFinishingSummary() {
   const waitHandover = listPostFinishingWaitHandoverWarehouseRecords()
   return {
     total: orders.length,
+    waitReceiveQty: waitProcess.filter((record) => record.waitAction === '接收领料').reduce((sum, record) => sum + record.inboundGarmentQty, 0),
     waitPostQty: waitProcess.filter((record) => record.waitAction === '后道').reduce((sum, record) => sum + record.inboundGarmentQty, 0),
     waitQcQty: waitProcess.filter((record) => record.waitAction === '质检').reduce((sum, record) => sum + record.inboundGarmentQty, 0),
     waitRecheckQty: waitProcess.filter((record) => record.waitAction === '复检').reduce((sum, record) => sum + record.inboundGarmentQty, 0),
     waitHandoverQty: waitHandover.reduce((sum, record) => sum + record.availableHandoverGarmentQty, 0),
     diffQty: waitHandover.reduce((sum, record) => sum + record.diffGarmentQty, 0),
-    dedicatedCount: orders.filter((order) => order.routeMode === '专门后道工厂').length,
-    transferInCount: orders.filter((order) => order.routeMode === '非专门工厂含后道').length,
+    dedicatedCount: orders.filter((order) => order.routeMode === '专门后道工厂完整流程').length,
+    sewingDoneCount: orders.filter((order) => order.routeMode === '车缝厂已做后道').length,
   }
 }

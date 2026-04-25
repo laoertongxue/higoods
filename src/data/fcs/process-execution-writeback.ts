@@ -756,7 +756,7 @@ export function finishPostFinishingAction(postOrderId: string, actionType: PostF
       inboundAt: payload.operatedAt || nowTimestamp(),
       remark: '移动端复检完成后生成后道交出仓记录',
     })
-  } else if (actionType === '后道' && order.routeMode === '非专门工厂含后道') {
+  } else if (actionType === '后道' && order.isPostDoneBySewingFactory) {
     createWaitProcessWarehouseRecord({
       craftType: 'POST_FINISHING',
       craftName: '后道',
@@ -779,10 +779,10 @@ export function finishPostFinishingAction(postOrderId: string, actionType: PostF
       receivedObjectQty: payload.acceptedGarmentQty ?? payload.submittedGarmentQty ?? order.plannedGarmentQty,
       availableObjectQty: payload.acceptedGarmentQty ?? payload.submittedGarmentQty ?? order.plannedGarmentQty,
       qtyUnit: '件',
-      currentActionName: '待质检',
+      currentActionName: '待接收领料',
       status: '已入仓',
       inboundAt: payload.operatedAt || nowTimestamp(),
-      remark: '非专门工厂完成后道后转入后道工厂质检',
+      remark: '车缝厂完成后道后转入后道工厂接收领料',
     })
   }
   return order

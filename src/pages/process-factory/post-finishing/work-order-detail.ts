@@ -2,7 +2,12 @@ import {
   getHandoverRecordsByWorkOrderId,
   getWarehouseRecordsByWorkOrderId,
 } from '../../../data/fcs/process-warehouse-domain.ts'
-import { getPostFinishingWorkOrderById, type PostFinishingActionRecord } from '../../../data/fcs/post-finishing-domain.ts'
+import {
+  getPostFinishingFlowText,
+  getPostFinishingSourceLabel,
+  getPostFinishingWorkOrderById,
+  type PostFinishingActionRecord,
+} from '../../../data/fcs/post-finishing-domain.ts'
 import { escapeHtml } from '../../../utils.ts'
 import {
   formatGarmentQty,
@@ -13,14 +18,14 @@ import {
   renderPostTable,
 } from './shared.ts'
 
-type PostFinishingDetailTab = 'base' | 'post' | 'qc' | 'recheck' | 'warehouse' | 'handover' | 'events'
+type PostFinishingDetailTab = 'base' | 'receive' | 'qc' | 'post' | 'recheck' | 'handover' | 'events'
 
 const DETAIL_TABS: Array<{ key: PostFinishingDetailTab; label: string }> = [
   { key: 'base', label: '基本信息' },
-  { key: 'post', label: '后道记录' },
+  { key: 'receive', label: '接收领料' },
   { key: 'qc', label: '质检记录' },
+  { key: 'post', label: '后道记录' },
   { key: 'recheck', label: '复检记录' },
-  { key: 'warehouse', label: '待加工仓' },
   { key: 'handover', label: '交出记录' },
   { key: 'events', label: '流转记录' },
 ]
@@ -110,28 +115,58 @@ export function renderPostFinishingWorkOrderDetailPage(postOrderId: string): str
   const waitProcessRecords = warehouseRecords.filter((record) => record.recordType === 'WAIT_PROCESS')
   const waitHandoverRecords = warehouseRecords.filter((record) => record.recordType === 'WAIT_HANDOVER')
   const handoverRecords = getHandoverRecordsByWorkOrderId(order.postOrderId)
-  const actionRecords = [order.postAction, order.qcAction, order.recheckAction].filter(Boolean) as PostFinishingActionRecord[]
+  const actionRecords = [order.receiveAction, order.qcAction, order.postAction, order.recheckAction].filter(Boolean) as PostFinishingActionRecord[]
 
   const baseRows: Array<[string, string]> = [
     ['后道单号', order.postOrderNo],
     ['生产单', order.sourceProductionOrderNo],
     ['来源任务', order.sourceTaskNo],
+    ['来源车缝任务', order.sourceSewingTaskNo],
     ['当前工厂', order.currentFactoryName],
-    ['是否专门后道工厂', order.routeMode],
+    ['后道来源', getPostFinishingSourceLabel(order)],
+    ['当前流程', getPostFinishingFlowText(order)],
+    ['是否专门后道工厂', order.isDedicatedPostFactory ? '是' : '否'],
+    ['后道是否已由车缝厂完成', order.isPostDoneBySewingFactory ? '是' : '否'],
     ['计划成衣件数', formatGarmentQty(order.plannedGarmentQty, order.plannedGarmentQtyUnit)],
-    ['已完成后道成衣件数', formatGarmentQty(order.postAction.acceptedGarmentQty, order.postAction.qtyUnit)],
     ['当前状态', order.currentStatus],
-    ['是否需要质检', order.qcAction ? '需要' : '待后道完成后进入后道工厂'],
-    ['是否需要复检', order.recheckAction ? '需要' : '待质检完成后进入复检'],
   ]
 
   const tabBody = (() => {
     if (activeTab === 'base') {
       return renderPostSection('基本信息', renderInfoGrid(baseRows))
     }
+    if (activeTab === 'receive') {
+      return renderPostSection('接收领料', renderPostTable(
+        ['记录号', '动作', '接收领料状态', '开始时间', '接收时间', '接收人', '接收成衣件数', '接收差异成衣件数', '凭证', '备注'],
+        `
+          <tr class="align-top">
+            <td class="px-3 py-3 font-mono text-xs">${escapeHtml(order.receiveAction.actionId)}</td>
+            <td class="px-3 py-3 text-sm">接收领料</td>
+            <td class="px-3 py-3">${renderPostStatusBadge(order.receiveAction.status)}</td>
+            <td class="px-3 py-3 text-sm">${escapeHtml(order.receiveAction.startedAt || '—')}</td>
+            <td class="px-3 py-3 text-sm">${escapeHtml(order.receiveAction.finishedAt || '—')}</td>
+            <td class="px-3 py-3 text-sm">${escapeHtml(order.receiveAction.operatorName || '—')}</td>
+            <td class="px-3 py-3 text-sm">${formatGarmentQty(order.receiveAction.receivedGarmentQty ?? order.receiveAction.acceptedGarmentQty, order.receiveAction.qtyUnit)}</td>
+            <td class="px-3 py-3 text-sm">${formatGarmentQty(order.receiveAction.diffGarmentQty, order.receiveAction.qtyUnit)}</td>
+            <td class="px-3 py-3 text-sm">${escapeHtml((order.receiveAction.evidenceUrls || []).join('、') || '—')}</td>
+            <td class="px-3 py-3 text-sm">${escapeHtml(order.receiveAction.remark || '—')}</td>
+          </tr>
+        `,
+        'min-w-[1160px]',
+      ))
+    }
     if (activeTab === 'post') {
+      if (order.isPostDoneBySewingFactory) {
+        return renderPostSection('后道记录', renderInfoGrid([
+          ['后道状态', '后道已由车缝厂完成'],
+          ['车缝工厂', order.sourceSewingFactoryName],
+          ['车缝任务号', order.sourceSewingTaskNo],
+          ['车缝厂后道完成成衣件数', formatGarmentQty(order.postAction.completedPostGarmentQty ?? order.postAction.acceptedGarmentQty, order.postAction.qtyUnit)],
+          ['说明', order.postAction.skipReason || '后道工厂只做接收领料、质检、复检和交出'],
+        ]))
+      }
       return renderPostSection('后道记录', renderPostTable(
-        ['记录号', '动作', '状态', '开始时间', '完成时间', '操作人', '提交成衣件数', '确认成衣件数', '不合格成衣件数', '差异成衣件数', '备注'],
+        ['记录号', '动作', '后道状态', '开始时间', '完成时间', '后道操作人', '后道完成成衣件数', '确认成衣件数', '不合格成衣件数', '差异成衣件数', '备注'],
         renderActionRows([order.postAction]),
         'min-w-[1260px]',
       ))
@@ -148,25 +183,6 @@ export function renderPostFinishingWorkOrderDetailPage(postOrderId: string): str
         ['记录号', '动作', '状态', '开始时间', '完成时间', '复检人', '质检通过成衣件数', '复检确认成衣件数', '不合格成衣件数', '差异成衣件数', '备注'],
         order.recheckAction ? renderActionRows([order.recheckAction]) : renderEmptyRow(11, '当前后道单尚未生成复检记录'),
         'min-w-[1260px]',
-      ))
-    }
-    if (activeTab === 'warehouse') {
-      const rows = waitProcessRecords.map((record) => `
-        <tr class="align-top">
-          <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.warehouseRecordNo)}</td>
-          <td class="px-3 py-3 text-sm">${escapeHtml(record.currentActionName)}</td>
-          <td class="px-3 py-3 text-sm">${escapeHtml(record.sourceFactoryName)}</td>
-          <td class="px-3 py-3 text-sm">${escapeHtml(record.targetFactoryName)}</td>
-          <td class="px-3 py-3 text-sm">${formatGarmentQty(record.availableObjectQty || record.receivedObjectQty, record.qtyUnit)}</td>
-          <td class="px-3 py-3 text-sm">${escapeHtml(record.warehouseLocation)}</td>
-          <td class="px-3 py-3 text-sm">${escapeHtml(record.inboundAt || record.createdAt)}</td>
-          <td class="px-3 py-3">${renderPostStatusBadge(record.status)}</td>
-        </tr>
-      `).join('')
-      return renderPostSection('待加工仓', renderPostTable(
-        ['待加工仓记录号', '当前待处理动作', '来源工厂', '后道工厂', '待处理成衣件数', '仓内位置', '入仓时间', '状态'],
-        rows || renderEmptyRow(8, '当前后道单暂无待加工仓记录'),
-        'min-w-[1080px]',
       ))
     }
     if (activeTab === 'handover') {

@@ -4,7 +4,9 @@ import { type ProcessTask } from '../data/fcs/process-tasks'
 import { indonesiaFactories } from '../data/fcs/indonesia-factories'
 import {
   listPostFinishingWorkOrders,
+  listSewingFactoryPostTasks,
   type PostFinishingWorkOrder,
+  type SewingFactoryPostTask,
 } from '../data/fcs/post-finishing-domain'
 import {
   getTaskProcessDisplayName,
@@ -72,6 +74,12 @@ function mapPostFinishingStatusToTaskStatus(status: string): ProcessTask['status
   return 'NOT_STARTED'
 }
 
+function mapSewingFactoryPostTaskStatus(status: SewingFactoryPostTask['status']): ProcessTask['status'] {
+  if (status.includes('中')) return 'IN_PROGRESS'
+  if (status === '后道完成' || status === '已交后道工厂') return 'DONE'
+  return 'NOT_STARTED'
+}
+
 function mapPostFinishingOrderToTask(order: PostFinishingWorkOrder, seq: number): ProcessTask {
   return {
     taskId: order.sourceTaskId,
@@ -109,13 +117,53 @@ function mapPostFinishingOrderToTask(order: PostFinishingWorkOrder, seq: number)
   }
 }
 
+function mapSewingFactoryPostTaskToTask(task: SewingFactoryPostTask, seq: number): ProcessTask {
+  return {
+    taskId: task.postTaskId,
+    taskNo: task.relatedPostOrderNo || task.postTaskNo,
+    productionOrderId: task.productionOrderNo,
+    seq,
+    processCode: 'SEWING_POST',
+    processNameZh: '车缝后道',
+    stage: 'POST',
+    qty: task.plannedGarmentQty,
+    qtyUnit: 'PIECE',
+    assignmentMode: 'DIRECT',
+    assignmentStatus: 'ASSIGNED',
+    ownerSuggestion: {
+      kind: 'RECOMMENDED_FACTORY_POOL',
+      recommendedTypes: ['SEWING'],
+    },
+    assignedFactoryId: task.sewingFactoryId,
+    assignedFactoryName: task.sewingFactoryName,
+    qcPoints: [],
+    attachments: [],
+    status: mapSewingFactoryPostTaskStatus(task.status),
+    acceptanceStatus: 'ACCEPTED',
+    acceptedAt: task.postFinishedAt || '2026-04-01 08:30',
+    acceptedBy: task.sewingFactoryName,
+    dispatchedAt: task.postFinishedAt || '2026-04-01 08:30',
+    dispatchedBy: '系统',
+    dispatchRemark: '车缝工厂同时完成车缝与后道，完成后交给后道工厂质检和复检',
+    taskDeadline: task.handedToManagedPostFactoryAt || '2026-04-25 18:00',
+    receiverKind: 'MANAGED_POST_FACTORY',
+    receiverId: task.managedPostFactoryId,
+    receiverName: task.managedPostFactoryName,
+    handoverStatus: task.status === '已交后道工厂' ? 'WRITTEN_BACK' : 'NOT_CREATED',
+  }
+}
+
 function listTaskFacts(): ProcessTask[] {
   const baseTasks = listPdaTaskFlowTasks()
   const existingTaskIds = new Set(baseTasks.map((task) => task.taskId))
   const postTasks = listPostFinishingWorkOrders()
     .filter((order) => !existingTaskIds.has(order.sourceTaskId))
     .map((order, index) => mapPostFinishingOrderToTask(order, baseTasks.length + index + 1))
-  return [...baseTasks, ...postTasks]
+  const existingWithPost = new Set([...existingTaskIds, ...postTasks.map((task) => task.taskId)])
+  const sewingPostTasks = listSewingFactoryPostTasks()
+    .filter((task) => !existingWithPost.has(task.postTaskId))
+    .map((task, index) => mapSewingFactoryPostTaskToTask(task, baseTasks.length + postTasks.length + index + 1))
+  return [...baseTasks, ...postTasks, ...sewingPostTasks]
 }
 
 function getTaskFactById(taskId: string): ProcessTask | null {

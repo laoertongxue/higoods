@@ -14,6 +14,9 @@ export function renderPostFinishingStatisticsPage(): string {
       ${renderPostFinishingPageHeader('后道统计')}
       <section class="grid gap-3 md:grid-cols-4 xl:grid-cols-8">
         ${renderPostMetricCard('后道单总数', String(statistics.postOrderCount), '统一后道单')}
+        ${renderPostMetricCard('待接收领料任务数', String(statistics.waitReceiveTaskCount), '接收领料')}
+        ${renderPostMetricCard('已接收成衣件数', formatGarmentQty(statistics.receiveDoneGarmentQty), '接收领料')}
+        ${renderPostMetricCard('接收差异成衣件数', formatGarmentQty(statistics.receiveDiffGarmentQty), '接收领料')}
         ${renderPostMetricCard('待后道任务数', String(statistics.waitPostTaskCount), '状态分布')}
         ${renderPostMetricCard('后道中任务数', String(statistics.postDoingTaskCount), '状态分布')}
         ${renderPostMetricCard('后道完成任务数', String(statistics.postDoneTaskCount), '状态分布')}
@@ -45,6 +48,8 @@ export function renderPostFinishingStatisticsPage(): string {
         ${renderPostMetricCard('待回写交出记录数', String(statistics.waitWritebackHandoverCount), '统一交出记录')}
         ${renderPostMetricCard('已回写交出记录数', String(statistics.writtenBackHandoverCount), '统一交出记录')}
         ${renderPostMetricCard('专门后道工厂任务数', String(statistics.dedicatedTaskCount), '后道工厂直管')}
+        ${renderPostMetricCard('后道工厂执行后道任务数', String(statistics.postFactoryExecutedTaskCount), '流程来源')}
+        ${renderPostMetricCard('车缝厂已完成后道任务数', String(statistics.sewingFactoryPostDoneTaskCount), '流程来源')}
         ${renderPostMetricCard('专门后道工厂待质检成衣件数', formatGarmentQty(statistics.dedicatedWaitQcGarmentQty), '后道工厂直管')}
         ${renderPostMetricCard('专门后道工厂待复检成衣件数', formatGarmentQty(statistics.dedicatedWaitRecheckGarmentQty), '后道工厂直管')}
         ${renderPostMetricCard('非专门工厂已完成后道待交给后道工厂任务数', String(statistics.transferWaitManagedFactoryTaskCount), '车缝等工厂转入')}

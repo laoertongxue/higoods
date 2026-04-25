@@ -90,6 +90,17 @@ import {
 import type {
   PostFinishingActionType,
   PostFinishingWorkOrder,
+  SewingFactoryPostTask,
+} from '../data/fcs/post-finishing-domain.ts'
+import {
+  getPostFinishingFlowText,
+  getPostFinishingSourceLabel,
+  getSewingFactoryPostTaskById,
+  listPostFinishingWorkOrders,
+  listSewingFactoryPostTasks,
+  finishSewingFactoryPostTask,
+  startSewingFactoryPostTask,
+  transferSewingFactoryPostTaskToManagedFactory,
 } from '../data/fcs/post-finishing-domain.ts'
 import { renderPdaCuttingTaskDetailPage } from './pda-cutting-task-detail'
 import { renderPdaFrame } from './pda-shell'
@@ -139,8 +150,91 @@ const detailState: PdaExecDetailState = {
   specialCraftDamageQty: '0',
 }
 
+function mapPostFinishingStatusToTaskStatus(status: string): ProcessTask['status'] {
+  if (status.includes('差异')) return 'BLOCKED'
+  if (status.includes('中')) return 'IN_PROGRESS'
+  if (status.includes('已交出') || status.includes('已回写') || status.includes('已完成')) return 'DONE'
+  return 'NOT_STARTED'
+}
+
+function mapPostFinishingOrderToTask(order: PostFinishingWorkOrder, seq: number): ProcessTask {
+  return {
+    taskId: order.sourceTaskId,
+    taskNo: order.postOrderNo,
+    productionOrderId: order.sourceProductionOrderNo,
+    seq,
+    processCode: 'POST_FINISHING',
+    processNameZh: '后道',
+    stage: 'POST',
+    qty: order.plannedGarmentQty,
+    qtyUnit: 'PIECE',
+    assignmentMode: 'DIRECT',
+    assignmentStatus: 'ASSIGNED',
+    ownerSuggestion: { kind: 'RECOMMENDED_FACTORY_POOL', recommendedTypes: ['FINISHING'] },
+    assignedFactoryId: order.managedPostFactoryId,
+    assignedFactoryName: order.managedPostFactoryName,
+    qcPoints: [],
+    attachments: [],
+    status: mapPostFinishingStatusToTaskStatus(order.currentStatus),
+    acceptanceStatus: 'ACCEPTED',
+    acceptedAt: order.createdAt,
+    acceptedBy: order.managedPostFactoryName,
+    dispatchedAt: order.createdAt,
+    dispatchedBy: '系统',
+    dispatchRemark: '后道单同步到工厂端移动应用执行',
+    taskDeadline: order.updatedAt,
+    receiverKind: 'MANAGED_POST_FACTORY',
+    receiverId: order.managedPostFactoryId,
+    receiverName: order.managedPostFactoryName,
+    handoverStatus: order.handoverRecordId ? 'WRITTEN_BACK' : order.waitHandoverWarehouseRecordId ? 'OPEN' : 'NOT_CREATED',
+    handoverOrderId: order.handoverRecordId,
+  }
+}
+
+function mapSewingFactoryPostTaskToProcessTask(task: SewingFactoryPostTask, seq: number): ProcessTask {
+  return {
+    taskId: task.postTaskId,
+    taskNo: task.postTaskNo,
+    productionOrderId: task.productionOrderNo,
+    seq,
+    processCode: 'SEWING_POST',
+    processNameZh: '车缝后道',
+    stage: 'POST',
+    qty: task.plannedGarmentQty,
+    qtyUnit: 'PIECE',
+    assignmentMode: 'DIRECT',
+    assignmentStatus: 'ASSIGNED',
+    ownerSuggestion: { kind: 'RECOMMENDED_FACTORY_POOL', recommendedTypes: ['SEWING'] },
+    assignedFactoryId: task.sewingFactoryId,
+    assignedFactoryName: task.sewingFactoryName,
+    qcPoints: [],
+    attachments: [],
+    status: task.status.includes('中') ? 'IN_PROGRESS' : task.status === '已交后道工厂' || task.status === '后道完成' ? 'DONE' : 'NOT_STARTED',
+    acceptanceStatus: 'ACCEPTED',
+    acceptedAt: task.postFinishedAt || '2026-04-01 08:30',
+    acceptedBy: task.sewingFactoryName,
+    dispatchedAt: task.postFinishedAt || '2026-04-01 08:30',
+    dispatchedBy: '系统',
+    dispatchRemark: '车缝工厂同时完成车缝与后道，完成后交给后道工厂质检和复检',
+    taskDeadline: task.handedToManagedPostFactoryAt || '2026-04-25 18:00',
+    receiverKind: 'MANAGED_POST_FACTORY',
+    receiverId: task.managedPostFactoryId,
+    receiverName: task.managedPostFactoryName,
+    handoverStatus: task.status === '已交后道工厂' ? 'WRITTEN_BACK' : 'NOT_CREATED',
+  }
+}
+
 function listTaskFacts(): ProcessTask[] {
-  return listPdaTaskFlowTasks()
+  const baseTasks = listPdaTaskFlowTasks()
+  const existingTaskIds = new Set(baseTasks.map((task) => task.taskId))
+  const postTasks = listPostFinishingWorkOrders()
+    .filter((order) => !existingTaskIds.has(order.sourceTaskId))
+    .map((order, index) => mapPostFinishingOrderToTask(order, baseTasks.length + index + 1))
+  const existingWithPost = new Set([...existingTaskIds, ...postTasks.map((task) => task.taskId)])
+  const sewingPostTasks = listSewingFactoryPostTasks()
+    .filter((task) => !existingWithPost.has(task.postTaskId))
+    .map((task, index) => mapSewingFactoryPostTaskToProcessTask(task, baseTasks.length + postTasks.length + index + 1))
+  return [...baseTasks, ...postTasks, ...sewingPostTasks]
 }
 
 function getTaskFactById(taskId: string): ProcessTask | null {
@@ -1402,6 +1496,7 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
 }
 
 function getPostFinishingActionLabel(actionType: PostFinishingActionType, phase: 'start' | 'finish'): string {
+  if (actionType === '接收领料') return phase === 'start' ? '开始接收' : '确认接收领料'
   if (phase === 'start') {
     return actionType === '后道' ? '开始后道' : actionType === '质检' ? '开始质检' : '开始复检'
   }
@@ -1429,46 +1524,38 @@ function renderPostFinishingActionButton(
 }
 
 function canPostFinishingManagedFactoryOperate(order: PostFinishingWorkOrder): boolean {
-  if (order.routeMode === '专门后道工厂') return true
-  if (order.currentStatus.includes('待交给后道工厂')) return false
-  if (order.currentStatus.includes('后道工厂')) return true
-  return ['已交后道工厂', '后道工厂待质检', '待质检', '质检中', '质检完成', '待复检', '复检中', '复检完成', '待交出', '已交出', '已回写'].includes(order.currentStatus)
+  return order.isDedicatedPostFactory
 }
 
 function renderPostFinishingActionPanel(order: PostFinishingWorkOrder): string {
   const actions: string[] = []
-  if (!order.postAction.startedAt || order.postAction.status === '待后道') {
+  if (order.receiveAction.status === '待接收') {
+    actions.push(renderPostFinishingActionButton(order, '接收领料', 'finish'))
+  } else if (order.receiveAction.status === '接收中') {
+    actions.push(renderPostFinishingActionButton(order, '接收领料', 'finish'))
+  }
+
+  if (!order.isPostDoneBySewingFactory && order.currentStatus === '待后道') {
     actions.push(renderPostFinishingActionButton(order, '后道', 'start'))
   }
-  if (order.postAction.status === '后道中') {
+  if (!order.isPostDoneBySewingFactory && order.currentStatus === '后道中') {
     actions.push(renderPostFinishingActionButton(order, '后道', 'finish'))
   }
 
-  if (order.routeMode === '非专门工厂含后道' && (order.currentStatus === '待交后道工厂' || order.currentStatus.includes('待交给后道工厂'))) {
-    actions.push(`
-      <button type="button" class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-sm font-medium hover:bg-muted" data-pda-execd-action="post-transfer-managed" data-post-order-id="${escapeHtml(order.postOrderId)}">
-        交给后道工厂
-      </button>
-    `)
-  }
-  if (order.routeMode === '非专门工厂含后道' && order.currentStatus === '已交后道工厂') {
-    actions.push(`
-      <button type="button" class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-sm font-medium hover:bg-muted" data-pda-execd-action="post-receive-managed" data-post-order-id="${escapeHtml(order.postOrderId)}">
-        后道工厂接收
-      </button>
-    `)
+  if (order.isPostDoneBySewingFactory) {
+    actions.push('<div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">后道已由车缝厂完成，后道工厂只执行接收领料、质检、复检和交出。</div>')
   }
 
   if (canPostFinishingManagedFactoryOperate(order)) {
-    if (!order.qcAction || order.qcAction.status === '待质检' || order.currentStatus === '后道工厂待质检') {
-      actions.push(renderPostFinishingActionButton(order, '质检', 'start', order.postAction.status !== '后道完成'))
-    } else if (order.qcAction.status === '质检中') {
+    if (order.currentStatus === '待质检') {
+      actions.push(renderPostFinishingActionButton(order, '质检', 'start', order.receiveAction.status !== '已接收'))
+    } else if (order.currentStatus === '质检中') {
       actions.push(renderPostFinishingActionButton(order, '质检', 'finish'))
     }
 
-    if (order.recheckAction?.status === '复检中') {
+    if (order.currentStatus === '复检中') {
       actions.push(renderPostFinishingActionButton(order, '复检', 'finish'))
-    } else if (order.qcAction?.status === '质检完成' || order.recheckAction?.status === '待复检') {
+    } else if (order.currentStatus === '待复检') {
       actions.push(renderPostFinishingActionButton(order, '复检', 'start'))
     }
   }
@@ -1489,7 +1576,7 @@ function renderPostFinishingActionPanel(order: PostFinishingWorkOrder): string {
 }
 
 function renderPdaPostFinishingExecutionPage(execId: string, order: PostFinishingWorkOrder): string {
-  const actionRows = [order.postAction, order.qcAction, order.recheckAction]
+  const actionRows = [order.receiveAction, order.qcAction, order.postAction, order.recheckAction]
     .filter(Boolean)
     .map((action) => `
       <tr>
@@ -1524,12 +1611,20 @@ function renderPdaPostFinishingExecutionPage(execId: string, order: PostFinishin
             <span class="font-medium">${escapeHtml(order.sourceProductionOrderNo)}</span>
             <span class="text-muted-foreground">来源任务</span>
             <span class="font-medium">${escapeHtml(order.sourceTaskNo)}</span>
+            <span class="text-muted-foreground">来源车缝任务</span>
+            <span class="font-medium">${escapeHtml(order.sourceSewingTaskNo)}</span>
             <span class="text-muted-foreground">当前工厂</span>
             <span>${escapeHtml(order.currentFactoryName)}</span>
             <span class="text-muted-foreground">后道工厂</span>
             <span>${escapeHtml(order.managedPostFactoryName)}</span>
+            <span class="text-muted-foreground">后道来源</span>
+            <span>${escapeHtml(getPostFinishingSourceLabel(order))}</span>
+            <span class="text-muted-foreground">当前流程</span>
+            <span>${escapeHtml(getPostFinishingFlowText(order))}</span>
             <span class="text-muted-foreground">计划成衣件数</span>
             <span>${order.plannedGarmentQty} ${escapeHtml(order.plannedGarmentQtyUnit)}</span>
+            <span class="text-muted-foreground">接收成衣件数</span>
+            <span>${order.receiveAction.acceptedGarmentQty} ${escapeHtml(order.receiveAction.qtyUnit)}</span>
             <span class="text-muted-foreground">已完成后道成衣件数</span>
             <span>${order.postAction.acceptedGarmentQty} ${escapeHtml(order.postAction.qtyUnit)}</span>
             <span class="text-muted-foreground">当前状态</span>
@@ -1537,9 +1632,11 @@ function renderPdaPostFinishingExecutionPage(execId: string, order: PostFinishin
             <span class="text-muted-foreground">任务模式</span>
             <span>${escapeHtml(order.routeMode)}</span>
             <span class="text-muted-foreground">是否需要质检</span>
-            <span>${order.qcAction ? '需要' : '待后道完成后进入后道工厂'}</span>
+            <span>${order.requiresQc ? '需要' : '不需要'}</span>
+            <span class="text-muted-foreground">是否需要后道</span>
+            <span>${order.requiresPostFinishing ? '需要' : '后道已由车缝厂完成'}</span>
             <span class="text-muted-foreground">是否需要复检</span>
-            <span>${order.recheckAction ? '需要' : '待质检完成后进入复检'}</span>
+            <span>${order.requiresRecheck ? '需要' : '不需要'}</span>
           </div>
         </div>
       </article>
@@ -1555,7 +1652,7 @@ function renderPdaPostFinishingExecutionPage(execId: string, order: PostFinishin
 
       <article class="rounded-lg border bg-card">
         <header class="border-b px-4 py-3">
-          <h2 class="text-sm font-semibold">后道、质检、复检记录</h2>
+          <h2 class="text-sm font-semibold">接收领料、质检、后道、复检记录</h2>
         </header>
         <div class="overflow-x-auto p-4">
           <table class="min-w-[640px] text-left text-xs">
@@ -1577,6 +1674,68 @@ function renderPdaPostFinishingExecutionPage(execId: string, order: PostFinishin
   return renderPdaFrame(content, 'exec')
 }
 
+function renderPdaSewingPostTaskPage(taskId: string, task: SewingFactoryPostTask): string {
+  const canStartPost = task.status === '待后道'
+  const canFinishPost = task.status === '后道中'
+  const canTransfer = task.status === '后道完成' || task.status === '待交后道工厂'
+  const content = `
+    <div class="space-y-4 bg-background p-4 pb-6">
+      <div class="flex items-center gap-2">
+        <button class="inline-flex h-8 items-center rounded-md px-2 text-sm hover:bg-muted" data-pda-execd-action="back">
+          <i data-lucide="arrow-left" class="mr-1 h-4 w-4"></i>
+          返回
+        </button>
+        <h1 class="text-base font-semibold">车缝后道任务</h1>
+      </div>
+
+      <article class="rounded-lg border bg-card">
+        <header class="border-b px-4 py-3">
+          <div class="flex items-center justify-between gap-2">
+            <span class="font-mono text-sm font-semibold">${escapeHtml(task.postTaskNo)}</span>
+            <span class="inline-flex rounded bg-blue-100 px-2 py-0.5 text-xs text-blue-700">${escapeHtml(task.status)}</span>
+          </div>
+        </header>
+        <div class="grid gap-3 p-4 text-xs">
+          <div class="grid grid-cols-2 gap-x-4 gap-y-1">
+            <span class="text-muted-foreground">车缝任务号</span>
+            <span class="font-medium">${escapeHtml(task.sewingTaskNo)}</span>
+            <span class="text-muted-foreground">生产单</span>
+            <span>${escapeHtml(task.productionOrderNo)}</span>
+            <span class="text-muted-foreground">车缝工厂</span>
+            <span>${escapeHtml(task.sewingFactoryName)}</span>
+            <span class="text-muted-foreground">计划成衣件数</span>
+            <span>${task.plannedGarmentQty} ${escapeHtml(task.qtyUnit)}</span>
+            <span class="text-muted-foreground">已完成车缝成衣件数</span>
+            <span>${task.completedSewingGarmentQty} ${escapeHtml(task.qtyUnit)}</span>
+            <span class="text-muted-foreground">是否需要本厂完成后道</span>
+            <span>${task.needFactoryPostFinishing ? '是' : '否'}</span>
+            <span class="text-muted-foreground">后道完成成衣件数</span>
+            <span>${task.completedPostGarmentQty} ${escapeHtml(task.qtyUnit)}</span>
+            <span class="text-muted-foreground">后道后流向</span>
+            <span>交给${escapeHtml(task.managedPostFactoryName)}质检和复检</span>
+            <span class="text-muted-foreground">关联后道单号</span>
+            <span>${escapeHtml(task.relatedPostOrderNo)}</span>
+          </div>
+        </div>
+      </article>
+
+      <article class="rounded-lg border bg-card">
+        <header class="border-b px-4 py-3">
+          <h2 class="text-sm font-semibold">当前可执行动作</h2>
+        </header>
+        <div class="grid gap-2 p-4">
+          <button type="button" class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-sm font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50" data-pda-execd-action="sewing-post-start" data-sewing-post-task-id="${escapeHtml(task.postTaskId)}" ${canStartPost ? '' : 'disabled'}>开始后道</button>
+          <button type="button" class="inline-flex h-10 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50" data-pda-execd-action="sewing-post-finish" data-sewing-post-task-id="${escapeHtml(task.postTaskId)}" ${canFinishPost ? '' : 'disabled'}>完成后道</button>
+          <button type="button" class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-sm font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50" data-pda-execd-action="sewing-post-transfer" data-sewing-post-task-id="${escapeHtml(task.postTaskId)}" ${canTransfer ? '' : 'disabled'}>交给后道工厂</button>
+          <div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">车缝工厂只执行车缝和后道，不执行后道工厂质检和复检。</div>
+        </div>
+      </article>
+    </div>
+  `
+  void taskId
+  return renderPdaFrame(content, 'exec')
+}
+
 export function renderPdaExecDetailPage(taskId: string): string {
   syncPdaStartRiskAndExceptions()
   syncMilestoneOverdueExceptions()
@@ -1587,7 +1746,18 @@ export function renderPdaExecDetailPage(taskId: string): string {
     return renderPdaCuttingTaskDetailPage(taskId, { backHref: '/fcs/pda/exec' })
   }
 
+  if (task?.processCode === 'SEWING_POST') {
+    const sewingPostTask = getSewingFactoryPostTaskById(task.taskId)
+    if (sewingPostTask) {
+      return renderPdaSewingPostTaskPage(taskId, sewingPostTask)
+    }
+  }
+
   if (!task) {
+    const sewingPostTask = getSewingFactoryPostTaskById(taskId)
+    if (sewingPostTask) {
+      return renderPdaSewingPostTaskPage(taskId, sewingPostTask)
+    }
     const postOrder = getPostFinishingWorkOrderForMobile(taskId)
     if (postOrder) {
       return renderPdaPostFinishingExecutionPage(taskId, postOrder)
@@ -2699,7 +2869,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
           showPdaExecDetailToast('请填写有效交出成衣件数')
           return true
         }
-        submitPostFinishingHandover(postOrderId, { submittedQty, operatorName: '后道工厂', operatedAt: nowTimestamp() })
+        submitPostFinishingHandover(postOrderId, { submittedGarmentQty: submittedQty, operatorName: '后道工厂', operatedAt: nowTimestamp() })
         showPdaExecDetailToast('后道交出已提交，Web 后道交出仓已同步')
         return true
       }
@@ -2735,9 +2905,9 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
             ? Math.max(submittedQty - (Number.isFinite(rejectedQty) ? rejectedQty : 0), 0)
             : submittedQty
       finishPostFinishingAction(postOrderId, actionType, {
-        submittedQty,
-        acceptedQty,
-        rejectedQty: Number.isFinite(rejectedQty) ? rejectedQty : 0,
+        submittedGarmentQty: submittedQty,
+        acceptedGarmentQty: acceptedQty,
+        rejectedGarmentQty: Number.isFinite(rejectedQty) ? rejectedQty : 0,
         operatorName: '移动端操作员',
         operatedAt: nowTimestamp(),
       })
@@ -2745,6 +2915,35 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       return true
     } catch (error) {
       showPdaExecDetailToast(error instanceof Error ? error.message : '后道写回失败')
+      return true
+    }
+  }
+
+  if (action === 'sewing-post-start' || action === 'sewing-post-finish' || action === 'sewing-post-transfer') {
+    const taskId = actionNode.dataset.sewingPostTaskId
+    if (!taskId) return true
+    try {
+      if (action === 'sewing-post-start') {
+        startSewingFactoryPostTask(taskId)
+        showPdaExecDetailToast('车缝工厂后道已开始')
+        return true
+      }
+      if (action === 'sewing-post-finish') {
+        const qtyText = window.prompt('请输入后道完成成衣件数', '0')?.trim() || ''
+        const completedQty = Number(qtyText)
+        if (!Number.isFinite(completedQty) || completedQty <= 0) {
+          showPdaExecDetailToast('请填写有效后道完成成衣件数')
+          return true
+        }
+        finishSewingFactoryPostTask(taskId, completedQty)
+        showPdaExecDetailToast('车缝工厂后道完成，待交给后道工厂')
+        return true
+      }
+      transferSewingFactoryPostTaskToManagedFactory(taskId)
+      showPdaExecDetailToast('已交给后道工厂，后道工厂将接收领料后质检和复检')
+      return true
+    } catch (error) {
+      showPdaExecDetailToast(error instanceof Error ? error.message : '车缝后道写回失败')
       return true
     }
   }

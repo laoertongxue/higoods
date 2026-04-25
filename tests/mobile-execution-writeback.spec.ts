@@ -104,21 +104,22 @@ test('染色移动端执行和交出写回 Web 详情', async ({ page }) => {
 test('后道移动端专门后道工厂复检完成生成交出仓', async ({ page }) => {
   await seedPdaSession(page)
   await acceptDialogs(page, ['278'])
-  await page.goto('/fcs/pda/exec/POST-WO-022')
+  await page.goto('/fcs/pda/exec/TASK-POST-010')
   await closeTodoModalIfPresent(page)
   await expect(page.getByRole('heading', { name: '后道任务执行' })).toBeVisible()
   await page.getByRole('button', { name: '完成复检' }).click()
 
   await spaGoto(page, '/fcs/craft/post-finishing/wait-handover-warehouse')
   await expect(page.getByRole('heading', { name: '后道交出仓' })).toBeVisible()
-  await expect(page.getByText('HD-2026-022').first()).toBeVisible()
+  await expect(page.getByText('HD-2026-010').first()).toBeVisible()
 })
 
-test('后道移动端非专门工厂只能执行后道交接动作', async ({ page }) => {
+test('车缝工厂移动端只能执行车缝后道交接动作', async ({ page }) => {
   await seedPdaSession(page)
-  await page.goto('/fcs/pda/exec/POST-WO-201')
+  await page.goto('/fcs/pda/exec/SEW-POST-101')
   await closeTodoModalIfPresent(page)
-  await expect(page.getByRole('heading', { name: '后道任务执行' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '车缝后道任务' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '开始后道' })).toBeVisible()
   await expect(page.getByRole('button', { name: '交给后道工厂' })).toBeVisible()
   await expect(page.getByRole('button', { name: /质检/ })).toHaveCount(0)
   await expect(page.getByRole('button', { name: /复检/ })).toHaveCount(0)

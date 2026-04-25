@@ -17,7 +17,7 @@ import {
 } from './process-craft-dict.ts'
 
 const POST_CAPACITY_NODE_CODES = ['BUTTONHOLE', 'BUTTON_ATTACH', 'IRONING', 'PACKAGING'] as const satisfies FactoryPostCapacityNodeCode[]
-const DEDICATED_POST_ACTION_NAMES = ['后道', '质检', '复检'] as const
+const DEDICATED_POST_ACTION_NAMES = ['质检', '后道', '复检'] as const
 const BASIC_POST_ACTION_NAMES = ['后道'] as const
 export const TEST_FACTORY_ID = 'ID-F090'
 export const TEST_FACTORY_SCOPE = 'ALL_PROCESS_CRAFT' as const

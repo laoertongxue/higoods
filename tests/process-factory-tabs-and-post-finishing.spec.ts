@@ -62,9 +62,11 @@ test('后道工厂菜单页面可访问且数据串联', async ({ page }) => {
   await page.goto('/fcs/craft/post-finishing/work-orders')
   await expect(page.getByRole('heading', { name: '后道单', exact: true })).toBeVisible()
   await expect(page.getByText('后道单列表')).toBeVisible()
-  await expect(page.getByRole('columnheader', { name: '是否需要质检' })).toBeVisible()
-  await expect(page.getByRole('columnheader', { name: '是否需要复检' })).toBeVisible()
-  await expect(page.getByText('专门后道工厂').first()).toBeVisible()
+  await expect(page.getByRole('columnheader', { name: '后道来源' })).toBeVisible()
+  await expect(page.getByRole('columnheader', { name: '当前流程' })).toBeVisible()
+  await expect(page.getByRole('columnheader', { name: '接收领料状态' })).toBeVisible()
+  await expect(page.getByText('后道工厂执行').first()).toBeVisible()
+  await expect(page.getByText('车缝厂已完成后道').first()).toBeVisible()
 
   await page.goto('/fcs/craft/post-finishing/qc-orders')
   await expect(page.getByRole('heading', { name: '质检单', exact: true })).toBeVisible()
@@ -78,7 +80,7 @@ test('后道工厂菜单页面可访问且数据串联', async ({ page }) => {
 
   await page.goto('/fcs/craft/post-finishing/wait-handover-warehouse')
   await expect(page.getByRole('heading', { name: '后道交出仓' })).toBeVisible()
-  await expect(page.getByText('复检单号')).toBeVisible()
+  await expect(page.getByText('复检确认成衣件数')).toBeVisible()
 })
 
 test('工厂档案不展示后道 SAM 节点为接单能力', async ({ page }) => {

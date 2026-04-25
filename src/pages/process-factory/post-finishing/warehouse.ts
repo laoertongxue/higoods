@@ -44,6 +44,8 @@ export function renderPostFinishingWaitProcessWarehousePage(): string {
       <tr class="align-top ${postOrderId ? 'bg-blue-50/60' : ''}">
         <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.warehouseRecordNo)}</td>
         <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.sourceWorkOrderNo)}</td>
+        <td class="px-3 py-3 text-sm">${escapeHtml(record.sourceTaskNo || '—')}</td>
+        <td class="px-3 py-3 text-sm">${escapeHtml(record.remark.includes('车缝厂已完成后道') ? '车缝厂已完成后道' : '后道工厂执行')}</td>
         <td class="px-3 py-3 text-sm">${escapeHtml(record.sourceFactoryName)}</td>
         <td class="px-3 py-3 text-sm">${escapeHtml(record.targetFactoryName)}</td>
         <td class="px-3 py-3 text-sm">${escapeHtml(record.sourceProductionOrderNo)}</td>
@@ -53,24 +55,24 @@ export function renderPostFinishingWaitProcessWarehousePage(): string {
         <td class="px-3 py-3 text-sm">${escapeHtml(record.warehouseLocation)}</td>
         <td class="px-3 py-3 text-sm">${escapeHtml(record.inboundAt || record.createdAt)}</td>
         <td class="px-3 py-3">${renderPostStatusBadge(record.status)}</td>
-        <td class="px-3 py-3">${renderPostAction('查看后道单', buildPostFinishingWorkOrderDetailLink(record.sourceWorkOrderId, 'warehouse'))}</td>
+        <td class="px-3 py-3">${renderPostAction('查看后道单', buildPostFinishingWorkOrderDetailLink(record.sourceWorkOrderId, 'receive'))}</td>
       </tr>
     `)
     .join('')
   const bodyRows =
     rows ||
-    `<tr><td colspan="12" class="px-3 py-8 text-center text-sm text-muted-foreground">未找到对应后道单的待加工仓记录。</td></tr>`
+    `<tr><td colspan="14" class="px-3 py-8 text-center text-sm text-muted-foreground">未找到对应后道单的待加工仓记录。</td></tr>`
 
   return `
     <div class="space-y-4 p-4">
-      ${renderPostFinishingPageHeader('后道待加工仓', '承接专门后道工厂待后道任务，也承接非专门工厂完成后道后转入的质检、复检任务。')}
+      ${renderPostFinishingPageHeader('后道待加工仓', '承接后道工厂接收领料、质检、后道、复检；车缝厂已完成后道的任务不再进入待后道。')}
       ${renderFilterHint(postOrderId, records.length === 0)}
       ${renderPostSection(
         '待加工仓记录',
         renderPostTable(
-          ['入仓记录号', '后道单号', '来源工厂', '后道工厂', '生产单', 'SKU', '待处理成衣件数', '当前待处理动作', '仓内位置', '入仓时间', '状态', '操作'],
+          ['入仓记录号', '后道单号', '来源车缝任务', '后道来源', '来源工厂', '后道工厂', '生产单', 'SKU', '待处理成衣件数', '当前待处理动作', '仓内位置', '入仓时间', '状态', '操作'],
           bodyRows,
-          'min-w-[1320px]',
+          'min-w-[1540px]',
         ),
       )}
     </div>
@@ -90,8 +92,10 @@ export function renderPostFinishingWaitHandoverWarehousePage(): string {
           <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.warehouseRecordNo)}</td>
           <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.sourceWorkOrderNo)}</td>
           <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.sourceTaskNo || '复检完成记录')}</td>
+          <td class="px-3 py-3 text-sm">${escapeHtml(record.remark.includes('车缝厂已完成后道') ? '车缝厂已完成后道' : '后道工厂执行')}</td>
           <td class="px-3 py-3 text-sm">${escapeHtml(record.sourceProductionOrderNo)}</td>
           <td class="px-3 py-3 text-sm">${escapeHtml(record.targetFactoryName || record.sourceFactoryName)}</td>
+          <td class="px-3 py-3 text-sm">${formatGarmentQty(record.availableObjectQty, record.qtyUnit)}</td>
           <td class="px-3 py-3 text-sm">${formatGarmentQty(record.availableObjectQty, record.qtyUnit)}</td>
           <td class="px-3 py-3 text-sm">${formatGarmentQty(record.handedOverObjectQty, record.qtyUnit)}</td>
           <td class="px-3 py-3 text-sm">${formatGarmentQty(record.writtenBackObjectQty, record.qtyUnit)}</td>
@@ -110,7 +114,7 @@ export function renderPostFinishingWaitHandoverWarehousePage(): string {
     .join('')
   const bodyRows =
     rows ||
-    `<tr><td colspan="12" class="px-3 py-8 text-center text-sm text-muted-foreground">未找到对应后道单的交出仓记录。</td></tr>`
+    `<tr><td colspan="14" class="px-3 py-8 text-center text-sm text-muted-foreground">未找到对应后道单的交出仓记录。</td></tr>`
 
   return `
     <div class="space-y-4 p-4">
@@ -119,9 +123,9 @@ export function renderPostFinishingWaitHandoverWarehousePage(): string {
       ${renderPostSection(
         '交出仓记录',
         renderPostTable(
-          ['交出记录号', '后道单号', '复检单号', '生产单', '后道工厂', '待交出成衣件数', '已交出成衣件数', '实收成衣件数', '差异成衣件数', '统一交出记录', '当前状态', '操作'],
+          ['交出记录号', '后道单号', '来源车缝任务', '后道来源', '生产单', '后道工厂', '复检确认成衣件数', '待交出成衣件数', '已交出成衣件数', '实收成衣件数', '差异成衣件数', '统一交出记录', '当前状态', '操作'],
           bodyRows,
-          'min-w-[1380px]',
+          'min-w-[1580px]',
         ),
       )}
     </div>

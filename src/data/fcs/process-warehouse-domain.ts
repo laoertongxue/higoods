@@ -572,10 +572,13 @@ function buildSpecialCraftWarehouseRecords(taskOrders: SpecialCraftTaskOrder[]):
   return records
 }
 
-function postWaitAction(order: PostFinishingWorkOrder): '待后道' | '待质检' | '待复检' {
+function postWaitAction(order: PostFinishingWorkOrder): '待接收领料' | '待后道' | '待质检' | '待复检' {
+  if (order.currentStatus.includes('接收')) return '待接收领料'
   if (order.currentStatus.includes('复检')) return '待复检'
-  if (order.currentStatus.includes('质检') || order.currentStatus.includes('后道工厂')) return '待质检'
-  return '待后道'
+  if (order.currentStatus.includes('质检')) return '待质检'
+  if (!order.isPostDoneBySewingFactory && order.currentStatus.includes('后道')) return '待后道'
+  if (order.currentStatus === '待交出' || order.currentStatus.includes('已')) return '待复检'
+  return '待接收领料'
 }
 
 function buildPostFinishingWarehouseRecords(orders: PostFinishingWorkOrder[]): ProcessWarehouseRecord[] {
@@ -591,13 +594,13 @@ function buildPostFinishingWarehouseRecords(orders: PostFinishingWorkOrder[]): P
           sourceWorkOrderId: order.postOrderId,
           sourceWorkOrderNo: order.postOrderNo,
           sourceTaskId: order.sourceTaskId,
-          sourceTaskNo: order.sourceTaskNo,
+          sourceTaskNo: order.sourceSewingTaskNo,
           sourceProductionOrderId: order.sourceProductionOrderId,
           sourceProductionOrderNo: order.sourceProductionOrderNo,
           sourceDemandId: order.sourceTaskId,
           sourceDemandNo: order.sourceTaskNo,
-          sourceFactoryId: order.currentFactoryId,
-          sourceFactoryName: order.currentFactoryName,
+          sourceFactoryId: order.sourceSewingFactoryId,
+          sourceFactoryName: order.sourceSewingFactoryName,
           targetFactoryId: order.managedPostFactoryId,
           targetFactoryName: order.managedPostFactoryName,
           targetWarehouseName: '后道待加工仓',
@@ -612,7 +615,9 @@ function buildPostFinishingWarehouseRecords(orders: PostFinishingWorkOrder[]): P
           status: order.currentStatus,
           inboundAt: order.createdAt,
           updatedAt: order.updatedAt,
-          remark: order.routeMode === '非专门工厂含后道' ? '非专门工厂后道完成后进入后道工厂待加工仓' : '专门后道工厂任务进入待加工仓',
+          remark: order.isPostDoneBySewingFactory
+            ? '车缝厂已完成后道，后道工厂接收领料后只做质检和复检'
+            : '专门后道工厂完整流程进入待加工仓：接收领料、质检、后道、复检',
         },
         'WAIT_PROCESS',
         records.length + 1,
@@ -628,7 +633,7 @@ function buildPostFinishingWarehouseRecords(orders: PostFinishingWorkOrder[]): P
             sourceWorkOrderId: order.postOrderId,
             sourceWorkOrderNo: order.postOrderNo,
             sourceTaskId: order.sourceTaskId,
-            sourceTaskNo: order.sourceTaskNo,
+            sourceTaskNo: order.sourceSewingTaskNo,
             sourceProductionOrderId: order.sourceProductionOrderId,
             sourceProductionOrderNo: order.sourceProductionOrderNo,
             sourceDemandId: order.sourceTaskId,

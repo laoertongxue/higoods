@@ -113,14 +113,16 @@ listPostFinishingRecheckOrders()
   })
 
 listPostFinishingWorkOrders()
-  .filter((order) => order.routeMode === '非专门工厂含后道')
+  .filter((order) => order.routeMode === '车缝厂已做后道')
   .forEach((order) => {
-    assert(order.currentFactoryId !== order.managedPostFactoryId, `非专门后道场景当前工厂不应等于后道工厂: ${order.postOrderNo}`)
+    assert(order.isPostDoneBySewingFactory, `车缝厂已做后道场景必须标记后道来源: ${order.postOrderNo}`)
+    assert(order.sourceSewingFactoryId !== order.managedPostFactoryId, `车缝厂已做后道场景必须保留来源车缝工厂: ${order.postOrderNo}`)
+    assert(order.postAction.status === '跳过后道', `车缝厂已做后道场景后道工厂不得再执行后道: ${order.postOrderNo}`)
     if (order.qcAction) {
-      assert(order.qcAction.factoryId === order.managedPostFactoryId, `非专门工厂不应生成本厂质检单: ${order.postOrderNo}`)
+      assert(order.qcAction.factoryId === order.managedPostFactoryId, `车缝厂不得生成本厂质检单: ${order.postOrderNo}`)
     }
     if (order.recheckAction) {
-      assert(order.recheckAction.factoryId === order.managedPostFactoryId, `非专门工厂不应生成本厂复检单: ${order.postOrderNo}`)
+      assert(order.recheckAction.factoryId === order.managedPostFactoryId, `车缝厂不得生成本厂复检单: ${order.postOrderNo}`)
     }
   })
 

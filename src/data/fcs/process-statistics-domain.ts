@@ -130,6 +130,9 @@ export interface SpecialCraftExecutionStatistics extends BaseExecutionStatistics
 
 export interface PostFinishingExecutionStatistics extends BaseExecutionStatistics {
   postOrderCount: number
+  waitReceiveTaskCount: number
+  receiveDoneGarmentQty: number
+  receiveDiffGarmentQty: number
   waitPostTaskCount: number
   postDoingTaskCount: number
   postDoneTaskCount: number
@@ -154,6 +157,8 @@ export interface PostFinishingExecutionStatistics extends BaseExecutionStatistic
   receivedGarmentQty: number
   diffGarmentQty: number
   dedicatedTaskCount: number
+  postFactoryExecutedTaskCount: number
+  sewingFactoryPostDoneTaskCount: number
   dedicatedWaitQcGarmentQty: number
   dedicatedWaitRecheckGarmentQty: number
   transferWaitManagedFactoryTaskCount: number
@@ -581,8 +586,9 @@ export function getPostFinishingExecutionStatistics(filter: ProcessStatisticsFil
   const records = filterWarehouseRecords('POST_FINISHING', filter)
   const base = buildBaseStatistics([], records)
   const waitProcess = records.waitProcess
-  const dedicatedOrders = postOrders.filter((order) => order.routeMode === '专门后道工厂')
-  const transferOrders = postOrders.filter((order) => order.routeMode === '非专门工厂含后道')
+  const dedicatedOrders = postOrders.filter((order) => order.routeMode === '专门后道工厂完整流程')
+  const transferOrders = postOrders.filter((order) => order.routeMode === '车缝厂已做后道')
+  const receiveRecords = listPostFinishingActionRecords('接收领料').filter((record) => postOrders.some((order) => order.postOrderId === record.postOrderId))
   const qcRecords = listPostFinishingQcOrders().filter((record) => postOrders.some((order) => order.postOrderId === record.postOrderId))
   const recheckRecords = listPostFinishingRecheckOrders().filter((record) => postOrders.some((order) => order.postOrderId === record.postOrderId))
   const postRecords = listPostFinishingActionRecords('后道').filter((record) => postOrders.some((order) => order.postOrderId === record.postOrderId))
@@ -594,6 +600,9 @@ export function getPostFinishingExecutionStatistics(filter: ProcessStatisticsFil
     statusCounts: countByStatus(postOrders),
     statusRows: statusRows(countByStatus(postOrders)),
     postOrderCount: postOrders.length,
+    waitReceiveTaskCount: postOrders.filter((order) => order.currentStatus === '待接收领料' || order.currentStatus === '接收中').length,
+    receiveDoneGarmentQty: round(receiveRecords.reduce((sum, record) => sum + record.acceptedGarmentQty, 0)),
+    receiveDiffGarmentQty: round(receiveRecords.reduce((sum, record) => sum + record.diffGarmentQty, 0)),
     waitPostTaskCount: postStatusCount(postOrders, '待后道'),
     postDoingTaskCount: postStatusCount(postOrders, '后道中'),
     postDoneTaskCount: postStatusCount(postOrders, '后道完成'),
@@ -618,6 +627,8 @@ export function getPostFinishingExecutionStatistics(filter: ProcessStatisticsFil
     receivedGarmentQty: sumHandoverQty(records.handovers, '成衣', 'receiveObjectQty'),
     diffGarmentQty: sumHandoverQty(records.handovers, '成衣', 'diffObjectQty'),
     dedicatedTaskCount: dedicatedOrders.length,
+    postFactoryExecutedTaskCount: dedicatedOrders.length,
+    sewingFactoryPostDoneTaskCount: transferOrders.length,
     dedicatedWaitQcGarmentQty: round(dedicatedOrders.filter((order) => order.currentStatus === '待质检').reduce((sum, order) => sum + order.plannedGarmentQty, 0)),
     dedicatedWaitRecheckGarmentQty: round(dedicatedOrders.filter((order) => order.currentStatus === '待复检').reduce((sum, order) => sum + order.plannedGarmentQty, 0)),
     transferWaitManagedFactoryTaskCount: transferOrders.filter((order) => order.currentStatus.includes('待交后道工厂') || order.currentStatus.includes('已交后道工厂')).length,

@@ -984,7 +984,7 @@ function mapPostFinishingActionRecord(record: PostFinishingActionRecord): TaskRo
 function buildRouteCardFromPostFinishingWorkOrder(sourceId: string): TaskRouteCardBuildResult {
   const order = getPostFinishingWorkOrderById(sourceId)
   if (!order) return { ok: false, title: TASK_ROUTE_CARD_NAME, message: `未找到后道单：${sourceId}` }
-  const actionRecords = [order.postAction, order.qcAction, order.recheckAction].filter(Boolean) as PostFinishingActionRecord[]
+  const actionRecords = [order.receiveAction, order.qcAction, order.postAction, order.recheckAction].filter(Boolean) as PostFinishingActionRecord[]
 
   return {
     ok: true,
@@ -1006,12 +1006,13 @@ function buildRouteCardFromPostFinishingWorkOrder(sourceId: string): TaskRouteCa
       dueAt: order.updatedAt,
       qrValue: buildTaskQrValue(order.sourceTaskId || order.postOrderId),
       image: resolvePrintImage({ productionOrderId: order.sourceProductionOrderNo, processName: '后道', craftName: '后道' }),
-      summaryRemark: '后道单按后道、质检、复检节点生成任务流转卡',
+      summaryRemark: '后道单按接收领料、质检、后道、复检节点生成任务流转卡',
       titleOverride: '后道任务流转卡',
       summaryRowsOverride: [
         { label: '后道单号', value: order.postOrderNo },
         { label: '生产单号', value: order.sourceProductionOrderNo },
         { label: '来源任务', value: order.sourceTaskNo },
+        { label: '来源车缝任务', value: order.sourceSewingTaskNo },
         { label: '当前工厂', value: order.currentFactoryName },
         { label: '后道工厂', value: order.managedPostFactoryName },
         { label: '计划成衣件数', value: formatQtyText(order.plannedGarmentQty, order.plannedGarmentQtyUnit) },
@@ -1020,8 +1021,10 @@ function buildRouteCardFromPostFinishingWorkOrder(sourceId: string): TaskRouteCa
       ],
       supplementalItems: [
         { label: '任务模式', value: order.routeMode },
-        { label: '质检节点', value: order.qcAction ? `${order.qcAction.status} / ${formatQtyText(order.qcAction.acceptedGarmentQty, order.qcAction.qtyUnit)}` : '待后道完成后进入后道工厂' },
-        { label: '复检节点', value: order.recheckAction ? `${order.recheckAction.status} / ${formatQtyText(order.recheckAction.acceptedGarmentQty, order.recheckAction.qtyUnit)}` : '待质检完成后进入复检' },
+        { label: '当前流程', value: order.isPostDoneBySewingFactory ? '接收领料 -> 质检 -> 复检 -> 交出' : '接收领料 -> 质检 -> 后道 -> 复检 -> 交出' },
+        { label: '接收领料节点', value: `${order.receiveAction.status} / ${formatQtyText(order.receiveAction.acceptedGarmentQty, order.receiveAction.qtyUnit)}` },
+        { label: '质检节点', value: `${order.qcAction.status} / ${formatQtyText(order.qcAction.acceptedGarmentQty, order.qcAction.qtyUnit)}` },
+        { label: '复检节点', value: `${order.recheckAction.status} / ${formatQtyText(order.recheckAction.acceptedGarmentQty, order.recheckAction.qtyUnit)}` },
         { label: '待加工仓记录', value: order.waitProcessWarehouseRecordId },
         { label: '交出记录', value: order.handoverRecordId || order.waitHandoverWarehouseRecordId || '暂无交出记录' },
       ],

@@ -1,5 +1,9 @@
 import { buildPostFinishingWorkOrderDetailLink } from '../../../data/fcs/fcs-route-links.ts'
-import { getPostFinishingWorkOrderById, listPostFinishingQcOrders } from '../../../data/fcs/post-finishing-domain.ts'
+import {
+  getPostFinishingSourceLabel,
+  getPostFinishingWorkOrderById,
+  listPostFinishingQcOrders,
+} from '../../../data/fcs/post-finishing-domain.ts'
 import { escapeHtml } from '../../../utils.ts'
 import {
   formatGarmentQty,
@@ -19,6 +23,8 @@ export function renderPostFinishingQcOrdersPage(): string {
           <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.actionId)}</td>
           <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.postOrderNo)}</td>
           <td class="px-3 py-3 text-sm">${escapeHtml(order?.sourceProductionOrderNo || record.postOrderId.replace('POST-WO', '生产单'))}</td>
+          <td class="px-3 py-3 text-sm">${escapeHtml(order?.sourceSewingTaskNo || '—')}</td>
+          <td class="px-3 py-3 text-sm">${escapeHtml(order ? getPostFinishingSourceLabel(order) : '—')}</td>
           <td class="px-3 py-3 text-sm">${escapeHtml(record.factoryName)}</td>
           <td class="px-3 py-3 text-sm">${formatGarmentQty(record.submittedGarmentQty, record.qtyUnit)}</td>
           <td class="px-3 py-3 text-sm">${formatGarmentQty(record.acceptedGarmentQty, record.qtyUnit)}</td>
@@ -38,9 +44,9 @@ export function renderPostFinishingQcOrdersPage(): string {
       ${renderPostSection(
         '质检单列表',
         renderPostTable(
-          ['质检单号', '后道单号', '生产单', '后道工厂', '待质检成衣件数', '已质检成衣件数', '不合格成衣件数', '质检状态', '质检人', '质检时间', '操作'],
+          ['质检单号', '后道单号', '生产单', '来源车缝任务', '后道来源', '后道工厂', '待质检成衣件数', '质检通过成衣件数', '质检不合格成衣件数', '质检状态', '质检人', '质检时间', '操作'],
           rows,
-          'min-w-[1280px]',
+          'min-w-[1480px]',
         ),
       )}
     </div>

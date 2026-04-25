@@ -4,7 +4,11 @@ import {
   buildPostFinishingWorkOrderDetailLink,
   buildTaskRouteCardPrintLink,
 } from '../../../data/fcs/fcs-route-links.ts'
-import { listPostFinishingWorkOrders } from '../../../data/fcs/post-finishing-domain.ts'
+import {
+  getPostFinishingFlowText,
+  getPostFinishingSourceLabel,
+  listPostFinishingWorkOrders,
+} from '../../../data/fcs/post-finishing-domain.ts'
 import { escapeHtml } from '../../../utils.ts'
 import {
   formatGarmentQty,
@@ -23,12 +27,15 @@ export function renderPostFinishingWorkOrdersPage(): string {
         <td class="px-3 py-3 text-sm">${escapeHtml(order.sourceProductionOrderNo)}</td>
         <td class="px-3 py-3 text-sm">${escapeHtml(order.sourceTaskNo)}</td>
         <td class="px-3 py-3 text-sm">${escapeHtml(order.currentFactoryName)}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(order.routeMode)}</td>
+        <td class="px-3 py-3 text-sm">${escapeHtml(getPostFinishingSourceLabel(order))}</td>
+        <td class="px-3 py-3 text-sm">${escapeHtml(getPostFinishingFlowText(order))}</td>
+        <td class="px-3 py-3">${renderPostStatusBadge(order.receiveAction.status)}</td>
+        <td class="px-3 py-3">${renderPostStatusBadge(order.qcAction.status)}</td>
+        <td class="px-3 py-3 text-sm">${order.isPostDoneBySewingFactory ? '车缝厂已完成后道' : renderPostStatusBadge(order.postAction.status)}</td>
+        <td class="px-3 py-3">${renderPostStatusBadge(order.recheckAction.status)}</td>
+        <td class="px-3 py-3">${renderPostStatusBadge(order.handoverAction?.status || (order.waitHandoverWarehouseRecordId ? '待交出' : '未生成'))}</td>
         <td class="px-3 py-3 text-sm">${formatGarmentQty(order.plannedGarmentQty, order.plannedGarmentQtyUnit)}</td>
-        <td class="px-3 py-3 text-sm">${formatGarmentQty(order.postAction.acceptedGarmentQty, order.postAction.qtyUnit)}</td>
         <td class="px-3 py-3">${renderPostStatusBadge(order.currentStatus)}</td>
-        <td class="px-3 py-3 text-sm">${order.qcAction ? '需要' : '待后道完成后进入后道工厂'}</td>
-        <td class="px-3 py-3 text-sm">${order.recheckAction ? '需要' : '待质检完成后进入复检'}</td>
         <td class="px-3 py-3">
           <div class="flex flex-wrap gap-2">
             ${renderPostAction('查看详情', buildPostFinishingWorkOrderDetailLink(order.postOrderId))}
@@ -51,9 +58,9 @@ export function renderPostFinishingWorkOrdersPage(): string {
       ${renderPostSection(
         '后道单列表',
         renderPostTable(
-          ['后道单号', '生产单', '来源任务', '当前工厂', '是否专门后道工厂', '计划成衣件数', '已完成后道成衣件数', '当前状态', '是否需要质检', '是否需要复检', '操作'],
+          ['后道单号', '生产单', '来源任务', '当前工厂', '后道来源', '当前流程', '接收领料状态', '质检状态', '后道状态', '复检状态', '交出状态', '计划成衣件数', '当前状态', '操作'],
           rows,
-          'min-w-[1480px]',
+          'min-w-[1760px]',
         ),
       )}
     </div>
