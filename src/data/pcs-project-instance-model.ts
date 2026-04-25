@@ -446,10 +446,38 @@ function resolvePatternTaskRelationObject(relation: ProjectRelationRecord): Reso
 
 function resolveFirstSampleRelationObject(relation: ProjectRelationRecord): ResolvedRelationObjectSnapshot {
   const task = getFirstSampleTaskById(relation.sourceObjectId)
+  const meta = parseRelationMeta(relation.note)
+  const pick = (key: string): unknown => {
+    if (task && key in task) return (task as unknown as Record<string, unknown>)[key]
+    return meta[key]
+  }
   const fields: PcsProjectInstanceField[] = []
-  addField(fields, '工厂', task?.factoryName, 'factoryName')
-  addField(fields, '打样区域', task?.targetSite, 'targetSite')
-  addField(fields, '结果编号', task?.sampleCode, 'sampleCode')
+  addField(fields, '来源任务类型', pick('sourceTaskType'), 'sourceTaskType')
+  addField(fields, '来源任务ID', pick('sourceTaskId'), 'sourceTaskId')
+  addField(fields, '来源任务编码', pick('sourceTaskCode'), 'sourceTaskCode')
+  addField(fields, '来源技术包版本ID', pick('sourceTechPackVersionId'), 'sourceTechPackVersionId')
+  addField(fields, '来源技术包版本编码', pick('sourceTechPackVersionCode'), 'sourceTechPackVersionCode')
+  addField(fields, '来源技术包版本标签', pick('sourceTechPackVersionLabel'), 'sourceTechPackVersionLabel')
+  addField(fields, '工厂', pick('factoryName') || pick('factoryId'), 'factoryName')
+  addField(fields, '打样区域', pick('targetSite'), 'targetSite')
+  addField(fields, '样衣材质模式', pick('sampleMaterialMode'), 'sampleMaterialMode')
+  addField(fields, '样衣用途', pick('samplePurpose'), 'samplePurpose')
+  addField(fields, '结果编号', pick('sampleCode'), 'sampleCode')
+  addField(fields, '样衣图片', pick('sampleImageIds'), 'sampleImageIds')
+  addField(fields, '版型确认说明', pick('fitConfirmationSummary'), 'fitConfirmationSummary')
+  addField(fields, '花型确认说明', pick('artworkConfirmationSummary'), 'artworkConfirmationSummary')
+  addField(fields, '生产准备说明', pick('productionReadinessNote'), 'productionReadinessNote')
+  addField(fields, '是否可复用为首单', pick('reuseAsFirstOrderBasisFlag'), 'reuseAsFirstOrderBasisFlag')
+  addField(fields, '复用确认时间', pick('reuseAsFirstOrderBasisConfirmedAt'), 'reuseAsFirstOrderBasisConfirmedAt')
+  addField(fields, '复用确认人', pick('reuseAsFirstOrderBasisConfirmedBy'), 'reuseAsFirstOrderBasisConfirmedBy')
+  addField(fields, '复用说明', pick('reuseAsFirstOrderBasisNote'), 'reuseAsFirstOrderBasisNote')
+  addField(fields, '任务来源类型', pick('sourceType'), 'sourceType')
+  addField(fields, '上游模块', pick('upstreamModule'), 'upstreamModule')
+  addField(fields, '上游对象类型', pick('upstreamObjectType'), 'upstreamObjectType')
+  addField(fields, '上游对象ID', pick('upstreamObjectId'), 'upstreamObjectId')
+  addField(fields, '上游对象编码', pick('upstreamObjectCode'), 'upstreamObjectCode')
+  addField(fields, '任务状态', pick('status') || relation.sourceStatus, 'taskStatus')
+  addField(fields, '确认时间', pick('confirmedAt'), 'confirmedAt')
   return {
     instanceId: task?.firstSampleTaskId || relation.sourceObjectId,
     instanceCode: task?.firstSampleTaskCode || relation.sourceObjectCode,

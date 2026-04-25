@@ -54,6 +54,36 @@ export interface FirstSampleTaskRecord {
   legacyUpstreamRef: string
 }
 
+export interface FirstSampleProjectNodeMeta {
+  sourceTaskType: string
+  sourceTaskId: string
+  sourceTaskCode: string
+  sourceTechPackVersionId: string
+  sourceTechPackVersionCode: string
+  sourceTechPackVersionLabel: string
+  factoryId: string
+  factoryName: string
+  targetSite: string
+  sampleMaterialMode: SampleMaterialMode | ''
+  samplePurpose: FirstSamplePurpose | ''
+  sampleCode: string
+  sampleImageIds: string[]
+  fitConfirmationSummary: string
+  artworkConfirmationSummary: string
+  productionReadinessNote: string
+  reuseAsFirstOrderBasisFlag: boolean
+  reuseAsFirstOrderBasisConfirmedAt: string
+  reuseAsFirstOrderBasisConfirmedBy: string
+  reuseAsFirstOrderBasisNote: string
+  confirmedAt: string
+  sourceType: FirstSampleTaskSourceType | ''
+  upstreamModule: string
+  upstreamObjectType: string
+  upstreamObjectId: string
+  upstreamObjectCode: string
+  status: FirstSampleTaskStatus | ''
+}
+
 export interface FirstSampleTaskStoreSnapshot {
   version: number
   tasks: FirstSampleTaskRecord[]

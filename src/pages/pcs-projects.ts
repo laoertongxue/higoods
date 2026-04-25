@@ -115,6 +115,13 @@ import {
   createRevisionTaskWithProjectRelation,
   syncExistingProjectEngineeringTaskNodes,
 } from '../data/pcs-task-project-relation-writeback.ts'
+import {
+  FIRST_SAMPLE_FACTORY_OPTIONS,
+  createOrUpdateFirstSampleTaskFromProjectNode,
+  getFirstSampleTaskForProjectNode,
+  resolveFirstSampleProjectNodeDefaults,
+} from '../data/pcs-first-sample-project-writeback.ts'
+import type { FirstSamplePurpose, SampleMaterialMode } from '../data/pcs-sample-chain-types.ts'
 import { findStyleArchiveByProjectId } from '../data/pcs-style-archive-repository.ts'
 import {
   appendSampleShootImages,
@@ -129,7 +136,7 @@ type ProjectListSort = 'updatedAt' | 'pendingDecision' | 'risk' | 'progressLow'
 type ProjectDateRange = '全部时间' | '今天' | '最近一周' | '最近一月'
 type WorkItemTabKey = 'full-info' | 'records' | 'attachments' | 'audit'
 type DecisionDialogSource = 'detail' | 'work-item'
-type EngineeringTaskCreateType = '' | 'REVISION_TASK' | 'PATTERN_TASK' | 'PATTERN_ARTWORK_TASK'
+type EngineeringTaskCreateType = '' | 'REVISION_TASK' | 'PATTERN_TASK' | 'PATTERN_ARTWORK_TASK' | 'FIRST_SAMPLE'
 
 interface ProjectListState {
   search: string
@@ -225,6 +232,22 @@ interface PatternTaskCreateDraft {
   note: string
 }
 
+interface FirstSampleTaskCreateDraft {
+  sourceTaskType: string
+  sourceTaskId: string
+  sourceTaskCode: string
+  sourceTechPackVersionId: string
+  sourceTechPackVersionCode: string
+  sourceTechPackVersionLabel: string
+  factoryId: string
+  factoryName: string
+  targetSite: string
+  sampleMaterialMode: string
+  samplePurpose: string
+  ownerName: string
+  note: string
+}
+
 interface EngineeringTaskCreateDialogState {
   open: boolean
   projectId: string
@@ -233,6 +256,7 @@ interface EngineeringTaskCreateDialogState {
   revisionDraft: RevisionTaskCreateDraft
   plateDraft: PlateTaskCreateDraft
   patternDraft: PatternTaskCreateDraft
+  firstSampleDraft: FirstSampleTaskCreateDraft
 }
 
 interface ProjectImagePreviewState {
@@ -468,6 +492,24 @@ function createEmptyPatternTaskCreateDraft(): PatternTaskCreateDraft {
   }
 }
 
+function createEmptyFirstSampleTaskCreateDraft(): FirstSampleTaskCreateDraft {
+  return {
+    sourceTaskType: '',
+    sourceTaskId: '',
+    sourceTaskCode: '',
+    sourceTechPackVersionId: '',
+    sourceTechPackVersionCode: '',
+    sourceTechPackVersionLabel: '',
+    factoryId: '',
+    factoryName: '',
+    targetSite: '',
+    sampleMaterialMode: '',
+    samplePurpose: '',
+    ownerName: '',
+    note: '',
+  }
+}
+
 function createEmptyEngineeringTaskCreateDialogState(): EngineeringTaskCreateDialogState {
   return {
     open: false,
@@ -477,6 +519,7 @@ function createEmptyEngineeringTaskCreateDialogState(): EngineeringTaskCreateDia
     revisionDraft: createEmptyRevisionTaskCreateDraft(),
     plateDraft: createEmptyPlateTaskCreateDraft(),
     patternDraft: createEmptyPatternTaskCreateDraft(),
+    firstSampleDraft: createEmptyFirstSampleTaskCreateDraft(),
   }
 }
 
@@ -1063,6 +1106,14 @@ function getEngineeringTaskNodeMeta(
   if (node.node.workItemTypeCode === 'PATTERN_ARTWORK_TASK') {
     return { sourceModule: '花型任务', sourceObjectType: '花型任务', createLabel: '创建花型任务', viewLabel: '查看花型任务' }
   }
+  if (node.node.workItemTypeCode === 'FIRST_SAMPLE') {
+    return {
+      sourceModule: '首版样衣打样',
+      sourceObjectType: '首版样衣打样任务',
+      createLabel: '填写必要信息并创建任务',
+      viewLabel: '查看首版样衣详情',
+    }
+  }
   return null
 }
 
@@ -1096,6 +1147,11 @@ function openEngineeringTaskCreateDialog(
   project: PcsProjectRecord,
   node: PcsProjectNodeRecord,
 ): void {
+  const firstSampleDefaults = resolveFirstSampleProjectNodeDefaults(project.projectId)
+  const existingFirstSampleTask =
+    node.workItemTypeCode === 'FIRST_SAMPLE'
+      ? getFirstSampleTaskForProjectNode(project.projectId, node.projectNodeId)
+      : null
   state.engineeringCreateDialog = {
     open: true,
     projectId: project.projectId,
@@ -1116,6 +1172,22 @@ function openEngineeringTaskCreateDialog(
       title: `${project.projectName}花型任务`,
       ownerName: node.currentOwnerName || project.ownerName,
       artworkName: `${project.projectName}花型方案`,
+    },
+    firstSampleDraft: {
+      ...createEmptyFirstSampleTaskCreateDraft(),
+      sourceTaskType: existingFirstSampleTask?.sourceTaskType || firstSampleDefaults?.sourceTaskType || '',
+      sourceTaskId: existingFirstSampleTask?.sourceTaskId || firstSampleDefaults?.sourceTaskId || '',
+      sourceTaskCode: existingFirstSampleTask?.sourceTaskCode || firstSampleDefaults?.sourceTaskCode || '',
+      sourceTechPackVersionId: existingFirstSampleTask?.sourceTechPackVersionId || firstSampleDefaults?.sourceTechPackVersionId || '',
+      sourceTechPackVersionCode: existingFirstSampleTask?.sourceTechPackVersionCode || firstSampleDefaults?.sourceTechPackVersionCode || '',
+      sourceTechPackVersionLabel: existingFirstSampleTask?.sourceTechPackVersionLabel || firstSampleDefaults?.sourceTechPackVersionLabel || '',
+      factoryId: existingFirstSampleTask?.factoryId || '',
+      factoryName: existingFirstSampleTask?.factoryName || '',
+      targetSite: existingFirstSampleTask?.targetSite || '',
+      sampleMaterialMode: existingFirstSampleTask?.sampleMaterialMode || '',
+      samplePurpose: existingFirstSampleTask?.samplePurpose || '',
+      ownerName: existingFirstSampleTask?.ownerName || node.currentOwnerName || firstSampleDefaults?.ownerName || project.ownerName,
+      note: existingFirstSampleTask?.note || '',
     },
   }
 }
@@ -1223,6 +1295,39 @@ function submitEngineeringTaskCreateDialog(): { ok: boolean; message: string; ro
     })
     if (!result.ok) return { ok: false, message: result.message }
     return { ok: true, message: result.message, route: `/pcs/patterns/colors/${encodeURIComponent(result.task.patternTaskId)}` }
+  }
+
+  if (dialog.workItemTypeCode === 'FIRST_SAMPLE') {
+    const draft = dialog.firstSampleDraft
+    if (!draft.sourceTechPackVersionId.trim()) return { ok: false, message: '请选择来源技术包版本。' }
+    if (!draft.factoryId.trim()) return { ok: false, message: '请选择工厂。' }
+    if (!draft.targetSite.trim()) return { ok: false, message: '请选择打样区域。' }
+    if (!draft.sampleMaterialMode.trim()) return { ok: false, message: '请选择样衣材质模式。' }
+    if (!draft.samplePurpose.trim()) return { ok: false, message: '请选择样衣用途。' }
+    const result = createOrUpdateFirstSampleTaskFromProjectNode({
+      projectId: project.projectId,
+      projectNodeId: node.projectNodeId,
+      sourceTaskType: draft.sourceTaskType.trim(),
+      sourceTaskId: draft.sourceTaskId.trim(),
+      sourceTaskCode: draft.sourceTaskCode.trim(),
+      sourceTechPackVersionId: draft.sourceTechPackVersionId.trim(),
+      sourceTechPackVersionCode: draft.sourceTechPackVersionCode.trim(),
+      sourceTechPackVersionLabel: draft.sourceTechPackVersionLabel.trim(),
+      factoryId: draft.factoryId.trim(),
+      factoryName: draft.factoryName.trim(),
+      targetSite: draft.targetSite.trim(),
+      sampleMaterialMode: draft.sampleMaterialMode.trim() as SampleMaterialMode,
+      samplePurpose: draft.samplePurpose.trim() as FirstSamplePurpose,
+      ownerName: draft.ownerName.trim(),
+      note: draft.note.trim(),
+      operatorName: '当前用户',
+    })
+    if (!result.ok || !result.task) return { ok: false, message: result.message }
+    return {
+      ok: true,
+      message: result.message,
+      route: `/pcs/samples/first-sample/${encodeURIComponent(result.task.firstSampleTaskId)}`,
+    }
   }
 
   return { ok: false, message: '当前节点不支持创建工程任务。' }
@@ -1347,6 +1452,41 @@ function renderEngineeringTaskCreateDialog(): string {
           ${renderProjectTextInput('花型名称', 'engineering-pattern-artwork-name', draft.artworkName, '请输入花型名称')}
         </div>
         ${renderProjectTextarea('说明', 'engineering-pattern-note', draft.note, '补充本次花型输出说明与生产文件要求')}
+      </section>
+    `
+  } else if (dialog.workItemTypeCode === 'FIRST_SAMPLE') {
+    const draft = dialog.firstSampleDraft
+    title = '首版样衣必要信息'
+    description = `${project.projectCode} · 先填写必要信息，再创建正式首版样衣任务`
+    body += `
+      <section class="space-y-4">
+        <section class="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-900">
+          商品项目节点只填写创建任务所需的必要信息；结果编号、样衣图片、确认说明和首单复用结论在首版样衣打样详情页继续补齐。
+        </section>
+        <div class="grid gap-4 md:grid-cols-2">
+          ${renderProjectTextInput('来源任务类型', 'engineering-first-sample-source-task-type', draft.sourceTaskType, '自动带出', true)}
+          ${renderProjectTextInput('来源任务编码', 'engineering-first-sample-source-task-code', draft.sourceTaskCode, '自动带出', true)}
+          ${renderProjectTextInput('来源任务ID', 'engineering-first-sample-source-task-id', draft.sourceTaskId, '自动带出', true)}
+          ${renderProjectTextInput('来源技术包版本ID', 'engineering-first-sample-tech-pack-id', draft.sourceTechPackVersionId, '请输入来源技术包版本ID')}
+          ${renderProjectTextInput('来源技术包版本编码', 'engineering-first-sample-tech-pack-code', draft.sourceTechPackVersionCode, '自动带出', true)}
+          ${renderProjectTextInput('来源技术包版本标签', 'engineering-first-sample-tech-pack-label', draft.sourceTechPackVersionLabel, '自动带出', true)}
+          ${renderProjectSelectInput('工厂', 'engineering-first-sample-factory-id', draft.factoryId, FIRST_SAMPLE_FACTORY_OPTIONS.map((item) => ({ value: item.factoryId, label: item.factoryName })))}
+          ${renderProjectTextInput('工厂名称', 'engineering-first-sample-factory-name', draft.factoryName, '根据工厂自动回填', true)}
+          ${renderProjectSelectInput('打样区域', 'engineering-first-sample-target-site', draft.targetSite, [
+            { value: '深圳', label: '深圳' },
+            { value: '雅加达', label: '雅加达' },
+          ])}
+          ${renderProjectSelectInput('样衣材质模式', 'engineering-first-sample-material-mode', draft.sampleMaterialMode, [
+            { value: '替代布', label: '替代布' },
+            { value: '正确布', label: '正确布' },
+          ])}
+          ${renderProjectSelectInput('样衣用途', 'engineering-first-sample-purpose', draft.samplePurpose, [
+            { value: '首版确认', label: '首版确认' },
+            { value: '首单复用候选', label: '首单复用候选' },
+          ])}
+          ${renderProjectSelectInput('负责人', 'engineering-first-sample-owner', draft.ownerName, ownerOptions)}
+        </div>
+        ${renderProjectTextarea('节点进入说明', 'engineering-first-sample-note', draft.note, '补充创建首版样衣任务的执行说明')}
       </section>
     `
   }
@@ -2534,12 +2674,82 @@ function getNodeFieldValue(project: PcsProjectRecord, node: ProjectNodeViewModel
     artworkName: artworkTask?.artworkName || nodeRelationMeta.artworkName || '',
     artworkVersion: artworkTask?.artworkVersion || firstOrderTask?.artworkVersion || nodeRelationMeta.artworkVersion || '',
     factoryId: currentSampleTask?.factoryName || currentSampleTask?.factoryId || nodeRelationMeta.factoryName || nodeRelationMeta.factoryId || '',
+    factoryName: currentSampleTask?.factoryName || nodeRelationMeta.factoryName || '',
     targetSite: currentSampleTask?.targetSite || nodeRelationMeta.targetSite || '',
+    sourceTaskType: firstSampleTask?.sourceTaskType || firstOrderTask?.sourceType || nodeRelationMeta.sourceTaskType || '',
+    sourceTaskId: firstSampleTask?.sourceTaskId || nodeRelationMeta.sourceTaskId || '',
+    sourceTaskCode: firstSampleTask?.sourceTaskCode || nodeRelationMeta.sourceTaskCode || '',
+    sourceTechPackVersionId:
+      firstSampleTask?.sourceTechPackVersionId ||
+      firstOrderTask?.sourceTechPackVersionId ||
+      nodeRelationMeta.sourceTechPackVersionId ||
+      project.linkedTechPackVersionId ||
+      '',
+    sourceTechPackVersionCode:
+      firstSampleTask?.sourceTechPackVersionCode ||
+      firstOrderTask?.sourceTechPackVersionCode ||
+      nodeRelationMeta.sourceTechPackVersionCode ||
+      project.linkedTechPackVersionCode ||
+      '',
+    sourceTechPackVersionLabel:
+      firstSampleTask?.sourceTechPackVersionLabel ||
+      firstOrderTask?.sourceTechPackVersionLabel ||
+      nodeRelationMeta.sourceTechPackVersionLabel ||
+      project.linkedTechPackVersionLabel ||
+      '',
+    sampleMaterialMode: firstSampleTask?.sampleMaterialMode || nodeRelationMeta.sampleMaterialMode || '',
+    samplePurpose: firstSampleTask?.samplePurpose || nodeRelationMeta.samplePurpose || '',
     sampleCode:
       currentSampleTask?.sampleCode ||
       nodeRelationMeta.sampleCode ||
       detailSnapshot.sampleCode ||
       '',
+    sampleImageIds: currentSampleTask?.sampleImageIds || nodeRelationMeta.sampleImageIds || detailSnapshot.sampleImageIds || [],
+    fitConfirmationSummary:
+      firstSampleTask?.fitConfirmationSummary ||
+      nodeRelationMeta.fitConfirmationSummary ||
+      detailSnapshot.fitConfirmationSummary ||
+      '',
+    artworkConfirmationSummary:
+      firstSampleTask?.artworkConfirmationSummary ||
+      nodeRelationMeta.artworkConfirmationSummary ||
+      detailSnapshot.artworkConfirmationSummary ||
+      '',
+    productionReadinessNote:
+      firstSampleTask?.productionReadinessNote ||
+      nodeRelationMeta.productionReadinessNote ||
+      detailSnapshot.productionReadinessNote ||
+      '',
+    reuseAsFirstOrderBasisFlag:
+      firstSampleTask?.reuseAsFirstOrderBasisFlag ??
+      nodeRelationMeta.reuseAsFirstOrderBasisFlag ??
+      detailSnapshot.reuseAsFirstOrderBasisFlag ??
+      false,
+    reuseAsFirstOrderBasisConfirmedAt:
+      firstSampleTask?.reuseAsFirstOrderBasisConfirmedAt ||
+      nodeRelationMeta.reuseAsFirstOrderBasisConfirmedAt ||
+      detailSnapshot.reuseAsFirstOrderBasisConfirmedAt ||
+      '',
+    reuseAsFirstOrderBasisConfirmedBy:
+      firstSampleTask?.reuseAsFirstOrderBasisConfirmedBy ||
+      nodeRelationMeta.reuseAsFirstOrderBasisConfirmedBy ||
+      detailSnapshot.reuseAsFirstOrderBasisConfirmedBy ||
+      '',
+    reuseAsFirstOrderBasisNote:
+      firstSampleTask?.reuseAsFirstOrderBasisNote ||
+      nodeRelationMeta.reuseAsFirstOrderBasisNote ||
+      detailSnapshot.reuseAsFirstOrderBasisNote ||
+      '',
+  }
+  if (node.node.workItemTypeCode === 'FIRST_SAMPLE') {
+    const formalValue = projectValues[fieldKey]
+    if (hasNodeFieldValue(formalValue)) return formalValue
+    const relationValue = nodeRelationMeta[fieldKey]
+    if (hasNodeFieldValue(relationValue)) return relationValue
+    const snapshotValue = detailSnapshot[fieldKey]
+    if (hasNodeFieldValue(snapshotValue)) return snapshotValue
+    const payloadValue = payload[fieldKey]
+    if (hasNodeFieldValue(payloadValue)) return payloadValue
   }
   if (node.node.workItemTypeCode === 'TEST_CONCLUSION') {
     const recordValue = payload[fieldKey]
@@ -5122,6 +5332,75 @@ function renderEngineeringTaskBasicSection(project: PcsProjectRecord, node: Proj
   `
 }
 
+function renderFirstSampleSummaryField(label: string, value: unknown): string {
+  return `
+    <article class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+      <p class="text-xs text-slate-500">${escapeHtml(label)}</p>
+      <div class="mt-2 text-sm font-medium leading-6 text-slate-900">${renderReadonlyValue(value)}</div>
+    </article>
+  `
+}
+
+function renderFirstSampleProjectNodeWorkspace(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
+  const task = getFirstSampleTaskForProjectNode(project.projectId, node.node.projectNodeId)
+  const actionButton = renderEngineeringTaskNodeAction(project, node, task ? 'secondary' : 'primary')
+  if (!task) {
+    return `
+      <section class="space-y-4">
+        <article class="rounded-lg border border-dashed border-blue-200 bg-blue-50 p-5">
+          <div class="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h3 class="text-base font-semibold text-blue-950">请先填写首版样衣必要信息并创建任务</h3>
+              <p class="mt-2 text-sm leading-6 text-blue-800">当前节点还没有正式首版样衣打样任务。先补来源技术包、工厂、打样区域、样衣材质模式和样衣用途，再进入首版样衣详情补齐完整结果。</p>
+            </div>
+            ${node.displayStatus === '未解锁' || node.node.currentStatus === '已取消' ? '' : actionButton}
+          </div>
+        </article>
+      </section>
+    `
+  }
+
+  const imageCount = Array.isArray(task.sampleImageIds) ? task.sampleImageIds.length : 0
+  const completed = task.status === '已通过'
+  const summaryFields = [
+    renderFirstSampleSummaryField('来源任务类型', task.sourceTaskType),
+    renderFirstSampleSummaryField('来源任务编码', task.sourceTaskCode),
+    renderFirstSampleSummaryField('来源技术包版本编码', task.sourceTechPackVersionCode),
+    renderFirstSampleSummaryField('工厂', task.factoryName || task.factoryId),
+    renderFirstSampleSummaryField('打样区域', task.targetSite),
+    renderFirstSampleSummaryField('样衣材质模式', task.sampleMaterialMode),
+    renderFirstSampleSummaryField('样衣用途', task.samplePurpose),
+    renderFirstSampleSummaryField('任务编号', task.firstSampleTaskCode),
+    renderFirstSampleSummaryField('任务状态', task.status),
+    renderFirstSampleSummaryField('当前结果编号', task.sampleCode),
+    renderFirstSampleSummaryField('当前样衣图片数量', imageCount > 0 ? `${imageCount} 张` : ''),
+  ]
+
+  return `
+    <section class="space-y-4">
+      <article class="rounded-lg border bg-white p-4">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 class="text-base font-semibold text-slate-900">首版样衣打样任务</h3>
+            <p class="mt-1 text-xs text-slate-500">${escapeHtml(task.firstSampleTaskCode)} · ${escapeHtml(task.status)} · ${escapeHtml(formatDateTime(task.updatedAt))}</p>
+          </div>
+          <button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-nav="/pcs/samples/first-sample/${escapeHtml(task.firstSampleTaskId)}">
+            ${completed ? '查看首版样衣详情' : '去首版样衣打样详情补齐'}
+          </button>
+        </div>
+        <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          ${summaryFields.join('')}
+        </div>
+      </article>
+      ${
+        completed
+          ? `<div class="space-y-4">${listProjectWorkItemFieldGroups('FIRST_SAMPLE').map((group) => renderFieldGroupValues(group, project, node, true)).join('')}</div>`
+          : '<article class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">首版样衣任务已创建，完整结果、验收结论和首单复用说明请在首版样衣打样详情页继续补齐。</article>'
+      }
+    </section>
+  `
+}
+
 function renderProjectInitSnapshot(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
   const groups = listProjectWorkItemFieldGroups('PROJECT_INIT')
   const referenceImages = listProjectReferenceImageViewModels(project.projectId)
@@ -5223,6 +5502,10 @@ function renderReadonlyFieldSection(project: PcsProjectRecord, node: ProjectNode
 function renderProjectNodeInlineContent(project: PcsProjectRecord, node: ProjectNodeViewModel): string {
   if (node.node.workItemTypeCode === 'PROJECT_INIT') {
     return renderProjectInitSnapshot(project, node)
+  }
+
+  if (node.node.workItemTypeCode === 'FIRST_SAMPLE') {
+    return renderFirstSampleProjectNodeWorkspace(project, node)
   }
 
   if (isSampleShootFitNode(node)) {
@@ -5595,6 +5878,10 @@ function renderWorkItemFullInfo(project: PcsProjectRecord, node: ProjectNodeView
     return renderChannelListingNodeWorkspace(project, node)
   }
 
+  if (node.node.workItemTypeCode === 'FIRST_SAMPLE') {
+    return renderFirstSampleProjectNodeWorkspace(project, node)
+  }
+
   if (isEngineeringTaskPolicyCode(node.node.workItemTypeCode)) {
     return renderEngineeringTaskBasicSection(project, node)
   }
@@ -5607,6 +5894,8 @@ function renderWorkItemFullInfo(project: PcsProjectRecord, node: ProjectNodeView
   const bodyContent =
     node.node.workItemTypeCode === 'PROJECT_INIT'
       ? renderProjectInitSnapshot(project, node)
+      : node.node.workItemTypeCode === 'FIRST_SAMPLE'
+        ? renderFirstSampleProjectNodeWorkspace(project, node)
       : node.node.workItemTypeCode === 'SAMPLE_SHOOT_FIT'
         ? renderSampleShootFitWorkspace(project, node)
       : `
@@ -6643,6 +6932,36 @@ export function handlePcsProjectsInput(target: Element): boolean {
   }
   if (field === 'engineering-pattern-note' && fieldNode instanceof HTMLTextAreaElement) {
     state.engineeringCreateDialog.patternDraft.note = fieldNode.value
+    return true
+  }
+  if (field === 'engineering-first-sample-tech-pack-id' && fieldNode instanceof HTMLInputElement) {
+    state.engineeringCreateDialog.firstSampleDraft.sourceTechPackVersionId = fieldNode.value
+    return true
+  }
+  if (field === 'engineering-first-sample-factory-id' && fieldNode instanceof HTMLSelectElement) {
+    const option = FIRST_SAMPLE_FACTORY_OPTIONS.find((item) => item.factoryId === fieldNode.value)
+    state.engineeringCreateDialog.firstSampleDraft.factoryId = fieldNode.value
+    state.engineeringCreateDialog.firstSampleDraft.factoryName = option?.factoryName || ''
+    return true
+  }
+  if (field === 'engineering-first-sample-target-site' && fieldNode instanceof HTMLSelectElement) {
+    state.engineeringCreateDialog.firstSampleDraft.targetSite = fieldNode.value
+    return true
+  }
+  if (field === 'engineering-first-sample-material-mode' && fieldNode instanceof HTMLSelectElement) {
+    state.engineeringCreateDialog.firstSampleDraft.sampleMaterialMode = fieldNode.value
+    return true
+  }
+  if (field === 'engineering-first-sample-purpose' && fieldNode instanceof HTMLSelectElement) {
+    state.engineeringCreateDialog.firstSampleDraft.samplePurpose = fieldNode.value
+    return true
+  }
+  if (field === 'engineering-first-sample-owner' && fieldNode instanceof HTMLSelectElement) {
+    state.engineeringCreateDialog.firstSampleDraft.ownerName = fieldNode.value
+    return true
+  }
+  if (field === 'engineering-first-sample-note' && fieldNode instanceof HTMLTextAreaElement) {
+    state.engineeringCreateDialog.firstSampleDraft.note = fieldNode.value
     return true
   }
 

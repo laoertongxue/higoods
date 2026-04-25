@@ -42,6 +42,10 @@ import {
   getRevisionTaskCompletionMissingFields,
 } from './pcs-engineering-task-field-policy.ts'
 import {
+  buildFirstSampleProjectMeta,
+  syncFirstSampleTaskToProjectNode,
+} from './pcs-first-sample-project-writeback.ts'
+import {
   getPlateMakingTaskById,
   listPlateMakingTasks,
   updatePlateMakingTask,
@@ -271,6 +275,7 @@ export interface FirstSampleTaskCreateInput extends BaseTaskCreateInput {
   fitConfirmationSummary?: string
   artworkConfirmationSummary?: string
   productionReadinessNote?: string
+  confirmedAt?: string
 }
 
 export interface FirstOrderSampleTaskCreateInput extends BaseTaskCreateInput {
@@ -933,7 +938,7 @@ function firstSampleChainFields(
   input: FirstSampleTaskCreateInput,
   existing?: FirstSampleTaskRecord | null,
 ): Pick<FirstSampleTaskRecord,
-  'sourceTechPackVersionId' | 'sourceTechPackVersionCode' | 'sourceTechPackVersionLabel' | 'sourceTaskType' | 'sourceTaskId' | 'sourceTaskCode' | 'sampleMaterialMode' | 'samplePurpose' | 'sampleImageIds' | 'reuseAsFirstOrderBasisFlag' | 'reuseAsFirstOrderBasisConfirmedAt' | 'reuseAsFirstOrderBasisConfirmedBy' | 'reuseAsFirstOrderBasisNote' | 'fitConfirmationSummary' | 'artworkConfirmationSummary' | 'productionReadinessNote'
+  'sourceTechPackVersionId' | 'sourceTechPackVersionCode' | 'sourceTechPackVersionLabel' | 'sourceTaskType' | 'sourceTaskId' | 'sourceTaskCode' | 'sampleMaterialMode' | 'samplePurpose' | 'sampleImageIds' | 'reuseAsFirstOrderBasisFlag' | 'reuseAsFirstOrderBasisConfirmedAt' | 'reuseAsFirstOrderBasisConfirmedBy' | 'reuseAsFirstOrderBasisNote' | 'fitConfirmationSummary' | 'artworkConfirmationSummary' | 'productionReadinessNote' | 'confirmedAt'
 > {
   const reuseFlag = Boolean(input.reuseAsFirstOrderBasisFlag ?? existing?.reuseAsFirstOrderBasisFlag)
   return {
@@ -953,6 +958,7 @@ function firstSampleChainFields(
     fitConfirmationSummary: input.fitConfirmationSummary || existing?.fitConfirmationSummary || '',
     artworkConfirmationSummary: input.artworkConfirmationSummary || existing?.artworkConfirmationSummary || '',
     productionReadinessNote: input.productionReadinessNote || existing?.productionReadinessNote || '',
+    confirmedAt: input.confirmedAt || existing?.confirmedAt || '',
   }
 }
 
@@ -2018,23 +2024,10 @@ export function syncExistingProjectEngineeringTaskNodes(operatorName = '系统�
       })
     })
   listFirstSampleTasks()
-    .filter((task) => task.projectId && task.projectNodeId && task.status === '已完成')
+    .filter((task) => task.projectId && task.projectNodeId && task.status === '已通过')
     .forEach((task) => {
-      syncTaskCompletionToProjectNode({
-        projectId: task.projectId,
-        projectNodeId: task.projectNodeId,
-        workItemTypeCode: 'FIRST_SAMPLE',
-        workItemTypeName: '首版样衣打样',
-        sourceModule: '首版样衣打样',
-        sourceObjectType: '首版样衣打样任务',
-        sourceObjectId: task.firstSampleTaskId,
-        sourceObjectCode: task.firstSampleTaskCode,
-        sourceTitle: task.title,
-        sourceStatus: task.status,
-        businessDate: task.updatedAt || task.createdAt,
-        ownerName: task.ownerName,
-        resultType: '首版样衣打样已完成',
-        resultText: '首版样衣打样已完成，商品项目节点同步完成。',
+      syncFirstSampleTaskToProjectNode({
+        firstSampleTaskId: task.firstSampleTaskId,
         operatorName,
       })
     })
@@ -2120,7 +2113,6 @@ export function createFirstSampleTaskWithProjectRelation(
     targetSite: input.targetSite || '深圳',
     sampleCode: input.sampleCode || buildFirstSampleCode(input.targetSite || '深圳', listFirstSampleTasks().length),
     ...firstSampleChainFields(input, existing),
-    confirmedAt: existing?.confirmedAt || '',
     status: '待处理',
     ownerId: input.ownerId || project.ownerId,
     ownerName: input.ownerName || project.ownerName,
@@ -2134,8 +2126,8 @@ export function createFirstSampleTaskWithProjectRelation(
     legacyUpstreamRef: '',
   })
 
-  const relation = upsertProjectRelation(
-    relationPayload({
+  const relation = upsertProjectRelation({
+    ...relationPayload({
       projectId: project.projectId,
       projectCode: project.projectCode,
       projectNodeId: node.projectNodeId,
@@ -2151,16 +2143,22 @@ export function createFirstSampleTaskWithProjectRelation(
       ownerName: task.ownerName,
       operatorName: input.operatorName || '当前用户',
     }),
-  )
+    relationRole: '执行记录',
+    note: JSON.stringify(buildFirstSampleProjectMeta(task)),
+  })
 
   updateTaskNode(node, task, {
     latestInstanceId: task.firstSampleTaskId,
     latestInstanceCode: task.firstSampleTaskCode,
     latestResultType: '已创建首版样衣打样任务',
-    latestResultText: '已创建首版样衣打样任务，等待开始打样',
-    pendingActionType: '开始打样',
-    pendingActionText: '请开始首版样衣打样',
+    latestResultText: '已创建首版样衣打样任务，待补齐详细信息',
+    pendingActionType: '补齐首版样衣详情',
+    pendingActionText: '请在首版样衣打样详情中补齐结果信息',
   }, Boolean(existing))
+  syncFirstSampleTaskToProjectNode({
+    firstSampleTaskId: task.firstSampleTaskId,
+    operatorName: input.operatorName || '当前用户',
+  })
   syncExistingProjectArchiveByProjectId(task.projectId, task.updatedBy)
   return { ok: true, task, relation, message: '首版样衣打样任务已创建，已写项目关系，已更新项目节点。' }
 }

@@ -43,14 +43,23 @@ function normalizeTask(task: FirstSampleTaskRecord): FirstSampleTaskRecord {
   return {
     ...cloneTask(task),
     note: task.note || '',
+    sourceType: task.sourceType || '人工创建',
+    upstreamModule: task.upstreamModule || '',
+    upstreamObjectType: task.upstreamObjectType || '',
+    upstreamObjectId: task.upstreamObjectId || '',
+    upstreamObjectCode: task.upstreamObjectCode || '',
     sourceTechPackVersionId: task.sourceTechPackVersionId || '',
     sourceTechPackVersionCode: task.sourceTechPackVersionCode || '',
     sourceTechPackVersionLabel: task.sourceTechPackVersionLabel || '',
     sourceTaskType: task.sourceTaskType || task.upstreamObjectType || task.upstreamModule || '',
     sourceTaskId: task.sourceTaskId || task.upstreamObjectId || '',
     sourceTaskCode: task.sourceTaskCode || task.upstreamObjectCode || '',
+    factoryId: task.factoryId || '',
+    factoryName: task.factoryName || '',
+    targetSite: task.targetSite || '',
     sampleMaterialMode: task.sampleMaterialMode || '正确布',
     samplePurpose: task.samplePurpose || (task.reuseAsFirstOrderBasisFlag ? '首单复用候选' : '首版确认'),
+    sampleCode: task.sampleCode || '',
     sampleImageIds: Array.isArray(task.sampleImageIds) ? [...task.sampleImageIds] : [],
     reuseAsFirstOrderBasisFlag: Boolean(task.reuseAsFirstOrderBasisFlag),
     reuseAsFirstOrderBasisConfirmedAt: task.reuseAsFirstOrderBasisConfirmedAt || '',
@@ -128,6 +137,14 @@ export function listFirstSampleTasksByProjectNode(projectId: string, projectNode
     .tasks
     .filter((item) => item.projectId === projectId && item.projectNodeId === projectNodeId)
     .map(cloneTask)
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+}
+
+export function getLatestFirstSampleTaskByProjectNode(
+  projectId: string,
+  projectNodeId: string,
+): FirstSampleTaskRecord | null {
+  return listFirstSampleTasksByProjectNode(projectId, projectNodeId)[0] || null
 }
 
 export function upsertFirstSampleTask(task: FirstSampleTaskRecord): FirstSampleTaskRecord {

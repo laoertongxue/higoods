@@ -7,8 +7,10 @@ import {
   type WorkItemTemplateConfig,
 } from './pcs-work-item-configs.ts'
 import { getProjectPhaseContract, type PcsProjectPhaseCode } from './pcs-project-domain-contract.ts'
+import { getFirstSampleTaskFieldPolicySummary } from './pcs-sample-task-field-policy.ts'
 
 export type WorkItemStatus = '标准内置'
+export const FIRST_SAMPLE_WORK_ITEM_CODE = 'FIRST_SAMPLE'
 
 export interface PcsWorkItemListItem {
   id: string
@@ -108,4 +110,8 @@ export function listSelectableTemplateWorkItems(phaseCode?: string): WorkItemTem
 export function getBuiltinProjectWorkItemDefinition(workItemId: string): WorkItemTemplateConfig | null {
   const identity = getStandardProjectWorkItemIdentityById(workItemId)
   return identity ? getWorkItemTemplateConfig(identity.workItemId) : null
+}
+
+export function getFirstSampleWorkItemFieldPolicySummary(): ReturnType<typeof getFirstSampleTaskFieldPolicySummary> {
+  return getFirstSampleTaskFieldPolicySummary()
 }

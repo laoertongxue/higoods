@@ -177,18 +177,23 @@ export function completeProjectNode(
 
   const operatorName = input.operatorName ?? '当前用户'
   const timestamp = input.timestamp ?? nowText()
+  const defaultResultType = node.workItemTypeCode === 'FIRST_SAMPLE' ? '首版样衣打样已完成' : '节点完成'
+  const defaultResultText =
+    node.workItemTypeCode === 'FIRST_SAMPLE'
+      ? '首版样衣打样已完成，商品项目节点同步完成。'
+      : `${node.workItemTypeName}已完成。`
 
   updateProjectNodeRecord(
     projectId,
     projectNodeId,
     {
       currentStatus: '已完成',
-      latestResultType: input.resultType ?? '节点完成',
-      latestResultText: input.resultText ?? `${node.workItemTypeName}已完成。`,
+      latestResultType: input.resultType ?? defaultResultType,
+      latestResultText: input.resultText ?? defaultResultText,
       pendingActionType: '已完成',
       pendingActionText: '节点已完成',
       updatedAt: timestamp,
-      lastEventType: input.resultType ?? '节点完成',
+      lastEventType: input.resultType ?? defaultResultType,
       lastEventTime: timestamp,
     },
     operatorName,

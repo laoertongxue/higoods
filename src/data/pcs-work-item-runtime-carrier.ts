@@ -264,8 +264,8 @@ const PCS_WORK_ITEM_RUNTIME_CARRIERS: Record<PcsProjectWorkItemCode, PcsWorkItem
     moduleName: '首版样衣打样',
     listRoute: '/pcs/samples/first-sample',
     hasStandaloneInstanceList: true,
-    projectDisplayMode: '项目节点负责查看与回写，正式实例承载在首版样衣打样模块，并可作为首单参照来源。',
-    carrierReason: '首版样衣打样需要独立记录输入、结果和确认结论，并向首单样衣打样提供依据。',
+    projectDisplayMode: '项目节点先填写必要信息并创建正式任务；完整结果、验收结论和首单复用说明承载在首版样衣打样模块并回写项目节点。',
+    carrierReason: '首版样衣打样既要从商品项目获得来源和执行上下文，又要在独立模块维护结果与确认字段，完成后继续作为首单样衣打样的参照输入。',
   },
   FIRST_ORDER_SAMPLE: {
     workItemTypeCode: 'FIRST_ORDER_SAMPLE',

@@ -34,6 +34,10 @@ import {
   getPlateTaskCompletionMissingFields,
   getRevisionTaskCompletionMissingFields,
 } from './pcs-engineering-task-field-policy.ts'
+import {
+  getFirstSampleCompletionMissingFields,
+  isFirstSampleCompletedStatus,
+} from './pcs-sample-task-field-policy.ts'
 import { getProjectTemplateById } from './pcs-templates.ts'
 import {
   listRevisionTasksByProject,
@@ -221,6 +225,9 @@ function buildMissingTaskLabels(task: CompletedEngineeringTask, workItemTypeCode
   if (workItemTypeCode === 'PATTERN_ARTWORK_TASK') {
     return getPatternTaskCompletionMissingFields(task as PatternTaskRecord)
   }
+  if (workItemTypeCode === 'FIRST_SAMPLE') {
+    return getFirstSampleCompletionMissingFields(task as FirstSampleTaskRecord)
+  }
   return []
 }
 
@@ -255,7 +262,11 @@ function validateNodeByTask(project: PcsProjectViewRecord, node: PcsProjectNodeR
     }
   }
 
-  if (task.status !== '已完成') {
+  const completed =
+    node.workItemTypeCode === 'FIRST_SAMPLE'
+      ? isFirstSampleCompletedStatus(task.status)
+      : task.status === '已完成'
+  if (!completed) {
     return {
       ok: false,
       project,

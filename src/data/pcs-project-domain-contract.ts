@@ -1698,11 +1698,20 @@ const firstSampleFields = [
       { key: 'sourceTaskType', label: '来源任务类型', type: 'text', sourceKind: '首版样衣任务', sourceRef: '首版样衣正式对象.sourceTaskType', meaning: '首版样衣来源任务类型', logic: '来源可追溯到制版、改版或花型任务。', readonly: true, required: false },
       { key: 'sourceTaskId', label: '来源任务ID', type: 'text', sourceKind: '首版样衣任务', sourceRef: '首版样衣正式对象.sourceTaskId', meaning: '来源任务 ID', logic: '由样衣任务创建时带入。', readonly: true, required: false },
       { key: 'sourceTaskCode', label: '来源任务编码', type: 'text', sourceKind: '首版样衣任务', sourceRef: '首版样衣正式对象.sourceTaskCode', meaning: '来源任务编码', logic: '用于项目链路展示。', readonly: true, required: false },
-      { key: 'sourceTechPackVersionId', label: '来源技术包版本ID', type: 'text', sourceKind: '技术包版本', sourceRef: '技术包版本.versionId', meaning: '首版样衣使用的技术包版本 ID', logic: '由技术包生成链路或样衣任务手动选择后回写。', required: false },
-      { key: 'sourceTechPackVersionCode', label: '来源技术包版本编码', type: 'text', sourceKind: '技术包版本', sourceRef: '技术包版本.versionCode', meaning: '首版样衣使用的技术包版本编码', logic: '用于打样引用。', required: false },
-      { key: 'sourceTechPackVersionLabel', label: '来源技术包版本标签', type: 'text', sourceKind: '技术包版本', sourceRef: '技术包版本.versionLabel', meaning: '首版样衣使用的技术包版本标签', logic: '用于页面展示。', required: false },
-      { key: 'factoryId', label: '工厂', type: 'single-select', sourceKind: '本地演示主数据', sourceRef: '工厂演示主数据', meaning: '打样工厂', logic: '当前原型仓库中的工厂列表来自本地演示主数据，不伪装成配置工作台维度。' },
-      { key: 'targetSite', label: '打样区域', type: 'text', sourceKind: '本地演示主数据', sourceRef: '站点演示主数据', meaning: '打样所在区域', logic: '当前打样区域来自本地演示站点选项，用于原型表达任务执行地点。' },
+      { key: 'sourceTechPackVersionId', label: '来源技术包版本ID', type: 'text', sourceKind: '技术包版本', sourceRef: '技术包版本.versionId', meaning: '首版样衣使用的技术包版本 ID', logic: '进入首版样衣节点时必须先带出或选择，后续任务详情继续沿用。' },
+      { key: 'sourceTechPackVersionCode', label: '来源技术包版本编码', type: 'text', sourceKind: '技术包版本', sourceRef: '技术包版本.versionCode', meaning: '首版样衣使用的技术包版本编码', logic: '用于打样引用。', readonly: true, required: false },
+      { key: 'sourceTechPackVersionLabel', label: '来源技术包版本标签', type: 'text', sourceKind: '技术包版本', sourceRef: '技术包版本.versionLabel', meaning: '首版样衣使用的技术包版本标签', logic: '用于页面展示。', readonly: true, required: false },
+      { key: 'factoryId', label: '工厂', type: 'single-select', sourceKind: '本地演示主数据', sourceRef: '工厂演示主数据', meaning: '打样工厂', logic: '当前原型仓库中的工厂列表来自本地演示主数据，不伪装成配置工作台维度。', options: [
+        { value: 'factory-shenzhen-01', label: '深圳工厂01' },
+        { value: 'factory-shenzhen-02', label: '深圳工厂02' },
+        { value: 'factory-jakarta-01', label: '雅加达工厂01' },
+        { value: 'factory-jakarta-02', label: '雅加达工厂02' },
+      ] },
+      { key: 'factoryName', label: '工厂名称', type: 'text', sourceKind: '本地演示主数据', sourceRef: '工厂演示主数据', meaning: '打样工厂名称快照', logic: '根据工厂选择自动回填，用于节点展示。', readonly: true, required: false },
+      { key: 'targetSite', label: '打样区域', type: 'single-select', sourceKind: '本地演示主数据', sourceRef: '站点演示主数据', meaning: '打样所在区域', logic: '当前打样区域来自本地演示站点选项，用于原型表达任务执行地点。', options: [
+        { value: '深圳', label: '深圳' },
+        { value: '雅加达', label: '雅加达' },
+      ] },
     ],
   }),
   ...groupFields({
@@ -1710,8 +1719,14 @@ const firstSampleFields = [
     title: '打样结果',
     description: '首版样衣的材质模式、样衣用途、样衣结果和图片。',
     fields: [
-      { key: 'sampleMaterialMode', label: '样衣材质模式', type: 'single-select', sourceKind: '首版样衣任务', sourceRef: '首版样衣正式对象.sampleMaterialMode', meaning: '样衣使用替代布或正确布', logic: '选项固定为替代布、正确布。' },
-      { key: 'samplePurpose', label: '样衣用途', type: 'single-select', sourceKind: '首版样衣任务', sourceRef: '首版样衣正式对象.samplePurpose', meaning: '首版确认或首单复用候选', logic: '首版确认通过后可作为首单复用候选。' },
+      { key: 'sampleMaterialMode', label: '样衣材质模式', type: 'single-select', sourceKind: '首版样衣任务', sourceRef: '首版样衣正式对象.sampleMaterialMode', meaning: '样衣使用替代布或正确布', logic: '选项固定为替代布、正确布。', options: [
+        { value: '替代布', label: '替代布' },
+        { value: '正确布', label: '正确布' },
+      ] },
+      { key: 'samplePurpose', label: '样衣用途', type: 'single-select', sourceKind: '首版样衣任务', sourceRef: '首版样衣正式对象.samplePurpose', meaning: '首版确认或首单复用候选', logic: '首版确认通过后可作为首单复用候选。', options: [
+        { value: '首版确认', label: '首版确认' },
+        { value: '首单复用候选', label: '首单复用候选' },
+      ] },
       { key: 'sampleCode', label: '结果编号', type: 'text', sourceKind: '上游实例回写', sourceRef: '首版样衣打样正式对象.sampleCode', meaning: '结果编号', logic: '提交打样结果后回填。', required: false, readonly: true },
       { key: 'sampleImageIds', label: '样衣图片', type: 'image-list', sourceKind: '样衣结果', sourceRef: '首版样衣正式对象.sampleImageIds', meaning: '首版样衣图片', logic: '样衣图片进入项目资料归档。', required: false },
     ],

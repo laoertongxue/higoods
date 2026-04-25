@@ -86,6 +86,7 @@
     "check:pcs-plate-making-refactor": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pcs-plate-making-refactor.ts",
     "check:pcs-revision-task-refactor": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pcs-revision-task-refactor.ts",
     "check:pcs-sample-chain-refactor": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pcs-sample-chain-refactor.ts",
+    "check:pcs-first-sample-node-writeback": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pcs-first-sample-node-writeback.ts",
     "check:pcs-closure-unification": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-pcs-closure-unification.ts",
     "check:capacity-dynamic-status": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-capacity-dynamic-status.ts",
     "check:cutting-production-progress-columns": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-production-progress-columns.ts",

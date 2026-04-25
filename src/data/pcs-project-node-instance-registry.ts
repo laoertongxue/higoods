@@ -121,6 +121,14 @@ function buildInlineRecordTitle(record: PcsProjectInlineNodeRecord): string {
   return imageCount > 0 ? `${record.workItemTypeName} / ${imageCount} 张图片` : record.workItemTypeName
 }
 
+function buildRelationObjectTitle(relation: ReturnType<typeof listProjectRelationsByProject>[number]): string {
+  if (relation.sourceTitle) return relation.sourceTitle
+  if (relation.sourceModule === '首版样衣打样' && relation.sourceObjectType === '首版样衣打样任务') {
+    return `${relation.workItemTypeName || '首版样衣打样'} / ${relation.sourceObjectCode || relation.sourceObjectId}`
+  }
+  return relation.sourceObjectCode || relation.sourceObjectId || relation.sourceObjectType
+}
+
 export function listProjectNodeInstances(
   projectId: string,
   projectNodeId?: string,
@@ -200,7 +208,7 @@ export function listProjectNodeInstances(
       relationRole: relation.relationRole,
       instanceId,
       instanceCode,
-      title: relation.sourceTitle,
+      title: buildRelationObjectTitle(relation),
       status: relation.sourceStatus,
       ownerName: relation.ownerName,
       businessDate: relation.businessDate,

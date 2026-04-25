@@ -26,8 +26,11 @@ import {
 import { listPatternTasks, getPatternTaskById, updatePatternTask, resetPatternTaskRepository } from '../data/pcs-pattern-task-repository.ts'
 import { listPlateMakingTasks, getPlateMakingTaskById, updatePlateMakingTask, resetPlateMakingTaskRepository } from '../data/pcs-plate-making-repository.ts'
 import { listRevisionTasks, getRevisionTaskById, updateRevisionTask, resetRevisionTaskRepository } from '../data/pcs-revision-task-repository.ts'
-import { listFirstSampleTasks, getFirstSampleTaskById, updateFirstSampleTask, resetFirstSampleTaskRepository } from '../data/pcs-first-sample-repository.ts'
+import { listFirstSampleTasks, getFirstSampleTaskById, resetFirstSampleTaskRepository } from '../data/pcs-first-sample-repository.ts'
 import { listFirstOrderSampleTasks, getFirstOrderSampleTaskById, updateFirstOrderSampleTask, resetFirstOrderSampleTaskRepository } from '../data/pcs-first-order-sample-repository.ts'
+import {
+  updateFirstSampleTaskDetailAndSync,
+} from '../data/pcs-first-sample-project-writeback.ts'
 import {
   completePatternTask,
   completePlateMakingTask,
@@ -56,6 +59,7 @@ import type { PlateMakingMaterialLine } from '../data/pcs-plate-making-material-
 import type { PlateMakingPatternImageLine } from '../data/pcs-plate-making-pattern-file-types.ts'
 import { getFirstOrderSampleChainMissingFields } from '../data/pcs-sample-chain-service.ts'
 import type { SampleChainMode, SampleSpecialSceneReasonCode } from '../data/pcs-sample-chain-types.ts'
+import type { FirstSampleTaskRecord } from '../data/pcs-first-sample-types.ts'
 import { tokenizePatternFilename } from '../utils/pcs-pattern-library-services.ts'
 import { escapeHtml, formatDateTime, toClassName } from '../utils.ts'
 
@@ -230,6 +234,19 @@ interface PatternDetailDraft {
   patternCategoryCode: string
   patternStyleTagsText: string
   hotSellerFlag: boolean
+}
+
+interface FirstSampleDetailDraft {
+  sampleCode: string
+  sampleImageIdsText: string
+  fitConfirmationSummary: string
+  artworkConfirmationSummary: string
+  productionReadinessNote: string
+  reuseAsFirstOrderBasisFlag: boolean
+  reuseAsFirstOrderBasisConfirmedAt: string
+  reuseAsFirstOrderBasisConfirmedBy: string
+  reuseAsFirstOrderBasisNote: string
+  confirmedAt: string
 }
 
 const PAGE_SIZE = 8
@@ -423,6 +440,34 @@ const initialFirstOrderCreateDraft = (): FirstOrderCreateDraft => ({
   correctFabricRequiredFlag: false,
 })
 
+const initialFirstSampleDetailDraft = (): FirstSampleDetailDraft => ({
+  sampleCode: '',
+  sampleImageIdsText: '',
+  fitConfirmationSummary: '',
+  artworkConfirmationSummary: '',
+  productionReadinessNote: '',
+  reuseAsFirstOrderBasisFlag: false,
+  reuseAsFirstOrderBasisConfirmedAt: '',
+  reuseAsFirstOrderBasisConfirmedBy: '',
+  reuseAsFirstOrderBasisNote: '',
+  confirmedAt: '',
+})
+
+function buildFirstSampleDetailDraft(task: FirstSampleTaskRecord): FirstSampleDetailDraft {
+  return {
+    sampleCode: task.sampleCode || '',
+    sampleImageIdsText: (task.sampleImageIds || []).join('\n'),
+    fitConfirmationSummary: task.fitConfirmationSummary || '',
+    artworkConfirmationSummary: task.artworkConfirmationSummary || '',
+    productionReadinessNote: task.productionReadinessNote || '',
+    reuseAsFirstOrderBasisFlag: Boolean(task.reuseAsFirstOrderBasisFlag),
+    reuseAsFirstOrderBasisConfirmedAt: task.reuseAsFirstOrderBasisConfirmedAt || '',
+    reuseAsFirstOrderBasisConfirmedBy: task.reuseAsFirstOrderBasisConfirmedBy || '',
+    reuseAsFirstOrderBasisNote: task.reuseAsFirstOrderBasisNote || '',
+    confirmedAt: task.confirmedAt || '',
+  }
+}
+
 const state = {
   notice: null as string | null,
   revisionList: { search: '', status: 'all', owner: 'all', source: 'all', quickFilter: 'all', currentPage: 1 } as ListState,
@@ -451,6 +496,8 @@ const state = {
   firstSampleTab: 'overview' as FirstSampleTab,
   firstSampleCreateOpen: false,
   firstSampleCreateDraft: initialSampleCreateDraft(),
+  firstSampleDetailDraftTaskId: '',
+  firstSampleDetailDraft: initialFirstSampleDetailDraft(),
   firstSampleAcceptanceOpen: false,
   firstSampleAcceptanceTaskId: '',
   firstSampleAcceptanceResult: '通过',
@@ -3180,10 +3227,63 @@ function renderFirstSampleAcceptanceDialog(): string {
   return renderDialog(state.firstSampleAcceptanceOpen, '填写首版验收结论', body, 'close-first-sample-acceptance', 'submit-first-sample-acceptance', '提交验收')
 }
 
+function getFirstSampleDetailDraft(task: FirstSampleTaskRecord): FirstSampleDetailDraft {
+  if (state.firstSampleDetailDraftTaskId !== task.firstSampleTaskId) {
+    state.firstSampleDetailDraftTaskId = task.firstSampleTaskId
+    state.firstSampleDetailDraft = buildFirstSampleDetailDraft(task)
+  }
+  return state.firstSampleDetailDraft
+}
+
+function parseSampleImageIdsText(value: string): string[] {
+  return value
+    .split(/[\n,，、]/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function saveFirstSampleDetail(taskId: string): void {
+  const task = getFirstSampleTaskById(taskId)
+  if (!task) {
+    setNotice('未找到首版样衣打样任务。')
+    return
+  }
+  const draft = getFirstSampleDetailDraft(task)
+  const result = updateFirstSampleTaskDetailAndSync(taskId, {
+    sampleCode: draft.sampleCode.trim(),
+    sampleImageIds: parseSampleImageIdsText(draft.sampleImageIdsText),
+    fitConfirmationSummary: draft.fitConfirmationSummary.trim(),
+    artworkConfirmationSummary: draft.artworkConfirmationSummary.trim(),
+    productionReadinessNote: draft.productionReadinessNote.trim(),
+    reuseAsFirstOrderBasisFlag: draft.reuseAsFirstOrderBasisFlag,
+    reuseAsFirstOrderBasisConfirmedAt: draft.reuseAsFirstOrderBasisConfirmedAt.trim(),
+    reuseAsFirstOrderBasisConfirmedBy: draft.reuseAsFirstOrderBasisConfirmedBy.trim(),
+    reuseAsFirstOrderBasisNote: draft.reuseAsFirstOrderBasisNote.trim(),
+    confirmedAt: draft.confirmedAt.trim(),
+  }, '当前用户')
+  if (!result.ok || !result.task) {
+    setNotice(result.message)
+    return
+  }
+  state.firstSampleDetailDraftTaskId = result.task.firstSampleTaskId
+  state.firstSampleDetailDraft = buildFirstSampleDetailDraft(result.task)
+  pushRuntimeLog('firstSample', result.task.firstSampleTaskId, '保存详情', '已保存首版样衣完整字段并同步商品项目节点。')
+  setNotice('首版样衣打样详情已保存，并同步商品项目节点。')
+}
+
 function renderFirstSampleDetailPage(firstSampleTaskId: string): string {
   const task = getFirstSampleTaskById(firstSampleTaskId)
   if (!task) return renderEmptyDetail('首版样衣打样', '/pcs/samples/first-sample')
-  const acceptance = firstSampleAcceptanceMap.get(task.firstSampleTaskId) || (task.status === '已通过' ? { result: '通过', note: task.note || '首版确认已通过。', updatedAt: task.updatedAt } : null)
+  const detailDraft = getFirstSampleDetailDraft(task)
+  const acceptance =
+    firstSampleAcceptanceMap.get(task.firstSampleTaskId) ||
+    (task.confirmedAt || task.fitConfirmationSummary || task.productionReadinessNote
+      ? {
+          result: task.status === '已通过' ? '通过' : task.status,
+          note: task.fitConfirmationSummary || task.productionReadinessNote || task.note || '首版样衣已记录验收结论。',
+          updatedAt: task.confirmedAt || task.updatedAt,
+        }
+      : null)
   const logs = mergeLogs('firstSample', task.firstSampleTaskId, [
     ...(acceptance ? [{ time: acceptance.updatedAt, action: '填写验收', user: '当前用户', detail: `验收结论：${acceptance.result}。${acceptance.note}` }] : []),
     ...baseLogs(task),
@@ -3217,16 +3317,18 @@ function renderFirstSampleDetailPage(firstSampleTaskId: string): string {
   const resultSection = renderSectionCard(
     '打样结果',
     `
-      <div class="grid gap-4 md:grid-cols-2">
-        <div class="rounded-lg border border-slate-200 p-4">
-          <p class="text-xs text-slate-500">结果编号</p>
-          <p class="mt-2 text-sm text-slate-900">${escapeHtml(task.sampleCode || '待提交')}</p>
-          <p class="mt-2 text-xs text-slate-500">仅记录本次首版打样结果，不进入独立流转台账。</p>
+      <div class="space-y-4">
+        <div class="grid gap-4 md:grid-cols-2">
+          ${renderTextInput('结果编号', 'first-sample-detail-sample-code', detailDraft.sampleCode, '例如：FS-RESULT-25001')}
+          <div class="rounded-lg border border-slate-200 p-4">
+            <p class="text-xs text-slate-500">材质与用途</p>
+            <p class="mt-2 text-sm text-slate-900">${escapeHtml(task.sampleMaterialMode)} · ${escapeHtml(task.samplePurpose)}</p>
+            <p class="mt-2 text-xs text-slate-500">样衣图片：${escapeHtml(parseSampleImageIdsText(detailDraft.sampleImageIdsText).length ? `${parseSampleImageIdsText(detailDraft.sampleImageIdsText).length} 张` : '暂无图片')}</p>
+          </div>
         </div>
-        <div class="rounded-lg border border-slate-200 p-4">
-          <p class="text-xs text-slate-500">材质与用途</p>
-          <p class="mt-2 text-sm text-slate-900">${escapeHtml(task.sampleMaterialMode)} · ${escapeHtml(task.samplePurpose)}</p>
-          <p class="mt-2 text-xs text-slate-500">样衣图片：${escapeHtml(task.sampleImageIds.length ? `${task.sampleImageIds.length} 张` : '暂无图片')}</p>
+        ${renderTextarea('样衣图片', 'first-sample-detail-sample-images', detailDraft.sampleImageIdsText, '每行填写一个图片ID或图片地址')}
+        <div class="flex justify-end">
+          <button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-engineering-action="save-first-sample-detail" data-task-id="${escapeHtml(task.firstSampleTaskId)}">保存打样结果</button>
         </div>
       </div>
     `,
@@ -3234,21 +3336,34 @@ function renderFirstSampleDetailPage(firstSampleTaskId: string): string {
   const acceptanceSection = renderSectionCard(
     '验收与结论',
     `
-      <div class="grid gap-4 md:grid-cols-2">
-        <div class="rounded-lg border border-slate-200 p-4">
-          <p class="text-xs text-slate-500">验收状态</p>
-          <p class="mt-2 text-sm text-slate-900">${acceptance ? escapeHtml(acceptance.result) : '待填写'}</p>
-          <p class="mt-2 text-xs text-slate-500">${escapeHtml(acceptance?.note || '样衣进入验收后可填写正式结论。')}</p>
+      <div class="space-y-4">
+        <div class="grid gap-4 md:grid-cols-2">
+          <div class="rounded-lg border border-slate-200 p-4">
+            <p class="text-xs text-slate-500">验收状态</p>
+            <p class="mt-2 text-sm text-slate-900">${acceptance ? escapeHtml(acceptance.result) : '待填写'}</p>
+            <p class="mt-2 text-xs text-slate-500">${escapeHtml(acceptance?.note || '样衣进入验收后可填写正式结论。')}</p>
+          </div>
+          <div class="rounded-lg border border-slate-200 p-4">
+            <p class="text-xs text-slate-500">正式对象核对</p>
+            <p class="mt-2 text-sm text-slate-900">工作项状态：${escapeHtml(task.status)}</p>
+            <p class="mt-2 text-xs text-slate-500">结果编号：${escapeHtml(task.sampleCode || '-')}</p>
+          </div>
         </div>
-        <div class="rounded-lg border border-slate-200 p-4">
-          <p class="text-xs text-slate-500">正式对象核对</p>
-          <p class="mt-2 text-sm text-slate-900">工作项状态：${escapeHtml(task.status)}</p>
-          <p class="mt-2 text-xs text-slate-500">结果编号：${escapeHtml(task.sampleCode || '-')}</p>
+        <div class="grid gap-4 md:grid-cols-2">
+          ${renderTextarea('版型确认说明', 'first-sample-detail-fit-summary', detailDraft.fitConfirmationSummary, '记录版型确认结论')}
+          ${renderTextarea('花型确认说明', 'first-sample-detail-artwork-summary', detailDraft.artworkConfirmationSummary, '记录花型、颜色和外观确认结论')}
+          ${renderTextarea('生产准备说明', 'first-sample-detail-production-note', detailDraft.productionReadinessNote, '记录是否可进入首单参照准备')}
+          ${renderTextarea('复用说明', 'first-sample-detail-reuse-note', detailDraft.reuseAsFirstOrderBasisNote, '记录复用为首单参照的限制或说明')}
+          ${renderTextInput('复用确认时间', 'first-sample-detail-reuse-confirmed-at', detailDraft.reuseAsFirstOrderBasisConfirmedAt, '例如：2026-04-25 10:30')}
+          ${renderTextInput('复用确认人', 'first-sample-detail-reuse-confirmed-by', detailDraft.reuseAsFirstOrderBasisConfirmedBy, '例如：张娜')}
+          ${renderTextInput('确认时间', 'first-sample-detail-confirmed-at', detailDraft.confirmedAt, '例如：2026-04-25 10:30')}
+          <label class="flex min-h-[72px] items-center gap-3 rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-700">
+            <input type="checkbox" ${detailDraft.reuseAsFirstOrderBasisFlag ? 'checked' : ''} data-pcs-engineering-field="first-sample-detail-reuse-flag" />
+            <span>可复用为首单样衣打样依据</span>
+          </label>
         </div>
-        <div class="rounded-lg border border-slate-200 p-4 md:col-span-2">
-          <p class="text-xs text-slate-500">首单依据</p>
-          <p class="mt-2 text-sm text-slate-900">${task.reuseAsFirstOrderBasisFlag ? '可作为首单样衣打样依据' : '未确认作为首单依据'}</p>
-          <p class="mt-2 text-xs text-slate-500">${escapeHtml(task.reuseAsFirstOrderBasisNote || task.productionReadinessNote || '首版确认通过后可维护复用结论。')}</p>
+        <div class="flex justify-end">
+          <button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-engineering-action="save-first-sample-detail" data-task-id="${escapeHtml(task.firstSampleTaskId)}">保存验收字段</button>
         </div>
       </div>
     `,
@@ -3600,19 +3715,17 @@ function advanceFirstSampleTask(taskId: string): void {
   const task = getFirstSampleTaskById(taskId)
   if (!task) return
   if (task.status === '草稿' || task.status === '待处理') {
-    updateFirstSampleTask(taskId, { status: '打样中', updatedAt: nowText(), updatedBy: '当前用户' })
+    updateFirstSampleTaskDetailAndSync(taskId, { status: '打样中' }, '当前用户')
     pushRuntimeLog('firstSample', taskId, '开始打样', '已进入首版样衣打样执行。')
     setNotice(`首版样衣任务 ${task.firstSampleTaskCode} 已开始打样。`)
     return
   }
   if (task.status === '打样中') {
     const sampleCode = task.sampleCode || `FS-RESULT-${task.firstSampleTaskCode.slice(-3)}`
-    updateFirstSampleTask(taskId, {
+    updateFirstSampleTaskDetailAndSync(taskId, {
       status: '待确认',
       sampleCode,
-      updatedAt: nowText(),
-      updatedBy: '当前用户',
-    })
+    }, '当前用户')
     pushRuntimeLog('firstSample', taskId, '提交打样结果', `已提交首版打样结果 ${sampleCode}。`)
     setNotice(`首版样衣任务 ${task.firstSampleTaskCode} 已提交打样结果。`)
     return
@@ -4110,6 +4223,10 @@ export function handlePcsEngineeringTaskInput(target: Element): boolean {
       state.patternDetailDraft.hotSellerFlag = fieldNode.checked
       return true
     }
+    if (field === 'first-sample-detail-reuse-flag') {
+      state.firstSampleDetailDraft.reuseAsFirstOrderBasisFlag = fieldNode.checked
+      return true
+    }
   }
 
   if (
@@ -4331,6 +4448,15 @@ export function handlePcsEngineeringTaskInput(target: Element): boolean {
       case 'first-sample-create-note': state.firstSampleCreateDraft.note = value; return true
       case 'first-sample-acceptance-result': state.firstSampleAcceptanceResult = value; return true
       case 'first-sample-acceptance-note': state.firstSampleAcceptanceNote = value; return true
+      case 'first-sample-detail-sample-code': state.firstSampleDetailDraft.sampleCode = value; return true
+      case 'first-sample-detail-sample-images': state.firstSampleDetailDraft.sampleImageIdsText = value; return true
+      case 'first-sample-detail-fit-summary': state.firstSampleDetailDraft.fitConfirmationSummary = value; return true
+      case 'first-sample-detail-artwork-summary': state.firstSampleDetailDraft.artworkConfirmationSummary = value; return true
+      case 'first-sample-detail-production-note': state.firstSampleDetailDraft.productionReadinessNote = value; return true
+      case 'first-sample-detail-reuse-note': state.firstSampleDetailDraft.reuseAsFirstOrderBasisNote = value; return true
+      case 'first-sample-detail-reuse-confirmed-at': state.firstSampleDetailDraft.reuseAsFirstOrderBasisConfirmedAt = value; return true
+      case 'first-sample-detail-reuse-confirmed-by': state.firstSampleDetailDraft.reuseAsFirstOrderBasisConfirmedBy = value; return true
+      case 'first-sample-detail-confirmed-at': state.firstSampleDetailDraft.confirmedAt = value; return true
       case 'first-order-create-project': {
         state.firstOrderCreateDraft.projectId = value
         state.firstOrderCreateDraft.ownerName = getProjectById(value)?.ownerName || ''
@@ -4735,29 +4861,34 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'first-sample-advance') { advanceFirstSampleTask(actionNode.dataset.taskId || ''); return true }
+  if (action === 'save-first-sample-detail') { saveFirstSampleDetail(actionNode.dataset.taskId || state.firstSampleDetailDraftTaskId); return true }
   if (action === 'close-first-sample-acceptance') { state.firstSampleAcceptanceOpen = false; return true }
   if (action === 'submit-first-sample-acceptance') {
     const task = getFirstSampleTaskById(state.firstSampleAcceptanceTaskId)
     if (!task) { setNotice('未找到首版样衣任务。'); return true }
-    firstSampleAcceptanceMap.set(task.firstSampleTaskId, { result: state.firstSampleAcceptanceResult, note: state.firstSampleAcceptanceNote.trim(), updatedAt: nowText() })
+    const timestamp = nowText()
+    const acceptanceNote = state.firstSampleAcceptanceNote.trim()
+    firstSampleAcceptanceMap.set(task.firstSampleTaskId, { result: state.firstSampleAcceptanceResult, note: acceptanceNote, updatedAt: timestamp })
     const passed = state.firstSampleAcceptanceResult === '通过'
     const nextStatus = passed ? '已通过' : state.firstSampleAcceptanceResult === '需改版' ? '需改版' : '需补样'
-    updateFirstSampleTask(task.firstSampleTaskId, {
+    const result = updateFirstSampleTaskDetailAndSync(task.firstSampleTaskId, {
       status: nextStatus,
-      confirmedAt: nowText(),
+      confirmedAt: timestamp,
       reuseAsFirstOrderBasisFlag: passed || task.reuseAsFirstOrderBasisFlag,
-      reuseAsFirstOrderBasisConfirmedAt: passed ? nowText() : task.reuseAsFirstOrderBasisConfirmedAt,
+      reuseAsFirstOrderBasisConfirmedAt: passed ? timestamp : task.reuseAsFirstOrderBasisConfirmedAt,
       reuseAsFirstOrderBasisConfirmedBy: passed ? '当前用户' : task.reuseAsFirstOrderBasisConfirmedBy,
       reuseAsFirstOrderBasisNote: passed ? '首版样衣已确认，可直接作为首单参照。' : task.reuseAsFirstOrderBasisNote,
-      fitConfirmationSummary: passed ? state.firstSampleAcceptanceNote.trim() || '版型确认通过。' : task.fitConfirmationSummary,
-      productionReadinessNote: passed ? '可作为首单复用候选。' : task.productionReadinessNote,
-      updatedAt: nowText(),
-      updatedBy: '当前用户',
+      fitConfirmationSummary: passed ? acceptanceNote || task.fitConfirmationSummary || '版型确认通过。' : acceptanceNote || task.fitConfirmationSummary,
+      productionReadinessNote: passed ? task.productionReadinessNote || '可作为首单复用候选。' : acceptanceNote || task.productionReadinessNote,
       note: `${task.note ? `${task.note}；` : ''}验收结论：${state.firstSampleAcceptanceResult}`,
-    })
-    pushRuntimeLog('firstSample', task.firstSampleTaskId, '填写验收', `验收结论：${state.firstSampleAcceptanceResult}。${state.firstSampleAcceptanceNote.trim() || '已完成验收。'}`)
+    }, '当前用户')
+    if (result.task) {
+      state.firstSampleDetailDraftTaskId = result.task.firstSampleTaskId
+      state.firstSampleDetailDraft = buildFirstSampleDetailDraft(result.task)
+    }
+    pushRuntimeLog('firstSample', task.firstSampleTaskId, '填写验收', `验收结论：${state.firstSampleAcceptanceResult}。${acceptanceNote || '已完成验收。'}`)
     state.firstSampleAcceptanceOpen = false
-    setNotice(`首版样衣任务 ${task.firstSampleTaskCode} 已提交验收结论。`)
+    setNotice(result.ok ? `首版样衣任务 ${task.firstSampleTaskCode} 已提交验收结论并同步商品项目节点。` : result.message)
     return true
   }
 
