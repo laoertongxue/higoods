@@ -48,12 +48,18 @@ export function buildUnifiedPrintPreviewRouteLink(input: {
   documentType: PrintDocumentType
   sourceType: PrintSourceType
   sourceId: string
+  handoverRecordId?: string
 }): string {
   return buildUnifiedPrintPreviewLink(input)
 }
 
 export function buildTaskDeliveryCardPrintLink(handoverRecordId: string): string {
-  return `/fcs/print/task-delivery-card?handoverRecordId=${encodeSegment(handoverRecordId)}`
+  return buildUnifiedPrintPreviewLink({
+    documentType: 'TASK_DELIVERY_CARD',
+    sourceType: 'HANDOVER_RECORD',
+    sourceId: handoverRecordId,
+    handoverRecordId,
+  })
 }
 
 export function buildPrintingOrderLink(printOrderId: string): string {

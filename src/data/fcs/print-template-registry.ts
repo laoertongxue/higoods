@@ -18,6 +18,10 @@ import {
   buildPostFinishingRouteCardPrintDocument,
   renderPostFinishingRouteCardTemplate,
 } from '../../pages/print/templates/post-finishing-route-card-template.ts'
+import {
+  buildTaskDeliveryCardPrintDocument,
+  renderTaskDeliveryCardTemplate,
+} from '../../pages/print/templates/task-delivery-card-template.ts'
 
 export interface PrintTemplateRegistration {
   templateCode: string
@@ -29,6 +33,14 @@ export interface PrintTemplateRegistration {
 }
 
 export const printTemplateRegistry: PrintTemplateRegistration[] = [
+  {
+    templateCode: 'TASK_DELIVERY_CARD',
+    templateName: '任务交货卡',
+    documentType: 'TASK_DELIVERY_CARD',
+    supportedSourceTypes: ['HANDOVER_RECORD'],
+    buildDocument: buildTaskDeliveryCardPrintDocument,
+    render: renderTaskDeliveryCardTemplate,
+  },
   {
     templateCode: 'POST_FINISHING_ROUTE_CARD',
     templateName: '后道任务流转卡',

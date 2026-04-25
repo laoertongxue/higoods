@@ -1,3 +1,5 @@
+import { getProjectStoreSnapshot } from './pcs-project-repository.ts'
+
 export type ProjectListStyleType = '基础款' | '快时尚款' | '改版款' | '设计款'
 export type ProjectListStatus = '已立项' | '进行中' | '已终止' | '已归档'
 export type ProjectListRiskStatus = '正常' | '延期'
@@ -219,12 +221,24 @@ function readSnapshot(): ProjectStoreSnapshot | null {
   }
 }
 
+function readMergedSnapshot(): ProjectStoreSnapshot | null {
+  try {
+    const snapshot = getProjectStoreSnapshot()
+    if (Array.isArray(snapshot.projects) && Array.isArray(snapshot.nodes)) {
+      return snapshot as unknown as ProjectStoreSnapshot
+    }
+  } catch {
+    return readSnapshot()
+  }
+  return readSnapshot()
+}
+
 export function getChannelNamesByCodes(channelCodes: string[]): string[] {
   return channelCodes.map((code) => CHANNEL_NAME_MAP[code] || code)
 }
 
 export function listProjectListRecords(): PcsProjectListRecord[] {
-  const snapshot = readSnapshot()
+  const snapshot = readMergedSnapshot()
   if (snapshot?.projects && snapshot.projects.length > 0) {
     return snapshot.projects.map((project) => buildRuntimeRecord(project, snapshot))
   }

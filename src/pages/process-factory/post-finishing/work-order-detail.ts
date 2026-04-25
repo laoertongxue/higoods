@@ -1,3 +1,4 @@
+import { buildTaskDeliveryCardPrintLink } from '../../../data/fcs/fcs-route-links.ts'
 import {
   getHandoverRecordsByWorkOrderId,
   getWarehouseRecordsByWorkOrderId,
@@ -201,6 +202,7 @@ export function renderPostFinishingWorkOrderDetailPage(postOrderId: string): str
               <td class="px-3 py-3 text-sm">${formatGarmentQty(record.writtenBackObjectQty, record.qtyUnit)}</td>
               <td class="px-3 py-3 text-sm">${formatGarmentQty(record.diffObjectQty, record.qtyUnit)}</td>
               <td class="px-3 py-3">${renderPostStatusBadge(record.status)}</td>
+              <td class="px-3 py-3">${renderPostAction('暂无交货卡', '', true)}</td>
             </tr>
           `]
         }
@@ -216,13 +218,14 @@ export function renderPostFinishingWorkOrderDetailPage(postOrderId: string): str
             <td class="px-3 py-3 text-sm">${formatGarmentQty(handover.receiveObjectQty, handover.qtyUnit)}</td>
             <td class="px-3 py-3 text-sm">${formatGarmentQty(handover.diffObjectQty, handover.qtyUnit)}</td>
             <td class="px-3 py-3">${renderPostStatusBadge(handover.status)}</td>
+            <td class="px-3 py-3">${renderPostAction('打印任务交货卡', buildTaskDeliveryCardPrintLink(handover.handoverRecordId))}</td>
           </tr>
         `)
       }).join('')
       return renderPostSection('交出记录', renderPostTable(
-        ['后道交出仓记录号', '交出记录号', '后道单号', '生产单', '后道工厂', '待交出成衣件数', '已交出成衣件数', '实收成衣件数', '差异成衣件数', '当前状态'],
-        rows || renderEmptyRow(10, '当前后道单暂无交出仓或交出记录'),
-        'min-w-[1280px]',
+        ['后道交出仓记录号', '交出记录号', '后道单号', '生产单', '后道工厂', '待交出成衣件数', '已交出成衣件数', '实收成衣件数', '差异成衣件数', '当前状态', '操作'],
+        rows || renderEmptyRow(11, '当前后道单暂无交出仓或交出记录'),
+        'min-w-[1400px]',
       ))
     }
 

@@ -1,4 +1,5 @@
 import {
+  buildTaskDeliveryCardPrintLink,
   buildPostFinishingWorkOrderDetailLink,
 } from '../../../data/fcs/fcs-route-links.ts'
 import {
@@ -87,6 +88,11 @@ export function renderPostFinishingWaitHandoverWarehousePage(): string {
   const rows = records
     .map((record) => {
       const handovers = getHandoverRecordsByWarehouseRecordId(record.warehouseRecordId)
+      const printActions = handovers.length > 0
+        ? handovers
+          .map((handover) => renderPostAction('打印任务交货卡', buildTaskDeliveryCardPrintLink(handover.handoverRecordId)))
+          .join('')
+        : renderPostAction('暂无交货卡', '', true)
       return `
         <tr class="align-top ${postOrderId ? 'bg-blue-50/60' : ''}">
           <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.warehouseRecordNo)}</td>
@@ -106,6 +112,7 @@ export function renderPostFinishingWaitHandoverWarehousePage(): string {
             <div class="flex flex-wrap gap-2">
               ${renderPostAction('查看后道单', buildPostFinishingWorkOrderDetailLink(record.sourceWorkOrderId, 'handover'))}
               ${renderPostAction('查看复检单', buildPostFinishingWorkOrderDetailLink(record.sourceWorkOrderId, 'recheck'))}
+              ${printActions}
             </div>
           </td>
         </tr>

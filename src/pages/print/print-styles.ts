@@ -185,6 +185,32 @@ export function renderUnifiedPrintStyles(): string {
         gap: 8px;
       }
 
+      .print-signature-grid {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .print-signature-cell {
+        min-height: 24mm;
+        border: 1px solid #111827;
+        padding: 5px;
+        break-inside: avoid;
+      }
+
+      .print-signature-label {
+        color: #334155;
+        font-size: 10px;
+        font-weight: 700;
+      }
+
+      .print-signature-role {
+        margin-top: 12mm;
+        border-top: 1px solid #111827;
+        padding-top: 3px;
+        font-size: 10px;
+      }
+
       .print-signature-box {
         min-height: 28mm;
         border: 1px solid #111827;
@@ -196,6 +222,17 @@ export function renderUnifiedPrintStyles(): string {
         margin-top: 14mm;
         border-top: 1px solid #111827;
         padding-top: 3px;
+      }
+
+      .print-footer-fields {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 10px;
+        border-top: 1px solid #111827;
+        padding-top: 6px;
+        color: #475569;
+        font-size: 9px;
       }
 
       @media print {

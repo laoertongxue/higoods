@@ -13,6 +13,7 @@ export type PrintDocumentType =
 export type PrintSourceType =
   | TaskRouteCardSourceType
   | 'POST_FINISHING_WORK_ORDER'
+  | 'HANDOVER_RECORD'
 
 export type PrintPaperType = 'A4'
 export type PrintOrientation = 'portrait'
@@ -105,6 +106,7 @@ export interface PrintDocumentBuildInput {
   documentType: PrintDocumentType
   sourceType: PrintSourceType
   sourceId: string
+  handoverRecordId?: string
 }
 
 function encodeParam(value: string): string {
@@ -117,6 +119,9 @@ export function buildUnifiedPrintPreviewLink(input: PrintDocumentBuildInput): st
     sourceType: input.sourceType,
     sourceId: input.sourceId,
   })
+  if (input.handoverRecordId) {
+    params.set('handoverRecordId', input.handoverRecordId)
+  }
   return `/fcs/print/preview?${params.toString()}`
 }
 

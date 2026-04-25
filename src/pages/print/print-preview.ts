@@ -27,10 +27,17 @@ function getSearchParams(): URLSearchParams {
 
 function resolveInput(input?: Partial<PrintDocumentBuildInput>): PrintDocumentBuildInput {
   const params = getSearchParams()
+  const documentType = (input?.documentType || params.get('documentType') || 'TASK_ROUTE_CARD') as PrintDocumentType
+  const handoverRecordId = input?.handoverRecordId || params.get('handoverRecordId') || ''
+  const sourceType = (input?.sourceType
+    || params.get('sourceType')
+    || (documentType === 'TASK_DELIVERY_CARD' && handoverRecordId ? 'HANDOVER_RECORD' : '')) as PrintSourceType
+  const sourceId = input?.sourceId || params.get('sourceId') || handoverRecordId
   return {
-    documentType: (input?.documentType || params.get('documentType') || 'TASK_ROUTE_CARD') as PrintDocumentType,
-    sourceType: (input?.sourceType || params.get('sourceType') || '') as PrintSourceType,
-    sourceId: input?.sourceId || params.get('sourceId') || '',
+    documentType,
+    sourceType,
+    sourceId,
+    handoverRecordId,
   }
 }
 
@@ -64,6 +71,7 @@ export function renderUnifiedPrintPreviewPage(input?: Partial<PrintDocumentBuild
       documentType: resolved.documentType,
       sourceType: decodeParam(resolved.sourceType),
       sourceId: decodeParam(resolved.sourceId),
+      handoverRecordId: resolved.handoverRecordId ? decodeParam(resolved.handoverRecordId) : undefined,
     } as PrintDocumentBuildInput)
 
     return `
