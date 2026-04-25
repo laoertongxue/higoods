@@ -9,9 +9,9 @@ import {
 } from '../../../data/fcs/action-permissions.ts'
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
+import { buildMaterialPrepSlipPrintLink } from '../../../data/fcs/fcs-route-links.ts'
 import { getPrepQrHiddenText } from './material-prep.helpers.ts'
 import {
-  buildIssueListPrintPayload,
   buildMaterialPrepNavigationPayload,
   buildMaterialPrepStats,
   buildSameCodeValue,
@@ -639,7 +639,7 @@ function renderTable(rows: MaterialPrepRow[]): string {
                           <td class="px-4 py-3 align-top">
                             <div class="flex flex-wrap gap-2">
                               <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-prep-action="open-detail" data-record-id="${escapeHtml(row.id)}">查看详情</button>
-                              <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-prep-action="print-issue-list" data-record-id="${escapeHtml(row.id)}">打印配料单</button>
+                              <button type="button" class="text-xs text-blue-600 hover:underline" data-nav="${escapeHtml(buildMaterialPrepSlipPrintLink(row.id))}">打印配料单</button>
                               <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-prep-action="open-records-dialog" data-record-id="${escapeHtml(row.id)}">查看领料记录</button>
                               <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-prep-action="open-schedule-dialog" data-record-id="${escapeHtml(row.id)}">分配裁床组</button>
                               <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-prep-action="go-marker-plan" data-record-id="${escapeHtml(row.id)}">去唛架</button>
@@ -924,7 +924,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
       <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50" data-cutting-prep-action="open-config-dialog" data-record-id="${escapeHtml(row.id)}" ${canConfigureFabricMaterial(resolveFcsDemoRole('WAREHOUSE_OPERATOR')) ? '' : `title="${ACTION_PERMISSION_DENIED_TEXT}" disabled`}>编辑配置结果</button>
       <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-prep-action="open-claim-dialog" data-record-id="${escapeHtml(row.id)}">裁床领料</button>
       <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-prep-action="open-schedule-dialog" data-record-id="${escapeHtml(row.id)}">分配裁床组</button>
-      <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-prep-action="print-issue-list" data-record-id="${escapeHtml(row.id)}">打印配料单</button>
+      <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-nav="${escapeHtml(buildMaterialPrepSlipPrintLink(row.id))}">打印配料单</button>
     </div>
   `
 
@@ -1008,7 +1008,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
                   </div>
                 `
             }
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="print-issue-list" data-record-id="${escapeHtml(row.id)}">打印配料单</button>
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildMaterialPrepSlipPrintLink(row.id))}">打印配料单</button>
           </div>
         `,
       )}
@@ -1511,88 +1511,11 @@ function printIssueList(recordId: string | undefined): boolean {
   const row = getRecordById(recordId)
   if (!row) return false
 
-  const payload = buildIssueListPrintPayload(row)
-  const printWindow = window.open('', '_blank', 'width=960,height=720')
-  if (!printWindow) {
-    setFeedback('warning', '浏览器拦截了打印窗口，请允许弹窗后重试。')
-    return true
-  }
-
-  const rowsHtml = payload.materialLineItems
-    .map(
-      (item) => `
-        <tr>
-          <td>${escapeHtml(item.materialSku)}</td>
-          <td>${escapeHtml(item.materialTypeName)}</td>
-          <td>${escapeHtml(`${item.configuredRollCount} 卷`)}</td>
-          <td>${escapeHtml(`${formatQty(item.requiredQty)} 米`)}</td>
-          <td>${escapeHtml(`${formatQty(item.configuredQty)} 米`)}</td>
-          <td>${escapeHtml(`${item.claimedRollCount} 卷`)}</td>
-          <td>${escapeHtml(`${formatQty(item.claimedQty)} 米`)}</td>
-          <td>${escapeHtml(`${formatQty(item.shortageQty)} 米`)}</td>
-        </tr>
-      `,
-    )
-    .join('')
-
-  printWindow.document.write(`
-    <!DOCTYPE html>
-    <html lang="zh-CN">
-      <head>
-        <meta charset="UTF-8" />
-        <title>${escapeHtml(payload.title)} - ${escapeHtml(payload.originalCutOrderNo)}</title>
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; margin: 32px; color: #111827; }
-          h1 { font-size: 22px; margin: 0 0 8px; }
-          .meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 20px; margin: 20px 0; }
-          .meta-item { border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 12px; }
-          .label { font-size: 12px; color: #6b7280; }
-          .value { margin-top: 4px; font-size: 14px; font-weight: 600; }
-          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-          th, td { border: 1px solid #d1d5db; padding: 8px 10px; text-align: left; font-size: 13px; }
-          th { background: #f3f4f6; }
-          .note { margin-top: 16px; border: 1px solid #bfdbfe; background: #eff6ff; color: #1d4ed8; border-radius: 8px; padding: 12px; font-size: 13px; line-height: 1.6; }
-        </style>
-      </head>
-      <body>
-        <h1>配料单</h1>
-        <div class="meta">
-          <div class="meta-item"><div class="label">原始裁片单号</div><div class="value">${escapeHtml(payload.originalCutOrderNo)}</div></div>
-          <div class="meta-item"><div class="label">裁片单二维码</div><div class="value">${payload.shouldPrintQr ? '已生成二维码' : escapeHtml(payload.qrHiddenHint)}</div></div>
-          <div class="meta-item"><div class="label">来源生产单号</div><div class="value">${escapeHtml(payload.productionOrderNo)}</div></div>
-          <div class="meta-item"><div class="label">款号 / SPU</div><div class="value">${escapeHtml(`${payload.styleCode || payload.spuCode} / ${payload.styleName || payload.spuCode}`)}</div></div>
-          <div class="meta-item"><div class="label">打印时间</div><div class="value">${escapeHtml(payload.printTime)}</div></div>
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th>面料 SKU</th>
-              <th>面料类型</th>
-              <th>配置卷数</th>
-              <th>需求长度</th>
-              <th>配置长度</th>
-              <th>实领卷数</th>
-              <th>实领长度</th>
-              <th>缺口量</th>
-            </tr>
-          </thead>
-          <tbody>${rowsHtml}</tbody>
-        </table>
-      </body>
-    </html>
-  `)
-  printWindow.document.close()
-
   row.printedAt = nowText()
-  row.printedBy = '仓库配料页打印'
+  row.printedBy = '仓库配料页统一打印'
   recalculateMaterialPrepRow(row, sourceRecordMap.get(row.id))
-  setFeedback('success', `${row.originalCutOrderNo} 已打开配料单打印视图。`)
-
-  setTimeout(() => {
-    printWindow.focus()
-    printWindow.print()
-  }, 120)
-
+  setFeedback('success', `${row.originalCutOrderNo} 已进入统一配料单打印预览。`)
+  appStore.navigate(buildMaterialPrepSlipPrintLink(row.id))
   return true
 }
 

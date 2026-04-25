@@ -16,6 +16,7 @@ import {
 } from '../src/data/pcs-first-order-sample-project-writeback.ts'
 import { FIRST_ORDER_SAMPLE_NODE_ENTRY_REQUIRED_FIELDS } from '../src/data/pcs-first-order-sample-field-policy.ts'
 import { getProjectWorkItemContract } from '../src/data/pcs-project-domain-contract.ts'
+import { renderPcsProjectDetailPage } from '../src/pages/pcs-projects.ts'
 
 resetProjectRepository()
 resetFirstSampleTaskRepository()
@@ -90,3 +91,10 @@ assert.equal(created.task?.sourceFirstSampleCode, sourceOptions[0]!.sampleCode)
 assert.equal(created.task?.sourceTechPackVersionId, techPackOptions[0]!.sourceTechPackVersionId)
 assert.equal(created.projectNode?.latestInstanceId, created.task?.firstOrderSampleTaskId)
 assert.equal(created.projectNode?.pendingActionType, '补齐首单样衣详情')
+
+const detailHtmlAfterCreate = await renderPcsProjectDetailPage(project.projectId)
+assert.match(detailHtmlAfterCreate, /首单样衣打样任务/, '创建任务后商品项目节点应展示任务信息卡片')
+assert.match(detailHtmlAfterCreate, new RegExp(created.task!.firstOrderSampleTaskCode), '创建任务后节点应展示任务编号')
+assert.match(detailHtmlAfterCreate, /深圳工厂01/, '创建任务后节点应展示必要信息中的工厂')
+assert.match(detailHtmlAfterCreate, /去首单样衣打样详情补齐/, '创建任务后节点应保留详情补齐入口')
+assert.doesNotMatch(detailHtmlAfterCreate, /当前节点还没有正式首单样衣打样任务/, '创建任务后节点不应继续显示未建任务空状态')

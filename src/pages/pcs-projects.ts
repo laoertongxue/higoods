@@ -1450,7 +1450,6 @@ function submitEngineeringTaskCreateDialog(): { ok: boolean; message: string; ro
     return {
       ok: true,
       message: result.message,
-      route: `/pcs/samples/first-order/${encodeURIComponent(result.task.firstOrderSampleTaskId)}`,
     }
   }
 

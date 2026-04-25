@@ -306,7 +306,7 @@ export function deriveOriginalCutOrderCuttableState(
   }
 
   if (line.issueFlags.includes('RECEIVE_DIFF')) {
-    return createCuttableState('CLAIM_EXCEPTION', '领料存在差异', '领料数量不一致，先核对')
+    return createCuttableState('CLAIM_EXCEPTION', '领料存在差异', '领料对象数量不一致，先核对')
   }
 
   if (line.receiveStatus === 'NOT_RECEIVED') {
@@ -329,7 +329,7 @@ function deriveOriginalCutOrderBlockingReason(
   if (cuttableStateKey === 'PARTIAL_PREP') return '只配好一部分料'
   if (cuttableStateKey === 'WAITING_CLAIM') return '还没领料'
   if (cuttableStateKey === 'PARTIAL_CLAIM') return '只领到一部分料'
-  if (cuttableStateKey === 'CLAIM_EXCEPTION') return '领料数量不一致，先核对'
+  if (cuttableStateKey === 'CLAIM_EXCEPTION') return '领料对象数量不一致，先核对'
   if (cuttableStateKey === 'IN_BATCH') return `已加入合并裁剪批次 ${line.mergeBatchNo || record.mergeBatchNo || ''}`.trim()
   if (cuttableStateKey === 'NOT_READY') return '这张单已经开始裁了，不能重复加入'
   return '料已备齐，可以裁'

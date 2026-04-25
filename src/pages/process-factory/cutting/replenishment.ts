@@ -73,6 +73,7 @@ import {
   canReviewReplenishment,
   resolveFcsDemoRole,
 } from '../../../data/fcs/action-permissions.ts'
+import { buildSupplementMaterialSlipPrintLink } from '../../../data/fcs/fcs-route-links.ts'
 
 type FilterField = 'keyword' | 'sourceType' | 'status' | 'riskLevel'
 type ReviewField = 'status' | 'reason' | 'note'
@@ -490,6 +491,10 @@ function renderActionButton(label: string, action: string, suggestionId: string,
   return `<button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-cutting-replenish-action="${action}" data-suggestion-id="${escapeHtml(suggestionId)}" ${extraAttrs}>${escapeHtml(label)}</button>`
 }
 
+function renderSupplementPrintButton(suggestionId: string): string {
+  return `<button type="button" class="rounded-md border px-3 py-1.5 text-xs hover:bg-muted" data-nav="${escapeHtml(buildSupplementMaterialSlipPrintLink(suggestionId))}">打印补料单</button>`
+}
+
 function resolvePrimaryFollowupTarget(row: ReplenishmentSuggestionRow): keyof ReplenishmentSuggestionRow['navigationPayload'] {
   const firstAction = row.followupActions.find((item) => item.status !== 'SKIPPED') || row.followupActions[0]
   if (firstAction) return firstAction.targetPageKey
@@ -505,6 +510,7 @@ function renderRowActions(row: ReplenishmentSuggestionRow): string {
       <div class="flex flex-wrap gap-2">
         ${renderActionButton('查看详情', 'open-detail', row.suggestionId)}
         ${renderActionButton('去审核', 'open-review', row.suggestionId)}
+        ${renderSupplementPrintButton(row.suggestionId)}
       </div>
     `
   }
@@ -516,6 +522,7 @@ function renderRowActions(row: ReplenishmentSuggestionRow): string {
       <div class="flex flex-wrap gap-2">
         ${renderActionButton('查看详情', 'open-detail', row.suggestionId)}
         ${renderActionButton(label, action, row.suggestionId)}
+        ${renderSupplementPrintButton(row.suggestionId)}
       </div>
     `
   }
@@ -525,6 +532,7 @@ function renderRowActions(row: ReplenishmentSuggestionRow): string {
       <div class="flex flex-wrap gap-2">
         ${renderActionButton('查看详情', 'open-detail', row.suggestionId)}
         ${renderActionButton('处理动作', 'open-actions', row.suggestionId)}
+        ${renderSupplementPrintButton(row.suggestionId)}
       </div>
     `
   }
@@ -532,6 +540,7 @@ function renderRowActions(row: ReplenishmentSuggestionRow): string {
   return `
     <div class="flex flex-wrap gap-2">
       ${renderActionButton('查看详情', 'open-detail', row.suggestionId)}
+      ${renderSupplementPrintButton(row.suggestionId)}
       ${renderActionButton(getCuttingNavigationActionLabel(resolvePrimaryFollowupTarget(row) as CuttingNavigationTarget), 'go-related', row.suggestionId, `data-target-key="${escapeHtml(resolvePrimaryFollowupTarget(row))}"`)}
     </div>
   `
@@ -970,6 +979,7 @@ function renderDetailDrawer(): string {
         <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-material-prep" data-suggestion-id="${escapeHtml(row.suggestionId)}">去仓库配料领料</button>
         <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-marker" data-suggestion-id="${escapeHtml(row.suggestionId)}">去铺布</button>
         <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-summary" data-suggestion-id="${escapeHtml(row.suggestionId)}">去裁剪总表</button>
+        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildSupplementMaterialSlipPrintLink(row.suggestionId))}">打印补料单</button>
       </div>
     `,
   )

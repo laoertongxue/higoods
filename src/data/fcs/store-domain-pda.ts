@@ -290,7 +290,7 @@ export const permissionCatalog: PermissionCatalogItem[] = [
   { key: 'CUTTING_HANDOVER_CONFIRM', nameZh: '确认交接', group: '裁片执行', descriptionZh: '允许在裁片执行中确认裁片交接。' },
   { key: 'CUTTING_INBOUND_CONFIRM', nameZh: '确认入仓', group: '裁片执行', descriptionZh: '允许在裁片执行中确认入仓。' },
   { key: 'PICKUP_CONFIRM', nameZh: '领料确认', group: '交接', descriptionZh: '允许在交接模块中确认仓库回写的领料记录。' },
-  { key: 'PICKUP_QTY_DISPUTE', nameZh: '提交领料数量异议', group: '交接', descriptionZh: '允许在交接模块中对领料数量发起异议。' },
+  { key: 'PICKUP_QTY_DISPUTE', nameZh: '提交领料对象数量异议', group: '交接', descriptionZh: '允许在交接模块中对领料对象数量发起异议。' },
   { key: 'HANDOUT_CREATE', nameZh: '新增交出记录', group: '交接', descriptionZh: '允许在交接模块中新增交出记录。' },
   { key: 'HANDOUT_QTY_DISPUTE', nameZh: '提交交出数量异议', group: '交接', descriptionZh: '允许在交接模块中对交出数量发起异议。' },
   { key: 'QC_CONFIRM_DEDUCTION', nameZh: '确认处理质量扣款', group: '质检', descriptionZh: '允许确认质量扣款处理结果。' },

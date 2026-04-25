@@ -6,6 +6,8 @@ export type PrintDocumentType =
   | 'PRODUCTION_CONFIRMATION'
   | 'MATERIAL_PREP_SLIP'
   | 'PICKUP_SLIP'
+  | 'ISSUE_SLIP'
+  | 'SUPPLEMENT_MATERIAL_SLIP'
   | 'FEI_TICKET_LABEL'
   | 'TRANSFER_BAG_MANIFEST'
   | 'SETTLEMENT_CHANGE_REQUEST'
@@ -14,6 +16,10 @@ export type PrintSourceType =
   | TaskRouteCardSourceType
   | 'POST_FINISHING_WORK_ORDER'
   | 'HANDOVER_RECORD'
+  | 'MATERIAL_PREP_RECORD'
+  | 'PICKUP_SLIP_RECORD'
+  | 'ISSUE_SLIP_RECORD'
+  | 'SUPPLEMENT_MATERIAL_RECORD'
 
 export type PrintPaperType = 'A4'
 export type PrintOrientation = 'portrait'

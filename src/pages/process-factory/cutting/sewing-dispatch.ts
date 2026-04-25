@@ -14,6 +14,7 @@ import {
 } from '../../../data/fcs/cutting/sewing-dispatch.ts'
 import { buildSewingDispatchProgressSnapshot } from '../../../data/fcs/progress-statistics-linkage.ts'
 import { productionOrders } from '../../../data/fcs/production-orders.ts'
+import { buildIssueSlipPrintLink } from '../../../data/fcs/fcs-route-links.ts'
 import {
   renderCompactKpiCard,
   renderStickyTableScroller,
@@ -230,6 +231,7 @@ function renderDispatchOrders(orders: CuttingSewingDispatchOrder[]): string {
                         <button class="rounded-md border px-2 py-1 text-xs">查看中转袋</button>
                         <button class="rounded-md border px-2 py-1 text-xs">查看齐套校验</button>
                         <button class="rounded-md border px-2 py-1 text-xs">查看交出记录</button>
+                        <button class="rounded-md border px-2 py-1 text-xs" data-nav="${escapeHtml(buildIssueSlipPrintLink(order.dispatchOrderId))}">打印发料单</button>
                       </div>
                     </td>
                   </tr>

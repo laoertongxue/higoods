@@ -22,6 +22,13 @@ import {
   buildTaskDeliveryCardPrintDocument,
   renderTaskDeliveryCardTemplate,
 } from '../../pages/print/templates/task-delivery-card-template.ts'
+import {
+  buildIssueSlipPrintDocument,
+  buildMaterialPrepSlipPrintDocument,
+  buildPickupSlipPrintDocument,
+  buildSupplementMaterialSlipPrintDocument,
+  renderMaterialSlipTemplate,
+} from '../../pages/print/templates/material-slip-template.ts'
 
 export interface PrintTemplateRegistration {
   templateCode: string
@@ -33,6 +40,38 @@ export interface PrintTemplateRegistration {
 }
 
 export const printTemplateRegistry: PrintTemplateRegistration[] = [
+  {
+    templateCode: 'MATERIAL_PREP_SLIP',
+    templateName: '配料单',
+    documentType: 'MATERIAL_PREP_SLIP',
+    supportedSourceTypes: ['MATERIAL_PREP_RECORD'],
+    buildDocument: buildMaterialPrepSlipPrintDocument,
+    render: renderMaterialSlipTemplate,
+  },
+  {
+    templateCode: 'PICKUP_SLIP',
+    templateName: '领料单',
+    documentType: 'PICKUP_SLIP',
+    supportedSourceTypes: ['PICKUP_SLIP_RECORD'],
+    buildDocument: buildPickupSlipPrintDocument,
+    render: renderMaterialSlipTemplate,
+  },
+  {
+    templateCode: 'ISSUE_SLIP',
+    templateName: '发料单',
+    documentType: 'ISSUE_SLIP',
+    supportedSourceTypes: ['ISSUE_SLIP_RECORD'],
+    buildDocument: buildIssueSlipPrintDocument,
+    render: renderMaterialSlipTemplate,
+  },
+  {
+    templateCode: 'SUPPLEMENT_MATERIAL_SLIP',
+    templateName: '补料单',
+    documentType: 'SUPPLEMENT_MATERIAL_SLIP',
+    supportedSourceTypes: ['SUPPLEMENT_MATERIAL_RECORD'],
+    buildDocument: buildSupplementMaterialSlipPrintDocument,
+    render: renderMaterialSlipTemplate,
+  },
   {
     templateCode: 'TASK_DELIVERY_CARD',
     templateName: '任务交货卡',

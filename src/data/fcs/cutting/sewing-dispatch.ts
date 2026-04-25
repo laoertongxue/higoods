@@ -596,7 +596,7 @@ export function buildRequiredCutPiecesForSewingDispatch(
       continue
     }
     if (plannedLine.plannedGarmentQty > sourceSkuQty) {
-      errors.push('本次发料数量超过生产单剩余未发数量')
+      errors.push('本次发料成衣件数超过生产单剩余未发成衣件数')
     }
     const ticketPartNames = new Set(
       tickets
@@ -722,7 +722,7 @@ export function createCuttingSewingDispatchBatch(input: CreateDispatchBatchInput
     }))
   if (!normalizedLines.length) throw new Error('至少需要一行本次发料颜色 / 尺码 / 件数')
   const overLine = normalizedLines.find((line) => line.plannedGarmentQty > line.remainingGarmentQty && line.remainingGarmentQty > 0)
-  if (overLine) throw new Error('本次发料数量超过生产单剩余未发数量')
+  if (overLine) throw new Error('本次发料成衣件数超过生产单剩余未发成衣件数')
 
   const batchIndex = order.dispatchBatchIds.length + 1
   const createdAt = nowText()

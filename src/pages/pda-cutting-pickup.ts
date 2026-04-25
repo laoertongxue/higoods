@@ -35,6 +35,7 @@ import {
   readSelectedExecutionOrderNoFromLocation,
 } from './pda-cutting-context'
 import { buildPdaCuttingCompletedReturnHref } from './pda-cutting-nav-context'
+import { buildPickupSlipPrintLink } from '../data/fcs/fcs-route-links.ts'
 
 interface PickupFormState {
   operatorName: string
@@ -320,6 +321,9 @@ export function renderPdaCuttingPickupPage(taskId: string): string {
           : ''
       }
       ${renderDisputeStatus(taskId, context.selectedExecutionOrderId, context.selectedExecutionOrderNo)}
+      <button class="inline-flex min-h-10 w-full items-center justify-center rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100" data-nav="${escapeHtml(buildPickupSlipPrintLink(detail.pickupSlipNo))}">
+        打印领料单
+      </button>
       <div class="grid grid-cols-2 gap-2">
         <button class="inline-flex min-h-10 items-center justify-center rounded-xl border px-3 py-2 text-xs font-medium hover:bg-muted" data-nav="${escapeHtml(pageBackHref)}">
           返回裁片任务

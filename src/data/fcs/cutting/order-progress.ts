@@ -517,7 +517,7 @@ const legacyCuttingOrderProgressSeedRecords: CuttingOrderProgressRecord[] = [
         printSlipStatus: 'PRINTED',
         qrStatus: 'GENERATED',
         issueFlags: ['RECEIVE_DIFF'],
-        latestActionText: '辅料领料数量和现场记录不一致，待仓库核对。',
+        latestActionText: '辅料领料对象数量和现场记录不一致，待仓库核对。',
       },
     ],
   },

@@ -487,7 +487,7 @@ const COVERAGE_SEED_DEFINITIONS: CoverageSeedDefinition[] = [
     severity: 'S2',
     sourceType: 'TASK',
     summary: (context) => `${context.processLabel}配料数量不足`,
-    detail: (context) => `生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）存在实际发料数量不足，当前需要补料。`,
+    detail: (context) => `生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）存在实际发料对象数量不足，当前需要补料。`,
     tags: ['领料异常', '配料数量不足', '覆盖补齐'],
   },
   {
@@ -497,9 +497,9 @@ const COVERAGE_SEED_DEFINITIONS: CoverageSeedDefinition[] = [
     reasonCode: 'MATERIAL_NOT_READY',
     severity: 'S2',
     sourceType: 'TASK',
-    summary: (context) => `${context.processLabel}领料数量差异待处理`,
+    summary: (context) => `${context.processLabel}领料对象数量差异待处理`,
     detail: (context) => `生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）在领料确认环节出现数量差异，平台需复点裁定。`,
-    tags: ['领料异常', '领料数量差异', '覆盖补齐'],
+    tags: ['领料异常', '领料对象数量差异', '覆盖补齐'],
   },
   {
     subCategoryKey: 'MATERIAL_MULTI_OPEN',
@@ -1363,10 +1363,10 @@ function createProgressExceptionCandidates(): ProgressExceptionCandidate[] {
           relatedOrderIds,
           relatedTaskIds,
           linkedFactoryName,
-          summary: '领料数量存在缺口',
+          summary: '领料对象数量存在缺口',
           detail: shortageLine
             ? `${fact.processNameZh}（${fact.scopeLabel}）物料 ${shortageLine.materialName} 缺口 ${shortageLine.shortQty}${shortageLine.unit}`
-            : `${fact.processNameZh}（${fact.scopeLabel}）存在领料数量缺口`,
+            : `${fact.processNameZh}（${fact.scopeLabel}）存在领料对象数量缺口`,
           closureReady: !hasDocShortage(issueOrTransferDocs),
           eventAt,
         })

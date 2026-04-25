@@ -62,6 +62,38 @@ export function buildTaskDeliveryCardPrintLink(handoverRecordId: string): string
   })
 }
 
+export function buildMaterialPrepSlipPrintLink(sourceId: string): string {
+  return buildUnifiedPrintPreviewLink({
+    documentType: 'MATERIAL_PREP_SLIP',
+    sourceType: 'MATERIAL_PREP_RECORD',
+    sourceId,
+  })
+}
+
+export function buildPickupSlipPrintLink(sourceId: string): string {
+  return buildUnifiedPrintPreviewLink({
+    documentType: 'PICKUP_SLIP',
+    sourceType: 'PICKUP_SLIP_RECORD',
+    sourceId,
+  })
+}
+
+export function buildIssueSlipPrintLink(sourceId: string): string {
+  return buildUnifiedPrintPreviewLink({
+    documentType: 'ISSUE_SLIP',
+    sourceType: 'ISSUE_SLIP_RECORD',
+    sourceId,
+  })
+}
+
+export function buildSupplementMaterialSlipPrintLink(sourceId: string): string {
+  return buildUnifiedPrintPreviewLink({
+    documentType: 'SUPPLEMENT_MATERIAL_SLIP',
+    sourceType: 'SUPPLEMENT_MATERIAL_RECORD',
+    sourceId,
+  })
+}
+
 export function buildPrintingOrderLink(printOrderId: string): string {
   return `/fcs/craft/printing/work-orders?printOrderId=${encodeSegment(printOrderId)}`
 }

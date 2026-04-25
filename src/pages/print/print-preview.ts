@@ -25,13 +25,22 @@ function getSearchParams(): URLSearchParams {
   return new URLSearchParams(query ?? '')
 }
 
+function inferSourceType(documentType: PrintDocumentType, handoverRecordId: string): PrintSourceType | '' {
+  if (documentType === 'TASK_DELIVERY_CARD' && handoverRecordId) return 'HANDOVER_RECORD'
+  if (documentType === 'MATERIAL_PREP_SLIP') return 'MATERIAL_PREP_RECORD'
+  if (documentType === 'PICKUP_SLIP') return 'PICKUP_SLIP_RECORD'
+  if (documentType === 'ISSUE_SLIP') return 'ISSUE_SLIP_RECORD'
+  if (documentType === 'SUPPLEMENT_MATERIAL_SLIP') return 'SUPPLEMENT_MATERIAL_RECORD'
+  return ''
+}
+
 function resolveInput(input?: Partial<PrintDocumentBuildInput>): PrintDocumentBuildInput {
   const params = getSearchParams()
   const documentType = (input?.documentType || params.get('documentType') || 'TASK_ROUTE_CARD') as PrintDocumentType
   const handoverRecordId = input?.handoverRecordId || params.get('handoverRecordId') || ''
   const sourceType = (input?.sourceType
     || params.get('sourceType')
-    || (documentType === 'TASK_DELIVERY_CARD' && handoverRecordId ? 'HANDOVER_RECORD' : '')) as PrintSourceType
+    || inferSourceType(documentType, handoverRecordId)) as PrintSourceType
   const sourceId = input?.sourceId || params.get('sourceId') || handoverRecordId
   return {
     documentType,
