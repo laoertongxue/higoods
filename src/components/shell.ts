@@ -303,7 +303,11 @@ function renderTabsBar(state: AppState): string {
 }
 
 export function renderAppShell(state: AppState, pageContent: string): string {
-  if (state.pathname.startsWith('/fcs/print/') || state.pathname.startsWith('/fcs/task-print/')) {
+  if (
+    state.pathname.startsWith('/fcs/print/')
+    || state.pathname.startsWith('/fcs/task-print/')
+    || /^\/fcs\/production\/orders\/[^/]+\/confirmation-print/.test(state.pathname)
+  ) {
     return `
       <div class="min-h-screen bg-slate-100" data-standalone-print-root="true">
         ${pageContent}

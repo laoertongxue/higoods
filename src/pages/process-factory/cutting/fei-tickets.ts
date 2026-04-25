@@ -47,6 +47,7 @@ import {
 } from '../../../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
 import { findCuttingSewingDispatchByFeiTicketNo } from '../../../data/fcs/cutting/sewing-dispatch.ts'
 import { buildSpecialCraftTaskDetailPath } from '../../../data/fcs/special-craft-operations.ts'
+import { buildFeiTicketLabelPrintLink } from '../../../data/fcs/fcs-route-links.ts'
 import type { OriginalCutOrderRow } from './original-orders-model.ts'
 import type { MaterialPrepRow } from './material-prep-model.ts'
 import type { MergeBatchRecord } from './merge-batches-model.ts'
@@ -651,9 +652,9 @@ function buildRowActionGroups(unit: PrintableUnit): {
   const detailHref = buildActionHref('fei-ticket-detail', unit)
   const printedHref = buildActionHref('fei-ticket-printed', unit)
   const recordsHref = buildActionHref('fei-ticket-records', unit)
-  const printHref = buildActionHref('fei-ticket-print', unit)
-  const continueHref = buildActionHref('fei-ticket-continue-print', unit)
-  const reprintHref = buildActionHref('fei-ticket-reprint', unit)
+  const printHref = buildFeiTicketLabelPrintLink(unit.printableUnitId, 'first')
+  const continueHref = buildFeiTicketLabelPrintLink(unit.printableUnitId, 'continue')
+  const reprintHref = buildFeiTicketLabelPrintLink(unit.printableUnitId, 'reprint')
 
   if (unit.printableUnitStatus === 'WAITING_PRINT') {
     return {
@@ -1286,8 +1287,10 @@ function renderPrintedTicketsTab(unit: PrintableUnit, detailView: PrintableUnitD
             const actions =
               ticket.status === 'VALID'
                 ? [
-                    { label: '查看菲票码', href: buildTicketPanelHref(unit, ticket, 'qr') },
-                    { label: '查看打印预览', href: buildTicketPanelHref(unit, ticket, 'preview') },
+                    { label: '查看菲票码', href: buildFeiTicketLabelPrintLink(ticket.ticketId, 'first') },
+                    { label: '查看打印预览', href: buildFeiTicketLabelPrintLink(ticket.ticketId, 'first') },
+                    { label: '打印菲票标签', href: buildFeiTicketLabelPrintLink(ticket.ticketId, 'first') },
+                    { label: '补打标签', href: buildFeiTicketLabelPrintLink(ticket.ticketId, 'reprint') },
                     { label: '查看同组', href: buildTicketPanelHref(unit, ticket, 'preview') },
                     {
                       label: '查看裁片发料',
@@ -1320,6 +1323,7 @@ function renderPrintedTicketsTab(unit: PrintableUnit, detailView: PrintableUnitD
                   ]
                 : [
                     { label: '查看作废原因', href: buildTicketPanelHref(unit, ticket, 'void-info') },
+                    { label: '打印作废标识', href: buildFeiTicketLabelPrintLink(ticket.ticketId, 'void') },
                     ...(ticket.replacementTicketNo
                       ? [
                           {

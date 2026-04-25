@@ -52,13 +52,17 @@ import {
   getProductionConfirmationByOrderId,
   isProductionConfirmationPrintable,
 } from '../../data/fcs/production-confirmation.ts'
+import {
+  buildMakeGoodsConfirmationPrintLink,
+  buildProductionConfirmationPrintLink,
+} from '../../data/fcs/fcs-route-links.ts'
 
 function getOrderConfirmationPreviewState(order: ProductionOrder): {
   available: boolean
   href: string
   title: string
 } {
-  const href = `/fcs/production/orders/${encodeURIComponent(order.productionOrderId)}/confirmation-print`
+  const href = buildProductionConfirmationPrintLink(order.productionOrderId)
   const confirmation = getProductionConfirmationByOrderId(order.productionOrderId)
   const printable = isProductionConfirmationPrintable(order.productionOrderId)
 
@@ -1026,7 +1030,11 @@ export function renderProductionOrdersPage(): string {
                                             data-nav="${escapeHtml(getOrderConfirmationPreviewState(order).href)}"
                                           >
                                             <i data-lucide="printer" class="mr-2 h-4 w-4"></i>
-                                            打印预览
+                                            打印生产确认单
+                                          </button>
+                                          <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-nav="${escapeHtml(buildMakeGoodsConfirmationPrintLink(order.productionOrderId))}">
+                                            <i data-lucide="printer" class="mr-2 h-4 w-4"></i>
+                                            打印做货确认单
                                           </button>
                                           <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-prod-action="open-orders-dispatch-center" data-order-id="${order.productionOrderId}">
                                             <i data-lucide="send" class="mr-2 h-4 w-4"></i>

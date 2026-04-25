@@ -7,7 +7,10 @@ import {
   deserializeReplenishmentPendingPrepStorage,
   type ReplenishmentPendingPrepFollowupRecord,
 } from '../../../data/fcs/cutting/storage/replenishment-storage.ts'
-import { buildTaskRouteCardPrintLink } from '../../../data/fcs/fcs-route-links.ts'
+import {
+  buildCuttingOrderQrLabelPrintLink,
+  buildTaskRouteCardPrintLink,
+} from '../../../data/fcs/fcs-route-links.ts'
 import {
   buildPrintableUnitViewModel,
   getPrintableUnitStatusMeta,
@@ -674,6 +677,7 @@ function renderTable(rows: OriginalCutOrderRow[]): string {
                               <div class="flex flex-wrap gap-2">
                                 <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="open-detail" data-record-id="${escapeHtml(row.id)}">查看详情</button>
                                 <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="print-task-route-card" data-record-id="${escapeHtml(row.id)}">打印任务流转卡</button>
+                                <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="print-cutting-order-qr" data-record-id="${escapeHtml(row.id)}">打印裁片单二维码</button>
                                 <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="go-material-prep" data-record-id="${escapeHtml(row.id)}">查看配料</button>
                                 <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="go-marker-plan" data-record-id="${escapeHtml(row.id)}">去唛架</button>
                                 <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去打印菲票</button>
@@ -756,6 +760,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
       <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-piece-action="go-material-prep" data-record-id="${escapeHtml(row.id)}">去配料</button>
       <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-piece-action="go-spreading" data-record-id="${escapeHtml(row.id)}">去铺布</button>
       <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-piece-action="print-task-route-card" data-record-id="${escapeHtml(row.id)}">打印任务流转卡</button>
+      <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-piece-action="print-cutting-order-qr" data-record-id="${escapeHtml(row.id)}">打印裁片单二维码</button>
       <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去打印菲票</button>
     </div>
   `
@@ -1129,6 +1134,14 @@ export function handleCraftCuttingOriginalOrdersEvent(target: Element): boolean 
     const row = recordId ? getViewModel().rowsById[recordId] : null
     if (!row) return false
     appStore.navigate(buildTaskRouteCardPrintLink('CUTTING_ORIGINAL_ORDER', row.originalCutOrderId))
+    return true
+  }
+
+  if (action === 'print-cutting-order-qr') {
+    const recordId = actionNode.dataset.recordId
+    const row = recordId ? getViewModel().rowsById[recordId] : null
+    if (!row) return false
+    appStore.navigate(buildCuttingOrderQrLabelPrintLink(row.originalCutOrderId))
     return true
   }
 

@@ -1,6 +1,7 @@
 import { escapeHtml } from '../../../utils'
 import {
   buildDyeingWorkOrderDetailLink,
+  buildHandoverDifferenceRequestPrintLink,
   buildHandoverOrderLink,
   buildTaskDetailLink,
 } from '../../../data/fcs/fcs-route-links.ts'
@@ -159,6 +160,7 @@ function renderDifferenceRows(records: ProcessHandoverDifferenceRecord[], orderI
             <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(`${baseHref}&differenceId=${record.differenceRecordId}&differenceAction=rework`)}">要求重新交出</button>
             <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(`${baseHref}&differenceId=${record.differenceRecordId}&differenceAction=processing`)}">标记平台处理中</button>
             <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(`${baseHref}&differenceId=${record.differenceRecordId}&differenceAction=close`)}">关闭记录</button>
+            <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildHandoverDifferenceRequestPrintLink(record.differenceRecordId))}">打印差异处理申请单</button>
           </div>
         </td>
       </tr>

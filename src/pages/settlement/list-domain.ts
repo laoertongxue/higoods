@@ -19,6 +19,7 @@ import {
   type SettlementStatus,
 } from './context'
 import { getSettlementPageBoundary } from '../../data/fcs/settlement-flow-boundaries'
+import { buildMasterDataChangeRequestPrintLink } from '../../data/fcs/fcs-route-links'
 import { renderInitFactoryPickerDialog } from './init-domain'
 import { renderSettlementRequestDetailDialog, renderSettlementRequestPrintDialog } from './request-domain'
 
@@ -116,7 +117,11 @@ export function renderSettlementListPage(): string {
                 新增结算信息
               </button>
             `
-            : ''
+            : `
+              <button class="inline-flex items-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted" data-nav="${escapeHtml(buildMasterDataChangeRequestPrintLink('MDCR-202604-001'))}">
+                打印资料变更申请单
+              </button>
+            `
         }
       </div>
 

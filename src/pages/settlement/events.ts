@@ -39,6 +39,7 @@ import {
   type DefaultPenaltyRule,
   type SettlementDefaultDeductionRuleSnapshot,
 } from './context'
+import { buildSettlementChangeRequestPrintLink } from '../../data/fcs/fcs-route-links.ts'
 
 function updateSettlementField(
   field: string,
@@ -711,7 +712,8 @@ export function handleSettlementEvent(target: HTMLElement): boolean {
       state.requestOperateError = result.message
       return true
     }
-    state.dialog = { type: 'request-print', requestId }
+    closeDialog()
+    appStore.navigate(buildSettlementChangeRequestPrintLink(requestId))
     return true
   }
 
@@ -778,7 +780,9 @@ export function handleSettlementEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'print-now') {
-    window.print()
+    if (state.dialog.type === 'request-print') {
+      appStore.navigate(buildSettlementChangeRequestPrintLink(state.dialog.requestId))
+    }
     return true
   }
 

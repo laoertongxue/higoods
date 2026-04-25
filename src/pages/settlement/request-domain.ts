@@ -10,6 +10,7 @@ import {
   maskBankAccountNo,
   escapeHtml,
 } from './context'
+import { buildSettlementChangeRequestPrintLink } from '../../data/fcs/fcs-route-links.ts'
 
 export function renderSettlementRequestDetailDialog(): string {
   if (state.dialog.type !== 'request-detail') return ''
@@ -244,7 +245,7 @@ export function renderSettlementRequestPrintDialog(): string {
               <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(request.requestId)} · ${escapeHtml(request.factoryName)}</p>
             </div>
             <div class="flex gap-2">
-              <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-settle-action="print-now">打印</button>
+              <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildSettlementChangeRequestPrintLink(request.requestId))}">进入统一打印预览</button>
               <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-settle-action="close-dialog">关闭</button>
             </div>
           </header>

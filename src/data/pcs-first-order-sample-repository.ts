@@ -78,10 +78,32 @@ function normalizeTask(task: FirstOrderSampleTaskRecord): FirstOrderSampleTaskRe
 }
 
 function hydrateSnapshot(snapshot: FirstOrderSampleTaskStoreSnapshot): FirstOrderSampleTaskStoreSnapshot {
-  return {
+  const hydrated = {
     version: STORE_VERSION,
     tasks: Array.isArray(snapshot.tasks) ? snapshot.tasks.map(normalizeTask) : [],
     pendingItems: Array.isArray(snapshot.pendingItems) ? snapshot.pendingItems.map(clonePendingItem) : [],
+  }
+  return mergeMissingBootstrapData(hydrated)
+}
+
+function mergeMissingBootstrapData(snapshot: FirstOrderSampleTaskStoreSnapshot): FirstOrderSampleTaskStoreSnapshot {
+  const seed = seedSnapshot()
+  const taskIds = new Set(snapshot.tasks.map((task) => task.firstOrderSampleTaskId))
+  const pendingIds = new Set(snapshot.pendingItems.map((item) => item.pendingId))
+  return {
+    version: STORE_VERSION,
+    tasks: [
+      ...snapshot.tasks,
+      ...seed.tasks
+        .filter((task) => !taskIds.has(task.firstOrderSampleTaskId))
+        .map(normalizeTask),
+    ],
+    pendingItems: [
+      ...snapshot.pendingItems,
+      ...seed.pendingItems
+        .filter((item) => !pendingIds.has(item.pendingId))
+        .map(clonePendingItem),
+    ],
   }
 }
 

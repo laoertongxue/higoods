@@ -29,6 +29,33 @@ import {
   buildSupplementMaterialSlipPrintDocument,
   renderMaterialSlipTemplate,
 } from '../../pages/print/templates/material-slip-template.ts'
+import {
+  buildCuttingOrderQrLabelPrintDocument,
+  buildFeiTicketLabelPrintDocument,
+  buildFeiTicketReprintLabelPrintDocument,
+  buildFeiTicketVoidLabelPrintDocument,
+  buildHandoverQrLabelPrintDocument,
+  buildTransferBagLabelPrintDocument,
+  renderLabelPrintTemplate,
+} from '../../pages/print/templates/label-print-template.ts'
+import {
+  buildMakeGoodsConfirmationPrintDocument,
+  buildProductionConfirmationPrintDocument,
+  renderMakeGoodsConfirmationTemplate,
+  renderProductionConfirmationTemplate,
+} from '../../pages/print/templates/production-material-confirmation-template.ts'
+import {
+  buildHandoverDifferenceRequestPrintDocument,
+  buildMasterDataChangeRequestPrintDocument,
+  buildQualityDeductionConfirmationPrintDocument,
+  buildQualityDisputeProcessingPrintDocument,
+  buildSettlementChangeRequestPrintDocument,
+  renderHandoverDifferenceRequestTemplate,
+  renderMasterDataChangeRequestTemplate,
+  renderQualityDeductionConfirmationTemplate,
+  renderQualityDisputeProcessingTemplate,
+  renderSettlementChangeRequestTemplate,
+} from '../../pages/print/templates/business-request-form-template.ts'
 
 export interface PrintTemplateRegistration {
   templateCode: string
@@ -40,6 +67,110 @@ export interface PrintTemplateRegistration {
 }
 
 export const printTemplateRegistry: PrintTemplateRegistration[] = [
+  {
+    templateCode: 'SETTLEMENT_CHANGE_REQUEST',
+    templateName: '结算信息变更申请单',
+    documentType: 'SETTLEMENT_CHANGE_REQUEST',
+    supportedSourceTypes: ['SETTLEMENT_CHANGE_REQUEST_RECORD'],
+    buildDocument: buildSettlementChangeRequestPrintDocument,
+    render: renderSettlementChangeRequestTemplate,
+  },
+  {
+    templateCode: 'HANDOVER_DIFFERENCE_REQUEST',
+    templateName: '差异处理申请单',
+    documentType: 'HANDOVER_DIFFERENCE_REQUEST',
+    supportedSourceTypes: ['HANDOVER_DIFFERENCE_RECORD'],
+    buildDocument: buildHandoverDifferenceRequestPrintDocument,
+    render: renderHandoverDifferenceRequestTemplate,
+  },
+  {
+    templateCode: 'QUALITY_DEDUCTION_CONFIRMATION',
+    templateName: '质量扣款确认单',
+    documentType: 'QUALITY_DEDUCTION_CONFIRMATION',
+    supportedSourceTypes: ['QUALITY_DEDUCTION_PENDING_RECORD'],
+    buildDocument: buildQualityDeductionConfirmationPrintDocument,
+    render: renderQualityDeductionConfirmationTemplate,
+  },
+  {
+    templateCode: 'QUALITY_DISPUTE_PROCESSING',
+    templateName: '质量异议处理单',
+    documentType: 'QUALITY_DISPUTE_PROCESSING',
+    supportedSourceTypes: ['QUALITY_DISPUTE_RECORD'],
+    buildDocument: buildQualityDisputeProcessingPrintDocument,
+    render: renderQualityDisputeProcessingTemplate,
+  },
+  {
+    templateCode: 'MASTER_DATA_CHANGE_REQUEST',
+    templateName: '资料变更申请单',
+    documentType: 'MASTER_DATA_CHANGE_REQUEST',
+    supportedSourceTypes: ['MASTER_DATA_CHANGE_REQUEST_RECORD'],
+    buildDocument: buildMasterDataChangeRequestPrintDocument,
+    render: renderMasterDataChangeRequestTemplate,
+  },
+  {
+    templateCode: 'PRODUCTION_CONFIRMATION',
+    templateName: '生产确认单',
+    documentType: 'PRODUCTION_CONFIRMATION',
+    supportedSourceTypes: ['PRODUCTION_ORDER'],
+    buildDocument: buildProductionConfirmationPrintDocument,
+    render: renderProductionConfirmationTemplate,
+  },
+  {
+    templateCode: 'MAKE_GOODS_CONFIRMATION',
+    templateName: '做货确认单',
+    documentType: 'MAKE_GOODS_CONFIRMATION',
+    supportedSourceTypes: ['PRODUCTION_ORDER'],
+    buildDocument: buildMakeGoodsConfirmationPrintDocument,
+    render: renderMakeGoodsConfirmationTemplate,
+  },
+  {
+    templateCode: 'FEI_TICKET_LABEL',
+    templateName: '菲票标签',
+    documentType: 'FEI_TICKET_LABEL',
+    supportedSourceTypes: ['FEI_TICKET_RECORD'],
+    buildDocument: buildFeiTicketLabelPrintDocument,
+    render: renderLabelPrintTemplate,
+  },
+  {
+    templateCode: 'FEI_TICKET_REPRINT_LABEL',
+    templateName: '菲票补打标签',
+    documentType: 'FEI_TICKET_REPRINT_LABEL',
+    supportedSourceTypes: ['FEI_TICKET_RECORD'],
+    buildDocument: buildFeiTicketReprintLabelPrintDocument,
+    render: renderLabelPrintTemplate,
+  },
+  {
+    templateCode: 'FEI_TICKET_VOID_LABEL',
+    templateName: '菲票作废标识',
+    documentType: 'FEI_TICKET_VOID_LABEL',
+    supportedSourceTypes: ['FEI_TICKET_RECORD'],
+    buildDocument: buildFeiTicketVoidLabelPrintDocument,
+    render: renderLabelPrintTemplate,
+  },
+  {
+    templateCode: 'TRANSFER_BAG_LABEL',
+    templateName: '中转袋 / 周转口袋 / 周转箱二维码',
+    documentType: 'TRANSFER_BAG_LABEL',
+    supportedSourceTypes: ['TRANSFER_BAG_RECORD'],
+    buildDocument: buildTransferBagLabelPrintDocument,
+    render: renderLabelPrintTemplate,
+  },
+  {
+    templateCode: 'CUTTING_ORDER_QR_LABEL',
+    templateName: '裁片单二维码',
+    documentType: 'CUTTING_ORDER_QR_LABEL',
+    supportedSourceTypes: ['CUTTING_ORDER_RECORD'],
+    buildDocument: buildCuttingOrderQrLabelPrintDocument,
+    render: renderLabelPrintTemplate,
+  },
+  {
+    templateCode: 'HANDOVER_QR_LABEL',
+    templateName: '交出记录二维码',
+    documentType: 'HANDOVER_QR_LABEL',
+    supportedSourceTypes: ['HANDOVER_RECORD'],
+    buildDocument: buildHandoverQrLabelPrintDocument,
+    render: renderLabelPrintTemplate,
+  },
   {
     templateCode: 'MATERIAL_PREP_SLIP',
     templateName: '配料单',
@@ -175,4 +306,47 @@ export function renderPrintDocument(document: PrintDocument): string {
     throw new Error(`未找到打印模板渲染器：${document.templateCode}`)
   }
   return template.render(document)
+}
+
+export const requiredPrintDocumentTypes: PrintDocumentType[] = [
+  'TASK_ROUTE_CARD',
+  'TASK_DELIVERY_CARD',
+  'MATERIAL_PREP_SLIP',
+  'PICKUP_SLIP',
+  'ISSUE_SLIP',
+  'SUPPLEMENT_MATERIAL_SLIP',
+  'FEI_TICKET_LABEL',
+  'FEI_TICKET_REPRINT_LABEL',
+  'FEI_TICKET_VOID_LABEL',
+  'TRANSFER_BAG_LABEL',
+  'CUTTING_ORDER_QR_LABEL',
+  'HANDOVER_QR_LABEL',
+  'PRODUCTION_CONFIRMATION',
+  'MAKE_GOODS_CONFIRMATION',
+  'SETTLEMENT_CHANGE_REQUEST',
+  'HANDOVER_DIFFERENCE_REQUEST',
+  'QUALITY_DEDUCTION_CONFIRMATION',
+  'QUALITY_DISPUTE_PROCESSING',
+  'MASTER_DATA_CHANGE_REQUEST',
+]
+
+export function validatePrintTemplateRegistry(): string[] {
+  const issues: string[] = []
+  for (const documentType of requiredPrintDocumentTypes) {
+    const templates = printTemplateRegistry.filter((template) => template.documentType === documentType)
+    if (templates.length === 0) {
+      issues.push(`缺少模板注册：${documentType}`)
+      continue
+    }
+    for (const template of templates) {
+      if (!template.templateCode) issues.push(`模板缺少编码：${documentType}`)
+      if (!template.templateName || /^[A-Za-z0-9_ -]+$/.test(template.templateName)) {
+        issues.push(`模板缺少中文名称：${template.templateCode}`)
+      }
+      if (template.supportedSourceTypes.length === 0) issues.push(`模板缺少来源类型：${template.templateCode}`)
+      if (typeof template.buildDocument !== 'function') issues.push(`模板缺少文档构建函数：${template.templateCode}`)
+      if (typeof template.render !== 'function') issues.push(`模板缺少渲染函数：${template.templateCode}`)
+    }
+  }
+  return issues
 }

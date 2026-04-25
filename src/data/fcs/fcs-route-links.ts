@@ -34,6 +34,22 @@ export function buildProductionConfirmationLink(productionOrderId: string): stri
   return `${buildProductionOrderLink(productionOrderId)}/confirmation-print`
 }
 
+export function buildProductionConfirmationPrintLink(productionOrderId: string): string {
+  return buildUnifiedPrintPreviewLink({
+    documentType: 'PRODUCTION_CONFIRMATION',
+    sourceType: 'PRODUCTION_ORDER',
+    sourceId: productionOrderId,
+  })
+}
+
+export function buildMakeGoodsConfirmationPrintLink(productionOrderId: string): string {
+  return buildUnifiedPrintPreviewLink({
+    documentType: 'MAKE_GOODS_CONFIRMATION',
+    sourceType: 'PRODUCTION_ORDER',
+    sourceId: productionOrderId,
+  })
+}
+
 export function buildTaskRouteCardPrintLink(sourceType: TaskRouteCardSourceType, sourceId: string): string {
   return buildUnifiedPrintPreviewLink({
     documentType: 'TASK_ROUTE_CARD',
@@ -90,6 +106,80 @@ export function buildSupplementMaterialSlipPrintLink(sourceId: string): string {
   return buildUnifiedPrintPreviewLink({
     documentType: 'SUPPLEMENT_MATERIAL_SLIP',
     sourceType: 'SUPPLEMENT_MATERIAL_RECORD',
+    sourceId,
+  })
+}
+
+export function buildFeiTicketLabelPrintLink(sourceId: string, mode: 'first' | 'continue' | 'reprint' | 'void' = 'first'): string {
+  const documentType: PrintDocumentType =
+    mode === 'reprint' ? 'FEI_TICKET_REPRINT_LABEL' : mode === 'void' ? 'FEI_TICKET_VOID_LABEL' : 'FEI_TICKET_LABEL'
+  return buildUnifiedPrintPreviewLink({
+    documentType,
+    sourceType: 'FEI_TICKET_RECORD',
+    sourceId,
+  })
+}
+
+export function buildTransferBagLabelPrintLink(sourceId: string): string {
+  return buildUnifiedPrintPreviewLink({
+    documentType: 'TRANSFER_BAG_LABEL',
+    sourceType: 'TRANSFER_BAG_RECORD',
+    sourceId,
+  })
+}
+
+export function buildCuttingOrderQrLabelPrintLink(sourceId: string): string {
+  return buildUnifiedPrintPreviewLink({
+    documentType: 'CUTTING_ORDER_QR_LABEL',
+    sourceType: 'CUTTING_ORDER_RECORD',
+    sourceId,
+  })
+}
+
+export function buildHandoverQrLabelPrintLink(handoverRecordId: string): string {
+  return buildUnifiedPrintPreviewLink({
+    documentType: 'HANDOVER_QR_LABEL',
+    sourceType: 'HANDOVER_RECORD',
+    sourceId: handoverRecordId,
+  })
+}
+
+export function buildSettlementChangeRequestPrintLink(sourceId: string): string {
+  return buildUnifiedPrintPreviewLink({
+    documentType: 'SETTLEMENT_CHANGE_REQUEST',
+    sourceType: 'SETTLEMENT_CHANGE_REQUEST_RECORD',
+    sourceId,
+  })
+}
+
+export function buildHandoverDifferenceRequestPrintLink(sourceId: string): string {
+  return buildUnifiedPrintPreviewLink({
+    documentType: 'HANDOVER_DIFFERENCE_REQUEST',
+    sourceType: 'HANDOVER_DIFFERENCE_RECORD',
+    sourceId,
+  })
+}
+
+export function buildQualityDeductionConfirmationPrintLink(sourceId: string): string {
+  return buildUnifiedPrintPreviewLink({
+    documentType: 'QUALITY_DEDUCTION_CONFIRMATION',
+    sourceType: 'QUALITY_DEDUCTION_PENDING_RECORD',
+    sourceId,
+  })
+}
+
+export function buildQualityDisputeProcessingPrintLink(sourceId: string): string {
+  return buildUnifiedPrintPreviewLink({
+    documentType: 'QUALITY_DISPUTE_PROCESSING',
+    sourceType: 'QUALITY_DISPUTE_RECORD',
+    sourceId,
+  })
+}
+
+export function buildMasterDataChangeRequestPrintLink(sourceId: string): string {
+  return buildUnifiedPrintPreviewLink({
+    documentType: 'MASTER_DATA_CHANGE_REQUEST',
+    sourceType: 'MASTER_DATA_CHANGE_REQUEST_RECORD',
     sourceId,
   })
 }

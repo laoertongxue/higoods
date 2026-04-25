@@ -54,6 +54,10 @@ import {
   getSpecialCraftTasksByProductionOrder,
 } from '../../data/fcs/special-craft-task-orders.ts'
 import {
+  buildMakeGoodsConfirmationPrintLink,
+  buildProductionConfirmationPrintLink,
+} from '../../data/fcs/fcs-route-links.ts'
+import {
   buildSpecialCraftTaskDetailPath,
   buildSpecialCraftTaskOrdersPath,
 } from '../../data/fcs/special-craft-operations.ts'
@@ -71,7 +75,7 @@ function getDetailConfirmationPreviewState(order: ProductionOrder): {
   buttonTitle: string
   statusLabel: string
 } {
-  const href = `/fcs/production/orders/${encodeURIComponent(order.productionOrderId)}/confirmation-print`
+  const href = buildProductionConfirmationPrintLink(order.productionOrderId)
   const confirmation = getProductionConfirmationByOrderId(order.productionOrderId)
   const printable = isProductionConfirmationPrintable(order.productionOrderId)
 
@@ -1101,7 +1105,10 @@ export function renderProductionOrderDetailPage(orderId: string): string {
             }"
             title="${escapeHtml(confirmationPreviewState.buttonTitle)}"
             data-nav="${escapeHtml(confirmationPreviewState.href)}"
-          >打印预览</button>
+          >打印生产确认单</button>
+          <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(
+            buildMakeGoodsConfirmationPrintLink(order.productionOrderId),
+          )}">打印做货确认单</button>
           <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="detail-open-logs">查看日志</button>
           <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="/fcs/progress/urge?po=${escapeHtml(
             order.productionOrderId,

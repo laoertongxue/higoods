@@ -97,6 +97,70 @@ export function renderUnifiedPrintStyles(): string {
         align-items: stretch;
       }
 
+      .print-production-header {
+        display: grid;
+        grid-template-columns: 1fr 34mm;
+        gap: 8px;
+        align-items: start;
+      }
+
+      .print-production-image-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 6px;
+      }
+
+      .print-production-image-grid-prominent {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .print-production-image-card {
+        margin: 0;
+        border: 1px solid #111827;
+        padding: 4px;
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+
+      .print-production-image-card figcaption {
+        margin-bottom: 3px;
+        font-size: 9.5px;
+        font-weight: 700;
+      }
+
+      .print-production-image-frame {
+        display: flex;
+        height: 30mm;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        border: 1px solid #cbd5e1;
+        background: #fff;
+      }
+
+      .print-production-image-grid-prominent .print-production-image-frame {
+        height: 38mm;
+      }
+
+      .print-production-image-frame img {
+        max-height: 100%;
+        max-width: 100%;
+        object-fit: contain;
+      }
+
+      .print-production-table th,
+      .print-production-table td {
+        overflow-wrap: anywhere;
+      }
+
+      .print-production-barcode {
+        margin-top: 4px;
+        overflow-wrap: anywhere;
+        border-top: 1px solid #111827;
+        padding-top: 3px;
+        font-size: 7.5px;
+      }
+
       .print-image-box,
       .print-qr-box {
         border: 1px solid #111827;
@@ -235,6 +299,192 @@ export function renderUnifiedPrintStyles(): string {
         font-size: 9px;
       }
 
+      .print-label-paper {
+        margin: 0 auto 20px;
+        background: #fff;
+        color: #111827;
+        box-shadow: 0 14px 40px rgb(15 23 42 / 14%);
+      }
+
+      .print-label-single-sheet {
+        height: 100%;
+        padding: 2mm;
+        font-family: Arial, "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+      }
+
+      .label-paper-label-80-50 {
+        width: 80mm;
+        min-height: 50mm;
+      }
+
+      .label-paper-label-100-60 {
+        width: 100mm;
+        min-height: 60mm;
+      }
+
+      .label-paper-label-60-40 {
+        width: 60mm;
+        min-height: 40mm;
+      }
+
+      .print-label-grid-a4 {
+        padding: 8mm;
+      }
+
+      .print-label-grid-sheet {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 4mm;
+        font-family: Arial, "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+      }
+
+      .print-label-card {
+        min-height: 46mm;
+        border: 1px solid #111827;
+        padding: 2mm;
+        background: #fff;
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+
+      .print-label-card.label-paper-a4-label-grid {
+        min-height: 50mm;
+      }
+
+      .print-label-card-void {
+        border-width: 2px;
+      }
+
+      .print-label-card-reprint {
+        border-style: dashed;
+      }
+
+      .print-label-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 6px;
+        border-bottom: 1px solid #111827;
+        padding-bottom: 2mm;
+      }
+
+      .print-label-title {
+        font-size: 14px;
+        font-weight: 800;
+        line-height: 1.1;
+      }
+
+      .print-label-subtitle {
+        margin-top: 1mm;
+        color: #475569;
+        font-size: 8px;
+      }
+
+      .print-label-mode {
+        border: 1px solid #111827;
+        padding: 1mm 2mm;
+        font-size: 9px;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .print-label-body {
+        display: grid;
+        grid-template-columns: 1fr 28mm;
+        gap: 2mm;
+        margin-top: 2mm;
+      }
+
+      .label-paper-label-100-60 .print-label-body {
+        grid-template-columns: 1fr 31mm;
+      }
+
+      .print-label-fields {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1mm 2mm;
+      }
+
+      .print-label-field {
+        min-width: 0;
+        border-bottom: 1px solid #cbd5e1;
+        padding-bottom: 0.5mm;
+      }
+
+      .print-label-field span {
+        display: block;
+        color: #64748b;
+        font-size: 7px;
+        line-height: 1.15;
+      }
+
+      .print-label-field strong {
+        display: block;
+        overflow-wrap: anywhere;
+        color: #111827;
+        font-size: 8.5px;
+        line-height: 1.15;
+      }
+
+      .print-label-field-emphasis strong {
+        font-size: 9.5px;
+      }
+
+      .print-label-qr-panel {
+        text-align: center;
+      }
+
+      .print-label-qr {
+        display: flex;
+        min-height: 26mm;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid #111827;
+      }
+
+      .print-label-qr svg {
+        height: 26mm;
+        width: 26mm;
+      }
+
+      .label-paper-label-100-60 .print-label-qr svg {
+        height: 30mm;
+        width: 30mm;
+      }
+
+      .print-label-qr-desc {
+        margin-top: 1mm;
+        font-size: 7px;
+      }
+
+      .print-label-barcode {
+        margin-top: 1mm;
+      }
+
+      .print-label-barcode-lines {
+        height: 7mm;
+        background: repeating-linear-gradient(90deg, #111827 0 1px, #fff 1px 3px, #111827 3px 4px, #fff 4px 6px);
+      }
+
+      .print-label-barcode-text {
+        overflow-wrap: anywhere;
+        font-size: 6.5px;
+      }
+
+      .print-label-warnings {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1mm;
+        margin-top: 2mm;
+      }
+
+      .print-label-warnings span {
+        border: 1px solid #111827;
+        padding: 0.5mm 1mm;
+        font-size: 7px;
+        font-weight: 700;
+      }
+
       @media print {
         html,
         body {
@@ -270,8 +520,18 @@ export function renderUnifiedPrintStyles(): string {
           box-shadow: none;
         }
 
+        .print-label-paper {
+          margin: 0;
+          box-shadow: none;
+        }
+
         .print-card-sheet {
           padding: 0;
+        }
+
+        .print-label-card {
+          break-inside: avoid;
+          page-break-inside: avoid;
         }
       }
     </style>

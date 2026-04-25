@@ -1,5 +1,5 @@
 import { appStore } from '../../../state/store.ts'
-import { hydrateRealQRCodes, renderRealQrPlaceholder } from '../../../components/real-qr.ts'
+import { renderRealQrPlaceholder } from '../../../components/real-qr.ts'
 import { escapeHtml, formatDateTime } from '../../../utils.ts'
 import {
   CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY,
@@ -23,6 +23,7 @@ import {
 import {
   buildCuttingTraceabilityId,
 } from '../../../data/fcs/cutting/qr-codes.ts'
+import { buildTransferBagLabelPrintLink } from '../../../data/fcs/fcs-route-links.ts'
 import {
   buildCuttingDrillChipLabels,
   buildCuttingDrillSummary,
@@ -1829,7 +1830,7 @@ function renderMasterDetail(item: TransferBagMasterItem | null): string {
           <div class="flex flex-wrap gap-2">
             ${item.pocketStatusKey === 'IDLE' ? `<button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-transfer-bags-action="use-master" data-bag-id="${escapeHtml(item.bagId)}">开始装袋</button>` : ''}
             ${item.pocketStatusKey === 'PACKING' ? `<button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-transfer-bags-action="use-master" data-bag-id="${escapeHtml(item.bagId)}">继续装袋</button>` : ''}
-            ${item.pocketStatusKey === 'READY_TO_DISPATCH' && currentUsage ? `<button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-transfer-bags-action="print-manifest" data-usage-id="${escapeHtml(currentUsage.usageId)}">打印装袋清单</button><button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-transfer-bags-action="mark-dispatched" data-usage-id="${escapeHtml(currentUsage.usageId)}">发出</button>` : ''}
+            ${item.pocketStatusKey === 'READY_TO_DISPATCH' && currentUsage ? `<button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-transfer-bags-action="print-manifest" data-usage-id="${escapeHtml(currentUsage.usageId)}">打印中转袋二维码</button><button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-transfer-bags-action="mark-dispatched" data-usage-id="${escapeHtml(currentUsage.usageId)}">发出</button>` : ''}
             ${item.pocketStatusKey === 'DISPATCHED' && currentUsage ? `<button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-transfer-bags-action="mark-signed" data-usage-id="${escapeHtml(currentUsage.usageId)}">签收</button>` : ''}
             ${item.pocketStatusKey === 'SIGNED' && currentUsage ? `<button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-transfer-bags-action="prepare-return" data-usage-id="${escapeHtml(currentUsage.usageId)}">回仓</button>` : ''}
             ${item.pocketStatusKey === 'RETURNED' && currentUsage ? `<button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-transfer-bags-action="close-usage-cycle" data-usage-id="${escapeHtml(currentUsage.usageId)}">关闭本次使用周期</button>` : ''}
@@ -2046,7 +2047,7 @@ function renderWorkbenchSection(): string {
               </div>
             </div>
             <div class="flex flex-wrap gap-2">
-              <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="print-manifest" data-usage-id="${escapeHtml(activeUsage.usageId)}">打印装袋清单</button>
+              <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="print-manifest" data-usage-id="${escapeHtml(activeUsage.usageId)}">打印中转袋二维码</button>
               <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="mark-ready" data-usage-id="${escapeHtml(activeUsage.usageId)}">完成装袋</button>
               <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="mark-dispatched" data-usage-id="${escapeHtml(activeUsage.usageId)}">发出</button>
               <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="mark-signed" data-usage-id="${escapeHtml(activeUsage.usageId)}">签收</button>
@@ -2229,7 +2230,7 @@ function renderUsageLedgerSection(): string {
                         <td class="px-4 py-3">
                           <div class="flex flex-wrap gap-2">
                             <button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-transfer-bags-action="select-usage" data-usage-id="${escapeHtml(item.usageId)}">查看详情</button>
-                            <button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-transfer-bags-action="print-manifest" data-usage-id="${escapeHtml(item.usageId)}">打印清单</button>
+                            <button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-transfer-bags-action="print-manifest" data-usage-id="${escapeHtml(item.usageId)}">打印二维码</button>
                             <button type="button" class="rounded-md border px-2.5 py-1.5 text-xs hover:bg-muted" data-transfer-bags-action="mark-dispatched" data-usage-id="${escapeHtml(item.usageId)}">标记发出</button>
                           </div>
                         </td>
@@ -3234,7 +3235,7 @@ function renderBaggingReviewStepCard(
               : '<div class="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">当前还没有菲票，请先完成步骤 2 的装袋绑定。</div>'
           }
           <div class="flex flex-wrap gap-2">
-            ${currentBindings.length ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="print-manifest" data-usage-id="${escapeHtml(focusedUsage.usageId)}">打印装袋清单</button>` : ''}
+            ${currentBindings.length ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="print-manifest" data-usage-id="${escapeHtml(focusedUsage.usageId)}">打印中转袋二维码</button>` : ''}
             ${currentBindings.length && ['DRAFT', 'PACKING'].includes(focusedUsage.usageStatus) ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="mark-ready" data-usage-id="${escapeHtml(focusedUsage.usageId)}">完成装袋</button>` : ''}
           </div>
           ${
@@ -4103,99 +4104,6 @@ function removeBinding(bindingId: string | undefined): boolean {
   return true
 }
 
-function buildManifestPrintHtml(usage: TransferBagUsageItem, bindings: TransferBagBindingItem[]): string {
-  const summary = buildTransferBagParentChildSummary(bindings)
-  const qrValue = resolveUsageBagQrValue(usage)
-  return `
-    <!doctype html>
-    <html lang="zh-CN">
-      <head>
-        <meta charset="utf-8" />
-        <title>中转袋装袋清单 - ${escapeHtml(usage.usageNo)}</title>
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; margin: 28px; color: #111827; }
-          h1 { margin: 0 0 8px; font-size: 24px; }
-          .tip { margin-top: 12px; border: 1px solid #bfdbfe; background: #eff6ff; color: #1d4ed8; border-radius: 10px; padding: 12px; font-size: 13px; line-height: 1.6; }
-          .hero { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
-          .hero-copy { flex: 1; min-width: 0; }
-          .qr-panel { width: 180px; border: 1px solid #d1d5db; border-radius: 14px; padding: 14px; text-align: center; background: #fff; }
-          .qr-panel [data-real-qr] { display: inline-flex; align-items: center; justify-content: center; min-height: 112px; min-width: 112px; }
-          .qr-title { margin-top: 10px; font-size: 13px; font-weight: 600; }
-          .qr-meta { margin-top: 4px; font-size: 12px; line-height: 1.5; color: #6b7280; word-break: break-all; }
-          .meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; margin-top: 18px; }
-          .meta-item { border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px 12px; }
-          .label { font-size: 12px; color: #6b7280; }
-          .value { margin-top: 4px; font-size: 14px; font-weight: 600; }
-          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-          th, td { border: 1px solid #d1d5db; padding: 8px 10px; font-size: 13px; text-align: left; vertical-align: top; }
-          th { background: #f3f4f6; }
-        </style>
-      </head>
-      <body>
-        <div class="hero">
-          <div class="hero-copy">
-            <h1>中转袋装袋清单</h1>
-            <div class="tip">中转袋二维码</div>
-          </div>
-          <div class="qr-panel">
-            ${
-              qrValue
-                ? renderRealQrPlaceholder({
-                  value: qrValue,
-                  size: 112,
-                  title: `中转袋码 ${usage.bagCode}`,
-                  label: `中转袋 ${usage.bagCode} 打印二维码`,
-                })
-                : '<div class="qr-meta">暂无二维码</div>'
-            }
-            <div class="qr-title">${escapeHtml(usage.bagCode)}</div>
-            <div class="qr-meta">本次周转：${escapeHtml(usage.usageNo)}</div>
-            <div class="qr-meta">二维码</div>
-          </div>
-        </div>
-        <div class="meta">
-          <div class="meta-item"><div class="label">中转袋码</div><div class="value">${escapeHtml(usage.bagCode)}</div></div>
-          <div class="meta-item"><div class="label">本次周转号</div><div class="value">${escapeHtml(usage.usageNo)}</div></div>
-          <div class="meta-item"><div class="label">车缝任务号</div><div class="value">${escapeHtml(usage.sewingTaskNo)}</div></div>
-          <div class="meta-item"><div class="label">车缝工厂</div><div class="value">${escapeHtml(usage.sewingFactoryName)}</div></div>
-          <div class="meta-item"><div class="label">菲票数</div><div class="value">${escapeHtml(String(summary.ticketCount))}</div></div>
-          <div class="meta-item"><div class="label">原始裁片单数</div><div class="value">${escapeHtml(String(summary.originalCutOrderCount))}</div></div>
-          <div class="meta-item"><div class="label">生产单摘要</div><div class="value">${escapeHtml(usage.productionOrderNos.join(' / ') || '待补')}</div></div>
-          <div class="meta-item"><div class="label">打印时间</div><div class="value">${escapeHtml(nowText())}</div></div>
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th>中转袋码</th>
-              <th>菲票码</th>
-              <th>面料 SKU</th>
-              <th>原始裁片单</th>
-              <th>生产单</th>
-              <th>合并裁剪批次</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${bindings
-              .map(
-                (binding) => `
-                  <tr>
-                    <td>${escapeHtml(binding.bagCode)}</td>
-                    <td>${escapeHtml(binding.ticketNo)}</td>
-                    <td>${escapeHtml(binding.ticket?.materialSku || '待补')}</td>
-                    <td>${escapeHtml(binding.originalCutOrderNo)}</td>
-                    <td>${escapeHtml(binding.productionOrderNo)}</td>
-                    <td>${escapeHtml(binding.mergeBatchNo || binding.裁剪批次No || '无')}</td>
-                  </tr>
-                `,
-              )
-              .join('')}
-          </tbody>
-        </table>
-      </body>
-    </html>
-  `
-}
-
 function printManifest(usageId: string | undefined): boolean {
   if (!usageId) return false
   const usage = getViewModel().usagesById[usageId]
@@ -4225,25 +4133,8 @@ function printManifest(usageId: string | undefined): boolean {
   refreshDerivedState()
   persistStore()
 
-  const printWindow = window.open('', '_blank', 'width=980,height=760')
-  if (!printWindow) {
-    setFeedback('warning', '浏览器拦截了打印窗口，请允许弹窗后重试。')
-    return true
-  }
-  printWindow.document.open()
-  printWindow.document.write(buildManifestPrintHtml(getViewModel().usagesById[usageId], getViewModel().bindingsByUsageId[usageId] || []))
-  printWindow.document.close()
-  const frame = printWindow.requestAnimationFrame?.bind(printWindow) || window.requestAnimationFrame.bind(window)
-  frame(() => {
-    hydrateRealQRCodes(printWindow.document)
-    frame(() => {
-      printWindow.setTimeout(() => {
-        printWindow.focus()
-        printWindow.print()
-      }, 0)
-    })
-  })
-  setFeedback('success', `${usage.usageNo} 的流转清单已打开打印预览。`)
+  appStore.navigate(buildTransferBagLabelPrintLink(usageId))
+  setFeedback('success', `${usage.usageNo} 的中转袋二维码已进入统一打印预览。`)
   return true
 }
 

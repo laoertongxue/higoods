@@ -9,6 +9,7 @@ import type {
   PrintDocumentType,
   PrintSourceType,
 } from '../../data/fcs/print-service.ts'
+import { createPrintRecordFromDocument } from '../../data/fcs/print-record-domain.ts'
 import { renderUnifiedPrintStyles } from './print-styles.ts'
 
 function decodeParam(value: string): string {
@@ -31,6 +32,19 @@ function inferSourceType(documentType: PrintDocumentType, handoverRecordId: stri
   if (documentType === 'PICKUP_SLIP') return 'PICKUP_SLIP_RECORD'
   if (documentType === 'ISSUE_SLIP') return 'ISSUE_SLIP_RECORD'
   if (documentType === 'SUPPLEMENT_MATERIAL_SLIP') return 'SUPPLEMENT_MATERIAL_RECORD'
+  if (documentType === 'FEI_TICKET_LABEL') return 'FEI_TICKET_RECORD'
+  if (documentType === 'FEI_TICKET_REPRINT_LABEL') return 'FEI_TICKET_RECORD'
+  if (documentType === 'FEI_TICKET_VOID_LABEL') return 'FEI_TICKET_RECORD'
+  if (documentType === 'TRANSFER_BAG_LABEL') return 'TRANSFER_BAG_RECORD'
+  if (documentType === 'CUTTING_ORDER_QR_LABEL') return 'CUTTING_ORDER_RECORD'
+  if (documentType === 'HANDOVER_QR_LABEL') return 'HANDOVER_RECORD'
+  if (documentType === 'PRODUCTION_CONFIRMATION') return 'PRODUCTION_ORDER'
+  if (documentType === 'MAKE_GOODS_CONFIRMATION') return 'PRODUCTION_ORDER'
+  if (documentType === 'SETTLEMENT_CHANGE_REQUEST') return 'SETTLEMENT_CHANGE_REQUEST_RECORD'
+  if (documentType === 'HANDOVER_DIFFERENCE_REQUEST') return 'HANDOVER_DIFFERENCE_RECORD'
+  if (documentType === 'QUALITY_DEDUCTION_CONFIRMATION') return 'QUALITY_DEDUCTION_PENDING_RECORD'
+  if (documentType === 'QUALITY_DISPUTE_PROCESSING') return 'QUALITY_DISPUTE_RECORD'
+  if (documentType === 'MASTER_DATA_CHANGE_REQUEST') return 'MASTER_DATA_CHANGE_REQUEST_RECORD'
   return ''
 }
 
@@ -83,6 +97,8 @@ export function renderUnifiedPrintPreviewPage(input?: Partial<PrintDocumentBuild
       handoverRecordId: resolved.handoverRecordId ? decodeParam(resolved.handoverRecordId) : undefined,
     } as PrintDocumentBuildInput)
 
+    const printRecord = createPrintRecordFromDocument(document, '已预览')
+
     return `
       ${renderUnifiedPrintStyles()}
       <div class="print-preview-root">
@@ -91,6 +107,7 @@ export function renderUnifiedPrintPreviewPage(input?: Partial<PrintDocumentBuild
             <div>
               <h1 class="text-lg font-semibold">${escapeHtml(document.documentTitle)}打印预览</h1>
               <p class="mt-1 text-xs text-muted-foreground">打印前请在浏览器打印设置中关闭页眉和页脚。该提示不会被打印。</p>
+              <p class="mt-1 text-xs text-muted-foreground">打印记录：${escapeHtml(printRecord.printRecordId)} · ${escapeHtml(printRecord.documentType)} · ${escapeHtml(printRecord.sourceId)} · ${escapeHtml(printRecord.printStatus)}</p>
             </div>
             <div class="flex flex-wrap gap-2">
               ${document.printMeta.returnHref ? `<button class="rounded-md border px-3 py-2 text-sm hover:bg-slate-50" data-nav="${escapeHtml(document.printMeta.returnHref)}">返回业务单据</button>` : ''}

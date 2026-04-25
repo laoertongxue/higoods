@@ -35,6 +35,7 @@ import {
 } from '../data/fcs/handover-ledger-view'
 import {
   buildHandoverOrderLink,
+  buildHandoverQrLabelPrintLink,
   buildProductionOrderLink,
   buildQualityRecordLink,
   buildTaskDeliveryCardPrintLink,
@@ -884,6 +885,8 @@ function renderRowActionMenu(row: HandoverLedgerRow): string {
                 canPrintDeliveryCard
                   ? `<button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-handover-action="print-delivery-card" data-handover-id="${escapeAttr(row.handoverId)}" data-record-id="${escapeAttr(row.recordId || '')}">
                       <i data-lucide="printer" class="mr-2 h-4 w-4"></i>打印任务交货卡
+                    </button><button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-handover-action="print-handover-qr" data-record-id="${escapeAttr(row.recordId || '')}">
+                      <i data-lucide="qr-code" class="mr-2 h-4 w-4"></i>打印交出二维码
                     </button>`
                   : ''
               }
@@ -1645,6 +1648,7 @@ function renderDetailDrawer(rows: HandoverLedgerRow[]): string {
       `<button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-handover-action="print-delivery-card" data-handover-id="${escapeAttr(
         row.handoverId,
       )}" data-record-id="${escapeAttr(row.recordId)}">打印任务交货卡</button>`,
+      `<button class="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-muted" data-handover-action="print-handover-qr" data-record-id="${escapeAttr(row.recordId)}">打印交出二维码</button>`,
     )
   }
 
@@ -2107,6 +2111,15 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
     const recordId = actionNode.dataset.recordId
     if (recordId) {
       openLinkedPage('任务交货卡', buildTaskDeliveryCardPrintLink(recordId))
+    }
+    closeRowMenu()
+    return true
+  }
+
+  if (action === 'print-handover-qr') {
+    const recordId = actionNode.dataset.recordId
+    if (recordId) {
+      openLinkedPage('交出记录二维码', buildHandoverQrLabelPrintLink(recordId))
     }
     closeRowMenu()
     return true

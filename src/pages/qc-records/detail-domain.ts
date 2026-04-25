@@ -44,6 +44,10 @@ import {
   getSettlementImpactLabel,
 } from '../../data/fcs/quality-chain-adapter'
 import {
+  buildQualityDeductionConfirmationPrintLink,
+  buildQualityDisputeProcessingPrintLink,
+} from '../../data/fcs/fcs-route-links'
+import {
   getPlatformQcDetailViewModelByRouteKey,
   type PlatformQcDetailViewModel,
 } from '../../data/fcs/quality-deduction-selectors'
@@ -744,6 +748,16 @@ function renderExistingQcPcDetail(detailVm: PlatformQcDetailViewModel, detail: Q
             </div>
           </div>
           <div class="flex flex-wrap gap-3">
+            ${
+              detailVm.pendingDeductionRecord
+                ? `<button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-nav="${escapeHtml(buildQualityDeductionConfirmationPrintLink(detailVm.pendingDeductionRecord.pendingRecordId))}">打印质量扣款确认单</button>`
+                : ''
+            }
+            ${
+              disputeCase
+                ? `<button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-nav="${escapeHtml(buildQualityDisputeProcessingPrintLink(disputeCase.disputeId))}">打印质量异议处理单</button>`
+                : ''
+            }
             ${
               detailVm.canHandleDispute
                 ? `<button class="inline-flex h-9 items-center rounded-md border border-amber-200 px-4 text-sm text-amber-700 hover:bg-amber-50" data-nav="${buildQcDetailHref(detailVm.qcId)}?focus=dispute">处理异议</button>`

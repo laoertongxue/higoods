@@ -1,4 +1,5 @@
 import {
+  buildHandoverQrLabelPrintLink,
   buildTaskDeliveryCardPrintLink,
   buildPostFinishingWorkOrderDetailLink,
 } from '../../../data/fcs/fcs-route-links.ts'
@@ -90,7 +91,7 @@ export function renderPostFinishingWaitHandoverWarehousePage(): string {
       const handovers = getHandoverRecordsByWarehouseRecordId(record.warehouseRecordId)
       const printActions = handovers.length > 0
         ? handovers
-          .map((handover) => renderPostAction('打印任务交货卡', buildTaskDeliveryCardPrintLink(handover.handoverRecordId)))
+          .map((handover) => `${renderPostAction('打印任务交货卡', buildTaskDeliveryCardPrintLink(handover.handoverRecordId))}${renderPostAction('打印交出二维码', buildHandoverQrLabelPrintLink(handover.handoverRecordId))}`)
           .join('')
         : renderPostAction('暂无交货卡', '', true)
       return `

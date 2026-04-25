@@ -9,7 +9,10 @@ import {
 } from '../../../data/fcs/action-permissions.ts'
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
-import { buildMaterialPrepSlipPrintLink } from '../../../data/fcs/fcs-route-links.ts'
+import {
+  buildCuttingOrderQrLabelPrintLink,
+  buildMaterialPrepSlipPrintLink,
+} from '../../../data/fcs/fcs-route-links.ts'
 import { getPrepQrHiddenText } from './material-prep.helpers.ts'
 import {
   buildMaterialPrepNavigationPayload,
@@ -640,6 +643,7 @@ function renderTable(rows: MaterialPrepRow[]): string {
                             <div class="flex flex-wrap gap-2">
                               <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-prep-action="open-detail" data-record-id="${escapeHtml(row.id)}">查看详情</button>
                               <button type="button" class="text-xs text-blue-600 hover:underline" data-nav="${escapeHtml(buildMaterialPrepSlipPrintLink(row.id))}">打印配料单</button>
+                              <button type="button" class="text-xs text-blue-600 hover:underline" data-nav="${escapeHtml(buildCuttingOrderQrLabelPrintLink(row.originalCutOrderId))}">打印裁片单二维码</button>
                               <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-prep-action="open-records-dialog" data-record-id="${escapeHtml(row.id)}">查看领料记录</button>
                               <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-prep-action="open-schedule-dialog" data-record-id="${escapeHtml(row.id)}">分配裁床组</button>
                               <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-prep-action="go-marker-plan" data-record-id="${escapeHtml(row.id)}">去唛架</button>
@@ -925,6 +929,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
       <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-prep-action="open-claim-dialog" data-record-id="${escapeHtml(row.id)}">裁床领料</button>
       <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-prep-action="open-schedule-dialog" data-record-id="${escapeHtml(row.id)}">分配裁床组</button>
       <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-nav="${escapeHtml(buildMaterialPrepSlipPrintLink(row.id))}">打印配料单</button>
+      <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-nav="${escapeHtml(buildCuttingOrderQrLabelPrintLink(row.originalCutOrderId))}">打印裁片单二维码</button>
     </div>
   `
 
@@ -1009,6 +1014,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
                 `
             }
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildMaterialPrepSlipPrintLink(row.id))}">打印配料单</button>
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildCuttingOrderQrLabelPrintLink(row.originalCutOrderId))}">打印裁片单二维码</button>
           </div>
         `,
       )}

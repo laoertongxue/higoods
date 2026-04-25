@@ -3,7 +3,10 @@ import {
   buildSpecialCraftWorkOrderDetailPath,
   getSpecialCraftOperationBySlug,
 } from '../../../data/fcs/special-craft-operations.ts'
-import { buildTaskDeliveryCardPrintLink } from '../../../data/fcs/fcs-route-links.ts'
+import {
+  buildHandoverQrLabelPrintLink,
+  buildTaskDeliveryCardPrintLink,
+} from '../../../data/fcs/fcs-route-links.ts'
 import { getSpecialCraftWarehouseView } from '../../../data/fcs/special-craft-task-orders.ts'
 import { getSpecialCraftFeiTicketSummary } from '../../../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
 import {
@@ -141,6 +144,7 @@ function renderUnifiedOutboundRows(records: ProcessHandoverRecord[]): string {
           <div class="flex flex-wrap gap-2">
             <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="/fcs/pda/handover">查看交出</button>
             <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="${buildTaskDeliveryCardPrintLink(record.handoverRecordId)}">打印任务交货卡</button>
+            <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="${buildHandoverQrLabelPrintLink(record.handoverRecordId)}">打印交出二维码</button>
             <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="/fcs/pda/handover">查看回写</button>
           </div>
         </td>
@@ -373,7 +377,7 @@ function renderSpecialCraftWarehousePageByMode(
               <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="/fcs/pda/handover">查看交出</button>
               ${
                 item.handoverRecordId
-                  ? `<button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="${buildTaskDeliveryCardPrintLink(item.handoverRecordId)}">打印任务交货卡</button>`
+                  ? `<button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="${buildTaskDeliveryCardPrintLink(item.handoverRecordId)}">打印任务交货卡</button><button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="${buildHandoverQrLabelPrintLink(item.handoverRecordId)}">打印交出二维码</button>`
                   : '<button type="button" class="inline-flex cursor-not-allowed items-center rounded-md border px-2 py-1 text-xs opacity-50" disabled>打印任务交货卡</button>'
               }
               <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="/fcs/pda/handover">查看回写</button>

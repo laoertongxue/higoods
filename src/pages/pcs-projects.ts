@@ -5719,9 +5719,13 @@ function renderFirstOrderSampleProjectNodeWorkspace(project: PcsProjectRecord, n
     renderFirstSampleSummaryField('当前结果编号', task.sampleCode),
     renderFirstSampleSummaryField('样衣计划行', samplePlanSummary),
     renderFirstSampleSummaryField('确认结果', task.conclusionResult),
+    renderFirstSampleSummaryField('确认说明', task.conclusionNote),
     renderFirstSampleSummaryField('确认时间', task.confirmedAt),
     renderFirstSampleSummaryField('确认人', task.confirmedBy),
   ]
+  const followupText = completed
+    ? '首单样衣任务已通过。商品项目节点只展示关键任务信息，样衣计划、最终参照和完整确认记录请进入首单样衣详情查看。'
+    : '首单样衣任务已创建。商品项目节点只展示关键任务信息，样衣计划、最终参照、结果编号和确认结论请在首单样衣详情页继续补齐。'
 
   return `
     <section class="space-y-4">
@@ -5739,11 +5743,7 @@ function renderFirstOrderSampleProjectNodeWorkspace(project: PcsProjectRecord, n
           ${summaryFields.join('')}
         </div>
       </article>
-      ${
-        completed
-          ? `<div class="space-y-4">${listProjectWorkItemFieldGroups('FIRST_ORDER_SAMPLE').map((group) => renderFieldGroupValues(group, project, node, true)).join('')}</div>`
-          : '<article class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">首单样衣任务已创建，样衣计划、最终参照、结果编号和确认结论请在首单样衣打样详情页继续补齐。</article>'
-      }
+      <article class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">${escapeHtml(followupText)}</article>
     </section>
   `
 }
