@@ -92,16 +92,17 @@ test('特殊工艺绑定校验通过并可在移动端执行列表搜索到', as
   await searchVisibleTask(page, 'TASK-SC-OP-008-0101')
 })
 
-test('报价 / 待定标任务不会作为可执行绑定结果，也不会出现在执行列表', async ({ page }) => {
+test('报价 / 待定标样本不会作为印花加工单执行绑定，也不会出现在执行列表', async ({ page }) => {
   await page.goto('/fcs/craft/printing/work-orders/PWO-PRINT-002')
   await expect(page.getByRole('heading', { name: '印花加工单详情' })).toBeVisible()
-  await expect(page.locator('body')).toContainText('不可执行原因')
-  await expect(page.locator('body')).toContainText('当前任务仍在待定标阶段，不能执行')
-  await expect(page.getByRole('button', { name: '打开移动端执行页' })).toBeDisabled()
+  await expect(page.locator('body')).toContainText('绑定状态：有效')
+  await expect(page.locator('body')).toContainText('分配方式：派单')
+  await expect(page.locator('body')).toContainText('派单价格：1200 IDR/Yard')
+  await expect(page.getByRole('button', { name: '打开移动端执行页' })).toBeEnabled()
 
   await setPdaSession(page)
-  await page.goto('/fcs/pda/exec?tab=NOT_STARTED&keyword=TASK-PRINT-000714')
+  await page.goto('/fcs/pda/exec?tab=NOT_STARTED&keyword=TASK-PRINT-000713')
   await page.locator('[data-pda-todo-modal="true"]').evaluateAll((nodes) => nodes.forEach((node) => node.remove()))
-  await expect(page.locator('[data-pda-exec-field="searchKeyword"]')).toHaveValue('TASK-PRINT-000714')
+  await expect(page.locator('[data-pda-exec-field="searchKeyword"]')).toHaveValue('TASK-PRINT-000713')
   await expect(page.locator('[data-testid="pda-exec-task-card"]')).toHaveCount(0)
 })

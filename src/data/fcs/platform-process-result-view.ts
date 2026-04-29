@@ -74,6 +74,8 @@ export interface PlatformProcessResultView {
   factoryId: string
   factoryName: string
   factoryDisplayName: string
+  assignmentMode?: string
+  dispatchPriceDisplay?: string
   platformStatusCode: PlatformProcessStatusCode
   platformStatusLabel: PlatformProcessStatus
   factoryInternalStatusLabel: string
@@ -353,6 +355,8 @@ function buildCommonResult(input: {
   productionOrderNo: string
   factoryId: string
   factoryName: string
+  assignmentMode?: string
+  dispatchPriceDisplay?: string
   internalStatusLabel: string
   baseStatusLabel: PlatformProcessStatus
   objectType: ProcessObjectType
@@ -397,6 +401,8 @@ function buildCommonResult(input: {
     factoryId: input.factoryId || TEST_FACTORY_ID,
     factoryName: input.factoryName || TEST_FACTORY_NAME,
     factoryDisplayName: `${input.factoryName || TEST_FACTORY_NAME}（${input.factoryId || TEST_FACTORY_ID}）`,
+    assignmentMode: input.assignmentMode,
+    dispatchPriceDisplay: input.dispatchPriceDisplay,
     platformStatusCode: STATUS_CODE_BY_LABEL[platformStatusLabel] || platformMeta.platformStatusCode,
     platformStatusLabel,
     factoryInternalStatusLabel: input.internalStatusLabel,
@@ -469,6 +475,8 @@ function buildPrintOrDyeView(order: ProcessWorkOrder): PlatformProcessResultView
     productionOrderNo: order.productionOrderIds[0] || '暂无生产单',
     factoryId: order.factoryId,
     factoryName: order.factoryName,
+    assignmentMode: order.assignmentMode,
+    dispatchPriceDisplay: order.dispatchPriceDisplay,
     internalStatusLabel: order.statusLabel,
     baseStatusLabel: baseStatus.platformStatusLabel,
     objectType: order.objectType === '面料' ? '面料' : '裁片',

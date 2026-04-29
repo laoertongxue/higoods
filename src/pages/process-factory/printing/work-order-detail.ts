@@ -13,7 +13,7 @@ import { validatePrintWorkOrderMobileTaskBinding } from '../../../data/fcs/proce
 import {
   executeProcessWebAction,
   getAvailablePrintWebActions,
-  getProcessWebOperationRecordsBySource,
+  getUnifiedOperationRecordsForProcessWorkOrder,
   type ProcessWebAction,
   type ProcessWebOperationRecord,
 } from '../../../data/fcs/process-web-status-actions.ts'
@@ -127,7 +127,7 @@ function renderWebActionPanel(orderId: string, currentStatus: string, actions: P
                   .join('')}
               </div>
               <div class="rounded-md border border-dashed bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                操作弹窗字段：${escapeHtml(actionable[0].requiredFields.join('、'))}；确认后写回统一事实源并生成 Web 端操作记录。
+                操作弹窗字段：${escapeHtml(actionable[0].requiredFields.join('、'))}；确认后写回统一事实源并生成操作记录。
               </div>`
             : `<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">${escapeHtml(disabledReason || '当前状态暂无可执行动作')}</div>`
         }
@@ -138,7 +138,7 @@ function renderWebActionPanel(orderId: string, currentStatus: string, actions: P
 
 function renderWebOperationRecords(records: ProcessWebOperationRecord[]): string {
   return renderSection(
-    'Web 端操作记录',
+    '操作记录',
     `
       <div class="overflow-x-auto">
         <table class="min-w-full text-left text-sm">
@@ -176,7 +176,7 @@ function renderWebOperationRecords(records: ProcessWebOperationRecord[]): string
                       `,
                     )
                     .join('')
-                : '<tr><td class="px-3 py-8 text-center text-sm text-muted-foreground" colspan="8">暂无 Web 端状态操作记录</td></tr>'
+                : '<tr><td class="px-3 py-8 text-center text-sm text-muted-foreground" colspan="8">暂无操作记录</td></tr>'
             }
           </tbody>
         </table>
@@ -396,7 +396,7 @@ export function renderCraftPrintingWorkOrderDetailPage(printOrderId: string): st
       : ''
   const activeTab = getCurrentPrintDetailTab()
   const webActions = getAvailablePrintWebActions(order.workOrderId)
-  const webOperationRecords = getProcessWebOperationRecordsBySource('PRINT_WORK_ORDER', order.workOrderId)
+  const webOperationRecords = getUnifiedOperationRecordsForProcessWorkOrder('PRINT_WORK_ORDER', order.workOrderId, order.taskId)
   const platformStatus = getPlatformStatusForProcessWorkOrder(order)
   const sections: Record<PrintDetailTab, string> = {
     base: renderSection(
@@ -407,6 +407,8 @@ export function renderCraftPrintingWorkOrderDetailPage(printOrderId: string): st
           ${renderField('来源需求单', order.sourceDemandIds.join('、'))}
           ${renderField('关联生产单', order.productionOrderIds.join('、'))}
           ${renderField('工厂', formatFactoryDisplayName(order.factoryName, order.factoryId))}
+          ${renderField('分配方式', order.assignmentMode || '派单')}
+          ${renderField('派单价格', order.dispatchPriceDisplay || '1200 IDR/Yard')}
           ${renderField('面料 SKU', order.materialSku)}
           ${renderField(plannedQtyLabel, formatPrintProcessQty(printQuantitySource, order.plannedQty, '计划'))}
           <div><span class="text-muted-foreground">当前状态：</span>${renderBadge(order.statusLabel, 'info')}</div>

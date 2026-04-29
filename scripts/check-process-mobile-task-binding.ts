@@ -5,6 +5,7 @@ import { buildFcsCuttingDomainSnapshot } from '../src/domain/fcs-cutting-runtime
 import { TEST_FACTORY_ID } from '../src/data/fcs/factory-mock-data.ts'
 import { listDyeWorkOrders } from '../src/data/fcs/dyeing-task-domain.ts'
 import {
+  getMobileTaskBiddingState,
   getMobileTaskProcessType,
   getPdaMobileExecutionTaskById,
   isTaskAccepted,
@@ -106,15 +107,27 @@ const specialCraftValidCount = specialCraftWorkOrders
   .length
 assert(specialCraftValidCount >= 3, `特殊工艺工艺单有效移动端绑定不足 3 条，当前 ${specialCraftValidCount}`)
 
-const invalidPrintReasons = printOrders
-  .filter((order) => ['PH-20260328-002', 'PH-20260328-003'].includes(order.printOrderNo))
-  .map((order) => validatePrintWorkOrderMobileTaskBinding(order.printOrderId).reasonCode)
-assert(invalidPrintReasons.every((reason) => reason !== 'OK'), '报价 / 待接单印花任务不得通过可执行绑定校验')
-
-const invalidDyeReasons = dyeOrders
-  .filter((order) => ['DY-20260328-001', 'DY-20260328-002', 'DY-20260328-003', 'DY-20260328-004', 'DY-20260328-005'].includes(order.dyeOrderNo))
-  .map((order) => validateDyeWorkOrderMobileTaskBinding(order.dyeOrderId).reasonCode)
-assert(invalidDyeReasons.every((reason) => reason !== 'OK'), '报价 / 待接单染色任务不得通过可执行绑定校验')
+const validPrintBindings = printOrders.map((order) => validatePrintWorkOrderMobileTaskBinding(order.printOrderId))
+const validDyeBindings = dyeOrders.map((order) => validateDyeWorkOrderMobileTaskBinding(order.dyeOrderId))
+assert(
+  validPrintBindings.every((result) => result.reasonCode === 'OK'),
+  '印花加工单已改为派单直入执行，所有印花加工单绑定应可执行',
+)
+assert(
+  validDyeBindings.every((result) => result.reasonCode === 'OK'),
+  '染色加工单已改为派单直入执行，所有染色加工单绑定应可执行',
+)
+assert(
+  [...validPrintBindings, ...validDyeBindings].every((result) => !['TASK-PRINT-000713'].includes(result.actualTaskId)),
+  '保留的报价 / 待定标样本不得作为印花 / 染色加工单绑定任务',
+)
+for (const result of [...validPrintBindings, ...validDyeBindings]) {
+  const task = getPdaMobileExecutionTaskById(result.actualTaskId)
+  assert(task, `${result.workOrderNo} 绑定任务缺失`)
+  assert(!isTaskInBiddingOrAwarding(task), `${result.workOrderNo} 绑定任务不得处于报价 / 待定标阶段`)
+  assert(isTaskAccepted(task), `${result.workOrderNo} 绑定任务必须已分配可执行`)
+  assert(isTaskVisibleInMobileExecutionList(task, TEST_FACTORY_ID), `${result.workOrderNo} 绑定任务必须出现在执行列表`)
+}
 
 specialCraftWorkOrders
   .filter((workOrder) => ['打揽', '打条', '捆条'].includes(workOrder.operationName))
@@ -160,6 +173,14 @@ assertIncludes('src/pages/pda-exec-detail.ts', [
 const unifiedTasks = listPdaMobileExecutionTasks()
 assert(unifiedTasks.some((task) => task.taskNo === 'TASK-SC-OP-008-0101'), '统一移动端任务源必须包含特殊工艺真实绑定任务号')
 assert(!unifiedTasks.some((task) => task.taskId === 'TASK-PRINT-000713' && isTaskVisibleInMobileExecutionList(task, TEST_FACTORY_ID)), '报价中的印花任务不得进入执行列表')
-assert(!unifiedTasks.some((task) => task.taskId === 'TASK-DYE-000721' && isTaskVisibleInMobileExecutionList(task, TEST_FACTORY_ID)), '报价中的染色任务不得进入执行列表')
+assert(
+  !unifiedTasks.some(
+    (task) =>
+      getMobileTaskProcessType(task) === 'DYE' &&
+      ['待报价', '待定标'].includes(getMobileTaskBiddingState(task)) &&
+      isTaskVisibleInMobileExecutionList(task, TEST_FACTORY_ID),
+  ),
+  '报价 / 待定标染色任务不得进入执行列表',
+)
 
 console.log('process mobile task binding checks passed')

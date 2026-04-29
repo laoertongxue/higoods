@@ -78,6 +78,8 @@ interface PrintProcessOrder {
   platformActionHint?: string
   platformOwnerHint?: string
   factoryDisplayName?: string
+  assignmentMode?: string
+  dispatchPriceDisplay?: string
   taskId?: string
   taskNo?: string
   mobileBindingTaskNo?: string
@@ -196,6 +198,8 @@ const ORDERS: PrintProcessOrder[] = listPrepProcessOrders('PRINT').map((item) =>
   platformActionHint: item.platformActionHint,
   platformOwnerHint: item.platformOwnerHint,
   factoryDisplayName: item.factoryDisplayName,
+  assignmentMode: item.assignmentMode,
+  dispatchPriceDisplay: item.dispatchPriceDisplay,
   taskId: item.taskId,
   taskNo: item.taskNo,
   mobileBindingTaskNo: item.mobileBindingTaskNo,
@@ -605,6 +609,8 @@ function renderPlatformSyncSection(order: PrintProcessOrder): string {
       <div class="grid gap-3 text-sm md:grid-cols-2">
         <div><span class="text-muted-foreground">平台状态：</span>${renderBadge(order.status, ORDER_STATUS_CLASS[order.status])}</div>
         <div><span class="text-muted-foreground">工厂内部状态：</span>${escapeHtml(order.factoryInternalStatusLabel || order.statusLabel || '—')}</div>
+        <div><span class="text-muted-foreground">分配方式：</span>${escapeHtml(order.assignmentMode || '派单')}</div>
+        <div><span class="text-muted-foreground">派单价格：</span>${escapeHtml(order.dispatchPriceDisplay || '1200 IDR/Yard')}</div>
         <div><span class="text-muted-foreground">风险提示：</span>${escapeHtml(order.platformRiskLabel || '—')}</div>
         <div><span class="text-muted-foreground">下一步动作：</span>${escapeHtml(order.platformActionHint || '—')}</div>
         <div><span class="text-muted-foreground">当前责任方：</span>${escapeHtml(order.platformOwnerHint || '—')}</div>
@@ -658,6 +664,8 @@ function renderOrderRow(order: PrintProcessOrder): string {
             <div><span>关联需求单数：</span><span class="font-medium text-foreground">${order.linkedDemands.length}张</span></div>
             <div><span>${escapeHtml(order.plannedQtyLabel || '计划印花裁片数量')}：</span><span class="font-medium text-foreground">${escapeHtml(formatQty(order.plannedFeedQty, order.unit))}</span></div>
             <div><span>计划完成时间：</span><span class="text-foreground">${escapeHtml(order.plannedFinishAt)}</span></div>
+            <div><span>分配方式：</span><span class="font-medium text-foreground">${escapeHtml(order.assignmentMode || '派单')}</span></div>
+            <div><span>派单价格：</span><span class="font-medium text-foreground">${escapeHtml(order.dispatchPriceDisplay || '1200 IDR/Yard')}</span></div>
             <div class="md:col-span-2 xl:col-span-3"><span>备货物料：</span><span class="text-foreground">${escapeHtml(stockMaterialText)}</span></div>
             <div class="md:col-span-2 xl:col-span-3"><span>来源说明：</span><span class="text-foreground">${escapeHtml(order.sourceSummary)}</span></div>
             <div><span>工厂内部状态：</span><span class="text-foreground">${escapeHtml(order.factoryInternalStatusLabel || order.statusLabel || '—')}</span></div>
@@ -683,6 +691,8 @@ function renderOrderRow(order: PrintProcessOrder): string {
               <div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">关联需求单</span><span class="text-right text-xs">${escapeHtml(getDemandNosText(order))}</span></div>
               <div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">平台状态</span>${renderBadge(order.status, ORDER_STATUS_CLASS[order.status])}</div>
               <div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">工厂内部状态</span><span class="text-xs">${escapeHtml(order.factoryInternalStatusLabel || order.statusLabel || '—')}</span></div>
+              <div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">分配方式</span><span class="text-xs">${escapeHtml(order.assignmentMode || '派单')}</span></div>
+              <div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">派单价格</span><span class="text-xs">${escapeHtml(order.dispatchPriceDisplay || '1200 IDR/Yard')}</span></div>
               <div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">下一步动作</span><span class="text-right text-xs">${escapeHtml(order.platformActionHint || '—')}</span></div>
               ${renderPlatformResultFields(order)}
               <div class="flex flex-wrap gap-1 pt-2">
@@ -769,6 +779,8 @@ function renderDetailDrawer(): string {
               <div><span class="text-muted-foreground">下一步动作：</span>${escapeHtml(order.platformActionHint || '—')}</div>
               <div><span class="text-muted-foreground">当前责任方：</span>${escapeHtml(order.platformOwnerHint || '—')}</div>
               <div><span class="text-muted-foreground">创建方式：</span>${escapeHtml(order.createMode)}</div>
+              <div><span class="text-muted-foreground">分配方式：</span>${escapeHtml(order.assignmentMode || '派单')}</div>
+              <div><span class="text-muted-foreground">派单价格：</span>${escapeHtml(order.dispatchPriceDisplay || '1200 IDR/Yard')}</div>
               <div><span class="text-muted-foreground">印花工厂：</span>${escapeHtml(order.printFactoryName === TEST_FACTORY_NAME ? TEST_FACTORY_DISPLAY_NAME : order.printFactoryName)}</div>
               <div><span class="text-muted-foreground">计划完成时间：</span>${escapeHtml(order.plannedFinishAt)}</div>
               <div><span class="text-muted-foreground">更新时间：</span>${escapeHtml(order.updatedAt)}</div>

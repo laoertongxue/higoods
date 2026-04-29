@@ -144,7 +144,7 @@ function renderWebActionPanel(workOrderId: string, currentStatus: string, action
                   .join('')}
               </div>
               <div class="rounded-md border border-dashed bg-slate-50 px-3 py-2 text-xs text-muted-foreground">
-                操作弹窗字段：${escapeHtml(actionable[0].requiredFields.join('、'))}；确认后写回特殊工艺事实源并生成 Web 端操作记录。
+                操作弹窗字段：${escapeHtml(actionable[0].requiredFields.join('、'))}；确认后写回特殊工艺事实源并生成 操作记录。
               </div>`
             : `<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">${escapeHtml(disabledReason || '当前状态暂无可执行动作')}</div>`
         }
@@ -155,7 +155,7 @@ function renderWebActionPanel(workOrderId: string, currentStatus: string, action
 
 function renderWebOperationRecords(records: ProcessWebOperationRecord[]): string {
   return renderSection(
-    'Web 端操作记录',
+    '操作记录',
     `
       <div class="overflow-x-auto">
         <table class="min-w-full text-left text-sm">
@@ -190,7 +190,7 @@ function renderWebOperationRecords(records: ProcessWebOperationRecord[]): string
                       `,
                     )
                     .join('')
-                : '<tr><td class="px-3 py-8 text-center text-sm text-muted-foreground" colspan="8">暂无 Web 端状态操作记录</td></tr>'
+                : '<tr><td class="px-3 py-8 text-center text-sm text-muted-foreground" colspan="8">暂无操作记录</td></tr>'
             }
           </tbody>
         </table>

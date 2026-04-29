@@ -17,7 +17,7 @@ test('印花 Web 完成转印后进入待交出仓', async ({ page }) => {
   await expect(page.locator('body')).toContainText('确认执行“完成转印”')
   await page.getByRole('button', { name: '确认执行' }).click()
   await expect(page.locator('body')).toContainText('待送货')
-  await expect(page.locator('body')).toContainText('Web 端操作记录')
+  await expect(page.locator('body')).toContainText('操作记录')
   await expect(page.locator('body')).toContainText('完成转印')
 
   await navigateInApp(page, '/fcs/craft/printing/wait-handover-warehouse')
@@ -32,6 +32,9 @@ test('染色 Web 完成包装后进入待交出仓', async ({ page }) => {
   await expect(page.getByRole('button', { name: '完成包装' })).toBeVisible()
 
   await page.getByRole('button', { name: '完成包装' }).click()
+  await expect(page.getByTestId('process-web-status-action-dialog')).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByRole('heading', { name: '完成包装' })).toBeVisible()
+  await page.getByRole('button', { name: '确认执行' }).click()
   await expect(page.locator('body')).toContainText('待送货')
   await expect(page.locator('body')).toContainText('完成包装')
 

@@ -13,7 +13,7 @@ import { validateDyeWorkOrderMobileTaskBinding } from '../../../data/fcs/process
 import {
   executeProcessWebAction,
   getAvailableDyeWebActions,
-  getProcessWebOperationRecordsBySource,
+  getUnifiedOperationRecordsForProcessWorkOrder,
   type ProcessWebAction,
   type ProcessWebOperationRecord,
 } from '../../../data/fcs/process-web-status-actions.ts'
@@ -90,7 +90,7 @@ function renderField(label: string, value: string): string {
 function renderWebActionPanel(orderId: string, currentStatus: string, actions: ProcessWebAction[], platformStatus: string): string {
   const actionable = actions.filter((action) => !action.disabledReason)
   const disabledReason = actions.find((action) => action.disabledReason)?.disabledReason
-  const actionHref = (actionCode: string) => `${buildDyeingWorkOrderDetailLink(orderId)}?webAction=${encodeURIComponent(actionCode)}`
+  const order = getProcessWorkOrderById(orderId)
   return renderSection(
     '可执行动作',
     `
@@ -109,7 +109,18 @@ function renderWebActionPanel(orderId: string, currentStatus: string, actions: P
                       <button
                         type="button"
                         class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
-                        data-nav="${escapeHtml(actionHref(action.actionCode))}"
+                        data-dyeing-action="open-web-status-action-dialog"
+                        data-source-id="${escapeHtml(orderId)}"
+                        data-action-code="${escapeHtml(action.actionCode)}"
+                        data-action-label="${escapeHtml(action.actionLabel)}"
+                        data-from-status="${escapeHtml(action.fromStatus)}"
+                        data-to-status="${escapeHtml(action.toStatus)}"
+                        data-required-fields="${escapeHtml(action.requiredFields.join('|'))}"
+                        data-optional-fields="${escapeHtml(action.optionalFields.join('|'))}"
+                        data-confirm-text="${escapeHtml(action.confirmText)}"
+                        data-object-type="${escapeHtml(order?.objectType || '面料')}"
+                        data-object-qty="${escapeHtml(String(order?.plannedQty ?? ''))}"
+                        data-qty-unit="${escapeHtml(order?.plannedUnit || '米')}"
                       >
                         ${escapeHtml(action.actionLabel)}
                       </button>
@@ -118,7 +129,7 @@ function renderWebActionPanel(orderId: string, currentStatus: string, actions: P
                   .join('')}
               </div>
               <div class="rounded-md border border-dashed bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                操作弹窗字段：${escapeHtml(actionable[0].requiredFields.join('、'))}；确认后写回统一事实源并生成 Web 端操作记录。
+                操作弹窗字段：${escapeHtml(actionable[0].requiredFields.join('、'))}；确认后写回统一事实源并生成操作记录。
               </div>`
             : `<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">${escapeHtml(disabledReason || '当前状态暂无可执行动作')}</div>`
         }
@@ -129,7 +140,7 @@ function renderWebActionPanel(orderId: string, currentStatus: string, actions: P
 
 function renderWebOperationRecords(records: ProcessWebOperationRecord[]): string {
   return renderSection(
-    'Web 端操作记录',
+    '操作记录',
     `
       <div class="overflow-x-auto">
         <table class="min-w-full text-left text-sm">
@@ -167,7 +178,7 @@ function renderWebOperationRecords(records: ProcessWebOperationRecord[]): string
                       `,
                     )
                     .join('')
-                : '<tr><td class="px-3 py-8 text-center text-sm text-muted-foreground" colspan="8">暂无 Web 端状态操作记录</td></tr>'
+                : '<tr><td class="px-3 py-8 text-center text-sm text-muted-foreground" colspan="8">暂无操作记录</td></tr>'
             }
           </tbody>
         </table>
@@ -384,7 +395,7 @@ export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string
         })
       : ''
   const webActions = getAvailableDyeWebActions(order.workOrderId)
-  const webOperationRecords = getProcessWebOperationRecordsBySource('DYE_WORK_ORDER', order.workOrderId)
+  const webOperationRecords = getUnifiedOperationRecordsForProcessWorkOrder('DYE_WORK_ORDER', order.workOrderId, order.taskId)
   const platformStatus = getPlatformStatusForProcessWorkOrder(order)
   const sections: Record<DyeDetailTab, string> = {
     base: renderSection(
@@ -395,6 +406,8 @@ export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string
           ${renderField('来源需求单', order.sourceDemandIds.join('、'))}
           ${renderField('关联生产单', order.productionOrderIds.join('、'))}
           ${renderField('工厂', formatFactoryDisplayName(order.factoryName, order.factoryId))}
+          ${renderField('分配方式', order.assignmentMode || '派单')}
+          ${renderField('派单价格', order.dispatchPriceDisplay || '1500 IDR/Yard')}
           ${renderField('原料面料 SKU', dye.rawMaterialSku)}
           ${renderField('成分', dye.composition || '—')}
           ${renderField('幅宽', dye.width || '—')}

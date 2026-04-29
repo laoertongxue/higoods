@@ -19,6 +19,7 @@ import {
 import {
   executeProcessAction,
   getProcessActionOperationRecordsBySource,
+  getProcessActionOperationRecordsByTask,
   listProcessActionOperationRecords,
   type ProcessActionOperationRecord,
   type ProcessActionSourceType,
@@ -795,6 +796,21 @@ export function listProcessWebOperationRecords(filter: Partial<Pick<ProcessWebOp
 
 export function getProcessWebOperationRecordsBySource(sourceType: ProcessWebSourceType, sourceId: string): ProcessWebOperationRecord[] {
   return getProcessActionOperationRecordsBySource(toProcessActionSourceType(sourceType), sourceId).map(toProcessWebRecord)
+}
+
+export function getUnifiedOperationRecordsForProcessWorkOrder(
+  sourceType: ProcessWebSourceType,
+  sourceId: string,
+  taskId?: string,
+): ProcessWebOperationRecord[] {
+  const records = [
+    ...getProcessActionOperationRecordsBySource(toProcessActionSourceType(sourceType), sourceId),
+    ...(taskId ? getProcessActionOperationRecordsByTask(taskId) : []),
+  ]
+  return records
+    .filter((record, index, list) => list.findIndex((item) => item.operationRecordId === record.operationRecordId) === index)
+    .map(toProcessWebRecord)
+    .sort((left, right) => right.operatedAt.localeCompare(left.operatedAt, 'zh-CN'))
 }
 
 export const PROCESS_WEB_STATUS_ACTION_SOURCE = '工艺工厂 Web 端状态操作'

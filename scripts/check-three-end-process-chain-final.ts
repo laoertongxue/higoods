@@ -212,10 +212,10 @@ function assertMobileListConsistency(): void {
   const phTask = getMobileExecutionTaskById(validatePrintWorkOrderMobileTaskBinding('PWO-PRINT-001').actualTaskId || '')
   assert(phTask && matchMobileTaskKeyword(phTask, 'PO-20260328-071'), '搜索生产单号必须能定位移动端任务')
 
-  const blockedTask = getMobileExecutionTaskById('TASK-PRINT-000714')
-  assert(blockedTask, '缺少报价 / 待定标演示任务 TASK-PRINT-000714')
+  const blockedTask = getMobileExecutionTaskById('TASK-PRINT-000713')
+  assert(blockedTask, '缺少报价 / 待定标演示任务 TASK-PRINT-000713')
   assert(getMobileTaskAccessResult(blockedTask, TEST_FACTORY_ID).canExecuteInMobile === false, '移动端详情不得绕过不可执行校验')
-  assert(!listMobileExecutionTasks({ currentFactoryId: TEST_FACTORY_ID, keyword: 'TASK-PRINT-000714' }).some((task) => task.taskId === 'TASK-PRINT-000714'), '报价 / 待定标任务不得出现在移动端执行列表')
+  assert(!listMobileExecutionTasks({ currentFactoryId: TEST_FACTORY_ID, keyword: 'TASK-PRINT-000713' }).some((task) => task.taskId === 'TASK-PRINT-000713'), '报价 / 待定标任务不得出现在移动端执行列表')
 }
 
 function assertPlatformStatusAndResultView(): void {

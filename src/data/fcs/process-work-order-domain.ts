@@ -47,6 +47,12 @@ export interface ProcessWorkOrder {
   isFabricPrinting?: boolean
   plannedQty: number
   plannedUnit: string
+  assignmentMode: '派单'
+  assignmentModeEditable: false
+  dispatchPrice: number
+  dispatchPriceCurrency: 'IDR'
+  dispatchPriceUnit: 'Yard'
+  dispatchPriceDisplay: string
   materialSku: string
   materialName: string
   materialBatchNos: string[]
@@ -123,6 +129,12 @@ function mapPrintWorkOrder(order: PrintWorkOrder): ProcessWorkOrder {
     isFabricPrinting: getProcessObjectType(quantityContext) === '面料',
     plannedQty: order.plannedQty,
     plannedUnit: order.qtyUnit,
+    assignmentMode: order.assignmentMode,
+    assignmentModeEditable: order.assignmentModeEditable,
+    dispatchPrice: order.dispatchPrice,
+    dispatchPriceCurrency: order.dispatchPriceCurrency,
+    dispatchPriceUnit: order.dispatchPriceUnit,
+    dispatchPriceDisplay: order.dispatchPriceDisplay,
     materialSku: order.materialSku,
     materialName: order.materialColor ? `${order.materialSku} / ${order.materialColor}` : order.materialSku,
     materialBatchNos: order.sourceDemandIds,
@@ -175,6 +187,12 @@ function mapDyeWorkOrder(order: DyeWorkOrder): ProcessWorkOrder {
     qtyLabel: getQuantityLabel(quantityContext),
     plannedQty: order.plannedQty,
     plannedUnit: order.qtyUnit,
+    assignmentMode: order.assignmentMode,
+    assignmentModeEditable: order.assignmentModeEditable,
+    dispatchPrice: order.dispatchPrice,
+    dispatchPriceCurrency: order.dispatchPriceCurrency,
+    dispatchPriceUnit: order.dispatchPriceUnit,
+    dispatchPriceDisplay: order.dispatchPriceDisplay,
     materialSku: order.rawMaterialSku,
     materialName: order.composition ? `${order.rawMaterialSku} / ${order.composition}` : order.rawMaterialSku,
     materialBatchNos: order.sourceDemandIds,

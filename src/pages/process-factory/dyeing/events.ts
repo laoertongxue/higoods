@@ -4,6 +4,10 @@ import {
   rejectDyeReview,
 } from '../../../data/fcs/dyeing-task-domain.ts'
 import { executeProcessWebAction } from '../../../data/fcs/process-web-status-actions.ts'
+import {
+  handleProcessWebStatusActionDialogEvent,
+  openProcessWebStatusActionDialog,
+} from '../shared/web-status-action-dialog.ts'
 
 function showDyeingToast(message: string): void {
   if (typeof document === 'undefined' || typeof window === 'undefined') return
@@ -40,7 +44,23 @@ function showDyeingToast(message: string): void {
   }, 2200)
 }
 
+function refreshCurrentDyeingPage(): void {
+  const current = appStore.getState().pathname || '/'
+  const [path, queryString = ''] = current.split('?')
+  const params = new URLSearchParams(queryString)
+  params.delete('webAction')
+  params.set('actionResultAt', String(Date.now()))
+  const next = `${path}?${params.toString()}`
+  appStore.navigate(next, { historyMode: 'replace' })
+}
+
 export function handleCraftDyeingEvent(target: HTMLElement): boolean {
+  const dialogHandled = handleProcessWebStatusActionDialogEvent(target, {
+    toast: showDyeingToast,
+    refresh: refreshCurrentDyeingPage,
+  })
+  if (dialogHandled !== null) return dialogHandled
+
   const actionNode = target.closest<HTMLElement>('[data-dyeing-action]')
   if (!actionNode) return false
 
@@ -51,6 +71,11 @@ export function handleCraftDyeingEvent(target: HTMLElement): boolean {
     const href = actionNode.dataset.href
     if (href) appStore.navigate(href)
     return true
+  }
+
+  if (action === 'open-web-status-action-dialog') {
+    openProcessWebStatusActionDialog({ actionNode, sourceType: 'DYE_WORK_ORDER' })
+    return false
   }
 
   if (action === 'web-status-action') {

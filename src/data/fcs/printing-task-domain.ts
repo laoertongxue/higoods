@@ -55,6 +55,12 @@ export interface PrintWorkOrder {
   qtyUnit: string
   qtyLabel?: string
   plannedRollCount?: number
+  assignmentMode: '派单'
+  assignmentModeEditable: false
+  dispatchPrice: number
+  dispatchPriceCurrency: 'IDR'
+  dispatchPriceUnit: 'Yard'
+  dispatchPriceDisplay: string
   printFactoryId: string
   printFactoryName: string
   sourceWarehouseId?: string
@@ -236,6 +242,8 @@ function syncLinkedTaskState(
     startedAt?: string
     finishedAt?: string
     acceptanceStatus?: PdaGenericTaskMock['acceptanceStatus']
+    assignmentMode?: PdaGenericTaskMock['assignmentMode']
+    assignmentStatus?: PdaGenericTaskMock['assignmentStatus']
     blockReason?: PdaGenericTaskMock['blockReason']
     blockRemark?: PdaGenericTaskMock['blockRemark']
   },
@@ -244,6 +252,8 @@ function syncLinkedTaskState(
   if (!task) return
 
   if (input.status) task.status = input.status
+  if (typeof input.assignmentMode !== 'undefined') task.assignmentMode = input.assignmentMode
+  if (typeof input.assignmentStatus !== 'undefined') task.assignmentStatus = input.assignmentStatus
   if (typeof input.startedAt !== 'undefined') task.startedAt = input.startedAt
   if (typeof input.finishedAt !== 'undefined') task.finishedAt = input.finishedAt
   if (typeof input.acceptanceStatus !== 'undefined') task.acceptanceStatus = input.acceptanceStatus
@@ -369,14 +379,49 @@ function createNodeRecordId(printOrderId: string, nodeCode: PrintExecutionNodeCo
   return `${printOrderId}-${nodeCode}`
 }
 
-function addSeedWorkOrder(input: Omit<MutablePrintWorkOrder, 'taskQrValue' | 'receiverKind' | 'receiverName' | 'handoverOrderNo'> & {
+function addSeedWorkOrder(input: Omit<
+  MutablePrintWorkOrder,
+  | 'taskQrValue'
+  | 'receiverKind'
+  | 'receiverName'
+  | 'handoverOrderNo'
+  | 'assignmentMode'
+  | 'assignmentModeEditable'
+  | 'dispatchPrice'
+  | 'dispatchPriceCurrency'
+  | 'dispatchPriceUnit'
+  | 'dispatchPriceDisplay'
+> & {
   handoverOrderId?: string
+  dispatchPrice?: number
 }): void {
   const task = getPrintingTaskById(input.taskId)
   const handoverOrder = input.handoverOrderId ? getHandoverOrderById(input.handoverOrderId) : getPrimaryHandoverOrder(input.taskId)
+  if (task) {
+    task.assignmentMode = 'DIRECT'
+    task.assignmentStatus = 'ASSIGNED'
+    task.acceptanceStatus = 'ACCEPTED'
+    task.tenderId = undefined
+    task.awardedAt = undefined
+    task.dispatchedBy = '平台派单'
+    task.dispatchRemark = '印花加工单派单后直接进入执行待加工'
+    task.dispatchPrice = input.dispatchPrice ?? 1200
+    task.dispatchPriceCurrency = 'IDR'
+    task.dispatchPriceUnit = 'Yard'
+    task.standardPriceCurrency = 'IDR'
+    task.standardPriceUnit = 'Yard'
+    task.mockOrigin = 'DIRECT_ASSIGNED_EXECUTION'
+    task.mockReceiveSummary = '印花加工单已派单，直接进入执行待加工。'
+  }
 
   workOrderStore.set(input.printOrderId, {
     ...input,
+    assignmentMode: '派单',
+    assignmentModeEditable: false,
+    dispatchPrice: input.dispatchPrice ?? 1200,
+    dispatchPriceCurrency: 'IDR',
+    dispatchPriceUnit: 'Yard',
+    dispatchPriceDisplay: `${input.dispatchPrice ?? 1200} IDR/Yard`,
     taskQrValue: task?.taskQrValue || buildTaskQrValue(input.taskId),
     receiverKind: task?.receiverKind || 'WAREHOUSE',
     receiverName: task?.receiverName || '中转区域',

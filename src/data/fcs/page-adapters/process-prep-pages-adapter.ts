@@ -148,6 +148,8 @@ export interface PrepProcessOrderFact {
   platformActionHint?: string
   platformOwnerHint?: string
   factoryDisplayName?: string
+  assignmentMode?: string
+  dispatchPriceDisplay?: string
   taskId?: string
   taskNo?: string
   mobileBindingTaskNo?: string
@@ -571,6 +573,8 @@ function mapUnifiedWorkOrderToPrepOrder(order: ProcessWorkOrder): PrepProcessOrd
     platformActionHint: platformResultView?.platformActionHint || platformStatus.platformActionHint,
     platformOwnerHint: platformResultView?.platformOwnerHint || platformStatus.platformOwnerHint,
     factoryDisplayName: platformResultView?.factoryDisplayName,
+    assignmentMode: order.assignmentMode,
+    dispatchPriceDisplay: order.dispatchPriceDisplay,
     taskId: order.taskId,
     taskNo: order.taskNo,
     mobileBindingTaskNo: mobileBinding.actualTaskNo || mobileBinding.expectedTaskNo,

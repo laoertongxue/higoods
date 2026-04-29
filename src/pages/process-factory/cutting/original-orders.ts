@@ -815,7 +815,7 @@ function renderCuttingWebActions(row: OriginalCutOrderRow, actions: ProcessWebAc
                   .join('')}
               </div>
               <div class="rounded-md border border-dashed bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                操作弹窗字段：${escapeHtml(actionable[0].requiredFields.join('、'))}；确认后写回裁片事实源并生成 Web 端操作记录。
+                操作弹窗字段：${escapeHtml(actionable[0].requiredFields.join('、'))}；确认后写回裁片事实源并生成 操作记录。
               </div>`
             : `<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">${escapeHtml(disabledReason || '当前状态暂无可执行动作')}</div>`
         }
@@ -826,7 +826,7 @@ function renderCuttingWebActions(row: OriginalCutOrderRow, actions: ProcessWebAc
 
 function renderCuttingWebOperationRecords(records: ProcessWebOperationRecord[]): string {
   return renderDetailSection(
-    'Web 端操作记录',
+    '操作记录',
     `
       <div class="overflow-x-auto">
         <table class="min-w-full text-left text-sm">
@@ -861,7 +861,7 @@ function renderCuttingWebOperationRecords(records: ProcessWebOperationRecord[]):
                       `,
                     )
                     .join('')
-                : '<tr><td class="px-3 py-8 text-center text-sm text-muted-foreground" colspan="8">暂无 Web 端状态操作记录</td></tr>'
+                : '<tr><td class="px-3 py-8 text-center text-sm text-muted-foreground" colspan="8">暂无操作记录</td></tr>'
             }
           </tbody>
         </table>
