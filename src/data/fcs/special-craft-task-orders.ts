@@ -1,4 +1,4 @@
-import { mockFactories } from './factory-mock-data.ts'
+import { TEST_FACTORY_ID, TEST_FACTORY_NAME, mockFactories } from './factory-mock-data.ts'
 import type { Factory } from './factory-types.ts'
 import type {
   FactoryInternalWarehouse,
@@ -438,6 +438,10 @@ function roundQty(value: number): number {
 }
 
 function resolveOperationFactories(operation: SpecialCraftOperationDefinition): Factory[] {
+  const testFactory = mockFactories.find((factory) => factory.id === TEST_FACTORY_ID)
+  if (testFactory?.processAbilities.some((ability) => ability.craftCodes.includes(operation.craftCode))) {
+    return [testFactory]
+  }
   const matched = mockFactories.filter((factory) =>
     factory.processAbilities.some((ability) => ability.craftCodes.includes(operation.craftCode)),
   )
@@ -481,13 +485,11 @@ function pickWarehousePosition(
 }
 
 function getTaskUnit(targetObject: SpecialCraftTargetObject): string {
-  if (targetObject === '完整面料' || targetObject === '面料') return '卷'
   if (targetObject === '成衣半成品') return '件'
   return '片'
 }
 
 function getTaskItemKind(targetObject: SpecialCraftTargetObject): '裁片' | '面料' | '成衣半成品' {
-  if (targetObject === '完整面料' || targetObject === '面料') return '面料'
   if (targetObject === '成衣半成品') return '成衣半成品'
   return '裁片'
 }
@@ -508,7 +510,7 @@ function getReceiverKind(operation: SpecialCraftOperationDefinition): FactoryWai
 
 function getReceiverName(operation: SpecialCraftOperationDefinition): string {
   if (operation.mustReturnToCuttingFactory) {
-    return mockFactories.find((factory) => factory.factoryType === 'CENTRAL_CUTTING')?.name ?? '裁床厂'
+    return TEST_FACTORY_NAME
   }
   return '公司中转仓'
 }
@@ -583,8 +585,8 @@ function buildTaskSeed(operation: SpecialCraftOperationDefinition, operationInde
       sourceAction === '领料确认'
         ? isFabricTarget
           ? '面辅料仓'
-          : mockFactories.find((factoryItem) => factoryItem.factoryType === 'CENTRAL_CUTTING')?.name ?? '裁床厂'
-        : mockFactories.find((factoryItem) => factoryItem.factoryType === 'CENTRAL_CUTTING')?.name ?? '裁床厂',
+          : TEST_FACTORY_NAME
+        : TEST_FACTORY_NAME,
     handoverOrderId: `SC-HO-${operation.operationId.slice(-6)}-${baseSuffix}`,
     handoverOrderNo: `SC-HDO-${operation.operationId.slice(-6)}-${baseSuffix}`,
     handoverRecordId: `SC-HR-${operation.operationId.slice(-6)}-${baseSuffix}`,
@@ -801,7 +803,7 @@ function buildOutboundArtifacts(seed: TaskSeedContext, positionIndex: number): W
     status: outboundStatus,
     abnormalReason:
       seed.status === '差异'
-        ? '回写数量不符'
+        ? '回写对象数量不符'
         : seed.status === '异议中'
           ? '已发起数量异议'
           : undefined,
@@ -1044,7 +1046,7 @@ function buildNodeRecords(seed: TaskSeedContext, artifacts: WarehouseArtifacts):
         relatedRecordNo: artifacts.outboundRecord?.outboundRecordNo,
         relatedRecordType: '出库记录',
         photoCount: 1,
-        remark: '接收方回写数量与交出数量不符',
+        remark: '接收方回写对象数量与交出对象数量不符',
       }),
     )
   }
@@ -1101,7 +1103,7 @@ function buildAbnormalRecords(seed: TaskSeedContext): SpecialCraftTaskAbnormalRe
       unit: seed.unit,
       description:
         seed.abnormalStatus === '数量差异'
-          ? '接收或回写数量不一致，需复核差异来源。'
+          ? '接收或回写对象数量不一致，需复核差异来源。'
           : seed.abnormalStatus === '设备异常'
             ? '关键设备停机，已改排临时机台。'
             : seed.abnormalStatus === '延期'
@@ -1634,6 +1636,77 @@ export function syncSpecialCraftTaskOrderAggregatesFromWorkOrders(taskOrderId: s
   store.taskOrders[taskOrderIndex] = nextTaskOrder
   store.statistics = buildStatistics(store.taskOrders)
   return nextTaskOrder
+}
+
+export function updateSpecialCraftTaskWorkOrderWebStatus(
+  workOrderId: string,
+  payload: {
+    status: SpecialCraftTaskStatus
+    operatorName?: string
+    operatedAt?: string
+    currentQty?: number
+    receivedQty?: number
+    returnedQty?: number
+    waitReturnQty?: number
+    scrapQty?: number
+    damageQty?: number
+    remark?: string
+  },
+): SpecialCraftTaskWorkOrder | undefined {
+  const store = ensureStore()
+  const workOrderIndex = store.workOrders.findIndex((workOrder) => workOrder.workOrderId === workOrderId)
+  if (workOrderIndex < 0) return undefined
+  const current = store.workOrders[workOrderIndex]
+  const next: SpecialCraftTaskWorkOrder = {
+    ...current,
+    status: payload.status,
+    currentQty: Number.isFinite(payload.currentQty) ? Number(payload.currentQty) : current.currentQty,
+    receivedQty: Number.isFinite(payload.receivedQty) ? Number(payload.receivedQty) : current.receivedQty,
+    returnedQty: Number.isFinite(payload.returnedQty) ? Number(payload.returnedQty) : current.returnedQty,
+    waitReturnQty: Number.isFinite(payload.waitReturnQty) ? Number(payload.waitReturnQty) : current.waitReturnQty,
+    scrapQty: Number.isFinite(payload.scrapQty) ? Number(payload.scrapQty) : current.scrapQty,
+    damageQty: Number.isFinite(payload.damageQty) ? Number(payload.damageQty) : current.damageQty,
+    openDifferenceReportCount:
+      payload.status === '差异' || payload.status === '异常'
+        ? Math.max(current.openDifferenceReportCount, 1)
+        : current.openDifferenceReportCount,
+    updatedAt: payload.operatedAt || formatDay(0),
+    remark: payload.remark?.trim() || current.remark,
+  }
+  store.workOrders[workOrderIndex] = next
+  const taskOrderIndex = store.taskOrders.findIndex((taskOrder) => taskOrder.taskOrderId === next.taskOrderId)
+  if (taskOrderIndex >= 0) {
+    const taskOrder = store.taskOrders[taskOrderIndex]
+    store.taskOrders[taskOrderIndex] = {
+      ...taskOrder,
+      status: payload.status,
+      executionStatus:
+        payload.status === '已入待加工仓'
+          ? 'IN_WAIT_PROCESS_WAREHOUSE'
+          : payload.status === '加工中'
+            ? 'PROCESSING'
+            : payload.status === '已完成'
+              ? 'COMPLETED'
+              : payload.status === '待交出'
+                ? 'WAIT_HANDOVER'
+                : payload.status === '已交出'
+                  ? 'HANDED_OVER'
+                  : payload.status === '已回写'
+                    ? 'WRITTEN_BACK'
+                    : payload.status === '差异'
+                      ? 'DIFFERENCE'
+                      : payload.status === '异议中'
+                        ? 'OBJECTION'
+                        : payload.status === '异常'
+                          ? 'ABNORMAL'
+                          : 'WAIT_PICKUP',
+      executionStatusLabel: payload.status,
+      abnormalStatus: payload.status === '差异' ? '数量差异' : taskOrder.abnormalStatus,
+      updatedAt: payload.operatedAt || formatDay(0),
+    }
+  }
+  syncSpecialCraftTaskOrderAggregatesFromWorkOrders(next.taskOrderId)
+  return store.workOrders[workOrderIndex]
 }
 
 export function getSpecialCraftWarehouseView(

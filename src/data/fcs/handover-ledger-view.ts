@@ -320,7 +320,7 @@ function buildHandoutRecordRow(head: PdaHandoverHead, record: PdaHandoverRecord)
   let statusLabel = '待回写'
   let statusGroup: HandoverLedgerStatusGroup = 'PENDING'
   let statusTone: HandoverLedgerStatusTone = 'warning'
-  let nextActionHint = '等待接收方回写实收数量'
+  let nextActionHint = '等待接收方回写实收对象数量'
 
   if (
     record.handoverRecordStatus === 'WRITTEN_BACK_MATCHED'

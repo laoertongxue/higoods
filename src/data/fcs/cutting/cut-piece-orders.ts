@@ -6,6 +6,7 @@ import type {
   CuttingReceiveStatus,
 } from './types'
 import { buildCuttingCoreRegistry, resolveProductionOrderRef } from '../../../domain/cutting-core/index.ts'
+import { TEST_FACTORY_NAME } from '../factory-mock-data.ts'
 
 export type MarkerImageStatus = 'NOT_UPLOADED' | 'UPLOADED'
 export type LinkedDocType = 'PICKUP_SLIP' | 'CONFIG_BATCH' | 'PICKUP_RECORD' | 'REPLENISHMENT' | 'INBOUND'
@@ -143,7 +144,7 @@ const rawCutPieceOrderRecords: CutPieceOrderSeed[] = [
     orderQty: 6800,
     plannedShipDate: '2026-03-29',
     cuttingTaskNo: 'CP-TASK-202603-018',
-    assignedFactoryName: '晋江盛鸿裁片厂',
+    assignedFactoryName: TEST_FACTORY_NAME,
     materialSku: 'ML-PRINT-240311-01',
     materialType: 'PRINT',
     materialLabel: '面料 · 玫瑰满印布',
@@ -228,7 +229,7 @@ const rawCutPieceOrderRecords: CutPieceOrderSeed[] = [
     orderQty: 6800,
     plannedShipDate: '2026-03-29',
     cuttingTaskNo: 'CP-TASK-202603-018',
-    assignedFactoryName: '晋江盛鸿裁片厂',
+    assignedFactoryName: TEST_FACTORY_NAME,
     materialSku: 'ML-SOLID-240311-03',
     materialType: 'SOLID',
     materialLabel: '面料 · 象牙白全棉布',
@@ -284,7 +285,7 @@ const rawCutPieceOrderRecords: CutPieceOrderSeed[] = [
     orderQty: 4200,
     plannedShipDate: '2026-04-03',
     cuttingTaskNo: 'CP-TASK-202603-024',
-    assignedFactoryName: '石狮恒泰裁片厂',
+    assignedFactoryName: TEST_FACTORY_NAME,
     materialSku: 'ML-DYE-240320-11',
     materialType: 'DYE',
     materialLabel: '面料 · 深海蓝斜纹布',
@@ -355,7 +356,7 @@ const rawCutPieceOrderRecords: CutPieceOrderSeed[] = [
     orderQty: 4200,
     plannedShipDate: '2026-04-03',
     cuttingTaskNo: 'CP-TASK-202603-024',
-    assignedFactoryName: '石狮恒泰裁片厂',
+    assignedFactoryName: TEST_FACTORY_NAME,
     materialSku: 'ML-LIN-240320-09',
     materialType: 'LINING',
     materialLabel: '里布 · 涤纶里布 150D',
@@ -411,7 +412,7 @@ const rawCutPieceOrderRecords: CutPieceOrderSeed[] = [
     orderQty: 5300,
     plannedShipDate: '2026-04-06',
     cuttingTaskNo: 'CP-TASK-202603-031',
-    assignedFactoryName: '南安协丰裁片厂',
+    assignedFactoryName: TEST_FACTORY_NAME,
     materialSku: 'ML-PRINT-240327-08',
     materialType: 'PRINT',
     materialLabel: '面料 · 复古花叶提花',
@@ -482,7 +483,7 @@ const rawCutPieceOrderRecords: CutPieceOrderSeed[] = [
     orderQty: 5300,
     plannedShipDate: '2026-04-06',
     cuttingTaskNo: 'CP-TASK-202603-031',
-    assignedFactoryName: '南安协丰裁片厂',
+    assignedFactoryName: TEST_FACTORY_NAME,
     materialSku: 'ML-SOLID-240327-21',
     materialType: 'SOLID',
     materialLabel: '面料 · 水洗白府绸',
@@ -573,4 +574,31 @@ export function cloneCutPieceOrderRecords(): CutPieceOrderRecord[] {
     spreadingRecords: record.spreadingRecords.map((item) => ({ ...item })),
     linkedDocuments: record.linkedDocuments.map((item) => ({ ...item })),
   }))
+}
+
+export function updateCutPieceOrderWebStage(
+  originalCutOrderId: string,
+  payload: { currentStage: string; operatorName?: string; operatedAt?: string; notes?: string },
+): CutPieceOrderRecord | undefined {
+  const record = cutPieceOrderRecords.find(
+    (item) => item.originalCutOrderId === originalCutOrderId || item.originalCutOrderNo === originalCutOrderId || item.id === originalCutOrderId,
+  )
+  if (!record) return undefined
+  record.currentStage = payload.currentStage
+  record.notes = payload.notes?.trim() || record.notes
+  if (payload.currentStage === '菲票已生成') {
+    record.printSlipStatus = 'PRINTED'
+  }
+  if (payload.currentStage === '已入仓' || payload.currentStage === '待交出') {
+    record.hasInboundRecord = true
+  }
+  return {
+    ...record,
+    markerInfo: {
+      ...record.markerInfo,
+      sizeMix: record.markerInfo.sizeMix.map((item) => ({ ...item })),
+    },
+    spreadingRecords: record.spreadingRecords.map((item) => ({ ...item })),
+    linkedDocuments: record.linkedDocuments.map((item) => ({ ...item })),
+  }
 }

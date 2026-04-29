@@ -25,6 +25,10 @@ import {
   type DyeWorkOrderStatus,
 } from './dyeing-task-domain.ts'
 import type { PdaHandoverRecord } from './pda-handover-events.ts'
+import {
+  getProcessObjectType,
+  getQuantityLabel,
+} from './process-quantity-labels.ts'
 
 export type ProcessWorkOrderType = 'PRINT' | 'DYE'
 export type ProcessWorkOrderStatus = PrintWorkOrderStatus | DyeWorkOrderStatus
@@ -37,6 +41,10 @@ export interface ProcessWorkOrder {
   productionOrderIds: string[]
   factoryId: string
   factoryName: string
+  objectType?: string
+  qtyLabel?: string
+  isPiecePrinting?: boolean
+  isFabricPrinting?: boolean
   plannedQty: number
   plannedUnit: string
   materialSku: string
@@ -91,6 +99,16 @@ function cloneHandoverRecords(records: PdaHandoverRecord[]): PdaHandoverRecord[]
 
 function mapPrintWorkOrder(order: PrintWorkOrder): ProcessWorkOrder {
   const review = getPrintReviewRecordByOrderId(order.printOrderId)
+  const quantityContext = {
+    processType: 'PRINT',
+    sourceType: 'PRINT_WORK_ORDER',
+    sourceId: order.printOrderId,
+    objectType: order.objectType,
+    qtyUnit: order.qtyUnit,
+    qtyPurpose: '计划' as const,
+    isPiecePrinting: order.isPiecePrinting,
+    isFabricPrinting: order.isFabricPrinting,
+  }
   return {
     workOrderId: order.printOrderId,
     workOrderNo: order.printOrderNo,
@@ -99,6 +117,10 @@ function mapPrintWorkOrder(order: PrintWorkOrder): ProcessWorkOrder {
     productionOrderIds: [...order.productionOrderIds],
     factoryId: order.printFactoryId,
     factoryName: order.printFactoryName,
+    objectType: getProcessObjectType(quantityContext),
+    qtyLabel: order.qtyLabel || getQuantityLabel(quantityContext),
+    isPiecePrinting: getProcessObjectType(quantityContext) === '裁片',
+    isFabricPrinting: getProcessObjectType(quantityContext) === '面料',
     plannedQty: order.plannedQty,
     plannedUnit: order.qtyUnit,
     materialSku: order.materialSku,
@@ -133,6 +155,14 @@ function mapPrintWorkOrder(order: PrintWorkOrder): ProcessWorkOrder {
 
 function mapDyeWorkOrder(order: DyeWorkOrder): ProcessWorkOrder {
   const review = getDyeReviewRecordByOrderId(order.dyeOrderId)
+  const quantityContext = {
+    processType: 'DYE',
+    sourceType: 'DYE_WORK_ORDER',
+    sourceId: order.dyeOrderId,
+    objectType: '面料',
+    qtyUnit: order.qtyUnit,
+    qtyPurpose: '计划' as const,
+  }
   return {
     workOrderId: order.dyeOrderId,
     workOrderNo: order.dyeOrderNo,
@@ -141,6 +171,8 @@ function mapDyeWorkOrder(order: DyeWorkOrder): ProcessWorkOrder {
     productionOrderIds: [...(order.productionOrderIds || [])],
     factoryId: order.dyeFactoryId,
     factoryName: order.dyeFactoryName,
+    objectType: getProcessObjectType(quantityContext),
+    qtyLabel: getQuantityLabel(quantityContext),
     plannedQty: order.plannedQty,
     plannedUnit: order.qtyUnit,
     materialSku: order.rawMaterialSku,

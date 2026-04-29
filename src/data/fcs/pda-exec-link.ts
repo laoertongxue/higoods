@@ -254,7 +254,7 @@ export function reportTaskMilestone(
     {
       id: nextTaskAuditId(task, 'MILESTONE'),
       action: 'REPORT_MILESTONE',
-      detail: `上报关键节点：${milestone.ruleLabel}，上报时间：${payload.reportedAt}，数量：${milestone.targetQty} ${milestone.targetUnitLabel}，凭证：${payload.proofFiles.length}个`,
+      detail: `上报关键节点：${milestone.ruleLabel}，上报时间：${payload.reportedAt}，目标对象数量：${milestone.targetQty} ${milestone.targetUnitLabel}，凭证：${payload.proofFiles.length}个`,
       at: now,
       by: payload.by,
     },

@@ -15,6 +15,7 @@ import {
   type TaskAuditLog,
 } from './process-tasks.ts'
 import { buildTaskQrValue } from './task-qr.ts'
+import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
 import type { TaskDetailRow } from './task-detail-rows.ts'
 import {
   listTaskAllocatableGroups,
@@ -913,10 +914,10 @@ function ensureDispatchBoardSeedData(): void {
   dispatchBoardSeedReady = true
 
   const directFactorySeeds = {
-    cut: { id: 'ID-F002', name: '泗水裁片厂' },
+    cut: { id: TEST_FACTORY_ID, name: TEST_FACTORY_NAME },
     sew: { id: 'ID-F003', name: '万隆车缝厂' },
-    button: { id: 'ID-F005', name: '日惹包装厂' },
-    special: { id: 'ID-F010', name: '雅加达绣花专工厂' },
+    button: { id: TEST_FACTORY_ID, name: TEST_FACTORY_NAME },
+    special: { id: TEST_FACTORY_ID, name: TEST_FACTORY_NAME },
     wash: { id: 'ID-F007', name: '玛琅精工车缝' },
   } as const
 

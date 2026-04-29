@@ -348,7 +348,7 @@ export function buildHandoverDifferenceRequestPrintDocument(input: PrintDocument
     documentType: 'HANDOVER_DIFFERENCE_REQUEST',
     sourceId: difference.differenceRecordId,
     businessNo: difference.differenceRecordNo,
-    subtitle: '用于交出回写数量差异的平台处理凭证；只记录处理结果，不直接生成质量扣款流水、对账流水或结算流水。',
+    subtitle: '用于交出回写对象差异的平台处理凭证；只记录处理结果，不直接生成质量扣款流水、对账流水或结算流水。',
     returnHref: handover ? `/fcs/print/preview?documentType=TASK_DELIVERY_CARD&handoverRecordId=${encodeURIComponent(handover.handoverRecordId)}` : '/fcs/progress/handover',
     headerFields: mapFields([
       { label: '差异处理单号', value: difference.differenceRecordNo, emphasis: true },
@@ -373,7 +373,7 @@ export function buildHandoverDifferenceRequestPrintDocument(input: PrintDocument
           { label: '责任方', value: difference.responsibilitySide },
           { label: '上报人', value: difference.reportedBy },
           { label: '上报时间', value: difference.reportedAt },
-          { label: '差异原因', value: difference.remark || '接收回写数量与交出数量不一致' },
+          { label: '差异原因', value: difference.remark || '接收回写对象数量与交出对象数量不一致' },
           { label: '证据', value: difference.evidenceUrls.length > 0 ? difference.evidenceUrls.join('、') : '暂无证据' },
         ]),
       },

@@ -5,6 +5,7 @@ import {
   listPrintReviewRecords,
   listPrintWorkOrders,
 } from '../../../data/fcs/printing-task-domain.ts'
+import { formatFactoryDisplayName } from '../../../data/fcs/factory-mock-data.ts'
 import { buildHandoverOrderLink, buildPrintingWorkOrderDetailLink } from '../../../data/fcs/fcs-route-links.ts'
 import {
   formatPrintQty,
@@ -27,7 +28,7 @@ function renderReviewList(selectedId: string): string {
           <td class="px-3 py-3 font-mono text-xs">${escapeHtml(order.printOrderNo)}</td>
           <td class="px-3 py-3 text-sm">${escapeHtml(order.handoverOrderNo || order.handoverOrderId || '—')}</td>
           <td class="px-3 py-3 text-sm">${review.handoverRecordIds?.length ?? 0} 条</td>
-          <td class="px-3 py-3 text-sm">${escapeHtml(order.printFactoryName)}</td>
+          <td class="px-3 py-3 text-sm">${escapeHtml(formatFactoryDisplayName(order.printFactoryName, order.printFactoryId))}</td>
           <td class="px-3 py-3 text-sm">${escapeHtml(review.receiverName)}</td>
           <td class="px-3 py-3 text-sm">${formatPrintQty(review.submittedQty, order.qtyUnit)}</td>
           <td class="px-3 py-3 text-sm">${formatPrintQty(review.receivedQty, order.qtyUnit)}</td>

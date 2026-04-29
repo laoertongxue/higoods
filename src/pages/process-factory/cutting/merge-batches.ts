@@ -2,6 +2,7 @@ import { renderDrawer as uiDrawer } from '../../../components/ui/index.ts'
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
 import { buildTaskRouteCardPrintLink } from '../../../data/fcs/fcs-route-links.ts'
+import { formatFactoryDisplayName } from '../../../data/fcs/factory-mock-data.ts'
 import {
   CUTTING_MERGE_BATCH_LEDGER_STORAGE_KEY,
   deserializeMergeBatchStorage,
@@ -471,7 +472,7 @@ function renderSourceProductionOrders(batch: MergeBatchRecord): string {
                   <div class="space-y-1">
                     <div class="font-medium">${escapeHtml(group.productionOrderNo)}</div>
                     <div class="text-xs text-muted-foreground">${escapeHtml(group.styleCode)} · ${escapeHtml(group.styleName)}</div>
-                    <div class="text-xs text-muted-foreground">工厂：${escapeHtml(row?.assignedFactoryName || '-')} · 发货：${escapeHtml(group.plannedShipDateDisplay || '-')}</div>
+                    <div class="text-xs text-muted-foreground">工厂：${escapeHtml(formatFactoryDisplayName(row?.assignedFactoryName) || '-')} · 发货：${escapeHtml(group.plannedShipDateDisplay || '-')}</div>
                   </div>
                   <div class="flex items-center gap-2">
                     <span class="text-xs text-muted-foreground">原始裁片单 ${group.itemCount} 条</span>

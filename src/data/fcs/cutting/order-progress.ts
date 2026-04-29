@@ -1,4 +1,5 @@
 import { productionOrders } from '../production-orders.ts'
+import { TEST_FACTORY_NAME } from '../factory-mock-data.ts'
 import {
   listGeneratedOriginalCutOrderSourceRecords,
   type GeneratedOriginalCutOrderSourceRecord,
@@ -26,7 +27,7 @@ const legacyCuttingOrderProgressSeedRecords: CuttingOrderProgressRecord[] = [
     sellingPrice: 89,
     urgencyLevel: 'AA',
     cuttingTaskNo: 'CUT-TASK-260308-01',
-    assignedFactoryName: '泗水裁片一厂',
+    assignedFactoryName: TEST_FACTORY_NAME,
     cuttingStage: '待领料',
     riskFlags: ['SHIP_URGENT', 'PARTIAL_CONFIG', 'REPLENISH_PENDING'],
     lastPickupScanAt: '2026-03-21 09:12',
@@ -243,7 +244,7 @@ const legacyCuttingOrderProgressSeedRecords: CuttingOrderProgressRecord[] = [
     sellingPrice: 139,
     urgencyLevel: 'A',
     cuttingTaskNo: 'CUT-TASK-260309-04',
-    assignedFactoryName: '雅加达裁片中心',
+    assignedFactoryName: TEST_FACTORY_NAME,
     cuttingStage: '裁片中',
     riskFlags: ['SHIP_URGENT'],
     lastPickupScanAt: '2026-03-21 11:22',
@@ -305,7 +306,7 @@ const legacyCuttingOrderProgressSeedRecords: CuttingOrderProgressRecord[] = [
     sellingPrice: 199,
     urgencyLevel: 'B',
     cuttingTaskNo: 'CUT-TASK-260310-07',
-    assignedFactoryName: '万隆裁片二厂',
+    assignedFactoryName: TEST_FACTORY_NAME,
     cuttingStage: '待入仓',
     riskFlags: ['RECEIVE_DIFF', 'INBOUND_PENDING'],
     lastPickupScanAt: '2026-03-20 14:36',
@@ -413,7 +414,7 @@ const legacyCuttingOrderProgressSeedRecords: CuttingOrderProgressRecord[] = [
     sellingPrice: 79,
     urgencyLevel: 'C',
     cuttingTaskNo: 'CUT-TASK-260311-02',
-    assignedFactoryName: '泗水样衣裁片组',
+    assignedFactoryName: TEST_FACTORY_NAME,
     cuttingStage: '待配料',
     riskFlags: ['PARTIAL_CONFIG'],
     lastPickupScanAt: '',
@@ -474,7 +475,7 @@ const legacyCuttingOrderProgressSeedRecords: CuttingOrderProgressRecord[] = [
     sellingPrice: 249,
     urgencyLevel: 'D',
     cuttingTaskNo: 'CUT-TASK-260312-09',
-    assignedFactoryName: '泗水裁片三厂',
+    assignedFactoryName: TEST_FACTORY_NAME,
     cuttingStage: '配料中',
     riskFlags: ['REPLENISH_PENDING'],
     lastPickupScanAt: '2026-03-19 10:44',
@@ -535,7 +536,7 @@ const legacyCuttingOrderProgressSeedRecords: CuttingOrderProgressRecord[] = [
     sellingPrice: 169,
     urgencyLevel: 'A',
     cuttingTaskNo: 'CUT-TASK-260313-03',
-    assignedFactoryName: '雅加达裁片中心',
+    assignedFactoryName: TEST_FACTORY_NAME,
     cuttingStage: '已完成',
     riskFlags: [],
     lastPickupScanAt: '2026-03-22 09:05',
@@ -597,7 +598,7 @@ const legacyCuttingOrderProgressSeedRecords: CuttingOrderProgressRecord[] = [
     sellingPrice: 89,
     urgencyLevel: 'A',
     cuttingTaskNo: 'CUT-TASK-260314-05',
-    assignedFactoryName: '泗水裁片一厂',
+    assignedFactoryName: TEST_FACTORY_NAME,
     cuttingStage: '待裁床安排',
     riskFlags: ['SHIP_URGENT'],
     lastPickupScanAt: '2026-03-23 09:46',
@@ -685,7 +686,7 @@ const legacyCuttingOrderProgressSeedRecords: CuttingOrderProgressRecord[] = [
     sellingPrice: 89,
     urgencyLevel: 'B',
     cuttingTaskNo: 'CUT-TASK-260315-06',
-    assignedFactoryName: '万隆裁片二厂',
+    assignedFactoryName: TEST_FACTORY_NAME,
     cuttingStage: '裁片中',
     riskFlags: ['SHIP_URGENT'],
     lastPickupScanAt: '2026-03-23 11:08',
@@ -925,3 +926,29 @@ export const cuttingOrderProgressRecords: CuttingOrderProgressRecord[] = product
     return buildProjectedRecord(order, generatedOriginals)
   })
   .filter((record): record is CuttingOrderProgressRecord => record !== null)
+
+export function updateCuttingOrderProgressWebStage(
+  originalCutOrderId: string,
+  payload: { cuttingStage: string; operatorName?: string; operatedAt?: string },
+): CuttingOrderProgressRecord | undefined {
+  const record = cuttingOrderProgressRecords.find((item) =>
+    item.materialLines.some(
+      (line) =>
+        line.originalCutOrderId === originalCutOrderId ||
+        line.originalCutOrderNo === originalCutOrderId ||
+        line.cutPieceOrderNo === originalCutOrderId,
+    ),
+  )
+  if (!record) return undefined
+
+  record.cuttingStage = payload.cuttingStage
+  record.lastOperatorName = payload.operatorName?.trim() || record.lastOperatorName
+  record.lastFieldUpdateAt = payload.operatedAt?.trim() || record.lastFieldUpdateAt
+  if (payload.cuttingStage === '铺布中' || payload.cuttingStage === '待裁剪' || payload.cuttingStage === '裁剪中') {
+    record.hasSpreadingRecord = true
+  }
+  if (payload.cuttingStage === '已入仓' || payload.cuttingStage === '待交出') {
+    record.hasInboundRecord = true
+  }
+  return record
+}

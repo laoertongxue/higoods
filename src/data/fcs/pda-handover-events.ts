@@ -5,6 +5,7 @@ import {
   type WarehouseIssueOrder,
   type WarehouseReturnOrder,
 } from './warehouse-material-execution.ts'
+import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
 import {
   PROCESS_ASSIGNMENT_GRANULARITY_LABEL,
   getProcessDefinitionByCode,
@@ -882,8 +883,8 @@ const PDA_GENERIC_HANDOUT_RECORDS = Object.fromEntries(
     ),
 )
 
-const PDA_MOCK_FACTORY_ID = 'ID-F001'
-const PDA_MOCK_CUTTING_FACTORY_ID = 'ID-F004'
+const PDA_MOCK_FACTORY_ID = TEST_FACTORY_ID
+const PDA_MOCK_CUTTING_FACTORY_ID = TEST_FACTORY_ID
 
 const PDA_MOCK_HANDOVER_HEADS: PdaHandoverHead[] = [
   {
@@ -895,7 +896,7 @@ const PDA_MOCK_HANDOVER_HEADS: PdaHandoverHead[] = [
     productionOrderNo: 'PO-20260319-013',
     processName: '裁片',
     sourceFactoryName: '一仓裁床仓',
-    targetName: '小飞裁片厂',
+    targetName: TEST_FACTORY_NAME,
     targetKind: 'FACTORY',
     qtyUnit: '卷',
     factoryId: PDA_MOCK_FACTORY_ID,
@@ -970,7 +971,7 @@ const PDA_MOCK_HANDOVER_HEADS: PdaHandoverHead[] = [
     taskNo: 'TASK-CUT-000093',
     productionOrderNo: 'PO-20260319-017',
     processName: '裁片',
-    sourceFactoryName: '小飞裁片厂',
+    sourceFactoryName: TEST_FACTORY_NAME,
     targetName: '后道车缝',
     targetKind: 'FACTORY',
     qtyUnit: '片',
@@ -1008,7 +1009,7 @@ const PDA_MOCK_HANDOVER_HEADS: PdaHandoverHead[] = [
     taskNo: 'TASK-CUT-000094',
     productionOrderNo: 'PO-20260319-018',
     processName: '裁片',
-    sourceFactoryName: '小飞裁片厂',
+    sourceFactoryName: TEST_FACTORY_NAME,
     targetName: '后道车缝',
     targetKind: 'FACTORY',
     qtyUnit: '片',
@@ -1419,7 +1420,7 @@ const PDA_MOCK_HANDOUT_RECORDS: Record<string, PdaHandoverRecord[]> = {
       warehouseReturnNo: 'RET-MOCK-CUT-093-002',
       warehouseWrittenQty: 70,
       warehouseWrittenAt: '2026-03-22 14:35:00',
-      diffReason: '主厂签收数量少于工厂交出数量',
+      diffReason: '主厂签收数量少于工厂交出对象数量',
     },
   ],
   'HOH-MOCK-CUT-094': [
@@ -1530,9 +1531,9 @@ const PDA_MOCK_HANDOUT_RECORDS: Record<string, PdaHandoverRecord[]> = {
       warehouseReturnNo: 'RET-MOCK-CUT-103-OPEN-001',
       warehouseWrittenQty: 168,
       warehouseWrittenAt: '2026-03-24 16:40:00',
-      diffReason: '主厂签收数量少于交出数量',
+      diffReason: '主厂签收数量少于交出对象数量',
       quantityObjectionId: 'QO-HOR-MOCK-CUT103-OPEN-001',
-      objectionReason: '主厂签收数量少于交出数量',
+      objectionReason: '主厂签收数量少于交出对象数量',
       objectionRemark: '工厂已发起数量异议',
       factoryDiffDecision: 'RAISE_OBJECTION',
       followUpRemark: '等待双方复核处理',
@@ -1775,7 +1776,7 @@ function buildTaskBoardHandoutRecordSeeds(head: PdaHandoverHead): PdaHandoverRec
         warehouseReturnNo: 'RET-TASKGEN0002005-002',
         warehouseWrittenQty: Math.max(head.qtyExpectedTotal - Math.max(Math.round(head.qtyExpectedTotal * 0.6), 90), 40) - 8,
         warehouseWrittenAt: '2026-03-21 12:05:00',
-        diffReason: '接收方签收数量少于交出数量',
+        diffReason: '接收方签收数量少于交出对象数量',
       },
     ]
   }
@@ -3162,13 +3163,13 @@ function isPickupRecordStillWaiting(record: PdaPickupRecord): boolean {
 
 function validateCompletionRange(label: '领料单' | '交出单', basisQty: number, effectiveQty: number): { ok: boolean; message: string } {
   if (!Number.isFinite(basisQty) || basisQty <= 0) {
-    return { ok: false, message: `缺少计划数量，无法完成${label}` }
+    return { ok: false, message: `缺少计划对象数量，无法完成${label}` }
   }
   if (effectiveQty < basisQty * 0.8) {
-    return { ok: false, message: `累计${label === '领料单' ? '领料' : '交出'}数量未达到计划数量的 80%，暂不可完成${label}` }
+    return { ok: false, message: `累计${label === '领料单' ? '领料' : '交出'}数量未达到计划对象数量的 80%，暂不可完成${label}` }
   }
   if (effectiveQty > basisQty * 1.2) {
-    return { ok: false, message: `累计${label === '领料单' ? '领料' : '交出'}数量超出计划数量的 20%，请先核对后再完成${label}` }
+    return { ok: false, message: `累计${label === '领料单' ? '领料' : '交出'}数量超出计划对象数量的 20%，请先核对后再完成${label}` }
   }
   return { ok: true, message: `可完成${label}` }
 }

@@ -85,6 +85,7 @@ export interface OriginalCutOrderRow {
   originalCutOrderNo: string
   productionOrderId: string
   productionOrderNo: string
+  assignedFactoryName: string
   styleCode: string
   spuCode: string
   styleName: string
@@ -540,6 +541,7 @@ function createRow(
     originalCutOrderNo: source.originalCutOrderNo,
     productionOrderId: source.productionOrderId,
     productionOrderNo: source.productionOrderNo,
+    assignedFactoryName: progressRow?.assignedFactoryName || '',
     styleCode: record.styleCode,
     spuCode: record.spuCode,
     styleName: record.styleName,

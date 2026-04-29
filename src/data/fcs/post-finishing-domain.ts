@@ -1,8 +1,10 @@
 export type PostFinishingRouteMode = '专门后道工厂完整流程' | '车缝厂已做后道'
 export type PostFinishingActionType = '接收领料' | '质检' | '后道' | '复检'
 
-export const FULL_CAPABILITY_TEST_FACTORY_ID = 'ID-F090'
-export const FULL_CAPABILITY_TEST_FACTORY_NAME = '全能力测试工厂'
+import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
+
+export const FULL_CAPABILITY_TEST_FACTORY_ID = TEST_FACTORY_ID
+export const FULL_CAPABILITY_TEST_FACTORY_NAME = TEST_FACTORY_NAME
 export const FULL_CAPABILITY_SEWING_FACTORY_ID = 'ID-SEW-FULL'
 export const FULL_CAPABILITY_SEWING_FACTORY_NAME = '全能力测试车缝工厂'
 

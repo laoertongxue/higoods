@@ -7,7 +7,7 @@ import {
 import { applySpecialCraftHandoverDifferenceToFeiTickets } from './cutting/special-craft-fei-ticket-flow.ts'
 import { listPostFinishingWorkOrders, type PostFinishingWorkOrder } from './post-finishing-domain.ts'
 
-export type ProcessWarehouseCraftType = 'PRINT' | 'DYE' | 'SPECIAL_CRAFT' | 'POST_FINISHING'
+export type ProcessWarehouseCraftType = 'PRINT' | 'DYE' | 'CUTTING' | 'SPECIAL_CRAFT' | 'POST_FINISHING'
 export type ProcessWarehouseRecordType = 'WAIT_PROCESS' | 'WAIT_HANDOVER'
 export type ProcessWarehouseObjectType = '面料' | '裁片' | '成衣'
 export type ProcessWarehouseHandoverStatus = '待回写' | '已回写' | '有差异' | '平台处理中' | '需重新交出' | '已关闭'
@@ -406,7 +406,9 @@ function buildProcessWorkOrderWarehouseRecords(orders: ProcessWorkOrder[]): Proc
     const waitHandover = isPrint ? isPrintWaitHandover(order) : isDyeWaitHandover(order)
     const craftType: ProcessWarehouseCraftType = isPrint ? 'PRINT' : 'DYE'
     const craftName = isPrint ? '印花' : '染色'
-    const qtyUnit = order.plannedUnit === '片' ? '米' : order.plannedUnit
+    const objectType: ProcessWarehouseObjectType =
+      isPrint && (order.objectType === '裁片' || order.plannedUnit === '片') ? '裁片' : '面料'
+    const qtyUnit = order.plannedUnit || (objectType === '裁片' ? '片' : '米')
     const targetWarehouseName = isPrint
       ? order.printPayload?.targetTransferWarehouseName || '印花待交出仓'
       : order.dyePayload?.targetTransferWarehouseName || '染色待交出仓'
@@ -434,7 +436,7 @@ function buildProcessWorkOrderWarehouseRecords(orders: ProcessWorkOrder[]): Proc
             materialSku: order.materialSku,
             materialName: order.materialName,
             batchNo: order.materialBatchNos[0] || '',
-            objectType: '面料',
+            objectType,
             plannedObjectQty: order.plannedQty,
             receivedObjectQty: order.plannedQty,
             availableObjectQty: order.plannedQty,
@@ -476,7 +478,7 @@ function buildProcessWorkOrderWarehouseRecords(orders: ProcessWorkOrder[]): Proc
             materialSku: order.materialSku,
             materialName: order.materialName,
             batchNo: order.materialBatchNos[0] || '',
-            objectType: '面料',
+            objectType,
             plannedObjectQty: order.plannedQty,
             receivedObjectQty: order.plannedQty,
             availableObjectQty: order.plannedQty,
@@ -864,7 +866,7 @@ function buildInitialReviewRecords(handoverRecords: ProcessHandoverRecord[]): Pr
     qtyUnit: record.qtyUnit,
     reviewerName: record.status === '待回写' ? '' : '平台审核员',
     reviewedAt: record.status === '待回写' ? '' : record.receiveAt || record.handoverAt,
-    reason: Math.abs(record.diffObjectQty) > 0 ? '接收回写数量与交出数量不一致' : '交出回写数量一致',
+    reason: Math.abs(record.diffObjectQty) > 0 ? '接收回写数量与交出对象数量不一致' : '交出回写数量一致',
     evidenceUrls: [],
     nextAction: Math.abs(record.diffObjectQty) > 0 ? '平台处理差异' : '进入下一环节',
     relatedDifferenceRecordId: '',
@@ -918,7 +920,7 @@ function buildDifferenceRecordFromHandover(record: ProcessHandoverRecord, index:
     handlingResult: status === '待处理' ? '' : nextAction,
     nextAction,
     relatedFeiTicketIds: [...record.relatedFeiTicketIds],
-    remark: record.remark || '接收方回写数量与交出数量不一致',
+    remark: record.remark || '接收方回写数量与交出对象数量不一致',
   }
 }
 
@@ -1227,7 +1229,7 @@ export function createProcessHandoverDifferenceRecord(payload: DifferenceRecordP
     handlingResult: payload.handlingResult || '',
     nextAction: payload.nextAction || '平台处理',
     relatedFeiTicketIds: [...(payload.relatedFeiTicketIds || [])],
-    remark: payload.remark || '接收方回写数量与交出数量不一致',
+    remark: payload.remark || '接收方回写数量与交出对象数量不一致',
   }
   if (existed) {
     Object.assign(existed, next)

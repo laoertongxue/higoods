@@ -36,6 +36,7 @@ import {
   readSelectedExecutionOrderNoFromLocation,
 } from './pda-cutting-context'
 import { buildPdaCuttingCompletedReturnHref } from './pda-cutting-nav-context'
+import { executeMobileProcessAction } from '../data/fcs/process-action-writeback-service.ts'
 
 type SpreadingRecordType = '开始铺布' | '中途交接' | '接手继续' | '完成铺布'
 type FeedbackTone = 'default' | 'success' | 'warning'
@@ -731,6 +732,35 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
     }
 
     const fabricRollNo = form.fabricRollNo.trim()
+    const actionCode =
+      form.recordType === '完成铺布'
+        ? 'CUTTING_FINISH_SPREADING'
+        : 'CUTTING_START_SPREADING'
+
+    try {
+      executeMobileProcessAction({
+        sourceType: 'CUTTING',
+        sourceId: identity.originalCutOrderId,
+        taskId,
+        actionCode,
+        operatorName: operator.operatorName,
+        operatedAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
+        objectType: '面料',
+        objectQty: actualLength,
+        qtyUnit: '米',
+        formData: {
+          裁床组: operator.operatorRole || operator.operatorName,
+          铺布层数: layerCount,
+          铺布实际长度: actualLength,
+        },
+        remark: [form.note.trim(), `移动端${form.recordType}`, `卷号：${fabricRollNo}`].filter(Boolean).join('；'),
+      })
+    } catch (error) {
+      form.feedbackMessage = error instanceof Error ? error.message : '统一写回失败'
+      form.feedbackTone = 'warning'
+      syncSpreadingFormDom(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
+      return true
+    }
 
     const result = writePdaSpreadingToFcs({
       identity,

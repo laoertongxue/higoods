@@ -113,7 +113,7 @@ export function renderRouteRecordTable(rows: TaskRouteCardRecordRow[]): string {
         <table class="w-full min-w-[1180px] text-sm">
           <thead class="border-b bg-muted/30 text-left text-xs text-muted-foreground">
             <tr>
-              ${['节点', '开始时间', '结束时间', '完成数量', '异常数量', '设备/工位', '操作人', '备注', '签字']
+              ${['节点', '开始时间', '结束时间', '完成对象数量（按单据单位）', '异常对象数量（按单据单位）', '设备/工位', '操作人', '备注', '签字']
                 .map((header) => `<th class="px-3 py-2 font-medium">${escapeHtml(header)}</th>`)
                 .join('')}
             </tr>

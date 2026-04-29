@@ -12,6 +12,7 @@ import {
 import { listPdaGenericProcessTasks, type PdaGenericTaskMock } from './pda-task-mock-factory.ts'
 import { type HandoverReceiverKind } from './process-tasks.ts'
 import { buildTaskQrValue } from './task-qr.ts'
+import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
 
 export type PrintWorkOrderStatus =
   | 'WAIT_ARTWORK'
@@ -47,8 +48,12 @@ export interface PrintWorkOrder {
   patternVersion: string
   materialSku: string
   materialColor?: string
+  objectType?: '面料' | '裁片'
+  isPiecePrinting?: boolean
+  isFabricPrinting?: boolean
   plannedQty: number
   qtyUnit: string
+  qtyLabel?: string
   plannedRollCount?: number
   printFactoryId: string
   printFactoryName: string
@@ -466,16 +471,19 @@ function seedWorkOrders(): void {
     patternVersion: 'V3',
     materialSku: 'FAB-PRINT-001',
     materialColor: '奶白底黑花',
+    objectType: '面料',
+    isFabricPrinting: true,
     plannedQty: 920,
-    qtyUnit: '片',
+    qtyUnit: '米',
+    qtyLabel: '计划印花面料米数',
     plannedRollCount: 8,
-    printFactoryId: 'ID-F002',
-    printFactoryName: 'PT Prima Printing Center',
+    printFactoryId: TEST_FACTORY_ID,
+    printFactoryName: TEST_FACTORY_NAME,
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
     status: 'WAIT_ARTWORK',
-    taskId: 'TASK-PRINT-000713',
-    taskNo: 'TASK-PRINT-000713',
+    taskId: 'TASK-PRINT-000716',
+    taskNo: 'TASK-PRINT-000716',
     createdAt: '2026-03-27 09:00:00',
     updatedAt: '2026-03-28 09:10:00',
     remark: '花型图待业务回传',
@@ -492,11 +500,14 @@ function seedWorkOrders(): void {
     patternVersion: 'V2',
     materialSku: 'FAB-PRINT-018',
     materialColor: '灰底红花',
+    objectType: '面料',
+    isFabricPrinting: true,
     plannedQty: 880,
-    qtyUnit: '片',
+    qtyUnit: '米',
+    qtyLabel: '计划印花面料米数',
     plannedRollCount: 7,
-    printFactoryId: 'ID-F002',
-    printFactoryName: 'PT Prima Printing Center',
+    printFactoryId: TEST_FACTORY_ID,
+    printFactoryName: TEST_FACTORY_NAME,
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
     status: 'WAIT_COLOR_TEST',
@@ -518,11 +529,14 @@ function seedWorkOrders(): void {
     patternVersion: 'V4',
     materialSku: 'FAB-PRINT-026',
     materialColor: '米黄底蓝花',
+    objectType: '面料',
+    isFabricPrinting: true,
     plannedQty: 860,
-    qtyUnit: '片',
+    qtyUnit: '米',
+    qtyLabel: '计划印花面料米数',
     plannedRollCount: 6,
-    printFactoryId: 'ID-F002',
-    printFactoryName: 'PT Prima Printing Center',
+    printFactoryId: TEST_FACTORY_ID,
+    printFactoryName: TEST_FACTORY_NAME,
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
     status: 'WAIT_PRINT',
@@ -547,8 +561,8 @@ function seedWorkOrders(): void {
     plannedQty: printingTask?.qty ?? 872,
     qtyUnit: '片',
     plannedRollCount: 8,
-    printFactoryId: 'ID-F002',
-    printFactoryName: 'PT Prima Printing Center',
+    printFactoryId: TEST_FACTORY_ID,
+    printFactoryName: TEST_FACTORY_NAME,
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
     status: 'PRINTING',
@@ -574,8 +588,8 @@ function seedWorkOrders(): void {
     plannedQty: transferTask?.qty ?? 808,
     qtyUnit: '片',
     plannedRollCount: 7,
-    printFactoryId: 'ID-F002',
-    printFactoryName: 'PT Prima Printing Center',
+    printFactoryId: TEST_FACTORY_ID,
+    printFactoryName: TEST_FACTORY_NAME,
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
     status: 'WAIT_HANDOVER',
@@ -601,8 +615,8 @@ function seedWorkOrders(): void {
     plannedQty: handoverTask?.qty ?? 1044,
     qtyUnit: '片',
     plannedRollCount: 9,
-    printFactoryId: 'ID-F002',
-    printFactoryName: 'PT Prima Printing Center',
+    printFactoryId: TEST_FACTORY_ID,
+    printFactoryName: TEST_FACTORY_NAME,
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
     status: 'HANDOVER_SUBMITTED',
@@ -628,8 +642,8 @@ function seedWorkOrders(): void {
     plannedQty: reviewTask?.qty ?? 468,
     qtyUnit: '片',
     plannedRollCount: 4,
-    printFactoryId: 'ID-F002',
-    printFactoryName: 'PT Prima Printing Center',
+    printFactoryId: TEST_FACTORY_ID,
+    printFactoryName: TEST_FACTORY_NAME,
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
     status: 'WAIT_REVIEW',
@@ -655,8 +669,8 @@ function seedWorkOrders(): void {
     plannedQty: 1010,
     qtyUnit: '片',
     plannedRollCount: 8,
-    printFactoryId: 'ID-F002',
-    printFactoryName: 'PT Prima Printing Center',
+    printFactoryId: TEST_FACTORY_ID,
+    printFactoryName: TEST_FACTORY_NAME,
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
     status: 'TRANSFERRING',
@@ -681,8 +695,8 @@ function seedWorkOrders(): void {
     plannedQty: 740,
     qtyUnit: '片',
     plannedRollCount: 6,
-    printFactoryId: 'ID-F002',
-    printFactoryName: 'PT Prima Printing Center',
+    printFactoryId: TEST_FACTORY_ID,
+    printFactoryName: TEST_FACTORY_NAME,
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
     status: 'REJECTED',
@@ -708,8 +722,8 @@ function seedWorkOrders(): void {
     plannedQty: completedTask?.qty ?? 624,
     qtyUnit: '片',
     plannedRollCount: 5,
-    printFactoryId: 'ID-F002',
-    printFactoryName: 'PT Prima Printing Center',
+    printFactoryId: TEST_FACTORY_ID,
+    printFactoryName: TEST_FACTORY_NAME,
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
     status: 'COMPLETED',
@@ -735,8 +749,8 @@ function seedWorkOrders(): void {
     plannedQty: 910,
     qtyUnit: '片',
     plannedRollCount: 7,
-    printFactoryId: 'ID-F002',
-    printFactoryName: 'PT Prima Printing Center',
+    printFactoryId: TEST_FACTORY_ID,
+    printFactoryName: TEST_FACTORY_NAME,
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
     status: 'WAIT_PRINT',
@@ -761,8 +775,8 @@ function seedWorkOrders(): void {
     plannedQty: 960,
     qtyUnit: '片',
     plannedRollCount: 8,
-    printFactoryId: 'ID-F002',
-    printFactoryName: 'PT Prima Printing Center',
+    printFactoryId: TEST_FACTORY_ID,
+    printFactoryName: TEST_FACTORY_NAME,
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
     status: 'PRINTING',
@@ -775,8 +789,8 @@ function seedWorkOrders(): void {
 }
 
 function seedNodeRecords(): void {
-  const printingMachine = getMachineSeed('ID-F002', 0)
-  const standbyMachine = getMachineSeed('ID-F002', 1) ?? printingMachine
+  const printingMachine = getMachineSeed(TEST_FACTORY_ID, 0)
+  const standbyMachine = getMachineSeed(TEST_FACTORY_ID, 1) ?? printingMachine
 
   setNodeRecords(PRINT_WORK_ORDER_IDS.WAIT_ARTWORK, [])
   setNodeRecords(PRINT_WORK_ORDER_IDS.WAIT_COLOR_TEST, [
@@ -1425,7 +1439,7 @@ export function validatePrintStartPayload(input: { printerNo?: string }): { ok: 
 
 export function validatePrintCompletePayload(input: { outputQty?: number }): { ok: boolean; message?: string } {
   if (!Number.isFinite(input.outputQty) || Number(input.outputQty) <= 0) {
-    return { ok: false, message: '请填写完成数量' }
+    return { ok: false, message: '请填写完成对象数量' }
   }
   return { ok: true }
 }
@@ -1619,6 +1633,29 @@ export function completeTransfer(
   }
   syncDerivedWorkflow()
   return getPrintExecutionNodeRecord(printOrderId, 'TRANSFER')!
+}
+
+export function submitPrintHandover(
+  printOrderId: string,
+  input: { handoverQty?: number; handoverPerson?: string; handoverAt?: string; remark?: string } = {},
+): { handoverOrderId?: string; recordIds: string[] } {
+  const order = getMutableWorkOrder(printOrderId)
+  const now = input.handoverAt || nowTimestamp()
+  if (!order.handoverOrderId) {
+    order.handoverOrderId = ensureStartedTaskHandover(order.taskId)
+  }
+  const result = ensureSeededHandoverRecord({
+    taskId: order.taskId,
+    submittedQty: Number.isFinite(input.handoverQty) ? Number(input.handoverQty) : order.plannedQty,
+    submittedAt: now,
+    objectType: order.qtyUnit === '米' ? 'FABRIC' : 'CUT_PIECE',
+  })
+  order.handoverOrderId = result.handoverOrderId || order.handoverOrderId
+  order.status = 'HANDOVER_SUBMITTED'
+  order.remark = input.remark?.trim() || order.remark
+  updateOrderTimestamp(order, now)
+  syncDerivedWorkflow()
+  return result
 }
 
 export function approvePrintReview(

@@ -519,8 +519,8 @@ const COVERAGE_SEED_DEFINITIONS: CoverageSeedDefinition[] = [
     reasonCode: 'HANDOVER_DIFF',
     severity: 'S2',
     sourceType: 'TASK',
-    summary: (context) => `${context.processLabel}交出数量存在差异`,
-    detail: (context) => `生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）交出数量与仓库登记数量不一致，需复核。`,
+    summary: (context) => `${context.processLabel}交出对象数量存在差异`,
+    detail: (context) => `生产单 ${context.orderId} 的 ${context.processLabel}（${context.scopeLabel}）交出对象数量与仓库登记数量不一致，需复核。`,
     tags: ['交出异常', '数量差异', '覆盖补齐'],
   },
   {

@@ -20,6 +20,7 @@ import {
   type PdaPickupWritebackRecord,
 } from '../../../data/fcs/cutting/pda-execution-writeback-ledger.ts'
 import { getBrowserLocalStorage } from '../../../data/browser-storage.ts'
+import { formatFactoryDisplayName } from '../../../data/fcs/factory-mock-data.ts'
 import {
   CUTTING_REPLENISHMENT_PENDING_PREP_STORAGE_KEY,
   deserializeReplenishmentPendingPrepStorage,
@@ -319,10 +320,10 @@ function inferRequiredQty(line: CuttingMaterialLine): number {
 
 function inferAssignedCuttingGroup(record: CuttingOrderProgressRecord, line: CuttingMaterialLine): string {
   if (record.hasSpreadingRecord || /裁片中|裁剪中|待入仓|已完成/.test(record.cuttingStage)) {
-    return `${record.assignedFactoryName} / 裁床一组`
+    return `${formatFactoryDisplayName(record.assignedFactoryName)} / 裁床一组`
   }
   if (line.batchOccupancyStatus === 'IN_BATCH') {
-    return `${record.assignedFactoryName} / 待排床`
+    return `${formatFactoryDisplayName(record.assignedFactoryName)} / 待排床`
   }
   return ''
 }

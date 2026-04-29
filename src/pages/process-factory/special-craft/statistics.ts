@@ -8,6 +8,7 @@ import { getSpecialCraftExecutionStatistics } from '../../../data/fcs/process-st
 import { escapeHtml } from '../../../utils.ts'
 import {
   formatQty,
+  formatSpecialCraftFactoryLabel,
   renderEmptyState,
   renderSpecialCraftFactoryContextBlockedLayout,
   renderFilterGrid,
@@ -109,10 +110,10 @@ export function renderSpecialCraftStatisticsPage(operationSlug: string): string 
     { label: '已发料菲票', value: String(feiTicketTotals.dispatched), tone: 'blue' },
     { label: '已接收菲票', value: String(feiTicketTotals.received), tone: 'blue' },
     { label: '待回仓菲票', value: String(feiTicketTotals.waitReturn), tone: 'amber' },
-    { label: '已回仓菲票', value: String(feiTicketTotals.returned), tone: 'green' },
-    { label: '有差异菲票数', value: String(realStatistics.differenceFeiTicketCount || feiTicketTotals.difference || totalDifferenceCount), tone: 'red' },
-    { label: '接收差异菲票', value: String(feiTicketTotals.receiveDifference), tone: 'red' },
-    { label: '回仓差异菲票', value: String(feiTicketTotals.returnDifference), tone: 'red' },
+    { label: '已回仓菲票数量', value: String(feiTicketTotals.returned), tone: 'green' },
+    { label: '有差异菲票数量数', value: String(realStatistics.differenceFeiTicketCount || feiTicketTotals.difference || totalDifferenceCount), tone: 'red' },
+    { label: '接收差异菲票数量', value: String(feiTicketTotals.receiveDifference), tone: 'red' },
+    { label: '回仓差异菲票数量', value: String(feiTicketTotals.returnDifference), tone: 'red' },
     { label: '异议中菲票', value: String(feiTicketTotals.objection || totalObjectionCount), tone: 'red' },
     { label: '累计报废裁片数量', value: formatQty(realStatistics.scrapPieceQty || feiTicketTotals.scrapQty), tone: 'red' },
     { label: '累计货损裁片数量', value: formatQty(realStatistics.damagePieceQty || feiTicketTotals.damageQty), tone: 'red' },
@@ -157,7 +158,7 @@ export function renderSpecialCraftStatisticsPage(operationSlug: string): string 
         return `
         <tr>
           <td class="px-3 py-3">${escapeHtml(item.date)}</td>
-          <td class="px-3 py-3">${escapeHtml(item.factoryName)}</td>
+          <td class="px-3 py-3">${escapeHtml(formatSpecialCraftFactoryLabel(item.factoryName, item.factoryId))}</td>
           <td class="px-3 py-3">${escapeHtml(item.operationName)}</td>
           <td class="px-3 py-3">${escapeHtml(Array.from(new Set(matchedSnapshots.flatMap((snapshot) => snapshot.targetObjectSummary))).join('、') || '—')}</td>
           <td class="px-3 py-3">${String(matchedSnapshots.reduce((sum, snapshot) => sum + snapshot.workOrderCount, 0))}</td>
@@ -214,7 +215,7 @@ export function renderSpecialCraftStatisticsPage(operationSlug: string): string 
     </section>
     ${
       statistics.length > 0
-        ? renderTable(['日期', '工厂', '特殊工艺', '作用对象', '子工艺单数', '任务数', '计划裁片数量', '已接收裁片数量', '加工完成裁片数量', '待交出裁片数量', '已回仓菲票', '差异菲票', '异常'], rows, 'min-w-[1440px]')
+        ? renderTable(['日期', '工厂', '特殊工艺', '作用对象', '子工艺单数', '任务数', '计划裁片数量', '已接收裁片数量', '加工完成裁片数量', '待交出裁片数量', '已回仓菲票数量', '差异菲票数量', '异常'], rows, 'min-w-[1440px]')
         : renderEmptyState()
     }
   `

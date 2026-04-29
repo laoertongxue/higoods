@@ -5,8 +5,10 @@ import {
   listPrintWorkOrders,
 } from '../../../data/fcs/printing-task-domain.ts'
 import { buildPrintingWorkOrderDetailLink, buildTaskRouteCardPrintLink } from '../../../data/fcs/fcs-route-links.ts'
+import { formatFactoryDisplayName } from '../../../data/fcs/factory-mock-data.ts'
 import {
-  formatPrintQty,
+  formatPrintProcessQty,
+  getPrintQuantityLabel,
   getPrintPrinterSummary,
   renderActionButton,
   renderMetricCard,
@@ -49,14 +51,20 @@ function renderOrdersTable(): string {
           </td>
           <td class="px-3 py-3 text-sm">${escapeHtml(order.patternNo)}</td>
           <td class="px-3 py-3 text-sm">${escapeHtml(order.materialSku)}</td>
-          <td class="px-3 py-3 text-sm">${formatPrintQty(order.plannedQty, order.qtyUnit)}</td>
-          <td class="px-3 py-3 text-sm">${escapeHtml(order.printFactoryName)}</td>
+          <td class="px-3 py-3 text-sm">
+            <div class="text-xs text-muted-foreground">${escapeHtml(getPrintQuantityLabel(order, '计划'))}</div>
+            <div class="font-medium">${formatPrintProcessQty(order, order.plannedQty, '计划')}</div>
+          </td>
+          <td class="px-3 py-3 text-sm">${escapeHtml(formatFactoryDisplayName(order.printFactoryName, order.printFactoryId))}</td>
           <td class="px-3 py-3">${renderWorkOrderStatusBadge(order.status)}</td>
           <td class="px-3 py-3 text-sm">
             <div>${escapeHtml(printer.printerNo)}</div>
             <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(printer.speedText)}</div>
           </td>
-          <td class="px-3 py-3 text-sm">${formatPrintQty(printer.outputQty, order.qtyUnit)}</td>
+          <td class="px-3 py-3 text-sm">
+            <div class="text-xs text-muted-foreground">${escapeHtml(getPrintQuantityLabel(order, '已完成', 'PRINT_FINISH_TRANSFER'))}</div>
+            <div class="font-medium">${formatPrintProcessQty(order, printer.outputQty, '已完成', 'PRINT_FINISH_TRANSFER')}</div>
+          </td>
           <td class="px-3 py-3 text-sm">${handoverText}</td>
           <td class="px-3 py-3 text-sm">${handover.pendingWritebackCount} 条</td>
           <td class="px-3 py-3 text-sm">${handover.diffQty}</td>
@@ -91,11 +99,11 @@ function renderOrdersTable(): string {
               <th class="px-3 py-2 font-medium">印花任务</th>
               <th class="px-3 py-2 font-medium">花型</th>
               <th class="px-3 py-2 font-medium">面料</th>
-              <th class="px-3 py-2 font-medium">计划印花面料米数</th>
+              <th class="px-3 py-2 font-medium">计划印花面料米数 / 裁片数量</th>
               <th class="px-3 py-2 font-medium">印花工厂</th>
               <th class="px-3 py-2 font-medium">当前状态</th>
               <th class="px-3 py-2 font-medium">打印机</th>
-              <th class="px-3 py-2 font-medium">转印完成</th>
+              <th class="px-3 py-2 font-medium">转印完成面料米数 / 裁片数量</th>
               <th class="px-3 py-2 font-medium">交出单</th>
               <th class="px-3 py-2 font-medium">待回写</th>
               <th class="px-3 py-2 font-medium">差异</th>

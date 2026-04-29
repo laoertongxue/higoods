@@ -51,6 +51,7 @@ import {
   getCuttingMergeBatchTaskPrintSourceById,
   getCuttingOriginalOrderTaskPrintSourceById,
 } from './cutting-task-print-source.ts'
+import { getQuantityLabel } from './process-quantity-labels.ts'
 
 export const TASK_DELIVERY_CARD_NAME = '任务交货卡'
 export const TASK_ROUTE_CARD_NAME = '任务流转卡'
@@ -253,6 +254,38 @@ function formatQtyText(value: number | undefined | null, unit: string | undefine
   if (!Number.isFinite(value)) return fallback
   const formatted = Number(value).toLocaleString('zh-CN', { maximumFractionDigits: 2 })
   return `${formatted} ${unit || ''}`.trim()
+}
+
+function getTaskQuantityLabel(processName: string, unit: string | undefined, purpose: '计划' | '已交出' | '实收' | '差异'): string {
+  if (processName.includes('印花')) {
+    return getQuantityLabel({
+      processType: 'PRINT',
+      qtyUnit: unit,
+      qtyPurpose: purpose,
+    })
+  }
+  if (processName.includes('染色')) {
+    return getQuantityLabel({
+      processType: 'DYE',
+      qtyUnit: unit,
+      qtyPurpose: purpose,
+    })
+  }
+  if (processName.includes('裁')) {
+    return getQuantityLabel({
+      processType: 'CUTTING',
+      qtyUnit: unit,
+      qtyPurpose: purpose,
+    })
+  }
+  if (processName.includes('特殊工艺') || processName.includes('打揽') || processName.includes('打条') || processName.includes('捆条')) {
+    return getQuantityLabel({
+      processType: 'SPECIAL_CRAFT',
+      qtyUnit: unit,
+      qtyPurpose: purpose,
+    })
+  }
+  return purpose === '计划' ? '计划成衣件数' : `${purpose}成衣件数`
 }
 
 function buildSystemPlaceholderImage(title = '暂无商品图'): TaskPrintImage {
@@ -509,11 +542,14 @@ function mapDeliveryCardToPrintDoc(card: TaskDeliveryCardModel, record?: PdaHand
   const writtenAt = record ? getRecordReceiverWrittenAt(record) : undefined
   const writtenBy = record ? getRecordReceiverWrittenBy(record) : undefined
   const diffQty = record ? getRecordDiffQty(record) : undefined
+  const submittedQtyLabel = getTaskQuantityLabel(card.processName, card.qtyUnit, '已交出')
+  const writtenQtyLabel = getTaskQuantityLabel(card.processName, card.qtyUnit, '实收')
+  const diffQtyLabel = getTaskQuantityLabel(card.processName, card.qtyUnit, '差异')
 
-  if (typeof writtenQty === 'number') writebackRows.push({ label: '接收方回写数量', value: `${writtenQty} ${card.qtyUnit}` })
+  if (typeof writtenQty === 'number') writebackRows.push({ label: `接收方回写${writtenQtyLabel}`, value: `${writtenQty} ${card.qtyUnit}` })
   if (writtenAt) writebackRows.push({ label: '回写时间', value: writtenAt })
   if (writtenBy) writebackRows.push({ label: '回写人', value: writtenBy })
-  if (typeof diffQty === 'number') writebackRows.push({ label: '差异数量', value: `${diffQty} ${card.qtyUnit}` })
+  if (typeof diffQty === 'number') writebackRows.push({ label: diffQtyLabel, value: `${diffQty} ${card.qtyUnit}` })
   if (record?.handoverRecordStatus) writebackRows.push({ label: '异议状态', value: getHandoverRecordStatusLabel(record) })
 
   const remarkRows = [
@@ -531,7 +567,7 @@ function mapDeliveryCardToPrintDoc(card: TaskDeliveryCardModel, record?: PdaHand
     { label: '工艺', value: card.craftName },
     { label: '上游工厂', value: card.upstreamFactoryName },
     { label: '下游工厂', value: card.downstreamFactoryName },
-    { label: '本次交货数量', value: `${card.submittedQty} ${card.qtyUnit}` },
+    { label: `本次${submittedQtyLabel}`, value: `${card.submittedQty} ${card.qtyUnit}` },
     { label: '单位', value: card.qtyUnit },
     { label: '提交时间', value: card.submittedAt },
   ]
@@ -792,6 +828,15 @@ function buildRouteCardFromPrintWorkOrder(sourceId: string): TaskRouteCardBuildR
   const order = getPrintWorkOrderById(sourceId)
   if (!order) return { ok: false, title: TASK_ROUTE_CARD_NAME, message: `未找到印花加工单：${sourceId}` }
   const nodeRecords = listPrintExecutionNodeRecords(order.printOrderId)
+  const printQuantityContext = {
+    processType: 'PRINT',
+    sourceType: 'PRINTING_WORK_ORDER',
+    sourceId: order.printOrderId,
+    objectType: order.objectType,
+    qtyUnit: order.qtyUnit,
+    isPiecePrinting: order.isPiecePrinting,
+    isFabricPrinting: order.isFabricPrinting,
+  } as const
 
   return {
     ok: true,
@@ -822,7 +867,7 @@ function buildRouteCardFromPrintWorkOrder(sourceId: string): TaskRouteCardBuildR
         { label: '面料 SKU', value: order.materialSku },
         { label: '面料颜色', value: order.materialColor || '—' },
         { label: '印花工厂', value: order.printFactoryName },
-        { label: '计划印花面料米数', value: formatQtyText(order.plannedQty, order.qtyUnit) },
+        { label: getQuantityLabel({ ...printQuantityContext, qtyPurpose: '计划' }), value: formatQtyText(order.plannedQty, order.qtyUnit) },
         { label: '单位', value: order.qtyUnit },
         { label: '交出单号', value: order.handoverOrderNo || '—' },
         { label: '接收方', value: order.receiverName || '—' },
@@ -831,7 +876,7 @@ function buildRouteCardFromPrintWorkOrder(sourceId: string): TaskRouteCardBuildR
       supplementalItems: [
         { label: '来源类型', value: '印花加工单' },
         { label: '任务二维码', value: '任务二维码' },
-        { label: '原料使用量', value: formatQtyText(nodeRecords.find((record) => typeof record.usedMaterialQty === 'number')?.usedMaterialQty, order.qtyUnit) },
+        { label: order.qtyUnit === '片' || order.objectType === '裁片' ? '投入裁片数量' : '原料使用面料米数', value: formatQtyText(nodeRecords.find((record) => typeof record.usedMaterialQty === 'number')?.usedMaterialQty, order.qtyUnit) },
         { label: '备注', value: order.remark || '—' },
       ],
       routeRecords: ensureRouteRecordNodes(nodeRecords.map((record) => ({
@@ -1197,6 +1242,7 @@ export function isTaskRouteCardSourceType(value: string): value is TaskRouteCard
 
 function mapRouteCardToPrintDoc(card: TaskRouteCardModel): TaskRouteCardPrintDoc {
   const productionOrderId = card.productionOrderId || getRuntimeTaskProductionOrderId(card.taskId, card.productionOrderNo)
+  const plannedQtyLabel = getTaskQuantityLabel(card.processName, card.qtyUnit, '计划')
   const summaryRows = card.summaryRowsOverride || [
     { label: '任务编号', value: card.taskNo },
     { label: '生产单号', value: card.productionOrderNo },
@@ -1204,7 +1250,7 @@ function mapRouteCardToPrintDoc(card: TaskRouteCardModel): TaskRouteCardPrintDoc
     { label: '工艺', value: card.craftName },
     { label: '工厂', value: card.factoryName },
     { label: '状态', value: card.statusLabel },
-    { label: '计划对象数量', value: `${card.plannedQty} ${card.qtyUnit}` },
+    { label: plannedQtyLabel, value: `${card.plannedQty} ${card.qtyUnit}` },
     { label: '单位', value: card.qtyUnit },
     { label: '交期', value: card.dueAt },
     { label: '二维码', value: '任务二维码' },

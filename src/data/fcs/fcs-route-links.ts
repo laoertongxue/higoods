@@ -14,8 +14,26 @@ export function buildProductionOrderLink(productionOrderId: string): string {
   return `/fcs/production/orders/${encodeSegment(productionOrderId)}`
 }
 
-export function buildTaskDetailLink(taskId: string): string {
-  return `/fcs/pda/exec/${encodeSegment(taskId)}`
+export function buildTaskDetailLink(
+  taskId: string,
+  options?: {
+    returnTo?: string
+    sourceType?: string
+    sourceId?: string
+    currentFactoryId?: string
+    keyword?: string
+    tab?: string
+  },
+): string {
+  const params = new URLSearchParams()
+  if (options?.returnTo?.trim()) params.set('returnTo', options.returnTo.trim())
+  if (options?.sourceType?.trim()) params.set('sourceType', options.sourceType.trim())
+  if (options?.sourceId?.trim()) params.set('sourceId', options.sourceId.trim())
+  if (options?.currentFactoryId?.trim()) params.set('currentFactoryId', options.currentFactoryId.trim())
+  if (options?.keyword?.trim()) params.set('keyword', options.keyword.trim())
+  if (options?.tab?.trim()) params.set('tab', options.tab.trim())
+  const query = params.toString()
+  return query ? `/fcs/pda/exec/${encodeSegment(taskId)}?${query}` : `/fcs/pda/exec/${encodeSegment(taskId)}`
 }
 
 export function buildHandoverOrderLink(handoverOrderId: string): string {

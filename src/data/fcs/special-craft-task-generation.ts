@@ -1,4 +1,4 @@
-import { mockFactories } from './factory-mock-data.ts'
+import { TEST_FACTORY_ID, TEST_FACTORY_NAME, mockFactories } from './factory-mock-data.ts'
 import {
   getProductionOrderTechPackSnapshot,
 } from './production-order-tech-pack-runtime.ts'
@@ -577,8 +577,8 @@ function mergeDemandLinesIntoTaskOrder(input: {
     processName: operation.processName,
     craftCode: operation.craftCode,
     craftName: operation.craftName,
-    factoryId: existingTask?.factoryId || '',
-    factoryName: existingTask?.factoryName || '待分配',
+    factoryId: existingTask?.factoryId || TEST_FACTORY_ID,
+    factoryName: existingTask?.factoryName || TEST_FACTORY_NAME,
     productionOrderId: order.productionOrderId,
     productionOrderNo,
     productionOrderVersion,

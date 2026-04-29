@@ -15,6 +15,7 @@ import {
   type RuntimeProcessTask,
   type RuntimeTaskScopeType,
 } from './runtime-process-tasks.ts'
+import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
 
 export type WarehouseExecutionDocType = 'ISSUE' | 'RETURN' | 'INTERNAL_TRANSFER'
 export type WarehouseExecutionStatus =
@@ -542,8 +543,8 @@ function buildExecutionDocuments(): {
       scopeKey: 'PO-FALLBACK-001',
       scopeLabel: 'PO-FALLBACK-001',
       targetType: 'EXTERNAL_FACTORY',
-      targetFactoryId: 'ID-F002',
-      targetFactoryName: 'PT Prima Printing Center',
+      targetFactoryId: TEST_FACTORY_ID,
+      targetFactoryName: TEST_FACTORY_NAME,
       executorKind: 'EXTERNAL_FACTORY',
       warehouseId: WAREHOUSE_SEEDS[0].id,
       warehouseName: WAREHOUSE_SEEDS[0].name,

@@ -1,5 +1,6 @@
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
+import { formatFactoryDisplayName } from '../data/fcs/factory-mock-data.ts'
 import {
   getPdaCuttingTaskSnapshot,
   type PdaCuttingTaskDetailData,
@@ -186,7 +187,7 @@ function renderTaskOverviewCard(detail: PdaCuttingTaskDetailData): string {
         <div class="text-muted-foreground">当前步骤</div>
         <div class="mt-1 text-sm font-semibold text-foreground">进入当前任务</div>
         <div class="mt-1 text-muted-foreground">${escapeHtml(detail.taskProgressLabel)}</div>
-        <div class="mt-1 text-muted-foreground">分配工厂：${escapeHtml(detail.assigneeFactoryName)}</div>
+        <div class="mt-1 text-muted-foreground">分配工厂：${escapeHtml(formatFactoryDisplayName(detail.assigneeFactoryName, detail.assigneeFactoryId))}</div>
       </div>
       ${
         detail.exceptionCutPieceOrderCount > 0

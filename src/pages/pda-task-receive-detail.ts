@@ -2,7 +2,8 @@ import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
 import { type ProcessTask } from '../data/fcs/process-tasks'
 import { productionOrders } from '../data/fcs/production-orders'
-import { indonesiaFactories } from '../data/fcs/indonesia-factories'
+import { getFactoryMasterRecordById } from '../data/fcs/factory-master-store'
+import { formatFactoryDisplayName } from '../data/fcs/factory-mock-data'
 import {
   PDA_MOCK_BIDDING_TENDERS,
   PDA_MOCK_QUOTED_TENDERS,
@@ -76,8 +77,8 @@ function getCurrentFactoryId(): string {
 }
 
 function getFactoryName(factoryId: string): string {
-  const factory = indonesiaFactories.find((item) => item.id === factoryId)
-  return factory?.name ?? factoryId
+  const factory = getFactoryMasterRecordById(factoryId)
+  return formatFactoryDisplayName(factory?.name, factory?.code || factory?.id || factoryId)
 }
 
 function getReceiveDetailSearchParams(): URLSearchParams {
@@ -635,8 +636,12 @@ function renderReceiveSpecificSection(task: ProcessTask, tab: ReceiveDetailTabKe
 
 function renderPdaTaskReceiveCuttingDetailPage(task: PdaReceiveTask): string {
   const factory = task.assignedFactoryId
-    ? indonesiaFactories.find((item) => item.id === task.assignedFactoryId)
+    ? getFactoryMasterRecordById(task.assignedFactoryId)
     : undefined
+  const factoryDisplayName = formatFactoryDisplayName(
+    factory?.name || task.assignedFactoryName,
+    factory?.code || factory?.id || task.assignedFactoryId,
+  )
   const tab = getReceiveDetailTab(task)
   const canOperate =
     (!task.acceptanceStatus || task.acceptanceStatus === 'PENDING') && tab === 'pending-accept'
@@ -667,7 +672,7 @@ function renderPdaTaskReceiveCuttingDetailPage(task: PdaReceiveTask): string {
           <div class="space-y-3 p-4">
             <div class="grid grid-cols-2 gap-3 text-sm">
               ${renderField('原始任务', getRootTaskDisplayNo(task))}
-              ${renderField('当前工厂', factory?.name || task.assignedFactoryName || task.assignedFactoryId || '-')}
+              ${renderField('当前工厂', factoryDisplayName)}
               ${renderField('指派方式', getAssignmentModeLabel(task.assignmentMode))}
               ${renderField('接单状态', task.acceptanceStatus === 'ACCEPTED' ? '已接单' : task.acceptanceStatus === 'REJECTED' ? '已拒单' : '待接单')}
               ${renderField('数量', `${task.qty} ${task.qtyUnit}`)}
@@ -694,10 +699,10 @@ function renderPdaTaskReceiveCuttingDetailPage(task: PdaReceiveTask): string {
             </h2>
           </header>
           <div class="p-4 text-sm">
-            <div class="font-medium">${escapeHtml(factory?.name || task.assignedFactoryName || task.assignedFactoryId || '-')}</div>
+            <div class="font-medium">${escapeHtml(factoryDisplayName)}</div>
             ${
               factory
-                ? `<div class="mt-1 text-xs text-muted-foreground">${escapeHtml(factory.city)}, ${escapeHtml(factory.province)}</div>`
+                ? `<div class="mt-1 text-xs text-muted-foreground">${escapeHtml(factory.address)}</div>`
                 : ''
             }
           </div>
@@ -801,8 +806,12 @@ export function renderPdaTaskReceiveDetailPage(taskId: string): string {
   }
 
   const factory = task.assignedFactoryId
-    ? indonesiaFactories.find((item) => item.id === task.assignedFactoryId)
+    ? getFactoryMasterRecordById(task.assignedFactoryId)
     : undefined
+  const factoryDisplayName = formatFactoryDisplayName(
+    factory?.name || task.assignedFactoryName,
+    factory?.code || factory?.id || task.assignedFactoryId,
+  )
 
   const styleSnapshot = getTaskStyleSnapshot(task)
   const stageLabel = getTaskStageDisplayName(task)
@@ -902,10 +911,10 @@ export function renderPdaTaskReceiveDetailPage(taskId: string): string {
             </h2>
           </header>
           <div class="p-4 text-sm">
-            <div class="font-medium">${escapeHtml(factory?.name || task.assignedFactoryId || '-')}</div>
+            <div class="font-medium">${escapeHtml(factoryDisplayName)}</div>
             ${
               factory
-                ? `<div class="mt-1 text-xs text-muted-foreground">${escapeHtml(factory.city)}, ${escapeHtml(factory.province)}</div>`
+                ? `<div class="mt-1 text-xs text-muted-foreground">${escapeHtml(factory.address)}</div>`
                 : ''
             }
           </div>

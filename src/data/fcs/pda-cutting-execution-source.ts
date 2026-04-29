@@ -13,6 +13,7 @@ import {
   type PdaCuttingTaskSourceRecord,
 } from './cutting/pda-cutting-task-source.ts'
 import { listPdaGenericProcessTasks } from './pda-task-mock-factory.ts'
+import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
 import {
   matchPdaExecutionRecord,
   toLegacyCutPieceOrderNo,
@@ -260,6 +261,7 @@ export interface PdaCuttingTaskDetailData {
   taskNextActionLabel: string
   taskTypeLabel: string
   factoryTypeLabel: string
+  assigneeFactoryId: string
   assigneeFactoryName: string
   orderQty: number
   taskStatusLabel: string
@@ -630,8 +632,8 @@ function buildFallbackCuttingTaskFact(record: PdaCuttingTaskSourceRecord): Proce
     assignmentMode: mapScenarioAssignmentMode(scenario?.origin || 'DIRECT'),
     assignmentStatus: mapScenarioAssignmentStatus(scenario?.origin || 'DIRECT'),
     ownerSuggestion: { kind: 'MAIN_FACTORY' },
-    assignedFactoryId: scenario?.assignedFactoryId || 'ID-F001',
-    assignedFactoryName: scenario?.assignedFactoryName || 'PT Sinar Garment Indonesia',
+    assignedFactoryId: scenario?.assignedFactoryId || TEST_FACTORY_ID,
+    assignedFactoryName: scenario?.assignedFactoryName || TEST_FACTORY_NAME,
     qcPoints: [],
     attachments: [],
     status: scenario?.taskStatus || 'NOT_STARTED',
@@ -1483,7 +1485,12 @@ function buildProjectedTask(task: ProcessTask, snapshot: CuttingDomainSnapshot):
       mockExecutionSummary?: string
       mockHandoverSummary?: string
     }
+    const isSpecialCraftTask = task.processNameZh?.includes('特殊工艺') || task.processBusinessName?.includes('特殊工艺')
+    const isCuttingTask = task.processNameZh === '裁片' || task.processBusinessName === '裁片'
+    const shouldUseDemoFactory = isSpecialCraftTask || isCuttingTask
     return Object.assign(task, {
+      assignedFactoryId: task.assignedFactoryId || (shouldUseDemoFactory ? TEST_FACTORY_ID : task.assignedFactoryId),
+      assignedFactoryName: task.assignedFactoryName || (shouldUseDemoFactory ? TEST_FACTORY_NAME : task.assignedFactoryName),
       taskType: 'PROCESS',
       taskTypeLabel: task.taskCategoryZh || `${task.processNameZh}任务`,
       factoryType: 'FACTORY',
@@ -1694,6 +1701,7 @@ export function getPdaCuttingTaskSnapshot(
     taskNextActionLabel: task.taskNextActionLabel || selectedLine.nextActionLabel,
     taskTypeLabel: '裁片任务',
     factoryTypeLabel: '移动执行投影',
+    assigneeFactoryId: task.assignedFactoryId || '',
     assigneeFactoryName: task.assignedFactoryName || '工艺工厂裁片执行',
     orderQty,
     taskStatusLabel: task.taskStateLabel || mapTaskStatusLabel(task.status),
@@ -1814,7 +1822,10 @@ export function resolvePdaTaskDetailPath(taskId: string, returnTo?: string): str
 
 export function resolvePdaTaskExecPath(taskId: string, returnTo?: string): string {
   const task = getPdaTaskFlowTaskById(taskId)
-  if (!task || !isCuttingSpecialTask(task)) return `/fcs/pda/exec/${taskId}`
+  if (!task || !isCuttingSpecialTask(task)) {
+    if (!returnTo?.trim()) return `/fcs/pda/exec/${taskId}`
+    return `/fcs/pda/exec/${taskId}?returnTo=${encodeURIComponent(returnTo.trim())}`
+  }
   const detail = getPdaCuttingTaskSnapshot(taskId, task.defaultExecutionOrderId || task.defaultExecutionOrderNo)
   if (!detail) return resolvePdaTaskDetailPath(taskId, returnTo)
   const selectedLine = detail.cutPieceOrders.find((line) => line.executionOrderId === detail.defaultExecutionOrderId) || detail.cutPieceOrders[0]

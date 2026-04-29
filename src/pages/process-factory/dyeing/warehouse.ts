@@ -10,6 +10,7 @@ import {
   type DyeingWarehouseView,
 } from '../../../data/fcs/dyeing-warehouse-view.ts'
 import { escapeHtml } from '../../../utils.ts'
+import { formatFactoryDisplayName } from '../../../data/fcs/factory-mock-data.ts'
 import {
   renderBadge,
   renderMetricCard,
@@ -22,6 +23,10 @@ type DyeingWarehouseMode = 'wait-process' | 'wait-handover'
 function formatQty(value: number | undefined, unit = ''): string {
   const qty = Number.isFinite(value) ? Number(value).toLocaleString('zh-CN', { maximumFractionDigits: 2 }) : '0'
   return unit ? `${qty} ${escapeHtml(unit)}` : qty
+}
+
+function formatFactoryCell(factoryName?: string, factoryId?: string): string {
+  return escapeHtml(formatFactoryDisplayName(factoryName, factoryId))
 }
 
 function renderTable(headers: string[], rows: string, minWidthClass = 'min-w-[1280px]'): string {
@@ -38,7 +43,7 @@ function renderTable(headers: string[], rows: string, minWidthClass = 'min-w-[12
 }
 
 function renderFilters(view: DyeingWarehouseView): string {
-  const factoryText = view.factoryIds.length > 1 ? '全部染色工厂' : view.warehouses[0]?.factoryName || '全部染色工厂'
+  const factoryText = view.factoryIds.length > 1 ? '全部染色工厂' : formatFactoryDisplayName(view.warehouses[0]?.factoryName, view.factoryIds[0]) || '全部染色工厂'
   return `
     <section class="rounded-lg border bg-card p-4">
       <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -67,7 +72,7 @@ function renderWaitProcessRows(view: DyeingWarehouseView): string {
     .map(
       (item) => `
         <tr class="border-b align-top last:border-b-0">
-          <td class="px-3 py-3">${escapeHtml(item.factoryName)}</td>
+          <td class="px-3 py-3">${formatFactoryCell(item.factoryName, item.factoryId)}</td>
           <td class="px-3 py-3">${escapeHtml(item.warehouseName)}</td>
           <td class="px-3 py-3">${escapeHtml(item.sourceRecordNo)}</td>
           <td class="px-3 py-3">${escapeHtml(item.taskNo || '—')}</td>
@@ -99,7 +104,7 @@ function renderWaitHandoverRows(view: DyeingWarehouseView): string {
     .map(
       (item) => `
         <tr class="border-b align-top last:border-b-0">
-          <td class="px-3 py-3">${escapeHtml(item.factoryName)}</td>
+          <td class="px-3 py-3">${formatFactoryCell(item.factoryName, item.factoryId)}</td>
           <td class="px-3 py-3">${escapeHtml(item.warehouseName)}</td>
           <td class="px-3 py-3">${escapeHtml(item.taskNo || '—')}</td>
           <td class="px-3 py-3">${escapeHtml(item.itemKind)}</td>
@@ -132,7 +137,7 @@ function renderInboundRows(view: DyeingWarehouseView): string {
       (item) => `
         <tr class="border-b align-top last:border-b-0">
           <td class="px-3 py-3">${escapeHtml(item.inboundRecordNo)}</td>
-          <td class="px-3 py-3">${escapeHtml(item.factoryName)}</td>
+          <td class="px-3 py-3">${formatFactoryCell(item.factoryName, item.factoryId)}</td>
           <td class="px-3 py-3">${escapeHtml(item.warehouseName)}</td>
           <td class="px-3 py-3">${escapeHtml(item.sourceRecordNo)}</td>
           <td class="px-3 py-3">${escapeHtml(item.taskNo || '—')}</td>
@@ -157,7 +162,7 @@ function renderOutboundRows(view: DyeingWarehouseView): string {
       (item) => `
         <tr class="border-b align-top last:border-b-0">
           <td class="px-3 py-3">${escapeHtml(item.outboundRecordNo)}</td>
-          <td class="px-3 py-3">${escapeHtml(item.factoryName)}</td>
+          <td class="px-3 py-3">${formatFactoryCell(item.factoryName, item.factoryId)}</td>
           <td class="px-3 py-3">${escapeHtml(item.warehouseName)}</td>
           <td class="px-3 py-3">${escapeHtml(item.sourceTaskNo || '—')}</td>
           <td class="px-3 py-3">${escapeHtml(item.handoverOrderNo || '—')}</td>
@@ -192,7 +197,7 @@ function renderNodeRows(view: DyeingWarehouseView): string {
     .map(
       (row) => `
         <tr class="border-b last:border-b-0">
-          <td class="px-3 py-3">${escapeHtml(row.factoryName)}</td>
+          <td class="px-3 py-3">${formatFactoryCell(row.factoryName, row.factoryId)}</td>
           <td class="px-3 py-3">${escapeHtml(row.warehouseName)}</td>
           <td class="px-3 py-3">${escapeHtml(row.areaName)}</td>
           <td class="px-3 py-3">${escapeHtml(row.shelfNo || '—')}</td>
@@ -211,7 +216,7 @@ function renderStocktakeRows(view: DyeingWarehouseView): string {
       (order) => `
         <tr class="border-b last:border-b-0">
           <td class="px-3 py-3">${escapeHtml(order.stocktakeOrderNo)}</td>
-          <td class="px-3 py-3">${escapeHtml(order.factoryName)}</td>
+          <td class="px-3 py-3">${formatFactoryCell(order.factoryName, order.factoryId)}</td>
           <td class="px-3 py-3">${escapeHtml(order.warehouseName)}</td>
           <td class="px-3 py-3">${escapeHtml(order.stocktakeScope)}</td>
           <td class="px-3 py-3">${escapeHtml(order.createdBy)}</td>

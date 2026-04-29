@@ -27,8 +27,8 @@ import {
 } from '../../../data/fcs/cutting/transfer-bag-runtime.ts'
 import {
   getFactoryMasterRecordById,
-  listSewingFactoryMasterRecords,
 } from '../../../data/fcs/factory-master-store.ts'
+import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from '../../../data/fcs/factory-mock-data.ts'
 import { FEI_TICKET_DEMO_CASE_IDS, type FeiTicketLabelRecord } from './fei-tickets-model.ts'
 import type { MergeBatchRecord } from './merge-batches-model.ts'
 import {
@@ -76,11 +76,9 @@ function resolveTransferBagFactoryName(factoryId: string | undefined, fallbackNa
 }
 
 function pickTransferBagSewingFactory(index: number): { factoryId: string; factoryName: string } {
-  const factories = listSewingFactoryMasterRecords()
-  const factory = factories[index % factories.length] || factories[0] || null
   return {
-    factoryId: factory?.id || `factory-sew-${index + 1}`,
-    factoryName: factory?.name || '工厂档案待补',
+    factoryId: TEST_FACTORY_ID,
+    factoryName: TEST_FACTORY_NAME,
   }
 }
 

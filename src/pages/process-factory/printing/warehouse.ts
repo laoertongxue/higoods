@@ -10,6 +10,7 @@ import {
   type PrintingWarehouseView,
 } from '../../../data/fcs/printing-warehouse-view.ts'
 import { escapeHtml } from '../../../utils.ts'
+import { formatFactoryDisplayName } from '../../../data/fcs/factory-mock-data.ts'
 import {
   renderBadge,
   renderMetricCard,
@@ -22,6 +23,10 @@ type PrintingWarehouseMode = 'wait-process' | 'wait-handover'
 function formatQty(value: number | undefined, unit = ''): string {
   const qty = Number.isFinite(value) ? Number(value).toLocaleString('zh-CN', { maximumFractionDigits: 2 }) : '0'
   return unit ? `${qty} ${escapeHtml(unit)}` : qty
+}
+
+function formatFactoryCell(factoryName?: string, factoryId?: string): string {
+  return escapeHtml(formatFactoryDisplayName(factoryName, factoryId))
 }
 
 function renderTable(headers: string[], rows: string, minWidthClass = 'min-w-[1280px]'): string {
@@ -38,7 +43,7 @@ function renderTable(headers: string[], rows: string, minWidthClass = 'min-w-[12
 }
 
 function renderFilters(view: PrintingWarehouseView): string {
-  const factoryText = view.factoryIds.length > 1 ? '全部印花工厂' : view.warehouses[0]?.factoryName || '全部印花工厂'
+  const factoryText = view.factoryIds.length > 1 ? '全部印花工厂' : formatFactoryDisplayName(view.warehouses[0]?.factoryName, view.factoryIds[0]) || '全部印花工厂'
   return `
     <section class="rounded-lg border bg-card p-4">
       <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -67,7 +72,7 @@ function renderWaitProcessRows(view: PrintingWarehouseView): string {
     .map(
       (item) => `
         <tr class="border-b align-top last:border-b-0">
-          <td class="px-3 py-3">${escapeHtml(item.factoryName)}</td>
+          <td class="px-3 py-3">${formatFactoryCell(item.factoryName, item.factoryId)}</td>
           <td class="px-3 py-3">${escapeHtml(item.warehouseName)}</td>
           <td class="px-3 py-3">${escapeHtml(item.sourceRecordNo)}</td>
           <td class="px-3 py-3">${escapeHtml(item.taskNo || '—')}</td>
@@ -99,7 +104,7 @@ function renderWaitHandoverRows(view: PrintingWarehouseView): string {
     .map(
       (item) => `
         <tr class="border-b align-top last:border-b-0">
-          <td class="px-3 py-3">${escapeHtml(item.factoryName)}</td>
+          <td class="px-3 py-3">${formatFactoryCell(item.factoryName, item.factoryId)}</td>
           <td class="px-3 py-3">${escapeHtml(item.warehouseName)}</td>
           <td class="px-3 py-3">${escapeHtml(item.taskNo || '—')}</td>
           <td class="px-3 py-3">${escapeHtml(item.itemKind)}</td>
@@ -132,7 +137,7 @@ function renderInboundRows(view: PrintingWarehouseView): string {
       (item) => `
         <tr class="border-b align-top last:border-b-0">
           <td class="px-3 py-3">${escapeHtml(item.inboundRecordNo)}</td>
-          <td class="px-3 py-3">${escapeHtml(item.factoryName)}</td>
+          <td class="px-3 py-3">${formatFactoryCell(item.factoryName, item.factoryId)}</td>
           <td class="px-3 py-3">${escapeHtml(item.warehouseName)}</td>
           <td class="px-3 py-3">${escapeHtml(item.sourceRecordNo)}</td>
           <td class="px-3 py-3">${escapeHtml(item.taskNo || '—')}</td>
@@ -157,7 +162,7 @@ function renderOutboundRows(view: PrintingWarehouseView): string {
       (item) => `
         <tr class="border-b align-top last:border-b-0">
           <td class="px-3 py-3">${escapeHtml(item.outboundRecordNo)}</td>
-          <td class="px-3 py-3">${escapeHtml(item.factoryName)}</td>
+          <td class="px-3 py-3">${formatFactoryCell(item.factoryName, item.factoryId)}</td>
           <td class="px-3 py-3">${escapeHtml(item.warehouseName)}</td>
           <td class="px-3 py-3">${escapeHtml(item.sourceTaskNo || '—')}</td>
           <td class="px-3 py-3">${escapeHtml(item.handoverOrderNo || '—')}</td>
@@ -192,7 +197,7 @@ function renderNodeRows(view: PrintingWarehouseView): string {
     .map(
       (row) => `
         <tr class="border-b last:border-b-0">
-          <td class="px-3 py-3">${escapeHtml(row.factoryName)}</td>
+          <td class="px-3 py-3">${formatFactoryCell(row.factoryName, row.factoryId)}</td>
           <td class="px-3 py-3">${escapeHtml(row.warehouseName)}</td>
           <td class="px-3 py-3">${escapeHtml(row.areaName)}</td>
           <td class="px-3 py-3">${escapeHtml(row.shelfNo || '—')}</td>
@@ -211,7 +216,7 @@ function renderStocktakeRows(view: PrintingWarehouseView): string {
       (order) => `
         <tr class="border-b last:border-b-0">
           <td class="px-3 py-3">${escapeHtml(order.stocktakeOrderNo)}</td>
-          <td class="px-3 py-3">${escapeHtml(order.factoryName)}</td>
+          <td class="px-3 py-3">${formatFactoryCell(order.factoryName, order.factoryId)}</td>
           <td class="px-3 py-3">${escapeHtml(order.warehouseName)}</td>
           <td class="px-3 py-3">${escapeHtml(order.stocktakeScope)}</td>
           <td class="px-3 py-3">${escapeHtml(order.createdBy)}</td>
@@ -257,12 +262,12 @@ function renderPrintingWarehousePage(mode: PrintingWarehouseMode): string {
   const modeSections =
     mode === 'wait-process'
       ? [
-          renderSection('待加工仓', renderTable(['工厂', '仓库', '印花加工单号', '所属任务', '类型', '面料 SKU', '颜色', '尺码', '卷号', '计划加工面料米数', '待加工面料米数', '差异面料米数', '库位', '状态', '操作'], renderWaitProcessRows(view), 'min-w-[1680px]')),
-          renderSection('入库记录', renderTable(['入库单号', '工厂', '入库仓', '印花加工单号', '所属任务', '面料 SKU', '计划加工面料米数', '入仓面料米数', '差异面料米数', '库位', '操作人', '操作时间', '状态', '操作'], renderInboundRows(view), 'min-w-[1680px]')),
+          renderSection('待加工仓', renderTable(['工厂', '仓库', '印花加工单号', '所属任务', '类型', '面料 SKU', '颜色', '尺码', '卷号', '计划印花面料米数 / 裁片数量', '待印花面料米数 / 裁片数量', '差异面料米数 / 裁片数量', '库位', '状态', '操作'], renderWaitProcessRows(view), 'min-w-[1680px]')),
+          renderSection('入库记录', renderTable(['入库单号', '工厂', '入库仓', '印花加工单号', '所属任务', '面料 SKU', '计划印花面料米数 / 裁片数量', '入仓面料米数 / 裁片数量', '差异面料米数 / 裁片数量', '库位', '操作人', '操作时间', '状态', '操作'], renderInboundRows(view), 'min-w-[1680px]')),
         ].join('')
       : [
-          renderSection('待交出仓', renderTable(['工厂', '仓库', '来源任务', '类型', '面料 SKU', '颜色', '卷号', '转印完成面料米数', '损耗面料米数', '待交出面料米数', '接收方', '交出单', '交出记录', '回写面料米数', '状态', '操作'], renderWaitHandoverRows(view), 'min-w-[1740px]')),
-          renderSection('出库记录', renderTable(['出库单号', '工厂', '出库仓', '来源任务', '交出单', '交出记录', '接收方', '面料 SKU', '已交出面料米数', '回写面料米数', '差异面料米数', '操作人', '出库时间', '状态', '操作'], renderOutboundRows(view), 'min-w-[1720px]')),
+          renderSection('待交出仓', renderTable(['工厂', '仓库', '来源任务', '类型', '面料 SKU', '颜色', '卷号', '转印完成面料米数 / 裁片数量', '损耗面料米数 / 裁片数量', '待交出面料米数 / 裁片数量', '接收方', '交出单', '交出记录', '回写面料米数 / 裁片数量', '状态', '操作'], renderWaitHandoverRows(view), 'min-w-[1740px]')),
+          renderSection('出库记录', renderTable(['出库单号', '工厂', '出库仓', '来源任务', '交出单', '交出记录', '接收方', '面料 SKU', '已交出面料米数 / 裁片数量', '回写面料米数 / 裁片数量', '差异面料米数 / 裁片数量', '操作人', '出库时间', '状态', '操作'], renderOutboundRows(view), 'min-w-[1720px]')),
         ].join('')
 
   return `

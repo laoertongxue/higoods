@@ -1,4 +1,5 @@
-import { indonesiaFactories } from '../indonesia-factories.ts'
+import { getFactoryMasterRecordById } from '../factory-master-store.ts'
+import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from '../factory-mock-data.ts'
 import type { AcceptanceStatus, BlockReason, TaskStatus } from '../process-tasks.ts'
 import type {
   PdaMobileAwardedTenderNoticeMock,
@@ -77,7 +78,8 @@ const originalCutOrderByNo = new Map(
 const missingOriginalCutOrderWarnings = new Set<string>()
 
 function getFactoryName(factoryId: string): string {
-  return indonesiaFactories.find((item) => item.id === factoryId)?.name ?? factoryId
+  if (factoryId === TEST_FACTORY_ID || factoryId === 'ID-F090') return TEST_FACTORY_NAME
+  return getFactoryMasterRecordById(factoryId)?.name ?? factoryId
 }
 
 function resolveBoundExecution(matrix: PdaCuttingTaskMockMatrixItem, execution: PdaCuttingTaskMockMatrixItem['executions'][number]): PdaCuttingResolvedExecutionScenario {

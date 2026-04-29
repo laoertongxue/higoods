@@ -1,4 +1,4 @@
-import { mockFactories } from '../factory-mock-data.ts'
+import { TEST_FACTORY_ID, mockFactories } from '../factory-mock-data.ts'
 import type {
   FactoryInternalWarehouse,
   FactoryWaitHandoverStockItem,
@@ -281,8 +281,8 @@ interface FlowStore {
 const CUTTING_SPECIAL_FACTORY_STATUSES = new Set(['待发料', '已发料', '已接收', '加工中', '已完成', '待回仓', '已回仓'])
 const PROMPT7_SEED_OPERATOR = '系统示例'
 const PROMPT7_SEED_TIME = '2026-04-23 10:30:00'
-const PROMPT7_CUTTING_FACTORY_ID = 'ID-F004'
-const PROMPT7_DEFAULT_SPECIAL_FACTORY_ID = 'ID-F015'
+const PROMPT7_CUTTING_FACTORY_ID = TEST_FACTORY_ID
+const PROMPT7_DEFAULT_SPECIAL_FACTORY_ID = TEST_FACTORY_ID
 
 let flowStore: FlowStore | null = null
 
@@ -1603,7 +1603,7 @@ export function recordSpecialCraftFeiTicketLossAndDamage(input: {
   const damageQty = roundQty(input.damageQty)
   if (scrapQty + damageQty <= 0) throw new Error('报废数量和货损数量必须大于 0。')
   const sourceQty = binding.receivedQty || binding.currentQty || binding.openingQty
-  if (scrapQty + damageQty > sourceQty) throw new Error('报废和货损数量不能超过当前实收数量。')
+  if (scrapQty + damageQty > sourceQty) throw new Error('报废和货损数量不能超过当前实收裁片数量。')
   let nextBinding = updateBinding(flowStore!, binding.bindingId, (current) => ({
     ...current,
     scrapQty,

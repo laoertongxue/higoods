@@ -1,4 +1,5 @@
 import { getFactoryMobileTodoActionRoute, getFactoryMobileTodoCount, getFactoryMobileTodos } from '../data/fcs/factory-mobile-todos.ts'
+import { formatFactoryDisplayName } from '../data/fcs/factory-mock-data.ts'
 import { appStore } from '../state/store'
 import { escapeHtml, toClassName } from '../utils'
 import { getPdaRuntimeContext } from './pda-runtime'
@@ -14,6 +15,7 @@ interface PdaTabConfig {
 
 interface PdaFrameOptions {
   headerTitle?: string
+  disableTodoAutoOpen?: boolean
 }
 
 const MOBILE_APP_TABS: PdaTabConfig[] = [
@@ -27,6 +29,7 @@ const MOBILE_APP_TABS: PdaTabConfig[] = [
 let todoModalOpen = false
 let shownTodoSessionKey: string | null = null
 let currentTodoSessionKey: string | null = null
+let currentPdaPathKey: string | null = null
 
 function getSessionKey(): string | null {
   const runtime = getPdaRuntimeContext()
@@ -34,13 +37,19 @@ function getSessionKey(): string | null {
   return [runtime.factoryId, runtime.loginId, runtime.userId].join(':')
 }
 
-function syncTodoModalAutoOpen(): void {
+function syncTodoModalAutoOpen(disableAutoOpen = false): void {
   const runtime = getPdaRuntimeContext()
   const sessionKey = getSessionKey()
+  const pathname = appStore.getState().pathname || ''
   if (sessionKey !== currentTodoSessionKey) {
     currentTodoSessionKey = sessionKey
     todoModalOpen = false
   }
+  if (pathname !== currentPdaPathKey) {
+    currentPdaPathKey = pathname
+    todoModalOpen = false
+  }
+  if (disableAutoOpen) return
   if (!runtime || !sessionKey) return
   if (shownTodoSessionKey === sessionKey) return
   if (getFactoryMobileTodoCount(runtime.factoryId) <= 0) return
@@ -82,7 +91,7 @@ function renderPdaTopBar(activeTab: PdaTabKey | null, headerTitle?: string): str
     <header class="sticky top-0 z-20 border-b bg-background/95 px-4 py-3 backdrop-blur">
       <div class="flex items-center gap-3">
         <div class="min-w-0 flex-1">
-          <div class="truncate text-sm font-semibold text-foreground">${escapeHtml(runtime?.factoryName || '工厂端移动应用')}</div>
+          <div class="truncate text-sm font-semibold text-foreground">${escapeHtml(runtime ? formatFactoryDisplayName(runtime.factoryName, runtime.factoryId) : '工厂端移动应用')}</div>
           <div class="truncate text-[11px] text-muted-foreground">${escapeHtml(getTabTitle(activeTab, headerTitle))}</div>
         </div>
         ${renderTodoTrigger(todoCount)}
@@ -205,7 +214,7 @@ export function renderPdaBottomNav(activeTab: PdaTabKey | null): string {
 }
 
 export function renderPdaFrame(content: string, activeTab: PdaTabKey | null, options: PdaFrameOptions = {}): string {
-  syncTodoModalAutoOpen()
+  syncTodoModalAutoOpen(Boolean(options.disableTodoAutoOpen))
   return `
     <section class="relative flex min-h-[760px] flex-col overflow-hidden bg-background">
       ${renderPdaTopBar(activeTab, options.headerTitle)}

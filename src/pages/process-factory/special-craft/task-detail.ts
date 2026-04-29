@@ -16,6 +16,7 @@ import {
 import { escapeHtml } from '../../../utils.ts'
 import {
   formatQty,
+  formatSpecialCraftFactoryLabel,
   renderEmptyState,
   renderSpecialCraftFactoryContextBlockedLayout,
   renderSpecialCraftPageLayout,
@@ -83,7 +84,7 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
     { label: '技术包版本', value: escapeHtml(taskOrder.techPackVersion || '—') },
     { label: '生成批次', value: escapeHtml(taskOrder.generationBatchId || '—') },
     { label: '特殊工艺', value: escapeHtml(taskOrder.operationName) },
-    { label: '执行工厂', value: escapeHtml(taskOrder.factoryName) },
+    { label: '执行工厂', value: escapeHtml(formatSpecialCraftFactoryLabel(taskOrder.factoryName, taskOrder.factoryId)) },
     { label: '作用对象', value: escapeHtml(taskOrder.targetObject) },
     { label: '分配状态', value: renderStatusBadge(taskOrder.assignmentStatusLabel || '待分配') },
     { label: '执行状态', value: renderStatusBadge(taskOrder.executionStatusLabel || taskOrder.status) },
@@ -103,7 +104,7 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
         { label: '尺码', value: escapeHtml(taskOrder.sizeCode || '—') },
         { label: '菲票号', value: escapeHtml(taskOrder.feiTicketNos.join('、') || '待绑定') },
         { label: '中转袋号', value: escapeHtml(taskOrder.transferBagNos.join('、') || '—') },
-        { label: '数量', value: `${formatQty(taskOrder.planQty)}${escapeHtml(taskOrder.unit)}` },
+        { label: '计划特殊工艺裁片数量', value: `${formatQty(taskOrder.planQty)}${escapeHtml(taskOrder.unit)}` },
       ])
     : ''
 
@@ -112,7 +113,7 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
         { label: '面料 SKU', value: escapeHtml(taskOrder.materialSku || '—') },
         { label: '颜色', value: escapeHtml(taskOrder.fabricColor || '—') },
         { label: '卷号', value: escapeHtml(taskOrder.fabricRollNos.join('、') || '—') },
-        { label: '数量', value: `${formatQty(taskOrder.planQty)}${escapeHtml(taskOrder.unit)}` },
+        { label: '计划特殊工艺裁片数量', value: `${formatQty(taskOrder.planQty)}${escapeHtml(taskOrder.unit)}` },
         { label: '单位', value: escapeHtml(taskOrder.unit) },
       ])
     : ''
@@ -269,7 +270,7 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
       '任务明细',
       demandRows
         ? renderTable(
-            ['裁片部位', '颜色', '尺码', '每件片数', '生产数量', '计划片数', '来源纸样', '来源裁片明细', '菲票号'],
+            ['裁片部位', '颜色', '尺码', '每件片数', '生产成衣件数', '计划裁片数量', '来源纸样', '来源裁片明细', '菲票号'],
             demandRows,
             'min-w-[1120px]',
           )
@@ -289,7 +290,7 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
       '子工艺单',
       workOrderRows
         ? renderTable(
-            ['工艺单号', '裁片部位', '计划裁片数量', '当前裁片数量', '累计报废裁片数量', '累计货损裁片数量', '已绑定菲票数', '已回仓菲票数', '接收差异', '回仓差异', '状态', '操作'],
+            ['工艺单号', '裁片部位', '计划裁片数量', '当前裁片数量', '累计报废裁片数量', '累计货损裁片数量', '绑定菲票数量', '已回仓菲票数量', '接收差异裁片数量', '回仓差异裁片数量', '状态', '操作'],
             workOrderRows,
             'min-w-[1320px]',
           )
@@ -303,7 +304,7 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
     ),
     renderSection(
       '节点记录',
-      renderTable(['节点', '操作', '数量', '操作人', '操作时间', '关联单号', '照片数量', '备注'], nodeRows, 'min-w-[1160px]'),
+      renderTable(['节点', '操作', '操作裁片数量', '操作人', '操作时间', '关联单号', '照片数量', '备注'], nodeRows, 'min-w-[1160px]'),
     ),
     renderSection(
       '仓库记录',
@@ -316,7 +317,7 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
     renderSection(
       '异常记录',
       abnormalRows
-        ? renderTable(['异常类型', '数量', '描述', '照片数量', '上报人', '上报时间', '状态'], abnormalRows, 'min-w-[980px]')
+        ? renderTable(['异常类型', '异常裁片数量', '描述', '照片数量', '上报人', '上报时间', '状态'], abnormalRows, 'min-w-[980px]')
         : renderEmptyState('暂无异常记录'),
     ),
     `

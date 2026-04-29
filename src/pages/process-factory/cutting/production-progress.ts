@@ -2,6 +2,7 @@
 import { renderDrawer as uiDrawer } from '../../../components/ui/index.ts'
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
+import { formatFactoryDisplayName } from '../../../data/fcs/factory-mock-data.ts'
 import {
   CUTTING_REPLENISHMENT_PENDING_PREP_STORAGE_KEY,
   deserializeReplenishmentPendingPrepStorage,
@@ -1170,7 +1171,7 @@ function renderProductionOrderTable(rows: ProductionProgressRow[]): string {
                               <button class="font-medium text-blue-600 hover:underline" data-cutting-progress-action="open-detail" data-record-id="${row.id}">
                                 ${escapeHtml(row.productionOrderNo)}
                               </button>
-                              <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.assignedFactoryName)}</div>
+                              <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(formatFactoryDisplayName(row.assignedFactoryName))}</div>
                             </td>
                             <td class="px-4 py-3">
                               <div class="font-medium text-foreground">${escapeHtml(row.styleCode || row.spuCode || '-')}</div>
@@ -1257,7 +1258,7 @@ function renderCutOrderTable(rows: ProductionProgressRow[]): string {
                               <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.styleName)}</div>
                             </td>
                             <td class="px-4 py-3">${escapeHtml(item.materialSku)}</td>
-                            <td class="px-4 py-3">${escapeHtml(item.factoryName)}</td>
+                            <td class="px-4 py-3">${escapeHtml(formatFactoryDisplayName(item.factoryName))}</td>
                             <td class="px-4 py-3 font-medium tabular-nums">${formatQty(item.relatedQty)}</td>
                             <td class="px-4 py-3">${escapeHtml(item.plannedShipDateDisplay)}</td>
                             <td class="px-4 py-3">${renderBadge(item.urgencyLabel, item.urgencyClassName)}</td>
@@ -1318,7 +1319,7 @@ function renderDetailDrawer(): string {
         ${renderDetailSummaryItem('生产单号', row.productionOrderNo)}
         ${renderDetailSummaryItem('款号 / SPU', row.styleCode || row.spuCode || '-')}
         ${renderDetailSummaryItem('款式名称', row.styleName || '-')}
-        ${renderDetailSummaryItem('工厂', row.assignedFactoryName || '-')}
+        ${renderDetailSummaryItem('工厂', formatFactoryDisplayName(row.assignedFactoryName) || '-')}
         ${renderDetailSummaryItem('本单成衣件数（件）', formatQty(row.orderQty))}
         ${renderDetailSummaryItem('计划发货日期', row.plannedShipDateDisplay)}
         ${renderDetailSummaryItem('紧急程度', `${row.urgency.label} · ${row.shipCountdownText}`)}

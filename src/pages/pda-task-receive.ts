@@ -1,7 +1,8 @@
 import { appStore } from '../state/store'
 import { escapeHtml, toClassName } from '../utils'
 import { type ProcessTask } from '../data/fcs/process-tasks'
-import { indonesiaFactories } from '../data/fcs/indonesia-factories'
+import { getFactoryMasterRecordById } from '../data/fcs/factory-master-store'
+import { formatFactoryDisplayName } from '../data/fcs/factory-mock-data'
 import {
   getTaskProcessDisplayName,
 } from '../data/fcs/page-adapters/task-execution-adapter'
@@ -229,8 +230,8 @@ function getCurrentFactoryId(): string {
 }
 
 function getFactoryName(factoryId: string): string {
-  const factory = indonesiaFactories.find((item) => item.id === factoryId)
-  return factory?.name ?? factoryId
+  const factory = getFactoryMasterRecordById(factoryId)
+  return formatFactoryDisplayName(factory?.name, factory?.code || factory?.id || factoryId)
 }
 
 function getDeadlineStatus(deadline: string): { label: string; variant: DeadlineBadgeVariant } {
@@ -634,6 +635,9 @@ function renderPendingAcceptCuttingTask(task: PdaTaskFlowMock, factoryName: stri
         </div>
 
         ${renderPendingAcceptFieldGrid(task)}
+        <div class="rounded bg-muted/40 px-2 py-1 text-xs text-muted-foreground">
+          当前工厂：<span class="font-medium text-foreground">${escapeHtml(factoryName)}</span>
+        </div>
 
         ${
           task.dispatchRemark
@@ -686,6 +690,9 @@ function renderPendingAcceptTask(task: ProcessTask, factoryName: string): string
         </div>
 
         ${renderPendingAcceptFieldGrid(task)}
+        <div class="rounded bg-muted/40 px-2 py-1 text-xs text-muted-foreground">
+          当前工厂：<span class="font-medium text-foreground">${escapeHtml(factoryName)}</span>
+        </div>
 
         ${
           task.dispatchRemark

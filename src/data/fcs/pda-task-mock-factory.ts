@@ -17,7 +17,7 @@ import {
   type PdaMobileProcessKey,
 } from './pda-task-scenario-matrix.ts'
 import { buildTaskQrValue } from './task-qr.ts'
-import { TEST_FACTORY_ID } from './factory-mock-data.ts'
+import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
 
 export type PdaTaskMockOrigin =
   | 'DIRECT_PENDING'
@@ -322,14 +322,14 @@ const PROCESS_PROFILES: GenericProcessProfile[] = [
     taskPrefix: 'PRINT',
     processCode: 'PROC_PRINT',
     processNameZh: '印花',
-    factoryId: 'ID-F002',
+    factoryId: TEST_FACTORY_ID,
     qtyBase: 860,
     priceBase: 3.8,
     spuName: '满版印花款',
     materialSummary: '印花片 / 色浆 / 网版',
     handoverTargetName: '中转区域',
     handoverTargetKind: 'WAREHOUSE',
-    handoverSourceName: 'PT Prima Printing Center',
+    handoverSourceName: TEST_FACTORY_NAME,
     receiveHint: '印花招标单待报价，需确认网版切换窗口。',
     blockedReason: 'TECH',
     blockedRemark: '花位确认未回传，印花线暂停开机。',
@@ -340,14 +340,14 @@ const PROCESS_PROFILES: GenericProcessProfile[] = [
     taskPrefix: 'DYE',
     processCode: 'PROC_DYE',
     processNameZh: '染色',
-    factoryId: 'ID-F003',
+    factoryId: TEST_FACTORY_ID,
     qtyBase: 910,
     priceBase: 4.2,
     spuName: '大货染色批',
     materialSummary: '坯布 / 染化料 / 色卡',
     handoverTargetName: '中转区域',
     handoverTargetKind: 'WAREHOUSE',
-    handoverSourceName: 'PT Cahaya Dyeing Sejahtera',
+    handoverSourceName: TEST_FACTORY_NAME,
     receiveHint: '染色招标单待报价，需确认缸位与交期。',
     blockedReason: 'CAPACITY',
     blockedRemark: '染缸排期冲突，当前批次暂停插单。',
@@ -356,6 +356,7 @@ const PROCESS_PROFILES: GenericProcessProfile[] = [
 ]
 
 function getFactoryName(factoryId: string): string {
+  if (factoryId === TEST_FACTORY_ID || factoryId === 'ID-F090') return TEST_FACTORY_NAME
   return indonesiaFactories.find((item) => item.id === factoryId)?.name ?? factoryId
 }
 
@@ -1197,7 +1198,7 @@ function buildHandoverSeeds(
                     : '尾批待接收方回写',
               objectionReason:
                 profile.key === 'SEWING'
-                  ? '我方后道工厂回写数量少于工厂交出数量'
+                  ? '我方后道工厂回写数量少于工厂交出对象数量'
                   : profile.key === 'QC'
                     ? '抽检不合格数量差异'
                     : undefined,
@@ -1645,6 +1646,7 @@ PDA_GENERIC_PROCESS_TASKS.push(
   cloneProcessTaskForStatistics('TASK-PRINT-000717', 'TASK-PRINT-000722', 'PO-202604-PRINT-011', 1460),
   cloneProcessTaskForStatistics('TASK-PRINT-000717', 'TASK-PRINT-000723', 'PO-202604-PRINT-012', 1380),
   cloneProcessTaskForStatistics('TASK-DYE-000726', 'TASK-DYE-000732', 'PO-202604-DYE-012', 1320),
+  cloneProcessTaskForStatistics('TASK-DYE-000726', 'TASK-DYE-000733', 'PO-202604-DYE-013', 940),
 )
 const PDA_TEST_FACTORY_PROCESS_TASKS: PdaGenericTaskMock[] = PDA_GENERIC_PROCESS_TASKS
   .slice(0, 4)
@@ -1656,7 +1658,7 @@ const PDA_TEST_FACTORY_PROCESS_TASKS: PdaGenericTaskMock[] = PDA_GENERIC_PROCESS
       taskNo: taskId,
       tenderId: task.tenderId ? `${task.tenderId}-F090-${index + 1}` : undefined,
       assignedFactoryId: TEST_FACTORY_ID,
-      assignedFactoryName: '全能力测试工厂',
+      assignedFactoryName: TEST_FACTORY_NAME,
       taskQrValue: task.taskQrValue ? buildTaskQrValue(taskId) : task.taskQrValue,
       auditLogs: task.auditLogs.map((log, logIndex) => ({
         ...log,

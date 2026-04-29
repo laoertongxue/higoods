@@ -10,7 +10,7 @@ import {
   writeBrowserStorageItem,
 } from '../browser-storage.ts'
 import { getFactoryMasterRecordById, listFactoryMasterRecords } from './factory-master-store.ts'
-import { TEST_FACTORY_ID } from './factory-mock-data.ts'
+import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
 import { indonesiaFactories, type IndonesiaFactory } from './indonesia-factories'
 
 // =============================================
@@ -257,7 +257,7 @@ export function generateFactoryPdaUsers(
     .flatMap((factory) => createFactoryPdaUsersForFactory(factory.id, factory.name, now))
 }
 
-const fullCapabilityTestFactoryPdaUsers = createFactoryPdaUsersForFactory(TEST_FACTORY_ID, '全能力测试工厂')
+const fullCapabilityTestFactoryPdaUsers = createFactoryPdaUsersForFactory(TEST_FACTORY_ID, TEST_FACTORY_NAME)
 export const initialFactoryPdaUsers: FactoryPdaUser[] = [
   ...generateFactoryPdaUsers(indonesiaFactories).filter((user) => user.factoryId !== TEST_FACTORY_ID),
   ...fullCapabilityTestFactoryPdaUsers,
@@ -292,7 +292,7 @@ export const permissionCatalog: PermissionCatalogItem[] = [
   { key: 'PICKUP_CONFIRM', nameZh: '领料确认', group: '交接', descriptionZh: '允许在交接模块中确认仓库回写的领料记录。' },
   { key: 'PICKUP_QTY_DISPUTE', nameZh: '提交领料对象数量异议', group: '交接', descriptionZh: '允许在交接模块中对领料对象数量发起异议。' },
   { key: 'HANDOUT_CREATE', nameZh: '新增交出记录', group: '交接', descriptionZh: '允许在交接模块中新增交出记录。' },
-  { key: 'HANDOUT_QTY_DISPUTE', nameZh: '提交交出数量异议', group: '交接', descriptionZh: '允许在交接模块中对交出数量发起异议。' },
+  { key: 'HANDOUT_QTY_DISPUTE', nameZh: '提交交出对象数量异议', group: '交接', descriptionZh: '允许在交接模块中对交出对象数量发起异议。' },
   { key: 'QC_CONFIRM_DEDUCTION', nameZh: '确认处理质量扣款', group: '质检', descriptionZh: '允许确认质量扣款处理结果。' },
   { key: 'QC_DISPUTE', nameZh: '发起质检异议', group: '质检', descriptionZh: '允许对质量扣款或责任判定发起异议。' },
   { key: 'SETTLEMENT_VIEW', nameZh: '查看结算', group: '结算', descriptionZh: '允许查看结算单与结算资料。' },

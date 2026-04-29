@@ -1,4 +1,5 @@
 import { getFactoryMasterRecordById } from '../../../data/fcs/factory-master-store.ts'
+import { formatFactoryDisplayName } from '../../../data/fcs/factory-mock-data.ts'
 import {
   canFactorySeeSpecialCraftOperation,
   type SpecialCraftOperationDefinition,
@@ -32,6 +33,10 @@ function toneClass(tone: MetricCard['tone']): string {
 export function formatQty(value: number | undefined): string {
   const safeValue = Number.isFinite(value) ? Number(value) : 0
   return safeValue.toLocaleString('zh-CN', { maximumFractionDigits: 2 })
+}
+
+export function formatSpecialCraftFactoryLabel(factoryName?: string, factoryId?: string | null): string {
+  return formatFactoryDisplayName(factoryName, factoryId || undefined)
 }
 
 export function renderStatusBadge(label: string): string {
@@ -127,7 +132,7 @@ export function resolveSpecialCraftFactoryContextGuard(
   }
 
   const factory = getFactoryMasterRecordById(factoryId)
-  const factoryName = factory?.name || factoryId
+  const factoryName = formatFactoryDisplayName(factory?.name || factoryId, factory?.code || factoryId)
 
   return {
     factoryId,

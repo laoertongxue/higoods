@@ -2,11 +2,18 @@ import { consumeProcessCreateDemandIntent } from './process-order-create-bridge'
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
 import { listPrepProcessOrders } from '../data/fcs/page-adapters/process-prep-pages-adapter'
+import { TEST_FACTORY_DISPLAY_NAME, TEST_FACTORY_NAME } from '../data/fcs/factory-mock-data.ts'
+import {
+  PLATFORM_PROCESS_STATUS_CLASS,
+  listPlatformStatusOptions,
+  type PlatformProcessStatus,
+  type PlatformRiskLevel,
+} from '../data/fcs/process-platform-status-adapter.ts'
 
 type CreateModeZh = '按需求创建' | '按备货创建'
 type Unit = '米'
 type DemandStatusZh = '待满足' | '部分满足' | '已满足' | '已完成交接'
-type OrderStatusZh = '待接收来料' | '待开工' | '加工中' | '部分回货' | '已完工' | '已关闭'
+type OrderStatusZh = PlatformProcessStatus
 type ReceiptStatusZh = '待接收' | '部分接收' | '已接收'
 type BatchStatusZh = '待关联' | '部分关联' | '已关联'
 type PageSize = 10 | 20 | 50
@@ -63,13 +70,54 @@ interface DyeProcessOrder {
   workOrderId: string
   orderNo: string
   statusLabel?: string
+  factoryInternalStatusLabel?: string
+  platformStatusLabel?: PlatformProcessStatus
+  platformStageLabel?: string
+  platformRiskLevel?: PlatformRiskLevel
+  platformRiskLabel?: string
+  platformActionHint?: string
+  platformOwnerHint?: string
+  factoryDisplayName?: string
   taskId?: string
+  taskNo?: string
+  mobileBindingTaskNo?: string
+  mobileBindingStatusLabel?: string
+  mobileBindingReasonLabel?: string
+  canOpenMobileExecution?: boolean
   handoverOrderId?: string
+  latestWarehouseRecordId?: string
+  latestHandoverRecordId?: string
+  latestReviewRecordId?: string
+  latestDifferenceRecordId?: string
+  latestOperationRecordId?: string
+  latestOperationChannel?: string
+  latestOperationAt?: string
+  latestOperationBy?: string
+  hasWaitProcessRecord?: boolean
+  hasWaitHandoverRecord?: boolean
+  hasHandoverRecord?: boolean
+  hasReviewRecord?: boolean
+  hasDifferenceRecord?: boolean
+  canPlatformFollowUp?: boolean
+  followUpActionCode?: string
+  followUpActionLabel?: string
+  detailLink?: string
+  craftDetailLink?: string
+  mobileTaskLink?: string
   status: OrderStatusZh
   createMode: CreateModeZh
   dyeFactoryName: string
   plannedFeedQty: number
+  completedObjectQty?: number
+  waitHandoverObjectQty?: number
+  handedOverObjectQty?: number
+  writtenBackObjectQty?: number
+  diffObjectQty?: number
   unit: Unit
+  quantityDisplayFields?: Array<{ label: string; value: number; unit: string; text: string }>
+  plannedQtyLabel?: string
+  returnedQtyLabel?: string
+  receivedQtyLabel?: string
   plannedFinishAt: string
   sourceSummary: string
   note: string
@@ -126,7 +174,7 @@ interface DyeOrdersState {
 }
 
 const PAGE_SIZE_OPTIONS: PageSize[] = [10, 20, 50]
-const DYE_FACTORY_OPTIONS = ['印尼万隆染色厂', '雅加达协同染色厂', '泗水染整加工厂']
+const DYE_FACTORY_OPTIONS = [TEST_FACTORY_NAME]
 
 const RULES = [
   '必须手工创建：染色加工单由业务人员手工创建',
@@ -139,13 +187,54 @@ const ORDERS: DyeProcessOrder[] = listPrepProcessOrders('DYE').map((item) => ({
   workOrderId: item.workOrderId || item.orderNo,
   orderNo: item.orderNo,
   statusLabel: item.statusLabel,
+  factoryInternalStatusLabel: item.factoryInternalStatusLabel,
+  platformStatusLabel: item.platformStatusLabel,
+  platformStageLabel: item.platformStageLabel,
+  platformRiskLevel: item.platformRiskLevel,
+  platformRiskLabel: item.platformRiskLabel,
+  platformActionHint: item.platformActionHint,
+  platformOwnerHint: item.platformOwnerHint,
+  factoryDisplayName: item.factoryDisplayName,
   taskId: item.taskId,
+  taskNo: item.taskNo,
+  mobileBindingTaskNo: item.mobileBindingTaskNo,
+  mobileBindingStatusLabel: item.mobileBindingStatusLabel,
+  mobileBindingReasonLabel: item.mobileBindingReasonLabel,
+  canOpenMobileExecution: item.canOpenMobileExecution,
   handoverOrderId: item.handoverOrderId,
+  latestWarehouseRecordId: item.latestWarehouseRecordId,
+  latestHandoverRecordId: item.latestHandoverRecordId,
+  latestReviewRecordId: item.latestReviewRecordId,
+  latestDifferenceRecordId: item.latestDifferenceRecordId,
+  latestOperationRecordId: item.latestOperationRecordId,
+  latestOperationChannel: item.latestOperationChannel,
+  latestOperationAt: item.latestOperationAt,
+  latestOperationBy: item.latestOperationBy,
+  hasWaitProcessRecord: item.hasWaitProcessRecord,
+  hasWaitHandoverRecord: item.hasWaitHandoverRecord,
+  hasHandoverRecord: item.hasHandoverRecord,
+  hasReviewRecord: item.hasReviewRecord,
+  hasDifferenceRecord: item.hasDifferenceRecord,
+  canPlatformFollowUp: item.canPlatformFollowUp,
+  followUpActionCode: item.followUpActionCode,
+  followUpActionLabel: item.followUpActionLabel,
+  detailLink: item.detailLink,
+  craftDetailLink: item.craftDetailLink,
+  mobileTaskLink: item.mobileTaskLink,
   status: item.status,
   createMode: item.createMode,
   dyeFactoryName: item.factoryName,
   plannedFeedQty: item.plannedFeedQty,
+  completedObjectQty: item.completedObjectQty,
+  waitHandoverObjectQty: item.waitHandoverObjectQty,
+  handedOverObjectQty: item.handedOverObjectQty,
+  writtenBackObjectQty: item.writtenBackObjectQty,
+  diffObjectQty: item.diffObjectQty,
   unit: '米',
+  quantityDisplayFields: item.quantityDisplayFields,
+  plannedQtyLabel: item.plannedQtyLabel || '计划染色面料米数',
+  returnedQtyLabel: item.returnedQtyLabel || '已交出面料米数',
+  receivedQtyLabel: item.receivedQtyLabel || '实收面料米数',
   plannedFinishAt: item.plannedFinishAt,
   sourceSummary: item.sourceSummary,
   note: item.note,
@@ -192,14 +281,7 @@ const ORDERS: DyeProcessOrder[] = listPrepProcessOrders('DYE').map((item) => ({
   })),
 }))
 
-const ORDER_STATUS_CLASS: Record<OrderStatusZh, string> = {
-  待接收来料: 'border-slate-200 bg-slate-50 text-slate-700',
-  待开工: 'border-zinc-200 bg-zinc-50 text-zinc-700',
-  加工中: 'border-blue-200 bg-blue-50 text-blue-700',
-  部分回货: 'border-amber-200 bg-amber-50 text-amber-700',
-  已完工: 'border-green-200 bg-green-50 text-green-700',
-  已关闭: 'border-red-200 bg-red-50 text-red-700',
-}
+const ORDER_STATUS_CLASS: Record<OrderStatusZh, string> = PLATFORM_PROCESS_STATUS_CLASS
 
 const DEMAND_STATUS_CLASS: Record<DemandStatusZh, string> = {
   待满足: 'border-slate-200 bg-slate-50 text-slate-700',
@@ -220,9 +302,9 @@ const BATCH_STATUS_CLASS: Record<BatchStatusZh, string> = {
   已关联: 'border-green-200 bg-green-50 text-green-700',
 }
 
-const WAITING_RECEIVE_STATUSES: OrderStatusZh[] = ['待接收来料']
-const IN_PROCESSING_STATUSES: OrderStatusZh[] = ['待开工', '加工中', '部分回货']
-const DONE_STATUSES: OrderStatusZh[] = ['已完工']
+const WAITING_RECEIVE_STATUSES: OrderStatusZh[] = ['待下发', '待接单', '待开工', '准备中']
+const IN_PROCESSING_STATUSES: OrderStatusZh[] = ['加工中', '待送货', '待回写', '待审核', '异常']
+const DONE_STATUSES: OrderStatusZh[] = ['已完成']
 
 function createDefaultForm(): CreateForm {
   return {
@@ -257,7 +339,7 @@ const state: DyeOrdersState = {
 }
 
 function formatQty(qty: number, unit: Unit): string {
-  return `${qty.toLocaleString()}${unit}`
+  return `${qty.toLocaleString()} ${unit}`
 }
 
 function renderBadge(label: string, className: string): string {
@@ -309,6 +391,10 @@ function getFilteredOrders(): DyeProcessOrder[] {
       order.dyeFactoryName,
       order.createMode,
       order.sourceSummary,
+      order.status,
+      order.statusLabel ?? '',
+      order.platformRiskLabel ?? '',
+      order.platformActionHint ?? '',
       stockMaterial?.materialCode ?? '',
       stockMaterial?.materialName ?? '',
       ...order.linkedDemands.map((item) => item.demandId),
@@ -470,14 +556,80 @@ function formatNow(): string {
   return `${y}-${m}-${d} ${hh}:${mm}:${ss}`
 }
 
+function renderPlatformResultFields(order: DyeProcessOrder): string {
+  const fields = order.quantityDisplayFields?.length
+    ? order.quantityDisplayFields
+    : [
+        { label: order.plannedQtyLabel || '计划染色面料米数', value: order.plannedFeedQty, unit: order.unit, text: `${order.plannedQtyLabel || '计划染色面料米数'}：${formatQty(order.plannedFeedQty, order.unit)}` },
+        { label: order.returnedQtyLabel || '已交出面料米数', value: getReturnedQty(order), unit: order.unit, text: `${order.returnedQtyLabel || '已交出面料米数'}：${formatQty(getReturnedQty(order), order.unit)}` },
+      ]
+  return fields
+    .slice(0, 7)
+    .map((field) => `<div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">${escapeHtml(field.label)}</span><span class="text-right font-medium">${escapeHtml(field.text.replace(`${field.label}：`, ''))}</span></div>`)
+    .join('')
+}
+
+function renderResultFlag(label: string, active?: boolean, id?: string): string {
+  const className = active
+    ? 'border-green-200 bg-green-50 text-green-700'
+    : 'border-slate-200 bg-slate-50 text-slate-500'
+  const text = active && id ? `${label}：${id}` : `${label}：${active ? '有' : '无'}`
+  return `<span class="inline-flex items-center rounded-full border px-2 py-1 text-xs ${className}">${escapeHtml(text)}</span>`
+}
+
+function renderFollowUpLinks(order: DyeProcessOrder): string {
+  const craftLink = order.craftDetailLink || `/fcs/craft/dyeing/work-orders/${encodeURIComponent(order.workOrderId)}`
+  const mobileTaskLink = order.mobileTaskLink || (order.taskId ? `/fcs/pda/exec/${encodeURIComponent(order.taskId)}` : '')
+  const handoverLink = order.latestHandoverRecordId
+    ? `/fcs/progress/handover?handoverRecordId=${encodeURIComponent(order.latestHandoverRecordId)}`
+    : `/fcs/craft/dyeing/warehouse?recordId=${encodeURIComponent(order.latestWarehouseRecordId || '')}`
+  return `
+    <a role="button" class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" href="${escapeHtml(craftLink)}" data-nav="${escapeHtml(craftLink)}">查看工艺详情</a>
+    ${mobileTaskLink ? `<a role="button" class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" href="${escapeHtml(mobileTaskLink)}" data-nav="${escapeHtml(mobileTaskLink)}">查看移动端任务</a>` : ''}
+    ${order.hasWaitHandoverRecord ? `<a role="button" class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" href="/fcs/craft/dyeing/warehouse" data-nav="/fcs/craft/dyeing/warehouse">查看待交出仓</a>` : ''}
+    ${order.hasHandoverRecord ? `<a role="button" class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" href="${escapeHtml(handoverLink)}" data-nav="${escapeHtml(handoverLink)}">查看交出记录</a>` : ''}
+    ${order.hasDifferenceRecord ? '<button class="inline-flex h-8 items-center rounded-md border border-red-200 bg-red-50 px-3 text-xs text-red-700">查看差异记录</button>' : ''}
+    <button class="inline-flex h-8 items-center rounded-md border border-blue-200 bg-blue-50 px-3 text-xs text-blue-700">${escapeHtml(order.followUpActionLabel || order.platformActionHint || '查看工艺详情')}</button>
+  `
+}
+
+function renderPlatformSyncSection(order: DyeProcessOrder): string {
+  return `
+    <section class="rounded-lg border bg-card p-4">
+      <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h3 class="text-sm font-semibold">平台同步结果</h3>
+        <span class="text-xs text-muted-foreground">最新操作：${escapeHtml(order.latestOperationChannel || '暂无')} ${escapeHtml(order.latestOperationBy || '')} ${escapeHtml(order.latestOperationAt || '')}</span>
+      </div>
+      <div class="grid gap-3 text-sm md:grid-cols-2">
+        <div><span class="text-muted-foreground">平台状态：</span>${renderBadge(order.status, ORDER_STATUS_CLASS[order.status])}</div>
+        <div><span class="text-muted-foreground">工厂内部状态：</span>${escapeHtml(order.factoryInternalStatusLabel || order.statusLabel || '—')}</div>
+        <div><span class="text-muted-foreground">风险提示：</span>${escapeHtml(order.platformRiskLabel || '—')}</div>
+        <div><span class="text-muted-foreground">下一步动作：</span>${escapeHtml(order.platformActionHint || '—')}</div>
+        <div><span class="text-muted-foreground">当前责任方：</span>${escapeHtml(order.platformOwnerHint || '—')}</div>
+        <div><span class="text-muted-foreground">跟单动作：</span>${escapeHtml(order.followUpActionLabel || '查看工艺详情')}</div>
+      </div>
+      <div class="mt-3 grid gap-2 text-sm md:grid-cols-2">
+        ${renderPlatformResultFields(order)}
+      </div>
+      <div class="mt-3 flex flex-wrap gap-2">
+        ${renderResultFlag('待交出仓', order.hasWaitHandoverRecord, order.latestWarehouseRecordId)}
+        ${renderResultFlag('交出记录', order.hasHandoverRecord, order.latestHandoverRecordId)}
+        ${renderResultFlag('审核记录', order.hasReviewRecord, order.latestReviewRecordId)}
+        ${renderResultFlag('差异记录', order.hasDifferenceRecord, order.latestDifferenceRecordId)}
+      </div>
+      <div class="mt-3 flex flex-wrap gap-2">${renderFollowUpLinks(order)}</div>
+    </section>
+  `
+}
+
 function renderStatsSection(): string {
   const stats = getStats()
   return `
     <section class="grid gap-3 md:grid-cols-4">
       <article class="rounded-lg border bg-card px-4 py-3"><p class="text-xs text-muted-foreground">染色加工单总数</p><p class="mt-1 text-2xl font-semibold">${stats.total}</p></article>
-      <article class="rounded-lg border bg-card px-4 py-3"><p class="text-xs text-muted-foreground">待接收来料</p><p class="mt-1 text-2xl font-semibold text-slate-700">${stats.waitingReceive}</p></article>
-      <article class="rounded-lg border bg-card px-4 py-3"><p class="text-xs text-muted-foreground">加工中</p><p class="mt-1 text-2xl font-semibold text-blue-700">${stats.inProcessing}</p></article>
-      <article class="rounded-lg border bg-card px-4 py-3"><p class="text-xs text-muted-foreground">已完工</p><p class="mt-1 text-2xl font-semibold text-green-700">${stats.done}</p></article>
+      <article class="rounded-lg border bg-card px-4 py-3"><p class="text-xs text-muted-foreground">待开工 / 准备中</p><p class="mt-1 text-2xl font-semibold text-amber-700">${stats.waitingReceive}</p></article>
+      <article class="rounded-lg border bg-card px-4 py-3"><p class="text-xs text-muted-foreground">执行中 / 待处理</p><p class="mt-1 text-2xl font-semibold text-blue-700">${stats.inProcessing}</p></article>
+      <article class="rounded-lg border bg-card px-4 py-3"><p class="text-xs text-muted-foreground">已完成</p><p class="mt-1 text-2xl font-semibold text-green-700">${stats.done}</p></article>
     </section>
   `
 }
@@ -499,18 +651,24 @@ function renderOrderRow(order: DyeProcessOrder): string {
             ${renderBadge(order.status, ORDER_STATUS_CLASS[order.status])}
             ${renderBadge(order.createMode, 'border-indigo-200 bg-indigo-50 text-indigo-700')}
           </div>
-          <p class="mt-2 text-sm font-medium">${escapeHtml(order.dyeFactoryName)}</p>
+          <p class="mt-2 text-sm font-medium">${escapeHtml(order.dyeFactoryName === TEST_FACTORY_NAME ? TEST_FACTORY_DISPLAY_NAME : order.dyeFactoryName)}</p>
           <div class="mt-3 grid gap-2 text-xs text-muted-foreground md:grid-cols-2 xl:grid-cols-3">
             <div><span>关联需求单数：</span><span class="font-medium text-foreground">${order.linkedDemands.length}张</span></div>
-            <div><span>计划投料数量：</span><span class="font-medium text-foreground">${escapeHtml(formatQty(order.plannedFeedQty, order.unit))}</span></div>
+            <div><span>${escapeHtml(order.plannedQtyLabel || '计划染色面料米数')}：</span><span class="font-medium text-foreground">${escapeHtml(formatQty(order.plannedFeedQty, order.unit))}</span></div>
             <div><span>计划完成时间：</span><span class="text-foreground">${escapeHtml(order.plannedFinishAt)}</span></div>
             <div class="md:col-span-2 xl:col-span-3"><span>备货物料：</span><span class="text-foreground">${escapeHtml(stockMaterialText)}</span></div>
             <div class="md:col-span-2 xl:col-span-3"><span>来源说明：</span><span class="text-foreground">${escapeHtml(order.sourceSummary)}</span></div>
+            <div><span>工厂内部状态：</span><span class="text-foreground">${escapeHtml(order.factoryInternalStatusLabel || order.statusLabel || '—')}</span></div>
+            <div><span>风险提示：</span><span class="text-foreground">${escapeHtml(order.platformRiskLabel || '—')}</span></div>
+            <div><span>下一步动作：</span><span class="text-foreground">${escapeHtml(order.platformActionHint || '—')}</span></div>
+            <div><span>当前责任方：</span><span class="text-foreground">${escapeHtml(order.platformOwnerHint || '—')}</span></div>
+            <div><span>最新操作来源：</span><span class="text-foreground">${escapeHtml(order.latestOperationChannel || '暂无')}</span></div>
           </div>
           <div class="mt-3 flex flex-wrap gap-2 border-t pt-3">
             <a role="button" class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" href="${escapeHtml(detailHref)}" data-nav="${escapeHtml(detailHref)}">查看详情</a>
             <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-dye-order-action="open-batches" data-order-no="${escapeHtml(order.orderNo)}">查看回货批次</button>
             <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-dye-order-action="open-demands" data-order-no="${escapeHtml(order.orderNo)}">查看关联需求单</button>
+            ${renderFollowUpLinks(order)}
           </div>
         </div>
 
@@ -518,10 +676,20 @@ function renderOrderRow(order: DyeProcessOrder): string {
           <div class="rounded-lg border bg-muted/20 p-3">
             <h4 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">结果字段</h4>
             <div class="mt-2 space-y-2 text-sm">
-              <div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">已回货数量</span><span class="font-medium">${escapeHtml(formatQty(returnedQty, order.unit))}</span></div>
+              <div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">${escapeHtml(order.returnedQtyLabel || '已交出面料米数')}</span><span class="font-medium">${escapeHtml(formatQty(returnedQty, order.unit))}</span></div>
               <div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">回货批次数</span><span class="font-medium">${batchCount}批</span></div>
               <div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">关联需求单</span><span class="text-right text-xs">${escapeHtml(getDemandNosText(order))}</span></div>
-              <div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">状态</span>${renderBadge(order.statusLabel || order.status, ORDER_STATUS_CLASS[order.status])}</div>
+              <div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">平台状态</span>${renderBadge(order.status, ORDER_STATUS_CLASS[order.status])}</div>
+              <div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">工厂内部状态</span><span class="text-xs">${escapeHtml(order.factoryInternalStatusLabel || order.statusLabel || '—')}</span></div>
+              <div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">下一步动作</span><span class="text-right text-xs">${escapeHtml(order.platformActionHint || '—')}</span></div>
+              ${renderPlatformResultFields(order)}
+              <div class="flex flex-wrap gap-1 pt-2">
+                ${renderResultFlag('待交出仓', order.hasWaitHandoverRecord, order.latestWarehouseRecordId)}
+                ${renderResultFlag('交出记录', order.hasHandoverRecord, order.latestHandoverRecordId)}
+                ${renderResultFlag('审核记录', order.hasReviewRecord, order.latestReviewRecordId)}
+                ${renderResultFlag('差异记录', order.hasDifferenceRecord, order.latestDifferenceRecordId)}
+              </div>
+              <div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">跟单动作</span><span class="text-right text-xs">${escapeHtml(order.followUpActionLabel || '查看工艺详情')}</span></div>
               <div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">更新时间</span><span class="text-xs">${escapeHtml(order.updatedAt)}</span></div>
             </div>
           </div>
@@ -593,26 +761,35 @@ function renderDetailDrawer(): string {
             <h3 class="mb-3 text-sm font-semibold">基本情况</h3>
             <div class="grid gap-3 text-sm md:grid-cols-2">
               <div><span class="text-muted-foreground">加工单号：</span><span class="font-mono">${escapeHtml(order.orderNo)}</span></div>
-              <div><span class="text-muted-foreground">状态：</span>${renderBadge(order.status, ORDER_STATUS_CLASS[order.status])}</div>
+              <div><span class="text-muted-foreground">平台状态：</span>${renderBadge(order.status, ORDER_STATUS_CLASS[order.status])}</div>
+              <div><span class="text-muted-foreground">工厂内部状态：</span>${escapeHtml(order.factoryInternalStatusLabel || order.statusLabel || '—')}</div>
+              <div><span class="text-muted-foreground">风险提示：</span>${escapeHtml(order.platformRiskLabel || '—')}</div>
+              <div><span class="text-muted-foreground">下一步动作：</span>${escapeHtml(order.platformActionHint || '—')}</div>
+              <div><span class="text-muted-foreground">当前责任方：</span>${escapeHtml(order.platformOwnerHint || '—')}</div>
               <div><span class="text-muted-foreground">创建方式：</span>${escapeHtml(order.createMode)}</div>
-              <div><span class="text-muted-foreground">染色工厂：</span>${escapeHtml(order.dyeFactoryName)}</div>
+              <div><span class="text-muted-foreground">染色工厂：</span>${escapeHtml(order.dyeFactoryName === TEST_FACTORY_NAME ? TEST_FACTORY_DISPLAY_NAME : order.dyeFactoryName)}</div>
               <div><span class="text-muted-foreground">计划完成时间：</span>${escapeHtml(order.plannedFinishAt)}</div>
               <div><span class="text-muted-foreground">更新时间：</span>${escapeHtml(order.updatedAt)}</div>
             </div>
           </section>
 
+          ${renderPlatformSyncSection(order)}
+
           <section class="rounded-lg border bg-card p-4">
             <h3 class="mb-3 text-sm font-semibold">基本信息</h3>
             <div class="grid gap-3 text-sm md:grid-cols-2">
               <div><span class="text-muted-foreground">创建方式：</span>${escapeHtml(order.createMode)}</div>
-              <div><span class="text-muted-foreground">计划投料数量：</span>${escapeHtml(formatQty(order.plannedFeedQty, order.unit))}</div>
+              <div><span class="text-muted-foreground">${escapeHtml(order.plannedQtyLabel || '计划染色面料米数')}：</span>${escapeHtml(formatQty(order.plannedFeedQty, order.unit))}</div>
               <div class="md:col-span-2"><span class="text-muted-foreground">备货物料：</span>${stockMaterial ? `${escapeHtml(stockMaterial.materialCode)} · ${escapeHtml(stockMaterial.materialName)}（${escapeHtml(stockMaterial.unit)}）` : '-'}</div>
               <div class="md:col-span-2"><span class="text-muted-foreground">来源说明：</span>${escapeHtml(order.sourceSummary)}</div>
               <div class="md:col-span-2"><span class="text-muted-foreground">备注：</span>${escapeHtml(order.note)}</div>
+              <div><span class="text-muted-foreground">移动端任务号：</span>${escapeHtml(order.mobileBindingTaskNo || order.taskNo || order.taskId || '未绑定')}</div>
+              <div><span class="text-muted-foreground">绑定状态：</span>${escapeHtml(order.mobileBindingStatusLabel || '待校验')}</div>
+              <div class="md:col-span-2"><span class="text-muted-foreground">绑定校验结果：</span>${escapeHtml(order.mobileBindingReasonLabel || '未校验')}</div>
               <div><span class="text-muted-foreground">创建时间：</span>${escapeHtml(order.createdAt)}</div>
               <div><span class="text-muted-foreground">更新时间：</span>${escapeHtml(order.updatedAt)}</div>
             </div>
-            <p class="mt-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">执行提示：加工单状态仅表示执行进度，需求是否完成仍以回货批次关联满足为准。</p>
+            <p class="mt-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">执行提示：平台主状态用于跟单收口，工厂内部状态保留染色现场细节点，需求是否完成仍以回货批次关联满足为准。</p>
           </section>
 
           <section class="rounded-lg border bg-card p-4 ${focusDemands ? 'ring-2 ring-blue-200' : ''}" data-dye-order-section="demands">
@@ -623,7 +800,7 @@ function renderDetailDrawer(): string {
                 : `
                   <div class="overflow-x-auto rounded-md border">
                     <table class="w-full min-w-[980px] text-sm">
-                      <thead><tr class="border-b bg-muted/40 text-left"><th class="px-3 py-2 font-medium">需求单号</th><th class="px-3 py-2 font-medium">来源生产单号</th><th class="px-3 py-2 font-medium">物料编码/名称</th><th class="px-3 py-2 font-medium">需求数量</th><th class="px-3 py-2 font-medium">已满足需求</th><th class="px-3 py-2 font-medium">待满足数量</th><th class="px-3 py-2 font-medium">当前状态</th></tr></thead>
+                      <thead><tr class="border-b bg-muted/40 text-left"><th class="px-3 py-2 font-medium">需求单号</th><th class="px-3 py-2 font-medium">来源生产单号</th><th class="px-3 py-2 font-medium">物料编码/名称</th><th class="px-3 py-2 font-medium">计划染色面料米数</th><th class="px-3 py-2 font-medium">已满足面料米数</th><th class="px-3 py-2 font-medium">待满足面料米数</th><th class="px-3 py-2 font-medium">当前状态</th></tr></thead>
                       <tbody>
                         ${order.linkedDemands
                           .map((item) => {
@@ -642,7 +819,7 @@ function renderDetailDrawer(): string {
             <h3 class="mb-3 text-sm font-semibold">来料接收（来自 WMS）</h3>
             <div class="grid gap-3 text-sm md:grid-cols-2">
               <div><span class="text-muted-foreground">来料状态：</span>${renderBadge(order.materialReceipt.receiveStatus, RECEIPT_STATUS_CLASS[order.materialReceipt.receiveStatus])}</div>
-              <div><span class="text-muted-foreground">接收数量：</span>${escapeHtml(formatQty(order.materialReceipt.receivedQty, order.unit))}</div>
+              <div><span class="text-muted-foreground">${escapeHtml(order.receivedQtyLabel || '实收面料米数')}：</span>${escapeHtml(formatQty(order.materialReceipt.receivedQty, order.unit))}</div>
               <div><span class="text-muted-foreground">接收时间：</span>${escapeHtml(order.materialReceipt.receivedAt)}</div>
               <div><span class="text-muted-foreground">接收质检结论：</span>${escapeHtml(order.materialReceipt.qualityConclusion)}</div>
               <div class="md:col-span-2"><span class="text-muted-foreground">接收凭证说明：</span>${escapeHtml(order.materialReceipt.receiptVoucher)}</div>
@@ -657,7 +834,7 @@ function renderDetailDrawer(): string {
                 : `
                   <div class="overflow-x-auto rounded-md border">
                     <table class="w-full min-w-[960px] text-sm">
-                      <thead><tr class="border-b bg-muted/40 text-left"><th class="px-3 py-2 font-medium">回货批次号</th><th class="px-3 py-2 font-medium">回货数量</th><th class="px-3 py-2 font-medium">合格数量</th><th class="px-3 py-2 font-medium">当前可关联数量</th><th class="px-3 py-2 font-medium">已关联数量</th><th class="px-3 py-2 font-medium">状态</th><th class="px-3 py-2 font-medium">回货时间</th></tr></thead>
+                      <thead><tr class="border-b bg-muted/40 text-left"><th class="px-3 py-2 font-medium">回货批次号</th><th class="px-3 py-2 font-medium">${escapeHtml(order.returnedQtyLabel || '已交出面料米数')}</th><th class="px-3 py-2 font-medium">合格面料米数</th><th class="px-3 py-2 font-medium">当前可关联面料米数</th><th class="px-3 py-2 font-medium">已关联面料米数</th><th class="px-3 py-2 font-medium">状态</th><th class="px-3 py-2 font-medium">回货时间</th></tr></thead>
                       <tbody>
                         ${order.batches
                           .map((batch) => `<tr class="border-b last:border-b-0"><td class="px-3 py-2 font-mono text-xs">${escapeHtml(batch.batchNo)}</td><td class="px-3 py-2">${escapeHtml(formatQty(batch.returnedQty, order.unit))}</td><td class="px-3 py-2">${escapeHtml(formatQty(batch.qualifiedQty, order.unit))}</td><td class="px-3 py-2">${escapeHtml(formatQty(batch.availableQty, order.unit))}</td><td class="px-3 py-2">${escapeHtml(formatQty(batch.linkedQty, order.unit))}</td><td class="px-3 py-2">${renderBadge(batch.status, BATCH_STATUS_CLASS[batch.status])}</td><td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(batch.returnedAt)}</td></tr>`)
@@ -677,7 +854,7 @@ function renderDetailDrawer(): string {
                 : `
                   <div class="overflow-x-auto rounded-md border">
                     <table class="w-full min-w-[760px] text-sm">
-                      <thead><tr class="border-b bg-muted/40 text-left"><th class="px-3 py-2 font-medium">回货批次号</th><th class="px-3 py-2 font-medium">需求单号</th><th class="px-3 py-2 font-medium">本次满足数量</th><th class="px-3 py-2 font-medium">关联时间</th></tr></thead>
+                      <thead><tr class="border-b bg-muted/40 text-left"><th class="px-3 py-2 font-medium">回货批次号</th><th class="px-3 py-2 font-medium">需求单号</th><th class="px-3 py-2 font-medium">本次满足面料米数</th><th class="px-3 py-2 font-medium">关联时间</th></tr></thead>
                       <tbody>
                         ${order.destinations
                           .map((item) => `<tr class="border-b last:border-b-0"><td class="px-3 py-2 font-mono text-xs">${escapeHtml(item.batchNo)}</td><td class="px-3 py-2 font-mono text-xs">${escapeHtml(item.demandId)}</td><td class="px-3 py-2">${escapeHtml(formatQty(item.fulfilledQty, order.unit))}</td><td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(item.linkedAt)}</td></tr>`)
@@ -818,8 +995,8 @@ function renderCreateDrawer(): string {
                   : ''
               }
               <div>
-                <label class="mb-1 block text-xs text-muted-foreground">计划投料数量</label>
-                <input type="number" min="0" class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.plannedFeedQty)}" data-dye-order-create-field="plannedFeedQty" placeholder="请输入数量（米）" />
+                <label class="mb-1 block text-xs text-muted-foreground">计划染色面料米数</label>
+                <input type="number" min="0" class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.plannedFeedQty)}" data-dye-order-create-field="plannedFeedQty" placeholder="请输入计划染色面料米数（米）" />
               </div>
               <div>
                 <label class="mb-1 block text-xs text-muted-foreground">计划完成时间</label>
@@ -860,7 +1037,7 @@ function renderCreateDrawer(): string {
 export function renderProcessDyeOrdersPage(): string {
   consumeCreateIntentIfExists()
 
-  const statusOptions: StatusFilter[] = ['全部', '待接收来料', '待开工', '加工中', '部分回货', '已完工', '已关闭']
+  const statusOptions: StatusFilter[] = ['全部', ...listPlatformStatusOptions()]
   const modeOptions: ModeFilter[] = ['全部', '按需求创建', '按备货创建']
 
   return `
@@ -917,7 +1094,7 @@ function submitCreate(): void {
     return
   }
   if (!Number.isFinite(plannedFeedQty) || plannedFeedQty <= 0) {
-    state.notice = '请填写有效的计划投料数量。'
+    state.notice = '请填写有效的计划染色面料米数。'
     return
   }
   if (!form.plannedFinishAt) {

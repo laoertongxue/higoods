@@ -40,7 +40,7 @@ export function renderPdaTransferBagDetailPage(routeBagNo?: string): string {
           <div><span class="text-muted-foreground">接收工厂：</span>${escapeHtml(summary?.receiverFactoryName || bag?.sewingFactoryName || '车缝厂')}</div>
           <div><span class="text-muted-foreground">当前状态：</span>${escapeHtml(summary?.bagStatus || bag?.packStatus || '待装袋')}</div>
           <div><span class="text-muted-foreground">内容项数：</span>${escapeHtml(String(summary?.contentSummary.contentItemCount ?? bag?.contentItemCount ?? 0))}</div>
-          <div><span class="text-muted-foreground">菲票数：</span>${escapeHtml(String(summary?.contentSummary.feiTicketCount ?? bag?.contentFeiTicketCount ?? 0))}</div>
+          <div><span class="text-muted-foreground">菲票数量：</span>${escapeHtml(String(summary?.contentSummary.feiTicketCount ?? bag?.contentFeiTicketCount ?? 0))}</div>
         </div>
       </section>
 
@@ -65,7 +65,7 @@ export function renderPdaTransferBagDetailPage(routeBagNo?: string): string {
                           <div>颜色：${escapeHtml(item.colorName || '-')}</div>
                           <div>尺码：${escapeHtml(item.sizeCode || '-')}</div>
                           <div>部位：${escapeHtml(item.partName || '-')}</div>
-                          <div>数量：${escapeHtml(String(item.currentQty))} ${escapeHtml(item.unit)}</div>
+                          <div>当前裁片数量：${escapeHtml(String(item.currentQty))} ${escapeHtml(item.unit)}</div>
                           <div>已完成特殊工艺：${escapeHtml(item.completedSpecialCraftNames?.join(' / ') || '无')}</div>
                           ${item.sourceKind === 'LINE_ITEM' ? `<div>物料名称：${escapeHtml(item.materialName || item.itemName)}</div><div>SKU：${escapeHtml(item.materialSku || '-')}</div>` : ''}
                         </div>

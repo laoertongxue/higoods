@@ -24,6 +24,7 @@ import {
   buildCuttingTraceabilityId,
 } from '../../../data/fcs/cutting/qr-codes.ts'
 import { buildTransferBagLabelPrintLink } from '../../../data/fcs/fcs-route-links.ts'
+import { formatFactoryDisplayName } from '../../../data/fcs/factory-mock-data.ts'
 import {
   buildCuttingDrillChipLabels,
   buildCuttingDrillSummary,
@@ -1625,7 +1626,7 @@ function renderSewingDispatchTransferBagPanel(): string {
               <th class="px-4 py-3 text-left">齐套状态</th>
               <th class="px-4 py-3 text-left">发料状态</th>
               <th class="px-4 py-3 text-left">回写状态</th>
-              <th class="px-4 py-3 text-left">差异数量</th>
+              <th class="px-4 py-3 text-left">差异裁片数量</th>
             </tr>
           </thead>
           <tbody>
@@ -1637,7 +1638,7 @@ function renderSewingDispatchTransferBagPanel(): string {
                     <td class="px-4 py-3">${escapeHtml(bag.transferOrderNo)}</td>
                     <td class="px-4 py-3">${escapeHtml(bag.dispatchBatchId)}</td>
                     <td class="px-4 py-3">${escapeHtml(bag.productionOrderNo)}</td>
-                    <td class="px-4 py-3">${escapeHtml(bag.sewingFactoryName)}</td>
+                    <td class="px-4 py-3">${escapeHtml(formatFactoryDisplayName(bag.sewingFactoryName))}</td>
                     <td class="px-4 py-3">${escapeHtml(`${bag.scannedFeiTicketNos.length} 张`)}</td>
                     <td class="px-4 py-3">${escapeHtml(bag.completeStatus)}</td>
                     <td class="px-4 py-3">${escapeHtml(bag.dispatchStatus)}</td>
@@ -1734,7 +1735,7 @@ function renderMasterSection(): string {
                           <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.currentUsage?.startedAt || item.currentReturnedAt || item.currentDispatchedAt || '暂无时间')}</div>
                         </td>
                         <td class="px-4 py-3">
-                          <div class="font-medium text-foreground">${escapeHtml(item.currentUsage?.sewingFactoryName || '待首张菲票锁定')}</div>
+                          <div class="font-medium text-foreground">${escapeHtml(formatFactoryDisplayName(item.currentUsage?.sewingFactoryName) || '待首张菲票锁定')}</div>
                           <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.currentStyleCode || '款号待锁定')}</div>
                         </td>
                         <td class="px-4 py-3">
@@ -1902,7 +1903,7 @@ function renderMasterDetail(item: TransferBagMasterItem | null): string {
                           <th class="px-3 py-2 text-left">使用周期号</th>
                           <th class="px-3 py-2 text-left">状态</th>
                           <th class="px-3 py-2 text-left">时间</th>
-                          <th class="px-3 py-2 text-right">绑定菲票数</th>
+                          <th class="px-3 py-2 text-right">绑定菲票数量</th>
                           <th class="px-3 py-2 text-left">发出 / 签收 / 回仓</th>
                         </tr>
                       </thead>
@@ -1985,7 +1986,7 @@ function renderWorkbenchSection(): string {
               <option value="">请选择车缝任务</option>
               ${getViewModel().sewingTasks
                 .map(
-                  (item) => `<option value="${escapeHtml(item.sewingTaskId)}" ${state.draft.sewingTaskId === item.sewingTaskId ? 'selected' : ''}>${escapeHtml(`${item.sewingTaskNo} / ${item.sewingFactoryName} / ${item.styleCode || item.spuCode}`)}</option>`,
+                  (item) => `<option value="${escapeHtml(item.sewingTaskId)}" ${state.draft.sewingTaskId === item.sewingTaskId ? 'selected' : ''}>${escapeHtml(`${item.sewingTaskNo} / ${formatFactoryDisplayName(item.sewingFactoryName)} / ${item.styleCode || item.spuCode}`)}</option>`,
                 )
                 .join('')}
             </select>
@@ -2033,11 +2034,11 @@ function renderWorkbenchSection(): string {
                 <div><span class="text-muted-foreground">中转袋码：</span><span class="font-medium text-foreground">${escapeHtml(activeUsage.bagCode)}</span></div>
                 <div><span class="text-muted-foreground">当前锁定款号：</span><span class="font-medium text-foreground">${escapeHtml(activeUsage.styleCode || '待锁定')}</span></div>
                 <div><span class="text-muted-foreground">车缝任务：</span><span class="font-medium text-foreground">${escapeHtml(activeUsage.sewingTaskNo)}</span></div>
-                <div><span class="text-muted-foreground">车缝工厂：</span><span class="font-medium text-foreground">${escapeHtml(activeUsage.sewingFactoryName)}</span></div>
+                <div><span class="text-muted-foreground">车缝工厂：</span><span class="font-medium text-foreground">${escapeHtml(formatFactoryDisplayName(activeUsage.sewingFactoryName))}</span></div>
                 <div><span class="text-muted-foreground">状态：</span>${renderTag(activeUsage.statusMeta.label, activeUsage.statusMeta.className)}</div>
               </div>
               <div class="space-y-2 rounded-lg border bg-muted/15 p-3 text-sm">
-                <div><span class="text-muted-foreground">已绑定菲票数：</span><span class="font-medium text-foreground">${escapeHtml(String(currentSummary?.ticketCount || 0))}</span></div>
+                <div><span class="text-muted-foreground">已绑定菲票数量：</span><span class="font-medium text-foreground">${escapeHtml(String(currentSummary?.ticketCount || 0))}</span></div>
                 <div><span class="text-muted-foreground">当前袋内成衣件数（件）：</span><span class="font-medium text-foreground">${escapeHtml(String(currentSummary?.quantityTotal || 0))}</span></div>
                 <div><span class="text-muted-foreground">原始裁片单数：</span><span class="font-medium text-foreground">${escapeHtml(String(currentSummary?.originalCutOrderCount || 0))}</span></div>
                 <div><span class="text-muted-foreground">生产单数：</span><span class="font-medium text-foreground">${escapeHtml(String(currentSummary?.productionOrderCount || 0))}</span></div>
@@ -2204,7 +2205,7 @@ function renderUsageLedgerSection(): string {
                   <th class="px-4 py-3 text-left">中转袋码</th>
                   <th class="px-4 py-3 text-left">车缝任务号</th>
                   <th class="px-4 py-3 text-left">车缝工厂</th>
-                  <th class="px-4 py-3 text-right">菲票数</th>
+                  <th class="px-4 py-3 text-right">菲票数量</th>
                   <th class="px-4 py-3 text-right">原始裁片单数</th>
                   <th class="px-4 py-3 text-left">使用周期状态</th>
                   <th class="px-4 py-3 text-left">发出时间</th>
@@ -2222,7 +2223,7 @@ function renderUsageLedgerSection(): string {
                         </td>
                         <td class="px-4 py-3">${escapeHtml(item.bagCode)}</td>
                         <td class="px-4 py-3">${escapeHtml(item.sewingTaskNo)}</td>
-                        <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(item.sewingFactoryName)}</td>
+                        <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(formatFactoryDisplayName(item.sewingFactoryName))}</td>
                         <td class="px-4 py-3 text-right tabular-nums">${escapeHtml(String(item.summary.ticketCount))}</td>
                         <td class="px-4 py-3 text-right tabular-nums">${escapeHtml(String(item.summary.originalCutOrderCount))}</td>
                         <td class="px-4 py-3">${renderTag(item.statusMeta.label, item.statusMeta.className)}</td>
@@ -2259,8 +2260,8 @@ function renderUsageDetail(item: TransferBagUsageItem | null): string {
         <div class="space-y-3 rounded-lg border bg-muted/15 p-3 text-sm">
           <div><span class="text-muted-foreground">中转袋码：</span><span class="font-medium text-foreground">${escapeHtml(item.bagCode)}</span></div>
           <div><span class="text-muted-foreground">车缝任务：</span><span class="font-medium text-foreground">${escapeHtml(item.sewingTaskNo)}</span></div>
-          <div><span class="text-muted-foreground">车缝工厂：</span><span class="font-medium text-foreground">${escapeHtml(item.sewingFactoryName)}</span></div>
-          <div><span class="text-muted-foreground">菲票数：</span><span class="font-medium text-foreground">${escapeHtml(String(item.summary.ticketCount))}</span></div>
+          <div><span class="text-muted-foreground">车缝工厂：</span><span class="font-medium text-foreground">${escapeHtml(formatFactoryDisplayName(item.sewingFactoryName))}</span></div>
+          <div><span class="text-muted-foreground">菲票数量：</span><span class="font-medium text-foreground">${escapeHtml(String(item.summary.ticketCount))}</span></div>
           <div><span class="text-muted-foreground">生产单数：</span><span class="font-medium text-foreground">${escapeHtml(String(item.summary.productionOrderCount))}</span></div>
           <div><span class="text-muted-foreground">最新清单：</span><span class="font-medium text-foreground">${escapeHtml(item.latestManifest?.manifestId || '尚未打印')}</span></div>
           <div class="flex flex-wrap gap-2">
@@ -2352,7 +2353,7 @@ function renderReturnLedgerSection(): string {
                         </td>
                         <td class="px-4 py-3">${escapeHtml(item.bagCode)}</td>
                         <td class="px-4 py-3">${escapeHtml(item.sewingTaskNo)}</td>
-                        <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(item.sewingFactoryName)}</td>
+                        <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(formatFactoryDisplayName(item.sewingFactoryName))}</td>
                         <td class="px-4 py-3 text-xs text-muted-foreground">${escapeHtml(item.dispatchAt || '待发出')}</td>
                         <td class="px-4 py-3">${renderTag(item.statusMeta.label, item.statusMeta.className)}</td>
                         <td class="px-4 py-3">${item.bagStatusMeta ? renderTag(item.bagStatusMeta.label, item.bagStatusMeta.className) : '<span class="text-xs text-muted-foreground">待补</span>'}</td>
@@ -2400,7 +2401,7 @@ function renderReturnWorkbenchSection(): string {
                 <div><span class="text-muted-foreground">口袋状态：</span>${activeUsage.bagStatusMeta ? renderTag(activeUsage.bagStatusMeta.label, activeUsage.bagStatusMeta.className) : '<span class="text-xs text-muted-foreground">待补</span>'}</div>
               </div>
               <div class="space-y-2 rounded-lg border bg-muted/15 p-3 text-sm">
-                <div><span class="text-muted-foreground">菲票数：</span><span class="font-medium text-foreground">${escapeHtml(String(activeUsage.summary.ticketCount))}</span></div>
+                <div><span class="text-muted-foreground">菲票数量：</span><span class="font-medium text-foreground">${escapeHtml(String(activeUsage.summary.ticketCount))}</span></div>
                 <div><span class="text-muted-foreground">原始裁片单数：</span><span class="font-medium text-foreground">${escapeHtml(String(activeUsage.summary.originalCutOrderCount))}</span></div>
                 <div><span class="text-muted-foreground">生产单数：</span><span class="font-medium text-foreground">${escapeHtml(String(activeUsage.summary.productionOrderCount))}</span></div>
                 <div><span class="text-muted-foreground">回货资格：</span><span class="font-medium ${activeUsage.returnEligibility.ok ? 'text-emerald-700' : 'text-amber-700'}">${escapeHtml(activeUsage.returnEligibility.ok ? '可进入回货流程' : activeUsage.returnEligibility.reason)}</span></div>
@@ -2428,7 +2429,7 @@ function renderReturnWorkbenchSection(): string {
                 <input type="number" value="${escapeHtml(state.returnDraft.returnedFinishedQty)}" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-return-draft-field="returnedFinishedQty" />
               </label>
               <label class="space-y-2">
-                <span class="text-sm font-medium text-foreground">回货菲票数摘要</span>
+                <span class="text-sm font-medium text-foreground">回货菲票数量摘要</span>
                 <input type="number" value="${escapeHtml(state.returnDraft.returnedTicketCountSummary)}" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" data-transfer-bags-return-draft-field="returnedTicketCountSummary" />
               </label>
               <label class="space-y-2">
@@ -2762,10 +2763,10 @@ function renderTransferBagDetailHeader(
     },
     {
       label: '车缝工厂 / 任务',
-      valueHtml: `<span class="text-sm font-semibold text-foreground">${escapeHtml(focusedUsage ? `${focusedUsage.sewingFactoryName} / ${focusedUsage.sewingTaskNo}` : '待首张菲票锁定')}</span>`,
+      valueHtml: `<span class="text-sm font-semibold text-foreground">${escapeHtml(focusedUsage ? `${formatFactoryDisplayName(focusedUsage.sewingFactoryName)} / ${focusedUsage.sewingTaskNo}` : '待首张菲票锁定')}</span>`,
     },
     {
-      label: '当前已装菲票数 / 容量（张）',
+      label: '当前已装菲票数量 / 容量（张）',
       valueHtml: `<span class="text-sm font-semibold text-foreground">${escapeHtml(`${summary?.ticketCount || 0} 张 / ${activeMaster.capacity} 张`)}</span>`,
     },
   ]
@@ -3065,7 +3066,7 @@ function renderBaggedTicketCompactList(
                       <td class="px-3 py-2 font-medium text-foreground">${escapeHtml(binding.ticketNo)}</td>
                       <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(binding.originalCutOrderNo || '—')}</td>
                       <td class="px-3 py-2">${escapeHtml(binding.ticket?.styleCode || focusedUsage.styleCode || '待补')}</td>
-                      <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(focusedUsage.sewingFactoryName || '待锁定')}</td>
+                      <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(formatFactoryDisplayName(focusedUsage.sewingFactoryName) || '待锁定')}</td>
                       <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(focusedUsage.sewingTaskNo || '待锁定')}</td>
                     </tr>
                   `,
@@ -3111,12 +3112,12 @@ function renderBaggingScanStepCard(
           <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted md:self-end" data-transfer-bags-action="bind-ticket" ${canEditBindings ? '' : 'disabled'}>加入本袋</button>
         </div>
         <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-          ${renderBaggingInlineField('已装菲票数', `${currentSummary.ticketCount} 张`)}
+          ${renderBaggingInlineField('已装菲票数量', `${currentSummary.ticketCount} 张`)}
           ${renderBaggingInlineField('容量状态', capacityExceeded ? '已超容量' : '容量正常', capacityExceeded ? 'text-amber-700' : 'text-foreground')}
           ${
             focusedUsage
               ? `
-                ${renderBaggingInlineField('车缝工厂', focusedUsage.sewingFactoryName || '待锁定')}
+                ${renderBaggingInlineField('车缝工厂', formatFactoryDisplayName(focusedUsage.sewingFactoryName) || '待锁定')}
                 ${renderBaggingInlineField('当前任务', focusedUsage.sewingTaskNo || '待锁定')}
                 ${renderBaggingInlineField('当前款号', focusedUsage.styleCode || '待锁定')}
               `
@@ -3171,7 +3172,7 @@ function renderBaggingReviewStepCard(
       : `
         <div class="space-y-3">
           <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            ${renderDetailMetric('已绑菲票数', String(currentSummary.ticketCount))}
+            ${renderDetailMetric('已绑菲票数量', String(currentSummary.ticketCount))}
             ${renderDetailMetric('来源原始裁片单数', String(currentSummary.originalCutOrderCount))}
             ${renderDetailMetric('来源生产单数', String(currentSummary.productionOrderCount))}
             ${renderDetailMetric('同组裁片组数', String(currentSummary.assemblyGroupCount))}
@@ -3282,8 +3283,8 @@ function renderBaggingHandoverStepCard(
           <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
             ${renderDetailMetric('本次周转号', focusedUsage.usageNo)}
             ${renderDetailMetric('中转袋码', focusedUsage.bagCode)}
-            ${renderDetailMetric('车缝工厂', focusedUsage.sewingFactoryName || '待锁定')}
-            ${renderDetailMetric('已装菲票数', `${currentSummary.ticketCount}`)}
+            ${renderDetailMetric('车缝工厂', formatFactoryDisplayName(focusedUsage.sewingFactoryName) || '待锁定')}
+            ${renderDetailMetric('已装菲票数量', `${currentSummary.ticketCount}`)}
             ${renderDetailMetric('当前状态', focusedUsage.visibleStatusMeta.label)}
           </div>
           <div class="flex flex-wrap gap-2">
@@ -3363,7 +3364,7 @@ function renderTransferBagHistoryTab(
                     <th class="px-3 py-2 text-left">开始时间</th>
                     <th class="px-3 py-2 text-left">车缝任务</th>
                     <th class="px-3 py-2 text-left">车缝工厂</th>
-                    <th class="px-3 py-2 text-right">菲票数</th>
+                    <th class="px-3 py-2 text-right">菲票数量</th>
                     <th class="px-3 py-2 text-left">交出 / 回收</th>
                   </tr>
                 </thead>
@@ -3388,7 +3389,7 @@ function renderTransferBagHistoryTab(
                           <td class="px-3 py-2">${renderTag(item.visibleStatusMeta.label, item.visibleStatusMeta.className)}</td>
                           <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(item.startedAt || '待补')}</td>
                           <td class="px-3 py-2">${escapeHtml(item.sewingTaskNo)}</td>
-                          <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(item.sewingFactoryName || '待补')}</td>
+                          <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(formatFactoryDisplayName(item.sewingFactoryName) || '待补')}</td>
                           <td class="px-3 py-2 text-right tabular-nums">${escapeHtml(String(item.summary.ticketCount))}</td>
                           <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml([item.dispatchAt || '待交出', item.returnedAt || '待回收'].join(' / '))}</td>
                         </tr>
@@ -3409,8 +3410,8 @@ function renderTransferBagHistoryTab(
                     <div><span class="text-muted-foreground">本次周转号：</span><span class="font-medium text-foreground">${escapeHtml(selectedUsage.usageNo)}</span></div>
                     <div><span class="text-muted-foreground">开始时间：</span><span class="font-medium text-foreground">${escapeHtml(selectedUsage.startedAt || '待补')}</span></div>
                     <div><span class="text-muted-foreground">车缝任务：</span><span class="font-medium text-foreground">${escapeHtml(selectedUsage.sewingTaskNo)}</span></div>
-                    <div><span class="text-muted-foreground">车缝工厂：</span><span class="font-medium text-foreground">${escapeHtml(selectedUsage.sewingFactoryName || '待补')}</span></div>
-                    <div><span class="text-muted-foreground">菲票数：</span><span class="font-medium text-foreground">${escapeHtml(String(selectedUsage.summary.ticketCount))}</span></div>
+                    <div><span class="text-muted-foreground">车缝工厂：</span><span class="font-medium text-foreground">${escapeHtml(formatFactoryDisplayName(selectedUsage.sewingFactoryName) || '待补')}</span></div>
+                    <div><span class="text-muted-foreground">菲票数量：</span><span class="font-medium text-foreground">${escapeHtml(String(selectedUsage.summary.ticketCount))}</span></div>
                     <div><span class="text-muted-foreground">交出时间：</span><span class="font-medium text-foreground">${escapeHtml(selectedUsage.dispatchAt || '待交出')}</span></div>
                     <div><span class="text-muted-foreground">回收时间：</span><span class="font-medium text-foreground">${escapeHtml(selectedUsage.returnedAt || '待回收')}</span></div>
                     <div><span class="text-muted-foreground">回收时间：</span><span class="font-medium text-foreground">${escapeHtml(selectedUsage.returnedAt || '待回收')}</span></div>

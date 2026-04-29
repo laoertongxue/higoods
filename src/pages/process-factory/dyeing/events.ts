@@ -3,6 +3,7 @@ import {
   approveDyeReview,
   rejectDyeReview,
 } from '../../../data/fcs/dyeing-task-domain.ts'
+import { executeProcessWebAction } from '../../../data/fcs/process-web-status-actions.ts'
 
 function showDyeingToast(message: string): void {
   if (typeof document === 'undefined' || typeof window === 'undefined') return
@@ -49,6 +50,26 @@ export function handleCraftDyeingEvent(target: HTMLElement): boolean {
   if (action === 'navigate') {
     const href = actionNode.dataset.href
     if (href) appStore.navigate(href)
+    return true
+  }
+
+  if (action === 'web-status-action') {
+    const sourceId = actionNode.dataset.sourceId
+    const actionCode = actionNode.dataset.actionCode
+    if (!sourceId || !actionCode) return true
+    try {
+      const result = executeProcessWebAction({
+        sourceType: 'DYE_WORK_ORDER',
+        sourceId,
+        actionCode,
+        operatorName: 'Web 端操作员',
+        operatedAt: '2026-04-28 10:00',
+        remark: '工艺工厂 Web 端状态操作',
+      })
+      showDyeingToast(result.message)
+    } catch (error) {
+      showDyeingToast(error instanceof Error ? error.message : '状态操作失败')
+    }
     return true
   }
 

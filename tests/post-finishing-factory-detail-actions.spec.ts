@@ -2,11 +2,11 @@ import { expect, test } from '@playwright/test'
 
 const FULL_FACTORY_NAME = '全能力测试工厂'
 const PDA_SESSION = {
-  userId: 'ID-F090_operator',
-  loginId: 'ID-F090_operator',
+  userId: 'F090_operator',
+  loginId: 'F090_operator',
   userName: '全能力测试工厂_操作工',
   roleId: 'ROLE_OPERATOR',
-  factoryId: 'ID-F090',
+  factoryId: 'F090',
   factoryName: FULL_FACTORY_NAME,
   loggedAt: '2026-04-25 10:00:00',
 }

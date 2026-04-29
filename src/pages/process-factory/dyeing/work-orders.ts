@@ -5,6 +5,7 @@ import {
   listDyeWorkOrders,
 } from '../../../data/fcs/dyeing-task-domain.ts'
 import { buildDyeingWorkOrderDetailLink, buildTaskRouteCardPrintLink } from '../../../data/fcs/fcs-route-links.ts'
+import { formatFactoryDisplayName } from '../../../data/fcs/factory-mock-data.ts'
 import {
   formatDyeQty,
   getDyeVatSummary,
@@ -60,7 +61,7 @@ function renderOrdersTable(): string {
             <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(order.colorNo || '待确认')}</div>
           </td>
           <td class="px-3 py-3 text-sm">${formatDyeQty(order.plannedQty, order.qtyUnit)}</td>
-          <td class="px-3 py-3 text-sm">${escapeHtml(order.dyeFactoryName)}</td>
+          <td class="px-3 py-3 text-sm">${escapeHtml(formatFactoryDisplayName(order.dyeFactoryName, order.dyeFactoryId))}</td>
           <td class="px-3 py-3">${renderWorkOrderStatusBadge(order.status)}</td>
           <td class="px-3 py-3 text-sm">${escapeHtml(vat.dyeVatNo)}</td>
           <td class="px-3 py-3 text-sm">${handoverText}</td>

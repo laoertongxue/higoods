@@ -82,7 +82,7 @@ function renderDetailDrawer(): string {
                   <div class="mt-3 space-y-1.5 text-xs text-muted-foreground">
                     <div>菲票号 / 中转袋号：${escapeHtml(line.feiTicketNo || '-')} / ${escapeHtml(line.transferBagNo || '-')}</div>
                     <div>卷号：${escapeHtml(line.fabricRollNo || '-')}</div>
-                    <div>账面数量：${line.bookQty} ${escapeHtml(line.unit)}</div>
+                    <div>账面对象数量：${line.bookQty} ${escapeHtml(line.unit)}</div>
                     <div>库区 / 货架 / 库位：${escapeHtml(line.areaName)} / ${escapeHtml(line.shelfNo)} / ${escapeHtml(line.locationNo)}</div>
                   </div>
                   <div class="mt-4 grid grid-cols-2 gap-2">
@@ -120,7 +120,7 @@ function renderDetailDrawer(): string {
                       }
                     </label>
                   </div>
-                  <div class="mt-2 text-xs text-muted-foreground">差异数量：${escapeHtml(buildWarehouseDifferenceText(line.differenceQty))}</div>
+                  <div class="mt-2 text-xs text-muted-foreground">差异对象数量：${escapeHtml(buildWarehouseDifferenceText(line.differenceQty))}</div>
                 </article>
               `,
             )

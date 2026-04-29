@@ -12,6 +12,7 @@ import {
 import { listPdaGenericProcessTasks, type PdaGenericTaskMock } from './pda-task-mock-factory.ts'
 import { type HandoverReceiverKind } from './process-tasks.ts'
 import { buildTaskQrValue } from './task-qr.ts'
+import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
 
 export type DyeWorkOrderStatus =
   | 'WAIT_SAMPLE'
@@ -268,6 +269,7 @@ const DYE_WORK_ORDER_IDS = [
   'DWO-010',
   'DWO-011',
   'DWO-012',
+  'DWO-013',
 ] as const
 
 type MutableDyeWorkOrder = DyeWorkOrder
@@ -694,7 +696,7 @@ function addFormulaRecord(record: MutableDyeFormulaRecord): void {
 }
 
 function seedWorkOrders(): void {
-  const vats = listFactoryDyeVatCapacities('ID-F003')
+  const vats = listFactoryDyeVatCapacities(TEST_FACTORY_ID)
   const primaryVat = vats[0]
   const secondaryVat = vats[1] ?? vats[0]
 
@@ -794,8 +796,8 @@ function seedWorkOrders(): void {
     plannedQty: 920,
     qtyUnit: '米',
     plannedRollCount: 18,
-    dyeFactoryId: 'ID-F003',
-    dyeFactoryName: 'PT Cahaya Dyeing Sejahtera',
+    dyeFactoryId: TEST_FACTORY_ID,
+    dyeFactoryName: TEST_FACTORY_NAME,
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
     status: 'WAIT_SAMPLE',
@@ -825,8 +827,8 @@ function seedWorkOrders(): void {
     plannedQty: 760,
     qtyUnit: '米',
     plannedRollCount: 12,
-    dyeFactoryId: 'ID-F003',
-    dyeFactoryName: 'PT Cahaya Dyeing Sejahtera',
+    dyeFactoryId: TEST_FACTORY_ID,
+    dyeFactoryName: TEST_FACTORY_NAME,
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
     status: 'WAIT_MATERIAL',
@@ -859,8 +861,8 @@ function seedWorkOrders(): void {
     plannedQty: 680,
     qtyUnit: '米',
     plannedRollCount: 10,
-    dyeFactoryId: 'ID-F003',
-    dyeFactoryName: 'PT Cahaya Dyeing Sejahtera',
+    dyeFactoryId: TEST_FACTORY_ID,
+    dyeFactoryName: TEST_FACTORY_NAME,
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
     status: 'SAMPLE_TESTING',
@@ -905,8 +907,8 @@ function seedWorkOrders(): void {
     plannedQty: 840,
     qtyUnit: '米',
     plannedRollCount: 14,
-    dyeFactoryId: 'ID-F003',
-    dyeFactoryName: 'PT Cahaya Dyeing Sejahtera',
+    dyeFactoryId: TEST_FACTORY_ID,
+    dyeFactoryName: TEST_FACTORY_NAME,
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
     status: 'MATERIAL_READY',
@@ -956,8 +958,8 @@ function seedWorkOrders(): void {
     plannedQty: 980,
     qtyUnit: '米',
     plannedRollCount: 16,
-    dyeFactoryId: 'ID-F003',
-    dyeFactoryName: 'PT Cahaya Dyeing Sejahtera',
+    dyeFactoryId: TEST_FACTORY_ID,
+    dyeFactoryName: TEST_FACTORY_NAME,
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
     status: 'DRYING',
@@ -1078,8 +1080,8 @@ function seedWorkOrders(): void {
     plannedQty: 1100,
     qtyUnit: '米',
     plannedRollCount: 18,
-    dyeFactoryId: 'ID-F003',
-    dyeFactoryName: 'PT Cahaya Dyeing Sejahtera',
+    dyeFactoryId: TEST_FACTORY_ID,
+    dyeFactoryName: TEST_FACTORY_NAME,
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
     status: 'DYEING',
@@ -1157,8 +1159,8 @@ function seedWorkOrders(): void {
     plannedQty: 1100,
     qtyUnit: '米',
     plannedRollCount: 15,
-    dyeFactoryId: 'ID-F003',
-    dyeFactoryName: 'PT Cahaya Dyeing Sejahtera',
+    dyeFactoryId: TEST_FACTORY_ID,
+    dyeFactoryName: TEST_FACTORY_NAME,
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
     status: 'WAIT_HANDOVER',
@@ -1291,8 +1293,8 @@ function seedWorkOrders(): void {
     plannedQty: 910,
     qtyUnit: '米',
     plannedRollCount: 13,
-    dyeFactoryId: 'ID-F003',
-    dyeFactoryName: 'PT Cahaya Dyeing Sejahtera',
+    dyeFactoryId: TEST_FACTORY_ID,
+    dyeFactoryName: TEST_FACTORY_NAME,
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
     status: 'HANDOVER_SUBMITTED',
@@ -1354,8 +1356,8 @@ function seedWorkOrders(): void {
     plannedQty: 980,
     qtyUnit: '米',
     plannedRollCount: 17,
-    dyeFactoryId: 'ID-F003',
-    dyeFactoryName: 'PT Cahaya Dyeing Sejahtera',
+    dyeFactoryId: TEST_FACTORY_ID,
+    dyeFactoryName: TEST_FACTORY_NAME,
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
     status: 'WAIT_REVIEW',
@@ -1403,8 +1405,8 @@ function seedWorkOrders(): void {
     plannedQty: 860,
     qtyUnit: '米',
     plannedRollCount: 12,
-    dyeFactoryId: 'ID-F003',
-    dyeFactoryName: 'PT Cahaya Dyeing Sejahtera',
+    dyeFactoryId: TEST_FACTORY_ID,
+    dyeFactoryName: TEST_FACTORY_NAME,
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
     status: 'REJECTED',
@@ -1451,8 +1453,8 @@ function seedWorkOrders(): void {
     plannedQty: 1180,
     qtyUnit: '米',
     plannedRollCount: 20,
-    dyeFactoryId: 'ID-F003',
-    dyeFactoryName: 'PT Cahaya Dyeing Sejahtera',
+    dyeFactoryId: TEST_FACTORY_ID,
+    dyeFactoryName: TEST_FACTORY_NAME,
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
     status: 'COMPLETED',
@@ -1583,17 +1585,17 @@ function seedWorkOrders(): void {
     plannedQty: 930,
     qtyUnit: '米',
     plannedRollCount: 15,
-    dyeFactoryId: 'ID-F003',
-    dyeFactoryName: 'PT Cahaya Dyeing Sejahtera',
+    dyeFactoryId: TEST_FACTORY_ID,
+    dyeFactoryName: TEST_FACTORY_NAME,
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
     status: 'WAIT_VAT_PLAN',
     taskId: 'TASK-DYE-000732',
     taskNo: 'TASK-DYE-000732',
-    waitingReason: '备料完成，等待排染缸',
+    waitingReason: '待排缸',
     createdAt: '2026-03-29 08:00:00',
     updatedAt: '2026-03-29 09:05:00',
-    remark: '补充统计样本，等待排染缸',
+    remark: '补充统计样本，备料完成后等待排染缸',
   })
   setNodeRecords(DYE_WORK_ORDER_IDS[11], [
     {
@@ -1608,6 +1610,56 @@ function seedWorkOrders(): void {
       finishedAt: '2026-03-29 09:05:00',
       inputQty: 930,
       outputQty: 930,
+      qtyUnit: '米',
+      remark: '备料完成',
+    },
+  ])
+
+  addSeedWorkOrder({
+    dyeOrderId: DYE_WORK_ORDER_IDS[12],
+    dyeOrderNo: 'DY-20260329-013',
+    sourceType: 'PRODUCTION_ORDER',
+    sourceDemandIds: ['DM-DYE-013'],
+    productionOrderIds: ['PO-20260329-413'],
+    isFirstOrder: false,
+    sampleWaitType: 'NONE',
+    sampleStatus: 'NOT_REQUIRED',
+    materialWaitStartedAt: '2026-03-29 09:20:00',
+    materialWaitFinishedAt: '2026-03-29 10:05:00',
+    colorNo: 'C-613',
+    rawMaterialSku: 'FAB-DYE-013',
+    composition: '棉涤混纺',
+    width: '150 cm',
+    weightGsm: 185,
+    targetColor: '雾蓝',
+    plannedQty: 940,
+    qtyUnit: '米',
+    plannedRollCount: 16,
+    dyeFactoryId: TEST_FACTORY_ID,
+    dyeFactoryName: TEST_FACTORY_NAME,
+    targetTransferWarehouseId: 'WH-TRANSFER',
+    targetTransferWarehouseName: '中转区域',
+    status: 'PACKING',
+    taskId: 'TASK-DYE-000733',
+    taskNo: 'TASK-DYE-000733',
+    waitingReason: '包装中',
+    createdAt: '2026-03-29 09:00:00',
+    updatedAt: '2026-03-29 10:05:00',
+    remark: '包装中演示样本，完成包装后进入染色待交出仓',
+  })
+  setNodeRecords(DYE_WORK_ORDER_IDS[12], [
+    {
+      nodeRecordId: `${DYE_WORK_ORDER_IDS[12]}-MATERIAL_READY`,
+      dyeOrderId: DYE_WORK_ORDER_IDS[12],
+      taskId: 'TASK-DYE-000733',
+      nodeCode: 'MATERIAL_READY',
+      nodeName: DYE_NODE_LABEL.MATERIAL_READY,
+      operatorUserId: 'USR-DYE-01',
+      operatorName: '染色工厂',
+      startedAt: '2026-03-29 09:25:00',
+      finishedAt: '2026-03-29 10:05:00',
+      inputQty: 940,
+      outputQty: 940,
       qtyUnit: '米',
       remark: '备料完成',
     },
@@ -2338,6 +2390,28 @@ export function completeDyeNode(
   }
   updateOrderTimestamp(order, now)
   return getDyeExecutionNodeRecord(dyeOrderId, nodeCode)!
+}
+
+export function submitDyeHandover(
+  dyeOrderId: string,
+  input: { handoverQty?: number; handoverPerson?: string; handoverAt?: string; remark?: string } = {},
+): { handoverOrderId?: string; recordIds: string[] } {
+  const order = getMutableWorkOrder(dyeOrderId)
+  const now = input.handoverAt || nowTimestamp()
+  if (!order.handoverOrderId) {
+    order.handoverOrderId = ensureStartedTaskHandover(order.taskId)
+  }
+  const result = ensureSeededHandoverRecord({
+    taskId: order.taskId,
+    submittedQty: Number.isFinite(input.handoverQty) ? Number(input.handoverQty) : order.plannedQty,
+    submittedAt: now,
+  })
+  order.handoverOrderId = result.handoverOrderId || order.handoverOrderId
+  order.status = 'HANDOVER_SUBMITTED'
+  order.remark = input.remark?.trim() || order.remark
+  updateOrderTimestamp(order, now)
+  syncDerivedWorkflow()
+  return result
 }
 
 export function approveDyeReview(

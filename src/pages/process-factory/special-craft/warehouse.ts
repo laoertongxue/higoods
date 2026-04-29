@@ -19,6 +19,7 @@ import {
 import { escapeHtml } from '../../../utils.ts'
 import {
   formatQty,
+  formatSpecialCraftFactoryLabel,
   renderEmptyState,
   renderSpecialCraftFactoryContextBlockedLayout,
   renderFilterGrid,
@@ -195,7 +196,7 @@ function renderSpecialCraftWarehousePageByMode(
   )
 
   const filters = renderFilterGrid([
-    { label: '工厂', value: warehouseView.factoryIds.length > 1 ? '全部关联工厂' : warehouseView.warehouses[0]?.factoryName || '全部工厂' },
+    { label: '工厂', value: warehouseView.factoryIds.length > 1 ? '全部关联工厂' : formatSpecialCraftFactoryLabel(warehouseView.warehouses[0]?.factoryName, warehouseView.factoryIds[0]) || '全部工厂' },
     { label: '仓库类型', value: mode === 'wait-process' ? '待加工仓' : '待交出仓' },
     { label: '状态', value: '全部状态' },
     { label: '关键字', value: '支持任务号 / 菲票号 / 中转袋号 / 卷号' },
@@ -225,7 +226,7 @@ function renderSpecialCraftWarehousePageByMode(
         const flowSummary = getSpecialCraftFeiTicketSummary(item.feiTicketNo || '')
         return `
         <tr class="align-top">
-          <td class="px-3 py-3">${escapeHtml(item.factoryName)}</td>
+          <td class="px-3 py-3">${escapeHtml(formatSpecialCraftFactoryLabel(item.factoryName, item.factoryId))}</td>
           <td class="px-3 py-3">${escapeHtml(item.warehouseName)}</td>
           <td class="px-3 py-3">${escapeHtml(item.sourceRecordNo)}</td>
           <td class="px-3 py-3">${escapeHtml(item.sourceObjectName)}</td>
@@ -268,7 +269,7 @@ function renderSpecialCraftWarehousePageByMode(
         const flowSummary = getSpecialCraftFeiTicketSummary(item.feiTicketNo || '')
         return `
         <tr class="align-top">
-          <td class="px-3 py-3">${escapeHtml(item.factoryName)}</td>
+          <td class="px-3 py-3">${escapeHtml(formatSpecialCraftFactoryLabel(item.factoryName, item.factoryId))}</td>
           <td class="px-3 py-3">${escapeHtml(item.warehouseName)}</td>
           <td class="px-3 py-3">${escapeHtml(item.taskNo || '—')}</td>
           <td class="px-3 py-3">${escapeHtml(item.itemKind)}</td>
@@ -312,7 +313,7 @@ function renderSpecialCraftWarehousePageByMode(
         return `
         <tr class="align-top">
           <td class="px-3 py-3">${escapeHtml(item.inboundRecordNo)}</td>
-          <td class="px-3 py-3">${escapeHtml(item.factoryName)}</td>
+          <td class="px-3 py-3">${escapeHtml(formatSpecialCraftFactoryLabel(item.factoryName, item.factoryId))}</td>
           <td class="px-3 py-3">${escapeHtml(item.warehouseName)}</td>
           <td class="px-3 py-3">${escapeHtml(item.sourceRecordNo)}</td>
           <td class="px-3 py-3">${escapeHtml(item.sourceObjectName)}</td>
@@ -350,7 +351,7 @@ function renderSpecialCraftWarehousePageByMode(
         return `
         <tr class="align-top">
           <td class="px-3 py-3">${escapeHtml(item.outboundRecordNo)}</td>
-          <td class="px-3 py-3">${escapeHtml(item.factoryName)}</td>
+          <td class="px-3 py-3">${escapeHtml(formatSpecialCraftFactoryLabel(item.factoryName, item.factoryId))}</td>
           <td class="px-3 py-3">${escapeHtml(item.warehouseName)}</td>
           <td class="px-3 py-3">${escapeHtml(item.sourceTaskNo || '—')}</td>
           <td class="px-3 py-3">${escapeHtml(item.handoverOrderNo || '—')}</td>
@@ -393,7 +394,7 @@ function renderSpecialCraftWarehousePageByMode(
     .map(
       (row) => `
         <tr>
-          <td class="px-3 py-3">${escapeHtml(row.factoryName)}</td>
+          <td class="px-3 py-3">${escapeHtml(formatSpecialCraftFactoryLabel(row.factoryName, row.factoryId))}</td>
           <td class="px-3 py-3">${escapeHtml(row.warehouseName)}</td>
           <td class="px-3 py-3">${escapeHtml(row.areaName)}</td>
           <td class="px-3 py-3">${escapeHtml(row.shelfNo || '—')}</td>
@@ -411,7 +412,7 @@ function renderSpecialCraftWarehousePageByMode(
       (order) => `
         <tr>
           <td class="px-3 py-3">${escapeHtml(order.stocktakeOrderNo)}</td>
-          <td class="px-3 py-3">${escapeHtml(order.factoryName)}</td>
+          <td class="px-3 py-3">${escapeHtml(formatSpecialCraftFactoryLabel(order.factoryName, order.factoryId))}</td>
           <td class="px-3 py-3">${escapeHtml(order.warehouseName)}</td>
           <td class="px-3 py-3">${escapeHtml(order.stocktakeScope)}</td>
           <td class="px-3 py-3">${escapeHtml(order.createdBy)}</td>

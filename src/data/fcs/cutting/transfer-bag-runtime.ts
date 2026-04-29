@@ -1,5 +1,6 @@
 import { buildCuttingTraceabilityId, encodeCarrierQr, parseCuttingTraceQr } from './qr-codes.ts'
-import { getFactoryMasterRecordById, listSewingFactoryMasterRecords } from '../factory-master-store.ts'
+import { getFactoryMasterRecordById } from '../factory-master-store.ts'
+import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from '../factory-mock-data.ts'
 import {
   normalizeCarrierCycleItemBinding,
   normalizeTransferBagDispatchManifest,
@@ -116,11 +117,9 @@ export interface TransferCarrierCycleRecord {
 }
 
 function pickTransferBagSewingFactory(index: number): { factoryId: string; factoryName: string } {
-  const sewingFactories = listSewingFactoryMasterRecords()
-  const factory = sewingFactories[index % sewingFactories.length] || sewingFactories[0] || null
   return {
-    factoryId: factory?.id || `factory-sew-${index + 1}`,
-    factoryName: factory?.name || '工厂档案待补',
+    factoryId: TEST_FACTORY_ID,
+    factoryName: TEST_FACTORY_NAME,
   }
 }
 

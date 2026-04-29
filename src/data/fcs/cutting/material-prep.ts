@@ -1,5 +1,6 @@
 import { getDyeWorkOrderById, listDyeReviewRecords } from '../dyeing-task-domain.ts'
 import { getPrintWorkOrderById, listPrintReviewRecords } from '../printing-task-domain.ts'
+import { TEST_FACTORY_NAME } from '../factory-mock-data.ts'
 import { buildCutOrderQrValue } from './qr-codes.ts'
 import type {
   CuttingConfigStatus,
@@ -132,7 +133,7 @@ export const cuttingMaterialPrepGroups: CuttingMaterialPrepGroup[] = [
     orderQty: 6800,
     plannedShipDate: '2026-03-29',
     cuttingTaskNo: 'CP-TASK-202603-018',
-    assignedFactoryName: '晋江盛鸿裁片厂',
+    assignedFactoryName: TEST_FACTORY_NAME,
     cutPieceOrderCount: 2,
     configSummary: '2 个裁片单已进入配置，1 个仍需补齐',
     receiveSummary: '1 个裁片单已扫码领取，1 个仍待核对',
@@ -328,7 +329,7 @@ export const cuttingMaterialPrepGroups: CuttingMaterialPrepGroup[] = [
     orderQty: 4200,
     plannedShipDate: '2026-04-03',
     cuttingTaskNo: 'CP-TASK-202603-024',
-    assignedFactoryName: '石狮恒泰裁片厂',
+    assignedFactoryName: TEST_FACTORY_NAME,
     cutPieceOrderCount: 2,
     configSummary: '主面料已完成，里布仍待配料。',
     receiveSummary: '主料已领料成功，里布待仓库补配。',
@@ -446,7 +447,7 @@ export const cuttingMaterialPrepGroups: CuttingMaterialPrepGroup[] = [
     orderQty: 5300,
     plannedShipDate: '2026-04-06',
     cuttingTaskNo: 'CP-TASK-202603-031',
-    assignedFactoryName: '南安协丰裁片厂',
+    assignedFactoryName: TEST_FACTORY_NAME,
     cutPieceOrderCount: 2,
     configSummary: '全部裁片单已配置，部分领取走差异提交流程。',
     receiveSummary: '1 个裁片单已完成，1 个裁片单已提交照片。',

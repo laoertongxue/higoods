@@ -124,14 +124,14 @@ function getHandoutSummaryMeta(head: PdaHandoverHead): { label: string; classNam
     return {
       label: '暂无交出记录',
       className: 'border-border bg-background text-muted-foreground',
-      hint: '当前可新增交出记录，也可按交出数量完成交出单',
+      hint: '当前可新增交出记录，也可按交出对象数量完成交出单',
     }
   }
   if (head.summaryStatus === 'SUBMITTED') {
     return {
       label: '待回写',
       className: 'border-blue-200 bg-blue-50 text-blue-700',
-      hint: '等待接收方回写实收数量',
+      hint: '等待接收方回写实收对象数量',
     }
   }
   if (head.summaryStatus === 'PARTIAL_WRITTEN_BACK') {
@@ -145,7 +145,7 @@ function getHandoutSummaryMeta(head: PdaHandoverHead): { label: string; classNam
     return {
       label: '存在数量异议',
       className: 'border-red-200 bg-red-50 text-red-700',
-      hint: '异议可继续处理，交出单仍可按交出数量完成',
+      hint: '异议可继续处理，交出单仍可按交出对象数量完成',
     }
   }
   return {
@@ -380,7 +380,7 @@ function renderDoneHeadCard(head: PdaHandoverHead): string {
         </div>
 
         <div class="grid grid-cols-2 gap-2 rounded border bg-muted/20 px-2.5 py-2 text-xs">
-          <div>${head.headType === 'PICKUP' ? '应领数量：' : '已交出：'}<span class="font-medium">${head.headType === 'PICKUP' ? head.qtyExpectedTotal : head.submittedQtyTotal ?? 0} ${escapeHtml(head.qtyUnit)}</span></div>
+          <div>${head.headType === 'PICKUP' ? '应领对象数量：' : '已交出：'}<span class="font-medium">${head.headType === 'PICKUP' ? head.qtyExpectedTotal : head.submittedQtyTotal ?? 0} ${escapeHtml(head.qtyUnit)}</span></div>
           <div>${head.headType === 'PICKUP' ? '累计实领：' : '已回写：'}<span class="font-medium">${head.qtyActualTotal} ${escapeHtml(head.qtyUnit)}</span></div>
           <div class="col-span-2 rounded-md border px-2 py-1 ${head.qtyDiffTotal !== 0 ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}">
             ${head.qtyDiffTotal !== 0 ? `数量有差异（差异 ${escapeHtml(diffLabel)}）` : '数量一致'}
@@ -470,7 +470,7 @@ export function renderPdaHandoverPage(): string {
         ${
           state.activeTab === 'handout'
             ? `
-              <p class="text-xs text-muted-foreground">交出记录由工厂发起，接收方回写实收数量；裁床厂可看待装袋、装袋中、已装袋待交出，车缝厂可看待收中转袋、部分回写、差异。</p>
+              <p class="text-xs text-muted-foreground">交出记录由工厂发起，接收方回写实收对象数量；裁床厂可看待装袋、装袋中、已装袋待交出，车缝厂可看待收中转袋、部分回写、差异。</p>
               ${
                 handoutHeads.length === 0
                   ? renderEmptyState('暂无待处理交出单')

@@ -1,6 +1,6 @@
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
-import { mockFactories } from '../../../data/fcs/factory-mock-data.ts'
+import { TEST_FACTORY_ID, mockFactories } from '../../../data/fcs/factory-mock-data.ts'
 import {
   buildSpecialCraftTaskDetailPath,
   getSpecialCraftOperationById,
@@ -77,7 +77,7 @@ const STATUS_FILTERS: DispatchStatusFilter[] = [
 
 function resolveCuttingFactory() {
   return (
-    mockFactories.find((factory) => factory.id === 'ID-F004')
+    mockFactories.find((factory) => factory.id === TEST_FACTORY_ID)
     || mockFactories.find((factory) => factory.factoryType === 'CENTRAL_CUTTING')
     || mockFactories[0]
   )

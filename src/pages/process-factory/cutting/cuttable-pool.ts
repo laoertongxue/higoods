@@ -1,4 +1,5 @@
 import type { CuttingConfigStatus, CuttingReceiveStatus } from '../../../data/fcs/cutting/types.ts'
+import { formatFactoryDisplayName } from '../../../data/fcs/factory-mock-data.ts'
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
 import {
@@ -523,7 +524,7 @@ function renderOrderCard(order: ReturnType<typeof getVisibleOrders>[number], cur
             ${renderBadge(order.coverageStatus.label, order.coverageStatus.className)}
           </div>
           <div class="mt-2 grid gap-2 text-xs text-muted-foreground md:grid-cols-2 xl:grid-cols-6">
-            <span>工厂：${escapeHtml(order.factoryName || '—')}</span>
+            <span>工厂：${escapeHtml(formatFactoryDisplayName(order.factoryName) || '—')}</span>
             <span>款号 / SPU：${escapeHtml(order.styleCode || order.spuCode || '-')}</span>
             <span>款式名称：${escapeHtml(order.styleName || '-')}</span>
             <span>下单成衣件数（件）：${escapeHtml(String(order.orderQty))}</span>

@@ -1,7 +1,8 @@
 import { appStore } from '../state/store'
 import { escapeHtml, toClassName } from '../utils'
 import { type ProcessTask } from '../data/fcs/process-tasks'
-import { indonesiaFactories } from '../data/fcs/indonesia-factories'
+import { formatFactoryDisplayName } from '../data/fcs/factory-mock-data.ts'
+import { getFactoryMasterRecordById } from '../data/fcs/factory-master-store.ts'
 import {
   listPostFinishingWorkOrders,
   listSewingFactoryPostTasks,
@@ -17,6 +18,24 @@ import {
   listPdaTaskFlowTasks,
   resolvePdaTaskExecPath,
 } from '../data/fcs/pda-cutting-execution-source.ts'
+import { listPdaGenericTasksByProcess } from '../data/fcs/pda-task-mock-factory.ts'
+import {
+  getMobileExecutionTaskById,
+  getMobileTaskTabKey,
+  listMobileExecutionTasks,
+  matchMobileTaskKeyword,
+  type MobileExecutionTaskStatusTab,
+} from '../data/fcs/mobile-execution-task-index.ts'
+import {
+  getMobileTaskProcessType,
+  listPdaMobileExecutionTasks,
+} from '../data/fcs/process-mobile-task-binding.ts'
+import { getPrintWorkOrderByTaskId } from '../data/fcs/printing-task-domain.ts'
+import { getDyeWorkOrderByTaskId } from '../data/fcs/dyeing-task-domain.ts'
+import {
+  formatProcessQuantityWithUnit,
+  getQuantityLabel,
+} from '../data/fcs/process-quantity-labels.ts'
 import {
   formatRemainingHours,
   formatStartDueSourceText,
@@ -38,7 +57,7 @@ import {
   renderPdaLoginRedirect,
 } from './pda-runtime'
 
-type TaskStatusTab = 'NOT_STARTED' | 'IN_PROGRESS' | 'BLOCKED' | 'DONE'
+type TaskStatusTab = MobileExecutionTaskStatusTab
 
 interface PdaExecState {
   selectedFactoryId: string
@@ -154,20 +173,11 @@ function mapSewingFactoryPostTaskToTask(task: SewingFactoryPostTask, seq: number
 }
 
 function listTaskFacts(): ProcessTask[] {
-  const baseTasks = listPdaTaskFlowTasks()
-  const existingTaskIds = new Set(baseTasks.map((task) => task.taskId))
-  const postTasks = listPostFinishingWorkOrders()
-    .filter((order) => !existingTaskIds.has(order.sourceTaskId))
-    .map((order, index) => mapPostFinishingOrderToTask(order, baseTasks.length + index + 1))
-  const existingWithPost = new Set([...existingTaskIds, ...postTasks.map((task) => task.taskId)])
-  const sewingPostTasks = listSewingFactoryPostTasks()
-    .filter((task) => !existingWithPost.has(task.postTaskId))
-    .map((task, index) => mapSewingFactoryPostTaskToTask(task, baseTasks.length + postTasks.length + index + 1))
-  return [...baseTasks, ...postTasks, ...sewingPostTasks]
+  return listPdaMobileExecutionTasks()
 }
 
 function getTaskFactById(taskId: string): ProcessTask | null {
-  return getPdaTaskFlowTaskById(taskId) ?? listTaskFacts().find((task) => task.taskId === taskId) ?? null
+  return getMobileExecutionTaskById(taskId)
 }
 
 function getTaskDisplayNo(task: ProcessTask): string {
@@ -188,6 +198,42 @@ function getQtyUnitLabel(unit: string | undefined): string {
 }
 
 function resolveTaskQtyDisplayMeta(task: ProcessTask, displayProcessName = getTaskProcessDisplayName(task)): { label: string; valueText: string } {
+  const printOrder = getPrintWorkOrderByTaskId(task.taskId)
+  if (printOrder) {
+    const context = {
+      processType: 'PRINT',
+      sourceType: 'PRINT_WORK_ORDER',
+      sourceId: printOrder.printOrderId,
+      objectType: printOrder.objectType,
+      qtyUnit: printOrder.qtyUnit,
+      qtyPurpose: '计划' as const,
+      isPiecePrinting: printOrder.isPiecePrinting,
+      isFabricPrinting: printOrder.isFabricPrinting,
+    }
+    const label = getQuantityLabel(context)
+    return {
+      label,
+      valueText: `${label}：${formatProcessQuantityWithUnit(printOrder.plannedQty, context)}`,
+    }
+  }
+
+  const dyeOrder = getDyeWorkOrderByTaskId(task.taskId)
+  if (dyeOrder) {
+    const context = {
+      processType: 'DYE',
+      sourceType: 'DYE_WORK_ORDER',
+      sourceId: dyeOrder.dyeOrderId,
+      objectType: '面料',
+      qtyUnit: dyeOrder.qtyUnit,
+      qtyPurpose: '计划' as const,
+    }
+    const label = getQuantityLabel(context)
+    return {
+      label,
+      valueText: `${label}：${formatProcessQuantityWithUnit(dyeOrder.plannedQty, context)}`,
+    }
+  }
+
   const unitLabel = getQtyUnitLabel(task.qtyUnit)
   if (unitLabel === '卷') {
     return {
@@ -204,7 +250,7 @@ function resolveTaskQtyDisplayMeta(task: ProcessTask, displayProcessName = getTa
 
   const shouldUsePieceSemantics =
     unitLabel === '片'
-    || (unitLabel === '件' && (isCuttingSpecialTask(task) || /裁片|入仓|交接/.test(displayProcessName)))
+    || (unitLabel === '件' && (isCuttingSpecialTask(task) || getMobileTaskProcessType(task) === 'SPECIAL_CRAFT' || /裁片|入仓|交接/.test(displayProcessName)))
 
   if (shouldUsePieceSemantics) {
     return {
@@ -253,6 +299,21 @@ function syncTabWithQuery(): void {
   state.activeTab = mapped
   state.rawTabParam = rawTab
   state.riskParam = searchParams.get('risk') || ''
+  if (searchParams.has('keyword')) {
+    state.searchKeyword = searchParams.get('keyword') || ''
+  }
+}
+
+function buildPdaExecListPath(tab = state.activeTab): string {
+  const params = new URLSearchParams()
+  params.set('tab', tab)
+  if (state.riskParam) params.set('risk', state.riskParam)
+  if (state.searchKeyword.trim()) params.set('keyword', state.searchKeyword.trim())
+  return `/fcs/pda/exec?${params.toString()}`
+}
+
+function appendExecDetailAction(path: string, action: string): string {
+  return `${path}${path.includes('?') ? '&' : '?'}action=${encodeURIComponent(action)}`
 }
 
 function parseDateMs(value: string): number {
@@ -270,8 +331,8 @@ function getCurrentFactoryId(): string {
 }
 
 function getFactoryName(factoryId: string): string {
-  const factory = indonesiaFactories.find((item) => item.id === factoryId)
-  return factory?.name ?? factoryId
+  const factory = getFactoryMasterRecordById(factoryId)
+  return formatFactoryDisplayName(factory?.name || factoryId, factory?.code || factoryId)
 }
 
 function blockReasonLabel(reason: string | undefined): string {
@@ -379,9 +440,7 @@ function mutateFinishTask(taskId: string, by: string): void {
 }
 
 function getAcceptedTasks(factoryId: string): ProcessTask[] {
-  return listTaskFacts().filter(
-    (task) => task.assignedFactoryId === factoryId && task.acceptanceStatus === 'ACCEPTED',
-  )
+  return listMobileExecutionTasks({ currentFactoryId: factoryId })
 }
 
 function getFilteredTasks(
@@ -404,16 +463,10 @@ function getFilteredTasks(
     tasks = tasks.filter((task) => getTaskStartDueInfo(task).startRiskStatus === 'DUE_SOON')
   }
 
-  const keyword = state.searchKeyword.trim().toLowerCase()
+  const keyword = state.searchKeyword.trim()
   if (!keyword) return tasks
 
-  return tasks.filter(
-    (task) =>
-      task.taskId.toLowerCase().includes(keyword) ||
-      (task.taskNo || '').toLowerCase().includes(keyword) ||
-      task.productionOrderId.toLowerCase().includes(keyword) ||
-      getTaskProcessDisplayName(task).toLowerCase().includes(keyword),
-  )
+  return tasks.filter((task) => matchMobileTaskKeyword(task, keyword))
 }
 
 function renderSourceBadge(mode: string): string {
@@ -467,6 +520,8 @@ function renderNotStartedCard(task: ProcessTask): string {
           <div class="truncate font-medium">${escapeHtml(getTaskRootNo(task))}</div>
           <div class="text-muted-foreground">当前工序</div>
           <div class="font-medium">${escapeHtml(displayProcessName)}</div>
+          <div class="text-muted-foreground">当前工厂</div>
+          <div class="font-medium">${escapeHtml(formatFactoryDisplayName(task.assignedFactoryName, task.assignedFactoryId))}</div>
           <div class="text-muted-foreground">${escapeHtml(qtyDisplayMeta.label)}</div>
           <div class="font-medium">${escapeHtml(qtyDisplayMeta.valueText)}</div>
           ${
@@ -804,7 +859,7 @@ export function renderPdaExecPage(): string {
   syncTabWithQuery()
 
   const selectedFactoryId = getCurrentFactoryId()
-  const factoryName = runtime.factoryName || getFactoryName(selectedFactoryId)
+  const factoryName = formatFactoryDisplayName(runtime.factoryName || getFactoryName(selectedFactoryId), selectedFactoryId)
   const acceptedTasks = getAcceptedTasks(selectedFactoryId)
 
   const tasksByStatus: Record<TaskStatusTab, ProcessTask[]> = {
@@ -815,11 +870,8 @@ export function renderPdaExecPage(): string {
   }
 
   for (const task of acceptedTasks) {
-    const status = task.status || 'NOT_STARTED'
-    if (status === 'NOT_STARTED') tasksByStatus.NOT_STARTED.push(task)
-    else if (status === 'IN_PROGRESS') tasksByStatus.IN_PROGRESS.push(task)
-    else if (status === 'BLOCKED') tasksByStatus.BLOCKED.push(task)
-    else if (status === 'DONE' || status === 'CANCELLED') tasksByStatus.DONE.push(task)
+    const tabKey = getMobileTaskTabKey(task)
+    tasksByStatus[tabKey].push(task)
   }
 
   const filteredTasks = getFilteredTasks(tasksByStatus, state.activeTab)
@@ -834,6 +886,17 @@ export function renderPdaExecPage(): string {
                 state.riskParam === 'start-due-soon'
             ? '已为您定位到开工预期任务'
           : ''
+
+  const emptyStateText =
+    acceptedTasks.length === 0
+      ? '当前工厂暂无可执行任务'
+      : state.searchKeyword.trim()
+        ? '当前关键词未找到任务'
+        : state.activeTab === 'IN_PROGRESS' && state.riskParam === 'due-soon'
+          ? '当前暂无即将逾期任务'
+          : state.activeTab === 'NOT_STARTED' && state.riskParam === 'start-due-soon'
+            ? '当前暂无开工预期任务'
+            : '当前筛选条件下暂无任务'
 
   const content = `
     <div class="flex min-h-[760px] flex-col bg-background" data-testid="pda-exec-page">
@@ -862,7 +925,7 @@ export function renderPdaExecPage(): string {
           <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"></i>
           <input
             class="h-9 w-full rounded-md border bg-background pl-9 pr-3 text-sm"
-            placeholder="搜索任务编号 / 生产单号 / 工序"
+            placeholder="搜索任务号 / 加工单号 / 生产单号 / 工厂"
             data-pda-exec-field="searchKeyword"
             value="${escapeHtml(state.searchKeyword)}"
           />
@@ -890,13 +953,7 @@ export function renderPdaExecPage(): string {
       <div class="flex-1 space-y-3 p-4" data-testid="pda-exec-card-list">
         ${
           filteredTasks.length === 0
-            ? `<div class="py-10 text-center text-sm text-muted-foreground">${
-                state.activeTab === 'IN_PROGRESS' && state.riskParam === 'due-soon'
-                  ? '当前暂无即将逾期任务'
-                  : state.activeTab === 'NOT_STARTED' && state.riskParam === 'start-due-soon'
-                    ? '当前暂无开工预期任务'
-                  : `暂无${TAB_CONFIG.find((tab) => tab.key === state.activeTab)?.label || ''}任务`
-              }</div>`
+            ? `<div class="py-10 text-center text-sm text-muted-foreground">${escapeHtml(emptyStateText)}</div>`
             : filteredTasks
                 .map((task) => {
                   if (state.activeTab === 'NOT_STARTED') return renderNotStartedCard(task)
@@ -923,6 +980,7 @@ export function handlePdaExecEvent(target: HTMLElement): boolean {
 
     if (field === 'searchKeyword') {
       state.searchKeyword = fieldNode.value
+      appStore.navigate(buildPdaExecListPath())
       return true
     }
   }
@@ -942,8 +1000,7 @@ export function handlePdaExecEvent(target: HTMLElement): boolean {
     const tab = actionNode.dataset.tab as TaskStatusTab | undefined
     if (tab && TAB_CONFIG.some((item) => item.key === tab)) {
       state.activeTab = tab
-      const maybeRisk = state.riskParam ? `&risk=${state.riskParam}` : ''
-      appStore.navigate(`/fcs/pda/exec?tab=${tab}${maybeRisk}`)
+      appStore.navigate(buildPdaExecListPath(tab))
     }
     return true
   }
@@ -961,7 +1018,7 @@ export function handlePdaExecEvent(target: HTMLElement): boolean {
     const detailAction = actionNode.dataset.action
     if (taskId && detailAction) {
       const targetPath = resolvePdaTaskExecPath(taskId, appStore.getState().pathname)
-      appStore.navigate(targetPath.includes('/fcs/pda/cutting/') ? targetPath : `${targetPath}?action=${detailAction}`)
+      appStore.navigate(targetPath.includes('/fcs/pda/cutting/') ? targetPath : appendExecDetailAction(targetPath, detailAction))
     }
     return true
   }
@@ -970,7 +1027,7 @@ export function handlePdaExecEvent(target: HTMLElement): boolean {
     const taskId = actionNode.dataset.taskId
     if (taskId) {
       const targetPath = resolvePdaTaskExecPath(taskId, appStore.getState().pathname)
-      appStore.navigate(targetPath.includes('/fcs/pda/cutting/') ? targetPath : `${targetPath}?action=start`)
+      appStore.navigate(targetPath.includes('/fcs/pda/cutting/') ? targetPath : appendExecDetailAction(targetPath, 'start'))
     }
     return true
   }

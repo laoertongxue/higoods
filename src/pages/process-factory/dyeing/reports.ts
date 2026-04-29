@@ -14,6 +14,7 @@ import {
   listDyeVatSchedules,
   listDyeWorkOrders,
 } from '../../../data/fcs/dyeing-task-domain.ts'
+import { TEST_FACTORY_ID } from '../../../data/fcs/factory-mock-data.ts'
 import { getDyeingExecutionStatistics } from '../../../data/fcs/process-statistics-domain.ts'
 import {
   formatDyeQty,
@@ -161,7 +162,7 @@ function renderVatUtilization(): string {
             ${renderActionButton({
               label: '查看产能',
               action: 'navigate',
-              attrs: { href: buildCapacityProfileLink(order?.dyeFactoryId || 'ID-F003') },
+              attrs: { href: buildCapacityProfileLink(order?.dyeFactoryId || TEST_FACTORY_ID) },
             })}
           </td>
         </tr>

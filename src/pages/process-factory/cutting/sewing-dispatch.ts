@@ -199,7 +199,7 @@ function renderDispatchOrders(orders: CuttingSewingDispatchOrder[]): string {
         <table class="min-w-[1320px] w-full text-sm">
           <thead class="bg-muted/60 text-xs text-muted-foreground">
             <tr>
-              ${['发料单号', '生产单', '裁片单', '裁床厂', '车缝厂', '生产总数', '累计已发件数', '剩余未发件数', '本次发料批次数', '中转袋数', '菲票数', '配齐状态', '发料状态', '回写状态', '操作']
+              ${['发料单号', '生产单', '裁片单', '裁床厂', '车缝厂', '生产总数', '累计已发件数', '剩余未发件数', '本次发料批次数', '中转袋数', '菲票数量', '配齐状态', '发料状态', '回写状态', '操作']
                 .map((label) => `<th class="px-3 py-3 text-left font-medium">${escapeHtml(label)}</th>`)
                 .join('')}
             </tr>
@@ -256,7 +256,7 @@ function renderBatchRows(batches: CuttingSewingDispatchBatch[], bags: CuttingSew
         <table class="min-w-[1180px] w-full text-sm">
           <thead class="bg-muted/60 text-xs text-muted-foreground">
             <tr>
-              ${['中转单号', '发料单号', '生产单', '车缝厂', '本次发料件数', '颜色 / 尺码', '中转袋数', '已配齐中转袋数', '菲票数', '齐套状态', '交出记录', '状态', '二维码', '操作']
+              ${['中转单号', '发料单号', '生产单', '车缝厂', '本次发料件数', '颜色 / 尺码', '中转袋数', '已配齐中转袋数', '菲票数量', '齐套状态', '交出记录', '状态', '二维码', '操作']
                 .map((label) => `<th class="px-3 py-3 text-left font-medium">${escapeHtml(label)}</th>`)
                 .join('')}
             </tr>
@@ -313,7 +313,7 @@ function renderTransferBagRows(bags: CuttingSewingTransferBag[]): string {
         <table class="min-w-[1240px] w-full text-sm">
           <thead class="bg-muted/60 text-xs text-muted-foreground">
             <tr>
-              ${['中转袋号', '中转单号', '生产单', '车缝厂', '是否混装', '装袋状态', '内容项数', '菲票数', '当前所在', '颜色', '尺码', '本袋件数', '应配部位数', '已配部位数', '齐套状态', '发料状态', '回写状态', '差异数量', '二维码', '操作']
+              ${['中转袋号', '中转单号', '生产单', '车缝厂', '是否混装', '装袋状态', '内容项数', '菲票数量', '当前所在', '颜色', '尺码', '本袋件数', '应配部位数', '已配部位数', '齐套状态', '发料状态', '回写状态', '差异裁片数量', '二维码', '操作']
                 .map((label) => `<th class="px-3 py-3 text-left font-medium">${escapeHtml(label)}</th>`)
                 .join('')}
             </tr>
@@ -432,7 +432,7 @@ function renderHandoverRows(batches: CuttingSewingDispatchBatch[], bags: Cutting
         <table class="min-w-[1180px] w-full text-sm">
           <thead class="bg-muted/60 text-xs text-muted-foreground">
             <tr>
-              ${['交出单', '交出记录', '中转单', '中转袋数', '菲票数', '本次发料件数', '裁片数量', '裁床厂', '车缝厂', '交出二维码', '交出时间', '回写数量', '差异数量', '状态', '操作']
+              ${['交出单', '交出记录', '中转单', '中转袋数', '菲票数量', '本次发料件数', '裁片数量', '裁床厂', '车缝厂', '交出二维码', '交出时间', '回写对象数量', '差异裁片数量', '状态', '操作']
                 .map((label) => `<th class="px-3 py-3 text-left font-medium">${escapeHtml(label)}</th>`)
                 .join('')}
             </tr>
@@ -488,7 +488,7 @@ function renderWritebackRows(batches: CuttingSewingDispatchBatch[], bags: Cuttin
         <table class="min-w-[980px] w-full text-sm">
           <thead class="bg-muted/60 text-xs text-muted-foreground">
             <tr>
-              ${['中转单', '中转袋', '交出记录', '车缝厂', '按袋回写', '按菲票回写', '应收件数', '实收件数', '应收菲票数', '实收菲票数', '差异数量', '差异原因', '异议状态', '是否阻塞生产单', '操作']
+              ${['中转单', '中转袋', '交出记录', '车缝厂', '按袋回写', '按菲票回写', '应收件数', '实收件数', '应收菲票数量', '实收菲票数量', '差异裁片数量', '差异原因', '异议状态', '是否阻塞生产单', '操作']
                 .map((label) => `<th class="px-3 py-3 text-left font-medium">${escapeHtml(label)}</th>`)
                 .join('')}
             </tr>
@@ -558,7 +558,7 @@ function renderNewBatchDemo(): string {
         <div class="rounded-lg bg-white p-3"><div class="text-xs text-muted-foreground">生产单</div><div class="mt-1 font-medium">PO-202603-081</div></div>
         <div class="rounded-lg bg-white p-3"><div class="text-xs text-muted-foreground">车缝厂</div><div class="mt-1 font-medium">车缝厂</div></div>
         <div class="rounded-lg bg-white p-3"><div class="text-xs text-muted-foreground">本次发料件数</div><div class="mt-1 font-medium">Black / L / 1 件</div></div>
-        <div class="rounded-lg bg-white p-3"><div class="text-xs text-muted-foreground">可用菲票数量</div><div class="mt-1 font-medium">${eligible.length} 张</div></div>
+        <div class="rounded-lg bg-white p-3"><div class="text-xs text-muted-foreground">可用菲票数量量</div><div class="mt-1 font-medium">${eligible.length} 张</div></div>
       </div>
       <div class="mt-3 flex flex-wrap gap-2">
         <button class="rounded-md bg-blue-600 px-3 py-2 text-sm text-white">生成中转单</button>

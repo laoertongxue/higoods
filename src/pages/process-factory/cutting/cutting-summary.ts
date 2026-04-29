@@ -474,14 +474,14 @@ function renderSpecialCraftReturnOverview(rows: CuttingSummaryRow[]): string {
         <span class="inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${allReturned ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700'}">是否全部回仓：${allReturned ? '是' : '否'}</span>
       </div>
       <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        ${renderCompactKpiCard('需要特殊工艺菲票数', aggregated.totalNeed, '需执行特殊工艺', 'text-slate-900')}
-        ${renderCompactKpiCard('待发料菲票数', aggregated.waitDispatch, '裁床厂待发料', 'text-amber-600')}
-        ${renderCompactKpiCard('已发料菲票数', aggregated.dispatched, '已创建交出记录', 'text-blue-600')}
-        ${renderCompactKpiCard('已接收菲票数', aggregated.received, '特殊工艺厂已接收', 'text-cyan-600')}
-        ${renderCompactKpiCard('待回仓菲票数', aggregated.waitReturn, '特殊工艺厂待回仓', 'text-amber-600')}
-        ${renderCompactKpiCard('已回仓菲票数', aggregated.returned, '已回裁床厂待交出仓', 'text-emerald-600')}
-        ${renderCompactKpiCard('差异菲票数', aggregated.difference, '发料或回仓差异', 'text-rose-600')}
-        ${renderCompactKpiCard('异议中菲票数', aggregated.objection, '数量异议处理中', 'text-rose-600')}
+        ${renderCompactKpiCard('需要特殊工艺菲票数量', aggregated.totalNeed, '需执行特殊工艺', 'text-slate-900')}
+        ${renderCompactKpiCard('待发料菲票数量', aggregated.waitDispatch, '裁床厂待发料', 'text-amber-600')}
+        ${renderCompactKpiCard('已发料菲票数量', aggregated.dispatched, '已创建交出记录', 'text-blue-600')}
+        ${renderCompactKpiCard('已接收菲票数量', aggregated.received, '特殊工艺厂已接收', 'text-cyan-600')}
+        ${renderCompactKpiCard('待回仓菲票数量', aggregated.waitReturn, '特殊工艺厂待回仓', 'text-amber-600')}
+        ${renderCompactKpiCard('已回仓菲票数量', aggregated.returned, '已回裁床厂待交出仓', 'text-emerald-600')}
+        ${renderCompactKpiCard('差异菲票数量', aggregated.difference, '发料或回仓差异', 'text-rose-600')}
+        ${renderCompactKpiCard('异议中菲票数量', aggregated.objection, '数量异议处理中', 'text-rose-600')}
       </div>
     </section>
   `
@@ -571,17 +571,17 @@ function renderProgressStatisticsSummary(rows: CuttingSummaryRow[]): string {
       </div>
       <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         ${renderCompactKpiCard('生产数量', totalProductionQty, '', 'text-slate-900')}
-        ${renderCompactKpiCard('裁剪完成数量', cuttingCompletedQty, '', 'text-violet-600')}
-        ${renderCompactKpiCard('菲票数量', feiTicketQty, '', 'text-cyan-600')}
+        ${renderCompactKpiCard('裁剪完成裁片数量', cuttingCompletedQty, '', 'text-violet-600')}
+        ${renderCompactKpiCard('菲票数量量', feiTicketQty, '', 'text-cyan-600')}
         ${renderCompactKpiCard('裁片入裁床厂待交出仓数量', warehouseQty, '', 'text-blue-600')}
-        ${renderCompactKpiCard('需要特殊工艺菲票数', needSpecialCraft, '', 'text-slate-900')}
-        ${renderCompactKpiCard('已回仓菲票数', returnedSpecialCraft, '', 'text-emerald-600')}
-        ${renderCompactKpiCard('未回仓菲票数', Math.max(needSpecialCraft - returnedSpecialCraft, 0), '', 'text-amber-600')}
+        ${renderCompactKpiCard('需要特殊工艺菲票数量', needSpecialCraft, '', 'text-slate-900')}
+        ${renderCompactKpiCard('已回仓菲票数量', returnedSpecialCraft, '', 'text-emerald-600')}
+        ${renderCompactKpiCard('未回仓菲票数量', Math.max(needSpecialCraft - returnedSpecialCraft, 0), '', 'text-amber-600')}
         ${renderCompactKpiCard('中转袋数', transferBagCount, '', 'text-slate-700')}
         ${renderCompactKpiCard('已配齐中转袋数', completedTransferBagCount, '', 'text-emerald-600')}
         ${renderCompactKpiCard('已发车缝件数', shippedQty, '', 'text-blue-600')}
         ${renderCompactKpiCard('剩余未发件数', remainingQty, '', 'text-amber-600')}
-        ${renderCompactKpiCard('差异数量', differenceCount, `异议数量 ${objectionCount}`, 'text-rose-600')}
+        ${renderCompactKpiCard('差异裁片数量', differenceCount, `异议数量 ${objectionCount}`, 'text-rose-600')}
       </div>
     </section>
   `

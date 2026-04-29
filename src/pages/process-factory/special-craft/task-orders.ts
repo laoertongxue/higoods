@@ -9,6 +9,7 @@ import { getSpecialCraftBindingSummaryByTaskOrderId } from '../../../data/fcs/cu
 import { escapeHtml } from '../../../utils.ts'
 import {
   formatQty,
+  formatSpecialCraftFactoryLabel,
   renderEmptyState,
   renderSpecialCraftFactoryContextBlockedLayout,
   renderFilterGrid,
@@ -106,7 +107,7 @@ export function renderSpecialCraftTaskOrdersPage(operationSlug: string): string 
           <td class="px-3 py-3">${escapeHtml(taskOrder.productionOrderNo)}</td>
           <td class="px-3 py-3">${escapeHtml(taskOrder.generationSourceLabel || '生产单生成')}</td>
           <td class="px-3 py-3">${escapeHtml(taskOrder.operationName)}</td>
-          <td class="px-3 py-3">${escapeHtml(taskOrder.factoryName)}</td>
+          <td class="px-3 py-3">${escapeHtml(formatSpecialCraftFactoryLabel(taskOrder.factoryName, taskOrder.factoryId))}</td>
           <td class="px-3 py-3">${escapeHtml(taskOrder.targetObject)}</td>
           <td class="px-3 py-3">${escapeHtml(taskOrder.partName || '—')}</td>
           <td class="px-3 py-3">${escapeHtml(taskOrder.fabricColor || '—')}</td>
@@ -165,22 +166,22 @@ export function renderSpecialCraftTaskOrdersPage(operationSlug: string): string 
               '颜色',
               '尺码',
               '明细数',
-              '关联菲票数',
+              '关联菲票数量',
               '子工艺单数',
-              '当前数量',
-              '累计报废',
-              '累计货损',
-              '已发料菲票数',
-              '已接收菲票数',
-              '已完成菲票数',
-              '已回仓菲票数',
-              '接收差异菲票数',
-              '回仓差异菲票数',
+              '当前裁片数量',
+              '累计报废裁片数量',
+              '累计货损裁片数量',
+              '已发料菲票数量',
+              '已接收菲票数量',
+              '已完成菲票数量',
+              '已回仓菲票数量',
+              '接收差异菲票数量',
+              '回仓差异菲票数量',
               '回仓状态',
               '菲票号',
               '中转袋号',
               '计划裁片数量',
-              '已接收数量',
+              '已接收裁片数量',
               '已完成裁片数量',
               '待交出裁片数量',
               '分配状态',

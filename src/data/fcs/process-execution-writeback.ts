@@ -33,6 +33,7 @@ import {
   type DyeExecutionNodeCode,
   type DyeWorkOrder,
 } from './dyeing-task-domain.ts'
+import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
 import {
   createFactoryHandoverRecord,
   ensureHandoverOrderForStartedTask,
@@ -499,7 +500,12 @@ export function finishDyeMaterialWaitWriteback(taskId: string, payload: Executio
 
 function findSpecialCraftTaskOrder(taskId: string): SpecialCraftTaskOrder | undefined {
   const direct = getSpecialCraftTaskOrderById(taskId)
-    || listSpecialCraftTaskOrders().find((taskOrder) => taskOrder.taskOrderNo === taskId || taskOrder.taskOrderId === taskId)
+    || listSpecialCraftTaskOrders().find((taskOrder) =>
+      taskOrder.taskOrderNo === taskId
+      || taskOrder.taskOrderId === taskId
+      || taskOrder.sourceTaskId === taskId
+      || taskOrder.sourceTaskNo === taskId,
+    )
   if (direct) return direct
   const binding = listCuttingSpecialCraftFeiTicketBindings().find((item) => item.taskOrderId === taskId || item.workOrderId === taskId)
   return binding ? getSpecialCraftTaskOrderById(binding.taskOrderId) : undefined
@@ -654,8 +660,8 @@ export function submitSpecialCraftHandover(taskId: string, payload: ExecutionWri
   const handover = createSpecialCraftReturnHandover({
     specialCraftFactoryId: firstBinding.targetFactoryId,
     specialCraftFactoryName: firstBinding.targetFactoryName,
-    cuttingFactoryId: 'ID-F001',
-    cuttingFactoryName: '裁床厂待交出仓',
+    cuttingFactoryId: TEST_FACTORY_ID,
+    cuttingFactoryName: TEST_FACTORY_NAME,
     operationId: firstBinding.operationId,
     operationName: firstBinding.operationName,
     selectedFeiTicketNos,
@@ -678,9 +684,9 @@ export function submitSpecialCraftHandover(taskId: string, payload: ExecutionWri
     sourceProductionOrderNo: taskOrder.productionOrderNo,
     handoverFactoryId: firstBinding.targetFactoryId,
     handoverFactoryName: firstBinding.targetFactoryName,
-    receiveFactoryId: 'ID-F001',
-    receiveFactoryName: '裁床厂待交出仓',
-    receiveWarehouseName: '裁床厂待交出仓',
+    receiveFactoryId: TEST_FACTORY_ID,
+    receiveFactoryName: TEST_FACTORY_NAME,
+    receiveWarehouseName: '全能力测试工厂待交出仓',
     objectType: '裁片',
     handoverObjectQty: submittedQty,
     receiveObjectQty: submittedQty,

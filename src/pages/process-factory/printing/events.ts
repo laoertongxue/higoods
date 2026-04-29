@@ -3,6 +3,7 @@ import {
   approvePrintReview,
   rejectPrintReview,
 } from '../../../data/fcs/printing-task-domain.ts'
+import { executeProcessWebAction } from '../../../data/fcs/process-web-status-actions.ts'
 
 function showPrintingToast(message: string): void {
   if (typeof document === 'undefined' || typeof window === 'undefined') return
@@ -52,6 +53,26 @@ export function handleCraftPrintingEvent(target: HTMLElement): boolean {
     return true
   }
 
+  if (action === 'web-status-action') {
+    const sourceId = actionNode.dataset.sourceId
+    const actionCode = actionNode.dataset.actionCode
+    if (!sourceId || !actionCode) return true
+    try {
+      const result = executeProcessWebAction({
+        sourceType: 'PRINT_WORK_ORDER',
+        sourceId,
+        actionCode,
+        operatorName: 'Web 端操作员',
+        operatedAt: '2026-04-28 10:00',
+        remark: '工艺工厂 Web 端状态操作',
+      })
+      showPrintingToast(result.message)
+    } catch (error) {
+      showPrintingToast(error instanceof Error ? error.message : '状态操作失败')
+    }
+    return true
+  }
+
   if (action === 'approve-review') {
     const printOrderId = actionNode.dataset.printOrderId
     if (!printOrderId) return true
@@ -78,4 +99,3 @@ export function handleCraftPrintingEvent(target: HTMLElement): boolean {
 
   return false
 }
-

@@ -1119,6 +1119,6 @@ export function assertProgressStatisticsConsistency(): void {
         .filter((bag) => batch.transferBagIds.includes(bag.transferBagId))
         .map((bag) => bag.pieceLines.reduce((total, line) => total + line.scannedPieceQty, 0)),
     )
-    if ((batch.receiverWrittenQty || 0) > submittedPieceQty) throw new Error(`${batch.transferOrderNo} 已回写数量不得超过已交出数量`)
+    if ((batch.receiverWrittenQty || 0) > submittedPieceQty) throw new Error(`${batch.transferOrderNo} 已回写对象数量不得超过已交出数量`)
   })
 }

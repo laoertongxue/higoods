@@ -9,6 +9,11 @@ import {
   type PrintWorkOrder,
   type PrintWorkOrderStatus,
 } from '../../../data/fcs/printing-task-domain.ts'
+import {
+  getQuantityLabel,
+  formatProcessQuantityWithUnit,
+  type ProcessQuantityContext,
+} from '../../../data/fcs/process-quantity-labels.ts'
 
 type BadgeTone = 'muted' | 'info' | 'warning' | 'success' | 'danger'
 
@@ -29,6 +34,41 @@ export function buildPrintingHref(path: string, printOrderId?: string): string {
 
 export function formatPrintQty(value: number | undefined, unit: string | undefined): string {
   return `${value ?? 0} ${escapeHtml(unit || '片')}`
+}
+
+export function getPrintQuantityContext(
+  order: Pick<PrintWorkOrder, 'printOrderId' | 'objectType' | 'qtyUnit' | 'isPiecePrinting' | 'isFabricPrinting'>,
+  qtyPurpose: ProcessQuantityContext['qtyPurpose'] = '计划',
+  operationCode?: string,
+): ProcessQuantityContext {
+  return {
+    processType: 'PRINT',
+    sourceType: 'PRINT_WORK_ORDER',
+    sourceId: order.printOrderId,
+    objectType: order.objectType,
+    qtyUnit: order.qtyUnit,
+    qtyPurpose,
+    operationCode,
+    isPiecePrinting: order.isPiecePrinting,
+    isFabricPrinting: order.isFabricPrinting,
+  }
+}
+
+export function getPrintQuantityLabel(
+  order: Pick<PrintWorkOrder, 'printOrderId' | 'objectType' | 'qtyUnit' | 'isPiecePrinting' | 'isFabricPrinting'>,
+  qtyPurpose: ProcessQuantityContext['qtyPurpose'] = '计划',
+  operationCode?: string,
+): string {
+  return getQuantityLabel(getPrintQuantityContext(order, qtyPurpose, operationCode))
+}
+
+export function formatPrintProcessQty(
+  order: Pick<PrintWorkOrder, 'printOrderId' | 'objectType' | 'qtyUnit' | 'isPiecePrinting' | 'isFabricPrinting'>,
+  value: number | undefined,
+  qtyPurpose: ProcessQuantityContext['qtyPurpose'] = '计划',
+  operationCode?: string,
+): string {
+  return escapeHtml(formatProcessQuantityWithUnit(value, getPrintQuantityContext(order, qtyPurpose, operationCode)))
 }
 
 export function formatPrintTime(value: string | undefined): string {

@@ -1,4 +1,5 @@
 import type { CutPieceZoneCode } from './warehouse-runtime.ts'
+import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from '../factory-mock-data.ts'
 import type {
   CutPieceWarehouseActionType,
   CutPieceWarehouseWritebackRecord,
@@ -79,18 +80,18 @@ function normalizeNameKey(name: string): string {
 }
 
 function buildSyntheticWarehouseOperatorAccountId(factoryId: string, operatorName: string): string {
-  return `WH-${factoryId || 'ID-F001'}-${normalizeNameKey(operatorName || '仓务操作员') || 'operator'}`
+  return `WH-${factoryId || TEST_FACTORY_ID}-${normalizeNameKey(operatorName || '仓务操作员') || 'operator'}`
 }
 
 export function resolvePrototypeWarehouseOperator(operatorName = '仓务操作员'): CuttingWarehouseWritebackOperatorInput {
   const normalizedName = operatorName.trim() || '仓务操作员'
-  const factoryId = 'ID-F001'
+  const factoryId = TEST_FACTORY_ID
   return {
     operatorAccountId: buildSyntheticWarehouseOperatorAccountId(factoryId, normalizedName),
     operatorName: normalizedName,
     operatorRole: '仓务员',
     operatorFactoryId: factoryId,
-    operatorFactoryName: '默认工厂',
+    operatorFactoryName: TEST_FACTORY_NAME,
   }
 }
 

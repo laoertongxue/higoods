@@ -12,6 +12,7 @@ import {
 import {
   formatPrintQty,
   formatPrintTime,
+  getPrintQuantityLabel,
   getPrintNodeRecord,
   getSelectedPrintOrderId,
   renderActionButton,
@@ -76,7 +77,7 @@ export function renderCraftPrintingProgressPage(): string {
               <div><span class="text-muted-foreground">印花任务：</span>${escapeHtml(selected.taskNo)}</div>
               <div><span class="text-muted-foreground">花型：</span>${escapeHtml(selected.patternNo)}</div>
               <div><span class="text-muted-foreground">面料：</span>${escapeHtml(selected.materialSku)}${selected.materialColor ? ` / ${escapeHtml(selected.materialColor)}` : ''}</div>
-              <div><span class="text-muted-foreground">计划印花面料米数：</span>${formatPrintQty(selected.plannedQty, selected.qtyUnit)}</div>
+              <div><span class="text-muted-foreground">${escapeHtml(getPrintQuantityLabel(selected, '计划'))}：</span>${formatPrintQty(selected.plannedQty, selected.qtyUnit)}</div>
             </div>
           </div>
           <div class="flex flex-wrap gap-2">
@@ -134,7 +135,7 @@ export function renderCraftPrintingProgressPage(): string {
             <div><span class="text-muted-foreground">操作人：</span>${escapeHtml(printNode?.operatorName || '—')}</div>
             <div><span class="text-muted-foreground">打印机编号：</span>${escapeHtml(printNode?.printerNo || '未开始')}</div>
             <div><span class="text-muted-foreground">打印速度：</span>${printNode?.printerSpeedPerHour ? `${printNode.printerSpeedPerHour} 米/小时` : '—'}</div>
-            <div><span class="text-muted-foreground">打印完成面料米数：</span>${formatPrintQty(printNode?.outputQty, selected.qtyUnit)}</div>
+            <div><span class="text-muted-foreground">${escapeHtml(getPrintQuantityLabel(selected, '已完成', 'PRINT_FINISH_PRINTING'))}：</span>${formatPrintQty(printNode?.outputQty, selected.qtyUnit)}</div>
           `,
         )}
         ${renderNodeCard(
@@ -144,8 +145,8 @@ export function renderCraftPrintingProgressPage(): string {
             <div><span class="text-muted-foreground">开始时间：</span>${formatPrintTime(transferNode?.startedAt)}</div>
             <div><span class="text-muted-foreground">完成时间：</span>${formatPrintTime(transferNode?.finishedAt)}</div>
             <div><span class="text-muted-foreground">操作人：</span>${escapeHtml(transferNode?.operatorName || '—')}</div>
-            <div><span class="text-muted-foreground">原料使用：</span>${formatPrintQty(transferNode?.usedMaterialQty, selected.qtyUnit)}</div>
-            <div><span class="text-muted-foreground">实际完成：</span>${formatPrintQty(transferNode?.actualCompletedQty, selected.qtyUnit)}</div>
+            <div><span class="text-muted-foreground">${selected.qtyUnit === '片' || selected.objectType === '裁片' ? '投入裁片数量' : '原料使用面料米数'}：</span>${formatPrintQty(transferNode?.usedMaterialQty, selected.qtyUnit)}</div>
+            <div><span class="text-muted-foreground">${escapeHtml(getPrintQuantityLabel(selected, '已完成', 'PRINT_FINISH_TRANSFER'))}：</span>${formatPrintQty(transferNode?.actualCompletedQty, selected.qtyUnit)}</div>
           `,
         )}
         ${renderNodeCard(
@@ -161,9 +162,9 @@ export function renderCraftPrintingProgressPage(): string {
           '接收方回写',
           `
             <div><span class="text-muted-foreground">接收方：</span>${escapeHtml(selected.targetTransferWarehouseName)}</div>
-            <div><span class="text-muted-foreground">已交出：</span>${formatPrintQty(handoverSummary.submittedQty, selected.qtyUnit)}</div>
-            <div><span class="text-muted-foreground">实收面料米数：</span>${formatPrintQty(handoverSummary.writtenBackQty, selected.qtyUnit)}</div>
-            <div><span class="text-muted-foreground">差异面料米数：</span>${handoverSummary.diffQty} ${escapeHtml(selected.qtyUnit || '米')}</div>
+            <div><span class="text-muted-foreground">${escapeHtml(getPrintQuantityLabel(selected, '已交出'))}：</span>${formatPrintQty(handoverSummary.submittedQty, selected.qtyUnit)}</div>
+            <div><span class="text-muted-foreground">${escapeHtml(getPrintQuantityLabel(selected, '实收'))}：</span>${formatPrintQty(handoverSummary.writtenBackQty, selected.qtyUnit)}</div>
+            <div><span class="text-muted-foreground">${escapeHtml(getPrintQuantityLabel(selected, '差异'))}：</span>${handoverSummary.diffQty} ${escapeHtml(selected.qtyUnit || '米')}</div>
             <div><span class="text-muted-foreground">当前状态：</span>${escapeHtml(handoverSummary.pendingWritebackCount > 0 ? '待回写' : handoverSummary.writtenBackQty > 0 ? '接收方已回写' : '未开始')}</div>
           `,
         )}
@@ -171,8 +172,8 @@ export function renderCraftPrintingProgressPage(): string {
           '审核',
           `
             <div class="flex items-center gap-2">${review ? renderReviewStatusBadge(review.reviewStatus) : '<span class="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-700">待审核</span>'}</div>
-            <div><span class="text-muted-foreground">实收面料米数：</span>${formatPrintQty(review?.receivedQty ?? handoverSummary.writtenBackQty, selected.qtyUnit)}</div>
-            <div><span class="text-muted-foreground">差异面料米数：</span>${review?.diffQty ?? handoverSummary.diffQty} ${escapeHtml(selected.qtyUnit || '米')}</div>
+            <div><span class="text-muted-foreground">${escapeHtml(getPrintQuantityLabel(selected, '实收'))}：</span>${formatPrintQty(review?.receivedQty ?? handoverSummary.writtenBackQty, selected.qtyUnit)}</div>
+            <div><span class="text-muted-foreground">${escapeHtml(getPrintQuantityLabel(selected, '差异'))}：</span>${review?.diffQty ?? handoverSummary.diffQty} ${escapeHtml(selected.qtyUnit || '米')}</div>
             <div><span class="text-muted-foreground">审核状态：</span>${escapeHtml(review ? (review.reviewStatus === 'WAIT_REVIEW' ? '待审核' : review.reviewStatus === 'PASS' ? '审核通过' : review.reviewStatus === 'REJECTED' ? '审核驳回' : '审核中') : '待审核')}</div>
             <div><span class="text-muted-foreground">备注：</span>${escapeHtml(review?.remark || '接收方回写后进入审核')}</div>
           `,

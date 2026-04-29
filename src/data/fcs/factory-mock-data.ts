@@ -19,8 +19,27 @@ import {
 const POST_CAPACITY_NODE_CODES = ['BUTTONHOLE', 'BUTTON_ATTACH', 'IRONING', 'PACKAGING'] as const satisfies FactoryPostCapacityNodeCode[]
 const DEDICATED_POST_ACTION_NAMES = ['质检', '后道', '复检'] as const
 const BASIC_POST_ACTION_NAMES = ['后道'] as const
-export const TEST_FACTORY_ID = 'ID-F090'
+export const TEST_FACTORY_ID = 'F090'
+export const TEST_FACTORY_CODE = 'F090'
+export const TEST_FACTORY_NAME = '全能力测试工厂'
+export const TEST_FACTORY_DISPLAY_NAME = `${TEST_FACTORY_NAME}（${TEST_FACTORY_CODE}）`
 export const TEST_FACTORY_SCOPE = 'ALL_PROCESS_CRAFT' as const
+
+export function formatFactoryDisplayName(factoryName?: string | null, factoryCodeOrId?: string | null): string {
+  const normalizedName = factoryName?.trim() || ''
+  const normalizedCode = factoryCodeOrId?.trim() || ''
+  if (!normalizedName && !normalizedCode) return ''
+  if (normalizedName.includes(`（${TEST_FACTORY_CODE}）`)) return normalizedName
+  if (
+    normalizedName === TEST_FACTORY_NAME
+    || normalizedCode === TEST_FACTORY_ID
+    || normalizedCode === TEST_FACTORY_CODE
+    || normalizedCode === 'ID-F090'
+  ) {
+    return TEST_FACTORY_DISPLAY_NAME
+  }
+  return normalizedCode ? `${normalizedName || normalizedCode}（${normalizedCode}）` : normalizedName
+}
 
 const legacyTagProcessMap: Record<string, string[]> = {
   印花: ['PRINT'],
@@ -244,8 +263,8 @@ const generatedFactories: Factory[] = factoryPoolSourceRecords.map((factory, ind
 
 const allProcessCraftTestFactory: Factory = {
   id: TEST_FACTORY_ID,
-  code: 'F090',
-  name: '全能力测试工厂',
+  code: TEST_FACTORY_CODE,
+  name: TEST_FACTORY_NAME,
   address: 'Jakarta Test Lane 90, Jakarta, DKI Jakarta',
   contact: '联调负责人',
   phone: '+62 21 9000 0090',

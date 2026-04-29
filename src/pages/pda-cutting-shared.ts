@@ -221,6 +221,7 @@ export function renderPdaCuttingPageLayout(options: CuttingPageLayoutOptions): s
         </section>
       `,
       options.activeTab,
+      { disableTodoAutoOpen: true },
     )
   }
 
@@ -244,6 +245,7 @@ export function renderPdaCuttingPageLayout(options: CuttingPageLayoutOptions): s
       </section>
     `,
     options.activeTab,
+    { disableTodoAutoOpen: true },
   )
 }
 

@@ -595,7 +595,7 @@ function renderPickupCurrentPanel(
         ${renderPickupCurrentMetric('仓库交付时间', record.warehouseHandedAt || '待仓库扫码交付')}
         ${
           shouldShowExpectedInPendingConfirm
-            ? renderPickupCurrentMetric('本次应领数量', expectedQtyValue)
+            ? renderPickupCurrentMetric('本次应领物料对象', expectedQtyValue)
             : ''
         }
       </div>
@@ -781,7 +781,7 @@ function renderPickupCurrentPanel(
     return `
       <div class="grid gap-x-3 gap-y-2 rounded-md bg-background/70 px-2.5 py-2 sm:grid-cols-2">
         ${renderPickupCurrentMetric('仓库交付数量', warehouseQtyValue, true)}
-        ${renderPickupCurrentMetric('本次应领数量', expectedQtyValue)}
+        ${renderPickupCurrentMetric('本次应领物料对象', expectedQtyValue)}
       </div>
       <div class="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
         <div class="space-y-1.5">
@@ -798,7 +798,7 @@ function renderPickupCurrentPanel(
 
   return `
     <div class="grid gap-x-3 gap-y-2 rounded-md bg-background/70 px-2.5 py-2 sm:grid-cols-2">
-      ${renderPickupCurrentMetric('本次应领数量', expectedQtyValue, true)}
+      ${renderPickupCurrentMetric('本次应领物料对象', expectedQtyValue, true)}
       ${
         record.warehouseHandedAt
           ? renderPickupCurrentMetric('仓库交付时间', record.warehouseHandedAt)
@@ -957,7 +957,7 @@ function renderPickupRecordItem(record: PdaPickupRecord): string {
       <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
         ${renderFieldRow('领料方式', record.pickupModeLabel)}
         ${renderFieldRow('物料说明', record.materialSummary)}
-        ${renderFieldRow('本次应领数量', formatPickupQty(record.qtyExpected, record.qtyUnit), true)}
+        ${renderFieldRow('本次应领物料对象', formatPickupQty(record.qtyExpected, record.qtyUnit), true)}
         ${renderFieldRow('仓库交付数量', warehouseQtyValue, true)}
       </div>
 
@@ -1303,12 +1303,12 @@ function renderNewHandoutRecordForm(head: PdaHandoverHead): string {
           </select>
         </label>
         <label class="space-y-1">
-          <span class="text-xs font-medium">交出数量</span>
+          <span class="text-xs font-medium">交出对象数量</span>
           <input
             class="h-8 w-full rounded-md border bg-background px-2.5 text-xs"
             type="number"
             value="${escapeAttr(detailState.newRecordQty)}"
-            placeholder="请输入交出数量"
+            placeholder="请输入交出对象数量"
             data-pda-handoverd-field="newRecordQty"
           />
         </label>
@@ -1356,12 +1356,12 @@ function renderReceiverWritebackForm(record: PdaHandoverRecord): string {
     <div class="space-y-3 rounded-md border bg-muted/20 p-3" data-testid="handout-writeback-form">
       <div class="grid gap-3 md:grid-cols-2">
         <label class="space-y-1">
-          <span class="text-xs font-medium">实收数量</span>
+          <span class="text-xs font-medium">实收对象数量</span>
           <input
             class="h-8 w-full rounded-md border bg-background px-2.5 text-xs"
             type="number"
             value="${escapeAttr(detailState.writebackQty)}"
-            placeholder="请输入实收数量"
+            placeholder="请输入实收对象数量"
             data-pda-handoverd-field="writebackQty"
           />
         </label>
@@ -1470,8 +1470,8 @@ function renderHandoutRecordItem(
       <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
         ${renderFieldRow('交出记录号', record.handoverRecordNo || record.recordId, true)}
         ${renderFieldRow('状态', getHandoverRecordStatusLabel(record.handoverRecordStatus || record.status))}
-        ${renderFieldRow('交出数量', `${record.submittedQty ?? record.plannedQty ?? 0} ${record.qtyUnit}`, true)}
-        ${renderFieldRow('实收数量', typeof receiverWrittenQty === 'number' ? `${receiverWrittenQty} ${record.qtyUnit}` : '待回写', true)}
+        ${renderFieldRow('交出对象数量', `${record.submittedQty ?? record.plannedQty ?? 0} ${record.qtyUnit}`, true)}
+        ${renderFieldRow('实收对象数量', typeof receiverWrittenQty === 'number' ? `${receiverWrittenQty} ${record.qtyUnit}` : '待回写', true)}
         ${renderFieldRow('差异', typeof diffQty === 'number' ? `${diffQty > 0 ? '+' : ''}${diffQty} ${record.qtyUnit}` : '待回写', typeof diffQty === 'number' && diffQty !== 0)}
         ${renderFieldRow('接收方回写时间', receiverWrittenAt || '待回写')}
         ${renderFieldRow('工厂提交时间', record.factorySubmittedAt)}
@@ -1542,7 +1542,7 @@ function renderHandoutRecordItem(
 
       ${
         canWriteback
-          ? '<div class="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs text-amber-700">当前等待接收方回写实收数量。</div>'
+          ? '<div class="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs text-amber-700">当前等待接收方回写实收对象数量。</div>'
           : ''
       }
 
@@ -1592,7 +1592,7 @@ function renderHandoutRecordItem(
                 <label class="text-xs font-medium">异议原因 *</label>
                 <input
                   class="h-8 w-full rounded-md border bg-background px-2.5 text-xs"
-                  placeholder="例如：回写数量与工厂交接单不一致"
+                  placeholder="例如：回写对象与工厂交接单不一致"
                   value="${escapeHtml(detailState.objectionReason)}"
                   data-pda-handoverd-field="objectionReason"
                 />
@@ -2014,7 +2014,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
 
     const submittedQty = Number(detailState.newRecordQty)
     if (!Number.isFinite(submittedQty) || submittedQty <= 0) {
-      showPdaHandoverDetailToast('请先填写有效交出数量')
+      showPdaHandoverDetailToast('请先填写有效交出对象数量')
       return true
     }
     const qtyUnit = detailState.newRecordUnit.trim() || head.qtyUnit || '件'
@@ -2131,7 +2131,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
     }
     const receiverWrittenQty = Number(detailState.writebackQty)
     if (!Number.isFinite(receiverWrittenQty) || receiverWrittenQty < 0) {
-      showPdaHandoverDetailToast('请先填写有效实收数量')
+      showPdaHandoverDetailToast('请先填写有效实收对象数量')
       return true
     }
     const submittedQty = record.submittedQty ?? record.plannedQty ?? 0
@@ -2153,7 +2153,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
       appendTaskAudit(
         updated.taskId,
         'HANDOUT_RECORD_WRITEBACK',
-        `接收方已回写实收数量 ${updated.receiverWrittenQty ?? 0} ${updated.qtyUnit}`,
+        `接收方已回写实收对象数量 ${updated.receiverWrittenQty ?? 0} ${updated.qtyUnit}`,
         '工厂端移动应用',
       )
 
@@ -2552,7 +2552,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
     appendTaskAudit(
       updated.taskId,
       'HANDOUT_QTY_OBJECTION',
-      `已发起交出数量异议：${updated.objectionReason}`,
+      `已发起交出对象数量异议：${updated.objectionReason}`,
       '工厂端移动应用',
     )
 
@@ -2600,7 +2600,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
     appendTaskAudit(
       updated.taskId,
       'HANDOUT_DIFF_ACCEPTED',
-      `已接受差异数量 ${updated.diffQty ?? 0} ${updated.qtyUnit}`,
+      `已接受差异对象数量 ${updated.diffQty ?? 0} ${updated.qtyUnit}`,
       '工厂端移动应用',
     )
     showPdaHandoverDetailToast('当前差异已接受')

@@ -193,9 +193,14 @@ import {
 } from '../pages/process-factory/cutting/cutting-summary'
 import { handleCraftDyeingEvent } from '../pages/process-factory/dyeing/events'
 import { handleCraftPrintingEvent } from '../pages/process-factory/printing/events'
+import { handleSpecialCraftWorkOrderDetailEvent } from '../pages/process-factory/special-craft/work-order-detail'
 
 export function dispatchFcsPageEvent(target: HTMLElement): boolean {
   return (
+    handleCraftPrintingEvent(target) ||
+    handleCraftDyeingEvent(target) ||
+    handleSpecialCraftWorkOrderDetailEvent(target) ||
+    handleCraftCuttingOriginalOrdersEvent(target) ||
     handleFactoryPageEvent(target) ||
     handleFactoryCapacityProfileEvent(target) ||
     handleFactoryInternalWarehouseEvent(target) ||
@@ -243,14 +248,11 @@ export function dispatchFcsPageEvent(target: HTMLElement): boolean {
     handleCraftCuttingCutPieceWarehouseEvent(target) ||
     handleCraftCuttingSampleWarehouseEvent(target) ||
     handleCraftCuttingTransferBagsEvent(target) ||
-    handleCraftCuttingOriginalOrdersEvent(target) ||
     handleCraftCuttingReplenishmentEvent(target) ||
     handleCraftCuttingSpecialCraftDispatchEvent(target) ||
     handleCraftCuttingSpecialCraftReturnEvent(target) ||
     handleCraftCuttingSpecialProcessesEvent(target) ||
     handleCraftCuttingSummaryEvent(target) ||
-    handleCraftDyeingEvent(target) ||
-    handleCraftPrintingEvent(target) ||
     handleDeductionAnalysisEvent(target) ||
     handleDyePrintOrdersEvent(target) ||
     handleTaskBreakdownEvent(target)

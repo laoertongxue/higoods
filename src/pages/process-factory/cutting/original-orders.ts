@@ -9,8 +9,22 @@ import {
 } from '../../../data/fcs/cutting/storage/replenishment-storage.ts'
 import {
   buildCuttingOrderQrLabelPrintLink,
+  buildTaskDetailLink,
   buildTaskRouteCardPrintLink,
 } from '../../../data/fcs/fcs-route-links.ts'
+import { formatFactoryDisplayName, TEST_FACTORY_ID } from '../../../data/fcs/factory-mock-data.ts'
+import {
+  buildMobileExecutionListLocatePathForTask,
+  getMobileExecutionTaskById,
+} from '../../../data/fcs/mobile-execution-task-index.ts'
+import { validateCuttingOrderMobileTaskBinding } from '../../../data/fcs/process-mobile-task-binding.ts'
+import {
+  executeProcessWebAction,
+  getAvailableCuttingWebActions,
+  getProcessWebOperationRecordsBySource,
+  type ProcessWebAction,
+  type ProcessWebOperationRecord,
+} from '../../../data/fcs/process-web-status-actions.ts'
 import {
   buildPrintableUnitViewModel,
   getPrintableUnitStatusMeta,
@@ -119,6 +133,8 @@ const state: OriginalOrdersPageState = {
   feedback: null,
 }
 
+const consumedWebActionKeys = new Set<string>()
+
 function getCurrentQueryString(): string {
   const pathname = appStore.getState().pathname
   const [, query] = pathname.split('?')
@@ -138,6 +154,31 @@ function buildRouteWithQuery(pathname: string, payload?: Record<string, string |
   })
   const query = params.toString()
   return query ? `${pathname}?${query}` : pathname
+}
+
+function applyWebActionFromUrl(): void {
+  const params = getCurrentSearchParams()
+  const sourceId = params.get('originalCutOrderId') || params.get('originalCutOrderNo') || ''
+  const actionCode = params.get('webAction') || ''
+  if (!sourceId || !actionCode) return
+
+  const actionKey = `${sourceId}:${actionCode}`
+  if (consumedWebActionKeys.has(actionKey)) return
+  consumedWebActionKeys.add(actionKey)
+
+  try {
+    const result = executeProcessWebAction({
+      sourceType: 'CUTTING_ORIGINAL_ORDER',
+      sourceId,
+      actionCode,
+      operatorName: 'Web 端裁床操作员',
+      operatedAt: '2026-04-28 10:00',
+      remark: '裁片 Web 端状态操作，菲票归属仍回落原始裁片单',
+    })
+    setFeedback('success', result.message)
+  } catch (error) {
+    setFeedback('warning', error instanceof Error ? error.message : '状态操作失败')
+  }
 }
 
 function resetPagination(): void {
@@ -606,7 +647,7 @@ function renderTable(rows: OriginalCutOrderRow[]): string {
                 <th class="px-4 py-3 text-left font-medium">颜色</th>
                 <th class="px-4 py-3 text-left font-medium">面料 SKU</th>
                 <th class="px-4 py-3 text-left font-medium">面料类别 / 属性</th>
-                <th class="px-4 py-3 text-left font-medium">需求成衣件数（件）</th>
+                <th class="px-4 py-3 text-left font-medium">需求成衣件数 / 待裁裁片数量</th>
                 <th class="px-4 py-3 text-left font-medium">日期信息</th>
                 <th class="px-4 py-3 text-left font-medium">当前阶段</th>
                 <th class="px-4 py-3 text-left font-medium">可裁状态</th>
@@ -649,7 +690,8 @@ function renderTable(rows: OriginalCutOrderRow[]): string {
                               <p class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.materialType)}</p>
                             </td>
                             <td class="px-4 py-3 align-top">
-                              <div class="font-medium">${escapeHtml(row.pieceCountText)}</div>
+                              <div class="font-medium">需求成衣件数：${escapeHtml(row.pieceCountText)} 件</div>
+                              <p class="mt-1 text-xs text-muted-foreground">待裁裁片数量：${escapeHtml(row.pieceCountText)} 片</p>
                             </td>
                             <td class="px-4 py-3 align-top">
                               <div class="space-y-1 text-xs text-muted-foreground">
@@ -738,6 +780,96 @@ function renderDetailSection(title: string, body: string): string {
   `
 }
 
+function renderCuttingWebActions(row: OriginalCutOrderRow, actions: ProcessWebAction[]): string {
+  const actionable = actions.filter((action) => !action.disabledReason)
+  const disabledReason = actions.find((action) => action.disabledReason)?.disabledReason
+  const actionHref = (actionCode: string) =>
+    buildRouteWithQuery(getCanonicalCuttingPath('original-orders'), {
+      originalCutOrderId: row.originalCutOrderId,
+      webAction: actionCode,
+    })
+  return renderDetailSection(
+    '可执行动作',
+    `
+      <div class="space-y-3">
+        ${renderInfoGrid([
+          { label: '当前状态', value: row.currentStage.label, tone: 'strong' },
+          { label: '操作方式', value: '仅展示当前状态允许的下一步动作' },
+          { label: '菲票归属口径', value: '菲票归属原始裁片单，合并裁剪批次只作为执行上下文' },
+        ])}
+        ${
+          actionable.length
+            ? `<div class="flex flex-wrap gap-2">
+                ${actionable
+                  .map(
+                    (action) => `
+                      <button
+                        type="button"
+                        class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
+                        data-nav="${escapeHtml(actionHref(action.actionCode))}"
+                      >
+                        ${escapeHtml(action.actionLabel)}
+                      </button>
+                    `,
+                  )
+                  .join('')}
+              </div>
+              <div class="rounded-md border border-dashed bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                操作弹窗字段：${escapeHtml(actionable[0].requiredFields.join('、'))}；确认后写回裁片事实源并生成 Web 端操作记录。
+              </div>`
+            : `<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">${escapeHtml(disabledReason || '当前状态暂无可执行动作')}</div>`
+        }
+      </div>
+    `,
+  )
+}
+
+function renderCuttingWebOperationRecords(records: ProcessWebOperationRecord[]): string {
+  return renderDetailSection(
+    'Web 端操作记录',
+    `
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-left text-sm">
+          <thead class="bg-slate-50 text-xs text-muted-foreground">
+            <tr>
+              <th class="px-3 py-2 font-medium">操作动作</th>
+              <th class="px-3 py-2 font-medium">前状态</th>
+              <th class="px-3 py-2 font-medium">后状态</th>
+              <th class="px-3 py-2 font-medium">操作人</th>
+              <th class="px-3 py-2 font-medium">操作时间</th>
+              <th class="px-3 py-2 font-medium">操作对象与数量单位</th>
+              <th class="px-3 py-2 font-medium">来源</th>
+              <th class="px-3 py-2 font-medium">备注</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${
+              records.length
+                ? records
+                    .map(
+                      (record) => `
+                        <tr class="border-b last:border-b-0">
+                          <td class="px-3 py-3 text-sm">${escapeHtml(record.actionLabel)}</td>
+                          <td class="px-3 py-3 text-sm">${escapeHtml(record.previousStatus)}</td>
+                          <td class="px-3 py-3 text-sm">${escapeHtml(record.nextStatus)}</td>
+                          <td class="px-3 py-3 text-sm">${escapeHtml(record.operatorName)}</td>
+                          <td class="px-3 py-3 text-sm">${escapeHtml(record.operatedAt)}</td>
+                          <td class="px-3 py-3 text-sm"><div>${escapeHtml(record.qtyLabel || '操作裁片数量')}</div><div class="text-xs text-muted-foreground">${formatCount(record.objectQty)} ${escapeHtml(record.qtyUnit)}</div></td>
+                          <td class="px-3 py-3 text-sm">${escapeHtml(record.sourceChannel)}</td>
+                          <td class="px-3 py-3 text-sm">${escapeHtml(record.remark || '—')}</td>
+                        </tr>
+                      `,
+                    )
+                    .join('')
+                : '<tr><td class="px-3 py-8 text-center text-sm text-muted-foreground" colspan="8">暂无 Web 端状态操作记录</td></tr>'
+            }
+          </tbody>
+        </table>
+      </div>
+    `,
+  )
+}
+
 function renderDetailDrawer(viewModel = getViewModel()): string {
   const row = getActiveRow(viewModel)
   if (!row) return ''
@@ -746,6 +878,27 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
   const latestClaimDispute = getLatestClaimDisputeByOriginalCutOrderNo(row.originalCutOrderNo)
   const printableUnit = buildPrintableUnitSummaryByCutOrder(viewModel.rows)[row.originalCutOrderId] || null
   const printableStatusMeta = printableUnit ? getPrintableUnitStatusMeta(printableUnit.printableUnitStatus) : null
+  const mobileBinding = validateCuttingOrderMobileTaskBinding(row.originalCutOrderId)
+  const webActions = getAvailableCuttingWebActions(row.originalCutOrderId)
+  const webOperationRecords = getProcessWebOperationRecordsBySource('CUTTING_ORIGINAL_ORDER', row.originalCutOrderId)
+  const mobileBindingReasonLabel =
+    mobileBinding.reasonCode === 'TASK_NOT_VISIBLE_IN_MOBILE_LIST'
+      ? '移动端执行列表不可见，请检查工厂或任务状态'
+      : mobileBinding.reasonLabel
+  const mobileExecutionTask = mobileBinding.actualTaskId ? getMobileExecutionTaskById(mobileBinding.actualTaskId) : null
+  const mobileExecutionLink =
+    mobileBinding.canOpenMobileExecution && mobileExecutionTask
+      ? buildTaskDetailLink(mobileBinding.actualTaskId, {
+          returnTo: buildMobileExecutionListLocatePathForTask(mobileExecutionTask, {
+            currentFactoryId: row.assignedFactoryId || TEST_FACTORY_ID,
+            keyword: row.originalCutOrderNo,
+          }),
+          sourceType: 'CUTTING_ORIGINAL_ORDER',
+          sourceId: row.originalCutOrderId || row.originalCutOrderNo,
+          currentFactoryId: row.assignedFactoryId || TEST_FACTORY_ID,
+          keyword: row.originalCutOrderNo,
+        })
+      : ''
 
   const siblingRows = viewModel.rows.filter(
     (item) => item.productionOrderId === row.productionOrderId && item.originalCutOrderId !== row.originalCutOrderId,
@@ -777,9 +930,11 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
           { label: '面料 SKU', value: row.materialSku },
           { label: '面料类别 / 属性', value: row.materialCategory, hint: row.materialLabel },
           { label: '需求成衣件数（件）', value: `${formatCount(row.orderQty)} 件` },
+          { label: '计划裁片数量（片）', value: `${formatCount(row.orderQty)} 片` },
           { label: '采购日期', value: formatDate(row.purchaseDate) },
           { label: '实际下单日期', value: formatDate(row.actualOrderDate) },
           { label: '计划发货日期', value: formatDate(row.plannedShipDate) },
+          { label: '工厂', value: formatFactoryDisplayName(row.assignedFactoryName, TEST_FACTORY_ID) },
           { label: '卖价', value: formatOriginalOrderCurrency(row.sellingPrice) },
           { label: '最近执行痕迹', value: row.latestActionText },
         ]),
@@ -814,6 +969,30 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
           </div>
         `,
       )}
+
+      ${renderDetailSection(
+        '移动端执行绑定',
+        `
+          <div class="space-y-3">
+            ${renderInfoGrid([
+              { label: '移动端任务号', value: mobileBinding.actualTaskNo || mobileBinding.expectedTaskNo || '未绑定', tone: 'strong' },
+              { label: '绑定状态', value: mobileBinding.canOpenMobileExecution ? '有效' : '不可执行' },
+              { label: '校验结果', value: mobileBinding.canOpenMobileExecution ? '允许打开移动端执行页' : '当前不可执行' },
+              { label: '不可执行原因', value: mobileBindingReasonLabel },
+            ])}
+            <div class="flex flex-wrap gap-2">
+              ${
+                mobileBinding.canOpenMobileExecution
+                  ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(mobileExecutionLink)}">打开移动端执行页</button>`
+                  : '<button type="button" class="rounded-md border px-3 py-2 text-sm opacity-50" disabled>打开移动端执行页</button>'
+              }
+              <span class="inline-flex items-center rounded-md border ${mobileBinding.canOpenMobileExecution ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700'} px-3 py-2 text-xs">${escapeHtml(mobileBinding.suggestedAction)}</span>
+            </div>
+          </div>
+        `,
+      )}
+
+      ${renderCuttingWebActions(row, webActions)}
 
       ${renderDetailSection(
         '合并裁剪批次参与记录',
@@ -992,6 +1171,8 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
           </div>
         `,
       )}
+
+      ${renderCuttingWebOperationRecords(webOperationRecords)}
     </div>
   `
 
@@ -1008,6 +1189,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
 }
 
 function renderPage(): string {
+  applyWebActionFromUrl()
   const viewModel = getViewModel()
   syncStateFromPath(viewModel)
   const rows = getDisplayRows(viewModel)
@@ -1142,6 +1324,26 @@ export function handleCraftCuttingOriginalOrdersEvent(target: Element): boolean 
     const row = recordId ? getViewModel().rowsById[recordId] : null
     if (!row) return false
     appStore.navigate(buildCuttingOrderQrLabelPrintLink(row.originalCutOrderId))
+    return true
+  }
+
+  if (action === 'web-status-action') {
+    const sourceId = actionNode.dataset.sourceId
+    const actionCode = actionNode.dataset.actionCode
+    if (!sourceId || !actionCode) return true
+    try {
+      const result = executeProcessWebAction({
+        sourceType: 'CUTTING_ORIGINAL_ORDER',
+        sourceId,
+        actionCode,
+        operatorName: 'Web 端裁床操作员',
+        operatedAt: '2026-04-28 10:00',
+        remark: '裁片 Web 端状态操作，菲票归属仍回落原始裁片单',
+      })
+      setFeedback('success', result.message)
+    } catch (error) {
+      setFeedback('warning', error instanceof Error ? error.message : '状态操作失败')
+    }
     return true
   }
 

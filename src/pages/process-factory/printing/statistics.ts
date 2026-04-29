@@ -4,6 +4,7 @@ import {
   listPrintWorkOrders,
 } from '../../../data/fcs/printing-task-domain.ts'
 import { getPrintingExecutionStatistics } from '../../../data/fcs/process-statistics-domain.ts'
+import { TEST_FACTORY_ID } from '../../../data/fcs/factory-mock-data.ts'
 import {
   formatPrintQty,
   getPrintPrinterSummary,
@@ -35,14 +36,14 @@ function renderTopMetrics(): string {
       ${renderMetricCard('待审核印花加工单数', String(statistics.waitReviewCount), '统一审核记录')}
       ${renderMetricCard('已完成印花加工单数', String(statistics.statusCounts['已完成'] || 0), '审核通过')}
       ${renderMetricCard('已驳回印花加工单数', String(statistics.statusCounts['已驳回'] || 0), '审核驳回')}
-      ${renderMetricCard('计划印花面料米数', `${statistics.plannedPrintFabricMeters} 米`, '统一加工单计划')}
-      ${renderMetricCard('待加工面料米数', `${statistics.waitProcessFabricMeters} 米`, '统一待加工仓')}
-      ${renderMetricCard('打印完成面料米数', `${statistics.printCompletedFabricMeters} 米`, '执行节点')}
-      ${renderMetricCard('转印完成面料米数', `${statistics.transferCompletedFabricMeters} 米`, '执行节点')}
-      ${renderMetricCard('待交出面料米数', `${statistics.waitHandoverFabricMeters} 米`, '统一待交出仓')}
-      ${renderMetricCard('已交出面料米数', `${statistics.handedOverFabricMeters} 米`, '统一交出记录')}
-      ${renderMetricCard('实收面料米数', `${statistics.receivedFabricMeters} 米`, '接收方回写')}
-      ${renderMetricCard('差异面料米数', `${statistics.diffFabricMeters} 米`, '统一差异口径')}
+      ${renderMetricCard('计划印花面料米数 / 裁片数量', `${statistics.plannedPrintFabricMeters} 米`, '统一加工单计划')}
+      ${renderMetricCard('待印花面料米数 / 裁片数量', `${statistics.waitProcessFabricMeters} 米`, '统一待加工仓')}
+      ${renderMetricCard('打印完成面料米数 / 裁片数量', `${statistics.printCompletedFabricMeters} 米`, '执行节点')}
+      ${renderMetricCard('转印完成面料米数 / 裁片数量', `${statistics.transferCompletedFabricMeters} 米`, '执行节点')}
+      ${renderMetricCard('待交出面料米数 / 裁片数量', `${statistics.waitHandoverFabricMeters} 米`, '统一待交出仓')}
+      ${renderMetricCard('已交出面料米数 / 裁片数量', `${statistics.handedOverFabricMeters} 米`, '统一交出记录')}
+      ${renderMetricCard('实收面料米数 / 裁片数量', `${statistics.receivedFabricMeters} 米`, '接收方回写')}
+      ${renderMetricCard('差异面料米数 / 裁片数量', `${statistics.diffFabricMeters} 米`, '统一差异口径')}
       ${renderMetricCard('印花待加工仓记录数', String(statistics.waitProcessRecordCount), '统一待加工仓')}
       ${renderMetricCard('印花待交出仓记录数', String(statistics.waitHandoverRecordCount), '统一待交出仓')}
       ${renderMetricCard('印花已部分交出记录数', String(statistics.partialHandoverRecordCount), '统一仓记录')}
@@ -65,12 +66,12 @@ function renderTopMetrics(): string {
 
 function renderPrinterTable(): string {
   const orders = listPrintWorkOrders()
-  const rows = listPrintMachineOptions('ID-F002')
+  const rows = listPrintMachineOptions(TEST_FACTORY_ID)
     .map((machine) => {
       const matchedOrder = orders.find((order) => getPrintPrinterSummary(order).printerNo === machine.printerNo)
       const matchedStatus = matchedOrder ? renderWorkOrderStatusBadge(matchedOrder.status) : '<span class="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-700">空闲</span>'
       const completedQty = matchedOrder ? getPrintPrinterSummary(matchedOrder).outputQty : 0
-      const factoryId = matchedOrder?.printFactoryId || 'ID-F002'
+      const factoryId = matchedOrder?.printFactoryId || TEST_FACTORY_ID
       return `
         <tr class="border-b last:border-b-0">
           <td class="px-3 py-3 text-sm font-medium">${escapeHtml(machine.printerNo)}</td>
@@ -100,7 +101,7 @@ function renderPrinterTable(): string {
               <th class="px-3 py-2 font-medium">打印机编号</th>
               <th class="px-3 py-2 font-medium">打印机</th>
               <th class="px-3 py-2 font-medium">打印速度</th>
-              <th class="px-3 py-2 font-medium">打印完成面料米数</th>
+              <th class="px-3 py-2 font-medium">打印完成面料米数 / 裁片数量</th>
               <th class="px-3 py-2 font-medium">当前状态</th>
               <th class="px-3 py-2 text-right font-medium">操作</th>
             </tr>
@@ -163,8 +164,8 @@ function renderOrderStats(): string {
               <th class="px-3 py-2 font-medium">印花任务</th>
               <th class="px-3 py-2 font-medium">打印机编号</th>
               <th class="px-3 py-2 font-medium">打印速度</th>
-              <th class="px-3 py-2 font-medium">打印完成面料米数</th>
-              <th class="px-3 py-2 font-medium">转印完成面料米数</th>
+              <th class="px-3 py-2 font-medium">打印完成面料米数 / 裁片数量</th>
+              <th class="px-3 py-2 font-medium">转印完成面料米数 / 裁片数量</th>
               <th class="px-3 py-2 font-medium">转印原料使用米数</th>
               <th class="px-3 py-2 font-medium">当前状态</th>
               <th class="px-3 py-2 text-right font-medium">操作</th>

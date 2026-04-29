@@ -1,4 +1,4 @@
-import { mockFactories } from './factory-mock-data.ts'
+import { TEST_FACTORY_ID, mockFactories } from './factory-mock-data.ts'
 import type { Factory } from './factory-types.ts'
 
 function cloneFactory(factory: Factory): Factory {
@@ -48,7 +48,8 @@ export function listSewingFactoryMasterRecords(): Factory[] {
 }
 
 export function getFactoryMasterRecordById(factoryId: string): Factory | undefined {
-  const factory = factoryMasterRecords.find((item) => item.id === factoryId)
+  const normalizedFactoryId = factoryId === 'ID-F090' ? TEST_FACTORY_ID : factoryId
+  const factory = factoryMasterRecords.find((item) => item.id === normalizedFactoryId || item.code === normalizedFactoryId)
   return factory ? cloneFactory(factory) : undefined
 }
 

@@ -430,7 +430,7 @@ function renderListCard(item: FutureMobileFactoryQcListItem): string {
           <dd class="mt-1 font-medium text-foreground">${formatQty(item.inspectedQty)} / 合格 ${formatQty(item.qualifiedQty)} / 不合格 ${formatQty(item.unqualifiedQty)}</dd>
         </div>
         <div class="rounded-xl bg-muted/40 px-3 py-2">
-          <dt class="text-muted-foreground">工厂责任数量</dt>
+          <dt class="text-muted-foreground">工厂责任对象数量</dt>
           <dd class="mt-1 font-medium text-foreground">${formatQty(item.factoryLiabilityQty)}</dd>
         </div>
         <div class="rounded-xl bg-muted/40 px-3 py-2">
@@ -593,7 +593,7 @@ function renderDetailSections(detail: FutureMobileFactoryQcDetail): string {
 
   const disputeSummary = detail.disputeId
     ? detail.platformAdjudicationSummary
-    : '尚未发起异议。若对工厂责任数量或证据判定有异议，请在响应窗口内上传图片 / 视频后提交。'
+    : '尚未发起异议。若对工厂责任对象数量或证据判定有异议，请在响应窗口内上传图片 / 视频后提交。'
 
   return [
     renderSectionCard(
@@ -622,8 +622,8 @@ function renderDetailSections(detail: FutureMobileFactoryQcDetail): string {
         { label: '合格数量', value: formatQty(detail.qualifiedQty) },
         { label: '不合格数量', value: formatQty(detail.unqualifiedQty) },
         { label: '检查结果', value: renderStatusBadge(detail.qcResultLabel, getResultBadgeClass(detail.qcResultLabel)) },
-        { label: '工厂责任数量', value: formatQty(detail.factoryLiabilityQty) },
-        { label: '非工厂责任数量', value: formatQty(detail.nonFactoryLiabilityQty) },
+        { label: '工厂责任对象数量', value: formatQty(detail.factoryLiabilityQty) },
+        { label: '非工厂责任对象数量', value: formatQty(detail.nonFactoryLiabilityQty) },
         { label: '责任状态', value: renderStatusBadge(detail.liabilityStatusLabel, getBadgeClass(detail.liabilityStatus === 'FACTORY' ? 'red' : detail.liabilityStatus === 'MIXED' ? 'amber' : detail.liabilityStatus === 'NON_FACTORY' ? 'green' : 'gray')) },
         { label: '责任说明', value: escapeHtml(detail.responsibilitySummary) },
       ]),
@@ -751,7 +751,7 @@ function renderConfirmDialog(detail: FutureMobileFactoryQcDetail): string {
         <div class="text-base font-semibold text-foreground">确认处理</div>
         <div class="mt-2 text-sm leading-6 text-muted-foreground">确认后会同步工厂处理时间，并更新对应金额链路。</div>
         <div class="mt-4 rounded-xl bg-muted/40 px-3 py-3 text-xs leading-5">
-          <div>工厂责任数量：${formatQty(detail.factoryLiabilityQty)}</div>
+          <div>工厂责任对象数量：${formatQty(detail.factoryLiabilityQty)}</div>
           <div>冻结加工费金额：${formatCny(detail.blockedProcessingFeeAmount)}</div>
           <div>生效质量扣款金额：${formatCny(detail.effectiveQualityDeductionAmount)}</div>
         </div>
