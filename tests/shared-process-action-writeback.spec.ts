@@ -24,6 +24,9 @@ test('印花 Web 操作后移动端动作写回同一前端事实源', async ({ 
   await expect(page.getByRole('button', { name: '开始打印' })).toBeVisible()
 
   await page.getByRole('button', { name: '开始打印' }).click()
+  await expect(page.getByRole('heading', { name: '开始打印' })).toBeVisible({ timeout: 30_000 })
+  await expect(page.locator('body')).toContainText('确认执行“开始打印”')
+  await page.getByRole('button', { name: '确认执行' }).click()
   await expect(page.locator('body')).toContainText('打印中')
   await expect(page.locator('body')).toContainText('开始打印')
   await expect(page.locator('body')).toContainText('Web 端')

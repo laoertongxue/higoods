@@ -88,7 +88,7 @@ function renderField(label: string, value: string): string {
 function renderWebActionPanel(orderId: string, currentStatus: string, actions: ProcessWebAction[], platformStatus: string): string {
   const actionable = actions.filter((action) => !action.disabledReason)
   const disabledReason = actions.find((action) => action.disabledReason)?.disabledReason
-  const actionHref = (actionCode: string) => `${buildPrintingWorkOrderDetailLink(orderId)}?webAction=${encodeURIComponent(actionCode)}`
+  const order = getProcessWorkOrderById(orderId)
   return renderSection(
     '可执行动作',
     `
@@ -107,7 +107,18 @@ function renderWebActionPanel(orderId: string, currentStatus: string, actions: P
                       <button
                         type="button"
                         class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
-                        data-nav="${escapeHtml(actionHref(action.actionCode))}"
+                        data-printing-action="open-web-status-action-dialog"
+                        data-source-id="${escapeHtml(orderId)}"
+                        data-action-code="${escapeHtml(action.actionCode)}"
+                        data-action-label="${escapeHtml(action.actionLabel)}"
+                        data-from-status="${escapeHtml(action.fromStatus)}"
+                        data-to-status="${escapeHtml(action.toStatus)}"
+                        data-required-fields="${escapeHtml(action.requiredFields.join('|'))}"
+                        data-optional-fields="${escapeHtml(action.optionalFields.join('|'))}"
+                        data-confirm-text="${escapeHtml(action.confirmText)}"
+                        data-object-type="${escapeHtml(order?.objectType || '')}"
+                        data-object-qty="${escapeHtml(String(order?.plannedQty ?? ''))}"
+                        data-qty-unit="${escapeHtml(order?.plannedUnit || '')}"
                       >
                         ${escapeHtml(action.actionLabel)}
                       </button>

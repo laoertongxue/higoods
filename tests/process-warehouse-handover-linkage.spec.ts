@@ -13,6 +13,9 @@ test('印花 Web 完成转印后进入待交出仓', async ({ page }) => {
   await expect(page.getByRole('button', { name: '完成转印' })).toBeVisible()
 
   await page.getByRole('button', { name: '完成转印' }).click()
+  await expect(page.getByRole('heading', { name: '完成转印' })).toBeVisible({ timeout: 30_000 })
+  await expect(page.locator('body')).toContainText('确认执行“完成转印”')
+  await page.getByRole('button', { name: '确认执行' }).click()
   await expect(page.locator('body')).toContainText('待送货')
   await expect(page.locator('body')).toContainText('Web 端操作记录')
   await expect(page.locator('body')).toContainText('完成转印')
