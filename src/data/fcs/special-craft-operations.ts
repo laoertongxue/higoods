@@ -68,13 +68,6 @@ const specialCraftOperationSeedByName: Record<string, SpecialCraftOperationSeed>
     mustReturnToCuttingFactory: true,
     remark: '按裁片任务单管理，完成后回裁床厂待交出仓。',
   },
-  洗水: {
-    operationId: 'SC-OP-128',
-    defaultTargetObject: 'FULL_FABRIC',
-    requiresFeiTicketScan: false,
-    mustReturnToCuttingFactory: false,
-    remark: '按面料任务单管理，保留后续工厂仓口径扩展位。',
-  },
   烫画: {
     operationId: 'SC-OP-8192',
     defaultTargetObject: 'CUT_PIECE',
@@ -108,14 +101,6 @@ function buildOperationDefinition(
   const defaultTargetObject = supportedTargetObjects.includes(seed.defaultTargetObject)
     ? getSpecialCraftTargetObjectLabel(seed.defaultTargetObject)
     : getSpecialCraftTargetObjectLabel(supportedTargetObjects[0])
-  const visibleFactoryTypes =
-    craftDefinition.craftName === '洗水'
-      ? Array.from(new Set([...craftDefinition.visibleFactoryTypes, 'CENTRAL_AUX']))
-      : []
-  const visibleFactoryIds =
-    craftDefinition.craftName === '洗水'
-      ? []
-      : []
   return {
     operationId: seed.operationId,
     craftCode: craftDefinition.craftCode,
@@ -127,8 +112,8 @@ function buildOperationDefinition(
     supportedTargetObjectLabels: getSpecialCraftSupportedTargetObjectLabels(supportedTargetObjects),
     defaultTargetObject,
     targetObject: defaultTargetObject,
-    visibleFactoryTypes,
-    visibleFactoryIds,
+    visibleFactoryTypes: [],
+    visibleFactoryIds: [],
     requiresTaskOrder: true,
     requiresFactoryWarehouse: true,
     requiresStatistics: true,

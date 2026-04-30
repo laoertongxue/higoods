@@ -68,7 +68,6 @@ try {
   const removedCraftNameSet = new Set(removedLegacyCraftNames)
 
   assert(activeRows.every((row) => row.isActive), '默认工序工艺字典列表应只包含可用项')
-  assert(!activeRows.some((row) => row.processCode === 'WASHING'), '默认字典中不应存在活跃独立洗水工序')
   removedLegacyProcessCodes.forEach((processCode) => {
     assert(!activeRows.some((row) => row.processCode === processCode), '默认字典中不应出现已删除旧编码')
   })
@@ -76,8 +75,8 @@ try {
 
   const washRow = activeRows.find((row) => row.craftName === '洗水')
   assert(washRow, '默认字典中缺少洗水工艺')
-  assert(washRow.processCode === 'SPECIAL_CRAFT', '洗水必须挂在特殊工艺下')
-  assert(washRow.processName === '特殊工艺', '洗水工艺所属工序名称必须为特殊工艺')
+  assert(washRow.processCode === 'WASHING', '洗水必须挂在准备阶段洗水工序下')
+  assert(washRow.processName === '洗水', '洗水工艺所属工序名称必须为洗水')
   assert(washRow.taskScopeLabel === '对外任务', '洗水必须按对外任务展示')
   assert(washRow.generatesExternalTaskLabel === '是', '洗水必须生成对外任务')
 

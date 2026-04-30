@@ -429,6 +429,35 @@ const SPECIAL_CRAFT_STATUS_MAP: Record<string, PlatformProcessStatusCode> = {
   已关闭: 'CLOSED',
 }
 
+const POST_FINISHING_STATUS_MAP: Record<string, PlatformProcessStatusCode> = {
+  待接收领料: 'PREPARING',
+  接收中: 'PREPARING',
+  已接收: 'PREPARING',
+  待质检: 'PREPARING',
+  质检完成: 'PREPARING',
+  待后道: 'PREPARING',
+  后道完成: 'PREPARING',
+  待复检: 'PREPARING',
+  质检中: 'PROCESSING',
+  后道中: 'PROCESSING',
+  复检中: 'PROCESSING',
+  复检完成: 'WAIT_DELIVERY',
+  待交出: 'WAIT_DELIVERY',
+  已交出: 'WAIT_WRITEBACK',
+  待回写: 'WAIT_WRITEBACK',
+  已回写: 'WAIT_REVIEW',
+  待审核: 'WAIT_REVIEW',
+  有差异: 'EXCEPTION',
+  平台处理中: 'EXCEPTION',
+  接收差异: 'EXCEPTION',
+  质检异常: 'EXCEPTION',
+  复检差异: 'EXCEPTION',
+  数量差异: 'EXCEPTION',
+  审核驳回: 'EXCEPTION',
+  已完成: 'COMPLETED',
+  已关闭: 'CLOSED',
+}
+
 const RISK_HINTS: Record<PlatformProcessStatusCode, { riskLabel: string; actionHint: string; ownerHint: string }> = {
   WAIT_RELEASE: {
     riskLabel: '加工任务尚未下发',
@@ -566,6 +595,28 @@ const SPECIFIC_HINTS: Record<string, Partial<Record<PlatformProcessStatusCode, P
       ownerHint: '平台',
     },
   },
+  POST_FINISHING: {
+    PREPARING: {
+      riskLabel: '后道接收、质检或复检准备未完成',
+      actionHint: '跟进后道工厂接收领料和质检复检',
+      ownerHint: '后道工厂',
+    },
+    PROCESSING: {
+      riskLabel: '后道工厂内部加工或质检复检中',
+      actionHint: '跟进后道、质检或复检进度',
+      ownerHint: '后道工厂',
+    },
+    WAIT_DELIVERY: {
+      riskLabel: '后道复检完成，待交出',
+      actionHint: '催办后道工厂交出成衣',
+      ownerHint: '后道工厂',
+    },
+    EXCEPTION: {
+      riskLabel: '后道存在成衣件数差异或复检异常',
+      actionHint: '平台处理后道差异',
+      ownerHint: '平台',
+    },
+  },
 }
 
 function normalizeStatus(value: unknown): string {
@@ -638,6 +689,14 @@ export function mapSpecialCraftStatusToPlatformStatus(status: unknown, context: 
   })
 }
 
+export function mapPostFinishingStatusToPlatformStatus(status: unknown, context: ProcessPlatformStatusContext = {}): PlatformProcessStatusResult {
+  return buildResult(resolveCode(POST_FINISHING_STATUS_MAP, status, 'EXCEPTION'), {
+    ...context,
+    processType: 'POST_FINISHING',
+    craftStatusCode: context.craftStatusCode || normalizeStatus(status),
+  })
+}
+
 export function mapCraftStatusToPlatformStatus(params: ProcessPlatformStatusContext & { status?: unknown }): PlatformProcessStatusResult {
   const status = params.status ?? params.craftStatusCode ?? params.craftStatusLabel
   switch (params.processType) {
@@ -653,6 +712,9 @@ export function mapCraftStatusToPlatformStatus(params: ProcessPlatformStatusCont
     case 'SPECIAL':
     case 'SPECIAL_CRAFT':
       return mapSpecialCraftStatusToPlatformStatus(status, { ...params, processType: 'SPECIAL_CRAFT' })
+    case 'POST':
+    case 'POST_FINISHING':
+      return mapPostFinishingStatusToPlatformStatus(status, { ...params, processType: 'POST_FINISHING' })
     default:
       return buildResult('EXCEPTION', {
         ...params,
@@ -678,6 +740,7 @@ function getRuntimeTaskProcessType(task: ProcessTask): string {
   if (task.processCode.includes('PRINT')) return 'PRINT'
   if (task.processCode.includes('DYE')) return 'DYE'
   if (task.processCode.includes('CUT')) return 'CUTTING'
+  if (task.processCode.includes('POST') || task.processNameZh.includes('后道')) return 'POST_FINISHING'
   if (task.processCode.includes('SPECIAL') || task.processCode.includes('CRAFT')) return 'SPECIAL_CRAFT'
   return task.processNameZh.includes('印花')
     ? 'PRINT'
@@ -685,7 +748,9 @@ function getRuntimeTaskProcessType(task: ProcessTask): string {
       ? 'DYE'
       : task.processNameZh.includes('裁')
         ? 'CUTTING'
-        : task.processNameZh.includes('特殊') || task.processNameZh.includes('打揽') || task.processNameZh.includes('打条') || task.processNameZh.includes('捆条')
+        : task.processNameZh.includes('后道')
+          ? 'POST_FINISHING'
+          : task.processNameZh.includes('特殊') || task.processNameZh.includes('打揽') || task.processNameZh.includes('打条') || task.processNameZh.includes('捆条')
           ? 'SPECIAL_CRAFT'
           : 'UNKNOWN'
 }

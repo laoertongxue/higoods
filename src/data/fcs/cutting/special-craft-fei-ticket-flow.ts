@@ -37,6 +37,13 @@ import {
   getFeiTicketByNo,
   listGeneratedFeiTickets,
 } from './generated-fei-tickets.ts'
+import {
+  getCutPieceFeiTicketById,
+  getFeiTicketsBySpecialCraft,
+  listCutPieceFeiTickets,
+  type CutPieceFeiTicket,
+  type FeiTicketSpecialCraft,
+} from './fei-ticket-generation.ts'
 import type { CutPieceWarehouseRecord } from './warehouse-runtime.ts'
 import { listFormalCutPieceWarehouseRecords } from './warehouse-runtime.ts'
 import {
@@ -2351,6 +2358,27 @@ export function getSpecialCraftFeiTicketScanSummary(feiTicketNo: string): {
     .filter((binding) => binding.feiTicketNo === feiTicketNo)
     .sort((left, right) => left.sequenceIndex - right.sequenceIndex)
   if (!bindings.length) {
+    const perPieceTicket = getCutPieceFeiTicketById(feiTicketNo)
+    if (perPieceTicket?.specialCrafts.length) {
+      return {
+        hasSpecialCraft: true,
+        operationNames: perPieceTicket.specialCrafts.map((craft) => `${craft.craftName}（${craft.craftPositionName}）`),
+        completedOperationNames: [],
+        currentOperationName: perPieceTicket.specialCrafts[0]?.craftName || '待特殊工艺',
+        nextOperationName: perPieceTicket.specialCrafts[1]?.craftName || '',
+        currentFlowStatus: '待绑定',
+        currentLocation: '裁床厂待交出仓',
+        originalQty: 1,
+        currentQty: 1,
+        cumulativeScrapQty: 0,
+        cumulativeDamageQty: 0,
+        hasOpenReceiveDifference: false,
+        hasOpenReturnDifference: false,
+        blockingReason: '',
+        parentTaskOrderNo: '',
+        workOrderNo: '',
+      }
+    }
     return {
       hasSpecialCraft: false,
       operationNames: [],
@@ -2466,6 +2494,70 @@ export function getSpecialCraftFeiTicketSummary(feiTicketNo: string): {
     cumulativeDamageQty: scanSummary.cumulativeDamageQty,
     receiveDifferenceStatus: scanSummary.hasOpenReceiveDifference ? '差异待处理' : '—',
     returnDifferenceStatus: scanSummary.hasOpenReturnDifference ? '差异待处理' : '—',
+  }
+}
+
+export function getSpecialCraftsFromFeiTicket(feiTicketId: string): FeiTicketSpecialCraft[] {
+  return (getCutPieceFeiTicketById(feiTicketId)?.specialCrafts || []).map((craft) => ({ ...craft }))
+}
+
+export function getFeiTicketsForSpecialCraft(craftCode: string): CutPieceFeiTicket[] {
+  return getFeiTicketsBySpecialCraft(craftCode)
+}
+
+export function groupFeiTicketsBySpecialCraft(feiTickets: CutPieceFeiTicket[] = listCutPieceFeiTickets()): Array<{
+  craftCode: string
+  craftName: string
+  craftPositionName: string
+  feiTicketCount: number
+  feiTickets: CutPieceFeiTicket[]
+}> {
+  const byCraft = new Map<string, {
+    craftCode: string
+    craftName: string
+    craftPositionName: string
+    feiTickets: CutPieceFeiTicket[]
+  }>()
+  feiTickets.forEach((ticket) => {
+    ticket.specialCrafts.forEach((craft) => {
+      const key = `${craft.craftCode}__${craft.craftPositionName}`
+      const current = byCraft.get(key) || {
+        craftCode: craft.craftCode,
+        craftName: craft.craftName,
+        craftPositionName: craft.craftPositionName,
+        feiTickets: [],
+      }
+      current.feiTickets.push({ ...ticket, specialCrafts: ticket.specialCrafts.map((item) => ({ ...item })) })
+      byCraft.set(key, current)
+    })
+  })
+  return Array.from(byCraft.values()).map((item) => ({
+    ...item,
+    feiTicketCount: item.feiTickets.length,
+  }))
+}
+
+export function getFeiTicketSpecialCraftFlowSummary(feiTicketId: string): {
+  feiTicketId: string
+  feiTicketNo: string
+  originalCutPieceOrderId: string
+  originalCutPieceOrderNo: string
+  sourcePieceInstanceId: string
+  specialCraftSummary: string
+  specialCrafts: FeiTicketSpecialCraft[]
+  relatedFeiTicketIds: string[]
+} | null {
+  const ticket = getCutPieceFeiTicketById(feiTicketId)
+  if (!ticket) return null
+  return {
+    feiTicketId: ticket.feiTicketId,
+    feiTicketNo: ticket.feiTicketNo,
+    originalCutPieceOrderId: ticket.originalCutPieceOrderId,
+    originalCutPieceOrderNo: ticket.originalCutPieceOrderNo,
+    sourcePieceInstanceId: ticket.sourcePieceInstanceId,
+    specialCraftSummary: ticket.specialCraftSummary,
+    specialCrafts: ticket.specialCrafts.map((craft) => ({ ...craft })),
+    relatedFeiTicketIds: [ticket.feiTicketId],
   }
 }
 

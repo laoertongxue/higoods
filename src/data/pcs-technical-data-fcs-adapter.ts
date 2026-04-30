@@ -26,19 +26,30 @@ export function buildLegacyTechPackFromTechnicalVersion(
     lastUpdatedBy: record.updatedBy,
     patternFiles: content.patternFiles.map((item) => ({
       ...item,
+      patternTotalPieceQty: item.patternTotalPieceQty,
+      pieceInstanceTotal: item.pieceInstanceTotal,
+      specialCraftConfiguredPieceTotal: item.specialCraftConfiguredPieceTotal,
+      specialCraftUnconfiguredPieceTotal: item.specialCraftUnconfiguredPieceTotal,
       selectedSizeCodes: [...(item.selectedSizeCodes ?? [])],
       pieceRows: item.pieceRows?.map((row) => ({
         ...row,
+        parsedQuantity: row.parsedQuantity,
+        totalPieceQty: row.totalPieceQty,
         applicableSkuCodes: [...(row.applicableSkuCodes ?? [])],
         colorAllocations: row.colorAllocations?.map((allocation) => ({
           ...allocation,
           skuCodes: [...(allocation.skuCodes ?? [])],
         })),
+        colorPieceQuantities: row.colorPieceQuantities?.map((quantity) => ({ ...quantity })),
         specialCrafts: row.specialCrafts?.map((craft) => ({
           ...craft,
           supportedTargetObjects: [...(craft.supportedTargetObjects ?? [])],
           supportedTargetObjectLabels: [...(craft.supportedTargetObjectLabels ?? [])],
         })),
+      })),
+      pieceInstances: item.pieceInstances?.map((instance) => ({
+        ...instance,
+        specialCraftAssignments: instance.specialCraftAssignments.map((assignment) => ({ ...assignment })),
       })),
     })),
     patternDesc: content.patternDesc,
@@ -92,19 +103,30 @@ export function buildTechnicalContentPatchFromLegacyTechPack(
   return {
     patternFiles: techPack.patternFiles.map((item) => ({
       ...item,
+      patternTotalPieceQty: item.patternTotalPieceQty,
+      pieceInstanceTotal: item.pieceInstanceTotal,
+      specialCraftConfiguredPieceTotal: item.specialCraftConfiguredPieceTotal,
+      specialCraftUnconfiguredPieceTotal: item.specialCraftUnconfiguredPieceTotal,
       selectedSizeCodes: [...(item.selectedSizeCodes ?? [])],
       pieceRows: item.pieceRows?.map((row) => ({
         ...row,
+        parsedQuantity: row.parsedQuantity,
+        totalPieceQty: row.totalPieceQty,
         applicableSkuCodes: [...(row.applicableSkuCodes ?? [])],
         colorAllocations: row.colorAllocations?.map((allocation) => ({
           ...allocation,
           skuCodes: [...(allocation.skuCodes ?? [])],
         })),
+        colorPieceQuantities: row.colorPieceQuantities?.map((quantity) => ({ ...quantity })),
         specialCrafts: row.specialCrafts?.map((craft) => ({
           ...craft,
           supportedTargetObjects: [...(craft.supportedTargetObjects ?? [])],
           supportedTargetObjectLabels: [...(craft.supportedTargetObjectLabels ?? [])],
         })),
+      })),
+      pieceInstances: item.pieceInstances?.map((instance) => ({
+        ...instance,
+        specialCraftAssignments: instance.specialCraftAssignments.map((assignment) => ({ ...assignment })),
       })),
     })),
     patternDesc: techPack.patternDesc || '',

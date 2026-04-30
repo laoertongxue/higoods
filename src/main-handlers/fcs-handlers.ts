@@ -192,13 +192,35 @@ import {
   isCraftCuttingSummaryDialogOpen,
 } from '../pages/process-factory/cutting/cutting-summary'
 import { handleCraftDyeingEvent } from '../pages/process-factory/dyeing/events'
+import { handlePostFinishingEvent } from '../pages/process-factory/post-finishing/events'
 import { handleCraftPrintingEvent } from '../pages/process-factory/printing/events'
 import { handleSpecialCraftWorkOrderDetailEvent } from '../pages/process-factory/special-craft/work-order-detail'
 
 export function dispatchFcsPageEvent(target: HTMLElement): boolean {
+  const isPostFinishingRoute =
+    typeof window !== 'undefined' && window.location.pathname.includes('/fcs/craft/post-finishing')
+  if (
+    isPostFinishingRoute
+    && target.closest('[data-post-finishing-action], [data-process-web-status-action]')
+  ) {
+    return handlePostFinishingEvent(target)
+  }
+  const isSpecialCraftRoute =
+    typeof window !== 'undefined' && (
+      window.location.pathname.includes('/fcs/process-factory/special-craft') ||
+      window.location.pathname.includes('/fcs/craft/special-craft')
+    )
+  if (
+    isSpecialCraftRoute
+    && target.closest('[data-special-craft-web-action], [data-process-web-status-action]')
+  ) {
+    return handleSpecialCraftWorkOrderDetailEvent(target)
+  }
+
   return (
     handleCraftPrintingEvent(target) ||
     handleCraftDyeingEvent(target) ||
+    handlePostFinishingEvent(target) ||
     handleSpecialCraftWorkOrderDetailEvent(target) ||
     handleCraftCuttingOriginalOrdersEvent(target) ||
     handleFactoryPageEvent(target) ||

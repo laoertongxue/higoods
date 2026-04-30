@@ -454,6 +454,7 @@ function shouldSkipInputRerender(target: Element): boolean {
   if (techFieldNode) {
     const field = techFieldNode.dataset.techField || ''
     if (field === 'pattern-template-search-keyword') return false
+    if (field === 'new-pattern-piece-color-count') return false
 
     if (techFieldNode instanceof HTMLTextAreaElement) return true
 
@@ -481,6 +482,8 @@ function shouldSkipChangeRerender(target: Element): boolean {
     const rerenderDrivenFields = new Set([
       'new-pattern-material-type',
       'new-pattern-linked-bom-item',
+      'new-pattern-prj-file',
+      'new-pattern-marker-image-file',
       'new-pattern-dxf-file',
       'new-pattern-rul-file',
       'new-pattern-single-file',

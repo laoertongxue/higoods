@@ -159,13 +159,13 @@ assert(blockedHtml.includes(nonPrintableState.reason || '未完成工厂分配')
 
 assert.equal(
   formatConfirmationTaskDisplayName({
-    processCode: 'SPECIAL_CRAFT',
-    processName: '特殊工艺',
+    processCode: 'WASHING',
+    processName: '洗水',
     craftName: '洗水',
-    isSpecialCraft: true,
+    isSpecialCraft: false,
   }),
-  '特殊工艺 - 洗水',
-  '洗水必须显示为“特殊工艺 - 洗水”',
+  '洗水',
+  '洗水必须按准备阶段工序显示为“洗水”',
 )
 assert.equal(
   formatConfirmationTaskDisplayName({

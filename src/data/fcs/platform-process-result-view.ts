@@ -1,6 +1,7 @@
 import { TEST_FACTORY_DISPLAY_NAME, TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
 import {
   buildDyeingWorkOrderDetailLink,
+  buildPostFinishingWorkOrderDetailLink,
   buildPrintingWorkOrderDetailLink,
   buildTaskDetailLink,
 } from './fcs-route-links.ts'
@@ -54,8 +55,13 @@ import {
   listSpecialCraftTaskWorkOrders,
   type SpecialCraftTaskWorkOrder,
 } from './special-craft-task-orders.ts'
+import {
+  getPostFinishingFlowText,
+  listPostFinishingWorkOrders,
+  type PostFinishingWorkOrder,
+} from './post-finishing-domain.ts'
 
-export type PlatformResultSourceType = 'PRINT' | 'DYE' | 'CUTTING' | 'SPECIAL_CRAFT'
+export type PlatformResultSourceType = 'PRINT' | 'DYE' | 'CUTTING' | 'SPECIAL_CRAFT' | 'POST_FINISHING'
 
 export interface PlatformQuantityDisplayField {
   label: string
@@ -149,6 +155,7 @@ const PROCESS_NAME: Record<PlatformResultSourceType, string> = {
   DYE: '染色',
   CUTTING: '裁片',
   SPECIAL_CRAFT: '特殊工艺',
+  POST_FINISHING: '后道',
 }
 
 function normalizeSourceType(value: string): PlatformResultSourceType | undefined {
@@ -156,6 +163,7 @@ function normalizeSourceType(value: string): PlatformResultSourceType | undefine
   if (value === 'DYE' || value === 'DYEING_WORK_ORDER') return 'DYE'
   if (value === 'CUTTING' || value === 'CUTTING_ORDER') return 'CUTTING'
   if (value === 'SPECIAL_CRAFT') return 'SPECIAL_CRAFT'
+  if (value === 'POST_FINISHING' || value === 'POST_FINISHING_WORK_ORDER') return 'POST_FINISHING'
   return undefined
 }
 
@@ -657,6 +665,77 @@ function buildSpecialCraftView(workOrder: SpecialCraftTaskWorkOrder): PlatformPr
   return view
 }
 
+function buildPostFinishingView(order: PostFinishingWorkOrder): PlatformProcessResultView {
+  const facts = resolveFacts('POST_FINISHING', order.postOrderId, order.sourceTaskId)
+  const mapped = mapCraftStatusToPlatformStatus({
+    sourceType: 'POST_FINISHING_WORK_ORDER',
+    sourceId: order.postOrderId,
+    processType: 'POST_FINISHING',
+    craftStatusLabel: order.currentStatus,
+    status: order.currentStatus,
+  })
+  const completedQty =
+    order.recheckAction.confirmedGarmentQty ||
+    order.recheckAction.acceptedGarmentQty ||
+    order.postAction.completedPostGarmentQty ||
+    order.qcAction.passedGarmentQty ||
+    order.receiveAction.receivedGarmentQty ||
+    0
+  const view = buildCommonResult({
+    sourceType: 'POST_FINISHING',
+    sourceId: order.postOrderId,
+    processName: '后道',
+    workOrderNo: order.postOrderNo,
+    productionOrderNo: order.sourceProductionOrderNo,
+    factoryId: order.managedPostFactoryId || TEST_FACTORY_ID,
+    factoryName: order.managedPostFactoryName || TEST_FACTORY_NAME,
+    internalStatusLabel: order.currentStatus,
+    baseStatusLabel: mapped.platformStatusLabel,
+    objectType: '成衣',
+    qtyUnit: '件',
+    plannedObjectQty: order.plannedGarmentQty,
+    completedObjectQty: completedQty,
+    detailLink: `/fcs/progress/board?sourceId=${encodeURIComponent(order.postOrderId)}`,
+    craftDetailLink: buildPostFinishingWorkOrderDetailLink(order.postOrderId, 'base'),
+    mobileTaskLink: buildTaskDetailLink(order.sourceTaskId, {
+      currentFactoryId: TEST_FACTORY_ID,
+      sourceType: 'POST_FINISHING_WORK_ORDER',
+      sourceId: order.postOrderId,
+      keyword: order.postOrderNo,
+    }),
+    taskId: order.sourceTaskId,
+    taskNo: order.postOrderNo,
+    facts,
+  })
+  view.quantityDisplayFields.unshift({
+    label: '当前流程类型',
+    value: 0,
+    unit: '个',
+    text: `当前流程类型：${getPostFinishingFlowText(order)}`,
+  })
+  view.quantityDisplayFields.push(
+    {
+      label: '接收成衣件数',
+      value: order.receiveAction.receivedGarmentQty || order.receiveAction.acceptedGarmentQty || 0,
+      unit: '件',
+      text: `接收成衣件数：${order.receiveAction.receivedGarmentQty || order.receiveAction.acceptedGarmentQty || 0} 件`,
+    },
+    {
+      label: '质检通过成衣件数',
+      value: order.qcAction.passedGarmentQty || order.qcAction.acceptedGarmentQty || 0,
+      unit: '件',
+      text: `质检通过成衣件数：${order.qcAction.passedGarmentQty || order.qcAction.acceptedGarmentQty || 0} 件`,
+    },
+    {
+      label: '复检确认成衣件数',
+      value: order.recheckAction.confirmedGarmentQty || order.recheckAction.acceptedGarmentQty || 0,
+      unit: '件',
+      text: `复检确认成衣件数：${order.recheckAction.confirmedGarmentQty || order.recheckAction.acceptedGarmentQty || 0} 件`,
+    },
+  )
+  return view
+}
+
 function matchesFilter(view: PlatformProcessResultView, filter: PlatformProcessResultViewFilter): boolean {
   if (filter.sourceType && view.sourceType !== filter.sourceType) return false
   if (filter.processType && view.processType !== filter.processType) return false
@@ -712,12 +791,20 @@ export function listPlatformSpecialCraftResultViews(filter: PlatformProcessResul
     .map(cloneView)
 }
 
+export function listPlatformPostFinishingResultViews(filter: PlatformProcessResultViewFilter = {}): PlatformProcessResultView[] {
+  return listPostFinishingWorkOrders()
+    .map(buildPostFinishingView)
+    .filter((view) => matchesFilter(view, { ...filter, sourceType: 'POST_FINISHING' }))
+    .map(cloneView)
+}
+
 export function listPlatformProcessResultViews(filter: PlatformProcessResultViewFilter = {}): PlatformProcessResultView[] {
   const views = [
     ...listPlatformPrintResultViews(filter.sourceType && filter.sourceType !== 'PRINT' ? { ...filter, sourceType: undefined } : filter),
     ...listPlatformDyeResultViews(filter.sourceType && filter.sourceType !== 'DYE' ? { ...filter, sourceType: undefined } : filter),
     ...listPlatformCuttingResultViews(filter.sourceType && filter.sourceType !== 'CUTTING' ? { ...filter, sourceType: undefined } : filter),
     ...listPlatformSpecialCraftResultViews(filter.sourceType && filter.sourceType !== 'SPECIAL_CRAFT' ? { ...filter, sourceType: undefined } : filter),
+    ...listPlatformPostFinishingResultViews(filter.sourceType && filter.sourceType !== 'POST_FINISHING' ? { ...filter, sourceType: undefined } : filter),
   ]
   return views
     .filter((view) => matchesFilter(view, filter))

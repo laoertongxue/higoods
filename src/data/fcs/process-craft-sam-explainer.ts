@@ -16,9 +16,16 @@ export interface FactorySupplyFormulaGuide {
 const TEMPLATE_A_CRAFT_NAMES = ['基础连接', '手缝扣'] as const
 const TEMPLATE_B_CRAFT_NAMES = [
   '定位裁',
+  '普通裁',
+  '激光定位裁',
   '定向裁',
   '绣花',
   '贝壳绣',
+  '曲牙绣',
+  '一字贝绣花',
+  '模板工序',
+  '激光开袋',
+  '特种车缝（花样机）',
   '曲牙',
   '打揽',
   '烫画',
@@ -31,7 +38,7 @@ const TEMPLATE_B_CRAFT_NAMES = [
   '熨烫',
   '包装',
 ] as const
-const TEMPLATE_C_CRAFT_NAMES = ['丝网印', '数码印', '压褶', '打条', '激光切', '捆条'] as const
+const TEMPLATE_C_CRAFT_NAMES = ['丝网印', '数码印', '压褶', '打条', '激光切', '捆条', '橡筋定长切割'] as const
 const TEMPLATE_D_CRAFT_NAMES = ['匹染', '色织', '缩水', '洗水'] as const
 
 export const FACTORY_SUPPLY_TEMPLATE_BY_CRAFT_NAME: Record<string, FactorySupplyFormulaTemplate> = Object.fromEntries(

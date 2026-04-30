@@ -222,14 +222,14 @@ export const routingTemplates: RoutingTemplate[] = [
     applicableCategory: '牛仔',
     matchRule: {
       mode: 'AUTO',
-      requiredProcessCodes: ['PROC_CUT', 'PROC_SEW', 'PROC_SPECIAL_CRAFT', 'PROC_FINISHING'],
+      requiredProcessCodes: ['PROC_CUT', 'PROC_SEW', 'PROC_WASH', 'PROC_FINISHING'],
       optionalProcessCodes: [],
       keywords: ['牛仔', '洗水', 'denim', '水洗', '做旧'],
     },
     steps: [
       { seq: 1, processCode: 'PROC_CUT', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' } },
       { seq: 2, processCode: 'PROC_SEW', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [1] },
-      { seq: 3, processCode: 'PROC_SPECIAL_CRAFT', craftName: '洗水', assignmentMode: 'BIDDING', ownerSuggestion: { kind: 'RECOMMENDED_FACTORY_POOL', recommendedTier: 'THIRD_PARTY', recommendedTypes: ['SPECIAL_PROCESS', 'DENIM'] }, dependsOnSeq: [2] },
+      { seq: 3, processCode: 'PROC_WASH', craftName: '洗水', assignmentMode: 'BIDDING', ownerSuggestion: { kind: 'RECOMMENDED_FACTORY_POOL', recommendedTier: 'THIRD_PARTY', recommendedTypes: ['DYEING', 'DENIM'] }, dependsOnSeq: [2] },
       { seq: 4, processCode: 'PROC_FINISHING', assignmentMode: 'DIRECT', ownerSuggestion: { kind: 'MAIN_FACTORY' }, dependsOnSeq: [3] },
     ],
     createdAt: '2024-02-15 11:00:00',

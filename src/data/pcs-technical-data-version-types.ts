@@ -11,6 +11,13 @@ export type TechnicalPatternParseStatus =
   | 'PARSED'
   | 'FAILED'
   | 'NOT_REQUIRED'
+export type TechnicalPatternMaintainerStepStatus =
+  | '待跟单维护'
+  | '待版师维护'
+  | '待解析'
+  | '已解析待确认'
+  | '已完成'
+export type TechnicalPatternInfoStatus = '未填写' | '已填写' | '待解析' | '已解析'
 export type TechnicalPatternPieceSourceType = 'PARSED_PATTERN' | 'MANUAL'
 export type TechnicalPatternCategory = '主体片' | '结构片' | '装饰片' | '其他'
 export type TechnicalPatternDesignSideType = 'FRONT' | 'INSIDE'
@@ -21,6 +28,14 @@ export interface TechnicalPatternPieceColorAllocation {
   colorCode?: string
   skuCodes?: string[]
   pieceCount: number
+}
+
+export interface TechnicalPatternColorPieceQuantity {
+  colorId: string
+  colorName: string
+  pieceQty: number
+  enabled: boolean
+  remark?: string
 }
 
 export interface TechnicalPatternPieceSpecialCraft {
@@ -34,9 +49,42 @@ export interface TechnicalPatternPieceSpecialCraft {
   supportedTargetObjectLabels?: Array<'已裁部位' | '完整面料'>
 }
 
+export type TechnicalPatternPieceCraftPosition = 'LEFT' | 'RIGHT' | 'BOTTOM' | 'FACE'
+export type TechnicalPatternPieceCraftPositionName = '左' | '右' | '底' | '面'
+export type TechnicalPatternPieceInstanceStatus = '未配置' | '已配置' | '待确认'
+
+export interface TechnicalPatternPieceSpecialCraftAssignment {
+  assignmentId: string
+  craftCode: string
+  craftName: string
+  craftCategory?: 'AUXILIARY' | 'SPECIAL'
+  craftCategoryName?: '辅助工艺' | '特种工艺'
+  targetObject?: 'CUT_PIECE_PART' | 'FABRIC' | 'ACCESSORY'
+  targetObjectName?: '裁片部位' | '面料' | '辅料'
+  craftPosition: TechnicalPatternPieceCraftPosition
+  craftPositionName: TechnicalPatternPieceCraftPositionName
+  remark?: string
+  createdBy?: string
+  updatedAt?: string
+}
+
+export interface TechnicalPatternPieceInstance {
+  pieceInstanceId: string
+  sourcePieceId: string
+  pieceName: string
+  sizeName?: string
+  colorId: string
+  colorName: string
+  sequenceNo: number
+  displayName: string
+  specialCraftAssignments: TechnicalPatternPieceSpecialCraftAssignment[]
+  status: TechnicalPatternPieceInstanceStatus
+}
+
 export interface TechnicalPatternPieceRow {
   id: string
   name: string
+  /** 兼容旧裁床链路。纸样页面不再直接编辑该字段，保存时由 totalPieceQty 回写。 */
   count: number
   note?: string
   isTemplate?: boolean
@@ -56,6 +104,9 @@ export interface TechnicalPatternPieceRow {
   systemPieceName?: string
   candidatePartNames?: string[]
   sizeCode?: string
+  parsedQuantity?: number
+  colorPieceQuantities?: TechnicalPatternColorPieceQuantity[]
+  totalPieceQty?: number
   quantityText?: string
   annotation?: string
   category?: string
@@ -68,6 +119,27 @@ export interface TechnicalPatternPieceRow {
   parserStatus?: '解析成功' | '待人工矫正' | '解析异常'
   machineReadyStatus?: '可模板机处理' | '待评估' | '不适用'
   rawTextLabels?: string[]
+}
+
+export interface TechnicalPatternManagedFile {
+  fileName: string
+  fileType: string
+  fileSize: number
+  uploadedAt: string
+  uploadedBy: string
+  previewUrl?: string
+}
+
+export interface TechnicalPatternBindingStrip {
+  bindingStripId: string
+  bindingStripNo: string
+  bindingStripName: string
+  lengthCm: number
+  widthCm: number
+  relatedMaterialId?: string
+  remark?: string
+  createdBy?: string
+  updatedAt?: string
 }
 
 export interface TechnicalPatternFile {
@@ -103,11 +175,31 @@ export interface TechnicalPatternFile {
   selectedSizeCodes?: string[]
   imageUrl?: string
   remark?: string
+  maintainerStepStatus?: TechnicalPatternMaintainerStepStatus
+  merchandiserInfoStatus?: Extract<TechnicalPatternInfoStatus, '未填写' | '已填写'>
+  patternMakerInfoStatus?: TechnicalPatternInfoStatus
+  isKnitted?: '是' | '否'
+  linkedMaterialId?: string
+  linkedMaterialName?: string
+  linkedMaterialSku?: string
+  prjFile?: TechnicalPatternManagedFile
+  markerImage?: TechnicalPatternManagedFile
+  dxfFile?: TechnicalPatternManagedFile
+  rulFile?: TechnicalPatternManagedFile
+  bindingStrips?: TechnicalPatternBindingStrip[]
+  patternSignature?: string
+  duplicateConfirmed?: boolean
+  duplicateWarningReasons?: string[]
   linkedBomItemId?: string
   widthCm?: number
   markerLengthM?: number
   totalPieceCount?: number
+  patternTotalPieceQty?: number
   pieceRows?: TechnicalPatternPieceRow[]
+  pieceInstances?: TechnicalPatternPieceInstance[]
+  pieceInstanceTotal?: number
+  specialCraftConfiguredPieceTotal?: number
+  specialCraftUnconfiguredPieceTotal?: number
 }
 
 export interface TechnicalProcessEntry {
@@ -127,10 +219,21 @@ export interface TechnicalProcessEntry {
   taskTypeMode: 'PROCESS' | 'CRAFT'
   isSpecialCraft: boolean
   selectedTargetObject?: '已裁部位' | '完整面料'
+  targetObject?: 'CUT_PIECE_PART' | 'FABRIC' | 'ACCESSORY'
+  targetObjectName?: '裁片部位' | '面料' | '辅料'
   supportedTargetObjects?: Array<'CUT_PIECE' | 'FULL_FABRIC'>
   supportedTargetObjectLabels?: Array<'已裁部位' | '完整面料'>
   visibleFactoryTypes?: string[]
   triggerSource?: string
+  sourceType?: 'BOM' | 'MANUAL' | 'DICT'
+  triggerField?: 'printRequirement' | 'dyeRequirement' | 'shrinkRequirement' | 'washRequirement'
+  isAutoGenerated?: boolean
+  canRemoveAutomatically?: boolean
+  hasManualOverride?: boolean
+  manualNotes?: string
+  manualFieldsTouched?: boolean
+  requiresRemovalConfirmation?: boolean
+  linkageStatus?: '已生成' | '待确认'
   standardTimeMinutes?: number
   timeUnit?: string
   referencePublishedSamValue?: number
@@ -162,6 +265,8 @@ export interface TechnicalBomItem {
   supplier: string
   printRequirement?: string
   dyeRequirement?: string
+  shrinkRequirement?: '是' | '否'
+  washRequirement?: '是' | '否'
   printSideMode?: '' | 'SINGLE' | 'DOUBLE'
   frontPatternDesignId?: string
   insidePatternDesignId?: string

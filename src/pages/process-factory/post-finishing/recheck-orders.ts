@@ -7,6 +7,7 @@ import {
   getPostFinishingWorkOrderById,
   listPostFinishingRecheckOrders,
 } from '../../../data/fcs/post-finishing-domain.ts'
+import { getAvailablePostFinishingWebActions } from '../../../data/fcs/process-web-status-actions.ts'
 import { escapeHtml } from '../../../utils.ts'
 import {
   formatGarmentQty,
@@ -16,6 +17,33 @@ import {
   renderPostStatusBadge,
   renderPostTable,
 } from './shared.ts'
+
+function renderRecheckActionButtons(postOrderId: string): string {
+  const order = getPostFinishingWorkOrderById(postOrderId)
+  if (!order) return '—'
+  const actions = getAvailablePostFinishingWebActions(postOrderId)
+    .filter((action) => ['POST_RECHECK_START', 'POST_RECHECK_FINISH', 'POST_REPORT_DIFFERENCE'].includes(action.actionCode))
+  if (!actions.length) return '暂无可执行动作'
+  return actions.map((action) => `
+    <button
+      type="button"
+      class="rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
+      data-post-finishing-action="open-web-status-action-dialog"
+      data-source-id="${escapeHtml(order.postOrderId)}"
+      data-action-code="${escapeHtml(action.actionCode)}"
+      data-action-label="${escapeHtml(action.actionLabel)}"
+      data-from-status="${escapeHtml(action.fromStatus)}"
+      data-to-status="${escapeHtml(action.toStatus)}"
+      data-required-fields="${escapeHtml(action.requiredFields.join('|'))}"
+      data-optional-fields="${escapeHtml(action.optionalFields.join('|'))}"
+      data-confirm-text="${escapeHtml(action.confirmText)}"
+      data-object-type="成衣"
+      data-object-qty="${escapeHtml(String(order.plannedGarmentQty))}"
+      data-qty-unit="件"
+      data-testid="web-status-action-button"
+    >${escapeHtml(action.actionLabel)}</button>
+  `).join('')
+}
 
 export function renderPostFinishingRecheckOrdersPage(): string {
   const rows = listPostFinishingRecheckOrders()
@@ -37,6 +65,7 @@ export function renderPostFinishingRecheckOrdersPage(): string {
           <td class="px-3 py-3 text-sm">${escapeHtml(record.finishedAt || record.startedAt || '—')}</td>
           <td class="px-3 py-3">
             <div class="flex flex-wrap gap-2">
+              ${renderRecheckActionButtons(record.postOrderId)}
               ${renderPostAction('查看后道单', buildPostFinishingWorkOrderDetailLink(record.postOrderId, 'recheck'))}
               ${renderPostAction('查看交出仓', buildPostFinishingWaitHandoverWarehouseLink(record.postOrderId), !order?.waitHandoverWarehouseRecordId)}
             </div>

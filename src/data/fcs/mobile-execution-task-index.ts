@@ -14,6 +14,9 @@ import {
 import type { ProcessTask } from './process-tasks.ts'
 import { getPrintWorkOrderByTaskId } from './printing-task-domain.ts'
 import {
+  getPostFinishingWorkOrderBySourceTaskId,
+} from './post-finishing-domain.ts'
+import {
   getSpecialCraftTaskWorkOrderById,
   listSpecialCraftTaskOrders,
   listSpecialCraftTaskWorkOrders,
@@ -31,6 +34,7 @@ export interface MobileExecutionTaskSourceInfo {
   dyeOrderNo: string
   cuttingOrderNo: string
   specialCraftOrderNo: string
+  postOrderNo: string
   taskOrderId: string
   taskOrderNo: string
   workOrderIds: string[]
@@ -271,6 +275,25 @@ function getSpecialCraftSourceInfo(task: ProcessTask): Partial<MobileExecutionTa
   }
 }
 
+function getPostFinishingSourceInfo(task: ProcessTask): Partial<MobileExecutionTaskSourceInfo> {
+  const order = getPostFinishingWorkOrderBySourceTaskId(task.taskId)
+  if (!order) return {}
+  return {
+    sourceType: 'POST_FINISHING_WORK_ORDER',
+    sourceId: normalizeString(order.postOrderId),
+    sourceWorkOrderId: normalizeString(order.postOrderId),
+    sourceWorkOrderNo: normalizeString(order.postOrderNo),
+    workOrderNo: normalizeString(order.postOrderNo),
+    postOrderNo: normalizeString(order.postOrderNo),
+    sourceIds: uniqueStrings([order.postOrderId, order.sourceTaskId, order.sourcePostTaskId]),
+    sourceNos: uniqueStrings([order.postOrderNo, order.sourceTaskNo, order.sourcePostTaskNo]),
+    productionOrderNo: normalizeString(order.sourceProductionOrderNo || task.productionOrderId),
+    sourceTaskNo: normalizeString(order.sourceTaskNo || task.taskNo || task.taskId),
+    partName: normalizeString(order.skuSummary),
+    operationName: '后道',
+  }
+}
+
 function buildSourceInfo(task: ProcessTask): MobileExecutionTaskSourceInfo {
   const processType = getMobileTaskProcessType(task)
   const factoryMeta = getFactoryMeta(task)
@@ -285,6 +308,7 @@ function buildSourceInfo(task: ProcessTask): MobileExecutionTaskSourceInfo {
     dyeOrderNo: '',
     cuttingOrderNo: '',
     specialCraftOrderNo: '',
+    postOrderNo: '',
     taskOrderId: '',
     taskOrderNo: '',
     workOrderIds: [],
@@ -319,7 +343,9 @@ function buildSourceInfo(task: ProcessTask): MobileExecutionTaskSourceInfo {
           ? getCuttingSourceInfo(task)
           : processType === 'SPECIAL_CRAFT'
             ? getSpecialCraftSourceInfo(task)
-            : {}
+            : processType === 'POST_FINISHING'
+              ? getPostFinishingSourceInfo(task)
+              : {}
 
   return {
     ...baseInfo,
@@ -348,6 +374,7 @@ function matchSourceType(task: ProcessTask, sourceType: string | undefined, sour
     info.dyeOrderNo,
     info.cuttingOrderNo,
     info.specialCraftOrderNo,
+    info.postOrderNo,
     info.sourceWorkOrderNo,
     ...info.workOrderNos,
   ]).map((value) => value.toLowerCase())
@@ -366,6 +393,9 @@ function matchSourceType(task: ProcessTask, sourceType: string | undefined, sour
   }
   if (['SPECIAL_CRAFT_WORK_ORDER', 'SPECIAL_CRAFT_TASK_ORDER', 'SPECIAL_CRAFT_ORDER'].includes(normalizedSourceType)) {
     return info.processType === 'SPECIAL_CRAFT'
+  }
+  if (['POST_FINISHING_WORK_ORDER', 'POST_FINISHING_ORDER', 'POST_ORDER'].includes(normalizedSourceType)) {
+    return info.processType === 'POST_FINISHING'
   }
   return info.sourceType === normalizedSourceType || relatedIds.includes(normalizedSourceType.toLowerCase())
 }
@@ -411,6 +441,7 @@ export function getMobileExecutionTaskSourceInfo(task: ProcessTask | null | unde
       dyeOrderNo: '',
       cuttingOrderNo: '',
       specialCraftOrderNo: '',
+      postOrderNo: '',
       taskOrderId: '',
       taskOrderNo: '',
       workOrderIds: [],
@@ -457,6 +488,7 @@ export function matchMobileTaskKeyword(task: ProcessTask | null | undefined, key
     info.dyeOrderNo,
     info.cuttingOrderNo,
     info.specialCraftOrderNo,
+    info.postOrderNo,
     info.taskOrderId,
     info.taskOrderNo,
     ...info.workOrderIds,
@@ -567,6 +599,7 @@ export function buildMobileExecutionListLocatePathForTask(
     || info.dyeOrderNo
     || info.cuttingOrderNo
     || info.specialCraftOrderNo
+    || info.postOrderNo
     || info.productionOrderNo
     || task.taskNo
     || task.taskId

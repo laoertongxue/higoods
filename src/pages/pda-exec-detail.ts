@@ -22,6 +22,12 @@ import {
   getSpecialCraftFeiTicketScanSummary,
   listCuttingSpecialCraftFeiTicketBindings,
 } from '../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
+import { getSpecialCraftTaskWorkOrderById } from '../data/fcs/special-craft-task-orders.ts'
+import {
+  getDifferenceRecordsByWorkOrderId,
+  getHandoverRecordsByWorkOrderId,
+  getWarehouseRecordsByWorkOrderId,
+} from '../data/fcs/process-warehouse-domain.ts'
 import {
   formatRemainingHours,
   formatStartDueSourceText,
@@ -65,17 +71,16 @@ import {
 } from '../data/fcs/dyeing-task-domain.ts'
 import {
   bindSpecialCraftFeiTicket,
-  finishPostFinishingAction,
   getPostFinishingWorkOrderForMobile,
-  createPostFinishingHandoverWarehouseRecord,
-  receivePostFinishedGarmentsAtManagedPostFactory,
   startDyeMaterialWaitWriteback,
   startDyeSampleWaitWriteback,
-  startPostFinishingAction,
-  submitPostFinishingHandover,
-  transferPostFinishedGarmentsToManagedPostFactory,
 } from '../data/fcs/process-execution-writeback.ts'
-import { executeMobileProcessAction } from '../data/fcs/process-action-writeback-service.ts'
+import {
+  executeMobileProcessAction,
+  getProcessActionOperationRecordsBySource,
+  getProcessActionOperationRecordsByTask,
+  type ProcessActionOperationRecord,
+} from '../data/fcs/process-action-writeback-service.ts'
 import {
   formatProcessQuantityWithUnit,
   getQuantityLabel,
@@ -1508,7 +1513,7 @@ function isSpecialCraftExecutionTask(task: ProcessTask, displayProcessName = get
   return stage === 'SPECIAL'
     || processStage === 'SPECIAL'
     || processCode === 'SPECIAL_CRAFT'
-    || /特殊工艺|绣花|打揽|打条|激光切|洗水|烫画|直喷|捆条/.test(displayProcessName)
+    || /特殊工艺|绣花|打揽|打条|激光切|烫画|直喷|捆条/.test(displayProcessName)
 }
 
 function getSpecialCraftExecBindings(task: ProcessTask) {
@@ -1559,6 +1564,42 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
   const scrapQty = Number(detailState.specialCraftScrapQty || 0)
   const damageQty = Number(detailState.specialCraftDamageQty || 0)
   const completedQty = Math.max(receivedQty - (Number.isFinite(scrapQty) ? scrapQty : 0) - (Number.isFinite(damageQty) ? damageQty : 0), 0)
+  const workOrderId = firstBinding?.workOrderId || ''
+  const workOrder = workOrderId ? getSpecialCraftTaskWorkOrderById(workOrderId) : undefined
+  const operationRecords = workOrderId
+    ? [
+        ...getProcessActionOperationRecordsBySource('SPECIAL_CRAFT', workOrderId),
+        ...getProcessActionOperationRecordsByTask(task.taskId).filter((record) => record.sourceType === 'SPECIAL_CRAFT'),
+      ]
+        .filter((record, index, records) => records.findIndex((item) => item.operationRecordId === record.operationRecordId) === index)
+        .sort((left, right) => right.operatedAt.localeCompare(left.operatedAt))
+        .slice(0, 4)
+    : []
+  const warehouseRecords = workOrderId ? getWarehouseRecordsByWorkOrderId(workOrderId) : []
+  const handoverRecords = workOrderId ? getHandoverRecordsByWorkOrderId(workOrderId) : []
+  const differenceRecords = workOrderId ? getDifferenceRecordsByWorkOrderId(workOrderId) : []
+  const operationRows = operationRecords.length
+    ? operationRecords
+        .map((record) => `
+          <div class="rounded-md border bg-muted/20 px-3 py-2 text-xs">
+            <div class="flex items-center justify-between gap-2">
+              <span class="font-medium">${escapeHtml(record.actionLabel)}</span>
+              <span>${escapeHtml(record.sourceChannel)}</span>
+            </div>
+            <div class="mt-1 text-muted-foreground">${escapeHtml(record.previousStatus)} -> ${escapeHtml(record.nextStatus)}，${escapeHtml(record.operatorName)}，${escapeHtml(record.operatedAt)}</div>
+          </div>
+        `)
+        .join('')
+    : '<div class="rounded-md border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">暂无操作记录</div>'
+  const warehouseSummary = warehouseRecords.length
+    ? warehouseRecords.map((record) => `${record.currentActionName}：${record.availableObjectQty}${record.qtyUnit}`).join('；')
+    : '暂无待加工仓或待交出仓记录'
+  const handoverSummary = handoverRecords.length
+    ? handoverRecords.map((record) => `${record.handoverRecordNo}：${record.handoverObjectQty}${record.qtyUnit}`).join('；')
+    : '暂无交出记录'
+  const differenceSummary = differenceRecords.length
+    ? differenceRecords.map((record) => `${record.differenceRecordNo}：差异裁片数量${record.diffObjectQty}${record.qtyUnit}`).join('；')
+    : '暂无差异记录'
 
   return `
     <article class="rounded-lg border bg-card">
@@ -1569,6 +1610,16 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
         </h2>
       </header>
       <div class="space-y-3 p-4 text-sm" data-writeback-link="linkSpecialCraftCompletionToReturnWaitHandoverStock">
+        <div class="rounded-md border bg-muted/20 px-3 py-2 text-xs">
+          <div class="grid grid-cols-2 gap-x-3 gap-y-1">
+            <span>工艺单号：${escapeHtml(workOrder?.workOrderNo || firstBinding?.workOrderNo || task.taskNo || task.taskId)}</span>
+            <span>特殊工艺：${escapeHtml(workOrder?.operationName || displayProcessName)}</span>
+            <span>工艺工厂：${escapeHtml(workOrder?.factoryName || task.assignedFactoryName || '—')}</span>
+            <span>当前状态：${escapeHtml(workOrder?.status || status)}</span>
+            <span>当前裁片数量：${completedQty || workOrder?.currentQty || task.qty} 片</span>
+            <span>绑定菲票数量：${bindings.length} 张</span>
+          </div>
+        </div>
         <div class="space-y-2">${ticketRows}</div>
         ${
           status === 'IN_PROGRESS'
@@ -1587,38 +1638,27 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
                     <div class="mt-1 text-sm font-semibold">${completedQty} 片</div>
                   </div>
                 </div>
-                <div class="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    class="inline-flex h-9 items-center justify-center rounded-md border text-sm hover:bg-muted"
-                    data-pda-execd-action="special-bind-fei-ticket"
-                    data-task-id="${escapeHtml(task.taskId)}"
-                  >
-                    绑定菲票
-                  </button>
-                  <button
-                    type="button"
-                    class="inline-flex h-9 items-center justify-center rounded-md border text-sm hover:bg-muted"
-                    data-pda-execd-action="special-report-difference"
-                    data-task-id="${escapeHtml(task.taskId)}"
-                  >
-                    上报差异
-                  </button>
-                </div>
               `
-            : status === 'DONE'
-              ? `
-                  <button
-                    type="button"
-                    class="inline-flex h-9 w-full items-center justify-center rounded-md border text-sm hover:bg-muted"
-                    data-pda-execd-action="special-submit-handover"
-                    data-task-id="${escapeHtml(task.taskId)}"
-                  >
-                    发起交出
-                  </button>
-                `
             : ''
         }
+        <div class="grid grid-cols-2 gap-2">
+          <button type="button" class="inline-flex h-9 items-center justify-center rounded-md border text-sm hover:bg-muted" data-pda-execd-action="special-bind-fei-ticket" data-task-id="${escapeHtml(task.taskId)}">绑定菲票</button>
+          <button type="button" class="inline-flex h-9 items-center justify-center rounded-md border text-sm hover:bg-muted" data-pda-execd-action="special-receive-cut-pieces" data-task-id="${escapeHtml(task.taskId)}">确认接收裁片</button>
+          <button type="button" class="inline-flex h-9 items-center justify-center rounded-md border text-sm hover:bg-muted" data-pda-execd-action="special-start-process" data-task-id="${escapeHtml(task.taskId)}">开始加工</button>
+          <button type="button" class="inline-flex h-9 items-center justify-center rounded-md border text-sm hover:bg-muted" data-pda-execd-action="special-finish-process" data-task-id="${escapeHtml(task.taskId)}">完成加工</button>
+          <button type="button" class="inline-flex h-9 items-center justify-center rounded-md border text-sm hover:bg-muted" data-pda-execd-action="special-report-difference" data-task-id="${escapeHtml(task.taskId)}">上报差异</button>
+          <button type="button" class="inline-flex h-9 items-center justify-center rounded-md border text-sm hover:bg-muted" data-pda-execd-action="special-submit-handover" data-task-id="${escapeHtml(task.taskId)}">发起交出</button>
+          <button type="button" class="inline-flex h-9 items-center justify-center rounded-md border text-sm hover:bg-muted" data-pda-execd-action="special-rework-after-reject" data-task-id="${escapeHtml(task.taskId)}">驳回后重交</button>
+        </div>
+        <div class="rounded-md border bg-muted/20 px-3 py-2 text-xs">
+          <div>待加工仓 / 待交出仓：${escapeHtml(warehouseSummary)}</div>
+          <div class="mt-1">交出记录：${escapeHtml(handoverSummary)}</div>
+          <div class="mt-1">差异记录：${escapeHtml(differenceSummary)}</div>
+        </div>
+        <div class="space-y-2">
+          <div class="text-xs font-medium">操作记录</div>
+          ${operationRows}
+        </div>
       </div>
     </article>
   `
@@ -1630,6 +1670,13 @@ function getPostFinishingActionLabel(actionType: PostFinishingActionType, phase:
     return actionType === '后道' ? '开始后道' : actionType === '质检' ? '开始质检' : '开始复检'
   }
   return actionType === '后道' ? '完成后道' : actionType === '质检' ? '完成质检' : '完成复检'
+}
+
+function getPostFinishingActionCode(actionType: PostFinishingActionType, phase: 'start' | 'finish'): string {
+  if (actionType === '接收领料') return phase === 'start' ? 'POST_RECEIVE_START' : 'POST_RECEIVE_FINISH'
+  if (actionType === '质检') return phase === 'start' ? 'POST_QC_START' : 'POST_QC_FINISH'
+  if (actionType === '后道') return phase === 'start' ? 'POST_PROCESS_START' : 'POST_PROCESS_FINISH'
+  return phase === 'start' ? 'POST_RECHECK_START' : 'POST_RECHECK_FINISH'
 }
 
 function renderPostFinishingActionButton(
@@ -1644,7 +1691,9 @@ function renderPostFinishingActionButton(
       class="inline-flex h-10 items-center justify-center rounded-md ${phase === 'start' ? 'border' : 'bg-primary text-primary-foreground'} px-3 text-sm font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
       data-pda-execd-action="post-${phase}-action"
       data-post-order-id="${escapeHtml(order.postOrderId)}"
+      data-task-id="${escapeHtml(order.sourceTaskId)}"
       data-post-action-type="${escapeHtml(actionType)}"
+      data-post-action-code="${escapeHtml(getPostFinishingActionCode(actionType, phase))}"
       ${disabled ? 'disabled' : ''}
     >
       ${escapeHtml(getPostFinishingActionLabel(actionType, phase))}
@@ -1659,7 +1708,7 @@ function canPostFinishingManagedFactoryOperate(order: PostFinishingWorkOrder): b
 function renderPostFinishingActionPanel(order: PostFinishingWorkOrder): string {
   const actions: string[] = []
   if (order.receiveAction.status === '待接收') {
-    actions.push(renderPostFinishingActionButton(order, '接收领料', 'finish'))
+    actions.push(renderPostFinishingActionButton(order, '接收领料', 'start'))
   } else if (order.receiveAction.status === '接收中') {
     actions.push(renderPostFinishingActionButton(order, '接收领料', 'finish'))
   }
@@ -1669,6 +1718,11 @@ function renderPostFinishingActionPanel(order: PostFinishingWorkOrder): string {
   }
   if (!order.isPostDoneBySewingFactory && order.currentStatus === '后道中') {
     actions.push(renderPostFinishingActionButton(order, '后道', 'finish'))
+    actions.push(`
+      <button type="button" class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-sm font-medium hover:bg-muted" data-pda-execd-action="post-report-difference" data-post-order-id="${escapeHtml(order.postOrderId)}" data-task-id="${escapeHtml(order.sourceTaskId)}">
+        上报差异
+      </button>
+    `)
   }
 
   if (order.isPostDoneBySewingFactory) {
@@ -1680,10 +1734,20 @@ function renderPostFinishingActionPanel(order: PostFinishingWorkOrder): string {
       actions.push(renderPostFinishingActionButton(order, '质检', 'start', order.receiveAction.status !== '已接收'))
     } else if (order.currentStatus === '质检中') {
       actions.push(renderPostFinishingActionButton(order, '质检', 'finish'))
+      actions.push(`
+        <button type="button" class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-sm font-medium hover:bg-muted" data-pda-execd-action="post-report-difference" data-post-order-id="${escapeHtml(order.postOrderId)}" data-task-id="${escapeHtml(order.sourceTaskId)}">
+          上报差异
+        </button>
+      `)
     }
 
     if (order.currentStatus === '复检中') {
       actions.push(renderPostFinishingActionButton(order, '复检', 'finish'))
+      actions.push(`
+        <button type="button" class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-sm font-medium hover:bg-muted" data-pda-execd-action="post-report-difference" data-post-order-id="${escapeHtml(order.postOrderId)}" data-task-id="${escapeHtml(order.sourceTaskId)}">
+          上报差异
+        </button>
+      `)
     } else if (order.currentStatus === '待复检') {
       actions.push(renderPostFinishingActionButton(order, '复检', 'start'))
     }
@@ -1691,7 +1755,7 @@ function renderPostFinishingActionPanel(order: PostFinishingWorkOrder): string {
 
   if (order.waitHandoverWarehouseRecordId || order.currentStatus === '待交出' || order.currentStatus === '复检完成') {
     actions.push(`
-      <button type="button" class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-sm font-medium hover:bg-muted" data-pda-execd-action="post-submit-handover" data-post-order-id="${escapeHtml(order.postOrderId)}">
+      <button type="button" class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-sm font-medium hover:bg-muted" data-pda-execd-action="post-submit-handover" data-post-order-id="${escapeHtml(order.postOrderId)}" data-task-id="${escapeHtml(order.sourceTaskId)}">
         发起交出
       </button>
     `)
@@ -1702,6 +1766,49 @@ function renderPostFinishingActionPanel(order: PostFinishingWorkOrder): string {
   }
 
   return `<div class="grid gap-2">${actions.join('')}</div>`
+}
+
+function listUnifiedPostFinishingMobileOperationRecords(order: PostFinishingWorkOrder): ProcessActionOperationRecord[] {
+  const bySource = getProcessActionOperationRecordsBySource('POST_FINISHING', order.postOrderId)
+  const byTask = order.sourceTaskId ? getProcessActionOperationRecordsByTask(order.sourceTaskId) : []
+  return Array.from(new Map([...bySource, ...byTask].map((record) => [record.operationRecordId, record])).values())
+    .sort((a, b) => b.operatedAt.localeCompare(a.operatedAt))
+}
+
+function renderPostFinishingMobileOperationRecords(order: PostFinishingWorkOrder): string {
+  const rows = listUnifiedPostFinishingMobileOperationRecords(order)
+  if (rows.length === 0) {
+    return '<div class="rounded-md border border-dashed bg-muted/20 px-3 py-4 text-center text-xs text-muted-foreground">暂无操作记录</div>'
+  }
+
+  return `
+    <div class="overflow-x-auto">
+      <table class="min-w-[720px] text-left text-xs">
+        <thead class="bg-muted text-muted-foreground">
+          <tr>
+            <th class="px-3 py-2 font-medium">操作动作</th>
+            <th class="px-3 py-2 font-medium">状态变化</th>
+            <th class="px-3 py-2 font-medium">操作人</th>
+            <th class="px-3 py-2 font-medium">成衣件数</th>
+            <th class="px-3 py-2 font-medium">来源</th>
+            <th class="px-3 py-2 font-medium">备注</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y">
+          ${rows.map((record) => `
+            <tr data-testid="operation-record-row">
+              <td class="px-3 py-2 font-medium">${escapeHtml(record.actionLabel)}</td>
+              <td class="px-3 py-2">${escapeHtml(record.previousStatus)} -> ${escapeHtml(record.nextStatus)}</td>
+              <td class="px-3 py-2">${escapeHtml(record.operatorName)}</td>
+              <td class="px-3 py-2">${record.objectQty} ${escapeHtml(record.qtyUnit)}</td>
+              <td class="px-3 py-2">${escapeHtml(record.sourceChannel)}</td>
+              <td class="px-3 py-2">${escapeHtml(record.remark || '—')}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `
 }
 
 function renderPdaPostFinishingExecutionPage(execId: string, order: PostFinishingWorkOrder): string {
@@ -1797,6 +1904,15 @@ function renderPdaPostFinishingExecutionPage(execId: string, order: PostFinishin
           </table>
         </div>
       </article>
+
+      <article class="rounded-lg border bg-card">
+        <header class="border-b px-4 py-3">
+          <h2 class="text-sm font-semibold">操作记录</h2>
+        </header>
+        <div class="p-4">
+          ${renderPostFinishingMobileOperationRecords(order)}
+        </div>
+      </article>
     </div>
   `
   void execId
@@ -1879,6 +1995,13 @@ export function renderPdaExecDetailPage(taskId: string): string {
     const sewingPostTask = getSewingFactoryPostTaskById(task.taskId)
     if (sewingPostTask) {
       return renderPdaSewingPostTaskPage(taskId, sewingPostTask)
+    }
+  }
+
+  if (task?.processCode === 'POST_FINISHING') {
+    const postOrder = getPostFinishingWorkOrderForMobile(task.taskId)
+    if (postOrder) {
+      return renderPdaPostFinishingExecutionPage(taskId, postOrder)
     }
   }
 
@@ -3175,7 +3298,15 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
     }
   }
 
-  if (action === 'special-bind-fei-ticket' || action === 'special-report-difference' || action === 'special-submit-handover') {
+  if (
+    action === 'special-bind-fei-ticket' ||
+    action === 'special-receive-cut-pieces' ||
+    action === 'special-start-process' ||
+    action === 'special-finish-process' ||
+    action === 'special-report-difference' ||
+    action === 'special-submit-handover' ||
+    action === 'special-rework-after-reject'
+  ) {
     const taskId = actionNode.dataset.taskId
     if (!taskId) return true
     try {
@@ -3231,19 +3362,38 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
         return true
       }
       const sourceBinding = getSpecialCraftExecBindings(task as ProcessTask)[0]
+      const actionCodeMap: Record<string, string> = {
+        'special-receive-cut-pieces': 'SPECIAL_CRAFT_RECEIVE_CUT_PIECES',
+        'special-start-process': 'SPECIAL_CRAFT_START_PROCESS',
+        'special-finish-process': 'SPECIAL_CRAFT_FINISH_PROCESS',
+        'special-submit-handover': 'SPECIAL_CRAFT_SUBMIT_HANDOVER',
+        'special-rework-after-reject': 'SPECIAL_CRAFT_REWORK_AFTER_REJECT',
+      }
+      const actionLabelMap: Record<string, string> = {
+        'special-receive-cut-pieces': '确认接收裁片',
+        'special-start-process': '开始加工',
+        'special-finish-process': '完成加工',
+        'special-submit-handover': '发起交出',
+        'special-rework-after-reject': '驳回后重交',
+      }
+      const baseQty = sourceBinding?.currentQty || sourceBinding?.receivedQty || sourceBinding?.openingQty || 1
+      const finishQty = Math.max(
+        baseQty - Number(detailState.specialCraftScrapQty || 0) - Number(detailState.specialCraftDamageQty || 0),
+        0,
+      )
       executeMobileProcessAction({
         sourceType: 'SPECIAL_CRAFT',
         sourceId,
         taskId,
-        actionCode: 'SPECIAL_CRAFT_SUBMIT_HANDOVER',
+        actionCode: actionCodeMap[action] || 'SPECIAL_CRAFT_SUBMIT_HANDOVER',
         operatorName: '现场操作员',
         operatedAt: nowTimestamp(),
         objectType: '裁片',
-        objectQty: sourceBinding?.currentQty || sourceBinding?.receivedQty || 1,
+        objectQty: action === 'special-finish-process' ? finishQty || baseQty : baseQty,
         qtyUnit: '片',
-        remark: '移动端发起交出',
+        remark: `移动端${actionLabelMap[action] || '发起交出'}`,
       })
-      showPdaExecDetailToast('特殊工艺交出记录已同步')
+      showPdaExecDetailToast(`特殊工艺${actionLabelMap[action] || '发起交出'}已同步`)
       return true
     } catch (error) {
       showPdaExecDetailToast(error instanceof Error ? error.message : '特殊工艺写回失败')
@@ -3254,34 +3404,15 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
   if (
     action === 'post-start-action'
     || action === 'post-finish-action'
-    || action === 'post-transfer-managed'
-    || action === 'post-receive-managed'
-    || action === 'post-create-handover'
     || action === 'post-submit-handover'
+    || action === 'post-report-difference'
   ) {
     const postOrderId = actionNode.dataset.postOrderId
+    const postTaskId = actionNode.dataset.taskId
     const actionType = actionNode.dataset.postActionType as PostFinishingActionType | undefined
     if (!postOrderId) return true
 
     try {
-      if (action === 'post-transfer-managed') {
-        transferPostFinishedGarmentsToManagedPostFactory(postOrderId, { operatorName: '移动端操作员', operatedAt: nowTimestamp() })
-        showPdaExecDetailToast('已交给后道工厂，Web 后道待加工仓已同步')
-        return true
-      }
-
-      if (action === 'post-receive-managed') {
-        receivePostFinishedGarmentsAtManagedPostFactory(postOrderId, { operatorName: '后道工厂', operatedAt: nowTimestamp() })
-        showPdaExecDetailToast('后道工厂已接收，可继续质检和复检')
-        return true
-      }
-
-      if (action === 'post-create-handover') {
-        createPostFinishingHandoverWarehouseRecord(postOrderId, { operatorName: '后道工厂', operatedAt: nowTimestamp() })
-        showPdaExecDetailToast('后道交出仓记录已生成')
-        return true
-      }
-
       if (action === 'post-submit-handover') {
         const qtyText = window.prompt('请输入交出成衣件数', '0')?.trim() || ''
         const submittedQty = Number(qtyText)
@@ -3289,16 +3420,72 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
           showPdaExecDetailToast('请填写有效交出成衣件数')
           return true
         }
-        submitPostFinishingHandover(postOrderId, { submittedGarmentQty: submittedQty, operatorName: '后道工厂', operatedAt: nowTimestamp() })
-        showPdaExecDetailToast('后道交出已提交，Web 后道交出仓已同步')
+        executeMobileProcessAction({
+          sourceType: 'POST_FINISHING',
+          sourceId: postOrderId,
+          taskId: postTaskId,
+          actionCode: 'POST_SUBMIT_HANDOVER',
+          operatorName: '移动端操作员',
+          operatedAt: nowTimestamp(),
+          objectType: '成衣',
+          objectQty: submittedQty,
+          qtyUnit: '件',
+          remark: '移动端发起后道交出',
+        })
+        showPdaExecDetailToast('后道交出已通过统一写回提交')
+        return true
+      }
+
+      if (action === 'post-report-difference') {
+        const expectedText = window.prompt('请输入应收成衣件数', '0')?.trim() || ''
+        const actualText = window.prompt('请输入实收成衣件数', '0')?.trim() || ''
+        const diffText = window.prompt('请输入差异成衣件数', '0')?.trim() || ''
+        const expectedQty = Number(expectedText)
+        const actualQty = Number(actualText)
+        const diffQty = Number(diffText)
+        if (!Number.isFinite(expectedQty) || !Number.isFinite(actualQty) || !Number.isFinite(diffQty) || diffQty <= 0) {
+          showPdaExecDetailToast('请填写有效差异成衣件数')
+          return true
+        }
+        executeMobileProcessAction({
+          sourceType: 'POST_FINISHING',
+          sourceId: postOrderId,
+          taskId: postTaskId,
+          actionCode: 'POST_REPORT_DIFFERENCE',
+          operatorName: '移动端操作员',
+          operatedAt: nowTimestamp(),
+          objectType: '成衣',
+          objectQty: diffQty,
+          qtyUnit: '件',
+          formData: {
+            应收成衣件数: expectedQty,
+            实收成衣件数: actualQty,
+            差异成衣件数: diffQty,
+            差异类型: '数量差异',
+            原因: '移动端上报后道差异',
+          },
+          remark: '移动端上报后道差异',
+        })
+        showPdaExecDetailToast('后道差异已通过统一写回上报')
         return true
       }
 
       if (!actionType) return true
 
       if (action === 'post-start-action') {
-        startPostFinishingAction(postOrderId, actionType, { operatorName: '移动端操作员', operatedAt: nowTimestamp() })
-        showPdaExecDetailToast(`${getPostFinishingActionLabel(actionType, 'start')}已记录`)
+        executeMobileProcessAction({
+          sourceType: 'POST_FINISHING',
+          sourceId: postOrderId,
+          taskId: postTaskId,
+          actionCode: actionNode.dataset.postActionCode || getPostFinishingActionCode(actionType, 'start'),
+          operatorName: '移动端操作员',
+          operatedAt: nowTimestamp(),
+          objectType: '成衣',
+          objectQty: getPostFinishingWorkOrderForMobile(postOrderId)?.plannedGarmentQty || 1,
+          qtyUnit: '件',
+          remark: `移动端${getPostFinishingActionLabel(actionType, 'start')}`,
+        })
+        showPdaExecDetailToast(`${getPostFinishingActionLabel(actionType, 'start')}已通过统一写回记录`)
         return true
       }
 
@@ -3324,14 +3511,23 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
           : actionType === '质检'
             ? Math.max(submittedQty - (Number.isFinite(rejectedQty) ? rejectedQty : 0), 0)
             : submittedQty
-      finishPostFinishingAction(postOrderId, actionType, {
-        submittedGarmentQty: submittedQty,
-        acceptedGarmentQty: acceptedQty,
-        rejectedGarmentQty: Number.isFinite(rejectedQty) ? rejectedQty : 0,
+      executeMobileProcessAction({
+        sourceType: 'POST_FINISHING',
+        sourceId: postOrderId,
+        taskId: postTaskId,
+        actionCode: actionNode.dataset.postActionCode || getPostFinishingActionCode(actionType, 'finish'),
         operatorName: '移动端操作员',
         operatedAt: nowTimestamp(),
+        objectType: '成衣',
+        objectQty: submittedQty,
+        qtyUnit: '件',
+        formData: {
+          质检不合格成衣件数: Number.isFinite(rejectedQty) ? rejectedQty : 0,
+          复检不合格成衣件数: actionType === '复检' ? 0 : undefined,
+        },
+        remark: `移动端${getPostFinishingActionLabel(actionType, 'finish')}，确认 ${acceptedQty} 件`,
       })
-      showPdaExecDetailToast(`${getPostFinishingActionLabel(actionType, 'finish')}已写回 Web`)
+      showPdaExecDetailToast(`${getPostFinishingActionLabel(actionType, 'finish')}已通过统一写回同步 Web`)
       return true
     } catch (error) {
       showPdaExecDetailToast(error instanceof Error ? error.message : '后道写回失败')

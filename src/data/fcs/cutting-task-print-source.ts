@@ -9,6 +9,11 @@ import type {
   CuttingReceiveStatus,
 } from './cutting/types.ts'
 import type { GeneratedOriginalCutOrderSourceRecord } from './cutting/generated-original-cut-orders.ts'
+import {
+  getCutPieceFeiTicketById,
+  listCutPieceFeiTickets,
+  type CutPieceFeiTicket,
+} from './cutting/fei-ticket-generation.ts'
 
 export type CuttingTaskPrintNodeRow = {
   rowId: string
@@ -64,6 +69,27 @@ export interface CuttingMergeBatchTaskPrintSource {
   firstProductionOrderId: string
   firstProductionOrderNo: string
   nodeRows: CuttingTaskPrintNodeRow[]
+}
+
+export interface CuttingPerPieceFeiTicketPrintSource {
+  feiTicketId: string
+  feiTicketNo: string
+  sourcePieceInstanceId: string
+  originalCutPieceOrderId: string
+  originalCutPieceOrderNo: string
+  mergeBatchId?: string
+  mergeBatchNo?: string
+  productionOrderId: string
+  productionOrderNo: string
+  pieceName: string
+  colorName: string
+  sizeName: string
+  sequenceNo: number
+  specialCraftSummary: string
+  specialCrafts: CutPieceFeiTicket['specialCrafts']
+  qrCodePayload: string
+  printStatus: CutPieceFeiTicket['printStatus']
+  flowStatus: CutPieceFeiTicket['flowStatus']
 }
 
 const CONFIG_STATUS_LABEL: Record<CuttingConfigStatus, string> = {
@@ -411,4 +437,36 @@ export function getCuttingMergeBatchTaskPrintSourceById(
   return listCuttingMergeBatchTaskPrintSources(snapshot).find(
     (record) => record.mergeBatchId === sourceId || record.mergeBatchNo === sourceId,
   ) || null
+}
+
+function mapPerPieceTicketPrintSource(ticket: CutPieceFeiTicket): CuttingPerPieceFeiTicketPrintSource {
+  return {
+    feiTicketId: ticket.feiTicketId,
+    feiTicketNo: ticket.feiTicketNo,
+    sourcePieceInstanceId: ticket.sourcePieceInstanceId,
+    originalCutPieceOrderId: ticket.originalCutPieceOrderId,
+    originalCutPieceOrderNo: ticket.originalCutPieceOrderNo,
+    mergeBatchId: ticket.mergeBatchId || '',
+    mergeBatchNo: ticket.mergeBatchNo || '',
+    productionOrderId: ticket.productionOrderId,
+    productionOrderNo: ticket.productionOrderNo,
+    pieceName: ticket.pieceName,
+    colorName: ticket.colorName,
+    sizeName: ticket.sizeName,
+    sequenceNo: ticket.sequenceNo,
+    specialCraftSummary: ticket.specialCraftSummary,
+    specialCrafts: ticket.specialCrafts.map((craft) => ({ ...craft })),
+    qrCodePayload: ticket.qrCodePayload,
+    printStatus: ticket.printStatus,
+    flowStatus: ticket.flowStatus,
+  }
+}
+
+export function listCuttingPerPieceFeiTicketPrintSources(): CuttingPerPieceFeiTicketPrintSource[] {
+  return listCutPieceFeiTickets().map(mapPerPieceTicketPrintSource)
+}
+
+export function getCuttingPerPieceFeiTicketPrintSourceById(sourceId: string): CuttingPerPieceFeiTicketPrintSource | null {
+  const ticket = getCutPieceFeiTicketById(sourceId)
+  return ticket ? mapPerPieceTicketPrintSource(ticket) : null
 }

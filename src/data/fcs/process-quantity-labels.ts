@@ -80,6 +80,7 @@ export function getProcessObjectType(context: ProcessQuantityContext): ProcessOb
   if (context.processType === 'DYE') return unit === '卷' ? '卷' : '面料'
   if (context.processType === 'CUTTING') return unit === '件' ? '成衣' : '裁片'
   if (context.processType === 'SPECIAL_CRAFT') return unit === '张' ? '菲票' : '裁片'
+  if (context.processType === 'POST_FINISHING') return '成衣'
   if (unit === '米') return '面料'
   if (unit === '片') return '裁片'
   if (unit === '件') return '成衣'
@@ -92,6 +93,7 @@ export function getProcessQtyUnit(context: ProcessQuantityContext): ProcessQtyUn
   if (context.processType === 'DYE' && normalizeUnit(context.qtyUnit) !== '卷') return '米'
   if (context.processType === 'CUTTING' && getProcessObjectType(context) === '裁片') return '片'
   if (context.processType === 'SPECIAL_CRAFT' && getProcessObjectType(context) === '裁片') return '片'
+  if (context.processType === 'POST_FINISHING') return '件'
   if (getProcessObjectType(context) === '菲票') return '张'
   if (getProcessObjectType(context) === '成衣') return '件'
   if (getProcessObjectType(context) === '面料') return '米'
@@ -240,6 +242,51 @@ function specialCraftPurposeLabel(context: ProcessQuantityContext, objectType: P
   }
 }
 
+function postFinishingPurposeLabel(context: ProcessQuantityContext): string {
+  switch (context.operationCode) {
+    case 'POST_RECEIVE_FINISH':
+      return '接收成衣件数'
+    case 'POST_QC_FINISH':
+      return '质检通过成衣件数'
+    case 'POST_PROCESS_FINISH':
+      return '后道完成成衣件数'
+    case 'POST_RECHECK_FINISH':
+      return '复检确认成衣件数'
+    case 'POST_SUBMIT_HANDOVER':
+      return '交出成衣件数'
+    case 'POST_REPORT_DIFFERENCE':
+      return '差异成衣件数'
+    default:
+      break
+  }
+  switch (context.qtyPurpose) {
+    case '计划':
+      return '计划成衣件数'
+    case '待加工':
+      return '待加工成衣件数'
+    case '已接收':
+      return '接收成衣件数'
+    case '质检通过':
+      return '质检通过成衣件数'
+    case '质检不合格':
+      return '质检不合格成衣件数'
+    case '已完成':
+      return '后道完成成衣件数'
+    case '复检确认':
+      return '复检确认成衣件数'
+    case '待交出':
+      return '待交出成衣件数'
+    case '已交出':
+      return '已交出成衣件数'
+    case '实收':
+      return '实收成衣件数'
+    case '差异':
+      return '差异成衣件数'
+    default:
+      return '成衣件数'
+  }
+}
+
 export function getQuantityLabel(context: ProcessQuantityContext): string {
   const objectType = getProcessObjectType(context)
   const unit = getProcessQtyUnit(context)
@@ -250,6 +297,7 @@ export function getQuantityLabel(context: ProcessQuantityContext): string {
   if (context.processType === 'DYE') return dyePurposeLabel(context, unit)
   if (context.processType === 'CUTTING') return cuttingPurposeLabel(context, objectType)
   if (context.processType === 'SPECIAL_CRAFT') return specialCraftPurposeLabel(context, objectType)
+  if (context.processType === 'POST_FINISHING') return postFinishingPurposeLabel(context)
   if (objectType === '面料') return unit === '卷' ? '面料卷数' : '面料米数'
   if (objectType === '裁片') return '裁片数量'
   if (objectType === '成衣') return '成衣件数'

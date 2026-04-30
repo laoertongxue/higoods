@@ -1483,7 +1483,7 @@ const revisionTaskFields = [
     title: '纸样与设计稿',
     description: '改版执行产生或引用的纸样、主图和设计稿资料。',
     fields: [
-      { key: 'patternPieceImageIds', label: '纸样图片', type: 'image-list', sourceKind: '改版任务', sourceRef: '改版任务正式对象.patternPieceImageIds', meaning: '本次改版纸样图片', logic: '详情页维护，项目资料归档可采集。', required: false },
+      { key: 'patternPieceImageIds', label: '唛架图片', type: 'image-list', sourceKind: '改版任务', sourceRef: '改版任务正式对象.patternPieceImageIds', meaning: '本次改版唛架图片', logic: '详情页维护，项目资料归档可采集。', required: false },
       { key: 'patternFileIds', label: '纸样文件', type: 'file-list', sourceKind: '改版任务', sourceRef: '改版任务正式对象.patternFileIds', meaning: '本次改版纸样文件', logic: '详情页维护，技术包和归档可读取。', required: false },
       { key: 'mainImageIds', label: '主图图片', type: 'image-list', sourceKind: '改版任务', sourceRef: '改版任务正式对象.mainImageIds', meaning: '本次改版主图或证据主图', logic: '详情页维护。', required: false },
       { key: 'designDraftImageIds', label: '新图设计稿', type: 'image-list', sourceKind: '改版任务', sourceRef: '改版任务正式对象.designDraftImageIds', meaning: '本次改版新图设计稿', logic: '详情页维护。', required: false },
@@ -1558,12 +1558,12 @@ const patternTaskFields = [
   }),
   ...groupFields({
     id: 'pattern-task-images',
-    title: '纸样图片',
-    description: '纸样图片明细、部位说明和片数。',
+    title: '唛架图片',
+    description: '唛架图片明细、部位说明和片数。',
     fields: [
-      { key: 'patternImageLineItems', label: '纸样图片明细', type: 'table', sourceKind: '制版任务', sourceRef: '制版任务正式对象.patternImageLineItems', meaning: '按部位记录纸样图片', logic: '在任务详情中维护。', required: false },
-      { key: 'materialPartName', label: '部位说明', type: 'text', sourceKind: '制版任务', sourceRef: '纸样图片明细.materialPartName', meaning: '纸样图片对应部位', logic: '随纸样图片明细维护。', required: false },
-      { key: 'pieceCount', label: '片数', type: 'number', sourceKind: '制版任务', sourceRef: '纸样图片明细.pieceCount', meaning: '对应部位片数', logic: '随纸样图片明细维护。', required: false },
+      { key: 'patternImageLineItems', label: '唛架图片明细', type: 'table', sourceKind: '制版任务', sourceRef: '制版任务正式对象.patternImageLineItems', meaning: '按部位记录唛架图片', logic: '在任务详情中维护。', required: false },
+      { key: 'materialPartName', label: '部位说明', type: 'text', sourceKind: '制版任务', sourceRef: '唛架图片明细.materialPartName', meaning: '唛架图片对应部位', logic: '随唛架图片明细维护。', required: false },
+      { key: 'pieceCount', label: '片数', type: 'number', sourceKind: '制版任务', sourceRef: '唛架图片明细.pieceCount', meaning: '对应部位片数', logic: '随唛架图片明细维护。', required: false },
     ],
   }),
   ...groupFields({

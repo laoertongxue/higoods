@@ -21,6 +21,7 @@ export interface FcsParsedPatternPieceRow {
   systemPieceName?: string
   candidatePartNames?: string[]
   sizeCode?: string
+  parsedQuantity?: number
   quantityText?: string
   annotation?: string
   category?: string
@@ -94,6 +95,7 @@ function mapPartToRow(part: ParsedPartInstance, index: number): FcsParsedPattern
     systemPieceName: normalizeText(part.systemPieceName) || undefined,
     candidatePartNames: (part.candidatePartNames ?? []).map((item) => normalizeText(item)).filter(Boolean),
     sizeCode: normalizeText(part.sizeCode) || undefined,
+    parsedQuantity: parsedCount ?? undefined,
     quantityText: normalizeText(part.quantity) || undefined,
     annotation: normalizeText(part.annotation) || undefined,
     category: normalizeText(part.category) || undefined,

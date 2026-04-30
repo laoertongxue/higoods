@@ -74,7 +74,7 @@ const activeAbilities = factories.flatMap((factory) =>
 )
 
 assert(
-  !activeAbilities.some(({ ability }) => ability.processCode === 'WASHING' || removedLegacyProcessCodes.includes(ability.processCode)),
+  !activeAbilities.some(({ ability }) => removedLegacyProcessCodes.includes(ability.processCode)),
   '工厂能力中仍存在已删除旧编码',
 )
 assert(
@@ -82,16 +82,15 @@ assert(
   '开扣眼 / 装扣子 / 熨烫 / 包装仍作为可派单能力存在',
 )
 
-const washAbilities = activeAbilities.filter(({ ability }) => ability.abilityName === '特殊工艺 - 洗水')
-assert(washAbilities.length > 0, '缺少“特殊工艺 - 洗水”工厂能力')
+const washAbilities = activeAbilities.filter(({ ability }) => ability.processCode === 'WASHING' && ability.craftNames?.includes('洗水'))
+assert(washAbilities.length > 0, '缺少准备阶段“洗水”工厂能力')
 assert(
   washAbilities.every(
     ({ ability }) =>
-      ability.processCode === 'SPECIAL_CRAFT'
-      && ability.canReceiveTask !== false
+      ability.canReceiveTask !== false
       && JSON.stringify(ability.craftNames ?? []) === JSON.stringify(['洗水']),
   ),
-  '水洗能力没有收口为 SPECIAL_CRAFT 下的“特殊工艺 - 洗水”单工艺能力',
+  '水洗能力没有收口为准备阶段 WASHING 下的“洗水”单工艺能力',
 )
 
 const postFactories = factories.filter((factory) =>

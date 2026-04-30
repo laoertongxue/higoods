@@ -1,5 +1,6 @@
 import {
   dedupeStrings,
+  bomRequirementOptions,
   bomUsageProcessOptions,
   dyeOptions,
   escapeHtml,
@@ -196,6 +197,8 @@ export function renderBomTab(): string {
                     <th class="px-3 py-2 text-left">正面花型</th>
                     <th class="px-3 py-2 text-left">里面花型</th>
                     <th class="px-3 py-2 text-left">染色需求</th>
+                    <th class="px-3 py-2 text-left">缩水需求</th>
+                    <th class="px-3 py-2 text-left">洗水需求</th>
                     <th class="px-3 py-2 text-left">操作</th>
                   </tr>
                 </thead>
@@ -208,7 +211,7 @@ export function renderBomTab(): string {
                             <tr class="border-b last:border-0 bg-muted/10">
                               <td class="px-3 py-2 font-medium">${escapeHtml(spuLabel)}</td>
                               <td class="px-3 py-2 text-sm">${escapeHtml(group.colorLabel)}</td>
-                              <td colspan="9" class="px-3 py-2 text-sm text-muted-foreground">当前 SKU 暂无适用物料</td>
+                              <td colspan="11" class="px-3 py-2 text-sm text-muted-foreground">当前 SKU 暂无适用物料</td>
                             </tr>
                           `
                         }
@@ -260,6 +263,20 @@ export function renderBomTab(): string {
                                   <select class="h-8 w-24 rounded-md border px-2 text-sm" data-tech-field="bom-dye" data-bom-id="${item.id}" ${readonly ? 'disabled' : ''}>
                                     ${dyeOptions
                                       .map((option) => `<option value="${option}" ${item.dyeRequirement === option ? 'selected' : ''}>${option}</option>`)
+                                      .join('')}
+                                  </select>
+                                </td>
+                                <td class="px-3 py-2">
+                                  <select class="h-8 w-20 rounded-md border px-2 text-sm" data-tech-field="bom-shrink" data-bom-id="${item.id}" data-testid="bom-shrink-requirement-select" ${readonly ? 'disabled' : ''}>
+                                    ${bomRequirementOptions
+                                      .map((option) => `<option value="${option}" ${item.shrinkRequirement === option ? 'selected' : ''}>${option}</option>`)
+                                      .join('')}
+                                  </select>
+                                </td>
+                                <td class="px-3 py-2">
+                                  <select class="h-8 w-20 rounded-md border px-2 text-sm" data-tech-field="bom-wash" data-bom-id="${item.id}" data-testid="bom-wash-requirement-select" ${readonly ? 'disabled' : ''}>
+                                    ${bomRequirementOptions
+                                      .map((option) => `<option value="${option}" ${item.washRequirement === option ? 'selected' : ''}>${option}</option>`)
                                       .join('')}
                                   </select>
                                 </td>
@@ -477,6 +494,24 @@ export function renderBomFormDialog(): string {
                   .join('')}
               </select>
             </label>
+            <div class="grid grid-cols-2 gap-3">
+              <label class="space-y-1">
+                <span class="text-sm">缩水需求</span>
+                <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-shrink-requirement" data-testid="new-bom-shrink-requirement">
+                  ${bomRequirementOptions
+                    .map((option) => `<option value="${option}" ${state.newBomItem.shrinkRequirement === option ? 'selected' : ''}>${option}</option>`)
+                    .join('')}
+                </select>
+              </label>
+              <label class="space-y-1">
+                <span class="text-sm">洗水需求</span>
+                <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-wash-requirement" data-testid="new-bom-wash-requirement">
+                  ${bomRequirementOptions
+                    .map((option) => `<option value="${option}" ${state.newBomItem.washRequirement === option ? 'selected' : ''}>${option}</option>`)
+                    .join('')}
+                </select>
+              </label>
+            </div>
           </div>
         </div>
         </div>

@@ -18,6 +18,10 @@ import {
 } from '../../../data/fcs/print-service.ts'
 import { buildFeiTicketPrintProjection } from '../../process-factory/cutting/fei-ticket-print-projection.ts'
 import { listGeneratedFeiTickets } from '../../../data/fcs/cutting/generated-fei-tickets.ts'
+import {
+  listCutPieceFeiTickets,
+  type CutPieceFeiTicket,
+} from '../../../data/fcs/cutting/fei-ticket-generation.ts'
 import { getCuttingOriginalOrderTaskPrintSourceById } from '../../../data/fcs/cutting-task-print-source.ts'
 import { buildTransferBagsProjection } from '../../process-factory/cutting/transfer-bags-projection.ts'
 import {
@@ -79,11 +83,63 @@ function generatedTicketToRecord(ticket: AnyFeiTicket): AnyFeiTicket {
   }
 }
 
+function perPieceTicketToRecord(ticket: CutPieceFeiTicket): AnyFeiTicket {
+  const processTags = ticket.specialCrafts.length
+    ? ticket.specialCrafts.map((craft) => `${craft.craftName}（${craft.craftPositionName}）`)
+    : ['无特殊工艺']
+  return {
+    ...ticket,
+    ticketRecordId: ticket.feiTicketId,
+    ticketNo: ticket.feiTicketNo,
+    feiTicketId: ticket.feiTicketId,
+    feiTicketNo: ticket.feiTicketNo,
+    sourcePieceInstanceId: ticket.sourcePieceInstanceId,
+    sourcePieceId: ticket.sourcePieceId,
+    originalCutOrderId: ticket.originalCutPieceOrderId,
+    originalCutOrderNo: ticket.originalCutPieceOrderNo,
+    sourceCutOrderNo: ticket.originalCutPieceOrderNo,
+    productionOrderNo: ticket.productionOrderNo,
+    sourceProductionOrderNo: ticket.productionOrderNo,
+    styleCode: ticket.styleNo,
+    spuCode: ticket.styleNo,
+    skuId: ticket.skuId,
+    materialSku: ticket.skuId,
+    partName: ticket.pieceName,
+    pieceGroup: ticket.pieceName,
+    pieceDisplayName: ticket.pieceDisplayName,
+    color: ticket.colorName,
+    fabricColor: ticket.colorName,
+    garmentColor: ticket.colorName,
+    size: ticket.sizeName,
+    skuSize: ticket.sizeName,
+    quantity: 1,
+    actualCutPieceQty: 1,
+    qty: 1,
+    processTags,
+    specialCraftSummary: ticket.specialCraftSummary,
+    specialCrafts: ticket.specialCrafts,
+    currentCraftStage: ticket.specialCraftSummary,
+    status: ticket.printStatus === '已作废' ? 'VOIDED' : 'PRINTED',
+    boundPocketNo: ticket.relatedTransferBagNo,
+    qrSerializedValue: ticket.qrCodePayload,
+    qrCodePayload: ticket.qrCodePayload,
+    sequenceNo: ticket.sequenceNo,
+    printStatusLabel: ticket.printStatus,
+    flowStatusLabel: ticket.flowStatus,
+    version: ticket.isReprint ? 'R1' : 'V1',
+    reprintCount: ticket.isReprint ? 1 : 0,
+    isReprint: ticket.isReprint,
+    originalFeiTicketId: ticket.originalFeiTicketId,
+    voidReason: ticket.voidReason,
+  }
+}
+
 function listFeiRecords(): AnyFeiTicket[] {
   const projection = buildFeiTicketPrintProjection()
   const projected = (projection.ticketRecords || []) as AnyFeiTicket[]
+  const perPiece = listCutPieceFeiTickets().map(perPieceTicketToRecord)
   const generated = listGeneratedFeiTickets().map(generatedTicketToRecord)
-  return uniqueBy([...projected, ...generated], (item) => toText(item.ticketRecordId || item.feiTicketId || item.ticketNo || item.feiTicketNo, ''))
+  return uniqueBy([...perPiece, ...projected, ...generated], (item) => toText(item.ticketRecordId || item.feiTicketId || item.ticketNo || item.feiTicketNo, ''))
 }
 
 function findFeiRecord(sourceId: string): AnyFeiTicket | null {
@@ -139,6 +195,8 @@ function feiQr(record: AnyFeiTicket, documentType: PrintDocumentType, mode: Prin
     extra: {
       originalCutOrderId: record.originalCutOrderId,
       originalCutOrderNo: record.originalCutOrderNo,
+      sourcePieceInstanceId: record.sourcePieceInstanceId,
+      qrCodePayload: record.qrCodePayload,
       reprintVersionNo: mode === '补打' ? `R${Math.max(Number(record.reprintCount || 0), 1)}` : '',
     },
   })
@@ -163,6 +221,11 @@ function buildFeiLabelItem(record: AnyFeiTicket, input: PrintDocumentBuildInput,
   const ticketNo = toText(record.ticketNo || record.feiTicketNo)
   const title = isVoid ? '菲票作废标识' : isReprint ? '菲票补打标签' : '菲票'
   const subtitle = isVoid ? '已作废 · 不可流转' : isReprint ? `补打 · 第 ${reprintCount} 次补打` : '菲票归属原始裁片单'
+  const specialCraftText = record.specialCraftSummary
+    || (Array.isArray(record.processTags) ? record.processTags.join('、') : toText(record.currentCraftStage || '无特殊工艺'))
+  const craftPositionText = Array.isArray(record.specialCrafts) && record.specialCrafts.length
+    ? record.specialCrafts.map((craft: AnyFeiTicket) => craft.craftPositionName).filter(Boolean).join('、')
+    : '无'
   const warnings = isVoid
     ? ['已作废', '不可流转', '作废二维码只进入作废记录或菲票详情']
     : isReprint
@@ -176,6 +239,8 @@ function buildFeiLabelItem(record: AnyFeiTicket, input: PrintDocumentBuildInput,
     { label: '款号', value: record.styleCode || record.spuCode },
     { label: 'SKU / 颜色 / 尺码', value: `${toText(record.materialSku)} / ${toText(record.color || record.fabricColor || record.garmentColor)} / ${toText(record.size || record.skuSize)}` },
     { label: '裁片部位', value: record.partName || record.pieceGroup },
+    { label: '裁片实例', value: record.sourcePieceInstanceId || record.pieceDisplayName },
+    { label: '片序号', value: record.sequenceNo ? `第${record.sequenceNo}片` : '待补片序号' },
     { label: '裁片数量', value: formatPrintQty(record.quantity ?? record.actualCutPieceQty ?? record.qty, '片'), emphasis: true },
     { label: '扎号', value: record.bundleNo || record.bundleScope },
     { label: '面料 SKU', value: record.materialSku },
@@ -185,7 +250,9 @@ function buildFeiLabelItem(record: AnyFeiTicket, input: PrintDocumentBuildInput,
     { label: '是否已绑定中转袋', value: record.boundPocketNo ? '是' : '否' },
     { label: '中转袋号', value: record.boundPocketNo || '未绑定' },
     { label: '车缝任务号', value: record.boundUsageNo || '未分配' },
-    { label: '特殊工艺', value: Array.isArray(record.processTags) ? record.processTags.join('、') : toText(record.currentCraftStage || '无') },
+    { label: '特殊工艺', value: specialCraftText },
+    { label: '工艺位置', value: craftPositionText },
+    { label: '二维码追溯', value: record.sourcePieceInstanceId || '待补裁片实例' },
     { label: '菲票归属', value: '菲票归属原始裁片单', emphasis: true },
   ])
 

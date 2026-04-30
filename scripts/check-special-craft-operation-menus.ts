@@ -100,7 +100,7 @@ enabledOperations.forEach((operation) => {
 const pfosMenus = flattenMenuItems(menusBySystem.pfos)
 const specialCraftGroup = menusBySystem.pfos.find((group) => group.title === '特殊工艺')
 assert(specialCraftGroup, '工艺工厂运营系统缺少特殊工艺菜单组')
-assert(enabledOperations.length === 7, 'PFOS 特殊工艺启用菜单数量必须为 7')
+assert(enabledOperations.length === 6, 'PFOS 特殊工艺启用菜单数量必须为 6')
 assert(globalSpecialCraftMenus.length === enabledOperations.length, 'PFOS 全局特殊工艺菜单必须全量显示启用菜单')
 assertContains(appShellSource, 'buildSpecialCraftMenuGroupsForFactory', '菜单配置缺少工厂上下文特殊工艺菜单 helper')
 assertContains(appShellSource, 'buildSpecialCraftMenuGroups()', '菜单配置缺少 PFOS 全局特殊工艺菜单 helper')
@@ -121,23 +121,10 @@ enabledOperations.forEach((operation) => {
   assert(globalSpecialCraftMenus.some((item) => item.title === operation.operationName), `${operation.operationName} 未进入 PFOS 全局特殊工艺菜单 helper`)
 })
 
-const washOperation = enabledOperations.find((operation) => operation.operationName === '洗水')
-assert(washOperation, '缺少洗水特殊工艺菜单定义')
+assert(!enabledOperations.some((operation) => operation.operationName === '洗水'), '洗水不得继续作为特殊工艺菜单定义')
 assert(
-  canFactorySeeSpecialCraftOperation('ID-F008', washOperation.operationId),
-  '洗水至少应对水洗相关工厂可见',
-)
-assert(
-  !canFactorySeeSpecialCraftOperation('ID-F011', washOperation.operationId),
-  '洗水不应默认对普通特殊工艺厂开放',
-)
-assert(
-  listVisibleSpecialCraftOperationsForFactoryType('CENTRAL_DENIM_WASH').some((item) => item.operationId === washOperation.operationId),
-  '工厂类型过滤下，洗水应对水洗相关工厂可见',
-)
-assert(
-  !listVisibleSpecialCraftOperationsForFactoryType('CENTRAL_SPECIAL').some((item) => item.operationId === washOperation.operationId),
-  '工厂类型过滤下，洗水不应默认对普通特殊工艺厂开放',
+  !listVisibleSpecialCraftOperationsForFactoryType('CENTRAL_DENIM_WASH').some((item) => item.operationName === '洗水'),
+  '工厂类型过滤下，洗水不得继续作为特殊工艺菜单开放',
 )
 assert(
   listVisibleSpecialCraftOperationsForFactory(TEST_FACTORY_ID).length === enabledOperations.length,
@@ -215,10 +202,10 @@ assertContains(productionArtifactSource, 'specialCraftTaskOrders', '生产单生
   '作用对象',
   '裁片部位',
   '菲票号',
-  '计划数量',
-  '已接收数量',
-  '已完成数量',
-  '待交出数量',
+  '计划裁片数量',
+  '已接收裁片数量',
+  '已完成裁片数量',
+  '待交出裁片数量',
   '当前状态',
 ].forEach((token) => {
   assertContains(taskOrdersPageSource, token, `任务单页面缺少字段：${token}`)
@@ -250,13 +237,13 @@ assert(warehouseView.outboundRecords.length > 0, '特殊工艺仓库管理缺少
 
 ;[
   '时间周期',
-  '任务总数',
-  '计划数量',
-  '已接收数量',
-  '已完成数量',
-  '待交出数量',
-  '差异数量',
-  '异常数量',
+  '任务数',
+  '计划裁片数量',
+  '已接收裁片数量',
+  '加工完成裁片数量',
+  '待交出裁片数量',
+  '差异裁片数量',
+  '异常',
   '近 7 天',
   '近 30 天',
 ].forEach((token) => {

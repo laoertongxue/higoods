@@ -18,7 +18,7 @@ const collector = fs.readFileSync(path.join(ROOT, 'src/data/pcs-project-archive-
 })
 
 assert.ok(collector.includes('面辅料图片'), '归档应采集面辅料图片')
-assert.ok(collector.includes('纸样图片'), '归档应采集纸样图片')
+assert.ok(collector.includes('唛架图片'), '归档应采集唛架图片')
 assert.ok(collector.includes('DXF'), '归档应保留 DXF 文件类型')
 assert.ok(collector.includes('RUL'), '归档应保留 RUL 文件类型')
 

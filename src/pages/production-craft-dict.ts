@@ -3,11 +3,19 @@ import { escapeHtml } from '../utils'
 import {
   craftStageDict,
   getProcessCraftDictRowByCode,
+  listAccessoryCrafts,
+  listAuxiliaryCrafts,
+  listCutPiecePartCrafts,
+  listCuttingCrafts,
+  listFabricCrafts,
   SAM_FACTORY_FIELD_GROUP_LABEL,
   listSamFactoryFieldDefinitions,
+  listPreparationProcesses,
   listProcessCraftDictRows,
+  listSpecialTypeCrafts,
   processCraftDictRows,
   type CraftStageCode,
+  type ModernSpecialCraftDefinition,
   type ProcessCraftDictRow,
 } from '../data/fcs/process-craft-dict'
 import { getFactorySupplyFormulaGuide } from '../data/fcs/process-craft-sam-explainer'
@@ -299,6 +307,78 @@ function renderCraftReferenceSamPanel(row: ProcessCraftDictRow): string {
   `
 }
 
+function renderCraftBadgeList(items: string[]): string {
+  return `
+    <div class="mt-2 flex flex-wrap gap-1.5">
+      ${items.map((item) => `<span class="rounded border border-slate-200 bg-white px-2 py-0.5 text-[11px] text-slate-700">${escapeHtml(item)}</span>`).join('')}
+    </div>
+  `
+}
+
+function renderModernCraftItems(items: ModernSpecialCraftDefinition[]): string[] {
+  return items.map((item) => `${item.craftName}（${item.targetObjectName}）`)
+}
+
+function renderDictionaryRebuildSummary(): string {
+  const preparationProcesses = listPreparationProcesses()
+  const auxiliaryCrafts = listAuxiliaryCrafts()
+  const specialTypeCrafts = listSpecialTypeCrafts()
+  const cutPiecePartCrafts = listCutPiecePartCrafts()
+  const fabricCrafts = listFabricCrafts()
+  const accessoryCrafts = listAccessoryCrafts()
+  const cuttingCrafts = listCuttingCrafts()
+
+  return `
+    <section class="grid gap-3 lg:grid-cols-3" data-testid="process-craft-dictionary-rebuild-summary">
+      <div class="rounded-md border bg-background p-4">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <p class="text-sm font-semibold">准备阶段</p>
+            <p class="mt-1 text-xs text-muted-foreground">面料产前处理，后续由物料清单触发。</p>
+          </div>
+          <span class="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">准备阶段</span>
+        </div>
+        ${renderCraftBadgeList(preparationProcesses.map((item) => `${item.processName}（${item.targetObjectName}）`))}
+      </div>
+
+      <div class="rounded-md border bg-background p-4">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <p class="text-sm font-semibold">特殊工艺分类</p>
+            <p class="mt-1 text-xs text-muted-foreground">按辅助工艺和特种工艺维护，并标记适用对象。</p>
+          </div>
+          <span class="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">辅助工艺 / 特种工艺</span>
+        </div>
+        <div class="mt-3 space-y-3 text-xs">
+          <div>
+            <p class="font-medium text-slate-700">辅助工艺</p>
+            ${renderCraftBadgeList(renderModernCraftItems(auxiliaryCrafts))}
+          </div>
+          <div>
+            <p class="font-medium text-slate-700">特种工艺</p>
+            ${renderCraftBadgeList(renderModernCraftItems(specialTypeCrafts))}
+          </div>
+          <div class="rounded-md bg-slate-50 px-3 py-2 leading-5 text-muted-foreground">
+            裁片部位可选：${escapeHtml(cutPiecePartCrafts.map((item) => item.craftName).join('、'))}<br />
+            面料级：${escapeHtml(fabricCrafts.map((item) => item.craftName).join('、') || '无')}；辅料级：${escapeHtml(accessoryCrafts.map((item) => item.craftName).join('、') || '无')}
+          </div>
+        </div>
+      </div>
+
+      <div class="rounded-md border bg-background p-4">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <p class="text-sm font-semibold">裁床工序</p>
+            <p class="mt-1 text-xs text-muted-foreground">只补齐字典口径，不改变裁床执行和菲票生成。</p>
+          </div>
+          <span class="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">裁床工序</span>
+        </div>
+        ${renderCraftBadgeList(cuttingCrafts.map((item) => `${item.craftName}（${item.targetObjectName}）`))}
+      </div>
+    </section>
+  `
+}
+
 function renderCraftDetailSheet(row: ProcessCraftDictRow): string {
   return `
     <div class="fixed inset-0 z-[120] bg-black/35" data-craft-dict-action="close-sheet"></div>
@@ -419,6 +499,8 @@ export function renderProductionCraftDictPage(): string {
       </header>
 
       <div class="space-y-4">
+        ${renderDictionaryRebuildSummary()}
+
         <div class="flex flex-wrap items-center gap-2">
           <div class="relative">
             <i data-lucide="search" class="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"></i>

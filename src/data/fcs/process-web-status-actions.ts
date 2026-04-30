@@ -11,8 +11,12 @@ import {
   getSpecialCraftTaskWorkOrderById,
 } from './special-craft-task-orders.ts'
 import {
+  getPostFinishingWorkOrderById,
+} from './post-finishing-domain.ts'
+import {
   validateCuttingOrderMobileTaskBinding,
   validateDyeWorkOrderMobileTaskBinding,
+  validatePostFinishingMobileTaskBinding,
   validatePrintWorkOrderMobileTaskBinding,
   validateSpecialCraftMobileTaskBinding,
 } from './process-mobile-task-binding.ts'
@@ -31,6 +35,7 @@ export type ProcessWebSourceType =
   | 'DYE_WORK_ORDER'
   | 'CUTTING_ORIGINAL_ORDER'
   | 'SPECIAL_CRAFT_WORK_ORDER'
+  | 'POST_FINISHING_WORK_ORDER'
 
 export type ProcessWebActionType =
   | '确认花型到位'
@@ -67,11 +72,20 @@ export type ProcessWebActionType =
   | '开始加工'
   | '完成加工'
   | '上报差异'
+  | '开始接收领料'
+  | '完成接收领料'
+  | '开始质检'
+  | '完成质检'
+  | '开始后道'
+  | '完成后道'
+  | '开始复检'
+  | '完成复检'
+  | '驳回后重交'
 
 export interface ProcessWebAction {
   actionCode: string
   actionLabel: ProcessWebActionType
-  processType: 'PRINT' | 'DYE' | 'CUTTING' | 'SPECIAL_CRAFT'
+  processType: 'PRINT' | 'DYE' | 'CUTTING' | 'SPECIAL_CRAFT' | 'POST_FINISHING'
   fromStatus: string
   toStatus: string
   requiredFields: string[]
@@ -496,6 +510,118 @@ const SPECIAL_CRAFT_ACTIONS: ActionDefinition[] = [
     writebackHandler: 'createProcessHandoverRecord',
     affectsHandover: true,
   },
+  {
+    actionCode: 'SPECIAL_CRAFT_REWORK_AFTER_REJECT',
+    actionLabel: '驳回后重交',
+    processType: 'SPECIAL_CRAFT',
+    fromStatuses: ['差异', '异议中', '异常', '待回写'],
+    toStatus: '待交出',
+    requiredFields: ['操作人', '重交裁片数量', '备注'],
+    optionalFields: [],
+    writebackHandler: 'reworkAfterReject',
+    affectsHandover: true,
+  },
+]
+
+const POST_FINISHING_ACTIONS: ActionDefinition[] = [
+  {
+    actionCode: 'POST_RECEIVE_START',
+    actionLabel: '开始接收领料',
+    processType: 'POST_FINISHING',
+    fromStatuses: ['待接收领料'],
+    toStatus: '接收中',
+    requiredFields: ['操作人', '开始时间'],
+    writebackHandler: 'applyPostFinishingActionStart',
+  },
+  {
+    actionCode: 'POST_RECEIVE_FINISH',
+    actionLabel: '完成接收领料',
+    processType: 'POST_FINISHING',
+    fromStatuses: ['接收中'],
+    toStatus: '待质检',
+    requiredFields: ['操作人', '完成时间', '接收成衣件数'],
+    writebackHandler: 'applyPostFinishingActionFinish',
+    affectsWarehouse: true,
+  },
+  {
+    actionCode: 'POST_QC_START',
+    actionLabel: '开始质检',
+    processType: 'POST_FINISHING',
+    fromStatuses: ['待质检'],
+    toStatus: '质检中',
+    requiredFields: ['质检人', '开始时间'],
+    writebackHandler: 'applyPostFinishingActionStart',
+  },
+  {
+    actionCode: 'POST_QC_FINISH',
+    actionLabel: '完成质检',
+    processType: 'POST_FINISHING',
+    fromStatuses: ['质检中'],
+    toStatus: '待后道',
+    requiredFields: ['质检人', '完成时间', '质检通过成衣件数', '质检不合格成衣件数', '质检结果'],
+    writebackHandler: 'applyPostFinishingActionFinish',
+    affectsWarehouse: true,
+  },
+  {
+    actionCode: 'POST_PROCESS_START',
+    actionLabel: '开始后道',
+    processType: 'POST_FINISHING',
+    fromStatuses: ['待后道'],
+    toStatus: '后道中',
+    requiredFields: ['后道操作人', '开始时间'],
+    writebackHandler: 'applyPostFinishingActionStart',
+  },
+  {
+    actionCode: 'POST_PROCESS_FINISH',
+    actionLabel: '完成后道',
+    processType: 'POST_FINISHING',
+    fromStatuses: ['后道中'],
+    toStatus: '待复检',
+    requiredFields: ['后道操作人', '完成时间', '后道完成成衣件数'],
+    writebackHandler: 'applyPostFinishingActionFinish',
+    affectsWarehouse: true,
+  },
+  {
+    actionCode: 'POST_RECHECK_START',
+    actionLabel: '开始复检',
+    processType: 'POST_FINISHING',
+    fromStatuses: ['待复检'],
+    toStatus: '复检中',
+    requiredFields: ['复检人', '开始时间'],
+    writebackHandler: 'applyPostFinishingActionStart',
+  },
+  {
+    actionCode: 'POST_RECHECK_FINISH',
+    actionLabel: '完成复检',
+    processType: 'POST_FINISHING',
+    fromStatuses: ['复检中'],
+    toStatus: '待交出',
+    requiredFields: ['复检人', '完成时间', '复检确认成衣件数', '复检不合格成衣件数'],
+    writebackHandler: 'applyPostFinishingActionFinish',
+    affectsWarehouse: true,
+  },
+  {
+    actionCode: 'POST_SUBMIT_HANDOVER',
+    actionLabel: '发起交出',
+    processType: 'POST_FINISHING',
+    fromStatuses: ['待交出', '复检完成'],
+    toStatus: '待回写',
+    requiredFields: ['交出人', '交出时间', '交出成衣件数'],
+    optionalFields: ['备注'],
+    writebackHandler: 'createProcessHandoverRecord',
+    affectsHandover: true,
+  },
+  {
+    actionCode: 'POST_REPORT_DIFFERENCE',
+    actionLabel: '上报差异',
+    processType: 'POST_FINISHING',
+    fromStatuses: ['质检中', '后道中', '复检中', '待交出'],
+    toStatus: '有差异',
+    requiredFields: ['上报人', '差异类型', '应收成衣件数', '实收成衣件数', '差异成衣件数', '原因'],
+    optionalFields: ['证据'],
+    writebackHandler: 'createProcessHandoverDifferenceRecord',
+    affectsDifference: true,
+  },
 ]
 
 function nowText(): string {
@@ -616,6 +742,20 @@ function getSpecialCraftStatus(workOrderId: string): { status: string; label: st
   }
 }
 
+function getPostFinishingStatus(postOrderId: string): { status: string; label: string; qty: number; unit: string; taskId: string; isPostDoneBySewingFactory: boolean } | null {
+  const order = getPostFinishingWorkOrderById(postOrderId)
+  if (!order) return null
+  const binding = validatePostFinishingMobileTaskBinding(postOrderId)
+  return {
+    status: order.currentStatus,
+    label: order.currentStatus,
+    qty: order.plannedGarmentQty,
+    unit: order.plannedGarmentQtyUnit,
+    taskId: binding.actualTaskId || order.sourceTaskId,
+    isPostDoneBySewingFactory: order.isPostDoneBySewingFactory,
+  }
+}
+
 function isMobileBindingValid(sourceType: ProcessWebSourceType, sourceId: string): { ok: boolean; reason: string; taskId: string } {
   const result =
     sourceType === 'PRINT_WORK_ORDER'
@@ -624,7 +764,9 @@ function isMobileBindingValid(sourceType: ProcessWebSourceType, sourceId: string
         ? validateDyeWorkOrderMobileTaskBinding(sourceId)
         : sourceType === 'CUTTING_ORIGINAL_ORDER'
           ? validateCuttingOrderMobileTaskBinding(sourceId)
-          : validateSpecialCraftMobileTaskBinding(sourceId)
+          : sourceType === 'SPECIAL_CRAFT_WORK_ORDER'
+            ? validateSpecialCraftMobileTaskBinding(sourceId)
+            : validatePostFinishingMobileTaskBinding(sourceId)
   return {
     ok: result.canOpenMobileExecution,
     reason: result.reasonLabel,
@@ -663,11 +805,23 @@ export function getAvailableSpecialCraftWebActions(workOrderId: string): Process
   return listMatchingActions(SPECIAL_CRAFT_ACTIONS, status.status)
 }
 
+export function getAvailablePostFinishingWebActions(postOrderId: string): ProcessWebAction[] {
+  const binding = isMobileBindingValid('POST_FINISHING_WORK_ORDER', postOrderId)
+  const status = getPostFinishingStatus(postOrderId)
+  if (!status) return []
+  if (!binding.ok) return [toAction(POST_FINISHING_ACTIONS[0], status.label, binding.reason)]
+  const definitions = status.isPostDoneBySewingFactory
+    ? POST_FINISHING_ACTIONS.filter((action) => !['POST_PROCESS_START', 'POST_PROCESS_FINISH'].includes(action.actionCode))
+    : POST_FINISHING_ACTIONS
+  return listMatchingActions(definitions, status.status)
+}
+
 export function listAvailableWebActions(sourceType: ProcessWebSourceType, sourceId: string): ProcessWebAction[] {
   if (sourceType === 'PRINT_WORK_ORDER') return getAvailablePrintWebActions(sourceId)
   if (sourceType === 'DYE_WORK_ORDER') return getAvailableDyeWebActions(sourceId)
   if (sourceType === 'CUTTING_ORIGINAL_ORDER') return getAvailableCuttingWebActions(sourceId)
-  return getAvailableSpecialCraftWebActions(sourceId)
+  if (sourceType === 'SPECIAL_CRAFT_WORK_ORDER') return getAvailableSpecialCraftWebActions(sourceId)
+  return getAvailablePostFinishingWebActions(sourceId)
 }
 
 export function validateProcessWebAction(payload: ProcessWebActionPayload): { ok: boolean; message: string; action?: ProcessWebAction } {
@@ -691,7 +845,9 @@ function getStatusSnapshot(sourceType: ProcessWebSourceType, sourceId: string): 
         ? getDyeStatus(sourceId)
         : sourceType === 'CUTTING_ORIGINAL_ORDER'
           ? getCuttingStatus(sourceId)
-          : getSpecialCraftStatus(sourceId)
+          : sourceType === 'SPECIAL_CRAFT_WORK_ORDER'
+            ? getSpecialCraftStatus(sourceId)
+            : getPostFinishingStatus(sourceId)
   if (!snapshot) throw new Error('来源对象不存在，不能执行状态操作')
   return snapshot
 }
@@ -700,14 +856,16 @@ function toProcessActionSourceType(sourceType: ProcessWebSourceType): ProcessAct
   if (sourceType === 'PRINT_WORK_ORDER') return 'PRINT'
   if (sourceType === 'DYE_WORK_ORDER') return 'DYE'
   if (sourceType === 'CUTTING_ORIGINAL_ORDER') return 'CUTTING'
-  return 'SPECIAL_CRAFT'
+  if (sourceType === 'SPECIAL_CRAFT_WORK_ORDER') return 'SPECIAL_CRAFT'
+  return 'POST_FINISHING'
 }
 
 function toProcessWebSourceType(sourceType: ProcessActionSourceType): ProcessWebSourceType {
   if (sourceType === 'PRINT') return 'PRINT_WORK_ORDER'
   if (sourceType === 'DYE') return 'DYE_WORK_ORDER'
   if (sourceType === 'CUTTING') return 'CUTTING_ORIGINAL_ORDER'
-  return 'SPECIAL_CRAFT_WORK_ORDER'
+  if (sourceType === 'SPECIAL_CRAFT') return 'SPECIAL_CRAFT_WORK_ORDER'
+  return 'POST_FINISHING_WORK_ORDER'
 }
 
 function toProcessWebRecord(record: ProcessActionOperationRecord): ProcessWebOperationRecord {
@@ -811,6 +969,10 @@ export function getUnifiedOperationRecordsForProcessWorkOrder(
     .filter((record, index, list) => list.findIndex((item) => item.operationRecordId === record.operationRecordId) === index)
     .map(toProcessWebRecord)
     .sort((left, right) => right.operatedAt.localeCompare(left.operatedAt, 'zh-CN'))
+}
+
+export function getUnifiedOperationRecordsForPostFinishing(postOrderId: string, taskId?: string): ProcessWebOperationRecord[] {
+  return getUnifiedOperationRecordsForProcessWorkOrder('POST_FINISHING_WORK_ORDER', postOrderId, taskId)
 }
 
 export const PROCESS_WEB_STATUS_ACTION_SOURCE = '工艺工厂 Web 端状态操作'

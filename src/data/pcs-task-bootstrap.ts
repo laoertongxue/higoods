@@ -625,7 +625,7 @@ function plateExecutionSeed(taskId: string, input: {
         lineId: `${taskId}_pattern_image_1`,
         imageId: `mock://plate-pattern-image/${taskId}/front`,
         materialPartName: '前片',
-        materialDescription: '前片纸样图片，含领口和腰节线',
+        materialDescription: '前片唛架图片，含领口和腰节线',
         pieceCount: 2,
       },
     ],

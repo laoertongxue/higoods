@@ -60,7 +60,9 @@ assertIncludes('src/pages/process-factory/special-craft/work-order-detail.ts', '
 assertIncludes('src/pages/process-factory/printing/events.ts', 'executeProcessWebAction', '印花页面未接入 Web 操作执行')
 assertIncludes('src/pages/process-factory/dyeing/events.ts', 'executeProcessWebAction', '染色页面未接入 Web 操作执行')
 assertIncludes('src/pages/process-factory/cutting/original-orders.ts', 'executeProcessWebAction', '裁片页面未接入 Web 操作执行')
-assertIncludes('src/pages/process-factory/special-craft/work-order-detail.ts', 'executeProcessWebAction', '特殊工艺页面未接入 Web 操作执行')
+assertIncludes('src/pages/process-factory/special-craft/work-order-detail.ts', 'openProcessWebStatusActionDialog', '特殊工艺页面未接入 Web 操作弹窗')
+assertIncludes('src/pages/process-factory/special-craft/work-order-detail.ts', 'handleProcessWebStatusActionDialogEvent', '特殊工艺页面未接入 Web 操作弹窗确认事件')
+assertIncludes('src/pages/process-factory/shared/web-status-action-dialog.ts', 'executeProcessWebAction', '特殊工艺弹窗确认后应通过统一 Web 操作执行')
 
 assertNotIncludes(modulePath, '任意状态', '不得提供自由状态跳转')
 assertNotIncludes('src/pages/process-factory/printing/work-order-detail.ts', '<select name="status"', '印花详情不得提供自由状态下拉')

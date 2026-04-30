@@ -97,7 +97,7 @@ function inferVariantFromText(text: string): DeliveryVariant {
   if (text.includes('后道')) return 'postFinishing'
   if (text.includes('车缝') || text.includes('缝制')) return 'sewing'
   if (text.includes('裁片') || text.includes('裁剪') || text.includes('裁床')) return 'cutting'
-  if (['打揽', '打条', '捆条', '烫画', '直喷', '激光切', '洗水', '特殊工艺'].some((keyword) => text.includes(keyword))) {
+  if (['打揽', '打条', '捆条', '烫画', '直喷', '激光切', '特殊工艺'].some((keyword) => text.includes(keyword))) {
     return 'specialCraft'
   }
   return 'runtime'

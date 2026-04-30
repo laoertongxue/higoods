@@ -17,7 +17,7 @@ const labels = revisionContract!.fieldDefinitions.map((item) => item.label)
   '面辅料变化明细',
   '新花型图片',
   '新花型 SPU',
-  '纸样图片',
+  '唛架图片',
   '纸样文件',
   '主图图片',
   '新图设计稿',

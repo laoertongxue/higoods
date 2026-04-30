@@ -9,6 +9,9 @@ import {
   getSpecialCraftTaskWorkOrderById,
 } from './special-craft-task-orders.ts'
 import {
+  getPostFinishingWorkOrderById,
+} from './post-finishing-domain.ts'
+import {
   applySpecialCraftDifferenceToFeiTickets,
   createProcessHandoverDifferenceRecord,
   createProcessHandoverRecord,
@@ -27,6 +30,7 @@ import {
 import {
   validateCuttingOrderMobileTaskBinding,
   validateDyeWorkOrderMobileTaskBinding,
+  validatePostFinishingMobileTaskBinding,
   validatePrintWorkOrderMobileTaskBinding,
   validateSpecialCraftMobileTaskBinding,
 } from './process-mobile-task-binding.ts'
@@ -35,7 +39,7 @@ import { mapCraftStatusToPlatformStatus } from './process-platform-status-adapte
 export interface ProcessWarehouseLinkageActionResult {
   success: boolean
   sourceChannel?: 'Web 端' | '移动端'
-  sourceType: 'PRINT' | 'DYE' | 'CUTTING' | 'SPECIAL_CRAFT'
+  sourceType: 'PRINT' | 'DYE' | 'CUTTING' | 'SPECIAL_CRAFT' | 'POST_FINISHING'
   sourceId: string
   taskId: string
   actionCode: string
@@ -368,6 +372,42 @@ function resolveSpecialCraftContext(actionResult: ProcessWarehouseLinkageActionR
   }
 }
 
+function resolvePostFinishingContext(actionResult: ProcessWarehouseLinkageActionResult): WarehouseBaseContext | null {
+  const order = getPostFinishingWorkOrderById(actionResult.sourceId)
+  if (!order) return null
+  const binding = validatePostFinishingMobileTaskBinding(order.postOrderId)
+  const objectQty = roundQty(actionResult.objectQty || order.plannedGarmentQty)
+  return {
+    craftType: 'POST_FINISHING',
+    craftName: '后道',
+    sourceWorkOrderId: order.postOrderId,
+    sourceWorkOrderNo: order.postOrderNo,
+    sourceTaskId: binding.actualTaskId || order.sourceTaskId,
+    sourceTaskNo: binding.actualTaskNo || order.postOrderNo,
+    sourceProductionOrderId: order.sourceProductionOrderId,
+    sourceProductionOrderNo: order.sourceProductionOrderNo,
+    sourceDemandId: order.sourceSewingTaskId,
+    sourceDemandNo: order.sourceSewingTaskNo,
+    sourceFactoryId: order.managedPostFactoryId,
+    sourceFactoryName: order.managedPostFactoryName,
+    targetFactoryId: order.currentFactoryId || TEST_FACTORY_ID,
+    targetFactoryName: order.currentFactoryName || TEST_FACTORY_NAME,
+    targetWarehouseName: '后道待交出仓',
+    warehouseLocation: '后道待交出仓-H01',
+    skuSummary: order.skuSummary,
+    materialSku: order.styleNo,
+    materialName: '成衣',
+    batchNo: order.sourceSewingTaskNo,
+    objectType: '成衣',
+    plannedObjectQty: roundQty(order.plannedGarmentQty),
+    objectQty,
+    qtyUnit: '件',
+    packageQty: 1,
+    packageUnit: '包',
+    relatedFeiTicketIds: [],
+  }
+}
+
 function ensureWaitProcessWarehouseRecord(
   context: WarehouseBaseContext,
   actionResult: ProcessWarehouseLinkageActionResult,
@@ -610,12 +650,86 @@ export function applySpecialCraftWarehouseLinkageAfterAction(actionResult: Proce
   return result
 }
 
+export function applyPostFinishingWarehouseLinkageAfterAction(actionResult: ProcessWarehouseLinkageActionResult): ProcessWarehouseLinkageResult {
+  const context = resolvePostFinishingContext(actionResult)
+  const base = emptyLinkageResult(actionResult)
+  if (!context) return mergeResult(base, { success: false, message: '未找到后道单，不能执行仓联动' })
+
+  if (['POST_RECEIVE_FINISH', 'POST_QC_FINISH', 'POST_PROCESS_FINISH'].includes(actionResult.actionCode)) {
+    const actionName =
+      actionResult.actionCode === 'POST_RECEIVE_FINISH'
+        ? '后道待质检'
+        : actionResult.actionCode === 'POST_QC_FINISH'
+          ? (actionResult.nextStatus === '待复检' ? '后道待复检' : '后道待后道')
+          : '后道待复检'
+    const waitProcess = ensureWaitProcessWarehouseRecord(
+      { ...context, targetWarehouseName: '后道待加工仓', warehouseLocation: '后道待加工仓-H01' },
+      actionResult,
+      actionName,
+    )
+    return mergeResult(base, {
+      createdWaitProcessWarehouseRecordId: waitProcess.warehouseRecordId,
+      updatedWaitProcessWarehouseRecordId: waitProcess.warehouseRecordId,
+      message: `${actionName}仓已联动`,
+    })
+  }
+
+  if (actionResult.actionCode === 'POST_REPORT_DIFFERENCE') {
+    const handover = listProcessHandoverRecords({ craftType: 'POST_FINISHING', sourceWorkOrderId: context.sourceWorkOrderId })[0]
+    const warehouse =
+      getProcessWarehouseRecordById(handover?.warehouseRecordId || '') ||
+      ensureWaitProcessWarehouseRecord({ ...context, targetWarehouseName: '后道待加工仓' }, actionResult, '后道差异待处理')
+    const diffQty = roundQty(actionResult.objectQty || context.objectQty)
+    const difference = createProcessHandoverDifferenceRecord({
+      handoverRecordId: handover?.handoverRecordId || '',
+      warehouseRecordId: warehouse.warehouseRecordId,
+      sourceWorkOrderId: context.sourceWorkOrderId,
+      sourceWorkOrderNo: context.sourceWorkOrderNo,
+      sourceProductionOrderId: context.sourceProductionOrderId,
+      sourceProductionOrderNo: context.sourceProductionOrderNo,
+      craftType: 'POST_FINISHING',
+      craftName: '后道',
+      objectType: '成衣',
+      expectedObjectQty: context.plannedObjectQty,
+      actualObjectQty: Math.max(context.plannedObjectQty - diffQty, 0),
+      diffObjectQty: diffQty,
+      qtyUnit: '件',
+      reportedBy: actionResult.sourceChannel === '移动端' ? '移动端操作员' : 'Web 端操作员',
+      relatedFeiTicketIds: [],
+      remark: `${actionResult.sourceChannel || '统一写回'}上报后道成衣件数差异`,
+    })
+    return mergeResult(base, {
+      createdDifferenceRecordId: difference.differenceRecordId,
+      updatedDifferenceRecordId: difference.differenceRecordId,
+      message: '后道差异记录已联动',
+    })
+  }
+
+  if (!['POST_RECHECK_FINISH', 'POST_SUBMIT_HANDOVER'].includes(actionResult.actionCode)) return base
+  const waitHandover = ensureWaitHandoverWarehouseRecord(context, actionResult)
+  let result = mergeResult(base, {
+    createdWaitHandoverWarehouseRecordId: waitHandover.warehouseRecordId,
+    updatedWaitHandoverWarehouseRecordId: waitHandover.warehouseRecordId,
+    message: '后道待交出仓已联动',
+  })
+  if (actionResult.actionCode === 'POST_SUBMIT_HANDOVER') {
+    const handover = ensureHandoverRecord(context, actionResult, waitHandover.warehouseRecordId)
+    result = mergeResult(result, {
+      createdHandoverRecordId: handover.handoverRecordId,
+      updatedHandoverRecordId: handover.handoverRecordId,
+      message: '后道交出记录已联动',
+    })
+  }
+  return result
+}
+
 export function applyWarehouseLinkageAfterAction(actionResult: ProcessWarehouseLinkageActionResult): ProcessWarehouseLinkageResult {
   if (!actionResult.success) return emptyLinkageResult(actionResult, '动作未成功，不执行仓交出联动')
   if (actionResult.sourceType === 'PRINT') return applyPrintWarehouseLinkageAfterAction(actionResult)
   if (actionResult.sourceType === 'DYE') return applyDyeWarehouseLinkageAfterAction(actionResult)
   if (actionResult.sourceType === 'CUTTING') return applyCuttingWarehouseLinkageAfterAction(actionResult)
-  return applySpecialCraftWarehouseLinkageAfterAction(actionResult)
+  if (actionResult.sourceType === 'SPECIAL_CRAFT') return applySpecialCraftWarehouseLinkageAfterAction(actionResult)
+  return applyPostFinishingWarehouseLinkageAfterAction(actionResult)
 }
 
 export const PROCESS_WAREHOUSE_LINKAGE_SERVICE_SOURCE = '待加工仓、待交出仓、交出、回写统一联动服务'

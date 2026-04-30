@@ -40,9 +40,24 @@ function canUseStorage(): boolean {
 function clonePatternFiles(items: TechnicalPatternFile[]): TechnicalPatternFile[] {
   return items.map((item) => ({
     ...item,
+    patternTotalPieceQty: item.patternTotalPieceQty,
+    pieceInstanceTotal: item.pieceInstanceTotal,
+    specialCraftConfiguredPieceTotal: item.specialCraftConfiguredPieceTotal,
+    specialCraftUnconfiguredPieceTotal: item.specialCraftUnconfiguredPieceTotal,
     pieceRows: item.pieceRows?.map((row) => ({
       ...row,
+      parsedQuantity: row.parsedQuantity,
+      totalPieceQty: row.totalPieceQty,
       applicableSkuCodes: [...(row.applicableSkuCodes ?? [])],
+      colorAllocations: row.colorAllocations?.map((allocation) => ({
+        ...allocation,
+        skuCodes: [...(allocation.skuCodes ?? [])],
+      })),
+      colorPieceQuantities: row.colorPieceQuantities?.map((quantity) => ({ ...quantity })),
+    })),
+    pieceInstances: item.pieceInstances?.map((instance) => ({
+      ...instance,
+      specialCraftAssignments: instance.specialCraftAssignments.map((assignment) => ({ ...assignment })),
     })),
   }))
 }

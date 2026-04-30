@@ -138,8 +138,8 @@ function main(): void {
     '工艺瓶颈数据仍把后道节点当成独立任务工序',
   )
   assert(
-    washCalendar.rows.some((row) => row.processCode === 'SPECIAL_CRAFT' && row.craftName === '洗水'),
-    '产能日历未按“特殊工艺 - 洗水”纳入能力计算',
+    washCalendar.rows.some((row) => row.processCode === 'WASHING' && row.craftName === '洗水'),
+    '产能日历未按准备阶段“洗水”纳入能力计算',
   )
 
   assert(

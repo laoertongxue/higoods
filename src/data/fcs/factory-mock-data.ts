@@ -44,7 +44,7 @@ export function formatFactoryDisplayName(factoryName?: string | null, factoryCod
 const legacyTagProcessMap: Record<string, string[]> = {
   印花: ['PRINT'],
   绣花: ['EMBROIDERY'],
-  水洗: ['SPECIAL_CRAFT'],
+  水洗: ['WASHING'],
   染色: ['DYE'],
   车缝: ['SEW'],
   后整: ['POST_FINISHING'],
@@ -59,32 +59,10 @@ const factoryTypeProcessMap: Partial<Record<FactoryType, string[]>> = {
   CENTRAL_AUX: ['POST_FINISHING', 'SPECIAL_CRAFT'],
   CENTRAL_LACE: ['POST_FINISHING'],
   CENTRAL_KNIT: ['SEW', 'PLEATING'],
-  CENTRAL_DENIM_WASH: ['SPECIAL_CRAFT', 'SHRINKING'],
+  CENTRAL_DENIM_WASH: ['WASHING', 'SHRINKING'],
   SATELLITE_SEWING: ['SEW'],
   SATELLITE_FINISHING: ['POST_FINISHING', 'PLEATING', 'SPECIAL_CRAFT'],
   THIRD_SEWING: ['SEW'],
-}
-
-function isWashOnlyFactory(tags: string[], factoryType: FactoryType): boolean {
-  return factoryType === 'CENTRAL_DENIM_WASH' || tags.includes('水洗')
-}
-
-function resolveWashCraftAbility(): FactoryProcessAbility | null {
-  const process = getProcessDefinitionByCode('SPECIAL_CRAFT')
-  const washCraft = listCraftsByProcessCode('SPECIAL_CRAFT').find((item) => item.craftName === '洗水')
-  if (!process || !washCraft) return null
-  return {
-    processCode: 'SPECIAL_CRAFT',
-    craftCodes: [washCraft.craftCode],
-    abilityId: 'ABILITY_SPECIAL_CRAFT_WASH',
-    processName: process.processName,
-    craftNames: ['洗水'],
-    abilityName: '特殊工艺 - 洗水',
-    abilityScope: 'CRAFT',
-    canReceiveTask: true,
-    capacityManaged: true,
-    status: 'ACTIVE',
-  }
 }
 
 function createProcessAbility(
@@ -96,10 +74,6 @@ function createProcessAbility(
 ): FactoryProcessAbility | null {
   const process = getProcessDefinitionByCode(processCode)
   if (!process || !process.isActive) return null
-
-  if (processCode === 'SPECIAL_CRAFT' && options?.factoryType && options.tags && isWashOnlyFactory(options.tags, options.factoryType)) {
-    return resolveWashCraftAbility()
-  }
 
   if (processCode === 'POST_FINISHING') {
     const isDedicatedPostFactory = options?.factoryType === 'SATELLITE_FINISHING'

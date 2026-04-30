@@ -565,7 +565,8 @@ function assertFrozenCuttingAndSpecialCraftBoundaries(): void {
     }
   }
   assert(listProcessHandoverRecords({ craftType: 'CUTTING', sourceWorkOrderId: 'CUT-260304-009-01' }).every((record) => record.relatedFeiTicketIds.length > 0), '裁片交出必须关联原始裁片单和菲票')
-  assert(['打揽', '打条', '捆条', '烫画', '直喷', '激光切', '洗水'].every((name) => read('src/data/fcs/special-craft-operations.ts').includes(name)), '特殊工艺范围必须包含既定工艺')
+  assert(['打揽', '打条', '捆条', '烫画', '直喷', '激光切'].every((name) => read('src/data/fcs/special-craft-operations.ts').includes(name)), '特殊工艺范围必须包含既定工艺')
+  assert(!read('src/data/fcs/special-craft-operations.ts').includes("operationName: '洗水'"), '特殊工艺范围不得继续包含洗水')
   for (const forbidden of forbiddenSpecialCraftActions) {
     assertNotIncludes('src/data/fcs/process-action-writeback-service.ts', forbidden, `特殊工艺动作不得出现 ${forbidden}`)
     assertNotIncludes('src/pages/process-factory/special-craft/work-order-detail.ts', forbidden, `特殊工艺页面不得出现 ${forbidden}`)

@@ -32,7 +32,15 @@ export function getDefaultFieldValue(
   label: string,
   context: { operatedAt: string; objectQty: string; qtyUnit: string },
 ): string {
-  if (label.includes('操作人') || label.includes('交出人')) return 'Web 端操作员'
+  if (
+    label.includes('操作人') ||
+    label.includes('交出人') ||
+    label.includes('接收人') ||
+    label.includes('质检人') ||
+    label.includes('复检人') ||
+    label.includes('后道操作人') ||
+    label.includes('上报人')
+  ) return 'Web 端操作员'
   if (label.includes('时间')) return context.operatedAt
   if (label.includes('花型号') || label.includes('花型版本')) return 'PAT-20260328-A'
   if (label.includes('调色结果')) return '调色通过'
@@ -42,6 +50,9 @@ export function getDefaultFieldValue(
   if (label.includes('色号')) return 'CLR-001'
   if (label.includes('打样结果')) return '打样通过'
   if (label.includes('原料面料 SKU')) return 'FAB-DYE-001'
+  if (label.includes('关联菲票')) return '按绑定菲票'
+  if (label.includes('差异类型')) return '数量差异'
+  if (label.includes('原因')) return '现场数量差异'
   if (label === '单位') return context.qtyUnit
   if (label.includes('卷数')) return '12'
   if (isQuantityField(label)) return context.objectQty
@@ -188,7 +199,15 @@ export function confirmProcessWebStatusAction(callbacks: ProcessWebStatusActionD
   const fields = collectProcessWebStatusActionFields(dialog, callbacks.toast)
   if (!fields) return false
 
-  const operatorName = fields['操作人'] || fields['交出人'] || 'Web 端操作员'
+  const operatorName =
+    fields['操作人'] ||
+    fields['交出人'] ||
+    fields['接收人'] ||
+    fields['质检人'] ||
+    fields['复检人'] ||
+    fields['后道操作人'] ||
+    fields['上报人'] ||
+    'Web 端操作员'
   const operatedAt =
     fields['操作时间'] ||
     fields['开始时间'] ||

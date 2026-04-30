@@ -629,8 +629,8 @@ function buildImageSnapshot(order: ProductionOrder): ProductionConfirmationSnaps
   ])
 
   const patternImages = uniqueImageList([
-    ...toSnapshotImages('纸样图片', techPackImages?.patternImages),
-    ...(techPackSnapshot?.patternFiles ?? []).map((item) => toConfirmationImage(item.patternFileName || item.fileName || '纸样图片', item.imageUrl)),
+    ...toSnapshotImages('唛架图片', techPackImages?.patternImages),
+    ...(techPackSnapshot?.patternFiles ?? []).map((item) => toConfirmationImage(item.patternFileName || item.fileName || '唛架图片', item.imageUrl)),
   ])
 
   const markerImages = uniqueImageList([

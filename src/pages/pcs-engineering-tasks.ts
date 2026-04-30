@@ -1647,7 +1647,7 @@ function renderPlatePatternImageLineEditor(lines: PlateMakingPatternImageLine[])
   return `
     <div class="space-y-3">
       <div class="flex items-center justify-between gap-3">
-        <p class="text-sm font-medium text-slate-900">纸样图片</p>
+        <p class="text-sm font-medium text-slate-900">唛架图片</p>
         <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="add-plate-pattern-image-line">新增纸样图</button>
       </div>
       ${
@@ -1671,7 +1671,7 @@ function renderPlatePatternImageLineEditor(lines: PlateMakingPatternImageLine[])
                 </div>
               </div>
             `).join('')
-          : '<div class="rounded-lg border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">暂无纸样图片</div>'
+          : '<div class="rounded-lg border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">暂无唛架图片</div>'
       }
     </div>
   `
@@ -2261,7 +2261,7 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
         { label: '打版人', value: escapeHtml(task.patternMakerName || '-') },
       ], 4)}
       <div class="mt-4 grid gap-4 md:grid-cols-2">
-        ${renderFileChips('纸样图片', task.patternPieceImageIds || [])}
+        ${renderFileChips('唛架图片', task.patternPieceImageIds || [])}
         ${renderFileChips('纸样文件', task.patternFileIds || [])}
         ${renderFileChips('主图图片', task.mainImageIds || [])}
         ${renderFileChips('新图设计稿', task.designDraftImageIds || [])}
@@ -2274,7 +2274,7 @@ function renderRevisionDetailPage(revisionTaskId: string): string {
         ${renderTextarea('寄送地址', 'revision-detail-delivery-address', detailDraft.deliveryAddress, '')}
       </div>
       <div class="mt-4 grid gap-4 md:grid-cols-2">
-        ${renderImageUploader('纸样图片', 'revision-detail-pattern-piece-images', detailDraft.patternPieceImageIds, '未上传')}
+        ${renderImageUploader('唛架图片', 'revision-detail-pattern-piece-images', detailDraft.patternPieceImageIds, '未上传')}
         ${renderFileUploader('纸样文件', 'revision-detail-pattern-files', detailDraft.patternFileIds)}
         ${renderImageUploader('主图图片', 'revision-detail-main-images', detailDraft.mainImageIds, '未上传')}
         ${renderImageUploader('新图设计稿', 'revision-detail-design-drafts', detailDraft.designDraftImageIds, '未上传')}
@@ -2499,7 +2499,7 @@ function renderPlateMaterialRows(task: ReturnType<typeof getPlateMakingTaskById>
 
 function renderPlatePatternImageRows(task: ReturnType<typeof getPlateMakingTaskById>): string {
   const lines = task?.patternImageLineItems || []
-  if (lines.length === 0) return '<div class="rounded-lg border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">暂无纸样图片</div>'
+  if (lines.length === 0) return '<div class="rounded-lg border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">暂无唛架图片</div>'
   return `
     <div class="space-y-3">
       ${lines.map((line) => `
@@ -2736,7 +2736,7 @@ function renderPlateDetailPage(plateTaskId: string): string {
         ${renderPlateMaterialLineEditor(detailDraft.materialRequirementLines)}
       </div>
     `),
-    renderSectionCard('纸样图片', `
+    renderSectionCard('唛架图片', `
       ${renderPlatePatternImageRows(task)}
       <div class="mt-4">
         ${renderPlatePatternImageLineEditor(detailDraft.patternImageLineItems)}

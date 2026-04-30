@@ -4,10 +4,17 @@ import {
   getWarehouseRecordsByWorkOrderId,
 } from '../../../data/fcs/process-warehouse-domain.ts'
 import {
+  getAvailablePostFinishingWebActions,
+  getUnifiedOperationRecordsForPostFinishing,
+  type ProcessWebAction,
+  type ProcessWebOperationRecord,
+} from '../../../data/fcs/process-web-status-actions.ts'
+import {
   getPostFinishingFlowText,
   getPostFinishingSourceLabel,
   getPostFinishingWorkOrderById,
   type PostFinishingActionRecord,
+  type PostFinishingWorkOrder,
 } from '../../../data/fcs/post-finishing-domain.ts'
 import { escapeHtml } from '../../../utils.ts'
 import {
@@ -95,6 +102,66 @@ function renderEmptyRow(colspan: number, text: string): string {
   return `<tr><td colspan="${colspan}" class="px-3 py-6 text-center text-sm text-muted-foreground">${escapeHtml(text)}</td></tr>`
 }
 
+function renderPostWebActionButton(order: { postOrderId: string; plannedGarmentQty: number; plannedGarmentQtyUnit: string }, action: ProcessWebAction): string {
+  return `
+    <button
+      type="button"
+      class="inline-flex h-9 items-center justify-center rounded-md border border-blue-200 bg-blue-50 px-3 text-sm font-medium text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
+      data-post-finishing-action="open-web-status-action-dialog"
+      data-source-id="${escapeHtml(order.postOrderId)}"
+      data-action-code="${escapeHtml(action.actionCode)}"
+      data-action-label="${escapeHtml(action.actionLabel)}"
+      data-from-status="${escapeHtml(action.fromStatus)}"
+      data-to-status="${escapeHtml(action.toStatus)}"
+      data-required-fields="${escapeHtml(action.requiredFields.join('|'))}"
+      data-optional-fields="${escapeHtml(action.optionalFields.join('|'))}"
+      data-confirm-text="${escapeHtml(action.confirmText)}"
+      data-object-type="成衣"
+      data-object-qty="${escapeHtml(String(order.plannedGarmentQty))}"
+      data-qty-unit="${escapeHtml(order.plannedGarmentQtyUnit)}"
+      data-testid="web-status-action-button"
+      ${action.disabledReason ? 'disabled' : ''}
+    >
+      ${escapeHtml(action.actionLabel)}
+    </button>
+  `
+}
+
+function renderAvailableActionSection(order: PostFinishingWorkOrder): string {
+  const actions = getAvailablePostFinishingWebActions(order.postOrderId)
+  const content = actions.length
+    ? `
+      <div class="flex flex-wrap gap-2">
+        ${actions.map((action) => renderPostWebActionButton(order, action)).join('')}
+      </div>
+      ${actions.some((action) => action.disabledReason)
+        ? `<p class="text-xs text-red-600">${escapeHtml(actions.find((action) => action.disabledReason)?.disabledReason || '')}</p>`
+        : '<p class="text-xs text-muted-foreground">点击动作后先弹窗填写本次操作信息，确认后统一写回并生成操作记录。</p>'}
+    `
+    : '<div class="rounded-md border bg-muted/30 px-3 py-3 text-sm text-muted-foreground">当前细状态暂无可执行动作</div>'
+  return renderPostSection('可执行动作', `
+    <div class="space-y-3" data-testid="web-status-action-area">
+      <div class="text-sm"><span class="text-muted-foreground">当前细状态：</span><span class="font-medium">${escapeHtml(order.currentStatus)}</span></div>
+      ${content}
+    </div>
+  `)
+}
+
+function renderOperationRecordRows(records: ProcessWebOperationRecord[]): string {
+  return records.map((record) => `
+    <tr class="align-top" data-testid="operation-record-row">
+      <td class="px-3 py-3 text-sm">${escapeHtml(record.actionLabel)}</td>
+      <td class="px-3 py-3 text-sm">${escapeHtml(record.previousStatus || '—')}</td>
+      <td class="px-3 py-3 text-sm">${escapeHtml(record.nextStatus || '—')}</td>
+      <td class="px-3 py-3 text-sm">${escapeHtml(record.operatorName || '—')}</td>
+      <td class="px-3 py-3 text-sm">${escapeHtml(record.operatedAt || '—')}</td>
+      <td class="px-3 py-3 text-sm">${escapeHtml(`${record.qtyLabel || '成衣件数'}：${record.objectQty || 0} ${record.qtyUnit || '件'}`)}</td>
+      <td class="px-3 py-3 text-sm">${escapeHtml(record.sourceChannel || '—')}</td>
+      <td class="px-3 py-3 text-sm">${escapeHtml(record.remark || '—')}</td>
+    </tr>
+  `).join('')
+}
+
 export function renderPostFinishingWorkOrderDetailPage(postOrderId: string): string {
   const order = getPostFinishingWorkOrderById(postOrderId)
   if (!order) {
@@ -117,6 +184,7 @@ export function renderPostFinishingWorkOrderDetailPage(postOrderId: string): str
   const waitHandoverRecords = warehouseRecords.filter((record) => record.recordType === 'WAIT_HANDOVER')
   const handoverRecords = getHandoverRecordsByWorkOrderId(order.postOrderId)
   const actionRecords = [order.receiveAction, order.qcAction, order.postAction, order.recheckAction].filter(Boolean) as PostFinishingActionRecord[]
+  const operationRecords = getUnifiedOperationRecordsForPostFinishing(order.postOrderId, order.sourceTaskId)
 
   const baseRows: Array<[string, string]> = [
     ['后道单号', order.postOrderNo],
@@ -255,7 +323,7 @@ export function renderPostFinishingWorkOrderDetailPage(postOrderId: string): str
         remark: record.remark,
       })),
     ]
-    return renderPostSection('流转记录', renderPostTable(
+    const flowSection = renderPostSection('流转记录', renderPostTable(
       ['流转节点', '操作人', '操作时间', '操作对象', '操作对象数量和单位', '备注'],
       eventRows.map((event) => `
         <tr class="align-top">
@@ -269,6 +337,12 @@ export function renderPostFinishingWorkOrderDetailPage(postOrderId: string): str
       `).join('') || renderEmptyRow(6, '当前后道单暂无流转记录'),
       'min-w-[1080px]',
     ))
+    const operationSection = renderPostSection('操作记录', renderPostTable(
+      ['操作动作', '前状态', '后状态', '操作人', '操作时间', '操作对象与数量单位', '来源', '备注'],
+      renderOperationRecordRows(operationRecords) || renderEmptyRow(8, '暂无操作记录'),
+      'min-w-[1180px]',
+    ))
+    return `${operationSection}${flowSection}`
   })()
 
   return `
@@ -282,6 +356,7 @@ export function renderPostFinishingWorkOrderDetailPage(postOrderId: string): str
           ${renderPostAction('查看交出记录', `/fcs/craft/post-finishing/wait-handover-warehouse?postOrderId=${encodeURIComponent(order.postOrderId)}`, !order.waitHandoverWarehouseRecordId)}
         </div>
       </div>
+      ${renderAvailableActionSection(order)}
       ${tabBody}
     </div>
   `

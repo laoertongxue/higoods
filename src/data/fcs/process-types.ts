@@ -77,7 +77,7 @@ function mapToLegacyStage(processCode: string, systemProcessCode: string, stageC
 function getRecommendedOwnerTypes(stage: ProcessStage, processCode: string, taskVisibility: 'EXTERNAL' | 'INTERNAL'): string[] {
   if (taskVisibility === 'INTERNAL' && stage === 'POST') return ['FINISHING']
   if (processCode === 'PRINT' || processCode === 'DYE') return ['PRINTING', 'DYEING']
-  if (processCode === 'SHRINKING') return ['DYEING', 'SPECIAL_PROCESS']
+  if (processCode === 'SHRINKING' || processCode === 'WASHING') return ['DYEING', 'SPECIAL_PROCESS']
   if (processCode === 'POST_FINISHING') return ['FINISHING', 'WAREHOUSE']
   if (stage === 'CUTTING') return ['CUTTING', 'SEWING']
   if (stage === 'POST') return ['FINISHING', 'WAREHOUSE']

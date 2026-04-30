@@ -33,8 +33,16 @@ import {
   type SpecialCraftTaskStatus,
 } from './special-craft-task-orders.ts'
 import {
+  applyPostFinishingActionFinish,
+  applyPostFinishingActionStart,
+  ensurePostFinishingHandoverWarehouseRecord,
+  getPostFinishingWorkOrderById,
+  type PostFinishingActionType,
+} from './post-finishing-domain.ts'
+import {
   validateCuttingOrderMobileTaskBinding,
   validateDyeWorkOrderMobileTaskBinding,
+  validatePostFinishingMobileTaskBinding,
   validatePrintWorkOrderMobileTaskBinding,
   validateSpecialCraftMobileTaskBinding,
 } from './process-mobile-task-binding.ts'
@@ -52,7 +60,7 @@ import {
 import { applyWarehouseLinkageAfterAction } from './process-warehouse-linkage-service.ts'
 
 export type ProcessActionSourceChannel = 'Web 端' | '移动端'
-export type ProcessActionSourceType = 'PRINT' | 'DYE' | 'CUTTING' | 'SPECIAL_CRAFT'
+export type ProcessActionSourceType = 'PRINT' | 'DYE' | 'CUTTING' | 'SPECIAL_CRAFT' | 'POST_FINISHING'
 
 export interface ProcessActionPayload {
   sourceChannel: ProcessActionSourceChannel
@@ -572,12 +580,119 @@ export const PROCESS_ACTION_DEFINITIONS: ProcessActionDefinition[] = [
   },
   {
     actionCode: 'SPECIAL_CRAFT_REWORK_AFTER_REJECT',
-    actionLabel: '标记驳回后重交',
+    actionLabel: '驳回后重交',
     sourceType: 'SPECIAL_CRAFT',
-    fromStatuses: ['差异', '差异待处理'],
+    fromStatuses: ['差异', '异议中', '异常', '待回写'],
+    toStatus: '待交出',
+    requiredFields: ['操作人', '重交裁片数量', '备注'],
+    writebackHandler: 'executeSpecialCraftAction.updateSpecialCraftTaskWorkOrderWebStatus',
+  },
+  {
+    actionCode: 'POST_RECEIVE_START',
+    actionLabel: '开始接收领料',
+    sourceType: 'POST_FINISHING',
+    fromStatuses: ['待接收领料'],
+    toStatus: '接收中',
+    requiredFields: ['操作人', '开始时间'],
+    writebackHandler: 'executePostFinishingAction.applyPostFinishingActionStart',
+  },
+  {
+    actionCode: 'POST_RECEIVE_FINISH',
+    actionLabel: '完成接收领料',
+    sourceType: 'POST_FINISHING',
+    fromStatuses: ['接收中'],
+    toStatus: '待质检',
+    requiredFields: ['操作人', '完成时间', '接收成衣件数'],
+    writebackHandler: 'executePostFinishingAction.applyPostFinishingActionFinish',
+    affectsWarehouse: true,
+  },
+  {
+    actionCode: 'POST_QC_START',
+    actionLabel: '开始质检',
+    sourceType: 'POST_FINISHING',
+    fromStatuses: ['待质检'],
+    toStatus: '质检中',
+    requiredFields: ['质检人', '开始时间'],
+    writebackHandler: 'executePostFinishingAction.applyPostFinishingActionStart',
+  },
+  {
+    actionCode: 'POST_QC_FINISH',
+    actionLabel: '完成质检',
+    sourceType: 'POST_FINISHING',
+    fromStatuses: ['质检中'],
+    toStatus: '待后道',
+    requiredFields: ['质检人', '完成时间', '质检通过成衣件数', '质检不合格成衣件数', '质检结果'],
+    writebackHandler: 'executePostFinishingAction.applyPostFinishingActionFinish',
+    affectsWarehouse: true,
+  },
+  {
+    actionCode: 'POST_PROCESS_START',
+    actionLabel: '开始后道',
+    sourceType: 'POST_FINISHING',
+    fromStatuses: ['待后道'],
+    toStatus: '后道中',
+    requiredFields: ['后道操作人', '开始时间'],
+    writebackHandler: 'executePostFinishingAction.applyPostFinishingActionStart',
+  },
+  {
+    actionCode: 'POST_PROCESS_FINISH',
+    actionLabel: '完成后道',
+    sourceType: 'POST_FINISHING',
+    fromStatuses: ['后道中'],
+    toStatus: '待复检',
+    requiredFields: ['后道操作人', '完成时间', '后道完成成衣件数'],
+    writebackHandler: 'executePostFinishingAction.applyPostFinishingActionFinish',
+    affectsWarehouse: true,
+  },
+  {
+    actionCode: 'POST_RECHECK_START',
+    actionLabel: '开始复检',
+    sourceType: 'POST_FINISHING',
+    fromStatuses: ['待复检'],
+    toStatus: '复检中',
+    requiredFields: ['复检人', '开始时间'],
+    writebackHandler: 'executePostFinishingAction.applyPostFinishingActionStart',
+  },
+  {
+    actionCode: 'POST_RECHECK_FINISH',
+    actionLabel: '完成复检',
+    sourceType: 'POST_FINISHING',
+    fromStatuses: ['复检中'],
+    toStatus: '待交出',
+    requiredFields: ['复检人', '完成时间', '复检确认成衣件数', '复检不合格成衣件数'],
+    writebackHandler: 'executePostFinishingAction.applyPostFinishingActionFinish',
+    affectsWarehouse: true,
+  },
+  {
+    actionCode: 'POST_SUBMIT_HANDOVER',
+    actionLabel: '发起交出',
+    sourceType: 'POST_FINISHING',
+    fromStatuses: ['待交出', '复检完成'],
+    toStatus: '待回写',
+    requiredFields: ['交出人', '交出时间', '交出成衣件数'],
+    optionalFields: ['备注'],
+    writebackHandler: 'executePostFinishingAction.createProcessHandoverRecord',
+    affectsHandover: true,
+  },
+  {
+    actionCode: 'POST_REPORT_DIFFERENCE',
+    actionLabel: '上报差异',
+    sourceType: 'POST_FINISHING',
+    fromStatuses: ['质检中', '后道中', '复检中', '待交出'],
+    toStatus: '有差异',
+    requiredFields: ['上报人', '差异类型', '应收成衣件数', '实收成衣件数', '差异成衣件数', '原因'],
+    optionalFields: ['证据'],
+    writebackHandler: 'executePostFinishingAction.createProcessHandoverDifferenceRecord',
+    affectsDifference: true,
+  },
+  {
+    actionCode: 'POST_REWORK_AFTER_REJECT',
+    actionLabel: '驳回后重交',
+    sourceType: 'POST_FINISHING',
+    fromStatuses: ['有差异', '平台处理中'],
     toStatus: '待交出',
     requiredFields: ['操作人', '操作时间', '重交原因'],
-    writebackHandler: 'executeSpecialCraftAction.updateSpecialCraftTaskWorkOrderWebStatus',
+    writebackHandler: 'executePostFinishingAction.reworkAfterReject',
   },
 ]
 
@@ -666,6 +781,20 @@ export function getProcessActionStatusSnapshot(sourceType: ProcessActionSourceTy
     }
   }
 
+  if (sourceType === 'POST_FINISHING') {
+    const order = getPostFinishingWorkOrderById(sourceId)
+    if (!order) throw new Error('后道单不存在')
+    const binding = validatePostFinishingMobileTaskBinding(order.postOrderId)
+    return {
+      status: order.currentStatus,
+      label: order.currentStatus,
+      qty: order.plannedGarmentQty,
+      unit: order.plannedGarmentQtyUnit,
+      taskId: binding.actualTaskId || order.sourceTaskId,
+      workOrderNo: order.postOrderNo,
+    }
+  }
+
   const workOrder = getSpecialCraftTaskWorkOrderById(sourceId)
   if (!workOrder) throw new Error('特殊工艺工艺单不存在')
   const binding = validateSpecialCraftMobileTaskBinding(sourceId)
@@ -687,7 +816,9 @@ function validateBinding(sourceType: ProcessActionSourceType, sourceId: string):
         ? validateDyeWorkOrderMobileTaskBinding(sourceId)
         : sourceType === 'CUTTING'
           ? validateCuttingOrderMobileTaskBinding(sourceId)
-          : validateSpecialCraftMobileTaskBinding(sourceId)
+          : sourceType === 'SPECIAL_CRAFT'
+            ? validateSpecialCraftMobileTaskBinding(sourceId)
+            : validatePostFinishingMobileTaskBinding(sourceId)
   return {
     ok: binding.canOpenMobileExecution,
     reason: binding.reasonLabel,
@@ -709,7 +840,17 @@ function toPlatformStatus(sourceType: ProcessActionSourceType, sourceId: string,
 function assertRequiredFields(payload: ProcessActionPayload, definition: ProcessActionDefinition, qty: number): void {
   const fields = payload.formData || {}
   for (const field of definition.requiredFields) {
-    if (field === '操作人' || field === '交出人' || field === '领料人' || field === '接收人' || field === '入仓人' || field === '上报人') {
+    if (
+      field === '操作人' ||
+      field === '交出人' ||
+      field === '领料人' ||
+      field === '接收人' ||
+      field === '入仓人' ||
+      field === '上报人' ||
+      field === '质检人' ||
+      field === '后道操作人' ||
+      field === '复检人'
+    ) {
       if (!payload.operatorName?.trim()) throw new Error(`请填写${field}`)
       continue
     }
@@ -996,6 +1137,88 @@ export function executeSpecialCraftAction(payload: ProcessActionPayload): Partia
   return { updatedWorkOrderId: updated?.workOrderId || workOrder.workOrderId }
 }
 
+function getPostFinishingActionType(actionCode: string, currentStatus?: string): PostFinishingActionType {
+  if (actionCode.includes('RECEIVE')) return '接收领料'
+  if (actionCode.includes('QC')) return '质检'
+  if (actionCode.includes('PROCESS')) return '后道'
+  if (actionCode.includes('RECHECK')) return '复检'
+  if (currentStatus?.includes('质检')) return '质检'
+  if (currentStatus?.includes('后道')) return '后道'
+  if (currentStatus?.includes('复检') || currentStatus === '待交出') return '复检'
+  return '接收领料'
+}
+
+function getPostFinishingRejectedQty(payload: ProcessActionPayload, actionCode: string): number {
+  const fields = payload.formData || {}
+  if (actionCode === 'POST_QC_FINISH') return Number(fields['质检不合格成衣件数'] || 0)
+  if (actionCode === 'POST_RECHECK_FINISH') return Number(fields['复检不合格成衣件数'] || 0)
+  return 0
+}
+
+export function executePostFinishingAction(payload: ProcessActionPayload): Partial<ProcessActionWritebackResult> {
+  const definition = getProcessActionDefinition('POST_FINISHING', payload.actionCode)
+  if (!definition) throw new Error('后道动作未注册')
+  const order = getPostFinishingWorkOrderById(payload.sourceId)
+  if (!order) throw new Error('后道单不存在')
+  const actionCode = normalizeActionCode(payload.actionCode)
+  const operatorName = payload.operatorName || (payload.sourceChannel === '移动端' ? '移动端操作员' : 'Web 端操作员')
+  const qty = Number(payload.objectQty || order.plannedGarmentQty || 0)
+  const actionType = getPostFinishingActionType(actionCode, order.currentStatus)
+
+  if (actionCode.endsWith('_START')) {
+    const updated = applyPostFinishingActionStart({
+      postOrderId: payload.sourceId,
+      actionType,
+      operatorName,
+      startedAt: payload.operatedAt,
+    })
+    return { updatedWorkOrderId: updated.postOrderId, nextStatus: updated.currentStatus } as Partial<ProcessActionWritebackResult>
+  }
+
+  if (actionCode === 'POST_SUBMIT_HANDOVER') {
+    ensurePostFinishingHandoverWarehouseRecord({ postOrderId: payload.sourceId, createdAt: payload.operatedAt })
+    return { updatedWorkOrderId: payload.sourceId, nextStatus: '待回写' } as Partial<ProcessActionWritebackResult>
+  }
+
+  if (actionCode === 'POST_REPORT_DIFFERENCE') {
+    const fields = payload.formData || {}
+    const expectedQty = Number(fields['应收成衣件数'] || order.plannedGarmentQty || qty)
+    const actualQty = Number(fields['实收成衣件数'] || Math.max(expectedQty - qty, 0))
+    const diffQty = Number(fields['差异成衣件数'] || Math.max(expectedQty - actualQty, 0) || qty)
+    const updated = applyPostFinishingActionFinish({
+      postOrderId: payload.sourceId,
+      actionType,
+      operatorName,
+      finishedAt: payload.operatedAt,
+      submittedGarmentQty: expectedQty,
+      acceptedGarmentQty: actualQty,
+      rejectedGarmentQty: 0,
+      diffGarmentQty: diffQty,
+      remark: payload.remark || '后道差异上报',
+    })
+    return { updatedWorkOrderId: updated.postOrderId, nextStatus: '有差异' } as Partial<ProcessActionWritebackResult>
+  }
+
+  if (actionCode.endsWith('_FINISH')) {
+    const rejectedQty = getPostFinishingRejectedQty(payload, actionCode)
+    const acceptedQty = Math.max(qty - (Number.isFinite(rejectedQty) ? rejectedQty : 0), 0)
+    const updated = applyPostFinishingActionFinish({
+      postOrderId: payload.sourceId,
+      actionType,
+      operatorName,
+      finishedAt: payload.operatedAt,
+      submittedGarmentQty: qty,
+      acceptedGarmentQty: acceptedQty,
+      rejectedGarmentQty: Number.isFinite(rejectedQty) ? rejectedQty : 0,
+      diffGarmentQty: 0,
+      remark: payload.remark,
+    })
+    return { updatedWorkOrderId: updated.postOrderId, nextStatus: updated.currentStatus } as Partial<ProcessActionWritebackResult>
+  }
+
+  return { updatedWorkOrderId: payload.sourceId }
+}
+
 export function createProcessActionOperationRecord(
   payload: ProcessActionPayload,
   definition?: ProcessActionDefinition,
@@ -1078,8 +1301,11 @@ export function executeProcessAction(payload: ProcessActionPayload): ProcessActi
         ? executeDyeAction(hydratedPayload)
         : hydratedPayload.sourceType === 'CUTTING'
           ? executeCuttingAction(hydratedPayload)
-          : executeSpecialCraftAction(hydratedPayload)
-  const platformStatusAfter = toPlatformStatus(hydratedPayload.sourceType, hydratedPayload.sourceId, definition.toStatus)
+          : hydratedPayload.sourceType === 'SPECIAL_CRAFT'
+            ? executeSpecialCraftAction(hydratedPayload)
+            : executePostFinishingAction(hydratedPayload)
+  const actualNextStatus = partial.nextStatus || definition.toStatus
+  const platformStatusAfter = toPlatformStatus(hydratedPayload.sourceType, hydratedPayload.sourceId, actualNextStatus)
   const preliminaryResult: ProcessActionWritebackResult = {
     success: true,
     sourceChannel: hydratedPayload.sourceChannel,
@@ -1089,7 +1315,7 @@ export function executeProcessAction(payload: ProcessActionPayload): ProcessActi
     actionCode: definition.actionCode,
     actionLabel: definition.actionLabel,
     previousStatus: snapshot.label,
-    nextStatus: definition.toStatus,
+    nextStatus: actualNextStatus,
     updatedWorkOrderId: partial.updatedWorkOrderId || hydratedPayload.sourceId,
     updatedTaskId: partial.updatedTaskId || hydratedPayload.taskId || snapshot.taskId,
     operationRecordId: '',
@@ -1121,7 +1347,7 @@ export function executeProcessAction(payload: ProcessActionPayload): ProcessActi
     affectedReviewRecordId: linkage.updatedReviewRecordId || linkage.createdReviewRecordId || partial.affectedReviewRecordId || '',
     affectedDifferenceRecordId: linkage.updatedDifferenceRecordId || linkage.createdDifferenceRecordId || partial.affectedDifferenceRecordId || '',
   }
-  const operationRecord = createProcessActionOperationRecord(hydratedPayload, definition, snapshot.label, definition.toStatus, linkedPartial)
+  const operationRecord = createProcessActionOperationRecord(hydratedPayload, definition, snapshot.label, actualNextStatus, linkedPartial)
   return {
     success: true,
     sourceChannel: hydratedPayload.sourceChannel,
@@ -1131,7 +1357,7 @@ export function executeProcessAction(payload: ProcessActionPayload): ProcessActi
     actionCode: definition.actionCode,
     actionLabel: definition.actionLabel,
     previousStatus: snapshot.label,
-    nextStatus: definition.toStatus,
+    nextStatus: actualNextStatus,
     updatedWorkOrderId: partial.updatedWorkOrderId || hydratedPayload.sourceId,
     updatedTaskId: partial.updatedTaskId || hydratedPayload.taskId || snapshot.taskId,
     operationRecordId: operationRecord.operationRecordId,

@@ -11,6 +11,7 @@ import {
 } from './pda-cutting-execution-source.ts'
 import { listPdaGenericTasksByProcess } from './pda-task-mock-factory.ts'
 import {
+  getPostFinishingWorkOrderById,
   listPostFinishingWorkOrders,
   listSewingFactoryPostTasks,
   type PostFinishingWorkOrder,
@@ -301,7 +302,7 @@ export function getMobileTaskProcessType(task: ProcessTask | null | undefined): 
   if (/PROC_CUT|CUTTING|裁片|定位裁/.test(explicitFields)) return 'CUTTING'
   if (/POST_FINISH|后道/.test(explicitFields)) return 'POST_FINISHING'
   if (/SEW|车缝/.test(explicitFields)) return 'SEWING'
-  if (/SPECIAL|特殊工艺|绣花|打揽|打条|激光切|洗水|烫画|直喷|捆条/.test(craftFields)) return 'SPECIAL_CRAFT'
+  if (/SPECIAL|特殊工艺|绣花|打揽|打条|激光切|烫画|直喷|捆条/.test(craftFields)) return 'SPECIAL_CRAFT'
   return 'UNKNOWN'
 }
 
@@ -645,11 +646,30 @@ export function validateSpecialCraftMobileTaskBinding(workOrderId: string): Proc
   })
 }
 
+export function validatePostFinishingMobileTaskBinding(postOrderId: string): ProcessMobileTaskBindingResult {
+  const order = getPostFinishingWorkOrderById(postOrderId)
+  const expectedTaskId = order?.sourceTaskId || ''
+  return validateBinding({
+    workOrderId: order?.postOrderId || postOrderId,
+    workOrderNo: order?.postOrderNo || postOrderId,
+    processType: 'POST_FINISHING',
+    sourceType: 'POST_FINISHING_WORK_ORDER',
+    sourceId: postOrderId,
+    expectedTaskId,
+    expectedTaskNo: order?.postOrderNo || order?.sourceTaskNo,
+    expectedFactoryId: order?.managedPostFactoryId || TEST_FACTORY_ID,
+    sourceExists: Boolean(order),
+    actualTask: expectedTaskId ? getPdaMobileExecutionTaskById(expectedTaskId) : null,
+    currentFactoryId: TEST_FACTORY_ID,
+  })
+}
+
 export function validateProcessMobileTaskBinding(params: { processType: MobileTaskProcessType; sourceId: string }): ProcessMobileTaskBindingResult {
   if (params.processType === 'PRINT') return validatePrintWorkOrderMobileTaskBinding(params.sourceId)
   if (params.processType === 'DYE') return validateDyeWorkOrderMobileTaskBinding(params.sourceId)
   if (params.processType === 'CUTTING') return validateCuttingOrderMobileTaskBinding(params.sourceId)
   if (params.processType === 'SPECIAL_CRAFT') return validateSpecialCraftMobileTaskBinding(params.sourceId)
+  if (params.processType === 'POST_FINISHING') return validatePostFinishingMobileTaskBinding(params.sourceId)
   return validateBinding({
     workOrderId: params.sourceId,
     workOrderNo: params.sourceId,
@@ -685,6 +705,9 @@ export function listInvalidProcessMobileTaskBindings(filter: { processType?: Mob
   }
   if (!filter.processType || filter.processType === 'SPECIAL_CRAFT') {
     results.push(...listSpecialCraftTaskWorkOrders().map((workOrder) => validateSpecialCraftMobileTaskBinding(workOrder.workOrderId)))
+  }
+  if (!filter.processType || filter.processType === 'POST_FINISHING') {
+    results.push(...listPostFinishingWorkOrders().map((order) => validatePostFinishingMobileTaskBinding(order.postOrderId)))
   }
   return results.filter((item) => item.reasonCode !== 'OK')
 }

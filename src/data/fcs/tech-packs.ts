@@ -33,6 +33,13 @@ export type TechPackPatternParseStatus =
   | 'PARSED'
   | 'FAILED'
   | 'NOT_REQUIRED'
+export type TechPackPatternMaintainerStepStatus =
+  | '待跟单维护'
+  | '待版师维护'
+  | '待解析'
+  | '已解析待确认'
+  | '已完成'
+export type TechPackPatternInfoStatus = '未填写' | '已填写' | '待解析' | '已解析'
 export type TechPackPatternPieceSourceType = 'PARSED_PATTERN' | 'MANUAL'
 export type TechPackPatternDesignSideType = 'FRONT' | 'INSIDE'
 
@@ -61,6 +68,14 @@ export interface TechPackPatternPieceColorAllocation {
   pieceCount: number
 }
 
+export interface TechPackPatternColorPieceQuantity {
+  colorId: string
+  colorName: string
+  pieceQty: number
+  enabled: boolean
+  remark?: string
+}
+
 export interface TechPackPatternPieceSpecialCraft {
   processCode: string
   processName: string
@@ -72,9 +87,42 @@ export interface TechPackPatternPieceSpecialCraft {
   supportedTargetObjectLabels: SpecialCraftTargetObjectLabel[]
 }
 
+export type TechPackPatternPieceCraftPosition = 'LEFT' | 'RIGHT' | 'BOTTOM' | 'FACE'
+export type TechPackPatternPieceCraftPositionName = '左' | '右' | '底' | '面'
+export type TechPackPatternPieceInstanceStatus = '未配置' | '已配置' | '待确认'
+
+export interface TechPackPatternPieceSpecialCraftAssignment {
+  assignmentId: string
+  craftCode: string
+  craftName: string
+  craftCategory?: 'AUXILIARY' | 'SPECIAL'
+  craftCategoryName?: '辅助工艺' | '特种工艺'
+  targetObject?: 'CUT_PIECE_PART' | 'FABRIC' | 'ACCESSORY'
+  targetObjectName?: '裁片部位' | '面料' | '辅料'
+  craftPosition: TechPackPatternPieceCraftPosition
+  craftPositionName: TechPackPatternPieceCraftPositionName
+  remark?: string
+  createdBy?: string
+  updatedAt?: string
+}
+
+export interface TechPackPatternPieceInstance {
+  pieceInstanceId: string
+  sourcePieceId: string
+  pieceName: string
+  sizeName?: string
+  colorId: string
+  colorName: string
+  sequenceNo: number
+  displayName: string
+  specialCraftAssignments: TechPackPatternPieceSpecialCraftAssignment[]
+  status: TechPackPatternPieceInstanceStatus
+}
+
 export interface TechPackPatternPieceRow {
   id: string
   name: string
+  /** 兼容旧裁床/特殊工艺链路。纸样管理页面不再直接编辑该字段，保存时由 totalPieceQty 回写。 */
   count: number
   note?: string
   isTemplate?: boolean
@@ -94,6 +142,9 @@ export interface TechPackPatternPieceRow {
   systemPieceName?: string
   candidatePartNames?: string[]
   sizeCode?: string
+  parsedQuantity?: number
+  colorPieceQuantities?: TechPackPatternColorPieceQuantity[]
+  totalPieceQty?: number
   quantityText?: string
   annotation?: string
   category?: string
@@ -106,6 +157,27 @@ export interface TechPackPatternPieceRow {
   parserStatus?: '解析成功' | '待人工矫正' | '解析异常'
   machineReadyStatus?: '可模板机处理' | '待评估' | '不适用'
   rawTextLabels?: string[]
+}
+
+export interface TechPackPatternManagedFile {
+  fileName: string
+  fileType: string
+  fileSize: number
+  uploadedAt: string
+  uploadedBy: string
+  previewUrl?: string
+}
+
+export interface TechPackPatternBindingStrip {
+  bindingStripId: string
+  bindingStripNo: string
+  bindingStripName: string
+  lengthCm: number
+  widthCm: number
+  relatedMaterialId?: string
+  remark?: string
+  createdBy?: string
+  updatedAt?: string
 }
 
 export interface TechPackPatternFile {
@@ -141,12 +213,32 @@ export interface TechPackPatternFile {
   selectedSizeCodes?: string[]
   imageUrl?: string
   remark?: string
+  maintainerStepStatus?: TechPackPatternMaintainerStepStatus
+  merchandiserInfoStatus?: Extract<TechPackPatternInfoStatus, '未填写' | '已填写'>
+  patternMakerInfoStatus?: TechPackPatternInfoStatus
+  isKnitted?: '是' | '否'
+  linkedMaterialId?: string
+  linkedMaterialName?: string
+  linkedMaterialSku?: string
+  prjFile?: TechPackPatternManagedFile
+  markerImage?: TechPackPatternManagedFile
+  dxfFile?: TechPackPatternManagedFile
+  rulFile?: TechPackPatternManagedFile
+  bindingStrips?: TechPackPatternBindingStrip[]
+  patternSignature?: string
+  duplicateConfirmed?: boolean
+  duplicateWarningReasons?: string[]
   // 纸样结构化信息（门幅单位：cm，排料长度单位：m，pieces 为裁片片数）
   linkedBomItemId?: string
   widthCm?: number
   markerLengthM?: number
   totalPieceCount?: number
+  patternTotalPieceQty?: number
   pieceRows?: TechPackPatternPieceRow[]
+  pieceInstances?: TechPackPatternPieceInstance[]
+  pieceInstanceTotal?: number
+  specialCraftConfiguredPieceTotal?: number
+  specialCraftUnconfiguredPieceTotal?: number
 }
 
 export interface TechPackProcess {
@@ -183,10 +275,21 @@ export interface TechPackProcessEntry {
   taskTypeMode: TechPackTaskTypeMode
   isSpecialCraft: boolean
   selectedTargetObject?: TechPackSpecialCraftTargetObject
+  targetObject?: 'CUT_PIECE_PART' | 'FABRIC' | 'ACCESSORY'
+  targetObjectName?: '裁片部位' | '面料' | '辅料'
   supportedTargetObjects?: SpecialCraftSupportedTargetObject[]
   supportedTargetObjectLabels?: SpecialCraftTargetObjectLabel[]
   visibleFactoryTypes?: SpecialCraftVisibleFactoryType[]
   triggerSource?: string
+  sourceType?: 'BOM' | 'MANUAL' | 'DICT'
+  triggerField?: 'printRequirement' | 'dyeRequirement' | 'shrinkRequirement' | 'washRequirement'
+  isAutoGenerated?: boolean
+  canRemoveAutomatically?: boolean
+  hasManualOverride?: boolean
+  manualNotes?: string
+  manualFieldsTouched?: boolean
+  requiresRemovalConfirmation?: boolean
+  linkageStatus?: '已生成' | '待确认'
   standardTimeMinutes?: number
   timeUnit?: string
   referencePublishedSamValue?: number
@@ -218,6 +321,8 @@ export interface TechPackBomItem {
   supplier: string
   printRequirement?: string
   dyeRequirement?: string
+  shrinkRequirement?: '是' | '否'
+  washRequirement?: '是' | '否'
   printSideMode?: '' | 'SINGLE' | 'DOUBLE'
   frontPatternDesignId?: string
   insidePatternDesignId?: string
@@ -745,6 +850,8 @@ export const techPacks: TechPack[] = [
         supplier: 'PT Textile Indo',
         printRequirement: '丝网印',
         dyeRequirement: '无',
+        shrinkRequirement: '是',
+        washRequirement: '是',
         printSideMode: 'SINGLE',
         frontPatternDesignId: 'pd-1-front',
         insidePatternDesignId: '',
@@ -763,6 +870,8 @@ export const techPacks: TechPack[] = [
         supplier: 'PT Textile Indo',
         printRequirement: '无',
         dyeRequirement: '无',
+        shrinkRequirement: '是',
+        washRequirement: '否',
         applicableSkuCodes: ['SKU-001-S-BLK', 'SKU-001-M-BLK', 'SKU-001-L-BLK', 'SKU-001-XL-BLK'],
         linkedPatternIds: ['pf-1', 'pf-2'],
         usageProcessCodes: ['PROC_CUT'],
@@ -778,6 +887,8 @@ export const techPacks: TechPack[] = [
         supplier: 'CV Knit Delta',
         printRequirement: '数码印',
         dyeRequirement: '匹染',
+        shrinkRequirement: '否',
+        washRequirement: '是',
         printSideMode: 'DOUBLE',
         frontPatternDesignId: 'pd-1-front',
         insidePatternDesignId: 'pd-1-inside',
@@ -796,6 +907,8 @@ export const techPacks: TechPack[] = [
         supplier: 'CV Thread Jaya',
         printRequirement: '无',
         dyeRequirement: '无',
+        shrinkRequirement: '否',
+        washRequirement: '否',
         applicableSkuCodes: [],
         linkedPatternIds: [],
         usageProcessCodes: ['PROC_SEW'],
@@ -811,6 +924,8 @@ export const techPacks: TechPack[] = [
         supplier: 'PT Packindo',
         printRequirement: '无',
         dyeRequirement: '无',
+        shrinkRequirement: '否',
+        washRequirement: '否',
         applicableSkuCodes: [],
         linkedPatternIds: [],
         usageProcessCodes: ['PROC_PACK'],
@@ -1083,6 +1198,8 @@ export const techPacks: TechPack[] = [
         supplier: 'PT Fabric Master',
         printRequirement: '无',
         dyeRequirement: '匹染',
+        shrinkRequirement: '是',
+        washRequirement: '否',
         applicableSkuCodes: ['SKU-005-S-GRY', 'SKU-005-M-GRY', 'SKU-005-L-GRY', 'SKU-005-XL-GRY'],
         usageProcessCodes: ['PROC_CUT', 'PROC_DYE'],
       },
@@ -1097,6 +1214,8 @@ export const techPacks: TechPack[] = [
         supplier: 'PT Interlining',
         printRequirement: '无',
         dyeRequirement: '无',
+        shrinkRequirement: '否',
+        washRequirement: '否',
         applicableSkuCodes: [],
         usageProcessCodes: ['PROC_SEW', 'PROC_IRON'],
       },
@@ -1190,6 +1309,8 @@ export const techPacks: TechPack[] = [
         supplier: 'CV Chiffon Indo',
         printRequirement: '数码印',
         dyeRequirement: '无',
+        shrinkRequirement: '否',
+        washRequirement: '是',
         applicableSkuCodes: ['SKU-003-S-RED', 'SKU-003-M-RED', 'SKU-003-L-RED', 'SKU-003-S-BLU', 'SKU-003-M-BLU', 'SKU-003-L-BLU'],
         usageProcessCodes: ['PROC_PRINT', 'PROC_DYE', 'PROC_CUT'],
       },
@@ -1204,6 +1325,8 @@ export const techPacks: TechPack[] = [
         supplier: 'CV Metal Basic',
         printRequirement: '无',
         dyeRequirement: '无',
+        shrinkRequirement: '否',
+        washRequirement: '否',
         applicableSkuCodes: [],
         usageProcessCodes: ['PROC_SEW', 'PROC_PACK'],
       },
@@ -1682,6 +1805,8 @@ export const techPacks: TechPack[] = [
         supplier: 'PT Textile Nusantara',
         printRequirement: '其他',
         dyeRequirement: '其他',
+        shrinkRequirement: '是',
+        washRequirement: '否',
         applicableSkuCodes: ['SKU-017-S-NVY', 'SKU-017-M-NVY', 'SKU-017-L-NVY', 'SKU-017-XL-NVY'],
         usageProcessCodes: ['PROC_PRINT', 'PROC_DYE'],
       },

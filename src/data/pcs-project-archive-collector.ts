@@ -774,8 +774,8 @@ function buildRevisionDocuments(
       })),
       ...(task.patternPieceImageIds || []).map((fileId, index) => ({
         sourceFileId: fileId,
-        fileName: archiveFileNameFromUrl(fileId, `纸样图片-${index + 1}.png`),
-        fileType: '纸样图片',
+        fileName: archiveFileNameFromUrl(fileId, `唛架图片-${index + 1}.png`),
+        fileType: '唛架图片',
         previewUrl: fileId,
       })),
       ...(task.patternFileIds || []).map((fileId, index) => ({
@@ -873,8 +873,8 @@ function buildPatternTaskDocuments(
       })),
       ...(task.patternImageLineItems || []).map((line, index) => ({
         sourceFileId: line.imageId,
-        fileName: archiveFileNameFromUrl(line.imageId, `纸样图片-${line.materialPartName || index + 1}.png`),
-        fileType: '纸样图片',
+        fileName: archiveFileNameFromUrl(line.imageId, `唛架图片-${line.materialPartName || index + 1}.png`),
+        fileType: '唛架图片',
         previewUrl: line.imageId,
       })),
       ...(task.patternPdfFileIds || []).map((fileId, index) => ({

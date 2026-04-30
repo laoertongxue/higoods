@@ -13,7 +13,7 @@ const labels = contract.fieldDefinitions.map((field) => field.label)
   '样板确认时间',
   '面辅料明细',
   '花色需求',
-  '纸样图片明细',
+  '唛架图片明细',
   'PDF 文件',
   'DXF 文件',
   'RUL 文件',

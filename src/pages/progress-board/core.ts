@@ -12,6 +12,8 @@ import {
 import { renderTaskDimension, renderTaskDrawer, renderBlockDialog, renderBatchConfirmDialog } from './task-domain.ts'
 import { renderOrderDimension, renderOrderDrawer } from './order-domain.ts'
 import { getProgressStatisticsDashboard } from '../../data/fcs/progress-statistics-linkage.ts'
+import { listPlatformPostFinishingResultViews } from '../../data/fcs/platform-process-result-view.ts'
+import { PLATFORM_PROCESS_STATUS_CLASS } from '../../data/fcs/process-platform-status-adapter.ts'
 
 function renderProductionProgressLinkage(): string {
   const dashboard = getProgressStatisticsDashboard()
@@ -101,6 +103,60 @@ function renderProductionProgressLinkage(): string {
   `
 }
 
+function renderPostFinishingPlatformResults(): string {
+  const rows = listPlatformPostFinishingResultViews().slice(0, 8)
+  if (rows.length === 0) return ''
+
+  return `
+    <section class="space-y-3 rounded-lg border bg-card p-4">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 class="text-base font-semibold text-foreground">后道平台结果</h2>
+          <p class="mt-1 text-xs text-muted-foreground">平台侧只看后道聚合状态、风险、跟单动作、交出和差异结果。</p>
+        </div>
+        <div class="text-xs text-muted-foreground">统一结果视图：后道单 / 质检单 / 复检单</div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[1320px] text-sm">
+          <thead class="border-b bg-muted/40 text-left text-xs text-muted-foreground">
+            <tr>
+              ${['后道单号', '生产单', '平台状态', '工厂内部状态', '风险提示', '下一步动作', '当前责任方', '关键数量', '同步结果', '最新来源']
+                .map((item) => `<th class="px-3 py-2 font-medium">${item}</th>`)
+                .join('')}
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map((row) => {
+              const quantityText = row.quantityDisplayFields.slice(0, 4).map((field) => field.text).join('；')
+              const linkedResult = [
+                row.hasWaitProcessRecord ? '待加工仓' : '',
+                row.hasWaitHandoverRecord ? '待交出仓' : '',
+                row.hasHandoverRecord ? '交出记录' : '',
+                row.hasReviewRecord ? '审核记录' : '',
+                row.hasDifferenceRecord ? '差异记录' : '',
+              ].filter(Boolean).join(' / ') || '暂无仓交出结果'
+              return `
+                <tr class="border-b align-top">
+                  <td class="px-3 py-3 font-medium text-blue-700">${row.workOrderNo}</td>
+                  <td class="px-3 py-3">${row.productionOrderNo}</td>
+                  <td class="px-3 py-3">${renderBadge(row.platformStatusLabel, PLATFORM_PROCESS_STATUS_CLASS[row.platformStatusLabel])}</td>
+                  <td class="px-3 py-3">工厂内部状态：${row.factoryInternalStatusLabel}</td>
+                  <td class="px-3 py-3">${row.platformRiskLabel}</td>
+                  <td class="px-3 py-3">${row.platformActionHint}<div class="mt-1 text-xs text-muted-foreground">跟单动作：${row.followUpActionLabel}</div></td>
+                  <td class="px-3 py-3">${row.platformOwnerHint}</td>
+                  <td class="px-3 py-3">${quantityText}</td>
+                  <td class="px-3 py-3">${linkedResult}</td>
+                  <td class="px-3 py-3">${row.latestOperationChannel || '—'}</td>
+                </tr>
+              `
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  `
+}
+
 function renderHeader(filteredTasks: ProcessTask[]): string {
   const selectedCount = state.selectedTaskIds.length
 
@@ -170,6 +226,7 @@ export function renderProgressBoardPage(): string {
     <div class="space-y-4">
       ${renderHeader(filteredTasks)}
       ${renderProductionProgressLinkage()}
+      ${renderPostFinishingPlatformResults()}
       ${state.dimension === 'task' ? renderTaskDimension(filteredTasks) : renderOrderDimension(poRows)}
       ${renderTaskDrawer()}
       ${renderOrderDrawer(poRows)}
