@@ -284,14 +284,14 @@ function renderBadge(label: string, className: string): string {
 
 function renderHeaderActions(): string {
   const returnToSummary = hasSummaryReturnContext(state.drillContext)
-    ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="return-summary">返回裁剪总表</button>`
+    ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="return-summary">返回裁剪总结</button>`
     : ''
   return `
     <div class="flex flex-wrap items-center gap-2">
       <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-original-orders-index">返回原始裁片单</button>
       <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-marker-plan-index">去唛架</button>
       ${returnToSummary}
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-summary-index">查看裁剪总表</button>
+      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-summary-index">查看裁剪总结</button>
     </div>
   `
 }
@@ -642,8 +642,8 @@ function renderTable(rows: MaterialPrepRow[]): string {
                           <td class="px-4 py-3 align-top">
                             <div class="flex flex-wrap gap-2">
                               <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-prep-action="open-detail" data-record-id="${escapeHtml(row.id)}">查看详情</button>
-                              <button type="button" class="text-xs text-blue-600 hover:underline" data-nav="${escapeHtml(buildMaterialPrepSlipPrintLink(row.id))}">打印配料单</button>
-                              <button type="button" class="text-xs text-blue-600 hover:underline" data-nav="${escapeHtml(buildCuttingOrderQrLabelPrintLink(row.originalCutOrderId))}">打印裁片单二维码</button>
+                              <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-prep-action="print-issue-list" data-record-id="${escapeHtml(row.id)}">打印配料单</button>
+                              <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-prep-action="print-cutting-order-qr" data-record-id="${escapeHtml(row.id)}">打印裁片单二维码</button>
                               <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-prep-action="open-records-dialog" data-record-id="${escapeHtml(row.id)}">查看领料记录</button>
                               <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-prep-action="open-schedule-dialog" data-record-id="${escapeHtml(row.id)}">分配裁床组</button>
                               <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-prep-action="go-marker-plan" data-record-id="${escapeHtml(row.id)}">去唛架</button>
@@ -928,8 +928,8 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
       <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50" data-cutting-prep-action="open-config-dialog" data-record-id="${escapeHtml(row.id)}" ${canConfigureFabricMaterial(resolveFcsDemoRole('WAREHOUSE_OPERATOR')) ? '' : `title="${ACTION_PERMISSION_DENIED_TEXT}" disabled`}>编辑配置结果</button>
       <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-prep-action="open-claim-dialog" data-record-id="${escapeHtml(row.id)}">裁床领料</button>
       <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-prep-action="open-schedule-dialog" data-record-id="${escapeHtml(row.id)}">分配裁床组</button>
-      <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-nav="${escapeHtml(buildMaterialPrepSlipPrintLink(row.id))}">打印配料单</button>
-      <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-nav="${escapeHtml(buildCuttingOrderQrLabelPrintLink(row.originalCutOrderId))}">打印裁片单二维码</button>
+      <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-prep-action="print-issue-list" data-record-id="${escapeHtml(row.id)}">打印配料单</button>
+      <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-prep-action="print-cutting-order-qr" data-record-id="${escapeHtml(row.id)}">打印裁片单二维码</button>
     </div>
   `
 
@@ -1013,8 +1013,8 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
                   </div>
                 `
             }
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildMaterialPrepSlipPrintLink(row.id))}">打印配料单</button>
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildCuttingOrderQrLabelPrintLink(row.originalCutOrderId))}">打印裁片单二维码</button>
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="print-issue-list" data-record-id="${escapeHtml(row.id)}">打印配料单</button>
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="print-cutting-order-qr" data-record-id="${escapeHtml(row.id)}">打印裁片单二维码</button>
           </div>
         `,
       )}
@@ -1034,7 +1034,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-marker-plan" data-record-id="${escapeHtml(row.id)}">去来源唛架</button>
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-marker-spreading" data-record-id="${escapeHtml(row.id)}">去来源铺布</button>
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-production-progress" data-record-id="${escapeHtml(row.id)}">返回生产单进度</button>
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-summary" data-record-id="${escapeHtml(row.id)}">去裁剪总表</button>
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-summary" data-record-id="${escapeHtml(row.id)}">去裁剪总结</button>
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-prep-action="go-merge-batches" data-record-id="${escapeHtml(row.id)}">
               去来源合并裁剪批次
             </button>
@@ -1113,6 +1113,18 @@ function renderClaimDisputeDetail(row: MaterialPrepRow): string {
       </div>
     </div>
   `
+}
+
+function openPrintPreviewWindow(url: string): void {
+  if (typeof window === 'undefined') {
+    appStore.navigate(url)
+    return
+  }
+
+  const openedWindow = window.open(url, '_blank', 'noopener,noreferrer')
+  if (!openedWindow) {
+    appStore.navigate(url)
+  }
 }
 
 function renderConfigDialog(viewModel = getViewModel()): string {
@@ -1520,8 +1532,19 @@ function printIssueList(recordId: string | undefined): boolean {
   row.printedAt = nowText()
   row.printedBy = '仓库配料页统一打印'
   recalculateMaterialPrepRow(row, sourceRecordMap.get(row.id))
-  setFeedback('success', `${row.originalCutOrderNo} 已进入统一配料单打印预览。`)
-  appStore.navigate(buildMaterialPrepSlipPrintLink(row.id))
+  const url = buildMaterialPrepSlipPrintLink(row.id)
+  setFeedback('success', `${row.originalCutOrderNo} 已打开统一配料单打印预览。`)
+  openPrintPreviewWindow(url)
+  return true
+}
+
+function printCuttingOrderQr(recordId: string | undefined): boolean {
+  const row = getRecordById(recordId)
+  if (!row) return false
+
+  const url = buildCuttingOrderQrLabelPrintLink(row.originalCutOrderId)
+  setFeedback('success', `${row.originalCutOrderNo} 已打开裁片单二维码打印预览。`)
+  openPrintPreviewWindow(url)
   return true
 }
 
@@ -1714,6 +1737,10 @@ export function handleCraftCuttingMaterialPrepEvent(target: Element): boolean {
 
   if (action === 'print-issue-list') {
     return printIssueList(actionNode.dataset.recordId || state.activeOrderId || undefined)
+  }
+
+  if (action === 'print-cutting-order-qr') {
+    return printCuttingOrderQr(actionNode.dataset.recordId || state.activeOrderId || undefined)
   }
 
   if (action === 'close-overlay') {

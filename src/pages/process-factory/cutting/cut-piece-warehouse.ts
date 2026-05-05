@@ -153,14 +153,14 @@ function renderTag(label: string, className: string): string {
 
 function renderHeaderActions(): string {
   const returnToSummary = hasSummaryReturnContext(state.drillContext)
-    ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cut-piece-warehouse-action="return-summary">返回裁剪总表</button>`
+    ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cut-piece-warehouse-action="return-summary">返回裁剪总结</button>`
     : ''
   return `
     <div class="flex flex-wrap items-center gap-2">
       <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cut-piece-warehouse-action="go-original-orders-index">查看原始裁片单</button>
       <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cut-piece-warehouse-action="go-transfer-bags-index">查看中转袋流转</button>
       ${returnToSummary}
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cut-piece-warehouse-action="go-summary-index">查看裁剪总表</button>
+      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cut-piece-warehouse-action="go-summary-index">查看裁剪总结</button>
     </div>
   `
 }

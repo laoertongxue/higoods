@@ -523,7 +523,7 @@ function getSpreadingCreatePreview(): {
 
 function renderReturnToSummaryButton(): string {
   if (!hasSummaryReturnContext(state.drillContext)) return ''
-  return '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="return-summary">返回裁剪总表</button>'
+  return '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="return-summary">返回裁剪总结</button>'
 }
 
 function appendSummaryReturnAction(actions: string[]): string[] {

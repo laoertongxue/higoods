@@ -7,6 +7,7 @@ import {
   getFilteredTasks,
   getPoViewRows,
   renderBadge,
+  escapeHtml,
   type ProcessTask,
 } from './context.ts'
 import { renderTaskDimension, renderTaskDrawer, renderBlockDialog, renderBatchConfirmDialog } from './task-domain.ts'
@@ -65,9 +66,11 @@ function renderProductionProgressLinkage(): string {
           <tbody>
             ${visibleRows
               .map(
-                (row) => `
+                (row) => {
+                  const productionOrderNo = row.productionOrderNo || row.productionOrderId || '待关联生产单'
+                  return `
                   <tr class="border-b align-top">
-                    <td class="px-3 py-3 font-medium text-blue-700">${row.productionOrderNo}</td>
+                    <td class="px-3 py-3 font-medium text-blue-700">${escapeHtml(productionOrderNo)}</td>
                     <td class="px-3 py-3">
                       <div>${row.styleNo}</div>
                       <div class="mt-1 text-xs text-muted-foreground">${row.styleName}</div>
@@ -93,7 +96,8 @@ function renderProductionProgressLinkage(): string {
                       </div>
                     </td>
                   </tr>
-                `,
+                `
+                },
               )
               .join('')}
           </tbody>
@@ -225,8 +229,6 @@ export function renderProgressBoardPage(): string {
   return `
     <div class="space-y-4">
       ${renderHeader(filteredTasks)}
-      ${renderProductionProgressLinkage()}
-      ${renderPostFinishingPlatformResults()}
       ${state.dimension === 'task' ? renderTaskDimension(filteredTasks) : renderOrderDimension(poRows)}
       ${renderTaskDrawer()}
       ${renderOrderDrawer(poRows)}

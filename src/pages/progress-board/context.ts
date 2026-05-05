@@ -86,6 +86,8 @@ type PoLifecycle =
   | 'PENDING_SETTLEMENT'
   | 'CLOSED'
 
+type ProcessStageGroup = 'PREP' | 'PROD' | 'POST'
+
 type TaskTabKey = 'basic' | 'assignment' | 'progress' | 'pickup' | 'handover' | 'block' | 'logs'
 
 type TaskPickupStatusKey =
@@ -277,6 +279,18 @@ const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
   DONE: '已完成',
   BLOCKED: '生产暂停',
   CANCELLED: '已取消',
+}
+
+const PROCESS_STAGE_GROUP_LABEL: Record<ProcessStageGroup, string> = {
+  PREP: '准备阶段',
+  PROD: '生产阶段',
+  POST: '后道阶段',
+}
+
+function getTaskStageGroup(stage: ProcessStage): ProcessStageGroup {
+  if (stage === 'POST') return 'POST'
+  if (stage === 'PREP' || stage === 'MATERIAL' || stage === 'WAREHOUSE') return 'PREP'
+  return 'PROD'
 }
 
 const ASSIGNMENT_STATUS_LABEL: Record<TaskAssignmentStatus, string> = {
@@ -1134,7 +1148,7 @@ function getFilteredTasks(): ProcessTask[] {
     if (state.assignmentStatusFilter !== 'ALL' && task.assignmentStatus !== state.assignmentStatusFilter) return false
     if (state.assignmentModeFilter !== 'ALL' && task.assignmentMode !== state.assignmentModeFilter) return false
     if (state.processFilter !== 'ALL' && task.processCode !== state.processFilter) return false
-    if (state.stageFilter !== 'ALL' && task.stage !== state.stageFilter) return false
+    if (state.stageFilter !== 'ALL' && getTaskStageGroup(task.stage) !== state.stageFilter) return false
     if (state.factoryFilter !== 'ALL' && task.assignedFactoryId !== state.factoryFilter) return false
 
     if (state.riskFilter !== 'ALL') {
@@ -1233,6 +1247,7 @@ export {
   toClassName,
   state,
   TASK_STATUS_LABEL,
+  PROCESS_STAGE_GROUP_LABEL,
   ASSIGNMENT_STATUS_LABEL,
   STATUS_COLOR_CLASS,
   ASSIGNMENT_STATUS_COLOR_CLASS,
@@ -1278,6 +1293,7 @@ export {
   getTaskPickupSummary,
   getTaskHandoutSummary,
   getTaskProgressFact,
+  getTaskStageGroup,
   getTaskTenderId,
   getTaskDependencies,
   getOrderSpuCode,
@@ -1309,6 +1325,7 @@ export {
 export type {
   TaskRiskFlag,
   PoLifecycle,
+  ProcessStageGroup,
   TaskTabKey,
   PoViewRow,
   ProgressBoardState,

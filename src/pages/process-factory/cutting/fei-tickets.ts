@@ -353,7 +353,7 @@ function buildSpreadingTraceText(unit: PrintableUnit, drillContext = getCurrentD
 
 function renderReturnToSummaryButton(): string {
   if (!hasSummaryReturnContext(getCurrentDrillContext())) return ''
-  return `<button type="button" data-cutting-fei-action="return-summary" class="inline-flex min-h-10 items-center rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">返回裁剪总表</button>`
+  return `<button type="button" data-cutting-fei-action="return-summary" class="inline-flex min-h-10 items-center rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">返回裁剪总结</button>`
 }
 
 function buildFiltersFromQuery(params: URLSearchParams): PrintableUnitFilters {

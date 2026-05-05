@@ -67,7 +67,7 @@ const FOLLOWUP_ACTION_LABELS: Record<SpecialProcessFollowupActionType, string> =
   GO_CUT_PIECE_WAREHOUSE: '去裁片仓',
   GO_ORIGINAL_CUT_ORDER: '去原始裁片单',
   GO_CUTTING_DASHBOARD: '去生产单进度',
-  GO_CUTTING_TOTAL_TABLE: '去裁剪总表',
+  GO_CUTTING_TOTAL_TABLE: '去裁剪总结',
 }
 
 export interface SpecialProcessOutputLabels {

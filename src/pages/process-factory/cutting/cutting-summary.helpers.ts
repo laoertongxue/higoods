@@ -120,7 +120,7 @@ export function buildPriorityRecords(records: CuttingSummaryRecord[]): CuttingSu
 
 export function buildEmptyStateText(hasFilters: boolean, mode: 'records' | 'priority'): string {
   if (mode === 'priority') return '当前没有需要优先处理的重点问题生产单。'
-  return hasFilters ? '未找到符合筛选条件的裁剪总表记录。' : '当前没有可展示的裁剪总表记录。'
+  return hasFilters ? '未找到符合筛选条件的裁剪总结记录。' : '当前没有可展示的裁剪总结记录。'
 }
 
 export function hasSummaryFilters(filters: CuttingSummaryFilters): boolean {

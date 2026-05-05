@@ -2,6 +2,7 @@ import {
   state,
   TASK_RISK_LABEL,
   TASK_STATUS_LABEL,
+  PROCESS_STAGE_GROUP_LABEL,
   ASSIGNMENT_STATUS_LABEL,
   ASSIGNMENT_STATUS_COLOR_CLASS,
   BLOCK_REASON_LABEL,
@@ -10,6 +11,7 @@ import {
   getTaskPickupSummary,
   getTaskHandoutSummary,
   getTaskProgressFact,
+  getTaskStageGroup,
   getOrderById,
   getFactoryById,
   getTaskRisks,
@@ -30,7 +32,6 @@ import {
   type TaskSummaryTone,
   type TaskRiskFlag,
   type ProcessTask,
-  type ProcessStage,
 } from './context.ts'
 import { resolveTaskStandardTimeSnapshot } from '../../data/fcs/process-tasks.ts'
 import {
@@ -77,6 +78,34 @@ function getPlatformResultViewByTaskId(taskId: string): PlatformProcessResultVie
   return platformResultViewByTaskId.get(taskId)
 }
 
+function getTaskPlatformSummary(task: ProcessTask) {
+  const platformStatus = getPlatformStatusForRuntimeTask(task)
+  const resultView = getPlatformResultViewByTaskId(task.taskId)
+  const linkedResult = resultView
+    ? [
+        resultView.hasWaitHandoverRecord ? '待交出仓' : '',
+        resultView.hasHandoverRecord ? '交出记录' : '',
+        resultView.hasReviewRecord ? '审核记录' : '',
+        resultView.hasDifferenceRecord ? '差异记录' : '',
+      ].filter(Boolean).join(' / ') || '暂无仓交出结果'
+    : '暂无仓交出结果'
+  const quantityText = resultView?.quantityDisplayFields
+    .slice(0, 3)
+    .map((field) => field.text)
+    .join('；') || ''
+
+  return {
+    statusLabel: resultView?.platformStatusLabel || platformStatus.platformStatusLabel,
+    internalStatusLabel: resultView?.factoryInternalStatusLabel || TASK_STATUS_LABEL[task.status],
+    riskLabel: resultView?.platformRiskLabel || platformStatus.platformRiskLabel,
+    actionHint: resultView?.platformActionHint || platformStatus.platformActionHint,
+    ownerHint: resultView?.platformOwnerHint || platformStatus.platformOwnerHint,
+    followUpActionLabel: resultView?.followUpActionLabel || '',
+    linkedResult,
+    quantityText,
+  }
+}
+
 function getSummaryToneClass(tone: TaskSummaryTone): string {
   switch (tone) {
     case 'green':
@@ -107,36 +136,12 @@ function renderTaskChainStatusCell(summary: TaskPickupSummary | TaskHandoutSumma
 }
 
 function renderPlatformStatusCell(task: ProcessTask): string {
-  const platformStatus = getPlatformStatusForRuntimeTask(task)
-  const resultView = getPlatformResultViewByTaskId(task.taskId)
-  const statusLabel = resultView?.platformStatusLabel || platformStatus.platformStatusLabel
-  const internalStatusLabel = resultView?.factoryInternalStatusLabel || TASK_STATUS_LABEL[task.status]
-  const riskLabel = resultView?.platformRiskLabel || platformStatus.platformRiskLabel
-  const actionHint = resultView?.platformActionHint || platformStatus.platformActionHint
-  const ownerHint = resultView?.platformOwnerHint || platformStatus.platformOwnerHint
-  const linkedResult = resultView
-    ? [
-        resultView.hasWaitHandoverRecord ? '待交出仓' : '',
-        resultView.hasHandoverRecord ? '交出记录' : '',
-        resultView.hasReviewRecord ? '审核记录' : '',
-        resultView.hasDifferenceRecord ? '差异记录' : '',
-      ].filter(Boolean).join(' / ') || '暂无仓交出结果'
-    : '暂无仓交出结果'
-  const quantityText = resultView?.quantityDisplayFields
-    .slice(0, 4)
-    .map((field) => field.text)
-    .join('；')
+  const summary = getTaskPlatformSummary(task)
 
   return `
-    <div class="space-y-1 text-xs">
-      <div>${renderBadge(statusLabel, PLATFORM_PROCESS_STATUS_CLASS[statusLabel])}</div>
-      <div class="text-muted-foreground">工厂内部状态：${escapeHtml(internalStatusLabel)}</div>
-      <div class="text-muted-foreground">风险提示：${escapeHtml(riskLabel)}</div>
-      <div class="text-muted-foreground">下一步动作：${escapeHtml(actionHint)}</div>
-      <div class="text-muted-foreground">当前责任方：${escapeHtml(ownerHint)}</div>
-      <div class="text-muted-foreground">同步结果：${escapeHtml(linkedResult)}</div>
-      ${quantityText ? `<div class="text-muted-foreground">结果对象：${escapeHtml(quantityText)}</div>` : ''}
-      ${resultView ? `<div class="text-muted-foreground">跟单动作：${escapeHtml(resultView.followUpActionLabel)}</div>` : ''}
+    <div class="space-y-1">
+      <div>${renderBadge(summary.statusLabel, PLATFORM_PROCESS_STATUS_CLASS[summary.statusLabel])}</div>
+      <div class="text-xs text-muted-foreground">内部：${escapeHtml(summary.internalStatusLabel)}</div>
     </div>
   `
 }
@@ -467,25 +472,19 @@ function renderTaskListView(filteredTasks: ProcessTask[]): string {
   return `
     <section class="rounded-lg border bg-card" data-progress-task-list="true">
       <div class="overflow-x-auto">
-        <table class="w-full min-w-[1650px] text-sm">
+        <table class="w-full min-w-[1180px] text-sm">
           <thead>
             <tr class="border-b bg-muted/40 text-left">
               <th class="w-10 px-3 py-2 font-medium">
                 <input type="checkbox" class="h-4 w-4 rounded border" data-progress-action="select-all" ${allSelected ? 'checked' : ''} />
               </th>
-              <th class="px-3 py-2 font-medium">任务ID</th>
-              <th class="px-3 py-2 font-medium">生产单号</th>
-              <th class="px-3 py-2 font-medium">SPU</th>
+              <th class="px-3 py-2 font-medium">任务 / 生产单</th>
               <th class="px-3 py-2 font-medium">工序</th>
-              <th class="px-3 py-2 font-medium">阶段</th>
-              <th class="px-3 py-2 font-medium">对象与单位</th>
-              <th class="px-3 py-2 font-medium">分配方式</th>
-              <th class="px-3 py-2 font-medium">分配状态</th>
-              <th class="px-3 py-2 font-medium">执行工厂</th>
               <th class="px-3 py-2 font-medium">平台状态</th>
-              <th class="px-3 py-2 font-medium">领料情况</th>
-              <th class="px-3 py-2 font-medium">交出情况</th>
               <th class="px-3 py-2 font-medium">风险</th>
+              <th class="px-3 py-2 font-medium">下一步动作</th>
+              <th class="px-3 py-2 font-medium">责任方</th>
+              <th class="px-3 py-2 font-medium">关键结果</th>
               <th class="px-3 py-2 text-right font-medium">操作</th>
             </tr>
           </thead>
@@ -494,7 +493,7 @@ function renderTaskListView(filteredTasks: ProcessTask[]): string {
               filteredTasks.length === 0
                 ? `
                   <tr>
-                    <td colspan="15" class="px-3 py-10 text-center text-muted-foreground">暂无数据</td>
+                    <td colspan="9" class="px-3 py-10 text-center text-muted-foreground">暂无数据</td>
                   </tr>
                 `
                 : filteredTasks
@@ -504,6 +503,8 @@ function renderTaskListView(filteredTasks: ProcessTask[]): string {
                       const risks = getTaskRisks(task)
                       const pickupSummary = getTaskPickupSummary(task.taskId)
                       const handoutSummary = getTaskHandoutSummary(task.taskId)
+                      const platformSummary = getTaskPlatformSummary(task)
+                      const qtyUnit = task.qtyUnit === 'PIECE' ? '件' : task.qtyUnit
 
                       return `
                         <tr class="cursor-pointer border-b hover:bg-muted/50" data-progress-action="open-task-detail" data-task-id="${escapeAttr(task.taskId)}">
@@ -517,46 +518,62 @@ function renderTaskListView(filteredTasks: ProcessTask[]): string {
                             />
                           </td>
                           <td class="px-3 py-2">
-                            <div class="flex items-center gap-1">
-                              <span class="font-mono text-xs">${escapeHtml(task.taskId)}</span>
-                              <button class="inline-flex h-5 w-5 items-center justify-center rounded hover:bg-muted" data-progress-action="copy-task-id" data-task-id="${escapeAttr(task.taskId)}" data-progress-stop="true">
-                                <i data-lucide="copy" class="h-3 w-3"></i>
+                            <div class="space-y-1 text-xs">
+                              <div class="flex items-center gap-1">
+                                <span class="font-mono font-medium">${escapeHtml(task.taskId)}</span>
+                                <button class="inline-flex h-5 w-5 items-center justify-center rounded hover:bg-muted" data-progress-action="copy-task-id" data-task-id="${escapeAttr(task.taskId)}" data-progress-stop="true">
+                                  <i data-lucide="copy" class="h-3 w-3"></i>
+                                </button>
+                              </div>
+                              <button class="inline-flex items-center text-primary hover:underline" data-progress-action="task-action-open-order" data-po-id="${escapeAttr(task.productionOrderId)}" data-progress-stop="true">
+                                ${escapeHtml(task.productionOrderId)}
+                                <i data-lucide="external-link" class="ml-1 h-3 w-3"></i>
                               </button>
+                              <div class="max-w-[180px] truncate text-muted-foreground">${escapeHtml(getOrderSpuCode(order, '-'))} / ${escapeHtml(getOrderSpuName(order) || '-')}</div>
                             </div>
                           </td>
                           <td class="px-3 py-2">
-                            <button class="inline-flex items-center text-xs text-primary hover:underline" data-progress-action="task-action-open-order" data-po-id="${escapeAttr(task.productionOrderId)}" data-progress-stop="true">
-                              ${escapeHtml(task.productionOrderId)}
-                              <i data-lucide="external-link" class="ml-1 h-3 w-3"></i>
-                            </button>
-                          </td>
-                          <td class="px-3 py-2">
-                            <div class="text-xs">
-                              <div class="font-medium">${escapeHtml(getOrderSpuCode(order, '-'))}</div>
-                              <div class="max-w-[140px] truncate text-muted-foreground">${escapeHtml(getOrderSpuName(order) || '-')}</div>
+                            <div class="space-y-1 text-xs">
+                              <div class="font-medium">${escapeHtml(getTaskDisplayName(task))}</div>
+                              <div class="text-muted-foreground">${escapeHtml(PROCESS_STAGE_GROUP_LABEL[getTaskStageGroup(task.stage)])} · ${task.qty} ${escapeHtml(qtyUnit)}</div>
+                              <div class="text-muted-foreground">工序节点：${escapeHtml(stageLabels[task.stage])}</div>
+                              <div class="flex flex-wrap gap-1">
+                                ${
+                                  task.assignmentMode === 'DIRECT'
+                                    ? renderBadge('派单', 'border-slate-200 bg-slate-100 text-slate-700')
+                                    : renderBadge('竞价', 'border-blue-200 bg-blue-100 text-blue-700')
+                                }
+                                ${renderBadge(ASSIGNMENT_STATUS_LABEL[task.assignmentStatus], ASSIGNMENT_STATUS_COLOR_CLASS[task.assignmentStatus])}
+                              </div>
                             </div>
                           </td>
-                          <td class="px-3 py-2">
-                            <div class="text-xs">
-                              <div>${escapeHtml(getTaskDisplayName(task))}</div>
-                              <div class="text-muted-foreground">${escapeHtml(task.processCode)}</div>
-                            </div>
-                          </td>
-                          <td class="px-3 py-2">${renderBadge(stageLabels[task.stage as ProcessStage], 'border-border bg-background text-foreground')}</td>
-                          <td class="px-3 py-2 text-xs">${task.qty} ${task.qtyUnit === 'PIECE' ? '件' : escapeHtml(task.qtyUnit)}</td>
-                          <td class="px-3 py-2">
-                            ${
-                              task.assignmentMode === 'DIRECT'
-                                ? renderBadge('派单', 'border-slate-200 bg-slate-100 text-slate-700')
-                                : renderBadge('竞价', 'border-blue-200 bg-blue-100 text-blue-700')
-                            }
-                          </td>
-                          <td class="px-3 py-2">${renderBadge(ASSIGNMENT_STATUS_LABEL[task.assignmentStatus], ASSIGNMENT_STATUS_COLOR_CLASS[task.assignmentStatus])}</td>
-                          <td class="px-3 py-2 text-xs">${escapeHtml(factory?.name ?? (task.assignmentStatus === 'BIDDING' ? '待定标' : '-'))}</td>
                           <td class="px-3 py-2">${renderPlatformStatusCell(task)}</td>
-                          <td class="px-3 py-2" data-progress-task-cell="pickup">${renderTaskChainStatusCell(pickupSummary, 'task-open-pickup', task.taskId)}</td>
-                          <td class="px-3 py-2" data-progress-task-cell="handover">${renderTaskChainStatusCell(handoutSummary, 'task-open-handover', task.taskId)}</td>
-                          <td class="px-3 py-2">${renderTaskRiskBadges(risks)}</td>
+                          <td class="px-3 py-2">
+                            <div class="space-y-1 text-xs">
+                              <div>${escapeHtml(platformSummary.riskLabel)}</div>
+                              ${renderTaskRiskBadges(risks)}
+                            </div>
+                          </td>
+                          <td class="px-3 py-2">
+                            <div class="max-w-[180px] space-y-1 text-xs">
+                              <div class="font-medium">${escapeHtml(platformSummary.actionHint)}</div>
+                              ${platformSummary.followUpActionLabel ? `<div class="text-muted-foreground">跟单：${escapeHtml(platformSummary.followUpActionLabel)}</div>` : ''}
+                            </div>
+                          </td>
+                          <td class="px-3 py-2">
+                            <div class="max-w-[160px] space-y-1 text-xs">
+                              <div>${escapeHtml(platformSummary.ownerHint)}</div>
+                              <div class="truncate text-muted-foreground">${escapeHtml(factory?.name ?? (task.assignmentStatus === 'BIDDING' ? '待定标' : '-'))}</div>
+                            </div>
+                          </td>
+                          <td class="px-3 py-2">
+                            <div class="max-w-[220px] space-y-1 text-xs">
+                              <div data-progress-task-cell="pickup">${renderTaskChainStatusCell(pickupSummary, 'task-open-pickup', task.taskId)}</div>
+                              <div data-progress-task-cell="handover">${renderTaskChainStatusCell(handoutSummary, 'task-open-handover', task.taskId)}</div>
+                              <div class="text-muted-foreground">同步：${escapeHtml(platformSummary.linkedResult)}</div>
+                              ${platformSummary.quantityText ? `<div class="truncate text-muted-foreground">${escapeHtml(platformSummary.quantityText)}</div>` : ''}
+                            </div>
+                          </td>
                           <td class="px-3 py-2 text-right" data-progress-stop="true">${renderTaskActionMenu(task)}</td>
                         </tr>
                       `
@@ -731,7 +748,7 @@ function renderTaskDimension(filteredTasks: ProcessTask[]): string {
           </select>
           <select class="h-9 rounded-md border bg-background px-3 text-sm" data-progress-field="stageFilter">
             <option value="ALL" ${state.stageFilter === 'ALL' ? 'selected' : ''}>全部阶段</option>
-            ${Object.entries(stageLabels)
+            ${Object.entries(PROCESS_STAGE_GROUP_LABEL)
               .map(([key, label]) => `<option value="${key}" ${state.stageFilter === key ? 'selected' : ''}>${escapeHtml(label)}</option>`)
               .join('')}
           </select>
@@ -821,7 +838,7 @@ function renderTaskDrawer(): string {
                   </div>
                   <div>
                     <p class="text-xs text-muted-foreground">阶段</p>
-                    <p>${escapeHtml(stageLabels[task.stage as ProcessStage])}</p>
+                    <p>${escapeHtml(PROCESS_STAGE_GROUP_LABEL[getTaskStageGroup(task.stage)])}</p>
                   </div>
                   <div>
                     <p class="text-xs text-muted-foreground">平台状态</p>

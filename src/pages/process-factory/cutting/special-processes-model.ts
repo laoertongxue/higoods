@@ -373,7 +373,7 @@ function normalizeSpecialProcessFollowupAction(record: unknown): SpecialProcessF
     actionType: ['GO_TRANSFER_BAG', 'GO_CUT_PIECE_WAREHOUSE', 'GO_ORIGINAL_CUT_ORDER', 'GO_CUTTING_DASHBOARD', 'GO_CUTTING_TOTAL_TABLE'].includes(String(raw.actionType))
       ? (raw.actionType as SpecialProcessFollowupActionType)
       : 'GO_CUTTING_TOTAL_TABLE',
-    title: typeof raw.title === 'string' ? raw.title : '去裁剪总表',
+    title: typeof raw.title === 'string' ? raw.title : '去裁剪总结',
     status: normalizeFollowupStatus(typeof raw.status === 'string' ? raw.status : undefined),
     targetPageKey,
     targetPath: typeof raw.targetPath === 'string' ? raw.targetPath : getCanonicalCuttingPath('summary'),

@@ -5,7 +5,7 @@ import {
   getTechnicalDataVersionContentById,
 } from '../pcs-technical-data-version-repository.ts'
 import type { StyleArchiveShellRecord } from '../pcs-style-archive-types.ts'
-import type { TechPack } from './tech-packs.ts'
+import { getEnabledTechPackBySpuCode, type TechPack } from './tech-packs.ts'
 import type { ProductionDemand } from './production-demands.ts'
 import {
   patternMaterialFileTypeLabels,
@@ -82,6 +82,27 @@ function buildPatternFileDisplayName(input: {
 
 function normalizeText(value: string | undefined | null): string {
   return String(value || '').trim()
+}
+
+function buildFcsEnabledTechPackInfo(spuCode: string): DemandCurrentTechPackInfo | null {
+  const techPack = getEnabledTechPackBySpuCode(spuCode)
+  if (!techPack) return null
+
+  return {
+    styleId: '',
+    styleCode: techPack.spuCode,
+    styleName: techPack.spuName,
+    currentTechPackVersionId: `fcs-enabled-${techPack.spuCode}-${techPack.versionLabel}`,
+    currentTechPackVersionCode: `FCS-${techPack.spuCode}-${techPack.versionLabel}`,
+    currentTechPackVersionLabel: techPack.versionLabel,
+    publishedAt: techPack.lastUpdatedAt,
+    completenessScore: techPack.completenessScore,
+    linkedRevisionTaskIds: [],
+    linkedPatternTaskIds: [],
+    linkedArtworkTaskIds: [],
+    canConvertToProductionOrder: true,
+    blockReason: '',
+  }
 }
 
 function uniqueStrings(values: Array<string | undefined | null>): string[] {
@@ -916,6 +937,9 @@ export function getDemandCurrentTechPackInfo(
 ): DemandCurrentTechPackInfo {
   const style = findStyleArchiveByCode(demand.spuCode)
   if (!style) {
+    const fallback = buildFcsEnabledTechPackInfo(demand.spuCode)
+    if (fallback) return fallback
+
     return {
       styleId: '',
       styleCode: demand.spuCode,
@@ -935,6 +959,9 @@ export function getDemandCurrentTechPackInfo(
 
   const record = getCurrentTechPackVersionByStyleId(style.styleId)
   if (!style.currentTechPackVersionId || !record) {
+    const fallback = buildFcsEnabledTechPackInfo(demand.spuCode)
+    if (fallback) return fallback
+
     return {
       styleId: style.styleId,
       styleCode: style.styleCode,
@@ -972,6 +999,9 @@ export function getDemandCurrentTechPackInfo(
 
   const content = getTechnicalDataVersionContentById(record.technicalVersionId)
   if (!content) {
+    const fallback = buildFcsEnabledTechPackInfo(demand.spuCode)
+    if (fallback) return fallback
+
     return {
       styleId: style.styleId,
       styleCode: style.styleCode,
@@ -1009,13 +1039,40 @@ export function getDemandCurrentTechPackInfo(
 export function buildProductionOrderTechPackSnapshot(input: {
   productionOrderId: string
   productionOrderNo: string
-  demand: Pick<ProductionDemand, 'spuCode'>
+  demand: Pick<ProductionDemand, 'spuCode'> & Partial<Pick<ProductionDemand, 'spuName' | 'skuLines' | 'techPackVersionLabel' | 'techPackStatus'>>
   snapshotAt: string
   snapshotBy: string
 }): ProductionOrderTechPackSnapshot {
   const source = resolveCurrentTechPackSourceForDemand(input.demand)
   if (!source) {
     const info = getDemandCurrentTechPackInfo(input.demand)
+    if (info.canConvertToProductionOrder) {
+      const enabledPack = getEnabledTechPackBySpuCode(input.demand.spuCode)
+      const fallbackSkuLines = input.demand.skuLines && input.demand.skuLines.length > 0
+        ? input.demand.skuLines
+        : (enabledPack?.skuCatalog ?? []).map((sku) => ({
+            skuCode: sku.skuCode,
+            size: sku.size,
+            color: sku.color,
+            qty: 1,
+          }))
+
+      return buildSeedProductionOrderTechPackSnapshot({
+        productionOrderId: input.productionOrderId,
+        productionOrderNo: input.productionOrderNo,
+        demand: {
+          spuCode: input.demand.spuCode,
+          spuName: input.demand.spuName || info.styleName || input.demand.spuCode,
+          skuLines: fallbackSkuLines.length > 0
+            ? fallbackSkuLines
+            : [{ skuCode: `${input.demand.spuCode}-SKU-001`, size: 'M', color: '默认色', qty: 1 }],
+          techPackStatus: 'RELEASED',
+          techPackVersionLabel: input.demand.techPackVersionLabel || info.currentTechPackVersionLabel || enabledPack?.versionLabel || 'v1.0',
+        },
+        snapshotAt: input.snapshotAt,
+        snapshotBy: input.snapshotBy,
+      })
+    }
     throw new Error(info.blockReason || '当前需求未关联可用技术包版本')
   }
 

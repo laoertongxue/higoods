@@ -25,6 +25,8 @@ export type ProductionOrderStatus =
 export type OwnerPartyType = 'FACTORY' | 'LEGAL_ENTITY'
 export type TechPackStatus = 'MISSING' | 'BETA' | 'RELEASED'
 export type AssignmentProgressStatus = 'NOT_READY' | 'PENDING' | 'IN_PROGRESS' | 'DONE'
+export type MainFactoryStatus = 'PENDING_SEWING_ASSIGNMENT' | 'CONFIRMED'
+export type MainFactorySource = 'ORDER_CREATE' | 'SEWING_TASK_ASSIGNMENT'
 
 export type RiskFlag =
   | 'TECH_PACK_NOT_RELEASED'
@@ -112,11 +114,16 @@ export interface ProductionOrder {
   productionOrderId: string
   productionOrderNo: string
   demandId: string
+  sourceDemandIds: string[]
   legacyOrderNo: string
   status: ProductionOrderStatus
   lockedLegacy: boolean
   mainFactoryId: string
   mainFactorySnapshot: FactorySnapshot
+  mainFactoryStatus: MainFactoryStatus
+  mainFactorySource: MainFactorySource
+  mainFactoryConfirmedAt?: string
+  mainFactoryConfirmedBy?: string
   ownerPartyType: OwnerPartyType
   ownerPartyId: string
   ownerReason?: string
@@ -141,6 +148,7 @@ export interface ProductionOrder {
   lifecycleUpdatedBy?: string
   techPackSnapshot: ProductionOrderTechPackSnapshot | null
   demandSnapshot: DemandSnapshot
+  sourceDemandSnapshots: DemandSnapshot[]
   assignmentSummary: AssignmentSummary
   assignmentProgress: AssignmentProgress
   biddingSummary: BiddingSummary
@@ -155,8 +163,13 @@ export interface ProductionOrder {
 export interface ProductionOrderSeed {
   productionOrderId: string
   demandId: string
+  sourceDemandIds?: string[]
   status: ProductionOrderStatus
   mainFactoryId: string
+  mainFactoryStatus?: MainFactoryStatus
+  mainFactorySource?: MainFactorySource
+  mainFactoryConfirmedAt?: string
+  mainFactoryConfirmedBy?: string
   ownerPartyType: OwnerPartyType
   ownerPartyId: string
   ownerReason?: string
@@ -194,6 +207,8 @@ export interface ProductionOrderSeed {
   snapshotBy?: string
 }
 
+export const PENDING_MAIN_FACTORY_ID = 'PENDING-SEWING-MAIN-FACTORY'
+
 export function createFactorySnapshot(factory: IndonesiaFactory): FactorySnapshot {
   return {
     id: factory.id,
@@ -208,24 +223,54 @@ export function createFactorySnapshot(factory: IndonesiaFactory): FactorySnapsho
   }
 }
 
+export function createPendingMainFactorySnapshot(): FactorySnapshot {
+  return {
+    id: PENDING_MAIN_FACTORY_ID,
+    code: '待定',
+    name: '待车缝任务分配确定',
+    tier: 'PENDING',
+    type: 'SEWING',
+    status: '待指定',
+    province: '-',
+    city: '-',
+    tags: ['车缝任务分配后回写'],
+  }
+}
+
+export function isProductionOrderMainFactoryPending(order: Pick<ProductionOrder, 'mainFactoryId' | 'mainFactoryStatus'>): boolean {
+  return order.mainFactoryStatus === 'PENDING_SEWING_ASSIGNMENT' || order.mainFactoryId === PENDING_MAIN_FACTORY_ID
+}
+
+export function formatProductionOrderMainFactoryName(order: Pick<ProductionOrder, 'mainFactorySnapshot' | 'mainFactoryId' | 'mainFactoryStatus'>): string {
+  return isProductionOrderMainFactoryPending(order) ? '待车缝任务分配确定' : order.mainFactorySnapshot.name
+}
+
 function buildProductionOrderFromResolvedUpstream(
   seed: ProductionOrderSeed,
   demand: ProductionDemand,
   techPackSnapshot: ProductionOrderTechPackSnapshot | null,
 ): ProductionOrder {
   const factory = indonesiaFactories.find((item) => item.id === seed.mainFactoryId)
-  if (!factory) {
+  const isPendingFactory = seed.mainFactoryStatus === 'PENDING_SEWING_ASSIGNMENT' || seed.mainFactoryId === PENDING_MAIN_FACTORY_ID
+  if (!factory && !isPendingFactory) {
     throw new Error(`生产单 ${seed.productionOrderId} 绑定的主工厂 ${seed.mainFactoryId} 不存在`)
   }
+  const demandSnapshot = buildProductionOrderDemandSnapshot(demand)
 
   return {
     ...seed,
     productionOrderNo: seed.productionOrderId,
+    sourceDemandIds: seed.sourceDemandIds ?? [seed.demandId],
     lockedLegacy:
       seed.lockedLegacy ?? ['EXECUTING', 'COMPLETED', 'CANCELLED'].includes(seed.status),
-    mainFactorySnapshot: createFactorySnapshot(factory),
+    mainFactorySnapshot: factory ? createFactorySnapshot(factory) : createPendingMainFactorySnapshot(),
+    mainFactoryStatus: seed.mainFactoryStatus ?? 'CONFIRMED',
+    mainFactorySource: seed.mainFactorySource ?? 'ORDER_CREATE',
+    mainFactoryConfirmedAt: seed.mainFactoryConfirmedAt,
+    mainFactoryConfirmedBy: seed.mainFactoryConfirmedBy,
     legacyOrderNo: demand.legacyOrderNo,
-    demandSnapshot: buildProductionOrderDemandSnapshot(demand),
+    demandSnapshot,
+    sourceDemandSnapshots: [demandSnapshot],
     techPackSnapshot: cloneProductionOrderTechPackSnapshot(techPackSnapshot),
   }
 }
@@ -276,6 +321,136 @@ export function buildProductionOrderFromDemand(
   })
 
   return buildProductionOrderFromResolvedUpstream(seed, demand, techPackSnapshot)
+}
+
+function resolveMergedPriority(demands: ProductionDemand[]): string {
+  const weights: Record<string, number> = { NORMAL: 1, HIGH: 2, URGENT: 3 }
+  return demands
+    .map((demand) => demand.priority)
+    .sort((a, b) => (weights[b] ?? 0) - (weights[a] ?? 0))[0] ?? 'NORMAL'
+}
+
+function resolveMergedDeliveryDate(demands: ProductionDemand[]): string | null {
+  return demands
+    .map((demand) => demand.requiredDeliveryDate)
+    .filter((value): value is string => Boolean(value))
+    .sort()[0] ?? null
+}
+
+function buildMergedProductionOrderDemandSnapshot(demands: ProductionDemand[]): DemandSnapshot {
+  const primary = demands[0]
+  const sameSpu = demands.every((demand) => demand.spuCode === primary.spuCode)
+  const skuMap = new Map<string, DemandSnapshot['skuLines'][number]>()
+
+  for (const demand of demands) {
+    for (const line of demand.skuLines) {
+      const key = `${line.skuCode}::${line.size}::${line.color}`
+      const current = skuMap.get(key)
+      if (current) {
+        current.qty += line.qty
+      } else {
+        skuMap.set(key, { ...line })
+      }
+    }
+  }
+
+  const demandIds = demands.map((demand) => demand.demandId)
+
+  return {
+    demandId: demands.length === 1 ? primary.demandId : demandIds.join('、'),
+    spuCode: sameSpu ? primary.spuCode : '多款合并',
+    spuName: sameSpu ? primary.spuName : '多款合并生产单',
+    priority: resolveMergedPriority(demands),
+    requiredDeliveryDate: resolveMergedDeliveryDate(demands),
+    constraintsNote: '',
+    skuLines: [...skuMap.values()],
+  }
+}
+
+export function buildProductionOrderFromDemands(
+  seed: ProductionOrderSeed,
+  demands: ProductionDemand[],
+  snapshotBy: string,
+): ProductionOrder {
+  if (demands.length === 0) {
+    throw new Error(`生产单 ${seed.productionOrderId} 未选择生产需求`)
+  }
+
+  const primaryDemand = demands[0]
+  if (!demands.some((demand) => demand.demandId === seed.demandId)) {
+    throw new Error(`生产单 ${seed.productionOrderId} 主需求 ${seed.demandId} 不在合并需求中`)
+  }
+
+  const techPackSnapshot = buildProductionOrderTechPackSnapshot({
+    productionOrderId: seed.productionOrderId,
+    productionOrderNo: seed.productionOrderId,
+    demand: primaryDemand,
+    snapshotAt: seed.snapshotAt ?? seed.updatedAt,
+    snapshotBy,
+  })
+
+  const factory = indonesiaFactories.find((item) => item.id === seed.mainFactoryId)
+  const isPendingFactory = seed.mainFactoryStatus === 'PENDING_SEWING_ASSIGNMENT' || seed.mainFactoryId === PENDING_MAIN_FACTORY_ID
+  if (!factory && !isPendingFactory) {
+    throw new Error(`生产单 ${seed.productionOrderId} 绑定的主工厂 ${seed.mainFactoryId} 不存在`)
+  }
+
+  const demandSnapshots = demands.map((demand) => buildProductionOrderDemandSnapshot(demand))
+
+  return {
+    ...seed,
+    productionOrderNo: seed.productionOrderId,
+    sourceDemandIds: demands.map((demand) => demand.demandId),
+    lockedLegacy: seed.lockedLegacy ?? false,
+    mainFactorySnapshot: factory ? createFactorySnapshot(factory) : createPendingMainFactorySnapshot(),
+    mainFactoryStatus: seed.mainFactoryStatus ?? 'CONFIRMED',
+    mainFactorySource: seed.mainFactorySource ?? 'ORDER_CREATE',
+    mainFactoryConfirmedAt: seed.mainFactoryConfirmedAt,
+    mainFactoryConfirmedBy: seed.mainFactoryConfirmedBy,
+    legacyOrderNo: demands.map((demand) => demand.legacyOrderNo).join('、'),
+    demandSnapshot: buildMergedProductionOrderDemandSnapshot(demands),
+    sourceDemandSnapshots: demandSnapshots,
+    techPackSnapshot: cloneProductionOrderTechPackSnapshot(techPackSnapshot),
+  }
+}
+
+export function confirmProductionOrderMainFactoryFromSewingTask(input: {
+  productionOrderId: string
+  factoryId: string
+  factoryName?: string
+  by: string
+  at?: string
+}): ProductionOrder | null {
+  const order = productionOrders.find((item) => item.productionOrderId === input.productionOrderId)
+  if (!order) return null
+
+  if (!isProductionOrderMainFactoryPending(order)) return order
+
+  const factory = indonesiaFactories.find((item) => item.id === input.factoryId)
+  if (!factory) return null
+
+  const at = input.at ?? new Date().toISOString().replace('T', ' ').slice(0, 19)
+  order.mainFactoryId = factory.id
+  order.mainFactorySnapshot = createFactorySnapshot(factory)
+  order.mainFactoryStatus = 'CONFIRMED'
+  order.mainFactorySource = 'SEWING_TASK_ASSIGNMENT'
+  order.mainFactoryConfirmedAt = at
+  order.mainFactoryConfirmedBy = input.by
+  order.ownerPartyType = 'FACTORY'
+  order.ownerPartyId = factory.id
+  order.ownerReason = '车缝任务分配确认主工厂，生产单货权归该车缝工厂。'
+  order.updatedAt = at
+  order.auditLogs.push(
+    createAuditLog(
+      `LOG-MAIN-FACTORY-${order.productionOrderId}-${order.auditLogs.length + 1}`,
+      'MAIN_FACTORY_CONFIRMED',
+      `车缝任务分配给 ${input.factoryName || factory.name}，已回写为生产单主工厂和货权归属工厂`,
+      at,
+      input.by,
+    ),
+  )
+
+  return order
 }
 
 export function getProductionOrderTechPackSnapshot(orderId: string): ProductionOrderTechPackSnapshot | null {

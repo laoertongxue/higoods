@@ -1,5 +1,8 @@
 import { indonesiaFactories } from './indonesia-factories.ts'
-import { productionOrders } from './production-orders.ts'
+import {
+  confirmProductionOrderMainFactoryFromSewingTask,
+  productionOrders,
+} from './production-orders.ts'
 import {
   getProcessAssignmentGranularity,
   type ProcessAssignmentGranularity,
@@ -1957,7 +1960,7 @@ export function applyRuntimeDirectDispatchMeta(input: {
   publishedSamTotal?: number
   publishedSamDifficulty?: PublishedSamDifficulty
 }): RuntimeProcessTask | null {
-  return updateRuntimeTaskWithAudit(
+  const updated = updateRuntimeTaskWithAudit(
     input.taskId,
     {
       assignmentMode: 'DIRECT',
@@ -1983,6 +1986,18 @@ export function applyRuntimeDirectDispatchMeta(input: {
     '已发起直接派单，待工厂确认',
     input.by,
   )
+
+  if (updated && (updated.processCode === 'SEW' || updated.processNameZh.includes('车缝'))) {
+    confirmProductionOrderMainFactoryFromSewingTask({
+      productionOrderId: updated.productionOrderId,
+      factoryId: input.factoryId,
+      factoryName: input.factoryName,
+      by: input.by,
+      at: input.dispatchedAt ?? nowTimestamp(),
+    })
+  }
+
+  return updated
 }
 
 export function recomputeRuntimeTransitionsForOrder(productionOrderId: string): RuntimeProcessTask[] {

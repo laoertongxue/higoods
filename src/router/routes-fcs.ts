@@ -73,6 +73,7 @@ import {
   renderCraftCuttingFeiTicketContinuePrintPage,
   renderCraftCuttingFeiTicketDetailPage,
   renderCraftCuttingFeiTicketPrintedPage,
+  renderCraftCuttingFeiTicketPrintPage,
   renderCraftCuttingFeiTicketReprintPage,
   renderCraftCuttingFeiTicketRecordsPage,
   renderCraftCuttingFeiTicketVoidPage,
@@ -237,7 +238,7 @@ export const routes: RouteRegistry = {
     '/fcs/craft/cutting/fei-ticket-detail': () => renderCraftCuttingFeiTicketDetailPage(),
     '/fcs/craft/cutting/fei-ticket-printed': () => renderCraftCuttingFeiTicketPrintedPage(),
     '/fcs/craft/cutting/fei-ticket-records': () => renderCraftCuttingFeiTicketRecordsPage(),
-    '/fcs/craft/cutting/fei-ticket-print': () => renderCraftCuttingFeiTicketPrintedPage(),
+    '/fcs/craft/cutting/fei-ticket-print': () => renderCraftCuttingFeiTicketPrintPage(),
     '/fcs/craft/cutting/fei-ticket-continue-print': () => renderCraftCuttingFeiTicketContinuePrintPage(),
     '/fcs/craft/cutting/fei-ticket-reprint': () => renderCraftCuttingFeiTicketReprintPage(),
     '/fcs/craft/cutting/fei-ticket-void': () => renderCraftCuttingFeiTicketVoidPage(),
@@ -276,11 +277,11 @@ export const routes: RouteRegistry = {
       renderRouteRedirect('/fcs/craft/cutting/warehouse-management/wait-process', '正在跳转到待加工仓'),
     '/fcs/craft/cutting/replenishment': () => renderCraftCuttingReplenishmentPage(),
     '/fcs/craft/cutting/stats': () =>
-      renderRouteRedirect('/fcs/craft/cutting/summary', '正在跳转到裁剪总表'),
+      renderRouteRedirect('/fcs/craft/cutting/summary', '正在跳转到裁剪总结'),
     '/fcs/craft/cutting/bed-stats': () =>
-      renderRouteRedirect('/fcs/craft/cutting/summary', '正在跳转到裁剪总表'),
+      renderRouteRedirect('/fcs/craft/cutting/summary', '正在跳转到裁剪总结'),
     '/fcs/craft/cutting/cutting-summary': () =>
-      renderRouteRedirect('/fcs/craft/cutting/summary', '正在跳转到裁剪总表'),
+      renderRouteRedirect('/fcs/craft/cutting/summary', '正在跳转到裁剪总结'),
     '/fcs/craft/printing': () => renderCraftPrintingWorkOrdersPage(),
     '/fcs/craft/printing/work-orders': () => renderCraftPrintingWorkOrdersPage(),
     '/fcs/craft/printing/tasks': () => renderCraftPrintingWorkOrdersPage(),

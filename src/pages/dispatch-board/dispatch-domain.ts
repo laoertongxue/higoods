@@ -542,6 +542,7 @@ function renderDirectDispatchDialog(tasks: DispatchTask[], factoryOptions: Array
 
   const isBatch = tasks.length > 1
   const refTask = tasks[0]
+  const includesSewingTask = tasks.some((task) => task.processCode === 'SEW' || task.processNameZh.includes('车缝'))
   const selectionValidation = validateRuntimeBatchDispatchSelection(tasks.map((task) => task.taskId))
   const validation = getDispatchDialogValidation(tasks)
   const detailSupported = !isBatch && supportsDetailAssignment(refTask)
@@ -650,6 +651,14 @@ function renderDirectDispatchDialog(tasks: DispatchTask[], factoryOptions: Array
           ${
             selectionError
               ? `<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">${escapeHtml(selectionError)}</div>`
+              : ''
+          }
+
+          ${
+            includesSewingTask
+              ? `<div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+                  当前包含车缝任务。车缝任务派单确认的承接工厂会回写为生产单主工厂，并作为该生产单成衣货权归属工厂。
+                </div>`
               : ''
           }
 

@@ -1274,7 +1274,7 @@ function resolveSourceReturnAction(): { label: string; href: string } | null {
     const context = buildReturnToSummaryContext(state.drillContext)
     return context
       ? {
-          label: '返回裁剪总表',
+          label: '返回裁剪总结',
           href: buildCuttingRouteWithContext('summary', context),
         }
       : null
@@ -1505,7 +1505,7 @@ function renderHeaderActions(): string {
       <div class="flex flex-wrap items-center gap-2">
         <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildTransferBagListRoute())}">返回中转袋流转</button>
         ${sourceReturnButton}
-        ${hasSummaryReturnContext(state.drillContext) ? '' : '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="go-summary-index">查看裁剪总表</button>'}
+        ${hasSummaryReturnContext(state.drillContext) ? '' : '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="go-summary-index">查看裁剪总结</button>'}
       </div>
     `
   }
@@ -1514,7 +1514,7 @@ function renderHeaderActions(): string {
     <div class="flex flex-wrap items-center gap-2">
       ${sourceReturnButton || fallbackWarehouseButton}
       <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="go-fei-tickets-index">去打印菲票</button>
-      ${hasSummaryReturnContext(state.drillContext) ? '' : '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="go-summary-index">查看裁剪总表</button>'}
+      ${hasSummaryReturnContext(state.drillContext) ? '' : '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-transfer-bags-action="go-summary-index">查看裁剪总结</button>'}
     </div>
   `
 }
@@ -2266,7 +2266,7 @@ function renderUsageDetail(item: TransferBagUsageItem | null): string {
           <div><span class="text-muted-foreground">最新清单：</span><span class="font-medium text-foreground">${escapeHtml(item.latestManifest?.manifestId || '尚未打印')}</span></div>
           <div class="flex flex-wrap gap-2">
             <button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-transfer-bags-action="go-original-orders" data-usage-id="${escapeHtml(item.usageId)}">去来源原始裁片单</button>
-            <button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-transfer-bags-action="go-summary" data-usage-id="${escapeHtml(item.usageId)}">去裁剪总表</button>
+            <button type="button" class="rounded-md border px-3 py-2 text-xs hover:bg-muted" data-transfer-bags-action="go-summary" data-usage-id="${escapeHtml(item.usageId)}">去裁剪总结</button>
           </div>
         </div>
         <div class="space-y-3 rounded-lg border bg-muted/15 p-3">

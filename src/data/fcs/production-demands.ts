@@ -150,6 +150,53 @@ const seedProductionDemands: ProductionDemand[] = [
     hasProductionOrder: false, productionOrderId: null, createdAt: '2026-03-04 11:00:00', updatedAt: '2026-03-04 11:00:00',
   }),
   createDemandSeed({
+    demandId: 'DEM-202603-0091', legacyType: 'GOODS_PURCHASE', legacyOrderNo: '26031691', sourceSystem: 'NEW',
+    spuCode: 'SPU-TSHIRT-081', spuName: '春季休闲印花短袖 T 恤', imageUrl: '/placeholder.svg?height=80&width=80',
+    category: 'Mens T-Shirt', marketScopes: ['ID', 'VN'], priority: 'URGENT', demandStatus: 'PENDING_CONVERT', techPackStatus: 'RELEASED', techPackVersionLabel: 'v2.0',
+    requiredDeliveryDate: '2026-04-08', constraintsNote: '合并生产演示：白色基础补单，可与同款同技术包需求合并生成一张生产单。',
+    skuLines: [
+      { skuCode: 'SKU-081-S-WHT', size: 'S', color: '白色', qty: 600 },
+      { skuCode: 'SKU-081-M-WHT', size: 'M', color: '白色', qty: 900 },
+      { skuCode: 'SKU-081-L-WHT', size: 'L', color: '白色', qty: 900 },
+    ],
+    hasProductionOrder: false, productionOrderId: null, createdAt: '2026-03-16 08:20:00', updatedAt: '2026-03-16 08:20:00',
+  }),
+  createDemandSeed({
+    demandId: 'DEM-202603-0092', legacyType: 'GOODS_PURCHASE', legacyOrderNo: '26031692', sourceSystem: 'NEW',
+    spuCode: 'SPU-TSHIRT-081', spuName: '春季休闲印花短袖 T 恤', imageUrl: '/placeholder.svg?height=80&width=80',
+    category: 'Mens T-Shirt', marketScopes: ['ID', 'VN'], priority: 'HIGH', demandStatus: 'PENDING_CONVERT', techPackStatus: 'RELEASED', techPackVersionLabel: 'v2.0',
+    requiredDeliveryDate: '2026-04-10', constraintsNote: '合并生产演示：黑色补单，和白色、玫瑰红补单共用当前生效技术包。',
+    skuLines: [
+      { skuCode: 'SKU-081-S-BLK', size: 'S', color: '黑色', qty: 500 },
+      { skuCode: 'SKU-081-M-BLK', size: 'M', color: '黑色', qty: 800 },
+      { skuCode: 'SKU-081-L-BLK', size: 'L', color: '黑色', qty: 800 },
+    ],
+    hasProductionOrder: false, productionOrderId: null, createdAt: '2026-03-16 09:10:00', updatedAt: '2026-03-16 09:10:00',
+  }),
+  createDemandSeed({
+    demandId: 'DEM-202603-0093', legacyType: 'ID_PURCHASE', legacyOrderNo: '26031693', sourceSystem: 'NEW',
+    spuCode: 'SPU-TSHIRT-081', spuName: '春季休闲印花短袖 T 恤', imageUrl: '/placeholder.svg?height=80&width=80',
+    category: 'Mens T-Shirt', marketScopes: ['ID'], priority: 'HIGH', demandStatus: 'PENDING_CONVERT', techPackStatus: 'RELEASED', techPackVersionLabel: 'v2.0',
+    requiredDeliveryDate: '2026-04-12', constraintsNote: '合并生产演示：玫瑰红渠道单，允许与同款同技术包需求合并生成生产单。',
+    skuLines: [
+      { skuCode: 'SKU-081-M-RSE', size: 'M', color: '玫瑰红', qty: 700 },
+      { skuCode: 'SKU-081-L-RSE', size: 'L', color: '玫瑰红', qty: 700 },
+    ],
+    hasProductionOrder: false, productionOrderId: null, createdAt: '2026-03-16 10:00:00', updatedAt: '2026-03-16 10:00:00',
+  }),
+  createDemandSeed({
+    demandId: 'DEM-202603-0094', legacyType: 'GOODS_PURCHASE', legacyOrderNo: '26031694', sourceSystem: 'NEW',
+    spuCode: 'SPU-TSHIRT-081', spuName: '春季休闲印花短袖 T 恤', imageUrl: '/placeholder.svg?height=80&width=80',
+    category: 'Mens T-Shirt', marketScopes: ['ID', 'TH'], priority: 'NORMAL', demandStatus: 'PENDING_CONVERT', techPackStatus: 'RELEASED', techPackVersionLabel: 'v2.0',
+    requiredDeliveryDate: '2026-04-15', constraintsNote: '合并生产演示：泰国渠道加单，仍未指定主工厂，待车缝任务分配后回写。',
+    skuLines: [
+      { skuCode: 'SKU-081-S-GRN', size: 'S', color: '薄荷绿', qty: 400 },
+      { skuCode: 'SKU-081-M-GRN', size: 'M', color: '薄荷绿', qty: 500 },
+      { skuCode: 'SKU-081-L-GRN', size: 'L', color: '薄荷绿', qty: 500 },
+    ],
+    hasProductionOrder: false, productionOrderId: null, createdAt: '2026-03-16 10:45:00', updatedAt: '2026-03-16 10:45:00',
+  }),
+  createDemandSeed({
     demandId: 'DEM-202603-0009', legacyType: 'ID_PURCHASE', legacyOrderNo: '240784', sourceSystem: 'LEGACY',
     spuCode: 'SPU-2024-009', spuName: 'Polo Shirt Pique', imageUrl: '/placeholder.svg?height=80&width=80',
     category: 'Mens Polo', marketScopes: ['ID', 'TH'], priority: 'HIGH', demandStatus: 'CONVERTED', techPackStatus: 'RELEASED', techPackVersionLabel: 'v1.2',

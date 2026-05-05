@@ -12,6 +12,8 @@ import {
   productionOrderStatusConfig,
   assignmentProgressStatusConfig,
   riskFlagConfig,
+  formatProductionOrderMainFactoryName,
+  isProductionOrderMainFactoryPending,
 } from '../../data/fcs/production-orders'
 import {
   indonesiaFactories,
@@ -373,6 +375,11 @@ function cloneOrder(order: ProductionOrder): ProductionOrder {
       ...order.demandSnapshot,
       skuLines: order.demandSnapshot.skuLines.map((sku) => ({ ...sku })),
     },
+    sourceDemandIds: [...(order.sourceDemandIds ?? [order.demandId])],
+    sourceDemandSnapshots: (order.sourceDemandSnapshots ?? [order.demandSnapshot]).map((snapshot) => ({
+      ...snapshot,
+      skuLines: snapshot.skuLines.map((sku) => ({ ...sku })),
+    })),
     assignmentSummary: { ...order.assignmentSummary },
     assignmentProgress: { ...order.assignmentProgress },
     biddingSummary: { ...order.biddingSummary },
@@ -1361,7 +1368,7 @@ function getFilteredDemands(): ProductionDemand[] {
 }
 
 function getBatchGeneratableDemandIds(): string[] {
-  return [...state.demandSelectedIds].filter((demandId) => {
+  return getBatchSelectedDemandIds().filter((demandId) => {
     const demand = state.demands.find((item) => item.demandId === demandId)
     if (!demand) return false
     return (
@@ -1370,6 +1377,11 @@ function getBatchGeneratableDemandIds(): string[] {
       getTechPackSnapshotForDemand(demand).canGenerate
     )
   })
+}
+
+function getBatchSelectedDemandIds(): string[] {
+  const visibleDemandIds = new Set(getFilteredDemands().map((demand) => demand.demandId))
+  return [...state.demandSelectedIds].filter((demandId) => visibleDemandIds.has(demandId))
 }
 
 function listOrdersFromDemandGeneratableDemands(): ProductionDemand[] {
@@ -1397,7 +1409,7 @@ function getFilteredOrders(): ProductionOrder[] {
         order.legacyOrderNo.toLowerCase().includes(keyword) ||
         order.demandSnapshot.spuCode.toLowerCase().includes(keyword) ||
         order.demandSnapshot.spuName.toLowerCase().includes(keyword) ||
-        order.mainFactorySnapshot.name.toLowerCase().includes(keyword)
+        formatProductionOrderMainFactoryName(order).toLowerCase().includes(keyword)
       )
     })
   }
@@ -1455,7 +1467,11 @@ function getFilteredOrders(): ProductionOrder[] {
   }
 
   if (state.ordersTierFilter !== 'ALL') {
-    result = result.filter((order) => order.mainFactorySnapshot.tier === state.ordersTierFilter)
+    result = result.filter(
+      (order) =>
+        !isProductionOrderMainFactoryPending(order) &&
+        order.mainFactorySnapshot.tier === state.ordersTierFilter,
+    )
   }
 
   if (state.ordersHasMaterialDraftFilter !== 'ALL') {
@@ -1677,6 +1693,8 @@ export {
   productionOrderStatusConfig,
   assignmentProgressStatusConfig,
   riskFlagConfig,
+  formatProductionOrderMainFactoryName,
+  isProductionOrderMainFactoryPending,
   indonesiaFactories,
   typesByTier,
   tierLabels,
@@ -1782,6 +1800,7 @@ export {
   getDemandFactoryOptions,
   getAvailableDemandTypes,
   getFilteredDemands,
+  getBatchSelectedDemandIds,
   getBatchGeneratableDemandIds,
   listOrdersFromDemandGeneratableDemands,
   getOrdersFromDemandSelectedIds,

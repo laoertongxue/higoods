@@ -1351,13 +1351,13 @@ function renderDetailDrawer(): string {
 
 function renderActionBar(): string {
   const returnToSummary = hasSummaryReturnContext(state.drillContext)
-    ? `<button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-progress-action="return-summary">返回裁剪总表</button>`
+    ? `<button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-progress-action="return-summary">返回裁剪总结</button>`
     : ''
   return `
     <div class="flex flex-wrap items-center gap-2">
       <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-progress-action="go-cuttable-pool-index">去可裁排产</button>
       ${returnToSummary}
-      <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-progress-action="go-summary-index">查看裁剪总表</button>
+      <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-progress-action="go-summary-index">查看裁剪总结</button>
     </div>
   `
 }

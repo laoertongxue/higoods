@@ -165,7 +165,7 @@ const actionTargetLabelMap: Record<SummaryNavigationTarget, string> = {
   transferBags: '中转袋流转',
   replenishment: '补料管理',
   specialProcesses: '特殊工艺',
-  summary: '裁剪总表',
+  summary: '裁剪总结',
 }
 
 const sourceObjectGroupOrder: CuttingCheckSourceObjectType[] = [

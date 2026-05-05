@@ -15,10 +15,16 @@ import {
   renderBadge,
   renderMetricCard,
   renderPageHeader,
-  renderSection,
 } from './shared.ts'
 
 type PrintingWarehouseMode = 'wait-process' | 'wait-handover'
+
+type WarehouseTab = {
+  key: string
+  label: string
+  count: number
+  table: string
+}
 
 function formatQty(value: number | undefined, unit = ''): string {
   const qty = Number.isFinite(value) ? Number(value).toLocaleString('zh-CN', { maximumFractionDigits: 2 }) : '0'
@@ -230,6 +236,73 @@ function renderStocktakeRows(view: PrintingWarehouseView): string {
     .join('')
 }
 
+function renderWarehouseTabs(tabs: WarehouseTab[], idPrefix: string): string {
+  return `
+    <section class="rounded-lg border bg-card">
+      <style>
+        ${tabs
+          .map(
+            (tab, index) => `
+              #${idPrefix}-${tab.key}:checked ~ .warehouse-tab-labels label[for="${idPrefix}-${tab.key}"] {
+                background: rgb(15 23 42);
+                border-color: rgb(15 23 42);
+                color: white;
+              }
+              #${idPrefix}-${tab.key}:checked ~ .warehouse-tab-panels [data-warehouse-tab-panel="${tab.key}"] {
+                display: block;
+              }
+              ${index === 0 ? '' : ''}
+            `,
+          )
+          .join('')}
+      </style>
+      ${tabs
+        .map(
+          (tab, index) => `
+            <input
+              id="${idPrefix}-${tab.key}"
+              class="sr-only"
+              type="radio"
+              name="${idPrefix}"
+              ${index === 0 ? 'checked' : ''}
+            />
+          `,
+        )
+        .join('')}
+      <div class="warehouse-tab-labels flex flex-wrap gap-2 border-b bg-muted/20 px-4 py-3">
+        ${tabs
+          .map(
+            (tab) => `
+              <label
+                for="${idPrefix}-${tab.key}"
+                class="inline-flex cursor-pointer items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
+              >
+                <span>${escapeHtml(tab.label)}</span>
+                <span class="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">${String(tab.count)}</span>
+              </label>
+            `,
+          )
+          .join('')}
+      </div>
+      <div class="warehouse-tab-panels">
+        ${tabs
+          .map(
+            (tab) => `
+              <div class="hidden" data-warehouse-tab-panel="${tab.key}">
+                <div class="flex items-center justify-between border-b px-4 py-3">
+                  <h2 class="text-base font-semibold">${escapeHtml(tab.label)}</h2>
+                  <span class="text-xs text-muted-foreground">共 ${String(tab.count)} 条</span>
+                </div>
+                ${tab.table}
+              </div>
+            `,
+          )
+          .join('')}
+      </div>
+    </section>
+  `
+}
+
 function renderPrintingWarehousePage(mode: PrintingWarehouseMode): string {
   const view = getPrintingWarehouseView({ timeRange: '30D' })
   const stocktakeDifferenceCount = view.stocktakeOrders.reduce(
@@ -259,25 +332,67 @@ function renderPrintingWarehousePage(mode: PrintingWarehouseMode): string {
           renderMetricCard('盘点差异', String(stocktakeDifferenceCount), '盘点明细'),
         ].join('')
 
-  const modeSections =
+  const tabs: WarehouseTab[] =
     mode === 'wait-process'
       ? [
-          renderSection('待加工仓', renderTable(['工厂', '仓库', '印花加工单号', '所属任务', '类型', '面料 SKU', '颜色', '尺码', '卷号', '计划印花面料米数 / 裁片数量', '待印花面料米数 / 裁片数量', '差异面料米数 / 裁片数量', '库位', '状态', '操作'], renderWaitProcessRows(view), 'min-w-[1680px]')),
-          renderSection('入库记录', renderTable(['入库单号', '工厂', '入库仓', '印花加工单号', '所属任务', '面料 SKU', '计划印花面料米数 / 裁片数量', '入仓面料米数 / 裁片数量', '差异面料米数 / 裁片数量', '库位', '操作人', '操作时间', '状态', '操作'], renderInboundRows(view), 'min-w-[1680px]')),
-        ].join('')
+          {
+            key: 'wait-process',
+            label: '待加工仓',
+            count: view.waitProcessItems.length,
+            table: renderTable(['工厂', '仓库', '印花加工单号', '所属任务', '类型', '面料 SKU', '颜色', '尺码', '卷号', '计划印花面料米数 / 裁片数量', '待印花面料米数 / 裁片数量', '差异面料米数 / 裁片数量', '库位', '状态', '操作'], renderWaitProcessRows(view), 'min-w-[1680px]'),
+          },
+          {
+            key: 'inbound',
+            label: '入库记录',
+            count: view.inboundRecords.length,
+            table: renderTable(['入库单号', '工厂', '入库仓', '印花加工单号', '所属任务', '面料 SKU', '计划印花面料米数 / 裁片数量', '入仓面料米数 / 裁片数量', '差异面料米数 / 裁片数量', '库位', '操作人', '操作时间', '状态', '操作'], renderInboundRows(view), 'min-w-[1680px]'),
+          },
+          {
+            key: 'nodes',
+            label: '库区库位',
+            count: view.nodeRows.length,
+            table: renderTable(['工厂', '仓库', '库区', '货架', '库位', '状态', '备注'], renderNodeRows(view), 'min-w-[980px]'),
+          },
+          {
+            key: 'stocktake',
+            label: '盘点',
+            count: view.stocktakeOrders.length,
+            table: renderTable(['盘点单号', '工厂', '仓库', '盘点范围', '盘点人', '开始时间', '明细数', '差异数', '状态'], renderStocktakeRows(view), 'min-w-[1120px]'),
+          },
+        ]
       : [
-          renderSection('待交出仓', renderTable(['工厂', '仓库', '来源任务', '类型', '面料 SKU', '颜色', '卷号', '转印完成面料米数 / 裁片数量', '损耗面料米数 / 裁片数量', '待交出面料米数 / 裁片数量', '接收方', '交出单', '交出记录', '回写面料米数 / 裁片数量', '状态', '操作'], renderWaitHandoverRows(view), 'min-w-[1740px]')),
-          renderSection('出库记录', renderTable(['出库单号', '工厂', '出库仓', '来源任务', '交出单', '交出记录', '接收方', '面料 SKU', '已交出面料米数 / 裁片数量', '回写面料米数 / 裁片数量', '差异面料米数 / 裁片数量', '操作人', '出库时间', '状态', '操作'], renderOutboundRows(view), 'min-w-[1720px]')),
-        ].join('')
+          {
+            key: 'wait-handover',
+            label: '待交出仓',
+            count: view.waitHandoverItems.length,
+            table: renderTable(['工厂', '仓库', '来源任务', '类型', '面料 SKU', '颜色', '卷号', '转印完成面料米数 / 裁片数量', '损耗面料米数 / 裁片数量', '待交出面料米数 / 裁片数量', '接收方', '交出单', '交出记录', '回写面料米数 / 裁片数量', '状态', '操作'], renderWaitHandoverRows(view), 'min-w-[1740px]'),
+          },
+          {
+            key: 'outbound',
+            label: '出库记录',
+            count: view.outboundRecords.length,
+            table: renderTable(['出库单号', '工厂', '出库仓', '来源任务', '交出单', '交出记录', '接收方', '面料 SKU', '已交出面料米数 / 裁片数量', '回写面料米数 / 裁片数量', '差异面料米数 / 裁片数量', '操作人', '出库时间', '状态', '操作'], renderOutboundRows(view), 'min-w-[1720px]'),
+          },
+          {
+            key: 'nodes',
+            label: '库区库位',
+            count: view.nodeRows.length,
+            table: renderTable(['工厂', '仓库', '库区', '货架', '库位', '状态', '备注'], renderNodeRows(view), 'min-w-[980px]'),
+          },
+          {
+            key: 'stocktake',
+            label: '盘点',
+            count: view.stocktakeOrders.length,
+            table: renderTable(['盘点单号', '工厂', '仓库', '盘点范围', '盘点人', '开始时间', '明细数', '差异数', '状态'], renderStocktakeRows(view), 'min-w-[1120px]'),
+          },
+        ]
 
   return `
     <div class="space-y-4 p-4">
       ${renderPageHeader(title, description)}
       ${renderFilters(view)}
       <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">${metrics}</section>
-      ${modeSections}
-      ${renderSection('库区库位', renderTable(['工厂', '仓库', '库区', '货架', '库位', '状态', '备注'], renderNodeRows(view), 'min-w-[980px]'))}
-      ${renderSection('盘点', renderTable(['盘点单号', '工厂', '仓库', '盘点范围', '盘点人', '开始时间', '明细数', '差异数', '状态'], renderStocktakeRows(view), 'min-w-[1120px]'))}
+      ${renderWarehouseTabs(tabs, mode === 'wait-process' ? 'printing-wait-process-tabs' : 'printing-wait-handover-tabs')}
     </div>
   `
 }

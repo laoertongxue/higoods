@@ -43,6 +43,8 @@ import {
   listRuntimeTaskSplitGroupsByOrder,
   PAGE_SIZE,
   productionOrderStatusConfig,
+  formatProductionOrderMainFactoryName,
+  isProductionOrderMainFactoryPending,
 } from './context.ts'
 import {
   renderOrdersFromDemandDialog,
@@ -352,20 +354,28 @@ function renderOrderMaterialSummary(order: ProductionOrder): string {
 
 function renderOrderMainFactory(order: ProductionOrder): string {
   const materialDisplay = getOrderMaterialDisplaySummary(order)
+  const pending = isProductionOrderMainFactoryPending(order)
   const factoryRoleLabel =
-    materialDisplay.stage === 'PREVIEW' || materialDisplay.stage === 'NOT_READY'
+    pending
+      ? '车缝分配后确认'
+      : materialDisplay.stage === 'PREVIEW' || materialDisplay.stage === 'NOT_READY'
       ? '预设主工厂'
       : '实际主工厂'
+  const factoryName = formatProductionOrderMainFactoryName(order)
 
   return `
     <div class="text-sm">
-      <div class="max-w-[150px] truncate font-medium" title="${escapeHtml(order.mainFactorySnapshot.name)}">
-        ${escapeHtml(order.mainFactorySnapshot.name)}
+      <div class="max-w-[150px] truncate font-medium" title="${escapeHtml(factoryName)}">
+        ${escapeHtml(factoryName)}
       </div>
       <div class="mt-0.5 text-xs text-muted-foreground">${factoryRoleLabel}</div>
       <div class="mt-1 flex items-center gap-1">
-        ${renderBadge(tierLabels[order.mainFactorySnapshot.tier as FactoryTier] ?? order.mainFactorySnapshot.tier, 'bg-slate-100 text-slate-700')}
-        ${renderBadge(typeLabels[order.mainFactorySnapshot.type as FactoryType] ?? order.mainFactorySnapshot.type, 'bg-slate-100 text-slate-700')}
+        ${
+          pending
+            ? renderBadge('待回写', 'bg-amber-100 text-amber-700')
+            : `${renderBadge(tierLabels[order.mainFactorySnapshot.tier as FactoryTier] ?? order.mainFactorySnapshot.tier, 'bg-slate-100 text-slate-700')}
+               ${renderBadge(typeLabels[order.mainFactorySnapshot.type as FactoryType] ?? order.mainFactorySnapshot.type, 'bg-slate-100 text-slate-700')}`
+        }
       </div>
     </div>
   `
@@ -653,7 +663,7 @@ function renderMaterialDraftDrawer(): string {
               </div>
               <div>
                 <div class="text-xs text-muted-foreground">主工厂</div>
-                <div class="truncate text-sm" title="${escapeHtml(order.mainFactorySnapshot.name)}">${escapeHtml(order.mainFactorySnapshot.name)}</div>
+                <div class="truncate text-sm" title="${escapeHtml(formatProductionOrderMainFactoryName(order))}">${escapeHtml(formatProductionOrderMainFactoryName(order))}</div>
               </div>
             </div>
           </section>
@@ -827,7 +837,7 @@ export function renderProductionOrdersPage(): string {
           </div>
 
           <div>
-            <span class="text-xs text-muted-foreground">主工厂层级</span>
+            <span class="text-xs text-muted-foreground">主工厂层级（已指定）</span>
             <select data-prod-field="ordersTierFilter" class="mt-1 h-9 w-full rounded-md border px-3 text-sm">
               <option value="ALL" ${state.ordersTierFilter === 'ALL' ? 'selected' : ''}>全部</option>
               ${(Object.keys(tierLabels) as FactoryTier[])

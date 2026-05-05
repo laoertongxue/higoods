@@ -30,6 +30,7 @@ import {
 
 type FilterField = 'keyword' | 'status' | 'locationType' | 'holder'
 type DetailField = 'locationType' | 'holder' | 'note'
+type SampleWarehouseTabKey = 'inventory' | 'circulation' | 'exception'
 
 interface SampleWarehousePageState {
   filters: SampleWarehouseFilters
@@ -81,6 +82,66 @@ function getFilteredItems() {
   return filterSampleWarehouseItems(getViewModel().items, state.filters, state.prefilter)
 }
 
+function getActiveTab(): SampleWarehouseTabKey {
+  const raw = getWarehouseSearchParams().get('tab')
+  if (raw === 'circulation' || raw === 'exception') return raw
+  return 'inventory'
+}
+
+function buildSampleWarehouseTabPath(tab: SampleWarehouseTabKey): string {
+  const basePath = getCanonicalCuttingPath('sample-warehouse')
+  return tab === 'inventory' ? basePath : `${basePath}?tab=${encodeURIComponent(tab)}`
+}
+
+function filterItemsByTab(items: SampleWarehouseItem[], tab: SampleWarehouseTabKey): SampleWarehouseItem[] {
+  if (tab === 'circulation') {
+    return items.filter((item) => ['BORROWED', 'IN_FACTORY', 'INSPECTION', 'PENDING_RETURN'].includes(item.status.key))
+  }
+  if (tab === 'exception') {
+    return items.filter((item) => ['INSPECTION', 'PENDING_RETURN'].includes(item.status.key))
+  }
+  return items.filter((item) => ['AVAILABLE', 'IN_FACTORY'].includes(item.status.key))
+}
+
+function renderTabButton(tab: SampleWarehouseTabKey, label: string, count: number): string {
+  const isActive = getActiveTab() === tab
+  return `
+    <button
+      type="button"
+      class="flex min-w-40 flex-col rounded-lg px-3 py-2 text-left ${isActive ? 'bg-slate-900 text-white' : 'border bg-card text-slate-700 hover:bg-muted'}"
+      data-nav="${escapeHtml(buildSampleWarehouseTabPath(tab))}"
+    >
+      <span class="text-sm font-semibold">${escapeHtml(label)}</span>
+      <span class="mt-1 text-xs ${isActive ? 'text-slate-200' : 'text-muted-foreground'}">当前 ${escapeHtml(String(count))} 条</span>
+    </button>
+  `
+}
+
+function renderTabSection(items: SampleWarehouseItem[]): string {
+  const inventoryCount = items.filter((item) => ['AVAILABLE', 'IN_FACTORY'].includes(item.status.key)).length
+  const circulationCount = items.filter((item) => ['BORROWED', 'IN_FACTORY', 'INSPECTION', 'PENDING_RETURN'].includes(item.status.key)).length
+  const exceptionCount = items.filter((item) => ['INSPECTION', 'PENDING_RETURN'].includes(item.status.key)).length
+
+  return `
+    <section class="rounded-xl border bg-card p-4">
+      <div class="flex flex-wrap gap-2">
+        ${renderTabButton('inventory', '样衣库存', inventoryCount)}
+        ${renderTabButton('circulation', '样衣流转', circulationCount)}
+        ${renderTabButton('exception', '样衣异常 / 待归还', exceptionCount)}
+      </div>
+      <div class="mt-4 rounded-lg border border-dashed bg-muted/20 p-3 text-sm text-muted-foreground">
+        ${
+          getActiveTab() === 'inventory'
+            ? '聚焦在仓样衣与在工厂样衣，借出、归还和样衣详情继续通过列表行操作或详情抽屉处理。'
+            : getActiveTab() === 'circulation'
+              ? '聚焦样衣借出、工厂流转和抽检记录，调用记录、归还操作和样衣详情继续通过列表行操作或详情抽屉处理。'
+              : '聚焦待归还与抽检中的样衣，差异说明、归还确认和盘点记录继续通过列表行操作或详情抽屉处理。'
+        }
+      </div>
+    </section>
+  `
+}
+
 function getPrefilterFromQuery(): SampleWarehousePrefilter | null {
   const params = getWarehouseSearchParams()
   const prefilter: SampleWarehousePrefilter = {
@@ -129,7 +190,7 @@ function renderHeaderActions(): string {
   return `
     <div class="flex flex-wrap items-center gap-2">
       <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-sample-warehouse-action="go-original-orders-index">查看相关裁片单 / 款号</button>
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-sample-warehouse-action="go-summary-index">查看裁剪总表</button>
+      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-sample-warehouse-action="go-summary-index">查看裁剪总结</button>
     </div>
   `
 }
@@ -245,7 +306,13 @@ function renderFilterArea(): string {
 
 function renderTable(items: SampleWarehouseItem[]): string {
   if (!items.length) {
-    return '<section class="rounded-lg border border-dashed bg-card px-6 py-12 text-center text-sm text-muted-foreground">当前筛选条件下暂无样衣仓记录。</section>'
+    const emptyText =
+      getActiveTab() === 'inventory'
+        ? '当前筛选条件下暂无样衣库存记录。'
+        : getActiveTab() === 'circulation'
+          ? '当前筛选条件下暂无样衣流转记录。'
+          : '当前筛选条件下暂无样衣异常 / 待归还记录。'
+    return `<section class="rounded-lg border border-dashed bg-card px-6 py-12 text-center text-sm text-muted-foreground">${escapeHtml(emptyText)}</section>`
   }
 
   return renderStickyTableScroller(`
@@ -416,7 +483,7 @@ function renderDetailDrawer(): string {
           </div>
           <div class="mt-4 flex flex-wrap gap-2">
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-white" data-sample-warehouse-action="go-original-orders" data-item-id="${escapeHtml(item.sampleItemId)}">查看相关裁片单</button>
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-white" data-sample-warehouse-action="go-summary" data-item-id="${escapeHtml(item.sampleItemId)}">去裁剪总表</button>
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-white" data-sample-warehouse-action="go-summary" data-item-id="${escapeHtml(item.sampleItemId)}">去裁剪总结</button>
           </div>
         </section>
       </div>
@@ -428,7 +495,7 @@ function renderPage(): string {
   syncPrefilterFromQuery()
   const pathname = appStore.getState().pathname
   const meta = getCanonicalCuttingMeta(pathname, 'sample-warehouse')
-  const items = getFilteredItems()
+  const items = filterItemsByTab(getFilteredItems(), getActiveTab())
 
   return `
     <div class="space-y-3 p-4">
@@ -437,6 +504,7 @@ function renderPage(): string {
         actionsHtml: renderHeaderActions(),
       })}
       ${renderStatsCards()}
+      ${renderTabSection(getViewModel().items)}
       ${renderPrefilterBar()}
       ${renderFilterArea()}
       ${renderFilterStateBar()}
@@ -540,8 +608,8 @@ export function handleCraftCuttingSampleWarehouseEvent(target: Element): boolean
   if (action === 'clear-prefilter') {
     state.prefilter = null
     state.activeItemId = null
-    state.querySignature = getCanonicalCuttingPath('sample-warehouse')
-    appStore.navigate(getCanonicalCuttingPath('sample-warehouse'))
+    state.querySignature = buildSampleWarehouseTabPath(getActiveTab())
+    appStore.navigate(buildSampleWarehouseTabPath(getActiveTab()))
     return true
   }
 

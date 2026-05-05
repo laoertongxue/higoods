@@ -209,7 +209,7 @@ function renderHeaderActions(activeBatch: MergeBatchRecord | null): string {
         'secondary',
         !activeBatch,
       )}
-      ${renderActionButton('去裁剪总表', 'data-merge-batches-action="go-summary"')}
+      ${renderActionButton('去裁剪总结', 'data-merge-batches-action="go-summary"')}
     </div>
   `
 }

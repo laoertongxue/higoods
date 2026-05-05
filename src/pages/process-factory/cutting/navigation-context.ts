@@ -75,7 +75,7 @@ export interface CuttingDrillContext {
 export type CuttingPrefilterPayload = Record<string, string | undefined>
 
 const sourcePageLabelMap: Record<CuttingPageContextKey, string> = {
-  'cutting-summary': '裁剪总表',
+  'cutting-summary': '裁剪总结',
   replenishment: '补料管理',
   'special-processes': '特殊工艺',
   'material-prep': '仓库配料领料',
@@ -92,7 +92,7 @@ const sourcePageLabelMap: Record<CuttingPageContextKey, string> = {
 }
 
 const actionLabelMap: Record<CuttingNavigationTarget, string> = {
-  summary: '去裁剪总表',
+  summary: '去裁剪总结',
   replenishment: '去补料管理',
   specialProcesses: '去特殊工艺',
   materialPrep: '去仓库配料领料',
@@ -382,7 +382,7 @@ export function buildCuttingDrillChipLabels(context: CuttingDrillContext | null)
 
 export function buildCuttingDrillSummary(context: CuttingDrillContext | null): string {
   if (!context) return ''
-  if (context.sourcePageKey === 'cutting-summary') return '当前已恢复裁剪总表定位'
+  if (context.sourcePageKey === 'cutting-summary') return '当前已恢复裁剪总结定位'
   return `来源：${getCuttingSourcePageLabel(context.sourcePageKey)}`
 }
 
