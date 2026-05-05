@@ -144,6 +144,7 @@ export interface TechnicalPatternBindingStrip {
 
 export interface TechnicalPatternFile {
   id: string
+  recordKind?: 'PACKAGE' | 'MATERIAL_ASSOCIATION'
   patternName?: string
   patternCategory?: TechnicalPatternCategory | string
   patternMaterialType?: TechnicalPatternMaterialType
@@ -200,6 +201,8 @@ export interface TechnicalPatternFile {
   pieceInstanceTotal?: number
   specialCraftConfiguredPieceTotal?: number
   specialCraftUnconfiguredPieceTotal?: number
+  sourcePatternPackageId?: string
+  sourcePatternPackageName?: string
 }
 
 export interface TechnicalProcessEntry {

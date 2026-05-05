@@ -266,6 +266,7 @@ type SkuOption = {
 
 type PatternItem = {
   id: string
+  recordKind?: 'PACKAGE' | 'MATERIAL_ASSOCIATION'
   name: string
   type: TechPackPatternCategory | string
   image: string
@@ -319,6 +320,8 @@ type PatternItem = {
   pieceInstanceTotal: number
   specialCraftConfiguredPieceTotal: number
   specialCraftUnconfiguredPieceTotal: number
+  sourcePatternPackageId?: string
+  sourcePatternPackageName?: string
 }
 
 type PatternFormState = Omit<PatternItem, 'id'> & {
@@ -699,6 +702,7 @@ const defaultInsideTemplate = defaultPartTemplateRecords[1] ?? defaultFrontTempl
 const DEFAULT_PATTERN_ITEMS: PatternItem[] = [
   {
     id: 'PAT-001',
+    recordKind: 'MATERIAL_ASSOCIATION',
     name: '前片',
     type: '主体片',
     image: 'pattern-front.png',
@@ -832,6 +836,7 @@ const DEFAULT_PATTERN_ITEMS: PatternItem[] = [
   },
   {
     id: 'PAT-002',
+    recordKind: 'MATERIAL_ASSOCIATION',
     name: '后片',
     type: '主体片',
     image: 'pattern-back.png',
@@ -1016,6 +1021,7 @@ function createPatternStatusDemoItem(
   const fileBaseName = `${status}-纸样-${index + 1}`
   return {
     id: baseId,
+    recordKind: 'MATERIAL_ASSOCIATION',
     name: hasMerchandiserInfo ? `${status}纸样${index + 1}` : '',
     type: '主体片',
     image: hasMakerFiles ? `${fileBaseName}-marker.png` : '',
@@ -1156,6 +1162,235 @@ function ensurePatternStatusDemoCoverage(
       duplicateWarningReasons: [...(item.duplicateWarningReasons || [])],
     }
   })
+}
+
+function createPatternPoolDemoPackage(
+  source: PatternItem,
+  spec: {
+    id: string
+    name: string
+    type: TechPackPatternCategory
+    materialType: 'WOVEN' | 'KNIT'
+    fileBaseName: string
+  },
+): PatternItem {
+  const isKnit = spec.materialType === 'KNIT'
+  const pieceRows = isKnit ? [] : normalizePatternPieceRows(source.pieceRows, spec.id, '')
+  const patternTotalPieceQty = calculatePatternTotalPieceQty(pieceRows)
+
+  return {
+    ...source,
+    id: spec.id,
+    recordKind: 'PACKAGE',
+    name: spec.name,
+    type: spec.type,
+    image: `${spec.fileBaseName}-marker.png`,
+    file: isKnit ? `${spec.fileBaseName}.prj` : `${spec.fileBaseName}.dxf / ${spec.fileBaseName}.rul`,
+    remark: '',
+    linkedBomItemId: '',
+    linkedMaterialId: '',
+    linkedMaterialName: '',
+    linkedMaterialSku: '',
+    widthCm: 0,
+    markerLengthM: 0,
+    totalPieceCount: patternTotalPieceQty,
+    patternTotalPieceQty,
+    isKnitted: isKnit ? '是' : '否',
+    maintainerStepStatus: isKnit ? '待版师维护' : '已解析待确认',
+    merchandiserInfoStatus: '已填写',
+    patternMakerInfoStatus: isKnit ? '未填写' : '已解析',
+    prjFile: createPatternManagedFile({
+      fileName: `${spec.fileBaseName}.prj`,
+      fileSize: 24576,
+      uploadedAt: '2026-04-20 09:00:00',
+      uploadedBy: 'Sari 版师',
+    }),
+    markerImage: createPatternManagedFile({
+      fileName: `${spec.fileBaseName}-marker.png`,
+      fileSize: 32768,
+      uploadedAt: '2026-04-20 09:05:00',
+      uploadedBy: 'Sari 版师',
+      previewUrl: `${spec.fileBaseName}-marker.png`,
+    }),
+    dxfFile: isKnit
+      ? null
+      : createPatternManagedFile({
+          fileName: `${spec.fileBaseName}.dxf`,
+          fileSize: 32768,
+          uploadedAt: '2026-04-20 09:10:00',
+          uploadedBy: 'Sari 版师',
+        }),
+    rulFile: isKnit
+      ? null
+      : createPatternManagedFile({
+          fileName: `${spec.fileBaseName}.rul`,
+          fileSize: 8192,
+          uploadedAt: '2026-04-20 09:15:00',
+          uploadedBy: 'Sari 版师',
+        }),
+    bindingStrips: [],
+    patternSignature: '',
+    duplicateConfirmed: false,
+    duplicateWarningReasons: [],
+    patternMaterialType: spec.materialType,
+    patternMaterialTypeLabel: getPatternMaterialTypeLabel(spec.materialType),
+    patternFileMode: isKnit ? 'SINGLE_FILE' : 'PAIRED_DXF_RUL',
+    parseStatus: isKnit ? 'NOT_REQUIRED' : 'PARSED',
+    parseStatusLabel: getPatternParseStatusLabel(isKnit ? 'NOT_REQUIRED' : 'PARSED'),
+    parseError: '',
+    parsedAt: isKnit ? '' : '2026-04-20 09:30:00',
+    dxfFileName: isKnit ? '' : `${spec.fileBaseName}.dxf`,
+    dxfFileSize: isKnit ? 0 : 32768,
+    dxfLastModified: isKnit ? '' : '2026-04-20 09:10:00',
+    rulFileName: isKnit ? '' : `${spec.fileBaseName}.rul`,
+    rulFileSize: isKnit ? 0 : 8192,
+    rulLastModified: isKnit ? '' : '2026-04-20 09:15:00',
+    singlePatternFileName: isKnit ? `${spec.fileBaseName}.prj` : '',
+    singlePatternFileSize: isKnit ? 24576 : 0,
+    singlePatternFileLastModified: isKnit ? '2026-04-20 09:00:00' : '',
+    dxfEncoding: isKnit ? '' : 'UTF-8',
+    rulEncoding: isKnit ? '' : 'UTF-8',
+    rulSizeList: isKnit ? [] : [...source.rulSizeList],
+    rulSampleSize: isKnit ? '' : source.rulSampleSize,
+    patternSoftwareName: isKnit ? '' : source.patternSoftwareName || 'Lectra',
+    sizeRange: isKnit ? '' : source.sizeRange,
+    selectedSizeCodes: isKnit ? [] : [...source.selectedSizeCodes],
+    pieceRows,
+    pieceInstances: [],
+    pieceInstanceTotal: 0,
+    specialCraftConfiguredPieceTotal: 0,
+    specialCraftUnconfiguredPieceTotal: 0,
+    sourcePatternPackageId: undefined,
+    sourcePatternPackageName: undefined,
+  }
+}
+
+function createMaterialPatternDemoAssociation(
+  patternPackage: PatternItem,
+  bomItem: { id: string; name?: string; materialName?: string; materialCode?: string; spec?: string } | undefined,
+  index: number,
+): PatternItem {
+  const linkedBomId = bomItem?.id || ''
+  const linkedMaterialName = bomItem?.materialName || bomItem?.name || ''
+  const linkedMaterialSku = bomItem?.materialCode || linkedBomId
+  const associationId = `PAT-LINK-${index + 1}`
+  const isKnit = patternPackage.patternMaterialType === 'KNIT'
+  const pieceRows = isKnit
+    ? normalizePatternPieceRows([
+        {
+          id: `${associationId}-R1`,
+          name: '罗纹领口片',
+          count: 2,
+          note: '针织纸样手工维护部位',
+          isTemplate: false,
+          applicableSkuCodes: [],
+          colorAllocations: [],
+          colorPieceQuantities: [
+            { colorId: 'C-BLK', colorName: '黑色', enabled: true, pieceQty: 1 },
+            { colorId: 'C-WHT', colorName: '白色', enabled: true, pieceQty: 1 },
+          ],
+          totalPieceQty: 2,
+          parsedQuantity: undefined,
+          specialCrafts: [],
+          sourceType: 'MANUAL',
+        },
+      ], associationId, linkedBomId)
+    : normalizePatternPieceRows(patternPackage.pieceRows, associationId, linkedBomId)
+  const patternTotalPieceQty = calculatePatternTotalPieceQty(pieceRows)
+  const pieceInstances = generatePieceInstancesFromColorQuantities({
+    id: associationId,
+    pieceRows,
+    pieceInstances: [],
+  })
+  const pieceInstanceSummary = summarizePieceInstances(pieceInstances)
+
+  return {
+    ...patternPackage,
+    id: associationId,
+    recordKind: 'MATERIAL_ASSOCIATION',
+    linkedBomItemId: linkedBomId,
+    linkedMaterialId: linkedBomId,
+    linkedMaterialName,
+    linkedMaterialSku,
+    widthCm: isKnit ? 0 : 142 + index,
+    markerLengthM: isKnit ? 1.2 : 2.2 + index * 0.18,
+    totalPieceCount: patternTotalPieceQty,
+    patternTotalPieceQty,
+    maintainerStepStatus: '已解析待确认',
+    merchandiserInfoStatus: '已填写',
+    patternMakerInfoStatus: isKnit ? '已填写' : '已解析',
+    bindingStrips: isKnit
+      ? normalizePatternBindingStrips([
+          { bindingStripName: '领口捆条', lengthCm: 58, widthCm: 3.2, remark: '跟随针织纸样维护' },
+        ])
+      : [],
+    pieceRows,
+    pieceInstances,
+    ...pieceInstanceSummary,
+    sourcePatternPackageId: patternPackage.id,
+    sourcePatternPackageName: patternPackage.name,
+  }
+}
+
+function ensurePatternPoolDemoPackages(
+  items: PatternItem[],
+  bomItems: Array<{ id: string; name?: string; materialName?: string; materialCode?: string; spec?: string; type?: string }>,
+): PatternItem[] {
+  const normalizedItems = items.map((item) => ({
+    ...item,
+    recordKind: item.recordKind ?? ('MATERIAL_ASSOCIATION' as const),
+  }))
+
+  const materialAssociations = normalizedItems.filter((item) => item.recordKind !== 'PACKAGE')
+  const parsedWovenSources = materialAssociations.filter(
+    (item) => item.patternMaterialType !== 'KNIT' && item.pieceRows.length > 0,
+  )
+  const wovenSources =
+    parsedWovenSources.length >= 3
+      ? parsedWovenSources
+      : materialAssociations.filter((item) => item.patternMaterialType !== 'KNIT')
+  const knitSource = materialAssociations.find((item) => item.patternMaterialType === 'KNIT') ?? DEFAULT_PATTERN_ITEMS[1]
+  const fallbackWoven = wovenSources[0] ?? DEFAULT_PATTERN_ITEMS[0]
+  const packageItems = [
+    createPatternPoolDemoPackage(wovenSources[0] ?? fallbackWoven, {
+      id: 'PAT-PKG-FRONT',
+      name: '前片纸样包',
+      type: '主体片',
+      materialType: 'WOVEN',
+      fileBaseName: 'front-pattern-package',
+    }),
+    createPatternPoolDemoPackage(wovenSources[1] ?? fallbackWoven, {
+      id: 'PAT-PKG-BACK',
+      name: '后片纸样包',
+      type: '主体片',
+      materialType: 'WOVEN',
+      fileBaseName: 'back-pattern-package',
+    }),
+    createPatternPoolDemoPackage(wovenSources[2] ?? fallbackWoven, {
+      id: 'PAT-PKG-SLEEVE',
+      name: '袖片纸样包',
+      type: '结构片',
+      materialType: 'WOVEN',
+      fileBaseName: 'sleeve-pattern-package',
+    }),
+    createPatternPoolDemoPackage(knitSource, {
+      id: 'PAT-PKG-KNIT-RIB',
+      name: '罗纹针织纸样包',
+      type: '主体片',
+      materialType: 'KNIT',
+      fileBaseName: 'rib-knit-pattern-package',
+    }),
+  ]
+
+  const fabricBomItems = bomItems.filter((item) => String(item.type || '').includes('面料'))
+  const associationItems = [
+    createMaterialPatternDemoAssociation(packageItems[0], fabricBomItems[0] ?? bomItems[0], 0),
+    createMaterialPatternDemoAssociation(packageItems[1], fabricBomItems[0] ?? bomItems[0], 1),
+    createMaterialPatternDemoAssociation(packageItems[2], fabricBomItems[1] ?? bomItems[1] ?? bomItems[0], 2),
+    createMaterialPatternDemoAssociation(packageItems[3], fabricBomItems[1] ?? bomItems[1] ?? bomItems[0], 3),
+  ]
+
+  return [...packageItems, ...associationItems]
 }
 
 const DEFAULT_BOM_ITEMS: BomItemRow[] = [
@@ -1350,6 +1585,7 @@ interface TechPackPageState {
   designPreviewSource: 'front' | 'inside' | null
 
   editPatternItemId: string | null
+  patternFormPurpose: 'PACKAGE' | 'ASSOCIATION'
   patternMaintenanceStep: 'MERCHANDISER' | 'PATTERN_MAKER'
   patternDuplicateWarning: PatternDuplicateWarningState
   pieceInstanceCraftDialogOpen: boolean
@@ -1468,6 +1704,7 @@ const state: TechPackPageState = {
   designPreviewSource: null,
 
   editPatternItemId: null,
+  patternFormPurpose: 'ASSOCIATION',
   patternMaintenanceStep: 'MERCHANDISER',
   patternDuplicateWarning: null,
   pieceInstanceCraftDialogOpen: false,
@@ -3183,39 +3420,43 @@ function buildPatternName(input: {
 
 function buildPatternItemsFromTechPack(techPack: TechPack): PatternItem[] {
   if (techPack.patternFiles.length === 0) {
-    return ensurePatternStatusDemoCoverage(DEFAULT_PATTERN_ITEMS.map((item) => ({
-      ...item,
-      prjFile: item.prjFile ? { ...item.prjFile } : null,
-      markerImage: item.markerImage ? { ...item.markerImage } : null,
-      dxfFile: item.dxfFile ? { ...item.dxfFile } : null,
-      rulFile: item.rulFile ? { ...item.rulFile } : null,
-      bindingStrips: normalizePatternBindingStrips(item.bindingStrips),
-      patternSignature: item.patternSignature || buildPatternSignature(item),
-      duplicateConfirmed: Boolean(item.duplicateConfirmed),
-      duplicateWarningReasons: [...(item.duplicateWarningReasons || [])],
-      pieceInstances: item.pieceInstances.map((instance) => ({
-        ...instance,
-        specialCraftAssignments: instance.specialCraftAssignments.map((assignment) => ({ ...assignment })),
-      })),
-      selectedSizeCodes: [...item.selectedSizeCodes],
-      pieceRows: item.pieceRows.map((row) => ({
-        ...row,
-        applicableSkuCodes: [...row.applicableSkuCodes],
-        colorAllocations: row.colorAllocations.map((allocation) => ({
-          ...allocation,
-          skuCodes: [...(allocation.skuCodes ?? [])],
+    return ensurePatternPoolDemoPackages(
+      ensurePatternStatusDemoCoverage(DEFAULT_PATTERN_ITEMS.map((item) => ({
+        ...item,
+        recordKind: item.recordKind ?? 'MATERIAL_ASSOCIATION',
+        prjFile: item.prjFile ? { ...item.prjFile } : null,
+        markerImage: item.markerImage ? { ...item.markerImage } : null,
+        dxfFile: item.dxfFile ? { ...item.dxfFile } : null,
+        rulFile: item.rulFile ? { ...item.rulFile } : null,
+        bindingStrips: normalizePatternBindingStrips(item.bindingStrips),
+        patternSignature: item.patternSignature || buildPatternSignature(item),
+        duplicateConfirmed: Boolean(item.duplicateConfirmed),
+        duplicateWarningReasons: [...(item.duplicateWarningReasons || [])],
+        pieceInstances: item.pieceInstances.map((instance) => ({
+          ...instance,
+          specialCraftAssignments: instance.specialCraftAssignments.map((assignment) => ({ ...assignment })),
         })),
-        colorPieceQuantities: [...(row.colorPieceQuantities ?? [])],
-        totalPieceQty: row.totalPieceQty ?? row.count,
-        parsedQuantity: row.parsedQuantity,
-        specialCrafts: row.specialCrafts.map((craft) => ({ ...craft })),
-        candidatePartNames: [...(row.candidatePartNames ?? [])],
-        rawTextLabels: [...(row.rawTextLabels ?? [])],
-      })),
-    })), techPack.bomItems)
+        selectedSizeCodes: [...item.selectedSizeCodes],
+        pieceRows: item.pieceRows.map((row) => ({
+          ...row,
+          applicableSkuCodes: [...row.applicableSkuCodes],
+          colorAllocations: row.colorAllocations.map((allocation) => ({
+            ...allocation,
+            skuCodes: [...(allocation.skuCodes ?? [])],
+          })),
+          colorPieceQuantities: [...(row.colorPieceQuantities ?? [])],
+          totalPieceQty: row.totalPieceQty ?? row.count,
+          parsedQuantity: row.parsedQuantity,
+          specialCrafts: row.specialCrafts.map((craft) => ({ ...craft })),
+          candidatePartNames: [...(row.candidatePartNames ?? [])],
+          rawTextLabels: [...(row.rawTextLabels ?? [])],
+        })),
+      })), techPack.bomItems),
+      techPack.bomItems,
+    )
   }
 
-  return ensurePatternStatusDemoCoverage(techPack.patternFiles.map((item, index) => {
+  return ensurePatternPoolDemoPackages(ensurePatternStatusDemoCoverage(techPack.patternFiles.map((item, index) => {
     const patternId = item.id || `PAT-${index + 1}`
     const linkedBom =
       techPack.bomItems.find((bom) => bom.id === item.linkedBomItemId)
@@ -3337,6 +3578,7 @@ function buildPatternItemsFromTechPack(techPack: TechPack): PatternItem[] {
 
     return {
       id: patternId,
+      recordKind: item.recordKind ?? 'MATERIAL_ASSOCIATION',
       name: patternName,
       type: (item.patternCategory as TechPackPatternCategory) || '主体片',
       image: item.imageUrl || '',
@@ -3418,8 +3660,10 @@ function buildPatternItemsFromTechPack(techPack: TechPack): PatternItem[] {
         normalizeSelectedSizeCodes([...(item.selectedSizeCodes ?? [])], item.sizeRange || '', techPack.sizeTable)
           .join(' / ') || item.sizeRange || '',
       pieceRows: normalizedRows,
+      sourcePatternPackageId: item.sourcePatternPackageId,
+      sourcePatternPackageName: item.sourcePatternPackageName,
     }
-  }), techPack.bomItems)
+  }), techPack.bomItems), techPack.bomItems)
 }
 
 function buildBomItemsFromTechPack(techPack: TechPack): BomItemRow[] {
@@ -3829,6 +4073,7 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
       const pieceInstanceSummary = summarizePieceInstances(pieceInstances)
       return {
         id: item.id,
+        recordKind: item.recordKind,
         patternName: item.name,
         patternCategory: item.type,
         patternMaterialType: item.patternMaterialType,
@@ -3879,6 +4124,8 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
           specialCraftAssignments: instance.specialCraftAssignments.map((assignment) => ({ ...assignment })),
         })),
         ...pieceInstanceSummary,
+        sourcePatternPackageId: item.sourcePatternPackageId || undefined,
+        sourcePatternPackageName: item.sourcePatternPackageName || undefined,
         patternSignature: item.patternSignature || buildPatternSignature(item),
         duplicateConfirmed: Boolean(item.duplicateConfirmed),
         duplicateWarningReasons: [...(item.duplicateWarningReasons || [])],
@@ -4209,6 +4456,8 @@ function buildPatternFormStateFromItem(item: PatternItem): PatternFormState {
     pieceInstanceTotal: item.pieceInstanceTotal,
     specialCraftConfiguredPieceTotal: item.specialCraftConfiguredPieceTotal,
     specialCraftUnconfiguredPieceTotal: item.specialCraftUnconfiguredPieceTotal,
+    sourcePatternPackageId: item.sourcePatternPackageId,
+    sourcePatternPackageName: item.sourcePatternPackageName,
     selectedPrjFile: null,
     selectedMarkerImageFile: null,
     selectedDxfFile: null,
@@ -4221,6 +4470,7 @@ function buildPatternFormStateFromItem(item: PatternItem): PatternFormState {
 function resetPatternForm(): void {
   state.newPattern = createEmptyPatternFormState()
   state.editPatternItemId = null
+  state.patternFormPurpose = 'ASSOCIATION'
   state.patternMaintenanceStep = 'MERCHANDISER'
   state.patternDuplicateWarning = null
   state.patternTemplateDialogOpen = false

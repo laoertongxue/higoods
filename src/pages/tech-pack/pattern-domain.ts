@@ -524,32 +524,94 @@ function renderPatternDetailPieceTable(): string {
 
 export function renderPatternTab(): string {
   const bomById = new Map(
-    state.bomItems.map((item) => [item.id, { materialCode: item.materialCode, materialName: item.materialName }]),
+    state.bomItems.map((item) => [
+      item.id,
+      {
+        materialCode: item.materialCode,
+        materialName: item.materialName,
+        spec: item.spec,
+      },
+    ]),
   )
   const readonly = false
+  const patternPackages = state.patternItems.filter((item) => item.recordKind === 'PACKAGE')
+  const materialPatternLinks = state.patternItems.filter((item) => item.recordKind !== 'PACKAGE')
 
   return `
-    <section class="rounded-lg border bg-card">
+    <section class="space-y-4 rounded-lg border bg-card p-4" data-testid="pattern-management-page">
       <header class="flex items-center justify-between border-b px-4 py-3">
-        <h3 class="text-base font-semibold">纸样管理</h3>
-        ${readonly ? '' : `<button type="button" class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-tech-action="open-add-pattern">
+        <div>
+          <h3 class="text-base font-semibold">纸样管理</h3>
+          <p class="mt-1 text-sm text-muted-foreground">先维护纸样池，再按物料关联纸样并补充排料、捆条和裁片明细。</p>
+        </div>
+        ${readonly ? '' : `<button type="button" class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-tech-action="open-add-pattern-package">
           <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
-          添加纸样
+          添加纸样包
         </button>`}
       </header>
-      <div class="p-4">
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <h4 class="text-sm font-semibold">纸样池</h4>
+          <span class="text-xs text-muted-foreground">${patternPackages.length} 个纸样包</span>
+        </div>
         ${
-          state.patternItems.length === 0
-            ? '<div class="rounded-lg border py-8 text-center text-muted-foreground">暂无纸样</div>'
+          patternPackages.length === 0
+            ? '<div class="rounded-lg border py-8 text-center text-muted-foreground">暂无纸样包</div>'
+            : `
+              <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                ${patternPackages
+                  .map((item) => `
+                    <button
+                      type="button"
+                      class="rounded-lg border p-3 text-left hover:border-blue-300 hover:bg-blue-50/40"
+                      data-tech-action="open-pattern-detail"
+                      data-pattern-id="${item.id}"
+                    >
+                      <div class="flex items-start justify-between gap-3">
+                        <div>
+                          <div class="font-medium">${escapeHtml(item.name)}</div>
+                          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(`${item.patternMaterialTypeLabel || '暂无类型'} · ${item.type}`)}</div>
+                        </div>
+                        ${renderPatternFileBadge(item.patternMaterialTypeLabel || '暂无数据')}
+                      </div>
+                      <div class="mt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                        <span>PRJ：${renderTextValue(item.prjFile?.fileName)}</span>
+                        <span>唛架：${renderTextValue(item.markerImage?.fileName)}</span>
+                        <span>DXF：${renderTextValue(item.dxfFileName || item.dxfFile?.fileName)}</span>
+                        <span>RUL：${renderTextValue(item.rulFileName || item.rulFile?.fileName)}</span>
+                      </div>
+                      <div class="mt-3 text-xs text-blue-700">${item.patternMaterialType === 'KNIT' ? '针织纸样不解析部位信息' : `已解析 ${item.pieceRows.length} 个部位`}</div>
+                    </button>
+                  `)
+                  .join('')}
+              </div>
+            `
+        }
+      </div>
+
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <div>
+            <h4 class="text-sm font-semibold">物料&纸样关联管理</h4>
+            <p class="mt-1 text-xs text-muted-foreground">按物料选择纸样包，后续仅维护排料长度、捆条和裁片明细。</p>
+          </div>
+          ${readonly ? '' : `<button type="button" class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-tech-action="open-add-pattern" data-testid="pattern-create-button">
+            <i data-lucide="link" class="mr-2 h-4 w-4"></i>
+            按物料关联纸样
+          </button>`}
+        </div>
+        ${
+          materialPatternLinks.length === 0
+            ? '<div class="rounded-lg border py-8 text-center text-muted-foreground">暂无物料与纸样关联</div>'
             : `
               <table class="w-full text-sm">
                 <thead>
                   <tr class="border-b bg-muted/30">
-                    <th class="px-3 py-2 text-left">纸样名称</th>
+                    <th class="px-3 py-2 text-left">物料</th>
+                    <th class="px-3 py-2 text-left">规格</th>
+                    <th class="px-3 py-2 text-left">关联纸样</th>
                     <th class="px-3 py-2 text-left">纸样文件类型</th>
                     <th class="px-3 py-2 text-left">纸样分类</th>
-                    <th class="px-3 py-2 text-left">关联物料</th>
-                    <th class="px-3 py-2 text-left">规格</th>
                     <th class="px-3 py-2 text-left">维护状态</th>
                     <th class="px-3 py-2 text-left">捆条数量</th>
                     <th class="px-3 py-2 text-right">裁片总片数</th>
@@ -559,20 +621,21 @@ export function renderPatternTab(): string {
                   </tr>
                 </thead>
                 <tbody>
-                  ${state.patternItems
+                  ${materialPatternLinks
                     .map((item) => {
                       const pieceCount =
                         Number.isFinite(item.patternTotalPieceQty) && item.patternTotalPieceQty > 0
                           ? item.patternTotalPieceQty
                           : calculatePatternTotalPieceQty(item.pieceRows)
+                      const linkedBom = bomById.get(item.linkedBomItemId)
 
                       return `
                         <tr class="border-b last:border-0">
-                          <td class="px-3 py-2 font-medium">${escapeHtml(item.name)}</td>
+                          <td class="px-3 py-2 text-sm">${escapeHtml(linkedBom ? `${linkedBom.materialName} · ${linkedBom.materialCode}` : '未关联物料')}</td>
+                          <td class="px-3 py-2 text-sm text-muted-foreground">${escapeHtml(linkedBom?.spec || '-')}</td>
+                          <td class="px-3 py-2 font-medium">${escapeHtml(item.sourcePatternPackageName || item.name)}</td>
                           <td class="px-3 py-2">${renderPatternFileBadge(item.patternMaterialTypeLabel || '暂无数据')}</td>
                           <td class="px-3 py-2"><span class="inline-flex rounded border px-2 py-0.5 text-xs">${escapeHtml(item.type)}</span></td>
-                          <td class="px-3 py-2 text-sm">${renderLinkedBomLabel(item.id, item.linkedBomItemId, bomById)}</td>
-                          <td class="px-3 py-2 text-sm text-muted-foreground">${escapeHtml(formatPatternSpec(item.widthCm, item.markerLengthM))}</td>
                           <td class="px-3 py-2"><span class="inline-flex rounded border px-2 py-0.5 text-xs">${escapeHtml(item.maintainerStepStatus)}</span></td>
                           <td class="px-3 py-2 text-sm">${escapeHtml(renderBindingStripCount(item.bindingStrips.length))}</td>
                           <td class="px-3 py-2 text-right">${pieceCount} 片</td>
@@ -722,7 +785,11 @@ export function renderPatternDialog(): string {
               <h5 class="text-sm font-medium">裁片明细</h5>
               <span class="text-xs text-muted-foreground">单位：片</span>
             </div>
-            ${renderPatternDetailPieceTable()}
+            ${
+              isWoven
+                ? renderPatternDetailPieceTable()
+                : '<div class="rounded-md border border-dashed px-3 py-4 text-sm text-muted-foreground">针织纸样无法解析部位信息，请在物料&纸样关联管理中手工添加部位。</div>'
+            }
           </div>
         </div>
         <footer class="flex items-center justify-end border-t px-6 py-4">
@@ -975,7 +1042,7 @@ function renderPatternFormDialogLegacy(): string {
     <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
       <section class="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
         <header class="border-b px-6 py-4">
-          <h3 class="text-lg font-semibold">${state.editPatternItemId ? '编辑纸样' : '新增纸样'}</h3>
+          <h3 class="text-lg font-semibold">${state.editPatternItemId ? '编辑物料&纸样关联' : '按物料关联纸样'}</h3>
         </header>
         <div class="min-h-0 flex-1 overflow-y-auto px-6 py-4">
           <div class="space-y-4">
@@ -1167,38 +1234,133 @@ export function renderPatternFormDialog(): string {
     activeStep === step
       ? 'border-blue-500 bg-blue-50 text-blue-700'
       : 'border-border bg-background text-muted-foreground hover:bg-muted'
+  const patternPackageOptions = state.patternItems.filter((item) => item.recordKind === 'PACKAGE')
+
+  if (state.patternFormPurpose === 'PACKAGE') {
+    return `
+      <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
+        <section class="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
+          <header class="border-b px-6 py-4">
+            <h3 class="text-lg font-semibold">添加纸样包</h3>
+          </header>
+          <div class="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+            <div class="space-y-4">
+              <input id="tech-pack-pattern-prj-input" type="file" accept=".prj,.PRJ" data-tech-field="new-pattern-prj-file" class="hidden" />
+              <input id="tech-pack-marker-image-input" type="file" accept=".png,.jpg,.jpeg,.webp" data-tech-field="new-pattern-marker-image-file" class="hidden" />
+              <input id="tech-pack-pattern-dxf-input" type="file" accept=".dxf,.DXF" data-tech-field="new-pattern-dxf-file" class="hidden" />
+              <input id="tech-pack-pattern-rul-input" type="file" accept=".rul,.RUL" data-tech-field="new-pattern-rul-file" class="hidden" />
+              <section class="space-y-4 rounded-lg border p-4">
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <label class="space-y-1">
+                    <span class="text-sm">纸样名称 <span class="text-red-500">*</span></span>
+                    <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-name" value="${escapeHtml(state.newPattern.name)}" placeholder="例如 前片纸样包" />
+                  </label>
+                  <label class="space-y-1">
+                    <span class="text-sm">纸样类型 <span class="text-red-500">*</span></span>
+                    <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-material-type">
+                      <option value="WOVEN" ${state.newPattern.patternMaterialType === 'WOVEN' || state.newPattern.patternMaterialType === 'UNKNOWN' ? 'selected' : ''}>布料纸样</option>
+                      <option value="KNIT" ${state.newPattern.patternMaterialType === 'KNIT' ? 'selected' : ''}>针织纸样</option>
+                    </select>
+                  </label>
+                  <label class="space-y-1">
+                    <span class="text-sm">是否针织 <span class="text-red-500">*</span></span>
+                    <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-is-knitted">
+                      <option value="否" ${state.newPattern.isKnitted === '否' ? 'selected' : ''}>否</option>
+                      <option value="是" ${state.newPattern.isKnitted === '是' ? 'selected' : ''}>是</option>
+                    </select>
+                  </label>
+                  <label class="space-y-1">
+                    <span class="text-sm">纸样分类</span>
+                    <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-type">
+                      ${TECH_PACK_PATTERN_CATEGORY_OPTIONS.map((option) => `<option value="${option}" ${state.newPattern.type === option ? 'selected' : ''}>${option}</option>`).join('')}
+                    </select>
+                  </label>
+                </div>
+                <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  ${renderPatternFileInfo({
+                    title: '纸样 PRJ 文件',
+                    fileName: state.newPattern.prjFile?.fileName,
+                    fileSize: state.newPattern.prjFile?.fileSize,
+                    lastModified: state.newPattern.prjFile?.uploadedAt,
+                    action: 'open-pattern-prj-picker',
+                    actionLabel: '选择 PRJ 文件',
+                    testId: 'pattern-prj-upload',
+                  })}
+                  ${renderPatternFileInfo({
+                    title: '唛架图片',
+                    fileName: state.newPattern.markerImage?.fileName,
+                    fileSize: state.newPattern.markerImage?.fileSize,
+                    lastModified: state.newPattern.markerImage?.uploadedAt,
+                    action: 'open-pattern-marker-image-picker',
+                    actionLabel: '选择唛架图片',
+                    testId: 'pattern-marker-image-upload',
+                  })}
+                </div>
+                <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  ${renderPatternFileInfo({
+                    title: 'DXF 文件',
+                    fileName: state.newPattern.dxfFileName,
+                    fileSize: state.newPattern.dxfFileSize,
+                    lastModified: state.newPattern.dxfLastModified,
+                    action: 'open-pattern-dxf-picker',
+                    actionLabel: '选择 DXF 文件',
+                  })}
+                  ${renderPatternFileInfo({
+                    title: 'RUL 文件',
+                    fileName: state.newPattern.rulFileName,
+                    fileSize: state.newPattern.rulFileSize,
+                    lastModified: state.newPattern.rulLastModified,
+                    action: 'open-pattern-rul-picker',
+                    actionLabel: '选择 RUL 文件',
+                  })}
+                </div>
+                <div class="rounded-md border bg-muted/20 px-3 py-2 text-sm ${state.newPattern.parseStatus === 'FAILED' ? 'text-red-600' : 'text-muted-foreground'}">
+                  ${escapeHtml(isWoven ? getWovenStatusMessage() : '针织纸样无法解析部位信息，保存到纸样池后在物料关联行中手工添加部位。')}
+                </div>
+                ${
+                  isWoven
+                    ? `
+                      <div class="flex items-center gap-2">
+                        <button
+                          type="button"
+                          class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 ${canParseWovenPattern() ? '' : 'pointer-events-none opacity-50'}"
+                          data-tech-action="parse-pattern"
+                        >
+                          ${escapeHtml(parseButtonLabel)}
+                        </button>
+                        <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-tech-action="clear-pattern-uploaded-files">清空 DXF/RUL 文件</button>
+                      </div>
+                      <section class="space-y-2 rounded-md border p-3">
+                        <div class="flex items-center justify-between">
+                          <h4 class="text-sm font-medium">解析部位信息</h4>
+                          <span class="text-xs text-muted-foreground">点击纸样包时可查看解析出的全部部位</span>
+                        </div>
+                        ${renderPatternPieceEditorTable(true)}
+                      </section>
+                    `
+                    : ''
+                }
+                ${
+                  state.newPattern.parseError
+                    ? `<div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">${escapeHtml(state.newPattern.parseError)}</div>`
+                    : ''
+                }
+                ${renderPatternDuplicateWarning()}
+              </section>
+            </div>
+          </div>
+          <footer class="flex items-center justify-end gap-2 border-t px-6 py-4">
+            <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-tech-action="close-add-pattern">取消</button>
+            <button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-tech-action="save-pattern-package">保存纸样包</button>
+          </footer>
+        </section>
+      </div>
+    `
+  }
 
   const merchandiserPanel = `
     <section class="space-y-4" data-testid="pattern-step-merchandiser-panel">
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <label class="space-y-1">
-          <span class="text-sm">纸样名称 <span class="text-red-500">*</span></span>
-          <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-name" value="${escapeHtml(state.newPattern.name)}" placeholder="例如 前片纸样" />
-        </label>
-        <label class="space-y-1">
-          <span class="text-sm">纸样类型 <span class="text-red-500">*</span></span>
-          <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-material-type">
-            <option value="WOVEN" ${state.newPattern.patternMaterialType === 'WOVEN' || state.newPattern.patternMaterialType === 'UNKNOWN' ? 'selected' : ''}>布料纸样</option>
-            <option value="KNIT" ${state.newPattern.patternMaterialType === 'KNIT' ? 'selected' : ''}>针织纸样</option>
-          </select>
-        </label>
-        <label class="space-y-1">
-          <span class="text-sm">是否针织 <span class="text-red-500">*</span></span>
-          <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-is-knitted">
-            <option value="否" ${state.newPattern.isKnitted === '否' ? 'selected' : ''}>否</option>
-            <option value="是" ${state.newPattern.isKnitted === '是' ? 'selected' : ''}>是</option>
-          </select>
-        </label>
-        <label class="space-y-1">
-          <span class="text-sm">纸样分类</span>
-          <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-type">
-            ${TECH_PACK_PATTERN_CATEGORY_OPTIONS.map((option) => `<option value="${option}" ${state.newPattern.type === option ? 'selected' : ''}>${option}</option>`).join('')}
-          </select>
-        </label>
-        <label class="space-y-1">
-          <span class="text-sm">门幅（cm） <span class="text-red-500">*</span></span>
-          <input type="number" min="0.01" step="0.01" class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-width-cm" value="${escapeHtml(String(state.newPattern.widthCm || ''))}" placeholder="例如 142" />
-        </label>
         <label class="space-y-1">
           <span class="text-sm">关联物料 <span class="text-red-500">*</span></span>
           ${
@@ -1217,6 +1379,46 @@ export function renderPatternFormDialog(): string {
               `
           }
         </label>
+        <label class="space-y-1">
+          <span class="text-sm">门幅（cm） <span class="text-red-500">*</span></span>
+          <input type="number" min="0.01" step="0.01" class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-width-cm" value="${escapeHtml(String(state.newPattern.widthCm || ''))}" placeholder="例如 142" />
+        </label>
+        <label class="space-y-1 md:col-span-2">
+          <span class="text-sm">关联纸样 <span class="text-red-500">*</span></span>
+          ${
+            patternPackageOptions.length === 0
+              ? '<div class="rounded-md border border-dashed px-3 py-2 text-sm text-amber-700">请先在纸样池添加纸样包</div>'
+              : `
+                <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-source-package">
+                  <option value="">请选择纸样池中的纸样包</option>
+                  ${patternPackageOptions
+                    .map((item) => `<option value="${item.id}" ${state.newPattern.sourcePatternPackageId === item.id ? 'selected' : ''}>${escapeHtml(`${item.name} · ${item.patternMaterialTypeLabel} · ${item.type}`)}</option>`)
+                    .join('')}
+                </select>
+              `
+          }
+        </label>
+      </div>
+      <div class="rounded-lg border bg-muted/20 p-3 text-sm">
+        <div class="mb-2 font-medium">已选纸样基本信息</div>
+        <div class="grid grid-cols-1 gap-3 md:grid-cols-4">
+          <div>
+            <div class="text-xs text-muted-foreground">纸样名称</div>
+            <div class="mt-1">${renderTextValue(state.newPattern.name)}</div>
+          </div>
+          <div>
+            <div class="text-xs text-muted-foreground">纸样类型</div>
+            <div class="mt-1">${renderTextValue(state.newPattern.patternMaterialTypeLabel)}</div>
+          </div>
+          <div>
+            <div class="text-xs text-muted-foreground">是否针织</div>
+            <div class="mt-1">${renderTextValue(state.newPattern.isKnitted)}</div>
+          </div>
+          <div>
+            <div class="text-xs text-muted-foreground">纸样分类</div>
+            <div class="mt-1">${renderTextValue(state.newPattern.type)}</div>
+          </div>
+        </div>
       </div>
     </section>
   `
@@ -1247,65 +1449,9 @@ export function renderPatternFormDialog(): string {
         <span class="text-sm">排料长度（m） <span class="text-red-500">*</span></span>
         <input type="number" min="0.01" step="0.01" class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-marker-length-m" value="${escapeHtml(String(state.newPattern.markerLengthM || ''))}" placeholder="例如 2.62" />
       </label>
-      <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-        ${renderPatternFileInfo({
-          title: '纸样 PRJ 文件',
-          fileName: state.newPattern.prjFile?.fileName,
-          fileSize: state.newPattern.prjFile?.fileSize,
-          lastModified: state.newPattern.prjFile?.uploadedAt,
-          action: 'open-pattern-prj-picker',
-          actionLabel: '选择 PRJ 文件',
-          testId: 'pattern-prj-upload',
-        })}
-        ${renderPatternFileInfo({
-          title: '唛架图片',
-          fileName: state.newPattern.markerImage?.fileName,
-          fileSize: state.newPattern.markerImage?.fileSize,
-          lastModified: state.newPattern.markerImage?.uploadedAt,
-          action: 'open-pattern-marker-image-picker',
-          actionLabel: '选择唛架图片',
-          testId: 'pattern-marker-image-upload',
-        })}
-      </div>
       ${renderPatternBindingStripEditor()}
-      <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-        ${renderPatternFileInfo({
-          title: 'DXF 文件',
-          fileName: state.newPattern.dxfFileName,
-          fileSize: state.newPattern.dxfFileSize,
-          lastModified: state.newPattern.dxfLastModified,
-          action: 'open-pattern-dxf-picker',
-          actionLabel: '选择 DXF 文件',
-        })}
-        ${renderPatternFileInfo({
-          title: 'RUL 文件',
-          fileName: state.newPattern.rulFileName,
-          fileSize: state.newPattern.rulFileSize,
-          lastModified: state.newPattern.rulLastModified,
-          action: 'open-pattern-rul-picker',
-          actionLabel: '选择 RUL 文件',
-        })}
-      </div>
-      <div class="rounded-md border bg-muted/20 px-3 py-2 text-sm ${
-        state.newPattern.parseStatus === 'FAILED' ? 'text-red-600' : 'text-muted-foreground'
-      }">
-        ${escapeHtml(isWoven ? getWovenStatusMessage() : '纸样技术文件已维护后可保存')}
-      </div>
-      <div class="flex items-center gap-2">
-        <button
-          type="button"
-          class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 ${canParseWovenPattern() ? '' : 'pointer-events-none opacity-50'}"
-          data-tech-action="parse-pattern"
-        >
-          ${escapeHtml(parseButtonLabel)}
-        </button>
-        <button
-          type="button"
-          class="rounded-md border px-4 py-2 text-sm hover:bg-muted"
-          data-tech-action="clear-pattern-uploaded-files"
-        >
-          清空 DXF/RUL 文件
-        </button>
+      <div class="rounded-md border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
+        纸样技术文件来自纸样池：PRJ ${escapeHtml(state.newPattern.prjFile?.fileName || '未选择')}，唛架图片 ${escapeHtml(state.newPattern.markerImage?.fileName || '未选择')}，DXF ${escapeHtml(state.newPattern.dxfFileName || '无')}，RUL ${escapeHtml(state.newPattern.rulFileName || '无')}。
       </div>
       <section class="space-y-2 rounded-md border p-3">
         <div class="flex items-center justify-between">
@@ -1328,7 +1474,7 @@ export function renderPatternFormDialog(): string {
     <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
       <section class="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border bg-background shadow-2xl" data-dialog-panel="true" data-testid="pattern-two-step-dialog">
         <header class="border-b px-6 py-4">
-          <h3 class="text-lg font-semibold">${state.editPatternItemId ? '编辑纸样' : '新增纸样'}</h3>
+          <h3 class="text-lg font-semibold">${state.editPatternItemId ? '编辑物料&纸样关联' : '按物料关联纸样'}</h3>
           <div class="mt-3 grid grid-cols-2 gap-2 rounded-lg bg-muted/30 p-1">
             <button type="button" class="rounded-md border px-3 py-2 text-sm ${stepButtonClass('MERCHANDISER')}" data-tech-action="switch-pattern-maintenance-step" data-pattern-step="MERCHANDISER" data-testid="pattern-step-merchandiser">跟单基础信息</button>
             <button type="button" class="rounded-md border px-3 py-2 text-sm ${stepButtonClass('PATTERN_MAKER')}" data-tech-action="switch-pattern-maintenance-step" data-pattern-step="PATTERN_MAKER" data-testid="pattern-step-maker">版师技术信息</button>
@@ -1359,8 +1505,7 @@ export function renderPatternFormDialog(): string {
               `
               : `
                 <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-tech-action="switch-pattern-maintenance-step" data-pattern-step="MERCHANDISER">返回跟单基础信息</button>
-                <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-tech-action="save-pattern-maker-step">保存</button>
-                <button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-tech-action="save-pattern-and-parse">保存并解析</button>
+                <button type="button" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-tech-action="save-pattern-maker-step">保存</button>
               `
           }
         </footer>
