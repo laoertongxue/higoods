@@ -18,7 +18,7 @@ export const FIRST_ORDER_SAMPLE_NODE_ENTRY_REQUIRED_FIELDS: Array<{
 }> = [
   { fieldKey: 'sourceFirstSampleTaskId', label: '来源首版样衣任务' },
   { fieldKey: 'sourceTechPackVersionId', label: '来源技术包版本' },
-  { fieldKey: 'factoryId', label: '工厂' },
+  { fieldKey: 'factoryId', label: '打样工厂' },
   { fieldKey: 'targetSite', label: '打样区域' },
   { fieldKey: 'sampleChainMode', label: '首单确认方式' },
   { fieldKey: 'specialSceneReasonCodes', label: '特殊场景原因', conditional: true },

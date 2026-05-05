@@ -436,6 +436,8 @@ const PROJECT_NODE_MANUAL_COMPLETE_BLOCKED_TYPES = new Set([
   'LIVE_TEST',
   'VIDEO_TEST',
   'STYLE_ARCHIVE_CREATE',
+  'FIRST_SAMPLE',
+  'FIRST_ORDER_SAMPLE',
 ])
 const RISK_STATUS_OPTIONS = ['全部', '正常', '延期']
 const DATE_RANGE_OPTIONS: ProjectDateRange[] = ['全部时间', '今天', '最近一周', '最近一月']
@@ -1165,7 +1167,7 @@ function getEngineeringTaskNodeMeta(
     return {
       sourceModule: '首版样衣打样',
       sourceObjectType: '首版样衣打样任务',
-      createLabel: '创建任务',
+      createLabel: '创建首版任务',
       viewLabel: '查看首版样衣详情',
     }
   }
@@ -1173,7 +1175,7 @@ function getEngineeringTaskNodeMeta(
     return {
       sourceModule: '首单样衣打样',
       sourceObjectType: '首单样衣打样任务',
-      createLabel: '创建任务',
+      createLabel: '创建首单任务',
       viewLabel: '查看首单样衣详情',
     }
   }
@@ -1388,7 +1390,7 @@ function submitEngineeringTaskCreateDialog(): { ok: boolean; message: string; ro
   if (dialog.workItemTypeCode === 'FIRST_SAMPLE') {
     const draft = dialog.firstSampleDraft
     if (!draft.sourceTechPackVersionId.trim()) return { ok: false, message: '请选择来源技术包版本。' }
-    if (!draft.factoryId.trim()) return { ok: false, message: '请选择工厂。' }
+    if (!draft.factoryId.trim()) return { ok: false, message: '请选择打样工厂。' }
     if (!draft.targetSite.trim()) return { ok: false, message: '请选择打样区域。' }
     if (!draft.sampleMaterialMode.trim()) return { ok: false, message: '请选择样衣材质模式。' }
     if (!draft.samplePurpose.trim()) return { ok: false, message: '请选择样衣用途。' }
@@ -1422,7 +1424,7 @@ function submitEngineeringTaskCreateDialog(): { ok: boolean; message: string; ro
     const draft = dialog.firstOrderSampleDraft
     if (!draft.sourceFirstSampleTaskId.trim()) return { ok: false, message: '请选择来源首版样衣任务。' }
     if (!draft.sourceTechPackVersionId.trim()) return { ok: false, message: '请选择来源技术包版本。' }
-    if (!draft.factoryId.trim()) return { ok: false, message: '请选择工厂。' }
+    if (!draft.factoryId.trim()) return { ok: false, message: '请选择打样工厂。' }
     if (!draft.targetSite.trim()) return { ok: false, message: '请选择打样区域。' }
     if (!draft.sampleChainMode.trim()) return { ok: false, message: '请选择首单确认方式。' }
     if (draft.sampleChainMode !== '复用首版结论' && draft.specialSceneReasonCodes.length === 0) {
@@ -1586,7 +1588,7 @@ function renderEngineeringTaskCreateDialog(): string {
     body += `
       <section class="space-y-4">
         <section class="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-900">
-          商品项目节点只填写创建任务所需的必要信息；结果编号、样衣图片、确认说明和首单复用结论在首版样衣打样详情页继续补齐。
+          商品项目节点只填写创建任务所需的必要信息；开始打样、提交结果、填写结论在首版样衣打样详情页按动作弹窗完成。
         </section>
         <div class="grid gap-4 md:grid-cols-2">
           ${renderProjectTextInput('来源任务类型', 'engineering-first-sample-source-task-type', draft.sourceTaskType, '自动带出', true)}
@@ -1595,8 +1597,8 @@ function renderEngineeringTaskCreateDialog(): string {
           ${renderProjectTextInput('来源技术包版本ID', 'engineering-first-sample-tech-pack-id', draft.sourceTechPackVersionId, '请输入来源技术包版本ID')}
           ${renderProjectTextInput('技术包编码', 'engineering-first-sample-tech-pack-code', draft.sourceTechPackVersionCode, '自动带出', true)}
           ${renderProjectTextInput('来源技术包版本标签', 'engineering-first-sample-tech-pack-label', draft.sourceTechPackVersionLabel, '自动带出', true)}
-          ${renderProjectSelectInput('工厂', 'engineering-first-sample-factory-id', draft.factoryId, FIRST_SAMPLE_FACTORY_OPTIONS.map((item) => ({ value: item.factoryId, label: item.factoryName })))}
-          ${renderProjectTextInput('工厂名称', 'engineering-first-sample-factory-name', draft.factoryName, '根据工厂自动回填', true)}
+          ${renderProjectSelectInput('打样工厂', 'engineering-first-sample-factory-id', draft.factoryId, FIRST_SAMPLE_FACTORY_OPTIONS.map((item) => ({ value: item.factoryId, label: item.factoryName })))}
+          ${renderProjectTextInput('打样工厂名称', 'engineering-first-sample-factory-name', draft.factoryName, '根据打样工厂自动回填', true)}
           ${renderProjectSelectInput('打样区域', 'engineering-first-sample-target-site', draft.targetSite, [
             { value: '深圳', label: '深圳' },
             { value: '雅加达', label: '雅加达' },
@@ -1621,7 +1623,7 @@ function renderEngineeringTaskCreateDialog(): string {
     body += `
       <section class="space-y-4">
         <section class="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-900">
-          商品项目节点只填写创建任务所需的必要信息；样衣计划、最终参照、结果编号和确认结论在首单样衣打样详情页继续补齐。
+          商品项目节点只填写创建任务所需的必要信息；样衣计划、最终参照、结果编号和确认结论在首单样衣打样详情页按动作弹窗完成。
         </section>
         ${
           firstOrderSourceOptions.length === 0 || firstOrderTechPackOptions.length === 0
@@ -1641,8 +1643,8 @@ function renderEngineeringTaskCreateDialog(): string {
           })))}
           ${renderProjectTextInput('技术包编码', 'engineering-first-order-tech-pack-code', draft.sourceTechPackVersionCode, '自动带出', true)}
           ${renderProjectTextInput('技术包标签', 'engineering-first-order-tech-pack-label', draft.sourceTechPackVersionLabel, '自动带出', true)}
-          ${renderProjectSelectInput('工厂', 'engineering-first-order-factory-id', draft.factoryId, FIRST_ORDER_SAMPLE_FACTORY_OPTIONS.map((item) => ({ value: item.factoryId, label: item.factoryName })))}
-          ${renderProjectTextInput('工厂名称', 'engineering-first-order-factory-name', draft.factoryName, '根据工厂自动回填', true)}
+          ${renderProjectSelectInput('打样工厂', 'engineering-first-order-factory-id', draft.factoryId, FIRST_ORDER_SAMPLE_FACTORY_OPTIONS.map((item) => ({ value: item.factoryId, label: item.factoryName })))}
+          ${renderProjectTextInput('打样工厂名称', 'engineering-first-order-factory-name', draft.factoryName, '根据打样工厂自动回填', true)}
           ${renderProjectSelectInput('打样区域', 'engineering-first-order-target-site', draft.targetSite, [
             { value: '深圳', label: '深圳' },
             { value: '雅加达', label: '雅加达' },
@@ -5635,7 +5637,7 @@ function renderFirstSampleProjectNodeWorkspace(project: PcsProjectRecord, node: 
           <div class="flex flex-wrap items-center justify-between gap-4">
             <div>
               <h3 class="text-base font-semibold text-blue-950">请先填写首版样衣必要信息并创建任务</h3>
-              <p class="mt-2 text-sm leading-6 text-blue-800">当前节点还没有正式首版样衣打样任务。先补来源技术包、工厂、打样区域、样衣材质模式和样衣用途，再进入首版样衣详情补齐完整结果。</p>
+              <p class="mt-2 text-sm leading-6 text-blue-800">当前节点还没有正式首版样衣打样任务。先补来源技术包、打样工厂、打样区域、样衣材质模式和样衣用途，再进入首版样衣详情开始打样、提交结果和填写结论。</p>
             </div>
             ${node.displayStatus === '未解锁' || node.node.currentStatus === '已取消' ? '' : actionButton}
           </div>
@@ -5650,7 +5652,7 @@ function renderFirstSampleProjectNodeWorkspace(project: PcsProjectRecord, node: 
     renderFirstSampleSummaryField('来源任务类型', task.sourceTaskType),
     renderFirstSampleSummaryField('来源任务编码', task.sourceTaskCode),
     renderFirstSampleSummaryField('技术包编码', task.sourceTechPackVersionCode),
-    renderFirstSampleSummaryField('工厂', task.factoryName || task.factoryId),
+    renderFirstSampleSummaryField('打样工厂', task.factoryName || task.factoryId),
     renderFirstSampleSummaryField('打样区域', task.targetSite),
     renderFirstSampleSummaryField('样衣材质模式', task.sampleMaterialMode),
     renderFirstSampleSummaryField('样衣用途', task.samplePurpose),
@@ -5669,18 +5671,18 @@ function renderFirstSampleProjectNodeWorkspace(project: PcsProjectRecord, node: 
             <p class="mt-1 text-xs text-slate-500">${escapeHtml(task.firstSampleTaskCode)} · ${escapeHtml(task.status)} · ${escapeHtml(formatDateTime(task.updatedAt))}</p>
           </div>
           <button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-nav="/pcs/samples/first-sample/${escapeHtml(task.firstSampleTaskId)}">
-            ${completed ? '查看首版样衣详情' : '去首版样衣打样详情补齐'}
+            ${completed ? '查看首版样衣详情' : '去首版样衣打样详情推进'}
           </button>
         </div>
         <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           ${summaryFields.join('')}
         </div>
       </article>
-      ${
-        completed
-          ? `<div class="space-y-4">${listProjectWorkItemFieldGroups('FIRST_SAMPLE').map((group) => renderFieldGroupValues(group, project, node, true)).join('')}</div>`
-          : '<article class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">首版样衣任务已创建，完整结果、验收结论和首单复用说明请在首版样衣打样详情页继续补齐。</article>'
-      }
+      <article class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+        ${escapeHtml(completed
+          ? '首版样衣任务已通过。商品项目节点只展示关键任务信息，样衣图片、验收结论和首单复用记录请进入首版样衣详情查看。'
+          : '首版样衣任务已创建。商品项目节点只展示关键任务信息，请进入首版样衣详情按动作开始打样、提交结果和填写结论。')}
+      </article>
     </section>
   `
 }
@@ -5695,7 +5697,7 @@ function renderFirstOrderSampleProjectNodeWorkspace(project: PcsProjectRecord, n
           <div class="flex flex-wrap items-center justify-between gap-4">
             <div>
               <h3 class="text-base font-semibold text-blue-950">请先填写首单样衣必要信息并创建任务</h3>
-              <p class="mt-2 text-sm leading-6 text-blue-800">当前节点还没有正式首单样衣打样任务。先选择来源首版样衣、来源技术包版本、工厂、打样区域和首单确认方式，再进入首单样衣详情补齐样衣计划和确认结果。</p>
+              <p class="mt-2 text-sm leading-6 text-blue-800">当前节点还没有正式首单样衣打样任务。先选择来源首版样衣、来源技术包版本、打样工厂、打样区域和首单确认方式，再进入首单样衣详情按动作维护样衣计划和确认结果。</p>
             </div>
             ${node.displayStatus === '未解锁' || node.node.currentStatus === '已取消' ? '' : actionButton}
           </div>
@@ -5710,7 +5712,7 @@ function renderFirstOrderSampleProjectNodeWorkspace(project: PcsProjectRecord, n
     renderFirstSampleSummaryField('来源首版样衣', task.sourceFirstSampleTaskCode || task.sourceFirstSampleTaskId),
     renderFirstSampleSummaryField('首版结果', task.sourceFirstSampleCode),
     renderFirstSampleSummaryField('来源技术包版本', task.sourceTechPackVersionLabel || task.sourceTechPackVersionCode || task.sourceTechPackVersionId),
-    renderFirstSampleSummaryField('工厂', task.factoryName || task.factoryId),
+    renderFirstSampleSummaryField('打样工厂', task.factoryName || task.factoryId),
     renderFirstSampleSummaryField('打样区域', task.targetSite),
     renderFirstSampleSummaryField('首单确认方式', task.sampleChainMode),
     renderFirstSampleSummaryField('特殊场景原因', task.specialSceneReasonText || task.specialSceneReasonCodes),
@@ -5725,7 +5727,7 @@ function renderFirstOrderSampleProjectNodeWorkspace(project: PcsProjectRecord, n
   ]
   const followupText = completed
     ? '首单样衣任务已通过。商品项目节点只展示关键任务信息，样衣计划、最终参照和完整确认记录请进入首单样衣详情查看。'
-    : '首单样衣任务已创建。商品项目节点只展示关键任务信息，样衣计划、最终参照、结果编号和确认结论请在首单样衣详情页继续补齐。'
+    : '首单样衣任务已创建。商品项目节点只展示关键任务信息，请进入首单样衣详情按动作开始首单、提交结果和填写结论。'
 
   return `
     <section class="space-y-4">
@@ -5736,7 +5738,7 @@ function renderFirstOrderSampleProjectNodeWorkspace(project: PcsProjectRecord, n
             <p class="mt-1 text-xs text-slate-500">${escapeHtml(task.firstOrderSampleTaskCode)} · ${escapeHtml(task.status)} · ${escapeHtml(formatDateTime(task.updatedAt))}</p>
           </div>
           <button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-nav="/pcs/samples/first-order/${escapeHtml(task.firstOrderSampleTaskId)}">
-            ${completed ? '查看首单样衣详情' : '去首单样衣打样详情补齐'}
+            ${completed ? '查看首单样衣详情' : '去首单样衣打样详情推进'}
           </button>
         </div>
         <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">

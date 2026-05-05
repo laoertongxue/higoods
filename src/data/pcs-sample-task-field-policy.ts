@@ -19,7 +19,7 @@ export const FIRST_SAMPLE_NODE_ENTRY_REQUIRED_FIELDS: Array<{
   label: string
 }> = [
   { fieldKey: 'sourceTechPackVersionId', label: '来源技术包版本' },
-  { fieldKey: 'factoryId', label: '工厂' },
+  { fieldKey: 'factoryId', label: '打样工厂' },
   { fieldKey: 'targetSite', label: '打样区域' },
   { fieldKey: 'sampleMaterialMode', label: '样衣材质模式' },
   { fieldKey: 'samplePurpose', label: '样衣用途' },

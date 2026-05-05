@@ -2153,9 +2153,9 @@ export function createFirstSampleTaskWithProjectRelation(
     latestInstanceId: task.firstSampleTaskId,
     latestInstanceCode: task.firstSampleTaskCode,
     latestResultType: '已创建首版样衣打样任务',
-    latestResultText: '已创建首版样衣打样任务，待补齐详细信息',
-    pendingActionType: '补齐首版样衣详情',
-    pendingActionText: '请在首版样衣打样详情中补齐结果信息',
+    latestResultText: '已创建首版样衣打样任务，待在详情中推进打样动作',
+    pendingActionType: '推进首版样衣打样',
+    pendingActionText: '请在首版样衣打样详情中开始打样、提交结果并填写结论',
   }, Boolean(existing))
   syncFirstSampleTaskToProjectNode({
     firstSampleTaskId: task.firstSampleTaskId,
@@ -2266,9 +2266,9 @@ export function createFirstOrderSampleTaskWithProjectRelation(
     latestInstanceId: task.firstOrderSampleTaskId,
     latestInstanceCode: task.firstOrderSampleTaskCode,
     latestResultType: '已创建首单样衣打样任务',
-    latestResultText: '已创建首单样衣打样任务，待补齐详细信息',
-    pendingActionType: '补齐首单样衣详情',
-    pendingActionText: '请在首单样衣打样详情中补齐样衣计划和确认结果',
+    latestResultText: '已创建首单样衣打样任务，待在详情中推进首单动作',
+    pendingActionType: '推进首单样衣打样',
+    pendingActionText: '请在首单样衣打样详情中开始首单、提交结果并填写结论',
   }, Boolean(existing))
   syncFirstOrderSampleTaskToProjectNode({
     firstOrderSampleTaskId: task.firstOrderSampleTaskId,
