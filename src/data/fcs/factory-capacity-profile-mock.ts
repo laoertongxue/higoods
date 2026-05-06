@@ -11,6 +11,7 @@ import {
 } from './process-craft-dict.ts'
 import { getFactorySupplyFormulaTemplate, type FactorySupplyFormulaTemplate } from './process-craft-sam-explainer.ts'
 import { getSamBusinessFieldLabel } from './sam-field-display.ts'
+import type { FactoryOnboardingApplication } from './factory-onboarding-domain.ts'
 import type {
   Factory,
   FactoryCapacityEntry,
@@ -157,7 +158,21 @@ function cloneEntry(entry: FactoryCapacityEntry): FactoryCapacityEntry {
 
 function cloneProfile(profile: FactoryCapacityProfile): FactoryCapacityProfile {
   return {
+    capacityProfileId: profile.capacityProfileId,
     factoryId: profile.factoryId,
+    factoryName: profile.factoryName,
+    factoryType: profile.factoryType,
+    sourceApplicationId: profile.sourceApplicationId,
+    sourceApplicationNo: profile.sourceApplicationNo,
+    effectiveWorkerCount: profile.effectiveWorkerCount,
+    machineTotalCount: profile.machineTotalCount,
+    capabilityItems: profile.capabilityItems.map((item) => ({ ...item })),
+    machineItems: profile.machineItems.map((item) => ({ ...item })),
+    defaultDailyAvailablePublishedSam: profile.defaultDailyAvailablePublishedSam,
+    calculationStatus: profile.calculationStatus,
+    calculationNotes: profile.calculationNotes,
+    createdAt: profile.createdAt,
+    updatedAt: profile.updatedAt,
     entries: profile.entries.map((entry) => cloneEntry(entry)),
   }
 }
@@ -192,8 +207,24 @@ function cloneEquipment(equipment: FactoryCapacityEquipment): FactoryCapacityEqu
 }
 
 function createEmptyProfile(factoryId: string): FactoryCapacityProfile {
+  const factory = getFactoryMasterRecordById(factoryId)
+  const now = new Date().toISOString().slice(0, 19).replace('T', ' ')
   return {
+    capacityProfileId: `FCP-${factoryId}`,
     factoryId,
+    factoryName: factory?.name || factoryId,
+    factoryType: factory?.factoryType || 'UNKNOWN',
+    sourceApplicationId: undefined,
+    sourceApplicationNo: undefined,
+    effectiveWorkerCount: 0,
+    machineTotalCount: 0,
+    capabilityItems: [],
+    machineItems: [],
+    defaultDailyAvailablePublishedSam: 0,
+    calculationStatus: '待补充产能字段',
+    calculationNotes: '入驻资料已生成产能档案初始数据，默认日可供给发布工时 SAM 待补充字段后计算。',
+    createdAt: now,
+    updatedAt: now,
     entries: [],
   }
 }
@@ -481,12 +512,14 @@ function normalizeEntry(
   existingEntry: FactoryCapacityEntry | undefined,
   row: ProcessCraftDictRow,
   factoryId: string,
+  preserveEmptyValues = false,
 ): FactoryCapacityEntry {
   const baseValues = buildDefaultValues(row.samCurrentFieldKeys, row, factoryId)
   const existingValues = existingEntry?.values ?? {}
   const nextValues = row.samCurrentFieldKeys.reduce<Partial<Record<SamCurrentFieldKey, FactoryCapacityFieldValue>>>(
     (result, key) => {
-      result[key] = hasCapacityFieldValue(existingValues[key]) ? existingValues[key] : baseValues[key]
+      const hasOwnField = Object.prototype.hasOwnProperty.call(existingValues, key)
+      result[key] = hasCapacityFieldValue(existingValues[key]) || (preserveEmptyValues && hasOwnField) ? existingValues[key] : baseValues[key]
       return result
     },
     {},
@@ -527,10 +560,15 @@ function ensureProfile(factoryId: string): FactoryCapacityProfile {
   const supportedRows = resolveFactorySupportedCraftRows(factory)
   const current = profilesByFactoryId.get(factoryId) ?? createEmptyProfile(factoryId)
   const existingEntryMap = new Map(current.entries.map((entry) => [`${entry.processCode}:${entry.craftCode}`, entry]))
+  const preserveEmptyValues = Boolean(current.sourceApplicationId && current.calculationStatus === '待补充产能字段')
 
   const next: FactoryCapacityProfile = {
+    ...current,
     factoryId,
-    entries: supportedRows.map((row) => normalizeEntry(existingEntryMap.get(`${row.processCode}:${row.craftCode}`), row, factoryId)),
+    factoryName: factory.name,
+    factoryType: current.factoryType || factory.factoryType,
+    updatedAt: new Date().toISOString().slice(0, 19).replace('T', ' '),
+    entries: supportedRows.map((row) => normalizeEntry(existingEntryMap.get(`${row.processCode}:${row.craftCode}`), row, factoryId, preserveEmptyValues)),
   }
 
   profilesByFactoryId.set(factoryId, cloneProfile(next))
@@ -545,6 +583,99 @@ export function listFactoryCapacityProfiles(): FactoryCapacityProfile[] {
 
 export function getFactoryCapacityProfileByFactoryId(factoryId: string): FactoryCapacityProfile {
   return ensureProfile(factoryId)
+}
+
+function mapOnboardingConditionToEquipmentStatus(condition: string): FactoryCapacityEquipmentStatus {
+  if (condition === '维修中') return 'MAINTENANCE'
+  if (condition === '停用') return 'STOPPED'
+  return 'AVAILABLE'
+}
+
+function buildInitialEntryFromRow(row: ProcessCraftDictRow): FactoryCapacityEntry {
+  const emptyValues = row.samCurrentFieldKeys.reduce<Partial<Record<SamCurrentFieldKey, FactoryCapacityFieldValue>>>((result, key) => {
+    result[key] = ''
+    return result
+  }, {})
+  return {
+    processCode: row.processCode,
+    craftCode: row.craftCode,
+    values: emptyValues,
+    note: '入驻资料已生成产能档案初始数据，默认日可供给发布工时 SAM 待补充字段后计算。',
+  }
+}
+
+export function createInitialCapacityProfileFromOnboarding(application: FactoryOnboardingApplication, createdFactory: Factory): FactoryCapacityProfile {
+  const now = new Date().toISOString().slice(0, 19).replace('T', ' ')
+  const supportedRows = resolveFactorySupportedCraftRows(createdFactory)
+  const rowMap = new Map(supportedRows.map((row) => [`${row.processCode}:${row.craftCode}`, row] as const))
+  const capabilityItems = application.selectedCapabilities.map((item) => ({
+    processCode: item.processCode,
+    processName: item.processName,
+    craftCode: item.craftCode,
+    craftName: item.craftName,
+    canReceiveTask: item.canReceiveTask,
+    capacityManaged: item.capacityManaged,
+  }))
+  const machineItems = application.machines.map((item) => ({
+    machineName: item.machineName,
+    machineNo: item.machineNo,
+    machineCount: item.machineCount,
+    linkedProcessCode: item.linkedProcessCode,
+    linkedProcessName: item.linkedProcessName,
+    linkedCraftCode: item.linkedCraftCode,
+    linkedCraftName: item.linkedCraftName,
+    condition: item.condition,
+  }))
+  const entries = capabilityItems.map((item) => {
+    const row = rowMap.get(`${item.processCode}:${item.craftCode}`) || getProcessCraftDictRowByCode(item.craftCode)
+    return row ? buildInitialEntryFromRow(row) : {
+      processCode: item.processCode,
+      craftCode: item.craftCode,
+      values: {},
+      note: '入驻资料已生成产能档案初始数据，默认日可供给发布工时 SAM 待补充字段后计算。',
+    }
+  })
+  const equipments = application.machines.map((item) => ({
+    equipmentId: `${createdFactory.id}::ONBOARDING::${item.machineId}`,
+    factoryId: createdFactory.id,
+    equipmentName: item.machineName,
+    equipmentNo: item.machineNo,
+    equipmentType: item.linkedProcessCode === 'PRINT' ? 'PRINT_MACHINE' : item.linkedProcessCode === 'DYE' ? 'DYE_VAT' : item.linkedProcessCode === 'POST_FINISHING' ? 'POST_NODE' : 'GENERAL',
+    abilityList: item.linkedProcessCode && item.linkedCraftCode ? [{
+      processCode: item.linkedProcessCode,
+      processName: item.linkedProcessName,
+      craftCode: item.linkedCraftCode,
+      craftName: item.linkedCraftName,
+      efficiencyValue: 0,
+      efficiencyUnit: resolveEquipmentEfficiencyUnitByCodes(item.linkedProcessCode, item.linkedCraftCode),
+    }] : [],
+    quantity: item.machineCount,
+    singleShiftMinutes: 0,
+    status: mapOnboardingConditionToEquipmentStatus(item.condition),
+    remark: item.remark,
+  }))
+  const profile: FactoryCapacityProfile = {
+    capacityProfileId: `FCP-${createdFactory.id}`,
+    factoryId: createdFactory.id,
+    factoryName: createdFactory.name,
+    factoryType: application.primaryFactoryType,
+    sourceApplicationId: application.applicationId,
+    sourceApplicationNo: application.applicationNo,
+    effectiveWorkerCount: application.effectiveWorkerCount,
+    machineTotalCount: application.machineTotalCount,
+    capabilityItems,
+    machineItems,
+    defaultDailyAvailablePublishedSam: 0,
+    calculationStatus: '待补充产能字段',
+    calculationNotes: '入驻资料已生成产能档案初始数据，默认日可供给发布工时 SAM 待补充字段后计算。',
+    createdAt: now,
+    updatedAt: now,
+    entries,
+  }
+
+  profilesByFactoryId.set(createdFactory.id, cloneProfile(profile))
+  equipmentsByFactoryId.set(createdFactory.id, cloneEquipments(equipments))
+  return ensureProfile(createdFactory.id)
 }
 
 export function listFactoryCapacityProfileStoreIds(): string[] {

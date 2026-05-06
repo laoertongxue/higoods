@@ -2,7 +2,7 @@ import type { PcsTaskPendingItem } from './pcs-project-types.ts'
 import type { FirstSamplePurpose, SampleMaterialMode } from './pcs-sample-chain-types.ts'
 import type { FirstSampleTaskSourceType } from './pcs-task-source-normalizer.ts'
 
-export const FIRST_SAMPLE_TASK_STATUS_LIST = ['草稿', '待处理', '打样中', '待确认', '已通过', '需改版', '需补样', '已取消'] as const
+export const FIRST_SAMPLE_TASK_STATUS_LIST = ['草稿', '待处理', '打样中', '待确认', '已通过', '需改版', '已取消'] as const
 export type FirstSampleTaskStatus = (typeof FIRST_SAMPLE_TASK_STATUS_LIST)[number]
 
 export interface FirstSampleTaskRecord {

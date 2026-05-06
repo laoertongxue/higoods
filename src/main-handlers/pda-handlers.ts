@@ -1,5 +1,6 @@
 import { closePdaShellDialogsOnEscape, handlePdaShellEvent } from '../pages/pda-shell'
 import { handlePdaLoginEvent } from '../pages/pda-login'
+import { handlePdaOnboardingEvent } from '../pages/pda-onboarding'
 import { handlePdaNotifyEvent } from '../pages/pda-notify'
 import { handlePdaNotifyDueSoonEvent } from '../pages/pda-notify-due-soon'
 import { handlePdaNotifyDetailEvent } from '../pages/pda-notify-detail'
@@ -24,33 +25,34 @@ import { handlePdaCuttingInboundEvent } from '../pages/pda-cutting-inbound'
 import { handlePdaCuttingHandoverEvent } from '../pages/pda-cutting-handover'
 import { handlePdaCuttingReplenishmentFeedbackEvent } from '../pages/pda-cutting-replenishment-feedback'
 
-export function dispatchPdaPageEvent(target: HTMLElement): boolean {
+export async function dispatchPdaPageEvent(target: HTMLElement): Promise<boolean> {
   return (
-    handlePdaShellEvent(target) ||
-    handlePdaLoginEvent(target) ||
-    handlePdaNotifyEvent(target) ||
-    handlePdaNotifyDueSoonEvent(target) ||
-    handlePdaNotifyDetailEvent(target) ||
-    handlePdaQualityEvent(target) ||
-    handlePdaTaskReceiveEvent(target) ||
-    handlePdaTaskReceiveDetailEvent(target) ||
-    handlePdaExecEvent(target) ||
-    handlePdaExecDetailEvent(target) ||
-    handlePdaWarehouseEvent(target) ||
-    handlePdaWarehouseWaitProcessEvent(target) ||
-    handlePdaWarehouseWaitHandoverEvent(target) ||
-    handlePdaWarehouseInboundRecordsEvent(target) ||
-    handlePdaWarehouseOutboundRecordsEvent(target) ||
-    handlePdaWarehouseStocktakeEvent(target) ||
-    handlePdaCuttingTaskDetailEvent(target) ||
-    handlePdaCuttingPickupEvent(target) ||
-    handlePdaCuttingSpreadingEvent(target) ||
-    handlePdaCuttingInboundEvent(target) ||
-    handlePdaCuttingHandoverEvent(target) ||
-    handlePdaCuttingReplenishmentFeedbackEvent(target) ||
-    handlePdaHandoverEvent(target) ||
-    handlePdaHandoverDetailEvent(target) ||
-    handlePdaSettlementEvent(target)
+    await handlePdaShellEvent(target) ||
+    await handlePdaLoginEvent(target) ||
+    await handlePdaOnboardingEvent(target) ||
+    await handlePdaNotifyEvent(target) ||
+    await handlePdaNotifyDueSoonEvent(target) ||
+    await handlePdaNotifyDetailEvent(target) ||
+    await handlePdaQualityEvent(target) ||
+    await handlePdaTaskReceiveEvent(target) ||
+    await handlePdaTaskReceiveDetailEvent(target) ||
+    await handlePdaExecEvent(target) ||
+    await handlePdaExecDetailEvent(target) ||
+    await handlePdaWarehouseEvent(target) ||
+    await handlePdaWarehouseWaitProcessEvent(target) ||
+    await handlePdaWarehouseWaitHandoverEvent(target) ||
+    await handlePdaWarehouseInboundRecordsEvent(target) ||
+    await handlePdaWarehouseOutboundRecordsEvent(target) ||
+    await handlePdaWarehouseStocktakeEvent(target) ||
+    await handlePdaCuttingTaskDetailEvent(target) ||
+    await handlePdaCuttingPickupEvent(target) ||
+    await handlePdaCuttingSpreadingEvent(target) ||
+    await handlePdaCuttingInboundEvent(target) ||
+    await handlePdaCuttingHandoverEvent(target) ||
+    await handlePdaCuttingReplenishmentFeedbackEvent(target) ||
+    await handlePdaHandoverEvent(target) ||
+    await handlePdaHandoverDetailEvent(target) ||
+    await handlePdaSettlementEvent(target)
   )
 }
 

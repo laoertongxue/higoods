@@ -1,6 +1,11 @@
 import { createTaskBootstrapSnapshot } from './pcs-task-bootstrap.ts'
 import type { PcsTaskPendingItem } from './pcs-project-types.ts'
-import type { FirstSampleTaskRecord, FirstSampleTaskStoreSnapshot } from './pcs-first-sample-types.ts'
+import {
+  FIRST_SAMPLE_TASK_STATUS_LIST,
+  type FirstSampleTaskRecord,
+  type FirstSampleTaskStatus,
+  type FirstSampleTaskStoreSnapshot,
+} from './pcs-first-sample-types.ts'
 
 const STORAGE_KEY = 'higood-pcs-first-sample-store-v2'
 const STORE_VERSION = 2
@@ -39,9 +44,17 @@ function seedSnapshot(): FirstSampleTaskStoreSnapshot {
   }
 }
 
+function normalizeFirstSampleStatus(status: string): FirstSampleTaskStatus {
+  if (status === '需补样' || status === '需补测') return '需改版'
+  return FIRST_SAMPLE_TASK_STATUS_LIST.includes(status as FirstSampleTaskStatus)
+    ? (status as FirstSampleTaskStatus)
+    : '待处理'
+}
+
 function normalizeTask(task: FirstSampleTaskRecord): FirstSampleTaskRecord {
   return {
     ...cloneTask(task),
+    status: normalizeFirstSampleStatus(task.status),
     note: task.note || '',
     sourceType: task.sourceType || '人工创建',
     upstreamModule: task.upstreamModule || '',

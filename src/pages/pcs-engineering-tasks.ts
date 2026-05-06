@@ -102,6 +102,10 @@ interface RevisionCreateDraft {
   sourceType: RevisionTaskSourceType
   projectId: string
   styleId: string
+  upstreamModule: string
+  upstreamObjectType: string
+  upstreamObjectId: string
+  upstreamObjectCode: string
   title: string
   ownerName: string
   dueAt: string
@@ -356,6 +360,10 @@ const initialRevisionCreateDraft = (): RevisionCreateDraft => ({
   sourceType: '测款触发',
   projectId: '',
   styleId: '',
+  upstreamModule: '',
+  upstreamObjectType: '',
+  upstreamObjectId: '',
+  upstreamObjectCode: '',
   title: '',
   ownerName: '',
   dueAt: '',
@@ -760,6 +768,7 @@ const state = {
   firstSampleAcceptanceTaskId: '',
   firstSampleAcceptanceResult: '通过',
   firstSampleAcceptanceNote: '',
+  firstSampleAcceptanceArtworkSummary: '',
   firstSampleAcceptanceConfirmedBy: '当前用户',
   firstSampleAcceptanceConfirmedAt: nowText(),
 
@@ -947,6 +956,11 @@ function styleArchiveLinkByProject(projectId: string): string {
   const style = findStyleArchiveByProjectId(projectId)
   if (!style) return '<span class="text-slate-400">待建立</span>'
   return `<button type="button" class="font-medium text-blue-700 hover:underline" data-nav="/pcs/products/styles/${escapeHtml(style.styleId)}">${escapeHtml(style.styleCode)}</button>`
+}
+
+function revisionTaskNewTabLink(revisionTaskId: string, revisionTaskCode: string): string {
+  if (!revisionTaskId) return '<span class="text-slate-400">未创建改版任务</span>'
+  return `<a class="font-medium text-blue-700 hover:underline" href="/pcs/patterns/revision/${escapeHtml(revisionTaskId)}" target="_blank" rel="noreferrer">${escapeHtml(revisionTaskCode || '查看改版任务')}</a>`
 }
 
 function styleArchiveLink(
@@ -2639,6 +2653,11 @@ function renderRevisionCreateDialog(): string {
           </label>`
         : '<div></div>'}
     </div>
+    ${draft.upstreamObjectId || draft.upstreamObjectCode
+      ? `<div class="mt-4 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          来源对象：${escapeHtml(draft.upstreamModule || '上游任务')} · ${escapeHtml(draft.upstreamObjectCode || draft.upstreamObjectId)}
+        </div>`
+      : ''}
     <div class="mt-4">
       <div class="grid gap-2 sm:grid-cols-2">
         ${REVISION_SCOPE_OPTIONS.map((option) => `
@@ -3342,9 +3361,9 @@ function renderPatternDetailPage(patternTaskId: string): string {
 }
 
 function buildSampleMilestones(task: { status: string; createdAt: string; updatedAt: string; confirmedAt?: string }): Array<{ label: string; done: boolean; time: string }> {
-  const inProgress = ['打样中', '待确认', '已通过', '需改版', '需补样', '需补首单'].includes(task.status)
-  const waitingConfirm = ['待确认', '已通过', '需改版', '需补样', '需补首单'].includes(task.status)
-  const finished = ['已通过', '需改版', '需补样', '需补首单'].includes(task.status)
+  const inProgress = ['打样中', '待确认', '已通过', '需改版', '需补首单'].includes(task.status)
+  const waitingConfirm = ['待确认', '已通过', '需改版', '需补首单'].includes(task.status)
+  const finished = ['已通过', '需改版', '需补首单'].includes(task.status)
   return [
     { label: '创建', done: true, time: task.createdAt },
     { label: '开始打样', done: inProgress, time: inProgress ? task.updatedAt : '' },
@@ -3490,6 +3509,7 @@ function getFirstSampleActionLabel(status: string): string {
   if (status === '草稿' || status === '待处理') return '开始打样'
   if (status === '打样中') return '提交结果'
   if (status === '待确认') return '填写结论'
+  if (status === '需改版') return '去创建改版任务'
   return '查看结果'
 }
 
@@ -3520,6 +3540,27 @@ function getFirstSampleTasksFiltered() {
   })
 }
 
+function renderFirstSampleRevisionCell(task: FirstSampleTaskRecord): string {
+  if (task.status !== '需改版') return '<span class="text-slate-400">-</span>'
+  const revision = findRevisionTaskByFirstSample(task)
+  if (!revision) return '<span class="text-xs font-medium text-orange-700">未创建改版任务</span>'
+  return `
+    <div class="space-y-1">
+      ${revisionTaskNewTabLink(revision.revisionTaskId, revision.revisionTaskCode)}
+      <p class="text-xs text-slate-500">${escapeHtml(revision.status)}</p>
+    </div>
+  `
+}
+
+function renderFirstSampleRevisionAction(task: FirstSampleTaskRecord): string {
+  if (task.status !== '需改版') return ''
+  const revision = findRevisionTaskByFirstSample(task)
+  if (revision) {
+    return `<button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/patterns/revision/${escapeHtml(revision.revisionTaskId)}">查看改版任务</button>`
+  }
+  return `<button type="button" class="inline-flex h-8 items-center px-1 text-xs font-medium text-blue-700 hover:text-blue-800" data-pcs-engineering-action="create-revision-from-first-sample" data-task-id="${escapeHtml(task.firstSampleTaskId)}">去创建改版任务</button>`
+}
+
 function renderFirstSampleListPage(): string {
   const tasks = listFirstSampleTasks()
   const filtered = getFirstSampleTasksFiltered()
@@ -3536,6 +3577,7 @@ function renderFirstSampleListPage(): string {
         </td>
         <td class="px-4 py-4">${projectButton(task.projectId, task.projectCode, task.projectName)}</td>
         <td class="px-4 py-4">${renderStatusBadge(task.status, true)}</td>
+        <td class="px-4 py-4">${renderFirstSampleRevisionCell(task)}</td>
         <td class="px-4 py-4">${escapeHtml(task.targetSite)}</td>
         <td class="px-4 py-4">${escapeHtml(task.sampleMaterialMode)}</td>
         <td class="px-4 py-4">${escapeHtml(task.sampleCode || '-')}</td>
@@ -3544,6 +3586,7 @@ function renderFirstSampleListPage(): string {
           <div class="flex flex-wrap gap-2">
             <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/samples/first-sample/${escapeHtml(task.firstSampleTaskId)}">查看</button>
             <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-pcs-engineering-action="first-sample-advance" data-task-id="${escapeHtml(task.firstSampleTaskId)}">${escapeHtml(getFirstSampleActionLabel(task.status))}</button>
+            ${renderFirstSampleRevisionAction(task)}
           </div>
         </td>
       </tr>
@@ -3562,7 +3605,7 @@ function renderFirstSampleListPage(): string {
         sourceField: 'first-sample-source',
         siteField: 'first-sample-site',
         siteOptions: SAMPLE_SITE_OPTIONS,
-        statusOptions: ['待处理', '打样中', '待确认', '已通过', '需改版', '需补样', '已取消'],
+        statusOptions: ['待处理', '打样中', '待确认', '已通过', '需改版', '已取消'],
         ownerOptions: owners,
         sourceOptions: sources,
       })}
@@ -3572,11 +3615,12 @@ function renderFirstSampleListPage(): string {
         ${renderMetricButton('需改版', tasks.filter((item) => item.status === '需改版').length, state.firstSampleList.quickFilter === 'rework', 'rework', 'set-first-sample-quick-filter')}
         ${renderMetricButton('已通过', tasks.filter((item) => item.status === '已通过').length, state.firstSampleList.quickFilter === 'passed', 'passed', 'set-first-sample-quick-filter')}
       </section>
-      ${renderDataTable(['首版打样任务', '商品项目', '状态', '打样区域', '面料模式', '结果编号', '首单依据', '操作'], rows, '暂无首版样衣打样数据', renderPagination(state.firstSampleList.currentPage, filtered.length, 'change-first-sample-page'))}
+      ${renderDataTable(['首版打样任务', '商品项目', '结论', '改版处理', '打样区域', '面料模式', '结果编号', '首单依据', '操作'], rows, '暂无首版样衣打样数据', renderPagination(state.firstSampleList.currentPage, filtered.length, 'change-first-sample-page'))}
       ${renderFirstSampleCreateDialog()}
       ${renderFirstSampleStartDialog()}
       ${renderFirstSampleResultDialog()}
       ${renderFirstSampleAcceptanceDialog()}
+      ${renderRevisionCreateDialog()}
     </div>
   `
 }
@@ -3641,6 +3685,9 @@ function renderFirstSampleResultDialog(): string {
 }
 
 function renderFirstSampleAcceptanceDialog(): string {
+  const reuseHint = state.firstSampleAcceptanceTaskId
+    ? getFirstSampleTaskById(state.firstSampleAcceptanceTaskId)?.samplePurpose === '首单复用候选'
+    : false
   const body = `
     <div class="space-y-4">
       <div class="grid gap-4 md:grid-cols-2">
@@ -3650,9 +3697,12 @@ function renderFirstSampleAcceptanceDialog(): string {
       ${renderSelectInput('验收结论', 'first-sample-acceptance-result', state.firstSampleAcceptanceResult, [
         { value: '通过', label: '通过' },
         { value: '需改版', label: '需改版' },
-        { value: '需补测', label: '需补测' },
       ])}
-      ${renderTextarea('验收说明', 'first-sample-acceptance-note', state.firstSampleAcceptanceNote, '')}
+      ${renderTextarea('版型确认说明', 'first-sample-acceptance-note', state.firstSampleAcceptanceNote, '记录版型、尺寸、穿着效果和需改版点')}
+      ${renderTextarea('花型确认说明', 'first-sample-acceptance-artwork-summary', state.firstSampleAcceptanceArtworkSummary, '记录花型位置、颜色、外观效果；无花型时可写无')}
+      <div class="rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs leading-5 text-blue-800">
+        ${escapeHtml(reuseHint ? '当前样衣用途为首单复用候选。验收通过后会同步写入首单复用依据、复用确认时间、复用确认人和复用说明。' : '当前样衣用途不是首单复用候选。验收通过只记录首版确认结论，不自动写入首单复用依据。')}
+      </div>
     </div>
   `
   return renderDialog(state.firstSampleAcceptanceOpen, '填写首版验收结论', body, 'close-first-sample-acceptance', 'submit-first-sample-acceptance', '提交验收')
@@ -3752,6 +3802,43 @@ function saveFirstOrderDetail(taskId: string): void {
   }
   pushRuntimeLog('firstOrder', result.task.firstOrderSampleTaskId, '保存详情', '已保存首单样衣详情字段并同步商品项目节点。')
   setNotice('首单样衣打样详情已保存，并同步商品项目节点。')
+}
+
+function renderFirstSampleReworkCard(task: FirstSampleTaskRecord): string {
+  if (task.status !== '需改版') return ''
+  const revision = findRevisionTaskByFirstSample(task)
+  const reworkReason = [
+    task.fitConfirmationSummary ? `版型：${task.fitConfirmationSummary}` : '',
+    task.artworkConfirmationSummary ? `花型：${task.artworkConfirmationSummary}` : '',
+    task.productionReadinessNote || '',
+  ].filter(Boolean).join(' ')
+  return `
+    <article class="rounded-lg border border-orange-200 bg-orange-50 p-4">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div class="space-y-1">
+          <p class="text-sm font-semibold text-orange-900">改版处理</p>
+          <p class="text-xs leading-5 text-orange-800">${escapeHtml(reworkReason || '首版样衣验收结论为需改版，需要创建或跟进关联改版任务。')}</p>
+        </div>
+        ${revision
+          ? `<button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-3 text-xs font-medium text-white hover:bg-blue-700" data-nav="/pcs/patterns/revision/${escapeHtml(revision.revisionTaskId)}">查看改版任务</button>`
+          : `<button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-3 text-xs font-medium text-white hover:bg-blue-700" data-pcs-engineering-action="create-revision-from-first-sample" data-task-id="${escapeHtml(task.firstSampleTaskId)}">去创建改版任务</button>`}
+      </div>
+      <div class="mt-4 grid gap-3 md:grid-cols-3">
+        <div class="rounded-md border border-orange-100 bg-white/70 px-3 py-2">
+          <p class="text-xs text-slate-500">改版任务</p>
+          <p class="mt-1 text-sm text-slate-900">${revision ? revisionTaskNewTabLink(revision.revisionTaskId, revision.revisionTaskCode) : '<span class="text-orange-700">未创建改版任务</span>'}</p>
+        </div>
+        <div class="rounded-md border border-orange-100 bg-white/70 px-3 py-2">
+          <p class="text-xs text-slate-500">处理状态</p>
+          <p class="mt-1 text-sm text-slate-900">${escapeHtml(revision?.status || '待创建')}</p>
+        </div>
+        <div class="rounded-md border border-orange-100 bg-white/70 px-3 py-2">
+          <p class="text-xs text-slate-500">来源首版样衣</p>
+          <p class="mt-1 text-sm text-slate-900">${escapeHtml(task.firstSampleTaskCode)}</p>
+        </div>
+      </div>
+    </article>
+  `
 }
 
 function renderFirstSampleDetailPage(firstSampleTaskId: string): string {
@@ -3882,6 +3969,7 @@ function renderFirstSampleDetailPage(firstSampleTaskId: string): string {
       ${renderNotice()}
       ${header}
       ${tabBar}
+      ${renderFirstSampleReworkCard(task)}
       <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
         <div class="space-y-6">${mainContent}</div>
         ${aside}
@@ -3889,6 +3977,7 @@ function renderFirstSampleDetailPage(firstSampleTaskId: string): string {
       ${renderFirstSampleStartDialog()}
       ${renderFirstSampleResultDialog()}
       ${renderFirstSampleAcceptanceDialog()}
+      ${renderRevisionCreateDialog()}
     </div>
   `
 }
@@ -4221,6 +4310,70 @@ function updateListPage(listState: ListState | SampleListState, step: number, to
   listState.currentPage = Math.min(totalPages, Math.max(1, listState.currentPage + step))
 }
 
+function findRevisionTaskByFirstSample(task: FirstSampleTaskRecord) {
+  return listRevisionTasks().find((revision) =>
+    revision.projectId === task.projectId &&
+    (
+      revision.upstreamObjectId === task.firstSampleTaskId ||
+      revision.upstreamObjectCode === task.firstSampleTaskCode
+    ),
+  )
+}
+
+function buildRevisionDraftFromFirstSampleRework(
+  task: FirstSampleTaskRecord,
+  operatorName: string,
+  fitSummary: string,
+  artworkSummary: string,
+): RevisionCreateDraft {
+  const defaults = getProjectDefaultValues(task.projectId)
+  const issueSummary = [
+    '首版样衣验收结论为需改版。',
+    fitSummary ? `版型问题：${fitSummary}` : '',
+    artworkSummary ? `花型问题：${artworkSummary}` : '',
+    task.sampleCode ? `结果编号：${task.sampleCode}` : '',
+  ].filter(Boolean).join(' ')
+  const scopeCodes = artworkSummary ? ['PATTERN', 'PRINT'] : ['PATTERN']
+  return {
+    ...initialRevisionCreateDraft(),
+    bindingMode: 'project',
+    sourceType: '测款触发',
+    projectId: task.projectId,
+    styleId: defaults.styleId,
+    upstreamModule: '首版样衣打样',
+    upstreamObjectType: '首版样衣打样任务',
+    upstreamObjectId: task.firstSampleTaskId,
+    upstreamObjectCode: task.firstSampleTaskCode,
+    title: `首版样衣需改版-${task.firstSampleTaskCode}`,
+    ownerName: task.ownerName || defaults.ownerName || operatorName,
+    note: `由首版样衣任务 ${task.firstSampleTaskCode} 验收需改版创建。`,
+    scopeCodes,
+    issueSummary,
+    evidenceSummary: [
+      '来源：首版样衣验收结论。',
+      fitSummary ? `版型确认：${fitSummary}` : '',
+      artworkSummary ? `花型确认：${artworkSummary}` : '',
+    ].filter(Boolean).join(' '),
+    evidenceImageUrls: [...(task.sampleImageIds || [])],
+  }
+}
+
+function openRevisionCreateFromFirstSampleRework(task: FirstSampleTaskRecord, operatorName: string): void {
+  const existing = findRevisionTaskByFirstSample(task)
+  if (existing) {
+    appStore.navigate(`/pcs/patterns/revision/${encodeURIComponent(existing.revisionTaskId)}`)
+    return
+  }
+  state.revisionCreateOpen = true
+  state.revisionCreateDraft = buildRevisionDraftFromFirstSampleRework(
+    task,
+    operatorName,
+    task.fitConfirmationSummary || task.productionReadinessNote || task.note || '首版样衣验收需改版。',
+    task.artworkConfirmationSummary,
+  )
+  setNotice('已根据首版样衣需改版结论预填改版任务，请确认后创建。')
+}
+
 function advanceFirstSampleTask(taskId: string): void {
   const task = getFirstSampleTaskById(taskId)
   if (!task) return
@@ -4249,8 +4402,13 @@ function advanceFirstSampleTask(taskId: string): void {
     state.firstSampleAcceptanceTaskId = taskId
     state.firstSampleAcceptanceResult = '通过'
     state.firstSampleAcceptanceNote = ''
+    state.firstSampleAcceptanceArtworkSummary = task.artworkConfirmationSummary || ''
     state.firstSampleAcceptanceConfirmedBy = task.ownerName || '当前用户'
     state.firstSampleAcceptanceConfirmedAt = nowText()
+    return
+  }
+  if (task.status === '需改版') {
+    openRevisionCreateFromFirstSampleRework(task, task.ownerName || '当前用户')
     return
   }
   setNotice(`首版样衣任务 ${task.firstSampleTaskCode} 当前无需继续推进。`)
@@ -4320,6 +4478,10 @@ function submitRevisionCreate(): void {
     projectId: projectMode ? draft.projectId : '',
     title: draft.title.trim() || '新建改版任务',
     sourceType: draft.sourceType,
+    upstreamModule: draft.upstreamModule,
+    upstreamObjectType: draft.upstreamObjectType,
+    upstreamObjectId: draft.upstreamObjectId,
+    upstreamObjectCode: draft.upstreamObjectCode,
     ownerName: draft.ownerName.trim() || projectDefaults.ownerName || '当前用户',
     priorityLevel: '中',
     dueAt: draft.dueAt.trim() || '',
@@ -5056,6 +5218,10 @@ export function handlePcsEngineeringTaskInput(target: Element): boolean {
         state.revisionCreateDraft.bindingMode = value as TaskBindingMode
         state.revisionCreateDraft.projectId = ''
         state.revisionCreateDraft.styleId = ''
+        state.revisionCreateDraft.upstreamModule = ''
+        state.revisionCreateDraft.upstreamObjectType = ''
+        state.revisionCreateDraft.upstreamObjectId = ''
+        state.revisionCreateDraft.upstreamObjectCode = ''
         state.revisionCreateDraft.createPatternTask = false
         if (value === 'style' && state.revisionCreateDraft.sourceType === '测款触发') {
           state.revisionCreateDraft.sourceType = '既有商品改款'
@@ -5066,13 +5232,24 @@ export function handlePcsEngineeringTaskInput(target: Element): boolean {
         state.revisionCreateDraft.projectId = ''
         state.revisionCreateDraft.styleId = ''
         state.revisionCreateDraft.ownerName = ''
+        state.revisionCreateDraft.upstreamModule = ''
+        state.revisionCreateDraft.upstreamObjectType = ''
+        state.revisionCreateDraft.upstreamObjectId = ''
+        state.revisionCreateDraft.upstreamObjectCode = ''
         state.revisionCreateDraft.createPatternTask = false
         return true
       case 'revision-create-project': {
+        const projectChanged = state.revisionCreateDraft.projectId !== value
         state.revisionCreateDraft.projectId = value
         const defaults = getProjectDefaultValues(value)
         state.revisionCreateDraft.ownerName = defaults.ownerName
         state.revisionCreateDraft.styleId = defaults.styleId
+        if (projectChanged) {
+          state.revisionCreateDraft.upstreamModule = ''
+          state.revisionCreateDraft.upstreamObjectType = ''
+          state.revisionCreateDraft.upstreamObjectId = ''
+          state.revisionCreateDraft.upstreamObjectCode = ''
+        }
         state.revisionCreateDraft.createPatternTask = canCreateRevisionPatternTask(
           state.revisionCreateDraft.scopeCodes,
           state.revisionCreateDraft.sourceType,
@@ -5244,6 +5421,7 @@ export function handlePcsEngineeringTaskInput(target: Element): boolean {
       case 'first-sample-acceptance-confirmed-at': state.firstSampleAcceptanceConfirmedAt = fromDateTimeLocalValue(value); return true
       case 'first-sample-acceptance-result': state.firstSampleAcceptanceResult = value; return true
       case 'first-sample-acceptance-note': state.firstSampleAcceptanceNote = value; return true
+      case 'first-sample-acceptance-artwork-summary': state.firstSampleAcceptanceArtworkSummary = value; return true
       case 'first-sample-detail-sample-code': state.firstSampleDetailDraft.sampleCode = value; return true
       case 'first-sample-detail-sample-images': state.firstSampleDetailDraft.sampleImageIdsText = value; return true
       case 'first-sample-detail-fit-summary': state.firstSampleDetailDraft.fitConfirmationSummary = value; return true
@@ -5714,6 +5892,15 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement): boolean {
     return true
   }
 
+  if (action === 'create-revision-from-first-sample') {
+    const task = getFirstSampleTaskById(actionNode.dataset.taskId || '')
+    if (!task) {
+      setNotice('未找到首版样衣任务。')
+      return true
+    }
+    openRevisionCreateFromFirstSampleRework(task, '当前用户')
+    return true
+  }
   if (action === 'first-sample-advance') { advanceFirstSampleTask(actionNode.dataset.taskId || ''); return true }
   if (action === 'save-first-sample-detail') { saveFirstSampleDetail(actionNode.dataset.taskId || state.firstSampleDetailDraftTaskId); return true }
   if (action === 'close-first-sample-acceptance') { state.firstSampleAcceptanceOpen = false; return true }
@@ -5723,21 +5910,32 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement): boolean {
     const confirmer = state.firstSampleAcceptanceConfirmedBy.trim()
     const timestamp = state.firstSampleAcceptanceConfirmedAt.trim()
     const acceptanceNote = state.firstSampleAcceptanceNote.trim()
+    const artworkSummary = state.firstSampleAcceptanceArtworkSummary.trim()
     if (!confirmer) { setNotice('请填写确认人。'); return true }
     if (!timestamp) { setNotice('请填写确认时间。'); return true }
     if (!acceptanceNote) { setNotice('请填写验收说明。'); return true }
+    if (state.firstSampleAcceptanceResult !== '通过' && state.firstSampleAcceptanceResult !== '需改版') {
+      setNotice('首版验收结论只能选择通过或需改版。')
+      return true
+    }
     firstSampleAcceptanceMap.set(task.firstSampleTaskId, { result: state.firstSampleAcceptanceResult, note: acceptanceNote, updatedAt: timestamp })
     const passed = state.firstSampleAcceptanceResult === '通过'
-    const nextStatus = passed ? '已通过' : state.firstSampleAcceptanceResult === '需改版' ? '需改版' : '需补样'
+    const nextStatus = passed ? '已通过' : '需改版'
+    const canReuseAsFirstOrderBasis = passed && task.samplePurpose === '首单复用候选'
     const result = updateFirstSampleTaskDetailAndSync(task.firstSampleTaskId, {
       status: nextStatus,
       confirmedAt: timestamp,
-      reuseAsFirstOrderBasisFlag: passed || task.reuseAsFirstOrderBasisFlag,
-      reuseAsFirstOrderBasisConfirmedAt: passed ? timestamp : task.reuseAsFirstOrderBasisConfirmedAt,
-      reuseAsFirstOrderBasisConfirmedBy: passed ? confirmer : task.reuseAsFirstOrderBasisConfirmedBy,
-      reuseAsFirstOrderBasisNote: passed ? '首版样衣已确认，可直接作为首单参照。' : task.reuseAsFirstOrderBasisNote,
+      reuseAsFirstOrderBasisFlag: canReuseAsFirstOrderBasis,
+      reuseAsFirstOrderBasisConfirmedAt: canReuseAsFirstOrderBasis ? timestamp : '',
+      reuseAsFirstOrderBasisConfirmedBy: canReuseAsFirstOrderBasis ? confirmer : '',
+      reuseAsFirstOrderBasisNote: canReuseAsFirstOrderBasis ? '首版样衣已确认，可直接作为首单参照。' : '',
       fitConfirmationSummary: passed ? acceptanceNote || task.fitConfirmationSummary || '版型确认通过。' : acceptanceNote || task.fitConfirmationSummary,
-      productionReadinessNote: passed ? task.productionReadinessNote || '可作为首单复用候选。' : acceptanceNote || task.productionReadinessNote,
+      artworkConfirmationSummary: passed
+        ? artworkSummary || task.artworkConfirmationSummary || '花型与外观确认通过。'
+        : artworkSummary || task.artworkConfirmationSummary,
+      productionReadinessNote: passed
+        ? task.productionReadinessNote || (canReuseAsFirstOrderBasis ? '可作为首单复用候选。' : '首版样衣确认通过，当前仅作为首版确认结论。')
+        : '首版样衣验收需改版，待改版任务完成后重新确认。',
       note: `${task.note ? `${task.note}；` : ''}验收结论：${state.firstSampleAcceptanceResult}`,
     }, confirmer)
     if (result.task) {
@@ -5746,7 +5944,10 @@ export function handlePcsEngineeringTaskEvent(target: HTMLElement): boolean {
     }
     pushRuntimeLog('firstSample', task.firstSampleTaskId, '填写验收', `确认人：${confirmer}；确认时间：${timestamp}；验收结论：${state.firstSampleAcceptanceResult}。${acceptanceNote}`, confirmer)
     state.firstSampleAcceptanceOpen = false
-    setNotice(result.ok ? `首版样衣任务 ${task.firstSampleTaskCode} 已提交验收结论并同步商品项目节点。` : result.message)
+    state.firstSampleTab = 'acceptance'
+    setNotice(result.ok
+      ? `首版样衣任务 ${task.firstSampleTaskCode} 已提交验收结论并同步商品项目节点。${passed ? '' : '请在改版处理入口创建或跟进改版任务。'}`
+      : result.message)
     return true
   }
 
@@ -5845,6 +6046,7 @@ export function resetPcsEngineeringTaskState(): void {
   state.firstSampleAcceptanceTaskId = ''
   state.firstSampleAcceptanceResult = '通过'
   state.firstSampleAcceptanceNote = ''
+  state.firstSampleAcceptanceArtworkSummary = ''
   state.firstSampleAcceptanceConfirmedBy = '当前用户'
   state.firstSampleAcceptanceConfirmedAt = nowText()
   state.firstOrderList = { search: '', status: 'all', owner: 'all', source: 'all', quickFilter: 'all', currentPage: 1, site: 'all' }

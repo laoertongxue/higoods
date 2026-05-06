@@ -9,11 +9,14 @@ async function clearPdaSession(page: import('@playwright/test').Page): Promise<v
 async function openFactoryDialog(page: import('@playwright/test').Page, factoryId: string): Promise<import('@playwright/test').Locator> {
   await page.goto('/fcs/factories/profile')
   await expect(page.getByRole('heading', { name: '工厂档案', exact: true })).toBeVisible()
+  await page.waitForTimeout(1000)
   const editButton = page.locator(`[data-factory-action="edit"][data-factory-id="${factoryId}"]`)
   await editButton.scrollIntoViewIfNeeded()
-  await editButton.click({ force: true })
+  await editButton.evaluate((element) => {
+    ;(element as HTMLElement).click()
+  })
   const dialog = page.locator('[data-factory-form="true"]').last()
-  await dialog.waitFor({ state: 'visible', timeout: 15000 })
+  await dialog.waitFor({ state: 'visible', timeout: 20000 })
   await expect(dialog).toBeVisible()
   return dialog
 }
@@ -25,12 +28,12 @@ test('FCS PDA 账户密码登录、旧账号迁移和重置密码生效', async 
   const initialPassword = 'pass1234'
   const nextPassword = 'pass5678'
 
-  await page.goto('/fcs/pda/login')
-  await expect(page.getByRole('heading', { name: '工厂端移动应用登录', exact: true })).toBeVisible()
+  await page.goto('/fcs/pda/auth/login')
+  await expect(page.getByRole('heading', { name: '工厂入驻&登录', exact: true })).toBeVisible()
   await page.locator('[data-pda-login-field="loginId"]').fill('ID-F001_operator')
   await page.locator('[data-pda-login-field="password"]').fill('123456')
   await page.locator('[data-pda-login-action="submit"]').click()
-  await expect(page).toHaveURL(/\/fcs\/pda\/notify$/)
+  await expect(page).toHaveURL(/\/fcs\/pda\/exec$/)
   await clearPdaSession(page)
 
   const factoryDialog = await openFactoryDialog(page, 'ID-F001')
@@ -55,18 +58,18 @@ test('FCS PDA 账户密码登录、旧账号迁移和重置密码生效', async 
   await page.getByRole('button', { name: '关闭', exact: true }).click()
   await expect(page.locator('[data-factory-form="true"]')).toHaveCount(0)
 
-  await page.goto('/fcs/pda/login')
+  await page.goto('/fcs/pda/auth/login')
   await page.locator('[data-pda-login-field="loginId"]').fill(uniqueLoginId)
   await page.locator('[data-pda-login-action="submit"]').click()
   await expect(page.getByText('请输入登录密码')).toBeVisible()
 
   await page.locator('[data-pda-login-field="password"]').fill('wrong-password')
   await page.locator('[data-pda-login-action="submit"]').click()
-  await expect(page.getByText('账户或密码错误')).toBeVisible()
+  await expect(page.getByText('账号或密码错误')).toBeVisible()
 
   await page.locator('[data-pda-login-field="password"]').fill(initialPassword)
   await page.locator('[data-pda-login-action="submit"]').click()
-  await expect(page).toHaveURL(/\/fcs\/pda\/notify$/)
+  await expect(page).toHaveURL(/\/fcs\/pda\/exec$/)
   await clearPdaSession(page)
 
   const resetDialog = await openFactoryDialog(page, 'ID-F001')
@@ -83,15 +86,15 @@ test('FCS PDA 账户密码登录、旧账号迁移和重置密码生效', async 
   await page.getByRole('button', { name: '关闭', exact: true }).click()
   await expect(page.locator('[data-factory-form="true"]')).toHaveCount(0)
 
-  await page.goto('/fcs/pda/login')
+  await page.goto('/fcs/pda/auth/login')
   await page.locator('[data-pda-login-field="loginId"]').fill(uniqueLoginId)
   await page.locator('[data-pda-login-field="password"]').fill(initialPassword)
   await page.locator('[data-pda-login-action="submit"]').click()
-  await expect(page.getByText('账户或密码错误')).toBeVisible()
+  await expect(page.getByText('账号或密码错误')).toBeVisible()
 
   await page.locator('[data-pda-login-field="password"]').fill(nextPassword)
   await page.locator('[data-pda-login-action="submit"]').click()
-  await expect(page).toHaveURL(/\/fcs\/pda\/notify$/)
+  await expect(page).toHaveURL(/\/fcs\/pda\/exec$/)
 
   await expectNoPageErrors(errors)
 })

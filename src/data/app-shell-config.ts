@@ -200,6 +200,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           title: '工厂池管理',
           icon: 'Factory',
           children: [
+            { key: 'factories-onboarding', title: '工厂入驻管理', icon: 'ClipboardCheck', href: '/fcs/factories/onboarding' },
             { key: 'factories-profile', title: '工厂档案', icon: 'Factory', href: '/fcs/factories/profile' },
             { key: 'factories-warehouse', title: '工厂仓库', icon: 'Warehouse', href: '/fcs/factory/warehouse' },
             { key: 'factories-capacity-profile', title: '工厂产能档案', icon: 'Gauge', href: '/fcs/factories/capacity-profile' },
@@ -302,6 +303,14 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
             { key: 'capacity-policies', title: '暂停例外', icon: 'Settings2', href: '/fcs/capacity/policies' },
           ],
         },
+      ],
+    } as MenuGroup & { icon: string },
+    {
+      title: '工厂入驻&登录',
+      icon: 'LogIn',
+      items: [
+        { key: 'pda-auth-login', title: '登录', icon: 'LogIn', href: '/fcs/pda/auth/login' },
+        { key: 'pda-auth-onboarding', title: '入驻', icon: 'ClipboardPen', href: '/fcs/pda/auth/onboarding' },
       ],
     } as MenuGroup & { icon: string },
     {

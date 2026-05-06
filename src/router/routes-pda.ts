@@ -1,6 +1,7 @@
 import type { RouteRegistry } from './route-types'
 import {
   renderPdaLoginPage,
+  renderPdaOnboardingPage,
   renderPdaNotifyDetailPage,
   renderPdaNotifyDueSoonPage,
   renderPdaNotifyPage,
@@ -29,15 +30,17 @@ import {
   renderPdaWarehouseStocktakePage,
 } from './route-renderers'
 import { renderRouteRedirect } from './route-utils'
-import { getPdaSession } from '../data/fcs/store-domain-pda.ts'
+import { getPdaCurrentAuthSession, resolvePdaPostLoginRoute, buildPdaAuthLoginPath } from '../data/fcs/factory-onboarding-flow.ts'
 
 export const routes: RouteRegistry = {
   exactRoutes: {
     '/fcs/pda': () =>
-      getPdaSession()
-        ? renderRouteRedirect('/fcs/pda/task-receive', '工厂端移动应用')
-        : renderRouteRedirect('/fcs/pda/login', '工厂端移动应用登录'),
-    '/fcs/pda/login': () => renderPdaLoginPage(),
+      renderRouteRedirect(
+        resolvePdaPostLoginRoute(getPdaCurrentAuthSession(), '/fcs/pda/exec') || buildPdaAuthLoginPath('/fcs/pda/exec'),
+        '工厂端移动应用',
+      ),
+    '/fcs/pda/auth/login': () => renderPdaLoginPage(),
+    '/fcs/pda/auth/onboarding': () => renderPdaOnboardingPage(),
     '/fcs/pda/notify': () => renderPdaNotifyPage(),
     '/fcs/pda/notify/due-soon': () => renderPdaNotifyDueSoonPage(),
     '/fcs/pda/quality': () => renderPdaQualityPage(),

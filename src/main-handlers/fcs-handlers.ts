@@ -4,6 +4,10 @@ import {
   isFactoryPageOpenDialog,
 } from '../pages/factory-profile'
 import {
+  handleFactoryOnboardingEvent,
+  isFactoryOnboardingDialogOpen,
+} from '../pages/factory-onboarding'
+import {
   handleFactoryCapacityProfileEvent,
   isFactoryCapacityProfileDialogOpen,
 } from '../pages/factory-capacity-profile'
@@ -196,7 +200,7 @@ import { handlePostFinishingEvent } from '../pages/process-factory/post-finishin
 import { handleCraftPrintingEvent } from '../pages/process-factory/printing/events'
 import { handleSpecialCraftWorkOrderDetailEvent } from '../pages/process-factory/special-craft/work-order-detail'
 
-export function dispatchFcsPageEvent(target: HTMLElement): boolean {
+export async function dispatchFcsPageEvent(target: HTMLElement): Promise<boolean> {
   const isPostFinishingRoute =
     typeof window !== 'undefined' && window.location.pathname.includes('/fcs/craft/post-finishing')
   if (
@@ -218,66 +222,67 @@ export function dispatchFcsPageEvent(target: HTMLElement): boolean {
   }
 
   return (
-    handleCraftPrintingEvent(target) ||
-    handleCraftDyeingEvent(target) ||
-    handlePostFinishingEvent(target) ||
-    handleSpecialCraftWorkOrderDetailEvent(target) ||
-    handleCraftCuttingOriginalOrdersEvent(target) ||
-    handleFactoryPageEvent(target) ||
-    handleFactoryCapacityProfileEvent(target) ||
-    handleFactoryInternalWarehouseEvent(target) ||
-    handleCapabilityEvent(target) ||
-    handleFactoryStatusEvent(target) ||
-    handleFactoryPerformanceEvent(target) ||
-    handleSettlementEvent(target) ||
-    handleCapacityEvent(target) ||
-    handleProductionEvent(target) ||
-    handleProductionCraftDictEvent(target) ||
-    handleTechPackEvent(target) ||
-    handleProcessDyeRequirementsEvent(target) ||
-    handleProcessPrintRequirementsEvent(target) ||
-    handleProcessDyeOrdersEvent(target) ||
-    handleProcessPrintOrdersEvent(target) ||
-    handleMaterialIssueEvent(target) ||
-    handleQcRecordsEvent(target) ||
-    handleStatementsEvent(target) ||
-    handleAdjustmentsEvent(target) ||
-    handleBatchesEvent(target) ||
-    handleMaterialStatementsEvent(target) ||
-    handlePaymentSyncEvent(target) ||
-    handleHistoryEvent(target) ||
-    handleDispatchBoardEvent(target) ||
-    handleDispatchTendersEvent(target) ||
-    handleProgressBoardEvent(target) ||
-    handleProgressExceptionsEvent(target) ||
-    handleProgressUrgeEvent(target) ||
-    handleProgressHandoverEvent(target) ||
-    handleProgressHandoverOrderEvent(target) ||
-    handleProgressMilestoneConfigEvent(target) ||
-    handleProgressMaterialEvent(target) ||
-    handleProgressCuttingOverviewEvent(target) ||
-    handleProgressCuttingDetailEvent(target) ||
-    handleProgressCuttingExceptionCenterEvent(target) ||
-    handleCuttingSettlementInputEvent(target) ||
-    handleCraftCuttingProductionProgressEvent(target) ||
-    handleCraftCuttingCuttablePoolEvent(target) ||
-    handleCraftCuttingMergeBatchesEvent(target) ||
-    handleCraftCuttingMarkerPlanEvent(target) ||
-    handleCraftCuttingMaterialPrepEvent(target) ||
-    handleCraftCuttingMarkerSpreadingEvent(target) ||
-    handleCraftCuttingFeiTicketsEvent(target) ||
-    handleCraftCuttingFabricWarehouseEvent(target) ||
-    handleCraftCuttingCutPieceWarehouseEvent(target) ||
-    handleCraftCuttingSampleWarehouseEvent(target) ||
-    handleCraftCuttingTransferBagsEvent(target) ||
-    handleCraftCuttingReplenishmentEvent(target) ||
-    handleCraftCuttingSpecialCraftDispatchEvent(target) ||
-    handleCraftCuttingSpecialCraftReturnEvent(target) ||
-    handleCraftCuttingSpecialProcessesEvent(target) ||
-    handleCraftCuttingSummaryEvent(target) ||
-    handleDeductionAnalysisEvent(target) ||
-    handleDyePrintOrdersEvent(target) ||
-    handleTaskBreakdownEvent(target)
+    await handleCraftPrintingEvent(target) ||
+    await handleCraftDyeingEvent(target) ||
+    await handlePostFinishingEvent(target) ||
+    await handleSpecialCraftWorkOrderDetailEvent(target) ||
+    await handleCraftCuttingOriginalOrdersEvent(target) ||
+    await handleFactoryOnboardingEvent(target) ||
+    await handleFactoryPageEvent(target) ||
+    await handleFactoryCapacityProfileEvent(target) ||
+    await handleFactoryInternalWarehouseEvent(target) ||
+    await handleCapabilityEvent(target) ||
+    await handleFactoryStatusEvent(target) ||
+    await handleFactoryPerformanceEvent(target) ||
+    await handleSettlementEvent(target) ||
+    await handleCapacityEvent(target) ||
+    await handleProductionEvent(target) ||
+    await handleProductionCraftDictEvent(target) ||
+    await handleTechPackEvent(target) ||
+    await handleProcessDyeRequirementsEvent(target) ||
+    await handleProcessPrintRequirementsEvent(target) ||
+    await handleProcessDyeOrdersEvent(target) ||
+    await handleProcessPrintOrdersEvent(target) ||
+    await handleMaterialIssueEvent(target) ||
+    await handleQcRecordsEvent(target) ||
+    await handleStatementsEvent(target) ||
+    await handleAdjustmentsEvent(target) ||
+    await handleBatchesEvent(target) ||
+    await handleMaterialStatementsEvent(target) ||
+    await handlePaymentSyncEvent(target) ||
+    await handleHistoryEvent(target) ||
+    await handleDispatchBoardEvent(target) ||
+    await handleDispatchTendersEvent(target) ||
+    await handleProgressBoardEvent(target) ||
+    await handleProgressExceptionsEvent(target) ||
+    await handleProgressUrgeEvent(target) ||
+    await handleProgressHandoverEvent(target) ||
+    await handleProgressHandoverOrderEvent(target) ||
+    await handleProgressMilestoneConfigEvent(target) ||
+    await handleProgressMaterialEvent(target) ||
+    await handleProgressCuttingOverviewEvent(target) ||
+    await handleProgressCuttingDetailEvent(target) ||
+    await handleProgressCuttingExceptionCenterEvent(target) ||
+    await handleCuttingSettlementInputEvent(target) ||
+    await handleCraftCuttingProductionProgressEvent(target) ||
+    await handleCraftCuttingCuttablePoolEvent(target) ||
+    await handleCraftCuttingMergeBatchesEvent(target) ||
+    await handleCraftCuttingMarkerPlanEvent(target) ||
+    await handleCraftCuttingMaterialPrepEvent(target) ||
+    await handleCraftCuttingMarkerSpreadingEvent(target) ||
+    await handleCraftCuttingFeiTicketsEvent(target) ||
+    await handleCraftCuttingFabricWarehouseEvent(target) ||
+    await handleCraftCuttingCutPieceWarehouseEvent(target) ||
+    await handleCraftCuttingSampleWarehouseEvent(target) ||
+    await handleCraftCuttingTransferBagsEvent(target) ||
+    await handleCraftCuttingReplenishmentEvent(target) ||
+    await handleCraftCuttingSpecialCraftDispatchEvent(target) ||
+    await handleCraftCuttingSpecialCraftReturnEvent(target) ||
+    await handleCraftCuttingSpecialProcessesEvent(target) ||
+    await handleCraftCuttingSummaryEvent(target) ||
+    await handleDeductionAnalysisEvent(target) ||
+    await handleDyePrintOrdersEvent(target) ||
+    await handleTaskBreakdownEvent(target)
   )
 }
 
@@ -627,6 +632,17 @@ export function closeFcsDialogsOnEscape(): boolean {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.factoryAction = 'close-dialog'
     handleFactoryPageEvent(fakeButton)
+    return true
+  }
+
+  if (isFactoryOnboardingDialogOpen()) {
+    const fakeButton = document.createElement('button')
+    fakeButton.dataset.factoryOnboardingAction = 'close-detail'
+    handleFactoryOnboardingEvent(fakeButton)
+    fakeButton.dataset.factoryOnboardingAction = 'close-review'
+    handleFactoryOnboardingEvent(fakeButton)
+    fakeButton.dataset.factoryOnboardingAction = 'close-confirm'
+    handleFactoryOnboardingEvent(fakeButton)
     return true
   }
 

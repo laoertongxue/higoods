@@ -1,5 +1,7 @@
 import { getFactoryMobileTodoActionRoute, getFactoryMobileTodoCount, getFactoryMobileTodos } from '../data/fcs/factory-mobile-todos.ts'
 import { formatFactoryDisplayName } from '../data/fcs/factory-mock-data.ts'
+import { ensurePdaAccessForRoute } from '../data/fcs/factory-onboarding-flow.ts'
+import { renderRouteRedirect } from '../router/route-utils'
 import { appStore } from '../state/store'
 import { escapeHtml, toClassName } from '../utils'
 import { getPdaRuntimeContext } from './pda-runtime'
@@ -214,6 +216,12 @@ export function renderPdaBottomNav(activeTab: PdaTabKey | null): string {
 }
 
 export function renderPdaFrame(content: string, activeTab: PdaTabKey | null, options: PdaFrameOptions = {}): string {
+  const currentPath = appStore.getState().pathname || '/fcs/pda/exec'
+  const access = ensurePdaAccessForRoute(currentPath)
+  if (!access.allowed) {
+    return renderRouteRedirect(access.redirectPath || '/fcs/pda/auth/login', access.reasonLabel || '工厂入驻&登录')
+  }
+
   syncTodoModalAutoOpen(Boolean(options.disableTodoAutoOpen))
   return `
     <section class="relative flex min-h-[760px] flex-col overflow-hidden bg-background">

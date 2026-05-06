@@ -337,6 +337,7 @@ export const renderTraceUnitPricePage = createAsyncRenderer(() => import('../pag
 export const renderTraceUniqueCodesPage = createAsyncRenderer(() => import('../pages/trace'), 'renderTraceUniqueCodesPage')
 export const renderPdaNotifyPage = createAsyncRenderer(() => import('../pages/pda-notify'), 'renderPdaNotifyPage')
 export const renderPdaLoginPage = createAsyncRenderer(() => import('../pages/pda-login'), 'renderPdaLoginPage')
+export const renderPdaOnboardingPage = createAsyncRenderer(() => import('../pages/pda-onboarding'), 'renderPdaOnboardingPage')
 export const renderPdaNotifyDueSoonPage = createAsyncRenderer(
   () => import('../pages/pda-notify-due-soon'),
   'renderPdaNotifyDueSoonPage',

@@ -62,6 +62,12 @@ const state: FactoryCapacityProfilePageState = {
   draftEquipments: [],
 }
 
+function getCurrentSearchParams(): URLSearchParams {
+  const pathname = appStore.getState().pathname
+  const [, query] = pathname.split('?')
+  return new URLSearchParams(query || '')
+}
+
 function renderTestFactoryBadge(factory: Pick<Factory, 'isTestFactory'>): string {
   return factory.isTestFactory
     ? '<span class="ml-2 inline-flex rounded border border-violet-200 bg-violet-50 px-2 py-0.5 text-[11px] text-violet-700">测试工厂</span>'
@@ -265,6 +271,19 @@ function renderFieldValue(label: string, value: string): string {
       <p class="text-sm font-medium text-foreground">${escapeHtml(value)}</p>
     </div>
   `
+}
+
+function getInferredFactoryTypeLabel(value: string): string {
+  const map: Record<string, string> = {
+    CUTTING_FACTORY: '裁床厂',
+    PRINTING_FACTORY: '印花厂',
+    DYEING_FACTORY: '染厂',
+    POST_FINISHING_FACTORY: '后道工厂',
+    SPECIAL_CRAFT_FACTORY: '特殊工艺厂',
+    SEWING_FACTORY: '车缝厂',
+    MULTI_CAPABILITY_FACTORY: '全能力工厂',
+  }
+  return map[value] || value
 }
 
 function renderCapacityTableRows(factories: Factory[]): string {
@@ -603,6 +622,7 @@ function renderEquipmentSection(factoryId: string): string {
 }
 
 function renderTopReadonlyInfo(factory: Factory): string {
+  const profile = getFactoryCapacityProfileByFactoryId(factory.id)
   return `
     <section class="space-y-5 border-b border-slate-200 pb-6" data-capacity-detail-top>
       <div>
@@ -613,6 +633,16 @@ function renderTopReadonlyInfo(factory: Factory): string {
         ${renderFieldValue('工厂类型', factoryTypeConfig[factory.factoryType]?.label ?? factory.factoryType)}
         ${renderFieldValue('工厂状态', factoryStatusConfig[factory.status].label)}
         ${renderFieldValue('联系人', factory.contact)}
+        ${renderFieldValue('来源入驻申请', profile.sourceApplicationNo || '既有工厂档案')}
+        ${renderFieldValue('默认日可供给发布工时 SAM', `${profile.defaultDailyAvailablePublishedSam}`)}
+        ${renderFieldValue('SAM 计算状态', profile.calculationStatus)}
+        ${renderFieldValue('有效工人数量', `${profile.effectiveWorkerCount}`)}
+        ${renderFieldValue('机器总数', `${profile.machineTotalCount}`)}
+        ${renderFieldValue('匹配工厂类型', getInferredFactoryTypeLabel(profile.factoryType))}
+      </div>
+      <div class="grid gap-3 md:grid-cols-2">
+        <div class="rounded-xl border px-3 py-2 text-sm">工序工艺能力：${escapeHtml(profile.capabilityItems.map((item) => `${item.processName}/${item.craftName}`).join('、') || '—')}</div>
+        <div class="rounded-xl border px-3 py-2 text-sm">计算说明：${escapeHtml(profile.calculationNotes || '—')}</div>
       </div>
       ${renderReadonlyProcessAbilities(factory)}
       ${renderEquipmentSection(factory.id)}
@@ -1005,6 +1035,12 @@ function normalizeCapacityValue(value: string): FactoryCapacityFieldValue {
 }
 
 export function renderFactoryCapacityProfilePage(): string {
+  const queryFactoryId = getCurrentSearchParams().get('factoryId')
+  if (queryFactoryId && !state.activeFactoryId) {
+    state.activeFactoryId = queryFactoryId
+    state.detailMode = 'detail'
+    resetDraftState(queryFactoryId)
+  }
   const factories = getVisibleFactories()
   const pagedFactories = getPagedFactories(factories)
   const availableTypes = getFactoryTypeOptions()

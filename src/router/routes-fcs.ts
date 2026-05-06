@@ -15,6 +15,7 @@ import {
   renderCapabilityPage,
   renderFactoryCapacityProfilePage,
   renderFactoryInternalWarehousePage,
+  renderFactoryOnboardingPage,
   renderFactoryPerformancePage,
   renderFactoryProfilePage,
   renderFactoryStatusPage,
@@ -156,6 +157,7 @@ const specialCraftExactRoutes = Object.fromEntries(
 
 export const routes: RouteRegistry = {
   exactRoutes: {
+    '/fcs/factories/onboarding': () => renderFactoryOnboardingPage(),
     '/fcs/factories/profile': () => renderFactoryProfilePage(),
     '/fcs/factory/warehouse': () => renderFactoryInternalWarehousePage(),
     '/fcs/factories/capacity-profile': () => renderFactoryCapacityProfilePage(),

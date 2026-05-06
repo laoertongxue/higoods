@@ -126,7 +126,7 @@ async function dispatchPageEvent(target: Element): Promise<boolean> {
       getPdaHandlersModule(),
     ])
 
-    if (fcsHandlers.dispatchFcsPageEvent(eventTarget)) {
+    if (await fcsHandlers.dispatchFcsPageEvent(eventTarget)) {
       return true
     }
 
@@ -472,6 +472,16 @@ function shouldSkipInputRerender(target: Element): boolean {
     return true
   }
 
+  const pdaOnboardingFieldNode = target.closest<HTMLElement>('[data-pda-onboarding-field], [data-pda-onboarding-machine-field]')
+  if (pdaOnboardingFieldNode instanceof HTMLInputElement || pdaOnboardingFieldNode instanceof HTMLTextAreaElement) {
+    return true
+  }
+
+  const factoryOnboardingFieldNode = target.closest<HTMLElement>('[data-factory-onboarding-field]')
+  if (factoryOnboardingFieldNode instanceof HTMLInputElement || factoryOnboardingFieldNode instanceof HTMLTextAreaElement) {
+    return true
+  }
+
   return false
 }
 
@@ -499,6 +509,16 @@ function shouldSkipChangeRerender(target: Element): boolean {
 
   const pdaLoginFieldNode = target.closest<HTMLElement>('[data-pda-login-field]')
   if (pdaLoginFieldNode instanceof HTMLInputElement || pdaLoginFieldNode instanceof HTMLTextAreaElement) {
+    return true
+  }
+
+  const pdaOnboardingFieldNode = target.closest<HTMLElement>('[data-pda-onboarding-field], [data-pda-onboarding-machine-field]')
+  if (pdaOnboardingFieldNode instanceof HTMLInputElement || pdaOnboardingFieldNode instanceof HTMLTextAreaElement) {
+    return true
+  }
+
+  const factoryOnboardingFieldNode = target.closest<HTMLElement>('[data-factory-onboarding-field]')
+  if (factoryOnboardingFieldNode instanceof HTMLInputElement || factoryOnboardingFieldNode instanceof HTMLTextAreaElement) {
     return true
   }
 

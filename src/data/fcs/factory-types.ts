@@ -1,4 +1,5 @@
 import type { SamCurrentFieldKey } from './process-craft-dict'
+import type { FactoryInferredTypeCode, FactoryTypeMatchResult } from './factory-onboarding-domain'
 
 // 工厂状态
 export type FactoryStatus = 'active' | 'paused' | 'blacklist' | 'inactive'
@@ -84,6 +85,10 @@ export interface Factory {
   pdaTenantId?: string
   isTestFactory?: boolean
   testFactoryScope?: 'ALL_PROCESS_CRAFT'
+  primaryFactoryType?: FactoryInferredTypeCode
+  inferredFactoryTypes?: FactoryTypeMatchResult[]
+  factoryTypeMatchedAt?: string
+  factoryTypeMatchReason?: string
   // 新增：生产流程开始条件
   eligibility: FactoryEligibility
 }
@@ -116,7 +121,37 @@ export interface FactoryCapacityEntry {
 }
 
 export interface FactoryCapacityProfile {
+  capacityProfileId: string
   factoryId: string
+  factoryName: string
+  factoryType: string
+  sourceApplicationId?: string
+  sourceApplicationNo?: string
+  effectiveWorkerCount: number
+  machineTotalCount: number
+  capabilityItems: Array<{
+    processCode: string
+    processName: string
+    craftCode: string
+    craftName: string
+    canReceiveTask: boolean
+    capacityManaged: boolean
+  }>
+  machineItems: Array<{
+    machineName: string
+    machineNo: string
+    machineCount: number
+    linkedProcessCode: string
+    linkedProcessName: string
+    linkedCraftCode: string
+    linkedCraftName: string
+    condition: string
+  }>
+  defaultDailyAvailablePublishedSam: number
+  calculationStatus: string
+  calculationNotes: string
+  createdAt: string
+  updatedAt: string
   entries: FactoryCapacityEntry[]
 }
 

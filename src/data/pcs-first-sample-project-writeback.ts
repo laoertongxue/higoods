@@ -333,6 +333,22 @@ function buildNodeLatestPatch(
     }
   }
 
+  if (task.status === '需改版') {
+    return {
+      currentStatus: '进行中',
+      validInstanceCount: 1,
+      latestInstanceId: task.firstSampleTaskId,
+      latestInstanceCode: task.firstSampleTaskCode,
+      latestResultType: '首版样衣需改版',
+      latestResultText: '首版样衣验收结论为需改版，已进入改版处理。',
+      pendingActionType: '跟进改版任务',
+      pendingActionText: '请在改版任务中处理版型、花型或工艺问题，改版完成后重新进入首版样衣确认。',
+      updatedAt: timestamp,
+      lastEventType: '首版样衣需改版',
+      lastEventTime: timestamp,
+    }
+  }
+
   return {
     currentStatus: '进行中',
     validInstanceCount: 1,
