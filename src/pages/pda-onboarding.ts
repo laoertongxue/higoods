@@ -230,7 +230,7 @@ function renderCurrentStatusCard(application: FactoryOnboardingApplication | nul
 
 function renderStatusTipCard(application: FactoryOnboardingApplication | null): string {
   return `
-    <section class="rounded-2xl border bg-card p-3 shadow-sm">
+    <section class="rounded-[28px] border border-slate-200 bg-white p-3 shadow-sm">
       <h3 class="text-sm font-semibold">状态提示</h3>
       <div class="mt-3 rounded-xl border border-blue-200 bg-blue-50 px-3 py-3 text-xs text-blue-700">${escapeHtml(getOnboardingStatusTip(application))}</div>
     </section>
@@ -356,13 +356,18 @@ function renderCapabilityPicker(readonly: boolean): string {
   const processOptions = listSelectableProcessCraftOptions()
   const selectedProcess = processOptions.find((item) => item.processCode === state.selectedProcessCode) || processOptions[0]
   const selectedKeys = new Set(state.draft.selectedCapabilities.map((item) => `${item.processCode}:${item.craftCode}`))
+  const matchResults = inferFactoryTypesFromCapabilities(state.draft.selectedCapabilities)
+  const primaryFactoryType = getPrimaryFactoryType(matchResults)
+  const matchReason = matchResults.length > 0
+    ? matchResults.map((item) => `${getFactoryTypeLabel(item.factoryTypeCode)}：${item.matchedCapabilities.join('、')}`).join('；')
+    : '请先选择工序工艺能力。'
 
   return `
-    <section class="rounded-2xl border bg-card p-3 shadow-sm">
+    <section class="rounded-[28px] border border-slate-200 bg-white p-3 shadow-sm">
       <div class="flex items-center justify-between gap-3">
         <div>
           <h3 class="text-sm font-semibold">工序工艺能力</h3>
-          <p class="mt-1 text-xs text-muted-foreground">先选工序，再勾选该工序下的具体工艺。</p>
+          <p class="mt-1 text-xs text-muted-foreground">先选工序，再勾选工艺。</p>
         </div>
       </div>
       <div class="mt-3 flex gap-2 overflow-x-auto pb-1">
@@ -400,6 +405,10 @@ function renderCapabilityPicker(readonly: boolean): string {
       <div class="mt-3 space-y-2" data-testid="pda-onboarding-capability-section">
         <div class="text-xs font-medium">已选工序工艺</div>
         ${renderCapabilityTags(state.draft.selectedCapabilities, readonly)}
+      </div>
+      <div class="mt-3 rounded-2xl bg-slate-50 px-3 py-3 text-xs">
+        <div class="font-medium text-slate-900">系统匹配工厂类型：${escapeHtml(getFactoryTypeLabel(primaryFactoryType))}</div>
+        <div class="mt-1 text-slate-500">匹配依据：${escapeHtml(matchReason)}</div>
       </div>
     </section>
   `
@@ -454,7 +463,7 @@ function renderMachineRow(machine: FactoryOnboardingMachineAbility, index: numbe
       <div class="mb-3 rounded-xl border ${invalid ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'} px-3 py-2 text-xs">
         校验状态：${escapeHtml(machine.validationStatus)}${machine.validationMessage ? ` · ${escapeHtml(machine.validationMessage)}` : ''}
       </div>
-      <div class="grid grid-cols-2 gap-2 text-xs">
+      <div class="grid grid-cols-1 gap-2 text-xs">
         ${renderField('机器名称', `<input ${disabled} data-pda-onboarding-machine-index="${index}" data-pda-onboarding-machine-field="machineName" value="${escapeHtml(machine.machineName)}" class="h-9 w-full rounded-xl border px-3" placeholder="请输入机器名称" />`, true)}
         ${renderField('机器编号', `<input ${disabled} data-pda-onboarding-machine-index="${index}" data-pda-onboarding-machine-field="machineNo" value="${escapeHtml(machine.machineNo)}" class="h-9 w-full rounded-xl border px-3" placeholder="请输入机器编号" />`)}
         ${renderField('数量', `<input ${disabled} type="number" min="1" data-pda-onboarding-machine-index="${index}" data-pda-onboarding-machine-field="machineCount" value="${machine.machineCount}" class="h-9 w-full rounded-xl border px-3" />`, true)}
@@ -523,7 +532,7 @@ function renderReviewAndSupplement(application: FactoryOnboardingApplication | n
   if (!showReview) return ''
 
   return `
-    <section class="rounded-2xl border bg-card p-3 shadow-sm" data-testid="pda-onboarding-review-card">
+    <section class="rounded-[28px] border border-slate-200 bg-white p-3 shadow-sm" data-testid="pda-onboarding-review-card">
       <h3 class="text-sm font-semibold">最近审核意见</h3>
       <div class="mt-3 space-y-2 text-xs">
         <div class="rounded-xl border bg-muted/20 px-3 py-2">审核结果：${escapeHtml(latestReview.reviewResult)}</div>
@@ -556,7 +565,7 @@ function renderReviewAndSupplement(application: FactoryOnboardingApplication | n
 function renderReadonlySummary(): string {
   const capabilityText = state.draft.selectedCapabilities.map((item) => `${item.processName}/${item.craftName}`).join('、') || '未选择'
   return `
-    <section class="rounded-2xl border bg-card p-3 shadow-sm">
+    <section class="rounded-[28px] border border-slate-200 bg-white p-3 shadow-sm">
       <h3 class="text-sm font-semibold">提交确认</h3>
       <div class="mt-3 space-y-2 text-xs">
         <div class="rounded-xl border bg-muted/20 px-3 py-2">工厂名称：${escapeHtml(state.draft.factoryName || '未填写')}</div>
@@ -576,42 +585,52 @@ function renderReadonlySummary(): string {
 function renderRecords(application: FactoryOnboardingApplication | null): string {
   if (!application) return ''
   return `
-    <section class="rounded-2xl border bg-card p-3 shadow-sm">
-      <h3 class="text-sm font-semibold">流程记录</h3>
-      <div class="mt-3 space-y-3 text-xs">
+    <section class="rounded-[28px] border border-slate-200 bg-white p-3 shadow-sm">
+      <div class="flex items-center justify-between gap-3">
         <div>
-          <div class="mb-2 font-medium">节点记录</div>
-          <div class="space-y-2">
-            ${application.nodeLogs.map((item) => `
-              <article class="rounded-xl border px-3 py-2">
-                <div class="flex items-center justify-between gap-2">
-                  <div class="font-medium">${escapeHtml(item.nodeName)}</div>
-                  ${renderNodeStatusChip(item.nodeStatus, getNodeTone(item.nodeStatus))}
-                </div>
-                <div class="mt-1 text-muted-foreground">进入：${escapeHtml(item.enteredAt)} · 离开：${escapeHtml(item.leftAt || '进行中')}</div>
-                <div class="mt-1 text-muted-foreground">节点耗时：${escapeHtml(item.elapsedText)} · 动作次数：第${item.actionCount}次动作</div>
-                <div class="mt-1 text-muted-foreground">上次操作：${escapeHtml(item.lastActionAt || '—')} · 操作人：${escapeHtml(item.operator)}</div>
-                <div class="mt-1 text-muted-foreground">备注：${escapeHtml(item.remark || '—')}</div>
-              </article>
-            `).join('')}
-          </div>
+          <h3 class="text-sm font-semibold">流程记录</h3>
+          <p class="mt-1 text-[11px] text-slate-500">需要时再展开查看</p>
         </div>
-        <div>
-          <div class="mb-2 font-medium">动作记录</div>
-          <div class="space-y-2">
-            ${application.actionLogs.map((item) => `
-              <article class="rounded-xl border px-3 py-2">
-                <div class="font-medium">${escapeHtml(item.actionName)}</div>
-                <div class="mt-1 text-muted-foreground">所属节点：${escapeHtml(item.nodeName)} · 节点内第${item.actionSequenceInNode}次动作</div>
-                <div class="mt-1 text-muted-foreground">状态变化：${escapeHtml(item.fromStatus)} → ${escapeHtml(item.toStatus)}</div>
-                <div class="mt-1 text-muted-foreground">节点变化：${escapeHtml(item.fromNode)} → ${escapeHtml(item.toNode)}</div>
-                <div class="mt-1 text-muted-foreground">操作人：${escapeHtml(item.operator)} · 时间：${escapeHtml(item.operatedAt)}</div>
-                <div class="mt-1 text-muted-foreground">备注：${escapeHtml(item.remark || '—')}</div>
-              </article>
-            `).join('') || '<div class="rounded-xl border border-dashed px-3 py-3 text-muted-foreground">当前暂无动作记录</div>'}
-          </div>
-        </div>
+        <button type="button" class="rounded-full border px-3 py-1 text-xs" data-pda-onboarding-action="toggle-completeness-items">
+          ${state.showCompletenessItems ? '收起' : '查看'}
+        </button>
       </div>
+      ${state.showCompletenessItems ? `
+        <div class="mt-3 space-y-3 text-xs">
+          <div>
+            <div class="mb-2 font-medium">节点记录</div>
+            <div class="space-y-2">
+              ${application.nodeLogs.map((item) => `
+                <article class="rounded-xl border px-3 py-2">
+                  <div class="flex items-center justify-between gap-2">
+                    <div class="font-medium">${escapeHtml(item.nodeName)}</div>
+                    ${renderNodeStatusChip(item.nodeStatus, getNodeTone(item.nodeStatus))}
+                  </div>
+                  <div class="mt-1 text-muted-foreground">进入：${escapeHtml(item.enteredAt)} · 离开：${escapeHtml(item.leftAt || '进行中')}</div>
+                  <div class="mt-1 text-muted-foreground">节点耗时：${escapeHtml(item.elapsedText)} · 动作次数：第${item.actionCount}次动作</div>
+                  <div class="mt-1 text-muted-foreground">上次操作：${escapeHtml(item.lastActionAt || '—')} · 操作人：${escapeHtml(item.operator)}</div>
+                  <div class="mt-1 text-muted-foreground">备注：${escapeHtml(item.remark || '—')}</div>
+                </article>
+              `).join('')}
+            </div>
+          </div>
+          <div>
+            <div class="mb-2 font-medium">动作记录</div>
+            <div class="space-y-2">
+              ${application.actionLogs.map((item) => `
+                <article class="rounded-xl border px-3 py-2">
+                  <div class="font-medium">${escapeHtml(item.actionName)}</div>
+                  <div class="mt-1 text-muted-foreground">所属节点：${escapeHtml(item.nodeName)} · 节点内第${item.actionSequenceInNode}次动作</div>
+                  <div class="mt-1 text-muted-foreground">状态变化：${escapeHtml(item.fromStatus)} → ${escapeHtml(item.toStatus)}</div>
+                  <div class="mt-1 text-muted-foreground">节点变化：${escapeHtml(item.fromNode)} → ${escapeHtml(item.toNode)}</div>
+                  <div class="mt-1 text-muted-foreground">操作人：${escapeHtml(item.operator)} · 时间：${escapeHtml(item.operatedAt)}</div>
+                  <div class="mt-1 text-muted-foreground">备注：${escapeHtml(item.remark || '—')}</div>
+                </article>
+              `).join('') || '<div class="rounded-xl border border-dashed px-3 py-3 text-muted-foreground">当前暂无动作记录</div>'}
+            </div>
+          </div>
+        </div>
+      ` : ''}
     </section>
   `
 }
@@ -620,7 +639,7 @@ function renderActionArea(application: FactoryOnboardingApplication | null): str
   const readonly = !canEditOnboardingApplication(application)
   const returnTo = getReturnTo()
   return `
-    <section class="rounded-2xl border bg-card p-3 shadow-sm">
+    <section class="sticky bottom-4 z-10 rounded-3xl border bg-card/95 p-3 shadow-lg backdrop-blur">
       ${state.errorText ? `<div class="mb-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">${escapeHtml(state.errorText)}</div>` : ''}
       ${state.successText ? `<div class="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">${escapeHtml(state.successText)}</div>` : ''}
       <div class="grid grid-cols-1 gap-2">
@@ -635,12 +654,81 @@ function renderActionArea(application: FactoryOnboardingApplication | null): str
   `
 }
 
+function renderMobileFlowSection(application: FactoryOnboardingApplication | null): string {
+  const steps = [
+    { key: 'draft', nodeNames: ['填写入驻信息', '提交平台审核'], shortName: '填资料' },
+    { key: 'review', nodeNames: ['平台审核'], shortName: '平台审核' },
+    { key: 'supplement', nodeNames: ['补充资料'], shortName: '补资料' },
+    { key: 'cooperate', nodeNames: ['确认合作', '生成工厂档案'], shortName: '确认合作' },
+    { key: 'done', nodeNames: ['完成'], shortName: '完成' },
+  ] as const
+  const currentNode = application?.currentNode || '填写入驻信息'
+  const currentNodeLog =
+    application?.nodeLogs.find((item) => item.nodeName === currentNode) ||
+    application?.nodeLogs.find((item) => item.nodeStatus === '进行中') ||
+    null
+  const lastAction = application?.actionLogs[application.actionLogs.length - 1] || null
+  const activeStep = steps.find((item) => item.nodeNames.includes(currentNode as never)) || steps[0]
+
+  return `
+    <section class="rounded-[28px] border border-slate-200 bg-white p-3 shadow-sm" data-testid="pda-onboarding-flow-card">
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <h3 class="text-sm font-semibold text-slate-900">入驻进度</h3>
+          <p class="mt-1 text-[11px] text-slate-500">左右滑动查看步骤</p>
+        </div>
+        <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] text-slate-500">${steps.length} 步</span>
+      </div>
+      <div class="-mx-3 mt-3 overflow-x-auto px-3 pb-1">
+        <div class="flex min-w-max gap-2">
+          ${steps.map((step) => {
+            const relatedLogs = application?.nodeLogs.filter((item) => step.nodeNames.includes(item.nodeName as never)) || []
+            const nodeLog = relatedLogs.find((item) => item.nodeStatus === '进行中') || relatedLogs[relatedLogs.length - 1] || null
+            const isActive = step.nodeNames.includes(currentNode as never)
+            const status = nodeLog?.nodeStatus || (isActive ? '进行中' : '未开始')
+            return `
+              <article class="w-[110px] shrink-0 rounded-2xl border px-3 py-2 ${isActive ? 'border-blue-200 bg-blue-50' : 'border-slate-200 bg-slate-50'}">
+                <div class="text-xs font-semibold ${isActive ? 'text-blue-700' : 'text-slate-700'}">${step.shortName}</div>
+                <div class="mt-2">${renderNodeStatusChip(status, nodeLog ? getNodeTone(status) : 'pending')}</div>
+              </article>
+            `
+          }).join('')}
+        </div>
+      </div>
+      <div class="mt-3 rounded-[24px] bg-slate-900 px-3 py-3 text-white">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <div class="text-[11px] text-slate-300">当前步骤</div>
+            <div class="mt-1 text-base font-semibold">${escapeHtml(activeStep.shortName)}</div>
+          </div>
+          <span class="rounded-full bg-white/12 px-2.5 py-1 text-[11px] text-white">${escapeHtml(application?.status || '草稿')}</span>
+        </div>
+        <div class="mt-3 grid grid-cols-2 gap-2 text-[11px]">
+          <div class="rounded-2xl bg-white/8 px-3 py-2">
+            <div class="text-slate-300">节点耗时</div>
+            <div class="mt-1 font-medium text-white">${escapeHtml(currentNodeLog?.elapsedText || '-')}</div>
+          </div>
+          <div class="rounded-2xl bg-white/8 px-3 py-2">
+            <div class="text-slate-300">动作次数</div>
+            <div class="mt-1 font-medium text-white">第${currentNodeLog?.actionCount || 0}次动作</div>
+          </div>
+          <div class="col-span-2 rounded-2xl bg-white/8 px-3 py-2">
+            <div class="text-slate-300">上次动作</div>
+            <div class="mt-1 font-medium text-white">${escapeHtml(lastAction?.actionName || '暂未操作')}</div>
+            <div class="mt-1 text-[10px] text-slate-300">${escapeHtml(lastAction?.operatedAt || '—')}</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  `
+}
+
 function renderOnboardingBody(application: FactoryOnboardingApplication | null): string {
   const readonly = !canEditOnboardingApplication(application)
   return `
     <section class="min-h-screen bg-slate-50 pb-6">
       <header class="sticky top-0 z-20 border-b bg-background/95 px-4 py-3 backdrop-blur">
-        <div class="flex items-center justify-between gap-3">
+        <div class="mx-auto flex max-w-sm items-center justify-between gap-3">
           <div>
             <div class="text-sm font-semibold">工厂入驻&登录</div>
             <div class="text-[11px] text-muted-foreground">入驻</div>
@@ -648,14 +736,11 @@ function renderOnboardingBody(application: FactoryOnboardingApplication | null):
           <button type="button" class="rounded-full border px-3 py-1 text-xs" data-pda-onboarding-action="logout">退出当前账号</button>
         </div>
       </header>
-      <div class="space-y-3 px-4 py-4">
-        ${renderFlowCard(application)}
-        ${renderCurrentStatusCard(application)}
-        ${renderStatusTipCard(application)}
-        ${renderCompletenessCard(application)}
+      <div class="mx-auto max-w-sm space-y-3 px-4 py-4">
+        ${renderMobileFlowSection(application)}
         ${renderReviewAndSupplement(application)}
 
-        <section class="rounded-2xl border bg-card p-3 shadow-sm">
+        <section class="rounded-[28px] border border-slate-200 bg-white p-3 shadow-sm">
           <h3 class="text-sm font-semibold">账号信息</h3>
           <div data-testid="pda-onboarding-account-section" class="mt-3 grid grid-cols-1 gap-3 text-xs">
             ${renderField('登录账户', `<input ${readonly ? 'disabled' : ''} data-pda-onboarding-field="admin-loginId" value="${escapeHtml(state.draft.adminAccount.loginId)}" class="h-10 w-full rounded-2xl border px-3" placeholder="请输入登录账户" />`, true)}
@@ -666,7 +751,7 @@ function renderOnboardingBody(application: FactoryOnboardingApplication | null):
           </div>
         </section>
 
-        <section class="rounded-2xl border bg-card p-3 shadow-sm">
+        <section class="rounded-[28px] border border-slate-200 bg-white p-3 shadow-sm">
           <h3 class="text-sm font-semibold">工厂基础信息</h3>
           <div data-testid="pda-onboarding-basic-section" class="mt-3 grid grid-cols-1 gap-3 text-xs">
             ${renderField('工厂名称', `<input ${readonly ? 'disabled' : ''} data-pda-onboarding-field="factoryName" value="${escapeHtml(state.draft.factoryName)}" class="h-10 w-full rounded-2xl border px-3" placeholder="请输入工厂名称" />`, true)}
@@ -680,18 +765,16 @@ function renderOnboardingBody(application: FactoryOnboardingApplication | null):
           </div>
         </section>
 
-        <section class="rounded-2xl border bg-card p-3 shadow-sm">
+        <section class="rounded-[28px] border border-slate-200 bg-white p-3 shadow-sm">
           <h3 class="text-sm font-semibold">人员与机器</h3>
-          <div data-testid="pda-onboarding-workers-section" class="mt-3 grid grid-cols-2 gap-3 text-xs">
+          <div data-testid="pda-onboarding-workers-section" class="mt-3 grid grid-cols-1 gap-3 text-xs">
             ${renderField('有效工人数量', `<input ${readonly ? 'disabled' : ''} type="number" min="1" data-pda-onboarding-field="effectiveWorkerCount" value="${state.draft.effectiveWorkerCount || ''}" class="h-10 w-full rounded-2xl border px-3" />`, true)}
             ${renderField('机器总数', `<input ${readonly ? 'disabled' : ''} type="number" min="1" data-pda-onboarding-field="machineTotalCount" value="${state.draft.machineTotalCount || ''}" class="h-10 w-full rounded-2xl border px-3" />`, true)}
           </div>
         </section>
 
         ${renderCapabilityPicker(readonly)}
-        ${renderFactoryTypeMatchCard()}
         ${renderMachineTable(readonly)}
-        ${renderReadonlySummary()}
         ${renderActionArea(application)}
         ${renderRecords(application)}
       </div>

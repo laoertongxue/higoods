@@ -91,26 +91,35 @@ export function renderPdaLoginPage(): string {
   }
 
   return `
-    <section class="min-h-screen bg-slate-50 px-4 py-8">
-      <div class="mx-auto max-w-md space-y-4">
-        <header class="space-y-1 text-center">
-          <h1 class="text-2xl font-semibold text-foreground">工厂入驻&登录</h1>
-          <p class="text-sm text-muted-foreground">已合作工厂登录后进入业务页，未合作工厂将进入入驻流程。</p>
+    <section class="min-h-screen bg-[linear-gradient(180deg,#eef5ff_0%,#f8fafc_28%,#f8fafc_100%)] px-4 py-6">
+      <div class="mx-auto max-w-sm space-y-4">
+        <header class="space-y-3 text-center">
+          <div class="rounded-[28px] border border-slate-200 bg-white px-5 py-5 shadow-[0_18px_48px_rgba(15,23,42,0.08)]">
+            <img
+              src="/higood-logo.png"
+              alt="HiGood"
+              class="mx-auto h-auto w-full max-w-[220px] object-contain drop-shadow-sm"
+            />
+          </div>
+          <div class="space-y-1">
+            <h1 class="text-2xl font-semibold text-slate-900">工厂入驻&登录</h1>
+            <p class="text-sm text-slate-500">已合作工厂直接登录，未合作工厂从这里进入入驻流程。</p>
+          </div>
         </header>
 
-        <article class="rounded-3xl border bg-card p-5 shadow-sm">
+        <article class="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_20px_50px_rgba(15,23,42,0.08)]">
           <div class="mb-5 space-y-1">
-            <h2 class="text-lg font-semibold text-foreground">工厂登录</h2>
-            <p class="text-xs text-muted-foreground">请输入登录账户和登录密码。</p>
+            <h2 class="text-lg font-semibold text-slate-900">工厂登录</h2>
+            <p class="text-xs text-slate-500">请输入登录账户和登录密码。</p>
           </div>
 
           ${state.errorText ? `<div class="mb-4 rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${escapeHtml(state.errorText)}</div>` : ''}
 
           <div class="space-y-4">
             <label class="block space-y-1.5 text-sm">
-              <span class="font-medium text-foreground">登录账户</span>
+              <span class="font-medium text-slate-900">登录账户</span>
               <input
-                class="h-11 w-full rounded-2xl border px-3"
+                class="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 text-[15px]"
                 placeholder="请输入登录账户"
                 autocomplete="username"
                 data-pda-login-field="loginId"
@@ -119,10 +128,10 @@ export function renderPdaLoginPage(): string {
             </label>
 
             <label class="block space-y-1.5 text-sm">
-              <span class="font-medium text-foreground">登录密码</span>
+              <span class="font-medium text-slate-900">登录密码</span>
               <input
                 type="password"
-                class="h-11 w-full rounded-2xl border px-3"
+                class="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 text-[15px]"
                 placeholder="请输入登录密码"
                 autocomplete="current-password"
                 data-pda-login-field="password"
@@ -134,14 +143,14 @@ export function renderPdaLoginPage(): string {
           <div class="mt-5 grid grid-cols-1 gap-3">
             <button
               type="button"
-              class="h-11 rounded-2xl bg-primary text-sm font-medium text-primary-foreground"
+              class="h-12 rounded-2xl bg-slate-900 text-sm font-medium text-white"
               data-pda-login-action="submit"
             >
               登录
             </button>
             <button
               type="button"
-              class="h-11 rounded-2xl border bg-background text-sm font-medium"
+              class="h-12 rounded-2xl border border-slate-200 bg-white text-sm font-medium text-slate-700"
               data-pda-login-action="go-onboarding"
             >
               去入驻
