@@ -133,6 +133,8 @@ export interface ProcessCraftDefinition {
   detailSplitMode: DetailSplitMode
   detailSplitDimensions: DetailSplitDimension[]
   isSpecialCraft: boolean
+  targetObject: ProcessTargetObject
+  targetObjectName: ProcessTargetObjectName
   supportedTargetObjects: SpecialCraftSupportedTargetObject[]
   supportedTargetObjectLabels: SpecialCraftTargetObjectLabel[]
   visibleFactoryTypes: SpecialCraftVisibleFactoryType[]
@@ -250,6 +252,8 @@ export type ProcessCraftDictRow = {
   legacyValue: number
   legacyCraftName: string
   isSpecialCraft: boolean
+  targetObject: ProcessTargetObject
+  targetObjectName: ProcessTargetObjectName
   supportedTargetObjects: SpecialCraftSupportedTargetObject[]
   supportedTargetObjectLabels: SpecialCraftTargetObjectLabel[]
   supportedTargetObjectText: string
@@ -1743,6 +1747,44 @@ const processDefinitionByCode = new Map(processDefinitions.map((item) => [item.p
 const processDefinitionBySystemCode = new Map(processDefinitions.map((item) => [item.systemProcessCode, item]))
 const stageDefinitionByCode = new Map(processStageDefinitions.map((item) => [item.stageCode, item]))
 
+function resolveProcessCraftTargetObject(
+  item: Pick<LegacyCraftMappingDefinition, 'craftName' | 'processCode'>,
+): { targetObject: ProcessTargetObject; targetObjectName: ProcessTargetObjectName } {
+  const modernSpecialCraft = modernSpecialCraftDefinitions.find((craft) => craft.craftName === item.craftName)
+  if (modernSpecialCraft) {
+    return {
+      targetObject: modernSpecialCraft.targetObject,
+      targetObjectName: modernSpecialCraft.targetObjectName,
+    }
+  }
+
+  const preparationProcess = preparationProcessDefinitions.find(
+    (process) => process.processName === item.craftName || process.processCode === item.processCode,
+  )
+  if (preparationProcess) {
+    return {
+      targetObject: preparationProcess.targetObject,
+      targetObjectName: preparationProcess.targetObjectName,
+    }
+  }
+
+  const cuttingCraft = cuttingCraftDefinitions.find((craft) => craft.craftName === item.craftName)
+  if (cuttingCraft) {
+    return {
+      targetObject: cuttingCraft.targetObject,
+      targetObjectName: cuttingCraft.targetObjectName,
+    }
+  }
+
+  if (item.processCode === 'PRINT' || item.processCode === 'DYE' || item.processCode === 'SHRINKING' || item.processCode === 'WASHING') {
+    return { targetObject: 'FABRIC', targetObjectName: '面料' }
+  }
+  if (item.processCode === 'BUTTON_ATTACH') {
+    return { targetObject: 'ACCESSORY', targetObjectName: '辅料' }
+  }
+  return { targetObject: 'CUT_PIECE_PART', targetObjectName: '裁片部位' }
+}
+
 export const allProcessCraftDefinitions: ProcessCraftDefinition[] = [
   ...legacyProcessCraftMappings,
   ...supplementalProcessCraftMappings,
@@ -1757,6 +1799,7 @@ export const allProcessCraftDefinitions: ProcessCraftDefinition[] = [
     const processCurrentTemplate = resolveProcessCurrentTemplate(item.processCode)
     const craftCurrentTemplate = getFactorySupplyFormulaTemplate(item.craftName)
     const craftCurrentGuide = getFactorySupplyFormulaGuide(item.craftName)
+    const targetObjectInfo = resolveProcessCraftTargetObject(item)
     if (!referencePublishedSam) {
       throw new Error(`缺少工艺理论参考值配置：${item.craftName}`)
     }
@@ -1806,6 +1849,8 @@ export const allProcessCraftDefinitions: ProcessCraftDefinition[] = [
       detailSplitMode: resolvedDetailSplitMode,
       detailSplitDimensions: resolvedDetailSplitDimensions,
       isSpecialCraft: item.isSpecialCraft,
+      targetObject: targetObjectInfo.targetObject,
+      targetObjectName: targetObjectInfo.targetObjectName,
       supportedTargetObjects: resolveSpecialCraftSupportedTargetObjects(item),
       supportedTargetObjectLabels: getSpecialCraftSupportedTargetObjectLabels(
         resolveSpecialCraftSupportedTargetObjects(item),
@@ -2250,6 +2295,8 @@ export const allProcessCraftDictRows: ProcessCraftDictRow[] = allProcessCraftDef
     legacyValue: item.legacyValue,
     legacyCraftName: item.legacyCraftName,
     isSpecialCraft: item.isSpecialCraft,
+    targetObject: item.targetObject,
+    targetObjectName: item.targetObjectName,
     supportedTargetObjects: [...item.supportedTargetObjects],
     supportedTargetObjectLabels: [...item.supportedTargetObjectLabels],
     supportedTargetObjectText: item.supportedTargetObjectLabels.join('、'),

@@ -65,6 +65,7 @@ function filteredCraftRows(): ProcessCraftDictRow[] {
       row.craftName.toLowerCase().includes(keyword) ||
       row.processName.toLowerCase().includes(keyword) ||
       row.stageName.toLowerCase().includes(keyword) ||
+      row.targetObjectName.toLowerCase().includes(keyword) ||
       row.processRoleLabel.toLowerCase().includes(keyword) ||
       row.statusLabel.toLowerCase().includes(keyword) ||
       row.legacyCraftName.toLowerCase().includes(keyword)
@@ -131,6 +132,7 @@ function renderCraftBasicPanel(row: ProcessCraftDictRow): string {
       ${renderCompactDetailFields([
         ['老系统值', String(row.legacyValue)],
         ['老系统工艺名称', row.legacyCraftName],
+        ['作用对象', row.targetObjectName],
         ['任务口径', row.processRoleLabel],
         ['是否出任务', row.generatesExternalTaskLabel],
         ['状态', row.statusLabel],
@@ -399,6 +401,7 @@ function renderCraftDetailSheet(row: ProcessCraftDictRow): string {
             </div>
             <div class="flex flex-wrap gap-1.5 text-[11px]">
               <span class="rounded border border-slate-200 bg-background px-2 py-0.5 font-medium text-slate-700">${escapeHtml(row.processName)}</span>
+              <span class="rounded border border-slate-200 bg-background px-2 py-0.5 font-medium text-slate-700">${escapeHtml(row.targetObjectName)}</span>
               <span class="rounded border border-slate-200 bg-background px-2 py-0.5 font-medium text-slate-700">${escapeHtml(row.stageName)}</span>
               <span class="rounded border border-slate-200 bg-background px-2 py-0.5 font-medium text-slate-700">${escapeHtml(row.assignmentGranularityLabel)}</span>
               <span class="rounded border border-slate-200 bg-background px-2 py-0.5 font-medium text-slate-700">${escapeHtml(row.defaultDocument)}</span>
@@ -409,6 +412,7 @@ function renderCraftDetailSheet(row: ProcessCraftDictRow): string {
             ${[
               ['老系统值', String(row.legacyValue)],
               ['老系统工艺名称', row.legacyCraftName],
+              ['作用对象', row.targetObjectName],
               ['是否特殊工艺', row.isSpecialCraft ? '是' : '否'],
               ['任务口径', row.processRoleLabel],
               ['是否出任务', row.generatesExternalTaskLabel],
@@ -543,11 +547,12 @@ export function renderProductionCraftDictPage(): string {
 
         <section class="overflow-hidden rounded-md border bg-background" data-testid="craft-dict-table-section">
           <div class="overflow-x-auto">
-            <table class="w-full min-w-[980px] border-collapse">
+            <table class="w-full min-w-[1080px] border-collapse">
               <thead>
                 <tr class="bg-muted/30 text-xs">
                   <th class="px-3 py-2 text-left">工序名称</th>
                   <th class="px-3 py-2 text-left">工艺名称</th>
+                  <th class="px-3 py-2 text-left">作用对象</th>
                   <th class="px-3 py-2 text-left">阶段</th>
                   <th class="px-3 py-2 text-left">任务口径</th>
                   <th class="px-3 py-2 text-left">是否出任务</th>
@@ -557,7 +562,7 @@ export function renderProductionCraftDictPage(): string {
               <tbody>
                 ${
                   paging.rows.length === 0
-                    ? '<tr><td class="py-10 text-center text-sm text-muted-foreground" colspan="6">暂无数据，请调整筛选条件</td></tr>'
+                    ? '<tr><td class="py-10 text-center text-sm text-muted-foreground" colspan="7">暂无数据，请调整筛选条件</td></tr>'
                     : paging.rows
                         .map(
                           (row) => `
@@ -576,6 +581,7 @@ export function renderProductionCraftDictPage(): string {
                                 </button>
                                 <div class="text-[11px] text-muted-foreground">${escapeHtml(row.craftCode)}</div>
                               </td>
+                              <td class="whitespace-nowrap px-3 py-2">${escapeHtml(row.targetObjectName)}</td>
                               <td class="whitespace-nowrap px-3 py-2">${escapeHtml(row.stageName)}</td>
                               <td class="whitespace-nowrap px-3 py-2">
                                 <span class="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-700">${escapeHtml(row.taskScopeLabel)}</span>
