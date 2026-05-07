@@ -1722,11 +1722,32 @@ const supplementalProcessCraftMappings: LegacyCraftMappingDefinition[] = [
   { legacyValue: 2000006, legacyCraftName: '包装', craftName: '包装', processCode: 'PACKAGING', isSpecialCraft: false, isActive: true, defaultDocument: '任务单' },
 ]
 
+const modernSpecialCraftProcessMappings: LegacyCraftMappingDefinition[] = modernSpecialCraftDefinitions
+  .filter(
+    (craft) =>
+      !legacyProcessCraftMappings.some(
+        (item) => item.processCode === 'SPECIAL_CRAFT' && item.craftName === craft.craftName,
+      ),
+  )
+  .map((craft, index) => ({
+    legacyValue: 3000001 + index,
+    legacyCraftName: craft.craftName,
+    craftName: craft.craftName,
+    processCode: 'SPECIAL_CRAFT',
+    isSpecialCraft: true,
+    defaultDocument: '任务单',
+    remark: `${craft.craftCategoryName}，适用对象：${craft.targetObjectName}`,
+  }))
+
 const processDefinitionByCode = new Map(processDefinitions.map((item) => [item.processCode, item]))
 const processDefinitionBySystemCode = new Map(processDefinitions.map((item) => [item.systemProcessCode, item]))
 const stageDefinitionByCode = new Map(processStageDefinitions.map((item) => [item.stageCode, item]))
 
-export const allProcessCraftDefinitions: ProcessCraftDefinition[] = [...legacyProcessCraftMappings, ...supplementalProcessCraftMappings]
+export const allProcessCraftDefinitions: ProcessCraftDefinition[] = [
+  ...legacyProcessCraftMappings,
+  ...supplementalProcessCraftMappings,
+  ...modernSpecialCraftProcessMappings,
+]
   .slice()
   .sort((a, b) => a.legacyValue - b.legacyValue)
   .map((item) => {
