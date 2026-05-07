@@ -726,9 +726,10 @@ function getVisibleFactories() {
     result = result.filter((factory) => {
       return (
         factory.name.toLowerCase().includes(keyword) ||
+        (factory.factoryShortName ?? '').toLowerCase().includes(keyword) ||
         factory.code.toLowerCase().includes(keyword) ||
         factory.contact.toLowerCase().includes(keyword) ||
-        (factory.phone ?? '').toLowerCase().includes(keyword)
+        (factory.mobilePhone ?? factory.phone ?? '').toLowerCase().includes(keyword)
       )
     })
   }
@@ -805,7 +806,7 @@ function renderFactoryTableRows(factories: Factory[]): string {
   if (factories.length === 0) {
     return `
       <tr>
-        <td colspan="12" class="h-24 px-4 text-center text-muted-foreground">暂无工厂数据</td>
+        <td colspan="14" class="h-24 px-4 text-center text-muted-foreground">暂无工厂数据</td>
       </tr>
     `
   }
@@ -822,9 +823,11 @@ function renderFactoryTableRows(factories: Factory[]): string {
       return `
         <tr class="border-b last:border-0 hover:bg-muted/30" data-factory-id="${factory.id}">
           <td class="px-3 py-3 font-mono text-xs whitespace-nowrap">${escapeHtml(factory.code)}</td>
+          <td class="px-3 py-3 font-mono text-xs whitespace-nowrap">${escapeHtml(factory.factoryShortName ?? '-')}</td>
           <td class="px-3 py-3 font-medium">${escapeHtml(factory.name)}${renderTestFactoryBadge(factory)}</td>
           <td class="px-3 py-3 text-sm">${escapeHtml(factory.contact ?? '-')}</td>
-          <td class="px-3 py-3 text-xs font-mono whitespace-nowrap">${escapeHtml(factory.phone ?? '-')}</td>
+          <td class="px-3 py-3 text-xs font-mono whitespace-nowrap">${escapeHtml(factory.mobilePhone ?? factory.phone ?? '-')}</td>
+          <td class="px-3 py-3 text-sm">${escapeHtml(factory.assignedPpicName ?? '-')}</td>
           <td class="max-w-[160px] px-3 py-3 text-sm text-muted-foreground truncate" title="${escapeHtml(factory.address ?? '-')}">${escapeHtml(factory.address ?? '-')}</td>
           <td class="px-3 py-3">
             <span class="inline-flex rounded border px-2 py-0.5 text-xs ${tierConfig.color}">${escapeHtml(tierConfig.label)}</span>
@@ -1675,17 +1678,19 @@ export function renderFactoryProfilePage(): string {
       </div>
 
       <div class="overflow-x-auto rounded-lg border bg-card">
-        <table class="w-full min-w-[1200px] text-sm">
+        <table class="w-full min-w-[1280px] text-sm">
           <thead class="border-b bg-muted/30">
             <tr>
               <th class="px-3 py-3 text-left">
                 <button data-factory-action="sort" data-sort-field="code" class="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">工厂编号 ${renderSortIcon('code')}</button>
               </th>
+              <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">工厂简称</th>
               <th class="px-3 py-3 text-left">
                 <button data-factory-action="sort" data-sort-field="name" class="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">工厂名称 ${renderSortIcon('name')}</button>
               </th>
               <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">联系人</th>
-              <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">联系电话</th>
+              <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">手机号</th>
+              <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">跟进 PPIC</th>
               <th class="px-3 py-3 text-left text-xs font-medium text-muted-foreground">地址</th>
               <th class="px-3 py-3 text-left">
                 <button data-factory-action="sort" data-sort-field="tier" class="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">工厂层级 ${renderSortIcon('tier')}</button>

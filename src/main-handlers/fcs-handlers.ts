@@ -641,7 +641,7 @@ export function closeFcsDialogsOnEscape(): boolean {
     handleFactoryOnboardingEvent(fakeButton)
     fakeButton.dataset.factoryOnboardingAction = 'close-review'
     handleFactoryOnboardingEvent(fakeButton)
-    fakeButton.dataset.factoryOnboardingAction = 'close-confirm'
+    fakeButton.dataset.factoryOnboardingAction = 'close-conversion'
     handleFactoryOnboardingEvent(fakeButton)
     return true
   }

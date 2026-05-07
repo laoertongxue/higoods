@@ -1,5 +1,13 @@
 import type { SamCurrentFieldKey } from './process-craft-dict'
-import type { FactoryInferredTypeCode, FactoryTypeMatchResult } from './factory-onboarding-domain'
+import type {
+  FactoryInferredTypeCode,
+  FactoryOnboardingIdentityFile,
+  FactoryOnboardingMachineAbility,
+  FactoryOnboardingSampleStatus,
+  FactoryOnboardingSelectedCapability,
+  FactoryTypeMatchResult,
+} from './factory-onboarding-domain'
+import type { FactorySampleReferenceFile } from './factory-sample-verification-domain'
 
 // 工厂状态
 export type FactoryStatus = 'active' | 'paused' | 'blacklist' | 'inactive'
@@ -66,8 +74,10 @@ export interface Factory {
   id: string
   code: string
   name: string
+  factoryShortName?: string
   address: string
   contact: string
+  mobilePhone?: string
   phone: string
   status: FactoryStatus
   cooperationMode: CooperationMode
@@ -89,6 +99,26 @@ export interface Factory {
   inferredFactoryTypes?: FactoryTypeMatchResult[]
   factoryTypeMatchedAt?: string
   factoryTypeMatchReason?: string
+  onboardingApplicationId?: string
+  onboardingApplicationNo?: string
+  sourceChannel?: string
+  ppicName?: string
+  assignedPpicId?: string
+  assignedPpicName?: string
+  assignedPpicPhone?: string
+  identityNo?: string
+  identityFile?: FactoryOnboardingIdentityFile | null
+  machineTotalCount?: number
+  effectiveWorkerCount?: number
+  availableStartDate?: string
+  selectedCapabilities?: FactoryOnboardingSelectedCapability[]
+  machines?: FactoryOnboardingMachineAbility[]
+  sampleVerificationId?: string
+  sampleStatus?: FactoryOnboardingSampleStatus | '样衣审核通过'
+  bossIdentityNo?: string
+  bossIdentityFiles?: FactorySampleReferenceFile[]
+  factorySitePhotos?: FactorySampleReferenceFile[]
+  factorySiteVideos?: FactorySampleReferenceFile[]
   // 新增：生产流程开始条件
   eligibility: FactoryEligibility
 }
@@ -96,8 +126,10 @@ export interface Factory {
 // 工厂表单数据
 export interface FactoryFormData {
   name: string
+  factoryShortName?: string
   address: string
   contact: string
+  mobilePhone?: string
   phone: string
   status: FactoryStatus
   cooperationMode: CooperationMode

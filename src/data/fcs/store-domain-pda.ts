@@ -12,6 +12,7 @@ import {
 import { getFactoryMasterRecordById, listFactoryMasterRecords } from './factory-master-store.ts'
 import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
 import { indonesiaFactories, type IndonesiaFactory } from './indonesia-factories'
+import type { Factory } from './factory-types'
 
 // =============================================
 // 权限键
@@ -184,6 +185,10 @@ export interface FactoryPdaUser {
   passwordUpdatedAt?: string
   status: 'ACTIVE' | 'LOCKED'
   roleId: PdaRoleId
+  roleName?: string
+  onboardingApplicationId?: string
+  convertedAt?: string
+  isTemporary?: boolean
   createdAt: string
   createdBy: string
   updatedAt?: string
@@ -258,9 +263,30 @@ export function generateFactoryPdaUsers(
 }
 
 const fullCapabilityTestFactoryPdaUsers = createFactoryPdaUsersForFactory(TEST_FACTORY_ID, TEST_FACTORY_NAME)
+const onboardingOfficialFactoryPdaUsers: FactoryPdaUser[] = [34, 35, 36].map((seed) => {
+  const factoryId = `FACTORY-ONBOARD-${String(seed).padStart(4, '0')}`
+  const now = '2026-05-09 16:00:00'
+  return {
+    userId: `PDAU-${factoryId}-ADMIN`,
+    factoryId,
+    name: `申请人${seed}`,
+    loginId: `onboarding_${seed}`,
+    passwordHash: LEGACY_DEFAULT_PDA_PASSWORD_HASH,
+    passwordUpdatedAt: now,
+    status: 'ACTIVE',
+    roleId: 'ROLE_ADMIN',
+    roleName: '工厂管理员',
+    onboardingApplicationId: `FOA-${String(seed).padStart(4, '0')}`,
+    convertedAt: now,
+    isTemporary: false,
+    createdAt: now,
+    createdBy: '平台转档',
+  }
+})
 export const initialFactoryPdaUsers: FactoryPdaUser[] = [
   ...generateFactoryPdaUsers(indonesiaFactories).filter((user) => user.factoryId !== TEST_FACTORY_ID),
   ...fullCapabilityTestFactoryPdaUsers,
+  ...onboardingOfficialFactoryPdaUsers,
 ]
 
 // =============================================
@@ -369,6 +395,7 @@ export const initialFactoryPdaRoles: FactoryPdaRole[] = [
     .filter((factory) => factory.status === 'ACTIVE' && factory.id !== TEST_FACTORY_ID)
     .flatMap((factory) => generatePresetRolesForFactory(factory.id, INIT_NOW)),
   ...generatePresetRolesForFactory(TEST_FACTORY_ID, INIT_NOW),
+  ...[34, 35, 36].flatMap((seed) => generatePresetRolesForFactory(`FACTORY-ONBOARD-${String(seed).padStart(4, '0')}`, '2026-05-09 16:00:00')),
 ]
 
 // =============================================
@@ -479,6 +506,10 @@ function normalizeStoredPdaUser(input: Partial<FactoryPdaUser>): FactoryPdaUser 
     passwordUpdatedAt: input.passwordUpdatedAt?.trim() || undefined,
     name,
     roleId: roleId as PdaRoleId,
+    roleName: input.roleName?.trim() || undefined,
+    onboardingApplicationId: input.onboardingApplicationId?.trim() || undefined,
+    convertedAt: input.convertedAt?.trim() || undefined,
+    isTemporary: typeof input.isTemporary === 'boolean' ? input.isTemporary : undefined,
     status: input.status === 'LOCKED' ? 'LOCKED' : 'ACTIVE',
     createdAt,
     createdBy,
@@ -827,6 +858,61 @@ export function ensureFactoryPdaSeed(factoryId: string, factoryName: string): vo
 
   if (nextUsers !== users) persistPdaUsers(nextUsers)
   if (nextRoles !== roles) persistPdaRoles(nextRoles)
+}
+
+export async function upsertOfficialFactoryAdminFromOnboarding(input: {
+  applicationId: string
+  adminName: string
+  loginId: string
+  password: string
+  createdFactory: Factory
+  convertedAt: string
+  updatedBy?: string
+}): Promise<FactoryPdaUser> {
+  const loginId = input.loginId.trim()
+  const adminName = input.adminName.trim()
+  const rawPassword = normalizePdaPassword(input.password)
+  if (!loginId || !adminName || !input.createdFactory.id) {
+    throw new Error('当前申请缺少管理员账号，不能转正式。')
+  }
+
+  const now = input.convertedAt || nowTimestamp()
+  const roles = ensurePdaRoleStore()
+  const existingRoleKeys = new Set(roles.map((role) => `${role.factoryId}:${role.roleId}`))
+  const missingRoles = generatePresetRolesForFactory(input.createdFactory.id, now)
+    .filter((role) => !existingRoleKeys.has(`${role.factoryId}:${role.roleId}`))
+  if (missingRoles.length > 0) {
+    persistPdaRoles([...roles, ...missingRoles])
+  }
+
+  const users = ensurePdaUserStore()
+  const existingByLogin = users.find((user) => normalizePdaLoginId(user.loginId) === normalizePdaLoginId(loginId))
+  const passwordHash = existingByLogin?.passwordHash || await hashPdaPassword(rawPassword || '123456')
+  const userId = existingByLogin?.userId || `PDAU-${input.createdFactory.id}-ADMIN`
+  const officialUser: FactoryPdaUser = {
+    ...(existingByLogin || {
+      createdAt: now,
+      createdBy: input.updatedBy?.trim() || '平台转档',
+    }),
+    userId,
+    factoryId: input.createdFactory.id,
+    name: adminName,
+    loginId,
+    passwordHash,
+    passwordUpdatedAt: existingByLogin?.passwordUpdatedAt || now,
+    status: 'ACTIVE',
+    roleId: 'ROLE_ADMIN',
+    roleName: '工厂管理员',
+    onboardingApplicationId: input.applicationId,
+    convertedAt: now,
+    isTemporary: false,
+    updatedAt: now,
+    updatedBy: input.updatedBy?.trim() || '平台转档',
+  }
+
+  const withoutCurrent = users.filter((user) => user.userId !== userId)
+  persistPdaUsers([officialUser, ...withoutCurrent])
+  return clonePdaUser(officialUser)
 }
 
 export function removeFactoryPdaDataByFactory(factoryId: string): void {

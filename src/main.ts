@@ -479,6 +479,10 @@ function shouldSkipInputRerender(target: Element): boolean {
 
   const factoryOnboardingFieldNode = target.closest<HTMLElement>('[data-factory-onboarding-field]')
   if (factoryOnboardingFieldNode instanceof HTMLInputElement || factoryOnboardingFieldNode instanceof HTMLTextAreaElement) {
+    if (factoryOnboardingFieldNode instanceof HTMLInputElement) {
+      const inputType = (factoryOnboardingFieldNode.type || 'text').toLowerCase()
+      if (inputType === 'radio' || inputType === 'checkbox') return false
+    }
     return true
   }
 
@@ -519,6 +523,10 @@ function shouldSkipChangeRerender(target: Element): boolean {
 
   const factoryOnboardingFieldNode = target.closest<HTMLElement>('[data-factory-onboarding-field]')
   if (factoryOnboardingFieldNode instanceof HTMLInputElement || factoryOnboardingFieldNode instanceof HTMLTextAreaElement) {
+    if (factoryOnboardingFieldNode instanceof HTMLInputElement) {
+      const inputType = (factoryOnboardingFieldNode.type || 'text').toLowerCase()
+      if (inputType === 'radio' || inputType === 'checkbox') return false
+    }
     return true
   }
 

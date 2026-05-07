@@ -1,4 +1,5 @@
 import { escapeHtml } from '../utils'
+import { listBusinessFactoryMasterRecords } from '../data/fcs/factory-master-store'
 
 type TenderStatus = 'BIDDING' | 'AWAIT_AWARD' | 'AWARDED'
 
@@ -195,71 +196,24 @@ const MOCK_TENDERS: TenderRow[] = [
   },
 ]
 
-const CANDIDATE_FACTORIES = [
-  {
-    id: 'ID-F002',
-    name: '泗水裁片厂',
-    processTags: ['裁片', '裁剪'],
-    currentStatus: '正常',
-    capacitySummary: '日产能 800件',
-    performanceSummary: '近3月良品率 97%',
-    settlementStatus: '结算正常',
-  },
-  {
-    id: 'ID-F003',
-    name: '万隆车缝厂',
-    processTags: ['车缝', '后整'],
-    currentStatus: '正常',
-    capacitySummary: '日产能 1200件',
-    performanceSummary: '近3月良品率 96%',
-    settlementStatus: '结算正常',
-  },
-  {
-    id: 'ID-F004',
-    name: '三宝垄整烫厂',
-    processTags: ['后整', '整烫'],
-    currentStatus: '正常',
-    capacitySummary: '日产能 600件',
-    performanceSummary: '近3月良品率 98%',
-    settlementStatus: '结算正常',
-  },
-  {
-    id: 'ID-F005',
-    name: '日惹包装厂',
-    processTags: ['包装', '成衣'],
-    currentStatus: '产能偏紧',
-    capacitySummary: '日产能 500件（80%占用）',
-    performanceSummary: '近3月良品率 95%',
-    settlementStatus: '结算正常',
-  },
-  {
-    id: 'ID-F006',
-    name: '棉兰卫星工厂',
-    processTags: ['车缝', '裁片'],
-    currentStatus: '正常',
-    capacitySummary: '日产能 900件',
-    performanceSummary: '近3月良品率 94%',
-    settlementStatus: '结算正常',
-  },
-  {
-    id: 'ID-F007',
-    name: '玛琅精工车缝',
-    processTags: ['精品车缝'],
-    currentStatus: '正常',
-    capacitySummary: '日产能 400件',
-    performanceSummary: '近3月良品率 99%',
-    settlementStatus: '结算正常',
-  },
-  {
-    id: 'ID-F010',
-    name: '雅加达绣花专工厂',
-    processTags: ['刺绣', '特种工艺'],
-    currentStatus: '正常',
-    capacitySummary: '日产能 300件',
-    performanceSummary: '近3月良品率 98%',
-    settlementStatus: '有待确认结算单',
-  },
-]
+const CANDIDATE_FACTORIES = listBusinessFactoryMasterRecords().map((factory) => {
+  const processTags = factory.processAbilities
+    .flatMap((ability) => [ability.processName || ability.abilityName || ability.processCode, ...(ability.craftNames || [])])
+    .filter((item): item is string => Boolean(item))
+    .slice(0, 4)
+
+  return {
+    id: factory.id,
+    name: factory.name,
+    processTags: processTags.length > 0 ? processTags : ['正式工厂'],
+    currentStatus: factory.status === 'active' ? '正常' : '停用',
+    capacitySummary: factory.machineTotalCount || factory.effectiveWorkerCount
+      ? `机器 ${factory.machineTotalCount || 0} 台 / 有效工人 ${factory.effectiveWorkerCount || 0} 人`
+      : '产能档案待补充',
+    performanceSummary: `质量 ${factory.qualityScore} / 交付 ${factory.deliveryScore}`,
+    settlementStatus: factory.eligibility.allowSettle ? '结算正常' : '结算暂不可用',
+  }
+})
 
 interface CreateTenderForm {
   taskId: string

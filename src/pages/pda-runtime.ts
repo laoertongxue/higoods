@@ -1,7 +1,11 @@
 import { getCurrentPdaUser, getPdaSession } from '../data/fcs/store-domain-pda.ts'
 import { renderRouteRedirect } from '../router/route-utils'
 import { appStore } from '../state/store'
-import { ensurePdaAccessForRoute, getPdaOnboardingApplicationFromSession } from '../data/fcs/factory-onboarding-flow.ts'
+import {
+  canFactoryEnterBusiness,
+  ensurePdaAccessForRoute,
+  getPdaOnboardingApplicationFromSession,
+} from '../data/fcs/factory-onboarding-flow.ts'
 
 export interface PdaRuntimeContext {
   factoryId: string
@@ -28,10 +32,11 @@ export function getPdaRuntimeContext(): PdaRuntimeContext | null {
 
   const onboardingApplication = getPdaOnboardingApplicationFromSession()
   if (!onboardingApplication) return null
+  if (!canFactoryEnterBusiness(onboardingApplication.status)) return null
 
   return {
     factoryId: onboardingApplication.createdFactoryId || onboardingApplication.factoryTempId,
-    factoryName: onboardingApplication.factoryName,
+    factoryName: onboardingApplication.factoryCompanyName,
     loginId: onboardingApplication.adminAccount.loginId,
     roleId: onboardingApplication.adminAccount.roleId,
     userId: `ONBOARDING-${onboardingApplication.applicationId}`,

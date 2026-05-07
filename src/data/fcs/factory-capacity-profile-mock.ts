@@ -209,17 +209,35 @@ function cloneEquipment(equipment: FactoryCapacityEquipment): FactoryCapacityEqu
 function createEmptyProfile(factoryId: string): FactoryCapacityProfile {
   const factory = getFactoryMasterRecordById(factoryId)
   const now = new Date().toISOString().slice(0, 19).replace('T', ' ')
+  const capabilityItems = (factory?.selectedCapabilities || []).map((item) => ({
+    processCode: item.processCode,
+    processName: item.processName,
+    craftCode: item.craftCode,
+    craftName: item.craftName,
+    canReceiveTask: item.canReceiveTask,
+    capacityManaged: item.capacityManaged,
+  }))
+  const machineItems = (factory?.machines || []).map((item) => ({
+    machineName: item.machineName,
+    machineNo: item.machineNo,
+    machineCount: item.machineCount,
+    linkedProcessCode: item.linkedProcessCode,
+    linkedProcessName: item.linkedProcessName,
+    linkedCraftCode: item.linkedCraftCode,
+    linkedCraftName: item.linkedCraftName,
+    condition: item.condition,
+  }))
   return {
     capacityProfileId: `FCP-${factoryId}`,
     factoryId,
     factoryName: factory?.name || factoryId,
     factoryType: factory?.factoryType || 'UNKNOWN',
-    sourceApplicationId: undefined,
-    sourceApplicationNo: undefined,
-    effectiveWorkerCount: 0,
-    machineTotalCount: 0,
-    capabilityItems: [],
-    machineItems: [],
+    sourceApplicationId: factory?.onboardingApplicationId,
+    sourceApplicationNo: factory?.onboardingApplicationNo,
+    effectiveWorkerCount: factory?.effectiveWorkerCount || 0,
+    machineTotalCount: factory?.machineTotalCount || 0,
+    capabilityItems,
+    machineItems,
     defaultDailyAvailablePublishedSam: 0,
     calculationStatus: '待补充产能字段',
     calculationNotes: '入驻资料已生成产能档案初始数据，默认日可供给发布工时 SAM 待补充字段后计算。',

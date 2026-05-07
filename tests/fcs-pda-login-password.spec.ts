@@ -61,7 +61,7 @@ test('FCS PDA 账户密码登录、旧账号迁移和重置密码生效', async 
   await page.goto('/fcs/pda/auth/login')
   await page.locator('[data-pda-login-field="loginId"]').fill(uniqueLoginId)
   await page.locator('[data-pda-login-action="submit"]').click()
-  await expect(page.getByText('请输入登录密码')).toBeVisible()
+  await expect(page.getByText('请输入密码')).toBeVisible()
 
   await page.locator('[data-pda-login-field="password"]').fill('wrong-password')
   await page.locator('[data-pda-login-action="submit"]').click()

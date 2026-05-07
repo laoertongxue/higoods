@@ -4,27 +4,43 @@ import {
   removeBrowserStorageItem,
   writeBrowserStorageItem,
 } from '../browser-storage.ts'
-import { listFactoryMasterRecords } from './factory-master-store.ts'
-import { createInitialCapacityProfileFromOnboarding } from './factory-capacity-profile-mock.ts'
 import { findFactoryPdaUserByLoginId } from './store-domain-pda.ts'
+import { listFactoryMasterRecords } from './factory-master-store.ts'
+import {
+  DEFAULT_FACTORY_ONBOARDING_PPIC,
+  FACTORY_ONBOARDING_PPIC_OPTIONS,
+  getAvailableOnboardingPpicOptions as listAvailableOnboardingPpicOptions,
+  getOnboardingPpicName as resolveOnboardingPpicName,
+  getOnboardingPpicOptionById,
+} from './factory-onboarding-ppic.ts'
 import {
   FACTORY_ADMIN_ROLE_ID,
   FACTORY_ADMIN_ROLE_NAME,
+  canFactoryEnterBusiness,
+  getOnboardingNodeByStatus,
+  isFactoryAccountLocked,
+  normalizeOnboardingStatus,
+  normalizeReviewResult,
+  type FactoryInferredTypeCode,
   type FactoryOnboardingActionLog,
   type FactoryOnboardingActionName,
   type FactoryOnboardingAdminAccount,
   type FactoryOnboardingApplicantSession,
   type FactoryOnboardingApplication,
   type FactoryOnboardingCompletenessItem,
+  type FactoryOnboardingConversionRecord,
   type FactoryOnboardingDraftPayload,
-  type FactoryInferredTypeCode,
+  type FactoryOnboardingIdentityFile,
   type FactoryOnboardingMachineAbility,
   type FactoryOnboardingMachineValidationStatus,
   type FactoryOnboardingNode,
   type FactoryOnboardingNodeLog,
   type FactoryOnboardingNodeStatus,
+  type FactoryOnboardingPpicChangeLog,
   type FactoryOnboardingRequiredField,
   type FactoryOnboardingReviewRecord,
+  type FactoryOnboardingReviewResult,
+  type FactoryOnboardingSampleStatus,
   type FactoryOnboardingSelectedCapability,
   type FactoryOnboardingStatus,
   type FactoryOnboardingSupplementRecord,
@@ -33,10 +49,10 @@ import {
   type FactoryTypeMatchResult,
 } from './factory-onboarding-domain.ts'
 import { getActiveCraftOptionsByProcess, getActiveProcessOptions } from './process-craft-dict.ts'
-import { normalizeWhatsApp, validateWhatsApp } from './whatsapp-validator.ts'
 
-const APPLICATION_STORE_KEY = 'fcs_factory_onboarding_store_v4'
+const APPLICATION_STORE_KEY = 'fcs_factory_onboarding_store_v6'
 const APPLICANT_SESSION_KEY = 'fcs_factory_onboarding_session_v1'
+export const LOCKED_FACTORY_NAME_MESSAGE = '该工厂入驻申请已被拒绝，不能再次发起入驻。'
 
 let cachedApplications: FactoryOnboardingApplication[] | null = null
 
@@ -46,9 +62,7 @@ function nowTimestamp(date = new Date()): string {
 
 function getStorage(): Storage | null {
   const storage = getBrowserLocalStorage()
-  if (!storage || typeof storage.setItem !== 'function' || typeof storage.removeItem !== 'function') {
-    return null
-  }
+  if (!storage || typeof storage.setItem !== 'function' || typeof storage.removeItem !== 'function') return null
   return storage as Storage
 }
 
@@ -64,6 +78,47 @@ function readStoredJson<T>(key: string): T | null {
 
 function writeStoredJson(key: string, value: unknown): void {
   writeBrowserStorageItem(getStorage(), key, JSON.stringify(value))
+}
+
+function normalizeLoginId(loginId: string): string {
+  return loginId.trim().toLowerCase()
+}
+
+export function normalizeFactoryShortName(factoryShortName: string): string {
+  return factoryShortName.trim().toLowerCase()
+}
+
+export function buildAdminAccountFromFactoryShortName(input: {
+  factoryShortName?: string
+  applicantName?: string
+  mobilePhone?: string
+  adminAccount?: Partial<FactoryOnboardingAdminAccount>
+  status?: FactoryOnboardingStatus | string
+  accountLocked?: boolean
+}): FactoryOnboardingAdminAccount {
+  const factoryShortName = (input.factoryShortName || input.adminAccount?.loginId || '').trim()
+  const mobilePhone = (input.mobilePhone || input.adminAccount?.mobilePhone || input.adminAccount?.mobileOrWhatsapp || input.adminAccount?.whatsapp || '').trim()
+  const applicantName = (input.applicantName || input.adminAccount?.adminName || '').trim()
+  const status = normalizeOnboardingStatus(input.status || '草稿')
+  const accountStatus: FactoryOnboardingAdminAccount['accountStatus'] =
+    input.accountLocked || isFactoryAccountLocked(status)
+      ? '已锁定'
+      : canFactoryEnterBusiness(status)
+        ? '已转正式'
+        : '入驻中'
+
+  return {
+    loginId: factoryShortName,
+    password: (input.adminAccount?.password || '123456').trim() || '123456',
+    adminName: applicantName,
+    mobilePhone,
+    mobileOrWhatsapp: mobilePhone,
+    whatsapp: mobilePhone,
+    roleId: input.adminAccount?.roleId || FACTORY_ADMIN_ROLE_ID,
+    roleName: input.adminAccount?.roleName || FACTORY_ADMIN_ROLE_NAME,
+    accountStatus,
+    isTemporary: !canFactoryEnterBusiness(status),
+  }
 }
 
 function cloneAdminAccount(account: FactoryOnboardingAdminAccount): FactoryOnboardingAdminAccount {
@@ -102,24 +157,30 @@ function cloneTransferRecord(item: FactoryOnboardingTransferRecord): FactoryOnbo
   return { ...item }
 }
 
+function cloneConversionRecord(item: FactoryOnboardingConversionRecord): FactoryOnboardingConversionRecord {
+  return { ...item }
+}
+
+function clonePpicChangeLog(item: FactoryOnboardingPpicChangeLog): FactoryOnboardingPpicChangeLog {
+  return { ...item }
+}
+
 function cloneApplication(application: FactoryOnboardingApplication): FactoryOnboardingApplication {
   return {
     ...application,
-    completenessItems: application.completenessItems.map((item) => ({ ...item })),
-    inferredFactoryTypes: application.inferredFactoryTypes.map((item) => ({ ...item, matchedCapabilities: [...item.matchedCapabilities] })),
+    completenessItems: (application.completenessItems || []).map((item) => ({ ...item })),
+    inferredFactoryTypes: (application.inferredFactoryTypes || []).map((item) => ({ ...item, matchedCapabilities: [...item.matchedCapabilities] })),
     adminAccount: cloneAdminAccount(application.adminAccount),
-    selectedCapabilities: application.selectedCapabilities.map(cloneCapability),
-    machines: application.machines.map(cloneMachine),
-    nodeLogs: application.nodeLogs.map(cloneNodeLog),
-    actionLogs: application.actionLogs.map(cloneActionLog),
-    reviewRecords: application.reviewRecords.map(cloneReviewRecord),
-    supplementRecords: application.supplementRecords.map(cloneSupplementRecord),
-    transferRecords: application.transferRecords.map(cloneTransferRecord),
+    selectedCapabilities: (application.selectedCapabilities || []).map(cloneCapability),
+    machines: (application.machines || []).map(cloneMachine),
+    nodeLogs: (application.nodeLogs || []).map(cloneNodeLog),
+    actionLogs: (application.actionLogs || []).map(cloneActionLog),
+    reviewRecords: (application.reviewRecords || []).map(cloneReviewRecord),
+    supplementRecords: (application.supplementRecords || []).map(cloneSupplementRecord),
+    ppicChangeLogs: (application.ppicChangeLogs || []).map(clonePpicChangeLog),
+    conversionRecords: (application.conversionRecords || []).map(cloneConversionRecord),
+    transferRecords: (application.transferRecords || []).map(cloneTransferRecord),
   }
-}
-
-function normalizeLoginId(loginId: string): string {
-  return loginId.trim().toLowerCase()
 }
 
 const FACTORY_TYPE_LABEL_MAP: Record<FactoryInferredTypeCode, string> = {
@@ -139,12 +200,7 @@ const SPECIAL_CRAFT_NAMES = new Set([
   '打揽',
   '烫画',
   '直喷',
-  '贝壳绣',
-  '曲牙绣',
-  '一字贝绣花',
-  '模板工序',
   '激光开袋',
-  '特种车缝（花样机）',
 ])
 
 function getCompletenessLevel(score: number): FactoryOnboardingApplication['completenessLevel'] {
@@ -173,12 +229,69 @@ function buildCompletenessItem(
   }
 }
 
+function hasBasicMobileValue(value: string): boolean {
+  const normalized = value.trim()
+  return normalized.length >= 6 && /[0-9]/.test(normalized)
+}
+
+function hasValidIdentityFile(file: FactoryOnboardingIdentityFile | null): boolean {
+  if (!file) return false
+  return ['jpg', 'jpeg', 'png', 'pdf'].includes(file.fileType) && file.fileSizeMb > 0 && file.fileSizeMb <= 100
+}
+
+function calculateCompleteness(application: Pick<FactoryOnboardingApplication, 'factoryShortName' | 'applicantName' | 'identityNo' | 'identityFile' | 'factoryCompanyName' | 'address' | 'mobilePhone' | 'mobileOrWhatsapp' | 'sourceChannel' | 'ppicName' | 'machineTotalCount' | 'effectiveWorkerCount' | 'availableStartDate' | 'selectedCapabilities' | 'machines' | 'adminAccount'>) {
+  const mobileValue = application.mobilePhone || application.mobileOrWhatsapp
+  const mobileValid = hasBasicMobileValue(mobileValue)
+  const capabilityCount = application.selectedCapabilities.filter((item) => item.processCode && item.craftCode).length
+  const machineBaseCompleted = application.machines.filter((item) => item.machineName.trim() && item.machineCount > 0 && item.condition).length
+  const machineLinkedCompleted = application.machines.filter((item) => item.validationStatus === '通过').length
+  const items = [
+    buildCompletenessItem('IDENTITY', '基础身份信息', 15, [application.applicantName.trim(), application.identityNo.trim(), hasValidIdentityFile(application.identityFile) ? 'valid' : ''].filter(Boolean).length, 3, hasValidIdentityFile(application.identityFile) ? '已完整' : '缺少身份证复印件/电子文件'),
+    buildCompletenessItem('FACTORY_BASE', '工厂基础信息', 25, [application.factoryShortName.trim(), application.factoryCompanyName.trim(), application.address.trim(), mobileValid ? 'valid' : '', application.sourceChannel.trim(), application.ppicName.trim()].filter(Boolean).length, 6, mobileValid ? '已完整' : '请填写手机号'),
+    buildCompletenessItem('WORKERS', '人员信息', 10, application.effectiveWorkerCount > 0 ? 1 : 0, 1, application.effectiveWorkerCount > 0 ? '已完整' : '有效工人数量未填写或小于等于 0'),
+    buildCompletenessItem('MACHINES', '机器信息', 15, [application.machineTotalCount > 0 ? 'valid' : '', application.machines.length > 0 ? 'valid' : '', machineBaseCompleted >= application.machines.length && application.machines.length > 0 ? 'valid' : ''].filter(Boolean).length, 3, application.machineTotalCount > 0 ? '已完整' : '机器数量未填写或小于等于 0'),
+    buildCompletenessItem('CAPABILITY', '工序工艺能力', 15, capabilityCount > 0 ? 1 : 0, 1, capabilityCount > 0 ? '已完整' : '至少需要选择一个工序工艺能力'),
+    buildCompletenessItem('LINK', '机器与工序工艺关联', 10, application.machines.length > 0 ? machineLinkedCompleted : 0, Math.max(1, application.machines.length || 1), machineLinkedCompleted >= application.machines.length ? '已完整' : '存在机器未关联已选工序工艺'),
+    buildCompletenessItem('AVAILABLE_DATE', '可开始合作时间', 5, application.availableStartDate.trim() ? 1 : 0, 1, application.availableStartDate.trim() ? '已完整' : '缺少可开始合作时间'),
+  ]
+  const score = Math.max(0, Math.min(100, items.reduce((total, item) => total + item.score, 0)))
+  return {
+    completenessScore: score,
+    completenessLevel: getCompletenessLevel(score),
+    completenessItems: items,
+    completenessUpdatedAt: nowTimestamp(),
+  }
+}
+
 function getCapabilityKeySet(capabilities: FactoryOnboardingSelectedCapability[]): Set<string> {
   return new Set(capabilities.map((item) => `${item.processCode}:${item.craftCode}`))
 }
 
+function resolveMachineValidation(machine: FactoryOnboardingMachineAbility, capabilities: FactoryOnboardingSelectedCapability[]) {
+  if (!machine.linkedProcessCode) return { validationStatus: '未关联工序' as FactoryOnboardingMachineValidationStatus, validationMessage: '请选择机器关联工序' }
+  if (!machine.linkedCraftCode) return { validationStatus: '未关联工艺' as FactoryOnboardingMachineValidationStatus, validationMessage: '请选择机器关联工艺' }
+  const matched = getCapabilityKeySet(capabilities).has(`${machine.linkedProcessCode}:${machine.linkedCraftCode}`)
+  if (!matched) {
+    return {
+      validationStatus: '工序工艺未在接单能力中选择' as FactoryOnboardingMachineValidationStatus,
+      validationMessage: '该机器关联的工序工艺未在接单能力中选择，请先选择对应工序工艺。',
+    }
+  }
+  return { validationStatus: '通过' as FactoryOnboardingMachineValidationStatus, validationMessage: '校验通过' }
+}
+
+function applyMachineValidations(
+  machines: FactoryOnboardingMachineAbility[],
+  capabilities: FactoryOnboardingSelectedCapability[],
+): FactoryOnboardingMachineAbility[] {
+  return machines.map((item) => {
+    const validation = resolveMachineValidation(item, capabilities)
+    return { ...item, validationStatus: validation.validationStatus, validationMessage: validation.validationMessage }
+  })
+}
+
 function resolveFactoryTypeCode(capability: FactoryOnboardingSelectedCapability): FactoryInferredTypeCode | null {
-  if (capability.processCode === 'CUT_PANEL' || ['普通裁', '激光定位裁', '定向裁'].includes(capability.craftName)) return 'CUTTING_FACTORY'
+  if (capability.processCode === 'CUT_PANEL' || ['普通裁', '激光定位裁', '定向裁', '定位裁'].includes(capability.craftName)) return 'CUTTING_FACTORY'
   if (capability.processCode === 'PRINT') return 'PRINTING_FACTORY'
   if (capability.processCode === 'DYE') return 'DYEING_FACTORY'
   if (capability.processCode === 'POST_FINISHING' || ['质检', '复检', '包装', '熨烫'].includes(capability.craftName)) return 'POST_FINISHING_FACTORY'
@@ -213,64 +326,175 @@ function getPrimaryFactoryType(matchResults: FactoryTypeMatchResult[]): FactoryI
 function buildFactoryTypeMatchReason(matchResults: FactoryTypeMatchResult[]): string {
   if (matchResults.length <= 0) return '尚未选择可识别的工序工艺。'
   const primary = getPrimaryFactoryType(matchResults)
-  if (primary === 'MULTI_CAPABILITY_FACTORY') {
-    return `同时命中 ${matchResults.map((item) => item.factoryTypeName).join('、')}，已按全能力工厂处理。`
-  }
+  if (primary === 'MULTI_CAPABILITY_FACTORY') return `同时命中 ${matchResults.map((item) => item.factoryTypeName).join('、')}，已按全能力工厂处理。`
   return matchResults.map((item) => `${item.factoryTypeName}：${item.matchedCapabilities.join('、')}`).join('；')
 }
 
-function calculateCompleteness(application: Pick<FactoryOnboardingApplication, 'factoryName' | 'bossName' | 'whatsapp' | 'address' | 'machineTotalCount' | 'effectiveWorkerCount' | 'availableStartDate' | 'selectedCapabilities' | 'machines' | 'adminAccount'>) {
-  const factoryWhatsAppValid = validateWhatsApp(application.whatsapp).isValid
-  const adminWhatsAppValid = validateWhatsApp(application.adminAccount.whatsapp).isValid
-  const capabilityCount = application.selectedCapabilities.filter((item) => item.processCode && item.craftCode).length
-  const machineBaseCompleted = application.machines.filter((item) => item.machineName.trim() && item.machineCount > 0 && item.condition).length
-  const machineLinkedCompleted = application.machines.filter((item) => item.validationStatus === '通过').length
-  const items = [
-    buildCompletenessItem('ACCOUNT', '账号信息', 10, [application.adminAccount.loginId.trim(), application.adminAccount.password.trim(), application.adminAccount.adminName.trim(), adminWhatsAppValid ? 'valid' : ''].filter(Boolean).length, 4, adminWhatsAppValid ? '已完整' : '管理员 WhatsApp 格式不正确'),
-    buildCompletenessItem('FACTORY_BASE', '工厂基础信息', 20, [application.factoryName.trim(), application.bossName.trim(), factoryWhatsAppValid ? 'valid' : '', application.address.trim(), application.availableStartDate.trim()].filter(Boolean).length, 5, factoryWhatsAppValid ? '已完整' : '工厂 WhatsApp 格式不正确'),
-    buildCompletenessItem('WORKERS', '人员信息', 10, application.effectiveWorkerCount > 0 ? 1 : 0, 1, application.effectiveWorkerCount > 0 ? '已完整' : '有效工人数量未填写或小于等于 0'),
-    buildCompletenessItem('MACHINES', '机器信息', 20, [application.machineTotalCount > 0 ? 'valid' : '', application.machines.length > 0 ? 'valid' : '', machineBaseCompleted >= application.machines.length && application.machines.length > 0 ? 'valid' : ''].filter(Boolean).length, 3, application.machineTotalCount > 0 ? '已完整' : '机器总数未填写或小于等于 0'),
-    buildCompletenessItem('CAPABILITY', '工序工艺能力', 20, capabilityCount > 0 ? 1 : 0, 1, capabilityCount > 0 ? '已完整' : '至少需要选择一个工序工艺能力'),
-    buildCompletenessItem('LINK', '机器与工序工艺关联', 15, application.machines.length > 0 ? machineLinkedCompleted : 0, Math.max(1, application.machines.length || 1), machineLinkedCompleted >= application.machines.length ? '已完整' : '存在机器未关联已选工序工艺'),
-    buildCompletenessItem('WHATSAPP', 'WhatsApp 格式', 5, factoryWhatsAppValid && adminWhatsAppValid ? 1 : 0, 1, factoryWhatsAppValid && adminWhatsAppValid ? '已完整' : 'WhatsApp 格式不正确'),
-  ]
-  const score = Math.max(0, Math.min(100, items.reduce((total, item) => total + item.score, 0)))
-  return {
-    completenessScore: score,
-    completenessLevel: getCompletenessLevel(score),
-    completenessItems: items,
-    completenessUpdatedAt: nowTimestamp(),
-  }
+function normalizeNodeName(nodeName: string | undefined, status: FactoryOnboardingStatus): FactoryOnboardingNode {
+  if (nodeName === '填写入驻申请' || nodeName === '平台审核' || nodeName === '样衣验证' || nodeName === '样衣审核' || nodeName === '正式合作' || nodeName === '完成') return nodeName
+  if (nodeName === '填写入驻信息' || nodeName === '提交平台审核' || nodeName === '补充资料') return status === '待平台审核' ? '平台审核' : '填写入驻申请'
+  if (nodeName === '确认' + '合作') return '样衣验证'
+  if (nodeName === '生成工厂' + '档案') return '完成'
+  return getOnboardingNodeByStatus(status)
 }
 
-function decorateApplication(application: FactoryOnboardingApplication): FactoryOnboardingApplication {
-  const normalizedWhatsApp = normalizeWhatsApp(application.whatsapp)
-  const normalizedAdminWhatsApp = normalizeWhatsApp(application.adminAccount.whatsapp)
-  const machines = applyMachineValidations(application.machines, application.selectedCapabilities)
-  const matchResults = inferFactoryTypes(application.selectedCapabilities)
+function normalizeActionName(actionName: string): FactoryOnboardingActionName {
+  const legacyApproved = '平台审核' + '通过'
+  const legacyReturned = '平台审核' + '退回'
+  const legacyRejected = '平台审核' + '拒绝'
+  if (actionName === legacyApproved || actionName === '平台初审通过') return '平台初审已通过'
+  if (actionName === legacyReturned || actionName === '平台退回补充' + '资料' || actionName === '平台初审退回') return '平台初审未通过'
+  if (actionName === legacyRejected || actionName === '平台拒绝入驻') return '平台初审拒绝'
+  return actionName as FactoryOnboardingActionName
+}
+
+function decorateApplication(rawApplication: FactoryOnboardingApplication): FactoryOnboardingApplication {
+  const raw = rawApplication as FactoryOnboardingApplication & Record<string, unknown>
+  const status = normalizeOnboardingStatus(String(raw.status || '草稿'))
+  const factoryCompanyName = String(raw.factoryCompanyName || raw.factoryName || '')
+  const applicantName = String(raw.applicantName || raw.bossName || raw.adminAccount?.adminName || '')
+  const factoryShortName = String(raw.factoryShortName || raw.adminAccount?.loginId || '').trim()
+  const mobilePhone = String(raw.mobilePhone || raw.mobileOrWhatsapp || raw.whatsapp || raw.adminAccount?.mobilePhone || raw.adminAccount?.mobileOrWhatsapp || raw.adminAccount?.whatsapp || '').trim()
+  const mobileOrWhatsapp = mobilePhone
+  const identityFile = (raw.identityFile as FactoryOnboardingIdentityFile | null | undefined) || null
+  const adminAccount = buildAdminAccountFromFactoryShortName({
+    factoryShortName,
+    applicantName,
+    mobilePhone,
+    adminAccount: raw.adminAccount as Partial<FactoryOnboardingAdminAccount> | undefined,
+    status,
+    accountLocked: Boolean(raw.accountLocked),
+  })
+  const selectedCapabilities = ((raw.selectedCapabilities as FactoryOnboardingSelectedCapability[] | undefined) || []).map(cloneCapability)
+  const machines = applyMachineValidations(((raw.machines as FactoryOnboardingMachineAbility[] | undefined) || []).map(cloneMachine), selectedCapabilities)
+  const matchResults = inferFactoryTypes(selectedCapabilities)
   const primaryFactoryType = getPrimaryFactoryType(matchResults)
   const completeness = calculateCompleteness({
-    ...application,
-    whatsapp: normalizedWhatsApp,
-    adminAccount: { ...application.adminAccount, whatsapp: normalizedAdminWhatsApp },
+    applicantName,
+    identityNo: String(raw.identityNo || ''),
+    identityFile,
+    factoryShortName,
+    factoryCompanyName,
+    address: String(raw.address || ''),
+    mobilePhone,
+    mobileOrWhatsapp,
+    sourceChannel: String(raw.sourceChannel || ''),
+    ppicName: String(raw.ppicName || ''),
+    machineTotalCount: Number(raw.machineTotalCount) || 0,
+    effectiveWorkerCount: Number(raw.effectiveWorkerCount) || 0,
+    availableStartDate: String(raw.availableStartDate || ''),
+    selectedCapabilities,
     machines,
+    adminAccount,
   })
+  const currentNode = getOnboardingNodeByStatus(status)
+  const normalizedNodeLogs = ((raw.nodeLogs as FactoryOnboardingNodeLog[] | undefined) || []).map((item) => ({
+    ...item,
+    nodeName: normalizeNodeName(String(item.nodeName), status),
+  }))
+  const normalizedActionLogs = ((raw.actionLogs as FactoryOnboardingActionLog[] | undefined) || []).map((item) => ({
+    ...item,
+    actionName: normalizeActionName(String(item.actionName)),
+    nodeName: normalizeNodeName(String(item.nodeName), status),
+    fromStatus: item.fromStatus === '未提交' ? '未提交' : normalizeOnboardingStatus(String(item.fromStatus)),
+    toStatus: item.toStatus === '未提交' ? '未提交' : normalizeOnboardingStatus(String(item.toStatus)),
+    fromNode: item.fromNode === '未开始' ? '未开始' : normalizeNodeName(String(item.fromNode), status),
+    toNode: normalizeNodeName(String(item.toNode), status),
+  }))
+  const normalizedReviewRecords = ((raw.reviewRecords as FactoryOnboardingReviewRecord[] | undefined) || []).map((item) => ({
+    ...item,
+    reviewResult: normalizeReviewResult(String(item.reviewResult)),
+    requiredFields: item.requiredFields ? [...item.requiredFields] : [],
+    fromStatus: normalizeOnboardingStatus(String(item.fromStatus)),
+    toStatus: normalizeOnboardingStatus(String(item.toStatus)),
+    fromNode: normalizeNodeName(String(item.fromNode), status),
+    toNode: normalizeNodeName(String(item.toNode), status),
+  }))
+  const accountLocked = Boolean(raw.accountLocked)
+  const rawTransferRecords = ((raw.transferRecords as FactoryOnboardingTransferRecord[] | undefined) || []).map(cloneTransferRecord)
+  const rawConversionRecords = ((raw.conversionRecords as FactoryOnboardingConversionRecord[] | undefined) || []).map(cloneConversionRecord)
+  const conversionRecords = rawConversionRecords.length > 0
+    ? rawConversionRecords
+    : rawTransferRecords
+        .filter((item) => item.factoryProfileGenerated && item.factoryProfileId)
+        .map((item, index): FactoryOnboardingConversionRecord => ({
+          conversionId: `CONV-${String(item.transferId || index + 1)}`,
+          convertedAt: item.operatedAt,
+          convertedBy: item.operator,
+          fromStatus: '样衣审核通过待转正式',
+          toStatus: '已转正式合作',
+          createdFactoryId: item.factoryProfileId || '',
+          createdFactoryNo: item.factoryProfileId || '',
+          adminAccountConverted: item.adminAccountGenerated,
+          officialAdminAccountId: item.factoryProfileId ? `PDAU-${item.factoryProfileId}-ADMIN` : undefined,
+          capacityProfileCreated: Boolean(item.capacityProfileGenerated),
+          capacityProfileId: item.capacityProfileId,
+          remark: item.remark,
+        }))
+  const assignedPpicId = String(raw.assignedPpicId || '')
+  const assignedPpicName = String(raw.assignedPpicName || (assignedPpicId ? resolveOnboardingPpicName(assignedPpicId) : '') || '')
+  const assignedPpicPhone = String(raw.assignedPpicPhone || raw.assignedPpicMobilePhone || '')
+  const ppicChangeLogs = ((raw.ppicChangeLogs as FactoryOnboardingPpicChangeLog[] | undefined) || []).map(clonePpicChangeLog)
   return {
-    ...application,
-    whatsapp: normalizedWhatsApp,
+    applicationId: String(raw.applicationId || `FOA-${Date.now()}`),
+    applicationNo: String(raw.applicationNo || `FON-${Date.now()}`),
+    factoryTempId: String(raw.factoryTempId || `FACTORY-TEMP-${Date.now()}`),
+    status,
+    currentNode,
+    adminAccount,
+    factoryShortName,
+    applicantName,
+    identityNo: String(raw.identityNo || ''),
+    identityFile,
+    factoryCompanyName,
+    factoryName: factoryCompanyName,
+    bossName: applicantName,
+    address: String(raw.address || ''),
+    mobilePhone,
+    mobileOrWhatsapp,
+    whatsapp: mobileOrWhatsapp,
+    sourceChannel: String(raw.sourceChannel || ''),
+    ppicName: String(raw.ppicName || ''),
+    assignedPpicId: assignedPpicId || undefined,
+    assignedPpicName: assignedPpicName || undefined,
+    assignedPpicPhone: assignedPpicPhone || undefined,
+    assignedPpicAt: raw.assignedPpicAt as string | undefined,
+    assignedPpicBy: raw.assignedPpicBy as string | undefined,
+    ppicChangeLogs,
+    machineTotalCount: Number(raw.machineTotalCount) || 0,
+    effectiveWorkerCount: Number(raw.effectiveWorkerCount) || 0,
+    availableStartDate: String(raw.availableStartDate || ''),
+    selectedCapabilities,
     machines,
-    adminAccount: {
-      ...application.adminAccount,
-      whatsapp: normalizedAdminWhatsApp,
-    },
+    submittedAt: raw.submittedAt as string | undefined,
+    lastSubmittedAt: (raw.lastSubmittedAt || raw.submittedAt) as string | undefined,
+    reviewedAt: raw.reviewedAt as string | undefined,
+    sampleVerifiedAt: raw.sampleVerifiedAt as string | undefined,
+    sampleIssuedAt: raw.sampleIssuedAt as string | undefined,
+    sampleExpectedSubmitAt: raw.sampleExpectedSubmitAt as string | undefined,
+    convertedAt: (raw.convertedAt || raw.contractedAt) as string | undefined,
+    createdFactoryId: raw.createdFactoryId as string | undefined,
+    nodeLogs: normalizedNodeLogs,
+    actionLogs: normalizedActionLogs,
+    reviewRecords: normalizedReviewRecords,
+    supplementRecords: ((raw.supplementRecords as FactoryOnboardingSupplementRecord[] | undefined) || []).map(cloneSupplementRecord),
+    accountLocked,
+    accountLockedReason: (raw.accountLockedReason as string | undefined) || (accountLocked ? '历史账号状态不可用。' : undefined),
+    factoryNameLocked: Boolean(raw.factoryNameLocked),
+    lockedAt: raw.lockedAt as string | undefined,
+    sampleVerificationId: raw.sampleVerificationId as string | undefined,
+    sampleStatus: raw.sampleStatus as FactoryOnboardingSampleStatus | undefined,
     completenessScore: completeness.completenessScore,
     completenessLevel: completeness.completenessLevel,
     completenessItems: completeness.completenessItems,
     completenessUpdatedAt: completeness.completenessUpdatedAt,
     inferredFactoryTypes: matchResults,
     primaryFactoryType,
-    factoryTypeMatchedAt: application.factoryTypeMatchedAt || nowTimestamp(),
+    factoryTypeMatchedAt: String(raw.factoryTypeMatchedAt || nowTimestamp()),
     factoryTypeMatchReason: buildFactoryTypeMatchReason(matchResults),
+    conversionRecords,
+    transferRecords: rawTransferRecords,
+    contractedAt: (raw.convertedAt || raw.contractedAt) as string | undefined,
   }
 }
 
@@ -284,15 +508,9 @@ function createTempFactoryId(seed: number): string {
 
 function resolveCraftByName(processName: string, craftName: string) {
   const process = getActiveProcessOptions().find((item) => item.processName === processName)
-  if (!process) {
-    throw new Error(`未找到工序：${processName}`)
-  }
-
+  if (!process) throw new Error(`未找到工序：${processName}`)
   const craft = getActiveCraftOptionsByProcess(process.processCode).find((item) => item.craftName === craftName)
-  if (!craft) {
-    throw new Error(`未找到工艺：${processName} / ${craftName}`)
-  }
-
+  if (!craft) throw new Error(`未找到工艺：${processName} / ${craftName}`)
   return {
     processCode: process.processCode,
     processName: process.processName,
@@ -302,9 +520,8 @@ function resolveCraftByName(processName: string, craftName: string) {
 }
 
 function createCapability(processName: string, craftName: string, remark = ''): FactoryOnboardingSelectedCapability {
-  const resolved = resolveCraftByName(processName, craftName)
   return {
-    ...resolved,
+    ...resolveCraftByName(processName, craftName),
     abilityScope: 'CRAFT',
     canReceiveTask: true,
     capacityManaged: true,
@@ -397,9 +614,10 @@ function createActionLog(params: {
 function createReviewRecord(params: {
   seed: number
   round: number
-  reviewResult: FactoryOnboardingReviewRecord['reviewResult']
+  reviewResult: FactoryOnboardingReviewResult
   reviewOpinion: string
-  allowResubmit: boolean
+  resubmitAllowed: boolean
+  requiredFields?: FactoryOnboardingRequiredField[]
   reviewer: string
   reviewedAt: string
   fromStatus: FactoryOnboardingStatus
@@ -412,7 +630,8 @@ function createReviewRecord(params: {
     reviewRoundNo: params.round,
     reviewResult: params.reviewResult,
     reviewOpinion: params.reviewOpinion,
-    allowResubmit: params.allowResubmit,
+    resubmitAllowed: params.resubmitAllowed,
+    requiredFields: params.requiredFields ? [...params.requiredFields] : [],
     reviewer: params.reviewer,
     reviewedAt: params.reviewedAt,
     fromStatus: params.fromStatus,
@@ -446,23 +665,27 @@ function createSupplementRecord(params: {
   }
 }
 
-function resolveMachineValidation(machine: FactoryOnboardingMachineAbility, capabilities: FactoryOnboardingSelectedCapability[]) {
-  if (!machine.linkedProcessCode) {
-    return { validationStatus: '未关联工序' as FactoryOnboardingMachineValidationStatus, validationMessage: '请选择机器关联工序' }
+function createPpicChangeLog(params: {
+  seed?: number
+  fromPpicId?: string
+  fromPpicName?: string
+  toPpicId: string
+  toPpicName: string
+  changedAt: string
+  changedBy: string
+  changeReason: string
+}): FactoryOnboardingPpicChangeLog {
+  const idPrefix = params.seed ? `PPICLOG-${params.seed}` : `PPICLOG-${params.changedAt.replace(/[-: ]/g, '')}`
+  return {
+    changeLogId: `${idPrefix}-${params.toPpicId}`,
+    fromPpicId: params.fromPpicId,
+    fromPpicName: params.fromPpicName,
+    toPpicId: params.toPpicId,
+    toPpicName: params.toPpicName,
+    changedAt: params.changedAt,
+    changedBy: params.changedBy,
+    changeReason: params.changeReason,
   }
-  if (!machine.linkedCraftCode) {
-    return { validationStatus: '未关联工艺' as FactoryOnboardingMachineValidationStatus, validationMessage: '请选择机器关联工艺' }
-  }
-  const matched = capabilities.some(
-    (item) => item.processCode === machine.linkedProcessCode && item.craftCode === machine.linkedCraftCode,
-  )
-  if (!matched) {
-    return {
-      validationStatus: '工序工艺未在接单能力中选择' as FactoryOnboardingMachineValidationStatus,
-      validationMessage: '该机器关联的工序工艺未在接单能力中选择，请先选择对应工序工艺',
-    }
-  }
-  return { validationStatus: '通过' as FactoryOnboardingMachineValidationStatus, validationMessage: '校验通过' }
 }
 
 function createMachine(params: {
@@ -488,113 +711,22 @@ function createMachine(params: {
     linkedCraftCode: params.linkedCraftCode ?? params.capability.craftCode,
     linkedCraftName: params.linkedCraftName ?? params.capability.craftName,
     condition: params.condition,
-    remark:
-      params.remark ||
-      (params.condition === '维修中' ? '本月保养排程中' : params.condition === '停用' ? '备用产线停用' : '当前可承接任务'),
+    remark: params.remark || (params.condition === '维修中' ? '本月保养排程中' : params.condition === '停用' ? '备用产线停用' : '当前可承接任务'),
     validationStatus: '通过',
     validationMessage: '校验通过',
   }
   return machine
 }
 
-function applyMachineValidations(
-  machines: FactoryOnboardingMachineAbility[],
-  capabilities: FactoryOnboardingSelectedCapability[],
-): FactoryOnboardingMachineAbility[] {
-  return machines.map((item) => {
-    const validation = resolveMachineValidation(item, capabilities)
-    return {
-      ...item,
-      validationStatus: validation.validationStatus,
-      validationMessage: validation.validationMessage,
-    }
-  })
-}
-
-function applySeedWhatsAppVariant(
-  seed: number,
-  payload: FactoryOnboardingDraftPayload,
-): FactoryOnboardingDraftPayload {
-  if (seed <= 3) {
-    const invalid = `08中文-${seed}`
-    return {
-      ...payload,
-      whatsapp: invalid,
-      adminAccount: {
-        ...payload.adminAccount,
-        whatsapp: invalid,
-      },
-    }
+function createIdentityFile(seed: number): FactoryOnboardingIdentityFile {
+  const fileType = seed % 4 === 0 ? 'pdf' : seed % 4 === 1 ? 'jpg' : seed % 4 === 2 ? 'jpeg' : 'png'
+  return {
+    fileId: `IDF-${String(seed).padStart(4, '0')}`,
+    fileName: `身份文件-${String(seed).padStart(4, '0')}.${fileType}`,
+    fileType,
+    fileSizeMb: 2 + (seed % 9),
+    uploadedAt: `2026-05-${String((seed % 9) + 1).padStart(2, '0')} 08:30:00`,
   }
-  if (seed >= 4 && seed <= 6) {
-    const local = `0812345678${seed}`
-    return {
-      ...payload,
-      whatsapp: local,
-      adminAccount: {
-        ...payload.adminAccount,
-        whatsapp: local,
-      },
-    }
-  }
-  if (seed >= 7 && seed <= 9) {
-    const country = `62812345678${seed}`
-    return {
-      ...payload,
-      whatsapp: country,
-      adminAccount: {
-        ...payload.adminAccount,
-        whatsapp: country,
-      },
-    }
-  }
-  if (seed >= 10 && seed <= 12) {
-    const plus = `+62812345678${seed}`
-    return {
-      ...payload,
-      whatsapp: plus,
-      adminAccount: {
-        ...payload.adminAccount,
-        whatsapp: plus,
-      },
-    }
-  }
-  return payload
-}
-
-function applySeedCompletenessVariant(seed: number, payload: FactoryOnboardingDraftPayload): FactoryOnboardingDraftPayload {
-  if (seed <= 3) {
-    return {
-      ...payload,
-      address: '',
-      availableStartDate: '',
-      effectiveWorkerCount: 0,
-      machineTotalCount: 0,
-      adminAccount: {
-        ...payload.adminAccount,
-        adminName: '',
-      },
-    }
-  }
-  if (seed >= 7 && seed <= 9) {
-    return {
-      ...payload,
-      address: '',
-      availableStartDate: '',
-      effectiveWorkerCount: 0,
-    }
-  }
-  if (seed >= 13) {
-    return {
-      ...payload,
-      address: `${payload.address}（资料齐全版）`,
-      adminAccount: {
-        ...payload.adminAccount,
-        password: '12345678',
-      },
-    }
-  }
-  return payload
 }
 
 function createBasePayload(
@@ -604,79 +736,57 @@ function createBasePayload(
   condition: FactoryOnboardingMachineAbility['condition'],
   machineScenario: 'valid' | 'missingProcess' | 'missingCraft' | 'capabilityMismatch' = 'valid',
 ): FactoryOnboardingDraftPayload {
-  const selectedCapabilities = capabilityNames.map(([processName, craftName], index) =>
-    createCapability(processName, craftName, index === 0 ? '主接单能力' : '补充能力'),
-  )
+  const selectedCapabilities = capabilityNames.map(([processName, craftName], index) => createCapability(processName, craftName, index === 0 ? '主接单能力' : '补充能力'))
   const baseCapability = selectedCapabilities[0]
-  const machines: FactoryOnboardingMachineAbility[] = [
-    createMachine({ seed: seed * 10 + 1, capability: baseCapability, condition }),
-  ]
-
+  const machines: FactoryOnboardingMachineAbility[] = [createMachine({ seed: seed * 10 + 1, capability: baseCapability, condition })]
   if (machineScenario === 'missingProcess') {
-    machines.push(
-      createMachine({
-        seed: seed * 10 + 2,
-        capability: baseCapability,
-        condition,
-        linkedProcessCode: '',
-        linkedProcessName: '',
-        linkedCraftCode: '',
-        linkedCraftName: '',
-        remark: '待补充工序信息',
-      }),
-    )
+    machines.push(createMachine({ seed: seed * 10 + 2, capability: baseCapability, condition, linkedProcessCode: '', linkedProcessName: '', linkedCraftCode: '', linkedCraftName: '', remark: '待补充工序信息' }))
   } else if (machineScenario === 'missingCraft') {
-    machines.push(
-      createMachine({
-        seed: seed * 10 + 2,
-        capability: baseCapability,
-        condition,
-        linkedCraftCode: '',
-        linkedCraftName: '',
-        remark: '待补充工艺信息',
-      }),
-    )
+    machines.push(createMachine({ seed: seed * 10 + 2, capability: baseCapability, condition, linkedCraftCode: '', linkedCraftName: '', remark: '待补充工艺信息' }))
   } else if (machineScenario === 'capabilityMismatch') {
-    const mismatchCapability = selectedCapabilities.some((item) => item.processCode === 'POST_FINISHING')
-      ? createCapability('印花', '数码印', '异常演示能力')
-      : createCapability('后道', '包装', '异常演示能力')
-    machines.push(
-      createMachine({
-        seed: seed * 10 + 2,
-        capability: mismatchCapability,
-        condition,
-        remark: '当前机器关联能力未纳入接单能力',
-      }),
-    )
+    const mismatchCapability = selectedCapabilities.some((item) => item.processCode === 'POST_FINISHING') ? createCapability('印花', '数码印', '异常演示能力') : createCapability('后道', '包装', '异常演示能力')
+    machines.push(createMachine({ seed: seed * 10 + 2, capability: mismatchCapability, condition, remark: '当前机器关联能力未纳入接单能力' }))
   } else if (selectedCapabilities[1]) {
     machines.push(createMachine({ seed: seed * 10 + 2, capability: selectedCapabilities[1], condition }))
   }
-
   const normalizedMachines = applyMachineValidations(machines, selectedCapabilities)
-  const factoryName = `${selectedCapabilities[0]?.craftName || '工艺'}演示工厂${seed}`
-  const bossName = `老板${seed}`
-  const whatsapp = `+62-812-9000-${String(100 + seed).slice(-3)}`
-
+  const applicantName = `申请人${seed}`
+  const factoryShortName = `onboarding_${seed}`
+  const mobilePhone = `+62-812-90${String(100000 + seed).slice(-6)}`
+  const mobileOrWhatsapp = mobilePhone
+  const factoryCompanyName = `${selectedCapabilities[0]?.craftName || '工艺'}演示工厂${seed}`
   return {
     applicationNo: createApplicationNo(seed),
     factoryTempId: createTempFactoryId(seed),
-    factoryName,
-    bossName,
-    whatsapp,
-    address: `雅加达示范工业园 ${seed} 号楼 ${seed} 层`,
+    factoryShortName,
+    applicantName,
+    identityNo: seed % 2 === 0 ? `ID-${String(3200000000000000 + seed)}` : `P-${String(88000000 + seed)}`,
+    identityFile: createIdentityFile(seed),
+    factoryCompanyName,
+    factoryName: factoryCompanyName,
+    bossName: applicantName,
+    address: `雅加达示范工业园 ${seed} 号楼 ${seed % 6 + 1} 层`,
+    mobilePhone,
+    mobileOrWhatsapp,
+    whatsapp: mobileOrWhatsapp,
+    sourceChannel: seed % 3 === 0 ? 'PPIC 转介绍' : seed % 3 === 1 ? '平台招商消息' : '合作工厂推荐',
+    ppicName: `PPIC-${seed}`,
     machineTotalCount: normalizedMachines.reduce((total, item) => total + item.machineCount, 0),
     effectiveWorkerCount: 18 + seed,
     availableStartDate: `2026-05-${String((seed % 9) + 10).padStart(2, '0')}`,
     selectedCapabilities,
     machines: normalizedMachines,
     adminAccount: {
-      loginId: `onboarding_${seed}`,
+      loginId: factoryShortName,
       password: '123456',
-      adminName: bossName,
-      whatsapp,
+      adminName: applicantName,
+      mobilePhone,
+      mobileOrWhatsapp,
+      whatsapp: mobileOrWhatsapp,
       roleId: FACTORY_ADMIN_ROLE_ID,
       roleName: FACTORY_ADMIN_ROLE_NAME,
-      accountStatus: status === '已合作' ? '已转正式' : status === '已拒绝' ? '已停用' : '待转正式',
+      accountStatus: canFactoryEnterBusiness(status) ? '已转正式' : isFactoryAccountLocked(status) ? '已锁定' : '入驻中',
+      isTemporary: !canFactoryEnterBusiness(status),
     },
   }
 }
@@ -686,622 +796,359 @@ function createSeedApplication(
   status: FactoryOnboardingStatus,
   capabilityNames: Array<[string, string]>,
   condition: FactoryOnboardingMachineAbility['condition'],
-  archivedFactoryId?: string,
   machineScenario: 'valid' | 'missingProcess' | 'missingCraft' | 'capabilityMismatch' = 'valid',
 ): FactoryOnboardingApplication {
-  const payload = applySeedCompletenessVariant(
-    seed,
-    applySeedWhatsAppVariant(seed, createBasePayload(seed, status, capabilityNames, condition, machineScenario)),
-  )
+  const payload = createBasePayload(seed, status, capabilityNames, condition, machineScenario)
   const baseDay = (seed % 4) + 1
-  const submitAt = `2026-05-${String(baseDay).padStart(2, '0')} 09:${String((seed * 7) % 60).padStart(2, '0')}:00`
-  const firstReviewAt = `2026-05-${String(baseDay + 1).padStart(2, '0')} 14:${String((seed * 5) % 60).padStart(2, '0')}:00`
-  const supplementAt = `2026-05-${String(baseDay + 2).padStart(2, '0')} 10:${String((seed * 4) % 60).padStart(2, '0')}:00`
-  const secondReviewAt = `2026-05-${String(baseDay + 3).padStart(2, '0')} 11:${String((seed * 6) % 60).padStart(2, '0')}:00`
-  const contractAt = `2026-05-${String(baseDay + 4).padStart(2, '0')} 16:${String((seed * 3) % 60).padStart(2, '0')}:00`
-  const finishAt = `2026-05-${String(baseDay + 5).padStart(2, '0')} 09:${String((seed * 2) % 60).padStart(2, '0')}:00`
   const fillAt = `2026-05-${String(baseDay).padStart(2, '0')} 08:15:00`
-  const operator = `${payload.factoryName}管理员`
+  const submitAt = `2026-05-${String(baseDay).padStart(2, '0')} 09:${String((seed * 7) % 60).padStart(2, '0')}:00`
+  const reviewAt = `2026-05-${String(baseDay + 1).padStart(2, '0')} 14:${String((seed * 5) % 60).padStart(2, '0')}:00`
+  const sampleAt = `2026-05-${String(baseDay + 2).padStart(2, '0')} 10:${String((seed * 4) % 60).padStart(2, '0')}:00`
+  const sampleReviewAt = `2026-05-${String(baseDay + 3).padStart(2, '0')} 11:${String((seed * 6) % 60).padStart(2, '0')}:00`
+  const formalAt = `2026-05-${String(baseDay + 4).padStart(2, '0')} 16:${String((seed * 3) % 60).padStart(2, '0')}:00`
+  const operator = `${payload.factoryCompanyName}管理员`
   const reviewer = '平台审核员'
-  const cooperationOperator = '平台运营经理'
   const nodeLogs: FactoryOnboardingNodeLog[] = []
   const actionLogs: FactoryOnboardingActionLog[] = []
   const reviewRecords: FactoryOnboardingReviewRecord[] = []
   const supplementRecords: FactoryOnboardingSupplementRecord[] = []
+  const conversionRecords: FactoryOnboardingConversionRecord[] = []
   const transferRecords: FactoryOnboardingTransferRecord[] = []
   let actionSeq = 0
 
-  actionLogs.push(
-    createActionLog({
-      seed,
-      seq: ++actionSeq,
-      actionName: '保存草稿',
-      nodeName: '填写入驻信息',
-      operator,
-      operatedAt: fillAt,
-      actionSequenceInNode: 1,
-      fromStatus: '草稿',
-      toStatus: '草稿',
-      fromNode: '填写入驻信息',
-      toNode: '填写入驻信息',
-      remark: '首次保存入驻草稿',
-    }),
-  )
+  actionLogs.push(createActionLog({
+    seed,
+    seq: ++actionSeq,
+    actionName: '保存草稿',
+    nodeName: '填写入驻申请',
+    operator,
+    operatedAt: fillAt,
+    actionSequenceInNode: 1,
+    fromStatus: '草稿',
+    toStatus: '草稿',
+    fromNode: '填写入驻申请',
+    toNode: '填写入驻申请',
+    remark: '首次保存入驻草稿',
+  }))
 
   if (status === '草稿') {
-    nodeLogs.push(
-      createNodeLog({
-        seed,
-        nodeName: '填写入驻信息',
-        nodeStatus: '进行中',
-        enteredAt: fillAt,
-        actionCount: 1,
-        lastActionAt: fillAt,
-        operator,
-        remark: '请补全入驻信息后提交平台审核。',
-      }),
-    )
+    nodeLogs.push(createNodeLog({ seed, nodeName: '填写入驻申请', nodeStatus: '进行中', enteredAt: fillAt, actionCount: 1, lastActionAt: fillAt, operator, remark: '请补全入驻信息后提交平台审核。' }))
   } else {
-    nodeLogs.push(
-      createNodeLog({
-        seed,
-        nodeName: '填写入驻信息',
-        nodeStatus: '已完成',
-        enteredAt: fillAt,
-        leftAt: submitAt,
-        actionCount: 2,
-        lastActionAt: submitAt,
-        operator,
-        remark: '已完成基础资料填写。',
-      }),
-    )
-    nodeLogs.push(
-      createNodeLog({
-        seed,
-        nodeName: '提交平台审核',
-        nodeStatus: '已完成',
-        enteredAt: submitAt,
-        leftAt: submitAt,
-        actionCount: 1,
-        lastActionAt: submitAt,
-        operator,
-        remark: '已提交平台审核。',
-      }),
-    )
-    actionLogs.push(
-      createActionLog({
-        seed,
-        seq: ++actionSeq,
-        actionName: '提交入驻申请',
-        nodeName: '平台审核',
-        operator,
-        operatedAt: submitAt,
-        actionSequenceInNode: 1,
-        fromStatus: '草稿',
-        toStatus: '已提交待审核',
-        fromNode: '填写入驻信息',
-        toNode: '平台审核',
-        remark: '提交平台审核',
-      }),
-    )
+    nodeLogs.push(createNodeLog({ seed, nodeName: '填写入驻申请', nodeStatus: '已完成', enteredAt: fillAt, leftAt: submitAt, actionCount: 2, lastActionAt: submitAt, operator, remark: '已完成入驻申请填写。' }))
+    actionLogs.push(createActionLog({
+      seed,
+      seq: ++actionSeq,
+      actionName: '提交入驻申请',
+      nodeName: '平台审核',
+      operator,
+      operatedAt: submitAt,
+      actionSequenceInNode: 1,
+      fromStatus: '草稿',
+      toStatus: '待平台审核',
+      fromNode: '填写入驻申请',
+      toNode: '平台审核',
+      remark: '提交平台审核',
+    }))
   }
 
-  if (status === '已提交待审核') {
-    nodeLogs.push(
-      createNodeLog({
-        seed,
-        nodeName: '平台审核',
-        nodeStatus: '进行中',
-        enteredAt: submitAt,
-        actionCount: 1,
-        lastActionAt: submitAt,
-        operator: reviewer,
-        remark: '等待平台审核。',
-      }),
-    )
+  const afterPlatformReview = !['草稿', '待平台审核'].includes(status)
+  if (status === '待平台审核') {
+    nodeLogs.push(createNodeLog({ seed, nodeName: '平台审核', nodeStatus: '进行中', enteredAt: submitAt, actionCount: 1, lastActionAt: submitAt, operator: reviewer, remark: '等待平台审核。' }))
   }
 
-  if (status === '退回补充资料' || status === '已重新提交待审核') {
-    const requiredFields: FactoryOnboardingRequiredField[] =
-      seed % 3 === 1 ? ['机器明细', '工序工艺能力'] : seed % 3 === 2 ? ['地址', '可开始合作时间'] : ['管理员账号', '机器总数']
+  if (status === '平台审核退回') {
+    const requiredFields: FactoryOnboardingRequiredField[] = seed % 3 === 1 ? ['机器明细', '工序工艺能力'] : seed % 3 === 2 ? ['地址', '可开始合作时间'] : ['身份证复印件/电子文件', '手机号']
     const reviewRecord = createReviewRecord({
       seed,
       round: 1,
-      reviewResult: '不通过且允许再次提交',
+      reviewResult: '未通过',
       reviewOpinion: '资料需补充，请根据退回项完善后重新提交。',
-      allowResubmit: true,
+      resubmitAllowed: true,
+      requiredFields,
       reviewer,
-      reviewedAt: firstReviewAt,
-      fromStatus: '已提交待审核',
-      toStatus: '退回补充资料',
+      reviewedAt: reviewAt,
+      fromStatus: '待平台审核',
+      toStatus: '平台审核退回',
       fromNode: '平台审核',
-      toNode: '补充资料',
+      toNode: '填写入驻申请',
     })
     reviewRecords.push(reviewRecord)
-    actionLogs.push(
-      createActionLog({
+    supplementRecords.push(createSupplementRecord({ seed, round: 1, supplementReason: reviewRecord.reviewOpinion, requiredFields, submittedFields: [], relatedReviewId: reviewRecord.reviewId, status: '待补充' }))
+    actionLogs.push(createActionLog({ seed, seq: ++actionSeq, actionName: '平台初审未通过', nodeName: '平台审核', operator: reviewer, operatedAt: reviewAt, actionSequenceInNode: 1, fromStatus: '待平台审核', toStatus: '平台审核退回', fromNode: '平台审核', toNode: '填写入驻申请', remark: `需补充字段：${requiredFields.join('、')}` }))
+    nodeLogs.push(createNodeLog({ seed, nodeName: '平台审核', nodeStatus: '已退回', enteredAt: submitAt, leftAt: reviewAt, actionCount: 1, lastActionAt: reviewAt, operator: reviewer, remark: '平台初审未通过，等待工厂补充资料。' }))
+    nodeLogs.push(createNodeLog({ seed, nodeName: '填写入驻申请', nodeStatus: '进行中', enteredAt: reviewAt, actionCount: 1, lastActionAt: reviewAt, operator, remark: '等待工厂补充资料后再次提交。' }))
+  } else if (status === '平台审核拒绝') {
+    reviewRecords.push(createReviewRecord({ seed, round: 1, reviewResult: '未通过', reviewOpinion: '历史记录已终止，当前仅用于兼容展示。', resubmitAllowed: true, reviewer, reviewedAt: reviewAt, fromStatus: '待平台审核', toStatus: '平台审核拒绝', fromNode: '平台审核', toNode: '完成' }))
+    actionLogs.push(createActionLog({ seed, seq: ++actionSeq, actionName: '平台初审退回', nodeName: '平台审核', operator: reviewer, operatedAt: reviewAt, actionSequenceInNode: 1, fromStatus: '待平台审核', toStatus: '平台审核拒绝', fromNode: '平台审核', toNode: '完成', remark: '历史入驻记录已终止。' }))
+    nodeLogs.push(createNodeLog({ seed, nodeName: '平台审核', nodeStatus: '已终止', enteredAt: submitAt, leftAt: reviewAt, actionCount: 1, lastActionAt: reviewAt, operator: reviewer, remark: '历史入驻记录已终止。' }))
+    nodeLogs.push(createNodeLog({ seed, nodeName: '完成', nodeStatus: '已完成', enteredAt: reviewAt, leftAt: reviewAt, actionCount: 1, lastActionAt: reviewAt, operator: reviewer, remark: '历史入驻记录已终止。' }))
+  } else if (afterPlatformReview) {
+    reviewRecords.push(createReviewRecord({ seed, round: 1, reviewResult: '已通过', reviewOpinion: '资料齐全，进入待样衣验证。', resubmitAllowed: false, reviewer, reviewedAt: reviewAt, fromStatus: '待平台审核', toStatus: '待样衣验证', fromNode: '平台审核', toNode: '样衣验证' }))
+    actionLogs.push(createActionLog({ seed, seq: ++actionSeq, actionName: '平台初审已通过', nodeName: '平台审核', operator: reviewer, operatedAt: reviewAt, actionSequenceInNode: 1, fromStatus: '待平台审核', toStatus: '待样衣验证', fromNode: '平台审核', toNode: '样衣验证', remark: '平台初审已通过，等待平台登记并发放样衣。' }))
+    nodeLogs.push(createNodeLog({ seed, nodeName: '平台审核', nodeStatus: '已完成', enteredAt: submitAt, leftAt: reviewAt, actionCount: 1, lastActionAt: reviewAt, operator: reviewer, remark: '平台初审已通过。' }))
+  }
+
+  let sampleStatus: FactoryOnboardingSampleStatus | undefined
+  let sampleVerificationId: string | undefined
+  let sampleVerifiedAt: string | undefined
+
+  if ([
+    '待样衣验证',
+    '待工厂确认收样',
+    '待工厂提交样衣审核',
+    '待平台审核样衣',
+    '样衣审核退回',
+    '样衣审核拒绝',
+    '样衣审核通过待转正式',
+    '已转正式合作',
+  ].includes(status)) {
+    sampleVerificationId = status === '待样衣验证' ? undefined : `SV-${String(seed).padStart(4, '0')}`
+    sampleStatus =
+      status === '待样衣验证'
+        ? '待平台登记样衣'
+        : status === '已转正式合作'
+          ? '已转正式合作'
+          : status
+    sampleVerifiedAt = status === '待样衣验证' ? undefined : reviewAt
+  }
+
+  if (status === '待样衣验证') {
+    nodeLogs.push(createNodeLog({ seed, nodeName: '样衣验证', nodeStatus: '进行中', enteredAt: reviewAt, actionCount: 1, lastActionAt: reviewAt, operator: reviewer, remark: '等待平台登记并发放样衣。' }))
+  }
+  if (status === '待工厂确认收样') {
+    actionLogs.push(createActionLog({ seed, seq: ++actionSeq, actionName: '平台登记并发放样衣', nodeName: '样衣验证', operator: reviewer, operatedAt: sampleAt, actionSequenceInNode: 2, fromStatus: '待样衣验证', toStatus: '待工厂确认收样', fromNode: '样衣验证', toNode: '样衣验证', remark: '平台已登记并发放样衣。' }))
+    nodeLogs.push(createNodeLog({ seed, nodeName: '样衣验证', nodeStatus: '进行中', enteredAt: reviewAt, actionCount: 2, lastActionAt: sampleAt, operator: reviewer, remark: '等待工厂确认收样。' }))
+  }
+  if (status === '待工厂提交样衣审核' || status === '样衣审核退回') {
+    const fromStatus = status === '样衣审核退回' ? '待平台审核样衣' : '待工厂确认收样'
+    actionLogs.push(createActionLog({ seed, seq: ++actionSeq, actionName: status === '样衣审核退回' ? '样衣审核未通过' : '工厂确认收到样衣', nodeName: status === '样衣审核退回' ? '样衣审核' : '样衣验证', operator: status === '样衣审核退回' ? reviewer : operator, operatedAt: sampleAt, actionSequenceInNode: 2, fromStatus, toStatus: status, fromNode: status === '样衣审核退回' ? '样衣审核' : '样衣验证', toNode: '样衣验证', remark: status === '样衣审核退回' ? '样衣审核未通过，后续可重新提交样衣资料。' : '工厂已确认收样，等待提交样衣审核资料。' }))
+    nodeLogs.push(createNodeLog({ seed, nodeName: '样衣验证', nodeStatus: status === '样衣审核退回' ? '已退回' : '进行中', enteredAt: reviewAt, actionCount: 2, lastActionAt: sampleAt, operator: reviewer, remark: status === '样衣审核退回' ? '样衣审核退回，等待后续重新提交功能。' : '等待工厂提交样衣审核。' }))
+  }
+  if (status === '待平台审核样衣') {
+    actionLogs.push(createActionLog({ seed, seq: ++actionSeq, actionName: '工厂提交样衣审核', nodeName: '样衣审核', operator, operatedAt: sampleAt, actionSequenceInNode: 1, fromStatus: '待工厂提交样衣审核', toStatus: '待平台审核样衣', fromNode: '样衣验证', toNode: '样衣审核', remark: '待平台审核样衣。' }))
+    nodeLogs.push(createNodeLog({ seed, nodeName: '样衣验证', nodeStatus: '已完成', enteredAt: reviewAt, leftAt: sampleAt, actionCount: 2, lastActionAt: sampleAt, operator, remark: '已提交样衣资料。' }))
+    nodeLogs.push(createNodeLog({ seed, nodeName: '样衣审核', nodeStatus: '进行中', enteredAt: sampleAt, actionCount: 1, lastActionAt: sampleAt, operator: reviewer, remark: '等待平台审核样衣。' }))
+  }
+  if (status === '样衣审核拒绝') {
+    actionLogs.push(createActionLog({ seed, seq: ++actionSeq, actionName: '样衣审核未通过', nodeName: '样衣审核', operator: reviewer, operatedAt: sampleReviewAt, actionSequenceInNode: 2, fromStatus: '待平台审核样衣', toStatus: '样衣审核拒绝', fromNode: '样衣审核', toNode: '完成', remark: '历史样衣审核记录已终止。' }))
+    nodeLogs.push(createNodeLog({ seed, nodeName: '样衣审核', nodeStatus: '已终止', enteredAt: sampleAt, leftAt: sampleReviewAt, actionCount: 2, lastActionAt: sampleReviewAt, operator: reviewer, remark: '历史样衣审核记录已终止。' }))
+    nodeLogs.push(createNodeLog({ seed, nodeName: '完成', nodeStatus: '已终止', enteredAt: sampleReviewAt, leftAt: sampleReviewAt, actionCount: 1, lastActionAt: sampleReviewAt, operator: reviewer, remark: '历史样衣审核记录已终止。' }))
+  }
+  if (status === '样衣审核通过待转正式' ||
+    status === '已转正式合作') {
+    actionLogs.push(createActionLog({
+      seed,
+      seq: ++actionSeq,
+      actionName: '平台样衣审核通过',
+      nodeName: '样衣审核',
+      operator: reviewer,
+      operatedAt: sampleReviewAt,
+      actionSequenceInNode: 2,
+      fromStatus: '待平台审核样衣',
+      toStatus: '样衣审核通过待转正式',
+      fromNode: '样衣审核',
+      toNode: '正式合作',
+      remark: '样衣审核通过，请等待平台转为正式合作工厂。',
+    }))
+    nodeLogs.push(createNodeLog({ seed, nodeName: '样衣审核', nodeStatus: '已完成', enteredAt: sampleAt, leftAt: sampleReviewAt, actionCount: 2, lastActionAt: sampleReviewAt, operator: reviewer, remark: '样衣审核已通过。' }))
+    nodeLogs.push(createNodeLog({ seed, nodeName: '正式合作', nodeStatus: status === '已转正式合作' ? '已完成' : '进行中', enteredAt: sampleReviewAt, leftAt: status === '已转正式合作' ? formalAt : undefined, actionCount: status === '已转正式合作' ? 2 : 1, lastActionAt: status === '已转正式合作' ? formalAt : sampleReviewAt, operator: reviewer, remark: status === '已转正式合作' ? '已转为正式合作工厂。' : '等待平台转为正式合作工厂。' }))
+    if (status === '已转正式合作') {
+      actionLogs.push(createActionLog({
         seed,
         seq: ++actionSeq,
-        actionName: '平台退回补充资料',
-        nodeName: '平台审核',
+        actionName: '样衣通过后转正式合作',
+        nodeName: '正式合作',
         operator: reviewer,
-        operatedAt: firstReviewAt,
-        actionSequenceInNode: 1,
-        fromStatus: '已提交待审核',
-        toStatus: '退回补充资料',
-        fromNode: '平台审核',
-        toNode: '补充资料',
-        remark: `需补充字段：${requiredFields.join('、')}`,
-      }),
-    )
-
-    nodeLogs.push(
-      createNodeLog({
-        seed,
-        nodeName: '平台审核',
-        nodeStatus: '已退回',
-        enteredAt: submitAt,
-        leftAt: firstReviewAt,
-        actionCount: status === '已重新提交待审核' ? 2 : 1,
-        lastActionAt: status === '已重新提交待审核' ? supplementAt : firstReviewAt,
+        operatedAt: formalAt,
+        actionSequenceInNode: 2,
+        fromStatus: '样衣审核通过待转正式',
+        toStatus: '已转正式合作',
+        fromNode: '正式合作',
+        toNode: '完成',
+        remark: '样衣审核通过后转为正式合作工厂，生成正式档案、管理员账号和产能档案初始数据。',
+      }))
+      nodeLogs.push(createNodeLog({ seed, nodeName: '完成', nodeStatus: '已完成', enteredAt: formalAt, leftAt: formalAt, actionCount: 1, lastActionAt: formalAt, operator: reviewer, remark: '正式合作流程完成。' }))
+      const officialFactoryId = `FACTORY-ONBOARD-${String(seed).padStart(4, '0')}`
+      const officialFactoryNo = `FOF-${String(seed).padStart(4, '0')}`
+      const officialAdminAccountId = `PDAU-${officialFactoryId}-ADMIN`
+      const capacityProfileId = `FCP-${officialFactoryId}`
+      conversionRecords.push({
+        conversionId: `CONV-${seed}`,
+        convertedAt: formalAt,
+        convertedBy: reviewer,
+        fromStatus: '样衣审核通过待转正式',
+        toStatus: '已转正式合作',
+        createdFactoryId: officialFactoryId,
+        createdFactoryNo: officialFactoryNo,
+        adminAccountConverted: true,
+        officialAdminAccountId,
+        capacityProfileCreated: true,
+        capacityProfileId,
+        remark: '样衣审核通过后转为正式合作工厂。',
+      })
+      transferRecords.push({
+        transferId: `TR-${seed}`,
+        factoryProfileGenerated: true,
+        factoryProfileId: officialFactoryId,
+        adminAccountGenerated: true,
+        capacityProfileGenerated: true,
+        capacityProfileId,
         operator: reviewer,
-        remark: status === '已重新提交待审核' ? '已完成退回补充后的再次审核进入中。' : '平台已退回补充资料。',
-      }),
-    )
-
-    supplementRecords.push(
-      createSupplementRecord({
-        seed,
-        round: 1,
-        supplementReason: reviewRecord.reviewOpinion,
-        requiredFields,
-        submittedFields: status === '已重新提交待审核' ? requiredFields : [],
-        submittedAt: status === '已重新提交待审核' ? supplementAt : undefined,
-        submittedBy: status === '已重新提交待审核' ? operator : undefined,
-        relatedReviewId: reviewRecord.reviewId,
-        status: status === '已重新提交待审核' ? '已重新提交' : '待补充',
-      }),
-    )
-
-    nodeLogs.push(
-      createNodeLog({
-        seed,
-        nodeName: '补充资料',
-        nodeStatus: status === '已重新提交待审核' ? '已完成' : '进行中',
-        enteredAt: firstReviewAt,
-        leftAt: status === '已重新提交待审核' ? supplementAt : undefined,
-        actionCount: status === '已重新提交待审核' ? 2 : 1,
-        lastActionAt: status === '已重新提交待审核' ? supplementAt : firstReviewAt,
-        operator,
-        remark: status === '已重新提交待审核' ? '已补充资料并重新提交。' : '等待工厂补充资料。',
-      }),
-    )
-
-    if (status === '已重新提交待审核') {
-      actionLogs.push(
-        createActionLog({
-          seed,
-          seq: ++actionSeq,
-          actionName: '工厂重新提交',
-          nodeName: '补充资料',
-          operator,
-          operatedAt: supplementAt,
-          actionSequenceInNode: 2,
-          fromStatus: '退回补充资料',
-          toStatus: '已重新提交待审核',
-          fromNode: '补充资料',
-          toNode: '平台审核',
-          remark: '已根据审核意见补充并重新提交。',
-        }),
-      )
-      nodeLogs.push(
-        createNodeLog({
-          seed,
-          nodeName: '平台审核',
-          nodeStatus: '进行中',
-          enteredAt: supplementAt,
-          actionCount: 2,
-          lastActionAt: supplementAt,
-          operator: reviewer,
-          remark: '补充资料已提交，等待平台重新审核。',
-        }),
-      )
+        operatedAt: formalAt,
+        remark: '样衣审核通过后转为正式合作工厂。',
+      })
     }
   }
 
-  if (status === '审核通过待确认合作') {
-    const fromStatus = seed % 2 === 0 ? '已重新提交待审核' : '已提交待审核'
-    const fromNode = '平台审核'
-    reviewRecords.push(
-      createReviewRecord({
+  const createdFactoryId = status === '已转正式合作' ? `FACTORY-ONBOARD-${String(seed).padStart(4, '0')}` : undefined
+  const shouldAssignPpic = [
+    '待平台审核样衣',
+    '样衣审核退回',
+    '样衣审核通过待转正式',
+    '已转正式合作',
+  ].includes(status)
+  const manuallyChangedPpic = [24, 27, 33].includes(seed)
+  const activePpicOptions = listAvailableOnboardingPpicOptions()
+  const defaultPpic = DEFAULT_FACTORY_ONBOARDING_PPIC
+  const changedPpic = activePpicOptions.find((item) => item.ppicId !== defaultPpic.ppicId) || defaultPpic
+  const assignedPpic = shouldAssignPpic ? (manuallyChangedPpic ? changedPpic : defaultPpic) : undefined
+  const ppicChangeLogs: FactoryOnboardingPpicChangeLog[] = []
+  if (shouldAssignPpic && assignedPpic) {
+    ppicChangeLogs.push(createPpicChangeLog({
+      seed,
+      toPpicId: defaultPpic.ppicId,
+      toPpicName: defaultPpic.ppicName,
+      changedAt: sampleAt,
+      changedBy: '系统默认分配',
+      changeReason: '工厂提交样衣审核资料后自动分配默认 PPIC',
+    }))
+    if (manuallyChangedPpic && changedPpic.ppicId !== defaultPpic.ppicId) {
+      ppicChangeLogs.push(createPpicChangeLog({
         seed,
-        round: fromStatus === '已重新提交待审核' ? 2 : 1,
-        reviewResult: '通过',
-        reviewOpinion: '资料齐全，进入确认合作。',
-        allowResubmit: false,
-        reviewer,
-        reviewedAt: firstReviewAt,
-        fromStatus,
-        toStatus: '审核通过待确认合作',
-        fromNode,
-        toNode: '确认合作',
-      }),
-    )
-    nodeLogs.push(
-      createNodeLog({
-        seed,
-        nodeName: '平台审核',
-        nodeStatus: '已完成',
-        enteredAt: submitAt,
-        leftAt: firstReviewAt,
-        actionCount: 1,
-        lastActionAt: firstReviewAt,
-        operator: reviewer,
-        remark: '平台审核已通过。',
-      }),
-    )
-    nodeLogs.push(
-      createNodeLog({
-        seed,
-        nodeName: '确认合作',
-        nodeStatus: '进行中',
-        enteredAt: firstReviewAt,
-        actionCount: 1,
-        lastActionAt: firstReviewAt,
-        operator: cooperationOperator,
-        remark: '等待平台确认合作。',
-      }),
-    )
-    actionLogs.push(
-      createActionLog({
-        seed,
-        seq: ++actionSeq,
-        actionName: '平台审核通过',
-        nodeName: '平台审核',
-        operator: reviewer,
-        operatedAt: firstReviewAt,
-        actionSequenceInNode: 1,
-        fromStatus,
-        toStatus: '审核通过待确认合作',
-        fromNode,
-        toNode: '确认合作',
-        remark: '审核通过，等待平台确认合作。',
-      }),
-    )
+        fromPpicId: defaultPpic.ppicId,
+        fromPpicName: defaultPpic.ppicName,
+        toPpicId: changedPpic.ppicId,
+        toPpicName: changedPpic.ppicName,
+        changedAt: sampleReviewAt,
+        changedBy: '平台运营员',
+        changeReason: '根据跟进区域调整 PPIC',
+      }))
+    }
   }
-
-  if (status === '已拒绝') {
-    reviewRecords.push(
-      createReviewRecord({
-        seed,
-        round: 1,
-        reviewResult: '不通过且不允许再次提交',
-        reviewOpinion: '当前工艺能力与平台合作范围不匹配，暂不开放再次提交。',
-        allowResubmit: false,
-        reviewer,
-        reviewedAt: firstReviewAt,
-        fromStatus: '已提交待审核',
-        toStatus: '已拒绝',
-        fromNode: '平台审核',
-        toNode: '完成',
-      }),
-    )
-    nodeLogs.push(
-      createNodeLog({
-        seed,
-        nodeName: '平台审核',
-        nodeStatus: '已终止',
-        enteredAt: submitAt,
-        leftAt: firstReviewAt,
-        actionCount: 1,
-        lastActionAt: firstReviewAt,
-        operator: reviewer,
-        remark: '平台审核拒绝。',
-      }),
-    )
-    nodeLogs.push(
-      createNodeLog({
-        seed,
-        nodeName: '完成',
-        nodeStatus: '已终止',
-        enteredAt: firstReviewAt,
-        actionCount: 1,
-        lastActionAt: firstReviewAt,
-        operator: reviewer,
-        remark: '已拒绝，流程结束。',
-      }),
-    )
-    actionLogs.push(
-      createActionLog({
-        seed,
-        seq: ++actionSeq,
-        actionName: '平台拒绝入驻',
-        nodeName: '平台审核',
-        operator: reviewer,
-        operatedAt: firstReviewAt,
-        actionSequenceInNode: 1,
-        fromStatus: '已提交待审核',
-        toStatus: '已拒绝',
-        fromNode: '平台审核',
-        toNode: '完成',
-        remark: '审核不通过且不允许再次提交。',
-      }),
-    )
-  }
-
-  if (status === '已合作') {
-    reviewRecords.push(
-      createReviewRecord({
-        seed,
-        round: 1,
-        reviewResult: '通过',
-        reviewOpinion: '资料齐全，进入合作。',
-        allowResubmit: false,
-        reviewer,
-        reviewedAt: firstReviewAt,
-        fromStatus: '已提交待审核',
-        toStatus: '审核通过待确认合作',
-        fromNode: '平台审核',
-        toNode: '确认合作',
-      }),
-    )
-    nodeLogs.push(
-      createNodeLog({
-        seed,
-        nodeName: '平台审核',
-        nodeStatus: '已完成',
-        enteredAt: submitAt,
-        leftAt: firstReviewAt,
-        actionCount: 1,
-        lastActionAt: firstReviewAt,
-        operator: reviewer,
-        remark: '平台审核通过。',
-      }),
-    )
-    nodeLogs.push(
-      createNodeLog({
-        seed,
-        nodeName: '确认合作',
-        nodeStatus: '已完成',
-        enteredAt: firstReviewAt,
-        leftAt: contractAt,
-        actionCount: 1,
-        lastActionAt: contractAt,
-        operator: cooperationOperator,
-        remark: '平台已确认合作。',
-      }),
-    )
-    nodeLogs.push(
-      createNodeLog({
-        seed,
-        nodeName: '生成工厂档案',
-        nodeStatus: '已完成',
-        enteredAt: contractAt,
-        leftAt: finishAt,
-        actionCount: 2,
-        lastActionAt: finishAt,
-        operator: cooperationOperator,
-        remark: '已生成工厂档案并转正管理员账号。',
-      }),
-    )
-    nodeLogs.push(
-      createNodeLog({
-        seed,
-        nodeName: '完成',
-        nodeStatus: '已完成',
-        enteredAt: finishAt,
-        leftAt: finishAt,
-        actionCount: 1,
-        lastActionAt: finishAt,
-        operator: cooperationOperator,
-        remark: '已合作完成。',
-      }),
-    )
-    actionLogs.push(
-      createActionLog({
-        seed,
-        seq: ++actionSeq,
-        actionName: '平台审核通过',
-        nodeName: '平台审核',
-        operator: reviewer,
-        operatedAt: firstReviewAt,
-        actionSequenceInNode: 1,
-        fromStatus: '已提交待审核',
-        toStatus: '审核通过待确认合作',
-        fromNode: '平台审核',
-        toNode: '确认合作',
-        remark: '审核通过。',
-      }),
-    )
-    actionLogs.push(
-      createActionLog({
-        seed,
-        seq: ++actionSeq,
-        actionName: '平台确认合作',
-        nodeName: '确认合作',
-        operator: cooperationOperator,
-        operatedAt: contractAt,
-        actionSequenceInNode: 1,
-        fromStatus: '审核通过待确认合作',
-        toStatus: '审核通过待确认合作',
-        fromNode: '确认合作',
-        toNode: '生成工厂档案',
-        remark: '确认合作并进入转档。',
-      }),
-    )
-    actionLogs.push(
-      createActionLog({
-        seed,
-        seq: ++actionSeq,
-        actionName: '生成工厂档案',
-        nodeName: '生成工厂档案',
-        operator: cooperationOperator,
-        operatedAt: finishAt,
-        actionSequenceInNode: 1,
-        fromStatus: '审核通过待确认合作',
-        toStatus: '已合作',
-        fromNode: '生成工厂档案',
-        toNode: '完成',
-        remark: '生成正式工厂档案。',
-      }),
-    )
-    actionLogs.push(
-      createActionLog({
-        seed,
-        seq: ++actionSeq,
-        actionName: '管理员账号转正',
-        nodeName: '生成工厂档案',
-        operator: cooperationOperator,
-        operatedAt: finishAt,
-        actionSequenceInNode: 2,
-        fromStatus: '审核通过待确认合作',
-        toStatus: '已合作',
-        fromNode: '生成工厂档案',
-        toNode: '完成',
-        remark: '入驻管理员账号转为正式工厂管理员账号。',
-      }),
-    )
-    transferRecords.push({
-      transferId: `TR-${seed}`,
-      factoryProfileGenerated: true,
-      factoryProfileId: archivedFactoryId,
-      adminAccountGenerated: true,
-      operator: cooperationOperator,
-      operatedAt: finishAt,
-      remark: '已转为正式合作工厂。',
-    })
-  }
-
-  const currentNode: FactoryOnboardingNode =
-    status === '草稿'
-      ? '填写入驻信息'
-      : status === '退回补充资料'
-        ? '补充资料'
-        : status === '审核通过待确认合作'
-          ? '确认合作'
-          : status === '已拒绝' || status === '已合作'
-            ? '完成'
-            : '平台审核'
-
-  return {
+  return decorateApplication({
     applicationId: `FOA-${String(seed).padStart(4, '0')}`,
     applicationNo: payload.applicationNo || createApplicationNo(seed),
     factoryTempId: payload.factoryTempId || createTempFactoryId(seed),
-    factoryName: payload.factoryName,
-    bossName: payload.bossName,
-    whatsapp: payload.whatsapp,
+    status,
+    currentNode: getOnboardingNodeByStatus(status),
+    adminAccount: payload.adminAccount,
+    factoryShortName: payload.factoryShortName,
+    applicantName: payload.applicantName,
+    identityNo: payload.identityNo,
+    identityFile: payload.identityFile,
+    factoryCompanyName: payload.factoryCompanyName,
+    factoryName: payload.factoryCompanyName,
+    bossName: payload.applicantName,
     address: payload.address,
+    mobilePhone: payload.mobilePhone,
+    mobileOrWhatsapp: payload.mobileOrWhatsapp,
+    whatsapp: payload.mobileOrWhatsapp,
+    sourceChannel: payload.sourceChannel,
+    ppicName: payload.ppicName,
+    assignedPpicId: assignedPpic?.ppicId,
+    assignedPpicName: assignedPpic?.ppicName,
+    assignedPpicPhone: assignedPpic?.mobilePhone,
+    assignedPpicAt: assignedPpic ? (manuallyChangedPpic ? sampleReviewAt : sampleAt) : undefined,
+    assignedPpicBy: assignedPpic ? (manuallyChangedPpic ? '平台运营员' : '系统默认分配') : undefined,
+    ppicChangeLogs,
     machineTotalCount: payload.machineTotalCount,
     effectiveWorkerCount: payload.effectiveWorkerCount,
     availableStartDate: payload.availableStartDate,
     selectedCapabilities: payload.selectedCapabilities,
     machines: payload.machines,
-    adminAccount: payload.adminAccount,
-    status,
-    currentNode,
     submittedAt: status === '草稿' ? undefined : submitAt,
-    reviewedAt:
-      status === '退回补充资料' ||
-      status === '已重新提交待审核' ||
-      status === '审核通过待确认合作' ||
-      status === '已拒绝' ||
-      status === '已合作'
-        ? status === '已重新提交待审核' ? firstReviewAt : firstReviewAt
-        : undefined,
-    contractedAt: status === '已合作' ? contractAt : undefined,
-    createdFactoryId: status === '已合作' ? archivedFactoryId : undefined,
-    completenessScore: 0,
-    completenessLevel: '不完整',
-    completenessItems: [],
-    completenessUpdatedAt: finishAt,
-    inferredFactoryTypes: [],
-    primaryFactoryType: 'CUTTING_FACTORY',
-    factoryTypeMatchedAt: finishAt,
-    factoryTypeMatchReason: '',
+    lastSubmittedAt: status === '草稿' ? undefined : submitAt,
+    reviewedAt: afterPlatformReview || status === '平台审核退回' || status === '平台审核拒绝' ? reviewAt : undefined,
+    sampleVerifiedAt,
+    sampleIssuedAt: sampleVerificationId ? sampleAt : undefined,
+    sampleExpectedSubmitAt: sampleVerificationId ? sampleReviewAt : undefined,
+    convertedAt: status === '已转正式合作' ? formalAt : undefined,
+    contractedAt: status === '已转正式合作' ? formalAt : undefined,
+    createdFactoryId,
     nodeLogs,
     actionLogs,
     reviewRecords,
     supplementRecords,
+    accountLocked: false,
+    accountLockedReason: undefined,
+    factoryNameLocked: false,
+    lockedAt: undefined,
+    sampleVerificationId,
+    sampleStatus,
+    completenessScore: 0,
+    completenessLevel: '不完整',
+    completenessItems: [],
+    completenessUpdatedAt: formalAt,
+    inferredFactoryTypes: [],
+    primaryFactoryType: 'CUTTING_FACTORY',
+    factoryTypeMatchedAt: formalAt,
+    factoryTypeMatchReason: '',
+    conversionRecords,
     transferRecords,
-  }
+  })
 }
 
-function createSeedApplications(): FactoryOnboardingApplication[] {
-  const archivedFactories = listFactoryMasterRecords().slice(0, 3)
-  const cooperatedApps = archivedFactories.map((factory, index) => {
-    const capabilitySets: Array<Array<[string, string]>> = [
-      [
-        ['裁片', '定位裁'],
-        ['特殊工艺', '激光切'],
-      ],
-      [
-        ['印花', '丝网印'],
-        ['特殊工艺', '打揽'],
-      ],
-      [
-        ['染色', '匹染'],
-        ['后道', '包装'],
-      ],
-    ]
-    return {
-      seed: 19 + index,
-      application: createSeedApplication(19 + index, '已合作', capabilitySets[index], index % 2 === 0 ? '可用' : '维修中', factory.id),
-      factory,
-    }
-  })
+const CAPABILITY_SETS: Array<Array<[string, string]>> = [
+  [['裁片', '定位裁']],
+  [['印花', '数码印']],
+  [['染色', '匹染']],
+  [['后道', '包装']],
+  [['特殊工艺', '打揽']],
+  [['裁片', '定位裁'], ['印花', '数码印'], ['染色', '匹染']],
+  [['印花', '丝网印']],
+  [['染色', '色织']],
+  [['特殊工艺', '打条']],
+  [['绣花', '绣花']],
+  [['后道', '包装']],
+  [['裁片', '定向裁'], ['后道', '包装']],
+]
 
-  return [
-    createSeedApplication(1, '草稿', [['裁片', '定位裁']], '可用', undefined, 'missingProcess'),
-    createSeedApplication(2, '草稿', [['裁片', '定向裁']], '维修中', undefined, 'missingCraft'),
-    createSeedApplication(3, '草稿', [['裁片', '定位裁']], '停用', undefined, 'capabilityMismatch'),
-    createSeedApplication(4, '已提交待审核', [['印花', '数码印']], '可用'),
-    createSeedApplication(5, '已提交待审核', [['印花', '丝网印']], '维修中'),
-    createSeedApplication(6, '已提交待审核', [['印花', '数码印']], '停用'),
-    createSeedApplication(7, '退回补充资料', [['后道', '包装']], '可用', undefined, 'missingProcess'),
-    createSeedApplication(8, '退回补充资料', [['后道', '包装']], '维修中', undefined, 'missingCraft'),
-    createSeedApplication(9, '退回补充资料', [['后道', '包装']], '停用', undefined, 'capabilityMismatch'),
-    createSeedApplication(10, '已重新提交待审核', [['染色', '色织']], '可用', undefined, 'missingProcess'),
-    createSeedApplication(11, '已重新提交待审核', [['染色', '匹染']], '维修中', undefined, 'missingCraft'),
-    createSeedApplication(12, '已重新提交待审核', [['染色', '匹染']], '停用', undefined, 'capabilityMismatch'),
-    createSeedApplication(13, '审核通过待确认合作', [['特殊工艺', '打揽']], '可用'),
-    createSeedApplication(14, '审核通过待确认合作', [['特殊工艺', '打条']], '维修中'),
-    createSeedApplication(15, '审核通过待确认合作', [['绣花', '绣花']], '停用'),
-    createSeedApplication(16, '已拒绝', [['裁片', '定位裁'], ['印花', '数码印'], ['染色', '匹染']], '可用'),
-    createSeedApplication(17, '已拒绝', [['印花', '丝网印'], ['染色', '色织'], ['后道', '包装']], '维修中'),
-    createSeedApplication(18, '已拒绝', [['裁片', '定向裁'], ['特殊工艺', '激光切'], ['后道', '包装']], '停用'),
-    ...cooperatedApps.map((item) => {
-      const matchedAdminLogin = `${item.factory.id}_admin`
-      item.application.adminAccount = {
-        ...item.application.adminAccount,
-        loginId: matchedAdminLogin,
-        adminName: item.factory.contact || `${item.factory.name}管理员`,
-        whatsapp: item.factory.phone || item.application.adminAccount.whatsapp,
-        accountStatus: '已转正式',
-      }
-      item.application.factoryName = item.factory.name
-      item.application.bossName = item.factory.contact || item.application.bossName
-      item.application.whatsapp = item.factory.phone || item.application.whatsapp
-      item.application.address = item.factory.address || item.application.address
-      const capacityProfile = createInitialCapacityProfileFromOnboarding(decorateApplication(item.application), item.factory)
-      item.application.transferRecords = item.application.transferRecords.map((record) => ({
-        ...record,
-        capacityProfileGenerated: true,
-        capacityProfileId: capacityProfile.capacityProfileId,
-      }))
-      return item.application
-    }),
+function createSeedApplications(): FactoryOnboardingApplication[] {
+  const statuses: FactoryOnboardingStatus[] = [
+    '草稿',
+    '待平台审核',
+    '平台审核退回',
+    '平台审核拒绝',
+    '待样衣验证',
+    '待工厂确认收样',
+    '待工厂提交样衣审核',
+    '待平台审核样衣',
+    '样衣审核退回',
+    '样衣审核拒绝',
+    '样衣审核通过待转正式',
+    '已转正式合作',
   ]
+  const scenarios: Array<'valid' | 'missingProcess' | 'missingCraft' | 'capabilityMismatch'> = ['valid', 'missingProcess', 'missingCraft', 'capabilityMismatch']
+  return statuses.flatMap((status, statusIndex) =>
+    [0, 1, 2].map((offset) => {
+      const seed = statusIndex * 3 + offset + 1
+      const capabilityNames = CAPABILITY_SETS[(statusIndex + offset) % CAPABILITY_SETS.length]
+      const condition: FactoryOnboardingMachineAbility['condition'] = offset === 0 ? '可用' : offset === 1 ? '维修中' : '停用'
+      const scenario = status === '草稿' || status === '平台审核退回'
+        ? scenarios[(statusIndex + offset) % scenarios.length]
+        : 'valid'
+      return createSeedApplication(seed, status, capabilityNames, condition, scenario)
+    }),
+  )
 }
 
 function ensureApplicationStore(): FactoryOnboardingApplication[] {
   if (cachedApplications) return cachedApplications
-
   const stored = readStoredJson<FactoryOnboardingApplication[]>(APPLICATION_STORE_KEY)
   if (Array.isArray(stored) && stored.length > 0) {
     cachedApplications = stored.map((item) => decorateApplication(cloneApplication(item)))
     return cachedApplications
   }
-
   cachedApplications = createSeedApplications().map((item) => decorateApplication(cloneApplication(item)))
   writeStoredJson(APPLICATION_STORE_KEY, cachedApplications)
   return cachedApplications
@@ -1338,7 +1185,6 @@ export function saveFactoryOnboardingApplication(application: FactoryOnboardingA
     persistApplications(updated)
     return cloneApplication(next)
   }
-
   persistApplications([next, ...store])
   return cloneApplication(next)
 }
@@ -1360,17 +1206,141 @@ export function isFactoryOnboardingLoginIdTaken(loginId: string, excludeApplicat
   const normalized = normalizeLoginId(loginId)
   if (!normalized) return false
   if (findFactoryPdaUserByLoginId(normalized)) return true
-  return ensureApplicationStore().some(
-    (item) => item.applicationId !== excludeApplicationId && normalizeLoginId(item.adminAccount.loginId) === normalized,
+  return ensureApplicationStore().some((item) => item.applicationId !== excludeApplicationId && normalizeLoginId(item.adminAccount.loginId) === normalized)
+}
+
+export function isFactoryShortNameTaken(factoryShortName: string, currentApplicationId?: string): boolean {
+  const normalized = normalizeFactoryShortName(factoryShortName)
+  if (!normalized) return false
+  const current = currentApplicationId ? ensureApplicationStore().find((item) => item.applicationId === currentApplicationId) : null
+  const duplicatedApplication = ensureApplicationStore().some((item) =>
+    item.applicationId !== currentApplicationId &&
+    normalizeFactoryShortName(item.factoryShortName || item.adminAccount.loginId || '') === normalized,
   )
+  if (duplicatedApplication) return true
+
+  return listFactoryMasterRecords().some((factory) => {
+    if (current && (factory.id === current.createdFactoryId || factory.onboardingApplicationId === current.applicationId)) return false
+    const officialShortName = normalizeFactoryShortName(factory.factoryShortName || '')
+    const officialNameFallback = normalizeFactoryShortName(factory.name || '')
+    return officialShortName === normalized || (!officialShortName && officialNameFallback === normalized)
+  })
+}
+
+export function validateFactoryShortNameUnique(factoryShortName: string, currentApplicationId?: string): void {
+  if (!factoryShortName.trim()) throw new Error('请填写工厂简称')
+  if (isFactoryShortNameTaken(factoryShortName, currentApplicationId)) throw new Error('工厂简称已存在，请更换')
+}
+
+export { DEFAULT_FACTORY_ONBOARDING_PPIC, FACTORY_ONBOARDING_PPIC_OPTIONS } from './factory-onboarding-ppic.ts'
+
+export function getAvailableOnboardingPpicOptions() {
+  return listAvailableOnboardingPpicOptions()
+}
+
+export function getOnboardingPpicName(ppicId: string): string {
+  return resolveOnboardingPpicName(ppicId)
+}
+
+export function assignDefaultPpicForOnboarding(applicationId: string, operator = '系统默认分配'): FactoryOnboardingApplication {
+  const application = getFactoryOnboardingApplicationById(applicationId)
+  if (!application) throw new Error('未找到入驻申请')
+  if (application.assignedPpicId) return application
+
+  const assignedAt = nowTimestamp()
+  const defaultPpic = DEFAULT_FACTORY_ONBOARDING_PPIC
+  return saveFactoryOnboardingApplication({
+    ...application,
+    assignedPpicId: defaultPpic.ppicId,
+    assignedPpicName: defaultPpic.ppicName,
+    assignedPpicPhone: defaultPpic.mobilePhone,
+    assignedPpicAt: assignedAt,
+    assignedPpicBy: operator || '系统默认分配',
+    ppicChangeLogs: [
+      ...(application.ppicChangeLogs || []),
+      createPpicChangeLog({
+        toPpicId: defaultPpic.ppicId,
+        toPpicName: defaultPpic.ppicName,
+        changedAt: assignedAt,
+        changedBy: operator || '系统默认分配',
+        changeReason: '工厂提交样衣审核资料后自动分配默认 PPIC',
+      }),
+    ],
+  })
+}
+
+export function updateOnboardingPpic(
+  applicationId: string,
+  nextPpicId: string,
+  operator: string,
+  changeReason = '',
+): FactoryOnboardingApplication {
+  const application = getFactoryOnboardingApplicationById(applicationId)
+  if (!application) throw new Error('未找到入驻申请')
+  if (!nextPpicId.trim()) throw new Error('请选择 PPIC')
+
+  const nextPpic = getOnboardingPpicOptionById(nextPpicId)
+  if (!nextPpic || nextPpic.status !== '启用') throw new Error('该 PPIC 不可用，请重新选择')
+  if (application.assignedPpicId === nextPpic.ppicId) return application
+
+  const changedAt = nowTimestamp()
+  return saveFactoryOnboardingApplication({
+    ...application,
+    assignedPpicId: nextPpic.ppicId,
+    assignedPpicName: nextPpic.ppicName,
+    assignedPpicPhone: nextPpic.mobilePhone,
+    assignedPpicAt: changedAt,
+    assignedPpicBy: operator,
+    ppicChangeLogs: [
+      ...(application.ppicChangeLogs || []),
+      createPpicChangeLog({
+        fromPpicId: application.assignedPpicId,
+        fromPpicName: application.assignedPpicName,
+        toPpicId: nextPpic.ppicId,
+        toPpicName: nextPpic.ppicName,
+        changedAt,
+        changedBy: operator,
+        changeReason: changeReason.trim(),
+      }),
+    ],
+  })
+}
+
+export function isFactoryCompanyNameLocked(factoryCompanyName: string, excludeApplicationId?: string): boolean {
+  void factoryCompanyName
+  void excludeApplicationId
+  return false
+}
+
+export function canStartNewOnboarding(factoryCompanyName: string, excludeApplicationId?: string): boolean {
+  return !isFactoryCompanyNameLocked(factoryCompanyName, excludeApplicationId)
+}
+
+export function getLockedFactoryNameReason(factoryCompanyName: string, excludeApplicationId?: string): string {
+  void factoryCompanyName
+  void excludeApplicationId
+  return ''
+}
+
+export function isFactoryOnboardingFactoryCompanyNameLocked(factoryCompanyName: string, excludeApplicationId?: string): boolean {
+  return isFactoryCompanyNameLocked(factoryCompanyName, excludeApplicationId)
 }
 
 export function createEmptyFactoryOnboardingDraft(): FactoryOnboardingDraftPayload {
   return {
+    factoryShortName: '',
+    applicantName: '',
+    identityNo: '',
+    identityFile: null,
+    factoryCompanyName: '',
     factoryName: '',
     bossName: '',
-    whatsapp: '',
     address: '',
+    mobilePhone: '',
+    mobileOrWhatsapp: '',
+    whatsapp: '',
+    sourceChannel: '',
+    ppicName: '',
     machineTotalCount: 0,
     effectiveWorkerCount: 0,
     availableStartDate: '',
@@ -1378,12 +1348,15 @@ export function createEmptyFactoryOnboardingDraft(): FactoryOnboardingDraftPaylo
     machines: [],
     adminAccount: {
       loginId: '',
-      password: '',
+      password: '123456',
       adminName: '',
+      mobilePhone: '',
+      mobileOrWhatsapp: '',
       whatsapp: '',
       roleId: FACTORY_ADMIN_ROLE_ID,
       roleName: FACTORY_ADMIN_ROLE_NAME,
-      accountStatus: '待激活',
+      accountStatus: '入驻中',
+      isTemporary: true,
     },
   }
 }
@@ -1413,7 +1386,7 @@ export function createFactoryOnboardingApplicantSession(application: FactoryOnbo
     loginId: application.adminAccount.loginId,
     adminName: application.adminAccount.adminName,
     factoryTempId: application.factoryTempId,
-    factoryName: application.factoryName,
+    factoryName: application.factoryCompanyName,
     loggedAt: nowTimestamp(),
   }
 }

@@ -52,6 +52,7 @@ import {
 import { listProgressExceptions, type ExceptionCase } from '../../data/fcs/store-domain-progress.ts'
 import { listLegacyLikeDyePrintOrdersForTailPages } from '../../data/fcs/page-adapters/long-tail-pages-adapter.ts'
 import { indonesiaFactories } from '../../data/fcs/indonesia-factories.ts'
+import { listBusinessFactoryMasterRecords } from '../../data/fcs/factory-master-store.ts'
 import { applyQualitySeedBootstrap } from '../../data/fcs/store-domain-quality-bootstrap.ts'
 import { escapeHtml, toClassName } from '../../utils.ts'
 
@@ -1291,22 +1292,7 @@ function formatTaskNo(task: DispatchTask): string {
 }
 
 function getFactoryOptions(): Array<{ id: string; name: string }> {
-  const activeFactories = indonesiaFactories.filter((factory) => factory.status === 'ACTIVE')
-
-  if (activeFactories.length > 0) {
-    return activeFactories.map((factory) => ({ id: factory.id, name: factory.name }))
-  }
-
-  return [
-    { id: 'ID-F001', name: '雅加达主工厂' },
-    { id: 'ID-F002', name: '泗水裁片厂' },
-    { id: 'ID-F003', name: '万隆车缝厂' },
-    { id: 'ID-F004', name: '三宝垄整烫厂' },
-    { id: 'ID-F024', name: '三宝垄微型车缝厂' },
-    { id: 'ID-F006', name: '棉兰卫星工厂' },
-    { id: 'ID-F011', name: '玛琅卫星工厂A' },
-    { id: 'ID-F010', name: '雅加达绣花专工厂' },
-  ]
+  return listBusinessFactoryMasterRecords().map((factory) => ({ id: factory.id, name: factory.name }))
 }
 
 function getEffectiveTasks(): DispatchTask[] {

@@ -1,11 +1,16 @@
-import { generateFactoryCode } from './factory-mock-data.ts'
-import { getFactoryMasterRecordById, upsertFactoryMasterRecord } from './factory-master-store.ts'
-import type { Factory, FactoryProcessAbility, FactoryType } from './factory-types.ts'
-import { createInitialCapacityProfileFromOnboarding } from './factory-capacity-profile-mock.ts'
 import {
   FACTORY_ADMIN_ROLE_ID,
   FACTORY_ADMIN_ROLE_NAME,
   FACTORY_ONBOARDING_REQUIRED_FIELD_OPTIONS,
+  canCreateFactoryProfile,
+  canFactoryEditOnboarding,
+  canFactoryEnterBusiness,
+  canFactorySubmitOnboarding,
+  getOnboardingNodeByStatus,
+  isFactoryAccountLocked,
+  normalizeOnboardingStatus,
+  normalizeReviewResult,
+  type FactoryInferredTypeCode,
   type FactoryOnboardingActionLog,
   type FactoryOnboardingActionName,
   type FactoryOnboardingAdminAccount,
@@ -13,8 +18,9 @@ import {
   type FactoryOnboardingApplication,
   type FactoryOnboardingCompletenessItem,
   type FactoryOnboardingCompletenessLevel,
+  type FactoryOnboardingConversionRecord,
   type FactoryOnboardingDraftPayload,
-  type FactoryInferredTypeCode,
+  type FactoryOnboardingIdentityFile,
   type FactoryOnboardingMachineAbility,
   type FactoryOnboardingMachineValidationStatus,
   type FactoryOnboardingNode,
@@ -35,21 +41,33 @@ import {
   findFactoryOnboardingApplicationByLoginId,
   getFactoryOnboardingApplicantSession,
   getFactoryOnboardingApplicationById,
+  canStartNewOnboarding,
+  buildAdminAccountFromFactoryShortName,
+  getLockedFactoryNameReason,
   isFactoryOnboardingLoginIdTaken,
+  validateFactoryShortNameUnique,
   listFactoryOnboardingApplications,
   saveFactoryOnboardingApplication,
   setFactoryOnboardingApplicantSession,
 } from './factory-onboarding-store.ts'
 import {
   clearPdaSession,
-  createFactoryPdaUser,
-  findFactoryPdaUserByLoginId,
-  generatePresetRolesForFactory,
   getPdaSession,
-  replaceFactoryPdaRoles,
+  upsertOfficialFactoryAdminFromOnboarding,
 } from './store-domain-pda.ts'
 import { getActiveCraftOptionsByProcess, getActiveProcessOptions } from './process-craft-dict.ts'
-import { normalizeWhatsApp, validateWhatsApp } from './whatsapp-validator.ts'
+import { upsertFactoryMasterRecord } from './factory-master-store.ts'
+import {
+  getSampleVerificationByApplicationId,
+  getSampleVerificationById,
+} from './factory-sample-verification-store.ts'
+import { createInitialCapacityProfileFromOnboarding as createCapacityProfileFromOnboardingStore } from './factory-capacity-profile-mock.ts'
+import type {
+  Factory,
+  FactoryCapacityProfile,
+  FactoryProcessAbility,
+  FactoryType,
+} from './factory-types.ts'
 
 export type PdaPostLoginSession =
   | { kind: 'PDA'; session: NonNullable<ReturnType<typeof getPdaSession>> }
@@ -60,11 +78,12 @@ export type PdaFactoryAccessReasonCode =
   | 'NO_APPLICATION'
   | 'DRAFT'
   | 'UNDER_REVIEW'
-  | 'SUPPLEMENT_REQUIRED'
-  | 'WAITING_COOPERATION'
-  | 'REJECTED'
+  | 'RETURNED'
+  | 'WAITING_SAMPLE'
+  | 'SAMPLE_REVIEW'
+  | 'FORMAL_PENDING'
+  | 'LOCKED'
   | 'COOPERATED'
-  | 'RELOGIN_REQUIRED'
 
 export interface PdaFactoryAccessState {
   isLoggedIn: boolean
@@ -93,7 +112,7 @@ export interface FactoryOnboardingNodeSummary {
 
 interface ReviewApplicationInput {
   applicationId: string
-  reviewResult: FactoryOnboardingReviewResult
+  reviewResult: FactoryOnboardingReviewResult | string
   reviewOpinion: string
   reviewer: string
   requiredFields?: FactoryOnboardingRequiredField[]
@@ -176,6 +195,16 @@ function toRoundedScore(score: number): number {
   return Math.max(0, Math.min(100, Math.round(score)))
 }
 
+function hasBasicMobileValue(value: string): boolean {
+  const normalized = value.trim()
+  return normalized.length >= 6 && /[0-9]/.test(normalized)
+}
+
+function hasValidIdentityFile(file: FactoryOnboardingIdentityFile | null): boolean {
+  if (!file) return false
+  return ['jpg', 'jpeg', 'png', 'pdf'].includes(file.fileType) && file.fileSizeMb > 0 && file.fileSizeMb <= 100
+}
+
 export function getCompletenessLevel(score: number): FactoryOnboardingCompletenessLevel {
   if (score >= 95) return '高完整'
   if (score >= 80) return '完整'
@@ -204,15 +233,15 @@ function buildCompletenessItem(
 
 export function calculateOnboardingCompleteness(application: Pick<
   FactoryOnboardingApplication,
-  'factoryName' | 'bossName' | 'whatsapp' | 'address' | 'machineTotalCount' | 'effectiveWorkerCount' | 'availableStartDate' | 'selectedCapabilities' | 'machines' | 'adminAccount'
+  'factoryShortName' | 'applicantName' | 'identityNo' | 'identityFile' | 'factoryCompanyName' | 'address' | 'mobilePhone' | 'mobileOrWhatsapp' | 'sourceChannel' | 'ppicName' | 'machineTotalCount' | 'effectiveWorkerCount' | 'availableStartDate' | 'selectedCapabilities' | 'machines' | 'adminAccount'
 >): {
   completenessScore: number
   completenessLevel: FactoryOnboardingCompletenessLevel
   completenessItems: FactoryOnboardingCompletenessItem[]
   completenessUpdatedAt: string
 } {
-  const factoryWhatsAppValid = validateWhatsApp(application.whatsapp).isValid
-  const adminWhatsAppValid = validateWhatsApp(application.adminAccount.whatsapp).isValid
+  const mobileValue = application.mobilePhone || application.mobileOrWhatsapp
+  const mobileValid = hasBasicMobileValue(mobileValue)
   const capabilityCount = application.selectedCapabilities.filter((item) => item.processCode && item.craftCode).length
   const machines = applyMachineValidation(application.machines, application.selectedCapabilities)
   const machineBaseCompleted = machines.filter((item) => item.machineName.trim() && item.machineCount > 0 && item.condition).length
@@ -220,49 +249,45 @@ export function calculateOnboardingCompleteness(application: Pick<
 
   const items = [
     buildCompletenessItem(
-      'ACCOUNT',
-      '账号信息',
-      10,
-      [
-        application.adminAccount.loginId.trim(),
-        application.adminAccount.password.trim(),
-        application.adminAccount.adminName.trim(),
-        adminWhatsAppValid ? 'valid' : '',
-      ].filter(Boolean).length,
-      4,
-      !application.adminAccount.loginId.trim()
-        ? '缺少登录账户'
-        : !application.adminAccount.password.trim()
-          ? '缺少登录密码'
-          : !application.adminAccount.adminName.trim()
-            ? '缺少管理员姓名'
-            : adminWhatsAppValid
-              ? '已完整'
-              : '管理员 WhatsApp 格式不正确',
+      'IDENTITY',
+      '基础身份信息',
+      15,
+      [application.applicantName.trim(), application.identityNo.trim(), hasValidIdentityFile(application.identityFile) ? 'valid' : ''].filter(Boolean).length,
+      3,
+      !application.applicantName.trim()
+        ? '缺少姓名'
+        : !application.identityNo.trim()
+          ? '缺少身份证号码/护照号码'
+          : hasValidIdentityFile(application.identityFile)
+            ? '已完整'
+            : '缺少身份证复印件/电子文件',
     ),
     buildCompletenessItem(
       'FACTORY_BASE',
       '工厂基础信息',
-      20,
+      25,
       [
-        application.factoryName.trim(),
-        application.bossName.trim(),
-        factoryWhatsAppValid ? 'valid' : '',
+        application.factoryShortName.trim(),
+        application.factoryCompanyName.trim(),
         application.address.trim(),
-        application.availableStartDate.trim(),
+        mobileValid ? 'valid' : '',
+        application.sourceChannel.trim(),
+        application.ppicName.trim(),
       ].filter(Boolean).length,
-      5,
-      !application.factoryName.trim()
-        ? '缺少工厂名称'
-        : !application.bossName.trim()
-          ? '缺少老板名字'
-          : !factoryWhatsAppValid
-            ? '工厂 WhatsApp 格式不正确'
-            : !application.address.trim()
-              ? '缺少地址'
-              : !application.availableStartDate.trim()
-                ? '缺少可开始合作时间'
-                : '已完整',
+      6,
+      !application.factoryShortName.trim()
+        ? '缺少工厂简称'
+        : !application.factoryCompanyName.trim()
+        ? '缺少工厂/公司名称'
+        : !application.address.trim()
+          ? '缺少地址'
+          : !mobileValid
+            ? '请填写手机号'
+            : !application.sourceChannel.trim()
+              ? '缺少来源'
+              : application.ppicName.trim()
+                ? '已完整'
+                : '缺少收到此通知的 PPIC 姓名',
     ),
     buildCompletenessItem(
       'WORKERS',
@@ -275,7 +300,7 @@ export function calculateOnboardingCompleteness(application: Pick<
     buildCompletenessItem(
       'MACHINES',
       '机器信息',
-      20,
+      15,
       [
         application.machineTotalCount > 0 ? 'valid' : '',
         machines.length > 0 ? 'valid' : '',
@@ -283,7 +308,7 @@ export function calculateOnboardingCompleteness(application: Pick<
       ].filter(Boolean).length,
       3,
       application.machineTotalCount <= 0
-        ? '机器总数未填写或小于等于 0'
+        ? '机器数量未填写或小于等于 0'
         : machines.length <= 0
           ? '缺少机器明细'
           : machineBaseCompleted < machines.length
@@ -293,7 +318,7 @@ export function calculateOnboardingCompleteness(application: Pick<
     buildCompletenessItem(
       'CAPABILITY',
       '工序工艺能力',
-      20,
+      15,
       capabilityCount > 0 ? 1 : 0,
       1,
       capabilityCount > 0 ? '已完整' : '至少需要选择一个工序工艺能力',
@@ -301,7 +326,7 @@ export function calculateOnboardingCompleteness(application: Pick<
     buildCompletenessItem(
       'MACHINE_CAPABILITY_LINK',
       '机器与工序工艺关联',
-      15,
+      10,
       machines.length > 0 ? linkedCompleted : 0,
       Math.max(1, machines.length || 1),
       machines.length <= 0
@@ -311,12 +336,12 @@ export function calculateOnboardingCompleteness(application: Pick<
           : '存在机器未关联已选工序工艺',
     ),
     buildCompletenessItem(
-      'WHATSAPP_FORMAT',
-      'WhatsApp 格式',
+      'AVAILABLE_DATE',
+      '可开始合作时间',
       5,
-      factoryWhatsAppValid && adminWhatsAppValid ? 1 : 0,
+      application.availableStartDate.trim() ? 1 : 0,
       1,
-      factoryWhatsAppValid && adminWhatsAppValid ? '已完整' : 'WhatsApp 格式不正确',
+      application.availableStartDate.trim() ? '已完整' : '缺少可开始合作时间',
     ),
   ]
 
@@ -331,7 +356,7 @@ export function calculateOnboardingCompleteness(application: Pick<
 
 export function getCompletenessMissingItems(application: Pick<
   FactoryOnboardingApplication,
-  'completenessItems' | 'factoryName' | 'bossName' | 'whatsapp' | 'address' | 'machineTotalCount' | 'effectiveWorkerCount' | 'availableStartDate' | 'selectedCapabilities' | 'machines' | 'adminAccount'
+  'completenessItems' | 'factoryShortName' | 'applicantName' | 'identityNo' | 'identityFile' | 'factoryCompanyName' | 'address' | 'mobilePhone' | 'mobileOrWhatsapp' | 'sourceChannel' | 'ppicName' | 'machineTotalCount' | 'effectiveWorkerCount' | 'availableStartDate' | 'selectedCapabilities' | 'machines' | 'adminAccount'
 >): FactoryOnboardingCompletenessItem[] {
   const items = application.completenessItems?.length
     ? application.completenessItems
@@ -340,7 +365,7 @@ export function getCompletenessMissingItems(application: Pick<
 }
 
 function resolveFactoryTypeMatchCode(capability: FactoryOnboardingSelectedCapability): FactoryInferredTypeCode | null {
-  if (capability.processCode === 'CUT_PANEL' || ['普通裁', '激光定位裁', '定向裁'].includes(capability.craftName)) return 'CUTTING_FACTORY'
+  if (capability.processCode === 'CUT_PANEL' || ['普通裁', '激光定位裁', '定向裁', '定位裁'].includes(capability.craftName)) return 'CUTTING_FACTORY'
   if (capability.processCode === 'PRINT') return 'PRINTING_FACTORY'
   if (capability.processCode === 'DYE') return 'DYEING_FACTORY'
   if (capability.processCode === 'POST_FINISHING' || ['质检', '复检', '包装', '熨烫'].includes(capability.craftName)) return 'POST_FINISHING_FACTORY'
@@ -384,20 +409,6 @@ export function buildFactoryTypeMatchReason(matchResults: FactoryTypeMatchResult
   return matchResults.map((item) => `${item.factoryTypeName}：${item.matchedCapabilities.join('、')}`).join('；')
 }
 
-function mapInferredTypeToArchiveFactoryType(primaryFactoryType: FactoryInferredTypeCode): FactoryType {
-  if (primaryFactoryType === 'PRINTING_FACTORY') return 'CENTRAL_PRINT'
-  if (primaryFactoryType === 'DYEING_FACTORY') return 'CENTRAL_DYE'
-  if (primaryFactoryType === 'SPECIAL_CRAFT_FACTORY') return 'CENTRAL_SPECIAL'
-  if (primaryFactoryType === 'POST_FINISHING_FACTORY') return 'SATELLITE_FINISHING'
-  if (primaryFactoryType === 'SEWING_FACTORY') return 'SATELLITE_SEWING'
-  if (primaryFactoryType === 'MULTI_CAPABILITY_FACTORY') return 'CENTRAL_GARMENT'
-  return 'CENTRAL_CUTTING'
-}
-
-function isEditableStatus(status: FactoryOnboardingStatus): boolean {
-  return status === '草稿' || status === '退回补充资料'
-}
-
 function isSelectableCraft(processCode: string, craftCode: string): boolean {
   const craft = getActiveCraftOptionsByProcess(processCode).find((item) => item.craftCode === craftCode)
   if (!craft) return false
@@ -406,10 +417,6 @@ function isSelectableCraft(processCode: string, craftCode: string): boolean {
 
 function unique<T>(values: T[]): T[] {
   return [...new Set(values)]
-}
-
-function cloneMachine(item: FactoryOnboardingMachineAbility): FactoryOnboardingMachineAbility {
-  return { ...item }
 }
 
 function getCapabilityKeySet(capabilities: FactoryOnboardingSelectedCapability[]): Set<string> {
@@ -430,7 +437,7 @@ export function getMachineValidationResult(
   if (!capabilityKeySet.has(`${machine.linkedProcessCode}:${machine.linkedCraftCode}`)) {
     return {
       validationStatus: '工序工艺未在接单能力中选择',
-      validationMessage: '该机器关联的工序工艺未在接单能力中选择，请先选择对应工序工艺',
+      validationMessage: '该机器关联的工序工艺未在接单能力中选择，请先选择对应工序工艺。',
     }
   }
   return { validationStatus: '通过', validationMessage: '校验通过' }
@@ -441,16 +448,13 @@ export function applyMachineValidation(
   selectedCapabilities: FactoryOnboardingSelectedCapability[],
 ): FactoryOnboardingMachineAbility[] {
   return machines.map((item) => {
-    const machine = cloneMachine(item)
-    const validation = getMachineValidationResult(machine, selectedCapabilities)
-    machine.validationStatus = validation.validationStatus
-    machine.validationMessage = validation.validationMessage
-    return machine
+    const validation = getMachineValidationResult(item, selectedCapabilities)
+    return {
+      ...item,
+      validationStatus: validation.validationStatus,
+      validationMessage: validation.validationMessage,
+    }
   })
-}
-
-function hasBlockingMachineValidation(machines: FactoryOnboardingMachineAbility[]): boolean {
-  return machines.some((item) => item.validationStatus !== '通过')
 }
 
 export function calculateNodeElapsedMinutes(nodeLog: Pick<FactoryOnboardingNodeLog, 'nodeStatus' | 'enteredAt' | 'leftAt'>, now = nowTimestamp()): number {
@@ -482,20 +486,24 @@ function buildNodeElapsedText(nodeLog: Pick<FactoryOnboardingNodeLog, 'nodeStatu
 
 function buildCurrentFieldValueMap(application: FactoryOnboardingApplication): Record<FactoryOnboardingRequiredField, string> {
   return {
-    工厂名称: application.factoryName || '未填写',
-    老板名字: application.bossName || '未填写',
-    WhatsApp: application.whatsapp || '未填写',
+    工厂简称: application.factoryShortName || application.adminAccount.loginId || '未填写',
+    姓名: application.applicantName || '未填写',
+    '身份证号码/护照号码': application.identityNo || '未填写',
+    '身份证复印件/电子文件': application.identityFile?.fileName || '未上传',
+    '工厂/公司名称': application.factoryCompanyName || '未填写',
     地址: application.address || '未填写',
+    手机号: application.mobilePhone || application.mobileOrWhatsapp || '未填写',
+    来源: application.sourceChannel || '未填写',
+    '收到此通知的 PPIC 姓名': application.ppicName || '未填写',
+    机器数量: application.machineTotalCount > 0 ? String(application.machineTotalCount) : '未填写',
     有效工人数量: application.effectiveWorkerCount > 0 ? String(application.effectiveWorkerCount) : '未填写',
-    机器总数: application.machineTotalCount > 0 ? String(application.machineTotalCount) : '未填写',
-    机器明细: application.machines.length > 0
-      ? application.machines.map((item) => `${item.machineName || '未命名设备'}×${item.machineCount || 0}`).join('、')
-      : '未填写',
+    可开始合作时间: application.availableStartDate || '未填写',
     工序工艺能力: application.selectedCapabilities.length > 0
       ? application.selectedCapabilities.map((item) => `${item.processName}/${item.craftName}`).join('、')
       : '未填写',
-    可开始合作时间: application.availableStartDate || '未填写',
-    管理员账号: application.adminAccount.loginId || '未填写',
+    机器明细: application.machines.length > 0
+      ? application.machines.map((item) => `${item.machineName || '未命名设备'}×${item.machineCount || 0}`).join('、')
+      : '未填写',
   }
 }
 
@@ -552,13 +560,71 @@ function refreshNodeLogDerived(
   return next
 }
 
-function refreshApplicationDerived(application: FactoryOnboardingApplication, now = nowTimestamp()): FactoryOnboardingApplication {
-  const matchResults = inferFactoryTypesFromCapabilities(application.selectedCapabilities)
+export function refreshApplicationDerived(application: FactoryOnboardingApplication, now = nowTimestamp()): FactoryOnboardingApplication {
+  const status = normalizeOnboardingStatus(application.status)
+  const currentNode = getOnboardingNodeByStatus(status)
+  const factoryShortName = application.factoryShortName || application.adminAccount.loginId || ''
+  const mobilePhone = application.mobilePhone || application.mobileOrWhatsapp || application.whatsapp || application.adminAccount.mobilePhone || application.adminAccount.mobileOrWhatsapp || application.adminAccount.whatsapp || ''
+  const mobileOrWhatsapp = mobilePhone
+  const factoryCompanyName = application.factoryCompanyName || application.factoryName || ''
+  const applicantName = application.applicantName || application.bossName || application.adminAccount.adminName || ''
+  const adminAccount: FactoryOnboardingAdminAccount = buildAdminAccountFromFactoryShortName({
+    factoryShortName,
+    applicantName,
+    mobilePhone,
+    adminAccount: application.adminAccount,
+    status,
+    accountLocked: application.accountLocked,
+  })
+  const machines = applyMachineValidation(application.machines || [], application.selectedCapabilities || [])
+  const matchResults = inferFactoryTypesFromCapabilities(application.selectedCapabilities || [])
   const primaryFactoryType = getPrimaryFactoryType(matchResults)
-  const completeness = calculateOnboardingCompleteness(application)
+  const completeness = calculateOnboardingCompleteness({
+    ...application,
+    applicantName,
+    factoryCompanyName,
+    mobileOrWhatsapp,
+    machines,
+    adminAccount,
+  })
+  const accountLocked = Boolean(application.accountLocked)
   const next: FactoryOnboardingApplication = {
     ...application,
-    machines: applyMachineValidation(application.machines, application.selectedCapabilities),
+    status,
+    currentNode,
+    factoryShortName,
+    applicantName,
+    identityNo: application.identityNo || '',
+    identityFile: application.identityFile || null,
+    factoryCompanyName,
+    factoryName: factoryCompanyName,
+    bossName: applicantName,
+    mobileOrWhatsapp,
+    mobilePhone,
+    whatsapp: mobileOrWhatsapp,
+    sourceChannel: application.sourceChannel || '',
+    ppicName: application.ppicName || '',
+    machines,
+    adminAccount,
+    accountLocked,
+    accountLockedReason: application.accountLockedReason || (accountLocked ? '历史账号状态不可用。' : undefined),
+    factoryNameLocked: Boolean(application.factoryNameLocked),
+    sampleStatus: application.sampleStatus || (status === '待样衣验证'
+      ? '待平台登记样衣'
+      : [
+          '待工厂确认收样',
+          '待工厂提交样衣审核',
+          '待平台审核样衣',
+          '样衣审核退回',
+          '样衣审核拒绝',
+          '样衣审核通过待转正式',
+          '已转正式合作',
+        ].includes(status)
+        ? status as FactoryOnboardingApplication['sampleStatus']
+        : undefined),
+    sampleVerificationId: application.sampleVerificationId,
+    sampleIssuedAt: application.sampleIssuedAt,
+    sampleExpectedSubmitAt: application.sampleExpectedSubmitAt,
     completenessScore: completeness.completenessScore,
     completenessLevel: completeness.completenessLevel,
     completenessItems: completeness.completenessItems.map((item) => ({ ...item })),
@@ -567,19 +633,26 @@ function refreshApplicationDerived(application: FactoryOnboardingApplication, no
     primaryFactoryType,
     factoryTypeMatchedAt: now,
     factoryTypeMatchReason: buildFactoryTypeMatchReason(matchResults),
-    nodeLogs: application.nodeLogs.map((item) => ({ ...item })),
-    actionLogs: application.actionLogs.map((item) => ({ ...item })),
-    reviewRecords: application.reviewRecords.map((item) => ({ ...item })),
-    supplementRecords: application.supplementRecords.map((item) => ({ ...item, requiredFields: [...item.requiredFields], submittedFields: [...item.submittedFields] })),
-    transferRecords: application.transferRecords.map((item) => ({ ...item })),
+    nodeLogs: (application.nodeLogs || []).map((item) => ({ ...item, nodeName: item.nodeName })),
+    actionLogs: (application.actionLogs || []).map((item) => ({
+      ...item,
+      fromStatus: item.fromStatus === '未提交' ? '未提交' : normalizeOnboardingStatus(item.fromStatus),
+      toStatus: item.toStatus === '未提交' ? '未提交' : normalizeOnboardingStatus(item.toStatus),
+    })),
+    reviewRecords: (application.reviewRecords || []).map((item) => ({
+      ...item,
+      requiredFields: item.requiredFields ? [...item.requiredFields] : [],
+      fromStatus: normalizeOnboardingStatus(item.fromStatus),
+      toStatus: normalizeOnboardingStatus(item.toStatus),
+    })),
+    supplementRecords: (application.supplementRecords || []).map((item) => ({ ...item, requiredFields: [...item.requiredFields], submittedFields: [...item.submittedFields] })),
+    transferRecords: application.transferRecords || [],
   }
   next.nodeLogs = next.nodeLogs.map((item) => refreshNodeLogDerived(item, next, now))
   return next
 }
 
 function cloneDraftPayload(payload: FactoryOnboardingDraftPayload): FactoryOnboardingDraftPayload {
-  const normalizedFactoryWhatsApp = normalizeWhatsApp(payload.whatsapp.trim())
-  const normalizedAdminWhatsApp = normalizeWhatsApp(payload.adminAccount.whatsapp.trim())
   const selectedCapabilities = payload.selectedCapabilities.map((item) => ({
     ...item,
     processName: item.processName || getProcessName(item.processCode),
@@ -609,81 +682,80 @@ function cloneDraftPayload(payload: FactoryOnboardingDraftPayload): FactoryOnboa
     selectedCapabilities,
   )
 
+  const factoryShortName = (payload.factoryShortName || payload.adminAccount.loginId || '').trim()
+  const mobilePhone = (payload.mobilePhone || payload.mobileOrWhatsapp || payload.whatsapp || payload.adminAccount.mobilePhone || payload.adminAccount.mobileOrWhatsapp || payload.adminAccount.whatsapp || '').trim()
+  const mobileOrWhatsapp = mobilePhone
+  const applicantName = (payload.applicantName || payload.bossName || payload.adminAccount.adminName || '').trim()
+  const factoryCompanyName = (payload.factoryCompanyName || payload.factoryName || '').trim()
+  const adminAccount = buildAdminAccountFromFactoryShortName({
+    factoryShortName,
+    applicantName,
+    mobilePhone,
+    adminAccount: payload.adminAccount,
+    status: '草稿',
+  })
+
   return {
     applicationId: payload.applicationId,
     applicationNo: payload.applicationNo,
     factoryTempId: payload.factoryTempId,
-    factoryName: payload.factoryName.trim(),
-    bossName: payload.bossName.trim(),
-    whatsapp: normalizedFactoryWhatsApp,
+    factoryShortName,
+    applicantName,
+    identityNo: payload.identityNo.trim(),
+    identityFile: payload.identityFile || null,
+    factoryCompanyName,
+    factoryName: factoryCompanyName,
+    bossName: applicantName,
     address: payload.address.trim(),
+    mobilePhone,
+    mobileOrWhatsapp,
+    whatsapp: mobileOrWhatsapp,
+    sourceChannel: payload.sourceChannel.trim(),
+    ppicName: payload.ppicName.trim(),
     machineTotalCount: Number(payload.machineTotalCount) || 0,
     effectiveWorkerCount: Number(payload.effectiveWorkerCount) || 0,
     availableStartDate: payload.availableStartDate.trim(),
     selectedCapabilities,
     machines,
-    adminAccount: {
-      ...payload.adminAccount,
-      loginId: payload.adminAccount.loginId.trim(),
-      password: payload.adminAccount.password.trim(),
-      adminName: payload.adminAccount.adminName.trim(),
-      whatsapp: normalizedAdminWhatsApp,
-      roleId: payload.adminAccount.roleId || FACTORY_ADMIN_ROLE_ID,
-      roleName: payload.adminAccount.roleName || FACTORY_ADMIN_ROLE_NAME,
-      accountStatus: payload.adminAccount.accountStatus || '待激活',
-    },
+    adminAccount,
   }
 }
 
-function validateDraftIdentityForSave(payload: FactoryOnboardingDraftPayload, confirmPassword: string): void {
-  if (payload.adminAccount.loginId.trim() && isFactoryOnboardingLoginIdTaken(payload.adminAccount.loginId, payload.applicationId)) {
-    throw new Error('登录账户已存在')
+function validateDraftIdentityForSave(payload: FactoryOnboardingDraftPayload, _confirmPassword: string): void {
+  if (payload.factoryShortName.trim()) {
+    validateFactoryShortNameUnique(payload.factoryShortName, payload.applicationId)
   }
-  if (payload.adminAccount.password.trim() && payload.adminAccount.password.trim().length < 6) {
-    throw new Error('登录密码至少 6 位')
-  }
-  if (confirmPassword.trim() && payload.adminAccount.password.trim() !== confirmPassword.trim()) {
-    throw new Error('两次输入的密码不一致')
+  if (payload.factoryCompanyName.trim() && !canStartNewOnboarding(payload.factoryCompanyName, payload.applicationId)) {
+    throw new Error(getLockedFactoryNameReason(payload.factoryCompanyName, payload.applicationId))
   }
 }
 
-function validateAdminAccount(adminAccount: FactoryOnboardingAdminAccount, applicationId?: string): void {
-  if (!adminAccount.loginId.trim()) throw new Error('请填写登录账户')
-  if (isFactoryOnboardingLoginIdTaken(adminAccount.loginId, applicationId)) throw new Error('登录账户已存在')
-  if (!adminAccount.password.trim()) throw new Error('请填写登录密码')
-  if (adminAccount.password.trim().length < 6) throw new Error('登录密码至少 6 位')
-}
-
-export function validateFactoryOnboardingDraftPayload(payload: FactoryOnboardingDraftPayload, confirmPassword: string): void {
-  validateAdminAccount(payload.adminAccount, payload.applicationId)
-  if (!confirmPassword.trim()) throw new Error('请再次输入登录密码')
-  if (payload.adminAccount.password.trim() !== confirmPassword.trim()) throw new Error('两次输入的密码不一致')
-  if (!payload.adminAccount.adminName.trim()) throw new Error('请填写管理员姓名')
-  if (!payload.adminAccount.whatsapp.trim()) throw new Error('请填写管理员 WhatsApp')
-  if (!validateWhatsApp(payload.adminAccount.whatsapp).isValid) throw new Error('WhatsApp 格式不正确，请填写印尼手机号，例如 +6281234567890')
-
-  if (!payload.factoryName.trim()) throw new Error('请填写工厂名称')
-  if (!payload.bossName.trim()) throw new Error('请填写老板名字')
-  if (!payload.whatsapp.trim()) throw new Error('请填写 WhatsApp')
-  if (!validateWhatsApp(payload.whatsapp).isValid) throw new Error('WhatsApp 格式不正确，请填写印尼手机号，例如 +6281234567890')
+export function validateFactoryOnboardingDraftPayload(payload: FactoryOnboardingDraftPayload, _confirmPassword = ''): void {
+  validateFactoryShortNameUnique(payload.factoryShortName, payload.applicationId)
+  if (!payload.applicantName.trim()) throw new Error('请填写姓名')
+  if (!payload.identityNo.trim()) throw new Error('请填写身份证号码/护照号码')
+  if (!hasValidIdentityFile(payload.identityFile)) throw new Error('请上传身份证复印件/电子文件')
+  if (!payload.factoryCompanyName.trim()) throw new Error('请填写工厂/公司名称')
+  if (!canStartNewOnboarding(payload.factoryCompanyName, payload.applicationId)) {
+    throw new Error(getLockedFactoryNameReason(payload.factoryCompanyName, payload.applicationId))
+  }
   if (!payload.address.trim()) throw new Error('请填写地址')
-  if (!payload.availableStartDate.trim()) throw new Error('请选择可开始合作时间')
-
+  if (!payload.mobilePhone.trim() || !hasBasicMobileValue(payload.mobilePhone)) throw new Error('请填写手机号')
+  if (!payload.sourceChannel.trim()) throw new Error('请填写来源')
+  if (!payload.ppicName.trim()) throw new Error('请填写收到此通知的 PPIC 姓名')
   if (!payload.effectiveWorkerCount) throw new Error('请填写有效工人数量')
   if (payload.effectiveWorkerCount <= 0) throw new Error('有效工人数量必须大于 0')
-  if (!payload.machineTotalCount) throw new Error('请填写机器总数')
-  if (payload.machineTotalCount <= 0) throw new Error('机器总数必须大于 0')
+  if (!payload.machineTotalCount) throw new Error('请填写机器数量')
+  if (payload.machineTotalCount <= 0) throw new Error('机器数量必须大于 0')
+  if (!payload.availableStartDate.trim()) throw new Error('请选择可开始合作时间')
 
   if (payload.selectedCapabilities.length <= 0) throw new Error('请至少选择一个工序工艺')
   payload.selectedCapabilities.forEach((item) => {
     if (!item.processCode || !item.craftCode) throw new Error('请选择工序下的具体工艺')
-    if (!isSelectableCraft(item.processCode, item.craftCode)) {
-      throw new Error('请选择工序下的具体工艺')
-    }
+    if (!isSelectableCraft(item.processCode, item.craftCode)) throw new Error('请选择工序下的具体工艺')
   })
 
   if (payload.machines.length <= 0) throw new Error('请至少添加一条机器明细')
-
   payload.machines.forEach((machine) => {
     if (!machine.machineName.trim()) throw new Error('请填写机器名称')
     if (!machine.machineCount) throw new Error('请填写机器数量')
@@ -692,9 +764,7 @@ export function validateFactoryOnboardingDraftPayload(payload: FactoryOnboarding
 
   const validatedMachines = applyMachineValidation(payload.machines, payload.selectedCapabilities)
   const firstInvalid = validatedMachines.find((item) => item.validationStatus !== '通过')
-  if (firstInvalid) {
-    throw new Error(firstInvalid.validationMessage)
-  }
+  if (firstInvalid) throw new Error(firstInvalid.validationMessage)
 }
 
 function buildApplicationFromPayload(
@@ -708,10 +778,21 @@ function buildApplicationFromPayload(
     applicationId: payload.applicationId || `FOA-${Date.now()}`,
     applicationNo: payload.applicationNo || buildApplicationNo(),
     factoryTempId: payload.factoryTempId || buildFactoryTempId(),
-    factoryName: normalized.factoryName,
-    bossName: normalized.bossName,
-    whatsapp: normalized.whatsapp,
+    status,
+    currentNode,
+    factoryShortName: normalized.factoryShortName,
+    applicantName: normalized.applicantName,
+    identityNo: normalized.identityNo,
+    identityFile: normalized.identityFile,
+    factoryCompanyName: normalized.factoryCompanyName,
+    factoryName: normalized.factoryCompanyName,
+    bossName: normalized.applicantName,
     address: normalized.address,
+    mobilePhone: normalized.mobilePhone,
+    mobileOrWhatsapp: normalized.mobileOrWhatsapp,
+    whatsapp: normalized.mobileOrWhatsapp,
+    sourceChannel: normalized.sourceChannel,
+    ppicName: normalized.ppicName,
     machineTotalCount: normalized.machineTotalCount,
     effectiveWorkerCount: normalized.effectiveWorkerCount,
     availableStartDate: normalized.availableStartDate,
@@ -721,14 +802,26 @@ function buildApplicationFromPayload(
       ...normalized.adminAccount,
       roleId: FACTORY_ADMIN_ROLE_ID,
       roleName: FACTORY_ADMIN_ROLE_NAME,
-      accountStatus: status === '已合作' ? '已转正式' : status === '已拒绝' ? '已停用' : '待转正式',
+      accountStatus: canFactoryEnterBusiness(status) ? '已转正式' : '入驻中',
     },
-    status,
-    currentNode,
     submittedAt: undefined,
+    lastSubmittedAt: undefined,
     reviewedAt: undefined,
-    contractedAt: undefined,
+    sampleVerifiedAt: undefined,
+    sampleIssuedAt: undefined,
+    sampleExpectedSubmitAt: undefined,
+    convertedAt: undefined,
     createdFactoryId: undefined,
+    nodeLogs: [createNodeLog(currentNode, '进行中', now, normalized.adminAccount.adminName || normalized.applicantName || '工厂用户', '创建入驻申请')],
+    actionLogs: [],
+    reviewRecords: [],
+    supplementRecords: [],
+    accountLocked: false,
+    accountLockedReason: undefined,
+    factoryNameLocked: false,
+    lockedAt: undefined,
+    sampleVerificationId: undefined,
+    sampleStatus: undefined,
     completenessScore: 0,
     completenessLevel: '不完整',
     completenessItems: [],
@@ -737,10 +830,6 @@ function buildApplicationFromPayload(
     primaryFactoryType: 'CUTTING_FACTORY',
     factoryTypeMatchedAt: now,
     factoryTypeMatchReason: '',
-    nodeLogs: [createNodeLog(currentNode, '进行中', now, normalized.adminAccount.adminName || normalized.bossName, '创建入驻申请')],
-    actionLogs: [],
-    reviewRecords: [],
-    supplementRecords: [],
     transferRecords: [],
   }, now)
 }
@@ -783,13 +872,7 @@ export function updateNodeLogOnTransition(
   const nextNodeLogs = application.nodeLogs.map((item) => {
     if (!fromClosed && item.nodeName === fromNode && !item.leftAt) {
       fromClosed = true
-      const next = {
-        ...item,
-        nodeStatus: closingStatus,
-        leftAt: now,
-        operator,
-        remark: remark || item.remark,
-      }
+      const next = { ...item, nodeStatus: closingStatus, leftAt: now, operator, remark: remark || item.remark }
       next.elapsedMinutes = calculateNodeElapsedMinutes(next, now)
       next.elapsedText = buildNodeElapsedText(next, now)
       return next
@@ -805,14 +888,7 @@ export function updateNodeLogOnTransition(
   }
   nextNodeLogs.push(openedNode)
 
-  return refreshApplicationDerived(
-    {
-      ...application,
-      currentNode: toNode,
-      nodeLogs: nextNodeLogs,
-    },
-    now,
-  )
+  return refreshApplicationDerived({ ...application, currentNode: toNode, nodeLogs: nextNodeLogs }, now)
 }
 
 function appendAction(
@@ -830,28 +906,25 @@ function appendAction(
   },
 ): FactoryOnboardingApplication {
   const actionSequenceInNode = application.actionLogs.filter((item) => item.nodeName === input.nodeName).length + 1
-  return refreshApplicationDerived(
-    {
-      ...application,
-      actionLogs: [
-        ...application.actionLogs,
-        {
-          actionLogId: buildActionLogId(input.actionName, input.operatedAt),
-          actionName: input.actionName,
-          nodeName: input.nodeName,
-          operator: input.operator,
-          operatedAt: input.operatedAt,
-          actionSequenceInNode,
-          fromStatus: input.fromStatus,
-          toStatus: input.toStatus,
-          fromNode: input.fromNode,
-          toNode: input.toNode,
-          remark: input.remark,
-        },
-      ],
-    },
-    input.operatedAt,
-  )
+  return refreshApplicationDerived({
+    ...application,
+    actionLogs: [
+      ...application.actionLogs,
+      {
+        actionLogId: buildActionLogId(input.actionName, input.operatedAt),
+        actionName: input.actionName,
+        nodeName: input.nodeName,
+        operator: input.operator,
+        operatedAt: input.operatedAt,
+        actionSequenceInNode,
+        fromStatus: input.fromStatus,
+        toStatus: input.toStatus,
+        fromNode: input.fromNode,
+        toNode: input.toNode,
+        remark: input.remark,
+      },
+    ],
+  }, input.operatedAt)
 }
 
 function getNextReviewRoundNo(application: FactoryOnboardingApplication): number {
@@ -870,13 +943,18 @@ function getPendingSupplementRecord(application: FactoryOnboardingApplication): 
 
 function buildStatusTipLabel(status: FactoryOnboardingStatus): string {
   const map: Record<FactoryOnboardingStatus, string> = {
-    草稿: '当前工厂仍在填写入驻信息，请先完成入驻资料。',
-    已提交待审核: '当前工厂入驻资料正在平台审核，暂不能进入业务页面。',
-    退回补充资料: '当前工厂资料已被退回，请补充后重新提交。',
-    已重新提交待审核: '当前工厂补充资料后已重新提交审核，暂不能进入业务页面。',
-    审核通过待确认合作: '平台已审核通过，待确认合作后方可进入业务页面。',
-    已拒绝: '当前工厂入驻申请已拒绝，暂不能进入业务页面。',
-    已合作: '已生成正式管理员账号，请重新登录进入业务页面。',
+    草稿: '草稿',
+    待平台审核: '待平台审核',
+    平台审核退回: '平台审核退回',
+    平台审核拒绝: '平台审核退回',
+    待样衣验证: '待样衣验证',
+    待工厂确认收样: '待确认收样',
+    待工厂提交样衣审核: '待提交样衣审核',
+    待平台审核样衣: '待平台审核样衣',
+    样衣审核退回: '样衣审核退回',
+    样衣审核拒绝: '样衣审核退回',
+    样衣审核通过待转正式: '待转正式合作',
+    已转正式合作: '已转正式合作',
   }
   return map[status]
 }
@@ -885,20 +963,20 @@ export function saveFactoryOnboardingDraft(payload: FactoryOnboardingDraftPayloa
   const normalized = cloneDraftPayload(payload)
   validateDraftIdentityForSave(normalized, confirmPassword)
   const now = nowTimestamp()
-  const operator = normalized.adminAccount.adminName || normalized.bossName || '工厂用户'
+  const operator = normalized.adminAccount.adminName || normalized.applicantName || '工厂用户'
   const existing = normalized.applicationId ? getFactoryOnboardingApplicationById(normalized.applicationId) : null
 
   if (!existing) {
-    let application = buildApplicationFromPayload(normalized, '草稿', '填写入驻信息')
+    let application = buildApplicationFromPayload(normalized, '草稿', '填写入驻申请')
     application = appendAction(application, {
       actionName: '保存草稿',
-      nodeName: '填写入驻信息',
+      nodeName: '填写入驻申请',
       operator,
       operatedAt: now,
       fromStatus: '未提交',
       toStatus: '草稿',
       fromNode: '未开始',
-      toNode: '填写入驻信息',
+      toNode: '填写入驻申请',
       remark: '保存入驻草稿',
     })
     const saved = saveFactoryOnboardingApplication(application)
@@ -907,12 +985,11 @@ export function saveFactoryOnboardingDraft(payload: FactoryOnboardingDraftPayloa
     return saved
   }
 
-  if (!isEditableStatus(existing.status)) {
-    return refreshApplicationDerived(existing)
-  }
+  const current = refreshApplicationDerived(existing, now)
+  if (!canFactoryEditOnboarding(current.status)) return current
 
-  let updated: FactoryOnboardingApplication = refreshApplicationDerived({
-    ...existing,
+  let updated = refreshApplicationDerived({
+    ...current,
     ...normalized,
     selectedCapabilities: normalized.selectedCapabilities,
     machines: normalized.machines,
@@ -920,20 +997,20 @@ export function saveFactoryOnboardingDraft(payload: FactoryOnboardingDraftPayloa
       ...normalized.adminAccount,
       roleId: FACTORY_ADMIN_ROLE_ID,
       roleName: FACTORY_ADMIN_ROLE_NAME,
-      accountStatus: existing.status === '已拒绝' ? '已停用' : existing.status === '已合作' ? '已转正式' : '待转正式',
+      accountStatus: current.adminAccount.accountStatus === '已转正式' ? '已转正式' : '入驻中',
     },
   }, now)
 
   updated = appendAction(updated, {
     actionName: '保存草稿',
-    nodeName: existing.currentNode,
+    nodeName: current.currentNode,
     operator,
     operatedAt: now,
-    fromStatus: existing.status,
-    toStatus: existing.status,
-    fromNode: existing.currentNode,
-    toNode: existing.currentNode,
-    remark: existing.currentNode === '补充资料' ? '补充资料暂存' : '更新入驻草稿',
+    fromStatus: current.status,
+    toStatus: current.status,
+    fromNode: current.currentNode,
+    toNode: current.currentNode,
+    remark: current.status === '平台审核退回' ? '根据平台意见暂存入驻资料' : '更新入驻草稿',
   })
 
   const saved = saveFactoryOnboardingApplication(updated)
@@ -952,13 +1029,14 @@ export function submitFactoryOnboardingApplication(payload: FactoryOnboardingDra
   }
   validateFactoryOnboardingDraftPayload(normalized, confirmPassword)
   const now = nowTimestamp()
-  const operator = normalized.adminAccount.adminName || normalized.bossName || '工厂用户'
+  const operator = normalized.adminAccount.adminName || normalized.applicantName || '工厂用户'
   const existing = normalized.applicationId ? getFactoryOnboardingApplicationById(normalized.applicationId) : null
-  const isResubmit = existing?.status === '退回补充资料'
+  const current = existing ? refreshApplicationDerived(existing, now) : null
+  const isResubmit = current?.status === '平台审核退回'
 
-  let application = existing
+  let application = current
     ? refreshApplicationDerived({
-        ...existing,
+        ...current,
         ...normalized,
         selectedCapabilities: normalized.selectedCapabilities,
         machines: normalized.machines,
@@ -966,18 +1044,22 @@ export function submitFactoryOnboardingApplication(payload: FactoryOnboardingDra
           ...normalized.adminAccount,
           roleId: FACTORY_ADMIN_ROLE_ID,
           roleName: FACTORY_ADMIN_ROLE_NAME,
-          accountStatus: '待转正式',
+          accountStatus: '入驻中',
         },
       }, now)
-    : buildApplicationFromPayload(normalized, '草稿', '填写入驻信息')
+    : buildApplicationFromPayload(normalized, '草稿', '填写入驻申请')
+
+  if (!canFactorySubmitOnboarding(application.status)) {
+    throw new Error('当前状态不可提交入驻申请')
+  }
 
   if (application.completenessScore < COMPLETENESS_SUBMIT_THRESHOLD) {
     throw new Error(`资料完整性不足 ${COMPLETENESS_SUBMIT_THRESHOLD} 分，请先补充必填信息后再提交。`)
   }
 
-  const fromStatus = existing?.status || '未提交'
-  const fromNode = existing?.currentNode || '填写入驻信息'
-  const toStatus: FactoryOnboardingStatus = isResubmit ? '已重新提交待审核' : '已提交待审核'
+  const fromStatus = current?.status || '未提交'
+  const fromNode = current?.currentNode || '填写入驻申请'
+  const toStatus: FactoryOnboardingStatus = '待平台审核'
 
   application = appendAction(application, {
     actionName: isResubmit ? '工厂重新提交' : '提交入驻申请',
@@ -988,7 +1070,7 @@ export function submitFactoryOnboardingApplication(payload: FactoryOnboardingDra
     toStatus,
     fromNode,
     toNode: '平台审核',
-    remark: isResubmit ? '补充资料后重新提交平台审核' : '首次提交平台审核',
+    remark: isResubmit ? '根据平台退回意见再次提交平台审核' : '首次提交平台审核',
   })
   application = updateNodeLogOnTransition(application, fromNode, '平台审核', isResubmit ? '工厂重新提交' : '提交入驻申请', operator, {
     now,
@@ -1005,28 +1087,20 @@ export function submitFactoryOnboardingApplication(payload: FactoryOnboardingDra
         ...application,
         supplementRecords: application.supplementRecords.map((item) =>
           item.supplementId === pending.supplementId
-            ? {
-                ...item,
-                status: '已重新提交',
-                submittedAt: now,
-                submittedBy: operator,
-                submittedFields,
-              }
+            ? { ...item, status: '已重新提交', submittedAt: now, submittedBy: operator, submittedFields }
             : item,
         ),
       }
     }
   }
 
-  application = refreshApplicationDerived(
-    {
-      ...application,
-      status: toStatus,
-      currentNode: '平台审核',
-      submittedAt: now,
-    },
-    now,
-  )
+  application = refreshApplicationDerived({
+    ...application,
+    status: toStatus,
+    currentNode: '平台审核',
+    submittedAt: application.submittedAt || now,
+    lastSubmittedAt: now,
+  }, now)
 
   const saved = saveFactoryOnboardingApplication(application)
   setFactoryOnboardingApplicantSession(createFactoryOnboardingApplicantSession(saved))
@@ -1037,18 +1111,33 @@ export function submitFactoryOnboardingApplication(payload: FactoryOnboardingDra
 export function authenticateFactoryOnboardingAdmin(loginId: string, password: string): FactoryOnboardingApplication | null {
   const application = findFactoryOnboardingApplicationByLoginId(loginId)
   if (!application) return null
-  if (normalizeLoginId(application.adminAccount.loginId) !== normalizeLoginId(loginId)) return null
-  if (application.adminAccount.password.trim() !== password.trim()) return null
-  return refreshApplicationDerived(application)
+  const normalized = refreshApplicationDerived(application)
+  if (normalizeLoginId(normalized.adminAccount.loginId) !== normalizeLoginId(loginId)) return null
+  if (normalized.adminAccount.password.trim() !== password.trim()) return null
+  if (normalized.accountLocked) return null
+  return normalized
+}
+
+export function getFactoryOnboardingLoginFailureMessage(loginId: string, password: string): string {
+  const application = findFactoryOnboardingApplicationByLoginId(loginId)
+  if (!application) return '账号或密码错误'
+  const normalized = refreshApplicationDerived(application)
+  if (normalizeLoginId(normalized.adminAccount.loginId) !== normalizeLoginId(loginId)) return '账号或密码错误'
+  if (normalized.adminAccount.password.trim() !== password.trim()) return '账号或密码错误'
+  if (normalized.accountLocked) {
+    return '账号状态不可用'
+  }
+  return '账号或密码错误'
 }
 
 export function getFactoryOnboardingCurrentNodeSummary(application: FactoryOnboardingApplication): FactoryOnboardingNodeSummary {
-  const currentNodeLog = getCurrentNodeLog(application)
-  const lastAction = getLatestAction(application, application.currentNode) || getLatestAction(application)
-  const actionCount = getNodeActionCount(application, application.currentNode)
+  const current = refreshApplicationDerived(application)
+  const currentNodeLog = getCurrentNodeLog(current)
+  const lastAction = getLatestAction(current, current.currentNode) || getLatestAction(current)
+  const actionCount = getNodeActionCount(current, current.currentNode)
   return {
-    currentNode: application.currentNode,
-    currentStatusLabel: application.status,
+    currentNode: current.currentNode,
+    currentStatusLabel: current.status,
     currentNodeStatus: currentNodeLog?.nodeStatus || '未开始',
     elapsedText: currentNodeLog?.elapsedText || '-',
     actionCountText: `第${Math.max(1, actionCount || 1)}次动作`,
@@ -1060,9 +1149,7 @@ export function getFactoryOnboardingCurrentNodeSummary(application: FactoryOnboa
 
 export function getPdaCurrentAuthSession(): PdaPostLoginSession | null {
   const pdaSession = getPdaSession()
-  if (pdaSession) {
-    return { kind: 'PDA', session: pdaSession }
-  }
+  if (pdaSession) return { kind: 'PDA', session: pdaSession }
 
   const applicantSession = getFactoryOnboardingApplicantSession()
   if (!applicantSession) return null
@@ -1082,8 +1169,21 @@ export function buildPdaAuthOnboardingPath(returnTo?: string, applicationId?: st
 export function resolvePdaPostLoginRoute(session: PdaPostLoginSession | null, returnTo?: string): string {
   if (!session) return buildPdaAuthLoginPath(returnTo)
   if (session.kind === 'PDA') return returnTo?.trim() || '/fcs/pda/exec'
-  if (session.application.status === '已合作') return returnTo?.trim() || '/fcs/pda/exec'
-  return buildPdaAuthOnboardingPath(returnTo, session.application.applicationId)
+  const application = refreshApplicationDerived(session.application)
+  if (canFactoryEnterBusiness(application.status)) return returnTo?.trim() || '/fcs/pda/exec'
+  return buildPdaAuthOnboardingPath(returnTo, application.applicationId)
+}
+
+function getPdaReasonCode(status: FactoryOnboardingStatus): PdaFactoryAccessReasonCode {
+  if (status === '草稿') return 'DRAFT'
+  if (status === '平台审核退回') return 'RETURNED'
+  if (status === '平台审核拒绝') return 'RETURNED'
+  if (status === '样衣审核拒绝') return 'WAITING_SAMPLE'
+  if (status === '待样衣验证' || status === '待工厂确认收样' || status === '待工厂提交样衣审核' || status === '样衣审核退回') return 'WAITING_SAMPLE'
+  if (status === '待平台审核样衣') return 'SAMPLE_REVIEW'
+  if (status === '样衣审核通过待转正式') return 'FORMAL_PENDING'
+  if (status === '已转正式合作') return 'COOPERATED'
+  return 'UNDER_REVIEW'
 }
 
 export function getPdaFactoryAccessState(): PdaFactoryAccessState {
@@ -1109,7 +1209,7 @@ export function getPdaFactoryAccessState(): PdaFactoryAccessState {
       canAccessBusiness: true,
       isCooperatedFactory: true,
       reasonCode: 'COOPERATED',
-      reasonLabel: '已合作工厂，可进入业务页面',
+      reasonLabel: '已转正式合作工厂，可进入业务页面',
       sessionKind: 'PDA',
       route: '/fcs/pda/exec',
       onboardingApplication: null,
@@ -1118,26 +1218,16 @@ export function getPdaFactoryAccessState(): PdaFactoryAccessState {
     }
   }
 
-  const application = session.application
+  const application = refreshApplicationDerived(session.application)
+  const canAccessBusiness = canFactoryEnterBusiness(application.status)
   return {
     isLoggedIn: true,
-    canAccessBusiness: false,
-    isCooperatedFactory: false,
-    reasonCode:
-      application.status === '草稿'
-        ? 'DRAFT'
-        : application.status === '退回补充资料'
-          ? 'SUPPLEMENT_REQUIRED'
-          : application.status === '审核通过待确认合作'
-            ? 'WAITING_COOPERATION'
-            : application.status === '已拒绝'
-              ? 'REJECTED'
-              : application.status === '已合作'
-                ? 'RELOGIN_REQUIRED'
-                : 'UNDER_REVIEW',
+    canAccessBusiness,
+    isCooperatedFactory: canAccessBusiness,
+    reasonCode: getPdaReasonCode(application.status),
     reasonLabel: buildStatusTipLabel(application.status),
     sessionKind: 'ONBOARDING',
-    route: application.status === '已合作' ? buildPdaAuthLoginPath('/fcs/pda/exec') : buildPdaAuthOnboardingPath(undefined, application.applicationId),
+    route: canAccessBusiness ? '/fcs/pda/exec' : buildPdaAuthOnboardingPath(undefined, application.applicationId),
     onboardingApplication: application,
     applicantSession: session.session,
     pdaSession: null,
@@ -1157,7 +1247,7 @@ export function ensurePdaAccessForRoute(targetRoute: string): { allowed: boolean
     return { allowed: false, redirectPath: buildPdaAuthLoginPath(returnTo), reasonLabel: accessState.reasonLabel }
   }
 
-  if (accessState.reasonCode === 'RELOGIN_REQUIRED') {
+  if (accessState.reasonCode === 'LOCKED') {
     clearFactoryOnboardingApplicantSession()
     return { allowed: false, redirectPath: buildPdaAuthLoginPath(returnTo), reasonLabel: accessState.reasonLabel }
   }
@@ -1190,126 +1280,52 @@ export function logoutPdaAccess(): void {
 export function listFactoryOnboardingStatusBuckets() {
   const applications = listFactoryOnboardingApplications().map((item) => refreshApplicationDerived(item))
   return {
-    待审核: applications.filter((item) => item.status === '已提交待审核' || item.status === '已重新提交待审核').length,
-    退回补充: applications.filter((item) => item.status === '退回补充资料').length,
-    待确认合作: applications.filter((item) => item.status === '审核通过待确认合作').length,
-    已合作: applications.filter((item) => item.status === '已合作').length,
-    已拒绝: applications.filter((item) => item.status === '已拒绝').length,
-  }
-}
-
-function buildFactoryTypeFromCapabilities(capabilities: FactoryOnboardingSelectedCapability[]): FactoryType {
-  const processCode = capabilities[0]?.processCode
-  if (processCode === 'PRINT') return 'CENTRAL_PRINT'
-  if (processCode === 'DYE') return 'CENTRAL_DYE'
-  if (processCode === 'SPECIAL_CRAFT') return 'CENTRAL_SPECIAL'
-  if (processCode === 'POST_FINISHING') return 'SATELLITE_FINISHING'
-  return 'CENTRAL_CUTTING'
-}
-
-function buildFactoryProcessAbilities(capabilities: FactoryOnboardingSelectedCapability[]): FactoryProcessAbility[] {
-  const grouped = new Map<string, FactoryProcessAbility>()
-  capabilities.forEach((item) => {
-    const existing = grouped.get(item.processCode)
-    if (existing) {
-      if (!existing.craftCodes.includes(item.craftCode)) existing.craftCodes.push(item.craftCode)
-      existing.craftNames = unique([...(existing.craftNames || []), item.craftName])
-      return
-    }
-
-    grouped.set(item.processCode, {
-      processCode: item.processCode,
-      processName: item.processName,
-      craftCodes: [item.craftCode],
-      craftNames: [item.craftName],
-      abilityScope: 'CRAFT',
-      canReceiveTask: item.canReceiveTask,
-      capacityManaged: item.capacityManaged,
-      status: 'ACTIVE',
-      abilityName: `${item.processName} / ${item.craftName}`,
-    })
-  })
-  return [...grouped.values()]
-}
-
-function buildFactoryArchiveFromOnboarding(application: FactoryOnboardingApplication, factoryId: string): Factory {
-  const now = nowTimestamp()
-  const existing = application.createdFactoryId ? getFactoryMasterRecordById(application.createdFactoryId) : null
-  return {
-    id: existing?.id || factoryId,
-    code: existing?.code || generateFactoryCode(),
-    name: application.factoryName,
-    address: application.address,
-    contact: application.bossName,
-    phone: application.whatsapp,
-    status: 'active',
-    cooperationMode: 'general',
-    processAbilities: buildFactoryProcessAbilities(application.selectedCapabilities),
-    qualityScore: existing?.qualityScore ?? 92,
-    deliveryScore: existing?.deliveryScore ?? 91,
-    createdAt: existing?.createdAt ?? now,
-    updatedAt: now,
-    factoryTier: 'CENTRAL',
-    factoryType: existing?.factoryType ?? mapInferredTypeToArchiveFactoryType(application.primaryFactoryType),
-    parentFactoryId: existing?.parentFactoryId,
-    pdaEnabled: true,
-    pdaTenantId: existing?.pdaTenantId || factoryId,
-    isTestFactory: existing?.isTestFactory,
-    testFactoryScope: existing?.testFactoryScope,
-    primaryFactoryType: application.primaryFactoryType,
-    inferredFactoryTypes: application.inferredFactoryTypes.map((item) => ({ ...item, matchedCapabilities: [...item.matchedCapabilities] })),
-    factoryTypeMatchedAt: application.factoryTypeMatchedAt,
-    factoryTypeMatchReason: application.factoryTypeMatchReason,
-    eligibility: {
-      allowDispatch: true,
-      allowBid: true,
-      allowExecute: true,
-      allowSettle: true,
-    },
+    待平台审核: applications.filter((item) => item.status === '待平台审核').length,
+    平台审核退回: applications.filter((item) => item.status === '平台审核退回' || item.status === '平台审核拒绝').length,
+    待样衣验证: applications.filter((item) => item.status === '待样衣验证').length,
+    样衣审核中: applications.filter((item) => item.status === '待平台审核样衣' || item.status === '样衣审核退回' || item.status === '样衣审核拒绝').length,
+    待转正式: applications.filter((item) => item.status === '样衣审核通过待转正式').length,
+    已转正式合作: applications.filter((item) => item.status === '已转正式合作').length,
   }
 }
 
 export function reviewFactoryOnboardingApplication(input: ReviewApplicationInput): FactoryOnboardingApplication {
-  const { applicationId, reviewResult, reviewOpinion, reviewer } = input
+  const { applicationId, reviewOpinion, reviewer } = input
+  const reviewResult = normalizeReviewResult(input.reviewResult)
   const requiredFields = unique((input.requiredFields || []).filter((item): item is FactoryOnboardingRequiredField => FACTORY_ONBOARDING_REQUIRED_FIELD_OPTIONS.includes(item)))
   if (!reviewOpinion.trim()) throw new Error('请填写审核意见')
-  if (reviewResult === '不通过且允许再次提交' && requiredFields.length <= 0) {
-    throw new Error('请至少选择一个需补充字段')
-  }
+  if (reviewResult === '未通过' && requiredFields.length <= 0) throw new Error('请至少选择一个需补充字段')
 
   const application = getFactoryOnboardingApplicationById(applicationId)
   if (!application) throw new Error('未找到入驻申请')
-  if (!(application.status === '已提交待审核' || application.status === '已重新提交待审核')) {
-    throw new Error('当前状态不可审核')
-  }
+  const current = refreshApplicationDerived(application)
+  if (current.status !== '待平台审核') throw new Error('当前状态不可审核')
 
   const now = nowTimestamp()
-  const fromStatus = application.status
-  const fromNode = application.currentNode
+  const fromStatus = current.status
+  const fromNode = current.currentNode
   let toStatus: FactoryOnboardingStatus
   let toNode: FactoryOnboardingNode
   let openingNodeStatus: FactoryOnboardingNodeStatus = '进行中'
   let actionName: FactoryOnboardingActionName
+  let transitionRemark: string
 
-  if (reviewResult === '通过') {
-    toStatus = '审核通过待确认合作'
-    toNode = '确认合作'
-    actionName = '平台审核通过'
-  } else if (reviewResult === '不通过且允许再次提交') {
-    toStatus = '退回补充资料'
-    toNode = '补充资料'
-    openingNodeStatus = '进行中'
-    actionName = '平台退回补充资料'
+  if (reviewResult === '已通过') {
+    toStatus = '待样衣验证'
+    toNode = '样衣验证'
+    actionName = '平台初审已通过'
+    transitionRemark = '平台初审已通过，等待平台登记并发放样衣'
   } else {
-    toStatus = '已拒绝'
-    toNode = '完成'
-    openingNodeStatus = '已终止'
-    actionName = '平台拒绝入驻'
+    toStatus = '平台审核退回'
+    toNode = '填写入驻申请'
+    openingNodeStatus = '进行中'
+    actionName = '平台初审未通过'
+    transitionRemark = '平台初审未通过，等待工厂补充资料'
   }
 
-  let updated = appendAction(refreshApplicationDerived(application, now), {
+  let updated = appendAction(current, {
     actionName,
-    nodeName: toNode,
+    nodeName: fromNode,
     operator: reviewer.trim(),
     operatedAt: now,
     fromStatus,
@@ -1320,14 +1336,9 @@ export function reviewFactoryOnboardingApplication(input: ReviewApplicationInput
   })
   updated = updateNodeLogOnTransition(updated, fromNode, toNode, actionName, reviewer.trim(), {
     now,
-    closingStatus: reviewResult === '不通过且允许再次提交' ? '已退回' : reviewResult === '通过' ? '已完成' : '已终止',
+    closingStatus: reviewResult === '未通过' ? '已退回' : '已完成',
     openingStatus: openingNodeStatus,
-    remark:
-      reviewResult === '通过'
-        ? '平台审核通过，等待确认合作'
-        : reviewResult === '不通过且允许再次提交'
-          ? '平台已退回补充资料'
-          : '平台已拒绝入驻申请',
+    remark: transitionRemark,
   })
 
   const reviewId = `REV-${Date.now()}`
@@ -1336,7 +1347,8 @@ export function reviewFactoryOnboardingApplication(input: ReviewApplicationInput
     reviewRoundNo: getNextReviewRoundNo(updated),
     reviewResult,
     reviewOpinion: reviewOpinion.trim(),
-    allowResubmit: reviewResult === '不通过且允许再次提交',
+    resubmitAllowed: reviewResult === '未通过',
+    requiredFields: reviewResult === '未通过' ? requiredFields : [],
     reviewer: reviewer.trim(),
     reviewedAt: now,
     fromStatus,
@@ -1345,7 +1357,7 @@ export function reviewFactoryOnboardingApplication(input: ReviewApplicationInput
     toNode,
   }
 
-  const supplementRecords = reviewResult === '不通过且允许再次提交'
+  const supplementRecords = reviewResult === '未通过'
     ? [
         ...updated.supplementRecords,
         {
@@ -1362,21 +1374,25 @@ export function reviewFactoryOnboardingApplication(input: ReviewApplicationInput
       ]
     : updated.supplementRecords
 
-  updated = refreshApplicationDerived(
-    {
-      ...updated,
-      status: toStatus,
-      currentNode: toNode,
-      reviewedAt: now,
-      reviewRecords: [...updated.reviewRecords, nextReviewRecord],
-      supplementRecords,
-      adminAccount: {
-        ...updated.adminAccount,
-        accountStatus: toStatus === '已拒绝' ? '已停用' : updated.adminAccount.accountStatus,
-      },
+  updated = refreshApplicationDerived({
+    ...updated,
+    status: toStatus,
+    currentNode: toNode,
+    reviewedAt: now,
+    sampleVerifiedAt: updated.sampleVerifiedAt,
+    sampleVerificationId: updated.sampleVerificationId,
+    sampleStatus: reviewResult === '已通过' ? '待平台登记样衣' : updated.sampleStatus,
+    reviewRecords: [...updated.reviewRecords, nextReviewRecord],
+    supplementRecords,
+    accountLocked: false,
+    accountLockedReason: undefined,
+    factoryNameLocked: false,
+    lockedAt: undefined,
+    adminAccount: {
+      ...updated.adminAccount,
+      accountStatus: '入驻中',
     },
-    now,
-  )
+  }, now)
 
   const saved = saveFactoryOnboardingApplication(updated)
   const applicantSession = getFactoryOnboardingApplicantSession()
@@ -1386,114 +1402,298 @@ export function reviewFactoryOnboardingApplication(input: ReviewApplicationInput
   return saved
 }
 
-export async function confirmFactoryOnboardingCooperation(input: { applicationId: string; operator: string }): Promise<FactoryOnboardingApplication> {
-  const application = getFactoryOnboardingApplicationById(input.applicationId)
-  if (!application) throw new Error('未找到入驻申请')
-  if (application.status !== '审核通过待确认合作') throw new Error('当前状态不可确认合作')
+function getOnboardingDigits(value: string): string {
+  return value.replace(/\D/g, '').slice(-4).padStart(4, '0')
+}
 
+function mapOnboardingFactoryType(typeCode: FactoryInferredTypeCode): FactoryType {
+  const map: Record<FactoryInferredTypeCode, FactoryType> = {
+    CUTTING_FACTORY: 'CENTRAL_CUTTING',
+    PRINTING_FACTORY: 'CENTRAL_PRINT',
+    DYEING_FACTORY: 'CENTRAL_DYE',
+    POST_FINISHING_FACTORY: 'SATELLITE_FINISHING',
+    SPECIAL_CRAFT_FACTORY: 'CENTRAL_SPECIAL',
+    SEWING_FACTORY: 'SATELLITE_SEWING',
+    MULTI_CAPABILITY_FACTORY: 'CENTRAL_GARMENT',
+  }
+  return map[typeCode] || 'CENTRAL_GARMENT'
+}
+
+function buildFactoryProcessAbilitiesFromOnboarding(application: FactoryOnboardingApplication): FactoryProcessAbility[] {
+  const grouped = new Map<string, FactoryProcessAbility>()
+  application.selectedCapabilities.forEach((capability, index) => {
+    const current = grouped.get(capability.processCode)
+    if (current) {
+      if (!current.craftCodes.includes(capability.craftCode)) current.craftCodes.push(capability.craftCode)
+      const craftNames = current.craftNames || []
+      if (!craftNames.includes(capability.craftName)) current.craftNames = [...craftNames, capability.craftName]
+      current.canReceiveTask = Boolean(current.canReceiveTask || capability.canReceiveTask)
+      current.capacityManaged = Boolean(current.capacityManaged || capability.capacityManaged)
+      return
+    }
+    grouped.set(capability.processCode, {
+      processCode: capability.processCode,
+      craftCodes: [capability.craftCode],
+      abilityId: `ONBOARDING-${application.applicationId}-${index + 1}`,
+      processName: capability.processName,
+      craftNames: [capability.craftName],
+      abilityName: `${capability.processName}/${capability.craftName}`,
+      abilityScope: 'CRAFT',
+      canReceiveTask: capability.canReceiveTask,
+      capacityManaged: capability.capacityManaged,
+      status: 'ACTIVE',
+    })
+  })
+  return [...grouped.values()]
+}
+
+function getPassedSampleVerification(application: FactoryOnboardingApplication) {
+  if (application.sampleVerificationId) {
+    const verification = getSampleVerificationById(application.sampleVerificationId)
+    if (verification) return verification
+  }
+  return getSampleVerificationByApplicationId(application.applicationId)
+}
+
+export function canConvertOnboardingToOfficialFactory(application: FactoryOnboardingApplication | null | undefined): boolean {
+  if (!application) return false
+  if (!canCreateFactoryProfile(application.status)) return false
+  if (application.createdFactoryId) return false
+  if (!application.adminAccount || application.adminAccount.accountStatus === '已转正式') return false
+  if (application.selectedCapabilities.length <= 0 || application.machines.length <= 0) return false
+  const sampleVerification = getPassedSampleVerification(application)
+  return sampleVerification?.status === '样衣审核通过'
+}
+
+export function validateOfficialFactoryConversion(application: FactoryOnboardingApplication): string[] {
+  const errors: string[] = []
+  if (!canCreateFactoryProfile(application.status)) {
+    errors.push('只有样衣审核通过待转正式的申请可以转为正式合作工厂。')
+  }
+  if (application.createdFactoryId) {
+    errors.push('当前申请已生成工厂档案，请勿重复转档。')
+  }
+  if (!application.adminAccount?.loginId || !application.adminAccount?.adminName || !application.adminAccount?.password) {
+    errors.push('当前申请缺少管理员账号，不能转正式。')
+  }
+  if (application.selectedCapabilities.length <= 0) {
+    errors.push('当前申请缺少工序工艺能力，不能生成工厂档案。')
+  }
+  if (application.machines.length <= 0) {
+    errors.push('当前申请缺少机器能力，不能生成产能档案初始数据。')
+  }
+  const sampleVerification = getPassedSampleVerification(application)
+  if (canCreateFactoryProfile(application.status) && sampleVerification?.status !== '样衣审核通过') {
+    errors.push('样衣验证未通过，不能转正式。')
+  }
+  return errors
+}
+
+export function buildFactoryProfileFromOnboarding(application: FactoryOnboardingApplication): Factory {
+  const digits = getOnboardingDigits(application.applicationId || application.applicationNo)
+  const factoryId = `FACTORY-ONBOARD-${digits}`
   const now = nowTimestamp()
-  const operator = input.operator.trim() || '平台运营经理'
-  const factoryId = application.createdFactoryId || `FACTORY-${Date.now()}`
+  const factoryType = mapOnboardingFactoryType(application.primaryFactoryType)
+  const processAbilities = buildFactoryProcessAbilitiesFromOnboarding(application)
+  const sampleVerification = getPassedSampleVerification(application)
+  return {
+    id: factoryId,
+    code: `FOF-${digits}`,
+    name: application.factoryCompanyName,
+    factoryShortName: application.factoryShortName,
+    address: application.address,
+    contact: application.applicantName,
+    mobilePhone: application.mobilePhone,
+    phone: application.mobilePhone || application.mobileOrWhatsapp,
+    status: 'active',
+    cooperationMode: 'general',
+    processAbilities,
+    qualityScore: 0,
+    deliveryScore: 0,
+    createdAt: now,
+    updatedAt: now,
+    factoryTier: factoryType.startsWith('SATELLITE') ? 'SATELLITE' : 'CENTRAL',
+    factoryType,
+    pdaEnabled: true,
+    pdaTenantId: factoryId,
+    primaryFactoryType: application.primaryFactoryType,
+    inferredFactoryTypes: application.inferredFactoryTypes,
+    factoryTypeMatchedAt: application.factoryTypeMatchedAt,
+    factoryTypeMatchReason: application.factoryTypeMatchReason,
+    onboardingApplicationId: application.applicationId,
+    onboardingApplicationNo: application.applicationNo,
+    sourceChannel: application.sourceChannel,
+    ppicName: application.ppicName,
+    assignedPpicId: application.assignedPpicId,
+    assignedPpicName: application.assignedPpicName,
+    assignedPpicPhone: application.assignedPpicPhone,
+    identityNo: application.identityNo,
+    identityFile: application.identityFile,
+    machineTotalCount: application.machineTotalCount,
+    effectiveWorkerCount: application.effectiveWorkerCount,
+    availableStartDate: application.availableStartDate,
+    selectedCapabilities: application.selectedCapabilities.map((item) => ({ ...item })),
+    machines: application.machines.map((item) => ({ ...item })),
+    sampleVerificationId: application.sampleVerificationId,
+    sampleStatus: '样衣审核通过',
+    bossIdentityNo: sampleVerification?.bossIdentityNo,
+    bossIdentityFiles: sampleVerification?.bossIdentityFiles?.map((item) => ({ ...item })) || [],
+    factorySitePhotos: sampleVerification?.factorySitePhotos?.map((item) => ({ ...item })) || [],
+    factorySiteVideos: sampleVerification?.factorySiteVideos?.map((item) => ({ ...item })) || [],
+    eligibility: {
+      allowDispatch: true,
+      allowBid: true,
+      allowExecute: true,
+      allowSettle: true,
+    },
+  }
+}
 
-  let updated = appendAction(refreshApplicationDerived(application, now), {
-    actionName: '平台确认合作',
-    nodeName: '确认合作',
-    operator,
-    operatedAt: now,
-    fromStatus: application.status,
-    toStatus: application.status,
-    fromNode: '确认合作',
-    toNode: '生成工厂档案',
-    remark: '确认合作并开始生成工厂档案',
+export async function convertOnboardingAdminAccountToOfficial(
+  application: FactoryOnboardingApplication,
+  createdFactory: Factory,
+) {
+  return upsertOfficialFactoryAdminFromOnboarding({
+    applicationId: application.applicationId,
+    adminName: application.adminAccount.adminName,
+    loginId: application.adminAccount.loginId,
+    password: application.adminAccount.password,
+    createdFactory,
+    convertedAt: nowTimestamp(),
+    updatedBy: '平台转档',
   })
-  updated = updateNodeLogOnTransition(updated, '确认合作', '生成工厂档案', '平台确认合作', operator, {
-    now,
-    closingStatus: '已完成',
-    openingStatus: '进行中',
-    remark: '开始生成工厂档案与正式管理员账号',
-  })
+}
 
-  const archive = buildFactoryArchiveFromOnboarding(updated, factoryId)
-  upsertFactoryMasterRecord(archive)
-  replaceFactoryPdaRoles(archive.id, generatePresetRolesForFactory(archive.id, now))
+export function createInitialCapacityProfileFromOnboarding(
+  application: FactoryOnboardingApplication,
+  createdFactory: Factory,
+): FactoryCapacityProfile {
+  return createCapacityProfileFromOnboardingStore(application, createdFactory)
+}
+
+export function buildOfficialFactoryConversionRecord(
+  application: FactoryOnboardingApplication,
+  createdFactory: Factory,
+  capacityProfile: FactoryCapacityProfile,
+  operator: string,
+  officialAdminAccountId?: string,
+): FactoryOnboardingConversionRecord {
+  const convertedAt = nowTimestamp()
+  return {
+    conversionId: `CONV-${application.applicationId}-${convertedAt.replace(/[-: ]/g, '')}`,
+    convertedAt,
+    convertedBy: operator.trim() || '平台转档',
+    fromStatus: '样衣审核通过待转正式',
+    toStatus: '已转正式合作',
+    createdFactoryId: createdFactory.id,
+    createdFactoryNo: createdFactory.code,
+    adminAccountConverted: true,
+    officialAdminAccountId: officialAdminAccountId || `PDAU-${createdFactory.id}-ADMIN`,
+    capacityProfileCreated: true,
+    capacityProfileId: capacityProfile.capacityProfileId,
+    remark: '样衣审核通过后转为正式合作工厂。',
+  }
+}
+
+export async function convertOnboardingToOfficialFactory(
+  applicationId: string,
+  operator: string,
+): Promise<{
+  application: FactoryOnboardingApplication
+  createdFactory: Factory
+  capacityProfile: FactoryCapacityProfile
+  conversionRecord: FactoryOnboardingConversionRecord
+}> {
+  const application = getFactoryOnboardingApplicationById(applicationId)
+  if (!application) throw new Error('未找到入驻申请')
+  const errors = validateOfficialFactoryConversion(application)
+  if (errors.length > 0) throw new Error(errors[0])
+  if (!canConvertOnboardingToOfficialFactory(application)) {
+    throw new Error('只有样衣审核通过待转正式的申请可以转为正式合作工厂。')
+  }
+
+  const operatedAt = nowTimestamp()
+  const operatedBy = operator.trim() || '平台转档'
+  const createdFactory = buildFactoryProfileFromOnboarding(application)
+  upsertFactoryMasterRecord(createdFactory)
+  const officialAdminAccount = await upsertOfficialFactoryAdminFromOnboarding({
+    applicationId: application.applicationId,
+    adminName: application.adminAccount.adminName,
+    loginId: application.adminAccount.loginId,
+    password: application.adminAccount.password,
+    createdFactory,
+    convertedAt: operatedAt,
+    updatedBy: operatedBy,
+  })
+  const capacityProfile = createInitialCapacityProfileFromOnboarding(application, createdFactory)
+  const conversionRecord: FactoryOnboardingConversionRecord = {
+    ...buildOfficialFactoryConversionRecord(application, createdFactory, capacityProfile, operatedBy, officialAdminAccount.userId),
+    convertedAt: operatedAt,
+    convertedBy: operatedBy,
+  }
+
+  let updated = refreshApplicationDerived({
+    ...application,
+    status: '已转正式合作',
+    currentNode: '完成',
+    convertedAt: operatedAt,
+    contractedAt: operatedAt,
+    createdFactoryId: createdFactory.id,
+    sampleStatus: '已转正式合作',
+    accountLocked: false,
+    accountLockedReason: undefined,
+    factoryNameLocked: false,
+    adminAccount: {
+      ...application.adminAccount,
+      roleId: FACTORY_ADMIN_ROLE_ID,
+      roleName: FACTORY_ADMIN_ROLE_NAME,
+      accountStatus: '已转正式',
+    },
+    conversionRecords: [...(application.conversionRecords || []), conversionRecord],
+    transferRecords: [
+      ...(application.transferRecords || []),
+      {
+        transferId: conversionRecord.conversionId.replace(/^CONV-/, 'TR-'),
+        factoryProfileGenerated: true,
+        factoryProfileId: createdFactory.id,
+        adminAccountGenerated: true,
+        capacityProfileGenerated: true,
+        capacityProfileId: capacityProfile.capacityProfileId,
+        operator: operatedBy,
+        operatedAt,
+        remark: conversionRecord.remark,
+      },
+    ],
+  }, operatedAt)
 
   updated = appendAction(updated, {
-    actionName: '生成工厂档案',
-    nodeName: '生成工厂档案',
-    operator,
-    operatedAt: now,
-    fromStatus: '审核通过待确认合作',
-    toStatus: '已合作',
-    fromNode: '生成工厂档案',
-    toNode: '生成工厂档案',
-    remark: `已生成工厂档案 ${archive.id}`,
-  })
-
-  const existingUser = findFactoryPdaUserByLoginId(updated.adminAccount.loginId)
-  const user = existingUser ?? await createFactoryPdaUser({
-    factoryId: archive.id,
-    name: updated.adminAccount.adminName,
-    loginId: updated.adminAccount.loginId,
-    password: updated.adminAccount.password,
-    roleId: 'ROLE_ADMIN',
-    createdBy: operator,
-  })
-
-  const capacityProfile = createInitialCapacityProfileFromOnboarding(updated, archive)
-
-  updated = appendAction(updated, {
-    actionName: '管理员账号转正',
-    nodeName: '生成工厂档案',
-    operator,
-    operatedAt: now,
-    fromStatus: '审核通过待确认合作',
-    toStatus: '已合作',
-    fromNode: '生成工厂档案',
+    actionName: '样衣通过后转正式合作',
+    nodeName: '正式合作',
+    operator: operatedBy,
+    operatedAt,
+    fromStatus: '样衣审核通过待转正式',
+    toStatus: '已转正式合作',
+    fromNode: '正式合作',
     toNode: '完成',
-    remark: `管理员账号 ${user.loginId} 已转正式`,
+    remark: '生成正式工厂档案、转正管理员账号并生成产能档案初始数据。',
   })
-  updated = updateNodeLogOnTransition(updated, '生成工厂档案', '完成', '管理员账号转正', operator, {
-    now,
+  updated = updateNodeLogOnTransition(updated, '正式合作', '完成', '样衣通过后转正式合作', operatedBy, {
+    now: operatedAt,
     closingStatus: '已完成',
     openingStatus: '已完成',
-    remark: '已合作完成',
+    remark: '正式合作流程完成。',
   })
-
-  updated = refreshApplicationDerived(
-    {
-      ...updated,
-      status: '已合作',
-      currentNode: '完成',
-      contractedAt: now,
-      createdFactoryId: archive.id,
-      adminAccount: {
-        ...updated.adminAccount,
-        roleId: FACTORY_ADMIN_ROLE_ID,
-        roleName: FACTORY_ADMIN_ROLE_NAME,
-        accountStatus: '已转正式',
-      },
-      transferRecords: [
-        ...updated.transferRecords,
-        {
-          transferId: `TR-${Date.now()}`,
-          factoryProfileGenerated: true,
-          factoryProfileId: archive.id,
-          adminAccountGenerated: true,
-          capacityProfileGenerated: true,
-          capacityProfileId: capacityProfile.capacityProfileId,
-          operator,
-          operatedAt: now,
-          remark: `已生成正式管理员账号 ${user.loginId}，并初始化产能档案 ${capacityProfile.capacityProfileId}`,
-        },
-      ],
-    },
-    now,
-  )
-
   const saved = saveFactoryOnboardingApplication(updated)
-  clearFactoryOnboardingApplicantSession()
-  clearPdaSession()
-  return saved
+  const applicantSession = getFactoryOnboardingApplicantSession()
+  if (applicantSession?.applicationId === saved.applicationId) {
+    setFactoryOnboardingApplicantSession(createFactoryOnboardingApplicantSession(saved))
+  }
+  return { application: saved, createdFactory, capacityProfile, conversionRecord }
+}
+
+export async function confirmFactoryOnboardingCooperation(input: { applicationId: string; operator: string }): Promise<FactoryOnboardingApplication> {
+  const result = await convertOnboardingToOfficialFactory(input.applicationId, input.operator)
+  return result.application
 }
 
 export function createDefaultMachineDraft(seed: number): FactoryOnboardingMachineAbility {
@@ -1553,33 +1753,24 @@ export function listSelectableProcessCraftOptions() {
 
 export function getOnboardingStatusActionLabel(application: FactoryOnboardingApplication | null): string {
   if (!application) return '提交入驻申请'
-  if (application.status === '退回补充资料') return '重新提交入驻申请'
+  if (application.status === '平台审核退回') return '重新提交入驻申请'
   if (application.status === '草稿') return '提交入驻申请'
   return '查看入驻进度'
 }
 
 export function canEditOnboardingApplication(application: FactoryOnboardingApplication | null): boolean {
   if (!application) return true
-  return isEditableStatus(application.status)
+  return canFactoryEditOnboarding(application.status)
 }
 
 export function canSubmitOnboardingApplication(application: FactoryOnboardingApplication | null): boolean {
   if (!application) return true
-  return isEditableStatus(application.status)
+  return canFactorySubmitOnboarding(application.status)
 }
 
 export function getOnboardingStatusTip(application: FactoryOnboardingApplication | null): string {
   if (!application) return '请补全入驻信息后提交平台审核。'
-  const map: Record<FactoryOnboardingStatus, string> = {
-    草稿: '请补全入驻信息后提交平台审核。',
-    已提交待审核: '入驻申请已提交，请等待平台审核。',
-    退回补充资料: '平台已退回资料，请按审核意见补充后重新提交。',
-    已重新提交待审核: '补充资料已提交，请等待平台重新审核。',
-    审核通过待确认合作: '平台审核已通过，请等待平台确认合作。',
-    已拒绝: '入驻申请未通过，当前不可再次提交。',
-    已合作: '已成为合作工厂，可以进入业务页面。',
-  }
-  return map[application.status]
+  return buildStatusTipLabel(normalizeOnboardingStatus(application.status))
 }
 
 export function getLatestReviewRecord(application: FactoryOnboardingApplication | null): FactoryOnboardingReviewRecord | null {
@@ -1596,4 +1787,14 @@ export function listCurrentFieldValues(application: FactoryOnboardingApplication
   if (!application) return []
   const fieldMap = buildCurrentFieldValueMap(application)
   return FACTORY_ONBOARDING_REQUIRED_FIELD_OPTIONS.map((field) => ({ field, value: fieldMap[field] }))
+}
+
+export {
+  canCreateFactoryProfile,
+  canFactoryEditOnboarding,
+  canFactoryEnterBusiness,
+  canFactorySubmitOnboarding,
+  getOnboardingNodeByStatus,
+  isFactoryAccountLocked,
+  normalizeOnboardingStatus,
 }

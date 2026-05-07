@@ -10,6 +10,7 @@ import { clearFactoryOnboardingApplicantSession, setFactoryOnboardingApplicantSe
 import {
   authenticateFactoryOnboardingAdmin,
   createPdaOnboardingSessionFromApplication,
+  getFactoryOnboardingLoginFailureMessage,
   getPdaCurrentAuthSession,
   resolvePdaPostLoginRoute,
 } from '../data/fcs/factory-onboarding-flow.ts'
@@ -48,11 +49,11 @@ async function submitLogin(): Promise<void> {
   state.errorText = ''
 
   if (!loginId) {
-    state.errorText = '请输入登录账户'
+    state.errorText = '请输入登录账号'
     return
   }
   if (!password) {
-    state.errorText = '请输入登录密码'
+    state.errorText = '请输入密码'
     return
   }
 
@@ -77,7 +78,7 @@ async function submitLogin(): Promise<void> {
     return
   }
 
-  state.errorText = '账号或密码错误'
+  state.errorText = getFactoryOnboardingLoginFailureMessage(loginId, password)
 }
 
 export function renderPdaLoginPage(): string {
@@ -91,8 +92,8 @@ export function renderPdaLoginPage(): string {
   }
 
   return `
-    <section class="min-h-screen bg-[linear-gradient(180deg,#eef5ff_0%,#f8fafc_28%,#f8fafc_100%)] px-4 py-6">
-      <div class="mx-auto max-w-sm space-y-4">
+    <section class="min-h-screen bg-[linear-gradient(180deg,#eef5ff_0%,#f8fafc_28%,#f8fafc_100%)] px-4 py-6" data-testid="pda-auth-login-page">
+      <div class="space-y-4">
         <header class="space-y-3 text-center">
           <div class="rounded-[28px] border border-slate-200 bg-white px-5 py-5 shadow-[0_18px_48px_rgba(15,23,42,0.08)]">
             <img
@@ -103,24 +104,24 @@ export function renderPdaLoginPage(): string {
           </div>
           <div class="space-y-1">
             <h1 class="text-2xl font-semibold text-slate-900">工厂入驻&登录</h1>
-            <p class="text-sm text-slate-500">已合作工厂直接登录，未合作工厂从这里进入入驻流程。</p>
+            <p class="text-sm text-slate-500">已转正式合作工厂直接登录，未合作工厂从这里进入入驻流程。</p>
           </div>
         </header>
 
         <article class="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_20px_50px_rgba(15,23,42,0.08)]">
           <div class="mb-5 space-y-1">
             <h2 class="text-lg font-semibold text-slate-900">工厂登录</h2>
-            <p class="text-xs text-slate-500">请输入登录账户和登录密码。</p>
+            <p class="text-xs text-slate-500">请输入登录账号和密码。</p>
           </div>
 
           ${state.errorText ? `<div class="mb-4 rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${escapeHtml(state.errorText)}</div>` : ''}
 
           <div class="space-y-4">
             <label class="block space-y-1.5 text-sm">
-              <span class="font-medium text-slate-900">登录账户</span>
+              <span class="font-medium text-slate-900">登录账号</span>
               <input
                 class="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 text-[15px]"
-                placeholder="请输入登录账户"
+                placeholder="请输入登录账号"
                 autocomplete="username"
                 data-pda-login-field="loginId"
                 value="${escapeHtml(state.loginId)}"
@@ -128,11 +129,11 @@ export function renderPdaLoginPage(): string {
             </label>
 
             <label class="block space-y-1.5 text-sm">
-              <span class="font-medium text-slate-900">登录密码</span>
+              <span class="font-medium text-slate-900">密码</span>
               <input
                 type="password"
                 class="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 text-[15px]"
-                placeholder="请输入登录密码"
+                placeholder="请输入密码"
                 autocomplete="current-password"
                 data-pda-login-field="password"
                 value="${escapeHtml(state.password)}"

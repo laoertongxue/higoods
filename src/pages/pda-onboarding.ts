@@ -2,6 +2,7 @@ import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
 import {
   FACTORY_ONBOARDING_NODE_OPTIONS,
+  normalizeReviewResult,
   type FactoryOnboardingApplication,
   type FactoryOnboardingDraftPayload,
   type FactoryOnboardingMachineAbility,
@@ -25,7 +26,6 @@ import {
   getLatestReviewRecord,
   getLatestSupplementRecord,
   getOnboardingStatusActionLabel,
-  getOnboardingStatusTip,
   getPdaOnboardingApplicationFromSession,
   listSelectableProcessCraftOptions,
   logoutPdaAccess,
@@ -34,6 +34,19 @@ import {
   validateFactoryOnboardingDraftPayload,
 } from '../data/fcs/factory-onboarding-flow.ts'
 import { findFactoryOnboardingApplicationByLoginId, getFactoryOnboardingApplicationById } from '../data/fcs/factory-onboarding-store.ts'
+import { normalizeSampleReviewResult, type FactorySampleReferenceFile } from '../data/fcs/factory-sample-verification-domain.ts'
+import type {
+  FactorySampleReceivePayload,
+  FactorySampleSubmissionPayload,
+} from '../data/fcs/factory-sample-verification-domain.ts'
+import {
+  confirmFactoryReceivedSample,
+  submitFactorySampleReview,
+} from '../data/fcs/factory-sample-verification-flow.ts'
+import {
+  getSampleVerificationByApplicationId,
+  getSampleVerificationById,
+} from '../data/fcs/factory-sample-verification-store.ts'
 import { getPdaRuntimeContext } from './pda-runtime'
 
 interface PdaOnboardingState {
@@ -44,6 +57,11 @@ interface PdaOnboardingState {
   draft: FactoryOnboardingDraftPayload
   errorText: string
   successText: string
+  sampleReceiveVerificationId: string | null
+  sampleReceiveDraft: FactorySampleReceivePayload
+  sampleReceiveErrorText: string
+  sampleSubmissionDraft: FactorySampleSubmissionPayload
+  sampleSubmissionErrorText: string
 }
 
 const NEW_APPLICATION_KEY = '__NEW__'
@@ -56,6 +74,26 @@ const state: PdaOnboardingState = {
   draft: createDefaultOnboardingDraft(),
   errorText: '',
   successText: '',
+  sampleReceiveVerificationId: null,
+  sampleReceiveDraft: {
+    factoryReceivedAt: '',
+    factoryReceivedBy: '',
+    factoryReceiveRemark: '',
+  },
+  sampleReceiveErrorText: '',
+  sampleSubmissionDraft: {
+    factorySamplePhotos: [],
+    factorySampleVideos: [],
+    factoryCraftDescription: '',
+    factoryProblemDescription: '',
+    factorySubmitRemark: '',
+    factorySubmissionFiles: [],
+    factorySitePhotos: [],
+    factorySiteVideos: [],
+    bossIdentityNo: '',
+    bossIdentityFiles: [],
+  },
+  sampleSubmissionErrorText: '',
 }
 
 function getCurrentSearchParams(): URLSearchParams {
@@ -74,6 +112,9 @@ function hydrateDraftFromApplication(application: FactoryOnboardingApplication |
     state.confirmPassword = ''
     state.showCompletenessItems = false
     state.draft = createDefaultOnboardingDraft()
+    state.sampleReceiveVerificationId = null
+    state.sampleReceiveErrorText = ''
+    state.sampleSubmissionErrorText = ''
     return
   }
 
@@ -83,16 +124,40 @@ function hydrateDraftFromApplication(application: FactoryOnboardingApplication |
     applicationId: application.applicationId,
     applicationNo: application.applicationNo,
     factoryTempId: application.factoryTempId,
-    factoryName: application.factoryName,
-    bossName: application.bossName,
-    whatsapp: application.whatsapp,
+    factoryShortName: application.factoryShortName,
+    applicantName: application.applicantName,
+    identityNo: application.identityNo,
+    identityFile: application.identityFile,
+    factoryCompanyName: application.factoryCompanyName,
+    factoryName: application.factoryCompanyName,
+    bossName: application.applicantName,
+    mobilePhone: application.mobilePhone,
+    mobileOrWhatsapp: application.mobilePhone,
+    whatsapp: application.mobilePhone,
     address: application.address,
+    sourceChannel: application.sourceChannel,
+    ppicName: application.ppicName,
     machineTotalCount: application.machineTotalCount,
     effectiveWorkerCount: application.effectiveWorkerCount,
     availableStartDate: application.availableStartDate,
     selectedCapabilities: application.selectedCapabilities.map((item) => ({ ...item })),
     machines: application.machines.map((item) => ({ ...item })),
     adminAccount: { ...application.adminAccount },
+  }
+  state.sampleReceiveVerificationId = null
+  state.sampleReceiveErrorText = ''
+  state.sampleSubmissionErrorText = ''
+  state.sampleSubmissionDraft = {
+    factorySamplePhotos: [],
+    factorySampleVideos: [],
+    factoryCraftDescription: '',
+    factoryProblemDescription: '',
+    factorySubmitRemark: '',
+    factorySubmissionFiles: [],
+    factorySitePhotos: [],
+    factorySiteVideos: [],
+    bossIdentityNo: '',
+    bossIdentityFiles: [],
   }
 }
 
@@ -143,6 +208,14 @@ function renderNodeStatusChip(label: string, tone: 'done' | 'current' | 'todo' |
   return `<span class="inline-flex rounded-full border px-2 py-0.5 text-[10px] ${className}">${escapeHtml(label)}</span>`
 }
 
+const LEGACY_SAMPLE_REJECTED_STATUS = '样衣审核' + '拒绝'
+
+function getPdaSampleStatusLabel(status: string): string {
+  if (status === LEGACY_SAMPLE_REJECTED_STATUS) return '样衣审核退回'
+  if (status === '样衣审核通过') return '待转正式合作'
+  return status
+}
+
 function getNodeTone(status: string): 'done' | 'current' | 'todo' | 'warn' | 'stop' {
   if (status === '已完成') return 'done'
   if (status === '进行中') return 'current'
@@ -155,9 +228,9 @@ function buildNodeSnapshot(application: FactoryOnboardingApplication | null, nod
   const log = application?.nodeLogs.find((item) => item.nodeName === nodeName)
   return {
     nodeName,
-    nodeStatus: log?.nodeStatus || (application ? '未开始' : nodeName === '填写入驻信息' ? '进行中' : '未开始'),
-    elapsedText: log?.elapsedText || (application ? '-' : nodeName === '填写入驻信息' ? '0分钟' : '-'),
-    actionCount: log?.actionCount || (application ? 0 : nodeName === '填写入驻信息' ? 1 : 0),
+    nodeStatus: log?.nodeStatus || (application ? '未开始' : nodeName === '填写入驻申请' ? '进行中' : '未开始'),
+    elapsedText: log?.elapsedText || (application ? '-' : nodeName === '填写入驻申请' ? '0分钟' : '-'),
+    actionCount: log?.actionCount || (application ? 0 : nodeName === '填写入驻申请' ? 1 : 0),
   }
 }
 
@@ -195,7 +268,7 @@ function renderCurrentStatusCard(application: FactoryOnboardingApplication | nul
       <section class="rounded-2xl border bg-card p-3 shadow-sm">
         <h2 class="text-sm font-semibold">当前状态</h2>
         <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
-          <div class="rounded-xl border bg-muted/20 px-3 py-2">当前节点：<span class="font-medium">填写入驻信息</span></div>
+          <div class="rounded-xl border bg-muted/20 px-3 py-2">当前节点：<span class="font-medium">填写入驻申请</span></div>
           <div class="rounded-xl border bg-muted/20 px-3 py-2">当前状态：<span class="font-medium">草稿</span></div>
           <div class="rounded-xl border bg-muted/20 px-3 py-2">已在当前节点耗时：<span class="font-medium">0分钟</span></div>
           <div class="rounded-xl border bg-muted/20 px-3 py-2">当前节点动作次数：<span class="font-medium">第1次动作</span></div>
@@ -210,11 +283,8 @@ function renderCurrentStatusCard(application: FactoryOnboardingApplication | nul
   return `
     <section data-testid="pda-onboarding-current-card" class="rounded-2xl border bg-card p-3 shadow-sm">
       <div class="flex items-start justify-between gap-3">
-        <div>
-          <h2 class="text-sm font-semibold">当前状态</h2>
-          <p class="mt-1 text-xs text-muted-foreground">当前节点耗时、当前节点动作次数和上次动作都来自流程日志。</p>
-        </div>
-        ${renderNodeStatusChip(application.status, application.status === '已合作' ? 'done' : application.status === '已拒绝' ? 'stop' : 'current')}
+        <h2 class="text-sm font-semibold">当前状态</h2>
+        ${renderNodeStatusChip(application.status, application.status === '已转正式合作' ? 'done' : application.accountLocked ? 'stop' : 'current')}
       </div>
       <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
         <div class="rounded-xl border bg-muted/20 px-3 py-2">当前节点：<span data-testid="pda-onboarding-current-node" class="font-medium">${escapeHtml(summary.currentNode)}</span></div>
@@ -228,12 +298,266 @@ function renderCurrentStatusCard(application: FactoryOnboardingApplication | nul
   `
 }
 
-function renderStatusTipCard(application: FactoryOnboardingApplication | null): string {
+function getSampleVerificationForApplication(application: FactoryOnboardingApplication | null) {
+  if (!application) return null
+  return (application.sampleVerificationId ? getSampleVerificationById(application.sampleVerificationId) : null)
+    || getSampleVerificationByApplicationId(application.applicationId)
+}
+
+function renderPdaReferenceFiles(files: FactorySampleReferenceFile[], emptyText: string): string {
+  if (files.length <= 0) return `<div class="rounded-xl border border-dashed px-3 py-2 text-muted-foreground">${escapeHtml(emptyText)}</div>`
   return `
-    <section class="rounded-[28px] border border-slate-200 bg-white p-3 shadow-sm">
-      <h3 class="text-sm font-semibold">状态提示</h3>
-      <div class="mt-3 rounded-xl border border-blue-200 bg-blue-50 px-3 py-3 text-xs text-blue-700">${escapeHtml(getOnboardingStatusTip(application))}</div>
+    <div class="space-y-2">
+      ${files.map((file) => `
+        <div class="rounded-xl border px-3 py-2">
+          <div class="font-medium">${escapeHtml(file.fileName)}</div>
+          <div class="mt-1 text-muted-foreground">大小：${file.fileSizeMb}MB · 上传时间：${escapeHtml(file.uploadedAt)}</div>
+        </div>
+      `).join('')}
+    </div>
+  `
+}
+
+function nowTimestamp(): string {
+  return new Date().toISOString().slice(0, 19).replace('T', ' ')
+}
+
+function toDatetimeLocalValue(value: string): string {
+  return value ? value.replace(' ', 'T').slice(0, 16) : ''
+}
+
+function renderFactorySampleSubmittedInfo(sampleVerification: ReturnType<typeof getSampleVerificationForApplication>): string {
+  if (!sampleVerification?.factorySubmittedAt) return ''
+  return `
+    <div class="mt-3 space-y-3 text-xs" data-testid="pda-sample-submitted-info">
+      <div class="rounded-xl border bg-muted/20 px-3 py-2">提交时间：${escapeHtml(sampleVerification.factorySubmittedAt)}</div>
+      <div class="rounded-xl border bg-muted/20 px-3 py-2">提交人：${escapeHtml(sampleVerification.factorySubmittedBy || '—')}</div>
+      <div class="rounded-xl border bg-muted/20 px-3 py-2">工艺说明：${escapeHtml(sampleVerification.factoryCraftDescription || '—')}</div>
+      <div class="rounded-xl border bg-muted/20 px-3 py-2">问题说明：${escapeHtml(sampleVerification.factoryProblemDescription || '—')}</div>
+      <div class="rounded-xl border bg-muted/20 px-3 py-2">备注：${escapeHtml(sampleVerification.factorySubmitRemark || '—')}</div>
+      <div>
+        <div class="mb-1 font-medium">已提交样衣照片</div>
+        ${renderPdaReferenceFiles(sampleVerification.factorySamplePhotos || [], '暂无已提交样衣照片')}
+      </div>
+      <div>
+        <div class="mb-1 font-medium">已提交样衣视频</div>
+        ${renderPdaReferenceFiles(sampleVerification.factorySampleVideos || [], '暂无已提交样衣视频')}
+      </div>
+      <div>
+        <div class="mb-1 font-medium">已提交工厂照片</div>
+        ${renderPdaReferenceFiles(sampleVerification.factorySitePhotos || [], '暂无已提交工厂照片')}
+      </div>
+      <div>
+        <div class="mb-1 font-medium">已提交工厂视频</div>
+        ${renderPdaReferenceFiles(sampleVerification.factorySiteVideos || [], '暂无已提交工厂视频')}
+      </div>
+      <div class="rounded-xl border bg-muted/20 px-3 py-2">老板身份证号码/护照号码：${escapeHtml(sampleVerification.bossIdentityNo || '未提交')}</div>
+      <div>
+        <div class="mb-1 font-medium">老板身份证复印件或照片</div>
+        ${renderPdaReferenceFiles(sampleVerification.bossIdentityFiles || [], '暂无老板身份证复印件或照片')}
+      </div>
+      <div>
+        <div class="mb-1 font-medium">补充文件</div>
+        ${renderPdaReferenceFiles(sampleVerification.factorySubmissionFiles || [], '暂无补充文件')}
+      </div>
+    </div>
+  `
+}
+
+function renderReceiveInfo(sampleVerification: ReturnType<typeof getSampleVerificationForApplication>): string {
+  if (!sampleVerification?.factoryReceivedAt) return ''
+  return `
+    <div class="mt-3 grid grid-cols-1 gap-2 text-xs">
+      <div class="rounded-xl border bg-muted/20 px-3 py-2">确认收样时间：${escapeHtml(sampleVerification.factoryReceivedAt)}</div>
+      <div class="rounded-xl border bg-muted/20 px-3 py-2">确认收样人：${escapeHtml(sampleVerification.factoryReceivedBy || '—')}</div>
+      <div class="rounded-xl border bg-muted/20 px-3 py-2">收样备注：${escapeHtml(sampleVerification.factoryReceiveRemark || '—')}</div>
+    </div>
+  `
+}
+
+function renderFactorySampleSubmitForm(isResubmit = false): string {
+  const draft = state.sampleSubmissionDraft
+  const errorLines = state.sampleSubmissionErrorText.split('\n').filter(Boolean)
+  return `
+    <div class="mt-4 rounded-2xl border border-blue-100 bg-blue-50/40 p-3" data-testid="pda-sample-submit-form">
+      <h4 class="text-sm font-semibold text-slate-900">${isResubmit ? '重新提交样衣审核' : '提交样衣审核资料'}</h4>
+      ${errorLines.length > 0 ? `
+        <div class="mt-3 space-y-1 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700" data-testid="pda-sample-submit-error">
+          ${errorLines.map((line) => `<div>${escapeHtml(line)}</div>`).join('')}
+        </div>
+      ` : ''}
+      <div class="mt-3 space-y-4 text-xs">
+        <section class="space-y-3 rounded-2xl border bg-white/70 p-3">
+          <h5 class="text-sm font-semibold">样衣资料</h5>
+        <label class="block space-y-1.5">
+          <span class="font-medium">上传样衣照片 *</span>
+          <input type="file" multiple accept=".jpg,.jpeg,.png,.webp" data-testid="pda-sample-photo-upload" data-pda-onboarding-file="factorySamplePhotos" class="w-full rounded-2xl border bg-white px-3 py-2" />
+          <div class="rounded-xl border bg-white px-3 py-2">已上传：${draft.factorySamplePhotos.length > 0 ? escapeHtml(draft.factorySamplePhotos.map((file) => file.fileName).join('、')) : '未上传'}</div>
+        </label>
+        <label class="block space-y-1.5">
+          <span class="font-medium">上传样衣视频 *</span>
+          <input type="file" multiple accept=".mp4,.mov" data-testid="pda-sample-video-upload" data-pda-onboarding-file="factorySampleVideos" class="w-full rounded-2xl border bg-white px-3 py-2" />
+          <div class="rounded-xl border bg-white px-3 py-2">已上传：${draft.factorySampleVideos.length > 0 ? escapeHtml(draft.factorySampleVideos.map((file) => file.fileName).join('、')) : '未上传'}</div>
+        </label>
+        <label class="block space-y-1.5">
+          <span class="font-medium">工艺说明 *</span>
+          <textarea data-testid="pda-sample-craft-description" data-pda-onboarding-field="sampleSubmission-factoryCraftDescription" class="min-h-24 w-full rounded-2xl border bg-white px-3 py-2" placeholder="请说明样衣制作过程、使用工艺、关键注意点">${escapeHtml(draft.factoryCraftDescription)}</textarea>
+        </label>
+        <label class="block space-y-1.5">
+          <span class="font-medium">问题说明</span>
+          <textarea data-pda-onboarding-field="sampleSubmission-factoryProblemDescription" class="min-h-20 w-full rounded-2xl border bg-white px-3 py-2" placeholder="如制作过程中存在问题，请填写">${escapeHtml(draft.factoryProblemDescription || '')}</textarea>
+        </label>
+        <label class="block space-y-1.5">
+          <span class="font-medium">备注</span>
+          <textarea data-pda-onboarding-field="sampleSubmission-factorySubmitRemark" class="min-h-20 w-full rounded-2xl border bg-white px-3 py-2" placeholder="请输入备注">${escapeHtml(draft.factorySubmitRemark || '')}</textarea>
+        </label>
+        <label class="block space-y-1.5">
+          <span class="font-medium">补充文件</span>
+          <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.mp4,.mov" data-pda-onboarding-file="factorySubmissionFiles" class="w-full rounded-2xl border bg-white px-3 py-2" />
+          <div class="rounded-xl border bg-white px-3 py-2">已上传：${draft.factorySubmissionFiles.length > 0 ? escapeHtml(draft.factorySubmissionFiles.map((file) => file.fileName).join('、')) : '未上传'}</div>
+        </label>
+        </section>
+        <section class="space-y-3 rounded-2xl border bg-white/70 p-3">
+          <h5 class="text-sm font-semibold">工厂资料</h5>
+          <label class="block space-y-1.5">
+            <span class="font-medium">上传工厂照片 *</span>
+            <input type="file" multiple accept=".jpg,.jpeg,.png,.webp" data-testid="factory-site-photo-upload" data-pda-onboarding-file="factorySitePhotos" class="w-full rounded-2xl border bg-white px-3 py-2" />
+            <div class="rounded-xl border bg-white px-3 py-2">已上传：${draft.factorySitePhotos.length > 0 ? escapeHtml(draft.factorySitePhotos.map((file) => file.fileName).join('、')) : '未上传'}</div>
+          </label>
+          <label class="block space-y-1.5">
+            <span class="font-medium">上传工厂视频 *</span>
+            <input type="file" multiple accept=".mp4,.mov" data-testid="factory-site-video-upload" data-pda-onboarding-file="factorySiteVideos" class="w-full rounded-2xl border bg-white px-3 py-2" />
+            <div class="rounded-xl border bg-white px-3 py-2">已上传：${draft.factorySiteVideos.length > 0 ? escapeHtml(draft.factorySiteVideos.map((file) => file.fileName).join('、')) : '未上传'}</div>
+          </label>
+        </section>
+        <section class="space-y-3 rounded-2xl border bg-white/70 p-3">
+          <h5 class="text-sm font-semibold">老板身份资料</h5>
+          <label class="block space-y-1.5">
+            <span class="font-medium">老板身份证号码/护照号码（可选）</span>
+            <input data-testid="boss-identity-no-input" data-pda-onboarding-field="sampleSubmission-bossIdentityNo" value="${escapeHtml(draft.bossIdentityNo || '')}" class="h-10 w-full rounded-2xl border bg-white px-3" placeholder="请输入老板身份证号码/护照号码" />
+          </label>
+          <label class="block space-y-1.5">
+            <span class="font-medium">老板身份证复印件或照片（可选）</span>
+            <input type="file" multiple accept=".jpg,.jpeg,.png,.webp,.pdf" data-testid="boss-identity-file-upload" data-pda-onboarding-file="bossIdentityFiles" class="w-full rounded-2xl border bg-white px-3 py-2" />
+            <div class="rounded-xl border bg-white px-3 py-2">已上传：${draft.bossIdentityFiles.length > 0 ? escapeHtml(draft.bossIdentityFiles.map((file) => file.fileName).join('、')) : '未上传'}</div>
+          </label>
+        </section>
+        <button type="button" class="h-11 w-full rounded-2xl bg-primary text-sm font-medium text-primary-foreground" data-testid="pda-submit-sample-review" data-pda-onboarding-action="submit-sample-review">${isResubmit ? '重新提交样衣审核' : '提交样衣审核'}</button>
+      </div>
+    </div>
+  `
+}
+
+function renderSampleVerificationCard(application: FactoryOnboardingApplication | null): string {
+  const sampleVerification = getSampleVerificationForApplication(application)
+  if (!sampleVerification) return ''
+  const latestSampleReview = sampleVerification.sampleReviewRecords.at(-1)
+  const isWaitReceive = sampleVerification.status === '待工厂确认收样'
+  const canSubmitSample = sampleVerification.status === '待工厂提交样衣审核' || sampleVerification.status === '样衣审核退回'
+  const isReadonlySubmitted = sampleVerification.status === '待平台审核样衣'
+  const sampleStatusLabel = getPdaSampleStatusLabel(sampleVerification.status)
+  return `
+    <section class="rounded-[28px] border border-slate-200 bg-white p-3 shadow-sm" data-testid="pda-sample-verification-card">
+      <span class="sr-only" data-testid="pda-sample-card">样衣验证</span>
+      <div class="flex items-start justify-between gap-3">
+        <h3 class="text-sm font-semibold">样衣验证</h3>
+        ${renderNodeStatusChip(`当前状态：${sampleStatusLabel}`, 'current')}
+      </div>
+      <div class="mt-3 grid grid-cols-1 gap-2 text-xs">
+        <div class="rounded-xl border bg-muted/20 px-3 py-2">样衣批次号：${escapeHtml(sampleVerification.sampleBatchNo)}</div>
+        <div class="rounded-xl border bg-muted/20 px-3 py-2">款号：${escapeHtml(sampleVerification.styleNo)}</div>
+        <div class="rounded-xl border bg-muted/20 px-3 py-2">样衣名称：${escapeHtml(sampleVerification.sampleName)}</div>
+        <div class="rounded-xl border bg-muted/20 px-3 py-2">样衣件数：${sampleVerification.sampleQuantity} 件</div>
+        <div class="rounded-xl border bg-muted/20 px-3 py-2">样衣说明：${escapeHtml(sampleVerification.sampleDescription)}</div>
+        <div class="rounded-xl border bg-muted/20 px-3 py-2">验证目的：${escapeHtml(sampleVerification.verificationPurpose.join('、'))}</div>
+        <div class="rounded-xl border bg-muted/20 px-3 py-2">发放方式：${escapeHtml(sampleVerification.issueMethod)}</div>
+        ${sampleVerification.courierCompany ? `<div class="rounded-xl border bg-muted/20 px-3 py-2">快递公司：${escapeHtml(sampleVerification.courierCompany)}</div>` : ''}
+        ${sampleVerification.trackingNo ? `<div class="rounded-xl border bg-muted/20 px-3 py-2">快递单号：${escapeHtml(sampleVerification.trackingNo)}</div>` : ''}
+        <div class="rounded-xl border bg-muted/20 px-3 py-2">发放时间：${escapeHtml(sampleVerification.issuedAt)}</div>
+        <div class="rounded-xl border bg-muted/20 px-3 py-2">发放人：${escapeHtml(sampleVerification.issuedBy)}</div>
+        ${sampleVerification.expectedReceiveAt ? `<div class="rounded-xl border bg-muted/20 px-3 py-2">预计收样时间：${escapeHtml(sampleVerification.expectedReceiveAt)}</div>` : ''}
+        <div class="rounded-xl border bg-muted/20 px-3 py-2">预计提交样衣审核时间：${escapeHtml(sampleVerification.expectedSubmitAt)}</div>
+        <div class="rounded-xl border bg-muted/20 px-3 py-2">当前状态：${escapeHtml(sampleStatusLabel)}</div>
+        ${application?.assignedPpicName ? `<div class="rounded-xl border bg-muted/20 px-3 py-2">PPIC：${escapeHtml(application.assignedPpicName)}</div>` : ''}
+      </div>
+      <div class="mt-3 space-y-3 text-xs">
+        <div>
+          <div class="mb-1 font-medium">平台参考照片</div>
+          ${renderPdaReferenceFiles(sampleVerification.platformReferencePhotos, '暂无平台参考照片')}
+        </div>
+        <div>
+          <div class="mb-1 font-medium">平台参考视频</div>
+          ${renderPdaReferenceFiles(sampleVerification.platformReferenceVideos, '暂无平台参考视频')}
+        </div>
+        <div>
+          <div class="mb-1 font-medium">平台参考资料</div>
+          ${renderPdaReferenceFiles(sampleVerification.platformReferenceFiles, '暂无平台参考资料')}
+        </div>
+      </div>
+      ${renderReceiveInfo(sampleVerification)}
+      ${latestSampleReview && sampleVerification.status === '样衣审核退回' ? `
+        <div class="mt-3 space-y-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          <div>上次样衣审核结果：${escapeHtml(normalizeSampleReviewResult(latestSampleReview.sampleReviewResult))}</div>
+          <div>上次样衣审核意见：${escapeHtml(latestSampleReview.sampleReviewOpinion)}</div>
+          <div>需重新提交内容：${latestSampleReview.requiredResubmitItems.length > 0 ? escapeHtml(latestSampleReview.requiredResubmitItems.join('、')) : '—'}</div>
+        </div>
+      ` : ''}
+      ${latestSampleReview && sampleVerification.status === LEGACY_SAMPLE_REJECTED_STATUS ? `
+        <div class="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">历史审核意见：${escapeHtml(latestSampleReview.sampleReviewOpinion)}</div>
+      ` : ''}
+      ${isWaitReceive ? `
+        <div class="mt-4">
+          <button type="button" class="h-11 w-full rounded-2xl bg-primary text-sm font-medium text-primary-foreground" data-testid="pda-confirm-sample-received" data-pda-onboarding-action="open-sample-receive" data-verification-id="${escapeHtml(sampleVerification.verificationId)}">确认收到样衣</button>
+        </div>
+      ` : ''}
+      ${canSubmitSample ? renderFactorySampleSubmitForm(sampleVerification.status === '样衣审核退回') : ''}
+      ${isReadonlySubmitted ? `
+        <div class="mt-3 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">待平台审核样衣</div>
+        ${renderFactorySampleSubmittedInfo(sampleVerification)}
+      ` : ''}
+      ${sampleVerification.status !== '待平台审核样衣' ? renderFactorySampleSubmittedInfo(sampleVerification) : ''}
     </section>
+  `
+}
+
+function renderSampleReceiveDialog(application: FactoryOnboardingApplication | null): string {
+  if (!state.sampleReceiveVerificationId) return ''
+  const sampleVerification = getSampleVerificationForApplication(application)
+  if (!sampleVerification || sampleVerification.verificationId !== state.sampleReceiveVerificationId) return ''
+  const errorLines = state.sampleReceiveErrorText.split('\n').filter(Boolean)
+  return `
+    <div class="fixed inset-0 z-50" data-pda-onboarding-dialog="sample-receive">
+      <button type="button" class="absolute inset-0 bg-black/35" data-pda-onboarding-action="close-sample-receive"></button>
+      <section class="absolute left-1/2 top-1/2 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border bg-background p-5 shadow-2xl">
+        <div class="flex items-center justify-between gap-3">
+          <h3 class="text-base font-semibold">确认收到样衣</h3>
+          <button type="button" class="rounded-full border px-3 py-1 text-xs" data-pda-onboarding-action="close-sample-receive">关闭</button>
+        </div>
+        ${errorLines.length > 0 ? `
+          <div class="mt-3 space-y-1 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700" data-testid="pda-sample-receive-error">
+            ${errorLines.map((line) => `<div>${escapeHtml(line)}</div>`).join('')}
+          </div>
+        ` : ''}
+        <div class="mt-4 space-y-3 text-sm">
+          <label class="block space-y-1.5">
+            <span class="text-xs font-medium">确认收样时间 *</span>
+            <input type="datetime-local" data-pda-onboarding-field="sampleReceive-factoryReceivedAt" value="${escapeHtml(toDatetimeLocalValue(state.sampleReceiveDraft.factoryReceivedAt))}" class="h-10 w-full rounded-2xl border px-3" />
+          </label>
+          <label class="block space-y-1.5">
+            <span class="text-xs font-medium">确认收样人 *</span>
+            <input data-pda-onboarding-field="sampleReceive-factoryReceivedBy" value="${escapeHtml(state.sampleReceiveDraft.factoryReceivedBy)}" class="h-10 w-full rounded-2xl border px-3" placeholder="请输入确认收样人" />
+          </label>
+          <label class="block space-y-1.5">
+            <span class="text-xs font-medium">收样备注</span>
+            <textarea data-pda-onboarding-field="sampleReceive-factoryReceiveRemark" class="min-h-20 w-full rounded-2xl border px-3 py-2" placeholder="请输入收样备注">${escapeHtml(state.sampleReceiveDraft.factoryReceiveRemark || '')}</textarea>
+          </label>
+        </div>
+        <div class="mt-5 grid grid-cols-2 gap-2">
+          <button type="button" class="h-10 rounded-2xl border text-sm font-medium" data-pda-onboarding-action="close-sample-receive">取消</button>
+          <button type="button" class="h-10 rounded-2xl bg-primary text-sm font-medium text-primary-foreground" data-pda-onboarding-action="confirm-sample-receive">确认收到样衣</button>
+        </div>
+      </section>
+    </div>
   `
 }
 
@@ -248,16 +572,6 @@ function getFactoryTypeLabel(code: string): string {
     MULTI_CAPABILITY_FACTORY: '全能力工厂',
   }
   return map[code] || code
-}
-
-function getCompletenessActionText(itemName: string): string {
-  if (itemName === '账号信息') return '请补齐登录账户、密码、管理员姓名和管理员 WhatsApp'
-  if (itemName === '工厂基础信息') return '请补齐工厂名称、老板名字、WhatsApp、地址和可开始合作时间'
-  if (itemName === '人员信息') return '请填写有效工人数量'
-  if (itemName === '机器信息') return '请补齐机器总数和机器明细'
-  if (itemName === '工序工艺能力') return '请至少选择一个具体工序工艺'
-  if (itemName === '机器与工序工艺关联') return '请让每台机器都关联已选工序工艺'
-  return '请补齐对应资料'
 }
 
 function renderCompletenessCard(application: FactoryOnboardingApplication | null): string {
@@ -282,10 +596,7 @@ function renderCompletenessCard(application: FactoryOnboardingApplication | null
   return `
     <section class="rounded-2xl border bg-card p-3 shadow-sm" data-testid="pda-onboarding-completeness-card">
       <div class="flex items-start justify-between gap-3">
-        <div>
-          <h3 class="text-sm font-semibold">资料完整性</h3>
-          <p class="mt-1 text-xs text-muted-foreground">评分来自账号、基础资料、机器、工序工艺、关联关系和 WhatsApp 校验。</p>
-        </div>
+        <h3 class="text-sm font-semibold">资料完整性</h3>
         <span class="inline-flex rounded-full border px-2 py-0.5 text-[11px] ${toneClass}">${escapeHtml(completeness.completenessLevel)}</span>
       </div>
       <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
@@ -300,28 +611,10 @@ function renderCompletenessCard(application: FactoryOnboardingApplication | null
             <article class="rounded-xl border border-dashed px-3 py-2 text-xs">
               <div class="font-medium">${escapeHtml(item.itemName)}</div>
               <div class="mt-1 text-muted-foreground">缺失原因：${escapeHtml(item.missingReason)}</div>
-              <div class="mt-1 text-muted-foreground">建议补充动作：${escapeHtml(getCompletenessActionText(item.itemName))}</div>
             </article>
           `).join('') : '<div class="rounded-xl border border-dashed px-3 py-3 text-xs text-muted-foreground">当前资料已无待补充项。</div>'}
         </div>
       ` : ''}
-    </section>
-  `
-}
-
-function renderFactoryTypeMatchCard(): string {
-  const matchResults = inferFactoryTypesFromCapabilities(state.draft.selectedCapabilities)
-  const primaryFactoryType = getPrimaryFactoryType(matchResults)
-  const matchReason = matchResults.length > 0
-    ? matchResults.map((item) => `${getFactoryTypeLabel(item.factoryTypeCode)}：${item.matchedCapabilities.join('、')}`).join('；')
-    : '请先选择工序工艺能力。'
-  return `
-    <section class="rounded-2xl border bg-muted/20 p-3">
-      <h4 class="text-xs font-semibold">系统匹配工厂类型</h4>
-      <div class="mt-2 space-y-2 text-xs">
-        <div class="rounded-xl border bg-background px-3 py-2">主类型：<span class="font-medium">${escapeHtml(getFactoryTypeLabel(primaryFactoryType))}</span></div>
-        <div class="rounded-xl border bg-background px-3 py-2">匹配依据：${escapeHtml(matchReason)}</div>
-      </div>
     </section>
   `
 }
@@ -358,17 +651,11 @@ function renderCapabilityPicker(readonly: boolean): string {
   const selectedKeys = new Set(state.draft.selectedCapabilities.map((item) => `${item.processCode}:${item.craftCode}`))
   const matchResults = inferFactoryTypesFromCapabilities(state.draft.selectedCapabilities)
   const primaryFactoryType = getPrimaryFactoryType(matchResults)
-  const matchReason = matchResults.length > 0
-    ? matchResults.map((item) => `${getFactoryTypeLabel(item.factoryTypeCode)}：${item.matchedCapabilities.join('、')}`).join('；')
-    : '请先选择工序工艺能力。'
 
   return `
     <section class="rounded-[28px] border border-slate-200 bg-white p-3 shadow-sm">
       <div class="flex items-center justify-between gap-3">
-        <div>
-          <h3 class="text-sm font-semibold">工序工艺能力</h3>
-          <p class="mt-1 text-xs text-muted-foreground">先选工序，再勾选工艺。</p>
-        </div>
+        <h3 class="text-sm font-semibold">工序工艺能力</h3>
       </div>
       <div class="mt-3 flex gap-2 overflow-x-auto pb-1">
         ${processOptions.map((item) => `
@@ -408,7 +695,6 @@ function renderCapabilityPicker(readonly: boolean): string {
       </div>
       <div class="mt-3 rounded-2xl bg-slate-50 px-3 py-3 text-xs">
         <div class="font-medium text-slate-900">系统匹配工厂类型：${escapeHtml(getFactoryTypeLabel(primaryFactoryType))}</div>
-        <div class="mt-1 text-slate-500">匹配依据：${escapeHtml(matchReason)}</div>
       </div>
     </section>
   `
@@ -433,10 +719,7 @@ function renderMachineTable(readonly: boolean): string {
   return `
     <section class="rounded-2xl border bg-card p-3 shadow-sm">
       <div class="flex items-center justify-between gap-3">
-        <div>
-          <h3 class="text-sm font-semibold">机器明细</h3>
-          <p class="mt-1 text-xs text-muted-foreground">机器必须关联已选择的工序工艺，异常机器允许保存草稿但不能提交。</p>
-        </div>
+        <h3 class="text-sm font-semibold">机器明细</h3>
         ${readonly ? '' : '<button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-pda-onboarding-action="add-machine">添加机器</button>'}
       </div>
       <div class="mt-3 space-y-3" data-testid="pda-onboarding-machine-list">
@@ -500,17 +783,27 @@ function renderMachineRow(machine: FactoryOnboardingMachineAbility, index: numbe
 
 function getDraftFieldValue(field: FactoryOnboardingRequiredField): string {
   switch (field) {
-    case '工厂名称':
-      return state.draft.factoryName || '未填写'
-    case '老板名字':
-      return state.draft.bossName || '未填写'
-    case 'WhatsApp':
-      return state.draft.whatsapp || '未填写'
+    case '工厂简称':
+      return state.draft.factoryShortName || '未填写'
+    case '姓名':
+      return state.draft.applicantName || '未填写'
+    case '身份证号码/护照号码':
+      return state.draft.identityNo || '未填写'
+    case '身份证复印件/电子文件':
+      return state.draft.identityFile?.fileName || '未上传'
+    case '工厂/公司名称':
+      return state.draft.factoryCompanyName || '未填写'
     case '地址':
       return state.draft.address || '未填写'
+    case '手机号':
+      return state.draft.mobilePhone || '未填写'
+    case '来源':
+      return state.draft.sourceChannel || '未填写'
+    case '收到此通知的 PPIC 姓名':
+      return state.draft.ppicName || '未填写'
     case '有效工人数量':
       return state.draft.effectiveWorkerCount > 0 ? String(state.draft.effectiveWorkerCount) : '未填写'
-    case '机器总数':
+    case '机器数量':
       return state.draft.machineTotalCount > 0 ? String(state.draft.machineTotalCount) : '未填写'
     case '机器明细':
       return state.draft.machines.length > 0 ? state.draft.machines.map((item) => `${item.machineName || '未命名设备'}×${item.machineCount || 0}`).join('、') : '未填写'
@@ -518,8 +811,6 @@ function getDraftFieldValue(field: FactoryOnboardingRequiredField): string {
       return state.draft.selectedCapabilities.length > 0 ? state.draft.selectedCapabilities.map((item) => `${item.processName}/${item.craftName}`).join('、') : '未填写'
     case '可开始合作时间':
       return state.draft.availableStartDate || '未填写'
-    case '管理员账号':
-      return state.draft.adminAccount.loginId || '未填写'
     default:
       return '未填写'
   }
@@ -528,16 +819,19 @@ function getDraftFieldValue(field: FactoryOnboardingRequiredField): string {
 function renderReviewAndSupplement(application: FactoryOnboardingApplication | null): string {
   const latestReview = getLatestReviewRecord(application)
   const latestSupplement = getLatestSupplementRecord(application)
-  const showReview = latestReview && (application?.status === '退回补充资料' || application?.status === '已重新提交待审核' || application?.status === '已拒绝')
+  const showReview = latestReview && (
+    application?.status === '平台审核退回'
+    || application?.status === ('平台审核' + '拒绝')
+    || application?.status === LEGACY_SAMPLE_REJECTED_STATUS
+  )
   if (!showReview) return ''
 
   return `
     <section class="rounded-[28px] border border-slate-200 bg-white p-3 shadow-sm" data-testid="pda-onboarding-review-card">
       <h3 class="text-sm font-semibold">最近审核意见</h3>
       <div class="mt-3 space-y-2 text-xs">
-        <div class="rounded-xl border bg-muted/20 px-3 py-2">审核结果：${escapeHtml(latestReview.reviewResult)}</div>
+        <div class="rounded-xl border bg-muted/20 px-3 py-2">审核结果：${escapeHtml(normalizeReviewResult(latestReview.reviewResult))}</div>
         <div class="rounded-xl border bg-muted/20 px-3 py-2">审核意见：${escapeHtml(latestReview.reviewOpinion)}</div>
-        <div class="rounded-xl border bg-muted/20 px-3 py-2">是否允许再次提交：${latestReview.allowResubmit ? '是' : '否'}</div>
         <div class="rounded-xl border bg-muted/20 px-3 py-2">审核人：${escapeHtml(latestReview.reviewer)}</div>
         <div class="rounded-xl border bg-muted/20 px-3 py-2">审核时间：${escapeHtml(latestReview.reviewedAt)}</div>
       </div>
@@ -568,15 +862,20 @@ function renderReadonlySummary(): string {
     <section class="rounded-[28px] border border-slate-200 bg-white p-3 shadow-sm">
       <h3 class="text-sm font-semibold">提交确认</h3>
       <div class="mt-3 space-y-2 text-xs">
-        <div class="rounded-xl border bg-muted/20 px-3 py-2">工厂名称：${escapeHtml(state.draft.factoryName || '未填写')}</div>
-        <div class="rounded-xl border bg-muted/20 px-3 py-2">老板名字：${escapeHtml(state.draft.bossName || '未填写')}</div>
-        <div class="rounded-xl border bg-muted/20 px-3 py-2">WhatsApp：${escapeHtml(state.draft.whatsapp || '未填写')}</div>
+        <div class="rounded-xl border bg-muted/20 px-3 py-2">工厂简称：${escapeHtml(state.draft.factoryShortName || '未填写')}</div>
+        <div class="rounded-xl border bg-muted/20 px-3 py-2">姓名：${escapeHtml(state.draft.applicantName || '未填写')}</div>
+        <div class="rounded-xl border bg-muted/20 px-3 py-2">身份证号码/护照号码：${escapeHtml(state.draft.identityNo || '未填写')}</div>
+        <div class="rounded-xl border bg-muted/20 px-3 py-2">工厂/公司名称：${escapeHtml(state.draft.factoryCompanyName || '未填写')}</div>
+        <div class="rounded-xl border bg-muted/20 px-3 py-2">手机号：${escapeHtml(state.draft.mobilePhone || '未填写')}</div>
         <div class="rounded-xl border bg-muted/20 px-3 py-2">地址：${escapeHtml(state.draft.address || '未填写')}</div>
+        <div class="rounded-xl border bg-muted/20 px-3 py-2">来源：${escapeHtml(state.draft.sourceChannel || '未填写')}</div>
+        <div class="rounded-xl border bg-muted/20 px-3 py-2">PPIC 姓名：${escapeHtml(state.draft.ppicName || '未填写')}</div>
+        <div class="rounded-xl border bg-muted/20 px-3 py-2">机器数量：${state.draft.machineTotalCount || 0}</div>
         <div class="rounded-xl border bg-muted/20 px-3 py-2">有效工人数量：${state.draft.effectiveWorkerCount || 0}</div>
-        <div class="rounded-xl border bg-muted/20 px-3 py-2">机器总数：${state.draft.machineTotalCount || 0}</div>
-        <div class="rounded-xl border bg-muted/20 px-3 py-2">已选工序工艺：${escapeHtml(capabilityText)}</div>
         <div class="rounded-xl border bg-muted/20 px-3 py-2">可开始合作时间：${escapeHtml(state.draft.availableStartDate || '未选择')}</div>
-        <div class="rounded-xl border bg-muted/20 px-3 py-2">管理员账号：${escapeHtml(state.draft.adminAccount.loginId || '未填写')}</div>
+        <div class="rounded-xl border bg-muted/20 px-3 py-2">已选工序工艺：${escapeHtml(capabilityText)}</div>
+        <div class="rounded-xl border bg-muted/20 px-3 py-2">机器明细数量：${state.draft.machines.length}</div>
+        <div class="rounded-xl border bg-muted/20 px-3 py-2">身份证复印件/电子文件：${escapeHtml(state.draft.identityFile?.fileName || '未上传')}</div>
       </div>
     </section>
   `
@@ -587,10 +886,7 @@ function renderRecords(application: FactoryOnboardingApplication | null): string
   return `
     <section class="rounded-[28px] border border-slate-200 bg-white p-3 shadow-sm">
       <div class="flex items-center justify-between gap-3">
-        <div>
-          <h3 class="text-sm font-semibold">流程记录</h3>
-          <p class="mt-1 text-[11px] text-slate-500">需要时再展开查看</p>
-        </div>
+        <h3 class="text-sm font-semibold">流程记录</h3>
         <button type="button" class="rounded-full border px-3 py-1 text-xs" data-pda-onboarding-action="toggle-completeness-items">
           ${state.showCompletenessItems ? '收起' : '查看'}
         </button>
@@ -645,10 +941,10 @@ function renderActionArea(application: FactoryOnboardingApplication | null): str
       <div class="grid grid-cols-1 gap-2">
         ${readonly ? '' : '<button type="button" class="h-11 rounded-2xl border bg-background text-sm font-medium" data-pda-onboarding-action="save-draft">保存草稿</button>'}
         ${canSubmitOnboardingApplication(application)
-          ? `<button type="button" class="h-11 rounded-2xl bg-primary text-sm font-medium text-primary-foreground" data-pda-onboarding-action="submit">${escapeHtml(getOnboardingStatusActionLabel(application))}</button>`
+          ? `<button type="button" class="h-11 rounded-2xl bg-primary text-sm font-medium text-primary-foreground" data-testid="pda-onboarding-submit" data-pda-onboarding-action="submit">${escapeHtml(getOnboardingStatusActionLabel(application))}</button>`
           : '<button type="button" class="h-11 rounded-2xl border bg-muted text-sm font-medium text-muted-foreground" disabled>当前状态仅支持查看</button>'}
         <button type="button" class="h-11 rounded-2xl border bg-background text-sm font-medium" data-pda-onboarding-action="goto-login">返回登录</button>
-        ${application?.status === '已合作' ? `<button type="button" class="h-11 rounded-2xl border bg-background text-sm font-medium" data-nav="${escapeHtml(returnTo)}">进入业务页面</button>` : ''}
+        ${application?.status === '已转正式合作' ? `<button type="button" class="h-11 rounded-2xl border bg-background text-sm font-medium" data-nav="${escapeHtml(returnTo)}">进入执行</button>` : ''}
       </div>
     </section>
   `
@@ -656,13 +952,14 @@ function renderActionArea(application: FactoryOnboardingApplication | null): str
 
 function renderMobileFlowSection(application: FactoryOnboardingApplication | null): string {
   const steps = [
-    { key: 'draft', nodeNames: ['填写入驻信息', '提交平台审核'], shortName: '填资料' },
+    { key: 'draft', nodeNames: ['填写入驻申请'], shortName: '填资料' },
     { key: 'review', nodeNames: ['平台审核'], shortName: '平台审核' },
-    { key: 'supplement', nodeNames: ['补充资料'], shortName: '补资料' },
-    { key: 'cooperate', nodeNames: ['确认合作', '生成工厂档案'], shortName: '确认合作' },
+    { key: 'sample-verify', nodeNames: ['样衣验证'], shortName: '样衣验证' },
+    { key: 'sample-review', nodeNames: ['样衣审核'], shortName: '样衣审核' },
+    { key: 'formal', nodeNames: ['正式合作'], shortName: '正式合作' },
     { key: 'done', nodeNames: ['完成'], shortName: '完成' },
   ] as const
-  const currentNode = application?.currentNode || '填写入驻信息'
+  const currentNode = application?.currentNode || '填写入驻申请'
   const currentNodeLog =
     application?.nodeLogs.find((item) => item.nodeName === currentNode) ||
     application?.nodeLogs.find((item) => item.nodeStatus === '进行中') ||
@@ -689,7 +986,7 @@ function renderMobileFlowSection(application: FactoryOnboardingApplication | nul
             return `
               <article class="w-[110px] shrink-0 rounded-2xl border px-3 py-2 ${isActive ? 'border-blue-200 bg-blue-50' : 'border-slate-200 bg-slate-50'}">
                 <div class="text-xs font-semibold ${isActive ? 'text-blue-700' : 'text-slate-700'}">${step.shortName}</div>
-                <div class="mt-2">${renderNodeStatusChip(status, nodeLog ? getNodeTone(status) : 'pending')}</div>
+                <div class="mt-2">${renderNodeStatusChip(status, nodeLog ? getNodeTone(status) : 'todo')}</div>
               </article>
             `
           }).join('')}
@@ -726,9 +1023,9 @@ function renderMobileFlowSection(application: FactoryOnboardingApplication | nul
 function renderOnboardingBody(application: FactoryOnboardingApplication | null): string {
   const readonly = !canEditOnboardingApplication(application)
   return `
-    <section class="min-h-screen bg-slate-50 pb-6">
+    <section class="min-h-screen bg-slate-50 pb-6" data-testid="pda-onboarding-page">
       <header class="sticky top-0 z-20 border-b bg-background/95 px-4 py-3 backdrop-blur">
-        <div class="mx-auto flex max-w-sm items-center justify-between gap-3">
+        <div class="flex items-center justify-between gap-3">
           <div>
             <div class="text-sm font-semibold">工厂入驻&登录</div>
             <div class="text-[11px] text-muted-foreground">入驻</div>
@@ -736,48 +1033,65 @@ function renderOnboardingBody(application: FactoryOnboardingApplication | null):
           <button type="button" class="rounded-full border px-3 py-1 text-xs" data-pda-onboarding-action="logout">退出当前账号</button>
         </div>
       </header>
-      <div class="mx-auto max-w-sm space-y-3 px-4 py-4">
+      <div class="space-y-3 px-4 py-4" data-testid="pda-onboarding-form">
         ${renderMobileFlowSection(application)}
+        ${renderCurrentStatusCard(application)}
+        ${renderCompletenessCard(application)}
         ${renderReviewAndSupplement(application)}
+        ${renderSampleVerificationCard(application)}
 
         <section class="rounded-[28px] border border-slate-200 bg-white p-3 shadow-sm">
-          <h3 class="text-sm font-semibold">账号信息</h3>
-          <div data-testid="pda-onboarding-account-section" class="mt-3 grid grid-cols-1 gap-3 text-xs">
-            ${renderField('登录账户', `<input ${readonly ? 'disabled' : ''} data-pda-onboarding-field="admin-loginId" value="${escapeHtml(state.draft.adminAccount.loginId)}" class="h-10 w-full rounded-2xl border px-3" placeholder="请输入登录账户" />`, true)}
-            ${renderField('登录密码', `<input ${readonly ? 'disabled' : ''} type="password" data-pda-onboarding-field="admin-password" value="${escapeHtml(state.draft.adminAccount.password)}" class="h-10 w-full rounded-2xl border px-3" placeholder="请输入登录密码" />`, true)}
-            ${renderField('确认密码', `<input ${readonly ? 'disabled' : ''} type="password" data-pda-onboarding-field="confirmPassword" value="${escapeHtml(state.confirmPassword)}" class="h-10 w-full rounded-2xl border px-3" placeholder="请再次输入登录密码" />`, true)}
-            ${renderField('管理员姓名', `<input ${readonly ? 'disabled' : ''} data-pda-onboarding-field="admin-adminName" value="${escapeHtml(state.draft.adminAccount.adminName)}" class="h-10 w-full rounded-2xl border px-3" placeholder="请输入管理员姓名" />`, true)}
-            ${renderField('管理员 WhatsApp', `<input ${readonly ? 'disabled' : ''} data-pda-onboarding-field="admin-whatsapp" value="${escapeHtml(state.draft.adminAccount.whatsapp)}" class="h-10 w-full rounded-2xl border px-3" placeholder="请输入管理员 WhatsApp" />`, true)}
+          <h3 class="text-sm font-semibold">基础身份信息</h3>
+          <div data-testid="pda-onboarding-basic-section" class="mt-3 grid grid-cols-1 gap-3 text-xs">
+            ${renderField('姓名', `<input ${readonly ? 'disabled' : ''} data-pda-onboarding-field="applicantName" value="${escapeHtml(state.draft.applicantName)}" class="h-10 w-full rounded-2xl border px-3" placeholder="请输入姓名" />`, true)}
+            ${renderField('身份证号码/护照号码', `<input ${readonly ? 'disabled' : ''} data-pda-onboarding-field="identityNo" value="${escapeHtml(state.draft.identityNo)}" class="h-10 w-full rounded-2xl border px-3" placeholder="请输入身份证号码/护照号码" />`, true)}
           </div>
         </section>
 
         <section class="rounded-[28px] border border-slate-200 bg-white p-3 shadow-sm">
           <h3 class="text-sm font-semibold">工厂基础信息</h3>
-          <div data-testid="pda-onboarding-basic-section" class="mt-3 grid grid-cols-1 gap-3 text-xs">
-            ${renderField('工厂名称', `<input ${readonly ? 'disabled' : ''} data-pda-onboarding-field="factoryName" value="${escapeHtml(state.draft.factoryName)}" class="h-10 w-full rounded-2xl border px-3" placeholder="请输入工厂名称" />`, true)}
-            ${renderField('老板名字', `<input ${readonly ? 'disabled' : ''} data-pda-onboarding-field="bossName" value="${escapeHtml(state.draft.bossName)}" class="h-10 w-full rounded-2xl border px-3" placeholder="请输入老板名字" />`, true)}
-            ${renderField('WhatsApp', `<input ${readonly ? 'disabled' : ''} data-pda-onboarding-field="whatsapp" value="${escapeHtml(state.draft.whatsapp)}" class="h-10 w-full rounded-2xl border px-3" placeholder="请输入 WhatsApp" />`, true)}
+          <div data-testid="pda-onboarding-contact-section" class="mt-3 grid grid-cols-1 gap-3 text-xs">
+            ${renderField('工厂简称', `<input ${readonly ? 'disabled' : ''} data-testid="factory-short-name-input" data-pda-onboarding-field="factoryShortName" value="${escapeHtml(state.draft.factoryShortName)}" class="h-10 w-full rounded-2xl border px-3" placeholder="请输入工厂简称" />`, true)}
+            ${renderField('工厂/公司名称', `<input ${readonly ? 'disabled' : ''} data-pda-onboarding-field="factoryCompanyName" value="${escapeHtml(state.draft.factoryCompanyName)}" class="h-10 w-full rounded-2xl border px-3" placeholder="请输入工厂/公司名称" />`, true)}
             <label class="block space-y-1.5">
               <span class="text-xs font-medium text-foreground">地址 *</span>
               <textarea ${readonly ? 'disabled' : ''} data-pda-onboarding-field="address" class="min-h-20 w-full rounded-2xl border px-3 py-2" placeholder="请输入详细地址">${escapeHtml(state.draft.address)}</textarea>
             </label>
+            ${renderField('手机号', `<input ${readonly ? 'disabled' : ''} data-testid="mobile-phone-input" data-pda-onboarding-field="mobilePhone" value="${escapeHtml(state.draft.mobilePhone)}" class="h-10 w-full rounded-2xl border px-3" placeholder="请输入手机号" />`, true)}
+            ${renderField('来源', `<input ${readonly ? 'disabled' : ''} data-pda-onboarding-field="sourceChannel" value="${escapeHtml(state.draft.sourceChannel)}" class="h-10 w-full rounded-2xl border px-3" placeholder="请输入来源" />`, true)}
+            ${renderField('收到此通知的 PPIC 姓名', `<input ${readonly ? 'disabled' : ''} data-pda-onboarding-field="ppicName" value="${escapeHtml(state.draft.ppicName)}" class="h-10 w-full rounded-2xl border px-3" placeholder="请输入 PPIC 姓名" />`, true)}
+          </div>
+        </section>
+
+        <section class="rounded-[28px] border border-slate-200 bg-white p-3 shadow-sm">
+          <h3 class="text-sm font-semibold">能力与机器信息</h3>
+          <div data-testid="pda-onboarding-workers-section" class="mt-3 grid grid-cols-1 gap-3 text-xs">
+            ${renderField('机器数量', `<input ${readonly ? 'disabled' : ''} type="number" min="1" data-pda-onboarding-field="machineTotalCount" value="${state.draft.machineTotalCount || ''}" class="h-10 w-full rounded-2xl border px-3" />`, true)}
+            ${renderField('有效工人数量', `<input ${readonly ? 'disabled' : ''} type="number" min="1" data-pda-onboarding-field="effectiveWorkerCount" value="${state.draft.effectiveWorkerCount || ''}" class="h-10 w-full rounded-2xl border px-3" />`, true)}
             ${renderField('可开始合作时间', `<input ${readonly ? 'disabled' : ''} type="date" data-pda-onboarding-field="availableStartDate" value="${escapeHtml(state.draft.availableStartDate)}" class="h-10 w-full rounded-2xl border px-3" />`, true)}
           </div>
         </section>
 
         <section class="rounded-[28px] border border-slate-200 bg-white p-3 shadow-sm">
-          <h3 class="text-sm font-semibold">人员与机器</h3>
-          <div data-testid="pda-onboarding-workers-section" class="mt-3 grid grid-cols-1 gap-3 text-xs">
-            ${renderField('有效工人数量', `<input ${readonly ? 'disabled' : ''} type="number" min="1" data-pda-onboarding-field="effectiveWorkerCount" value="${state.draft.effectiveWorkerCount || ''}" class="h-10 w-full rounded-2xl border px-3" />`, true)}
-            ${renderField('机器总数', `<input ${readonly ? 'disabled' : ''} type="number" min="1" data-pda-onboarding-field="machineTotalCount" value="${state.draft.machineTotalCount || ''}" class="h-10 w-full rounded-2xl border px-3" />`, true)}
+          <h3 class="text-sm font-semibold">附件资料</h3>
+          <div class="mt-3 grid grid-cols-1 gap-3 text-xs">
+            ${renderField('上传身份证复印件/电子文件', `
+              <div class="space-y-2">
+                <input ${readonly ? 'disabled' : ''} type="file" accept=".jpg,.jpeg,.png,.pdf" data-pda-onboarding-file="identityFile" class="w-full rounded-2xl border px-3 py-2" />
+                <div class="rounded-xl border bg-muted/20 px-3 py-2">当前文件：${escapeHtml(state.draft.identityFile?.fileName || '未上传')}</div>
+                ${readonly ? '' : '<button type="button" class="rounded-full border px-3 py-1 text-xs" data-pda-onboarding-action="use-demo-identity-file">使用演示身份文件</button>'}
+              </div>
+            `, true)}
           </div>
         </section>
 
         ${renderCapabilityPicker(readonly)}
         ${renderMachineTable(readonly)}
+        ${renderReadonlySummary()}
         ${renderActionArea(application)}
         ${renderRecords(application)}
       </div>
+      ${renderSampleReceiveDialog(application)}
     </section>
   `
 }
@@ -851,11 +1165,149 @@ function updateDraftField(field: string, value: string): void {
   }
   ;(state.draft[field as keyof FactoryOnboardingDraftPayload] as string) = value
 
-  if (field === 'bossName' && !state.draft.adminAccount.adminName) {
+  if (field === 'applicantName') {
+    state.draft.bossName = value
     state.draft.adminAccount.adminName = value
   }
-  if (field === 'whatsapp' && !state.draft.adminAccount.whatsapp) {
+  if (field === 'factoryCompanyName') {
+    state.draft.factoryName = value
+  }
+  if (field === 'factoryShortName') {
+    state.draft.adminAccount.loginId = value
+  }
+  if (field === 'mobilePhone') {
+    state.draft.mobileOrWhatsapp = value
+    state.draft.whatsapp = value
+    state.draft.adminAccount.mobilePhone = value
+    state.draft.adminAccount.mobileOrWhatsapp = value
     state.draft.adminAccount.whatsapp = value
+  }
+}
+
+function updateIdentityFileFromInput(input: HTMLInputElement): void {
+  const file = input.files?.[0]
+  if (!file) return
+  const extension = file.name.split('.').pop()?.toLowerCase() || 'pdf'
+  state.draft.identityFile = {
+    fileId: `IDF-DRAFT-${Date.now()}`,
+    fileName: file.name,
+    fileType: extension === 'jpg' || extension === 'jpeg' || extension === 'png' || extension === 'pdf' ? extension : 'pdf',
+    fileSizeMb: Number((file.size / 1024 / 1024).toFixed(2)),
+    uploadedAt: new Date().toISOString().slice(0, 19).replace('T', ' '),
+  }
+}
+
+function getReferenceFileType(fileName: string): FactorySampleReferenceFile['fileType'] {
+  const extension = fileName.split('.').pop()?.toLowerCase() || 'pdf'
+  if (extension === 'jpg' || extension === 'jpeg' || extension === 'png' || extension === 'webp' || extension === 'pdf' || extension === 'mp4' || extension === 'mov') {
+    return extension
+  }
+  return 'pdf'
+}
+
+function buildReferenceFilesFromInput(input: HTMLInputElement): FactorySampleReferenceFile[] {
+  const files = Array.from(input.files || [])
+  const uploadedAt = nowTimestamp()
+  return files.map((file, index) => ({
+    fileId: `FACTORY-SAMPLE-${Date.now()}-${index}`,
+    fileName: file.name,
+    fileType: getReferenceFileType(file.name),
+    fileSizeMb: Number((file.size / 1024 / 1024).toFixed(2)),
+    uploadedAt,
+  }))
+}
+
+function updateSampleFilesFromInput(input: HTMLInputElement, field: string): void {
+  const files = buildReferenceFilesFromInput(input)
+  if (field === 'factorySamplePhotos') state.sampleSubmissionDraft.factorySamplePhotos = files
+  if (field === 'factorySampleVideos') state.sampleSubmissionDraft.factorySampleVideos = files
+  if (field === 'factorySubmissionFiles') state.sampleSubmissionDraft.factorySubmissionFiles = files
+  if (field === 'factorySitePhotos') state.sampleSubmissionDraft.factorySitePhotos = files
+  if (field === 'factorySiteVideos') state.sampleSubmissionDraft.factorySiteVideos = files
+  if (field === 'bossIdentityFiles') state.sampleSubmissionDraft.bossIdentityFiles = files
+  state.sampleSubmissionErrorText = ''
+}
+
+function updateSampleReceiveField(field: string, value: string): boolean {
+  if (!field.startsWith('sampleReceive-')) return false
+  const key = field.replace('sampleReceive-', '') as keyof FactorySampleReceivePayload
+  state.sampleReceiveDraft = {
+    ...state.sampleReceiveDraft,
+    [key]: value,
+  }
+  state.sampleReceiveErrorText = ''
+  return true
+}
+
+function updateSampleSubmissionField(field: string, value: string): boolean {
+  if (!field.startsWith('sampleSubmission-')) return false
+  const key = field.replace('sampleSubmission-', '') as keyof FactorySampleSubmissionPayload
+  state.sampleSubmissionDraft = {
+    ...state.sampleSubmissionDraft,
+    [key]: value,
+  }
+  state.sampleSubmissionErrorText = ''
+  return true
+}
+
+function getCurrentSampleVerification() {
+  return getSampleVerificationForApplication(syncPageState())
+}
+
+function openSampleReceiveDialog(verificationId: string): void {
+  const application = syncPageState()
+  const sampleVerification = getSampleVerificationForApplication(application)
+  if (!sampleVerification || sampleVerification.verificationId !== verificationId) {
+    state.errorText = '未找到样衣验证记录'
+    return
+  }
+  state.errorText = ''
+  state.successText = ''
+  state.sampleReceiveVerificationId = verificationId
+  state.sampleReceiveDraft = {
+    factoryReceivedAt: nowTimestamp(),
+    factoryReceivedBy: application?.adminAccount.adminName || application?.applicantName || '',
+    factoryReceiveRemark: '',
+  }
+  state.sampleReceiveErrorText = ''
+}
+
+async function handleConfirmSampleReceive(): Promise<void> {
+  state.sampleReceiveErrorText = ''
+  state.errorText = ''
+  state.successText = ''
+  try {
+    const sampleVerification = getCurrentSampleVerification()
+    const result = confirmFactoryReceivedSample(
+      state.sampleReceiveVerificationId || sampleVerification?.verificationId || '',
+      state.sampleReceiveDraft,
+      state.sampleReceiveDraft.factoryReceivedBy || '工厂管理员',
+    )
+    hydrateDraftFromApplication(result.application)
+    state.sampleReceiveVerificationId = null
+    state.successText = '已确认收到样衣'
+  } catch (error) {
+    state.sampleReceiveErrorText = error instanceof Error ? error.message : '确认收样失败'
+  }
+}
+
+async function handleSubmitFactorySampleReview(): Promise<void> {
+  state.sampleSubmissionErrorText = ''
+  state.errorText = ''
+  state.successText = ''
+  try {
+    const application = syncPageState()
+    const sampleVerification = getSampleVerificationForApplication(application)
+    if (!sampleVerification) throw new Error('未找到样衣验证记录')
+    const result = submitFactorySampleReview(
+      sampleVerification.verificationId,
+      state.sampleSubmissionDraft,
+      application?.adminAccount.adminName || application?.applicantName || '工厂管理员',
+    )
+    hydrateDraftFromApplication(result.application)
+    state.successText = '样衣审核资料已提交'
+  } catch (error) {
+    state.sampleSubmissionErrorText = error instanceof Error ? error.message : '提交样衣审核资料失败'
   }
 }
 
@@ -864,7 +1316,7 @@ async function handleSaveDraft(): Promise<void> {
   state.successText = ''
   try {
     syncMachineValidation()
-    const saved = saveFactoryOnboardingDraft(state.draft, state.confirmPassword)
+    const saved = saveFactoryOnboardingDraft(state.draft, state.confirmPassword || '123456')
     hydrateDraftFromApplication(saved)
     state.successText = '草稿已保存'
   } catch (error) {
@@ -877,19 +1329,32 @@ async function handleSubmit(): Promise<void> {
   state.successText = ''
   try {
     syncMachineValidation()
-    const saved = submitFactoryOnboardingApplication(state.draft, state.confirmPassword)
+    const saved = submitFactoryOnboardingApplication(state.draft, state.confirmPassword || '123456')
     hydrateDraftFromApplication(saved)
     activateOnboardingSession(saved)
-    state.successText = saved.status === '已重新提交待审核' ? '已重新提交入驻申请' : '已提交入驻申请'
+    state.successText = saved.status === '待平台审核' ? '已提交入驻申请' : '已重新提交入驻申请'
   } catch (error) {
     state.errorText = error instanceof Error ? error.message : '请先补全入驻信息'
   }
 }
 
 export async function handlePdaOnboardingEvent(target: HTMLElement): Promise<boolean> {
+  const fileNode = target.closest<HTMLElement>('[data-pda-onboarding-file]')
+  if (fileNode instanceof HTMLInputElement) {
+    const fileField = fileNode.dataset.pdaOnboardingFile || ''
+    if (fileField === 'identityFile') {
+      updateIdentityFileFromInput(fileNode)
+    } else {
+      updateSampleFilesFromInput(fileNode, fileField)
+    }
+    return true
+  }
+
   const fieldNode = target.closest<HTMLElement>('[data-pda-onboarding-field]')
   if (fieldNode instanceof HTMLInputElement || fieldNode instanceof HTMLTextAreaElement || fieldNode instanceof HTMLSelectElement) {
     const field = fieldNode.dataset.pdaOnboardingField || ''
+    if (updateSampleReceiveField(field, fieldNode.value)) return true
+    if (updateSampleSubmissionField(field, fieldNode.value)) return true
     updateDraftField(field, fieldNode.value)
     return true
   }
@@ -919,6 +1384,27 @@ export async function handlePdaOnboardingEvent(target: HTMLElement): Promise<boo
     return true
   }
 
+  if (action === 'open-sample-receive') {
+    openSampleReceiveDialog(actionNode?.dataset.verificationId || '')
+    return true
+  }
+
+  if (action === 'close-sample-receive') {
+    state.sampleReceiveVerificationId = null
+    state.sampleReceiveErrorText = ''
+    return true
+  }
+
+  if (action === 'confirm-sample-receive') {
+    await handleConfirmSampleReceive()
+    return true
+  }
+
+  if (action === 'submit-sample-review') {
+    await handleSubmitFactorySampleReview()
+    return true
+  }
+
   if (action === 'select-process') {
     state.selectedProcessCode = actionNode?.dataset.processCode || state.selectedProcessCode
     return true
@@ -936,6 +1422,17 @@ export async function handlePdaOnboardingEvent(target: HTMLElement): Promise<boo
 
   if (action === 'toggle-completeness-items') {
     state.showCompletenessItems = !state.showCompletenessItems
+    return true
+  }
+
+  if (action === 'use-demo-identity-file') {
+    state.draft.identityFile = {
+      fileId: `IDF-DEMO-${Date.now()}`,
+      fileName: '身份证复印件演示文件.pdf',
+      fileType: 'pdf',
+      fileSizeMb: 3,
+      uploadedAt: new Date().toISOString().slice(0, 19).replace('T', ' '),
+    }
     return true
   }
 

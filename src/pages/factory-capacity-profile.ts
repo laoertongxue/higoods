@@ -633,15 +633,16 @@ function renderTopReadonlyInfo(factory: Factory): string {
         ${renderFieldValue('工厂类型', factoryTypeConfig[factory.factoryType]?.label ?? factory.factoryType)}
         ${renderFieldValue('工厂状态', factoryStatusConfig[factory.status].label)}
         ${renderFieldValue('联系人', factory.contact)}
-        ${renderFieldValue('来源入驻申请', profile.sourceApplicationNo || '既有工厂档案')}
+        ${renderFieldValue('来源入驻申请编号', profile.sourceApplicationNo || '既有工厂档案')}
         ${renderFieldValue('默认日可供给发布工时 SAM', `${profile.defaultDailyAvailablePublishedSam}`)}
         ${renderFieldValue('SAM 计算状态', profile.calculationStatus)}
         ${renderFieldValue('有效工人数量', `${profile.effectiveWorkerCount}`)}
-        ${renderFieldValue('机器总数', `${profile.machineTotalCount}`)}
+        ${renderFieldValue('机器数量', `${profile.machineTotalCount}`)}
         ${renderFieldValue('匹配工厂类型', getInferredFactoryTypeLabel(profile.factoryType))}
       </div>
       <div class="grid gap-3 md:grid-cols-2">
         <div class="rounded-xl border px-3 py-2 text-sm">工序工艺能力：${escapeHtml(profile.capabilityItems.map((item) => `${item.processName}/${item.craftName}`).join('、') || '—')}</div>
+        <div class="rounded-xl border px-3 py-2 text-sm">机器明细：${escapeHtml(profile.machineItems.map((item) => `${item.machineName} × ${item.machineCount}`).join('、') || '—')}</div>
         <div class="rounded-xl border px-3 py-2 text-sm">计算说明：${escapeHtml(profile.calculationNotes || '—')}</div>
       </div>
       ${renderReadonlyProcessAbilities(factory)}
