@@ -1035,8 +1035,6 @@ function renderOnboardingBody(application: FactoryOnboardingApplication | null):
       </header>
       <div class="space-y-3 px-4 py-4" data-testid="pda-onboarding-form">
         ${renderMobileFlowSection(application)}
-        ${renderCurrentStatusCard(application)}
-        ${renderCompletenessCard(application)}
         ${renderReviewAndSupplement(application)}
         ${renderSampleVerificationCard(application)}
 
@@ -1087,7 +1085,6 @@ function renderOnboardingBody(application: FactoryOnboardingApplication | null):
 
         ${renderCapabilityPicker(readonly)}
         ${renderMachineTable(readonly)}
-        ${renderReadonlySummary()}
         ${renderActionArea(application)}
         ${renderRecords(application)}
       </div>
