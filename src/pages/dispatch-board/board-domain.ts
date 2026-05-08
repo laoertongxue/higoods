@@ -331,7 +331,6 @@ function renderListView(
           <button class="h-8 rounded-md border px-3 text-xs hover:bg-muted ${state.selectedIds.size === 0 ? 'pointer-events-none opacity-50' : ''}" data-dispatch-action="batch-bidding">批量发起竞价</button>
           <button class="h-8 rounded-md px-3 text-xs hover:bg-muted ${state.selectedIds.size === 0 ? 'pointer-events-none opacity-50' : ''}" data-dispatch-action="batch-hold">批量设为暂不分配</button>
         </div>
-        ${renderDispatchListPagination(rows.length, currentPage, pageCount, pageSize)}
       </div>
 
       <div class="overflow-x-auto rounded-md border">

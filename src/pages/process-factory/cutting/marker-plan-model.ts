@@ -340,6 +340,28 @@ function buildGeneratedRowMap(): Record<string, GeneratedOriginalCutOrderSourceR
   return Object.fromEntries(listGeneratedOriginalCutOrderSourceRecords().map((row) => [row.originalCutOrderId, row]))
 }
 
+function uniqueByKey<T>(rows: T[], getKey: (row: T) => string): T[] {
+  const seen = new Set<string>()
+  const next: T[] = []
+  rows.forEach((row) => {
+    const key = getKey(row)
+    if (!key || seen.has(key)) return
+    seen.add(key)
+    next.push(row)
+  })
+  return next
+}
+
+function splitContextSummary(values: string[]): string[] {
+  return uniqueStrings(
+    values.flatMap((value) =>
+      String(value || '')
+        .split('/')
+        .map((item) => item.trim()),
+    ),
+  )
+}
+
 function getContextFactoryName(rows: ProductionProgressRow[]): string {
   const factories = uniqueStrings(rows.map((row) => row.assignedFactoryName))
   if (factories.length === 0) return '待补工厂'
@@ -545,6 +567,81 @@ export function buildMarkerPlanContextCandidates(sources: CuttingSummaryBuildOpt
   return [...originalContexts, ...mergeBatchContexts].sort((left, right) =>
     `${left.styleCode}-${left.contextNo}`.localeCompare(`${right.styleCode}-${right.contextNo}`, 'zh-CN'),
   )
+}
+
+export function buildCombinedMarkerPlanContextCandidate(
+  contexts: MarkerPlanContextCandidate[],
+): MarkerPlanContextCandidate | null {
+  const selectedContexts = uniqueByKey(contexts, (context) => context.contextKey)
+  if (!selectedContexts.length) return null
+  if (selectedContexts.length === 1) return selectedContexts[0]
+
+  const sourceOriginalRows = uniqueByKey(
+    selectedContexts.flatMap((context) => context.sourceOriginalRows),
+    (row) => row.originalCutOrderId,
+  )
+  if (!sourceOriginalRows.length) return null
+
+  const sourceMaterialPrepRows = uniqueByKey(
+    selectedContexts.flatMap((context) => context.sourceMaterialPrepRows),
+    (row) => row.originalCutOrderId,
+  )
+  const sourceGeneratedRows = uniqueByKey(
+    selectedContexts.flatMap((context) => context.sourceGeneratedRows),
+    (row) => row.originalCutOrderId,
+  )
+  const productionOrderIds = uniqueStrings(selectedContexts.flatMap((context) => context.productionOrderIds))
+  const productionOrderNos = uniqueStrings(selectedContexts.flatMap((context) => context.productionOrderNos))
+  const spuCodes = uniqueStrings(selectedContexts.map((context) => context.spuCode))
+  const styleCodes = uniqueStrings(selectedContexts.map((context) => context.styleCode))
+  const styleNames = uniqueStrings(selectedContexts.map((context) => context.styleName))
+  const materialSkuSummary = splitContextSummary(selectedContexts.map((context) => context.materialSkuSummary)).join(' / ')
+  const colorSummary = splitContextSummary(selectedContexts.map((context) => context.colorSummary)).join(' / ')
+  const mergeBatchContexts = selectedContexts.filter((context) => context.contextType === 'merge-batch')
+  const contextNos = selectedContexts.map((context) => context.contextNo).filter(Boolean)
+  const techPackStatusLabels = uniqueStrings(selectedContexts.map((context) => context.techPackStatusLabel))
+  const prepStatusLabels = uniqueStrings(selectedContexts.map((context) => context.prepStatusLabel))
+
+  return {
+    id: `combined-${selectedContexts.map((context) => context.id).join('-')}`,
+    contextType: 'original-cut-order',
+    contextKey: buildContextKey('original-cut-order', sourceOriginalRows[0]?.originalCutOrderId || selectedContexts[0].id),
+    contextNo: contextNos.join(' / '),
+    contextLabel: '组合来源',
+    originalCutOrderIds: sourceOriginalRows.map((row) => row.originalCutOrderId),
+    originalCutOrderNos: sourceOriginalRows.map((row) => row.originalCutOrderNo),
+    mergeBatchId: mergeBatchContexts.length === 1 ? mergeBatchContexts[0].mergeBatchId : '',
+    mergeBatchNo: uniqueStrings(mergeBatchContexts.map((context) => context.mergeBatchNo)).join(' / '),
+    productionOrderIds,
+    productionOrderNos,
+    styleCode: styleCodes[0] || '',
+    spuCode: spuCodes[0] || '',
+    styleName: styleNames[0] || '',
+    techPackSpu: uniqueStrings(selectedContexts.map((context) => context.techPackSpu))[0] || spuCodes[0] || '',
+    sourceFactoryName: getContextFactoryName(
+      selectedContexts.flatMap((context) =>
+        context.productionOrderIds.map((productionOrderId) => ({
+          productionOrderId,
+          assignedFactoryName: context.sourceFactoryName,
+          plannedShipDateDisplay: context.sourceShipDate,
+          urgency: { label: context.sourceUrgencyLabel, sortWeight: 0 },
+        } as ProductionProgressRow)),
+      ),
+    ),
+    sourceShipDate: getContextShipDate(selectedContexts.map((context) => ({ plannedShipDateDisplay: context.sourceShipDate }))),
+    sourceUrgencyLabel: uniqueStrings(selectedContexts.map((context) => context.sourceUrgencyLabel))[0] || '常规',
+    materialSkuSummary,
+    colorSummary,
+    techPackStatusLabel: techPackStatusLabels.length === 1 ? techPackStatusLabels[0] : '需人工确认',
+    prepStatusLabel: prepStatusLabels.length === 1 ? prepStatusLabels[0] : '多状态',
+    prepClaimSummaryText: uniqueStrings(selectedContexts.map((context) => context.prepClaimSummaryText)).join(' / '),
+    sourceOriginalRows,
+    sourceMaterialPrepRows,
+    sourceGeneratedRows,
+    defaultSizeRatioRows: sourceGeneratedRows.length
+      ? buildSizeRatioRowsFromSourceRecords(sourceGeneratedRows)
+      : createEmptySizeRatioRows(),
+  }
 }
 
 function buildMockImageSvg(label: string, accent: string): string {
@@ -1376,7 +1473,6 @@ function mergePlans(seed: MarkerPlan[], stored: MarkerPlan[]): MarkerPlan[] {
 
 export function buildMarkerPlanViewModel(sources: CuttingSummaryBuildOptions, storedPlans: MarkerPlan[] = []): MarkerPlanViewModel {
   const contexts = buildMarkerPlanContextCandidates(sources)
-  const contextMap = Object.fromEntries(contexts.map((context) => [context.contextKey, context]))
   const seedPlans = buildSystemSeedMarkerPlans(contexts)
   const mergedPlans = mergePlans(seedPlans, storedPlans)
   const referencedOriginalCutOrderIds = new Set(
@@ -1387,13 +1483,12 @@ export function buildMarkerPlanViewModel(sources: CuttingSummaryBuildOptions, st
   )
   const plans = mergedPlans
     .map((plan) => {
-      const contextId = plan.contextType === 'merge-batch' ? plan.mergeBatchId : plan.originalCutOrderIds[0]
-      const context = contextMap[buildContextKey(plan.contextType, contextId)]
+      const context = findMarkerPlanContextForPlan(contexts, plan)
       return context ? buildPlanViewRow(plan, context, referencedOriginalCutOrderIds) : null
     })
     .filter((plan): plan is MarkerPlanViewRow => Boolean(plan))
   const plansById = Object.fromEntries(plans.map((plan) => [plan.id, plan]))
-  const usedContextKeys = new Set(plans.map((plan) => buildContextKey(plan.contextType, plan.contextType === 'merge-batch' ? plan.mergeBatchId : plan.originalCutOrderIds[0])))
+  const usedContextKeys = new Set(plans.flatMap((plan) => listUsedContextKeysForPlan(contexts, plan)))
   const pendingContexts = contexts.filter((context) => !usedContextKeys.has(context.contextKey))
   const builtContextCount = contexts.length - pendingContexts.length
 
@@ -1494,11 +1589,55 @@ export function findMarkerPlanContextById(
 
 export function findMarkerPlanContextForPlan(
   contexts: MarkerPlanContextCandidate[],
-  plan: Pick<MarkerPlan, 'contextType' | 'mergeBatchId' | 'originalCutOrderIds'>,
+  plan: Pick<MarkerPlan, 'contextType' | 'mergeBatchId' | 'mergeBatchNo' | 'originalCutOrderIds'>,
 ): MarkerPlanContextCandidate | null {
+  if (plan.contextType !== 'merge-batch' && (plan.originalCutOrderIds.length > 1 || plan.mergeBatchNo)) {
+    const mergeBatchNos = new Set(String(plan.mergeBatchNo || '').split('/').map((item) => item.trim()).filter(Boolean))
+    const mergeContexts = contexts.filter(
+      (context) => context.contextType === 'merge-batch' && mergeBatchNos.has(context.mergeBatchNo),
+    )
+    const coveredByMerge = new Set(mergeContexts.flatMap((context) => context.originalCutOrderIds))
+    const originalContexts = plan.originalCutOrderIds
+      .filter((originalCutOrderId) => !coveredByMerge.has(originalCutOrderId))
+        .map((originalCutOrderId) =>
+          contexts.find(
+            (context) =>
+              context.contextType === 'original-cut-order' &&
+              context.originalCutOrderIds.includes(originalCutOrderId),
+          ) || null,
+        )
+        .filter((context): context is MarkerPlanContextCandidate => Boolean(context))
+    const sourceContexts = uniqueByKey(
+      [...mergeContexts, ...originalContexts],
+      (context) => context.contextKey,
+    )
+    const coveredOriginalIds = new Set(sourceContexts.flatMap((context) => context.originalCutOrderIds))
+    if (plan.originalCutOrderIds.every((originalCutOrderId) => coveredOriginalIds.has(originalCutOrderId))) {
+      return buildCombinedMarkerPlanContextCandidate(sourceContexts)
+    }
+  }
   const contextId = plan.contextType === 'merge-batch' ? plan.mergeBatchId : plan.originalCutOrderIds[0]
   if (!contextId) return null
   return findMarkerPlanContextById(contexts, plan.contextType, contextId)
+}
+
+function listUsedContextKeysForPlan(
+  contexts: MarkerPlanContextCandidate[],
+  plan: Pick<MarkerPlan, 'contextType' | 'mergeBatchId' | 'mergeBatchNo' | 'originalCutOrderIds'>,
+): string[] {
+  if (plan.contextType === 'merge-batch' && plan.mergeBatchId) {
+    return [buildContextKey('merge-batch', plan.mergeBatchId)]
+  }
+  const originalIdSet = new Set(plan.originalCutOrderIds)
+  const mergeBatchNos = new Set(String(plan.mergeBatchNo || '').split('/').map((item) => item.trim()).filter(Boolean))
+  return contexts
+    .filter((context) => {
+      if (context.contextType === 'original-cut-order') {
+        return context.originalCutOrderIds.some((originalCutOrderId) => originalIdSet.has(originalCutOrderId))
+      }
+      return mergeBatchNos.has(context.mergeBatchNo)
+    })
+    .map((context) => context.contextKey)
 }
 
 export function createMarkerPlanFromContext(options: {

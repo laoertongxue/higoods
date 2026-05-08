@@ -7,12 +7,14 @@ type FcsHandlersModule = typeof import('./main-handlers/fcs-handlers')
 type PcsHandlersModule = typeof import('./main-handlers/pcs-handlers')
 type PdaHandlersModule = typeof import('./main-handlers/pda-handlers')
 type DispatchBoardPageModule = typeof import('./pages/dispatch-board')
+type CraftCuttingMarkerPlanPageModule = typeof import('./pages/process-factory/cutting/marker-plan')
 type RoutesModule = typeof import('./router/routes')
 
 let fcsHandlersModulePromise: Promise<FcsHandlersModule> | null = null
 let pcsHandlersModulePromise: Promise<PcsHandlersModule> | null = null
 let pdaHandlersModulePromise: Promise<PdaHandlersModule> | null = null
 let dispatchBoardPageModulePromise: Promise<DispatchBoardPageModule> | null = null
+let craftCuttingMarkerPlanPageModulePromise: Promise<CraftCuttingMarkerPlanPageModule> | null = null
 let routesModulePromise: Promise<RoutesModule> | null = null
 
 function getFcsHandlersModule(): Promise<FcsHandlersModule> {
@@ -53,6 +55,16 @@ function getDispatchBoardPageModule(): Promise<DispatchBoardPageModule> {
     })
   }
   return dispatchBoardPageModulePromise
+}
+
+function getCraftCuttingMarkerPlanPageModule(): Promise<CraftCuttingMarkerPlanPageModule> {
+  if (!craftCuttingMarkerPlanPageModulePromise) {
+    craftCuttingMarkerPlanPageModulePromise = import('./pages/process-factory/cutting/marker-plan').catch((error) => {
+      craftCuttingMarkerPlanPageModulePromise = null
+      throw error
+    })
+  }
+  return craftCuttingMarkerPlanPageModulePromise
 }
 
 function getRoutesModule(): Promise<RoutesModule> {
@@ -121,6 +133,15 @@ async function dispatchPageEvent(target: Element): Promise<boolean> {
   if (pathname.startsWith('/fcs/dispatch/board')) {
     const dispatchBoardPage = await getDispatchBoardPageModule()
     return dispatchBoardPage.handleDispatchBoardEvent(eventTarget)
+  }
+  if (
+    pathname.startsWith('/fcs/craft/cutting/marker-list') ||
+    pathname.startsWith('/fcs/craft/cutting/marker-create') ||
+    pathname.startsWith('/fcs/craft/cutting/marker-edit') ||
+    pathname.startsWith('/fcs/craft/cutting/marker-detail')
+  ) {
+    const markerPlanPage = await getCraftCuttingMarkerPlanPageModule()
+    return markerPlanPage.handleCraftCuttingMarkerPlanEvent(eventTarget)
   }
 
   const handlerSystem = getCurrentHandlerSystem(pathname)
@@ -257,7 +278,14 @@ function isTechPackPageMounted(): boolean {
 function shouldUseTechPackScopedRender(target: Element | null, previousPathname: string, nextPathname: string): boolean {
   if (!(target instanceof Element)) return false
   if (normalizePathname(previousPathname) !== normalizePathname(nextPathname)) return false
-  if (!target.closest('[data-tech-pack-page-root="true"]')) return false
+  const isTechPackTarget = Boolean(target.closest('[data-tech-pack-page-root="true"]'))
+  const isCuttingMarkerTarget = Boolean(target.closest([
+    '[data-testid="cutting-marker-plan-list-page"]',
+    '[data-testid="cutting-marker-plan-create-page"]',
+    '[data-testid="cutting-marker-plan-edit-page"]',
+    '[data-testid="cutting-marker-plan-detail-page"]',
+  ].join(',')))
+  if (!isTechPackTarget && !isCuttingMarkerTarget) return false
 
   const actionNode = target.closest<HTMLElement>('[data-tech-action]')
   const action = actionNode?.dataset.techAction

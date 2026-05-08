@@ -1,4 +1,5 @@
 import { renderDrawer as uiDrawer } from '../../../components/ui/index.ts'
+import { hydrateIcons } from '../../../components/shell.ts'
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
 import {
@@ -6,6 +7,7 @@ import {
 } from './marker-plan-projection.ts'
 import {
   buildMarkerPlanBalanceRows,
+  buildCombinedMarkerPlanContextCandidate,
   buildMarkerPlanContextTypeOptions,
   buildMarkerPlanGoSpreadingPath,
   buildMarkerPlanListTabOptions,
@@ -131,7 +133,7 @@ interface MarkerPlanPageState {
   contextDrawerOpen: boolean
   contextDrawerType: 'ALL' | MarkerPlanContextType
   contextKeyword: string
-  selectedContextId: string
+  selectedContextKeys: string[]
   mappingDrawerOpen: boolean
   mappingTargetRowId: string
   mappingDraft: MarkerPlanMappingDraft
@@ -156,7 +158,7 @@ const state: MarkerPlanPageState = {
   contextDrawerOpen: false,
   contextDrawerType: 'ALL',
   contextKeyword: '',
-  selectedContextId: '',
+  selectedContextKeys: [],
   mappingDrawerOpen: false,
   mappingTargetRowId: '',
   mappingDraft: {
@@ -181,6 +183,7 @@ const MARKER_PLAN_TOP_INFO_OFFSET_VAR = '--marker-plan-top-info-offset'
 let markerPlanTopInfoResizeObserver: ResizeObserver | null = null
 let markerPlanStickyResizeBound = false
 let markerPlanStickySyncToken = 0
+let markerPlanProjectionCache: { key: string; projection: ReturnType<typeof buildMarkerPlanProjection> } | null = null
 
 function getCurrentPathname(): string {
   return appStore.getState().pathname
@@ -330,6 +333,7 @@ function readStoredPlans(): MarkerPlan[] {
 
 function writeStoredPlans(records: MarkerPlan[]): void {
   localStorage.setItem(getMarkerPlanStorageKey(), serializeMarkerPlanStorage(records))
+  markerPlanProjectionCache = null
 }
 
 function upsertStoredPlan(plan: MarkerPlan): void {
@@ -341,7 +345,13 @@ function upsertStoredPlan(plan: MarkerPlan): void {
 }
 
 function getProjection() {
-  return buildMarkerPlanProjection()
+  const markerPlanStorage = localStorage.getItem(getMarkerPlanStorageKey()) || ''
+  const spreadingStorage = localStorage.getItem('cuttingMarkerSpreadingLedger') || ''
+  const key = `${markerPlanStorage.length}:${markerPlanStorage}|${spreadingStorage.length}:${spreadingStorage}`
+  if (markerPlanProjectionCache?.key === key) return markerPlanProjectionCache.projection
+  const projection = buildMarkerPlanProjection()
+  markerPlanProjectionCache = { key, projection }
+  return projection
 }
 
 function getViewModel() {
@@ -350,6 +360,70 @@ function getViewModel() {
 
 function getContextMap(viewModel = getViewModel()): Record<string, MarkerPlanContextCandidate> {
   return Object.fromEntries(viewModel.contexts.map((context) => [context.contextKey, context]))
+}
+
+function getSelectedDrawerContexts(viewModel = getViewModel()): MarkerPlanContextCandidate[] {
+  const contextMap = getContextMap(viewModel)
+  return state.selectedContextKeys
+    .map((contextKey) => contextMap[contextKey] || null)
+    .filter((context): context is MarkerPlanContextCandidate => Boolean(context))
+}
+
+function getContextSpuCodes(contexts: MarkerPlanContextCandidate[]): string[] {
+  return Array.from(new Set(contexts.map((context) => String(context.spuCode || '').trim()).filter(Boolean)))
+}
+
+function validateMarkerPlanSourceSelection(contexts: MarkerPlanContextCandidate[]): { ok: boolean; message: string } {
+  if (!contexts.length) return { ok: false, message: '请先选择原始裁片单或合并裁剪批次。' }
+  const spuCodes = getContextSpuCodes(contexts)
+  if (spuCodes.length > 1) {
+    return { ok: false, message: `所选来源属于多个 SPU：${spuCodes.join(' / ')}，不能进入下一步。` }
+  }
+  return { ok: true, message: '' }
+}
+
+function syncContextDrawerSelectionDom(viewModel = getViewModel()): void {
+  if (typeof document === 'undefined') return
+  const selectedContexts = getSelectedDrawerContexts(viewModel)
+  const selectedSpuCodes = getContextSpuCodes(selectedContexts)
+  const selectionValidation = validateMarkerPlanSourceSelection(selectedContexts)
+  const selectedSummary = selectedContexts.length
+    ? `已选 ${selectedContexts.length} 个来源${selectedSpuCodes.length === 1 ? `，SPU：${selectedSpuCodes[0]}` : ''}`
+    : '请先选择来源'
+  const summaryNode = document.querySelector<HTMLElement>('[data-marker-plan-selection-summary]')
+  const messageNode = document.querySelector<HTMLElement>('[data-marker-plan-selection-message]')
+  const confirmButton = document.querySelector<HTMLButtonElement>('[data-marker-plan-action="confirm-context-create"]')
+  summaryNode && (summaryNode.textContent = selectedSummary)
+  messageNode && (messageNode.textContent = selectionValidation.ok ? '可继续填写唛架。' : selectionValidation.message)
+  if (confirmButton) confirmButton.disabled = !selectionValidation.ok
+  document.querySelectorAll<HTMLElement>('[data-marker-plan-context-row]').forEach((row) => {
+    const contextKey = row.dataset.contextKey || ''
+    row.classList.toggle('bg-blue-50/40', state.selectedContextKeys.includes(contextKey))
+  })
+}
+
+function getMarkerPlanPageRoot(): HTMLElement | null {
+  if (typeof document === 'undefined') return null
+  return document.querySelector<HTMLElement>([
+    '[data-testid="cutting-marker-plan-list-page"]',
+    '[data-testid="cutting-marker-plan-create-page"]',
+    '[data-testid="cutting-marker-plan-edit-page"]',
+    '[data-testid="cutting-marker-plan-detail-page"]',
+  ].join(','))
+}
+
+function removeContextDrawerDom(): void {
+  if (typeof document === 'undefined') return
+  document.querySelector('[data-marker-plan-context-drawer-shell]')?.remove()
+}
+
+function mountContextDrawerDom(viewModel = getViewModel()): void {
+  const root = getMarkerPlanPageRoot()
+  if (!root) return
+  removeContextDrawerDom()
+  root.insertAdjacentHTML('beforeend', renderContextDrawer(viewModel))
+  const drawerShell = root.querySelector<HTMLElement>('[data-marker-plan-context-drawer-shell]')
+  if (drawerShell) hydrateIcons(drawerShell)
 }
 
 function getDraftContext(viewModel = getViewModel()): MarkerPlanContextCandidate | null {
@@ -583,6 +657,16 @@ function navigateToCreateWithContext(context: MarkerPlanContextCandidate): void 
   appStore.navigate(`${CREATE_PATH}?${params.toString()}`)
 }
 
+function navigateToCreateWithContexts(contexts: MarkerPlanContextCandidate[]): void {
+  if (contexts.length === 1) {
+    navigateToCreateWithContext(contexts[0])
+    return
+  }
+  const params = new URLSearchParams()
+  contexts.forEach((context) => params.append('contextKey', context.contextKey))
+  appStore.navigate(`${CREATE_PATH}?${params.toString()}`)
+}
+
 function navigateToCreateByCopy(planId: string): void {
   const params = new URLSearchParams({ copyFrom: planId })
   appStore.navigate(`${CREATE_PATH}?${params.toString()}`)
@@ -670,6 +754,7 @@ function syncStateFromRoute(viewModel = getViewModel()): void {
     state.draftPlan = null
     state.activeTab = 'basic'
     state.contextDrawerOpen = false
+    state.selectedContextKeys = []
     state.mappingDrawerOpen = false
     state.mappingTargetRowId = ''
     state.referencedStructureEditConfirmed = false
@@ -678,6 +763,7 @@ function syncStateFromRoute(viewModel = getViewModel()): void {
 
   if (route.kind === 'CREATE') {
     const copyFrom = params.get('copyFrom') || ''
+    const contextKeys = params.getAll('contextKey').filter(Boolean)
     const contextType = params.get('contextType') as MarkerPlanContextType | null
     const contextId = params.get('contextId') || ''
     if (copyFrom) {
@@ -690,6 +776,24 @@ function syncStateFromRoute(viewModel = getViewModel()): void {
       state.mappingDrawerOpen = false
       state.mappingTargetRowId = ''
       state.referencedStructureEditConfirmed = false
+      return
+    }
+    if (contextKeys.length) {
+      const contextMap = getContextMap(viewModel)
+      const contexts = contextKeys
+        .map((contextKey) => contextMap[contextKey] || null)
+        .filter((context): context is MarkerPlanContextCandidate => Boolean(context))
+      const validation = validateMarkerPlanSourceSelection(contexts)
+      const combinedContext = validation.ok ? buildCombinedMarkerPlanContextCandidate(contexts) : null
+      state.draftPlan = combinedContext ? createMarkerPlanFromContext({ context: combinedContext, existingPlans: viewModel.plans }) : null
+      state.activeTab = 'basic'
+      state.contextDrawerOpen = !Boolean(state.draftPlan)
+      state.contextDrawerType = 'ALL'
+      state.selectedContextKeys = contexts.map((context) => context.contextKey)
+      state.mappingDrawerOpen = false
+      state.mappingTargetRowId = ''
+      state.referencedStructureEditConfirmed = false
+      if (!validation.ok) setFeedback('warning', validation.message)
       return
     }
     if (contextType && contextId) {
@@ -711,6 +815,7 @@ function syncStateFromRoute(viewModel = getViewModel()): void {
     state.draftPlan = null
     state.activeTab = 'basic'
     state.contextDrawerOpen = true
+    state.selectedContextKeys = []
     state.mappingDrawerOpen = false
     state.mappingTargetRowId = ''
     state.referencedStructureEditConfirmed = false
@@ -2905,6 +3010,12 @@ function renderContextDrawer(viewModel = getViewModel()): string {
       .map((item) => item.toLowerCase())
     return keywords.some((item) => item.includes(keyword))
   })
+  const selectedContexts = getSelectedDrawerContexts(viewModel)
+  const selectedSpuCodes = getContextSpuCodes(selectedContexts)
+  const selectionValidation = validateMarkerPlanSourceSelection(selectedContexts)
+  const selectedSummary = selectedContexts.length
+    ? `已选 ${selectedContexts.length} 个来源${selectedSpuCodes.length === 1 ? `，SPU：${selectedSpuCodes[0]}` : ''}`
+    : '请先选择来源'
 
   const content = `
     <div class="space-y-4" data-testid="marker-plan-context-drawer">
@@ -2926,6 +3037,10 @@ function renderContextDrawer(viewModel = getViewModel()): string {
           <input type="text" value="${escapeHtml(state.contextKeyword)}" data-marker-plan-context-field="contextKeyword" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
         </label>
       </div>
+      <div class="rounded-lg border ${selectionValidation.ok ? 'border-blue-100 bg-blue-50 text-blue-700' : selectedContexts.length ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-slate-200 bg-slate-50 text-slate-600'} px-3 py-2 text-xs">
+        <div class="font-medium" data-marker-plan-selection-summary>${escapeHtml(selectedSummary)}</div>
+        <div class="mt-1" data-marker-plan-selection-message>${escapeHtml(selectionValidation.ok ? '可继续填写唛架。' : selectionValidation.message)}</div>
+      </div>
       <div class="overflow-hidden rounded-lg border bg-background">
         <table class="min-w-full text-left text-sm">
           <thead class="bg-muted/40 text-xs text-muted-foreground">
@@ -2946,9 +3061,9 @@ function renderContextDrawer(viewModel = getViewModel()): string {
               candidates.length
                 ? candidates
                     .map((context) => `
-                      <tr class="border-t ${state.selectedContextId === context.id ? 'bg-blue-50/40' : ''}">
+                      <tr class="border-t ${state.selectedContextKeys.includes(context.contextKey) ? 'bg-blue-50/40' : ''}" data-marker-plan-context-row data-context-key="${escapeHtml(context.contextKey)}">
                         <td class="px-3 py-2">
-                          <input type="radio" name="marker-plan-context" value="${escapeHtml(context.id)}" data-marker-plan-action="select-context" data-context-type="${escapeHtml(context.contextType)}" data-context-id="${escapeHtml(context.id)}" ${state.selectedContextId === context.id ? 'checked' : ''} />
+                          <input type="checkbox" value="${escapeHtml(context.contextKey)}" data-marker-plan-action="select-context" data-context-type="${escapeHtml(context.contextType)}" data-context-id="${escapeHtml(context.id)}" data-context-key="${escapeHtml(context.contextKey)}" ${state.selectedContextKeys.includes(context.contextKey) ? 'checked' : ''} />
                         </td>
                         <td class="px-3 py-2">${escapeHtml(context.contextLabel)}</td>
                         <td class="px-3 py-2 font-medium">${escapeHtml(context.contextNo)}</td>
@@ -2972,10 +3087,10 @@ function renderContextDrawer(viewModel = getViewModel()): string {
     </div>
   `
 
-  return uiDrawer(
+  const drawerHtml = uiDrawer(
     {
       title: '新建唛架：选择来源',
-      subtitle: '第一步选择原始裁片单或合并裁剪批次，确认后进入唛架信息填写。',
+      subtitle: '第一步可多选原始裁片单和合并裁剪批次，但必须属于同一 SPU。',
       closeAction: { prefix: 'marker-plan', action: 'close-context-drawer' },
       width: 'xl',
     },
@@ -2987,10 +3102,11 @@ function renderContextDrawer(viewModel = getViewModel()): string {
         action: 'confirm-context-create',
         label: '下一步：填写唛架',
         variant: 'primary',
-        disabled: !state.selectedContextId,
+        disabled: !selectionValidation.ok,
       },
     },
   )
+  return `<div data-marker-plan-context-drawer-shell>${drawerHtml}</div>`
 }
 
 function renderListPage(viewModel = getViewModel()): string {
@@ -3203,23 +3319,15 @@ function cancelDraftPlan(): boolean {
 }
 
 function createFromSelectedContext(viewModel = getViewModel()): boolean {
-  if (!state.selectedContextId) {
-    setFeedback('warning', '请先选择一个上下文。')
-    return true
-  }
-  const contextType = state.contextDrawerType === 'ALL'
-    ? (viewModel.pendingContexts.find((item) => item.id === state.selectedContextId)?.contextType ||
-      viewModel.contexts.find((item) => item.id === state.selectedContextId)?.contextType)
-    : state.contextDrawerType
-  if (!contextType) return false
-  const context = findMarkerPlanContextById(viewModel.contexts, contextType, state.selectedContextId)
-  if (!context) {
-    setFeedback('warning', '当前上下文已不可用，请重新选择。')
+  const contexts = getSelectedDrawerContexts(viewModel)
+  const validation = validateMarkerPlanSourceSelection(contexts)
+  if (!validation.ok) {
+    setFeedback('warning', validation.message)
     return true
   }
   state.contextDrawerOpen = false
-  state.selectedContextId = ''
-  navigateToCreateWithContext(context)
+  state.selectedContextKeys = []
+  navigateToCreateWithContexts(contexts)
   return true
 }
 
@@ -3360,28 +3468,35 @@ function handleAction(action: string, node: HTMLElement): boolean {
   if (action === 'open-context-drawer') {
     state.contextDrawerOpen = true
     state.contextDrawerType = (node.dataset.contextType as 'ALL' | MarkerPlanContextType | undefined) || 'ALL'
-    state.selectedContextId = ''
+    state.selectedContextKeys = []
     state.contextKeyword = ''
-    return true
+    mountContextDrawerDom(viewModel)
+    return false
   }
 
   if (action === 'close-context-drawer') {
     state.contextDrawerOpen = false
-    state.selectedContextId = ''
-    return true
+    state.selectedContextKeys = []
+    removeContextDrawerDom()
+    return false
   }
 
   if (action === 'change-context-drawer-type') {
     const select = node as HTMLSelectElement
     state.contextDrawerType = (select.value as 'ALL' | MarkerPlanContextType) || 'ALL'
-    state.selectedContextId = ''
+    state.selectedContextKeys = []
     return true
   }
 
   if (action === 'select-context') {
-    state.selectedContextId = node.dataset.contextId || ''
-    state.contextDrawerType = (node.dataset.contextType as MarkerPlanContextType | undefined) || state.contextDrawerType
-    return true
+    const contextKey = node.dataset.contextKey || ''
+    if (!contextKey) return false
+    const input = node as HTMLInputElement
+    state.selectedContextKeys = input.checked
+      ? Array.from(new Set([...state.selectedContextKeys, contextKey]))
+      : state.selectedContextKeys.filter((item) => item !== contextKey)
+    syncContextDrawerSelectionDom(viewModel)
+    return false
   }
 
   if (action === 'confirm-context-create') {
