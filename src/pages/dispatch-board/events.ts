@@ -1,8 +1,10 @@
 import {
   state,
   candidateFactories,
+  createDefaultAutoDispatchConfig,
   getVisibleRows,
   getFactoryOptions,
+  nowTimestamp,
   getCreateTenderTask,
   getTaskAllocatableGroups,
   getSelectableTenderFactoryIds,
@@ -40,6 +42,7 @@ function getTenderSelectableFactoryIds(): Set<string> {
 function updateField(field: string, node: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement): void {
   if (field === 'filter.keyword') {
     state.keyword = node.value
+    state.listPage = 1
     return
   }
 
@@ -58,13 +61,68 @@ function updateField(field: string, node: HTMLInputElement | HTMLSelectElement |
 
   if (field === 'list.selectAll' && node instanceof HTMLInputElement) {
     const rows = getVisibleRows()
+    const pageSize = Math.max(1, state.listPageSize)
+    const pageCount = Math.max(1, Math.ceil(rows.length / pageSize))
+    const currentPage = Math.min(Math.max(1, state.listPage), pageCount)
+    const pageRows = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
     if (node.checked) {
-      state.selectedIds = new Set(rows.map((task) => task.taskId))
+      state.selectedIds = new Set([...state.selectedIds, ...pageRows.map((task) => task.taskId)])
     } else {
-      state.selectedIds = new Set<string>()
+      for (const task of pageRows) {
+        state.selectedIds.delete(task.taskId)
+      }
+      state.selectedIds = new Set(state.selectedIds)
     }
 
+    return
+  }
+
+  if (field === 'list.pageSize') {
+    const pageSize = Number(node.value)
+    state.listPageSize = Number.isFinite(pageSize) && pageSize > 0 ? pageSize : 20
+    state.listPage = 1
+    return
+  }
+
+  if (field === 'auto.enabled' && node instanceof HTMLInputElement) {
+    const processCode = node.dataset.processCode
+    if (!processCode) return
+    const current = state.autoDispatchConfigs[processCode] ?? createDefaultAutoDispatchConfig()
+    state.autoDispatchConfigs[processCode] = {
+      ...current,
+      enabled: node.checked,
+      updatedBy: '跟单A',
+      updatedAt: nowTimestamp(),
+    }
+    return
+  }
+
+  if (field === 'auto.factoryId') {
+    const processCode = node.dataset.processCode
+    if (!processCode) return
+    const selectedFactory = getFactoryOptions().find((factory) => factory.id === node.value)
+    const current = state.autoDispatchConfigs[processCode] ?? createDefaultAutoDispatchConfig()
+    state.autoDispatchConfigs[processCode] = {
+      ...current,
+      factoryId: node.value,
+      factoryName: selectedFactory?.name ?? '',
+      updatedBy: '跟单A',
+      updatedAt: nowTimestamp(),
+    }
+    return
+  }
+
+  if (field === 'auto.taskDeadlineDays') {
+    const processCode = node.dataset.processCode
+    if (!processCode) return
+    const current = state.autoDispatchConfigs[processCode] ?? createDefaultAutoDispatchConfig()
+    state.autoDispatchConfigs[processCode] = {
+      ...current,
+      taskDeadlineDays: node.value,
+      updatedBy: '跟单A',
+      updatedAt: nowTimestamp(),
+    }
     return
   }
 
@@ -83,6 +141,11 @@ function updateField(field: string, node: HTMLInputElement | HTMLSelectElement |
       factoryId: node.value,
       factoryName: selectedFactory?.name ?? '',
     }
+    return
+  }
+
+  if (field === 'dispatch.mainFactoryGroupKey') {
+    state.dispatchForm.mainFactoryGroupKey = node.value
     return
   }
 
@@ -135,6 +198,14 @@ function updateField(field: string, node: HTMLInputElement | HTMLSelectElement |
     return
   }
 
+  if (field === 'tender.mainFactoryId') {
+    state.createTenderError = null
+    state.createTenderForm.mainFactoryId = node.value
+    const selectedFactory = candidateFactories.find((factory) => factory.id === node.value)
+    state.createTenderForm.mainFactoryName = selectedFactory?.name ?? ''
+    return
+  }
+
   if (field === 'tender.remark') {
     state.createTenderError = null
     state.createTenderForm.remark = node.value
@@ -172,7 +243,7 @@ export function handleDispatchBoardEvent(target: HTMLElement): boolean {
 
   if (action === 'switch-view') {
     const view = actionNode.dataset.view as DispatchView | undefined
-    if (view === 'kanban' || view === 'list') {
+    if (view === 'list') {
       state.view = view
     }
     return true
@@ -185,6 +256,47 @@ export function handleDispatchBoardEvent(target: HTMLElement): boolean {
 
   if (action === 'run-auto-assign') {
     applyAutoAssign()
+    return true
+  }
+
+  if (action === 'open-auto-config') {
+    state.autoDispatchConfigOpen = true
+    return true
+  }
+
+  if (action === 'close-auto-config') {
+    state.autoDispatchConfigOpen = false
+    return true
+  }
+
+  if (action === 'save-auto-config') {
+    state.autoDispatchConfigOpen = false
+    state.autoAssignMessage = '自动分配配置已保存。'
+    return true
+  }
+
+  if (action === 'toggle-auto-config') {
+    state.autoDispatchConfigOpen = !state.autoDispatchConfigOpen
+    return true
+  }
+
+  if (action === 'list-prev-page') {
+    state.listPage = Math.max(1, state.listPage - 1)
+    return true
+  }
+
+  if (action === 'list-next-page') {
+    const rows = getVisibleRows()
+    const pageCount = Math.max(1, Math.ceil(rows.length / Math.max(1, state.listPageSize)))
+    state.listPage = Math.min(pageCount, state.listPage + 1)
+    return true
+  }
+
+  if (action === 'list-goto-page') {
+    const rows = getVisibleRows()
+    const pageCount = Math.max(1, Math.ceil(rows.length / Math.max(1, state.listPageSize)))
+    const page = Number(actionNode.dataset.page ?? '1')
+    state.listPage = Math.max(1, Math.min(pageCount, Number.isFinite(page) ? page : 1))
     return true
   }
 
@@ -283,6 +395,11 @@ export function handleDispatchBoardEvent(target: HTMLElement): boolean {
       state.createTenderForm.selectedPool.add(factoryId)
     }
 
+    if (!state.createTenderForm.selectedPool.has(state.createTenderForm.mainFactoryId)) {
+      state.createTenderForm.mainFactoryId = ''
+      state.createTenderForm.mainFactoryName = ''
+    }
+
     state.createTenderForm.selectedPool = new Set(state.createTenderForm.selectedPool)
     return true
   }
@@ -296,6 +413,8 @@ export function handleDispatchBoardEvent(target: HTMLElement): boolean {
   if (action === 'clear-all-pool') {
     state.createTenderError = null
     state.createTenderForm.selectedPool = new Set<string>()
+    state.createTenderForm.mainFactoryId = ''
+    state.createTenderForm.mainFactoryName = ''
     return true
   }
 

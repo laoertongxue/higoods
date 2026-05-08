@@ -33,6 +33,7 @@ import {
   createRuntimeTaskTenderByDetailGroups,
   dispatchRuntimeTaskByDetailGroups,
   getRuntimeTaskById as getRuntimeTaskByIdFromStore,
+  isRuntimeSewingTask,
   isRuntimeTaskExecutionTask,
   listRuntimeTaskAllocatableGroups,
   listRuntimeProcessTasks,
@@ -166,6 +167,8 @@ interface MockTender {
   publishedSamTotal?: number
   publishedSamDifficulty?: DispatchTask['publishedSamDifficulty']
   participatingFactoryIds?: string[]
+  mainFactoryId?: string
+  mainFactoryName?: string
   awardedFactoryId?: string
   awardedFactoryName?: string
   awardedPrice?: number
@@ -194,6 +197,8 @@ interface LocalTender {
   currentMaxPrice?: number
   currentMinPrice?: number
   participatingFactoryIds?: string[]
+  mainFactoryId?: string
+  mainFactoryName?: string
   awardedFactoryId?: string
   awardedFactoryName?: string
   awardedPrice?: number
@@ -304,7 +309,7 @@ const mockTenders: MockTender[] = [
   },
   {
     tenderId: 'TENDER-TASKGEN0015006-1001',
-    taskId: 'TASKGEN-202603-0015-006__ORDER',
+    taskId: 'TASKGEN-202603-0014-002__ORDER',
     status: 'BIDDING',
     factoryPoolCount: 5,
     quotedCount: 1,
@@ -419,7 +424,7 @@ const mockTenders: MockTender[] = [
   },
   {
     tenderId: 'TENDER-TASKGEN0015008-1001',
-    taskId: 'TASKGEN-202603-0015-008__ORDER',
+    taskId: 'TASKGEN-202603-0014-003__ORDER',
     status: 'AWARDED',
     factoryPoolCount: 3,
     quotedCount: 3,
@@ -492,7 +497,22 @@ const mockStandardPrices: Record<string, number> = {
   QC: 5000,
 }
 
-type DispatchView = 'kanban' | 'list'
+const derivedTaskSetCache: {
+  dyePendingTaskIds?: Set<string>
+  qcPendingOrderIds?: Set<string>
+  exceptionTaskIds?: Set<string>
+} = {}
+
+type DispatchView = 'list'
+
+interface AutoDispatchProcessConfig {
+  enabled: boolean
+  factoryId: string
+  factoryName: string
+  taskDeadlineDays: string
+  updatedBy: string
+  updatedAt: string
+}
 
 interface DirectDispatchForm {
   mode: AssignmentOperateMode
@@ -503,6 +523,7 @@ interface DirectDispatchForm {
   remark: string
   dispatchPrice: string
   priceDiffReason: string
+  mainFactoryGroupKey: string
   factoryByGroupKey: Record<string, { factoryId: string; factoryName: string }>
 }
 
@@ -514,6 +535,8 @@ interface CreateTenderForm {
   biddingDeadline: string
   taskDeadline: string
   remark: string
+  mainFactoryId: string
+  mainFactoryName: string
   selectedPool: Set<string>
 }
 
@@ -522,6 +545,11 @@ interface DispatchBoardState {
   view: DispatchView
   selectedIds: Set<string>
   autoAssignDone: boolean
+  autoAssignMessage: string | null
+  autoDispatchConfigOpen: boolean
+  autoDispatchConfigs: Record<string, AutoDispatchProcessConfig>
+  listPage: number
+  listPageSize: number
   dispatchDialogTaskIds: string[] | null
   dispatchDialogError: string | null
   dispatchForm: DirectDispatchForm
@@ -536,9 +564,14 @@ interface DispatchBoardState {
 
 const state: DispatchBoardState = {
   keyword: '',
-  view: 'kanban',
+  view: 'list',
   selectedIds: new Set(),
   autoAssignDone: false,
+  autoAssignMessage: null,
+  autoDispatchConfigOpen: false,
+  autoDispatchConfigs: {},
+  listPage: 1,
+  listPageSize: 20,
   dispatchDialogTaskIds: null,
   dispatchDialogError: null,
   dispatchForm: emptyDispatchForm(),
@@ -561,6 +594,7 @@ function emptyDispatchForm(): DirectDispatchForm {
     remark: '',
     dispatchPrice: '',
     priceDiffReason: '',
+    mainFactoryGroupKey: '',
     factoryByGroupKey: {},
   }
 }
@@ -574,12 +608,33 @@ function emptyCreateTenderForm(): CreateTenderForm {
     biddingDeadline: '',
     taskDeadline: '',
     remark: '',
+    mainFactoryId: '',
+    mainFactoryName: '',
     selectedPool: new Set<string>(),
   }
 }
 
 function nowTimestamp(date: Date = new Date()): string {
   return date.toISOString().replace('T', ' ').slice(0, 19)
+}
+
+function createDefaultAutoDispatchConfig(): AutoDispatchProcessConfig {
+  return {
+    enabled: true,
+    factoryId: '',
+    factoryName: '',
+    taskDeadlineDays: '7',
+    updatedBy: '系统预置',
+    updatedAt: nowTimestamp(),
+  }
+}
+
+function getAutoDispatchConfigKeyFromTask(task: Pick<DispatchTask, 'processCode' | 'craftCode'>): string {
+  return `${task.processCode}::${task.craftCode || '默认工艺'}`
+}
+
+function getAutoDispatchProcessCraftLabel(task: Pick<DispatchTask, 'processNameZh' | 'craftName'>): string {
+  return task.craftName ? `${task.processNameZh} / ${task.craftName}` : `${task.processNameZh} / 默认工艺`
 }
 
 function parseDateLike(value: string): number {
@@ -915,7 +970,6 @@ function attachTenderPublishedSam<T extends MockTender | LocalTender>(tender: T,
 }
 
 function getMockTender(task: DispatchTask): MockTender | undefined {
-  syncDispatchCapacityUsageLedger()
   const tender = mockTenders.find(
     (item) =>
       item.taskId === task.taskId ||
@@ -926,7 +980,6 @@ function getMockTender(task: DispatchTask): MockTender | undefined {
 }
 
 function getEffectiveTender(task: DispatchTask): MockTender | LocalTender | undefined {
-  syncDispatchCapacityUsageLedger()
   const local = state.tenderState[task.taskId]
   if (local) return attachTenderPublishedSam(local, task)
   return getMockTender(task)
@@ -1178,6 +1231,8 @@ function currentCheckpoint(
 }
 
 function getDyePendingTaskIds(): Set<string> {
+  if (derivedTaskSetCache.dyePendingTaskIds) return derivedTaskSetCache.dyePendingTaskIds
+
   const set = new Set<string>()
   const taskIdsByOrder = new Map<string, string[]>()
 
@@ -1197,10 +1252,13 @@ function getDyePendingTaskIds(): Set<string> {
     }
   }
 
+  derivedTaskSetCache.dyePendingTaskIds = set
   return set
 }
 
 function getQcPendingOrderIds(): Set<string> {
+  if (derivedTaskSetCache.qcPendingOrderIds) return derivedTaskSetCache.qcPendingOrderIds
+
   const set = new Set<string>()
 
   for (const qc of initialQualityInspections) {
@@ -1209,10 +1267,13 @@ function getQcPendingOrderIds(): Set<string> {
     }
   }
 
+  derivedTaskSetCache.qcPendingOrderIds = set
   return set
 }
 
 function getExceptionTaskIds(): Set<string> {
+  if (derivedTaskSetCache.exceptionTaskIds) return derivedTaskSetCache.exceptionTaskIds
+
   const active = new Set<ExceptionCase['caseStatus']>(['OPEN', 'IN_PROGRESS'])
   const blockingReasons = new Set<ExceptionCase['reasonCode']>([
     'DISPATCH_REJECTED',
@@ -1272,6 +1333,7 @@ function getExceptionTaskIds(): Set<string> {
     }
   }
 
+  derivedTaskSetCache.exceptionTaskIds = set
   return set
 }
 
@@ -1418,6 +1480,7 @@ export {
   convertFreezeToCommitment,
   dispatchRuntimeTaskByDetailGroups,
   getRuntimeTaskByIdFromStore,
+  isRuntimeSewingTask,
   isRuntimeTaskExecutionTask,
   listActiveCommitmentsByFactory,
   listActiveFreezesByFactory,
@@ -1451,6 +1514,7 @@ export {
   state,
   emptyDispatchForm,
   emptyCreateTenderForm,
+  createDefaultAutoDispatchConfig,
   nowTimestamp,
   parseDateLike,
   fromDateTimeLocal,
@@ -1502,6 +1566,8 @@ export {
   getViewTenderTask,
   getPriceSnapshotTask,
   getDispatchDialogValidation,
+  getAutoDispatchConfigKeyFromTask,
+  getAutoDispatchProcessCraftLabel,
 }
 
 export type {

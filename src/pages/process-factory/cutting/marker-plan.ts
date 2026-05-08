@@ -755,10 +755,10 @@ function renderActionButton(
 ): string {
   const className =
     variant === 'primary'
-      ? 'rounded-md bg-blue-600 px-2 py-1 text-[11px] font-medium leading-4 text-white hover:bg-blue-700'
+      ? 'rounded-md bg-blue-600 px-3 py-2 text-sm font-medium leading-5 text-white hover:bg-blue-700'
       : variant === 'ghost'
-        ? 'rounded-md px-2 py-1 text-[11px] leading-4 text-muted-foreground hover:bg-muted'
-        : 'rounded-md border px-2 py-1 text-[11px] leading-4 hover:bg-muted'
+        ? 'rounded-md px-3 py-2 text-sm leading-5 text-muted-foreground hover:bg-muted'
+        : 'rounded-md border px-3 py-2 text-sm leading-5 hover:bg-muted'
 
   return `
     <button
@@ -857,8 +857,7 @@ function renderPlanHeaderActions(route: MarkerPlanRouteKind, plan: MarkerPlan | 
   if (route === 'LIST') {
     return `
       <div class="flex flex-wrap items-center gap-2">
-        ${renderActionButton('从原始裁片单新建', 'data-marker-plan-action="open-context-drawer" data-context-type="original-cut-order"')}
-        ${renderActionButton('从合并裁剪批次新建', 'data-marker-plan-action="open-context-drawer" data-context-type="merge-batch"')}
+        ${renderActionButton('新建唛架', 'data-marker-plan-action="open-context-drawer" data-context-type="ALL"', 'primary')}
         ${renderActionButton('导出', 'data-marker-plan-action="export-list"')}
         ${renderActionButton('重置筛选', 'data-marker-plan-action="reset-filters"')}
       </div>
@@ -2505,14 +2504,14 @@ function renderDetailTab(plan: MarkerPlanViewRow, activeTab: MarkerPlanTabKey): 
 
 function renderListTabs(listTab: MarkerPlanListTab): string {
   return `
-    <section class="rounded-lg border border-dashed bg-muted/20 px-1.5 py-0.5" data-testid="marker-plan-list-tabs">
-      <div class="flex flex-wrap gap-1">
+    <section class="rounded-lg border border-dashed bg-muted/20 px-3 py-2" data-testid="marker-plan-list-tabs">
+      <div class="flex flex-wrap gap-2">
         ${buildMarkerPlanListTabOptions()
           .map(
             (tab) => `
               <button
                 type="button"
-                class="rounded-md border px-1.5 py-0.5 text-[11px] leading-4 ${listTab === tab.value ? 'border-blue-500 bg-blue-50 text-blue-700' : 'hover:bg-muted'}"
+                class="rounded-md border px-3 py-1.5 text-sm leading-5 ${listTab === tab.value ? 'border-blue-500 bg-blue-50 text-blue-700' : 'hover:bg-muted'}"
                 data-marker-plan-action="switch-list-tab"
                 data-list-tab="${tab.value}"
               >
@@ -2632,65 +2631,65 @@ function filterContexts(contexts: MarkerPlanContextCandidate[]): MarkerPlanConte
 
 function renderListFilters(): string {
   return renderStickyFilterShell(`
-    <div class="space-y-0.5">
-      <div class="grid gap-1 md:grid-cols-2 xl:grid-cols-[repeat(4,minmax(0,1fr))_auto] xl:items-end">
-        <label class="space-y-0.5">
-          <span class="text-[11px] font-medium text-foreground">搜索</span>
+    <div class="space-y-3">
+      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-[repeat(4,minmax(0,1fr))_auto] xl:items-end">
+        <label class="space-y-2">
+          <span class="text-sm font-medium text-foreground">搜索</span>
           <input
             type="text"
             value="${escapeHtml(state.filters.keyword)}"
             data-marker-plan-filter-field="keyword"
-            class="h-6 w-full rounded-md border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-blue-500"
+            class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
           />
         </label>
-        <label class="space-y-0.5">
-          <span class="text-[11px] font-medium text-foreground">主状态</span>
-          <select data-marker-plan-filter-field="status" class="h-6 w-full rounded-md border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-blue-500">
+        <label class="space-y-2">
+          <span class="text-sm font-medium text-foreground">主状态</span>
+          <select data-marker-plan-filter-field="status" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500">
             <option value="ALL">全部</option>
             ${(Object.keys(markerPlanStatusMeta) as MarkerPlanStatusKey[]).map((key) => `<option value="${key}" ${key === state.filters.status ? 'selected' : ''}>${escapeHtml(markerPlanStatusMeta[key].label)}</option>`).join('')}
           </select>
         </label>
-        <label class="space-y-0.5">
-          <span class="text-[11px] font-medium text-foreground">原始裁片单 / 合并裁剪批次</span>
+        <label class="space-y-2">
+          <span class="text-sm font-medium text-foreground">原始裁片单 / 合并裁剪批次</span>
           <input
             type="text"
             value="${escapeHtml(state.filters.contextNo)}"
             data-marker-plan-filter-field="contextNo"
-            class="h-6 w-full rounded-md border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-blue-500"
+            class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
           />
         </label>
-        <label class="space-y-0.5">
-          <span class="text-[11px] font-medium text-foreground">唛架编号</span>
+        <label class="space-y-2">
+          <span class="text-sm font-medium text-foreground">唛架编号</span>
           <input
             type="text"
             value="${escapeHtml(state.filters.markerNo)}"
             data-marker-plan-filter-field="markerNo"
-            class="h-6 w-full rounded-md border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-blue-500"
+            class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
           />
         </label>
-        <button type="button" class="h-6 rounded-md border px-2 text-xs hover:bg-muted" data-marker-plan-action="reset-filters">重置筛选</button>
+        <button type="button" class="h-10 rounded-md border px-3 text-sm hover:bg-muted" data-marker-plan-action="reset-filters">重置筛选</button>
       </div>
       <details class="rounded-md border bg-background" data-testid="marker-plan-more-filters">
-        <summary class="cursor-pointer list-none px-2 py-0.5 text-[11px] font-medium text-foreground">更多筛选</summary>
-        <div class="border-t px-2 py-0.5">
-          <div class="grid gap-1 md:grid-cols-2 xl:grid-cols-3">
-            <label class="space-y-0.5">
-              <span class="text-[11px] font-medium text-foreground">上下文类型</span>
-              <select data-marker-plan-filter-field="contextType" class="h-6 w-full rounded-md border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-blue-500">
+        <summary class="cursor-pointer list-none px-3 py-2 text-sm font-medium text-foreground">更多筛选</summary>
+        <div class="border-t p-3">
+          <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <label class="space-y-2">
+              <span class="text-sm font-medium text-foreground">上下文类型</span>
+              <select data-marker-plan-filter-field="contextType" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="ALL">全部</option>
                 ${buildMarkerPlanContextTypeOptions().map((option) => `<option value="${option.value}" ${option.value === state.filters.contextType ? 'selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
               </select>
             </label>
-            <label class="space-y-0.5">
-              <span class="text-[11px] font-medium text-foreground">唛架模式</span>
-              <select data-marker-plan-filter-field="mode" class="h-6 w-full rounded-md border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-blue-500">
+            <label class="space-y-2">
+              <span class="text-sm font-medium text-foreground">唛架模式</span>
+              <select data-marker-plan-filter-field="mode" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="ALL">全部</option>
                 ${buildMarkerPlanModeOptions().map((option) => `<option value="${option.value}" ${option.value === state.filters.mode ? 'selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
               </select>
             </label>
-            <label class="space-y-0.5">
-              <span class="text-[11px] font-medium text-foreground">可交接铺布</span>
-              <select data-marker-plan-filter-field="ready" class="h-6 w-full rounded-md border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-blue-500">
+            <label class="space-y-2">
+              <span class="text-sm font-medium text-foreground">可交接铺布</span>
+              <select data-marker-plan-filter-field="ready" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="ALL">全部</option>
                 <option value="YES" ${state.filters.ready === 'YES' ? 'selected' : ''}>是</option>
                 <option value="NO" ${state.filters.ready === 'NO' ? 'selected' : ''}>否</option>
@@ -2700,32 +2699,16 @@ function renderListFilters(): string {
         </div>
       </details>
     </div>
-  `, '!top-1 !p-1', 'data-testid="marker-plan-list-filters"')
+  `, '', 'data-testid="marker-plan-list-filters"')
 }
 
 function renderStats(stats: MarkerPlanListStats): string {
   return `
-    <section class="grid gap-0.5 md:grid-cols-2 xl:grid-cols-4" data-testid="marker-plan-list-stats">
-      <article class="rounded-lg border bg-card px-1.5 py-0.5">
-        <p class="text-[10px] leading-4 text-muted-foreground">待建上下文数</p>
-        <p class="mt-0.5 text-sm font-semibold leading-none text-slate-900">${stats.pendingContextCount}</p>
-        <p class="mt-0 font-mono text-[9px] leading-3 text-muted-foreground">${stats.pendingContextCount} = ${stats.totalContextCount} - ${stats.builtContextCount}</p>
-      </article>
-      <article class="rounded-lg border bg-card px-1.5 py-0.5">
-        <p class="text-[10px] leading-4 text-muted-foreground">待配平唛架数</p>
-        <p class="mt-0.5 text-sm font-semibold leading-none text-amber-600">${stats.pendingBalanceCount}</p>
-        <p class="mt-0 font-mono text-[9px] leading-3 text-muted-foreground">${stats.pendingBalanceCount} = 未配平唛架数</p>
-      </article>
-      <article class="rounded-lg border bg-card px-1.5 py-0.5">
-        <p class="text-[10px] leading-4 text-muted-foreground">待排版唛架数</p>
-        <p class="mt-0.5 text-sm font-semibold leading-none text-blue-600">${stats.waitingLayoutCount}</p>
-        <p class="mt-0 font-mono text-[9px] leading-3 text-muted-foreground">${stats.waitingLayoutCount} = 待排版唛架数</p>
-      </article>
-      <article class="rounded-lg border bg-card px-1.5 py-0.5">
-        <p class="text-[10px] leading-4 text-muted-foreground">可交接铺布唛架数</p>
-        <p class="mt-0.5 text-sm font-semibold leading-none text-emerald-600">${stats.readyForSpreadingCount}</p>
-        <p class="mt-0 font-mono text-[9px] leading-3 text-muted-foreground">${stats.readyForSpreadingCount} = 可交接铺布唛架数</p>
-      </article>
+    <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4" data-testid="marker-plan-list-stats">
+      ${renderCompactKpiCard('待建上下文数', stats.pendingContextCount, '总上下文 - 已建上下文', 'text-slate-900', `${stats.pendingContextCount} = ${stats.totalContextCount} - ${stats.builtContextCount}`)}
+      ${renderCompactKpiCard('待配平唛架数', stats.pendingBalanceCount, '未配平唛架数', 'text-amber-600', `${stats.pendingBalanceCount} = 未配平唛架数`)}
+      ${renderCompactKpiCard('待排版唛架数', stats.waitingLayoutCount, '待排版唛架数', 'text-blue-600', `${stats.waitingLayoutCount} = 待排版唛架数`)}
+      ${renderCompactKpiCard('可交接铺布唛架数', stats.readyForSpreadingCount, '可交接铺布唛架数', 'text-emerald-600', `${stats.readyForSpreadingCount} = 可交接铺布唛架数`)}
     </section>
   `
 }
@@ -2733,7 +2716,7 @@ function renderStats(stats: MarkerPlanListStats): string {
 function renderPendingContexts(contexts: MarkerPlanContextCandidate[]): string {
   return `
     <section class="rounded-lg border bg-card" data-testid="marker-plan-pending-contexts" data-marker-plan-main-card="true">
-      <div class="flex items-center justify-between gap-2 border-b px-2.5 py-1">
+      <div class="flex items-center justify-between gap-3 border-b px-4 py-3">
         <div>
           <h2 class="text-sm font-semibold">待建上下文</h2>
         </div>
@@ -2797,15 +2780,15 @@ function renderPlanRowsTable(rows: MarkerPlanViewRow[], exceptionOnly = false): 
   const tableTitle = exceptionOnly ? '异常待处理唛架' : '已建唛架主表'
   const countText = `共 ${rows.length} 条唛架`
   return `
-    <section class="rounded-lg border bg-card" data-testid="${exceptionOnly ? 'marker-plan-exception-list' : 'marker-plan-list-table'}" data-marker-plan-main-card="true">
-      <div class="flex items-center justify-between gap-2 border-b px-2.5 py-1">
+    <section class="rounded-lg border bg-card [&_td]:px-3 [&_td]:py-2 [&_th]:px-3 [&_th]:py-2" data-testid="${exceptionOnly ? 'marker-plan-exception-list' : 'marker-plan-list-table'}" data-marker-plan-main-card="true">
+      <div class="flex items-center justify-between gap-3 border-b px-4 py-3">
         <div>
           <h2 class="text-sm font-semibold">${tableTitle}</h2>
         </div>
         <div class="text-xs text-muted-foreground">${countText}</div>
       </div>
       ${renderStickyTableScroller(`
-        <table class="min-w-[2140px] text-left text-xs">
+        <table class="min-w-[2140px] text-left text-sm">
           <thead class="bg-muted/40 text-xs text-muted-foreground">
             <tr>
               <th class="px-2 py-1 font-medium">唛架编号</th>
@@ -2991,8 +2974,8 @@ function renderContextDrawer(viewModel = getViewModel()): string {
 
   return uiDrawer(
     {
-      title: '选择唛架上下文',
-      subtitle: '选择原始裁片单或合并裁剪批次。',
+      title: '新建唛架：选择来源',
+      subtitle: '第一步选择原始裁片单或合并裁剪批次，确认后进入唛架信息填写。',
       closeAction: { prefix: 'marker-plan', action: 'close-context-drawer' },
       width: 'xl',
     },
@@ -3002,7 +2985,7 @@ function renderContextDrawer(viewModel = getViewModel()): string {
       confirm: {
         prefix: 'marker-plan',
         action: 'confirm-context-create',
-        label: '进入新增',
+        label: '下一步：填写唛架',
         variant: 'primary',
         disabled: !state.selectedContextId,
       },
@@ -3021,7 +3004,7 @@ function renderListPage(viewModel = getViewModel()): string {
       : renderPlanRowsTable(filteredPlans, state.listTab === 'EXCEPTIONS')
 
   return `
-    <div class="space-y-0.5 p-1" data-testid="cutting-marker-plan-list-page">
+    <div class="space-y-4 p-4" data-testid="cutting-marker-plan-list-page">
       ${renderCuttingPageHeader(meta, {
         actionsHtml: renderPlanHeaderActions('LIST', null),
         showCompatibilityBadge: isCuttingAliasPath(getCurrentBasePath()),

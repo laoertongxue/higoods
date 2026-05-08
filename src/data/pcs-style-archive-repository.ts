@@ -14,7 +14,12 @@ const STYLE_ARCHIVE_STORE_VERSION = 2
 let memorySnapshot: StyleArchiveStoreSnapshot | null = null
 
 function canUseStorage(): boolean {
-  return typeof localStorage !== 'undefined'
+  return (
+    typeof localStorage !== 'undefined' &&
+    typeof localStorage.getItem === 'function' &&
+    typeof localStorage.setItem === 'function' &&
+    typeof localStorage.removeItem === 'function'
+  )
 }
 
 function cloneRecord(record: StyleArchiveShellRecord): StyleArchiveShellRecord {

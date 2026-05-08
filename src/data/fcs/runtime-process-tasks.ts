@@ -104,6 +104,8 @@ interface RuntimeTaskOverride {
   dispatchPriceUnit?: string
   priceDiffReason?: string
   acceptanceStatus?: AcceptanceStatus
+  acceptedAt?: string
+  acceptedBy?: string
   tenderId?: string
   awardedAt?: string
   auditLogs?: TaskAuditLog[]
@@ -223,6 +225,7 @@ export interface RuntimeBatchDispatchInput {
   dispatchPriceCurrency: string
   dispatchPriceUnit: string
   priceDiffReason: string
+  autoAccept?: boolean
 }
 
 export interface RuntimeDetailDispatchInput {
@@ -287,6 +290,10 @@ function resolveExecutorKindByFactoryId(factoryId?: string): RuntimeExecutorKind
     return 'WAREHOUSE_WORKSHOP'
   }
   return 'EXTERNAL_FACTORY'
+}
+
+export function isRuntimeSewingTask(task: Pick<RuntimeProcessTask, 'processCode' | 'processNameZh'>): boolean {
+  return task.processCode === 'SEW' || task.processNameZh === '车缝'
 }
 
 function getOrderSkuLines(productionOrderId: string): RuntimeTaskSkuLine[] {
@@ -954,8 +961,8 @@ function ensureDispatchBoardSeedData(): void {
       assignmentStatus: 'ASSIGNED',
       assignedFactoryId: directFactorySeeds.cut.id,
       assignedFactoryName: directFactorySeeds.cut.name,
-      acceptDeadline: '2026-04-03 12:00:00',
-      taskDeadline: '2026-04-08 18:00:00',
+      acceptDeadline: '2026-06-03 12:00:00',
+      taskDeadline: '2026-06-08 18:00:00',
       dispatchedAt: '2026-03-19 10:00:00',
       dispatchedBy: '跟单A',
       dispatchPrice: 8600,
@@ -990,8 +997,8 @@ function ensureDispatchBoardSeedData(): void {
       assignmentStatus: 'ASSIGNED',
       assignedFactoryId: directFactorySeeds.button.id,
       assignedFactoryName: directFactorySeeds.button.name,
-      acceptDeadline: '2026-04-03 12:00:00',
-      taskDeadline: '2026-04-09 18:00:00',
+      acceptDeadline: '2026-06-03 12:00:00',
+      taskDeadline: '2026-06-09 18:00:00',
       dispatchedAt: '2026-03-19 11:00:00',
       dispatchedBy: '跟单A',
       dispatchPrice: 6900,
@@ -1784,6 +1791,8 @@ export function upsertRuntimeTaskTender(
     tenderId: string
     biddingDeadline: string
     taskDeadline: string
+    mainFactoryId?: string
+    mainFactoryName?: string
     publishedSamPerUnit?: number
     publishedSamUnit?: string
     publishedSamTotal?: number
@@ -1813,6 +1822,15 @@ export function upsertRuntimeTaskTender(
   )
 
   recomputeRuntimeTransitionsForOrder(task.productionOrderId)
+  if (updated && payload.mainFactoryId && isRuntimeSewingTask(updated)) {
+    confirmProductionOrderMainFactoryFromSewingTask({
+      productionOrderId: updated.productionOrderId,
+      factoryId: payload.mainFactoryId,
+      factoryName: payload.mainFactoryName,
+      by,
+      at: nowTimestamp(),
+    })
+  }
   return updated
 }
 
@@ -1930,6 +1948,7 @@ export function batchDispatchRuntimeTasks(input: RuntimeBatchDispatchInput): {
       dispatchPriceUnit: input.dispatchPriceUnit,
       priceDiffReason: input.priceDiffReason,
       dispatchedAt: now,
+      autoAccept: input.autoAccept,
       ...sam,
     })
   }
@@ -1955,11 +1974,14 @@ export function applyRuntimeDirectDispatchMeta(input: {
   dispatchPriceUnit: string
   priceDiffReason: string
   dispatchedAt?: string
+  autoAccept?: boolean
   publishedSamPerUnit?: number
   publishedSamUnit?: string
   publishedSamTotal?: number
   publishedSamDifficulty?: PublishedSamDifficulty
+  writeBackMainFactory?: boolean
 }): RuntimeProcessTask | null {
+  const dispatchedAt = input.dispatchedAt ?? nowTimestamp()
   const updated = updateRuntimeTaskWithAudit(
     input.taskId,
     {
@@ -1970,30 +1992,32 @@ export function applyRuntimeDirectDispatchMeta(input: {
       acceptDeadline: input.acceptDeadline,
       taskDeadline: input.taskDeadline,
       dispatchRemark: input.remark.trim() || undefined,
-      dispatchedAt: input.dispatchedAt ?? nowTimestamp(),
+      dispatchedAt,
       dispatchedBy: input.by,
       dispatchPrice: input.dispatchPrice,
       dispatchPriceCurrency: input.dispatchPriceCurrency,
       dispatchPriceUnit: input.dispatchPriceUnit,
       priceDiffReason: input.priceDiffReason.trim() || undefined,
-      acceptanceStatus: 'PENDING',
+      acceptanceStatus: input.autoAccept ? 'ACCEPTED' : 'PENDING',
+      acceptedAt: input.autoAccept ? dispatchedAt : undefined,
+      acceptedBy: input.autoAccept ? input.factoryName : undefined,
       publishedSamPerUnit: input.publishedSamPerUnit,
       publishedSamUnit: input.publishedSamUnit,
       publishedSamTotal: input.publishedSamTotal,
       publishedSamDifficulty: input.publishedSamDifficulty,
     },
     'DISPATCH',
-    '已发起直接派单，待工厂确认',
+    input.autoAccept ? '自动分配直接派单，工厂已同步接单确认' : '已发起直接派单，待工厂确认',
     input.by,
   )
 
-  if (updated && (updated.processCode === 'SEW' || updated.processNameZh.includes('车缝'))) {
+  if (updated && input.writeBackMainFactory !== false && isRuntimeSewingTask(updated)) {
     confirmProductionOrderMainFactoryFromSewingTask({
       productionOrderId: updated.productionOrderId,
       factoryId: input.factoryId,
       factoryName: input.factoryName,
       by: input.by,
-      at: input.dispatchedAt ?? nowTimestamp(),
+      at: dispatchedAt,
     })
   }
 

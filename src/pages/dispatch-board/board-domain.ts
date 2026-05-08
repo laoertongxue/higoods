@@ -274,26 +274,71 @@ function renderKanbanView(
   `
 }
 
+function renderDispatchListPagination(total: number, currentPage: number, pageCount: number, pageSize: number): string {
+  const pages: number[] = []
+  const start = Math.max(1, currentPage - 2)
+  const end = Math.min(pageCount, start + 4)
+  for (let page = start; page <= end; page += 1) {
+    pages.push(page)
+  }
+
+  const startNo = total === 0 ? 0 : (currentPage - 1) * pageSize + 1
+  const endNo = Math.min(total, currentPage * pageSize)
+
+  return `
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <div class="text-sm text-muted-foreground">第 ${currentPage} 页，共 ${pageCount} 页；显示 ${startNo}-${endNo} / 共 ${total} 条</div>
+      <div class="flex flex-wrap items-center gap-1">
+        <select class="h-8 rounded-md border bg-background px-2 text-xs" data-dispatch-field="list.pageSize">
+          ${[10, 20, 50, 100]
+            .map((size) => `<option value="${size}" ${pageSize === size ? 'selected' : ''}>${size} 条/页</option>`)
+            .join('')}
+        </select>
+        <button class="rounded-md border px-3 py-1 text-sm ${currentPage === 1 ? 'pointer-events-none opacity-50' : 'hover:bg-muted'}" data-dispatch-action="list-prev-page">上一页</button>
+        ${pages
+          .map(
+            (page) => `
+              <button
+                class="rounded-md border px-3 py-1 text-sm ${page === currentPage ? 'bg-blue-600 text-white' : 'hover:bg-muted'}"
+                data-dispatch-action="list-goto-page"
+                data-page="${page}"
+              >${page}</button>
+            `,
+          )
+          .join('')}
+        <button class="rounded-md border px-3 py-1 text-sm ${currentPage >= pageCount ? 'pointer-events-none opacity-50' : 'hover:bg-muted'}" data-dispatch-action="list-next-page">下一页</button>
+      </div>
+    </div>
+  `
+}
+
 function renderListView(
   rows: DispatchTask[],
-  dyePendingTaskIds: Set<string>,
-  qcPendingOrderIds: Set<string>,
   exceptionTaskIds: Set<string>,
 ): string {
+  const pageSize = Math.max(1, state.listPageSize)
+  const pageCount = Math.max(1, Math.ceil(rows.length / pageSize))
+  const currentPage = Math.min(Math.max(1, state.listPage), pageCount)
+  const pageRows = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  const pageAllSelected = pageRows.length > 0 && pageRows.every((task) => state.selectedIds.has(task.taskId))
+
   return `
     <div class="space-y-3 pt-2">
-      <div class="flex flex-wrap items-center gap-2">
-        <span class="text-sm text-muted-foreground">已选 ${state.selectedIds.size} 条</span>
-        <button class="h-8 rounded-md border px-3 text-xs hover:bg-muted ${state.selectedIds.size === 0 ? 'pointer-events-none opacity-50' : ''}" data-dispatch-action="batch-direct-dispatch">批量直接派单</button>
-        <button class="h-8 rounded-md border px-3 text-xs hover:bg-muted ${state.selectedIds.size === 0 ? 'pointer-events-none opacity-50' : ''}" data-dispatch-action="batch-bidding">批量发起竞价</button>
-        <button class="h-8 rounded-md px-3 text-xs hover:bg-muted ${state.selectedIds.size === 0 ? 'pointer-events-none opacity-50' : ''}" data-dispatch-action="batch-hold">批量设为暂不分配</button>
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-sm text-muted-foreground">已选 ${state.selectedIds.size} 条</span>
+          <button class="h-8 rounded-md border px-3 text-xs hover:bg-muted ${state.selectedIds.size === 0 ? 'pointer-events-none opacity-50' : ''}" data-dispatch-action="batch-direct-dispatch">批量直接派单</button>
+          <button class="h-8 rounded-md border px-3 text-xs hover:bg-muted ${state.selectedIds.size === 0 ? 'pointer-events-none opacity-50' : ''}" data-dispatch-action="batch-bidding">批量发起竞价</button>
+          <button class="h-8 rounded-md px-3 text-xs hover:bg-muted ${state.selectedIds.size === 0 ? 'pointer-events-none opacity-50' : ''}" data-dispatch-action="batch-hold">批量设为暂不分配</button>
+        </div>
+        ${renderDispatchListPagination(rows.length, currentPage, pageCount, pageSize)}
       </div>
 
       <div class="overflow-x-auto rounded-md border">
         <table class="w-full min-w-[1980px] text-sm">
           <thead>
             <tr class="border-b bg-muted/40 text-xs">
-              <th class="w-10 px-3 py-2 text-left"><input type="checkbox" data-dispatch-field="list.selectAll" ${rows.length > 0 && state.selectedIds.size === rows.length ? 'checked' : ''} /></th>
+              <th class="w-10 px-3 py-2 text-left"><input type="checkbox" data-dispatch-field="list.selectAll" ${pageAllSelected ? 'checked' : ''} /></th>
               <th class="px-3 py-2 text-left font-medium">任务ID</th>
               <th class="px-3 py-2 text-left font-medium">任务名称</th>
               <th class="px-3 py-2 text-left font-medium">任务总标准工时</th>
@@ -304,8 +349,6 @@ function renderListView(
               <th class="px-3 py-2 text-left font-medium">承接工厂</th>
               <th class="px-3 py-2 text-left font-medium">接单截止</th>
               <th class="px-3 py-2 text-left font-medium">任务截止</th>
-              <th class="px-3 py-2 text-left font-medium">时限状态</th>
-              <th class="px-3 py-2 text-left font-medium">剩余/逾期</th>
               <th class="px-3 py-2 text-left font-medium">工序标准价</th>
               <th class="px-3 py-2 text-left font-medium">直接派单价</th>
               <th class="px-3 py-2 text-left font-medium">价格状态</th>
@@ -315,31 +358,20 @@ function renderListView(
               <th class="px-3 py-2 text-left font-medium">任务截止（招标）</th>
               <th class="px-3 py-2 text-left font-medium">中标工厂</th>
               <th class="px-3 py-2 text-left font-medium">中标价</th>
-              <th class="px-3 py-2 text-left font-medium">当前卡点</th>
-              <th class="px-3 py-2 text-left font-medium">任务状态</th>
               <th class="px-3 py-2 text-left font-medium">操作</th>
             </tr>
           </thead>
 
           <tbody>
             ${
-              rows.length === 0
-                ? '<tr><td colspan="25" class="py-8 text-center text-sm text-muted-foreground">暂无任务数据</td></tr>'
-                : rows
+              pageRows.length === 0
+                ? '<tr><td colspan="21" class="py-8 text-center text-sm text-muted-foreground">暂无任务数据</td></tr>'
+                : pageRows
                     .map((task) => {
                       const hasException = isAffectedByTaskSet(task, exceptionTaskIds)
                       const assignPath = deriveAssignPath(task)
                       const assignResult = deriveAssignResult(task, hasException)
                       const tender = getEffectiveTender(task)
-                      const deadlineBadge = formatDeadlineBadge(getDeadlineStatus(task), task)
-                      const checkpoint = currentCheckpoint(
-                        task,
-                        assignResult,
-                        tender,
-                        dyePendingTaskIds,
-                        qcPendingOrderIds,
-                        hasException,
-                      )
                       const std = getStandardPrice(task)
                       const isDirect = assignResult === 'DIRECT_ASSIGNED'
                       const isBid =
@@ -347,10 +379,6 @@ function renderListView(
                       const alreadyHasTender = hasTender(task)
                       const order = productionOrders.find((item) => item.productionOrderId === task.productionOrderId)
                       const taskSam = resolveTaskPublishedSam(task)
-                      const unitSamText =
-                        taskSam.publishedSamPerUnit && taskSam.publishedSamUnit
-                          ? `${formatPublishedSamNumber(taskSam.publishedSamPerUnit)} ${escapeHtml(taskSam.publishedSamUnit)}`
-                          : '--'
                       const totalSamText =
                         taskSam.publishedSamTotal != null && taskSam.publishedSamUnit
                           ? `${formatPublishedSamNumber(taskSam.publishedSamTotal)} ${escapeHtml(taskSam.publishedSamUnit.replace(/^分钟\//, '分钟'))}`
@@ -373,8 +401,7 @@ function renderListView(
                           <td class="px-3 py-3 text-sm font-medium">${escapeHtml(task.processNameZh)}</td>
                           <td class="px-3 py-3 text-xs" data-dispatch-task-sam="${escapeHtml(task.taskId)}">
                             <div class="space-y-1">
-                              <div><span class="text-muted-foreground">单位标准工时：</span><span class="font-medium">${unitSamText}</span></div>
-                              <div><span class="text-muted-foreground">任务总标准工时：</span><span class="font-medium text-blue-700">${totalSamText}</span></div>
+                              <div><span class="font-medium text-blue-700">${totalSamText}</span></div>
                             </div>
                           </td>
                           <td class="px-3 py-3 text-xs text-muted-foreground">${escapeHtml(formatScopeLabel(task))}</td>
@@ -403,16 +430,6 @@ function renderListView(
                           <td class="px-3 py-3 text-xs text-muted-foreground">${
                             isDirect && task.taskDeadline ? escapeHtml(task.taskDeadline.slice(0, 16).replace('T', ' ')) : '—'
                           }</td>
-
-                          <td class="px-3 py-3">
-                            ${
-                              isDirect && deadlineBadge
-                                ? `<span class="inline-flex items-center gap-0.5 rounded border px-1.5 py-0.5 text-xs font-medium ${deadlineBadge.className}"><i data-lucide="clock" class="h-3 w-3"></i>${deadlineBadge.label}</span>`
-                                : `<span class="text-xs text-muted-foreground">${isDirect ? '正常' : '—'}</span>`
-                            }
-                          </td>
-
-                          <td class="px-3 py-3 text-xs text-muted-foreground">${isDirect ? formatRemainingTime(task.taskDeadline) : '—'}</td>
 
                           <td class="px-3 py-3 text-xs tabular-nums text-muted-foreground">${
                             isDirect ? `${std.price.toLocaleString()} ${escapeHtml(std.currency)}/${escapeHtml(std.unit)}` : '—'
@@ -455,10 +472,6 @@ function renderListView(
                               : '<span class="text-muted-foreground">—</span>'
                           }</td>
 
-                          <td class="max-w-[160px] px-3 py-3 text-xs"><span class="text-amber-700">${escapeHtml(checkpoint)}</span></td>
-
-                          <td class="px-3 py-3"><span class="inline-flex rounded border px-1.5 py-0.5 text-xs ${task.status === 'BLOCKED' ? 'border-red-200 bg-red-100 text-red-700' : ''}">${escapeHtml(taskStatusZh[task.status] ?? task.status)}</span></td>
-
                           <td class="px-3 py-3" data-dispatch-action="noop">
                             <div class="relative" data-dispatch-menu-root="true">
                               <button class="inline-flex h-7 items-center rounded-md border px-2 text-xs hover:bg-muted" data-dispatch-action="toggle-row-menu" data-task-id="${escapeHtml(task.taskId)}">操作 <i data-lucide="chevron-right" class="ml-1 h-3 w-3"></i></button>
@@ -496,6 +509,7 @@ function renderListView(
           </tbody>
         </table>
       </div>
+      ${renderDispatchListPagination(rows.length, currentPage, pageCount, pageSize)}
     </div>
   `
 }

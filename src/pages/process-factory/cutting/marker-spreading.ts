@@ -837,6 +837,42 @@ function renderSelect(
   `
 }
 
+function renderListTextInput(label: string, value: string, attrs: string, placeholder = '请输入'): string {
+  return `
+    <label class="space-y-2">
+      <span class="text-sm font-medium text-foreground">${escapeHtml(label)}</span>
+      <input
+        type="text"
+        value="${escapeHtml(value)}"
+        placeholder="${escapeHtml(placeholder)}"
+        class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+        ${attrs}
+      />
+    </label>
+  `
+}
+
+function renderListSelect(
+  label: string,
+  value: string,
+  attrs: string,
+  options: Array<{ value: string; label: string }>,
+): string {
+  return `
+    <label class="space-y-2">
+      <span class="text-sm font-medium text-foreground">${escapeHtml(label)}</span>
+      <select class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" ${attrs}>
+        ${options
+          .map(
+            (option) =>
+              `<option value="${escapeHtml(option.value)}" ${option.value === value ? 'selected' : ''}>${escapeHtml(option.label)}</option>`,
+          )
+          .join('')}
+      </select>
+    </label>
+  `
+}
+
 function cloneMarkerRecord(record: MarkerRecord): MarkerRecord {
   return JSON.parse(JSON['stringify'](record)) as MarkerRecord
 }
@@ -1747,11 +1783,11 @@ function renderSpreadingListPrimaryAction(stageKey: SpreadingSupervisorStageKey,
   const actionKey = resolveSpreadingPrimaryActionKeyByStage(stageKey)
   if (!actionKey) return ''
   if (actionKey === 'COMPLETE_SPREADING') {
-    return `<button type="button" class="rounded-md bg-blue-600 px-2 py-1 text-[11px] font-medium leading-4 text-white hover:bg-blue-700" data-cutting-marker-action="open-spreading-edit" data-session-id="${escapeHtml(sessionId)}">继续铺布</button>`
+    return `<button type="button" class="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium leading-5 text-white hover:bg-blue-700" data-cutting-marker-action="open-spreading-edit" data-session-id="${escapeHtml(sessionId)}">继续铺布</button>`
   }
   const actionMeta = resolveSpreadingPrimaryActionMeta(actionKey)
   if (!actionMeta || !actionMeta.action) return ''
-  return `<button type="button" class="rounded-md bg-blue-600 px-2 py-1 text-[11px] font-medium leading-4 text-white hover:bg-blue-700" data-cutting-marker-action="${escapeHtml(actionMeta.action)}" data-session-id="${escapeHtml(sessionId)}">${escapeHtml(actionMeta.label)}</button>`
+  return `<button type="button" class="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium leading-5 text-white hover:bg-blue-700" data-cutting-marker-action="${escapeHtml(actionMeta.action)}" data-session-id="${escapeHtml(sessionId)}">${escapeHtml(actionMeta.label)}</button>`
 }
 
 function buildSpreadingMainStageFormula(label: string): string {
@@ -1963,7 +1999,7 @@ function renderImportDecisionPanel(): string {
 }
 
 function renderHeaderActions(actions: string[]): string {
-  return `<div class="flex flex-wrap gap-1.5">${actions.join('')}</div>`
+  return `<div class="flex flex-wrap gap-2">${actions.join('')}</div>`
 }
 
 function renderFeedbackBar(): string {
@@ -2121,60 +2157,60 @@ function renderListStateBar(): string {
 
 function renderFilterArea(): string {
   return renderStickyFilterShell(`
-      <div class="grid gap-0.5 md:grid-cols-2 xl:grid-cols-[repeat(4,minmax(0,1fr))_auto] xl:items-end">
-        ${renderTextInput('搜索', state.keyword, 'data-cutting-spreading-list-field="keyword"', '铺布编号 / 唛架编号 / 原始裁片单 / 合并裁剪批次 / 生产单 / SPU')}
-        ${renderSelect('主状态', state.spreadingStageFilter, 'data-cutting-spreading-list-field="main-stage"', [
+      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-[repeat(4,minmax(0,1fr))_auto] xl:items-end">
+        ${renderListTextInput('搜索', state.keyword, 'data-cutting-spreading-list-field="keyword"', '铺布编号 / 唛架编号 / 原始裁片单 / 合并裁剪批次 / 生产单 / SPU')}
+        ${renderListSelect('主状态', state.spreadingStageFilter, 'data-cutting-spreading-list-field="main-stage"', [
           { value: 'ALL', label: '全部' },
           ...getSpreadingStageOptions().filter((item) => item.value !== 'ALL'),
         ])}
-        ${renderTextInput('原始裁片单 / 合并裁剪批次', state.contextNoFilter, 'data-cutting-spreading-list-field="context-no"', '')}
-        ${renderTextInput('铺布编号', state.sessionNoFilter, 'data-cutting-spreading-list-field="session-no"', '')}
-        <button type="button" class="h-6 rounded-md border px-2 text-xs hover:bg-muted" data-cutting-marker-action="clear-filters">重置筛选</button>
+        ${renderListTextInput('原始裁片单 / 合并裁剪批次', state.contextNoFilter, 'data-cutting-spreading-list-field="context-no"', '')}
+        ${renderListTextInput('铺布编号', state.sessionNoFilter, 'data-cutting-spreading-list-field="session-no"', '')}
+        <button type="button" class="h-10 rounded-md border px-3 text-sm hover:bg-muted" data-cutting-marker-action="clear-filters">重置筛选</button>
       </div>
-      <details class="mt-px rounded-md border bg-background" data-testid="cutting-spreading-more-filters">
-        <summary class="cursor-pointer list-none px-1.5 py-0.5 text-[11px] font-medium text-foreground">更多筛选</summary>
-        <div class="border-t px-1.5 py-0.5">
-          <div class="grid gap-0.5 md:grid-cols-2 xl:grid-cols-4">
-            ${renderTextInput('原始裁片单', state.originalCutOrderFilter, 'data-cutting-spreading-list-field="original-cut-order"', '')}
-            ${renderTextInput('合并裁剪批次', state.mergeBatchFilter, 'data-cutting-spreading-list-field="merge-batch"', '')}
-            ${renderTextInput('唛架编号', state.markerNoFilter, 'data-cutting-spreading-list-field="marker-no"', '')}
-            ${renderTextInput('生产单号', state.productionOrderFilter, 'data-cutting-spreading-list-field="production-order"', '')}
-            ${renderTextInput('款号 / SPU', state.styleSpuFilter, 'data-cutting-spreading-list-field="style-spu"', '')}
-            ${renderTextInput('面料 SKU', state.materialSkuFilter, 'data-cutting-spreading-list-field="material-sku"', '')}
-            ${renderTextInput('颜色', state.colorFilter, 'data-cutting-spreading-list-field="color"', '')}
-            ${renderSelect('模式', state.spreadingModeFilter, 'data-cutting-spreading-list-field="mode"', [
+      <details class="mt-3 rounded-md border bg-background" data-testid="cutting-spreading-more-filters">
+        <summary class="cursor-pointer list-none px-3 py-2 text-sm font-medium text-foreground">更多筛选</summary>
+        <div class="border-t p-3">
+          <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            ${renderListTextInput('原始裁片单', state.originalCutOrderFilter, 'data-cutting-spreading-list-field="original-cut-order"', '')}
+            ${renderListTextInput('合并裁剪批次', state.mergeBatchFilter, 'data-cutting-spreading-list-field="merge-batch"', '')}
+            ${renderListTextInput('唛架编号', state.markerNoFilter, 'data-cutting-spreading-list-field="marker-no"', '')}
+            ${renderListTextInput('生产单号', state.productionOrderFilter, 'data-cutting-spreading-list-field="production-order"', '')}
+            ${renderListTextInput('款号 / SPU', state.styleSpuFilter, 'data-cutting-spreading-list-field="style-spu"', '')}
+            ${renderListTextInput('面料 SKU', state.materialSkuFilter, 'data-cutting-spreading-list-field="material-sku"', '')}
+            ${renderListTextInput('颜色', state.colorFilter, 'data-cutting-spreading-list-field="color"', '')}
+            ${renderListSelect('模式', state.spreadingModeFilter, 'data-cutting-spreading-list-field="mode"', [
               { value: 'ALL', label: '全部模式' },
               { value: 'normal', label: '普通模式' },
               { value: 'high_low', label: '高低层模式' },
               { value: 'fold_normal', label: '对折-普通模式' },
               { value: 'fold_high_low', label: '对折-高低层模式' },
             ])}
-            ${renderSelect('上下文类型', state.contextTypeFilter, 'data-cutting-spreading-list-field="context"', [
+            ${renderListSelect('上下文类型', state.contextTypeFilter, 'data-cutting-spreading-list-field="context"', [
               { value: 'ALL', label: '全部' },
               { value: 'original-order', label: '原始裁片单' },
               { value: 'merge-batch', label: '合并裁剪批次' },
             ])}
-            ${renderSelect('补料状态', state.replenishmentStatusFilter, 'data-cutting-spreading-list-field="replenishment-status"', [
+            ${renderListSelect('补料状态', state.replenishmentStatusFilter, 'data-cutting-spreading-list-field="replenishment-status"', [
               { value: 'ALL', label: '全部' },
               { value: '待补料确认', label: '待补料确认' },
               { value: '无需补料', label: '无需补料' },
             ])}
-            ${renderSelect('菲票状态', state.feiTicketStatusFilter, 'data-cutting-spreading-list-field="fei-status"', [
+            ${renderListSelect('菲票状态', state.feiTicketStatusFilter, 'data-cutting-spreading-list-field="fei-status"', [
               { value: 'ALL', label: '全部' },
               { value: '待打印菲票', label: '待打印菲票' },
               { value: '已打印菲票', label: '已打印菲票' },
             ])}
-            ${renderSelect('装袋状态', state.baggingStatusFilter, 'data-cutting-spreading-list-field="bagging-status"', [
+            ${renderListSelect('装袋状态', state.baggingStatusFilter, 'data-cutting-spreading-list-field="bagging-status"', [
               { value: 'ALL', label: '全部' },
               { value: '待装袋', label: '待装袋' },
               { value: '已装袋', label: '已装袋' },
             ])}
-            ${renderSelect('入仓状态', state.warehouseStatusFilter, 'data-cutting-spreading-list-field="warehouse-status"', [
+            ${renderListSelect('入仓状态', state.warehouseStatusFilter, 'data-cutting-spreading-list-field="warehouse-status"', [
               { value: 'ALL', label: '全部' },
               { value: '待入仓', label: '待入仓' },
               { value: '已入仓', label: '已入仓' },
             ])}
-            ${renderSelect('录入来源', state.sourceChannelFilter, 'data-cutting-spreading-list-field="source-channel"', [
+            ${renderListSelect('录入来源', state.sourceChannelFilter, 'data-cutting-spreading-list-field="source-channel"', [
               { value: 'ALL', label: '全部' },
               { value: 'PC', label: '电脑录入' },
               { value: MOBILE_SOURCE_CHANNEL, label: '移动录入' },
@@ -2182,21 +2218,21 @@ function renderFilterArea(): string {
           </div>
         </div>
       </details>
-    `, '!top-1 !p-1', 'data-testid="cutting-spreading-list-filters"')
+    `, '', 'data-testid="cutting-spreading-list-filters"')
 }
 
 function renderListTabs(): string {
   const { stageCounts } = getPageData()
   return `
-    <section class="rounded-lg border border-dashed bg-muted/20 px-1.5 py-0.5" data-testid="cutting-spreading-stage-tabs">
-      <div class="flex flex-wrap gap-0.5">
+    <section class="rounded-lg border border-dashed bg-muted/20 px-3 py-2" data-testid="cutting-spreading-stage-tabs">
+      <div class="flex flex-wrap gap-2">
         ${getSpreadingStageOptions()
           .map((tab) => {
             const active = state.activeTab === tab.value
             return `
               <button
                 type="button"
-                class="rounded-md border px-1.5 py-px text-[10px] leading-4 ${active ? 'border-blue-500 bg-blue-50 text-blue-700' : 'hover:bg-muted'}"
+                class="rounded-md border px-3 py-1.5 text-sm leading-5 ${active ? 'border-blue-500 bg-blue-50 text-blue-700' : 'hover:bg-muted'}"
                 data-cutting-marker-action="switch-spreading-list-tab"
                 data-list-tab="${tab.value}"
               >
@@ -2214,7 +2250,7 @@ function renderListStats(): string {
   const { stageCounts } = getPageData()
 
   return `
-    <section class="grid gap-0.5 md:grid-cols-2 xl:grid-cols-4" data-testid="cutting-spreading-list-stats">
+    <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4" data-testid="cutting-spreading-list-stats">
       ${renderCompactKpiCard('待开始数', stageCounts.WAITING_START, '', 'text-slate-900', buildSpreadingStageCountFormula('待开始'))}
       ${renderCompactKpiCard('铺布中数', stageCounts.IN_PROGRESS, '', 'text-amber-600', buildSpreadingStageCountFormula('铺布中'))}
       ${renderCompactKpiCard('待补料数', stageCounts.WAITING_REPLENISHMENT, '', 'text-rose-600', buildSpreadingStageCountFormula('待补料确认'))}
@@ -2255,15 +2291,15 @@ function renderSpreadingTable(rows: SupervisorSpreadingRow[]): string {
   }
 
   return `
-    <section class="rounded-lg border bg-card" data-testid="cutting-spreading-list-table" data-cutting-spreading-main-card="true">
-      <div class="flex items-center justify-between gap-2 border-b px-1.5 py-0.5">
+    <section class="rounded-lg border bg-card [&_td]:px-3 [&_td]:py-2 [&_th]:px-3 [&_th]:py-2" data-testid="cutting-spreading-list-table" data-cutting-spreading-main-card="true">
+      <div class="flex items-center justify-between gap-3 border-b px-4 py-3">
         <div>
           <h2 class="text-sm font-semibold">铺布主表</h2>
         </div>
         <div class="text-xs text-muted-foreground">共 ${rows.length} 条铺布记录</div>
       </div>
       ${renderStickyTableScroller(`
-    <table class="min-w-[2240px] text-xs">
+    <table class="min-w-[2240px] text-sm">
       <thead class="sticky top-0 bg-muted/70 text-left text-xs text-muted-foreground backdrop-blur">
         <tr>
           <th class="px-2 py-1 font-medium">铺布编号</th>
@@ -2316,7 +2352,7 @@ function renderSpreadingTable(rows: SupervisorSpreadingRow[]): string {
                 <td class="px-2 py-1">
                   <div class="flex flex-nowrap gap-1 overflow-x-auto whitespace-nowrap">
                     ${primaryAction}
-                    <button type="button" class="rounded-md border px-2 py-1 text-[11px] leading-4 hover:bg-muted" data-cutting-marker-action="open-spreading-detail" data-session-id="${escapeHtml(row.spreadingSessionId)}">查看详情</button>
+                    <button type="button" class="rounded-md border px-3 py-1.5 text-xs leading-5 hover:bg-muted" data-cutting-marker-action="open-spreading-detail" data-session-id="${escapeHtml(row.spreadingSessionId)}">查看详情</button>
                   </div>
                 </td>
               </tr>
@@ -2337,12 +2373,12 @@ function renderSpreadingSupervisorListPage(): string {
   const filteredRows = spreadingRows as SupervisorSpreadingRow[]
 
   return `
-    <div class="space-y-0.5 p-1" data-testid="cutting-spreading-list-page">
+    <div class="space-y-4 p-4" data-testid="cutting-spreading-list-page">
       ${renderCuttingPageHeader(meta, {
         actionsHtml: renderHeaderActions(appendSummaryReturnAction([
-          '<button type="button" class="rounded-md border border-blue-500 bg-blue-50 px-2.5 py-1 text-xs text-blue-700 hover:bg-blue-100" data-cutting-marker-action="create-spreading">按唛架新建铺布</button>',
-          '<button type="button" class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-cutting-marker-action="create-spreading-exception">异常补录铺布</button>',
-          '<button type="button" class="rounded-md border px-2.5 py-1 text-xs hover:bg-muted" data-cutting-marker-action="export-spreading-list">导出当前视图</button>',
+          '<button type="button" class="rounded-md border border-blue-500 bg-blue-50 px-3 py-2 text-sm text-blue-700 hover:bg-blue-100" data-cutting-marker-action="create-spreading">按唛架新建铺布</button>',
+          '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="create-spreading-exception">异常补录铺布</button>',
+          '<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-marker-action="export-spreading-list">导出当前视图</button>',
         ])),
       })}
       ${renderFeedbackBar()}

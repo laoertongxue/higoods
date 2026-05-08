@@ -16,6 +16,7 @@ import {
   describeDispatchCapacityConstraintDecision,
   createRuntimeTaskTenderByDetailGroups,
   upsertRuntimeTaskTender,
+  isRuntimeSewingTask,
   getCreateTenderTask,
   getViewTenderTask,
   getPriceSnapshotTask,
@@ -140,6 +141,8 @@ function openCreateTender(taskId: string): void {
     biddingDeadline: '',
     taskDeadline: '',
     remark: '',
+    mainFactoryId: '',
+    mainFactoryName: '',
     selectedPool: new Set<string>(),
   }
   state.actionMenuTaskId = null
@@ -175,6 +178,7 @@ function renderCreateTenderSheet(task: DispatchTask | null): string {
   const minPrice = Number(state.createTenderForm.minPrice)
   const maxPrice = Number(state.createTenderForm.maxPrice)
   const detailSupported = supportsDetailAssignment(task)
+  const isSewingTask = isRuntimeSewingTask(task)
   const detailGroups = detailSupported ? getTaskAllocatableGroups(task) : []
   const detailMode = detailSupported && state.createTenderForm.mode === 'DETAIL'
   const evaluationContext = createDispatchCapacityEvaluationContext()
@@ -209,8 +213,13 @@ function renderCreateTenderSheet(task: DispatchTask | null): string {
     maxPrice >= (minValid ? minPrice : 0)
 
   const selectedPoolIds = Array.from(state.createTenderForm.selectedPool)
+  const selectedMainFactory = candidateFactories.find((factory) => factory.id === state.createTenderForm.mainFactoryId)
+  const mainFactoryValid =
+    !isSewingTask ||
+    (Boolean(selectedMainFactory) && state.createTenderForm.selectedPool.has(state.createTenderForm.mainFactoryId))
   const valid =
     selectedPoolIds.length > 0 &&
+    mainFactoryValid &&
     minValid &&
     maxValid &&
     state.createTenderForm.biddingDeadline !== '' &&
@@ -455,6 +464,24 @@ function renderCreateTenderSheet(task: DispatchTask | null): string {
                       .join('')}</div>`
               }
             </div>
+
+            ${
+              isSewingTask
+                ? `<div class="space-y-1.5 rounded-md border border-blue-200 bg-blue-50/60 px-3 py-2">
+                    <label class="text-sm font-medium text-blue-900">生产单主工厂 <span class="text-red-500">*</span></label>
+                    <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-dispatch-field="tender.mainFactoryId">
+                      <option value="">请从招标工厂池中指定主工厂</option>
+                      ${selectedPoolIds
+                        .map((factoryId) => {
+                          const item = candidateFactories.find((factory) => factory.id === factoryId)
+                          return `<option value="${escapeHtml(factoryId)}" ${state.createTenderForm.mainFactoryId === factoryId ? 'selected' : ''}>${escapeHtml(item?.name ?? factoryId)}</option>`
+                        })
+                        .join('')}
+                    </select>
+                    <p class="text-xs text-blue-800">车缝任务竞价创建时必须先指定生产单主工厂，确认后回写到生产单。</p>
+                  </div>`
+                : ''
+            }
 	          </div>
 
               ${
@@ -575,6 +602,7 @@ function renderViewTenderSheet(task: DispatchTask | null): string {
   const status = 'tenderStatus' in tender ? tender.tenderStatus : tender.status
   const awardedFactory = 'awardedFactoryName' in tender ? tender.awardedFactoryName : undefined
   const awardedPrice = 'awardedPrice' in tender ? tender.awardedPrice : undefined
+  const mainFactoryName = 'mainFactoryName' in tender ? tender.mainFactoryName : undefined
 
   const poolNames = 'factoryPoolNames' in tender ? tender.factoryPoolNames : []
 
@@ -631,6 +659,15 @@ function renderViewTenderSheet(task: DispatchTask | null): string {
                 : `<p class="text-xs text-muted-foreground">（Mock 数据，共 ${factoryPoolCount} 家）</p>`
             }
           </div>
+
+          ${
+            mainFactoryName
+              ? `<div class="rounded-md border border-blue-200 bg-blue-50 p-3 space-y-1.5">
+                  <p class="text-xs font-semibold text-blue-800">生产单主工厂</p>
+                  <p class="text-sm font-medium text-blue-900">${escapeHtml(mainFactoryName)}</p>
+                </div>`
+              : ''
+          }
 
           <div class="rounded-md border bg-amber-50/60 p-3 space-y-1.5">
             <p class="mb-1 text-xs font-semibold text-amber-800">价格参考区（仅平台可见，工厂不可见）</p>
@@ -778,6 +815,11 @@ function confirmCreateTender(): void {
   const std = getStandardPrice(task)
   const taskSam = resolveTaskPublishedSam(task)
   const selectedPoolIds = Array.from(state.createTenderForm.selectedPool)
+  const isSewingTask = isRuntimeSewingTask(task)
+  const selectedMainFactory = candidateFactories.find((factory) => factory.id === state.createTenderForm.mainFactoryId)
+  const mainFactoryValid =
+    !isSewingTask ||
+    (Boolean(selectedMainFactory) && state.createTenderForm.selectedPool.has(state.createTenderForm.mainFactoryId))
   const blockedSelections = selectedPoolIds
     .map((factoryId) => {
       const factory = candidateFactories.find((item) => item.id === factoryId)
@@ -794,6 +836,10 @@ function confirmCreateTender(): void {
   if (blockedSelections.length > 0) {
     const first = blockedSelections[0]
     state.createTenderError = `${first.factoryName} 当前不可进入招标池：${first.reason}`
+    return
+  }
+  if (!mainFactoryValid) {
+    state.createTenderError = '车缝任务创建招标单时必须从工厂池中指定生产单主工厂'
     return
   }
   const poolNames = selectedPoolIds.map((factoryId) => {
@@ -836,6 +882,8 @@ function confirmCreateTender(): void {
         publishedSamDifficulty: childTaskSam.publishedSamDifficulty,
         quotedCount: 0,
         participatingFactoryIds: [],
+        mainFactoryId: isSewingTask ? state.createTenderForm.mainFactoryId : undefined,
+        mainFactoryName: isSewingTask ? selectedMainFactory?.name : undefined,
       }
 
       upsertRuntimeTaskTender(
@@ -848,6 +896,8 @@ function confirmCreateTender(): void {
           publishedSamUnit: childTaskSam.publishedSamUnit,
           publishedSamTotal: childTaskSam.publishedSamTotal,
           publishedSamDifficulty: childTaskSam.publishedSamDifficulty,
+          mainFactoryId: isSewingTask ? state.createTenderForm.mainFactoryId : undefined,
+          mainFactoryName: isSewingTask ? selectedMainFactory?.name : undefined,
         },
         '跟单A',
       )
@@ -879,6 +929,8 @@ function confirmCreateTender(): void {
     publishedSamDifficulty: taskSam.publishedSamDifficulty,
     quotedCount: 0,
     participatingFactoryIds: [],
+    mainFactoryId: isSewingTask ? state.createTenderForm.mainFactoryId : undefined,
+    mainFactoryName: isSewingTask ? selectedMainFactory?.name : undefined,
   }
 
   upsertRuntimeTaskTender(
@@ -891,6 +943,8 @@ function confirmCreateTender(): void {
       publishedSamUnit: taskSam.publishedSamUnit,
       publishedSamTotal: taskSam.publishedSamTotal,
       publishedSamDifficulty: taskSam.publishedSamDifficulty,
+      mainFactoryId: isSewingTask ? state.createTenderForm.mainFactoryId : undefined,
+      mainFactoryName: isSewingTask ? selectedMainFactory?.name : undefined,
     },
     '跟单A',
   )

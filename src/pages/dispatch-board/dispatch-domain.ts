@@ -1,6 +1,5 @@
 import {
   state,
-  initialAllocationByTaskId,
   validateRuntimeBatchDispatchSelection,
   createDispatchCapacityEvaluationContext,
   createDispatchStandardTimeEvaluationContext,
@@ -11,20 +10,20 @@ import {
   setRuntimeTaskAssignMode,
   batchSetRuntimeTaskAssignMode,
   batchDispatchRuntimeTasks,
+  isRuntimeSewingTask,
   isRuntimeTaskExecutionTask,
   getTaskById,
   getVisibleRows,
-  getDyePendingTaskIds,
-  getQcPendingOrderIds,
-  getExceptionTaskIds,
-  isAffectedByTaskSet,
   getDispatchDialogTasks,
   getDispatchDialogValidation,
   getFactoryOptions,
+  getStandardPrice,
+  getAutoDispatchConfigKeyFromTask,
   emptyDispatchForm,
   describeDispatchCapacityConstraintDecision,
   formatPublishedSamNumber,
   fromDateTimeLocal,
+  nowTimestamp,
   escapeHtml,
   formatScopeLabel,
   formatTaskNo,
@@ -204,6 +203,9 @@ function openDispatchDialog(taskIds: string[]): void {
           factoryName: task.assignedFactoryName,
         }
       }
+      if (isRuntimeSewingTask(task)) {
+        nextForm.mainFactoryGroupKey = getDirectDispatchGroups(task)[0]?.groupKey ?? ''
+      }
     }
   }
 
@@ -221,38 +223,50 @@ function closeDispatchDialog(): void {
 
 function applyAutoAssign(): void {
   const rows = getVisibleRows()
-  const dyePendingTaskIds = getDyePendingTaskIds()
-  const qcPendingOrderIds = getQcPendingOrderIds()
-  const exceptionTaskIds = getExceptionTaskIds()
+  const now = nowTimestamp()
+  let assignedCount = 0
+  let skippedCount = 0
 
-  const unsetRows = rows.filter((task) => {
-    const lastLog = task.auditLogs[task.auditLogs.length - 1]
-    return !(lastLog?.action === 'SET_ASSIGN_MODE') && task.assignmentStatus === 'UNASSIGNED'
-  })
+  for (const task of rows) {
+    if (task.assignmentStatus !== 'UNASSIGNED') continue
+    if (isRuntimeSewingTask(task)) {
+      skippedCount += 1
+      continue
+    }
 
-  const bidTaskIds = unsetRows
-    .filter((task) => {
-      const alloc = initialAllocationByTaskId[task.taskId] ?? initialAllocationByTaskId[task.baseTaskId]
-      return (
-        isAffectedByTaskSet(task, dyePendingTaskIds) ||
-        qcPendingOrderIds.has(task.productionOrderId) ||
-        Boolean(alloc && (alloc.availableQty ?? 1) <= 0)
-      )
+    const config = state.autoDispatchConfigs[getAutoDispatchConfigKeyFromTask(task)] ?? state.autoDispatchConfigs[task.processCode]
+    if (!config?.enabled || !config.factoryId || !config.factoryName) {
+      skippedCount += 1
+      continue
+    }
+
+    const deadlineDays = Math.max(1, Number(config.taskDeadlineDays) || 7)
+    const taskDeadline = new Date()
+    taskDeadline.setDate(taskDeadline.getDate() + deadlineDays)
+    const standardPrice = getStandardPrice(task)
+    const result = batchDispatchRuntimeTasks({
+      taskIds: [task.taskId],
+      factoryId: config.factoryId,
+      factoryName: config.factoryName,
+      acceptDeadline: now,
+      taskDeadline: nowTimestamp(taskDeadline),
+      remark: '自动分配：按整任务、按技术包核价的工序工艺价直接派单，分配时间即工厂接单确认时间。',
+      by: '自动分配',
+      dispatchPrice: standardPrice.price,
+      dispatchPriceCurrency: standardPrice.currency,
+      dispatchPriceUnit: standardPrice.unit,
+      priceDiffReason: '',
+      autoAccept: true,
     })
-    .map((task) => task.taskId)
 
-  const holdTaskIds = unsetRows
-    .filter((task) => task.status === 'BLOCKED' || isAffectedByTaskSet(task, exceptionTaskIds))
-    .map((task) => task.taskId)
-
-  if (bidTaskIds.length > 0) {
-    batchSetTaskAssignMode(bidTaskIds, 'BIDDING', '自动分配')
+    if (result.ok) {
+      assignedCount += 1
+    } else {
+      skippedCount += 1
+    }
   }
 
-  if (holdTaskIds.length > 0) {
-    batchSetTaskAssignMode(holdTaskIds, 'HOLD', '自动分配')
-  }
-
+  state.autoAssignMessage = `已按配置自动分配 ${assignedCount} 条任务；车缝任务和未配置任务跳过 ${skippedCount} 条。`
   state.autoAssignDone = true
 }
 
@@ -286,6 +300,15 @@ function confirmDirectDispatch(): void {
       return
     }
 
+    const mainFactoryGroupKey = state.dispatchForm.mainFactoryGroupKey
+    if (isRuntimeSewingTask(singleTask)) {
+      const mainAssignment = assignments.find((assignment) => assignment.groupKey === mainFactoryGroupKey)
+      if (!mainFactoryGroupKey || !mainAssignment) {
+        state.dispatchDialogError = '车缝任务按明细派单时必须指定一个分配单元作为生产单主工厂'
+        return
+      }
+    }
+
     for (const group of groups) {
       const selected = state.dispatchForm.factoryByGroupKey[group.groupKey]
       if (!selected?.factoryId) continue
@@ -311,6 +334,10 @@ function confirmDirectDispatch(): void {
       state.dispatchDialogError = result.message ?? '按明细派单失败，请检查后重试'
       return
     }
+
+    const mainFactoryResultAssignment = isRuntimeSewingTask(singleTask)
+      ? result.resultAssignments.find((assignment) => assignment.allocationUnitId === mainFactoryGroupKey)
+      : null
 
     const assignmentsByTaskId = new Map<string, (typeof result.resultAssignments)[number]>()
     for (const assignment of result.resultAssignments) {
@@ -344,6 +371,9 @@ function confirmDirectDispatch(): void {
         publishedSamUnit: assignment.publishedSamUnit,
         publishedSamTotal: assignment.publishedSamTotal,
         publishedSamDifficulty: assignment.publishedSamDifficulty,
+        writeBackMainFactory: isRuntimeSewingTask(singleTask)
+          ? assignment.taskId === mainFactoryResultAssignment?.taskId
+          : undefined,
       })
     }
 
@@ -415,6 +445,7 @@ function renderDetailDispatchMode(
   samEvaluationContext?: ReturnType<typeof createDispatchStandardTimeEvaluationContext>,
 ): string {
   const assignmentGranularity = task.assignmentGranularity ?? 'ORDER'
+  const isSewingTask = isRuntimeSewingTask(task)
   const assignmentGranularityLabel: Record<string, string> = {
     ORDER: '按生产单',
     COLOR: '按颜色',
@@ -434,13 +465,14 @@ function renderDetailDispatchMode(
       </div>
 
       <div class="overflow-x-auto rounded-md border">
-        <table class="w-full min-w-[980px] text-sm">
+        <table class="w-full text-sm" style="min-width: ${isSewingTask ? 1120 : 980}px">
           <thead>
             <tr class="border-b bg-muted/40 text-xs">
               <th class="px-3 py-2 text-left font-medium">分配单元</th>
               <th class="px-3 py-2 text-left font-medium">数量</th>
               <th class="px-3 py-2 text-left font-medium">当前明细总标准工时</th>
               <th class="px-3 py-2 text-left font-medium">维度说明</th>
+              ${isSewingTask ? '<th class="px-3 py-2 text-left font-medium">生产单主工厂</th>' : ''}
               <th class="px-3 py-2 text-left font-medium">目标工厂</th>
             </tr>
           </thead>
@@ -490,6 +522,16 @@ function renderDetailDispatchMode(
                         </div>
                       </td>
                       <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(dimensionsText || '-')}</td>
+                      ${
+                        isSewingTask
+                          ? `<td class="px-3 py-2">
+                              <label class="inline-flex items-center gap-2 text-xs">
+                                <input type="radio" name="dispatch-main-factory-group" value="${escapeHtml(group.groupKey)}" data-dispatch-field="dispatch.mainFactoryGroupKey" ${state.dispatchForm.mainFactoryGroupKey === group.groupKey ? 'checked' : ''} />
+                                <span>设为主工厂</span>
+                              </label>
+                            </td>`
+                          : ''
+                      }
                       <td class="px-3 py-2">
                         <select class="h-8 w-full rounded-md border bg-background px-2 text-xs" data-dispatch-field="dispatch.groupFactoryId" data-group-key="${escapeHtml(group.groupKey)}">
                           <option value="">请选择工厂</option>
@@ -542,7 +584,7 @@ function renderDirectDispatchDialog(tasks: DispatchTask[], factoryOptions: Array
 
   const isBatch = tasks.length > 1
   const refTask = tasks[0]
-  const includesSewingTask = tasks.some((task) => task.processCode === 'SEW' || task.processNameZh.includes('车缝'))
+  const includesSewingTask = tasks.some((task) => isRuntimeSewingTask(task))
   const selectionValidation = validateRuntimeBatchDispatchSelection(tasks.map((task) => task.taskId))
   const validation = getDispatchDialogValidation(tasks)
   const detailSupported = !isBatch && supportsDetailAssignment(refTask)
@@ -601,11 +643,19 @@ function renderDirectDispatchDialog(tasks: DispatchTask[], factoryOptions: Array
   const selectionError =
     state.dispatchDialogError ??
     (!selectionValidation.valid ? selectionValidation.reason ?? '批量派单条件不满足' : '')
+  const detailMainFactorySelected =
+    !detailMode ||
+    !isRuntimeSewingTask(refTask) ||
+    Boolean(
+      state.dispatchForm.mainFactoryGroupKey &&
+        state.dispatchForm.factoryByGroupKey[state.dispatchForm.mainFactoryGroupKey]?.factoryId,
+    )
 
   const canSubmit =
     selectionValidation.valid &&
     validation.valid &&
     (detailMode ? groups.length > 0 && detailAssignments.length === groups.length : state.dispatchForm.factoryId.trim() !== '') &&
+    detailMainFactorySelected &&
     !Boolean(selectedTaskConstraint?.hardBlocked) &&
     !detailBlocked
 
@@ -657,7 +707,7 @@ function renderDirectDispatchDialog(tasks: DispatchTask[], factoryOptions: Array
           ${
             includesSewingTask
               ? `<div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">
-                  当前包含车缝任务。车缝任务派单确认的承接工厂会回写为生产单主工厂，并作为该生产单成衣货权归属工厂。
+                  当前包含车缝任务。车缝任务分配时必须指定生产单主工厂，确认后会回写到生产单且一个生产单只保留一个主工厂。
                 </div>`
               : ''
           }
@@ -666,7 +716,7 @@ function renderDirectDispatchDialog(tasks: DispatchTask[], factoryOptions: Array
             detailMode
               ? renderDetailDispatchMode(refTask, groups, factoryOptions, evaluationContext, samEvaluationContext)
               : `<div class="space-y-1.5">
-                  <label class="text-sm font-medium">承接工厂 <span class="text-red-500">*</span></label>
+                  <label class="text-sm font-medium">${includesSewingTask ? '承接工厂 / 生产单主工厂' : '承接工厂'} <span class="text-red-500">*</span></label>
                   <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-dispatch-field="dispatch.factoryId">
                     <option value="" ${state.dispatchForm.factoryId === '' ? 'selected' : ''}>请选择承接工厂</option>
                     ${factoryOptions
