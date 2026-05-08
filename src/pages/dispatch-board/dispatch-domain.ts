@@ -557,23 +557,11 @@ function renderDetailDispatchMode(
                         <select class="h-8 w-full rounded-md border bg-background px-2 text-xs" data-dispatch-field="dispatch.groupFactoryId" data-group-key="${escapeHtml(group.groupKey)}">
                           <option value="">请选择工厂</option>
                           ${factoryOptions
-                          .map((factory) => {
-                            const optionConstraint = resolveAllocatableGroupFactoryCapacityConstraint(
-                              task,
-                              group,
-                              factory.id,
-                              factory.name,
-                              evaluationContext,
-                            )
-                            const disabled = optionConstraint?.hardBlocked ?? false
-                            const labelSuffix =
-                              optionConstraint && optionConstraint.status !== 'NORMAL'
-                                ? `（${optionConstraint.statusLabel}）`
-                                : ''
-                            return `
-                              <option value="${escapeHtml(factory.id)}" ${selectedFactory?.factoryId === factory.id ? 'selected' : ''} ${disabled ? 'disabled' : ''}>${escapeHtml(factory.name)}${escapeHtml(labelSuffix)}</option>
-                            `
-                          })
+                          .map(
+                            (factory) => `
+                              <option value="${escapeHtml(factory.id)}" ${selectedFactory?.factoryId === factory.id ? 'selected' : ''}>${escapeHtml(factory.name)}</option>
+                            `,
+                          )
                           .join('')}
                         </select>
                         <div class="mt-2" data-dispatch-group-constraint="${escapeHtml(group.groupKey)}">
@@ -613,31 +601,24 @@ function renderDirectDispatchDialog(tasks: DispatchTask[], factoryOptions: Array
   const groups = detailSupported ? getDirectDispatchGroups(refTask) : []
   const detailAssignments = detailMode ? getDirectDispatchAssignments(groups) : []
   const taskSam = !isBatch ? resolveTaskPublishedSam(refTask) : {}
-  const evaluationContext = !isBatch ? createDispatchCapacityEvaluationContext() : undefined
-  const samEvaluationContext = !isBatch ? createDispatchStandardTimeEvaluationContext() : undefined
-  const taskFactoryConstraints = !isBatch
-    ? new Map(
-        factoryOptions.map((factory) => [
-          factory.id,
-          resolveTaskFactoryCapacityConstraint(refTask, factory.id, factory.name, evaluationContext),
-        ]),
-      )
-    : new Map<string, DispatchCapacityConstraintSnapshot | null>()
-  const taskFactorySamJudgements = !isBatch
-    ? new Map(
-        factoryOptions.map((factory) => [
-          factory.id,
-          resolveTaskFactoryStandardTimeJudgement(refTask, factory.id, samEvaluationContext),
-        ]),
-      )
-    : new Map<string, DispatchStandardTimeJudgementSnapshot | null>()
+  const hasSelectedTaskFactory = !isBatch && Boolean(state.dispatchForm.factoryId)
+  const hasSelectedDetailFactory =
+    detailMode && groups.some((group) => Boolean(state.dispatchForm.factoryByGroupKey[group.groupKey]?.factoryId))
+  const shouldEvaluateFactoryCapacity = hasSelectedTaskFactory || hasSelectedDetailFactory
+  const evaluationContext = shouldEvaluateFactoryCapacity ? createDispatchCapacityEvaluationContext() : undefined
+  const samEvaluationContext = shouldEvaluateFactoryCapacity ? createDispatchStandardTimeEvaluationContext() : undefined
   const selectedTaskConstraint =
     !isBatch && state.dispatchForm.factoryId
-      ? (taskFactoryConstraints.get(state.dispatchForm.factoryId) ?? null)
+      ? resolveTaskFactoryCapacityConstraint(
+          refTask,
+          state.dispatchForm.factoryId,
+          state.dispatchForm.factoryName,
+          evaluationContext,
+        )
       : null
   const selectedTaskSamJudgement =
     !isBatch && state.dispatchForm.factoryId
-      ? (taskFactorySamJudgements.get(state.dispatchForm.factoryId) ?? null)
+      ? resolveTaskFactoryStandardTimeJudgement(refTask, state.dispatchForm.factoryId, samEvaluationContext)
       : null
   const detailBlocked =
     detailMode &&
@@ -741,15 +722,10 @@ function renderDirectDispatchDialog(tasks: DispatchTask[], factoryOptions: Array
                   <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-dispatch-field="dispatch.factoryId">
                     <option value="" ${state.dispatchForm.factoryId === '' ? 'selected' : ''}>请选择承接工厂</option>
                     ${factoryOptions
-                      .map((factory) => {
-                        const constraint = taskFactoryConstraints.get(factory.id)
-                        const disabled = constraint?.hardBlocked ?? false
-                        const labelSuffix =
-                          constraint && constraint.status !== 'NORMAL'
-                            ? `（${constraint.statusLabel}）`
-                            : ''
-                        return `<option value="${escapeHtml(factory.id)}" ${state.dispatchForm.factoryId === factory.id ? 'selected' : ''} ${disabled ? 'disabled' : ''}>${escapeHtml(factory.name)}${escapeHtml(labelSuffix)}</option>`
-                      })
+                      .map(
+                        (factory) =>
+                          `<option value="${escapeHtml(factory.id)}" ${state.dispatchForm.factoryId === factory.id ? 'selected' : ''}>${escapeHtml(factory.name)}</option>`,
+                      )
                       .join('')}
                   </select>
                   <div data-dispatch-task-constraint="selected-factory">

@@ -181,17 +181,22 @@ function renderCreateTenderSheet(task: DispatchTask | null): string {
   const isSewingTask = isRuntimeSewingTask(task)
   const detailGroups = detailSupported ? getTaskAllocatableGroups(task) : []
   const detailMode = detailSupported && state.createTenderForm.mode === 'DETAIL'
-  const evaluationContext = createDispatchCapacityEvaluationContext()
-  const samEvaluationContext = createDispatchStandardTimeEvaluationContext()
   const constraintGroups = detailMode ? detailGroups : []
+  const selectedPoolIds = Array.from(state.createTenderForm.selectedPool)
+  const shouldEvaluateTenderPool = selectedPoolIds.length > 0
+  const evaluationContext = shouldEvaluateTenderPool ? createDispatchCapacityEvaluationContext() : undefined
+  const samEvaluationContext = shouldEvaluateTenderPool ? createDispatchStandardTimeEvaluationContext() : undefined
+  const selectedPoolFactories = selectedPoolIds
+    .map((factoryId) => candidateFactories.find((factory) => factory.id === factoryId))
+    .filter((factory): factory is (typeof candidateFactories)[number] => Boolean(factory))
   const candidateFactoryConstraints = new Map(
-    candidateFactories.map((factory) => [
+    selectedPoolFactories.map((factory) => [
       factory.id,
       resolveTenderFactoryCapacityConstraint(task, factory.id, factory.name, constraintGroups, evaluationContext),
     ]),
   )
   const candidateFactorySamJudgements = new Map(
-    candidateFactories.map((factory) => [
+    selectedPoolFactories.map((factory) => [
       factory.id,
       resolveTenderFactoryStandardTimeJudgement(task, factory.id, constraintGroups, samEvaluationContext),
     ]),
@@ -212,7 +217,6 @@ function renderCreateTenderSheet(task: DispatchTask | null): string {
     Number.isFinite(maxPrice) &&
     maxPrice >= (minValid ? minPrice : 0)
 
-  const selectedPoolIds = Array.from(state.createTenderForm.selectedPool)
   const selectedMainFactory = candidateFactories.find((factory) => factory.id === state.createTenderForm.mainFactoryId)
   const mainFactoryValid =
     !isSewingTask ||
@@ -346,10 +350,10 @@ function renderCreateTenderSheet(task: DispatchTask | null): string {
 	              ${candidateFactories
 	                .map((factory) => {
 	                  const selected = state.createTenderForm.selectedPool.has(factory.id)
-	                  const constraint = candidateFactoryConstraints.get(factory.id) ?? null
-                    const samJudgement = candidateFactorySamJudgements.get(factory.id) ?? null
-	                  const disabled = constraint?.hardBlocked ?? false
-                    const detailStatusBlocks = detailMode
+	                  const constraint = selected ? candidateFactoryConstraints.get(factory.id) ?? null : null
+                    const samJudgement = selected ? candidateFactorySamJudgements.get(factory.id) ?? null : null
+	                  const disabled = false
+                    const detailStatusBlocks = selected && detailMode
                       ? detailGroups
                           .map((group) => {
                             const groupConstraint = resolveAllocatableGroupFactoryCapacityConstraint(
@@ -381,7 +385,7 @@ function renderCreateTenderSheet(task: DispatchTask | null): string {
                           })
                           .join('')
                       : ''
-                    const detailSamBlocks = detailMode
+                    const detailSamBlocks = selected && detailMode
                       ? detailGroups
                           .map((group) => {
                             const groupJudgement = resolveAllocatableGroupFactoryStandardTimeJudgement(
