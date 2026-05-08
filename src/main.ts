@@ -6,11 +6,13 @@ import { appStore } from './state/store'
 type FcsHandlersModule = typeof import('./main-handlers/fcs-handlers')
 type PcsHandlersModule = typeof import('./main-handlers/pcs-handlers')
 type PdaHandlersModule = typeof import('./main-handlers/pda-handlers')
+type DispatchBoardPageModule = typeof import('./pages/dispatch-board')
 type RoutesModule = typeof import('./router/routes')
 
 let fcsHandlersModulePromise: Promise<FcsHandlersModule> | null = null
 let pcsHandlersModulePromise: Promise<PcsHandlersModule> | null = null
 let pdaHandlersModulePromise: Promise<PdaHandlersModule> | null = null
+let dispatchBoardPageModulePromise: Promise<DispatchBoardPageModule> | null = null
 let routesModulePromise: Promise<RoutesModule> | null = null
 
 function getFcsHandlersModule(): Promise<FcsHandlersModule> {
@@ -41,6 +43,16 @@ function getPdaHandlersModule(): Promise<PdaHandlersModule> {
     })
   }
   return pdaHandlersModulePromise
+}
+
+function getDispatchBoardPageModule(): Promise<DispatchBoardPageModule> {
+  if (!dispatchBoardPageModulePromise) {
+    dispatchBoardPageModulePromise = import('./pages/dispatch-board').catch((error) => {
+      dispatchBoardPageModulePromise = null
+      throw error
+    })
+  }
+  return dispatchBoardPageModulePromise
 }
 
 function getRoutesModule(): Promise<RoutesModule> {
@@ -105,7 +117,13 @@ clearPreloadReloadFlag()
 
 async function dispatchPageEvent(target: Element): Promise<boolean> {
   const eventTarget = target as HTMLElement
-  const handlerSystem = getCurrentHandlerSystem(appStore.getState().pathname)
+  const pathname = appStore.getState().pathname
+  if (pathname.startsWith('/fcs/dispatch/board')) {
+    const dispatchBoardPage = await getDispatchBoardPageModule()
+    return dispatchBoardPage.handleDispatchBoardEvent(eventTarget)
+  }
+
+  const handlerSystem = getCurrentHandlerSystem(pathname)
   try {
     if (handlerSystem === 'pcs') {
       const pcsHandlers = await getPcsHandlersModule()

@@ -523,6 +523,21 @@ interface AutoDispatchProcessConfig {
   updatedAt: string
 }
 
+interface AutoAssignProcessSummary {
+  label: string
+  count: number
+}
+
+interface AutoAssignFeedback {
+  assignedCount: number
+  skippedCount: number
+  skippedSewingCount: number
+  skippedMissingConfigCount: number
+  skippedFailedCount: number
+  processSummaries: AutoAssignProcessSummary[]
+  executedAt: string
+}
+
 interface DirectDispatchForm {
   mode: AssignmentOperateMode
   factoryId: string
@@ -556,6 +571,7 @@ interface DispatchBoardState {
   selectedIds: Set<string>
   autoAssignDone: boolean
   autoAssignMessage: string | null
+  autoAssignFeedback: AutoAssignFeedback | null
   autoDispatchConfigOpen: boolean
   autoDispatchConfigs: Record<string, AutoDispatchProcessConfig>
   listPage: number
@@ -579,6 +595,7 @@ const state: DispatchBoardState = {
   selectedIds: new Set(),
   autoAssignDone: false,
   autoAssignMessage: null,
+  autoAssignFeedback: null,
   autoDispatchConfigOpen: false,
   autoDispatchConfigs: {},
   listPage: 1,

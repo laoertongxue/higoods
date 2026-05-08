@@ -293,6 +293,7 @@ export function handleDispatchBoardEvent(target: HTMLElement): boolean {
   if (action === 'save-auto-config') {
     state.autoDispatchConfigOpen = false
     state.autoAssignMessage = '自动分配配置已保存。'
+    state.autoAssignFeedback = null
     return true
   }
 

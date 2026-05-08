@@ -154,9 +154,47 @@ function renderAutoDispatchToolbar(): string {
 
 function renderAutoAssignMessage(): string {
   if (!state.autoAssignMessage) return ''
+  const feedback = state.autoAssignFeedback
+  if (!feedback) {
+    return `
+      <section class="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+        ${escapeHtml(state.autoAssignMessage)}
+      </section>
+    `
+  }
+
+  const skippedBadges = [
+    feedback.skippedSewingCount > 0 ? `车缝任务跳过 ${feedback.skippedSewingCount} 条` : '',
+    feedback.skippedMissingConfigCount > 0 ? `未启用或未配置工厂跳过 ${feedback.skippedMissingConfigCount} 条` : '',
+    feedback.skippedFailedCount > 0 ? `分配失败 ${feedback.skippedFailedCount} 条` : '',
+  ].filter(Boolean)
+
   return `
-    <section class="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
-      ${escapeHtml(state.autoAssignMessage)}
+    <section class="space-y-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="font-medium">${escapeHtml(state.autoAssignMessage)}</span>
+        <span class="rounded-full bg-white px-2 py-0.5 text-xs text-blue-700">执行时间：${escapeHtml(feedback.executedAt)}</span>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <span class="rounded-full bg-white px-2 py-0.5 text-xs text-green-700">已分配 ${feedback.assignedCount} 条</span>
+        <span class="rounded-full bg-white px-2 py-0.5 text-xs text-amber-700">跳过 ${feedback.skippedCount} 条</span>
+        ${skippedBadges.map((badge) => `<span class="rounded-full bg-white px-2 py-0.5 text-xs text-slate-700">${escapeHtml(badge)}</span>`).join('')}
+      </div>
+      <div class="space-y-1">
+        <div class="text-xs font-medium text-blue-900">工序工艺分布</div>
+        ${
+          feedback.processSummaries.length > 0
+            ? `<div class="flex flex-wrap gap-2">
+                ${feedback.processSummaries
+                  .map(
+                    (item) =>
+                      `<span class="rounded-full border border-blue-200 bg-white px-2 py-0.5 text-xs">${escapeHtml(item.label)}：${item.count} 条</span>`,
+                  )
+                  .join('')}
+              </div>`
+            : '<div class="text-xs text-blue-700">本次没有命中可自动分配的未分配任务。</div>'
+        }
+      </div>
     </section>
   `
 }

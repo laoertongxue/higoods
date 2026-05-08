@@ -226,17 +226,23 @@ function applyAutoAssign(): void {
   const now = nowTimestamp()
   let assignedCount = 0
   let skippedCount = 0
+  let skippedSewingCount = 0
+  let skippedMissingConfigCount = 0
+  let skippedFailedCount = 0
+  const assignedCountByProcessCraft = new Map<string, number>()
 
   for (const task of rows) {
     if (task.assignmentStatus !== 'UNASSIGNED') continue
     if (isRuntimeSewingTask(task)) {
       skippedCount += 1
+      skippedSewingCount += 1
       continue
     }
 
     const config = state.autoDispatchConfigs[getAutoDispatchConfigKeyFromTask(task)] ?? state.autoDispatchConfigs[task.processCode]
     if (!config?.enabled || !config.factoryId || !config.factoryName) {
       skippedCount += 1
+      skippedMissingConfigCount += 1
       continue
     }
 
@@ -261,12 +267,27 @@ function applyAutoAssign(): void {
 
     if (result.ok) {
       assignedCount += 1
+      const processCraftLabel = `${task.processNameZh} / ${task.craftName || task.processNameZh}`
+      assignedCountByProcessCraft.set(processCraftLabel, (assignedCountByProcessCraft.get(processCraftLabel) ?? 0) + 1)
     } else {
       skippedCount += 1
+      skippedFailedCount += 1
     }
   }
 
-  state.autoAssignMessage = `已按配置自动分配 ${assignedCount} 条任务；车缝任务和未配置任务跳过 ${skippedCount} 条。`
+  const processSummaries = Array.from(assignedCountByProcessCraft.entries())
+    .map(([label, count]) => ({ label, count }))
+    .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label, 'zh-CN'))
+  state.autoAssignMessage = `本次自动分配 ${assignedCount} 条任务，跳过 ${skippedCount} 条。`
+  state.autoAssignFeedback = {
+    assignedCount,
+    skippedCount,
+    skippedSewingCount,
+    skippedMissingConfigCount,
+    skippedFailedCount,
+    processSummaries,
+    executedAt: now,
+  }
   state.autoAssignDone = true
 }
 
