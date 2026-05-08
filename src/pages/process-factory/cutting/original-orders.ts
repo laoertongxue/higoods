@@ -28,6 +28,7 @@ import {
 import {
   buildPrintableUnitViewModel,
   getPrintableUnitStatusMeta,
+  isPrintableSourceRow,
   type FeiTicketLabelRecord,
 } from './fei-tickets-model.ts'
 import {
@@ -284,6 +285,10 @@ function buildPendingPrepSummaryText(row: Pick<OriginalCutOrderRow, 'originalCut
   if (!pendingPrepItems.length) return '当前无补料待配料'
   const latest = pendingPrepItems[0]
   return `补料待配料 ${pendingPrepItems.length} 条，待仓库配料领料继续处理；来源铺布 ${latest?.sourceSpreadingSessionId || '待补'}，来源补料单 ${latest?.sourceReplenishmentRequestId || '待补'}`
+}
+
+function isOriginalOrderInExecutionStage(row: OriginalCutOrderRow): boolean {
+  return row.currentStage.key === 'CUTTING' || row.currentStage.key === 'WAITING_INBOUND' || row.currentStage.key === 'DONE'
 }
 
 function getFeiTicketRecords(): FeiTicketLabelRecord[] {
@@ -662,6 +667,8 @@ function renderTable(rows: OriginalCutOrderRow[]): string {
                   ? pagination.items
                       .map((row) => {
                         const highlighted = state.activeOrderId === row.id
+                        const canEnterExecution = isOriginalOrderInExecutionStage(row)
+                        const canEnterFeiTickets = isPrintableSourceRow(row)
                         return `
                           <tr class="${highlighted ? 'bg-blue-50/60' : 'hover:bg-muted/20'}">
                             <td class="px-4 py-3 align-top">
@@ -721,8 +728,8 @@ function renderTable(rows: OriginalCutOrderRow[]): string {
                                 <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="print-task-route-card" data-record-id="${escapeHtml(row.id)}">打印任务流转卡</button>
                                 <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="print-cutting-order-qr" data-record-id="${escapeHtml(row.id)}">打印裁片单二维码</button>
                                 <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="go-material-prep" data-record-id="${escapeHtml(row.id)}">查看配料</button>
-                                <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="go-marker-plan" data-record-id="${escapeHtml(row.id)}">去唛架</button>
-                                <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去打印菲票</button>
+                                ${canEnterExecution ? `<button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="go-marker-plan" data-record-id="${escapeHtml(row.id)}">去唛架</button>` : ''}
+                                ${canEnterFeiTickets ? `<button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去打印菲票</button>` : ''}
                               </div>
                             </td>
                           </tr>
@@ -751,15 +758,15 @@ function renderInfoGrid(
   items: Array<{ label: string; value: string; tone?: 'default' | 'strong'; hint?: string }>,
 ): string {
   return `
-    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+    <div class="grid gap-x-6 gap-y-3 md:grid-cols-2 xl:grid-cols-3">
       ${items
         .map(
           (item) => `
-            <article class="rounded-lg border bg-muted/10 px-3 py-2">
+            <div class="min-w-0 border-b pb-2">
               <p class="text-xs text-muted-foreground">${escapeHtml(item.label)}</p>
-              <p class="mt-1 ${item.tone === 'strong' ? 'text-base font-semibold' : 'text-sm'}">${escapeHtml(item.value || '待补')}</p>
+              <p class="mt-1 break-words ${item.tone === 'strong' ? 'text-base font-semibold' : 'text-sm'}">${escapeHtml(item.value || '待补')}</p>
               ${item.hint ? `<p class="mt-1 text-[11px] text-muted-foreground">${escapeHtml(item.hint)}</p>` : ''}
-            </article>
+            </div>
           `,
         )
         .join('')}
@@ -769,11 +776,9 @@ function renderInfoGrid(
 
 function renderDetailSection(title: string, body: string): string {
   return `
-    <section class="rounded-lg border bg-card">
-      <div class="border-b px-4 py-3">
-        <h3 class="text-sm font-semibold">${escapeHtml(title)}</h3>
-      </div>
-      <div class="p-4">
+    <section class="border-b px-4 py-4 last:border-b-0">
+      <h3 class="mb-3 text-sm font-semibold">${escapeHtml(title)}</h3>
+      <div>
         ${body}
       </div>
     </section>
@@ -794,7 +799,7 @@ function renderCuttingWebActions(row: OriginalCutOrderRow, actions: ProcessWebAc
       <div class="space-y-3">
         ${renderInfoGrid([
           { label: '当前状态', value: row.currentStage.label, tone: 'strong' },
-          { label: '操作方式', value: '仅展示当前状态允许的下一步动作' },
+          { label: '操作方式', value: '按当前状态开放' },
           { label: '菲票归属口径', value: '菲票归属原始裁片单，合并裁剪批次只作为执行上下文' },
         ])}
         ${
@@ -814,8 +819,6 @@ function renderCuttingWebActions(row: OriginalCutOrderRow, actions: ProcessWebAc
                   )
                   .join('')}
               </div>
-              <div class="rounded-md border border-dashed bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                操作弹窗字段：${escapeHtml(actionable[0].requiredFields.join('、'))}；确认后写回裁片事实源并生成 操作记录。
               </div>`
             : `<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">${escapeHtml(disabledReason || '当前状态暂无可执行动作')}</div>`
         }
@@ -878,6 +881,8 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
   const latestClaimDispute = getLatestClaimDisputeByOriginalCutOrderNo(row.originalCutOrderNo)
   const printableUnit = buildPrintableUnitSummaryByCutOrder(viewModel.rows)[row.originalCutOrderId] || null
   const printableStatusMeta = printableUnit ? getPrintableUnitStatusMeta(printableUnit.printableUnitStatus) : null
+  const canEnterExecution = isOriginalOrderInExecutionStage(row)
+  const canEnterFeiTickets = isPrintableSourceRow(row)
   const mobileBinding = validateCuttingOrderMobileTaskBinding(row.originalCutOrderId)
   const webActions = getAvailableCuttingWebActions(row.originalCutOrderId)
   const webOperationRecords = getProcessWebOperationRecordsBySource('CUTTING_ORIGINAL_ORDER', row.originalCutOrderId)
@@ -911,10 +916,10 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
   const extraButtons = `
     <div class="flex flex-wrap items-center gap-2">
       <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-piece-action="go-material-prep" data-record-id="${escapeHtml(row.id)}">去配料</button>
-      <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-piece-action="go-spreading" data-record-id="${escapeHtml(row.id)}">去铺布</button>
+      ${canEnterExecution ? `<button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-piece-action="go-spreading" data-record-id="${escapeHtml(row.id)}">去铺布</button>` : ''}
       <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-piece-action="print-task-route-card" data-record-id="${escapeHtml(row.id)}">打印任务流转卡</button>
       <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-piece-action="print-cutting-order-qr" data-record-id="${escapeHtml(row.id)}">打印裁片单二维码</button>
-      <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去打印菲票</button>
+      ${canEnterFeiTickets ? `<button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去打印菲票</button>` : ''}
     </div>
   `
 
@@ -950,21 +955,16 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
               ${renderBadge(row.materialPrepStatus.label, row.materialPrepStatus.className)}
               ${renderBadge(row.materialClaimStatus.label, row.materialClaimStatus.className)}
             </div>
-            <div class="grid gap-3 md:grid-cols-2">
-              <article class="rounded-lg border bg-muted/10 px-3 py-2">
-                <p class="text-xs text-muted-foreground">可裁说明</p>
-                <p class="mt-1 text-sm">${escapeHtml(row.cuttableState.reasonText)}</p>
-              </article>
-              <article class="rounded-lg border bg-muted/10 px-3 py-2">
-                <p class="text-xs text-muted-foreground">风险提示</p>
-                <div class="mt-2 flex flex-wrap gap-1">
-                  ${
-                    row.riskTags.length
-                      ? row.riskTags.map((tag) => renderBadge(tag.label, tag.className)).join('')
-                      : '<span class="text-sm text-muted-foreground">当前未识别到异常项。</span>'
-                  }
-                </div>
-              </article>
+            <div class="space-y-2 text-sm">
+              <p><span class="text-muted-foreground">可裁说明：</span>${escapeHtml(row.cuttableState.reasonText)}</p>
+              <div class="flex flex-wrap items-center gap-1">
+                <span class="text-muted-foreground">风险：</span>
+                ${
+                  row.riskTags.length
+                    ? row.riskTags.map((tag) => renderBadge(tag.label, tag.className)).join('')
+                    : '<span class="text-muted-foreground">无</span>'
+                }
+              </div>
             </div>
           </div>
         `,
@@ -1003,7 +1003,6 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
               { label: '参与合并裁剪批次数', value: `${row.batchParticipationCount} 次` },
               { label: '当前占用状态', value: row.activeBatchNo ? `已占用（${row.activeBatchNo}）` : '未占用' },
             ])}
-            <p class="text-sm text-muted-foreground">${escapeHtml(batchParticipationText)}</p>
             ${
               row.mergeBatchNos.length
                 ? `
@@ -1037,9 +1036,12 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
               { label: '来源上下文', value: qrSummary.sourceContextText },
               { label: '工艺预留', value: qrSummary.reservedProcessText },
             ])}
-            <div class="rounded-lg border border-dashed bg-muted/10 px-3 py-2 text-sm text-muted-foreground">${escapeHtml(qrSummary.compatibilityText)}</div>
             <div class="flex flex-wrap gap-2">
-              <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去打印菲票</button>
+              ${
+                canEnterFeiTickets
+                  ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去打印菲票</button>`
+                  : '<span class="inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">当前未完成配料 / 领料 / 铺布，不生成菲票主码</span>'
+              }
             </div>
           </div>
         `,
@@ -1059,9 +1061,13 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
               { label: '最近打印人', value: printableUnit?.lastPrintedBy || '未打印' },
             ])}
             <div class="flex flex-wrap gap-2">
-              <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去打印菲票</button>
               ${
-                printableUnit
+                canEnterFeiTickets
+                  ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去打印菲票</button>`
+                  : '<span class="inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">当前不允许打印菲票</span>'
+              }
+              ${
+                canEnterFeiTickets && printableUnit
                   ? `
                     <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildRouteWithQuery(getCanonicalCuttingPath('fei-ticket-printed'), {
                       printableUnitId: printableUnit.printableUnitId,
@@ -1104,12 +1110,8 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
               { label: '建议动作', value: markerSpreadingCounts.suggestedAction },
               { label: '补料待配料', value: buildPendingPrepSummaryText(row) },
             ])}
-            <div class="rounded-lg border border-dashed bg-muted/10 px-3 py-2 text-sm text-muted-foreground">
-              <p>完成铺布后，原始裁片单会在这里直接看到“铺布完成 / 待补料确认 / 补料待配料”等联动结果。</p>
-              <p class="mt-1">当前已可查看铺布记录数、卷记录数、人员记录数、最近铺布记录、补料预警摘要，并继续跳转到铺布页、补料页或仓库配料领料处理。</p>
-            </div>
             <div class="flex flex-wrap gap-2">
-              <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-marker-plan" data-record-id="${escapeHtml(row.id)}">去唛架</button>
+              ${canEnterExecution ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-marker-plan" data-record-id="${escapeHtml(row.id)}">去唛架</button>` : ''}
               <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-replenishment" data-record-id="${escapeHtml(row.id)}">去补料管理</button>
               <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-material-prep" data-record-id="${escapeHtml(row.id)}">去仓库配料领料</button>
             </div>
@@ -1129,13 +1131,6 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
               { label: '提交时间', value: latestClaimDispute?.submittedAt || '待补' },
               { label: '证据份数（个）', value: latestClaimDispute ? `${latestClaimDispute.evidenceCount} 个` : '0 个' },
             ])}
-            <div class="rounded-lg border border-dashed bg-muted/10 px-3 py-2 text-sm text-muted-foreground">
-              ${
-                latestClaimDispute
-                  ? `当前已存在领料长度异议，提交人 ${escapeHtml(latestClaimDispute.submittedBy)}，原因：${escapeHtml(latestClaimDispute.disputeReason)}。`
-                  : '当前未发现领料长度异议，后续如移动端提交异议，会在这里同步展示摘要。'
-              }
-            </div>
             <div class="flex flex-wrap gap-2">
               <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-material-prep" data-record-id="${escapeHtml(row.id)}">去仓库配料领料</button>
             </div>
@@ -1148,8 +1143,8 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
         `
           <div class="flex flex-wrap gap-2">
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-material-prep" data-record-id="${escapeHtml(row.id)}">去仓库配料领料</button>
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-marker-plan" data-record-id="${escapeHtml(row.id)}">去唛架</button>
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去打印菲票</button>
+            ${canEnterExecution ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-marker-plan" data-record-id="${escapeHtml(row.id)}">去唛架</button>` : ''}
+            ${canEnterFeiTickets ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去打印菲票</button>` : ''}
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-replenishment" data-record-id="${escapeHtml(row.id)}">去补料管理</button>
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-production-progress" data-record-id="${escapeHtml(row.id)}">返回生产单进度</button>
           </div>
@@ -1159,16 +1154,10 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
       ${renderDetailSection(
         '轻量执行痕迹',
         `
-          <div class="grid gap-3 md:grid-cols-2">
-            <article class="rounded-lg border bg-muted/10 px-3 py-2">
-              <p class="text-xs text-muted-foreground">最近状态摘要</p>
-              <p class="mt-1 text-sm">${escapeHtml(row.statusSummary)}</p>
-            </article>
-            <article class="rounded-lg border bg-muted/10 px-3 py-2">
-              <p class="text-xs text-muted-foreground">最近动作</p>
-              <p class="mt-1 text-sm">${escapeHtml(row.latestActionText)}</p>
-            </article>
-          </div>
+          ${renderInfoGrid([
+            { label: '最近状态摘要', value: row.statusSummary },
+            { label: '最近动作', value: row.latestActionText },
+          ])}
         `,
       )}
 
@@ -1220,6 +1209,14 @@ function navigateToRecordTarget(
   if (!recordId) return false
   const row = getViewModel().rowsById[recordId]
   if (!row) return false
+  if ((target === 'markerPlan' || target === 'spreadingList') && !isOriginalOrderInExecutionStage(row)) {
+    setFeedback('warning', '当前原始裁片单尚未完成配料和领料，不能进入唛架或铺布执行。')
+    return true
+  }
+  if (target === 'feiTickets' && !isPrintableSourceRow(row)) {
+    setFeedback('warning', '当前原始裁片单尚未进入可打印阶段，不能打印菲票。')
+    return true
+  }
   const payload =
     target === 'markerPlan' || target === 'spreadingList'
       ? row.navigationPayload.markerSpreading

@@ -721,16 +721,26 @@ export function buildMarkerSpreadingPrototypeStore(options: {
   stored?: MarkerSpreadingStore
 }): MarkerSpreadingStore {
   let nextStore = options.stored ? deserializeMarkerSpreadingStorage(JSON['stringify'](options.stored)) : createEmptyStore()
-  const rowsById = Object.fromEntries(options.rows.map((row) => [row.originalCutOrderId, row]))
+  const executableRows = options.rows.filter(isMaterialPrepRowReadyForSpreadingSeed)
+  const executableRowIds = new Set(executableRows.map((row) => row.originalCutOrderId))
+  const rowsById = Object.fromEntries(executableRows.map((row) => [row.originalCutOrderId, row]))
+  const isLinkedToExecutableRows = (originalCutOrderIds: string[]) =>
+    originalCutOrderIds.length > 0 && originalCutOrderIds.every((id) => executableRowIds.has(id))
+  nextStore = {
+    ...nextStore,
+    markers: nextStore.markers.filter((marker) => isLinkedToExecutableRows(marker.originalCutOrderIds)),
+    sessions: nextStore.sessions.filter((session) => isLinkedToExecutableRows(session.originalCutOrderIds)),
+  }
 
   const seedContexts: MarkerSpreadingContext[] = []
-  const originalContexts = options.rows
+  const originalContexts = executableRows
     .map((row) => buildOriginalContext(row))
     .filter((context, index, all) => all.findIndex((item) => item.originalCutOrderIds[0] === context.originalCutOrderIds[0]) === index)
     .slice(0, 3)
   const mergeBatchContexts = options.mergeBatches
     .map((batch) => buildMergeBatchContext(batch, rowsById))
     .filter((context): context is MarkerSpreadingContext => Boolean(context))
+    .filter((context) => context.originalCutOrderIds.every((id) => executableRowIds.has(id)))
     .filter((context, index, all) => all.findIndex((item) => item.mergeBatchId === context.mergeBatchId) === index)
     .slice(0, 3)
 
@@ -1168,7 +1178,12 @@ export function buildMarkerSpreadingCountsByOriginalOrder(originalCutOrderId: st
   operatorAmountTotal: number
   hasManualAdjustedAmount: boolean
 } {
-  const { store } = readMarkerSpreadingPrototypeData()
+  const prototypeData = readMarkerSpreadingPrototypeData()
+  const sourceRow = prototypeData.rowsById[originalCutOrderId]
+  if (!sourceRow || !isMaterialPrepRowReadyForSpreadingSeed(sourceRow)) {
+    return createEmptyMarkerSpreadingCounts(sourceRow)
+  }
+  const { store } = prototypeData
   const linkedSessions = store.sessions.filter((item) => item.originalCutOrderIds.includes(originalCutOrderId))
   const markersById = Object.fromEntries(store.markers.map((marker) => [marker.markerId, marker]))
   const doneCount = linkedSessions.filter((item) => item.status === 'DONE').length
@@ -1211,5 +1226,29 @@ export function buildMarkerSpreadingCountsByOriginalOrder(originalCutOrderId: st
     hasOperatorAllocation: Boolean(latestAmountSummary?.hasAnyAllocationData),
     operatorAmountTotal: latestAmountSummary?.totalDisplayAmount || 0,
     hasManualAdjustedAmount: Boolean(latestAmountSummary?.hasManualAdjustedAmount),
+  }
+}
+
+function isMaterialPrepRowReadyForSpreadingSeed(row: MaterialPrepRow): boolean {
+  return row.currentStage.key === 'CUTTING' || row.currentStage.key === 'WAITING_INBOUND' || row.currentStage.key === 'DONE'
+}
+
+function createEmptyMarkerSpreadingCounts(row?: MaterialPrepRow) {
+  const stageLabel = row?.currentStage.label || '待配料'
+  const suggestedAction = row?.currentStage.key === 'WAITING_CLAIM' ? '先完成领料' : '先完成配料和领料'
+  return {
+    markerCount: 0,
+    sessionCount: 0,
+    rollCount: 0,
+    operatorCount: 0,
+    statusSummary: '暂无铺布记录',
+    spreadingStatusLabel: stageLabel,
+    latestSessionNo: '暂无',
+    hasReplenishmentWarning: false,
+    warningLevelLabel: '低',
+    suggestedAction,
+    hasOperatorAllocation: false,
+    operatorAmountTotal: 0,
+    hasManualAdjustedAmount: false,
   }
 }

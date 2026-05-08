@@ -1,5 +1,5 @@
-import { productionOrders } from '../production-orders.ts'
 import {
+  listCuttingProductionOrdersWithFormalTechPack,
   listGeneratedOriginalCutOrderSourceRecords,
   type GeneratedOriginalCutOrderSourceRecord,
 } from './generated-original-cut-orders.ts'
@@ -16,10 +16,16 @@ export function normalizeMergeBatchId(mergeBatchNo: string): string {
 }
 
 export function listCuttingProductionOrderSourceRecords(): CuttingProductionOrderSourceRecord[] {
-  return productionOrders.map((order) => ({
-    productionOrderId: order.productionOrderId,
-    productionOrderNo: order.productionOrderNo,
-  }))
+  const productionOrderIdsWithOriginalCutOrders = new Set(
+    listGeneratedOriginalCutOrderSourceRecords().map((record) => record.productionOrderId),
+  )
+
+  return listCuttingProductionOrdersWithFormalTechPack()
+    .filter((order) => productionOrderIdsWithOriginalCutOrders.has(order.productionOrderId))
+    .map((order) => ({
+      productionOrderId: order.productionOrderId,
+      productionOrderNo: order.productionOrderNo,
+    }))
 }
 
 export function listOriginalCutOrderSourceRecords(): OriginalCutOrderSourceRecord[] {

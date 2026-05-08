@@ -1152,38 +1152,49 @@ export function buildFeiTicketsViewModel(options: {
 }): FeiTicketsViewModel {
   const materialRowsById = Object.fromEntries(options.materialPrepRows.map((row) => [row.originalCutOrderId, row]))
   const generatedTicketMap = getGeneratedFeiTicketMapByOriginalCutOrderId()
+  const printableOriginalIds = new Set(options.originalRows.filter(isPrintableSourceRow).map((row) => row.originalCutOrderId))
 
   const owners = options.originalRows.map((row) => {
+    const printable = isPrintableSourceRow(row)
     const mergeBatchIds = Array.isArray(row.mergeBatchIds) ? row.mergeBatchIds : []
     const mergeBatchNos = Array.isArray(row.mergeBatchNos) ? row.mergeBatchNos : []
     const materialRow = materialRowsById[row.originalCutOrderId]
-    const generatedTickets = generatedTicketMap[row.originalCutOrderId] || []
+    const generatedTickets = printable ? generatedTicketMap[row.originalCutOrderId] || [] : []
     const spreadingResultTicketCount = generatedTickets.filter((ticket) => ticket.sourceBasisType === 'SPREADING_RESULT').length
-    const ticketCountBasis = resolveTicketCountBasis(
-      {
-        originalCutOrderId: row.originalCutOrderId,
-        relatedMergeBatchIds: mergeBatchIds,
-        relatedMergeBatchNos: mergeBatchNos,
-        orderQtyHint: row.orderQty,
-      },
-      options.markerStore,
-      null,
-      spreadingResultTicketCount,
-    )
+    const ticketCountBasis = printable
+      ? resolveTicketCountBasis(
+          {
+            originalCutOrderId: row.originalCutOrderId,
+            relatedMergeBatchIds: mergeBatchIds,
+            relatedMergeBatchNos: mergeBatchNos,
+            orderQtyHint: row.orderQty,
+          },
+          options.markerStore,
+          null,
+          spreadingResultTicketCount,
+        )
+      : {
+          basisType: 'HISTORICAL_FALLBACK' as const,
+          ticketCount: 0,
+          basisLabel: '未进入打印环节',
+          detailText: '当前仍未完成配料、领料或铺布结果，不能生成菲票。',
+        }
     const plannedTicketQty = ticketCountBasis.ticketCount
-    const ownerRecords = options.ticketRecords.filter((record) => record.originalCutOrderId === row.originalCutOrderId)
-    const latestPrintJob = options.printJobs
-      .filter((job) => job.originalCutOrderIds.includes(row.originalCutOrderId))
-      .sort((left, right) => right.printedAt.localeCompare(left.printedAt, 'zh-CN'))[0]
+    const ownerRecords = printable ? options.ticketRecords.filter((record) => record.originalCutOrderId === row.originalCutOrderId) : []
+    const latestPrintJob = printable
+      ? options.printJobs
+          .filter((job) => job.originalCutOrderIds.includes(row.originalCutOrderId))
+          .sort((left, right) => right.printedAt.localeCompare(left.printedAt, 'zh-CN'))[0]
+      : undefined
     const printedTicketQty = ownerRecords.length
     const reprintCount = ownerRecords.reduce((sum, record) => sum + record.reprintCount, 0)
-    const hasDraft = Boolean(options.drafts[row.originalCutOrderId])
+    const hasDraft = printable && Boolean(options.drafts[row.originalCutOrderId])
     const statusMeta = deriveFeiTicketStatus({
       plannedTicketQty,
       printedTicketQty,
       hasDraft,
       reprintCount,
-      needsSupplement: !materialRow,
+      needsSupplement: printable && !materialRow,
     })
 
     return {
@@ -1243,6 +1254,7 @@ export function buildFeiTicketsViewModel(options: {
 
   const contextualIds = new Set(contextualOwners.map((owner) => owner.originalCutOrderId))
   const ticketRecords = options.ticketRecords
+    .filter((record) => printableOriginalIds.has(record.originalCutOrderId))
     .filter((record) => (contextualIds.size ? contextualIds.has(record.originalCutOrderId) : true))
     .sort(
       (left, right) =>
@@ -1251,6 +1263,7 @@ export function buildFeiTicketsViewModel(options: {
         left.sequenceNo - right.sequenceNo,
     )
   const printJobs = options.printJobs
+    .filter((job) => job.originalCutOrderIds.some((id) => printableOriginalIds.has(id)))
     .filter((job) => (contextualIds.size ? job.originalCutOrderIds.some((id) => contextualIds.has(id)) : true))
     .sort((left, right) => right.printedAt.localeCompare(left.printedAt, 'zh-CN'))
 
@@ -1382,6 +1395,7 @@ export function buildSystemSeedFeiTicketLedger(options: {
   const materialRowsById = Object.fromEntries(options.materialPrepRows.map((row) => [row.originalCutOrderId, row]))
   const generatedTicketMap = getGeneratedFeiTicketMapByOriginalCutOrderId()
   const owners = options.originalRows
+    .filter(isPrintableSourceRow)
     .map((row) => {
       const generated = generatedTicketMap[row.originalCutOrderId] || []
       if (!generated.length) return null
@@ -1900,8 +1914,7 @@ function isFeiTicketRecordVoided(record: FeiTicketLabelRecord): boolean {
   return record.status === 'VOIDED'
 }
 
-function isPrintableSourceRow(row: OriginalCutOrderRow): boolean {
-  if (getGeneratedFeiRecordsByOriginalCutOrderId(row.originalCutOrderId).length > 0) return true
+export function isPrintableSourceRow(row: OriginalCutOrderRow): boolean {
   if (row.currentStage.key === 'WAITING_INBOUND' || row.currentStage.key === 'DONE') return true
   return /待入仓|已完成|已入仓/.test(row.currentStage.label)
 }

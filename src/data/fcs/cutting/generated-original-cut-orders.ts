@@ -156,6 +156,19 @@ function resolveProductionOrderNo(order: ProductionOrder): string {
   return normalizeText(order.productionOrderNo) || normalizeText(order.productionOrderId)
 }
 
+export function hasFormalTechPackForCutting(order: ProductionOrder): boolean {
+  const snapshot = order.techPackSnapshot
+  if (!snapshot) return false
+  if (snapshot.status !== 'RELEASED') return false
+  if (!normalizeText(snapshot.sourcePublishedAt)) return false
+  if (normalizeText(snapshot.sourceTechPackVersionLabel).includes('草稿')) return false
+  return true
+}
+
+export function listCuttingProductionOrdersWithFormalTechPack(): ProductionOrder[] {
+  return productionOrders.filter((order) => hasFormalTechPackForCutting(order))
+}
+
 function buildSkuScopeLines(order: ProductionOrder): GeneratedOriginalCutOrderSkuScopeLine[] {
   return order.demandSnapshot.skuLines.map((line) => ({
     skuCode: normalizeText(line.skuCode),
@@ -401,7 +414,7 @@ let cachedRecords: GeneratedOriginalCutOrderSourceRecord[] | null = null
 
 export function listGeneratedOriginalCutOrderSourceRecords(): GeneratedOriginalCutOrderSourceRecord[] {
   if (!cachedRecords) {
-    cachedRecords = productionOrders.flatMap((order) => buildRecordsForOrder(order))
+    cachedRecords = listCuttingProductionOrdersWithFormalTechPack().flatMap((order) => buildRecordsForOrder(order))
   }
   return cachedRecords.map((record) => ({
     ...record,

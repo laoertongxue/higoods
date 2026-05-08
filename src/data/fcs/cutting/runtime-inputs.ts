@@ -4,9 +4,7 @@ import {
   readBrowserStorageItem,
 } from '../../browser-storage.ts'
 import {
-  productionOrders,
-} from '../production-orders.ts'
-import {
+  listCuttingProductionOrdersWithFormalTechPack,
   listGeneratedOriginalCutOrderSourceRecords,
 } from './generated-original-cut-orders.ts'
 import {
@@ -166,7 +164,7 @@ export function readCuttingRuntimeInputs(): CuttingRuntimeInputs {
   const warehouseWritebackRuntimeState = readCuttingWarehouseWritebackRuntimeState()
 
   return {
-    productionOrders: productionOrders.map((order) => ({ ...order })),
+    productionOrders: listCuttingProductionOrdersWithFormalTechPack().map((order) => ({ ...order })),
     originalCutOrders: listGeneratedOriginalCutOrderSourceRecords(),
     mergeBatchState: {
       sourceRecords: listMergeBatchSourceRecords(),

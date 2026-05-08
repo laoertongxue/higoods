@@ -253,9 +253,40 @@ function buildSystemMergeBatchSourceRecords(): MergeBatchSourceRecord[] {
   return Array.from(grouped.values())
 }
 
+type FormalOriginalCutOrderRow = ReturnType<typeof listOriginalCutOrderSourceRecords>[number]
+
+function normalizeRecordToFormalCuttingSources(
+  record: MergeBatchSourceRecord,
+  rowById: Map<string, FormalOriginalCutOrderRow>,
+  rowByNo: Map<string, FormalOriginalCutOrderRow>,
+): MergeBatchSourceRecord | null {
+  const matchedRows = unique([
+    ...record.sourceOriginalCutOrderIds,
+    ...record.sourceOriginalCutOrderNos,
+  ])
+    .map((key) => rowById.get(key) || rowByNo.get(key) || null)
+    .filter((row): row is NonNullable<typeof row> => row !== null)
+
+  if (!matchedRows.length) return null
+
+  return {
+    mergeBatchId: record.mergeBatchId,
+    mergeBatchNo: record.mergeBatchNo,
+    sourceOriginalCutOrderIds: unique(matchedRows.map((row) => row.originalCutOrderId)),
+    sourceOriginalCutOrderNos: unique(matchedRows.map((row) => row.originalCutOrderNo)),
+    sourceProductionOrderIds: unique(matchedRows.map((row) => row.productionOrderId)),
+    sourceProductionOrderNos: unique(matchedRows.map((row) => row.productionOrderNo)),
+  }
+}
+
 export function listMergeBatchSourceRecords(): MergeBatchSourceRecord[] {
   const merged = new Map<string, MergeBatchSourceRecord>()
+  const formalOriginalRows = listOriginalCutOrderSourceRecords()
+  const rowById = new Map(formalOriginalRows.map((row) => [row.originalCutOrderId, row] as const))
+  const rowByNo = new Map(formalOriginalRows.map((row) => [row.originalCutOrderNo, row] as const))
   const sourceRecords = [...buildSystemMergeBatchSourceRecords(), ...readStoredMergeBatchSourceRecords()]
+    .map((record) => normalizeRecordToFormalCuttingSources(record, rowById, rowByNo))
+    .filter((record): record is MergeBatchSourceRecord => record !== null)
 
   sourceRecords.forEach((record) => {
     const key = record.mergeBatchId || normalizeMergeBatchId(record.mergeBatchNo)
