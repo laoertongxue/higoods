@@ -251,6 +251,27 @@ export function handleDispatchBoardEvent(target: HTMLElement): boolean {
 
   if (action === 'clear-keyword') {
     state.keyword = ''
+    state.listPage = 1
+    return true
+  }
+
+  if (action === 'switch-list-tab') {
+    const tab = actionNode.dataset.tab
+    if (
+      tab === 'UNASSIGNED' ||
+      tab === 'AWAIT_AWARD' ||
+      tab === 'BIDDING' ||
+      tab === 'DIRECT_ASSIGNED' ||
+      tab === 'AWARDED' ||
+      tab === 'HOLD' ||
+      tab === 'EXCEPTION' ||
+      tab === 'ALL'
+    ) {
+      state.listTab = tab
+      state.listPage = 1
+      state.selectedIds = new Set<string>()
+      state.actionMenuTaskId = null
+    }
     return true
   }
 

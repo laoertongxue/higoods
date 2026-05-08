@@ -504,6 +504,15 @@ const derivedTaskSetCache: {
 } = {}
 
 type DispatchView = 'list'
+type DispatchListTab =
+  | 'UNASSIGNED'
+  | 'AWAIT_AWARD'
+  | 'BIDDING'
+  | 'DIRECT_ASSIGNED'
+  | 'AWARDED'
+  | 'HOLD'
+  | 'EXCEPTION'
+  | 'ALL'
 
 interface AutoDispatchProcessConfig {
   enabled: boolean
@@ -543,6 +552,7 @@ interface CreateTenderForm {
 interface DispatchBoardState {
   keyword: string
   view: DispatchView
+  listTab: DispatchListTab
   selectedIds: Set<string>
   autoAssignDone: boolean
   autoAssignMessage: string | null
@@ -565,6 +575,7 @@ interface DispatchBoardState {
 const state: DispatchBoardState = {
   keyword: '',
   view: 'list',
+  listTab: 'UNASSIGNED',
   selectedIds: new Set(),
   autoAssignDone: false,
   autoAssignMessage: null,

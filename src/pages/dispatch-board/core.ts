@@ -34,6 +34,71 @@ interface AutoDispatchConfigRow {
   unassignedCount: number
 }
 
+const dispatchListTabs: Array<{ key: typeof state.listTab; label: string; tone: string }> = [
+  { key: 'UNASSIGNED', label: '待分配', tone: 'text-gray-700' },
+  { key: 'AWAIT_AWARD', label: '待定标', tone: 'text-purple-700' },
+  { key: 'BIDDING', label: '竞价中', tone: 'text-orange-700' },
+  { key: 'DIRECT_ASSIGNED', label: '已直接派单', tone: 'text-blue-700' },
+  { key: 'AWARDED', label: '已定标', tone: 'text-green-700' },
+  { key: 'HOLD', label: '暂不分配', tone: 'text-slate-700' },
+  { key: 'EXCEPTION', label: '分配异常', tone: 'text-red-700' },
+  { key: 'ALL', label: '全部', tone: 'text-foreground' },
+]
+
+function getDispatchListTabKey(task: DispatchTask, exceptionTaskIds: Set<string>): typeof state.listTab {
+  return deriveKanbanCol(task, isAffectedByTaskSet(task, exceptionTaskIds)) as typeof state.listTab
+}
+
+function getDispatchListTabCounts(
+  rows: DispatchTask[],
+  exceptionTaskIds: Set<string>,
+): Record<typeof state.listTab, number> {
+  const counts = dispatchListTabs.reduce(
+    (result, tab) => {
+      result[tab.key] = 0
+      return result
+    },
+    {} as Record<typeof state.listTab, number>,
+  )
+
+  for (const task of rows) {
+    counts[getDispatchListTabKey(task, exceptionTaskIds)] += 1
+  }
+  counts.ALL = rows.length
+  return counts
+}
+
+function renderDispatchListTabs(counts: Record<typeof state.listTab, number>): string {
+  return `
+    <section class="flex gap-2 overflow-x-auto rounded-lg border bg-card p-2" data-dispatch-list-tabs="true">
+      ${dispatchListTabs
+        .map((tab) => {
+          const active = state.listTab === tab.key
+          const exceptionTone = tab.key === 'EXCEPTION'
+          return `
+            <button
+              class="inline-flex shrink-0 items-center gap-2 rounded-md border px-3 py-2 text-sm transition ${
+                active ? 'border-blue-200 bg-blue-50 text-blue-700 shadow-sm' : 'border-transparent hover:bg-muted'
+              }"
+              data-dispatch-action="switch-list-tab"
+              data-tab="${tab.key}"
+            >
+              <span class="font-medium">${escapeHtml(tab.label)}</span>
+              <span class="rounded-full px-2 py-0.5 text-xs font-semibold ${
+                exceptionTone
+                  ? 'bg-red-100 text-red-700'
+                  : active
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'bg-muted text-muted-foreground'
+              }">${counts[tab.key]}</span>
+            </button>
+          `
+        })
+        .join('')}
+    </section>
+  `
+}
+
 function getAutoDispatchConfigRows(rows: DispatchTask[]): AutoDispatchConfigRow[] {
   const unassignedCountByKey = rows
     .filter((task) => !isRuntimeSewingTask(task) && task.assignmentStatus === 'UNASSIGNED')
@@ -200,16 +265,11 @@ function renderAutoDispatchConfigDialog(rows: DispatchTask[]): string {
 function renderDispatchBoardInner(): string {
   const allRows = getVisibleRows()
   const exceptionTaskIds = getExceptionTaskIds()
-
-  const stats = {
-    unassigned: allRows.filter((task) => deriveKanbanCol(task, isAffectedByTaskSet(task, exceptionTaskIds)) === 'UNASSIGNED').length,
-    directAssigned: allRows.filter((task) => deriveKanbanCol(task, isAffectedByTaskSet(task, exceptionTaskIds)) === 'DIRECT_ASSIGNED').length,
-    bidding: allRows.filter((task) => deriveKanbanCol(task, isAffectedByTaskSet(task, exceptionTaskIds)) === 'BIDDING').length,
-    awaitAward: allRows.filter((task) => deriveKanbanCol(task, isAffectedByTaskSet(task, exceptionTaskIds)) === 'AWAIT_AWARD').length,
-    awarded: allRows.filter((task) => deriveKanbanCol(task, isAffectedByTaskSet(task, exceptionTaskIds)) === 'AWARDED').length,
-    hold: allRows.filter((task) => deriveKanbanCol(task, isAffectedByTaskSet(task, exceptionTaskIds)) === 'HOLD').length,
-    exception: allRows.filter((task) => deriveKanbanCol(task, isAffectedByTaskSet(task, exceptionTaskIds)) === 'EXCEPTION').length,
-  }
+  const tabCounts = getDispatchListTabCounts(allRows, exceptionTaskIds)
+  const listRows =
+    state.listTab === 'ALL'
+      ? allRows
+      : allRows.filter((task) => getDispatchListTabKey(task, exceptionTaskIds) === state.listTab)
 
   const createTenderTask = getCreateTenderTask()
   const viewTenderTask = getViewTenderTask()
@@ -227,28 +287,7 @@ function renderDispatchBoardInner(): string {
         ${renderAutoDispatchToolbar()}
       </header>
 
-      <section class="grid grid-cols-4 gap-2 md:grid-cols-7">
-        ${[
-          { key: 'UNASSIGNED', label: '未分配', value: stats.unassigned, color: 'text-gray-700' },
-          { key: 'DIRECT_ASSIGNED', label: '已直接派单', value: stats.directAssigned, color: 'text-blue-600' },
-          { key: 'BIDDING', label: '招标中', value: stats.bidding, color: 'text-orange-600' },
-          { key: 'AWAIT_AWARD', label: '待定标', value: stats.awaitAward, color: 'text-purple-600' },
-          { key: 'AWARDED', label: '已定标', value: stats.awarded, color: 'text-green-600' },
-          { key: 'HOLD', label: '暂不分配', value: stats.hold, color: 'text-slate-600' },
-          { key: 'EXCEPTION', label: '异常', value: stats.exception, color: 'text-red-600' },
-        ]
-          .map(
-            (item) => `
-              <article class="rounded-lg border bg-card" data-dispatch-stat-card="${item.key}">
-                <div class="p-3 text-center">
-                  <p class="text-2xl font-bold ${item.color}">${item.value}</p>
-                  <p class="mt-0.5 text-xs leading-tight text-muted-foreground">${item.label}</p>
-                </div>
-              </article>
-            `,
-          )
-          .join('')}
-      </section>
+      ${renderDispatchListTabs(tabCounts)}
 
       <section class="flex items-center gap-3">
         <div class="relative w-full max-w-xs">
@@ -256,13 +295,13 @@ function renderDispatchBoardInner(): string {
           <input class="h-9 w-full rounded-md border bg-background pl-8 pr-3 text-sm" data-dispatch-field="filter.keyword" placeholder="关键词（任务ID / 执行范围 / 生产单号）" value="${escapeHtml(state.keyword)}" />
         </div>
         <button class="inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-muted" data-dispatch-action="clear-keyword"><i data-lucide="refresh-cw" class="h-4 w-4"></i></button>
-        <p class="ml-auto text-sm text-muted-foreground">共 ${allRows.length} 条任务</p>
+        <p class="ml-auto text-sm text-muted-foreground">当前 ${listRows.length} 条 / 共 ${allRows.length} 条任务</p>
       </section>
 
       ${renderAutoAssignMessage()}
 
       <section class="space-y-2">
-        ${renderListView(allRows, exceptionTaskIds)}
+        ${renderListView(listRows, exceptionTaskIds)}
       </section>
 
       ${renderAutoDispatchConfigDialog(allRows)}
