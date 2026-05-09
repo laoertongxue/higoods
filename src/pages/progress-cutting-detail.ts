@@ -230,7 +230,7 @@ function renderExecutionSection(recordId: string): string {
         <article class="rounded-lg border bg-muted/20 p-4">
           <p class="text-xs text-muted-foreground">裁片单与唛架</p>
           <p class="mt-1 font-medium text-foreground">裁片单 ${row.record.cutPieceOrderCount} 张 · 唛架已维护 ${row.record.markerSummary.markerMaintainedCount} 张</p>
-          <p class="mt-2 text-xs text-muted-foreground">唛架图已上传 ${row.record.markerSummary.markerImageUploadedCount} 张</p>
+          <p class="mt-2 text-xs text-muted-foreground">方案图和唛架明细图已生成 ${row.record.markerSummary.markerImageUploadedCount} 张</p>
         </article>
         <article class="rounded-lg border bg-muted/20 p-4">
           <p class="text-xs text-muted-foreground">铺布记录</p>

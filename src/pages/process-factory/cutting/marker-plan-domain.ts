@@ -5,8 +5,10 @@ export const MARKER_SIZE_CODES = ['S', 'M', 'L', 'XL', '2XL', 'onesize', 'onesiz
 export type MarkerSizeCode = (typeof MARKER_SIZE_CODES)[number]
 
 export type MarkerPlanModeKey = 'normal' | 'high_low' | 'fold_normal' | 'fold_high_low'
+export type MarkerBedModeKey = MarkerPlanModeKey
 export type MarkerPlanContextType = 'original-cut-order' | 'merge-batch'
 export type MarkerPlanTabKey = 'basic' | 'allocation' | 'explosion' | 'layout' | 'images'
+export type MarkerSchemeSourceType = 'original-cut-order' | 'merge-batch' | 'mixed'
 
 export type MarkerPlanStatusKey =
   | 'WAITING_BALANCE'
@@ -20,6 +22,9 @@ export type MarkerAllocationStatusKey = 'pending' | 'balanced' | 'unbalanced'
 export type MarkerMappingStatusKey = 'pending' | 'passed' | 'issue'
 export type MarkerLayoutStatusKey = 'pending' | 'done'
 export type MarkerImageStatusKey = 'pending' | 'done'
+export type MarkerSchemeImageStatusKey = '待生成' | '已生成' | '部分生成' | '已过期'
+export type MarkerSchemeSpreadingStatusKey = '未排程' | '部分排程' | '铺布中' | '已完成'
+export type MarkerBedStatusKey = '草稿' | '可铺布' | '已排程' | '铺布中' | '已完成' | '已锁定'
 
 export interface MarkerSizeRatioRow {
   sizeCode: MarkerSizeCode
@@ -152,9 +157,145 @@ export interface MarkerImageRecord {
   uploadedBy: string
 }
 
+export interface MarkerSchemeImage {
+  imageId: string
+  imageType: '方案图' | '唛架明细图' | '床次图'
+  imageName: string
+  previewUrl: string
+  generatedAt: string
+  generatedBy: string
+  status: MarkerSchemeImageStatusKey
+}
+
+export interface MarkerSchemeDemandRow {
+  rowId: string
+  sourceOrderId: string
+  sourceOrderNo: string
+  productionOrderNo: string
+  spuCode: string
+  colorCode: string
+  colorName: string
+  sizeCode: string
+  sizeName: string
+  materialSku: string
+  partName: string
+  demandQty: number
+  plannedQty: number
+  remainingQty: number
+}
+
+export interface MarkerBedCoverageRow {
+  rowId: string
+  colorCode: string
+  colorName: string
+  sizeCode: string
+  sizeName: string
+  demandQty: number
+  plannedQty: number
+  remainingQty: number
+}
+
+export interface MarkerNormalLayoutRow extends MarkerLayoutLine {}
+
+export interface MarkerHighLowMatrixRow {
+  rowId: string
+  colorCode: string
+  colorName: string
+  sizeValues: Record<string, number>
+  patternValues: Record<string, number>
+  totalQty: number
+}
+
+export interface MarkerSchemeBed {
+  bedId: string
+  schemeId: string
+  schemeNo: string
+  bedNo: string
+  bedName: string
+  bedSortOrder: number
+  bedMode: MarkerBedModeKey
+  colorCode: string
+  colorName: string
+  materialSku: string
+  sizeSummaryText: string
+  plannedLayerCount: number
+  markerLength: number
+  markerPieceQtyPerLayer: number
+  repeatCount: number
+  plannedGarmentQty: number
+  spreadTotalLength: number
+  unitFabricUsage: number
+  normalLayoutRows: MarkerNormalLayoutRow[]
+  highLowMatrixRows: MarkerHighLowMatrixRow[]
+  foldConfig: MarkerFoldConfig | null
+  coverageRows: MarkerBedCoverageRow[]
+  bedImage: MarkerSchemeImage | null
+  spreadingSessionIds: string[]
+  assignedCuttingTableIds: string[]
+  status: MarkerBedStatusKey
+  readyForSpreading: boolean
+  lockedBySpreading: boolean
+  remark: string
+}
+
+export interface MarkerScheme {
+  schemeId: string
+  schemeNo: string
+  schemeName: string
+  sourceType: MarkerSchemeSourceType
+  sourceOriginalCutOrderIds: string[]
+  sourceOriginalCutOrderNos: string[]
+  sourceMergeBatchIds: string[]
+  sourceMergeBatchNos: string[]
+  productionOrderIds: string[]
+  productionOrderNos: string[]
+  spuCode: string
+  spuName: string
+  styleCode: string
+  techPackId: string
+  techPackVersion: string
+  techPackStatus: '正式版'
+  materialSku: string
+  materialName: string
+  fabricWidth: number
+  fabricWidthUnit: 'cm'
+  demandRows: MarkerSchemeDemandRow[]
+  beds: MarkerSchemeBed[]
+  totalDemandQty: number
+  totalPlannedQty: number
+  remainingQty: number
+  overPlannedQty: number
+  bedCount: number
+  normalBedCount: number
+  highLowBedCount: number
+  foldBedCount: number
+  modeSummaryText: string
+  schemeImage: MarkerSchemeImage | null
+  detailImage: MarkerSchemeImage | null
+  imageStatus: MarkerSchemeImageStatusKey
+  spreadingStatus: MarkerSchemeSpreadingStatusKey
+  status: MarkerPlanStatusKey
+  createdAt: string
+  createdBy: string
+  updatedAt: string
+  updatedBy: string
+}
+
 export interface MarkerPlan {
   id: string
   markerNo: string
+  schemeId?: string
+  schemeNo?: string
+  schemeName?: string
+  techPackId?: string
+  techPackVersion?: string
+  techPackStatus?: '正式版'
+  schemeDemandRows?: MarkerSchemeDemandRow[]
+  beds?: MarkerSchemeBed[]
+  schemeImage?: MarkerSchemeImage | null
+  detailImage?: MarkerSchemeImage | null
+  schemeImageStatus?: MarkerSchemeImageStatusKey
+  schemeSpreadingStatus?: MarkerSchemeSpreadingStatusKey
   status: MarkerPlanStatusKey
   markerMode: MarkerPlanModeKey
   contextType: MarkerPlanContextType
@@ -233,25 +374,25 @@ function formatDecimalFormulaValue(value: number, digits: number): string {
 export const markerPlanModeMeta: Record<MarkerPlanModeKey, MarkerPlanStatusMeta<MarkerPlanModeKey>> = {
   normal: {
     key: 'normal',
-    label: '普通模式',
+    label: '普通',
     className: 'bg-slate-100 text-slate-700 border border-slate-200',
-    helperText: '按常规排版线维护唛架长度与重复次数。',
+    helperText: '按常规床次明细维护床次净长与重复次数。',
   },
   high_low: {
     key: 'high_low',
-    label: '高低层模式',
+    label: '高低层',
     className: 'bg-amber-100 text-amber-700 border border-amber-200',
     helperText: '同时维护高低层矩阵和模式明细。',
   },
   fold_normal: {
     key: 'fold_normal',
-    label: '对折-普通模式',
+    label: '对折普通',
     className: 'bg-blue-100 text-blue-700 border border-blue-200',
-    helperText: '先校验对折门幅，再维护普通排版线。',
+    helperText: '先校验对折门幅，再维护普通床次明细。',
   },
   fold_high_low: {
     key: 'fold_high_low',
-    label: '对折-高低层模式',
+    label: '对折高低层',
     className: 'bg-violet-100 text-violet-700 border border-violet-200',
     helperText: '对折门幅与高低层矩阵同时生效。',
   },
@@ -272,27 +413,27 @@ export const markerPlanStatusMeta: Record<MarkerPlanStatusKey, MarkerPlanStatusM
   },
   WAITING_LAYOUT: {
     key: 'WAITING_LAYOUT',
-    label: '待排版',
+    label: '待补床次',
     className: 'bg-sky-100 text-sky-700 border border-sky-200',
-    helperText: '排版计划还没完成，不能交接铺布。',
+    helperText: '唛架床次还没完成，不能交接铺布。',
   },
   WAITING_IMAGE: {
     key: 'WAITING_IMAGE',
     label: '待上传图片',
     className: 'bg-slate-100 text-slate-700 border border-slate-200',
-    helperText: '唛架图还没上传，建议先补齐资料。',
+    helperText: '方案图或唛架明细图还没生成，建议先补齐资料。',
   },
   CANCELED: {
     key: 'CANCELED',
     label: '已作废',
     className: 'bg-slate-200 text-slate-700 border border-slate-300',
-    helperText: '当前唛架已作废，不再继续交接铺布。',
+    helperText: '当前床次已作废，不再继续交接铺布。',
   },
   READY_FOR_SPREADING: {
     key: 'READY_FOR_SPREADING',
     label: '可交接铺布',
     className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
-    helperText: '当前唛架已满足铺布交接条件。',
+    helperText: '当前床次已满足铺布交接条件。',
   },
 }
 
@@ -341,15 +482,15 @@ export const markerMappingStatusMeta: Record<MarkerMappingStatusKey, MarkerPlanS
 export const markerLayoutStatusMeta: Record<MarkerLayoutStatusKey, MarkerPlanStatusMeta<MarkerLayoutStatusKey>> = {
   pending: {
     key: 'pending',
-    label: '待排版',
+    label: '待补床次',
     className: 'bg-slate-100 text-slate-700 border border-slate-200',
-    helperText: '排版数据还没准备完整。',
+    helperText: '床次数据还没准备完整。',
   },
   done: {
     key: 'done',
     label: '已完成',
     className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
-    helperText: '排版计划已完成。',
+    helperText: '唛架床次已完成。',
   },
 }
 
@@ -358,13 +499,13 @@ export const markerImageStatusMeta: Record<MarkerImageStatusKey, MarkerPlanStatu
     key: 'pending',
     label: '待上传',
     className: 'bg-slate-100 text-slate-700 border border-slate-200',
-    helperText: '当前还没有唛架图。',
+    helperText: '当前还没有方案图或唛架明细图。',
   },
   done: {
     key: 'done',
     label: '已上传',
     className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
-    helperText: '唛架图资料已补齐。',
+    helperText: '方案图和唛架明细图资料已补齐。',
   },
 }
 

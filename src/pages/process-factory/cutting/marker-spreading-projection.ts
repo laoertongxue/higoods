@@ -19,15 +19,23 @@ import { buildExecutionPrepProjectionContext } from './execution-prep-projection
 import {
   buildMarkerPlanProjection,
 } from './marker-plan-projection.ts'
+import { buildMarkerSchemeFromPlan } from './marker-scheme-adapter.ts'
 import {
   findMarkerPlanContextForPlan,
   type MarkerPlanContextCandidate,
   type MarkerPlanViewRow,
 } from './marker-plan-model.ts'
+import { markerPlanModeMeta, type MarkerSchemeBed } from './marker-plan-domain.ts'
 
 export interface SpreadingCreateSourceRow {
   markerId: string
   markerNo: string
+  sourceSchemeId: string
+  sourceSchemeNo: string
+  sourceBedId: string
+  sourceBedNo: string
+  sourceBedMode: MarkerModeKey
+  bedSizeSummaryText: string
   contextType: 'original-order' | 'merge-batch'
   contextSummary: string
   originalCutOrderIds: string[]
@@ -69,108 +77,118 @@ export function buildSpreadingPlanUnitProjectionLabel(
   return buildSpreadingPlanUnitDisplayLabel(planUnit)
 }
 
-function uniqueStrings(values: Array<string | undefined | null>): string[] {
-  return Array.from(new Set(values.map((value) => String(value || '').trim()).filter(Boolean)))
-}
-
 function buildQtyFormula(total: number, plannedLayers: number, totalPieces: number): string {
   return `${Math.max(Math.round(total), 0)} = ${Math.max(Math.round(plannedLayers), 0)} × ${Math.max(Math.round(totalPieces), 0)}`
 }
 
-function buildMarkerLineItemsFromPlan(plan: MarkerPlanViewRow): MarkerLineItem[] {
-  return plan.layoutLines.map((line, index) => ({
-    lineItemId: `${plan.id}-line-${index + 1}`,
-    markerId: plan.id,
-    lineNo: line.lineNo || index + 1,
-    layoutCode: line.layoutCode,
-    layoutDetailText: line.ratioNote,
-    color: line.colorCode,
-    ratioLabel: line.ratioNote,
-    spreadRepeatCount: line.repeatCount,
-    markerLength: line.markerLength,
-    markerPieceCount: line.markerPieceQty,
-    pieceCount: line.markerPieceQty,
-    singlePieceUsage: line.systemUnitUsage,
-    spreadTotalLength: line.spreadLength,
-    spreadingTotalLength: line.spreadLength,
-    widthHint: line.widthCode,
-    note: line.note,
+function buildSizeDistributionFromBed(bed: MarkerSchemeBed): MarkerRecord['sizeDistribution'] {
+  if (!bed.coverageRows.length) {
+    return [{ sizeLabel: bed.sizeSummaryText || '待补', quantity: Math.max(Number(bed.markerPieceQtyPerLayer || 0), 0) }]
+  }
+  return bed.coverageRows.map((row) => ({
+    sizeLabel: row.sizeName || row.sizeCode,
+    quantity: Math.max(Number(row.plannedQty || row.demandQty || 0), 0),
   }))
 }
 
-function buildHighLowCuttingRowsFromPlan(plan: MarkerPlanViewRow): HighLowCuttingRow[] {
-  const grouped = new Map<string, Record<string, number>>()
-  plan.highLowMatrixCells.forEach((cell) => {
-    const sectionName = cell.sectionName || '默认分区'
-    const bucket = grouped.get(sectionName) || {}
-    bucket[cell.sizeCode] = Number(cell.qty || 0)
-    grouped.set(sectionName, bucket)
-  })
-  return Array.from(grouped.entries()).map(([sectionName, values], index) => {
-    const sizeValues = {
-      S: Number(values.S || 0),
-      M: Number(values.M || 0),
-      L: Number(values.L || 0),
-      XL: Number(values.XL || 0),
-      '2XL': Number(values['2XL'] || 0),
-      '3XL': Number(values['3XL'] || 0),
-      '4XL': Number(values['4XL'] || 0),
-      onesize: Number(values.onesize || 0),
-      plusonesize: Number(values.onesizeplus || values.plusonesize || 0),
-    }
-    const total = Object.values(sizeValues).reduce((sum, qty) => sum + Math.max(Number(qty || 0), 0), 0)
-    return {
-      rowId: `${plan.id}-high-low-${index + 1}`,
-      markerId: plan.id,
-      color: sectionName,
-      sizeValues,
-      total,
-    }
-  })
-}
-
-function buildHighLowPatternRowsFromPlan(plan: MarkerPlanViewRow, patternKeys: string[]): HighLowPatternRow[] {
-  return plan.modeDetailLines.map((line, index) => ({
-    rowId: `${plan.id}-pattern-${index + 1}`,
-    markerId: plan.id,
-    color: line.colorCode,
-    patternValues: Object.fromEntries(patternKeys.map((patternKey) => [patternKey, patternKey === line.modeName ? Number(line.repeatCount || 0) : 0])),
-    total: Number(line.repeatCount || 0),
-  }))
-}
-
-function buildMarkerRecordFromPlan(
+function buildMarkerRecordFromPlanBed(
   plan: MarkerPlanViewRow,
   context: MarkerPlanContextCandidate,
+  bed: MarkerSchemeBed,
 ): MarkerRecord {
-  const patternKeys = uniqueStrings(plan.modeDetailLines.map((line) => line.modeName))
-  const primaryImage = plan.imageRecords.find((record) => record.isPrimary) || plan.imageRecords[0] || null
-  const allocationLines: MarkerAllocationLine[] = plan.allocationRows.map((row) => ({
-    allocationId: row.id,
-    markerId: plan.id,
-    sourceCutOrderId: row.sourceCutOrderId,
-    sourceCutOrderNo:
-      context.sourceOriginalRows.find((originalRow) => originalRow.originalCutOrderId === row.sourceCutOrderId)?.originalCutOrderNo || '',
-    sourceProductionOrderId: row.sourceProductionOrderId,
-    sourceProductionOrderNo:
-      context.sourceOriginalRows.find((originalRow) => originalRow.productionOrderId === row.sourceProductionOrderId)?.productionOrderNo || '',
-    styleCode: row.styleCode,
-    spuCode: row.spuCode,
-    techPackSpuCode: row.techPackSpu,
-    color: row.colorCode,
-    materialSku: row.materialSku,
-    sizeLabel: row.sizeCode,
-    plannedGarmentQty: row.garmentQty,
-    note: row.note,
+  const bedColor = bed.colorName || bed.colorCode || plan.colorSummary
+  const bedTotalPieces = Math.max(Number(bed.markerPieceQtyPerLayer || bed.plannedGarmentQty || 0), 0)
+  const bedSpreadLength = Math.max(Number(bed.spreadTotalLength || 0), 0)
+  const sourceOrder = context.sourceOriginalRows[0] || null
+  const allocationLines: MarkerAllocationLine[] = bed.coverageRows.map((row, index) => ({
+    allocationId: `${bed.bedId}-allocation-${index + 1}`,
+    markerId: bed.bedId,
+    sourceCutOrderId: row.rowId.split('-coverage-')[0] || context.originalCutOrderIds[0] || '',
+    sourceCutOrderNo: sourceOrder?.originalCutOrderNo || context.originalCutOrderNos[0] || '',
+    sourceProductionOrderId: sourceOrder?.productionOrderId || context.productionOrderIds[0] || '',
+    sourceProductionOrderNo: sourceOrder?.productionOrderNo || context.productionOrderNos[0] || '',
+    styleCode: plan.styleCode,
+    spuCode: plan.spuCode,
+    techPackSpuCode: plan.techPackSpu,
+    color: row.colorName || row.colorCode,
+    materialSku: bed.materialSku || plan.materialSkuSummary,
+    sizeLabel: row.sizeName || row.sizeCode,
+    plannedGarmentQty: Math.max(Number(row.plannedQty || row.demandQty || 0), 0),
+    note: '来自唛架床次覆盖尺码',
   }))
-  const highLowPatternKeys = patternKeys.length ? patternKeys : undefined
-  const highLowCuttingRows = plan.highLowMatrixCells.length ? buildHighLowCuttingRowsFromPlan(plan) : []
-  const highLowPatternRows = highLowPatternKeys?.length ? buildHighLowPatternRowsFromPlan(plan, highLowPatternKeys) : []
+  const normalLineItems: MarkerLineItem[] =
+    bed.bedMode === 'normal' || bed.bedMode === 'fold_normal'
+      ? [
+          {
+            lineItemId: `${bed.bedId}-line-1`,
+            markerId: bed.bedId,
+            lineNo: 1,
+            layoutCode: bed.bedNo,
+            layoutDetailText: bed.sizeSummaryText,
+            color: bedColor,
+            ratioLabel: bed.sizeSummaryText,
+            spreadRepeatCount: Math.max(Number(bed.repeatCount || 0), 0),
+            markerLength: Math.max(Number(bed.markerLength || 0), 0),
+            markerPieceCount: bedTotalPieces,
+            pieceCount: bedTotalPieces,
+            singlePieceUsage: Math.max(Number(bed.unitFabricUsage || 0), 0),
+            spreadTotalLength: bedSpreadLength,
+            spreadingTotalLength: bedSpreadLength,
+            widthHint: plan.foldConfig?.maxLayoutWidth ? `${plan.foldConfig.maxLayoutWidth}cm` : '',
+            note: bed.remark,
+          },
+        ]
+      : []
+  const highLowCuttingRows: HighLowCuttingRow[] =
+    bed.bedMode === 'high_low' || bed.bedMode === 'fold_high_low'
+      ? [
+          {
+            rowId: `${bed.bedId}-high-low-1`,
+            markerId: bed.bedId,
+            color: bedColor,
+            sizeValues: {
+              S: 0,
+              M: 0,
+              L: 0,
+              XL: 0,
+              '2XL': 0,
+              '3XL': 0,
+              '4XL': 0,
+              onesize: 0,
+              plusonesize: 0,
+              ...Object.fromEntries(
+                bed.coverageRows.map((row) => [
+                  row.sizeCode === 'onesizeplus' ? 'plusonesize' : row.sizeCode,
+                  Math.max(Number(row.plannedQty || row.demandQty || 0), 0),
+                ]),
+              ),
+            },
+            total: bedTotalPieces,
+          },
+        ]
+      : []
+  const highLowPatternKeys = bed.bedMode === 'high_low' || bed.bedMode === 'fold_high_low' ? [bed.bedNo] : []
+  const highLowPatternRows: HighLowPatternRow[] = highLowPatternKeys.length
+    ? [
+        {
+          rowId: `${bed.bedId}-pattern-1`,
+          markerId: bed.bedId,
+          color: bedColor,
+          patternValues: { [bed.bedNo]: Math.max(Number(bed.repeatCount || 0), 0) },
+          total: Math.max(Number(bed.repeatCount || 0), 0),
+        },
+      ]
+    : []
 
   return {
-    markerId: plan.id,
-    markerNo: plan.markerNo,
-    contextType: plan.contextType === 'merge-batch' ? 'merge-batch' : 'original-order',
+    markerId: bed.bedId,
+    markerNo: `${plan.markerNo}/${bed.bedNo}`,
+    schemeId: plan.id,
+    schemeNo: plan.markerNo,
+    bedId: bed.bedId,
+    bedNo: bed.bedNo,
+    bedMode: bed.bedMode,
+    contextType: context.contextType === 'merge-batch' ? 'merge-batch' : 'original-order',
     originalCutOrderIds: [...plan.originalCutOrderIds],
     originalCutOrderNos: [...plan.originalCutOrderNos],
     mergeBatchId: plan.mergeBatchId,
@@ -178,39 +196,38 @@ function buildMarkerRecordFromPlan(
     styleCode: plan.styleCode,
     spuCode: plan.spuCode,
     techPackSpuCode: plan.techPackSpu,
-    materialSkuSummary: plan.materialSkuSummary,
-    colorSummary: plan.colorSummary,
-    markerMode: plan.markerMode,
-    sizeDistribution: plan.sizeRatioRows.map((row) => ({ sizeLabel: row.sizeCode, quantity: row.qty })),
-    totalPieces: plan.totalPieces,
-    netLength: plan.netLength,
-    singlePieceUsage: plan.systemUnitUsage,
-    spreadTotalLength: plan.plannedSpreadLength,
+    materialSkuSummary: bed.materialSku || plan.materialSkuSummary,
+    markerMode: bed.bedMode,
+    colorSummary: bedColor,
+    sizeDistribution: buildSizeDistributionFromBed(bed),
+    totalPieces: bedTotalPieces,
+    netLength: Math.max(Number(bed.markerLength || 0), 0),
+    singlePieceUsage: Math.max(Number(bed.unitFabricUsage || 0), 0),
+    spreadTotalLength: bedSpreadLength,
+    sizeRatioPlanText: bed.sizeSummaryText,
+    plannedLayerCount: Math.max(Number(bed.plannedLayerCount || 0), 0),
+    plannedMarkerCount: Math.max(Number(bed.repeatCount || 0), 0),
+    markerLength: Math.max(Number(bed.markerLength || 0), 0),
+    procurementUnitUsage: Math.max(Number(bed.unitFabricUsage || 0), 0),
+    actualUnitUsage: Math.max(Number(bed.unitFabricUsage || 0), 0),
+    plannedMaterialMeter: bedSpreadLength,
+    actualMaterialMeter: bedSpreadLength,
+    actualCutQty: Math.max(Number(bed.plannedLayerCount || 0), 0) * bedTotalPieces,
     materialCategory: context.sourceMaterialPrepRows[0]?.materialCategory || '',
     materialAttr: context.sourceMaterialPrepRows[0]?.materialLabel || '',
-    sizeRatioPlanText: plan.sizeRatioRows.filter((row) => row.qty > 0).map((row) => `${row.sizeCode}×${row.qty}`).join(' / '),
-    plannedLayerCount: plan.plannedLayerCount,
-    plannedMarkerCount: Math.max(plan.layoutLines.length, plan.modeDetailLines.length, 1),
-    markerLength: plan.netLength,
-    procurementUnitUsage: plan.systemUnitUsage,
-    actualUnitUsage: plan.finalUnitUsage,
-    fabricSku: plan.sourceMaterialSku,
-    plannedMaterialMeter: plan.plannedSpreadLength,
-    actualMaterialMeter: plan.plannedSpreadLength,
-    actualCutQty: plan.totalPieces,
     allocationLines,
-    lineItems: buildMarkerLineItemsFromPlan(plan),
+    lineItems: normalLineItems,
     highLowPatternKeys,
     highLowCuttingRows,
     highLowPatternRows,
     warningMessages: [],
-    markerImageUrl: primaryImage?.previewUrl || '',
-    markerImageName: primaryImage?.fileName || '',
+    markerImageUrl: plan.schemeImage?.previewUrl || '',
+    markerImageName: plan.schemeImage?.imageName || '',
     adjustmentRequired: plan.hasAdjustment,
     adjustmentNote: plan.adjustmentNote,
     replacementDraftFlag: false,
     adjustmentSummary: plan.hasAdjustment ? plan.adjustmentNote : '',
-    note: plan.remark,
+    note: bed.remark,
     updatedAt: plan.updatedAt,
     updatedBy: plan.updatedBy,
   }
@@ -233,52 +250,62 @@ function buildSpreadingContextFromPlanContext(context: MarkerPlanContextCandidat
   }
 }
 
-function buildCreateSourceRow(
+function buildCreateSourceRowsFromPlan(
   plan: MarkerPlanViewRow,
   context: MarkerPlanContextCandidate | null,
-): SpreadingCreateSourceRow | null {
-  if (!context) return null
-  const plannedCutGarmentQty = Math.max(Number(plan.plannedLayerCount || 0) * Number(plan.totalPieces || 0), 0)
+): SpreadingCreateSourceRow[] {
+  if (!context) return []
+  const scheme = buildMarkerSchemeFromPlan(plan)
   const spreadingContext = buildSpreadingContextFromPlanContext(context)
-  const markerRecord = buildMarkerRecordFromPlan(plan, context)
   const contextSummary =
     spreadingContext.contextType === 'merge-batch'
       ? `合并裁剪批次 ${context.mergeBatchNo || '待补'} / 原始裁片单 ${context.originalCutOrderNos.length} 张 / 生产单 ${context.productionOrderNos.join(' / ') || '待补'}`
       : `原始裁片单 ${context.originalCutOrderNos.join(' / ') || '待补'} / 生产单 ${context.productionOrderNos.join(' / ') || '待补'}`
 
-  return {
-    markerId: plan.id,
-    markerNo: plan.markerNo,
-    contextType: spreadingContext.contextType,
-    contextSummary,
-    originalCutOrderIds: [...plan.originalCutOrderIds],
-    originalCutOrderNos: [...plan.originalCutOrderNos],
-    mergeBatchId: plan.mergeBatchId,
-    mergeBatchNo: plan.mergeBatchNo,
-    productionOrderNos: [...plan.productionOrderNos],
-    styleCode: plan.styleCode,
-    spuCode: plan.spuCode,
-    styleName: plan.styleName,
-    materialSkuSummary: plan.materialSkuSummary,
-    colorSummary: plan.colorSummary,
-    markerMode: plan.markerMode,
-    markerModeLabel: plan.modeMeta.label,
-    plannedCutGarmentQty,
-    plannedCutGarmentQtyFormula: buildQtyFormula(plannedCutGarmentQty, plan.plannedLayerCount, plan.totalPieces),
-    plannedSpreadLengthM: plan.plannedSpreadLength,
-    plannedSpreadLengthFormula: plan.plannedSpreadLengthFormula,
-    imageStatusLabel: plan.imageStatusMeta.label,
-    markerRecord,
-    spreadingContext,
-  }
+  return scheme.beds
+    .filter((bed) => bed.readyForSpreading && !bed.lockedBySpreading)
+    .map((bed) => {
+      const markerRecord = buildMarkerRecordFromPlanBed(plan, context, bed)
+      const plannedCutGarmentQty = Math.max(Number(bed.plannedLayerCount || 0) * Number(bed.markerPieceQtyPerLayer || 0), 0)
+      return {
+        markerId: bed.bedId,
+        markerNo: `${plan.markerNo}/${bed.bedNo}`,
+        sourceSchemeId: plan.id,
+        sourceSchemeNo: plan.markerNo,
+        sourceBedId: bed.bedId,
+        sourceBedNo: bed.bedNo,
+        sourceBedMode: bed.bedMode,
+        bedSizeSummaryText: bed.sizeSummaryText,
+        contextType: spreadingContext.contextType,
+        contextSummary,
+        originalCutOrderIds: [...plan.originalCutOrderIds],
+        originalCutOrderNos: [...plan.originalCutOrderNos],
+        mergeBatchId: plan.mergeBatchId,
+        mergeBatchNo: plan.mergeBatchNo,
+        productionOrderNos: [...plan.productionOrderNos],
+        styleCode: plan.styleCode,
+        spuCode: plan.spuCode,
+        styleName: plan.styleName,
+        materialSkuSummary: bed.materialSku || plan.materialSkuSummary,
+        colorSummary: bed.colorName || bed.colorCode || plan.colorSummary,
+        markerMode: bed.bedMode,
+        markerModeLabel: markerPlanModeMeta[bed.bedMode]?.label || plan.modeMeta.label,
+        plannedCutGarmentQty,
+        plannedCutGarmentQtyFormula: buildQtyFormula(plannedCutGarmentQty, bed.plannedLayerCount, bed.markerPieceQtyPerLayer),
+        plannedSpreadLengthM: bed.spreadTotalLength,
+        plannedSpreadLengthFormula: `${Number(bed.spreadTotalLength || 0).toFixed(2)} 米 = ${bed.bedNo} 铺布总长度`,
+        imageStatusLabel: plan.imageStatusMeta.label,
+        markerRecord,
+        spreadingContext,
+      }
+    })
 }
 
 function buildSpreadingCreateSourceRows(): SpreadingCreateSourceRow[] {
   const projection = buildMarkerPlanProjection()
   return projection.viewModel.plans
     .filter((plan) => plan.readyForSpreading && plan.status !== 'CANCELED')
-    .map((plan) => buildCreateSourceRow(plan, findMarkerPlanContextForPlan(projection.viewModel.contexts, plan)))
-    .filter((row): row is SpreadingCreateSourceRow => Boolean(row))
+    .flatMap((plan) => buildCreateSourceRowsFromPlan(plan, findMarkerPlanContextForPlan(projection.viewModel.contexts, plan)))
 }
 
 export function buildMarkerSpreadingProjection(options: {

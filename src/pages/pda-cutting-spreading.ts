@@ -330,12 +330,12 @@ function renderOperatorSummary(taskId: string, detail: PdaCuttingTaskDetailData)
 
 function renderPlanUnitSummary(planUnit: ReturnType<typeof getSelectedPlanUnit>): string {
   if (!planUnit) {
-    return renderPdaCuttingEmptyState('当前铺布对象暂无当前排版项', '')
+    return renderPdaCuttingEmptyState('当前铺布对象暂无当前唛架床次', '')
   }
   const planUnitLabel = planUnit.label || `${planUnit.color || '待定'} / ${planUnit.materialSku || '待定'} / ${planUnit.garmentQtyPerUnit}件`
   return `
     <div class="grid gap-1.5 text-xs sm:grid-cols-2">
-      <div><div class="text-muted-foreground">当前排版项</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(planUnitLabel)}</div></div>
+      <div><div class="text-muted-foreground">当前唛架床次</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(planUnitLabel)}</div></div>
       <div><div class="text-muted-foreground">本次成衣件数（件）</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(String(planUnit.garmentQtyPerUnit))}</div></div>
       <div><div class="text-muted-foreground">面料 SKU</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(planUnit.materialSku || '—')}</div></div>
       <div><div class="text-muted-foreground">颜色</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(planUnit.color || '—')}</div></div>
@@ -386,9 +386,9 @@ function renderFormInner(
           ${renderTargetSummary(selectedTarget)}
           <div class="border-t pt-1" data-testid="pda-cutting-spreading-plan-summary">
             <label class="block space-y-0.5">
-              <span class="text-muted-foreground">当前排版项</span>
+              <span class="text-muted-foreground">当前唛架床次</span>
               <select class="h-6 w-full rounded-xl border bg-background px-2 text-sm" data-pda-cut-spreading-field="planUnitId">
-                <option value="">请选择当前排版项</option>
+                <option value="">请选择当前唛架床次</option>
                 ${(selectedTarget?.planUnits || [])
                   .map(
                     (unit) => `
@@ -691,7 +691,7 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
     }
     const selectedPlanUnit = getSelectedPlanUnit(selectedTarget, form.selectedPlanUnitId)
     if (!selectedPlanUnit || !form.selectedPlanUnitId) {
-      form.feedbackMessage = '请先选择当前排版项。'
+      form.feedbackMessage = '请先选择当前唛架床次。'
       form.feedbackTone = 'warning'
       syncSpreadingFormDom(taskId, selectedExecutionOrderId, selectedExecutionOrderNo)
       return true

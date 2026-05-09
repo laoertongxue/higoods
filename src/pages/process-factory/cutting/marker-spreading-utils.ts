@@ -763,7 +763,7 @@ export function buildMarkerSpreadingPrototypeStore(options: {
       const markerDraft = buildMarkerSeedDraft(context, null)
       if (!markerDraft) return
       markerDraft.markerMode = preferredSeedModes.get(contextKey) || markerDraft.markerMode
-      markerDraft.markerNo = markerDraft.markerNo || `MJ-${String(index + 1).padStart(4, '0')}`
+      markerDraft.markerNo = markerDraft.markerNo || `MKP-${String(index + 1).padStart(4, '0')}`
       markerDraft.updatedAt = nowText(new Date(`2026-03-${String(10 + index).padStart(2, '0')}T08:30:00`))
       nextStore = {
         ...nextStore,

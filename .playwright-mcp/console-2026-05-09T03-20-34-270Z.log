@@ -1,0 +1,13 @@
+[     133ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[     884ms] ReferenceError: sum is not defined
+    at http://localhost:5173/src/pages/process-factory/cutting/marker-plan-model.ts?t=1778296773516:534:23
+    at Array.map (<anonymous>)
+    at buildDefaultSchemeBeds (http://localhost:5173/src/pages/process-factory/cutting/marker-plan-model.ts?t=1778296773516:532:23)
+    at createPlanFromContext (http://localhost:5173/src/pages/process-factory/cutting/marker-plan-model.ts?t=1778296773516:922:16)
+    at http://localhost:5173/src/pages/process-factory/cutting/marker-plan-model.ts?t=1778296773516:1233:22
+    at Array.forEach (<anonymous>)
+    at buildSystemSeedMarkerPlans (http://localhost:5173/src/pages/process-factory/cutting/marker-plan-model.ts?t=1778296773516:1231:31)
+    at buildMarkerPlanViewModel (http://localhost:5173/src/pages/process-factory/cutting/marker-plan-model.ts?t=1778296773516:1263:21)
+    at buildMarkerPlanProjection (http://localhost:5173/src/pages/process-factory/cutting/marker-plan-projection.ts?t=1778296773516:121:16)
+    at getProjection (http://localhost:5173/src/pages/process-factory/cutting/marker-plan.ts?t=1778296773516:249:22)
+[   76117ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356

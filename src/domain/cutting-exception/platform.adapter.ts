@@ -193,11 +193,11 @@ function buildExceptionsForRow(row: PlatformCuttingOverviewRow): CuttingExceptio
     rows.push(
       buildCommonException(row, 'MARKER_NOT_MAINTAINED', rows.length + 1, latestView, {
         triggerSummary: `当前仍有 ${row.record.markerSummary.pendingMarkerCount} 张裁片单未维护唛架。`,
-        evidenceSummary: `已维护 ${row.record.markerSummary.markerMaintainedCount} 张，唛架图已上传 ${row.record.markerSummary.markerImageUploadedCount} 张。`,
+        evidenceSummary: `已维护 ${row.record.markerSummary.markerMaintainedCount} 张，方案图和唛架明细图已生成 ${row.record.markerSummary.markerImageUploadedCount} 张。`,
         latestActionSummary: 'PCS 侧仍未看到完整唛架维护摘要',
         latestActionAt: row.record.lastUpdatedAt,
         latestActionBy: 'PCS 汇总回写',
-        suggestedAction: '回裁片单页补齐唛架配比、净长度和唛架图状态。',
+        suggestedAction: '回裁片单页补齐唛架配比、净长度和方案图和明细图状态。',
       }),
     )
   }

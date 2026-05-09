@@ -133,7 +133,7 @@ export const replenishmentSuggestionRecords: ReplenishmentSuggestionRecord[] = [
       nextSuggestedActionText: '优先回到仓库配料页补齐 2 卷，再由仓库配料领料继续处理。',
     },
     linkedDocumentSummaries: [
-      { docType: 'CUT_PIECE_ORDER', docNo: 'CP-202603-018-01', status: '裁片执行中', createdAt: '2026-03-18 09:10', summaryText: '已维护唛架并有 2 条铺布记录。' },
+      { docType: 'CUT_PIECE_ORDER', docNo: 'CP-202603-018-01', status: '裁片执行中', createdAt: '2026-03-18 09:10', summaryText: '已维护排唛架方案并有 2 条铺布记录。' },
       { docType: 'CONFIG_BATCH', docNo: 'CFG-018-03', status: '待补齐', createdAt: '2026-03-20 08:45', summaryText: '最新补配 4 卷 / 220 米，尚未完全覆盖缺口。' },
       { docType: 'PICKUP_RECORD', docNo: 'RCV-018-01', status: '驳回核对', createdAt: '2026-03-20 14:12', summaryText: '现场少领 2 卷，当前存在执行差异。' },
       { docType: 'REPLENISHMENT_REVIEW', docNo: '—', status: '待审核', createdAt: '-', summaryText: '等待运营审核是否生效。' },
@@ -190,7 +190,7 @@ export const replenishmentSuggestionRecords: ReplenishmentSuggestionRecord[] = [
       nextSuggestedActionText: '先补齐审核卷数，再决定是否补里布 1 卷。',
     },
     linkedDocumentSummaries: [
-      { docType: 'CUT_PIECE_ORDER', docNo: 'CP-202603-024-02', status: '待维护唛架', createdAt: '2026-03-21 09:50', summaryText: '里布裁片单已维护尺码配比，但唛架图未上传。' },
+      { docType: 'CUT_PIECE_ORDER', docNo: 'CP-202603-024-02', status: '待维护排唛架方案', createdAt: '2026-03-21 09:50', summaryText: '里布裁片单已维护尺码配比，但方案图或唛架明细图未生成。' },
       { docType: 'CONFIG_BATCH', docNo: '—', status: '未配置', createdAt: '-', summaryText: '当前尚未产生仓库配料批次。' },
       { docType: 'PICKUP_RECORD', docNo: '—', status: '暂无', createdAt: '-', summaryText: '尚未有领料扫码记录。' },
       { docType: 'REPLENISHMENT_REVIEW', docNo: 'RV-202603-024-02', status: '待补充说明', createdAt: '2026-03-22 11:10', summaryText: '等待补充里布审核依据后再决定。' },
@@ -247,7 +247,7 @@ export const replenishmentSuggestionRecords: ReplenishmentSuggestionRecord[] = [
       nextSuggestedActionText: '回到仓库配料页新增补配批次，并继续仓库待配料处理。',
     },
     linkedDocumentSummaries: [
-      { docType: 'CUT_PIECE_ORDER', docNo: 'CP-202603-031-01', status: '裁片执行中', createdAt: '2026-03-22 08:35', summaryText: '唛架图已上传，现场已有 1 条铺布记录。' },
+      { docType: 'CUT_PIECE_ORDER', docNo: 'CP-202603-031-01', status: '裁片执行中', createdAt: '2026-03-22 08:35', summaryText: '方案图和唛架明细图已生成，现场已有 1 条铺布记录。' },
       { docType: 'CONFIG_BATCH', docNo: 'CFG-031-02', status: '已完成', createdAt: '2026-03-22 08:40', summaryText: '本批次补齐剩余 5 卷 / 290 米。' },
       { docType: 'PICKUP_RECORD', docNo: 'RCV-031-01', status: '已提交照片', createdAt: '2026-03-22 11:18', summaryText: '现场少领 1 卷，已提交 3 张差异照片。' },
       { docType: 'REPLENISHMENT_REVIEW', docNo: 'RV-202603-031-01', status: '已通过', createdAt: '2026-03-22 13:20', summaryText: '已生效，待回到仓库配料继续处理。' },

@@ -248,8 +248,8 @@ const rawCutPieceOrderRecords: CutPieceOrderSeed[] = [
     latestSpreadingBy: '',
     hasInboundRecord: false,
     hasReplenishmentRisk: false,
-    currentStage: '待维护唛架',
-    notes: '该面料尚未进入配料，当前先维护唛架和尺码配比。',
+    currentStage: '待维护排唛架方案',
+    notes: '该面料尚未进入配料，当前先维护排唛架方案和尺码配比。',
     markerInfo: {
       sizeMix: [
         { size: 'S', qty: 0 },
@@ -375,8 +375,8 @@ const rawCutPieceOrderRecords: CutPieceOrderSeed[] = [
     latestSpreadingBy: '',
     hasInboundRecord: false,
     hasReplenishmentRisk: true,
-    currentStage: '待维护唛架',
-    notes: '里布待完成配料后再领料，先维护唛架和样衣参考。',
+    currentStage: '待维护排唛架方案',
+    notes: '里布待完成配料后再领料，先维护排唛架方案和样衣参考。',
     markerInfo: {
       sizeMix: [
         { size: 'S', qty: 12 },

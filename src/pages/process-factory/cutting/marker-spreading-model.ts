@@ -1,5 +1,9 @@
 import type { MaterialPrepRow } from './material-prep-model.ts'
 import type { MergeBatchRecord } from './merge-batches-model.ts'
+import {
+  DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES,
+  getDefaultCuttingTable,
+} from './cutting-table-resource.ts'
 import { getProductionOrderCompatTechPack } from '../../../data/fcs/production-order-tech-pack-runtime.ts'
 
 const numberFormatter = new Intl.NumberFormat('zh-CN')
@@ -140,6 +144,11 @@ export interface MarkerSpreadingContext {
 export interface MarkerRecord {
   markerId: string
   markerNo?: string
+  schemeId?: string
+  schemeNo?: string
+  bedId?: string
+  bedNo?: string
+  bedMode?: MarkerModeKey
   contextType: 'original-order' | 'merge-batch'
   originalCutOrderIds: string[]
   originalCutOrderNos?: string[]
@@ -470,6 +479,21 @@ export interface SpreadingSession {
   mergeBatchNo: string
   markerId?: string
   markerNo?: string
+  sourceSchemeId?: string
+  sourceSchemeNo?: string
+  sourceBedId?: string
+  sourceBedNo?: string
+  sourceBedMode?: MarkerModeKey
+  cuttingTableId?: string
+  cuttingTableNo?: string
+  cuttingTableName?: string
+  plannedStartAt?: string
+  plannedEndAt?: string
+  estimatedDurationMinutes?: number
+  actualStartAt?: string
+  actualEndAt?: string
+  actualDurationMinutes?: number
+  tableScheduleStatus?: '未排程' | '已排程' | '执行中' | '已完成' | '异常'
   sourceMarkerId?: string
   sourceMarkerNo?: string
   styleCode?: string
@@ -635,24 +659,24 @@ export interface MarkerSpreadingViewModel {
 
 const markerModeMeta: Record<MarkerModeKey, { label: string; className: string; detailText: string }> = {
   normal: {
-    label: '普通模式',
+    label: '普通排版',
     className: 'bg-slate-100 text-slate-700 border border-slate-200',
-    detailText: 'normal：普通模式铺布，适合常规裁床直接平铺执行。',
+    detailText: '普通排版床次铺布。',
   },
   high_low: {
-    label: '高低层模式',
+    label: '高低层排版',
     className: 'bg-amber-100 text-amber-700 border border-amber-200',
-    detailText: 'high_low：高低层模式，体现台阶式往上铺布的业务差异。',
+    detailText: '高低层排版床次。',
   },
   fold_normal: {
-    label: '对折-普通模式',
+    label: '对折普通排版',
     className: 'bg-blue-100 text-blue-700 border border-blue-200',
-    detailText: 'fold_normal：对折-普通模式，用于对折裁片场景。',
+    detailText: 'fold_normal：对折普通排版，用于对折裁片场景。',
   },
   fold_high_low: {
-    label: '对折-高低层模式',
+    label: '对折高低层排版',
     className: 'bg-violet-100 text-violet-700 border border-violet-200',
-    detailText: 'fold_high_low：对折-高低层模式，用于对折且需高低层排布的裁片场景。',
+    detailText: 'fold_high_low：对折高低层排版，用于对折且需高低层排布的裁片场景。',
   },
 }
 
@@ -1002,10 +1026,10 @@ export function validateMarkerModeShape(marker: Partial<MarkerRecord>): string[]
 
   if (template === 'matrix-template') {
     if (!(marker.highLowCuttingRows || []).length) {
-      issues.push('高低层模式缺少裁剪明细矩阵。')
+      issues.push('高低层床次缺少裁剪明细矩阵。')
     }
     if (!(marker.highLowPatternRows || []).length) {
-      issues.push('高低层模式缺少唛架模式矩阵。')
+      issues.push('高低层排版缺少床次模式矩阵。')
     }
   }
 
@@ -1031,7 +1055,7 @@ export function buildMarkerWarningMessages(marker: Partial<MarkerRecord>): strin
     const patternTotal = computeHighLowPatternTotals(marker.highLowPatternRows || [], marker.highLowPatternKeys || []).patternTotal
     const sizeTotal = computeMarkerTotalPieces(marker.sizeDistribution || [])
     if ((cuttingTotal > 0 || patternTotal > 0) && (cuttingTotal !== sizeTotal || patternTotal !== sizeTotal)) {
-      warnings.push('高低层模式矩阵合计与尺码配比总件数不一致。')
+      warnings.push('高低层床次矩阵合计与尺码配比总件数不一致。')
     }
   }
 
@@ -1257,7 +1281,7 @@ function buildDifferenceFormula(result: number, minuend: number, subtrahend: num
 }
 
 export function buildSpreadingImportedLengthFormula(theoreticalSpreadTotalLength: number): string {
-  return `${Number(theoreticalSpreadTotalLength || 0).toFixed(2)} 米 = 来源唛架计划铺布总长度`
+  return `${Number(theoreticalSpreadTotalLength || 0).toFixed(2)} 米 = 来源排唛架方案铺布总长度`
 }
 
 export function buildRollActualCutQtyFormula(actualCutPieceQty: number, layerCount: number, markerTotalPieces: number): string {
@@ -1759,7 +1783,12 @@ function buildSeedMarker(context: MarkerSpreadingContext): MarkerRecord {
 
   return {
     markerId,
-    markerNo: `MJ-${context.contextType === 'merge-batch' ? 'B' : 'O'}-${(context.mergeBatchNo || context.originalCutOrderNos[0] || '001').slice(-6)}`,
+    markerNo: `MKP-${context.contextType === 'merge-batch' ? 'B' : 'O'}-${(context.mergeBatchNo || context.originalCutOrderNos[0] || '001').slice(-6)}`,
+    schemeId: markerId,
+    schemeNo: `MKP-${context.contextType === 'merge-batch' ? 'B' : 'O'}-${(context.mergeBatchNo || context.originalCutOrderNos[0] || '001').slice(-6)}`,
+    bedId: `${markerId}-bed-A-1`,
+    bedNo: 'A-1',
+    bedMode: markerMode,
     contextType: context.contextType,
     originalCutOrderIds: [...context.originalCutOrderIds],
     originalCutOrderNos: [...context.originalCutOrderNos],
@@ -1799,7 +1828,7 @@ function buildSeedMarker(context: MarkerSpreadingContext): MarkerRecord {
     adjustmentNote: '',
     replacementDraftFlag: false,
     adjustmentSummary: '后续可补唛架调整记录 / 换一入口。',
-    note: '当前为原型默认唛架草稿，可根据现场唛架图与尺码配比继续优化。',
+    note: '默认方案草稿。',
     updatedAt: '',
     updatedBy: '系统预置',
     warningMessages: buildMarkerWarningMessages({
@@ -1855,6 +1884,16 @@ export function createSpreadingDraftFromMarker(
     mergeBatchNo: context.mergeBatchNo,
     markerId: marker.markerId,
     markerNo: marker.markerNo || '',
+    sourceSchemeId: marker.schemeId || marker.markerId,
+    sourceSchemeNo: marker.schemeNo || marker.markerNo || '',
+    sourceBedId: marker.bedId || marker.markerId,
+    sourceBedNo: marker.bedNo || marker.markerNo || '',
+    sourceBedMode: marker.bedMode || marker.markerMode,
+    cuttingTableId: getDefaultCuttingTable().cuttingTableId,
+    cuttingTableNo: getDefaultCuttingTable().cuttingTableNo,
+    cuttingTableName: getDefaultCuttingTable().cuttingTableName,
+    estimatedDurationMinutes: DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES,
+    tableScheduleStatus: '未排程',
     sourceMarkerId: marker.markerId,
     sourceMarkerNo: marker.markerNo || '',
     styleCode: context.styleCode,
@@ -1884,7 +1923,7 @@ export function createSpreadingDraftFromMarker(
     actualCutPieceQty: baseSession?.actualCutPieceQty || 0,
     unitPrice: baseSession?.unitPrice || 0,
     totalAmount: baseSession?.totalAmount || 0,
-    note: baseSession?.note || '铺布草稿已从当前唛架记录导入，可继续补录卷与人员。',
+    note: baseSession?.note || '铺布草稿已从当前方案床次记录导入，可继续补录卷与人员。',
     createdAt: baseSession?.createdAt || nowText(now),
     updatedAt: nowText(now),
     warningMessages: baseSession?.warningMessages || [],
@@ -1979,25 +2018,25 @@ export function validateMarkerForSpreadingImport(marker: Partial<MarkerRecord>):
   const mode = marker.markerMode ? normalizeMarkerMode(marker.markerMode as string) : null
   const templateType = mode ? deriveMarkerTemplateByMode(mode) : null
 
-  if (!mode) messages.push('唛架模式不能为空，不能发起铺布导入。')
+  if (!mode) messages.push('床次模式不能为空，不能发起铺布导入。')
   if (!marker.contextType) messages.push('上下文类型不能为空，不能发起铺布导入。')
   if (!(marker.originalCutOrderIds || []).length && !marker.mergeBatchId && !marker.mergeBatchNo) {
     messages.push('唛架必须至少关联原始裁片单或合并裁剪批次，才能导入铺布。')
   }
-  if (Number(marker.totalPieces || 0) <= 0) messages.push('唛架成衣件数必须大于 0，才能导入铺布。')
-  if (Number(marker.netLength || 0) <= 0) messages.push('唛架净长度不能为空，才能导入铺布。')
-  if (Number(marker.singlePieceUsage || 0) <= 0) messages.push('唛架单件用量不能为空，才能导入铺布。')
+  if (Number(marker.totalPieces || 0) <= 0) messages.push('床次成衣件数必须大于 0，才能导入铺布。')
+  if (Number(marker.netLength || 0) <= 0) messages.push('床次净长度不能为空，才能导入铺布。')
+  if (Number(marker.singlePieceUsage || 0) <= 0) messages.push('床次单件用量不能为空，才能导入铺布。')
 
   if (templateType === 'row-template' && !(marker.lineItems || []).length) {
-    messages.push('当前唛架缺少排版明细，不能导入铺布草稿。')
+    messages.push('当前方案床次缺少排版明细，不能导入铺布草稿。')
   }
 
   if (templateType === 'matrix-template') {
     if (!(marker.highLowCuttingRows || []).length) {
-      messages.push('高低层模式缺少裁剪明细矩阵，不能导入铺布草稿。')
+      messages.push('高低层床次缺少裁剪明细矩阵，不能导入铺布草稿。')
     }
     if (!(marker.highLowPatternRows || []).length) {
-      messages.push('高低层模式缺少模式分布矩阵，不能导入铺布草稿。')
+      messages.push('高低层排版缺少模式分布矩阵，不能导入铺布草稿。')
     }
   }
 
@@ -2174,11 +2213,11 @@ export function validateSpreadingCompletion(options: {
   }
 
   if (rolls.some((roll) => !String(roll.planUnitId || '').trim())) {
-    messages.push('存在卷记录尚未绑定排版项，当前不能完成铺布。')
+    messages.push('存在卷记录尚未绑定床次项，当前不能完成铺布。')
   }
 
   if (markerTotalPieces <= 0) {
-    messages.push('当前缺少唛架成衣件数，无法准确推导裁剪成衣件数，不能完成铺布。')
+    messages.push('当前缺少床次成衣件数，无法准确推导裁剪成衣件数，不能完成铺布。')
   }
 
   if (session.contextType === 'merge-batch' && !selectedOriginalCutOrderIds.length) {
@@ -2524,7 +2563,7 @@ export function buildOperatorAmountWarnings(
       warnings.push(`${operatorLabel} 缺少单价，当前无法形成完整金额。`)
     }
     if (handledPieceQty === null) {
-      warnings.push(`${operatorLabel} 缺少开始层 / 结束层或唛架成衣件数，当前无法计算负责成衣件数。`)
+      warnings.push(`${operatorLabel} 缺少开始层 / 结束层或床次成衣件数，当前无法计算负责成衣件数。`)
     }
     if (parseOptionalNumber(operator.handledLength) === null) {
       warnings.push(`${operatorLabel} 缺少负责长度。`)
@@ -2641,7 +2680,7 @@ export function buildRollHandoverWarnings(
       warnings.push(`${rollLabel} / ${operatorLabel} 缺少有效层数区间。`)
     }
     if (handledPieceQty === null) {
-      warnings.push(`${rollLabel} / ${operatorLabel} 无法计算负责成衣件数，请补录层数或唛架成衣件数。`)
+      warnings.push(`${rollLabel} / ${operatorLabel} 无法计算负责成衣件数，请补录层数或床次成衣件数。`)
     }
     if (parseOptionalNumber(operator.handledLength) === null) {
       warnings.push(`${rollLabel} / ${operatorLabel} 缺少负责长度。`)
@@ -2848,7 +2887,7 @@ export function buildSpreadingVarianceSummary(
   if (!session || !session.rolls.length) {
     replenishmentHint = '当前尚未录入铺布卷数据，补料判断仍需补录后确认。'
   } else if (shortageIndicator) {
-    replenishmentHint = '预计承载成衣件数低于唛架成衣件数，建议进入补料管理确认后回仓库待配料。'
+    replenishmentHint = '预计承载成衣件数低于床次成衣件数，建议进入补料管理确认后回仓库待配料。'
   } else if (coreMetrics.varianceLength < 0) {
     replenishmentHint = '总实际铺布长度超过已领取长度，建议复核差异并按需进入补料管理回仓库待配料。'
   }
@@ -2965,7 +3004,7 @@ export function buildReplenishmentPreview(summary: SpreadingVarianceSummary | nu
     return {
       level: 'MISSING',
       label: '数据待补录',
-      detailText: '当前唛架成衣件数（件）或铺布长度不足，需继续补录后再判断补料需求。',
+      detailText: '当前方案床次成衣件数（件）或铺布长度不足，需继续补录后再判断补料需求。',
       shortageIndicator: false,
     }
   }
@@ -3036,7 +3075,7 @@ export function buildSpreadingWarningMessages(options: {
       warnings.push(`${rollLabel} 缺少卷号或时间，铺布记录仍不完整。`)
     }
     if (Number(roll.layerCount || 0) <= 0 || options.markerTotalPieces <= 0) {
-      warnings.push(`${rollLabel} 缺少铺布层数或唛架成衣件数，实际裁剪成衣件数暂无法准确推导。`)
+      warnings.push(`${rollLabel} 缺少铺布层数或床次成衣件数，实际裁剪成衣件数暂无法准确推导。`)
     }
     if (!linkedOperators.length) {
       warnings.push(`${rollLabel} 缺少人员记录，无法追溯开始、交接与完成情况。`)
@@ -3547,6 +3586,21 @@ export function upsertSpreadingSession(session: SpreadingSession, store: MarkerS
     warningMessages: session.warningMessages || [],
     sourceMarkerId: session.sourceMarkerId || session.markerId || '',
     sourceMarkerNo: session.sourceMarkerNo || session.markerNo || '',
+    sourceSchemeId: session.sourceSchemeId || session.sourceMarkerId || session.markerId || '',
+    sourceSchemeNo: session.sourceSchemeNo || session.sourceMarkerNo || session.markerNo || '',
+    sourceBedId: session.sourceBedId || session.sourceMarkerId || session.markerId || '',
+    sourceBedNo: session.sourceBedNo || session.sourceMarkerNo || session.markerNo || '',
+    sourceBedMode: session.sourceBedMode || session.spreadingMode,
+    cuttingTableId: session.cuttingTableId || getDefaultCuttingTable().cuttingTableId,
+    cuttingTableNo: session.cuttingTableNo || getDefaultCuttingTable().cuttingTableNo,
+    cuttingTableName: session.cuttingTableName || getDefaultCuttingTable().cuttingTableName,
+    plannedStartAt: session.plannedStartAt || '',
+    plannedEndAt: session.plannedEndAt || '',
+    estimatedDurationMinutes: session.estimatedDurationMinutes || DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES,
+    actualStartAt: session.actualStartAt || '',
+    actualEndAt: session.actualEndAt || '',
+    actualDurationMinutes: session.actualDurationMinutes || 0,
+    tableScheduleStatus: session.tableScheduleStatus || '未排程',
     isExceptionBackfill: Boolean(session.isExceptionBackfill),
     exceptionReason: session.exceptionReason || '',
     ownerAccountId: session.ownerAccountId || '',

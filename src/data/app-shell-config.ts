@@ -361,7 +361,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
             { key: 'pfos-cutting-material-prep', title: '仓库配料领料', icon: 'PackageSearch', href: '/fcs/craft/cutting/material-prep' },
             { key: 'pfos-cutting-cuttable-pool', title: '可裁排产', icon: 'CalendarClock', href: '/fcs/craft/cutting/cuttable-pool' },
             { key: 'pfos-cutting-merge-batches', title: '合并裁剪批次', icon: 'Layers', href: '/fcs/craft/cutting/merge-batches' },
-            { key: 'pfos-cutting-marker-list', title: '唛架列表', icon: 'Ruler', href: '/fcs/craft/cutting/marker-list' },
+            { key: 'pfos-cutting-marker-list', title: '唛架方案列表', icon: 'Ruler', href: '/fcs/craft/cutting/marker-list' },
           ],
         },
         {

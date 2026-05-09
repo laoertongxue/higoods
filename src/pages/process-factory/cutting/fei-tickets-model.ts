@@ -125,7 +125,7 @@ export interface OriginalCutOrderTicketOwner {
   relatedMergeBatchIds: string[]
   relatedMergeBatchNos: string[]
   sourceContextLabel: string
-  ticketCountBasisType: 'SPREADING_RESULT' | 'HISTORICAL_FALLBACK'
+  ticketCountBasisType: 'SPREADING_RESULT' | 'WAITING_SPREADING_RESULT'
   ticketCountBasisLabel: string
   ticketCountBasisDetail: string
   currentStageLabel: string
@@ -298,7 +298,7 @@ export interface FeiTicketStatusMeta {
 }
 
 export interface TicketCountBasisResult {
-  basisType: 'SPREADING_RESULT' | 'HISTORICAL_FALLBACK'
+  basisType: 'SPREADING_RESULT' | 'WAITING_SPREADING_RESULT'
   ticketCount: number
   basisLabel: string
   detailText: string
@@ -494,9 +494,9 @@ function createSeedOwnerFromRow(options: {
     relatedMergeBatchIds: mergeBatchIds,
     relatedMergeBatchNos: mergeBatchNos,
     sourceContextLabel: mergeBatchNos[0] ? `来自批次 ${mergeBatchNos[0]}` : '原始单上下文',
-    ticketCountBasisType: 'HISTORICAL_FALLBACK',
-    ticketCountBasisLabel: '演示票数',
-    ticketCountBasisDetail: '当前样例仅供打印验收。',
+    ticketCountBasisType: 'WAITING_SPREADING_RESULT',
+    ticketCountBasisLabel: '待铺布完成',
+    ticketCountBasisDetail: '当前尚未形成正式铺布完成结果，不能生成菲票。',
     currentStageLabel: options.row.currentStage.label,
     cuttableStateLabel: options.row.cuttableState.label,
     riskLabels: options.row.riskTags.map((tag) => tag.label),
@@ -725,12 +725,12 @@ function normalizePrintJobPrintableUnit(printJob: FeiTicketPrintJob): FeiTicketP
     }
   }
 
-  const fallbackCutOrderId = printJob.originalCutOrderIds[0] || ''
-  const fallbackCutOrderNo = printJob.originalCutOrderNos[0] || ''
+  const sourceCutOrderId = printJob.originalCutOrderIds[0] || ''
+  const sourceCutOrderNo = printJob.originalCutOrderNos[0] || ''
   return {
     ...printJob,
-    printableUnitId: printJob.printableUnitId || (fallbackCutOrderId ? `cut-order:${fallbackCutOrderId}` : ''),
-    printableUnitNo: printJob.printableUnitNo || fallbackCutOrderNo,
+    printableUnitId: printJob.printableUnitId || (sourceCutOrderId ? `cut-order:${sourceCutOrderId}` : ''),
+    printableUnitNo: printJob.printableUnitNo || sourceCutOrderNo,
     printableUnitType: printJob.printableUnitType || 'CUT_ORDER',
   }
 }
@@ -854,19 +854,19 @@ export function resolveTicketCountBasis(
   const markerPieces = findRelevantMarkerPieceCount(owner, markerStore, context)
   if (markerPieces && markerPieces > 0) {
     return {
-      basisType: 'HISTORICAL_FALLBACK',
-      ticketCount: markerPieces,
-      basisLabel: '历史兜底',
-      detailText: `当前尚未命中正式铺布完成结果，暂按历史兜底 ${formatQty(markerPieces)} 件补足。`,
+      basisType: 'WAITING_SPREADING_RESULT',
+      ticketCount: 0,
+      basisLabel: '待铺布完成',
+      detailText: '已维护排唛架方案，但尚未形成正式铺布完成结果，不能生成菲票。',
     }
   }
 
-  const fallback = Math.max(1, Math.min(120, Math.round(Math.max(owner.orderQtyHint, 1) / 100)))
+  void owner.orderQtyHint
   return {
-    basisType: 'HISTORICAL_FALLBACK',
-    ticketCount: fallback,
-    basisLabel: '历史兜底',
-    detailText: '当前尚未形成完整铺布完成结果，暂按历史兜底补足。',
+    basisType: 'WAITING_SPREADING_RESULT',
+    ticketCount: 0,
+    basisLabel: '待铺布完成',
+    detailText: '当前尚未形成正式铺布完成结果，不能生成菲票。',
   }
 }
 
@@ -1174,7 +1174,7 @@ export function buildFeiTicketsViewModel(options: {
           spreadingResultTicketCount,
         )
       : {
-          basisType: 'HISTORICAL_FALLBACK' as const,
+          basisType: 'WAITING_SPREADING_RESULT' as const,
           ticketCount: 0,
           basisLabel: '未进入打印环节',
           detailText: '当前仍未完成配料、领料或铺布结果，不能生成菲票。',
@@ -1733,7 +1733,7 @@ export interface PrintableUnit {
   sourceCutOrderCount: number
   requiredTicketCount: number
   garmentQtyTotal: number
-  ticketCountBasisType: 'SPREADING_RESULT' | 'HISTORICAL_FALLBACK'
+  ticketCountBasisType: 'SPREADING_RESULT' | 'WAITING_SPREADING_RESULT'
   ticketCountBasisLabel: string
   ticketCountBasisDetail: string
   validPrintedTicketCount: number
@@ -2132,12 +2132,12 @@ function buildPrintableUnitFromBatch(options: {
   const ticketCountBasisType =
     ownerBasisTypes.length === 1 && ownerBasisTypes[0] === 'SPREADING_RESULT'
       ? 'SPREADING_RESULT'
-      : 'HISTORICAL_FALLBACK'
-  const ticketCountBasisLabel = ticketCountBasisType === 'SPREADING_RESULT' ? '铺布完成结果' : '历史兜底'
+      : 'WAITING_SPREADING_RESULT'
+  const ticketCountBasisLabel = ticketCountBasisType === 'SPREADING_RESULT' ? '铺布完成结果' : '待铺布完成'
   const ticketCountBasisDetail =
     ticketCountBasisType === 'SPREADING_RESULT'
       ? `当前按铺布完成结果汇总，按实际成衣件数拆分 ${formatQty(generatedRecords.length)} 张。`
-      : '当前尚未形成完整铺布完成结果，部分票数仍按历史兜底补足。'
+      : '当前尚未形成正式铺布完成结果，不能生成菲票。'
   const missingTicketCount = Math.max(requiredTicketCount - stats.validPrintedTicketCount, 0)
   const printableUnitStatus = derivePrintableUnitStatus({
     requiredTicketCount,

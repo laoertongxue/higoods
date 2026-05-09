@@ -231,9 +231,9 @@ export const routes: RouteRegistry = {
     '/fcs/craft/cutting/marker-spreading': () => renderCraftCuttingMarkerSpreadingPage(),
     '/fcs/craft/cutting/settlement-scoring': () => renderCuttingSettlementInputPage(),
     '/fcs/craft/cutting/marker-detail': () =>
-      renderRouteRedirect('/fcs/craft/cutting/marker-list', '正在跳转到唛架列表'),
+      renderRouteRedirect('/fcs/craft/cutting/marker-list', '正在跳转到唛架方案列表'),
     '/fcs/craft/cutting/marker-edit': () =>
-      renderRouteRedirect('/fcs/craft/cutting/marker-list', '正在跳转到唛架列表'),
+      renderRouteRedirect('/fcs/craft/cutting/marker-list', '正在跳转到唛架方案列表'),
     '/fcs/craft/cutting/spreading-detail': () => renderCraftCuttingSpreadingDetailPage(),
     '/fcs/craft/cutting/spreading-edit': () => renderCraftCuttingSpreadingEditPage(),
     '/fcs/craft/cutting/fei-tickets': () => renderCraftCuttingFeiTicketsPage(),

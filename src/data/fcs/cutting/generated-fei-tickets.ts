@@ -41,7 +41,7 @@ export interface SpreadingPieceOutputLine {
   actualCutPieceQty: number
   actualCutGarmentQty: number
   assemblyGroupKey: string
-  sourceBasisType: 'SPREADING_RESULT' | 'HISTORICAL_FALLBACK'
+  sourceBasisType: 'SPREADING_RESULT' | 'WAITING_SPREADING_RESULT'
   createdBy: string
   createdAt: string
 }
@@ -82,12 +82,12 @@ export interface GeneratedFeiTicketSourceRecord {
   printStatus: 'WAIT_PRINT' | 'PRINTED' | 'REPRINTED' | 'VOIDED'
   qty: number
   garmentQty: number
-  sourceTraceCompleteness: 'COMPLETE' | 'FALLBACK_INCOMPLETE'
+  sourceTraceCompleteness: 'COMPLETE' | 'WAITING_SPREADING_RESULT'
   secondaryCrafts: string[]
   craftSequenceVersion: string
   currentCraftStage: string
   sourceTechPackSpuCode: string
-  sourceBasisType: 'SPREADING_RESULT' | 'HISTORICAL_FALLBACK'
+  sourceBasisType: 'SPREADING_RESULT' | 'WAITING_SPREADING_RESULT'
   issuedAt: string
   qrPayload: FeiTicketQrPayload
   qrValue: string
@@ -116,8 +116,8 @@ export interface GeneratedFeiTicketTraceMatrixRow {
   assemblyGroupKey: string
   siblingPartTicketNos: string[]
   garmentQty: number
-  sourceBasisType: 'SPREADING_RESULT' | 'HISTORICAL_FALLBACK'
-  sourceTraceCompleteness: 'COMPLETE' | 'FALLBACK_INCOMPLETE'
+  sourceBasisType: 'SPREADING_RESULT' | 'WAITING_SPREADING_RESULT'
+  sourceTraceCompleteness: 'COMPLETE' | 'WAITING_SPREADING_RESULT'
   sourceWritebackId: string
 }
 
@@ -129,8 +129,8 @@ function unique(values: string[]): string[] {
   return Array.from(new Set(values.filter(Boolean)))
 }
 
-function normalizeBusinessText(value: string | null | undefined, fallback: string): string {
-  return normalizeText(value) || fallback
+function normalizeBusinessText(value: string | null | undefined, defaultText: string): string {
+  return normalizeText(value) || defaultText
 }
 
 function compareFeiRecords(left: GeneratedFeiTicketSourceRecord, right: GeneratedFeiTicketSourceRecord): number {
@@ -874,12 +874,12 @@ function buildFeiRecordsForOriginalOrder(
         printStatus: 'WAIT_PRINT',
         qty,
         garmentQty: qty,
-        sourceTraceCompleteness: 'FALLBACK_INCOMPLETE',
+        sourceTraceCompleteness: 'WAITING_SPREADING_RESULT',
         secondaryCrafts,
         craftSequenceVersion,
         currentCraftStage: secondaryCrafts[0] || '',
         sourceTechPackSpuCode: record.sourceTechPackSpuCode,
-        sourceBasisType: 'HISTORICAL_FALLBACK',
+        sourceBasisType: 'WAITING_SPREADING_RESULT',
         issuedAt,
         qrPayload: encoded.payload,
         qrValue: encoded.qrValue,
@@ -919,10 +919,6 @@ function buildGeneratedFeiTicketDataset(records: GeneratedFeiTicketSourceRecord[
   }
 }
 
-function buildFallbackFeiTickets(sourceRecords: GeneratedOriginalCutOrderSourceRecord[]): GeneratedFeiTicketSourceRecord[] {
-  return sourceRecords.flatMap((record) => buildFeiRecordsForOriginalOrder(record))
-}
-
 export function listSpreadingPieceOutputLines(
   sourceRecords: GeneratedOriginalCutOrderSourceRecord[] = listGeneratedOriginalCutOrderSourceRecords(),
 ): SpreadingPieceOutputLine[] {
@@ -944,20 +940,13 @@ function getGeneratedFeiTicketDataset(): GeneratedFeiTicketDataset {
   if (generatedFeiTicketDatasetCache) return generatedFeiTicketDatasetCache
 
   const sourceRecords = listGeneratedOriginalCutOrderSourceRecords()
-  const fallbackDataset = buildGeneratedFeiTicketDataset(buildFallbackFeiTickets(sourceRecords))
-  if (computingGeneratedFeiTicketDataset) return fallbackDataset
+  const emptyDataset = buildGeneratedFeiTicketDataset([])
+  if (computingGeneratedFeiTicketDataset) return emptyDataset
 
   computingGeneratedFeiTicketDataset = true
   try {
     const spreadingDrivenFeiTickets = buildFeiRecordsFromSpreadingSessions(sourceRecords)
-    const coveredFallbackSkuKeys = buildCoveredFallbackSkuKeySet(spreadingDrivenFeiTickets)
-    const fallbackFeiTickets = sourceRecords.flatMap((record) => {
-      const sourceKeyCovered = !filterFallbackSourceRecordsBySpreadingCoverage([record], spreadingDrivenFeiTickets).length
-      const uncoveredFallbackSkuKeys = resolveUncoveredFallbackSkuKeys(record, coveredFallbackSkuKeys)
-      if (sourceKeyCovered && uncoveredFallbackSkuKeys.size === 0) return []
-      return buildFeiRecordsForOriginalOrder(record, sourceKeyCovered ? uncoveredFallbackSkuKeys : undefined)
-    })
-    generatedFeiTicketDatasetCache = buildGeneratedFeiTicketDataset([...spreadingDrivenFeiTickets, ...fallbackFeiTickets])
+    generatedFeiTicketDatasetCache = buildGeneratedFeiTicketDataset(spreadingDrivenFeiTickets)
     return generatedFeiTicketDatasetCache
   } finally {
     computingGeneratedFeiTicketDataset = false

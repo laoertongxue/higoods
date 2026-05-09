@@ -23,12 +23,9 @@ import {
   type MarkerAllocationRow,
   type MarkerAllocationStatusKey,
   type MarkerFoldConfig,
-  type MarkerHighLowMatrixCell,
   type MarkerImageRecord,
-  type MarkerLayoutLine,
   type MarkerLayoutStatusKey,
   type MarkerMappingStatusKey,
-  type MarkerModeDetailLine,
   type MarkerPlan,
   type MarkerPlanAllocationLike,
   type MarkerPlanContextType,
@@ -37,6 +34,8 @@ import {
   type MarkerPlanStatusKey,
   type MarkerPlanTabKey,
   type MarkerPieceExplosionRow,
+  type MarkerSchemeBed,
+  type MarkerSchemeDemandRow,
   type MarkerSizeCode,
   type MarkerSizeRatioRow,
   buildMarkerAllocationDiffFormula,
@@ -52,11 +51,8 @@ import {
   computeMarkerExplodedPieceQty,
   computeMarkerFoldedEffectiveWidth,
   computeMarkerFoldWidthCheckPassed,
-  computeMarkerHighLowMatrixTotal,
   computeMarkerLayoutLineSpreadLength,
   computeMarkerLayoutLineSystemUnitUsage,
-  computeMarkerModeDetailSpreadLength,
-  computeMarkerModeDetailSystemUnitUsage,
   computeMarkerPlanFinalUnitUsage,
   computeMarkerPlanSystemUnitUsage,
   computeMarkerPlanTotalPieces,
@@ -89,6 +85,10 @@ function roundTo(value: number, precision: number): number {
 
 function safeNumber(value: number | null | undefined): number {
   return Number.isFinite(Number(value)) ? Number(value) : 0
+}
+
+function sum(values: number[]): number {
+  return values.reduce((total, value) => total + safeNumber(value), 0)
 }
 
 function nowText(input = new Date()): string {
@@ -154,11 +154,11 @@ function createMarkerNo(existingPlans: MarkerPlan[], now = new Date()): string {
   const dateKey = `${now.getFullYear()}${`${now.getMonth() + 1}`.padStart(2, '0')}${`${now.getDate()}`.padStart(2, '0')}`
   const sameDaySerials = existingPlans
     .map((plan) => plan.markerNo)
-    .filter((markerNo) => markerNo.startsWith(`MJ-${dateKey}`))
+    .filter((markerNo) => markerNo.startsWith(`MKP-${dateKey}`) || markerNo.startsWith(`MJ-${dateKey}`))
     .map((markerNo) => Number.parseInt(markerNo.split('-').pop() || '0', 10))
     .filter((serial) => Number.isFinite(serial))
   const nextSerial = Math.max(0, ...sameDaySerials) + 1
-  return `MJ-${dateKey}-${String(nextSerial).padStart(3, '0')}`
+  return `MKP-${dateKey}-${String(nextSerial).padStart(3, '0')}`
 }
 
 function buildContextKey(contextType: MarkerPlanContextType, contextId: string): string {
@@ -294,6 +294,41 @@ export function serializeMarkerPlanStorage(records: MarkerPlan[]): string {
   return JSON['stringify'](records)
 }
 
+export function getMarkerPlanStorageKey(): string {
+  return MARKER_PLAN_STORAGE_KEY
+}
+
+export function buildMarkerPlanContextTypeOptions(): Array<{ value: 'ALL' | MarkerPlanContextType; label: string }> {
+  return [
+    { value: 'ALL', label: '全部来源' },
+    { value: 'original-cut-order', label: '原始裁片单' },
+    { value: 'merge-batch', label: '合并裁剪批次' },
+  ]
+}
+
+export function buildMarkerPlanModeOptions(): Array<{ value: MarkerPlanModeKey; label: string }> {
+  return (['normal', 'high_low', 'fold_normal', 'fold_high_low'] as MarkerPlanModeKey[]).map((value) => ({
+    value,
+    label: markerPlanModeMeta[value].label,
+  }))
+}
+
+export function buildMarkerPlanListTabOptions(): Array<{ key: 'PENDING' | 'PLANS' | 'EXCEPTIONS'; label: string }> {
+  return [
+    { key: 'PENDING', label: '待建方案' },
+    { key: 'PLANS', label: '排唛架方案' },
+    { key: 'EXCEPTIONS', label: '异常待处理' },
+  ]
+}
+
+export function buildMarkerPlanGoSpreadingPath(plan: Pick<MarkerPlan, 'id' | 'markerNo'>): string {
+  const params = new URLSearchParams({
+    markerId: plan.id,
+    markerNo: plan.markerNo,
+  })
+  return `/fcs/craft/cutting/spreading-create?${params.toString()}`
+}
+
 export function deserializeMarkerPlanStorage(raw: string | null): MarkerPlan[] {
   if (!raw) return []
   try {
@@ -381,9 +416,9 @@ function getContextUrgencyLabel(rows: ProductionProgressRow[]): string {
 
 function buildContextTechPackStatusLabel(
   materialPrepRows: Array<Pick<MaterialPrepRow, 'techPackSpuCode'>>,
-  fallbackSpu: string,
+  spuCodeHint: string,
 ): string {
-  const techPackCodes = uniqueStrings([...materialPrepRows.map((row) => row.techPackSpuCode || ''), fallbackSpu])
+  const techPackCodes = uniqueStrings([...materialPrepRows.map((row) => row.techPackSpuCode || ''), spuCodeHint])
   if (!techPackCodes.length) return '待补'
   if (techPackCodes.length === 1) return '已关联'
   return '需人工确认'
@@ -645,47 +680,23 @@ export function buildCombinedMarkerPlanContextCandidate(
 }
 
 function buildMockImageSvg(label: string, accent: string): string {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="320" viewBox="0 0 640 320"><rect width="640" height="320" rx="20" fill="#F8FAFC"/><rect x="28" y="28" width="584" height="264" rx="16" fill="${accent}" fill-opacity="0.12" stroke="${accent}" stroke-width="3" stroke-dasharray="10 8"/><text x="48" y="96" font-size="26" font-family="Arial" fill="#0F172A">${label}</text><text x="48" y="144" font-size="16" font-family="Arial" fill="#475569">当前为系统预置唛架图，可替换为正式图片。</text><text x="48" y="188" font-size="16" font-family="Arial" fill="#475569">图片由上传或替换动作维护，不直接编辑图片地址。</text></svg>`
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="320" viewBox="0 0 640 320"><rect width="640" height="320" rx="20" fill="#F8FAFC"/><rect x="28" y="28" width="584" height="264" rx="16" fill="${accent}" fill-opacity="0.12" stroke="${accent}" stroke-width="3" stroke-dasharray="10 8"/><text x="48" y="96" font-size="26" font-family="Arial" fill="#0F172A">${label}</text><text x="48" y="152" font-size="16" font-family="Arial" fill="#475569">按正式版技术包颜色尺码生成</text></svg>`
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
 }
 
 function createImageRecord(planId: string, index: number, markerNo: string, note = ''): MarkerImageRecord {
+  const imageLabel = index === 1 ? '方案图' : '唛架明细图'
   return {
     id: `${planId}-image-${index}`,
     fileId: `${planId}-image-file-${index}`,
-    fileName: `${markerNo}-唛架图-${index}.svg`,
-    previewUrl: buildMockImageSvg(`${markerNo} · 唛架图 ${index}`, index % 2 === 0 ? '#2563EB' : '#7C3AED'),
+    fileName: `${markerNo}-${imageLabel}.svg`,
+    previewUrl: buildMockImageSvg(`${markerNo} · ${imageLabel}`, index % 2 === 0 ? '#2563EB' : '#7C3AED'),
     isPrimary: index === 1,
     note,
     uploadedAt: nowText(),
     uploadedBy: '计划员-陈静',
   }
 }
-
-function buildDefaultLayoutLines(planId: string, context: MarkerPlanContextCandidate, sizeRatioRows: MarkerSizeRatioRow[], netLength: number): MarkerLayoutLine[] {
-  const lines = context.sourceGeneratedRows.length ? context.sourceGeneratedRows : [{ colorScope: context.colorSummary.split(' / '), materialSku: context.materialSkuSummary }] as never[]
-  const totalPieces = computeMarkerPlanTotalPieces(sizeRatioRows)
-  return lines.slice(0, Math.max(1, Math.min(lines.length, 3))).map((row, index) => {
-    const markerPieceQty = Math.max(Math.round(totalPieces / Math.max(Math.min(lines.length, 3), 1)), 1)
-    const markerLength = roundTo(netLength / Math.max(Math.min(lines.length, 3), 1), 2)
-    const repeatCount = Math.max(index === 0 ? 2 : 1, 1)
-    return {
-      id: `${planId}-layout-${index + 1}`,
-      lineNo: index + 1,
-      layoutCode: `LAY-${index + 1}`,
-      ratioNote: sizeRatioRows.filter((item) => item.qty > 0).map((item) => `${item.sizeCode}×${item.qty}`).join(' / ') || '待补配比',
-      colorCode: (row as GeneratedOriginalCutOrderSourceRecord).colorScope?.[0] || context.colorSummary.split(' / ')[0] || '主色',
-      repeatCount,
-      markerLength,
-      markerPieceQty,
-      systemUnitUsage: computeMarkerLayoutLineSystemUnitUsage({ markerLength, markerPieceQty }),
-      spreadLength: computeMarkerLayoutLineSpreadLength({ markerLength, repeatCount }, DEFAULT_SINGLE_SPREAD_FIXED_LOSS),
-      widthCode: index % 2 === 0 ? '160cm' : '170cm',
-      note: `${context.materialSkuSummary} 默认排版线`,
-    }
-  })
-}
-
 function buildDefaultFoldConfig(context: MarkerPlanContextCandidate): MarkerFoldConfig {
   const originalEffectiveWidth = context.materialSkuSummary.includes('LINING') ? 150 : 168
   const foldAllowance = 2
@@ -703,38 +714,6 @@ function buildDefaultFoldConfig(context: MarkerPlanContextCandidate): MarkerFold
     widthCheckPassed: computeMarkerFoldWidthCheckPassed({ foldedEffectiveWidth, maxLayoutWidth }),
   }
 }
-
-function buildDefaultHighLowMatrixCells(sizeRatioRows: MarkerSizeRatioRow[]): MarkerHighLowMatrixCell[] {
-  return ['高层', '低层'].flatMap((sectionName, sectionIndex) =>
-    sizeRatioRows.map((row) => ({
-      sectionType: sectionIndex === 0 ? 'HIGH' : 'LOW',
-      sectionName,
-      sizeCode: row.sizeCode,
-      qty: Math.max(Math.floor(row.qty / 2), row.qty > 0 && sectionIndex === 0 ? 1 : 0),
-    })),
-  )
-}
-
-function buildDefaultModeDetailLines(planId: string, context: MarkerPlanContextCandidate, sizeRatioRows: MarkerSizeRatioRow[], netLength: number): MarkerModeDetailLine[] {
-  const totalPieces = Math.max(computeMarkerHighLowMatrixTotal(buildDefaultHighLowMatrixCells(sizeRatioRows)), 1)
-  return ['高层模式', '低层模式'].map((modeName, index) => {
-    const markerPieceQty = Math.max(Math.round(totalPieces / 2), 1)
-    const markerLength = roundTo(netLength / 2 + index * 0.2, 2)
-    const repeatCount = index === 0 ? 2 : 1
-    return {
-      id: `${planId}-mode-${index + 1}`,
-      modeName,
-      colorCode: context.colorSummary.split(' / ')[index] || context.colorSummary.split(' / ')[0] || '主色',
-      repeatCount,
-      markerLength,
-      markerPieceQty,
-      systemUnitUsage: computeMarkerModeDetailSystemUnitUsage({ markerLength, markerPieceQty }),
-      spreadLength: computeMarkerModeDetailSpreadLength({ markerLength, repeatCount }, DEFAULT_SINGLE_SPREAD_FIXED_LOSS),
-      note: `${modeName} 默认铺布模式`,
-    }
-  })
-}
-
 function buildAutoAllocationRows(context: MarkerPlanContextCandidate, sizeRatioRows: MarkerSizeRatioRow[]): MarkerAllocationRow[] {
   const remaining = Object.fromEntries(MARKER_SIZE_CODES.map((sizeCode) => [sizeCode, 0])) as Record<MarkerSizeCode, number>
   sizeRatioRows.forEach((row) => {
@@ -767,6 +746,110 @@ function buildAutoAllocationRows(context: MarkerPlanContextCandidate, sizeRatioR
     })
   })
   return rows
+}
+
+function buildSchemeDemandRowsFromContext(context: MarkerPlanContextCandidate): MarkerSchemeDemandRow[] {
+  return context.sourceGeneratedRows.flatMap((sourceRow) =>
+    sourceRow.skuScopeLines.map((skuLine, index) => {
+      const sizeCode = normalizeMarkerSizeCode(skuLine.size) || 'M'
+      const qty = Math.max(safeNumber(skuLine.plannedQty), 0)
+      return {
+        rowId: `${sourceRow.originalCutOrderId}-${sourceRow.materialSku}-${skuLine.skuCode || index + 1}`,
+        sourceOrderId: sourceRow.originalCutOrderId,
+        sourceOrderNo: sourceRow.originalCutOrderNo,
+        productionOrderNo: sourceRow.productionOrderNo,
+        spuCode: context.spuCode,
+        colorCode: skuLine.color,
+        colorName: skuLine.color,
+        sizeCode,
+        sizeName: sizeCode,
+        materialSku: sourceRow.materialSku,
+        partName: sourceRow.pieceSummary || '裁片',
+        demandQty: qty,
+        plannedQty: 0,
+        remainingQty: qty,
+      }
+    }),
+  )
+}
+
+function buildCoverageRowsFromDemandRows(
+  rows: MarkerSchemeDemandRow[],
+  colorName: string,
+): MarkerSchemeBed['coverageRows'] {
+  return rows
+    .filter((row) => (row.colorName || row.colorCode) === colorName)
+    .map((row, index) => ({
+      rowId: `${row.rowId}-coverage-${index + 1}`,
+      colorCode: row.colorCode,
+      colorName: row.colorName || row.colorCode,
+      sizeCode: row.sizeCode,
+      sizeName: row.sizeName || row.sizeCode,
+      demandQty: row.demandQty,
+      plannedQty: 0,
+      remainingQty: row.demandQty,
+    }))
+}
+
+function buildDefaultSchemeBeds(options: {
+  planId: string
+  markerNo: string
+  markerMode: MarkerPlanModeKey
+  context: MarkerPlanContextCandidate
+  demandRows: MarkerSchemeDemandRow[]
+  plannedLayerCount: number
+  netLength: number
+  singleSpreadFixedLoss: number
+  foldConfig: MarkerFoldConfig | null
+}): MarkerSchemeBed[] {
+  const colors = uniqueStrings(options.demandRows.map((row) => row.colorName || row.colorCode))
+  const activeColors = colors.length ? colors.slice(0, 2) : []
+  const prefix = options.markerMode === 'high_low' || options.markerMode === 'fold_high_low' ? 'B' : 'A'
+
+  return activeColors.map((colorName, index) => {
+    const coverageRows = buildCoverageRowsFromDemandRows(options.demandRows, colorName)
+    const demandQty = sum(coverageRows.map((row) => row.demandQty))
+    const markerLength = roundTo(Math.max(options.netLength / Math.max(activeColors.length, 1), 1), 2)
+    const markerPieceQtyPerLayer = Math.max(Math.ceil(demandQty / Math.max(options.plannedLayerCount, 1)), 1)
+    const repeatCount = 1
+    const spreadTotalLength = computeMarkerLayoutLineSpreadLength(
+      { markerLength, repeatCount },
+      options.singleSpreadFixedLoss,
+    )
+    const plannedGarmentQty = markerPieceQtyPerLayer * repeatCount
+    const unitFabricUsage = computeMarkerLayoutLineSystemUnitUsage({ markerLength, markerPieceQty: markerPieceQtyPerLayer })
+    return {
+      bedId: `${options.planId}-bed-${index + 1}`,
+      schemeId: options.planId,
+      schemeNo: options.markerNo,
+      bedNo: `${prefix}-${index + 1}`,
+      bedName: `${prefix}-${index + 1}`,
+      bedSortOrder: index + 1,
+      bedMode: options.markerMode,
+      colorCode: colorName,
+      colorName,
+      materialSku: options.context.materialSkuSummary.split(' / ')[0] || options.context.materialSkuSummary,
+      sizeSummaryText: coverageRows.map((row) => row.sizeName || row.sizeCode).filter(Boolean).join(' / '),
+      plannedLayerCount: options.plannedLayerCount,
+      markerLength,
+      markerPieceQtyPerLayer,
+      repeatCount,
+      plannedGarmentQty,
+      spreadTotalLength,
+      unitFabricUsage,
+      normalLayoutRows: [],
+      highLowMatrixRows: [],
+      foldConfig: options.markerMode === 'fold_normal' || options.markerMode === 'fold_high_low' ? options.foldConfig : null,
+      coverageRows,
+      bedImage: null,
+      spreadingSessionIds: [],
+      assignedCuttingTableIds: [],
+      status: '可铺布',
+      readyForSpreading: true,
+      lockedBySpreading: false,
+      remark: '',
+    }
+  })
 }
 
 function adaptPlanToMarkerExplosionInput(plan: MarkerPlan): MarkerPlanLike {
@@ -905,34 +988,15 @@ export function hydrateMarkerPlan(plan: MarkerPlan, context: MarkerPlanContextCa
     qty: Math.max(safeNumber(row.qty), 0),
     sortOrder: index + 1,
   }))
-  const totalPieces = computeMarkerPlanTotalPieces(sizeRatioRows)
-  const layoutLines = plan.layoutLines.map((line, index) => {
-    const markerLength = roundTo(safeNumber(line.markerLength), 2)
-    const markerPieceQty = Math.max(safeNumber(line.markerPieceQty), 0)
-    const repeatCount = Math.max(safeNumber(line.repeatCount), 0)
-    return {
-      ...line,
-      lineNo: index + 1,
-      markerLength,
-      markerPieceQty,
-      repeatCount,
-      systemUnitUsage: computeMarkerLayoutLineSystemUnitUsage({ markerLength, markerPieceQty }),
-      spreadLength: computeMarkerLayoutLineSpreadLength({ markerLength, repeatCount }, plan.singleSpreadFixedLoss),
-    }
-  })
-  const modeDetailLines = plan.modeDetailLines.map((line) => {
-    const markerLength = roundTo(safeNumber(line.markerLength), 2)
-    const markerPieceQty = Math.max(safeNumber(line.markerPieceQty), 0)
-    const repeatCount = Math.max(safeNumber(line.repeatCount), 0)
-    return {
-      ...line,
-      markerLength,
-      markerPieceQty,
-      repeatCount,
-      systemUnitUsage: computeMarkerModeDetailSystemUnitUsage({ markerLength, markerPieceQty }),
-      spreadLength: computeMarkerModeDetailSpreadLength({ markerLength, repeatCount }, plan.singleSpreadFixedLoss),
-    }
-  })
+  const schemeDemandRows = (plan.schemeDemandRows || []).map((row) => ({
+    ...row,
+    demandQty: Math.max(safeNumber(row.demandQty), 0),
+    plannedQty: Math.max(safeNumber(row.plannedQty), 0),
+    remainingQty: Math.max(safeNumber(row.remainingQty), 0),
+  }))
+  const totalPieces = sum(schemeDemandRows.map((row) => row.demandQty))
+  const layoutLines: MarkerPlan['layoutLines'] = []
+  const modeDetailLines: MarkerPlan['modeDetailLines'] = []
   const foldConfig = hydrateFoldConfig(plan.foldConfig)
   const netLength = roundTo(safeNumber(plan.netLength), 2)
   const systemUnitUsage = computeMarkerPlanSystemUnitUsage(netLength, totalPieces)
@@ -958,21 +1022,41 @@ export function hydrateMarkerPlan(plan: MarkerPlan, context: MarkerPlanContextCa
     },
     context,
   )
-  const plannedSpreadLength = computeMarkerPlannedSpreadLength({
-    markerMode: plan.markerMode,
-    layoutLines,
-    modeDetailLines,
-    singleSpreadFixedLoss: plan.singleSpreadFixedLoss,
-  } as MarkerPlan)
+  const beds = (plan.beds || []).map((bed, index) => {
+    const markerLength = roundTo(safeNumber(bed.markerLength), 2)
+    const markerPieceQtyPerLayer = Math.max(Math.round(safeNumber(bed.markerPieceQtyPerLayer)), 0)
+    const repeatCount = Math.max(Math.round(safeNumber(bed.repeatCount)), 0)
+    const plannedLayerCount = Math.max(Math.round(safeNumber(bed.plannedLayerCount)), 0)
+    const spreadTotalLength = computeMarkerLayoutLineSpreadLength({ markerLength, repeatCount }, plan.singleSpreadFixedLoss)
+    const plannedGarmentQty = markerPieceQtyPerLayer * repeatCount
+    const unitFabricUsage = computeMarkerLayoutLineSystemUnitUsage({ markerLength, markerPieceQty: markerPieceQtyPerLayer })
+    const readyForSpreading = markerLength > 0 && markerPieceQtyPerLayer > 0 && repeatCount > 0 && plannedLayerCount > 0 && bed.coverageRows.length > 0
+    return {
+      ...bed,
+      schemeId: plan.schemeId || plan.id,
+      schemeNo: plan.schemeNo || plan.markerNo,
+      bedSortOrder: index + 1,
+      bedName: bed.bedName || bed.bedNo,
+      colorName: bed.colorName || bed.colorCode,
+      materialSku: bed.materialSku || plan.sourceMaterialSku || plan.materialSkuSummary,
+      sizeSummaryText: bed.coverageRows.map((row) => row.sizeName || row.sizeCode).filter(Boolean).join(' / '),
+      plannedLayerCount,
+      markerLength,
+      markerPieceQtyPerLayer,
+      repeatCount,
+      plannedGarmentQty,
+      spreadTotalLength,
+      unitFabricUsage,
+      foldConfig: bed.bedMode === 'fold_normal' || bed.bedMode === 'fold_high_low' ? foldConfig : null,
+      readyForSpreading,
+      status: readyForSpreading ? bed.status === '已完成' || bed.status === '已排程' || bed.status === '铺布中' || bed.status === '已锁定' ? bed.status : '可铺布' : '草稿',
+    }
+  })
+  const plannedSpreadLength = sum(beds.map((bed) => bed.spreadTotalLength))
   const allocationStatus = deriveMarkerAllocationStatus(sizeRatioRows, allocationRows)
   const mappingStatus = deriveMarkerMappingStatus(pieceExplosionRows)
-  const layoutStatus = deriveMarkerLayoutStatus({
-    markerMode: plan.markerMode,
-    layoutLines,
-    modeDetailLines,
-    foldConfig,
-  } as MarkerPlan)
-  const imageStatus = deriveMarkerImageStatus(plan.imageRecords.length)
+  const layoutStatus: MarkerLayoutStatusKey = beds.length > 0 && beds.every((bed) => bed.readyForSpreading) ? 'done' : 'pending'
+  const imageStatus = plan.schemeImage || plan.detailImage || plan.imageRecords.length ? deriveMarkerImageStatus(1) : deriveMarkerImageStatus(0)
   const derivedReadyForSpreading = deriveMarkerReadyForSpreading({
     totalPieces,
     netLength,
@@ -997,6 +1081,8 @@ export function hydrateMarkerPlan(plan: MarkerPlan, context: MarkerPlanContextCa
     systemUnitUsage,
     finalUnitUsage,
     plannedSpreadLength,
+    schemeDemandRows,
+    beds,
     sizeRatioRows,
     allocationRows,
     layoutLines,
@@ -1030,6 +1116,10 @@ function buildBalanceRows(plan: MarkerPlan): MarkerPlanBalanceSummaryRow[] {
       diffFormula: buildMarkerAllocationDiffFormula(sizeCode, plan.sizeRatioRows, plan.allocationRows),
     }
   })
+}
+
+export function buildMarkerPlanBalanceRows(plan: MarkerPlan): MarkerPlanBalanceSummaryRow[] {
+  return buildBalanceRows(plan)
 }
 
 function buildExplosionSummary(plan: MarkerPlan): MarkerPlanExplosionSummary {
@@ -1121,7 +1211,7 @@ function buildPlanViewRow(
     sourceOriginalOrderCountText: `${sourceOriginalOrderCount} 张`,
     sourceProductionOrderCountText: `${sourceProductionOrderCount} 单`,
     referenceWarningText: isReferencedBySpreading
-      ? '当前唛架已被铺布引用。若修改配比、分配、排版结构，建议复制为新唛架。'
+      ? '当前方案床次已被铺布引用。若修改配比、分配、床次结构，建议复制为新方案。'
       : '',
     isReferencedBySpreading,
     skuTypeCountText: `${explosionSummary.skuTypeCount}`,
@@ -1144,22 +1234,38 @@ function createPlanFromContext(options: {
   const allocationRows = buildAutoAllocationRows(options.context, sizeRatioRows)
   const markerMode = options.markerMode || 'normal'
   const planId = `marker-plan-${now.getTime()}-${Math.random().toString(36).slice(2, 8)}`
-  const layoutLines = markerMode === 'normal' || markerMode === 'fold_normal'
-    ? buildDefaultLayoutLines(planId, options.context, sizeRatioRows, netLength)
-    : []
-  const highLowMatrixCells = markerMode === 'high_low' || markerMode === 'fold_high_low'
-    ? buildDefaultHighLowMatrixCells(sizeRatioRows)
-    : []
-  const modeDetailLines = markerMode === 'high_low' || markerMode === 'fold_high_low'
-    ? buildDefaultModeDetailLines(planId, options.context, sizeRatioRows, netLength)
-    : []
   const foldConfig = markerMode === 'fold_normal' || markerMode === 'fold_high_low'
     ? buildDefaultFoldConfig(options.context)
     : null
+  const schemeDemandRows = buildSchemeDemandRowsFromContext(options.context)
+  const plannedLayerCount = Math.max(Math.ceil(totalPieces / 40), 1)
+  const beds = buildDefaultSchemeBeds({
+    planId,
+    markerNo,
+    markerMode,
+    context: options.context,
+    demandRows: schemeDemandRows,
+    plannedLayerCount,
+    netLength,
+    singleSpreadFixedLoss: DEFAULT_SINGLE_SPREAD_FIXED_LOSS,
+    foldConfig,
+  })
 
   const plan: MarkerPlan = {
     id: planId,
     markerNo,
+    schemeId: planId,
+    schemeNo: markerNo,
+    schemeName: markerNo,
+    techPackId: options.context.techPackSpu || options.context.spuCode,
+    techPackVersion: options.context.techPackStatusLabel || '正式版',
+    techPackStatus: '正式版',
+    schemeDemandRows,
+    beds,
+    schemeImage: null,
+    detailImage: null,
+    schemeImageStatus: '待生成',
+    schemeSpreadingStatus: '未排程',
     status: 'WAITING_IMAGE',
     markerMode,
     contextType: options.context.contextType,
@@ -1185,7 +1291,7 @@ function createPlanFromContext(options: {
     manualUnitUsage: null,
     finalUnitUsage: 0,
     plannedSpreadLength: 0,
-    plannedLayerCount: Math.max(Math.ceil(totalPieces / 40), 1),
+    plannedLayerCount,
     imageCount: 0,
     allocationStatus: 'pending',
     mappingStatus: 'pending',
@@ -1202,15 +1308,55 @@ function createPlanFromContext(options: {
     singleSpreadFixedLoss: DEFAULT_SINGLE_SPREAD_FIXED_LOSS,
     sizeRatioRows,
     allocationRows,
-    layoutLines,
+    layoutLines: [],
     foldConfig,
-    highLowMatrixCells,
-    modeDetailLines,
+    highLowMatrixCells: [],
+    modeDetailLines: [],
     pieceExplosionRows: [],
     imageRecords: [],
     lastVisitedTab: 'basic',
   }
   return hydrateMarkerPlan(plan, options.context)
+}
+
+export function cloneMarkerPlanAsNewDraft(source: MarkerPlan, existingPlans: MarkerPlan[]): MarkerPlan {
+  const now = new Date()
+  const planId = `marker-plan-${now.getTime()}-${Math.random().toString(36).slice(2, 8)}`
+  const markerNo = createMarkerNo(existingPlans, now)
+  const clonedBeds = (source.beds || []).map((bed, index) => ({
+    ...bed,
+    bedId: `${planId}-bed-${index + 1}`,
+    schemeId: planId,
+    schemeNo: markerNo,
+    bedSortOrder: index + 1,
+    status: '草稿' as const,
+    readyForSpreading: false,
+    lockedBySpreading: false,
+    spreadingSessionIds: [],
+    assignedCuttingTableIds: [],
+  }))
+  return {
+    ...source,
+    id: planId,
+    markerNo,
+    schemeId: planId,
+    schemeNo: markerNo,
+    schemeName: markerNo,
+    status: 'WAITING_LAYOUT',
+    readyForSpreading: false,
+    beds: clonedBeds,
+    schemeImage: null,
+    detailImage: null,
+    schemeImageStatus: '待生成',
+    schemeSpreadingStatus: '未排程',
+    imageRecords: [],
+    imageCount: 0,
+    createdAt: nowText(now),
+    updatedAt: nowText(now),
+    createdBy: '计划员-陈静',
+    updatedBy: '计划员-陈静',
+    lastVisitedTab: 'layout',
+  }
 }
 
 type SeedVariantKey = 'ready' | 'unbalanced' | 'mapping' | 'layout' | 'image' | 'manual'
@@ -1267,9 +1413,9 @@ function buildSeedVariants(contexts: MarkerPlanContextCandidate[]): Array<{ cont
       usedContextKeys.add(nextUnused.contextKey)
       return nextUnused
     }
-    const fallback = (contextType === 'merge-batch' ? mergeContexts : originalContexts)[0] || contexts[0] || null
-    if (fallback) usedContextKeys.add(fallback.contextKey)
-    return fallback
+    const backupContext = (contextType === 'merge-batch' ? mergeContexts : originalContexts)[0] || contexts[0] || null
+    if (backupContext) usedContextKeys.add(backupContext.contextKey)
+    return backupContext
   }
 
   const seedItems = [
@@ -1354,16 +1500,16 @@ function buildSeedVariants(contexts: MarkerPlanContextCandidate[]): Array<{ cont
 function applySeedVariant(plan: MarkerPlan, variant: SeedVariantKey, context: MarkerPlanContextCandidate): MarkerPlan {
   let nextPlan: MarkerPlan = {
     ...plan,
-    imageRecords: [createImageRecord(plan.id, 1, plan.markerNo, '系统预置唛架图')],
+    imageRecords: [createImageRecord(plan.id, 1, plan.markerNo, '系统预置方案图')],
     hasAdjustment: variant === 'mapping',
     adjustmentNote: variant === 'mapping' ? '当前样例用于演示技术包映射异常人工确认。' : '',
-    remark: variant === 'ready' ? '当前唛架可直接交接铺布。' : '当前为计划层样例唛架。',
+    remark: variant === 'ready' ? '当前方案可直接交接铺布。' : '当前为计划层样例方案。',
   }
 
   if (variant === 'unbalanced' && nextPlan.allocationRows[0]) {
     nextPlan = {
       ...nextPlan,
-      imageRecords: [createImageRecord(plan.id, 1, plan.markerNo, '待配平样例图')],
+      imageRecords: [createImageRecord(plan.id, 1, plan.markerNo, '待配平方案图')],
       allocationRows: nextPlan.allocationRows.map((row, index) =>
         index === 0 ? { ...row, garmentQty: Math.max(row.garmentQty - 1, 0) } : row,
       ),
@@ -1390,9 +1536,18 @@ function applySeedVariant(plan: MarkerPlan, variant: SeedVariantKey, context: Ma
   if (variant === 'layout') {
     nextPlan = {
       ...nextPlan,
-      imageRecords: [createImageRecord(plan.id, 1, plan.markerNo, '待排版样例图')],
-      layoutLines: nextPlan.markerMode === 'normal' || nextPlan.markerMode === 'fold_normal' ? [] : nextPlan.layoutLines,
-      modeDetailLines: nextPlan.markerMode === 'high_low' || nextPlan.markerMode === 'fold_high_low' ? [] : nextPlan.modeDetailLines,
+      imageRecords: [createImageRecord(plan.id, 1, plan.markerNo, '待补床次样例图')],
+      beds: nextPlan.beds?.map((bed, index) =>
+        index === 0
+          ? {
+              ...bed,
+              markerLength: 0,
+              markerPieceQtyPerLayer: 0,
+              readyForSpreading: false,
+              status: '草稿',
+            }
+          : bed,
+      ) || [],
       foldConfig:
         nextPlan.foldConfig && (nextPlan.markerMode === 'fold_normal' || nextPlan.markerMode === 'fold_high_low')
           ? {
@@ -1621,6 +1776,12 @@ export function findMarkerPlanContextForPlan(
   return findMarkerPlanContextById(contexts, plan.contextType, contextId)
 }
 
+export function getMarkerPlanReferencedWarning(
+  plan: Pick<MarkerPlanViewRow, 'isReferencedBySpreading' | 'referenceWarningText'>,
+): string {
+  return plan.isReferencedBySpreading ? plan.referenceWarningText : ''
+}
+
 function listUsedContextKeysForPlan(
   contexts: MarkerPlanContextCandidate[],
   plan: Pick<MarkerPlan, 'contextType' | 'mergeBatchId' | 'mergeBatchNo' | 'originalCutOrderIds'>,
@@ -1685,82 +1846,6 @@ export function createEmptyMarkerPlanAllocationRow(
     specialFlags: [],
   }
 }
-
-export function createEmptyMarkerPlanLayoutLine(
-  plan: MarkerPlan,
-  context: MarkerPlanContextCandidate,
-): MarkerLayoutLine {
-  return {
-    id: `${plan.id}-layout-${plan.layoutLines.length + 1}`,
-    lineNo: plan.layoutLines.length + 1,
-    layoutCode: `LAY-${plan.layoutLines.length + 1}`,
-    ratioNote:
-      plan.sizeRatioRows.filter((row) => row.qty > 0).map((row) => `${row.sizeCode}×${row.qty}`).join(' / ') || '待补配比',
-    colorCode: context.colorSummary.split(' / ')[0] || '主色',
-    repeatCount: 1,
-    markerLength: 0,
-    markerPieceQty: 0,
-    systemUnitUsage: 0,
-    spreadLength: 0,
-    widthCode: '',
-    note: '',
-  }
-}
-
-export function createEmptyMarkerPlanModeDetailLine(
-  plan: MarkerPlan,
-  context: MarkerPlanContextCandidate,
-): MarkerModeDetailLine {
-  return {
-    id: `${plan.id}-mode-${plan.modeDetailLines.length + 1}`,
-    modeName: `模式 ${plan.modeDetailLines.length + 1}`,
-    colorCode: context.colorSummary.split(' / ')[0] || '主色',
-    repeatCount: 1,
-    markerLength: 0,
-    markerPieceQty: 0,
-    systemUnitUsage: 0,
-    spreadLength: 0,
-    note: '',
-  }
-}
-
-export function cloneMarkerPlanAsNewDraft(plan: MarkerPlanViewRow, existingPlans: MarkerPlan[], now = new Date()): MarkerPlan {
-  const markerNo = createMarkerNo(existingPlans, now)
-  return {
-    ...plan,
-    id: `marker-plan-${now.getTime()}-${Math.random().toString(36).slice(2, 8)}`,
-    markerNo,
-    status: deriveMarkerPlanStatus({
-      allocationStatus: plan.allocationStatus,
-      mappingStatus: plan.mappingStatus,
-      layoutStatus: plan.layoutStatus,
-      imageStatus: plan.imageStatus,
-      readyForSpreading: plan.readyForSpreading,
-    }),
-    readyForSpreading: plan.readyForSpreading,
-    createdAt: nowText(now),
-    createdBy: '计划员-陈静',
-    updatedAt: nowText(now),
-    updatedBy: '计划员-陈静',
-    imageRecords: plan.imageRecords.map((record, index) => ({
-      ...record,
-      id: `${markerNo}-image-${index + 1}`,
-      fileId: `${markerNo}-image-file-${index + 1}`,
-      fileName: `${markerNo}-唛架图-${index + 1}.svg`,
-      uploadedAt: nowText(now),
-      uploadedBy: '计划员-陈静',
-    })),
-    lastVisitedTab: 'basic',
-  }
-}
-
-export function buildMarkerPlanBalanceRows(plan: MarkerPlan | MarkerPlanViewRow): MarkerPlanBalanceSummaryRow[] {
-  if ('balanceRows' in plan && Array.isArray(plan.balanceRows)) {
-    return plan.balanceRows
-  }
-  return buildBalanceRows(plan)
-}
-
 export function createMarkerPlanImage(plan: MarkerPlan, action: 'upload' | 'replace-primary'): MarkerPlan {
   const nextImage = createImageRecord(plan.id, plan.imageRecords.length + 1, plan.markerNo, action === 'upload' ? '新上传示例图' : '替换主图')
   if (action === 'upload' || !plan.imageRecords.length) {
@@ -1820,80 +1905,6 @@ export function replaceMarkerPlanImage(plan: MarkerPlan, imageId: string): Marke
     updatedBy: '计划员-陈静',
   }
 }
-
-export function cloneMarkerPlanLayoutLine(plan: MarkerPlan, layoutId: string): MarkerLayoutLine | null {
-  const source = plan.layoutLines.find((line) => line.id === layoutId)
-  if (!source) return null
-  return {
-    ...source,
-    id: `${plan.id}-layout-${plan.layoutLines.length + 1}`,
-    lineNo: plan.layoutLines.length + 1,
-    layoutCode: source.layoutCode ? `${source.layoutCode}-COPY` : `LAY-${plan.layoutLines.length + 1}`,
-  }
-}
-
-export function cloneMarkerPlanModeDetailLine(plan: MarkerPlan, modeDetailId: string): MarkerModeDetailLine | null {
-  const source = plan.modeDetailLines.find((line) => line.id === modeDetailId)
-  if (!source) return null
-  return {
-    ...source,
-    id: `${plan.id}-mode-${plan.modeDetailLines.length + 1}`,
-    modeName: source.modeName ? `${source.modeName}-复制` : `模式 ${plan.modeDetailLines.length + 1}`,
-  }
-}
-
-export function buildMarkerPlanGoSpreadingPath(plan: MarkerPlan): string {
-  const basePath = '/fcs/craft/cutting/spreading-create'
-  if (plan.contextType === 'merge-batch' && plan.mergeBatchId) {
-    const params = new URLSearchParams({
-      markerId: plan.id,
-      markerNo: plan.markerNo,
-      mergeBatchId: plan.mergeBatchId,
-      mergeBatchNo: plan.mergeBatchNo,
-    })
-    return `${basePath}?${params.toString()}`
-  }
-  const firstOriginalCutOrderId = plan.originalCutOrderIds[0]
-  const firstOriginalCutOrderNo = plan.originalCutOrderNos[0] || ''
-  const params = new URLSearchParams({
-    markerId: plan.id,
-    markerNo: plan.markerNo,
-    originalCutOrderId: firstOriginalCutOrderId,
-    originalCutOrderNo: firstOriginalCutOrderNo,
-  })
-  return `${basePath}?${params.toString()}`
-}
-
-export function getMarkerPlanStorageKey(): string {
-  return MARKER_PLAN_STORAGE_KEY
-}
-
-export function buildMarkerPlanContextTypeOptions() {
-  return [
-    { value: 'original-cut-order', label: '原始裁片单' },
-    { value: 'merge-batch', label: '合并裁剪批次' },
-  ] as const
-}
-
-export function buildMarkerPlanModeOptions() {
-  return (Object.keys(markerPlanModeMeta) as MarkerPlanModeKey[]).map((key) => ({
-    value: key,
-    label: markerPlanModeMeta[key].label,
-  }))
-}
-
-export function buildMarkerPlanListTabOptions() {
-  return [
-    { value: 'PENDING', label: '待建上下文' },
-    { value: 'PLANS', label: '已建唛架' },
-    { value: 'EXCEPTIONS', label: '异常待处理' },
-  ] as const
-}
-
-export function getMarkerPlanReferencedWarning(plan: MarkerPlanViewRow): string {
-  return plan.referenceWarningText
-}
-
 export function getMarkerPlanInitialEditTab(plan: MarkerPlanViewRow): MarkerPlanTabKey {
   return deriveMarkerPlanDefaultTab(plan)
 }

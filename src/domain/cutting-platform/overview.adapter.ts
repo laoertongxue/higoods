@@ -500,7 +500,7 @@ function buildIssues(options: {
       title: '唛架待维护',
       description: `仍有 ${options.markerSummary.pendingMarkerCount} 张原始裁片单缺少唛架维护。`,
       sourcePage: 'CUT_PIECE_ORDER',
-      suggestedAction: '回原始裁片单页补齐唛架配比、净长度和唛架图。',
+      suggestedAction: '回原始裁片单页补齐唛架配比、净长度和方案图和唛架明细图。',
       suggestedRoute: defaultRoutes.originalOrders,
     })
   }
