@@ -18,7 +18,6 @@ import {
   renderPdaCuttingExecutionUnitPage,
   renderPdaCuttingHandoverPage,
   renderPdaCuttingInboundPage,
-  renderPdaCuttingPickupPage,
   renderPdaCuttingReplenishmentFeedbackPage,
   renderPdaCuttingSpreadingPage,
   renderPdaCuttingTaskDetailPage,
@@ -31,6 +30,14 @@ import {
 } from './route-renderers'
 import { renderRouteRedirect } from './route-utils'
 import { getPdaCurrentAuthSession, resolvePdaPostLoginRoute, buildPdaAuthLoginPath } from '../data/fcs/factory-onboarding-flow.ts'
+
+function decodeRouteSegment(value: string): string {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return value
+  }
+}
 
 export const routes: RouteRegistry = {
   exactRoutes: {
@@ -63,11 +70,11 @@ export const routes: RouteRegistry = {
     },
     {
       pattern: /^\/fcs\/pda\/exec\/([^/]+)$/,
-      render: (match) => renderPdaExecDetailPage(match[1]),
+      render: (match) => renderPdaExecDetailPage(decodeRouteSegment(match[1])),
     },
     {
       pattern: /^\/fcs\/pda\/task-receive\/([^/]+)$/,
-      render: (match) => renderPdaTaskReceiveDetailPage(match[1]),
+      render: (match) => renderPdaTaskReceiveDetailPage(decodeRouteSegment(match[1])),
     },
     {
       pattern: /^\/fcs\/pda\/cutting\/task\/([^/]+)$/,
@@ -76,10 +83,6 @@ export const routes: RouteRegistry = {
     {
       pattern: /^\/fcs\/pda\/cutting\/unit\/([^/]+)\/([^/]+)$/,
       render: (match) => renderPdaCuttingExecutionUnitPage(match[1], match[2]),
-    },
-    {
-      pattern: /^\/fcs\/pda\/cutting\/pickup\/([^/]+)$/,
-      render: (match) => renderPdaCuttingPickupPage(match[1]),
     },
     {
       pattern: /^\/fcs\/pda\/cutting\/spreading\/([^/]+)$/,

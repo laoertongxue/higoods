@@ -1,4 +1,5 @@
 import {
+  buildDictionaryCraftMockDocumentNo,
   listGeneratedProductionDemandArtifacts,
   type ProductionDemandArtifact,
 } from '../production-artifact-generation.ts'
@@ -306,7 +307,31 @@ function toRequirementText(meta: PrepProcessMeta, artifact: ProductionDemandArti
 
 function toMaterialCode(meta: PrepProcessMeta, artifact: ProductionDemandArtifact, index: number): string {
   const orderToken = artifact.orderId.replace(/\D/g, '').slice(-4) || '0000'
-  return `M-${meta.processCode}-${orderToken}-${pad(index + 1, 2)}`
+  const craftToken = artifact.craftCode?.replace(/\D/g, '').slice(-4)
+  return `M-${meta.processCode}-${craftToken ? `${craftToken}-` : ''}${orderToken}-${pad(index + 1, 2)}`
+}
+
+function resolveArtifactMockIndex(artifact: ProductionDemandArtifact, fallbackIndex: number): number {
+  const matched = artifact.sourceEntryId.match(/DICT-MOCK-[A-Z_0-9]+-(\d{2})-/)
+  if (!matched) return fallbackIndex
+  const parsed = Number(matched[1])
+  return Number.isFinite(parsed) && parsed > 0 ? parsed - 1 : fallbackIndex
+}
+
+function buildPrepDocumentNo(
+  prefix: string,
+  artifact: ProductionDemandArtifact,
+  fallbackIndex: number,
+): string {
+  if (artifact.craftCode) {
+    return buildDictionaryCraftMockDocumentNo(
+      prefix,
+      artifact.craftCode,
+      artifact.orderId,
+      resolveArtifactMockIndex(artifact, fallbackIndex),
+    )
+  }
+  return `${prefix}${artifact.orderId.replace(/\D/g, '').slice(-8)}${pad(fallbackIndex + 1, 2)}`
 }
 
 function buildFacts(processCode: PrepProcessCode): {
@@ -315,6 +340,10 @@ function buildFacts(processCode: PrepProcessCode): {
 } {
   const meta = META_BY_PROCESS[processCode]
   const artifacts = getPrepArtifacts(processCode)
+
+  if (artifacts.length === 0) {
+    return buildFactsFromProcessWorkOrders(processCode)
+  }
 
   const demands: PrepRequirementDemandFact[] = []
   const orders: PrepProcessOrderFact[] = []
@@ -329,8 +358,8 @@ function buildFacts(processCode: PrepProcessCode): {
     const orderStatus = calcOrderStatus(orderQty, satisfiedQty, index)
     const createMode: CreateModeZh = index % 2 === 0 ? '按需求创建' : '按备货创建'
 
-    const orderNo = `${meta.orderPrefix}${artifact.orderId.replace(/\D/g, '').slice(-8)}${pad(index + 1, 2)}`
-    const demandNo = `${meta.demandPrefix}${artifact.orderId.replace(/\D/g, '').slice(-8)}${pad(index + 1, 2)}`
+    const orderNo = buildPrepDocumentNo(meta.orderPrefix, artifact, index)
+    const demandNo = buildPrepDocumentNo(meta.demandPrefix, artifact, index)
     const batchNo = `${meta.processCode === 'PRINT' ? 'YHPH' : 'RSPH'}${artifact.orderId.replace(/\D/g, '').slice(-8)}${pad(index + 1, 2)}`
     const preparationOrderNo = `PL${artifact.orderId.replace(/\D/g, '').slice(-8)}${pad(index + 1, 2)}`
     const createdAt = order?.createdAt ?? '2026-03-01 09:00:00'
@@ -515,9 +544,6 @@ function cloneOrders(input: PrepProcessOrderFact[]): PrepProcessOrderFact[] {
   }))
 }
 
-const PRINT_FACTS = buildFacts('PRINT')
-const DYE_FACTS = buildFacts('DYE')
-
 function toDemandStatusFromOrder(order: ProcessWorkOrder): DemandStatusZh {
   if (order.status === 'COMPLETED') return '已完成交接'
   if (order.handoverRecords.length > 0) return '部分满足'
@@ -673,10 +699,103 @@ function mapUnifiedWorkOrderToPrepOrder(order: ProcessWorkOrder): PrepProcessOrd
   }
 }
 
+function toDemandFactFromProcessOrder(
+  processCode: PrepProcessCode,
+  orderFact: PrepProcessOrderFact,
+  index: number,
+): PrepRequirementDemandFact | null {
+  const meta = META_BY_PROCESS[processCode]
+  const linkedDemand = orderFact.linkedDemands[0]
+  if (!linkedDemand) return null
+
+  const productionOrder = productionOrders.find((order) => order.productionOrderId === linkedDemand.sourceProductionOrderId)
+  const techPackSnapshot = productionOrder?.techPackSnapshot ?? null
+  const sourceBomItem = techPackSnapshot?.bomItems[0]
+  const sourceBomLabel = sourceBomItem
+    ? `${sourceBomItem.name}${sourceBomItem.spec ? ` / ${sourceBomItem.spec}` : ''}`
+    : linkedDemand.materialName
+  const satisfiedQty = Math.max(0, Math.round(linkedDemand.satisfiedQty || orderFact.materialReceipt.receivedQty || 0))
+  const handoverCompleted = linkedDemand.status === '已完成交接' || orderFact.status === '已完成'
+  const batchNo = `${processCode === 'PRINT' ? 'YHPH' : 'RSPH'}${linkedDemand.sourceProductionOrderId.replace(/\D/g, '').slice(-8)}${pad(index + 1, 2)}`
+  const traceLines: PrepRequirementTraceLine[] =
+    satisfiedQty > 0
+      ? [
+          {
+            processOrderNo: orderFact.orderNo,
+            batchNo,
+            batchSupplyQty: clampInt(satisfiedQty * 1.05),
+            usedQty: satisfiedQty,
+            unit: meta.unit,
+            batchStatus: handoverCompleted ? '已入裁片仓' : '质检中',
+          },
+        ]
+      : []
+
+  return {
+    demandId: linkedDemand.demandId,
+    sourceProductionOrderId: linkedDemand.sourceProductionOrderId,
+    spuCode: productionOrder?.demandSnapshot.spuCode ?? '-',
+    spuName: productionOrder?.demandSnapshot.spuName ?? '-',
+    techPackVersion: techPackSnapshot?.sourceTechPackVersionLabel ?? '-',
+    materialCode: linkedDemand.materialCode,
+    materialName: linkedDemand.materialName,
+    requiredQty: linkedDemand.requiredQty,
+    unit: linkedDemand.unit,
+    requirementText: `${meta.processLabel}要求：按技术包 ${techPackSnapshot?.sourceTechPackVersionLabel ?? '-'} / ${sourceBomLabel} 执行`,
+    sourceBomItem: sourceBomLabel,
+    sourceTechPackVersion: techPackSnapshot?.sourceTechPackVersionLabel ?? '-',
+    nextProcessName: '后续工序',
+    updatedAt: orderFact.updatedAt,
+    handoverCompleted,
+    sources:
+      satisfiedQty > 0
+        ? [
+            {
+              preparationOrderNo: `PL${linkedDemand.sourceProductionOrderId.replace(/\D/g, '').slice(-8)}${pad(index + 1, 2)}`,
+              qty: satisfiedQty,
+              unit: meta.unit,
+              preparedAt: orderFact.materialReceipt.receivedAt,
+              warehouseName: toWarehouseName(index),
+              preparationStatus: satisfiedQty < linkedDemand.requiredQty ? '部分配料' : '已完成配料',
+              cumulativeSatisfiedQty: satisfiedQty,
+              traceLines,
+            },
+          ]
+        : [],
+    linkedOrders: [
+      {
+        processOrderNo: orderFact.orderNo,
+        createMode: orderFact.createMode,
+        factoryName: orderFact.factoryName,
+        status: toLinkedOrderStatus(orderFact.status),
+        returnedQty: satisfiedQty,
+        unit: meta.unit,
+      },
+    ],
+  }
+}
+
+function buildFactsFromProcessWorkOrders(processCode: PrepProcessCode): {
+  demands: PrepRequirementDemandFact[]
+  orders: PrepProcessOrderFact[]
+} {
+  const orders = listProcessWorkOrders(processCode)
+    .slice(0, 3)
+    .map(mapUnifiedWorkOrderToPrepOrder)
+  const demands = orders
+    .map((order, index) => toDemandFactFromProcessOrder(processCode, order, index))
+    .filter((item): item is PrepRequirementDemandFact => Boolean(item))
+
+  return { demands, orders }
+}
+
+const PRINT_FACTS = buildFacts('PRINT')
+const DYE_FACTS = buildFacts('DYE')
+
 export function listPrepRequirementDemands(processCode: PrepProcessCode): PrepRequirementDemandFact[] {
   return cloneDemands(processCode === 'PRINT' ? PRINT_FACTS.demands : DYE_FACTS.demands)
 }
 
 export function listPrepProcessOrders(processCode: PrepProcessCode): PrepProcessOrderFact[] {
-  return cloneOrders(listProcessWorkOrders(processCode).map(mapUnifiedWorkOrderToPrepOrder))
+  return cloneOrders(processCode === 'PRINT' ? PRINT_FACTS.orders : DYE_FACTS.orders)
 }

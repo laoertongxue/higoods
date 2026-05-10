@@ -1,7 +1,7 @@
 import type { CuttableOriginalOrderItem } from './cuttable-pool-model.ts'
 
 export const CUTTING_SELECTED_IDS_STORAGE_KEY = 'cuttingSelectedOriginalOrderIds'
-export const CUTTING_SELECTED_COMPATIBILITY_KEY_STORAGE_KEY = 'cuttingSelectedCompatibilityKey'
+export const CUTTING_SELECTED_BATCHING_KEY_STORAGE_KEY = 'cuttingSelectedBatchingKey'
 export const CUTTING_MERGE_BATCH_LEDGER_STORAGE_KEY = 'cuttingMergeBatchLedger'
 
 export type MergeBatchStatus = 'DRAFT' | 'READY' | 'CUTTING' | 'DONE' | 'CANCELLED'
@@ -30,14 +30,14 @@ export interface MergeBatchItem {
   materialLabel: string
   currentStage: string
   cuttableStateLabel: string
-  sourceCompatibilityKey: string
+  sourceBatchingKey: string
 }
 
 export interface MergeBatchRecord {
   mergeBatchId: string
   mergeBatchNo: string
   status: MergeBatchStatus
-  compatibilityKey: string
+  batchingKey: string
   styleCode: string
   spuCode: string
   styleName: string
@@ -59,7 +59,7 @@ export interface MergeBatchSummary {
   styleCode: string
   spuCode: string
   styleName: string
-  compatibilityKey: string
+  batchingKey: string
   materialSkuSummary: string
   urgencySummary: string
   riskSummary: string
@@ -87,7 +87,7 @@ export interface MergeBatchSourceOriginalOrderItem {
     selectable: boolean
     key?: string
   }
-  compatibilityKey: string
+  batchingKey: string
   mergeBatchNo: string
 }
 
@@ -95,13 +95,13 @@ export interface HydratedIncomingBatchSelection {
   items: MergeBatchSourceOriginalOrderItem[]
   requestedIds: string[]
   missingIds: string[]
-  compatibilityKey: string | null
+  batchingKey: string | null
 }
 
 export interface MergeBatchValidationResult {
   ok: boolean
   reasons: string[]
-  compatibilityKey: string | null
+  batchingKey: string | null
   occupiedBatchNo?: string
 }
 
@@ -150,7 +150,7 @@ function batchRecordFromItems(options: {
   mergeBatchId: string
   mergeBatchNo: string
   status: MergeBatchStatus
-  compatibilityKey: string
+  batchingKey: string
   items: MergeBatchSourceOriginalOrderItem[]
   plannedCuttingGroup: string
   plannedCuttingDate: string
@@ -178,14 +178,14 @@ function batchRecordFromItems(options: {
     materialLabel: item.materialLabel,
     currentStage: item.currentStage,
     cuttableStateLabel: item.cuttableState.label,
-    sourceCompatibilityKey: item.compatibilityKey,
+    sourceBatchingKey: item.batchingKey,
   }))
 
   return {
     mergeBatchId: options.mergeBatchId,
     mergeBatchNo: options.mergeBatchNo,
     status: options.status,
-    compatibilityKey: options.compatibilityKey,
+    batchingKey: options.batchingKey,
     styleCode: seed?.styleCode ?? '',
     spuCode: seed?.spuCode ?? '',
     styleName: seed?.styleName ?? '',
@@ -233,7 +233,7 @@ export function buildSystemSeedMergeBatches(items: MergeBatchSourceOriginalOrder
         mergeBatchId: `seed-${mergeBatchNo}`,
         mergeBatchNo,
         status: inferSystemBatchStatus(groupItems),
-        compatibilityKey: groupItems[0]?.compatibilityKey ?? '',
+        batchingKey: groupItems[0]?.batchingKey ?? '',
         items: groupItems,
         plannedCuttingGroup: '',
         plannedCuttingDate: parseBatchDateFromNo(mergeBatchNo),
@@ -252,7 +252,7 @@ export function hydrateIncomingSelectedOriginalCutOrders(
 ): HydratedIncomingBatchSelection {
   let requestedIds: string[] = []
   const rawIds = storage.getItem(CUTTING_SELECTED_IDS_STORAGE_KEY)
-  const compatibilityKey = storage.getItem(CUTTING_SELECTED_COMPATIBILITY_KEY_STORAGE_KEY)
+  const batchingKey = storage.getItem(CUTTING_SELECTED_BATCHING_KEY_STORAGE_KEY)
 
   if (rawIds) {
     try {
@@ -281,7 +281,7 @@ export function hydrateIncomingSelectedOriginalCutOrders(
     items,
     requestedIds,
     missingIds,
-    compatibilityKey: compatibilityKey || null,
+    batchingKey: batchingKey || null,
   }
 }
 
@@ -303,17 +303,17 @@ export function validateIncomingBatchSelection(
     return {
       ok: false,
       reasons,
-      compatibilityKey: incoming.compatibilityKey,
+      batchingKey: incoming.batchingKey,
     }
   }
 
-  const compatibilityKeys = uniqueStrings(incoming.items.map((item) => item.compatibilityKey))
-  if (incoming.compatibilityKey && compatibilityKeys.length === 1 && compatibilityKeys[0] !== incoming.compatibilityKey) {
-    reasons.push('当前输入的兼容组与原始裁片单实际兼容组不一致。')
+  const batchingKeys = uniqueStrings(incoming.items.map((item) => item.batchingKey))
+  if (incoming.batchingKey && batchingKeys.length === 1 && batchingKeys[0] !== incoming.batchingKey) {
+    reasons.push('当前输入的合并条件组与原始裁片单实际合并条件组不一致。')
   }
 
-  if (compatibilityKeys.length !== 1) {
-    reasons.push('当前待建批次仅支持单一 compatibilityKey 的原始裁片单。')
+  if (batchingKeys.length !== 1) {
+    reasons.push('当前待建批次仅支持同一合并条件组的原始裁片单。')
   }
 
   const blockedItem = incoming.items.find((item) => item.cuttableState.key !== 'CUTTABLE')
@@ -340,7 +340,7 @@ export function validateIncomingBatchSelection(
   return {
     ok: reasons.length === 0,
     reasons,
-    compatibilityKey: compatibilityKeys[0] ?? incoming.compatibilityKey,
+    batchingKey: batchingKeys[0] ?? incoming.batchingKey,
     occupiedBatchNo: occupiedItem ? occupiedLookup.get(occupiedItem.originalCutOrderId) : undefined,
   }
 }
@@ -358,10 +358,10 @@ export function summarizeIncomingBatchSelection(items: MergeBatchSourceOriginalO
     styleCode: styleCodes[0] ?? '',
     spuCode: spuCodes[0] ?? '',
     styleName: items[0]?.styleName ?? '',
-    compatibilityKey: items[0]?.compatibilityKey ?? '',
+    batchingKey: items[0]?.batchingKey ?? '',
     materialSkuSummary: buildMaterialSkuSummary(items.map((item) => item.materialSku)),
     urgencySummary: urgencies.join(' / ') || '常规',
-    riskSummary: riskTokens.join(' / ') || '兼容组校验通过',
+    riskSummary: riskTokens.join(' / ') || '合并条件校验通过',
   }
 }
 
@@ -397,7 +397,7 @@ export function createMergeBatchDraft(options: {
     mergeBatchId,
     mergeBatchNo,
     status: options.status,
-    compatibilityKey: summary.compatibilityKey,
+    batchingKey: summary.batchingKey,
     items: options.items,
     plannedCuttingGroup: options.form.plannedCuttingGroup.trim(),
     plannedCuttingDate: options.form.plannedCuttingDate,
@@ -433,7 +433,7 @@ export function mapCuttableItemsToMergeBatchSourceItems(
       label: item.cuttableState.label,
       selectable: item.cuttableState.selectable,
     },
-    compatibilityKey: item.compatibilityKey,
+    batchingKey: item.batchingKey,
     mergeBatchNo: item.mergeBatchNo,
   }))
 }

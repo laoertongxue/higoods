@@ -1,5 +1,5 @@
 export const CUTTING_SELECTED_IDS_STORAGE_KEY = 'cuttingSelectedOriginalOrderIds'
-export const CUTTING_SELECTED_COMPATIBILITY_KEY_STORAGE_KEY = 'cuttingSelectedCompatibilityKey'
+export const CUTTING_SELECTED_BATCHING_KEY_STORAGE_KEY = 'cuttingSelectedBatchingKey'
 export const CUTTING_MERGE_BATCH_LEDGER_STORAGE_KEY = 'cuttingMergeBatchLedger'
 
 export function deserializeMergeBatchStorage(raw: string | null): Array<Record<string, unknown>> {

@@ -336,10 +336,10 @@ export const cuttingSummaryRiskMetaMap: Record<CuttingSummaryRiskLevel, CuttingS
 export const cuttingSummaryIssueMetaMap: Record<CuttingSummaryIssueType, CuttingSummaryIssueMeta> = {
   MATERIAL_PREP: {
     key: 'MATERIAL_PREP',
-    label: '配料 / 领料问题',
+    label: 'WMS 来料问题',
     className: 'bg-amber-100 text-amber-700 border border-amber-200',
-    detailText: '配料未齐或领料不齐。',
-    actionHint: '去仓库配料领料',
+    detailText: 'WMS 来料未齐或WMS 来料不齐。',
+    actionHint: '去待加工仓',
   },
   SPREADING_REPLENISH: {
     key: 'SPREADING_REPLENISH',
@@ -352,7 +352,7 @@ export const cuttingSummaryIssueMetaMap: Record<CuttingSummaryIssueType, Cutting
     key: 'TICKET_QR',
     label: '打印菲票问题',
     className: 'bg-sky-100 text-sky-700 border border-sky-200',
-    detailText: '待打印、部分已打印或主码兼容警告。',
+    detailText: '待打印、部分已打印或主码结构警告。',
     actionHint: '去打印菲票',
   },
   WAREHOUSE_HANDOFF: {
@@ -427,14 +427,14 @@ function summarizeBagUsageStatus(usages: TransferBagUsageItem[], returnUsages: T
 }
 
 function summarizeMaterialPrep(rows: MaterialPrepRow[]): string {
-  if (!rows.length) return '未进入配料 / 领料'
+  if (!rows.length) return '未进入WMS 来料'
   const configured = rows.filter((row) => row.materialPrepStatus.key === 'CONFIGURED').length
   const partial = rows.filter((row) => row.materialPrepStatus.key === 'PARTIAL').length
   const claimException = rows.filter((row) => row.materialClaimStatus.key === 'EXCEPTION').length
   return [
     `已配置 ${configured}/${rows.length}`,
     partial ? `部分配置 ${partial}` : '',
-    claimException ? `领料异常 ${claimException}` : '',
+    claimException ? `来料异常 ${claimException}` : '',
   ]
     .filter(Boolean)
     .join(' / ')

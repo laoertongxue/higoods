@@ -1,5 +1,4 @@
 export { renderCraftCuttingProductionProgressPage } from './production-progress.ts'
-export { renderCraftCuttingMaterialPrepPage } from './material-prep.ts'
 export { renderCraftCuttingOriginalOrdersPage } from './original-orders.ts'
 export { renderCraftCuttingReplenishmentPage } from './replenishment.ts'
 export { renderCraftCuttingSummaryPage } from './cutting-summary.ts'
@@ -30,8 +29,6 @@ export {
   renderCraftCuttingFeiTicketReprintPage,
   renderCraftCuttingFeiTicketVoidPage,
 } from './fei-tickets.ts'
-export { renderCraftCuttingFabricWarehousePage } from './fabric-warehouse.ts'
-export { renderCraftCuttingCutPieceWarehousePage } from './cut-piece-warehouse.ts'
 export { renderCraftCuttingSampleWarehousePage } from './sample-warehouse.ts'
 export {
   renderCraftCuttingWarehouseManagementWaitProcessPage,

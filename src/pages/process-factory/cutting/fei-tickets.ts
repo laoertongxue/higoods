@@ -281,7 +281,7 @@ function persistPrintJobs(printJobs: FeiTicketPrintJob[]): void {
   localStorage.setItem(CUTTING_FEI_TICKET_PRINT_JOBS_STORAGE_KEY, serializeFeiTicketPrintJobsStorage(printJobs))
 }
 
-function mapLegacyStatus(value: string | null): 'ALL' | PrintableUnitStatus {
+function mapPrintableStatusFromQuery(value: string | null): 'ALL' | PrintableUnitStatus {
   if (!value) return 'ALL'
   if (value === 'WAITING_PRINT' || value === 'PARTIAL_PRINTED' || value === 'PRINTED' || value === 'NEED_REPRINT') {
     return value
@@ -380,7 +380,7 @@ function buildFiltersFromQuery(params: URLSearchParams): PrintableUnitFilters {
       || params.get('materialSku')
       || (hasSpreadingSessionAnchor ? '' : drillContext?.materialSku || ''),
     productionOrderNo: params.get('productionOrderNo') || (hasSpreadingSessionAnchor ? '' : drillContext?.productionOrderNo || ''),
-    printableUnitStatus: mapLegacyStatus(params.get('printableUnitStatus') || params.get('ticketStatus')),
+    printableUnitStatus: mapPrintableStatusFromQuery(params.get('printableUnitStatus') || params.get('ticketStatus')),
     printedFrom: params.get('printedFrom') || '',
     printedTo: params.get('printedTo') || '',
   }
@@ -1094,7 +1094,7 @@ function renderListPage(): string {
 
   return renderPrintablePageShell(`
     ${renderCuttingPageHeader(meta, {
-      showCompatibilityBadge: isCuttingAliasPath(pathname),
+      showAliasBadge: isCuttingAliasPath(pathname),
       actionsHtml: summaryAction ? `<div class="flex flex-wrap gap-2">${summaryAction}</div>` : '',
     })}
     ${renderPerPieceFeiTicketsSection()}

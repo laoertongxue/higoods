@@ -129,7 +129,7 @@ export function renderPdaCuttingHandoverPage(taskId: string): string {
       </label>
       <label class="block space-y-1">
         <span class="text-muted-foreground">交接备注</span>
-        <textarea class="min-h-24 w-full rounded-xl border bg-background px-3 py-2 text-sm" data-pda-cut-handover-field="note" placeholder="填写交接提醒、后续去向和异常说明">${escapeHtml(form.note)}</textarea>
+        <textarea class="min-h-24 w-full rounded-xl border bg-background px-3 py-2 text-sm" data-pda-cut-handover-field="note" placeholder="填写交接提醒、后续去向和异常记录">${escapeHtml(form.note)}</textarea>
       </label>
       <div class="rounded-xl border bg-muted/20 px-3 py-3 text-xs">
         <div class="text-muted-foreground">本次交接预览</div>

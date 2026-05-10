@@ -4,8 +4,8 @@ import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { productionOrders } from '../src/data/fcs/production-orders.ts'
-import { buildSeedProductionOrderTechPackSnapshot } from '../src/data/fcs/production-tech-pack-snapshot-builder.ts'
 import { buildProductionConfirmationSnapshot } from '../src/data/fcs/production-confirmation.ts'
+import { getProductionOrderTechPackSnapshot } from '../src/data/fcs/production-order-tech-pack-runtime.ts'
 import { renderProductionConfirmationPrintPage } from '../src/pages/production/confirmation-print.ts'
 import { removedPseudoCraftNames } from './utils/special-craft-banlist.ts'
 
@@ -125,22 +125,10 @@ assertIncludes(patternEventsSource, 'allocation.pieceCount) <= 0', '保存校验
   assertIncludes(snapshotTypesSource, token, `技术包快照类型缺少：${token}`)
 })
 
-const seedSnapshot = buildSeedProductionOrderTechPackSnapshot({
-  productionOrderId: 'PO-CHECK-FCS-PARSER',
-  productionOrderNo: 'PO-CHECK-FCS-PARSER',
-  demand: {
-    spuCode: 'SPU-PARSER-001',
-    spuName: '纸样解析检查款',
-    skuLines: [
-      { skuCode: 'SPU-PARSER-001-RED-M', color: '红色', size: 'M', qty: 10 },
-      { skuCode: 'SPU-PARSER-001-BLUE-L', color: '蓝色', size: 'L', qty: 8 },
-    ],
-    techPackVersionLabel: 'v3.0',
-    techPackStatus: 'RELEASED',
-  },
-  snapshotAt: '2026-04-21 10:00:00',
-  snapshotBy: '系统',
-})
+const seedSnapshot = productionOrders
+  .map((order) => getProductionOrderTechPackSnapshot(order.productionOrderId))
+  .find((snapshot) => Boolean(snapshot?.patternFiles.length))
+assert(seedSnapshot, '至少应存在一个来源生产需求单正式技术包的生产单快照')
 
 assert(seedSnapshot.patternFiles.some((item) => item.patternMaterialType === 'WOVEN'), '技术包快照必须支持布料纸样')
 assert(seedSnapshot.patternFiles.some((item) => item.patternMaterialType === 'KNIT'), '技术包快照必须支持针织纸样')

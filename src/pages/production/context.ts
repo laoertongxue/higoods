@@ -1171,7 +1171,7 @@ function getOrderTechPackInfo(order: ProductionOrder): {
   snapshotStatus: ProductionDemand['techPackStatus']
   snapshotVersionCode: string
   snapshotVersion: string
-  snapshotReadyStatus: '已冻结' | '待补齐' | '缺失'
+  snapshotReadyStatus: '已冻结' | '缺失'
   snapshotReadyClassName: string
   currentStatus: ProductionDemand['techPackStatus']
   currentVersionCode: string
@@ -1188,18 +1188,16 @@ function getOrderTechPackInfo(order: ProductionOrder): {
     snapshotStatus,
     order.techPackSnapshot?.sourceTechPackVersionLabel || '',
   )
-  const snapshotReadyStatus: '已冻结' | '待补齐' | '缺失' =
-    !order.techPackSnapshot
-      ? '缺失'
-      : order.techPackSnapshot.completenessScore >= 100
-        ? '已冻结'
-        : '待补齐'
+  const hasFrozenSnapshot = Boolean(
+    order.techPackSnapshot &&
+      String(order.techPackSnapshot.sourceTechPackVersionId || '').trim() &&
+      String(order.techPackSnapshot.sourcePublishedAt || '').trim(),
+  )
+  const snapshotReadyStatus: '已冻结' | '缺失' = hasFrozenSnapshot ? '已冻结' : '缺失'
   const snapshotReadyClassName =
     snapshotReadyStatus === '已冻结'
       ? 'bg-green-100 text-green-700'
-      : snapshotReadyStatus === '待补齐'
-        ? 'bg-orange-100 text-orange-700'
-        : 'bg-red-100 text-red-700'
+      : 'bg-red-100 text-red-700'
   const currentStatus: ProductionDemand['techPackStatus'] = current.canConvertToProductionOrder ? 'RELEASED' : 'INCOMPLETE'
   const currentVersionCode = current.currentTechPackVersionCode
   const currentVersion = normalizeTechPackVersionLabel(currentStatus, current.currentTechPackVersionLabel)
@@ -1234,7 +1232,7 @@ function getOrderTechPackInfo(order: ProductionOrder): {
 function getOrderTechPackSnapshotDisplay(order: ProductionOrder): {
   techPackVersionText: string
   techPackSnapshotAt: string
-  techPackReadyStatus: '已冻结' | '待补齐' | '缺失'
+  techPackReadyStatus: '已冻结' | '缺失'
   techPackReadyClassName: string
 } {
   const info = getOrderTechPackInfo(order)

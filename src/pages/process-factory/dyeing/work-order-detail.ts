@@ -18,7 +18,7 @@ import {
   type ProcessWebOperationRecord,
 } from '../../../data/fcs/process-web-status-actions.ts'
 import { getPlatformStatusForProcessWorkOrder } from '../../../data/fcs/process-platform-status-adapter.ts'
-import { getProcessWorkOrderById } from '../../../data/fcs/process-work-order-domain.ts'
+import { getProcessWorkOrderById, getProcessWorkOrderByNo } from '../../../data/fcs/process-work-order-domain.ts'
 import {
   getDifferenceRecordsByWorkOrderId,
   getHandoverRecordsByWorkOrderId,
@@ -309,7 +309,7 @@ function renderDifferenceRows(records: ProcessHandoverDifferenceRecord[], orderI
 export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string {
   applyDifferenceActionFromUrl()
   applyWebActionFromUrl(dyeOrderId)
-  const order = getProcessWorkOrderById(dyeOrderId)
+  const order = getProcessWorkOrderById(dyeOrderId) || getProcessWorkOrderByNo(dyeOrderId)
   if (!order || order.processType !== 'DYE' || !order.dyePayload) {
     return `
       <div class="space-y-4 p-4">

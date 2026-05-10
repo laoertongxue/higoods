@@ -362,8 +362,8 @@ function handleDrawerAction(action: string, actionNode: HTMLElement): boolean {
   if (action === 'drawer-go-craft-dispute') {
     const originalCutOrderNo = actionNode.dataset.originalCutOrderNo || ''
     openLinkedPage(
-      '仓库配料领料',
-      `/fcs/craft/cutting/material-prep${originalCutOrderNo ? `?originalCutOrderNo=${encodeURIComponent(originalCutOrderNo)}` : ''}`,
+      '待加工仓',
+      `/fcs/craft/cutting/warehouse-management/wait-process${originalCutOrderNo ? `?originalCutOrderNo=${encodeURIComponent(originalCutOrderNo)}` : ''}`,
     )
     return true
   }

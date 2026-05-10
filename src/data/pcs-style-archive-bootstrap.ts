@@ -1,5 +1,5 @@
-import { techPacks } from './fcs/tech-packs.ts'
 import { buildStyleFixture } from './pcs-product-archive-fixtures.ts'
+import { listProductionDemandTechPackSeeds, type ProductionDemandTechPackSeed } from './pcs-production-demand-tech-pack-seeds.ts'
 import {
   listProjectWorkspaceCategories,
   listProjectWorkspaceStyles,
@@ -12,30 +12,6 @@ import type {
 
 const WORKSPACE_CATEGORIES = listProjectWorkspaceCategories()
 const WORKSPACE_STYLES = listProjectWorkspaceStyles()
-
-function parseVersionNo(versionLabel: string, fallback: number): number {
-  const matched = versionLabel.match(/(\d+)/)
-  if (!matched) return fallback
-  const value = Number.parseInt(matched[1], 10)
-  return Number.isFinite(value) && value > 0 ? value : fallback
-}
-
-function normalizeVersionLabel(versionLabel: string, fallback: number): string {
-  const trimmed = versionLabel.trim()
-  if (!trimmed || trimmed === '-' || trimmed.toLowerCase() === 'beta') {
-    return `V${fallback}`
-  }
-  const matched = trimmed.match(/(\d+)/)
-  return matched ? `V${matched[1]}` : `V${fallback}`
-}
-
-function buildSeedTechnicalVersionId(index: number): string {
-  return `tdv_seed_${String(index + 1).padStart(3, '0')}`
-}
-
-function buildSeedTechnicalVersionCode(index: number): string {
-  return `TDV-LEGACY-${String(index + 1).padStart(3, '0')}`
-}
 
 function pickOptionByIndex(options: ProjectWorkspaceOption[], index: number): ProjectWorkspaceOption {
   if (options.length === 0) {
@@ -131,28 +107,17 @@ function resolveStyleTags(styleName: string): string[] {
   return [pickOptionByIndex(WORKSPACE_STYLES, 0).name || '休闲']
 }
 
-function countCostItems(techPack: (typeof techPacks)[number]): number {
-  return (
-    (techPack.materialCostItems?.length || 0) +
-    (techPack.processCostItems?.length || 0) +
-    (techPack.customCostItems?.length || 0)
-  )
-}
-
-function buildRecord(techPack: (typeof techPacks)[number], index: number): StyleArchiveShellRecord {
-  const fixture = buildStyleFixture(techPack.spuCode, techPack.spuName)
-  const versionNo = parseVersionNo(techPack.versionLabel, 1)
-  const versionLabel = normalizeVersionLabel(techPack.versionLabel, versionNo)
-  const released = techPack.status === 'RELEASED' || techPack.status === 'ENABLED'
-  const { categoryName, subCategoryName } = resolveCategory(techPack.spuName)
-  const costItemCount = countCostItems(techPack)
+function buildRecord(seed: ProductionDemandTechPackSeed): StyleArchiveShellRecord {
+  const { demand } = seed
+  const fixture = buildStyleFixture(demand.spuCode, demand.spuName)
+  const { categoryName, subCategoryName } = resolveCategory(demand.spuName)
 
   return {
-    styleId: `style_seed_${String(index + 1).padStart(3, '0')}`,
-    styleCode: techPack.spuCode,
-    styleName: techPack.spuName,
+    styleId: seed.styleId,
+    styleCode: demand.spuCode,
+    styleName: demand.spuName,
     styleNameEn: fixture.styleNameEn,
-    styleNumber: techPack.spuCode,
+    styleNumber: demand.spuCode,
     styleType: '成衣',
     sourceProjectId: '',
     sourceProjectCode: '',
@@ -166,25 +131,25 @@ function buildRecord(techPack: (typeof techPacks)[number], index: number): Style
     brandName: '',
     yearTag: '2026',
     seasonTags: ['春夏'],
-    styleTags: resolveStyleTags(techPack.spuName),
+    styleTags: resolveStyleTags(demand.spuName),
     targetAudienceTags: [],
     targetChannelCodes: [],
-    priceRangeLabel: resolvePriceRange(techPack.spuName),
+    priceRangeLabel: resolvePriceRange(demand.spuName),
     archiveStatus: 'ACTIVE',
     baseInfoStatus: '已维护',
     specificationStatus: '已建立',
-    techPackStatus: released ? '已启用' : '草稿中',
-    costPricingStatus: costItemCount > 0 ? '已建立' : '未建立',
-    specificationCount: techPack.skuCatalog?.length || 4,
+    techPackStatus: '已启用',
+    costPricingStatus: '未建立',
+    specificationCount: demand.skuLines.length,
     techPackVersionCount: 1,
-    costVersionCount: costItemCount > 0 ? 1 : 0,
+    costVersionCount: 0,
     channelProductCount: 1,
-    currentTechPackVersionId: released ? buildSeedTechnicalVersionId(index) : '',
-    currentTechPackVersionCode: released ? buildSeedTechnicalVersionCode(index) : '',
-    currentTechPackVersionLabel: released ? versionLabel : '',
-    currentTechPackVersionStatus: released ? '已发布' : '',
-    currentTechPackVersionActivatedAt: released ? techPack.lastUpdatedAt || '' : '',
-    currentTechPackVersionActivatedBy: released ? techPack.lastUpdatedBy || '系统初始化' : '',
+    currentTechPackVersionId: seed.technicalVersionId,
+    currentTechPackVersionCode: seed.technicalVersionCode,
+    currentTechPackVersionLabel: seed.versionLabel,
+    currentTechPackVersionStatus: '已发布',
+    currentTechPackVersionActivatedAt: demand.updatedAt || '',
+    currentTechPackVersionActivatedBy: '生产需求单',
     mainImageId: '',
     mainImageUrl: fixture.mainImageUrl,
     galleryImageIds: [],
@@ -194,10 +159,10 @@ function buildRecord(techPack: (typeof techPacks)[number], index: number): Style
     detailDescription: fixture.detailDescription,
     packagingInfo: fixture.packagingInfo,
     remark: '',
-    generatedAt: techPack.lastUpdatedAt || '',
-    generatedBy: techPack.lastUpdatedBy || '系统初始化',
-    updatedAt: techPack.lastUpdatedAt || '',
-    updatedBy: techPack.lastUpdatedBy || '系统初始化',
+    generatedAt: demand.updatedAt || '',
+    generatedBy: '生产需求单',
+    updatedAt: demand.updatedAt || '',
+    updatedBy: '生产需求单',
     legacyOriginProject: '',
   }
 }
@@ -261,7 +226,7 @@ const EXTRA_STYLE_ARCHIVE_RECORDS: StyleArchiveShellRecord[] = [
 export function createStyleArchiveBootstrapSnapshot(version: number): StyleArchiveStoreSnapshot {
   return {
     version,
-    records: [...techPacks.map(buildRecord), ...EXTRA_STYLE_ARCHIVE_RECORDS],
+    records: [...listProductionDemandTechPackSeeds().map(buildRecord), ...EXTRA_STYLE_ARCHIVE_RECORDS],
     pendingItems: [],
   }
 }

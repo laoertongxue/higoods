@@ -112,7 +112,7 @@ export const fabricWarehouseMaterialMeta: Record<CuttingMaterialType, { label: s
 
 export const fabricWarehouseStatusMeta: Record<CuttingFabricStockStatus, { label: string; className: string }> = {
   READY: { label: '可用', className: 'bg-emerald-100 text-emerald-700 border border-emerald-200' },
-  PARTIAL_USED: { label: '已领料', className: 'bg-sky-100 text-sky-700 border border-sky-200' },
+  PARTIAL_USED: { label: '已入待加工仓', className: 'bg-sky-100 text-sky-700 border border-sky-200' },
   NEED_RECHECK: { label: '待审核', className: 'bg-rose-100 text-rose-700 border border-rose-200' },
 }
 
@@ -161,9 +161,9 @@ function buildRolls(record: CuttingFabricStockRecord): FabricWarehouseRollItem[]
       remainingLength: inStock ? avgRemaining : 0,
       sourceProcessType,
       sourceProcessOrderNo: sourceProcessType === 'RAW' ? record.originalCutOrderNo : record.originalCutOrderNo,
-      currentAreaName: inStock ? 'A区' : '已领料',
+      currentAreaName: inStock ? 'A区' : '已入待加工仓',
       status: inStock ? 'IN_STOCK' : 'USED',
-      locationHint: inStock ? 'A区' : '已领料',
+      locationHint: inStock ? 'A区' : '已入待加工仓',
       note: record.note,
       sourceOriginalCutOrderNo: record.originalCutOrderNo,
       sourceProductionOrderNo: record.productionOrderNo,

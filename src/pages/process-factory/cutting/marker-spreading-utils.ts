@@ -361,93 +361,21 @@ interface SeedSessionProfile {
 const SEED_SESSION_MATRIX: SeedSessionProfile[][] = [
   [
     { code: 'waiting-start-a', status: 'DRAFT', stage: 'WAITING_START' },
-    { code: 'in-progress-a', status: 'IN_PROGRESS', stage: 'IN_PROGRESS' },
-    { code: 'waiting-replenishment-a', status: 'DONE', stage: 'WAITING_REPLENISHMENT' },
-    {
-      code: 'waiting-fei-ticket-a',
-      status: 'DONE',
-      stage: 'DONE',
-      sourceChannel: 'PDA_WRITEBACK',
-      sourceWritebackId: 'pda-writeback-seed-09',
-    },
   ],
   [
-    { code: 'waiting-start-b', status: 'TO_FILL', stage: 'WAITING_START' },
     { code: 'in-progress-b', status: 'IN_PROGRESS', stage: 'IN_PROGRESS' },
-    { code: 'waiting-bagging-a', status: 'DONE', stage: 'WAITING_BAGGING' },
-    { code: 'waiting-warehouse-a', status: 'DONE', stage: 'WAITING_WAREHOUSE' },
   ],
   [
-    {
-      code: 'in-progress-pda',
-      status: 'IN_PROGRESS',
-      stage: 'IN_PROGRESS',
-      sourceChannel: 'PDA_WRITEBACK',
-      sourceWritebackId: 'pda-writeback-seed-01',
-    },
-    {
-      code: 'done-pda-a',
-      status: 'DONE',
-      stage: 'DONE',
-      sourceChannel: 'PDA_WRITEBACK',
-      sourceWritebackId: 'pda-writeback-seed-02',
-    },
-    {
-      code: 'waiting-replenishment-b',
-      status: 'DONE',
-      stage: 'WAITING_REPLENISHMENT',
-      sourceChannel: 'PDA_WRITEBACK',
-      sourceWritebackId: 'pda-writeback-seed-03',
-    },
-    {
-      code: 'waiting-fei-ticket-b',
-      status: 'DONE',
-      stage: 'WAITING_FEI_TICKET',
-      sourceChannel: 'PDA_WRITEBACK',
-      sourceWritebackId: 'pda-writeback-seed-07',
-    },
+    { code: 'waiting-fei-ticket-b', status: 'DONE', stage: 'WAITING_FEI_TICKET' },
   ],
   [
-    { code: 'waiting-bagging-b', status: 'DONE', stage: 'WAITING_BAGGING' },
     { code: 'waiting-warehouse-b', status: 'DONE', stage: 'WAITING_WAREHOUSE' },
-    { code: 'done-pc-a', status: 'DONE', stage: 'DONE' },
-    { code: 'done-pc-b', status: 'DONE', stage: 'DONE' },
   ],
   [
-    { code: 'in-progress-c', status: 'IN_PROGRESS', stage: 'IN_PROGRESS' },
-    { code: 'waiting-fei-ticket-c', status: 'DONE', stage: 'WAITING_FEI_TICKET' },
-    { code: 'waiting-bagging-c', status: 'DONE', stage: 'WAITING_BAGGING' },
     { code: 'done-pc-c', status: 'DONE', stage: 'DONE' },
   ],
   [
-    {
-      code: 'in-progress-pda-b',
-      status: 'IN_PROGRESS',
-      stage: 'IN_PROGRESS',
-      sourceChannel: 'PDA_WRITEBACK',
-      sourceWritebackId: 'pda-writeback-seed-04',
-    },
-    {
-      code: 'waiting-replenishment-c',
-      status: 'DONE',
-      stage: 'WAITING_REPLENISHMENT',
-      sourceChannel: 'PDA_WRITEBACK',
-      sourceWritebackId: 'pda-writeback-seed-05',
-    },
-    {
-      code: 'waiting-warehouse-c',
-      status: 'DONE',
-      stage: 'WAITING_WAREHOUSE',
-      sourceChannel: 'PDA_WRITEBACK',
-      sourceWritebackId: 'pda-writeback-seed-08',
-    },
-    {
-      code: 'done-pda-b',
-      status: 'DONE',
-      stage: 'DONE',
-      sourceChannel: 'PDA_WRITEBACK',
-      sourceWritebackId: 'pda-writeback-seed-06',
-    },
+    { code: 'done-pc-d', status: 'DONE', stage: 'DONE' },
   ],
 ]
 
@@ -1230,12 +1158,12 @@ export function buildMarkerSpreadingCountsByOriginalOrder(originalCutOrderId: st
 }
 
 function isMaterialPrepRowReadyForSpreadingSeed(row: MaterialPrepRow): boolean {
-  return row.currentStage.key === 'CUTTING' || row.currentStage.key === 'WAITING_INBOUND' || row.currentStage.key === 'DONE'
+  return row.materialPrepStatus.key === 'CONFIGURED' && row.materialClaimStatus.key === 'RECEIVED'
 }
 
 function createEmptyMarkerSpreadingCounts(row?: MaterialPrepRow) {
-  const stageLabel = row?.currentStage.label || '待配料'
-  const suggestedAction = row?.currentStage.key === 'WAITING_CLAIM' ? '先完成领料' : '先完成配料和领料'
+  const stageLabel = row?.currentStage.label || 'WMS 待处理'
+  const suggestedAction = row?.currentStage.key === 'WAITING_CLAIM' ? '等待 WMS 来料' : '等待 WMS 来料'
   return {
     markerCount: 0,
     sessionCount: 0,

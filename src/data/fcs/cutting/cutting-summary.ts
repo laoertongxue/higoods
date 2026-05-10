@@ -309,7 +309,7 @@ function buildPlatformStageSummary(args: {
   if (args.replenishmentSummary.pendingReviewCount > 0) return '补料建议待审核，需先收口执行缺口。'
   if (args.warehouseSummary.cutPiecePendingInboundCount > 0 || args.warehouseSummary.unassignedZoneCount > 0) return '裁片仓入仓 / 分区仍待收口。'
   if (args.sampleSummary.sampleWaitingReturnCount > 0) return '样衣流转尚未收口，需继续回仓。'
-  if (args.receiveSummary.receivedPartialCount > 0 || args.receiveSummary.notReceivedCount > 0) return '仓库配料领料仍在执行中。'
+  if (args.receiveSummary.receivedPartialCount > 0 || args.receiveSummary.notReceivedCount > 0) return 'WMS 来料入仓仍在执行中。'
   if (args.spreadingSummary.pendingSpreadingCount > 0) return '铺布执行记录尚未完全回流。'
   return '正式裁片主链已进入稳定执行或收口阶段。'
 }
@@ -330,11 +330,11 @@ function buildIssues(args: {
     issues.push({
       issueType: 'RECEIVE_DIFF',
       level: 'HIGH',
-      title: '领料差异未收口',
-      description: `当前共有 ${args.receiveSummary.receiveDiscrepancyCount} 条领料差异待核对。`,
+      title: '来料差异未收口',
+      description: `当前共有 ${args.receiveSummary.receiveDiscrepancyCount} 条来料差异待核对。`,
       sourcePage: 'MATERIAL_PREP',
-      suggestedAction: '返回仓库配料领料页核对差异与举证。',
-      suggestedRoute: '/fcs/craft/cutting/material-prep',
+      suggestedAction: '返回待加工仓核对差异与举证。',
+      suggestedRoute: '/fcs/craft/cutting/warehouse-management/wait-process',
     })
   }
 
@@ -342,11 +342,11 @@ function buildIssues(args: {
     issues.push({
       issueType: 'PREP_PENDING',
       level: args.productionOrderNo.endsWith('081') ? 'HIGH' : 'MEDIUM',
-      title: '配料领料仍待收口',
-      description: '当前仍有配料未齐套或领料未完成的原始裁片单。',
+      title: 'WMS 来料仍待收口',
+      description: '当前仍有WMS 来料未齐套或WMS 来料未完成的原始裁片单。',
       sourcePage: 'MATERIAL_PREP',
-      suggestedAction: '优先补齐正式配料与领料记录。',
-      suggestedRoute: '/fcs/craft/cutting/material-prep',
+      suggestedAction: '优先补齐WMS 来料记录。',
+      suggestedRoute: '/fcs/craft/cutting/warehouse-management/wait-process',
     })
   }
 
@@ -394,7 +394,7 @@ function buildIssues(args: {
       description: '当前仍存在待入仓或未完成区域分配的裁片仓记录。',
       sourcePage: 'WAREHOUSE',
       suggestedAction: '返回裁片仓页完成正式入仓和分区。',
-      suggestedRoute: '/fcs/craft/cutting/cut-piece-warehouse',
+      suggestedRoute: '/fcs/craft/cutting/warehouse-management/wait-handover?tab=cut-piece-warehouse',
     })
   } else if (args.warehouseSummary.waitingHandoverCount > 0) {
     issues.push({
@@ -404,7 +404,7 @@ function buildIssues(args: {
       description: `当前仍有 ${args.warehouseSummary.waitingHandoverCount} 条裁片仓记录待交接。`,
       sourcePage: 'WAREHOUSE',
       suggestedAction: '返回裁片仓页确认待交接对象。',
-      suggestedRoute: '/fcs/craft/cutting/cut-piece-warehouse',
+      suggestedRoute: '/fcs/craft/cutting/warehouse-management/wait-handover?tab=cut-piece-warehouse',
     })
   }
 
@@ -460,9 +460,9 @@ function buildLinkedPageSummary(args: {
     },
     {
       pageKey: 'MATERIAL_PREP',
-      pageLabel: '仓库配料',
-      route: '/fcs/craft/cutting/material-prep',
-      summaryText: `已配置 ${args.materialSummary.fullyConfiguredCount}，领料完成 ${args.receiveSummary.receivedSuccessCount}`,
+      pageLabel: 'WMS 来料',
+      route: '/fcs/craft/cutting/warehouse-management/wait-process',
+      summaryText: `已配置 ${args.materialSummary.fullyConfiguredCount}，来料完成 ${args.receiveSummary.receivedSuccessCount}`,
     },
     {
       pageKey: 'CUT_PIECE_ORDER',
@@ -479,7 +479,7 @@ function buildLinkedPageSummary(args: {
     {
       pageKey: 'WAREHOUSE',
       pageLabel: '裁片仓',
-      route: '/fcs/craft/cutting/cut-piece-warehouse',
+      route: '/fcs/craft/cutting/warehouse-management/wait-handover?tab=cut-piece-warehouse',
       summaryText: `待入仓 ${args.warehouseSummary.cutPiecePendingInboundCount}，待交接 ${args.warehouseSummary.waitingHandoverCount}`,
     },
   ]

@@ -6,7 +6,6 @@ import {
 } from './production-upstream-chain.ts'
 import {
   buildProductionOrderTechPackSnapshot,
-  buildSeedProductionOrderTechPackSnapshot,
   cloneProductionOrderTechPackSnapshot,
 } from './production-tech-pack-snapshot-builder.ts'
 import type { ProductionOrderTechPackSnapshot } from './production-tech-pack-snapshot-types.ts'
@@ -283,24 +282,13 @@ export function buildProductionOrderFromSeed(seed: ProductionOrderSeed): Product
     snapshotBy: seed.snapshotBy || '系统初始化',
   })
 
-  if (!validation.demand) {
+  if (!validation.ok || !validation.demand || !validation.techPackSnapshot) {
     throw new Error(
       [`生产单 ${seed.productionOrderId} 上游链非法`, ...validation.issues.map((item) => item.message)].join('；'),
     )
   }
 
-  const techPackSnapshot =
-    seed.techPackSnapshot ??
-    validation.techPackSnapshot ??
-    buildSeedProductionOrderTechPackSnapshot({
-      productionOrderId: seed.productionOrderId,
-      productionOrderNo: seed.productionOrderId,
-      demand: validation.demand,
-      snapshotAt: seed.snapshotAt ?? seed.updatedAt,
-      snapshotBy: seed.snapshotBy || '系统初始化',
-    })
-
-  return buildProductionOrderFromResolvedUpstream(seed, validation.demand, techPackSnapshot)
+  return buildProductionOrderFromResolvedUpstream(seed, validation.demand, validation.techPackSnapshot)
 }
 
 export function buildProductionOrderFromDemand(

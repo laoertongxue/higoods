@@ -10,7 +10,6 @@ export interface PdaCuttingExecutionSourceRecord {
   taskNo: string
   executionOrderId: string
   executionOrderNo: string
-  legacyCutPieceOrderNo: string
   productionOrderId: string
   productionOrderNo: string
   originalCutOrderId: string

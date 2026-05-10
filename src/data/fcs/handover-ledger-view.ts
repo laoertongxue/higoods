@@ -169,7 +169,7 @@ function buildPickupHeadRow(head: PdaHandoverHead): HandoverLedgerRow {
   let statusLabel = '待领料'
   let statusGroup: HandoverLedgerStatusGroup = 'PENDING'
   let statusTone: HandoverLedgerStatusTone = 'warning'
-  let nextActionHint = '去领料详情查看记录'
+  let nextActionHint = '查看来料记录'
 
   if (head.summaryStatus === 'SUBMITTED') {
     statusCode = 'PICKUP_SUBMITTED'

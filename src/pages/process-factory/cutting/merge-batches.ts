@@ -312,7 +312,7 @@ function filterLedger(ledger: MergeBatchRecord[]): MergeBatchRecord[] {
       batch.styleCode,
       batch.spuCode,
       batch.styleName,
-      batch.compatibilityKey,
+      batch.batchingKey,
       ...batch.items.map((item) => item.productionOrderNo),
       ...batch.items.map((item) => item.originalCutOrderNo),
       ...batch.items.map((item) => item.materialSku),
@@ -427,7 +427,7 @@ function renderBatchBasicInfo(batch: MergeBatchRecord): string {
       <div class="grid gap-3 sm:grid-cols-2">
         ${renderFieldCard('批次号', batch.mergeBatchNo)}
         ${renderFieldCard('同款 / SPU', batch.styleCode || batch.spuCode)}
-        ${renderFieldCard('compatibilityKey', batch.compatibilityKey)}
+        ${renderFieldCard('batchingKey', batch.batchingKey)}
         ${renderFieldCard('创建时间', batch.createdAt || '-')}
         ${renderFieldCard('来源生产单数', String(batch.sourceProductionOrderCount))}
         ${renderFieldCard('来源原始裁片单数', String(batch.sourceOriginalCutOrderCount))}
@@ -460,7 +460,7 @@ function renderSourceProductionOrders(batch: MergeBatchRecord): string {
     <section class="space-y-3 rounded-lg border bg-muted/10 p-4">
       <div>
         <h3 class="text-sm font-semibold">来源生产单</h3>
-        <p class="mt-1 text-xs text-muted-foreground">同一批次可来自多个生产单，但只承接兼容的原始裁片单。</p>
+        <p class="mt-1 text-xs text-muted-foreground">同一批次可来自多个生产单，但必须满足同款、同色、同面料。</p>
       </div>
       <div class="space-y-3">
         ${sourceGroups
@@ -635,7 +635,7 @@ export function renderCraftCuttingMergeBatchesPage(): string {
     <div class="space-y-4 p-4" data-testid="cutting-merge-batches-page">
       ${renderCuttingPageHeader(meta, {
         actionsHtml: renderHeaderActions(activeBatch),
-        showCompatibilityBadge: isCuttingAliasPath(pathname),
+        showAliasBadge: isCuttingAliasPath(pathname),
       })}
       ${renderStatsCards(ledger)}
       ${renderFeedbackBar()}

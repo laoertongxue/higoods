@@ -358,7 +358,6 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           icon: 'PackageSearch',
           children: [
             { key: 'pfos-cutting-original-orders', title: '原始裁片单', icon: 'ClipboardList', href: '/fcs/craft/cutting/original-orders' },
-            { key: 'pfos-cutting-material-prep', title: '仓库配料领料', icon: 'PackageSearch', href: '/fcs/craft/cutting/material-prep' },
             { key: 'pfos-cutting-cuttable-pool', title: '可裁排产', icon: 'CalendarClock', href: '/fcs/craft/cutting/cuttable-pool' },
             { key: 'pfos-cutting-merge-batches', title: '合并裁剪批次', icon: 'Layers', href: '/fcs/craft/cutting/merge-batches' },
             { key: 'pfos-cutting-marker-list', title: '唛架方案列表', icon: 'Ruler', href: '/fcs/craft/cutting/marker-list' },
@@ -426,6 +425,25 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
             { key: 'pfos-dyeing-wait-process-warehouse', title: '染色待加工仓', icon: 'Warehouse', href: '/fcs/craft/dyeing/wait-process-warehouse' },
             { key: 'pfos-dyeing-wait-handover-warehouse', title: '染色待交出仓', icon: 'PackageCheck', href: '/fcs/craft/dyeing/wait-handover-warehouse' },
             { key: 'pfos-dyeing-statistics', title: '染色统计', icon: 'BarChart3', href: '/fcs/craft/dyeing/reports' },
+          ],
+        },
+      ],
+    } as MenuGroup & { icon: string },
+    {
+      title: '针织厂管理',
+      icon: 'Shirt',
+      items: [
+        {
+          key: 'pfos-knitting',
+          title: '针织管理',
+          icon: 'Shirt',
+          children: [
+            { key: 'pfos-knitting-work-orders', title: '针织加工单', icon: 'ClipboardList', href: '/fcs/craft/knitting/work-orders' },
+            { key: 'pfos-knitting-machine-schedule', title: '横机排产', icon: 'CalendarClock', href: '/fcs/craft/knitting/machine-schedule' },
+            { key: 'pfos-knitting-wait-process-warehouse', title: '针织待加工仓', icon: 'Warehouse', href: '/fcs/craft/knitting/wait-process-warehouse' },
+            { key: 'pfos-knitting-wait-handover-warehouse', title: '针织待交出仓', icon: 'PackageCheck', href: '/fcs/craft/knitting/wait-handover-warehouse' },
+            { key: 'pfos-knitting-fei-tickets', title: '针织菲票', icon: 'Ticket', href: '/fcs/craft/knitting/fei-tickets' },
+            { key: 'pfos-knitting-statistics', title: '针织统计', icon: 'BarChart3', href: '/fcs/craft/knitting/statistics' },
           ],
         },
       ],

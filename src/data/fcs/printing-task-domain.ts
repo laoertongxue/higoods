@@ -13,6 +13,15 @@ import { listPdaGenericProcessTasks, type PdaGenericTaskMock } from './pda-task-
 import { type HandoverReceiverKind } from './process-tasks.ts'
 import { buildTaskQrValue } from './task-qr.ts'
 import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
+import { productionOrders, type ProductionOrder } from './production-orders.ts'
+import { getProductionOrderTechPackSnapshot } from './production-order-tech-pack-runtime.ts'
+import type { ProductionOrderTechPackSnapshot } from './production-tech-pack-snapshot-types.ts'
+import { listActiveProcessCraftDefinitions, type ProcessCraftDefinition } from './process-craft-dict.ts'
+import {
+  buildDictionaryCraftMockDocumentNo,
+  DICTIONARY_CRAFT_MOCKS_PER_DEFINITION,
+  getDictionaryCraftMockSource,
+} from './production-artifact-generation.ts'
 
 export type PrintWorkOrderStatus =
   | 'WAIT_ARTWORK'
@@ -198,6 +207,102 @@ const nodeRecordStore = new Map<string, MutableNodeRecord[]>()
 const reviewRecordStore = new Map<string, MutableReviewRecord>()
 
 let seeded = false
+
+const GENERATED_PRINT_CRAFTS = listActiveProcessCraftDefinitions()
+  .filter((definition) => definition.processCode === 'PRINT' && definition.defaultDocType === 'DEMAND')
+
+interface GeneratedPrintContext {
+  productionOrder: ProductionOrder
+  techPackSnapshot: ProductionOrderTechPackSnapshot
+  craftDefinition: ProcessCraftDefinition
+  mockIndex: number
+  plannedQty: number
+  materialName: string
+  materialColor?: string
+}
+
+function getProductionOrderQty(order: ProductionOrder): number {
+  const skuQty = order.demandSnapshot.skuLines.reduce((sum, line) => sum + line.qty, 0)
+  return Math.max(1, Math.round(skuQty || order.planQty || 1))
+}
+
+function getGeneratedPrintCraft(index: number): { craftDefinition: ProcessCraftDefinition; mockIndex: number } | null {
+  const craftIndex = Math.floor(index / DICTIONARY_CRAFT_MOCKS_PER_DEFINITION)
+  const craftDefinition = GENERATED_PRINT_CRAFTS[craftIndex]
+  if (!craftDefinition) return null
+  return {
+    craftDefinition,
+    mockIndex: index % DICTIONARY_CRAFT_MOCKS_PER_DEFINITION,
+  }
+}
+
+function buildPrintDemandId(craftCode: string, productionOrderId: string, mockIndex: number): string {
+  return buildDictionaryCraftMockDocumentNo('YHXQ', craftCode, productionOrderId, mockIndex)
+}
+
+function buildPrintWorkOrderNo(craftCode: string, productionOrderId: string, mockIndex: number): string {
+  return buildDictionaryCraftMockDocumentNo('YHJG', craftCode, productionOrderId, mockIndex)
+}
+
+function getGeneratedPrintContext(index: number): GeneratedPrintContext | null {
+  const generatedCraft = getGeneratedPrintCraft(index)
+  if (!generatedCraft) return null
+  const source = getDictionaryCraftMockSource(generatedCraft.craftDefinition.craftCode, generatedCraft.mockIndex)
+  const preferredOrderId = source?.order.productionOrderId
+  const productionOrder = productionOrders.find((order) => order.productionOrderId === preferredOrderId)
+  if (!productionOrder) return null
+  const techPackSnapshot = getProductionOrderTechPackSnapshot(productionOrder.productionOrderId)
+  if (!techPackSnapshot) return null
+  const bomItem = techPackSnapshot.bomItems[0]
+  return {
+    productionOrder,
+    techPackSnapshot,
+    craftDefinition: generatedCraft.craftDefinition,
+    mockIndex: generatedCraft.mockIndex,
+    plannedQty: getProductionOrderQty(productionOrder),
+    materialName: bomItem ? `${bomItem.name}${bomItem.spec ? ` / ${bomItem.spec}` : ''}` : productionOrder.demandSnapshot.spuName,
+    materialColor: bomItem?.colorLabel || productionOrder.demandSnapshot.skuLines[0]?.color,
+  }
+}
+
+function getVisiblePrintWorkOrderIds(): Set<string> {
+  return new Set(
+    Array.from(workOrderStore.values())
+      .sort((left, right) => left.printOrderNo.localeCompare(right.printOrderNo))
+      .slice(0, GENERATED_PRINT_CRAFTS.length * DICTIONARY_CRAFT_MOCKS_PER_DEFINITION)
+      .map((order) => order.printOrderId),
+  )
+}
+
+function toGeneratedPrintWorkOrder(order: MutablePrintWorkOrder, index: number): MutablePrintWorkOrder {
+  const context = getGeneratedPrintContext(index)
+  if (!context) return order
+  const { productionOrder, techPackSnapshot, craftDefinition, mockIndex, plannedQty, materialName, materialColor } = context
+  const demandId = buildPrintDemandId(craftDefinition.craftCode, productionOrder.productionOrderId, mockIndex)
+  return {
+    ...order,
+    printOrderNo: buildPrintWorkOrderNo(craftDefinition.craftCode, productionOrder.productionOrderId, mockIndex),
+    sourceDemandIds: [demandId],
+    productionOrderIds: [productionOrder.productionOrderId],
+    isFirstOrder: mockIndex === 0,
+    patternNo: techPackSnapshot.sourceTechPackVersionCode || techPackSnapshot.styleCode,
+    patternVersion: techPackSnapshot.sourceTechPackVersionLabel || techPackSnapshot.versionLabel,
+    materialSku: materialName,
+    materialColor,
+    plannedQty,
+    plannedRollCount: order.objectType === '面料' ? Math.max(1, Math.ceil(plannedQty / 100)) : order.plannedRollCount,
+    createdAt: productionOrder.createdAt,
+    updatedAt: order.updatedAt || productionOrder.updatedAt,
+    remark: `${craftDefinition.craftName}；来源生产单 ${productionOrder.productionOrderNo}，技术包 ${techPackSnapshot.sourceTechPackVersionLabel || techPackSnapshot.versionLabel}。`,
+  }
+}
+
+function listGeneratedPrintWorkOrders(): MutablePrintWorkOrder[] {
+  return Array.from(workOrderStore.values())
+    .sort((left, right) => left.printOrderNo.localeCompare(right.printOrderNo))
+    .slice(0, GENERATED_PRINT_CRAFTS.length * DICTIONARY_CRAFT_MOCKS_PER_DEFINITION)
+    .map((order, index) => toGeneratedPrintWorkOrder(order, index))
+}
 
 function cloneWorkOrder(order: MutablePrintWorkOrder): PrintWorkOrder {
   return { ...order, sourceDemandIds: [...order.sourceDemandIds], productionOrderIds: [...order.productionOrderIds] }
@@ -1427,29 +1532,31 @@ export function getPrintReviewStatusLabel(status: PrintReviewStatus): string {
 
 export function listPrintWorkOrders(): PrintWorkOrder[] {
   syncDerivedWorkflow()
-  return Array.from(workOrderStore.values())
-    .sort((left, right) => left.printOrderNo.localeCompare(right.printOrderNo))
-    .map((order) => cloneWorkOrder(order))
+  return listGeneratedPrintWorkOrders().map((order) => cloneWorkOrder(order))
 }
 
 export function getPrintWorkOrderById(printOrderId: string): PrintWorkOrder | undefined {
   syncDerivedWorkflow()
-  const order = workOrderStore.get(printOrderId)
+  const order = listGeneratedPrintWorkOrders().find((item) => item.printOrderId === printOrderId)
   return order ? cloneWorkOrder(order) : undefined
 }
 
 export function getPrintWorkOrderByTaskId(taskId: string): PrintWorkOrder | undefined {
   syncDerivedWorkflow()
-  const order = Array.from(workOrderStore.values()).find((item) => item.taskId === taskId)
+  const order = listGeneratedPrintWorkOrders().find((item) => item.taskId === taskId)
   return order ? cloneWorkOrder(order) : undefined
 }
 
 export function listPrintExecutionNodeRecords(printOrderId?: string): PrintExecutionNodeRecord[] {
   seedDomain()
+  const visibleIds = getVisiblePrintWorkOrderIds()
   if (printOrderId) {
+    if (!visibleIds.has(printOrderId)) return []
     return (nodeRecordStore.get(printOrderId) ?? []).map((record) => cloneNodeRecord(record))
   }
-  return Array.from(nodeRecordStore.values()).flat().map((record) => cloneNodeRecord(record))
+  return Array.from(visibleIds)
+    .flatMap((visiblePrintOrderId) => nodeRecordStore.get(visiblePrintOrderId) ?? [])
+    .map((record) => cloneNodeRecord(record))
 }
 
 export function getPrintExecutionNodeRecord(
@@ -1462,11 +1569,15 @@ export function getPrintExecutionNodeRecord(
 
 export function listPrintReviewRecords(): PrintReviewRecord[] {
   syncDerivedWorkflow()
-  return Array.from(reviewRecordStore.values()).map((record) => cloneReviewRecord(record))
+  const visibleIds = getVisiblePrintWorkOrderIds()
+  return Array.from(reviewRecordStore.values())
+    .filter((record) => visibleIds.has(record.printOrderId))
+    .map((record) => cloneReviewRecord(record))
 }
 
 export function getPrintReviewRecordByOrderId(printOrderId: string): PrintReviewRecord | undefined {
   syncDerivedWorkflow()
+  if (!getVisiblePrintWorkOrderIds().has(printOrderId)) return undefined
   const review = reviewRecordStore.get(printOrderId)
   return review ? cloneReviewRecord(review) : undefined
 }

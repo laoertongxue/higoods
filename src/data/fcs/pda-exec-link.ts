@@ -9,7 +9,7 @@ import {
 } from './process-tasks'
 import {
   buildMilestoneRuleLabel,
-  getMilestoneConfigByProcess,
+  getMilestoneConfigForTask,
   getMilestoneProofRequirementLabel,
   getMilestoneTargetUnitByRuleType,
   getMilestoneTargetUnitLabel,
@@ -120,7 +120,7 @@ function normalizeMilestoneTargetUnit(raw: string | undefined, ruleType: Milesto
 }
 
 function ensureMilestoneDefaults(task: ProcessTask): TaskMilestoneState {
-  const config = getMilestoneConfigByProcess(task.processCode, task.processNameZh)
+  const config = getMilestoneConfigForTask(task)
   const ruleType = normalizeMilestoneRuleType(task.milestoneRuleType || config?.ruleType)
   const targetUnit = normalizeMilestoneTargetUnit(task.milestoneTargetUnit, ruleType)
   const targetUnitLabel = getMilestoneTargetUnitLabel(targetUnit)

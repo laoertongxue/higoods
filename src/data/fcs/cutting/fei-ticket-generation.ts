@@ -1,7 +1,7 @@
-import { techPacks, type TechPackPatternPieceInstance, type TechPackPatternPieceSpecialCraftAssignment } from '../tech-packs.ts'
-import {
-  buildPatternItemsFromTechPack,
-} from '../../../pages/tech-pack/context.ts'
+import type {
+  TechnicalPatternPieceInstance as TechPackPatternPieceInstance,
+  TechnicalPatternPieceSpecialCraftAssignment as TechPackPatternPieceSpecialCraftAssignment,
+} from '../../pcs-technical-data-version-types.ts'
 import {
   listGeneratedOriginalCutOrderSourceRecords,
   type GeneratedOriginalCutOrderSourceRecord,
@@ -145,17 +145,27 @@ function normalizeText(value: string | undefined | null, fallback = ''): string 
 }
 
 function buildPieceInstanceSourcePool(): PieceInstanceSourceRef[] {
-  return techPacks.flatMap((techPack) => {
-    const techPackVersionId = `${techPack.spuCode || 'TECHPACK'}-${techPack.versionLabel || 'V1'}`
-    return buildPatternItemsFromTechPack(techPack).flatMap((pattern) =>
-      pattern.pieceInstances.map((instance) => ({
-        techPackVersionId,
-        patternId: pattern.id,
-        patternName: pattern.name,
-        instance,
+  return listGeneratedOriginalCutOrderSourceRecords().flatMap((source) =>
+    source.pieceRows.flatMap((pieceRow) =>
+      source.skuScopeLines.map((skuLine, index) => ({
+        techPackVersionId: `${source.sourceTechPackSpuCode}-${source.techPackVersionLabel}`,
+        patternId: pieceRow.patternId,
+        patternName: pieceRow.patternName,
+        instance: {
+          pieceInstanceId: `${source.originalCutOrderId}-${pieceRow.partCode}-${skuLine.skuCode}-${index + 1}`,
+          sourcePieceId: pieceRow.partCode,
+          pieceName: pieceRow.partName,
+          sizeName: skuLine.size,
+          colorId: sanitize(skuLine.color),
+          colorName: skuLine.color,
+          sequenceNo: index + 1,
+          displayName: `${pieceRow.partName}-${skuLine.color}-${skuLine.size}`,
+          specialCraftAssignments: [],
+          status: '已配置',
+        },
       })),
-    )
-  })
+    ),
+  )
 }
 
 function mapSpecialCraftAssignment(assignment: TechPackPatternPieceSpecialCraftAssignment): FeiTicketSpecialCraft {

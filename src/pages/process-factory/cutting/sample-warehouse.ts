@@ -500,7 +500,7 @@ function renderPage(): string {
   return `
     <div class="space-y-3 p-4">
       ${renderCuttingPageHeader(meta, {
-        showCompatibilityBadge: isCuttingAliasPath(pathname),
+        showAliasBadge: isCuttingAliasPath(pathname),
         actionsHtml: renderHeaderActions(),
       })}
       ${renderStatsCards()}
@@ -521,7 +521,7 @@ function navigateByPayload(itemId: string | undefined, target: keyof SampleWareh
 
   const pathMap: Record<keyof SampleWarehouseItem['navigationPayload'], string> = {
     originalOrders: getCanonicalCuttingPath('original-orders'),
-    materialPrep: getCanonicalCuttingPath('material-prep'),
+    materialPrep: getCanonicalCuttingPath('warehouse-management-wait-process'),
     summary: getCanonicalCuttingPath('summary'),
     transferBags: getCanonicalCuttingPath('transfer-bags'),
   }

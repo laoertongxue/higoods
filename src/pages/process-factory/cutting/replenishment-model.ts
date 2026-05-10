@@ -32,7 +32,6 @@ export type ReplenishmentStatusKey =
   | 'APPROVED_PENDING_ACTION'
   | 'IN_ACTION'
   | 'COMPLETED'
-export type ReplenishmentLegacyStatusKey = 'APPROVED' | 'APPLIED'
 export type ReplenishmentReviewStatus = 'APPROVED' | 'REJECTED' | 'PENDING_SUPPLEMENT'
 export type ReplenishmentAuditAction =
   | 'SUGGESTED'
@@ -251,7 +250,7 @@ export interface ReplenishmentPrefilter {
   suggestionId?: string
   suggestionNo?: string
   riskLevel?: ReplenishmentRiskLevel
-  replenishmentStatus?: ReplenishmentStatusKey | ReplenishmentLegacyStatusKey
+  replenishmentStatus?: ReplenishmentStatusKey
 }
 
 export interface ReplenishmentNavigationPayload {
@@ -351,8 +350,8 @@ export const replenishmentFollowupActionTypeMetaMap: Record<
 > = {
   CREATE_PENDING_PREP: {
     key: 'CREATE_PENDING_PREP',
-    label: '生成补料待配料',
-    shortLabel: '待配料',
+    label: '生成补料WMS 待处理',
+    shortLabel: 'WMS 待处理',
     className: 'bg-blue-100 text-blue-700',
   },
 }
@@ -452,7 +451,7 @@ function buildSuggestedAction(options: {
   if (options.missingData) {
     return {
       status: 'PENDING_SUPPLEMENT',
-      text: '补录铺布、配料或领料差异后审核。',
+      text: '补录铺布、WMS 来料差异后审核。',
     }
   }
 
@@ -612,7 +611,7 @@ function buildReplenishmentNavigationPayload(
 }
 
 function buildActionTargetPath(targetPageKey: ReplenishmentFollowupTargetPageKey): string {
-  if (targetPageKey === 'materialPrep') return '/fcs/craft/cutting/material-prep'
+  if (targetPageKey === 'materialPrep') return '/fcs/craft/cutting/warehouse-management/wait-process'
   return '/fcs/craft/cutting/replenishment'
 }
 
@@ -656,41 +655,10 @@ function buildDefaultFollowupActions(
       suggestion,
       navigationPayload,
       actionType: 'CREATE_PENDING_PREP',
-      title: '生成补料待配料',
+      title: '生成补料WMS 待处理',
       targetPageKey: 'materialPrep',
-      note: '审核通过后，在原裁片任务的仓库配料领料记录下生成补料待配料，由仓库配料领料继续处理。',
+      note: '审核通过后进入待加工仓。',
     }),
-  ]
-}
-
-function hydrateLegacyActionsFromImpactPlan(options: {
-  suggestion: ReplenishmentSuggestion
-  context: ReplenishmentContextRecord
-  navigationPayload: ReplenishmentNavigationPayload
-  legacyImpactPlan: ReplenishmentImpactPlan | null
-}): ReplenishmentFollowupAction[] {
-  const defaults = buildDefaultFollowupActions(options.suggestion, options.navigationPayload)
-  const legacy = options.legacyImpactPlan
-  if (!legacy) return defaults
-  if (
-    !legacy.needReconfigureMaterial &&
-    !legacy.needReclaimMaterial &&
-    !legacy.needPendingPrep &&
-    !legacy.impactSummary
-  ) {
-    return defaults
-  }
-
-  const matched = defaults[0]
-  if (!matched) return []
-  return [
-    {
-      ...matched,
-      status: legacy.applied ? 'DONE' : matched.status,
-      completedAt: legacy.applied ? legacy.appliedAt : matched.completedAt,
-      completedBy: legacy.applied ? legacy.appliedBy : matched.completedBy,
-      note: legacy.impactSummary || matched.note,
-    },
   ]
 }
 
@@ -699,14 +667,8 @@ function mergeStoredActions(options: {
   context: ReplenishmentContextRecord
   navigationPayload: ReplenishmentNavigationPayload
   storedActions: ReplenishmentFollowupAction[]
-  legacyImpactPlan: ReplenishmentImpactPlan | null
 }): ReplenishmentFollowupAction[] {
-  const defaults = hydrateLegacyActionsFromImpactPlan({
-    suggestion: options.suggestion,
-    context: options.context,
-    navigationPayload: options.navigationPayload,
-    legacyImpactPlan: options.legacyImpactPlan,
-  })
+  const defaults = buildDefaultFollowupActions(options.suggestion, options.navigationPayload)
   if (!options.storedActions.length) return defaults
 
   const storedByType = new Map(options.storedActions.map((item) => [item.actionType, item]))
@@ -733,7 +695,6 @@ function mergeStoredActions(options: {
 function buildImpactPlanFromActions(options: {
   suggestion: ReplenishmentSuggestion
   actions: ReplenishmentFollowupAction[]
-  legacyImpactPlan: ReplenishmentImpactPlan | null
   review: ReplenishmentReview | null
 }): ReplenishmentImpactPlan {
   const completedCount = options.actions.filter((item) => item.status === 'DONE').length
@@ -762,8 +723,8 @@ function buildImpactPlanFromActions(options: {
     needPendingPrep: options.actions.some((item) => item.actionType === 'CREATE_PENDING_PREP'),
     impactSummary,
     applied: completed,
-    appliedAt: latestCompleted?.completedAt || (completed && !options.actions.length ? reviewAppliedAt : options.legacyImpactPlan?.appliedAt || ''),
-    appliedBy: latestCompleted?.completedBy || (completed && !options.actions.length ? reviewAppliedBy : options.legacyImpactPlan?.appliedBy || ''),
+    appliedAt: latestCompleted?.completedAt || (completed && !options.actions.length ? reviewAppliedAt : ''),
+    appliedBy: latestCompleted?.completedBy || (completed && !options.actions.length ? reviewAppliedBy : ''),
     pendingActionCount: pendingCount,
     completedActionCount: completedCount + skippedCount,
     manualConfirmCount,
@@ -1024,9 +985,7 @@ function buildFollowupProgressText(actions: ReplenishmentFollowupAction[]): stri
   return `${completed}/${actions.length} 已处理`
 }
 
-function buildStatusFilterAliases(status: ReplenishmentStatusKey | ReplenishmentLegacyStatusKey): ReplenishmentStatusKey[] {
-  if (status === 'APPROVED') return ['APPROVED_PENDING_ACTION', 'IN_ACTION']
-  if (status === 'APPLIED') return ['COMPLETED']
+function buildStatusFilterAliases(status: ReplenishmentStatusKey): ReplenishmentStatusKey[] {
   return [status]
 }
 
@@ -1113,7 +1072,7 @@ export function deserializeReplenishmentActionsStorage(raw: string | null): Repl
           actionId: String(item.actionId || `${suggestionId}-CREATE_PENDING_PREP`).trim() || `${suggestionId}-CREATE_PENDING_PREP`,
           suggestionId,
           actionType: 'CREATE_PENDING_PREP' as const,
-          title: String(item.title || '生成补料待配料').trim() || '生成补料待配料',
+          title: String(item.title || '生成补料WMS 待处理').trim() || '生成补料WMS 待处理',
           status: ['PENDING', 'CONFIRMED', 'SKIPPED', 'DONE'].includes(String(item.status || ''))
             ? (item.status as ReplenishmentFollowupActionStatus)
             : 'PENDING',
@@ -1125,7 +1084,7 @@ export function deserializeReplenishmentActionsStorage(raw: string | null): Repl
               : {},
           note:
             String(item.note || '').trim() ||
-            '审核通过后，在原裁片任务的仓库配料领料记录下生成补料待配料，由仓库配料领料继续处理。',
+            '审核通过后进入待加工仓。',
           decidedAt: String(item.decidedAt || '').trim(),
           decidedBy: String(item.decidedBy || '').trim(),
           completedAt: String(item.completedAt || '').trim(),
@@ -1193,12 +1152,10 @@ export function buildReplenishmentViewModel(options: {
       context,
       navigationPayload,
       storedActions: actionsBySuggestionId[suggestion.suggestionId] || [],
-      legacyImpactPlan: impactsBySuggestionId[suggestion.suggestionId] || null,
     })
     const impactPlan = buildImpactPlanFromActions({
       suggestion,
       actions: followupActions,
-      legacyImpactPlan: impactsBySuggestionId[suggestion.suggestionId] || null,
       review,
     })
     const statusMeta = deriveStatusMeta({

@@ -71,7 +71,7 @@ function renderFeedbackHistory(detail: NonNullable<ReturnType<typeof getReplenis
                 <div class="text-muted-foreground">${escapeHtml(item.feedbackAt)}</div>
               </div>
               <div class="mt-2 text-muted-foreground">反馈人：${escapeHtml(item.operatorName)}</div>
-              <div class="mt-1 text-muted-foreground">反馈说明：${escapeHtml(item.note || '无')}</div>
+              <div class="mt-1 text-muted-foreground">反馈记录：${escapeHtml(item.note || '无')}</div>
               <div class="mt-1 text-muted-foreground">照片 / 凭证：${escapeHtml(String(item.photoProofCount))} 个</div>
             </article>
           `,
@@ -132,11 +132,11 @@ export function renderPdaCuttingReplenishmentFeedbackPage(taskId: string): strin
       <label class="block space-y-1">
         <span class="text-muted-foreground">补料原因</span>
         <select class="h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-replenishment-field="reasonLabel">
-          ${['铺布余量不足预警', '领料差异导致预计不足', '现场裁剪损耗偏高', '需补充照片后再判断'].map((item) => `<option value="${escapeHtml(item)}" ${form.reasonLabel === item ? 'selected' : ''}>${escapeHtml(item)}</option>`).join('')}
+          ${['铺布余量不足预警', '来料差异导致预计不足', '现场裁剪损耗偏高', '需补充照片后再判断'].map((item) => `<option value="${escapeHtml(item)}" ${form.reasonLabel === item ? 'selected' : ''}>${escapeHtml(item)}</option>`).join('')}
         </select>
       </label>
       <label class="block space-y-1">
-        <span class="text-muted-foreground">反馈说明</span>
+        <span class="text-muted-foreground">反馈记录</span>
         <textarea class="min-h-24 w-full rounded-xl border bg-background px-3 py-2 text-sm" data-pda-cut-replenishment-field="note" placeholder="请填写补料风险、现场判断和建议处理方式">${escapeHtml(form.note)}</textarea>
       </label>
       <label class="block space-y-1">
@@ -146,7 +146,7 @@ export function renderPdaCuttingReplenishmentFeedbackPage(taskId: string): strin
       <div class="rounded-xl border bg-muted/20 px-3 py-3 text-xs">
         <div class="text-muted-foreground">本次反馈预览</div>
         <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(form.reasonLabel)}</div>
-        <div class="mt-1 text-muted-foreground">说明：${escapeHtml(form.note || '待填写')}</div>
+        <div class="mt-1 text-muted-foreground">记录：${escapeHtml(form.note || '待填写')}</div>
         <div class="mt-1 text-muted-foreground">照片 / 凭证：${escapeHtml(form.photoProofCount || '0')} 个</div>
       </div>
       ${form.feedbackMessage ? renderPdaCuttingFeedbackNotice(form.feedbackMessage, 'success') : ''}

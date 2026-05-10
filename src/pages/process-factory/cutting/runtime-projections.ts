@@ -96,7 +96,7 @@ function buildSourceMergeBatchItems(source: {
     materialLabel: row.materialLabel,
     currentStage: row.currentStage.label,
     cuttableStateLabel: row.cuttableState.label,
-    sourceCompatibilityKey: `${row.styleCode}::${row.materialSku}`,
+    sourceBatchingKey: `${row.styleCode}::${row.materialSku}`,
   }))
 }
 
@@ -116,7 +116,7 @@ function buildRuntimeMergeBatchRecords(
         mergeBatchId: record.mergeBatchId,
         mergeBatchNo: record.mergeBatchNo,
         status: inferSourceMergeBatchStatus(rows),
-        compatibilityKey: `${rows[0]?.styleCode || ''}::${materialSkuSummary}`,
+        batchingKey: `${rows[0]?.styleCode || ''}::${materialSkuSummary}`,
         styleCode: rows[0]?.styleCode || '',
         spuCode: rows[0]?.spuCode || '',
         styleName: rows[0]?.styleName || '',

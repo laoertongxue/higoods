@@ -1935,7 +1935,7 @@ function seedStore(): void {
     })
     return picked.length > 0 ? picked : fallback
   }
-  const readyOrder = createCuttingSewingDispatchOrder({ productionOrderId: 'PO-202603-081', remark: '首批裁片发车缝' })
+  const readyOrder = createCuttingSewingDispatchOrder({ productionOrderId: 'PO-202603-0005', remark: '首批裁片发车缝' })
   const readyBatch = createCuttingSewingDispatchBatch({
     dispatchOrderId: readyOrder.dispatchOrderId,
     plannedSkuQtyLines: [{ colorName: 'Black', colorCode: 'Black', sizeCode: 'M', plannedGarmentQty: 1 }],
@@ -1945,10 +1945,10 @@ function seedStore(): void {
     bagPlanList: [{ plannedGarmentQty: 1, skuQtyLines: readyBatch.plannedSkuQtyLines }],
   })
   pickSeedFeiTicketNos(readyBatch, [
-    'FT-CUT-260308-081-01-001',
-    'FT-CUT-260308-081-01-003',
-    'FT-CUT-260308-081-01-005',
-    'FT-CUT-260308-081-03-003',
+    'FT-CUT-260301-005-01-001',
+    'FT-CUT-260301-005-01-003',
+    'FT-CUT-260301-005-01-005',
+    'FT-CUT-260301-005-01-006',
   ]).forEach((feiTicketNo) => {
     scanFeiTicketIntoTransferBag({ transferBagId: readyBags[0].transferBagId, feiTicketNo })
   })
@@ -1975,12 +1975,12 @@ function seedStore(): void {
     dispatchBatchId: secondBatch.dispatchBatchId,
     bagPlanList: [{ plannedGarmentQty: 1, skuQtyLines: secondBatch.plannedSkuQtyLines }],
   })
-  pickSeedFeiTicketNos(secondBatch, ['FT-CUT-260308-081-01-002', 'FT-CUT-260308-081-01-004', 'FT-CUT-260308-081-03-004']).forEach((feiTicketNo) => {
+  pickSeedFeiTicketNos(secondBatch, ['FT-CUT-260301-005-01-002', 'FT-CUT-260301-005-01-004', 'FT-CUT-260301-005-01-007']).forEach((feiTicketNo) => {
     scanFeiTicketIntoTransferBag({ transferBagId: secondBags[0].transferBagId, feiTicketNo })
   })
   validateDispatchBatchCompleteness(secondBatch.dispatchBatchId)
 
-  const blockedOrder = createCuttingSewingDispatchOrder({ productionOrderId: 'PO-202603-0014', remark: '特殊工艺未回仓示例' })
+  const blockedOrder = createCuttingSewingDispatchOrder({ productionOrderId: 'PO-202603-014', remark: '特殊工艺未回仓示例' })
   const blockedBatch = createCuttingSewingDispatchBatch({
     dispatchOrderId: blockedOrder.dispatchOrderId,
     plannedSkuQtyLines: [{ colorName: 'Navy', colorCode: 'Navy', sizeCode: 'S', plannedGarmentQty: 1 }],

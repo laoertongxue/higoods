@@ -2,9 +2,9 @@ import {
   productionOrders,
   type ProductionOrder,
 } from './production-orders.ts'
-import { getProductionOrderCompatTechPack } from './production-order-tech-pack-runtime.ts'
+import { getProductionOrderTechPackSnapshot } from './production-order-tech-pack-runtime.ts'
 import { processTasks, type ProcessTask } from './process-tasks.ts'
-import type { TechPackBomItem } from './tech-packs.ts'
+import type { TechnicalBomItem } from '../pcs-technical-data-version-types.ts'
 import {
   getRuntimeTaskById,
   isRuntimeTaskExecutionTask,
@@ -298,7 +298,7 @@ function formatPatternSpecText(widthCm?: number, markerLengthM?: number): string
 }
 
 function buildPatternEvidence(
-  bomItem: TechPackBomItem,
+  bomItem: TechnicalBomItem,
   patternFiles: Array<{
     id: string
     fileName: string
@@ -356,7 +356,7 @@ function buildPatternEvidence(
   }
 }
 
-function inferMaterialCategory(item: TechPackBomItem): '面料' | '辅料' {
+function inferMaterialCategory(item: TechnicalBomItem): '面料' | '辅料' {
   const haystack = `${item.type} ${item.name}`
   if (haystack.includes('辅料') || haystack.includes('纽扣') || haystack.includes('拉链') || haystack.includes('线')) {
     return '辅料'
@@ -364,7 +364,7 @@ function inferMaterialCategory(item: TechPackBomItem): '面料' | '辅料' {
   return '面料'
 }
 
-function inferMaterialUnit(item: TechPackBomItem, category: '面料' | '辅料'): string {
+function inferMaterialUnit(item: TechnicalBomItem, category: '面料' | '辅料'): string {
   const haystack = `${item.type} ${item.name} ${item.spec}`
   if (category === '面料') return '米'
   if (haystack.includes('线')) return '卷'
@@ -421,7 +421,7 @@ function buildBomCandidates(
   task?: ProcessTask,
   runtimeTask?: RuntimeProcessTask | null,
 ): DraftMaterialCandidate[] {
-  const techPack = getProductionOrderCompatTechPack(order.productionOrderId)
+  const techPack = getProductionOrderTechPackSnapshot(order.productionOrderId)
   const taskSkuScope = getTaskSkuScope(order, task, runtimeTask)
   const processFlags = getOrderProcessFlags(order.productionOrderId)
   const targetProcessCode = runtimeTask?.processCode ?? task?.processCode
@@ -518,7 +518,7 @@ function buildSewUpstreamCandidates(
   task?: ProcessTask,
   runtimeTask?: RuntimeProcessTask | null,
 ): DraftMaterialCandidate[] {
-  const techPack = getProductionOrderCompatTechPack(order.productionOrderId)
+  const techPack = getProductionOrderTechPackSnapshot(order.productionOrderId)
   if (!techPack) return []
 
   const mappings = techPack.colorMaterialMappings ?? []

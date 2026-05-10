@@ -25,7 +25,7 @@ import { getCanonicalCuttingPath } from './process-factory/cutting/meta'
 import { escapeHtml, formatDateTime } from '../utils'
 
 const productionProgressPath = getCanonicalCuttingPath('production-progress')
-const materialPrepPath = getCanonicalCuttingPath('material-prep')
+const materialPrepPath = getCanonicalCuttingPath('warehouse-management-wait-process')
 const originalOrdersPath = getCanonicalCuttingPath('original-orders')
 const replenishmentPath = getCanonicalCuttingPath('replenishment')
 const fabricWarehousePath = getCanonicalCuttingPath('fabric-warehouse')
@@ -36,7 +36,7 @@ function normalizeRoute(route: string): string {
 
 function getCuttingRouteActionLabel(route: string): string {
   const normalizedRoute = normalizeRoute(route)
-  if (normalizedRoute === materialPrepPath) return '去仓库配料领料'
+  if (normalizedRoute === materialPrepPath) return '去待加工仓'
   if (normalizedRoute === replenishmentPath) return '去补料管理'
   if (normalizedRoute === originalOrdersPath) return '去原始裁片单'
   if (normalizedRoute === fabricWarehousePath) return '去裁床仓'
@@ -176,7 +176,7 @@ function getPriorityBuckets(rows: CuttingException[]) {
 function getQuickRoutes(row: CuttingException) {
   return [
     { label: '去生产单进度', route: productionProgressPath },
-    { label: '去仓库配料领料', route: materialPrepPath },
+    { label: '去待加工仓', route: materialPrepPath },
     { label: '去原始裁片单', route: originalOrdersPath },
     { label: '去补料管理', route: replenishmentPath },
     { label: '去裁床仓', route: fabricWarehousePath },
@@ -529,7 +529,7 @@ function renderMainTable(): string {
                               <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-exception-action="open-process" data-target-status="WAITING_CONFIRM" data-exception-no="${row.exceptionNo}">标记待确认</button>
                               <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-exception-action="open-process" data-target-status="CLOSED" data-exception-no="${row.exceptionNo}">关闭异常</button>
                               <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-exception-action="go-production-progress">去生产单进度</button>
-                              <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-exception-action="go-material-prep">去仓库配料领料</button>
+                              <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-exception-action="go-material-prep">去待加工仓</button>
                               <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-exception-action="go-original-orders">去原始裁片单</button>
                               <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-exception-action="go-replenishment">去补料管理</button>
                               <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-cutting-exception-action="go-fabric-warehouse">去裁床仓</button>

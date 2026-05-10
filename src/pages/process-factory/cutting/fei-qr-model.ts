@@ -93,10 +93,10 @@ export interface FeiQrValidationResult {
   warnings: string[]
 }
 
-export interface FeiQrCompatibilityMeta {
-  isLegacy: boolean
+export interface FeiQrSchemaMeta {
+  isCurrentSchema: boolean
   schemaVersion: string
-  compatibilityNote: string
+  schemaNote: string
   usedDefaultReservedProcess: boolean
   usedDefaultReservedTrace: boolean
 }
@@ -108,7 +108,7 @@ export interface FeiQrPreviewRecord {
   payloadJson: string
   summary: FeiQrPayloadSummary
   validation: FeiQrValidationResult
-  compatibilityMeta: FeiQrCompatibilityMeta
+  schemaMeta: FeiQrSchemaMeta
 }
 
 export interface FeiQrReservedProcessBadge {
@@ -426,14 +426,14 @@ export function buildReservedProcessBadges(payload: FeiQrPayload): FeiQrReserved
   })
 }
 
-export function buildFeiQrCompatibilityMeta(record: Partial<FeiTicketLabelRecord>): FeiQrCompatibilityMeta {
+export function buildFeiQrSchemaMeta(record: Partial<FeiTicketLabelRecord>): FeiQrSchemaMeta {
   const usedDefaultReservedProcess = !record.reservedProcess
   const usedDefaultReservedTrace = !record.reservedTrace
-  const isLegacy = !record.schemaName || !record.schemaVersion || record.schemaVersion !== FEI_QR_SCHEMA_VERSION
+  const isCurrentSchema = Boolean(record.schemaName && record.schemaVersion === FEI_QR_SCHEMA_VERSION)
   return {
-    isLegacy,
+    isCurrentSchema,
     schemaVersion: record.schemaVersion || FEI_QR_SCHEMA_VERSION,
-    compatibilityNote: isLegacy ? '旧票据已按正式菲票子码结构兼容展示。' : '当前票据已使用正式菲票子码结构。',
+    schemaNote: '当前票据已使用正式菲票子码结构。',
     usedDefaultReservedProcess,
     usedDefaultReservedTrace,
   }

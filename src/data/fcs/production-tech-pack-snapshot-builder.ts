@@ -1,11 +1,9 @@
-import { buildLegacyTechPackFromTechnicalVersion } from '../pcs-technical-data-fcs-adapter.ts'
 import { findStyleArchiveByCode } from '../pcs-style-archive-repository.ts'
 import {
   getCurrentTechPackVersionByStyleId,
   getTechnicalDataVersionContentById,
 } from '../pcs-technical-data-version-repository.ts'
 import type { StyleArchiveShellRecord } from '../pcs-style-archive-types.ts'
-import { getEnabledTechPackBySpuCode, type TechPack } from './tech-packs.ts'
 import type { ProductionDemand } from './production-demands.ts'
 import {
   patternMaterialFileTypeLabels,
@@ -51,11 +49,6 @@ export interface DemandCurrentTechPackSource {
 }
 
 const IMAGE_PLACEHOLDER_MARKERS = ['/placeholder.svg', 'picsum', 'unsplash', 'dummyimage', 'loremflickr']
-const FALLBACK_PATTERN_PARTS = [
-  { partCode: 'tech-front', partNameCn: '前片', pieceCountPerGarment: 1, manualConfirmRequired: false },
-  { partCode: 'tech-back', partNameCn: '后片', pieceCountPerGarment: 1, manualConfirmRequired: false },
-  { partCode: 'tech-sleeve', partNameCn: '袖子', pieceCountPerGarment: 2, manualConfirmRequired: true },
-] as const
 
 function buildPatternFileDisplayName(input: {
   patternFileMode?: string
@@ -82,27 +75,6 @@ function buildPatternFileDisplayName(input: {
 
 function normalizeText(value: string | undefined | null): string {
   return String(value || '').trim()
-}
-
-function buildFcsEnabledTechPackInfo(spuCode: string): DemandCurrentTechPackInfo | null {
-  const techPack = getEnabledTechPackBySpuCode(spuCode)
-  if (!techPack) return null
-
-  return {
-    styleId: '',
-    styleCode: techPack.spuCode,
-    styleName: techPack.spuName,
-    currentTechPackVersionId: `fcs-enabled-${techPack.spuCode}-${techPack.versionLabel}`,
-    currentTechPackVersionCode: `FCS-${techPack.spuCode}-${techPack.versionLabel}`,
-    currentTechPackVersionLabel: techPack.versionLabel,
-    publishedAt: techPack.lastUpdatedAt,
-    completenessScore: techPack.completenessScore,
-    linkedRevisionTaskIds: [],
-    linkedPatternTaskIds: [],
-    linkedArtworkTaskIds: [],
-    canConvertToProductionOrder: true,
-    blockReason: '',
-  }
 }
 
 function uniqueStrings(values: Array<string | undefined | null>): string[] {
@@ -196,6 +168,10 @@ function cloneProcessEntries(items: TechnicalProcessEntry[]): TechnicalProcessEn
   return items.map((item) => ({
     ...item,
     detailSplitDimensions: [...(item.detailSplitDimensions ?? [])],
+    supportedTargetObjects: [...(item.supportedTargetObjects ?? [])],
+    supportedTargetObjectLabels: [...(item.supportedTargetObjectLabels ?? [])],
+    linkedBomItemIds: [...(item.linkedBomItemIds ?? [])],
+    linkedPatternIds: [...(item.linkedPatternIds ?? [])],
   }))
 }
 
@@ -375,6 +351,7 @@ function buildCutPieceParts(input: {
 
   const partMap = new Map<string, TechPackCutPiecePartSnapshot>()
   input.patternFiles.forEach((patternFile) => {
+    if (patternFile.patternMaterialType === 'KNIT') return
     const linkedBom = input.bomItems.find((bom) => bom.id === patternFile.linkedBomItemId) || input.bomItems[0] || null
     const patternSizeCodes = uniqueStrings([
       ...(patternFile.selectedSizeCodes ?? []),
@@ -439,39 +416,6 @@ function buildCutPieceParts(input: {
     })
   })
 
-  if (partMap.size === 0) {
-    FALLBACK_PATTERN_PARTS.forEach((item) => {
-      const linkedBom = input.bomItems[0] || null
-      partMap.set(item.partCode, {
-        partCode: item.partCode,
-        partNameCn: item.partNameCn,
-        pieceCountPerGarment: item.pieceCountPerGarment,
-        materialSku: linkedBom?.id || '',
-        materialName: linkedBom?.name || undefined,
-        fabricColor: linkedBom?.colorLabel || undefined,
-        applicableColorList: linkedBom?.colorLabel ? [linkedBom.colorLabel] : [],
-        applicableSizeList: sizeRange,
-        manualConfirmRequired: item.manualConfirmRequired,
-      })
-    })
-  } else {
-    FALLBACK_PATTERN_PARTS.forEach((item) => {
-      if (partMap.has(item.partCode)) return
-      const linkedBom = input.bomItems[0] || null
-      partMap.set(item.partCode, {
-        partCode: item.partCode,
-        partNameCn: item.partNameCn,
-        pieceCountPerGarment: item.pieceCountPerGarment,
-        materialSku: linkedBom?.id || '',
-        materialName: linkedBom?.name || undefined,
-        fabricColor: linkedBom?.colorLabel || undefined,
-        applicableColorList: linkedBom?.colorLabel ? [linkedBom.colorLabel] : [],
-        applicableSizeList: sizeRange,
-        manualConfirmRequired: item.manualConfirmRequired,
-      })
-    })
-  }
-
   return [...partMap.values()].sort((left, right) => left.partNameCn.localeCompare(right.partNameCn, 'zh-CN'))
 }
 
@@ -502,26 +446,6 @@ function buildImageSnapshot(input: {
       .map((item) => normalizeText(item.previewThumbnailDataUrl || item.imageUrl))
       .filter(isAllowedSnapshotImage),
   }
-}
-
-function buildSeedArtworkAssetData(label: string) {
-  const previewThumbnailDataUrl = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220">
-      <rect width="320" height="220" rx="20" fill="#eff6ff" />
-      <rect x="24" y="24" width="272" height="172" rx="16" fill="#bfdbfe" />
-      <text x="160" y="118" font-size="24" font-family="sans-serif" text-anchor="middle" fill="#1e3a8a">${label}</text>
-      <text x="160" y="148" font-size="13" font-family="sans-serif" text-anchor="middle" fill="#475569">缩略图预览</text>
-    </svg>
-  `)}`
-  const originalFileDataUrl = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 720">
-      <rect width="960" height="720" rx="40" fill="#eff6ff" />
-      <rect x="72" y="72" width="816" height="520" rx="32" fill="#bfdbfe" />
-      <text x="480" y="340" font-size="56" font-family="sans-serif" text-anchor="middle" fill="#1e3a8a">${label}</text>
-      <text x="480" y="410" font-size="24" font-family="sans-serif" text-anchor="middle" fill="#475569">原文件下载</text>
-    </svg>
-  `)}`
-  return { originalFileDataUrl, previewThumbnailDataUrl }
 }
 
 export function cloneProductionOrderTechPackSnapshot(
@@ -611,308 +535,6 @@ function buildSnapshotFromSource(input: {
   }
 }
 
-function buildFallbackSizeTable(demand: Pick<ProductionDemand, 'skuLines'>): TechnicalSizeRow[] {
-  const sizeSet = Array.from(new Set(demand.skuLines.map((item) => item.size)))
-  const has = (size: string) => sizeSet.includes(size)
-  return [
-    {
-      id: 'seed-size-1',
-      part: '胸围',
-      S: has('S') ? 48 : 0,
-      M: has('M') ? 50 : 0,
-      L: has('L') ? 52 : 0,
-      XL: has('XL') ? 54 : 0,
-      tolerance: 1,
-    },
-  ]
-}
-
-export function buildSeedProductionOrderTechPackSnapshot(input: {
-  productionOrderId: string
-  productionOrderNo: string
-  demand: Pick<ProductionDemand, 'spuCode' | 'spuName' | 'skuLines' | 'techPackVersionLabel' | 'techPackStatus'>
-  snapshotAt: string
-  snapshotBy: string
-}): ProductionOrderTechPackSnapshot {
-  const { productionOrderId, productionOrderNo, demand, snapshotAt, snapshotBy } = input
-  const firstSku = demand.skuLines[0]
-  const primaryColor = firstSku?.color || '默认色'
-  const primarySkuCode = firstSku?.skuCode || `${demand.spuCode}-SKU-001`
-  const primarySize = firstSku?.size || 'M'
-  const sourceVersionLabel =
-    demand.techPackStatus === 'RELEASED'
-      ? demand.techPackVersionLabel || 'v1.0'
-      : '草稿快照'
-  const bomItems: TechPackBomItemSnapshot[] = [
-    {
-      id: `seed-bom-${productionOrderId}-1`,
-      type: '面料',
-      name: '主面料',
-      spec: `${primaryColor} 主面料`,
-      colorLabel: primaryColor,
-      unitConsumption: 1.2,
-      lossRate: 0.03,
-      supplier: '历史供应商',
-      applicableSkuCodes: [primarySkuCode],
-      linkedPatternIds: [`seed-pattern-${productionOrderId}-1`, `seed-pattern-${productionOrderId}-2`],
-      usageProcessCodes: ['SEW'],
-    },
-    {
-      id: `seed-bom-${productionOrderId}-2`,
-      type: '辅料',
-      name: '辅料包',
-      spec: `适配 ${primarySize}`,
-      unitConsumption: 1,
-      lossRate: 0.01,
-      supplier: '历史辅料商',
-      applicableSkuCodes: [primarySkuCode],
-      linkedPatternIds: [],
-      usageProcessCodes: ['PACK'],
-    },
-  ]
-  const patternFiles: TechPackPatternFileSnapshot[] = [
-    {
-      id: `seed-pattern-${productionOrderId}-1`,
-      patternFileId: `seed-pattern-${productionOrderId}-1`,
-      fileName: `${demand.spuCode}-针织纸样.pdf`,
-      patternFileName: `${demand.spuCode}-针织纸样.pdf`,
-      patternVersion: sourceVersionLabel,
-      patternMaterialType: 'KNIT',
-      patternMaterialTypeLabel: patternMaterialFileTypeLabels.KNIT,
-      patternFileMode: 'SINGLE_FILE',
-      singlePatternFileName: `${demand.spuCode}-针织纸样.pdf`,
-      parseStatus: 'NOT_REQUIRED',
-      rulSizeList: [],
-      patternSoftwareName: 'Gerber',
-      sizeRange: 'S / M / L / XL',
-      fileUrl: `local://seed-pattern/${productionOrderId}/knit`,
-      uploadedAt: snapshotAt,
-      uploadedBy: snapshotBy,
-      linkedBomItemId: `seed-bom-${productionOrderId}-1`,
-      totalPieceCount: 6,
-      pieceRows: [
-        {
-          id: `seed-piece-${productionOrderId}-front`,
-          name: '前片',
-          count: 1,
-          applicableSkuCodes: [primarySkuCode],
-          colorAllocations: [
-            {
-              id: `seed-piece-${productionOrderId}-front-${primarySkuCode}`,
-              colorName: primaryColor,
-              skuCodes: [primarySkuCode],
-              pieceCount: 1,
-            },
-          ],
-          specialCrafts: [
-            {
-              processCode: 'SPECIAL_CRAFT',
-              processName: '特殊工艺',
-              craftCode: 'CRAFT_000008',
-              craftName: '打揽',
-              displayName: '打揽',
-              selectedTargetObject: '已裁部位',
-              supportedTargetObjects: ['CUT_PIECE'],
-              supportedTargetObjectLabels: ['已裁部位'],
-            },
-          ],
-          sourceType: 'MANUAL',
-        },
-        {
-          id: `seed-piece-${productionOrderId}-back`,
-          name: '后片',
-          count: 1,
-          applicableSkuCodes: [primarySkuCode],
-          sourceType: 'MANUAL',
-        },
-        {
-          id: `seed-piece-${productionOrderId}-sleeve`,
-          name: '袖子',
-          count: 2,
-          applicableSkuCodes: [primarySkuCode],
-          sourceType: 'MANUAL',
-        },
-      ],
-    },
-    {
-      id: `seed-pattern-${productionOrderId}-2`,
-      patternFileId: `seed-pattern-${productionOrderId}-2`,
-      fileName: `${demand.spuCode}-前后片.dxf / ${demand.spuCode}-前后片.rul`,
-      patternFileName: `${demand.spuCode}-前后片.dxf / ${demand.spuCode}-前后片.rul`,
-      patternVersion: sourceVersionLabel,
-      patternMaterialType: 'WOVEN',
-      patternMaterialTypeLabel: patternMaterialFileTypeLabels.WOVEN,
-      patternFileMode: 'PAIRED_DXF_RUL',
-      dxfFileName: `${demand.spuCode}-前后片.dxf`,
-      rulFileName: `${demand.spuCode}-前后片.rul`,
-      parseStatus: 'PARSED',
-      parsedAt: snapshotAt,
-      rulSizeList: ['S', 'M', 'L', 'XL'],
-      rulSampleSize: 'M',
-      patternSoftwareName: 'Lectra',
-      sizeRange: 'S / M / L / XL',
-      fileUrl: `local://seed-pattern/${productionOrderId}/woven`,
-      uploadedAt: snapshotAt,
-      uploadedBy: snapshotBy,
-      linkedBomItemId: `seed-bom-${productionOrderId}-1`,
-      totalPieceCount: 4,
-      pieceRows: [
-        {
-          id: `seed-piece-${productionOrderId}-front-woven`,
-          name: '前片',
-          count: 1,
-          sourceType: 'PARSED_PATTERN',
-          sourcePartName: 'FRONT',
-          systemPieceName: '前片',
-          quantityText: '1',
-          sizeCode: primarySize,
-          parserStatus: '解析成功',
-          applicableSkuCodes: [primarySkuCode],
-        },
-        {
-          id: `seed-piece-${productionOrderId}-back-woven`,
-          name: '后片',
-          count: 1,
-          sourceType: 'PARSED_PATTERN',
-          sourcePartName: 'BACK',
-          systemPieceName: '后片',
-          quantityText: '1',
-          sizeCode: primarySize,
-          parserStatus: '解析成功',
-          applicableSkuCodes: [primarySkuCode],
-        },
-      ],
-    },
-  ]
-  const sizeTable = buildFallbackSizeTable(demand)
-  const cutPieceParts = buildCutPieceParts({
-    patternFiles,
-    bomItems,
-    sizeTable,
-  })
-  const seedArtworkAsset = buildSeedArtworkAssetData(`${demand.spuName} 花型图`)
-  const patternDesigns = clonePatternDesigns([
-    {
-      id: `seed-design-${productionOrderId}-1`,
-      name: `${demand.spuName} 花型图`,
-      designSideType: 'FRONT',
-      fileName: `${demand.spuCode}-front-artwork.png`,
-      originalFileName: `${demand.spuCode}-front-artwork.png`,
-      originalFileMimeType: 'image/svg+xml',
-      ...seedArtworkAsset,
-      imageUrl: seedArtworkAsset.previewThumbnailDataUrl,
-      uploadedAt: snapshotAt,
-    },
-  ])
-  const imageSnapshot = buildImageSnapshot({
-    bomItems,
-    patternFiles,
-    patternDesigns,
-  })
-
-  return {
-    snapshotId: createSnapshotId(productionOrderNo),
-    productionOrderId,
-    productionOrderNo,
-    styleId: '',
-    styleCode: demand.spuCode,
-    styleName: demand.spuName,
-    status: 'RELEASED',
-    versionLabel: sourceVersionLabel,
-    sourceTechPackVersionId: `seed-tech-pack-${productionOrderId}`,
-    sourceTechPackVersionCode: `TP-SNAPSHOT-${productionOrderNo}`,
-    sourceTechPackVersionLabel: sourceVersionLabel,
-    sourcePublishedAt: demand.techPackStatus === 'RELEASED' ? snapshotAt : '',
-    snapshotAt,
-    snapshotBy,
-    patternDesc: '历史生产单初始化快照',
-    bomItems,
-    patternFiles,
-    processEntries: [
-      {
-        id: `seed-process-${productionOrderId}-1`,
-        entryType: 'PROCESS_BASELINE',
-        stageCode: 'PREP',
-        stageName: '前准备',
-        processCode: 'SEW',
-        processName: '车缝',
-        assignmentGranularity: 'ORDER',
-        defaultDocType: 'TASK',
-        taskTypeMode: 'PROCESS',
-        isSpecialCraft: false,
-        standardTimeMinutes: 12,
-        timeUnit: '分钟/件',
-      },
-      {
-        id: `seed-process-${productionOrderId}-2`,
-        entryType: 'CRAFT',
-        stageCode: 'POST',
-        stageName: '后整理',
-        processCode: 'PACK',
-        processName: '包装',
-        assignmentGranularity: 'ORDER',
-        defaultDocType: 'TASK',
-        taskTypeMode: 'PROCESS',
-        isSpecialCraft: false,
-        standardTimeMinutes: 4,
-        timeUnit: '分钟/件',
-      },
-    ],
-    sizeTable,
-    sizeMeasurements: buildSizeMeasurements(sizeTable),
-    qualityRules: [
-      {
-        id: `seed-quality-${productionOrderId}-1`,
-        checkItem: '车缝平整度',
-        standardText: '无线头、无明显起皱',
-        samplingRule: '抽检',
-        note: '',
-      },
-    ],
-    colorMaterialMappings: [
-      {
-        id: `seed-mapping-${productionOrderId}-1`,
-        spuCode: demand.spuCode,
-        colorCode: primaryColor,
-        colorName: primaryColor,
-        status: 'CONFIRMED',
-        generatedMode: 'MANUAL',
-        lines: [
-          {
-            id: `seed-mapping-line-${productionOrderId}-1`,
-            bomItemId: `seed-bom-${productionOrderId}-1`,
-            materialName: '主面料',
-            materialType: '面料',
-            patternId: `seed-pattern-${productionOrderId}-1`,
-            patternName: '主纸样',
-            unit: '米',
-            applicableSkuCodes: [primarySkuCode],
-            sourceMode: 'MANUAL',
-          },
-        ],
-      },
-    ],
-    cutPieceParts,
-    imageSnapshot,
-    patternDesigns,
-    attachments: [
-      {
-        id: `seed-attachment-${productionOrderId}-1`,
-        fileName: `${demand.spuCode}-说明.pdf`,
-        fileType: 'PDF',
-        fileSize: '128 KB',
-        uploadedAt: snapshotAt,
-        uploadedBy: snapshotBy,
-        downloadUrl: `local://seed-attachment/${productionOrderId}`,
-      },
-    ],
-    linkedRevisionTaskIds: [],
-    linkedPatternTaskIds: [],
-    linkedArtworkTaskIds: [],
-    completenessScore: demand.techPackStatus === 'RELEASED' ? 100 : 60,
-  }
-}
-
 export function resolveCurrentTechPackSourceForDemand(
   demand: Pick<ProductionDemand, 'spuCode'>,
 ): DemandCurrentTechPackSource | null {
@@ -937,9 +559,6 @@ export function getDemandCurrentTechPackInfo(
 ): DemandCurrentTechPackInfo {
   const style = findStyleArchiveByCode(demand.spuCode)
   if (!style) {
-    const fallback = buildFcsEnabledTechPackInfo(demand.spuCode)
-    if (fallback) return fallback
-
     return {
       styleId: '',
       styleCode: demand.spuCode,
@@ -959,9 +578,6 @@ export function getDemandCurrentTechPackInfo(
 
   const record = getCurrentTechPackVersionByStyleId(style.styleId)
   if (!style.currentTechPackVersionId || !record) {
-    const fallback = buildFcsEnabledTechPackInfo(demand.spuCode)
-    if (fallback) return fallback
-
     return {
       styleId: style.styleId,
       styleCode: style.styleCode,
@@ -999,9 +615,6 @@ export function getDemandCurrentTechPackInfo(
 
   const content = getTechnicalDataVersionContentById(record.technicalVersionId)
   if (!content) {
-    const fallback = buildFcsEnabledTechPackInfo(demand.spuCode)
-    if (fallback) return fallback
-
     return {
       styleId: style.styleId,
       styleCode: style.styleCode,
@@ -1046,33 +659,6 @@ export function buildProductionOrderTechPackSnapshot(input: {
   const source = resolveCurrentTechPackSourceForDemand(input.demand)
   if (!source) {
     const info = getDemandCurrentTechPackInfo(input.demand)
-    if (info.canConvertToProductionOrder) {
-      const enabledPack = getEnabledTechPackBySpuCode(input.demand.spuCode)
-      const fallbackSkuLines = input.demand.skuLines && input.demand.skuLines.length > 0
-        ? input.demand.skuLines
-        : (enabledPack?.skuCatalog ?? []).map((sku) => ({
-            skuCode: sku.skuCode,
-            size: sku.size,
-            color: sku.color,
-            qty: 1,
-          }))
-
-      return buildSeedProductionOrderTechPackSnapshot({
-        productionOrderId: input.productionOrderId,
-        productionOrderNo: input.productionOrderNo,
-        demand: {
-          spuCode: input.demand.spuCode,
-          spuName: input.demand.spuName || info.styleName || input.demand.spuCode,
-          skuLines: fallbackSkuLines.length > 0
-            ? fallbackSkuLines
-            : [{ skuCode: `${input.demand.spuCode}-SKU-001`, size: 'M', color: '默认色', qty: 1 }],
-          techPackStatus: 'RELEASED',
-          techPackVersionLabel: input.demand.techPackVersionLabel || info.currentTechPackVersionLabel || enabledPack?.versionLabel || 'v1.0',
-        },
-        snapshotAt: input.snapshotAt,
-        snapshotBy: input.snapshotBy,
-      })
-    }
     throw new Error(info.blockReason || '当前需求未关联可用技术包版本')
   }
 
@@ -1089,75 +675,4 @@ export function buildProductionOrderTechPackSnapshot(input: {
     snapshotAt: input.snapshotAt,
     snapshotBy: input.snapshotBy,
   })
-}
-
-export function buildCompatTechPackFromProductionSnapshot(snapshot: ProductionOrderTechPackSnapshot): TechPack {
-  const mockRecord: TechnicalDataVersionRecord = {
-    technicalVersionId: snapshot.sourceTechPackVersionId,
-    technicalVersionCode: snapshot.sourceTechPackVersionCode,
-    versionLabel: snapshot.sourceTechPackVersionLabel,
-    versionNo: 1,
-    styleId: snapshot.styleId,
-    styleCode: snapshot.styleCode,
-    styleName: snapshot.styleName,
-    sourceProjectId: '',
-    sourceProjectCode: '',
-    sourceProjectName: '',
-    sourceProjectNodeId: '',
-    linkedRevisionTaskIds: [...snapshot.linkedRevisionTaskIds],
-    linkedPatternTaskIds: [...snapshot.linkedPatternTaskIds],
-    linkedArtworkTaskIds: [...snapshot.linkedArtworkTaskIds],
-    createdFromTaskType: 'REVISION',
-    createdFromTaskId: '',
-    createdFromTaskCode: '',
-    baseTechnicalVersionId: '',
-    baseTechnicalVersionCode: '',
-    linkedPartTemplateIds: [],
-    linkedPatternLibraryVersionIds: [],
-    versionStatus: snapshot.sourcePublishedAt ? 'PUBLISHED' : 'DRAFT',
-    bomStatus: snapshot.bomItems.length > 0 ? 'COMPLETE' : 'EMPTY',
-    patternStatus: snapshot.patternFiles.length > 0 ? 'COMPLETE' : 'EMPTY',
-    processStatus: snapshot.processEntries.length > 0 ? 'COMPLETE' : 'EMPTY',
-    gradingStatus: snapshot.sizeTable.length > 0 ? 'COMPLETE' : 'EMPTY',
-    qualityStatus: snapshot.qualityRules.length > 0 ? 'COMPLETE' : 'EMPTY',
-    colorMaterialStatus: snapshot.colorMaterialMappings.length > 0 ? 'COMPLETE' : 'EMPTY',
-    designStatus: snapshot.patternDesigns.length > 0 ? 'COMPLETE' : 'EMPTY',
-    attachmentStatus: snapshot.attachments.length > 0 ? 'COMPLETE' : 'EMPTY',
-    bomItemCount: snapshot.bomItems.length,
-    patternFileCount: snapshot.patternFiles.length,
-    processEntryCount: snapshot.processEntries.length,
-    gradingRuleCount: snapshot.sizeTable.length,
-    qualityRuleCount: snapshot.qualityRules.length,
-    colorMaterialMappingCount: snapshot.colorMaterialMappings.length,
-    designAssetCount: snapshot.patternDesigns.length,
-    attachmentCount: snapshot.attachments.length,
-    completenessScore: snapshot.completenessScore,
-    missingItemCodes: [],
-    missingItemNames: [],
-    publishedAt: snapshot.sourcePublishedAt,
-    publishedBy: snapshot.snapshotBy,
-    createdAt: snapshot.snapshotAt,
-    createdBy: snapshot.snapshotBy,
-    updatedAt: snapshot.snapshotAt,
-    updatedBy: snapshot.snapshotBy,
-    note: '生产单技术包快照兼容对象',
-    legacySpuCode: snapshot.styleCode,
-    legacyVersionLabel: snapshot.sourceTechPackVersionLabel,
-  }
-
-  const mockContent: TechnicalDataVersionContent = {
-    technicalVersionId: snapshot.sourceTechPackVersionId,
-    patternFiles: clonePatternFiles(snapshot.patternFiles),
-    patternDesc: snapshot.patternDesc,
-    processEntries: cloneProcessEntries(snapshot.processEntries),
-    sizeTable: cloneSizeTable(snapshot.sizeTable),
-    bomItems: cloneBomItems(snapshot.bomItems),
-    qualityRules: cloneQualityRules(snapshot.qualityRules),
-    colorMaterialMappings: cloneColorMappings(snapshot.colorMaterialMappings),
-    patternDesigns: clonePatternDesigns(snapshot.patternDesigns),
-    attachments: cloneAttachments(snapshot.attachments),
-    legacyCompatibleCostPayload: {},
-  }
-
-  return buildLegacyTechPackFromTechnicalVersion(mockRecord, mockContent)
 }

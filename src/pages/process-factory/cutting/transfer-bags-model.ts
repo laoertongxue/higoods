@@ -7,7 +7,7 @@ import {
   normalizeTransferBagDispatchManifest,
   normalizeTransferCarrierCycleRecord,
   normalizeTransferCarrierRecord,
-} from '../../../data/fcs/cutting/transfer-bag-legacy-normalizer.ts'
+} from '../../../data/fcs/cutting/transfer-carrier-normalizer.ts'
 import {
   buildSystemSeedTransferBagRuntime,
   createCarrierCycleRecord,
@@ -40,13 +40,13 @@ import {
 import type { OriginalCutOrderRow } from './original-orders-model.ts'
 
 const numberFormatter = new Intl.NumberFormat('zh-CN')
-const LEGACY_TRANSFER_QR_FIELD = ['qr', 'Payload'].join('') as const
+const TRANSFER_QR_FIELD = ['qr', 'Payload'].join('') as const
 
-function readLegacyTransferQrMeta(master: TransferBagMaster): ReturnType<typeof encodeCarrierQr>['payload'] | null {
-  const legacyMaster = master as unknown as Record<string, unknown>
-  const legacyValue = legacyMaster[LEGACY_TRANSFER_QR_FIELD]
-  if (legacyValue && typeof legacyValue === 'object') {
-    return legacyValue as ReturnType<typeof encodeCarrierQr>['payload']
+function readTransferQrMeta(master: TransferBagMaster): ReturnType<typeof encodeCarrierQr>['payload'] | null {
+  const pageMaster = master as unknown as Record<string, unknown>
+  const storedValue = pageMaster[TRANSFER_QR_FIELD]
+  if (storedValue && typeof storedValue === 'object') {
+    return storedValue as ReturnType<typeof encodeCarrierQr>['payload']
   }
   if (master.qrMeta && typeof master.qrMeta === 'object') {
     return master.qrMeta as ReturnType<typeof encodeCarrierQr>['payload']
@@ -56,15 +56,15 @@ function readLegacyTransferQrMeta(master: TransferBagMaster): ReturnType<typeof 
 
 function readRuntimeTransferQrMeta(master: TransferCarrierRecord): Record<string, unknown> {
   const runtimeRecord = master as unknown as Record<string, unknown>
-  const runtimeValue = runtimeRecord[LEGACY_TRANSFER_QR_FIELD]
+  const runtimeValue = runtimeRecord[TRANSFER_QR_FIELD]
   if (runtimeValue && typeof runtimeValue === 'object') {
     return runtimeValue as Record<string, unknown>
   }
   return {}
 }
 
-function assignLegacyTransferQrMeta(target: Record<string, unknown>, value: Record<string, unknown>): void {
-  target[LEGACY_TRANSFER_QR_FIELD] = value
+function assignTransferQrMeta(target: Record<string, unknown>, value: Record<string, unknown>): void {
+  target[TRANSFER_QR_FIELD] = value
 }
 
 function resolveTransferBagFactoryName(factoryId: string | undefined, fallbackName: string | undefined): string {
@@ -94,8 +94,8 @@ export function getTransferBagDemoCaseIds() {
       usageNo: 'TBU-DEMO-F-001',
       lockedTicketId: FEI_TICKET_DEMO_CASE_IDS.CASE_C.sampleTicketId,
       lockedTicketNo: FEI_TICKET_DEMO_CASE_IDS.CASE_C.sampleTicketNo,
-      mismatchTicketId: 'ticket-CUT-260313-086-01-002-v1',
-      mismatchTicketNo: 'FT-CUT-260313-086-01-002',
+      mismatchTicketId: 'ticket-CUT-260301-005-01-002-v1',
+      mismatchTicketNo: 'FT-CUT-260301-005-01-002',
     },
   } as const
 }
@@ -149,7 +149,6 @@ export interface TransferBagMaster {
   carrierType: 'bag' | 'box'
   latestCycleId: string
   latestCycleNo: string
-  // Legacy page-shell aliases. Do not use as formal identity.
   bagId: string
   bagCode: string
   bagType: string
@@ -157,7 +156,6 @@ export interface TransferBagMaster {
   reusable: boolean
   currentStatus: TransferBagMasterStatusKey
   currentLocation: string
-  // Legacy page-shell aliases. Do not use as formal identity.
   latestUsageId: string
   latestUsageNo: string
   currentCycleId: string
@@ -174,7 +172,6 @@ export interface TransferBagUsage {
   carrierCode: string
   carrierType: 'bag' | 'box'
   cycleStatus: TransferBagUsageStatusKey
-  // Legacy page-shell aliases. Do not use as formal identity.
   usageId: string
   usageNo: string
   bagId: string
@@ -188,7 +185,6 @@ export interface TransferBagUsage {
   skuSummary: string
   colorSummary: string
   sizeSummary: string
-  // Legacy page-shell alias. Do not use as formal status identity.
   usageStatus: TransferBagUsageStatusKey
   packedTicketCount: number
   packedOriginalCutOrderCount: number
@@ -216,7 +212,6 @@ export interface TransferBagItemBinding {
   sourceMarkerId?: string
   sourceMarkerNo?: string
   sourceWritebackId?: string
-  // Legacy page-shell aliases. Do not use as formal identity.
   usageId: string
   usageNo: string
   bagId: string
@@ -268,7 +263,6 @@ export interface TransferBagDispatchManifest {
   manifestId: string
   cycleId: string
   carrierCode: string
-  // Legacy page-shell aliases. Do not use as formal identity.
   usageId: string
   bagCode: string
   sewingTaskNo: string
@@ -284,7 +278,6 @@ export interface TransferBagDispatchManifest {
 export interface TransferBagUsageAuditTrail {
   auditTrailId: string
   cycleId: string
-  // Legacy page-shell alias. Do not use as formal identity.
   usageId: string
   action: string
   actionAt: string
@@ -298,7 +291,6 @@ export interface TransferBagReturnReceipt {
   cycleNo: string
   carrierId: string
   carrierCode: string
-  // Legacy page-shell aliases. Do not use as formal identity.
   usageId: string
   usageNo: string
   bagId: string
@@ -322,7 +314,6 @@ export interface TransferBagConditionRecord {
   cycleId: string
   carrierId: string
   carrierCode: string
-  // Legacy page-shell aliases. Do not use as formal identity.
   usageId: string
   bagId: string
   bagCode: string
@@ -343,7 +334,6 @@ export interface TransferBagReuseCycleSummary {
   latestCycleId: string
   latestCycleNo: string
   currentOpenCycleId: string
-  // Legacy page-shell aliases. Do not use as formal identity.
   bagId: string
   bagCode: string
   latestUsageId: string
@@ -363,7 +353,6 @@ export interface TransferBagUsageClosureResult {
   closureId: string
   cycleId: string
   cycleNo: string
-  // Legacy page-shell aliases. Do not use as formal identity.
   usageId: string
   usageNo: string
   closedAt: string
@@ -771,7 +760,7 @@ function toCarrierType(bagCode: string, explicit?: string): 'bag' | 'box' {
   return bagCode.startsWith('BOX') ? 'box' : 'bag'
 }
 
-function toLegacyMasterStatus(status: string | undefined): TransferBagMasterStatusKey {
+function toPageMasterStatus(status: string | undefined): TransferBagMasterStatusKey {
   const normalized = String(status || 'IDLE').toUpperCase()
   if (
     normalized === 'IDLE' ||
@@ -790,7 +779,7 @@ function toLegacyMasterStatus(status: string | undefined): TransferBagMasterStat
   return 'IDLE'
 }
 
-function toLegacyUsageStatus(status: string | undefined): TransferBagUsageStatusKey {
+function toPageUsageStatus(status: string | undefined): TransferBagUsageStatusKey {
   const normalized = String(status || 'DRAFT').toUpperCase()
   if (
     normalized === 'DRAFT' ||
@@ -835,13 +824,13 @@ function toRuntimeCarrierRecord(master: TransferBagMaster): TransferCarrierRecor
     currentCycleId: normalized.currentCycleId,
     currentOwnerTaskId: normalized.currentOwnerTaskId,
     note: master.note,
-    qrMeta: readLegacyTransferQrMeta(master) || encoded.payload,
+    qrMeta: readTransferQrMeta(master) || encoded.payload,
     qrValue: master.qrValue || encoded.qrValue,
   }
 }
 
-function toLegacyMaster(master: TransferCarrierRecord): TransferBagMaster {
-  const legacyMaster = {
+function toPageMaster(master: TransferCarrierRecord): TransferBagMaster {
+  const pageMaster = {
     carrierId: master.carrierId,
     carrierCode: master.carrierCode,
     carrierType: master.carrierType,
@@ -852,7 +841,7 @@ function toLegacyMaster(master: TransferCarrierRecord): TransferBagMaster {
     bagType: master.bagType,
     capacity: master.capacity,
     reusable: master.reusable,
-    currentStatus: toLegacyMasterStatus(master.currentStatus),
+    currentStatus: toPageMasterStatus(master.currentStatus),
     currentLocation: master.currentLocation,
     latestUsageId: master.latestCycleId || '',
     latestUsageNo: master.latestCycleNo || '',
@@ -862,8 +851,8 @@ function toLegacyMaster(master: TransferCarrierRecord): TransferBagMaster {
     qrMeta: readRuntimeTransferQrMeta(master),
     note: master.note,
   } as TransferBagMaster & Record<string, unknown>
-  assignLegacyTransferQrMeta(legacyMaster, readRuntimeTransferQrMeta(master))
-  return legacyMaster
+  assignTransferQrMeta(pageMaster, readRuntimeTransferQrMeta(master))
+  return pageMaster
 }
 
 function toRuntimeUsage(usage: TransferBagUsage): TransferCarrierCycleRecord {
@@ -898,7 +887,7 @@ function toRuntimeUsage(usage: TransferBagUsage): TransferCarrierCycleRecord {
   }
 }
 
-function toLegacyUsage(usage: TransferCarrierCycleRecord): TransferBagUsage {
+function toPageUsage(usage: TransferCarrierCycleRecord): TransferBagUsage {
   return {
     cycleId: usage.cycleId,
     cycleNo: usage.cycleNo,
@@ -918,8 +907,8 @@ function toLegacyUsage(usage: TransferCarrierCycleRecord): TransferBagUsage {
     skuSummary: usage.skuSummary,
     colorSummary: usage.colorSummary,
     sizeSummary: usage.sizeSummary,
-    cycleStatus: toLegacyUsageStatus(usage.cycleStatus),
-    usageStatus: toLegacyUsageStatus(usage.cycleStatus),
+    cycleStatus: toPageUsageStatus(usage.cycleStatus),
+    usageStatus: toPageUsageStatus(usage.cycleStatus),
     packedTicketCount: usage.packedTicketCount || 0,
     packedOriginalCutOrderCount: usage.packedOriginalCutOrderCount || 0,
     startedAt: usage.startedAt || '',
@@ -970,7 +959,7 @@ function toRuntimeBinding(binding: TransferBagItemBinding): CarrierCycleItemBind
   }
 }
 
-function toLegacyBinding(binding: CarrierCycleItemBinding): TransferBagItemBinding {
+function toPageBinding(binding: CarrierCycleItemBinding): TransferBagItemBinding {
   return {
     bindingId: binding.bindingId,
     cycleId: binding.cycleId,
@@ -1025,7 +1014,7 @@ function toRuntimeManifest(manifest: TransferBagDispatchManifest): TransferBagDi
   }
 }
 
-function toLegacyManifest(manifest: TransferBagDispatchManifestRecord): TransferBagDispatchManifest {
+function toPageManifest(manifest: TransferBagDispatchManifestRecord): TransferBagDispatchManifest {
   return {
     manifestId: manifest.manifestId,
     cycleId: manifest.cycleId,
@@ -1059,12 +1048,12 @@ function toRuntimeStore(store: TransferBagStore): TransferBagRuntimeStore {
   }
 }
 
-function toLegacyStore(store: TransferBagRuntimeStore): TransferBagStore {
+function toPageStore(store: TransferBagRuntimeStore): TransferBagStore {
   return {
-    masters: store.masters.map((item) => toLegacyMaster(item)),
-    usages: store.usages.map((item) => toLegacyUsage(item)),
-    bindings: store.bindings.map((item) => toLegacyBinding(item)),
-    manifests: store.manifests.map((item) => toLegacyManifest(item)),
+    masters: store.masters.map((item) => toPageMaster(item)),
+    usages: store.usages.map((item) => toPageUsage(item)),
+    bindings: store.bindings.map((item) => toPageBinding(item)),
+    manifests: store.manifests.map((item) => toPageManifest(item)),
     sewingTasks: store.sewingTasks.map((item) => ({ ...item })),
     auditTrail: store.auditTrail as TransferBagUsageAuditTrail[],
     returnReceipts: store.returnReceipts as TransferBagReturnReceipt[],
@@ -1484,7 +1473,7 @@ export function createTransferBagUsageDraft(options: {
     existingUsages: options.existingUsages.map((item) => toRuntimeUsage(item)),
     note: options.note?.trim() || '正式载具周期草稿已创建，等待先扫口袋码再扫菲票子码。',
   })
-  return toLegacyUsage(runtimeUsage)
+  return toPageUsage(runtimeUsage)
 }
 
 export function validateBagToSewingTaskBinding(usage: TransferBagUsage | null, sewingTaskId: string): TransferBagValidationResult {
@@ -1554,7 +1543,7 @@ export function createTransferBagDispatchManifest(options: {
     note: options.note?.trim() || '当前交接清单来自正式载具周期映射。',
   })
   return {
-    ...toLegacyManifest(runtimeManifest),
+    ...toPageManifest(runtimeManifest),
     ticketCount: options.summary.ticketCount,
     originalCutOrderCount: options.summary.originalCutOrderCount,
   }
@@ -1692,7 +1681,7 @@ export function buildSystemSeedTransferBagStore(options: {
   裁剪批次es?: MergeBatchRecord[]
 }): TransferBagStore {
   const mergeBatches = options.mergeBatches ?? options.裁剪批次es ?? []
-  return toLegacyStore(
+  return toPageStore(
     buildSystemSeedTransferBagRuntime({
       originalRows: toRuntimeSeedOriginalRows(options.originalRows),
       ticketRecords: toRuntimeSeedTickets(options.ticketRecords),
@@ -1706,7 +1695,7 @@ export function serializeTransferBagStorage(store: TransferBagStore): string {
 }
 
 export function deserializeTransferBagStorage(raw: string | null): TransferBagStore {
-  return toLegacyStore(deserializeTransferBagRuntimeStorage(raw))
+  return toPageStore(deserializeTransferBagRuntimeStorage(raw))
 }
 
 export function deserializeTransferBagSelectedTicketIds(raw: string | null): string[] {
@@ -1724,7 +1713,7 @@ export function serializeTransferBagSelectedTicketIds(ids: string[]): string {
 }
 
 export function mergeTransferBagStores(seed: TransferBagStore, stored: TransferBagStore): TransferBagStore {
-  return toLegacyStore(
+  return toPageStore(
     mergeTransferBagRuntimeStores(toRuntimeStore(seed), toRuntimeStore(stored)),
   )
 }

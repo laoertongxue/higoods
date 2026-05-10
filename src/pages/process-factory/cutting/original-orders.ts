@@ -33,7 +33,7 @@ import {
 } from './fei-tickets-model.ts'
 import {
   FEI_QR_SCHEMA_VERSION,
-  buildFeiQrCompatibilityMeta,
+  buildFeiQrSchemaMeta,
   buildFeiQrPayload,
   buildFeiQrPayloadSummary,
 } from './fei-qr-model.ts'
@@ -68,7 +68,7 @@ import {
   buildCuttingRouteWithContext,
   buildReturnToSummaryContext,
   hasSummaryReturnContext,
-  normalizeLegacyCuttingPayload,
+  buildCuttingDrillContext,
   readCuttingDrillContextFromLocation,
   type CuttingDrillContext,
   type CuttingNavigationTarget,
@@ -277,14 +277,14 @@ function getPendingPrepFollowupsForOriginalOrder(row: Pick<OriginalCutOrderRow, 
 function renderPendingPrepBadge(row: Pick<OriginalCutOrderRow, 'originalCutOrderId' | 'originalCutOrderNo'>): string {
   const pendingPrepItems = getPendingPrepFollowupsForOriginalOrder(row)
   if (!pendingPrepItems.length) return ''
-  return renderBadge(`补料待配料 ${pendingPrepItems.length} 条`, 'bg-amber-100 text-amber-700')
+  return renderBadge(`补料WMS 待处理 ${pendingPrepItems.length} 条`, 'bg-amber-100 text-amber-700')
 }
 
 function buildPendingPrepSummaryText(row: Pick<OriginalCutOrderRow, 'originalCutOrderId' | 'originalCutOrderNo'>): string {
   const pendingPrepItems = getPendingPrepFollowupsForOriginalOrder(row)
-  if (!pendingPrepItems.length) return '当前无补料待配料'
+  if (!pendingPrepItems.length) return '当前无补料WMS 待处理'
   const latest = pendingPrepItems[0]
-  return `补料待配料 ${pendingPrepItems.length} 条，待仓库配料领料继续处理；来源铺布 ${latest?.sourceSpreadingSessionId || '待补'}，来源补料单 ${latest?.sourceReplenishmentRequestId || '待补'}`
+  return `补料待处理 ${pendingPrepItems.length} 条，待 WMS 来料后进入待加工仓；来源铺布 ${latest?.sourceSpreadingSessionId || '待补'}，来源补料单 ${latest?.sourceReplenishmentRequestId || '待补'}`
 }
 
 function isOriginalOrderInExecutionStage(row: OriginalCutOrderRow): boolean {
@@ -324,7 +324,7 @@ function buildOriginalOrderQrSummary(row: OriginalCutOrderRow): {
   qrBaseValue: string
   sourceContextText: string
   reservedProcessText: string
-  compatibilityText: string
+  schemaText: string
 } {
   const latestRecord =
     getFeiTicketRecords()
@@ -344,7 +344,7 @@ function buildOriginalOrderQrSummary(row: OriginalCutOrderRow): {
       qrBaseValue: `QR-${row.originalCutOrderNo}`,
       sourceContextText: row.latestMergeBatchNo ? `最近来自合并裁剪批次 ${row.latestMergeBatchNo}` : '原始单上下文',
       reservedProcessText: '已预留 4 类工艺扩展槽位',
-      compatibilityText: '当前尚无历史票据记录，裁片单主码按 1.0.0 结构生成。',
+      schemaText: '当前尚无历史票据记录，裁片单主码按 1.0.0 结构生成。',
     }
   }
 
@@ -360,11 +360,11 @@ function buildOriginalOrderQrSummary(row: OriginalCutOrderRow): {
       color: row.color,
       materialSku: row.materialSku,
       sameCodeValue: row.originalCutOrderNo,
-      qrBaseValue: latestRecord.legacyQrBaseValue || `QR-${row.originalCutOrderNo}`,
+      qrBaseValue: latestRecord.sourceQrBaseValue || `QR-${row.originalCutOrderNo}`,
     },
   })
   const summary = buildFeiQrPayloadSummary(payload)
-  const compatibility = buildFeiQrCompatibilityMeta(latestRecord)
+  const schema = buildFeiQrSchemaMeta(latestRecord)
 
   return {
     latestTicketNo: latestRecord.ticketNo,
@@ -373,7 +373,7 @@ function buildOriginalOrderQrSummary(row: OriginalCutOrderRow): {
     qrBaseValue: summary.qrBaseValue,
     sourceContextText: summary.sourceContextType === 'merge-batch' ? `来源合并裁剪批次 ${latestRecord.sourceMergeBatchNo || '待补合并裁剪批次号'}` : '原始单上下文',
     reservedProcessText: summary.hasReservedProcess ? '已预留 4 类工艺扩展槽位' : '待补',
-    compatibilityText: compatibility.compatibilityNote.replaceAll('二维码', '裁片单主码'),
+    schemaText: schema.schemaNote.replaceAll('二维码', '裁片单主码'),
   }
 }
 
@@ -382,10 +382,10 @@ function buildStatsCards(rows: OriginalCutOrderRow[]): string {
   return `
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
       ${renderCompactKpiCard('原始裁片单总数', stats.totalCount, '当前筛选范围', 'text-slate-900')}
-      ${renderCompactKpiCard('当前可裁数', stats.cuttableCount, '满足配料 / 领料条件', 'text-emerald-600')}
+      ${renderCompactKpiCard('当前可裁数', stats.cuttableCount, '满足WMS 来料条件', 'text-emerald-600')}
       ${renderCompactKpiCard('已入合并裁剪批次数', stats.inBatchCount, '已进入执行层合并裁剪批次', 'text-violet-600')}
-      ${renderCompactKpiCard('配料异常数', stats.prepExceptionCount, '配料或领料未齐', 'text-amber-600')}
-      ${renderCompactKpiCard('领料异常数', stats.claimExceptionCount, '待领料或领料差异', 'text-rose-600')}
+      ${renderCompactKpiCard('WMS 来料异常数', stats.prepExceptionCount, 'WMS 来料未齐', 'text-amber-600')}
+      ${renderCompactKpiCard('来料异常数', stats.claimExceptionCount, '待来料或来料差异', 'text-rose-600')}
     </section>
   `
 }
@@ -440,7 +440,6 @@ function renderHeaderActions(): string {
   return `
     <div class="flex flex-wrap items-center gap-2">
       <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-production-progress-index">返回生产单进度</button>
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-material-prep-index">去仓库配料领料</button>
       <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-marker-plan-index">去唛架</button>
       ${returnToSummary}
       <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-summary-index">查看裁剪总结</button>
@@ -472,8 +471,8 @@ function getFilterLabels(): string[] {
   if (state.filters.materialSku) labels.push(`面料：${state.filters.materialSku}`)
   if (state.filters.currentStage !== 'ALL') labels.push(`当前阶段：${originalOrderStageMeta[state.filters.currentStage].label}`)
   if (state.filters.cuttableState !== 'ALL') labels.push(`可裁状态：${originalOrderVisibleCuttableMeta[state.filters.cuttableState].label}`)
-  if (state.filters.prepStatus !== 'ALL') labels.push(`配料状态：${configMeta[state.filters.prepStatus].label}`)
-  if (state.filters.claimStatus !== 'ALL') labels.push(`领料状态：${receiveMeta[state.filters.claimStatus].label}`)
+  if (state.filters.prepStatus !== 'ALL') labels.push(`WMS 来料状态：${configMeta[state.filters.prepStatus].label}`)
+  if (state.filters.claimStatus !== 'ALL') labels.push(`WMS 来料状态：${receiveMeta[state.filters.claimStatus].label}`)
   if (state.filters.inBatch === 'IN_BATCH') labels.push('仅看已入合并裁剪批次')
   if (state.filters.inBatch === 'NOT_IN_BATCH') labels.push('仅看未入合并裁剪批次')
   if (state.filters.riskOnly) labels.push('仅看异常项')
@@ -569,14 +568,14 @@ function renderFilterArea(): string {
           { value: 'CUTTABLE', label: originalOrderVisibleCuttableMeta.CUTTABLE.label },
           { value: 'NOT_CUTTABLE', label: originalOrderVisibleCuttableMeta.NOT_CUTTABLE.label },
         ])}
-        ${renderFilterSelect('配料状态', 'prepStatus', state.filters.prepStatus, [
-          { value: 'ALL', label: '全部配料状态' },
+        ${renderFilterSelect('WMS 来料状态', 'prepStatus', state.filters.prepStatus, [
+          { value: 'ALL', label: '全部WMS 来料状态' },
           { value: 'NOT_CONFIGURED', label: configMeta.NOT_CONFIGURED.label },
           { value: 'PARTIAL', label: configMeta.PARTIAL.label },
           { value: 'CONFIGURED', label: configMeta.CONFIGURED.label },
         ])}
-        ${renderFilterSelect('领料状态', 'claimStatus', state.filters.claimStatus, [
-          { value: 'ALL', label: '全部领料状态' },
+        ${renderFilterSelect('WMS 来料状态', 'claimStatus', state.filters.claimStatus, [
+          { value: 'ALL', label: '全部WMS 来料状态' },
           { value: 'NOT_RECEIVED', label: receiveMeta.NOT_RECEIVED.label },
           { value: 'PARTIAL', label: receiveMeta.PARTIAL.label },
           { value: 'RECEIVED', label: receiveMeta.RECEIVED.label },
@@ -727,7 +726,6 @@ function renderTable(rows: OriginalCutOrderRow[]): string {
                                 <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="open-detail" data-record-id="${escapeHtml(row.id)}">查看详情</button>
                                 <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="print-task-route-card" data-record-id="${escapeHtml(row.id)}">打印任务流转卡</button>
                                 <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="print-cutting-order-qr" data-record-id="${escapeHtml(row.id)}">打印裁片单二维码</button>
-                                <button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="go-material-prep" data-record-id="${escapeHtml(row.id)}">查看配料</button>
                                 ${canEnterExecution ? `<button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="go-marker-plan" data-record-id="${escapeHtml(row.id)}">去唛架</button>` : ''}
                                 ${canEnterFeiTickets ? `<button type="button" class="text-xs text-blue-600 hover:underline" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去打印菲票</button>` : ''}
                               </div>
@@ -915,7 +913,6 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
 
   const extraButtons = `
     <div class="flex flex-wrap items-center gap-2">
-      <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-piece-action="go-material-prep" data-record-id="${escapeHtml(row.id)}">去配料</button>
       ${canEnterExecution ? `<button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-piece-action="go-spreading" data-record-id="${escapeHtml(row.id)}">去铺布</button>` : ''}
       <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-piece-action="print-task-route-card" data-record-id="${escapeHtml(row.id)}">打印任务流转卡</button>
       <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-cutting-piece-action="print-cutting-order-qr" data-record-id="${escapeHtml(row.id)}">打印裁片单二维码</button>
@@ -956,7 +953,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
               ${renderBadge(row.materialClaimStatus.label, row.materialClaimStatus.className)}
             </div>
             <div class="space-y-2 text-sm">
-              <p><span class="text-muted-foreground">可裁说明：</span>${escapeHtml(row.cuttableState.reasonText)}</p>
+              <p><span class="text-muted-foreground">可裁状态：</span>${escapeHtml(row.cuttableState.reasonText)}</p>
               <div class="flex flex-wrap items-center gap-1">
                 <span class="text-muted-foreground">风险：</span>
                 ${
@@ -1040,7 +1037,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
               ${
                 canEnterFeiTickets
                   ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去打印菲票</button>`
-                  : '<span class="inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">当前未完成配料 / 领料 / 铺布，不生成菲票主码</span>'
+                  : '<span class="inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">当前未完成WMS 来料 / 铺布，不生成菲票主码</span>'
               }
             </div>
           </div>
@@ -1108,23 +1105,23 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
               { label: '人工调价', value: markerSpreadingCounts.hasManualAdjustedAmount ? '存在人工调整金额' : '当前未人工调整' },
               { label: '补料预警', value: markerSpreadingCounts.hasReplenishmentWarning ? `有预警（${markerSpreadingCounts.warningLevelLabel}）` : '当前无明显预警' },
               { label: '建议动作', value: markerSpreadingCounts.suggestedAction },
-              { label: '补料待配料', value: buildPendingPrepSummaryText(row) },
+              { label: '补料WMS 待处理', value: buildPendingPrepSummaryText(row) },
             ])}
             <div class="flex flex-wrap gap-2">
               ${canEnterExecution ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-marker-plan" data-record-id="${escapeHtml(row.id)}">去唛架</button>` : ''}
               <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-replenishment" data-record-id="${escapeHtml(row.id)}">去补料管理</button>
-              <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-material-prep" data-record-id="${escapeHtml(row.id)}">去仓库配料领料</button>
+              <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-material-prep" data-record-id="${escapeHtml(row.id)}">去待加工仓</button>
             </div>
           </div>
         `,
       )}
 
       ${renderDetailSection(
-        '领料异议摘要',
+        '来料异议摘要',
         `
           <div class="space-y-3">
             ${renderInfoGrid([
-              { label: '当前是否存在领料异议', value: latestClaimDispute ? '存在' : '暂无' },
+              { label: '当前是否存在来料异议', value: latestClaimDispute ? '存在' : '暂无' },
               { label: '异议状态', value: latestClaimDispute ? getClaimDisputeStatusLabel(latestClaimDispute.status) : '暂无异议', tone: 'strong' },
               { label: '差异长度（m）', value: latestClaimDispute ? `${latestClaimDispute.discrepancyQty} 米` : '0 米' },
               { label: '处理结论', value: latestClaimDispute?.handleConclusion || '待平台处理' },
@@ -1132,7 +1129,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
               { label: '证据份数（个）', value: latestClaimDispute ? `${latestClaimDispute.evidenceCount} 个` : '0 个' },
             ])}
             <div class="flex flex-wrap gap-2">
-              <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-material-prep" data-record-id="${escapeHtml(row.id)}">去仓库配料领料</button>
+              <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-material-prep" data-record-id="${escapeHtml(row.id)}">去待加工仓</button>
             </div>
           </div>
         `,
@@ -1142,7 +1139,7 @@ function renderDetailDrawer(viewModel = getViewModel()): string {
         '关联单据 / 关联入口',
         `
           <div class="flex flex-wrap gap-2">
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-material-prep" data-record-id="${escapeHtml(row.id)}">去仓库配料领料</button>
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-material-prep" data-record-id="${escapeHtml(row.id)}">去待加工仓</button>
             ${canEnterExecution ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-marker-plan" data-record-id="${escapeHtml(row.id)}">去唛架</button>` : ''}
             ${canEnterFeiTickets ? `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-fei-tickets" data-record-id="${escapeHtml(row.id)}">去打印菲票</button>` : ''}
             <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-piece-action="go-replenishment" data-record-id="${escapeHtml(row.id)}">去补料管理</button>
@@ -1188,7 +1185,7 @@ function renderPage(): string {
   return `
     <div class="space-y-3 p-4" data-testid="cutting-original-orders-page">
       ${renderCuttingPageHeader(meta, {
-        showCompatibilityBadge: isCuttingAliasPath(pathname),
+        showAliasBadge: isCuttingAliasPath(pathname),
         actionsHtml: renderHeaderActions(),
       })}
       ${renderFeedbackBar()}
@@ -1210,7 +1207,7 @@ function navigateToRecordTarget(
   const row = getViewModel().rowsById[recordId]
   if (!row) return false
   if ((target === 'markerPlan' || target === 'spreadingList') && !isOriginalOrderInExecutionStage(row)) {
-    setFeedback('warning', '当前原始裁片单尚未完成配料和领料，不能进入唛架或铺布执行。')
+    setFeedback('warning', '当前原始裁片单尚未完成 WMS 来料，不能进入唛架或铺布执行。')
     return true
   }
   if (target === 'feiTickets' && !isPrintableSourceRow(row)) {
@@ -1221,7 +1218,7 @@ function navigateToRecordTarget(
     target === 'markerPlan' || target === 'spreadingList'
       ? row.navigationPayload.markerSpreading
       : row.navigationPayload[target]
-  const context = normalizeLegacyCuttingPayload(payload, 'original-orders', {
+  const context = buildCuttingDrillContext(payload, 'original-orders', {
     productionOrderId: row.productionOrderId,
     productionOrderNo: row.productionOrderNo,
     originalCutOrderId: row.originalCutOrderId,
@@ -1403,11 +1400,6 @@ export function handleCraftCuttingOriginalOrdersEvent(target: Element): boolean 
 
   if (action === 'go-production-progress-index') {
     appStore.navigate(getCanonicalCuttingPath('production-progress'))
-    return true
-  }
-
-  if (action === 'go-material-prep-index') {
-    appStore.navigate(getCanonicalCuttingPath('material-prep'))
     return true
   }
 

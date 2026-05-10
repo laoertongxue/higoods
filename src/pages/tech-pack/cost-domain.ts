@@ -2,13 +2,14 @@ import {
   currencyOptions,
   customCostUnitOptions,
   escapeHtml,
+  isTechPackReadOnly,
   materialUnitOptions,
   processUnitOptions,
   state,
 } from './context.ts'
 
 export function renderCostTab(): string {
-  const readonly = false
+  const readonly = isTechPackReadOnly()
   const materialTotal = state.materialCostRows.reduce(
     (sum, row) => sum + row.usage * (Number.parseFloat(row.price) || 0),
     0,
@@ -25,10 +26,6 @@ export function renderCostTab(): string {
 
   return `
     <div class="space-y-6">
-      <section class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-        成本信息仅用于内部测算，不参与完成度计算与发布校验。
-      </section>
-
       <section class="rounded-lg border bg-card">
         <header class="border-b px-4 py-3">
           <h3 class="text-base font-semibold">物料标准成本</h3>
@@ -144,7 +141,7 @@ export function renderCostTab(): string {
         <div class="p-4">
           ${
             state.customCostRows.length === 0
-              ? '<div class="rounded-md border border-dashed px-3 py-6 text-center text-sm text-muted-foreground">暂无自定义成本项，可点击“添加成本项”补充开版费、包装补贴等</div>'
+              ? '<div class="rounded-md border border-dashed px-3 py-6 text-center text-sm text-muted-foreground">暂无自定义成本项</div>'
               : `
                 <table class="w-full text-sm">
                   <thead>
@@ -164,7 +161,7 @@ export function renderCostTab(): string {
                         (row) => `
                           <tr class="border-b last:border-0">
                             <td class="px-3 py-2">
-                              <input class="h-8 w-44 rounded border px-2 text-sm" value="${escapeHtml(row.name)}" placeholder="例如 开版费分摊" data-tech-field="custom-cost-name" data-row-id="${row.id}" ${readonly ? 'disabled' : ''} />
+                              <input class="h-8 w-44 rounded border px-2 text-sm" value="${escapeHtml(row.name)}" placeholder="成本项名称" data-tech-field="custom-cost-name" data-row-id="${row.id}" ${readonly ? 'disabled' : ''} />
                             </td>
                             <td class="px-3 py-2">
                               <input class="h-8 w-24 rounded border px-2 text-sm" type="number" value="${escapeHtml(row.price)}" placeholder="0.00" data-tech-field="custom-cost-price" data-row-id="${row.id}" ${readonly ? 'disabled' : ''} />

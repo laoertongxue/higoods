@@ -1,5 +1,5 @@
-import { techPacks } from './fcs/tech-packs.ts'
 import { buildSkuFixture } from './pcs-product-archive-fixtures.ts'
+import { listProductionDemandTechPackSeeds } from './pcs-production-demand-tech-pack-seeds.ts'
 import { listProjectWorkspaceColors, listProjectWorkspaceSizes } from './pcs-project-config-workspace-adapter.ts'
 import { listStyleArchives, updateStyleArchive } from './pcs-style-archive-repository.ts'
 import { listTechnicalDataVersionsByStyleId } from './pcs-technical-data-version-repository.ts'
@@ -253,10 +253,11 @@ function buildSeedRecord(
 
 function seedSnapshot(): SkuArchiveStoreSnapshot {
   const styles = listStyleArchives()
+  const seedBySpu = new Map(listProductionDemandTechPackSeeds().map((seed) => [seed.demand.spuCode, seed]))
   const records = styles.flatMap((style, styleIndex) => {
-    const techPack = techPacks.find((item) => item.spuCode === style.styleCode)
+    const seed = seedBySpu.get(style.styleCode)
     const skuLines =
-      techPack?.skuCatalog?.map((item) => ({
+      seed?.demand.skuLines.map((item) => ({
         skuCode: item.skuCode || `${style.styleCode}-${resolveColorCode(item.color)}-${item.size}`,
         color: item.color,
         size: item.size,

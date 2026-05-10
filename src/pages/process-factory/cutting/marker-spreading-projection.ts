@@ -78,16 +78,38 @@ export function buildSpreadingPlanUnitProjectionLabel(
 }
 
 function buildQtyFormula(total: number, plannedLayers: number, totalPieces: number): string {
-  return `${Math.max(Math.round(total), 0)} = ${Math.max(Math.round(plannedLayers), 0)} × ${Math.max(Math.round(totalPieces), 0)}`
+  return `${Math.max(Math.round(total), 0)} 件 = ${Math.max(Math.round(plannedLayers), 0)} 层 × ${Math.max(Math.round(totalPieces), 0)} 件/层`
 }
 
-function buildSizeDistributionFromBed(bed: MarkerSchemeBed): MarkerRecord['sizeDistribution'] {
-  if (!bed.coverageRows.length) {
-    return [{ sizeLabel: bed.sizeSummaryText || '待补', quantity: Math.max(Number(bed.markerPieceQtyPerLayer || 0), 0) }]
+function distributeBedPlannedQtyByCoverage(bed: MarkerSchemeBed): number[] {
+  const total = Math.max(Number(bed.plannedGarmentQty || 0), 0)
+  if (!bed.coverageRows.length) return total > 0 ? [total] : []
+
+  const weights = bed.coverageRows.map((row) => Math.max(Number(row.plannedQty || row.demandQty || 0), 0))
+  const weightSum = weights.reduce((sum, value) => sum + value, 0)
+  const effectiveWeights = weightSum > 0 ? weights : bed.coverageRows.map(() => 1)
+  const effectiveSum = effectiveWeights.reduce((sum, value) => sum + value, 0)
+  const raw = effectiveWeights.map((weight) => (total * weight) / Math.max(effectiveSum, 1))
+  const base = raw.map((value) => Math.floor(value))
+  let remainder = Math.round(total) - base.reduce((sum, value) => sum + value, 0)
+  const order = raw
+    .map((value, index) => ({ index, remainder: value - Math.floor(value) }))
+    .sort((left, right) => right.remainder - left.remainder)
+
+  for (let index = 0; index < order.length && remainder > 0; index += 1, remainder -= 1) {
+    base[order[index].index] += 1
   }
-  return bed.coverageRows.map((row) => ({
+
+  return base
+}
+
+function buildSizeDistributionFromBed(bed: MarkerSchemeBed, distributedQty: number[]): MarkerRecord['sizeDistribution'] {
+  if (!bed.coverageRows.length) {
+    return [{ sizeLabel: bed.sizeSummaryText || '待补', quantity: distributedQty[0] || Math.max(Number(bed.plannedGarmentQty || 0), 0) }]
+  }
+  return bed.coverageRows.map((row, index) => ({
     sizeLabel: row.sizeName || row.sizeCode,
-    quantity: Math.max(Number(row.plannedQty || row.demandQty || 0), 0),
+    quantity: Math.max(Number(distributedQty[index] || 0), 0),
   }))
 }
 
@@ -97,7 +119,9 @@ function buildMarkerRecordFromPlanBed(
   bed: MarkerSchemeBed,
 ): MarkerRecord {
   const bedColor = bed.colorName || bed.colorCode || plan.colorSummary
-  const bedTotalPieces = Math.max(Number(bed.markerPieceQtyPerLayer || bed.plannedGarmentQty || 0), 0)
+  const bedTotalPieces = Math.max(Number(bed.plannedGarmentQty || 0), 0)
+  const bedPieceQtyPerLayer = Math.max(Number(bed.markerPieceQtyPerLayer || 0), 0)
+  const distributedQty = distributeBedPlannedQtyByCoverage(bed)
   const bedSpreadLength = Math.max(Number(bed.spreadTotalLength || 0), 0)
   const sourceOrder = context.sourceOriginalRows[0] || null
   const allocationLines: MarkerAllocationLine[] = bed.coverageRows.map((row, index) => ({
@@ -113,7 +137,7 @@ function buildMarkerRecordFromPlanBed(
     color: row.colorName || row.colorCode,
     materialSku: bed.materialSku || plan.materialSkuSummary,
     sizeLabel: row.sizeName || row.sizeCode,
-    plannedGarmentQty: Math.max(Number(row.plannedQty || row.demandQty || 0), 0),
+    plannedGarmentQty: Math.max(Number(distributedQty[index] || 0), 0),
     note: '来自唛架床次覆盖尺码',
   }))
   const normalLineItems: MarkerLineItem[] =
@@ -127,10 +151,10 @@ function buildMarkerRecordFromPlanBed(
             layoutDetailText: bed.sizeSummaryText,
             color: bedColor,
             ratioLabel: bed.sizeSummaryText,
-            spreadRepeatCount: Math.max(Number(bed.repeatCount || 0), 0),
+            spreadRepeatCount: Math.max(Number(bed.plannedLayerCount || 0), 0),
             markerLength: Math.max(Number(bed.markerLength || 0), 0),
-            markerPieceCount: bedTotalPieces,
-            pieceCount: bedTotalPieces,
+            markerPieceCount: bedPieceQtyPerLayer,
+            pieceCount: bedPieceQtyPerLayer,
             singlePieceUsage: Math.max(Number(bed.unitFabricUsage || 0), 0),
             spreadTotalLength: bedSpreadLength,
             spreadingTotalLength: bedSpreadLength,
@@ -157,9 +181,9 @@ function buildMarkerRecordFromPlanBed(
               onesize: 0,
               plusonesize: 0,
               ...Object.fromEntries(
-                bed.coverageRows.map((row) => [
+                bed.coverageRows.map((row, index) => [
                   row.sizeCode === 'onesizeplus' ? 'plusonesize' : row.sizeCode,
-                  Math.max(Number(row.plannedQty || row.demandQty || 0), 0),
+                  Math.max(Number(distributedQty[index] || 0), 0),
                 ]),
               ),
             },
@@ -174,8 +198,8 @@ function buildMarkerRecordFromPlanBed(
           rowId: `${bed.bedId}-pattern-1`,
           markerId: bed.bedId,
           color: bedColor,
-          patternValues: { [bed.bedNo]: Math.max(Number(bed.repeatCount || 0), 0) },
-          total: Math.max(Number(bed.repeatCount || 0), 0),
+          patternValues: { [bed.bedNo]: bedTotalPieces },
+          total: bedTotalPieces,
         },
       ]
     : []
@@ -199,20 +223,20 @@ function buildMarkerRecordFromPlanBed(
     materialSkuSummary: bed.materialSku || plan.materialSkuSummary,
     markerMode: bed.bedMode,
     colorSummary: bedColor,
-    sizeDistribution: buildSizeDistributionFromBed(bed),
+    sizeDistribution: buildSizeDistributionFromBed(bed, distributedQty),
     totalPieces: bedTotalPieces,
     netLength: Math.max(Number(bed.markerLength || 0), 0),
     singlePieceUsage: Math.max(Number(bed.unitFabricUsage || 0), 0),
     spreadTotalLength: bedSpreadLength,
     sizeRatioPlanText: bed.sizeSummaryText,
     plannedLayerCount: Math.max(Number(bed.plannedLayerCount || 0), 0),
-    plannedMarkerCount: Math.max(Number(bed.repeatCount || 0), 0),
+    plannedMarkerCount: Math.max(Number(bed.plannedLayerCount || 0), 0),
     markerLength: Math.max(Number(bed.markerLength || 0), 0),
     procurementUnitUsage: Math.max(Number(bed.unitFabricUsage || 0), 0),
     actualUnitUsage: Math.max(Number(bed.unitFabricUsage || 0), 0),
     plannedMaterialMeter: bedSpreadLength,
     actualMaterialMeter: bedSpreadLength,
-    actualCutQty: Math.max(Number(bed.plannedLayerCount || 0), 0) * bedTotalPieces,
+    actualCutQty: bedTotalPieces,
     materialCategory: context.sourceMaterialPrepRows[0]?.materialCategory || '',
     materialAttr: context.sourceMaterialPrepRows[0]?.materialLabel || '',
     allocationLines,

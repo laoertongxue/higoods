@@ -13,7 +13,6 @@ interface PdaExecutionWritebackBase {
   taskNo: string
   executionOrderId: string
   executionOrderNo: string
-  legacyCutPieceOrderNo: string
   cutPieceOrderNo: string
   productionOrderId: string
   productionOrderNo: string
@@ -96,8 +95,7 @@ function sortBySubmittedAtDesc<T extends { submittedAt: string }>(items: T[]): T
 }
 
 function normalizeBaseRecord(raw: Record<string, unknown>) {
-  const legacyCutPieceOrderNo = toString(raw.legacyCutPieceOrderNo) || toString(raw.cutPieceOrderNo)
-  const executionOrderNo = toString(raw.executionOrderNo) || legacyCutPieceOrderNo
+  const executionOrderNo = toString(raw.executionOrderNo) || toString(raw.cutPieceOrderNo)
   const submittedAt = toString(raw.submittedAt)
   const actionAt = toString(raw.actionAt) || submittedAt
   return {
@@ -108,8 +106,7 @@ function normalizeBaseRecord(raw: Record<string, unknown>) {
     taskNo: toString(raw.taskNo),
     executionOrderId: toString(raw.executionOrderId) || executionOrderNo,
     executionOrderNo,
-    legacyCutPieceOrderNo,
-    cutPieceOrderNo: legacyCutPieceOrderNo,
+    cutPieceOrderNo: toString(raw.cutPieceOrderNo) || executionOrderNo,
     productionOrderId: toString(raw.productionOrderId),
     productionOrderNo: toString(raw.productionOrderNo),
     originalCutOrderId: toString(raw.originalCutOrderId),
@@ -212,8 +209,7 @@ function createSeedBase(input: {
     taskNo: scenario.taskNo,
     executionOrderId: execution.executionOrderId,
     executionOrderNo: execution.executionOrderNo,
-    legacyCutPieceOrderNo: execution.legacyCutPieceOrderNo,
-    cutPieceOrderNo: execution.legacyCutPieceOrderNo,
+    cutPieceOrderNo: execution.executionOrderNo,
     productionOrderId: execution.productionOrderId,
     productionOrderNo: execution.productionOrderNo,
     originalCutOrderId: execution.originalCutOrderId,
@@ -235,226 +231,55 @@ function createSeedBase(input: {
 }
 
 function createSeededPdaExecutionWritebackStore(): PdaExecutionWritebackStore {
-  const pickupWritebacks: PdaPickupWritebackRecord[] = [
-    {
-      ...createSeedBase({
-        writebackId: 'PDA-PICKUP-SEED-000088',
-        actionType: 'PDA_PICKUP_CONFIRM',
-        submittedAt: '2026-03-28 10:12:00',
-        taskId: 'TASK-CUT-000088',
-        executionOrderNo: 'CPO-20260319-B',
-        operatorName: 'Rina Putri',
-        sourceRecordId: 'pickup-seed-000088',
-      }),
-      resultLabel: '领取成功',
-      actualReceivedQtyText: '卷数 3 卷 / 长度 92 米',
-      discrepancyNote: '',
-      photoProofCount: 0,
-      claimDisputeId: '',
-      claimDisputeNo: '',
-    },
-    {
-      ...createSeedBase({
-        writebackId: 'PDA-PICKUP-SEED-000090',
-        actionType: 'PDA_PICKUP_CONFIRM',
-        submittedAt: '2026-03-28 11:18:00',
-        taskId: 'TASK-CUT-000090',
-        executionOrderNo: 'CPO-20260319-D',
-        operatorName: 'Putra Aji',
-        sourceRecordId: 'pickup-seed-000090',
-      }),
-      resultLabel: '部分领取',
-      actualReceivedQtyText: '卷数 2 卷 / 长度 61 米',
-      discrepancyNote: '主布少 1 卷，已先行铺布确认。',
-      photoProofCount: 1,
-      claimDisputeId: '',
-      claimDisputeNo: '',
-    },
-    {
-      ...createSeedBase({
-        writebackId: 'PDA-PICKUP-SEED-000095',
-        actionType: 'PDA_PICKUP_CONFIRM',
-        submittedAt: '2026-03-28 12:06:00',
-        taskId: 'TASK-CUT-000095',
-        executionOrderNo: 'CPO-20260319-I',
-        operatorName: '现场领料员',
-        sourceRecordId: 'pickup-seed-000095',
-      }),
-      resultLabel: '差异举证已提交',
-      actualReceivedQtyText: '卷数 4 卷 / 长度 589 米',
-      discrepancyNote: '少 1 卷主布面料，已提交差异举证。',
-      photoProofCount: 3,
-      claimDisputeId: 'CD-202603-0001',
-      claimDisputeNo: 'LYY-202603-0001',
-    },
-    {
-      ...createSeedBase({
-        writebackId: 'PDA-PICKUP-SEED-000100',
-        actionType: 'PDA_PICKUP_CONFIRM',
-        submittedAt: '2026-03-28 09:42:00',
-        taskId: 'TASK-CUT-000100',
-        executionOrderNo: 'CPO-20260324-B1',
-        operatorName: 'Rina Putri',
-        sourceRecordId: 'pickup-seed-000100',
-      }),
-      resultLabel: '领取成功',
-      actualReceivedQtyText: '卷数 2 卷 / 长度 75 米',
-      discrepancyNote: '',
-      photoProofCount: 0,
-      claimDisputeId: '',
-      claimDisputeNo: '',
-    },
-  ]
+  const pickupWritebacks: PdaPickupWritebackRecord[] = []
 
   const inboundWritebacks: PdaCutPieceInboundWritebackRecord[] = [
     {
       ...createSeedBase({
-        writebackId: 'PDA-INBOUND-SEED-000089',
+        writebackId: 'PDA-INBOUND-SEED-000203',
         actionType: 'PDA_CUT_PIECE_INBOUND_CONFIRM',
-        submittedAt: '2026-03-28 17:20:00',
-        taskId: 'TASK-CUT-000089',
-        executionOrderNo: 'CPO-20260319-C',
-        operatorName: 'Dewi Kartika',
-        sourceRecordId: 'inbound-seed-000089',
+        submittedAt: '2026-03-18 16:20:00',
+        taskId: 'TASK-CUT-000203',
+        executionOrderNo: 'CPO-20260318-C1',
+        operatorName: 'Dewi Lestari',
+        sourceRecordId: 'inbound-seed-000203',
       }),
       zoneCode: 'A',
-      locationLabel: 'A-01-03',
-      note: '合并裁剪批次裁片已入裁片仓',
-    },
-    {
-      ...createSeedBase({
-        writebackId: 'PDA-INBOUND-SEED-000093',
-        actionType: 'PDA_CUT_PIECE_INBOUND_CONFIRM',
-        submittedAt: '2026-03-28 16:45:00',
-        taskId: 'TASK-CUT-000093',
-        executionOrderNo: 'CPO-20260319-G',
-        operatorName: 'Nia Prasetyo',
-        sourceRecordId: 'inbound-seed-000093',
-      }),
-      zoneCode: 'B',
-      locationLabel: 'B-02-01',
-      note: '该面料裁片已归位',
-    },
-    {
-      ...createSeedBase({
-        writebackId: 'PDA-INBOUND-SEED-000103',
-        actionType: 'PDA_CUT_PIECE_INBOUND_CONFIRM',
-        submittedAt: '2026-03-28 19:20:00',
-        taskId: 'TASK-CUT-000103',
-        executionOrderNo: 'CPO-20260324-E1',
-        operatorName: 'Factory F004',
-        sourceRecordId: 'inbound-seed-000103',
-      }),
-      zoneCode: 'C',
-      locationLabel: 'C-03-02',
-      note: '异地裁床厂完工后已入仓',
+      locationLabel: '待交出仓 A-01',
+      note: '铺布裁剪完成后进入待交出仓。',
     },
   ]
 
   const handoverWritebacks: PdaCutPieceHandoverWritebackRecord[] = [
     {
       ...createSeedBase({
-        writebackId: 'PDA-HANDOVER-SEED-000089',
+        writebackId: 'PDA-HANDOVER-SEED-000203',
         actionType: 'PDA_CUT_PIECE_HANDOVER_CONFIRM',
-        submittedAt: '2026-03-28 18:40:00',
-        taskId: 'TASK-CUT-000089',
-        executionOrderNo: 'CPO-20260319-C',
-        operatorName: 'Dewi Kartika',
-        sourceRecordId: 'handover-seed-000089',
+        submittedAt: '2026-03-18 17:10:00',
+        taskId: 'TASK-CUT-000203',
+        executionOrderNo: 'CPO-20260318-C1',
+        operatorName: 'Dewi Lestari',
+        sourceRecordId: 'handover-seed-000203',
       }),
-      targetLabel: '车缝前置收料位',
-      note: '合并裁剪批次裁片已交接到车缝前置工位',
-    },
-    {
-      ...createSeedBase({
-        writebackId: 'PDA-HANDOVER-SEED-000094',
-        actionType: 'PDA_CUT_PIECE_HANDOVER_CONFIRM',
-        submittedAt: '2026-03-28 15:10:00',
-        taskId: 'TASK-CUT-000094',
-        executionOrderNo: 'CPO-20260319-H',
-        operatorName: 'Adi Saputra',
-        sourceRecordId: 'handover-seed-000094',
-      }),
-      targetLabel: '缝制首工序待接驳位',
-      note: '已完成待交接样例',
-    },
-    {
-      ...createSeedBase({
-        writebackId: 'PDA-HANDOVER-SEED-000103',
-        actionType: 'PDA_CUT_PIECE_HANDOVER_CONFIRM',
-        submittedAt: '2026-03-28 20:32:00',
-        taskId: 'TASK-CUT-000103',
-        executionOrderNo: 'CPO-20260324-E1',
-        operatorName: 'Factory F004',
-        sourceRecordId: 'handover-seed-000103',
-      }),
-      targetLabel: '异地车缝承接位',
-      note: '已完工并已交接',
+      targetLabel: '车缝待接收位',
+      note: '裁片按菲票完成交出。',
     },
   ]
 
   const replenishmentFeedbackWritebacks: PdaReplenishmentFeedbackWritebackRecord[] = [
     {
       ...createSeedBase({
-        writebackId: 'PDA-REPLENISH-SEED-000092',
+        writebackId: 'PDA-REPLENISH-SEED-000204',
         actionType: 'PDA_REPLENISHMENT_FEEDBACK_SUBMIT',
-        submittedAt: '2026-03-28 14:18:00',
-        taskId: 'TASK-CUT-000092',
-        executionOrderNo: 'CPO-20260319-F',
-        operatorName: 'Putra Aji',
-        sourceRecordId: 'replenishment-seed-000092',
+        submittedAt: '2026-03-18 14:20:00',
+        taskId: 'TASK-CUT-000204',
+        executionOrderNo: 'CPO-20260318-D1',
+        operatorName: '裁床组长',
+        sourceRecordId: 'replenishment-seed-000204',
       }),
-      reasonLabel: '门幅不足需补主布',
-      note: '已反馈补料诉求，待工艺工厂确认。',
+      reasonLabel: '布卷长度差异',
+      note: '铺布前发现 WMS 来料长度与布卷标签不一致。',
       photoProofCount: 2,
-      lifecycleStatus: 'PENDING',
-      lifecycleStatusLabel: '待处理',
-    },
-    {
-      ...createSeedBase({
-        writebackId: 'PDA-REPLENISH-SEED-000095',
-        actionType: 'PDA_REPLENISHMENT_FEEDBACK_SUBMIT',
-        submittedAt: '2026-03-28 12:20:00',
-        taskId: 'TASK-CUT-000095',
-        executionOrderNo: 'CPO-20260319-I',
-        operatorName: '现场领料员',
-        sourceRecordId: 'replenishment-seed-000095',
-      }),
-      reasonLabel: '主布面料短缺待补',
-      note: '已提交补料反馈并附差异举证。',
-      photoProofCount: 3,
-      lifecycleStatus: 'SUBMITTED',
-      lifecycleStatusLabel: '已反馈',
-    },
-    {
-      ...createSeedBase({
-        writebackId: 'PDA-REPLENISH-SEED-000093',
-        actionType: 'PDA_REPLENISHMENT_FEEDBACK_SUBMIT',
-        submittedAt: '2026-03-28 16:00:00',
-        taskId: 'TASK-CUT-000093',
-        executionOrderNo: 'CPO-20260319-G',
-        operatorName: 'Nia Prasetyo',
-        sourceRecordId: 'replenishment-seed-000093',
-      }),
-      reasonLabel: '辅料补齐已关闭',
-      note: '补料闭环完成，仅保留历史记录。',
-      photoProofCount: 1,
-      lifecycleStatus: 'CLOSED',
-      lifecycleStatusLabel: '已关闭',
-    },
-    {
-      ...createSeedBase({
-        writebackId: 'PDA-REPLENISH-SEED-000100',
-        actionType: 'PDA_REPLENISHMENT_FEEDBACK_SUBMIT',
-        submittedAt: '2026-03-28 13:05:00',
-        taskId: 'TASK-CUT-000100',
-        executionOrderNo: 'CPO-20260324-B1',
-        operatorName: 'Rina Putri',
-        sourceRecordId: 'replenishment-seed-000100',
-      }),
-      reasonLabel: '辅布补齐待仓确认',
-      note: '已反馈辅布补料，等待仓库处理。',
-      photoProofCount: 1,
       lifecycleStatus: 'PENDING',
       lifecycleStatusLabel: '待处理',
     },

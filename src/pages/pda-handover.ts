@@ -219,7 +219,7 @@ function renderHandoutObjectBlock(head: PdaHandoverHead, compact = false): strin
 function renderOpenHeadCard(head: PdaHandoverHead): string {
   const meta = head.headType === 'PICKUP' ? getPickupSummaryMeta(head) : getHandoutSummaryMeta(head)
   const headLabel = head.headType === 'PICKUP' ? '领料单' : '交出单'
-  const actionLabel = head.headType === 'PICKUP' ? '去领料' : '查看交出单'
+  const actionLabel = head.headType === 'PICKUP' ? '查看来料单' : '查看交出单'
 
   if (head.headType === 'PICKUP') {
     const pickupHint =

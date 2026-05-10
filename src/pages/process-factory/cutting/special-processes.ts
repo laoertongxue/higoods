@@ -20,11 +20,7 @@ export function renderCraftCuttingSpecialProcessesPage(): string {
       <section class="rounded-2xl border bg-white p-5 shadow-sm">
         <div class="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <div class="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">兼容入口</div>
-            <h1 class="mt-3 text-2xl font-semibold text-foreground">特殊工艺</h1>
-            <p class="mt-2 text-sm text-muted-foreground">
-              旧裁床入口已迁移到工艺工厂运营系统的特殊工艺一级菜单。当前页面仅保留兼容跳转，不再维护独立的特殊工艺任务数据。
-            </p>
+            <h1 class="text-2xl font-semibold text-foreground">特殊工艺</h1>
           </div>
           <button
             type="button"

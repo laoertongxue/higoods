@@ -4,7 +4,6 @@ import {
   DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES,
   getDefaultCuttingTable,
 } from './cutting-table-resource.ts'
-import { getProductionOrderCompatTechPack } from '../../../data/fcs/production-order-tech-pack-runtime.ts'
 
 const numberFormatter = new Intl.NumberFormat('zh-CN')
 
@@ -720,7 +719,7 @@ const spreadingSupervisorStageMeta: Record<
   WAITING_REPLENISHMENT: {
     label: '待补料确认',
     className: 'bg-rose-100 text-rose-700 border border-rose-200',
-    detailText: '当前铺布已完成，但补料差异仍待进入补料管理确认，审核通过后将回仓库待配料。',
+    detailText: '当前铺布已完成，但补料差异仍待进入补料管理确认，审核通过后将回仓库WMS 待处理。',
   },
   WAITING_FEI_TICKET: {
     label: '待打印菲票',
@@ -789,7 +788,7 @@ function formatQty(value: number): string {
 export function buildSpreadingPlanUnitDisplayLabel(
   planUnit: Pick<SpreadingPlanUnit, 'color' | 'materialSku' | 'garmentQtyPerUnit'>,
 ): string {
-  return `${planUnit.color || '待补颜色'} / ${planUnit.materialSku || '待补面料'} / ${formatQty(planUnit.garmentQtyPerUnit)}件`
+  return `${planUnit.color || '待补颜色'} / ${planUnit.materialSku || '待补面料'} / ${formatQty(planUnit.garmentQtyPerUnit)}件/层`
 }
 
 function formatDateTime(value: string): string {
@@ -989,20 +988,16 @@ export function computeUsageSummary(marker: Partial<MarkerRecord>): {
   const procurementUnitUsage = Number(marker.procurementUnitUsage ?? marker.singlePieceUsage ?? 0)
   const actualUnitUsage = Number(marker.actualUnitUsage ?? marker.singlePieceUsage ?? 0)
   const layerCount = Number(marker.plannedLayerCount ?? 0)
-  const totalPieces = Number(marker.totalPieces ?? 0)
-  const mode = normalizeMarkerMode(marker.markerMode as string | undefined)
+  const markerLengthWithLoss = Math.max(Number(marker.markerLength ?? marker.netLength ?? 0), 0) + 0.06
+  const plannedSpreadLength = Number(marker.spreadTotalLength ?? (layerCount > 0 ? Number((markerLengthWithLoss * layerCount).toFixed(2)) : 0))
   const plannedMaterialMeter = Number(
     marker.plannedMaterialMeter ??
-      (isFoldMarkerMode(mode)
-        ? Number(((procurementUnitUsage * Math.max(totalPieces, 0)) / 2).toFixed(2))
-        : Number((((procurementUnitUsage || 0) + 0.06) * Math.max(layerCount, 0)).toFixed(2))) ??
+      Number(plannedSpreadLength.toFixed(2)) ??
       0,
   )
   const actualMaterialMeter = Number(
     marker.actualMaterialMeter ??
-      (isFoldMarkerMode(mode)
-        ? Number(((actualUnitUsage * Math.max(actualCutQty, 0)) / 2).toFixed(2))
-        : Number((((actualUnitUsage || 0) + 0.06) * Math.max(layerCount || actualCutQty, 0)).toFixed(2))) ??
+      Number((Number(marker.spreadTotalLength ?? 0) || markerLengthWithLoss * Math.max(layerCount, 0)).toFixed(2)) ??
       0,
   )
 
@@ -1154,6 +1149,95 @@ export function findSpreadingPlanUnitById(
   return planUnits.find((item) => item.planUnitId === planUnitId) || null
 }
 
+export function deriveMarkerGarmentQtyPerLayer(marker: Partial<MarkerRecord> | null | undefined): number {
+  if (!marker) return 0
+  const lineItemQty = (marker.lineItems || []).find((item) => Number(item.markerPieceCount ?? item.pieceCount ?? 0) > 0)
+  if (lineItemQty) return Math.max(Number(lineItemQty.markerPieceCount ?? lineItemQty.pieceCount ?? 0), 0)
+  const plannedLayers = Math.max(Number(marker.plannedLayerCount || 0), 0)
+  const totalPieces = Math.max(Number(marker.totalPieces || 0), 0)
+  if (plannedLayers > 0 && totalPieces > 0) return Math.max(Math.ceil(totalPieces / plannedLayers), 0)
+  return totalPieces
+}
+
+export function deriveSpreadingSessionGarmentQtyPerLayer(
+  session: Partial<SpreadingSession> | null | undefined,
+  marker: Partial<MarkerRecord> | null | undefined,
+): number {
+  const planUnits = session?.planUnits || []
+  const positiveUnits = planUnits.map((unit) => Math.max(Number(unit.garmentQtyPerUnit || 0), 0)).filter((value) => value > 0)
+  const uniqueValues = Array.from(new Set(positiveUnits))
+  if (uniqueValues.length === 1) return uniqueValues[0]
+  return deriveMarkerGarmentQtyPerLayer(marker)
+}
+
+function computePlannedCutGarmentQtyFromSession(session: Partial<SpreadingSession> | null, garmentQtyPerLayer: number): number {
+  const planUnits = session?.planUnits || []
+  const planUnitTotal = planUnits.reduce((sum, unit) => {
+    const storedTotal = Math.max(Number(unit.plannedCutGarmentQty || 0), 0)
+    const computedTotal = Math.max(Number(unit.plannedRepeatCount || 0), 0) * Math.max(Number(unit.garmentQtyPerUnit || 0), 0)
+    return sum + (storedTotal || computedTotal)
+  }, 0)
+  if (planUnitTotal > 0) return Math.max(Math.round(planUnitTotal), 0)
+  const importedTotal = Math.max(Number(session?.theoreticalActualCutPieceQty || 0), 0)
+  if (importedTotal > 0) return Math.max(Math.round(importedTotal), 0)
+  return computePlannedCutGarmentQty(Number(session?.plannedLayers || 0), garmentQtyPerLayer)
+}
+
+function buildPlannedCutGarmentQtyFormulaFromSession(
+  plannedCutGarmentQty: number,
+  session: Partial<SpreadingSession> | null,
+  garmentQtyPerLayer: number,
+): string {
+  const planUnits = session?.planUnits || []
+  const terms = planUnits
+    .map((unit) => ({
+      layers: Math.max(Number(unit.plannedRepeatCount || 0), 0),
+      qty: Math.max(Number(unit.garmentQtyPerUnit || 0), 0),
+    }))
+    .filter((unit) => unit.layers > 0 && unit.qty > 0)
+  if (terms.length) {
+    const formulaTerms = terms.map((unit) => `${formatQty(unit.layers)} 层 × ${formatQty(unit.qty)} 件/层`)
+    return `${formatQty(plannedCutGarmentQty)} 件 = ${formulaTerms.join(' + ')}`
+  }
+  return buildPlannedCutGarmentQtyFormula(plannedCutGarmentQty, Number(session?.plannedLayers || 0), garmentQtyPerLayer)
+}
+
+function computeTheoreticalCutQtyFromSession(session: Partial<SpreadingSession>, fallbackGarmentQtyPerLayer: number): number {
+  const rolls = session.rolls || []
+  if (rolls.length) {
+    const rollTotal = rolls.reduce((sum, roll) => {
+      const linkedPlanUnit = findSpreadingPlanUnitById(session.planUnits, roll.planUnitId)
+      const garmentQtyPerUnit = linkedPlanUnit?.garmentQtyPerUnit || fallbackGarmentQtyPerLayer
+      return sum + computeRollActualCutGarmentQty(Number(roll.layerCount || 0), garmentQtyPerUnit)
+    }, 0)
+    if (rollTotal > 0) return Math.max(Math.round(rollTotal), 0)
+  }
+  return computeTheoreticalCutQty(session, fallbackGarmentQtyPerLayer)
+}
+
+function buildTheoreticalCutGarmentQtyFormulaFromSession(
+  theoreticalCutGarmentQty: number,
+  session: Partial<SpreadingSession>,
+  rollLayerTotal: number,
+  actualLayerTotal: number,
+  fallbackGarmentQtyPerLayer: number,
+): string {
+  const terms = (session.rolls || [])
+    .map((roll) => {
+      const linkedPlanUnit = findSpreadingPlanUnitById(session.planUnits, roll.planUnitId)
+      const garmentQtyPerUnit = linkedPlanUnit?.garmentQtyPerUnit || fallbackGarmentQtyPerLayer
+      return {
+        layers: Math.max(Number(roll.layerCount || 0), 0),
+        qty: Math.max(Number(garmentQtyPerUnit || 0), 0),
+      }
+    })
+    .filter((item) => item.layers > 0 && item.qty > 0)
+  if (terms.length) {
+    return `${formatQty(theoreticalCutGarmentQty)} 件 = ${terms.map((item) => `${formatQty(item.layers)} 层 × ${formatQty(item.qty)} 件/层`).join(' + ')}`
+  }
+  return buildTheoreticalCutGarmentQtyFormula(theoreticalCutGarmentQty, rollLayerTotal, actualLayerTotal, fallbackGarmentQtyPerLayer)
+}
+
 export function computeRollActualCutGarmentQty(layerCount: number, garmentQtyPerUnit: number): number {
   if (layerCount <= 0 || garmentQtyPerUnit <= 0) return 0
   return Math.max(Math.round(layerCount * garmentQtyPerUnit), 0)
@@ -1248,11 +1332,11 @@ export function buildTheoreticalActualCutQtyFormula(
   plannedLayers: number,
   markerTotalPieces: number,
 ): string {
-  return `${formatQty(theoreticalActualCutPieceQty)} 件 = ${formatQty(plannedLayers)} 层 × ${formatQty(markerTotalPieces)} 件`
+  return `${formatQty(theoreticalActualCutPieceQty)} 件 = ${formatQty(plannedLayers)} 层 × ${formatQty(markerTotalPieces)} 件/层`
 }
 
 export function buildPlannedCutGarmentQtyFormula(plannedCutGarmentQty: number, plannedLayers: number, markerTotalPieces: number): string {
-  return `${formatQty(plannedCutGarmentQty)} 件 = ${formatQty(plannedLayers)} 层 × ${formatQty(markerTotalPieces)} 件`
+  return `${formatQty(plannedCutGarmentQty)} 件 = ${formatQty(plannedLayers)} 层 × ${formatQty(markerTotalPieces)} 件/层`
 }
 
 export function buildTheoreticalCutGarmentQtyFormula(
@@ -1261,7 +1345,7 @@ export function buildTheoreticalCutGarmentQtyFormula(
   actualLayerTotal: number,
   markerTotalPieces: number,
 ): string {
-  return `${formatQty(theoreticalCutGarmentQty)} 件 = max(${formatQty(rollLayerTotal)} 层, ${formatQty(actualLayerTotal)} 层) × ${formatQty(markerTotalPieces)} 件`
+  return `${formatQty(theoreticalCutGarmentQty)} 件 = max(${formatQty(rollLayerTotal)} 层, ${formatQty(actualLayerTotal)} 层) × ${formatQty(markerTotalPieces)} 件/层`
 }
 
 function buildQtySumFormula(result: number, values: number[]): string {
@@ -1285,11 +1369,11 @@ export function buildSpreadingImportedLengthFormula(theoreticalSpreadTotalLength
 }
 
 export function buildRollActualCutQtyFormula(actualCutPieceQty: number, layerCount: number, markerTotalPieces: number): string {
-  return `${formatQty(actualCutPieceQty)} 件 = ${formatQty(layerCount)} 层 × ${formatQty(markerTotalPieces)} 件`
+  return `${formatQty(actualCutPieceQty)} 件 = ${formatQty(layerCount)} 层 × ${formatQty(markerTotalPieces)} 件/层`
 }
 
 export function buildRollActualCutGarmentQtyFormula(actualCutGarmentQty: number, layerCount: number, garmentQtyPerUnit: number): string {
-  return `${formatQty(actualCutGarmentQty)} 件 = ${formatQty(layerCount)} 层 × ${formatQty(garmentQtyPerUnit)} 件`
+  return `${formatQty(actualCutGarmentQty)} 件 = ${formatQty(layerCount)} 层 × ${formatQty(garmentQtyPerUnit)} 件/层`
 }
 
 export function computeOperatorHandledGarmentQty(handledLayerCount: number | null, garmentQtyPerUnit: number): number | null {
@@ -1317,7 +1401,7 @@ export function buildOperatorHandledGarmentQtyFormula(
   garmentQtyPerUnit: number,
 ): string {
   if (handledGarmentQty === null || handledLayerCount === null) return ''
-  return `${formatQty(handledGarmentQty)} 件 = ${formatQty(handledLayerCount)} 层 × ${formatQty(garmentQtyPerUnit)} 件`
+  return `${formatQty(handledGarmentQty)} 件 = ${formatQty(handledLayerCount)} 层 × ${formatQty(garmentQtyPerUnit)} 件/层`
 }
 
 export function buildOperatorHandledLengthFormula(
@@ -1477,8 +1561,8 @@ export function buildSpreadingCoreMetrics(options: {
   const plannedLayers = Number(session?.plannedLayers || 0)
   const rollLayerTotal = rollSummary.totalLayers
   const actualLayerTotal = Number(session?.actualLayers || 0)
-  const plannedCutGarmentQty = computePlannedCutGarmentQty(plannedLayers, options.markerTotalPieces)
-  const theoreticalCutGarmentQty = computeTheoreticalCutQty(session || {}, options.markerTotalPieces)
+  const plannedCutGarmentQty = computePlannedCutGarmentQtyFromSession(session, options.markerTotalPieces)
+  const theoreticalCutGarmentQty = computeTheoreticalCutQtyFromSession(session || {}, options.markerTotalPieces)
   const actualCutGarmentQty = computeActualCutQty(session || {})
   const spreadActualLengthM = Number(session?.totalActualLength || rollSummary.totalActualLength || 0)
   const spreadUsableLengthM = Number(session?.totalCalculatedUsableLength || rollSummary.totalCalculatedUsableLength || 0)
@@ -1499,9 +1583,10 @@ export function buildSpreadingCoreMetrics(options: {
     spreadLayerCount: Math.max(rollLayerTotal, actualLayerTotal, 0),
     varianceLength,
     shortageGarmentQty,
-    plannedCutGarmentQtyFormula: buildPlannedCutGarmentQtyFormula(plannedCutGarmentQty, plannedLayers, options.markerTotalPieces),
-    theoreticalCutGarmentQtyFormula: buildTheoreticalCutGarmentQtyFormula(
+    plannedCutGarmentQtyFormula: buildPlannedCutGarmentQtyFormulaFromSession(plannedCutGarmentQty, session, options.markerTotalPieces),
+    theoreticalCutGarmentQtyFormula: buildTheoreticalCutGarmentQtyFormulaFromSession(
       theoreticalCutGarmentQty,
+      session || {},
       rollLayerTotal,
       actualLayerTotal,
       options.markerTotalPieces,
@@ -1576,23 +1661,8 @@ function defaultSizeDistribution(rowCount: number): MarkerSizeDistributionItem[]
   }))
 }
 
-function buildTechPackSeedSizeDistribution(context: MarkerSpreadingContext): MarkerSizeDistributionItem[] | null {
-  if (context.contextType !== 'original-order' || context.materialPrepRows.length !== 1 || !context.techPackSpuCode) return null
-  const techPack = context.materialPrepRows[0]?.productionOrderId
-    ? getProductionOrderCompatTechPack(context.materialPrepRows[0].productionOrderId)
-    : null
-  if (!techPack?.skuCatalog?.length) return null
-  const targetColor = String(context.materialPrepRows[0].color || '').trim().toLowerCase()
-  const matchedSizes = techPack.skuCatalog
-    .filter((item) => String(item.color || '').trim().toLowerCase() === targetColor)
-    .map((item) => item.size)
-  if (!matchedSizes.length) return null
-  const preferredSizeOrder = matchedSizes.filter((size) => MARKER_SIZE_KEYS.includes(size as MarkerSizeKey))
-  if (!preferredSizeOrder.length) return null
-  return MARKER_SIZE_KEYS.map((sizeLabel, index) => ({
-    sizeLabel,
-    quantity: preferredSizeOrder.includes(sizeLabel) ? [12, 18, 16, 10, 6][Math.min(index, 4)] || 4 : 0,
-  }))
+function buildTechPackSeedSizeDistribution(_context: MarkerSpreadingContext): MarkerSizeDistributionItem[] | null {
+  return null
 }
 
 function createDefaultHighLowCuttingRows(markerId: string, colors: string[], sizeDistribution: MarkerSizeDistributionItem[]): HighLowCuttingRow[] {
@@ -1736,6 +1806,15 @@ function buildSeedMarker(context: MarkerSpreadingContext): MarkerRecord {
   const markerMode: MarkerModeKey = context.contextType === 'merge-batch' ? 'high_low' : 'normal'
   const highLowPatternKeys = [...DEFAULT_HIGH_LOW_PATTERN_KEYS]
   const colors = uniqueStrings(context.materialPrepRows.map((row) => row.color))
+  const plannedLayerCount = Math.max(Math.ceil(totalPieces / 20), 1)
+  const lineItemCount = Math.max(context.materialPrepRows.length, 1)
+  const markerLengthPerLine = Number((netLength / lineItemCount).toFixed(2))
+  const markerPieceQtyPerLayer = Math.max(Math.ceil(totalPieces / plannedLayerCount / lineItemCount), 1)
+  const spreadLengthPerLine = Number((((markerLengthPerLine || 0) + 0.06) * plannedLayerCount).toFixed(2))
+  const spreadTotalLength =
+    isHighLowMarkerMode(markerMode)
+      ? Number((netLength * 1.1).toFixed(2))
+      : Number((spreadLengthPerLine * lineItemCount).toFixed(2))
   const allocationLines: MarkerAllocationLine[] =
     context.contextType === 'original-order' && context.materialPrepRows.length === 1
       ? sizeDistribution
@@ -1768,13 +1847,13 @@ function buildSeedMarker(context: MarkerSpreadingContext): MarkerRecord {
           layoutDetailText: sizeDistribution.filter((item) => item.quantity > 0).map((item) => `${item.sizeLabel}*${item.quantity}`).join(' + '),
           color: row.color,
           ratioLabel: sizeDistribution.map((item) => `${item.sizeLabel}×${item.quantity}`).join(' / '),
-          spreadRepeatCount: Math.max(Math.ceil(totalPieces / 20), 1),
-          markerLength: Number((netLength / Math.max(context.materialPrepRows.length, 1)).toFixed(2)),
-          markerPieceCount: Math.max(Math.floor(totalPieces / Math.max(context.materialPrepRows.length, 1)), 1),
-          pieceCount: Math.max(Math.floor(totalPieces / Math.max(context.materialPrepRows.length, 1)), 1),
+          spreadRepeatCount: plannedLayerCount,
+          markerLength: markerLengthPerLine,
+          markerPieceCount: markerPieceQtyPerLayer,
+          pieceCount: markerPieceQtyPerLayer,
           singlePieceUsage,
-          spreadTotalLength: Number((netLength * 1.1).toFixed(2)),
-          spreadingTotalLength: Number((netLength * 1.1).toFixed(2)),
+          spreadTotalLength: spreadLengthPerLine,
+          spreadingTotalLength: spreadLengthPerLine,
           widthHint: '默认门幅 160cm',
           note: `${row.materialSkuSummary} · 默认排版明细`,
         }))
@@ -1804,18 +1883,18 @@ function buildSeedMarker(context: MarkerSpreadingContext): MarkerRecord {
     totalPieces,
     netLength,
     singlePieceUsage,
-    spreadTotalLength: Number((netLength * 1.1).toFixed(2)),
+    spreadTotalLength,
     materialCategory: context.materialPrepRows[0]?.materialCategory || '',
     materialAttr: context.materialPrepRows[0]?.materialLabel || '',
     sizeRatioPlanText: buildPlannedSizeRatioText(sizeDistribution),
-    plannedLayerCount: Math.max(Math.ceil(totalPieces / 20), 1),
+    plannedLayerCount,
     plannedMarkerCount: context.materialPrepRows.length,
     markerLength: netLength,
     procurementUnitUsage: singlePieceUsage,
     actualUnitUsage: Number((singlePieceUsage * 1.02).toFixed(3)),
     fabricSku: context.materialPrepRows[0]?.materialLineItems[0]?.materialSku || '',
-    plannedMaterialMeter: Number((configuredLengthTotal || netLength * 1.05).toFixed(2)),
-    actualMaterialMeter: Number((netLength * 0.98).toFixed(2)),
+    plannedMaterialMeter: Number((configuredLengthTotal || spreadTotalLength).toFixed(2)),
+    actualMaterialMeter: spreadTotalLength,
     actualCutQty: totalPieces,
     allocationLines,
     lineItems,
@@ -1834,11 +1913,11 @@ function buildSeedMarker(context: MarkerSpreadingContext): MarkerRecord {
     warningMessages: buildMarkerWarningMessages({
       markerMode,
       sizeDistribution,
-      spreadTotalLength: Number((netLength * 1.1).toFixed(2)),
+      spreadTotalLength,
       procurementUnitUsage: singlePieceUsage,
       actualUnitUsage: Number((singlePieceUsage * 1.02).toFixed(3)),
-      plannedMaterialMeter: Number((configuredLengthTotal || netLength * 1.05).toFixed(2)),
-      actualMaterialMeter: Number((netLength * 0.98).toFixed(2)),
+      plannedMaterialMeter: Number((configuredLengthTotal || spreadTotalLength).toFixed(2)),
+      actualMaterialMeter: spreadTotalLength,
       actualCutQty: totalPieces,
       lineItems,
       highLowPatternKeys,
@@ -1867,7 +1946,9 @@ export function createSpreadingDraftFromMarker(
     isHighLowMarkerMode(marker.markerMode as string | undefined)
       ? Number(marker.spreadTotalLength || marker.actualMaterialMeter || 0)
       : Number(marker.spreadTotalLength || computeNormalMarkerSpreadTotalLength(marker.lineItems || []))
-  const theoreticalActualCutPieceQty = Math.max(plannedLayers * Math.max(marker.totalPieces || 0, 0), 0)
+  const theoreticalActualCutPieceQty =
+    planUnits.reduce((sum, unit) => sum + Math.max(Number(unit.plannedCutGarmentQty || 0), 0), 0) ||
+    Math.max(Number(marker.totalPieces || 0), 0)
   const colorSummary = deriveSpreadingColorSummary({
     importSourceColorSummary: marker.colorSummary,
     contextColors: context.materialPrepRows.map((row) => row.color),
@@ -1983,18 +2064,22 @@ export function buildSpreadingPlanUnitsFromMarker(
   if (highLowRows.length) {
     const rowCount = highLowRows.length
     const averageLength = rowCount > 0 ? Number((Number(marker.spreadTotalLength || 0) / rowCount).toFixed(2)) : 0
-    return highLowRows.map((row, index) => ({
-      planUnitId: `plan-unit-${marker.markerId}-${index + 1}`,
-      sourceType: 'high-low-row',
-      sourceLineId: row.rowId || `high-low-${index + 1}`,
-      color: row.color || context.materialPrepRows[0]?.color || '',
-      materialSku: resolveMaterialSku(row.color || ''),
-      garmentQtyPerUnit: Math.max(Number(row.total || 0), 0),
-      plannedRepeatCount: 1,
-      lengthPerUnitM: averageLength,
-      plannedCutGarmentQty: Math.max(Number(row.total || 0), 0),
-      plannedSpreadLengthM: averageLength,
-    }))
+    const plannedRepeatCount = Math.max(Number(marker.plannedLayerCount || 0), 1)
+    return highLowRows.map((row, index) => {
+      const plannedCutGarmentQty = Math.max(Number(row.total || 0), 0)
+      return {
+        planUnitId: `plan-unit-${marker.markerId}-${index + 1}`,
+        sourceType: 'high-low-row',
+        sourceLineId: row.rowId || `high-low-${index + 1}`,
+        color: row.color || context.materialPrepRows[0]?.color || '',
+        materialSku: resolveMaterialSku(row.color || ''),
+        garmentQtyPerUnit: plannedRepeatCount > 0 ? Math.max(Math.ceil(plannedCutGarmentQty / plannedRepeatCount), 0) : plannedCutGarmentQty,
+        plannedRepeatCount,
+        lengthPerUnitM: Number(marker.markerLength || marker.netLength || 0),
+        plannedCutGarmentQty,
+        plannedSpreadLengthM: averageLength,
+      }
+    })
   }
 
   return [
@@ -2005,7 +2090,7 @@ export function buildSpreadingPlanUnitsFromMarker(
       color: context.materialPrepRows[0]?.color || '',
       materialSku: fallbackMaterialSku,
       garmentQtyPerUnit: Math.max(Number(marker.totalPieces || 0), 0),
-      plannedRepeatCount: Math.max(Number(marker.plannedLayerCount || 1), 1),
+      plannedRepeatCount: 1,
       lengthPerUnitM: Number(marker.netLength || 0),
       plannedCutGarmentQty: Math.max(Number(marker.totalPieces || 0), 0),
       plannedSpreadLengthM: Number(marker.spreadTotalLength || 0),
@@ -2217,7 +2302,7 @@ export function validateSpreadingCompletion(options: {
   }
 
   if (markerTotalPieces <= 0) {
-    messages.push('当前缺少床次成衣件数，无法准确推导裁剪成衣件数，不能完成铺布。')
+    messages.push('当前缺少单层成衣件数，无法准确推导裁剪成衣件数，不能完成铺布。')
   }
 
   if (session.contextType === 'merge-batch' && !selectedOriginalCutOrderIds.length) {
@@ -2272,7 +2357,7 @@ export function finalizeSpreadingCompletion(options: {
       note:
         replenishmentWarning.suggestedAction === '无需补料'
           ? '当前铺布已完成，未触发明显补料预警。'
-          : `当前铺布已完成，并生成补料预警：${replenishmentWarning.suggestedAction}，建议进入补料管理确认后回仓库待配料。`,
+          : `当前铺布已完成，并生成补料预警：${replenishmentWarning.suggestedAction}，建议进入补料管理确认后回仓库WMS 待处理。`,
     },
     varianceLength: replenishmentWarning.varianceLength,
     varianceNote:
@@ -2563,7 +2648,7 @@ export function buildOperatorAmountWarnings(
       warnings.push(`${operatorLabel} 缺少单价，当前无法形成完整金额。`)
     }
     if (handledPieceQty === null) {
-      warnings.push(`${operatorLabel} 缺少开始层 / 结束层或床次成衣件数，当前无法计算负责成衣件数。`)
+      warnings.push(`${operatorLabel} 缺少开始层 / 结束层或单层成衣件数，当前无法计算负责成衣件数。`)
     }
     if (parseOptionalNumber(operator.handledLength) === null) {
       warnings.push(`${operatorLabel} 缺少负责长度。`)
@@ -2680,7 +2765,7 @@ export function buildRollHandoverWarnings(
       warnings.push(`${rollLabel} / ${operatorLabel} 缺少有效层数区间。`)
     }
     if (handledPieceQty === null) {
-      warnings.push(`${rollLabel} / ${operatorLabel} 无法计算负责成衣件数，请补录层数或床次成衣件数。`)
+      warnings.push(`${rollLabel} / ${operatorLabel} 无法计算负责成衣件数，请补录层数或单层成衣件数。`)
     }
     if (parseOptionalNumber(operator.handledLength) === null) {
       warnings.push(`${rollLabel} / ${operatorLabel} 缺少负责长度。`)
@@ -2877,19 +2962,19 @@ export function buildSpreadingVarianceSummary(
   const coreMetrics = buildSpreadingCoreMetrics({
     context,
     session,
-    markerTotalPieces: marker?.totalPieces || 0,
+    markerTotalPieces: deriveSpreadingSessionGarmentQtyPerLayer(session, marker),
     configuredLengthTotal,
     claimedLengthTotal,
   })
   const shortageIndicator = coreMetrics.shortageGarmentQty > 0
 
-  let replenishmentHint = '当前铺布数据与仓库配料数据基本匹配。'
+  let replenishmentHint = '当前铺布数据与WMS 来料数据基本匹配。'
   if (!session || !session.rolls.length) {
     replenishmentHint = '当前尚未录入铺布卷数据，补料判断仍需补录后确认。'
   } else if (shortageIndicator) {
-    replenishmentHint = '预计承载成衣件数低于床次成衣件数，建议进入补料管理确认后回仓库待配料。'
+    replenishmentHint = '预计承载成衣件数低于计划裁剪成衣件数，建议进入补料管理确认后回仓库WMS 待处理。'
   } else if (coreMetrics.varianceLength < 0) {
-    replenishmentHint = '总实际铺布长度超过已领取长度，建议复核差异并按需进入补料管理回仓库待配料。'
+    replenishmentHint = '总实际铺布长度超过已领取长度，建议复核差异并按需进入补料管理回仓库WMS 待处理。'
   }
 
   return {
@@ -3004,7 +3089,7 @@ export function buildReplenishmentPreview(summary: SpreadingVarianceSummary | nu
     return {
       level: 'MISSING',
       label: '数据待补录',
-      detailText: '当前方案床次成衣件数（件）或铺布长度不足，需继续补录后再判断补料需求。',
+      detailText: '当前方案计划裁剪成衣件数或铺布长度不足，需继续补录后再判断补料需求。',
       shortageIndicator: false,
     }
   }
@@ -3022,7 +3107,7 @@ export function buildReplenishmentPreview(summary: SpreadingVarianceSummary | nu
     return {
       level: 'WATCH',
       label: '建议继续观察',
-      detailText: '当前可用长度与仓库领料长度接近，建议在进入补料前复核后续损耗。',
+      detailText: '当前可用长度与仓库WMS 来料长度接近，建议在进入补料前复核后续损耗。',
       shortageIndicator: false,
     }
   }
@@ -3075,7 +3160,7 @@ export function buildSpreadingWarningMessages(options: {
       warnings.push(`${rollLabel} 缺少卷号或时间，铺布记录仍不完整。`)
     }
     if (Number(roll.layerCount || 0) <= 0 || options.markerTotalPieces <= 0) {
-      warnings.push(`${rollLabel} 缺少铺布层数或床次成衣件数，实际裁剪成衣件数暂无法准确推导。`)
+      warnings.push(`${rollLabel} 缺少铺布层数或单层成衣件数，实际裁剪成衣件数暂无法准确推导。`)
     }
     if (!linkedOperators.length) {
       warnings.push(`${rollLabel} 缺少人员记录，无法追溯开始、交接与完成情况。`)
@@ -3184,6 +3269,7 @@ export function deserializeMarkerSpreadingStorage(raw: string | null): MarkerSpr
                   const linkedPlanUnit = findSpreadingPlanUnitById(planUnits, roll.planUnitId)
                   const normalizedPlanUnitId = roll.planUnitId || linkedPlanUnit?.planUnitId || ''
                   const garmentQtyPerUnit = linkedPlanUnit?.garmentQtyPerUnit || 0
+                  const derivedActualCutGarmentQty = computeRollActualCutGarmentQty(Number(roll.layerCount || 0), garmentQtyPerUnit)
                   return {
                     ...roll,
                     planUnitId: normalizedPlanUnitId,
@@ -3198,13 +3284,15 @@ export function deserializeMarkerSpreadingStorage(raw: string | null): MarkerSpr
                       roll.usableLength ??
                       computeUsableLength(Number(roll.actualLength || 0), Number(roll.headLength || 0), Number(roll.tailLength || 0)),
                     actualCutPieceQty:
-                      roll.actualCutGarmentQty ??
-                      roll.actualCutPieceQty ??
-                      computeRollActualCutGarmentQty(Number(roll.layerCount || 0), garmentQtyPerUnit),
+                      derivedActualCutGarmentQty ||
+                      (roll.actualCutGarmentQty ??
+                        roll.actualCutPieceQty ??
+                        0),
                     actualCutGarmentQty:
-                      roll.actualCutGarmentQty ??
-                      roll.actualCutPieceQty ??
-                      computeRollActualCutGarmentQty(Number(roll.layerCount || 0), garmentQtyPerUnit),
+                      derivedActualCutGarmentQty ||
+                      (roll.actualCutGarmentQty ??
+                        roll.actualCutPieceQty ??
+                        0),
                   }
                 })
               : []
@@ -3267,8 +3355,8 @@ export function deserializeMarkerSpreadingStorage(raw: string | null): MarkerSpr
               totalTailLength: session.totalTailLength || rollSummary.totalTailLength,
               totalCalculatedUsableLength: session.totalCalculatedUsableLength || rollSummary.totalCalculatedUsableLength,
               totalRemainingLength: session.totalRemainingLength ?? rollSummary.totalRemainingLength,
-              actualCutPieceQty: session.actualCutGarmentQty ?? session.actualCutPieceQty ?? rollSummary.totalActualCutGarmentQty,
-              actualCutGarmentQty: session.actualCutGarmentQty ?? session.actualCutPieceQty ?? rollSummary.totalActualCutGarmentQty,
+              actualCutPieceQty: rollSummary.totalActualCutGarmentQty || (session.actualCutGarmentQty ?? session.actualCutPieceQty ?? 0),
+              actualCutGarmentQty: rollSummary.totalActualCutGarmentQty || (session.actualCutGarmentQty ?? session.actualCutPieceQty ?? 0),
               configuredLengthTotal: session.configuredLengthTotal || 0,
               claimedLengthTotal: session.claimedLengthTotal || 0,
               varianceLength: session.varianceLength || 0,
@@ -3462,9 +3550,10 @@ export function upsertSpreadingSession(session: SpreadingSession, store: MarkerS
       actualCutGarmentQty: computeRollActualCutGarmentQty(Number(roll.layerCount || 0), garmentQtyPerUnit),
     }
   })
-  const markerTotalPieces = session.markerId
-    ? store.markers.find((item) => item.markerId === session.markerId)?.totalPieces || 0
-    : 0
+  const linkedMarker = session.markerId
+    ? store.markers.find((item) => item.markerId === session.markerId) || null
+    : null
+  const markerTotalPieces = deriveSpreadingSessionGarmentQtyPerLayer(session, linkedMarker)
   const baseOperators = summarizeSpreadingOperators(
     session.operators.map((operator, index) => ({
       ...operator,

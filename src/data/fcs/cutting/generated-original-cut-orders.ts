@@ -3,10 +3,10 @@ import {
   type ProductionOrder,
 } from '../production-orders.ts'
 import {
-  getProductionOrderCompatTechPack,
-  getProductionOrderCutPieceParts,
+  getProductionOrderTechPackSnapshot,
 } from '../production-order-tech-pack-runtime.ts'
-import type { TechPack, TechPackBomItem, TechPackColorMaterialMappingLine } from '../tech-packs.ts'
+import type { TechnicalBomItem, TechnicalColorMaterialMappingLine } from '../../pcs-technical-data-version-types.ts'
+import type { ProductionOrderTechPackSnapshot } from '../production-tech-pack-snapshot-types.ts'
 import type { CuttingMaterialType } from './types.ts'
 
 export interface GeneratedOriginalCutOrderPieceRow {
@@ -71,7 +71,7 @@ function toMaterialCategory(materialType: CuttingMaterialType): string {
   return '主料'
 }
 
-function findBomItem(techPack: TechPack, line: TechPackColorMaterialMappingLine): TechPackBomItem | null {
+function findBomItem(techPack: ProductionOrderTechPackSnapshot, line: TechnicalColorMaterialMappingLine): TechnicalBomItem | null {
   if (line.bomItemId) {
     const byId = techPack.bomItems.find((item) => item.id === line.bomItemId)
     if (byId) return byId
@@ -83,13 +83,13 @@ function findBomItem(techPack: TechPack, line: TechPackColorMaterialMappingLine)
   return null
 }
 
-function resolveMaterialSku(techPack: TechPack, line: TechPackColorMaterialMappingLine, bomItem: TechPackBomItem | null): string {
+function resolveMaterialSku(techPack: ProductionOrderTechPackSnapshot, line: TechnicalColorMaterialMappingLine, bomItem: TechnicalBomItem | null): string {
   return normalizeText(line.materialCode) || normalizeText(bomItem?.id) || normalizeText(line.materialName)
 }
 
 function resolvePieceRows(
-  techPack: TechPack,
-  line: TechPackColorMaterialMappingLine,
+  techPack: ProductionOrderTechPackSnapshot,
+  line: TechnicalColorMaterialMappingLine,
   skuCode: string,
 ): GeneratedOriginalCutOrderPieceRow[] {
   const partName = normalizeText(line.pieceName)
@@ -126,26 +126,6 @@ function resolvePieceRows(
     .filter((pieceRow) => pieceRow.partName && pieceRow.pieceCountPerUnit > 0)
 }
 
-function resolveFallbackPieceRowsForOrder(
-  order: ProductionOrder,
-  materialSku: string,
-  skuScopeLines: GeneratedOriginalCutOrderSkuScopeLine[],
-): GeneratedOriginalCutOrderPieceRow[] {
-  const cutPieceParts = getProductionOrderCutPieceParts(order.productionOrderId)
-    .filter((item) => !item.materialSku || item.materialSku === materialSku)
-    .map((item) => ({
-      partCode: item.partCode,
-      partName: item.partNameCn,
-      pieceCountPerUnit: item.pieceCountPerGarment,
-      patternId: item.partCode,
-      patternName: item.partNameCn,
-      applicableSkuCodes: skuScopeLines.map((line) => line.skuCode),
-    }))
-    .filter((item) => item.partName && item.pieceCountPerUnit > 0)
-
-  return cutPieceParts
-}
-
 function makeOriginalCutOrderNo(order: ProductionOrder, index: number): string {
   const normalizedDate = order.createdAt.slice(2, 10).replace(/-/g, '')
   const orderSuffix = order.productionOrderId.replace(/\D/g, '').slice(-3).padStart(3, '0')
@@ -166,7 +146,7 @@ export function hasFormalTechPackForCutting(order: ProductionOrder): boolean {
 }
 
 export function listCuttingProductionOrdersWithFormalTechPack(): ProductionOrder[] {
-  return productionOrders.filter((order) => hasFormalTechPackForCutting(order))
+  return productionOrders.filter((order) => hasFormalTechPackForCutting(order)).slice(0, 8)
 }
 
 function buildSkuScopeLines(order: ProductionOrder): GeneratedOriginalCutOrderSkuScopeLine[] {
@@ -178,123 +158,8 @@ function buildSkuScopeLines(order: ProductionOrder): GeneratedOriginalCutOrderSk
   }))
 }
 
-function buildMockSt081OriginalCutOrders(order: ProductionOrder): GeneratedOriginalCutOrderSourceRecord[] | null {
-  if (!['PO-202603-081', 'PO-202603-087', 'PO-202603-088'].includes(order.productionOrderId)) return null
-
-  const skuScopeLines = buildSkuScopeLines(order)
-  const totalQty = skuScopeLines.reduce((sum, item) => sum + item.plannedQty, 0)
-  const colorScope = unique(skuScopeLines.map((line) => line.color).filter(Boolean))
-  const cutPieceParts = getProductionOrderCutPieceParts(order.productionOrderId)
-  const buildResolvedPieceRows = (materialSku: string, fallbackRows: GeneratedOriginalCutOrderPieceRow[]): GeneratedOriginalCutOrderPieceRow[] => {
-    const matchedRows = cutPieceParts
-      .filter((item) => !item.materialSku || item.materialSku === materialSku)
-      .map((item) => ({
-        partCode: item.partCode,
-        partName: item.partNameCn,
-        pieceCountPerUnit: item.pieceCountPerGarment,
-        patternId: item.partCode,
-        patternName: item.partNameCn,
-        applicableSkuCodes: skuScopeLines.map((line) => line.skuCode),
-      }))
-      .filter((item) => item.partName && item.pieceCountPerUnit > 0)
-
-    return matchedRows.length ? matchedRows : fallbackRows
-  }
-  const materials: Array<{
-    materialSku: string
-    materialType: CuttingMaterialType
-    materialLabel: string
-    pieceRows: GeneratedOriginalCutOrderPieceRow[]
-  }> = [
-    {
-      materialSku: 'FAB-SKU-PRINT-001',
-      materialType: 'PRINT',
-      materialLabel: '主布面料',
-      pieceRows: buildResolvedPieceRows('FAB-SKU-PRINT-001', [
-        {
-          partCode: 'tee-front',
-          partName: '前片',
-          pieceCountPerUnit: 1,
-          patternId: 'tee-front',
-          patternName: 'T 恤前片',
-          applicableSkuCodes: skuScopeLines.map((line) => line.skuCode),
-        },
-        {
-          partCode: 'tee-back',
-          partName: '后片',
-          pieceCountPerUnit: 1,
-          patternId: 'tee-back',
-          patternName: 'T 恤后片',
-          applicableSkuCodes: skuScopeLines.map((line) => line.skuCode),
-        },
-        {
-          partCode: 'tee-sleeve',
-          partName: '袖子',
-          pieceCountPerUnit: 2,
-          patternId: 'tee-sleeve',
-          patternName: 'T 恤袖子',
-          applicableSkuCodes: skuScopeLines.map((line) => line.skuCode),
-        },
-      ]),
-    },
-    {
-      materialSku: 'FAB-SKU-LINING-001',
-      materialType: 'LINING',
-      materialLabel: '领口里布',
-      pieceRows: [
-        {
-          partCode: 'tee-neck-lining',
-          partName: '领口里布片',
-          pieceCountPerUnit: 1,
-          patternId: 'tee-neck-lining',
-          patternName: '领口里布',
-          applicableSkuCodes: skuScopeLines.map((line) => line.skuCode),
-        },
-      ],
-    },
-    {
-      materialSku: 'FAB-SKU-SOLID-033',
-      materialType: 'SOLID',
-      materialLabel: '领口拼接布',
-      pieceRows: [
-        {
-          partCode: 'tee-neck-contrast',
-          partName: '领口拼接片',
-          pieceCountPerUnit: 1,
-          patternId: 'tee-neck-contrast',
-          patternName: '领口拼接布',
-          applicableSkuCodes: skuScopeLines.map((line) => line.skuCode),
-        },
-      ],
-    },
-  ]
-
-  return materials.map((material, index) => ({
-    originalCutOrderId: makeOriginalCutOrderNo(order, index),
-    originalCutOrderNo: makeOriginalCutOrderNo(order, index),
-    productionOrderId: order.productionOrderId,
-    productionOrderNo: resolveProductionOrderNo(order),
-    materialSku: material.materialSku,
-    materialType: material.materialType,
-    materialLabel: material.materialLabel,
-    materialCategory: toMaterialCategory(material.materialType),
-    mergeBatchId: '',
-    mergeBatchNo: '',
-    requiredQty: totalQty,
-    techPackVersionLabel: order.techPackSnapshot?.sourceTechPackVersionLabel || '-',
-    sourceTechPackSpuCode: order.demandSnapshot.spuCode,
-    colorScope,
-    skuScopeLines: skuScopeLines.map((line) => ({ ...line })),
-    pieceRows: material.pieceRows.map((row) => ({ ...row, applicableSkuCodes: [...row.applicableSkuCodes] })),
-    pieceSummary: material.pieceRows.map((row) => `${row.partName}×${row.pieceCountPerUnit}`).join('、'),
-  }))
-}
-
 function buildRecordsForOrder(order: ProductionOrder): GeneratedOriginalCutOrderSourceRecord[] {
-  const mockOverrideRows = buildMockSt081OriginalCutOrders(order)
-  if (mockOverrideRows) return mockOverrideRows
-
-  const techPack = getProductionOrderCompatTechPack(order.productionOrderId)
+  const techPack = getProductionOrderTechPackSnapshot(order.productionOrderId)
   if (!techPack) return []
 
   const scopeByMaterialKey = new Map<
@@ -378,12 +243,11 @@ function buildRecordsForOrder(order: ProductionOrder): GeneratedOriginalCutOrder
   return orderedMaterialKeys.map((materialKey, index) => {
     const bucket = scopeByMaterialKey.get(materialKey)!
     const skuScopeLines = Array.from(bucket.scopeBySkuKey.values())
-    const resolvedPieceRows = bucket.pieceRows.length > 0
-      ? bucket.pieceRows.map((item) => ({
+    if (bucket.pieceRows.length === 0) return null
+    const resolvedPieceRows = bucket.pieceRows.map((item) => ({
         ...item,
         applicableSkuCodes: [...item.applicableSkuCodes],
       }))
-      : resolveFallbackPieceRowsForOrder(order, bucket.materialSku, skuScopeLines)
     const requiredQty = skuScopeLines.reduce((sum, item) => sum + item.plannedQty, 0)
     return {
       originalCutOrderId: makeOriginalCutOrderNo(order, index),
@@ -407,7 +271,7 @@ function buildRecordsForOrder(order: ProductionOrder): GeneratedOriginalCutOrder
           ? resolvedPieceRows.map((item) => `${item.partName}×${item.pieceCountPerUnit}`).join('、')
           : '待补纸样裁片映射',
     }
-  })
+  }).filter((item): item is GeneratedOriginalCutOrderSourceRecord => Boolean(item))
 }
 
 let cachedRecords: GeneratedOriginalCutOrderSourceRecord[] | null = null

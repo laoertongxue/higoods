@@ -344,7 +344,7 @@ function buildFormalWarehouseRuntimeCache(): FormalWarehouseRuntimeCache {
       latestReceiveAt: progressLine?.receiveStatus === 'NOT_RECEIVED' ? '' : progressRecord?.lastPickupScanAt || progressRecord?.lastFieldUpdateAt || '',
       latestActionText: buildFabricActionText(progressLine, source.originalCutOrderNo),
       fabricState: usage.fabricState,
-      note: usage.fabricState === 'NEED_RECHECK' ? '当前领料 / 使用记录存在差异，需继续核对。' : '当前仓务读链已切换到正式原始裁片单主码。',
+      note: usage.fabricState === 'NEED_RECHECK' ? '当前WMS 来料 / 使用记录存在差异，需继续核对。' : '当前仓务读链已切换到正式原始裁片单主码。',
     }
   })
 
@@ -472,7 +472,7 @@ function buildFormalWarehouseRuntimeCache(): FormalWarehouseRuntimeCache {
       warehouseAlertType: 'STOCK_RECHECK',
       level: 'HIGH',
       title: '裁床仓余量待核对',
-      description: `${firstNeedRecheck.materialSku} 当前存在领料或余量差异待核对。`,
+      description: `${firstNeedRecheck.materialSku} 当前存在WMS 来料或余量差异待核对。`,
       relatedNo: firstNeedRecheck.materialSku,
       suggestedAction: '先核对裁床仓余料，再推进后续仓务收口。',
     })

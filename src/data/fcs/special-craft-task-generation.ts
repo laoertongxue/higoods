@@ -470,6 +470,71 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
     })
   })
 
+  techPackSnapshot.processEntries
+    .filter((entry) => entry.processCode === 'SPECIAL_CRAFT')
+    .filter((entry) => Boolean(entry.craftCode))
+    .filter((entry) => normalizeSpecialCraftTargetObjectLabel(entry.selectedTargetObject) === '成衣半成品')
+    .forEach((entry) => {
+      const craftCode = normalizeText(entry.craftCode)
+      const entryId = normalizeText(entry.id) || craftCode
+      const partName = '成衣半成品'
+      const patternFileId = `GARMENT-${entryId}`
+      const pieceRowId = `GARMENT-${entryId}`
+      const reference = validateSpecialCraftReference(
+        productionOrder,
+        techPackSnapshot,
+        patternFileId,
+        pieceRowId,
+        partName,
+        entry.processCode,
+        craftCode,
+        entry.selectedTargetObject,
+      )
+
+      if (reference.error) {
+        errors.push(reference.error)
+        return
+      }
+
+      const operation = reference.operation
+      if (!operation || !operationIdSet.has(operation.operationId)) return
+      const selectedTargetObject = reference.selectedTargetObject || operation.targetObject
+
+      productionOrder.demandSnapshot.skuLines.forEach((orderLine) => {
+        const orderQty = Number(orderLine.qty)
+        if (!Number.isFinite(orderQty) || orderQty <= 0) return
+        const demandLine: SpecialCraftTaskDemandLine = {
+          demandLineId: `SCDL-${stableHash([productionOrder.productionOrderId, entryId, operation.operationId, selectedTargetObject, orderLine.skuCode].join('|'))}`,
+          taskOrderId: '',
+          productionOrderId: productionOrder.productionOrderId,
+          productionOrderNo,
+          patternFileId,
+          patternFileName: '成衣半成品',
+          pieceRowId,
+          partName,
+          colorName: orderLine.color,
+          colorCode: orderLine.color,
+          sizeCode: orderLine.size,
+          pieceCountPerGarment: 1,
+          orderQty,
+          planPieceQty: orderQty,
+          specialCraftKey: `${operation.processCode}:${operation.craftCode}:${selectedTargetObject}`,
+          operationId: operation.operationId,
+          operationName: operation.operationName,
+          processCode: operation.processCode,
+          processName: operation.processName,
+          craftCode: operation.craftCode,
+          craftName: operation.craftName,
+          targetObject: selectedTargetObject,
+          unit: getDemandLineUnit(selectedTargetObject),
+          feiTicketNos: [],
+          remark: entry.remark || '纯色 T-shirt 成衣半成品烫画，按 SKU 件数执行。',
+        }
+        errors.push(...validateSpecialCraftDemandLine(demandLine))
+        demandLines.push(demandLine)
+      })
+    })
+
   return {
     demandLines,
     errors,

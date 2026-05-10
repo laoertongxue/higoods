@@ -1,19 +1,15 @@
-import {
-  escapeHtml,
-  state,
-} from './context.ts'
+import { escapeHtml, isTechPackReadOnly, state } from './context.ts'
 
 export function renderSizeTab(): string {
   const techPack = state.techPack
   if (!techPack) return ''
-  const readonly = false
+  const readonly = isTechPackReadOnly()
 
   return `
     <section class="rounded-lg border bg-card">
       <header class="flex items-center justify-between border-b px-4 py-3">
         <div>
           <h3 class="text-base font-semibold">放码规则</h3>
-          <p class="mt-1 text-sm text-muted-foreground">维护各尺码测量项的尺寸规格与放码规则</p>
         </div>
         ${readonly ? '' : `<button class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-tech-action="open-add-size">
           <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
@@ -79,7 +75,7 @@ export function renderAddSizeDialog(): string {
         <div class="space-y-4 px-6 py-4">
           <label class="space-y-1">
             <span class="text-sm">尺码测量项 <span class="text-red-500">*</span></span>
-            <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-size-part" value="${escapeHtml(state.newSizeRow.part)}" placeholder="例如 胸围" />
+            <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-size-part" value="${escapeHtml(state.newSizeRow.part)}" placeholder="尺码测量项" />
           </label>
           <div class="grid grid-cols-2 gap-3 md:grid-cols-5">
             <label class="space-y-1"><span class="text-xs text-muted-foreground">S</span><input type="number" class="w-full rounded-md border px-2 py-2 text-sm" data-tech-field="new-size-s" value="${escapeHtml(state.newSizeRow.S)}" /></label>

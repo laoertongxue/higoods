@@ -31,26 +31,26 @@ export const riskLevelMeta: Record<ReplenishmentRiskLevel, { label: string; clas
 export const sourceTypeMeta: Record<ReplenishmentSourceType, string> = {
   MARKER: '唛架',
   SPREADING: '铺布',
-  RECEIVE_DISCREPANCY: '领料差异',
+  RECEIVE_DISCREPANCY: '来料差异',
   EXECUTION_RISK: '执行风险',
 }
 
 export const reasonTypeMeta = {
   LENGTH_SHORTAGE: '铺布总长度不足',
   YIELD_RISK: '实际裁剪成衣件数存在缺口风险',
-  RECEIVE_GAP: '领料差异导致预计不足',
+  RECEIVE_GAP: '来料差异导致预计不足',
   MANUAL_REVIEW: '需要追加面料准备',
 } as const
 
 export const impactFlagMeta: Record<ReplenishmentImpactFlag, { label: string; className: string }> = {
-  RECONFIG_REQUIRED: { label: '需重新配料', className: 'bg-blue-100 text-blue-700' },
-  RERECEIVE_REQUIRED: { label: '需重新领料', className: 'bg-indigo-100 text-indigo-700' },
-  PENDING_PREP_REQUIRED: { label: '需回仓库待配料', className: 'bg-amber-100 text-amber-700' },
+  RECONFIG_REQUIRED: { label: '需重新来料', className: 'bg-blue-100 text-blue-700' },
+  RERECEIVE_REQUIRED: { label: '需重新WMS 来料', className: 'bg-indigo-100 text-indigo-700' },
+  PENDING_PREP_REQUIRED: { label: '需回仓库WMS 待处理', className: 'bg-amber-100 text-amber-700' },
 }
 
 export const riskTagMeta = {
   HIGH_GAP: { label: '高风险缺口', className: 'bg-rose-100 text-rose-700' },
-  RECEIVE_DIFF: { label: '领料差异导致不足', className: 'bg-orange-100 text-orange-700' },
+  RECEIVE_DIFF: { label: '来料差异导致不足', className: 'bg-orange-100 text-orange-700' },
   MARKER_PENDING: { label: '唛架数据待确认', className: 'bg-amber-100 text-amber-700' },
   SPREADING_PENDING: { label: '铺布数据不足', className: 'bg-sky-100 text-sky-700' },
   PENDING_REVIEW: { label: '待审核', className: 'bg-amber-100 text-amber-700' },
@@ -150,6 +150,6 @@ export function buildGapSummary(record: ReplenishmentSuggestionRecord): string {
 export function buildEmptyStateText(filters: ReplenishmentFilters): string {
   if (filters.reviewStatus === 'PENDING') return '当前筛选条件下暂无待审核补料建议。'
   if (filters.riskLevel === 'HIGH') return '当前筛选条件下暂无高风险补料建议。'
-  if (filters.impactFilter === 'PENDING_PREP_REQUIRED') return '当前筛选条件下暂无需回仓库待配料的补料建议。'
+  if (filters.impactFilter === 'PENDING_PREP_REQUIRED') return '当前筛选条件下暂无需回仓库WMS 待处理的补料建议。'
   return '当前筛选条件下暂无匹配的补料建议。'
 }

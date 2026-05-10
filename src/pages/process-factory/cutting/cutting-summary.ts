@@ -35,7 +35,7 @@ import {
   buildCuttingDrillSummary,
   buildCuttingRouteWithContext,
   getCuttingNavigationActionLabel,
-  normalizeLegacyCuttingPayload,
+  buildCuttingDrillContext,
   readCuttingDrillContextFromLocation,
   type CuttingDrillContext,
   type CuttingNavigationTarget,
@@ -156,7 +156,7 @@ const actionTargetLabelMap: Record<SummaryNavigationTarget, string> = {
   cuttablePool: '可裁排产',
   mergeBatches: '合并裁剪批次',
   originalOrders: '原始裁片单',
-  materialPrep: '仓库配料领料',
+  materialPrep: '待加工仓',
   markerSpreading: '唛架铺布',
   feiTickets: '打印菲票',
   fabricWarehouse: '裁床仓',
@@ -387,7 +387,7 @@ function buildSummaryDrillContext(
   payload: Record<string, string | undefined>,
   extra?: Partial<CuttingDrillContext>,
 ): CuttingDrillContext {
-  return normalizeLegacyCuttingPayload(payload, 'cutting-summary', {
+  return buildCuttingDrillContext(payload, 'cutting-summary', {
     productionOrderNo: extra?.productionOrderNo,
     productionOrderId: extra?.productionOrderId,
     issueType: state.filters.issueType !== 'ALL' ? state.filters.issueType : undefined,
@@ -590,7 +590,7 @@ function renderProgressStatisticsSummary(rows: CuttingSummaryRow[]): string {
 function renderCuttingStatusOverview(rows: CuttingSummaryRow[]): string {
   const total = rows.length || 1
   const configuredCount = rows.filter((row) => row.materialPrepSummary.includes('已配置')).length
-  const claimedCount = rows.filter((row) => row.mainReceiveStatusLabel.includes('已领料')).length
+  const claimedCount = rows.filter((row) => row.mainReceiveStatusLabel.includes('已入待加工仓')).length
   const markerCount = rows.filter((row) => row.relatedOriginalCutOrderNos.length > 0).length
   const spreadingCount = rows.filter((row) => row.spreadingSummary && row.spreadingSummary !== '暂无数据').length
   const ticketCount = rows.filter((row) => row.ticketSummary && row.ticketSummary !== '暂无数据').length
@@ -598,8 +598,8 @@ function renderCuttingStatusOverview(rows: CuttingSummaryRow[]): string {
   const warehouseCount = rows.filter((row) => row.warehouseSummary && row.warehouseSummary !== '暂无数据').length
 
   const cards = [
-    { label: '配料状态', value: `${configuredCount}/${total} 已配置` },
-    { label: '领料状态', value: `${claimedCount}/${total} 已领料` },
+    { label: 'WMS 来料状态', value: `${configuredCount}/${total} 已配置` },
+    { label: 'WMS 来料状态', value: `${claimedCount}/${total} 已入待加工仓` },
     { label: '唛架状态', value: `${markerCount}/${total} 已建单` },
     { label: '铺布状态', value: `${spreadingCount}/${total} 已铺布` },
     { label: '菲票状态', value: `${ticketCount}/${total} 已生成` },
@@ -696,9 +696,9 @@ function renderFilterBar(): string {
         ])}
         ${renderFilterSelect('当前阶段', 'currentStage', state.filters.currentStage, [
           { value: 'ALL', label: '全部阶段' },
-          { value: 'WAITING_PREP', label: '待配料' },
-          { value: 'PREPPING', label: '配料中' },
-          { value: 'WAITING_CLAIM', label: '待领料' },
+          { value: 'WAITING_PREP', label: 'WMS 待处理' },
+          { value: 'PREPPING', label: 'WMS处理中' },
+          { value: 'WAITING_CLAIM', label: '待来料' },
           { value: 'CUTTING', label: '裁剪中' },
           { value: 'WAITING_INBOUND', label: '待入仓' },
           { value: 'DONE', label: '已完成' },

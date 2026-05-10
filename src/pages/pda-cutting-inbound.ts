@@ -130,12 +130,12 @@ export function renderPdaCuttingInboundPage(taskId: string): string {
         </select>
       </label>
       <label class="block space-y-1">
-        <span class="text-muted-foreground">库位说明</span>
+        <span class="text-muted-foreground">库位记录</span>
         <input class="h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-inbound-field="locationLabel" value="${escapeHtml(form.locationLabel)}" placeholder="例如：A-01 临时位" />
       </label>
       <label class="block space-y-1">
         <span class="text-muted-foreground">入仓备注</span>
-        <textarea class="min-h-24 w-full rounded-xl border bg-background px-3 py-2 text-sm" data-pda-cut-inbound-field="note" placeholder="补充当前区域说明、待交接提示或查找提醒">${escapeHtml(form.note)}</textarea>
+        <textarea class="min-h-24 w-full rounded-xl border bg-background px-3 py-2 text-sm" data-pda-cut-inbound-field="note" placeholder="补充当前区域、待交接提示或查找提醒">${escapeHtml(form.note)}</textarea>
       </label>
       <div class="rounded-xl border bg-muted/20 px-3 py-3 text-xs">
         <div class="text-muted-foreground">本次入仓预览</div>

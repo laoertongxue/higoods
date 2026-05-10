@@ -7,6 +7,7 @@ import {
   getPatternDesignPreviewAssetById,
   getPatternDesignOptionsBySide,
   getSkuOptionsForCurrentSpu,
+  isTechPackReadOnly,
   printOptions,
   state,
 } from './context.ts'
@@ -119,7 +120,7 @@ export function renderDesignThumbnailPreviewDialog(): string {
 }
 
 export function renderBomTab(): string {
-  const readonly = false
+  const readonly = isTechPackReadOnly()
   const spuLabel = state.techPack?.spuCode || '-'
   const skuOptions = getSkuOptionsForCurrentSpu()
   const skuByCode = new Map(skuOptions.map((item) => [item.skuCode, item]))
@@ -350,11 +351,11 @@ export function renderBomFormDialog(): string {
             </label>
             <label class="space-y-1">
               <span class="text-sm">物料编码</span>
-              <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-material-code" value="${escapeHtml(state.newBomItem.materialCode)}" placeholder="例如 FAB-001" />
+              <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-material-code" value="${escapeHtml(state.newBomItem.materialCode)}" placeholder="物料编码" />
             </label>
             <label class="space-y-1">
               <span class="text-sm">规格</span>
-              <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-spec" value="${escapeHtml(state.newBomItem.spec)}" placeholder="例如 180g/m²" />
+              <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-spec" value="${escapeHtml(state.newBomItem.spec)}" placeholder="规格" />
             </label>
             <div class="space-y-1">
               <span class="text-sm">适用 SKU</span>
@@ -369,7 +370,7 @@ export function renderBomFormDialog(): string {
                 </label>
                 ${
                   skuOptions.length === 0
-                    ? '<p class="text-muted-foreground">当前 SPU 暂无 SKU 数据，默认按全部 SKU 处理</p>'
+                    ? '<p class="text-muted-foreground">暂无 SKU 数据</p>'
                     : `
                       <div class="grid grid-cols-1 gap-1">
                         ${skuOptions
@@ -422,7 +423,7 @@ export function renderBomFormDialog(): string {
           <div class="space-y-4">
             <label class="space-y-1">
               <span class="text-sm">物料名称 <span class="text-red-500">*</span></span>
-              <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-material-name" value="${escapeHtml(state.newBomItem.materialName)}" placeholder="例如 纯棉针织布" />
+              <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-bom-material-name" value="${escapeHtml(state.newBomItem.materialName)}" placeholder="物料名称" />
             </label>
             <label class="space-y-1">
               <span class="text-sm">损耗率(%)</span>

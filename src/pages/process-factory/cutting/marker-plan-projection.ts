@@ -66,7 +66,7 @@ function buildMarkerPlanSourceMergeBatchItems(
           selectable: row.cuttableState.selectable,
           key: row.cuttableState.key,
         },
-        compatibilityKey: `${row.styleCode}::${row.materialSku}`,
+        batchingKey: `${row.styleCode}::${row.materialSku}`,
         mergeBatchNo: record.mergeBatchNo,
       })),
   )

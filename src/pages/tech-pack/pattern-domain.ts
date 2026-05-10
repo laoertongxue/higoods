@@ -11,6 +11,7 @@ import {
   PATTERN_CRAFT_POSITION_OPTIONS,
   getPatternBySelectionKey,
   getSizeCodeOptionsFromSizeRules,
+  isTechPackReadOnly,
   state,
 } from './context.ts'
 
@@ -39,6 +40,12 @@ function formatFileSize(size: number): string {
 
 function renderPatternFileBadge(label: string): string {
   return `<span class="inline-flex rounded border px-2 py-0.5 text-xs">${escapeHtml(label)}</span>`
+}
+
+function renderMaintainerStepStatus(status: string | undefined): string {
+  const normalized = String(status || '').trim()
+  if (isTechPackReadOnly() && normalized === '已解析待确认') return '已完成'
+  return escapeHtml(normalized || '暂无数据')
 }
 
 function renderPatternFileInfo(input: {
@@ -91,10 +98,7 @@ function renderPatternBindingStripEditor(): string {
   return `
     <section class="space-y-3 rounded-md border p-3" data-testid="pattern-binding-strip-section">
       <div class="flex items-center justify-between">
-        <div>
-          <h4 class="text-sm font-medium">捆条</h4>
-          <p class="text-xs text-muted-foreground">跟随纸样维护，长度和宽度单位固定为 cm。</p>
-        </div>
+        <h4 class="text-sm font-medium">捆条</h4>
         <button type="button" class="inline-flex items-center rounded border px-2 py-1 text-xs hover:bg-muted" data-tech-action="add-pattern-binding-strip" data-testid="add-binding-strip-button">
           <i data-lucide="plus" class="mr-1 h-3 w-3"></i>
           添加捆条
@@ -102,7 +106,7 @@ function renderPatternBindingStripEditor(): string {
       </div>
       ${
         rows.length === 0
-          ? '<div class="rounded border border-dashed px-3 py-3 text-xs text-muted-foreground">暂无捆条，可点击添加捆条</div>'
+          ? '<div class="rounded border border-dashed px-3 py-3 text-xs text-muted-foreground">暂无捆条</div>'
           : `
             <div class="overflow-x-auto">
               <table class="w-full text-xs">
@@ -121,7 +125,7 @@ function renderPatternBindingStripEditor(): string {
                     <tr class="border-b last:border-0" data-testid="binding-strip-row">
                       <td class="px-2 py-1">${escapeHtml(row.bindingStripNo)}</td>
                       <td class="px-2 py-1">
-                        <input class="h-8 w-32 rounded border px-2 text-xs" data-tech-field="new-pattern-binding-strip-name" data-binding-strip-id="${escapeHtml(row.bindingStripId)}" value="${escapeHtml(row.bindingStripName)}" placeholder="例如 领口捆条" />
+                        <input class="h-8 w-32 rounded border px-2 text-xs" data-tech-field="new-pattern-binding-strip-name" data-binding-strip-id="${escapeHtml(row.bindingStripId)}" value="${escapeHtml(row.bindingStripName)}" placeholder="捆条名称" />
                       </td>
                       <td class="px-2 py-1">
                         <input type="number" min="0.1" step="0.1" class="h-8 w-24 rounded border px-2 text-right text-xs" data-tech-field="new-pattern-binding-strip-length-cm" data-binding-strip-id="${escapeHtml(row.bindingStripId)}" value="${escapeHtml(String(row.lengthCm || ''))}" />
@@ -464,7 +468,6 @@ function renderPatternDetailPieceTable(): string {
       <div class="flex items-center justify-end text-xs font-medium text-blue-700" data-testid="pattern-piece-total">
         当前总片数：${escapeHtml(String(patternTotalPieceQty))} 片
       </div>
-      <div class="text-xs text-muted-foreground">每种颜色片数由适用颜色维护，系统自动汇总当前部位总片数。</div>
       ${patternTotalPieceQty === 0 ? '<div class="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-700">当前总片数为 0，请维护颜色片数。</div>' : ''}
       <table class="w-full text-xs">
         <thead>
@@ -533,17 +536,14 @@ export function renderPatternTab(): string {
       },
     ]),
   )
-  const readonly = false
+  const readonly = isTechPackReadOnly()
   const patternPackages = state.patternItems.filter((item) => item.recordKind === 'PACKAGE')
   const materialPatternLinks = state.patternItems.filter((item) => item.recordKind !== 'PACKAGE')
 
   return `
     <section class="space-y-4 rounded-lg border bg-card p-4" data-testid="pattern-management-page">
       <header class="flex items-center justify-between border-b px-4 py-3">
-        <div>
-          <h3 class="text-base font-semibold">纸样管理</h3>
-          <p class="mt-1 text-sm text-muted-foreground">先维护纸样池，再按物料关联纸样并补充排料、捆条和裁片明细。</p>
-        </div>
+        <h3 class="text-base font-semibold">纸样管理</h3>
         ${readonly ? '' : `<button type="button" class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-tech-action="open-add-pattern-package">
           <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
           添加纸样包
@@ -580,7 +580,7 @@ export function renderPatternTab(): string {
                         <span>DXF：${renderTextValue(item.dxfFileName || item.dxfFile?.fileName)}</span>
                         <span>RUL：${renderTextValue(item.rulFileName || item.rulFile?.fileName)}</span>
                       </div>
-                      <div class="mt-3 text-xs text-blue-700">${item.patternMaterialType === 'KNIT' ? '针织纸样不解析部位信息' : `已解析 ${item.pieceRows.length} 个部位`}</div>
+                      <div class="mt-3 text-xs text-blue-700">${item.patternMaterialType === 'KNIT' ? `针织部位明细 ${item.pieceRows.length} 项` : `已解析 ${item.pieceRows.length} 个部位`}</div>
                     </button>
                   `)
                   .join('')}
@@ -591,10 +591,7 @@ export function renderPatternTab(): string {
 
       <div class="space-y-3">
         <div class="flex items-center justify-between">
-          <div>
-            <h4 class="text-sm font-semibold">物料&纸样关联管理</h4>
-            <p class="mt-1 text-xs text-muted-foreground">按物料选择纸样包，后续仅维护排料长度、捆条和裁片明细。</p>
-          </div>
+          <h4 class="text-sm font-semibold">物料&纸样关联管理</h4>
           ${readonly ? '' : `<button type="button" class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-tech-action="open-add-pattern" data-testid="pattern-create-button">
             <i data-lucide="link" class="mr-2 h-4 w-4"></i>
             按物料关联纸样
@@ -636,7 +633,7 @@ export function renderPatternTab(): string {
                           <td class="px-3 py-2 font-medium">${escapeHtml(item.sourcePatternPackageName || item.name)}</td>
                           <td class="px-3 py-2">${renderPatternFileBadge(item.patternMaterialTypeLabel || '暂无数据')}</td>
                           <td class="px-3 py-2"><span class="inline-flex rounded border px-2 py-0.5 text-xs">${escapeHtml(item.type)}</span></td>
-                          <td class="px-3 py-2"><span class="inline-flex rounded border px-2 py-0.5 text-xs">${escapeHtml(item.maintainerStepStatus)}</span></td>
+                          <td class="px-3 py-2"><span class="inline-flex rounded border px-2 py-0.5 text-xs">${escapeHtml(renderMaintainerStepStatus(item.maintainerStepStatus))}</span></td>
                           <td class="px-3 py-2 text-sm">${escapeHtml(renderBindingStripCount(item.bindingStrips.length))}</td>
                           <td class="px-3 py-2 text-right">${pieceCount} 片</td>
                           <td class="px-3 py-2">
@@ -788,7 +785,7 @@ export function renderPatternDialog(): string {
             ${
               isWoven
                 ? renderPatternDetailPieceTable()
-                : '<div class="rounded-md border border-dashed px-3 py-4 text-sm text-muted-foreground">针织纸样无法解析部位信息，请在物料&纸样关联管理中手工添加部位。</div>'
+                : '<div class="rounded-md border border-dashed px-3 py-4 text-sm text-muted-foreground">针织部位明细</div>'
             }
           </div>
         </div>
@@ -930,7 +927,6 @@ function renderPatternPieceEditorTable(isWoven: boolean): string {
         <span data-testid="pattern-special-craft-configured-total">已配置特殊工艺裁片：${escapeHtml(String(state.newPattern.specialCraftConfiguredPieceTotal))} 片</span>
         <span data-testid="pattern-special-craft-unconfigured-total">未配置特殊工艺裁片：${escapeHtml(String(state.newPattern.specialCraftUnconfiguredPieceTotal))} 片</span>
       </div>
-      <div class="text-xs text-muted-foreground">每种颜色片数必须填写为非负整数，未适用颜色不参与计算。</div>
       ${patternTotalPieceQty === 0 ? '<div class="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-700">当前总片数为 0，请维护颜色片数。</div>' : ''}
       <table class="w-full text-xs">
         <thead>
@@ -957,7 +953,7 @@ function renderPatternPieceEditorTable(isWoven: boolean): string {
                         ? row.name.trim()
                           ? escapeHtml(row.name)
                           : '<span class="text-red-600">名称缺失</span>'
-                        : `<input class="h-8 w-full rounded border px-2 text-xs" data-tech-field="new-pattern-piece-name" data-piece-id="${row.id}" value="${escapeHtml(row.name)}" placeholder="例如 前片" />`
+                        : `<input class="h-8 w-full rounded border px-2 text-xs" data-tech-field="new-pattern-piece-name" data-piece-id="${row.id}" value="${escapeHtml(row.name)}" placeholder="裁片名称" />`
                     }
                   </td>
                   ${
@@ -1053,7 +1049,7 @@ function renderPatternFormDialogLegacy(): string {
           <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
             <label class="space-y-1">
               <span class="text-sm">纸样名称 <span class="text-red-500">*</span></span>
-              <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-name" value="${escapeHtml(state.newPattern.name)}" placeholder="例如 前片纸样" />
+              <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-name" value="${escapeHtml(state.newPattern.name)}" placeholder="纸样名称" />
             </label>
             <label class="space-y-1">
               <span class="text-sm">纸样文件类型 <span class="text-red-500">*</span></span>
@@ -1083,15 +1079,15 @@ function renderPatternFormDialogLegacy(): string {
             </label>
             <label class="space-y-1">
               <span class="text-sm">门幅（cm）</span>
-              <input type="number" class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-width-cm" value="${escapeHtml(String(state.newPattern.widthCm || ''))}" placeholder="例如 142" />
+              <input type="number" class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-width-cm" value="${escapeHtml(String(state.newPattern.widthCm || ''))}" placeholder="门幅" />
             </label>
             <label class="space-y-1">
               <span class="text-sm">排料长度（m）</span>
-              <input type="number" step="0.01" class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-marker-length-m" value="${escapeHtml(String(state.newPattern.markerLengthM || ''))}" placeholder="例如 2.62" />
+              <input type="number" step="0.01" class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-marker-length-m" value="${escapeHtml(String(state.newPattern.markerLengthM || ''))}" placeholder="排料长度" />
             </label>
             <label class="space-y-1">
               <span class="text-sm">打版软件</span>
-              <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-pattern-software-name" value="${escapeHtml(state.newPattern.patternSoftwareName || '')}" placeholder="例如 Lectra" />
+              <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-pattern-software-name" value="${escapeHtml(state.newPattern.patternSoftwareName || '')}" placeholder="打版软件" />
             </label>
             <label class="space-y-1">
               <span class="text-sm">尺码范围 <span class="text-red-500">*</span></span>
@@ -1162,7 +1158,6 @@ function renderPatternFormDialogLegacy(): string {
                   <section class="space-y-2 rounded-md border p-3">
                     <div class="flex items-center justify-between">
                       <h4 class="text-sm font-medium">裁片明细</h4>
-                      <span class="text-xs text-muted-foreground">解析结果只读部位名称、尺码和解析参考片数</span>
                     </div>
                     ${renderPatternPieceEditorTable(true)}
                   </section>
@@ -1253,7 +1248,7 @@ export function renderPatternFormDialog(): string {
                 <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <label class="space-y-1">
                     <span class="text-sm">纸样名称 <span class="text-red-500">*</span></span>
-                    <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-name" value="${escapeHtml(state.newPattern.name)}" placeholder="例如 前片纸样包" />
+                    <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-name" value="${escapeHtml(state.newPattern.name)}" placeholder="纸样包名称" />
                   </label>
                   <label class="space-y-1">
                     <span class="text-sm">纸样类型 <span class="text-red-500">*</span></span>
@@ -1315,7 +1310,7 @@ export function renderPatternFormDialog(): string {
                   })}
                 </div>
                 <div class="rounded-md border bg-muted/20 px-3 py-2 text-sm ${state.newPattern.parseStatus === 'FAILED' ? 'text-red-600' : 'text-muted-foreground'}">
-                  ${escapeHtml(isWoven ? getWovenStatusMessage() : '针织纸样无法解析部位信息，保存到纸样池后在物料关联行中手工添加部位。')}
+                  ${escapeHtml(isWoven ? getWovenStatusMessage() : '待维护针织部位明细')}
                 </div>
                 ${
                   isWoven
@@ -1333,7 +1328,6 @@ export function renderPatternFormDialog(): string {
                       <section class="space-y-2 rounded-md border p-3">
                         <div class="flex items-center justify-between">
                           <h4 class="text-sm font-medium">解析部位信息</h4>
-                          <span class="text-xs text-muted-foreground">点击纸样包时可查看解析出的全部部位</span>
                         </div>
                         ${renderPatternPieceEditorTable(true)}
                       </section>
@@ -1381,7 +1375,7 @@ export function renderPatternFormDialog(): string {
         </label>
         <label class="space-y-1">
           <span class="text-sm">门幅（cm） <span class="text-red-500">*</span></span>
-          <input type="number" min="0.01" step="0.01" class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-width-cm" value="${escapeHtml(String(state.newPattern.widthCm || ''))}" placeholder="例如 142" />
+          <input type="number" min="0.01" step="0.01" class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-width-cm" value="${escapeHtml(String(state.newPattern.widthCm || ''))}" placeholder="门幅" />
         </label>
         <label class="space-y-1 md:col-span-2">
           <span class="text-sm">关联纸样 <span class="text-red-500">*</span></span>
@@ -1447,18 +1441,15 @@ export function renderPatternFormDialog(): string {
       </div>
       <label class="block space-y-1">
         <span class="text-sm">排料长度（m） <span class="text-red-500">*</span></span>
-        <input type="number" min="0.01" step="0.01" class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-marker-length-m" value="${escapeHtml(String(state.newPattern.markerLengthM || ''))}" placeholder="例如 2.62" />
+        <input type="number" min="0.01" step="0.01" class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-marker-length-m" value="${escapeHtml(String(state.newPattern.markerLengthM || ''))}" placeholder="排料长度" />
       </label>
       ${renderPatternBindingStripEditor()}
-      <div class="rounded-md border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
-        纸样技术文件来自纸样池：PRJ ${escapeHtml(state.newPattern.prjFile?.fileName || '未选择')}，唛架图片 ${escapeHtml(state.newPattern.markerImage?.fileName || '未选择')}，DXF ${escapeHtml(state.newPattern.dxfFileName || '无')}，RUL ${escapeHtml(state.newPattern.rulFileName || '无')}。
-      </div>
       <section class="space-y-2 rounded-md border p-3">
         <div class="flex items-center justify-between">
           <h4 class="text-sm font-medium">裁片明细</h4>
           ${
             isWoven
-              ? '<span class="text-xs text-muted-foreground">解析结果只读部位名称、尺码和解析参考片数</span>'
+              ? ''
               : `<button type="button" class="inline-flex items-center rounded border px-2 py-1 text-xs hover:bg-muted" data-tech-action="add-new-pattern-piece-row">
                   <i data-lucide="plus" class="mr-1 h-3 w-3"></i>
                   新增裁片
@@ -1552,7 +1543,6 @@ export function renderPieceInstanceSpecialCraftDialog(): string {
         <header class="flex items-center justify-between border-b px-6 py-4">
           <div>
             <h3 class="text-lg font-semibold">维护逐片特殊工艺</h3>
-            <p class="mt-1 text-sm text-muted-foreground">特殊工艺按裁片实例维护，每种工艺必须选择左、右、底、面中的一个位置。</p>
           </div>
           <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-tech-action="close-piece-instance-special-craft-dialog">关闭</button>
         </header>
@@ -1560,7 +1550,7 @@ export function renderPieceInstanceSpecialCraftDialog(): string {
           <aside class="min-h-0 overflow-y-auto rounded-md border">
             ${
               instances.length === 0
-                ? '<div class="px-4 py-8 text-center text-sm text-muted-foreground">暂无裁片实例，请先维护颜色片数。</div>'
+                ? '<div class="px-4 py-8 text-center text-sm text-muted-foreground">暂无裁片实例</div>'
                 : instances
                     .map((instance) => {
                       const active = instance.pieceInstanceId === activeInstance?.pieceInstanceId
@@ -1654,7 +1644,6 @@ export function renderPatternTemplateDialog(): string {
           <div class="flex items-center justify-between gap-4">
             <div>
               <h3 class="text-lg font-semibold">选择部位模板</h3>
-              <p class="mt-1 text-sm text-muted-foreground">支持按模板 ID、模板名称、标准部位名称、原始部位名称搜索。</p>
             </div>
             <button
               type="button"

@@ -318,9 +318,9 @@ export function inferReplenishmentPendingPrepDecision(context: ReplenishmentCont
     lineItems,
     positiveKeywords: ['主料', '面料主料'],
     negativeKeywords: ['里辅料', '辅料'],
-    positiveNote: '当前面料行已命中主料信号，需同步关注仓库待配料。',
-    negativeNote: '当前面料行未命中主料信号，可不必追加仓库待配料。',
-    unknownNote: '当前无法明确判断是否需要回仓库待配料，建议人工确认。',
+    positiveNote: '当前面料行已命中主料信号，需同步关注仓库WMS 待处理。',
+    negativeNote: '当前面料行未命中主料信号，可不必追加仓库WMS 待处理。',
+    unknownNote: '当前无法明确判断是否需要回仓库WMS 待处理，建议人工确认。',
   })
 
   return {

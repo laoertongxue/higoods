@@ -182,10 +182,10 @@ interface RuntimeReplenishmentFeedbackWriteback extends RuntimeExecutionWritebac
 
 const defaultRoutes: PlatformCuttingOverviewRoutes = {
   productionProgress: '/fcs/craft/cutting/production-progress',
-  materialPrep: '/fcs/craft/cutting/material-prep',
+  materialPrep: '/fcs/craft/cutting/warehouse-management/wait-process',
   originalOrders: '/fcs/craft/cutting/original-orders',
   replenishment: '/fcs/craft/cutting/replenishment',
-  fabricWarehouse: '/fcs/craft/cutting/fabric-warehouse',
+  fabricWarehouse: '/fcs/craft/cutting/warehouse-management/wait-process?tab=fabric-warehouse',
 }
 
 function compareDateTime(left: string, right: string): number {
@@ -488,7 +488,7 @@ function buildIssues(options: {
       title: '领料结果待复核',
       description: options.pickupSummary.resultSummaryText,
       sourcePage: 'MATERIAL_PREP',
-      suggestedAction: '回仓库配料领料页核对配置数量、扫码结果和差异说明。',
+      suggestedAction: '回待加工仓核对 WMS 领料入仓结果、扫码结果和差异说明。',
       suggestedRoute: defaultRoutes.materialPrep,
     })
   }
@@ -603,7 +603,7 @@ function buildLinkedPages(row: PlatformCuttingOverviewRow): CuttingSummaryLinked
     },
     {
       pageKey: 'MATERIAL_PREP',
-      pageLabel: '仓库配料领料',
+      pageLabel: '待加工仓',
       route: row.routes.materialPrep,
       summaryText: row.pickupSummaryText,
     },

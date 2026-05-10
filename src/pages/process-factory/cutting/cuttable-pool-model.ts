@@ -68,7 +68,7 @@ export interface CuttableOriginalOrderItem {
     reasonText: string
   }
   currentSituationText: string
-  compatibilityKey: string
+  batchingKey: string
   batchOccupancyStatus: CuttingBatchOccupancyStatus
   mergeBatchNo: string
   latestActionText: string
@@ -103,8 +103,8 @@ export interface CuttableProductionOrderSummary {
   }
 }
 
-export interface CuttableCompatibilityBucket {
-  compatibilityKey: string
+export interface CuttableBatchingBucket {
+  batchingKey: string
   materialSku: string
   cuttableCount: number
   totalCount: number
@@ -112,7 +112,7 @@ export interface CuttableCompatibilityBucket {
 }
 
 export interface QuickMergeableBucket {
-  compatibilityKey: string
+  batchingKey: string
   styleCode: string
   spuCode: string
   styleName: string
@@ -141,7 +141,7 @@ export interface CuttableStyleGroup {
   fullOrderCount: number
   partialOrderCount: number
   blockedOrderCount: number
-  compatibilityBuckets: CuttableCompatibilityBucket[]
+  batchingBuckets: CuttableBatchingBucket[]
 }
 
 export interface CuttablePoolViewModel {
@@ -179,11 +179,11 @@ export interface CuttablePoolStats {
 
 export const cuttableStateMeta: Record<CuttableStateKey, { label: string; className: string }> = {
   CUTTABLE: { label: '可裁', className: 'bg-emerald-100 text-emerald-700 border border-emerald-200' },
-  WAITING_PREP: { label: '待配料', className: 'bg-slate-100 text-slate-700 border border-slate-200' },
-  PARTIAL_PREP: { label: '部分配料', className: 'bg-orange-100 text-orange-700 border border-orange-200' },
-  WAITING_CLAIM: { label: '待领料', className: 'bg-blue-100 text-blue-700 border border-blue-200' },
-  PARTIAL_CLAIM: { label: '部分领料', className: 'bg-sky-100 text-sky-700 border border-sky-200' },
-  CLAIM_EXCEPTION: { label: '领料异常', className: 'bg-rose-100 text-rose-700 border border-rose-200' },
+  WAITING_PREP: { label: 'WMS 待处理', className: 'bg-slate-100 text-slate-700 border border-slate-200' },
+  PARTIAL_PREP: { label: 'WMS 部分处理', className: 'bg-orange-100 text-orange-700 border border-orange-200' },
+  WAITING_CLAIM: { label: '待来料', className: 'bg-blue-100 text-blue-700 border border-blue-200' },
+  PARTIAL_CLAIM: { label: '部分来料', className: 'bg-sky-100 text-sky-700 border border-sky-200' },
+  CLAIM_EXCEPTION: { label: '来料异常', className: 'bg-rose-100 text-rose-700 border border-rose-200' },
   IN_BATCH: { label: '已入合并裁剪批次', className: 'bg-violet-100 text-violet-700 border border-violet-200' },
   NOT_READY: { label: '已进入裁剪后续', className: 'bg-slate-100 text-slate-700 border border-slate-200' },
 }
@@ -276,7 +276,7 @@ function createCoverageStatus(key: CoverageStatusKey, detailText: string): Cutta
   }
 }
 
-export function buildCompatibilityKey(source: {
+export function buildBatchingKey(source: {
   styleCode?: string
   spuCode?: string
   materialSku: string
@@ -298,26 +298,26 @@ export function deriveOriginalCutOrderCuttableState(
   }
 
   if (line.configStatus === 'NOT_CONFIGURED') {
-    return createCuttableState('WAITING_PREP', '待完成配料', '还没配好料')
+    return createCuttableState('WAITING_PREP', '待 WMS 来料', '待 WMS 来料')
   }
 
   if (line.configStatus === 'PARTIAL') {
-    return createCuttableState('PARTIAL_PREP', '配料未齐', '只配好一部分料')
+    return createCuttableState('PARTIAL_PREP', 'WMS 来料未齐', '只配好一部分料')
   }
 
   if (line.issueFlags.includes('RECEIVE_DIFF')) {
-    return createCuttableState('CLAIM_EXCEPTION', '领料存在差异', '领料对象数量不一致，先核对')
+    return createCuttableState('CLAIM_EXCEPTION', 'WMS 来料存在差异', '来料对象数量不一致，先核对')
   }
 
   if (line.receiveStatus === 'NOT_RECEIVED') {
-    return createCuttableState('WAITING_CLAIM', '待完成领料', '还没领料')
+    return createCuttableState('WAITING_CLAIM', '待完成来料', '还没WMS 来料')
   }
 
   if (line.receiveStatus === 'PARTIAL') {
-    return createCuttableState('PARTIAL_CLAIM', '领料未齐', '只领到一部分料')
+    return createCuttableState('PARTIAL_CLAIM', 'WMS 来料未齐', '只领到一部分料')
   }
 
-  return createCuttableState('CUTTABLE', '配料 / 领料均已到位', '料已备齐，可以裁')
+  return createCuttableState('CUTTABLE', 'WMS 来料均已到位', '料已备齐，可以裁')
 }
 
 function deriveOriginalCutOrderBlockingReason(
@@ -325,11 +325,11 @@ function deriveOriginalCutOrderBlockingReason(
   record: CuttingOrderProgressRecord,
   cuttableStateKey: CuttableStateKey,
 ): string {
-  if (cuttableStateKey === 'WAITING_PREP') return '还没配好料'
+  if (cuttableStateKey === 'WAITING_PREP') return '待 WMS 来料'
   if (cuttableStateKey === 'PARTIAL_PREP') return '只配好一部分料'
-  if (cuttableStateKey === 'WAITING_CLAIM') return '还没领料'
+  if (cuttableStateKey === 'WAITING_CLAIM') return '还没WMS 来料'
   if (cuttableStateKey === 'PARTIAL_CLAIM') return '只领到一部分料'
-  if (cuttableStateKey === 'CLAIM_EXCEPTION') return '领料对象数量不一致，先核对'
+  if (cuttableStateKey === 'CLAIM_EXCEPTION') return '来料对象数量不一致，先核对'
   if (cuttableStateKey === 'IN_BATCH') return `已加入合并裁剪批次 ${line.mergeBatchNo || record.mergeBatchNo || ''}`.trim()
   if (cuttableStateKey === 'NOT_READY') return '这张单已经开始裁了，不能重复加入'
   return '料已备齐，可以裁'
@@ -356,16 +356,16 @@ export function summarizeProductionOrderCoverageStatus(items: CuttableOriginalOr
   return createCoverageStatus('BLOCKED', `当前 ${total} 个原始裁片单都还不能安排裁床`)
 }
 
-function buildCompatibilityBuckets(items: CuttableOriginalOrderItem[]): CuttableCompatibilityBucket[] {
+function buildBatchingBuckets(items: CuttableOriginalOrderItem[]): CuttableBatchingBucket[] {
   const bucketMap = new Map<
     string,
-    CuttableCompatibilityBucket & {
+    CuttableBatchingBucket & {
       productionOrderSet: Set<string>
     }
   >()
 
   for (const item of items) {
-    const existing = bucketMap.get(item.compatibilityKey)
+    const existing = bucketMap.get(item.batchingKey)
     if (existing) {
       existing.totalCount += 1
       if (item.cuttableState.key === 'CUTTABLE') existing.cuttableCount += 1
@@ -374,8 +374,8 @@ function buildCompatibilityBuckets(items: CuttableOriginalOrderItem[]): Cuttable
       continue
     }
 
-    bucketMap.set(item.compatibilityKey, {
-      compatibilityKey: item.compatibilityKey,
+    bucketMap.set(item.batchingKey, {
+      batchingKey: item.batchingKey,
       materialSku: item.materialSku,
       cuttableCount: item.cuttableState.key === 'CUTTABLE' ? 1 : 0,
       totalCount: 1,
@@ -396,7 +396,7 @@ function buildOriginalOrderItem(
   progressRow: ProductionProgressRow,
 ): CuttableOriginalOrderItem {
   const cuttableState = deriveOriginalCutOrderCuttableState(line, record)
-  const compatibilityKey = buildCompatibilityKey({
+  const batchingKey = buildBatchingKey({
     styleCode: record.styleCode,
     spuCode: record.spuCode,
     materialSku: source.materialSku,
@@ -430,7 +430,7 @@ function buildOriginalOrderItem(
     visibleStatus: deriveOriginalCutOrderVisibleStatus(cuttableState.key),
     cuttableState,
     currentSituationText: deriveOriginalCutOrderBlockingReason(line, record, cuttableState.key),
-    compatibilityKey,
+    batchingKey,
     batchOccupancyStatus: line.batchOccupancyStatus ?? 'AVAILABLE',
     mergeBatchNo: line.mergeBatchNo ?? '',
     latestActionText: line.latestActionText,
@@ -548,7 +548,7 @@ export function buildCuttablePoolViewModel(
         fullOrderCount,
         partialOrderCount,
         blockedOrderCount,
-        compatibilityBuckets: buildCompatibilityBuckets(items),
+        batchingBuckets: buildBatchingBuckets(items),
       }
     })
     .sort((left, right) => {
@@ -638,7 +638,7 @@ export function filterCuttablePoolGroups(
         fullOrderCount: orders.filter((order) => order.coverageStatus.key === 'FULL').length,
         partialOrderCount: orders.filter((order) => order.coverageStatus.key === 'PARTIAL').length,
         blockedOrderCount: orders.filter((order) => order.coverageStatus.key === 'BLOCKED').length,
-        compatibilityBuckets: buildCompatibilityBuckets(visibleItems),
+        batchingBuckets: buildBatchingBuckets(visibleItems),
       }
     })
     .filter((group): group is CuttableStyleGroup => group !== null)
@@ -676,7 +676,7 @@ export function buildQuickMergeableBuckets(items: CuttableOriginalOrderItem[]): 
     if (item.batchOccupancyStatus === 'IN_BATCH') continue
 
     const urgency = urgencyMeta[item.urgencyKey]
-    const existing = bucketMap.get(item.compatibilityKey)
+    const existing = bucketMap.get(item.batchingKey)
     if (existing) {
       existing.cuttableCount += 1
       existing.productionOrderIdSet.add(item.productionOrderId)
@@ -698,8 +698,8 @@ export function buildQuickMergeableBuckets(items: CuttableOriginalOrderItem[]): 
       continue
     }
 
-    bucketMap.set(item.compatibilityKey, {
-      compatibilityKey: item.compatibilityKey,
+    bucketMap.set(item.batchingKey, {
+      batchingKey: item.batchingKey,
       styleCode: item.styleCode,
       spuCode: item.spuCode,
       styleName: item.styleName,
@@ -733,35 +733,35 @@ export function buildQuickMergeableBuckets(items: CuttableOriginalOrderItem[]): 
     })
 }
 
-export function areOriginalCutOrdersCompatibleForBatching(items: CuttableOriginalOrderItem[]): {
+export function areOriginalCutOrdersReadyForBatching(items: CuttableOriginalOrderItem[]): {
   ok: boolean
-  compatibilityKey: string | null
+  batchingKey: string | null
   reason?: string
 } {
   if (!items.length) {
-    return { ok: false, compatibilityKey: null, reason: '请先选择至少 1 条可裁原始裁片单。' }
+    return { ok: false, batchingKey: null, reason: '请先选择至少 1 条可裁原始裁片单。' }
   }
 
   const nonCuttable = items.find((item) => item.cuttableState.key !== 'CUTTABLE')
   if (nonCuttable) {
     return {
       ok: false,
-      compatibilityKey: null,
+      batchingKey: null,
       reason: `${nonCuttable.originalCutOrderNo} 当前状态为“${nonCuttable.cuttableState.label}”，不能进入合并裁剪批次。`,
     }
   }
 
-  const compatibilityKeys = Array.from(new Set(items.map((item) => item.compatibilityKey)))
-  if (compatibilityKeys.length !== 1) {
+  const batchingKeys = Array.from(new Set(items.map((item) => item.batchingKey)))
+  if (batchingKeys.length !== 1) {
     return {
       ok: false,
-      compatibilityKey: null,
-      reason: '当前已选清单仅支持同一兼容组的原始裁片单，请清空后重新选择。',
+      batchingKey: null,
+      reason: '当前已选清单仅支持同一合并条件组的原始裁片单，请清空后重新选择。',
     }
   }
 
   return {
     ok: true,
-    compatibilityKey: compatibilityKeys[0],
+    batchingKey: batchingKeys[0],
   }
 }

@@ -1,5 +1,6 @@
-import { getProductionOrderCompatTechPack } from '../../../data/fcs/production-order-tech-pack-runtime.ts'
-import type { TechPack } from '../../../data/fcs/tech-packs.ts'
+import { getProductionOrderTechPackSnapshot } from '../../../data/fcs/production-order-tech-pack-runtime.ts'
+import type { ProductionOrderTechPackSnapshot } from '../../../data/fcs/production-tech-pack-snapshot-types.ts'
+import type { TechnicalColorMaterialMappingLine } from '../../../data/pcs-technical-data-version-types.ts'
 import type { MaterialPrepRow } from './material-prep-model.ts'
 import type {
   MarkerPlanAllocationLike,
@@ -19,7 +20,7 @@ export interface MarkerResolvedTechPackLink {
   status: 'MATCHED' | 'MISSING'
   resolvedSpuCode: string
   sourceKey: 'source-tech-pack' | 'marker-tech-pack' | 'source-spu' | 'marker-spu' | 'missing'
-  techPack: TechPack | null
+  techPack: ProductionOrderTechPackSnapshot | null
 }
 
 export interface MarkerAllocationSourceRow {
@@ -189,11 +190,11 @@ export function resolveMarkerTechPackLink(options: {
 
   for (const candidate of candidates) {
     if (!candidate.productionOrderId) continue
-    const techPack = getProductionOrderCompatTechPack(candidate.productionOrderId)
+    const techPack = getProductionOrderTechPackSnapshot(candidate.productionOrderId)
     if (techPack) {
       return {
         status: 'MATCHED',
-        resolvedSpuCode: candidate.resolvedSpuCode || techPack.spuCode,
+        resolvedSpuCode: candidate.resolvedSpuCode || techPack.styleCode,
         sourceKey: candidate.sourceKey,
         techPack,
       }
@@ -217,13 +218,13 @@ export function buildMarkerAllocationSourceRows(
     .filter((row): row is MarkerPieceExplosionSourceRow => Boolean(row))
 }
 
-function resolveSkuCode(techPack: TechPack, color: string, sizeLabel: string): string {
-  const skuLine =
-    (techPack.skuCatalog || []).find((item) => equalsLoose(item.color, color) && equalsLoose(item.size, sizeLabel)) || null
-  return skuLine?.skuCode || ''
+function resolveSkuCode(techPack: ProductionOrderTechPackSnapshot, color: string, sizeLabel: string): string {
+  const mapping = resolveColorMapping(techPack, color)
+  const skuCodes = (mapping?.lines || []).flatMap((line) => line.applicableSkuCodes || [])
+  return skuCodes.find((skuCode) => equalsLoose(skuCode.split('-').pop() || '', sizeLabel) || equalsLoose(skuCode, sizeLabel)) || skuCodes[0] || ''
 }
 
-function resolveColorMapping(techPack: TechPack, color: string) {
+function resolveColorMapping(techPack: ProductionOrderTechPackSnapshot, color: string) {
   return (
     (techPack.colorMaterialMappings || []).find(
       (mapping) => equalsLoose(mapping.colorName, color) || equalsLoose(mapping.colorCode, color),
@@ -231,7 +232,7 @@ function resolveColorMapping(techPack: TechPack, color: string) {
   )
 }
 
-function resolveMappingLinesForSku(techPack: TechPack, color: string, skuCode: string) {
+function resolveMappingLinesForSku(techPack: ProductionOrderTechPackSnapshot, color: string, skuCode: string) {
   const colorMapping = resolveColorMapping(techPack, color)
   if (!colorMapping) return { colorMapping: null, mappingLines: [] as NonNullable<typeof colorMapping>['lines'] }
   const mappingLines = colorMapping.lines.filter(
@@ -240,14 +241,14 @@ function resolveMappingLinesForSku(techPack: TechPack, color: string, skuCode: s
   return { colorMapping, mappingLines }
 }
 
-function lineMatchesMaterial(line: NonNullable<TechPack['colorMaterialMappings']>[number]['lines'][number], materialSku: string): boolean {
+function lineMatchesMaterial(line: TechnicalColorMaterialMappingLine, materialSku: string): boolean {
   if (!normalizeText(materialSku)) return false
   return equalsLoose(line.materialCode, materialSku) || equalsLoose(line.materialName, materialSku)
 }
 
 function buildPieceRowsFromPatternFallback(
-  techPack: TechPack,
-  line: NonNullable<TechPack['colorMaterialMappings']>[number]['lines'][number],
+  techPack: ProductionOrderTechPackSnapshot,
+  line: TechnicalColorMaterialMappingLine,
   skuCode: string,
 ) {
   if (!line.patternId) return []

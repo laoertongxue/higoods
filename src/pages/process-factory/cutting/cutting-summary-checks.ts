@@ -152,7 +152,7 @@ export interface CuttingCheckResult {
 }
 
 export const cuttingCheckSectionLabelMap: Record<CuttingCheckSectionKey, string> = {
-  MATERIAL_PREP: '配料领料',
+  MATERIAL_PREP: '待加工仓',
   SPREADING: '唛架铺布',
   REPLENISHMENT: '补料',
   FEI_TICKETS: '打印菲票',
@@ -348,7 +348,7 @@ function buildMaterialPrepSection(options: CuttingCheckBuildOptions): {
           productionOrderNo: options.productionRow.productionOrderNo,
           sectionKey: 'MATERIAL_PREP',
           severity: 'HIGH',
-          title: `${row.originalCutOrderNo} 配料未齐`,
+          title: `${row.originalCutOrderNo} WMS 来料未齐`,
           sourceType: 'ORIGINAL_CUT_ORDER',
           sourceId: row.originalCutOrderId,
           sourceNo: row.originalCutOrderNo,
@@ -358,7 +358,7 @@ function buildMaterialPrepSection(options: CuttingCheckBuildOptions): {
           blockerReason: row.materialPrepStatus.detailText,
           navigationTarget: 'materialPrep',
           navigationPayload: payload,
-          nextActionLabel: '去仓库配料领料',
+          nextActionLabel: '去待加工仓',
         }),
       ]
     }
@@ -369,7 +369,7 @@ function buildMaterialPrepSection(options: CuttingCheckBuildOptions): {
           productionOrderNo: options.productionRow.productionOrderNo,
           sectionKey: 'MATERIAL_PREP',
           severity: row.materialClaimStatus.key === 'EXCEPTION' ? 'HIGH' : 'MEDIUM',
-          title: `${row.originalCutOrderNo} 领料未闭环`,
+          title: `${row.originalCutOrderNo} WMS 来料未闭环`,
           sourceType: 'ORIGINAL_CUT_ORDER',
           sourceId: row.originalCutOrderId,
           sourceNo: row.originalCutOrderNo,
@@ -379,7 +379,7 @@ function buildMaterialPrepSection(options: CuttingCheckBuildOptions): {
           blockerReason: row.materialClaimStatus.detailText,
           navigationTarget: 'materialPrep',
           navigationPayload: payload,
-          nextActionLabel: '去仓库配料领料',
+          nextActionLabel: '去待加工仓',
         }),
       ]
     }
@@ -400,7 +400,7 @@ function buildMaterialPrepSection(options: CuttingCheckBuildOptions): {
           blockerReason: row.schedulingStatus.detailText,
           navigationTarget: 'materialPrep',
           navigationPayload: payload,
-          nextActionLabel: '去仓库配料领料',
+          nextActionLabel: '去待加工仓',
         }),
       ]
     }
@@ -422,13 +422,13 @@ function buildMaterialPrepSection(options: CuttingCheckBuildOptions): {
       doneCount: Math.max(doneCount, 0),
       totalCount: options.materialPrepRows.length,
       detailText: !options.materialPrepRows.length
-        ? '当前缺少配料领料对象，无法核查。'
+        ? '当前缺少WMS 来料对象，无法核查。'
         : blockers.length
-          ? `当前有 ${blockers.length} 个配料领料对象未闭环。`
-          : '当前配料领料链路已通过。',
+          ? `当前有 ${blockers.length} 个WMS 来料对象未闭环。`
+          : '当前WMS 来料链路已通过。',
       navigationTarget: 'materialPrep',
       navigationPayload: options.navigationPayload.materialPrep,
-      defaultActionLabel: '去仓库配料领料',
+      defaultActionLabel: '去待加工仓',
     }),
     blockers,
   }

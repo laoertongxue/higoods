@@ -1,15 +1,22 @@
 import { escapeHtml } from '../utils'
 import {
+  EXECUTION_FACTORY_TYPE_SCOPE_LABEL,
+  EXECUTION_TASK_TYPE_SCOPE_LABEL,
   buildMilestoneRuleLabel,
   createMilestoneConfig,
+  getFactoryTypeScopeLabel,
   getMilestoneConfigById,
   getMilestoneOverdueRuleLabel,
   getMilestoneProofRequirementLabel,
+  getMilestoneStartRuleLabel,
   getMilestoneTargetUnitByRuleType,
   getMilestoneTargetUnitLabel,
+  getTaskTypeScopeLabel,
   listMilestoneConfigs,
   listMilestoneProcessOptions,
   toggleMilestoneConfigEnabled,
+  type ExecutionFactoryTypeScope,
+  type ExecutionTaskTypeScope,
   type MilestoneConfig,
   type MilestoneProofRequirement,
   type MilestoneRuleType,
@@ -27,6 +34,11 @@ interface MilestoneConfigState {
   drawerMode: DrawerMode
   formProcessCode: string
   formProcessNameZh: string
+  formFactoryTypeScope: ExecutionFactoryTypeScope
+  formTaskTypeScope: ExecutionTaskTypeScope
+  formStartRequired: boolean
+  formStartProofRequirement: MilestoneProofRequirement
+  formStartDueHours: string
   formEnabled: boolean
   formRuleType: MilestoneRuleType
   formTargetQty: string
@@ -44,6 +56,11 @@ const state: MilestoneConfigState = {
   drawerMode: 'view',
   formProcessCode: '',
   formProcessNameZh: '',
+  formFactoryTypeScope: 'PROCESS_FACTORY',
+  formTaskTypeScope: 'ALL',
+  formStartRequired: true,
+  formStartProofRequirement: 'IMAGE_OR_VIDEO',
+  formStartDueHours: '48',
   formEnabled: true,
   formRuleType: 'AFTER_N_PIECES',
   formTargetQty: '5',
@@ -107,7 +124,8 @@ function getFilteredConfigs(): MilestoneConfig[] {
 
   return listMilestoneConfigs().filter((item) => {
     if (keyword) {
-      const haystack = `${item.processCode} ${item.processNameZh}`.toLowerCase()
+      const haystack =
+        `${item.processCode} ${item.processNameZh} ${item.factoryTypeScopeLabel} ${item.taskTypeScopeLabel}`.toLowerCase()
       if (!haystack.includes(keyword)) return false
     }
 
@@ -124,14 +142,13 @@ function getFilteredConfigs(): MilestoneConfig[] {
 
 function resetFormDefaults(): void {
   const options = listMilestoneProcessOptions()
-  const configuredKeys = new Set(
-    listMilestoneConfigs().map((item) => `${item.processCode}::${item.processNameZh}`),
-  )
-  const available = options.filter(
-    (item) => !configuredKeys.has(`${item.processCode}::${item.processNameZh}`),
-  )
-  state.formProcessCode = available[0]?.processCode || ''
-  state.formProcessNameZh = available[0]?.processNameZh || ''
+  state.formProcessCode = options[0]?.processCode || ''
+  state.formProcessNameZh = options[0]?.processNameZh || ''
+  state.formFactoryTypeScope = 'PROCESS_FACTORY'
+  state.formTaskTypeScope = 'ALL'
+  state.formStartRequired = true
+  state.formStartProofRequirement = 'IMAGE_OR_VIDEO'
+  state.formStartDueHours = '48'
   state.formEnabled = true
   state.formRuleType = 'AFTER_N_PIECES'
   state.formTargetQty = '5'
@@ -144,6 +161,11 @@ function resetFormDefaults(): void {
 function syncFormFromConfig(config: MilestoneConfig): void {
   state.formProcessCode = config.processCode
   state.formProcessNameZh = config.processNameZh
+  state.formFactoryTypeScope = config.factoryTypeScope
+  state.formTaskTypeScope = config.taskTypeScope
+  state.formStartRequired = config.startRequired
+  state.formStartProofRequirement = config.startProofRequirement
+  state.formStartDueHours = String(config.startDueHours)
   state.formEnabled = config.enabled
   state.formRuleType = config.ruleType
   state.formTargetQty = String(config.targetQty)
@@ -182,9 +204,9 @@ function renderHeader(): string {
     <header class="space-y-3 rounded-lg border bg-card p-4">
       <div class="flex items-start justify-between gap-3">
         <div class="space-y-1">
-          <h1 class="text-xl font-semibold">节点上报配置</h1>
-          <p class="text-sm text-muted-foreground">按工序工艺统一配置关键节点上报要求，启用后同工序任务在工厂端移动应用中按同一规则执行。</p>
-          <p class="text-xs text-muted-foreground">若开启超时异常：任务开工后超过设定时限仍未上报，会自动进入异常定位与处理（执行异常｜关键节点未上报）。</p>
+          <h1 class="text-xl font-semibold">开工与关键节点上报配置</h1>
+          <p class="text-sm text-muted-foreground">按工序工艺、工厂类型和任务类型配置是否要求开工、开工凭证、关键节点上报及凭证要求。</p>
+          <p class="text-xs text-muted-foreground">启用后，工厂端移动应用按匹配规则展示开工时限和关键节点；若开启超时异常，逾期未上报会进入执行异常。</p>
         </div>
         <button class="inline-flex h-9 items-center rounded-md border bg-primary px-3 text-sm text-primary-foreground hover:opacity-90" data-milestone-action="open-create-config">
           <i data-lucide="plus" class="mr-1.5 h-4 w-4"></i>新增配置
@@ -199,10 +221,10 @@ function renderFilters(): string {
     <section class="rounded-lg border bg-card p-4">
       <div class="grid grid-cols-1 gap-3 md:grid-cols-4">
         <label class="space-y-1">
-          <span class="text-xs text-muted-foreground">工序工艺</span>
+          <span class="text-xs text-muted-foreground">规则搜索</span>
           <input
             class="h-9 w-full rounded-md border bg-background px-3 text-sm"
-            placeholder="搜索工序编码 / 工序名称"
+            placeholder="搜索工序 / 工厂类型 / 任务类型"
             data-milestone-field="keyword"
             value="${escapeHtml(state.keyword)}"
           />
@@ -240,18 +262,20 @@ function renderTable(configs: MilestoneConfig[]): string {
   return `
     <section class="rounded-lg border bg-card">
       <header class="flex items-center justify-between px-4 py-3">
-        <h2 class="text-base font-semibold">工序工艺节点上报规则</h2>
+        <h2 class="text-base font-semibold">开工与关键节点规则</h2>
         <p class="text-xs text-muted-foreground">共 ${configs.length} 条</p>
       </header>
 
       <div class="overflow-x-auto border-t">
-        <table class="w-full min-w-[1080px] text-sm">
+        <table class="w-full min-w-[1320px] text-sm">
           <thead class="bg-muted/40 text-left text-xs text-muted-foreground">
             <tr>
-              <th class="px-3 py-2 font-medium">工序工艺</th>
+              <th class="px-3 py-2 font-medium">适用规则</th>
+              <th class="px-3 py-2 font-medium">开工要求</th>
+              <th class="px-3 py-2 font-medium">开工凭证</th>
               <th class="px-3 py-2 font-medium">节点上报</th>
               <th class="px-3 py-2 font-medium">上报规则</th>
-              <th class="px-3 py-2 font-medium">凭证要求</th>
+              <th class="px-3 py-2 font-medium">节点凭证</th>
               <th class="px-3 py-2 font-medium">超时异常</th>
               <th class="px-3 py-2 font-medium">更新时间</th>
               <th class="px-3 py-2 font-medium">操作</th>
@@ -262,7 +286,7 @@ function renderTable(configs: MilestoneConfig[]): string {
               configs.length === 0
                 ? `
                   <tr>
-                    <td colspan="7" class="px-3 py-10 text-center text-sm text-muted-foreground">暂无符合条件的节点上报配置</td>
+                    <td colspan="9" class="px-3 py-10 text-center text-sm text-muted-foreground">暂无符合条件的开工与关键节点配置</td>
                   </tr>
                 `
                 : configs
@@ -273,7 +297,13 @@ function renderTable(configs: MilestoneConfig[]): string {
                           <td class="px-3 py-3">
                             <p class="font-medium">${escapeHtml(item.processNameZh)}</p>
                             <p class="text-xs text-muted-foreground">${escapeHtml(item.processCode)}</p>
+                            <div class="mt-2 flex flex-wrap gap-1.5">
+                              <span class="inline-flex rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] text-slate-700">${escapeHtml(getFactoryTypeScopeLabel(item.factoryTypeScope))}</span>
+                              <span class="inline-flex rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] text-slate-700">${escapeHtml(getTaskTypeScopeLabel(item.taskTypeScope))}</span>
+                            </div>
                           </td>
+                          <td class="px-3 py-3 text-xs">${escapeHtml(getMilestoneStartRuleLabel(item))}</td>
+                          <td class="px-3 py-3 text-xs">${escapeHtml(getMilestoneProofRequirementLabel(item.startProofRequirement))}</td>
                           <td class="px-3 py-3">${getStatusBadge(item.enabled)}</td>
                           <td class="px-3 py-3 text-xs">
                             ${item.enabled ? escapeHtml(item.ruleLabel) : '<span class="text-muted-foreground">未启用节点上报</span>'}
@@ -313,13 +343,13 @@ function renderDrawer(): string {
   const readOnly = state.drawerMode === 'view'
   const readOnlyAttr = readOnly ? 'disabled' : ''
   const processOptions = listMilestoneProcessOptions()
-  const configuredKeys = new Set(
-    listMilestoneConfigs().map((item) => `${item.processCode}::${item.processNameZh}`),
-  )
-  const availableProcessCount = processOptions.filter(
-    (item) => !configuredKeys.has(`${item.processCode}::${item.processNameZh}`),
-  ).length
   const unitLabel = getMilestoneTargetUnitLabel(getMilestoneTargetUnitByRuleType(state.formRuleType))
+  const ruleLabelPreview =
+    config &&
+    config.ruleType === state.formRuleType &&
+    String(config.targetQty) === state.formTargetQty
+      ? config.ruleLabel
+      : getCurrentRuleLabelPreview()
 
   return `
     <div class="fixed inset-0 z-50">
@@ -328,7 +358,7 @@ function renderDrawer(): string {
         <header class="sticky top-0 z-10 border-b bg-background px-5 py-4">
           <div class="flex items-center justify-between gap-3">
             <div>
-              <h3 class="text-lg font-semibold">${isCreate ? '新增节点上报配置' : readOnly ? '节点上报配置详情' : '编辑节点上报配置'}</h3>
+              <h3 class="text-lg font-semibold">${isCreate ? '新增开工与节点配置' : readOnly ? '开工与节点配置详情' : '编辑开工与节点配置'}</h3>
               <p class="text-xs text-muted-foreground">${
                 state.formProcessCode
                   ? `${escapeHtml(state.formProcessNameZh)}（${escapeHtml(state.formProcessCode)}）`
@@ -354,19 +384,13 @@ function renderDrawer(): string {
                         <option value="">请选择工序工艺</option>
                         ${processOptions
                           .map(
-                            (item) => {
-                              const configured = configuredKeys.has(`${item.processCode}::${item.processNameZh}`)
-                              return `<option value="${escapeHtml(item.processCode)}" data-process-name="${escapeHtml(item.processNameZh)}" ${state.formProcessCode === item.processCode ? 'selected' : ''} ${configured ? 'disabled' : ''}>${escapeHtml(item.processNameZh)}（${escapeHtml(item.processCode)}）${configured ? '（已配置）' : ''}</option>`
-                            },
+                            (item) =>
+                              `<option value="${escapeHtml(item.processCode)}" data-process-name="${escapeHtml(item.processNameZh)}" ${state.formProcessCode === item.processCode ? 'selected' : ''}>${escapeHtml(item.processNameZh)}（${escapeHtml(item.processCode)}）</option>`,
                           )
                           .join('')}
                       </select>
                     </label>
-                    ${
-                      availableProcessCount === 0
-                        ? '<p class="mt-2 text-xs text-amber-700">当前全部工序工艺均已配置节点上报规则，可直接编辑已有配置。</p>'
-                        : ''
-                    }
+                    <p class="mt-2 text-xs text-muted-foreground">同一工序可按不同工厂类型、任务类型配置多条规则。</p>
                   `
                   : `<div class="rounded-md border bg-muted px-3 py-2 text-sm text-muted-foreground">${escapeHtml(state.formProcessNameZh)}（${escapeHtml(state.formProcessCode)}）</div>`
               }
@@ -374,10 +398,67 @@ function renderDrawer(): string {
           </section>
 
           <section class="rounded-lg border p-4">
-            <h4 class="text-sm font-semibold">上报要求</h4>
+            <h4 class="text-sm font-semibold">适用范围</h4>
+            <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label class="space-y-1">
+                <span class="text-xs text-muted-foreground">工厂类型 *</span>
+                <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-milestone-field="formFactoryTypeScope" ${readOnlyAttr}>
+                  ${Object.entries(EXECUTION_FACTORY_TYPE_SCOPE_LABEL)
+                    .map(
+                      ([value, label]) =>
+                        `<option value="${escapeHtml(value)}" ${state.formFactoryTypeScope === value ? 'selected' : ''}>${escapeHtml(label)}</option>`,
+                    )
+                    .join('')}
+                </select>
+              </label>
+              <label class="space-y-1">
+                <span class="text-xs text-muted-foreground">任务类型 *</span>
+                <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-milestone-field="formTaskTypeScope" ${readOnlyAttr}>
+                  ${Object.entries(EXECUTION_TASK_TYPE_SCOPE_LABEL)
+                    .map(
+                      ([value, label]) =>
+                        `<option value="${escapeHtml(value)}" ${state.formTaskTypeScope === value ? 'selected' : ''}>${escapeHtml(label)}</option>`,
+                    )
+                    .join('')}
+                </select>
+              </label>
+            </div>
+          </section>
+
+          <section class="rounded-lg border p-4">
+            <h4 class="text-sm font-semibold">开工要求</h4>
             <div class="mt-3 space-y-3">
               <label class="space-y-1">
-                <span class="text-xs text-muted-foreground">是否启用</span>
+                <span class="text-xs text-muted-foreground">是否要求开工</span>
+                <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-milestone-field="formStartRequired" ${readOnlyAttr}>
+                  <option value="YES" ${state.formStartRequired ? 'selected' : ''}>要求开工</option>
+                  <option value="NO" ${!state.formStartRequired ? 'selected' : ''}>不要求开工</option>
+                </select>
+              </label>
+              <label class="space-y-1">
+                <span class="text-xs text-muted-foreground">开工凭证要求</span>
+                <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-milestone-field="formStartProofRequirement" ${readOnlyAttr}>
+                  <option value="NONE" ${state.formStartProofRequirement === 'NONE' ? 'selected' : ''}>不要求凭证</option>
+                  <option value="IMAGE" ${state.formStartProofRequirement === 'IMAGE' ? 'selected' : ''}>要求上传图片</option>
+                  <option value="VIDEO" ${state.formStartProofRequirement === 'VIDEO' ? 'selected' : ''}>要求上传视频</option>
+                  <option value="IMAGE_OR_VIDEO" ${state.formStartProofRequirement === 'IMAGE_OR_VIDEO' ? 'selected' : ''}>图片或视频任选其一</option>
+                </select>
+              </label>
+              <label class="space-y-1">
+                <span class="text-xs text-muted-foreground">接单 / 中标后 N 小时内开工</span>
+                <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-milestone-field="formStartDueHours" value="${escapeHtml(state.formStartDueHours)}" ${readOnlyAttr} />
+              </label>
+              <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+                移动端展示文案：${escapeHtml(state.formStartRequired ? `要求开工，${state.formStartDueHours || 'N'} 小时内确认` : '不要求开工')}
+              </div>
+            </div>
+          </section>
+
+          <section class="rounded-lg border p-4">
+            <h4 class="text-sm font-semibold">关键节点上报要求</h4>
+            <div class="mt-3 space-y-3">
+              <label class="space-y-1">
+                <span class="text-xs text-muted-foreground">是否要求关键节点上报</span>
                 <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-milestone-field="formEnabled" ${readOnlyAttr}>
                   <option value="YES" ${state.formEnabled ? 'selected' : ''}>启用</option>
                   <option value="NO" ${!state.formEnabled ? 'selected' : ''}>不启用</option>
@@ -398,13 +479,13 @@ function renderDrawer(): string {
               </label>
 
               <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
-                移动端展示文案：${escapeHtml(getCurrentRuleLabelPreview())}
+                移动端展示文案：${escapeHtml(ruleLabelPreview)}
               </div>
             </div>
           </section>
 
           <section class="rounded-lg border p-4">
-            <h4 class="text-sm font-semibold">凭证要求</h4>
+            <h4 class="text-sm font-semibold">关键节点凭证要求</h4>
             <div class="mt-3">
               <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-milestone-field="formProofRequirement" ${readOnlyAttr}>
                 <option value="NONE" ${state.formProofRequirement === 'NONE' ? 'selected' : ''}>不要求凭证</option>
@@ -494,6 +575,26 @@ function updateField(field: string, node: HTMLElement): void {
     state.formProcessNameZh = matched?.processNameZh || ''
     return
   }
+  if (field === 'formFactoryTypeScope' && node instanceof HTMLSelectElement) {
+    state.formFactoryTypeScope = node.value as ExecutionFactoryTypeScope
+    return
+  }
+  if (field === 'formTaskTypeScope' && node instanceof HTMLSelectElement) {
+    state.formTaskTypeScope = node.value as ExecutionTaskTypeScope
+    return
+  }
+  if (field === 'formStartRequired' && node instanceof HTMLSelectElement) {
+    state.formStartRequired = node.value === 'YES'
+    return
+  }
+  if (field === 'formStartProofRequirement' && node instanceof HTMLSelectElement) {
+    state.formStartProofRequirement = node.value as MilestoneProofRequirement
+    return
+  }
+  if (field === 'formStartDueHours' && node instanceof HTMLInputElement) {
+    state.formStartDueHours = node.value
+    return
+  }
   if (field === 'formEnabled' && node instanceof HTMLSelectElement) {
     state.formEnabled = node.value === 'YES'
     return
@@ -530,6 +631,12 @@ function saveCurrentConfig(): void {
     return
   }
 
+  const startDueHours = Number.parseInt(state.formStartDueHours, 10)
+  if (!Number.isInteger(startDueHours) || startDueHours <= 0) {
+    showMilestoneConfigToast('请填写有效的开工时限小时数（正整数）')
+    return
+  }
+
   const overdueHours = Number.parseInt(state.formOverdueHours, 10)
   if (!Number.isInteger(overdueHours) || overdueHours <= 0) {
     showMilestoneConfigToast('请填写有效的超时小时数（正整数）')
@@ -546,6 +653,11 @@ function saveCurrentConfig(): void {
       {
         processCode: state.formProcessCode,
         processNameZh: state.formProcessNameZh,
+        factoryTypeScope: state.formFactoryTypeScope,
+        taskTypeScope: state.formTaskTypeScope,
+        startRequired: state.formStartRequired,
+        startProofRequirement: state.formStartProofRequirement,
+        startDueHours,
         enabled: state.formEnabled,
         ruleType: state.formRuleType,
         targetQty,
@@ -573,6 +685,11 @@ function saveCurrentConfig(): void {
   const updated = updateMilestoneConfig(
     state.drawerConfigId,
     {
+      factoryTypeScope: state.formFactoryTypeScope,
+      taskTypeScope: state.formTaskTypeScope,
+      startRequired: state.formStartRequired,
+      startProofRequirement: state.formStartProofRequirement,
+      startDueHours,
       enabled: state.formEnabled,
       ruleType: state.formRuleType,
       targetQty,
@@ -591,7 +708,7 @@ function saveCurrentConfig(): void {
 
   state.drawerMode = 'view'
   syncFormFromConfig(updated)
-  showMilestoneConfigToast('节点上报配置已更新')
+  showMilestoneConfigToast('开工与关键节点配置已更新')
 }
 
 function handleAction(action: string, actionNode: HTMLElement): boolean {

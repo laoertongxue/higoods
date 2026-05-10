@@ -1,14 +1,39 @@
+import { OWN_KNITTING_FACTORY_ID } from './factory-mock-data.ts'
+import { getFactoryMasterRecordById } from './factory-master-store.ts'
 import { processTasks } from './process-tasks'
 
 export type MilestoneRuleType = 'AFTER_N_PIECES' | 'AFTER_N_YARD'
 export type MilestoneTargetUnit = 'PIECE' | 'YARD'
 export type MilestoneProofRequirement = 'NONE' | 'IMAGE' | 'VIDEO' | 'IMAGE_OR_VIDEO'
 export type MilestoneExceptionSeverity = 'S1' | 'S2' | 'S3'
+export type ExecutionFactoryTypeScope =
+  | 'ALL'
+  | 'OWN_KNITTING_FACTORY'
+  | 'PROCESS_FACTORY'
+  | 'CUTTING_FACTORY'
+  | 'POST_FACTORY'
+export type ExecutionTaskTypeScope =
+  | 'ALL'
+  | 'WHOLE_GARMENT'
+  | 'PART_PANEL'
+  | 'CUTTING'
+  | 'PRINT_DYE'
+  | 'SEWING'
+  | 'POST_FINISHING'
+  | 'SPECIAL_CRAFT'
 
 export interface MilestoneConfig {
   id: string
   processCode: string
   processNameZh: string
+  factoryTypeScope: ExecutionFactoryTypeScope
+  factoryTypeScopeLabel: string
+  taskTypeScope: ExecutionTaskTypeScope
+  taskTypeScopeLabel: string
+  startRequired: boolean
+  startProofRequirement: MilestoneProofRequirement
+  startProofRequirementLabel: string
+  startDueHours: number
   enabled: boolean
   ruleType: MilestoneRuleType
   targetQty: number
@@ -46,9 +71,33 @@ export const MILESTONE_PROOF_REQUIREMENT_LABEL: Record<MilestoneProofRequirement
   IMAGE_OR_VIDEO: '图片或视频任选其一',
 }
 
+export const EXECUTION_FACTORY_TYPE_SCOPE_LABEL: Record<ExecutionFactoryTypeScope, string> = {
+  ALL: '全部工厂类型',
+  OWN_KNITTING_FACTORY: '自有针织厂',
+  PROCESS_FACTORY: '工序工艺工厂',
+  CUTTING_FACTORY: '裁床厂',
+  POST_FACTORY: '后道工厂',
+}
+
+export const EXECUTION_TASK_TYPE_SCOPE_LABEL: Record<ExecutionTaskTypeScope, string> = {
+  ALL: '全部任务类型',
+  WHOLE_GARMENT: '整件针织',
+  PART_PANEL: '部位针织',
+  CUTTING: '裁片任务',
+  PRINT_DYE: '印花 / 染色任务',
+  SEWING: '车缝任务',
+  POST_FINISHING: '后道任务',
+  SPECIAL_CRAFT: '特殊工艺任务',
+}
+
 export interface UpsertMilestoneConfigPayload {
   processCode: string
   processNameZh: string
+  factoryTypeScope: ExecutionFactoryTypeScope
+  taskTypeScope: ExecutionTaskTypeScope
+  startRequired: boolean
+  startProofRequirement: MilestoneProofRequirement
+  startDueHours: number
   enabled: boolean
   ruleType: MilestoneRuleType
   targetQty: number
@@ -82,6 +131,14 @@ const milestoneConfigs: MilestoneConfig[] = [
     id: 'MC-PROC-SEW',
     processCode: 'PROC_SEW',
     processNameZh: '车缝',
+    factoryTypeScope: 'PROCESS_FACTORY',
+    factoryTypeScopeLabel: EXECUTION_FACTORY_TYPE_SCOPE_LABEL.PROCESS_FACTORY,
+    taskTypeScope: 'SEWING',
+    taskTypeScopeLabel: EXECUTION_TASK_TYPE_SCOPE_LABEL.SEWING,
+    startRequired: true,
+    startProofRequirement: 'IMAGE_OR_VIDEO',
+    startProofRequirementLabel: MILESTONE_PROOF_REQUIREMENT_LABEL.IMAGE_OR_VIDEO,
+    startDueHours: 48,
     enabled: true,
     ruleType: 'AFTER_N_PIECES',
     targetQty: 5,
@@ -100,6 +157,14 @@ const milestoneConfigs: MilestoneConfig[] = [
     id: 'MC-PROC-IRON',
     processCode: 'PROC_IRON',
     processNameZh: '整烫',
+    factoryTypeScope: 'POST_FACTORY',
+    factoryTypeScopeLabel: EXECUTION_FACTORY_TYPE_SCOPE_LABEL.POST_FACTORY,
+    taskTypeScope: 'POST_FINISHING',
+    taskTypeScopeLabel: EXECUTION_TASK_TYPE_SCOPE_LABEL.POST_FINISHING,
+    startRequired: true,
+    startProofRequirement: 'IMAGE',
+    startProofRequirementLabel: MILESTONE_PROOF_REQUIREMENT_LABEL.IMAGE,
+    startDueHours: 48,
     enabled: true,
     ruleType: 'AFTER_N_YARD',
     targetQty: 20,
@@ -118,6 +183,14 @@ const milestoneConfigs: MilestoneConfig[] = [
     id: 'MC-PROC-CUT',
     processCode: 'PROC_CUT',
     processNameZh: '裁片',
+    factoryTypeScope: 'CUTTING_FACTORY',
+    factoryTypeScopeLabel: EXECUTION_FACTORY_TYPE_SCOPE_LABEL.CUTTING_FACTORY,
+    taskTypeScope: 'CUTTING',
+    taskTypeScopeLabel: EXECUTION_TASK_TYPE_SCOPE_LABEL.CUTTING,
+    startRequired: true,
+    startProofRequirement: 'IMAGE',
+    startProofRequirementLabel: MILESTONE_PROOF_REQUIREMENT_LABEL.IMAGE,
+    startDueHours: 24,
     enabled: false,
     ruleType: 'AFTER_N_PIECES',
     targetQty: 3,
@@ -131,6 +204,58 @@ const milestoneConfigs: MilestoneConfig[] = [
     updatedAt: '2026-03-11 16:20:00',
     updatedBy: '平台运营',
     remark: '当前裁片工序不启用关键节点上报',
+  },
+  {
+    id: 'MC-PROC-KNIT-WHOLE',
+    processCode: 'PROC_KNIT',
+    processNameZh: '针织',
+    factoryTypeScope: 'OWN_KNITTING_FACTORY',
+    factoryTypeScopeLabel: EXECUTION_FACTORY_TYPE_SCOPE_LABEL.OWN_KNITTING_FACTORY,
+    taskTypeScope: 'WHOLE_GARMENT',
+    taskTypeScopeLabel: EXECUTION_TASK_TYPE_SCOPE_LABEL.WHOLE_GARMENT,
+    startRequired: true,
+    startProofRequirement: 'IMAGE_OR_VIDEO',
+    startProofRequirementLabel: MILESTONE_PROOF_REQUIREMENT_LABEL.IMAGE_OR_VIDEO,
+    startDueHours: 24,
+    enabled: true,
+    ruleType: 'AFTER_N_PIECES',
+    targetQty: 20,
+    targetUnit: 'PIECE',
+    ruleLabel: '横机完成首批 20 件后上报',
+    proofRequirement: 'IMAGE_OR_VIDEO',
+    proofRequirementLabel: MILESTONE_PROOF_REQUIREMENT_LABEL.IMAGE_OR_VIDEO,
+    overdueExceptionEnabled: true,
+    overdueHours: 24,
+    exceptionSeverity: 'S2',
+    updatedAt: '2026-05-10 09:00:00',
+    updatedBy: '平台运营',
+    remark: '自有针织厂整件针织：要求开工，横机首批完成后上报关键节点，完成后交后道工厂。',
+  },
+  {
+    id: 'MC-PROC-KNIT-PART',
+    processCode: 'PROC_KNIT',
+    processNameZh: '针织',
+    factoryTypeScope: 'OWN_KNITTING_FACTORY',
+    factoryTypeScopeLabel: EXECUTION_FACTORY_TYPE_SCOPE_LABEL.OWN_KNITTING_FACTORY,
+    taskTypeScope: 'PART_PANEL',
+    taskTypeScopeLabel: EXECUTION_TASK_TYPE_SCOPE_LABEL.PART_PANEL,
+    startRequired: true,
+    startProofRequirement: 'IMAGE_OR_VIDEO',
+    startProofRequirementLabel: MILESTONE_PROOF_REQUIREMENT_LABEL.IMAGE_OR_VIDEO,
+    startDueHours: 24,
+    enabled: true,
+    ruleType: 'AFTER_N_PIECES',
+    targetQty: 80,
+    targetUnit: 'PIECE',
+    ruleLabel: '横机完成首批 80 片后上报',
+    proofRequirement: 'IMAGE_OR_VIDEO',
+    proofRequirementLabel: MILESTONE_PROOF_REQUIREMENT_LABEL.IMAGE_OR_VIDEO,
+    overdueExceptionEnabled: true,
+    overdueHours: 24,
+    exceptionSeverity: 'S2',
+    updatedAt: '2026-05-10 09:10:00',
+    updatedBy: '平台运营',
+    remark: '自有针织厂部位针织：要求开工和横机节点上报，完成后交裁床待交出仓，并按部位打印针织菲票。',
   },
 ]
 
@@ -146,8 +271,35 @@ function nextMilestoneConfigId(processCode: string): string {
   return id
 }
 
+function getExecutionFactoryTypeScopeLabel(scope: ExecutionFactoryTypeScope): string {
+  return EXECUTION_FACTORY_TYPE_SCOPE_LABEL[scope]
+}
+
+function getExecutionTaskTypeScopeLabel(scope: ExecutionTaskTypeScope): string {
+  return EXECUTION_TASK_TYPE_SCOPE_LABEL[scope]
+}
+
+function normalizeConfig(item: MilestoneConfig): MilestoneConfig {
+  const factoryTypeScope = item.factoryTypeScope || 'PROCESS_FACTORY'
+  const taskTypeScope = item.taskTypeScope || 'ALL'
+  const startProofRequirement = item.startProofRequirement || 'IMAGE_OR_VIDEO'
+
+  return {
+    ...item,
+    factoryTypeScope,
+    factoryTypeScopeLabel: getExecutionFactoryTypeScopeLabel(factoryTypeScope),
+    taskTypeScope,
+    taskTypeScopeLabel: getExecutionTaskTypeScopeLabel(taskTypeScope),
+    startRequired: item.startRequired ?? true,
+    startProofRequirement,
+    startProofRequirementLabel: getMilestoneProofRequirementLabel(startProofRequirement),
+    startDueHours: normalizeTargetQty(item.startDueHours || 48),
+    proofRequirementLabel: getMilestoneProofRequirementLabel(item.proofRequirement),
+  }
+}
+
 function cloneConfig(item: MilestoneConfig): MilestoneConfig {
-  return { ...item }
+  return normalizeConfig({ ...item })
 }
 
 function normalizeTargetQty(value: number): number {
@@ -159,9 +311,18 @@ function getConfigIndexById(id: string): number {
   return milestoneConfigs.findIndex((config) => config.id === id)
 }
 
-function getConfigIndexByProcess(processCode: string, processNameZh: string): number {
+function getConfigIndexByScope(
+  processCode: string,
+  processNameZh: string,
+  factoryTypeScope: ExecutionFactoryTypeScope,
+  taskTypeScope: ExecutionTaskTypeScope,
+): number {
   return milestoneConfigs.findIndex(
-    (config) => config.processCode === processCode && config.processNameZh === processNameZh,
+    (config) =>
+      config.processCode === processCode &&
+      config.processNameZh === processNameZh &&
+      config.factoryTypeScope === factoryTypeScope &&
+      config.taskTypeScope === taskTypeScope,
   )
 }
 
@@ -202,6 +363,120 @@ export function getMilestoneConfigByProcess(
   return undefined
 }
 
+export interface ExecutionRuleTaskContext {
+  taskId?: string
+  processCode?: string
+  processNameZh?: string
+  processBusinessCode?: string
+  processBusinessName?: string
+  craftCode?: string
+  craftName?: string
+  taskCategoryZh?: string
+  taskTypeCode?: string
+  taskTypeLabel?: string
+  taskType?: string
+  assignedFactoryId?: string
+  factoryType?: string
+  knittingKind?: string
+  isSpecialCraft?: boolean
+}
+
+function normalizeText(value?: string): string {
+  return (value || '').trim().toUpperCase()
+}
+
+function includesAny(text: string, keywords: string[]): boolean {
+  return keywords.some((keyword) => text.includes(keyword))
+}
+
+export function resolveExecutionFactoryTypeScope(input: ExecutionRuleTaskContext): ExecutionFactoryTypeScope {
+  const explicitFactoryType = normalizeText(input.factoryType)
+  const factory = input.assignedFactoryId ? getFactoryMasterRecordById(input.assignedFactoryId) : undefined
+  const factoryType = normalizeText(factory?.factoryType) || explicitFactoryType
+
+  if (input.assignedFactoryId === OWN_KNITTING_FACTORY_ID || explicitFactoryType === 'OWN_KNITTING_FACTORY') {
+    return 'OWN_KNITTING_FACTORY'
+  }
+  if (factory?.id === OWN_KNITTING_FACTORY_ID) return 'OWN_KNITTING_FACTORY'
+  if (factoryType === 'CENTRAL_KNIT' && factory?.id === OWN_KNITTING_FACTORY_ID) return 'OWN_KNITTING_FACTORY'
+  if (includesAny(`${factoryType} ${explicitFactoryType}`, ['CUTTING', 'CUT'])) return 'CUTTING_FACTORY'
+  if (includesAny(`${factoryType} ${explicitFactoryType}`, ['FINISHING', 'POST', 'MANAGED_POST_FACTORY'])) return 'POST_FACTORY'
+  return 'PROCESS_FACTORY'
+}
+
+export function resolveExecutionTaskTypeScope(input: ExecutionRuleTaskContext): ExecutionTaskTypeScope {
+  const codeText = normalizeText(
+    [
+      input.knittingKind,
+      input.taskTypeCode,
+      input.taskType,
+      input.craftCode,
+      input.processBusinessCode,
+      input.processCode,
+    ]
+      .filter(Boolean)
+      .join(' '),
+  )
+  const labelText = [
+    input.taskTypeLabel,
+    input.taskCategoryZh,
+    input.craftName,
+    input.processBusinessName,
+    input.processNameZh,
+  ]
+    .filter(Boolean)
+    .join(' ')
+
+  if (includesAny(codeText, ['WHOLE_GARMENT']) || labelText.includes('整件针织')) return 'WHOLE_GARMENT'
+  if (includesAny(codeText, ['PART_PANEL']) || labelText.includes('部位针织')) return 'PART_PANEL'
+  if (includesAny(codeText, ['CUTTING', 'CUT']) || labelText.includes('裁片')) return 'CUTTING'
+  if (includesAny(codeText, ['PRINT', 'DYE']) || labelText.includes('印花') || labelText.includes('染色')) {
+    return 'PRINT_DYE'
+  }
+  if (includesAny(codeText, ['SEW']) || labelText.includes('车缝')) return 'SEWING'
+  if (includesAny(codeText, ['POST_FINISHING', 'IRON', 'PACK']) || labelText.includes('后道') || labelText.includes('整烫')) {
+    return 'POST_FINISHING'
+  }
+  if (input.isSpecialCraft || labelText.includes('特殊工艺')) return 'SPECIAL_CRAFT'
+  return 'ALL'
+}
+
+function scoreConfigMatch(
+  config: MilestoneConfig,
+  factoryScope: ExecutionFactoryTypeScope,
+  taskScope: ExecutionTaskTypeScope,
+): number {
+  let score = 0
+  if (config.factoryTypeScope === factoryScope) score += 20
+  else if (config.factoryTypeScope !== 'ALL') return -1
+
+  if (config.taskTypeScope === taskScope) score += 10
+  else if (config.taskTypeScope !== 'ALL') return -1
+
+  return score
+}
+
+export function getMilestoneConfigForTask(input: ExecutionRuleTaskContext): MilestoneConfig | undefined {
+  const processCode = input.processCode || input.processBusinessCode
+  const processNameZh = input.processNameZh || input.processBusinessName
+  if (!processCode && !processNameZh) return undefined
+
+  const factoryScope = resolveExecutionFactoryTypeScope(input)
+  const taskScope = resolveExecutionTaskTypeScope(input)
+  const candidates = milestoneConfigs
+    .map(cloneConfig)
+    .filter((config) => {
+      if (processCode && config.processCode !== processCode) return false
+      if (processNameZh && config.processNameZh !== processNameZh) return false
+      return true
+    })
+    .map((config) => ({ config, score: scoreConfigMatch(config, factoryScope, taskScope) }))
+    .filter((item) => item.score >= 0)
+    .sort((a, b) => b.score - a.score)
+
+  return candidates[0]?.config
+}
+
 export function listMilestoneProcessOptions(): MilestoneProcessOption[] {
   const map = new Map<string, MilestoneProcessOption>()
 
@@ -230,6 +505,19 @@ export function getMilestoneProofRequirementLabel(requirement: MilestoneProofReq
   return MILESTONE_PROOF_REQUIREMENT_LABEL[requirement]
 }
 
+export function getFactoryTypeScopeLabel(scope: ExecutionFactoryTypeScope): string {
+  return getExecutionFactoryTypeScopeLabel(scope)
+}
+
+export function getTaskTypeScopeLabel(scope: ExecutionTaskTypeScope): string {
+  return getExecutionTaskTypeScopeLabel(scope)
+}
+
+export function getMilestoneStartRuleLabel(config: MilestoneConfig): string {
+  if (!config.startRequired) return '不要求开工'
+  return `要求开工，${config.startDueHours} 小时内确认`
+}
+
 export function getMilestoneRuleTypeLabel(ruleType: MilestoneRuleType): string {
   return MILESTONE_RULE_TYPE_LABEL[ruleType]
 }
@@ -247,8 +535,15 @@ export function createMilestoneConfig(
   payload: UpsertMilestoneConfigPayload,
   by: string,
 ): { ok: boolean; message: string; config?: MilestoneConfig } {
-  if (getConfigIndexByProcess(payload.processCode, payload.processNameZh) >= 0) {
-    return { ok: false, message: '该工序工艺已存在节点上报配置，请直接编辑现有配置' }
+  if (
+    getConfigIndexByScope(
+      payload.processCode,
+      payload.processNameZh,
+      payload.factoryTypeScope,
+      payload.taskTypeScope,
+    ) >= 0
+  ) {
+    return { ok: false, message: '该工序工艺、工厂类型和任务类型已存在配置，请直接编辑现有配置' }
   }
 
   const targetQty = normalizeTargetQty(payload.targetQty)
@@ -257,6 +552,14 @@ export function createMilestoneConfig(
     id: nextMilestoneConfigId(payload.processCode),
     processCode: payload.processCode,
     processNameZh: payload.processNameZh,
+    factoryTypeScope: payload.factoryTypeScope,
+    factoryTypeScopeLabel: getExecutionFactoryTypeScopeLabel(payload.factoryTypeScope),
+    taskTypeScope: payload.taskTypeScope,
+    taskTypeScopeLabel: getExecutionTaskTypeScopeLabel(payload.taskTypeScope),
+    startRequired: payload.startRequired,
+    startProofRequirement: payload.startProofRequirement,
+    startProofRequirementLabel: getMilestoneProofRequirementLabel(payload.startProofRequirement),
+    startDueHours: normalizeTargetQty(payload.startDueHours),
     enabled: payload.enabled,
     ruleType: payload.ruleType,
     targetQty,
@@ -282,6 +585,11 @@ export function updateMilestoneConfig(
     Pick<
       MilestoneConfig,
       | 'enabled'
+      | 'factoryTypeScope'
+      | 'taskTypeScope'
+      | 'startRequired'
+      | 'startProofRequirement'
+      | 'startDueHours'
       | 'ruleType'
       | 'targetQty'
       | 'proofRequirement'
@@ -300,16 +608,27 @@ export function updateMilestoneConfig(
   const targetQty = normalizeTargetQty(payload.targetQty ?? current.targetQty)
   const targetUnit = getMilestoneTargetUnitByRuleType(ruleType)
   const proofRequirement = payload.proofRequirement || current.proofRequirement
+  const startProofRequirement = payload.startProofRequirement || current.startProofRequirement
+  const factoryTypeScope = payload.factoryTypeScope || current.factoryTypeScope
+  const taskTypeScope = payload.taskTypeScope || current.taskTypeScope
+  const ruleChanged = payload.ruleType !== undefined || payload.targetQty !== undefined
   const next: MilestoneConfig = {
     ...current,
     ...payload,
+    factoryTypeScope,
+    factoryTypeScopeLabel: getExecutionFactoryTypeScopeLabel(factoryTypeScope),
+    taskTypeScope,
+    taskTypeScopeLabel: getExecutionTaskTypeScopeLabel(taskTypeScope),
+    startProofRequirement,
+    startProofRequirementLabel: getMilestoneProofRequirementLabel(startProofRequirement),
+    startDueHours: normalizeTargetQty(payload.startDueHours ?? current.startDueHours),
     ruleType,
     targetQty,
     targetUnit,
     proofRequirement,
     proofRequirementLabel: getMilestoneProofRequirementLabel(proofRequirement),
     overdueHours: normalizeTargetQty(payload.overdueHours ?? current.overdueHours),
-    ruleLabel: buildMilestoneRuleLabel(ruleType, targetQty, targetUnit),
+    ruleLabel: ruleChanged ? buildMilestoneRuleLabel(ruleType, targetQty, targetUnit) : current.ruleLabel,
     updatedAt: nowTimestamp(),
     updatedBy: by,
   }

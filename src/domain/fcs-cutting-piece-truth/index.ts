@@ -1,5 +1,6 @@
-import { getProductionOrderCompatTechPack } from '../../data/fcs/production-order-tech-pack-runtime.ts'
-import type { TechPack } from '../../data/fcs/tech-packs.ts'
+import { getProductionOrderTechPackSnapshot } from '../../data/fcs/production-order-tech-pack-runtime.ts'
+import type { ProductionOrderTechPackSnapshot } from '../../data/fcs/production-tech-pack-snapshot-types.ts'
+import type { TechnicalColorMaterialMappingLine } from '../../data/pcs-technical-data-version-types.ts'
 import type {
   CuttingCutOrderSkuScopeLine,
   CuttingMaterialLine,
@@ -24,7 +25,7 @@ export interface ProductionResolvedTechPackLink {
   status: 'MATCHED' | 'MISSING'
   resolvedSpuCode: string
   sourceKey: 'record-tech-pack' | 'record-spu' | 'missing'
-  techPack: TechPack | null
+  techPack: ProductionOrderTechPackSnapshot | null
 }
 
 export interface ProductionSkuRequirementRef {
@@ -354,29 +355,25 @@ function getMergeBatchIdentity(materialLine: CuttingMaterialLine): {
 }
 
 function lineMatchesMaterial(
-  line: NonNullable<TechPack['colorMaterialMappings']>[number]['lines'][number],
+  line: TechnicalColorMaterialMappingLine,
   materialSku: string,
 ): boolean {
   return equalsLoose(line.materialCode, materialSku) || equalsLoose(line.materialName, materialSku)
 }
 
 function resolveSkuCode(
-  techPack: TechPack,
+  techPack: ProductionOrderTechPackSnapshot,
   line: Pick<CuttingCutOrderSkuScopeLine, 'skuCode' | 'color' | 'size'>,
 ): string {
   const normalizedSkuCode = normalizeText(line.skuCode)
-  if (normalizedSkuCode) {
-    const exactMatched = (techPack.skuCatalog || []).find((item) => equalsLoose(item.skuCode, normalizedSkuCode))
-    if (exactMatched) return exactMatched.skuCode
-  }
+  if (normalizedSkuCode) return normalizedSkuCode
 
-  const matchedByColorSize = (techPack.skuCatalog || []).find(
-    (item) => equalsLoose(item.color, line.color) && equalsLoose(item.size, line.size),
-  )
-  return matchedByColorSize?.skuCode || ''
+  const mapping = resolveColorMapping(techPack, line.color)
+  const skuCodes = (mapping?.lines || []).flatMap((mappingLine) => mappingLine.applicableSkuCodes || [])
+  return skuCodes.find((skuCode) => equalsLoose(skuCode.split('-').pop() || '', line.size) || equalsLoose(skuCode, line.size)) || skuCodes[0] || ''
 }
 
-function resolveColorMapping(techPack: TechPack, color: string) {
+function resolveColorMapping(techPack: ProductionOrderTechPackSnapshot, color: string) {
   return (
     (techPack.colorMaterialMappings || []).find(
       (mapping) => equalsLoose(mapping.colorName, color) || equalsLoose(mapping.colorCode, color),
@@ -385,8 +382,8 @@ function resolveColorMapping(techPack: TechPack, color: string) {
 }
 
 function buildPatternFallbackRows(
-  techPack: TechPack,
-  mappingLine: NonNullable<TechPack['colorMaterialMappings']>[number]['lines'][number],
+  techPack: ProductionOrderTechPackSnapshot,
+  mappingLine: TechnicalColorMaterialMappingLine,
   skuCode: string,
 ): Array<{ partCode: string; partName: string; pieceCountPerUnit: number; patternId: string; patternName: string }> {
   if (!mappingLine.patternId) return []
@@ -462,11 +459,11 @@ function pushIssue(
 export function resolveTechPackForProduction(
   record: Pick<CuttingOrderProgressRecord, 'productionOrderId' | 'techPackSpuCode' | 'spuCode'>,
 ): ProductionResolvedTechPackLink {
-  const techPack = getProductionOrderCompatTechPack(record.productionOrderId)
+  const techPack = getProductionOrderTechPackSnapshot(record.productionOrderId)
   if (techPack) {
     return {
       status: 'MATCHED',
-      resolvedSpuCode: normalizeText(record.techPackSpuCode) || normalizeText(record.spuCode) || techPack.spuCode,
+      resolvedSpuCode: normalizeText(record.techPackSpuCode) || normalizeText(record.spuCode) || techPack.styleCode,
       sourceKey: normalizeText(record.techPackSpuCode) ? 'record-tech-pack' : 'record-spu',
       techPack,
     }
@@ -840,7 +837,7 @@ function buildGapStateRow(
 
   if (gapCutQty > 0) {
     if (materialLine?.configStatus !== 'CONFIGURED' || materialLine?.receiveStatus !== 'RECEIVED') {
-      return { currentStateLabel: '待配料 / 待领料', nextActionLabel: '去仓库配料领料' }
+      return { currentStateLabel: '待WMS领料入仓', nextActionLabel: '去待加工仓' }
     }
     if (materialLine?.issueFlags.includes('REPLENISH_PENDING') || record.riskFlags.includes('REPLENISH_PENDING') || hasReplenishmentSignal) {
       return { currentStateLabel: '待补料', nextActionLabel: '去补料管理' }

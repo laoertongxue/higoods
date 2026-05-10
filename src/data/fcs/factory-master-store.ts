@@ -138,8 +138,10 @@ function createOnboardingOfficialSeedFactories(): Factory[] {
 
 function mergeSeedFactories(factories: Factory[]): Factory[] {
   const existingIds = new Set(factories.map((factory) => factory.id))
+  const missingMockSeeds = mockFactories.filter((factory) => !existingIds.has(factory.id))
+  missingMockSeeds.forEach((factory) => existingIds.add(factory.id))
   const missingOfficialSeeds = createOnboardingOfficialSeedFactories().filter((factory) => !existingIds.has(factory.id))
-  return [...factories, ...missingOfficialSeeds]
+  return [...factories, ...missingMockSeeds, ...missingOfficialSeeds]
 }
 
 function loadFactoryMasterRecords(): Factory[] {

@@ -16,7 +16,6 @@ import type {
   TaskBreakdownSummary,
 } from './production-orders.ts'
 import type { ProductionOrderTechPackSnapshot } from './production-tech-pack-snapshot-types.ts'
-import { buildSeedProductionOrderTechPackSnapshot } from './production-tech-pack-snapshot-builder.ts'
 import {
   getSettlementEffectiveInfoByFactory,
   getSettlementEffectiveInfoByFactoryAt,
@@ -313,25 +312,13 @@ function buildDemandSnapshot(factoryIndex: number, orderIndex: number, totalQty:
   }
 }
 
-function buildTechPackSnapshot(input: {
+function buildTechPackSnapshot(_input: {
   productionOrderId: string
   productionOrderNo: string
   demandSnapshot: DemandSnapshot
   createdAt: string
-}): ProductionOrderTechPackSnapshot {
-  return buildSeedProductionOrderTechPackSnapshot({
-    productionOrderId: input.productionOrderId,
-    productionOrderNo: input.productionOrderNo,
-    demand: {
-      spuCode: input.demandSnapshot.spuCode,
-      spuName: input.demandSnapshot.spuName,
-      skuLines: input.demandSnapshot.skuLines,
-      techPackVersionLabel: 'v2026.03',
-      techPackStatus: 'RELEASED',
-    },
-    snapshotAt: input.createdAt,
-    snapshotBy: '系统',
-  })
+}): ProductionOrderTechPackSnapshot | null {
+  return null
 }
 
 function buildAssignmentSummary(): AssignmentSummary {

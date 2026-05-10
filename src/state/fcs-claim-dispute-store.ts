@@ -23,6 +23,11 @@ import type {
   ClaimDisputeRecord,
   ClaimDisputeStatus,
 } from '../models/fcs-claim-dispute.ts'
+import {
+  getBrowserLocalStorage,
+  readBrowserStorageItem,
+  writeBrowserStorageItem,
+} from '../data/browser-storage.ts'
 
 export const FCS_CLAIM_DISPUTE_LEDGER_STORAGE_KEY = 'fcsClaimDisputeLedger'
 
@@ -141,11 +146,7 @@ function syncAllCases(records: ClaimDisputeRecord[]): void {
 
 function save(records: ClaimDisputeRecord[]): void {
   memoryLedger = records
-  try {
-    localStorage.setItem(FCS_CLAIM_DISPUTE_LEDGER_STORAGE_KEY, serialize(records))
-  } catch {
-    // ignore storage errors in prototype
-  }
+  writeBrowserStorageItem(getBrowserLocalStorage(), FCS_CLAIM_DISPUTE_LEDGER_STORAGE_KEY, serialize(records))
   syncAllCases(records)
 }
 
@@ -183,7 +184,7 @@ function getSeedDisputes(): ClaimDisputeRecord[] {
 
 function ensureLedger(): ClaimDisputeRecord[] {
   if (memoryLedger) return memoryLedger
-  const stored = deserialize(typeof localStorage === 'undefined' ? null : localStorage.getItem(FCS_CLAIM_DISPUTE_LEDGER_STORAGE_KEY))
+  const stored = deserialize(readBrowserStorageItem(getBrowserLocalStorage(), FCS_CLAIM_DISPUTE_LEDGER_STORAGE_KEY))
   const next = stored.length ? stored : getSeedDisputes()
   save(next)
   return next

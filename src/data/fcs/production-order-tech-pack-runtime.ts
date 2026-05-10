@@ -1,5 +1,4 @@
 import {
-  buildCompatTechPackFromProductionSnapshot,
   cloneProductionOrderTechPackSnapshot,
 } from './production-tech-pack-snapshot-builder.ts'
 import type {
@@ -10,18 +9,17 @@ import type {
   TechPackSizeMeasurementSnapshot,
 } from './production-tech-pack-snapshot-types.ts'
 import { getProductionOrderTechPackSnapshot as getOrderSnapshot } from './production-orders.ts'
-import type { TechnicalQualityRule } from '../pcs-technical-data-version-types.ts'
 import type {
-  TechPack,
-  TechPackAttachment,
-  TechPackBomItem,
-  TechPackColorMaterialMapping,
-  TechPackPatternDesign,
-  TechPackProcessEntry,
-  TechPackSizeRow,
-} from './tech-packs.ts'
+  TechnicalAttachment,
+  TechnicalBomItem,
+  TechnicalColorMaterialMapping,
+  TechnicalPatternDesign,
+  TechnicalProcessEntry,
+  TechnicalQualityRule,
+  TechnicalSizeRow,
+} from '../pcs-technical-data-version-types.ts'
 
-function cloneBomItems(items: TechPackBomItem[]): TechPackBomItem[] {
+function cloneBomItems(items: TechnicalBomItem[]): TechnicalBomItem[] {
   return items.map((item) => ({
     ...item,
     applicableSkuCodes: [...(item.applicableSkuCodes ?? [])],
@@ -56,10 +54,9 @@ function clonePatternFiles(items: TechPackPatternFileSnapshot[]): TechPackPatter
   }))
 }
 
-function cloneProcessEntries(items: TechPackProcessEntry[]): TechPackProcessEntry[] {
+function cloneProcessEntries(items: TechnicalProcessEntry[]): TechnicalProcessEntry[] {
   return items.map((item) => ({
     ...item,
-    selectedTargetObject: item.selectedTargetObject,
     detailSplitDimensions: [...(item.detailSplitDimensions ?? [])],
     supportedTargetObjects: [...(item.supportedTargetObjects ?? [])],
     supportedTargetObjectLabels: [...(item.supportedTargetObjectLabels ?? [])],
@@ -67,7 +64,7 @@ function cloneProcessEntries(items: TechPackProcessEntry[]): TechPackProcessEntr
   }))
 }
 
-function cloneSizeTable(items: TechPackSizeRow[]): TechPackSizeRow[] {
+function cloneSizeTable(items: TechnicalSizeRow[]): TechnicalSizeRow[] {
   return items.map((item) => ({ ...item }))
 }
 
@@ -75,7 +72,7 @@ function cloneQualityRules(items: TechnicalQualityRule[]): TechnicalQualityRule[
   return items.map((item) => ({ ...item }))
 }
 
-function cloneColorMappings(items: TechPackColorMaterialMapping[]): TechPackColorMaterialMapping[] {
+function cloneColorMappings(items: TechnicalColorMaterialMapping[]): TechnicalColorMaterialMapping[] {
   return items.map((item) => ({
     ...item,
     lines: item.lines.map((line) => ({
@@ -85,11 +82,11 @@ function cloneColorMappings(items: TechPackColorMaterialMapping[]): TechPackColo
   }))
 }
 
-function clonePatternDesigns(items: TechPackPatternDesign[]): TechPackPatternDesign[] {
+function clonePatternDesigns(items: TechnicalPatternDesign[]): TechnicalPatternDesign[] {
   return items.map((item) => ({ ...item }))
 }
 
-function cloneAttachments(items: TechPackAttachment[]): TechPackAttachment[] {
+function cloneAttachments(items: TechnicalAttachment[]): TechnicalAttachment[] {
   return items.map((item) => ({ ...item }))
 }
 
@@ -124,23 +121,13 @@ function cloneImageSnapshot(snapshot: TechPackImageSnapshot): TechPackImageSnaps
   }
 }
 
-function buildCompatTechPack(snapshot: ProductionOrderTechPackSnapshot): TechPack {
-  return buildCompatTechPackFromProductionSnapshot(snapshot)
-}
-
 export function getProductionOrderTechPackSnapshot(
   productionOrderId: string,
 ): ProductionOrderTechPackSnapshot | null {
   return cloneProductionOrderTechPackSnapshot(getOrderSnapshot(productionOrderId))
 }
 
-export function getProductionOrderCompatTechPack(productionOrderId: string): TechPack | null {
-  const snapshot = getProductionOrderTechPackSnapshot(productionOrderId)
-  if (!snapshot) return null
-  return buildCompatTechPack(snapshot)
-}
-
-export function getProductionOrderBomItems(productionOrderId: string): TechPackBomItem[] {
+export function getProductionOrderBomItems(productionOrderId: string): TechnicalBomItem[] {
   const snapshot = getProductionOrderTechPackSnapshot(productionOrderId)
   return snapshot ? cloneBomItems(snapshot.bomItems) : []
 }
@@ -150,12 +137,12 @@ export function getProductionOrderPatternFiles(productionOrderId: string): TechP
   return snapshot ? clonePatternFiles(snapshot.patternFiles) : []
 }
 
-export function getProductionOrderProcessEntries(productionOrderId: string): TechPackProcessEntry[] {
+export function getProductionOrderProcessEntries(productionOrderId: string): TechnicalProcessEntry[] {
   const snapshot = getProductionOrderTechPackSnapshot(productionOrderId)
   return snapshot ? cloneProcessEntries(snapshot.processEntries) : []
 }
 
-export function getProductionOrderSizeTable(productionOrderId: string): TechPackSizeRow[] {
+export function getProductionOrderSizeTable(productionOrderId: string): TechnicalSizeRow[] {
   const snapshot = getProductionOrderTechPackSnapshot(productionOrderId)
   return snapshot ? cloneSizeTable(snapshot.sizeTable) : []
 }
@@ -167,17 +154,17 @@ export function getProductionOrderQualityRules(productionOrderId: string): Techn
 
 export function getProductionOrderColorMaterialMappings(
   productionOrderId: string,
-): TechPackColorMaterialMapping[] {
+): TechnicalColorMaterialMapping[] {
   const snapshot = getProductionOrderTechPackSnapshot(productionOrderId)
   return snapshot ? cloneColorMappings(snapshot.colorMaterialMappings) : []
 }
 
-export function getProductionOrderPatternDesigns(productionOrderId: string): TechPackPatternDesign[] {
+export function getProductionOrderPatternDesigns(productionOrderId: string): TechnicalPatternDesign[] {
   const snapshot = getProductionOrderTechPackSnapshot(productionOrderId)
   return snapshot ? clonePatternDesigns(snapshot.patternDesigns) : []
 }
 
-export function getProductionOrderAttachments(productionOrderId: string): TechPackAttachment[] {
+export function getProductionOrderAttachments(productionOrderId: string): TechnicalAttachment[] {
   const snapshot = getProductionOrderTechPackSnapshot(productionOrderId)
   return snapshot ? cloneAttachments(snapshot.attachments) : []
 }

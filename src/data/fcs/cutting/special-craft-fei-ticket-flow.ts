@@ -123,7 +123,7 @@ export interface CuttingSpecialCraftFeiTicketBinding {
     | '待确认顺序'
   currentLocation:
     | '裁床厂待交出仓'
-    | '特殊工艺厂待领料'
+    | '特殊工艺厂待来料'
     | '特殊工艺厂待加工仓'
     | '特殊工艺厂待交出仓'
     | '回仓途中'
@@ -604,7 +604,7 @@ function ensurePickupHead(
     taskNo: binding.taskOrderNo,
     sourceTaskNo: binding.taskOrderNo,
     productionOrderNo: binding.productionOrderNo,
-    processName: `${binding.operationName}待领料`,
+    processName: `${binding.operationName}待来料`,
     sourceFactoryName: getCuttingFactory().name,
     sourceFactoryId: getCuttingFactory().id,
     targetName: binding.targetFactoryName,
@@ -1299,7 +1299,7 @@ function buildPickupRecordFromBinding(
     warehouseHandedQty: handedQty,
     warehouseHandedAt: submittedAt,
     warehouseHandedBy: operatorName,
-    remark: '特殊工艺发料待领料',
+    remark: '特殊工艺发料待来料',
   }
 }
 
@@ -1395,7 +1395,7 @@ export function createSpecialCraftDispatchHandoverFromFeiTickets(input: {
       dispatchHandoverRecordNo: record.handoverRecordNo || record.recordId,
       feiTicketStatus: '已发料',
       specialCraftFlowStatus: '已发料',
-      currentLocation: '特殊工艺厂待领料',
+      currentLocation: '特殊工艺厂待来料',
       updatedAt: input.submittedAt,
     }))
     const eventBinding = appendFlowEvent(

@@ -250,15 +250,15 @@ export const configMeta: Record<CuttingConfigStatus, { label: string; className:
 
 export const receiveMeta: Record<ProductionProgressReceiveKey, { label: string; className: string }> = {
   NOT_RECEIVED: { label: '待领取', className: 'bg-slate-100 text-slate-700' },
-  PARTIAL: { label: '部分领取', className: 'bg-orange-100 text-orange-700' },
-  RECEIVED: { label: '领料成功', className: 'bg-emerald-100 text-emerald-700' },
+  PARTIAL: { label: '部分来料', className: 'bg-orange-100 text-orange-700' },
+  RECEIVED: { label: '来料成功', className: 'bg-emerald-100 text-emerald-700' },
   EXCEPTION: { label: '领取异常', className: 'bg-rose-100 text-rose-700' },
 }
 
 export const stageMeta: Record<ProductionProgressStageKey, { label: string; className: string }> = {
-  WAITING_PREP: { label: '待配料', className: 'bg-slate-100 text-slate-700' },
-  PREPPING: { label: '配料中', className: 'bg-amber-100 text-amber-700' },
-  WAITING_CLAIM: { label: '待领料', className: 'bg-blue-100 text-blue-700' },
+  WAITING_PREP: { label: 'WMS 待处理', className: 'bg-slate-100 text-slate-700' },
+  PREPPING: { label: 'WMS处理中', className: 'bg-amber-100 text-amber-700' },
+  WAITING_CLAIM: { label: '待来料', className: 'bg-blue-100 text-blue-700' },
   CUTTING: { label: '裁剪中', className: 'bg-violet-100 text-violet-700' },
   WAITING_INBOUND: { label: '待入仓', className: 'bg-sky-100 text-sky-700' },
   DONE: { label: '已完成', className: 'bg-emerald-100 text-emerald-700' },
@@ -271,7 +271,7 @@ export const pieceCompletionMeta: Record<ProductionPieceCompletionKey, { label: 
   productionPieceTruthCompletionMetaMap
 
 export const riskMeta: Record<ProductionProgressRiskKey, { label: string; className: string }> = {
-  CONFIG_DELAY: { label: '配料滞后', className: 'bg-amber-100 text-amber-700 border border-amber-200' },
+  CONFIG_DELAY: { label: 'WMS滞后', className: 'bg-amber-100 text-amber-700 border border-amber-200' },
   SHIP_URGENT: { label: '临近发货', className: 'bg-red-100 text-red-700 border border-red-200' },
   REPLENISH_PENDING: { label: '待补料', className: 'bg-purple-100 text-purple-700 border border-purple-200' },
   PIECE_GAP: { label: '裁片缺口', className: 'bg-orange-100 text-orange-700 border border-orange-200' },
@@ -447,11 +447,11 @@ function buildCurrentStage(
     key = 'DONE'
   } else if (/待入仓/.test(record.cuttingStage) || record.riskFlags.includes('INBOUND_PENDING')) {
     key = 'WAITING_INBOUND'
-  } else if (record.hasSpreadingRecord || /裁片中|裁剪中|领料完成/.test(record.cuttingStage)) {
+  } else if (record.hasSpreadingRecord || /裁片中|裁剪中|来料完成/.test(record.cuttingStage)) {
     key = 'CUTTING'
-  } else if (claimSummary.key !== 'NOT_RECEIVED' || /待领料|领料/.test(record.cuttingStage)) {
+  } else if (claimSummary.key !== 'NOT_RECEIVED' || /待来料|WMS 来料/.test(record.cuttingStage)) {
     key = 'WAITING_CLAIM'
-  } else if (prepSummary.key === 'PARTIAL' || /配料中/.test(record.cuttingStage)) {
+  } else if (prepSummary.key === 'PARTIAL' || /WMS处理中/.test(record.cuttingStage)) {
     key = 'PREPPING'
   } else {
     key = 'WAITING_PREP'
@@ -697,7 +697,7 @@ function buildProgressStateLabel(options: {
   hasReceivedQty: boolean
 }): string {
   if (!options.hasConfiguredQty && !options.hasReceivedQty && options.actualCutQty <= 0 && options.inboundQty <= 0) {
-    return '待配料 / 待领料'
+    return 'WMS 待处理 / 待来料'
   }
   if (options.actualCutQty <= 0) {
     return '待铺布'
@@ -713,7 +713,7 @@ function buildProgressStateLabel(options: {
 
 function resolveProgressStateClassName(label: string): string {
   if (label === '已齐套') return 'text-emerald-700'
-  if (label === '待配料 / 待领料' || label === '待铺布') return 'text-amber-700'
+  if (label === 'WMS 待处理 / 待来料' || label === '待铺布') return 'text-amber-700'
   return 'text-orange-700'
 }
 

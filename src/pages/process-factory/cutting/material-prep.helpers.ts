@@ -27,9 +27,9 @@ export const configMeta: Record<CuttingConfigStatus, { label: string; className:
 }
 
 export const receiveMeta: Record<CuttingReceiveStatus, { label: string; className: string }> = {
-  NOT_RECEIVED: { label: '未领料', className: 'bg-slate-100 text-slate-700' },
-  PARTIAL: { label: '部分领料', className: 'bg-orange-100 text-orange-700' },
-  RECEIVED: { label: '领料成功', className: 'bg-emerald-100 text-emerald-700' },
+  NOT_RECEIVED: { label: '未入待加工仓', className: 'bg-slate-100 text-slate-700' },
+  PARTIAL: { label: '部分来料', className: 'bg-orange-100 text-orange-700' },
+  RECEIVED: { label: '来料成功', className: 'bg-emerald-100 text-emerald-700' },
 }
 
 export const printMeta: Record<CuttingPrintSlipStatus, { label: string; className: string }> = {
@@ -225,14 +225,14 @@ export function buildGroupConfigSummary(group: CuttingMaterialPrepGroup): string
 export function buildGroupReceiveSummary(group: CuttingMaterialPrepGroup): string {
   const received = group.materialLines.filter((line) => line.receiveStatus === 'RECEIVED').length
   const partial = group.materialLines.filter((line) => line.receiveStatus === 'PARTIAL').length
-  return `领料成功 ${received} 条 · 部分领料 ${partial} 条`
+  return `来料成功 ${received} 条 · 部分来料 ${partial} 条`
 }
 
 export function buildGroupRiskFlags(group: CuttingMaterialPrepGroup): string[] {
   const flags = new Set<string>()
   group.materialLines.forEach((line) => {
     if (line.configStatus === 'PARTIAL') flags.add('部分配置')
-    if (line.receiveStatus !== 'RECEIVED') flags.add('待领料')
+    if (line.receiveStatus !== 'RECEIVED') flags.add('待来料')
     if (line.discrepancyStatus === 'RECHECK_REQUIRED') flags.add('待核对')
     if (line.discrepancyStatus === 'PHOTO_SUBMITTED') flags.add('已提交照片')
     if (line.issueFlags.includes('待补料')) flags.add('待补料')
@@ -242,9 +242,9 @@ export function buildGroupRiskFlags(group: CuttingMaterialPrepGroup): string[] {
 }
 
 export function buildBatchCoverageSummary(line: CuttingMaterialPrepLine): string {
-  if (!line.configBatches.length) return '尚未生成配料批次。'
+  if (!line.configBatches.length) return '尚未生成来料批次。'
   const pending = line.configBatches.filter((batch) => !batch.printIncluded).length
-  return pending ? `当前有 ${pending} 笔本次配料待打印。` : `共 ${line.configBatches.length} 笔配料批次，均已进入打印记录。`
+  return pending ? `当前有 ${pending} 笔本次来料待打印。` : `共 ${line.configBatches.length} 笔来料批次，均已进入打印记录。`
 }
 
 export function getPendingPrintBatches(line: CuttingMaterialPrepLine) {

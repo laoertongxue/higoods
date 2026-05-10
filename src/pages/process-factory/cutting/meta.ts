@@ -1,9 +1,7 @@
 /**
  * 裁片域页面元数据单一来源。
  *
- * 这里固定 canonicalPath、可见 pageTitle 和 alias 兼容关系，
- * 避免菜单、页面头部和旧路由标题再次漂移。
- * alias 仅保留兼容旧入口；内部跳转优先使用 canonicalPath。
+ * 这里固定 canonicalPath 与可见 pageTitle，菜单、页面头部和路由标题统一读取。
  */
 import { escapeHtml } from '../../../utils.ts'
 
@@ -12,7 +10,6 @@ export type CuttingCanonicalPageKey =
   | 'cuttable-pool'
   | 'merge-batches'
   | 'original-orders'
-  | 'material-prep'
   | 'marker-list'
   | 'marker-create'
   | 'spreading-list'
@@ -44,7 +41,7 @@ export type CuttingCanonicalPageKey =
   | 'special-processes'
   | 'summary'
 
-type CuttingPageKey = CuttingCanonicalPageKey | 'warehouse-compat'
+type CuttingPageKey = CuttingCanonicalPageKey
 
 export interface CuttingPageMeta {
   key: CuttingPageKey
@@ -62,7 +59,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
   'production-progress': {
     key: 'production-progress',
     canonicalPath: '/fcs/craft/cutting/production-progress',
-    aliases: ['/fcs/craft/cutting', '/fcs/craft/cutting/order-progress', '/fcs/craft/cutting/tasks'],
+    aliases: [],
     menuGroupTitle: '裁床总览',
     pageTitle: '生产单进度',
     pageSubtitle: '',
@@ -92,22 +89,12 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
   'original-orders': {
     key: 'original-orders',
     canonicalPath: '/fcs/craft/cutting/original-orders',
-    aliases: ['/fcs/craft/cutting/orders', '/fcs/craft/cutting/cut-piece-orders'],
+    aliases: [],
     menuGroupTitle: '裁前准备',
     pageTitle: '原始裁片单',
     pageSubtitle: '',
     isPlaceholder: false,
     shortDescription: '查看原始裁片单与执行记录。',
-  },
-  'material-prep': {
-    key: 'material-prep',
-    canonicalPath: '/fcs/craft/cutting/material-prep',
-    aliases: [],
-    menuGroupTitle: '裁前准备',
-    pageTitle: '仓库配料领料',
-    pageSubtitle: '',
-    isPlaceholder: false,
-    shortDescription: '查看配料、领料与裁片单二维码。',
   },
   'marker-list': {
     key: 'marker-list',
@@ -202,7 +189,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
   'fei-tickets': {
     key: 'fei-tickets',
     canonicalPath: '/fcs/craft/cutting/fei-tickets',
-    aliases: ['/fcs/craft/cutting/fei-ticket', '/fcs/craft/cutting/fei-list'],
+    aliases: [],
     menuGroupTitle: '裁后处理',
     pageTitle: '首次打印菲票',
     pageSubtitle: '',
@@ -301,7 +288,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
   },
   'fabric-warehouse': {
     key: 'fabric-warehouse',
-    canonicalPath: '/fcs/craft/cutting/fabric-warehouse',
+    canonicalPath: '/fcs/craft/cutting/warehouse-management/wait-process?tab=fabric-warehouse',
     aliases: [],
     menuGroupTitle: '裁床仓库管理',
     pageTitle: '裁床仓',
@@ -311,7 +298,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
   },
   'cut-piece-warehouse': {
     key: 'cut-piece-warehouse',
-    canonicalPath: '/fcs/craft/cutting/cut-piece-warehouse',
+    canonicalPath: '/fcs/craft/cutting/warehouse-management/wait-handover?tab=cut-piece-warehouse',
     aliases: [],
     menuGroupTitle: '裁床仓库管理',
     pageTitle: '裁片仓',
@@ -361,7 +348,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
   },
   'special-craft-dispatch': {
     key: 'special-craft-dispatch',
-    canonicalPath: '/fcs/craft/cutting/special-craft-dispatch',
+    canonicalPath: '/fcs/craft/cutting/warehouse-management/wait-process?tab=special-craft-dispatch',
     aliases: [],
     menuGroupTitle: '裁床仓库管理',
     pageTitle: '特殊工艺发料',
@@ -371,7 +358,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
   },
   'special-craft-return': {
     key: 'special-craft-return',
-    canonicalPath: '/fcs/craft/cutting/special-craft-return',
+    canonicalPath: '/fcs/craft/cutting/warehouse-management/wait-handover?tab=special-craft-return',
     aliases: [],
     menuGroupTitle: '裁床仓库管理',
     pageTitle: '特殊工艺回仓',
@@ -381,8 +368,8 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
   },
   'sewing-dispatch': {
     key: 'sewing-dispatch',
-    canonicalPath: '/fcs/craft/cutting/sewing-dispatch',
-    aliases: ['/fcs/process-factory/cutting/sewing-dispatch'],
+    canonicalPath: '/fcs/craft/cutting/warehouse-management/wait-handover?tab=sewing-dispatch',
+    aliases: [],
     menuGroupTitle: '裁床仓库管理',
     pageTitle: '裁片发料',
     pageSubtitle: '',
@@ -402,7 +389,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
   summary: {
     key: 'summary',
     canonicalPath: '/fcs/craft/cutting/summary',
-    aliases: ['/fcs/craft/cutting/stats', '/fcs/craft/cutting/bed-stats', '/fcs/craft/cutting/cutting-summary'],
+    aliases: [],
     menuGroupTitle: '裁后处理',
     pageTitle: '裁剪总结',
     pageSubtitle: '',
@@ -411,29 +398,12 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
   },
 }
 
-// 仓务兼容入口只保留跳转，当前正式语义统一收口到“裁床仓库管理”。
-const CUTTING_WAREHOUSE_COMPAT_META: CuttingPageMeta = {
-  key: 'warehouse-compat',
-  canonicalPath: '/fcs/craft/cutting/warehouse-management/wait-process',
-  aliases: ['/fcs/craft/cutting/warehouse', '/fcs/craft/cutting/warehouse-management'],
-  menuGroupTitle: '裁床仓库管理',
-  pageTitle: '裁床仓库管理',
-  pageSubtitle: '',
-  isPlaceholder: false,
-  shortDescription: '兼容入口跳转页。',
-}
-
-const CUTTING_META_LIST = [...Object.values(CUTTING_PAGE_META), CUTTING_WAREHOUSE_COMPAT_META]
+const CUTTING_META_LIST = Object.values(CUTTING_PAGE_META)
 
 export function getCanonicalCuttingMeta(pathname: string, fallbackKey?: CuttingPageKey): CuttingPageMeta {
   const matched = CUTTING_META_LIST.find((item) => item.canonicalPath === pathname || item.aliases.includes(pathname))
   if (matched) return matched
-  if (fallbackKey === 'warehouse-compat') return CUTTING_WAREHOUSE_COMPAT_META
-  if (fallbackKey) {
-    return fallbackKey in CUTTING_PAGE_META
-      ? CUTTING_PAGE_META[fallbackKey as CuttingCanonicalPageKey]
-      : CUTTING_WAREHOUSE_COMPAT_META
-  }
+  if (fallbackKey) return CUTTING_PAGE_META[fallbackKey]
   return CUTTING_PAGE_META['production-progress']
 }
 
@@ -458,7 +428,7 @@ export function renderCuttingPageHeader(
   meta: CuttingPageMeta,
   options: {
     actionsHtml?: string
-    showCompatibilityBadge?: boolean
+    showAliasBadge?: boolean
     showPlaceholderBadge?: boolean
   } = {},
 ): string {

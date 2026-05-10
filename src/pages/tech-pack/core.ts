@@ -25,7 +25,6 @@ import {
   renderPatternTemplateDialog,
 } from './pattern-domain.ts'
 import { renderAddTechniqueDialog, renderProcessTab } from './process-domain.ts'
-import { renderAddQualityDialog, renderQualityTab } from './quality-domain.ts'
 import { renderAddSizeDialog, renderSizeTab } from './size-domain.ts'
 
 function renderCurrentTabContent(): string {
@@ -35,7 +34,6 @@ function renderCurrentTabContent(): string {
   if (state.activeTab === 'cost') return renderCostTab()
   if (state.activeTab === 'color-mapping') return renderColorMappingTab()
   if (state.activeTab === 'size') return renderSizeTab()
-  if (state.activeTab === 'quality') return renderQualityTab()
   if (state.activeTab === 'design') return renderDesignTab()
   return renderAttachmentsTab()
 }
@@ -48,7 +46,6 @@ function renderReleaseDialog(): string {
       <section class="w-full max-w-md rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
         <header class="border-b px-6 py-4">
           <h3 class="text-lg font-semibold">发布技术包版本</h3>
-          <p class="mt-1 text-sm text-muted-foreground">确定发布当前草稿吗？发布后生成新的正式版本号，并启用当前版本。</p>
         </header>
         <footer class="flex items-center justify-end gap-2 px-6 py-4">
           <button class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-tech-action="close-release">取消</button>
@@ -100,7 +97,7 @@ function renderTechPackVersionLogsPanel(): string {
                         <div class="text-sm font-medium text-foreground">${escapeHtml(item.logType)}</div>
                         <div class="text-xs text-muted-foreground">${escapeHtml(item.createdAt)}</div>
                       </div>
-                      <div class="mt-2 text-sm text-muted-foreground">${escapeHtml(item.changeText || '未补充版本变更说明。')}</div>
+                      <div class="mt-2 text-sm text-muted-foreground">${escapeHtml(item.changeText || '未补充')}</div>
                       <div class="mt-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
                         <span>操作人：${escapeHtml(item.createdBy || '-')}</span>
                         <span>来源任务：${escapeHtml(item.sourceTaskCode ? `${item.sourceTaskCode} · ${item.sourceTaskName || item.sourceTaskType}` : '系统操作')}</span>
@@ -122,7 +119,7 @@ export function renderTechPackPage(
   options?: {
     spuName?: string
     skuCatalog?: { skuCode: string; color: string; size: string }[]
-    activeTab?: 'pattern' | 'bom' | 'process' | 'color-mapping' | 'size' | 'quality' | 'design' | 'attachments' | 'cost'
+    activeTab?: 'pattern' | 'bom' | 'process' | 'color-mapping' | 'size' | 'design' | 'attachments' | 'cost'
     styleId?: string
     technicalVersionId?: string
   },
@@ -144,7 +141,6 @@ export function renderTechPackPage(
       <div class="flex min-h-[320px] items-center justify-center">
         <section class="rounded-lg border bg-card p-8 text-center">
           <p class="text-base font-medium">未找到正式技术包版本</p>
-          <p class="mt-1 text-sm text-muted-foreground">当前路由未匹配到正式技术包版本。</p>
         </section>
       </div>
     `
@@ -196,7 +192,6 @@ export function renderTechPackPage(
       ${renderDesignThumbnailPreviewDialog()}
       ${renderAddTechniqueDialog()}
       ${renderAddSizeDialog()}
-      ${renderAddQualityDialog()}
       ${renderAddDesignDialog()}
       ${renderAddAttachmentDialog()}
     </div>

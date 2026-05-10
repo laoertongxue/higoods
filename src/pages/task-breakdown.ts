@@ -1,9 +1,5 @@
 import { productionOrders, type ProductionOrder } from '../data/fcs/production-orders.ts'
 import {
-  getProcessDefinitionByCode,
-  isExternalTaskProcess,
-} from '../data/fcs/process-craft-dict.ts'
-import {
   isRuntimeTaskExecutionTask,
   listRuntimeProcessTasks,
   listRuntimeTaskSplitGroupsByOrder,
@@ -13,6 +9,8 @@ import {
   resolveTaskStandardTimeSnapshot,
   sumTaskStandardTimeTotals,
 } from '../data/fcs/process-tasks.ts'
+import { getTaskStartRuleState } from '../data/fcs/pda-start-link.ts'
+import { getTaskMilestoneState } from '../data/fcs/pda-exec-link.ts'
 import { listGeneratedProductionDemandArtifacts } from '../data/fcs/production-artifact-generation.ts'
 import { listSpecialCraftTaskOrders } from '../data/fcs/special-craft-task-orders.ts'
 import {
@@ -142,11 +140,6 @@ function getAllProcessTasks(): RuntimeProcessTask[] {
 
   return result.filter((task) => {
     if (task.defaultDocType === 'DEMAND') return false
-    if (task.processBusinessCode && isExternalTaskProcess(task.processBusinessCode)) return true
-    if (task.processBusinessCode) {
-      const process = getProcessDefinitionByCode(task.processBusinessCode)
-      if (process) return process.generatesExternalTask
-    }
     return true
   })
 }
@@ -382,6 +375,18 @@ function getTaskDetailRows(task: RuntimeProcessTask) {
   return task.detailRows ?? []
 }
 
+function renderTaskExecutionRuleSummary(task: RuntimeProcessTask): string {
+  const startRule = getTaskStartRuleState(task)
+  const milestone = getTaskMilestoneState(task)
+  const milestoneText = milestone.required ? milestone.ruleLabel : '不要求关键节点上报'
+  const milestoneProofText = milestone.required ? milestone.proofRequirementLabel : '—'
+
+  return `
+    <p class="text-[11px] text-muted-foreground">开工：${escapeHtml(startRule.ruleLabel)}；开工凭证：${escapeHtml(startRule.proofRequirementLabel)}</p>
+    <p class="text-[11px] text-muted-foreground">关键节点：${escapeHtml(milestoneText)}；节点凭证：${escapeHtml(milestoneProofText)}</p>
+  `
+}
+
 function renderTaskDetailSummary(task: RuntimeProcessTask): string {
   const detailRows = getTaskDetailRows(task)
   const rolledUpChildNames = task.rolledUpChildProcessNames?.length
@@ -390,6 +395,7 @@ function renderTaskDetailSummary(task: RuntimeProcessTask): string {
   if (detailRows.length === 0) {
     return `
       <p class="mt-1 text-[11px] text-muted-foreground">任务明细行：0 条</p>
+      ${renderTaskExecutionRuleSummary(task)}
       ${
         task.processBusinessCode === 'POST_FINISHING'
           ? `<p class="text-[11px] text-muted-foreground">内含：${escapeHtml(rolledUpChildNames)}</p>`
@@ -409,6 +415,7 @@ function renderTaskDetailSummary(task: RuntimeProcessTask): string {
     <p class="mt-1 text-[11px] text-muted-foreground">任务明细行：${summary.count} 条（合计 ${summary.totalQty}件）</p>
     <p class="text-[11px] text-muted-foreground">${escapeHtml(previewText)}</p>
     <p class="text-[11px] text-muted-foreground">维度：${escapeHtml(firstRowDimensions)}</p>
+    ${renderTaskExecutionRuleSummary(task)}
     ${
       task.processBusinessCode === 'POST_FINISHING'
         ? `<p class="text-[11px] text-muted-foreground">内含：${escapeHtml(rolledUpChildNames)}</p>`

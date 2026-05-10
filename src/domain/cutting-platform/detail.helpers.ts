@@ -77,7 +77,7 @@ export function buildPlatformChainSections(row: PlatformCuttingOverviewRow): Pla
           : '当前无补料建议',
       riskTags: [
         ...(row.record.replenishmentSummary.highRiskCount > 0 ? ['高风险补料'] : []),
-        ...(row.record.replenishmentSummary.pendingPrepCount > 0 ? ['待仓库配料领料'] : []),
+        ...(row.record.replenishmentSummary.pendingPrepCount > 0 ? ['待WMS领料入仓'] : []),
       ],
     },
     {

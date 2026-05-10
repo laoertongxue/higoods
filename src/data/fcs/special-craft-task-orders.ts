@@ -1481,23 +1481,12 @@ function buildWorkOrdersFromTaskOrders(taskOrders: SpecialCraftTaskOrder[]): {
 
 function ensureStore(): SpecialCraftTaskStore {
   if (!specialCraftTaskStore) {
-    const seedTaskOrders = buildSeedTaskOrders()
-    const generatedResults = generateSpecialCraftTaskOrdersForAllProductionOrders(seedTaskOrders)
+    const generatedResults = generateSpecialCraftTaskOrdersForAllProductionOrders([])
     const generatedTaskOrders = generatedResults.flatMap((item) => item.taskOrders)
     const generationBatches = generatedResults.map((item) => item.generationBatch)
     const generationErrors = generatedResults.flatMap((item) => item.errors)
-    const mergedTaskOrders = [...seedTaskOrders]
 
-    generatedTaskOrders.forEach((taskOrder) => {
-      const existingIndex = mergedTaskOrders.findIndex((item) => item.taskOrderId === taskOrder.taskOrderId)
-      if (existingIndex >= 0) {
-        mergedTaskOrders[existingIndex] = taskOrder
-        return
-      }
-      mergedTaskOrders.push(taskOrder)
-    })
-
-    const workOrderBuild = buildWorkOrdersFromTaskOrders(mergedTaskOrders)
+    const workOrderBuild = buildWorkOrdersFromTaskOrders(generatedTaskOrders)
     specialCraftTaskStore = {
       taskOrders: workOrderBuild.syncedTaskOrders,
       workOrders: workOrderBuild.workOrders,

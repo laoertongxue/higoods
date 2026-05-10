@@ -32,7 +32,7 @@ import {
   buildReturnToSummaryContext,
   getCuttingSourcePageLabel,
   hasSummaryReturnContext,
-  normalizeLegacyCuttingPayload,
+  buildCuttingDrillContext,
   readCuttingDrillContextFromLocation,
   type CuttingDrillContext,
   type CuttingNavigationTarget,
@@ -3118,7 +3118,7 @@ function renderBaggingScanStepCard(
             focusedUsage
               ? `
                 ${renderBaggingInlineField('车缝工厂', formatFactoryDisplayName(focusedUsage.sewingFactoryName) || '待锁定')}
-                ${renderBaggingInlineField('当前任务', focusedUsage.sewingTaskNo || '待锁定')}
+                ${renderBaggingInlineField('车缝任务', focusedUsage.sewingTaskNo || '待锁定')}
                 ${renderBaggingInlineField('当前款号', focusedUsage.styleCode || '待锁定')}
               `
               : ''
@@ -4234,7 +4234,7 @@ function navigateByPayload(payload: Record<string, string | undefined>, path: st
   }
   const target = targetMap[path]
   if (target) {
-    const context = normalizeLegacyCuttingPayload(payload, 'transfer-bags', {
+    const context = buildCuttingDrillContext(payload, 'transfer-bags', {
       autoOpenDetail: true,
       bagCode: payload.bagCode,
       usageNo: payload.usageNo,

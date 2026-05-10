@@ -1,6 +1,7 @@
 import { buildFcsCuttingDomainSnapshot, type CuttingDomainSnapshot } from '../../domain/fcs-cutting-runtime/index.ts'
 import {
   getGeneratedOriginalCutOrderSourceRecordById,
+  listGeneratedOriginalCutOrderSourceRecords,
   type GeneratedOriginalCutOrderSourceRecord,
 } from './cutting/generated-original-cut-orders.ts'
 import { buildMarkerPlanProjection } from '../../pages/process-factory/cutting/marker-plan-projection.ts'
@@ -13,11 +14,8 @@ import {
   type PdaCuttingTaskSourceRecord,
 } from './cutting/pda-cutting-task-source.ts'
 import { listPdaGenericProcessTasks } from './pda-task-mock-factory.ts'
+import { listKnittingMobileProcessTasks } from './knitting-task-domain.ts'
 import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
-import {
-  matchPdaExecutionRecord,
-  toLegacyCutPieceOrderNo,
-} from './pda-cutting-legacy-compat.ts'
 import {
   getPdaCuttingTaskScenarioByTaskId,
   listPdaCuttingSpreadingPresetExecutions,
@@ -25,6 +23,12 @@ import {
 import { findPdaHandoverHead } from './pda-handover-events.ts'
 import { getTaskChainTaskById, listTaskChainTasks } from './page-adapters/task-chain-pages-adapter.ts'
 import type { ProcessTask } from './process-tasks.ts'
+import {
+  buildPdaCuttingMainlineTaskPath,
+  buildPdaCuttingMainlineUnitPath,
+  getFirstCuttingMainlineSessionForTask,
+  listCuttingMainlineSessionsForProductionOrder,
+} from './cutting/cutting-mainline.ts'
 import {
   findFactoryPdaRoleById,
   getCurrentPdaUser,
@@ -49,7 +53,7 @@ import type { MarkerPlanViewRow } from '../../pages/process-factory/cutting/mark
 const numberFormatter = new Intl.NumberFormat('zh-CN')
 
 export type PdaTaskEntryMode = 'DEFAULT' | 'CUTTING_SPECIAL'
-export type PdaCuttingRouteKey = 'task' | 'unit' | 'pickup' | 'spreading' | 'inbound' | 'handover' | 'replenishment-feedback'
+export type PdaCuttingRouteKey = 'task' | 'unit' | 'spreading' | 'inbound' | 'handover' | 'replenishment-feedback'
 export type PdaCuttingCurrentStepCode = 'PICKUP' | 'SPREADING' | 'REPLENISHMENT' | 'HANDOVER' | 'INBOUND' | 'DONE'
 export type PdaSpreadingMode = 'NORMAL' | 'HIGH_LOW' | 'FOLD_NORMAL' | 'FOLD_HIGH_LOW'
 
@@ -247,8 +251,6 @@ export interface PdaCuttingTaskDetailData {
   mergeBatchNos: string[]
   executionOrderId: string
   executionOrderNo: string
-  // Boundary-only alias for frozen legacy pickup adapters.
-  cutPieceOrderNo: string
   cutPieceOrders: PdaCuttingTaskOrderLine[]
   cutPieceOrderCount: number
   completedCutPieceOrderCount: number
@@ -364,9 +366,9 @@ function mapMaterialTypeLabel(record: GeneratedOriginalCutOrderSourceRecord | nu
 }
 
 function mapReceiveStatusLabel(status: string | undefined): string {
-  if (status === 'RECEIVED') return '领取成功'
-  if (status === 'PARTIAL') return '部分领取'
-  return '待领料确认'
+  if (status === 'RECEIVED') return '来料已入仓'
+  if (status === 'PARTIAL') return '部分来料'
+  return '待 WMS 来料确认'
 }
 
 function buildPickupSlipNo(originalCutOrderNo: string): string {
@@ -448,7 +450,7 @@ function formatQty(value: number): string {
 }
 
 function buildSpreadingPlanUnitLabel(unit: SpreadingPlanUnit): string {
-  return `${unit.color || '待补颜色'} / ${unit.materialSku || '待补面料'} / ${formatQty(unit.garmentQtyPerUnit)}件`
+  return `${unit.color || '待补颜色'} / ${unit.materialSku || '待补面料'} / ${formatQty(unit.garmentQtyPerUnit)}件/层`
 }
 
 function toSpreadingPlanUnitOption(unit: SpreadingPlanUnit): PdaCuttingSpreadingPlanUnitOption {
@@ -520,6 +522,31 @@ function buildPlanUnitsFromCanonicalPlan(
 ): PdaCuttingSpreadingPlanUnitOption[] {
   const materialSku = (plan.materialSkuSummary || execution.materialSku || '').split(' / ')[0] || execution.materialSku || ''
   const fallbackColor = (plan.colorSummary || execution.colorLabel || '').split(' / ')[0] || execution.colorLabel || ''
+
+  const bedUnits = Array.isArray(plan.beds)
+    ? plan.beds
+        .filter((bed) => bed.readyForSpreading)
+        .map((bed, index) => {
+          const unit: SpreadingPlanUnit = {
+            planUnitId: `plan-unit-${plan.id}-bed-${bed.bedId || index + 1}`,
+            sourceType: bed.bedMode === 'high_low' || bed.bedMode === 'fold_high_low' ? 'high-low-row' : 'marker-line',
+            sourceLineId: bed.bedId || `${index + 1}`,
+            color: bed.colorName || bed.colorCode || fallbackColor,
+            materialSku: bed.materialSku || materialSku,
+            garmentQtyPerUnit: Number(bed.markerPieceQtyPerLayer || 0),
+            plannedRepeatCount: Number(bed.plannedLayerCount || 0),
+            lengthPerUnitM: Number(bed.markerLength || 0),
+            plannedCutGarmentQty: Number(bed.plannedGarmentQty || 0),
+            plannedSpreadLengthM: Number(bed.spreadTotalLength || 0),
+          }
+          return {
+            ...unit,
+            label: buildSpreadingPlanUnitLabel(unit),
+          }
+        })
+    : []
+
+  if (bedUnits.length) return bedUnits
 
   const layoutUnits = Array.isArray(plan.layoutLines)
     ? plan.layoutLines.map((line, index) => ({
@@ -696,15 +723,28 @@ function getMarkerStore(snapshot: CuttingDomainSnapshot): MarkerSpreadingStore {
 }
 
 function listTaskFacts(): ProcessTask[] {
-  const runtimeTasks = listTaskChainTasks()
+  const runtimeTasks = listTaskChainTasks().filter((task) =>
+    task.processBusinessCode !== 'KNITTING'
+    && task.processCode !== 'PROC_KNIT'
+    && task.processCode !== 'KNITTING',
+  )
   const runtimeTaskIds = new Set(runtimeTasks.map((task) => task.taskId))
   const genericTasks = listPdaGenericProcessTasks().filter((task) => !runtimeTaskIds.has(task.taskId))
-  const genericTaskIds = new Set(genericTasks.map((task) => task.taskId))
+  const existingAfterGenericIds = new Set([...runtimeTaskIds, ...genericTasks.map((task) => task.taskId)])
+  const knittingTasks = listKnittingMobileProcessTasks().filter((task) => !existingAfterGenericIds.has(task.taskId))
+  const genericTaskIds = new Set([...genericTasks.map((task) => task.taskId), ...knittingTasks.map((task) => task.taskId)])
+  const validCuttingOriginalOrderIds = new Set(listGeneratedOriginalCutOrderSourceRecords().map((record) => record.originalCutOrderId))
+  const executableFallbackTaskIds = new Set(
+    listPdaCuttingExecutionSourceRecords()
+      .filter((record) => validCuttingOriginalOrderIds.has(record.originalCutOrderId))
+      .map((record) => record.taskId),
+  )
   const fallbackCuttingTasks = listPdaCuttingTaskSourceRecords()
+    .filter((record) => executableFallbackTaskIds.has(record.taskId))
     .filter((record) => !runtimeTaskIds.has(record.taskId) && !genericTaskIds.has(record.taskId))
     .map((record) => buildFallbackCuttingTaskFact(record))
 
-  return [...runtimeTasks, ...genericTasks, ...fallbackCuttingTasks]
+  return [...runtimeTasks, ...genericTasks, ...knittingTasks, ...fallbackCuttingTasks]
 }
 
 function getRuntimeTask(taskId: string): ProcessTask | null {
@@ -953,7 +993,7 @@ function hasPendingReplenishmentRisk(label: string): boolean {
 }
 
 function isReceiveCompleted(status: string): boolean {
-  return includesAny(status, ['领取成功', '已回执', '已领取'])
+  return includesAny(status, ['来料已入仓', '已回执', '已领取'])
 }
 
 function isSpreadingCompleted(status: string): boolean {
@@ -988,11 +1028,11 @@ function resolveCurrentStepCode(input: {
 }
 
 function resolveCurrentStepLabel(stepCode: PdaCuttingCurrentStepCode): string {
-  if (stepCode === 'PICKUP') return '去领料'
-  if (stepCode === 'SPREADING') return '去铺布'
-  if (stepCode === 'REPLENISHMENT') return '去补料'
-  if (stepCode === 'HANDOVER') return '去交出'
-  if (stepCode === 'INBOUND') return '去入仓'
+  if (stepCode === 'PICKUP') return '查看来料'
+  if (stepCode === 'SPREADING') return '进入铺布'
+  if (stepCode === 'REPLENISHMENT') return '反馈异常'
+  if (stepCode === 'HANDOVER') return '交出到待交出仓'
+  if (stepCode === 'INBOUND') return '查看入仓'
   return '已完成'
 }
 
@@ -1004,11 +1044,11 @@ function resolveNextAction(line: {
   if (line.taskStatus === 'CANCELLED') return '查看当前情况'
   if (line.taskStatus === 'BLOCKED') return '查看异常'
   if (line.hasException) return '查看异常'
-  if (line.currentStepCode === 'PICKUP') return '去领料'
-  if (line.currentStepCode === 'SPREADING') return '去铺布'
-  if (line.currentStepCode === 'REPLENISHMENT') return '去补料'
-  if (line.currentStepCode === 'HANDOVER') return '去交出'
-  if (line.currentStepCode === 'INBOUND') return '去入仓'
+  if (line.currentStepCode === 'PICKUP') return '查看来料'
+  if (line.currentStepCode === 'SPREADING') return '进入铺布'
+  if (line.currentStepCode === 'REPLENISHMENT') return '反馈异常'
+  if (line.currentStepCode === 'HANDOVER') return '交出到待交出仓'
+  if (line.currentStepCode === 'INBOUND') return '查看入仓'
   return '查看当前情况'
 }
 
@@ -1026,8 +1066,8 @@ function resolveCurrentState(line: {
   if (line.bindingState === 'UNBOUND') return '待绑定'
   if (line.taskStatus === 'CANCELLED') return '已中止'
   if (line.taskStatus === 'BLOCKED' && line.currentExecutionStatus.includes('暂停')) return '执行暂停'
-  if (line.hasException && !line.pickupSuccess) return '领料差异待处理'
-  if (!line.pickupSuccess) return '待领料'
+  if (line.hasException && !line.pickupSuccess) return '来料差异待处理'
+  if (!line.pickupSuccess) return '待 WMS 来料'
   if (!line.hasSpreading || line.currentExecutionStatus.includes('待铺布')) return '待铺布'
   if (!line.hasInbound) return '待入仓'
   if (!line.hasHandover) return '待交接'
@@ -1046,7 +1086,7 @@ function resolvePrimaryExecutionRouteKey(input: {
   if (input.bindingState === 'UNBOUND') return 'spreading'
   if (input.taskStatus === 'CANCELLED') return 'handover'
   if (input.taskStatus === 'BLOCKED' && input.replenishmentLabel !== '当前无补料风险') return 'replenishment-feedback'
-  if (input.currentStepCode === 'PICKUP') return 'pickup'
+  if (input.currentStepCode === 'PICKUP') return 'spreading'
   if (input.currentStepCode === 'SPREADING') return 'spreading'
   if (input.currentStepCode === 'REPLENISHMENT') return 'replenishment-feedback'
   if (input.currentStepCode === 'HANDOVER') return 'handover'
@@ -1085,7 +1125,7 @@ function buildTaskOrderLine(
   const pickupDispute = execution.originalCutOrderNo ? getLatestClaimDisputeByOriginalCutOrderNo(execution.originalCutOrderNo) : null
   const currentReceiveStatus =
     pickupDispute && pickupDispute.status !== 'COMPLETED' && pickupDispute.status !== 'REJECTED'
-      ? '领料异议处理中'
+      ? '来料异议处理中'
       : latestPickup?.resultLabel || mapReceiveStatusLabel(progressLine?.receiveStatus)
   const hasPickupSuccess = Boolean(latestPickup?.resultLabel?.includes('成功')) || progressLine?.receiveStatus === 'RECEIVED'
   const hasSpreading = sessions.length > 0 || Boolean(preset)
@@ -1462,7 +1502,7 @@ function resolveTaskSummary(executions: PdaCuttingTaskOrderLine[]): PdaTaskSumma
     materialTypeLabel: first?.materialTypeLabel || '',
     pickupSlipNo: first?.pickupSlipNo || '',
     qrCodeValue: first?.qrCodeValue || '',
-    receiveSummary: executions.some((item) => item.currentReceiveStatus.includes('异议')) ? '存在领料异议' : executions.every((item) => item.currentReceiveStatus.includes('成功')) ? '扫码领料完成' : '待领料确认',
+    receiveSummary: executions.some((item) => item.currentReceiveStatus.includes('异议')) ? '存在来料异议' : executions.every((item) => item.currentReceiveStatus.includes('成功')) ? '来料已入待加工仓' : '待加工仓未入',
     executionSummary:
       executions.some((item) => item.currentExecutionStatus.includes('暂停'))
         ? '存在铺布暂停'
@@ -1688,7 +1728,6 @@ export function getPdaCuttingTaskSnapshot(
     mergeBatchNos: unique(executionRecords.map((record) => record.mergeBatchNo).filter(Boolean)),
     executionOrderId: selectedExecutionRecord.executionOrderId,
     executionOrderNo: selectedExecutionRecord.executionOrderNo,
-    cutPieceOrderNo: toLegacyCutPieceOrderNo(selectedExecutionRecord),
     cutPieceOrders: executionRows,
     cutPieceOrderCount: executionRows.length,
     completedCutPieceOrderCount: executionRows.filter((item) => item.isDone).length,
@@ -1794,8 +1833,6 @@ export function buildPdaCuttingRoute(taskId: string, routeKey: PdaCuttingRouteKe
       ? `/fcs/pda/cutting/task/${taskId}`
       : routeKey === 'unit'
         ? `/fcs/pda/cutting/unit/${taskId}/${options.executionOrderId?.trim() || 'default'}`
-        : routeKey === 'pickup'
-        ? `/fcs/pda/cutting/pickup/${taskId}`
         : routeKey === 'spreading'
           ? `/fcs/pda/cutting/spreading/${taskId}`
           : routeKey === 'inbound'
@@ -1817,6 +1854,11 @@ export function buildPdaCuttingRoute(taskId: string, routeKey: PdaCuttingRouteKe
 }
 
 export function resolvePdaTaskDetailPath(taskId: string, returnTo?: string): string {
+  const task = getPdaTaskFlowTaskById(taskId)
+  if (!task || !isCuttingSpecialTask(task)) {
+    if (!returnTo?.trim()) return `/fcs/pda/task-receive/${taskId}`
+    return `/fcs/pda/task-receive/${taskId}?returnTo=${encodeURIComponent(returnTo.trim())}`
+  }
   return buildPdaCuttingRoute(taskId, 'task', { returnTo })
 }
 
@@ -1826,20 +1868,10 @@ export function resolvePdaTaskExecPath(taskId: string, returnTo?: string): strin
     if (!returnTo?.trim()) return `/fcs/pda/exec/${taskId}`
     return `/fcs/pda/exec/${taskId}?returnTo=${encodeURIComponent(returnTo.trim())}`
   }
-  const detail = getPdaCuttingTaskSnapshot(taskId, task.defaultExecutionOrderId || task.defaultExecutionOrderNo)
-  if (!detail) return resolvePdaTaskDetailPath(taskId, returnTo)
-  const selectedLine = detail.cutPieceOrders.find((line) => line.executionOrderId === detail.defaultExecutionOrderId) || detail.cutPieceOrders[0]
-  if (!selectedLine || detail.cutPieceOrders.length !== 1) return resolvePdaTaskDetailPath(taskId, returnTo)
-  return buildPdaCuttingRoute(taskId, 'unit', {
-    returnTo,
-    executionOrderId: selectedLine.executionOrderId,
-    executionOrderNo: selectedLine.executionOrderNo,
-    originalCutOrderId: selectedLine.originalCutOrderId,
-    originalCutOrderNo: selectedLine.originalCutOrderNo,
-    mergeBatchId: selectedLine.mergeBatchId,
-    mergeBatchNo: selectedLine.mergeBatchNo,
-    materialSku: selectedLine.materialSku,
-  })
+  const sessions = listCuttingMainlineSessionsForProductionOrder(task.productionOrderId, taskId)
+  const firstSession = getFirstCuttingMainlineSessionForTask(taskId, task.productionOrderId)
+  if (!firstSession || sessions.length !== 1) return buildPdaCuttingMainlineTaskPath(taskId, returnTo)
+  return buildPdaCuttingMainlineUnitPath(taskId, firstSession.spreadingSessionId, returnTo)
 }
 
 export function resolvePdaHandoverDetailPath(handoverId: string, returnTo?: string): string {

@@ -2,10 +2,6 @@ export type CuttingUrgencyLevel = 'AA' | 'A' | 'B' | 'C' | 'D'
 
 export type CuttingMaterialType = 'PRINT' | 'DYE' | 'SOLID' | 'LINING'
 
-/**
- * @deprecated legacy field kept only for backward compatibility; no longer used by cutting domain UI,
- * readiness logic, cuttable logic, or QR enablement rules.
- */
 export type CuttingReviewStatus = 'NOT_REQUIRED' | 'PENDING' | 'PARTIAL' | 'APPROVED'
 export type CuttingConfigStatus = 'NOT_CONFIGURED' | 'PARTIAL' | 'CONFIGURED'
 export type CuttingReceiveStatus = 'NOT_RECEIVED' | 'PARTIAL' | 'RECEIVED'
@@ -14,10 +10,6 @@ export type CuttingQrStatus = 'NOT_GENERATED' | 'GENERATED'
 export type CuttingBatchOccupancyStatus = 'AVAILABLE' | 'IN_BATCH'
 
 export type CuttingRiskFlag =
-  /**
-   * @deprecated legacy risk kept only for backward compatibility; no longer used by cutting domain UI,
-   * readiness logic, cuttable logic, or QR enablement rules.
-   */
   | 'PENDING_REVIEW'
   | 'PARTIAL_CONFIG'
   | 'RECEIVE_DIFF'
@@ -62,10 +54,6 @@ export interface CuttingMaterialLine {
   materialLabel: string
   color?: string
   materialCategory?: string
-  /**
-   * @deprecated legacy field kept only for backward compatibility; no longer used by cutting domain UI,
-   * readiness logic, cuttable logic, or QR enablement rules.
-   */
   reviewStatus: CuttingReviewStatus
   configStatus: CuttingConfigStatus
   receiveStatus: CuttingReceiveStatus
@@ -113,10 +101,6 @@ export interface CuttingOrderProgressRecord {
 export interface CuttingOrderProgressFilters {
   keyword: string
   urgencyLevel: 'ALL' | CuttingUrgencyLevel
-  /**
-   * @deprecated legacy filter kept only for backward compatibility; cutting domain pages no longer expose
-   * or depend on review-based filtering.
-   */
   auditStatus: 'ALL' | 'PENDING' | 'PARTIAL' | 'APPROVED'
   configStatus: 'ALL' | CuttingConfigStatus
   receiveStatus: 'ALL' | CuttingReceiveStatus

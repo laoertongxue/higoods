@@ -1,13 +1,14 @@
 import {
   escapeHtml,
   getPatternDesignPreviewUrl,
+  isTechPackReadOnly,
   state,
 } from './context.ts'
 
 export function renderDesignTab(): string {
   const techPack = state.techPack
   if (!techPack) return ''
-  const readonly = false
+  const readonly = isTechPackReadOnly()
   const frontDesigns = techPack.patternDesigns.filter((item) => item.designSideType === 'FRONT')
   const insideDesigns = techPack.patternDesigns.filter((item) => item.designSideType === 'INSIDE')
 
@@ -85,7 +86,6 @@ export function renderDesignTab(): string {
       <header class="flex items-center justify-between border-b px-4 py-3">
         <div>
           <h3 class="text-base font-semibold">花型设计</h3>
-          <p class="mt-1 text-sm text-muted-foreground">维护正面花型与里面花型</p>
         </div>
         ${readonly ? '' : `<button type="button" class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-tech-action="open-add-design">
           <i data-lucide="upload" class="mr-2 h-4 w-4"></i>
@@ -103,14 +103,13 @@ export function renderDesignTab(): string {
 export function renderAttachmentsTab(): string {
   const techPack = state.techPack
   if (!techPack) return ''
-  const readonly = false
+  const readonly = isTechPackReadOnly()
 
   return `
     <section class="rounded-lg border bg-card">
       <header class="flex items-center justify-between border-b px-4 py-3">
         <div>
           <h3 class="text-base font-semibold">附件</h3>
-          <p class="mt-1 text-sm text-muted-foreground">其他相关文档和附件</p>
         </div>
         ${readonly ? '' : `<button class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-tech-action="open-add-attachment">
           <i data-lucide="upload" class="mr-2 h-4 w-4"></i>
@@ -178,7 +177,7 @@ export function renderAddDesignDialog(): string {
           <input id="tech-pack-design-file-input" type="file" accept=".png,.jpg,.jpeg,.webp,.svg,.pdf,.ai,.cdr" data-tech-field="new-design-file" class="hidden" />
           <label class="space-y-1">
             <span class="text-sm">设计稿名称 <span class="text-red-500">*</span></span>
-            <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-design-name" value="${escapeHtml(state.newDesignName)}" placeholder="例如 胸前Logo" />
+            <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-design-name" value="${escapeHtml(state.newDesignName)}" placeholder="设计稿名称" />
           </label>
           <label class="space-y-1">
             <span class="text-sm">花型类别 <span class="text-red-500">*</span></span>
@@ -232,7 +231,7 @@ export function renderAddAttachmentDialog(): string {
         <div class="space-y-4 px-6 py-4">
           <label class="space-y-1">
             <span class="text-sm">文件名 <span class="text-red-500">*</span></span>
-            <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-attachment-file-name" value="${escapeHtml(state.newAttachment.fileName)}" placeholder="例如 工艺说明书.pdf" />
+            <input class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-attachment-file-name" value="${escapeHtml(state.newAttachment.fileName)}" placeholder="文件名" />
           </label>
           <label class="space-y-1">
             <span class="text-sm">类型</span>

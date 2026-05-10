@@ -397,10 +397,6 @@ export const renderPdaCuttingExecutionUnitPage = createAsyncRenderer(
   () => import('../pages/pda-cutting-execution-unit'),
   'renderPdaCuttingExecutionUnitPage',
 )
-export const renderPdaCuttingPickupPage = createAsyncRenderer(
-  () => import('../pages/pda-cutting-pickup'),
-  'renderPdaCuttingPickupPage',
-)
 export const renderPdaCuttingSpreadingPage = createAsyncRenderer(
   () => import('../pages/pda-cutting-spreading'),
   'renderPdaCuttingSpreadingPage',
@@ -501,21 +497,9 @@ export const renderCraftCuttingFeiTicketVoidPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/fei-tickets'),
   'renderCraftCuttingFeiTicketVoidPage',
 )
-export const renderCraftCuttingMaterialPrepPage = createAsyncRenderer(
-  () => import('../pages/process-factory/cutting/material-prep'),
-  'renderCraftCuttingMaterialPrepPage',
-)
 export const renderCraftCuttingOriginalOrdersPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/original-orders'),
   'renderCraftCuttingOriginalOrdersPage',
-)
-export const renderCraftCuttingFabricWarehousePage = createAsyncRenderer(
-  () => import('../pages/process-factory/cutting/fabric-warehouse'),
-  'renderCraftCuttingFabricWarehousePage',
-)
-export const renderCraftCuttingCutPieceWarehousePage = createAsyncRenderer(
-  () => import('../pages/process-factory/cutting/cut-piece-warehouse'),
-  'renderCraftCuttingCutPieceWarehousePage',
 )
 export const renderCraftCuttingSampleWarehousePage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/sample-warehouse'),

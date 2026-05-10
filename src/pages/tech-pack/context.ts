@@ -85,19 +85,10 @@ type TechPackTab =
   | 'process'
   | 'color-mapping'
   | 'size'
-  | 'quality'
   | 'design'
   | 'attachments'
   | 'cost'
 type DifficultyLevel = 'LOW' | 'MEDIUM' | 'HIGH'
-
-type QualityRuleRow = {
-  id: string
-  checkItem: string
-  standardText: string
-  samplingRule: string
-  note: string
-}
 
 type TechniqueItem = {
   id: string
@@ -116,10 +107,17 @@ type TechniqueItem = {
   taskTypeMode: 'PROCESS' | 'CRAFT'
   isSpecialCraft: boolean
   selectedTargetObject?: TechPackSpecialCraftTargetObject
-  targetObject?: 'CUT_PIECE_PART' | 'FABRIC' | 'ACCESSORY'
-  targetObjectName?: '裁片部位' | '面料' | '辅料'
+  targetObject?: 'CUT_PIECE_PART' | 'FABRIC' | 'ACCESSORY' | 'GARMENT_SEMI'
+  targetObjectName?: '裁片部位' | '面料' | '辅料' | '成衣半成品'
   supportedTargetObjects?: SpecialCraftSupportedTargetObject[]
   supportedTargetObjectLabels?: SpecialCraftTargetObjectLabel[]
+  knittingTaskType?: 'WHOLE_GARMENT' | 'PART_PANEL'
+  downstreamTarget?: '后道工厂' | '裁床待交出仓'
+  requiresFeiTicket?: boolean
+  packagingRequired?: boolean
+  materialIssueMode?: 'WAREHOUSE_DELIVERY'
+  linkedBomItemIds?: string[]
+  linkedPatternIds?: string[]
   triggerSource: string
   standardTime: number
   timeUnit: string
@@ -422,7 +420,6 @@ const tabItems: Array<{ key: TechPackTab; icon: string; label: string }> = [
   { key: 'pattern', icon: 'file-text', label: '纸样管理' },
   { key: 'process', icon: 'scissors', label: '工序工艺' },
   { key: 'size', icon: 'ruler', label: '放码规则' },
-  { key: 'quality', icon: 'shield-check', label: '质检标准' },
   { key: 'color-mapping', icon: 'git-merge', label: '款色用料对应' },
   { key: 'design', icon: 'image', label: '花型设计' },
   { key: 'attachments', icon: 'paperclip', label: '附件' },
@@ -435,6 +432,30 @@ function requestTechPackRender(): void {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('higood:request-render'))
   }
+}
+
+type DerivedCacheEntry<T = unknown> = {
+  signature: string
+  value: T
+}
+
+const derivedCache = new Map<string, DerivedCacheEntry>()
+
+function createCacheSignature(value: unknown): string {
+  return JSON.stringify(value)
+}
+
+function getCachedDerived<T>(cacheKey: string, signatureValue: unknown, factory: () => T): T {
+  const signature = createCacheSignature(signatureValue)
+  const cached = derivedCache.get(cacheKey)
+  if (cached?.signature === signature) return cached.value as T
+  const value = factory()
+  derivedCache.set(cacheKey, { signature, value })
+  return value
+}
+
+function clearTechPackDerivedCache(): void {
+  derivedCache.clear()
 }
 
 function normalizePatternMaterialType(
@@ -1482,7 +1503,7 @@ const DEFAULT_TECHNIQUES: TechniqueItem[] = [
     referencePublishedSamValue: null,
     referencePublishedSamUnit: '',
     referencePublishedSamUnitLabel: '',
-    referencePublishedSamNote: '当前为工序级准备项，如需锁定具体参考值与推荐单位，请在当前款下选择具体工艺。',
+    referencePublishedSamNote: '工序级准备项',
     difficulty: '中等',
     remark: '',
     source: '字典引用',
@@ -1509,7 +1530,7 @@ const DEFAULT_TECHNIQUES: TechniqueItem[] = [
     referencePublishedSamValue: 0.6,
     referencePublishedSamUnit: 'MINUTE_PER_PIECE',
     referencePublishedSamUnitLabel: '分钟/件',
-    referencePublishedSamNote: '平台理论参考值，适用于普通复杂度；技术包版本可结合款式结构和加工难度调整当前款发布工时 SAM 基线。',
+    referencePublishedSamNote: '普通复杂度',
     difficulty: '简单',
     remark: '',
     source: '字典引用',
@@ -1536,7 +1557,7 @@ const DEFAULT_TECHNIQUES: TechniqueItem[] = [
     referencePublishedSamValue: 1.4,
     referencePublishedSamUnit: 'MINUTE_PER_PIECE',
     referencePublishedSamUnitLabel: '分钟/件',
-    referencePublishedSamNote: '平台理论参考值，适用于普通复杂度；技术包版本可结合款式结构和加工难度调整当前款发布工时 SAM 基线。',
+    referencePublishedSamNote: '普通复杂度',
     difficulty: '中等',
     remark: '',
     source: '字典引用',
@@ -1562,7 +1583,6 @@ interface TechPackPageState {
   patternItems: PatternItem[]
   bomItems: BomItemRow[]
   techniques: TechniqueItem[]
-  qualityRules: QualityRuleRow[]
   materialCostRows: MaterialCostRow[]
   processCostRows: ProcessCostRow[]
   customCostRows: CustomCostRow[]
@@ -1573,7 +1593,6 @@ interface TechPackPageState {
   addBomDialogOpen: boolean
   addTechniqueDialogOpen: boolean
   addSizeDialogOpen: boolean
-  addQualityDialogOpen: boolean
   addDesignDialogOpen: boolean
   addAttachmentDialogOpen: boolean
   patternDialogOpen: boolean
@@ -1625,6 +1644,7 @@ interface TechPackPageState {
     baselineProcessCode: string
     craftCode: string
     selectedTargetObject: TechPackSpecialCraftTargetObject | ''
+    packagingRequired: boolean
     ruleSource: TechPackRuleSource
     assignmentGranularity: TechPackAssignmentGranularity
     detailSplitMode: TechPackDetailSplitMode
@@ -1641,12 +1661,6 @@ interface TechPackPageState {
     L: string
     XL: string
     tolerance: string
-  }
-  newQualityRule: {
-    checkItem: string
-    standardText: string
-    samplingRule: string
-    note: string
   }
   newDesignName: string
   newDesignSideType: TechPackPatternDesignSideType
@@ -1681,7 +1695,6 @@ const state: TechPackPageState = {
   patternItems: [],
   bomItems: [],
   techniques: [],
-  qualityRules: [],
   materialCostRows: [],
   processCostRows: [],
   customCostRows: [],
@@ -1692,7 +1705,6 @@ const state: TechPackPageState = {
   addBomDialogOpen: false,
   addTechniqueDialogOpen: false,
   addSizeDialogOpen: false,
-  addQualityDialogOpen: false,
   addDesignDialogOpen: false,
   addAttachmentDialogOpen: false,
   patternDialogOpen: false,
@@ -1729,6 +1741,7 @@ const state: TechPackPageState = {
     baselineProcessCode: '',
     craftCode: '',
     selectedTargetObject: '',
+    packagingRequired: false,
     ruleSource: 'INHERIT_PROCESS',
     assignmentGranularity: 'ORDER',
     detailSplitMode: 'COMPOSITE',
@@ -1745,12 +1758,6 @@ const state: TechPackPageState = {
     L: '',
     XL: '',
     tolerance: '',
-  },
-  newQualityRule: {
-    checkItem: '',
-    standardText: '',
-    samplingRule: '',
-    note: '',
   },
   newDesignName: '',
   newDesignSideType: 'FRONT',
@@ -1784,19 +1791,6 @@ function decodeSpuCode(rawSpuCode: string): string {
     return decodeURIComponent(rawSpuCode)
   } catch {
     return rawSpuCode
-  }
-}
-
-function cloneQualityRules(rows: QualityRuleRow[]): QualityRuleRow[] {
-  return rows.map((item) => ({ ...item }))
-}
-
-function resetQualityForm(): void {
-  state.newQualityRule = {
-    checkItem: '',
-    standardText: '',
-    samplingRule: '',
-    note: '',
   }
 }
 
@@ -1852,7 +1846,6 @@ function applyTechPackState(
     styleId: string
     technicalVersionId: string
     technicalVersionCode: string
-    qualityRules: QualityRuleRow[]
   },
 ): void {
   const normalizedSeedSkuCatalog = options.skuCatalog
@@ -1881,7 +1874,6 @@ function applyTechPackState(
   state.bomItems = buildBomItemsFromTechPack(nextTechPack)
   state.techniques = buildTechniquesFromTechPack(nextTechPack, state.bomItems)
   state.patternItems = buildPatternItemsFromTechPack(nextTechPack)
-  state.qualityRules = cloneQualityRules(options.qualityRules)
   state.materialCostRows = buildMaterialCostRows(state.bomItems, nextTechPack)
   state.processCostRows = buildProcessCostRows(state.techniques, nextTechPack)
   state.customCostRows = buildCustomCostRows(nextTechPack)
@@ -1899,7 +1891,6 @@ function clearTechPackState(spuCode: string, compatibilityMode = false): void {
   state.patternItems = []
   state.bomItems = []
   state.techniques = []
-  state.qualityRules = []
   state.materialCostRows = []
   state.processCostRows = []
   state.customCostRows = []
@@ -2020,6 +2011,31 @@ function getSelectedTargetObjectForCraft(craft: Pick<CraftOption, 'isSpecialCraf
   return getDefaultSelectedTargetObject(craft)
 }
 
+function getKnittingEntryMeta(craftName: string): Pick<
+  TechniqueItem,
+  'knittingTaskType' | 'downstreamTarget' | 'requiresFeiTicket' | 'packagingRequired' | 'materialIssueMode'
+> {
+  if (craftName === '部位针织') {
+    return {
+      knittingTaskType: 'PART_PANEL',
+      downstreamTarget: '裁床待交出仓',
+      requiresFeiTicket: true,
+      packagingRequired: false,
+      materialIssueMode: 'WAREHOUSE_DELIVERY',
+    }
+  }
+  if (craftName === '整件针织') {
+    return {
+      knittingTaskType: 'WHOLE_GARMENT',
+      downstreamTarget: '后道工厂',
+      requiresFeiTicket: false,
+      packagingRequired: state.newTechnique.packagingRequired,
+      materialIssueMode: 'WAREHOUSE_DELIVERY',
+    }
+  }
+  return {}
+}
+
 function getTechniqueReferenceMetaByCraftCode(craftCode: string): Pick<
   TechniqueItem,
   | 'referencePublishedSamValue'
@@ -2033,7 +2049,7 @@ function getTechniqueReferenceMetaByCraftCode(craftCode: string): Pick<
       referencePublishedSamValue: null,
       referencePublishedSamUnit: '',
       referencePublishedSamUnitLabel: '',
-      referencePublishedSamNote: '当前为工序级准备项，如需锁定具体参考值与推荐单位，请在当前款下选择具体工艺。',
+      referencePublishedSamNote: '工序级准备项',
     }
   }
 
@@ -2041,8 +2057,16 @@ function getTechniqueReferenceMetaByCraftCode(craftCode: string): Pick<
     referencePublishedSamValue: craft.referencePublishedSamValue,
     referencePublishedSamUnit: craft.referencePublishedSamUnit,
     referencePublishedSamUnitLabel: PUBLISHED_SAM_UNIT_LABEL[craft.referencePublishedSamUnit],
-    referencePublishedSamNote: craft.referencePublishedSamNote,
+    referencePublishedSamNote: normalizeReferencePublishedSamNote(craft.referencePublishedSamNote),
   }
+}
+
+function normalizeReferencePublishedSamNote(value: string | null | undefined): string {
+  const normalized = String(value || '').trim()
+  if (!normalized) return ''
+  if (normalized.includes('平台理论参考值')) return '普通复杂度'
+  if (normalized.includes('工序级准备项')) return '工序级准备项'
+  return normalized
 }
 
 function getSelectedDraftMeta():
@@ -2159,6 +2183,9 @@ function getSelectedDraftMeta():
     taskTypeMode: craft.taskTypeMode,
     isSpecialCraft: craft.isSpecialCraft,
     selectedTargetObject,
+    targetObject: craft.isSpecialCraft ? undefined : craft.processCode === 'KNITTING' && craft.craftName === '整件针织' ? 'GARMENT_SEMI' : craft.processCode === 'KNITTING' ? 'CUT_PIECE_PART' : undefined,
+    targetObjectName: craft.isSpecialCraft ? undefined : craft.processCode === 'KNITTING' && craft.craftName === '整件针织' ? '成衣半成品' : craft.processCode === 'KNITTING' ? '裁片部位' : undefined,
+    ...getKnittingEntryMeta(craft.craftName),
     supportedTargetObjects: craft.supportedTargetObjects ? [...craft.supportedTargetObjects] : undefined,
     supportedTargetObjectLabels: craft.supportedTargetObjectLabels ? [...craft.supportedTargetObjectLabels] : undefined,
     triggerSource: '',
@@ -2258,40 +2285,54 @@ function buildColorMaterialMappings(techPack: TechPack): ColorMaterialMappingRow
 
 function getSkuOptionsForCurrentSpu(): SkuOption[] {
   if (!state.techPack) return []
-  const byCode = new Map<string, SkuOption>()
+  return getCachedDerived(
+    'sku-options',
+    {
+      spuCode: state.techPack.spuCode,
+      skuCatalog: (state.techPack.skuCatalog ?? []).map((line) => [
+        line.skuCode,
+        line.color,
+        line.size,
+      ]),
+      bomSkuCodes: state.bomItems.map((item) => [item.id, item.applicableSkuCodes]),
+    },
+    () => {
+      const byCode = new Map<string, SkuOption>()
 
-  for (const line of state.techPack.skuCatalog ?? []) {
-    if (!byCode.has(line.skuCode)) {
-      byCode.set(line.skuCode, {
-        skuCode: line.skuCode,
-        color: line.color || '未识别颜色',
-        size: line.size || '-',
-      })
-    }
-  }
-
-  for (const order of productionOrders) {
-    if (order.demandSnapshot.spuCode !== state.techPack.spuCode) continue
-    for (const line of order.demandSnapshot.skuLines) {
-      if (!byCode.has(line.skuCode)) {
-        byCode.set(line.skuCode, {
-          skuCode: line.skuCode,
-          color: line.color || '未识别颜色',
-          size: line.size || '-',
-        })
+      for (const line of state.techPack?.skuCatalog ?? []) {
+        if (!byCode.has(line.skuCode)) {
+          byCode.set(line.skuCode, {
+            skuCode: line.skuCode,
+            color: line.color || '未识别颜色',
+            size: line.size || '-',
+          })
+        }
       }
-    }
-  }
 
-  for (const item of state.bomItems) {
-    for (const skuCode of item.applicableSkuCodes) {
-      if (!byCode.has(skuCode)) {
-        byCode.set(skuCode, { skuCode, color: '未识别颜色', size: '-' })
+      for (const order of productionOrders) {
+        if (order.demandSnapshot.spuCode !== state.techPack?.spuCode) continue
+        for (const line of order.demandSnapshot.skuLines) {
+          if (!byCode.has(line.skuCode)) {
+            byCode.set(line.skuCode, {
+              skuCode: line.skuCode,
+              color: line.color || '未识别颜色',
+              size: line.size || '-',
+            })
+          }
+        }
       }
-    }
-  }
 
-  return Array.from(byCode.values())
+      for (const item of state.bomItems) {
+        for (const skuCode of item.applicableSkuCodes) {
+          if (!byCode.has(skuCode)) {
+            byCode.set(skuCode, { skuCode, color: '未识别颜色', size: '-' })
+          }
+        }
+      }
+
+      return Array.from(byCode.values())
+    },
+  )
 }
 
 function extractSizeCodeOptionsFromSizeTable(
@@ -2355,7 +2396,11 @@ function normalizeSelectedSizeCodes(
 
 function getSizeCodeOptionsFromSizeRules(): Array<{ sizeCode: string; label: string }> {
   if (!state.techPack) return []
-  return extractSizeCodeOptionsFromSizeTable(state.techPack.sizeTable)
+  return getCachedDerived(
+    'size-code-options',
+    state.techPack.sizeTable,
+    () => extractSizeCodeOptionsFromSizeTable(state.techPack?.sizeTable ?? []),
+  )
 }
 
 type PatternBomColorOption = {
@@ -2437,36 +2482,65 @@ function buildBomColorOptions(
 
 function getBomColorOptionsForPattern(linkedBomItemId?: string): PatternBomColorOption[] {
   if (!state.techPack) return []
-  const skuOptions = getSkuOptionsForCurrentSpu()
-  const allBomItems = state.techPack.bomItems.map((item) => ({
-    id: item.id,
-    type: item.type,
-    colorLabel: item.colorLabel || '',
-    materialCode: item.name,
-    materialName: item.name,
-    spec: item.spec,
-    patternPieces: [],
-    linkedPatternIds: [...(item.linkedPatternIds ?? [])],
-    applicableSkuCodes: [...(item.applicableSkuCodes ?? [])],
-    usageProcessCodes: [...(item.usageProcessCodes ?? [])],
-    usage: item.unitConsumption,
-    lossRate: item.lossRate,
-    printRequirement: item.printRequirement || '无',
-    dyeRequirement: item.dyeRequirement || '无',
-    shrinkRequirement: item.shrinkRequirement || '否',
-    washRequirement: item.washRequirement || '否',
-    printSideMode: item.printSideMode || '',
-    frontPatternDesignId: item.frontPatternDesignId || '',
-    insidePatternDesignId: item.insidePatternDesignId || '',
-  }))
+  const normalizedLinkedBomItemId = String(linkedBomItemId || '').trim()
+  return getCachedDerived(
+    `bom-color-options:${normalizedLinkedBomItemId}`,
+    {
+      linkedBomItemId: normalizedLinkedBomItemId,
+      bomItems: state.techPack.bomItems.map((item) => [
+        item.id,
+        item.type,
+        item.colorLabel,
+        item.name,
+        item.spec,
+        item.linkedPatternIds,
+        item.applicableSkuCodes,
+        item.usageProcessCodes,
+        item.unitConsumption,
+        item.lossRate,
+        item.printRequirement,
+        item.dyeRequirement,
+        item.shrinkRequirement,
+        item.washRequirement,
+        item.printSideMode,
+        item.frontPatternDesignId,
+        item.insidePatternDesignId,
+      ]),
+      skuOptions: getSkuOptionsForCurrentSpu(),
+    },
+    () => {
+      const skuOptions = getSkuOptionsForCurrentSpu()
+      const allBomItems = (state.techPack?.bomItems ?? []).map((item) => ({
+        id: item.id,
+        type: item.type,
+        colorLabel: item.colorLabel || '',
+        materialCode: item.name,
+        materialName: item.name,
+        spec: item.spec,
+        patternPieces: [],
+        linkedPatternIds: [...(item.linkedPatternIds ?? [])],
+        applicableSkuCodes: [...(item.applicableSkuCodes ?? [])],
+        usageProcessCodes: [...(item.usageProcessCodes ?? [])],
+        usage: item.unitConsumption,
+        lossRate: item.lossRate,
+        printRequirement: item.printRequirement || '无',
+        dyeRequirement: item.dyeRequirement || '无',
+        shrinkRequirement: item.shrinkRequirement || '否',
+        washRequirement: item.washRequirement || '否',
+        printSideMode: item.printSideMode || '',
+        frontPatternDesignId: item.frontPatternDesignId || '',
+        insidePatternDesignId: item.insidePatternDesignId || '',
+      }))
 
-  if (linkedBomItemId) {
-    const linkedItem = allBomItems.find((item) => item.id === linkedBomItemId)
-    const linkedOptions = linkedItem ? buildBomColorOptions([linkedItem], skuOptions) : []
-    if (linkedOptions.length > 0) return linkedOptions
-  }
+      if (normalizedLinkedBomItemId) {
+        const linkedItem = allBomItems.find((item) => item.id === normalizedLinkedBomItemId)
+        const linkedOptions = linkedItem ? buildBomColorOptions([linkedItem], skuOptions) : []
+        if (linkedOptions.length > 0) return linkedOptions
+      }
 
-  return buildBomColorOptions(allBomItems, skuOptions)
+      return buildBomColorOptions(allBomItems, skuOptions)
+    },
+  )
 }
 
 function getPatternColorQuantityOptions(linkedBomItemId?: string): PatternBomColorOption[] {
@@ -2663,9 +2737,13 @@ function normalizePatternPieceSpecialCraftAssignments(
 }
 
 function getPatternPieceInstanceSpecialCraftOptions() {
-  return listCutPiecePartCrafts()
-    .filter((item) => !forbiddenPieceInstanceCraftNames.has(item.craftName))
-    .filter((item) => item.targetObject === 'CUT_PIECE_PART' && item.canSelectInPatternPiece)
+  return getCachedDerived(
+    'piece-instance-special-craft-options',
+    'process-craft-dict',
+    () => listCutPiecePartCrafts()
+      .filter((item) => !forbiddenPieceInstanceCraftNames.has(item.craftName))
+      .filter((item) => item.targetObject === 'CUT_PIECE_PART' && item.canSelectInPatternPiece),
+  )
 }
 
 function generatePieceInstancesFromColorQuantities(pattern: {
@@ -2847,7 +2925,7 @@ function getPatternDesignOptionsBySide(
 }
 
 function getPartTemplateOptions(): PartTemplateRecord[] {
-  return listPartTemplateRecords()
+  return defaultPartTemplateRecords
 }
 
 function getPartTemplateRecordById(partTemplateId?: string): PartTemplateRecord | null {
@@ -2892,46 +2970,61 @@ function buildPatternPiecePartKey(row: PatternPiecePartKeyInput): string {
 }
 
 function getPatternPieceSpecialCraftOptionsFromCurrentTechPack(): TechPackPatternPieceSpecialCraft[] {
-  const validDefinitionsByCode = new Map(
-    listSelectableSpecialCraftDefinitions().map((item) => [item.craftCode, item] as const),
-  )
-
-  return dedupeByKey(
-    state.techniques
-      .filter(
-        (item) =>
-          item.entryType === 'CRAFT'
-          && item.isSpecialCraft
-          && item.processCode === 'SPECIAL_CRAFT'
-          && String(item.craftCode || '').trim().length > 0,
+  return getCachedDerived(
+    'pattern-piece-special-craft-options',
+    state.techniques.map((item) => [
+      item.id,
+      item.entryType,
+      item.isSpecialCraft,
+      item.processCode,
+      item.craftCode,
+      item.selectedTargetObject,
+      item.supportedTargetObjects,
+      item.supportedTargetObjectLabels,
+    ]),
+    () => {
+      const validDefinitionsByCode = new Map(
+        listSelectableSpecialCraftDefinitions().map((item) => [item.craftCode, item] as const),
       )
-      .map((item) => {
-        const definition = validDefinitionsByCode.get(item.craftCode)
-        if (!definition) return null
-        if (definition.craftName === '捆条') return null
-        const selectedTargetObject = normalizeSpecialCraftTargetObjectLabel(item.selectedTargetObject)
-        if (selectedTargetObject !== '已裁部位') return null
-        const processDefinition = getProcessDefinitionByCode(definition.processCode)
-        const processName = processDefinition?.processName || '特殊工艺'
-        const supportedTargetObjects = item.supportedTargetObjects?.length
-          ? [...item.supportedTargetObjects]
-          : [...definition.supportedTargetObjects]
-        const supportedTargetObjectLabels = item.supportedTargetObjectLabels?.length
-          ? [...item.supportedTargetObjectLabels]
-          : getSpecialCraftSupportedTargetObjectLabels(supportedTargetObjects)
-        return {
-          processCode: definition.processCode,
-          processName,
-          craftCode: definition.craftCode,
-          craftName: definition.craftName,
-          displayName: definition.craftName,
-          selectedTargetObject,
-          supportedTargetObjects,
-          supportedTargetObjectLabels,
-        }
-      })
-      .filter((item): item is TechPackPatternPieceSpecialCraft => Boolean(item) && item.processName === '特殊工艺'),
-    (item) => `${item.processCode}:${item.craftCode}:${item.selectedTargetObject}`,
+
+      return dedupeByKey(
+        state.techniques
+          .filter(
+            (item) =>
+              item.entryType === 'CRAFT'
+              && item.isSpecialCraft
+              && item.processCode === 'SPECIAL_CRAFT'
+              && String(item.craftCode || '').trim().length > 0,
+          )
+          .map((item) => {
+            const definition = validDefinitionsByCode.get(item.craftCode)
+            if (!definition) return null
+            if (definition.craftName === '捆条') return null
+            const selectedTargetObject = normalizeSpecialCraftTargetObjectLabel(item.selectedTargetObject)
+            if (selectedTargetObject !== '已裁部位') return null
+            const processDefinition = getProcessDefinitionByCode(definition.processCode)
+            const processName = processDefinition?.processName || '特殊工艺'
+            const supportedTargetObjects = item.supportedTargetObjects?.length
+              ? [...item.supportedTargetObjects]
+              : [...definition.supportedTargetObjects]
+            const supportedTargetObjectLabels = item.supportedTargetObjectLabels?.length
+              ? [...item.supportedTargetObjectLabels]
+              : getSpecialCraftSupportedTargetObjectLabels(supportedTargetObjects)
+            return {
+              processCode: definition.processCode,
+              processName,
+              craftCode: definition.craftCode,
+              craftName: definition.craftName,
+              displayName: definition.craftName,
+              selectedTargetObject,
+              supportedTargetObjects,
+              supportedTargetObjectLabels,
+            }
+          })
+          .filter((item): item is TechPackPatternPieceSpecialCraft => Boolean(item) && item.processName === '特殊工艺'),
+        (item) => `${item.processCode}:${item.craftCode}:${item.selectedTargetObject}`,
+      )
+    },
   )
 }
 
@@ -3729,7 +3822,7 @@ function toTechniqueItemFromEntry(entry: TechPackProcessEntry, fallbackIndex: nu
     id: normalizedEntry.id || `tech-${fallbackIndex + 1}`,
     entryType: normalizedEntry.entryType,
     stageCode: normalizedEntry.stageCode,
-    stage: normalizedEntry.stageName,
+    stage: getStageName(normalizedEntry.stageCode),
     processCode: normalizedEntry.processCode,
     process: normalizedEntry.processName,
     craftCode: normalizedEntry.craftCode || '',
@@ -3750,6 +3843,13 @@ function toTechniqueItemFromEntry(entry: TechPackProcessEntry, fallbackIndex: nu
       : undefined,
     targetObject: normalizedEntry.targetObject,
     targetObjectName: normalizedEntry.targetObjectName,
+    knittingTaskType: normalizedEntry.knittingTaskType,
+    downstreamTarget: normalizedEntry.downstreamTarget,
+    requiresFeiTicket: normalizedEntry.requiresFeiTicket,
+    packagingRequired: normalizedEntry.packagingRequired,
+    materialIssueMode: normalizedEntry.materialIssueMode,
+    linkedBomItemIds: normalizedEntry.linkedBomItemIds ? [...normalizedEntry.linkedBomItemIds] : undefined,
+    linkedPatternIds: normalizedEntry.linkedPatternIds ? [...normalizedEntry.linkedPatternIds] : undefined,
     triggerSource: normalizedEntry.triggerSource || '',
     standardTime: Number.isFinite(normalizedEntry.standardTimeMinutes)
       ? Number(normalizedEntry.standardTimeMinutes)
@@ -3765,8 +3865,9 @@ function toTechniqueItemFromEntry(entry: TechPackProcessEntry, fallbackIndex: nu
     referencePublishedSamUnitLabel:
       normalizedEntry.referencePublishedSamUnitLabel ??
       referenceMeta.referencePublishedSamUnitLabel,
-    referencePublishedSamNote:
+    referencePublishedSamNote: normalizeReferencePublishedSamNote(
       normalizedEntry.referencePublishedSamNote ?? referenceMeta.referencePublishedSamNote,
+    ),
     difficulty: mapDifficultyToZh(normalizedEntry.difficulty || 'MEDIUM'),
     remark: normalizedEntry.remark || '',
     source: '字典引用',
@@ -3877,7 +3978,7 @@ function buildTechniquesFromTechPack(
           referencePublishedSamValue: null,
           referencePublishedSamUnit: '',
           referencePublishedSamUnitLabel: '',
-          referencePublishedSamNote: '当前为工序级准备项，如需锁定具体参考值与推荐单位，请在当前款下选择具体工艺。',
+          referencePublishedSamNote: '工序级准备项',
           difficulty: mapDifficultyToZh(item.difficulty),
           remark: '',
           source: '字典引用',
@@ -3906,7 +4007,7 @@ function buildTechniquesFromTechPack(
         referencePublishedSamValue: null,
         referencePublishedSamUnit: '',
         referencePublishedSamUnitLabel: '',
-        referencePublishedSamNote: '当前为工序级准备项，如需锁定具体参考值与推荐单位，请在当前款下选择具体工艺。',
+        referencePublishedSamNote: '工序级准备项',
         difficulty: mapDifficultyToZh(item.difficulty),
         remark: '',
         source: '字典引用',
@@ -4019,7 +4120,6 @@ function getChecklist(): ChecklistItem[] {
     { key: 'pattern', label: '纸样管理', required: true, done: state.patternItems.length > 0 },
     { key: 'process', label: '工序工艺', required: true, done: state.techniques.length > 0 },
     { key: 'size', label: '放码规则', required: true, done: state.techPack.sizeTable.length > 0 },
-    { key: 'quality', label: '质检标准', required: true, done: state.qualityRules.length > 0 },
     {
       key: 'color-mapping',
       label: '款色用料对应',
@@ -4239,6 +4339,13 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
       selectedTargetObject: item.selectedTargetObject,
       targetObject: item.targetObject,
       targetObjectName: item.targetObjectName,
+      knittingTaskType: item.knittingTaskType,
+      downstreamTarget: item.downstreamTarget,
+      requiresFeiTicket: item.requiresFeiTicket,
+      packagingRequired: item.packagingRequired,
+      materialIssueMode: item.materialIssueMode,
+      linkedBomItemIds: item.linkedBomItemIds ? [...item.linkedBomItemIds] : undefined,
+      linkedPatternIds: item.linkedPatternIds ? [...item.linkedPatternIds] : undefined,
       supportedTargetObjects: item.supportedTargetObjects ? [...item.supportedTargetObjects] : undefined,
       supportedTargetObjectLabels: item.supportedTargetObjectLabels ? [...item.supportedTargetObjectLabels] : undefined,
       triggerSource: item.triggerSource || undefined,
@@ -4351,10 +4458,10 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
   }
 
   state.techPack = next
+  clearTechPackDerivedCache()
 
   if (options.persist !== false && state.currentTechnicalVersionId && !state.compatibilityMode) {
     const patch = buildTechnicalContentPatchFromLegacyTechPack(next)
-    patch.qualityRules = state.qualityRules.map((item) => ({ ...item }))
     saveTechnicalDataVersionContent(state.currentTechnicalVersionId, patch, currentUser.name)
   }
 }
@@ -4365,7 +4472,6 @@ function closeAllDialogs(): void {
   state.addBomDialogOpen = false
   state.addTechniqueDialogOpen = false
   state.addSizeDialogOpen = false
-  state.addQualityDialogOpen = false
   state.addDesignDialogOpen = false
   state.addAttachmentDialogOpen = false
   state.patternDialogOpen = false
@@ -4519,10 +4625,6 @@ function resetSizeForm(): void {
   }
 }
 
-function resetQualityRuleForm(): void {
-  resetQualityForm()
-}
-
 function resetAttachmentForm(): void {
   state.newAttachment = {
     fileName: '',
@@ -4540,6 +4642,7 @@ function ensureTechPackPageState(rawSpuCode: string, seed: TechPackPageInitSeed 
     return
   }
 
+  clearTechPackDerivedCache()
   state.loading = true
 
   const technicalVersionId = seed.technicalVersionId || ''
@@ -4557,7 +4660,6 @@ function ensureTechPackPageState(rawSpuCode: string, seed: TechPackPageInitSeed 
         styleId: styleId || record.styleId,
         technicalVersionId: record.technicalVersionId,
         technicalVersionCode: record.technicalVersionCode,
-        qualityRules: content.qualityRules.map((item) => ({ ...item })),
       })
     } else {
       clearTechPackState(spuCode)
@@ -4572,7 +4674,6 @@ function ensureTechPackPageState(rawSpuCode: string, seed: TechPackPageInitSeed 
   resetBomForm()
   resetTechniqueForm()
   resetSizeForm()
-  resetQualityRuleForm()
   resetAttachmentForm()
   state.newDesignName = ''
   state.newDesignSideType = 'FRONT'
@@ -4624,7 +4725,7 @@ function renderChecklist(): string {
 
 function renderTabHeader(): string {
   return `
-    <div class="grid w-full grid-cols-8 gap-2 rounded-lg border bg-muted/20 p-2">
+    <div class="grid w-full grid-cols-7 gap-2 rounded-lg border bg-muted/20 p-2">
       ${tabItems
         .map(
           (tab) => `
@@ -4646,7 +4747,7 @@ function renderTabHeader(): string {
 }
 
 function isTechPackReadOnly(): boolean {
-  return false
+  return state.techPack?.status !== 'DRAFT'
 }
 
 export {
@@ -4765,7 +4866,6 @@ export {
   resetBomForm,
   resetTechniqueForm,
   resetSizeForm,
-  resetQualityRuleForm,
   resetAttachmentForm,
   ensureTechPackPageState,
   renderStatusBadge,
@@ -4776,7 +4876,6 @@ export {
 export type {
   TechPackTab,
   DifficultyLevel,
-  QualityRuleRow,
   TechniqueItem,
   BaselineProcessOption,
   CraftOption,

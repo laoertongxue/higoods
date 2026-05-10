@@ -190,7 +190,7 @@ export function buildMaterialPrepSlipPrintDocument(input: PrintDocumentBuildInpu
   if (!row) throw new Error('缺少配料单来源数据')
 
   const slipNo = `PL-${row.originalCutOrderNo}`
-  const targetRoute = `/fcs/craft/cutting/material-prep?originalCutOrderId=${encodeURIComponent(row.originalCutOrderId)}`
+  const targetRoute = `/fcs/craft/cutting/warehouse-management/wait-process?originalCutOrderId=${encodeURIComponent(row.originalCutOrderId)}`
   const generatedAt = now()
 
   return buildBaseDocument({
@@ -385,7 +385,7 @@ export function buildIssueSlipPrintDocument(input: PrintDocumentBuildInput): Pri
   if (!order) throw new Error('缺少发料单来源数据')
 
   const batches = listCuttingSewingDispatchBatches().filter((batch) => batch.dispatchOrderId === order.dispatchOrderId)
-  const targetRoute = `/fcs/craft/cutting/sewing-dispatch?dispatchOrderId=${encodeURIComponent(order.dispatchOrderId)}`
+  const targetRoute = `/fcs/craft/cutting/warehouse-management/wait-handover?tab=sewing-dispatch&dispatchOrderId=${encodeURIComponent(order.dispatchOrderId)}`
   const diffQty = order.differenceQty || order.remainingGarmentQty || 0
 
   return buildBaseDocument({
@@ -672,4 +672,3 @@ export const PickupSlipTemplate = renderMaterialSlipTemplate
 export const IssueSlipTemplate = renderMaterialSlipTemplate
 export const SupplementMaterialSlipTemplate = renderMaterialSlipTemplate
 export const MaterialTransferSlipTemplate = renderMaterialSlipTemplate
-

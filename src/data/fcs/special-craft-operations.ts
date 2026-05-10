@@ -70,10 +70,10 @@ const specialCraftOperationSeedByName: Record<string, SpecialCraftOperationSeed>
   },
   烫画: {
     operationId: 'SC-OP-8192',
-    defaultTargetObject: 'CUT_PIECE',
-    requiresFeiTicketScan: true,
-    mustReturnToCuttingFactory: true,
-    remark: '按裁片任务单管理，完成后回裁床厂待交出仓。',
+    defaultTargetObject: 'SEMI_FINISHED_GARMENT',
+    requiresFeiTicketScan: false,
+    mustReturnToCuttingFactory: false,
+    remark: '纯色 T-shirt 成衣半成品烫画，按件执行，不打印裁片菲票，不回裁床待交出仓。',
   },
   直喷: {
     operationId: 'SC-OP-16384',
@@ -239,7 +239,7 @@ export function isSpecialCraftTargetObjectSupported(
   operation: Pick<SpecialCraftOperationDefinition, 'supportedTargetObjectLabels'>,
   selectedTargetObject: string | undefined,
 ): selectedTargetObject is SpecialCraftTargetObjectLabel {
-  return selectedTargetObject === '已裁部位' || selectedTargetObject === '完整面料'
+  return selectedTargetObject === '已裁部位' || selectedTargetObject === '完整面料' || selectedTargetObject === '成衣半成品'
     ? operation.supportedTargetObjectLabels.includes(selectedTargetObject)
     : false
 }

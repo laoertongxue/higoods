@@ -22,6 +22,7 @@ import {
   listCutPieceFeiTickets,
   type CutPieceFeiTicket,
 } from '../../../data/fcs/cutting/fei-ticket-generation.ts'
+import { listKnittingFeiTicketPrintRecords } from '../../../data/fcs/knitting-task-domain.ts'
 import { getCuttingOriginalOrderTaskPrintSourceById } from '../../../data/fcs/cutting-task-print-source.ts'
 import { buildTransferBagsProjection } from '../../process-factory/cutting/transfer-bags-projection.ts'
 import {
@@ -139,7 +140,8 @@ function listFeiRecords(): AnyFeiTicket[] {
   const projected = (projection.ticketRecords || []) as AnyFeiTicket[]
   const perPiece = listCutPieceFeiTickets().map(perPieceTicketToRecord)
   const generated = listGeneratedFeiTickets().map(generatedTicketToRecord)
-  return uniqueBy([...perPiece, ...projected, ...generated], (item) => toText(item.ticketRecordId || item.feiTicketId || item.ticketNo || item.feiTicketNo, ''))
+  const knitting = listKnittingFeiTicketPrintRecords()
+  return uniqueBy([...perPiece, ...projected, ...generated, ...knitting], (item) => toText(item.ticketRecordId || item.feiTicketId || item.ticketNo || item.feiTicketNo, ''))
 }
 
 function findFeiRecord(sourceId: string): AnyFeiTicket | null {
@@ -177,6 +179,9 @@ function listFeiRecordsForSource(sourceId: string): AnyFeiTicket[] {
 
 function resolveFeiTicketTargetRoute(record: AnyFeiTicket): string {
   const id = toText(record.ticketRecordId || record.feiTicketId || record.ticketNo)
+  if (record.ticketSourceType === 'KNITTING_PART_PANEL') {
+    return `/fcs/craft/knitting/work-orders/${encodeURIComponent(toText(record.originalCutOrderId || id))}?tab=fei`
+  }
   return `/fcs/craft/cutting/fei-tickets?feiTicketId=${encodeURIComponent(id)}`
 }
 
@@ -215,45 +220,54 @@ function feiBarcode(record: AnyFeiTicket, documentType: PrintDocumentType): Prin
 
 function buildFeiLabelItem(record: AnyFeiTicket, input: PrintDocumentBuildInput, mode: PrintMode): PrintLabelItem {
   const documentType = input.documentType
+  const isKnittingTicket = record.ticketSourceType === 'KNITTING_PART_PANEL'
   const isVoid = documentType === 'FEI_TICKET_VOID_LABEL' || record.status === 'VOIDED'
   const isReprint = documentType === 'FEI_TICKET_REPRINT_LABEL'
   const reprintCount = Math.max(Number(record.reprintCount || 1), 1)
   const ticketNo = toText(record.ticketNo || record.feiTicketNo)
-  const title = isVoid ? '菲票作废标识' : isReprint ? '菲票补打标签' : '菲票'
-  const subtitle = isVoid ? '已作废 · 不可流转' : isReprint ? `补打 · 第 ${reprintCount} 次补打` : '菲票归属原始裁片单'
+  const title = isVoid ? '菲票作废标识' : isReprint ? '菲票补打标签' : isKnittingTicket ? '针织菲票' : '菲票'
+  const subtitle = isVoid
+    ? '已作废 · 不可流转'
+    : isReprint
+      ? `补打 · 第 ${reprintCount} 次补打`
+      : isKnittingTicket
+        ? '部位针织菲票，完成后交裁床待交出仓'
+        : '菲票归属原始裁片单'
   const specialCraftText = record.specialCraftSummary
     || (Array.isArray(record.processTags) ? record.processTags.join('、') : toText(record.currentCraftStage || '无特殊工艺'))
   const craftPositionText = Array.isArray(record.specialCrafts) && record.specialCrafts.length
     ? record.specialCrafts.map((craft: AnyFeiTicket) => craft.craftPositionName).filter(Boolean).join('、')
-    : '无'
+    : isKnittingTicket ? '针织部位' : '无'
   const warnings = isVoid
     ? ['已作废', '不可流转', '作废二维码只进入作废记录或菲票详情']
     : isReprint
       ? ['补打', `第 ${reprintCount} 次补打`, '补打不改变菲票归属']
-      : ['菲票归属原始裁片单']
+      : isKnittingTicket
+        ? ['部位针织', '交裁床待交出仓', '不进缝盘、熨烫、包装']
+        : ['菲票归属原始裁片单']
 
   const baseFields = fields([
-    { label: '菲票号', value: ticketNo, emphasis: true },
-    { label: '原始裁片单', value: record.originalCutOrderNo || record.originalCutOrderId, emphasis: true },
+    { label: isKnittingTicket ? '针织菲票号' : '菲票号', value: ticketNo, emphasis: true },
+    { label: isKnittingTicket ? '针织单' : '原始裁片单', value: record.originalCutOrderNo || record.originalCutOrderId, emphasis: true },
     { label: '生产单', value: record.productionOrderNo || record.sourceProductionOrderNo },
     { label: '款号', value: record.styleCode || record.spuCode },
-    { label: 'SKU / 颜色 / 尺码', value: `${toText(record.materialSku)} / ${toText(record.color || record.fabricColor || record.garmentColor)} / ${toText(record.size || record.skuSize)}` },
-    { label: '裁片部位', value: record.partName || record.pieceGroup },
-    { label: '裁片实例', value: record.sourcePieceInstanceId || record.pieceDisplayName },
-    { label: '片序号', value: record.sequenceNo ? `第${record.sequenceNo}片` : '待补片序号' },
-    { label: '裁片数量', value: formatPrintQty(record.quantity ?? record.actualCutPieceQty ?? record.qty, '片'), emphasis: true },
-    { label: '扎号', value: record.bundleNo || record.bundleScope },
-    { label: '面料 SKU', value: record.materialSku },
-    { label: '面料颜色', value: record.fabricColor || record.color || record.garmentColor },
-    { label: '当前所在位置', value: record.boundPocketNo ? `中转袋 ${record.boundPocketNo}` : '裁片仓待流转' },
+    { label: isKnittingTicket ? '纱线 / 颜色 / 尺码' : 'SKU / 颜色 / 尺码', value: `${toText(record.materialSku)} / ${toText(record.color || record.fabricColor || record.garmentColor)} / ${toText(record.size || record.skuSize)}` },
+    { label: isKnittingTicket ? '针织部位' : '裁片部位', value: record.partName || record.pieceGroup },
+    { label: isKnittingTicket ? '部位批次' : '裁片实例', value: record.sourcePieceInstanceId || record.pieceDisplayName },
+    { label: isKnittingTicket ? '尺码片数' : '片序号', value: isKnittingTicket ? `${toText(record.size || record.skuSize)} / ${formatPrintQty(record.quantity ?? record.actualCutPieceQty ?? record.qty, '片')}` : record.sequenceNo ? `第${record.sequenceNo}片` : '待补片序号' },
+    { label: isKnittingTicket ? '针织片数' : '裁片数量', value: formatPrintQty(record.quantity ?? record.actualCutPieceQty ?? record.qty, '片'), emphasis: true },
+    { label: isKnittingTicket ? '针织单号' : '扎号', value: isKnittingTicket ? record.originalCutOrderNo || record.originalCutOrderId : record.bundleNo || record.bundleScope },
+    { label: isKnittingTicket ? '纱线 SKU' : '面料 SKU', value: record.materialSku },
+    { label: isKnittingTicket ? '纱线颜色' : '面料颜色', value: record.fabricColor || record.color || record.garmentColor },
+    { label: '当前所在位置', value: isKnittingTicket ? '周哥针织厂待交出' : record.boundPocketNo ? `中转袋 ${record.boundPocketNo}` : '裁片仓待流转' },
     { label: '当前状态', value: isVoid ? '已作废' : '有效流转' },
-    { label: '是否已绑定中转袋', value: record.boundPocketNo ? '是' : '否' },
-    { label: '中转袋号', value: record.boundPocketNo || '未绑定' },
-    { label: '车缝任务号', value: record.boundUsageNo || '未分配' },
-    { label: '特殊工艺', value: specialCraftText },
-    { label: '工艺位置', value: craftPositionText },
-    { label: '二维码追溯', value: record.sourcePieceInstanceId || '待补裁片实例' },
-    { label: '菲票归属', value: '菲票归属原始裁片单', emphasis: true },
+    { label: isKnittingTicket ? '后续去向' : '是否已绑定中转袋', value: isKnittingTicket ? record.boundPocketNo || '裁床待交出仓' : record.boundPocketNo ? '是' : '否' },
+    { label: isKnittingTicket ? '流转规则' : '中转袋号', value: isKnittingTicket ? '部位针织不进缝盘、熨烫、包装' : record.boundPocketNo || '未绑定' },
+    { label: isKnittingTicket ? '裁床承接' : '车缝任务号', value: isKnittingTicket ? '裁床待交出仓' : record.boundUsageNo || '未分配' },
+    { label: isKnittingTicket ? '针织类型' : '特殊工艺', value: specialCraftText },
+    { label: isKnittingTicket ? '针织位置' : '工艺位置', value: craftPositionText },
+    { label: '二维码追溯', value: record.sourcePieceInstanceId || (isKnittingTicket ? '待补针织部位批次' : '待补裁片实例') },
+    { label: '菲票归属', value: isKnittingTicket ? '部位针织菲票' : '菲票归属原始裁片单', emphasis: true },
   ])
 
   const extraFields = isVoid
@@ -359,15 +373,22 @@ export function buildFeiTicketLabelPrintDocument(input: PrintDocumentBuildInput)
   const records = listFeiRecordsForSource(input.sourceId)
   const items = records.map((record) => buildFeiLabelItem(record, input, mode))
   const paperType: PrintPaperType = items.length > 1 ? 'A4_LABEL_GRID' : 'LABEL_80_50'
+  const isKnittingTicket = records.some((record) => record.ticketSourceType === 'KNITTING_PART_PANEL')
   return buildBaseLabelDocument(input, {
-    title: mode === '补打' ? '菲票补打标签' : mode === '作废' ? '菲票作废标识' : '菲票标签',
-    subtitle: mode === '作废' ? '已作废 · 不可流转' : mode === '补打' ? '补打不改变菲票归属' : '菲票归属原始裁片单，合并裁剪批次仅作为执行上下文。',
+    title: isKnittingTicket && mode === '首次打印' ? '针织菲票标签' : mode === '补打' ? '菲票补打标签' : mode === '作废' ? '菲票作废标识' : '菲票标签',
+    subtitle: mode === '作废'
+      ? '已作废 · 不可流转'
+      : mode === '补打'
+        ? '补打不改变菲票归属'
+        : isKnittingTicket
+          ? '部位针织按部位、颜色、尺码打印菲票，后续交裁床待交出仓。'
+          : '菲票归属原始裁片单，合并裁剪批次仅作为执行上下文。',
     templateCode: TEMPLATE_BY_DOCUMENT[input.documentType] || 'FEI_TICKET_LABEL',
     sourceType: 'FEI_TICKET_RECORD',
     paperType,
     mode,
     labelItems: items,
-    returnHref: '/fcs/craft/cutting/fei-tickets',
+    returnHref: isKnittingTicket ? '/fcs/craft/knitting/fei-tickets' : '/fcs/craft/cutting/fei-tickets',
   })
 }
 

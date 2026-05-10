@@ -221,7 +221,6 @@ export interface MarkerSchemeBed {
   plannedLayerCount: number
   markerLength: number
   markerPieceQtyPerLayer: number
-  repeatCount: number
   plannedGarmentQty: number
   spreadTotalLength: number
   unitFabricUsage: number
@@ -376,7 +375,7 @@ export const markerPlanModeMeta: Record<MarkerPlanModeKey, MarkerPlanStatusMeta<
     key: 'normal',
     label: '普通',
     className: 'bg-slate-100 text-slate-700 border border-slate-200',
-    helperText: '按常规床次明细维护床次净长与重复次数。',
+    helperText: '按常规床次明细维护层数、床次净长和单层件数。',
   },
   high_low: {
     key: 'high_low',
@@ -533,6 +532,16 @@ export function computeMarkerPlanSystemUnitUsage(netLength: number, totalPieces:
   return roundTo(safeNumber(netLength) / safeNumber(totalPieces), 3)
 }
 
+export function computeMarkerPlanSystemUnitUsageFromBeds(beds: MarkerSchemeBed[]): number {
+  const weightedLength = beds.reduce(
+    (sum, bed) => sum + safeNumber(bed.markerLength) * Math.max(safeNumber(bed.plannedLayerCount), 0),
+    0,
+  )
+  const plannedGarmentQty = beds.reduce((sum, bed) => sum + Math.max(safeNumber(bed.plannedGarmentQty), 0), 0)
+  if (plannedGarmentQty <= 0) return 0
+  return roundTo(weightedLength / plannedGarmentQty, 3)
+}
+
 export function computeMarkerPlanFinalUnitUsage(systemUnitUsage: number, manualUnitUsage: number | null): number {
   if (manualUnitUsage === null || manualUnitUsage === undefined || Number.isNaN(Number(manualUnitUsage))) {
     return roundTo(systemUnitUsage, 3)
@@ -606,7 +615,12 @@ export function computeMarkerExplodedPieceQty(piecePerGarment: number, garmentQt
   return Math.max(safeNumber(piecePerGarment), 0) * Math.max(safeNumber(garmentQty), 0)
 }
 
-export function computeMarkerPlannedSpreadLength(plan: Pick<MarkerPlan, 'markerMode' | 'layoutLines' | 'modeDetailLines' | 'singleSpreadFixedLoss'>): number {
+export function computeMarkerPlannedSpreadLength(
+  plan: Pick<MarkerPlan, 'markerMode' | 'layoutLines' | 'modeDetailLines' | 'singleSpreadFixedLoss'> & Partial<Pick<MarkerPlan, 'beds'>>,
+): number {
+  if ('beds' in plan && Array.isArray(plan.beds) && plan.beds.length) {
+    return roundTo(plan.beds.reduce((sum, bed) => sum + safeNumber(bed.spreadTotalLength), 0), 2)
+  }
   if (plan.markerMode === 'normal' || plan.markerMode === 'fold_normal') {
     return roundTo(
       plan.layoutLines.reduce(
@@ -639,7 +653,17 @@ export function deriveMarkerMappingStatus(pieceRows: MarkerPieceExplosionRow[]):
   return pieceRows.some((row) => row.mappingStatus !== 'MATCHED') ? 'issue' : 'passed'
 }
 
-export function deriveMarkerLayoutStatus(plan: Pick<MarkerPlan, 'markerMode' | 'layoutLines' | 'modeDetailLines' | 'foldConfig'>): MarkerLayoutStatusKey {
+export function deriveMarkerLayoutStatus(
+  plan: Pick<MarkerPlan, 'markerMode' | 'layoutLines' | 'modeDetailLines' | 'foldConfig'> & Partial<Pick<MarkerPlan, 'beds'>>,
+): MarkerLayoutStatusKey {
+  if (Array.isArray(plan.beds) && plan.beds.length) {
+    const hasReadyBeds = plan.beds.every((bed) => bed.readyForSpreading)
+    if (!hasReadyBeds) return 'pending'
+    if ((plan.markerMode === 'fold_normal' || plan.markerMode === 'fold_high_low') && !plan.foldConfig?.widthCheckPassed) {
+      return 'pending'
+    }
+    return 'done'
+  }
   const hasLayout =
     plan.markerMode === 'normal' || plan.markerMode === 'fold_normal'
       ? plan.layoutLines.some((line) => safeNumber(line.markerLength) > 0 && safeNumber(line.repeatCount) > 0 && safeNumber(line.markerPieceQty) > 0)
@@ -656,13 +680,16 @@ export function deriveMarkerImageStatus(imageCount: number): MarkerImageStatusKe
   return imageCount > 0 ? 'done' : 'pending'
 }
 
-export function deriveMarkerReadyForSpreading(plan: Pick<MarkerPlan, 'totalPieces' | 'netLength' | 'allocationStatus' | 'mappingStatus' | 'layoutStatus'>): boolean {
+export function deriveMarkerReadyForSpreading(
+  plan: Pick<MarkerPlan, 'totalPieces' | 'netLength' | 'allocationStatus' | 'mappingStatus' | 'layoutStatus'> & Partial<Pick<MarkerPlan, 'imageStatus'>>,
+): boolean {
   return (
     safeNumber(plan.totalPieces) > 0 &&
     safeNumber(plan.netLength) > 0 &&
     plan.allocationStatus === 'balanced' &&
     plan.mappingStatus === 'passed' &&
-    plan.layoutStatus === 'done'
+    plan.layoutStatus === 'done' &&
+    (!plan.imageStatus || plan.imageStatus === 'done')
   )
 }
 
@@ -690,6 +717,25 @@ export function buildMarkerTotalPiecesFormula(sizeRatioRows: MarkerSizeRatioRow[
 
 export function buildMarkerSystemUnitUsageFormula(netLength: number, totalPieces: number): string {
   return `${formatDecimalFormulaValue(computeMarkerPlanSystemUnitUsage(netLength, totalPieces), 3)} m/件 = ${formatDecimalFormulaValue(netLength, 2)} m ÷ ${formatIntegerFormulaValue(totalPieces)} 件`
+}
+
+export function buildMarkerPlanSystemUnitUsageFormula(
+  plan: Pick<MarkerPlan, 'netLength' | 'totalPieces'> & Partial<Pick<MarkerPlan, 'beds'>>,
+): string {
+  if (Array.isArray(plan.beds) && plan.beds.length) {
+    const readyBeds = plan.beds.filter(
+      (bed) => safeNumber(bed.markerLength) > 0 && safeNumber(bed.plannedLayerCount) > 0 && safeNumber(bed.plannedGarmentQty) > 0,
+    )
+    const plannedGarmentQty = readyBeds.reduce((sum, bed) => sum + Math.max(safeNumber(bed.plannedGarmentQty), 0), 0)
+    const terms = readyBeds.length
+      ? readyBeds.map(
+          (bed) =>
+            `${formatDecimalFormulaValue(bed.markerLength, 2)} m × ${formatIntegerFormulaValue(bed.plannedLayerCount)} 层（${bed.bedNo}）`,
+        )
+      : ['0.00 m']
+    return `${formatDecimalFormulaValue(computeMarkerPlanSystemUnitUsageFromBeds(readyBeds), 3)} m/件 = (${terms.join(' + ')}) ÷ ${formatIntegerFormulaValue(plannedGarmentQty || plan.totalPieces)} 件`
+  }
+  return buildMarkerSystemUnitUsageFormula(plan.netLength, plan.totalPieces)
 }
 
 export function buildMarkerFinalUnitUsageFormula(systemUnitUsage: number, manualUnitUsage: number | null): string {
@@ -763,8 +809,15 @@ export function buildMarkerFoldedEffectiveWidthFormula(config: Pick<MarkerFoldCo
 }
 
 export function buildMarkerPlannedSpreadLengthFormula(
-  plan: Pick<MarkerPlan, 'markerMode' | 'layoutLines' | 'modeDetailLines' | 'singleSpreadFixedLoss'>,
+  plan: Pick<MarkerPlan, 'markerMode' | 'layoutLines' | 'modeDetailLines' | 'singleSpreadFixedLoss'> & Partial<Pick<MarkerPlan, 'beds'>>,
 ): string {
+  if (Array.isArray(plan.beds) && plan.beds.length) {
+    const terms = plan.beds.map(
+      (bed) =>
+        `(${formatDecimalFormulaValue(bed.markerLength, 2)} m + ${formatDecimalFormulaValue(plan.singleSpreadFixedLoss, 2)} m) × ${formatIntegerFormulaValue(bed.plannedLayerCount)} 层（${bed.bedNo}）`,
+    )
+    return `${formatDecimalFormulaValue(computeMarkerPlannedSpreadLength(plan as MarkerPlan), 2)} m = ${terms.join(' + ')}`
+  }
   const lineValues =
     plan.markerMode === 'normal' || plan.markerMode === 'fold_normal'
       ? plan.layoutLines.map((line) => computeMarkerLayoutLineSpreadLength(line, plan.singleSpreadFixedLoss))

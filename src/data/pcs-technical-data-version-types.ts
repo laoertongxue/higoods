@@ -44,9 +44,9 @@ export interface TechnicalPatternPieceSpecialCraft {
   craftCode: string
   craftName: string
   displayName: string
-  selectedTargetObject?: '已裁部位' | '完整面料'
-  supportedTargetObjects?: Array<'CUT_PIECE' | 'FULL_FABRIC'>
-  supportedTargetObjectLabels?: Array<'已裁部位' | '完整面料'>
+  selectedTargetObject?: '已裁部位' | '完整面料' | '成衣半成品'
+  supportedTargetObjects?: Array<'CUT_PIECE' | 'FULL_FABRIC' | 'SEMI_FINISHED_GARMENT'>
+  supportedTargetObjectLabels?: Array<'已裁部位' | '完整面料' | '成衣半成品'>
 }
 
 export type TechnicalPatternPieceCraftPosition = 'LEFT' | 'RIGHT' | 'BOTTOM' | 'FACE'
@@ -221,11 +221,18 @@ export interface TechnicalProcessEntry {
   defaultDocType: 'DEMAND' | 'TASK'
   taskTypeMode: 'PROCESS' | 'CRAFT'
   isSpecialCraft: boolean
-  selectedTargetObject?: '已裁部位' | '完整面料'
-  targetObject?: 'CUT_PIECE_PART' | 'FABRIC' | 'ACCESSORY'
-  targetObjectName?: '裁片部位' | '面料' | '辅料'
-  supportedTargetObjects?: Array<'CUT_PIECE' | 'FULL_FABRIC'>
-  supportedTargetObjectLabels?: Array<'已裁部位' | '完整面料'>
+  selectedTargetObject?: '已裁部位' | '完整面料' | '成衣半成品'
+  targetObject?: 'CUT_PIECE_PART' | 'FABRIC' | 'ACCESSORY' | 'GARMENT_SEMI'
+  targetObjectName?: '裁片部位' | '面料' | '辅料' | '成衣半成品'
+  supportedTargetObjects?: Array<'CUT_PIECE' | 'FULL_FABRIC' | 'SEMI_FINISHED_GARMENT'>
+  supportedTargetObjectLabels?: Array<'已裁部位' | '完整面料' | '成衣半成品'>
+  knittingTaskType?: 'WHOLE_GARMENT' | 'PART_PANEL'
+  downstreamTarget?: '后道工厂' | '裁床待交出仓'
+  requiresFeiTicket?: boolean
+  packagingRequired?: boolean
+  materialIssueMode?: 'WAREHOUSE_DELIVERY'
+  linkedBomItemIds?: string[]
+  linkedPatternIds?: string[]
   visibleFactoryTypes?: string[]
   triggerSource?: string
   sourceType?: 'BOM' | 'MANUAL' | 'DICT'

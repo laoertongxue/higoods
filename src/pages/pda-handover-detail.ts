@@ -772,7 +772,7 @@ function renderPickupCurrentPanel(
         </div>
       </div>
       <div class="space-y-1 pt-1 text-xs text-zinc-700">
-        ${record.resolvedRemark ? `<p>处理说明：${escapeHtml(record.resolvedRemark)}</p>` : ''}
+        ${record.resolvedRemark ? `<p>处理记录：${escapeHtml(record.resolvedRemark)}</p>` : ''}
       </div>
     `
   }
@@ -791,7 +791,7 @@ function renderPickupCurrentPanel(
       </div>
       <div class="space-y-1 pt-1 text-xs text-slate-700">
         ${record.objectionReason ? `<p>驳回原因：${escapeHtml(record.objectionReason)}</p>` : ''}
-        ${record.objectionRemark ? `<p>驳回说明：${escapeHtml(record.objectionRemark)}</p>` : ''}
+        ${record.objectionRemark ? `<p>驳回记录：${escapeHtml(record.objectionRemark)}</p>` : ''}
       </div>
     `
   }
@@ -1036,14 +1036,14 @@ function renderPickupRecordItem(record: PdaPickupRecord): string {
                   : ''
               }
               ${record.objectionReason ? `<div>差异原因：${escapeHtml(record.objectionReason)}</div>` : ''}
-              ${record.objectionRemark ? `<div class="mt-1">差异说明：${escapeHtml(record.objectionRemark)}</div>` : ''}
+              ${record.objectionRemark ? `<div class="mt-1">差异记录：${escapeHtml(record.objectionRemark)}</div>` : ''}
               ${
                 record.objectionProofFiles && record.objectionProofFiles.length > 0
                   ? `<div class="mt-1">证据数量：${record.objectionProofFiles.length}</div>`
                   : ''
               }
               ${record.followUpRemark ? `<div class="mt-1">处理进度：${escapeHtml(record.followUpRemark)}</div>` : ''}
-              ${platformRemark ? `<div class="mt-1">处理说明：${escapeHtml(platformRemark)}</div>` : ''}
+              ${platformRemark ? `<div class="mt-1">处理记录：${escapeHtml(platformRemark)}</div>` : ''}
             </div>
           `
           : ''
@@ -1067,7 +1067,7 @@ function renderPickupTraceabilitySection(head: PdaHandoverHead, sourceDoc: Retur
           ${renderFieldRow('来源执行单', sourceDoc?.docNo || '—')}
           ${renderFieldRow('来源类型', sourceDoc?.docType === 'ISSUE' ? '仓库发料单' : sourceDoc?.docType ? '其他单据' : '—')}
           ${renderFieldRow('交接范围', head.scopeLabel || '整单')}
-          ${renderFieldRow('当前任务号', runtimeTask?.taskNo || runtimeTask?.taskId || head.taskNo)}
+        ${renderFieldRow('关联任务号', runtimeTask?.taskNo || runtimeTask?.taskId || head.taskNo)}
         </div>
       </div>
     </details>
@@ -1493,7 +1493,7 @@ function renderHandoutRecordItem(
                 ${renderFieldRow('车缝厂回写', typeof sewingBatch.receiverWrittenQty === 'number' ? `${sewingBatch.receiverWrittenQty} 件` : '待回写')}
               </div>
               <div class="mt-2 flex flex-wrap gap-2">
-                <button type="button" class="rounded border bg-white px-2 py-1 text-[11px] text-blue-700 hover:bg-blue-100" data-nav="/fcs/craft/cutting/sewing-dispatch">查看裁片发料</button>
+                <button type="button" class="rounded border bg-white px-2 py-1 text-[11px] text-blue-700 hover:bg-blue-100" data-nav="/fcs/craft/cutting/warehouse-management/wait-handover?tab=sewing-dispatch">查看裁片发料</button>
                 <button type="button" class="rounded border bg-white px-2 py-1 text-[11px] text-blue-700 hover:bg-blue-100" data-nav="/fcs/craft/cutting/transfer-bags">查看中转袋</button>
               </div>
             </div>
@@ -1532,7 +1532,7 @@ function renderHandoutRecordItem(
           ? `
             <div class="rounded-md border border-red-200 bg-red-50 px-2.5 py-2 text-xs text-red-700">
               <div>异议原因：${escapeHtml(record.objectionReason)}</div>
-              ${record.objectionRemark ? `<div class="mt-1">异议说明：${escapeHtml(record.objectionRemark)}</div>` : ''}
+              ${record.objectionRemark ? `<div class="mt-1">异议记录：${escapeHtml(record.objectionRemark)}</div>` : ''}
               ${record.followUpRemark ? `<div class="mt-1">平台跟进：${escapeHtml(record.followUpRemark)}</div>` : ''}
               ${record.resolvedRemark ? `<div class="mt-1">处理结果：${escapeHtml(record.resolvedRemark)}</div>` : ''}
             </div>
@@ -1661,7 +1661,7 @@ function renderHandoutHeadDetail(head: PdaHandoverHead): string {
             ${renderFieldRow('来源执行单', sourceDoc?.docNo || '—')}
             ${renderFieldRow('来源类型', sourceDoc?.docType === 'RETURN' ? '工序回货单' : sourceDoc?.docType ? '其他单据' : '—')}
             ${renderFieldRow('交接范围', head.scopeLabel || '整单')}
-            ${renderFieldRow('当前任务号', runtimeTask?.taskNo || runtimeTask?.taskId || head.taskNo)}
+            ${renderFieldRow('关联任务号', runtimeTask?.taskNo || runtimeTask?.taskId || head.taskNo)}
           </div>
         </div>
         ${renderHandoutQrBlock(head, profile.objectTypeLabel)}

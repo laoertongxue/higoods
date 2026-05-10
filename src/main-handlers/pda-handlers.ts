@@ -19,7 +19,7 @@ import { handlePdaWarehouseInboundRecordsEvent } from '../pages/pda-warehouse-in
 import { handlePdaWarehouseOutboundRecordsEvent } from '../pages/pda-warehouse-outbound-records'
 import { handlePdaWarehouseStocktakeEvent } from '../pages/pda-warehouse-stocktake'
 import { handlePdaCuttingTaskDetailEvent } from '../pages/pda-cutting-task-detail'
-import { handlePdaCuttingPickupEvent } from '../pages/pda-cutting-pickup'
+import { handlePdaCuttingExecutionUnitEvent } from '../pages/pda-cutting-execution-unit'
 import { handlePdaCuttingSpreadingEvent } from '../pages/pda-cutting-spreading'
 import { handlePdaCuttingInboundEvent } from '../pages/pda-cutting-inbound'
 import { handlePdaCuttingHandoverEvent } from '../pages/pda-cutting-handover'
@@ -45,7 +45,7 @@ export async function dispatchPdaPageEvent(target: HTMLElement): Promise<boolean
     await handlePdaWarehouseOutboundRecordsEvent(target) ||
     await handlePdaWarehouseStocktakeEvent(target) ||
     await handlePdaCuttingTaskDetailEvent(target) ||
-    await handlePdaCuttingPickupEvent(target) ||
+    await handlePdaCuttingExecutionUnitEvent(target) ||
     await handlePdaCuttingSpreadingEvent(target) ||
     await handlePdaCuttingInboundEvent(target) ||
     await handlePdaCuttingHandoverEvent(target) ||

@@ -2,6 +2,11 @@ import {
   listGeneratedOriginalCutOrderSourceRecords,
   type GeneratedOriginalCutOrderSourceRecord,
 } from '../../../data/fcs/cutting/generated-original-cut-orders.ts'
+import { findStyleArchiveByCode } from '../../../data/pcs-style-archive-repository.ts'
+import {
+  getCurrentTechPackVersionByStyleId,
+  getTechnicalDataVersionContentById,
+} from '../../../data/pcs-technical-data-version-repository.ts'
 import type { MaterialPrepRow } from './material-prep-model.ts'
 import type { MergeBatchItem, MergeBatchRecord } from './merge-batches-model.ts'
 import type { OriginalCutOrderRow } from './original-orders-model.ts'
@@ -42,9 +47,9 @@ import {
   buildMarkerAllocationSumFormula,
   buildMarkerExplodedPieceQtyFormula,
   buildMarkerFinalUnitUsageFormula,
+  buildMarkerPlanSystemUnitUsageFormula,
   buildMarkerPlannedSpreadLengthFormula,
   buildMarkerSkuExplodedPieceQtyFormula,
-  buildMarkerSystemUnitUsageFormula,
   buildMarkerTotalPiecesFormula,
   computeMarkerAllocationDiffBySize,
   computeMarkerAllocationSumBySize,
@@ -52,15 +57,13 @@ import {
   computeMarkerFoldedEffectiveWidth,
   computeMarkerFoldWidthCheckPassed,
   computeMarkerLayoutLineSpreadLength,
-  computeMarkerLayoutLineSystemUnitUsage,
   computeMarkerPlanFinalUnitUsage,
+  computeMarkerPlanSystemUnitUsageFromBeds,
   computeMarkerPlanSystemUnitUsage,
   computeMarkerPlanTotalPieces,
-  computeMarkerPlannedSpreadLength,
   createEmptySizeRatioRows,
   deriveMarkerAllocationStatus,
   deriveMarkerImageStatus,
-  deriveMarkerLayoutStatus,
   deriveMarkerMappingStatus,
   deriveMarkerPlanDefaultTab,
   deriveMarkerPlanStatus,
@@ -73,6 +76,8 @@ import {
   markerPlanStatusMeta,
   normalizeMarkerSizeCode,
 } from './marker-plan-domain.ts'
+
+const DEFAULT_MARKER_GARMENT_LENGTH_M = 0.42
 
 function uniqueStrings(values: Array<string | undefined | null>): string[] {
   return Array.from(new Set(values.map((value) => String(value || '').trim()).filter(Boolean)))
@@ -313,10 +318,13 @@ export function buildMarkerPlanModeOptions(): Array<{ value: MarkerPlanModeKey; 
   }))
 }
 
-export function buildMarkerPlanListTabOptions(): Array<{ key: 'PENDING' | 'PLANS' | 'EXCEPTIONS'; label: string }> {
+export function buildMarkerPlanListTabOptions(): Array<{ key: 'ALL' | 'WAITING_BALANCE' | 'WAITING_LAYOUT' | 'WAITING_IMAGE' | 'READY_FOR_SPREADING' | 'EXCEPTIONS'; label: string }> {
   return [
-    { key: 'PENDING', label: '待建方案' },
-    { key: 'PLANS', label: '排唛架方案' },
+    { key: 'ALL', label: '全部方案' },
+    { key: 'WAITING_BALANCE', label: '待配平' },
+    { key: 'WAITING_LAYOUT', label: '待排床次' },
+    { key: 'WAITING_IMAGE', label: '待生成图片' },
+    { key: 'READY_FOR_SPREADING', label: '可交接铺布' },
     { key: 'EXCEPTIONS', label: '异常待处理' },
   ]
 }
@@ -414,24 +422,39 @@ function getContextUrgencyLabel(rows: ProductionProgressRow[]): string {
   return sorted[0]?.urgency.label || '常规'
 }
 
-function buildContextTechPackStatusLabel(
-  materialPrepRows: Array<Pick<MaterialPrepRow, 'techPackSpuCode'>>,
-  spuCodeHint: string,
+function getFormalTechPackSnapshotForOriginalRow(row: Pick<OriginalCutOrderRow, 'productionOrderId' | 'spuCode'>) {
+  const style = findStyleArchiveByCode(row.spuCode)
+  if (!style?.currentTechPackVersionId) return null
+  const record = getCurrentTechPackVersionByStyleId(style.styleId)
+  if (!record) return null
+  if (record.technicalVersionId !== style.currentTechPackVersionId) return null
+  if (record.versionStatus !== 'PUBLISHED') return null
+  if (!record.publishedAt) return null
+  const content = getTechnicalDataVersionContentById(record.technicalVersionId)
+  if (!content) return null
+  return {
+    styleCode: style.styleCode,
+    versionLabel: record.versionLabel,
+  }
+}
+
+function buildFormalTechPackStatusLabel(
+  snapshots: Array<NonNullable<ReturnType<typeof getFormalTechPackSnapshotForOriginalRow>>>,
 ): string {
-  const techPackCodes = uniqueStrings([...materialPrepRows.map((row) => row.techPackSpuCode || ''), spuCodeHint])
-  if (!techPackCodes.length) return '待补'
-  if (techPackCodes.length === 1) return '已关联'
-  return '需人工确认'
+  const versionLabels = uniqueStrings(snapshots.map((snapshot) => snapshot.versionLabel))
+  if (!versionLabels.length) return '待补正式版'
+  if (versionLabels.length === 1) return `正式版 ${versionLabels[0]}`
+  return `正式版 ${versionLabels.join(' / ')}`
 }
 
 function buildContextPrepStatusLabel(
   originalRows: Array<Pick<OriginalCutOrderRow, 'materialPrepStatus'>>,
 ): string {
   const prepKeys = uniqueStrings(originalRows.map((row) => row.materialPrepStatus.key))
-  if (!prepKeys.length) return '待配料'
-  if (prepKeys.length === 1) return originalRows[0]?.materialPrepStatus.label || '待配料'
-  if (prepKeys.includes('NOT_CONFIGURED')) return '待配料'
-  if (prepKeys.includes('PARTIAL')) return '配料中'
+  if (!prepKeys.length) return 'WMS 待处理'
+  if (prepKeys.length === 1) return originalRows[0]?.materialPrepStatus.label || 'WMS 待处理'
+  if (prepKeys.includes('NOT_CONFIGURED')) return 'WMS 待处理'
+  if (prepKeys.includes('PARTIAL')) return 'WMS处理中'
   return '已配置'
 }
 
@@ -439,11 +462,11 @@ function buildContextClaimStatusLabel(
   originalRows: Array<Pick<OriginalCutOrderRow, 'materialClaimStatus'>>,
 ): string {
   const claimKeys = uniqueStrings(originalRows.map((row) => row.materialClaimStatus.key))
-  if (!claimKeys.length) return '待领料'
-  if (claimKeys.length === 1) return originalRows[0]?.materialClaimStatus.label || '待领料'
-  if (claimKeys.includes('NOT_RECEIVED')) return '待领料'
-  if (claimKeys.includes('PARTIAL')) return '部分领取'
-  return '领料不齐'
+  if (!claimKeys.length) return '待来料'
+  if (claimKeys.length === 1) return originalRows[0]?.materialClaimStatus.label || '待来料'
+  if (claimKeys.includes('NOT_RECEIVED')) return '待来料'
+  if (claimKeys.includes('PARTIAL')) return '部分来料'
+  return 'WMS 来料不齐'
 }
 
 function buildContextPrepClaimSummaryText(
@@ -451,7 +474,7 @@ function buildContextPrepClaimSummaryText(
 ): string {
   const prepLabel = buildContextPrepStatusLabel(originalRows)
   const claimLabel = buildContextClaimStatusLabel(originalRows)
-  return `配料：${prepLabel} / 领料：${claimLabel}`
+  return `WMS 来料：${prepLabel} / 入仓：${claimLabel}`
 }
 
 function buildOriginalContextCandidate(input: {
@@ -459,7 +482,10 @@ function buildOriginalContextCandidate(input: {
   materialPrepRow: MaterialPrepRow | null
   productionRow: ProductionProgressRow | null
   sourceRecord: GeneratedOriginalCutOrderSourceRecord | null
-}): MarkerPlanContextCandidate {
+}): MarkerPlanContextCandidate | null {
+  const formalTechPackSnapshot = getFormalTechPackSnapshotForOriginalRow(input.row)
+  if (!formalTechPackSnapshot) return null
+
   const sourceGeneratedRows = input.sourceRecord ? [input.sourceRecord] : []
   const defaultSizeRatioRows = sourceGeneratedRows.length
     ? buildSizeRatioRowsFromSourceRecords(sourceGeneratedRows)
@@ -472,10 +498,7 @@ function buildOriginalContextCandidate(input: {
     input.row.color,
     input.materialPrepRow?.color,
   ]).join(' / ')
-  const techPackStatusLabel = buildContextTechPackStatusLabel(
-    input.materialPrepRow ? [{ techPackSpuCode: input.materialPrepRow.techPackSpuCode || '' }] : [],
-    input.materialPrepRow?.techPackSpuCode || input.sourceRecord?.sourceTechPackSpuCode || input.row.spuCode,
-  )
+  const techPackStatusLabel = buildFormalTechPackStatusLabel([formalTechPackSnapshot])
   const prepStatusLabel = buildContextPrepStatusLabel([input.row])
   const prepClaimSummaryText = buildContextPrepClaimSummaryText([input.row])
 
@@ -494,7 +517,7 @@ function buildOriginalContextCandidate(input: {
     styleCode: input.row.styleCode,
     spuCode: input.row.spuCode,
     styleName: input.row.styleName,
-    techPackSpu: input.materialPrepRow?.techPackSpuCode || input.sourceRecord?.sourceTechPackSpuCode || input.row.spuCode,
+    techPackSpu: formalTechPackSnapshot.styleCode,
     sourceFactoryName,
     sourceShipDate,
     sourceUrgencyLabel,
@@ -522,6 +545,11 @@ function buildMergeBatchContextCandidate(input: {
     .filter((row): row is OriginalCutOrderRow => Boolean(row))
   if (!sourceOriginalRows.length) return null
 
+  const formalTechPackSnapshots = sourceOriginalRows
+    .map((row) => getFormalTechPackSnapshotForOriginalRow(row))
+    .filter((snapshot): snapshot is NonNullable<ReturnType<typeof getFormalTechPackSnapshotForOriginalRow>> => Boolean(snapshot))
+  if (formalTechPackSnapshots.length !== sourceOriginalRows.length) return null
+
   const sourceMaterialPrepRows = sourceOriginalRows
     .map((row) => input.materialPrepRowsById[row.originalCutOrderId])
     .filter((row): row is MaterialPrepRow => Boolean(row))
@@ -534,10 +562,7 @@ function buildMergeBatchContextCandidate(input: {
   const defaultSizeRatioRows = sourceGeneratedRows.length
     ? buildSizeRatioRowsFromSourceRecords(sourceGeneratedRows)
     : createEmptySizeRatioRows()
-  const techPackStatusLabel = buildContextTechPackStatusLabel(
-    sourceMaterialPrepRows,
-    uniqueStrings(sourceMaterialPrepRows.map((row) => row.techPackSpuCode || ''))[0] || sourceOriginalRows[0]?.spuCode || '',
-  )
+  const techPackStatusLabel = buildFormalTechPackStatusLabel(formalTechPackSnapshots)
   const prepStatusLabel = buildContextPrepStatusLabel(sourceOriginalRows)
   const prepClaimSummaryText = buildContextPrepClaimSummaryText(sourceOriginalRows)
 
@@ -556,7 +581,7 @@ function buildMergeBatchContextCandidate(input: {
     styleCode: input.batch.styleCode || sourceOriginalRows[0]?.styleCode || '',
     spuCode: input.batch.spuCode || sourceOriginalRows[0]?.spuCode || '',
     styleName: input.batch.styleName || sourceOriginalRows[0]?.styleName || '',
-    techPackSpu: uniqueStrings(sourceMaterialPrepRows.map((row) => row.techPackSpuCode))[0] || sourceOriginalRows[0]?.spuCode || '',
+    techPackSpu: uniqueStrings(formalTechPackSnapshots.map((snapshot) => snapshot.styleCode))[0] || sourceOriginalRows[0]?.spuCode || '',
     sourceFactoryName: getContextFactoryName(productionRows),
     sourceShipDate: getContextShipDate(productionRows),
     sourceUrgencyLabel: getContextUrgencyLabel(productionRows),
@@ -578,14 +603,16 @@ export function buildMarkerPlanContextCandidates(sources: CuttingSummaryBuildOpt
   const productionRowsById = buildProductionRowMap(sources.productionRows)
   const generatedRowsById = buildGeneratedRowMap()
 
-  const originalContexts = sources.originalRows.map((row) =>
-    buildOriginalContextCandidate({
-      row,
-      materialPrepRow: materialPrepRowsById[row.originalCutOrderId] || null,
-      productionRow: productionRowsById[row.productionOrderId] || null,
-      sourceRecord: generatedRowsById[row.originalCutOrderId] || null,
-    }),
-  )
+  const originalContexts = sources.originalRows
+    .map((row) =>
+      buildOriginalContextCandidate({
+        row,
+        materialPrepRow: materialPrepRowsById[row.originalCutOrderId] || null,
+        productionRow: productionRowsById[row.productionOrderId] || null,
+        sourceRecord: generatedRowsById[row.originalCutOrderId] || null,
+      }),
+    )
+    .filter((item): item is MarkerPlanContextCandidate => Boolean(item))
 
   const mergeBatchContexts = sources.mergeBatches
     .map((batch) =>
@@ -773,6 +800,20 @@ function buildSchemeDemandRowsFromContext(context: MarkerPlanContextCandidate): 
   )
 }
 
+function buildSizeRatioRowsFromDemandRows(demandRows: MarkerSchemeDemandRow[]): MarkerSizeRatioRow[] {
+  const qtyMap = Object.fromEntries(MARKER_SIZE_CODES.map((sizeCode) => [sizeCode, 0])) as Record<MarkerSizeCode, number>
+  demandRows.forEach((row) => {
+    const sizeCode = normalizeMarkerSizeCode(row.sizeCode || row.sizeName)
+    if (!sizeCode) return
+    qtyMap[sizeCode] += Math.max(safeNumber(row.demandQty), 0)
+  })
+  return MARKER_SIZE_CODES.map((sizeCode, index) => ({
+    sizeCode,
+    qty: qtyMap[sizeCode],
+    sortOrder: index + 1,
+  }))
+}
+
 function buildCoverageRowsFromDemandRows(
   rows: MarkerSchemeDemandRow[],
   colorName: string,
@@ -798,7 +839,6 @@ function buildDefaultSchemeBeds(options: {
   context: MarkerPlanContextCandidate
   demandRows: MarkerSchemeDemandRow[]
   plannedLayerCount: number
-  netLength: number
   singleSpreadFixedLoss: number
   foldConfig: MarkerFoldConfig | null
 }): MarkerSchemeBed[] {
@@ -809,15 +849,14 @@ function buildDefaultSchemeBeds(options: {
   return activeColors.map((colorName, index) => {
     const coverageRows = buildCoverageRowsFromDemandRows(options.demandRows, colorName)
     const demandQty = sum(coverageRows.map((row) => row.demandQty))
-    const markerLength = roundTo(Math.max(options.netLength / Math.max(activeColors.length, 1), 1), 2)
     const markerPieceQtyPerLayer = Math.max(Math.ceil(demandQty / Math.max(options.plannedLayerCount, 1)), 1)
-    const repeatCount = 1
+    const markerLength = roundTo(Math.max(markerPieceQtyPerLayer * DEFAULT_MARKER_GARMENT_LENGTH_M, 1), 2)
     const spreadTotalLength = computeMarkerLayoutLineSpreadLength(
-      { markerLength, repeatCount },
+      { markerLength, repeatCount: options.plannedLayerCount },
       options.singleSpreadFixedLoss,
     )
-    const plannedGarmentQty = markerPieceQtyPerLayer * repeatCount
-    const unitFabricUsage = computeMarkerLayoutLineSystemUnitUsage({ markerLength, markerPieceQty: markerPieceQtyPerLayer })
+    const plannedGarmentQty = markerPieceQtyPerLayer * options.plannedLayerCount
+    const unitFabricUsage = plannedGarmentQty > 0 ? roundTo(spreadTotalLength / plannedGarmentQty, 3) : 0
     return {
       bedId: `${options.planId}-bed-${index + 1}`,
       schemeId: options.planId,
@@ -833,7 +872,6 @@ function buildDefaultSchemeBeds(options: {
       plannedLayerCount: options.plannedLayerCount,
       markerLength,
       markerPieceQtyPerLayer,
-      repeatCount,
       plannedGarmentQty,
       spreadTotalLength,
       unitFabricUsage,
@@ -982,25 +1020,28 @@ function hydrateFoldConfig(foldConfig: MarkerFoldConfig | null): MarkerFoldConfi
 }
 
 export function hydrateMarkerPlan(plan: MarkerPlan, context: MarkerPlanContextCandidate): MarkerPlan {
-  const sizeRatioRows = plan.sizeRatioRows.map((row, index) => ({
-    ...row,
-    sizeCode: normalizeMarkerSizeCode(row.sizeCode) || MARKER_SIZE_CODES[index] || 'M',
-    qty: Math.max(safeNumber(row.qty), 0),
-    sortOrder: index + 1,
-  }))
   const schemeDemandRows = (plan.schemeDemandRows || []).map((row) => ({
     ...row,
     demandQty: Math.max(safeNumber(row.demandQty), 0),
     plannedQty: Math.max(safeNumber(row.plannedQty), 0),
     remainingQty: Math.max(safeNumber(row.remainingQty), 0),
   }))
-  const totalPieces = sum(schemeDemandRows.map((row) => row.demandQty))
+  const fallbackSizeRatioRows = plan.sizeRatioRows.map((row, index) => ({
+    ...row,
+    sizeCode: normalizeMarkerSizeCode(row.sizeCode) || MARKER_SIZE_CODES[index] || 'M',
+    qty: Math.max(safeNumber(row.qty), 0),
+    sortOrder: index + 1,
+  }))
+  const sizeRatioRows = schemeDemandRows.length
+    ? buildSizeRatioRowsFromDemandRows(schemeDemandRows)
+    : fallbackSizeRatioRows
+  const totalPieces = computeMarkerPlanTotalPieces(sizeRatioRows)
   const layoutLines: MarkerPlan['layoutLines'] = []
   const modeDetailLines: MarkerPlan['modeDetailLines'] = []
   const foldConfig = hydrateFoldConfig(plan.foldConfig)
-  const netLength = roundTo(safeNumber(plan.netLength), 2)
-  const systemUnitUsage = computeMarkerPlanSystemUnitUsage(netLength, totalPieces)
-  const finalUnitUsage = computeMarkerPlanFinalUnitUsage(systemUnitUsage, plan.manualUnitUsage)
+  const rawNetLength = roundTo(safeNumber(plan.netLength), 2)
+  const fallbackSystemUnitUsage = computeMarkerPlanSystemUnitUsage(rawNetLength, totalPieces)
+  const fallbackFinalUnitUsage = computeMarkerPlanFinalUnitUsage(fallbackSystemUnitUsage, plan.manualUnitUsage)
   const allocationRows = plan.allocationRows.map((row) => ({
     ...row,
     sizeCode: normalizeMarkerSizeCode(row.sizeCode) || 'M',
@@ -1012,9 +1053,9 @@ export function hydrateMarkerPlan(plan: MarkerPlan, context: MarkerPlanContextCa
       ...plan,
       sizeRatioRows,
       totalPieces,
-      netLength,
-      systemUnitUsage,
-      finalUnitUsage,
+      netLength: rawNetLength,
+      systemUnitUsage: fallbackSystemUnitUsage,
+      finalUnitUsage: fallbackFinalUnitUsage,
       allocationRows,
       layoutLines,
       modeDetailLines,
@@ -1025,12 +1066,14 @@ export function hydrateMarkerPlan(plan: MarkerPlan, context: MarkerPlanContextCa
   const beds = (plan.beds || []).map((bed, index) => {
     const markerLength = roundTo(safeNumber(bed.markerLength), 2)
     const markerPieceQtyPerLayer = Math.max(Math.round(safeNumber(bed.markerPieceQtyPerLayer)), 0)
-    const repeatCount = Math.max(Math.round(safeNumber(bed.repeatCount)), 0)
     const plannedLayerCount = Math.max(Math.round(safeNumber(bed.plannedLayerCount)), 0)
-    const spreadTotalLength = computeMarkerLayoutLineSpreadLength({ markerLength, repeatCount }, plan.singleSpreadFixedLoss)
-    const plannedGarmentQty = markerPieceQtyPerLayer * repeatCount
-    const unitFabricUsage = computeMarkerLayoutLineSystemUnitUsage({ markerLength, markerPieceQty: markerPieceQtyPerLayer })
-    const readyForSpreading = markerLength > 0 && markerPieceQtyPerLayer > 0 && repeatCount > 0 && plannedLayerCount > 0 && bed.coverageRows.length > 0
+    const spreadTotalLength = computeMarkerLayoutLineSpreadLength(
+      { markerLength, repeatCount: plannedLayerCount },
+      plan.singleSpreadFixedLoss,
+    )
+    const plannedGarmentQty = markerPieceQtyPerLayer * plannedLayerCount
+    const unitFabricUsage = plannedGarmentQty > 0 ? roundTo(spreadTotalLength / plannedGarmentQty, 3) : 0
+    const readyForSpreading = markerLength > 0 && markerPieceQtyPerLayer > 0 && plannedLayerCount > 0 && bed.coverageRows.length > 0
     return {
       ...bed,
       schemeId: plan.schemeId || plan.id,
@@ -1043,7 +1086,6 @@ export function hydrateMarkerPlan(plan: MarkerPlan, context: MarkerPlanContextCa
       plannedLayerCount,
       markerLength,
       markerPieceQtyPerLayer,
-      repeatCount,
       plannedGarmentQty,
       spreadTotalLength,
       unitFabricUsage,
@@ -1052,17 +1094,28 @@ export function hydrateMarkerPlan(plan: MarkerPlan, context: MarkerPlanContextCa
       status: readyForSpreading ? bed.status === '已完成' || bed.status === '已排程' || bed.status === '铺布中' || bed.status === '已锁定' ? bed.status : '可铺布' : '草稿',
     }
   })
+  const netLength = roundTo(beds.length ? sum(beds.map((bed) => bed.markerLength)) : rawNetLength, 2)
+  const systemUnitUsage = beds.length
+    ? computeMarkerPlanSystemUnitUsageFromBeds(beds)
+    : computeMarkerPlanSystemUnitUsage(netLength, totalPieces)
+  const finalUnitUsage = computeMarkerPlanFinalUnitUsage(systemUnitUsage, plan.manualUnitUsage)
   const plannedSpreadLength = sum(beds.map((bed) => bed.spreadTotalLength))
   const allocationStatus = deriveMarkerAllocationStatus(sizeRatioRows, allocationRows)
   const mappingStatus = deriveMarkerMappingStatus(pieceExplosionRows)
   const layoutStatus: MarkerLayoutStatusKey = beds.length > 0 && beds.every((bed) => bed.readyForSpreading) ? 'done' : 'pending'
   const imageStatus = plan.schemeImage || plan.detailImage || plan.imageRecords.length ? deriveMarkerImageStatus(1) : deriveMarkerImageStatus(0)
+  const schemeImageStatus = imageStatus === 'done'
+    ? plan.schemeImageStatus === '已过期'
+      ? '已过期'
+      : '已生成'
+    : '待生成'
   const derivedReadyForSpreading = deriveMarkerReadyForSpreading({
     totalPieces,
     netLength,
     allocationStatus,
     mappingStatus,
     layoutStatus,
+    imageStatus,
   })
   const derivedStatus = deriveMarkerPlanStatus({
     allocationStatus,
@@ -1090,6 +1143,7 @@ export function hydrateMarkerPlan(plan: MarkerPlan, context: MarkerPlanContextCa
     foldConfig,
     pieceExplosionRows,
     imageCount: plan.imageRecords.length,
+    schemeImageStatus,
     allocationStatus,
     mappingStatus,
     layoutStatus,
@@ -1202,7 +1256,7 @@ function buildPlanViewRow(
     markerGarmentQtyFormula: buildMarkerTotalPiecesFormula(hydrated.sizeRatioRows),
     totalPiecesText: formatQty(hydrated.totalPieces),
     totalPiecesFormula: buildMarkerTotalPiecesFormula(hydrated.sizeRatioRows),
-    systemUnitUsageFormula: buildMarkerSystemUnitUsageFormula(hydrated.netLength, hydrated.totalPieces),
+    systemUnitUsageFormula: buildMarkerPlanSystemUnitUsageFormula(hydrated),
     finalUnitUsageFormula: buildMarkerFinalUnitUsageFormula(hydrated.systemUnitUsage, hydrated.manualUnitUsage),
     finalUnitUsageText: formatNumber(hydrated.finalUnitUsage, 3),
     netLengthText: `${formatNumber(hydrated.netLength, 2)} m`,
@@ -1230,7 +1284,6 @@ function createPlanFromContext(options: {
   const markerNo = createMarkerNo(options.existingPlans, now)
   const sizeRatioRows = options.context.defaultSizeRatioRows.map((row) => ({ ...row }))
   const totalPieces = computeMarkerPlanTotalPieces(sizeRatioRows)
-  const netLength = roundTo(Math.max(totalPieces * 0.42, 5), 2)
   const allocationRows = buildAutoAllocationRows(options.context, sizeRatioRows)
   const markerMode = options.markerMode || 'normal'
   const planId = `marker-plan-${now.getTime()}-${Math.random().toString(36).slice(2, 8)}`
@@ -1246,10 +1299,13 @@ function createPlanFromContext(options: {
     context: options.context,
     demandRows: schemeDemandRows,
     plannedLayerCount,
-    netLength,
     singleSpreadFixedLoss: DEFAULT_SINGLE_SPREAD_FIXED_LOSS,
     foldConfig,
   })
+  const netLength = roundTo(
+    beds.length ? sum(beds.map((bed) => bed.markerLength)) : Math.max(Math.ceil(totalPieces / plannedLayerCount) * DEFAULT_MARKER_GARMENT_LENGTH_M, 1),
+    2,
+  )
 
   const plan: MarkerPlan = {
     id: planId,
@@ -1361,140 +1417,22 @@ export function cloneMarkerPlanAsNewDraft(source: MarkerPlan, existingPlans: Mar
 
 type SeedVariantKey = 'ready' | 'unbalanced' | 'mapping' | 'layout' | 'image' | 'manual'
 
-function pickSeedContexts(
-  contexts: MarkerPlanContextCandidate[],
-  desiredType: MarkerPlanContextType,
-): MarkerPlanContextCandidate[] {
-  const typed = contexts.filter((item) => item.contextType === desiredType)
-  return typed.length ? typed : contexts
-}
-
-function findSeedContextByOriginalId(
-  contexts: MarkerPlanContextCandidate[],
-  originalCutOrderId: string,
-): MarkerPlanContextCandidate | null {
-  return contexts.find(
-    (context) => context.contextType === 'original-cut-order' && context.originalCutOrderIds.includes(originalCutOrderId),
-  ) || null
-}
-
-function findSeedContextByMergeBatchNo(
-  contexts: MarkerPlanContextCandidate[],
-  mergeBatchNo: string,
-): MarkerPlanContextCandidate | null {
-  return contexts.find(
-    (context) => context.contextType === 'merge-batch' && context.mergeBatchNo === mergeBatchNo,
-  ) || null
-}
-
-function pickNextUnusedContext(
-  contexts: MarkerPlanContextCandidate[],
-  usedKeys: Set<string>,
-  contextType: MarkerPlanContextType,
-): MarkerPlanContextCandidate | null {
-  return contexts.find((context) => context.contextType === contextType && !usedKeys.has(context.contextKey)) || null
-}
-
 function buildSeedVariants(contexts: MarkerPlanContextCandidate[]): Array<{ context: MarkerPlanContextCandidate; mode: MarkerPlanModeKey; variant: SeedVariantKey }> {
-  const originalContexts = pickSeedContexts(contexts, 'original-cut-order')
-  const mergeContexts = pickSeedContexts(contexts, 'merge-batch')
-  const usedContextKeys = new Set<string>()
-
-  const resolveContext = (
-    preferred: MarkerPlanContextCandidate | null,
-    contextType: MarkerPlanContextType,
-  ): MarkerPlanContextCandidate | null => {
-    if (preferred) {
-      usedContextKeys.add(preferred.contextKey)
-      return preferred
-    }
-    const nextUnused = pickNextUnusedContext(contexts, usedContextKeys, contextType)
-    if (nextUnused) {
-      usedContextKeys.add(nextUnused.contextKey)
-      return nextUnused
-    }
-    const backupContext = (contextType === 'merge-batch' ? mergeContexts : originalContexts)[0] || contexts[0] || null
-    if (backupContext) usedContextKeys.add(backupContext.contextKey)
-    return backupContext
-  }
-
-  const seedItems = [
-    {
-      context: resolveContext(findSeedContextByOriginalId(contexts, 'CUT-260308-081-01'), 'original-cut-order'),
-      mode: 'normal' as const,
-      variant: 'ready' as const,
-    },
-    {
-      context: resolveContext(findSeedContextByOriginalId(contexts, 'CUT-260310-083-02'), 'original-cut-order'),
-      mode: 'normal' as const,
-      variant: 'image' as const,
-    },
-    {
-      context: resolveContext(findSeedContextByMergeBatchNo(contexts, 'MB-260403-081-LINING'), 'merge-batch'),
-      mode: 'high_low' as const,
-      variant: 'mapping' as const,
-    },
-    {
-      context: resolveContext(findSeedContextByMergeBatchNo(contexts, 'MB-260403-081-PRINT'), 'merge-batch'),
-      mode: 'fold_high_low' as const,
-      variant: 'layout' as const,
-    },
-    {
-      context: resolveContext(findSeedContextByMergeBatchNo(contexts, 'MB-260403-081-SOLID'), 'merge-batch'),
-      mode: 'normal' as const,
-      variant: 'ready' as const,
-    },
-    {
-      context: resolveContext(findSeedContextByMergeBatchNo(contexts, 'MB-260403-083-PRINT'), 'merge-batch'),
-      mode: 'fold_normal' as const,
-      variant: 'ready' as const,
-    },
-    {
-      context: resolveContext(findSeedContextByOriginalId(contexts, 'CUT-260311-084-01'), 'original-cut-order'),
-      mode: 'high_low' as const,
-      variant: 'ready' as const,
-    },
-    {
-      context: resolveContext(findSeedContextByOriginalId(contexts, 'CUT-260312-085-01'), 'original-cut-order'),
-      mode: 'fold_high_low' as const,
-      variant: 'ready' as const,
-    },
-    {
-      context: resolveContext(findSeedContextByOriginalId(contexts, 'CUT-260315-088-01'), 'original-cut-order'),
-      mode: 'high_low' as const,
-      variant: 'image' as const,
-    },
-    {
-      context: resolveContext(findSeedContextByOriginalId(contexts, 'CUT-260313-086-01'), 'original-cut-order'),
-      mode: 'fold_high_low' as const,
-      variant: 'ready' as const,
-    },
-    {
-      context: resolveContext(findSeedContextByOriginalId(contexts, 'CUT-260302-001-01'), 'original-cut-order'),
-      mode: 'fold_normal' as const,
-      variant: 'unbalanced' as const,
-    },
-    {
-      context: resolveContext(findSeedContextByOriginalId(contexts, 'CUT-260308-081-03'), 'original-cut-order'),
-      mode: 'normal' as const,
-      variant: 'ready' as const,
-    },
-    {
-      context: resolveContext(findSeedContextByOriginalId(contexts, 'CUT-260303-002-01'), 'original-cut-order'),
-      mode: 'fold_normal' as const,
-      variant: 'ready' as const,
-    },
-    {
-      context: resolveContext(findSeedContextByOriginalId(contexts, 'CUT-260314-087-02'), 'original-cut-order'),
-      mode: 'fold_normal' as const,
-      variant: 'manual' as const,
-    },
+  const modes: MarkerPlanModeKey[] = ['normal', 'high_low', 'fold_normal', 'fold_high_low']
+  const variants: SeedVariantKey[] = ['ready', 'layout', 'ready', 'image', 'ready', 'manual']
+  const preferredContexts = [
+    ...contexts.filter((context) => context.contextType === 'original-cut-order'),
+    ...contexts.filter((context) => context.contextType === 'merge-batch'),
   ]
-
-  return seedItems.filter(
-    (item): item is { context: MarkerPlanContextCandidate; mode: MarkerPlanModeKey; variant: SeedVariantKey } =>
-      Boolean(item.context),
+  const uniqueContexts = preferredContexts.filter(
+    (context, index, all) => all.findIndex((item) => item.contextKey === context.contextKey) === index,
   )
+
+  return uniqueContexts.slice(0, 8).map((context, index) => ({
+    context,
+    mode: modes[index % modes.length],
+    variant: variants[index % variants.length],
+  }))
 }
 
 function applySeedVariant(plan: MarkerPlan, variant: SeedVariantKey, context: MarkerPlanContextCandidate): MarkerPlan {
@@ -1591,11 +1529,61 @@ function applySeedVariant(plan: MarkerPlan, variant: SeedVariantKey, context: Ma
   return hydrateMarkerPlan(nextPlan, context)
 }
 
+function rekeySeedMarkerPlan(plan: MarkerPlan, stablePlanId: string): MarkerPlan {
+  const markerNo = plan.markerNo
+  return {
+    ...plan,
+    id: stablePlanId,
+    schemeId: stablePlanId,
+    schemeNo: markerNo,
+    schemeName: markerNo,
+    beds: (plan.beds || []).map((bed, index) => ({
+      ...bed,
+      bedId: `${stablePlanId}-bed-${index + 1}`,
+      schemeId: stablePlanId,
+      schemeNo: markerNo,
+      bedSortOrder: index + 1,
+      bedImage: bed.bedImage
+        ? {
+            ...bed.bedImage,
+            imageId: `${stablePlanId}-bed-${index + 1}-image`,
+            imageName: `${markerNo}-${bed.bedNo}-床次图.svg`,
+          }
+        : null,
+    })),
+    imageRecords: plan.imageRecords.map((record, index) => {
+      const nextIndex = index + 1
+      const imageLabel = nextIndex === 1 ? '方案图' : '唛架明细图'
+      return {
+        ...record,
+        id: `${stablePlanId}-image-${nextIndex}`,
+        fileId: `${stablePlanId}-image-file-${nextIndex}`,
+        fileName: `${markerNo}-${imageLabel}.svg`,
+      }
+    }),
+    schemeImage: plan.schemeImage
+      ? {
+          ...plan.schemeImage,
+          imageId: `${stablePlanId}-scheme-image`,
+          imageName: `${markerNo}-方案图.svg`,
+        }
+      : null,
+    detailImage: plan.detailImage
+      ? {
+          ...plan.detailImage,
+          imageId: `${stablePlanId}-detail-image`,
+          imageName: `${markerNo}-唛架明细图.svg`,
+        }
+      : null,
+  }
+}
+
 function buildSystemSeedMarkerPlans(contexts: MarkerPlanContextCandidate[]): MarkerPlan[] {
   const plans: MarkerPlan[] = []
   const seedClock = new Date('2026-04-03T09:00:00')
   buildSeedVariants(contexts).forEach((item, index) => {
     const baseDate = new Date(seedClock.getTime() + index * 60_000)
+    const stablePlanId = `seed-marker-plan-${sanitizeKey(item.context.contextKey)}-${item.mode}-${item.variant}-${index + 1}`
     const basePlan = createPlanFromContext({
       context: item.context,
       existingPlans: plans,
@@ -1605,7 +1593,8 @@ function buildSystemSeedMarkerPlans(contexts: MarkerPlanContextCandidate[]): Mar
     const seeded = applySeedVariant(
       {
         ...basePlan,
-        id: `seed-marker-plan-${sanitizeKey(item.context.contextKey)}-${item.mode}-${item.variant}-${index + 1}`,
+        id: stablePlanId,
+        schemeId: stablePlanId,
         createdAt: nowText(baseDate),
         updatedAt: nowText(baseDate),
         createdBy: '系统预置',
@@ -1614,7 +1603,7 @@ function buildSystemSeedMarkerPlans(contexts: MarkerPlanContextCandidate[]): Mar
       item.variant,
       item.context,
     )
-    plans.push(seeded)
+    plans.push(rekeySeedMarkerPlan(seeded, stablePlanId))
   })
   return plans
 }

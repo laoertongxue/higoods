@@ -4,9 +4,6 @@ import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { productionOrders } from '../src/data/fcs/production-orders.ts'
-import {
-  buildSeedProductionOrderTechPackSnapshot,
-} from '../src/data/fcs/production-tech-pack-snapshot-builder.ts'
 import { getProductionOrderTechPackSnapshot } from '../src/data/fcs/production-order-tech-pack-runtime.ts'
 import {
   buildProductionConfirmationSnapshot,
@@ -71,23 +68,10 @@ const patternDomainSource = read('src/pages/tech-pack/pattern-domain.ts')
   assertIncludes(snapshotBuilderSource, token, `技术包快照构建缺少逻辑：${token}`)
 })
 
-const seedSnapshot = buildSeedProductionOrderTechPackSnapshot({
-  productionOrderId: 'PO-CHECK-TECH-PACK',
-  productionOrderNo: 'PO-CHECK-TECH-PACK',
-  demand: {
-    spuCode: 'SPU-CHECK-001',
-    spuName: '技术包检查款',
-    skuLines: [
-      { skuCode: 'SPU-CHECK-001-RED-S', color: '红色', size: 'S', qty: 10 },
-      { skuCode: 'SPU-CHECK-001-RED-M', color: '红色', size: 'M', qty: 12 },
-      { skuCode: 'SPU-CHECK-001-BLUE-L', color: '蓝色', size: 'L', qty: 8 },
-    ],
-    techPackVersionLabel: 'v2.1',
-    techPackStatus: 'RELEASED',
-  },
-  snapshotAt: '2026-04-20 10:00:00',
-  snapshotBy: '系统',
-})
+const seedSnapshot = productionOrders
+  .map((order) => getProductionOrderTechPackSnapshot(order.productionOrderId))
+  .find((snapshot) => Boolean(snapshot?.patternFiles.length))
+assert(seedSnapshot, '至少应存在一个来源生产需求单正式技术包的生产单快照')
 
 assert(Array.isArray(seedSnapshot.patternFiles), '技术包快照必须支持 patternFiles 数组')
 assert(seedSnapshot.patternFiles.some((item) => item.patternMaterialType === 'KNIT'), '必须支持针织纸样')

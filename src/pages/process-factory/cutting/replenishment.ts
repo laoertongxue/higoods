@@ -63,7 +63,7 @@ import {
   buildReturnToSummaryContext,
   getCuttingNavigationActionLabel,
   hasSummaryReturnContext,
-  normalizeLegacyCuttingPayload,
+  buildCuttingDrillContext,
   readCuttingDrillContextFromLocation,
   type CuttingDrillContext,
   type CuttingNavigationTarget,
@@ -233,7 +233,7 @@ function buildPendingPrepFollowupRecords(row: ReplenishmentSuggestionRow, review
     status: 'PENDING_PREP',
     createdAt: review.reviewedAt,
     createdBy: review.reviewedBy,
-    note: `补料审批通过后生成待配料，缺口成衣件数 ${formatQty(line.shortageGarmentQty)} 件。`,
+    note: `补料审批通过后生成WMS 待处理，缺口成衣件数 ${formatQty(line.shortageGarmentQty)} 件。`,
   }))
 }
 
@@ -517,7 +517,7 @@ function renderRowActions(row: ReplenishmentSuggestionRow): string {
 
   if (row.statusMeta.key === 'PENDING_SUPPLEMENT') {
     const action = row.sourceType === 'spreading-session' ? 'go-marker' : 'go-material-prep'
-    const label = row.sourceType === 'spreading-session' ? '去铺布' : '去配料领料'
+    const label = row.sourceType === 'spreading-session' ? '去铺布' : '去待加工仓'
     return `
       <div class="flex flex-wrap gap-2">
         ${renderActionButton('查看详情', 'open-detail', row.suggestionId)}
@@ -976,7 +976,7 @@ function renderDetailDrawer(): string {
     `
       <div class="flex flex-wrap gap-2">
         <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50" data-cutting-replenish-action="submit-review" ${canReviewReplenishment(resolveFcsDemoRole('CUTTING_LEAD')) ? '' : `title="${ACTION_PERMISSION_DENIED_TEXT}" disabled`}>提交审核</button>
-        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-material-prep" data-suggestion-id="${escapeHtml(row.suggestionId)}">去仓库配料领料</button>
+        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-material-prep" data-suggestion-id="${escapeHtml(row.suggestionId)}">去待加工仓</button>
         <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-marker" data-suggestion-id="${escapeHtml(row.suggestionId)}">去铺布</button>
         <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-replenish-action="go-summary" data-suggestion-id="${escapeHtml(row.suggestionId)}">去裁剪总结</button>
         <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildSupplementMaterialSlipPrintLink(row.suggestionId))}">打印补料单</button>
@@ -1011,7 +1011,7 @@ function navigateBySuggestion(
   const row = buildViewModel().rowsById[suggestionId]
   if (!row) return false
   const payload = target === 'spreadingList' ? row.navigationPayload.markerSpreading : row.navigationPayload[target]
-  const context = normalizeLegacyCuttingPayload(payload, 'replenishment', {
+  const context = buildCuttingDrillContext(payload, 'replenishment', {
     productionOrderNo: row.productionOrderNos[0] || undefined,
     originalCutOrderNo: row.originalCutOrderNos[0] || undefined,
     mergeBatchNo: row.mergeBatchNo || undefined,
@@ -1029,7 +1029,7 @@ function navigateBySuggestion(
 function navigateByAction(actionId: string | undefined): boolean {
   const matched = getFollowupActionById(actionId)
   if (!matched) return false
-  const context = normalizeLegacyCuttingPayload(matched.action.targetQuery, 'replenishment', {
+  const context = buildCuttingDrillContext(matched.action.targetQuery, 'replenishment', {
     productionOrderNo: matched.row.productionOrderNos[0] || undefined,
     originalCutOrderNo: matched.row.originalCutOrderNos[0] || undefined,
     mergeBatchNo: matched.row.mergeBatchNo || undefined,
@@ -1210,7 +1210,7 @@ export function handleCraftCuttingReplenishmentEvent(target: Element): boolean {
     setFeedback(
       'success',
       approved
-        ? '已生成补料待配料，可继续去仓库配料领料处理。'
+        ? '已生成补料待处理，请等待 WMS 来料后进入待加工仓。'
         : `已更新 ${row.suggestionNo} 的审核结果。`,
     )
     return true

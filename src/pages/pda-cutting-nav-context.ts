@@ -4,17 +4,12 @@ import {
   resolvePdaTaskExecPath,
   type PdaCuttingRouteKey,
 } from '../data/fcs/pda-cutting-execution-source.ts'
-import {
-  readLegacyCutPieceOrderNo,
-  resolvePdaExecutionOrderNoWithLegacy,
-} from '../data/fcs/pda-cutting-legacy-compat.ts'
 
 export type PdaCuttingNavPageKey =
   | 'task-list'
   | 'task-receive-detail'
   | 'cutting-task-detail'
   | 'execution-unit'
-  | 'pickup'
   | 'spreading'
   | 'inbound'
   | 'handover'
@@ -37,13 +32,9 @@ export interface PdaCuttingNavContext {
   mergeBatchId?: string
   mergeBatchNo?: string
   materialSku?: string
-  // Read-only legacy query compat. Formal navigation no longer writes this field.
-  cutPieceOrderNo?: string
   focusTaskId?: string
   focusExecutionOrderId?: string
   focusExecutionOrderNo?: string
-  // Read-only legacy query compat. Formal navigation no longer writes this field.
-  focusCutPieceOrderNo?: string
   focusActionKey?: PdaCuttingActionKey
   returnTo?: string
   backMode?: PdaCuttingBackMode
@@ -98,23 +89,15 @@ export function readPdaCuttingNavContext(pathname?: string): PdaCuttingNavContex
     taskNo: params.get('taskNo') ?? undefined,
     productionOrderNo: params.get('productionOrderNo') ?? undefined,
     executionOrderId: params.get('executionOrderId') ?? undefined,
-    executionOrderNo: resolvePdaExecutionOrderNoWithLegacy({
-      executionOrderNo: params.get('executionOrderNo'),
-      cutPieceOrderNo: readLegacyCutPieceOrderNo(params),
-    }),
+    executionOrderNo: params.get('executionOrderNo') ?? undefined,
     originalCutOrderId: params.get('originalCutOrderId') ?? undefined,
     originalCutOrderNo: params.get('originalCutOrderNo') ?? undefined,
     mergeBatchId: params.get('mergeBatchId') ?? undefined,
     mergeBatchNo: params.get('mergeBatchNo') ?? undefined,
     materialSku: params.get('materialSku') ?? undefined,
-    cutPieceOrderNo: readLegacyCutPieceOrderNo(params),
     focusTaskId: params.get('focusTaskId') ?? undefined,
     focusExecutionOrderId: params.get('focusExecutionOrderId') ?? undefined,
-    focusExecutionOrderNo: resolvePdaExecutionOrderNoWithLegacy({
-      executionOrderNo: params.get('focusExecutionOrderNo'),
-      focusCutPieceOrderNo: params.get('focusCutPieceOrderNo'),
-    }),
-    focusCutPieceOrderNo: readLegacyCutPieceOrderNo(params, 'focusCutPieceOrderNo'),
+    focusExecutionOrderNo: params.get('focusExecutionOrderNo') ?? undefined,
     focusActionKey: (params.get('focusActionKey') as PdaCuttingActionKey | null) ?? undefined,
     returnTo: params.get('returnTo') ?? undefined,
     backMode: (params.get('backMode') as PdaCuttingBackMode | null) ?? undefined,
@@ -205,7 +188,7 @@ export function buildPdaCuttingTaskDetailNavHref(
 ): string {
   const baseHref = buildPdaCuttingRoute(taskId, 'task', {
     executionOrderId: context.executionOrderId,
-    executionOrderNo: resolvePdaExecutionOrderNoWithLegacy(context),
+    executionOrderNo: context.executionOrderNo,
     originalCutOrderId: context.originalCutOrderId,
     originalCutOrderNo: context.originalCutOrderNo,
     mergeBatchId: context.mergeBatchId,
@@ -229,7 +212,7 @@ export function buildPdaCuttingExecutionNavHref(
 ): string {
   const baseHref = buildPdaCuttingRoute(taskId, routeKey, {
     executionOrderId: context.executionOrderId,
-    executionOrderNo: resolvePdaExecutionOrderNoWithLegacy(context),
+    executionOrderNo: context.executionOrderNo,
     originalCutOrderId: context.originalCutOrderId,
     originalCutOrderNo: context.originalCutOrderNo,
     mergeBatchId: context.mergeBatchId,
@@ -256,7 +239,7 @@ export function buildPdaCuttingExecutionUnitNavHref(
 ): string {
   const baseHref = buildPdaCuttingRoute(taskId, 'unit', {
     executionOrderId,
-    executionOrderNo: resolvePdaExecutionOrderNoWithLegacy(context),
+    executionOrderNo: context.executionOrderNo,
     originalCutOrderId: context.originalCutOrderId,
     originalCutOrderNo: context.originalCutOrderNo,
     mergeBatchId: context.mergeBatchId,
@@ -388,7 +371,6 @@ export function resolvePdaCuttingBackHref(context: PdaCuttingNavContext | null |
 }
 
 export function getPdaCuttingCompletedActionLabel(actionKey?: PdaCuttingActionKey): string {
-  if (actionKey === 'pickup') return '已完成领料'
   if (actionKey === 'spreading') return '已保存铺布记录'
   if (actionKey === 'inbound') return '已确认入仓'
   if (actionKey === 'handover') return '已确认交接'

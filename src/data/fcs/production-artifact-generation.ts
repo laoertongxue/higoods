@@ -15,18 +15,23 @@ import {
   getProcessDefinitionByCode,
   getProcessStageByCode,
   isPostCapacityNode,
+  listActiveProcessCraftDefinitions,
   type CraftStageCode,
   type CapacityRollupMode,
   type DetailSplitDimension,
   type DetailSplitMode,
   type FactoryMobileExecutionMode,
+  type ProcessCraftDefinition,
   type ProcessAssignmentGranularity,
   type ProcessDocType,
   type ProcessRole,
   type RuleSource,
   type TaskTypeMode,
 } from './process-craft-dict.ts'
-import type { TechPackProcessEntry, TechPackProcessEntryType } from './tech-packs.ts'
+import type { TechnicalProcessEntry } from '../pcs-technical-data-version-types.ts'
+
+type TechPackProcessEntry = TechnicalProcessEntry
+type TechPackProcessEntryType = TechnicalProcessEntry['entryType']
 
 export type ProductionArtifactType = 'DEMAND' | 'TASK'
 
@@ -52,6 +57,14 @@ export interface GeneratedProductionArtifactBase {
   defaultDocType: ProcessDocType
   taskTypeMode: TaskTypeMode
   isSpecialCraft: boolean
+  selectedTargetObject?: string
+  knittingTaskType?: 'WHOLE_GARMENT' | 'PART_PANEL'
+  downstreamTarget?: '后道工厂' | '裁床待交出仓'
+  requiresFeiTicket?: boolean
+  packagingRequired?: boolean
+  materialIssueMode?: 'WAREHOUSE_DELIVERY'
+  linkedBomItemIds?: string[]
+  linkedPatternIds?: string[]
   docTypeLabel: string
   sortKey: string
 }
@@ -136,8 +149,204 @@ const DEMAND_TYPE_LABEL_BY_PROCESS_CODE: Record<string, string> = {
   DYE: '染色需求单',
 }
 
+export const DICTIONARY_CRAFT_MOCKS_PER_DEFINITION = 3
+
 function toArtifactKeySegment(entryId: string): string {
   return entryId.replace(/[^A-Za-z0-9_-]/g, '_')
+}
+
+function toMockToken(value: string, size: number): string {
+  const digits = value.replace(/\D/g, '')
+  return (digits || value.replace(/[^A-Za-z0-9]/g, '') || '0').slice(-size).padStart(size, '0')
+}
+
+export function buildDictionaryCraftMockDocumentNo(
+  prefix: string,
+  craftCode: string,
+  orderId: string,
+  mockIndex: number,
+): string {
+  return `${prefix}${toMockToken(craftCode, 7)}${toMockToken(orderId, 8)}${String(mockIndex + 1).padStart(2, '0')}`
+}
+
+function listTechPackSourceOrders() {
+  return productionOrders
+    .map((order) => ({
+      order,
+      snapshot: getProductionOrderTechPackSnapshot(order.productionOrderId),
+    }))
+    .filter((item): item is { order: typeof productionOrders[number]; snapshot: NonNullable<ReturnType<typeof getProductionOrderTechPackSnapshot>> } => Boolean(item.snapshot))
+}
+
+function getMockSourceForCraft(craftIndex: number, mockIndex: number) {
+  const sourceOrders = listTechPackSourceOrders()
+  if (!sourceOrders.length) return null
+  return sourceOrders[(craftIndex * DICTIONARY_CRAFT_MOCKS_PER_DEFINITION + mockIndex) % sourceOrders.length]
+}
+
+export function getDictionaryCraftMockSource(craftCode: string, mockIndex: number) {
+  const craftIndex = listActiveProcessCraftDefinitions().findIndex((definition) => definition.craftCode === craftCode)
+  if (craftIndex < 0) return null
+  return getMockSourceForCraft(craftIndex, mockIndex)
+}
+
+function toPublishedSamUnitLabel(unit: ProcessCraftDefinition['referencePublishedSamUnit']): string {
+  if (unit === 'MINUTE_PER_BATCH') return '分钟/批'
+  if (unit === 'MINUTE_PER_METER') return '分钟/米'
+  if (unit === 'MINUTE_PER_DOZEN') return '分钟/打'
+  return '分钟/件'
+}
+
+function toCoverageSortKey(definition: ProcessCraftDefinition, mockIndex: number): string {
+  const stageSort = getProcessStageByCode(definition.stageCode)?.sort ?? 999
+  const processSort = getProcessDefinitionByCode(definition.processCode)?.sort ?? 999
+  return `${String(stageSort).padStart(3, '0')}-${String(processSort).padStart(3, '0')}-${String(definition.legacyValue).padStart(7, '0')}-${String(mockIndex).padStart(3, '0')}`
+}
+
+function toCoverageSourceEntryId(definition: ProcessCraftDefinition, mockIndex: number, snapshotId: string): string {
+  return `DICT-MOCK-${definition.craftCode}-${String(mockIndex + 1).padStart(2, '0')}-${snapshotId}`
+}
+
+function toCoverageTargetObject(definition: ProcessCraftDefinition): string | undefined {
+  if (definition.isSpecialCraft) return definition.supportedTargetObjectLabels[0] || definition.targetObjectName
+  if (definition.processCode === 'KNITTING') return definition.targetObjectName
+  return undefined
+}
+
+function buildDictionaryCoverageBase(
+  definition: ProcessCraftDefinition,
+  craftIndex: number,
+  mockIndex: number,
+): GeneratedProductionArtifactBase | null {
+  const source = getMockSourceForCraft(craftIndex, mockIndex)
+  if (!source) return null
+  const processDefinition = getProcessDefinitionByCode(definition.processCode)
+  const stageDefinition = getProcessStageByCode(definition.stageCode)
+  const linkedBomItem = source.snapshot.bomItems[0]
+  const sourceEntryId = toCoverageSourceEntryId(definition, mockIndex, source.snapshot.snapshotId)
+
+  return {
+    artifactId: `DICT-${definition.defaultDocType}-${definition.craftCode}-${source.order.productionOrderId}-${mockIndex + 1}`,
+    artifactType: definition.defaultDocType,
+    orderId: source.order.productionOrderId,
+    techPackId: source.snapshot.sourceTechPackVersionId,
+    orderQty: resolveOrderQty(source.order.productionOrderId),
+    sourceEntryId,
+    sourceEntryType: 'CRAFT',
+    stageCode: definition.stageCode,
+    stageName: stageDefinition?.stageName ?? definition.stageCode,
+    processCode: definition.processCode,
+    processName: processDefinition?.processName ?? definition.processCode,
+    systemProcessCode: definition.systemProcessCode,
+    craftCode: definition.craftCode,
+    craftName: definition.craftName,
+    assignmentGranularity: definition.assignmentGranularity,
+    ruleSource: definition.ruleSource,
+    detailSplitMode: definition.detailSplitMode,
+    detailSplitDimensions: [...definition.detailSplitDimensions],
+    defaultDocType: definition.defaultDocType,
+    taskTypeMode: definition.taskTypeMode,
+    isSpecialCraft: definition.isSpecialCraft,
+    selectedTargetObject: toCoverageTargetObject(definition),
+    knittingTaskType:
+      definition.processCode === 'KNITTING'
+        ? definition.craftName === '部位针织'
+          ? 'PART_PANEL'
+          : 'WHOLE_GARMENT'
+        : undefined,
+    downstreamTarget:
+      definition.processCode === 'KNITTING'
+        ? definition.craftName === '部位针织'
+          ? '裁床待交出仓'
+          : '后道工厂'
+        : undefined,
+    requiresFeiTicket: definition.processCode === 'KNITTING' && definition.craftName === '部位针织',
+    packagingRequired: definition.processCode === 'KNITTING' && definition.craftName === '整件针织' ? false : undefined,
+    materialIssueMode: definition.processCode === 'KNITTING' ? 'WAREHOUSE_DELIVERY' : undefined,
+    linkedBomItemIds: linkedBomItem ? [linkedBomItem.id] : undefined,
+    linkedPatternIds: undefined,
+    docTypeLabel: definition.defaultDocType === 'DEMAND' ? `${definition.craftName}需求单` : DOC_TYPE_LABEL.TASK,
+    sortKey: `${toCoverageSortKey(definition, mockIndex)}-${source.order.productionOrderId}`,
+  }
+}
+
+function buildDictionaryCoverageDemandArtifact(
+  definition: ProcessCraftDefinition,
+  craftIndex: number,
+  mockIndex: number,
+): GeneratedDemandArtifact | null {
+  const base = buildDictionaryCoverageBase(definition, craftIndex, mockIndex)
+  if (!base || base.artifactType !== 'DEMAND') return null
+  const demandTypeLabel = `${definition.craftName}需求单`
+  return {
+    ...base,
+    artifactType: 'DEMAND',
+    docTypeLabel: demandTypeLabel,
+    demandTypeCode: `DEMAND_${definition.craftCode}`,
+    demandTypeLabel,
+  }
+}
+
+function buildDictionaryCoverageTaskArtifact(
+  definition: ProcessCraftDefinition,
+  craftIndex: number,
+  mockIndex: number,
+): GeneratedTaskArtifact | null {
+  const base = buildDictionaryCoverageBase(definition, craftIndex, mockIndex)
+  if (!base || base.artifactType !== 'TASK') return null
+  return {
+    ...base,
+    artifactType: 'TASK',
+    docTypeLabel: DOC_TYPE_LABEL.TASK,
+    taskTypeCode: definition.craftCode,
+    taskTypeLabel: definition.craftName,
+    taskScope: definition.processRole === 'INTERNAL_CAPACITY_NODE' ? 'POST_ROLLUP_TASK' : 'EXTERNAL_TASK',
+    publishedSamPerUnit: definition.referencePublishedSamValue,
+    publishedSamUnit: toPublishedSamUnitLabel(definition.referencePublishedSamUnit),
+    publishedSamDifficulty: 'MEDIUM',
+    publishedSamSource: 'TECH_PACK_PROCESS_ENTRY',
+  }
+}
+
+function listDictionaryCoverageDemandArtifacts(): GeneratedDemandArtifact[] {
+  return listActiveProcessCraftDefinitions()
+    .flatMap((definition, craftIndex) => {
+      if (definition.defaultDocType !== 'DEMAND') return []
+      return Array.from({ length: DICTIONARY_CRAFT_MOCKS_PER_DEFINITION }, (_, mockIndex) =>
+        buildDictionaryCoverageDemandArtifact(definition, craftIndex, mockIndex),
+      )
+    })
+    .filter((item): item is GeneratedDemandArtifact => Boolean(item))
+}
+
+function listDictionaryCoverageTaskArtifacts(): GeneratedTaskArtifact[] {
+  return listActiveProcessCraftDefinitions()
+    .flatMap((definition, craftIndex) => {
+      if (definition.defaultDocType !== 'TASK') return []
+      return Array.from({ length: DICTIONARY_CRAFT_MOCKS_PER_DEFINITION }, (_, mockIndex) =>
+        buildDictionaryCoverageTaskArtifact(definition, craftIndex, mockIndex),
+      )
+    })
+    .filter((item): item is GeneratedTaskArtifact => Boolean(item))
+}
+
+function ensureDictionaryCoverage<T extends GeneratedProductionArtifact>(
+  existingArtifacts: T[],
+  coverageArtifacts: T[],
+  definitions: ProcessCraftDefinition[],
+): T[] {
+  const result = [...existingArtifacts]
+  for (const definition of definitions) {
+    const existingCount = result.filter((artifact) => artifact.craftCode === definition.craftCode).length
+    if (existingCount >= DICTIONARY_CRAFT_MOCKS_PER_DEFINITION) continue
+    result.push(...coverageArtifacts
+      .filter((artifact) => artifact.craftCode === definition.craftCode)
+      .slice(0, DICTIONARY_CRAFT_MOCKS_PER_DEFINITION - existingCount))
+  }
+  return result.sort((a, b) => {
+    if (a.orderId !== b.orderId) return a.orderId.localeCompare(b.orderId)
+    return a.sortKey.localeCompare(b.sortKey)
+  })
 }
 
 function resolveOrderQty(orderId: string): number {
@@ -259,8 +468,9 @@ function toDemandArtifact(context: ResolvedEntryContext): GeneratedDemandArtifac
 }
 
 function toTaskArtifact(context: ResolvedEntryContext): GeneratedTaskArtifact {
-  const taskTypeCode = context.isSpecialCraft ? context.craftCode || context.processCode : context.processCode
-  const taskTypeLabel = context.isSpecialCraft ? context.craftName || context.processName : context.processName
+  const isCraftTask = context.sourceEntry.entryType === 'CRAFT' || context.taskTypeMode === 'CRAFT'
+  const taskTypeCode = isCraftTask ? context.craftCode || context.processCode : context.processCode
+  const taskTypeLabel = isCraftTask ? context.craftName || context.processName : context.processName
   return {
     artifactId: `TASKART-${context.orderId}-${toArtifactKeySegment(context.sourceEntryId)}`,
     artifactType: 'TASK',
@@ -283,6 +493,14 @@ function toTaskArtifact(context: ResolvedEntryContext): GeneratedTaskArtifact {
     defaultDocType: context.defaultDocType,
     taskTypeMode: context.taskTypeMode,
     isSpecialCraft: context.isSpecialCraft,
+    selectedTargetObject: context.sourceEntry.selectedTargetObject,
+    knittingTaskType: context.sourceEntry.knittingTaskType,
+    downstreamTarget: context.sourceEntry.downstreamTarget,
+    requiresFeiTicket: context.sourceEntry.requiresFeiTicket,
+    packagingRequired: context.sourceEntry.packagingRequired,
+    materialIssueMode: context.sourceEntry.materialIssueMode,
+    linkedBomItemIds: context.sourceEntry.linkedBomItemIds ? [...context.sourceEntry.linkedBomItemIds] : undefined,
+    linkedPatternIds: context.sourceEntry.linkedPatternIds ? [...context.sourceEntry.linkedPatternIds] : undefined,
     docTypeLabel: DOC_TYPE_LABEL.TASK,
     taskTypeCode,
     taskTypeLabel,
@@ -495,8 +713,14 @@ export function generateProductionArtifactBundlesForAllOrders(): GeneratedProduc
 }
 
 export function generateDemandArtifactsForAllOrders(): GeneratedDemandArtifact[] {
-  return generateProductionArtifactsForAllOrders().filter(
+  const generatedArtifacts = generateProductionArtifactsForAllOrders().filter(
     (item): item is GeneratedDemandArtifact => item.artifactType === 'DEMAND',
+  )
+  const demandDefinitions = listActiveProcessCraftDefinitions().filter((definition) => definition.defaultDocType === 'DEMAND')
+  return ensureDictionaryCoverage(
+    generatedArtifacts,
+    listDictionaryCoverageDemandArtifacts(),
+    demandDefinitions,
   )
 }
 
@@ -505,7 +729,13 @@ export function listGeneratedProductionDemandArtifacts(): GeneratedDemandArtifac
 }
 
 export function generateTaskArtifactsForAllOrders(): GeneratedTaskArtifact[] {
-  return generateProductionArtifactsForAllOrders().filter((item): item is GeneratedTaskArtifact => item.artifactType === 'TASK')
+  const generatedArtifacts = generateProductionArtifactsForAllOrders().filter((item): item is GeneratedTaskArtifact => item.artifactType === 'TASK')
+  const taskDefinitions = listActiveProcessCraftDefinitions().filter((definition) => definition.defaultDocType === 'TASK')
+  return ensureDictionaryCoverage(
+    generatedArtifacts,
+    listDictionaryCoverageTaskArtifacts(),
+    taskDefinitions,
+  )
 }
 
 export function listGeneratedProductionTaskArtifacts(): GeneratedTaskArtifact[] {

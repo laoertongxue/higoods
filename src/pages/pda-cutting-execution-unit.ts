@@ -1,252 +1,142 @@
-import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
-import type { PdaCuttingTaskOrderLine } from '../data/fcs/pda-cutting-execution-source.ts'
-import { buildPdaCuttingExecutionUnitContext } from './pda-cutting-context'
-import { buildPdaCuttingExecutionNavHref } from './pda-cutting-nav-context'
 import {
-  resolvePdaCuttingTaskOrderCurrentStepCode,
-  resolvePdaCuttingTaskOrderCurrentStepLabel,
-  type PdaCuttingExecutionRouteKey,
-} from './pda-cutting-task-detail-helpers'
-import {
-  normalizePdaCuttingHandoverResultLabel,
-  renderPdaCuttingEmptyState,
-  renderPdaCuttingOrderSelectionPrompt,
-  renderPdaCuttingPageLayout,
-  renderPdaCuttingStatusChip,
-} from './pda-cutting-shared'
+  getCuttingMainlineSession,
+  listCuttingMainlineSessions,
+  type CuttingMainlineSessionView,
+} from '../data/fcs/cutting/cutting-mainline.ts'
+import { renderPdaFrame } from './pda-shell'
 
-type ExecutionUnitStepCode = 'PICKUP' | 'SPREADING' | 'REPLENISHMENT' | 'HANDOVER' | 'INBOUND'
+type Tone = 'blue' | 'green' | 'amber' | 'red' | 'slate'
 
-interface ExecutionUnitStepDefinition {
-  code: ExecutionUnitStepCode
-  label: string
-  routeKey: PdaCuttingExecutionRouteKey
+function chip(label: string, tone: Tone = 'slate'): string {
+  const className =
+    tone === 'blue'
+      ? 'border-blue-200 bg-blue-50 text-blue-700'
+      : tone === 'green'
+        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+        : tone === 'amber'
+          ? 'border-amber-200 bg-amber-50 text-amber-700'
+          : tone === 'red'
+            ? 'border-red-200 bg-red-50 text-red-700'
+            : 'border-slate-200 bg-slate-50 text-slate-700'
+  return `<span class="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${className}">${escapeHtml(label)}</span>`
 }
 
-const executionUnitSteps: ExecutionUnitStepDefinition[] = [
-  { code: 'PICKUP', label: '去领料', routeKey: 'pickup' },
-  { code: 'SPREADING', label: '去铺布', routeKey: 'spreading' },
-  { code: 'REPLENISHMENT', label: '去补料', routeKey: 'replenishment-feedback' },
-  { code: 'HANDOVER', label: '去交出', routeKey: 'handover' },
-  { code: 'INBOUND', label: '去入仓', routeKey: 'inbound' },
-]
-
-function includesAny(value: string | undefined, keywords: string[]): boolean {
-  if (!value) return false
-  return keywords.some((keyword) => value.includes(keyword))
+function toneForSession(session: CuttingMainlineSessionView): Tone {
+  if (session.statusTab === 'DONE') return 'green'
+  if (session.statusTab === 'IN_PROGRESS') return 'blue'
+  if (session.statusTab === 'BLOCKED') return 'red'
+  return 'amber'
 }
 
-function hasPendingReplenishment(line: PdaCuttingTaskOrderLine): boolean {
-  return !includesAny(line.replenishmentRiskLabel, ['当前无', '暂无', '无需', '已关闭'])
-}
-
-function isStepDone(line: PdaCuttingTaskOrderLine, stepCode: ExecutionUnitStepCode): boolean {
-  if (stepCode === 'PICKUP') return includesAny(line.currentReceiveStatus, ['领取成功', '已回执', '已领取'])
-  if (stepCode === 'SPREADING') return includesAny(line.currentExecutionStatus, ['铺布已完成'])
-  if (stepCode === 'REPLENISHMENT') return includesAny(line.currentExecutionStatus, ['铺布已完成']) && !hasPendingReplenishment(line)
-  if (stepCode === 'HANDOVER') return includesAny(line.currentHandoverStatus, ['已交接'])
-  return includesAny(line.currentInboundStatus, ['已入仓'])
-}
-
-function resolveStepStatus(line: PdaCuttingTaskOrderLine, stepCode: ExecutionUnitStepCode): 'current' | 'done' | 'waiting' {
-  if (resolvePdaCuttingTaskOrderCurrentStepCode(line) === stepCode) return 'current'
-  if (isStepDone(line, stepCode)) return 'done'
-  return 'waiting'
-}
-
-function resolveStepStatusLabel(status: 'current' | 'done' | 'waiting'): string {
-  if (status === 'current') return '当前步骤'
-  if (status === 'done') return '已完成'
-  return '待执行'
-}
-
-function resolveStepCardClass(status: 'current' | 'done' | 'waiting'): string {
-  if (status === 'current') return 'border-blue-300 bg-blue-50 ring-1 ring-blue-100'
-  if (status === 'done') return 'border-emerald-200 bg-emerald-50'
-  return 'border-slate-200 bg-slate-50'
-}
-
-function resolveStepChip(status: 'current' | 'done' | 'waiting'): string {
-  if (status === 'current') return renderPdaCuttingStatusChip('当前步骤', 'blue')
-  if (status === 'done') return renderPdaCuttingStatusChip('已完成', 'green')
-  return renderPdaCuttingStatusChip('待执行', 'amber')
-}
-
-function getLatestRollSummary(detail: NonNullable<ReturnType<typeof buildPdaCuttingExecutionUnitContext>['detail']>): { rollNo: string; recordedAt: string } {
-  const latest = [...detail.spreadingRecords].sort((a, b) => b.enteredAt.localeCompare(a.enteredAt))[0]
-  return {
-    rollNo: latest?.fabricRollNo || '暂无卷记录',
-    recordedAt: latest?.enteredAt || '-',
-  }
-}
-
-function getLatestHandoverSummary(detail: NonNullable<ReturnType<typeof buildPdaCuttingExecutionUnitContext>['detail']>): string {
-  const latestSpreadingRecord = [...detail.spreadingRecords].sort((a, b) => b.enteredAt.localeCompare(a.enteredAt))[0]
-  if (latestSpreadingRecord?.handoverResultLabel) {
-    return normalizePdaCuttingHandoverResultLabel(latestSpreadingRecord.handoverResultLabel)
-  }
-  const latest = [...detail.handoverRecords].sort((a, b) => b.handoverAt.localeCompare(a.handoverAt))[0]
-  if (!latest) return '无换班'
-  if (latest.targetLabel.includes('接手') || latest.resultLabel.includes('接手')) {
-    return normalizePdaCuttingHandoverResultLabel(`接手自：${latest.operatorName}`)
-  }
-  if (latest.targetLabel.trim()) {
-    return normalizePdaCuttingHandoverResultLabel(`交接给：${latest.targetLabel}`)
-  }
-  return normalizePdaCuttingHandoverResultLabel(`交接给：${latest.operatorName}`)
-}
-
-function renderObjectBar(line: PdaCuttingTaskOrderLine, detail: NonNullable<ReturnType<typeof buildPdaCuttingExecutionUnitContext>['detail']>): string {
-  const sourceMarker = detail.spreadingTargets[0]?.markerNo || detail.markerSummary || '待绑定参考唛架'
-  const currentPlanUnit =
-    detail.spreadingTargets[0]?.planUnits?.[0]?.label
-    || '待选择当前唛架床次'
-
+function field(label: string, value: string, hint = ''): string {
   return `
-    <section class="rounded-xl border bg-card px-1.5 py-1.5" data-pda-cutting-execution-unit-card="object">
-      <div class="grid gap-1.5 text-xs sm:grid-cols-2 xl:grid-cols-4">
-        <div><div class="text-muted-foreground">当前任务号</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(line.executionOrderNo)}</div></div>
-        <div><div class="text-muted-foreground">裁片单</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(line.originalCutOrderNo || '—')}</div></div>
-        <div><div class="text-muted-foreground">当前状态</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(line.currentStateLabel)}</div></div>
-        <div><div class="text-muted-foreground">当前步骤</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(resolvePdaCuttingTaskOrderCurrentStepLabel(line))}</div></div>
-      </div>
-      <div class="mt-1.5 grid gap-1.5 text-xs text-muted-foreground sm:grid-cols-2 xl:grid-cols-3">
-        <div><div class="text-muted-foreground">合并裁剪批次</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(line.mergeBatchNo || '—')}</div></div>
-        <div><div class="text-muted-foreground">参考唛架</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(sourceMarker)}</div></div>
-        <div><div class="text-muted-foreground">当前唛架床次</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(currentPlanUnit)}</div></div>
-      </div>
-    </section>
+    <article class="rounded-xl border bg-card px-2.5 py-2 shadow-sm">
+      <div class="text-[11px] text-muted-foreground">${escapeHtml(label)}</div>
+      <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(value)}</div>
+      ${hint ? `<div class="mt-0.5 text-[11px] text-muted-foreground">${escapeHtml(hint)}</div>` : ''}
+    </article>
   `
 }
 
-function renderCurrentStepBar(line: PdaCuttingTaskOrderLine): string {
+function renderStep(label: string, status: string, action: string, enabled = true): string {
   return `
-    <section class="rounded-xl border bg-card px-1.5 py-1.5">
-      <div class="flex items-center justify-between gap-2">
-        <div>
-          <div class="text-xs text-muted-foreground">当前步骤</div>
-          <div class="mt-px text-sm font-semibold text-foreground" data-pda-cutting-unit-current-step>${escapeHtml(resolvePdaCuttingTaskOrderCurrentStepLabel(line))}</div>
-        </div>
-        ${renderPdaCuttingStatusChip(resolvePdaCuttingTaskOrderCurrentStepLabel(line), 'blue')}
+    <div class="flex items-center justify-between gap-3 rounded-xl border px-3 py-2">
+      <div>
+        <div class="text-sm font-medium text-foreground">${escapeHtml(label)}</div>
+        <div class="text-[11px] text-muted-foreground">${escapeHtml(status)}</div>
       </div>
-    </section>
+      <button class="rounded-lg ${enabled ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'} px-2.5 py-1.5 text-xs font-semibold" ${enabled ? '' : 'disabled'} data-skip-page-rerender="true" data-pda-cutting-unit-action="${escapeHtml(action)}">
+        ${escapeHtml(action)}
+      </button>
+    </div>
   `
 }
 
-function renderStepList(taskId: string, line: PdaCuttingTaskOrderLine): string {
-  const returnTo = appStore.getState().pathname
-  return `
-    <section class="rounded-xl border bg-card px-1.5 py-1">
-      <div class="space-y-0.5">
-        ${executionUnitSteps
-          .map((step) => {
-            const status = resolveStepStatus(line, step.code)
-            const href = buildPdaCuttingExecutionNavHref(taskId, step.routeKey, {
-              executionOrderId: line.executionOrderId,
-              executionOrderNo: line.executionOrderNo,
-              originalCutOrderId: line.originalCutOrderId,
-              originalCutOrderNo: line.originalCutOrderNo,
-              mergeBatchId: line.mergeBatchId,
-              mergeBatchNo: line.mergeBatchNo,
-              materialSku: line.materialSku,
-              returnTo,
-              sourcePageKey: 'execution-unit',
-              focusTaskId: taskId,
-              focusExecutionOrderId: line.executionOrderId,
-              focusExecutionOrderNo: line.executionOrderNo,
-              highlightCutPieceOrder: true,
-              autoFocus: true,
-            })
-
-            return `
-              <button
-                class="flex w-full items-center justify-between rounded-lg border px-1.5 py-1 text-left ${resolveStepCardClass(status)}"
-                data-nav="${escapeHtml(href)}"
-                data-pda-cutting-unit-step="${escapeHtml(step.code)}"
-                data-step-status="${escapeHtml(status)}"
-              >
-                <div class="min-w-0">
-                  <div class="text-sm font-semibold text-foreground">${escapeHtml(step.label)}</div>
-                  <div class="mt-px text-[11px] text-muted-foreground">${escapeHtml(resolveStepStatusLabel(status))}</div>
-                </div>
-                ${resolveStepChip(status)}
-              </button>
-            `
-          })
-          .join('')}
-      </div>
-    </section>
-  `
-}
-
-function renderRecentRecord(detail: NonNullable<ReturnType<typeof buildPdaCuttingExecutionUnitContext>['detail']>): string {
-  const latestRoll = getLatestRollSummary(detail)
-  return `
-    <section class="rounded-xl border bg-card px-1.5 py-1.5">
-      <div class="grid gap-1.5 text-xs sm:grid-cols-2">
-        <div><div class="text-muted-foreground">最近卷号</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(latestRoll.rollNo)}</div></div>
-        <div><div class="text-muted-foreground">最近记录时间</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(latestRoll.recordedAt)}</div></div>
-        <div><div class="text-muted-foreground">最近交接结果</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(getLatestHandoverSummary(detail))}</div></div>
-        <div><div class="text-muted-foreground">补料情况</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(detail.replenishmentRiskSummary)}</div></div>
-      </div>
-    </section>
-  `
+function getSession(taskId: string, sessionId: string): CuttingMainlineSessionView | null {
+  return getCuttingMainlineSession(taskId, sessionId)
+    || listCuttingMainlineSessions(taskId).find((item) => item.sessionNo === sessionId || item.spreadingSessionId === sessionId)
+    || null
 }
 
 export function renderPdaCuttingExecutionUnitPage(taskId: string, executionOrderId: string): string {
-  const context = buildPdaCuttingExecutionUnitContext(taskId, executionOrderId)
-  const detail = context.detail
-
-  if (!detail) {
-    return renderPdaCuttingPageLayout({
-      taskId,
-      title: '当前任务',
-      subtitle: '',
-      activeTab: 'exec',
-      body: renderPdaCuttingEmptyState('未找到当前任务', ''),
-      backHref: context.backHref,
-    })
+  const session = getSession(taskId, executionOrderId)
+  if (!session) {
+    return renderPdaFrame(
+      `<section class="space-y-3 px-3 py-3"><button class="rounded-lg border px-2.5 py-1.5 text-sm" data-nav="/fcs/pda/exec">返回</button><div class="rounded-2xl border border-dashed px-3 py-8 text-center text-sm">未找到铺布现场任务</div></section>`,
+      'exec',
+      { disableTodoAutoOpen: true },
+    )
   }
 
-  if (context.requiresCutPieceOrderSelection) {
-    return renderPdaCuttingPageLayout({
-      taskId,
-      title: '当前任务',
-      subtitle: '',
-      activeTab: 'exec',
-      body: renderPdaCuttingOrderSelectionPrompt(detail, context.backHref, context.selectionNotice || undefined),
-      backHref: context.backHref,
-    })
+  const taskHref = `/fcs/pda/cutting/task/${encodeURIComponent(taskId)}`
+
+  return renderPdaFrame(
+    `
+      <section class="space-y-3 px-3 py-3">
+        <header class="space-y-2">
+          <button class="inline-flex items-center rounded-lg border px-2.5 py-1.5 text-sm" data-nav="${escapeHtml(taskHref)}">返回任务</button>
+          <section class="rounded-2xl border bg-card p-3 shadow-sm">
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <div class="text-xs text-muted-foreground">铺布现场</div>
+                <h1 class="mt-1 text-lg font-semibold text-foreground">${escapeHtml(session.sessionNo)}</h1>
+                <div class="mt-1 text-xs text-muted-foreground">排唛架方案 ${escapeHtml(session.markerPlanNo)} / 唛架床次 ${escapeHtml(session.markerBedNo)}</div>
+              </div>
+              ${chip(session.mainStageLabel, toneForSession(session))}
+            </div>
+            <div class="mt-3 grid grid-cols-2 gap-2">
+              ${field('执行裁床', session.cuttingTableName)}
+              ${field('预计耗时', `${session.estimatedDurationMinutes} 分钟`, `${session.plannedStartAt} 至 ${session.plannedEndAt}`)}
+              ${field('来源', session.sourceTypeLabel, session.sourceOrderLabel)}
+              ${field('面料 / 颜色', session.materialSku, session.color)}
+            </div>
+          </section>
+        </header>
+
+        <section class="grid grid-cols-2 gap-2">
+          ${field('WMS 来料接收', session.wmsReceiveStatus)}
+          ${field('待加工仓', '铺布扣出')}
+          ${field('菲票状态', session.feiTicketStatus)}
+          ${field('待交出仓', session.warehouseFlowStatus)}
+        </section>
+
+        <section class="rounded-2xl border bg-card p-3 shadow-sm">
+          <div class="flex items-center justify-between gap-2">
+            <h2 class="text-sm font-semibold text-foreground">执行上报配置</h2>
+            ${chip(session.reportConfig.enabled ? '已启用' : '已关联', session.reportConfig.enabled ? 'green' : 'amber')}
+          </div>
+          <div class="mt-2 rounded-xl bg-muted/30 px-2.5 py-2 text-xs text-muted-foreground">
+            ${escapeHtml(session.reportConfig.label)}
+          </div>
+        </section>
+
+        <section class="space-y-2 rounded-2xl border bg-card p-3 shadow-sm">
+          <div class="flex items-center justify-between">
+            <h2 class="text-sm font-semibold text-foreground">现场动作</h2>
+          </div>
+          ${renderStep('确认到床', '待加工仓已到床', '确认到床', session.statusTab !== 'DONE')}
+          ${renderStep('开始铺布', session.markerBedNo, '开始铺布', session.statusTab !== 'DONE')}
+          ${renderStep('完成铺布裁剪', '流转到菲票 / 待交出仓', '完成铺布', session.statusTab !== 'DONE')}
+          ${renderStep('异常反馈', '补料 / 长度差异 / 裁床冲突', '反馈异常')}
+          <div class="hidden rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800" data-pda-cutting-action-feedback></div>
+        </section>
+      </section>
+    `,
+    'exec',
+    { disableTodoAutoOpen: true },
+  )
+}
+
+export function handlePdaCuttingExecutionUnitEvent(target: HTMLElement): boolean {
+  const button = target.closest<HTMLElement>('[data-pda-cutting-unit-action]')
+  if (!button) return false
+
+  const action = button.dataset.pdaCuttingUnitAction || '现场动作'
+  const feedback = document.querySelector<HTMLElement>('[data-pda-cutting-action-feedback]')
+  if (feedback) {
+    feedback.classList.remove('hidden')
+    feedback.textContent = `${action}已记录。`
   }
-
-  const selectedLine = context.selectedExecutionOrderLine
-  if (!selectedLine) {
-    return renderPdaCuttingPageLayout({
-      taskId,
-      title: '当前任务',
-      subtitle: '',
-      activeTab: 'exec',
-      body: renderPdaCuttingEmptyState('当前任务不存在', ''),
-      backHref: context.backHref,
-    })
-  }
-
-  const body = `
-    <div class="space-y-1.5" data-pda-cutting-execution-unit-root="${escapeHtml(taskId)}">
-      ${renderObjectBar(selectedLine, detail)}
-      ${renderCurrentStepBar(selectedLine)}
-      ${renderStepList(taskId, selectedLine)}
-      ${renderRecentRecord(detail)}
-    </div>
-  `
-
-  return renderPdaCuttingPageLayout({
-    taskId,
-      title: '当前任务',
-    subtitle: '',
-    activeTab: 'exec',
-    body,
-    backHref: context.backHref,
-  })
+  return true
 }

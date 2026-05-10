@@ -12,10 +12,6 @@ import {
   readPdaCuttingNavContext,
   type PdaCuttingNavContext,
 } from './pda-cutting-nav-context'
-import {
-  readLegacyCutPieceOrderNo,
-  resolvePdaExecutionOrderNoWithLegacy,
-} from '../data/fcs/pda-cutting-legacy-compat.ts'
 
 export interface PdaCuttingExecutionContext {
   task: PdaTaskFlowMock | null
@@ -47,14 +43,6 @@ function getLocationSearchParams(pathname?: string): URLSearchParams {
   return new URLSearchParams(queryString)
 }
 
-function readSelectedExecutionOrderNoCompatFromLocation(pathname?: string): string | null {
-  const params = getLocationSearchParams(pathname)
-  const value = resolvePdaExecutionOrderNoWithLegacy({
-    executionOrderNo: params.get('executionOrderNo'),
-    cutPieceOrderNo: readLegacyCutPieceOrderNo(params),
-  })
-  return value ? value : null
-}
 
 export function readSelectedExecutionOrderIdFromLocation(pathname?: string): string | null {
   const value = getLocationSearchParams(pathname).get('executionOrderId')?.trim()
@@ -62,7 +50,8 @@ export function readSelectedExecutionOrderIdFromLocation(pathname?: string): str
 }
 
 export function readSelectedExecutionOrderNoFromLocation(pathname?: string): string | null {
-  return readSelectedExecutionOrderNoCompatFromLocation(pathname)
+  const value = getLocationSearchParams(pathname).get('executionOrderNo')?.trim()
+  return value ? value : null
 }
 
 export function readPdaCuttingReturnToFromLocation(pathname?: string): string | null {
@@ -214,7 +203,7 @@ export function buildPdaCuttingExecutionUnitContext(
   const hasMultipleCutPieceOrders = baseDetail.cutPieceOrders.length > 1
   const requestedButMissing = Boolean(requestedExecutionOrderId || requestedOrderNo) && !selectedLine
   const selectionNotice = requestedButMissing
-    ? '当前任务不存在，请先返回裁片任务重新选择。'
+    ? '执行对象不存在，请先返回裁片任务重新选择。'
     : !selectedLine && hasMultipleCutPieceOrders
       ? '请先在裁片任务中选择要处理的执行单。'
       : null

@@ -13,7 +13,7 @@ import { getCanonicalCuttingPath } from './process-factory/cutting/meta'
 import { escapeHtml, formatDateTime } from '../utils'
 
 const productionProgressPath = getCanonicalCuttingPath('production-progress')
-const materialPrepPath = getCanonicalCuttingPath('material-prep')
+const materialPrepPath = getCanonicalCuttingPath('warehouse-management-wait-process')
 const originalOrdersPath = getCanonicalCuttingPath('original-orders')
 const replenishmentPath = getCanonicalCuttingPath('replenishment')
 const fabricWarehousePath = getCanonicalCuttingPath('fabric-warehouse')
@@ -24,7 +24,7 @@ function normalizeRoute(route: string): string {
 
 function getCuttingRouteActionLabel(route: string): string {
   const normalizedRoute = normalizeRoute(route)
-  if (normalizedRoute === materialPrepPath) return '去仓库配料领料'
+  if (normalizedRoute === materialPrepPath) return '去待加工仓'
   if (normalizedRoute === replenishmentPath) return '去补料管理'
   if (normalizedRoute === originalOrdersPath) return '去原始裁片单'
   if (normalizedRoute === fabricWarehousePath) return '去裁床仓'
@@ -271,7 +271,7 @@ function renderReplenishmentSection(recordId: string): string {
         <article class="rounded-lg border bg-muted/20 p-4">
           <p class="text-xs text-muted-foreground">影响摘要</p>
           <div class="mt-2 flex flex-wrap gap-2">
-            ${row.record.replenishmentSummary.pendingPrepCount > 0 ? renderBadge('待仓库配料领料', 'bg-amber-50 text-amber-700') : renderBadge('当前无补料待配料', 'bg-emerald-50 text-emerald-700')}
+            ${row.record.replenishmentSummary.pendingPrepCount > 0 ? renderBadge('待WMS领料入仓', 'bg-amber-50 text-amber-700') : renderBadge('当前无补料待处理', 'bg-emerald-50 text-emerald-700')}
           </div>
         </article>
       </div>
@@ -370,7 +370,7 @@ function renderQuickLinks(): string {
       <h2 class="text-base font-semibold text-foreground">快捷跳转区</h2>
       <div class="mt-4 flex flex-wrap gap-2">
         <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-detail-action="go-production-progress">去生产单进度</button>
-        <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-detail-action="go-material-prep">去仓库配料领料</button>
+        <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-detail-action="go-material-prep">去待加工仓</button>
         <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-detail-action="go-original-orders">去原始裁片单</button>
         <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-detail-action="go-replenishment">去补料管理</button>
         <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-platform-cutting-detail-action="go-fabric-warehouse">去裁床仓</button>

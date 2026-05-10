@@ -218,6 +218,41 @@ export function buildDyeingWorkOrderDetailLink(dyeOrderId: string): string {
   return `/fcs/craft/dyeing/work-orders/${encodeSegment(dyeOrderId)}`
 }
 
+export function buildKnittingWorkOrdersLink(knittingOrderId?: string): string {
+  const base = '/fcs/craft/knitting/work-orders'
+  return knittingOrderId ? `${base}?knittingOrderId=${encodeSegment(knittingOrderId)}` : base
+}
+
+export function buildKnittingWorkOrderDetailLink(knittingOrderId: string, tab?: string): string {
+  const base = `/fcs/craft/knitting/work-orders/${encodeSegment(knittingOrderId)}`
+  return tab ? `${base}?tab=${encodeSegment(tab)}` : base
+}
+
+export function buildKnittingWaitProcessWarehouseLink(knittingOrderId?: string): string {
+  const base = '/fcs/craft/knitting/wait-process-warehouse'
+  return knittingOrderId ? `${base}?knittingOrderId=${encodeSegment(knittingOrderId)}` : base
+}
+
+export function buildKnittingWaitHandoverWarehouseLink(knittingOrderId?: string): string {
+  const base = '/fcs/craft/knitting/wait-handover-warehouse'
+  return knittingOrderId ? `${base}?knittingOrderId=${encodeSegment(knittingOrderId)}` : base
+}
+
+export function buildKnittingFeiTicketsLink(knittingOrderId?: string): string {
+  const base = '/fcs/craft/knitting/fei-tickets'
+  return knittingOrderId ? `${base}?knittingOrderId=${encodeSegment(knittingOrderId)}` : base
+}
+
+export function buildKnittingMachineScheduleLink(knittingOrderId?: string): string {
+  const base = '/fcs/craft/knitting/machine-schedule'
+  return knittingOrderId ? `${base}?knittingOrderId=${encodeSegment(knittingOrderId)}` : base
+}
+
+export function buildKnittingStatisticsLink(knittingOrderId?: string): string {
+  const base = '/fcs/craft/knitting/statistics'
+  return knittingOrderId ? `${base}?knittingOrderId=${encodeSegment(knittingOrderId)}` : base
+}
+
 export function buildPostFinishingWorkOrderDetailLink(postOrderId: string, tab?: string): string {
   const base = `/fcs/craft/post-finishing/work-orders/${encodeSegment(postOrderId)}`
   return tab ? `${base}?tab=${encodeSegment(tab)}` : base
@@ -238,7 +273,7 @@ export function buildCutOrderLink(originalCutOrderId: string): string {
 }
 
 export function buildMaterialPrepLink(originalCutOrderId: string): string {
-  return `/fcs/craft/cutting/material-prep?originalCutOrderId=${encodeSegment(originalCutOrderId)}`
+  return `/fcs/craft/cutting/warehouse-management/wait-process?originalCutOrderId=${encodeSegment(originalCutOrderId)}`
 }
 
 export function buildFeiTicketLink(feiTicketId: string): string {

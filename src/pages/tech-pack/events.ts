@@ -53,12 +53,12 @@ import {
   hasEnabledColorPiece,
   hasInvalidColorPieceQty,
   hasPositiveEnabledColorPiece,
+  isTechPackReadOnly,
   requestTechPackRender,
   resetAttachmentForm,
   resetBomForm,
   resetColorMappingToSystemSuggestion,
   resetPatternForm,
-  resetQualityRuleForm,
   resetSizeForm,
   resetTechniqueForm,
   state,
@@ -664,11 +664,11 @@ function validatePatternForm(): string | null {
   if (!state.newPattern.singlePatternFileName.trim() && !state.newPattern.file.trim()) {
     return '针织纸样需先选择纸样文件'
   }
-  if (state.newPattern.pieceRows.length === 0) return '针织纸样至少保留 1 行裁片明细'
+  if (state.newPattern.pieceRows.length === 0) return '针织纸样至少保留 1 行针织部位明细'
   const invalidRow = state.newPattern.pieceRows.find(
     (row) => row.sourceType !== 'MANUAL' || !row.name.trim() || Number(row.totalPieceQty) <= 0,
   )
-  if (invalidRow) return '针织纸样裁片名称和颜色片数必须填写完整'
+  if (invalidRow) return '针织纸样部位名称和颜色片数必须填写完整'
   return null
 }
 
@@ -1542,6 +1542,7 @@ function handleTechPackField(
       standardTime: '',
       timeUnit: '分钟/件',
       difficulty: '中等',
+      packagingRequired: false,
       remark: '',
     }
     return true
@@ -1552,6 +1553,7 @@ function handleTechPackField(
       processCode: value,
       craftCode: '',
       selectedTargetObject: '',
+      packagingRequired: false,
     }
     return true
   }
@@ -1580,9 +1582,14 @@ function handleTechPackField(
       ...state.newTechnique,
       craftCode: value,
       selectedTargetObject,
+      packagingRequired: craft?.craftName === '整件针织' ? state.newTechnique.packagingRequired : false,
       standardTime: craft ? String(craft.referencePublishedSamValue) : state.newTechnique.standardTime,
       timeUnit: craft ? craft.referencePublishedSamUnitLabel : state.newTechnique.timeUnit,
     }
+    return true
+  }
+  if (field === 'new-technique-packaging-required') {
+    state.newTechnique.packagingRequired = checked
     return true
   }
   if (field === 'new-technique-target-object') {
@@ -1972,23 +1979,6 @@ function handleTechPackField(
     return true
   }
 
-  if (field === 'new-quality-check-item') {
-    state.newQualityRule.checkItem = value
-    return true
-  }
-  if (field === 'new-quality-standard-text') {
-    state.newQualityRule.standardText = value
-    return true
-  }
-  if (field === 'new-quality-sampling-rule') {
-    state.newQualityRule.samplingRule = value
-    return true
-  }
-  if (field === 'new-quality-note') {
-    state.newQualityRule.note = value
-    return true
-  }
-
   if (field === 'new-design-name') {
     state.newDesignName = value
     return true
@@ -2059,6 +2049,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     fieldNode instanceof HTMLSelectElement ||
     fieldNode instanceof HTMLTextAreaElement
   ) {
+    if (isTechPackReadOnly()) return true
     return handleTechPackField(fieldNode)
   }
 
@@ -2136,6 +2127,17 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       return false
     }
     return true
+  }
+
+  if (isTechPackReadOnly()) {
+    const isReadonlySafeAction =
+      action.startsWith('close-') ||
+      action === 'open-pattern-detail' ||
+      action === 'open-design-thumbnail-preview' ||
+      action === 'preview-design-thumbnail' ||
+      action === 'download-design-original-file' ||
+      action === 'download-attachment'
+    if (!isReadonlySafeAction) return true
   }
 
   if (action === 'open-release') {
@@ -2921,6 +2923,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       baselineProcessCode: target.entryType === 'PROCESS_BASELINE' ? target.processCode : '',
       craftCode: target.entryType === 'CRAFT' ? target.craftCode : '',
       selectedTargetObject: target.selectedTargetObject || '',
+      packagingRequired: Boolean(target.packagingRequired),
       ruleSource: target.ruleSource,
       assignmentGranularity: target.assignmentGranularity,
       detailSplitMode: target.detailSplitMode,
@@ -3004,6 +3007,15 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       taskTypeMode: effectiveMeta.taskTypeMode,
       isSpecialCraft: effectiveMeta.isSpecialCraft,
       selectedTargetObject: effectiveMeta.selectedTargetObject,
+      targetObject: effectiveMeta.targetObject,
+      targetObjectName: effectiveMeta.targetObjectName,
+      knittingTaskType: effectiveMeta.knittingTaskType,
+      downstreamTarget: effectiveMeta.downstreamTarget,
+      requiresFeiTicket: effectiveMeta.requiresFeiTicket,
+      packagingRequired: effectiveMeta.packagingRequired,
+      materialIssueMode: effectiveMeta.materialIssueMode,
+      linkedBomItemIds: effectiveMeta.linkedBomItemIds ? [...effectiveMeta.linkedBomItemIds] : undefined,
+      linkedPatternIds: effectiveMeta.linkedPatternIds ? [...effectiveMeta.linkedPatternIds] : undefined,
       supportedTargetObjects: effectiveMeta.supportedTargetObjects ? [...effectiveMeta.supportedTargetObjects] : undefined,
       supportedTargetObjectLabels: effectiveMeta.supportedTargetObjectLabels ? [...effectiveMeta.supportedTargetObjectLabels] : undefined,
       triggerSource: effectiveMeta.triggerSource,
@@ -3080,40 +3092,6 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       sizeTable: state.techPack.sizeTable.filter((row) => row.id !== sizeId),
     }
 
-    syncTechPackToStore()
-    return true
-  }
-
-  if (action === 'open-add-quality') {
-    resetQualityRuleForm()
-    state.addQualityDialogOpen = true
-    return true
-  }
-  if (action === 'close-add-quality') {
-    state.addQualityDialogOpen = false
-    return true
-  }
-  if (action === 'save-quality') {
-    if (!state.newQualityRule.checkItem.trim() || !state.newQualityRule.standardText.trim()) return true
-    state.qualityRules = [
-      ...state.qualityRules,
-      {
-        id: `quality-${Date.now()}`,
-        checkItem: state.newQualityRule.checkItem.trim(),
-        standardText: state.newQualityRule.standardText.trim(),
-        samplingRule: state.newQualityRule.samplingRule.trim(),
-        note: state.newQualityRule.note.trim(),
-      },
-    ]
-    syncTechPackToStore()
-    state.addQualityDialogOpen = false
-    resetQualityRuleForm()
-    return true
-  }
-  if (action === 'delete-quality') {
-    const qualityId = actionNode.dataset.qualityId
-    if (!qualityId) return true
-    state.qualityRules = state.qualityRules.filter((item) => item.id !== qualityId)
     syncTechPackToStore()
     return true
   }

@@ -1,5 +1,10 @@
 import { processTasks, type ProcessTask } from './process-tasks'
 import {
+  getMilestoneConfigForTask,
+  getMilestoneProofRequirementLabel,
+  type MilestoneProofRequirement,
+} from './milestone-configs'
+import {
   generateCaseId,
   listProgressExceptions,
   upsertProgressExceptionCase,
@@ -32,8 +37,16 @@ import {
 export type StartDueSource = 'ACCEPTED' | 'AWARDED'
 export type StartRiskStatus = 'NORMAL' | 'DUE_SOON' | 'OVERDUE'
 
-const START_DUE_HOURS = 48
+const DEFAULT_START_DUE_HOURS = 48
 const SOON_THRESHOLD_MS = 24 * 60 * 60 * 1000
+
+export interface TaskStartRuleState {
+  required: boolean
+  dueHours: number
+  proofRequirement: MilestoneProofRequirement
+  proofRequirementLabel: string
+  ruleLabel: string
+}
 
 interface StartPrerequisiteInfo {
   met: boolean
@@ -64,6 +77,26 @@ function addHours(baseAt: string, hours: number): string {
   const date = new Date(baseAt.replace(' ', 'T'))
   date.setHours(date.getHours() + hours)
   return nowTimestamp(date)
+}
+
+function normalizeDueHours(value?: number): number {
+  if (!Number.isFinite(value) || Number(value) <= 0) return DEFAULT_START_DUE_HOURS
+  return Math.max(1, Math.floor(Number(value)))
+}
+
+export function getTaskStartRuleState(task: ProcessTask): TaskStartRuleState {
+  const config = getMilestoneConfigForTask(task)
+  const proofRequirement = config?.startProofRequirement || 'NONE'
+  const dueHours = normalizeDueHours(config?.startDueHours)
+  const required = config?.startRequired ?? true
+
+  return {
+    required,
+    dueHours,
+    proofRequirement,
+    proofRequirementLabel: getMilestoneProofRequirementLabel(proofRequirement),
+    ruleLabel: required ? `要求开工，${dueHours} 小时内确认` : '不要求开工',
+  }
 }
 
 export function getStartPrerequisite(task: ProcessTask): StartPrerequisiteInfo {
@@ -210,17 +243,18 @@ export function getTaskStartDueInfo(task: ProcessTask, nowMs: number = Date.now(
   remainingMs?: number
   prerequisiteMet: boolean
 } {
+  const startRule = getTaskStartRuleState(task)
   const prerequisite = getStartPrerequisite(task)
   const { baseAt, source } = getStartDueBase(task)
 
-  if (!baseAt || !source) {
+  if (!startRule.required || !baseAt || !source) {
     return {
       startRiskStatus: 'NORMAL',
       prerequisiteMet: prerequisite.met,
     }
   }
 
-  const startDueAt = addHours(baseAt, START_DUE_HOURS)
+  const startDueAt = addHours(baseAt, startRule.dueHours)
   const dueMs = parseDateMs(startDueAt)
   const remainingMs = dueMs - nowMs
 
@@ -360,12 +394,13 @@ export function formatRemainingHours(remainingMs: number): string {
   return String(Math.max(hours, 0))
 }
 
-export function formatStartDueSourceText(source?: StartDueSource): string {
+export function formatStartDueSourceText(source?: StartDueSource, dueHours = DEFAULT_START_DUE_HOURS): string {
+  const safeDueHours = normalizeDueHours(dueHours)
   if (source === 'AWARDED') {
-    return '中标后 48 小时内开工'
+    return `中标后 ${safeDueHours} 小时内开工`
   }
   if (source === 'ACCEPTED') {
-    return '接单后 48 小时内开工'
+    return `接单后 ${safeDueHours} 小时内开工`
   }
   return '待接单/中标后开始计算'
 }

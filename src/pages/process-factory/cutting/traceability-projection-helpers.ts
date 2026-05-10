@@ -210,7 +210,7 @@ function ensureTraceabilityTicketRecords(options: {
           schemaName: 'FCS_FEI_TRACEABILITY_SEED',
           schemaVersion: '1.0.0',
           qrSerializedValue: ticketNo,
-          compatibilityNote: `由 ${session.sessionNo || session.spreadingSessionId} 的 traceability 链路自动补齐正式菲票记录。`,
+          schemaNote: `由 ${session.sessionNo || session.spreadingSessionId} 的 traceability 链路自动补齐正式菲票记录。`,
         }
         tickets.push(traceTicket)
         ticketIds.add(ticketRecordId)

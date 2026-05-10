@@ -1,5 +1,4 @@
 import {
-  getProductionOrderCutPieceParts,
   getProductionOrderProcessEntries,
   getProductionOrderTechPackSnapshot,
 } from '../production-order-tech-pack-runtime.ts'
@@ -166,91 +165,6 @@ function buildAssemblyGroupKey(options: {
     normalizeBusinessText(options.sizeCode, 'SIZE'),
     normalizeBusinessText(options.bundleNo, 'BUNDLE'),
   ].join('__')
-}
-
-function resolveDemoCutPieceParts(productionOrderId: string): Array<{
-  partCode: string
-  partName: string
-  pieceCountPerGarment: number
-  actualCutPieceQty: number
-}> {
-  const techPackParts = getProductionOrderCutPieceParts(productionOrderId)
-  const preferredParts = ['前片', '后片', '袖子']
-  const matchedParts = preferredParts
-    .map((partName) => techPackParts.find((item) => item.partNameCn === partName))
-    .filter((item): item is NonNullable<typeof techPackParts[number]> => Boolean(item))
-    .map((item) => ({
-      partCode: item.partCode,
-      partName: item.partNameCn,
-      pieceCountPerGarment: item.pieceCountPerGarment,
-      actualCutPieceQty: item.partNameCn === '袖子' ? 30 : 15,
-    }))
-
-  if (matchedParts.length >= 3) return matchedParts
-
-  return [
-    { partCode: 'tee-front', partName: '前片', pieceCountPerGarment: 1, actualCutPieceQty: 15 },
-    { partCode: 'tee-back', partName: '后片', pieceCountPerGarment: 1, actualCutPieceQty: 15 },
-    { partCode: 'tee-sleeve', partName: '袖子', pieceCountPerGarment: 2, actualCutPieceQty: 30 },
-  ]
-}
-
-function buildDemoSpreadingOutputLines(): SpreadingPieceOutputLine[] {
-  const originalCutOrderId = 'CUT-260308-081-01'
-  const originalCutOrderNo = 'CUT-260308-081-01'
-  const productionOrderId = 'PO-202603-081'
-  const productionOrderNo = 'PO-202603-081'
-  const spreadingSessionId = 'spreading-demo-roll-a'
-  const sourceMarkerId = 'marker-demo-roll-a'
-  const sourceMarkerLineItemId = 'marker-demo-roll-a-line-1'
-  const fabricRollId = 'ROLL-A'
-  const fabricRollNo = '卷A'
-  const fabricColor = '红色'
-  const garmentSkuId = 'SKU-ST081-RED-M'
-  const garmentColor = '红色'
-  const sizeCode = 'M'
-  const bundleNo = 'BUNDLE-001'
-  const bundleQty = 15
-  const layerCount = 15
-  const assemblyGroupKey = buildAssemblyGroupKey({
-    originalCutOrderId,
-    fabricRollNo,
-    fabricColor,
-    sizeCode,
-    bundleNo,
-  })
-
-  return resolveDemoCutPieceParts(productionOrderId).map((part, index) => ({
-    outputLineId: `${spreadingSessionId}-${String(index + 1).padStart(3, '0')}`,
-    spreadingSessionId,
-    sourceMarkerId,
-    sourceMarkerLineItemId,
-    originalCutOrderId,
-    originalCutOrderNo,
-    mergeBatchId: 'MB-202603-081',
-    mergeBatchNo: 'MB-202603-081',
-    productionOrderId,
-    productionOrderNo,
-    fabricRollId,
-    fabricRollNo,
-    fabricColor,
-    materialSku: 'FAB-SKU-PRINT-001',
-    garmentSkuId,
-    garmentColor,
-    sizeCode,
-    partCode: part.partCode,
-    partName: part.partName,
-    pieceCountPerGarment: part.pieceCountPerGarment,
-    bundleNo,
-    bundleQty,
-    layerCount,
-    actualCutPieceQty: part.actualCutPieceQty,
-    actualCutGarmentQty: bundleQty,
-    assemblyGroupKey,
-    sourceBasisType: 'SPREADING_RESULT',
-    createdBy: '裁床组长',
-    createdAt: '2026-04-20 09:30',
-  }))
 }
 
 function resolveSecondaryCrafts(productionOrderId: string): {
@@ -923,9 +837,8 @@ export function listSpreadingPieceOutputLines(
   sourceRecords: GeneratedOriginalCutOrderSourceRecord[] = listGeneratedOriginalCutOrderSourceRecords(),
 ): SpreadingPieceOutputLine[] {
   const generatedLines = buildSpreadingPieceOutputLinesFromSessions(sourceRecords)
-  const demoLines = buildDemoSpreadingOutputLines()
   const lineMap = new Map<string, SpreadingPieceOutputLine>()
-  ;[...demoLines, ...generatedLines].forEach((line) => {
+  generatedLines.forEach((line) => {
     if (!lineMap.has(line.outputLineId)) {
       lineMap.set(line.outputLineId, line)
     }

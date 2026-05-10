@@ -5,11 +5,13 @@ export interface BrowserStorageLike {
 }
 
 export function getBrowserLocalStorage(): BrowserStorageLike | null {
-  return typeof globalThis.localStorage === 'undefined' ? null : globalThis.localStorage
+  const storage = typeof globalThis.localStorage === 'undefined' ? null : globalThis.localStorage
+  return typeof storage?.getItem === 'function' ? storage : null
 }
 
 export function getBrowserSessionStorage(): BrowserStorageLike | null {
-  return typeof globalThis.sessionStorage === 'undefined' ? null : globalThis.sessionStorage
+  const storage = typeof globalThis.sessionStorage === 'undefined' ? null : globalThis.sessionStorage
+  return typeof storage?.getItem === 'function' ? storage : null
 }
 
 export function readBrowserStorageItem(

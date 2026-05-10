@@ -23,21 +23,14 @@ function uniqueCount(values: Array<string | undefined>): number {
 
 function renderHubActionCard(options: {
   title: string
-  description: string
   rows: Array<[string, string | number]>
-  href: string
-  actionLabel: string
 }): string {
   return `
     <article class="rounded-xl border bg-card p-4">
       <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h2 class="text-base font-semibold">${escapeHtml(options.title)}</h2>
-          <p class="mt-1 text-sm text-muted-foreground">${escapeHtml(options.description)}</p>
         </div>
-        <button type="button" class="inline-flex items-center justify-center rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(options.href)}">
-          ${escapeHtml(options.actionLabel)}
-        </button>
       </div>
       <dl class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         ${options.rows
@@ -126,9 +119,6 @@ function renderHubShell(options: {
   return `
     <div class="space-y-5">
       ${renderCuttingPageHeader(meta)}
-      <section class="rounded-xl border bg-card p-4">
-        <p class="text-sm text-muted-foreground">${escapeHtml(options.description)}</p>
-      </section>
       ${options.tabs}
       <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         ${options.kpis}
@@ -150,9 +140,6 @@ export function renderCraftCuttingWarehouseManagementWaitProcessPage(): string {
 
   const fabricWarehouseCard = renderHubActionCard({
     title: '裁床仓',
-    description: '查看裁床仓面料、卷号、长度和低余量状态。',
-    href: getCanonicalCuttingPath('fabric-warehouse'),
-    actionLabel: '进入裁床仓',
     rows: [
       ['面料 SKU 数', fabricSummary.stockItemCount],
       ['卷数', fabricSummary.rollCount],
@@ -164,9 +151,6 @@ export function renderCraftCuttingWarehouseManagementWaitProcessPage(): string {
 
   const specialCraftDispatchCard = renderHubActionCard({
     title: '特殊工艺待加工 / 发料',
-    description: '查看待发特殊工艺菲票、发料单与接收状态。',
-    href: getCanonicalCuttingPath('special-craft-dispatch'),
-    actionLabel: '进入特殊工艺发料',
     rows: [
       ['待发记录数', dispatchRows.length],
       ['已生成发料单数', generatedDispatchCount],
@@ -179,30 +163,18 @@ export function renderCraftCuttingWarehouseManagementWaitProcessPage(): string {
     overview: [
       fabricWarehouseCard,
       specialCraftDispatchCard,
-      renderHubGuideCard('待加工仓层级说明', [
-        '侧边栏仍只保留待加工仓入口，裁床仓与特殊工艺待加工 / 发料收在页内 Tab。',
-        '发料单详情、扫码确认、异常处理和打印单据继续走列表行操作或次级页面，不提升为侧边栏菜单。',
-      ]),
     ].join(''),
     'fabric-warehouse': [
       fabricWarehouseCard,
-      renderHubGuideCard('裁床仓承接范围', [
-        '继续承接原裁床仓的库存、卷号、长度、低余量和定位视角。',
-        '配料、入仓明细和异常提示继续在裁床仓列表、详情抽屉或次级页面处理。',
-      ]),
     ].join(''),
     'special-craft-dispatch': [
       specialCraftDispatchCard,
-      renderHubGuideCard('特殊工艺待加工 / 发料承接范围', [
-        '继续承接发往特殊工艺前的待加工与发料视角。',
-        '发料单详情、异常处理、打印单据和扫码确认继续在列表行操作或次级页面处理。',
-      ]),
     ].join(''),
   }
 
   return renderHubShell({
     metaKey: 'warehouse-management-wait-process',
-    description: '在待加工总览、裁床仓和特殊工艺待加工 / 发料之间切换，旧能力继续通过页内 Tab、行操作和次级页面承接。',
+    description: '查看 WMS 来料接收后的待加工仓、裁床仓和特殊工艺待加工。',
     kpis: [
       renderCompactKpiCard('面料 SKU 数', fabricSummary.stockItemCount, '裁床仓', 'text-blue-600'),
       renderCompactKpiCard('卷数', fabricSummary.rollCount, '裁床仓', 'text-slate-700'),
@@ -233,9 +205,6 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
 
   const cutPieceWarehouseCard = renderHubActionCard({
     title: '裁片仓',
-    description: '查看裁片入仓、待交和库区位置。',
-    href: getCanonicalCuttingPath('cut-piece-warehouse'),
-    actionLabel: '进入裁片仓',
     rows: [
       ['记录数', cutPieceSummary.totalItemCount],
       ['裁片总数量', cutPieceSummary.totalQuantity],
@@ -246,9 +215,6 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
 
   const specialCraftReturnCard = renderHubActionCard({
     title: '特殊工艺回仓',
-    description: '查看特殊工艺回裁床后的回仓与差异。',
-    href: getCanonicalCuttingPath('special-craft-return'),
-    actionLabel: '进入特殊工艺回仓',
     rows: [
       ['回仓记录数', returnRows.length],
       ['已完成回仓数', completedReturnCount],
@@ -258,9 +224,6 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
 
   const sewingDispatchCard = renderHubActionCard({
     title: '裁片发料',
-    description: '查看裁片发车缝前的齐套、交出和回写差异。',
-    href: getCanonicalCuttingPath('sewing-dispatch'),
-    actionLabel: '进入裁片发料',
     rows: [
       ['待配齐发料单数', sewingSummary.waitingCompleteOrderCount],
       ['可交出批次', sewingSummary.readyBatchCount],
@@ -274,37 +237,21 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
       cutPieceWarehouseCard,
       specialCraftReturnCard,
       sewingDispatchCard,
-      renderHubGuideCard('待交出仓层级说明', [
-        '侧边栏仍只保留待交出仓入口，裁片仓、特殊工艺回仓和裁片发料收在页内 Tab。',
-        '交出详情、回仓确认、差异处理和打印单据继续走列表行操作或次级页面，不提升为侧边栏菜单。',
-      ]),
     ].join(''),
     'cut-piece-warehouse': [
       cutPieceWarehouseCard,
-      renderHubGuideCard('裁片仓承接范围', [
-        '继续承接原裁片仓的入仓、待交出、库区位置和齐套状态视角。',
-        '单据详情、入库确认和差异处理继续在列表行操作或详情抽屉中处理。',
-      ]),
     ].join(''),
     'special-craft-return': [
       specialCraftReturnCard,
-      renderHubGuideCard('特殊工艺回仓承接范围', [
-        '继续承接特殊工艺完成后的回仓、差异和回流状态视角。',
-        '回仓单详情、差异确认和打印单据继续在列表行操作或次级页面处理。',
-      ]),
     ].join(''),
     'sewing-dispatch': [
       sewingDispatchCard,
-      renderHubGuideCard('裁片发料承接范围', [
-        '继续承接裁片齐套后发往车缝厂的配齐、交出和回写差异视角。',
-        '裁片发料单详情、交出单详情、差异处理和打印单据继续在列表行操作或次级页面处理。',
-      ]),
     ].join(''),
   }
 
   return renderHubShell({
     metaKey: 'warehouse-management-wait-handover',
-    description: '在待交出总览、裁片仓、特殊工艺回仓和裁片发料之间切换，旧能力继续通过页内 Tab、行操作和次级页面承接。',
+    description: '查看铺布裁剪后的待交出仓、裁片仓、特殊工艺回仓和裁片发车缝。',
     kpis: [
       renderCompactKpiCard('裁片仓记录数', cutPieceSummary.totalItemCount, '裁片仓', 'text-blue-600'),
       renderCompactKpiCard('裁片总数量', cutPieceSummary.totalQuantity, '裁片仓', 'text-slate-700'),

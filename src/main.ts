@@ -8,6 +8,8 @@ type PcsHandlersModule = typeof import('./main-handlers/pcs-handlers')
 type PdaHandlersModule = typeof import('./main-handlers/pda-handlers')
 type DispatchBoardPageModule = typeof import('./pages/dispatch-board')
 type CraftCuttingMarkerPlanPageModule = typeof import('./pages/process-factory/cutting/marker-plan')
+type CraftCuttingMarkerSpreadingPageModule = typeof import('./pages/process-factory/cutting/marker-spreading')
+type PdaExecPageModule = typeof import('./pages/pda-exec')
 type RoutesModule = typeof import('./router/routes')
 
 let fcsHandlersModulePromise: Promise<FcsHandlersModule> | null = null
@@ -15,6 +17,8 @@ let pcsHandlersModulePromise: Promise<PcsHandlersModule> | null = null
 let pdaHandlersModulePromise: Promise<PdaHandlersModule> | null = null
 let dispatchBoardPageModulePromise: Promise<DispatchBoardPageModule> | null = null
 let craftCuttingMarkerPlanPageModulePromise: Promise<CraftCuttingMarkerPlanPageModule> | null = null
+let craftCuttingMarkerSpreadingPageModulePromise: Promise<CraftCuttingMarkerSpreadingPageModule> | null = null
+let pdaExecPageModulePromise: Promise<PdaExecPageModule> | null = null
 let routesModulePromise: Promise<RoutesModule> | null = null
 
 function getFcsHandlersModule(): Promise<FcsHandlersModule> {
@@ -65,6 +69,26 @@ function getCraftCuttingMarkerPlanPageModule(): Promise<CraftCuttingMarkerPlanPa
     })
   }
   return craftCuttingMarkerPlanPageModulePromise
+}
+
+function getCraftCuttingMarkerSpreadingPageModule(): Promise<CraftCuttingMarkerSpreadingPageModule> {
+  if (!craftCuttingMarkerSpreadingPageModulePromise) {
+    craftCuttingMarkerSpreadingPageModulePromise = import('./pages/process-factory/cutting/marker-spreading').catch((error) => {
+      craftCuttingMarkerSpreadingPageModulePromise = null
+      throw error
+    })
+  }
+  return craftCuttingMarkerSpreadingPageModulePromise
+}
+
+function getPdaExecPageModule(): Promise<PdaExecPageModule> {
+  if (!pdaExecPageModulePromise) {
+    pdaExecPageModulePromise = import('./pages/pda-exec').catch((error) => {
+      pdaExecPageModulePromise = null
+      throw error
+    })
+  }
+  return pdaExecPageModulePromise
 }
 
 function getRoutesModule(): Promise<RoutesModule> {
@@ -142,6 +166,14 @@ async function dispatchPageEvent(target: Element): Promise<boolean> {
   ) {
     const markerPlanPage = await getCraftCuttingMarkerPlanPageModule()
     return markerPlanPage.handleCraftCuttingMarkerPlanEvent(eventTarget)
+  }
+  if (
+    pathname.startsWith('/fcs/craft/cutting/spreading') ||
+    pathname.startsWith('/fcs/craft/cutting/spreading-create') ||
+    pathname.startsWith('/fcs/craft/cutting/spreading-detail')
+  ) {
+    const markerSpreadingPage = await getCraftCuttingMarkerSpreadingPageModule()
+    return markerSpreadingPage.handleCraftCuttingMarkerSpreadingEvent(eventTarget)
   }
 
   const handlerSystem = getCurrentHandlerSystem(pathname)
@@ -240,6 +272,10 @@ let renderSerial = 0
 
 async function renderCurrentPageContent(pathname: string): Promise<string> {
   try {
+    if (pathname.split('?')[0].split('#')[0] === '/fcs/pda/exec') {
+      const pdaExecPage = await getPdaExecPageModule()
+      return pdaExecPage.renderPdaExecPage()
+    }
     const { resolvePage } = await getRoutesModule()
     return resolvePage(pathname)
   } catch (error) {
@@ -309,8 +345,10 @@ async function renderPageContentOnly(): Promise<void> {
   }
 
   pageContentHost.innerHTML = pageContent
-  hydrateIcons(pageContentHost)
   hydrateRealQRCodes(pageContentHost)
+  queueMicrotask(() => {
+    hydrateIcons(pageContentHost)
+  })
 }
 
 interface FocusSnapshot {
@@ -697,8 +735,11 @@ root.addEventListener('click', async (event) => {
 
   if (await dispatchPageEvent(target)) {
     event.preventDefault()
+    if (target.closest<HTMLElement>('[data-skip-page-rerender="true"]')) {
+      return
+    }
     const nextPathname = appStore.getState().pathname
-    if (shouldUseTechPackScopedRender(target, previousPathname, nextPathname)) {
+    if (target.closest<HTMLElement>('[data-fast-page-render]') || shouldUseTechPackScopedRender(target, previousPathname, nextPathname)) {
       await renderPageContentOnlyWithFocusRestore(focusSnapshot)
     } else {
       await renderWithFocusRestore(focusSnapshot)

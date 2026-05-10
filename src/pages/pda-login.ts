@@ -2,6 +2,7 @@ import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
 import {
   authenticateFactoryPdaUserByCredentials,
+  authenticateFactoryPdaUserByLoginId,
   clearPdaSession,
   createPdaSessionFromUser,
   setPdaSession,
@@ -14,6 +15,9 @@ import {
   getPdaCurrentAuthSession,
   resolvePdaPostLoginRoute,
 } from '../data/fcs/factory-onboarding-flow.ts'
+
+void import('./pda-exec')
+void import('../router/routes-pda')
 
 interface LoginState {
   loginId: string
@@ -43,6 +47,21 @@ function syncLoggedInRedirect(): string | null {
   return resolvePdaPostLoginRoute(session, getReturnTo())
 }
 
+function renderImmediatePdaExecLoading(): void {
+  const host = document.querySelector('[data-page-content-root="true"]')
+  if (!(host instanceof HTMLElement)) return
+  host.innerHTML = `
+    <section class="min-h-[720px] bg-background p-4" data-testid="pda-exec-page">
+      <div class="rounded-2xl border bg-card p-4 shadow-sm">
+        <h1 class="text-lg font-semibold text-foreground">执行</h1>
+        <div class="mt-3 rounded-xl border border-blue-200 bg-blue-50 px-3 py-3 text-sm text-blue-700" data-testid="pda-exec-card-list">
+          正在进入执行页
+        </div>
+      </div>
+    </section>
+  `
+}
+
 async function submitLogin(): Promise<void> {
   const loginId = state.loginId.trim()
   const password = state.password.trim()
@@ -57,12 +76,22 @@ async function submitLogin(): Promise<void> {
     return
   }
 
+  const previewResult = authenticateFactoryPdaUserByLoginId(loginId)
+  const returnTo = getReturnTo()
+  if (!previewResult.error && previewResult.user && (!returnTo || returnTo.startsWith('/fcs/pda/exec'))) {
+    renderImmediatePdaExecLoading()
+  }
+
   const officialResult = await authenticateFactoryPdaUserByCredentials(loginId, password)
   if (!officialResult.error && officialResult.user) {
     const session = createPdaSessionFromUser(officialResult.user)
     clearFactoryOnboardingApplicantSession()
     setPdaSession(session)
-    appStore.navigate(resolvePdaPostLoginRoute({ kind: 'PDA', session }, getReturnTo()), { historyMode: 'replace' })
+    const nextRoute = resolvePdaPostLoginRoute({ kind: 'PDA', session }, returnTo)
+    if (nextRoute.startsWith('/fcs/pda/exec')) {
+      renderImmediatePdaExecLoading()
+    }
+    appStore.navigate(nextRoute, { historyMode: 'replace' })
     return
   }
 
@@ -72,7 +101,7 @@ async function submitLogin(): Promise<void> {
     clearPdaSession()
     setFactoryOnboardingApplicantSession(session)
     appStore.navigate(
-      resolvePdaPostLoginRoute({ kind: 'ONBOARDING', session, application: onboardingApplication }, getReturnTo()),
+      resolvePdaPostLoginRoute({ kind: 'ONBOARDING', session, application: onboardingApplication }, returnTo),
       { historyMode: 'replace' },
     )
     return
@@ -145,6 +174,7 @@ export function renderPdaLoginPage(): string {
             <button
               type="button"
               class="h-12 rounded-2xl bg-slate-900 text-sm font-medium text-white"
+              data-fast-page-render="true"
               data-pda-login-action="submit"
             >
               登录

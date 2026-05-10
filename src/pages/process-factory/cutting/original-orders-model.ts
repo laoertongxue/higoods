@@ -173,9 +173,9 @@ export interface OriginalCutOrderStats {
 }
 
 export const originalOrderStageMeta: Record<OriginalCutOrderStageKey, { label: string; className: string }> = {
-  WAITING_PREP: { label: '待配料', className: 'bg-slate-100 text-slate-700' },
-  PREPPING: { label: '配料中', className: 'bg-orange-100 text-orange-700' },
-  WAITING_CLAIM: { label: '待领料', className: 'bg-blue-100 text-blue-700' },
+  WAITING_PREP: { label: 'WMS 待处理', className: 'bg-slate-100 text-slate-700' },
+  PREPPING: { label: 'WMS处理中', className: 'bg-orange-100 text-orange-700' },
+  WAITING_CLAIM: { label: '待来料', className: 'bg-blue-100 text-blue-700' },
   CUTTING: { label: '裁剪中', className: 'bg-violet-100 text-violet-700' },
   WAITING_INBOUND: { label: '待入仓', className: 'bg-sky-100 text-sky-700' },
   DONE: { label: '已完成', className: 'bg-emerald-100 text-emerald-700' },
@@ -183,9 +183,9 @@ export const originalOrderStageMeta: Record<OriginalCutOrderStageKey, { label: s
 
 export const originalOrderCuttableMeta: Record<OriginalCuttableStateKey, { label: string; className: string }> = {
   CUTTABLE: { label: '可裁', className: 'bg-emerald-100 text-emerald-700 border border-emerald-200' },
-  WAITING_PREP: { label: '待配料', className: 'bg-slate-100 text-slate-700 border border-slate-200' },
-  WAITING_CLAIM: { label: '待领料', className: 'bg-blue-100 text-blue-700 border border-blue-200' },
-  CLAIM_EXCEPTION: { label: '领料异常', className: 'bg-rose-100 text-rose-700 border border-rose-200' },
+  WAITING_PREP: { label: 'WMS 待处理', className: 'bg-slate-100 text-slate-700 border border-slate-200' },
+  WAITING_CLAIM: { label: '待来料', className: 'bg-blue-100 text-blue-700 border border-blue-200' },
+  CLAIM_EXCEPTION: { label: '来料异常', className: 'bg-rose-100 text-rose-700 border border-rose-200' },
   IN_BATCH: { label: '已入合并裁剪批次', className: 'bg-violet-100 text-violet-700 border border-violet-200' },
   INBOUND: { label: '已入仓', className: 'bg-emerald-100 text-emerald-700 border border-emerald-200' },
   CUTTING: { label: '裁剪中', className: 'bg-fuchsia-100 text-fuchsia-700 border border-fuchsia-200' },
@@ -198,8 +198,8 @@ export const originalOrderVisibleCuttableMeta: Record<OriginalCuttableVisibleSta
 }
 
 export const originalOrderRiskMeta: Record<OriginalCutOrderRiskKey, { label: string; className: string }> = {
-  PREP_DELAY: { label: '配料异常', className: 'bg-orange-100 text-orange-700 border border-orange-200' },
-  CLAIM_EXCEPTION: { label: '领料异常', className: 'bg-rose-100 text-rose-700 border border-rose-200' },
+  PREP_DELAY: { label: 'WMS 来料异常', className: 'bg-orange-100 text-orange-700 border border-orange-200' },
+  CLAIM_EXCEPTION: { label: '来料异常', className: 'bg-rose-100 text-rose-700 border border-rose-200' },
   SHIP_URGENT: { label: '临近发货', className: 'bg-red-100 text-red-700 border border-red-200' },
   DATE_MISSING: { label: '日期缺失', className: 'bg-slate-100 text-slate-700 border border-slate-200' },
   STATUS_CONFLICT: { label: '状态不一致', className: 'bg-fuchsia-100 text-fuchsia-700 border border-fuchsia-200' },
@@ -310,15 +310,15 @@ export function deriveOriginalCutOrderStage(
   }
 
   if (line.configStatus === 'NOT_CONFIGURED') {
-    return createSummaryMeta('WAITING_PREP', originalOrderStageMeta.WAITING_PREP.label, originalOrderStageMeta.WAITING_PREP.className, '仓库配料未开始，当前仍待进入配料。')
+    return createSummaryMeta('WAITING_PREP', originalOrderStageMeta.WAITING_PREP.label, originalOrderStageMeta.WAITING_PREP.className, 'WMS 来料未入仓，当前仍待进入待加工仓。')
   }
 
   if (line.configStatus === 'PARTIAL') {
-    return createSummaryMeta('PREPPING', originalOrderStageMeta.PREPPING.label, originalOrderStageMeta.PREPPING.className, '当前仅完成部分配料，仍在执行准备阶段。')
+    return createSummaryMeta('PREPPING', originalOrderStageMeta.PREPPING.label, originalOrderStageMeta.PREPPING.className, '当前仅完成WMS 部分处理，仍在执行准备阶段。')
   }
 
   if (line.receiveStatus === 'NOT_RECEIVED' || line.receiveStatus === 'PARTIAL') {
-    return createSummaryMeta('WAITING_CLAIM', originalOrderStageMeta.WAITING_CLAIM.label, originalOrderStageMeta.WAITING_CLAIM.className, '待领料回写。')
+    return createSummaryMeta('WAITING_CLAIM', originalOrderStageMeta.WAITING_CLAIM.label, originalOrderStageMeta.WAITING_CLAIM.className, '待来料回写。')
   }
 
   return createSummaryMeta('CUTTING', record.cuttingStage || originalOrderStageMeta.CUTTING.label, originalOrderStageMeta.CUTTING.className, '当前原始裁片单已进入裁剪执行上下文。')
@@ -364,30 +364,30 @@ export function deriveOriginalCutOrderCuttableState(
 
   if (line.configStatus === 'NOT_CONFIGURED' || line.configStatus === 'PARTIAL') {
     return {
-      ...createSummaryMeta('WAITING_PREP', originalOrderCuttableMeta.WAITING_PREP.label, originalOrderCuttableMeta.WAITING_PREP.className, '配料未齐，需先完成执行准备。'),
+      ...createSummaryMeta('WAITING_PREP', originalOrderCuttableMeta.WAITING_PREP.label, originalOrderCuttableMeta.WAITING_PREP.className, 'WMS 来料未齐，需先完成执行准备。'),
       selectable: false,
-      reasonText: line.configStatus === 'PARTIAL' ? '当前仅完成部分配料，暂不可裁。' : '仓库配料未完成，暂不可裁。',
+      reasonText: line.configStatus === 'PARTIAL' ? '当前仅完成WMS 部分处理，暂不可裁。' : 'WMS 来料未完成，暂不可裁。',
     }
   }
 
   if (line.issueFlags.includes('RECEIVE_DIFF')) {
     return {
-      ...createSummaryMeta('CLAIM_EXCEPTION', originalOrderCuttableMeta.CLAIM_EXCEPTION.label, originalOrderCuttableMeta.CLAIM_EXCEPTION.className, '领料存在差异，需复核后再裁。'),
+      ...createSummaryMeta('CLAIM_EXCEPTION', originalOrderCuttableMeta.CLAIM_EXCEPTION.label, originalOrderCuttableMeta.CLAIM_EXCEPTION.className, 'WMS 来料存在差异，需复核后再裁。'),
       selectable: false,
-      reasonText: '领料存在差异，需复核后再裁。',
+      reasonText: 'WMS 来料存在差异，需复核后再裁。',
     }
   }
 
   if (line.receiveStatus === 'NOT_RECEIVED' || line.receiveStatus === 'PARTIAL') {
     return {
-      ...createSummaryMeta('WAITING_CLAIM', originalOrderCuttableMeta.WAITING_CLAIM.label, originalOrderCuttableMeta.WAITING_CLAIM.className, '领料未齐，尚不能进入本次裁床安排。'),
+      ...createSummaryMeta('WAITING_CLAIM', originalOrderCuttableMeta.WAITING_CLAIM.label, originalOrderCuttableMeta.WAITING_CLAIM.className, 'WMS 来料未齐，尚不能进入本次裁床安排。'),
       selectable: false,
-      reasonText: line.receiveStatus === 'PARTIAL' ? '当前仅完成部分领料。' : '尚未完成领料。',
+      reasonText: line.receiveStatus === 'PARTIAL' ? '当前仅完成部分来料。' : '尚未完成来料。',
     }
   }
 
   return {
-    ...createSummaryMeta('CUTTABLE', originalOrderCuttableMeta.CUTTABLE.label, originalOrderCuttableMeta.CUTTABLE.className, '配料 / 领料已到位，可作为原始裁片单进入后续排产。'),
+    ...createSummaryMeta('CUTTABLE', originalOrderCuttableMeta.CUTTABLE.label, originalOrderCuttableMeta.CUTTABLE.className, 'WMS 来料已到位，可作为原始裁片单进入后续排产。'),
     selectable: true,
     reasonText: '当前原始裁片单满足可裁条件。',
   }
@@ -480,7 +480,7 @@ function buildPrepSummary(line: CuttingMaterialLine): OriginalCutOrderSummaryMet
       ? `已配置 ${formatQty(line.configuredRollCount)} 卷 / ${formatQty(line.configuredLength)} 米。`
       : line.configStatus === 'PARTIAL'
         ? `已配置 ${formatQty(line.configuredRollCount)} 卷，仍有剩余待补齐。`
-        : '当前尚未开始配料。'
+        : '当前尚未进入待加工仓。'
 
   return createSummaryMeta(line.configStatus, meta.label, meta.className, detailText)
 }
@@ -492,7 +492,7 @@ function buildClaimSummary(line: CuttingMaterialLine): OriginalCutOrderSummaryMe
       ? `已领 ${formatQty(line.receivedRollCount)} 卷 / ${formatQty(line.receivedLength)} 米。`
       : line.receiveStatus === 'PARTIAL'
         ? `已领 ${formatQty(line.receivedRollCount)} 卷，仍有余量待领取。`
-        : '当前尚未完成领料。'
+        : '当前尚未完成来料。'
 
   return createSummaryMeta(line.receiveStatus, meta.label, meta.className, detailText)
 }

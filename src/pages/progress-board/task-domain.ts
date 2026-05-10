@@ -1009,6 +1009,31 @@ function renderTaskDrawer(): string {
                   <div class="mt-1">${renderBadge(platformStatus.platformStatusLabel, PLATFORM_PROCESS_STATUS_CLASS[platformStatus.platformStatusLabel])}</div>
                   <p class="mt-2 text-xs text-muted-foreground">工厂内部状态：${escapeHtml(TASK_STATUS_LABEL[task.status])}</p>
                 </div>
+                <div class="grid gap-3 text-sm sm:grid-cols-2">
+                  <div class="rounded-md border bg-muted/20 p-3">
+                    <div class="flex items-center justify-between gap-3">
+                      <p class="text-xs text-muted-foreground">开工信息</p>
+                      ${renderBadge(task.startedAt ? '已开工' : '待开工', task.startedAt ? 'border-green-200 bg-green-100 text-green-700' : 'border-amber-200 bg-amber-100 text-amber-700')}
+                    </div>
+                    <div class="mt-2 space-y-1 text-xs">
+                      <p><span class="text-muted-foreground">开工时间：</span>${escapeHtml(task.startedAt || '—')}</p>
+                      <p><span class="text-muted-foreground">开工人数：</span>${escapeHtml(task.startHeadcount ? `${task.startHeadcount} 人` : '—')}</p>
+                      <p><span class="text-muted-foreground">凭证数量：</span>${escapeHtml(String(task.startProofFiles?.length ?? 0))}</p>
+                    </div>
+                  </div>
+                  <div class="rounded-md border bg-muted/20 p-3">
+                    <div class="flex items-center justify-between gap-3">
+                      <p class="text-xs text-muted-foreground">关键节点上报</p>
+                      ${renderBadge(task.milestoneStatus === 'REPORTED' ? '已上报' : task.milestoneRequired ? '待上报' : '不要求', task.milestoneStatus === 'REPORTED' ? 'border-green-200 bg-green-100 text-green-700' : task.milestoneRequired ? 'border-amber-200 bg-amber-100 text-amber-700' : 'border-slate-200 bg-slate-100 text-slate-600')}
+                    </div>
+                    <div class="mt-2 space-y-1 text-xs">
+                      <p><span class="text-muted-foreground">节点规则：</span>${escapeHtml(task.milestoneRuleLabel || '—')}</p>
+                      <p><span class="text-muted-foreground">上报时间：</span>${escapeHtml(task.milestoneReportedAt || '—')}</p>
+                      <p><span class="text-muted-foreground">上报数量：</span>${escapeHtml(task.milestoneReportedQty ? `${task.milestoneReportedQty} ${task.milestoneTargetUnit === 'YARD' ? 'Yard' : '件/片'}` : '—')}</p>
+                      <p><span class="text-muted-foreground">凭证数量：</span>${escapeHtml(String(task.milestoneProofFiles?.length ?? 0))}</p>
+                    </div>
+                  </div>
+                </div>
                 ${
                   taskRisks.length > 0
                     ? `<div><p class="text-xs text-muted-foreground">风险标签</p><div class="mt-1">${renderTaskRiskBadges(taskRisks)}</div></div>`

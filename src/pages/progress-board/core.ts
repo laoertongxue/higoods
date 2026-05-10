@@ -91,7 +91,7 @@ function renderProductionProgressLinkage(): string {
                       <div class="flex flex-wrap gap-2">
                         <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-route="/fcs/production/orders/${encodeURIComponent(row.productionOrderId)}">查看生产单</button>
                         <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-route="/fcs/craft/cutting/production-progress">查看裁床进度</button>
-                        <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-route="/fcs/craft/cutting/sewing-dispatch">查看裁片发料</button>
+                        <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-route="/fcs/craft/cutting/warehouse-management/wait-handover?tab=sewing-dispatch">查看裁片发料</button>
                         <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-route="/fcs/progress/handover">查看交接记录</button>
                       </div>
                     </td>

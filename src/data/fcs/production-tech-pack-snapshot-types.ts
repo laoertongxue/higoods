@@ -3,15 +3,13 @@ import type {
   TechnicalBomItem,
   TechnicalColorMaterialMapping,
   TechnicalPatternDesign,
+  TechnicalPatternFileMode,
+  TechnicalPatternParseStatus,
   TechnicalPatternFile,
   TechnicalProcessEntry,
   TechnicalQualityRule,
   TechnicalSizeRow,
 } from '../pcs-technical-data-version-types.ts'
-import type {
-  TechPackPatternFileMode,
-  TechPackPatternParseStatus,
-} from './tech-packs.ts'
 
 export type PatternMaterialType = 'KNIT' | 'WOVEN' | 'UNKNOWN'
 
@@ -33,7 +31,7 @@ export interface TechPackPatternFileSnapshot extends TechnicalPatternFile {
   patternVersion: string
   patternMaterialType: PatternMaterialType
   patternMaterialTypeLabel: string
-  patternFileMode: TechPackPatternFileMode
+  patternFileMode: TechnicalPatternFileMode
   dxfFileName?: string
   rulFileName?: string
   singlePatternFileName?: string
@@ -41,7 +39,7 @@ export interface TechPackPatternFileSnapshot extends TechnicalPatternFile {
   sizeRange?: string
   rulSizeList: string[]
   rulSampleSize?: string
-  parseStatus: TechPackPatternParseStatus
+  parseStatus: TechnicalPatternParseStatus
   parsedAt?: string
   imageUrl?: string
   remark?: string
@@ -77,9 +75,9 @@ export interface TechPackCutPiecePartSnapshot {
     craftCode: string
     craftName: string
     displayName: string
-    selectedTargetObject?: '已裁部位' | '完整面料'
-    supportedTargetObjects?: Array<'CUT_PIECE' | 'FULL_FABRIC'>
-    supportedTargetObjectLabels?: Array<'已裁部位' | '完整面料'>
+    selectedTargetObject?: '已裁部位' | '完整面料' | '成衣半成品'
+    supportedTargetObjects?: Array<'CUT_PIECE' | 'FULL_FABRIC' | 'SEMI_FINISHED_GARMENT'>
+    supportedTargetObjectLabels?: Array<'已裁部位' | '完整面料' | '成衣半成品'>
   }>
   bundleLengthCm?: number
   bundleWidthCm?: number

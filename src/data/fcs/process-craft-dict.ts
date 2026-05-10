@@ -15,10 +15,10 @@ export type FactoryMobileExecutionMode = 'FULL_TASK' | 'INTERNAL_RECORD_ONLY' | 
 export type DetailSplitMode = 'COMPOSITE'
 export type DetailSplitDimension = 'PATTERN' | 'MATERIAL_SKU' | 'GARMENT_COLOR' | 'GARMENT_SKU'
 export type RuleSource = 'INHERIT_PROCESS' | 'OVERRIDE_CRAFT'
-export type SpecialCraftSupportedTargetObject = 'CUT_PIECE' | 'FULL_FABRIC'
-export type SpecialCraftTargetObjectLabel = '已裁部位' | '完整面料'
-export type ProcessTargetObject = 'CUT_PIECE_PART' | 'FABRIC' | 'ACCESSORY'
-export type ProcessTargetObjectName = '裁片部位' | '面料' | '辅料'
+export type SpecialCraftSupportedTargetObject = 'CUT_PIECE' | 'FULL_FABRIC' | 'SEMI_FINISHED_GARMENT'
+export type SpecialCraftTargetObjectLabel = '已裁部位' | '完整面料' | '成衣半成品'
+export type ProcessTargetObject = 'CUT_PIECE_PART' | 'FABRIC' | 'ACCESSORY' | 'GARMENT_SEMI'
+export type ProcessTargetObjectName = '裁片部位' | '面料' | '辅料' | '成衣半成品'
 export type SpecialCraftCategory = 'AUXILIARY' | 'SPECIAL'
 export type SpecialCraftCategoryName = '辅助工艺' | '特种工艺'
 export type SpecialCraftVisibleFactoryType =
@@ -305,12 +305,14 @@ export const PROCESS_ASSIGNMENT_GRANULARITY_LABEL: Record<ProcessAssignmentGranu
 export const SPECIAL_CRAFT_TARGET_OBJECT_LABEL: Record<SpecialCraftSupportedTargetObject, SpecialCraftTargetObjectLabel> = {
   CUT_PIECE: '已裁部位',
   FULL_FABRIC: '完整面料',
+  SEMI_FINISHED_GARMENT: '成衣半成品',
 }
 
 export const PROCESS_TARGET_OBJECT_NAME: Record<ProcessTargetObject, ProcessTargetObjectName> = {
   CUT_PIECE_PART: '裁片部位',
   FABRIC: '面料',
   ACCESSORY: '辅料',
+  GARMENT_SEMI: '成衣半成品',
 }
 
 export const SPECIAL_CRAFT_CATEGORY_NAME: Record<SpecialCraftCategory, SpecialCraftCategoryName> = {
@@ -323,7 +325,7 @@ const SPECIAL_CRAFT_SUPPORTED_TARGET_OBJECTS_BY_LEGACY_VALUE: Record<number, Spe
   32: ['CUT_PIECE'],
   64: ['CUT_PIECE'],
   128: ['FULL_FABRIC'],
-  8192: ['CUT_PIECE'],
+  8192: ['SEMI_FINISHED_GARMENT'],
   16384: ['CUT_PIECE', 'FULL_FABRIC'],
   131072: ['CUT_PIECE'],
 }
@@ -433,13 +435,13 @@ export const modernSpecialCraftDefinitions: ModernSpecialCraftDefinition[] = [
     craftCategoryName: '辅助工艺',
     specialCraftType: 'AUXILIARY',
     specialCraftTypeName: '辅助工艺',
-    targetObject: 'CUT_PIECE_PART',
-    targetObjectName: '裁片部位',
-    canSelectInPatternPiece: true,
+    targetObject: 'GARMENT_SEMI',
+    targetObjectName: '成衣半成品',
+    canSelectInPatternPiece: false,
     canSelectInBindingArea: false,
     canTriggerFromMaterial: false,
     canGenerateSpecialCraftTask: true,
-    description: '裁片部位级辅助工艺，按裁片部位执行。',
+    description: '纯色 T-shirt 成衣半成品烫画，按 SKU 件数执行。',
   },
   {
     craftCode: 'AUX_DIRECT_PRINT',
@@ -641,7 +643,7 @@ export function getSpecialCraftSupportedTargetObjectLabels(
 }
 
 export function isSpecialCraftTargetObjectLabel(value: string | undefined): value is SpecialCraftTargetObjectLabel {
-  return value === '已裁部位' || value === '完整面料'
+  return value === '已裁部位' || value === '完整面料' || value === '成衣半成品'
 }
 
 export function normalizeSpecialCraftTargetObjectLabel(
@@ -649,6 +651,7 @@ export function normalizeSpecialCraftTargetObjectLabel(
 ): SpecialCraftTargetObjectLabel | '' {
   if (value === '裁片') return '已裁部位'
   if (value === '面料') return '完整面料'
+  if (value === '半成品' || value === '成衣' || value === '整件成衣') return '成衣半成品'
   return isSpecialCraftTargetObjectLabel(value) ? value : ''
 }
 
@@ -883,6 +886,7 @@ const PROCESS_CURRENT_TEMPLATE_BY_CODE: Record<string, FactorySupplyFormulaTempl
   CUT_PANEL: 'B',
   EMBROIDERY: 'B',
   PLEATING: 'C',
+  KNITTING: 'B',
   SEW: 'A',
   SPECIAL_CRAFT: 'B',
   SHRINKING: 'D',
@@ -938,6 +942,14 @@ const PROCESS_SAM_RULES: Record<string, ProcessSamRule> = {
     samConstraintSource: 'BOTH',
     samIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
     samIdealReason: '压褶属于连续推进型能力，完整口径除了设备和人员数值，还需要保留效率单位说明连续推进速度的解释口径。',
+  },
+  KNITTING: {
+    samEnabled: true,
+    samCalcMode: 'DISCRETE',
+    samDefaultInputUnit: 'PIECE',
+    samConstraintSource: 'BOTH',
+    samIdealFieldKeys: [...POST_PROCESS_FIELD_KEYS],
+    samIdealReason: '针织供给能力同时受横机机台、操作人、纱线准备和换色换款准备影响，完整口径需要保留设备、人员与准备时间字段。',
   },
   SEW: {
     samEnabled: true,
@@ -1126,6 +1138,8 @@ const REFERENCE_PUBLISHED_SAM_BY_CRAFT_NAME: Record<
   激光开袋: { value: 1.2, unit: 'MINUTE_PER_PIECE' },
   '特种车缝（花样机）': { value: 1.3, unit: 'MINUTE_PER_PIECE' },
   烫画: { value: 0.7, unit: 'MINUTE_PER_PIECE' },
+  整件针织: { value: 18, unit: 'MINUTE_PER_PIECE' },
+  部位针织: { value: 2.5, unit: 'MINUTE_PER_PIECE' },
   直喷: { value: 0.85, unit: 'MINUTE_PER_PIECE' },
   捆条: { value: 0.95, unit: 'MINUTE_PER_METER' },
   橡筋定长切割: { value: 0.4, unit: 'MINUTE_PER_METER' },
@@ -1158,6 +1172,7 @@ const PROCESS_SYSTEM_CODE_MAP: Record<string, string> = {
   CUT_PANEL: 'PROC_CUT',
   EMBROIDERY: 'PROC_EMBROIDER',
   PLEATING: 'PROC_PLEAT',
+  KNITTING: 'PROC_KNIT',
   SEW: 'PROC_SEW',
   SPECIAL_CRAFT: 'PROC_SPECIAL_CRAFT',
   SHRINKING: 'PROC_SHRINK',
@@ -1196,6 +1211,8 @@ const CRAFT_SYSTEM_CODE_BY_LEGACY_VALUE: Record<number, string> = {
   2000004: 'PROC_DYE',
   2000005: 'PROC_IRON',
   2000006: 'PROC_PACK',
+  2000007: 'PROC_KNIT',
+  2000008: 'PROC_KNIT',
 }
 
 const CARRY_SUGGESTION_BY_PROCESS_CODE: Record<string, string> = {
@@ -1204,6 +1221,7 @@ const CARRY_SUGGESTION_BY_PROCESS_CODE: Record<string, string> = {
   CUT_PANEL: '裁片厂优先',
   EMBROIDERY: '绣花厂优先',
   PLEATING: '压褶工艺厂优先',
+  KNITTING: '周哥针织厂优先',
   SEW: '车缝厂优先',
   SPECIAL_CRAFT: '特殊工艺厂优先',
   SHRINKING: '缩水工艺厂优先',
@@ -1246,6 +1264,11 @@ const PROCESS_DEFAULT_RULES: Record<string, ProcessDefaultRule> = {
     assignmentGranularity: 'ORDER',
     detailSplitMode: 'COMPOSITE',
     detailSplitDimensions: ['PATTERN', 'MATERIAL_SKU'],
+  },
+  KNITTING: {
+    assignmentGranularity: 'SKU',
+    detailSplitMode: 'COMPOSITE',
+    detailSplitDimensions: ['GARMENT_SKU'],
   },
   SEW: {
     assignmentGranularity: 'SKU',
@@ -1467,6 +1490,22 @@ const processDefinitionSeeds: Array<
     defaultDocument: '任务单',
   },
   {
+    processCode: 'KNITTING',
+    processName: '针织',
+    stageCode: 'PROD',
+    sort: 35,
+    processRole: 'EXTERNAL_TASK',
+    generatesExternalTask: true,
+    requiresTaskQr: true,
+    requiresHandoverOrder: true,
+    capacityEnabled: true,
+    capacityRollupMode: 'SELF',
+    factoryMobileExecutionMode: 'FULL_TASK',
+    isActive: true,
+    defaultDocument: '任务单',
+    description: '周哥针织厂自有针织加工，支持整件针织和部位针织。',
+  },
+  {
     processCode: 'SEW',
     processName: '车缝',
     stageCode: 'PROD',
@@ -1582,6 +1621,7 @@ function resolveProcessGranularity(processCode: string): ProcessAssignmentGranul
   if (processCode === 'PRINT' || processCode === 'DYE') return 'COLOR'
   if (
     processCode === 'SEW'
+    || processCode === 'KNITTING'
     || processCode === 'SHRINKING'
     || processCode === 'POST_FINISHING'
     || processCode === 'BUTTONHOLE'
@@ -1724,6 +1764,34 @@ const supplementalProcessCraftMappings: LegacyCraftMappingDefinition[] = [
   { legacyValue: 2000004, legacyCraftName: '色织', craftName: '色织', processCode: 'DYE', isSpecialCraft: false, defaultDocument: '需求单' },
   { legacyValue: 2000005, legacyCraftName: '熨烫', craftName: '熨烫', processCode: 'IRONING', isSpecialCraft: false, isActive: true, defaultDocument: '任务单' },
   { legacyValue: 2000006, legacyCraftName: '包装', craftName: '包装', processCode: 'PACKAGING', isSpecialCraft: false, isActive: true, defaultDocument: '任务单' },
+  {
+    legacyValue: 2000007,
+    legacyCraftName: '整件针织',
+    craftName: '整件针织',
+    processCode: 'KNITTING',
+    isSpecialCraft: false,
+    isActive: true,
+    defaultDocument: '任务单',
+    ruleSource: 'OVERRIDE_CRAFT',
+    assignmentGranularity: 'SKU',
+    detailSplitMode: 'COMPOSITE',
+    detailSplitDimensions: ['GARMENT_SKU'],
+    remark: '整件针织完成后交后道工厂，熨烫为必有节点，包装按单据要求决定。',
+  },
+  {
+    legacyValue: 2000008,
+    legacyCraftName: '部位针织',
+    craftName: '部位针织',
+    processCode: 'KNITTING',
+    isSpecialCraft: false,
+    isActive: true,
+    defaultDocument: '任务单',
+    ruleSource: 'OVERRIDE_CRAFT',
+    assignmentGranularity: 'DETAIL',
+    detailSplitMode: 'COMPOSITE',
+    detailSplitDimensions: ['PATTERN', 'GARMENT_SKU'],
+    remark: '部位针织按针织部位打印菲票，完成后交裁床待交出仓。',
+  },
 ]
 
 const modernSpecialCraftProcessMappings: LegacyCraftMappingDefinition[] = modernSpecialCraftDefinitions
@@ -1781,6 +1849,11 @@ function resolveProcessCraftTargetObject(
   }
   if (item.processCode === 'BUTTON_ATTACH') {
     return { targetObject: 'ACCESSORY', targetObjectName: '辅料' }
+  }
+  if (item.processCode === 'KNITTING') {
+    return item.craftName === '部位针织'
+      ? { targetObject: 'CUT_PIECE_PART', targetObjectName: '裁片部位' }
+      : { targetObject: 'GARMENT_SEMI', targetObjectName: '成衣半成品' }
   }
   return { targetObject: 'CUT_PIECE_PART', targetObjectName: '裁片部位' }
 }

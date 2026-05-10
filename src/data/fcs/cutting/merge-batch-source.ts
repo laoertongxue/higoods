@@ -60,8 +60,9 @@ function readStoredMergeBatchSourceRecords(): MergeBatchSourceRecord[] {
 
 function buildSystemMergeBatchSourceRecords(): MergeBatchSourceRecord[] {
   const grouped = new Map<string, MergeBatchSourceRecord>()
+  const sourceRecords = listOriginalCutOrderSourceRecords()
 
-  listOriginalCutOrderSourceRecords().forEach((record) => {
+  sourceRecords.forEach((record) => {
     if (!record.mergeBatchNo) return
     const mergeBatchId = record.mergeBatchId || normalizeMergeBatchId(record.mergeBatchNo)
     const current = grouped.get(mergeBatchId)
@@ -83,172 +84,36 @@ function buildSystemMergeBatchSourceRecords(): MergeBatchSourceRecord[] {
     })
   })
 
-  const seedRecords: MergeBatchSourceRecord[] = [
-    {
-      mergeBatchId: normalizeMergeBatchId('MB-260323-01'),
-      mergeBatchNo: 'MB-260323-01',
-      sourceOriginalCutOrderIds: [
-        'CUT-260310-083-01',
-      ],
-      sourceOriginalCutOrderNos: [
-        'CUT-260310-083-01',
-      ],
-      sourceProductionOrderIds: [
-        'PO-202603-083',
-      ],
-      sourceProductionOrderNos: [
-        'PO-202603-083',
-      ],
-    },
-    {
-      mergeBatchId: normalizeMergeBatchId('MB-260323-02'),
-      mergeBatchNo: 'MB-260323-02',
-      sourceOriginalCutOrderIds: [
-        'CUT-260305-010-01',
-      ],
-      sourceOriginalCutOrderNos: [
-        'CUT-260305-010-01',
-      ],
-      sourceProductionOrderIds: [
-        'PO-202603-010',
-      ],
-      sourceProductionOrderNos: [
-        'PO-202603-010',
-      ],
-    },
-    {
-      mergeBatchId: normalizeMergeBatchId('MB-260329-03'),
-      mergeBatchNo: 'MB-260329-03',
-      sourceOriginalCutOrderIds: [
-        'CUT-260315-015-01',
-        'CUT-260315-015-02',
-      ],
-      sourceOriginalCutOrderNos: [
-        'CUT-260315-015-01',
-        'CUT-260315-015-02',
-      ],
-      sourceProductionOrderIds: [
-        'PO-202603-015',
-      ],
-      sourceProductionOrderNos: [
-        'PO-202603-015',
-      ],
-    },
-    {
-      mergeBatchId: normalizeMergeBatchId('MB-260329-04'),
-      mergeBatchNo: 'MB-260329-04',
-      sourceOriginalCutOrderIds: [
-        'CUT-260315-015-03',
-      ],
-      sourceOriginalCutOrderNos: [
-        'CUT-260315-015-03',
-      ],
-      sourceProductionOrderIds: [
-        'PO-202603-015',
-      ],
-      sourceProductionOrderNos: [
-        'PO-202603-015',
-      ],
-    },
-    {
-      mergeBatchId: normalizeMergeBatchId('MB-260403-081-LINING'),
-      mergeBatchNo: 'MB-260403-081-LINING',
-      sourceOriginalCutOrderIds: [
-        'CUT-260308-081-02',
-        'CUT-260314-087-02',
-        'CUT-260315-088-02',
-      ],
-      sourceOriginalCutOrderNos: [
-        'CUT-260308-081-02',
-        'CUT-260314-087-02',
-        'CUT-260315-088-02',
-      ],
-      sourceProductionOrderIds: [
-        'PO-202603-081',
-        'PO-202603-087',
-        'PO-202603-088',
-      ],
-      sourceProductionOrderNos: [
-        'PO-202603-081',
-        'PO-202603-087',
-        'PO-202603-088',
-      ],
-    },
-    {
-      mergeBatchId: normalizeMergeBatchId('MB-260403-081-PRINT'),
-      mergeBatchNo: 'MB-260403-081-PRINT',
-      sourceOriginalCutOrderIds: [
-        'CUT-260308-081-01',
-        'CUT-260314-087-01',
-        'CUT-260315-088-01',
-      ],
-      sourceOriginalCutOrderNos: [
-        'CUT-260308-081-01',
-        'CUT-260314-087-01',
-        'CUT-260315-088-01',
-      ],
-      sourceProductionOrderIds: [
-        'PO-202603-081',
-        'PO-202603-087',
-        'PO-202603-088',
-      ],
-      sourceProductionOrderNos: [
-        'PO-202603-081',
-        'PO-202603-087',
-        'PO-202603-088',
-      ],
-    },
-    {
-      mergeBatchId: normalizeMergeBatchId('MB-260403-081-SOLID'),
-      mergeBatchNo: 'MB-260403-081-SOLID',
-      sourceOriginalCutOrderIds: [
-        'CUT-260308-081-03',
-        'CUT-260314-087-03',
-        'CUT-260315-088-03',
-      ],
-      sourceOriginalCutOrderNos: [
-        'CUT-260308-081-03',
-        'CUT-260314-087-03',
-        'CUT-260315-088-03',
-      ],
-      sourceProductionOrderIds: [
-        'PO-202603-081',
-        'PO-202603-087',
-        'PO-202603-088',
-      ],
-      sourceProductionOrderNos: [
-        'PO-202603-081',
-        'PO-202603-087',
-        'PO-202603-088',
-      ],
-    },
-    {
-      mergeBatchId: normalizeMergeBatchId('MB-260403-083-PRINT'),
-      mergeBatchNo: 'MB-260403-083-PRINT',
-      sourceOriginalCutOrderIds: [
-        'CUT-260310-083-02',
-      ],
-      sourceOriginalCutOrderNos: [
-        'CUT-260310-083-02',
-      ],
-      sourceProductionOrderIds: [
-        'PO-202603-083',
-      ],
-      sourceProductionOrderNos: [
-        'PO-202603-083',
-      ],
-    },
-  ]
-
-  seedRecords.forEach((record) => {
-    grouped.set(record.mergeBatchId, {
-      ...record,
-      sourceOriginalCutOrderIds: unique(record.sourceOriginalCutOrderIds),
-      sourceOriginalCutOrderNos: unique(record.sourceOriginalCutOrderNos),
-      sourceProductionOrderIds: unique(record.sourceProductionOrderIds),
-      sourceProductionOrderNos: unique(record.sourceProductionOrderNos),
-    })
+  const rowsBySpuAndFabric = new Map<string, typeof sourceRecords>()
+  sourceRecords.forEach((record) => {
+    const spuKey = record.spuCode || record.styleCode || record.productionOrderId
+    const fabricKey = record.materialSku || record.fabricSku || record.colorName || '默认面料'
+    const key = [spuKey, fabricKey].join('::')
+    const rows = rowsBySpuAndFabric.get(key) || []
+    rows.push(record)
+    rowsBySpuAndFabric.set(key, rows)
   })
+
+  Array.from(rowsBySpuAndFabric.values())
+    .filter((rows) => rows.length >= 2)
+    .slice(0, 2)
+    .forEach((rows, index) => {
+      const picked = rows.slice(0, Math.min(rows.length, 3))
+      const first = picked[0]
+      if (!first) return
+      const productionNoSuffix = (first.productionOrderNo || first.productionOrderId || 'PO').replace(/[^0-9]/g, '').slice(-6) || String(index + 1).padStart(6, '0')
+      const mergeBatchNo = 'MB-' + productionNoSuffix + '-' + String(index + 1).padStart(2, '0')
+      const mergeBatchId = normalizeMergeBatchId(mergeBatchNo)
+      if (grouped.has(mergeBatchId)) return
+      grouped.set(mergeBatchId, {
+        mergeBatchId,
+        mergeBatchNo,
+        sourceOriginalCutOrderIds: unique(picked.map((row) => row.originalCutOrderId)),
+        sourceOriginalCutOrderNos: unique(picked.map((row) => row.originalCutOrderNo)),
+        sourceProductionOrderIds: unique(picked.map((row) => row.productionOrderId)),
+        sourceProductionOrderNos: unique(picked.map((row) => row.productionOrderNo)),
+      })
+    })
 
   return Array.from(grouped.values())
 }

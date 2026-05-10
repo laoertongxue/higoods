@@ -78,7 +78,7 @@ const sourcePageLabelMap: Record<CuttingPageContextKey, string> = {
   'cutting-summary': '裁剪总结',
   replenishment: '补料管理',
   'special-processes': '特殊工艺',
-  'material-prep': '仓库配料领料',
+  'material-prep': '待加工仓',
   'spreading-list': '铺布列表',
   'marker-spreading': '铺布列表',
   'fei-tickets': '打印菲票',
@@ -95,7 +95,7 @@ const actionLabelMap: Record<CuttingNavigationTarget, string> = {
   summary: '去裁剪总结',
   replenishment: '去补料管理',
   specialProcesses: '去特殊工艺',
-  materialPrep: '去仓库配料领料',
+  materialPrep: '去待加工仓',
   markerPlan: '去唛架',
   spreadingList: '去铺布',
   markerSpreading: '去铺布',
@@ -110,7 +110,7 @@ const actionLabelMap: Record<CuttingNavigationTarget, string> = {
 }
 
 const blockerSectionLabelMap: Record<string, string> = {
-  MATERIAL_PREP: '配料领料',
+  MATERIAL_PREP: 'WMS 来料入仓',
   SPREADING: '铺布',
   REPLENISHMENT: '补料',
   FEI_TICKETS: '打印菲票',
@@ -119,7 +119,7 @@ const blockerSectionLabelMap: Record<string, string> = {
 }
 
 const issueTypeLabelMap: Record<string, string> = {
-  MATERIAL_PREP: '配料领料',
+  MATERIAL_PREP: 'WMS 来料入仓',
   SPREADING_REPLENISH: '唛架补料',
   TICKET_QR: '打印菲票',
   WAREHOUSE_HANDOFF: '仓务交接',
@@ -210,23 +210,23 @@ export function readCuttingDrillContextFromLocation(
     originalCutOrderId: pickString(params, 'originalCutOrderId'),
     originalCutOrderNo: pickString(params, 'originalCutOrderNo'),
     mergeBatchId: pickString(params, 'mergeBatchId'),
-    mergeBatchNo: pickString(params, 'mergeBatchNo', '裁剪批次No'),
-    materialSku: pickString(params, 'materialSku', 'fabricSku'),
+    mergeBatchNo: pickString(params, 'mergeBatchNo'),
+    materialSku: pickString(params, 'materialSku'),
     cuttingGroup: pickString(params, 'cuttingGroup'),
     warehouseStatus: pickString(params, 'warehouseStatus'),
     styleCode: pickString(params, 'styleCode'),
     spuCode: pickString(params, 'spuCode'),
     markerId: pickString(params, 'markerId'),
     markerNo: pickString(params, 'markerNo'),
-    spreadingSessionId: pickString(params, 'spreadingSessionId', 'sessionId'),
-    spreadingSessionNo: pickString(params, 'spreadingSessionNo', 'sessionNo'),
+    spreadingSessionId: pickString(params, 'spreadingSessionId'),
+    spreadingSessionNo: pickString(params, 'spreadingSessionNo'),
     suggestionId: pickString(params, 'suggestionId'),
     suggestionNo: pickString(params, 'suggestionNo'),
     processOrderId: pickString(params, 'processOrderId'),
     processOrderNo: pickString(params, 'processOrderNo'),
     printableUnitId: pickString(params, 'printableUnitId'),
     printableUnitNo: pickString(params, 'printableUnitNo'),
-    ticketId: pickString(params, 'ticketId', 'ticketRecordId'),
+    ticketId: pickString(params, 'ticketId'),
     ticketNo: pickString(params, 'ticketNo'),
     bagId: pickString(params, 'bagId'),
     bagCode: pickString(params, 'bagCode'),
@@ -235,14 +235,14 @@ export function readCuttingDrillContextFromLocation(
     warehouseRecordId: pickString(params, 'warehouseRecordId'),
     autoOpenDetail: toBoolean(params.get('autoOpenDetail')),
     detailTab: pickString(params, 'detailTab'),
-    focusTab: pickString(params, 'focusTab', 'tab', 'panel'),
+    focusTab: pickString(params, 'focusTab'),
     focusSection: pickString(params, 'focusSection'),
   }
 
   return Object.values(context).some((value) => value !== undefined && value !== false) ? context : null
 }
 
-export function normalizeLegacyCuttingPayload(
+export function buildCuttingDrillContext(
   payload: Record<string, string | undefined> | null | undefined,
   sourcePageKey?: CuttingPageContextKey,
   extra?: Partial<CuttingDrillContext>,
@@ -255,23 +255,23 @@ export function normalizeLegacyCuttingPayload(
     originalCutOrderId: payload?.originalCutOrderId,
     originalCutOrderNo: payload?.originalCutOrderNo,
     mergeBatchId: payload?.mergeBatchId,
-    mergeBatchNo: payload?.mergeBatchNo || payload?.['裁剪批次No'],
-    materialSku: payload?.materialSku || payload?.fabricSku,
+    mergeBatchNo: payload?.mergeBatchNo,
+    materialSku: payload?.materialSku,
     cuttingGroup: payload?.cuttingGroup,
     warehouseStatus: payload?.warehouseStatus,
     styleCode: payload?.styleCode,
     spuCode: payload?.spuCode,
     markerId: payload?.markerId,
     markerNo: payload?.markerNo,
-    spreadingSessionId: payload?.spreadingSessionId || payload?.sessionId,
-    spreadingSessionNo: payload?.spreadingSessionNo || payload?.sessionNo,
+    spreadingSessionId: payload?.spreadingSessionId,
+    spreadingSessionNo: payload?.spreadingSessionNo,
     suggestionId: payload?.suggestionId,
     suggestionNo: payload?.suggestionNo,
     processOrderId: payload?.processOrderId,
     processOrderNo: payload?.processOrderNo,
     printableUnitId: payload?.printableUnitId,
     printableUnitNo: payload?.printableUnitNo,
-    ticketId: payload?.ticketId || payload?.ticketRecordId,
+    ticketId: payload?.ticketId,
     ticketNo: payload?.ticketNo,
     bagId: payload?.bagId,
     bagCode: payload?.bagCode,
@@ -282,7 +282,7 @@ export function normalizeLegacyCuttingPayload(
     issueType: payload?.issueType,
     autoOpenDetail: extra?.autoOpenDetail ?? payloadAutoOpenDetail,
     detailTab: extra?.detailTab || payload?.detailTab,
-    focusTab: extra?.focusTab || payload?.focusTab || payload?.tab || payload?.panel,
+    focusTab: extra?.focusTab || payload?.focusTab,
     focusSection: extra?.focusSection,
     sourceSection: extra?.sourceSection,
     ...extra,
@@ -303,7 +303,7 @@ function getTargetPath(target: CuttingNavigationTarget, context: CuttingDrillCon
   if (target === 'summary') return getCanonicalCuttingPath('summary')
   if (target === 'replenishment') return getCanonicalCuttingPath('replenishment')
   if (target === 'specialProcesses') return getCanonicalCuttingPath('special-processes')
-  if (target === 'materialPrep') return getCanonicalCuttingPath('material-prep')
+  if (target === 'materialPrep') return getCanonicalCuttingPath('warehouse-management-wait-process')
   if (target === 'markerPlan') {
     if (context.autoOpenDetail && context.markerId) {
       return `${getCanonicalCuttingPath('marker-detail')}/${encodeURIComponent(context.markerId)}`

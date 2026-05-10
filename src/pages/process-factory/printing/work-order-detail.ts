@@ -18,7 +18,7 @@ import {
   type ProcessWebOperationRecord,
 } from '../../../data/fcs/process-web-status-actions.ts'
 import { getPlatformStatusForProcessWorkOrder } from '../../../data/fcs/process-platform-status-adapter.ts'
-import { getProcessWorkOrderById } from '../../../data/fcs/process-work-order-domain.ts'
+import { getProcessWorkOrderById, getProcessWorkOrderByNo } from '../../../data/fcs/process-work-order-domain.ts'
 import {
   getDifferenceRecordsByWorkOrderId,
   getHandoverRecordsByWorkOrderId,
@@ -318,7 +318,7 @@ function renderDifferenceRows(records: ProcessHandoverDifferenceRecord[], orderI
 export function renderCraftPrintingWorkOrderDetailPage(printOrderId: string): string {
   applyDifferenceActionFromUrl()
   applyWebActionFromUrl(printOrderId)
-  const order = getProcessWorkOrderById(printOrderId)
+  const order = getProcessWorkOrderById(printOrderId) || getProcessWorkOrderByNo(printOrderId)
   if (!order || order.processType !== 'PRINT' || !order.printPayload) {
     return `
       <div class="space-y-4 p-4">

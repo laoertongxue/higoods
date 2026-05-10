@@ -30,22 +30,10 @@ const PCS_TAB_REDIRECTS: Record<string, { href: string; title?: string }> = {
 }
 const CUTTING_TAB_REDIRECTS: Record<string, { href: string; title: string }> = {
   '/fcs/craft/cutting': { href: '/fcs/craft/cutting/production-progress', title: '生产单进度' },
-  '/fcs/craft/cutting/order-progress': { href: '/fcs/craft/cutting/production-progress', title: '生产单进度' },
-  '/fcs/craft/cutting/tasks': { href: '/fcs/craft/cutting/production-progress', title: '生产单进度' },
-  '/fcs/craft/cutting/orders': { href: '/fcs/craft/cutting/original-orders', title: '原始裁片单' },
-  '/fcs/craft/cutting/cut-piece-orders': { href: '/fcs/craft/cutting/original-orders', title: '原始裁片单' },
-  '/fcs/craft/cutting/warehouse': { href: '/fcs/craft/cutting/warehouse-management/wait-process', title: '待加工仓' },
-  '/fcs/craft/cutting/warehouse-management': { href: '/fcs/craft/cutting/warehouse-management/wait-process', title: '待加工仓' },
-  '/fcs/craft/cutting/fei-ticket': { href: '/fcs/craft/cutting/fei-tickets', title: '打印菲票' },
-  '/fcs/craft/cutting/fei-list': { href: '/fcs/craft/cutting/fei-tickets', title: '打印菲票' },
 }
 const REMOVED_CUTTING_TAB_PATHS = new Set([
   '/fcs/craft/cutting/settlement-scoring',
   '/fcs/settlement/cutting-input',
-  '/fcs/craft/cutting/summary',
-  '/fcs/craft/cutting/stats',
-  '/fcs/craft/cutting/bed-stats',
-  '/fcs/craft/cutting/cutting-summary',
 ])
 const REMOVED_FCS_TAB_KEYS = new Set(['workbench-risks', 'process-dependencies', 'process-qc-standards'])
 const REMOVED_FCS_TAB_PATHS = new Set(['/fcs/workbench/risks', '/fcs/process/dependencies', '/fcs/process/qc-standards'])

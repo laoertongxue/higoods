@@ -116,6 +116,46 @@ function createFallbackTask(runtimeTask: RuntimeProcessTask): ProcessTask {
     publishedSamSource: runtimeTask.publishedSamSource,
     attachments: [],
     status: runtimeTask.status,
+    assignedFactoryId: runtimeTask.assignedFactoryId,
+    assignedFactoryName: runtimeTask.assignedFactoryName,
+    acceptDeadline: runtimeTask.acceptDeadline,
+    taskDeadline: runtimeTask.taskDeadline,
+    dispatchRemark: runtimeTask.dispatchRemark,
+    dispatchedAt: runtimeTask.dispatchedAt,
+    dispatchedBy: runtimeTask.dispatchedBy,
+    acceptanceStatus: runtimeTask.acceptanceStatus,
+    acceptedAt: runtimeTask.acceptedAt,
+    acceptedBy: runtimeTask.acceptedBy,
+    startDueAt: runtimeTask.startDueAt,
+    startDueSource: runtimeTask.startDueSource,
+    startRiskStatus: runtimeTask.startRiskStatus,
+    startHeadcount: runtimeTask.startHeadcount,
+    startProofFiles: runtimeTask.startProofFiles ? [...runtimeTask.startProofFiles] : undefined,
+    startOverdueExceptionId: runtimeTask.startOverdueExceptionId,
+    milestoneRuleType: runtimeTask.milestoneRuleType,
+    milestoneRuleLabel: runtimeTask.milestoneRuleLabel,
+    milestoneTargetQty: runtimeTask.milestoneTargetQty,
+    milestoneTargetUnit: runtimeTask.milestoneTargetUnit,
+    milestoneRequired: runtimeTask.milestoneRequired,
+    milestoneStatus: runtimeTask.milestoneStatus,
+    milestoneReportedAt: runtimeTask.milestoneReportedAt,
+    milestoneReportedQty: runtimeTask.milestoneReportedQty,
+    milestoneProofFiles: runtimeTask.milestoneProofFiles ? [...runtimeTask.milestoneProofFiles] : undefined,
+    milestoneProofRequirement: runtimeTask.milestoneProofRequirement,
+    milestoneOverdueExceptionEnabled: runtimeTask.milestoneOverdueExceptionEnabled,
+    milestoneOverdueHours: runtimeTask.milestoneOverdueHours,
+    milestoneExceptionSeverity: runtimeTask.milestoneExceptionSeverity,
+    milestoneOverdueExceptionId: runtimeTask.milestoneOverdueExceptionId,
+    startedAt: runtimeTask.startedAt,
+    finishedAt: runtimeTask.finishedAt,
+    taskQrValue: runtimeTask.taskQrValue,
+    taskQrStatus: runtimeTask.taskQrStatus,
+    handoverAutoCreatePolicy: runtimeTask.handoverAutoCreatePolicy,
+    handoverOrderId: runtimeTask.handoverOrderId,
+    handoverStatus: runtimeTask.handoverStatus,
+    receiverKind: runtimeTask.receiverKind,
+    receiverId: runtimeTask.receiverId,
+    receiverName: runtimeTask.receiverName,
     dependsOnTaskIds: [...runtimeTask.dependsOnTaskIds],
     taskCategoryZh: runtimeTask.taskCategoryZh,
     stageCode: runtimeTask.stageCode,
@@ -124,6 +164,7 @@ function createFallbackTask(runtimeTask: RuntimeProcessTask): ProcessTask {
     processBusinessName: runtimeTask.processBusinessName,
     craftCode: runtimeTask.craftCode,
     craftName: runtimeTask.craftName,
+    selectedTargetObject: runtimeTask.selectedTargetObject,
     assignmentGranularity: runtimeTask.assignmentGranularity,
     ruleSource: runtimeTask.ruleSource,
     detailSplitMode: runtimeTask.detailSplitMode,
@@ -140,6 +181,22 @@ function createFallbackTask(runtimeTask: RuntimeProcessTask): ProcessTask {
     defaultDocType: runtimeTask.defaultDocType,
     taskTypeMode: runtimeTask.taskTypeMode,
     isSpecialCraft: runtimeTask.isSpecialCraft,
+    knittingTaskType: runtimeTask.knittingTaskType,
+    knittingKind: runtimeTask.knittingKind,
+    knittingKindLabel: runtimeTask.knittingKindLabel,
+    knittingOrderId: runtimeTask.knittingOrderId,
+    knittingOrderNo: runtimeTask.knittingOrderNo,
+    knittingDownstreamTarget: runtimeTask.knittingDownstreamTarget,
+    yarnSku: runtimeTask.yarnSku,
+    yarnPlannedWeightKg: runtimeTask.yarnPlannedWeightKg,
+    yarnReceivedWeightKg: runtimeTask.yarnReceivedWeightKg,
+    requiresFeiTicket: runtimeTask.requiresFeiTicket,
+    packagingRequired: runtimeTask.packagingRequired,
+    materialIssueMode: runtimeTask.materialIssueMode,
+    mockReceiveSummary: runtimeTask.mockReceiveSummary,
+    mockExecutionSummary: runtimeTask.mockExecutionSummary,
+    mockHandoverSummary: runtimeTask.mockHandoverSummary,
+    mockStartPrerequisiteMet: runtimeTask.mockStartPrerequisiteMet,
     createdAt: now,
     updatedAt: now,
     auditLogs: [...runtimeTask.auditLogs],
@@ -171,6 +228,7 @@ function syncTaskFromRuntime(task: ProcessTask, runtimeTask: RuntimeProcessTask,
   task.processBusinessName = runtimeTask.processBusinessName
   task.craftCode = runtimeTask.craftCode
   task.craftName = runtimeTask.craftName
+  task.selectedTargetObject = runtimeTask.selectedTargetObject
   task.assignmentGranularity = runtimeTask.assignmentGranularity
   task.ruleSource = runtimeTask.ruleSource
   task.detailSplitMode = runtimeTask.detailSplitMode
@@ -188,6 +246,22 @@ function syncTaskFromRuntime(task: ProcessTask, runtimeTask: RuntimeProcessTask,
   task.taskTypeMode = runtimeTask.taskTypeMode
   task.isSpecialCraft = runtimeTask.isSpecialCraft
   task.taskCategoryZh = runtimeTask.taskCategoryZh
+  task.knittingTaskType = runtimeTask.knittingTaskType
+  task.knittingKind = runtimeTask.knittingKind
+  task.knittingKindLabel = runtimeTask.knittingKindLabel
+  task.knittingOrderId = runtimeTask.knittingOrderId
+  task.knittingOrderNo = runtimeTask.knittingOrderNo
+  task.knittingDownstreamTarget = runtimeTask.knittingDownstreamTarget
+  task.yarnSku = runtimeTask.yarnSku
+  task.yarnPlannedWeightKg = runtimeTask.yarnPlannedWeightKg
+  task.yarnReceivedWeightKg = runtimeTask.yarnReceivedWeightKg
+  task.requiresFeiTicket = runtimeTask.requiresFeiTicket
+  task.packagingRequired = runtimeTask.packagingRequired
+  task.materialIssueMode = runtimeTask.materialIssueMode
+  task.mockReceiveSummary = runtimeTask.mockReceiveSummary
+  task.mockExecutionSummary = runtimeTask.mockExecutionSummary
+  task.mockHandoverSummary = runtimeTask.mockHandoverSummary
+  task.mockStartPrerequisiteMet = runtimeTask.mockStartPrerequisiteMet
 
   if (!runtimeWins) return
 
@@ -212,6 +286,36 @@ function syncTaskFromRuntime(task: ProcessTask, runtimeTask: RuntimeProcessTask,
   task.acceptedBy = runtimeTask.acceptedBy
   task.awardedAt = runtimeTask.awardedAt
   task.status = runtimeTask.status
+  task.startDueAt = runtimeTask.startDueAt
+  task.startDueSource = runtimeTask.startDueSource
+  task.startRiskStatus = runtimeTask.startRiskStatus
+  task.startHeadcount = runtimeTask.startHeadcount
+  task.startProofFiles = runtimeTask.startProofFiles ? [...runtimeTask.startProofFiles] : undefined
+  task.startOverdueExceptionId = runtimeTask.startOverdueExceptionId
+  task.milestoneRuleType = runtimeTask.milestoneRuleType
+  task.milestoneRuleLabel = runtimeTask.milestoneRuleLabel
+  task.milestoneTargetQty = runtimeTask.milestoneTargetQty
+  task.milestoneTargetUnit = runtimeTask.milestoneTargetUnit
+  task.milestoneRequired = runtimeTask.milestoneRequired
+  task.milestoneStatus = runtimeTask.milestoneStatus
+  task.milestoneReportedAt = runtimeTask.milestoneReportedAt
+  task.milestoneReportedQty = runtimeTask.milestoneReportedQty
+  task.milestoneProofFiles = runtimeTask.milestoneProofFiles ? [...runtimeTask.milestoneProofFiles] : undefined
+  task.milestoneProofRequirement = runtimeTask.milestoneProofRequirement
+  task.milestoneOverdueExceptionEnabled = runtimeTask.milestoneOverdueExceptionEnabled
+  task.milestoneOverdueHours = runtimeTask.milestoneOverdueHours
+  task.milestoneExceptionSeverity = runtimeTask.milestoneExceptionSeverity
+  task.milestoneOverdueExceptionId = runtimeTask.milestoneOverdueExceptionId
+  task.startedAt = runtimeTask.startedAt
+  task.finishedAt = runtimeTask.finishedAt
+  task.taskQrValue = runtimeTask.taskQrValue
+  task.taskQrStatus = runtimeTask.taskQrStatus
+  task.handoverAutoCreatePolicy = runtimeTask.handoverAutoCreatePolicy
+  task.handoverOrderId = runtimeTask.handoverOrderId
+  task.handoverStatus = runtimeTask.handoverStatus
+  task.receiverKind = runtimeTask.receiverKind
+  task.receiverId = runtimeTask.receiverId
+  task.receiverName = runtimeTask.receiverName
   task.blockReason = runtimeTask.blockReason
   task.blockRemark = runtimeTask.blockRemark
   task.blockedAt = runtimeTask.blockedAt

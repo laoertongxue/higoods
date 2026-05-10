@@ -31,35 +31,35 @@ export const CUTTING_FEI_TICKET_PRINT_JOBS_STORAGE_KEY = 'cuttingFeiTicketPrintJ
 
 export const FEI_TICKET_DEMO_CASE_IDS = {
   CASE_A: {
-    printableUnitId: 'cut-order:CUT-260313-086-02',
-    printableUnitNo: 'CUT-260313-086-02',
+    printableUnitId: 'cut-order:CUT-260302-004-01',
+    printableUnitNo: 'CUT-260302-004-01',
   },
   CASE_B: {
-    printableUnitId: 'batch:demo-batch-fei-081',
-    printableUnitNo: 'MB-DEMO-PRINT-081',
-    batchId: 'demo-batch-fei-081',
-    batchNo: 'MB-DEMO-PRINT-081',
-    sourceCutOrderIds: ['CUT-260308-081-01', 'CUT-260314-087-01', 'CUT-260315-088-01'],
+    printableUnitId: 'batch:MB-260302-004-MAIN',
+    printableUnitNo: 'MB-260302-004-MAIN',
+    batchId: 'MB-260302-004-MAIN',
+    batchNo: 'MB-260302-004-MAIN',
+    sourceCutOrderIds: ['CUT-260302-004-01', 'CUT-260301-005-01', 'CUT-260301-005-01'],
   },
   CASE_C: {
-    printableUnitId: 'cut-order:CUT-260310-083-01',
-    printableUnitNo: 'CUT-260310-083-01',
-    sampleTicketNo: 'FT-CUT-260310-083-01-001',
-    sampleTicketId: 'ticket-CUT-260310-083-01-001-v1',
+    printableUnitId: 'cut-order:CUT-260301-005-01',
+    printableUnitNo: 'CUT-260301-005-01',
+    sampleTicketNo: 'FT-CUT-260301-005-01-001',
+    sampleTicketId: 'ticket-CUT-260301-005-01-001-v1',
   },
   CASE_D: {
-    printableUnitId: 'cut-order:CUT-260313-086-01',
-    printableUnitNo: 'CUT-260313-086-01',
-    voidedTicketNo: 'FT-CUT-260313-086-01-001',
-    voidedTicketId: 'ticket-CUT-260313-086-01-001-v1',
+    printableUnitId: 'cut-order:CUT-260301-005-01',
+    printableUnitNo: 'CUT-260301-005-01',
+    voidedTicketNo: 'FT-CUT-260301-005-01-001',
+    voidedTicketId: 'ticket-CUT-260301-005-01-001-v1',
   },
   CASE_E: {
-    printableUnitId: 'cut-order:CUT-260310-083-02',
-    printableUnitNo: 'CUT-260310-083-02',
-    originalTicketNo: 'FT-CUT-260310-083-02-001',
-    originalTicketId: 'ticket-CUT-260310-083-02-001-v1',
-    replacementTicketNo: 'FT-CUT-260310-083-02-001-V2',
-    replacementTicketId: 'ticket-CUT-260310-083-02-001-v2',
+    printableUnitId: 'cut-order:CUT-260301-005-01',
+    printableUnitNo: 'CUT-260301-005-01',
+    originalTicketNo: 'FT-CUT-260301-005-01-001',
+    originalTicketId: 'ticket-CUT-260301-005-01-001-v1',
+    replacementTicketNo: 'FT-CUT-260301-005-01-001-V2',
+    replacementTicketId: 'ticket-CUT-260301-005-01-001-v2',
   },
 } as const
 
@@ -199,8 +199,8 @@ export interface FeiTicketLabelRecord {
   qrSerializedValue?: string
   reservedProcess?: unknown
   reservedTrace?: unknown
-  legacyQrBaseValue?: string
-  compatibilityNote?: string
+  sourceQrBaseValue?: string
+  schemaNote?: string
 }
 
 export interface FeiTicketPrintJob {
@@ -675,8 +675,8 @@ function attachQrSnapshotToRecord(
     qrSerializedValue: serializeFeiQrPayload(payload),
     reservedProcess: payload.reservedProcess,
     reservedTrace: payload.reservedTrace,
-    legacyQrBaseValue: owner.qrBaseValue,
-    compatibilityNote: '',
+    sourceQrBaseValue: owner.qrBaseValue,
+    schemaNote: '',
   }
 }
 
@@ -1177,7 +1177,7 @@ export function buildFeiTicketsViewModel(options: {
           basisType: 'WAITING_SPREADING_RESULT' as const,
           ticketCount: 0,
           basisLabel: '未进入打印环节',
-          detailText: '当前仍未完成配料、领料或铺布结果，不能生成菲票。',
+          detailText: '当前仍未完成 WMS 来料或铺布结果，不能生成菲票。',
         }
     const plannedTicketQty = ticketCountBasis.ticketCount
     const ownerRecords = printable ? options.ticketRecords.filter((record) => record.originalCutOrderId === row.originalCutOrderId) : []

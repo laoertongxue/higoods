@@ -1,0 +1,314 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e6]:
+      - generic [ref=e7]: HG
+      - generic [ref=e8]: HiGood
+    - generic [ref=e10]:
+      - button "商品中心系统 (PCS)" [ref=e11]:
+        - generic [ref=e12]: 商品中心系统
+        - generic [ref=e13]: (PCS)
+      - button "采购管理系统 (PMS)" [ref=e15]:
+        - generic [ref=e16]: 采购管理系统
+        - generic [ref=e17]: (PMS)
+      - button "工厂生产协同系统 (FCS)" [ref=e18]:
+        - generic [ref=e19]: 工厂生产协同系统
+        - generic [ref=e20]: (FCS)
+      - button "工艺工厂运营系统 (PFOS)" [ref=e21]:
+        - generic [ref=e22]: 工艺工厂运营系统
+        - generic [ref=e23]: (PFOS)
+      - button "仓储物流系统 (WLS)" [ref=e24]:
+        - generic [ref=e25]: 仓储物流系统
+        - generic [ref=e26]: (WLS)
+      - button "直播运营系统 (LOS)" [ref=e27]:
+        - generic [ref=e28]: 直播运营系统
+        - generic [ref=e29]: (LOS)
+      - button "订单管理系统 (OMS)" [ref=e30]:
+        - generic [ref=e31]: 订单管理系统
+        - generic [ref=e32]: (OMS)
+      - button "业财一体化系统 (BFIS)" [ref=e33]:
+        - generic [ref=e34]: 业财一体化系统
+        - generic [ref=e35]: (BFIS)
+      - button "数据决策系统 (DDS)" [ref=e36]:
+        - generic [ref=e37]: 数据决策系统
+        - generic [ref=e38]: (DDS)
+    - generic [ref=e39]:
+      - button "通知" [ref=e40]:
+        - img [ref=e564]
+      - button "管理员" [ref=e45]:
+        - img [ref=e567]
+        - generic [ref=e50]: 管理员
+        - img [ref=e570]
+  - generic [ref=e53]:
+    - complementary [ref=e54]:
+      - generic [ref=e55]:
+        - generic [ref=e56]:
+          - generic [ref=e57]:
+            - heading "商品中心系统" [level=2] [ref=e58]
+            - paragraph [ref=e59]: PCS
+          - button "收起菜单" [ref=e60]:
+            - img [ref=e572]
+        - generic [ref=e66]:
+          - button "商品中心系统" [ref=e67]:
+            - generic [ref=e69]: 商品中心系统
+            - img [ref=e575]
+          - generic [ref=e72]:
+            - button "工作台" [ref=e74]:
+              - img [ref=e577]
+              - generic [ref=e81]: 工作台
+              - img [ref=e582]
+            - button "商品项目管理" [ref=e85]:
+              - img [ref=e584]
+              - generic [ref=e89]: 商品项目管理
+              - img [ref=e586]
+            - button "测款与渠道管理" [ref=e93]:
+              - img [ref=e588]
+              - generic [ref=e97]: 测款与渠道管理
+              - img [ref=e590]
+            - button "工程开发与打样管理" [ref=e101]:
+              - img [ref=e592]
+              - generic [ref=e109]: 工程开发与打样管理
+              - img [ref=e598]
+            - button "商品档案" [ref=e113]:
+              - img [ref=e600]
+              - generic [ref=e118]: 商品档案
+              - img [ref=e603]
+            - button "物料档案" [ref=e122]:
+              - img [ref=e605]
+              - generic [ref=e128]: 物料档案
+              - img [ref=e609]
+            - button "系统设置" [ref=e132]:
+              - img [ref=e611]
+              - generic [ref=e137]: 系统设置
+              - img [ref=e614]
+    - main [ref=e140]:
+      - generic [ref=e616]:
+        - generic [ref=e617]:
+          - generic [ref=e618]:
+            - generic [ref=e619]:
+              - button "返回" [ref=e620]:
+                - img [ref=e621]
+              - heading "技术包版本 - TDV-DEMAND-SPU_2024_004" [level=1] [ref=e623]
+              - generic [ref=e624]: 已启用
+              - generic [ref=e625]: (v1.0)
+            - paragraph [ref=e626]: Kaos Polos Premium
+            - generic [ref=e627]:
+              - generic [ref=e628]:
+                - text: 技术包状态：
+                - generic [ref=e629]: 已启用
+              - generic [ref=e630]: 是否当前生效版本：是
+              - generic [ref=e631]: 来源任务链：未记录来源任务链
+              - generic [ref=e632]: 关联花型库资产：未关联
+              - generic [ref=e633]: 归档状态：未归档
+              - generic [ref=e634]: 当前花型资产：0 个
+          - generic [ref=e635]:
+            - generic [ref=e636]:
+              - generic [ref=e637]: "关键项检查:"
+              - generic [ref=e638]:
+                - generic [ref=e639]: 物料清单
+                - generic [ref=e640]: 已完成
+              - generic [ref=e641]:
+                - generic [ref=e642]: 纸样管理
+                - generic [ref=e643]: 已完成
+              - generic [ref=e644]:
+                - generic [ref=e645]: 工序工艺
+                - generic [ref=e646]: 已完成
+              - generic [ref=e647]:
+                - generic [ref=e648]: 放码规则
+                - generic [ref=e649]: 已完成
+              - generic [ref=e650]:
+                - generic [ref=e651]: 款色用料对应
+                - generic [ref=e652]: 已完成
+              - generic [ref=e653]:
+                - generic [ref=e654]: 花型设计
+                - generic [ref=e655]: 可选
+            - button "发布版本":
+              - img
+              - text: 发布版本
+        - generic [ref=e656]:
+          - generic [ref=e657]:
+            - heading "技术包版本日志" [level=2] [ref=e658]
+            - generic [ref=e659]: 共 0 条
+          - generic [ref=e660]: 暂无技术包版本日志。
+        - generic [ref=e661]:
+          - button "物料清单" [ref=e662]:
+            - img [ref=e663]
+            - text: 物料清单
+          - button "纸样管理" [ref=e666]:
+            - img [ref=e667]
+            - text: 纸样管理
+          - button "工序工艺" [ref=e670]:
+            - img [ref=e671]
+            - text: 工序工艺
+          - button "放码规则" [ref=e677]:
+            - img [ref=e678]
+            - text: 放码规则
+          - button "款色用料对应" [ref=e684]:
+            - img [ref=e685]
+            - text: 款色用料对应
+          - button "花型设计" [ref=e689]:
+            - img [ref=e690]
+            - text: 花型设计
+          - button "附件" [ref=e694]:
+            - img [ref=e695]
+            - text: 附件
+        - generic [ref=e698]:
+          - generic [ref=e699]:
+            - article [ref=e700]:
+              - paragraph [ref=e701]: 映射颜色数
+              - paragraph [ref=e702]: "1"
+            - article [ref=e703]:
+              - paragraph [ref=e704]: 映射明细行
+              - paragraph [ref=e705]: "3"
+            - article [ref=e706]:
+              - paragraph [ref=e707]: 待人工确认
+              - paragraph [ref=e708]: "0"
+            - article [ref=e709]:
+              - paragraph [ref=e710]: 已确认 / 人工调整
+              - paragraph [ref=e711]: "1"
+          - generic [ref=e712]:
+            - heading "款色用料对应" [level=3] [ref=e714]
+            - article [ref=e716]:
+              - generic [ref=e718]:
+                - generic [ref=e719]: White（White）
+                - generic [ref=e720]: 已确认
+                - generic [ref=e721]: 系统生成
+              - generic [ref=e722]:
+                - generic [ref=e723]:
+                  - generic [ref=e724]: SPU：SPU-2024-004
+                  - generic [ref=e725]: 确认人：-
+                  - generic [ref=e726]: 确认时间：-
+                - generic [ref=e727]:
+                  - generic [ref=e728]: 映射备注
+                  - textbox "映射备注" [disabled] [ref=e729]
+                - table [ref=e731]:
+                  - rowgroup [ref=e732]:
+                    - row "物料（BOM） 纸样 裁片 单件片数 适用 SKU 来源 备注 操作" [ref=e733]:
+                      - columnheader "物料（BOM）" [ref=e734]
+                      - columnheader "纸样" [ref=e735]
+                      - columnheader "裁片" [ref=e736]
+                      - columnheader "单件片数" [ref=e737]
+                      - columnheader "适用 SKU" [ref=e738]
+                      - columnheader "来源" [ref=e739]
+                      - columnheader "备注" [ref=e740]
+                      - columnheader "操作" [ref=e741]
+                  - rowgroup [ref=e742]:
+                    - row "tdv_demand_SPU_2024_004-bom-main · 纯色 T-shirt 半成品 纯色 T-shirt 半成品 未绑定纸样 未绑定裁片 1 米 SKU-004-S-WHT,SKU-004-M-WHT,SKU-004-L-WHT,SKU-004-XL-WHT White/S（SKU-004-S-WHT） White/M（SKU-004-M-WHT） White/L（SKU-004-L-WHT） White/XL（SKU-004-XL-WHT） 系统生成" [ref=e743]:
+                      - cell "tdv_demand_SPU_2024_004-bom-main · 纯色 T-shirt 半成品 纯色 T-shirt 半成品" [ref=e744]:
+                        - generic [ref=e745]:
+                          - combobox [ref=e746]:
+                            - option "未绑定BOM"
+                            - option "tdv_demand_SPU_2024_004-bom-main · 纯色 T-shirt 半成品" [selected]
+                          - textbox "物料名称" [ref=e747]: 纯色 T-shirt 半成品
+                          - textbox "物料编码" [ref=e748]
+                      - cell "未绑定纸样" [ref=e749]:
+                        - combobox [ref=e750]:
+                          - option "未绑定纸样" [selected]
+                          - option "前片纸样包"
+                          - option "后片纸样包"
+                          - option "袖片纸样包"
+                          - option "罗纹针织纸样包"
+                          - option "前片纸样包"
+                          - option "后片纸样包"
+                          - option "袖片纸样包"
+                          - option "罗纹针织纸样包"
+                      - cell "未绑定裁片" [ref=e751]:
+                        - combobox [ref=e752]:
+                          - option "未绑定裁片" [selected]
+                      - cell "1 米" [ref=e753]:
+                        - generic [ref=e754]:
+                          - spinbutton [disabled] [ref=e755]: "1"
+                          - textbox [disabled] [ref=e756]: 米
+                      - cell "SKU-004-S-WHT,SKU-004-M-WHT,SKU-004-L-WHT,SKU-004-XL-WHT White/S（SKU-004-S-WHT） White/M（SKU-004-M-WHT） White/L（SKU-004-L-WHT） White/XL（SKU-004-XL-WHT）" [ref=e757]:
+                        - textbox "留空=全部SKU，或输入 SKU-001-A,SKU-001-B" [disabled] [ref=e758]: SKU-004-S-WHT,SKU-004-M-WHT,SKU-004-L-WHT,SKU-004-XL-WHT
+                        - generic [ref=e759]:
+                          - generic [ref=e760]: White/S（SKU-004-S-WHT）
+                          - generic [ref=e761]: White/M（SKU-004-M-WHT）
+                          - generic [ref=e762]: White/L（SKU-004-L-WHT）
+                          - generic [ref=e763]: White/XL（SKU-004-XL-WHT）
+                      - cell "系统生成" [ref=e764]:
+                        - combobox [disabled] [ref=e765]:
+                          - option "系统生成" [selected]
+                          - option "人工维护"
+                      - cell [ref=e766]:
+                        - textbox "备注" [disabled] [ref=e767]
+                      - cell [ref=e768]
+                    - row "tdv_demand_SPU_2024_004-bom-main · 纯色 T-shirt 半成品 纯色 T-shirt 半成品 未绑定纸样 未绑定裁片 1 米 SKU-004-S-WHT,SKU-004-M-WHT,SKU-004-L-WHT,SKU-004-XL-WHT White/S（SKU-004-S-WHT） White/M（SKU-004-M-WHT） White/L（SKU-004-L-WHT） White/XL（SKU-004-XL-WHT） 系统生成" [ref=e769]:
+                      - cell "tdv_demand_SPU_2024_004-bom-main · 纯色 T-shirt 半成品 纯色 T-shirt 半成品" [ref=e770]:
+                        - generic [ref=e771]:
+                          - combobox [ref=e772]:
+                            - option "未绑定BOM"
+                            - option "tdv_demand_SPU_2024_004-bom-main · 纯色 T-shirt 半成品" [selected]
+                          - textbox "物料名称" [ref=e773]: 纯色 T-shirt 半成品
+                          - textbox "物料编码" [ref=e774]
+                      - cell "未绑定纸样" [ref=e775]:
+                        - combobox [ref=e776]:
+                          - option "未绑定纸样" [selected]
+                          - option "前片纸样包"
+                          - option "后片纸样包"
+                          - option "袖片纸样包"
+                          - option "罗纹针织纸样包"
+                          - option "前片纸样包"
+                          - option "后片纸样包"
+                          - option "袖片纸样包"
+                          - option "罗纹针织纸样包"
+                      - cell "未绑定裁片" [ref=e777]:
+                        - combobox [ref=e778]:
+                          - option "未绑定裁片" [selected]
+                      - cell "1 米" [ref=e779]:
+                        - generic [ref=e780]:
+                          - spinbutton [disabled] [ref=e781]: "1"
+                          - textbox [disabled] [ref=e782]: 米
+                      - cell "SKU-004-S-WHT,SKU-004-M-WHT,SKU-004-L-WHT,SKU-004-XL-WHT White/S（SKU-004-S-WHT） White/M（SKU-004-M-WHT） White/L（SKU-004-L-WHT） White/XL（SKU-004-XL-WHT）" [ref=e783]:
+                        - textbox "留空=全部SKU，或输入 SKU-001-A,SKU-001-B" [disabled] [ref=e784]: SKU-004-S-WHT,SKU-004-M-WHT,SKU-004-L-WHT,SKU-004-XL-WHT
+                        - generic [ref=e785]:
+                          - generic [ref=e786]: White/S（SKU-004-S-WHT）
+                          - generic [ref=e787]: White/M（SKU-004-M-WHT）
+                          - generic [ref=e788]: White/L（SKU-004-L-WHT）
+                          - generic [ref=e789]: White/XL（SKU-004-XL-WHT）
+                      - cell "系统生成" [ref=e790]:
+                        - combobox [disabled] [ref=e791]:
+                          - option "系统生成" [selected]
+                          - option "人工维护"
+                      - cell [ref=e792]:
+                        - textbox "备注" [disabled] [ref=e793]
+                      - cell [ref=e794]
+                    - row "tdv_demand_SPU_2024_004-bom-main · 纯色 T-shirt 半成品 纯色 T-shirt 半成品 未绑定纸样 未绑定裁片 2 米 SKU-004-S-WHT,SKU-004-M-WHT,SKU-004-L-WHT,SKU-004-XL-WHT White/S（SKU-004-S-WHT） White/M（SKU-004-M-WHT） White/L（SKU-004-L-WHT） White/XL（SKU-004-XL-WHT） 系统生成" [ref=e795]:
+                      - cell "tdv_demand_SPU_2024_004-bom-main · 纯色 T-shirt 半成品 纯色 T-shirt 半成品" [ref=e796]:
+                        - generic [ref=e797]:
+                          - combobox [ref=e798]:
+                            - option "未绑定BOM"
+                            - option "tdv_demand_SPU_2024_004-bom-main · 纯色 T-shirt 半成品" [selected]
+                          - textbox "物料名称" [ref=e799]: 纯色 T-shirt 半成品
+                          - textbox "物料编码" [ref=e800]
+                      - cell "未绑定纸样" [ref=e801]:
+                        - combobox [ref=e802]:
+                          - option "未绑定纸样" [selected]
+                          - option "前片纸样包"
+                          - option "后片纸样包"
+                          - option "袖片纸样包"
+                          - option "罗纹针织纸样包"
+                          - option "前片纸样包"
+                          - option "后片纸样包"
+                          - option "袖片纸样包"
+                          - option "罗纹针织纸样包"
+                      - cell "未绑定裁片" [ref=e803]:
+                        - combobox [ref=e804]:
+                          - option "未绑定裁片" [selected]
+                      - cell "2 米" [ref=e805]:
+                        - generic [ref=e806]:
+                          - spinbutton [disabled] [ref=e807]: "2"
+                          - textbox [disabled] [ref=e808]: 米
+                      - cell "SKU-004-S-WHT,SKU-004-M-WHT,SKU-004-L-WHT,SKU-004-XL-WHT White/S（SKU-004-S-WHT） White/M（SKU-004-M-WHT） White/L（SKU-004-L-WHT） White/XL（SKU-004-XL-WHT）" [ref=e809]:
+                        - textbox "留空=全部SKU，或输入 SKU-001-A,SKU-001-B" [disabled] [ref=e810]: SKU-004-S-WHT,SKU-004-M-WHT,SKU-004-L-WHT,SKU-004-XL-WHT
+                        - generic [ref=e811]:
+                          - generic [ref=e812]: White/S（SKU-004-S-WHT）
+                          - generic [ref=e813]: White/M（SKU-004-M-WHT）
+                          - generic [ref=e814]: White/L（SKU-004-L-WHT）
+                          - generic [ref=e815]: White/XL（SKU-004-XL-WHT）
+                      - cell "系统生成" [ref=e816]:
+                        - combobox [disabled] [ref=e817]:
+                          - option "系统生成" [selected]
+                          - option "人工维护"
+                      - cell [ref=e818]:
+                        - textbox "备注" [disabled] [ref=e819]
+                      - cell [ref=e820]

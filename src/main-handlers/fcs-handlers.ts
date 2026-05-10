@@ -150,22 +150,10 @@ import {
   isCraftCuttingMarkerPlanDialogOpen,
 } from '../pages/process-factory/cutting/marker-plan'
 import {
-  handleCraftCuttingMaterialPrepEvent,
-  isCraftCuttingMaterialPrepDialogOpen,
-} from '../pages/process-factory/cutting/material-prep'
-import {
   handleCraftCuttingMarkerSpreadingEvent,
   isCraftCuttingMarkerSpreadingDialogOpen,
 } from '../pages/process-factory/cutting/marker-spreading'
 import { handleCraftCuttingFeiTicketsEvent } from '../pages/process-factory/cutting/fei-tickets'
-import {
-  handleCraftCuttingFabricWarehouseEvent,
-  isCraftCuttingFabricWarehouseDialogOpen,
-} from '../pages/process-factory/cutting/fabric-warehouse'
-import {
-  handleCraftCuttingCutPieceWarehouseEvent,
-  isCraftCuttingCutPieceWarehouseDialogOpen,
-} from '../pages/process-factory/cutting/cut-piece-warehouse'
 import {
   handleCraftCuttingOriginalOrdersEvent,
   isCraftCuttingOriginalOrdersDialogOpen,
@@ -174,14 +162,6 @@ import {
   handleCraftCuttingReplenishmentEvent,
   isCraftCuttingReplenishmentDialogOpen,
 } from '../pages/process-factory/cutting/replenishment'
-import {
-  handleCraftCuttingSpecialCraftDispatchEvent,
-  isCraftCuttingSpecialCraftDispatchDialogOpen,
-} from '../pages/process-factory/cutting/special-craft-dispatch'
-import {
-  handleCraftCuttingSpecialCraftReturnEvent,
-  isCraftCuttingSpecialCraftReturnDialogOpen,
-} from '../pages/process-factory/cutting/special-craft-return'
 import {
   handleCraftCuttingSpecialProcessesEvent,
   isCraftCuttingSpecialProcessesDialogOpen,
@@ -268,16 +248,11 @@ export async function dispatchFcsPageEvent(target: HTMLElement): Promise<boolean
     await handleCraftCuttingCuttablePoolEvent(target) ||
     await handleCraftCuttingMergeBatchesEvent(target) ||
     await handleCraftCuttingMarkerPlanEvent(target) ||
-    await handleCraftCuttingMaterialPrepEvent(target) ||
     await handleCraftCuttingMarkerSpreadingEvent(target) ||
     await handleCraftCuttingFeiTicketsEvent(target) ||
-    await handleCraftCuttingFabricWarehouseEvent(target) ||
-    await handleCraftCuttingCutPieceWarehouseEvent(target) ||
     await handleCraftCuttingSampleWarehouseEvent(target) ||
     await handleCraftCuttingTransferBagsEvent(target) ||
     await handleCraftCuttingReplenishmentEvent(target) ||
-    await handleCraftCuttingSpecialCraftDispatchEvent(target) ||
-    await handleCraftCuttingSpecialCraftReturnEvent(target) ||
     await handleCraftCuttingSpecialProcessesEvent(target) ||
     await handleCraftCuttingSummaryEvent(target) ||
     await handleDeductionAnalysisEvent(target) ||
@@ -537,13 +512,6 @@ export function closeFcsDialogsOnEscape(): boolean {
     return true
   }
 
-  if (isCraftCuttingMaterialPrepDialogOpen()) {
-    const fakeButton = document.createElement('button')
-    fakeButton.dataset.cuttingPrepAction = 'close-overlay'
-    handleCraftCuttingMaterialPrepEvent(fakeButton)
-    return true
-  }
-
   if (isCraftCuttingMarkerPlanDialogOpen()) {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.markerPlanAction = 'close-context-drawer'
@@ -565,20 +533,6 @@ export function closeFcsDialogsOnEscape(): boolean {
     return true
   }
 
-  if (isCraftCuttingFabricWarehouseDialogOpen()) {
-    const fakeButton = document.createElement('button')
-    fakeButton.dataset.fabricWarehouseAction = 'close-detail'
-    handleCraftCuttingFabricWarehouseEvent(fakeButton)
-    return true
-  }
-
-  if (isCraftCuttingCutPieceWarehouseDialogOpen()) {
-    const fakeButton = document.createElement('button')
-    fakeButton.dataset.cutPieceWarehouseAction = 'close-detail'
-    handleCraftCuttingCutPieceWarehouseEvent(fakeButton)
-    return true
-  }
-
   if (isCraftCuttingSampleWarehouseDialogOpen()) {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.sampleWarehouseAction = 'close-detail'
@@ -590,20 +544,6 @@ export function closeFcsDialogsOnEscape(): boolean {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.cuttingReplenishAction = 'close-overlay'
     handleCraftCuttingReplenishmentEvent(fakeButton)
-    return true
-  }
-
-  if (isCraftCuttingSpecialCraftDispatchDialogOpen()) {
-    const fakeButton = document.createElement('button')
-    fakeButton.dataset.cuttingSpecialDispatchAction = 'close-overlay'
-    handleCraftCuttingSpecialCraftDispatchEvent(fakeButton)
-    return true
-  }
-
-  if (isCraftCuttingSpecialCraftReturnDialogOpen()) {
-    const fakeButton = document.createElement('button')
-    fakeButton.dataset.cuttingSpecialReturnAction = 'close-overlay'
-    handleCraftCuttingSpecialCraftReturnEvent(fakeButton)
     return true
   }
 

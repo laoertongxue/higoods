@@ -35,7 +35,6 @@ export interface CuttingPdaWritebackIdentityInput {
   mergeBatchNo: string
   executionOrderId: string
   executionOrderNo: string
-  legacyCutPieceOrderNo: string
   cutPieceOrderNo: string
   materialSku: string
   styleCode?: string
@@ -65,7 +64,6 @@ export interface PdaCuttingWritebackSelection {
   mergeBatchId?: string
   mergeBatchNo?: string
   materialSku?: string
-  legacyCutPieceOrderNo?: string
   cutPieceOrderNo?: string
 }
 
@@ -189,10 +187,10 @@ function matchExecutionLine(
   if (selection.originalCutOrderNo) {
     return detail.cutPieceOrders.find((item) => item.originalCutOrderNo === selection.originalCutOrderNo) ?? null
   }
-  if (selection.legacyCutPieceOrderNo || selection.cutPieceOrderNo) {
-    const executionKey = selection.legacyCutPieceOrderNo || selection.cutPieceOrderNo || ''
+  if (selection.cutPieceOrderNo) {
+    const executionKey = selection.cutPieceOrderNo || ''
     return detail.cutPieceOrders.find((item) =>
-      item.executionOrderNo === executionKey || item.legacyCutPieceOrderNo === executionKey,
+      item.executionOrderNo === executionKey,
     ) ?? null
   }
   if (detail.currentSelectedExecutionOrderId) {
@@ -210,7 +208,6 @@ export function resolvePdaCuttingExecutionContext(
     || selection.executionOrderNo
     || selection.originalCutOrderId
     || selection.originalCutOrderNo
-    || selection.legacyCutPieceOrderNo
     || selection.cutPieceOrderNo
     || ''
   const detail = getPdaCuttingTaskSnapshot(taskId, executionKey || undefined)
@@ -238,7 +235,6 @@ export function resolvePdaCuttingWritebackIdentity(
     mergeBatchNo: line.mergeBatchNo || '',
     executionOrderId: line.executionOrderId,
     executionOrderNo: line.executionOrderNo,
-    legacyCutPieceOrderNo: line.legacyCutPieceOrderNo || line.executionOrderNo,
     cutPieceOrderNo: line.executionOrderNo,
     materialSku: line.materialSku,
   }

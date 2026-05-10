@@ -1,37 +1,13 @@
-import { addTask, processTasks } from './process-tasks.ts'
-import { productionOrders } from './production-orders.ts'
 import {
   initialQualityInspections,
   initialDeductionBasisItems,
   initialReturnInboundBatches,
   QC_SEEDS,
   BASIS_SEEDS,
-  seedParentTask,
-  seedProductionOrder,
 } from './store-domain-quality-seeds.ts'
 import { settlementLinkedMockFactoryOutput } from './settlement-linked-mock-factory.ts'
 
 export function applyQualitySeedBootstrap() {
-  for (const task of settlementLinkedMockFactoryOutput.processTasks) {
-    if (!processTasks.find((item) => item.taskId === task.taskId)) {
-      addTask(task)
-    }
-  }
-
-  for (const order of settlementLinkedMockFactoryOutput.productionOrders) {
-    if (!productionOrders.find((item) => item.productionOrderId === order.productionOrderId)) {
-      productionOrders.push(order)
-    }
-  }
-
-  if (!processTasks.find(task => task.taskId === seedParentTask.taskId)) {
-    addTask(seedParentTask)
-  }
-
-  if (!productionOrders.find(order => order.productionOrderId === seedProductionOrder.productionOrderId)) {
-    productionOrders.push(seedProductionOrder)
-  }
-
   for (const qc of QC_SEEDS) {
     if (!initialQualityInspections.find(item => item.qcId === qc.qcId)) {
       initialQualityInspections.push(qc)

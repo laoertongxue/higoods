@@ -70,7 +70,6 @@ import {
   renderProgressUrgePage,
   renderCraftWorkbenchOverviewPage,
   renderCraftCuttingCuttablePoolPage,
-  renderCraftCuttingCutPieceWarehousePage,
   renderCraftCuttingFeiTicketContinuePrintPage,
   renderCraftCuttingFeiTicketDetailPage,
   renderCraftCuttingFeiTicketPrintedPage,
@@ -79,7 +78,6 @@ import {
   renderCraftCuttingFeiTicketRecordsPage,
   renderCraftCuttingFeiTicketVoidPage,
   renderCraftCuttingFeiTicketsPage,
-  renderCraftCuttingMaterialPrepPage,
   renderCraftCuttingMergeBatchesPage,
   renderCraftCuttingOriginalOrdersPage,
   renderCraftCuttingProductionProgressPage,
@@ -91,9 +89,6 @@ import {
   renderCraftCuttingMarkerSpreadingPage,
   renderCraftCuttingReplenishmentPage,
   renderCraftCuttingSampleWarehousePage,
-  renderCraftCuttingSpecialCraftDispatchPage,
-  renderCraftCuttingSpecialCraftReturnPage,
-  renderCraftCuttingSewingDispatchPage,
   renderCraftCuttingSpecialProcessesPage,
   renderCraftCuttingSpreadingCreatePage,
   renderCraftCuttingSpreadingDetailPage,
@@ -102,7 +97,6 @@ import {
   renderCraftCuttingSummaryPage,
   renderCraftCuttingTransferBagDetailPage,
   renderCraftCuttingTransferBagsPage,
-  renderCraftCuttingFabricWarehousePage,
   renderCraftCuttingWarehouseManagementWaitHandoverPage,
   renderCraftCuttingWarehouseManagementWaitProcessPage,
   renderCraftPrintingDashboardsPage,
@@ -119,6 +113,13 @@ import {
   renderCraftDyeingWaitProcessWarehousePage,
   renderCraftDyeingWorkOrderDetailPage,
   renderCraftDyeingWorkOrdersPage,
+  renderCraftKnittingFeiTicketsPage,
+  renderCraftKnittingMachineSchedulePage,
+  renderCraftKnittingStatisticsPage,
+  renderCraftKnittingWorkOrderDetailPage,
+  renderCraftKnittingWorkOrdersPage,
+  renderCraftKnittingWaitHandoverWarehousePage,
+  renderCraftKnittingWaitProcessWarehousePage,
   renderPostFinishingQcOrdersPage,
   renderPostFinishingRecheckOrdersPage,
   renderPostFinishingStatisticsPage,
@@ -244,8 +245,6 @@ export const routes: RouteRegistry = {
     '/fcs/craft/cutting/fei-ticket-continue-print': () => renderCraftCuttingFeiTicketContinuePrintPage(),
     '/fcs/craft/cutting/fei-ticket-reprint': () => renderCraftCuttingFeiTicketReprintPage(),
     '/fcs/craft/cutting/fei-ticket-void': () => renderCraftCuttingFeiTicketVoidPage(),
-    '/fcs/craft/cutting/fabric-warehouse': () => renderCraftCuttingFabricWarehousePage(),
-    '/fcs/craft/cutting/cut-piece-warehouse': () => renderCraftCuttingCutPieceWarehousePage(),
     '/fcs/craft/cutting/sample-warehouse': () => renderCraftCuttingSampleWarehousePage(),
     '/fcs/craft/cutting/warehouse-management/wait-process': () => renderCraftCuttingWarehouseManagementWaitProcessPage(),
     '/fcs/craft/cutting/warehouse-management/wait-handover': () => renderCraftCuttingWarehouseManagementWaitHandoverPage(),
@@ -253,37 +252,9 @@ export const routes: RouteRegistry = {
       renderRouteRedirect('/fcs/craft/cutting/sample-warehouse', '正在跳转到样衣仓'),
     '/fcs/craft/cutting/transfer-bags': () => renderCraftCuttingTransferBagsPage(),
     '/fcs/craft/cutting/transfer-bag-detail': () => renderCraftCuttingTransferBagDetailPage(),
-    '/fcs/craft/cutting/special-craft-dispatch': () => renderCraftCuttingSpecialCraftDispatchPage(),
-    '/fcs/craft/cutting/special-craft-return': () => renderCraftCuttingSpecialCraftReturnPage(),
-    '/fcs/craft/cutting/sewing-dispatch': () => renderCraftCuttingSewingDispatchPage(),
-    '/fcs/process-factory/cutting/sewing-dispatch': () =>
-      renderRouteRedirect('/fcs/craft/cutting/sewing-dispatch', '正在跳转到裁片发料'),
     '/fcs/craft/cutting/special-processes': () => renderCraftCuttingSpecialProcessesPage(),
     '/fcs/craft/cutting/summary': () => renderCraftCuttingSummaryPage(),
-    '/fcs/craft/cutting/order-progress': () =>
-      renderRouteRedirect('/fcs/craft/cutting/production-progress', '正在跳转到生产单进度'),
-    '/fcs/craft/cutting/tasks': () =>
-      renderRouteRedirect('/fcs/craft/cutting/production-progress', '正在跳转到生产单进度'),
-    '/fcs/craft/cutting/material-prep': () => renderCraftCuttingMaterialPrepPage(),
-    '/fcs/craft/cutting/orders': () =>
-      renderRouteRedirect('/fcs/craft/cutting/original-orders', '正在跳转到原始裁片单'),
-    '/fcs/craft/cutting/cut-piece-orders': () =>
-      renderRouteRedirect('/fcs/craft/cutting/original-orders', '正在跳转到原始裁片单'),
-    '/fcs/craft/cutting/fei-ticket': () =>
-      renderRouteRedirect('/fcs/craft/cutting/fei-tickets', '正在跳转到打印菲票'),
-    '/fcs/craft/cutting/fei-list': () =>
-      renderRouteRedirect('/fcs/craft/cutting/fei-tickets', '正在跳转到打印菲票'),
-    '/fcs/craft/cutting/warehouse': () =>
-      renderRouteRedirect('/fcs/craft/cutting/warehouse-management/wait-process', '正在跳转到待加工仓'),
-    '/fcs/craft/cutting/warehouse-management': () =>
-      renderRouteRedirect('/fcs/craft/cutting/warehouse-management/wait-process', '正在跳转到待加工仓'),
     '/fcs/craft/cutting/replenishment': () => renderCraftCuttingReplenishmentPage(),
-    '/fcs/craft/cutting/stats': () =>
-      renderRouteRedirect('/fcs/craft/cutting/summary', '正在跳转到裁剪总结'),
-    '/fcs/craft/cutting/bed-stats': () =>
-      renderRouteRedirect('/fcs/craft/cutting/summary', '正在跳转到裁剪总结'),
-    '/fcs/craft/cutting/cutting-summary': () =>
-      renderRouteRedirect('/fcs/craft/cutting/summary', '正在跳转到裁剪总结'),
     '/fcs/craft/printing': () => renderCraftPrintingWorkOrdersPage(),
     '/fcs/craft/printing/work-orders': () => renderCraftPrintingWorkOrdersPage(),
     '/fcs/craft/printing/tasks': () => renderCraftPrintingWorkOrdersPage(),
@@ -320,6 +291,23 @@ export const routes: RouteRegistry = {
       renderRouteRedirect('/fcs/craft/dyeing/work-orders?tab=formula', '正在跳转到染色加工单配方视图'),
     '/fcs/craft/dyeing/stats': () => renderCraftDyeingReportsPage(),
     '/fcs/craft/dyeing/reports': () => renderCraftDyeingReportsPage(),
+    '/fcs/craft/knitting': () =>
+      renderRouteRedirect('/fcs/craft/knitting/work-orders', '正在跳转到针织加工单'),
+    '/fcs/craft/knitting/work-orders': () => renderCraftKnittingWorkOrdersPage(),
+    '/fcs/craft/knitting/wait-process-warehouse': () => renderCraftKnittingWaitProcessWarehousePage(),
+    '/fcs/craft/knitting/wait-handover-warehouse': () => renderCraftKnittingWaitHandoverWarehousePage(),
+    '/fcs/craft/knitting/fei-tickets': () => renderCraftKnittingFeiTicketsPage(),
+    '/fcs/craft/knitting/machine-schedule': () => renderCraftKnittingMachineSchedulePage(),
+    '/fcs/craft/knitting/statistics': () => renderCraftKnittingStatisticsPage(),
+    '/fcs/craft/knitting/stats': () => renderCraftKnittingStatisticsPage(),
+    '/fcs/craft/knitting/warehouse': () =>
+      renderRouteRedirect('/fcs/craft/knitting/wait-process-warehouse', '正在跳转到针织待加工仓'),
+    '/fcs/craft/knitting/warehouse-management': () =>
+      renderRouteRedirect('/fcs/craft/knitting/wait-process-warehouse', '正在跳转到针织待加工仓'),
+    '/fcs/craft/knitting/tasks': () =>
+      renderRouteRedirect('/fcs/craft/knitting/work-orders', '正在跳转到针织加工单'),
+    '/fcs/craft/knitting/orders': () =>
+      renderRouteRedirect('/fcs/craft/knitting/work-orders', '正在跳转到针织加工单'),
     '/fcs/craft/post-finishing': () =>
       renderRouteRedirect('/fcs/craft/post-finishing/work-orders', '正在跳转到后道单'),
     '/fcs/craft/post-finishing/work-orders': () => renderPostFinishingWorkOrdersPage(),
@@ -412,6 +400,10 @@ export const routes: RouteRegistry = {
     {
       pattern: /^\/fcs\/craft\/dyeing\/work-orders\/([^/]+)$/,
       render: (match) => renderCraftDyeingWorkOrderDetailPage(decodeURIComponent(match[1])),
+    },
+    {
+      pattern: /^\/fcs\/craft\/knitting\/work-orders\/([^/]+)$/,
+      render: (match) => renderCraftKnittingWorkOrderDetailPage(decodeURIComponent(match[1])),
     },
     {
       pattern: /^\/fcs\/craft\/post-finishing\/work-orders\/([^/]+)$/,

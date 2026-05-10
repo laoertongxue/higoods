@@ -6,12 +6,13 @@ import {
   getPatternById,
   getPatternPieceById,
   getSkuOptionsForCurrentSpu,
+  isTechPackReadOnly,
   state,
 } from './context.ts'
 
 export function renderColorMappingTab(): string {
   if (!state.techPack) return ''
-  const readonly = false
+  const readonly = isTechPackReadOnly()
 
   const mappings = state.colorMaterialMappings
   const bomOptions = state.bomItems
@@ -51,12 +52,11 @@ export function renderColorMappingTab(): string {
       <section class="rounded-lg border bg-card">
         <header class="border-b px-4 py-3">
           <h3 class="text-base font-semibold">款色用料对应</h3>
-          <p class="mt-1 text-sm text-muted-foreground">用于明确 SPU + 颜色下，单件成衣所需物料、纸样与裁片明细。复杂款自动生成后需人工确认。</p>
         </header>
         <div class="space-y-4 p-4">
           ${
             mappings.length === 0
-              ? '<div class="rounded-md border border-dashed px-3 py-8 text-center text-sm text-muted-foreground">当前技术包版本暂无款色用料对应，可先完善物料清单和纸样管理后由系统生成草稿</div>'
+              ? '<div class="rounded-md border border-dashed px-3 py-8 text-center text-sm text-muted-foreground">暂无款色用料对应</div>'
               : mappings
                   .map((mapping) => {
                     const statusLabel = colorMappingStatusLabel[mapping.status]
@@ -116,7 +116,7 @@ export function renderColorMappingTab(): string {
                             <input
                               class="mt-1 h-7 w-full rounded border bg-background px-2 text-xs"
                               value="${escapeHtml(mapping.remark || '')}"
-                              placeholder="可记录系统草稿说明、人工修订原因"
+                              placeholder="映射备注"
                               data-tech-field="mapping-remark"
                               data-mapping-id="${mapping.id}"
                               ${readonly ? 'disabled' : ''}
@@ -238,7 +238,7 @@ export function renderColorMappingTab(): string {
                                                 <input
                                                   class="h-7 min-w-[220px] rounded border px-2 text-xs"
                                                   value="${escapeHtml(line.applicableSkuCodes.join(','))}"
-                                                  placeholder="留空=全部SKU，或输入 SKU-001-A,SKU-001-B"
+                                                  placeholder="适用 SKU"
                                                   data-tech-field="mapping-line-skus"
                                                   data-mapping-id="${mapping.id}"
                                                   data-line-id="${line.id}"

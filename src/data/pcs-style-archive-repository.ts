@@ -204,6 +204,7 @@ export function findStyleArchiveByCode(styleCode: string): StyleArchiveShellReco
   // FCS 需求页与转单链路都从正式款式档案读取当前生效技术包版本指针。
   const matchedRecords = loadSnapshot().records.filter((item) => item.styleCode === styleCode)
   const record =
+    matchedRecords.find((item) => item.styleId.startsWith('style_demand_') && Boolean(item.currentTechPackVersionId)) ??
     matchedRecords.find((item) => Boolean(item.currentTechPackVersionId)) ??
     matchedRecords.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0]
   return record ? cloneRecord(record) : null

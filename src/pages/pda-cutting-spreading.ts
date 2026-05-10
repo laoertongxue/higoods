@@ -362,7 +362,7 @@ function renderFormInner(
       <section class="rounded-xl border bg-card px-1.5 py-1" data-testid="pda-cutting-spreading-object-summary">
         <div class="grid gap-1 text-xs sm:grid-cols-2">
           <div><div class="text-muted-foreground">任务号</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(detail.taskNo)}</div></div>
-          <div><div class="text-muted-foreground">当前任务</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(detail.executionOrderNo)}</div></div>
+          <div><div class="text-muted-foreground">执行对象</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(detail.executionOrderNo)}</div></div>
           <div><div class="text-muted-foreground">裁片单</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(detail.originalCutOrderNo)}</div></div>
           <div><div class="text-muted-foreground">面料 SKU</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(detail.materialSku)}</div></div>
         </div>
@@ -480,7 +480,7 @@ function renderFormInner(
                     </select>
                   </label>
                   <label class="block space-y-0.5">
-                    <span class="text-muted-foreground">交接说明</span>
+                    <span class="text-muted-foreground">交接记录</span>
                     <input class="h-6 w-full rounded-xl border bg-background px-2 text-sm" data-pda-cut-spreading-field="handoverNote" value="${escapeHtml(form.handoverNote)}" />
                   </label>
                 </div>

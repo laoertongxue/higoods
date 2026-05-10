@@ -7,7 +7,7 @@ import {
   normalizeTransferCarrierCycleRecord,
   normalizeTransferCarrierRecord,
   normalizeTransferCarrierSeedTicket,
-} from './transfer-bag-legacy-normalizer.ts'
+} from './transfer-carrier-normalizer.ts'
 
 export const CUTTING_TRANSFER_BAG_LEDGER_STORAGE_KEY = 'cuttingTransferBagLedger'
 export const CUTTING_TRANSFER_BAG_SELECTED_TICKET_IDS_STORAGE_KEY = 'cuttingTransferBagSelectedTicketRecordIds'
@@ -858,7 +858,7 @@ export function buildSystemSeedTransferBagRuntime(options: {
       pushUsageAudit(cycle, options.dispatchAt, '交出', options.dispatchBy || options.operator, '已由裁片仓交给车缝厂领走。')
     }
     if (options.signedAt) {
-      pushUsageAudit(cycle, options.signedAt, '领料确认', options.operator, '车缝厂已完成领料确认。')
+      pushUsageAudit(cycle, options.signedAt, 'WMS 来料确认', options.operator, '车缝厂已完成来料确认。')
     }
 
     if (options.returnAt) {

@@ -7,11 +7,11 @@ import type { GeneratedTaskArtifact } from './production-artifact-generation.ts'
 import {
   productionOrders,
 } from './production-orders.ts'
-import { getProductionOrderCompatTechPack } from './production-order-tech-pack-runtime.ts'
+import { getProductionOrderTechPackSnapshot } from './production-order-tech-pack-runtime.ts'
 import {
-  type TechPackBomItem,
-  type TechPackPatternFile,
-} from './tech-packs.ts'
+  type TechnicalBomItem,
+  type TechnicalPatternFile,
+} from '../pcs-technical-data-version-types.ts'
 
 export type TaskDetailRowType = 'COMPOSITE'
 
@@ -122,7 +122,7 @@ function resolveOrderSkuLines(orderId: string): OrderSkuLine[] {
 }
 
 function resolveMaterialCandidates(
-  bomItems: TechPackBomItem[],
+  bomItems: TechnicalBomItem[],
   processCode: string,
   orderSkuCodes: string[],
 ): MaterialCandidate[] {
@@ -151,34 +151,14 @@ function resolveMaterialCandidates(
     }
   })
 
-  const validRows = rows.filter((row) => row.applicableSkuCodes.length > 0)
-  if (validRows.length > 0) return validRows
-
-  return [
-    {
-      bomItemId: 'BOM_DEFAULT',
-      materialCode: 'BOM_DEFAULT',
-      materialName: '默认物料',
-      consumptionFactor: 1,
-      applicableSkuCodes: [...orderSkuCodes],
-    },
-  ]
+  return rows.filter((row) => row.applicableSkuCodes.length > 0)
 }
 
 function resolvePatternCandidates(
-  patterns: TechPackPatternFile[],
+  patterns: TechnicalPatternFile[],
   orderSkuCodes: string[],
 ): PatternCandidate[] {
-  if (!patterns.length) {
-    return [
-      {
-        patternId: 'PATTERN_DEFAULT',
-        patternName: '默认纸样',
-        applicableSkuCodes: [...orderSkuCodes],
-        pieceIds: [],
-      },
-    ]
-  }
+  if (!patterns.length) return []
 
   return patterns.map((pattern) => {
     const pieceIds = uniqueStable((pattern.pieceRows ?? []).map((piece) => piece.id))
@@ -242,6 +222,7 @@ function upsertRow(
   dimensions: Partial<Record<DetailSplitDimension, string>>,
   qty: number,
   sourceRefs: TaskDetailRowSourceRefs,
+  uom = '件',
 ): void {
   const stableQty = roundQty(qty)
   if (stableQty <= 0) return
@@ -260,11 +241,86 @@ function upsertRow(
     rowType: 'COMPOSITE',
     rowLabel: makeRowLabel(dimensions, orderedDimensions),
     qty: stableQty,
-    uom: '件',
+    uom,
     dimensions,
     sourceRefs,
     sortKey: makeSortKey(orderedDimensions, dimensions),
   })
+}
+
+function isPartKnittingArtifact(artifact: GeneratedTaskArtifact): boolean {
+  return artifact.processCode === 'KNITTING'
+    && (artifact.knittingTaskType === 'PART_PANEL' || artifact.craftName === '部位针织' || artifact.taskTypeLabel === '部位针织')
+}
+
+function isWholeKnittingArtifact(artifact: GeneratedTaskArtifact): boolean {
+  return artifact.processCode === 'KNITTING' && !isPartKnittingArtifact(artifact)
+}
+
+function buildKnittingRows(input: {
+  rowMap: Map<string, TaskDetailRow>
+  taskId: string
+  dimensions: DetailSplitDimension[]
+  orderSkuLines: OrderSkuLine[]
+  patterns: TechnicalPatternFile[]
+  artifact: GeneratedTaskArtifact
+  baseRefs: Omit<TaskDetailRowSourceRefs, 'garmentSku' | 'garmentColor' | 'patternId' | 'pieceIds'>
+}): void {
+  const { rowMap, taskId, dimensions, orderSkuLines, patterns, artifact, baseRefs } = input
+  if (isWholeKnittingArtifact(artifact)) {
+    for (const line of orderSkuLines) {
+      upsertRow(
+        rowMap,
+        taskId,
+        dimensions,
+        { GARMENT_SKU: line.skuCode },
+        line.qty,
+        {
+          ...baseRefs,
+          garmentSku: line.skuCode,
+          garmentColor: line.color,
+        },
+        '件',
+      )
+    }
+    return
+  }
+
+  const knitPatterns = patterns.filter((pattern) => pattern.patternMaterialType === 'KNIT')
+  for (const pattern of knitPatterns) {
+    for (const piece of pattern.pieceRows ?? []) {
+      const pieceName = String(piece.name || '').trim()
+      if (!pieceName) continue
+      const allocations = piece.colorAllocations && piece.colorAllocations.length > 0
+        ? piece.colorAllocations
+        : []
+      for (const line of orderSkuLines) {
+        const allocation = allocations.find((item) =>
+          item.skuCodes?.includes(line.skuCode) || item.colorName === line.color,
+        )
+        const pieceCount = Number(allocation?.pieceCount ?? piece.count ?? 1)
+        if (!Number.isFinite(pieceCount) || pieceCount <= 0) continue
+        upsertRow(
+          rowMap,
+          taskId,
+          dimensions,
+          {
+            PATTERN: pieceName,
+            GARMENT_SKU: line.skuCode,
+          },
+          line.qty * pieceCount,
+          {
+            ...baseRefs,
+            garmentSku: line.skuCode,
+            garmentColor: line.color,
+            patternId: pattern.id,
+            pieceIds: [piece.id],
+          },
+          '片',
+        )
+      }
+    }
+  }
 }
 
 function buildSkuRows(
@@ -437,7 +493,7 @@ export function generateTaskDetailRowsForArtifact(input: {
   const order = productionOrders.find((item) => item.productionOrderId === artifact.orderId)
   if (!order) return []
 
-  const techPack = getProductionOrderCompatTechPack(order.productionOrderId)
+  const techPack = getProductionOrderTechPackSnapshot(order.productionOrderId)
   if (!techPack) return []
 
   const orderSkuLines = resolveOrderSkuLines(artifact.orderId)
@@ -456,7 +512,7 @@ export function generateTaskDetailRowsForArtifact(input: {
   const rowMap = new Map<string, TaskDetailRow>()
   const baseRefs = {
     orderId: artifact.orderId,
-    spuCode: techPack.spuCode,
+    spuCode: techPack.styleCode,
     processCode: artifact.processCode,
     craftCode: artifact.craftCode,
     sourceEntryId: artifact.sourceEntryId,
@@ -467,7 +523,17 @@ export function generateTaskDetailRowsForArtifact(input: {
   const hasPattern = dimensions.includes('PATTERN')
   const hasMaterial = dimensions.includes('MATERIAL_SKU')
 
-  if (hasSku && dimensions.length === 1) {
+  if (artifact.processCode === 'KNITTING') {
+    buildKnittingRows({
+      rowMap,
+      taskId,
+      dimensions: isPartKnittingArtifact(artifact) ? ['PATTERN', 'GARMENT_SKU'] : ['GARMENT_SKU'],
+      orderSkuLines,
+      patterns: techPack.patternFiles,
+      artifact,
+      baseRefs,
+    })
+  } else if (hasSku && dimensions.length === 1) {
     buildSkuRows(rowMap, taskId, dimensions, orderSkuLines, baseRefs)
   } else if (hasColor && hasPattern && hasMaterial) {
     buildColorPatternMaterialRows(rowMap, taskId, dimensions, orderSkuLines, patterns, materials, baseRefs)

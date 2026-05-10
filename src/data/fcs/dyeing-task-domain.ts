@@ -13,6 +13,15 @@ import { listPdaGenericProcessTasks, type PdaGenericTaskMock } from './pda-task-
 import { type HandoverReceiverKind } from './process-tasks.ts'
 import { buildTaskQrValue } from './task-qr.ts'
 import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
+import { productionOrders, type ProductionOrder } from './production-orders.ts'
+import { getProductionOrderTechPackSnapshot } from './production-order-tech-pack-runtime.ts'
+import type { ProductionOrderTechPackSnapshot } from './production-tech-pack-snapshot-types.ts'
+import { listActiveProcessCraftDefinitions, type ProcessCraftDefinition } from './process-craft-dict.ts'
+import {
+  buildDictionaryCraftMockDocumentNo,
+  DICTIONARY_CRAFT_MOCKS_PER_DEFINITION,
+  getDictionaryCraftMockSource,
+} from './production-artifact-generation.ts'
 
 export type DyeWorkOrderStatus =
   | 'WAIT_SAMPLE'
@@ -291,6 +300,102 @@ const vatScheduleStore = new Map<string, MutableDyeVatSchedule>()
 const formulaStore = new Map<string, MutableDyeFormulaRecord>()
 
 let seeded = false
+
+const GENERATED_DYE_CRAFTS = listActiveProcessCraftDefinitions()
+  .filter((definition) => definition.processCode === 'DYE' && definition.defaultDocType === 'DEMAND')
+
+interface GeneratedDyeContext {
+  productionOrder: ProductionOrder
+  techPackSnapshot: ProductionOrderTechPackSnapshot
+  craftDefinition: ProcessCraftDefinition
+  mockIndex: number
+  plannedQty: number
+  materialName: string
+  targetColor: string
+}
+
+function getProductionOrderQty(order: ProductionOrder): number {
+  const skuQty = order.demandSnapshot.skuLines.reduce((sum, line) => sum + line.qty, 0)
+  return Math.max(1, Math.round(skuQty || order.planQty || 1))
+}
+
+function getGeneratedDyeCraft(index: number): { craftDefinition: ProcessCraftDefinition; mockIndex: number } | null {
+  const craftIndex = Math.floor(index / DICTIONARY_CRAFT_MOCKS_PER_DEFINITION)
+  const craftDefinition = GENERATED_DYE_CRAFTS[craftIndex]
+  if (!craftDefinition) return null
+  return {
+    craftDefinition,
+    mockIndex: index % DICTIONARY_CRAFT_MOCKS_PER_DEFINITION,
+  }
+}
+
+function buildDyeDemandId(craftCode: string, productionOrderId: string, mockIndex: number): string {
+  return buildDictionaryCraftMockDocumentNo('RSXQ', craftCode, productionOrderId, mockIndex)
+}
+
+function buildDyeWorkOrderNo(craftCode: string, productionOrderId: string, mockIndex: number): string {
+  return buildDictionaryCraftMockDocumentNo('RSJG', craftCode, productionOrderId, mockIndex)
+}
+
+function getGeneratedDyeContext(index: number): GeneratedDyeContext | null {
+  const generatedCraft = getGeneratedDyeCraft(index)
+  if (!generatedCraft) return null
+  const source = getDictionaryCraftMockSource(generatedCraft.craftDefinition.craftCode, generatedCraft.mockIndex)
+  const preferredOrderId = source?.order.productionOrderId
+  const productionOrder = productionOrders.find((order) => order.productionOrderId === preferredOrderId)
+  if (!productionOrder) return null
+  const techPackSnapshot = getProductionOrderTechPackSnapshot(productionOrder.productionOrderId)
+  if (!techPackSnapshot) return null
+  const bomItem = techPackSnapshot.bomItems[0]
+  return {
+    productionOrder,
+    techPackSnapshot,
+    craftDefinition: generatedCraft.craftDefinition,
+    mockIndex: generatedCraft.mockIndex,
+    plannedQty: Math.max(1, Math.round(getProductionOrderQty(productionOrder) * 1.12)),
+    materialName: bomItem ? `${bomItem.name}${bomItem.spec ? ` / ${bomItem.spec}` : ''}` : productionOrder.demandSnapshot.spuName,
+    targetColor: bomItem?.colorLabel || productionOrder.demandSnapshot.skuLines[0]?.color || '按技术包配色',
+  }
+}
+
+function getVisibleDyeWorkOrderIds(): Set<string> {
+  return new Set(
+    Array.from(workOrderStore.values())
+      .sort((left, right) => left.dyeOrderNo.localeCompare(right.dyeOrderNo))
+      .slice(0, GENERATED_DYE_CRAFTS.length * DICTIONARY_CRAFT_MOCKS_PER_DEFINITION)
+      .map((order) => order.dyeOrderId),
+  )
+}
+
+function toGeneratedDyeWorkOrder(order: MutableDyeWorkOrder, index: number): MutableDyeWorkOrder {
+  const context = getGeneratedDyeContext(index)
+  if (!context) return order
+  const { productionOrder, techPackSnapshot, craftDefinition, mockIndex, plannedQty, materialName, targetColor } = context
+  const demandId = buildDyeDemandId(craftDefinition.craftCode, productionOrder.productionOrderId, mockIndex)
+  return {
+    ...order,
+    dyeOrderNo: buildDyeWorkOrderNo(craftDefinition.craftCode, productionOrder.productionOrderId, mockIndex),
+    sourceDemandIds: [demandId],
+    productionOrderIds: [productionOrder.productionOrderId],
+    isFirstOrder: mockIndex === 0,
+    rawMaterialSku: materialName,
+    composition: techPackSnapshot.bomItems[0]?.spec || order.composition,
+    targetColor,
+    colorNo: techPackSnapshot.sourceTechPackVersionCode || order.colorNo,
+    plannedQty,
+    plannedRollCount: Math.max(1, Math.ceil(plannedQty / 80)),
+    createdAt: productionOrder.createdAt,
+    updatedAt: order.updatedAt || productionOrder.updatedAt,
+    remark: `${craftDefinition.craftName}；来源生产单 ${productionOrder.productionOrderNo}，技术包 ${techPackSnapshot.sourceTechPackVersionLabel || techPackSnapshot.versionLabel}。`,
+  }
+}
+
+function listGeneratedDyeWorkOrders(): MutableDyeWorkOrder[] {
+  return Array.from(workOrderStore.values())
+    .sort((left, right) => left.dyeOrderNo.localeCompare(right.dyeOrderNo))
+    .slice(0, GENERATED_DYE_CRAFTS.length * DICTIONARY_CRAFT_MOCKS_PER_DEFINITION)
+    .map((order, index) => toGeneratedDyeWorkOrder(order, index))
+}
 
 function cloneWorkOrder(order: MutableDyeWorkOrder): DyeWorkOrder {
   return {
@@ -1942,29 +2047,31 @@ export function getDyeReviewStatusLabel(status: DyeReviewStatus): string {
 
 export function listDyeWorkOrders(): DyeWorkOrder[] {
   syncDerivedWorkflow()
-  return Array.from(workOrderStore.values())
-    .sort((left, right) => left.dyeOrderNo.localeCompare(right.dyeOrderNo))
-    .map((order) => cloneWorkOrder(order))
+  return listGeneratedDyeWorkOrders().map((order) => cloneWorkOrder(order))
 }
 
 export function getDyeWorkOrderById(dyeOrderId: string): DyeWorkOrder | undefined {
   syncDerivedWorkflow()
-  const order = workOrderStore.get(dyeOrderId)
+  const order = listGeneratedDyeWorkOrders().find((item) => item.dyeOrderId === dyeOrderId)
   return order ? cloneWorkOrder(order) : undefined
 }
 
 export function getDyeWorkOrderByTaskId(taskId: string): DyeWorkOrder | undefined {
   syncDerivedWorkflow()
-  const order = Array.from(workOrderStore.values()).find((item) => item.taskId === taskId)
+  const order = listGeneratedDyeWorkOrders().find((item) => item.taskId === taskId)
   return order ? cloneWorkOrder(order) : undefined
 }
 
 export function listDyeExecutionNodeRecords(dyeOrderId?: string): DyeExecutionNodeRecord[] {
   seedDomain()
+  const visibleIds = getVisibleDyeWorkOrderIds()
   if (dyeOrderId) {
+    if (!visibleIds.has(dyeOrderId)) return []
     return (nodeRecordStore.get(dyeOrderId) ?? []).map((record) => cloneNodeRecord(record))
   }
-  return Array.from(nodeRecordStore.values()).flat().map((record) => cloneNodeRecord(record))
+  return Array.from(visibleIds)
+    .flatMap((visibleDyeOrderId) => nodeRecordStore.get(visibleDyeOrderId) ?? [])
+    .map((record) => cloneNodeRecord(record))
 }
 
 export function getDyeExecutionNodeRecord(
@@ -1977,20 +2084,25 @@ export function getDyeExecutionNodeRecord(
 
 export function listDyeReviewRecords(): DyeReviewRecord[] {
   syncDerivedWorkflow()
+  const visibleIds = getVisibleDyeWorkOrderIds()
   return Array.from(reviewRecordStore.values())
+    .filter((record) => visibleIds.has(record.dyeOrderId))
     .sort((left, right) => left.dyeOrderId.localeCompare(right.dyeOrderId))
     .map((record) => cloneReviewRecord(record))
 }
 
 export function getDyeReviewRecordByOrderId(dyeOrderId: string): DyeReviewRecord | undefined {
   syncDerivedWorkflow()
+  if (!getVisibleDyeWorkOrderIds().has(dyeOrderId)) return undefined
   const review = reviewRecordStore.get(dyeOrderId)
   return review ? cloneReviewRecord(review) : undefined
 }
 
 export function listDyeVatSchedules(): DyeVatSchedule[] {
   seedDomain()
+  const visibleIds = getVisibleDyeWorkOrderIds()
   return Array.from(vatScheduleStore.values())
+    .filter((schedule) => visibleIds.has(schedule.dyeOrderId))
     .sort((left, right) => left.plannedStartAt.localeCompare(right.plannedStartAt))
     .map((schedule) => cloneVatSchedule(schedule))
 }
@@ -2001,7 +2113,9 @@ export function listDyeVatOptions(factoryId: string) {
 
 export function listDyeFormulaRecords(): DyeFormulaRecord[] {
   seedDomain()
+  const visibleIds = getVisibleDyeWorkOrderIds()
   return Array.from(formulaStore.values())
+    .filter((record) => visibleIds.has(record.dyeOrderId))
     .sort((left, right) => left.formulaNo.localeCompare(right.formulaNo))
     .map((record) => cloneFormulaRecord(record))
 }

@@ -1,781 +1,139 @@
-import { productionOrders } from '../production-orders.ts'
+import type { ProductionOrder } from '../production-orders.ts'
 import { TEST_FACTORY_NAME } from '../factory-mock-data.ts'
 import {
+  listCuttingProductionOrdersWithFormalTechPack,
   listGeneratedOriginalCutOrderSourceRecords,
+  type GeneratedOriginalCutOrderPieceRow,
   type GeneratedOriginalCutOrderSourceRecord,
 } from './generated-original-cut-orders.ts'
 import type {
+  CuttingConfigStatus,
   CuttingMaterialLine,
   CuttingOrderProgressRecord,
+  CuttingPieceProgressLine,
+  CuttingPrintSlipStatus,
+  CuttingQrStatus,
+  CuttingReceiveStatus,
+  CuttingReviewStatus,
+  CuttingRiskFlag,
   CuttingSkuRequirementLine,
   CuttingUrgencyLevel,
 } from './types'
 
-const legacyCuttingOrderProgressSeedRecords: CuttingOrderProgressRecord[] = [
+interface CuttingDemoStageProfile {
+  stageLabel: string
+  reviewStatus: CuttingReviewStatus
+  configStatus: CuttingConfigStatus
+  receiveStatus: CuttingReceiveStatus
+  printSlipStatus: CuttingPrintSlipStatus
+  qrStatus: CuttingQrStatus
+  hasSpreadingRecord: boolean
+  hasInboundRecord: boolean
+  cutRatio: number
+  inboundRatio: number
+  riskFlags: CuttingRiskFlag[]
+  latestActionText: string
+  lastOperatorName: string
+}
+
+const DEMO_STAGE_PROFILES: CuttingDemoStageProfile[] = [
   {
-    id: 'cutting-op-001',
-    productionOrderId: 'PO-202603-081',
-    productionOrderNo: 'PO-202603-081',
-    actualOrderDate: '2026-03-09',
-    purchaseDate: '2026-03-08',
-    orderQty: 5200,
-    plannedShipDate: '2026-03-24',
-    spuCode: 'SPU-TSHIRT-081',
-    techPackSpuCode: 'SPU-2024-001',
-    styleCode: 'ST-081',
-    styleName: '春季休闲印花短袖 T 恤',
-    sellingPrice: 89,
-    urgencyLevel: 'AA',
-    cuttingTaskNo: 'CUT-TASK-260308-01',
-    assignedFactoryName: TEST_FACTORY_NAME,
-    cuttingStage: '待领料',
-    riskFlags: ['SHIP_URGENT', 'PARTIAL_CONFIG', 'REPLENISH_PENDING'],
-    lastPickupScanAt: '2026-03-21 09:12',
-    lastFieldUpdateAt: '2026-03-21 16:40',
-    lastOperatorName: '黄晓丹',
+    stageLabel: 'WMS 待来料',
+    reviewStatus: 'NOT_REQUIRED',
+    configStatus: 'NOT_CONFIGURED',
+    receiveStatus: 'NOT_RECEIVED',
+    printSlipStatus: 'NOT_PRINTED',
+    qrStatus: 'NOT_GENERATED',
     hasSpreadingRecord: false,
     hasInboundRecord: false,
-    skuRequirementLines: [
-      { skuCode: 'SKU-001-M-WHT', color: 'White', size: 'M', plannedQty: 1400 },
-      { skuCode: 'SKU-001-L-WHT', color: 'White', size: 'L', plannedQty: 1400 },
-      { skuCode: 'SKU-001-M-BLK', color: 'Black', size: 'M', plannedQty: 1200 },
-      { skuCode: 'SKU-001-L-BLK', color: 'Black', size: 'L', plannedQty: 1200 },
-    ],
-    materialLines: [
-      {
-        cutPieceOrderNo: 'CUT-260308-081-01',
-        materialSku: 'FAB-SKU-PRINT-001',
-        materialType: 'PRINT',
-        materialLabel: '主布面料',
-        color: 'White',
-        reviewStatus: 'PENDING',
-        configStatus: 'PARTIAL',
-        receiveStatus: 'PARTIAL',
-        configuredRollCount: 12,
-        configuredLength: 860,
-        receivedRollCount: 8,
-        receivedLength: 560,
-        printSlipStatus: 'PRINTED',
-        qrStatus: 'GENERATED',
-        skuScopeLines: [
-          { skuCode: 'SKU-001-M-WHT', color: 'White', size: 'M', plannedQty: 1400 },
-          { skuCode: 'SKU-001-L-WHT', color: 'White', size: 'L', plannedQty: 1400 },
-        ],
-        pieceProgressLines: [
-          {
-            skuCode: 'SKU-001-M-WHT',
-            color: 'White',
-            size: 'M',
-            partCode: 'pf-1-piece-1',
-            partName: '前片',
-            actualCutQty: 2520,
-            inboundQty: 2200,
-            feiPrintedQty: 2520,
-            latestUpdatedAt: '2026-03-21 15:10',
-            latestOperatorName: '黄晓丹',
-          },
-          {
-            skuCode: 'SKU-001-M-WHT',
-            color: 'White',
-            size: 'M',
-            partCode: 'pf-2-piece-1',
-            partName: '后片',
-            actualCutQty: 2800,
-            inboundQty: 2400,
-            feiPrintedQty: 2800,
-            latestUpdatedAt: '2026-03-21 15:22',
-            latestOperatorName: '黄晓丹',
-          },
-          {
-            skuCode: 'SKU-001-M-WHT',
-            color: 'White',
-            size: 'M',
-            partCode: 'pf-3-piece-1',
-            partName: '左袖拼接片',
-            actualCutQty: 2480,
-            inboundQty: 2280,
-            feiPrintedQty: 2480,
-            latestUpdatedAt: '2026-03-21 15:36',
-            latestOperatorName: '黄晓丹',
-          },
-          {
-            skuCode: 'SKU-001-L-WHT',
-            color: 'White',
-            size: 'L',
-            partCode: 'pf-1-piece-1',
-            partName: '前片',
-            actualCutQty: 2740,
-            inboundQty: 2500,
-            feiPrintedQty: 2740,
-            latestUpdatedAt: '2026-03-21 15:48',
-            latestOperatorName: '黄晓丹',
-          },
-          {
-            skuCode: 'SKU-001-L-WHT',
-            color: 'White',
-            size: 'L',
-            partCode: 'pf-2-piece-1',
-            partName: '后片',
-            actualCutQty: 2800,
-            inboundQty: 2580,
-            feiPrintedQty: 2800,
-            latestUpdatedAt: '2026-03-21 16:02',
-            latestOperatorName: '黄晓丹',
-          },
-          {
-            skuCode: 'SKU-001-L-WHT',
-            color: 'White',
-            size: 'L',
-            partCode: 'pf-3-piece-1',
-            partName: '左袖拼接片',
-            actualCutQty: 2620,
-            inboundQty: 2440,
-            feiPrintedQty: 2620,
-            latestUpdatedAt: '2026-03-21 16:14',
-            latestOperatorName: '黄晓丹',
-          },
-        ],
-        issueFlags: ['PARTIAL_CONFIG', 'REPLENISH_PENDING'],
-        latestActionText: '已完成首批领料扫码，待补齐剩余 4 卷。',
-      },
-      {
-        cutPieceOrderNo: 'CUT-260308-081-02',
-        materialSku: 'FAB-SKU-LINING-001',
-        materialType: 'LINING',
-        materialLabel: '领口里布',
-        color: 'White',
-        reviewStatus: 'APPROVED',
-        configStatus: 'CONFIGURED',
-        receiveStatus: 'RECEIVED',
-        configuredRollCount: 6,
-        configuredLength: 410,
-        receivedRollCount: 6,
-        receivedLength: 410,
-        printSlipStatus: 'PRINTED',
-        qrStatus: 'GENERATED',
-        issueFlags: [],
-        latestActionText: '里布已领料完成，待配套主布。',
-      },
-      {
-        cutPieceOrderNo: 'CUT-260308-081-03',
-        materialSku: 'FAB-SKU-SOLID-033',
-        materialType: 'SOLID',
-        materialLabel: '领口拼接布',
-        color: 'Black',
-        reviewStatus: 'APPROVED',
-        configStatus: 'CONFIGURED',
-        receiveStatus: 'RECEIVED',
-        configuredRollCount: 2,
-        configuredLength: 165,
-        receivedRollCount: 2,
-        receivedLength: 165,
-        printSlipStatus: 'PRINTED',
-        qrStatus: 'GENERATED',
-        skuScopeLines: [
-          { skuCode: 'SKU-001-M-BLK', color: 'Black', size: 'M', plannedQty: 1200 },
-          { skuCode: 'SKU-001-L-BLK', color: 'Black', size: 'L', plannedQty: 1200 },
-        ],
-        pieceProgressLines: [
-          {
-            skuCode: 'SKU-001-M-BLK',
-            color: 'Black',
-            size: 'M',
-            partCode: 'pf-1-piece-1',
-            partName: '前片',
-            actualCutQty: 560,
-            inboundQty: 220,
-            feiPrintedQty: 560,
-            latestUpdatedAt: '2026-03-21 16:20',
-            latestOperatorName: '黄晓丹',
-          },
-          {
-            skuCode: 'SKU-001-M-BLK',
-            color: 'Black',
-            size: 'M',
-            partCode: 'pf-2-piece-1',
-            partName: '后片',
-            actualCutQty: 620,
-            inboundQty: 260,
-            feiPrintedQty: 620,
-            latestUpdatedAt: '2026-03-21 16:26',
-            latestOperatorName: '黄晓丹',
-          },
-          {
-            skuCode: 'SKU-001-L-BLK',
-            color: 'Black',
-            size: 'L',
-            partCode: 'pf-1-piece-1',
-            partName: '前片',
-            actualCutQty: 580,
-            inboundQty: 240,
-            feiPrintedQty: 580,
-            latestUpdatedAt: '2026-03-21 16:32',
-            latestOperatorName: '黄晓丹',
-          },
-          {
-            skuCode: 'SKU-001-L-BLK',
-            color: 'Black',
-            size: 'L',
-            partCode: 'pf-2-piece-1',
-            partName: '后片',
-            actualCutQty: 640,
-            inboundQty: 280,
-            feiPrintedQty: 640,
-            latestUpdatedAt: '2026-03-21 16:38',
-            latestOperatorName: '黄晓丹',
-          },
-        ],
-        issueFlags: [],
-        latestActionText: '领口拼接布已齐料，可和已到位的裁片单一起安排裁床。',
-      },
-    ],
-  },
-  {
-    id: 'cutting-op-002',
-    productionOrderId: 'PO-202603-082',
-    productionOrderNo: 'PO-202603-082',
-    actualOrderDate: '2026-03-10',
-    purchaseDate: '2026-03-09',
-    orderQty: 3600,
-    plannedShipDate: '2026-03-28',
-    spuCode: 'SPU-HOODIE-082',
-    styleCode: 'ST-082',
-    styleName: '连帽拉链卫衣套装',
-    sellingPrice: 139,
-    urgencyLevel: 'A',
-    cuttingTaskNo: 'CUT-TASK-260309-04',
-    assignedFactoryName: TEST_FACTORY_NAME,
-    cuttingStage: '裁片中',
-    riskFlags: ['SHIP_URGENT'],
-    lastPickupScanAt: '2026-03-21 11:22',
-    lastFieldUpdateAt: '2026-03-22 08:15',
-    lastOperatorName: '陈志强',
-    hasSpreadingRecord: true,
-    hasInboundRecord: false,
-    materialLines: [
-      {
-        cutPieceOrderNo: 'CUT-260309-082-01',
-        materialSku: 'FAB-DYE-4501',
-        materialType: 'DYE',
-        materialLabel: '主布面料',
-        color: '雾霾灰',
-        reviewStatus: 'APPROVED',
-        configStatus: 'CONFIGURED',
-        receiveStatus: 'RECEIVED',
-        configuredRollCount: 10,
-        configuredLength: 720,
-        receivedRollCount: 10,
-        receivedLength: 720,
-        printSlipStatus: 'PRINTED',
-        qrStatus: 'GENERATED',
-        issueFlags: [],
-        latestActionText: '已完成铺布，进入裁剪执行。',
-      },
-      {
-        cutPieceOrderNo: 'CUT-260309-082-02',
-        materialSku: 'FAB-LINING-2106',
-        materialType: 'LINING',
-        materialLabel: '侧缝里布',
-        color: '深黑',
-        reviewStatus: 'APPROVED',
-        configStatus: 'CONFIGURED',
-        receiveStatus: 'RECEIVED',
-        configuredRollCount: 4,
-        configuredLength: 260,
-        receivedRollCount: 4,
-        receivedLength: 260,
-        printSlipStatus: 'PRINTED',
-        qrStatus: 'GENERATED',
-        issueFlags: [],
-        latestActionText: '里布已随主布同步入线。',
-      },
-    ],
-  },
-  {
-    id: 'cutting-op-003',
-    productionOrderId: 'PO-202603-083',
-    productionOrderNo: 'PO-202603-083',
-    actualOrderDate: '2026-03-11',
-    purchaseDate: '2026-03-10',
-    orderQty: 4100,
-    plannedShipDate: '2026-03-21',
-    spuCode: 'SPU-DRESS-083',
-    techPackSpuCode: 'SPU-2024-003',
-    styleCode: 'ST-083',
-    styleName: '春季定位印花连衣裙',
-    sellingPrice: 199,
-    urgencyLevel: 'B',
-    cuttingTaskNo: 'CUT-TASK-260310-07',
-    assignedFactoryName: TEST_FACTORY_NAME,
-    cuttingStage: '待入仓',
-    riskFlags: ['RECEIVE_DIFF', 'INBOUND_PENDING'],
-    lastPickupScanAt: '2026-03-20 14:36',
-    lastFieldUpdateAt: '2026-03-21 18:05',
-    lastOperatorName: '李智伟',
-    hasSpreadingRecord: true,
-    hasInboundRecord: false,
-    skuRequirementLines: [
-      { skuCode: 'SKU-003-S-RED', color: 'Red', size: 'S', plannedQty: 1200 },
-      { skuCode: 'SKU-003-M-RED', color: 'Red', size: 'M', plannedQty: 1500 },
-      { skuCode: 'SKU-003-L-RED', color: 'Red', size: 'L', plannedQty: 1400 },
-    ],
-    materialLines: [
-      {
-        cutPieceOrderNo: 'CUT-260310-083-01',
-        materialSku: 'FAB-PRINT-1803',
-        materialType: 'PRINT',
-        materialLabel: '定位印主布',
-        color: 'Red',
-        reviewStatus: 'APPROVED',
-        configStatus: 'CONFIGURED',
-        receiveStatus: 'PARTIAL',
-        configuredRollCount: 9,
-        configuredLength: 640,
-        receivedRollCount: 7,
-        receivedLength: 500,
-        printSlipStatus: 'PRINTED',
-        qrStatus: 'GENERATED',
-        batchOccupancyStatus: 'IN_BATCH',
-        mergeBatchNo: 'MB-260323-01',
-        skuScopeLines: [
-          { skuCode: 'SKU-003-S-RED', color: 'Red', size: 'S', plannedQty: 1200 },
-          { skuCode: 'SKU-003-M-RED', color: 'Red', size: 'M', plannedQty: 1500 },
-          { skuCode: 'SKU-003-L-RED', color: 'Red', size: 'L', plannedQty: 1400 },
-        ],
-        pieceProgressLines: [
-          {
-            skuCode: 'SKU-003-S-RED',
-            color: 'Red',
-            size: 'S',
-            partName: '裙身主片',
-            actualCutQty: 4800,
-            inboundQty: 4200,
-            feiPrintedQty: 4800,
-            latestUpdatedAt: '2026-03-21 16:48',
-            latestOperatorName: '李智伟',
-          },
-          {
-            skuCode: 'SKU-003-M-RED',
-            color: 'Red',
-            size: 'M',
-            partName: '裙身主片',
-            actualCutQty: 6000,
-            inboundQty: 5480,
-            feiPrintedQty: 6000,
-            latestUpdatedAt: '2026-03-21 17:02',
-            latestOperatorName: '李智伟',
-          },
-          {
-            skuCode: 'SKU-003-L-RED',
-            color: 'Red',
-            size: 'L',
-            partName: '裙身主片',
-            actualCutQty: 5600,
-            inboundQty: 5060,
-            feiPrintedQty: 5600,
-            latestUpdatedAt: '2026-03-21 17:18',
-            latestOperatorName: '李智伟',
-          },
-        ],
-        issueFlags: ['RECEIVE_DIFF'],
-        latestActionText: '现场回写少收 2 卷，待仓库复核。',
-      },
-      {
-        cutPieceOrderNo: 'CUT-260310-083-02',
-        materialSku: 'FAB-SOLID-5602',
-        materialType: 'SOLID',
-        materialLabel: '门襟拼色布',
-        color: '墨黑',
-        reviewStatus: 'APPROVED',
-        configStatus: 'CONFIGURED',
-        receiveStatus: 'RECEIVED',
-        configuredRollCount: 3,
-        configuredLength: 180,
-        receivedRollCount: 3,
-        receivedLength: 180,
-        printSlipStatus: 'PRINTED',
-        qrStatus: 'GENERATED',
-        issueFlags: ['INBOUND_PENDING'],
-        latestActionText: '已到场待入仓，仓管尚未回写入仓。',
-      },
-    ],
-  },
-  {
-    id: 'cutting-op-004',
-    productionOrderId: 'PO-202603-084',
-    productionOrderNo: 'PO-202603-084',
-    actualOrderDate: '2026-03-12',
-    purchaseDate: '2026-03-11',
-    orderQty: 2800,
-    plannedShipDate: '2026-04-05',
-    spuCode: 'SPU-TEE-084',
-    styleCode: 'ST-084',
-    styleName: '针织撞色短袖上衣',
-    sellingPrice: 79,
-    urgencyLevel: 'C',
-    cuttingTaskNo: 'CUT-TASK-260311-02',
-    assignedFactoryName: TEST_FACTORY_NAME,
-    cuttingStage: '待配料',
-    riskFlags: ['PARTIAL_CONFIG'],
-    lastPickupScanAt: '',
-    lastFieldUpdateAt: '2026-03-21 12:28',
-    lastOperatorName: '赵思敏',
-    hasSpreadingRecord: false,
-    hasInboundRecord: false,
-    materialLines: [
-      {
-        cutPieceOrderNo: 'CUT-260311-084-01',
-        materialSku: 'FAB-DYE-3309',
-        materialType: 'DYE',
-        materialLabel: '针织主布面料',
-        color: '珊瑚粉',
-        reviewStatus: 'PARTIAL',
-        configStatus: 'CONFIGURED',
-        receiveStatus: 'NOT_RECEIVED',
-        configuredRollCount: 4,
-        configuredLength: 280,
-        receivedRollCount: 0,
-        receivedLength: 0,
-        printSlipStatus: 'PRINTED',
-        qrStatus: 'NOT_GENERATED',
-        issueFlags: [],
-        latestActionText: '主布已经配好，但仓库还没领料。',
-      },
-      {
-        cutPieceOrderNo: 'CUT-260311-084-02',
-        materialSku: 'FAB-LINING-9201',
-        materialType: 'LINING',
-        materialLabel: '弹力网布里料',
-        color: '乳白',
-        reviewStatus: 'APPROVED',
-        configStatus: 'CONFIGURED',
-        receiveStatus: 'PARTIAL',
-        configuredRollCount: 2,
-        configuredLength: 120,
-        receivedRollCount: 1,
-        receivedLength: 60,
-        printSlipStatus: 'PRINTED',
-        qrStatus: 'GENERATED',
-        issueFlags: [],
-        latestActionText: '辅料只领到一部分，待仓库补齐。',
-      },
-    ],
-  },
-  {
-    id: 'cutting-op-005',
-    productionOrderId: 'PO-202603-085',
-    productionOrderNo: 'PO-202603-085',
-    actualOrderDate: '2026-03-13',
-    purchaseDate: '2026-03-12',
-    orderQty: 4600,
-    plannedShipDate: '2026-04-10',
-    spuCode: 'SPU-JACKET-085',
-    styleCode: 'ST-085',
-    styleName: '户外轻量夹克',
-    sellingPrice: 249,
-    urgencyLevel: 'D',
-    cuttingTaskNo: 'CUT-TASK-260312-09',
-    assignedFactoryName: TEST_FACTORY_NAME,
-    cuttingStage: '配料中',
-    riskFlags: ['REPLENISH_PENDING'],
-    lastPickupScanAt: '2026-03-19 10:44',
-    lastFieldUpdateAt: '2026-03-21 09:58',
-    lastOperatorName: '王瑞秋',
-    hasSpreadingRecord: false,
-    hasInboundRecord: false,
-    materialLines: [
-      {
-        cutPieceOrderNo: 'CUT-260312-085-01',
-        materialSku: 'FAB-SOLID-7711',
-        materialType: 'SOLID',
-        materialLabel: '素色斜纹主布',
-        color: '军绿',
-        reviewStatus: 'APPROVED',
-        configStatus: 'PARTIAL',
-        receiveStatus: 'NOT_RECEIVED',
-        configuredRollCount: 5,
-        configuredLength: 360,
-        receivedRollCount: 0,
-        receivedLength: 0,
-        printSlipStatus: 'PRINTED',
-        qrStatus: 'GENERATED',
-        issueFlags: ['REPLENISH_PENDING'],
-        latestActionText: '现场反馈门幅不足，待补料确认。',
-      },
-      {
-        cutPieceOrderNo: 'CUT-260312-085-02',
-        materialSku: 'FAB-LINING-7712',
-        materialType: 'LINING',
-        materialLabel: '内袋布',
-        color: '黑色',
-        reviewStatus: 'APPROVED',
-        configStatus: 'CONFIGURED',
-        receiveStatus: 'PARTIAL',
-        configuredRollCount: 2,
-        configuredLength: 120,
-        receivedRollCount: 1,
-        receivedLength: 60,
-        printSlipStatus: 'PRINTED',
-        qrStatus: 'GENERATED',
-        issueFlags: ['RECEIVE_DIFF'],
-        latestActionText: '辅料领料对象数量和现场记录不一致，待仓库核对。',
-      },
-    ],
-  },
-  {
-    id: 'cutting-op-006',
-    productionOrderId: 'PO-202603-086',
-    productionOrderNo: 'PO-202603-086',
-    actualOrderDate: '2026-03-14',
-    purchaseDate: '2026-03-13',
-    orderQty: 3000,
-    plannedShipDate: '2026-03-19',
-    spuCode: 'SPU-SHIRT-086',
-    styleCode: 'ST-086',
-    styleName: '商务修身长袖衬衫',
-    sellingPrice: 169,
-    urgencyLevel: 'A',
-    cuttingTaskNo: 'CUT-TASK-260313-03',
-    assignedFactoryName: TEST_FACTORY_NAME,
-    cuttingStage: '已完成',
+    cutRatio: 0,
+    inboundRatio: 0,
     riskFlags: [],
-    lastPickupScanAt: '2026-03-22 09:05',
-    lastFieldUpdateAt: '2026-03-22 09:18',
-    lastOperatorName: '孙家铭',
-    hasSpreadingRecord: true,
-    hasInboundRecord: false,
-    materialLines: [
-      {
-        cutPieceOrderNo: 'CUT-260313-086-01',
-        materialSku: 'FAB-PRINT-6672',
-        materialType: 'PRINT',
-        materialLabel: '满印主布',
-        color: '蓝白印花',
-        reviewStatus: 'APPROVED',
-        configStatus: 'CONFIGURED',
-        receiveStatus: 'RECEIVED',
-        configuredRollCount: 7,
-        configuredLength: 510,
-        receivedRollCount: 7,
-        receivedLength: 510,
-        printSlipStatus: 'PRINTED',
-        qrStatus: 'GENERATED',
-        issueFlags: ['INBOUND_PENDING'],
-        latestActionText: '领料完成，待接收方回写入仓。',
-      },
-      {
-        cutPieceOrderNo: 'CUT-260313-086-02',
-        materialSku: 'FAB-LINING-6678',
-        materialType: 'LINING',
-        materialLabel: '下摆辅布',
-        color: '纯白',
-        reviewStatus: 'APPROVED',
-        configStatus: 'CONFIGURED',
-        receiveStatus: 'RECEIVED',
-        configuredRollCount: 2,
-        configuredLength: 120,
-        receivedRollCount: 2,
-        receivedLength: 120,
-        printSlipStatus: 'PRINTED',
-        qrStatus: 'GENERATED',
-        issueFlags: [],
-        latestActionText: '配套辅布已全部领料完成。',
-      },
-    ],
+    latestActionText: '等待 WMS 完成来料接收后进入裁床待加工仓。',
+    lastOperatorName: 'WMS',
   },
   {
-    id: 'cutting-op-007',
-    productionOrderId: 'PO-202603-087',
-    productionOrderNo: 'PO-202603-087',
-    actualOrderDate: '2026-03-15',
-    purchaseDate: '2026-03-14',
-    orderQty: 2400,
-    plannedShipDate: '2026-03-30',
-    spuCode: 'SPU-TSHIRT-081',
-    techPackSpuCode: 'SPU-2024-001',
-    styleCode: 'ST-081',
-    styleName: '春季休闲印花短袖 T 恤',
-    sellingPrice: 89,
-    urgencyLevel: 'A',
-    cuttingTaskNo: 'CUT-TASK-260314-05',
-    assignedFactoryName: TEST_FACTORY_NAME,
-    cuttingStage: '待裁床安排',
-    riskFlags: ['SHIP_URGENT'],
-    lastPickupScanAt: '2026-03-23 09:46',
-    lastFieldUpdateAt: '2026-03-23 10:12',
-    lastOperatorName: '谢文静',
+    stageLabel: '待排唛架方案',
+    reviewStatus: 'APPROVED',
+    configStatus: 'CONFIGURED',
+    receiveStatus: 'RECEIVED',
+    printSlipStatus: 'NOT_PRINTED',
+    qrStatus: 'GENERATED',
     hasSpreadingRecord: false,
     hasInboundRecord: false,
-    skuRequirementLines: [
-      { skuCode: '', color: '玫瑰红', size: 'M', plannedQty: 1200 },
-      { skuCode: '', color: '玫瑰红', size: 'L', plannedQty: 1200 },
-    ],
-    materialLines: [
-      {
-        cutPieceOrderNo: 'CUT-260314-087-01',
-        materialSku: 'FAB-SKU-PRINT-001',
-        materialType: 'PRINT',
-        materialLabel: '主布面料',
-        color: '玫瑰红',
-        reviewStatus: 'APPROVED',
-        configStatus: 'CONFIGURED',
-        receiveStatus: 'RECEIVED',
-        configuredRollCount: 7,
-        configuredLength: 480,
-        receivedRollCount: 7,
-        receivedLength: 480,
-        printSlipStatus: 'PRINTED',
-        qrStatus: 'GENERATED',
-        skuScopeLines: [
-          { skuCode: '', color: '玫瑰红', size: 'M', plannedQty: 1200 },
-          { skuCode: '', color: '玫瑰红', size: 'L', plannedQty: 1200 },
-        ],
-        pieceProgressLines: [],
-        issueFlags: [],
-        latestActionText: '主布已配置并完成领料，可进入本次裁床安排。',
-      },
-      {
-        cutPieceOrderNo: 'CUT-260314-087-02',
-        materialSku: 'FAB-SKU-LINING-001',
-        materialType: 'LINING',
-        materialLabel: '领口里布',
-        color: '奶白',
-        reviewStatus: 'APPROVED',
-        configStatus: 'CONFIGURED',
-        receiveStatus: 'RECEIVED',
-        configuredRollCount: 3,
-        configuredLength: 210,
-        receivedRollCount: 3,
-        receivedLength: 210,
-        printSlipStatus: 'PRINTED',
-        qrStatus: 'GENERATED',
-        issueFlags: [],
-        latestActionText: '领口里布已到位，整单可作为本次裁床安排对象。',
-      },
-      {
-        cutPieceOrderNo: 'CUT-260314-087-03',
-        materialSku: 'FAB-SKU-SOLID-033',
-        materialType: 'SOLID',
-        materialLabel: '领口拼接布',
-        color: '玫瑰红',
-        reviewStatus: 'APPROVED',
-        configStatus: 'CONFIGURED',
-        receiveStatus: 'RECEIVED',
-        configuredRollCount: 2,
-        configuredLength: 160,
-        receivedRollCount: 2,
-        receivedLength: 160,
-        printSlipStatus: 'PRINTED',
-        qrStatus: 'GENERATED',
-        issueFlags: [],
-        latestActionText: '领口拼接布也已到位，这一单可以整单排裁。',
-      },
-    ],
+    cutRatio: 0,
+    inboundRatio: 0,
+    riskFlags: [],
+    latestActionText: 'WMS 来料已进入裁床待加工仓，可新建排唛架方案。',
+    lastOperatorName: 'WMS',
   },
   {
-    id: 'cutting-op-008',
-    productionOrderId: 'PO-202603-088',
-    productionOrderNo: 'PO-202603-088',
-    actualOrderDate: '2026-03-16',
-    purchaseDate: '2026-03-15',
-    orderQty: 1800,
-    plannedShipDate: '2026-04-02',
-    spuCode: 'SPU-TSHIRT-081',
-    styleCode: 'ST-081',
-    styleName: '春季休闲印花短袖 T 恤',
-    sellingPrice: 89,
-    urgencyLevel: 'B',
-    cuttingTaskNo: 'CUT-TASK-260315-06',
-    assignedFactoryName: TEST_FACTORY_NAME,
-    cuttingStage: '裁片中',
-    riskFlags: ['SHIP_URGENT'],
-    lastPickupScanAt: '2026-03-23 11:08',
-    lastFieldUpdateAt: '2026-03-23 11:36',
-    lastOperatorName: '黄启航',
+    stageLabel: '待铺布',
+    reviewStatus: 'APPROVED',
+    configStatus: 'CONFIGURED',
+    receiveStatus: 'RECEIVED',
+    printSlipStatus: 'NOT_PRINTED',
+    qrStatus: 'GENERATED',
+    hasSpreadingRecord: false,
+    hasInboundRecord: false,
+    cutRatio: 0,
+    inboundRatio: 0,
+    riskFlags: [],
+    latestActionText: '排唛架方案已生成，等待选择唛架床次并安排裁床。',
+    lastOperatorName: '裁床计划员',
+  },
+  {
+    stageLabel: '铺布中',
+    reviewStatus: 'APPROVED',
+    configStatus: 'CONFIGURED',
+    receiveStatus: 'RECEIVED',
+    printSlipStatus: 'NOT_PRINTED',
+    qrStatus: 'GENERATED',
     hasSpreadingRecord: true,
     hasInboundRecord: false,
-    materialLines: [
-      {
-        cutPieceOrderNo: 'CUT-260315-088-01',
-        materialSku: 'FAB-SKU-PRINT-001',
-        materialType: 'PRINT',
-        materialLabel: '主布面料',
-        color: '玫瑰红',
-        reviewStatus: 'APPROVED',
-        configStatus: 'CONFIGURED',
-        receiveStatus: 'RECEIVED',
-        configuredRollCount: 4,
-        configuredLength: 260,
-        receivedRollCount: 4,
-        receivedLength: 260,
-        printSlipStatus: 'PRINTED',
-        qrStatus: 'GENERATED',
-        issueFlags: [],
-        latestActionText: '这一单已经开始裁了，主布不再进入新的合并裁剪选择。',
-      },
-      {
-        cutPieceOrderNo: 'CUT-260315-088-02',
-        materialSku: 'FAB-SKU-LINING-001',
-        materialType: 'LINING',
-        materialLabel: '领口里布',
-        color: '玫瑰红',
-        reviewStatus: 'APPROVED',
-        configStatus: 'CONFIGURED',
-        receiveStatus: 'RECEIVED',
-        configuredRollCount: 2,
-        configuredLength: 120,
-        receivedRollCount: 2,
-        receivedLength: 120,
-        printSlipStatus: 'PRINTED',
-        qrStatus: 'GENERATED',
-        issueFlags: [],
-        latestActionText: '领口里布已用在当前裁床，不能再次加入新的裁剪批次。',
-      },
-      {
-        cutPieceOrderNo: 'CUT-260315-088-03',
-        materialSku: 'FAB-SKU-SOLID-033',
-        materialType: 'SOLID',
-        materialLabel: '领口拼接布',
-        color: '深炭黑',
-        reviewStatus: 'APPROVED',
-        configStatus: 'CONFIGURED',
-        receiveStatus: 'RECEIVED',
-        configuredRollCount: 1,
-        configuredLength: 60,
-        receivedRollCount: 1,
-        receivedLength: 60,
-        printSlipStatus: 'PRINTED',
-        qrStatus: 'GENERATED',
-        batchOccupancyStatus: 'IN_BATCH',
-        mergeBatchNo: 'MB-260323-02',
-        issueFlags: [],
-        latestActionText: '该原始裁片单已进入合并裁剪批次，不可重复选择。',
-      },
-    ],
+    cutRatio: 0.55,
+    inboundRatio: 0,
+    riskFlags: [],
+    latestActionText: '已按唛架床次开始铺布，裁床执行中。',
+    lastOperatorName: '裁床 A 组',
+  },
+  {
+    stageLabel: '待打印菲票',
+    reviewStatus: 'APPROVED',
+    configStatus: 'CONFIGURED',
+    receiveStatus: 'RECEIVED',
+    printSlipStatus: 'NOT_PRINTED',
+    qrStatus: 'GENERATED',
+    hasSpreadingRecord: true,
+    hasInboundRecord: false,
+    cutRatio: 1,
+    inboundRatio: 0,
+    riskFlags: [],
+    latestActionText: '铺布裁剪已完成，等待按裁片结果打印菲票。',
+    lastOperatorName: '裁床 A 组',
+  },
+  {
+    stageLabel: '待交出仓',
+    reviewStatus: 'APPROVED',
+    configStatus: 'CONFIGURED',
+    receiveStatus: 'RECEIVED',
+    printSlipStatus: 'PRINTED',
+    qrStatus: 'GENERATED',
+    hasSpreadingRecord: true,
+    hasInboundRecord: true,
+    cutRatio: 1,
+    inboundRatio: 1,
+    riskFlags: [],
+    latestActionText: '菲票已打印，裁片已进入待交出仓。',
+    lastOperatorName: '裁床仓管',
   },
 ]
 
-function unique<T>(values: T[]): T[] {
-  return Array.from(new Set(values))
+function pickProfile(orderIndex: number): CuttingDemoStageProfile {
+  return DEMO_STAGE_PROFILES[orderIndex % DEMO_STAGE_PROFILES.length]
 }
 
-function normalizeLegacyText(value: string | null | undefined): string {
-  return String(value || '').trim().toLowerCase()
-}
-
-function makeLegacyMaterialKey(input: {
-  materialSku?: string
-  materialType?: string
-  materialLabel?: string
-}): string {
-  return [
-    normalizeLegacyText(input.materialSku),
-    normalizeLegacyText(input.materialType),
-    normalizeLegacyText(input.materialLabel),
-  ].join('::')
-}
-
-function buildSkuRequirementLines(order: (typeof productionOrders)[number]): CuttingSkuRequirementLine[] {
+function buildSkuRequirementLines(order: ProductionOrder): CuttingSkuRequirementLine[] {
   return order.demandSnapshot.skuLines.map((line) => ({
     skuCode: line.skuCode,
     color: line.color,
@@ -792,138 +150,127 @@ function deriveUrgencyLevel(requiredDeliveryDate: string | null): CuttingUrgency
   return 'C'
 }
 
+function estimateLength(requiredQty: number): number {
+  return Number(Math.max(requiredQty * 0.42, 1).toFixed(2))
+}
+
+function estimateRollCount(requiredQty: number): number {
+  return Math.max(Math.ceil(requiredQty / 1800), 1)
+}
+
+function buildPieceProgressLines(
+  generated: GeneratedOriginalCutOrderSourceRecord,
+  profile: CuttingDemoStageProfile,
+): CuttingPieceProgressLine[] | undefined {
+  if (!profile.hasSpreadingRecord) return undefined
+  const pieces = generated.pieceRows.length
+    ? generated.pieceRows
+    : [{ partCode: 'piece-main', partName: '裁片', pieceCountPerUnit: 1 } as GeneratedOriginalCutOrderPieceRow]
+
+  return generated.skuScopeLines.flatMap((skuLine) =>
+    pieces.map((piece) => {
+      const plannedPieceQty = Math.round(skuLine.plannedQty * Math.max(piece.pieceCountPerUnit, 1))
+      const actualCutQty = Math.round(plannedPieceQty * profile.cutRatio)
+      return {
+        skuCode: skuLine.skuCode,
+        color: skuLine.color,
+        size: skuLine.size,
+        partCode: piece.partCode,
+        partName: piece.partName,
+        actualCutQty,
+        inboundQty: Math.round(actualCutQty * profile.inboundRatio),
+        feiPrintedQty: profile.printSlipStatus === 'PRINTED' ? actualCutQty : 0,
+        latestUpdatedAt: '2026-03-18 16:00',
+        latestOperatorName: profile.lastOperatorName,
+      }
+    }),
+  )
+}
+
 function buildProjectedMaterialLine(
   generated: GeneratedOriginalCutOrderSourceRecord,
-  legacyLine: CuttingMaterialLine | undefined,
+  profile: CuttingDemoStageProfile,
 ): CuttingMaterialLine {
+  const estimatedLength = estimateLength(generated.requiredQty)
+  const rollCount = estimateRollCount(generated.requiredQty)
+  const isReceived = profile.receiveStatus === 'RECEIVED'
+
   return {
     originalCutOrderId: generated.originalCutOrderId,
     originalCutOrderNo: generated.originalCutOrderNo,
     cutPieceOrderNo: generated.originalCutOrderNo,
-    mergeBatchId: generated.mergeBatchId || legacyLine?.mergeBatchId,
-    mergeBatchNo: generated.mergeBatchNo || legacyLine?.mergeBatchNo,
+    mergeBatchId: generated.mergeBatchId,
+    mergeBatchNo: generated.mergeBatchNo,
     materialSku: generated.materialSku,
     materialType: generated.materialType,
     materialLabel: generated.materialLabel,
-    color: legacyLine?.color || generated.colorScope[0] || '待补',
+    color: generated.colorScope[0] || '待补',
     materialCategory: generated.materialCategory,
-    reviewStatus: legacyLine?.reviewStatus || 'NOT_REQUIRED',
-    configStatus: legacyLine?.configStatus || 'NOT_CONFIGURED',
-    receiveStatus: legacyLine?.receiveStatus || 'NOT_RECEIVED',
-    configuredRollCount: legacyLine?.configuredRollCount || 0,
-    configuredLength: legacyLine?.configuredLength || 0,
-    receivedRollCount: legacyLine?.receivedRollCount || 0,
-    receivedLength: legacyLine?.receivedLength || 0,
-    printSlipStatus: legacyLine?.printSlipStatus || 'NOT_PRINTED',
-    qrStatus: legacyLine?.qrStatus || 'NOT_GENERATED',
-    batchOccupancyStatus: legacyLine?.batchOccupancyStatus || (generated.mergeBatchNo ? 'IN_BATCH' : 'AVAILABLE'),
+    reviewStatus: profile.reviewStatus,
+    configStatus: profile.configStatus,
+    receiveStatus: profile.receiveStatus,
+    configuredRollCount: profile.configStatus === 'NOT_CONFIGURED' ? 0 : rollCount,
+    configuredLength: profile.configStatus === 'NOT_CONFIGURED' ? 0 : estimatedLength,
+    receivedRollCount: isReceived ? rollCount : 0,
+    receivedLength: isReceived ? estimatedLength : 0,
+    printSlipStatus: profile.printSlipStatus,
+    qrStatus: profile.qrStatus,
+    batchOccupancyStatus: generated.mergeBatchNo ? 'IN_BATCH' : 'AVAILABLE',
     skuScopeLines: generated.skuScopeLines.map((line) => ({ ...line })),
-    pieceProgressLines: legacyLine?.pieceProgressLines ? legacyLine.pieceProgressLines.map((line) => ({ ...line })) : undefined,
-    issueFlags: [...(legacyLine?.issueFlags || [])],
-    latestActionText: legacyLine?.latestActionText || `原始裁片单 ${generated.originalCutOrderNo} 已从上游链生成，待进入裁片准备。`,
+    pieceProgressLines: buildPieceProgressLines(generated, profile),
+    issueFlags: [...profile.riskFlags],
+    latestActionText: profile.latestActionText,
   }
 }
 
 function buildProjectedRecord(
-  order: (typeof productionOrders)[number],
+  order: ProductionOrder,
   generatedOriginals: GeneratedOriginalCutOrderSourceRecord[],
+  orderIndex: number,
 ): CuttingOrderProgressRecord {
-  const legacyRecord = legacyCuttingOrderProgressSeedRecords.find((record) => record.productionOrderNo === order.productionOrderId)
-  const legacyLines = legacyRecord?.materialLines || []
-  const legacyLineMap = new Map(
-    legacyLines.map((line) => [
-      makeLegacyMaterialKey({
-        materialSku: line.materialSku,
-        materialType: line.materialType,
-        materialLabel: line.materialLabel,
-      }),
-      line,
-    ] as const),
-  )
-  const usedLegacyIndexes = new Set<number>()
-  const takeLegacyLine = (generated: GeneratedOriginalCutOrderSourceRecord): CuttingMaterialLine | undefined => {
-    const exact = legacyLineMap.get(
-      makeLegacyMaterialKey({
-        materialSku: generated.materialSku,
-        materialType: generated.materialType,
-        materialLabel: generated.materialLabel,
-      }),
-    )
-    if (exact) {
-      const exactIndex = legacyLines.findIndex((line) => line === exact)
-      if (exactIndex >= 0) usedLegacyIndexes.add(exactIndex)
-      return exact
-    }
-
-    const fallbackIndex = legacyLines.findIndex((line, index) => {
-      if (usedLegacyIndexes.has(index)) return false
-      if (normalizeLegacyText(line.materialType) !== normalizeLegacyText(generated.materialType)) return false
-      const legacyLabel = normalizeLegacyText(line.materialLabel)
-      const generatedLabel = normalizeLegacyText(generated.materialLabel)
-      const legacySku = normalizeLegacyText(line.materialSku)
-      const generatedSku = normalizeLegacyText(generated.materialSku)
-      return (
-        !legacyLabel ||
-        !generatedLabel ||
-        legacyLabel.includes(generatedLabel) ||
-        generatedLabel.includes(legacyLabel) ||
-        legacySku === generatedSku
-      )
-    })
-
-    if (fallbackIndex >= 0) {
-      usedLegacyIndexes.add(fallbackIndex)
-      return legacyLines[fallbackIndex]
-    }
-
-    const orderedFallbackIndex = legacyLines.findIndex((_, index) => !usedLegacyIndexes.has(index))
-    if (orderedFallbackIndex >= 0) {
-      usedLegacyIndexes.add(orderedFallbackIndex)
-      return legacyLines[orderedFallbackIndex]
-    }
-
-    return undefined
-  }
+  const profile = pickProfile(orderIndex)
   const skuRequirementLines = buildSkuRequirementLines(order)
-  const materialLines = generatedOriginals.map((generated) => buildProjectedMaterialLine(generated, takeLegacyLine(generated)))
+  const materialLines = generatedOriginals.map((generated) => buildProjectedMaterialLine(generated, profile))
+  const updatedAt = order.updatedAt || order.createdAt
 
   return {
-    id: legacyRecord?.id || `cutting-op:${order.productionOrderId}`,
+    id: `cutting-op:${order.productionOrderId}`,
     productionOrderId: order.productionOrderId,
     productionOrderNo: order.productionOrderId,
-    actualOrderDate: legacyRecord?.actualOrderDate || order.createdAt.slice(0, 10),
-    purchaseDate: legacyRecord?.purchaseDate || order.createdAt.slice(0, 10),
+    actualOrderDate: order.createdAt.slice(0, 10),
+    purchaseDate: order.createdAt.slice(0, 10),
     orderQty: skuRequirementLines.reduce((sum, line) => sum + line.plannedQty, 0),
-    plannedShipDate: order.demandSnapshot.requiredDeliveryDate || legacyRecord?.plannedShipDate || '',
+    plannedShipDate: order.demandSnapshot.requiredDeliveryDate || '',
     spuCode: order.demandSnapshot.spuCode,
     techPackSpuCode: order.demandSnapshot.spuCode,
-    styleCode: legacyRecord?.styleCode || order.demandSnapshot.spuCode,
-    styleName: legacyRecord?.styleName || order.demandSnapshot.spuName,
-    sellingPrice: legacyRecord?.sellingPrice,
-    urgencyLevel: legacyRecord?.urgencyLevel || deriveUrgencyLevel(order.demandSnapshot.requiredDeliveryDate),
-    cuttingTaskNo: legacyRecord?.cuttingTaskNo || `CUT-TASK-${order.productionOrderId.replace(/\\D/g, '').slice(-6)}`,
-    assignedFactoryName: legacyRecord?.assignedFactoryName || order.mainFactorySnapshot.name,
-    cuttingStage: legacyRecord?.cuttingStage || '待配料',
-    riskFlags: unique([...(legacyRecord?.riskFlags || [])]),
-    lastPickupScanAt: legacyRecord?.lastPickupScanAt || order.updatedAt,
-    lastFieldUpdateAt: legacyRecord?.lastFieldUpdateAt || order.updatedAt,
-    lastOperatorName: legacyRecord?.lastOperatorName || order.mainFactorySnapshot.name,
-    hasSpreadingRecord: legacyRecord?.hasSpreadingRecord || false,
-    hasInboundRecord: legacyRecord?.hasInboundRecord || false,
+    styleCode: order.demandSnapshot.spuCode,
+    styleName: order.demandSnapshot.spuName,
+    sellingPrice: undefined,
+    urgencyLevel: deriveUrgencyLevel(order.demandSnapshot.requiredDeliveryDate),
+    cuttingTaskNo: `CUT-TASK-${order.productionOrderId.replace(/\D/g, '').slice(-6)}`,
+    assignedFactoryName: order.mainFactorySnapshot?.name || TEST_FACTORY_NAME,
+    cuttingStage: profile.stageLabel,
+    riskFlags: [...profile.riskFlags],
+    lastPickupScanAt: profile.receiveStatus === 'RECEIVED' ? updatedAt : '',
+    lastFieldUpdateAt: updatedAt,
+    lastOperatorName: profile.lastOperatorName,
+    hasSpreadingRecord: profile.hasSpreadingRecord,
+    hasInboundRecord: profile.hasInboundRecord,
     skuRequirementLines,
     materialLines,
   }
 }
 
 const generatedOriginalCutOrders = listGeneratedOriginalCutOrderSourceRecords()
+const formalCuttingProductionOrders = listCuttingProductionOrdersWithFormalTechPack()
 
-export const cuttingOrderProgressRecords: CuttingOrderProgressRecord[] = productionOrders
-  .map((order) => {
+export const cuttingOrderProgressRecords: CuttingOrderProgressRecord[] = formalCuttingProductionOrders
+  .map((order, orderIndex) => {
     const generatedOriginals = generatedOriginalCutOrders.filter(
       (item) => item.productionOrderId === order.productionOrderId,
     )
     if (generatedOriginals.length === 0) return null
-    return buildProjectedRecord(order, generatedOriginals)
+    return buildProjectedRecord(order, generatedOriginals, orderIndex)
   })
   .filter((record): record is CuttingOrderProgressRecord => record !== null)
 
@@ -947,7 +294,7 @@ export function updateCuttingOrderProgressWebStage(
   if (payload.cuttingStage === '铺布中' || payload.cuttingStage === '待裁剪' || payload.cuttingStage === '裁剪中') {
     record.hasSpreadingRecord = true
   }
-  if (payload.cuttingStage === '已入仓' || payload.cuttingStage === '待交出') {
+  if (payload.cuttingStage === '待交出仓' || payload.cuttingStage === '已入仓') {
     record.hasInboundRecord = true
   }
   return record

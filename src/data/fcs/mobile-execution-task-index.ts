@@ -1,6 +1,7 @@
 import { formatFactoryDisplayName, TEST_FACTORY_ID } from './factory-mock-data.ts'
 import { getFactoryMasterRecordById } from './factory-master-store.ts'
 import { getDyeWorkOrderByTaskId } from './dyeing-task-domain.ts'
+import { getKnittingWorkOrderByTaskId } from './knitting-task-domain.ts'
 import { getPdaCuttingTaskSnapshot } from './pda-cutting-execution-source.ts'
 import {
   getMobileTaskFactoryId,
@@ -32,6 +33,7 @@ export interface MobileExecutionTaskSourceInfo {
   workOrderNo: string
   printOrderNo: string
   dyeOrderNo: string
+  knittingOrderNo: string
   cuttingOrderNo: string
   specialCraftOrderNo: string
   postOrderNo: string
@@ -186,6 +188,28 @@ function getDyeSourceInfo(task: ProcessTask): Partial<MobileExecutionTaskSourceI
   }
 }
 
+function getKnittingSourceInfo(task: ProcessTask): Partial<MobileExecutionTaskSourceInfo> {
+  const order = getKnittingWorkOrderByTaskId(task.taskId)
+  if (!order) return {}
+  return {
+    sourceType: 'KNITTING_WORK_ORDER',
+    sourceId: normalizeString(order.knittingOrderId),
+    sourceWorkOrderId: normalizeString(order.knittingOrderId),
+    sourceWorkOrderNo: normalizeString(order.knittingOrderNo),
+    workOrderNo: normalizeString(order.knittingOrderNo),
+    knittingOrderNo: normalizeString(order.knittingOrderNo),
+    sourceIds: uniqueStrings([order.knittingOrderId, order.taskNo]),
+    sourceNos: uniqueStrings([order.knittingOrderNo, order.taskNo]),
+    productionOrderNo: normalizeString(order.productionOrderNo || task.productionOrderId),
+    sourceTaskNo: normalizeString(order.taskNo),
+    materialSku: normalizeString(order.yarnReceipt.yarnSku),
+    targetColor: normalizeString(order.colorName),
+    partName: normalizeString(order.kind === 'PART_PANEL' ? order.partPanels.map((panel) => panel.partName).join(' / ') : '整件'),
+    operationName: normalizeString(order.kind === 'PART_PANEL' ? '部位针织' : '整件针织'),
+    feiTicketNos: uniqueStrings(order.partPanels.map((panel) => panel.feiTicketNo)),
+  }
+}
+
 function getCuttingSourceInfo(task: ProcessTask): Partial<MobileExecutionTaskSourceInfo> {
   const taskLike = task as TaskWithSearchFields
   const detail = getPdaCuttingTaskSnapshot(task.taskId)
@@ -306,6 +330,7 @@ function buildSourceInfo(task: ProcessTask): MobileExecutionTaskSourceInfo {
     workOrderNo: '',
     printOrderNo: '',
     dyeOrderNo: '',
+    knittingOrderNo: '',
     cuttingOrderNo: '',
     specialCraftOrderNo: '',
     postOrderNo: '',
@@ -339,13 +364,15 @@ function buildSourceInfo(task: ProcessTask): MobileExecutionTaskSourceInfo {
       ? getPrintSourceInfo(task)
       : processType === 'DYE'
         ? getDyeSourceInfo(task)
-        : processType === 'CUTTING'
-          ? getCuttingSourceInfo(task)
-          : processType === 'SPECIAL_CRAFT'
-            ? getSpecialCraftSourceInfo(task)
-            : processType === 'POST_FINISHING'
-              ? getPostFinishingSourceInfo(task)
-              : {}
+        : processType === 'KNITTING'
+          ? getKnittingSourceInfo(task)
+          : processType === 'CUTTING'
+            ? getCuttingSourceInfo(task)
+            : processType === 'SPECIAL_CRAFT'
+              ? getSpecialCraftSourceInfo(task)
+              : processType === 'POST_FINISHING'
+                ? getPostFinishingSourceInfo(task)
+                : {}
 
   return {
     ...baseInfo,
@@ -372,6 +399,7 @@ function matchSourceType(task: ProcessTask, sourceType: string | undefined, sour
     ...info.workOrderIds,
     info.printOrderNo,
     info.dyeOrderNo,
+    info.knittingOrderNo,
     info.cuttingOrderNo,
     info.specialCraftOrderNo,
     info.postOrderNo,
@@ -387,6 +415,9 @@ function matchSourceType(task: ProcessTask, sourceType: string | undefined, sour
   }
   if (['DYE_WORK_ORDER', 'DYE_ORDER', 'DYEING_WORK_ORDER'].includes(normalizedSourceType)) {
     return info.processType === 'DYE'
+  }
+  if (['KNITTING_WORK_ORDER', 'KNITTING_ORDER', 'KNIT_ORDER'].includes(normalizedSourceType)) {
+    return info.processType === 'KNITTING'
   }
   if (['CUTTING_ORIGINAL_ORDER', 'CUTTING_ORDER', 'ORIGINAL_CUT_ORDER', 'CUT_PIECE_ORDER'].includes(normalizedSourceType)) {
     return info.processType === 'CUTTING'
@@ -439,6 +470,7 @@ export function getMobileExecutionTaskSourceInfo(task: ProcessTask | null | unde
       workOrderNo: '',
       printOrderNo: '',
       dyeOrderNo: '',
+      knittingOrderNo: '',
       cuttingOrderNo: '',
       specialCraftOrderNo: '',
       postOrderNo: '',
@@ -486,6 +518,7 @@ export function matchMobileTaskKeyword(task: ProcessTask | null | undefined, key
     info.workOrderNo,
     info.printOrderNo,
     info.dyeOrderNo,
+    info.knittingOrderNo,
     info.cuttingOrderNo,
     info.specialCraftOrderNo,
     info.postOrderNo,
@@ -597,6 +630,7 @@ export function buildMobileExecutionListLocatePathForTask(
     || info.workOrderNo
     || info.printOrderNo
     || info.dyeOrderNo
+    || info.knittingOrderNo
     || info.cuttingOrderNo
     || info.specialCraftOrderNo
     || info.postOrderNo
