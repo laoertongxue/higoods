@@ -101,16 +101,19 @@ function renderPatternImagePreview(pattern: (typeof state.patternItems)[number])
   if (!fileName) return '<span class="text-muted-foreground">暂无图片</span>'
   const previewUrl = getPatternImagePreviewUrl(pattern)
   return `
-    <a
+    <button
+      type="button"
       class="inline-flex items-center gap-2 rounded border bg-white p-1 text-xs text-blue-700 hover:border-blue-300 hover:bg-blue-50"
-      href="${escapeHtml(previewUrl)}"
-      target="_blank"
-      rel="noreferrer"
+      data-tech-action="open-pattern-image-preview"
+      data-tech-pattern-preview-url="${escapeHtml(previewUrl)}"
+      data-tech-pattern-preview-title="${escapeHtml(pattern.sourcePatternPackageName || pattern.name)}"
+      data-tech-pattern-preview-file="${escapeHtml(fileName)}"
+      data-skip-page-rerender="true"
       data-testid="pattern-image-preview"
     >
       <img src="${escapeHtml(previewUrl)}" alt="${escapeHtml(fileName)}" class="h-12 w-20 rounded object-cover" />
       <span>查看大图</span>
-    </a>
+    </button>
   `
 }
 
@@ -660,16 +663,35 @@ export function renderPatternTab(): string {
                           <div class="font-medium">${escapeHtml(item.name)}</div>
                           <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(`${item.patternMaterialTypeLabel || '暂无类型'} · ${item.type}`)}</div>
                         </div>
-                        <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-1">
                           ${renderPatternFileBadge(item.patternMaterialTypeLabel || '暂无数据')}
+                          ${readonly ? '' : `<button
+                            type="button"
+                            class="inline-flex h-8 w-8 items-center justify-center rounded hover:bg-muted"
+                            data-tech-action="edit-pattern"
+                            data-pattern-id="${item.id}"
+                            aria-label="编辑纸样包"
+                          >
+                            <i data-lucide="edit-2" class="h-4 w-4"></i>
+                          </button>`}
                           <button
                             type="button"
                             class="inline-flex h-8 w-8 items-center justify-center rounded hover:bg-muted"
                             data-tech-action="open-pattern-detail"
                             data-pattern-id="${item.id}"
+                            aria-label="查看纸样包"
                           >
                             <i data-lucide="eye" class="h-4 w-4"></i>
                           </button>
+                          ${readonly ? '' : `<button
+                            type="button"
+                            class="inline-flex h-8 w-8 items-center justify-center rounded text-red-600 hover:bg-red-50"
+                            data-tech-action="delete-pattern"
+                            data-pattern-id="${item.id}"
+                            aria-label="删除纸样包"
+                          >
+                            <i data-lucide="trash-2" class="h-4 w-4"></i>
+                          </button>`}
                         </div>
                       </div>
                       <div class="mt-3 space-y-2 text-xs">
@@ -802,9 +824,17 @@ export function renderPatternDialog(): string {
         </header>
         <div class="space-y-4 px-6 py-4 text-sm">
           <div class="flex items-center gap-4">
-            <a href="${escapeHtml(image)}" target="_blank" rel="noreferrer" class="block rounded border hover:border-blue-300">
+            <button
+              type="button"
+              class="block rounded border hover:border-blue-300"
+              data-tech-action="open-pattern-image-preview"
+              data-tech-pattern-preview-url="${escapeHtml(image)}"
+              data-tech-pattern-preview-title="${escapeHtml(pattern.name)}"
+              data-tech-pattern-preview-file="${escapeHtml(pattern.markerImage?.fileName || pattern.image || `${pattern.name}-纸样图.png`)}"
+              data-skip-page-rerender="true"
+            >
               <img src="${escapeHtml(image)}" alt="${escapeHtml(pattern.name)}" class="h-24 w-32 rounded object-cover" />
-            </a>
+            </button>
             <div>
               <h4 class="text-lg font-semibold">${escapeHtml(pattern.name)}</h4>
               <div class="mt-2 flex flex-wrap gap-2">
@@ -888,9 +918,7 @@ export function renderPatternDialog(): string {
               <span class="text-xs text-muted-foreground">单位：片</span>
             </div>
             ${
-              isWoven
-                ? renderPatternDetailPieceTable()
-                : '<div class="rounded-md border border-dashed px-3 py-4 text-sm text-muted-foreground">针织部位明细</div>'
+              renderPatternDetailPieceTable()
             }
           </div>
         </div>
@@ -1341,7 +1369,7 @@ export function renderPatternFormDialog(): string {
       <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4" data-dialog-backdrop="true">
         <section class="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
           <header class="border-b px-6 py-4">
-            <h3 class="text-lg font-semibold">添加纸样包</h3>
+            <h3 class="text-lg font-semibold">${state.editPatternItemId ? '编辑纸样包' : '添加纸样包'}</h3>
           </header>
           <div class="min-h-0 flex-1 overflow-y-auto px-6 py-4">
             <div class="space-y-4">
@@ -1349,6 +1377,7 @@ export function renderPatternFormDialog(): string {
               <input id="tech-pack-marker-image-input" type="file" accept=".png,.jpg,.jpeg,.webp" data-tech-field="new-pattern-marker-image-file" class="hidden" />
               <input id="tech-pack-pattern-dxf-input" type="file" accept=".dxf,.DXF" data-tech-field="new-pattern-dxf-file" class="hidden" />
               <input id="tech-pack-pattern-rul-input" type="file" accept=".rul,.RUL" data-tech-field="new-pattern-rul-file" class="hidden" />
+              <input id="tech-pack-pattern-single-input" type="file" accept=".zip,.ZIP" data-tech-field="new-pattern-single-file" class="hidden" />
               <section class="space-y-4 rounded-lg border p-4">
                 <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <label class="space-y-1">
@@ -1376,44 +1405,60 @@ export function renderPatternFormDialog(): string {
                     </select>
                   </label>
                 </div>
-                <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  ${renderPatternFileInfo({
-                    title: '纸样 PRJ 文件',
-                    fileName: state.newPattern.prjFile?.fileName,
-                    fileSize: state.newPattern.prjFile?.fileSize,
-                    lastModified: state.newPattern.prjFile?.uploadedAt,
-                    action: 'open-pattern-prj-picker',
-                    actionLabel: '选择 PRJ 文件',
-                    testId: 'pattern-prj-upload',
-                  })}
-                  ${renderPatternFileInfo({
-                    title: '唛架图片',
-                    fileName: state.newPattern.markerImage?.fileName,
-                    fileSize: state.newPattern.markerImage?.fileSize,
-                    lastModified: state.newPattern.markerImage?.uploadedAt,
-                    action: 'open-pattern-marker-image-picker',
-                    actionLabel: '选择唛架图片',
-                    testId: 'pattern-marker-image-upload',
-                  })}
-                </div>
-                <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  ${renderPatternFileInfo({
-                    title: 'DXF 文件',
-                    fileName: state.newPattern.dxfFileName,
-                    fileSize: state.newPattern.dxfFileSize,
-                    lastModified: state.newPattern.dxfLastModified,
-                    action: 'open-pattern-dxf-picker',
-                    actionLabel: '选择 DXF 文件',
-                  })}
-                  ${renderPatternFileInfo({
-                    title: 'RUL 文件',
-                    fileName: state.newPattern.rulFileName,
-                    fileSize: state.newPattern.rulFileSize,
-                    lastModified: state.newPattern.rulLastModified,
-                    action: 'open-pattern-rul-picker',
-                    actionLabel: '选择 RUL 文件',
-                  })}
-                </div>
+                ${
+                  isWoven
+                    ? `
+                      <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+                        ${renderPatternFileInfo({
+                          title: '纸样 PRJ 文件',
+                          fileName: state.newPattern.prjFile?.fileName,
+                          fileSize: state.newPattern.prjFile?.fileSize,
+                          lastModified: state.newPattern.prjFile?.uploadedAt,
+                          action: 'open-pattern-prj-picker',
+                          actionLabel: '选择 PRJ 文件',
+                          testId: 'pattern-prj-upload',
+                        })}
+                        ${renderPatternFileInfo({
+                          title: '唛架图片',
+                          fileName: state.newPattern.markerImage?.fileName,
+                          fileSize: state.newPattern.markerImage?.fileSize,
+                          lastModified: state.newPattern.markerImage?.uploadedAt,
+                          action: 'open-pattern-marker-image-picker',
+                          actionLabel: '选择唛架图片',
+                          testId: 'pattern-marker-image-upload',
+                        })}
+                      </div>
+                      <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+                        ${renderPatternFileInfo({
+                          title: 'DXF 文件',
+                          fileName: state.newPattern.dxfFileName,
+                          fileSize: state.newPattern.dxfFileSize,
+                          lastModified: state.newPattern.dxfLastModified,
+                          action: 'open-pattern-dxf-picker',
+                          actionLabel: '选择 DXF 文件',
+                        })}
+                        ${renderPatternFileInfo({
+                          title: 'RUL 文件',
+                          fileName: state.newPattern.rulFileName,
+                          fileSize: state.newPattern.rulFileSize,
+                          lastModified: state.newPattern.rulLastModified,
+                          action: 'open-pattern-rul-picker',
+                          actionLabel: '选择 RUL 文件',
+                        })}
+                      </div>
+                    `
+                    : `
+                      ${renderPatternFileInfo({
+                        title: 'Zip 文件',
+                        fileName: state.newPattern.singlePatternFileName || state.newPattern.file,
+                        fileSize: state.newPattern.singlePatternFileSize,
+                        lastModified: state.newPattern.singlePatternFileLastModified,
+                        action: 'open-pattern-single-file-picker',
+                        actionLabel: '选择 Zip 文件',
+                        testId: 'pattern-zip-upload',
+                      })}
+                    `
+                }
                 <div class="rounded-md border bg-muted/20 px-3 py-2 text-sm ${state.newPattern.parseStatus === 'FAILED' ? 'text-red-600' : 'text-muted-foreground'}">
                   ${escapeHtml(isWoven ? getWovenStatusMessage() : '待维护针织部位明细')}
                 </div>
@@ -1438,6 +1483,22 @@ export function renderPatternFormDialog(): string {
                       </section>
                     `
                     : ''
+                }
+                ${
+                  isWoven
+                    ? ''
+                    : `
+                      <section class="space-y-2 rounded-md border p-3">
+                        <div class="flex items-center justify-between">
+                          <h4 class="text-sm font-medium">针织部位明细</h4>
+                          <button type="button" class="inline-flex items-center rounded border px-2 py-1 text-xs hover:bg-muted" data-tech-action="add-new-pattern-piece-row">
+                            <i data-lucide="plus" class="mr-1 h-3 w-3"></i>
+                            新增部位
+                          </button>
+                        </div>
+                        ${renderPatternPieceEditorTable(false)}
+                      </section>
+                    `
                 }
                 ${
                   state.newPattern.parseError

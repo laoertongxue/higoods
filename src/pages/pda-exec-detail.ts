@@ -60,9 +60,19 @@ import {
   type PrintWorkOrder,
 } from '../data/fcs/printing-task-domain.ts'
 import {
+  acceptKnittingWorkOrder,
+  completeKnittingPickupHead,
+  confirmKnittingHandoverReceipt,
+  confirmKnittingPickupRecord,
+  getKnittingAllowedActions,
   getKnittingWorkOrderByTaskId,
   getKnittingWorkOrderKindLabel,
   getKnittingWorkOrderStatusLabel,
+  markKnittingFeiTicketsPrinted,
+  scheduleKnittingMachines,
+  submitKnittingHandover,
+  updateKnittingWorkOrderNodeStatus,
+  type KnittingNodeStatus,
   type KnittingWorkOrder,
 } from '../data/fcs/knitting-task-domain.ts'
 import {
@@ -1085,6 +1095,22 @@ function renderKnittingTaskCard(
 ): string {
   const isPartPanel = knittingOrder.kind === 'PART_PANEL'
   const milestone = getTaskMilestoneState(task)
+  const allowedActions = getKnittingAllowedActions(knittingOrder)
+  const preStartStatus = ['WAIT_ACCEPT', 'WAIT_PICKUP', 'PICKUP_IN_PROGRESS', 'WAIT_MACHINE_SCHEDULE', 'MACHINE_SCHEDULED'].includes(knittingOrder.status)
+  const showPickupSection = knittingOrder.status !== 'WAIT_ACCEPT'
+  const showNodeSection = !preStartStatus
+  const showExecutionMeta = !preStartStatus
+  const showPartPanelSection = isPartPanel && ['WAIT_FEI_TICKET', 'FEI_TICKET_PRINTED', 'WAIT_HANDOVER', 'HANDOVER_SUBMITTED', 'COMPLETED'].includes(knittingOrder.status)
+  const renderAllowedActionButton = (action: ReturnType<typeof getKnittingAllowedActions>[number]) => `
+    <button
+      type="button"
+      class="rounded-full ${action.tone === 'primary' ? 'border-primary bg-primary px-3 py-1 text-xs text-primary-foreground' : 'border px-3 py-1 text-xs'}"
+      data-pda-execd-action="knitting-workflow"
+      data-knitting-workflow-action="${escapeHtml(action.code)}"
+      data-knitting-order-id="${escapeHtml(knittingOrder.knittingOrderId)}"
+      ${action.nodeName ? `data-node-name="${escapeHtml(action.nodeName)}"` : ''}
+    >${escapeHtml(action.label)}</button>
+  `
   const yarnDiff = knittingOrder.yarnReceipt.differenceWeightKg
   const yarnStatusTone = knittingOrder.yarnReceipt.receivedWeightKg <= 0
     ? 'warning'
@@ -1092,11 +1118,15 @@ function renderKnittingTaskCard(
       ? 'danger'
       : 'success'
   const yarnStatusText = knittingOrder.yarnReceipt.receivedWeightKg <= 0
-    ? '待收纱'
+    ? '待领料'
     : yarnDiff !== 0
-      ? '收纱有差异'
-      : '已收纱'
-  const nodeRows = knittingOrder.nodes
+      ? '领料有差异'
+      : '已领料'
+  const visibleNodes = knittingOrder.nodes.filter((node) =>
+    node.status !== '未开始'
+    || allowedActions.some((action) => action.nodeName === node.nodeName),
+  )
+  const nodeRows = visibleNodes
     .map(
       (node) => `
         <div class="grid grid-cols-[88px_1fr] gap-2 rounded-md border px-3 py-2 text-xs">
@@ -1113,11 +1143,17 @@ function renderKnittingTaskCard(
                 : ''
             }
             ${node.remark ? `<div class="text-muted-foreground">${escapeHtml(node.remark)}</div>` : ''}
+            <div class="mt-2 flex flex-wrap gap-2">
+              ${allowedActions.filter((action) => action.nodeName === node.nodeName).map(renderAllowedActionButton).join('') || '<span class="text-muted-foreground">当前节点不可操作</span>'}
+            </div>
           </div>
         </div>
       `,
     )
     .join('')
+  const currentActionBar = allowedActions.length
+    ? `<div class="flex flex-wrap gap-2">${allowedActions.map(renderAllowedActionButton).join('')}</div>`
+    : ''
   const partPanelRows = isPartPanel
     ? knittingOrder.partPanels
         .map(
@@ -1150,7 +1186,7 @@ function renderKnittingTaskCard(
             <i data-lucide="factory" class="h-4 w-4"></i>
             针织任务
           </h2>
-          ${renderPrintingStatusBadge(getKnittingWorkOrderStatusLabel(knittingOrder.status), knittingOrder.status === 'COMPLETED' ? 'success' : knittingOrder.status === 'WAIT_YARN_RECEIVE' || knittingOrder.status === 'WAIT_HANDOVER' || knittingOrder.status === 'HANDOVER_SUBMITTED' || knittingOrder.status === 'WAIT_REVIEW' ? 'warning' : 'info')}
+          ${renderPrintingStatusBadge(getKnittingWorkOrderStatusLabel(knittingOrder.status), knittingOrder.status === 'COMPLETED' ? 'success' : knittingOrder.status === 'WAIT_PICKUP' || knittingOrder.status === 'PICKUP_IN_PROGRESS' || knittingOrder.status === 'WAIT_MACHINE_SCHEDULE' || knittingOrder.status === 'MACHINE_SCHEDULED' || knittingOrder.status === 'WAIT_HANDOVER' || knittingOrder.status === 'HANDOVER_SUBMITTED' ? 'warning' : 'info')}
         </div>
       </header>
 
@@ -1172,38 +1208,76 @@ function renderKnittingTaskCard(
           <span class="text-xs font-medium">${escapeHtml(handoverTargetText)}</span>
           <span class="text-xs text-muted-foreground">交出单</span>
           <span class="text-xs">${escapeHtml(handoverOrder?.handoverOrderNo || knittingOrder.handoverOrderNo || '未生成')}</span>
-          <span class="text-xs text-muted-foreground">开工状态</span>
-          <span class="text-xs font-medium ${task.startedAt ? 'text-green-700' : 'text-amber-700'}">${task.startedAt ? `已开工 ${escapeHtml(task.startedAt)}` : '待开工'}</span>
-          <span class="text-xs text-muted-foreground">关键节点</span>
-          <span class="text-xs font-medium ${milestone.status === 'REPORTED' ? 'text-green-700' : 'text-amber-700'}">${milestone.status === 'REPORTED' ? '已上报' : '待上报'}</span>
+          ${
+            showExecutionMeta
+              ? `
+                <span class="text-xs text-muted-foreground">开工状态</span>
+                <span class="text-xs font-medium ${task.startedAt ? 'text-green-700' : 'text-amber-700'}">${task.startedAt ? `已开工 ${escapeHtml(task.startedAt)}` : '待开工'}</span>
+                <span class="text-xs text-muted-foreground">关键节点</span>
+                <span class="text-xs font-medium ${milestone.status === 'REPORTED' ? 'text-green-700' : 'text-amber-700'}">${milestone.status === 'REPORTED' ? '已上报' : '待上报'}</span>
+              `
+              : `
+                <span class="text-xs text-muted-foreground">当前动作</span>
+                <span class="text-xs font-medium">${escapeHtml(getKnittingWorkOrderStatusLabel(knittingOrder.status))}</span>
+              `
+          }
         </div>
-
-        <section class="rounded-lg border bg-background p-3">
-          <div class="flex items-center justify-between gap-2">
-            <h3 class="text-sm font-medium">收纱确认</h3>
-            ${renderPrintingStatusBadge(yarnStatusText, yarnStatusTone)}
-          </div>
-          <div class="mt-3 grid gap-x-4 gap-y-1 text-xs sm:grid-cols-2">
-            <div><span class="text-muted-foreground">来源：</span>染厂/面料仓送料到厂</div>
-            <div><span class="text-muted-foreground">纱线：</span>${escapeHtml(knittingOrder.yarnReceipt.yarnSku)}</div>
-            <div><span class="text-muted-foreground">计划重量：</span>${knittingOrder.yarnReceipt.plannedWeightKg} kg</div>
-            <div><span class="text-muted-foreground">实收重量：</span>${knittingOrder.yarnReceipt.receivedWeightKg} kg</div>
-            <div><span class="text-muted-foreground">差异重量：</span>${yarnDiff} kg</div>
-            <div><span class="text-muted-foreground">确认人：</span>${escapeHtml(knittingOrder.yarnReceipt.receiverName)}</div>
-            <div class="sm:col-span-2"><span class="text-muted-foreground">照片视频：</span>${escapeHtml(knittingOrder.yarnReceipt.evidenceText || (knittingOrder.yarnReceipt.receivedWeightKg > 0 ? '已按收纱记录留存' : '待针织厂上传称重照片和到货视频'))}</div>
-          </div>
-        </section>
-
-        <section class="rounded-lg border bg-background p-3">
-          <div class="flex items-center justify-between gap-2">
-            <h3 class="text-sm font-medium">节点步骤</h3>
-            <span class="text-xs text-muted-foreground">${escapeHtml(processNote)}</span>
-          </div>
-          <div class="mt-3 space-y-2">${nodeRows}</div>
-        </section>
+        ${currentActionBar}
 
         ${
-          isPartPanel
+          showPickupSection
+            ? `
+              <section class="rounded-lg border bg-background p-3">
+                <div class="flex items-center justify-between gap-2">
+                  <h3 class="text-sm font-medium">领料确认</h3>
+                  ${renderPrintingStatusBadge(yarnStatusText, yarnStatusTone)}
+                </div>
+                <div class="mt-3 grid gap-x-4 gap-y-1 text-xs sm:grid-cols-2">
+                  <div><span class="text-muted-foreground">来源：</span>染厂/面料仓送料到厂</div>
+                  <div><span class="text-muted-foreground">纱线：</span>${escapeHtml(knittingOrder.yarnReceipt.yarnSku)}</div>
+                  <div><span class="text-muted-foreground">计划重量：</span>${knittingOrder.yarnReceipt.plannedWeightKg} kg</div>
+                  <div><span class="text-muted-foreground">实收重量：</span>${knittingOrder.yarnReceipt.receivedWeightKg} kg</div>
+                  <div><span class="text-muted-foreground">差异重量：</span>${yarnDiff} kg</div>
+                  <div><span class="text-muted-foreground">确认人：</span>${escapeHtml(knittingOrder.yarnReceipt.receiverName)}</div>
+                  <div class="sm:col-span-2"><span class="text-muted-foreground">照片视频：</span>${escapeHtml(knittingOrder.yarnReceipt.evidenceText || (knittingOrder.yarnReceipt.receivedWeightKg > 0 ? '已按领料记录留存' : '待针织厂上传称重照片和到货视频'))}</div>
+                </div>
+              </section>
+            `
+            : ''
+        }
+
+        ${
+          preStartStatus && knittingOrder.status !== 'WAIT_ACCEPT'
+            ? `
+              <section class="rounded-lg border bg-background p-3">
+                <h3 class="text-sm font-medium">开工前信息</h3>
+                <div class="mt-3 grid gap-x-4 gap-y-1 text-xs sm:grid-cols-2">
+                  <div><span class="text-muted-foreground">横机排产：</span>${escapeHtml(knittingOrder.machineScheduleId ? '已排机' : '待排机')}</div>
+                  <div><span class="text-muted-foreground">计划机台：</span>${knittingOrder.plannedMachineCount} 台</div>
+                  <div><span class="text-muted-foreground">计划开始：</span>${escapeHtml(knittingOrder.scheduledStartAt)}</div>
+                  <div><span class="text-muted-foreground">计划完成：</span>${escapeHtml(knittingOrder.scheduledEndAt)}</div>
+                </div>
+              </section>
+            `
+            : ''
+        }
+
+        ${
+          showNodeSection
+            ? `
+              <section class="rounded-lg border bg-background p-3">
+                <div class="flex items-center justify-between gap-2">
+                  <h3 class="text-sm font-medium">当前节点</h3>
+                  <span class="text-xs text-muted-foreground">${escapeHtml(processNote)}</span>
+                </div>
+                <div class="mt-3 space-y-2">${nodeRows || '<div class="text-xs text-muted-foreground">暂无当前可操作节点。</div>'}</div>
+              </section>
+            `
+            : ''
+        }
+
+        ${
+          showPartPanelSection
             ? `
                 <section class="rounded-lg border bg-background p-3">
                   <div class="flex items-center justify-between gap-2">
@@ -1655,6 +1729,45 @@ function mutateFinishTask(taskId: string, by: string): void {
       by,
     },
   ]
+}
+
+function getKnittingOrderForTask(task: ProcessTask | null | undefined): KnittingWorkOrder | undefined {
+  if (!task) return undefined
+  return getKnittingWorkOrderByTaskId(task.taskId)
+}
+
+function startKnittingOrderFromMobile(task: ProcessTask, startTime: string): boolean {
+  const knittingOrder = getKnittingOrderForTask(task)
+  if (!knittingOrder) return false
+  updateKnittingWorkOrderNodeStatus(knittingOrder.knittingOrderId, '横机成片', '进行中', '工厂端操作员', startTime)
+  return true
+}
+
+function reportKnittingMilestoneFromMobile(task: ProcessTask, reportAt: string): boolean {
+  const knittingOrder = getKnittingOrderForTask(task)
+  if (!knittingOrder) return false
+  updateKnittingWorkOrderNodeStatus(knittingOrder.knittingOrderId, '横机成片', '进行中', '工厂端操作员', reportAt)
+  return true
+}
+
+function finishKnittingOrderFromMobile(task: ProcessTask): boolean {
+  const knittingOrder = getKnittingOrderForTask(task)
+  if (!knittingOrder) return false
+  const operatedAt = nowTimestamp()
+  if (knittingOrder.kind === 'PART_PANEL') {
+    updateKnittingWorkOrderNodeStatus(knittingOrder.knittingOrderId, '横机成片', '已完成', '工厂端操作员', operatedAt)
+    return true
+  }
+  knittingOrder.nodes.forEach((node) => {
+    if (node.nodeName === '包装' && !knittingOrder.needsPackaging) {
+      updateKnittingWorkOrderNodeStatus(knittingOrder.knittingOrderId, node.nodeName, '已跳过', '工厂端操作员', operatedAt)
+      return
+    }
+    if (node.status !== '已跳过') {
+      updateKnittingWorkOrderNodeStatus(knittingOrder.knittingOrderId, node.nodeName, '已完成', '工厂端操作员', operatedAt)
+    }
+  })
+  return true
 }
 
 function getTaskPricing(task: ProcessTask): {
@@ -2273,6 +2386,10 @@ export function renderPdaExecDetailPage(taskId: string): string {
   const printWorkOrder = getPrintWorkOrderByTaskId(task.taskId)
   const dyeWorkOrder = getDyeWorkOrderByTaskId(task.taskId)
   const knittingOrder = getKnittingWorkOrderByTaskId(task.taskId)
+  const isKnittingPreStart = Boolean(
+    knittingOrder
+    && ['WAIT_ACCEPT', 'WAIT_PICKUP', 'PICKUP_IN_PROGRESS', 'WAIT_MACHINE_SCHEDULE', 'MACHINE_SCHEDULED'].includes(knittingOrder.status),
+  )
   const taskQrValue = getTaskQrValue(task as TaskWithHandoverFields)
   const receiverDisplayText = getReceiverDisplayText(task as TaskWithHandoverFields)
   const currentFactoryDisplay = assignedFactory
@@ -2388,7 +2505,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
       ${specialCraftExecutionPanel}
 
       ${
-        milestone.required
+        !isKnittingPreStart && milestone.required
           ? `
               <article class="rounded-lg border bg-card">
                 <header class="border-b px-4 py-3">
@@ -2456,127 +2573,133 @@ export function renderPdaExecDetailPage(taskId: string): string {
           : ''
       }
 
-      <article class="rounded-lg border bg-card">
-        <header class="border-b px-4 py-3">
-          <h2 class="flex items-center gap-2 text-sm font-semibold">
-            <i data-lucide="pause-circle" class="h-4 w-4"></i>
-            上报暂停
-          </h2>
-        </header>
+      ${
+        !isKnittingPreStart
+          ? `
+            <article class="rounded-lg border bg-card">
+              <header class="border-b px-4 py-3">
+                <h2 class="flex items-center gap-2 text-sm font-semibold">
+                  <i data-lucide="pause-circle" class="h-4 w-4"></i>
+                  上报暂停
+                </h2>
+              </header>
 
-        <div class="space-y-3 p-4 text-sm">
-          ${
-            status === 'BLOCKED'
-              ? `
-                  <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs">
-                    <div class="flex flex-wrap items-center gap-2">
-                      <span class="font-medium text-red-700">${escapeHtml(pauseReasonLabel || '已上报暂停')}</span>
-                      <span class="inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] ${pauseHandleStatus.className}">${pauseHandleStatus.label}</span>
-                    </div>
-                    ${task.pauseRemark ? `<p class="mt-1 text-red-600">${escapeHtml(task.pauseRemark)}</p>` : ''}
-                    ${pauseReportedAt ? `<p class="mt-1 text-muted-foreground">上报时间：${escapeHtml(pauseReportedAt)}</p>` : ''}
-                    <p class="mt-1 text-muted-foreground">平台允许继续前，当前任务不可继续操作</p>
-                  </div>
-                  <div class="rounded-lg border">
-                    <div class="border-b px-3 py-2 text-sm font-medium">暂停凭证</div>
-                    <div class="p-3">
-                      ${renderProofViewSection(task.pauseProofFiles || detailState.pauseProofFiles)}
-                    </div>
-                  </div>
-                `
-              : status === 'IN_PROGRESS'
-                ? `
-                    ${
-                      detailState.fromPauseAction
-                        ? '<div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">已定位到上报暂停，请补充信息后提交</div>'
-                        : ''
-                    }
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <label class="space-y-1">
-                        <span class="text-xs text-muted-foreground">暂停原因 *</span>
-                        <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-pda-execd-field="pauseReasonCode">
-                          ${PAUSE_REASON_OPTIONS.map((item) => `<option value="${item.code}" ${detailState.pauseReasonCode === item.code ? 'selected' : ''}>${escapeHtml(item.label)}</option>`).join('')}
-                        </select>
-                      </label>
-                      <label class="space-y-1">
-                        <span class="text-xs text-muted-foreground">上报时间 *</span>
-                        <input
-                          type="datetime-local"
-                          class="h-9 w-full rounded-md border bg-background px-3 text-sm"
-                          data-pda-execd-field="pauseTime"
-                          value="${escapeHtml(detailState.pauseTime)}"
-                        />
-                      </label>
-                    </div>
-                    <label class="space-y-1">
-                      <span class="text-xs text-muted-foreground">暂停说明</span>
-                      <textarea
-                        class="min-h-[88px] w-full rounded-md border bg-background px-3 py-2 text-sm"
-                        placeholder="建议填写现场情况，便于平台快速跟进"
-                        data-pda-execd-field="pauseRemark"
-                      >${escapeHtml(detailState.pauseRemark)}</textarea>
-                    </label>
-                    <div class="rounded-lg border">
-                      <div class="border-b px-3 py-2 text-sm font-medium">相关凭证（至少 1 项）</div>
-                      <div class="p-3">
-                        ${renderProofUploadSection(detailState.pauseProofFiles, 'pause', '请上传现场凭证，图片或视频至少 1 项')}
-                      </div>
-                    </div>
-                    <button
-                      class="inline-flex h-9 w-full items-center justify-center rounded-md border bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90"
-                      data-pda-execd-action="report-pause"
-                      data-task-id="${escapeHtml(task.taskId)}"
-                    >
-                      确认上报暂停
-                    </button>
-                  `
-                : '<div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-muted-foreground">当前状态不支持上报暂停</div>'
-          }
-        </div>
-      </article>
+              <div class="space-y-3 p-4 text-sm">
+                ${
+                  status === 'BLOCKED'
+                    ? `
+                        <div class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs">
+                          <div class="flex flex-wrap items-center gap-2">
+                            <span class="font-medium text-red-700">${escapeHtml(pauseReasonLabel || '已上报暂停')}</span>
+                            <span class="inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] ${pauseHandleStatus.className}">${pauseHandleStatus.label}</span>
+                          </div>
+                          ${task.pauseRemark ? `<p class="mt-1 text-red-600">${escapeHtml(task.pauseRemark)}</p>` : ''}
+                          ${pauseReportedAt ? `<p class="mt-1 text-muted-foreground">上报时间：${escapeHtml(pauseReportedAt)}</p>` : ''}
+                          <p class="mt-1 text-muted-foreground">平台允许继续前，当前任务不可继续操作</p>
+                        </div>
+                        <div class="rounded-lg border">
+                          <div class="border-b px-3 py-2 text-sm font-medium">暂停凭证</div>
+                          <div class="p-3">
+                            ${renderProofViewSection(task.pauseProofFiles || detailState.pauseProofFiles)}
+                          </div>
+                        </div>
+                      `
+                    : status === 'IN_PROGRESS'
+                      ? `
+                          ${
+                            detailState.fromPauseAction
+                              ? '<div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">已定位到上报暂停，请补充信息后提交</div>'
+                              : ''
+                          }
+                          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <label class="space-y-1">
+                              <span class="text-xs text-muted-foreground">暂停原因 *</span>
+                              <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-pda-execd-field="pauseReasonCode">
+                                ${PAUSE_REASON_OPTIONS.map((item) => `<option value="${item.code}" ${detailState.pauseReasonCode === item.code ? 'selected' : ''}>${escapeHtml(item.label)}</option>`).join('')}
+                              </select>
+                            </label>
+                            <label class="space-y-1">
+                              <span class="text-xs text-muted-foreground">上报时间 *</span>
+                              <input
+                                type="datetime-local"
+                                class="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                                data-pda-execd-field="pauseTime"
+                                value="${escapeHtml(detailState.pauseTime)}"
+                              />
+                            </label>
+                          </div>
+                          <label class="space-y-1">
+                            <span class="text-xs text-muted-foreground">暂停说明</span>
+                            <textarea
+                              class="min-h-[88px] w-full rounded-md border bg-background px-3 py-2 text-sm"
+                              placeholder="建议填写现场情况，便于平台快速跟进"
+                              data-pda-execd-field="pauseRemark"
+                            >${escapeHtml(detailState.pauseRemark)}</textarea>
+                          </label>
+                          <div class="rounded-lg border">
+                            <div class="border-b px-3 py-2 text-sm font-medium">相关凭证（至少 1 项）</div>
+                            <div class="p-3">
+                              ${renderProofUploadSection(detailState.pauseProofFiles, 'pause', '请上传现场凭证，图片或视频至少 1 项')}
+                            </div>
+                          </div>
+                          <button
+                            class="inline-flex h-9 w-full items-center justify-center rounded-md border bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                            data-pda-execd-action="report-pause"
+                            data-task-id="${escapeHtml(task.taskId)}"
+                          >
+                            确认上报暂停
+                          </button>
+                        `
+                      : '<div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-muted-foreground">当前状态不支持上报暂停</div>'
+                }
+              </div>
+            </article>
 
-      <article class="rounded-lg border bg-card">
-        <header class="border-b px-4 py-3">
-          <h2 class="flex items-center gap-2 text-sm font-semibold">
-            <i data-lucide="shield-check" class="h-4 w-4"></i>
-            执行前置信息
-          </h2>
-        </header>
+            <article class="rounded-lg border bg-card">
+              <header class="border-b px-4 py-3">
+                <h2 class="flex items-center gap-2 text-sm font-semibold">
+                  <i data-lucide="shield-check" class="h-4 w-4"></i>
+                  执行前置信息
+                </h2>
+              </header>
 
-        <div class="space-y-3 p-4 text-sm">
-          <div class="grid grid-cols-2 gap-x-4 gap-y-1">
-            <span class="text-xs text-muted-foreground">前置条件</span>
-            <span class="text-xs font-medium">${escapeHtml(prereq.conditionLabel)}</span>
-            <span class="text-xs text-muted-foreground">当前状态</span>
-            <span class="text-xs font-medium ${prereq.met ? 'text-green-700' : 'text-amber-700'}">${escapeHtml(prereq.statusLabel)}</span>
-            <span class="text-xs text-muted-foreground">来源方</span>
-            <span class="text-xs">来料记录</span>
-          </div>
+              <div class="space-y-3 p-4 text-sm">
+                <div class="grid grid-cols-2 gap-x-4 gap-y-1">
+                  <span class="text-xs text-muted-foreground">前置条件</span>
+                  <span class="text-xs font-medium">${escapeHtml(prereq.conditionLabel)}</span>
+                  <span class="text-xs text-muted-foreground">当前状态</span>
+                  <span class="text-xs font-medium ${prereq.met ? 'text-green-700' : 'text-amber-700'}">${escapeHtml(prereq.statusLabel)}</span>
+                  <span class="text-xs text-muted-foreground">来源方</span>
+                  <span class="text-xs">来料记录</span>
+                </div>
 
-          <div class="rounded-md border px-3 py-2.5 text-xs ${
-            prereq.met
-              ? 'border-green-200 bg-green-50 text-green-700'
-              : 'border-amber-200 bg-amber-50 text-amber-700'
-          }">
-            ${
-              prereq.met
-                ? '<div class="flex items-center gap-1.5 font-medium"><i data-lucide="check-circle" class="h-3.5 w-3.5"></i>已满足开工条件</div>'
-                : `<div class="flex items-center gap-1.5 font-medium"><i data-lucide="alert-triangle" class="h-3.5 w-3.5"></i>${escapeHtml(prereq.blocker)}</div><p class="mt-1 pl-5 text-amber-600">${escapeHtml(prereq.hint)}</p>`
-            }
-          </div>
+                <div class="rounded-md border px-3 py-2.5 text-xs ${
+                  prereq.met
+                    ? 'border-green-200 bg-green-50 text-green-700'
+                    : 'border-amber-200 bg-amber-50 text-amber-700'
+                }">
+                  ${
+                    prereq.met
+                      ? '<div class="flex items-center gap-1.5 font-medium"><i data-lucide="check-circle" class="h-3.5 w-3.5"></i>已满足开工条件</div>'
+                      : `<div class="flex items-center gap-1.5 font-medium"><i data-lucide="alert-triangle" class="h-3.5 w-3.5"></i>${escapeHtml(prereq.blocker)}</div><p class="mt-1 pl-5 text-amber-600">${escapeHtml(prereq.hint)}</p>`
+                  }
+                </div>
 
-          ${
-            !prereq.met
-              ? `
-                  <button class="inline-flex h-8 w-full items-center justify-center rounded-md border border-amber-300 text-sm text-amber-700 hover:bg-amber-50" data-pda-execd-action="go-warehouse">
-                    <i data-lucide="arrow-left-right" class="mr-2 h-3.5 w-3.5"></i>
-                    查看来料状态
-                  </button>
-                `
-              : ''
-          }
-        </div>
-      </article>
+                ${
+                  !prereq.met
+                    ? `
+                        <button class="inline-flex h-8 w-full items-center justify-center rounded-md border border-amber-300 text-sm text-amber-700 hover:bg-amber-50" data-pda-execd-action="go-warehouse">
+                          <i data-lucide="arrow-left-right" class="mr-2 h-3.5 w-3.5"></i>
+                          查看来料状态
+                        </button>
+                      `
+                    : ''
+                }
+              </div>
+            </article>
+          `
+          : ''
+      }
 
       <article class="rounded-lg border bg-card">
         <header class="border-b px-4 py-3">
@@ -2966,6 +3089,42 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
 
   if (action === 'back') {
     appStore.navigate(resolveExecDetailBackHref())
+    return true
+  }
+
+  if (action === 'knitting-workflow' && actionNode.dataset.knittingOrderId && actionNode.dataset.knittingWorkflowAction) {
+    const orderId = actionNode.dataset.knittingOrderId
+    const workflowAction = actionNode.dataset.knittingWorkflowAction
+    const operatedAt = nowTimestamp()
+    if (workflowAction === 'ACCEPT') acceptKnittingWorkOrder(orderId, '工厂端操作员', operatedAt)
+    if (workflowAction === 'CONFIRM_PICKUP') confirmKnittingPickupRecord(orderId, '工厂端操作员', operatedAt)
+    if (workflowAction === 'COMPLETE_PICKUP') completeKnittingPickupHead(orderId, '工厂端操作员', operatedAt)
+    if (workflowAction === 'SCHEDULE_MACHINE') scheduleKnittingMachines(orderId, '工厂端排产员', operatedAt)
+    if (workflowAction === 'START_FLAT' || workflowAction === 'REPORT_FLAT_MILESTONE') updateKnittingWorkOrderNodeStatus(orderId, '横机成片', '进行中', '工厂端操作员', operatedAt)
+    if (workflowAction === 'COMPLETE_FLAT') updateKnittingWorkOrderNodeStatus(orderId, '横机成片', '已完成', '工厂端操作员', operatedAt)
+    if (workflowAction === 'START_LINKING') updateKnittingWorkOrderNodeStatus(orderId, '缝盘', '进行中', '工厂端操作员', operatedAt)
+    if (workflowAction === 'COMPLETE_LINKING') updateKnittingWorkOrderNodeStatus(orderId, '缝盘', '已完成', '工厂端操作员', operatedAt)
+    if (workflowAction === 'START_IRONING') updateKnittingWorkOrderNodeStatus(orderId, '熨烫', '进行中', '工厂端操作员', operatedAt)
+    if (workflowAction === 'COMPLETE_IRONING') updateKnittingWorkOrderNodeStatus(orderId, '熨烫', '已完成', '工厂端操作员', operatedAt)
+    if (workflowAction === 'START_PACKING') updateKnittingWorkOrderNodeStatus(orderId, '包装', '进行中', '工厂端操作员', operatedAt)
+    if (workflowAction === 'COMPLETE_PACKING') updateKnittingWorkOrderNodeStatus(orderId, '包装', '已完成', '工厂端操作员', operatedAt)
+    if (workflowAction === 'SKIP_PACKING') updateKnittingWorkOrderNodeStatus(orderId, '包装', '已跳过', '工厂端操作员', operatedAt)
+    if (workflowAction === 'PRINT_FEI_TICKET') markKnittingFeiTicketsPrinted(orderId, '工厂端操作员', operatedAt)
+    if (workflowAction === 'SUBMIT_HANDOVER') submitKnittingHandover(orderId, '工厂端操作员', operatedAt)
+    if (workflowAction === 'CONFIRM_HANDOVER_RECEIPT') confirmKnittingHandoverReceipt(orderId, '接收仓库', operatedAt)
+    showPdaExecDetailToast('针织任务状态已更新，Web端同步更新')
+    return true
+  }
+
+  if (
+    (action === 'knitting-node-start' || action === 'knitting-node-complete' || action === 'knitting-node-skip')
+    && actionNode.dataset.knittingOrderId
+    && actionNode.dataset.nodeName
+  ) {
+    const nextStatus: KnittingNodeStatus =
+      action === 'knitting-node-start' ? '进行中' : action === 'knitting-node-complete' ? '已完成' : '已跳过'
+    updateKnittingWorkOrderNodeStatus(actionNode.dataset.knittingOrderId, actionNode.dataset.nodeName, nextStatus, '工厂端操作员', nowTimestamp())
+    showPdaExecDetailToast(`针织节点已更新为${nextStatus}，Web端同步更新`)
     return true
   }
 
@@ -3822,12 +3981,15 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
 
     const headcount = undefined
 
-    mutateStartTask(taskId, 'PDA', {
-      startTime,
-      headcount,
-      proofFiles: detailState.startProofFiles,
-    })
-    if (isSpecialCraftExecutionTask(task, getTaskProcessDisplayName(task))) {
+    const isKnittingTask = startKnittingOrderFromMobile(task, startTime)
+    if (!isKnittingTask) {
+      mutateStartTask(taskId, 'PDA', {
+        startTime,
+        headcount,
+        proofFiles: detailState.startProofFiles,
+      })
+    }
+    if (!isKnittingTask && isSpecialCraftExecutionTask(task, getTaskProcessDisplayName(task))) {
       try {
         const sourceId = getSpecialCraftExecBindings(task)[0]?.workOrderId
         if (sourceId) {
@@ -3850,6 +4012,12 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
     }
     let startToast = '开工成功'
     try {
+      if (isKnittingTask) {
+        showPdaExecDetailToast('开工成功，针织加工单已同步 Web 端')
+        syncPdaStartRiskAndExceptions()
+        syncMilestoneOverdueExceptions()
+        return true
+      }
       const ensured = ensureHandoverOrderForStartedTask(taskId)
       const updatedTask = getTaskFactById(taskId) as TaskWithHandoverFields | null
       const handoverOrder = getHandoverOrderById(ensured.handoverOrderId) ?? null
@@ -3894,6 +4062,11 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
             ? '请至少上传 1 项关键节点视频凭证'
             : '请至少上传 1 项关键节点凭证（图片或视频任选其一）'
       showPdaExecDetailToast(proofHint)
+      return true
+    }
+
+    if (reportKnittingMilestoneFromMobile(task, reportAt)) {
+      showPdaExecDetailToast('关键节点已上报，针织加工单已同步 Web 端')
       return true
     }
 
@@ -3987,6 +4160,11 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       })
       detailState.specialCraftScrapQty = '0'
       detailState.specialCraftDamageQty = '0'
+    }
+
+    if (finishKnittingOrderFromMobile(task)) {
+      showPdaExecDetailToast('完工成功，针织加工单已同步 Web 端')
+      return true
     }
 
     mutateFinishTask(taskId, 'PDA')

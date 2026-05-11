@@ -90,7 +90,7 @@ function renderSummaryCards(): string {
     <section class="grid gap-3 md:grid-cols-4">
       ${renderMetricCard('待打印菲票', String(waitFeiRows), '仅部位针织')}
       ${renderMetricCard('已打印菲票', String(printedFeiRows), '可交裁床')}
-      ${renderMetricCard('纱线差异单', String(yarnDiffCount), '接纱称重差异')}
+      ${renderMetricCard('领料差异单', String(yarnDiffCount), '称重领料差异')}
       ${renderMetricCard('交出差异单', String(handoverDiffCount), '接收方回写差异')}
     </section>
   `

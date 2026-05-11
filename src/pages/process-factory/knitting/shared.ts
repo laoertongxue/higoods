@@ -44,9 +44,7 @@ export function renderStatusBadge(status: KnittingWorkOrderStatus): string {
   const tone: BadgeTone =
     status === 'COMPLETED'
       ? 'success'
-      : ['YARN_RECEIVED_WITH_DIFF', 'RECEIVER_WRITTEN_BACK'].includes(status)
-        ? 'danger'
-        : ['WAIT_HANDOVER', 'HANDOVER_SUBMITTED', 'WAIT_REVIEW', 'WAIT_FEI_TICKET'].includes(status)
+      : ['WAIT_PICKUP', 'PICKUP_IN_PROGRESS', 'WAIT_MACHINE_SCHEDULE', 'MACHINE_SCHEDULED', 'WAIT_HANDOVER', 'HANDOVER_SUBMITTED', 'WAIT_FEI_TICKET', 'FEI_TICKET_PRINTED'].includes(status)
           ? 'warning'
           : ['FLAT_KNITTING', 'LINKING', 'IRONING', 'PACKING'].includes(status)
             ? 'info'

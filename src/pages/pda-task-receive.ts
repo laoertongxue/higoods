@@ -42,6 +42,7 @@ import {
   filterReceivePendingAcceptTasks,
   filterReceiveQuotedTenders,
 } from '../data/fcs/pda-receive-scope.ts'
+import { acceptKnittingWorkOrder } from '../data/fcs/knitting-task-domain.ts'
 import {
   ensurePdaSessionForAction,
   getPdaRuntimeContext,
@@ -270,6 +271,10 @@ function mutateAcceptTask(taskId: string, by: string): void {
   const now = nowTimestamp()
   const task = getTaskFactById(taskId)
   if (!task) return
+  const knittingOrderId = (task as ProcessTask & { knittingOrderId?: string }).knittingOrderId
+  if (task.processBusinessCode === 'KNITTING' && knittingOrderId) {
+    acceptKnittingWorkOrder(knittingOrderId, by, now)
+  }
 
   task.acceptanceStatus = 'ACCEPTED'
   task.acceptedAt = now

@@ -7,6 +7,7 @@ import {
   type KnittingWorkOrder,
 } from '../../../data/fcs/knitting-task-domain.ts'
 import {
+  buildKnittingMachinesLink,
   buildKnittingStatisticsLink,
   buildKnittingWorkOrderDetailLink,
   buildKnittingWorkOrdersLink,
@@ -27,11 +28,11 @@ function renderScheduleStatusBadge(status: KnittingMachineScheduleStatus): strin
   const tone =
     status === '已完成'
       ? 'success'
-      : status === '进行中'
+      : status === '生产中'
         ? 'info'
-        : status === '延迟预警'
+        : status === '延误'
           ? 'danger'
-          : status === '计划中'
+          : status === '待开工'
             ? 'warning'
             : 'muted'
   return renderBadge(status, tone)
@@ -51,6 +52,7 @@ function renderTopActions(): string {
   return `
     <div class="flex flex-wrap gap-2">
       <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildKnittingWorkOrdersLink())}">返回加工单</button>
+      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildKnittingMachinesLink())}">横机设备</button>
       <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildKnittingStatisticsLink())}">查看针织统计</button>
     </div>
   `
@@ -67,7 +69,7 @@ function renderSummaryCards(): string {
       ${renderMetricCard('占用横机', `${formatNumber(summary.inUseMachineCount)} 台`, `${loadPercent}% 负荷`)}
       ${renderMetricCard('空闲横机', `${formatNumber(summary.idleMachineCount)} 台`, '可插急单或返修')}
       ${renderMetricCard('部位排产', String(summary.partPanelScheduleCount), '后续走菲票')}
-      ${renderMetricCard('延迟预警', String(summary.delayedScheduleCount), '当前无红色延迟')}
+      ${renderMetricCard('延误', String(summary.delayedScheduleCount), '当前无红色延误')}
     </section>
   `
 }

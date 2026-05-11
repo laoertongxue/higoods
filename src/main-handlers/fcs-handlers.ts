@@ -178,7 +178,13 @@ import {
 import { handleCraftDyeingEvent } from '../pages/process-factory/dyeing/events'
 import { handlePostFinishingEvent } from '../pages/process-factory/post-finishing/events'
 import { handleCraftPrintingEvent } from '../pages/process-factory/printing/events'
+import { handleCraftKnittingEvent } from '../pages/process-factory/knitting/work-orders'
+import { handleCraftKnittingMachinesEvent } from '../pages/process-factory/knitting/machines'
 import { handleSpecialCraftWorkOrderDetailEvent } from '../pages/process-factory/special-craft/work-order-detail'
+import {
+  closeFactoryWarehouseSharedDialogs,
+  handleFactoryWarehouseSharedEvent,
+} from '../pages/process-factory/shared/warehouse-standard'
 
 export async function dispatchFcsPageEvent(target: HTMLElement): Promise<boolean> {
   const isPostFinishingRoute =
@@ -204,6 +210,9 @@ export async function dispatchFcsPageEvent(target: HTMLElement): Promise<boolean
   return (
     await handleCraftPrintingEvent(target) ||
     await handleCraftDyeingEvent(target) ||
+    await handleFactoryWarehouseSharedEvent(target) ||
+    await handleCraftKnittingEvent(target) ||
+    await handleCraftKnittingMachinesEvent(target) ||
     await handlePostFinishingEvent(target) ||
     await handleSpecialCraftWorkOrderDetailEvent(target) ||
     await handleCraftCuttingOriginalOrdersEvent(target) ||
@@ -271,6 +280,10 @@ export function dispatchFcsPageSubmit(form: HTMLFormElement): boolean {
 }
 
 export function closeFcsDialogsOnEscape(): boolean {
+  if (closeFactoryWarehouseSharedDialogs()) {
+    return true
+  }
+
   if (isFactoryInternalWarehouseDialogOpen()) {
     const fakeButton = document.createElement('button')
     fakeButton.dataset.factoryWarehouseAction = 'close-detail'

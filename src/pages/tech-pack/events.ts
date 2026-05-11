@@ -25,6 +25,7 @@ import {
   createPatternManagedFile,
   currentUser,
   dedupeStrings,
+  escapeHtml,
   buildPatternPiecePartKey,
   getBaselineProcessByCode,
   getCraftOptionByCode,
@@ -80,6 +81,44 @@ import type {
   TechPackTab,
   TechniqueItem,
 } from './context.ts'
+
+const PATTERN_IMAGE_PREVIEW_MODAL_ID = 'tech-pack-pattern-image-preview-modal'
+
+function closePatternImagePreviewModal(): void {
+  document.getElementById(PATTERN_IMAGE_PREVIEW_MODAL_ID)?.remove()
+}
+
+function openPatternImagePreviewModal(input: {
+  previewUrl: string
+  title: string
+  fileName: string
+}): void {
+  const previewUrl = input.previewUrl.trim()
+  if (!previewUrl) return
+  closePatternImagePreviewModal()
+  const root = document.querySelector('#app') || document.body
+  const modal = document.createElement('div')
+  modal.id = PATTERN_IMAGE_PREVIEW_MODAL_ID
+  modal.className = 'fixed inset-0 z-[100] flex items-center justify-center bg-black/55 p-4'
+  modal.dataset.skipPageRerender = 'true'
+  modal.innerHTML = `
+    <section class="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-xl border bg-background shadow-2xl" data-dialog-panel="true">
+      <header class="flex items-center justify-between gap-3 border-b px-5 py-4">
+        <div class="min-w-0">
+          <h3 class="truncate text-base font-semibold">${escapeHtml(input.title || '纸样图预览')}</h3>
+          <p class="mt-1 truncate text-xs text-muted-foreground">${escapeHtml(input.fileName || '纸样图')}</p>
+        </div>
+        <button type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-md border text-lg leading-none hover:bg-muted" data-tech-action="close-pattern-image-preview" data-skip-page-rerender="true" aria-label="关闭大图预览">
+          ×
+        </button>
+      </header>
+      <div class="min-h-0 flex-1 overflow-auto bg-slate-50 p-4">
+        <img src="${escapeHtml(previewUrl)}" alt="${escapeHtml(input.title || input.fileName || '纸样图')}" class="mx-auto max-h-[76vh] max-w-full rounded-lg border bg-white object-contain shadow-sm" />
+      </div>
+    </section>
+  `
+  root.appendChild(modal)
+}
 
 function getTechniqueById(techId: string): TechniqueItem | null {
   return state.techniques.find((item) => item.id === techId) ?? null
@@ -714,6 +753,16 @@ function validatePatternMakerStep(): string | null {
 function validatePatternPackage(): string | null {
   const baseError = validatePatternMerchandiserStep()
   if (baseError) return baseError
+  if (state.newPattern.patternMaterialType === 'KNIT') {
+    if (!state.newPattern.singlePatternFileName.trim() && !state.newPattern.file.trim()) return '请上传针织纸样 Zip 文件'
+    if (!hasFileExtension(state.newPattern.singlePatternFileName || state.newPattern.file, ['.zip'])) return '针织纸样包只能上传 Zip 文件'
+    if (state.newPattern.pieceRows.length === 0) return '请新增针织部位明细'
+    const invalidRow = state.newPattern.pieceRows.find(
+      (row) => row.sourceType !== 'MANUAL' || !row.name.trim() || Number(row.totalPieceQty) <= 0,
+    )
+    if (invalidRow) return '针织部位名称和颜色片数必须填写完整'
+    return null
+  }
   if (!state.newPattern.prjFile?.fileName) return '请上传纸样 PRJ 文件'
   if (!state.newPattern.markerImage?.fileName) return '请上传唛架图片'
   if (!hasFileExtension(state.newPattern.prjFile.fileName, ['.prj'])) return '文件格式不正确，请上传 PRJ 文件'
@@ -1220,6 +1269,20 @@ function handleTechPackField(
   }
   if (field === 'new-pattern-single-file' && node instanceof HTMLInputElement) {
     const file = node.files?.[0] ?? null
+    if (
+      file
+      && state.patternFormPurpose === 'PACKAGE'
+      && state.newPattern.patternMaterialType === 'KNIT'
+      && !hasFileExtension(file.name, ['.zip'])
+    ) {
+      applyPatternFileError('针织纸样包只能上传 Zip 文件', node)
+      state.newPattern.selectedSinglePatternFile = null
+      state.newPattern.singlePatternFileName = ''
+      state.newPattern.singlePatternFileSize = 0
+      state.newPattern.singlePatternFileLastModified = ''
+      state.newPattern.file = ''
+      return true
+    }
     state.newPattern.selectedSinglePatternFile = file
     state.newPattern.singlePatternFileName = file?.name || ''
     state.newPattern.singlePatternFileSize = file?.size || 0
@@ -2129,10 +2192,24 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     return true
   }
 
+  if (action === 'open-pattern-image-preview') {
+    openPatternImagePreviewModal({
+      previewUrl: actionNode.dataset.techPatternPreviewUrl || '',
+      title: actionNode.dataset.techPatternPreviewTitle || '纸样图预览',
+      fileName: actionNode.dataset.techPatternPreviewFile || '',
+    })
+    return true
+  }
+  if (action === 'close-pattern-image-preview') {
+    closePatternImagePreviewModal()
+    return true
+  }
+
   if (isTechPackReadOnly()) {
     const isReadonlySafeAction =
       action.startsWith('close-') ||
       action === 'open-pattern-detail' ||
+      action === 'open-pattern-image-preview' ||
       action === 'open-design-thumbnail-preview' ||
       action === 'preview-design-thumbnail' ||
       action === 'download-design-original-file' ||
@@ -2181,9 +2258,9 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     if (!pattern) return true
 
     state.editPatternItemId = pattern.id
-    state.patternFormPurpose = 'ASSOCIATION'
+    state.patternFormPurpose = pattern.recordKind === 'PACKAGE' ? 'PACKAGE' : 'ASSOCIATION'
     state.newPattern = buildPatternFormStateFromItem(pattern)
-    state.patternMaintenanceStep = 'MERCHANDISER'
+    state.patternMaintenanceStep = pattern.recordKind === 'PACKAGE' ? 'PATTERN_MAKER' : 'MERCHANDISER'
     state.addPatternDialogOpen = true
     return true
   }
@@ -2278,7 +2355,9 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     }
     state.newPattern.parseError = ''
     const finalStatus =
-      state.newPattern.patternMaterialType === 'WOVEN' && state.newPattern.parseStatus === 'PARSED'
+      state.newPattern.patternMaterialType === 'KNIT'
+        ? '已解析待确认'
+        : state.newPattern.patternMaterialType === 'WOVEN' && state.newPattern.parseStatus === 'PARSED'
         ? '已解析待确认'
         : '待解析'
     updatePatternMaintainerStatuses(finalStatus)
@@ -2486,24 +2565,36 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
   }
   if (action === 'add-new-pattern-piece-row') {
     if (state.newPattern.patternMaterialType !== 'KNIT') return true
-    state.newPattern.pieceRows = [
-      ...state.newPattern.pieceRows,
-      {
-        id: `piece-${Date.now()}`,
-        name: '',
-        count: 0,
-        note: '',
-        isTemplate: false,
-        applicableSkuCodes: [],
-        colorAllocations: [],
-        colorPieceQuantities: getPatternColorQuantityOptions(state.newPattern.linkedBomItemId).map((option) => ({
+    const colorOptions = getPatternColorQuantityOptions(state.newPattern.linkedBomItemId)
+    const colorPieceQuantities = colorOptions.length > 0
+      ? colorOptions.map((option) => ({
           colorId: option.colorCode || option.colorName,
           colorName: option.colorName,
           enabled: false,
           pieceQty: 0,
           remark: '请维护颜色片数',
-        })),
-        totalPieceQty: 0,
+        }))
+      : [
+          {
+            colorId: 'COMMON',
+            colorName: '通用',
+            enabled: true,
+            pieceQty: 1,
+            remark: '纸样包部位明细',
+          },
+        ]
+    state.newPattern.pieceRows = [
+      ...state.newPattern.pieceRows,
+      {
+        id: `piece-${Date.now()}`,
+        name: '',
+        count: colorOptions.length > 0 ? 0 : 1,
+        note: '',
+        isTemplate: false,
+        applicableSkuCodes: [],
+        colorAllocations: [],
+        colorPieceQuantities,
+        totalPieceQty: colorOptions.length > 0 ? 0 : 1,
         specialCrafts: [],
         sourceType: 'MANUAL',
       },

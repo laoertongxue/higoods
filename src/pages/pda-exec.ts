@@ -605,10 +605,10 @@ function renderNotStartedCard(task: ProcessTask): string {
           <p class="font-medium">起算依据：${escapeHtml(dueSourceText)}</p>
           ${
             startInfo.startRiskStatus === 'OVERDUE'
-              ? '<p class="mt-1 text-red-700">状态：开工已逾期</p>'
+              ? '<p class="mt-1 text-red-700">开工状态：未开工；时限：已逾期</p>'
               : startInfo.startRiskStatus === 'DUE_SOON' && typeof startInfo.remainingMs === 'number'
-                ? `<p class="mt-1 text-amber-700">状态：距开工时限不足 ${escapeHtml(formatRemainingHours(startInfo.remainingMs))} 小时</p>`
-                : '<p class="mt-1 text-muted-foreground">状态：开工时限正常</p>'
+                ? `<p class="mt-1 text-amber-700">开工状态：未开工；距时限不足 ${escapeHtml(formatRemainingHours(startInfo.remainingMs))} 小时</p>`
+                : '<p class="mt-1 text-muted-foreground">开工状态：未开工；时限：正常</p>'
           }
         </div>
 

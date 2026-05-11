@@ -9,9 +9,15 @@ import { buildFabricWarehouseProjection } from './fabric-warehouse-projection.ts
 import { renderCompactKpiCard } from './layout.helpers.ts'
 import { getCanonicalCuttingMeta, getCanonicalCuttingPath, renderCuttingPageHeader } from './meta.ts'
 import { getWarehouseSearchParams } from './warehouse-shared.ts'
+import {
+  renderFactoryWarehouseStandardTabs,
+  renderWarehouseLocationActions,
+  renderWarehouseLocationToolbar,
+  type FactoryWarehouseStandardTab,
+} from '../shared/warehouse-standard.ts'
 
-type WaitProcessTabKey = 'overview' | 'fabric-warehouse' | 'special-craft-dispatch'
-type WaitHandoverTabKey = 'overview' | 'cut-piece-warehouse' | 'special-craft-return' | 'sewing-dispatch'
+type WaitProcessTabKey = 'inventory' | 'receipts' | 'usage' | 'locations'
+type WaitHandoverTabKey = 'inventory' | 'handouts' | 'inbounds' | 'locations'
 
 function formatNumber(value: number): string {
   return new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 1 }).format(value)
@@ -19,6 +25,22 @@ function formatNumber(value: number): string {
 
 function uniqueCount(values: Array<string | undefined>): number {
   return new Set(values.filter(Boolean)).size
+}
+
+function getSafeCuttingSewingDispatchSummary(): ReturnType<typeof getCuttingSewingDispatchSummary> {
+  try {
+    return getCuttingSewingDispatchSummary()
+  } catch {
+    return {
+      waitingCompleteOrderCount: 0,
+      readyBatchCount: 0,
+      handedOverBatchCount: 0,
+      writtenBackBatchCount: 0,
+      differenceBatchCount: 0,
+      objectionBatchCount: 0,
+      remainingGarmentQty: 0,
+    }
+  }
 }
 
 function renderHubActionCard(options: {
@@ -65,6 +87,37 @@ function renderHubGuideCard(title: string, lines: string[]): string {
           .join('')}
       </ul>
     </article>
+  `
+}
+
+function renderLocationRows(scopeLabel: string, rows: Array<[string, string, string, string]>): string {
+  return `
+    <div class="overflow-x-auto">
+      <table class="min-w-[960px] w-full text-left text-sm">
+        <thead class="bg-slate-50 text-xs text-muted-foreground">
+          <tr>
+            <th class="px-3 py-2 font-medium">仓库</th>
+            <th class="px-3 py-2 font-medium">库区</th>
+            <th class="px-3 py-2 font-medium">库位</th>
+            <th class="px-3 py-2 font-medium">承载对象</th>
+            <th class="px-3 py-2 font-medium">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows
+            .map(([warehouse, area, location, object]) => `
+              <tr class="border-b last:border-b-0">
+                <td class="px-3 py-3">${escapeHtml(warehouse)}</td>
+                <td class="px-3 py-3">${escapeHtml(area)}</td>
+                <td class="px-3 py-3">${escapeHtml(location)}</td>
+                <td class="px-3 py-3">${escapeHtml(object)}</td>
+                <td class="px-3 py-3">${renderWarehouseLocationActions(scopeLabel, `${area}/${location}`)}</td>
+              </tr>
+            `)
+            .join('')}
+        </tbody>
+      </table>
+    </div>
   `
 }
 
@@ -119,13 +172,11 @@ function renderHubShell(options: {
   return `
     <div class="space-y-5">
       ${renderCuttingPageHeader(meta)}
-      ${options.tabs}
       <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
         ${options.kpis}
       </section>
-      <section class="grid gap-4 xl:grid-cols-2">
-        ${options.content}
-      </section>
+      ${options.tabs}
+      ${options.content}
     </div>
   `
 }
@@ -136,7 +187,7 @@ export function renderCraftCuttingWarehouseManagementWaitProcessPage(): string {
   const generatedDispatchCount = dispatchRows.filter((row) => row.handoverRecordNo && row.handoverRecordNo !== '未创建').length
   const operationCount = uniqueCount(dispatchRows.map((row) => row.operationName))
   const factoryCount = uniqueCount(dispatchRows.map((row) => row.targetFactoryName))
-  const activeTab = readTabKey<WaitProcessTabKey>('overview', ['overview', 'fabric-warehouse', 'special-craft-dispatch'])
+  const activeTab = readTabKey<WaitProcessTabKey>('inventory', ['inventory', 'receipts', 'usage', 'locations'])
 
   const fabricWarehouseCard = renderHubActionCard({
     title: '裁床仓',
@@ -159,18 +210,66 @@ export function renderCraftCuttingWarehouseManagementWaitProcessPage(): string {
     ],
   })
 
-  const contentByTab: Record<WaitProcessTabKey, string> = {
-    overview: [
-      fabricWarehouseCard,
-      specialCraftDispatchCard,
-    ].join(''),
-    'fabric-warehouse': [
-      fabricWarehouseCard,
-    ].join(''),
-    'special-craft-dispatch': [
-      specialCraftDispatchCard,
-    ].join(''),
-  }
+  const standardTabs: FactoryWarehouseStandardTab[] = [
+    {
+      key: 'inventory',
+      label: '库存',
+      count: fabricSummary.stockItemCount + dispatchRows.length,
+      content: `<section class="grid gap-4 xl:grid-cols-2">${fabricWarehouseCard}${specialCraftDispatchCard}</section>`,
+    },
+    {
+      key: 'receipts',
+      label: '领料记录',
+      count: fabricSummary.rollCount + generatedDispatchCount,
+      content: `<section class="grid gap-4 xl:grid-cols-2">
+        ${renderHubActionCard({
+          title: '面料领料记录',
+          rows: [
+            ['WMS 来料卷数', fabricSummary.rollCount],
+            ['面料 SKU 数', fabricSummary.stockItemCount],
+            ['配置长度总量', `${formatNumber(fabricSummary.configuredLengthTotal)} m`],
+            ['低余量项数', fabricSummary.lowRemainingItemCount],
+          ],
+        })}
+        ${renderHubActionCard({
+          title: '特殊工艺发料记录',
+          rows: [
+            ['待发记录数', dispatchRows.length],
+            ['已生成发料单数', generatedDispatchCount],
+            ['涉及工艺数', operationCount],
+            ['涉及工厂数', factoryCount],
+          ],
+        })}
+      </section>`,
+    },
+    {
+      key: 'usage',
+      label: '加工用料记录',
+      count: fabricSummary.stockItemCount,
+      content: `<section class="grid gap-4 xl:grid-cols-2">
+        ${renderHubActionCard({
+          title: '铺布裁剪用料',
+          rows: [
+            ['配置长度总量', `${formatNumber(fabricSummary.configuredLengthTotal)} m`],
+            ['剩余长度总量', `${formatNumber(fabricSummary.remainingLengthTotal)} m`],
+            ['已用长度估算', `${formatNumber(Math.max(fabricSummary.configuredLengthTotal - fabricSummary.remainingLengthTotal, 0))} m`],
+            ['低余量项数', fabricSummary.lowRemainingItemCount],
+          ],
+        })}
+        ${renderHubGuideCard('用料口径', ['待加工仓库存由 WMS 来料形成。', '铺布、裁剪、特殊工艺发料会扣减待加工仓库存。'])}
+      </section>`,
+    },
+    {
+      key: 'locations',
+      label: '库区库位',
+      count: 3,
+      content: `<div class="border-b px-4 py-3">${renderWarehouseLocationToolbar('裁床待加工仓')}</div>${renderLocationRows('裁床待加工仓', [
+        ['裁床待加工仓', '面料 A 区', 'FAB-A-01', '待裁面料'],
+        ['裁床待加工仓', '面料 B 区', 'FAB-B-02', '补料 / 余料'],
+        ['特殊工艺待发区', '发料暂存区', 'SP-DISPATCH-01', '待发特殊工艺裁片'],
+      ])}`,
+    },
+  ]
 
   return renderHubShell({
     metaKey: 'warehouse-management-wait-process',
@@ -181,27 +280,21 @@ export function renderCraftCuttingWarehouseManagementWaitProcessPage(): string {
       renderCompactKpiCard('配置长度总量', `${formatNumber(fabricSummary.configuredLengthTotal)} m`, '裁床仓', 'text-blue-600'),
       renderCompactKpiCard('待发特殊工艺记录数', dispatchRows.length, '特殊工艺发料', 'text-amber-600'),
     ].join(''),
-    tabs: renderHubTabs('warehouse-management-wait-process', activeTab, [
-      { key: 'overview', label: '待加工总览' },
-      { key: 'fabric-warehouse', label: '裁床仓' },
-      { key: 'special-craft-dispatch', label: '特殊工艺待加工 / 发料' },
-    ]),
-    content: contentByTab[activeTab],
+    tabs: '',
+    content: renderFactoryWarehouseStandardTabs(
+      standardTabs.sort((a, b) => Number(b.key === activeTab) - Number(a.key === activeTab)),
+      'cutting-wait-process-standard-tabs',
+    ),
   })
 }
 
 export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string {
   const cutPieceSummary = buildCutPieceWarehouseProjection().viewModel.summary
   const returnRows = listCuttingSpecialCraftReturnViews()
-  const sewingSummary = getCuttingSewingDispatchSummary()
+  const sewingSummary = getSafeCuttingSewingDispatchSummary()
   const completedReturnCount = returnRows.filter((row) => row.returnStatus === '已回仓').length
   const returnDifferenceCount = returnRows.filter((row) => row.returnStatus === '差异' || row.differenceQty > 0).length
-  const activeTab = readTabKey<WaitHandoverTabKey>('overview', [
-    'overview',
-    'cut-piece-warehouse',
-    'special-craft-return',
-    'sewing-dispatch',
-  ])
+  const activeTab = readTabKey<WaitHandoverTabKey>('inventory', ['inventory', 'handouts', 'inbounds', 'locations'])
 
   const cutPieceWarehouseCard = renderHubActionCard({
     title: '裁片仓',
@@ -232,22 +325,54 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
     ],
   })
 
-  const contentByTab: Record<WaitHandoverTabKey, string> = {
-    overview: [
-      cutPieceWarehouseCard,
-      specialCraftReturnCard,
-      sewingDispatchCard,
-    ].join(''),
-    'cut-piece-warehouse': [
-      cutPieceWarehouseCard,
-    ].join(''),
-    'special-craft-return': [
-      specialCraftReturnCard,
-    ].join(''),
-    'sewing-dispatch': [
-      sewingDispatchCard,
-    ].join(''),
-  }
+  const standardTabs: FactoryWarehouseStandardTab[] = [
+    {
+      key: 'inventory',
+      label: '库存',
+      count: cutPieceSummary.totalItemCount + returnRows.length,
+      content: `<section class="grid gap-4 xl:grid-cols-2">${cutPieceWarehouseCard}${specialCraftReturnCard}</section>`,
+    },
+    {
+      key: 'handouts',
+      label: '交出记录',
+      count: sewingSummary.handedOverBatchCount + returnRows.length,
+      content: `<section class="grid gap-4 xl:grid-cols-2">${sewingDispatchCard}${specialCraftReturnCard}</section>`,
+    },
+    {
+      key: 'inbounds',
+      label: '加工入仓记录',
+      count: cutPieceSummary.inWarehouseCount + completedReturnCount,
+      content: `<section class="grid gap-4 xl:grid-cols-2">
+        ${renderHubActionCard({
+          title: '裁片加工入仓',
+          rows: [
+            ['记录数', cutPieceSummary.totalItemCount],
+            ['裁片总数量', cutPieceSummary.totalQuantity],
+            ['已入仓数量', cutPieceSummary.inWarehouseCount],
+            ['待交数量', cutPieceSummary.waitingHandoffCount],
+          ],
+        })}
+        ${renderHubActionCard({
+          title: '特殊工艺回仓入仓',
+          rows: [
+            ['回仓记录数', returnRows.length],
+            ['已完成回仓数', completedReturnCount],
+            ['差异数', returnDifferenceCount],
+          ],
+        })}
+      </section>`,
+    },
+    {
+      key: 'locations',
+      label: '库区库位',
+      count: 3,
+      content: `<div class="border-b px-4 py-3">${renderWarehouseLocationToolbar('裁床待交出仓')}</div>${renderLocationRows('裁床待交出仓', [
+        ['裁床待交出仓', '裁片 A 区', 'CUT-A-01', '待发车缝裁片'],
+        ['裁床待交出仓', '特殊工艺回仓区', 'SP-RETURN-01', '回仓裁片'],
+        ['裁床待交出仓', '中转袋暂存区', 'BAG-A-01', '待交出中转袋'],
+      ])}`,
+    },
+  ]
 
   return renderHubShell({
     metaKey: 'warehouse-management-wait-handover',
@@ -259,12 +384,10 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
       renderCompactKpiCard('特殊工艺回仓记录数', returnRows.length, '特殊工艺回仓', 'text-blue-600'),
       renderCompactKpiCard('可交出批次数', sewingSummary.readyBatchCount, '裁片发料', 'text-emerald-600'),
     ].join(''),
-    tabs: renderHubTabs('warehouse-management-wait-handover', activeTab, [
-      { key: 'overview', label: '待交出总览' },
-      { key: 'cut-piece-warehouse', label: '裁片仓' },
-      { key: 'special-craft-return', label: '特殊工艺回仓' },
-      { key: 'sewing-dispatch', label: '裁片发料' },
-    ]),
-    content: contentByTab[activeTab],
+    tabs: '',
+    content: renderFactoryWarehouseStandardTabs(
+      standardTabs.sort((a, b) => Number(b.key === activeTab) - Number(a.key === activeTab)),
+      'cutting-wait-handover-standard-tabs',
+    ),
   })
 }

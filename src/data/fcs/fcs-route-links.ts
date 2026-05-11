@@ -248,6 +248,11 @@ export function buildKnittingMachineScheduleLink(knittingOrderId?: string): stri
   return knittingOrderId ? `${base}?knittingOrderId=${encodeSegment(knittingOrderId)}` : base
 }
 
+export function buildKnittingMachinesLink(machineNo?: string): string {
+  const base = '/fcs/craft/knitting/machines'
+  return machineNo ? `${base}?machineNo=${encodeSegment(machineNo)}` : base
+}
+
 export function buildKnittingStatisticsLink(knittingOrderId?: string): string {
   const base = '/fcs/craft/knitting/statistics'
   return knittingOrderId ? `${base}?knittingOrderId=${encodeSegment(knittingOrderId)}` : base

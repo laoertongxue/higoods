@@ -350,6 +350,7 @@ export function getMobileTaskExecutionState(task: ProcessTask | null | undefined
   if (task.status === 'DONE') return '已完工'
   if (task.status === 'BLOCKED' || origin.endsWith('BLOCKED')) return '生产暂停'
   if (task.status === 'IN_PROGRESS') return '进行中'
+  if (task.startedAt) return '进行中'
   if (task.status === 'NOT_STARTED') return '待开工'
   return '未知'
 }

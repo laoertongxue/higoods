@@ -115,6 +115,7 @@ import {
   renderCraftDyeingWorkOrdersPage,
   renderCraftKnittingFeiTicketsPage,
   renderCraftKnittingMachineSchedulePage,
+  renderCraftKnittingMachinesPage,
   renderCraftKnittingStatisticsPage,
   renderCraftKnittingWorkOrderDetailPage,
   renderCraftKnittingWorkOrdersPage,
@@ -298,6 +299,7 @@ export const routes: RouteRegistry = {
     '/fcs/craft/knitting/wait-handover-warehouse': () => renderCraftKnittingWaitHandoverWarehousePage(),
     '/fcs/craft/knitting/fei-tickets': () => renderCraftKnittingFeiTicketsPage(),
     '/fcs/craft/knitting/machine-schedule': () => renderCraftKnittingMachineSchedulePage(),
+    '/fcs/craft/knitting/machines': () => renderCraftKnittingMachinesPage(),
     '/fcs/craft/knitting/statistics': () => renderCraftKnittingStatisticsPage(),
     '/fcs/craft/knitting/stats': () => renderCraftKnittingStatisticsPage(),
     '/fcs/craft/knitting/warehouse': () =>

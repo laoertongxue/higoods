@@ -440,6 +440,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           children: [
             { key: 'pfos-knitting-work-orders', title: '针织加工单', icon: 'ClipboardList', href: '/fcs/craft/knitting/work-orders' },
             { key: 'pfos-knitting-machine-schedule', title: '横机排产', icon: 'CalendarClock', href: '/fcs/craft/knitting/machine-schedule' },
+            { key: 'pfos-knitting-machines', title: '横机设备', icon: 'Settings2', href: '/fcs/craft/knitting/machines' },
             { key: 'pfos-knitting-wait-process-warehouse', title: '针织待加工仓', icon: 'Warehouse', href: '/fcs/craft/knitting/wait-process-warehouse' },
             { key: 'pfos-knitting-wait-handover-warehouse', title: '针织待交出仓', icon: 'PackageCheck', href: '/fcs/craft/knitting/wait-handover-warehouse' },
             { key: 'pfos-knitting-fei-tickets', title: '针织菲票', icon: 'Ticket', href: '/fcs/craft/knitting/fei-tickets' },

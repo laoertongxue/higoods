@@ -136,10 +136,18 @@ function renderPatternImagePreview(pattern: TechnicalPatternFile): string {
       ? pattern.markerImage.previewUrl
       : buildPatternPreviewUrl(resolvePatternTitle(pattern), fileName)
   return `
-    <a class="inline-flex items-center gap-2 rounded border bg-white p-1 text-xs text-blue-700 hover:border-blue-300 hover:bg-blue-50" href="${escapeHtml(previewUrl)}" target="_blank" rel="noreferrer">
+    <button
+      type="button"
+      class="inline-flex items-center gap-2 rounded border bg-white p-1 text-xs text-blue-700 hover:border-blue-300 hover:bg-blue-50"
+      data-tech-action="open-pattern-image-preview"
+      data-tech-pattern-preview-url="${escapeHtml(previewUrl)}"
+      data-tech-pattern-preview-title="${escapeHtml(resolvePatternTitle(pattern))}"
+      data-tech-pattern-preview-file="${escapeHtml(fileName)}"
+      data-skip-page-rerender="true"
+    >
       <img src="${escapeHtml(previewUrl)}" alt="${escapeHtml(fileName)}" class="h-12 w-20 rounded object-cover" />
       <span>查看大图</span>
-    </a>
+    </button>
   `
 }
 

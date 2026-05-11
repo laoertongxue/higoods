@@ -401,6 +401,10 @@ export const renderCraftKnittingMachineSchedulePage = createAsyncRenderer(
   () => import('../pages/process-factory/knitting/machine-schedule'),
   'renderCraftKnittingMachineSchedulePage',
 )
+export const renderCraftKnittingMachinesPage = createAsyncRenderer(
+  () => import('../pages/process-factory/knitting/machines'),
+  'renderCraftKnittingMachinesPage',
+)
 export const renderCraftKnittingStatisticsPage = createAsyncRenderer(
   () => import('../pages/process-factory/knitting/statistics'),
   'renderCraftKnittingStatisticsPage',

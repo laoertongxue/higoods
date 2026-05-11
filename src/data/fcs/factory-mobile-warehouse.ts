@@ -6,9 +6,15 @@ import {
   listFactoryWaitHandoverStockItems,
   listFactoryWaitProcessStockItems,
 } from './factory-internal-warehouse.ts'
-import { mockFactories } from './factory-mock-data.ts'
+import { OWN_KNITTING_FACTORY_ID, mockFactories } from './factory-mock-data.ts'
 import { listCuttingSewingDispatchBatches, listCuttingSewingDispatchOrders, listCuttingSewingTransferBags } from './cutting/sewing-dispatch.ts'
 import { listPdaHandoverHeads } from './pda-handover-events.ts'
+import {
+  listKnittingWaitHandoverHandoutRecords,
+  listKnittingWaitHandoverInboundRecords,
+  listKnittingWaitProcessReceiptRecords,
+  listKnittingWarehouseInventory,
+} from './knitting-task-domain.ts'
 
 export interface FactoryMobileWarehouseOverview {
   factoryId: string
@@ -79,6 +85,39 @@ export function getFactoryMobileTransferBagReceiveTasks(factoryId: string) {
 }
 
 export function getFactoryMobileWarehouseOverview(factoryId: string, factoryName: string): FactoryMobileWarehouseOverview {
+  if (factoryId === OWN_KNITTING_FACTORY_ID) {
+    const waitProcessInventory = listKnittingWarehouseInventory('wait-process')
+    const waitHandoverInventory = listKnittingWarehouseInventory('wait-handover')
+    const receiptRecords = listKnittingWaitProcessReceiptRecords()
+    const inboundRecords = listKnittingWaitHandoverInboundRecords()
+    const handoutRecords = listKnittingWaitHandoverHandoutRecords()
+    return {
+      factoryId,
+      factoryName,
+      waitProcessCount: waitProcessInventory.length,
+      waitProcessQty: waitProcessInventory.reduce((sum, item) => sum + item.currentQty, 0),
+      waitHandoverCount: waitHandoverInventory.length,
+      waitHandoverQty: waitHandoverInventory.reduce((sum, item) => sum + item.currentQty, 0),
+      todayInboundCount: inboundRecords.length,
+      todayInboundQty: inboundRecords.reduce((sum, item) => sum + item.inboundQty, 0),
+      todayOutboundCount: handoutRecords.length,
+      todayOutboundQty: handoutRecords.reduce((sum, item) => sum + item.handoutQty, 0),
+      stocktakeCount: 0,
+      differenceCount: receiptRecords.filter((item) => item.differenceWeightKg !== 0).length,
+      objectionCount: handoutRecords.filter((item) => typeof item.receiverWrittenQty === 'number' && item.receiverWrittenQty !== item.handoutQty).length,
+      pickupCompletedOrderCount: receiptRecords.filter((item) => item.receivedWeightKg > 0).length,
+      handoutCompletedOrderCount: handoutRecords.length,
+      stocktakeWaitReviewCount: 0,
+      stocktakeAdjustedCount: 0,
+      transferBagPackTaskCount: 0,
+      pendingTransferBagReceiveCount: 0,
+      receivedTransferBagCount: 0,
+      feiTicketWritebackCount: 0,
+      transferBagDifferenceCount: 0,
+      isSewingLightweight: false,
+    }
+  }
+
   const waitProcessItems = listFactoryWaitProcessStockItems().filter((item) => item.factoryId === factoryId)
   const waitHandoverItems = listFactoryWaitHandoverStockItems().filter((item) => item.factoryId === factoryId)
   const inboundRecords = listFactoryWarehouseInboundRecords().filter((item) => item.factoryId === factoryId)

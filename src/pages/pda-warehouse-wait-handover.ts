@@ -2,6 +2,12 @@ import {
   listFactoryWaitHandoverStockItems,
   updateWaitHandoverStockLocation,
 } from '../data/fcs/factory-internal-warehouse.ts'
+import { OWN_KNITTING_FACTORY_ID } from '../data/fcs/factory-mock-data.ts'
+import {
+  listKnittingWaitHandoverHandoutRecords,
+  listKnittingWaitHandoverInboundRecords,
+  listKnittingWarehouseInventory,
+} from '../data/fcs/knitting-task-domain.ts'
 import { renderPdaFrame } from './pda-shell'
 import {
   buildWarehouseDifferenceText,
@@ -179,9 +185,56 @@ function renderLocationDialog(): string {
   `
 }
 
+function renderKnittingWaitHandoverPage(): string {
+  const inventory = listKnittingWarehouseInventory('wait-handover')
+  const inbounds = listKnittingWaitHandoverInboundRecords()
+  const handouts = listKnittingWaitHandoverHandoutRecords()
+  const content = `
+    <div class="space-y-4 px-4 pb-5 pt-4">
+      <section class="grid grid-cols-2 gap-2">
+        <button type="button" class="rounded-2xl border bg-background px-4 py-3 text-sm font-medium" data-nav="/fcs/pda/warehouse/wait-process">待加工仓</button>
+        <button type="button" class="rounded-2xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground" data-nav="/fcs/pda/warehouse/wait-handover">待交出仓</button>
+      </section>
+      <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
+        <div class="text-base font-semibold">针织待交出仓</div>
+        <div class="mt-1 text-xs text-muted-foreground">加工入仓形成库存，交出给后道工厂或裁床待交出仓后扣减。</div>
+        <div class="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+          <div class="rounded-xl bg-muted px-2 py-2"><div class="font-semibold">${inventory.length}</div><div class="text-muted-foreground">库存</div></div>
+          <div class="rounded-xl bg-muted px-2 py-2"><div class="font-semibold">${inbounds.length}</div><div class="text-muted-foreground">入仓</div></div>
+          <div class="rounded-xl bg-muted px-2 py-2"><div class="font-semibold">${handouts.length}</div><div class="text-muted-foreground">交出</div></div>
+        </div>
+      </section>
+      <section class="space-y-3">
+        ${inventory.map((item) => `
+          <article class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <div class="text-sm font-semibold">${escapeHtml(item.knittingOrderNo)}</div>
+                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.itemName)} · ${escapeHtml(item.itemSpec)}</div>
+              </div>
+              ${renderStatusPill(item.statusText)}
+            </div>
+            <div class="mt-3 space-y-1.5 text-xs text-muted-foreground">
+              <div>生产单：${escapeHtml(item.productionOrderNo)}</div>
+              <div>当前库存：${item.currentQty} ${escapeHtml(item.unit)}</div>
+              <div>库区库位：${escapeHtml(item.locationText)}</div>
+              <div>流水：${item.flowRecords.map((flow) => `${flow.flowType}${flow.qty}${flow.unit}`).join(' / ') || '-'}</div>
+            </div>
+            <div class="mt-4 flex flex-wrap gap-2">
+              <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-nav="${escapeAttr(resolveTaskRoute(item.taskNo))}">查看任务</button>
+            </div>
+          </article>
+        `).join('')}
+      </section>
+    </div>
+  `
+  return renderPdaFrame(content, 'warehouse', { headerTitle: '针织待交出仓', disableTodoAutoOpen: true })
+}
+
 export function renderPdaWarehouseWaitHandoverPage(): string {
   const runtime = getMobileWarehouseRuntimeContext()
-  if (!runtime) return renderPdaFrame(renderMobilePageEmptyState('未登录', '请先登录工厂端移动应用。'), 'warehouse')
+  if (!runtime) return renderPdaFrame(renderMobilePageEmptyState('未登录', '请先登录工厂端移动应用。'), 'warehouse', { disableTodoAutoOpen: true })
+  if (runtime.factoryId === OWN_KNITTING_FACTORY_ID) return renderKnittingWaitHandoverPage()
 
   const rows = getRows()
   const content = `
@@ -255,7 +308,7 @@ export function renderPdaWarehouseWaitHandoverPage(): string {
     </div>
   `
 
-  return renderPdaFrame(content, 'warehouse', { headerTitle: '待交出仓' })
+  return renderPdaFrame(content, 'warehouse', { headerTitle: '待交出仓', disableTodoAutoOpen: true })
 }
 
 export function handlePdaWarehouseWaitHandoverEvent(target: HTMLElement): boolean {
