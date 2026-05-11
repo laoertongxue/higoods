@@ -9,9 +9,13 @@ import {
   deleteKnittingWarehouseLocation,
   getKnittingWorkOrderSummary,
   getKnittingAllowedActions,
+  getKnittingYarnUsageSummary,
+  listKnittingWarehouseInventory,
   listKnittingMobileProcessTasks,
   listKnittingWorkOrders,
   markKnittingFeiTicketsPrinted,
+  recordKnittingYarnRecovery,
+  recoverKnittingYarnToWaitProcessWarehouse,
   scheduleKnittingMachines,
   submitKnittingHandover,
   upsertKnittingWarehouseLocation,
@@ -21,10 +25,6 @@ import {
   type KnittingWorkOrder,
 } from '../../../data/fcs/knitting-task-domain.ts'
 import {
-  buildKnittingMachineScheduleLink,
-  buildKnittingMachinesLink,
-  buildKnittingWaitHandoverWarehouseLink,
-  buildKnittingWaitProcessWarehouseLink,
   buildKnittingWorkOrderDetailLink,
 } from '../../../data/fcs/fcs-route-links.ts'
 import { getTaskMilestoneState } from '../../../data/fcs/pda-exec-link.ts'
@@ -246,6 +246,7 @@ function renderOrdersTable(filters: KnittingOrderFilters): string {
   const rows = filteredOrders
     .map((order) => {
       const pickupDifferenceTone = order.yarnReceipt.differenceWeightKg === 0 ? 'text-emerald-700' : 'text-red-700'
+      const yarnUsage = getKnittingYarnUsageSummary(order)
       return `
         <tr class="border-b align-top last:border-b-0">
           <td class="px-3 py-3">
@@ -267,6 +268,12 @@ function renderOrdersTable(filters: KnittingOrderFilters): string {
             <div>计划 ${formatQty(order.yarnReceipt.plannedWeightKg, 'kg')}</div>
             <div>实收 ${formatQty(order.yarnReceipt.receivedWeightKg, 'kg')}</div>
             <div class="${pickupDifferenceTone}">差异 ${formatQty(order.yarnReceipt.differenceWeightKg, 'kg')}</div>
+          </td>
+          <td class="px-3 py-3 text-sm">
+            <div>开工领用 ${formatQty(yarnUsage.processingUsageWeightKg, 'kg')}</div>
+            <div>缝盘损耗 ${formatQty(yarnUsage.linkingLossWeightKg, 'kg')}</div>
+            <div>回收入仓 ${formatQty(yarnUsage.recoveredWeightKg, 'kg')}</div>
+            <div class="mt-1 text-xs text-muted-foreground">仓内结余 ${formatQty(yarnUsage.waitProcessStockWeightKg, 'kg')}</div>
           </td>
           <td class="px-3 py-3">${renderStatusBadge(order.status)}</td>
           <td class="px-3 py-3">${renderExecutionReportCell(order)}</td>
@@ -302,7 +309,7 @@ function renderOrdersTable(filters: KnittingOrderFilters): string {
         当前仅展示周哥针织厂自有管理任务；三方外派针织任务不进入本管理端。筛选结果 ${filteredOrders.length} 条。
       </div>
       <div class="overflow-x-auto">
-        <table class="min-w-[1900px] w-full text-left text-sm">
+        <table class="min-w-[2060px] w-full text-left text-sm">
           <thead class="bg-slate-50 text-xs text-muted-foreground">
             <tr>
               <th class="px-3 py-2 font-medium">针织单号</th>
@@ -312,6 +319,7 @@ function renderOrdersTable(filters: KnittingOrderFilters): string {
               <th class="px-3 py-2 font-medium">计划数量</th>
               <th class="px-3 py-2 font-medium">纱线</th>
               <th class="px-3 py-2 font-medium">送料 / 领料</th>
+              <th class="px-3 py-2 font-medium">领用 / 损耗</th>
               <th class="px-3 py-2 font-medium">当前状态</th>
               <th class="px-3 py-2 font-medium">开工 / 节点</th>
               <th class="px-3 py-2 font-medium">横机排产</th>
@@ -334,14 +342,6 @@ export function renderCraftKnittingWorkOrdersPage(): string {
       ${renderPageHeader(
         '针织加工单',
         '周哥针织厂自有任务管理，区分整件针织与部位针织。',
-        `
-          <div class="flex flex-wrap gap-2">
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildKnittingMachineScheduleLink())}">横机排产</button>
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildKnittingMachinesLink())}">横机设备</button>
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildKnittingWaitProcessWarehouseLink())}">待加工仓</button>
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildKnittingWaitHandoverWarehouseLink())}">待交出仓</button>
-          </div>
-        `,
       )}
       ${renderSummaryCards()}
       ${renderFilterBar(filters)}
@@ -376,6 +376,163 @@ function promptLocationValue(label: string, currentValue = ''): string | null {
   return value === undefined ? null : value
 }
 
+function promptKgValue(label: string, currentValue = 0, allowZero = true): number | null {
+  const value = window.prompt(label, String(currentValue))?.trim()
+  if (value === undefined) return null
+  const qty = Number(value.replace(/kg|公斤/g, '').trim())
+  if (!Number.isFinite(qty) || qty < 0 || (!allowZero && qty <= 0)) {
+    window.alert(allowZero ? '请输入大于或等于 0 的重量。' : '请输入大于 0 的重量。')
+    return null
+  }
+  return Math.round(qty * 100) / 100
+}
+
+const KNITTING_YARN_RECOVERY_MODAL_ID = 'knitting-yarn-recovery-modal'
+
+function removeKnittingYarnRecoveryDialog(): void {
+  document.getElementById(KNITTING_YARN_RECOVERY_MODAL_ID)?.remove()
+}
+
+function refreshCurrentKnittingPage(): void {
+  const currentPath = appStore.getState().pathname || '/fcs/craft/knitting/wait-process-warehouse?tab=inventory'
+  const [path, query = ''] = currentPath.split('?')
+  const params = new URLSearchParams(query)
+  params.set('refreshAt', String(Date.now()))
+  appStore.navigate(`${path}?${params.toString()}`, { historyMode: 'replace' })
+}
+
+function openKnittingYarnRecoveryDialog(): void {
+  removeKnittingYarnRecoveryDialog()
+  const inventory = listKnittingWarehouseInventory('wait-process')
+  const orders = listKnittingWorkOrders()
+  const firstYarnSku = inventory[0]?.yarnSku || orders[0]?.yarnReceipt.yarnSku || ''
+  const yarnOptions = inventory
+    .map((item) => `
+      <option value="${escapeHtml(item.yarnSku || '')}">
+        ${escapeHtml(item.yarnSku || '')} / ${escapeHtml(item.itemName)} / 当前 ${formatQty(item.currentQty, item.unit)}
+      </option>
+    `)
+    .join('')
+  const orderRows = orders
+    .map((order) => {
+      const usage = getKnittingYarnUsageSummary(order)
+      const sameYarn = order.yarnReceipt.yarnSku === firstYarnSku
+      return `
+        <label
+          class="grid cursor-pointer grid-cols-[24px_1fr_160px_120px] items-center gap-3 border-b px-3 py-2 text-sm last:border-b-0 ${sameYarn ? '' : 'hidden'}"
+          data-recovery-order-row
+          data-yarn-sku="${escapeHtml(order.yarnReceipt.yarnSku)}"
+        >
+          <input type="checkbox" class="h-4 w-4 rounded border" value="${escapeHtml(order.knittingOrderId)}" data-recovery-order-checkbox />
+          <span>
+            <span class="font-medium">${escapeHtml(order.knittingOrderNo)}</span>
+            <span class="mt-0.5 block text-xs text-muted-foreground">${escapeHtml(order.styleName)} / ${escapeHtml(order.colorName)}</span>
+          </span>
+          <span class="text-xs text-muted-foreground">${escapeHtml(order.productionOrderNo)}</span>
+          <span class="text-xs font-medium">${formatQty(usage.linkingLossWeightKg, 'kg')}</span>
+        </label>
+      `
+    })
+    .join('')
+
+  document.body.insertAdjacentHTML('beforeend', `
+    <div id="${KNITTING_YARN_RECOVERY_MODAL_ID}" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <section class="max-h-[88vh] w-full max-w-4xl overflow-hidden rounded-lg border bg-background shadow-2xl">
+        <header class="flex items-center justify-between gap-3 border-b px-4 py-3">
+          <div>
+            <h2 class="text-base font-semibold">回收入仓</h2>
+            <p class="mt-1 text-xs text-muted-foreground">回收损耗纱线入针织待加工仓，关联针织加工单为可选项。</p>
+          </div>
+          <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-recovery-modal-action="close">关闭</button>
+        </header>
+        <div class="max-h-[68vh] overflow-y-auto p-4">
+          <div class="grid gap-3 md:grid-cols-2">
+            <label class="text-sm">
+              <span class="text-xs text-muted-foreground">回收纱线 SKU *</span>
+              <select class="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm" data-recovery-field="yarnSku">
+                ${yarnOptions}
+              </select>
+            </label>
+            <label class="text-sm">
+              <span class="text-xs text-muted-foreground">回收入库数量（kg）*</span>
+              <input class="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm" type="number" min="0" step="0.01" placeholder="请输入回收入库数量" data-recovery-field="qty" />
+            </label>
+          </div>
+          <section class="mt-4 rounded-md border">
+            <div class="grid grid-cols-[24px_1fr_160px_120px] gap-3 border-b bg-muted/30 px-3 py-2 text-xs font-medium text-muted-foreground">
+              <span></span>
+              <span>关联针织加工单（可选，可多选）</span>
+              <span>生产单</span>
+              <span>损耗数量</span>
+            </div>
+            <div class="max-h-[320px] overflow-y-auto" data-recovery-order-list>
+              ${orderRows || '<div class="px-3 py-8 text-center text-sm text-muted-foreground">暂无可关联针织加工单</div>'}
+            </div>
+          </section>
+        </div>
+        <footer class="flex justify-end gap-2 border-t px-4 py-3">
+          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-recovery-modal-action="close">取消</button>
+          <button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-recovery-modal-action="submit">确认回收入仓</button>
+        </footer>
+      </section>
+    </div>
+  `)
+
+  const modal = document.getElementById(KNITTING_YARN_RECOVERY_MODAL_ID)
+  if (!modal) return
+  const yarnSelect = modal.querySelector<HTMLSelectElement>('[data-recovery-field="yarnSku"]')
+  const syncRows = (): void => {
+    const yarnSku = yarnSelect?.value || ''
+    modal.querySelectorAll<HTMLElement>('[data-recovery-order-row]').forEach((row) => {
+      const matched = row.dataset.yarnSku === yarnSku
+      row.classList.toggle('hidden', !matched)
+      if (!matched) {
+        const checkbox = row.querySelector<HTMLInputElement>('[data-recovery-order-checkbox]')
+        if (checkbox) checkbox.checked = false
+      }
+    })
+  }
+  yarnSelect?.addEventListener('change', syncRows)
+  syncRows()
+
+  modal.addEventListener('click', (event) => {
+    const actionNode = (event.target as HTMLElement).closest<HTMLElement>('[data-recovery-modal-action]')
+    const action = actionNode?.dataset.recoveryModalAction
+    if (!action) return
+    if (action === 'close') {
+      removeKnittingYarnRecoveryDialog()
+      return
+    }
+    if (action === 'submit') {
+      const yarnSku = yarnSelect?.value || ''
+      const qtyInput = modal.querySelector<HTMLInputElement>('[data-recovery-field="qty"]')
+      const qty = Number(qtyInput?.value || 0)
+      if (!yarnSku) {
+        window.alert('请选择回收纱线 SKU。')
+        return
+      }
+      if (!Number.isFinite(qty) || qty <= 0) {
+        window.alert('请输入大于 0 的回收入库数量。')
+        return
+      }
+      const associationOrderIds = Array.from(modal.querySelectorAll<HTMLInputElement>('[data-recovery-order-checkbox]:checked'))
+        .map((checkbox) => checkbox.value)
+      const saved = recordKnittingYarnRecovery({
+        yarnSku,
+        recoveredWeightKg: Math.round(qty * 100) / 100,
+        associationOrderIds,
+        operatorName: 'Web端仓管',
+      })
+      if (!saved) {
+        window.alert('回收入仓失败，请确认纱线 SKU 和数量。')
+        return
+      }
+      removeKnittingYarnRecoveryDialog()
+      refreshCurrentKnittingPage()
+    }
+  })
+}
+
 export async function handleCraftKnittingEvent(target: HTMLElement): Promise<boolean> {
   const workflowNode = target.closest<HTMLElement>('[data-knitting-workflow-action]')
   if (workflowNode?.dataset.knittingOrderId && workflowNode.dataset.knittingWorkflowAction) {
@@ -385,10 +542,23 @@ export async function handleCraftKnittingEvent(target: HTMLElement): Promise<boo
     if (action === 'CONFIRM_PICKUP') confirmKnittingPickupRecord(orderId, 'Web端操作员')
     if (action === 'COMPLETE_PICKUP') completeKnittingPickupHead(orderId, 'Web端操作员')
     if (action === 'SCHEDULE_MACHINE') scheduleKnittingMachines(orderId, 'Web端排产员')
-    if (action === 'START_FLAT' || action === 'REPORT_FLAT_MILESTONE') updateKnittingWorkOrderNodeStatus(orderId, '横机成片', '进行中', 'Web端操作员')
+    if (action === 'START_FLAT') {
+      const order = listKnittingWorkOrders().find((item) => item.knittingOrderId === orderId)
+      const defaultQty = order ? getKnittingYarnUsageSummary(order).processingUsageWeightKg || order.yarnReceipt.receivedWeightKg || order.yarnReceipt.plannedWeightKg : 0
+      const yarnUsageWeightKg = promptKgValue('请输入本次纱线加工领用数量（kg）', defaultQty, false)
+      if (yarnUsageWeightKg === null) return true
+      updateKnittingWorkOrderNodeStatus(orderId, '横机成片', '进行中', 'Web端操作员', undefined, { yarnUsageWeightKg })
+    }
+    if (action === 'REPORT_FLAT_MILESTONE') updateKnittingWorkOrderNodeStatus(orderId, '横机成片', '进行中', 'Web端操作员')
     if (action === 'COMPLETE_FLAT') updateKnittingWorkOrderNodeStatus(orderId, '横机成片', '已完成', 'Web端操作员')
     if (action === 'START_LINKING') updateKnittingWorkOrderNodeStatus(orderId, '缝盘', '进行中', 'Web端操作员')
-    if (action === 'COMPLETE_LINKING') updateKnittingWorkOrderNodeStatus(orderId, '缝盘', '已完成', 'Web端操作员')
+    if (action === 'COMPLETE_LINKING') {
+      const order = listKnittingWorkOrders().find((item) => item.knittingOrderId === orderId)
+      const defaultQty = order ? getKnittingYarnUsageSummary(order).linkingLossWeightKg : 0
+      const yarnLossWeightKg = promptKgValue('请输入缝盘损耗纱线数量（kg）', defaultQty, true)
+      if (yarnLossWeightKg === null) return true
+      updateKnittingWorkOrderNodeStatus(orderId, '缝盘', '已完成', 'Web端操作员', undefined, { yarnLossWeightKg })
+    }
     if (action === 'START_IRONING') updateKnittingWorkOrderNodeStatus(orderId, '熨烫', '进行中', 'Web端操作员')
     if (action === 'COMPLETE_IRONING') updateKnittingWorkOrderNodeStatus(orderId, '熨烫', '已完成', 'Web端操作员')
     if (action === 'START_PACKING') updateKnittingWorkOrderNodeStatus(orderId, '包装', '进行中', 'Web端操作员')
@@ -423,7 +593,52 @@ export async function handleCraftKnittingEvent(target: HTMLElement): Promise<boo
   if ((action === 'node-start' || action === 'node-complete' || action === 'node-skip') && actionNode.dataset.knittingOrderId && actionNode.dataset.nodeName) {
     const nextStatus: KnittingNodeStatus =
       action === 'node-start' ? '进行中' : action === 'node-complete' ? '已完成' : '已跳过'
+    const order = listKnittingWorkOrders().find((item) => item.knittingOrderId === actionNode.dataset.knittingOrderId)
+    if (nextStatus === '进行中' && actionNode.dataset.nodeName === '横机成片') {
+      const defaultQty = order ? getKnittingYarnUsageSummary(order).processingUsageWeightKg || order.yarnReceipt.receivedWeightKg || order.yarnReceipt.plannedWeightKg : 0
+      const yarnUsageWeightKg = promptKgValue('请输入本次纱线加工领用数量（kg）', defaultQty, false)
+      if (yarnUsageWeightKg === null) return true
+      updateKnittingWorkOrderNodeStatus(actionNode.dataset.knittingOrderId, actionNode.dataset.nodeName, nextStatus, 'Web端操作员', undefined, { yarnUsageWeightKg })
+      return true
+    }
+    if (nextStatus === '已完成' && actionNode.dataset.nodeName === '缝盘') {
+      const defaultQty = order ? getKnittingYarnUsageSummary(order).linkingLossWeightKg : 0
+      const yarnLossWeightKg = promptKgValue('请输入缝盘损耗纱线数量（kg）', defaultQty, true)
+      if (yarnLossWeightKg === null) return true
+      updateKnittingWorkOrderNodeStatus(actionNode.dataset.knittingOrderId, actionNode.dataset.nodeName, nextStatus, 'Web端操作员', undefined, { yarnLossWeightKg })
+      return true
+    }
     updateKnittingWorkOrderNodeStatus(actionNode.dataset.knittingOrderId, actionNode.dataset.nodeName, nextStatus, 'Web端操作员')
+    return true
+  }
+
+  if (action === 'open-yarn-recovery-dialog') {
+    openKnittingYarnRecoveryDialog()
+    return true
+  }
+
+  if (action === 'recover-yarn' && actionNode.dataset.knittingOrderId) {
+    const orders = listKnittingWorkOrders()
+    const relatedOrderNos = (actionNode.dataset.relatedOrderNos || '')
+      .split('|')
+      .map((item) => item.trim())
+      .filter(Boolean)
+    const selectedOrderNo = relatedOrderNos.length > 1
+      ? window.prompt('请输入回收来源针织单号', relatedOrderNos[0])?.trim()
+      : relatedOrderNos[0]
+    if (selectedOrderNo === undefined) return true
+    const order = selectedOrderNo
+      ? orders.find((item) => item.knittingOrderNo === selectedOrderNo || item.knittingOrderId === selectedOrderNo)
+      : orders.find((item) => item.knittingOrderId === actionNode.dataset.knittingOrderId)
+    if (!order) {
+      window.alert('未找到该针织加工单，请重新选择来源针织单。')
+      return true
+    }
+    const usage = order ? getKnittingYarnUsageSummary(order) : null
+    const defaultQty = usage ? Math.max(usage.linkingLossWeightKg - usage.recoveredWeightKg, 0) : 0
+    const recoveredWeightKg = promptKgValue('请输入回收入仓纱线重量（kg）', defaultQty, false)
+    if (recoveredWeightKg === null) return true
+    recoverKnittingYarnToWaitProcessWarehouse(order.knittingOrderId, recoveredWeightKg, 'Web端仓管')
     return true
   }
 

@@ -1,12 +1,18 @@
 import { escapeHtml } from '../../../utils'
+import { appStore } from '../../../state/store.ts'
 import {
   getKnittingMachineScheduleSummary,
+  getKnittingWorkOrderKindLabel,
   getKnittingWorkOrderById,
+  getKnittingWorkOrderStatusLabel,
+  listKnittingWorkOrders,
   listKnittingMachineSchedules,
+  scheduleKnittingMachines,
   type KnittingMachineScheduleStatus,
   type KnittingWorkOrder,
 } from '../../../data/fcs/knitting-task-domain.ts'
 import {
+  buildKnittingMachineScheduleLink,
   buildKnittingMachinesLink,
   buildKnittingStatisticsLink,
   buildKnittingWorkOrderDetailLink,
@@ -48,9 +54,51 @@ function getCompletionPercent(order: KnittingWorkOrder | undefined): number {
   return Math.min(100, Math.round((node.completedQty / node.plannedQty) * 100))
 }
 
+function getCurrentQueryParams(): URLSearchParams {
+  const [, storeQueryString = ''] = (appStore.getState().pathname || '').split('?')
+  if (storeQueryString) return new URLSearchParams(storeQueryString)
+  if (typeof window === 'undefined') return new URLSearchParams()
+  return new URLSearchParams(window.location.search)
+}
+
+function getScheduleCreateLink(knittingOrderId = ''): string {
+  const params = new URLSearchParams()
+  params.set('dialog', 'create')
+  if (knittingOrderId) params.set('knittingOrderId', knittingOrderId)
+  return `${buildKnittingMachineScheduleLink()}?${params.toString()}`
+}
+
+function listWaitingScheduleOrders(): KnittingWorkOrder[] {
+  return listKnittingWorkOrders().filter((order) => order.status === 'WAIT_MACHINE_SCHEDULE')
+}
+
+function readSelectedScheduleOrderId(fallback = ''): string {
+  const select = document.querySelector<HTMLSelectElement>('[data-knitting-schedule-field="knittingOrderId"]')
+  return select?.value || fallback
+}
+
+function readScheduleTextField(field: string): string {
+  const node = document.querySelector<HTMLInputElement | HTMLSelectElement>(`[data-knitting-schedule-field="${field}"]`)
+  return node?.value.trim() || ''
+}
+
+function parseMachineNos(value: string): string[] {
+  return value
+    .split(/[、,，/\\s]+/)
+    .map((machineNo) => machineNo.trim())
+    .filter(Boolean)
+}
+
+function buildDefaultMachineNos(order: KnittingWorkOrder): string {
+  const startNo = order.kind === 'PART_PANEL' ? 31 : 11
+  const count = Math.max(1, order.plannedMachineCount || (order.kind === 'PART_PANEL' ? 4 : 6))
+  return Array.from({ length: count }, (_, index) => `H-${String(startNo + index).padStart(3, '0')}`).join('、')
+}
+
 function renderTopActions(): string {
   return `
     <div class="flex flex-wrap gap-2">
+      <button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-nav="${escapeHtml(getScheduleCreateLink())}">新增横机排产</button>
       <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildKnittingWorkOrdersLink())}">返回加工单</button>
       <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildKnittingMachinesLink())}">横机设备</button>
       <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildKnittingStatisticsLink())}">查看针织统计</button>
@@ -98,6 +146,45 @@ function renderFilters(): string {
   `
 }
 
+function renderWaitingScheduleOrders(): string {
+  const orders = listWaitingScheduleOrders()
+  const rows = orders
+    .map(
+      (order) => `
+        <tr class="border-b align-top last:border-b-0">
+          <td class="px-3 py-3 font-mono text-xs font-medium">${escapeHtml(order.knittingOrderNo)}</td>
+          <td class="px-3 py-3">${renderKindBadge(order.kind)}</td>
+          <td class="px-3 py-3 text-sm">
+            <div class="font-medium">${escapeHtml(order.styleName)}</div>
+            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(order.styleNo)} / ${escapeHtml(order.productionOrderNo)}</div>
+          </td>
+          <td class="px-3 py-3 text-sm">${formatQty(order.plannedQty, order.qtyUnit)}</td>
+          <td class="px-3 py-3 text-sm">
+            <div>${escapeHtml(order.yarnReceipt.yarnSku)}</div>
+            <div class="mt-1 text-xs text-muted-foreground">已完成领料 ${formatQty(order.yarnReceipt.receivedWeightKg, 'kg')}</div>
+          </td>
+          <td class="px-3 py-3 text-sm">${escapeHtml(order.scheduledStartAt)} - ${escapeHtml(order.scheduledEndAt)}</td>
+          <td class="px-3 py-3">${renderStatusBadge(order.status)}</td>
+          <td class="px-3 py-3">
+            <button type="button" class="rounded-md bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700" data-nav="${escapeHtml(getScheduleCreateLink(order.knittingOrderId))}">排产</button>
+          </td>
+        </tr>
+      `,
+    )
+    .join('')
+
+  return renderSection(
+    `待排机加工单（${orders.length}）`,
+    orders.length
+      ? renderTable(
+          ['针织单号', '任务类型', '款式', '计划数量', '领料状态', '计划时间', '当前状态', '操作'],
+          rows,
+          'min-w-[1200px]',
+        )
+      : '<div class="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">暂无待排机加工单。</div>',
+  )
+}
+
 function renderMachineCards(): string {
   const cards = listKnittingMachineSchedules()
     .map((schedule) => {
@@ -137,6 +224,111 @@ function renderMachineCards(): string {
       <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">${cards}</div>
     `,
   )
+}
+
+function renderReadonlyField(label: string, value: string): string {
+  return `
+    <div>
+      <div class="text-xs text-muted-foreground">${escapeHtml(label)}</div>
+      <div class="mt-1 min-h-9 rounded-md border bg-muted px-3 py-2 text-sm">${escapeHtml(value || '—')}</div>
+    </div>
+  `
+}
+
+function renderScheduleCreateDialog(): string {
+  const params = getCurrentQueryParams()
+  if (params.get('dialog') !== 'create') return ''
+
+  const orders = listWaitingScheduleOrders()
+  const requestedOrderId = params.get('knittingOrderId') || ''
+  const selected = orders.find((order) => order.knittingOrderId === requestedOrderId) || orders[0]
+  const isPartPanel = selected?.kind === 'PART_PANEL'
+  const machineGroupName = isPartPanel ? '部位针织组' : '整件针织组'
+  const machineNos = selected ? buildDefaultMachineNos(selected) : ''
+  const capacityHint = selected ? `${getKnittingWorkOrderKindLabel(selected.kind)}，默认安排 ${selected.plannedMachineCount} 台横机` : ''
+
+  const orderOptions = orders
+    .map(
+      (order) => `
+        <option value="${escapeHtml(order.knittingOrderId)}" ${selected?.knittingOrderId === order.knittingOrderId ? 'selected' : ''}>
+          ${escapeHtml(`${order.knittingOrderNo} / ${getKnittingWorkOrderKindLabel(order.kind)} / ${order.styleName}`)}
+        </option>
+      `,
+    )
+    .join('')
+
+  return `
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div class="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-lg bg-background shadow-xl">
+        <header class="flex items-center justify-between border-b px-5 py-4">
+          <div>
+            <h2 class="text-lg font-semibold">新增横机排产</h2>
+            <p class="mt-1 text-sm text-muted-foreground">仅选择已完成领料单、状态为待排机的周哥针织厂任务。</p>
+          </div>
+          <button type="button" class="rounded-md border px-3 py-1 text-sm hover:bg-muted" data-knitting-schedule-action="close-create">关闭</button>
+        </header>
+        <div class="space-y-4 p-5">
+          ${
+            selected
+              ? `
+                <section class="rounded-lg border p-4">
+                  <div class="grid gap-4 md:grid-cols-2">
+                    <label>
+                      <div class="text-xs text-muted-foreground">待排针织单</div>
+                      <select class="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm" data-knitting-schedule-field="knittingOrderId">
+                        ${orderOptions}
+                      </select>
+                    </label>
+                    ${renderReadonlyField('当前状态', getKnittingWorkOrderStatusLabel(selected.status))}
+                    ${renderReadonlyField('任务类型', getKnittingWorkOrderKindLabel(selected.kind))}
+                    ${renderReadonlyField('款式 / 生产单', `${selected.styleNo} ${selected.styleName} / ${selected.productionOrderNo}`)}
+                    ${renderReadonlyField('计划数量', formatQty(selected.plannedQty, selected.qtyUnit))}
+                    ${renderReadonlyField('领料结果', `实收 ${formatQty(selected.yarnReceipt.receivedWeightKg, 'kg')}，差异 ${formatQty(selected.yarnReceipt.differenceWeightKg, 'kg')}`)}
+                  </div>
+                </section>
+                <section class="rounded-lg border p-4">
+                  <div class="grid gap-4 md:grid-cols-2">
+                    <label>
+                      <div class="text-xs text-muted-foreground">机台组</div>
+                      <select class="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm" data-knitting-schedule-field="machineGroupName">
+                        <option selected>${escapeHtml(machineGroupName)}</option>
+                      </select>
+                    </label>
+                    <label>
+                      <div class="text-xs text-muted-foreground">横机编号</div>
+                      <input class="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(machineNos)}" data-knitting-schedule-field="machineNos" />
+                    </label>
+                    <label>
+                      <div class="text-xs text-muted-foreground">计划开始</div>
+                      <input class="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(selected.scheduledStartAt)}" data-knitting-schedule-field="plannedStartAt" />
+                    </label>
+                    <label>
+                      <div class="text-xs text-muted-foreground">计划完成</div>
+                      <input class="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(selected.scheduledEndAt)}" data-knitting-schedule-field="plannedEndAt" />
+                    </label>
+                    <label class="md:col-span-2">
+                      <div class="text-xs text-muted-foreground">排产说明</div>
+                      <input class="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(capacityHint)}" data-knitting-schedule-field="remark" />
+                    </label>
+                  </div>
+                </section>
+              `
+              : '<div class="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">暂无可排产的待排机加工单。</div>'
+          }
+        </div>
+        <footer class="flex justify-end gap-2 border-t px-5 py-4">
+          <button type="button" class="rounded-md border px-4 py-2 text-sm hover:bg-muted" data-knitting-schedule-action="close-create">取消</button>
+          <button
+            type="button"
+            class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+            data-knitting-schedule-action="save-create"
+            data-knitting-order-id="${escapeHtml(selected?.knittingOrderId || '')}"
+            ${selected ? '' : 'disabled'}
+          >保存排产</button>
+        </footer>
+      </div>
+    </div>
+  `
 }
 
 function renderScheduleRows(): string {
@@ -190,6 +382,7 @@ export function renderCraftKnittingMachineSchedulePage(): string {
       ${renderPageHeader('横机排产', '周哥针织厂自有横机排产，看机台占用、任务类型、横机成片进度和风险。', renderTopActions())}
       ${renderSummaryCards()}
       ${renderFilters()}
+      ${renderWaitingScheduleOrders()}
       ${renderMachineCards()}
       ${renderSection(
         '排产明细',
@@ -199,6 +392,34 @@ export function renderCraftKnittingMachineSchedulePage(): string {
           'min-w-[1800px]',
         ),
       )}
+      ${renderScheduleCreateDialog()}
     </div>
   `
+}
+
+export function handleCraftKnittingMachineScheduleEvent(target: HTMLElement): boolean {
+  const actionNode = target.closest<HTMLElement>('[data-knitting-schedule-action]')
+  if (!actionNode) return false
+
+  const action = actionNode.dataset.knittingScheduleAction
+  if (action === 'close-create') {
+    appStore.navigate(buildKnittingMachineScheduleLink())
+    return true
+  }
+
+  if (action === 'save-create') {
+    const orderId = readSelectedScheduleOrderId(actionNode.dataset.knittingOrderId || '')
+    if (orderId) {
+      scheduleKnittingMachines(orderId, 'Web端排产员', undefined, {
+        machineNos: parseMachineNos(readScheduleTextField('machineNos')),
+        scheduledStartAt: readScheduleTextField('plannedStartAt'),
+        scheduledEndAt: readScheduleTextField('plannedEndAt'),
+        remark: readScheduleTextField('remark'),
+      })
+    }
+    appStore.navigate(buildKnittingMachineScheduleLink())
+    return true
+  }
+
+  return false
 }

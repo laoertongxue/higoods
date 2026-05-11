@@ -4,6 +4,7 @@ import {
   buildKnittingPartPanelFeiTicketSourceId,
   getKnittingWorkOrderById,
   getKnittingAllowedActions,
+  getKnittingYarnUsageSummary,
   getKnittingWorkOrderKindLabel,
   getKnittingWorkOrderStatusLabel,
   listKnittingMobileProcessTasks,
@@ -210,6 +211,7 @@ function renderExecutionReportSection(order: KnittingWorkOrder): string {
 }
 
 function renderBaseTab(order: KnittingWorkOrder): string {
+  const yarnUsage = getKnittingYarnUsageSummary(order)
   return `
     ${renderSection(
       '加工单概览',
@@ -224,6 +226,9 @@ function renderBaseTab(order: KnittingWorkOrder): string {
           ${renderField('颜色', order.colorName)}
           ${renderField('尺码范围', order.sizeRange)}
           ${renderField('计划数量', `${order.plannedQty} ${order.qtyUnit}`)}
+          ${renderField('开工领用纱线', formatQty(yarnUsage.processingUsageWeightKg, 'kg'))}
+          ${renderField('缝盘损耗纱线', formatQty(yarnUsage.linkingLossWeightKg, 'kg'))}
+          ${renderField('回收入仓纱线', formatQty(yarnUsage.recoveredWeightKg, 'kg'))}
           ${renderField('针织工厂', order.factoryName)}
           ${renderField('交出对象', order.downstreamTarget)}
           ${renderField('包装要求', order.kind === 'WHOLE_GARMENT' ? (order.needsPackaging ? '需要包装' : '无需包装') : '部位针织无包装节点')}
@@ -236,6 +241,7 @@ function renderBaseTab(order: KnittingWorkOrder): string {
 
 function renderYarnTab(order: KnittingWorkOrder): string {
   const receipt = order.yarnReceipt
+  const yarnUsage = getKnittingYarnUsageSummary(order)
   return renderSection(
     '领料信息',
     `
@@ -246,6 +252,10 @@ function renderYarnTab(order: KnittingWorkOrder): string {
         ${renderField('计划送料重量', formatQty(receipt.plannedWeightKg, 'kg'))}
         ${renderField('针织厂实收重量', formatQty(receipt.receivedWeightKg, 'kg'))}
         ${renderField('差异重量', formatQty(receipt.differenceWeightKg, 'kg'))}
+        ${renderField('开工领用重量', formatQty(yarnUsage.processingUsageWeightKg, 'kg'))}
+        ${renderField('缝盘损耗重量', formatQty(yarnUsage.linkingLossWeightKg, 'kg'))}
+        ${renderField('回收入仓重量', formatQty(yarnUsage.recoveredWeightKg, 'kg'))}
+        ${renderField('待加工仓结余', formatQty(yarnUsage.waitProcessStockWeightKg, 'kg'))}
         ${renderField('确认人', receipt.receiverName)}
         ${renderField('确认时间', receipt.receivedAt)}
         ${renderField('证据', receipt.evidenceText || '无差异证据')}
@@ -258,6 +268,7 @@ function renderYarnTab(order: KnittingWorkOrder): string {
 }
 
 function renderMachineTab(order: KnittingWorkOrder): string {
+  const yarnUsage = getKnittingYarnUsageSummary(order)
   const rows = order.nodes
     .filter((node) => node.nodeName === '横机成片')
     .map(
@@ -267,6 +278,7 @@ function renderMachineTab(order: KnittingWorkOrder): string {
           <td class="px-3 py-3">${renderBadge(node.status, node.status === '已完成' ? 'success' : node.status === '进行中' ? 'info' : 'muted')}</td>
           <td class="px-3 py-3">${formatQty(node.plannedQty, node.unit)}</td>
           <td class="px-3 py-3">${formatQty(node.completedQty, node.unit)}</td>
+          <td class="px-3 py-3">${formatQty(yarnUsage.processingUsageWeightKg, 'kg')}</td>
           <td class="px-3 py-3">${escapeHtml(node.machineNos?.join('、') || '未排机')}</td>
           <td class="px-3 py-3">${escapeHtml(node.operatorName || '—')}</td>
           <td class="px-3 py-3">${escapeHtml(node.startedAt || '—')}</td>
@@ -289,12 +301,13 @@ function renderMachineTab(order: KnittingWorkOrder): string {
         <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildKnittingMachineScheduleLink(order.knittingOrderId))}">查看横机排产</button>
         <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildKnittingMachinesLink())}">查看横机设备</button>
       </div>
-      ${renderTable(['节点', '状态', '计划数量', '完成数量', '横机编号', '操作人', '开始时间', '完成时间', 'Web操作'], rows, 'min-w-[1280px]')}
+      ${renderTable(['节点', '状态', '计划数量', '完成数量', '开工领用纱线', '横机编号', '操作人', '开始时间', '完成时间', 'Web操作'], rows, 'min-w-[1400px]')}
     `,
   )
 }
 
 function renderWholeTab(order: KnittingWorkOrder): string {
+  const yarnUsage = getKnittingYarnUsageSummary(order)
   const rows = order.nodes
     .filter((node) => node.nodeName !== '横机成片')
     .map(
@@ -304,6 +317,7 @@ function renderWholeTab(order: KnittingWorkOrder): string {
           <td class="px-3 py-3">${renderBadge(node.status, node.status === '已完成' ? 'success' : node.status === '进行中' ? 'info' : node.status === '已跳过' ? 'muted' : 'warning')}</td>
           <td class="px-3 py-3">${formatQty(node.plannedQty, node.unit)}</td>
           <td class="px-3 py-3">${formatQty(node.completedQty, node.unit)}</td>
+          <td class="px-3 py-3">${node.nodeName === '缝盘' ? formatQty(yarnUsage.linkingLossWeightKg, 'kg') : '—'}</td>
           <td class="px-3 py-3">${escapeHtml(node.operatorName || '—')}</td>
           <td class="px-3 py-3">${escapeHtml(node.startedAt || '—')}</td>
           <td class="px-3 py-3">${escapeHtml(node.finishedAt || '—')}</td>
@@ -320,7 +334,7 @@ function renderWholeTab(order: KnittingWorkOrder): string {
       <div class="mb-3 rounded-md border border-amber-100 bg-amber-50 px-3 py-2 text-xs text-amber-700">
         整件针织固定包含缝盘和熨烫；包装按加工单要求决定是否执行。
       </div>
-      ${renderTable(['节点', '状态', '计划数量', '完成数量', '操作人', '开始时间', '完成时间', '备注', 'Web操作'], rows, 'min-w-[1280px]')}
+      ${renderTable(['节点', '状态', '计划数量', '完成数量', '纱线损耗', '操作人', '开始时间', '完成时间', '备注', 'Web操作'], rows, 'min-w-[1400px]')}
     `,
   )
 }

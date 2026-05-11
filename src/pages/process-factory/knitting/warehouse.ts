@@ -87,7 +87,7 @@ function renderSummary(mode: KnittingWarehouseMode): string {
       ${renderMetricCard(mode === 'wait-process' ? '待加工库存' : '待交出库存', `${formatNumber(qty)} ${primaryUnit}`, '当前可用库存')}
       ${renderMetricCard('库存项目', `${inventory.length} 条`, `${activeCount} 条有库存`)}
       ${renderMetricCard('库区库位', `${locations.length} 个`, '支持新增、编辑、删除')}
-      ${renderMetricCard('流水记录', `${inventory.reduce((sum, item) => sum + item.flowRecords.length, 0)} 条`, mode === 'wait-process' ? '领料 + 用料' : '入仓 + 交出')}
+      ${renderMetricCard('流水记录', `${inventory.reduce((sum, item) => sum + item.flowRecords.length, 0)} 条`, mode === 'wait-process' ? '领料 + 用料 + 回收' : '入仓 + 交出')}
     </section>
   `
 }
@@ -100,7 +100,28 @@ function renderInventoryTab(mode: KnittingWarehouseMode): string {
         qtyText: formatQty(flow.qty, flow.unit),
         sourceNo: flow.sourceNo,
         operatedAt: flow.operatedAt,
+        operatorName: flow.operatorName,
+        statusText: flow.remark,
       }))
+      if (mode === 'wait-process') {
+        return `
+          <tr class="border-b align-top last:border-b-0">
+            <td class="px-3 py-3 font-mono text-xs">${escapeHtml(item.yarnSku || item.itemSpec)}</td>
+            <td class="px-3 py-3 text-sm">
+              <div class="font-medium">${escapeHtml(item.itemName)}</div>
+              <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.itemSpec)}</div>
+            </td>
+            <td class="px-3 py-3 text-sm">${formatQty(item.currentQty, item.unit)}</td>
+            <td class="px-3 py-3 text-sm">${escapeHtml(item.locationText)}</td>
+            <td class="px-3 py-3">${renderBadge(item.statusText, item.currentQty > 0 ? 'success' : 'warning')}</td>
+            <td class="px-3 py-3">
+              <div class="flex flex-wrap gap-2">
+                ${renderWarehouseFlowButton(`${item.yarnSku || item.itemName} 库存流水`, flowLines)}
+              </div>
+            </td>
+          </tr>
+        `
+      }
       return `
         <tr class="border-b align-top last:border-b-0">
           <td class="px-3 py-3">${escapeHtml(item.knittingOrderNo)}</td>
@@ -123,9 +144,12 @@ function renderInventoryTab(mode: KnittingWarehouseMode): string {
       `
     })
     .join('')
+  const headers = mode === 'wait-process'
+    ? ['纱线 SKU', '纱线名称 / 颜色', '当前库存', '库区库位', '状态', '操作']
+    : ['针织单号', '生产单', '类型', '库存对象', '当前库存', '库区库位', '状态', '操作']
   return renderSection(
     '库存',
-    renderTable(['针织单号', '生产单', '类型', '库存对象', '当前库存', '库区库位', '状态', '操作'], rows, 'min-w-[1360px]'),
+    renderTable(headers, rows, mode === 'wait-process' ? 'min-w-[980px]' : 'min-w-[1360px]'),
   )
 }
 
@@ -158,6 +182,7 @@ function renderUsageTab(): string {
     .map((record) => `
       <tr class="border-b last:border-b-0">
         <td class="px-3 py-3">${escapeHtml(record.usageNo)}</td>
+        <td class="px-3 py-3">${renderBadge(record.recordType, record.recordType === '缝盘损耗' ? 'warning' : 'info')}</td>
         <td class="px-3 py-3">${escapeHtml(record.knittingOrderNo)}</td>
         <td class="px-3 py-3">${escapeHtml(record.productionOrderNo)}</td>
         <td class="px-3 py-3">${escapeHtml(record.yarnSku)}</td>
@@ -171,7 +196,7 @@ function renderUsageTab(): string {
     .join('')
   return renderSection(
     '加工用料记录',
-    renderTable(['用料单', '针织单号', '生产单', '纱线 SKU', '耗用重量', '对应节点', '操作人', '操作时间', '状态'], rows, 'min-w-[1200px]'),
+    renderTable(['用料单', '记录类型', '针织单号', '生产单', '纱线 SKU', '重量', '对应节点', '操作人', '操作时间', '状态'], rows, 'min-w-[1320px]'),
   )
 }
 
@@ -279,12 +304,18 @@ function renderKnittingWarehousePage(mode = getMode()): string {
   const subtitle =
     mode === 'wait-handover'
       ? '库存由加工入仓形成，交出给后道工厂或裁床待交出仓后扣减。'
-      : '库存由染厂、印花厂或面辅料仓送料入仓形成，加工用料后扣减。'
+      : '库存对象为纱线，来源于染厂、印花厂或面辅料仓送料入仓；开工领用、缝盘损耗扣减，损耗纱线回收后回收入仓。'
   const activeTab = getCurrentTab(mode)
 
   return `
     <div class="space-y-4 p-4">
-      ${renderPageHeader(title, subtitle)}
+      ${renderPageHeader(
+        title,
+        subtitle,
+        mode === 'wait-process'
+          ? '<button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-knitting-action="open-yarn-recovery-dialog">回收入仓</button>'
+          : '',
+      )}
       ${renderSummary(mode)}
       ${renderTabs(mode, activeTab)}
       ${renderActiveTab(mode, activeTab)}
