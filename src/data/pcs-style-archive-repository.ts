@@ -123,13 +123,31 @@ function hydrateSnapshot(snapshot: StyleArchiveStoreSnapshot): StyleArchiveStore
 
 function mergeMissingSeedData(snapshot: StyleArchiveStoreSnapshot): StyleArchiveStoreSnapshot {
   const seed = seedSnapshot()
+  const seedById = new Map(seed.records.map((item) => [item.styleId, item]))
   const existingIds = new Set(snapshot.records.map((item) => item.styleId))
   const existingPendingIds = new Set(snapshot.pendingItems.map((item) => item.pendingId))
+  const patchedRecords = snapshot.records.map((record) => {
+    const seeded = seedById.get(record.styleId)
+    if (!seeded?.currentTechPackVersionId || record.currentTechPackVersionId) return record
+    return {
+      ...record,
+      techPackStatus: seeded.techPackStatus,
+      techPackVersionCount: Math.max(record.techPackVersionCount || 0, seeded.techPackVersionCount || 0),
+      currentTechPackVersionId: seeded.currentTechPackVersionId,
+      currentTechPackVersionCode: seeded.currentTechPackVersionCode,
+      currentTechPackVersionLabel: seeded.currentTechPackVersionLabel,
+      currentTechPackVersionStatus: seeded.currentTechPackVersionStatus,
+      currentTechPackVersionActivatedAt: seeded.currentTechPackVersionActivatedAt,
+      currentTechPackVersionActivatedBy: seeded.currentTechPackVersionActivatedBy,
+      updatedAt: seeded.updatedAt || record.updatedAt,
+      updatedBy: seeded.updatedBy || record.updatedBy,
+    }
+  })
 
   return {
     version: STYLE_ARCHIVE_STORE_VERSION,
     records: [
-      ...snapshot.records,
+      ...patchedRecords,
       ...seed.records.filter((item) => !existingIds.has(item.styleId)).map(cloneRecord),
     ],
     pendingItems: [

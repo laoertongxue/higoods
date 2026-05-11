@@ -753,11 +753,13 @@ function pushModuleRecordIssues(project: PcsProjectViewRecord, issues: PcsProjec
 
   listTechnicalDataVersionsByProjectId(project.projectId).forEach((record) => {
     const expectedWorkItemTypeCode =
-      record.createdFromTaskType === 'PLATE'
-        ? 'PATTERN_TASK'
-        : record.createdFromTaskType === 'ARTWORK'
-          ? 'PATTERN_ARTWORK_TASK'
-          : 'REVISION_TASK'
+      record.createdFromTaskType === 'MANUAL'
+        ? 'STYLE_ARCHIVE_CREATE'
+        : record.createdFromTaskType === 'PLATE'
+          ? 'PATTERN_TASK'
+          : record.createdFromTaskType === 'ARTWORK'
+            ? 'PATTERN_ARTWORK_TASK'
+            : 'REVISION_TASK'
     pushRecordBindingIssue(issues, {
       project,
       moduleName: '技术包',

@@ -397,6 +397,15 @@ function getProjectNodeBindingByTaskType(
   projectId: string,
   taskType: TechPackSourceTaskType,
 ): TechPackProjectNodeBinding {
+  if (taskType === 'MANUAL') {
+    const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'STYLE_ARCHIVE_CREATE')
+    return {
+      projectNodeId: node?.projectNodeId || null,
+      workItemTypeCode: 'STYLE_ARCHIVE_CREATE',
+      workItemTypeName: node?.workItemTypeName || '款式档案',
+    }
+  }
+
   if (taskType === 'PLATE') {
     const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'PATTERN_TASK')
     return {
@@ -659,6 +668,7 @@ export function syncProjectSourceNodeFromTechPackVersion(
   if (!nodeBinding.projectNodeId) return
   const node = getProjectNodeRecordByWorkItemTypeCode(record.sourceProjectId, nodeBinding.workItemTypeCode)
   if (!node) return
+  const isManualVersion = sourceTaskType === 'MANUAL'
   updateProjectNodeRecord(
     record.sourceProjectId,
     nodeBinding.projectNodeId,
@@ -669,9 +679,13 @@ export function syncProjectSourceNodeFromTechPackVersion(
       validInstanceCount: action === 'CREATED' ? (node.validInstanceCount || 0) + 1 : node.validInstanceCount,
       latestResultType: action === 'WRITTEN' ? '技术包版本已更新' : '技术包版本已建立',
       latestResultText:
-        action === 'WRITTEN'
-          ? '已根据任务更新技术包版本内容。'
-          : '已由工程任务建立新的技术包版本草稿。',
+        isManualVersion
+          ? action === 'WRITTEN'
+            ? '已手动维护技术包版本内容。'
+            : '已基于当前生效版本手动新增草稿技术包版本。'
+          : action === 'WRITTEN'
+            ? '已根据任务更新技术包版本内容。'
+            : '已由工程任务建立新的技术包版本草稿。',
       pendingActionType: '完善技术包内容',
       pendingActionText: '请继续补齐技术包内容并准备发布。',
       updatedAt: record.updatedAt,
@@ -1220,6 +1234,18 @@ export function buildTechPackVersionSourceTaskSummary(record: TechnicalDataVersi
   artworkTaskCount: number
   taskChainText: string
 } {
+  if (record.createdFromTaskType === 'MANUAL') {
+    return {
+      primaryPlateText: record.primaryPlateTaskCode
+        ? `${record.primaryPlateTaskCode}${record.primaryPlateTaskVersion ? ` · ${record.primaryPlateTaskVersion}` : ''}`
+        : '未绑定主制版任务',
+      revisionTaskCount: 0,
+      patternTaskCount: 0,
+      artworkTaskCount: 0,
+      taskChainText: '手动新增版本，无来源工程任务',
+    }
+  }
+
   const primaryPlateText = record.primaryPlateTaskCode
     ? `${record.primaryPlateTaskCode}${record.primaryPlateTaskVersion ? ` · ${record.primaryPlateTaskVersion}` : ''}`
     : '未绑定主制版任务'

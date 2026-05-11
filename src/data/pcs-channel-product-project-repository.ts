@@ -130,6 +130,15 @@ export interface ProjectChannelProductChainSummary {
 }
 
 function getTechPackSourceNodeBinding(projectId: string, createdFromTaskType: string) {
+  if (createdFromTaskType === 'MANUAL') {
+    const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'STYLE_ARCHIVE_CREATE')
+    return {
+      projectNodeId: node?.projectNodeId || null,
+      workItemTypeCode: 'STYLE_ARCHIVE_CREATE',
+      workItemTypeName: node?.workItemTypeName || '款式档案',
+    }
+  }
+
   if (createdFromTaskType === 'PLATE') {
     const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'PATTERN_TASK')
     return {
@@ -293,7 +302,12 @@ let memorySnapshot: ChannelProductStoreSnapshot | null = null
 let demoStateApplied = false
 
 function canUseStorage(): boolean {
-  return typeof localStorage !== 'undefined'
+  return (
+    typeof localStorage !== 'undefined' &&
+    typeof localStorage.getItem === 'function' &&
+    typeof localStorage.setItem === 'function' &&
+    typeof localStorage.removeItem === 'function'
+  )
 }
 
 function nowText(): string {
@@ -2522,6 +2536,10 @@ function invalidateChannelProductRecord(
 
 export function listProjectChannelProducts(): ProjectChannelProductRecord[] {
   ensureDemoState()
+  return loadSnapshot().records.map(cloneRecord).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+}
+
+export function listProjectChannelProductsSnapshot(): ProjectChannelProductRecord[] {
   return loadSnapshot().records.map(cloneRecord).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
 }
 

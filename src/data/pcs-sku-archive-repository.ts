@@ -16,7 +16,12 @@ const SKU_ARCHIVE_STORE_VERSION = 1
 let memorySnapshot: SkuArchiveStoreSnapshot | null = null
 
 function canUseStorage(): boolean {
-  return typeof localStorage !== 'undefined'
+  return (
+    typeof localStorage !== 'undefined' &&
+    typeof localStorage.getItem === 'function' &&
+    typeof localStorage.setItem === 'function' &&
+    typeof localStorage.removeItem === 'function'
+  )
 }
 
 function cloneRecord(record: SkuArchiveRecord): SkuArchiveRecord {
@@ -251,10 +256,9 @@ function buildSeedRecord(
   })
 }
 
-function seedSnapshot(): SkuArchiveStoreSnapshot {
-  const styles = listStyleArchives()
+function buildSeedRecords(styles: ReturnType<typeof listStyleArchives>): SkuArchiveRecord[] {
   const seedBySpu = new Map(listProductionDemandTechPackSeeds().map((seed) => [seed.demand.spuCode, seed]))
-  const records = styles.flatMap((style, styleIndex) => {
+  return styles.flatMap((style, styleIndex) => {
     const seed = seedBySpu.get(style.styleCode)
     const skuLines =
       seed?.demand.skuLines.map((item) => ({
@@ -265,10 +269,12 @@ function seedSnapshot(): SkuArchiveStoreSnapshot {
 
     return skuLines.map((line, skuIndex) => buildSeedRecord(style, line, styleIndex, skuIndex))
   })
+}
 
+function seedSnapshot(): SkuArchiveStoreSnapshot {
   return {
     version: SKU_ARCHIVE_STORE_VERSION,
-    records,
+    records: buildSeedRecords(listStyleArchives()),
   }
 }
 
@@ -280,11 +286,22 @@ function hydrateSnapshot(snapshot: SkuArchiveStoreSnapshot): SkuArchiveStoreSnap
 }
 
 function mergeMissingSeedData(snapshot: SkuArchiveStoreSnapshot): SkuArchiveStoreSnapshot {
-  const seed = seedSnapshot()
+  const existingStyleIds = new Set(snapshot.records.map((item) => item.styleId).filter(Boolean))
+  const missingStyles = listStyleArchives().filter((style) => !existingStyleIds.has(style.styleId))
+  if (missingStyles.length === 0) {
+    return {
+      version: SKU_ARCHIVE_STORE_VERSION,
+      records: snapshot.records,
+    }
+  }
   const existingCodes = new Set(snapshot.records.map((item) => item.skuCode))
+  const missingSeedRecords = buildSeedRecords(missingStyles)
   return {
     version: SKU_ARCHIVE_STORE_VERSION,
-    records: [...snapshot.records, ...seed.records.filter((item) => !existingCodes.has(item.skuCode)).map(cloneRecord)],
+    records: [
+      ...snapshot.records,
+      ...missingSeedRecords.filter((item) => !existingCodes.has(item.skuCode)).map(cloneRecord),
+    ],
   }
 }
 

@@ -40,7 +40,7 @@ function normalizeLog(log: TechPackVersionLogRecord): TechPackVersionLogRecord {
   return {
     ...cloneLog(log),
     sourceTaskType:
-      log.sourceTaskType === 'REVISION' || log.sourceTaskType === 'PLATE' || log.sourceTaskType === 'ARTWORK'
+      log.sourceTaskType === 'REVISION' || log.sourceTaskType === 'PLATE' || log.sourceTaskType === 'ARTWORK' || log.sourceTaskType === 'MANUAL'
         ? log.sourceTaskType
         : '',
     sourceTaskId: log.sourceTaskId || '',

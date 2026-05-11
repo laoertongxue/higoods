@@ -1,14 +1,17 @@
 import { appStore } from '../state/store.ts'
 import { escapeHtml, formatDateTime, toClassName } from '../utils.ts'
-import { ensurePcsProjectDemoDataReady } from '../data/pcs-project-demo-seed-service.ts'
 import {
   formalizeStyleArchive,
   getStyleArchiveFormalizationCheck,
 } from '../data/pcs-project-style-archive-generation.ts'
-import { activateTechPackVersionForStyle } from '../data/pcs-project-technical-data-writeback.ts'
 import {
-  listProjectChannelProducts,
+  activateTechPackVersionForStyle,
+  createManualTechnicalDataVersionDraftFromCurrent,
+} from '../data/pcs-project-technical-data-writeback.ts'
+import {
+  listProjectChannelProductsSnapshot,
 } from '../data/pcs-channel-product-project-repository.ts'
+import type { ProjectChannelProductRecord } from '../data/pcs-channel-product-project-repository.ts'
 import { buildSkuFixture } from '../data/pcs-product-archive-fixtures.ts'
 import {
   STYLE_ARCHIVE_STATUS_RULES,
@@ -29,7 +32,11 @@ import {
 } from '../data/pcs-sku-archive-repository.ts'
 import type { SkuArchiveMappingHealth, SkuArchiveRecord, SkuArchiveStatusCode } from '../data/pcs-sku-archive-types.ts'
 import { buildTechnicalVersionListByStyle } from '../data/pcs-technical-data-version-view-model.ts'
-import { listTechnicalDataVersionsByStyleId } from '../data/pcs-technical-data-version-repository.ts'
+import {
+  listTechnicalDataVersions,
+  listTechnicalDataVersionsByStyleId,
+} from '../data/pcs-technical-data-version-repository.ts'
+import type { TechnicalDataVersionRecord } from '../data/pcs-technical-data-version-types.ts'
 import {
   listProjectWorkspaceColors,
   listProjectWorkspaceSizes,
@@ -109,6 +116,10 @@ interface ProductArchivePageState {
     url: string
     title: string
   }
+  manualTechPackVersion: {
+    open: boolean
+    styleId: string
+  }
 }
 
 interface StyleArchiveListItemViewModel {
@@ -123,6 +134,14 @@ interface StyleArchiveListItemViewModel {
   onSaleCount: number
   legacyMappingText: string
   originProjectText: string
+}
+
+interface ProductArchiveListContext {
+  styles: StyleArchiveShellRecord[]
+  skuSummariesByStyleId: Map<string, { count: number; mappingHealth: SkuArchiveMappingHealth }>
+  technicalVersionsByStyleId: Map<string, TechnicalDataVersionRecord[]>
+  channelProductsByStyleId: Map<string, ProjectChannelProductRecord[]>
+  channelProductsByProjectId: Map<string, ProjectChannelProductRecord[]>
 }
 
 const STYLE_DETAIL_TABS: Array<{ key: StyleDetailTabKey; label: string }> = [
@@ -157,6 +176,8 @@ const MAPPING_META: Record<SkuArchiveMappingHealth, { label: string; className: 
 const LEGACY_SYSTEM_OPTIONS = ['ERP-A', 'ERP-B', 'OMS-旧档', '外部表格导入']
 const FALLBACK_SKU_COLOR_OPTIONS = ['Black', 'White', 'Red', 'Blue', 'Green', 'Khaki']
 const FALLBACK_SKU_SIZE_OPTIONS = ['S', 'M', 'L', 'XL', 'One Size']
+const SKU_ARCHIVE_STORAGE_KEY = 'higood-pcs-sku-archive-store-v1'
+let productArchiveDataReady = false
 
 function listConfiguredSkuColors(): string[] {
   const options = listProjectWorkspaceColors()
@@ -229,6 +250,13 @@ function createDefaultImagePreviewState(): ProductArchivePageState['imagePreview
   }
 }
 
+function createDefaultManualTechPackVersionState(): ProductArchivePageState['manualTechPackVersion'] {
+  return {
+    open: false,
+    styleId: '',
+  }
+}
+
 const state: ProductArchivePageState = {
   notice: null,
   styleList: {
@@ -254,6 +282,7 @@ const state: ProductArchivePageState = {
   skuCreate: createDefaultSkuCreateState(),
   styleCompletion: createDefaultStyleCompletionState(),
   imagePreview: createDefaultImagePreviewState(),
+  manualTechPackVersion: createDefaultManualTechPackVersionState(),
 }
 
 function resetSkuCreateState(): void {
@@ -266,6 +295,10 @@ function resetStyleCompletionState(): void {
 
 function resetImagePreviewState(): void {
   state.imagePreview = createDefaultImagePreviewState()
+}
+
+function resetManualTechPackVersionState(): void {
+  state.manualTechPackVersion = createDefaultManualTechPackVersionState()
 }
 
 export function resetPcsProductArchiveState(): void {
@@ -293,11 +326,12 @@ export function resetPcsProductArchiveState(): void {
   resetSkuCreateState()
   resetStyleCompletionState()
   resetImagePreviewState()
+  resetManualTechPackVersionState()
 }
 
 function ensurePageDataReady(): void {
-  ensurePcsProjectDemoDataReady()
-  listProjectChannelProducts()
+  if (productArchiveDataReady) return
+  productArchiveDataReady = true
 }
 
 function nowText(): string {
@@ -350,8 +384,98 @@ function resolveStyleMappingHealth(skus: SkuArchiveRecord[]): SkuArchiveMappingH
   return 'OK'
 }
 
-function listStyleChannelProducts(style: StyleArchiveShellRecord) {
-  const records = listProjectChannelProducts()
+function groupByStyleId<T extends { styleId?: string }>(records: T[]): Map<string, T[]> {
+  const grouped = new Map<string, T[]>()
+  records.forEach((record) => {
+    if (!record.styleId) return
+    const current = grouped.get(record.styleId)
+    if (current) current.push(record)
+    else grouped.set(record.styleId, [record])
+  })
+  return grouped
+}
+
+function groupChannelProductsByProjectId(records: ProjectChannelProductRecord[]): Map<string, ProjectChannelProductRecord[]> {
+  const grouped = new Map<string, ProjectChannelProductRecord[]>()
+  records.forEach((record) => {
+    if (!record.projectId) return
+    const current = grouped.get(record.projectId)
+    if (current) current.push(record)
+    else grouped.set(record.projectId, [record])
+  })
+  return grouped
+}
+
+function groupTechnicalVersionsByStyleId(records: TechnicalDataVersionRecord[]): Map<string, TechnicalDataVersionRecord[]> {
+  const grouped = groupByStyleId(records)
+  grouped.forEach((items) => {
+    items.sort((a, b) => b.versionNo - a.versionNo || b.updatedAt.localeCompare(a.updatedAt))
+  })
+  return grouped
+}
+
+function hasPersistedSkuArchiveStore(): boolean {
+  return (
+    typeof localStorage !== 'undefined' &&
+    typeof localStorage.getItem === 'function' &&
+    Boolean(localStorage.getItem(SKU_ARCHIVE_STORAGE_KEY))
+  )
+}
+
+function buildSkuSummariesByStyleId(
+  styles: StyleArchiveShellRecord[],
+): Map<string, { count: number; mappingHealth: SkuArchiveMappingHealth }> {
+  if (!hasPersistedSkuArchiveStore()) {
+    return new Map(
+      styles.map((style) => [
+        style.styleId,
+        {
+          count: style.specificationCount || 0,
+          mappingHealth: style.specificationCount > 0 ? 'OK' : 'MISSING',
+        },
+      ]),
+    )
+  }
+
+  const grouped = groupByStyleId(listSkuArchives())
+  return new Map(
+    styles.map((style) => {
+      const skus = grouped.get(style.styleId) || []
+      return [
+        style.styleId,
+        {
+          count: skus.length,
+          mappingHealth: resolveStyleMappingHealth(skus),
+        },
+      ]
+    }),
+  )
+}
+
+function buildProductArchiveListContext(): ProductArchiveListContext {
+  ensurePageDataReady()
+  const styles = listStyleArchives()
+  const technicalVersions = listTechnicalDataVersions()
+  const channelProducts = listProjectChannelProductsSnapshot()
+  return {
+    styles,
+    skuSummariesByStyleId: buildSkuSummariesByStyleId(styles),
+    technicalVersionsByStyleId: groupTechnicalVersionsByStyleId(technicalVersions),
+    channelProductsByStyleId: groupByStyleId(channelProducts),
+    channelProductsByProjectId: groupChannelProductsByProjectId(channelProducts),
+  }
+}
+
+function listStyleChannelProducts(
+  style: StyleArchiveShellRecord,
+  context?: Pick<ProductArchiveListContext, 'channelProductsByStyleId' | 'channelProductsByProjectId'>,
+): ProjectChannelProductRecord[] {
+  const records = context
+    ? [
+        ...(context.channelProductsByStyleId.get(style.styleId) || []),
+        ...(style.sourceProjectId ? context.channelProductsByProjectId.get(style.sourceProjectId) || [] : []),
+      ]
+    : listProjectChannelProductsSnapshot()
   const matchedRecords = records.filter(
     (item) => item.styleId === style.styleId || (!!style.sourceProjectId && item.projectId === style.sourceProjectId),
   )
@@ -363,19 +487,22 @@ function countOnSaleChannelProducts(records: ReturnType<typeof listStyleChannelP
   return records.filter((item) => item.channelProductStatus === '已生效' && item.upstreamSyncStatus === '已更新').length
 }
 
-function buildStyleListItems(): StyleArchiveListItemViewModel[] {
-  ensurePageDataReady()
-  return listStyleArchives().map((style) => {
-    const skus = listSkuArchivesByStyleId(style.styleId)
-    const versions = buildTechnicalVersionListByStyle(style.styleId)
-    const currentVersion = versions.find((item) => item.isCurrentTechPackVersion) || versions[0] || null
-    const styleChannels = listStyleChannelProducts(style)
+function buildStyleListItems(context = buildProductArchiveListContext()): StyleArchiveListItemViewModel[] {
+  return context.styles.map((style) => {
+    const skuSummary = context.skuSummariesByStyleId.get(style.styleId) || {
+      count: style.specificationCount || 0,
+      mappingHealth: style.specificationCount > 0 ? 'OK' as const : 'MISSING' as const,
+    }
+    const versions = context.technicalVersionsByStyleId.get(style.styleId) || []
+    const currentVersion =
+      versions.find((item) => item.technicalVersionId === style.currentTechPackVersionId) || versions[0] || null
+    const styleChannels = listStyleChannelProducts(style, context)
     return {
       style,
       displayStatus: resolveStyleArchiveBusinessStatus(style),
       hasEffectiveTechPack: Boolean(currentVersion),
-      skuCount: skus.length,
-      mappingHealth: resolveStyleMappingHealth(skus),
+      skuCount: skuSummary.count,
+      mappingHealth: skuSummary.mappingHealth,
       currentVersionText: currentVersion ? `${currentVersion.versionLabel}` : '未建立当前生效技术包',
       currentVersionMetaText: currentVersion?.publishedAt ? `生效于 ${currentVersion.publishedAt.slice(0, 10)}` : '待建立技术包版本',
       channelCount: styleChannels.length || style.channelProductCount,
@@ -386,9 +513,9 @@ function buildStyleListItems(): StyleArchiveListItemViewModel[] {
   })
 }
 
-function getFilteredStyleItems(): StyleArchiveListItemViewModel[] {
+function filterStyleItems(items: StyleArchiveListItemViewModel[]): StyleArchiveListItemViewModel[] {
   const search = state.styleList.search.trim().toLowerCase()
-  return buildStyleListItems().filter((item) => {
+  return items.filter((item) => {
     if (search) {
       const haystack = [
         item.style.styleCode,
@@ -411,8 +538,11 @@ function getFilteredStyleItems(): StyleArchiveListItemViewModel[] {
   })
 }
 
-function getStyleStats() {
-  const items = buildStyleListItems()
+function getFilteredStyleItems(): StyleArchiveListItemViewModel[] {
+  return filterStyleItems(buildStyleListItems())
+}
+
+function getStyleStats(items: StyleArchiveListItemViewModel[]) {
   return {
     total: items.length,
     waitingBaseInfo: items.filter((item) => item.displayStatus === 'WAITING_BASE_INFO').length,
@@ -667,8 +797,8 @@ function renderStyleHeader(): string {
   `
 }
 
-function renderStyleStats(): string {
-  const stats = getStyleStats()
+function renderStyleStats(items: StyleArchiveListItemViewModel[]): string {
+  const stats = getStyleStats(items)
   return `
     <section class="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
       ${renderMetricButton('全部款式', stats.total, '正式款式主档数', 'style-quick-filter', 'data-filter="reset"')}
@@ -1312,6 +1442,7 @@ function renderStyleDetailOverview(style: StyleArchiveShellRecord): string {
 
 function renderStyleDetailVersions(style: StyleArchiveShellRecord): string {
   const versions = buildTechnicalVersionListByStyle(style.styleId)
+  const hasCurrentTechPack = Boolean(style.currentTechPackVersionId && versions.some((item) => item.technicalVersionId === style.currentTechPackVersionId))
   const rows = versions
     .map(
       (item) => `
@@ -1341,8 +1472,9 @@ function renderStyleDetailVersions(style: StyleArchiveShellRecord): string {
     .join('')
   return `
     <section class="overflow-hidden rounded-lg border bg-white shadow-sm">
-      <div class="border-b border-slate-200 px-4 py-3">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
         <h2 class="text-sm font-medium text-slate-900">技术包版本</h2>
+        <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50 ${hasCurrentTechPack ? '' : 'opacity-60'}" data-pcs-product-archive-action="open-manual-tech-pack-version" data-style-id="${escapeHtml(style.styleId)}" title="${hasCurrentTechPack ? '基于当前生效技术包复制生成草稿版本' : '当前款式没有当前生效技术包，不能手动新增版本'}">手动新增版本</button>
       </div>
       <div class="overflow-x-auto">
         <table class="min-w-full text-left text-sm">
@@ -1365,6 +1497,31 @@ function renderStyleDetailVersions(style: StyleArchiveShellRecord): string {
       </div>
     </section>
   `
+}
+
+function renderManualTechPackVersionDrawer(): string {
+  if (!state.manualTechPackVersion.open) return ''
+  const style = state.manualTechPackVersion.styleId ? getStyleArchiveById(state.manualTechPackVersion.styleId) : null
+  if (!style) return ''
+  const currentVersion = style.currentTechPackVersionId
+    ? listTechnicalDataVersionsByStyleId(style.styleId).find((item) => item.technicalVersionId === style.currentTechPackVersionId) || null
+    : null
+  const body = !currentVersion
+    ? '<div class="rounded-lg border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">当前款式没有当前生效技术包，不能手动新增版本。</div>'
+    : `
+      <div class="space-y-4">
+        ${renderFormField('所属款式', `<div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">${escapeHtml(`${style.styleCode} · ${style.styleName}`)}</div>`)}
+        ${renderFormField('当前生效版本', `<div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">${escapeHtml(`${currentVersion.versionLabel} · ${currentVersion.technicalVersionCode}`)}</div>`)}
+        <div class="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          系统会复制当前生效版本的物料清单、纸样管理、工序工艺、放码规则、款色用料对应、花型设计和附件，生成新的草稿版本。草稿发布前可继续修改，发布后转为只读。
+        </div>
+      </div>
+    `
+  const footer = `
+    <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-product-archive-action="close-drawers">取消</button>
+    <button type="button" class="inline-flex h-9 items-center rounded-md bg-slate-900 px-3 text-sm text-white hover:bg-slate-800 ${currentVersion ? '' : 'pointer-events-none opacity-50'}" data-pcs-product-archive-action="submit-manual-tech-pack-version">确认新增</button>
+  `
+  return renderDrawerShell('手动新增技术包版本', '基于当前生效版本生成草稿，发布前可继续维护。', body, footer)
 }
 
 function renderStyleDetailSpecifications(style: StyleArchiveShellRecord): string {
@@ -1530,7 +1687,7 @@ function renderStyleDetailPage(styleId: string): string {
   const style = getStyleArchiveById(styleId)
   if (!style) {
     return `
-      <div class="space-y-5 p-4">
+      <div class="space-y-5 p-4" data-fast-page-render="true">
         <section class="rounded-lg border bg-white p-4 text-center shadow-sm">
           <h1 class="text-xl font-semibold text-slate-900">未找到款式档案</h1>
           <p class="mt-2 text-sm text-slate-500">请返回款式档案列表重新选择。</p>
@@ -1560,7 +1717,7 @@ function renderStyleDetailPage(styleId: string): string {
               : renderStyleDetailLogs(style)
 
   return `
-    <div class="space-y-5 p-4">
+    <div class="space-y-5 p-4" data-fast-page-render="true">
       ${renderNotice()}
       <section class="flex flex-wrap items-center justify-between gap-4">
         <div class="flex items-start gap-4">
@@ -1593,13 +1750,14 @@ function renderStyleDetailPage(styleId: string): string {
       ${tabContent}
       ${renderSkuCreateDrawer()}
       ${renderStyleCompletionDrawer()}
+      ${renderManualTechPackVersionDrawer()}
       ${renderImagePreviewModal()}
     </div>
   `
 }
 
 function buildSkuChannelMappingRows(sku: SkuArchiveRecord) {
-  return listProjectChannelProducts()
+  return listProjectChannelProductsSnapshot()
     .filter((item) => item.styleId === sku.styleId && item.channelProductStatus !== '已作废')
     .map((item, index) => ({
       id: `${sku.skuId}_mapping_${index + 1}`,
@@ -1840,7 +1998,7 @@ function renderSkuDetailPage(skuId: string): string {
   const sku = getSkuArchiveById(skuId)
   if (!sku) {
     return `
-      <div class="space-y-5 p-4">
+      <div class="space-y-5 p-4" data-fast-page-render="true">
         <section class="rounded-lg border bg-white p-4 text-center shadow-sm">
           <h1 class="text-xl font-semibold text-slate-900">未找到规格档案</h1>
           <p class="mt-2 text-sm text-slate-500">请返回规格档案列表重新选择。</p>
@@ -1868,7 +2026,7 @@ function renderSkuDetailPage(skuId: string): string {
             : renderSkuDetailLogs(sku)
 
   return `
-    <div class="space-y-5 p-4">
+    <div class="space-y-5 p-4" data-fast-page-render="true">
       ${renderNotice()}
       <section class="flex flex-wrap items-center justify-between gap-4">
         <div class="flex items-start gap-4">
@@ -1910,12 +2068,14 @@ function renderSkuStyleLink(sku: SkuArchiveRecord): string {
 }
 
 function renderPcsStyleListPage(): string {
-  const items = getFilteredStyleItems()
+  const context = buildProductArchiveListContext()
+  const allItems = buildStyleListItems(context)
+  const items = filterStyleItems(allItems)
   return `
-    <div class="space-y-5 p-4">
+    <div class="space-y-5 p-4" data-fast-page-render="true">
       ${renderNotice()}
       ${renderStyleHeader()}
-      ${renderStyleStats()}
+      ${renderStyleStats(allItems)}
       ${renderStyleFilters(items.length)}
       ${renderStyleTable(items)}
       ${renderSkuCreateDrawer()}
@@ -1928,7 +2088,7 @@ function renderPcsStyleListPage(): string {
 function renderPcsSkuListPage(): string {
   const items = getFilteredSkuItems()
   return `
-    <div class="space-y-5 p-4">
+    <div class="space-y-5 p-4" data-fast-page-render="true">
       ${renderNotice()}
       ${renderSkuHeader()}
       ${renderSkuStats()}
@@ -2098,6 +2258,30 @@ function submitSkuBatchCreate(): void {
   createSkuArchiveBatch(records)
   resetSkuCreateState()
   state.notice = `已批量生成 ${records.length} 条规格档案。`
+}
+
+function openManualTechPackVersionDrawer(style: StyleArchiveShellRecord): void {
+  state.manualTechPackVersion = {
+    open: true,
+    styleId: style.styleId,
+  }
+}
+
+function submitManualTechPackVersion(): void {
+  const style = state.manualTechPackVersion.styleId ? getStyleArchiveById(state.manualTechPackVersion.styleId) : null
+  if (!style) {
+    state.notice = '请选择款式。'
+    return
+  }
+  try {
+    const result = createManualTechnicalDataVersionDraftFromCurrent(style.styleId, '当前用户')
+    resetManualTechPackVersionState()
+    state.styleDetail.styleId = style.styleId
+    state.styleDetail.activeTab = 'versions'
+    state.notice = `已基于当前生效版本新增草稿技术包版本 ${result.record.technicalVersionCode}。`
+  } catch (error) {
+    state.notice = error instanceof Error ? error.message : '新增技术包版本失败。'
+  }
 }
 
 function resolveClosestNode(target: unknown, selector: string): HTMLElement | null {
@@ -2283,6 +2467,7 @@ export function handlePcsProductArchiveEvent(target: HTMLElement): boolean {
     case 'close-drawers':
       resetSkuCreateState()
       resetStyleCompletionState()
+      resetManualTechPackVersionState()
       return true
     case 'open-image-preview':
       state.imagePreview = {
@@ -2348,6 +2533,19 @@ export function handlePcsProductArchiveEvent(target: HTMLElement): boolean {
       }
       return true
     }
+    case 'open-manual-tech-pack-version': {
+      const styleId = actionNode.dataset.styleId || state.styleDetail.styleId || ''
+      const style = styleId ? getStyleArchiveById(styleId) : null
+      if (!style) {
+        state.notice = '未找到对应款式档案。'
+        return true
+      }
+      openManualTechPackVersionDrawer(style)
+      return true
+    }
+    case 'submit-manual-tech-pack-version':
+      submitManualTechPackVersion()
+      return true
     case 'open-sku-create':
       resetSkuCreateState()
       state.skuCreate.open = true
@@ -2458,5 +2656,5 @@ export function handlePcsProductArchiveEvent(target: HTMLElement): boolean {
 }
 
 export function isPcsProductArchiveDialogOpen(): boolean {
-  return state.skuCreate.open || state.styleCompletion.open || state.imagePreview.open
+  return state.skuCreate.open || state.styleCompletion.open || state.imagePreview.open || state.manualTechPackVersion.open
 }

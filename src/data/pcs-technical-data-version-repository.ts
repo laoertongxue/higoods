@@ -181,7 +181,7 @@ function normalizeSourceTaskType(
   value: string | null | undefined,
   record?: Pick<TechnicalDataVersionRecord, 'linkedRevisionTaskIds' | 'linkedPatternTaskIds' | 'linkedArtworkTaskIds'>,
 ): TechPackSourceTaskType {
-  if (value === 'REVISION' || value === 'PLATE' || value === 'ARTWORK') return value
+  if (value === 'REVISION' || value === 'PLATE' || value === 'ARTWORK' || value === 'MANUAL') return value
   if ((record?.linkedRevisionTaskIds?.length ?? 0) > 0) return 'REVISION'
   if ((record?.linkedPatternTaskIds?.length ?? 0) > 0) return 'PLATE'
   if ((record?.linkedArtworkTaskIds?.length ?? 0) > 0) return 'ARTWORK'
@@ -189,7 +189,7 @@ function normalizeSourceTaskType(
 }
 
 function normalizeChangeScope(value: string | null | undefined): TechPackVersionChangeScope {
-  if (value === '制版生成' || value === '花型写入' || value === '花型替换' || value === '改版生成') {
+  if (value === '制版生成' || value === '花型写入' || value === '花型替换' || value === '改版生成' || value === '手动新增') {
     return value
   }
   return '改版生成'

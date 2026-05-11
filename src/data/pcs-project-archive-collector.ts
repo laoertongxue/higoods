@@ -55,6 +55,15 @@ export const PROJECT_ARCHIVE_GROUP_LABELS: Record<ProjectArchiveDocumentGroup, s
 }
 
 function getTechnicalNodeBinding(projectId: string, version: TechnicalDataVersionRecord) {
+  if (version.createdFromTaskType === 'MANUAL') {
+    const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'STYLE_ARCHIVE_CREATE')
+    return {
+      projectNodeId: node?.projectNodeId || version.sourceProjectNodeId || '',
+      workItemTypeCode: 'STYLE_ARCHIVE_CREATE',
+      workItemTypeName: node?.workItemTypeName || '款式档案',
+    }
+  }
+
   if (version.createdFromTaskType === 'PLATE') {
     const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'PATTERN_TASK')
     return {

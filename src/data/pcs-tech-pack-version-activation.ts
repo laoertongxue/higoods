@@ -19,6 +19,15 @@ function nowText(): string {
 }
 
 function getProjectNodeBindingByTaskType(projectId: string, taskType: TechPackSourceTaskType) {
+  if (taskType === 'MANUAL') {
+    const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'STYLE_ARCHIVE_CREATE')
+    return {
+      projectNodeId: node?.projectNodeId || null,
+      workItemTypeCode: 'STYLE_ARCHIVE_CREATE',
+      workItemTypeName: node?.workItemTypeName || '款式档案',
+    }
+  }
+
   if (taskType === 'PLATE') {
     const node = getProjectNodeRecordByWorkItemTypeCode(projectId, 'PATTERN_TASK')
     return {

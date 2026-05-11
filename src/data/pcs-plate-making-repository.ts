@@ -119,6 +119,23 @@ function hydrateSnapshot(snapshot: PlateMakingTaskStoreSnapshot): PlateMakingTas
   }
 }
 
+function mergeMissingSeedData(snapshot: PlateMakingTaskStoreSnapshot): PlateMakingTaskStoreSnapshot {
+  const seed = seedSnapshot()
+  const existingTaskIds = new Set(snapshot.tasks.map((item) => item.plateTaskId))
+  const existingPendingIds = new Set(snapshot.pendingItems.map((item) => item.pendingId))
+  return hydrateSnapshot({
+    version: STORE_VERSION,
+    tasks: [
+      ...snapshot.tasks,
+      ...seed.tasks.filter((item) => !existingTaskIds.has(item.plateTaskId)).map(cloneTask),
+    ],
+    pendingItems: [
+      ...snapshot.pendingItems,
+      ...seed.pendingItems.filter((item) => !existingPendingIds.has(item.pendingId)).map(clonePendingItem),
+    ],
+  })
+}
+
 function loadSnapshot(): PlateMakingTaskStoreSnapshot {
   if (memorySnapshot) return cloneSnapshot(memorySnapshot)
   if (!canUseStorage()) {
@@ -133,11 +150,13 @@ function loadSnapshot(): PlateMakingTaskStoreSnapshot {
       return cloneSnapshot(memorySnapshot)
     }
     const parsed = JSON.parse(raw) as Partial<PlateMakingTaskStoreSnapshot>
-    memorySnapshot = hydrateSnapshot({
-      version: STORE_VERSION,
-      tasks: Array.isArray(parsed.tasks) ? (parsed.tasks as PlateMakingTaskRecord[]) : seedSnapshot().tasks,
-      pendingItems: Array.isArray(parsed.pendingItems) ? (parsed.pendingItems as PcsTaskPendingItem[]) : seedSnapshot().pendingItems,
-    })
+    memorySnapshot = mergeMissingSeedData(
+      hydrateSnapshot({
+        version: STORE_VERSION,
+        tasks: Array.isArray(parsed.tasks) ? (parsed.tasks as PlateMakingTaskRecord[]) : seedSnapshot().tasks,
+        pendingItems: Array.isArray(parsed.pendingItems) ? (parsed.pendingItems as PcsTaskPendingItem[]) : seedSnapshot().pendingItems,
+      }),
+    )
     localStorage.setItem(STORAGE_KEY, JSON.stringify(memorySnapshot))
     return cloneSnapshot(memorySnapshot)
   } catch {

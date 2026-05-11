@@ -1,7 +1,7 @@
 export type TechnicalVersionStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
 export type TechnicalDomainStatus = 'EMPTY' | 'DRAFT' | 'COMPLETE'
-export type TechPackSourceTaskType = 'REVISION' | 'PLATE' | 'ARTWORK'
-export type TechPackVersionChangeScope = '制版生成' | '花型写入' | '花型替换' | '改版生成'
+export type TechPackSourceTaskType = 'REVISION' | 'PLATE' | 'ARTWORK' | 'MANUAL'
+export type TechPackVersionChangeScope = '制版生成' | '花型写入' | '花型替换' | '改版生成' | '手动新增'
 
 export type TechnicalPatternMaterialType = 'WOVEN' | 'KNIT' | 'UNKNOWN'
 export type TechnicalPatternFileMode = 'PAIRED_DXF_RUL' | 'SINGLE_FILE'
