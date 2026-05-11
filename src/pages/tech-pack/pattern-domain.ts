@@ -31,6 +31,99 @@ function renderTextValue(value: string | number | undefined | null): string {
   return escapeHtml(String(value))
 }
 
+function buildPrototypeDownloadUrl(fileName: string): string {
+  const payload = [
+    'HiGood 技术包演示文件',
+    `文件名：${fileName}`,
+    '用途：技术包纸样管理下载演示',
+  ].join('\n')
+  return `data:text/plain;charset=utf-8,${encodeURIComponent(payload)}`
+}
+
+function buildPatternPreviewUrl(title: string, fileName: string): string {
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540">
+      <rect width="960" height="540" fill="#f8fafc"/>
+      <rect x="40" y="40" width="880" height="460" rx="18" fill="#ffffff" stroke="#cbd5e1" stroke-width="3"/>
+      <path d="M250 126 C180 170 174 300 238 386 C306 478 464 462 526 366 C582 280 542 156 448 126 C382 104 310 108 250 126 Z" fill="#e0f2fe" stroke="#0284c7" stroke-width="5"/>
+      <path d="M548 128 C632 110 726 146 760 230 C796 318 746 424 656 454 C586 478 494 440 464 372 C506 310 530 224 548 128 Z" fill="#dcfce7" stroke="#16a34a" stroke-width="5"/>
+      <path d="M222 258 L520 258 M574 258 L746 258" stroke="#94a3b8" stroke-width="3" stroke-dasharray="12 10"/>
+      <text x="60" y="84" font-size="28" font-weight="700" fill="#111827">${escapeHtml(title)}</text>
+      <text x="60" y="472" font-size="22" fill="#475569">${escapeHtml(fileName)}</text>
+    </svg>
+  `
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+}
+
+function renderPatternDownloadLink(fileName?: string | null, label?: string): string {
+  const normalized = String(fileName || '').trim()
+  if (!normalized) return '<span class="text-muted-foreground">暂无数据</span>'
+  return `
+    <a
+      class="inline-flex items-center rounded border px-2 py-1 text-xs text-blue-700 hover:bg-blue-50"
+      href="${escapeHtml(buildPrototypeDownloadUrl(normalized))}"
+      download="${escapeHtml(normalized)}"
+      data-testid="pattern-file-download"
+    >
+      ${escapeHtml(label || normalized)}
+    </a>
+  `
+}
+
+function getPatternTechnicalFiles(pattern: (typeof state.patternItems)[number]): Array<{ label: string; fileName: string }> {
+  const displayFile = String(pattern.file || '').includes(' / ') ? '' : pattern.file
+  const candidates = [
+    { label: 'PRJ', fileName: pattern.prjFile?.fileName || '' },
+    { label: 'DXF', fileName: pattern.dxfFileName || pattern.dxfFile?.fileName || '' },
+    { label: 'RUL', fileName: pattern.rulFileName || pattern.rulFile?.fileName || '' },
+    { label: '纸样文件', fileName: pattern.singlePatternFileName || displayFile || '' },
+  ]
+  const seen = new Set<string>()
+  return candidates.filter((item) => {
+    const fileName = item.fileName.trim()
+    if (!fileName || seen.has(fileName)) return false
+    seen.add(fileName)
+    return true
+  })
+}
+
+function getPatternImagePreviewUrl(pattern: (typeof state.patternItems)[number]): string {
+  const rawUrl = String(pattern.markerImage?.previewUrl || pattern.image || '').trim()
+  if (isAllowedPatternImage(rawUrl) && (rawUrl.startsWith('data:') || rawUrl.startsWith('/') || rawUrl.startsWith('blob:'))) {
+    return rawUrl
+  }
+  const fileName = pattern.markerImage?.fileName || pattern.image || `${pattern.name}-纸样图.png`
+  return buildPatternPreviewUrl(pattern.sourcePatternPackageName || pattern.name, fileName)
+}
+
+function renderPatternImagePreview(pattern: (typeof state.patternItems)[number]): string {
+  const fileName = pattern.markerImage?.fileName || pattern.image || ''
+  if (!fileName) return '<span class="text-muted-foreground">暂无图片</span>'
+  const previewUrl = getPatternImagePreviewUrl(pattern)
+  return `
+    <a
+      class="inline-flex items-center gap-2 rounded border bg-white p-1 text-xs text-blue-700 hover:border-blue-300 hover:bg-blue-50"
+      href="${escapeHtml(previewUrl)}"
+      target="_blank"
+      rel="noreferrer"
+      data-testid="pattern-image-preview"
+    >
+      <img src="${escapeHtml(previewUrl)}" alt="${escapeHtml(fileName)}" class="h-12 w-20 rounded object-cover" />
+      <span>查看大图</span>
+    </a>
+  `
+}
+
+function renderPatternTechnicalFileLinks(pattern: (typeof state.patternItems)[number]): string {
+  const files = getPatternTechnicalFiles(pattern)
+  if (files.length === 0) return '<span class="text-muted-foreground">暂无数据</span>'
+  return `
+    <div class="flex flex-wrap gap-1">
+      ${files.map((file) => renderPatternDownloadLink(file.fileName, file.label)).join('')}
+    </div>
+  `
+}
+
 function formatFileSize(size: number): string {
   if (!Number.isFinite(size) || size <= 0) return '暂无数据'
   if (size >= 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(2)} MB`
@@ -561,27 +654,36 @@ export function renderPatternTab(): string {
               <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                 ${patternPackages
                   .map((item) => `
-                    <button
-                      type="button"
-                      class="rounded-lg border p-3 text-left hover:border-blue-300 hover:bg-blue-50/40"
-                      data-tech-action="open-pattern-detail"
-                      data-pattern-id="${item.id}"
-                    >
+                    <article class="rounded-lg border p-3 text-left">
                       <div class="flex items-start justify-between gap-3">
                         <div>
                           <div class="font-medium">${escapeHtml(item.name)}</div>
                           <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(`${item.patternMaterialTypeLabel || '暂无类型'} · ${item.type}`)}</div>
                         </div>
-                        ${renderPatternFileBadge(item.patternMaterialTypeLabel || '暂无数据')}
+                        <div class="flex items-center gap-2">
+                          ${renderPatternFileBadge(item.patternMaterialTypeLabel || '暂无数据')}
+                          <button
+                            type="button"
+                            class="inline-flex h-8 w-8 items-center justify-center rounded hover:bg-muted"
+                            data-tech-action="open-pattern-detail"
+                            data-pattern-id="${item.id}"
+                          >
+                            <i data-lucide="eye" class="h-4 w-4"></i>
+                          </button>
+                        </div>
                       </div>
-                      <div class="mt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                        <span>PRJ：${renderTextValue(item.prjFile?.fileName)}</span>
-                        <span>唛架：${renderTextValue(item.markerImage?.fileName)}</span>
-                        <span>DXF：${renderTextValue(item.dxfFileName || item.dxfFile?.fileName)}</span>
-                        <span>RUL：${renderTextValue(item.rulFileName || item.rulFile?.fileName)}</span>
+                      <div class="mt-3 space-y-2 text-xs">
+                        <div>
+                          <div class="mb-1 text-muted-foreground">技术文件</div>
+                          ${renderPatternTechnicalFileLinks(item)}
+                        </div>
+                        <div>
+                          <div class="mb-1 text-muted-foreground">纸样图</div>
+                          ${renderPatternImagePreview(item)}
+                        </div>
                       </div>
                       <div class="mt-3 text-xs text-blue-700">${item.patternMaterialType === 'KNIT' ? `针织部位明细 ${item.pieceRows.length} 项` : `已解析 ${item.pieceRows.length} 个部位`}</div>
-                    </button>
+                    </article>
                   `)
                   .join('')}
               </div>
@@ -643,7 +745,12 @@ export function renderPatternTab(): string {
                                 : '<span class="text-sm text-muted-foreground">暂无数据</span>'
                             }
                           </td>
-                          <td class="px-3 py-2 text-sm text-muted-foreground">${renderTextValue([item.prjFile?.fileName, item.markerImage?.fileName, item.file].filter(Boolean).join(' / '))}</td>
+                          <td class="px-3 py-2 text-sm">
+                            <div class="space-y-2">
+                              ${renderPatternTechnicalFileLinks(item)}
+                              ${renderPatternImagePreview(item)}
+                            </div>
+                          </td>
                           <td class="px-3 py-2">
                             <div class="flex items-center gap-1">
                               ${readonly ? '' : `<button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded hover:bg-muted" data-tech-action="edit-pattern" data-pattern-id="${item.id}">
@@ -680,7 +787,7 @@ export function renderPatternDialog(): string {
     pattern.linkedBomItemId.length > 0
       ? state.bomItems.find((item) => item.id === pattern.linkedBomItemId) ?? null
       : null
-  const image = isAllowedPatternImage(pattern.image) ? pattern.image : ''
+  const image = getPatternImagePreviewUrl(pattern)
   const pieceTotal =
     Number.isFinite(pattern.patternTotalPieceQty) && pattern.patternTotalPieceQty > 0
       ? pattern.patternTotalPieceQty
@@ -695,11 +802,9 @@ export function renderPatternDialog(): string {
         </header>
         <div class="space-y-4 px-6 py-4 text-sm">
           <div class="flex items-center gap-4">
-            ${
-              image
-                ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(pattern.name)}" class="h-24 w-24 rounded border object-cover" />`
-                : '<div class="flex h-24 w-24 items-center justify-center rounded border border-dashed text-xs text-muted-foreground">暂无图片</div>'
-            }
+            <a href="${escapeHtml(image)}" target="_blank" rel="noreferrer" class="block rounded border hover:border-blue-300">
+              <img src="${escapeHtml(image)}" alt="${escapeHtml(pattern.name)}" class="h-24 w-32 rounded object-cover" />
+            </a>
             <div>
               <h4 class="text-lg font-semibold">${escapeHtml(pattern.name)}</h4>
               <div class="mt-2 flex flex-wrap gap-2">
@@ -731,15 +836,15 @@ export function renderPatternDialog(): string {
             </div>
             <div>
               <p class="text-xs text-muted-foreground">纸样 PRJ 文件</p>
-              <p class="mt-1">${renderTextValue(pattern.prjFile?.fileName)}</p>
+              <div class="mt-1">${renderPatternDownloadLink(pattern.prjFile?.fileName, '下载 PRJ')}</div>
             </div>
             <div>
               <p class="text-xs text-muted-foreground">唛架图片</p>
-              <p class="mt-1">${renderTextValue(pattern.markerImage?.fileName)}</p>
+              <div class="mt-1">${renderPatternImagePreview(pattern)}</div>
             </div>
             <div>
               <p class="text-xs text-muted-foreground">技术文件</p>
-              <p class="mt-1">${renderTextValue(pattern.file)}</p>
+              <div class="mt-1">${renderPatternTechnicalFileLinks(pattern)}</div>
             </div>
             <div>
               <p class="text-xs text-muted-foreground">打版软件</p>
@@ -760,11 +865,11 @@ export function renderPatternDialog(): string {
                 <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
                   <div class="rounded-md border p-3">
                     <div class="text-xs text-muted-foreground">DXF 文件</div>
-                    <div class="mt-1">${renderTextValue(pattern.dxfFileName)}</div>
+                    <div class="mt-1">${renderPatternDownloadLink(pattern.dxfFileName || pattern.dxfFile?.fileName, '下载 DXF')}</div>
                   </div>
                   <div class="rounded-md border p-3">
                     <div class="text-xs text-muted-foreground">RUL 文件</div>
-                    <div class="mt-1">${renderTextValue(pattern.rulFileName)}</div>
+                    <div class="mt-1">${renderPatternDownloadLink(pattern.rulFileName || pattern.rulFile?.fileName, '下载 RUL')}</div>
                   </div>
                 </div>
               `

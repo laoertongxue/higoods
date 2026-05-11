@@ -39,10 +39,14 @@ export function renderProcessTechniqueCard(item: TechniqueItem): string {
     ? `
       <div class="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
         <div class="font-medium">当前物料清单已无${escapeHtml(item.process)}需求，但准备阶段“${escapeHtml(item.process)}”已存在人工维护内容。是否保留该工序？</div>
-        <div class="mt-2 flex flex-wrap gap-2">
-          <button type="button" class="rounded border border-amber-300 bg-white px-2 py-1 hover:bg-amber-100" data-tech-action="keep-bom-prep-process" data-tech-id="${escapeHtml(item.id)}">保留${escapeHtml(item.process)}</button>
-          <button type="button" class="rounded bg-amber-600 px-2 py-1 font-medium text-white hover:bg-amber-700" data-tech-action="remove-bom-prep-process" data-tech-id="${escapeHtml(item.id)}">移除${escapeHtml(item.process)}</button>
-        </div>
+        ${
+          readonly
+            ? ''
+            : `<div class="mt-2 flex flex-wrap gap-2">
+                <button type="button" class="rounded border border-amber-300 bg-white px-2 py-1 hover:bg-amber-100" data-tech-action="keep-bom-prep-process" data-tech-id="${escapeHtml(item.id)}">保留${escapeHtml(item.process)}</button>
+                <button type="button" class="rounded bg-amber-600 px-2 py-1 font-medium text-white hover:bg-amber-700" data-tech-action="remove-bom-prep-process" data-tech-id="${escapeHtml(item.id)}">移除${escapeHtml(item.process)}</button>
+              </div>`
+        }
       </div>
     `
     : ''
@@ -103,39 +107,56 @@ export function renderProcessTechniqueCard(item: TechniqueItem): string {
         </div>
       </div>
       <div class="grid grid-cols-1 gap-3 text-sm md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-        <label class="space-y-1">
-          <span class="text-xs text-muted-foreground">当前款发布工时 SAM 基线</span>
-          <div class="flex items-center gap-2">
-            <input
-              type="number"
-              class="h-8 w-28 rounded-md border px-2 text-sm"
-              value="${item.standardTime}"
-              ${readonly ? 'disabled' : ''}
-              data-tech-field="tech-standard-time"
-              data-tech-id="${item.id}"
-            />
-            <span class="inline-flex h-8 items-center rounded-md border bg-background px-3 text-xs font-medium text-slate-700">
-              ${escapeHtml(item.timeUnit || item.referencePublishedSamUnitLabel || '-')}
-            </span>
-          </div>
-        </label>
-        <label class="space-y-1">
-          <span class="text-xs text-muted-foreground">难度辅助说明</span>
-          <select class="mt-1 h-8 w-full rounded-md border px-2 text-sm" data-tech-field="tech-difficulty" data-tech-id="${item.id}" ${readonly ? 'disabled' : ''}>
-            ${difficultyOptions.map((option) => `<option value="${option}" ${item.difficulty === option ? 'selected' : ''}>${option}</option>`).join('')}
-          </select>
-        </label>
-        <label class="md:col-span-2">
-          <span class="text-xs text-muted-foreground">基线备注</span>
-          <input
-            class="mt-1 h-8 w-full rounded-md border px-2 text-sm"
-            value="${escapeHtml(item.remark)}"
-            ${readonly ? 'disabled' : ''}
-            data-tech-field="tech-remark"
-            data-tech-id="${item.id}"
-            placeholder="基线备注"
-          />
-        </label>
+        ${
+          readonly
+            ? `
+              <div class="space-y-1">
+                <span class="text-xs text-muted-foreground">当前款发布工时 SAM 基线</span>
+                <p class="font-medium text-slate-800">${escapeHtml(String(item.standardTime || '-'))} ${escapeHtml(item.timeUnit || item.referencePublishedSamUnitLabel || '')}</p>
+              </div>
+              <div class="space-y-1">
+                <span class="text-xs text-muted-foreground">难度辅助说明</span>
+                <p class="font-medium text-slate-800">${escapeHtml(item.difficulty || '-')}</p>
+              </div>
+              <div class="space-y-1 md:col-span-2">
+                <span class="text-xs text-muted-foreground">基线备注</span>
+                <p class="text-slate-700">${escapeHtml(item.remark || '-')}</p>
+              </div>
+            `
+            : `
+              <label class="space-y-1">
+                <span class="text-xs text-muted-foreground">当前款发布工时 SAM 基线</span>
+                <div class="flex items-center gap-2">
+                  <input
+                    type="number"
+                    class="h-8 w-28 rounded-md border px-2 text-sm"
+                    value="${item.standardTime}"
+                    data-tech-field="tech-standard-time"
+                    data-tech-id="${item.id}"
+                  />
+                  <span class="inline-flex h-8 items-center rounded-md border bg-background px-3 text-xs font-medium text-slate-700">
+                    ${escapeHtml(item.timeUnit || item.referencePublishedSamUnitLabel || '-')}
+                  </span>
+                </div>
+              </label>
+              <label class="space-y-1">
+                <span class="text-xs text-muted-foreground">难度辅助说明</span>
+                <select class="mt-1 h-8 w-full rounded-md border px-2 text-sm" data-tech-field="tech-difficulty" data-tech-id="${item.id}">
+                  ${difficultyOptions.map((option) => `<option value="${option}" ${item.difficulty === option ? 'selected' : ''}>${option}</option>`).join('')}
+                </select>
+              </label>
+              <label class="md:col-span-2">
+                <span class="text-xs text-muted-foreground">基线备注</span>
+                <input
+                  class="mt-1 h-8 w-full rounded-md border px-2 text-sm"
+                  value="${escapeHtml(item.remark)}"
+                  data-tech-field="tech-remark"
+                  data-tech-id="${item.id}"
+                  placeholder="基线备注"
+                />
+              </label>
+            `
+        }
       </div>
     </article>
   `
@@ -217,6 +238,7 @@ export function renderProcessTab(): string {
 
 export function renderAddTechniqueDialog(): string {
   if (!state.addTechniqueDialogOpen) return ''
+  if (isTechPackReadOnly()) return ''
   const selectedMeta = getSelectedDraftMeta()
   const isEdit = Boolean(state.editTechniqueId)
   const editingTechnique = state.editTechniqueId

@@ -10,13 +10,62 @@ import {
   state,
 } from './context.ts'
 
+function renderReadonlyText(value: string | number | undefined | null, muted = false): string {
+  const normalized = String(value ?? '').trim()
+  if (!normalized) return '<span class="text-muted-foreground">-</span>'
+  return `<span class="${muted ? 'text-muted-foreground' : 'text-slate-800'}">${escapeHtml(normalized)}</span>`
+}
+
+function renderReadonlySkuTags(codes: string[], skuLabelByCode: Map<string, string>): string {
+  if (codes.length === 0) return '<span class="text-muted-foreground">全部 SKU</span>'
+  return `
+    <div class="flex flex-wrap gap-1">
+      ${codes
+        .map((skuCode) => {
+          const label = skuLabelByCode.get(skuCode) || skuCode
+          return `<span class="inline-flex rounded border px-1.5 py-0.5 text-[10px]">${escapeHtml(label)}</span>`
+        })
+        .join('')}
+    </div>
+  `
+}
+
+function renderReadonlyColorMappingLines(
+  mapping: (typeof state.colorMaterialMappings)[number],
+  skuLabelByCode: Map<string, string>,
+): string {
+  if (mapping.lines.length === 0) {
+    return '<tr><td colspan="7" class="px-2 py-4 text-center text-muted-foreground">暂无映射明细</td></tr>'
+  }
+
+  return mapping.lines
+    .map(
+      (line) => `
+        <tr class="border-b align-top last:border-0">
+          <td class="px-3 py-2">
+            <div class="font-medium">${renderReadonlyText(line.materialName)}</div>
+            <div class="mt-1 text-xs">${renderReadonlyText(line.materialCode || line.bomItemId, true)}</div>
+          </td>
+          <td class="px-3 py-2">${renderReadonlyText(line.patternName)}</td>
+          <td class="px-3 py-2">${renderReadonlyText(line.pieceName)}</td>
+          <td class="px-3 py-2 text-right">${escapeHtml(String(line.pieceCountPerUnit || 0))} ${escapeHtml(line.unit || '片')}</td>
+          <td class="px-3 py-2">${renderReadonlySkuTags(line.applicableSkuCodes, skuLabelByCode)}</td>
+          <td class="px-3 py-2">${escapeHtml(generatedModeLabel[line.sourceMode])}</td>
+          <td class="px-3 py-2">${renderReadonlyText(line.note)}</td>
+        </tr>
+      `,
+    )
+    .join('')
+}
+
 export function renderColorMappingTab(): string {
   if (!state.techPack) return ''
   const readonly = isTechPackReadOnly()
+  const readonlyAttr = readonly ? 'disabled aria-disabled="true"' : ''
 
   const mappings = state.colorMaterialMappings
   const bomOptions = state.bomItems
-  const patternOptions = state.patternItems
+  const patternOptions = state.patternItems.filter((item) => item.recordKind !== 'PACKAGE')
   const skuOptions = getSkuOptionsForCurrentSpu()
   const skuLabelByCode = new Map(
     skuOptions.map((item) => [item.skuCode, `${item.color}/${item.size}（${item.skuCode}）`]),
@@ -27,6 +76,87 @@ export function renderColorMappingTab(): string {
     (item) => item.status === 'CONFIRMED' || item.status === 'AUTO_CONFIRMED',
   ).length
   const manualAdjustedCount = mappings.filter((item) => item.status === 'MANUAL_ADJUSTED').length
+
+  if (readonly) {
+    return `
+      <div class="space-y-4">
+        <section class="grid grid-cols-1 gap-3 md:grid-cols-4">
+          <article class="rounded-lg border bg-card p-3">
+            <p class="text-xs text-muted-foreground">映射颜色数</p>
+            <p class="mt-1 text-2xl font-semibold">${mappings.length}</p>
+          </article>
+          <article class="rounded-lg border bg-card p-3">
+            <p class="text-xs text-muted-foreground">映射明细行</p>
+            <p class="mt-1 text-2xl font-semibold">${totalLineCount}</p>
+          </article>
+          <article class="rounded-lg border bg-card p-3">
+            <p class="text-xs text-muted-foreground">待人工确认</p>
+            <p class="mt-1 text-2xl font-semibold text-amber-700">${autoDraftCount}</p>
+          </article>
+          <article class="rounded-lg border bg-card p-3">
+            <p class="text-xs text-muted-foreground">已确认 / 人工调整</p>
+            <p class="mt-1 text-2xl font-semibold text-green-700">${confirmedCount + manualAdjustedCount}</p>
+          </article>
+        </section>
+
+        <section class="rounded-lg border bg-card">
+          <header class="border-b px-4 py-3">
+            <h3 class="text-base font-semibold">款色用料对应</h3>
+          </header>
+          <div class="space-y-4 p-4">
+            ${
+              mappings.length === 0
+                ? '<div class="rounded-md border border-dashed px-3 py-8 text-center text-sm text-muted-foreground">暂无款色用料对应</div>'
+                : mappings
+                    .map((mapping) => {
+                      const statusLabel = colorMappingStatusLabel[mapping.status]
+                      const statusClass = colorMappingStatusClass[mapping.status]
+                      return `
+                        <article class="rounded-lg border">
+                          <header class="flex flex-wrap items-center gap-2 border-b px-3 py-2">
+                            <span class="text-sm font-semibold">${escapeHtml(`${mapping.colorName}（${mapping.colorCode}）`)}</span>
+                            <span class="inline-flex rounded border px-2 py-0.5 text-xs ${statusClass}">${escapeHtml(statusLabel)}</span>
+                            <span class="inline-flex rounded border px-2 py-0.5 text-xs text-muted-foreground">${escapeHtml(generatedModeLabel[mapping.generatedMode])}</span>
+                          </header>
+                          <div class="space-y-3 p-3">
+                            <div class="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                              <span>SPU：${escapeHtml(mapping.spuCode)}</span>
+                              <span>确认人：${escapeHtml(mapping.confirmedBy || '-')}</span>
+                              <span>确认时间：${escapeHtml(mapping.confirmedAt || '-')}</span>
+                            </div>
+                            <div class="rounded border bg-muted/20 px-3 py-2 text-xs">
+                              <span class="text-muted-foreground">映射备注：</span>
+                              ${renderReadonlyText(mapping.remark || '-')}
+                            </div>
+                            <div class="overflow-x-auto rounded border">
+                              <table class="w-full min-w-[1080px] text-xs">
+                                <thead>
+                                  <tr class="border-b bg-muted/20">
+                                    <th class="px-3 py-2 text-left">物料（BOM）</th>
+                                    <th class="px-3 py-2 text-left">纸样</th>
+                                    <th class="px-3 py-2 text-left">裁片</th>
+                                    <th class="px-3 py-2 text-right">单件片数</th>
+                                    <th class="px-3 py-2 text-left">适用 SKU</th>
+                                    <th class="px-3 py-2 text-left">来源</th>
+                                    <th class="px-3 py-2 text-left">备注</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  ${renderReadonlyColorMappingLines(mapping, skuLabelByCode)}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </article>
+                      `
+                    })
+                    .join('')
+            }
+          </div>
+        </section>
+      </div>
+    `
+  }
 
   return `
     <div class="space-y-4">
@@ -155,8 +285,9 @@ export function renderColorMappingTab(): string {
                                                     data-tech-field="mapping-line-bom-item"
                                                     data-mapping-id="${mapping.id}"
                                                     data-line-id="${line.id}"
+                                                    ${readonlyAttr}
                                                   >
-                                                    <option value="">未绑定BOM</option>
+                                                    <option value="">请选择BOM</option>
                                                     ${bomOptions
                                                       .map(
                                                         (bom) => `<option value="${bom.id}" ${line.bomItemId === bom.id ? 'selected' : ''}>${escapeHtml(`${bom.materialCode || bom.id} · ${bom.materialName}`)}</option>`,
@@ -170,6 +301,7 @@ export function renderColorMappingTab(): string {
                                                     data-tech-field="mapping-line-material-name"
                                                     data-mapping-id="${mapping.id}"
                                                     data-line-id="${line.id}"
+                                                    ${readonlyAttr}
                                                   />
                                                   <input
                                                     class="h-7 rounded border px-2 text-[11px] text-muted-foreground"
@@ -178,6 +310,7 @@ export function renderColorMappingTab(): string {
                                                     data-tech-field="mapping-line-material-code"
                                                     data-mapping-id="${mapping.id}"
                                                     data-line-id="${line.id}"
+                                                    ${readonlyAttr}
                                                   />
                                                 </div>
                                               </td>
@@ -187,8 +320,9 @@ export function renderColorMappingTab(): string {
                                                   data-tech-field="mapping-line-pattern-id"
                                                   data-mapping-id="${mapping.id}"
                                                   data-line-id="${line.id}"
+                                                  ${readonlyAttr}
                                                 >
-                                                  <option value="">未绑定纸样</option>
+                                                  <option value="">请选择纸样</option>
                                                   ${patternOptions
                                                     .map(
                                                       (pattern) => `<option value="${pattern.id}" ${line.patternId === pattern.id ? 'selected' : ''}>${escapeHtml(pattern.name)}</option>`,
@@ -202,8 +336,9 @@ export function renderColorMappingTab(): string {
                                                   data-tech-field="mapping-line-piece-id"
                                                   data-mapping-id="${mapping.id}"
                                                   data-line-id="${line.id}"
+                                                  ${readonlyAttr}
                                                 >
-                                                  <option value="">未绑定裁片</option>
+                                                  <option value="">请选择裁片</option>
                                                   ${pieceOptions
                                                     .map(
                                                       (piece) => `<option value="${piece.id}" ${line.pieceId === piece.id ? 'selected' : ''}>${escapeHtml(piece.name)}</option>`,

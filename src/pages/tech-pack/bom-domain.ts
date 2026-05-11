@@ -251,35 +251,51 @@ export function renderBomTab(): string {
                                 <td class="px-3 py-2 text-right">${item.usage}</td>
                                 <td class="px-3 py-2 text-right">${item.lossRate}%</td>
                                 <td class="px-3 py-2">
-                                  <select class="h-8 w-24 rounded-md border px-2 text-sm" data-tech-field="bom-print" data-bom-id="${item.id}" ${readonly ? 'disabled' : ''}>
-                                    ${printOptions
-                                      .map((option) => `<option value="${option}" ${item.printRequirement === option ? 'selected' : ''}>${option}</option>`)
-                                      .join('')}
-                                  </select>
+                                  ${
+                                    readonly
+                                      ? renderTextValue(item.printRequirement)
+                                      : `<select class="h-8 w-24 rounded-md border px-2 text-sm" data-tech-field="bom-print" data-bom-id="${item.id}">
+                                          ${printOptions
+                                            .map((option) => `<option value="${option}" ${item.printRequirement === option ? 'selected' : ''}>${option}</option>`)
+                                            .join('')}
+                                        </select>`
+                                  }
                                 </td>
                                 <td class="px-3 py-2">${item.printRequirement === '无' ? '<span class="text-muted-foreground">-</span>' : item.printSideMode ? escapeHtml(renderPrintSideModeLabel(item.printSideMode)) : '<span class="text-amber-600">待配置</span>'}</td>
                                 <td class="px-3 py-2" data-tech-preview-cell="front" data-bom-id="${item.id}">${renderBomPrintBindingCell(item, 'FRONT')}</td>
                                 <td class="px-3 py-2" data-tech-preview-cell="inside" data-bom-id="${item.id}">${renderBomPrintBindingCell(item, 'INSIDE')}</td>
                                 <td class="px-3 py-2">
-                                  <select class="h-8 w-24 rounded-md border px-2 text-sm" data-tech-field="bom-dye" data-bom-id="${item.id}" ${readonly ? 'disabled' : ''}>
-                                    ${dyeOptions
-                                      .map((option) => `<option value="${option}" ${item.dyeRequirement === option ? 'selected' : ''}>${option}</option>`)
-                                      .join('')}
-                                  </select>
+                                  ${
+                                    readonly
+                                      ? renderTextValue(item.dyeRequirement)
+                                      : `<select class="h-8 w-24 rounded-md border px-2 text-sm" data-tech-field="bom-dye" data-bom-id="${item.id}">
+                                          ${dyeOptions
+                                            .map((option) => `<option value="${option}" ${item.dyeRequirement === option ? 'selected' : ''}>${option}</option>`)
+                                            .join('')}
+                                        </select>`
+                                  }
                                 </td>
                                 <td class="px-3 py-2">
-                                  <select class="h-8 w-20 rounded-md border px-2 text-sm" data-tech-field="bom-shrink" data-bom-id="${item.id}" data-testid="bom-shrink-requirement-select" ${readonly ? 'disabled' : ''}>
-                                    ${bomRequirementOptions
-                                      .map((option) => `<option value="${option}" ${item.shrinkRequirement === option ? 'selected' : ''}>${option}</option>`)
-                                      .join('')}
-                                  </select>
+                                  ${
+                                    readonly
+                                      ? renderTextValue(item.shrinkRequirement)
+                                      : `<select class="h-8 w-20 rounded-md border px-2 text-sm" data-tech-field="bom-shrink" data-bom-id="${item.id}" data-testid="bom-shrink-requirement-select">
+                                          ${bomRequirementOptions
+                                            .map((option) => `<option value="${option}" ${item.shrinkRequirement === option ? 'selected' : ''}>${option}</option>`)
+                                            .join('')}
+                                        </select>`
+                                  }
                                 </td>
                                 <td class="px-3 py-2">
-                                  <select class="h-8 w-20 rounded-md border px-2 text-sm" data-tech-field="bom-wash" data-bom-id="${item.id}" data-testid="bom-wash-requirement-select" ${readonly ? 'disabled' : ''}>
-                                    ${bomRequirementOptions
-                                      .map((option) => `<option value="${option}" ${item.washRequirement === option ? 'selected' : ''}>${option}</option>`)
-                                      .join('')}
-                                  </select>
+                                  ${
+                                    readonly
+                                      ? renderTextValue(item.washRequirement)
+                                      : `<select class="h-8 w-20 rounded-md border px-2 text-sm" data-tech-field="bom-wash" data-bom-id="${item.id}" data-testid="bom-wash-requirement-select">
+                                          ${bomRequirementOptions
+                                            .map((option) => `<option value="${option}" ${item.washRequirement === option ? 'selected' : ''}>${option}</option>`)
+                                            .join('')}
+                                        </select>`
+                                  }
                                 </td>
                                 <td class="px-3 py-2">
                                   <div class="flex items-center gap-1">
@@ -310,6 +326,7 @@ export function renderBomTab(): string {
 
 export function renderBomFormDialog(): string {
   if (!state.addBomDialogOpen) return ''
+  if (isTechPackReadOnly()) return ''
   const skuOptions = getSkuOptionsForCurrentSpu()
   const colorOptions = dedupeStrings(skuOptions.map((item) => item.color))
   const applyAllSku = state.newBomItem.applicableSkuCodes.length === 0

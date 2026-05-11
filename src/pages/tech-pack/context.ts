@@ -1878,8 +1878,7 @@ function applyTechPackState(
   state.processCostRows = buildProcessCostRows(state.techniques, nextTechPack)
   state.customCostRows = buildCustomCostRows(nextTechPack)
   const loadedMappings = buildColorMaterialMappings(nextTechPack)
-  state.colorMaterialMappings =
-    loadedMappings.length > 0 ? loadedMappings : buildSystemSuggestedColorMappings()
+  state.colorMaterialMappings = buildSourceDrivenColorMaterialMappings(loadedMappings)
 }
 
 function clearTechPackState(spuCode: string, compatibilityMode = false): void {
@@ -3069,6 +3068,58 @@ function createEmptyMappingLine(mappingId: string): ColorMaterialMappingLineRow 
   }
 }
 
+function normalizeColorMatchKey(value: unknown): string {
+  return String(value || '').trim().toLowerCase()
+}
+
+const colorMatchAliases: Record<string, string[]> = {
+  white: ['白色', '本白', '米白', 'wht'],
+  black: ['黑色', 'blk'],
+  red: ['红色'],
+  blue: ['蓝色'],
+  green: ['绿色'],
+  yellow: ['黄色'],
+  gray: ['灰色', 'grey'],
+  grey: ['灰色', 'gray'],
+}
+
+function getColorSpecificPieceQty(
+  piece: PatternPieceRow,
+  colorName: string,
+  colorCode: string,
+  matchedSkuCodes: string[],
+): number {
+  const baseKeys = [
+    normalizeColorMatchKey(colorName),
+    normalizeColorMatchKey(colorCode),
+    ...matchedSkuCodes.map((skuCode) => normalizeColorMatchKey(skuCode)),
+  ].filter(Boolean)
+  const colorKeys = new Set([
+    ...baseKeys,
+    ...baseKeys.flatMap((key) => colorMatchAliases[key] ?? []).map(normalizeColorMatchKey),
+  ])
+
+  const matchedQuantity = piece.colorPieceQuantities.find((quantity) => {
+    if (!quantity.enabled) return false
+    return colorKeys.has(normalizeColorMatchKey(quantity.colorId))
+      || colorKeys.has(normalizeColorMatchKey(quantity.colorName))
+  })
+  if (matchedQuantity) return normalizePieceQty(matchedQuantity.pieceQty)
+
+  const matchedAllocation = piece.colorAllocations.find((allocation) => {
+    if (
+      colorKeys.has(normalizeColorMatchKey(allocation.colorCode))
+      || colorKeys.has(normalizeColorMatchKey(allocation.colorName))
+    ) {
+      return true
+    }
+    return (allocation.skuCodes ?? []).some((skuCode) => colorKeys.has(normalizeColorMatchKey(skuCode)))
+  })
+  if (matchedAllocation) return normalizePieceQty(matchedAllocation.pieceCount)
+
+  return normalizePieceQty(piece.count || piece.totalPieceQty || 0)
+}
+
 function isComplexColorMappingScenario(colorCount: number): boolean {
   if (colorCount > 1) return true
   const hasPieceSkuRestriction = state.patternItems.some((pattern) =>
@@ -3081,6 +3132,7 @@ function isComplexColorMappingScenario(colorCount: number): boolean {
 function buildAutoMappingLinesForColor(
   colorName: string,
   mappingId: string,
+  colorCode = colorName,
 ): ColorMaterialMappingLineRow[] {
   const skuCodesOfColor = getSkuCodesByColor(colorName)
   const skuCodeSet = new Set(skuCodesOfColor)
@@ -3095,30 +3147,11 @@ function buildAutoMappingLinesForColor(
 
     const linkedPatterns = state.patternItems.filter(
       (pattern) =>
-        pattern.linkedBomItemId === bomItem.id || bomItem.linkedPatternIds.includes(pattern.id),
+        pattern.recordKind !== 'PACKAGE'
+        && (pattern.linkedBomItemId === bomItem.id || bomItem.linkedPatternIds.includes(pattern.id)),
     )
 
-    if (linkedPatterns.length === 0) {
-      return [
-        normalizeColorMappingLineRows(
-          [
-            {
-              id: `${mappingId}-${bomItem.id}-M`,
-              bomItemId: bomItem.id,
-              materialCode: bomItem.materialCode,
-              materialName: bomItem.materialName,
-              materialType:
-                bomItem.type === '面料' || bomItem.type === '辅料' ? bomItem.type : '其他',
-              unit: bomItem.type === '辅料' ? '个' : '米',
-              applicableSkuCodes: matchedSkuCodes,
-              sourceMode: 'AUTO',
-              note: `系统按 ${colorName} 自动匹配（未关联纸样）`,
-            },
-          ],
-          mappingId,
-        )[0],
-      ]
-    }
+    if (linkedPatterns.length === 0) return []
 
     return linkedPatterns.flatMap((pattern) => {
       const matchedPieces = pattern.pieceRows.filter((piece) => {
@@ -3126,12 +3159,23 @@ function buildAutoMappingLinesForColor(
         return piece.applicableSkuCodes.some((skuCode) => skuCodeSet.has(skuCode))
       })
 
-      if (matchedPieces.length === 0) {
-        return [
-          normalizeColorMappingLineRows(
+      if (matchedPieces.length === 0) return []
+
+      return matchedPieces
+        .map((piece) => {
+          const applicableSkuCodes =
+            piece.applicableSkuCodes.length > 0
+              ? matchedSkuCodes.filter((skuCode) => piece.applicableSkuCodes.includes(skuCode))
+              : matchedSkuCodes
+          if (applicableSkuCodes.length === 0) return null
+
+          const pieceCountPerUnit = getColorSpecificPieceQty(piece, colorName, colorCode, applicableSkuCodes)
+          if (pieceCountPerUnit <= 0) return null
+
+          return normalizeColorMappingLineRows(
             [
               {
-                id: `${mappingId}-${bomItem.id}-${pattern.id}-M`,
+                id: `${mappingId}-${bomItem.id}-${pattern.id}-${piece.id}`,
                 bomItemId: bomItem.id,
                 materialCode: bomItem.materialCode,
                 materialName: bomItem.materialName,
@@ -3139,51 +3183,24 @@ function buildAutoMappingLinesForColor(
                   bomItem.type === '面料' || bomItem.type === '辅料' ? bomItem.type : '其他',
                 patternId: pattern.id,
                 patternName: pattern.name,
+                pieceId: piece.id,
+                pieceName: piece.name,
+                pieceCountPerUnit,
                 unit: '片',
-                applicableSkuCodes: matchedSkuCodes,
+                applicableSkuCodes,
                 sourceMode: 'AUTO',
-                note: `系统按 ${colorName} 自动匹配（纸样无裁片明细）`,
+                note: `系统按 ${colorName} 从 BOM 与纸样明细生成`,
               },
             ],
             mappingId,
-          )[0],
-        ]
-      }
-
-      return matchedPieces.map((piece) =>
-        normalizeColorMappingLineRows(
-          [
-            {
-              id: `${mappingId}-${bomItem.id}-${pattern.id}-${piece.id}`,
-              bomItemId: bomItem.id,
-              materialCode: bomItem.materialCode,
-              materialName: bomItem.materialName,
-              materialType:
-                bomItem.type === '面料' || bomItem.type === '辅料' ? bomItem.type : '其他',
-              patternId: pattern.id,
-              patternName: pattern.name,
-              pieceId: piece.id,
-              pieceName: piece.name,
-              pieceCountPerUnit: piece.count,
-              unit: '片',
-              applicableSkuCodes:
-                piece.applicableSkuCodes.length > 0
-                  ? matchedSkuCodes.filter((skuCode) => piece.applicableSkuCodes.includes(skuCode))
-                  : matchedSkuCodes,
-              sourceMode: 'AUTO',
-              note: `系统按 ${colorName} 自动生成`,
-            },
-          ],
-          mappingId,
-        )[0],
-      )
+          )[0]
+        })
+        .filter((line): line is ColorMaterialMappingLineRow => Boolean(line))
     })
   })
 }
 
-function buildSystemSuggestedColorMappings(): ColorMaterialMappingRow[] {
-  if (!state.techPack) return []
-
+function getColorMaterialMappingColors(): Array<{ colorCode: string; colorName: string }> {
   const skuOptions = getSkuOptionsForCurrentSpu()
   const colorMap = new Map<string, { colorCode: string; colorName: string }>()
   skuOptions.forEach((sku) => {
@@ -3194,29 +3211,53 @@ function buildSystemSuggestedColorMappings(): ColorMaterialMappingRow[] {
   if (colorMap.size === 0) {
     colorMap.set('ALL', { colorCode: 'ALL', colorName: '全部颜色' })
   }
+  return Array.from(colorMap.values())
+}
 
-  const complex = isComplexColorMappingScenario(colorMap.size)
+function buildSourceDrivenColorMaterialMappings(
+  previousMappings: ColorMaterialMappingRow[] = [],
+): ColorMaterialMappingRow[] {
+  if (!state.techPack) return []
+
+  const colors = getColorMaterialMappingColors()
+  const complex = isComplexColorMappingScenario(colors.length)
   const defaultStatus: TechPackColorMappingStatus =
     complex ? 'AUTO_DRAFT' : 'AUTO_CONFIRMED'
+  const previousByColor = new Map<string, ColorMaterialMappingRow>()
+  previousMappings.forEach((mapping) => {
+    previousByColor.set(normalizeColorMatchKey(mapping.colorCode), mapping)
+    previousByColor.set(normalizeColorMatchKey(mapping.colorName), mapping)
+  })
 
-  return Array.from(colorMap.values()).map((color) => {
-    const mappingId = `MAP-${state.techPack?.spuCode || 'SPU'}-${color.colorCode}`
+  return colors.map((color) => {
+    const previous =
+      previousByColor.get(normalizeColorMatchKey(color.colorCode))
+      || previousByColor.get(normalizeColorMatchKey(color.colorName))
+    const mappingId = previous?.id || `MAP-${state.techPack?.spuCode || 'SPU'}-${color.colorCode}`
+
     return {
       id: mappingId,
       spuCode: state.techPack?.spuCode || '',
       colorCode: color.colorCode,
       colorName: color.colorName,
-      status: defaultStatus,
-      generatedMode: 'AUTO',
-      confirmedBy: defaultStatus === 'AUTO_CONFIRMED' ? '系统' : '',
-      confirmedAt: defaultStatus === 'AUTO_CONFIRMED' ? toTimestamp() : '',
+      status: previous?.status || defaultStatus,
+      generatedMode: previous?.generatedMode || 'AUTO',
+      confirmedBy:
+        previous?.confirmedBy || (defaultStatus === 'AUTO_CONFIRMED' ? '系统' : ''),
+      confirmedAt:
+        previous?.confirmedAt || (defaultStatus === 'AUTO_CONFIRMED' ? toTimestamp() : ''),
       remark:
-        defaultStatus === 'AUTO_CONFIRMED'
-          ? '单色或简单款，系统自动生成并直接确认。'
-          : '多色或复杂款，系统生成草稿，待人工确认。',
-      lines: buildAutoMappingLinesForColor(color.colorName, mappingId),
+        previous?.remark
+        || (defaultStatus === 'AUTO_CONFIRMED'
+          ? '系统从物料清单与纸样管理生成并确认。'
+          : '系统从物料清单与纸样管理生成，待人工确认。'),
+      lines: buildAutoMappingLinesForColor(color.colorName, mappingId, color.colorCode),
     }
   })
+}
+
+function buildSystemSuggestedColorMappings(): ColorMaterialMappingRow[] {
+  return buildSourceDrivenColorMaterialMappings()
 }
 
 function touchMappingAsManual(mapping: ColorMaterialMappingRow): ColorMaterialMappingRow {

@@ -8,7 +8,10 @@ function createAsyncRenderer<TArgs extends unknown[]>(
 
   return async (...args: TArgs): Promise<string> => {
     if (!modulePromise) {
-      modulePromise = importModule()
+      modulePromise = importModule().catch((error) => {
+        modulePromise = null
+        throw error
+      })
     }
 
     const module = await modulePromise

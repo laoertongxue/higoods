@@ -11,7 +11,10 @@ function createAsyncRenderer<TArgs extends unknown[]>(
 
   return async (...args: TArgs): Promise<string> => {
     if (!modulePromise) {
-      modulePromise = importModule()
+      modulePromise = importModule().catch((error) => {
+        modulePromise = null
+        throw error
+      })
     }
 
     const module = await modulePromise
@@ -52,22 +55,36 @@ let pdaRoutesPromise: Promise<RouteRegistry> | null = null
 
 function getFcsRoutes(): Promise<RouteRegistry> {
   if (!fcsRoutesPromise) {
-    // FCS 子路由包含按生产单查看的技术包快照页。
-    fcsRoutesPromise = import('./routes-fcs').then((module) => module.routes)
+    fcsRoutesPromise = import('./routes-fcs')
+      .then((module) => module.routes)
+      .catch((error) => {
+        fcsRoutesPromise = null
+        throw error
+      })
   }
   return fcsRoutesPromise
 }
 
 function getPcsRoutes(): Promise<RouteRegistry> {
   if (!pcsRoutesPromise) {
-    pcsRoutesPromise = import('./routes-pcs').then((module) => module.routes)
+    pcsRoutesPromise = import('./routes-pcs')
+      .then((module) => module.routes)
+      .catch((error) => {
+        pcsRoutesPromise = null
+        throw error
+      })
   }
   return pcsRoutesPromise
 }
 
 function getPdaRoutes(): Promise<RouteRegistry> {
   if (!pdaRoutesPromise) {
-    pdaRoutesPromise = import('./routes-pda').then((module) => module.routes)
+    pdaRoutesPromise = import('./routes-pda')
+      .then((module) => module.routes)
+      .catch((error) => {
+        pdaRoutesPromise = null
+        throw error
+      })
   }
   return pdaRoutesPromise
 }

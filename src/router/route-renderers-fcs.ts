@@ -1,16 +1,17 @@
 type AnyAsyncRenderer = (...args: unknown[]) => Promise<string>
 
-type RenderRoute = (...args: unknown[]) => Promise<string>
-
 function createAsyncRenderer<TArgs extends unknown[]>(
   importModule: () => Promise<Record<string, unknown>>,
   exportName: string,
-): (...args: TArgs) => RenderRoute {
+): (...args: TArgs) => Promise<string> {
   let modulePromise: Promise<Record<string, unknown>> | null = null
 
   return async (...args: TArgs): Promise<string> => {
     if (!modulePromise) {
-      modulePromise = importModule()
+      modulePromise = importModule().catch((error) => {
+        modulePromise = null
+        throw error
+      })
     }
 
     const module = await modulePromise

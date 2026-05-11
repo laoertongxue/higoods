@@ -7,6 +7,7 @@ import type {
   TechnicalAttachment,
   TechnicalBomItem,
   TechnicalColorMaterialMapping,
+  TechnicalColorMaterialMappingLine,
   TechnicalDataVersionContent,
   TechnicalDataVersionRecord,
   TechnicalPatternDesign,
@@ -65,6 +66,81 @@ function renderReadonlyMaintainerStatus(value: string | undefined): string {
 
 function renderFileName(file?: { fileName?: string } | null): string {
   return renderTextValue(file?.fileName)
+}
+
+function buildPrototypeDownloadUrl(fileName: string): string {
+  const payload = [
+    'HiGood 技术包快照演示文件',
+    `文件名：${fileName}`,
+    '用途：纸样管理下载演示',
+  ].join('\n')
+  return `data:text/plain;charset=utf-8,${encodeURIComponent(payload)}`
+}
+
+function buildPatternPreviewUrl(title: string, fileName: string): string {
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540">
+      <rect width="960" height="540" fill="#f8fafc"/>
+      <rect x="40" y="40" width="880" height="460" rx="18" fill="#ffffff" stroke="#cbd5e1" stroke-width="3"/>
+      <path d="M250 126 C180 170 174 300 238 386 C306 478 464 462 526 366 C582 280 542 156 448 126 C382 104 310 108 250 126 Z" fill="#e0f2fe" stroke="#0284c7" stroke-width="5"/>
+      <path d="M548 128 C632 110 726 146 760 230 C796 318 746 424 656 454 C586 478 494 440 464 372 C506 310 530 224 548 128 Z" fill="#dcfce7" stroke="#16a34a" stroke-width="5"/>
+      <text x="60" y="84" font-size="28" font-weight="700" fill="#111827">${escapeHtml(title)}</text>
+      <text x="60" y="472" font-size="22" fill="#475569">${escapeHtml(fileName)}</text>
+    </svg>
+  `
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+}
+
+function renderPatternDownloadLink(fileName?: string | null, label?: string): string {
+  const normalized = String(fileName || '').trim()
+  if (!normalized) return '<span class="text-muted-foreground">暂无数据</span>'
+  return `
+    <a
+      class="inline-flex items-center rounded border px-2 py-1 text-xs text-blue-700 hover:bg-blue-50"
+      href="${escapeHtml(buildPrototypeDownloadUrl(normalized))}"
+      download="${escapeHtml(normalized)}"
+    >
+      ${escapeHtml(label || normalized)}
+    </a>
+  `
+}
+
+function getPatternTechnicalFiles(pattern: TechnicalPatternFile): Array<{ label: string; fileName: string }> {
+  const displayFile = String(pattern.fileName || '').includes(' / ') ? '' : pattern.fileName
+  const candidates = [
+    { label: 'PRJ', fileName: pattern.prjFile?.fileName || '' },
+    { label: 'DXF', fileName: pattern.dxfFileName || pattern.dxfFile?.fileName || '' },
+    { label: 'RUL', fileName: pattern.rulFileName || pattern.rulFile?.fileName || '' },
+    { label: '纸样文件', fileName: pattern.singlePatternFileName || displayFile || '' },
+  ]
+  const seen = new Set<string>()
+  return candidates.filter((item) => {
+    const fileName = item.fileName.trim()
+    if (!fileName || seen.has(fileName)) return false
+    seen.add(fileName)
+    return true
+  })
+}
+
+function renderPatternTechnicalFileLinks(pattern: TechnicalPatternFile): string {
+  const files = getPatternTechnicalFiles(pattern)
+  if (files.length === 0) return '<span class="text-muted-foreground">暂无数据</span>'
+  return `<div class="flex flex-wrap gap-1">${files.map((file) => renderPatternDownloadLink(file.fileName, file.label)).join('')}</div>`
+}
+
+function renderPatternImagePreview(pattern: TechnicalPatternFile): string {
+  const fileName = pattern.markerImage?.fileName || pattern.imageUrl || ''
+  if (!fileName) return '<span class="text-muted-foreground">暂无图片</span>'
+  const previewUrl =
+    pattern.markerImage?.previewUrl && pattern.markerImage.previewUrl.startsWith('data:')
+      ? pattern.markerImage.previewUrl
+      : buildPatternPreviewUrl(resolvePatternTitle(pattern), fileName)
+  return `
+    <a class="inline-flex items-center gap-2 rounded border bg-white p-1 text-xs text-blue-700 hover:border-blue-300 hover:bg-blue-50" href="${escapeHtml(previewUrl)}" target="_blank" rel="noreferrer">
+      <img src="${escapeHtml(previewUrl)}" alt="${escapeHtml(fileName)}" class="h-12 w-20 rounded object-cover" />
+      <span>查看大图</span>
+    </a>
+  `
 }
 
 function renderPatternFileBadge(label: string): string {
@@ -153,11 +229,15 @@ function renderPatternPool(patternRows: TechnicalPatternFile[]): string {
                       </div>
                       ${renderPatternFileBadge(resolvePatternMaterialTypeLabel(item))}
                     </div>
-                    <div class="mt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                      <span>PRJ：${renderFileName(item.prjFile)}</span>
-                      <span>唛架：${renderFileName(item.markerImage)}</span>
-                      <span>DXF：${renderTextValue(item.dxfFileName || item.dxfFile?.fileName)}</span>
-                      <span>RUL：${renderTextValue(item.rulFileName || item.rulFile?.fileName)}</span>
+                    <div class="mt-3 space-y-2 text-xs">
+                      <div>
+                        <div class="mb-1 text-muted-foreground">技术文件</div>
+                        ${renderPatternTechnicalFileLinks(item)}
+                      </div>
+                      <div>
+                        <div class="mb-1 text-muted-foreground">纸样图</div>
+                        ${renderPatternImagePreview(item)}
+                      </div>
                     </div>
                     <div class="mt-3 text-xs text-blue-700">${item.patternMaterialType === 'KNIT' ? `针织部位明细 ${escapeHtml(String((item.pieceRows ?? []).length))} 项` : `已解析 ${escapeHtml(String((item.pieceRows ?? []).length))} 个部位`}</div>
                   </section>
@@ -217,13 +297,12 @@ function renderMaterialPatternLinks(content: TechnicalDataVersionContent): strin
                           <td class="px-3 py-2">${escapeHtml(String((item.bindingStrips ?? []).length))} 条</td>
                           <td class="px-3 py-2 text-right">${escapeHtml(String(totalPieceQty))} 片</td>
                           <td class="px-3 py-2">${escapeHtml(String((item.pieceRows ?? []).length))} 项明细</td>
-                          <td class="px-3 py-2 text-xs text-muted-foreground">${[
-                            item.prjFile?.fileName,
-                            item.markerImage?.fileName,
-                            item.dxfFileName || item.dxfFile?.fileName,
-                            item.rulFileName || item.rulFile?.fileName,
-                            item.singlePatternFileName,
-                          ].filter(Boolean).map((value) => escapeHtml(String(value))).join(' / ') || '暂无数据'}</td>
+                          <td class="px-3 py-2 text-xs">
+                            <div class="space-y-2">
+                              ${renderPatternTechnicalFileLinks(item)}
+                              ${renderPatternImagePreview(item)}
+                            </div>
+                          </td>
                         </tr>
                       `
                     })
@@ -413,6 +492,72 @@ function renderSizeTab(rows: TechnicalSizeRow[]): string {
   `
 }
 
+const colorMappingStatusLabel: Record<string, string> = {
+  AUTO_CONFIRMED: '已确认',
+  AUTO_DRAFT: '待人工确认',
+  CONFIRMED: '已确认',
+  MANUAL_ADJUSTED: '人工调整',
+}
+
+function normalizeSnapshotMaterialType(value: string | undefined): TechnicalColorMaterialMappingLine['materialType'] {
+  if (value === '面料' || value === '辅料' || value === '半成品' || value === '包装材料') return value
+  return '其他'
+}
+
+function resolveColorMappingLineFromSources(
+  line: TechnicalColorMaterialMappingLine,
+  content: TechnicalDataVersionContent,
+): TechnicalColorMaterialMappingLine | null {
+  const bom =
+    (line.bomItemId ? content.bomItems.find((item) => item.id === line.bomItemId) : null)
+    || content.bomItems.find((item) => item.name === line.materialName)
+    || null
+  if (!bom) return null
+
+  const linkedPatterns = content.patternFiles.filter(
+    (pattern) =>
+      pattern.recordKind !== 'PACKAGE'
+      && (pattern.linkedBomItemId === bom.id || (bom.linkedPatternIds ?? []).includes(pattern.id)),
+  )
+  const pattern =
+    (line.patternId ? linkedPatterns.find((item) => item.id === line.patternId) : null)
+    || linkedPatterns.find((item) => resolvePatternTitle(item) === line.patternName)
+    || linkedPatterns[0]
+    || null
+  if (!pattern) return null
+
+  const pieces = pattern.pieceRows ?? []
+  const piece =
+    (line.pieceId ? pieces.find((item) => item.id === line.pieceId) : null)
+    || pieces.find((item) => item.name === line.pieceName)
+    || pieces[0]
+    || null
+  if (!piece) return null
+
+  return {
+    ...line,
+    bomItemId: bom.id,
+    materialName: bom.name || line.materialName,
+    materialType: normalizeSnapshotMaterialType(bom.type),
+    patternId: pattern.id,
+    patternName: resolvePatternTitle(pattern),
+    pieceId: piece.id,
+    pieceName: piece.name,
+    pieceCountPerUnit: Number(line.pieceCountPerUnit || piece.count || piece.totalPieceQty || 0) || undefined,
+    unit: line.unit || '片',
+  }
+}
+
+function buildResolvedColorMappingRows(content: TechnicalDataVersionContent): TechnicalColorMaterialMapping[] {
+  if (content.colorMaterialMappings.length === 0) return []
+  return content.colorMaterialMappings.map((mapping) => ({
+    ...mapping,
+    lines: mapping.lines
+      .map((line) => resolveColorMappingLineFromSources(line, content))
+      .filter((line): line is TechnicalColorMaterialMappingLine => Boolean(line)),
+  }))
+}
+
 function renderColorMappingTab(rows: TechnicalColorMaterialMapping[]): string {
   if (rows.length === 0) return renderEmptyState('暂无款色用料对应。')
   return `
@@ -422,7 +567,7 @@ function renderColorMappingTab(rows: TechnicalColorMaterialMapping[]): string {
           <section class="rounded-lg border bg-card p-4">
             <div class="flex flex-wrap items-center gap-3">
               <h3 class="text-sm font-medium">${escapeHtml(row.colorName || row.colorCode)}</h3>
-              <span class="rounded bg-muted px-2 py-1 text-xs text-muted-foreground">${escapeHtml(row.status)}</span>
+              <span class="rounded bg-muted px-2 py-1 text-xs text-muted-foreground">${escapeHtml(colorMappingStatusLabel[row.status] || row.status)}</span>
             </div>
             <div class="mt-3 overflow-x-auto rounded-lg border">
               <table class="w-full min-w-[900px] text-sm">
@@ -520,7 +665,7 @@ function renderTabContent(tab: SnapshotTabKey, source: SourceTechPack): string {
   if (tab === 'bom') return renderBomTab(source.content.bomItems)
   if (tab === 'process') return renderProcessTab(source.content.processEntries)
   if (tab === 'size') return renderSizeTab(source.content.sizeTable)
-  if (tab === 'color-mapping') return renderColorMappingTab(source.content.colorMaterialMappings)
+  if (tab === 'color-mapping') return renderColorMappingTab(buildResolvedColorMappingRows(source.content))
   if (tab === 'design') return renderDesignTab(source.content.patternDesigns)
   if (tab === 'attachments') return renderAttachmentsTab(source.content.attachments)
   return renderPatternTab(source)

@@ -68,6 +68,7 @@ export default defineConfig({
   plugins: [ensureStaticPlaceholderPlugin()],
   server: {
     port: 5173,
+    strictPort: true,
   },
   build: {
     chunkSizeWarningLimit: 3200,

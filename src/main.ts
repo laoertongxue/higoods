@@ -119,6 +119,7 @@ const root = rootNode
 appStore.init()
 
 const PRELOAD_ERROR_RELOAD_KEY = 'higood-vite-preload-reload'
+let dynamicModuleReloadScheduled = false
 
 function clearPreloadReloadFlag(): void {
   try {
@@ -128,28 +129,72 @@ function clearPreloadReloadFlag(): void {
   }
 }
 
-function shouldReloadForPreloadError(): boolean {
+function isDynamicModuleLoadError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error)
+  return (
+    message.includes('Failed to fetch dynamically imported module') ||
+    message.includes('error loading dynamically imported module') ||
+    message.includes('Importing a module script failed') ||
+    message.includes('ChunkLoadError')
+  )
+}
+
+function shouldReloadForModuleLoadError(): boolean {
   try {
+    const currentPath = `${window.location.pathname}${window.location.search}`
     const current = sessionStorage.getItem(PRELOAD_ERROR_RELOAD_KEY)
-    if (current === '1') return false
-    sessionStorage.setItem(PRELOAD_ERROR_RELOAD_KEY, '1')
+    if (current) {
+      const parsed = JSON.parse(current) as { path?: string; at?: number }
+      const samePath = parsed.path === currentPath
+      const recentlyReloaded = typeof parsed.at === 'number' && Date.now() - parsed.at < 30_000
+      if (samePath && recentlyReloaded) return false
+    }
+    sessionStorage.setItem(
+      PRELOAD_ERROR_RELOAD_KEY,
+      JSON.stringify({ path: currentPath, at: Date.now() }),
+    )
     return true
   } catch {
     return true
   }
 }
 
-window.addEventListener('vite:preloadError', (event) => {
-  if (!shouldReloadForPreloadError()) {
-    console.error('动态模块加载失败，自动刷新后仍未恢复。', event)
-    return
+function reloadForDynamicModuleLoadError(error: unknown, source: string): boolean {
+  if (!isDynamicModuleLoadError(error)) return false
+
+  if (!shouldReloadForModuleLoadError()) {
+    console.error(`${source}动态模块加载失败，自动刷新后仍未恢复。`, error)
+    return true
   }
 
-  event.preventDefault()
+  console.warn(`${source}动态模块加载失败，将按当前地址刷新一次。`, error)
+  dynamicModuleReloadScheduled = true
   window.location.reload()
+  return true
+}
+
+window.addEventListener('vite:preloadError', (event) => {
+  event.preventDefault()
+  const preloadError =
+    'payload' in event
+      ? (event as Event & { payload?: unknown }).payload
+      : event instanceof CustomEvent
+        ? event.detail
+        : event
+  reloadForDynamicModuleLoadError(preloadError, 'Vite 预加载')
 })
 
-clearPreloadReloadFlag()
+window.addEventListener('unhandledrejection', (event) => {
+  if (reloadForDynamicModuleLoadError(event.reason, '未处理 Promise ')) {
+    event.preventDefault()
+  }
+})
+
+window.addEventListener('error', (event) => {
+  if (reloadForDynamicModuleLoadError(event.error ?? event.message, '全局脚本')) {
+    event.preventDefault()
+  }
+})
 
 async function dispatchPageEvent(target: Element): Promise<boolean> {
   const eventTarget = target as HTMLElement
@@ -207,6 +252,7 @@ async function dispatchPageEvent(target: Element): Promise<boolean> {
 
     return pdaHandlers.dispatchPdaPageEvent(eventTarget)
   } catch (error) {
+    if (reloadForDynamicModuleLoadError(error, '页面事件处理器')) return false
     console.error('页面事件处理器加载失败，已降级为不处理', error)
     return false
   }
@@ -217,6 +263,7 @@ async function dispatchPageSubmit(form: HTMLFormElement): Promise<boolean> {
     const fcsHandlers = await getFcsHandlersModule()
     return fcsHandlers.dispatchFcsPageSubmit(form)
   } catch (error) {
+    if (reloadForDynamicModuleLoadError(error, '页面提交处理器')) return false
     console.error('页面提交处理器加载失败，已降级为不提交', error)
     return false
   }
@@ -227,6 +274,7 @@ async function dispatchPcsInputEvent(target: Element): Promise<boolean> {
     const pcsHandlers = await getPcsHandlersModule()
     return pcsHandlers.dispatchPcsInputEvent(target)
   } catch (error) {
+    if (reloadForDynamicModuleLoadError(error, '输入处理器')) return false
     console.error('输入处理器加载失败，已降级为不处理', error)
     return false
   }
@@ -263,6 +311,7 @@ async function closeDialogsOnEscape(): Promise<boolean> {
 
     return pdaHandlers.closePdaDialogsOnEscape()
   } catch (error) {
+    if (reloadForDynamicModuleLoadError(error, '弹窗处理器')) return false
     console.error('弹窗处理器加载失败', error)
     return false
   }
@@ -279,6 +328,9 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
     const { resolvePage } = await getRoutesModule()
     return resolvePage(pathname)
   } catch (error) {
+    if (reloadForDynamicModuleLoadError(error, '路由模块')) {
+      return '<section class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">页面模块加载失败，正在刷新当前页面。</section>'
+    }
     console.error('路由模块加载失败，进入降级页', error)
     return '<section class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">页面内容加载失败，请稍后重试。</section>'
   }
@@ -296,6 +348,9 @@ async function render(): Promise<void> {
   root.innerHTML = renderAppShell(state, pageContent)
   hydrateIcons(root)
   hydrateRealQRCodes(root)
+  if (!dynamicModuleReloadScheduled) {
+    clearPreloadReloadFlag()
+  }
 }
 
 function getPageContentHost(): HTMLDivElement | null {
