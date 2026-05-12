@@ -2065,14 +2065,6 @@ function renderPostFinishingActionPanel(order: PostFinishingWorkOrder): string {
     }
   }
 
-  if (order.waitHandoverWarehouseRecordId || order.currentStatus === '待交出' || order.currentStatus === '复检完成') {
-    actions.push(`
-      <button type="button" class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-sm font-medium hover:bg-muted" data-pda-execd-action="post-submit-handover" data-post-order-id="${escapeHtml(order.postOrderId)}" data-task-id="${escapeHtml(order.sourceTaskId)}">
-        发起交出
-      </button>
-    `)
-  }
-
   if (actions.length === 0) {
     return '<div class="rounded-md border bg-muted/30 px-3 py-3 text-sm text-muted-foreground">当前没有可执行动作</div>'
   }
@@ -3861,7 +3853,6 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
   if (
     action === 'post-start-action'
     || action === 'post-finish-action'
-    || action === 'post-submit-handover'
     || action === 'post-report-difference'
   ) {
     const postOrderId = actionNode.dataset.postOrderId
@@ -3870,29 +3861,6 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
     if (!postOrderId) return true
 
     try {
-      if (action === 'post-submit-handover') {
-        const qtyText = window.prompt('请输入交出成衣件数', '0')?.trim() || ''
-        const submittedQty = Number(qtyText)
-        if (!Number.isFinite(submittedQty) || submittedQty <= 0) {
-          showPdaExecDetailToast('请填写有效交出成衣件数')
-          return true
-        }
-        executeMobileProcessAction({
-          sourceType: 'POST_FINISHING',
-          sourceId: postOrderId,
-          taskId: postTaskId,
-          actionCode: 'POST_SUBMIT_HANDOVER',
-          operatorName: '移动端操作员',
-          operatedAt: nowTimestamp(),
-          objectType: '成衣',
-          objectQty: submittedQty,
-          qtyUnit: '件',
-          remark: '移动端发起后道交出',
-        })
-        showPdaExecDetailToast('后道交出已通过统一写回提交')
-        return true
-      }
-
       if (action === 'post-report-difference') {
         const expectedText = window.prompt('请输入应收成衣件数', '0')?.trim() || ''
         const actualText = window.prompt('请输入实收成衣件数', '0')?.trim() || ''

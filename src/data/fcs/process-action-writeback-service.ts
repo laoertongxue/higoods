@@ -35,7 +35,6 @@ import {
 import {
   applyPostFinishingActionFinish,
   applyPostFinishingActionStart,
-  ensurePostFinishingHandoverWarehouseRecord,
   getPostFinishingWorkOrderById,
   type PostFinishingActionType,
 } from './post-finishing-domain.ts'
@@ -664,17 +663,6 @@ export const PROCESS_ACTION_DEFINITIONS: ProcessActionDefinition[] = [
     affectsWarehouse: true,
   },
   {
-    actionCode: 'POST_SUBMIT_HANDOVER',
-    actionLabel: '发起交出',
-    sourceType: 'POST_FINISHING',
-    fromStatuses: ['待交出', '复检完成'],
-    toStatus: '待回写',
-    requiredFields: ['交出人', '交出时间', '交出成衣件数'],
-    optionalFields: ['备注'],
-    writebackHandler: 'executePostFinishingAction.createProcessHandoverRecord',
-    affectsHandover: true,
-  },
-  {
     actionCode: 'POST_REPORT_DIFFERENCE',
     actionLabel: '上报差异',
     sourceType: 'POST_FINISHING',
@@ -1173,11 +1161,6 @@ export function executePostFinishingAction(payload: ProcessActionPayload): Parti
       startedAt: payload.operatedAt,
     })
     return { updatedWorkOrderId: updated.postOrderId, nextStatus: updated.currentStatus } as Partial<ProcessActionWritebackResult>
-  }
-
-  if (actionCode === 'POST_SUBMIT_HANDOVER') {
-    ensurePostFinishingHandoverWarehouseRecord({ postOrderId: payload.sourceId, createdAt: payload.operatedAt })
-    return { updatedWorkOrderId: payload.sourceId, nextStatus: '待回写' } as Partial<ProcessActionWritebackResult>
   }
 
   if (actionCode === 'POST_REPORT_DIFFERENCE') {

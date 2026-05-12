@@ -2,12 +2,14 @@ import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils'
 import {
   KNITTING_KIND_LABEL,
+  listKnittingWarehouseAreas,
   listKnittingWaitHandoverHandoutRecords,
   listKnittingWaitHandoverInboundRecords,
   listKnittingWaitProcessReceiptRecords,
   listKnittingWaitProcessUsageRecords,
   listKnittingWarehouseInventory,
   listKnittingWarehouseLocations,
+  type KnittingWarehouseInventoryItem,
   type KnittingWarehouseMode,
 } from '../../../data/fcs/knitting-task-domain.ts'
 import {
@@ -46,6 +48,21 @@ function getBasePath(mode: KnittingWarehouseMode): string {
     : '/fcs/craft/knitting/wait-handover-warehouse'
 }
 
+function getCurrentParams(): URLSearchParams {
+  const [, queryString = ''] = (appStore.getState().pathname || '').split('?')
+  return new URLSearchParams(queryString)
+}
+
+function buildWarehouseLink(mode: KnittingWarehouseMode, overrides: Record<string, string | number | undefined>): string {
+  const params = getCurrentParams()
+  Object.entries(overrides).forEach(([key, value]) => {
+    if (value === undefined || value === '') params.delete(key)
+    else params.set(key, String(value))
+  })
+  const query = params.toString()
+  return `${getBasePath(mode)}${query ? `?${query}` : ''}`
+}
+
 function renderTabs(mode: KnittingWarehouseMode, activeTab: KnittingWarehouseTab): string {
   const tabs = mode === 'wait-process'
     ? [
@@ -67,7 +84,7 @@ function renderTabs(mode: KnittingWarehouseMode, activeTab: KnittingWarehouseTab
           <button
             type="button"
             class="rounded px-3 py-1.5 text-sm ${item.key === activeTab ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'}"
-            data-nav="${escapeHtml(`${getBasePath(mode)}?tab=${item.key}`)}"
+            data-nav="${escapeHtml(buildWarehouseLink(mode, { tab: item.key, inventoryDetail: undefined }))}"
           >
             ${escapeHtml(item.label)}
           </button>
@@ -93,14 +110,60 @@ function renderSummary(mode: KnittingWarehouseMode): string {
   `
 }
 
+function renderInventoryDetailButton(mode: KnittingWarehouseMode, item: KnittingWarehouseInventoryItem): string {
+  return `<button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildWarehouseLink(mode, { tab: 'inventory', inventoryDetail: item.inventoryId }))}">库存明细</button>`
+}
+
+function renderInventoryDetailDialog(mode: KnittingWarehouseMode, items: KnittingWarehouseInventoryItem[]): string {
+  const inventoryId = getCurrentParams().get('inventoryDetail') || ''
+  if (!inventoryId) return ''
+  const item = items.find((current) => current.inventoryId === inventoryId)
+  if (!item) return ''
+  const closeHref = escapeHtml(buildWarehouseLink(mode, { inventoryDetail: undefined }))
+  const rows = item.detailLines.map((line) => `
+    <tr class="border-b last:border-b-0">
+      <td class="px-3 py-3 text-sm">
+        <div class="font-medium">${escapeHtml(line.itemName)}</div>
+        <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(line.itemSpec)}</div>
+      </td>
+      <td class="px-3 py-3 font-mono text-xs">${escapeHtml(line.knittingOrderNo)}</td>
+      <td class="px-3 py-3 font-mono text-xs">${escapeHtml(line.productionOrderNo)}</td>
+      <td class="px-3 py-3 text-sm font-medium">${formatQty(line.qty, line.unit)}</td>
+      <td class="px-3 py-3 text-sm">${escapeHtml(line.locationText)}</td>
+      <td class="px-3 py-3 text-sm">${escapeHtml(line.sourceNo)}</td>
+      <td class="px-3 py-3 text-sm">${escapeHtml(line.remark)}</td>
+    </tr>
+  `).join('')
+  return `
+    <div class="fixed inset-0 z-[120]">
+      <button class="absolute inset-0 bg-black/45" data-nav="${closeHref}" aria-label="关闭弹窗"></button>
+      <section class="absolute left-1/2 top-1/2 max-h-[82vh] w-[min(980px,calc(100vw-48px))] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-lg border bg-background shadow-2xl">
+        <header class="flex items-start justify-between gap-3 border-b px-4 py-3">
+          <div>
+            <h2 class="text-base font-semibold text-foreground">库存明细</h2>
+            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.itemName)} / ${escapeHtml(item.itemSpec)}</div>
+          </div>
+          <button type="button" class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-nav="${closeHref}">关闭</button>
+        </header>
+        <div class="max-h-[68vh] space-y-3 overflow-y-auto p-4">
+          <section class="grid gap-3 md:grid-cols-3">
+            ${renderMetricCard('库存对象', item.inventoryObjectType, mode === 'wait-process' ? '待加工仓' : '待交出仓')}
+            ${renderMetricCard('当前库存', formatQty(item.currentQty, item.unit), item.locationText)}
+            ${renderMetricCard('明细行数', `${item.detailLines.length} 行`, '按库存对象拆分')}
+          </section>
+          ${renderTable(['库存对象', '针织加工单', '生产单', '当前库存', '库区库位', '来源记录', '备注'], rows, 'min-w-[1100px]')}
+        </div>
+      </section>
+    </div>
+  `
+}
+
 function renderInventoryTab(mode: KnittingWarehouseMode): string {
   const items = listKnittingWarehouseInventory(mode)
   const headers = mode === 'wait-process'
-    ? ['纱线 SKU', '纱线名称 / 颜色', '当前库存', '库区库位', '状态', '操作']
-    : ['针织单号', '生产单', '类型', '库存对象', '当前库存', '库区库位', '状态', '操作']
-  return renderSection(
-    '库存',
-    renderPaginatedTable(
+    ? ['纱线 SKU', '库存对象', '当前库存', '库区库位', '操作']
+    : ['库存对象', '类型', '款式 / 颜色尺码', '当前库存', '库区库位', '操作']
+  const table = renderPaginatedTable(
       headers,
       items,
       (item) => {
@@ -122,9 +185,9 @@ function renderInventoryTab(mode: KnittingWarehouseMode): string {
             </td>
             <td class="px-3 py-3 text-sm">${formatQty(item.currentQty, item.unit)}</td>
             <td class="px-3 py-3 text-sm">${escapeHtml(item.locationText)}</td>
-            <td class="px-3 py-3">${renderBadge(item.statusText, item.currentQty > 0 ? 'success' : 'warning')}</td>
             <td class="px-3 py-3">
               <div class="flex flex-wrap gap-2">
+                ${renderInventoryDetailButton(mode, item)}
                 ${renderWarehouseFlowButton(`${item.yarnSku || item.itemName} 库存流水`, flowLines)}
               </div>
             </td>
@@ -133,30 +196,32 @@ function renderInventoryTab(mode: KnittingWarehouseMode): string {
       }
       return `
         <tr class="border-b align-top last:border-b-0">
-          <td class="px-3 py-3">${escapeHtml(item.knittingOrderNo)}</td>
-          <td class="px-3 py-3">${escapeHtml(item.productionOrderNo)}</td>
-          <td class="px-3 py-3">${renderBadge(KNITTING_KIND_LABEL[item.kind], item.kind === 'PART_PANEL' ? 'info' : 'muted')}</td>
           <td class="px-3 py-3 text-sm">
             <div class="font-medium">${escapeHtml(item.itemName)}</div>
+            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.inventoryObjectType)}</div>
+          </td>
+          <td class="px-3 py-3">${renderBadge(KNITTING_KIND_LABEL[item.kind], item.kind === 'PART_PANEL' ? 'info' : 'muted')}</td>
+          <td class="px-3 py-3 text-sm">
+            <div class="font-medium">${escapeHtml(item.styleName)}</div>
             <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.itemSpec)}</div>
           </td>
           <td class="px-3 py-3 text-sm">${formatQty(item.currentQty, item.unit)}</td>
           <td class="px-3 py-3 text-sm">${escapeHtml(item.locationText)}</td>
-          <td class="px-3 py-3">${renderBadge(item.statusText, item.currentQty > 0 ? 'success' : 'warning')}</td>
           <td class="px-3 py-3">
             <div class="flex flex-wrap gap-2">
-              ${renderWarehouseFlowButton(`${item.knittingOrderNo} 库存流水`, flowLines)}
+              ${renderInventoryDetailButton(mode, item)}
+              ${renderWarehouseFlowButton(`${item.itemName} 库存流水`, flowLines)}
               <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildKnittingWorkOrderDetailLink(item.knittingOrderId))}">查看加工单</button>
             </div>
           </td>
           </tr>
         `
       },
-      mode === 'wait-process' ? 'min-w-[980px]' : 'min-w-[1360px]',
+      mode === 'wait-process' ? 'min-w-[900px]' : 'min-w-[1180px]',
       mode === 'wait-process' ? 'waitProcessInventoryPage' : 'waitHandoverInventoryPage',
       '条库存',
-    ),
-  )
+    )
+  return `${renderSection('库存', table)}${renderInventoryDetailDialog(mode, items)}`
 }
 
 function renderReceiptsTab(): string {
@@ -164,7 +229,7 @@ function renderReceiptsTab(): string {
   return renderSection(
     '领料记录',
     renderPaginatedTable(
-      ['领料单', '针织单号', '生产单', '来源', '纱线 SKU', '应收重量', '实收重量', '差异', '照片视频', '确认时间', '状态'],
+      ['领料单', '针织单号', '生产单', '来源', '纱线 SKU', '应收重量', '实收重量', '差异', '库区库位', '照片视频', '确认时间', '状态'],
       records,
       (record) => `
       <tr class="border-b last:border-b-0">
@@ -176,12 +241,13 @@ function renderReceiptsTab(): string {
         <td class="px-3 py-3">${formatQty(record.plannedWeightKg, 'kg')}</td>
         <td class="px-3 py-3">${formatQty(record.receivedWeightKg, 'kg')}</td>
         <td class="px-3 py-3">${formatQty(record.differenceWeightKg, 'kg')}</td>
+        <td class="px-3 py-3">${escapeHtml(record.locationText)}</td>
         <td class="px-3 py-3">${escapeHtml(record.evidenceText)}</td>
         <td class="px-3 py-3">${escapeHtml(record.receivedAt)}</td>
         <td class="px-3 py-3">${renderBadge(record.statusText, record.statusText.includes('差异') ? 'danger' : record.statusText === '待确认' ? 'warning' : 'success')}</td>
       </tr>
       `,
-      'min-w-[1500px]',
+      'min-w-[1620px]',
       'waitProcessReceiptsPage',
       '条领料记录',
     ),
@@ -270,17 +336,52 @@ function renderInboundsTab(): string {
 }
 
 function renderLocationsTab(mode: KnittingWarehouseMode): string {
+  const areas = listKnittingWarehouseAreas(mode)
   const locations = listKnittingWarehouseLocations(mode)
-  return renderSection(
-    '库区库位',
+  const areaSection = renderSection(
+    '库区管理',
     renderPaginatedTable(
-      ['库区', '库位', '容量', '负责人', '状态', '更新时间', '备注', '操作'],
+      ['库区编号', '库区名称', '负责人', '状态', '更新时间', '备注', '操作'],
+      areas,
+      (area) => `
+      <tr class="border-b last:border-b-0">
+        <td class="px-3 py-3 font-mono text-xs">${escapeHtml(area.areaCode)}</td>
+        <td class="px-3 py-3 font-medium">${escapeHtml(area.areaName)}</td>
+        <td class="px-3 py-3">${escapeHtml(area.managerName)}</td>
+        <td class="px-3 py-3">${renderBadge(area.status, area.status === '启用' ? 'success' : 'muted')}</td>
+        <td class="px-3 py-3">${escapeHtml(area.updatedAt)}</td>
+        <td class="px-3 py-3">${escapeHtml(area.remark || '—')}</td>
+        <td class="px-3 py-3">
+          <button
+            type="button"
+            class="rounded-md border px-2 py-1 text-xs hover:bg-muted"
+            data-knitting-action="edit-area"
+            data-warehouse-mode="${escapeHtml(area.warehouseMode)}"
+            data-area-id="${escapeHtml(area.areaId)}"
+            data-area-code="${escapeHtml(area.areaCode)}"
+            data-area-name="${escapeHtml(area.areaName)}"
+            data-manager-name="${escapeHtml(area.managerName)}"
+            data-status="${escapeHtml(area.status)}"
+            data-remark="${escapeHtml(area.remark)}"
+          >编辑</button>
+        </td>
+      </tr>
+      `,
+      'min-w-[980px]',
+      mode === 'wait-process' ? 'waitProcessAreasPage' : 'waitHandoverAreasPage',
+      '个库区',
+    ),
+    `<button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-knitting-action="add-area" data-warehouse-mode="${escapeHtml(mode)}">新增库区</button>`,
+  )
+  const locationSection = renderSection(
+    '库位管理',
+    renderPaginatedTable(
+      ['库区', '库位', '负责人', '状态', '更新时间', '备注', '操作'],
       locations,
       (location) => `
       <tr class="border-b last:border-b-0">
         <td class="px-3 py-3">${escapeHtml(location.areaName)}</td>
         <td class="px-3 py-3">${escapeHtml(location.locationCode)}</td>
-        <td class="px-3 py-3">${escapeHtml(location.capacityText)}</td>
         <td class="px-3 py-3">${escapeHtml(location.managerName)}</td>
         <td class="px-3 py-3">${renderBadge(location.status, location.status === '启用' ? 'success' : 'muted')}</td>
         <td class="px-3 py-3">${escapeHtml(location.updatedAt)}</td>
@@ -293,9 +394,9 @@ function renderLocationsTab(mode: KnittingWarehouseMode): string {
               data-knitting-action="edit-location"
               data-warehouse-mode="${escapeHtml(location.warehouseMode)}"
               data-location-id="${escapeHtml(location.locationId)}"
+              data-area-id="${escapeHtml(location.areaId)}"
               data-area-name="${escapeHtml(location.areaName)}"
               data-location-code="${escapeHtml(location.locationCode)}"
-              data-capacity-text="${escapeHtml(location.capacityText)}"
               data-manager-name="${escapeHtml(location.managerName)}"
               data-status="${escapeHtml(location.status)}"
               data-remark="${escapeHtml(location.remark)}"
@@ -311,6 +412,7 @@ function renderLocationsTab(mode: KnittingWarehouseMode): string {
     ),
     `<button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-knitting-action="add-location" data-warehouse-mode="${escapeHtml(mode)}">新增库位</button>`,
   )
+  return `<div class="space-y-4">${areaSection}${locationSection}</div>`
 }
 
 function renderActiveTab(mode: KnittingWarehouseMode, activeTab: KnittingWarehouseTab): string {
@@ -344,7 +446,7 @@ function renderKnittingWarehousePage(mode = getMode()): string {
         title,
         subtitle,
         mode === 'wait-process'
-          ? '<button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-knitting-action="open-yarn-recovery-dialog">回收入仓</button>'
+          ? '<div class="flex flex-wrap gap-2"><button type="button" class="rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted" data-knitting-action="open-yarn-receipt-dialog">扫码收货</button><button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-knitting-action="open-yarn-recovery-dialog">回收入仓</button></div>'
           : '',
       )}
       ${renderSummary(mode)}

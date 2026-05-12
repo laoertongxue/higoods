@@ -4,9 +4,11 @@ import {
   buildUnifiedPrintPreviewRouteLink,
 } from '../../../data/fcs/fcs-route-links.ts'
 import {
+  completePostFinishingWorkOrder,
   listPostFinishingWorkOrders,
   type PostFinishingWorkOrder,
 } from '../../../data/fcs/post-finishing-domain.ts'
+import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
 import {
   formatGarmentQty,
@@ -27,8 +29,12 @@ function filterRows(records: PostFinishingWorkOrder[], filters: ReturnType<typeo
     if (filters.status !== '全部' && order.currentStatus !== filters.status && order.postStatus !== filters.status) return false
     if (filters.factory !== '全部' && order.managedPostFactoryName !== filters.factory) return false
     return postFilterTextMatches(filters.keyword, [
+      order.postOrderId,
       order.postOrderNo,
+      order.qcOrderId,
       order.qcOrderNo,
+      order.recheckOrderId,
+      order.recheckOrderNo,
       order.sourceProductionOrderNo,
       order.sourceTaskNo,
       order.sourceSewingFactoryName,
@@ -49,7 +55,18 @@ function renderPostItems(order: PostFinishingWorkOrder): string {
     : '<span class="text-muted-foreground">—</span>'
 }
 
+function registerPostWorkOrderActions(): void {
+  if (typeof window === 'undefined') return
+  const win = window as Window & { __postCompleteWorkOrder?: (postOrderId: string) => void }
+  win.__postCompleteWorkOrder = (postOrderId: string) => {
+    const updated = completePostFinishingWorkOrder({ postOrderId, operatorName: '后道操作员' })
+    const url = `/fcs/craft/post-finishing/recheck-orders?keyword=${encodeURIComponent(updated.recheckOrderNo || updated.postOrderNo)}`
+    appStore.navigate(url)
+  }
+}
+
 export function renderPostFinishingWorkOrdersPage(): string {
+  registerPostWorkOrderActions()
   const allRecords = listPostFinishingWorkOrders()
   const filters = getPostListFilters()
   const filteredRecords = filterRows(allRecords, filters)
@@ -71,6 +88,7 @@ export function renderPostFinishingWorkOrdersPage(): string {
         <div class="flex flex-wrap gap-2">
           ${renderPostAction('查看详情', buildPostFinishingWorkOrderDetailLink(order.postOrderId))}
           ${renderPostAction('查看待加工仓', buildPostFinishingWaitProcessWarehouseLink(order.postOrderId))}
+          ${order.postStatus !== '后道完成' ? `<button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-slate-50" onclick="window.__postCompleteWorkOrder('${escapeHtml(order.postOrderId)}')">完成后道</button>` : ''}
           ${renderPostAction('打印任务流转卡', buildUnifiedPrintPreviewRouteLink({ documentType: 'TASK_ROUTE_CARD', sourceType: 'POST_FINISHING_WORK_ORDER', sourceId: order.postOrderId }))}
         </div>
       </td>

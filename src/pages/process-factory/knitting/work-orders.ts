@@ -5,23 +5,30 @@ import {
   acceptKnittingWorkOrder,
   completeKnittingPickupHead,
   confirmKnittingHandoverReceipt,
+  confirmKnittingWaitProcessScanReceipt,
   confirmKnittingPickupRecord,
   deleteKnittingWarehouseLocation,
   getKnittingWorkOrderSummary,
   getKnittingAllowedActions,
   getKnittingYarnUsageSummary,
+  listKnittingWarehouseAreas,
   listKnittingWarehouseInventory,
+  listKnittingWarehouseLocations,
   listKnittingMobileProcessTasks,
+  listKnittingWaitProcessScanReceipts,
   listKnittingWorkOrders,
+  lookupKnittingWaitProcessScanReceipt,
   markKnittingFeiTicketsPrinted,
   recordKnittingYarnRecovery,
   recoverKnittingYarnToWaitProcessWarehouse,
   scheduleKnittingMachines,
   submitKnittingHandover,
+  upsertKnittingWarehouseArea,
   upsertKnittingWarehouseLocation,
   updateKnittingWorkOrderNodeStatus,
   type KnittingNodeStatus,
   type KnittingWarehouseMode,
+  type KnittingWaitProcessScanReceipt,
   type KnittingWorkOrder,
 } from '../../../data/fcs/knitting-task-domain.ts'
 import {
@@ -375,11 +382,6 @@ function navigateWorkOrderFilters(): void {
   appStore.navigate(`/fcs/craft/knitting/work-orders${params.toString() ? `?${params.toString()}` : ''}`)
 }
 
-function promptLocationValue(label: string, currentValue = ''): string | null {
-  const value = window.prompt(label, currentValue)?.trim()
-  return value === undefined ? null : value
-}
-
 function promptKgValue(label: string, currentValue = 0, allowZero = true): number | null {
   const value = window.prompt(label, String(currentValue))?.trim()
   if (value === undefined) return null
@@ -392,9 +394,19 @@ function promptKgValue(label: string, currentValue = 0, allowZero = true): numbe
 }
 
 const KNITTING_YARN_RECOVERY_MODAL_ID = 'knitting-yarn-recovery-modal'
+const KNITTING_YARN_RECEIPT_MODAL_ID = 'knitting-yarn-receipt-modal'
+const KNITTING_WAREHOUSE_FORM_MODAL_ID = 'knitting-warehouse-form-modal'
 
 function removeKnittingYarnRecoveryDialog(): void {
   document.getElementById(KNITTING_YARN_RECOVERY_MODAL_ID)?.remove()
+}
+
+function removeKnittingYarnReceiptDialog(): void {
+  document.getElementById(KNITTING_YARN_RECEIPT_MODAL_ID)?.remove()
+}
+
+function removeKnittingWarehouseFormDialog(): void {
+  document.getElementById(KNITTING_WAREHOUSE_FORM_MODAL_ID)?.remove()
 }
 
 function refreshCurrentKnittingPage(): void {
@@ -403,6 +415,470 @@ function refreshCurrentKnittingPage(): void {
   const params = new URLSearchParams(query)
   params.set('refreshAt', String(Date.now()))
   appStore.navigate(`${path}?${params.toString()}`, { historyMode: 'replace' })
+}
+
+function renderWarehouseStatusOptions(currentStatus = '启用'): string {
+  return ['启用', '停用']
+    .map((status) => `<option value="${status}" ${status === currentStatus ? 'selected' : ''}>${status}</option>`)
+    .join('')
+}
+
+function readWarehouseFormField(modal: HTMLElement, field: string): string {
+  return modal.querySelector<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(`[data-warehouse-form-field="${field}"]`)?.value.trim() || ''
+}
+
+function openKnittingWarehouseAreaDialog(input: {
+  warehouseMode: KnittingWarehouseMode
+  areaId?: string
+  areaCode?: string
+  areaName?: string
+  managerName?: string
+  status?: '启用' | '停用'
+  remark?: string
+}): void {
+  removeKnittingWarehouseFormDialog()
+  const isEdit = Boolean(input.areaId)
+  document.body.insertAdjacentHTML('beforeend', `
+    <div id="${KNITTING_WAREHOUSE_FORM_MODAL_ID}" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <section class="w-full max-w-2xl rounded-lg border bg-background shadow-2xl">
+        <header class="flex items-center justify-between gap-3 border-b px-4 py-3">
+          <h2 class="text-base font-semibold">${isEdit ? '编辑库区' : '新增库区'}</h2>
+          <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-warehouse-form-action="close">关闭</button>
+        </header>
+        <div class="grid gap-3 p-4 md:grid-cols-2">
+          <label class="text-sm">
+            <span class="text-xs text-muted-foreground">库区编号 *</span>
+            <input class="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(input.areaCode || '')}" placeholder="如 KWP-A" data-warehouse-form-field="areaCode" />
+          </label>
+          <label class="text-sm">
+            <span class="text-xs text-muted-foreground">库区名称 *</span>
+            <input class="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(input.areaName || '')}" placeholder="如 待加工仓 A 区" data-warehouse-form-field="areaName" />
+          </label>
+          <label class="text-sm">
+            <span class="text-xs text-muted-foreground">负责人</span>
+            <input class="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(input.managerName || '针织仓管')}" data-warehouse-form-field="managerName" />
+          </label>
+          <label class="text-sm">
+            <span class="text-xs text-muted-foreground">状态</span>
+            <select class="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm" data-warehouse-form-field="status">
+              ${renderWarehouseStatusOptions(input.status || '启用')}
+            </select>
+          </label>
+          <label class="text-sm md:col-span-2">
+            <span class="text-xs text-muted-foreground">备注</span>
+            <textarea class="mt-1 min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm" data-warehouse-form-field="remark">${escapeHtml(input.remark || '')}</textarea>
+          </label>
+        </div>
+        <footer class="flex justify-end gap-2 border-t px-4 py-3">
+          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-warehouse-form-action="close">取消</button>
+          <button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-warehouse-form-action="submit-area">保存库区</button>
+        </footer>
+      </section>
+    </div>
+  `)
+
+  const modal = document.getElementById(KNITTING_WAREHOUSE_FORM_MODAL_ID)
+  if (!modal) return
+  modal.addEventListener('click', (event) => {
+    const action = (event.target as HTMLElement).closest<HTMLElement>('[data-warehouse-form-action]')?.dataset.warehouseFormAction
+    if (!action) return
+    if (action === 'close') {
+      removeKnittingWarehouseFormDialog()
+      return
+    }
+    if (action === 'submit-area') {
+      const areaCode = readWarehouseFormField(modal, 'areaCode')
+      const areaName = readWarehouseFormField(modal, 'areaName')
+      if (!areaCode || !areaName) {
+        window.alert('请填写库区编号和库区名称。')
+        return
+      }
+      upsertKnittingWarehouseArea({
+        areaId: input.areaId,
+        warehouseMode: input.warehouseMode,
+        areaCode,
+        areaName,
+        managerName: readWarehouseFormField(modal, 'managerName') || '针织仓管',
+        status: (readWarehouseFormField(modal, 'status') as '启用' | '停用') || '启用',
+        remark: readWarehouseFormField(modal, 'remark'),
+      })
+      removeKnittingWarehouseFormDialog()
+      refreshCurrentKnittingPage()
+    }
+  })
+}
+
+function openKnittingWarehouseLocationDialog(input: {
+  warehouseMode: KnittingWarehouseMode
+  locationId?: string
+  areaId?: string
+  areaName?: string
+  locationCode?: string
+  managerName?: string
+  status?: '启用' | '停用'
+  remark?: string
+}): void {
+  removeKnittingWarehouseFormDialog()
+  const isEdit = Boolean(input.locationId)
+  const areas = listKnittingWarehouseAreas(input.warehouseMode)
+  const selectedAreaId = input.areaId || areas.find((area) => area.areaName === input.areaName)?.areaId || areas[0]?.areaId || ''
+  const areaOptions = areas
+    .map((area) => `
+      <option value="${escapeHtml(area.areaId)}" ${area.areaId === selectedAreaId ? 'selected' : ''}>
+        ${escapeHtml(area.areaName)} / ${escapeHtml(area.areaCode)}
+      </option>
+    `)
+    .join('')
+
+  document.body.insertAdjacentHTML('beforeend', `
+    <div id="${KNITTING_WAREHOUSE_FORM_MODAL_ID}" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <section class="w-full max-w-2xl rounded-lg border bg-background shadow-2xl">
+        <header class="flex items-center justify-between gap-3 border-b px-4 py-3">
+          <h2 class="text-base font-semibold">${isEdit ? '编辑库位' : '新增库位'}</h2>
+          <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-warehouse-form-action="close">关闭</button>
+        </header>
+        <div class="grid gap-3 p-4 md:grid-cols-2">
+          <label class="text-sm md:col-span-2">
+            <span class="text-xs text-muted-foreground">所属库区 *</span>
+            <select class="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm" data-warehouse-form-field="areaId">
+              ${areaOptions}
+            </select>
+          </label>
+          <label class="text-sm">
+            <span class="text-xs text-muted-foreground">库位编号 *</span>
+            <input class="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(input.locationCode || '')}" placeholder="${input.warehouseMode === 'wait-process' ? 'KWP-A-03' : 'KWH-A-03'}" data-warehouse-form-field="locationCode" />
+          </label>
+          <label class="text-sm">
+            <span class="text-xs text-muted-foreground">负责人</span>
+            <input class="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(input.managerName || '针织仓管')}" data-warehouse-form-field="managerName" />
+          </label>
+          <label class="text-sm">
+            <span class="text-xs text-muted-foreground">状态</span>
+            <select class="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm" data-warehouse-form-field="status">
+              ${renderWarehouseStatusOptions(input.status || '启用')}
+            </select>
+          </label>
+          <label class="text-sm md:col-span-2">
+            <span class="text-xs text-muted-foreground">备注</span>
+            <textarea class="mt-1 min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm" data-warehouse-form-field="remark">${escapeHtml(input.remark || '')}</textarea>
+          </label>
+        </div>
+        <footer class="flex justify-end gap-2 border-t px-4 py-3">
+          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-warehouse-form-action="close">取消</button>
+          <button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-warehouse-form-action="submit-location">保存库位</button>
+        </footer>
+      </section>
+    </div>
+  `)
+
+  const modal = document.getElementById(KNITTING_WAREHOUSE_FORM_MODAL_ID)
+  if (!modal) return
+  modal.addEventListener('click', (event) => {
+    const action = (event.target as HTMLElement).closest<HTMLElement>('[data-warehouse-form-action]')?.dataset.warehouseFormAction
+    if (!action) return
+    if (action === 'close') {
+      removeKnittingWarehouseFormDialog()
+      return
+    }
+    if (action === 'submit-location') {
+      const areaId = readWarehouseFormField(modal, 'areaId')
+      const locationCode = readWarehouseFormField(modal, 'locationCode')
+      if (!areaId || !locationCode) {
+        window.alert('请选择所属库区并填写库位编号。')
+        return
+      }
+      upsertKnittingWarehouseLocation({
+        locationId: input.locationId,
+        warehouseMode: input.warehouseMode,
+        areaId,
+        locationCode,
+        managerName: readWarehouseFormField(modal, 'managerName') || '针织仓管',
+        status: (readWarehouseFormField(modal, 'status') as '启用' | '停用') || '启用',
+        remark: readWarehouseFormField(modal, 'remark'),
+      })
+      removeKnittingWarehouseFormDialog()
+      refreshCurrentKnittingPage()
+    }
+  })
+}
+
+function renderKnittingReceiptAreaOptions(selectedAreaId = ''): string {
+  return listKnittingWarehouseAreas('wait-process')
+    .map((area) => `<option value="${escapeHtml(area.areaId)}" ${area.areaId === selectedAreaId ? 'selected' : ''}>${escapeHtml(area.areaName)} / ${escapeHtml(area.areaCode)}</option>`)
+    .join('')
+}
+
+function renderKnittingReceiptLocationOptions(areaId: string, selectedLocationId = ''): string {
+  const locations = listKnittingWarehouseLocations('wait-process').filter((location) => location.areaId === areaId)
+  if (locations.length === 0) return '<option value="">仅库区</option>'
+  return [
+    '<option value="">仅库区</option>',
+    ...locations.map((location) => `<option value="${escapeHtml(location.locationId)}" ${location.locationId === selectedLocationId ? 'selected' : ''}>${escapeHtml(location.locationCode)}</option>`),
+  ].join('')
+}
+
+function renderKnittingReceiptDetails(receipt: KnittingWaitProcessScanReceipt | undefined): string {
+  if (!receipt) {
+    return `
+      <div class="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+        请输入针织领料单、送料单、针织加工单号，或扫码读取送料二维码。
+      </div>
+    `
+  }
+  const areas = listKnittingWarehouseAreas('wait-process')
+  const defaultAreaId = areas[0]?.areaId || ''
+  const rows = receipt.lines.map((line) => `
+    <tr class="align-top" data-knitting-receipt-line-id="${escapeHtml(line.receiptLineId)}">
+      <td class="px-3 py-3">
+        <div class="font-mono text-xs">${escapeHtml(line.yarnSku)}</div>
+        <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(line.yarnName)} / ${escapeHtml(line.colorName)}</div>
+      </td>
+      <td class="px-3 py-3">${renderKindBadge(line.kind)}</td>
+      <td class="px-3 py-3 text-sm">
+        <div class="font-medium">${escapeHtml(line.knittingOrderNo)}</div>
+        <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(line.productionOrderNo)}</div>
+      </td>
+      <td class="px-3 py-3 text-sm">${formatQty(line.plannedWeightKg, line.unit)}</td>
+      <td class="px-3 py-3 text-sm">${line.currentReceivedWeightKg > 0 ? formatQty(line.currentReceivedWeightKg, line.unit) : '待确认'}</td>
+      <td class="px-3 py-3">
+        <input class="h-9 w-28 rounded-md border bg-background px-3 text-sm" type="number" min="0" step="0.01" value="${escapeHtml(String(line.currentReceivedWeightKg || line.plannedWeightKg))}" data-knitting-receipt-field="actualWeightKg" />
+      </td>
+      <td class="px-3 py-3">
+        <select class="h-9 min-w-48 rounded-md border bg-background px-3 text-sm" data-knitting-receipt-field="areaId">
+          ${renderKnittingReceiptAreaOptions(defaultAreaId)}
+        </select>
+      </td>
+      <td class="px-3 py-3">
+        <select class="h-9 min-w-36 rounded-md border bg-background px-3 text-sm" data-knitting-receipt-field="locationId">
+          ${renderKnittingReceiptLocationOptions(defaultAreaId)}
+        </select>
+      </td>
+    </tr>
+  `).join('')
+  return `
+    <div class="space-y-3">
+      <div class="grid gap-3 rounded-lg border bg-slate-50 p-3 text-sm md:grid-cols-4">
+        <div><span class="text-xs text-muted-foreground">领料单</span><div class="mt-1 font-mono">${escapeHtml(receipt.receiptNo)}</div></div>
+        <div><span class="text-xs text-muted-foreground">送料单</span><div class="mt-1 font-mono">${escapeHtml(receipt.sourceDeliveryNo)}</div></div>
+        <div><span class="text-xs text-muted-foreground">来源</span><div class="mt-1">${escapeHtml(receipt.sourceName)}</div></div>
+        <div><span class="text-xs text-muted-foreground">生产单 / 款式</span><div class="mt-1">${escapeHtml(receipt.productionOrderNo)} / ${escapeHtml(receipt.styleName)}</div></div>
+      </div>
+      <div class="overflow-x-auto rounded-lg border">
+        <table class="min-w-[1220px] w-full text-left text-sm">
+          <thead class="bg-slate-50 text-xs text-muted-foreground">
+            <tr>
+              <th class="px-3 py-2 font-medium">纱线</th>
+              <th class="px-3 py-2 font-medium">类型</th>
+              <th class="px-3 py-2 font-medium">针织加工单</th>
+              <th class="px-3 py-2 font-medium">计划重量</th>
+              <th class="px-3 py-2 font-medium">当前实收</th>
+              <th class="px-3 py-2 font-medium">本次实收</th>
+              <th class="px-3 py-2 font-medium">库区</th>
+              <th class="px-3 py-2 font-medium">库位</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>
+  `
+}
+
+function loadKnittingReceiptDetails(modal: HTMLElement): void {
+  const keyword = modal.querySelector<HTMLInputElement>('[data-knitting-receipt-field="receiptNo"]')?.value.trim() || ''
+  const details = modal.querySelector<HTMLElement>('[data-knitting-receipt-details]')
+  if (!details) return
+  const receipt = lookupKnittingWaitProcessScanReceipt(keyword)
+  details.innerHTML = renderKnittingReceiptDetails(receipt)
+  if (!receipt) window.alert('未找到该针织领料单或送料二维码。')
+}
+
+function syncKnittingReceiptLocationSelect(row: HTMLElement): void {
+  const areaId = row.querySelector<HTMLSelectElement>('[data-knitting-receipt-field="areaId"]')?.value || ''
+  const locationSelect = row.querySelector<HTMLSelectElement>('[data-knitting-receipt-field="locationId"]')
+  if (!locationSelect) return
+  locationSelect.innerHTML = renderKnittingReceiptLocationOptions(areaId)
+}
+
+function getKnittingReceiptEvidenceType(modal: HTMLElement): 'image' | 'video' {
+  const selected = modal.querySelector<HTMLInputElement>('[data-knitting-receipt-field="evidenceType"]:checked')?.value
+  return selected === 'video' ? 'video' : 'image'
+}
+
+function syncKnittingReceiptEvidenceFileName(modal: HTMLElement): void {
+  const evidenceType = getKnittingReceiptEvidenceType(modal)
+  const fileInput = modal.querySelector<HTMLInputElement>(`[data-knitting-receipt-field="${evidenceType === 'image' ? 'imageFile' : 'videoFile'}"]`)
+  const fileNameNode = modal.querySelector<HTMLElement>('[data-knitting-receipt-evidence-name]')
+  if (!fileNameNode) return
+  const fileName = fileInput?.files?.[0]?.name || ''
+  fileNameNode.textContent = fileName
+    ? `${evidenceType === 'image' ? '已选择称重照片' : '已选择到货视频'}：${fileName}`
+    : `请选择${evidenceType === 'image' ? '称重照片' : '到货视频'}`
+}
+
+function syncKnittingReceiptEvidencePanels(modal: HTMLElement): void {
+  const evidenceType = getKnittingReceiptEvidenceType(modal)
+  modal.querySelectorAll<HTMLElement>('[data-knitting-receipt-evidence-label]').forEach((label) => {
+    const active = label.dataset.knittingReceiptEvidenceLabel === evidenceType
+    label.classList.toggle('border-blue-600', active)
+    label.classList.toggle('bg-blue-50', active)
+    label.classList.toggle('text-blue-700', active)
+  })
+  modal.querySelectorAll<HTMLElement>('[data-knitting-receipt-evidence-panel]').forEach((panel) => {
+    panel.classList.toggle('hidden', panel.dataset.knittingReceiptEvidencePanel !== evidenceType)
+  })
+  const inactiveInput = modal.querySelector<HTMLInputElement>(`[data-knitting-receipt-field="${evidenceType === 'image' ? 'videoFile' : 'imageFile'}"]`)
+  if (inactiveInput) inactiveInput.value = ''
+  syncKnittingReceiptEvidenceFileName(modal)
+}
+
+function readKnittingReceiptEvidenceText(modal: HTMLElement): string | null {
+  const evidenceType = getKnittingReceiptEvidenceType(modal)
+  const fileInput = modal.querySelector<HTMLInputElement>(`[data-knitting-receipt-field="${evidenceType === 'image' ? 'imageFile' : 'videoFile'}"]`)
+  const file = fileInput?.files?.[0]
+  if (!file) return null
+  return evidenceType === 'image'
+    ? `称重照片：${file.name}`
+    : `到货视频：${file.name}`
+}
+
+function openKnittingYarnReceiptDialog(): void {
+  removeKnittingYarnReceiptDialog()
+  const receipts = listKnittingWaitProcessScanReceipts()
+  const preferred = receipts.find((receipt) => receipt.lines.some((line) => line.currentReceivedWeightKg <= 0)) || receipts[0]
+  const examples = receipts.slice(0, 3).map((receipt) => `
+    <button type="button" class="rounded-full border px-2 py-1 text-xs hover:bg-muted" data-knitting-receipt-action="fill-receipt" data-receipt-no="${escapeHtml(receipt.receiptNo)}">
+      ${escapeHtml(receipt.receiptNo)}
+    </button>
+  `).join('')
+
+  document.body.insertAdjacentHTML('beforeend', `
+    <div id="${KNITTING_YARN_RECEIPT_MODAL_ID}" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <section class="flex max-h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg border bg-background shadow-2xl">
+        <header class="flex items-start justify-between gap-3 border-b px-4 py-3">
+          <div>
+            <h2 class="text-base font-semibold">扫码收货</h2>
+          </div>
+          <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-knitting-receipt-action="close">关闭</button>
+        </header>
+        <div class="space-y-4 overflow-y-auto p-4">
+          <div class="grid gap-3 md:grid-cols-[1fr_auto]">
+            <label class="text-sm">
+              <span class="text-xs text-muted-foreground">针织领料单 / 送料单 / 针织加工单号 / 二维码 *</span>
+              <input class="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm" placeholder="例如 领料-针织单-202603-0006-02 或 QR-领料-..." data-knitting-receipt-field="receiptNo" />
+            </label>
+            <div class="flex items-end gap-2">
+              <button type="button" class="h-10 rounded-md border px-3 text-sm hover:bg-muted" data-knitting-receipt-action="load">获取明细</button>
+              <button type="button" class="h-10 rounded-md border px-3 text-sm hover:bg-muted" data-knitting-receipt-action="scan-demo">扫码识别</button>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-2">${examples}</div>
+          <div data-knitting-receipt-details>${renderKnittingReceiptDetails(undefined)}</div>
+          <section class="rounded-lg border p-3">
+            <div class="text-xs font-medium text-muted-foreground">称重照片 / 视频凭证 *</div>
+            <div class="mt-2 grid gap-2 md:grid-cols-2">
+              <label class="cursor-pointer rounded-md border px-3 py-2 text-sm" data-knitting-receipt-evidence-label="image">
+                <input class="mr-2 align-middle" type="radio" name="knitting-receipt-evidence-type" value="image" checked data-knitting-receipt-field="evidenceType" />
+                称重照片
+              </label>
+              <label class="cursor-pointer rounded-md border px-3 py-2 text-sm" data-knitting-receipt-evidence-label="video">
+                <input class="mr-2 align-middle" type="radio" name="knitting-receipt-evidence-type" value="video" data-knitting-receipt-field="evidenceType" />
+                到货视频
+              </label>
+            </div>
+            <div class="mt-3" data-knitting-receipt-evidence-panel="image">
+              <input class="block h-10 w-full rounded-md border bg-background px-3 py-2 text-sm" type="file" accept="image/*" data-knitting-receipt-field="imageFile" />
+            </div>
+            <div class="mt-3 hidden" data-knitting-receipt-evidence-panel="video">
+              <input class="block h-10 w-full rounded-md border bg-background px-3 py-2 text-sm" type="file" accept="video/*" data-knitting-receipt-field="videoFile" />
+            </div>
+            <div class="mt-2 text-xs text-muted-foreground" data-knitting-receipt-evidence-name>请选择称重照片</div>
+          </section>
+        </div>
+        <footer class="flex justify-end gap-2 border-t px-4 py-3">
+          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-knitting-receipt-action="close">取消</button>
+          <button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-knitting-receipt-action="submit">收货确认</button>
+        </footer>
+      </section>
+    </div>
+  `)
+
+  const modal = document.getElementById(KNITTING_YARN_RECEIPT_MODAL_ID)
+  if (!modal) return
+  syncKnittingReceiptEvidencePanels(modal)
+  modal.addEventListener('change', (event) => {
+    const field = (event.target as HTMLElement).closest<HTMLElement>('[data-knitting-receipt-field]')?.dataset.knittingReceiptField
+    if (field === 'evidenceType') {
+      syncKnittingReceiptEvidencePanels(modal)
+      return
+    }
+    if (field === 'imageFile' || field === 'videoFile') {
+      syncKnittingReceiptEvidenceFileName(modal)
+      return
+    }
+    if (field !== 'areaId') return
+    const row = (event.target as HTMLElement).closest<HTMLElement>('[data-knitting-receipt-line-id]')
+    if (row) syncKnittingReceiptLocationSelect(row)
+  })
+  modal.addEventListener('click', (event) => {
+    const actionNode = (event.target as HTMLElement).closest<HTMLElement>('[data-knitting-receipt-action]')
+    const action = actionNode?.dataset.knittingReceiptAction
+    if (!action) return
+    if (action === 'close') {
+      removeKnittingYarnReceiptDialog()
+      return
+    }
+    if (action === 'fill-receipt') {
+      const input = modal.querySelector<HTMLInputElement>('[data-knitting-receipt-field="receiptNo"]')
+      if (input) input.value = actionNode.dataset.receiptNo || ''
+      loadKnittingReceiptDetails(modal)
+      return
+    }
+    if (action === 'scan-demo') {
+      const input = modal.querySelector<HTMLInputElement>('[data-knitting-receipt-field="receiptNo"]')
+      if (input) input.value = preferred?.qrCode || ''
+      loadKnittingReceiptDetails(modal)
+      return
+    }
+    if (action === 'load') {
+      loadKnittingReceiptDetails(modal)
+      return
+    }
+    if (action === 'submit') {
+      const receiptNo = modal.querySelector<HTMLInputElement>('[data-knitting-receipt-field="receiptNo"]')?.value.trim() || ''
+      const evidenceText = readKnittingReceiptEvidenceText(modal)
+      if (!evidenceText) {
+        window.alert('请上传称重照片或到货视频，二选一。')
+        return
+      }
+      const rows = Array.from(modal.querySelectorAll<HTMLElement>('[data-knitting-receipt-line-id]'))
+      const lines = rows.map((row) => ({
+        receiptLineId: row.dataset.knittingReceiptLineId || '',
+        actualWeightKg: Number(row.querySelector<HTMLInputElement>('[data-knitting-receipt-field="actualWeightKg"]')?.value || 0),
+        areaId: row.querySelector<HTMLSelectElement>('[data-knitting-receipt-field="areaId"]')?.value || '',
+        locationId: row.querySelector<HTMLSelectElement>('[data-knitting-receipt-field="locationId"]')?.value || '',
+        evidenceText,
+      }))
+      try {
+        const created = confirmKnittingWaitProcessScanReceipt({
+          receiptNo,
+          receiverName: '针织仓管',
+          lines,
+        })
+        removeKnittingYarnReceiptDialog()
+        window.alert(`已生成 ${created.length} 条纱线收货入仓记录。`)
+        const currentPath = appStore.getState().pathname || '/fcs/craft/knitting/wait-process-warehouse'
+        const [path, query = ''] = currentPath.split('?')
+        const params = new URLSearchParams(query)
+        params.set('tab', 'receipts')
+        params.set('waitProcessReceiptsPage', '1')
+        params.set('refreshAt', String(Date.now()))
+        appStore.navigate(`${path}?${params.toString()}`, { historyMode: 'replace' })
+      } catch (error) {
+        window.alert(error instanceof Error ? error.message : '收货确认失败。')
+      }
+    }
+  })
 }
 
 function openKnittingYarnRecoveryDialog(): void {
@@ -621,6 +1097,11 @@ export async function handleCraftKnittingEvent(target: HTMLElement): Promise<boo
     return true
   }
 
+  if (action === 'open-yarn-receipt-dialog') {
+    openKnittingYarnReceiptDialog()
+    return true
+  }
+
   if (action === 'recover-yarn' && actionNode.dataset.knittingOrderId) {
     const orders = listKnittingWorkOrders()
     const relatedOrderNos = (actionNode.dataset.relatedOrderNos || '')
@@ -646,20 +1127,42 @@ export async function handleCraftKnittingEvent(target: HTMLElement): Promise<boo
     return true
   }
 
+  if (action === 'add-area') {
+    const warehouseMode = actionNode.dataset.warehouseMode as KnittingWarehouseMode | undefined
+    if (!warehouseMode) return true
+    openKnittingWarehouseAreaDialog({
+      warehouseMode,
+      areaCode: warehouseMode === 'wait-process' ? 'KWP-C' : 'KWH-C',
+      areaName: warehouseMode === 'wait-process' ? '待加工仓 C 区' : '待交出仓 C 区',
+      managerName: '针织仓管',
+      status: '启用',
+      remark: 'Web新增库区',
+    })
+    return true
+  }
+
+  if (action === 'edit-area') {
+    const warehouseMode = actionNode.dataset.warehouseMode as KnittingWarehouseMode | undefined
+    const areaId = actionNode.dataset.areaId
+    if (!warehouseMode || !areaId) return true
+    openKnittingWarehouseAreaDialog({
+      areaId,
+      warehouseMode,
+      areaCode: actionNode.dataset.areaCode || '',
+      areaName: actionNode.dataset.areaName || '',
+      managerName: actionNode.dataset.managerName || '针织仓管',
+      status: (actionNode.dataset.status as '启用' | '停用') || '启用',
+      remark: actionNode.dataset.remark || '',
+    })
+    return true
+  }
+
   if (action === 'add-location') {
     const warehouseMode = actionNode.dataset.warehouseMode as KnittingWarehouseMode | undefined
     if (!warehouseMode) return true
-    const areaName = promptLocationValue('请输入库区名称', warehouseMode === 'wait-process' ? '待加工仓 A 区' : '待交出仓 A 区')
-    if (areaName === null) return true
-    const locationCode = promptLocationValue('请输入库位编号', warehouseMode === 'wait-process' ? 'KWP-A-03' : 'KWH-A-03')
-    if (locationCode === null) return true
-    const capacityText = promptLocationValue('请输入容量说明', warehouseMode === 'wait-process' ? '纱线 500 kg' : '成品/部位 800 件/片')
-    if (capacityText === null) return true
-    upsertKnittingWarehouseLocation({
+    openKnittingWarehouseLocationDialog({
       warehouseMode,
-      areaName,
-      locationCode,
-      capacityText,
+      locationCode: warehouseMode === 'wait-process' ? 'KWP-A-03' : 'KWH-A-03',
       managerName: '针织仓管',
       status: '启用',
       remark: 'Web新增库位',
@@ -671,18 +1174,12 @@ export async function handleCraftKnittingEvent(target: HTMLElement): Promise<boo
     const warehouseMode = actionNode.dataset.warehouseMode as KnittingWarehouseMode | undefined
     const locationId = actionNode.dataset.locationId
     if (!warehouseMode || !locationId) return true
-    const areaName = promptLocationValue('请输入库区名称', actionNode.dataset.areaName || '')
-    if (areaName === null) return true
-    const locationCode = promptLocationValue('请输入库位编号', actionNode.dataset.locationCode || '')
-    if (locationCode === null) return true
-    const capacityText = promptLocationValue('请输入容量说明', actionNode.dataset.capacityText || '')
-    if (capacityText === null) return true
-    upsertKnittingWarehouseLocation({
+    openKnittingWarehouseLocationDialog({
       locationId,
       warehouseMode,
-      areaName,
-      locationCode,
-      capacityText,
+      areaId: actionNode.dataset.areaId || '',
+      areaName: actionNode.dataset.areaName || '',
+      locationCode: actionNode.dataset.locationCode || '',
       managerName: actionNode.dataset.managerName || '针织仓管',
       status: (actionNode.dataset.status as '启用' | '停用') || '启用',
       remark: actionNode.dataset.remark || '',

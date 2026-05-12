@@ -85,6 +85,9 @@ export interface KnittingYarnReceipt {
   differenceWeightKg: number
   processingUsageWeightKg?: number
   recoveredWeightKg?: number
+  waitProcessAreaId?: string
+  waitProcessLocationId?: string
+  waitProcessLocationText?: string
   receiverName: string
   receivedAt: string
   evidenceText?: string
@@ -261,9 +264,23 @@ export interface KnittingWarehouseFlowRecord {
   remark: string
 }
 
+export interface KnittingWarehouseInventoryDetailLine {
+  detailId: string
+  knittingOrderNo: string
+  productionOrderNo: string
+  itemName: string
+  itemSpec: string
+  qty: number
+  unit: string
+  locationText: string
+  sourceNo: string
+  remark: string
+}
+
 export interface KnittingWarehouseInventoryItem {
   inventoryId: string
   warehouseMode: KnittingWarehouseMode
+  inventoryObjectType: '纱线' | '整件' | '部位'
   knittingOrderId: string
   knittingOrderNo: string
   taskNo: string
@@ -279,6 +296,7 @@ export interface KnittingWarehouseInventoryItem {
   unit: string
   locationText: string
   statusText: string
+  detailLines: KnittingWarehouseInventoryDetailLine[]
   flowRecords: KnittingWarehouseFlowRecord[]
 }
 
@@ -302,12 +320,23 @@ export interface KnittingYarnRecoveryRecord {
   remark: string
 }
 
+export interface KnittingWarehouseArea {
+  areaId: string
+  warehouseMode: KnittingWarehouseMode
+  areaCode: string
+  areaName: string
+  managerName: string
+  status: '启用' | '停用'
+  remark: string
+  updatedAt: string
+}
+
 export interface KnittingWarehouseLocation {
   locationId: string
   warehouseMode: KnittingWarehouseMode
+  areaId: string
   areaName: string
   locationCode: string
-  capacityText: string
   managerName: string
   status: '启用' | '停用'
   remark: string
@@ -328,7 +357,44 @@ export interface KnittingWaitProcessReceiptRecord {
   differenceWeightKg: number
   evidenceText: string
   receivedAt: string
+  locationText: string
   statusText: string
+}
+
+export interface KnittingWaitProcessScanReceiptLine {
+  receiptLineId: string
+  knittingOrderId: string
+  knittingOrderNo: string
+  productionOrderNo: string
+  taskNo: string
+  kind: KnittingWorkOrderKind
+  styleName: string
+  yarnSku: string
+  yarnName: string
+  colorName: string
+  plannedWeightKg: number
+  currentReceivedWeightKg: number
+  unit: 'kg'
+}
+
+export interface KnittingWaitProcessScanReceipt {
+  receiptNo: string
+  qrCode: string
+  sourceDeliveryNo: string
+  sourceName: string
+  knittingOrderNo: string
+  productionOrderNo: string
+  taskNo: string
+  styleName: string
+  lines: KnittingWaitProcessScanReceiptLine[]
+}
+
+export interface KnittingWaitProcessReceiptLineInput {
+  receiptLineId: string
+  actualWeightKg: number
+  areaId: string
+  locationId?: string
+  evidenceText?: string
 }
 
 export interface KnittingWaitProcessUsageRecord {
@@ -429,6 +495,7 @@ export interface KnittingAllowedAction {
 
 interface KnittingDomainStore {
   workOrders: Record<string, KnittingWorkOrder>
+  areas: KnittingWarehouseArea[]
   locations: KnittingWarehouseLocation[]
   yarnRecoveryRecords?: KnittingYarnRecoveryRecord[]
 }
@@ -449,18 +516,19 @@ function isBusinessTimestamp(value: string | undefined): value is string {
 }
 
 function readKnittingStore(): KnittingDomainStore {
-  if (typeof window === 'undefined') return { workOrders: {}, locations: [], yarnRecoveryRecords: [] }
+  if (typeof window === 'undefined') return { workOrders: {}, areas: [], locations: [], yarnRecoveryRecords: [] }
   try {
     const raw = window.localStorage.getItem(KNITTING_DOMAIN_STORE_KEY)
-    if (!raw) return { workOrders: {}, locations: [], yarnRecoveryRecords: [] }
+    if (!raw) return { workOrders: {}, areas: [], locations: [], yarnRecoveryRecords: [] }
     const parsed = JSON.parse(raw) as Partial<KnittingDomainStore>
     return {
       workOrders: parsed.workOrders && typeof parsed.workOrders === 'object' ? parsed.workOrders : {},
+      areas: Array.isArray(parsed.areas) ? parsed.areas : [],
       locations: Array.isArray(parsed.locations) ? parsed.locations : [],
       yarnRecoveryRecords: Array.isArray(parsed.yarnRecoveryRecords) ? parsed.yarnRecoveryRecords : [],
     }
   } catch {
-    return { workOrders: {}, locations: [], yarnRecoveryRecords: [] }
+    return { workOrders: {}, areas: [], locations: [], yarnRecoveryRecords: [] }
   }
 }
 
@@ -2698,16 +2766,85 @@ export function listKnittingFeiTicketPrintRecords(): KnittingFeiTicketPrintRecor
     )
 }
 
-function getDefaultKnittingWarehouseLocations(mode: KnittingWarehouseMode): KnittingWarehouseLocation[] {
+function getDefaultKnittingWarehouseAreas(mode: KnittingWarehouseMode): KnittingWarehouseArea[] {
   const prefix = mode === 'wait-process' ? 'KWP' : 'KWH'
   const warehouseName = mode === 'wait-process' ? '待加工仓' : '待交出仓'
   return [
     {
+      areaId: `${prefix}-AREA-A`,
+      warehouseMode: mode,
+      areaCode: `${prefix}-A`,
+      areaName: `${warehouseName} A 区`,
+      managerName: '周哥',
+      status: '启用',
+      remark: '默认库区',
+      updatedAt: '2026-05-09 09:00',
+    },
+    {
+      areaId: `${prefix}-AREA-B`,
+      warehouseMode: mode,
+      areaCode: `${prefix}-B`,
+      areaName: `${warehouseName} B 区`,
+      managerName: '针织仓管',
+      status: '启用',
+      remark: '周转库区',
+      updatedAt: '2026-05-09 09:00',
+    },
+  ]
+}
+
+export function listKnittingWarehouseAreas(mode: KnittingWarehouseMode): KnittingWarehouseArea[] {
+  const storeAreas = readKnittingStore().areas.filter((area) => area.warehouseMode === mode)
+  const storedIds = new Set(storeAreas.map((area) => area.areaId))
+  return cloneValue([
+    ...storeAreas,
+    ...getDefaultKnittingWarehouseAreas(mode).filter((area) => !storedIds.has(area.areaId)),
+  ])
+}
+
+function findKnittingWarehouseArea(mode: KnittingWarehouseMode, areaIdOrName: string | undefined): KnittingWarehouseArea | undefined {
+  if (!areaIdOrName) return undefined
+  return listKnittingWarehouseAreas(mode).find((area) => area.areaId === areaIdOrName || area.areaName === areaIdOrName)
+}
+
+export function upsertKnittingWarehouseArea(input: Partial<KnittingWarehouseArea> & { warehouseMode: KnittingWarehouseMode }): KnittingWarehouseArea {
+  const store = readKnittingStore()
+  const areaId = input.areaId || `KAREA-${input.warehouseMode}-${Date.now()}`
+  const existing =
+    store.areas.find((area) => area.areaId === areaId)
+    || getDefaultKnittingWarehouseAreas(input.warehouseMode).find((area) => area.areaId === areaId)
+  const next: KnittingWarehouseArea = {
+    areaId,
+    warehouseMode: input.warehouseMode,
+    areaCode: input.areaCode?.trim() || existing?.areaCode || `KAREA-${String(store.areas.length + 1).padStart(2, '0')}`,
+    areaName: input.areaName?.trim() || existing?.areaName || (input.warehouseMode === 'wait-process' ? '待加工仓新区' : '待交出仓新区'),
+    managerName: input.managerName?.trim() || existing?.managerName || '针织仓管',
+    status: input.status || existing?.status || '启用',
+    remark: input.remark?.trim() || existing?.remark || '',
+    updatedAt: nowTimestamp(),
+  }
+  const index = store.areas.findIndex((area) => area.areaId === areaId)
+  if (index >= 0) store.areas[index] = next
+  else store.areas.unshift(next)
+  store.locations = store.locations.map((location) => (
+    location.warehouseMode === next.warehouseMode && location.areaId === next.areaId
+      ? { ...location, areaName: next.areaName, updatedAt: next.updatedAt }
+      : location
+  ))
+  writeKnittingStore(store)
+  return cloneValue(next)
+}
+
+function getDefaultKnittingWarehouseLocations(mode: KnittingWarehouseMode): KnittingWarehouseLocation[] {
+  const prefix = mode === 'wait-process' ? 'KWP' : 'KWH'
+  const areas = getDefaultKnittingWarehouseAreas(mode)
+  return [
+    {
       locationId: `${prefix}-LOC-A01`,
       warehouseMode: mode,
-      areaName: `${warehouseName} A 区`,
+      areaId: areas[0].areaId,
+      areaName: areas[0].areaName,
       locationCode: `${prefix}-A-01`,
-      capacityText: mode === 'wait-process' ? '纱线 800 kg' : '成品/部位 1200 件/片',
       managerName: '周哥',
       status: '启用',
       remark: '默认库位',
@@ -2716,9 +2853,9 @@ function getDefaultKnittingWarehouseLocations(mode: KnittingWarehouseMode): Knit
     {
       locationId: `${prefix}-LOC-B01`,
       warehouseMode: mode,
-      areaName: `${warehouseName} B 区`,
+      areaId: areas[1].areaId,
+      areaName: areas[1].areaName,
       locationCode: `${prefix}-B-01`,
-      capacityText: mode === 'wait-process' ? '纱线 600 kg' : '待交出周转 900 件/片',
       managerName: '针织仓管',
       status: '启用',
       remark: '周转库位',
@@ -2728,12 +2865,16 @@ function getDefaultKnittingWarehouseLocations(mode: KnittingWarehouseMode): Knit
 }
 
 export function listKnittingWarehouseLocations(mode: KnittingWarehouseMode): KnittingWarehouseLocation[] {
+  const areas = listKnittingWarehouseAreas(mode)
   const storeLocations = readKnittingStore().locations.filter((location) => location.warehouseMode === mode)
   const storedIds = new Set(storeLocations.map((location) => location.locationId))
   return cloneValue([
     ...storeLocations,
     ...getDefaultKnittingWarehouseLocations(mode).filter((location) => !storedIds.has(location.locationId)),
-  ])
+  ].map((location) => {
+    const area = areas.find((item) => item.areaId === location.areaId || item.areaName === location.areaName)
+    return area ? { ...location, areaId: area.areaId, areaName: area.areaName } : location
+  }))
 }
 
 export function upsertKnittingWarehouseLocation(input: Partial<KnittingWarehouseLocation> & { warehouseMode: KnittingWarehouseMode }): KnittingWarehouseLocation {
@@ -2742,12 +2883,13 @@ export function upsertKnittingWarehouseLocation(input: Partial<KnittingWarehouse
   const existing =
     store.locations.find((location) => location.locationId === locationId)
     || getDefaultKnittingWarehouseLocations(input.warehouseMode).find((location) => location.locationId === locationId)
+  const area = findKnittingWarehouseArea(input.warehouseMode, input.areaId || input.areaName)
   const next: KnittingWarehouseLocation = {
     locationId,
     warehouseMode: input.warehouseMode,
-    areaName: input.areaName?.trim() || existing?.areaName || (input.warehouseMode === 'wait-process' ? '待加工仓 A 区' : '待交出仓 A 区'),
+    areaId: area?.areaId || existing?.areaId || '',
+    areaName: area?.areaName || input.areaName?.trim() || existing?.areaName || (input.warehouseMode === 'wait-process' ? '待加工仓 A 区' : '待交出仓 A 区'),
     locationCode: input.locationCode?.trim() || existing?.locationCode || `KLOC-${String(store.locations.length + 1).padStart(2, '0')}`,
-    capacityText: input.capacityText?.trim() || existing?.capacityText || '待维护',
     managerName: input.managerName?.trim() || existing?.managerName || '周哥',
     status: input.status || existing?.status || '启用',
     remark: input.remark?.trim() || existing?.remark || '',
@@ -2766,10 +2908,137 @@ export function deleteKnittingWarehouseLocation(locationId: string): void {
   writeKnittingStore(store)
 }
 
+function buildKnittingWaitProcessReceiptNo(order: KnittingWorkOrder): string {
+  return `领料-${order.knittingOrderNo}`
+}
+
+function resolveKnittingWaitProcessLocationText(order: KnittingWorkOrder, fallback = '待分配库位'): string {
+  if (order.yarnReceipt.waitProcessLocationText) return order.yarnReceipt.waitProcessLocationText
+  const area = findKnittingWarehouseArea('wait-process', order.yarnReceipt.waitProcessAreaId)
+  const location = listKnittingWarehouseLocations('wait-process').find((item) =>
+    item.locationId === order.yarnReceipt.waitProcessLocationId
+    && (!area || item.areaId === area.areaId),
+  )
+  if (area && location) return `${area.areaName} / ${location.locationCode}`
+  if (area) return area.areaName
+  return fallback
+}
+
+export function listKnittingWaitProcessScanReceipts(): KnittingWaitProcessScanReceipt[] {
+  return listKnittingWorkOrders().map((order) => {
+    const receiptNo = buildKnittingWaitProcessReceiptNo(order)
+    return {
+      receiptNo,
+      qrCode: `QR-${receiptNo}`,
+      sourceDeliveryNo: `送料-${order.knittingOrderNo}`,
+      sourceName: order.yarnReceipt.colorName.includes('印花') ? '印花厂送料' : '染厂/面辅料仓送料',
+      knittingOrderNo: order.knittingOrderNo,
+      productionOrderNo: order.productionOrderNo,
+      taskNo: order.taskNo,
+      styleName: order.styleName,
+      lines: [{
+        receiptLineId: `KWP-SCAN-LINE-${order.knittingOrderId}`,
+        knittingOrderId: order.knittingOrderId,
+        knittingOrderNo: order.knittingOrderNo,
+        productionOrderNo: order.productionOrderNo,
+        taskNo: order.taskNo,
+        kind: order.kind,
+        styleName: order.styleName,
+        yarnSku: order.yarnReceipt.yarnSku,
+        yarnName: order.yarnReceipt.yarnName,
+        colorName: order.yarnReceipt.colorName,
+        plannedWeightKg: order.yarnReceipt.plannedWeightKg,
+        currentReceivedWeightKg: order.yarnReceipt.receivedWeightKg,
+        unit: 'kg',
+      }],
+    }
+  })
+}
+
+export function lookupKnittingWaitProcessScanReceipt(input: string): KnittingWaitProcessScanReceipt | undefined {
+  const keyword = input.trim()
+  if (!keyword) return undefined
+  const normalized = keyword.toLowerCase()
+  const matched = listKnittingWaitProcessScanReceipts().find((receipt) => (
+    receipt.receiptNo.toLowerCase() === normalized
+    || receipt.qrCode.toLowerCase() === normalized
+    || receipt.sourceDeliveryNo.toLowerCase() === normalized
+    || receipt.knittingOrderNo.toLowerCase() === normalized
+    || receipt.taskNo.toLowerCase() === normalized
+  ))
+  return matched ? cloneValue(matched) : undefined
+}
+
+export function confirmKnittingWaitProcessScanReceipt(input: {
+  receiptNo: string
+  receiverName?: string
+  lines: KnittingWaitProcessReceiptLineInput[]
+}): KnittingWaitProcessReceiptRecord[] {
+  const receipt = lookupKnittingWaitProcessScanReceipt(input.receiptNo)
+  if (!receipt) throw new Error('未找到针织领料单或送料二维码。')
+
+  const now = nowTimestamp()
+  const receiverName = input.receiverName || '针织仓管'
+  const areas = listKnittingWarehouseAreas('wait-process')
+  const locations = listKnittingWarehouseLocations('wait-process')
+  const ordersById = new Map(listKnittingWorkOrders().map((order) => [order.knittingOrderId, order]))
+  const store = readKnittingStore()
+  const updatedOrderIds: string[] = []
+
+  input.lines.forEach((lineInput) => {
+    const line = receipt.lines.find((item) => item.receiptLineId === lineInput.receiptLineId)
+    const actualWeightKg = roundQty(Number(lineInput.actualWeightKg) || 0)
+    const area = areas.find((item) => item.areaId === lineInput.areaId)
+    const location = locations.find((item) =>
+      item.locationId === lineInput.locationId
+      && item.areaId === lineInput.areaId,
+    )
+    if (!line || actualWeightKg <= 0 || !area) return
+
+    const order = store.workOrders[line.knittingOrderId] || ordersById.get(line.knittingOrderId)
+    if (!order) return
+    const locationText = location ? `${area.areaName} / ${location.locationCode}` : area.areaName
+    const nextBase: KnittingWorkOrder = {
+      ...order,
+      yarnReceipt: {
+        ...order.yarnReceipt,
+        receivedWeightKg: actualWeightKg,
+        differenceWeightKg: roundQty(actualWeightKg - order.yarnReceipt.plannedWeightKg),
+        receiverName,
+        receivedAt: now,
+        evidenceText: lineInput.evidenceText?.trim() || `扫码收货：${receipt.sourceName}送纱到厂，已上传称重照片/视频。`,
+        waitProcessAreaId: area.areaId,
+        waitProcessLocationId: location?.locationId,
+        waitProcessLocationText: locationText,
+      },
+      pickupStartedAt: order.pickupStartedAt || now,
+      evidenceItems: [
+        ...(order.evidenceItems || []),
+        {
+          title: '扫码收货',
+          description: `${receiverName} 已扫码确认 ${line.yarnSku} 实收 ${actualWeightKg} kg，入库至${locationText}`,
+          createdAt: now,
+          ownerName: receiverName,
+        },
+      ],
+    }
+    store.workOrders[line.knittingOrderId] = {
+      ...nextBase,
+      status: deriveKnittingOrderStatus(nextBase),
+    }
+    updatedOrderIds.push(line.knittingOrderId)
+  })
+
+  if (!updatedOrderIds.length) throw new Error('请至少填写一条有效的实收重量和库区。')
+  writeKnittingStore(store)
+  const updatedIdSet = new Set(updatedOrderIds)
+  return listKnittingWaitProcessReceiptRecords().filter((record) => updatedIdSet.has(record.knittingOrderId))
+}
+
 export function listKnittingWaitProcessReceiptRecords(): KnittingWaitProcessReceiptRecord[] {
   return listKnittingWorkOrders().map((order) => ({
     recordId: `KWP-RCV-${order.knittingOrderId}`,
-    receiptNo: `领料-${order.knittingOrderNo}`,
+    receiptNo: buildKnittingWaitProcessReceiptNo(order),
     knittingOrderId: order.knittingOrderId,
     knittingOrderNo: order.knittingOrderNo,
     productionOrderNo: order.productionOrderNo,
@@ -2781,6 +3050,7 @@ export function listKnittingWaitProcessReceiptRecords(): KnittingWaitProcessRece
     differenceWeightKg: order.yarnReceipt.receivedWeightKg > 0 ? order.yarnReceipt.differenceWeightKg : 0,
     evidenceText: order.yarnReceipt.evidenceText || '待上传照片视频',
     receivedAt: order.yarnReceipt.receivedWeightKg > 0 ? order.yarnReceipt.receivedAt : '待确认',
+    locationText: resolveKnittingWaitProcessLocationText(order),
     statusText: order.yarnReceipt.receivedWeightKg > 0 ? (order.yarnReceipt.differenceWeightKg === 0 ? '已确认' : '差异已记录') : '待确认',
   }))
 }
@@ -2952,11 +3222,17 @@ export function listKnittingWarehouseInventory(mode: KnittingWarehouseMode): Kni
       const relatedOrderNos = group.orders.map((order) => order.knittingOrderNo)
       const relatedProductionOrderNos = Array.from(new Set(group.orders.map((order) => order.productionOrderNo)))
       const location = locations[index % Math.max(locations.length, 1)]
+      const fallbackLocationText = location ? `${location.areaName} / ${location.locationCode}` : '待分配库位'
+      const locationLabels = Array.from(new Set(group.orders.map((order) => resolveKnittingWaitProcessLocationText(order, fallbackLocationText))))
+      const locationText = locationLabels.length === 1
+        ? locationLabels[0]
+        : `多库位：${locationLabels.slice(0, 2).join('、')}${locationLabels.length > 2 ? '等' : ''}`
       const currentQty = roundQty(Math.max(group.receivedQty - group.usedQty + group.recoveredQty, 0))
       const hasPendingReceipt = group.orders.some((order) => order.yarnReceipt.receivedWeightKg <= 0)
       return {
         inventoryId: `KWP-YARN-${firstOrder.yarnReceipt.yarnSku}-${firstOrder.yarnReceipt.colorName}`,
         warehouseMode: mode,
+        inventoryObjectType: '纱线',
         knittingOrderId: firstOrder.knittingOrderId,
         knittingOrderNo: relatedOrderNos.slice(0, 3).join(' / ') + (relatedOrderNos.length > 3 ? ` 等 ${relatedOrderNos.length} 单` : ''),
         taskNo: firstOrder.taskNo,
@@ -2970,8 +3246,27 @@ export function listKnittingWarehouseInventory(mode: KnittingWarehouseMode): Kni
         itemSpec: firstOrder.yarnReceipt.colorName,
         currentQty,
         unit: 'kg',
-        locationText: location ? `${location.areaName} / ${location.locationCode}` : '待分配库位',
+        locationText,
         statusText: group.receivedQty <= 0 ? '待领料确认' : hasPendingReceipt ? '部分待领料' : group.usedQty > 0 ? '加工用料中' : '已入待加工仓',
+        detailLines: group.orders.map((order) => {
+          const receipt = receiptMap.get(order.knittingOrderId)
+          const usageSummary = getKnittingYarnUsageSummary(order)
+          const receivedQty = receipt?.receivedWeightKg || 0
+          const usedQty = usageSummary.processingUsageWeightKg + usageSummary.linkingLossWeightKg
+          const recoveredQty = getKnittingRecoveredYarnWeight(order)
+          return {
+            detailId: `KWP-YARN-DETAIL-${order.knittingOrderId}`,
+            knittingOrderNo: order.knittingOrderNo,
+            productionOrderNo: order.productionOrderNo,
+            itemName: order.yarnReceipt.yarnName,
+            itemSpec: `${order.yarnReceipt.colorName} / ${KNITTING_KIND_LABEL[order.kind]} / ${order.styleName}`,
+            qty: roundQty(Math.max(receivedQty - usedQty + recoveredQty, 0)),
+            unit: 'kg',
+            locationText: resolveKnittingWaitProcessLocationText(order, fallbackLocationText),
+            sourceNo: receipt?.receiptNo || `领料-${order.knittingOrderNo}`,
+            remark: `领料 ${roundQty(receivedQty)} kg，用料 ${roundQty(usedQty)} kg，回收 ${roundQty(recoveredQty)} kg`,
+          }
+        }),
         flowRecords: group.flowRecords,
       }
     })
@@ -2981,41 +3276,109 @@ export function listKnittingWarehouseInventory(mode: KnittingWarehouseMode): Kni
   const handoutMap = new Map(listKnittingWaitHandoverHandoutRecords().map((record) => [record.knittingOrderId, record]))
   return listKnittingWorkOrders()
     .filter((order) => inboundMap.has(order.knittingOrderId))
-    .map((order, index) => {
+    .flatMap((order, index) => {
       const inbound = inboundMap.get(order.knittingOrderId)
       const handout = handoutMap.get(order.knittingOrderId)
       const inboundQty = inbound?.inboundQty || 0
       const handoutQty = handout?.handoutQty || 0
+      const baseInboundFlow: KnittingWarehouseFlowRecord = {
+        flowId: `KWH-FLOW-IN-${order.knittingOrderId}`,
+        flowType: '加工入仓',
+        sourceNo: inbound?.inboundNo || `加工入仓-${order.knittingOrderNo}`,
+        qty: inboundQty,
+        unit: order.qtyUnit,
+        operatedAt: inbound?.inboundAt || order.scheduledEndAt,
+        operatorName: inbound?.operatorName || OWN_KNITTING_FACTORY_NAME,
+        remark: inbound?.statusText || '已入待交出仓',
+      }
+      const buildHandoutFlow = (qty: number, unit: string): KnittingWarehouseFlowRecord[] => qty > 0
+        ? [
+            {
+              flowId: `KWH-FLOW-OUT-${order.knittingOrderId}`,
+              flowType: '交出出仓' as const,
+              sourceNo: handout?.handoutNo || `交出-${order.knittingOrderNo}`,
+              qty: -qty,
+              unit,
+              operatedAt: handout?.handoutAt || order.scheduledEndAt,
+              operatorName: OWN_KNITTING_FACTORY_NAME,
+              remark: `交出给${order.downstreamTarget}`,
+            },
+          ]
+        : []
+
+      if (order.kind === 'PART_PANEL') {
+        let remainingHandoutQty = handoutQty
+        return order.partPanels
+          .filter((panel) => panel.completedPieces > 0 || panel.plannedPieces > 0)
+          .map((panel, panelIndex) => {
+            const panelInboundQty = panel.completedPieces || panel.plannedPieces
+            const panelHandoutQty = Math.min(panelInboundQty, remainingHandoutQty)
+            remainingHandoutQty = Math.max(remainingHandoutQty - panelHandoutQty, 0)
+            const currentQty = roundQty(Math.max(panelInboundQty - panelHandoutQty, 0))
+            const location = locations[(index + panelIndex) % Math.max(locations.length, 1)]
+            const locationText = location ? `${location.areaName} / ${location.locationCode}` : '待分配库位'
+            const itemName = panel.partName
+            const itemSpec = `${order.styleName} / ${panel.colorName} / ${panel.sizeCode}`
+            const flowRecords: KnittingWarehouseFlowRecord[] = [
+              {
+                ...baseInboundFlow,
+                flowId: `${baseInboundFlow.flowId}-${panelIndex + 1}`,
+                qty: panelInboundQty,
+                unit: '片',
+                remark: `${itemName}加工入仓`,
+              },
+              ...buildHandoutFlow(panelHandoutQty, '片').map((flow) => ({
+                ...flow,
+                flowId: `${flow.flowId}-${panelIndex + 1}`,
+                remark: `${itemName}交出给${order.downstreamTarget}`,
+              })),
+            ]
+            return {
+              inventoryId: `KWH-PART-${order.knittingOrderId}-${panel.partName}-${panel.colorName}-${panel.sizeCode}`,
+              warehouseMode: mode,
+              inventoryObjectType: '部位',
+              knittingOrderId: order.knittingOrderId,
+              knittingOrderNo: order.knittingOrderNo,
+              taskNo: order.taskNo,
+              kind: order.kind,
+              productionOrderNo: order.productionOrderNo,
+              styleName: order.styleName,
+              itemName,
+              itemSpec,
+              currentQty,
+              unit: '片',
+              locationText,
+              statusText: panelHandoutQty > 0 ? '已交出' : '待交出',
+              detailLines: [{
+                detailId: `KWH-PART-DETAIL-${order.knittingOrderId}-${panelIndex + 1}`,
+                knittingOrderNo: order.knittingOrderNo,
+                productionOrderNo: order.productionOrderNo,
+                itemName,
+                itemSpec,
+                qty: currentQty,
+                unit: '片',
+                locationText,
+                sourceNo: inbound?.inboundNo || `加工入仓-${order.knittingOrderNo}`,
+                remark: `入仓 ${panelInboundQty} 片，交出 ${panelHandoutQty} 片，去向 ${order.downstreamTarget}`,
+              }],
+              flowRecords,
+            } satisfies KnittingWarehouseInventoryItem
+          })
+      }
+
       const flowRecords: KnittingWarehouseFlowRecord[] = [
         {
-          flowId: `KWH-FLOW-IN-${order.knittingOrderId}`,
-          flowType: '加工入仓',
-          sourceNo: inbound?.inboundNo || `加工入仓-${order.knittingOrderNo}`,
-          qty: inboundQty,
-          unit: order.qtyUnit,
-          operatedAt: inbound?.inboundAt || order.scheduledEndAt,
-          operatorName: inbound?.operatorName || OWN_KNITTING_FACTORY_NAME,
-          remark: inbound?.statusText || '已入待交出仓',
+          ...baseInboundFlow,
         },
-        ...(handoutQty > 0
-          ? [
-              {
-                flowId: `KWH-FLOW-OUT-${order.knittingOrderId}`,
-                flowType: '交出出仓' as const,
-                sourceNo: handout?.handoutNo || `交出-${order.knittingOrderNo}`,
-                qty: -handoutQty,
-                unit: order.qtyUnit,
-                operatedAt: handout?.handoutAt || order.scheduledEndAt,
-                operatorName: OWN_KNITTING_FACTORY_NAME,
-                remark: `交出给${order.downstreamTarget}`,
-              },
-            ]
-          : []),
+        ...buildHandoutFlow(handoutQty, order.qtyUnit),
       ]
       const location = locations[index % Math.max(locations.length, 1)]
+      const locationText = location ? `${location.areaName} / ${location.locationCode}` : '待分配库位'
+      const currentQty = roundQty(Math.max(inboundQty - handoutQty, 0))
       return {
         inventoryId: `KWH-INV-${order.knittingOrderId}`,
         warehouseMode: mode,
+        inventoryObjectType: '整件',
         knittingOrderId: order.knittingOrderId,
         knittingOrderNo: order.knittingOrderNo,
         taskNo: order.taskNo,
@@ -3024,12 +3387,24 @@ export function listKnittingWarehouseInventory(mode: KnittingWarehouseMode): Kni
         styleName: order.styleName,
         itemName: order.kind === 'PART_PANEL' ? '针织部位片' : '整件针织半成品',
         itemSpec: `${order.styleNo} / ${order.colorName} / ${order.sizeRange}`,
-        currentQty: roundQty(Math.max(inboundQty - handoutQty, 0)),
+        currentQty,
         unit: order.qtyUnit,
-        locationText: location ? `${location.areaName} / ${location.locationCode}` : '待分配库位',
+        locationText,
         statusText: handoutQty > 0 ? '已交出' : '待交出',
+        detailLines: [{
+          detailId: `KWH-WHOLE-DETAIL-${order.knittingOrderId}`,
+          knittingOrderNo: order.knittingOrderNo,
+          productionOrderNo: order.productionOrderNo,
+          itemName: '整件针织半成品',
+          itemSpec: `${order.styleName} / ${order.colorName} / ${order.sizeRange}`,
+          qty: currentQty,
+          unit: order.qtyUnit,
+          locationText,
+          sourceNo: inbound?.inboundNo || `加工入仓-${order.knittingOrderNo}`,
+          remark: `入仓 ${inboundQty}${order.qtyUnit}，交出 ${handoutQty}${order.qtyUnit}，去向 ${order.downstreamTarget}`,
+        }],
         flowRecords,
-      }
+      } satisfies KnittingWarehouseInventoryItem
     })
 }
 

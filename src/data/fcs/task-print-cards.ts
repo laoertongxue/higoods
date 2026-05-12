@@ -1095,7 +1095,7 @@ function buildRouteCardFromPostFinishingWorkOrder(sourceId: string): TaskRouteCa
         { label: '质检节点', value: `${order.qcAction.status} / ${formatQtyText(order.qcAction.acceptedGarmentQty, order.qcAction.qtyUnit)}` },
         { label: '复检节点', value: `${order.recheckAction.status} / ${formatQtyText(order.recheckAction.acceptedGarmentQty, order.recheckAction.qtyUnit)}` },
         { label: '待加工仓记录', value: order.waitProcessWarehouseRecordId },
-        { label: '交出记录', value: order.handoverRecordId || order.waitHandoverWarehouseRecordId || '暂无交出记录' },
+        { label: '待交出仓记录', value: order.waitHandoverWarehouseRecordId || '暂无待交出仓记录' },
       ],
       routeRecords: actionRecords.map(mapPostFinishingActionRecord),
     },

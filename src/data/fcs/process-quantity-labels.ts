@@ -252,8 +252,6 @@ function postFinishingPurposeLabel(context: ProcessQuantityContext): string {
       return '后道完成成衣件数'
     case 'POST_RECHECK_FINISH':
       return '复检确认成衣件数'
-    case 'POST_SUBMIT_HANDOVER':
-      return '交出成衣件数'
     case 'POST_REPORT_DIFFERENCE':
       return '差异成衣件数'
     default:

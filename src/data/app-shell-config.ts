@@ -463,7 +463,6 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
             { key: 'pfos-post-finishing-recheck-orders', title: '复检单', icon: 'RefreshCw', href: '/fcs/craft/post-finishing/recheck-orders' },
             { key: 'pfos-post-finishing-wait-process-warehouse', title: '后道待加工仓', icon: 'Warehouse', href: '/fcs/craft/post-finishing/wait-process-warehouse' },
             { key: 'pfos-post-finishing-wait-handover-warehouse', title: '后道待交出仓', icon: 'PackageCheck', href: '/fcs/craft/post-finishing/wait-handover-warehouse' },
-            { key: 'pfos-post-finishing-statistics', title: '后道统计', icon: 'BarChart3', href: '/fcs/craft/post-finishing/statistics' },
           ],
         },
       ],

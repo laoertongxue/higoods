@@ -123,6 +123,7 @@ import {
   renderCraftKnittingWaitProcessWarehousePage,
   renderPostFinishingQcOrdersPage,
   renderPostFinishingRecheckOrdersPage,
+  renderPostFinishingRecheckOrderDetailPage,
   renderPostFinishingStatisticsPage,
   renderPostFinishingWaitHandoverWarehousePage,
   renderPostFinishingWaitProcessWarehousePage,
@@ -406,6 +407,10 @@ export const routes: RouteRegistry = {
     {
       pattern: /^\/fcs\/craft\/knitting\/work-orders\/([^/]+)$/,
       render: (match) => renderCraftKnittingWorkOrderDetailPage(decodeURIComponent(match[1])),
+    },
+    {
+      pattern: /^\/fcs\/craft\/post-finishing\/recheck-orders\/([^/]+)$/,
+      render: (match) => renderPostFinishingRecheckOrderDetailPage(decodeURIComponent(match[1])),
     },
     {
       pattern: /^\/fcs\/craft\/post-finishing\/work-orders\/([^/]+)$/,

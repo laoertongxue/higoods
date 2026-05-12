@@ -617,17 +617,6 @@ const POST_FINISHING_ACTIONS: ActionDefinition[] = [
     affectsWarehouse: true,
   },
   {
-    actionCode: 'POST_SUBMIT_HANDOVER',
-    actionLabel: '发起交出',
-    processType: 'POST_FINISHING',
-    fromStatuses: ['待交出', '复检完成'],
-    toStatus: '待回写',
-    requiredFields: ['交出人', '交出时间', '交出成衣件数'],
-    optionalFields: ['备注'],
-    writebackHandler: 'createProcessHandoverRecord',
-    affectsHandover: true,
-  },
-  {
     actionCode: 'POST_REPORT_DIFFERENCE',
     actionLabel: '上报差异',
     processType: 'POST_FINISHING',

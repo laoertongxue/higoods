@@ -58,11 +58,9 @@ import {
 import {
   applyPostFinishingActionFinish,
   applyPostFinishingActionStart,
-  ensurePostFinishingHandoverWarehouseRecord,
   getPostFinishingWorkOrderById,
   getPostFinishingWorkOrderBySourceTaskId,
   receivePostFinishingAtManagedFactory,
-  submitPostFinishingHandoverRecord,
   transferPostFinishingToManagedFactory,
   type PostFinishingActionType,
   type PostFinishingWaitHandoverWarehouseRecord,
@@ -847,53 +845,6 @@ export function createPostFinishingHandoverWarehouseRecord(postOrderId: string, 
     })
   }
   return record
-}
-
-export function submitPostFinishingHandover(postOrderId: string, payload: ExecutionWritebackPayload & {
-  submittedGarmentQty?: number
-  writtenBackGarmentQty?: number
-} = {}): PostFinishingWorkOrder {
-  const order = submitPostFinishingHandoverRecord({
-    postOrderId,
-    operatorName: payload.operatorName || '移动端操作员',
-    submittedAt: payload.operatedAt,
-    submittedGarmentQty: payload.submittedGarmentQty,
-    writtenBackGarmentQty: payload.writtenBackGarmentQty,
-  })
-  const submittedQty = payload.submittedGarmentQty ?? order.recheckAction?.acceptedGarmentQty ?? order.plannedGarmentQty
-  const unified = createProcessHandoverRecord({
-    craftType: 'POST_FINISHING',
-    craftName: '后道',
-    sourceWorkOrderId: order.postOrderId,
-    sourceWorkOrderNo: order.postOrderNo,
-    sourceTaskId: order.sourceTaskId,
-    sourceTaskNo: order.sourceTaskNo,
-    sourceProductionOrderId: order.sourceProductionOrderId,
-    sourceProductionOrderNo: order.sourceProductionOrderNo,
-    handoverFactoryId: order.managedPostFactoryId,
-    handoverFactoryName: order.managedPostFactoryName,
-    receiveFactoryId: order.managedPostFactoryId,
-    receiveFactoryName: order.managedPostFactoryName,
-    receiveWarehouseName: '后道待交出仓',
-    objectType: '成衣',
-    handoverObjectQty: submittedQty,
-    receiveObjectQty: payload.writtenBackGarmentQty ?? submittedQty,
-    diffObjectQty: submittedQty - (payload.writtenBackGarmentQty ?? submittedQty),
-    qtyUnit: '件',
-    packageQty: 1,
-    packageUnit: '箱',
-    handoverPerson: payload.operatorName || '移动端操作员',
-    handoverAt: payload.operatedAt || nowTimestamp(),
-    status: '待回写',
-    remark: '移动端发起后道交出',
-  })
-  writeBackProcessHandoverRecord(unified.handoverRecordId, {
-    receiveObjectQty: payload.writtenBackGarmentQty ?? submittedQty,
-    receivePerson: order.managedPostFactoryName,
-    receiveAt: payload.operatedAt || nowTimestamp(),
-    remark: '后道交出同步回写',
-  })
-  return order
 }
 
 export function getPostFinishingWorkOrderForMobile(execId: string): PostFinishingWorkOrder | undefined {

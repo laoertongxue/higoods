@@ -5,19 +5,22 @@ export function formatGarmentQty(value: number | undefined, unit = '件'): strin
   return `${safeValue.toLocaleString('zh-CN')} ${unit}`
 }
 
-export function renderPostFinishingPageHeader(title: string, description = ''): string {
+export function renderPostFinishingPageHeader(title: string, description = '', actionHtml = ''): string {
   return `
-    <header class="rounded-2xl border bg-white p-5 shadow-sm">
-      <h1 class="text-2xl font-semibold text-foreground">${escapeHtml(title)}</h1>
-      ${description ? `<p class="mt-2 text-sm text-muted-foreground">${escapeHtml(description)}</p>` : ''}
+    <header class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <h1 class="text-xl font-semibold text-foreground">${escapeHtml(title)}</h1>
+        ${description ? `<p class="mt-1 text-sm text-muted-foreground">${escapeHtml(description)}</p>` : ''}
+      </div>
+      ${actionHtml}
     </header>
   `
 }
 
 export function renderPostMetricCard(label: string, value: string, description: string): string {
   return `
-    <article class="rounded-2xl border bg-white p-4 shadow-sm">
-      <div class="text-sm text-muted-foreground">${escapeHtml(label)}</div>
+    <article class="rounded-lg border bg-card px-4 py-3">
+      <div class="text-xs text-muted-foreground">${escapeHtml(label)}</div>
       <div class="mt-2 text-2xl font-semibold text-foreground">${escapeHtml(value)}</div>
       <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(description)}</div>
     </article>
@@ -26,9 +29,11 @@ export function renderPostMetricCard(label: string, value: string, description: 
 
 export function renderPostSection(title: string, body: string): string {
   return `
-    <section class="rounded-2xl border bg-white p-4 shadow-sm">
-      <h2 class="text-base font-semibold text-foreground">${escapeHtml(title)}</h2>
-      <div class="mt-4">${body}</div>
+    <section class="rounded-lg border bg-card">
+      <header class="border-b px-4 py-3">
+        <h2 class="text-sm font-semibold">${escapeHtml(title)}</h2>
+      </header>
+      <div class="p-4">${body}</div>
     </section>
   `
 }
@@ -46,10 +51,10 @@ export function renderPostStatusBadge(status: string): string {
 
 export function renderPostTable(headers: string[], rows: string, minWidth = 'min-w-[1120px]'): string {
   return `
-    <div class="overflow-x-auto rounded-2xl border bg-white shadow-sm">
-      <table class="w-full ${minWidth} table-auto border-collapse text-sm">
-        <thead class="bg-slate-50 text-left text-slate-600">
-          <tr>${headers.map((header) => `<th class="px-3 py-3 font-medium">${escapeHtml(header)}</th>`).join('')}</tr>
+    <div class="overflow-x-auto">
+      <table class="${minWidth} w-full text-left text-sm">
+        <thead class="bg-slate-50 text-xs text-muted-foreground">
+          <tr>${headers.map((header) => `<th class="px-3 py-2 font-medium">${escapeHtml(header)}</th>`).join('')}</tr>
         </thead>
         <tbody class="divide-y">${rows}</tbody>
       </table>
@@ -169,33 +174,35 @@ export function renderPostFilterPanel(options: {
 }): string {
   const filters = options.filters
   const preservedPostOrderId = safeSearchParams().get('postOrderId') || ''
+  const preservedTab = safeSearchParams().get('tab') || ''
   const statusOptions = ['全部', ...uniqueOptions(options.statusOptions)]
   const sourceOptions = ['全部', ...uniqueOptions(options.sourceOptions || [])]
   const factoryOptions = ['全部', ...uniqueOptions(options.factoryOptions || [])]
   return `
-    <form class="rounded-2xl border bg-white p-4 shadow-sm" method="get" action="${escapeHtml(currentPathname())}">
+    <form class="rounded-lg border bg-card p-4" method="get" action="${escapeHtml(currentPathname())}">
       <input type="hidden" name="page" value="1" />
       ${preservedPostOrderId ? `<input type="hidden" name="postOrderId" value="${escapeHtml(preservedPostOrderId)}" />` : ''}
+      ${preservedTab ? `<input type="hidden" name="tab" value="${escapeHtml(preservedTab)}" />` : ''}
       <div class="grid gap-3 md:grid-cols-4">
         <label class="space-y-1 text-sm">
           <span class="text-xs text-muted-foreground">关键词</span>
-          <input class="h-9 w-full rounded-md border px-3 text-sm" name="keyword" value="${escapeHtml(filters.keyword)}" placeholder="${escapeHtml(options.keywordPlaceholder || '单号 / 生产单 / 工厂 / 状态')}" />
+          <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" name="keyword" value="${escapeHtml(filters.keyword)}" placeholder="${escapeHtml(options.keywordPlaceholder || '单号 / 生产单 / 工厂 / 状态')}" />
         </label>
         <label class="space-y-1 text-sm">
           <span class="text-xs text-muted-foreground">当前状态</span>
-          <select class="h-9 w-full rounded-md border px-3 text-sm" name="status">${statusOptions.map((value) => renderOption(value, filters.status)).join('')}</select>
+          <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" name="status">${statusOptions.map((value) => renderOption(value, filters.status)).join('')}</select>
         </label>
         <label class="space-y-1 text-sm">
           <span class="text-xs text-muted-foreground">后道来源</span>
-          <select class="h-9 w-full rounded-md border px-3 text-sm" name="source">${sourceOptions.map((value) => renderOption(value, filters.source)).join('')}</select>
+          <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" name="source">${sourceOptions.map((value) => renderOption(value, filters.source)).join('')}</select>
         </label>
         <label class="space-y-1 text-sm">
           <span class="text-xs text-muted-foreground">工厂</span>
-          <select class="h-9 w-full rounded-md border px-3 text-sm" name="factory">${factoryOptions.map((value) => renderOption(value, filters.factory)).join('')}</select>
+          <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" name="factory">${factoryOptions.map((value) => renderOption(value, filters.factory)).join('')}</select>
         </label>
       </div>
       <div class="mt-3 flex flex-wrap justify-end gap-2">
-        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-slate-50" data-nav="${escapeHtml(currentPathname())}">重置</button>
+        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(currentPathname())}">重置</button>
         <button type="submit" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700">查询</button>
       </div>
     </form>
@@ -209,18 +216,18 @@ export function renderPostPagination<T>(pagination: PostPaginationResult<T>): st
   const prevDisabled = pagination.page <= 1
   const nextDisabled = pagination.page >= pagination.pageCount
   return `
-    <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border bg-white px-4 py-3 text-sm shadow-sm">
-      <div class="text-muted-foreground">共 ${pagination.total.toLocaleString('zh-CN')} 条，当前显示 ${pagination.start}-${pagination.end} 条</div>
-      <div class="flex items-center gap-2">
-        <select class="h-9 rounded-md border px-2 text-sm" data-post-page-size>
+    <footer class="flex flex-wrap items-center justify-between gap-3 border-t px-3 py-3 text-xs text-muted-foreground">
+      <div>共 ${pagination.total.toLocaleString('zh-CN')} 条记录，当前 ${pagination.start}-${pagination.end}</div>
+      <div class="flex flex-wrap items-center gap-2">
+        <select class="h-8 rounded-md border bg-background px-2 text-xs" data-post-page-size>
           ${pageSizeOptions}
         </select>
-        <button type="button" class="rounded-md border px-3 py-2 text-sm ${prevDisabled ? 'cursor-not-allowed opacity-50' : 'hover:bg-slate-50'}" ${prevDisabled ? 'disabled' : `data-nav="${escapeHtml(buildPostQueryLink({ page: pagination.page - 1 }))}"`}>上一页</button>
-        <span class="rounded-md bg-blue-600 px-3 py-2 text-sm text-white">${pagination.page}</span>
-        <span class="text-muted-foreground">/ ${pagination.pageCount}</span>
-        <button type="button" class="rounded-md border px-3 py-2 text-sm ${nextDisabled ? 'cursor-not-allowed opacity-50' : 'hover:bg-slate-50'}" ${nextDisabled ? 'disabled' : `data-nav="${escapeHtml(buildPostQueryLink({ page: pagination.page + 1 }))}"`}>下一页</button>
+        <button type="button" class="rounded-md border px-2.5 py-1 ${prevDisabled ? 'pointer-events-none opacity-50' : 'hover:bg-muted'}" ${prevDisabled ? 'disabled' : `data-nav="${escapeHtml(buildPostQueryLink({ page: pagination.page - 1 }))}"`}>上一页</button>
+        <span class="rounded-md border border-blue-500 bg-blue-50 px-2.5 py-1 text-blue-700">${pagination.page}</span>
+        <span>/ ${pagination.pageCount}</span>
+        <button type="button" class="rounded-md border px-2.5 py-1 ${nextDisabled ? 'pointer-events-none opacity-50' : 'hover:bg-muted'}" ${nextDisabled ? 'disabled' : `data-nav="${escapeHtml(buildPostQueryLink({ page: pagination.page + 1 }))}"`}>下一页</button>
       </div>
-    </div>
+    </footer>
     <script>
       document.querySelectorAll('[data-post-page-size]').forEach(function(select) {
         select.addEventListener('change', function(event) {

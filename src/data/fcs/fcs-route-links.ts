@@ -263,6 +263,10 @@ export function buildPostFinishingWorkOrderDetailLink(postOrderId: string, tab?:
   return tab ? `${base}?tab=${encodeSegment(tab)}` : base
 }
 
+export function buildPostFinishingRecheckOrderDetailLink(recheckOrderId: string): string {
+  return `/fcs/craft/post-finishing/recheck-orders/${encodeSegment(recheckOrderId)}`
+}
+
 export function buildPostFinishingWaitProcessWarehouseLink(postOrderId?: string): string {
   const base = '/fcs/craft/post-finishing/wait-process-warehouse'
   return postOrderId ? `${base}?postOrderId=${encodeSegment(postOrderId)}` : base

@@ -425,6 +425,10 @@ export const renderPostFinishingRecheckOrdersPage = createAsyncRenderer(
   () => import('../pages/process-factory/post-finishing/recheck-orders'),
   'renderPostFinishingRecheckOrdersPage',
 )
+export const renderPostFinishingRecheckOrderDetailPage = createAsyncRenderer(
+  () => import('../pages/process-factory/post-finishing/recheck-orders'),
+  'renderPostFinishingRecheckOrderDetailPage',
+)
 export const renderPostFinishingWaitProcessWarehousePage = createAsyncRenderer(
   () => import('../pages/process-factory/post-finishing/warehouse'),
   'renderPostFinishingWaitProcessWarehousePage',

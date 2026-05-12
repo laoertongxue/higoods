@@ -705,21 +705,13 @@ export function applyPostFinishingWarehouseLinkageAfterAction(actionResult: Proc
     })
   }
 
-  if (!['POST_RECHECK_FINISH', 'POST_SUBMIT_HANDOVER'].includes(actionResult.actionCode)) return base
+  if (actionResult.actionCode !== 'POST_RECHECK_FINISH') return base
   const waitHandover = ensureWaitHandoverWarehouseRecord(context, actionResult)
   let result = mergeResult(base, {
     createdWaitHandoverWarehouseRecordId: waitHandover.warehouseRecordId,
     updatedWaitHandoverWarehouseRecordId: waitHandover.warehouseRecordId,
     message: '后道待交出仓已联动',
   })
-  if (actionResult.actionCode === 'POST_SUBMIT_HANDOVER') {
-    const handover = ensureHandoverRecord(context, actionResult, waitHandover.warehouseRecordId)
-    result = mergeResult(result, {
-      createdHandoverRecordId: handover.handoverRecordId,
-      updatedHandoverRecordId: handover.handoverRecordId,
-      message: '后道交出记录已联动',
-    })
-  }
   return result
 }
 

@@ -173,6 +173,12 @@ function openFlowModal(title: string, flows: FactoryWarehouseFlowLine[]): void {
     </div>
   `
   document.body.appendChild(modal)
+  modal.addEventListener('click', (event) => {
+    const actionNode = (event.target as HTMLElement).closest<HTMLElement>('[data-warehouse-flow-action]')
+    if (actionNode?.dataset.warehouseFlowAction === 'close') {
+      removeFlowModal()
+    }
+  })
 }
 
 export function isFactoryWarehouseFlowModalOpen(): boolean {
