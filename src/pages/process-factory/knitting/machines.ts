@@ -11,9 +11,11 @@ import {
   buildKnittingWorkOrdersLink,
 } from '../../../data/fcs/fcs-route-links.ts'
 import {
+  paginateKnittingItems,
   renderBadge,
   renderMetricCard,
   renderPageHeader,
+  renderPaginationControls,
   renderSection,
   renderTable,
 } from './shared'
@@ -193,6 +195,7 @@ function renderMachineDialog(machines: KnittingMachine[]): string {
 
 export function renderCraftKnittingMachinesPage(): string {
   const machines = listKnittingMachines()
+  const paging = paginateKnittingItems(machines, 'machinesPage', 10)
   return `
     <div class="space-y-4 p-4">
       ${renderPageHeader('横机设备', '维护周哥针织厂横机档案，排机动作只从可用横机中选择。', renderTopActions())}
@@ -202,9 +205,9 @@ export function renderCraftKnittingMachinesPage(): string {
         '横机设备清单',
         renderTable(
           ['横机编号', '设备名称', '机台组', '针型', '适用任务', '状态', '当前任务', '日产能', '位置', '负责人', '备注', '操作'],
-          renderMachineRows(machines),
+          renderMachineRows(paging.rows),
           'min-w-[1700px]',
-        ),
+        ) + renderPaginationControls(paging, '台横机'),
       )}
       ${renderMachineDialog(machines)}
     </div>

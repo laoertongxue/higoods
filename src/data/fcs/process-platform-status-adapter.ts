@@ -430,7 +430,7 @@ const SPECIAL_CRAFT_STATUS_MAP: Record<string, PlatformProcessStatusCode> = {
 }
 
 const POST_FINISHING_STATUS_MAP: Record<string, PlatformProcessStatusCode> = {
-  待接收领料: 'PREPARING',
+  待扫码收货: 'PREPARING',
   接收中: 'PREPARING',
   已接收: 'PREPARING',
   待质检: 'PREPARING',
@@ -598,7 +598,7 @@ const SPECIFIC_HINTS: Record<string, Partial<Record<PlatformProcessStatusCode, P
   POST_FINISHING: {
     PREPARING: {
       riskLabel: '后道接收、质检或复检准备未完成',
-      actionHint: '跟进后道工厂接收领料和质检复检',
+      actionHint: '跟进后道工厂扫码收货和质检复检',
       ownerHint: '后道工厂',
     },
     PROCESSING: {

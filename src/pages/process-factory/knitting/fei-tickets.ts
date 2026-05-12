@@ -13,10 +13,12 @@ import {
 import {
   formatNumber,
   formatQty,
+  paginateKnittingItems,
   renderBadge,
   renderKindBadge,
   renderMetricCard,
   renderPageHeader,
+  renderPaginationControls,
   renderSection,
   renderTable,
 } from './shared'
@@ -94,6 +96,7 @@ function renderRows(rows: KnittingFeiTicketRow[]): string {
 
 export function renderCraftKnittingFeiTicketsPage(): string {
   const rows = listRows()
+  const paging = paginateKnittingItems(rows, 'feiTicketsPage', 10)
   return `
     <div class="space-y-4 p-4">
       ${renderPageHeader('针织菲票', '仅服务部位针织；整件针织不打印针织菲票。')}
@@ -104,7 +107,8 @@ export function renderCraftKnittingFeiTicketsPage(): string {
           <div class="mb-3 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-700">
             部位针织完成横机成片后，按部位、颜色、尺码打印菲票；打印预览使用统一菲票标签模板，后续交到裁床待交出仓继续流转。
           </div>
-          ${renderTable(['针织单号', '任务类型', '款式', '部位', '颜色', '尺码', '计划片数', '完成片数', '菲票号', '打印状态', '后续去向', '操作'], renderRows(rows), 'min-w-[1600px]')}
+          ${renderTable(['针织单号', '任务类型', '款式', '部位', '颜色', '尺码', '计划片数', '完成片数', '菲票号', '打印状态', '后续去向', '操作'], renderRows(paging.rows), 'min-w-[1600px]')}
+          ${renderPaginationControls(paging, '行菲票')}
         `,
       )}
     </div>

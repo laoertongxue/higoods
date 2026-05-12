@@ -874,31 +874,25 @@ const CUT_ORDER_PROGRESS_TABLE_HEADERS = [
   '操作',
 ] as const
 
-function renderViewDimensionSwitch(): string {
+function renderViewDimensionActions(): string {
   return `
-    <div class="flex items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3">
-      <div>
-        <div class="text-sm font-semibold text-foreground">展示维度</div>
-        <div class="mt-1 text-xs text-muted-foreground">默认按裁片单维度展开，生产单维度保留汇总视角。</div>
-      </div>
-      <div class="inline-flex rounded-md border">
-        <button
-          type="button"
-          class="px-3 py-2 text-sm ${state.viewDimension === 'CUT_ORDER' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}"
-          data-cutting-progress-action="switch-view-dimension"
-          data-view-dimension="CUT_ORDER"
-        >
-          裁片单维度
-        </button>
-        <button
-          type="button"
-          class="border-l px-3 py-2 text-sm ${state.viewDimension === 'PRODUCTION_ORDER' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}"
-          data-cutting-progress-action="switch-view-dimension"
-          data-view-dimension="PRODUCTION_ORDER"
-        >
-          生产单维度
-        </button>
-      </div>
+    <div class="inline-flex rounded-md border bg-card">
+      <button
+        type="button"
+        class="px-3 py-2 text-sm ${state.viewDimension === 'CUT_ORDER' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}"
+        data-cutting-progress-action="switch-view-dimension"
+        data-view-dimension="CUT_ORDER"
+      >
+        裁片单维度
+      </button>
+      <button
+        type="button"
+        class="border-l px-3 py-2 text-sm ${state.viewDimension === 'PRODUCTION_ORDER' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}"
+        data-cutting-progress-action="switch-view-dimension"
+        data-view-dimension="PRODUCTION_ORDER"
+      >
+        生产单维度
+      </button>
     </div>
   `
 }
@@ -1349,19 +1343,6 @@ function renderDetailDrawer(): string {
   )
 }
 
-function renderActionBar(): string {
-  const returnToSummary = hasSummaryReturnContext(state.drillContext)
-    ? `<button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-progress-action="return-summary">返回裁剪总结</button>`
-    : ''
-  return `
-    <div class="flex flex-wrap items-center gap-2">
-      <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-progress-action="go-cuttable-pool-index">去可裁排产</button>
-      ${returnToSummary}
-      <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cutting-progress-action="go-summary-index">查看裁剪总结</button>
-    </div>
-  `
-}
-
 export function renderCraftCuttingProductionProgressPage(): string {
   syncDrillContextFromPath()
   const pathname = appStore.getState().pathname
@@ -1371,16 +1352,11 @@ export function renderCraftCuttingProductionProgressPage(): string {
   return `
     <div class="space-y-3 p-4">
       ${renderCuttingPageHeader(meta, {
-        actionsHtml: renderActionBar(),
+        actionsHtml: renderViewDimensionActions(),
         showAliasBadge: isCuttingAliasPath(pathname),
       })}
 
       ${renderStatsCards(rows)}
-      ${renderSpecialCraftReturnCards(rows)}
-      ${renderSewingDispatchProgressCards(rows)}
-      ${renderProgressStatisticsLinkageCards(rows)}
-      ${renderStageOverview(rows)}
-      ${renderViewDimensionSwitch()}
 
       ${renderStickyFilterShell(`
         <div class="space-y-3">

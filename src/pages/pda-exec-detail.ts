@@ -1978,7 +1978,7 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
 }
 
 function getPostFinishingActionLabel(actionType: PostFinishingActionType, phase: 'start' | 'finish'): string {
-  if (actionType === '接收领料') return phase === 'start' ? '开始接收' : '确认接收领料'
+  if (actionType === '扫码收货') return phase === 'start' ? '开始扫码收货' : '确认收货入库'
   if (phase === 'start') {
     return actionType === '后道' ? '开始后道' : actionType === '质检' ? '开始质检' : '开始复检'
   }
@@ -1986,7 +1986,7 @@ function getPostFinishingActionLabel(actionType: PostFinishingActionType, phase:
 }
 
 function getPostFinishingActionCode(actionType: PostFinishingActionType, phase: 'start' | 'finish'): string {
-  if (actionType === '接收领料') return phase === 'start' ? 'POST_RECEIVE_START' : 'POST_RECEIVE_FINISH'
+  if (actionType === '扫码收货') return phase === 'start' ? 'POST_RECEIVE_START' : 'POST_RECEIVE_FINISH'
   if (actionType === '质检') return phase === 'start' ? 'POST_QC_START' : 'POST_QC_FINISH'
   if (actionType === '后道') return phase === 'start' ? 'POST_PROCESS_START' : 'POST_PROCESS_FINISH'
   return phase === 'start' ? 'POST_RECHECK_START' : 'POST_RECHECK_FINISH'
@@ -2020,10 +2020,13 @@ function canPostFinishingManagedFactoryOperate(order: PostFinishingWorkOrder): b
 
 function renderPostFinishingActionPanel(order: PostFinishingWorkOrder): string {
   const actions: string[] = []
-  if (order.receiveAction.status === '待接收') {
-    actions.push(renderPostFinishingActionButton(order, '接收领料', 'start'))
-  } else if (order.receiveAction.status === '接收中') {
-    actions.push(renderPostFinishingActionButton(order, '接收领料', 'finish'))
+  const waitReceiveStatuses = ['待扫码收货', '待接收']
+  const receivingStatuses = ['扫码收货中', '接收中']
+  const receivedStatuses = ['已入库', '已接收']
+  if (waitReceiveStatuses.includes(order.receiveAction.status)) {
+    actions.push(renderPostFinishingActionButton(order, '扫码收货', 'start'))
+  } else if (receivingStatuses.includes(order.receiveAction.status)) {
+    actions.push(renderPostFinishingActionButton(order, '扫码收货', 'finish'))
   }
 
   if (!order.isPostDoneBySewingFactory && order.currentStatus === '待后道') {
@@ -2038,13 +2041,9 @@ function renderPostFinishingActionPanel(order: PostFinishingWorkOrder): string {
     `)
   }
 
-  if (order.isPostDoneBySewingFactory) {
-    actions.push('<div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">后道已由车缝厂完成，后道工厂只执行接收领料、质检、复检和交出。</div>')
-  }
-
   if (canPostFinishingManagedFactoryOperate(order)) {
     if (order.currentStatus === '待质检') {
-      actions.push(renderPostFinishingActionButton(order, '质检', 'start', order.receiveAction.status !== '已接收'))
+      actions.push(renderPostFinishingActionButton(order, '质检', 'start', !receivedStatuses.includes(order.receiveAction.status)))
     } else if (order.currentStatus === '质检中') {
       actions.push(renderPostFinishingActionButton(order, '质检', 'finish'))
       actions.push(`
@@ -2201,7 +2200,7 @@ function renderPdaPostFinishingExecutionPage(execId: string, order: PostFinishin
 
       <article class="rounded-lg border bg-card">
         <header class="border-b px-4 py-3">
-          <h2 class="text-sm font-semibold">接收领料、质检、后道、复检记录</h2>
+          <h2 class="text-sm font-semibold">收货、质检、后道、复检记录</h2>
         </header>
         <div class="overflow-x-auto p-4">
           <table class="min-w-[640px] text-left text-xs">
@@ -4014,7 +4013,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
         return true
       }
       transferSewingFactoryPostTaskToManagedFactory(taskId)
-      showPdaExecDetailToast('已交给后道工厂，后道工厂将接收领料后质检和复检')
+      showPdaExecDetailToast('已交给后道工厂，后道工厂将扫码收货后质检和复检')
       return true
     } catch (error) {
       showPdaExecDetailToast(error instanceof Error ? error.message : '车缝后道写回失败')

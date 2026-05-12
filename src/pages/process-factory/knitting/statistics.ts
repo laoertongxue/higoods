@@ -17,9 +17,9 @@ import {
   renderKindBadge,
   renderMetricCard,
   renderPageHeader,
+  renderPaginatedTable,
   renderSection,
   renderStatusBadge,
-  renderTable,
 } from './shared'
 
 function getNode(order: KnittingWorkOrder, nodeName: string): KnittingExecutionNode | undefined {
@@ -96,11 +96,12 @@ function renderSummaryCards(): string {
   `
 }
 
-function renderWholeRows(): string {
-  return listKnittingWorkOrders()
-    .filter((order) => order.kind === 'WHOLE_GARMENT')
-    .map(
-      (order) => `
+function renderWholeTable(): string {
+  const orders = listKnittingWorkOrders().filter((order) => order.kind === 'WHOLE_GARMENT')
+  return renderPaginatedTable(
+    ['针织单号', '任务类型', '款式', '横机成片', '缝盘', '熨烫', '包装', '交出对象', '当前状态', '操作'],
+    orders,
+    (order) => `
         <tr class="border-b align-top last:border-b-0">
           <td class="px-3 py-3 font-mono text-xs">${escapeHtml(order.knittingOrderNo)}</td>
           <td class="px-3 py-3">${renderKindBadge(order.kind)}</td>
@@ -122,14 +123,18 @@ function renderWholeRows(): string {
           </td>
         </tr>
       `,
-    )
-    .join('')
+    'min-w-[1560px]',
+    'statWholePage',
+    '条整件针织',
+  )
 }
 
-function renderPartRows(): string {
-  return listKnittingWorkOrders()
-    .filter((order) => order.kind === 'PART_PANEL')
-    .map((order) => {
+function renderPartTable(): string {
+  const orders = listKnittingWorkOrders().filter((order) => order.kind === 'PART_PANEL')
+  return renderPaginatedTable(
+    ['针织单号', '任务类型', '款式', '横机成片', '成片片数', '菲票行数', '交出对象', '当前状态', '操作'],
+    orders,
+    (order) => {
       const waitFeiRows = order.partPanels.filter((panel) => panel.feiTicketStatus === '待打印').length
       const printedRows = order.partPanels.filter((panel) => panel.feiTicketStatus === '已打印').length
       const plannedPieces = order.partPanels.reduce((sum, panel) => sum + panel.plannedPieces, 0)
@@ -158,8 +163,11 @@ function renderPartRows(): string {
           </td>
         </tr>
       `
-    })
-    .join('')
+    },
+    'min-w-[1360px]',
+    'statPartPage',
+    '条部位针织',
+  )
 }
 
 function renderRiskRows(): string {
@@ -192,7 +200,11 @@ function renderRiskRows(): string {
       }
       return riskRows.map((risk) => ({ order, risk }))
     })
-    .map(
+  return renderSection(
+    '风险与待处理',
+    renderPaginatedTable(
+      ['针织单号', '任务类型', '款式', '风险类型', '说明', '交出对象', '操作'],
+      rows,
       ({ order, risk }) => `
         <tr class="border-b align-top last:border-b-0">
           <td class="px-3 py-3 font-mono text-xs">${escapeHtml(order.knittingOrderNo)}</td>
@@ -206,10 +218,11 @@ function renderRiskRows(): string {
           </td>
         </tr>
       `,
-    )
-    .join('')
-
-  return renderSection('风险与待处理', renderTable(['针织单号', '任务类型', '款式', '风险类型', '说明', '交出对象', '操作'], rows, 'min-w-[1280px]'))
+      'min-w-[1280px]',
+      'statRiskPage',
+      '条风险',
+    ),
+  )
 }
 
 export function renderCraftKnittingStatisticsPage(): string {
@@ -223,7 +236,7 @@ export function renderCraftKnittingStatisticsPage(): string {
           <div class="mb-3 rounded-md border border-amber-100 bg-amber-50 px-3 py-2 text-xs text-amber-700">
             整件针织固定包含缝盘和熨烫；包装是否执行按加工单要求决定，完成后交出给后道工厂。
           </div>
-          ${renderTable(['针织单号', '任务类型', '款式', '横机成片', '缝盘', '熨烫', '包装', '交出对象', '当前状态', '操作'], renderWholeRows(), 'min-w-[1560px]')}
+          ${renderWholeTable()}
         `,
       )}
       ${renderSection(
@@ -232,7 +245,7 @@ export function renderCraftKnittingStatisticsPage(): string {
           <div class="mb-3 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-700">
             部位针织只包含横机成片和菲票流转，不存在缝盘、熨烫、包装节点，完成后交到裁床待交出仓。
           </div>
-          ${renderTable(['针织单号', '任务类型', '款式', '横机成片', '成片片数', '菲票行数', '交出对象', '当前状态', '操作'], renderPartRows(), 'min-w-[1360px]')}
+          ${renderPartTable()}
         `,
       )}
       ${renderRiskRows()}

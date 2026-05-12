@@ -589,16 +589,16 @@ export const PROCESS_ACTION_DEFINITIONS: ProcessActionDefinition[] = [
   },
   {
     actionCode: 'POST_RECEIVE_START',
-    actionLabel: '开始接收领料',
+    actionLabel: '开始扫码收货',
     sourceType: 'POST_FINISHING',
-    fromStatuses: ['待接收领料'],
+    fromStatuses: ['待扫码收货'],
     toStatus: '接收中',
     requiredFields: ['操作人', '开始时间'],
     writebackHandler: 'executePostFinishingAction.applyPostFinishingActionStart',
   },
   {
     actionCode: 'POST_RECEIVE_FINISH',
-    actionLabel: '完成接收领料',
+    actionLabel: '确认收货入库',
     sourceType: 'POST_FINISHING',
     fromStatuses: ['接收中'],
     toStatus: '待质检',
@@ -1138,19 +1138,19 @@ export function executeSpecialCraftAction(payload: ProcessActionPayload): Partia
 }
 
 function getPostFinishingActionType(actionCode: string, currentStatus?: string): PostFinishingActionType {
-  if (actionCode.includes('RECEIVE')) return '接收领料'
+  if (actionCode.includes('RECEIVE')) return '扫码收货'
   if (actionCode.includes('QC')) return '质检'
   if (actionCode.includes('PROCESS')) return '后道'
   if (actionCode.includes('RECHECK')) return '复检'
   if (currentStatus?.includes('质检')) return '质检'
   if (currentStatus?.includes('后道')) return '后道'
   if (currentStatus?.includes('复检') || currentStatus === '待交出') return '复检'
-  return '接收领料'
+  return '扫码收货'
 }
 
 function getPostFinishingRejectedQty(payload: ProcessActionPayload, actionCode: string): number {
   const fields = payload.formData || {}
-  if (actionCode === 'POST_QC_FINISH') return Number(fields['质检不合格成衣件数'] || 0)
+  if (actionCode === 'POST_QC_FINISH') return Number(fields['不合格数量'] || fields['质检不合格成衣件数'] || 0)
   if (actionCode === 'POST_RECHECK_FINISH') return Number(fields['复检不合格成衣件数'] || 0)
   return 0
 }
@@ -1200,18 +1200,37 @@ export function executePostFinishingAction(payload: ProcessActionPayload): Parti
   }
 
   if (actionCode.endsWith('_FINISH')) {
+    const fields = payload.formData || {}
     const rejectedQty = getPostFinishingRejectedQty(payload, actionCode)
-    const acceptedQty = Math.max(qty - (Number.isFinite(rejectedQty) ? rejectedQty : 0), 0)
+    const submittedQty = actionCode === 'POST_QC_FINISH' ? Number(fields['质检数量'] || qty) : qty
+    const acceptedQty = actionCode === 'POST_QC_FINISH'
+      ? Number(fields['合格数量'] || Math.max(submittedQty - (Number.isFinite(rejectedQty) ? rejectedQty : 0), 0))
+      : Math.max(qty - (Number.isFinite(rejectedQty) ? rejectedQty : 0), 0)
     const updated = applyPostFinishingActionFinish({
       postOrderId: payload.sourceId,
       actionType,
       operatorName,
       finishedAt: payload.operatedAt,
-      submittedGarmentQty: qty,
+      submittedGarmentQty: submittedQty,
       acceptedGarmentQty: acceptedQty,
       rejectedGarmentQty: Number.isFinite(rejectedQty) ? rejectedQty : 0,
       diffGarmentQty: 0,
       remark: payload.remark,
+      qualityFields: actionCode === 'POST_QC_FINISH'
+        ? ({
+            qcResult: String(fields['质检结果'] || ''),
+            unqualifiedDisposition: String(fields['不合格处置'] || ''),
+            unqualifiedReasonSummary: String(fields['不合格原因'] || ''),
+            rootCauseType: String(fields['根因类型'] || ''),
+            liabilityStatus: String(fields['责任判定状态'] || ''),
+            factoryLiabilityQty: Number(fields['工厂责任数量'] || 0),
+            nonFactoryLiabilityQty: Number(fields['非工厂责任数量'] || 0),
+            responsiblePartyName: String(fields['责任方'] || ''),
+            deductionDecision: String(fields['扣款决策'] || ''),
+            deductionDecisionRemark: String(fields['扣款备注'] || ''),
+            dispositionRemark: String(fields['处置备注'] || ''),
+          } as any)
+        : undefined,
     })
     return { updatedWorkOrderId: updated.postOrderId, nextStatus: updated.currentStatus } as Partial<ProcessActionWritebackResult>
   }

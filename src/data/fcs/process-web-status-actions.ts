@@ -72,8 +72,8 @@ export type ProcessWebActionType =
   | '开始加工'
   | '完成加工'
   | '上报差异'
-  | '开始接收领料'
-  | '完成接收领料'
+  | '开始扫码收货'
+  | '确认收货入库'
   | '开始质检'
   | '完成质检'
   | '开始后道'
@@ -526,16 +526,16 @@ const SPECIAL_CRAFT_ACTIONS: ActionDefinition[] = [
 const POST_FINISHING_ACTIONS: ActionDefinition[] = [
   {
     actionCode: 'POST_RECEIVE_START',
-    actionLabel: '开始接收领料',
+    actionLabel: '开始扫码收货',
     processType: 'POST_FINISHING',
-    fromStatuses: ['待接收领料'],
+    fromStatuses: ['待扫码收货'],
     toStatus: '接收中',
     requiredFields: ['操作人', '开始时间'],
     writebackHandler: 'applyPostFinishingActionStart',
   },
   {
     actionCode: 'POST_RECEIVE_FINISH',
-    actionLabel: '完成接收领料',
+    actionLabel: '确认收货入库',
     processType: 'POST_FINISHING',
     fromStatuses: ['接收中'],
     toStatus: '待质检',
@@ -558,7 +558,23 @@ const POST_FINISHING_ACTIONS: ActionDefinition[] = [
     processType: 'POST_FINISHING',
     fromStatuses: ['质检中'],
     toStatus: '待后道',
-    requiredFields: ['质检人', '完成时间', '质检通过成衣件数', '质检不合格成衣件数', '质检结果'],
+    requiredFields: [
+      '质检人',
+      '完成时间',
+      '质检数量',
+      '合格数量',
+      '不合格数量',
+      '质检结果',
+      '不合格处置',
+      '不合格原因',
+      '根因类型',
+      '责任判定状态',
+      '工厂责任数量',
+      '非工厂责任数量',
+      '责任方',
+      '扣款决策',
+    ],
+    optionalFields: ['缺陷项', '证据', '扣款备注', '处置备注'],
     writebackHandler: 'applyPostFinishingActionFinish',
     affectsWarehouse: true,
   },

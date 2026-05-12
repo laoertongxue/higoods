@@ -21,10 +21,12 @@ import {
 import {
   formatNumber,
   formatQty,
+  paginateKnittingItems,
   renderBadge,
   renderKindBadge,
   renderMetricCard,
   renderPageHeader,
+  renderPaginationControls,
   renderSection,
   renderStatusBadge,
   renderTable,
@@ -148,7 +150,8 @@ function renderFilters(): string {
 
 function renderWaitingScheduleOrders(): string {
   const orders = listWaitingScheduleOrders()
-  const rows = orders
+  const paging = paginateKnittingItems(orders, 'scheduleWaitingPage', 10)
+  const rows = paging.rows
     .map(
       (order) => `
         <tr class="border-b align-top last:border-b-0">
@@ -180,13 +183,14 @@ function renderWaitingScheduleOrders(): string {
           ['针织单号', '任务类型', '款式', '计划数量', '领料状态', '计划时间', '当前状态', '操作'],
           rows,
           'min-w-[1200px]',
-        )
+        ) + renderPaginationControls(paging, '条待排机加工单')
       : '<div class="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">暂无待排机加工单。</div>',
   )
 }
 
 function renderMachineCards(): string {
-  const cards = listKnittingMachineSchedules()
+  const paging = paginateKnittingItems(listKnittingMachineSchedules(), 'scheduleCardsPage', 10)
+  const cards = paging.rows
     .map((schedule) => {
       const order = schedule.knittingOrderId ? getKnittingWorkOrderById(schedule.knittingOrderId) : undefined
       const percent = getCompletionPercent(order)
@@ -222,6 +226,7 @@ function renderMachineCards(): string {
         横机排产只服务周哥针织厂自有任务；三方外派针织不进入本排产看板。
       </div>
       <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">${cards}</div>
+      ${renderPaginationControls(paging, '条横机排产')}
     `,
   )
 }
@@ -331,8 +336,10 @@ function renderScheduleCreateDialog(): string {
   `
 }
 
-function renderScheduleRows(): string {
-  return listKnittingMachineSchedules()
+function renderScheduleDetails(): string {
+  const schedules = listKnittingMachineSchedules()
+  const paging = paginateKnittingItems(schedules, 'scheduleDetailPage', 10)
+  const rows = paging.rows
     .map((schedule) => {
       const order = schedule.knittingOrderId ? getKnittingWorkOrderById(schedule.knittingOrderId) : undefined
       const node = getMachineNode(order)
@@ -374,6 +381,14 @@ function renderScheduleRows(): string {
       `
     })
     .join('')
+  return renderSection(
+    '排产明细',
+    renderTable(
+      ['机台组', '横机编号', '针织单号', '任务类型', '款式', '计划数量', '完成数量', '计划时间', '实际时间', '排产状态', '风险提示', '加工单状态', '操作'],
+      rows,
+      'min-w-[1800px]',
+    ) + renderPaginationControls(paging, '条排产明细'),
+  )
 }
 
 export function renderCraftKnittingMachineSchedulePage(): string {
@@ -384,14 +399,7 @@ export function renderCraftKnittingMachineSchedulePage(): string {
       ${renderFilters()}
       ${renderWaitingScheduleOrders()}
       ${renderMachineCards()}
-      ${renderSection(
-        '排产明细',
-        renderTable(
-          ['机台组', '横机编号', '针织单号', '任务类型', '款式', '计划数量', '完成数量', '计划时间', '实际时间', '排产状态', '风险提示', '加工单状态', '操作'],
-          renderScheduleRows(),
-          'min-w-[1800px]',
-        ),
-      )}
+      ${renderScheduleDetails()}
       ${renderScheduleCreateDialog()}
     </div>
   `

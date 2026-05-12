@@ -19,6 +19,7 @@ import {
   renderBadge,
   renderMetricCard,
   renderPageHeader,
+  renderPaginatedTable,
   renderSection,
   renderTable,
 } from './shared'
@@ -93,8 +94,16 @@ function renderSummary(mode: KnittingWarehouseMode): string {
 }
 
 function renderInventoryTab(mode: KnittingWarehouseMode): string {
-  const rows = listKnittingWarehouseInventory(mode)
-    .map((item) => {
+  const items = listKnittingWarehouseInventory(mode)
+  const headers = mode === 'wait-process'
+    ? ['纱线 SKU', '纱线名称 / 颜色', '当前库存', '库区库位', '状态', '操作']
+    : ['针织单号', '生产单', '类型', '库存对象', '当前库存', '库区库位', '状态', '操作']
+  return renderSection(
+    '库存',
+    renderPaginatedTable(
+      headers,
+      items,
+      (item) => {
       const flowLines: FactoryWarehouseFlowLine[] = item.flowRecords.map((flow) => ({
         flowType: flow.flowType,
         qtyText: formatQty(flow.qty, flow.unit),
@@ -140,22 +149,24 @@ function renderInventoryTab(mode: KnittingWarehouseMode): string {
               <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildKnittingWorkOrderDetailLink(item.knittingOrderId))}">查看加工单</button>
             </div>
           </td>
-        </tr>
-      `
-    })
-    .join('')
-  const headers = mode === 'wait-process'
-    ? ['纱线 SKU', '纱线名称 / 颜色', '当前库存', '库区库位', '状态', '操作']
-    : ['针织单号', '生产单', '类型', '库存对象', '当前库存', '库区库位', '状态', '操作']
-  return renderSection(
-    '库存',
-    renderTable(headers, rows, mode === 'wait-process' ? 'min-w-[980px]' : 'min-w-[1360px]'),
+          </tr>
+        `
+      },
+      mode === 'wait-process' ? 'min-w-[980px]' : 'min-w-[1360px]',
+      mode === 'wait-process' ? 'waitProcessInventoryPage' : 'waitHandoverInventoryPage',
+      '条库存',
+    ),
   )
 }
 
 function renderReceiptsTab(): string {
-  const rows = listKnittingWaitProcessReceiptRecords()
-    .map((record) => `
+  const records = listKnittingWaitProcessReceiptRecords()
+  return renderSection(
+    '领料记录',
+    renderPaginatedTable(
+      ['领料单', '针织单号', '生产单', '来源', '纱线 SKU', '应收重量', '实收重量', '差异', '照片视频', '确认时间', '状态'],
+      records,
+      (record) => `
       <tr class="border-b last:border-b-0">
         <td class="px-3 py-3">${escapeHtml(record.receiptNo)}</td>
         <td class="px-3 py-3">${escapeHtml(record.knittingOrderNo)}</td>
@@ -169,17 +180,22 @@ function renderReceiptsTab(): string {
         <td class="px-3 py-3">${escapeHtml(record.receivedAt)}</td>
         <td class="px-3 py-3">${renderBadge(record.statusText, record.statusText.includes('差异') ? 'danger' : record.statusText === '待确认' ? 'warning' : 'success')}</td>
       </tr>
-    `)
-    .join('')
-  return renderSection(
-    '领料记录',
-    renderTable(['领料单', '针织单号', '生产单', '来源', '纱线 SKU', '应收重量', '实收重量', '差异', '照片视频', '确认时间', '状态'], rows, 'min-w-[1500px]'),
+      `,
+      'min-w-[1500px]',
+      'waitProcessReceiptsPage',
+      '条领料记录',
+    ),
   )
 }
 
 function renderUsageTab(): string {
-  const rows = listKnittingWaitProcessUsageRecords()
-    .map((record) => `
+  const records = listKnittingWaitProcessUsageRecords()
+  return renderSection(
+    '加工用料记录',
+    renderPaginatedTable(
+      ['用料单', '记录类型', '针织单号', '生产单', '纱线 SKU', '重量', '对应节点', '操作人', '操作时间', '状态'],
+      records,
+      (record) => `
       <tr class="border-b last:border-b-0">
         <td class="px-3 py-3">${escapeHtml(record.usageNo)}</td>
         <td class="px-3 py-3">${renderBadge(record.recordType, record.recordType === '缝盘损耗' ? 'warning' : 'info')}</td>
@@ -192,17 +208,22 @@ function renderUsageTab(): string {
         <td class="px-3 py-3">${escapeHtml(record.usedAt)}</td>
         <td class="px-3 py-3">${renderBadge(record.statusText, record.usedWeightKg > 0 ? 'success' : 'warning')}</td>
       </tr>
-    `)
-    .join('')
-  return renderSection(
-    '加工用料记录',
-    renderTable(['用料单', '记录类型', '针织单号', '生产单', '纱线 SKU', '重量', '对应节点', '操作人', '操作时间', '状态'], rows, 'min-w-[1320px]'),
+      `,
+      'min-w-[1320px]',
+      'waitProcessUsagePage',
+      '条用料记录',
+    ),
   )
 }
 
 function renderHandoutsTab(): string {
-  const rows = listKnittingWaitHandoverHandoutRecords()
-    .map((record) => `
+  const records = listKnittingWaitHandoverHandoutRecords()
+  return renderSection(
+    '交出记录',
+    renderPaginatedTable(
+      ['交出单', '针织单号', '生产单', '交出对象', '交出数量', '回写数量', '交出时间', '状态'],
+      records,
+      (record) => `
       <tr class="border-b last:border-b-0">
         <td class="px-3 py-3">${escapeHtml(record.handoutNo)}</td>
         <td class="px-3 py-3">${escapeHtml(record.knittingOrderNo)}</td>
@@ -213,17 +234,22 @@ function renderHandoutsTab(): string {
         <td class="px-3 py-3">${escapeHtml(record.handoutAt)}</td>
         <td class="px-3 py-3">${renderBadge(record.statusText, record.statusText.includes('回写') ? 'success' : 'warning')}</td>
       </tr>
-    `)
-    .join('')
-  return renderSection(
-    '交出记录',
-    renderTable(['交出单', '针织单号', '生产单', '交出对象', '交出数量', '回写数量', '交出时间', '状态'], rows, 'min-w-[1100px]'),
+      `,
+      'min-w-[1100px]',
+      'waitHandoverHandoutsPage',
+      '条交出记录',
+    ),
   )
 }
 
 function renderInboundsTab(): string {
-  const rows = listKnittingWaitHandoverInboundRecords()
-    .map((record) => `
+  const records = listKnittingWaitHandoverInboundRecords()
+  return renderSection(
+    '加工入仓记录',
+    renderPaginatedTable(
+      ['入仓单', '针织单号', '生产单', '类型', '入仓对象', '入仓数量', '操作人', '入仓时间', '状态'],
+      records,
+      (record) => `
       <tr class="border-b last:border-b-0">
         <td class="px-3 py-3">${escapeHtml(record.inboundNo)}</td>
         <td class="px-3 py-3">${escapeHtml(record.knittingOrderNo)}</td>
@@ -235,17 +261,22 @@ function renderInboundsTab(): string {
         <td class="px-3 py-3">${escapeHtml(record.inboundAt)}</td>
         <td class="px-3 py-3">${renderBadge(record.statusText, 'success')}</td>
       </tr>
-    `)
-    .join('')
-  return renderSection(
-    '加工入仓记录',
-    renderTable(['入仓单', '针织单号', '生产单', '类型', '入仓对象', '入仓数量', '操作人', '入仓时间', '状态'], rows, 'min-w-[1200px]'),
+      `,
+      'min-w-[1200px]',
+      'waitHandoverInboundsPage',
+      '条入仓记录',
+    ),
   )
 }
 
 function renderLocationsTab(mode: KnittingWarehouseMode): string {
-  const rows = listKnittingWarehouseLocations(mode)
-    .map((location) => `
+  const locations = listKnittingWarehouseLocations(mode)
+  return renderSection(
+    '库区库位',
+    renderPaginatedTable(
+      ['库区', '库位', '容量', '负责人', '状态', '更新时间', '备注', '操作'],
+      locations,
+      (location) => `
       <tr class="border-b last:border-b-0">
         <td class="px-3 py-3">${escapeHtml(location.areaName)}</td>
         <td class="px-3 py-3">${escapeHtml(location.locationCode)}</td>
@@ -273,11 +304,11 @@ function renderLocationsTab(mode: KnittingWarehouseMode): string {
           </div>
         </td>
       </tr>
-    `)
-    .join('')
-  return renderSection(
-    '库区库位',
-    renderTable(['库区', '库位', '容量', '负责人', '状态', '更新时间', '备注', '操作'], rows, 'min-w-[1100px]'),
+      `,
+      'min-w-[1100px]',
+      mode === 'wait-process' ? 'waitProcessLocationsPage' : 'waitHandoverLocationsPage',
+      '个库位',
+    ),
     `<button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-knitting-action="add-location" data-warehouse-mode="${escapeHtml(mode)}">新增库位</button>`,
   )
 }

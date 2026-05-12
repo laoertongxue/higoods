@@ -748,8 +748,8 @@ export function finishPostFinishingAction(postOrderId: string, actionType: PostF
       sourceFactoryName: order.managedPostFactoryName,
       targetFactoryId: order.managedPostFactoryId,
       targetFactoryName: order.managedPostFactoryName,
-      targetWarehouseName: '后道交出仓',
-      warehouseLocation: '后道交出仓-C01',
+      targetWarehouseName: '后道待交出仓',
+      warehouseLocation: '后道待交出仓-C01',
       skuSummary: order.skuSummary,
       styleNo: order.styleNo,
       objectType: '成衣',
@@ -760,7 +760,7 @@ export function finishPostFinishingAction(postOrderId: string, actionType: PostF
       currentActionName: '后道待交出',
       status: '待交出',
       inboundAt: payload.operatedAt || nowTimestamp(),
-      remark: '移动端复检完成后生成后道交出仓记录',
+      remark: '移动端复检完成后生成后道待交出仓记录',
     })
   } else if (actionType === '后道' && order.isPostDoneBySewingFactory) {
     createWaitProcessWarehouseRecord({
@@ -785,10 +785,10 @@ export function finishPostFinishingAction(postOrderId: string, actionType: PostF
       receivedObjectQty: payload.acceptedGarmentQty ?? payload.submittedGarmentQty ?? order.plannedGarmentQty,
       availableObjectQty: payload.acceptedGarmentQty ?? payload.submittedGarmentQty ?? order.plannedGarmentQty,
       qtyUnit: '件',
-      currentActionName: '待接收领料',
+      currentActionName: '待扫码收货',
       status: '已入仓',
       inboundAt: payload.operatedAt || nowTimestamp(),
-      remark: '车缝厂完成后道后转入后道工厂接收领料',
+      remark: '车缝厂交出后转入后道工厂扫码收货',
     })
   }
   return order
@@ -831,8 +831,8 @@ export function createPostFinishingHandoverWarehouseRecord(postOrderId: string, 
       sourceFactoryName: order.managedPostFactoryName,
       targetFactoryId: order.managedPostFactoryId,
       targetFactoryName: order.managedPostFactoryName,
-      targetWarehouseName: '后道交出仓',
-      warehouseLocation: '后道交出仓-C01',
+      targetWarehouseName: '后道待交出仓',
+      warehouseLocation: '后道待交出仓-C01',
       skuSummary: order.skuSummary,
       styleNo: order.styleNo,
       objectType: '成衣',
@@ -843,7 +843,7 @@ export function createPostFinishingHandoverWarehouseRecord(postOrderId: string, 
       currentActionName: '后道待交出',
       status: '待交出',
       inboundAt: payload.operatedAt || nowTimestamp(),
-      remark: '复检完成后生成后道交出仓记录',
+      remark: '复检完成后生成后道待交出仓记录',
     })
   }
   return record
@@ -874,7 +874,7 @@ export function submitPostFinishingHandover(postOrderId: string, payload: Execut
     handoverFactoryName: order.managedPostFactoryName,
     receiveFactoryId: order.managedPostFactoryId,
     receiveFactoryName: order.managedPostFactoryName,
-    receiveWarehouseName: '后道交出仓',
+    receiveWarehouseName: '后道待交出仓',
     objectType: '成衣',
     handoverObjectQty: submittedQty,
     receiveObjectQty: payload.writtenBackGarmentQty ?? submittedQty,

@@ -30,10 +30,8 @@ type PostFinishingDetailTab = 'base' | 'receive' | 'qc' | 'post' | 'recheck' | '
 
 const DETAIL_TABS: Array<{ key: PostFinishingDetailTab; label: string }> = [
   { key: 'base', label: '基本信息' },
-  { key: 'receive', label: '接收领料' },
-  { key: 'qc', label: '质检记录' },
+  { key: 'receive', label: '接收入仓' },
   { key: 'post', label: '后道记录' },
-  { key: 'recheck', label: '复检记录' },
   { key: 'handover', label: '交出记录' },
   { key: 'events', label: '流转记录' },
 ]
@@ -129,6 +127,7 @@ function renderPostWebActionButton(order: { postOrderId: string; plannedGarmentQ
 
 function renderAvailableActionSection(order: PostFinishingWorkOrder): string {
   const actions = getAvailablePostFinishingWebActions(order.postOrderId)
+    .filter((action) => !['POST_QC_START', 'POST_QC_FINISH', 'POST_RECHECK_START', 'POST_RECHECK_FINISH'].includes(action.actionCode))
   const content = actions.length
     ? `
       <div class="flex flex-wrap gap-2">
@@ -183,8 +182,9 @@ export function renderPostFinishingWorkOrderDetailPage(postOrderId: string): str
   const waitProcessRecords = warehouseRecords.filter((record) => record.recordType === 'WAIT_PROCESS')
   const waitHandoverRecords = warehouseRecords.filter((record) => record.recordType === 'WAIT_HANDOVER')
   const handoverRecords = getHandoverRecordsByWorkOrderId(order.postOrderId)
-  const actionRecords = [order.receiveAction, order.qcAction, order.postAction, order.recheckAction].filter(Boolean) as PostFinishingActionRecord[]
+  const actionRecords = [order.receiveAction, order.postAction].filter(Boolean) as PostFinishingActionRecord[]
   const operationRecords = getUnifiedOperationRecordsForPostFinishing(order.postOrderId, order.sourceTaskId)
+    .filter((record) => !['POST_QC_START', 'POST_QC_FINISH', 'POST_RECHECK_START', 'POST_RECHECK_FINISH'].includes(record.actionCode))
 
   const baseRows: Array<[string, string]> = [
     ['后道单号', order.postOrderNo],
@@ -205,12 +205,12 @@ export function renderPostFinishingWorkOrderDetailPage(postOrderId: string): str
       return renderPostSection('基本信息', renderInfoGrid(baseRows))
     }
     if (activeTab === 'receive') {
-      return renderPostSection('接收领料', renderPostTable(
-        ['记录号', '动作', '接收领料状态', '开始时间', '接收时间', '接收人', '接收成衣件数', '接收差异成衣件数', '凭证', '备注'],
+      return renderPostSection('接收入仓', renderPostTable(
+        ['记录号', '动作', '接收入仓状态', '开始时间', '接收时间', '接收人', '接收成衣件数', '接收差异成衣件数', '凭证', '备注'],
         `
           <tr class="align-top">
             <td class="px-3 py-3 font-mono text-xs">${escapeHtml(order.receiveAction.actionId)}</td>
-            <td class="px-3 py-3 text-sm">接收领料</td>
+            <td class="px-3 py-3 text-sm">接收入仓</td>
             <td class="px-3 py-3">${renderPostStatusBadge(order.receiveAction.status)}</td>
             <td class="px-3 py-3 text-sm">${escapeHtml(order.receiveAction.startedAt || '—')}</td>
             <td class="px-3 py-3 text-sm">${escapeHtml(order.receiveAction.finishedAt || '—')}</td>
@@ -231,26 +231,12 @@ export function renderPostFinishingWorkOrderDetailPage(postOrderId: string): str
           ['车缝工厂', order.sourceSewingFactoryName],
           ['车缝任务号', order.sourceSewingTaskNo],
           ['车缝厂后道完成成衣件数', formatGarmentQty(order.postAction.completedPostGarmentQty ?? order.postAction.acceptedGarmentQty, order.postAction.qtyUnit)],
-          ['说明', order.postAction.skipReason || '后道工厂只做接收领料、质检、复检和交出'],
+          ['说明', order.postAction.skipReason || '后道工厂只做接收入仓、质检、复检和交出'],
         ]))
       }
       return renderPostSection('后道记录', renderPostTable(
         ['记录号', '动作', '后道状态', '开始时间', '完成时间', '后道操作人', '后道完成成衣件数', '确认成衣件数', '不合格成衣件数', '差异成衣件数', '备注'],
         renderActionRows([order.postAction]),
-        'min-w-[1260px]',
-      ))
-    }
-    if (activeTab === 'qc') {
-      return renderPostSection('质检记录', renderPostTable(
-        ['记录号', '动作', '状态', '开始时间', '完成时间', '质检人', '待质检成衣件数', '质检通过成衣件数', '质检不合格成衣件数', '差异成衣件数', '备注'],
-        order.qcAction ? renderActionRows([order.qcAction]) : renderEmptyRow(11, '当前后道单尚未生成质检记录'),
-        'min-w-[1260px]',
-      ))
-    }
-    if (activeTab === 'recheck') {
-      return renderPostSection('复检记录', renderPostTable(
-        ['记录号', '动作', '状态', '开始时间', '完成时间', '复检人', '质检通过成衣件数', '复检确认成衣件数', '不合格成衣件数', '差异成衣件数', '备注'],
-        order.recheckAction ? renderActionRows([order.recheckAction]) : renderEmptyRow(11, '当前后道单尚未生成复检记录'),
         'min-w-[1260px]',
       ))
     }
@@ -291,7 +277,7 @@ export function renderPostFinishingWorkOrderDetailPage(postOrderId: string): str
         `)
       }).join('')
       return renderPostSection('交出记录', renderPostTable(
-        ['后道交出仓记录号', '交出记录号', '后道单号', '生产单', '后道工厂', '待交出成衣件数', '已交出成衣件数', '实收成衣件数', '差异成衣件数', '当前状态', '操作'],
+        ['后道待交出仓记录号', '交出记录号', '后道单号', '生产单', '后道工厂', '待交出成衣件数', '已交出成衣件数', '实收成衣件数', '差异成衣件数', '当前状态', '操作'],
         rows || renderEmptyRow(11, '当前后道单暂无交出仓或交出记录'),
         'min-w-[1400px]',
       ))

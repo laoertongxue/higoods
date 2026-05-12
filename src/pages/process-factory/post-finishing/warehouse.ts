@@ -1,316 +1,227 @@
 import {
-  buildHandoverQrLabelPrintLink,
-  buildTaskDeliveryCardPrintLink,
-  buildPostFinishingWorkOrderDetailLink,
-} from '../../../data/fcs/fcs-route-links.ts'
-import {
-  type ProcessHandoverRecord,
-  type ProcessWarehouseRecord,
-  getHandoverRecordsByWarehouseRecordId,
-  listWaitHandoverWarehouseRecords,
-  listWaitProcessWarehouseRecords,
-} from '../../../data/fcs/process-warehouse-domain.ts'
+  listPostFinishingWaitHandoverWarehouseRecords,
+  listPostFinishingWaitProcessWarehouseRecords,
+  type PostFinishingWaitHandoverWarehouseRecord,
+  type PostFinishingWaitProcessWarehouseRecord,
+  type PostFinishingWarehouseFlowRecord,
+} from '../../../data/fcs/post-finishing-domain.ts'
 import { escapeHtml } from '../../../utils.ts'
 import {
   formatGarmentQty,
-  renderPostAction,
-  renderPostFinishingPageHeader,
-  renderPostSection,
+  getPostListFilters,
+  paginatePostRows,
+  postFilterTextMatches,
+  renderPostPagination,
   renderPostStatusBadge,
-  renderPostTable,
 } from './shared.ts'
-import {
-  renderFactoryWarehouseStandardTabs,
-  renderWarehouseFlowButton,
-  renderWarehouseLocationActions,
-  renderWarehouseLocationToolbar,
-  type FactoryWarehouseFlowLine,
-  type FactoryWarehouseStandardTab,
-} from '../shared/warehouse-standard.ts'
 
-function getPostOrderIdFilter(): string {
-  if (typeof window === 'undefined') return ''
-  return new URLSearchParams(window.location.search).get('postOrderId') || ''
+type Mode = 'wait-process' | 'wait-handover'
+type TabKey = 'inventory' | 'flow' | 'locations'
+type WarehouseRecord = PostFinishingWaitProcessWarehouseRecord | PostFinishingWaitHandoverWarehouseRecord
+
+const TABS: Array<{ key: TabKey; label: string }> = [
+  { key: 'inventory', label: '库存' },
+  { key: 'flow', label: '流水记录' },
+  { key: 'locations', label: '库区库位' },
+]
+
+function basePath(mode: Mode): string {
+  return mode === 'wait-process' ? '/fcs/craft/post-finishing/wait-process-warehouse' : '/fcs/craft/post-finishing/wait-handover-warehouse'
 }
 
-function matchesPostOrderFilter(record: { sourceWorkOrderId: string; sourceWorkOrderNo: string }, postOrderId: string): boolean {
-  return !postOrderId || record.sourceWorkOrderId === postOrderId || record.sourceWorkOrderNo === postOrderId
+function title(mode: Mode): string {
+  return mode === 'wait-process' ? '后道待加工仓' : '后道待交出仓'
 }
 
-function renderFilterHint(postOrderId: string, empty = false): string {
-  if (!postOrderId) return ''
+function params(): URLSearchParams {
+  return typeof window === 'undefined' ? new URLSearchParams() : new URLSearchParams(window.location.search)
+}
+
+function activeTab(): TabKey {
+  const value = params().get('tab') as TabKey | null
+  return value && TABS.some((tab) => tab.key === value) ? value : 'inventory'
+}
+
+function buildLink(mode: Mode, overrides: Record<string, string | number | undefined>): string {
+  const next = params()
+  Object.entries(overrides).forEach(([key, value]) => {
+    if (value === undefined || value === '' || value === '全部') next.delete(key)
+    else next.set(key, String(value))
+  })
+  const query = next.toString()
+  return `${basePath(mode)}${query ? `?${query}` : ''}`
+}
+
+function records(mode: Mode): WarehouseRecord[] {
+  return mode === 'wait-process' ? listPostFinishingWaitProcessWarehouseRecords() : listPostFinishingWaitHandoverWarehouseRecords()
+}
+
+function qty(record: WarehouseRecord): number {
+  return 'availableGarmentQty' in record
+    ? record.availableGarmentQty
+    : Math.max(record.waitHandoverGarmentQty - record.submittedHandoverGarmentQty, 0)
+}
+
+function location(record: WarehouseRecord, index: number, mode: Mode): string {
+  const area = mode === 'wait-process' ? '待加工仓' : '待交出仓'
+  return `${area} ${index % 2 === 0 ? 'A' : 'B'} 区 / PF-${mode === 'wait-process' ? 'P' : 'H'}-${String(index + 1).padStart(2, '0')}`
+}
+
+function filterRows(input: WarehouseRecord[], mode: Mode): WarehouseRecord[] {
+  const filters = getPostListFilters()
+  return input.filter((record) => {
+    if (filters.status !== '全部' && record.status !== filters.status) return false
+    if (filters.factory !== '全部' && record.managedPostFactoryName !== filters.factory) return false
+    return postFilterTextMatches(filters.keyword, [record.warehouseRecordNo, record.postOrderNo, record.sourceProductionOrderNo, record.sourceTaskNo, record.managedPostFactoryName, record.spuCode, record.spuName, record.skuCode, record.colorName, record.sizeName, record.status, title(mode)])
+  })
+}
+
+function renderHeader(mode: Mode): string {
   return `
-    <div class="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">
-      已按后道单定位：<span class="font-mono">${escapeHtml(postOrderId)}</span>${empty ? '，当前没有匹配的仓记录。' : ''}
+    <header class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <h1 class="text-xl font-semibold text-foreground">${escapeHtml(title(mode))}</h1>
+      </div>
+      ${mode === 'wait-process' ? '<button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700">扫码收货</button>' : ''}
+    </header>
+  `
+}
+
+function metric(label: string, value: string, helper = ''): string {
+  return `
+    <article class="rounded-lg border bg-card px-4 py-3">
+      <div class="text-xs text-muted-foreground">${escapeHtml(label)}</div>
+      <div class="mt-2 text-2xl font-semibold text-foreground">${escapeHtml(value)}</div>
+      ${helper ? `<div class="mt-1 text-xs text-muted-foreground">${escapeHtml(helper)}</div>` : ''}
+    </article>
+  `
+}
+
+function renderMetrics(input: WarehouseRecord[], mode: Mode): string {
+  const totalQty = input.reduce((sum, item) => sum + qty(item), 0)
+  const activeCount = input.filter((item) => qty(item) > 0).length
+  const flowCount = input.reduce((sum, item) => sum + item.flowRecords.length, 0)
+  const locationCount = Math.min(Math.max(input.length, 1), 6)
+  return `
+    <section class="grid gap-3 md:grid-cols-4">
+      ${metric(mode === 'wait-process' ? '待加工库存' : '待交出库存', formatGarmentQty(totalQty), '当前可用库存')}
+      ${metric('库存项目', `${input.length} 条`, `${activeCount} 条有库存`)}
+      ${metric('库区库位', `${locationCount} 个`, '支持查看流水')}
+      ${metric('流水记录', `${flowCount} 条`, mode === 'wait-process' ? '收货 + 质检 + 后道' : '复检 + WMS')}
+    </section>
+  `
+}
+
+function renderTabs(mode: Mode, current: TabKey): string {
+  return `
+    <nav class="inline-flex flex-wrap gap-1 rounded-md bg-muted p-1">
+      ${TABS.map((tab) => `<button type="button" class="rounded px-3 py-1.5 text-sm ${tab.key === current ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'}" data-nav="${escapeHtml(buildLink(mode, { tab: tab.key, page: 1 }))}">${escapeHtml(tab.label)}</button>`).join('')}
+    </nav>
+  `
+}
+
+function renderFilters(mode: Mode, input: WarehouseRecord[]): string {
+  const filters = getPostListFilters()
+  const statusOptions = ['全部', ...Array.from(new Set(input.map((item) => item.status))).filter(Boolean)]
+  const factoryOptions = ['全部', ...Array.from(new Set(input.map((item) => item.managedPostFactoryName))).filter(Boolean)]
+  return `
+    <form class="rounded-lg border bg-card p-4" method="get" action="${escapeHtml(basePath(mode))}">
+      <input type="hidden" name="tab" value="${escapeHtml(activeTab())}" />
+      <input type="hidden" name="page" value="1" />
+      <div class="grid gap-3 md:grid-cols-4">
+        <label class="space-y-1 text-sm"><span class="text-xs text-muted-foreground">关键词</span><input class="h-9 w-full rounded-md border px-3 text-sm" name="keyword" value="${escapeHtml(filters.keyword)}" placeholder="SKU / 生产单 / 单号" /></label>
+        <label class="space-y-1 text-sm"><span class="text-xs text-muted-foreground">状态</span><select class="h-9 w-full rounded-md border px-3 text-sm" name="status">${statusOptions.map((value) => `<option value="${escapeHtml(value)}" ${filters.status === value ? 'selected' : ''}>${escapeHtml(value)}</option>`).join('')}</select></label>
+        <label class="space-y-1 text-sm"><span class="text-xs text-muted-foreground">工厂</span><select class="h-9 w-full rounded-md border px-3 text-sm" name="factory">${factoryOptions.map((value) => `<option value="${escapeHtml(value)}" ${filters.factory === value ? 'selected' : ''}>${escapeHtml(value)}</option>`).join('')}</select></label>
+        <div class="flex items-end justify-end gap-2"><button type="button" class="h-9 rounded-md border px-3 text-sm" data-nav="${escapeHtml(basePath(mode))}">重置</button><button type="submit" class="h-9 rounded-md bg-blue-600 px-3 text-sm font-medium text-white">查询</button></div>
+      </div>
+    </form>
+  `
+}
+
+function table(headers: string[], rows: string, minWidth = 'min-w-[1180px]'): string {
+  return `
+    <div class="overflow-x-auto">
+      <table class="${minWidth} w-full text-left text-sm">
+        <thead class="bg-slate-50 text-xs text-muted-foreground"><tr>${headers.map((header) => `<th class="px-3 py-2 font-medium">${escapeHtml(header)}</th>`).join('')}</tr></thead>
+        <tbody>${rows || `<tr><td colspan="${headers.length}" class="px-3 py-8 text-center text-muted-foreground">暂无数据</td></tr>`}</tbody>
+      </table>
     </div>
   `
 }
 
-function buildPostFlowLines(record: ProcessWarehouseRecord): FactoryWarehouseFlowLine[] {
-  const lines: FactoryWarehouseFlowLine[] = record.recordType === 'WAIT_PROCESS'
-    ? [
-        {
-          flowType: '领料入仓',
-          qtyText: formatGarmentQty(record.receivedObjectQty, record.qtyUnit),
-          sourceNo: record.warehouseRecordNo,
-          operatedAt: record.inboundAt || record.createdAt,
-          operatorName: record.targetFactoryName,
-          statusText: record.status,
-        },
-        {
-          flowType: '加工用料',
-          qtyText: `-${formatGarmentQty(record.receivedObjectQty - record.availableObjectQty, record.qtyUnit)}`,
-          sourceNo: record.sourceWorkOrderNo,
-          operatedAt: record.updatedAt,
-          operatorName: record.targetFactoryName,
-          statusText: record.currentActionName,
-        },
-      ]
-    : [
-        {
-          flowType: '加工入仓',
-          qtyText: formatGarmentQty(record.availableObjectQty + record.handedOverObjectQty, record.qtyUnit),
-          sourceNo: record.warehouseRecordNo,
-          operatedAt: record.inboundAt || record.createdAt,
-          operatorName: record.targetFactoryName || record.sourceFactoryName,
-          statusText: record.status,
-        },
-      ]
-  if (record.recordType === 'WAIT_HANDOVER' && record.handedOverObjectQty > 0) {
-    lines.push({
-      flowType: '交出出仓',
-      qtyText: `-${formatGarmentQty(record.handedOverObjectQty, record.qtyUnit)}`,
-      sourceNo: record.relatedHandoverRecordIds.join('、') || record.warehouseRecordNo,
-      operatedAt: record.outboundAt || record.updatedAt,
-      operatorName: record.targetFactoryName || record.sourceFactoryName,
-      statusText: record.status,
-    })
-  }
-  return lines
+function renderInventoryRows(input: WarehouseRecord[], mode: Mode): string {
+  return input.map((record, index) => `
+    <tr class="align-top">
+      <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.skuCode)}</td>
+      <td class="px-3 py-3 text-sm"><div class="font-medium">${escapeHtml(record.spuName)}</div><div class="text-xs text-muted-foreground">${escapeHtml(record.colorName)} / ${escapeHtml(record.sizeName)}</div></td>
+      <td class="px-3 py-3 text-sm font-medium">${formatGarmentQty(qty(record), record.qtyUnit)}</td>
+      <td class="px-3 py-3 text-sm">${escapeHtml(location(record, index, mode))}</td>
+      <td class="px-3 py-3">${renderPostStatusBadge(record.status)}</td>
+      <td class="px-3 py-3"><button type="button" class="rounded-md border px-2 py-1 text-xs" data-nav="${escapeHtml(buildLink(mode, { tab: 'flow', keyword: record.skuCode, page: 1 }))}">查看库存流水</button></td>
+    </tr>
+  `).join('')
 }
 
-function renderPostLocationRows(records: ProcessWarehouseRecord[], scopeLabel: string): string {
-  const uniqueRows = new Map<string, ProcessWarehouseRecord>()
-  records.forEach((record) => {
-    const key = `${record.targetFactoryName}-${record.targetWarehouseName}-${record.warehouseLocation}`
-    if (!uniqueRows.has(key)) uniqueRows.set(key, record)
-  })
-  return Array.from(uniqueRows.values())
-    .map((record) => `
-      <tr>
-        <td class="px-3 py-3 text-sm">${escapeHtml(record.targetFactoryName || record.sourceFactoryName)}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(record.targetWarehouseName)}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(record.warehouseLocation.split('-')[0] || '默认库区')}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(record.warehouseLocation)}</td>
-        <td class="px-3 py-3">${renderPostStatusBadge('已入仓')}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(record.updatedAt)}</td>
-        <td class="px-3 py-3">${renderWarehouseLocationActions(scopeLabel, record.warehouseLocation)}</td>
-      </tr>
-    `)
-    .join('')
+function renderFlowRows(input: WarehouseRecord[]): string {
+  return input.flatMap((record) => record.flowRecords.map((flow: PostFinishingWarehouseFlowRecord) => `
+    <tr class="align-top">
+      <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.skuCode)}</td>
+      <td class="px-3 py-3 font-mono text-xs">${escapeHtml(flow.flowRecordNo)}</td>
+      <td class="px-3 py-3 text-sm">${escapeHtml(flow.flowType)}</td>
+      <td class="px-3 py-3 text-sm">${formatGarmentQty(flow.qty, flow.qtyUnit)}</td>
+      <td class="px-3 py-3 text-sm">${formatGarmentQty(flow.beforeQty, flow.qtyUnit)} -> ${formatGarmentQty(flow.afterQty, flow.qtyUnit)}</td>
+      <td class="px-3 py-3 text-sm">${escapeHtml(flow.operatedAt)}</td>
+      <td class="px-3 py-3 text-sm">${escapeHtml(flow.operatorName)}</td>
+    </tr>
+  `)).join('')
 }
 
-function renderPostUsageRows(records: ProcessWarehouseRecord[]): string {
-  return records
-    .map((record) => `
-      <tr>
-        <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.sourceWorkOrderNo)}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(record.sourceTaskNo || '后道执行')}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(record.targetFactoryName)}</td>
-        <td class="px-3 py-3 text-sm">${formatGarmentQty(Math.max(record.receivedObjectQty - record.availableObjectQty, 0), record.qtyUnit)}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(record.currentActionName)}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(record.updatedAt)}</td>
-        <td class="px-3 py-3">${renderPostStatusBadge(record.status)}</td>
-      </tr>
-    `)
-    .join('')
+function renderLocationRows(input: WarehouseRecord[], mode: Mode): string {
+  return input.map((record, index) => `
+    <tr class="align-top">
+      <td class="px-3 py-3 text-sm">${escapeHtml(location(record, index, mode))}</td>
+      <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.skuCode)}</td>
+      <td class="px-3 py-3 text-sm">${escapeHtml(record.spuName)} / ${escapeHtml(record.colorName)} / ${escapeHtml(record.sizeName)}</td>
+      <td class="px-3 py-3 text-sm">${formatGarmentQty(qty(record), record.qtyUnit)}</td>
+      <td class="px-3 py-3">${renderPostStatusBadge(record.status)}</td>
+    </tr>
+  `).join('')
 }
 
-function renderPostInboundRows(records: ProcessWarehouseRecord[]): string {
-  return records
-    .map((record) => `
-      <tr>
-        <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.warehouseRecordNo)}</td>
-        <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.sourceWorkOrderNo)}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(record.sourceProductionOrderNo)}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(record.targetFactoryName || record.sourceFactoryName)}</td>
-        <td class="px-3 py-3 text-sm">${formatGarmentQty(record.availableObjectQty + record.handedOverObjectQty, record.qtyUnit)}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(record.warehouseLocation)}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(record.inboundAt || record.createdAt)}</td>
-        <td class="px-3 py-3">${renderPostStatusBadge(record.status)}</td>
-      </tr>
-    `)
-    .join('')
+function renderSection(titleText: string, body: string): string {
+  return `
+    <section class="rounded-lg border bg-card">
+      <header class="border-b px-4 py-3"><h2 class="text-sm font-semibold">${escapeHtml(titleText)}</h2></header>
+      <div class="p-4">${body}</div>
+    </section>
+  `
 }
 
-function renderPostHandoutRows(handovers: ProcessHandoverRecord[]): string {
-  return handovers
-    .map((record) => `
-      <tr>
-        <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.handoverRecordNo)}</td>
-        <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.sourceWorkOrderNo)}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(record.sourceProductionOrderNo)}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(record.receiveWarehouseName || record.receiveFactoryName)}</td>
-        <td class="px-3 py-3 text-sm">${formatGarmentQty(record.handoverObjectQty, record.qtyUnit)}</td>
-        <td class="px-3 py-3 text-sm">${formatGarmentQty(record.receiveObjectQty, record.qtyUnit)}</td>
-        <td class="px-3 py-3 text-sm">${formatGarmentQty(record.diffObjectQty, record.qtyUnit)}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(record.handoverAt)}</td>
-        <td class="px-3 py-3">${renderPostStatusBadge(record.status)}</td>
-      </tr>
-    `)
-    .join('')
+function renderPage(mode: Mode): string {
+  const all = records(mode)
+  const filtered = filterRows(all, mode)
+  const pagination = paginatePostRows(filtered, getPostListFilters())
+  const tab = activeTab()
+  const body = tab === 'flow'
+    ? table(['SKU', '流水号', '类型', '数量', '前后库存', '操作时间', '操作人'], renderFlowRows(pagination.rows), 'min-w-[1120px]')
+    : tab === 'locations'
+      ? table(['库区库位', 'SKU', '款式/颜色/尺码', '当前库存', '状态'], renderLocationRows(pagination.rows, mode), 'min-w-[980px]')
+      : table(['SKU', '款式名称 / 颜色', '当前库存', '库区库位', '状态', '操作'], renderInventoryRows(pagination.rows, mode), 'min-w-[1100px]')
+  return `
+    <div class="space-y-4 p-4">
+      ${renderHeader(mode)}
+      ${renderMetrics(all, mode)}
+      ${renderTabs(mode, tab)}
+      ${renderFilters(mode, all)}
+      ${renderSection(tab === 'flow' ? '流水记录' : tab === 'locations' ? '库区库位' : '库存', `${body}<div class="mt-4">${renderPostPagination(pagination)}</div>`)}
+    </div>
+  `
 }
 
 export function renderPostFinishingWaitProcessWarehousePage(): string {
-  const postOrderId = getPostOrderIdFilter()
-  const records = listWaitProcessWarehouseRecords({ craftType: 'POST_FINISHING' }).filter((record) =>
-    matchesPostOrderFilter(record, postOrderId),
-  )
-  const rows = records
-    .map((record) => `
-      <tr class="align-top ${postOrderId ? 'bg-blue-50/60' : ''}">
-        <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.warehouseRecordNo)}</td>
-        <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.sourceWorkOrderNo)}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(record.sourceTaskNo || '—')}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(record.remark.includes('车缝厂已完成后道') ? '车缝厂已完成后道' : '后道工厂执行')}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(record.sourceFactoryName)}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(record.targetFactoryName)}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(record.sourceProductionOrderNo)}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(record.skuSummary)}</td>
-        <td class="px-3 py-3 text-sm">${formatGarmentQty(record.availableObjectQty || record.receivedObjectQty, record.qtyUnit)}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(record.currentActionName)}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(record.warehouseLocation)}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(record.inboundAt || record.createdAt)}</td>
-        <td class="px-3 py-3">${renderPostStatusBadge(record.status)}</td>
-        <td class="px-3 py-3">
-          <div class="flex flex-wrap gap-2">
-            ${renderWarehouseFlowButton(`${record.warehouseRecordNo} 库存流水`, buildPostFlowLines(record))}
-            ${renderPostAction('查看后道单', buildPostFinishingWorkOrderDetailLink(record.sourceWorkOrderId, 'receive'))}
-          </div>
-        </td>
-      </tr>
-    `)
-    .join('')
-  const bodyRows =
-    rows ||
-    `<tr><td colspan="14" class="px-3 py-8 text-center text-sm text-muted-foreground">未找到对应后道单的待加工仓记录。</td></tr>`
-
-  return `
-    <div class="space-y-4 p-4">
-      ${renderPostFinishingPageHeader('后道待加工仓', '承接后道工厂接收领料、质检、后道、复检；车缝厂已完成后道的任务不再进入待后道。')}
-      ${renderFilterHint(postOrderId, records.length === 0)}
-      ${renderFactoryWarehouseStandardTabs([
-        {
-          key: 'inventory',
-          label: '库存',
-          count: records.length,
-          content: renderPostTable(
-            ['入仓记录号', '后道单号', '来源车缝任务', '后道来源', '来源工厂', '后道工厂', '生产单', 'SKU', '当前库存', '当前待处理动作', '仓内位置', '入仓时间', '状态', '操作'],
-            bodyRows,
-            'min-w-[1540px]',
-          ),
-        },
-        {
-          key: 'receipts',
-          label: '领料记录',
-          count: records.length,
-          content: renderPostTable(['领料记录号', '后道单号', '来源车缝任务', '后道来源', '来源工厂', '后道工厂', '生产单', 'SKU', '确认入仓数量', '当前动作', '仓内位置', '确认时间', '状态', '操作'], bodyRows, 'min-w-[1540px]'),
-        },
-        {
-          key: 'usage',
-          label: '加工用料记录',
-          count: records.length,
-          content: renderPostTable(['后道单号', '来源任务', '后道工厂', '用料成衣件数', '对应动作', '操作时间', '状态'], renderPostUsageRows(records), 'min-w-[980px]'),
-        },
-        {
-          key: 'locations',
-          label: '库区库位',
-          count: records.length,
-          content: `<div class="border-b px-4 py-3">${renderWarehouseLocationToolbar('后道待加工仓')}</div>${renderPostTable(['后道工厂', '仓库', '库区', '库位', '状态', '更新时间', '操作'], renderPostLocationRows(records, '后道待加工仓'), 'min-w-[980px]')}`,
-        },
-      ] satisfies FactoryWarehouseStandardTab[], 'post-wait-process-tabs')}
-    </div>
-  `
+  return renderPage('wait-process')
 }
 
 export function renderPostFinishingWaitHandoverWarehousePage(): string {
-  const postOrderId = getPostOrderIdFilter()
-  const records = listWaitHandoverWarehouseRecords({ craftType: 'POST_FINISHING' }).filter((record) =>
-    matchesPostOrderFilter(record, postOrderId),
-  )
-  const rows = records
-    .map((record) => {
-      const handovers = getHandoverRecordsByWarehouseRecordId(record.warehouseRecordId)
-      const printActions = handovers.length > 0
-        ? handovers
-          .map((handover) => `${renderPostAction('打印任务交货卡', buildTaskDeliveryCardPrintLink(handover.handoverRecordId))}${renderPostAction('打印交出二维码', buildHandoverQrLabelPrintLink(handover.handoverRecordId))}`)
-          .join('')
-        : renderPostAction('暂无交货卡', '', true)
-      return `
-        <tr class="align-top ${postOrderId ? 'bg-blue-50/60' : ''}">
-          <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.warehouseRecordNo)}</td>
-          <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.sourceWorkOrderNo)}</td>
-          <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.sourceTaskNo || '复检完成记录')}</td>
-          <td class="px-3 py-3 text-sm">${escapeHtml(record.remark.includes('车缝厂已完成后道') ? '车缝厂已完成后道' : '后道工厂执行')}</td>
-          <td class="px-3 py-3 text-sm">${escapeHtml(record.sourceProductionOrderNo)}</td>
-          <td class="px-3 py-3 text-sm">${escapeHtml(record.targetFactoryName || record.sourceFactoryName)}</td>
-          <td class="px-3 py-3 text-sm">${formatGarmentQty(record.availableObjectQty, record.qtyUnit)}</td>
-          <td class="px-3 py-3 text-sm">${formatGarmentQty(record.availableObjectQty, record.qtyUnit)}</td>
-          <td class="px-3 py-3 text-sm">${formatGarmentQty(record.handedOverObjectQty, record.qtyUnit)}</td>
-          <td class="px-3 py-3 text-sm">${formatGarmentQty(record.writtenBackObjectQty, record.qtyUnit)}</td>
-          <td class="px-3 py-3 text-sm">${formatGarmentQty(record.diffObjectQty, record.qtyUnit)}</td>
-          <td class="px-3 py-3 text-sm">${escapeHtml(handovers.map((item) => `${item.handoverRecordNo} / ${item.status}`).join('、') || '待交出')}</td>
-          <td class="px-3 py-3">${renderPostStatusBadge(record.status)}</td>
-          <td class="px-3 py-3">
-            <div class="flex flex-wrap gap-2">
-              ${renderPostAction('查看后道单', buildPostFinishingWorkOrderDetailLink(record.sourceWorkOrderId, 'handover'))}
-              ${renderWarehouseFlowButton(`${record.warehouseRecordNo} 库存流水`, buildPostFlowLines(record))}
-              ${renderPostAction('查看复检单', buildPostFinishingWorkOrderDetailLink(record.sourceWorkOrderId, 'recheck'))}
-              ${printActions}
-            </div>
-          </td>
-        </tr>
-      `
-    })
-    .join('')
-  const bodyRows =
-    rows ||
-    `<tr><td colspan="14" class="px-3 py-8 text-center text-sm text-muted-foreground">未找到对应后道单的交出仓记录。</td></tr>`
-
-  return `
-    <div class="space-y-4 p-4">
-      ${renderPostFinishingPageHeader('后道交出仓', '只承接复检完成后的后道工厂待交出记录。')}
-      ${renderFilterHint(postOrderId, records.length === 0)}
-      ${renderFactoryWarehouseStandardTabs([
-        {
-          key: 'inventory',
-          label: '库存',
-          count: records.length,
-          content: renderPostTable(
-            ['交出记录号', '后道单号', '来源车缝任务', '后道来源', '生产单', '后道工厂', '复检确认成衣件数', '当前库存', '已交出成衣件数', '实收成衣件数', '差异成衣件数', '统一交出记录', '当前状态', '操作'],
-            bodyRows,
-            'min-w-[1580px]',
-          ),
-        },
-        {
-          key: 'handouts',
-          label: '交出记录',
-          count: records.flatMap((record) => getHandoverRecordsByWarehouseRecordId(record.warehouseRecordId)).length,
-          content: renderPostTable(['交出记录号', '后道单号', '生产单', '接收方', '交出数量', '实收数量', '差异数量', '交出时间', '状态'], renderPostHandoutRows(records.flatMap((record) => getHandoverRecordsByWarehouseRecordId(record.warehouseRecordId))), 'min-w-[1180px]'),
-        },
-        {
-          key: 'inbounds',
-          label: '加工入仓记录',
-          count: records.length,
-          content: renderPostTable(['入仓记录号', '后道单号', '生产单', '后道工厂', '加工入仓数量', '仓内位置', '入仓时间', '状态'], renderPostInboundRows(records), 'min-w-[1080px]'),
-        },
-        {
-          key: 'locations',
-          label: '库区库位',
-          count: records.length,
-          content: `<div class="border-b px-4 py-3">${renderWarehouseLocationToolbar('后道待交出仓')}</div>${renderPostTable(['后道工厂', '仓库', '库区', '库位', '状态', '更新时间', '操作'], renderPostLocationRows(records, '后道待交出仓'), 'min-w-[980px]')}`,
-        },
-      ] satisfies FactoryWarehouseStandardTab[], 'post-wait-handover-tabs')}
-    </div>
-  `
+  return renderPage('wait-handover')
 }

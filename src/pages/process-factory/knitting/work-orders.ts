@@ -32,7 +32,9 @@ import { getTaskStartDueInfo, getTaskStartRuleState } from '../../../data/fcs/pd
 import {
   formatNumber,
   formatQty,
+  paginateKnittingItems,
   renderBadge,
+  renderPaginationControls,
   type BadgeTone,
   renderKindBadge,
   renderMetricCard,
@@ -243,7 +245,8 @@ function renderWorkflowActionButtons(order: KnittingWorkOrder): string {
 
 function renderOrdersTable(filters: KnittingOrderFilters): string {
   const filteredOrders = listFilteredKnittingWorkOrders(filters)
-  const rows = filteredOrders
+  const paging = paginateKnittingItems(filteredOrders, 'workOrdersPage', 10)
+  const rows = paging.rows
     .map((order) => {
       const pickupDifferenceTone = order.yarnReceipt.differenceWeightKg === 0 ? 'text-emerald-700' : 'text-red-700'
       const yarnUsage = getKnittingYarnUsageSummary(order)
@@ -331,6 +334,7 @@ function renderOrdersTable(filters: KnittingOrderFilters): string {
           <tbody>${rows}</tbody>
         </table>
       </div>
+      ${renderPaginationControls(paging, '条加工单')}
     `,
   )
 }

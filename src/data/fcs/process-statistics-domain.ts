@@ -588,7 +588,7 @@ export function getPostFinishingExecutionStatistics(filter: ProcessStatisticsFil
   const waitProcess = records.waitProcess
   const dedicatedOrders = postOrders.filter((order) => order.routeMode === '专门后道工厂完整流程')
   const transferOrders = postOrders.filter((order) => order.routeMode === '车缝厂已做后道')
-  const receiveRecords = listPostFinishingActionRecords('接收领料').filter((record) => postOrders.some((order) => order.postOrderId === record.postOrderId))
+  const receiveRecords = listPostFinishingActionRecords('扫码收货').filter((record) => postOrders.some((order) => order.postOrderId === record.postOrderId))
   const qcRecords = listPostFinishingQcOrders().filter((record) => postOrders.some((order) => order.postOrderId === record.postOrderId))
   const recheckRecords = listPostFinishingRecheckOrders().filter((record) => postOrders.some((order) => order.postOrderId === record.postOrderId))
   const postRecords = listPostFinishingActionRecords('后道').filter((record) => postOrders.some((order) => order.postOrderId === record.postOrderId))
@@ -600,7 +600,7 @@ export function getPostFinishingExecutionStatistics(filter: ProcessStatisticsFil
     statusCounts: countByStatus(postOrders),
     statusRows: statusRows(countByStatus(postOrders)),
     postOrderCount: postOrders.length,
-    waitReceiveTaskCount: postOrders.filter((order) => order.currentStatus === '待接收领料' || order.currentStatus === '接收中').length,
+    waitReceiveTaskCount: postOrders.filter((order) => order.currentStatus === '待扫码收货' || order.currentStatus === '扫码收货中' || order.currentStatus === '接收中').length,
     receiveDoneGarmentQty: round(receiveRecords.reduce((sum, record) => sum + record.acceptedGarmentQty, 0)),
     receiveDiffGarmentQty: round(receiveRecords.reduce((sum, record) => sum + record.diffGarmentQty, 0)),
     waitPostTaskCount: postStatusCount(postOrders, '待后道'),

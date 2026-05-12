@@ -10,6 +10,11 @@ import {
   type FutureMobileFactoryQcDetail,
   type FutureMobileFactoryQcListItem,
 } from '../data/fcs/quality-deduction-selectors'
+import {
+  listPostFinishingSourceStyleOptions,
+  listPostFinishingSourceTaskOptions,
+  type PostFinishingSkuLine,
+} from '../data/fcs/post-finishing-domain'
 import type { QualityEvidenceAsset } from '../data/fcs/quality-deduction-domain'
 import { escapeHtml, formatDateTime } from '../utils'
 import { renderPdaFrame } from './pda-shell'
@@ -25,6 +30,13 @@ interface PdaQualityState {
   selectedFactoryId: string
   activeView: QualityViewKey
   keyword: string
+  createSheetOpen: boolean
+  createForm: {
+    styleId: string
+    taskId: string
+    selectedSkuIds: string[]
+    errorText: string
+  }
   confirmQcId: string | null
   disputeQcId: string | null
   disputeForm: {
@@ -54,6 +66,13 @@ const state: PdaQualityState = {
   selectedFactoryId: '',
   activeView: 'pending',
   keyword: '',
+  createSheetOpen: false,
+  createForm: {
+    styleId: '',
+    taskId: '',
+    selectedSkuIds: [],
+    errorText: '',
+  },
   confirmQcId: null,
   disputeQcId: null,
   disputeForm: {
@@ -316,6 +335,45 @@ function closeConfirmDialog(): void {
   state.confirmQcId = null
 }
 
+function getCreateStyleOptions() {
+  return listPostFinishingSourceStyleOptions()
+}
+
+function ensureCreateFormDefaults(): void {
+  const styles = getCreateStyleOptions()
+  const currentStyle = styles.find((item) => item.styleId === state.createForm.styleId) ?? styles[0]
+  if (!currentStyle) return
+  if (state.createForm.styleId !== currentStyle.styleId) {
+    state.createForm.styleId = currentStyle.styleId
+  }
+  const tasks = listPostFinishingSourceTaskOptions(currentStyle.styleId)
+  if (state.createForm.taskId && !tasks.some((item) => (item.sourceTaskId || '') === state.createForm.taskId)) {
+    state.createForm.taskId = ''
+  }
+  if (state.createForm.selectedSkuIds.length === 0) {
+    state.createForm.selectedSkuIds = currentStyle.skuLines.map((line) => line.skuId)
+  }
+}
+
+function setCreateStyle(styleId: string): void {
+  const style = getCreateStyleOptions().find((item) => item.styleId === styleId)
+  if (!style) return
+  state.createForm = {
+    styleId: style.styleId,
+    taskId: '',
+    selectedSkuIds: style.skuLines.map((line) => line.skuId),
+    errorText: '',
+  }
+}
+
+function toggleCreateSku(skuId: string, checked: boolean): void {
+  const next = new Set(state.createForm.selectedSkuIds)
+  if (checked) next.add(skuId)
+  else next.delete(skuId)
+  state.createForm.selectedSkuIds = Array.from(next)
+  state.createForm.errorText = ''
+}
+
 function showPdaQualityToast(message: string): void {
   if (typeof document === 'undefined' || typeof window === 'undefined') return
 
@@ -349,6 +407,84 @@ function showPdaQualityToast(message: string): void {
       if (root && root.childElementCount === 0) root.remove()
     }, 180)
   }, 2200)
+}
+
+function renderCreateSkuRows(lines: PostFinishingSkuLine[]): string {
+  if (lines.length === 0) {
+    return '<div class="rounded-xl border border-dashed px-3 py-5 text-center text-xs text-muted-foreground">暂无可选 SKU</div>'
+  }
+  return lines
+    .map((line) => {
+      const checked = state.createForm.selectedSkuIds.includes(line.skuId)
+      return `
+        <label class="flex items-center gap-3 rounded-xl border px-3 py-3 text-xs">
+          <input
+            type="checkbox"
+            class="h-4 w-4"
+            data-pda-quality-field="createSku"
+            data-sku-id="${escapeAttr(line.skuId)}"
+            ${checked ? 'checked' : ''}
+          />
+          <div class="min-w-0 flex-1">
+            <div class="font-medium text-foreground">${escapeHtml(line.skuCode)}</div>
+            <div class="mt-0.5 text-muted-foreground">${escapeHtml(line.colorName)} / ${escapeHtml(line.sizeName)}</div>
+          </div>
+          <input class="h-9 w-20 rounded-xl border bg-background px-2 text-right text-xs" value="${line.plannedQty}" inputmode="numeric" />
+        </label>
+      `
+    })
+    .join('')
+}
+
+function renderCreateQcSheet(): string {
+  if (!state.createSheetOpen) return ''
+  ensureCreateFormDefaults()
+  const styles = getCreateStyleOptions()
+  const currentStyle = styles.find((item) => item.styleId === state.createForm.styleId) ?? styles[0]
+  const tasks = currentStyle ? listPostFinishingSourceTaskOptions(currentStyle.styleId) : []
+  return `
+    <div class="fixed inset-0 z-[130]">
+      <button class="absolute inset-0 bg-black/45" data-pda-quality-action="close-create-qc" aria-label="关闭创建质检单"></button>
+      <section class="absolute inset-x-0 bottom-[72px] top-12 overflow-y-auto rounded-t-3xl border bg-background shadow-2xl">
+        <div class="sticky top-0 z-10 flex items-center justify-between gap-3 border-b bg-background px-4 py-4">
+          <div class="text-base font-semibold text-foreground">创建质检单</div>
+          <button class="rounded-full border px-2.5 py-1 text-xs text-muted-foreground" data-pda-quality-action="close-create-qc">关闭</button>
+        </div>
+
+        <div class="space-y-4 px-4 py-4">
+          <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
+            <label class="text-xs font-medium text-foreground">款式衣服</label>
+            <select class="mt-2 h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-quality-field="createStyleId">
+              ${styles.map((item) => `<option value="${escapeAttr(item.styleId)}" ${item.styleId === state.createForm.styleId ? 'selected' : ''}>${escapeHtml(item.spuCode)} / ${escapeHtml(item.spuName)}</option>`).join('')}
+            </select>
+
+            <label class="mt-4 block text-xs font-medium text-foreground">关联生产单 / 工厂 / 任务</label>
+            <select class="mt-2 h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-quality-field="createTaskId">
+              <option value="">不关联来源任务，直接选择 SKU</option>
+              ${tasks.map((item) => `<option value="${escapeAttr(item.sourceTaskId || '')}" ${(item.sourceTaskId || '') === state.createForm.taskId ? 'selected' : ''}>${escapeHtml(item.productionOrderNo)} / ${escapeHtml(item.sourceFactoryName || '未关联工厂')} / ${escapeHtml(item.sourceTaskNo || '未关联任务')}</option>`).join('')}
+            </select>
+          </section>
+
+          <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
+            <div class="mb-3 text-xs font-medium text-foreground">SKU 与质检数量</div>
+            <div class="space-y-2">${renderCreateSkuRows(currentStyle?.skuLines ?? [])}</div>
+            ${
+              state.createForm.errorText
+                ? `<div class="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">${escapeHtml(state.createForm.errorText)}</div>`
+                : ''
+            }
+          </section>
+        </div>
+
+        <div class="sticky bottom-0 border-t bg-background px-4 py-3">
+          <div class="flex gap-2">
+            <button class="flex-1 rounded-xl border px-3 py-2.5 text-sm hover:bg-muted" data-pda-quality-action="close-create-qc">取消</button>
+            <button class="flex-1 rounded-xl bg-primary px-3 py-2.5 text-sm font-medium text-primary-foreground" data-pda-quality-action="submit-create-qc">创建质检单</button>
+          </div>
+        </div>
+      </section>
+    </div>
+  `
 }
 
 function renderSummaryCards(factoryId: string): string {
@@ -526,7 +662,10 @@ export function renderPdaQualityPage(): string {
               <div class="text-lg font-semibold text-foreground">检查记录</div>
               <div class="mt-1 text-xs text-muted-foreground">查看回货质检、后道复检、异议进度和金额影响。</div>
             </div>
-            <div class="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary">${escapeHtml(factoryId)}</div>
+            <div class="flex shrink-0 flex-col items-end gap-2">
+              <div class="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary">${escapeHtml(factoryId)}</div>
+              <button class="rounded-full bg-primary px-3 py-1.5 text-[11px] font-medium text-primary-foreground" data-pda-quality-action="open-create-qc">创建质检单</button>
+            </div>
           </div>
         </header>
 
@@ -553,6 +692,7 @@ export function renderPdaQualityPage(): string {
           }
         </section>
       </div>
+      ${renderCreateQcSheet()}
     `,
     'settlement',
   )
@@ -920,6 +1060,23 @@ export function handlePdaQualityEvent(target: HTMLElement): boolean {
       return true
     }
 
+    if (field === 'createStyleId' && fieldNode instanceof HTMLSelectElement) {
+      setCreateStyle(fieldNode.value)
+      return true
+    }
+
+    if (field === 'createTaskId' && fieldNode instanceof HTMLSelectElement) {
+      state.createForm.taskId = fieldNode.value
+      state.createForm.errorText = ''
+      return true
+    }
+
+    if (field === 'createSku' && fieldNode instanceof HTMLInputElement) {
+      const skuId = fieldNode.dataset.skuId
+      if (skuId) toggleCreateSku(skuId, fieldNode.checked)
+      return true
+    }
+
     if (field === 'disputeReasonCode' && fieldNode instanceof HTMLSelectElement) {
       state.disputeForm.reasonCode = fieldNode.value
       const matched = DISPUTE_REASON_OPTIONS.find((item) => item.code === fieldNode.value)
@@ -950,7 +1107,32 @@ export function handlePdaQualityEvent(target: HTMLElement): boolean {
   if (action === 'back-list') {
     closeConfirmDialog()
     closeDisputeSheet()
+    state.createSheetOpen = false
     appStore.navigate(getBackPath())
+    return true
+  }
+
+  if (action === 'open-create-qc') {
+    state.createSheetOpen = true
+    ensureCreateFormDefaults()
+    return true
+  }
+
+  if (action === 'close-create-qc') {
+    state.createSheetOpen = false
+    state.createForm.errorText = ''
+    return true
+  }
+
+  if (action === 'submit-create-qc') {
+    ensureCreateFormDefaults()
+    if (state.createForm.selectedSkuIds.length === 0) {
+      state.createForm.errorText = '请至少选择一个 SKU'
+      return true
+    }
+    state.createSheetOpen = false
+    state.createForm.errorText = ''
+    showPdaQualityToast('质检单已创建')
     return true
   }
 

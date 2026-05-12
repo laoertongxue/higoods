@@ -27,9 +27,9 @@ import {
   renderField,
   renderKindBadge,
   renderPageHeader,
+  renderPaginatedTable,
   renderSection,
   renderStatusBadge,
-  renderTable,
 } from './shared'
 
 type KnittingDetailTab = 'base' | 'yarn' | 'machine' | 'whole' | 'fei' | 'handover' | 'price' | 'evidence'
@@ -269,25 +269,7 @@ function renderYarnTab(order: KnittingWorkOrder): string {
 
 function renderMachineTab(order: KnittingWorkOrder): string {
   const yarnUsage = getKnittingYarnUsageSummary(order)
-  const rows = order.nodes
-    .filter((node) => node.nodeName === '横机成片')
-    .map(
-      (node) => `
-        <tr class="border-b last:border-b-0">
-          <td class="px-3 py-3">${escapeHtml(node.nodeName)}</td>
-          <td class="px-3 py-3">${renderBadge(node.status, node.status === '已完成' ? 'success' : node.status === '进行中' ? 'info' : 'muted')}</td>
-          <td class="px-3 py-3">${formatQty(node.plannedQty, node.unit)}</td>
-          <td class="px-3 py-3">${formatQty(node.completedQty, node.unit)}</td>
-          <td class="px-3 py-3">${formatQty(yarnUsage.processingUsageWeightKg, 'kg')}</td>
-          <td class="px-3 py-3">${escapeHtml(node.machineNos?.join('、') || '未排机')}</td>
-          <td class="px-3 py-3">${escapeHtml(node.operatorName || '—')}</td>
-          <td class="px-3 py-3">${escapeHtml(node.startedAt || '—')}</td>
-          <td class="px-3 py-3">${escapeHtml(node.finishedAt || '—')}</td>
-          <td class="px-3 py-3">${renderNodeActions(order, node.nodeName)}</td>
-        </tr>
-      `,
-    )
-    .join('')
+  const nodes = order.nodes.filter((node) => node.nodeName === '横机成片')
 
   return renderSection(
     '横机成片',
@@ -301,32 +283,34 @@ function renderMachineTab(order: KnittingWorkOrder): string {
         <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildKnittingMachineScheduleLink(order.knittingOrderId))}">查看横机排产</button>
         <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildKnittingMachinesLink())}">查看横机设备</button>
       </div>
-      ${renderTable(['节点', '状态', '计划数量', '完成数量', '开工领用纱线', '横机编号', '操作人', '开始时间', '完成时间', 'Web操作'], rows, 'min-w-[1400px]')}
+      ${renderPaginatedTable(
+        ['节点', '状态', '计划数量', '完成数量', '开工领用纱线', '横机编号', '操作人', '开始时间', '完成时间', 'Web操作'],
+        nodes,
+        (node) => `
+          <tr class="border-b last:border-b-0">
+            <td class="px-3 py-3">${escapeHtml(node.nodeName)}</td>
+            <td class="px-3 py-3">${renderBadge(node.status, node.status === '已完成' ? 'success' : node.status === '进行中' ? 'info' : 'muted')}</td>
+            <td class="px-3 py-3">${formatQty(node.plannedQty, node.unit)}</td>
+            <td class="px-3 py-3">${formatQty(node.completedQty, node.unit)}</td>
+            <td class="px-3 py-3">${formatQty(yarnUsage.processingUsageWeightKg, 'kg')}</td>
+            <td class="px-3 py-3">${escapeHtml(node.machineNos?.join('、') || '未排机')}</td>
+            <td class="px-3 py-3">${escapeHtml(node.operatorName || '—')}</td>
+            <td class="px-3 py-3">${escapeHtml(node.startedAt || '—')}</td>
+            <td class="px-3 py-3">${escapeHtml(node.finishedAt || '—')}</td>
+            <td class="px-3 py-3">${renderNodeActions(order, node.nodeName)}</td>
+          </tr>
+        `,
+        'min-w-[1400px]',
+        'detailMachinePage',
+        '条横机节点',
+      )}
     `,
   )
 }
 
 function renderWholeTab(order: KnittingWorkOrder): string {
   const yarnUsage = getKnittingYarnUsageSummary(order)
-  const rows = order.nodes
-    .filter((node) => node.nodeName !== '横机成片')
-    .map(
-      (node) => `
-        <tr class="border-b last:border-b-0">
-          <td class="px-3 py-3">${escapeHtml(node.nodeName)}</td>
-          <td class="px-3 py-3">${renderBadge(node.status, node.status === '已完成' ? 'success' : node.status === '进行中' ? 'info' : node.status === '已跳过' ? 'muted' : 'warning')}</td>
-          <td class="px-3 py-3">${formatQty(node.plannedQty, node.unit)}</td>
-          <td class="px-3 py-3">${formatQty(node.completedQty, node.unit)}</td>
-          <td class="px-3 py-3">${node.nodeName === '缝盘' ? formatQty(yarnUsage.linkingLossWeightKg, 'kg') : '—'}</td>
-          <td class="px-3 py-3">${escapeHtml(node.operatorName || '—')}</td>
-          <td class="px-3 py-3">${escapeHtml(node.startedAt || '—')}</td>
-          <td class="px-3 py-3">${escapeHtml(node.finishedAt || '—')}</td>
-          <td class="px-3 py-3">${escapeHtml(node.remark || '—')}</td>
-          <td class="px-3 py-3">${renderNodeActions(order, node.nodeName)}</td>
-        </tr>
-      `,
-    )
-    .join('')
+  const nodes = order.nodes.filter((node) => node.nodeName !== '横机成片')
 
   return renderSection(
     '整件针织节点',
@@ -334,14 +318,43 @@ function renderWholeTab(order: KnittingWorkOrder): string {
       <div class="mb-3 rounded-md border border-amber-100 bg-amber-50 px-3 py-2 text-xs text-amber-700">
         整件针织固定包含缝盘和熨烫；包装按加工单要求决定是否执行。
       </div>
-      ${renderTable(['节点', '状态', '计划数量', '完成数量', '纱线损耗', '操作人', '开始时间', '完成时间', '备注', 'Web操作'], rows, 'min-w-[1400px]')}
+      ${renderPaginatedTable(
+        ['节点', '状态', '计划数量', '完成数量', '纱线损耗', '操作人', '开始时间', '完成时间', '备注', 'Web操作'],
+        nodes,
+        (node) => `
+          <tr class="border-b last:border-b-0">
+            <td class="px-3 py-3">${escapeHtml(node.nodeName)}</td>
+            <td class="px-3 py-3">${renderBadge(node.status, node.status === '已完成' ? 'success' : node.status === '进行中' ? 'info' : node.status === '已跳过' ? 'muted' : 'warning')}</td>
+            <td class="px-3 py-3">${formatQty(node.plannedQty, node.unit)}</td>
+            <td class="px-3 py-3">${formatQty(node.completedQty, node.unit)}</td>
+            <td class="px-3 py-3">${node.nodeName === '缝盘' ? formatQty(yarnUsage.linkingLossWeightKg, 'kg') : '—'}</td>
+            <td class="px-3 py-3">${escapeHtml(node.operatorName || '—')}</td>
+            <td class="px-3 py-3">${escapeHtml(node.startedAt || '—')}</td>
+            <td class="px-3 py-3">${escapeHtml(node.finishedAt || '—')}</td>
+            <td class="px-3 py-3">${escapeHtml(node.remark || '—')}</td>
+            <td class="px-3 py-3">${renderNodeActions(order, node.nodeName)}</td>
+          </tr>
+        `,
+        'min-w-[1400px]',
+        'detailWholePage',
+        '条整件节点',
+      )}
     `,
   )
 }
 
 function renderFeiTab(order: KnittingWorkOrder): string {
-  const rows = order.partPanels
-    .map((panel) => {
+  const panels = order.partPanels
+  return renderSection(
+    '部位针织菲票',
+    `
+      <div class="mb-3 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+        部位针织只包含横机成片和菲票流转，不进入缝盘、熨烫、包装节点。
+      </div>
+      ${renderPaginatedTable(
+        ['部位', '颜色', '尺码', '计划片数', '完成片数', '菲票号', '打印状态', '后续去向', '操作'],
+        panels,
+        (panel) => {
       const sourceId = buildKnittingPartPanelFeiTicketSourceId(order, panel)
       return `
         <tr class="border-b last:border-b-0">
@@ -365,16 +378,11 @@ function renderFeiTab(order: KnittingWorkOrder): string {
           </td>
         </tr>
       `
-    })
-    .join('')
-
-  return renderSection(
-    '部位针织菲票',
-    `
-      <div class="mb-3 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-700">
-        部位针织只包含横机成片和菲票流转，不进入缝盘、熨烫、包装节点。
-      </div>
-      ${renderTable(['部位', '颜色', '尺码', '计划片数', '完成片数', '菲票号', '打印状态', '后续去向', '操作'], rows, 'min-w-[1280px]')}
+        },
+        'min-w-[1280px]',
+        'detailFeiPage',
+        '行菲票',
+      )}
     `,
   )
 }
@@ -427,8 +435,11 @@ function renderPriceTab(order: KnittingWorkOrder): string {
 }
 
 function renderEvidenceTab(order: KnittingWorkOrder): string {
-  const rows = order.evidenceItems
-    .map(
+  return renderSection(
+    '异常证据',
+    renderPaginatedTable(
+      ['事项', '说明', '提交人', '提交时间'],
+      order.evidenceItems,
       (item) => `
         <tr class="border-b last:border-b-0">
           <td class="px-3 py-3">${escapeHtml(item.title)}</td>
@@ -437,10 +448,11 @@ function renderEvidenceTab(order: KnittingWorkOrder): string {
           <td class="px-3 py-3">${escapeHtml(item.createdAt)}</td>
         </tr>
       `,
-    )
-    .join('')
-
-  return renderSection('异常证据', renderTable(['事项', '说明', '提交人', '提交时间'], rows, 'min-w-[960px]'))
+      'min-w-[960px]',
+      'detailEvidencePage',
+      '条证据',
+    ),
+  )
 }
 
 function renderActiveTab(order: KnittingWorkOrder, activeTab: KnittingDetailTab): string {

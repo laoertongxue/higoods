@@ -1,4 +1,11 @@
 import { escapeHtml } from '../../../utils'
+import { appStore } from '../../../state/store.ts'
+import {
+  DEFAULT_PAGE_SIZE_OPTIONS,
+  paginateRows,
+  parsePageSize,
+  type PagingResult,
+} from '../../../utils/paging.ts'
 import {
   getKnittingWorkOrderKindLabel,
   getKnittingWorkOrderStatusLabel,
@@ -100,5 +107,116 @@ export function renderTable(headers: string[], rows: string, minWidthClass = 'mi
         <tbody>${rows || `<tr><td colspan="${headers.length}" class="px-3 py-8 text-center text-muted-foreground">暂无数据</td></tr>`}</tbody>
       </table>
     </div>
+  `
+}
+
+export interface KnittingPaginationResult<T> extends PagingResult<T> {
+  pageParam: string
+  pageSize: number
+  pageSizeParam: string
+}
+
+function getCurrentPathParts(): { path: string; params: URLSearchParams } {
+  const statePath = appStore.getState().pathname || (typeof window === 'undefined' ? '' : `${window.location.pathname}${window.location.search}`)
+  const [path = '', query = ''] = statePath.split('?')
+  return {
+    path: path || '/fcs/craft/knitting/work-orders',
+    params: new URLSearchParams(query),
+  }
+}
+
+function buildPaginationHref(pageParam: string, page: number, pageSizeParam: string, pageSize: number): string {
+  const { path, params } = getCurrentPathParts()
+  params.set(pageParam, String(Math.max(1, Math.trunc(page) || 1)))
+  params.set(pageSizeParam, String(pageSize))
+  params.delete('refreshAt')
+  return `${path}?${params.toString()}`
+}
+
+export function paginateKnittingItems<T>(
+  items: T[],
+  pageParam: string,
+  defaultPageSize = 10,
+  pageSizeParam = `${pageParam}Size`,
+): KnittingPaginationResult<T> {
+  const { params } = getCurrentPathParts()
+  const pageSize = parsePageSize(params.get(pageSizeParam) || defaultPageSize, DEFAULT_PAGE_SIZE_OPTIONS, defaultPageSize)
+  const page = Number(params.get(pageParam) || 1)
+  return {
+    ...paginateRows(items, page, pageSize),
+    pageParam,
+    pageSize,
+    pageSizeParam,
+  }
+}
+
+export function renderPaginationControls<T>(paging: KnittingPaginationResult<T>, label = '条记录'): string {
+  const pages = new Set<number>([
+    1,
+    paging.totalPages,
+    paging.currentPage,
+    paging.currentPage - 1,
+    paging.currentPage + 1,
+  ])
+  const pageButtons = Array.from(pages)
+    .filter((page) => page >= 1 && page <= paging.totalPages)
+    .sort((a, b) => a - b)
+  let lastPage = 0
+
+  return `
+    <footer class="flex flex-wrap items-center justify-between gap-3 border-t px-3 py-3 text-xs text-muted-foreground">
+      <div>
+        共 ${formatNumber(paging.total, 0)} ${escapeHtml(label)}，当前 ${formatNumber(paging.from, 0)}-${formatNumber(paging.to, 0)}
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <span>每页</span>
+        ${DEFAULT_PAGE_SIZE_OPTIONS.map((size) => `
+          <button
+            type="button"
+            class="rounded-md border px-2 py-1 ${size === paging.pageSize ? 'border-blue-500 bg-blue-50 text-blue-700' : 'hover:bg-muted'}"
+            data-nav="${escapeHtml(buildPaginationHref(paging.pageParam, 1, paging.pageSizeParam, size))}"
+          >${size}</button>
+        `).join('')}
+        <span>条</span>
+        <button
+          type="button"
+          class="rounded-md border px-2.5 py-1 ${paging.currentPage <= 1 ? 'pointer-events-none opacity-50' : 'hover:bg-muted'}"
+          data-nav="${escapeHtml(buildPaginationHref(paging.pageParam, Math.max(1, paging.currentPage - 1), paging.pageSizeParam, paging.pageSize))}"
+        >上一页</button>
+        ${pageButtons.map((page) => {
+          const gap = lastPage && page - lastPage > 1 ? '<span class="px-1">...</span>' : ''
+          lastPage = page
+          return `
+            ${gap}
+            <button
+              type="button"
+              class="min-w-8 rounded-md border px-2.5 py-1 ${page === paging.currentPage ? 'border-blue-500 bg-blue-50 text-blue-700' : 'hover:bg-muted'}"
+              data-nav="${escapeHtml(buildPaginationHref(paging.pageParam, page, paging.pageSizeParam, paging.pageSize))}"
+            >${page}</button>
+          `
+        }).join('')}
+        <button
+          type="button"
+          class="rounded-md border px-2.5 py-1 ${paging.currentPage >= paging.totalPages ? 'pointer-events-none opacity-50' : 'hover:bg-muted'}"
+          data-nav="${escapeHtml(buildPaginationHref(paging.pageParam, Math.min(paging.totalPages, paging.currentPage + 1), paging.pageSizeParam, paging.pageSize))}"
+        >下一页</button>
+      </div>
+    </footer>
+  `
+}
+
+export function renderPaginatedTable<T>(
+  headers: string[],
+  items: T[],
+  renderRow: (item: T) => string,
+  minWidthClass: string,
+  pageParam: string,
+  label = '条记录',
+  defaultPageSize = 10,
+): string {
+  const paging = paginateKnittingItems(items, pageParam, defaultPageSize)
+  return `
+    ${renderTable(headers, paging.rows.map(renderRow).join(''), minWidthClass)}
+    ${renderPaginationControls(paging, label)}
   `
 }

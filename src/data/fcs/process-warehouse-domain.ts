@@ -574,13 +574,13 @@ function buildSpecialCraftWarehouseRecords(taskOrders: SpecialCraftTaskOrder[]):
   return records
 }
 
-function postWaitAction(order: PostFinishingWorkOrder): '待接收领料' | '待质检' | '待后道' | '待复检' {
-  if (order.currentStatus.includes('接收')) return '待接收领料'
+function postWaitAction(order: PostFinishingWorkOrder): '待接收入仓' | '待质检' | '待后道' | '待复检' {
+  if (order.currentStatus.includes('接收')) return '待接收入仓'
   if (order.currentStatus.includes('复检')) return '待复检'
   if (order.currentStatus.includes('质检')) return '待质检'
   if (!order.isPostDoneBySewingFactory && order.currentStatus.includes('后道')) return '待后道'
   if (order.currentStatus === '待交出' || order.currentStatus.includes('已')) return '待复检'
-  return '待接收领料'
+  return '待接收入仓'
 }
 
 function buildPostFinishingWarehouseRecords(orders: PostFinishingWorkOrder[]): ProcessWarehouseRecord[] {
@@ -618,8 +618,8 @@ function buildPostFinishingWarehouseRecords(orders: PostFinishingWorkOrder[]): P
           inboundAt: order.createdAt,
           updatedAt: order.updatedAt,
           remark: order.isPostDoneBySewingFactory
-            ? '车缝厂已完成该环节，接收领料后只做质检和复检'
-            : '完整流程进入待加工仓：接收领料、质检、后道、复检',
+            ? '车缝厂已完成该环节，接收入仓后只做质检和复检'
+            : '完整流程进入待加工仓：接收入仓、质检、后道、复检',
         },
         'WAIT_PROCESS',
         records.length + 1,
@@ -644,7 +644,7 @@ function buildPostFinishingWarehouseRecords(orders: PostFinishingWorkOrder[]): P
             sourceFactoryName: order.managedPostFactoryName,
             targetFactoryId: order.managedPostFactoryId,
             targetFactoryName: order.managedPostFactoryName,
-            targetWarehouseName: '后道交出仓',
+            targetWarehouseName: '后道待交出仓',
             skuSummary: order.skuSummary,
             styleNo: order.styleNo,
             objectType: '成衣',
@@ -659,7 +659,7 @@ function buildPostFinishingWarehouseRecords(orders: PostFinishingWorkOrder[]): P
             status: order.currentStatus === '复检完成' ? '待交出' : order.currentStatus,
             inboundAt: order.updatedAt,
             updatedAt: order.updatedAt,
-            remark: '复检完成后生成后道交出仓记录',
+            remark: '复检完成后生成后道待交出仓记录',
           },
           'WAIT_HANDOVER',
           records.length + 1,

@@ -1980,7 +1980,7 @@ function seedStore(): void {
   })
   validateDispatchBatchCompleteness(secondBatch.dispatchBatchId)
 
-  const blockedOrder = createCuttingSewingDispatchOrder({ productionOrderId: 'PO-202603-014', remark: '特殊工艺未回仓示例' })
+  const blockedOrder = createCuttingSewingDispatchOrder({ productionOrderId: 'PO-202603-0014', remark: '特殊工艺未回仓示例' })
   const blockedBatch = createCuttingSewingDispatchBatch({
     dispatchOrderId: blockedOrder.dispatchOrderId,
     plannedSkuQtyLines: [{ colorName: 'Navy', colorCode: 'Navy', sizeCode: 'S', plannedGarmentQty: 1 }],

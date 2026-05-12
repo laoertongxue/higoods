@@ -50,7 +50,7 @@ function getPostActionFields(order: PostFinishingWorkOrder): PrintField[] {
       { label: '车缝任务号', value: order.sourceSewingTaskNo },
       { label: '车缝厂后道完成成衣件数', value: formatPrintQty(order.postAction.completedPostGarmentQty ?? order.postAction.acceptedGarmentQty, order.postAction.qtyUnit), emphasis: true },
       { label: '后道完成时间', value: valueOrDash(order.postAction.finishedAt) },
-      { label: '说明', value: order.postAction.skipReason || '本工厂仅执行接收领料、质检、复检、交出' },
+      { label: '流转说明', value: order.postAction.skipReason || '质检后不需要后道时直接进入复检' },
     ]
   }
 
@@ -66,7 +66,7 @@ function getPostActionFields(order: PostFinishingWorkOrder): PrintField[] {
 
 function buildRouteRows(order: PostFinishingWorkOrder): string[][] {
   const rows: Array<{ node: string; action?: PostFinishingActionRecord; qty: string; remark?: string }> = [
-    { node: '接收领料', action: order.receiveAction, qty: actionQty(order.receiveAction, order.receiveAction.receivedGarmentQty ?? order.receiveAction.acceptedGarmentQty) },
+    { node: '扫码收货', action: order.receiveAction, qty: actionQty(order.receiveAction, order.receiveAction.receivedGarmentQty ?? order.receiveAction.acceptedGarmentQty) },
     { node: '质检', action: order.qcAction, qty: actionQty(order.qcAction, order.qcAction.passedGarmentQty ?? order.qcAction.acceptedGarmentQty) },
   ]
 
@@ -205,7 +205,7 @@ export function buildPostFinishingRouteCardPrintDocument(input: PrintDocumentBui
     { label: '待复检成衣件数', value: formatPrintQty(order.qcAction.acceptedGarmentQty, order.qcAction.qtyUnit), emphasis: true },
     { label: '待交出成衣件数', value: formatPrintQty(waitHandoverRecord?.availableObjectQty ?? order.recheckAction.acceptedGarmentQty, '件'), emphasis: true },
     { label: '当前状态', value: order.currentStatus },
-    { label: '交付仓', value: waitHandoverRecord?.targetWarehouseName || '后道交出仓' },
+    { label: '交付仓', value: waitHandoverRecord?.targetWarehouseName || '后道待交出仓' },
   ]
 
   const sections: PrintSection[] = [
@@ -213,9 +213,9 @@ export function buildPostFinishingRouteCardPrintDocument(input: PrintDocumentBui
     { sectionId: 'base', title: '任务基础信息区', fields: baseFields },
     {
       sectionId: 'receive',
-      title: '接收领料区',
+      title: '扫码收货区',
       fields: [
-        { label: '接收领料状态', value: order.receiveAction.status },
+        { label: '扫码收货状态', value: order.receiveAction.status },
         { label: '应接收成衣件数', value: formatPrintQty(order.receiveAction.submittedGarmentQty, order.receiveAction.qtyUnit), emphasis: true },
         { label: '实接收成衣件数', value: formatPrintQty(order.receiveAction.receivedGarmentQty ?? order.receiveAction.acceptedGarmentQty, order.receiveAction.qtyUnit), emphasis: true },
         { label: '接收差异成衣件数', value: formatPrintQty(order.receiveAction.diffGarmentQty, order.receiveAction.qtyUnit), emphasis: true },
@@ -242,7 +242,7 @@ export function buildPostFinishingRouteCardPrintDocument(input: PrintDocumentBui
       title: '后道区',
       fields: getPostActionFields(order),
       note: order.isPostDoneBySewingFactory
-        ? '车缝厂已经完成该环节，本工厂仅执行接收领料、质检、复检、交出。'
+        ? '质检后不需要后道时直接进入复检。'
         : '',
     },
     {
