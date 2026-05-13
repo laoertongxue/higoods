@@ -20,6 +20,7 @@ const TASK_ROUTE_CARD_TEMPLATE_CODE_BY_SOURCE: Record<TaskRouteCardSourceType, s
   PRINTING_WORK_ORDER: 'PRINTING_WORK_ORDER_ROUTE_CARD',
   DYEING_WORK_ORDER: 'DYEING_WORK_ORDER_ROUTE_CARD',
   SPECIAL_CRAFT_TASK_ORDER: 'SPECIAL_CRAFT_TASK_ORDER_ROUTE_CARD',
+  POST_FINISHING_TASK: 'POST_FINISHING_TASK_ROUTE_CARD',
   POST_FINISHING_WORK_ORDER: 'POST_FINISHING_ROUTE_CARD',
   CUTTING_ORIGINAL_ORDER: 'CUTTING_ORIGINAL_ORDER_ROUTE_CARD',
   CUTTING_MERGE_BATCH: 'CUTTING_MERGE_BATCH_ROUTE_CARD',
@@ -43,6 +44,7 @@ function getSourceTypeLabel(sourceType: string): string {
     PRINTING_WORK_ORDER: '印花加工单',
     DYEING_WORK_ORDER: '染色加工单',
     SPECIAL_CRAFT_TASK_ORDER: '特殊工艺单',
+    POST_FINISHING_TASK: '后道任务',
     CUTTING_ORIGINAL_ORDER: '原始裁片单',
     CUTTING_MERGE_BATCH: '合并裁剪批次',
     POST_FINISHING_WORK_ORDER: '后道单',
@@ -67,6 +69,8 @@ function resolveTaskRouteTargetRoute(sourceType: PrintSourceType, sourceId: stri
       return `/fcs/craft/dyeing/work-orders/${encodeURIComponent(sourceId)}`
     case 'SPECIAL_CRAFT_TASK_ORDER':
       return `/fcs/pda/exec/${encodeURIComponent(doc.taskId || sourceId)}`
+    case 'POST_FINISHING_TASK':
+      return `/fcs/craft/post-finishing/tasks?taskId=${encodeURIComponent(sourceId)}`
     case 'POST_FINISHING_WORK_ORDER':
       return `/fcs/craft/post-finishing/work-orders/${encodeURIComponent(sourceId)}`
     case 'CUTTING_ORIGINAL_ORDER':
@@ -206,6 +210,11 @@ export function buildDyeingWorkOrderRouteCardPrintDocument(input: TaskRouteCardA
 export function buildSpecialCraftTaskOrderRouteCardPrintDocument(input: TaskRouteCardAdapterInput): PrintDocument {
   const resolvedInput = resolveTaskRouteCardInput(input, 'SPECIAL_CRAFT_TASK_ORDER')
   return buildTaskRouteCardPrintDocumentForSource(resolvedInput, TASK_ROUTE_CARD_TEMPLATE_CODE_BY_SOURCE.SPECIAL_CRAFT_TASK_ORDER)
+}
+
+export function buildPostFinishingTaskRouteCardPrintDocument(input: TaskRouteCardAdapterInput): PrintDocument {
+  const resolvedInput = resolveTaskRouteCardInput(input, 'POST_FINISHING_TASK')
+  return buildTaskRouteCardPrintDocumentForSource(resolvedInput, TASK_ROUTE_CARD_TEMPLATE_CODE_BY_SOURCE.POST_FINISHING_TASK)
 }
 
 export function buildCuttingOriginalOrderRouteCardPrintDocument(input: TaskRouteCardAdapterInput): PrintDocument {

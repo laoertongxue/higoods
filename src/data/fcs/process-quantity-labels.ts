@@ -2,7 +2,7 @@ export type ProcessQuantityProcessType = 'PRINT' | 'DYE' | 'CUTTING' | 'SPECIAL_
 
 export type ProcessObjectType = '面料' | '裁片' | '成衣' | '菲票' | '卷' | '包' | '箱' | '辅料'
 
-export type ProcessQtyUnit = '米' | '卷' | '片' | '件' | '张' | '包' | '箱' | '个'
+export type ProcessQtyUnit = 'Yard' | '米' | '卷' | '片' | '件' | '张' | '包' | '箱' | '个'
 
 export type QtyPurpose =
   | '计划'
@@ -43,6 +43,7 @@ export interface QuantityField {
 }
 
 function normalizeUnit(unit: string | undefined): ProcessQtyUnit {
+  if (unit === 'Yard') return 'Yard'
   if (unit === 'METER' || unit === '米') return '米'
   if (unit === 'ROLL' || unit === '卷') return '卷'
   if (unit === 'PIECE' || unit === '片') return '片'
@@ -73,7 +74,7 @@ export function getProcessObjectType(context: ProcessQuantityContext): ProcessOb
   const unit = normalizeUnit(context.qtyUnit)
   if (context.processType === 'PRINT') {
     if (context.isPiecePrinting || unit === '片') return '裁片'
-    if (context.isFabricPrinting || unit === '米') return '面料'
+    if (context.isFabricPrinting || unit === '米' || unit === 'Yard') return '面料'
     if (unit === '卷') return '卷'
     return '裁片'
   }
@@ -94,6 +95,7 @@ export function getProcessQtyUnit(context: ProcessQuantityContext): ProcessQtyUn
   if (context.processType === 'CUTTING' && getProcessObjectType(context) === '裁片') return '片'
   if (context.processType === 'SPECIAL_CRAFT' && getProcessObjectType(context) === '裁片') return '片'
   if (context.processType === 'POST_FINISHING') return '件'
+  if (normalizeUnit(context.qtyUnit) === 'Yard') return 'Yard'
   if (getProcessObjectType(context) === '菲票') return '张'
   if (getProcessObjectType(context) === '成衣') return '件'
   if (getProcessObjectType(context) === '面料') return '米'
@@ -102,7 +104,7 @@ export function getProcessQtyUnit(context: ProcessQuantityContext): ProcessQtyUn
 }
 
 function printPurposeLabel(context: ProcessQuantityContext, objectType: ProcessObjectType): string {
-  const objectNoun = objectType === '裁片' ? '裁片数量' : '面料米数'
+  const objectNoun = objectType === '裁片' ? '裁片数量' : normalizeUnit(context.qtyUnit) === 'Yard' ? '面料Yard数' : '面料米数'
   switch (context.operationCode) {
     case 'PRINT_FINISH_PRINTING':
       return `打印完成${objectNoun}`

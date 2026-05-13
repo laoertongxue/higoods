@@ -174,6 +174,7 @@ export function renderPostFilterPanel(options: {
 }): string {
   const filters = options.filters
   const preservedPostOrderId = safeSearchParams().get('postOrderId') || ''
+  const preservedPostTaskId = safeSearchParams().get('postTaskId') || ''
   const preservedTab = safeSearchParams().get('tab') || ''
   const statusOptions = ['全部', ...uniqueOptions(options.statusOptions)]
   const sourceOptions = ['全部', ...uniqueOptions(options.sourceOptions || [])]
@@ -182,6 +183,7 @@ export function renderPostFilterPanel(options: {
     <form class="rounded-lg border bg-card p-4" method="get" action="${escapeHtml(currentPathname())}">
       <input type="hidden" name="page" value="1" />
       ${preservedPostOrderId ? `<input type="hidden" name="postOrderId" value="${escapeHtml(preservedPostOrderId)}" />` : ''}
+      ${preservedPostTaskId ? `<input type="hidden" name="postTaskId" value="${escapeHtml(preservedPostTaskId)}" />` : ''}
       ${preservedTab ? `<input type="hidden" name="tab" value="${escapeHtml(preservedTab)}" />` : ''}
       <div class="grid gap-3 md:grid-cols-4">
         <label class="space-y-1 text-sm">

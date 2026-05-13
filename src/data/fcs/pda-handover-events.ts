@@ -35,6 +35,14 @@ import {
   listKnittingMobileProcessTasks,
 } from './knitting-task-domain.ts'
 import {
+  FULL_CAPABILITY_FACTORY_ID,
+  listPostFinishingAvailableHandoverLines,
+  listPostFinishingWaitHandoverWarehouseRecords,
+  recordPostFinishingHandoverSubmission,
+  writeBackPostFinishingHandoverSubmission,
+  type PostFinishingWaitHandoverWarehouseRecord,
+} from './post-finishing-domain.ts'
+import {
   buildHandoverOrderQrValue,
   buildHandoverRecordQrValue,
   buildTaskQrValue,
@@ -349,6 +357,10 @@ export interface PdaHandoverRecord {
   handoutObjectType?: PdaHandoutObjectType
   objectType?: HandoverObjectType
   handoutItemLabel?: string
+  postFinishingRecheckOrderId?: string
+  postFinishingRecheckOrderNo?: string
+  postFinishingWarehouseRecordId?: string
+  postFinishingSkuLineId?: string
   materialCode?: string
   materialName?: string
   materialSpec?: string
@@ -781,6 +793,88 @@ function buildGenericMockHead(seed: PdaTaskMockHandoverHeadSeed): PdaHandoverHea
     taskTypeLabel: seed.taskTypeLabel,
     assignmentGranularityLabel: seed.assignmentGranularityLabel,
   }
+}
+
+function normalizeIdSegment(value: string): string {
+  return value.replace(/[^A-Za-z0-9]/g, '').slice(-16) || 'UNKNOWN'
+}
+
+function buildPostFinishingHandoutHeadId(recheckOrderNo: string): string {
+  return `HOH-POST-${normalizeIdSegment(recheckOrderNo)}`
+}
+
+function buildPostFinishingHandoutHeads(): PdaHandoverHead[] {
+  const groups = new Map<string, PostFinishingWaitHandoverWarehouseRecord[]>()
+  listPostFinishingWaitHandoverWarehouseRecords().forEach((record) => {
+    const key = record.recheckOrderId || record.recheckOrderNo
+    groups.set(key, [...(groups.get(key) ?? []), record])
+  })
+
+  return Array.from(groups.values()).map((lines) => {
+    const first = lines[0]
+    const handoverId = buildPostFinishingHandoutHeadId(first.recheckOrderNo)
+    const qtyExpectedTotal = sumBy(lines, (line) => line.waitHandoverGarmentQty)
+    return {
+      handoverId,
+      handoverOrderId: handoverId,
+      handoverOrderNo: buildHandoverOrderNo(handoverId),
+      headType: 'HANDOUT',
+      qrCodeValue: buildHandoverOrderQrValue(handoverId),
+      handoverOrderQrValue: buildHandoverOrderQrValue(handoverId),
+      taskId: first.postOrderId,
+      sourceTaskId: first.postOrderId,
+      taskNo: first.postOrderNo,
+      sourceTaskNo: first.postOrderNo,
+      rootTaskNo: first.sourceTaskNo,
+      productionOrderNo: first.sourceProductionOrderNo,
+      processName: '后道',
+      sourceFactoryName: first.managedPostFactoryName,
+      targetName: '成衣仓交接点',
+      targetKind: 'WAREHOUSE',
+      receiverKind: 'WAREHOUSE',
+      receiverId: 'WH-GARMENT-HANDOFF',
+      receiverName: '成衣仓交接点',
+      qtyUnit: first.qtyUnit,
+      factoryId: FULL_CAPABILITY_FACTORY_ID,
+      taskStatus: 'DONE',
+      summaryStatus: 'NONE',
+      handoverOrderStatus: 'AUTO_CREATED',
+      recordCount: 0,
+      pendingWritebackCount: 0,
+      submittedQtyTotal: 0,
+      writtenBackQtyTotal: 0,
+      diffQtyTotal: 0,
+      objectionCount: 0,
+      plannedQty: qtyExpectedTotal,
+      completionStatus: 'OPEN',
+      qtyExpectedTotal,
+      qtyActualTotal: 0,
+      qtyDiffTotal: qtyExpectedTotal,
+      sourceDocId: first.recheckOrderId,
+      sourceDocNo: first.recheckOrderNo,
+      scopeLabel: `复检合格成衣 ${lines.length} 个 SKU`,
+      executorKind: 'EXTERNAL_FACTORY',
+      transitionFromPrev: 'SAME_FACTORY_CONTINUE',
+      transitionToNext: 'RETURN_TO_WAREHOUSE',
+      stageCode: 'POST',
+      stageName: '后道阶段',
+      processBusinessCode: 'POST_FINISHING',
+      processBusinessName: '后道',
+      taskTypeCode: 'POST_FINISHING',
+      taskTypeLabel: '后道任务',
+      assignmentGranularity: 'ORDER',
+      assignmentGranularityLabel: '整单',
+      isSpecialCraft: false,
+    }
+  })
+}
+
+function isPostFinishingGeneratedHead(head: Pick<PdaHandoverHead, 'handoverId' | 'processBusinessCode'>): boolean {
+  return head.processBusinessCode === 'POST_FINISHING' && head.handoverId.startsWith('HOH-POST-')
+}
+
+function isLegacyPostFinishingMockHead(head: Pick<PdaHandoverHead, 'handoverId' | 'processBusinessCode'>): boolean {
+  return head.processBusinessCode === 'POST_FINISHING' && head.handoverId === 'HOH-MOCK-SEW-235'
 }
 
 function buildGenericPickupRecord(seed: PdaTaskMockPickupRecordSeed): PdaPickupRecord {
@@ -2270,6 +2364,7 @@ function buildHandoutInfoLines(record: PdaHandoverRecord, objectType: PdaHandout
   }
 
   return [
+    record.postFinishingRecheckOrderNo ? `来源复检单：${record.postFinishingRecheckOrderNo}` : '',
     record.skuCode ? `SKU 编码：${record.skuCode}` : '',
     record.skuColor || record.skuSize ? `颜色 / 尺码：${record.skuColor || '—'} / ${record.skuSize || '—'}` : '',
     record.materialSpec ? `交出说明：${record.materialSpec}` : '',
@@ -2769,7 +2864,9 @@ function recomputeHeadsInternal(): PdaHandoverHead[] {
     .filter((doc) => shouldIncludePdaDoc(doc, getRuntimeTaskById(doc.runtimeTaskId)))
     .map((doc) => refreshHandoutHeadSummary(buildHandoutHeadFromReturn(doc)))
 
-  const mockHeads = PDA_MOCK_HANDOVER_HEADS.map((head) =>
+  const postFinishingHeads = buildPostFinishingHandoutHeads().map((head) => refreshHandoutHeadSummary(head))
+
+  const mockHeads = PDA_MOCK_HANDOVER_HEADS.filter((head) => !isLegacyPostFinishingMockHead(head)).map((head) =>
     head.headType === 'PICKUP'
       ? refreshPickupHeadSummary(cloneHead(head))
       : refreshHandoutHeadSummary(cloneHead(head)),
@@ -2781,7 +2878,7 @@ function recomputeHeadsInternal(): PdaHandoverHead[] {
       : refreshHandoutHeadSummary(cloneHead(head)),
   )
 
-  return [...pickupHeads, ...handoutHeads, ...mockHeads, ...addedHeads]
+  return [...pickupHeads, ...handoutHeads, ...postFinishingHeads, ...mockHeads, ...addedHeads]
 }
 
 function buildHeadsInternal(): PdaHandoverHead[] {
@@ -3399,6 +3496,22 @@ export function ensureHandoverOrderForStartedTask(taskId: string): {
   return { taskId, handoverOrderId, created: true }
 }
 
+function resolvePostFinishingLineForCreate(
+  head: PdaHandoverHead,
+  submittedQty: number,
+): (PostFinishingWaitHandoverWarehouseRecord & { availableHandoverGarmentQty: number }) | undefined {
+  if (!isPostFinishingGeneratedHead(head)) return undefined
+  const lines = listPostFinishingAvailableHandoverLines()
+    .filter((line) => line.recheckOrderNo === head.sourceDocNo || line.recheckOrderId === head.sourceDocId)
+  const matched = lines.find((line) => line.availableHandoverGarmentQty >= submittedQty)
+  if (!matched) {
+    const totalAvailable = sumBy(lines, (line) => line.availableHandoverGarmentQty)
+    if (totalAvailable <= 0) throw new Error('当前复检库存已全部交出')
+    throw new Error(`本次交出数量不能超过单个复检明细可交出库存，请按 SKU 分批交出；当前最大可交出 ${Math.max(...lines.map((line) => line.availableHandoverGarmentQty))}${head.qtyUnit}`)
+  }
+  return matched
+}
+
 export function createFactoryHandoverRecord(input: {
   handoverOrderId: string
   submittedQty: number
@@ -3427,6 +3540,7 @@ export function createFactoryHandoverRecord(input: {
   if (head.completionStatus === 'COMPLETED') {
     throw new Error('交出单已完成，不允许新增交出记录')
   }
+  const postFinishingLine = resolvePostFinishingLineForCreate(head, input.submittedQty)
 
   const existing = getPdaHandoverRecordsByHead(head.handoverId)
   const sequenceNo = existing.reduce((max, record) => Math.max(max, record.sequenceNo), 0) + 1
@@ -3440,19 +3554,25 @@ export function createFactoryHandoverRecord(input: {
       taskId: head.taskId,
       sourceTaskId: head.taskId,
       sequenceNo,
-      handoutItemLabel: input.handoutItemLabel,
-      objectType: input.objectType,
+      handoutItemLabel: input.handoutItemLabel || (postFinishingLine ? `${postFinishingLine.skuCode} / ${postFinishingLine.colorName} / ${postFinishingLine.sizeName} / ${input.submittedQty}${postFinishingLine.qtyUnit}` : undefined),
+      postFinishingRecheckOrderId: postFinishingLine?.recheckOrderId,
+      postFinishingRecheckOrderNo: postFinishingLine?.recheckOrderNo,
+      postFinishingWarehouseRecordId: postFinishingLine?.warehouseRecordId,
+      postFinishingSkuLineId: postFinishingLine?.skuLineId,
+      objectType: postFinishingLine ? 'FINISHED_GARMENT' : input.objectType,
       garmentEquivalentQty: input.garmentEquivalentQty,
-      materialCode: input.materialCode,
-      materialName: input.materialName,
-      materialSpec: input.materialSpec,
-      skuCode: input.skuCode,
-      skuColor: input.skuColor,
-      skuSize: input.skuSize,
-      pieceName: input.pieceName,
+      materialCode: input.materialCode || postFinishingLine?.skuCode,
+      materialName: input.materialName || (postFinishingLine ? '后道复检合格成衣' : undefined),
+      materialSpec: input.materialSpec || (postFinishingLine ? `${postFinishingLine.spuName} / ${postFinishingLine.colorName} / ${postFinishingLine.sizeName}` : undefined),
+      skuCode: input.skuCode || postFinishingLine?.skuCode,
+      skuColor: input.skuColor || postFinishingLine?.colorName,
+      skuSize: input.skuSize || postFinishingLine?.sizeName,
+      pieceName: input.pieceName || (postFinishingLine ? '成衣' : undefined),
       cutPieceLines: input.cutPieceLines?.map((line) => ({ ...line })),
       handoutObjectType:
-        input.handoutObjectType
+        postFinishingLine
+          ? 'GARMENT'
+          : input.handoutObjectType
           ? input.handoutObjectType
           : input.objectType === 'CUT_PIECE'
           ? 'CUT_PIECE'
@@ -3473,6 +3593,22 @@ export function createFactoryHandoverRecord(input: {
   )
 
   saveHandoutRecord(created)
+  if (postFinishingLine) {
+    recordPostFinishingHandoverSubmission({
+      handoverId: head.handoverId,
+      handoverOrderNo: head.handoverOrderNo || head.handoverId,
+      handoverRecordId: created.handoverRecordId || created.recordId,
+      handoverRecordNo: created.handoverRecordNo || created.recordId,
+      recheckOrderId: postFinishingLine.recheckOrderId,
+      recheckOrderNo: postFinishingLine.recheckOrderNo,
+      skuLineId: postFinishingLine.skuLineId,
+      submittedQty: created.submittedQty || input.submittedQty,
+      qtyUnit: created.qtyUnit || postFinishingLine.qtyUnit,
+      submittedAt: created.factorySubmittedAt,
+      submittedBy: created.factorySubmittedBy || '工厂操作员',
+    })
+    invalidatePdaHandoverHeadCache()
+  }
   return cloneRecord(created)
 }
 
@@ -3533,6 +3669,13 @@ export function writeBackHandoverRecord(input: {
     head,
   )
   saveHandoutRecord(updated)
+  writeBackPostFinishingHandoverSubmission({
+    handoverRecordId: updated.handoverRecordId || updated.recordId,
+    receiverWrittenQty: input.receiverWrittenQty,
+    receiverWrittenAt: input.receiverWrittenAt,
+    receiverWrittenBy: input.receiverWrittenBy,
+  })
+  invalidatePdaHandoverHeadCache()
   return cloneRecord(updated)
 }
 

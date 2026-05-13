@@ -9,6 +9,7 @@ import {
   buildCuttingOriginalOrderRouteCardPrintDocument,
   buildDyeingWorkOrderRouteCardPrintDocument,
   buildLegacyTaskRouteCardPrintDocument,
+  buildPostFinishingTaskRouteCardPrintDocument,
   buildPrintingWorkOrderRouteCardPrintDocument,
   buildRuntimeTaskRouteCardPrintDocument,
   buildSpecialCraftTaskOrderRouteCardPrintDocument,
@@ -39,9 +40,7 @@ import {
   renderLabelPrintTemplate,
 } from '../../pages/print/templates/label-print-template.ts'
 import {
-  buildMakeGoodsConfirmationPrintDocument,
   buildProductionConfirmationPrintDocument,
-  renderMakeGoodsConfirmationTemplate,
   renderProductionConfirmationTemplate,
 } from '../../pages/print/templates/production-material-confirmation-template.ts'
 import {
@@ -114,14 +113,6 @@ export const printTemplateRegistry: PrintTemplateRegistration[] = [
     supportedSourceTypes: ['PRODUCTION_ORDER'],
     buildDocument: buildProductionConfirmationPrintDocument,
     render: renderProductionConfirmationTemplate,
-  },
-  {
-    templateCode: 'MAKE_GOODS_CONFIRMATION',
-    templateName: '做货确认单',
-    documentType: 'MAKE_GOODS_CONFIRMATION',
-    supportedSourceTypes: ['PRODUCTION_ORDER'],
-    buildDocument: buildMakeGoodsConfirmationPrintDocument,
-    render: renderMakeGoodsConfirmationTemplate,
   },
   {
     templateCode: 'FEI_TICKET_LABEL',
@@ -218,6 +209,14 @@ export const printTemplateRegistry: PrintTemplateRegistration[] = [
     supportedSourceTypes: ['POST_FINISHING_WORK_ORDER'],
     buildDocument: buildPostFinishingRouteCardPrintDocument,
     render: renderPostFinishingRouteCardTemplate,
+  },
+  {
+    templateCode: 'POST_FINISHING_TASK_ROUTE_CARD',
+    templateName: '后道任务流转卡',
+    documentType: 'TASK_ROUTE_CARD',
+    supportedSourceTypes: ['POST_FINISHING_TASK'],
+    buildDocument: buildPostFinishingTaskRouteCardPrintDocument,
+    render: renderTaskRouteCardTemplate,
   },
   {
     templateCode: 'TASK_ROUTE_CARD',
@@ -322,7 +321,6 @@ export const requiredPrintDocumentTypes: PrintDocumentType[] = [
   'CUTTING_ORDER_QR_LABEL',
   'HANDOVER_QR_LABEL',
   'PRODUCTION_CONFIRMATION',
-  'MAKE_GOODS_CONFIRMATION',
   'SETTLEMENT_CHANGE_REQUEST',
   'HANDOVER_DIFFERENCE_REQUEST',
   'QUALITY_DEDUCTION_CONFIRMATION',

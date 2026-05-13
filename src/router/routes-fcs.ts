@@ -125,6 +125,7 @@ import {
   renderPostFinishingRecheckOrdersPage,
   renderPostFinishingRecheckOrderDetailPage,
   renderPostFinishingStatisticsPage,
+  renderPostFinishingTasksPage,
   renderPostFinishingWaitHandoverWarehousePage,
   renderPostFinishingWaitProcessWarehousePage,
   renderPostFinishingWorkOrderDetailPage,
@@ -312,7 +313,8 @@ export const routes: RouteRegistry = {
     '/fcs/craft/knitting/orders': () =>
       renderRouteRedirect('/fcs/craft/knitting/work-orders', '正在跳转到针织加工单'),
     '/fcs/craft/post-finishing': () =>
-      renderRouteRedirect('/fcs/craft/post-finishing/work-orders', '正在跳转到后道单'),
+      renderRouteRedirect('/fcs/craft/post-finishing/tasks', '正在跳转到后道任务'),
+    '/fcs/craft/post-finishing/tasks': () => renderPostFinishingTasksPage(),
     '/fcs/craft/post-finishing/work-orders': () => renderPostFinishingWorkOrdersPage(),
     '/fcs/craft/post-finishing/qc-orders': () => renderPostFinishingQcOrdersPage(),
     '/fcs/craft/post-finishing/recheck-orders': () => renderPostFinishingRecheckOrdersPage(),

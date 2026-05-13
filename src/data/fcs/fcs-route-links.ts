@@ -60,14 +60,6 @@ export function buildProductionConfirmationPrintLink(productionOrderId: string):
   })
 }
 
-export function buildMakeGoodsConfirmationPrintLink(productionOrderId: string): string {
-  return buildUnifiedPrintPreviewLink({
-    documentType: 'MAKE_GOODS_CONFIRMATION',
-    sourceType: 'PRODUCTION_ORDER',
-    sourceId: productionOrderId,
-  })
-}
-
 export function buildTaskRouteCardPrintLink(sourceType: TaskRouteCardSourceType, sourceId: string): string {
   return buildUnifiedPrintPreviewLink({
     documentType: 'TASK_ROUTE_CARD',
@@ -226,6 +218,11 @@ export function buildKnittingWorkOrdersLink(knittingOrderId?: string): string {
 export function buildKnittingWorkOrderDetailLink(knittingOrderId: string, tab?: string): string {
   const base = `/fcs/craft/knitting/work-orders/${encodeSegment(knittingOrderId)}`
   return tab ? `${base}?tab=${encodeSegment(tab)}` : base
+}
+
+export function buildPostFinishingTaskLink(postTaskId?: string): string {
+  const base = '/fcs/craft/post-finishing/tasks'
+  return postTaskId ? `${base}?taskId=${encodeSegment(postTaskId)}` : base
 }
 
 export function buildKnittingWaitProcessWarehouseLink(knittingOrderId?: string): string {

@@ -8,7 +8,7 @@ type DemandStatusZh = '待满足' | '部分满足' | '已满足' | '已完成交
 type PreparationStatusZh = '待配料' | '部分配料' | '已完成配料'
 type TraceBatchStatusZh = '已入裁片仓' | '质检中' | '待入库'
 type CreateModeZh = '按需求创建' | '按备货创建'
-type Unit = '片'
+type Unit = 'Yard' | '米'
 
 interface PreparationTraceLine {
   processOrderNo: string
@@ -39,6 +39,15 @@ interface LinkedPrintOrderSummary {
   unit: Unit
 }
 
+interface PrintQuantityAdditionRecord {
+  additionId: string
+  addedQty: number
+  unit: Unit
+  addedAt: string
+  operatorName: string
+  remark?: string
+}
+
 interface PrintRequirementDemand {
   demandId: string
   sourceProductionOrderId: string
@@ -49,6 +58,7 @@ interface PrintRequirementDemand {
   materialName: string
   requiredQty: number
   unit: Unit
+  printQtyAdditionRecords: PrintQuantityAdditionRecord[]
   printRequirement: string
   sourceBomItem: string
   sourceTechPackVersion: string
@@ -70,6 +80,10 @@ interface PrintRequirementsState {
   sourceFocusedDemandId: string | null
   focusedPreparationOrderNo: string | null
   batchViewerDemandId: string | null
+  addQuantityDemandId: string | null
+  addQuantityForm: {
+    addedQty: string
+  }
   page: number
   pageSize: PageSize
 }
@@ -84,48 +98,92 @@ const RULES = [
   '进入下一工序前需完成：仓库完成配料',
 ]
 
-const DEMAND_FACTS: PrintRequirementDemand[] = listPrepRequirementDemands('PRINT').map((item) => ({
-  demandId: item.demandId,
-  sourceProductionOrderId: item.sourceProductionOrderId,
-  spuCode: item.spuCode,
-  spuName: item.spuName,
-  techPackVersion: item.techPackVersion,
-  materialCode: item.materialCode,
-  materialName: item.materialName,
-  requiredQty: item.requiredQty,
-  unit: '片',
-  printRequirement: item.requirementText,
-  sourceBomItem: item.sourceBomItem,
-  sourceTechPackVersion: item.sourceTechPackVersion,
-  nextProcessName: item.nextProcessName,
-  updatedAt: item.updatedAt,
-  handoverCompleted: item.handoverCompleted,
-  sources: item.sources.map((source) => ({
-    preparationOrderNo: source.preparationOrderNo,
-    qty: source.qty,
-    unit: '片',
-    preparedAt: source.preparedAt,
-    warehouseName: source.warehouseName,
-    preparationStatus: source.preparationStatus,
-    cumulativeSatisfiedQty: source.cumulativeSatisfiedQty,
-    traceLines: source.traceLines.map((trace) => ({
-      processOrderNo: trace.processOrderNo,
-      batchNo: trace.batchNo,
-      batchSupplyQty: trace.batchSupplyQty,
-      usedQty: trace.usedQty,
-      unit: '片',
-      batchStatus: trace.batchStatus,
+function getMockPrintUnit(index: number): Unit {
+  return index % 2 === 0 ? 'Yard' : '米'
+}
+
+function buildMockAdditionRecords(demandId: string, baseQty: number, unit: Unit, index: number): PrintQuantityAdditionRecord[] {
+  if (index % 4 === 0) {
+    return [
+      {
+        additionId: `${demandId}-ADD-01`,
+        addedQty: Math.max(20, Math.round(baseQty * 0.08)),
+        unit,
+        addedAt: '2026-03-12 10:30:00',
+        operatorName: '业务员',
+        remark: '补充印花数量',
+      },
+      {
+        additionId: `${demandId}-ADD-02`,
+        addedQty: Math.max(12, Math.round(baseQty * 0.04)),
+        unit,
+        addedAt: '2026-03-13 15:20:00',
+        operatorName: '业务员',
+        remark: '追加损耗预留',
+      },
+    ]
+  }
+  if (index % 4 === 1) {
+    return [
+      {
+        additionId: `${demandId}-ADD-01`,
+        addedQty: Math.max(15, Math.round(baseQty * 0.06)),
+        unit,
+        addedAt: '2026-03-12 14:10:00',
+        operatorName: '业务员',
+        remark: '补足尺码需求',
+      },
+    ]
+  }
+  return []
+}
+
+const DEMAND_FACTS: PrintRequirementDemand[] = listPrepRequirementDemands('PRINT').map((item, index) => {
+  const unit = getMockPrintUnit(index)
+  return {
+    demandId: item.demandId,
+    sourceProductionOrderId: item.sourceProductionOrderId,
+    spuCode: item.spuCode,
+    spuName: item.spuName,
+    techPackVersion: item.techPackVersion,
+    materialCode: item.materialCode,
+    materialName: item.materialName,
+    requiredQty: item.requiredQty,
+    unit,
+    printQtyAdditionRecords: buildMockAdditionRecords(item.demandId, item.requiredQty, unit, index),
+    printRequirement: item.requirementText,
+    sourceBomItem: item.sourceBomItem,
+    sourceTechPackVersion: item.sourceTechPackVersion,
+    nextProcessName: item.nextProcessName,
+    updatedAt: item.updatedAt,
+    handoverCompleted: item.handoverCompleted,
+    sources: item.sources.map((source) => ({
+      preparationOrderNo: source.preparationOrderNo,
+      qty: source.qty,
+      unit,
+      preparedAt: source.preparedAt,
+      warehouseName: source.warehouseName,
+      preparationStatus: source.preparationStatus,
+      cumulativeSatisfiedQty: source.cumulativeSatisfiedQty,
+      traceLines: source.traceLines.map((trace) => ({
+        processOrderNo: trace.processOrderNo,
+        batchNo: trace.batchNo,
+        batchSupplyQty: trace.batchSupplyQty,
+        usedQty: trace.usedQty,
+        unit,
+        batchStatus: trace.batchStatus,
+      })),
     })),
-  })),
-  linkedOrders: item.linkedOrders.map((order) => ({
-    processOrderNo: order.processOrderNo,
-    createMode: order.createMode,
-    printFactoryName: order.factoryName,
-    status: order.status,
-    returnedQty: order.returnedQty,
-    unit: '片',
-  })),
-}))
+    linkedOrders: item.linkedOrders.map((order) => ({
+      processOrderNo: order.processOrderNo,
+      createMode: order.createMode,
+      printFactoryName: order.factoryName,
+      status: order.status,
+      returnedQty: order.returnedQty,
+      unit,
+    })),
+  }
+})
 
 const DEMANDS: PrintRequirementDemand[] = DEMAND_FACTS
 
@@ -144,12 +202,24 @@ const state: PrintRequirementsState = {
   sourceFocusedDemandId: null,
   focusedPreparationOrderNo: null,
   batchViewerDemandId: null,
+  addQuantityDemandId: null,
+  addQuantityForm: {
+    addedQty: '',
+  },
   page: 1,
   pageSize: 10,
 }
 
 function formatQty(qty: number, unit: Unit): string {
-  return `${qty.toLocaleString()}${unit}`
+  return `${qty.toLocaleString()} ${unit}`
+}
+
+function getAddedPrintQty(demand: PrintRequirementDemand): number {
+  return demand.printQtyAdditionRecords.reduce((sum, record) => sum + record.addedQty, 0)
+}
+
+function getFinalRequiredQty(demand: PrintRequirementDemand): number {
+  return demand.requiredQty + getAddedPrintQty(demand)
 }
 
 function sumSatisfiedQty(demand: PrintRequirementDemand): number {
@@ -157,28 +227,29 @@ function sumSatisfiedQty(demand: PrintRequirementDemand): number {
 }
 
 function getRemainingQty(demand: PrintRequirementDemand): number {
-  return Math.max(demand.requiredQty - sumSatisfiedQty(demand), 0)
+  return Math.max(getFinalRequiredQty(demand) - sumSatisfiedQty(demand), 0)
 }
 
 function getSatisfiedRate(demand: PrintRequirementDemand): number {
-  if (demand.requiredQty <= 0) return 0
-  return Math.min(100, Math.round((sumSatisfiedQty(demand) / demand.requiredQty) * 100))
+  const finalRequiredQty = getFinalRequiredQty(demand)
+  if (finalRequiredQty <= 0) return 0
+  return Math.min(100, Math.round((sumSatisfiedQty(demand) / finalRequiredQty) * 100))
 }
 
 function deriveStatus(demand: PrintRequirementDemand): DemandStatusZh {
   const satisfiedQty = sumSatisfiedQty(demand)
   if (satisfiedQty === 0) return '待满足'
-  if (satisfiedQty < demand.requiredQty) return '部分满足'
+  if (satisfiedQty < getFinalRequiredQty(demand)) return '部分满足'
   if (demand.handoverCompleted) return '已完成交接'
   return '已满足'
 }
 
 function isWarehousePrepared(demand: PrintRequirementDemand): boolean {
-  return sumSatisfiedQty(demand) >= demand.requiredQty
+  return sumSatisfiedQty(demand) >= getFinalRequiredQty(demand)
 }
 
 function formatSourceLine(source: PrintRequirementSourceLine): string {
-  return `${source.preparationOrderNo}｜${source.qty}${source.unit}｜${source.preparedAt}`
+  return `${source.preparationOrderNo}｜${formatQty(source.qty, source.unit)}｜${source.preparedAt}`
 }
 
 function renderBadge(label: string, className: string): string {
@@ -190,6 +261,8 @@ function closePanels(): void {
   state.sourceFocusedDemandId = null
   state.focusedPreparationOrderNo = null
   state.batchViewerDemandId = null
+  state.addQuantityDemandId = null
+  state.addQuantityForm = { addedQty: '' }
 }
 
 function getFilteredDemands(): PrintRequirementDemand[] {
@@ -287,10 +360,65 @@ function renderSourceLines(
   `
 }
 
+function renderAdditionSummary(demand: PrintRequirementDemand): string {
+  if (demand.printQtyAdditionRecords.length === 0) {
+    return '<span class="text-xs text-muted-foreground">暂无新增</span>'
+  }
+  return `
+    <div class="space-y-1">
+      ${demand.printQtyAdditionRecords
+        .slice(0, 2)
+        .map((record) => `<div class="font-mono text-xs">${escapeHtml(formatQty(record.addedQty, record.unit))}｜${escapeHtml(record.addedAt)}</div>`)
+        .join('')}
+      ${
+        demand.printQtyAdditionRecords.length > 2
+          ? `<div class="text-xs text-muted-foreground">共 ${demand.printQtyAdditionRecords.length} 条</div>`
+          : ''
+      }
+    </div>
+  `
+}
+
+function renderAdditionRecordsTable(demand: PrintRequirementDemand): string {
+  if (demand.printQtyAdditionRecords.length === 0) {
+    return '<p class="text-sm text-muted-foreground">暂无新增印花数量</p>'
+  }
+  return `
+    <div class="overflow-x-auto rounded-md border">
+      <table class="w-full min-w-[640px] text-sm">
+        <thead>
+          <tr class="border-b bg-muted/40 text-left">
+            <th class="px-3 py-2 font-medium">新增记录</th>
+            <th class="px-3 py-2 font-medium">本次新增印花数量</th>
+            <th class="px-3 py-2 font-medium">新增时间</th>
+            <th class="px-3 py-2 font-medium">操作人</th>
+            <th class="px-3 py-2 font-medium">备注</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${demand.printQtyAdditionRecords
+            .map((record) => `
+              <tr class="border-b last:border-b-0">
+                <td class="px-3 py-2 font-mono text-xs">${escapeHtml(record.additionId)}</td>
+                <td class="px-3 py-2">${escapeHtml(formatQty(record.addedQty, record.unit))}</td>
+                <td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(record.addedAt)}</td>
+                <td class="px-3 py-2">${escapeHtml(record.operatorName)}</td>
+                <td class="px-3 py-2">${escapeHtml(record.remark || '—')}</td>
+              </tr>
+            `)
+            .join('')}
+        </tbody>
+      </table>
+    </div>
+  `
+}
+
 function renderDemandRow(demand: PrintRequirementDemand): string {
   const status = deriveStatus(demand)
   const satisfiedQty = sumSatisfiedQty(demand)
   const remainingQty = getRemainingQty(demand)
+  const addedQty = getAddedPrintQty(demand)
+  const finalRequiredQty = getFinalRequiredQty(demand)
 
   return `
     <article class="rounded-lg border bg-card p-4 transition-colors hover:border-blue-300" data-print-req-action="open-detail" data-demand-id="${escapeHtml(demand.demandId)}">
@@ -306,11 +434,14 @@ function renderDemandRow(demand: PrintRequirementDemand): string {
             <div><span>技术资料版本：</span><span class="font-medium text-foreground">${escapeHtml(demand.techPackVersion)}</span></div>
             <div><span>物料编码：</span><span class="font-mono text-foreground">${escapeHtml(demand.materialCode)}</span></div>
             <div><span>物料名称：</span><span class="text-foreground">${escapeHtml(demand.materialName)}</span></div>
-            <div><span>需求数量：</span><span class="font-medium text-foreground">${escapeHtml(formatQty(demand.requiredQty, demand.unit))}</span></div>
+            <div><span>需求数量：</span><span class="font-medium text-foreground">${escapeHtml(formatQty(finalRequiredQty, demand.unit))}</span></div>
+            <div><span>起始数量：</span><span class="font-medium text-foreground">${escapeHtml(formatQty(demand.requiredQty, demand.unit))}</span></div>
+            <div><span>新增印花数量：</span><span class="font-medium text-foreground">${escapeHtml(formatQty(addedQty, demand.unit))}</span></div>
             <div class="md:col-span-2 xl:col-span-2"><span>印花要求：</span><span class="text-foreground">${escapeHtml(demand.printRequirement)}</span></div>
           </div>
           <div class="mt-3 flex flex-wrap gap-2 border-t pt-3">
             <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-print-req-action="open-detail" data-demand-id="${escapeHtml(demand.demandId)}">查看详情</button>
+            <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-print-req-action="open-add-quantity" data-demand-id="${escapeHtml(demand.demandId)}">新增印花数量</button>
             <button class="inline-flex h-8 items-center rounded-md border border-blue-300 px-3 text-xs text-blue-700 hover:bg-blue-50" data-print-req-action="create-order" data-demand-id="${escapeHtml(demand.demandId)}">按需求创建加工单</button>
             <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-print-req-action="open-batches" data-demand-id="${escapeHtml(demand.demandId)}">查看仓配明细</button>
           </div>
@@ -321,6 +452,7 @@ function renderDemandRow(demand: PrintRequirementDemand): string {
             <h4 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">结果字段</h4>
             <div class="mt-2 space-y-2 text-sm">
               <div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">已满足需求</span><span class="font-medium">${escapeHtml(formatQty(satisfiedQty, demand.unit))}</span></div>
+              <div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">新增印花数量</span><div class="w-[250px]">${renderAdditionSummary(demand)}</div></div>
               <div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">满足来源</span><div class="w-[250px]">${renderSourceLines(demand, { truncate: true, lineLimit: 2 })}</div></div>
               <div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">待满足数量</span><span class="${remainingQty > 0 ? 'font-medium text-amber-700' : 'font-medium text-green-700'}">${escapeHtml(formatQty(remainingQty, demand.unit))}</span></div>
               <div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">状态</span>${renderBadge(status, STATUS_CLASS[status])}</div>
@@ -387,6 +519,8 @@ function renderDetailDrawer(): string {
   const status = deriveStatus(demand)
   const satisfiedQty = sumSatisfiedQty(demand)
   const remainingQty = getRemainingQty(demand)
+  const addedQty = getAddedPrintQty(demand)
+  const finalRequiredQty = getFinalRequiredQty(demand)
   const rate = getSatisfiedRate(demand)
   const releaseAllowed = isWarehousePrepared(demand)
   const focusSources = state.sourceFocusedDemandId === demand.demandId
@@ -406,6 +540,7 @@ function renderDetailDrawer(): string {
               <p class="mt-1 text-xs text-muted-foreground">查看来源、仓配满足进度、配料满足来源及下一工序是否可进入</p>
             </div>
             <div class="flex items-center gap-2">
+              <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-print-req-action="open-add-quantity" data-demand-id="${escapeHtml(demand.demandId)}">新增印花数量</button>
               <button class="inline-flex h-8 items-center rounded-md border border-blue-300 px-3 text-xs text-blue-700 hover:bg-blue-50" data-print-req-action="create-order" data-demand-id="${escapeHtml(demand.demandId)}">按需求创建加工单</button>
               <button class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted" data-print-req-action="close-drawer" aria-label="关闭"><i data-lucide="x" class="h-4 w-4"></i></button>
             </div>
@@ -430,12 +565,19 @@ function renderDetailDrawer(): string {
             <div class="grid gap-3 text-sm md:grid-cols-2">
               <div><span class="text-muted-foreground">物料编码：</span><span class="font-mono">${escapeHtml(demand.materialCode)}</span></div>
               <div><span class="text-muted-foreground">物料名称：</span>${escapeHtml(demand.materialName)}</div>
-              <div><span class="text-muted-foreground">需求数量：</span>${escapeHtml(formatQty(demand.requiredQty, demand.unit))}</div>
+              <div><span class="text-muted-foreground">需求数量：</span>${escapeHtml(formatQty(finalRequiredQty, demand.unit))}</div>
+              <div><span class="text-muted-foreground">起始数量：</span>${escapeHtml(formatQty(demand.requiredQty, demand.unit))}</div>
+              <div><span class="text-muted-foreground">新增印花数量：</span>${escapeHtml(formatQty(addedQty, demand.unit))}</div>
               <div><span class="text-muted-foreground">单位：</span>${escapeHtml(demand.unit)}</div>
               <div class="md:col-span-2"><span class="text-muted-foreground">印花要求：</span>${escapeHtml(demand.printRequirement)}</div>
               <div><span class="text-muted-foreground">来源 BOM 项：</span>${escapeHtml(demand.sourceBomItem)}</div>
               <div><span class="text-muted-foreground">来源技术资料版本：</span>${escapeHtml(demand.sourceTechPackVersion)}</div>
             </div>
+          </section>
+
+          <section class="rounded-lg border bg-card p-4">
+            <h3 class="mb-3 text-sm font-semibold">新增印花数量记录</h3>
+            ${renderAdditionRecordsTable(demand)}
           </section>
 
           <section class="rounded-lg border bg-card p-4">
@@ -493,7 +635,7 @@ function renderDetailDrawer(): string {
               <div class="flex items-center gap-2"><span class="text-muted-foreground">是否可进入下一步：</span>${releaseAllowed ? renderBadge('允许', 'border-green-200 bg-green-50 text-green-700') : renderBadge('不允许', 'border-red-200 bg-red-50 text-red-700')}</div>
               <div><span class="text-muted-foreground">判定依据：</span>${releaseAllowed ? `仓库已针对生产单 ${demand.sourceProductionOrderId} 完成配料` : `仓库尚未针对生产单 ${demand.sourceProductionOrderId} 完成配料`}</div>
               <div><span class="text-muted-foreground">当前差额：</span>${escapeHtml(formatQty(remainingQty, demand.unit))}</div>
-              <div><span class="text-muted-foreground">${releaseAllowed ? '可进入下一工序：' : '当前无法继续的原因：'}</span>${escapeHtml(releaseAllowed ? demand.nextProcessName : `仍有${remainingQty}${demand.unit}待配料，生产单未完成配料，当前暂不能进入下一工序`)}</div>
+              <div><span class="text-muted-foreground">${releaseAllowed ? '可进入下一工序：' : '当前无法继续的原因：'}</span>${escapeHtml(releaseAllowed ? demand.nextProcessName : `仍有 ${formatQty(remainingQty, demand.unit)} 待配料，生产单未完成配料，当前暂不能进入下一工序`)}</div>
             </div>
           </section>
 
@@ -558,6 +700,45 @@ function renderBatchViewerDialog(): string {
   )
 }
 
+function renderAddQuantityDialog(): string {
+  const demand = getDemandById(state.addQuantityDemandId)
+  if (!demand) return ''
+
+  const contentHtml = `
+    <div class="space-y-3 text-sm">
+      <div><span class="text-muted-foreground">需求单号：</span><span class="font-mono">${escapeHtml(demand.demandId)}</span></div>
+      <div><span class="text-muted-foreground">当前需求数量：</span>${escapeHtml(formatQty(getFinalRequiredQty(demand), demand.unit))}</div>
+      <div>
+        <label class="mb-1 block text-xs text-muted-foreground">本次新增印花数量</label>
+        <div class="flex overflow-hidden rounded-md border">
+          <input
+            type="number"
+            min="0"
+            class="h-9 min-w-0 flex-1 bg-background px-3 text-sm outline-none"
+            value="${escapeHtml(state.addQuantityForm.addedQty)}"
+            data-print-req-add-field="addedQty"
+            placeholder="请输入本次新增印花数量"
+          />
+          <span class="inline-flex h-9 items-center border-l bg-muted px-3 text-sm">${escapeHtml(demand.unit)}</span>
+        </div>
+      </div>
+    </div>
+  `
+  const footer = `
+    <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-print-req-action="close-add-quantity">取消</button>
+    <button class="inline-flex h-9 items-center rounded-md border border-blue-300 bg-blue-50 px-4 text-sm text-blue-700 hover:bg-blue-100" data-print-req-action="submit-add-quantity">保存</button>
+  `
+  return renderDialog(
+    {
+      title: '新增印花数量',
+      closeAction: { prefix: 'print-req', action: 'close-add-quantity' },
+      width: 'md',
+    },
+    contentHtml,
+    footer,
+  )
+}
+
 export function renderProcessPrintRequirementsPage(): string {
   const statusOptions: StatusFilter[] = ['全部', '待满足', '部分满足', '已满足', '已完成交接']
   return `
@@ -596,6 +777,7 @@ export function renderProcessPrintRequirementsPage(): string {
       ${renderListSection()}
       ${renderDetailDrawer()}
       ${renderBatchViewerDialog()}
+      ${renderAddQuantityDialog()}
     </div>
   `
 }
@@ -616,7 +798,7 @@ function createOrderFromDemand(demandId: string): void {
     sourceProductionOrderId: demand.sourceProductionOrderId,
     materialCode: demand.materialCode,
     materialName: demand.materialName,
-    requiredQty: demand.requiredQty,
+    requiredQty: getFinalRequiredQty(demand),
     unit: demand.unit,
     sourceSummary: `由需求单 ${demand.demandId} 发起`,
   })
@@ -624,6 +806,12 @@ function createOrderFromDemand(demandId: string): void {
 }
 
 export function handleProcessPrintRequirementsEvent(target: HTMLElement): boolean {
+  const addFieldNode = target.closest<HTMLElement>('[data-print-req-add-field]')
+  if (addFieldNode instanceof HTMLInputElement && addFieldNode.dataset.printReqAddField === 'addedQty') {
+    state.addQuantityForm.addedQty = addFieldNode.value
+    return true
+  }
+
   const fieldNode = target.closest<HTMLElement>('[data-print-req-field]')
   if (fieldNode instanceof HTMLInputElement && fieldNode.dataset.printReqField === 'keyword') {
     state.keyword = fieldNode.value
@@ -686,6 +874,39 @@ export function handleProcessPrintRequirementsEvent(target: HTMLElement): boolea
     const demandId = actionNode.dataset.demandId
     if (!demandId) return true
     state.batchViewerDemandId = demandId
+    return true
+  }
+
+  if (action === 'open-add-quantity') {
+    const demandId = actionNode.dataset.demandId
+    if (!demandId) return true
+    state.addQuantityDemandId = demandId
+    state.addQuantityForm = { addedQty: '' }
+    return true
+  }
+
+  if (action === 'close-add-quantity') {
+    state.addQuantityDemandId = null
+    state.addQuantityForm = { addedQty: '' }
+    return true
+  }
+
+  if (action === 'submit-add-quantity') {
+    const demand = getDemandById(state.addQuantityDemandId)
+    if (!demand) return true
+    const addedQty = Number(state.addQuantityForm.addedQty)
+    if (!Number.isFinite(addedQty) || addedQty <= 0) return true
+    const nextNo = demand.printQtyAdditionRecords.length + 1
+    demand.printQtyAdditionRecords.push({
+      additionId: `${demand.demandId}-ADD-${String(nextNo).padStart(2, '0')}`,
+      addedQty: Math.round(addedQty * 100) / 100,
+      unit: demand.unit,
+      addedAt: new Date().toISOString().slice(0, 19).replace('T', ' '),
+      operatorName: '当前用户',
+    })
+    demand.updatedAt = new Date().toISOString().slice(0, 19).replace('T', ' ')
+    state.addQuantityDemandId = null
+    state.addQuantityForm = { addedQty: '' }
     return true
   }
 

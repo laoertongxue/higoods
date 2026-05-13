@@ -7,7 +7,7 @@ export interface ProcessCreateDemandIntent {
   materialCode: string
   materialName: string
   requiredQty: number
-  unit: '米' | '片'
+  unit: 'Yard' | '米' | '片'
   sourceSummary: string
 }
 

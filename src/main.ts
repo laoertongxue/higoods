@@ -611,6 +611,27 @@ function shouldSkipInputRerender(target: Element): boolean {
     return true
   }
 
+  const markerPlanInputNode = target.closest<HTMLElement>(
+    [
+      '[data-marker-plan-filter-field]',
+      '[data-marker-plan-context-field]',
+      '[data-marker-plan-basic-field]',
+      '[data-marker-plan-textarea-field]',
+      '[data-marker-plan-allocation-field]',
+      '[data-marker-plan-size-piece-per-layer]',
+      '[data-marker-plan-matrix-cell]',
+      '[data-marker-plan-matrix-row-length]',
+      '[data-marker-plan-bed-field]',
+      '[data-marker-plan-fold-field]',
+      '[data-marker-plan-mapping-field]',
+    ].join(', '),
+  )
+  if (markerPlanInputNode instanceof HTMLInputElement || markerPlanInputNode instanceof HTMLTextAreaElement) {
+    const inputType = markerPlanInputNode instanceof HTMLInputElement ? (markerPlanInputNode.type || 'text').toLowerCase() : 'text'
+    if (inputType === 'checkbox' || inputType === 'radio') return false
+    return true
+  }
+
   const pdaOnboardingFieldNode = target.closest<HTMLElement>('[data-pda-onboarding-field], [data-pda-onboarding-machine-field]')
   if (pdaOnboardingFieldNode instanceof HTMLInputElement || pdaOnboardingFieldNode instanceof HTMLTextAreaElement) {
     return true

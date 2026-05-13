@@ -39,7 +39,6 @@ function inferSourceType(documentType: PrintDocumentType, handoverRecordId: stri
   if (documentType === 'CUTTING_ORDER_QR_LABEL') return 'CUTTING_ORDER_RECORD'
   if (documentType === 'HANDOVER_QR_LABEL') return 'HANDOVER_RECORD'
   if (documentType === 'PRODUCTION_CONFIRMATION') return 'PRODUCTION_ORDER'
-  if (documentType === 'MAKE_GOODS_CONFIRMATION') return 'PRODUCTION_ORDER'
   if (documentType === 'SETTLEMENT_CHANGE_REQUEST') return 'SETTLEMENT_CHANGE_REQUEST_RECORD'
   if (documentType === 'HANDOVER_DIFFERENCE_REQUEST') return 'HANDOVER_DIFFERENCE_RECORD'
   if (documentType === 'QUALITY_DEDUCTION_CONFIRMATION') return 'QUALITY_DEDUCTION_PENDING_RECORD'

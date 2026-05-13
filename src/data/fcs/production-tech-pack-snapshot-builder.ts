@@ -175,6 +175,36 @@ function cloneProcessEntries(items: TechnicalProcessEntry[]): TechnicalProcessEn
   }))
 }
 
+function buildDefaultPostFinishingProcessEntry(snapshotId: string): TechnicalProcessEntry {
+  return {
+    id: `${snapshotId}-process-post-finishing`,
+    entryType: 'PROCESS_BASELINE',
+    stageCode: 'POST',
+    stageName: '后道阶段',
+    processCode: 'POST_FINISHING',
+    processName: '后道',
+    assignmentGranularity: 'SKU',
+    ruleSource: 'INHERIT_PROCESS',
+    detailSplitMode: 'COMPOSITE',
+    detailSplitDimensions: ['GARMENT_SKU'],
+    defaultDocType: 'TASK',
+    taskTypeMode: 'PROCESS',
+    isSpecialCraft: false,
+    sourceType: 'DICT',
+    triggerSource: '技术包默认后道工序',
+    standardTimeMinutes: 0,
+    timeUnit: '分钟/件',
+    difficulty: 'MEDIUM',
+    remark: '所有生产单默认包含后道工序，质检完成后由质检人员判断是否生成后道单。',
+  }
+}
+
+function ensurePostFinishingProcessEntry(items: TechnicalProcessEntry[], snapshotId: string): TechnicalProcessEntry[] {
+  const entries = cloneProcessEntries(items)
+  if (entries.some((item) => item.processCode === 'POST_FINISHING')) return entries
+  return [...entries, buildDefaultPostFinishingProcessEntry(snapshotId)]
+}
+
 function cloneSizeTable(items: TechnicalSizeRow[]): TechnicalSizeRow[] {
   return items.map((item) => ({ ...item }))
 }
@@ -497,8 +527,9 @@ function buildSnapshotFromSource(input: {
     patternFiles,
     patternDesigns,
   })
+  const snapshotId = createSnapshotId(productionOrderNo)
   return {
-    snapshotId: createSnapshotId(productionOrderNo),
+    snapshotId,
     productionOrderId,
     productionOrderNo,
     styleId: style.styleId,
@@ -515,7 +546,7 @@ function buildSnapshotFromSource(input: {
     patternDesc: content.patternDesc || '',
     bomItems,
     patternFiles,
-    processEntries: cloneProcessEntries(content.processEntries),
+    processEntries: ensurePostFinishingProcessEntry(content.processEntries, snapshotId),
     sizeTable: cloneSizeTable(content.sizeTable),
     sizeMeasurements: buildSizeMeasurements(content.sizeTable),
     qualityRules: cloneQualityRules(content.qualityRules),
@@ -532,6 +563,139 @@ function buildSnapshotFromSource(input: {
     linkedPatternTaskIds: [...record.linkedPatternTaskIds],
     linkedArtworkTaskIds: [...record.linkedArtworkTaskIds],
     completenessScore: record.completenessScore,
+  }
+}
+
+function resolveDemandColorMaterialInfo(input: {
+  demand: Pick<ProductionDemand, 'spuCode'>
+  color: string
+  colorIndex: number
+  fallbackBomItemId: string
+  fallbackMaterialName: string
+}): { code: string; name: string } {
+  const colorKey = normalizeText(input.color).toLowerCase()
+  if (input.demand.spuCode === 'SPU-2024-010') {
+    const joggerMaterialMap: Record<string, { code: string; name: string }> = {
+      black: {
+        code: 'tdv_demand_SPU_2024_010-bom-black-stretch-twill',
+        name: 'Black 弹力斜纹主面料',
+      },
+      charcoal: {
+        code: 'tdv_demand_SPU_2024_010-bom-charcoal-stretch-twill',
+        name: 'Charcoal 弹力斜纹主面料',
+      },
+      navy: {
+        code: 'tdv_demand_SPU_2024_010-bom-navy-twill',
+        name: 'Navy 斜纹主面料',
+      },
+      khaki: {
+        code: 'tdv_demand_SPU_2024_010-bom-khaki-canvas',
+        name: 'Khaki 帆布主面料',
+      },
+    }
+    const mapped = joggerMaterialMap[colorKey]
+    if (mapped) return mapped
+    const colorToken = colorKey.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || `color-${input.colorIndex + 1}`
+    return {
+      code: `tdv_demand_SPU_2024_010-bom-${colorToken}`,
+      name: `${input.color} 主面料`,
+    }
+  }
+  return {
+    code: input.fallbackBomItemId,
+    name: input.fallbackMaterialName,
+  }
+}
+
+function alignSnapshotWithDemandSkuLines(
+  snapshot: ProductionOrderTechPackSnapshot,
+  demand: Pick<ProductionDemand, 'spuCode'> & Partial<Pick<ProductionDemand, 'skuLines'>>,
+): ProductionOrderTechPackSnapshot {
+  const skuLines = demand.skuLines ?? []
+  if (!skuLines.length || !snapshot.colorMaterialMappings.length) return snapshot
+
+  const colors = uniqueStrings(skuLines.map((line) => line.color))
+  const sizes = uniqueStrings(skuLines.map((line) => line.size))
+  const allSkuCodes = uniqueStrings(skuLines.map((line) => line.skuCode))
+  const fallbackMapping = snapshot.colorMaterialMappings[0]
+  const fallbackBomItem = snapshot.bomItems[0] ?? null
+  const fallbackMaterialName = normalizeText(fallbackBomItem?.name) || normalizeText(fallbackMapping?.lines?.[0]?.materialName) || '主面料'
+  const fallbackBomItemId = normalizeText(fallbackBomItem?.id) || normalizeText(fallbackMapping?.lines?.[0]?.bomItemId)
+
+  const colorMaterialMappings = colors
+    .map((color, colorIndex) => {
+      const existing = snapshot.colorMaterialMappings.find(
+        (mapping) =>
+          normalizeText(mapping.colorName).toLowerCase() === color.toLowerCase()
+          || normalizeText(mapping.colorCode).toLowerCase() === color.toLowerCase(),
+      )
+      const template = existing ?? fallbackMapping
+      if (!template) return null
+      const skuCodesForColor = uniqueStrings(
+        skuLines
+          .filter((line) => normalizeText(line.color).toLowerCase() === color.toLowerCase())
+          .map((line) => line.skuCode),
+      )
+      const materialInfo = resolveDemandColorMaterialInfo({
+        demand,
+        color,
+        colorIndex,
+        fallbackBomItemId,
+        fallbackMaterialName,
+      })
+      return {
+        ...template,
+        id: `${snapshot.snapshotId}-mapping-${colorIndex + 1}`,
+        spuCode: demand.spuCode,
+        colorCode: color,
+        colorName: color,
+        lines: template.lines.map((line, lineIndex) => ({
+          ...line,
+          id: `${snapshot.snapshotId}-mapping-${colorIndex + 1}-${normalizeText(line.pieceId) || lineIndex + 1}`,
+          materialCode: materialInfo.code,
+          materialName: materialInfo.name,
+          applicableSkuCodes: skuCodesForColor,
+        })),
+      } satisfies TechnicalColorMaterialMapping
+    })
+    .filter((item): item is TechnicalColorMaterialMapping => Boolean(item))
+
+  return {
+    ...snapshot,
+    bomItems: snapshot.bomItems.map((item) => ({
+      ...item,
+      colorLabel: colors.join(' / '),
+      applicableSkuCodes: allSkuCodes,
+    })),
+    patternFiles: snapshot.patternFiles.map((item) => ({
+      ...item,
+      selectedSizeCodes: sizes,
+      sizeRange: sizes.join(' / ') || item.sizeRange,
+      pieceRows: item.pieceRows?.map((row) => ({
+        ...row,
+        applicableSkuCodes: allSkuCodes,
+      })),
+    })),
+    colorMaterialMappings,
+    cutPieceParts: snapshot.cutPieceParts.map((item) => ({
+      ...item,
+      applicableColorList: colors,
+      applicableSizeList: sizes,
+      materialSku: resolveDemandColorMaterialInfo({
+        demand,
+        color: colors[0] || '',
+        colorIndex: 0,
+        fallbackBomItemId,
+        fallbackMaterialName,
+      }).code,
+      materialName: resolveDemandColorMaterialInfo({
+        demand,
+        color: colors[0] || '',
+        colorIndex: 0,
+        fallbackBomItemId,
+        fallbackMaterialName,
+      }).name,
+    })),
   }
 }
 
@@ -666,7 +830,7 @@ export function buildProductionOrderTechPackSnapshot(input: {
     throw new Error('当前生效技术包版本未发布')
   }
 
-  return buildSnapshotFromSource({
+  return alignSnapshotWithDemandSkuLines(buildSnapshotFromSource({
     productionOrderId: input.productionOrderId,
     productionOrderNo: input.productionOrderNo,
     style: source.style,
@@ -674,5 +838,5 @@ export function buildProductionOrderTechPackSnapshot(input: {
     content: source.content,
     snapshotAt: input.snapshotAt,
     snapshotBy: input.snapshotBy,
-  })
+  }), input.demand)
 }

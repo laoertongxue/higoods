@@ -105,13 +105,18 @@ import {
 } from '../data/fcs/process-quantity-labels.ts'
 import type {
   PostFinishingActionType,
+  PostFinishingTaskView,
   PostFinishingWorkOrder,
   SewingFactoryPostTask,
 } from '../data/fcs/post-finishing-domain.ts'
 import {
   getPostFinishingFlowText,
   getPostFinishingSourceLabel,
+  getPostFinishingTaskById,
   getSewingFactoryPostTaskById,
+  listPostFinishingQcOrderEntities,
+  listPostFinishingRecheckOrderEntities,
+  listPostFinishingWaitQcSkuItems,
   listPostFinishingWorkOrders,
   listSewingFactoryPostTasks,
   finishSewingFactoryPostTask,
@@ -2115,6 +2120,119 @@ function renderPostFinishingMobileOperationRecords(order: PostFinishingWorkOrder
   `
 }
 
+function renderPdaPostFinishingTaskPage(execId: string, task: PostFinishingTaskView): string {
+  const waitItems = listPostFinishingWaitQcSkuItems({ postTaskId: task.postTaskId })
+  const qcOrders = listPostFinishingQcOrderEntities().filter((item) => item.postTaskId === task.postTaskId || item.productionOrderNo === task.productionOrderNo)
+  const postOrders = listPostFinishingWorkOrders().filter((item) => item.postTaskId === task.postTaskId || item.sourceProductionOrderNo === task.productionOrderNo)
+  const recheckOrders = listPostFinishingRecheckOrderEntities().filter((item) => item.postTaskId === task.postTaskId || item.productionOrderNo === task.productionOrderNo)
+  const waitQcQty = task.waitQcQty + task.qcInProgressQty
+  const currentActions = [
+    task.waitQcQty > 0
+      ? `<button type="button" class="inline-flex h-10 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground" data-pda-execd-action="post-task-create-qc" data-post-task-id="${escapeHtml(task.postTaskId)}">创建质检单</button>`
+      : '',
+    postOrders[0]
+      ? `<button type="button" class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-sm font-medium hover:bg-muted" data-pda-execd-action="post-task-open-order" data-post-order-id="${escapeHtml(postOrders[0].postOrderId)}">处理后道单</button>`
+      : '',
+  ].filter(Boolean).join('')
+  const waitRows = waitItems.map((item) => `
+    <tr>
+      <td class="px-3 py-2">${escapeHtml(item.skuCode)}</td>
+      <td class="px-3 py-2">${escapeHtml(item.colorName)} / ${escapeHtml(item.sizeName)}</td>
+      <td class="px-3 py-2">${item.waitQcQty} ${escapeHtml(item.qtyUnit)}</td>
+    </tr>
+  `).join('')
+  const qcRows = qcOrders.map((item) => `
+    <tr>
+      <td class="px-3 py-2 font-mono">${escapeHtml(item.qcOrderNo)}</td>
+      <td class="px-3 py-2">${escapeHtml(item.qcStatus)}</td>
+      <td class="px-3 py-2">${item.inspectedGarmentQty} 件</td>
+    </tr>
+  `).join('')
+  const postRows = postOrders.map((item) => `
+    <tr>
+      <td class="px-3 py-2 font-mono">${escapeHtml(item.postOrderNo)}</td>
+      <td class="px-3 py-2">${escapeHtml(item.postProcessItems.join('、') || '无后道单')}</td>
+      <td class="px-3 py-2">${escapeHtml(item.postStatus)}</td>
+    </tr>
+  `).join('')
+  const recheckRows = recheckOrders.map((item) => `
+    <tr>
+      <td class="px-3 py-2 font-mono">${escapeHtml(item.recheckOrderNo)}</td>
+      <td class="px-3 py-2">${escapeHtml(item.sourceType)}</td>
+      <td class="px-3 py-2">${escapeHtml(item.recheckStatus)}</td>
+    </tr>
+  `).join('')
+
+  const content = `
+    <div class="space-y-4 bg-background p-4 pb-6">
+      <div class="flex items-center gap-2">
+        <button class="inline-flex h-8 items-center rounded-md px-2 text-sm hover:bg-muted" data-pda-execd-action="back">
+          <i data-lucide="arrow-left" class="mr-1 h-4 w-4"></i>
+          返回
+        </button>
+        <h1 class="text-base font-semibold">后道任务</h1>
+      </div>
+
+      <article class="rounded-lg border bg-card">
+        <header class="border-b px-4 py-3">
+          <div class="flex items-center justify-between gap-2">
+            <span class="font-mono text-sm font-semibold">${escapeHtml(task.postTaskNo)}</span>
+            <span class="inline-flex rounded bg-blue-100 px-2 py-0.5 text-xs text-blue-700">${escapeHtml(task.currentStatus)}</span>
+          </div>
+        </header>
+        <div class="grid gap-3 p-4 text-xs">
+          <div class="grid grid-cols-2 gap-x-4 gap-y-1">
+            <span class="text-muted-foreground">生产单</span>
+            <span class="font-medium">${escapeHtml(task.productionOrderNo)}</span>
+            <span class="text-muted-foreground">款式</span>
+            <span>${escapeHtml(task.spuName)}</span>
+            <span class="text-muted-foreground">后道工厂</span>
+            <span>${escapeHtml(task.managedPostFactoryName)}</span>
+            <span class="text-muted-foreground">上游来源</span>
+            <span>${escapeHtml(task.sourceFactoryNames.join('、') || '待上游交出')}</span>
+            <span class="text-muted-foreground">当前节点</span>
+            <span>${escapeHtml(task.currentNode)}</span>
+            <span class="text-muted-foreground">计划数量</span>
+            <span>${task.plannedGarmentQty} ${escapeHtml(task.qtyUnit)}</span>
+            <span class="text-muted-foreground">未质检数量</span>
+            <span>${waitQcQty} ${escapeHtml(task.qtyUnit)}</span>
+            <span class="text-muted-foreground">待交出数量</span>
+            <span>${task.waitHandoverQty} ${escapeHtml(task.qtyUnit)}</span>
+          </div>
+        </div>
+      </article>
+
+      <article class="rounded-lg border bg-card">
+        <header class="border-b px-4 py-3"><h2 class="text-sm font-semibold">当前可执行动作</h2></header>
+        <div class="grid gap-2 p-4">
+          ${currentActions || '<div class="rounded-md border bg-muted/30 px-3 py-3 text-sm text-muted-foreground">当前没有可执行动作</div>'}
+        </div>
+      </article>
+
+      <article class="rounded-lg border bg-card">
+        <header class="border-b px-4 py-3"><h2 class="text-sm font-semibold">待质检库存</h2></header>
+        <div class="overflow-x-auto p-4">
+          <table class="min-w-[480px] text-left text-xs">
+            <thead class="bg-muted text-muted-foreground"><tr><th class="px-3 py-2">SKU</th><th class="px-3 py-2">颜色 / 尺码</th><th class="px-3 py-2">待质检</th></tr></thead>
+            <tbody class="divide-y">${waitRows || '<tr><td colspan="3" class="px-3 py-4 text-center text-muted-foreground">暂无待质检库存</td></tr>'}</tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="rounded-lg border bg-card">
+        <header class="border-b px-4 py-3"><h2 class="text-sm font-semibold">质检、后道、复检</h2></header>
+        <div class="space-y-3 p-4">
+          <div class="overflow-x-auto"><table class="min-w-[520px] text-left text-xs"><thead class="bg-muted text-muted-foreground"><tr><th class="px-3 py-2">质检单</th><th class="px-3 py-2">状态</th><th class="px-3 py-2">数量</th></tr></thead><tbody class="divide-y">${qcRows || '<tr><td colspan="3" class="px-3 py-4 text-center text-muted-foreground">暂无质检单</td></tr>'}</tbody></table></div>
+          <div class="overflow-x-auto"><table class="min-w-[520px] text-left text-xs"><thead class="bg-muted text-muted-foreground"><tr><th class="px-3 py-2">后道单</th><th class="px-3 py-2">后道项目</th><th class="px-3 py-2">状态</th></tr></thead><tbody class="divide-y">${postRows || '<tr><td colspan="3" class="px-3 py-4 text-center text-muted-foreground">暂无后道单</td></tr>'}</tbody></table></div>
+          <div class="overflow-x-auto"><table class="min-w-[520px] text-left text-xs"><thead class="bg-muted text-muted-foreground"><tr><th class="px-3 py-2">复检单</th><th class="px-3 py-2">来源</th><th class="px-3 py-2">状态</th></tr></thead><tbody class="divide-y">${recheckRows || '<tr><td colspan="3" class="px-3 py-4 text-center text-muted-foreground">暂无复检单</td></tr>'}</tbody></table></div>
+        </div>
+      </article>
+    </div>
+  `
+  void execId
+  return renderPdaFrame(content, 'exec', { disableTodoAutoOpen: true })
+}
+
 function renderPdaPostFinishingExecutionPage(execId: string, order: PostFinishingWorkOrder): string {
   const actionRows = [order.receiveAction, order.qcAction, order.postAction, order.recheckAction]
     .filter(Boolean)
@@ -2303,6 +2421,10 @@ export function renderPdaExecDetailPage(taskId: string): string {
   }
 
   if (task?.processCode === 'POST_FINISHING') {
+    const postTask = getPostFinishingTaskById(task.taskId)
+    if (postTask) {
+      return renderPdaPostFinishingTaskPage(taskId, postTask)
+    }
     const postOrder = getPostFinishingWorkOrderForMobile(task.taskId)
     if (postOrder) {
       return renderPdaPostFinishingExecutionPage(taskId, postOrder)
@@ -2313,6 +2435,10 @@ export function renderPdaExecDetailPage(taskId: string): string {
     const sewingPostTask = getSewingFactoryPostTaskById(taskId)
     if (sewingPostTask) {
       return renderPdaSewingPostTaskPage(taskId, sewingPostTask)
+    }
+    const postTask = getPostFinishingTaskById(taskId)
+    if (postTask) {
+      return renderPdaPostFinishingTaskPage(taskId, postTask)
     }
     const postOrder = getPostFinishingWorkOrderForMobile(taskId)
     if (postOrder) {
@@ -3958,6 +4084,20 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       showPdaExecDetailToast(error instanceof Error ? error.message : '后道写回失败')
       return true
     }
+  }
+
+  if (action === 'post-task-create-qc') {
+    const postTaskId = actionNode.dataset.postTaskId
+    if (!postTaskId) return true
+    appStore.navigate(`/fcs/craft/post-finishing/qc-orders?postTaskId=${encodeURIComponent(postTaskId)}&createQc=1`)
+    return true
+  }
+
+  if (action === 'post-task-open-order') {
+    const postOrderId = actionNode.dataset.postOrderId
+    if (!postOrderId) return true
+    appStore.navigate(`/fcs/pda/exec/${encodeURIComponent(postOrderId)}`)
+    return true
   }
 
   if (action === 'sewing-post-start' || action === 'sewing-post-finish' || action === 'sewing-post-transfer') {

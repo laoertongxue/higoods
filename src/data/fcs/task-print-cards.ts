@@ -46,7 +46,12 @@ import {
   getSpecialCraftTaskOrderById,
   type SpecialCraftTaskNodeRecord,
 } from './special-craft-task-orders.ts'
-import { getPostFinishingWorkOrderById, type PostFinishingActionRecord } from './post-finishing-domain.ts'
+import {
+  getPostFinishingTaskById,
+  getPostFinishingWorkOrderById,
+  type PostFinishingActionRecord,
+  type PostFinishingTaskView,
+} from './post-finishing-domain.ts'
 import {
   getCuttingMergeBatchTaskPrintSourceById,
   getCuttingOriginalOrderTaskPrintSourceById,
@@ -61,6 +66,7 @@ export type TaskRouteCardSourceType =
   | 'PRINTING_WORK_ORDER'
   | 'DYEING_WORK_ORDER'
   | 'SPECIAL_CRAFT_TASK_ORDER'
+  | 'POST_FINISHING_TASK'
   | 'POST_FINISHING_WORK_ORDER'
   | 'CUTTING_ORIGINAL_ORDER'
   | 'CUTTING_MERGE_BATCH'
@@ -1050,6 +1056,113 @@ function mapPostFinishingActionRecord(record: PostFinishingActionRecord): TaskRo
   }
 }
 
+function buildPostFinishingTaskRouteRows(task: PostFinishingTaskView): TaskRouteCardRecordRow[] {
+  return ensureRouteRecordNodes([
+    {
+      rowId: `${task.postTaskId}-receive`,
+      node: '上游交出 / 收货',
+      startedAt: task.createdAt,
+      finishedAt: task.receivedQty > 0 ? task.updatedAt : '—',
+      completedQty: formatQtyText(task.receivedQty, task.qtyUnit),
+      exceptionQty: '—',
+      station: task.sourceFactoryNames.join('、') || '待上游交出',
+      operator: '系统汇总',
+      remark: task.sourceTaskNos.join('、') || '等待上游交出记录',
+    },
+    {
+      rowId: `${task.postTaskId}-qc`,
+      node: '质检',
+      startedAt: task.qcInProgressQty > 0 || task.qcDoneQty > 0 ? task.updatedAt : '—',
+      finishedAt: task.qcDoneQty > 0 ? task.updatedAt : '—',
+      completedQty: formatQtyText(task.qcDoneQty, task.qtyUnit),
+      exceptionQty: formatQtyText(Math.max(task.receivedQty - task.qcDoneQty - task.waitQcQty - task.qcInProgressQty, 0), task.qtyUnit),
+      station: task.managedPostFactoryName,
+      operator: '质检员',
+      remark: `质检单 ${task.qcOrderCount} 张，未质检 ${formatQtyText(Math.max(task.waitQcQty + task.qcInProgressQty, 0), task.qtyUnit)}`,
+    },
+    {
+      rowId: `${task.postTaskId}-post`,
+      node: '后道',
+      startedAt: task.postDoingQty > 0 || task.postDoneQty > 0 ? task.updatedAt : '—',
+      finishedAt: task.postDoneQty > 0 ? task.updatedAt : '—',
+      completedQty: formatQtyText(task.postDoneQty, task.qtyUnit),
+      exceptionQty: '—',
+      station: task.managedPostFactoryName,
+      operator: '后道工',
+      remark: task.postOrderCount > 0 ? `后道单 ${task.postOrderCount} 张` : '质检未勾选后道动作时可直接进入复检',
+    },
+    {
+      rowId: `${task.postTaskId}-recheck`,
+      node: '复检',
+      startedAt: task.waitRecheckQty > 0 || task.recheckDoneQty > 0 ? task.updatedAt : '—',
+      finishedAt: task.recheckDoneQty > 0 ? task.updatedAt : '—',
+      completedQty: formatQtyText(task.recheckDoneQty, task.qtyUnit),
+      exceptionQty: '—',
+      station: task.managedPostFactoryName,
+      operator: '复检员',
+      remark: `复检单 ${task.recheckOrderCount} 张`,
+    },
+    {
+      rowId: `${task.postTaskId}-handover`,
+      node: '交出',
+      startedAt: task.waitHandoverQty > 0 ? task.updatedAt : '—',
+      finishedAt: task.currentStatus === '已完成' ? task.updatedAt : '—',
+      completedQty: formatQtyText(Math.max(task.recheckDoneQty - task.waitHandoverQty, 0), task.qtyUnit),
+      exceptionQty: '—',
+      station: task.managedPostFactoryName,
+      operator: '仓管员',
+      remark: `待交出 ${formatQtyText(task.waitHandoverQty, task.qtyUnit)}`,
+    },
+  ], ['上游交出 / 收货', '质检', '后道', '复检', '交出'])
+}
+
+function buildRouteCardFromPostFinishingTask(sourceId: string): TaskRouteCardBuildResult {
+  const task = getPostFinishingTaskById(sourceId)
+  if (!task) return { ok: false, title: TASK_ROUTE_CARD_NAME, message: `未找到后道任务：${sourceId}` }
+
+  return {
+    ok: true,
+    card: {
+      cardName: TASK_ROUTE_CARD_NAME,
+      sourceType: 'POST_FINISHING_TASK',
+      sourceId: task.postTaskId,
+      sourceLabel: '后道任务',
+      taskId: task.postTaskId,
+      taskNo: task.postTaskNo,
+      productionOrderId: task.productionOrderId,
+      productionOrderNo: task.productionOrderNo,
+      processName: '后道',
+      craftName: '后道',
+      factoryName: task.managedPostFactoryName,
+      statusLabel: task.currentStatus,
+      plannedQty: task.plannedGarmentQty,
+      qtyUnit: task.qtyUnit,
+      dueAt: task.updatedAt,
+      qrValue: buildTaskQrValue(task.postTaskId),
+      image: resolvePrintImage({ productionOrderId: task.productionOrderNo, processName: '后道', craftName: '后道' }),
+      summaryRemark: '生产单级后道主线任务流转卡，质检单、后道单、复检单均归属该任务。',
+      titleOverride: '后道任务流转卡',
+      summaryRowsOverride: [
+        { label: '后道任务号', value: task.postTaskNo },
+        { label: '生产单号', value: task.productionOrderNo },
+        { label: '款式衣服', value: `${task.spuCode} / ${task.spuName}` },
+        { label: '后道工厂', value: task.managedPostFactoryName },
+        { label: '计划成衣件数', value: formatQtyText(task.plannedGarmentQty, task.qtyUnit) },
+        { label: '未质检成衣件数', value: formatQtyText(Math.max(task.waitQcQty + task.qcInProgressQty, 0), task.qtyUnit) },
+        { label: '待交出成衣件数', value: formatQtyText(task.waitHandoverQty, task.qtyUnit) },
+        { label: '当前状态', value: task.currentStatus },
+      ],
+      supplementalItems: [
+        { label: '技术包版本', value: task.techPackVersionLabel },
+        { label: '上游来源', value: task.sourceFactoryNames.join('、') || '待上游交出' },
+        { label: '上游任务', value: task.sourceTaskNos.join('、') || '—' },
+        { label: '子单据', value: `质检单 ${task.qcOrderCount} 张 / 后道单 ${task.postOrderCount} 张 / 复检单 ${task.recheckOrderCount} 张` },
+      ],
+      routeRecords: buildPostFinishingTaskRouteRows(task),
+    },
+  }
+}
+
 function buildRouteCardFromPostFinishingWorkOrder(sourceId: string): TaskRouteCardBuildResult {
   const order = getPostFinishingWorkOrderById(sourceId)
   if (!order) return { ok: false, title: TASK_ROUTE_CARD_NAME, message: `未找到后道单：${sourceId}` }
@@ -1215,6 +1328,8 @@ export function buildTaskRouteCardBySource(
       return buildRouteCardFromDyeWorkOrder(sourceId)
     case 'SPECIAL_CRAFT_TASK_ORDER':
       return buildRouteCardFromSpecialCraftTaskOrder(sourceId)
+    case 'POST_FINISHING_TASK':
+      return buildRouteCardFromPostFinishingTask(sourceId)
     case 'POST_FINISHING_WORK_ORDER':
       return buildRouteCardFromPostFinishingWorkOrder(sourceId)
     case 'CUTTING_ORIGINAL_ORDER':
@@ -1234,6 +1349,7 @@ export function isTaskRouteCardSourceType(value: string): value is TaskRouteCard
     || value === 'PRINTING_WORK_ORDER'
     || value === 'DYEING_WORK_ORDER'
     || value === 'SPECIAL_CRAFT_TASK_ORDER'
+    || value === 'POST_FINISHING_TASK'
     || value === 'POST_FINISHING_WORK_ORDER'
     || value === 'CUTTING_ORIGINAL_ORDER'
     || value === 'CUTTING_MERGE_BATCH'

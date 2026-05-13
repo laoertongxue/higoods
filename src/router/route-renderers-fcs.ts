@@ -413,6 +413,10 @@ export const renderPostFinishingWorkOrdersPage = createAsyncRenderer(
   () => import('../pages/process-factory/post-finishing/work-orders'),
   'renderPostFinishingWorkOrdersPage',
 )
+export const renderPostFinishingTasksPage = createAsyncRenderer(
+  () => import('../pages/process-factory/post-finishing/tasks'),
+  'renderPostFinishingTasksPage',
+)
 export const renderPostFinishingWorkOrderDetailPage = createAsyncRenderer(
   () => import('../pages/process-factory/post-finishing/work-order-detail'),
   'renderPostFinishingWorkOrderDetailPage',

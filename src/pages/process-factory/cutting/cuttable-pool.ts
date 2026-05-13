@@ -46,6 +46,10 @@ const initialFilters: CuttablePoolFilters = {
   onlyCuttable: false,
 }
 
+function uniqueStrings(values: string[]): string[] {
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)))
+}
+
 interface CuttablePoolPageState {
   filters: CuttablePoolFilters
   selectedIds: string[]
@@ -477,7 +481,7 @@ function renderOriginalOrderRows(order: ReturnType<typeof getVisibleOrders>[numb
 }
 
 function getQuickBucketLabel(bucket: QuickMergeableBucket): string {
-  return `${bucket.styleCode || bucket.spuCode || '同款'} · ${bucket.materialSku}`
+  return `${bucket.productionOrderNos[0] || '同生产单'} · ${bucket.styleCode || bucket.spuCode || '同款'}`
 }
 
 function renderOrderQuickSelectActions(order: ReturnType<typeof getVisibleOrders>[number]): string {
@@ -506,7 +510,7 @@ function renderOrderQuickSelectActions(order: ReturnType<typeof getVisibleOrders
           data-order-id="${order.id}"
           data-batching-key="${escapeHtml(bucket.batchingKey)}"
         >
-          快速选择 ${escapeHtml(bucket.materialSku)}（${bucket.cuttableCount}）
+          快速选择 ${escapeHtml(bucket.productionOrderNos[0] || bucket.styleCode || bucket.spuCode)}（${bucket.cuttableCount}）
         </button>
       `,
     )
@@ -571,7 +575,7 @@ function renderQuickMergeableSidebar(viewModel = getViewModel()): string {
       <section class="space-y-2" data-testid="cutting-cuttable-pool-quick-select-sidebar">
         <div>
           <h3 class="text-sm font-semibold text-foreground">快速选择可合并裁剪</h3>
-          <p class="mt-1 text-xs text-muted-foreground">当前筛选范围内暂无可直接快速选择的同款同料可裁项。</p>
+          <p class="mt-1 text-xs text-muted-foreground">当前筛选范围内暂无可直接快速选择的同款同生产单可裁项。</p>
         </div>
       </section>
     `
@@ -581,7 +585,7 @@ function renderQuickMergeableSidebar(viewModel = getViewModel()): string {
     <section class="space-y-2" data-testid="cutting-cuttable-pool-quick-select-sidebar">
       <div>
         <h3 class="text-sm font-semibold text-foreground">快速选择可合并裁剪</h3>
-        <p class="mt-1 text-xs text-muted-foreground">按同款同料快速带出当前可见范围内的可裁原始裁片单。</p>
+        <p class="mt-1 text-xs text-muted-foreground">按同款同生产单快速带出当前可见范围内的可裁原始裁片单。</p>
       </div>
       <div class="space-y-2">
         ${buckets
@@ -593,10 +597,10 @@ function renderQuickMergeableSidebar(viewModel = getViewModel()): string {
                     <div class="font-medium text-foreground">${escapeHtml(getQuickBucketLabel(bucket))}</div>
                     <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(bucket.styleName || '未命名款式')}</div>
                     <div class="mt-1 text-[11px] text-muted-foreground">
-                      面料：${escapeHtml(bucket.materialLabel)} / ${escapeHtml(bucket.materialSku)}
+                      物料：${escapeHtml(bucket.materialLabel)} / ${escapeHtml(bucket.materialSku)}
                     </div>
                     <div class="mt-1 text-[11px] text-muted-foreground">
-                      可裁 ${bucket.cuttableCount} 个 · 生产单 ${bucket.productionOrderCount} 个 · 最早发货 ${escapeHtml(bucket.earliestShipDateDisplay || '待补日期')} · 最高紧急程度 ${escapeHtml(bucket.highestUrgencyLabel)}
+                      可裁 ${bucket.cuttableCount} 个 · 同生产单 · 最早发货 ${escapeHtml(bucket.earliestShipDateDisplay || '待补日期')} · 最高紧急程度 ${escapeHtml(bucket.highestUrgencyLabel)}
                     </div>
                   </div>
                   <div class="flex shrink-0 flex-col items-end gap-1">
@@ -646,7 +650,7 @@ function renderStyleGroups(groups: CuttableStyleGroup[], currentBatchingKey: str
                           ),
                         )
                         .join('')
-                    : '<span class="text-xs text-muted-foreground">当前无同款同料摘要</span>'
+                    : '<span class="text-xs text-muted-foreground">当前无同款同生产单摘要</span>'
                 }
               </div>
             </div>
@@ -689,8 +693,9 @@ function renderSelectedPanel(viewModel = getViewModel()): string {
   const selectedItems = getSelectedItems(viewModel)
   const selectedOrderIds = Array.from(new Set(selectedItems.map((item) => item.productionOrderId)))
   const selectedBatchingLabel = selectedItems[0]
-    ? `${selectedItems[0].styleCode || selectedItems[0].spuCode || '同款'} · ${selectedItems[0].materialSku}`
+    ? `${selectedItems[0].productionOrderNo || '同生产单'} · ${selectedItems[0].styleCode || selectedItems[0].spuCode || '同款'}`
     : '未选择'
+  const selectedMaterialSummary = uniqueStrings(selectedItems.map((item) => item.materialSku)).join(' / ')
 
   return `
     <aside class="sticky top-24 rounded-xl border bg-card" data-testid="cutting-cuttable-pool-selected-sidebar">
@@ -711,8 +716,9 @@ function renderSelectedPanel(viewModel = getViewModel()): string {
             <div class="mt-1 text-lg font-semibold tabular-nums">${selectedOrderIds.length}</div>
           </div>
           <div class="rounded-lg border bg-muted/10 px-3 py-2">
-            <div class="text-xs text-muted-foreground">当前同款同料</div>
+            <div class="text-xs text-muted-foreground">当前同款同生产单</div>
             <div class="mt-1 text-sm font-semibold">${escapeHtml(selectedBatchingLabel)}</div>
+            ${selectedMaterialSummary ? `<div class="mt-1 text-xs text-muted-foreground">${escapeHtml(selectedMaterialSummary)}</div>` : ''}
           </div>
         </div>
 
@@ -764,7 +770,7 @@ function renderSelectedPanel(viewModel = getViewModel()): string {
           </button>
         </div>
 
-        ${selectedItems.length ? `<p class="text-xs text-muted-foreground">当前选择将按 ${escapeHtml(selectedBatchingLabel)} 这一同款同料清单进入下一步。</p>` : ''}
+        ${selectedItems.length ? `<p class="text-xs text-muted-foreground">当前选择将按 ${escapeHtml(selectedBatchingLabel)} 这一同款同生产单清单进入下一步。</p>` : ''}
       </div>
     </aside>
   `
@@ -845,7 +851,7 @@ function toggleItemSelection(itemId: string | undefined): boolean {
 
   const currentBatchingKey = getSelectedBatchingKey(viewModel)
   if (currentBatchingKey && currentBatchingKey !== item.batchingKey) {
-    setNotice('当前已选清单仅支持同一同款同料，请清空后重新选择，或改用上方快速选择。')
+    setNotice('当前已选清单仅支持同款同生产单，请清空后重新选择，或改用上方快速选择。')
     return true
   }
 

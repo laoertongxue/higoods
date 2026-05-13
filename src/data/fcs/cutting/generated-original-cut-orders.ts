@@ -146,7 +146,10 @@ export function hasFormalTechPackForCutting(order: ProductionOrder): boolean {
 }
 
 export function listCuttingProductionOrdersWithFormalTechPack(): ProductionOrder[] {
-  return productionOrders.filter((order) => hasFormalTechPackForCutting(order)).slice(0, 8)
+  const formalOrders = productionOrders.filter((order) => hasFormalTechPackForCutting(order))
+  const joggerOrders = formalOrders.filter((order) => order.demandSnapshot.spuCode === 'SPU-2024-010')
+  const otherOrders = formalOrders.filter((order) => order.demandSnapshot.spuCode !== 'SPU-2024-010')
+  return [...joggerOrders, ...otherOrders].slice(0, 16)
 }
 
 function buildSkuScopeLines(order: ProductionOrder): GeneratedOriginalCutOrderSkuScopeLine[] {
@@ -191,7 +194,7 @@ function buildRecordsForOrder(order: ProductionOrder): GeneratedOriginalCutOrder
         const materialSku = resolveMaterialSku(techPack, mappingLine, bomItem)
         if (!materialSku) continue
 
-        const materialKey = materialSku.toLowerCase()
+        const materialKey = `${materialSku.toLowerCase()}::${normalizeText(skuLine.color).toLowerCase()}`
         if (!scopeByMaterialKey.has(materialKey)) {
           orderedMaterialKeys.push(materialKey)
           scopeByMaterialKey.set(materialKey, {

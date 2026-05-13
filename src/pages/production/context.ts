@@ -91,7 +91,7 @@ applyQualitySeedBootstrap()
 const PAGE_SIZE = 10
 
 type OrderViewMode = 'table' | 'board'
-type OrderDetailTab = 'overview' | 'demand-snapshot' | 'tech-pack' | 'assignment' | 'handover' | 'logs'
+type OrderDetailTab = 'overview' | 'demand-snapshot' | 'tech-pack' | 'assignment' | 'post-finishing' | 'handover' | 'logs'
 type AssignmentModeFilter = 'ALL' | 'DIRECT_ONLY' | 'BIDDING_ONLY' | 'MIXED'
 type BiddingRiskFilter = 'ALL' | 'OVERDUE' | 'NEAR_DEADLINE' | 'NONE'
 type OrderMaterialStageFilter = 'ALL' | 'PREVIEW' | 'ACTUAL_PENDING' | 'ACTUAL_CONFIRMED'

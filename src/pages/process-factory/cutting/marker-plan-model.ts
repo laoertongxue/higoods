@@ -30,6 +30,7 @@ import {
   type MarkerFoldConfig,
   type MarkerImageRecord,
   type MarkerLayoutStatusKey,
+  type MarkerHighLowMatrixRow,
   type MarkerMappingStatusKey,
   type MarkerPlan,
   type MarkerPlanAllocationLike,
@@ -322,7 +323,7 @@ export function buildMarkerPlanListTabOptions(): Array<{ key: 'ALL' | 'WAITING_B
   return [
     { key: 'ALL', label: '全部方案' },
     { key: 'WAITING_BALANCE', label: '待配平' },
-    { key: 'WAITING_LAYOUT', label: '待排床次' },
+    { key: 'WAITING_LAYOUT', label: '待排唛架' },
     { key: 'WAITING_IMAGE', label: '待生成图片' },
     { key: 'READY_FOR_SPREADING', label: '可交接铺布' },
     { key: 'EXCEPTIONS', label: '异常待处理' },
@@ -360,7 +361,7 @@ function buildSizeRatioRowsFromSourceRecords(sourceRows: GeneratedOriginalCutOrd
       qtyMap[normalizedSize] += Math.max(safeNumber(line.plannedQty), 0)
     })
   })
-  return MARKER_SIZE_CODES.map((sizeCode, index) => ({
+  return MARKER_SIZE_CODES.filter((sizeCode) => qtyMap[sizeCode] > 0).map((sizeCode, index) => ({
     sizeCode,
     qty: qtyMap[sizeCode],
     sortOrder: index + 1,
@@ -843,51 +844,74 @@ function buildDefaultSchemeBeds(options: {
   foldConfig: MarkerFoldConfig | null
 }): MarkerSchemeBed[] {
   const colors = uniqueStrings(options.demandRows.map((row) => row.colorName || row.colorCode))
-  const activeColors = colors.length ? colors.slice(0, 2) : []
+  const activeColors = colors.length ? colors : ['主色']
+  const sizeNames = uniqueStrings(options.demandRows.map((row) => row.sizeName || row.sizeCode)).filter(Boolean)
   const prefix = options.markerMode === 'high_low' || options.markerMode === 'fold_high_low' ? 'B' : 'A'
-
-  return activeColors.map((colorName, index) => {
-    const coverageRows = buildCoverageRowsFromDemandRows(options.demandRows, colorName)
-    const demandQty = sum(coverageRows.map((row) => row.demandQty))
-    const markerPieceQtyPerLayer = Math.max(Math.ceil(demandQty / Math.max(options.plannedLayerCount, 1)), 1)
-    const markerLength = roundTo(Math.max(markerPieceQtyPerLayer * DEFAULT_MARKER_GARMENT_LENGTH_M, 1), 2)
-    const spreadTotalLength = computeMarkerLayoutLineSpreadLength(
-      { markerLength, repeatCount: options.plannedLayerCount },
-      options.singleSpreadFixedLoss,
-    )
-    const plannedGarmentQty = markerPieceQtyPerLayer * options.plannedLayerCount
-    const unitFabricUsage = plannedGarmentQty > 0 ? roundTo(spreadTotalLength / plannedGarmentQty, 3) : 0
+  const matrixRows: MarkerHighLowMatrixRow[] = activeColors.map((colorName, index) => {
+    const sizeValues = Object.fromEntries(
+      sizeNames.map((sizeName) => [sizeName, 0]),
+    ) as Record<string, number>
     return {
-      bedId: `${options.planId}-bed-${index + 1}`,
-      schemeId: options.planId,
-      schemeNo: options.markerNo,
-      bedNo: `${prefix}-${index + 1}`,
-      bedName: `${prefix}-${index + 1}`,
-      bedSortOrder: index + 1,
-      bedMode: options.markerMode,
+      rowId: `${options.planId}-marker-row-${index + 1}`,
       colorCode: colorName,
       colorName,
+      markerLength: 0,
+      sizeValues,
+      patternValues: {},
+      totalQty: 0,
+    }
+  })
+  const coverageRows = options.demandRows.map((row, index) => ({
+    rowId: `${row.rowId}-coverage-${index + 1}`,
+    colorCode: row.colorCode,
+    colorName: row.colorName || row.colorCode,
+    sizeCode: row.sizeCode,
+    sizeName: row.sizeName || row.sizeCode,
+    demandQty: row.demandQty,
+    plannedQty: 0,
+    remainingQty: row.demandQty,
+  }))
+  const markerLength = 0
+  const plannedLayerCount = 0
+  const plannedGarmentQty = 0
+  const spreadTotalLength = markerLength > 0
+    ? computeMarkerLayoutLineSpreadLength({ markerLength, repeatCount: plannedLayerCount }, options.singleSpreadFixedLoss)
+    : 0
+  const unitFabricUsage = plannedGarmentQty > 0 ? roundTo(spreadTotalLength / plannedGarmentQty, 3) : 0
+
+  return [
+    {
+      bedId: `${options.planId}-bed-1`,
+      schemeId: options.planId,
+      schemeNo: options.markerNo,
+      bedNo: `${prefix}-1`,
+      bedName: `${prefix}-1`,
+      bedSortOrder: 1,
+      bedMode: options.markerMode,
+      colorCode: activeColors.join(' / '),
+      colorName: activeColors.join(' / '),
       materialSku: options.context.materialSkuSummary.split(' / ')[0] || options.context.materialSkuSummary,
-      sizeSummaryText: coverageRows.map((row) => row.sizeName || row.sizeCode).filter(Boolean).join(' / '),
-      plannedLayerCount: options.plannedLayerCount,
+      sizeSummaryText: sizeNames.join(' / '),
+      sizePiecePerLayer: Object.fromEntries(sizeNames.map((sizeName) => [sizeName, 0])) as Record<string, number>,
+      plannedLayerCount,
       markerLength,
-      markerPieceQtyPerLayer,
+      markerPieceQtyPerLayer: plannedLayerCount > 0 ? Math.max(Math.ceil(plannedGarmentQty / plannedLayerCount), 1) : 0,
       plannedGarmentQty,
       spreadTotalLength,
       unitFabricUsage,
       normalLayoutRows: [],
-      highLowMatrixRows: [],
+      highLowMatrixRows: matrixRows,
       foldConfig: options.markerMode === 'fold_normal' || options.markerMode === 'fold_high_low' ? options.foldConfig : null,
       coverageRows,
       bedImage: null,
       spreadingSessionIds: [],
       assignedCuttingTableIds: [],
-      status: '可铺布',
-      readyForSpreading: true,
+      status: '草稿',
+      readyForSpreading: false,
       lockedBySpreading: false,
       remark: '',
-    }
-  })
+    },
+  ]
 }
 
 function adaptPlanToMarkerExplosionInput(plan: MarkerPlan): MarkerPlanLike {
@@ -911,7 +935,7 @@ function adaptPlanToMarkerExplosionInput(plan: MarkerPlan): MarkerPlanLike {
     originalCutOrderIds: plan.originalCutOrderIds,
     techPackSpuCode: plan.techPackSpu,
     spuCode: plan.spuCode,
-    sizeDistribution: plan.sizeRatioRows.map((row) => ({
+    sizeDistribution: (Array.isArray(plan.sizeRatioRows) ? plan.sizeRatioRows : []).map((row) => ({
       sizeLabel: row.sizeCode,
       quantity: row.qty,
     })),
@@ -1019,6 +1043,88 @@ function hydrateFoldConfig(foldConfig: MarkerFoldConfig | null): MarkerFoldConfi
   }
 }
 
+function isFoldMarkerBedMode(mode: string): boolean {
+  return mode === 'fold_normal' || mode === 'fold_high_low'
+}
+
+function isHighLowMarkerBedMode(mode: string): boolean {
+  return mode === 'high_low' || mode === 'fold_high_low'
+}
+
+function normalizeMarkerSizePiecePerLayer(
+  bed: MarkerSchemeBed,
+  sizeNames: string[],
+): Record<string, number> {
+  return Object.fromEntries(
+    sizeNames.map((sizeName) => [sizeName, Math.max(Math.round(safeNumber(bed.sizePiecePerLayer?.[sizeName])), 0)]),
+  ) as Record<string, number>
+}
+
+function getMarkerMatrixCellLayer(row: MarkerHighLowMatrixRow, sizeName: string): number {
+  return Math.max(Math.round(safeNumber(row.sizeValues?.[sizeName])), 0)
+}
+
+function getMarkerMatrixCellPlannedQty(
+  row: MarkerHighLowMatrixRow,
+  sizeName: string,
+  sizePiecePerLayer: Record<string, number>,
+): number {
+  return getMarkerMatrixCellLayer(row, sizeName) * Math.max(Math.round(safeNumber(sizePiecePerLayer[sizeName])), 0)
+}
+
+function getMarkerMatrixCellActualLayer(mode: string, layerCount: number): number {
+  const normalized = Math.max(Math.round(safeNumber(layerCount)), 0)
+  return isFoldMarkerBedMode(mode) ? normalized / 2 : normalized
+}
+
+function normalizeMarkerMatrixRows(
+  bed: MarkerSchemeBed,
+  sizeNames: string[],
+): MarkerHighLowMatrixRow[] {
+  const rows = Array.isArray(bed.highLowMatrixRows) ? bed.highLowMatrixRows : []
+  const sizePiecePerLayer = normalizeMarkerSizePiecePerLayer(bed, sizeNames)
+  return rows.map((row, index) => {
+    const sizeValues = Object.fromEntries(
+      sizeNames.map((sizeName) => [
+        sizeName,
+        Math.max(Math.round(safeNumber(row.sizeValues?.[sizeName])), 0),
+      ]),
+    ) as Record<string, number>
+    const totalQty = sizeNames.reduce(
+      (total, sizeName) => total + Math.max(Math.round(safeNumber(sizeValues[sizeName])), 0) * Math.max(Math.round(safeNumber(sizePiecePerLayer[sizeName])), 0),
+      0,
+    )
+    return {
+      rowId: row.rowId || `${bed.bedId}-matrix-${index + 1}`,
+      colorCode: row.colorCode || row.colorName || '主色',
+      colorName: row.colorName || row.colorCode || '主色',
+      markerLength: Math.max(safeNumber(row.markerLength), 0),
+      sizeValues,
+      patternValues: row.patternValues || {},
+      totalQty,
+    }
+  })
+}
+
+function getMarkerMatrixActualLayerTotal(
+  bed: MarkerSchemeBed,
+  rows: MarkerHighLowMatrixRow[],
+  sizeNames: string[],
+): number {
+  const columnTotals = sizeNames.map((sizeName) =>
+    rows.reduce((total, row) => {
+      const layerCount = getMarkerMatrixCellLayer(row, sizeName)
+      if (layerCount <= 0) return total
+      return total + getMarkerMatrixCellActualLayer(bed.bedMode, layerCount)
+    }, 0),
+  )
+  return Math.max(...columnTotals, 0)
+}
+
+function getMarkerMatrixRowActualLayer(bed: MarkerSchemeBed, row: MarkerHighLowMatrixRow, sizeNames: string[]): number {
+  return Math.max(...sizeNames.map((sizeName) => getMarkerMatrixCellActualLayer(bed.bedMode, getMarkerMatrixCellLayer(row, sizeName))), 0)
+}
+
 export function hydrateMarkerPlan(plan: MarkerPlan, context: MarkerPlanContextCandidate): MarkerPlan {
   const schemeDemandRows = (plan.schemeDemandRows || []).map((row) => ({
     ...row,
@@ -1026,7 +1132,7 @@ export function hydrateMarkerPlan(plan: MarkerPlan, context: MarkerPlanContextCa
     plannedQty: Math.max(safeNumber(row.plannedQty), 0),
     remainingQty: Math.max(safeNumber(row.remainingQty), 0),
   }))
-  const fallbackSizeRatioRows = plan.sizeRatioRows.map((row, index) => ({
+  const fallbackSizeRatioRows = (Array.isArray(plan.sizeRatioRows) ? plan.sizeRatioRows : []).map((row, index) => ({
     ...row,
     sizeCode: normalizeMarkerSizeCode(row.sizeCode) || MARKER_SIZE_CODES[index] || 'M',
     qty: Math.max(safeNumber(row.qty), 0),
@@ -1064,16 +1170,32 @@ export function hydrateMarkerPlan(plan: MarkerPlan, context: MarkerPlanContextCa
     context,
   )
   const beds = (plan.beds || []).map((bed, index) => {
-    const markerLength = roundTo(safeNumber(bed.markerLength), 2)
-    const markerPieceQtyPerLayer = Math.max(Math.round(safeNumber(bed.markerPieceQtyPerLayer)), 0)
-    const plannedLayerCount = Math.max(Math.round(safeNumber(bed.plannedLayerCount)), 0)
-    const spreadTotalLength = computeMarkerLayoutLineSpreadLength(
-      { markerLength, repeatCount: plannedLayerCount },
-      plan.singleSpreadFixedLoss,
+    const sizeNames = uniqueStrings(
+      (schemeDemandRows.length ? schemeDemandRows : bed.coverageRows || [])
+        .map((row) => row.sizeName || row.sizeCode)
+        .filter(Boolean),
     )
-    const plannedGarmentQty = markerPieceQtyPerLayer * plannedLayerCount
+    const sizePiecePerLayer = normalizeMarkerSizePiecePerLayer(bed, sizeNames)
+    const highLowMatrixRows = normalizeMarkerMatrixRows(bed, sizeNames)
+    const markerLength = roundTo(safeNumber(bed.markerLength), 2)
+    const plannedLayerCount = highLowMatrixRows.length
+      ? getMarkerMatrixActualLayerTotal(bed, highLowMatrixRows, sizeNames)
+      : Math.max(Math.round(safeNumber(bed.plannedLayerCount)), 0)
+    const plannedGarmentQty = highLowMatrixRows.length
+      ? highLowMatrixRows.reduce((total, row) => total + sizeNames.reduce((rowTotal, sizeName) => rowTotal + getMarkerMatrixCellPlannedQty(row, sizeName, sizePiecePerLayer), 0), 0)
+      : Math.max(Math.round(safeNumber(bed.markerPieceQtyPerLayer)), 0) * plannedLayerCount
+    const markerPieceQtyPerLayer = plannedLayerCount > 0 ? Math.max(Math.ceil(plannedGarmentQty / plannedLayerCount), 1) : 0
+    const spreadTotalLength = isHighLowMarkerBedMode(bed.bedMode)
+      ? highLowMatrixRows.reduce((total, row) => total + computeMarkerLayoutLineSpreadLength(
+          { markerLength: Math.max(safeNumber(row.markerLength), 0), repeatCount: getMarkerMatrixRowActualLayer(bed, row, sizeNames) },
+          plan.singleSpreadFixedLoss,
+        ), 0)
+      : computeMarkerLayoutLineSpreadLength(
+          { markerLength, repeatCount: plannedLayerCount },
+          plan.singleSpreadFixedLoss,
+        )
     const unitFabricUsage = plannedGarmentQty > 0 ? roundTo(spreadTotalLength / plannedGarmentQty, 3) : 0
-    const readyForSpreading = markerLength > 0 && markerPieceQtyPerLayer > 0 && plannedLayerCount > 0 && bed.coverageRows.length > 0
+    const readyForSpreading = (isHighLowMarkerBedMode(bed.bedMode) || markerLength > 0) && markerPieceQtyPerLayer > 0 && plannedLayerCount > 0 && bed.coverageRows.length > 0
     return {
       ...bed,
       schemeId: plan.schemeId || plan.id,
@@ -1083,18 +1205,25 @@ export function hydrateMarkerPlan(plan: MarkerPlan, context: MarkerPlanContextCa
       colorName: bed.colorName || bed.colorCode,
       materialSku: bed.materialSku || plan.sourceMaterialSku || plan.materialSkuSummary,
       sizeSummaryText: bed.coverageRows.map((row) => row.sizeName || row.sizeCode).filter(Boolean).join(' / '),
+      sizePiecePerLayer,
       plannedLayerCount,
-      markerLength,
+      markerLength: isHighLowMarkerBedMode(bed.bedMode) ? 0 : markerLength,
       markerPieceQtyPerLayer,
       plannedGarmentQty,
       spreadTotalLength,
       unitFabricUsage,
+      highLowMatrixRows,
       foldConfig: bed.bedMode === 'fold_normal' || bed.bedMode === 'fold_high_low' ? foldConfig : null,
       readyForSpreading,
       status: readyForSpreading ? bed.status === '已完成' || bed.status === '已排程' || bed.status === '铺布中' || bed.status === '已锁定' ? bed.status : '可铺布' : '草稿',
     }
   })
-  const netLength = roundTo(beds.length ? sum(beds.map((bed) => bed.markerLength)) : rawNetLength, 2)
+  const netLength = roundTo(
+    beds.length
+      ? sum(beds.map((bed) => isHighLowMarkerBedMode(bed.bedMode) ? sum(bed.highLowMatrixRows.map((row) => row.markerLength)) : bed.markerLength))
+      : rawNetLength,
+    2,
+  )
   const systemUnitUsage = beds.length
     ? computeMarkerPlanSystemUnitUsageFromBeds(beds)
     : computeMarkerPlanSystemUnitUsage(netLength, totalPieces)
@@ -1265,7 +1394,7 @@ function buildPlanViewRow(
     sourceOriginalOrderCountText: `${sourceOriginalOrderCount} 张`,
     sourceProductionOrderCountText: `${sourceProductionOrderCount} 单`,
     referenceWarningText: isReferencedBySpreading
-      ? '当前方案床次已被铺布引用。若修改配比、分配、床次结构，建议复制为新方案。'
+      ? '当前方案唛架已被铺布引用。若修改配比、分配、唛架结构，建议复制为新方案。'
       : '',
     isReferencedBySpreading,
     skuTypeCountText: `${explosionSummary.skuTypeCount}`,
@@ -1421,8 +1550,8 @@ function buildSeedVariants(contexts: MarkerPlanContextCandidate[]): Array<{ cont
   const modes: MarkerPlanModeKey[] = ['normal', 'high_low', 'fold_normal', 'fold_high_low']
   const variants: SeedVariantKey[] = ['ready', 'layout', 'ready', 'image', 'ready', 'manual']
   const preferredContexts = [
-    ...contexts.filter((context) => context.contextType === 'original-cut-order'),
-    ...contexts.filter((context) => context.contextType === 'merge-batch'),
+    ...contexts.filter((context) => context.contextType === 'original-cut-order' && context.spuCode !== 'SPU-2024-010'),
+    ...contexts.filter((context) => context.contextType === 'merge-batch' && context.spuCode !== 'SPU-2024-010'),
   ]
   const uniqueContexts = preferredContexts.filter(
     (context, index, all) => all.findIndex((item) => item.contextKey === context.contextKey) === index,
@@ -1474,7 +1603,7 @@ function applySeedVariant(plan: MarkerPlan, variant: SeedVariantKey, context: Ma
   if (variant === 'layout') {
     nextPlan = {
       ...nextPlan,
-      imageRecords: [createImageRecord(plan.id, 1, plan.markerNo, '待补床次样例图')],
+      imageRecords: [createImageRecord(plan.id, 1, plan.markerNo, '待补唛架样例图')],
       beds: nextPlan.beds?.map((bed, index) =>
         index === 0
           ? {
@@ -1547,7 +1676,7 @@ function rekeySeedMarkerPlan(plan: MarkerPlan, stablePlanId: string): MarkerPlan
         ? {
             ...bed.bedImage,
             imageId: `${stablePlanId}-bed-${index + 1}-image`,
-            imageName: `${markerNo}-${bed.bedNo}-床次图.svg`,
+            imageName: `${markerNo}-${bed.bedNo}-唛架图.svg`,
           }
         : null,
     })),

@@ -2,6 +2,7 @@ import {
   buildPostFinishingQcDeductionRecord,
   completePostFinishingQcOrder,
   createPostFinishingQcOrder,
+  getPostFinishingTaskById,
   listPostFinishingQcOrders,
   listPostFinishingWaitQcSkuItems,
   type PostFinishingActionRecord,
@@ -61,6 +62,10 @@ function getViewId(): string {
   return currentParams().get('viewQc') || ''
 }
 
+function getCurrentPostTaskId(): string {
+  return currentParams().get('postTaskId') || ''
+}
+
 type QcTabKey = 'wait' | 'qc'
 
 function getActiveQcTab(): QcTabKey {
@@ -93,6 +98,7 @@ function registerQcPageActions(): void {
     __syncQcCompleteForm?: (select: HTMLSelectElement) => void
   }
   win.__postCreateQcOrder = () => {
+    const postTaskId = getCurrentPostTaskId() || undefined
     const station = (document.querySelector('[data-qc-create-station]') as HTMLSelectElement | null)?.value || '后道质检台 A'
     const allocations = Array.from(document.querySelectorAll<HTMLElement>('[data-qc-source-row]'))
       .filter((row) => (row.querySelector('[data-qc-source-check]') as HTMLInputElement | null)?.checked)
@@ -106,8 +112,9 @@ function registerQcPageActions(): void {
       return
     }
     try {
-      const created = createPostFinishingQcOrder({ allocations, qcStationName: station, inspectorName: '后道质检员' })
-      navigateInPrototype(`/fcs/craft/post-finishing/qc-orders?viewQc=${encodeURIComponent(created.qcOrderId)}`)
+      const created = createPostFinishingQcOrder({ postTaskId, allocations, qcStationName: station, inspectorName: '后道质检员' })
+      const taskQuery = created.postTaskId ? `&postTaskId=${encodeURIComponent(created.postTaskId)}` : ''
+      navigateInPrototype(`/fcs/craft/post-finishing/qc-orders?viewQc=${encodeURIComponent(created.qcOrderId)}${taskQuery}`)
     } catch (error) {
       window.alert(error instanceof Error ? error.message : '创建质检单失败。')
     }
@@ -159,9 +166,10 @@ function registerQcPageActions(): void {
 }
 
 function renderPageHeader(): string {
+  const task = getCurrentPostTaskId() ? getPostFinishingTaskById(getCurrentPostTaskId()) : undefined
   return renderPostFinishingPageHeader(
     '质检单',
-    '',
+    task ? `${task.postTaskNo} / ${task.productionOrderNo}` : '',
     `<button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-nav="${escapeHtml(linkWith({ createQc: '1', completeQc: undefined, viewQc: undefined }))}">创建质检单</button>`,
   )
 }
@@ -184,7 +192,9 @@ function renderModal(title: string, body: string): string {
 
 function renderCreateQcDialog(): string {
   if (!isCreateDialogOpen()) return ''
-  const waitItems = listPostFinishingWaitQcSkuItems().filter((item) => item.waitQcQty > 0)
+  const postTaskId = getCurrentPostTaskId() || undefined
+  const waitItems = listPostFinishingWaitQcSkuItems({ postTaskId }).filter((item) => item.waitQcQty > 0)
+  const task = postTaskId ? getPostFinishingTaskById(postTaskId) : undefined
   const selectedKey = currentParams().get('createQc') || ''
   const rows = waitItems.map((item) => {
     const checked = item.waitQcSkuKey === selectedKey || item.warehouseRecordId === selectedKey
@@ -216,7 +226,7 @@ function renderCreateQcDialog(): string {
         </label>
         <div class="rounded-lg border bg-slate-50 px-3 py-2 text-sm">
           <div class="text-xs text-muted-foreground">创建范围</div>
-          <div class="mt-1 font-medium text-foreground">同一张质检单只能选择同一生产单下的同一款式 SKU</div>
+          <div class="mt-1 font-medium text-foreground">${escapeHtml(task ? `${task.postTaskNo} / ${task.productionOrderNo}` : '同一张质检单只能选择同一生产单下的同一款式 SKU')}</div>
         </div>
       </div>
       <div class="overflow-x-auto rounded-xl border">
@@ -400,7 +410,7 @@ function renderViewDialog(): string {
 function renderWaitRows(rows: PostFinishingWaitQcSkuItem[]): string {
   return rows.map((item) => {
     const action = item.waitQcQty > 0
-      ? renderPostAction('创建质检单', linkWith({ createQc: item.waitQcSkuKey }))
+      ? renderPostAction('创建质检单', linkWith({ createQc: item.waitQcSkuKey, postTaskId: item.postTaskId }))
       : '<span class="rounded-full border bg-slate-50 px-2 py-1 text-xs text-muted-foreground">质检中</span>'
     return `
       <tr class="align-top">
@@ -478,8 +488,11 @@ function filterWaitQc(records: PostFinishingWaitQcSkuItem[], filters: ReturnType
 export function renderPostFinishingQcOrdersPage(): string {
   registerQcPageActions()
   const filters = getPostListFilters()
-  const waitItems = listPostFinishingWaitQcSkuItems()
-  const allQc = listPostFinishingQcOrders()
+  const postTaskId = getCurrentPostTaskId() || undefined
+  const waitItems = listPostFinishingWaitQcSkuItems({ postTaskId })
+  const allQc = listPostFinishingQcOrders().filter((record) => (
+    !postTaskId || record.warehouseAllocations?.some((allocation) => allocation.postTaskId === postTaskId)
+  ))
   const activeTab = getActiveQcTab()
   const filteredWaitItems = filterWaitQc(waitItems, filters)
   const filteredQc = filterQc(allQc, filters)

@@ -223,6 +223,32 @@ const seedProductionDemands: ProductionDemand[] = [
     hasProductionOrder: true, productionOrderId: 'PO-202603-0004', createdAt: '2026-02-15 09:00:00', updatedAt: '2026-03-02 16:00:00',
   }),
   createDemandSeed({
+    demandId: 'DEM-202603-0101', legacyType: 'GOODS_PURCHASE', legacyOrderNo: '240785-A', sourceSystem: 'LEGACY',
+    spuCode: 'SPU-2024-010', spuName: 'Celana Jogger Pria', imageUrl: '/placeholder.svg?height=80&width=80',
+    category: 'Mens Pants', marketScopes: ['ID'], priority: 'NORMAL', demandStatus: 'CONVERTED', techPackStatus: 'RELEASED', techPackVersionLabel: 'v1.0',
+    requiredDeliveryDate: '2026-03-18', constraintsNote: '同款 Jogger 第二张生产单，黑色和炭灰色分别使用不同主面料，用于排唛架多来源演示。',
+    skuLines: [
+      { skuCode: 'SKU-010-S-BLK-R2', size: 'S', color: 'Black', qty: 420 },
+      { skuCode: 'SKU-010-M-BLK-R2', size: 'M', color: 'Black', qty: 680 },
+      { skuCode: 'SKU-010-L-CHR-R2', size: 'L', color: 'Charcoal', qty: 720 },
+      { skuCode: 'SKU-010-XL-CHR-R2', size: 'XL', color: 'Charcoal', qty: 480 },
+    ],
+    hasProductionOrder: true, productionOrderId: 'PO-202603-0101', createdAt: '2026-03-06 09:20:00', updatedAt: '2026-03-06 10:00:00',
+  }),
+  createDemandSeed({
+    demandId: 'DEM-202603-0102', legacyType: 'GOODS_PURCHASE', legacyOrderNo: '240785-B', sourceSystem: 'LEGACY',
+    spuCode: 'SPU-2024-010', spuName: 'Celana Jogger Pria', imageUrl: '/placeholder.svg?height=80&width=80',
+    category: 'Mens Pants', marketScopes: ['ID'], priority: 'HIGH', demandStatus: 'CONVERTED', techPackStatus: 'RELEASED', techPackVersionLabel: 'v1.0',
+    requiredDeliveryDate: '2026-03-22', constraintsNote: '同款 Jogger 第三张生产单，海军蓝和卡其色分别使用不同主面料，用于排唛架同款跨单演示。',
+    skuLines: [
+      { skuCode: 'SKU-010-S-NVY-R3', size: 'S', color: 'Navy', qty: 360 },
+      { skuCode: 'SKU-010-M-NVY-R3', size: 'M', color: 'Navy', qty: 640 },
+      { skuCode: 'SKU-010-L-KHK-R3', size: 'L', color: 'Khaki', qty: 660 },
+      { skuCode: 'SKU-010-XL-KHK-R3', size: 'XL', color: 'Khaki', qty: 440 },
+    ],
+    hasProductionOrder: true, productionOrderId: 'PO-202603-0102', createdAt: '2026-03-07 09:00:00', updatedAt: '2026-03-07 09:45:00',
+  }),
+  createDemandSeed({
     demandId: 'DEM-202603-0011', legacyType: 'ID_PURCHASE', legacyOrderNo: '240786', sourceSystem: 'LEGACY',
     spuCode: 'SPU-2024-011', spuName: 'Sweater Rajut Wanita', imageUrl: '/placeholder.svg?height=80&width=80',
     category: 'Womens Knitwear', marketScopes: ['ID', 'VN'], priority: 'URGENT', demandStatus: 'CONVERTED', techPackStatus: 'RELEASED', techPackVersionLabel: 'v1.1',

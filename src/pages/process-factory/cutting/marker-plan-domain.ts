@@ -159,7 +159,7 @@ export interface MarkerImageRecord {
 
 export interface MarkerSchemeImage {
   imageId: string
-  imageType: '方案图' | '唛架明细图' | '床次图'
+  imageType: '方案图' | '唛架明细图' | '唛架图'
   imageName: string
   previewUrl: string
   generatedAt: string
@@ -201,6 +201,7 @@ export interface MarkerHighLowMatrixRow {
   rowId: string
   colorCode: string
   colorName: string
+  markerLength: number
   sizeValues: Record<string, number>
   patternValues: Record<string, number>
   totalQty: number
@@ -218,6 +219,7 @@ export interface MarkerSchemeBed {
   colorName: string
   materialSku: string
   sizeSummaryText: string
+  sizePiecePerLayer: Record<string, number>
   plannedLayerCount: number
   markerLength: number
   markerPieceQtyPerLayer: number
@@ -373,27 +375,27 @@ function formatDecimalFormulaValue(value: number, digits: number): string {
 export const markerPlanModeMeta: Record<MarkerPlanModeKey, MarkerPlanStatusMeta<MarkerPlanModeKey>> = {
   normal: {
     key: 'normal',
-    label: '普通',
+    label: '普通唛架',
     className: 'bg-slate-100 text-slate-700 border border-slate-200',
-    helperText: '按常规床次明细维护层数、床次净长和单层件数。',
+    helperText: '按普通唛架矩阵维护颜色、尺码和层数。',
   },
   high_low: {
     key: 'high_low',
-    label: '高低层',
+    label: '高低层唛架',
     className: 'bg-amber-100 text-amber-700 border border-amber-200',
-    helperText: '同时维护高低层矩阵和模式明细。',
+    helperText: '按高低层唛架矩阵维护不同尺码列的层数。',
   },
   fold_normal: {
     key: 'fold_normal',
-    label: '对折普通',
+    label: '对折普通唛架',
     className: 'bg-blue-100 text-blue-700 border border-blue-200',
-    helperText: '先校验对折门幅，再维护普通床次明细。',
+    helperText: '按对折普通唛架维护需求层数和实际铺布层数。',
   },
   fold_high_low: {
     key: 'fold_high_low',
-    label: '对折高低层',
+    label: '对折高低层唛架',
     className: 'bg-violet-100 text-violet-700 border border-violet-200',
-    helperText: '对折门幅与高低层矩阵同时生效。',
+    helperText: '按对折高低层唛架维护阶梯层数。',
   },
 }
 
@@ -412,9 +414,9 @@ export const markerPlanStatusMeta: Record<MarkerPlanStatusKey, MarkerPlanStatusM
   },
   WAITING_LAYOUT: {
     key: 'WAITING_LAYOUT',
-    label: '待补床次',
+    label: '待补唛架',
     className: 'bg-sky-100 text-sky-700 border border-sky-200',
-    helperText: '唛架床次还没完成，不能交接铺布。',
+    helperText: '唛架矩阵还没完成，不能交接铺布。',
   },
   WAITING_IMAGE: {
     key: 'WAITING_IMAGE',
@@ -426,13 +428,13 @@ export const markerPlanStatusMeta: Record<MarkerPlanStatusKey, MarkerPlanStatusM
     key: 'CANCELED',
     label: '已作废',
     className: 'bg-slate-200 text-slate-700 border border-slate-300',
-    helperText: '当前床次已作废，不再继续交接铺布。',
+    helperText: '当前唛架方案已作废，不再继续交接铺布。',
   },
   READY_FOR_SPREADING: {
     key: 'READY_FOR_SPREADING',
     label: '可交接铺布',
     className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
-    helperText: '当前床次已满足铺布交接条件。',
+    helperText: '当前唛架已满足铺布交接条件。',
   },
 }
 
@@ -481,15 +483,15 @@ export const markerMappingStatusMeta: Record<MarkerMappingStatusKey, MarkerPlanS
 export const markerLayoutStatusMeta: Record<MarkerLayoutStatusKey, MarkerPlanStatusMeta<MarkerLayoutStatusKey>> = {
   pending: {
     key: 'pending',
-    label: '待补床次',
+    label: '待补唛架',
     className: 'bg-slate-100 text-slate-700 border border-slate-200',
-    helperText: '床次数据还没准备完整。',
+    helperText: '唛架矩阵还没准备完整。',
   },
   done: {
     key: 'done',
     label: '已完成',
     className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
-    helperText: '唛架床次已完成。',
+    helperText: '唛架矩阵已完成。',
   },
 }
 
@@ -524,7 +526,7 @@ export function normalizeMarkerSizeCode(sizeCode: string | undefined): MarkerSiz
 }
 
 export function computeMarkerPlanTotalPieces(sizeRatioRows: MarkerSizeRatioRow[]): number {
-  return sizeRatioRows.reduce((sum, row) => sum + Math.max(safeNumber(row.qty), 0), 0)
+  return Array.isArray(sizeRatioRows) ? sizeRatioRows.reduce((sum, row) => sum + Math.max(safeNumber(row.qty), 0), 0) : 0
 }
 
 export function computeMarkerPlanSystemUnitUsage(netLength: number, totalPieces: number): number {
@@ -711,8 +713,9 @@ export function deriveMarkerPlanDefaultTab(plan: Pick<MarkerPlan, 'allocationSta
 }
 
 export function buildMarkerTotalPiecesFormula(sizeRatioRows: MarkerSizeRatioRow[]): string {
-  const terms = sizeRatioRows.map((row) => `${formatIntegerFormulaValue(row.qty)} 件`)
-  return `${formatIntegerFormulaValue(computeMarkerPlanTotalPieces(sizeRatioRows))} 件 = ${terms.join(' + ')}`
+  const rows = Array.isArray(sizeRatioRows) ? sizeRatioRows : []
+  const terms = rows.map((row) => `${formatIntegerFormulaValue(row.qty)} 件`)
+  return `${formatIntegerFormulaValue(computeMarkerPlanTotalPieces(rows))} 件 = ${terms.length ? terms.join(' + ') : '0 件'}`
 }
 
 export function buildMarkerSystemUnitUsageFormula(netLength: number, totalPieces: number): string {

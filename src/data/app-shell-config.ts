@@ -458,6 +458,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           title: '后道工厂管理',
           icon: 'PackageCheck',
           children: [
+            { key: 'pfos-post-finishing-tasks', title: '后道任务', icon: 'ListChecks', href: '/fcs/craft/post-finishing/tasks' },
             { key: 'pfos-post-finishing-qc-orders', title: '质检单', icon: 'ClipboardCheck', href: '/fcs/craft/post-finishing/qc-orders' },
             { key: 'pfos-post-finishing-work-orders', title: '后道单', icon: 'ClipboardList', href: '/fcs/craft/post-finishing/work-orders' },
             { key: 'pfos-post-finishing-recheck-orders', title: '复检单', icon: 'RefreshCw', href: '/fcs/craft/post-finishing/recheck-orders' },

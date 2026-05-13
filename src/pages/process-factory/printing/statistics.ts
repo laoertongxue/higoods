@@ -36,7 +36,7 @@ function renderTopMetrics(): string {
       ${renderMetricCard('待审核印花加工单数', String(statistics.waitReviewCount), '统一审核记录')}
       ${renderMetricCard('已完成印花加工单数', String(statistics.statusCounts['已完成'] || 0), '审核通过')}
       ${renderMetricCard('已驳回印花加工单数', String(statistics.statusCounts['已驳回'] || 0), '审核驳回')}
-      ${renderMetricCard('计划印花面料米数 / 裁片数量', `${statistics.plannedPrintFabricMeters} 米`, '统一加工单计划')}
+      ${renderMetricCard('需求单印花数量', `${statistics.plannedPrintFabricMeters} 米`, '统一加工单计划')}
       ${renderMetricCard('待印花面料米数 / 裁片数量', `${statistics.waitProcessFabricMeters} 米`, '统一待加工仓')}
       ${renderMetricCard('打印完成面料米数 / 裁片数量', `${statistics.printCompletedFabricMeters} 米`, '执行节点')}
       ${renderMetricCard('转印完成面料米数 / 裁片数量', `${statistics.transferCompletedFabricMeters} 米`, '执行节点')}

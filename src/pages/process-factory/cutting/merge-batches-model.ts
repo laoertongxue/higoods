@@ -309,11 +309,11 @@ export function validateIncomingBatchSelection(
 
   const batchingKeys = uniqueStrings(incoming.items.map((item) => item.batchingKey))
   if (incoming.batchingKey && batchingKeys.length === 1 && batchingKeys[0] !== incoming.batchingKey) {
-    reasons.push('当前输入的合并条件组与原始裁片单实际合并条件组不一致。')
+    reasons.push('当前输入的同款同生产单范围与原始裁片单实际范围不一致。')
   }
 
   if (batchingKeys.length !== 1) {
-    reasons.push('当前待建批次仅支持同一合并条件组的原始裁片单。')
+    reasons.push('当前待建批次仅支持同款同生产单的原始裁片单。')
   }
 
   const blockedItem = incoming.items.find((item) => item.cuttableState.key !== 'CUTTABLE')
@@ -335,6 +335,11 @@ export function validateIncomingBatchSelection(
   const styleKeys = uniqueStrings(incoming.items.map((item) => item.styleCode || item.spuCode))
   if (styleKeys.length !== 1) {
     reasons.push('当前待建批次只允许同款原始裁片单进入同一执行批次。')
+  }
+
+  const productionOrderKeys = uniqueStrings(incoming.items.map((item) => item.productionOrderId || item.productionOrderNo))
+  if (productionOrderKeys.length !== 1) {
+    reasons.push('当前待建批次只允许同一生产单的原始裁片单进入同一执行批次。')
   }
 
   return {

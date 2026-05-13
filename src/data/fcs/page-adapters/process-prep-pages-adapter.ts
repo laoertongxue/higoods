@@ -23,7 +23,7 @@ import { getQuantityLabel, type ProcessObjectType } from '../process-quantity-la
 import { TEST_FACTORY_NAME } from '../factory-mock-data.ts'
 
 type PrepProcessCode = 'PRINT' | 'DYE'
-type PrepUnit = '片' | '米'
+type PrepUnit = '片' | '米' | 'Yard'
 type CreateModeZh = '按需求创建' | '按备货创建'
 type DemandStatusZh = '待满足' | '部分满足' | '已满足' | '已完成交接'
 type OrderStatusZh = PlatformProcessStatus
@@ -210,7 +210,7 @@ export interface PrepProcessOrderFact {
 const META_BY_PROCESS: Record<PrepProcessCode, PrepProcessMeta> = {
   PRINT: {
     processCode: 'PRINT',
-    unit: '片',
+    unit: 'Yard',
     demandPrefix: 'YHXQ',
     orderPrefix: 'YHJG',
     processLabel: '印花',
@@ -562,7 +562,7 @@ function mapUnifiedWorkOrderToPrepOrder(order: ProcessWorkOrder): PrepProcessOrd
     : validateDyeWorkOrderMobileTaskBinding(order.workOrderId)
   const platformStatus = getPlatformStatusForProcessWorkOrder(order)
   const platformResultView = getPlatformProcessResultView(order.processType, order.workOrderId)
-  const unit = order.plannedUnit === '米' ? '米' : '片'
+  const unit = order.plannedUnit === '米' ? '米' : order.plannedUnit === 'Yard' ? 'Yard' : '片'
   const quantityContext = {
     processType: order.processType,
     sourceType: order.processType === 'PRINT' ? 'PRINTING_WORK_ORDER' : 'DYEING_WORK_ORDER',

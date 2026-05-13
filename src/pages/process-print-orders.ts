@@ -11,7 +11,8 @@ import {
 } from '../data/fcs/process-platform-status-adapter.ts'
 
 type CreateModeZh = '按需求创建' | '按备货创建'
-type Unit = '片' | '米'
+type Unit = '片' | '米' | 'Yard'
+type PrintLengthUnit = 'Yard' | '米'
 type DemandStatusZh = '待满足' | '部分满足' | '已满足' | '已完成交接'
 type OrderStatusZh = PlatformProcessStatus
 type ReceiptStatusZh = '待接收' | '部分接收' | '已接收'
@@ -147,6 +148,7 @@ interface CreateForm {
   factoryName: string
   materialKeyword: string
   plannedFeedQty: string
+  plannedFeedUnit: PrintLengthUnit
   plannedFinishAt: string
   sourceSummary: string
   note: string
@@ -237,8 +239,10 @@ const ORDERS: PrintProcessOrder[] = listPrepProcessOrders('PRINT').map((item) =>
   diffObjectQty: item.diffObjectQty,
   unit: item.unit,
   objectType: item.objectType,
-  quantityDisplayFields: item.quantityDisplayFields,
-  plannedQtyLabel: item.plannedQtyLabel,
+  quantityDisplayFields: item.quantityDisplayFields?.map((field) =>
+    normalizeQuantityDisplayField(field.label, field.value, field.unit, field.text),
+  ),
+  plannedQtyLabel: normalizePlannedQtyLabel(item.plannedQtyLabel),
   returnedQtyLabel: item.returnedQtyLabel,
   receivedQtyLabel: item.receivedQtyLabel,
   plannedFinishAt: item.plannedFinishAt,
@@ -318,6 +322,7 @@ function createDefaultForm(): CreateForm {
     factoryName: '',
     materialKeyword: '',
     plannedFeedQty: '',
+    plannedFeedUnit: 'Yard',
     plannedFinishAt: '',
     sourceSummary: '',
     note: '',
@@ -344,8 +349,48 @@ const state: PrintOrdersState = {
   dynamicDemandOptions: [],
 }
 
+function normalizePlannedQtyLabel(label?: string): string {
+  if (!label || label.includes('计划印花')) return '需求单印花数量'
+  return label
+}
+
+function normalizeQuantityDisplayField(
+  label: string,
+  value: number,
+  unit: string,
+  text: string,
+): { label: string; value: number; unit: string; text: string } {
+  const normalizedLabel = normalizePlannedQtyLabel(label)
+  if (normalizedLabel === label) return { label, value, unit, text }
+  return {
+    label: normalizedLabel,
+    value,
+    unit,
+    text: `${normalizedLabel}：${formatQty(value, unit as Unit)}`,
+  }
+}
+
+function toPrintLengthUnit(unit: Unit | string): PrintLengthUnit {
+  return unit === '米' ? '米' : 'Yard'
+}
+
 function formatQty(qty: number, unit: Unit): string {
   return `${qty.toLocaleString()} ${unit}`
+}
+
+function getSelectedCreateDemands(): DemandOption[] {
+  const demandPool = getDemandOptions()
+  return demandPool.filter((item) => state.createForm.selectedDemandIds.includes(item.demandId))
+}
+
+function syncCreateQtyFromSelectedDemands(): void {
+  const selected = getSelectedCreateDemands()
+  if (selected.length === 0) return
+  const firstUnit = toPrintLengthUnit(selected[0].unit)
+  const sameUnit = selected.every((item) => toPrintLengthUnit(item.unit) === firstUnit)
+  if (!sameUnit) return
+  state.createForm.plannedFeedQty = String(selected.reduce((sum, item) => sum + item.requiredQty, 0))
+  state.createForm.plannedFeedUnit = firstUnit
 }
 
 function renderBadge(label: string, className: string): string {
@@ -522,11 +567,12 @@ function consumeCreateIntentIfExists(): void {
     materialCode: intent.materialCode,
     materialName: intent.materialName,
     requiredQty: intent.requiredQty,
-    unit: '片',
+    unit: intent.unit as Unit,
   })
   openCreateDrawer({
     createMode: '按需求创建',
     plannedFeedQty: String(intent.requiredQty),
+    plannedFeedUnit: toPrintLengthUnit(intent.unit),
     sourceSummary: intent.sourceSummary,
     selectedDemandIds: [intent.demandId],
   })
@@ -566,7 +612,7 @@ function renderPlatformResultFields(order: PrintProcessOrder): string {
   const fields = order.quantityDisplayFields?.length
     ? order.quantityDisplayFields
     : [
-        { label: order.plannedQtyLabel || '计划印花裁片数量', value: order.plannedFeedQty, unit: order.unit, text: `${order.plannedQtyLabel || '计划印花裁片数量'}：${formatQty(order.plannedFeedQty, order.unit)}` },
+        { label: order.plannedQtyLabel || '需求单印花数量', value: order.plannedFeedQty, unit: order.unit, text: `${order.plannedQtyLabel || '需求单印花数量'}：${formatQty(order.plannedFeedQty, order.unit)}` },
         { label: order.returnedQtyLabel || '已交出裁片数量', value: getReturnedQty(order), unit: order.unit, text: `${order.returnedQtyLabel || '已交出裁片数量'}：${formatQty(getReturnedQty(order), order.unit)}` },
       ]
   return fields
@@ -662,7 +708,7 @@ function renderOrderRow(order: PrintProcessOrder): string {
           <p class="mt-2 text-sm font-medium">${escapeHtml(order.printFactoryName === TEST_FACTORY_NAME ? TEST_FACTORY_DISPLAY_NAME : order.printFactoryName)}</p>
           <div class="mt-3 grid gap-2 text-xs text-muted-foreground md:grid-cols-2 xl:grid-cols-3">
             <div><span>关联需求单数：</span><span class="font-medium text-foreground">${order.linkedDemands.length}张</span></div>
-            <div><span>${escapeHtml(order.plannedQtyLabel || '计划印花裁片数量')}：</span><span class="font-medium text-foreground">${escapeHtml(formatQty(order.plannedFeedQty, order.unit))}</span></div>
+            <div><span>${escapeHtml(order.plannedQtyLabel || '需求单印花数量')}：</span><span class="font-medium text-foreground">${escapeHtml(formatQty(order.plannedFeedQty, order.unit))}</span></div>
             <div><span>计划完成时间：</span><span class="text-foreground">${escapeHtml(order.plannedFinishAt)}</span></div>
             <div><span>分配方式：</span><span class="font-medium text-foreground">${escapeHtml(order.assignmentMode || '派单')}</span></div>
             <div><span>派单价格：</span><span class="font-medium text-foreground">${escapeHtml(order.dispatchPriceDisplay || '1200 IDR/Yard')}</span></div>
@@ -793,7 +839,7 @@ function renderDetailDrawer(): string {
             <h3 class="mb-3 text-sm font-semibold">基本信息</h3>
             <div class="grid gap-3 text-sm md:grid-cols-2">
               <div><span class="text-muted-foreground">创建方式：</span>${escapeHtml(order.createMode)}</div>
-              <div><span class="text-muted-foreground">${escapeHtml(order.plannedQtyLabel || '计划印花裁片数量')}：</span>${escapeHtml(formatQty(order.plannedFeedQty, order.unit))}</div>
+              <div><span class="text-muted-foreground">${escapeHtml(order.plannedQtyLabel || '需求单印花数量')}：</span>${escapeHtml(formatQty(order.plannedFeedQty, order.unit))}</div>
               <div class="md:col-span-2"><span class="text-muted-foreground">备货物料：</span>${stockMaterial ? `${escapeHtml(stockMaterial.materialCode)} · ${escapeHtml(stockMaterial.materialName)}（${escapeHtml(stockMaterial.unit)}）` : '-'}</div>
               <div class="md:col-span-2"><span class="text-muted-foreground">来源说明：</span>${escapeHtml(order.sourceSummary)}</div>
               <div class="md:col-span-2"><span class="text-muted-foreground">备注：</span>${escapeHtml(order.note)}</div>
@@ -814,7 +860,7 @@ function renderDetailDrawer(): string {
                 : `
                   <div class="overflow-x-auto rounded-md border">
                     <table class="w-full min-w-[980px] text-sm">
-                      <thead><tr class="border-b bg-muted/40 text-left"><th class="px-3 py-2 font-medium">需求单号</th><th class="px-3 py-2 font-medium">来源生产单号</th><th class="px-3 py-2 font-medium">物料编码/名称</th><th class="px-3 py-2 font-medium">${escapeHtml(order.plannedQtyLabel || '计划印花裁片数量')}</th><th class="px-3 py-2 font-medium">已满足${escapeHtml(order.objectType || '裁片')}${order.unit === '米' ? '米数' : '数量'}</th><th class="px-3 py-2 font-medium">待满足${escapeHtml(order.objectType || '裁片')}${order.unit === '米' ? '米数' : '数量'}</th><th class="px-3 py-2 font-medium">当前状态</th></tr></thead>
+                      <thead><tr class="border-b bg-muted/40 text-left"><th class="px-3 py-2 font-medium">需求单号</th><th class="px-3 py-2 font-medium">来源生产单号</th><th class="px-3 py-2 font-medium">物料编码/名称</th><th class="px-3 py-2 font-medium">${escapeHtml(order.plannedQtyLabel || '需求单印花数量')}</th><th class="px-3 py-2 font-medium">已满足印花数量</th><th class="px-3 py-2 font-medium">待满足印花数量</th><th class="px-3 py-2 font-medium">当前状态</th></tr></thead>
                       <tbody>
                         ${order.linkedDemands
                           .map((item) => {
@@ -958,13 +1004,18 @@ function renderCreateDrawer(): string {
         <div class="space-y-4 px-6 py-5">
           <section class="rounded-lg border bg-card p-4">
             <div class="grid gap-3 md:grid-cols-2">
-              <div>
+              <div class="md:col-span-2">
                 <label class="mb-1 block text-xs text-muted-foreground">创建方式</label>
                 <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-print-order-create-field="createMode">
                   <option value="按需求创建" ${state.createForm.createMode === '按需求创建' ? 'selected' : ''}>按需求创建</option>
                   <option value="按备货创建" ${state.createForm.createMode === '按备货创建' ? 'selected' : ''}>按备货创建</option>
                 </select>
               </div>
+              ${
+                state.createForm.createMode === '按需求创建'
+                  ? `<div class="md:col-span-2"><label class="mb-1 block text-xs text-muted-foreground">关联需求单</label>${renderCreateDemandPick()}</div>`
+                  : ''
+              }
               <div>
                 <label class="mb-1 block text-xs text-muted-foreground">印花工厂</label>
                 <select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-print-order-create-field="factoryName">
@@ -1009,8 +1060,14 @@ function renderCreateDrawer(): string {
                   : ''
               }
               <div>
-                <label class="mb-1 block text-xs text-muted-foreground">计划印花裁片数量</label>
-                <input type="number" min="0" class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(state.createForm.plannedFeedQty)}" data-print-order-create-field="plannedFeedQty" placeholder="请输入计划印花裁片数量（片）" />
+                <label class="mb-1 block text-xs text-muted-foreground">需求单印花数量</label>
+                <div class="flex overflow-hidden rounded-md border">
+                  <input type="number" min="0" class="h-9 min-w-0 flex-1 bg-background px-3 text-sm outline-none" value="${escapeHtml(state.createForm.plannedFeedQty)}" data-print-order-create-field="plannedFeedQty" placeholder="请输入需求单印花数量" />
+                  <select class="h-9 border-l bg-background px-2 text-sm outline-none" data-print-order-create-field="plannedFeedUnit">
+                    <option value="Yard" ${state.createForm.plannedFeedUnit === 'Yard' ? 'selected' : ''}>Yard</option>
+                    <option value="米" ${state.createForm.plannedFeedUnit === '米' ? 'selected' : ''}>米</option>
+                  </select>
+                </div>
               </div>
               <div>
                 <label class="mb-1 block text-xs text-muted-foreground">计划完成时间</label>
@@ -1026,12 +1083,6 @@ function renderCreateDrawer(): string {
               </div>
             </div>
           </section>
-
-          ${
-            state.createForm.createMode === '按需求创建'
-              ? `<section class="rounded-lg border bg-card p-4"><h3 class="mb-3 text-sm font-semibold">关联需求单</h3>${renderCreateDemandPick()}</section>`
-              : ''
-          }
 
           <footer class="sticky bottom-0 flex items-center justify-end gap-2 border-t bg-background px-1 py-3">
             <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-print-order-action="close-create-drawer">取消</button>
@@ -1103,7 +1154,7 @@ function submitCreate(): void {
     return
   }
   if (!Number.isFinite(plannedFeedQty) || plannedFeedQty <= 0) {
-    state.notice = '请填写有效的计划印花裁片数量。'
+    state.notice = '请填写有效的需求单印花数量。'
     return
   }
   if (!form.plannedFinishAt) {
@@ -1117,6 +1168,13 @@ function submitCreate(): void {
   if (form.createMode === '按需求创建' && form.selectedDemandIds.length === 0) {
     state.notice = '按需求创建时，请至少选择一张需求单。'
     return
+  }
+  if (form.createMode === '按需求创建') {
+    const selectedDemandUnits = getSelectedCreateDemands().map((item) => toPrintLengthUnit(item.unit))
+    if (new Set(selectedDemandUnits).size > 1) {
+      state.notice = '按需求创建时，请选择同一单位的需求单。'
+      return
+    }
   }
 
   const materialPool = getStockMaterialOptions()
@@ -1148,7 +1206,9 @@ function submitCreate(): void {
     createMode: form.createMode,
     printFactoryName: form.factoryName.trim(),
     plannedFeedQty,
-    unit: '片',
+    unit: form.plannedFeedUnit,
+    objectType: '面料',
+    plannedQtyLabel: '需求单印花数量',
     plannedFinishAt: fromDateTimeValue(form.plannedFinishAt),
     sourceSummary: form.sourceSummary.trim(),
     note: form.note.trim(),
@@ -1214,6 +1274,10 @@ export function handleProcessPrintOrdersEvent(target: HTMLElement): boolean {
     }
     if (key === 'plannedFeedQty') {
       state.createForm.plannedFeedQty = createFieldNode.value
+      return true
+    }
+    if (key === 'plannedFeedUnit') {
+      state.createForm.plannedFeedUnit = createFieldNode.value as PrintLengthUnit
       return true
     }
     if (key === 'plannedFinishAt') {
@@ -1328,6 +1392,7 @@ export function handleProcessPrintOrdersEvent(target: HTMLElement): boolean {
     state.createForm.selectedDemandIds = existed
       ? state.createForm.selectedDemandIds.filter((item) => item !== demandId)
       : [...state.createForm.selectedDemandIds, demandId]
+    syncCreateQtyFromSelectedDemands()
     return true
   }
 
@@ -1340,6 +1405,7 @@ export function handleProcessPrintOrdersEvent(target: HTMLElement): boolean {
     state.createForm.selectedMaterialCode = selected.materialCode
     state.createForm.selectedMaterialName = selected.materialName
     state.createForm.selectedMaterialUnit = selected.unit
+    state.createForm.plannedFeedUnit = toPrintLengthUnit(selected.unit)
     state.createForm.materialKeyword = ''
     state.materialPickerOpen = false
     return true

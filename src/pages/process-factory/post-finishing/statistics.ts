@@ -13,7 +13,8 @@ export function renderPostFinishingStatisticsPage(): string {
     <div class="space-y-4 p-4">
       ${renderPostFinishingPageHeader('后道统计')}
       <section class="grid gap-3 md:grid-cols-4 xl:grid-cols-8">
-        ${renderPostMetricCard('后道单总数', String(statistics.postOrderCount), '统一后道单')}
+        ${renderPostMetricCard('后道任务总数', String(statistics.workOrderCount), '生产单级主线')}
+        ${renderPostMetricCard('后道单总数', String(statistics.postOrderCount), '质检勾选后道动作生成')}
         ${renderPostMetricCard('待接收入仓任务数', String(statistics.waitReceiveTaskCount), '接收入仓')}
         ${renderPostMetricCard('已接收成衣件数', formatGarmentQty(statistics.receiveDoneGarmentQty), '接收入仓')}
         ${renderPostMetricCard('接收差异成衣件数', formatGarmentQty(statistics.receiveDiffGarmentQty), '接收入仓')}

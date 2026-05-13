@@ -113,7 +113,7 @@ function renderMetrics(input: WarehouseRecord[], mode: Mode): string {
       ${metric(mode === 'wait-process' ? '待加工库存' : '待交出库存', formatGarmentQty(totalQty), '当前可用库存')}
       ${metric('库存项目', `${input.length} 条`, `${activeCount} 条有库存`)}
       ${metric('库区库位', `${locationCount} 个`, '支持新增、编辑、删除')}
-      ${metric('流水记录', `${flowCount} 条`, mode === 'wait-process' ? '收货 + 质检 + 后道' : '质检入仓 + 后道入仓 + 复检出仓')}
+      ${metric('流水记录', `${flowCount} 条`, mode === 'wait-process' ? '收货 + 质检 + 后道' : '复检入仓 + 交出出仓 + 接收回写')}
     </section>
   `
 }

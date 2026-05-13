@@ -52,9 +52,14 @@ import {
   productionConfirmationStatusLabels,
 } from '../../data/fcs/production-confirmation.ts'
 import {
-  buildMakeGoodsConfirmationPrintLink,
   buildProductionConfirmationPrintLink,
+  buildPostFinishingTaskLink,
+  buildTaskRouteCardPrintLink,
 } from '../../data/fcs/fcs-route-links.ts'
+import {
+  getPostFinishingTaskByProductionOrder,
+  type PostFinishingTaskView,
+} from '../../data/fcs/post-finishing-domain.ts'
 
 function getDetailConfirmationPreviewState(order: ProductionOrder): {
   available: boolean
@@ -90,6 +95,124 @@ function getDetailConfirmationPreviewState(order: ProductionOrder): {
     buttonTitle: '工厂分配完成后可打印',
     statusLabel: '未完成分配',
   }
+}
+
+function formatPostTaskQty(value: number | undefined, unit = '件'): string {
+  const safeValue = Number.isFinite(value) ? Number(value) : 0
+  return `${safeValue.toLocaleString('zh-CN')} ${unit}`
+}
+
+function getOrderPostFinishingTask(order: ProductionOrder): PostFinishingTaskView | undefined {
+  return getPostFinishingTaskByProductionOrder(order.productionOrderId)
+}
+
+function renderOrderPostFinishingMetricCard(order: ProductionOrder): string {
+  const task = getOrderPostFinishingTask(order)
+  if (!task) {
+    return `
+      <article class="rounded-lg border bg-card p-4">
+        <h3 class="mb-2 text-sm font-medium text-muted-foreground">后道任务</h3>
+        ${renderBadge('未生成', 'bg-amber-100 text-amber-700')}
+        <p class="mt-2 text-xs text-muted-foreground">生产单缺少后道主线任务</p>
+      </article>
+    `
+  }
+
+  return `
+    <article class="rounded-lg border bg-card p-4">
+      <h3 class="mb-2 text-sm font-medium text-muted-foreground">后道任务</h3>
+      ${renderBadge(task.currentStatus, task.currentStatus.includes('完成') ? 'bg-green-100 text-green-700' : task.currentStatus.includes('中') ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700')}
+      <p class="mt-2 font-mono text-xs">${escapeHtml(task.postTaskNo)}</p>
+      <p class="text-xs text-muted-foreground">当前节点：${escapeHtml(task.currentNode)}</p>
+      <p class="text-xs text-muted-foreground">未质检：${escapeHtml(formatPostTaskQty(task.waitQcQty + task.qcInProgressQty, task.qtyUnit))}</p>
+    </article>
+  `
+}
+
+function renderOrderPostFinishingTaskTab(order: ProductionOrder): string {
+  const task = getOrderPostFinishingTask(order)
+  if (!task) {
+    return `
+      <section class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+        <p class="font-medium">未找到生产单级后道任务</p>
+        <p class="mt-1">当前规则要求每个生产单都有一个后道任务，请检查生产单 Mock 数据与后道任务生成链路。</p>
+      </section>
+    `
+  }
+
+  const unQcQty = Math.max(task.receivedQty - task.qcDoneQty, task.waitQcQty + task.qcInProgressQty)
+  const sourceText = task.sourceFactoryNames.join('、') || '待上游交出'
+  const sourceTaskText = task.sourceTaskNos.join('、') || '—'
+
+  return `
+    <section class="rounded-lg border bg-card p-4 space-y-4">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 class="text-base font-semibold">后道任务</h3>
+          <p class="mt-1 text-xs text-muted-foreground">后道任务是生产单级主线任务，质检单、后道单、复检单都归属到该任务下。</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-nav="${escapeHtml(buildPostFinishingTaskLink(task.postTaskId))}">查看后道任务</button>
+          <button class="rounded-md border px-3 py-1.5 text-sm ${task.waitQcQty > 0 ? 'hover:bg-muted' : 'pointer-events-none opacity-50'}" data-nav="/fcs/craft/post-finishing/qc-orders?postTaskId=${escapeHtml(encodeURIComponent(task.postTaskId))}&createQc=1">创建质检单</button>
+          <button class="rounded-md border px-3 py-1.5 text-sm hover:bg-muted" data-nav="${escapeHtml(buildTaskRouteCardPrintLink('POST_FINISHING_TASK', task.postTaskId))}">打印流转卡</button>
+        </div>
+      </div>
+
+      <div class="grid gap-3 md:grid-cols-3 lg:grid-cols-6">
+        <article class="rounded-md border bg-muted/20 px-3 py-3">
+          <p class="text-xs text-muted-foreground">后道任务号</p>
+          <p class="mt-1 font-mono text-xs font-semibold">${escapeHtml(task.postTaskNo)}</p>
+          <p class="text-[11px] text-muted-foreground">${escapeHtml(task.postTaskId)}</p>
+        </article>
+        <article class="rounded-md border bg-muted/20 px-3 py-3">
+          <p class="text-xs text-muted-foreground">当前状态</p>
+          <div class="mt-1">${renderBadge(task.currentStatus, task.currentStatus.includes('完成') ? 'bg-green-100 text-green-700' : task.currentStatus.includes('中') ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700')}</div>
+          <p class="mt-1 text-[11px] text-muted-foreground">${escapeHtml(task.currentNode)}</p>
+        </article>
+        <article class="rounded-md border bg-muted/20 px-3 py-3">
+          <p class="text-xs text-muted-foreground">计划数量</p>
+          <p class="mt-1 text-lg font-semibold">${escapeHtml(formatPostTaskQty(task.plannedGarmentQty, task.qtyUnit))}</p>
+          <p class="text-[11px] text-muted-foreground">${escapeHtml(task.techPackVersionLabel)}</p>
+        </article>
+        <article class="rounded-md border bg-muted/20 px-3 py-3">
+          <p class="text-xs text-muted-foreground">未质检数量</p>
+          <p class="mt-1 text-lg font-semibold">${escapeHtml(formatPostTaskQty(unQcQty, task.qtyUnit))}</p>
+          <p class="text-[11px] text-muted-foreground">待质检 ${escapeHtml(formatPostTaskQty(task.waitQcQty, task.qtyUnit))}</p>
+        </article>
+        <article class="rounded-md border bg-muted/20 px-3 py-3">
+          <p class="text-xs text-muted-foreground">后道/复检</p>
+          <p class="mt-1 text-sm">待后道 ${escapeHtml(formatPostTaskQty(task.waitPostQty, task.qtyUnit))}</p>
+          <p class="text-[11px] text-muted-foreground">待复检 ${escapeHtml(formatPostTaskQty(task.waitRecheckQty, task.qtyUnit))}</p>
+        </article>
+        <article class="rounded-md border bg-muted/20 px-3 py-3">
+          <p class="text-xs text-muted-foreground">待交出数量</p>
+          <p class="mt-1 text-lg font-semibold">${escapeHtml(formatPostTaskQty(task.waitHandoverQty, task.qtyUnit))}</p>
+          <p class="text-[11px] text-muted-foreground">已复检 ${escapeHtml(formatPostTaskQty(task.recheckDoneQty, task.qtyUnit))}</p>
+        </article>
+      </div>
+
+      <div class="grid gap-4 md:grid-cols-2">
+        <section class="rounded-md border p-3">
+          <h4 class="text-sm font-semibold">来源与上游</h4>
+          <div class="mt-3 grid gap-3 text-sm md:grid-cols-2">
+            <div><p class="text-xs text-muted-foreground">上游来源</p><p>${escapeHtml(sourceText)}</p></div>
+            <div><p class="text-xs text-muted-foreground">上游任务</p><p>${escapeHtml(sourceTaskText)}</p></div>
+            <div><p class="text-xs text-muted-foreground">后道工厂</p><p>${escapeHtml(task.managedPostFactoryName)}</p></div>
+            <div><p class="text-xs text-muted-foreground">更新时间</p><p>${escapeHtml(task.updatedAt)}</p></div>
+          </div>
+        </section>
+        <section class="rounded-md border p-3">
+          <h4 class="text-sm font-semibold">子单据</h4>
+          <div class="mt-3 grid gap-3 text-sm md:grid-cols-3">
+            <div><p class="text-xs text-muted-foreground">质检单</p><p class="text-lg font-semibold">${task.qcOrderCount}</p></div>
+            <div><p class="text-xs text-muted-foreground">后道单</p><p class="text-lg font-semibold">${task.postOrderCount}</p></div>
+            <div><p class="text-xs text-muted-foreground">复检单</p><p class="text-lg font-semibold">${task.recheckOrderCount}</p></div>
+          </div>
+          <p class="mt-3 text-xs text-muted-foreground">完成质检时勾选开扣眼、装扣子、熨烫、包装才生成后道单；未勾选则进入复检链路。</p>
+        </section>
+      </div>
+    </section>
+  `
 }
 
 function renderDetailLogsDialog(order: ProductionOrder): string {
@@ -190,6 +313,7 @@ function renderOrderDetailTabButtons(activeTab: OrderDetailTab): string {
     { key: 'demand-snapshot', label: '需求快照' },
     { key: 'tech-pack', label: '技术包快照' },
     { key: 'assignment', label: '分配概览' },
+    { key: 'post-finishing', label: '后道任务' },
     { key: 'handover', label: '交接链路' },
     { key: 'logs', label: '日志' },
   ]
@@ -671,6 +795,10 @@ function renderOrderDetailTabContent(order: ProductionOrder): string {
     `
   }
 
+  if (state.detailTab === 'post-finishing') {
+    return renderOrderPostFinishingTaskTab(order)
+  }
+
   if (state.detailTab === 'handover') {
     return `
       <section class="rounded-lg border bg-card p-4 space-y-4">
@@ -838,9 +966,6 @@ export function renderProductionOrderDetailPage(orderId: string): string {
             title="${escapeHtml(confirmationPreviewState.buttonTitle)}"
             data-nav="${escapeHtml(confirmationPreviewState.href)}"
           >打印生产确认单</button>
-          <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(
-            buildMakeGoodsConfirmationPrintLink(order.productionOrderId),
-          )}">打印做货确认单</button>
           <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-prod-action="detail-open-logs">查看日志</button>
           <button class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="/fcs/progress/urge?po=${escapeHtml(
             order.productionOrderId,
@@ -934,6 +1059,8 @@ export function renderProductionOrderDetailPage(orderId: string): string {
           <p class="text-sm">总任务: ${runtime.assignmentSummary.totalTasks}</p>
           <p class="text-sm text-orange-700">未分配: ${runtime.assignmentSummary.unassignedCount}</p>
         </article>
+
+        ${renderOrderPostFinishingMetricCard(order)}
 
         <article class="rounded-lg border bg-card p-4">
           <h3 class="mb-2 text-sm font-medium text-muted-foreground">总标准工时</h3>

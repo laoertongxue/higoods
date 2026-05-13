@@ -4,12 +4,6 @@ import { type ProcessTask } from '../data/fcs/process-tasks'
 import { formatFactoryDisplayName } from '../data/fcs/factory-mock-data.ts'
 import { getFactoryMasterRecordById } from '../data/fcs/factory-master-store.ts'
 import {
-  listPostFinishingWorkOrders,
-  listSewingFactoryPostTasks,
-  type PostFinishingWorkOrder,
-  type SewingFactoryPostTask,
-} from '../data/fcs/post-finishing-domain'
-import {
   getTaskProcessDisplayName,
 } from '../data/fcs/page-adapters/task-execution-adapter'
 import {
@@ -90,92 +84,6 @@ const state: PdaExecState = {
   rawTabParam: '',
   bannerVisible: true,
   querySignature: '',
-}
-
-function mapPostFinishingStatusToTaskStatus(status: string): ProcessTask['status'] {
-  if (status.includes('数量差异')) return 'BLOCKED'
-  if (status.includes('中')) return 'IN_PROGRESS'
-  if (status.includes('已交出') || status.includes('已回写')) return 'DONE'
-  return 'NOT_STARTED'
-}
-
-function mapSewingFactoryPostTaskStatus(status: SewingFactoryPostTask['status']): ProcessTask['status'] {
-  if (status.includes('中')) return 'IN_PROGRESS'
-  if (status === '后道完成' || status === '已交后道工厂') return 'DONE'
-  return 'NOT_STARTED'
-}
-
-function mapPostFinishingOrderToTask(order: PostFinishingWorkOrder, seq: number): ProcessTask {
-  return {
-    taskId: order.sourceTaskId,
-    taskNo: order.postOrderNo,
-    productionOrderId: order.sourceProductionOrderNo,
-    seq,
-    processCode: 'POST_FINISHING',
-    processNameZh: '后道',
-    stage: 'POST',
-    qty: order.plannedGarmentQty,
-    qtyUnit: 'PIECE',
-    assignmentMode: 'DIRECT',
-    assignmentStatus: 'ASSIGNED',
-    ownerSuggestion: {
-      kind: 'RECOMMENDED_FACTORY_POOL',
-      recommendedTypes: ['FINISHING'],
-    },
-    assignedFactoryId: order.managedPostFactoryId,
-    assignedFactoryName: order.managedPostFactoryName,
-    qcPoints: [],
-    attachments: [],
-    status: mapPostFinishingStatusToTaskStatus(order.currentStatus),
-    acceptanceStatus: 'ACCEPTED',
-    acceptedAt: order.createdAt,
-    acceptedBy: order.managedPostFactoryName,
-    dispatchedAt: order.createdAt,
-    dispatchedBy: '系统',
-    dispatchRemark: '后道单同步到工厂端移动应用执行',
-    taskDeadline: order.updatedAt,
-    receiverKind: 'MANAGED_POST_FACTORY',
-    receiverId: order.managedPostFactoryId,
-    receiverName: order.managedPostFactoryName,
-    handoverStatus: order.handoverRecordId ? 'WRITTEN_BACK' : order.waitHandoverWarehouseRecordId ? 'OPEN' : 'NOT_CREATED',
-    handoverOrderId: order.handoverRecordId,
-  }
-}
-
-function mapSewingFactoryPostTaskToTask(task: SewingFactoryPostTask, seq: number): ProcessTask {
-  return {
-    taskId: task.postTaskId,
-    taskNo: task.relatedPostOrderNo || task.postTaskNo,
-    productionOrderId: task.productionOrderNo,
-    seq,
-    processCode: 'SEWING_POST',
-    processNameZh: '车缝后道',
-    stage: 'POST',
-    qty: task.plannedGarmentQty,
-    qtyUnit: 'PIECE',
-    assignmentMode: 'DIRECT',
-    assignmentStatus: 'ASSIGNED',
-    ownerSuggestion: {
-      kind: 'RECOMMENDED_FACTORY_POOL',
-      recommendedTypes: ['SEWING'],
-    },
-    assignedFactoryId: task.sewingFactoryId,
-    assignedFactoryName: task.sewingFactoryName,
-    qcPoints: [],
-    attachments: [],
-    status: mapSewingFactoryPostTaskStatus(task.status),
-    acceptanceStatus: 'ACCEPTED',
-    acceptedAt: task.postFinishedAt || '2026-04-01 08:30',
-    acceptedBy: task.sewingFactoryName,
-    dispatchedAt: task.postFinishedAt || '2026-04-01 08:30',
-    dispatchedBy: '系统',
-    dispatchRemark: '车缝工厂同时完成车缝与后道，完成后交给后道工厂质检和复检',
-    taskDeadline: task.handedToManagedPostFactoryAt || '2026-04-25 18:00',
-    receiverKind: 'MANAGED_POST_FACTORY',
-    receiverId: task.managedPostFactoryId,
-    receiverName: task.managedPostFactoryName,
-    handoverStatus: task.status === '已交后道工厂' ? 'WRITTEN_BACK' : 'NOT_CREATED',
-  }
 }
 
 function listTaskFacts(): ProcessTask[] {

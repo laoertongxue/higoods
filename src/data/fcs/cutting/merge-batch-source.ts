@@ -84,17 +84,17 @@ function buildSystemMergeBatchSourceRecords(): MergeBatchSourceRecord[] {
     })
   })
 
-  const rowsBySpuAndFabric = new Map<string, typeof sourceRecords>()
+  const rowsBySpuAndProductionOrder = new Map<string, typeof sourceRecords>()
   sourceRecords.forEach((record) => {
     const spuKey = record.spuCode || record.styleCode || record.productionOrderId
-    const fabricKey = record.materialSku || record.fabricSku || record.colorName || '默认面料'
-    const key = [spuKey, fabricKey].join('::')
-    const rows = rowsBySpuAndFabric.get(key) || []
+    const productionKey = record.productionOrderId || record.productionOrderNo || '默认生产单'
+    const key = [spuKey, productionKey].join('::')
+    const rows = rowsBySpuAndProductionOrder.get(key) || []
     rows.push(record)
-    rowsBySpuAndFabric.set(key, rows)
+    rowsBySpuAndProductionOrder.set(key, rows)
   })
 
-  Array.from(rowsBySpuAndFabric.values())
+  Array.from(rowsBySpuAndProductionOrder.values())
     .filter((rows) => rows.length >= 2)
     .slice(0, 2)
     .forEach((rows, index) => {

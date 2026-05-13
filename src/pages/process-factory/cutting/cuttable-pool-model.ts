@@ -212,6 +212,10 @@ function buildKeywordIndex(values: Array<string | undefined>): string[] {
     .map((value) => String(value).toLowerCase())
 }
 
+function uniqueStrings(values: string[]): string[] {
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)))
+}
+
 function buildProgressLineFallback(source: GeneratedOriginalCutOrderSourceRecord): CuttingMaterialLine {
   return {
     originalCutOrderId: source.originalCutOrderId,
@@ -279,10 +283,12 @@ function createCoverageStatus(key: CoverageStatusKey, detailText: string): Cutta
 export function buildBatchingKey(source: {
   styleCode?: string
   spuCode?: string
-  materialSku: string
+  productionOrderId?: string
+  productionOrderNo?: string
 }): string {
   const styleKey = source.styleCode || source.spuCode || 'UNKNOWN_STYLE'
-  return `${styleKey}__${source.materialSku}`
+  const productionKey = source.productionOrderId || source.productionOrderNo || 'UNKNOWN_PRODUCTION_ORDER'
+  return `${styleKey}__${productionKey}`
 }
 
 export function deriveOriginalCutOrderCuttableState(
@@ -371,6 +377,7 @@ function buildBatchingBuckets(items: CuttableOriginalOrderItem[]): CuttableBatch
       if (item.cuttableState.key === 'CUTTABLE') existing.cuttableCount += 1
       existing.productionOrderSet.add(item.productionOrderId)
       existing.productionOrderCount = existing.productionOrderSet.size
+      existing.materialSku = uniqueStrings([existing.materialSku, item.materialSku]).join(' / ')
       continue
     }
 
@@ -399,7 +406,8 @@ function buildOriginalOrderItem(
   const batchingKey = buildBatchingKey({
     styleCode: record.styleCode,
     spuCode: record.spuCode,
-    materialSku: source.materialSku,
+    productionOrderId: source.productionOrderId,
+    productionOrderNo: source.productionOrderNo,
   })
 
   return {
@@ -686,6 +694,8 @@ export function buildQuickMergeableBuckets(items: CuttableOriginalOrderItem[]): 
       existing.productionOrderIds = Array.from(existing.productionOrderIdSet)
       existing.productionOrderNos = Array.from(existing.productionOrderNoSet)
       existing.itemIds = Array.from(existing.itemIdSet)
+      existing.materialSku = uniqueStrings([existing.materialSku, item.materialSku]).join(' / ')
+      existing.materialLabel = uniqueStrings([existing.materialLabel, item.materialLabel]).join(' / ')
       if (item.plannedShipDate && (!existing.earliestShipDate || item.plannedShipDate < existing.earliestShipDate)) {
         existing.earliestShipDate = item.plannedShipDate
         existing.earliestShipDateDisplay = item.plannedShipDateDisplay
@@ -756,7 +766,25 @@ export function areOriginalCutOrdersReadyForBatching(items: CuttableOriginalOrde
     return {
       ok: false,
       batchingKey: null,
-      reason: '当前已选清单仅支持同一合并条件组的原始裁片单，请清空后重新选择。',
+      reason: '当前已选清单仅支持同款同生产单的原始裁片单，请清空后重新选择。',
+    }
+  }
+
+  const productionOrderKeys = Array.from(new Set(items.map((item) => item.productionOrderId || item.productionOrderNo).filter(Boolean)))
+  if (productionOrderKeys.length !== 1) {
+    return {
+      ok: false,
+      batchingKey: null,
+      reason: '当前已选清单只允许同一生产单的原始裁片单进入同一合并裁剪批次。',
+    }
+  }
+
+  const styleKeys = Array.from(new Set(items.map((item) => item.styleCode || item.spuCode).filter(Boolean)))
+  if (styleKeys.length !== 1) {
+    return {
+      ok: false,
+      batchingKey: null,
+      reason: '当前已选清单只允许同款原始裁片单进入同一合并裁剪批次。',
     }
   }
 

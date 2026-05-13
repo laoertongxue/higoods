@@ -55,7 +55,6 @@ import {
   isProductionConfirmationPrintable,
 } from '../../data/fcs/production-confirmation.ts'
 import {
-  buildMakeGoodsConfirmationPrintLink,
   buildProductionConfirmationPrintLink,
 } from '../../data/fcs/fcs-route-links.ts'
 
@@ -1041,10 +1040,6 @@ export function renderProductionOrdersPage(): string {
                                           >
                                             <i data-lucide="printer" class="mr-2 h-4 w-4"></i>
                                             打印生产确认单
-                                          </button>
-                                          <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-nav="${escapeHtml(buildMakeGoodsConfirmationPrintLink(order.productionOrderId))}">
-                                            <i data-lucide="printer" class="mr-2 h-4 w-4"></i>
-                                            打印做货确认单
                                           </button>
                                           <button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-prod-action="open-orders-dispatch-center" data-order-id="${order.productionOrderId}">
                                             <i data-lucide="send" class="mr-2 h-4 w-4"></i>

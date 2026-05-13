@@ -31,9 +31,6 @@ import {
 
 export const ProductionMaterialConfirmationTemplate = 'ProductionMaterialConfirmationTemplate'
 export const ProductionConfirmationTemplate = 'ProductionConfirmationTemplate'
-export const MakeGoodsConfirmationTemplate = 'MakeGoodsConfirmationTemplate'
-
-type ProductionMaterialDocumentType = 'PRODUCTION_CONFIRMATION' | 'MAKE_GOODS_CONFIRMATION'
 
 interface ProductionPrintContext {
   order: ProductionOrder
@@ -275,109 +272,14 @@ function buildQcTable(): PrintDocument['tables'][number] {
   }
 }
 
-function buildMakeGoodsQuantityTable(snapshot: ProductionConfirmationSnapshot): PrintDocument['tables'][number] {
-  return {
-    tableId: 'make-goods-qty',
-    title: '做货数量区',
-    headers: ['SKU', '颜色', '尺码', '计划生产成衣件数', '备注'],
-    rows: snapshot.sizeQtySnapshot.rows.flatMap((row) =>
-      snapshot.sizeQtySnapshot.sizes.map((size) => [
-        `${snapshot.styleSnapshot.spuCode}-${row.color}-${size}`,
-        row.color,
-        size,
-        formatPrintQty(row.sizeQtyMap[size] || 0, '件'),
-        '工厂按此数量做货',
-      ]),
-    ),
-    minRows: 6,
-  }
-}
-
-function buildMakeGoodsFabricTable(snapshot: ProductionConfirmationSnapshot): PrintDocument['tables'][number] {
-  return {
-    tableId: 'make-goods-fabric',
-    title: '面料区',
-    headers: ['面料 SKU', '面料名称', '面料颜色', '面料成分', '幅宽', '克重', '单件面料用量', '计划面料米数', '面料图片'],
-    rows: snapshot.bomSnapshot.filter((row) => row.materialType === '面料').map((row) => [
-      row.materialSku,
-      row.materialName,
-      row.materialColor,
-      row.spec,
-      '按技术包',
-      '按技术包',
-      objectizedUnitConsumption(row),
-      objectizedPlannedUsage(row),
-      row.materialImageUrl ? '已关联面料图' : '暂无图片',
-    ]),
-    minRows: 3,
-  }
-}
-
-function buildMakeGoodsAccessoryTable(snapshot: ProductionConfirmationSnapshot): PrintDocument['tables'][number] {
-  return {
-    tableId: 'make-goods-accessory',
-    title: '辅料区',
-    headers: ['辅料 SKU', '辅料名称', '使用部位', '单件辅料用量', '计划辅料数量', '辅料图片'],
-    rows: snapshot.bomSnapshot.filter((row) => row.materialType !== '面料').map((row) => [
-      row.materialSku,
-      row.materialName,
-      row.spec,
-      objectizedUnitConsumption(row),
-      objectizedPlannedUsage(row),
-      row.materialImageUrl ? '已关联辅料图' : '暂无图片',
-    ]),
-    minRows: 3,
-  }
-}
-
-function buildMakeGoodsCraftTable(snapshot: ProductionConfirmationSnapshot): PrintDocument['tables'][number] {
-  const processNames = new Set(snapshot.taskAssignmentSnapshot.map((row) => row.processName))
-  return {
-    tableId: 'make-goods-craft',
-    title: '工艺要求区',
-    headers: ['工艺名称', '工艺说明', '特殊注意事项', '是否需要印花', '是否需要染色', '是否需要特殊工艺', '是否需要后道', '质检要点'],
-    rows: snapshot.taskAssignmentSnapshot.map((row) => [
-      row.taskDisplayName,
-      row.remark || '按生产确认资料执行',
-      row.craftName || row.partName || '按技术包',
-      processNames.has('印花') ? '是' : '否',
-      processNames.has('染色') ? '是' : '否',
-      row.stageName.includes('特殊工艺') || row.processName.includes('特殊工艺') ? '是' : '否',
-      processNames.has('后道') ? '是' : '否',
-      `${row.taskDisplayName}完成后复核外观、对象数量和工艺一致性`,
-    ]),
-    minRows: 5,
-  }
-}
-
-function buildMakeGoodsPatternTable(snapshot: ProductionConfirmationSnapshot): PrintDocument['tables'][number] {
-  return {
-    tableId: 'make-goods-pattern',
-    title: '纸样 / 尺寸 / 唛架说明区',
-    headers: ['纸样版本', '尺码范围', '关键尺寸说明', '唛架版本', '唛架模式', '备注'],
-    rows: snapshot.patternSnapshot.rows.map((row) => [
-      row.patternVersion || '暂无数据',
-      row.sizeRange || row.selectedSizeCodes.join(' / ') || '暂无数据',
-      snapshot.patternSnapshot.sizeMeasurements.slice(0, 3).map((item) => `${item.measurementPart}${item.sizeCode} ${item.measurementValue}${item.measurementUnit}`).join('；') || '按技术包尺寸表',
-      row.patternVersion || '暂无数据',
-      row.patternMaterialTypeLabel,
-      '菲票归属原始裁片单，合并裁剪批次只作为执行上下文',
-    ]),
-    minRows: 3,
-  }
-}
-
-function buildHeaderFields(context: ProductionPrintContext, documentType: ProductionMaterialDocumentType): PrintField[] {
+function buildHeaderFields(context: ProductionPrintContext): PrintField[] {
   const { order, snapshot } = context
-  const titleNo = documentType === 'PRODUCTION_CONFIRMATION'
-    ? context.confirmationNo
-    : `MGC-${order.productionOrderNo.replace(/^PO-/, '')}-${context.printVersionNo}`
 
   return mapFields([
-    { label: documentType === 'PRODUCTION_CONFIRMATION' ? '生产确认单号' : '做货确认单号', value: titleNo, emphasis: true },
+    { label: '生产确认单号', value: context.confirmationNo, emphasis: true },
     { label: '生产单号', value: order.productionOrderNo, emphasis: true },
     { label: '来源需求单号', value: snapshot.productionOrderSnapshot.sourceDemandNos.join('、') },
-    { label: documentType === 'PRODUCTION_CONFIRMATION' ? '确认单状态' : '做货资料状态', value: context.statusLabel },
+    { label: '确认单状态', value: context.statusLabel },
     { label: '生产单状态', value: productionOrderStatusConfig[order.status]?.label || order.status },
     { label: '当前版本', value: context.printVersionNo },
     { label: '打印版本', value: context.printVersionNo },
@@ -422,25 +324,6 @@ function buildProductionSections(context: ProductionPrintContext): PrintDocument
   ]
 }
 
-function buildMakeGoodsSections(context: ProductionPrintContext): PrintDocument['sections'] {
-  const { order, snapshot } = context
-  return [
-    {
-      sectionId: 'site-base',
-      title: '现场做货基础信息',
-      fields: mapFields([
-        { label: '款号', value: snapshot.styleSnapshot.styleCode, emphasis: true },
-        { label: '商品名称', value: snapshot.styleSnapshot.spuName },
-        { label: '工厂', value: order.mainFactorySnapshot.name },
-        { label: '计划生产成衣件数', value: formatPrintQty(snapshot.productionOrderSnapshot.plannedQty, '件'), emphasis: true },
-        { label: '要求交期', value: snapshot.productionOrderSnapshot.requiredDeliveryDate || '暂无数据' },
-        { label: '现场备注', value: snapshot.productionOrderSnapshot.productionRemark || '按确认资料做货' },
-      ]),
-      note: '做货确认单面向工厂现场执行，优先展示款式图、面辅料、做货数量、工艺要求和工厂签收信息。',
-    },
-  ]
-}
-
 function buildProductionTables(snapshot: ProductionConfirmationSnapshot): PrintDocument['tables'] {
   return [
     buildSkuMatrixTable(snapshot),
@@ -451,31 +334,15 @@ function buildProductionTables(snapshot: ProductionConfirmationSnapshot): PrintD
   ]
 }
 
-function buildMakeGoodsTables(snapshot: ProductionConfirmationSnapshot): PrintDocument['tables'] {
-  return [
-    buildMakeGoodsQuantityTable(snapshot),
-    buildMakeGoodsFabricTable(snapshot),
-    buildMakeGoodsAccessoryTable(snapshot),
-    buildMakeGoodsCraftTable(snapshot),
-    buildMakeGoodsPatternTable(snapshot),
-    buildQcTable(),
-  ]
-}
-
-function buildDocument(input: PrintDocumentBuildInput, documentType: ProductionMaterialDocumentType): PrintDocument {
+function buildDocument(input: PrintDocumentBuildInput): PrintDocument {
   const context = resolveProductionPrintContext(input.sourceId)
   const { order, snapshot } = context
   const generatedAt = getPrintGeneratedAt()
-  const templateCode = documentType === 'PRODUCTION_CONFIRMATION'
-    ? 'PRODUCTION_CONFIRMATION'
-    : 'MAKE_GOODS_CONFIRMATION'
-  const title = documentType === 'PRODUCTION_CONFIRMATION' ? '生产确认单' : '做货确认单'
-  const targetRoute = documentType === 'PRODUCTION_CONFIRMATION'
-    ? `/fcs/production/orders/${encodeURIComponent(order.productionOrderId)}/confirmation-print`
-    : `/fcs/production/orders/${encodeURIComponent(order.productionOrderId)}`
-  const businessNo = documentType === 'PRODUCTION_CONFIRMATION'
-    ? context.confirmationNo
-    : `MGC-${order.productionOrderNo.replace(/^PO-/, '')}-${context.printVersionNo}`
+  const documentType = 'PRODUCTION_CONFIRMATION'
+  const templateCode = 'PRODUCTION_CONFIRMATION'
+  const title = '生产确认单'
+  const targetRoute = `/fcs/production/orders/${encodeURIComponent(order.productionOrderId)}/confirmation-print`
+  const businessNo = context.confirmationNo
   const qrPayload = buildPrintQrPayload({
     documentType,
     sourceType: 'PRODUCTION_ORDER',
@@ -499,17 +366,9 @@ function buildDocument(input: PrintDocumentBuildInput, documentType: ProductionM
     paperType: 'A4',
     orientation: 'portrait',
     printTitle: title,
-    printSubtitle: documentType === 'PRODUCTION_CONFIRMATION'
-      ? '平台 / 跟单 / 生产管理用于确认生产单、SKU、面辅料、工序工艺和资料版本。'
-      : '工厂现场做货资料，用于确认款式图、面辅料、做货数量、工艺要求和工厂签收。',
-    headerFields: buildHeaderFields(context, documentType),
-    imageBlocks: documentType === 'PRODUCTION_CONFIRMATION'
-      ? resolveProductionPrintImages(order.productionOrderId)
-      : [
-          ...resolveProductionPrintImages(order.productionOrderId).filter((item) =>
-            ['商品主图', '款式图', '样衣图', '花型图', '面料图', '辅料图'].includes(item.title),
-          ),
-        ],
+    printSubtitle: '生产单正式确认与工厂现场做货的统一依据，覆盖 SKU 数量、面辅料、工序工艺、纸样唛架、图片资料、交付和签收。',
+    headerFields: buildHeaderFields(context),
+    imageBlocks: resolveProductionPrintImages(order.productionOrderId),
     qrCodes: [
       {
         title: `${title}二维码`,
@@ -531,27 +390,16 @@ function buildDocument(input: PrintDocumentBuildInput, documentType: ProductionM
         description: '生产资料条码',
       },
     ],
-    sections: documentType === 'PRODUCTION_CONFIRMATION'
-      ? buildProductionSections(context)
-      : buildMakeGoodsSections(context),
-    tables: documentType === 'PRODUCTION_CONFIRMATION'
-      ? buildProductionTables(snapshot)
-      : buildMakeGoodsTables(snapshot),
-    signatureBlocks: documentType === 'PRODUCTION_CONFIRMATION'
-      ? [
-          { label: '跟单确认', signerRole: '跟单' },
-          { label: '生产负责人确认', signerRole: '生产负责人' },
-          { label: '工厂确认', signerRole: '工厂负责人' },
-          { label: '质检确认', signerRole: '质检负责人' },
-          { label: '日期', signerRole: '确认日期' },
-        ]
-      : [
-          { label: '工厂负责人签字', signerRole: '工厂负责人' },
-          { label: '领料确认', signerRole: '领料人' },
-          { label: '做货确认', signerRole: '现场负责人' },
-          { label: '质检确认', signerRole: '质检人' },
-          { label: '日期', signerRole: '确认日期' },
-        ],
+    sections: buildProductionSections(context),
+    tables: buildProductionTables(snapshot),
+    signatureBlocks: [
+      { label: '跟单确认', signerRole: '跟单' },
+      { label: '生产负责人确认', signerRole: '生产负责人' },
+      { label: '工厂确认', signerRole: '工厂负责人' },
+      { label: '现场做货确认', signerRole: '现场负责人' },
+      { label: '质检确认', signerRole: '质检负责人' },
+      { label: '日期', signerRole: '确认日期' },
+    ],
     differenceBlocks: [],
     footerFields: [
       { label: '生产单号', value: order.productionOrderNo },
@@ -578,24 +426,14 @@ function buildDocument(input: PrintDocumentBuildInput, documentType: ProductionM
 }
 
 export function buildProductionMaterialConfirmationPrintDocument(input: PrintDocumentBuildInput): PrintDocument {
-  const documentType = input.documentType === 'MAKE_GOODS_CONFIRMATION'
-    ? 'MAKE_GOODS_CONFIRMATION'
-    : 'PRODUCTION_CONFIRMATION'
-  return buildDocument(input, documentType)
+  return buildDocument(input)
 }
 
 export function buildProductionConfirmationPrintDocument(input: PrintDocumentBuildInput | string): PrintDocument {
   const resolved = typeof input === 'string'
     ? { documentType: 'PRODUCTION_CONFIRMATION', sourceType: 'PRODUCTION_ORDER', sourceId: input } as PrintDocumentBuildInput
     : input
-  return buildDocument(resolved, 'PRODUCTION_CONFIRMATION')
-}
-
-export function buildMakeGoodsConfirmationPrintDocument(input: PrintDocumentBuildInput | string): PrintDocument {
-  const resolved = typeof input === 'string'
-    ? { documentType: 'MAKE_GOODS_CONFIRMATION', sourceType: 'PRODUCTION_ORDER', sourceId: input } as PrintDocumentBuildInput
-    : input
-  return buildDocument(resolved, 'MAKE_GOODS_CONFIRMATION')
+  return buildDocument(resolved)
 }
 
 function renderFieldGrid(fields: PrintField[], columns = 4): string {
@@ -694,7 +532,6 @@ function renderSignatureBlocks(blocks: PrintDocument['signatureBlocks']): string
 }
 
 export function renderProductionMaterialConfirmationTemplate(doc: PrintDocument): string {
-  const isMakeGoods = doc.documentType === 'MAKE_GOODS_CONFIRMATION'
   return `
     <article class="print-paper-a4 print-production-confirmation">
       <div class="print-card-sheet">
@@ -711,7 +548,7 @@ export function renderProductionMaterialConfirmationTemplate(doc: PrintDocument)
           ${renderFieldGrid(doc.headerFields)}
         </section>
 
-        ${renderImageBlocks(doc.imageBlocks, isMakeGoods)}
+        ${renderImageBlocks(doc.imageBlocks, true)}
 
         ${doc.sections.map((section) => `
           <section class="print-section">
@@ -734,4 +571,3 @@ export function renderProductionMaterialConfirmationTemplate(doc: PrintDocument)
 }
 
 export const renderProductionConfirmationTemplate = renderProductionMaterialConfirmationTemplate
-export const renderMakeGoodsConfirmationTemplate = renderProductionMaterialConfirmationTemplate

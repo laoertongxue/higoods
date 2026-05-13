@@ -336,7 +336,7 @@ export function renderCraftPrintingWorkOrderDetailPage(printOrderId: string): st
     isPiecePrinting: order.isPiecePrinting,
     isFabricPrinting: order.isFabricPrinting,
   }
-  const plannedQtyLabel = order.qtyLabel || getPrintQuantityLabel(printQuantitySource, '计划')
+  const plannedQtyLabel = '需求单印花数量'
   const transferDoneQtyLabel = getPrintQuantityLabel(printQuantitySource, '已完成', 'PRINT_FINISH_TRANSFER')
   const handoverQtyLabel = getPrintQuantityLabel(printQuantitySource, '已交出', 'PRINT_SUBMIT_HANDOVER')
   const receivedQtyLabel = getPrintQuantityLabel(printQuantitySource, '实收')

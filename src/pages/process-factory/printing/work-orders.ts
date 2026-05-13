@@ -52,7 +52,7 @@ function renderOrdersTable(): string {
           <td class="px-3 py-3 text-sm">${escapeHtml(order.patternNo)}</td>
           <td class="px-3 py-3 text-sm">${escapeHtml(order.materialSku)}</td>
           <td class="px-3 py-3 text-sm">
-            <div class="text-xs text-muted-foreground">${escapeHtml(getPrintQuantityLabel(order, '计划'))}</div>
+            <div class="text-xs text-muted-foreground">需求单印花数量</div>
             <div class="font-medium">${formatPrintProcessQty(order, order.plannedQty, '计划')}</div>
           </td>
           <td class="px-3 py-3 text-sm">${escapeHtml(formatFactoryDisplayName(order.printFactoryName, order.printFactoryId))}</td>
@@ -99,7 +99,7 @@ function renderOrdersTable(): string {
               <th class="px-3 py-2 font-medium">印花任务</th>
               <th class="px-3 py-2 font-medium">花型</th>
               <th class="px-3 py-2 font-medium">面料</th>
-              <th class="px-3 py-2 font-medium">计划印花面料米数 / 裁片数量</th>
+              <th class="px-3 py-2 font-medium">需求单印花数量</th>
               <th class="px-3 py-2 font-medium">印花工厂</th>
               <th class="px-3 py-2 font-medium">当前状态</th>
               <th class="px-3 py-2 font-medium">打印机</th>

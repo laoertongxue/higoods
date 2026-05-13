@@ -19,10 +19,9 @@ import {
 import { listPdaGenericTasksByProcess } from './pda-task-mock-factory.ts'
 import {
   getPostFinishingWorkOrderById,
-  listPostFinishingWorkOrders,
-  listSewingFactoryPostTasks,
-  type PostFinishingWorkOrder,
-  type SewingFactoryPostTask,
+  getPostFinishingTaskById,
+  listPostFinishingTasks,
+  type PostFinishingTaskView,
 } from './post-finishing-domain.ts'
 import type { ProcessTask } from './process-tasks.ts'
 import {
@@ -132,84 +131,47 @@ function mapPostFinishingStatusToTaskStatus(status: string): ProcessTask['status
   if (status.includes('差异')) return 'BLOCKED'
   if (status.includes('中')) return 'IN_PROGRESS'
   if (status.includes('已交出') || status.includes('已回写') || status.includes('已完成')) return 'DONE'
+  if (status === '待后道' || status === '待复检' || status === '待交出') return 'IN_PROGRESS'
   return 'NOT_STARTED'
 }
 
-function mapSewingFactoryPostTaskStatus(status: SewingFactoryPostTask['status']): ProcessTask['status'] {
-  if (status.includes('中')) return 'IN_PROGRESS'
-  if (status === '后道完成' || status === '已交后道工厂') return 'DONE'
-  return 'NOT_STARTED'
-}
-
-function mapPostFinishingOrderToTask(order: PostFinishingWorkOrder, seq: number): ProcessTask {
+function mapPostFinishingTaskToTask(task: PostFinishingTaskView, seq: number): ProcessTask {
   return {
-    taskId: order.sourceTaskId,
-    taskNo: order.postOrderNo,
-    productionOrderId: order.sourceProductionOrderNo,
+    taskId: task.postTaskId,
+    taskNo: task.postTaskNo,
+    rootTaskNo: task.postTaskNo,
+    productionOrderId: task.productionOrderNo,
     seq,
     processCode: 'POST_FINISHING',
     processNameZh: '后道',
-    stage: 'POST',
-    qty: order.plannedGarmentQty,
-    qtyUnit: 'PIECE',
-    assignmentMode: 'DIRECT',
-    assignmentStatus: 'ASSIGNED',
-    ownerSuggestion: { kind: 'RECOMMENDED_FACTORY_POOL', recommendedTypes: ['FINISHING'] },
-    assignedFactoryId: order.managedPostFactoryId,
-    assignedFactoryName: order.managedPostFactoryName,
-    qcPoints: [],
-    attachments: [],
-    status: mapPostFinishingStatusToTaskStatus(order.currentStatus),
-    acceptanceStatus: 'ACCEPTED',
-    acceptedAt: order.createdAt,
-    acceptedBy: order.managedPostFactoryName,
-    dispatchedAt: order.createdAt,
-    dispatchedBy: '系统',
-    dispatchRemark: '后道单同步到工厂端移动应用执行',
-    taskDeadline: order.updatedAt,
-    receiverKind: 'MANAGED_POST_FACTORY',
-    receiverId: order.managedPostFactoryId,
-    receiverName: order.managedPostFactoryName,
-    handoverStatus: order.handoverRecordId ? 'WRITTEN_BACK' : order.waitHandoverWarehouseRecordId ? 'OPEN' : 'NOT_CREATED',
-    handoverOrderId: order.handoverRecordId,
-    createdAt: order.createdAt,
-    updatedAt: order.updatedAt,
-    auditLogs: [],
-  }
-}
-
-function mapSewingFactoryPostTaskToTask(task: SewingFactoryPostTask, seq: number): ProcessTask {
-  return {
-    taskId: task.postTaskId,
-    taskNo: task.relatedPostOrderNo || task.postTaskNo,
-    productionOrderId: task.productionOrderNo,
-    seq,
-    processCode: 'SEWING_POST',
-    processNameZh: '车缝后道',
     stage: 'POST',
     qty: task.plannedGarmentQty,
     qtyUnit: 'PIECE',
     assignmentMode: 'DIRECT',
     assignmentStatus: 'ASSIGNED',
-    ownerSuggestion: { kind: 'RECOMMENDED_FACTORY_POOL', recommendedTypes: ['SEWING'] },
-    assignedFactoryId: task.sewingFactoryId,
-    assignedFactoryName: task.sewingFactoryName,
+    ownerSuggestion: { kind: 'RECOMMENDED_FACTORY_POOL', recommendedTypes: ['FINISHING'] },
+    assignedFactoryId: task.managedPostFactoryId,
+    assignedFactoryName: task.managedPostFactoryName,
     qcPoints: [],
     attachments: [],
-    status: mapSewingFactoryPostTaskStatus(task.status),
+    status: mapPostFinishingStatusToTaskStatus(task.currentStatus),
     acceptanceStatus: 'ACCEPTED',
-    acceptedAt: task.postFinishedAt || '2026-04-01 08:30',
-    acceptedBy: task.sewingFactoryName,
-    dispatchedAt: task.postFinishedAt || '2026-04-01 08:30',
+    acceptedAt: task.createdAt,
+    acceptedBy: task.managedPostFactoryName,
+    dispatchedAt: task.createdAt,
     dispatchedBy: '系统',
-    dispatchRemark: '车缝工厂同时完成车缝与后道，完成后交给后道工厂质检和复检',
-    taskDeadline: task.handedToManagedPostFactoryAt || '2026-04-25 18:00',
+    dispatchRemark: '生产单级后道任务同步到工厂端移动应用执行',
+    taskDeadline: task.updatedAt,
     receiverKind: 'MANAGED_POST_FACTORY',
     receiverId: task.managedPostFactoryId,
     receiverName: task.managedPostFactoryName,
-    handoverStatus: task.status === '已交后道工厂' ? 'WRITTEN_BACK' : 'NOT_CREATED',
-    createdAt: task.postFinishedAt || '2026-04-01 08:30',
-    updatedAt: task.handedToManagedPostFactoryAt || '2026-04-25 18:00',
+    handoverStatus: task.waitHandoverQty > 0 ? 'OPEN' : task.currentStatus === '已完成' ? 'WRITTEN_BACK' : 'NOT_CREATED',
+    createdAt: task.createdAt,
+    updatedAt: task.updatedAt,
+    sourceProductionOrderId: task.productionOrderId,
+    sourceTaskId: task.postTaskId,
+    processBusinessName: '后道',
+    taskScope: 'POST_ROLLUP_TASK',
     auditLogs: [],
   }
 }
@@ -277,14 +239,10 @@ export function listPdaMobileExecutionTasks(): ProcessTask[] {
     .map((taskOrder, index) => mapSpecialCraftTaskOrderToMobileTask(taskOrder, baseTasks.length + genericProcessTasks.length + knittingTasks.length + index + 1))
     .filter((task) => !existingWithKnitting.has(task.taskId))
   const existingWithSpecial = new Set([...existingWithKnitting, ...specialCraftTasks.map((task) => task.taskId)])
-  const postTasks = listPostFinishingWorkOrders()
-    .filter((order) => !existingWithSpecial.has(order.sourceTaskId))
-    .map((order, index) => mapPostFinishingOrderToTask(order, baseTasks.length + genericProcessTasks.length + knittingTasks.length + specialCraftTasks.length + index + 1))
-  const existingWithPost = new Set([...existingWithSpecial, ...postTasks.map((task) => task.taskId)])
-  const sewingPostTasks = listSewingFactoryPostTasks()
-    .filter((task) => !existingWithPost.has(task.postTaskId))
-    .map((task, index) => mapSewingFactoryPostTaskToTask(task, baseTasks.length + genericProcessTasks.length + knittingTasks.length + specialCraftTasks.length + postTasks.length + index + 1))
-  return [...baseTasks, ...genericProcessTasks, ...knittingTasks, ...specialCraftTasks, ...postTasks, ...sewingPostTasks]
+  const postTasks = listPostFinishingTasks()
+    .filter((task) => !existingWithSpecial.has(task.postTaskId))
+    .map((task, index) => mapPostFinishingTaskToTask(task, baseTasks.length + genericProcessTasks.length + knittingTasks.length + specialCraftTasks.length + index + 1))
+  return [...baseTasks, ...genericProcessTasks, ...knittingTasks, ...specialCraftTasks, ...postTasks]
 }
 
 export function getPdaMobileExecutionTaskById(taskId: string): ProcessTask | null {
@@ -680,18 +638,19 @@ export function validateSpecialCraftMobileTaskBinding(workOrderId: string): Proc
 }
 
 export function validatePostFinishingMobileTaskBinding(postOrderId: string): ProcessMobileTaskBindingResult {
-  const order = getPostFinishingWorkOrderById(postOrderId)
-  const expectedTaskId = order?.sourceTaskId || ''
+  const task = getPostFinishingTaskById(postOrderId)
+  const order = task ? undefined : getPostFinishingWorkOrderById(postOrderId)
+  const expectedTaskId = task?.postTaskId || order?.postTaskId || order?.sourceTaskId || ''
   return validateBinding({
-    workOrderId: order?.postOrderId || postOrderId,
-    workOrderNo: order?.postOrderNo || postOrderId,
+    workOrderId: task?.postTaskId || order?.postOrderId || postOrderId,
+    workOrderNo: task?.postTaskNo || order?.postOrderNo || postOrderId,
     processType: 'POST_FINISHING',
-    sourceType: 'POST_FINISHING_WORK_ORDER',
+    sourceType: task ? 'POST_FINISHING_TASK' : 'POST_FINISHING_WORK_ORDER',
     sourceId: postOrderId,
     expectedTaskId,
-    expectedTaskNo: order?.postOrderNo || order?.sourceTaskNo,
-    expectedFactoryId: order?.managedPostFactoryId || TEST_FACTORY_ID,
-    sourceExists: Boolean(order),
+    expectedTaskNo: task?.postTaskNo || order?.postOrderNo || order?.sourceTaskNo,
+    expectedFactoryId: task?.managedPostFactoryId || order?.managedPostFactoryId || TEST_FACTORY_ID,
+    sourceExists: Boolean(task || order),
     actualTask: expectedTaskId ? getPdaMobileExecutionTaskById(expectedTaskId) : null,
     currentFactoryId: TEST_FACTORY_ID,
   })
@@ -744,7 +703,7 @@ export function listInvalidProcessMobileTaskBindings(filter: { processType?: Mob
     results.push(...listSpecialCraftTaskWorkOrders().map((workOrder) => validateSpecialCraftMobileTaskBinding(workOrder.workOrderId)))
   }
   if (!filter.processType || filter.processType === 'POST_FINISHING') {
-    results.push(...listPostFinishingWorkOrders().map((order) => validatePostFinishingMobileTaskBinding(order.postOrderId)))
+    results.push(...listPostFinishingTasks().map((task) => validatePostFinishingMobileTaskBinding(task.postTaskId)))
   }
   return results.filter((item) => item.reasonCode !== 'OK')
 }

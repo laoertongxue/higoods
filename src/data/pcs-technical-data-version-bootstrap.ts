@@ -207,6 +207,41 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
             },
           ]
 
+  const resolveColorMaterialInfo = (color: string, index: number) => {
+    const colorKey = color.trim().toLowerCase()
+    if (demand.spuCode === 'SPU-2024-010') {
+      const joggerMaterialMap: Record<string, { code: string; name: string }> = {
+        black: {
+          code: 'tdv_demand_SPU_2024_010-bom-black-stretch-twill',
+          name: 'Black 弹力斜纹主面料',
+        },
+        charcoal: {
+          code: 'tdv_demand_SPU_2024_010-bom-charcoal-stretch-twill',
+          name: 'Charcoal 弹力斜纹主面料',
+        },
+        navy: {
+          code: 'tdv_demand_SPU_2024_010-bom-navy-twill',
+          name: 'Navy 斜纹主面料',
+        },
+        khaki: {
+          code: 'tdv_demand_SPU_2024_010-bom-khaki-canvas',
+          name: 'Khaki 帆布主面料',
+        },
+      }
+      const mapped = joggerMaterialMap[colorKey]
+      if (mapped) return mapped
+      const colorToken = colorKey.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || `color-${index + 1}`
+      return {
+        code: `tdv_demand_SPU_2024_010-bom-${colorToken}`,
+        name: `${color} 主面料`,
+      }
+    }
+    return {
+      code: bomItemId,
+      name: mainBomName,
+    }
+  }
+
   return {
     technicalVersionId: seed.technicalVersionId,
     patternFiles: [
@@ -273,7 +308,8 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
       lines: pieceRows.map((piece) => ({
         id: `${seed.technicalVersionId}-mapping-${index + 1}-${piece.id}`,
         bomItemId,
-        materialName: mainBomName,
+        materialCode: resolveColorMaterialInfo(color, index).code,
+        materialName: resolveColorMaterialInfo(color, index).name,
         materialType: scenario === 'GARMENT_HEAT_TRANSFER' ? '半成品' : isKnitScenario ? '其他' : '面料',
         patternId,
         patternName: isKnitScenario ? `${demand.spuCode} 针织纸样` : `${demand.spuCode} 正式纸样`,

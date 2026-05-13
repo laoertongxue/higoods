@@ -51,6 +51,7 @@ import {
   type MarkerBedModeKey,
   type MarkerAllocationRow,
   type MarkerFoldConfig,
+  type MarkerHighLowMatrixRow,
   type MarkerImageRecord,
   type MarkerPlan,
   type MarkerPlanContextType,
@@ -175,6 +176,8 @@ function validateSchemeSourceCandidates(contexts: MarkerPlanContextCandidate[]):
     contexts.map((context) => ({
       contextNo: context.contextNo,
       spuCode: context.spuCode,
+      productionOrderIds: context.productionOrderIds,
+      productionOrderNos: context.productionOrderNos,
       techPackStatusLabel: context.techPackStatusLabel,
       materialSkuSummary: context.materialSkuSummary,
     })),
@@ -364,7 +367,7 @@ function getListTabMeta(listTab: MarkerPlanListTab): { label: string; countLabel
     return { label: '待配平', countLabel: '待配平方案数' }
   }
   if (listTab === 'WAITING_LAYOUT') {
-    return { label: '待排床次', countLabel: '待排床次方案数' }
+    return { label: '待排唛架', countLabel: '待排唛架方案数' }
   }
   if (listTab === 'WAITING_IMAGE') {
     return { label: '待生成图片', countLabel: '待生成图片方案数' }
@@ -479,7 +482,7 @@ function syncContextDrawerSelectionDom(viewModel = getViewModel()): void {
   const messageNode = document.querySelector<HTMLElement>('[data-marker-plan-selection-message]')
   const confirmButton = document.querySelector<HTMLButtonElement>('[data-marker-plan-action="confirm-context-create"]')
   summaryNode && (summaryNode.textContent = selectedSummary)
-  messageNode && (messageNode.textContent = selectionValidation.ok ? '可继续编辑床次。' : selectionValidation.message)
+  messageNode && (messageNode.textContent = selectionValidation.ok ? '可继续编辑唛架。' : selectionValidation.message)
   if (confirmButton) confirmButton.disabled = !selectionValidation.ok
   document.querySelectorAll<HTMLElement>('[data-marker-plan-context-row]').forEach((row) => {
     const contextKey = row.dataset.contextKey || ''
@@ -529,7 +532,7 @@ function isEditingReferencedPlan(viewModel = getViewModel()): boolean {
 function confirmReferencedStructuralEdit(viewModel = getViewModel()): boolean {
   if (!isEditingReferencedPlan(viewModel)) return true
   if (state.referencedStructureEditConfirmed) return true
-  const confirmed = window.confirm('当前方案床次已被铺布引用，修改配比、分配、床次结构或模式可能影响后续铺布，是否继续？')
+  const confirmed = window.confirm('当前方案唛架已被铺布引用，修改配比、分配、唛架结构或模式可能影响后续铺布，是否继续？')
   if (confirmed) state.referencedStructureEditConfirmed = true
   return confirmed
 }
@@ -640,24 +643,284 @@ function buildBedSizeSummary(coverageRows: MarkerSchemeBed['coverageRows']): str
     .join(' / ')
 }
 
+function getMarkerMatrixSizeColumns(plan: MarkerPlan | MarkerPlanViewRow): string[] {
+  const demandSizes = getPlanDemandRows(plan).map((row) => row.sizeName || row.sizeCode)
+  return Array.from(new Set(demandSizes.map((item) => String(item || '').trim()).filter(Boolean)))
+}
+
+function getMarkerMatrixSizeDemandMap(plan: MarkerPlan | MarkerPlanViewRow): Record<string, number> {
+  const map: Record<string, number> = {}
+  getPlanDemandRows(plan).forEach((row) => {
+    const size = String(row.sizeName || row.sizeCode || '').trim()
+    if (!size) return
+    map[size] = (map[size] || 0) + Math.max(Math.round(safeNumber(row.demandQty)), 0)
+  })
+  return map
+}
+
+function getMarkerMatrixColorRows(plan: MarkerPlan | MarkerPlanViewRow): string[] {
+  return Array.from(
+    new Set(getPlanDemandRows(plan).map((row) => row.colorName || row.colorCode).map((item) => String(item || '').trim()).filter(Boolean)),
+  )
+}
+
+function getMarkerMatrixMaterialForColor(plan: MarkerPlan | MarkerPlanViewRow, colorName: string): string {
+  const matchedMaterials = getPlanDemandRows(plan)
+    .filter((row) => String(row.colorName || row.colorCode || '').trim() === String(colorName || '').trim())
+    .map((row) => row.materialSku)
+    .map((item) => String(item || '').trim())
+    .filter(Boolean)
+  return Array.from(new Set(matchedMaterials)).join(' / ') || '—'
+}
+
+function createMarkerMatrixRows(plan: MarkerPlan | MarkerPlanViewRow, bed: MarkerSchemeBed): MarkerHighLowMatrixRow[] {
+  const sizeColumns = getMarkerMatrixSizeColumns(plan)
+  const colors = getMarkerMatrixColorRows(plan)
+  const existingRows = Array.isArray(bed.highLowMatrixRows) ? bed.highLowMatrixRows : []
+  const baseRows = existingRows.length
+    ? existingRows
+    : colors.map((color, index) => ({
+        rowId: `${bed.bedId}-matrix-${index + 1}`,
+        colorCode: color,
+        colorName: color,
+        markerLength: 0,
+        sizeValues: {},
+        patternValues: {},
+        totalQty: 0,
+      }))
+  return baseRows.map((existing, index) => {
+    const color = existing.colorName || existing.colorCode || colors[0] || '主色'
+    const sizeValues = Object.fromEntries(
+      sizeColumns.map((size) => [size, Math.max(Math.round(safeNumber(existing?.sizeValues?.[size])), 0)]),
+    ) as Record<string, number>
+    const sizePiecePerLayer = normalizeMarkerSizePiecePerLayer(bed, sizeColumns)
+    const totalQty = sizeColumns.reduce(
+      (total, size) => total + Math.max(safeNumber(sizeValues[size]), 0) * Math.max(safeNumber(sizePiecePerLayer[size]), 0),
+      0,
+    )
+    return {
+      rowId: existing?.rowId || `${bed.bedId}-matrix-${index + 1}`,
+      colorCode: existing?.colorCode || color,
+      colorName: color,
+      markerLength: Math.max(safeNumber(existing?.markerLength), 0),
+      sizeValues,
+      patternValues: existing?.patternValues || {},
+      totalQty,
+    }
+  })
+}
+
+function isHighLowMatrixMode(mode: MarkerBedModeKey): boolean {
+  return mode === 'high_low' || mode === 'fold_high_low'
+}
+
+function normalizeMarkerSizePiecePerLayer(bed: MarkerSchemeBed, sizeColumns: string[]): Record<string, number> {
+  return Object.fromEntries(
+    sizeColumns.map((size) => [size, Math.max(Math.round(safeNumber(bed.sizePiecePerLayer?.[size])), 0)]),
+  ) as Record<string, number>
+}
+
+function getMarkerMatrixCellLayer(row: MarkerHighLowMatrixRow, size: string): number {
+  return Math.max(Math.round(safeNumber(row.sizeValues?.[size])), 0)
+}
+
+function getMarkerMatrixCellActualLayer(mode: MarkerBedModeKey, layerCount: number): number {
+  const normalized = Math.max(Math.round(safeNumber(layerCount)), 0)
+  return isFoldBedMode(mode) ? normalized / 2 : normalized
+}
+
+function getMarkerMatrixRowActiveLayer(mode: MarkerBedModeKey, row: MarkerHighLowMatrixRow, sizeColumns: string[]): number {
+  return Math.max(...sizeColumns.map((size) => getMarkerMatrixCellActualLayer(mode, getMarkerMatrixCellLayer(row, size))), 0)
+}
+
+function getMarkerMatrixRowLength(bed: MarkerSchemeBed, row: MarkerHighLowMatrixRow): number {
+  return isHighLowMatrixMode(bed.bedMode) ? Math.max(safeNumber(row.markerLength), 0) : Math.max(safeNumber(bed.markerLength), 0)
+}
+
+function getMarkerMatrixBedLengthSummary(bed: MarkerSchemeBed): number {
+  if (!isHighLowMatrixMode(bed.bedMode)) return Math.max(safeNumber(bed.markerLength), 0)
+  return (Array.isArray(bed.highLowMatrixRows) ? bed.highLowMatrixRows : []).reduce((total, row) => total + Math.max(safeNumber(row.markerLength), 0), 0)
+}
+
+function getMatrixActualLayer(mode: MarkerBedModeKey, demandLayer: number): number {
+  const normalized = Math.max(Math.round(safeNumber(demandLayer)), 0)
+  return isFoldBedMode(mode) ? normalized / 2 : normalized
+}
+
+function getMarkerMatrixColumnLayerTotals(rows: MarkerHighLowMatrixRow[], sizeColumns: string[]): Record<string, number> {
+  return Object.fromEntries(
+    sizeColumns.map((size) => [
+      size,
+      rows.reduce((total, row) => total + getMarkerMatrixCellLayer(row, size), 0),
+    ]),
+  )
+}
+
+function getMarkerMatrixColumnPieceTotals(
+  rows: MarkerHighLowMatrixRow[],
+  sizeColumns: string[],
+  sizePiecePerLayer: Record<string, number>,
+): Record<string, number> {
+  return Object.fromEntries(
+    sizeColumns.map((size) => [
+      size,
+      rows.reduce((total, row) => total + getMarkerMatrixCellPlannedQty(row, size, sizePiecePerLayer), 0),
+    ]),
+  )
+}
+
+function getMarkerMatrixCellPlannedQty(row: MarkerHighLowMatrixRow, size: string, sizePiecePerLayer: Record<string, number>): number {
+  return getMarkerMatrixCellLayer(row, size) * Math.max(Math.round(safeNumber(sizePiecePerLayer[size])), 0)
+}
+
+function getMarkerMatrixActualLayerTotal(mode: MarkerBedModeKey, rows: MarkerHighLowMatrixRow[], sizeColumns: string[]): number {
+  const columnTotals = sizeColumns.map((size) =>
+    rows.reduce((total, row) => {
+      const layerCount = getMarkerMatrixCellLayer(row, size)
+      return total + (layerCount > 0 ? getMatrixActualLayer(mode, layerCount) : 0)
+    }, 0),
+  )
+  return Math.max(...columnTotals, 0)
+}
+
+function validateMarkerMatrixRows(
+  mode: MarkerBedModeKey,
+  rows: MarkerHighLowMatrixRow[],
+  sizeColumns: string[],
+  sizePiecePerLayer: Record<string, number>,
+): string[] {
+  const errors: string[] = []
+  const foldMode = isFoldBedMode(mode)
+  const highLowMode = isHighLowMatrixMode(mode)
+  rows.forEach((row) => {
+    const values = sizeColumns.map((size) => getMarkerMatrixCellLayer(row, size))
+    const filledIndexes = values.map((value, index) => (value > 0 ? index : -1)).filter((index) => index >= 0)
+    if (!filledIndexes.length) return
+    if (mode === 'normal' || mode === 'fold_normal') {
+      const firstValue = values[filledIndexes[0]]
+      if (filledIndexes.some((index) => values[index] !== firstValue)) {
+        errors.push(`${row.colorName} 普通唛架同一行各尺码层数必须一致`)
+      }
+    }
+    filledIndexes.forEach((index) => {
+      const size = sizeColumns[index]
+      if (Math.max(Math.round(safeNumber(sizePiecePerLayer[size])), 0) <= 0) {
+        errors.push(`${size} 尺码必须先填写每层件数`)
+      }
+      if (foldMode && values[index] % 2 !== 0) {
+        errors.push(`${row.colorName} ${size} 对折唛架的需求层数必须为偶数`)
+      }
+    })
+    if (highLowMode && Math.max(safeNumber(row.markerLength), 0) <= 0) {
+      errors.push(`${row.colorName} 高低层唛架必须填写唛架净长度`)
+    }
+    if (!highLowMode) {
+      return
+    }
+    const minIndex = Math.min(...filledIndexes)
+    const maxIndex = Math.max(...filledIndexes)
+    for (let index = minIndex; index <= maxIndex; index += 1) {
+      if (values[index] <= 0) {
+        errors.push(`${row.colorName} 高低层唛架同一行不能中间断尺码`)
+        break
+      }
+    }
+  })
+
+  sizeColumns.forEach((size) => {
+    const columnValues = rows.map((row) => Math.max(Math.round(safeNumber(row.sizeValues?.[size])), 0))
+    let started = false
+    let ended = false
+    columnValues.forEach((value) => {
+      if (value > 0 && ended) errors.push(`${size} 列不能出现有层数的行之间夹空行`)
+      if (value > 0) started = true
+      if (started && value <= 0) ended = true
+    })
+  })
+
+  if (mode === 'high_low' || mode === 'fold_high_low') {
+    const totals = getMarkerMatrixColumnLayerTotals(rows, sizeColumns)
+    sizeColumns.forEach((size, index) => {
+      if (index === 0) return
+      const previousSize = sizeColumns[index - 1]
+      if ((totals[size] || 0) < (totals[previousSize] || 0)) {
+        errors.push(`${size} 列累计层数不能低于左侧 ${previousSize} 列`)
+      }
+    })
+  }
+  return Array.from(new Set(errors))
+}
+
+function buildCoverageRowsFromMarkerMatrix(
+  plan: MarkerPlan,
+  rows: MarkerHighLowMatrixRow[],
+  sizePiecePerLayer: Record<string, number>,
+): MarkerSchemeBed['coverageRows'] {
+  const plannedByColorSize = new Map<string, number>()
+  rows.forEach((row) => {
+    const color = String(row.colorName || row.colorCode || '').trim()
+    Object.entries(row.sizeValues || {}).forEach(([size, value]) => {
+      const key = `${color}::${String(size || '').trim()}`
+      plannedByColorSize.set(
+        key,
+        (plannedByColorSize.get(key) || 0) + Math.max(Math.round(safeNumber(value)), 0) * Math.max(Math.round(safeNumber(sizePiecePerLayer[size])), 0),
+      )
+    })
+  })
+  const allocatedByColorSize = new Map<string, number>()
+  return getPlanDemandRows(plan).map((demandRow, index) => {
+    const color = demandRow.colorName || demandRow.colorCode
+    const size = demandRow.sizeName || demandRow.sizeCode
+    const key = `${String(color || '').trim()}::${String(size || '').trim()}`
+    const plannedTotal = plannedByColorSize.get(key) || 0
+    const allocatedQty = allocatedByColorSize.get(key) || 0
+    const demandQty = Math.max(Math.round(safeNumber(demandRow.demandQty)), 0)
+    const plannedQty = Math.min(Math.max(plannedTotal - allocatedQty, 0), demandQty)
+    allocatedByColorSize.set(key, allocatedQty + plannedQty)
+    return {
+      rowId: `${demandRow.rowId}-coverage-${index + 1}`,
+      colorCode: demandRow.colorCode,
+      colorName: color,
+      sizeCode: demandRow.sizeCode,
+      sizeName: size,
+      demandQty,
+      plannedQty,
+      remainingQty: Math.max(demandQty - plannedQty, 0),
+    }
+  })
+}
+
 function recalculateSchemeBed(bed: MarkerSchemeBed, plan: MarkerPlan): MarkerSchemeBed {
   const markerLength = Math.max(safeNumber(bed.markerLength), 0)
-  const markerPieceQtyPerLayer = Math.max(Math.round(safeNumber(bed.markerPieceQtyPerLayer)), 0)
-  const plannedLayerCount = Math.max(Math.round(safeNumber(bed.plannedLayerCount)), 0)
-  const spreadTotalLength = (markerLength + Math.max(plan.singleSpreadFixedLoss || 0, 0)) * plannedLayerCount
-  const plannedGarmentQty = markerPieceQtyPerLayer * plannedLayerCount
+  const sizeColumns = getMarkerMatrixSizeColumns(plan)
+  const sizePiecePerLayer = normalizeMarkerSizePiecePerLayer(bed, sizeColumns)
+  const matrixRows = createMarkerMatrixRows(plan, bed)
+  const matrixErrors = validateMarkerMatrixRows(bed.bedMode, matrixRows, sizeColumns, sizePiecePerLayer)
+  const plannedLayerCount = getMarkerMatrixActualLayerTotal(bed.bedMode, matrixRows, sizeColumns)
+  const plannedGarmentQty = matrixRows.reduce(
+    (total, row) => total + sizeColumns.reduce((rowTotal, size) => rowTotal + getMarkerMatrixCellPlannedQty(row, size, sizePiecePerLayer), 0),
+    0,
+  )
+  const markerPieceQtyPerLayer = plannedLayerCount > 0 ? Math.max(Math.ceil(plannedGarmentQty / plannedLayerCount), 1) : 0
+  const spreadTotalLength = isHighLowMatrixMode(bed.bedMode)
+    ? matrixRows.reduce((total, row) => total + (getMarkerMatrixRowLength(bed, row) + Math.max(plan.singleSpreadFixedLoss || 0, 0)) * getMarkerMatrixRowActiveLayer(bed.bedMode, row, sizeColumns), 0)
+    : (markerLength + Math.max(plan.singleSpreadFixedLoss || 0, 0)) * plannedLayerCount
   const unitFabricUsage = plannedGarmentQty > 0 ? spreadTotalLength / plannedGarmentQty : 0
-  const readyForSpreading = markerLength > 0 && markerPieceQtyPerLayer > 0 && plannedLayerCount > 0 && bed.coverageRows.length > 0
+  const coverageRows = buildCoverageRowsFromMarkerMatrix(plan, matrixRows, sizePiecePerLayer)
+  const readyForSpreading = (isHighLowMatrixMode(bed.bedMode) || markerLength > 0) && plannedGarmentQty > 0 && matrixErrors.length === 0
   return {
     ...bed,
     bedName: bed.bedNo,
+    sizePiecePerLayer,
     plannedLayerCount,
-    markerLength,
+    markerLength: isHighLowMatrixMode(bed.bedMode) ? 0 : markerLength,
     markerPieceQtyPerLayer,
     plannedGarmentQty,
     spreadTotalLength,
     unitFabricUsage,
-    sizeSummaryText: buildBedSizeSummary(bed.coverageRows),
+    highLowMatrixRows: matrixRows,
+    coverageRows,
+    sizeSummaryText: buildBedSizeSummary(coverageRows),
     readyForSpreading,
     status: readyForSpreading ? '可铺布' : '草稿',
   }
@@ -668,9 +931,18 @@ function buildDefaultSchemeBed(plan: MarkerPlan, context: MarkerPlanContextCandi
   const prefix = getMarkerBedModePrefix(mode)
   const nextSort = existingBeds.length + 1
   const samePrefixCount = existingBeds.filter((bed) => bed.bedNo.startsWith(`${prefix}-`)).length + 1
-  const color = getPlanColorOptionsFromDemand(plan, context)[0] || '主色'
-  const selectedSizes = getPlanSizeOptions(plan).slice(0, 2).map((item) => item.name)
-  const coverageRows = buildBedCoverageRows(plan, color, selectedSizes)
+  const colors = getPlanColorOptionsFromDemand(plan, context)
+  const sizeColumns = getMarkerMatrixSizeColumns(plan)
+  const sizePiecePerLayer = Object.fromEntries(sizeColumns.map((size) => [size, 0])) as Record<string, number>
+  const matrixRows: MarkerHighLowMatrixRow[] = (colors.length ? colors : ['主色']).map((color, index) => ({
+    rowId: `${plan.id}-new-marker-row-${Date.now()}-${index + 1}`,
+    colorCode: color,
+    colorName: color,
+    markerLength: 0,
+    sizeValues: Object.fromEntries(sizeColumns.map((size) => [size, 0])) as Record<string, number>,
+    patternValues: {},
+    totalQty: 0,
+  }))
   return recalculateSchemeBed(
     {
       bedId: `${plan.id}-bed-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -680,10 +952,11 @@ function buildDefaultSchemeBed(plan: MarkerPlan, context: MarkerPlanContextCandi
       bedName: `${prefix}-${samePrefixCount}`,
       bedSortOrder: nextSort,
       bedMode: mode,
-      colorCode: color,
-      colorName: color,
+      colorCode: colors.join(' / '),
+      colorName: colors.join(' / '),
       materialSku: plan.sourceMaterialSku || plan.materialSkuSummary,
       sizeSummaryText: '',
+      sizePiecePerLayer,
       plannedLayerCount: Math.max(plan.plannedLayerCount || 0, 1),
       markerLength: 0,
       markerPieceQtyPerLayer: 0,
@@ -691,9 +964,9 @@ function buildDefaultSchemeBed(plan: MarkerPlan, context: MarkerPlanContextCandi
       spreadTotalLength: 0,
       unitFabricUsage: 0,
       normalLayoutRows: [],
-      highLowMatrixRows: [],
+      highLowMatrixRows: matrixRows,
       foldConfig: isFoldBedMode(mode) ? plan.foldConfig : null,
-      coverageRows,
+      coverageRows: [],
       bedImage: null,
       spreadingSessionIds: [],
       assignedCuttingTableIds: [],
@@ -736,7 +1009,7 @@ function applySchemeBedsToPlan(plan: MarkerPlan, beds: MarkerSchemeBed[]): Marke
         }
       : null,
     plannedLayerCount: nextBeds[0]?.plannedLayerCount || plan.plannedLayerCount,
-    netLength: nextBeds.length ? nextBeds.reduce((sum, bed) => sum + bed.markerLength, 0) : plan.netLength,
+    netLength: nextBeds.length ? nextBeds.reduce((sum, bed) => sum + getMarkerMatrixBedLengthSummary(bed), 0) : plan.netLength,
     schemeImageStatus: '已过期',
     schemeImage: null,
     detailImage: null,
@@ -837,8 +1110,8 @@ function buildCurrentListExportRows(viewModel = getViewModel()): { filename: str
         '款号 / SPU',
         '面料 / 颜色',
         '技术包',
-        '床次数',
-        '床次模式',
+        '唛架数量',
+        '唛架模式',
         '计划裁片数',
         '图片状态',
         '铺布状态',
@@ -1289,9 +1562,6 @@ function validateDraftForCompletion(): { ok: true } | { ok: false; tab: MarkerPl
   if (plan.totalPieces <= 0) {
     return { ok: false, tab: 'basic', message: '请先补齐尺码成衣件数（件），确保方案成衣件数（件）大于 0。' }
   }
-  if (plan.netLength <= 0) {
-    return { ok: false, tab: 'basic', message: '请先填写床次净长度（m），确保大于 0。' }
-  }
   if (plan.allocationStatus !== 'balanced') {
     return { ok: false, tab: 'allocation', message: '来源分配尚未配平，请先完成来源分配。' }
   }
@@ -1300,20 +1570,26 @@ function validateDraftForCompletion(): { ok: true } | { ok: false; tab: MarkerPl
   }
   const beds = buildMarkerSchemeFromPlan(plan).beds
   if (!beds.length) {
-    return { ok: false, tab: 'layout', message: '请至少新增 1 个唛架床次。' }
+    return { ok: false, tab: 'layout', message: '请至少新增 1 个唛架编号。' }
   }
-  if (beds.some((bed) => !bed.coverageRows.length)) {
-    return { ok: false, tab: 'layout', message: '每个唛架床次都必须选择来自技术包的尺码。' }
+  if (beds.some((bed) => (isHighLowMatrixMode(bed.bedMode) ? createMarkerMatrixRows(plan, bed).some((row) => getMarkerMatrixRowActiveLayer(bed.bedMode, row, getMarkerMatrixSizeColumns(plan)) > 0 && row.markerLength <= 0) : bed.markerLength <= 0))) {
+    return { ok: false, tab: 'layout', message: '请补齐每个唛架编号的唛架净长度。' }
   }
-  if (beds.some((bed) => bed.markerLength <= 0 || bed.markerPieceQtyPerLayer <= 0 || bed.plannedLayerCount <= 0)) {
-    return { ok: false, tab: 'layout', message: '请补齐唛架床次的层数、床次净长度和单层件数。' }
+  const matrixError = beds
+    .map((bed) => validateMarkerMatrixRows(bed.bedMode, createMarkerMatrixRows(plan, bed), getMarkerMatrixSizeColumns(plan), normalizeMarkerSizePiecePerLayer(bed, getMarkerMatrixSizeColumns(plan)))[0])
+    .find(Boolean)
+  if (matrixError) {
+    return { ok: false, tab: 'layout', message: matrixError }
+  }
+  if (beds.some((bed) => bed.plannedGarmentQty <= 0 || bed.plannedLayerCount <= 0)) {
+    return { ok: false, tab: 'layout', message: '请补齐每个唛架编号的层数矩阵。' }
   }
   if (plan.layoutStatus !== 'done') {
-    return { ok: false, tab: 'layout', message: '床次编辑器尚未完成，请先补齐床次数据。' }
+    return { ok: false, tab: 'layout', message: '唛架编辑器尚未完成，请先补齐唛架矩阵。' }
   }
   const scheme = buildMarkerSchemeFromPlan(plan)
   if (scheme.remainingQty > 0) {
-    return { ok: false, tab: 'layout', message: '唛架床次尚未覆盖全部需求，请先补齐床次计划件数。' }
+    return { ok: false, tab: 'layout', message: '唛架编号尚未覆盖全部需求，请先补齐计划件数。' }
   }
   if (plan.imageStatus !== 'done') {
     return { ok: false, tab: 'images', message: '方案图片尚未补齐，请先上传方案图或唛架明细图。' }
@@ -1409,9 +1685,9 @@ function renderPlanTopInfo(
         .join('')
     : '<span class="text-xs text-muted-foreground">—</span>'
   const summaryItems = [
-    { label: '方案床次数', value: `${buildMarkerSchemeFromPlan(plan).bedCount} 个` },
-    { label: '床次模式组成', value: buildMarkerSchemeFromPlan(plan).modeSummaryText },
-    { label: '床次净长度（m）', value: `${formatNumber(plan.netLength, 2)} m` },
+    { label: '唛架数量', value: `${buildMarkerSchemeFromPlan(plan).bedCount} 个` },
+    { label: '唛架模式组成', value: buildMarkerSchemeFromPlan(plan).modeSummaryText },
+    { label: '唛架净长度（m）', value: `${formatNumber(plan.netLength, 2)} m` },
     { label: '方案成衣件数（件）', value: `${formatCount(plan.totalPieces)} 件`, formula: totalPiecesFormula },
     { label: '系统单件成衣用量（m/件）', value: `${formatNumber(plan.systemUnitUsage, 3)} m/件`, formula: systemUnitUsageFormula },
     { label: '最终单件成衣用量（m/件）', value: `${formatNumber(plan.finalUnitUsage, 3)} m/件`, formula: finalUnitUsageFormula },
@@ -1421,7 +1697,7 @@ function renderPlanTopInfo(
     ['分配状态', renderStatusBadge(markerAllocationStatusMeta[plan.allocationStatus].label, markerAllocationStatusMeta[plan.allocationStatus].className)],
     ['主状态', renderStatusBadge(markerPlanStatusMeta[plan.status].label, markerPlanStatusMeta[plan.status].className)],
     ['映射状态', renderStatusBadge(markerMappingStatusMeta[plan.mappingStatus].label, markerMappingStatusMeta[plan.mappingStatus].className)],
-    ['床次状态', renderStatusBadge(markerLayoutStatusMeta[plan.layoutStatus].label, markerLayoutStatusMeta[plan.layoutStatus].className)],
+    ['唛架状态', renderStatusBadge(markerLayoutStatusMeta[plan.layoutStatus].label, markerLayoutStatusMeta[plan.layoutStatus].className)],
     ['图片状态', renderStatusBadge(markerImageStatusMeta[plan.imageStatus].label, markerImageStatusMeta[plan.imageStatus].className)],
     ['可交接铺布', plan.readyForSpreading ? renderStatusBadge('是', 'bg-emerald-100 text-emerald-700 border-emerald-200') : renderStatusBadge('否', 'bg-slate-100 text-slate-700 border-slate-200')],
   ] as const
@@ -1502,10 +1778,10 @@ function renderPlanTopInfo(
 
 function renderTabNav(activeTab: MarkerPlanTabKey): string {
   const tabs: Array<{ key: MarkerPlanTabKey; label: string }> = [
-    { key: 'basic', label: '基础与配比' },
+    { key: 'basic', label: '确认需求' },
     { key: 'allocation', label: '来源分配' },
     { key: 'explosion', label: '裁片拆解' },
-    { key: 'layout', label: '床次编辑器' },
+    { key: 'layout', label: '唛架编辑器' },
     { key: 'images', label: '图片与变更' },
   ]
 
@@ -1538,13 +1814,13 @@ function renderTabNav(activeTab: MarkerPlanTabKey): string {
 
 function renderMarkerPlanTabLabel(tab: MarkerPlanTabKey): string {
   const labels: Record<MarkerPlanTabKey, string> = {
-    basic: '基础与配比',
+    basic: '确认需求',
     allocation: '来源分配',
     explosion: '裁片拆解',
-    layout: '床次编辑器',
+    layout: '唛架编辑器',
     images: '图片与变更',
   }
-  return labels[tab] || '基础与配比'
+  return labels[tab] || '确认需求'
 }
 
 function getCreateStepFromActiveTab(activeTab: MarkerPlanTabKey): MarkerPlanCreateStepKey {
@@ -1577,7 +1853,7 @@ function renderCreateStepNav(plan: MarkerPlan | null): string {
   const steps: Array<{ key: MarkerPlanCreateStepKey; title: string; hint: string }> = [
     { key: 'source', title: '选择排唛架来源', hint: '原始裁片单 / 合并裁剪批次' },
     { key: 'demand', title: '确认需求', hint: '技术包颜色尺码与需求矩阵' },
-    { key: 'layout', title: '编辑床次', hint: '床次模式、层数、长度' },
+    { key: 'layout', title: '编辑唛架', hint: '唛架模式、层数、长度' },
     { key: 'images', title: '生成图片并完成', hint: '唛架明细图 / 方案图' },
   ]
 
@@ -1646,74 +1922,18 @@ function renderSizeRatioReadonlyGrid(plan: MarkerPlan | MarkerPlanViewRow): stri
 function renderBasicTab(plan: MarkerPlan): string {
   return `
     <section class="space-y-4 rounded-xl border bg-card p-4" data-testid="marker-plan-basic-tab">
-      <div class="grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
+      <div class="grid gap-3 lg:grid-cols-3">
         ${renderInputField('方案编号', plan.markerNo, 'markerNo')}
-        ${renderSelectField('床次模式', 'markerMode', buildMarkerPlanModeOptions(), plan.markerMode)}
-        ${renderInputField('计划铺布层数（层）', String(plan.plannedLayerCount || 0), 'plannedLayerCount', 'number')}
-        ${renderInputField('床次净长度（m）', String(plan.netLength || 0), 'netLength', 'number')}
+        ${renderReadonlyField('方案成衣件数（件）', formatCount(plan.totalPieces), buildMarkerTotalPiecesFormula(plan.sizeRatioRows))}
+        ${renderReadonlyField('正式技术包', plan.techPackVersion || plan.techPackStatus || '正式版')}
       </div>
       <div class="space-y-3">
         <h3 class="text-sm font-semibold">需求尺码汇总</h3>
         ${renderSizeRatioReadonlyGrid(plan)}
       </div>
-      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-        ${renderReadonlyField('方案成衣件数（件）', formatCount(plan.totalPieces), buildMarkerTotalPiecesFormula(plan.sizeRatioRows))}
-        ${renderReadonlyField('系统单件成衣用量（m/件）', formatNumber(plan.systemUnitUsage, 3), buildMarkerPlanSystemUnitUsageFormula(plan))}
-        <div class="space-y-2 rounded-lg border bg-background px-3 py-3" data-marker-plan-control-type="number-input">
-          <div class="text-sm font-medium text-foreground">人工修正单件成衣用量（m/件）</div>
-          <input
-            type="number"
-            step="0.001"
-            value="${plan.manualUnitUsage == null ? '' : escapeHtml(String(plan.manualUnitUsage))}"
-            data-marker-plan-basic-field="manualUnitUsage"
-            class="h-10 w-full rounded-md border bg-card px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <div class="flex justify-end">
-            ${renderActionButton('恢复系统值', 'data-marker-plan-action="restore-system-unit-usage"', 'ghost', plan.manualUnitUsage == null)}
-          </div>
-        </div>
-        ${renderReadonlyField('最终单件成衣用量（m/件）', formatNumber(plan.finalUnitUsage, 3), buildMarkerFinalUnitUsageFormula(plan.systemUnitUsage, plan.manualUnitUsage))}
-        ${renderReadonlyField('计划铺布总长度（m）', `${formatNumber(plan.plannedSpreadLength, 2)} m`, buildMarkerPlannedSpreadLengthFormula(plan))}
-      </div>
-      <div class="grid gap-2 lg:grid-cols-1">
-        ${renderTextareaField('备注', plan.remark, 'remark')}
-      </div>
+      ${renderTextareaField('备注', plan.remark, 'remark')}
     </section>
   `
-}
-
-function buildSourceMetaMap(context: MarkerPlanContextCandidate | null): Record<string, OriginalSourceMeta> {
-  if (!context) return {}
-  return Object.fromEntries(
-    context.sourceOriginalRows.map((row) => [
-      row.originalCutOrderId,
-      {
-        sourceCutOrderId: row.originalCutOrderId,
-        sourceCutOrderNo: row.originalCutOrderNo,
-        sourceProductionOrderId: row.productionOrderId,
-        sourceProductionOrderNo: row.productionOrderNo,
-        colorCode:
-          context.sourceGeneratedRows.find((item) => item.originalCutOrderId === row.originalCutOrderId)?.colorScope?.[0] || row.color || '',
-        materialSku: row.materialSku,
-        styleCode: row.styleCode,
-        spuCode: row.spuCode,
-        techPackSpu:
-          context.sourceMaterialPrepRows.find((item) => item.originalCutOrderId === row.originalCutOrderId)?.techPackSpuCode || context.techPackSpu,
-      },
-    ]),
-  )
-}
-
-interface OriginalSourceMeta {
-  sourceCutOrderId: string
-  sourceCutOrderNo: string
-  sourceProductionOrderId: string
-  sourceProductionOrderNo: string
-  colorCode: string
-  materialSku: string
-  styleCode: string
-  spuCode: string
-  techPackSpu: string
 }
 
 function renderAllocationTable(plan: MarkerPlan, context: MarkerPlanContextCandidate | null): string {
@@ -2258,7 +2478,7 @@ function renderFoldConfigEditor(foldConfig: MarkerFoldConfig | null): string {
         </label>
         ${renderReadonlyField('对折有效门幅（cm）', `${formatNumber(foldConfig.foldedEffectiveWidth, 2)} cm`, buildMarkerFoldedEffectiveWidthFormula(foldConfig))}
         <label class="space-y-2">
-          <span class="text-sm font-medium text-foreground">床次最大门幅（cm）</span>
+          <span class="text-sm font-medium text-foreground">唛架最大门幅（cm）</span>
           <input type="number" min="0" step="0.01" value="${foldConfig.maxLayoutWidth}" data-marker-plan-fold-field="maxLayoutWidth" data-marker-plan-control-type="number-input" class="h-10 w-full rounded-md border bg-card px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
         </label>
       </div>
@@ -2276,7 +2496,7 @@ function renderFoldConfigReadonly(foldConfig: MarkerFoldConfig | null): string {
         ${renderReadonlyField('对折损耗（cm）', `${formatNumber(foldConfig.foldAllowance, 2)} cm`)}
         ${renderReadonlyField('对折方向', foldConfig.foldDirection || '—')}
         ${renderReadonlyField('对折有效门幅（cm）', `${formatNumber(foldConfig.foldedEffectiveWidth, 2)} cm`, buildMarkerFoldedEffectiveWidthFormula(foldConfig))}
-        ${renderReadonlyField('床次最大门幅（cm）', `${formatNumber(foldConfig.maxLayoutWidth, 2)} cm`)}
+        ${renderReadonlyField('唛架最大门幅（cm）', `${formatNumber(foldConfig.maxLayoutWidth, 2)} cm`)}
       </div>
       <div>${foldConfig.widthCheckPassed ? renderStatusBadge('门幅校验通过', 'bg-emerald-100 text-emerald-700 border-emerald-200') : renderStatusBadge('门幅校验未通过', 'bg-rose-100 text-rose-700 border-rose-200')}</div>
     </section>
@@ -2289,12 +2509,15 @@ function renderLayoutTab(plan: MarkerPlan, context: MarkerPlanContextCandidate |
   return `
     <section class="space-y-4 rounded-xl border bg-card p-4" data-testid="marker-plan-layout-tab-${plan.markerMode}">
       <div class="flex flex-wrap items-center justify-between gap-2">
-        <h3 class="text-sm font-semibold">床次编辑器</h3>
+        <h3 class="text-sm font-semibold">唛架编辑器</h3>
         <div class="text-xs text-muted-foreground">${escapeHtml(buildMarkerSchemeFromPlan(plan).modeSummaryText || '待编辑')}</div>
       </div>
       <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         ${renderInputField('单次铺布固定损耗（m）', String(plan.singleSpreadFixedLoss || 0.06), 'singleSpreadFixedLoss', 'number')}
         ${renderReadonlyField('计划铺布总长度（m）', `${formatNumber(plan.plannedSpreadLength, 2)} m`, buildMarkerPlannedSpreadLengthFormula(plan))}
+        ${renderReadonlyField('系统单件成衣用量（m/件）', `${formatNumber(plan.systemUnitUsage, 3)} m/件`, buildMarkerPlanSystemUnitUsageFormula(plan))}
+        ${renderInputField('人工修正单件成衣用量（m/件）', plan.manualUnitUsage ? String(plan.manualUnitUsage) : '', 'manualUnitUsage', 'number')}
+        ${renderReadonlyField('最终单件成衣用量（m/件）', `${formatNumber(plan.finalUnitUsage, 3)} m/件`, buildMarkerFinalUnitUsageFormula(plan.systemUnitUsage, plan.manualUnitUsage))}
       </div>
       ${hasFoldBed ? renderFoldConfigEditor(plan.foldConfig) : ''}
       ${renderSchemeBedEditor(plan, context)}
@@ -2499,342 +2722,271 @@ function renderSchemeDemandMatrix(plan: MarkerPlan | MarkerPlanViewRow): string 
   `
 }
 
+function renderMarkerMatrixReadonlyTable(plan: MarkerPlan | MarkerPlanViewRow, bed: MarkerSchemeBed): string {
+  const sizeColumns = getMarkerMatrixSizeColumns(plan)
+  const sizeDemandMap = getMarkerMatrixSizeDemandMap(plan)
+  const rows = createMarkerMatrixRows(plan, bed)
+  const sizePiecePerLayer = normalizeMarkerSizePiecePerLayer(bed, sizeColumns)
+  const layerTotals = getMarkerMatrixColumnLayerTotals(rows, sizeColumns)
+  const pieceTotals = getMarkerMatrixColumnPieceTotals(rows, sizeColumns, sizePiecePerLayer)
+  const highLowMode = isHighLowMatrixMode(bed.bedMode)
+  return `
+    <div class="overflow-x-auto rounded-lg border bg-background">
+      <table class="min-w-[960px] w-full text-center text-xs">
+        <thead class="bg-muted/40 text-muted-foreground">
+          <tr>
+            <th class="w-28 px-3 py-3 text-left font-medium">颜色</th>
+            <th class="w-44 px-3 py-3 text-left font-medium">物料信息</th>
+            ${sizeColumns.map((size) => `<th class="px-3 py-3 font-medium"><div>${escapeHtml(size)}</div><div class="mt-1 text-[10px] text-muted-foreground">每层件数 ${formatCount(sizePiecePerLayer[size] || 0)}</div><div class="mt-1 text-[10px] text-muted-foreground">需求 ${formatCount(sizeDemandMap[size] || 0)}</div></th>`).join('')}
+            ${highLowMode ? '<th class="px-3 py-3 font-medium">唛架净长度</th>' : ''}
+            <th class="px-3 py-3 font-medium">行合计</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y">
+          ${rows.map((row) => {
+            const rowTotal = sizeColumns.reduce((total, size) => total + getMarkerMatrixCellPlannedQty(row, size, sizePiecePerLayer), 0)
+            const materialText = getMarkerMatrixMaterialForColor(plan, row.colorName || row.colorCode)
+            return `
+              <tr>
+                <td class="px-3 py-3 text-left font-medium text-foreground">
+                  ${escapeHtml(row.colorName || row.colorCode)}
+                </td>
+                <td class="px-3 py-3 text-left text-muted-foreground">${escapeHtml(materialText)}</td>
+                ${sizeColumns.map((size) => {
+                  const layerCount = getMarkerMatrixCellLayer(row, size)
+                  const pieceCount = getMarkerMatrixCellPlannedQty(row, size, sizePiecePerLayer)
+                  return `<td class="px-2 py-2 ${layerCount > 0 ? 'bg-slate-200 text-slate-900' : 'bg-background text-muted-foreground'}">${layerCount > 0 ? `<div>${formatCount(layerCount)} 层</div><div class="mt-1 text-[10px] text-muted-foreground">${formatCount(pieceCount)} 件</div>` : '—'}</td>`
+                }).join('')}
+                ${highLowMode ? `<td class="px-3 py-3">${row.markerLength > 0 ? `${formatNumber(row.markerLength, 2)} m` : '—'}</td>` : ''}
+                <td class="px-3 py-3 font-medium">${formatCount(rowTotal)}</td>
+              </tr>
+            `
+          }).join('')}
+        </tbody>
+        <tfoot class="border-t bg-muted/20 text-xs font-medium">
+          <tr>
+            <td class="px-3 py-3 text-left">累计层数&累计件数</td>
+            <td class="px-3 py-3 text-left text-muted-foreground">按尺码列累计</td>
+            ${sizeColumns.map((size) => `<td class="px-3 py-3"><div>${formatCount(layerTotals[size] || 0)} 层</div><div class="mt-1 text-[10px] text-muted-foreground">${formatCount(pieceTotals[size] || 0)} 件</div></td>`).join('')}
+            ${highLowMode ? '<td class="px-3 py-3">—</td>' : ''}
+            <td class="px-3 py-3">${formatCount(Object.values(pieceTotals).reduce((total, value) => total + value, 0))}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  `
+}
+
 function renderSchemeBedsOverview(plan: MarkerPlan | MarkerPlanViewRow): string {
   const scheme = buildMarkerSchemeFromPlan(plan as MarkerPlan)
   return `
     <section class="space-y-4 rounded-xl border bg-card p-4" data-testid="marker-scheme-beds-overview">
       <div class="flex flex-wrap items-center justify-between gap-2">
-        <h3 class="text-sm font-semibold">唛架床次</h3>
+        <h3 class="text-sm font-semibold">唛架编号</h3>
         <div class="text-xs text-muted-foreground">${escapeHtml(scheme.modeSummaryText || '待编辑')}</div>
       </div>
       <div class="grid gap-2 md:grid-cols-4">
         ${renderReadonlyField('方案号', scheme.schemeNo)}
         ${renderReadonlyField('技术包', `${scheme.techPackStatus} ${scheme.techPackVersion}`)}
-        ${renderReadonlyField('床次数', `${scheme.bedCount} 个`)}
+        ${renderReadonlyField('唛架数量', `${scheme.bedCount} 个`)}
         ${renderReadonlyField('铺布状态', scheme.spreadingStatus)}
       </div>
-      <div class="overflow-hidden rounded-lg border bg-background">
-        <table class="min-w-full text-left text-xs">
-          <thead class="bg-muted/40 text-muted-foreground">
-            <tr>
-              <th class="px-3 py-3 font-medium">床次</th>
-              <th class="px-3 py-3 font-medium">床次模式</th>
-              <th class="px-3 py-3 font-medium">颜色</th>
-              <th class="px-3 py-3 font-medium">尺码组合</th>
-              <th class="px-3 py-3 font-medium">层数</th>
-              <th class="px-3 py-3 font-medium">床次净长度</th>
-              <th class="px-3 py-3 font-medium">件数</th>
-              <th class="px-3 py-3 font-medium">状态</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y">
-            ${
-              scheme.beds.length
-                ? scheme.beds
-                    .map(
-                      (bed) => `
-                        <tr>
-                          <td class="px-3 py-3 font-medium text-foreground">${escapeHtml(bed.bedNo)}</td>
-                          <td class="px-3 py-3">${escapeHtml(markerPlanModeMeta[bed.bedMode]?.label || bed.bedMode)}</td>
-                          <td class="px-3 py-3">${escapeHtml(bed.colorName || bed.colorCode || '—')}</td>
-                          <td class="px-3 py-3">${escapeHtml(bed.sizeSummaryText || '—')}</td>
-                          <td class="px-3 py-3">${formatCount(bed.plannedLayerCount)}</td>
-                          <td class="px-3 py-3">${formatNumber(bed.markerLength, 2)} m</td>
-                          <td class="px-3 py-3">${formatCount(bed.plannedGarmentQty)}</td>
-                          <td class="px-3 py-3">${escapeHtml(bed.status)}</td>
-                        </tr>
-                      `,
-                    )
-                    .join('')
-                : '<tr><td colspan="8" class="px-3 py-6 text-center text-xs text-muted-foreground">当前还没有唛架床次。</td></tr>'
-            }
-          </tbody>
-        </table>
+      <div class="space-y-4">
+        ${scheme.beds.length
+          ? scheme.beds.map((bed) => `
+            <article class="space-y-3 rounded-lg border bg-background p-3">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <div class="text-sm font-semibold">${escapeHtml(bed.bedNo)}</div>
+                  <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(markerPlanModeMeta[bed.bedMode]?.label || bed.bedMode)}</div>
+                </div>
+                ${renderStatusBadge(bed.status, bed.readyForSpreading ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700')}
+              </div>
+              <div class="grid gap-2 md:grid-cols-4">
+                ${renderReadonlyField('唛架净长度', isHighLowMatrixMode(bed.bedMode) ? '按颜色行填写' : `${formatNumber(bed.markerLength, 2)} m`)}
+                ${renderReadonlyField('实际铺布层数', `${formatNumber(bed.plannedLayerCount, 0)} 层`)}
+                ${renderReadonlyField('成衣数量', `${formatCount(bed.plannedGarmentQty)} 件`)}
+                ${renderReadonlyField('铺布总长度', `${formatNumber(bed.spreadTotalLength, 2)} m`)}
+              </div>
+              ${renderMarkerMatrixReadonlyTable(plan, bed)}
+            </article>
+          `).join('')
+          : '<div class="rounded-lg border border-dashed bg-background px-3 py-6 text-center text-xs text-muted-foreground">当前还没有唛架编号。</div>'}
       </div>
     </section>
   `
 }
 
-function renderBedSizeSelector(plan: MarkerPlan, bed: MarkerSchemeBed): string {
-  const sizeOptions = getPlanSizeOptions(plan)
-  const selectedSizes = new Set(bed.coverageRows.map((row) => row.sizeName || row.sizeCode))
+function renderMarkerMatrixEditor(plan: MarkerPlan, bed: MarkerSchemeBed): string {
+  const sizeColumns = getMarkerMatrixSizeColumns(plan)
+  const sizeDemandMap = getMarkerMatrixSizeDemandMap(plan)
+  const colorOptions = getMarkerMatrixColorRows(plan)
+  const rows = createMarkerMatrixRows(plan, bed)
+  const sizePiecePerLayer = normalizeMarkerSizePiecePerLayer(bed, sizeColumns)
+  const errors = validateMarkerMatrixRows(bed.bedMode, rows, sizeColumns, sizePiecePerLayer)
+  const layerTotals = getMarkerMatrixColumnLayerTotals(rows, sizeColumns)
+  const pieceTotals = getMarkerMatrixColumnPieceTotals(rows, sizeColumns, sizePiecePerLayer)
+  const highLowMode = isHighLowMatrixMode(bed.bedMode)
   return `
-    <div class="flex min-w-[180px] flex-wrap gap-1">
-      ${
-        sizeOptions.length
-          ? sizeOptions
-              .map((size) => {
-                const selected = selectedSizes.has(size.name)
-                return `
-                  <button
-                    type="button"
-                    class="rounded-full border px-2 py-0.5 text-[11px] ${selected ? 'border-blue-300 bg-blue-50 text-blue-700' : 'bg-background text-muted-foreground hover:bg-muted'}"
-                    data-marker-plan-action="toggle-bed-size"
+    <div class="space-y-2">
+      <div class="overflow-x-auto rounded-lg border bg-background">
+        <table class="min-w-[980px] w-full text-center text-xs">
+          <thead class="bg-muted/40 text-muted-foreground">
+            <tr>
+              <th class="w-36 px-3 py-3 text-left font-medium">颜色</th>
+              <th class="w-44 px-3 py-3 text-left font-medium">物料信息</th>
+              ${sizeColumns.map((size) => `
+                <th class="px-3 py-3 font-medium">
+                  <div>${escapeHtml(size)}</div>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value="${sizePiecePerLayer[size] || ''}"
+                    data-marker-plan-size-piece-per-layer="true"
                     data-bed-id="${escapeHtml(bed.bedId)}"
-                    data-size-name="${escapeHtml(size.name)}"
-                  >${escapeHtml(size.name)}</button>
-                `
-              })
-              .join('')
-          : '<span class="text-xs text-muted-foreground">无尺码</span>'
-      }
+                    data-size-name="${escapeHtml(size)}"
+                    class="mt-2 h-8 w-20 rounded-md border bg-card px-2 text-center text-xs outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="每层件数"
+                  />
+                  <div class="mt-1 text-[10px] text-muted-foreground">需求 ${formatCount(sizeDemandMap[size] || 0)}</div>
+                </th>
+              `).join('')}
+              ${highLowMode ? '<th class="px-3 py-3 font-medium">唛架净长度</th>' : ''}
+              <th class="px-3 py-3 font-medium">行合计</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y">
+            ${rows.map((row) => {
+              const rowTotal = sizeColumns.reduce((total, size) => total + getMarkerMatrixCellPlannedQty(row, size, sizePiecePerLayer), 0)
+              const materialText = getMarkerMatrixMaterialForColor(plan, row.colorName || row.colorCode)
+              return `
+                <tr>
+                  <td class="px-3 py-3 text-left">
+                    <select data-marker-plan-matrix-row-color="true" data-bed-id="${escapeHtml(bed.bedId)}" data-row-id="${escapeHtml(row.rowId)}" class="h-8 w-full rounded-md border bg-card px-2 text-xs outline-none focus:ring-2 focus:ring-blue-500">
+                      ${colorOptions.map((color) => `<option value="${escapeHtml(color)}" ${color === (row.colorName || row.colorCode) ? 'selected' : ''}>${escapeHtml(color)}</option>`).join('')}
+                    </select>
+                    <div class="mt-2 flex items-center gap-2">
+                      <button type="button" class="text-xs text-muted-foreground hover:text-rose-600" data-marker-plan-action="remove-matrix-row" data-bed-id="${escapeHtml(bed.bedId)}" data-row-id="${escapeHtml(row.rowId)}">删除</button>
+                    </div>
+                  </td>
+                  <td class="px-3 py-3 text-left text-xs text-muted-foreground">${escapeHtml(materialText)}</td>
+                  ${sizeColumns.map((size) => {
+                    const value = getMarkerMatrixCellLayer(row, size)
+                    const pieceCount = getMarkerMatrixCellPlannedQty(row, size, sizePiecePerLayer)
+                    return `
+                      <td class="px-2 py-2 ${value > 0 ? 'bg-slate-100' : ''}">
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value="${value || ''}"
+                          data-marker-plan-matrix-cell="true"
+                          data-bed-id="${escapeHtml(bed.bedId)}"
+                          data-row-id="${escapeHtml(row.rowId)}"
+                          data-color-name="${escapeHtml(row.colorName || row.colorCode)}"
+                          data-size-name="${escapeHtml(size)}"
+                          placeholder="层数"
+                          class="h-8 w-20 rounded-md border bg-card px-2 text-center text-xs outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        ${value > 0 ? `<div class="mt-1 text-[10px] text-muted-foreground">${formatCount(pieceCount)} 件</div>` : ''}
+                      </td>
+                    `
+                  }).join('')}
+                  ${highLowMode ? `
+                    <td class="px-2 py-2">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value="${row.markerLength || ''}"
+                        data-marker-plan-matrix-row-length="true"
+                        data-bed-id="${escapeHtml(bed.bedId)}"
+                        data-row-id="${escapeHtml(row.rowId)}"
+                        class="h-8 w-24 rounded-md border bg-card px-2 text-center text-xs outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="m"
+                      />
+                    </td>
+                  ` : ''}
+                  <td class="px-3 py-3 font-medium">${formatCount(rowTotal)}</td>
+                </tr>
+              `
+            }).join('')}
+          </tbody>
+          <tfoot class="border-t bg-muted/20 text-xs font-medium">
+            <tr>
+              <td class="px-3 py-3 text-left">累计层数&累计件数</td>
+              <td class="px-3 py-3 text-left text-muted-foreground">按尺码列累计</td>
+              ${sizeColumns.map((size) => `<td class="px-3 py-3"><div>${formatCount(layerTotals[size] || 0)} 层</div><div class="mt-1 text-[10px] text-muted-foreground">${formatCount(pieceTotals[size] || 0)} 件</div></td>`).join('')}
+              ${highLowMode ? '<td class="px-3 py-3">—</td>' : ''}
+              <td class="px-3 py-3">${formatCount(Object.values(pieceTotals).reduce((total, value) => total + value, 0))}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      ${errors.length ? `<div class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">${errors.map((error) => escapeHtml(error)).join('；')}</div>` : ''}
+      <div>
+        ${renderActionButton('添加颜色层行', `data-marker-plan-action="add-matrix-row" data-bed-id="${escapeHtml(bed.bedId)}"`)}
+      </div>
     </div>
   `
 }
 
 function renderSchemeBedEditor(plan: MarkerPlan, context: MarkerPlanContextCandidate | null): string {
+  void context
   const scheme = buildMarkerSchemeFromPlan(plan)
   const beds = scheme.beds
-  const colorOptions = getPlanColorOptionsFromDemand(plan, context)
   return `
     <section class="space-y-4 rounded-xl border bg-card p-4" data-testid="marker-scheme-bed-editor">
       <div class="flex flex-wrap items-center justify-between gap-2">
-        <h3 class="text-sm font-semibold">唛架床次</h3>
+        <h3 class="text-sm font-semibold">唛架编号</h3>
         <div class="flex flex-wrap gap-2">
-          ${renderActionButton('新增普通床次', 'data-marker-plan-action="add-scheme-bed" data-bed-mode="normal"')}
-          ${renderActionButton('新增高低层床次', 'data-marker-plan-action="add-scheme-bed" data-bed-mode="high_low"')}
-          ${renderActionButton('新增对折普通床次', 'data-marker-plan-action="add-scheme-bed" data-bed-mode="fold_normal"')}
-          ${renderActionButton('新增对折高低层床次', 'data-marker-plan-action="add-scheme-bed" data-bed-mode="fold_high_low"')}
+          ${renderActionButton('新增普通唛架', 'data-marker-plan-action="add-scheme-bed" data-bed-mode="normal"')}
+          ${renderActionButton('新增高低层唛架', 'data-marker-plan-action="add-scheme-bed" data-bed-mode="high_low"')}
+          ${renderActionButton('新增对折普通唛架', 'data-marker-plan-action="add-scheme-bed" data-bed-mode="fold_normal"')}
+          ${renderActionButton('新增对折高低层唛架', 'data-marker-plan-action="add-scheme-bed" data-bed-mode="fold_high_low"')}
         </div>
       </div>
-      <div class="overflow-x-auto rounded-lg border bg-background">
-        <table class="min-w-[1180px] w-full text-left text-xs">
-          <thead class="bg-muted/40 text-muted-foreground">
-            <tr>
-              <th class="px-3 py-3 font-medium">床次</th>
-              <th class="px-3 py-3 font-medium">床次模式</th>
-              <th class="px-3 py-3 font-medium">颜色</th>
-              <th class="px-3 py-3 font-medium">尺码</th>
-              <th class="px-3 py-3 font-medium">层数</th>
-              <th class="px-3 py-3 font-medium">床次净长度</th>
-              <th class="px-3 py-3 font-medium">单层件数</th>
-              <th class="px-3 py-3 font-medium">铺布总长度</th>
-              <th class="px-3 py-3 font-medium">状态</th>
-              <th class="px-3 py-3 font-medium">备注</th>
-              <th class="px-3 py-3 font-medium">操作</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y">
-            ${
-              beds.length
-                ? beds
-                    .map((bed) => `
-                      <tr class="align-top">
-                        <td class="px-3 py-3">
-                          <input
-                            type="text"
-                            value="${escapeHtml(bed.bedNo)}"
-                            data-marker-plan-bed-field="bedNo"
-                            data-bed-id="${escapeHtml(bed.bedId)}"
-                            class="h-9 w-20 rounded-md border bg-card px-2 text-xs outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </td>
-                        <td class="px-3 py-3">
-                          <select data-marker-plan-bed-field="bedMode" data-bed-id="${escapeHtml(bed.bedId)}" class="h-9 w-32 rounded-md border bg-card px-2 text-xs outline-none focus:ring-2 focus:ring-blue-500">
-                            ${getMarkerBedModeOptions().map((mode) => `<option value="${mode}" ${bed.bedMode === mode ? 'selected' : ''}>${escapeHtml(markerPlanModeMeta[mode].label)}</option>`).join('')}
-                          </select>
-                        </td>
-                        <td class="px-3 py-3">
-                          <select data-marker-plan-bed-field="colorCode" data-bed-id="${escapeHtml(bed.bedId)}" class="h-9 w-28 rounded-md border bg-card px-2 text-xs outline-none focus:ring-2 focus:ring-blue-500">
-                            ${colorOptions.map((color) => `<option value="${escapeHtml(color)}" ${color === (bed.colorName || bed.colorCode) ? 'selected' : ''}>${escapeHtml(color)}</option>`).join('')}
-                          </select>
-                        </td>
-                        <td class="px-3 py-3">${renderBedSizeSelector(plan, bed)}</td>
-                        <td class="px-3 py-3"><input type="number" min="0" step="1" value="${bed.plannedLayerCount}" data-marker-plan-bed-field="plannedLayerCount" data-bed-id="${escapeHtml(bed.bedId)}" class="h-9 w-20 rounded-md border bg-card px-2 text-xs outline-none focus:ring-2 focus:ring-blue-500" /></td>
-                        <td class="px-3 py-3"><input type="number" min="0" step="0.01" value="${bed.markerLength}" data-marker-plan-bed-field="markerLength" data-bed-id="${escapeHtml(bed.bedId)}" class="h-9 w-24 rounded-md border bg-card px-2 text-xs outline-none focus:ring-2 focus:ring-blue-500" /></td>
-                        <td class="px-3 py-3"><input type="number" min="0" step="1" value="${bed.markerPieceQtyPerLayer}" data-marker-plan-bed-field="markerPieceQtyPerLayer" data-bed-id="${escapeHtml(bed.bedId)}" class="h-9 w-20 rounded-md border bg-card px-2 text-xs outline-none focus:ring-2 focus:ring-blue-500" /></td>
-                        <td class="px-3 py-3">${formatNumber(bed.spreadTotalLength, 2)} m</td>
-                        <td class="px-3 py-3">${renderStatusBadge(bed.status, bed.readyForSpreading ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-700 border border-slate-200')}</td>
-                        <td class="px-3 py-3"><input type="text" value="${escapeHtml(bed.remark)}" data-marker-plan-bed-field="remark" data-bed-id="${escapeHtml(bed.bedId)}" class="h-9 w-28 rounded-md border bg-card px-2 text-xs outline-none focus:ring-2 focus:ring-blue-500" /></td>
-                        <td class="px-3 py-3">
-                          <div class="flex flex-wrap gap-2">
-                            ${renderActionButton('复制', `data-marker-plan-action="copy-scheme-bed" data-bed-id="${escapeHtml(bed.bedId)}"`, 'ghost')}
-                            ${renderActionButton('删除', `data-marker-plan-action="remove-scheme-bed" data-bed-id="${escapeHtml(bed.bedId)}"`, 'ghost')}
-                          </div>
-                        </td>
-                      </tr>
-                    `)
-                    .join('')
-                : '<tr><td colspan="11" class="px-3 py-6 text-center text-xs text-muted-foreground">当前还没有唛架床次。</td></tr>'
-            }
-          </tbody>
-        </table>
-      </div>
-    </section>
-  `
-}
-
-function renderSchemeImagePreview(plan: MarkerPlan | MarkerPlanViewRow): string {
-  const scheme = buildMarkerSchemeFromPlan(plan as MarkerPlan)
-  const generatedImages = [
-    scheme.schemeImage,
-    scheme.detailImage,
-  ].filter((image): image is NonNullable<typeof image> => Boolean(image))
-  const uploadedImages = (plan.imageRecords || []).map((image) => ({
-    imageType: image.isPrimary ? '主图' : '唛架明细图',
-    imageName: image.fileName,
-    previewUrl: image.previewUrl,
-    generatedAt: image.uploadedAt,
-  }))
-  const images = generatedImages.length ? generatedImages : uploadedImages
-  return `
-    <section class="space-y-4 rounded-xl border bg-card p-4" data-testid="marker-scheme-image-preview">
-      <div class="flex flex-wrap items-center justify-between gap-2">
-        <h3 class="text-sm font-semibold">方案图片</h3>
-        <span class="rounded-full border px-2 py-0.5 text-xs text-muted-foreground">${escapeHtml(scheme.imageStatus)}</span>
-      </div>
-      <div class="grid gap-3 lg:grid-cols-2">
-        ${
-          images.length
-            ? images
-                .map(
-                  (image) => `
-                    <article class="overflow-hidden rounded-lg border bg-background">
-                      <div class="flex items-center justify-between border-b px-3 py-3">
-                        <div class="text-sm font-medium text-foreground">${escapeHtml(image.imageType)}</div>
-                        <div class="text-xs text-muted-foreground">${escapeHtml(image.generatedAt)}</div>
-                      </div>
-                      <img src="${escapeHtml(image.previewUrl)}" alt="${escapeHtml(image.imageName)}" class="h-48 w-full bg-slate-50 object-contain" />
-                    </article>
-                  `,
-                )
-                .join('')
-            : '<div class="rounded-lg border border-dashed px-3 py-8 text-center text-xs text-muted-foreground lg:col-span-2">当前还没有方案图片。</div>'
-        }
-      </div>
-    </section>
-  `
-}
-
-function renderDetailReadOnlyTable(title: string, tableHtml: string): string {
-  return `
-    <details class="rounded-lg border bg-card">
-      <summary class="cursor-pointer px-3 py-3 text-sm font-semibold">${escapeHtml(title)}</summary>
-      <div class="border-t p-2">${tableHtml}</div>
-    </details>
-  `
-}
-
-function renderDetailTab(plan: MarkerPlanViewRow, activeTab: MarkerPlanTabKey): string {
-  if (activeTab === 'basic') {
-    return `
-      <div class="space-y-3" data-testid="marker-plan-basic-detail-tab">
-        ${renderSchemeDemandMatrix(plan)}
-        ${renderSchemeBedsOverview(plan)}
-        ${renderSchemeImagePreview(plan)}
-        <section class="space-y-4 rounded-xl border bg-card p-4">
-          <div class="space-y-3">
-            <h3 class="text-sm font-semibold">尺码配比</h3>
-            ${renderSizeRatioReadonlyGrid(plan)}
-          </div>
-          <div class="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
-            ${renderReadonlyField('方案成衣件数（件）', formatCount(plan.totalPieces), plan.totalPiecesFormula)}
-            ${renderReadonlyField('系统单件成衣用量（m/件）', `${formatNumber(plan.systemUnitUsage, 3)} m/件`, plan.systemUnitUsageFormula)}
-            ${renderReadonlyField('人工修正单件成衣用量（m/件）', plan.manualUnitUsage == null ? '—' : `${formatNumber(plan.manualUnitUsage, 3)} m/件`)}
-            ${renderReadonlyField('最终单件成衣用量（m/件）', `${formatNumber(plan.finalUnitUsage, 3)} m/件`, plan.finalUnitUsageFormula)}
-            ${renderReadonlyField('计划铺布层数（层）', formatCount(plan.plannedLayerCount))}
-            ${renderReadonlyField('计划铺布总长度（m）', `${formatNumber(plan.plannedSpreadLength, 2)} m`, plan.plannedSpreadLengthFormula)}
-          </div>
-        </section>
-      </div>
-    `
-  }
-
-  if (activeTab === 'allocation') {
-    return `
-      <div class="space-y-3" data-testid="marker-plan-allocation-detail-tab">
-        ${
-          plan.allocationStatus !== 'balanced'
-            ? `
-              <section class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                当前来源分配尚未配平，请优先处理配平差值。
-              </section>
-            `
-            : ''
-        }
-        ${renderDetailReadOnlyTable(
-          '来源分配',
-          renderAllocationReadonlyTable(plan, findMarkerPlanContextForPlan(getViewModel().contexts, plan)),
-        )}
-        ${renderDetailReadOnlyTable('配平表', renderBalanceTable(plan.balanceRows))}
-      </div>
-    `
-  }
-
-  if (activeTab === 'explosion') {
-    return renderDetailReadOnlyTable('裁片拆解', renderExplosionTab(plan, null, true))
-  }
-
-  if (activeTab === 'layout') {
-    return renderDetailReadOnlyTable('床次编辑器', renderLayoutReadonlyTab(plan))
-  }
-
-  return renderDetailReadOnlyTable('图片与变更', renderImagesTab(plan, true))
-}
-
-function renderDetailFlowPanel(plan: MarkerPlanViewRow): string {
-  const flowItems = [
-    {
-      title: '原始裁片单',
-      value: plan.originalCutOrderNos.join(' / ') || '—',
-      action: renderActionButton(
-        '去原始裁片单',
-        `data-marker-plan-action="go-original-orders" data-plan-id="${escapeHtml(plan.id)}"`,
-        'secondary',
-        !plan.originalCutOrderIds.length,
-      ),
-    },
-    {
-      title: '合并裁剪批次',
-      value: plan.mergeBatchNo || '—',
-      action: plan.mergeBatchId
-        ? renderActionButton(
-            '去合并裁剪批次',
-            `data-marker-plan-action="go-merge-batch" data-plan-id="${escapeHtml(plan.id)}"`,
-            'secondary',
-          )
-        : '',
-    },
-    {
-      title: '生产单进度',
-      value: plan.productionOrderNos.join(' / ') || '—',
-      action: renderActionButton(
-        '去生产单进度',
-        `data-marker-plan-action="go-production-progress" data-plan-id="${escapeHtml(plan.id)}"`,
-        'secondary',
-        !plan.productionOrderIds.length,
-      ),
-    },
-    {
-      title: '铺布执行',
-      value: plan.readyForSpreading ? '可交给铺布' : '暂不可交给铺布',
-      action: renderActionButton(
-        '交给铺布',
-        `data-marker-plan-action="go-spreading" data-plan-id="${escapeHtml(plan.id)}"`,
-        'primary',
-        !plan.readyForSpreading,
-      ),
-    },
-  ]
-
-  return `
-    <section class="rounded-lg border bg-card p-3" data-testid="marker-plan-detail-flow-panel">
-      <div class="mb-3 flex items-center justify-between gap-2">
-        <h3 class="text-sm font-semibold">流转入口</h3>
-        ${renderStatusBadge(plan.readyForSpreading ? '可交接铺布' : '待满足铺布条件', plan.readyForSpreading ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-50 text-slate-700')}
-      </div>
-      <div class="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-        ${flowItems
-          .map(
-            (item) => `
-              <article class="rounded-lg border bg-background p-3">
-                <div class="text-xs text-muted-foreground">${escapeHtml(item.title)}</div>
-                <div class="mt-1 min-h-5 text-sm font-medium text-foreground">${escapeHtml(item.value)}</div>
-                <div class="mt-2">${item.action || '<span class="text-xs text-muted-foreground">无关联入口</span>'}</div>
-              </article>
-            `,
-          )
-          .join('')}
+      <div class="space-y-4">
+        ${beds.length
+          ? beds.map((bed) => `
+            <article class="space-y-3 rounded-lg border bg-background p-3">
+              <div class="grid gap-3 ${isHighLowMatrixMode(bed.bedMode) ? 'lg:grid-cols-[160px_180px_minmax(0,1fr)_120px]' : 'lg:grid-cols-[160px_180px_minmax(0,1fr)_120px_120px]'}">
+                <label class="space-y-2">
+                  <span class="text-xs font-medium text-muted-foreground">唛架号</span>
+                  <input type="text" value="${escapeHtml(bed.bedNo)}" data-marker-plan-bed-field="bedNo" data-bed-id="${escapeHtml(bed.bedId)}" class="h-9 w-full rounded-md border bg-card px-2 text-xs outline-none focus:ring-2 focus:ring-blue-500" />
+                </label>
+                <label class="space-y-2">
+                  <span class="text-xs font-medium text-muted-foreground">唛架模式</span>
+                  <select data-marker-plan-bed-field="bedMode" data-bed-id="${escapeHtml(bed.bedId)}" class="h-9 w-full rounded-md border bg-card px-2 text-xs outline-none focus:ring-2 focus:ring-blue-500">
+                    ${getMarkerBedModeOptions().map((mode) => `<option value="${mode}" ${bed.bedMode === mode ? 'selected' : ''}>${escapeHtml(markerPlanModeMeta[mode].label)}</option>`).join('')}
+                  </select>
+                </label>
+                <label class="space-y-2">
+                  <span class="text-xs font-medium text-muted-foreground">备注</span>
+                  <input type="text" value="${escapeHtml(bed.remark || '')}" data-marker-plan-bed-field="remark" data-bed-id="${escapeHtml(bed.bedId)}" class="h-9 w-full rounded-md border bg-card px-2 text-xs outline-none focus:ring-2 focus:ring-blue-500" />
+                </label>
+                ${isHighLowMatrixMode(bed.bedMode) ? '' : `
+                  <label class="space-y-2">
+                    <span class="text-xs font-medium text-muted-foreground">唛架净长度</span>
+                    <input type="number" min="0" step="0.01" value="${bed.markerLength || ''}" data-marker-plan-bed-field="markerLength" data-bed-id="${escapeHtml(bed.bedId)}" class="h-9 w-full rounded-md border bg-card px-2 text-xs outline-none focus:ring-2 focus:ring-blue-500" />
+                  </label>
+                `}
+                <div class="flex items-end gap-2">
+                  ${renderActionButton('复制', `data-marker-plan-action="copy-scheme-bed" data-bed-id="${escapeHtml(bed.bedId)}"`)}
+                  ${renderActionButton('删除', `data-marker-plan-action="remove-scheme-bed" data-bed-id="${escapeHtml(bed.bedId)}"`, 'ghost')}
+                </div>
+              </div>
+              <div class="grid gap-2 md:grid-cols-4">
+                ${renderReadonlyField('实际铺布层数', `${formatNumber(bed.plannedLayerCount, 0)} 层`)}
+                ${renderReadonlyField('成衣数量', `${formatCount(bed.plannedGarmentQty)} 件`)}
+                ${renderReadonlyField('铺布总长度', `${formatNumber(bed.spreadTotalLength, 2)} m`)}
+                ${renderReadonlyField('单件成衣用量', `${formatNumber(bed.unitFabricUsage, 3)} m/件`)}
+              </div>
+              ${renderMarkerMatrixEditor(plan, bed)}
+            </article>
+          `).join('')
+          : '<div class="rounded-lg border border-dashed bg-background px-3 py-6 text-center text-xs text-muted-foreground">当前还没有唛架编号。</div>'}
       </div>
     </section>
   `
@@ -2854,7 +3006,7 @@ function renderDetailStepNav(plan: MarkerPlanViewRow): string {
   const steps = [
     { title: '1. 排唛架来源', status: '已确认' },
     { title: '2. 需求矩阵', status: plan.allocationStatusMeta.label },
-    { title: '3. 唛架床次', status: plan.layoutStatusMeta.label },
+    { title: '3. 唛架编号', status: plan.layoutStatusMeta.label },
     { title: '4. 方案图片', status: plan.imageStatusMeta.label },
   ]
   return `
@@ -2907,7 +3059,7 @@ function getListFilterLabels(): string[] {
     const option = buildMarkerPlanContextTypeOptions().find((item) => item.value === state.filters.contextType)
     if (option) labels.push(`来源类型：${option.label}`)
   }
-  if (state.filters.mode !== 'ALL') labels.push(`床次模式：${markerPlanModeMeta[state.filters.mode].label}`)
+  if (state.filters.mode !== 'ALL') labels.push(`唛架模式：${markerPlanModeMeta[state.filters.mode].label}`)
   if (state.filters.status !== 'ALL') labels.push(`主状态：${markerPlanStatusMeta[state.filters.status].label}`)
   if (state.filters.ready === 'YES') labels.push('可交接铺布：是')
   if (state.filters.ready === 'NO') labels.push('可交接铺布：否')
@@ -3027,7 +3179,7 @@ function renderListFilters(): string {
               </select>
             </label>
             <label class="space-y-2">
-              <span class="text-sm font-medium text-foreground">床次模式</span>
+              <span class="text-sm font-medium text-foreground">唛架模式</span>
               <select data-marker-plan-filter-field="mode" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="ALL">全部</option>
                 ${buildMarkerPlanModeOptions().map((option) => `<option value="${option.value}" ${option.value === state.filters.mode ? 'selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
@@ -3056,9 +3208,9 @@ function renderStats(viewModel = getViewModel()): string {
   return `
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4" data-testid="marker-plan-list-stats">
       ${renderCompactKpiCard('方案总数', plans.length, `可交接 ${readyCount}`, 'text-slate-900', `全部 ${plans.length} 个方案`)}
-      ${renderCompactKpiCard('待排床次', getPlanListTabCount('WAITING_LAYOUT', plans), '床次未完成', 'text-blue-600', `${getPlanListTabCount('WAITING_LAYOUT', plans)} 个方案`)}
+      ${renderCompactKpiCard('待排唛架', getPlanListTabCount('WAITING_LAYOUT', plans), '唛架未完成', 'text-blue-600', `${getPlanListTabCount('WAITING_LAYOUT', plans)} 个方案`)}
       ${renderCompactKpiCard('待生成图片', waitingImageCount, '明细图 / 方案图', 'text-amber-600', `${waitingImageCount} 个方案`)}
-      ${renderCompactKpiCard('异常待处理', exceptionCount, '配平 / 映射 / 床次 / 图片', 'text-rose-600', `${exceptionCount} 个方案`)}
+      ${renderCompactKpiCard('异常待处理', exceptionCount, '配平 / 映射 / 唛架 / 图片', 'text-rose-600', `${exceptionCount} 个方案`)}
     </section>
   `
 }
@@ -3085,8 +3237,8 @@ function renderPlanRowsTable(rows: MarkerPlanViewRow[], exceptionOnly = false): 
               <th class="px-2 py-1 font-medium">款号 / SPU</th>
               <th class="px-2 py-1 font-medium">面料 / 颜色</th>
               <th class="px-2 py-1 font-medium">技术包</th>
-              <th class="px-2 py-1 font-medium">床次数</th>
-              <th class="px-2 py-1 font-medium">床次模式</th>
+              <th class="px-2 py-1 font-medium">唛架数量</th>
+              <th class="px-2 py-1 font-medium">唛架模式</th>
               <th class="px-2 py-1 font-medium">计划裁片数</th>
               <th class="px-2 py-1 font-medium">图片状态</th>
               <th class="px-2 py-1 font-medium">铺布状态</th>
@@ -3216,7 +3368,7 @@ function renderContextDrawer(viewModel = getViewModel()): string {
       </div>
       <div class="rounded-lg border ${selectionValidation.ok ? 'border-blue-100 bg-blue-50 text-blue-700' : selectedContexts.length ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-slate-200 bg-slate-50 text-slate-600'} px-3 py-3 text-xs">
         <div class="font-medium" data-marker-plan-selection-summary>${escapeHtml(selectedSummary)}</div>
-        <div class="mt-1" data-marker-plan-selection-message>${escapeHtml(selectionValidation.ok ? '可继续编辑床次。' : selectionValidation.message)}</div>
+        <div class="mt-1" data-marker-plan-selection-message>${escapeHtml(selectionValidation.ok ? '可继续编辑唛架。' : selectionValidation.message)}</div>
       </div>
       <div class="overflow-hidden rounded-lg border bg-background">
         <table class="min-w-full text-left text-sm">
@@ -3277,7 +3429,7 @@ function renderContextDrawer(viewModel = getViewModel()): string {
       confirm: {
         prefix: 'marker-plan',
         action: 'confirm-context-create',
-        label: '下一步：编辑床次',
+        label: '下一步：编辑唛架',
         variant: 'primary',
         disabled: !selectionValidation.ok,
       },
@@ -3512,17 +3664,14 @@ function renderCreateDemandStep(plan: MarkerPlan, context: MarkerPlanContextCand
     <section class="rounded-lg border bg-card p-3" data-testid="marker-plan-create-demand-step">
       <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h3 class="text-sm font-semibold">方案基础</h3>
+          <h3 class="text-sm font-semibold">需求确认</h3>
         </div>
         ${renderStatusBadge(context?.techPackStatusLabel || '技术包待确认', 'border-blue-200 bg-blue-50 text-blue-700')}
       </div>
       <div class="grid gap-3 lg:grid-cols-3">
         ${renderInputField('方案编号', plan.markerNo, 'markerNo')}
         ${renderReadonlyField('方案成衣件数（件）', `${formatCount(plan.totalPieces)} 件`, buildMarkerTotalPiecesFormula(plan.sizeRatioRows))}
-        ${renderReadonlyField('系统单件成衣用量（m/件）', `${formatNumber(plan.systemUnitUsage, 3)} m/件`, buildMarkerPlanSystemUnitUsageFormula(plan))}
-        ${renderInputField('人工修正单件成衣用量（m/件）', plan.manualUnitUsage ? String(plan.manualUnitUsage) : '', 'manualUnitUsage', 'number')}
-        ${renderReadonlyField('最终单件成衣用量（m/件）', `${formatNumber(plan.finalUnitUsage, 3)} m/件`, buildMarkerFinalUnitUsageFormula(plan.systemUnitUsage, plan.manualUnitUsage))}
-        ${renderReadonlyField('计划铺布总长度（m）', `${formatNumber(plan.plannedSpreadLength, 2)} m`, buildMarkerPlannedSpreadLengthFormula(plan))}
+        ${renderReadonlyField('正式技术包', context?.techPackStatusLabel || plan.techPackVersion || '正式版')}
       </div>
       <div class="mt-3">
         ${renderTextareaField('备注', plan.remark || '', 'remark')}
@@ -3716,10 +3865,10 @@ function cancelDraftPlan(): boolean {
   if (route.kind !== 'EDIT' || !state.draftPlan) return false
   const context = getDraftContext(getViewModel())
   if (!context) {
-    setFeedback('warning', '当前方案床次来源已丢失，无法作废。')
+    setFeedback('warning', '当前方案唛架来源已丢失，无法作废。')
     return true
   }
-  const confirmed = window.confirm('确认作废当前方案床次吗？')
+  const confirmed = window.confirm('确认作废当前方案唛架吗？')
   if (!confirmed) return true
   const nextPlan = hydrateMarkerPlan(
     {
@@ -4099,6 +4248,54 @@ function handleAction(action: string, node: HTMLElement): boolean {
     })
   }
 
+  if (action === 'add-matrix-row') {
+    const bedId = node.dataset.bedId || ''
+    if (!bedId) return false
+    if (!confirmReferencedStructuralEdit(viewModel)) return true
+    return updateDraft((plan) => {
+      const sizeColumns = getMarkerMatrixSizeColumns(plan)
+      const defaultColor = getMarkerMatrixColorRows(plan)[0] || '主色'
+      const beds = buildMarkerSchemeFromPlan(plan).beds.map((bed) => {
+        if (bed.bedId !== bedId) return bed
+        const rows = createMarkerMatrixRows(plan, bed)
+        return {
+          ...bed,
+          highLowMatrixRows: [
+            ...rows,
+            {
+              rowId: `${bed.bedId}-matrix-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+              colorCode: defaultColor,
+              colorName: defaultColor,
+              markerLength: 0,
+              sizeValues: Object.fromEntries(sizeColumns.map((size) => [size, 0])) as Record<string, number>,
+              patternValues: {},
+              totalQty: 0,
+            },
+          ],
+        }
+      })
+      return applySchemeBedsToPlan(plan, beds)
+    })
+  }
+
+  if (action === 'remove-matrix-row') {
+    const bedId = node.dataset.bedId || ''
+    const rowId = node.dataset.rowId || ''
+    if (!bedId || !rowId) return false
+    if (!confirmReferencedStructuralEdit(viewModel)) return true
+    return updateDraft((plan) => {
+      const beds = buildMarkerSchemeFromPlan(plan).beds.map((bed) => {
+        if (bed.bedId !== bedId) return bed
+        const rows = createMarkerMatrixRows(plan, bed).filter((row) => row.rowId !== rowId)
+        return {
+          ...bed,
+          highLowMatrixRows: rows,
+        }
+      })
+      return applySchemeBedsToPlan(plan, beds)
+    })
+  }
+
   if (action === 'toggle-bed-size') {
     const bedId = node.dataset.bedId || ''
     const sizeName = node.dataset.sizeName || ''
@@ -4382,6 +4579,119 @@ export function handleCraftCuttingMarkerPlanEvent(target: Element): boolean {
     }))
   }
 
+  const sizePiecePerLayerNode = target.closest<HTMLElement>('[data-marker-plan-size-piece-per-layer]')
+  if (sizePiecePerLayerNode) {
+    const bedId = sizePiecePerLayerNode.dataset.bedId || ''
+    const sizeName = sizePiecePerLayerNode.dataset.sizeName || ''
+    const input = sizePiecePerLayerNode as HTMLInputElement
+    if (!bedId || !sizeName) return false
+    if (!confirmReferencedStructuralEdit(viewModel)) return true
+    return updateDraft((plan) => {
+      const nextValue = Math.max(Math.round(safeNumber(input.value)), 0)
+      const beds = buildMarkerSchemeFromPlan(plan).beds.map((bed) => {
+        if (bed.bedId !== bedId) return bed
+        return {
+          ...bed,
+          sizePiecePerLayer: {
+            ...(bed.sizePiecePerLayer || {}),
+            [sizeName]: nextValue,
+          },
+        }
+      })
+      return applySchemeBedsToPlan(plan, beds)
+    })
+  }
+
+  const matrixCellNode = target.closest<HTMLElement>('[data-marker-plan-matrix-cell]')
+  if (matrixCellNode) {
+    const bedId = matrixCellNode.dataset.bedId || ''
+    const rowId = matrixCellNode.dataset.rowId || ''
+    const sizeName = matrixCellNode.dataset.sizeName || ''
+    const input = matrixCellNode as HTMLInputElement
+    if (!bedId || !rowId || !sizeName) return false
+    if (!confirmReferencedStructuralEdit(viewModel)) return true
+    return updateDraft((plan) => {
+      const sizeColumns = getMarkerMatrixSizeColumns(plan)
+      const nextValue = Math.max(Math.round(safeNumber(input.value)), 0)
+      const beds = buildMarkerSchemeFromPlan(plan).beds.map((bed) => {
+        if (bed.bedId !== bedId) return bed
+        const sizePiecePerLayer = normalizeMarkerSizePiecePerLayer(bed, sizeColumns)
+        const rows = createMarkerMatrixRows(plan, bed).map((row) => {
+          if (row.rowId !== rowId) return row
+          let sizeValues = { ...row.sizeValues, [sizeName]: nextValue }
+          if (bed.bedMode === 'normal' || bed.bedMode === 'fold_normal') {
+            sizeValues = Object.fromEntries(sizeColumns.map((size) => [size, nextValue])) as Record<string, number>
+          }
+          return {
+            ...row,
+            sizeValues,
+            totalQty: sizeColumns.reduce((total, size) => total + Math.max(Math.round(safeNumber(sizeValues[size])), 0) * Math.max(Math.round(safeNumber(sizePiecePerLayer[size])), 0), 0),
+          }
+        })
+        return {
+          ...bed,
+          highLowMatrixRows: rows,
+        }
+      })
+      return applySchemeBedsToPlan(plan, beds)
+    })
+  }
+
+  const matrixRowLengthNode = target.closest<HTMLElement>('[data-marker-plan-matrix-row-length]')
+  if (matrixRowLengthNode) {
+    const bedId = matrixRowLengthNode.dataset.bedId || ''
+    const rowId = matrixRowLengthNode.dataset.rowId || ''
+    const input = matrixRowLengthNode as HTMLInputElement
+    if (!bedId || !rowId) return false
+    if (!confirmReferencedStructuralEdit(viewModel)) return true
+    return updateDraft((plan) => {
+      const beds = buildMarkerSchemeFromPlan(plan).beds.map((bed) => {
+        if (bed.bedId !== bedId) return bed
+        const rows = createMarkerMatrixRows(plan, bed).map((row) =>
+          row.rowId === rowId
+            ? {
+                ...row,
+                markerLength: Math.max(safeNumber(input.value), 0),
+              }
+            : row,
+        )
+        return {
+          ...bed,
+          highLowMatrixRows: rows,
+        }
+      })
+      return applySchemeBedsToPlan(plan, beds)
+    })
+  }
+
+  const matrixRowColorNode = target.closest<HTMLElement>('[data-marker-plan-matrix-row-color]')
+  if (matrixRowColorNode) {
+    const bedId = matrixRowColorNode.dataset.bedId || ''
+    const rowId = matrixRowColorNode.dataset.rowId || ''
+    const input = matrixRowColorNode as HTMLSelectElement
+    if (!bedId || !rowId) return false
+    if (!confirmReferencedStructuralEdit(viewModel)) return true
+    return updateDraft((plan) => {
+      const beds = buildMarkerSchemeFromPlan(plan).beds.map((bed) => {
+        if (bed.bedId !== bedId) return bed
+        const rows = createMarkerMatrixRows(plan, bed).map((row) =>
+          row.rowId === rowId
+            ? {
+                ...row,
+                colorCode: input.value,
+                colorName: input.value,
+              }
+            : row,
+        )
+        return {
+          ...bed,
+          highLowMatrixRows: rows,
+        }
+      })
+      return applySchemeBedsToPlan(plan, beds)
+    })
+  }
+
   const bedFieldNode = target.closest<HTMLElement>('[data-marker-plan-bed-field]')
   if (bedFieldNode) {
     const field = bedFieldNode.dataset.markerPlanBedField as MarkerPlanBedField | undefined
@@ -4403,16 +4713,6 @@ export function handleCraftCuttingMarkerPlanEvent(target: Element): boolean {
             bedMode: nextMode,
             bedNo: nextBedNo,
             foldConfig: isFoldBedMode(nextMode) ? plan.foldConfig : null,
-          }
-        }
-        if (field === 'colorCode') {
-          const nextColor = input.value
-          const selectedSizes = bed.coverageRows.map((row) => row.sizeName || row.sizeCode)
-          return {
-            ...bed,
-            colorCode: nextColor,
-            colorName: nextColor,
-            coverageRows: buildBedCoverageRows(plan, nextColor, selectedSizes),
           }
         }
         if (field === 'plannedLayerCount' || field === 'markerPieceQtyPerLayer') {

@@ -15,6 +15,7 @@ import {
 import type { ProcessTask } from './process-tasks.ts'
 import { getPrintWorkOrderByTaskId } from './printing-task-domain.ts'
 import {
+  getPostFinishingTaskById,
   getPostFinishingWorkOrderBySourceTaskId,
 } from './post-finishing-domain.ts'
 import {
@@ -300,6 +301,23 @@ function getSpecialCraftSourceInfo(task: ProcessTask): Partial<MobileExecutionTa
 }
 
 function getPostFinishingSourceInfo(task: ProcessTask): Partial<MobileExecutionTaskSourceInfo> {
+  const postTask = getPostFinishingTaskById(task.taskId)
+  if (postTask) {
+    return {
+      sourceType: 'POST_FINISHING_TASK',
+      sourceId: normalizeString(postTask.postTaskId),
+      sourceWorkOrderId: normalizeString(postTask.postTaskId),
+      sourceWorkOrderNo: normalizeString(postTask.postTaskNo),
+      workOrderNo: normalizeString(postTask.postTaskNo),
+      postOrderNo: normalizeString(postTask.postTaskNo),
+      sourceIds: uniqueStrings([postTask.postTaskId, postTask.productionOrderId, postTask.productionOrderNo]),
+      sourceNos: uniqueStrings([postTask.postTaskNo, postTask.productionOrderNo, ...postTask.sourceTaskNos]),
+      productionOrderNo: normalizeString(postTask.productionOrderNo),
+      sourceTaskNo: normalizeString(postTask.sourceTaskNos.join('、') || postTask.postTaskNo),
+      partName: normalizeString(postTask.spuName),
+      operationName: '后道',
+    }
+  }
   const order = getPostFinishingWorkOrderBySourceTaskId(task.taskId)
   if (!order) return {}
   return {
@@ -425,7 +443,7 @@ function matchSourceType(task: ProcessTask, sourceType: string | undefined, sour
   if (['SPECIAL_CRAFT_WORK_ORDER', 'SPECIAL_CRAFT_TASK_ORDER', 'SPECIAL_CRAFT_ORDER'].includes(normalizedSourceType)) {
     return info.processType === 'SPECIAL_CRAFT'
   }
-  if (['POST_FINISHING_WORK_ORDER', 'POST_FINISHING_ORDER', 'POST_ORDER'].includes(normalizedSourceType)) {
+  if (['POST_FINISHING_TASK', 'POST_TASK', 'POST_FINISHING_WORK_ORDER', 'POST_FINISHING_ORDER', 'POST_ORDER'].includes(normalizedSourceType)) {
     return info.processType === 'POST_FINISHING'
   }
   return info.sourceType === normalizedSourceType || relatedIds.includes(normalizedSourceType.toLowerCase())

@@ -63,7 +63,7 @@ function renderDistribution(): string {
                 <tr>
                   <th class="px-3 py-2 font-medium">工厂</th>
                   <th class="px-3 py-2 font-medium">加工单数</th>
-                  <th class="px-3 py-2 font-medium">计划印花面料米数 / 裁片数量</th>
+                  <th class="px-3 py-2 font-medium">需求单印花数量</th>
                   <th class="px-3 py-2 font-medium">执行完成面料米数 / 裁片数量</th>
                   <th class="px-3 py-2 font-medium">已交出面料米数 / 裁片数量</th>
                   <th class="px-3 py-2 font-medium">差异面料米数 / 裁片数量</th>
@@ -120,7 +120,7 @@ function renderBoardList(): string {
               <th class="px-3 py-2 font-medium">当前状态</th>
               <th class="px-3 py-2 font-medium">工厂</th>
               <th class="px-3 py-2 font-medium">打印机</th>
-              <th class="px-3 py-2 font-medium">计划印花面料米数 / 裁片数量</th>
+              <th class="px-3 py-2 font-medium">需求单印花数量</th>
               <th class="px-3 py-2 font-medium">打印完成面料米数 / 裁片数量</th>
               <th class="px-3 py-2 font-medium">待处理</th>
             </tr>

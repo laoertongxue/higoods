@@ -8,6 +8,8 @@ import {
 export interface MarkerSchemeSourceValidationInput {
   contextNo: string
   spuCode: string
+  productionOrderIds?: string[]
+  productionOrderNos?: string[]
   techPackStatusLabel?: string
   materialSkuSummary?: string
 }
@@ -35,13 +37,19 @@ export function validateMarkerSchemeSourceCandidates(
 ): MarkerSchemeSourceValidationResult {
   const messages: string[] = []
   const spuCodes = Array.from(new Set(candidates.map((candidate) => candidate.spuCode).filter(Boolean)))
-  const materialSkus = Array.from(new Set(candidates.map((candidate) => candidate.materialSkuSummary || '').filter(Boolean)))
+  const productionOrderKeys = Array.from(
+    new Set(
+      candidates
+        .flatMap((candidate) => candidate.productionOrderIds?.length ? candidate.productionOrderIds : candidate.productionOrderNos || [])
+        .filter(Boolean),
+    ),
+  )
   if (!candidates.length) messages.push('请选择来源单据')
   if (spuCodes.length > 1) messages.push('已选单据不属于同一款式')
+  if (productionOrderKeys.length > 1) messages.push('已选单据不属于同一生产单')
   if (candidates.some((candidate) => !String(candidate.techPackStatusLabel || '').includes('正式'))) {
     messages.push('当前款式没有正式版技术包')
   }
-  if (materialSkus.length > 1) messages.push('已选单据面料不一致，请拆分方案')
   return {
     passed: messages.length === 0,
     messages,
