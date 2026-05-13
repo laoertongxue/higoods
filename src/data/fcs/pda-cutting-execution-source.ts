@@ -29,12 +29,6 @@ import {
   getFirstCuttingMainlineSessionForTask,
   listCuttingMainlineSessionsForProductionOrder,
 } from './cutting/cutting-mainline.ts'
-import {
-  findFactoryPdaRoleById,
-  getCurrentPdaUser,
-  getPdaSession,
-  initialFactoryUsers,
-} from './store-domain-pda.ts'
 import type {
   PdaCutPieceHandoverWritebackRecord,
   PdaCutPieceInboundWritebackRecord,
@@ -166,7 +160,7 @@ export interface PdaCuttingSpreadingRecord {
 
 export interface PdaCuttingSpreadingTarget {
   targetKey: string
-  targetType: 'session' | 'marker' | 'manual-entry'
+  targetType: 'session' | 'marker'
   spreadingSessionId: string
   markerId: string
   markerNo: string
@@ -428,21 +422,6 @@ function buildActualReceivedQtyText(input: {
 
 function getSnapshot(snapshot?: CuttingDomainSnapshot): CuttingDomainSnapshot {
   return snapshot ?? buildFcsCuttingDomainSnapshot()
-}
-
-function canAccessManualSpreadingEntry(): boolean {
-  const session = getPdaSession()
-  const pdaUser = getCurrentPdaUser()
-  if (session?.userId && pdaUser) {
-    const roleName =
-      findFactoryPdaRoleById(pdaUser.roleId, pdaUser.factoryId)?.roleName ||
-      pdaUser.roleId
-    return pdaUser.roleId === 'ROLE_ADMIN' || pdaUser.roleId === 'ROLE_DISPATCH' || roleName === '调度员'
-  }
-  if (!session?.userId) return false
-  const factoryUser = initialFactoryUsers.find((item) => item.userId === session.userId)
-  if (!factoryUser) return false
-  return factoryUser.roleIds.includes('ROLE_ADMIN') || factoryUser.roleIds.includes('ROLE_DISPATCH')
 }
 
 function formatQty(value: number): string {
@@ -844,7 +823,7 @@ function buildSpreadingTargets(snapshot: CuttingDomainSnapshot, execution: PdaCu
     sourceMarkerLabel:
       session.sourceSchemeNo && (session.sourceBedNo || session.markerNo)
         ? `${session.sourceSchemeNo} / ${session.sourceBedNo || session.markerNo}`
-        : session.markerNo || session.sourceMarkerNo || '未绑定唛架编号',
+        : session.markerNo || session.sourceMarkerNo || session.sessionNo || '待关联唛架编号',
     spreadingMode: mapSpreadingModeKey(session.spreadingMode),
     title: session.sessionNo || `铺布对象 ${session.spreadingSessionId.slice(-6)}`,
     contextLabel: '继续当前铺布',
@@ -912,42 +891,6 @@ function buildSpreadingTargets(snapshot: CuttingDomainSnapshot, execution: PdaCu
     ...markerTargets,
     ...canonicalMarkerTargets,
   ]
-
-  if (canAccessManualSpreadingEntry()) {
-    targets.push({
-      targetKey: `manual-entry:${execution.executionOrderId}`,
-      targetType: 'manual-entry',
-      spreadingSessionId: '',
-      markerId: '',
-      markerNo: '',
-      sourceMarkerLabel: '未绑定唛架编号',
-      spreadingMode: 'NORMAL',
-      title: execution.mergeBatchNo ? '异常补录当前批次铺布' : '异常补录当前裁片单铺布',
-      contextLabel: '异常补录铺布',
-      statusLabel: '当前无唛架，仅允许异常补录',
-      originalCutOrderNo: execution.originalCutOrderNo || '',
-      mergeBatchNo: execution.mergeBatchNo || '',
-      productionOrderNo: execution.productionOrderNo || '',
-      materialSku: execution.materialSku || '',
-      colorSummary: execution.colorLabel || '',
-      importedFromMarker: false,
-      planUnits: [
-        {
-          planUnitId: `plan-unit-manual-${execution.executionOrderId}`,
-          sourceType: 'exception',
-          sourceLineId: execution.executionOrderId,
-          label: `${execution.colorLabel || '待补颜色'} / ${execution.materialSku || '待补面料'} / 0 件`,
-          color: execution.colorLabel || '',
-          materialSku: execution.materialSku || '',
-          garmentQtyPerUnit: 0,
-          plannedRepeatCount: 0,
-          lengthPerUnitM: 0,
-          plannedCutGarmentQty: 0,
-          plannedSpreadLengthM: 0,
-        },
-      ],
-    })
-  }
 
   return targets
 }

@@ -6367,7 +6367,26 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
   if (action === 'select-spreading-create-marker') {
     const markerId = actionNode.dataset.markerId || ''
     state.selectedCreateMarkerId = markerId
-    appStore.navigate(buildMarkerRouteWithContext(getCanonicalCuttingPath('spreading-create'), { markerId }))
+    state.feedback = null
+    window.history.replaceState(
+      window.history.state,
+      '',
+      buildMarkerRouteWithContext(getCanonicalCuttingPath('spreading-create'), { markerId }),
+    )
+    document
+      .querySelectorAll<HTMLElement>('[data-cutting-marker-action="select-spreading-create-marker"]')
+      .forEach((button) => {
+        const isSelected = button.dataset.markerId === markerId
+        button.textContent = isSelected ? '已选中' : '选中'
+        button.classList.toggle('bg-blue-600', isSelected)
+        button.classList.toggle('text-white', isSelected)
+      })
+    const nextButton = document.querySelector<HTMLButtonElement>('[data-cutting-marker-action="next-spreading-create-step"]')
+    if (nextButton) {
+      nextButton.disabled = false
+      nextButton.classList.remove('cursor-not-allowed', 'opacity-50')
+      nextButton.classList.add('hover:bg-blue-700')
+    }
     return true
   }
 

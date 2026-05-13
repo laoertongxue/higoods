@@ -79,7 +79,7 @@ export function renderPdaCuttingExecutionUnitPage(taskId: string, executionOrder
           <section class="rounded-2xl border bg-card p-3 shadow-sm">
             <div class="flex items-start justify-between gap-2">
               <div>
-                <div class="text-xs text-muted-foreground">铺布现场</div>
+                <div class="text-xs text-muted-foreground">铺布任务</div>
                 <h1 class="mt-1 text-lg font-semibold text-foreground">${escapeHtml(session.sessionNo)}</h1>
                 <div class="mt-1 text-xs text-muted-foreground">排唛架方案 ${escapeHtml(session.markerPlanNo)} / 唛架编号 ${escapeHtml(session.markerBedNo)}</div>
               </div>

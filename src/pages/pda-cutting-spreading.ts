@@ -71,27 +71,8 @@ function getSpreadingDetail(taskId: string, executionKey?: string | null) {
   return buildPdaCuttingSpreadingProjection(taskId, executionKey ?? undefined)
 }
 
-function canUseManualSpreadingEntry(): boolean {
-  const session = getPdaSession()
-  const pdaUser = getCurrentPdaUser()
-  if (session?.userId && pdaUser) {
-    const roleName =
-      findFactoryPdaRoleById(pdaUser.roleId, pdaUser.factoryId)?.roleName ||
-      pdaUser.roleId
-    return pdaUser.roleId === 'ROLE_ADMIN' || pdaUser.roleId === 'ROLE_DISPATCH' || roleName === '调度员'
-  }
-  if (!session?.userId) return false
-  const factoryUser = initialFactoryUsers.find((item) => item.userId === session.userId)
-  if (!factoryUser) return false
-  return factoryUser.roleIds.includes('ROLE_ADMIN') || factoryUser.roleIds.includes('ROLE_DISPATCH')
-}
-
 function getVisibleTargets(detail: PdaCuttingTaskDetailData): PdaCuttingSpreadingTarget[] {
-  if (!canUseManualSpreadingEntry()) {
-    return listWorkerVisiblePdaSpreadingTargets(detail)
-  }
-  return detail.spreadingTargets.filter((target) =>
-    target.targetType === 'session' || target.targetType === 'marker' || target.targetType === 'manual-entry')
+  return listWorkerVisiblePdaSpreadingTargets(detail)
 }
 
 function getSelectedTarget(detail: PdaCuttingTaskDetailData, selectedTargetKey: string): PdaCuttingSpreadingTarget | null {
@@ -168,7 +149,7 @@ function getTargetEntryLabel(target: PdaCuttingSpreadingTarget | null): string {
   if (!target) return '待选择铺布对象'
   if (target.targetType === 'session') return '继续当前铺布'
   if (target.targetType === 'marker') return '按唛架开始铺布'
-  return '异常补录铺布'
+  return '按唛架开始铺布'
 }
 
 function getActualCutGarmentQty(form: SpreadingFormState, selectedPlanUnit: ReturnType<typeof getSelectedPlanUnit>): number {
@@ -304,11 +285,16 @@ function renderTargetSummary(target: PdaCuttingSpreadingTarget | null): string {
     return renderPdaCuttingEmptyState('当前无可选铺布对象', '')
   }
 
+  const markerParts = target.sourceMarkerLabel.split('/').map((item) => item.trim()).filter(Boolean)
+  const schemeLabel = markerParts.length > 1 ? markerParts[0] : target.title || '—'
+  const markerLabel = markerParts.length > 1 ? markerParts.slice(1).join(' / ') : target.sourceMarkerLabel
+
   return `
     <div class="grid gap-1.5 text-xs sm:grid-cols-2">
-      <div><div class="text-muted-foreground">当前铺布对象</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(target.title)}</div></div>
+      <div><div class="text-muted-foreground">铺布任务</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(target.title)}</div></div>
       <div><div class="text-muted-foreground">当前状态</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(target.statusLabel)}</div></div>
-      <div><div class="text-muted-foreground">唛架编号</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(target.sourceMarkerLabel)}</div></div>
+      <div><div class="text-muted-foreground">排唛架方案</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(schemeLabel)}</div></div>
+      <div><div class="text-muted-foreground">唛架编号</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(markerLabel || '—')}</div></div>
       <div data-pda-cut-spreading-field="spreadingMode"><div class="text-muted-foreground">唛架模式</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(getSpreadingModeLabel(target.spreadingMode))}</div></div>
       <div><div class="text-muted-foreground">原始裁片单</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(target.originalCutOrderNo || '—')}</div></div>
       <div><div class="text-muted-foreground">合并裁剪批次</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(target.mergeBatchNo || '—')}</div></div>
@@ -361,7 +347,7 @@ function renderFormInner(
       ${renderFeedbackBlock(form)}
       <section class="rounded-xl border bg-card px-1.5 py-1" data-testid="pda-cutting-spreading-object-summary">
         <div class="grid gap-1 text-xs sm:grid-cols-2">
-          <div><div class="text-muted-foreground">任务号</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(detail.taskNo)}</div></div>
+          <div><div class="text-muted-foreground">铺布任务</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(selectedTarget?.title || detail.taskNo)}</div></div>
           <div><div class="text-muted-foreground">执行对象</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(detail.executionOrderNo)}</div></div>
           <div><div class="text-muted-foreground">裁片单</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(detail.originalCutOrderNo)}</div></div>
           <div><div class="text-muted-foreground">面料 SKU</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(detail.materialSku)}</div></div>

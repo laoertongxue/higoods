@@ -31,7 +31,6 @@ import {
 } from '../data/fcs/process-mobile-task-binding.ts'
 import { getPrintWorkOrderByTaskId } from '../data/fcs/printing-task-domain.ts'
 import { getDyeWorkOrderByTaskId } from '../data/fcs/dyeing-task-domain.ts'
-import { FULL_CAPABILITY_FACTORY_ID } from '../data/fcs/post-finishing-domain.ts'
 import {
   formatProcessQuantityWithUnit,
   getQuantityLabel,
@@ -366,7 +365,6 @@ function mutateFinishTask(taskId: string, by: string): void {
 function getAcceptedTasks(factoryId: string): ProcessTask[] {
   return listMobileExecutionTasks({
     currentFactoryId: factoryId,
-    processType: factoryId === FULL_CAPABILITY_FACTORY_ID ? 'POST_FINISHING' : undefined,
   })
 }
 
@@ -434,7 +432,7 @@ function renderCuttingMainlineCard(task: ProcessTask): string {
 
         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
           <div class="text-muted-foreground">执行对象</div>
-          <div class="font-medium">唛架方案床次</div>
+          <div class="font-medium">排唛架方案 / 唛架编号</div>
           <div class="text-muted-foreground">铺布任务</div>
           <div class="font-medium">${escapeHtml(String(view.sessions.length))} 个</div>
           <div class="text-muted-foreground">当前状态</div>
@@ -461,6 +459,47 @@ function renderCuttingMainlineCard(task: ProcessTask): string {
       </div>
     </article>
   `
+}
+
+function buildPdaExecTasksByStatus(acceptedTasks: ProcessTask[]): Record<TaskStatusTab, ProcessTask[]> {
+  const tasksByStatus = buildPdaExecTasksByStatus(acceptedTasks)
+
+  return tasksByStatus
+}
+
+function getPdaExecEmptyStateText(acceptedTasks: ProcessTask[]): string {
+  if (acceptedTasks.length === 0) return '当前工厂暂无可执行任务'
+  if (state.searchKeyword.trim()) return '当前关键词未找到任务'
+  if (state.activeTab === 'IN_PROGRESS' && state.riskParam === 'due-soon') return '当前暂无即将逾期任务'
+  if (state.activeTab === 'NOT_STARTED' && state.riskParam === 'start-due-soon') return '当前暂无开工预期任务'
+  return '当前筛选条件下暂无任务'
+}
+
+function renderPdaExecCardList(filteredTasks: ProcessTask[], emptyStateText: string): string {
+  if (filteredTasks.length === 0) {
+    return `<div class="py-10 text-center text-sm text-muted-foreground">${escapeHtml(emptyStateText)}</div>`
+  }
+
+  return filteredTasks
+    .map((task) => {
+      if (isCuttingProcessTask(task)) return renderCuttingMainlineCard(task)
+      if (state.activeTab === 'NOT_STARTED') return renderNotStartedCard(task)
+      if (state.activeTab === 'IN_PROGRESS') return renderInProgressCard(task)
+      if (state.activeTab === 'BLOCKED') return renderBlockedCard(task)
+      return renderDoneCard(task)
+    })
+    .join('')
+}
+
+function updatePdaExecCardListInPlace(): void {
+  const listNode = document.querySelector<HTMLElement>('[data-testid="pda-exec-card-list"]')
+  if (!listNode) return
+
+  const selectedFactoryId = getCurrentFactoryId()
+  const acceptedTasks = getAcceptedTasks(selectedFactoryId)
+  const tasksByStatus = buildPdaExecTasksByStatus(acceptedTasks)
+  const filteredTasks = getFilteredTasks(tasksByStatus, state.activeTab)
+  listNode.innerHTML = renderPdaExecCardList(filteredTasks, getPdaExecEmptyStateText(acceptedTasks))
 }
 
 function renderNotStartedCard(task: ProcessTask): string {
@@ -877,16 +916,7 @@ export function renderPdaExecPage(): string {
             ? '已为您定位到开工预期任务'
           : ''
 
-  const emptyStateText =
-    acceptedTasks.length === 0
-      ? '当前工厂暂无可执行任务'
-      : state.searchKeyword.trim()
-        ? '当前关键词未找到任务'
-        : state.activeTab === 'IN_PROGRESS' && state.riskParam === 'due-soon'
-          ? '当前暂无即将逾期任务'
-          : state.activeTab === 'NOT_STARTED' && state.riskParam === 'start-due-soon'
-            ? '当前暂无开工预期任务'
-            : '当前筛选条件下暂无任务'
+  const emptyStateText = getPdaExecEmptyStateText(acceptedTasks)
 
   const content = `
     <div class="flex min-h-[760px] flex-col bg-background" data-testid="pda-exec-page">
@@ -941,19 +971,7 @@ export function renderPdaExecPage(): string {
       </div>
 
       <div class="flex-1 space-y-3 p-4" data-testid="pda-exec-card-list">
-        ${
-          filteredTasks.length === 0
-            ? `<div class="py-10 text-center text-sm text-muted-foreground">${escapeHtml(emptyStateText)}</div>`
-            : filteredTasks
-                .map((task) => {
-                  if (isCuttingProcessTask(task)) return renderCuttingMainlineCard(task)
-                  if (state.activeTab === 'NOT_STARTED') return renderNotStartedCard(task)
-                  if (state.activeTab === 'IN_PROGRESS') return renderInProgressCard(task)
-                  if (state.activeTab === 'BLOCKED') return renderBlockedCard(task)
-                  return renderDoneCard(task)
-                })
-                .join('')
-        }
+        ${renderPdaExecCardList(filteredTasks, emptyStateText)}
       </div>
     </div>
   `
@@ -971,8 +989,8 @@ export function handlePdaExecEvent(target: HTMLElement): boolean {
 
     if (field === 'searchKeyword') {
       state.searchKeyword = fieldNode.value
-      appStore.navigate(buildPdaExecListPath())
-      return true
+      updatePdaExecCardListInPlace()
+      return false
     }
   }
 
