@@ -18,11 +18,20 @@ import {
 import {
   getPdaTaskFlowTaskById,
   isCuttingSpecialTask,
-  listPdaTaskFlowTasks,
   resolvePdaTaskDetailPath,
   resolvePdaTaskExecPath,
   type PdaTaskFlowMock,
 } from '../data/fcs/pda-cutting-execution-source.ts'
+import {
+  getMobileTaskProcessType,
+  getPdaMobileExecutionTaskById,
+  listPdaMobileExecutionTasks,
+} from '../data/fcs/process-mobile-task-binding.ts'
+import {
+  acceptPostFinishingTask,
+  FULL_CAPABILITY_FACTORY_ID,
+  rejectPostFinishingTask,
+} from '../data/fcs/post-finishing-domain.ts'
 import { renderPdaFrame } from './pda-shell'
 import {
   buildPdaCuttingDirectExecEntryHref,
@@ -166,7 +175,16 @@ const submittedQuotes = new Map<string, SubmittedQuoteSnapshot>(
 let lastFocusedTaskToken = ''
 
 function getTaskFactById(taskId: string): ProcessTask | null {
-  return getPdaTaskFlowTaskById(taskId) ?? null
+  return getPdaMobileExecutionTaskById(taskId) ?? getPdaTaskFlowTaskById(taskId) ?? null
+}
+
+function isPostFinishingDirectOnlyFactory(factoryId: string): boolean {
+  return factoryId === FULL_CAPABILITY_FACTORY_ID
+}
+
+function getVisibleTabs(factoryId: string): Array<{ key: TabKey; label: string }> {
+  if (isPostFinishingDirectOnlyFactory(factoryId)) return TABS.filter((tab) => tab.key === 'pending-accept')
+  return TABS
 }
 
 function getTaskDisplayNo(task: ProcessTask | null): string {
@@ -195,13 +213,16 @@ function getCurrentSearchParams(): URLSearchParams {
 }
 
 function syncTabWithQuery(): void {
+  const visibleTabs = getVisibleTabs(getCurrentFactoryId())
   const tab = getCurrentSearchParams().get('tab')
   if (!tab) {
     state.activeTab = 'pending-accept'
     return
   }
-  if (TABS.some((item) => item.key === tab)) {
+  if (visibleTabs.some((item) => item.key === tab)) {
     state.activeTab = tab as TabKey
+  } else {
+    state.activeTab = 'pending-accept'
   }
 }
 
@@ -275,6 +296,9 @@ function mutateAcceptTask(taskId: string, by: string): void {
   if (task.processBusinessCode === 'KNITTING' && knittingOrderId) {
     acceptKnittingWorkOrder(knittingOrderId, by, now)
   }
+  if (task.processBusinessCode === 'POST_FINISHING' || task.processCode === 'POST_FINISHING' || task.processNameZh === '后道') {
+    acceptPostFinishingTask(taskId, by, now)
+  }
 
   task.acceptanceStatus = 'ACCEPTED'
   task.acceptedAt = now
@@ -296,6 +320,9 @@ function mutateRejectTask(taskId: string, reason: string, by: string): void {
   const now = nowTimestamp()
   const task = getTaskFactById(taskId)
   if (!task) return
+  if (task.processBusinessCode === 'POST_FINISHING' || task.processCode === 'POST_FINISHING' || task.processNameZh === '后道') {
+    rejectPostFinishingTask(taskId, reason, by, now)
+  }
 
   task.acceptanceStatus = 'REJECTED'
   task.assignmentStatus = 'UNASSIGNED'
@@ -427,7 +454,7 @@ function getActiveBiddingTenders(): BiddingTender[] {
 }
 
 function getAwardedTenders(selectedFactoryId: string): AwardedTender[] {
-  const taskFacts = listPdaTaskFlowTasks()
+  const taskFacts = listPdaMobileExecutionTasks()
   const awardedTaskIds = new Set(
     listPdaAwardedTenderNoticesByFactoryId(selectedFactoryId).map((item) => item.taskId),
   )
@@ -466,7 +493,9 @@ function getAwardedTenders(selectedFactoryId: string): AwardedTender[] {
 }
 
 function getPendingAcceptTasks(selectedFactoryId: string): ProcessTask[] {
-  return filterReceivePendingAcceptTasks(listPdaTaskFlowTasks(), selectedFactoryId)
+  const tasks = filterReceivePendingAcceptTasks(listPdaMobileExecutionTasks(), selectedFactoryId)
+  if (!isPostFinishingDirectOnlyFactory(selectedFactoryId)) return tasks
+  return tasks.filter((task) => getMobileTaskProcessType(task) === 'POST_FINISHING')
 }
 
 function getFilteredPendingTasks(pendingAcceptTasks: ProcessTask[]): ProcessTask[] {
@@ -1058,6 +1087,7 @@ export function renderPdaTaskReceivePage(): string {
 
   const selectedFactoryId = getCurrentFactoryId()
   const factoryName = getFactoryName(selectedFactoryId)
+  const visibleTabs = getVisibleTabs(selectedFactoryId)
   scheduleTaskFocus(getFocusedTaskId())
 
   const pendingAcceptTasks = getPendingAcceptTasks(selectedFactoryId)
@@ -1066,10 +1096,11 @@ export function renderPdaTaskReceivePage(): string {
     state.processFilter = 'ALL'
   }
 
-  const activeBiddingTenders = getActiveBiddingTenders()
+  const directOnlyFactory = isPostFinishingDirectOnlyFactory(selectedFactoryId)
+  const activeBiddingTenders = directOnlyFactory ? [] : getActiveBiddingTenders()
   syncQuoteDialogWithQuery(activeBiddingTenders)
-  const allQuotedTenders = getQuotedTenders(selectedFactoryId)
-  const awardedTenders = getAwardedTenders(selectedFactoryId)
+  const allQuotedTenders = directOnlyFactory ? [] : getQuotedTenders(selectedFactoryId)
+  const awardedTenders = directOnlyFactory ? [] : getAwardedTenders(selectedFactoryId)
   const filteredPendingTasks = getFilteredPendingTasks(pendingAcceptTasks)
   const tabCounts = getTabCounts(
     pendingAcceptTasks,
@@ -1084,7 +1115,7 @@ export function renderPdaTaskReceivePage(): string {
       <header class="sticky top-0 z-30 border-b bg-background px-4 py-3">
         <h1 class="mb-3 flex items-center gap-2 text-lg font-semibold">
           <i data-lucide="clipboard-list" class="h-5 w-5"></i>
-          接单与报价
+          ${directOnlyFactory ? '派单接单' : '接单与报价'}
         </h1>
 
         <div class="relative mb-2">
@@ -1124,7 +1155,7 @@ export function renderPdaTaskReceivePage(): string {
       </header>
 
       <div class="sticky top-[auto] z-20 flex border-b bg-background">
-        ${TABS.map((tab) => {
+        ${visibleTabs.map((tab) => {
           const active = tab.key === state.activeTab
           return `
             <button
@@ -1289,7 +1320,7 @@ export function handlePdaTaskReceiveEvent(target: HTMLElement): boolean {
 
   if (action === 'switch-tab') {
     const tab = actionNode.dataset.tab as TabKey | undefined
-    if (tab && TABS.some((item) => item.key === tab)) {
+    if (tab && getVisibleTabs(getCurrentFactoryId()).some((item) => item.key === tab)) {
       state.activeTab = tab
       appStore.navigate(`/fcs/pda/task-receive?tab=${tab}`)
     }
@@ -1299,7 +1330,7 @@ export function handlePdaTaskReceiveEvent(target: HTMLElement): boolean {
   if (action === 'open-detail') {
     const taskId = actionNode.dataset.taskId
     if (taskId) {
-      const task = getPdaTaskFlowTaskById(taskId)
+      const task = getTaskFactById(taskId)
       if (isCuttingSpecialTask(task)) {
         appStore.navigate(buildCuttingTaskReceiveDetailHref(task as PdaTaskFlowMock))
       } else {
@@ -1312,7 +1343,7 @@ export function handlePdaTaskReceiveEvent(target: HTMLElement): boolean {
   if (action === 'open-exec') {
     const taskId = actionNode.dataset.taskId
     if (taskId) {
-      const task = getPdaTaskFlowTaskById(taskId)
+      const task = getTaskFactById(taskId)
       if (isCuttingSpecialTask(task)) {
         appStore.navigate(buildCuttingTaskExecHref(task as PdaTaskFlowMock))
       } else {

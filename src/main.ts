@@ -617,7 +617,6 @@ function shouldSkipInputRerender(target: Element): boolean {
       '[data-marker-plan-context-field]',
       '[data-marker-plan-basic-field]',
       '[data-marker-plan-textarea-field]',
-      '[data-marker-plan-allocation-field]',
       '[data-marker-plan-size-piece-per-layer]',
       '[data-marker-plan-matrix-cell]',
       '[data-marker-plan-matrix-row-length]',

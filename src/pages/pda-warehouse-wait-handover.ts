@@ -3,6 +3,11 @@ import {
   updateWaitHandoverStockLocation,
 } from '../data/fcs/factory-internal-warehouse.ts'
 import { OWN_KNITTING_FACTORY_ID } from '../data/fcs/factory-mock-data.ts'
+import type { PostFinishingWaitHandoverWarehouseRecord } from '../data/fcs/post-finishing-domain.ts'
+import {
+  FULL_CAPABILITY_FACTORY_ID,
+  listPostFinishingWaitHandoverWarehouseRecords,
+} from '../data/fcs/post-finishing-domain.ts'
 import {
   listKnittingWaitHandoverHandoutRecords,
   listKnittingWaitHandoverInboundRecords,
@@ -62,6 +67,14 @@ const FILTERS: Array<{ value: WaitHandoverFilter; label: string }> = [
 ]
 
 const LINKED_QR_FIELD = ['handoverRecord', 'QrValue'].join('')
+
+function normalizePostFinishingIdSegment(value: string): string {
+  return value.replace(/[^A-Za-z0-9]/g, '').slice(-16) || 'UNKNOWN'
+}
+
+function buildPostFinishingPdaHandoverRoute(recheckOrderNo: string): string {
+  return `/fcs/pda/handover/HOH-POST-${normalizePostFinishingIdSegment(recheckOrderNo)}`
+}
 
 function getLinkedQrValue(source: Record<string, unknown>): string | undefined {
   const value = source[LINKED_QR_FIELD]
@@ -185,6 +198,114 @@ function renderLocationDialog(): string {
   `
 }
 
+function getPostFinishingWaitHandoverRows(): PostFinishingWaitHandoverWarehouseRecord[] {
+  return listPostFinishingWaitHandoverWarehouseRecords()
+}
+
+function getPostFinishingWaitHandoverStatus(row: PostFinishingWaitHandoverWarehouseRecord): string {
+  if (row.diffGarmentQty !== 0) return '差异'
+  if (row.submittedHandoverGarmentQty <= 0) return '待交出'
+  if (row.submittedHandoverGarmentQty >= row.waitHandoverGarmentQty && row.receivedHandoverGarmentQty >= row.submittedHandoverGarmentQty) return '已回写'
+  if (row.submittedHandoverGarmentQty >= row.waitHandoverGarmentQty) return '已交出'
+  return '部分交出'
+}
+
+function renderPostFinishingWaitHandoverDetailDrawer(): string {
+  const row = getPostFinishingWaitHandoverRows().find((item) => item.warehouseRecordId === state.detailId)
+  if (!row) return ''
+  return `
+    <div class="fixed inset-0 z-[120]">
+      <button type="button" class="absolute inset-0 bg-black/40" data-pda-warehouse-action="close-wait-handover-detail"></button>
+      <section class="absolute inset-x-0 bottom-[72px] max-h-[78vh] overflow-y-auto rounded-t-3xl border bg-background px-4 py-4 shadow-2xl">
+        <div class="flex items-center justify-between gap-3">
+          <h2 class="text-base font-semibold text-foreground">后道待交出仓详情</h2>
+          <button type="button" class="rounded-full border px-3 py-1 text-xs" data-pda-warehouse-action="close-wait-handover-detail">关闭</button>
+        </div>
+        <div class="mt-4 rounded-2xl border bg-card px-4 py-4 shadow-sm">
+          ${renderCompactFieldList([
+            { label: '仓库记录', value: row.warehouseRecordNo },
+            { label: '复检单', value: row.recheckOrderNo },
+            { label: '生产单', value: row.sourceProductionOrderNo },
+            { label: '后道任务', value: row.sourceTaskNo },
+            { label: '款式', value: `${row.spuCode} / ${row.spuName}` },
+            { label: 'SKU', value: row.skuSummary },
+            { label: '待交出', value: `${row.waitHandoverGarmentQty} ${row.qtyUnit}` },
+            { label: '已交出', value: `${row.submittedHandoverGarmentQty} ${row.qtyUnit}` },
+            { label: '已回写', value: `${row.receivedHandoverGarmentQty} ${row.qtyUnit}` },
+            { label: '差异', value: `${row.diffGarmentQty} ${row.qtyUnit}` },
+            { label: '最新交出记录', value: row.handoverRecordNo || '-' },
+            { label: '状态', value: getPostFinishingWaitHandoverStatus(row) },
+          ])}
+        </div>
+        <div class="mt-3 space-y-2">
+          ${row.flowRecords.map((flow) => `
+            <div class="rounded-xl border bg-card px-3 py-3 text-xs">
+              <div class="flex items-center justify-between gap-2">
+                <span class="font-medium">${escapeHtml(flow.flowType)}</span>
+                <span class="text-muted-foreground">${escapeHtml(formatWarehouseDateTime(flow.operatedAt))}</span>
+              </div>
+              <div class="mt-1 text-muted-foreground">${escapeHtml(flow.sourceActionRecordNo)} · ${flow.qty} ${escapeHtml(flow.qtyUnit)} · ${escapeHtml(flow.remark)}</div>
+              <div class="mt-1 text-muted-foreground">变动前后：${flow.beforeQty} → ${flow.afterQty}</div>
+            </div>
+          `).join('')}
+        </div>
+      </section>
+    </div>
+  `
+}
+
+function renderPostFinishingWaitHandoverPage(): string {
+  const rows = getPostFinishingWaitHandoverRows()
+  const waitQty = rows.reduce((sum, item) => sum + Math.max(item.waitHandoverGarmentQty - item.submittedHandoverGarmentQty, 0), 0)
+  const submittedQty = rows.reduce((sum, item) => sum + item.submittedHandoverGarmentQty, 0)
+  const flowCount = rows.reduce((sum, item) => sum + item.flowRecords.length, 0)
+  const content = `
+    <div class="space-y-4 px-4 pb-5 pt-4">
+      <section class="grid grid-cols-2 gap-2">
+        <button type="button" class="rounded-2xl border bg-background px-4 py-3 text-sm font-medium" data-nav="/fcs/pda/warehouse/wait-process">待加工仓</button>
+        <button type="button" class="rounded-2xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground" data-nav="/fcs/pda/warehouse/wait-handover">待交出仓</button>
+      </section>
+      <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
+        <div class="text-base font-semibold">后道待交出仓</div>
+        <div class="mt-1 text-xs text-muted-foreground">复检完成入待交出仓，交出记录提交后扣减。</div>
+        <div class="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+          <div class="rounded-xl bg-muted px-2 py-2"><div class="font-semibold">${rows.length}</div><div class="text-muted-foreground">SKU</div></div>
+          <div class="rounded-xl bg-muted px-2 py-2"><div class="font-semibold">${waitQty}</div><div class="text-muted-foreground">待交出</div></div>
+          <div class="rounded-xl bg-muted px-2 py-2"><div class="font-semibold">${submittedQty}</div><div class="text-muted-foreground">已交出</div></div>
+        </div>
+        <div class="mt-2 text-xs text-muted-foreground">累计流水 ${flowCount} 条。</div>
+      </section>
+      <section class="space-y-3">
+        ${rows.length > 0 ? rows.map((item) => `
+          <article class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0 flex-1">
+                <div class="text-sm font-semibold">${escapeHtml(item.skuCode)}</div>
+                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.spuName)} · ${escapeHtml(item.colorName)} / ${escapeHtml(item.sizeName)}</div>
+              </div>
+              ${renderStatusPill(getPostFinishingWaitHandoverStatus(item))}
+            </div>
+            <div class="mt-3 space-y-1.5 text-xs text-muted-foreground">
+              <div>生产单：${escapeHtml(item.sourceProductionOrderNo)}</div>
+              <div>复检单：${escapeHtml(item.recheckOrderNo)}</div>
+              <div>待交出 / 已交出：${item.waitHandoverGarmentQty} / ${item.submittedHandoverGarmentQty} ${escapeHtml(item.qtyUnit)}</div>
+              <div>已回写 / 差异：${item.receivedHandoverGarmentQty} / ${item.diffGarmentQty} ${escapeHtml(item.qtyUnit)}</div>
+              <div>最新交出记录：${escapeHtml(item.handoverRecordNo || '待提交')}</div>
+            </div>
+            <div class="mt-4 flex flex-wrap gap-2">
+              <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-pda-warehouse-action="open-wait-handover-detail" data-stock-item-id="${escapeAttr(item.warehouseRecordId)}">查看流水</button>
+              <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-nav="${escapeAttr(buildPostFinishingPdaHandoverRoute(item.recheckOrderNo))}">去交出</button>
+              <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-nav="${escapeAttr(resolveTaskRoute(item.sourceTaskNo))}">查看任务</button>
+            </div>
+          </article>
+        `).join('') : renderMobilePageEmptyState('暂无后道待交出库存', '复检完成后，会进入后道待交出仓。')}
+      </section>
+      ${renderPostFinishingWaitHandoverDetailDrawer()}
+    </div>
+  `
+  return renderPdaFrame(content, 'warehouse', { headerTitle: '后道待交出仓', disableTodoAutoOpen: true })
+}
+
 function renderKnittingWaitHandoverPage(): string {
   const inventory = listKnittingWarehouseInventory('wait-handover')
   const inbounds = listKnittingWaitHandoverInboundRecords()
@@ -234,6 +355,7 @@ function renderKnittingWaitHandoverPage(): string {
 export function renderPdaWarehouseWaitHandoverPage(): string {
   const runtime = getMobileWarehouseRuntimeContext()
   if (!runtime) return renderPdaFrame(renderMobilePageEmptyState('未登录', '请先登录工厂端移动应用。'), 'warehouse', { disableTodoAutoOpen: true })
+  if (runtime.factoryId === FULL_CAPABILITY_FACTORY_ID) return renderPostFinishingWaitHandoverPage()
   if (runtime.factoryId === OWN_KNITTING_FACTORY_ID) return renderKnittingWaitHandoverPage()
 
   const rows = getRows()

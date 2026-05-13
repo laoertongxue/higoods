@@ -136,6 +136,7 @@ function mapPostFinishingStatusToTaskStatus(status: string): ProcessTask['status
 }
 
 function mapPostFinishingTaskToTask(task: PostFinishingTaskView, seq: number): ProcessTask {
+  const isRejected = task.acceptanceStatus === 'REJECTED'
   return {
     taskId: task.postTaskId,
     taskNo: task.postTaskNo,
@@ -148,19 +149,20 @@ function mapPostFinishingTaskToTask(task: PostFinishingTaskView, seq: number): P
     qty: task.plannedGarmentQty,
     qtyUnit: 'PIECE',
     assignmentMode: 'DIRECT',
-    assignmentStatus: 'ASSIGNED',
+    assignmentStatus: isRejected ? 'UNASSIGNED' : 'ASSIGNED',
     ownerSuggestion: { kind: 'RECOMMENDED_FACTORY_POOL', recommendedTypes: ['FINISHING'] },
     assignedFactoryId: task.managedPostFactoryId,
     assignedFactoryName: task.managedPostFactoryName,
     qcPoints: [],
     attachments: [],
     status: mapPostFinishingStatusToTaskStatus(task.currentStatus),
-    acceptanceStatus: 'ACCEPTED',
-    acceptedAt: task.createdAt,
-    acceptedBy: task.managedPostFactoryName,
+    acceptanceStatus: task.acceptanceStatus,
+    acceptedAt: task.acceptedAt,
+    acceptedBy: task.acceptedBy,
     dispatchedAt: task.createdAt,
     dispatchedBy: '系统',
     dispatchRemark: '生产单级后道任务同步到工厂端移动应用执行',
+    acceptDeadline: task.createdAt,
     taskDeadline: task.updatedAt,
     receiverKind: 'MANAGED_POST_FACTORY',
     receiverId: task.managedPostFactoryId,
@@ -172,8 +174,38 @@ function mapPostFinishingTaskToTask(task: PostFinishingTaskView, seq: number): P
     sourceTaskId: task.postTaskId,
     processBusinessName: '后道',
     taskScope: 'POST_ROLLUP_TASK',
-    auditLogs: [],
+    auditLogs: [
+      {
+        id: `AL-${task.postTaskId}-DISPATCH`,
+        action: 'DISPATCH',
+        detail: 'Web 后道任务派单到后道工厂',
+        at: task.createdAt,
+        by: '系统',
+      },
+      ...(task.acceptanceStatus === 'ACCEPTED' && task.acceptedAt
+        ? [{
+            id: `AL-${task.postTaskId}-ACCEPT`,
+            action: 'ACCEPT_TASK',
+            detail: '后道工厂确认接单',
+            at: task.acceptedAt,
+            by: task.acceptedBy || task.managedPostFactoryName,
+          }]
+        : []),
+      ...(task.acceptanceStatus === 'REJECTED' && task.rejectedAt
+        ? [{
+            id: `AL-${task.postTaskId}-REJECT`,
+            action: 'REJECT_TASK',
+            detail: `后道工厂拒绝接单${task.rejectReason ? `：${task.rejectReason}` : ''}`,
+            at: task.rejectedAt,
+            by: task.rejectedBy || task.managedPostFactoryName,
+          }]
+        : []),
+    ],
   }
+}
+
+export function listPostFinishingMobileExecutionTasks(): ProcessTask[] {
+  return listPostFinishingTasks().map((task, index) => mapPostFinishingTaskToTask(task, index + 1))
 }
 
 function mapSpecialCraftExecutionStatus(status: string): ProcessTask['status'] {
@@ -239,9 +271,8 @@ export function listPdaMobileExecutionTasks(): ProcessTask[] {
     .map((taskOrder, index) => mapSpecialCraftTaskOrderToMobileTask(taskOrder, baseTasks.length + genericProcessTasks.length + knittingTasks.length + index + 1))
     .filter((task) => !existingWithKnitting.has(task.taskId))
   const existingWithSpecial = new Set([...existingWithKnitting, ...specialCraftTasks.map((task) => task.taskId)])
-  const postTasks = listPostFinishingTasks()
-    .filter((task) => !existingWithSpecial.has(task.postTaskId))
-    .map((task, index) => mapPostFinishingTaskToTask(task, baseTasks.length + genericProcessTasks.length + knittingTasks.length + specialCraftTasks.length + index + 1))
+  const postTasks = listPostFinishingMobileExecutionTasks()
+    .filter((task) => !existingWithSpecial.has(task.taskId))
   return [...baseTasks, ...genericProcessTasks, ...knittingTasks, ...specialCraftTasks, ...postTasks]
 }
 

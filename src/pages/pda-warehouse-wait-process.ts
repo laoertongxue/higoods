@@ -3,6 +3,11 @@ import {
   updateWaitProcessStockLocation,
 } from '../data/fcs/factory-internal-warehouse.ts'
 import { OWN_KNITTING_FACTORY_ID } from '../data/fcs/factory-mock-data.ts'
+import type { PostFinishingWaitProcessWarehouseRecord } from '../data/fcs/post-finishing-domain.ts'
+import {
+  FULL_CAPABILITY_FACTORY_ID,
+  listPostFinishingWaitProcessWarehouseRecords,
+} from '../data/fcs/post-finishing-domain.ts'
 import {
   getKnittingWorkOrderById,
   getKnittingYarnUsageSummary,
@@ -63,6 +68,10 @@ const FILTERS: Array<{ value: WaitProcessFilter; label: string }> = [
   { value: '已入待加工仓', label: '已入待加工仓' },
   { value: '差异待处理', label: '差异待处理' },
 ]
+
+function getPostFinishingWaitProcessRows(): PostFinishingWaitProcessWarehouseRecord[] {
+  return listPostFinishingWaitProcessWarehouseRecords()
+}
 
 function getRows() {
   const runtime = getMobileWarehouseRuntimeContext()
@@ -178,6 +187,107 @@ function renderLocationDialog(): string {
   `
 }
 
+function renderPostFinishingFlowSummary(record: PostFinishingWaitProcessWarehouseRecord): string {
+  return record.flowRecords
+    .slice(-3)
+    .map((flow) => `${flow.flowType}${flow.qty}${flow.qtyUnit}`)
+    .join(' / ') || '-'
+}
+
+function renderPostFinishingWaitProcessDetailDrawer(): string {
+  const row = getPostFinishingWaitProcessRows().find((item) => item.warehouseRecordId === state.detailId)
+  if (!row) return ''
+  return `
+    <div class="fixed inset-0 z-[120]">
+      <button type="button" class="absolute inset-0 bg-black/40" data-pda-warehouse-action="close-wait-process-detail"></button>
+      <section class="absolute inset-x-0 bottom-[72px] max-h-[78vh] overflow-y-auto rounded-t-3xl border bg-background px-4 py-4 shadow-2xl">
+        <div class="flex items-center justify-between gap-3">
+          <h2 class="text-base font-semibold text-foreground">后道待加工仓详情</h2>
+          <button type="button" class="rounded-full border px-3 py-1 text-xs" data-pda-warehouse-action="close-wait-process-detail">关闭</button>
+        </div>
+        <div class="mt-4 rounded-2xl border bg-card px-4 py-4 shadow-sm">
+          ${renderCompactFieldList([
+            { label: '仓库记录', value: row.warehouseRecordNo },
+            { label: '来源交出记录', value: row.upstreamHandoverRecordNo || '-' },
+            { label: '生产单', value: row.sourceProductionOrderNo },
+            { label: '后道任务', value: row.sourceTaskNo },
+            { label: '款式', value: `${row.spuCode} / ${row.spuName}` },
+            { label: 'SKU', value: row.skuSummary },
+            { label: '入仓数量', value: `${row.inboundGarmentQty} ${row.qtyUnit}` },
+            { label: '可用数量', value: `${row.availableGarmentQty} ${row.qtyUnit}` },
+            { label: '已占用数量', value: `${Math.max(row.inboundGarmentQty - row.availableGarmentQty, 0)} ${row.qtyUnit}` },
+            { label: '库区库位', value: `${row.areaName || '-'} / ${row.locationCode || '-'}` },
+            { label: '更新时间', value: formatWarehouseDateTime(row.updatedAt) },
+          ])}
+        </div>
+        <div class="mt-3 space-y-2">
+          ${row.flowRecords.map((flow) => `
+            <div class="rounded-xl border bg-card px-3 py-3 text-xs">
+              <div class="flex items-center justify-between gap-2">
+                <span class="font-medium">${escapeHtml(flow.flowType)}</span>
+                <span class="text-muted-foreground">${escapeHtml(formatWarehouseDateTime(flow.operatedAt))}</span>
+              </div>
+              <div class="mt-1 text-muted-foreground">${escapeHtml(flow.sourceActionRecordNo)} · ${flow.qty} ${escapeHtml(flow.qtyUnit)} · ${escapeHtml(flow.remark)}</div>
+              <div class="mt-1 text-muted-foreground">变动前后：${flow.beforeQty} → ${flow.afterQty}</div>
+            </div>
+          `).join('')}
+        </div>
+      </section>
+    </div>
+  `
+}
+
+function renderPostFinishingWaitProcessPage(): string {
+  const rows = getPostFinishingWaitProcessRows()
+  const totalAvailable = rows.reduce((sum, item) => sum + item.availableGarmentQty, 0)
+  const totalInbound = rows.reduce((sum, item) => sum + item.inboundGarmentQty, 0)
+  const flowCount = rows.reduce((sum, item) => sum + item.flowRecords.length, 0)
+  const content = `
+    <div class="space-y-4 px-4 pb-5 pt-4">
+      <section class="grid grid-cols-2 gap-2">
+        <button type="button" class="rounded-2xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground" data-nav="/fcs/pda/warehouse/wait-process">待加工仓</button>
+        <button type="button" class="rounded-2xl border bg-background px-4 py-3 text-sm font-medium" data-nav="/fcs/pda/warehouse/wait-handover">待交出仓</button>
+      </section>
+      <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
+        <div class="text-base font-semibold">后道待加工仓</div>
+        <div class="mt-1 text-xs text-muted-foreground">上游交出扫码收货后进入待加工仓，质检创建时占用库存。</div>
+        <div class="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+          <div class="rounded-xl bg-muted px-2 py-2"><div class="font-semibold">${rows.length}</div><div class="text-muted-foreground">SKU</div></div>
+          <div class="rounded-xl bg-muted px-2 py-2"><div class="font-semibold">${totalAvailable}</div><div class="text-muted-foreground">可用件数</div></div>
+          <div class="rounded-xl bg-muted px-2 py-2"><div class="font-semibold">${flowCount}</div><div class="text-muted-foreground">流水</div></div>
+        </div>
+        <div class="mt-2 text-xs text-muted-foreground">累计扫码收货 ${totalInbound} 件。</div>
+      </section>
+      <section class="space-y-3">
+        ${rows.length > 0 ? rows.map((item) => `
+          <article class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0 flex-1">
+                <div class="text-sm font-semibold">${escapeHtml(item.skuCode)}</div>
+                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(item.spuName)} · ${escapeHtml(item.colorName)} / ${escapeHtml(item.sizeName)}</div>
+              </div>
+              ${renderStatusPill(item.availableGarmentQty > 0 ? '可质检' : '已占用')}
+            </div>
+            <div class="mt-3 space-y-1.5 text-xs text-muted-foreground">
+              <div>生产单：${escapeHtml(item.sourceProductionOrderNo)}</div>
+              <div>来源交出记录：${escapeHtml(item.upstreamHandoverRecordNo || '-')}</div>
+              <div>入仓 / 可用：${item.inboundGarmentQty} / ${item.availableGarmentQty} ${escapeHtml(item.qtyUnit)}</div>
+              <div>库区库位：${escapeHtml(item.areaName || '-')} / ${escapeHtml(item.locationCode || '-')}</div>
+              <div>最近流水：${escapeHtml(renderPostFinishingFlowSummary(item))}</div>
+            </div>
+            <div class="mt-4 flex flex-wrap gap-2">
+              <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-pda-warehouse-action="open-wait-process-detail" data-stock-item-id="${escapeAttr(item.warehouseRecordId)}">查看流水</button>
+              <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-nav="${escapeAttr(resolveTaskRoute(item.sourceTaskNo))}">查看任务</button>
+            </div>
+          </article>
+        `).join('') : renderMobilePageEmptyState('暂无后道待加工库存', '扫码收货确认后，会进入后道待加工仓。')}
+      </section>
+      ${renderPostFinishingWaitProcessDetailDrawer()}
+    </div>
+  `
+  return renderPdaFrame(content, 'warehouse', { headerTitle: '后道待加工仓', disableTodoAutoOpen: true })
+}
+
 function renderKnittingWaitProcessPage(): string {
   const inventory = listKnittingWarehouseInventory('wait-process')
   const receipts = listKnittingWaitProcessReceiptRecords()
@@ -235,6 +345,7 @@ function renderKnittingWaitProcessPage(): string {
 export function renderPdaWarehouseWaitProcessPage(): string {
   const runtime = getMobileWarehouseRuntimeContext()
   if (!runtime) return renderPdaFrame(renderMobilePageEmptyState('未登录', '请先登录工厂端移动应用。'), 'warehouse', { disableTodoAutoOpen: true })
+  if (runtime.factoryId === FULL_CAPABILITY_FACTORY_ID) return renderPostFinishingWaitProcessPage()
   if (runtime.factoryId === OWN_KNITTING_FACTORY_ID) return renderKnittingWaitProcessPage()
 
   const rows = getRows()

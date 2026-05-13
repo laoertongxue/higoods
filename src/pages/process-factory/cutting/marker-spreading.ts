@@ -173,6 +173,7 @@ const MOBILE_WRITEBACK_CHANNEL = 'PDA_WRITEBACK' as const
 
 type SpreadingSourceFilter = 'ALL' | 'PC' | typeof MOBILE_SOURCE_CHANNEL
 type SpreadingCreateStepKey = 'SELECT_MARKER' | 'CONFIRM_CREATE'
+type SpreadingCreateScheduleMode = 'BY_MARKER_NO' | 'WHOLE_PLAN_ONE_TABLE'
 type SpreadingEditTabKey = 'summary' | 'rolls' | 'operators' | 'variance' | 'completion'
 type MarkerDraftField =
   | 'markerNo'
@@ -290,6 +291,7 @@ interface MarkerSpreadingPageState {
   selectedCreateMarkerId: string
   createExceptionBackfill: boolean
   createExceptionReason: string
+  createScheduleMode: SpreadingCreateScheduleMode
   createOwnerAccountId: string
   createCuttingTableId: string
   createPlannedStartAt: string
@@ -382,6 +384,7 @@ const state: MarkerSpreadingPageState = {
   selectedCreateMarkerId: '',
   createExceptionBackfill: false,
   createExceptionReason: '',
+  createScheduleMode: 'BY_MARKER_NO',
   createOwnerAccountId: SPREADING_CREATE_OWNER_OPTIONS[0].value,
   createCuttingTableId: cuttingTableResources[0]?.cuttingTableId || '',
   createPlannedStartAt: '',
@@ -468,6 +471,14 @@ function getSelectedCreateSource(rows = getSpreadingCreateSourceRows()): Spreadi
     rows.find((row) => row.sourceBedId === state.selectedCreateMarkerId) ||
     rows.find((row) => row.sourceSchemeId === state.selectedCreateMarkerId) ||
     null
+}
+
+function getSelectedCreateSchemeSources(rows = getSpreadingCreateSourceRows()): SpreadingCreateSourceRow[] {
+  const selected = getSelectedCreateSource(rows)
+  if (!selected?.sourceSchemeId) return selected ? [selected] : []
+  return rows
+    .filter((row) => row.sourceSchemeId === selected.sourceSchemeId)
+    .sort((left, right) => left.sourceBedNo.localeCompare(right.sourceBedNo, 'zh-CN', { numeric: true }))
 }
 
 function getExceptionCreateContext(): MarkerSpreadingContext | null {
@@ -690,6 +701,25 @@ function hasCuttingTableScheduleConflict(
     const sessionEnd = new Date(session.plannedEndAt).getTime()
     if (!Number.isFinite(sessionStart) || !Number.isFinite(sessionEnd)) return false
     return draftStart < sessionEnd && draftEnd > sessionStart
+  })
+}
+
+function hasCuttingTableScheduleConflictInDrafts(
+  draft: Pick<SpreadingSession, 'spreadingSessionId' | 'cuttingTableId' | 'plannedStartAt' | 'plannedEndAt'>,
+  drafts: Array<Pick<SpreadingSession, 'spreadingSessionId' | 'cuttingTableId' | 'plannedStartAt' | 'plannedEndAt'>>,
+): boolean {
+  if (!draft.cuttingTableId || !draft.plannedStartAt || !draft.plannedEndAt) return false
+  const draftStart = new Date(draft.plannedStartAt).getTime()
+  const draftEnd = new Date(draft.plannedEndAt).getTime()
+  if (!Number.isFinite(draftStart) || !Number.isFinite(draftEnd) || draftEnd <= draftStart) return false
+  return drafts.some((item) => {
+    if (item.spreadingSessionId === draft.spreadingSessionId) return false
+    if (item.cuttingTableId !== draft.cuttingTableId) return false
+    if (!item.plannedStartAt || !item.plannedEndAt) return false
+    const itemStart = new Date(item.plannedStartAt).getTime()
+    const itemEnd = new Date(item.plannedEndAt).getTime()
+    if (!Number.isFinite(itemStart) || !Number.isFinite(itemEnd)) return false
+    return draftStart < itemEnd && draftEnd > itemStart
   })
 }
 
@@ -1515,11 +1545,11 @@ function buildNewSpreadingDraft(): SpreadingSession {
       actualCutPieceQty: 0,
       unitPrice: 0,
       totalAmount: 0,
-      note: '新建铺布需从方案床次进入。',
+      note: '新建铺布需从唛架编号进入。',
       createdAt: '',
       updatedAt: '',
       warningMessages:
-        ['正常新建铺布需先关联方案床次。'],
+        ['正常新建铺布需先关联唛架编号。'],
       sourceChannel: 'MANUAL',
       sourceWritebackId: '',
       updatedFromPdaAt: '',
@@ -1737,6 +1767,7 @@ function syncStateFromPath(): void {
       state.createExceptionReason = ''
       state.createOwnerAccountId = SPREADING_CREATE_OWNER_OPTIONS[0].value
       state.createCuttingTableId = cuttingTableResources[0]?.cuttingTableId || ''
+      state.createScheduleMode = 'BY_MARKER_NO'
       state.createPlannedStartAt = formatDateTimeLocal()
       state.createNote = ''
       state.spreadingDraft = null
@@ -1763,6 +1794,7 @@ function syncStateFromPath(): void {
   state.createExceptionReason = ''
   state.createOwnerAccountId = SPREADING_CREATE_OWNER_OPTIONS[0].value
   state.createCuttingTableId = cuttingTableResources[0]?.cuttingTableId || ''
+  state.createScheduleMode = 'BY_MARKER_NO'
   state.createPlannedStartAt = formatDateTimeLocal()
   state.createNote = ''
   state.spreadingEditTab = 'summary'
@@ -1913,7 +1945,7 @@ function buildSupervisorSpreadingRows(baseRows: SpreadingListRow[]): SupervisorS
 
     return {
       ...row,
-      sourceMarkerLabel: row.session.markerNo || '待关联方案床次',
+      sourceMarkerLabel: row.session.markerNo || '待关联唛架编号',
       contextSummary:
         row.contextType === 'merge-batch'
           ? `合并裁剪批次 ${row.mergeBatchNo || '待补'} / 原始裁片单 ${formatQty(row.originalCutOrderCount)} 张`
@@ -2151,7 +2183,7 @@ function buildCurrentListExportRows(rows: SupervisorSpreadingRow[]): { filename:
       [
         '铺布编号',
         '主状态',
-        '来源方案床次',
+        '来源唛架编号',
         '裁床',
         '计划开始',
         '计划结束',
@@ -2265,10 +2297,10 @@ function renderFilterArea(): string {
             ${renderListTextInput('颜色', state.colorFilter, 'data-cutting-spreading-list-field="color"', '')}
             ${renderListSelect('模式', state.spreadingModeFilter, 'data-cutting-spreading-list-field="mode"', [
               { value: 'ALL', label: '全部模式' },
-              { value: 'normal', label: '普通排版' },
-              { value: 'high_low', label: '高低层排版' },
-              { value: 'fold_normal', label: '对折普通排版' },
-              { value: 'fold_high_low', label: '对折高低层排版' },
+              { value: 'normal', label: '普通唛架' },
+              { value: 'high_low', label: '高低层唛架' },
+              { value: 'fold_normal', label: '对折普通唛架' },
+              { value: 'fold_high_low', label: '对折高低层唛架' },
             ])}
             ${renderListSelect('上下文类型', state.contextTypeFilter, 'data-cutting-spreading-list-field="context"', [
               { value: 'ALL', label: '全部' },
@@ -2389,7 +2421,7 @@ function renderSpreadingTable(rows: SupervisorSpreadingRow[]): string {
         <tr>
           <th class="px-2 py-1 font-medium">铺布编号</th>
           <th class="px-2 py-1 font-medium">主状态</th>
-          <th class="px-2 py-1 font-medium">来源方案床次</th>
+          <th class="px-2 py-1 font-medium">来源唛架编号</th>
           <th class="px-2 py-1 font-medium">裁床</th>
           <th class="px-2 py-1 font-medium">计划开始</th>
           <th class="px-2 py-1 font-medium">计划结束</th>
@@ -2470,7 +2502,7 @@ function renderSpreadingSupervisorListPage(): string {
     <div class="space-y-4 p-4" data-testid="cutting-spreading-list-page">
       ${renderCuttingPageHeader(meta, {
         actionsHtml: renderHeaderActions(appendSummaryReturnAction([
-          '<button type="button" class="rounded-md border border-blue-500 bg-blue-50 px-3 py-3 text-sm text-blue-700 hover:bg-blue-100" data-cutting-marker-action="create-spreading">按方案床次新建铺布</button>',
+          '<button type="button" class="rounded-md border border-blue-500 bg-blue-50 px-3 py-3 text-sm text-blue-700 hover:bg-blue-100" data-cutting-marker-action="create-spreading">按唛架编号新建铺布</button>',
           '<button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="export-spreading-list">导出当前视图</button>',
         ])),
       })}
@@ -2500,7 +2532,7 @@ function renderMarkerWarningSection(warningMessages: string[]): string {
               .join('')}
           </div>
         `
-      : '<div class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-700">当前未识别明显异常，可继续维护床次数据。</div>',
+      : '<div class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-700">当前未识别明显异常，可继续维护唛架数据。</div>',
   )
 }
 
@@ -2834,7 +2866,7 @@ function renderSpreadingImportSourceSection(session: SpreadingSession, linkedOri
     '导入来源区',
     source
       ? renderInfoGrid([
-          { label: '来源方案床次', value: session.sourceBedNo || source.sourceMarkerNo || session.markerNo || '待补' },
+          { label: '来源唛架编号', value: session.sourceBedNo || source.sourceMarkerNo || session.markerNo || '待补' },
           { label: '裁床', value: session.cuttingTableName || session.cuttingTableNo || '未排程' },
           { label: '计划开始时间', value: session.plannedStartAt || '未排程' },
           { label: '计划结束时间', value: session.plannedEndAt || '未排程' },
@@ -2893,11 +2925,11 @@ function renderSpreadingPlanSection(session: SpreadingSession): string {
             <table class="min-w-[1180px] text-sm">
               <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
                 <tr>
-                  <th class="px-3 py-3">排版编号</th>
-                  <th class="px-3 py-3">排版记录</th>
+                  <th class="px-3 py-3">唛架编号</th>
+                  <th class="px-3 py-3">唛架记录</th>
                   <th class="px-3 py-3">颜色</th>
                   <th class="px-3 py-3">计划层数</th>
-                  <th class="px-3 py-3">床次净长</th>
+                  <th class="px-3 py-3">唛架净长</th>
                   <th class="px-3 py-3">单层成衣件数（件）</th>
                   <th class="px-3 py-3">单件成衣用量（m/件）</th>
                   <th class="px-3 py-3">理论铺布总长度（m）</th>
@@ -2928,7 +2960,7 @@ function renderSpreadingPlanSection(session: SpreadingSession): string {
             </table>
           </div>
         `
-      : '<div class="rounded-md border border-dashed bg-muted/10 px-3 py-3 text-sm text-muted-foreground">当前缺少计划铺布明细，请先回到唛架补齐可导入的排版明细。</div>',
+      : '<div class="rounded-md border border-dashed bg-muted/10 px-3 py-3 text-sm text-muted-foreground">当前缺少计划铺布明细，请先回到唛架补齐可导入的唛架明细。</div>',
   )
 }
 
@@ -2945,7 +2977,7 @@ function renderMarkerPlanMetricsSection(
       { label: '计划铺布层数（层）', value: `${formatQty(marker.plannedLayerCount || 0)} 层` },
       { label: '层数来源值（层）', value: `${formatQty(marker.plannedMarkerCount || marker.plannedLayerCount || 0)} 层` },
       { label: '面料 SKU', value: marker.fabricSku || '待补' },
-      { label: '床次净长（m）', value: formatLength(marker.markerLength || marker.netLength) },
+      { label: '唛架净长（m）', value: formatLength(marker.markerLength || marker.netLength) },
       { label: '采购单件成衣用量（m/件）', value: formatLength(usageSummary.procurementUnitUsage) },
       { label: '实际单件成衣用量（m/件）', value: formatLength(usageSummary.actualUnitUsage) },
       { label: '预算长度（m）', value: formatLength(usageSummary.plannedMaterialMeter) },
@@ -2962,11 +2994,11 @@ function renderMarkerRowTemplateDetailTable(lineItems: MarkerLineItem[]): string
         <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
           <tr>
             <th class="px-3 py-3">行号</th>
-            <th class="px-3 py-3">床次编号</th>
-            <th class="px-3 py-3">排版明细</th>
+            <th class="px-3 py-3">唛架编号</th>
+            <th class="px-3 py-3">唛架明细</th>
             <th class="px-3 py-3">颜色</th>
             <th class="px-3 py-3">计划层数</th>
-            <th class="px-3 py-3">床次净长</th>
+            <th class="px-3 py-3">唛架净长</th>
             <th class="px-3 py-3">单层成衣件数（件）</th>
             <th class="px-3 py-3">单件成衣用量（m/件）</th>
             <th class="px-3 py-3">计划铺布总长度（m）</th>
@@ -3156,7 +3188,7 @@ function renderMarkerDetailPage(): string {
       ${renderCuttingPageHeader(meta, {
         actionsHtml: renderHeaderActions(appendSummaryReturnAction([
           '<button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="go-list" data-tab="markers">返回列表</button>',
-          `<button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="go-linked-marker-detail" data-marker-id="${escapeHtml(row.markerId)}">查看关联方案床次</button>`,
+          `<button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="go-linked-marker-detail" data-marker-id="${escapeHtml(row.markerId)}">查看关联唛架编号</button>`,
         ])),
       })}
       ${renderPrefilterBar()}
@@ -3241,7 +3273,7 @@ function renderMarkerDetailPage(): string {
         '尺码配比区',
         `
           ${renderInfoGrid([
-            { label: '床次计划成衣件数（件）', value: `${formatQty(row.totalPieces)} 件` },
+            { label: '唛架计划成衣件数（件）', value: `${formatQty(row.totalPieces)} 件` },
             { label: '计划尺码配比', value: detailView.sizeRatioPlanText || '待补' },
             { label: '配比摘要', value: detailView.lineSummary.summaryText },
           ])}
@@ -3272,7 +3304,7 @@ function renderMarkerDetailPage(): string {
       ${
         detailView.templateType === 'row-template'
           ? renderSection(
-              '排版明细区',
+              '唛架明细区',
               renderMarkerRowTemplateDetailTable(row.record.lineItems || []),
             )
           : renderSection(
@@ -3288,7 +3320,7 @@ function renderMarkerDetailPage(): string {
                   </article>
                   <article class="space-y-3">
                     <div>
-                      <h4 class="text-sm font-semibold text-foreground">床次模式矩阵</h4>
+                      <h4 class="text-sm font-semibold text-foreground">唛架模式矩阵</h4>
                     </div>
                     ${renderHighLowPatternMatrix(detailView.highLowPatternKeys, detailView.highLowPatternRows, true)}
                     <p class="text-xs text-muted-foreground">模式矩阵总合计：${escapeHtml(formatQty(detailView.highLowPatternTotal))} 件</p>
@@ -3300,7 +3332,7 @@ function renderMarkerDetailPage(): string {
       ${renderSection(
         '长度与用量区',
         renderInfoGrid([
-          { label: '床次净长度', value: formatLength(row.netLength) },
+          { label: '唛架净长度', value: formatLength(row.netLength) },
           { label: '单件成衣用量（m/件）', value: formatLength(row.singlePieceUsage) },
           { label: '计划铺布总长度（m）', value: formatLength(row.spreadTotalLength) },
           { label: '预算米数', value: formatLength(usageSummary.plannedMaterialMeter) },
@@ -3379,11 +3411,11 @@ function renderMarkerEditPage(): string {
         `
           <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             ${renderTextInput('方案编号', draft.markerNo || '', 'data-cutting-marker-draft-field="markerNo"')}
-            ${renderSelect('床次模式', draft.markerMode, 'data-cutting-marker-draft-field="markerMode"', [
-              { value: 'normal', label: '普通排版' },
-              { value: 'high_low', label: '高低层排版' },
-              { value: 'fold_normal', label: '对折普通排版' },
-              { value: 'fold_high_low', label: '对折高低层排版' },
+            ${renderSelect('唛架模式', draft.markerMode, 'data-cutting-marker-draft-field="markerMode"', [
+              { value: 'normal', label: '普通唛架' },
+              { value: 'high_low', label: '高低层唛架' },
+              { value: 'fold_normal', label: '对折普通唛架' },
+              { value: 'fold_high_low', label: '对折高低层唛架' },
             ])}
             ${renderTextInput('上下文类型', draft.contextType === 'merge-batch' ? '合并裁剪批次上下文' : '原始裁片单上下文', 'disabled')}
             ${renderTextInput('关联原始裁片单', (draft.originalCutOrderNos || draft.originalCutOrderIds).join(' / '), 'disabled', '当前由上游预筛带入')}
@@ -3391,7 +3423,7 @@ function renderMarkerEditPage(): string {
             ${renderTextInput('款号 / SPU', `${draft.styleCode || ''} / ${draft.spuCode || ''}`, 'disabled', '来源于上下文')}
             ${renderTextInput('面料摘要', draft.materialSkuSummary || '', 'disabled')}
             ${renderTextInput('颜色摘要', draft.colorSummary || '', 'data-cutting-marker-draft-field="colorSummary"', '可手工补充')}
-            ${renderNumberInput('床次净长度（米）', draft.netLength, 'data-cutting-marker-draft-field="netLength"')}
+            ${renderNumberInput('唛架净长度（米）', draft.netLength, 'data-cutting-marker-draft-field="netLength"')}
             ${renderNumberInput('单件成衣用量（m/件）', draft.singlePieceUsage, 'data-cutting-marker-draft-field="singlePieceUsage"', '0.001')}
             ${renderNumberInput('计划铺布总长度（m）', draft.spreadTotalLength || 0, 'data-cutting-marker-draft-field="spreadTotalLength"', '0.01')}
           </div>
@@ -3555,11 +3587,11 @@ function renderMarkerEditPage(): string {
       ${
         templateType === 'row-template'
           ? renderSection(
-              '排版明细编辑区',
+              '唛架明细编辑区',
               `
                 <div class="mb-3 flex items-center justify-between">
                   <div>
-                    <p class="text-sm text-muted-foreground">当前模式使用行明细模板。line item 不再单独维护模式，只承接当前方案床次头部模式下的排版数据。</p>
+                    <p class="text-sm text-muted-foreground">当前模式使用行明细模板。明细行不再单独维护模式，只承接当前唛架编号头部模式下的唛架数据。</p>
                     <p class="mt-1 text-xs text-muted-foreground">当前模式：${escapeHtml(deriveMarkerModeMeta(draft.markerMode).label)}</p>
                   </div>
                   <button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="add-line-item">新增明细行</button>
@@ -3569,11 +3601,11 @@ function renderMarkerEditPage(): string {
                     <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
                       <tr>
                         <th class="px-3 py-3">行号</th>
-                        <th class="px-3 py-3">床次编号</th>
-                        <th class="px-3 py-3">排版明细</th>
+                        <th class="px-3 py-3">唛架编号</th>
+                        <th class="px-3 py-3">唛架明细</th>
                         <th class="px-3 py-3">颜色</th>
                         <th class="px-3 py-3">计划层数</th>
-                        <th class="px-3 py-3">床次净长</th>
+                        <th class="px-3 py-3">唛架净长</th>
                         <th class="px-3 py-3">单层成衣件数（件）</th>
                         <th class="px-3 py-3">单件成衣用量（m/件）</th>
                         <th class="px-3 py-3">计划铺布总长度（m）</th>
@@ -3625,7 +3657,7 @@ function renderMarkerEditPage(): string {
                   <article class="space-y-3">
                     <div class="flex items-center justify-between">
                       <div>
-                        <h4 class="text-sm font-semibold text-foreground">床次模式矩阵</h4>
+                        <h4 class="text-sm font-semibold text-foreground">唛架模式矩阵</h4>
                       </div>
                       <div class="flex gap-2">
                         <button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="add-highlow-pattern-key">新增模式列</button>
@@ -3741,7 +3773,7 @@ function renderSpreadingDetailPage(): string {
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div class="grid flex-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
             <div><div class="text-[11px] text-muted-foreground">铺布编号</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(session.sessionNo || '待补')}</div></div>
-            <div><div class="text-[11px] text-muted-foreground">来源方案床次</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(session.sourceBedNo || session.markerNo || '未关联方案床次')}</div></div>
+            <div><div class="text-[11px] text-muted-foreground">来源唛架编号</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(session.sourceBedNo || session.markerNo || '未关联唛架编号')}</div></div>
             <div><div class="text-[11px] text-muted-foreground">裁床</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(session.cuttingTableName || session.cuttingTableNo || '未排程')}</div></div>
             <div><div class="text-[11px] text-muted-foreground">计划开始</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(session.plannedStartAt || '未排程')}</div></div>
             <div><div class="text-[11px] text-muted-foreground">计划结束</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(session.plannedEndAt || '未排程')}</div></div>
@@ -3865,7 +3897,7 @@ function renderSpreadingDetailPage(): string {
           <table class="min-w-[1760px] text-sm">
             <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
               <tr>
-                <th class="px-3 py-3">床次项</th>
+                <th class="px-3 py-3">唛架项</th>
                 <th class="px-3 py-3">卷号</th>
                 <th class="px-3 py-3">面料 SKU</th>
                 <th class="px-3 py-3">颜色</th>
@@ -4157,7 +4189,7 @@ function renderSpreadingDetailPage(): string {
         actionsHtml: renderHeaderActions(appendSummaryReturnAction([
           '<button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="go-list" data-tab="spreadings">返回列表</button>',
           `<button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="open-spreading-edit" data-session-id="${escapeHtml(row.spreadingSessionId)}">去编辑</button>`,
-          `${row.session.markerId ? `<button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="go-linked-marker-detail" data-marker-id="${escapeHtml(row.session.markerId)}">去来源方案床次</button>` : ''}`,
+          `${row.session.markerId ? `<button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="go-linked-marker-detail" data-marker-id="${escapeHtml(row.session.markerId)}">去来源唛架编号</button>` : ''}`,
           `<button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="go-linked-original-orders" data-session-id="${escapeHtml(row.spreadingSessionId)}">去来源原始裁片单</button>`,
           `${row.mergeBatchNo ? `<button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="go-linked-merge-batches" data-session-id="${escapeHtml(row.spreadingSessionId)}">去来源合并裁剪批次</button>` : ''}`,
         ])),
@@ -4336,7 +4368,7 @@ function renderSpreadingEditPage(): string {
         <div class="flex flex-wrap items-start justify-between gap-2">
           <div class="grid flex-1 gap-2 sm:grid-cols-2 xl:grid-cols-5">
             <div><div class="text-[11px] text-muted-foreground">铺布编号</div><div class="mt-0.5 text-sm font-semibold text-foreground">${escapeHtml(draft.sessionNo || '待补')}</div></div>
-            <div><div class="text-[11px] text-muted-foreground">来源方案床次</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(draft.sourceBedNo || draft.markerNo || '未关联方案床次')}</div></div>
+            <div><div class="text-[11px] text-muted-foreground">来源唛架编号</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(draft.sourceBedNo || draft.markerNo || '未关联唛架编号')}</div></div>
             <div><div class="text-[11px] text-muted-foreground">原始裁片单 / 合并裁剪批次</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(linkedOriginalCutOrderNos.join(' / ') || draft.mergeBatchNo || '—')}</div></div>
             <div><div class="text-[11px] text-muted-foreground">生产单</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(productionOrderNos.join(' / ') || '—')}</div></div>
             <div><div class="text-[11px] text-muted-foreground">模式</div><div class="mt-0.5 text-sm font-medium text-foreground">${escapeHtml(deriveSpreadingModeMeta(draft.spreadingMode).label)}</div></div>
@@ -4446,7 +4478,7 @@ function renderSpreadingEditPage(): string {
           <table class="min-w-[1760px] text-sm">
             <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
               <tr>
-                <th class="px-3 py-3">床次项</th>
+                <th class="px-3 py-3">唛架项</th>
                 <th class="px-3 py-3">卷号</th>
                 <th class="px-3 py-3">面料 SKU</th>
                 <th class="px-3 py-3">颜色</th>
@@ -4478,7 +4510,7 @@ function renderSpreadingEditPage(): string {
                           <tr class="border-b align-top">
                             <td class="px-3 py-3">
                                 <select class="h-8 w-52 rounded-md border px-2.5 text-sm" data-cutting-spreading-roll-index="${index}" data-cutting-spreading-roll-field="planUnitId">
-                                <option value="">请选择床次项</option>
+                                <option value="">请选择唛架项</option>
                                 ${(draft.planUnits || [])
                                   .map(
                                     (unit) =>
@@ -4511,7 +4543,7 @@ function renderSpreadingEditPage(): string {
                         `
                       })
                       .join('')
-                  : '<tr><td colspan="16" class="px-3 py-6 text-center text-xs text-muted-foreground">当前还没有卷记录，请先新增卷记录并绑定床次项。</td></tr>'
+                  : '<tr><td colspan="16" class="px-3 py-6 text-center text-xs text-muted-foreground">当前还没有卷记录，请先新增卷记录并绑定唛架项。</td></tr>'
               }
             </tbody>
           </table>
@@ -4792,8 +4824,8 @@ function renderSpreadingEditPage(): string {
 
 function renderSpreadingCreateStepBar(): string {
   const steps: Array<{ key: SpreadingCreateStepKey; label: string }> = [
-    { key: 'SELECT_MARKER', label: '步骤 1：选择方案床次' },
-    { key: 'CONFIRM_CREATE', label: '步骤 2：确认创建' },
+    { key: 'SELECT_MARKER', label: '步骤 1：选择排唛架方案' },
+    { key: 'CONFIRM_CREATE', label: '步骤 2：确认裁床排程' },
   ]
 
   return `
@@ -4819,17 +4851,17 @@ function renderSpreadingCreateStepBar(): string {
 
 function renderSpreadingCreateSourceTable(rows: SpreadingCreateSourceRow[]): string {
   if (!rows.length) {
-    return '<div class="rounded-md border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">当前没有可交接铺布的方案床次，请先回到唛架方案列表补齐床次。</div>'
+    return '<div class="rounded-md border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">当前没有可铺布的排唛架方案，请先回到唛架方案列表补齐唛架编号。</div>'
   }
 
   return `
     <div class="overflow-auto" data-testid="cutting-spreading-create-source-table">
-      <table class="min-w-[1380px] text-sm">
+      <table class="min-w-[1280px] text-sm">
         <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
           <tr>
             <th class="px-3 py-3">选中</th>
             <th class="px-3 py-3">方案编号</th>
-            <th class="px-3 py-3">唛架床次</th>
+            <th class="px-3 py-3">唛架编号</th>
             <th class="px-3 py-3">上下文摘要</th>
             <th class="px-3 py-3">模式</th>
             <th class="px-3 py-3">尺码组合</th>
@@ -4837,7 +4869,6 @@ function renderSpreadingCreateSourceTable(rows: SpreadingCreateSourceRow[]): str
             <th class="px-3 py-3">计划铺布总长度（m）</th>
             <th class="px-3 py-3">颜色</th>
             <th class="px-3 py-3">面料 SKU</th>
-            <th class="px-3 py-3">图片状态</th>
           </tr>
         </thead>
         <tbody>
@@ -4868,7 +4899,6 @@ function renderSpreadingCreateSourceTable(rows: SpreadingCreateSourceRow[]): str
                   <td class="px-3 py-3">${renderValueWithFormula(formatLength(row.plannedSpreadLengthM), row.plannedSpreadLengthFormula, 'text-sm font-medium text-foreground')}</td>
                   <td class="px-3 py-3">${escapeHtml(row.colorSummary || '待补')}</td>
                   <td class="px-3 py-3">${escapeHtml(row.materialSkuSummary || '待补')}</td>
-                  <td class="px-3 py-3">${renderTag(row.imageStatusLabel, row.imageStatusLabel === '已上传' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700')}</td>
                 </tr>
               `
             })
@@ -4881,23 +4911,23 @@ function renderSpreadingCreateSourceTable(rows: SpreadingCreateSourceRow[]): str
 
 function renderSpreadingCreateSelectStep(rows: SpreadingCreateSourceRow[]): string {
   return renderSection(
-    '步骤 1：选择方案床次',
+    '步骤 1：选择排唛架方案',
     `
       ${renderStickyFilterShell(`
         <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           ${renderTextInput('原始裁片单', state.originalCutOrderFilter, 'data-cutting-spreading-list-field="original-cut-order"', '')}
           ${renderTextInput('合并裁剪批次', state.mergeBatchFilter, 'data-cutting-spreading-list-field="merge-batch"', '')}
           ${renderTextInput('生产单', state.productionOrderFilter, 'data-cutting-spreading-list-field="production-order"', '')}
-          ${renderTextInput('方案编号 / 床次', state.markerNoFilter, 'data-cutting-spreading-list-field="marker-no"', '')}
+          ${renderTextInput('方案编号 / 唛架编号', state.markerNoFilter, 'data-cutting-spreading-list-field="marker-no"', '')}
           ${renderTextInput('款号 / SPU', state.styleSpuFilter, 'data-cutting-spreading-list-field="style-spu"', '')}
           ${renderTextInput('面料 SKU', state.materialSkuFilter, 'data-cutting-spreading-list-field="material-sku"', '')}
           ${renderTextInput('颜色', state.colorFilter, 'data-cutting-spreading-list-field="color"', '')}
           ${renderSelect('模式', state.spreadingModeFilter, 'data-cutting-spreading-list-field="mode"', [
             { value: 'ALL', label: '全部' },
-            { value: 'normal', label: '普通排版' },
-            { value: 'high_low', label: '高低层排版' },
-            { value: 'fold_normal', label: '对折普通排版' },
-            { value: 'fold_high_low', label: '对折高低层排版' },
+            { value: 'normal', label: '普通唛架' },
+            { value: 'high_low', label: '高低层唛架' },
+            { value: 'fold_normal', label: '对折普通唛架' },
+            { value: 'fold_high_low', label: '对折高低层唛架' },
           ])}
         </div>
       `)}
@@ -4908,8 +4938,52 @@ function renderSpreadingCreateSelectStep(rows: SpreadingCreateSourceRow[]): stri
   )
 }
 
+function renderSpreadingCreateScheduleRows(rows: SpreadingCreateSourceRow[], plannedStartAt: string): string {
+  const tableRows = rows.map((row, index) => {
+    const startAt =
+      state.createScheduleMode === 'WHOLE_PLAN_ONE_TABLE'
+        ? addMinutesToDateTimeLocal(plannedStartAt, index * DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES)
+        : plannedStartAt
+    const endAt = addMinutesToDateTimeLocal(startAt, DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES)
+    return `
+      <tr class="border-b align-top">
+        <td class="px-3 py-3 font-medium text-foreground">${escapeHtml(row.sourceSchemeNo)}</td>
+        <td class="px-3 py-3 font-medium text-foreground">${escapeHtml(row.sourceBedNo)}</td>
+        <td class="px-3 py-3">${escapeHtml(row.markerModeLabel)}</td>
+        <td class="px-3 py-3">${escapeHtml(resolveCuttingTable(state.createCuttingTableId).cuttingTableName)}</td>
+        <td class="px-3 py-3">${escapeHtml(startAt)}</td>
+        <td class="px-3 py-3">${escapeHtml(endAt)}</td>
+        <td class="px-3 py-3">${escapeHtml(`${DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES} 分钟`)}</td>
+        <td class="px-3 py-3">${escapeHtml(`${formatQty(row.plannedCutGarmentQty)} 件`)}</td>
+      </tr>
+    `
+  })
+
+  return `
+    <div class="mt-3 overflow-auto rounded-lg border">
+      <table class="min-w-[1080px] text-sm">
+        <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
+          <tr>
+            <th class="px-3 py-3">排唛架方案</th>
+            <th class="px-3 py-3">唛架编号</th>
+            <th class="px-3 py-3">唛架模式</th>
+            <th class="px-3 py-3">裁床</th>
+            <th class="px-3 py-3">计划开始</th>
+            <th class="px-3 py-3">计划结束</th>
+            <th class="px-3 py-3">预计耗时</th>
+            <th class="px-3 py-3">计划成衣件数</th>
+          </tr>
+        </thead>
+        <tbody>${tableRows.join('')}</tbody>
+      </table>
+    </div>
+  `
+}
+
 function renderSpreadingCreateConfirmStep(): string {
   const preview = getSpreadingCreatePreview()
+  const selectedSchemeRows = getSelectedCreateSchemeSources()
+  const scheduleRows = state.createScheduleMode === 'WHOLE_PLAN_ONE_TABLE' ? selectedSchemeRows : selectedSchemeRows.slice(0, 1)
   const plannedStartAt = state.createPlannedStartAt || formatDateTimeLocal()
   const plannedEndAt = addMinutesToDateTimeLocal(plannedStartAt, DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES)
   const colorSummary = deriveSpreadingColorSummary({
@@ -4919,11 +4993,15 @@ function renderSpreadingCreateConfirmStep(): string {
   const modeLabel = preview.marker ? deriveSpreadingModeMeta(preview.marker.markerMode).label : '待补'
 
   return renderSection(
-    '步骤 2：确认创建',
+    '步骤 2：确认裁床排程',
     `
       <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3" data-testid="cutting-spreading-create-confirmation">
         ${renderReadonlyField('来源方案', preview.source?.sourceSchemeNo || '未选择')}
-        ${renderReadonlyField('来源唛架床次', preview.source?.sourceBedNo || '未选择')}
+        ${renderReadonlyField('来源唛架编号', preview.source?.sourceBedNo || '未选择')}
+        ${renderSelect('铺布方式', state.createScheduleMode, 'data-cutting-spreading-create-field="schedule-mode"', [
+          { value: 'BY_MARKER_NO', label: '按唛架编号分配裁床' },
+          { value: 'WHOLE_PLAN_ONE_TABLE', label: '整个方案使用同一裁床' },
+        ])}
         ${renderSelect('裁床', state.createCuttingTableId || cuttingTableResources[0]?.cuttingTableId || '', 'data-cutting-spreading-create-field="cutting-table-id"', cuttingTableResources.map((table) => ({ value: table.cuttingTableId, label: table.cuttingTableName })))}
         <label class="space-y-1 rounded-lg border bg-background px-3 py-3">
           <span class="text-[11px] text-muted-foreground">计划开始时间</span>
@@ -4947,6 +5025,7 @@ function renderSpreadingCreateConfirmStep(): string {
         ${renderSelect('负责人', state.createOwnerAccountId, 'data-cutting-spreading-create-field="owner-account"', SPREADING_CREATE_OWNER_OPTIONS.map((option) => ({ value: option.value, label: option.label })))}
         ${renderTextarea('创建备注', state.createNote, 'data-cutting-spreading-create-field="note"', 3)}
       </div>
+      ${renderSpreadingCreateScheduleRows(scheduleRows, plannedStartAt)}
     `,
   )
 }
@@ -5038,10 +5117,10 @@ function startMarkerImport(marker: MarkerRecord): boolean {
       importNote: '首次从唛架导入铺布草稿。',
     })
     if (!newDraft) {
-      state.feedback = { tone: 'warning', message: '当前方案床次上下文不完整，无法生成铺布草稿。' }
+      state.feedback = { tone: 'warning', message: '当前唛架编号上下文不完整，无法生成铺布草稿。' }
       return true
     }
-    return persistImportedDraftAndOpen(newDraft, `${marker.markerNo || '当前方案床次'} 已生成铺布草稿。`)
+    return persistImportedDraftAndOpen(newDraft, `${marker.markerNo || '当前唛架编号'} 已生成铺布草稿。`)
   }
 
   if (!hasSpreadingActualExecution(latestSession)) {
@@ -5184,7 +5263,7 @@ function saveCurrentMarker(goDetail: boolean, successMessage?: string): boolean 
   })
   const blockingMessages: string[] = []
   if (draft.originalCutOrderIds.length > 0 && !normalizedAllocationLines.length) {
-    blockingMessages.push('当前方案床次已关联原始裁片单，请先补充分配明细。')
+    blockingMessages.push('当前唛架编号已关联原始裁片单，请先补充分配明细。')
   }
   normalizedAllocationLines.forEach((line) => {
     if (!draft.originalCutOrderIds.includes(line.sourceCutOrderId)) {
@@ -5538,106 +5617,126 @@ function buildPersistableSpreadingDraft(draft: SpreadingSession): {
   }
 }
 
-function buildCreateSessionFromSelection(): SpreadingSession | null {
+function buildCreateSessionsFromSelection(): SpreadingSession[] | null {
   const preview = getSpreadingCreatePreview()
   const reason = state.createExceptionReason.trim()
   const ownerName = buildCreateOwnerLabel(state.createOwnerAccountId)
 
   if (state.createExceptionBackfill) {
-    state.feedback = { tone: 'warning', message: '铺布必须选择某个排唛架方案的唛架床次。' }
+    state.feedback = { tone: 'warning', message: '铺布必须选择某个排唛架方案的唛架编号。' }
     return null
   }
 
   if (!preview.source || !preview.source.markerId) {
-    state.feedback = { tone: 'warning', message: '创建铺布需先选中一条可交接铺布的方案床次。' }
+    state.feedback = { tone: 'warning', message: '创建铺布需先选中一个可铺布的唛架编号。' }
     return null
   }
 
-  if (!preview.context || !preview.marker) {
-    state.feedback = { tone: 'warning', message: '当前未识别到可用上下文，无法创建铺布。' }
+  const selectedRows = state.createScheduleMode === 'WHOLE_PLAN_ONE_TABLE'
+    ? getSelectedCreateSchemeSources()
+    : [preview.source]
+  if (!selectedRows.length) {
+    state.feedback = { tone: 'warning', message: '当前排唛架方案没有可生成铺布任务的唛架编号。' }
     return null
   }
 
-  const draft = createSpreadingDraftFromMarker(
-    preview.source?.markerRecord || preview.marker,
-    preview.context,
-    new Date(),
-    {
-      baseSession: {
-        note: state.createNote || '铺布草稿已创建。',
-        ownerAccountId: state.createOwnerAccountId,
-        ownerName,
-        isExceptionBackfill: state.createExceptionBackfill,
-        exceptionReason: state.createExceptionBackfill ? reason : '',
-      },
-    },
-  )
-
-  draft.ownerAccountId = state.createOwnerAccountId
-  draft.ownerName = ownerName
-  draft.note = state.createNote || draft.note
-  draft.isExceptionBackfill = state.createExceptionBackfill
-  draft.exceptionReason = state.createExceptionBackfill ? reason : ''
   const selectedTable = resolveCuttingTable(state.createCuttingTableId)
-  const plannedStartAt = state.createPlannedStartAt || formatDateTimeLocal()
-  const plannedEndAt = addMinutesToDateTimeLocal(plannedStartAt, DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES)
-  draft.cuttingTableId = selectedTable.cuttingTableId
-  draft.cuttingTableNo = selectedTable.cuttingTableNo
-  draft.cuttingTableName = selectedTable.cuttingTableName
-  draft.plannedStartAt = plannedStartAt
-  draft.plannedEndAt = plannedEndAt
-  draft.estimatedDurationMinutes = DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES
-  draft.tableScheduleStatus = '已排程'
+  const baseStartAt = state.createPlannedStartAt || formatDateTimeLocal()
+  const scheduleBatchId = `spreading-schedule-batch-${Date.now()}`
+  const existingSessions = readMarkerSpreadingPrototypeData().store.sessions
+  const drafts: SpreadingSession[] = []
 
-  if (state.createExceptionBackfill && !preview.source) {
-    draft.importedFromMarker = false
-    draft.markerId = ''
-    draft.markerNo = ''
-    draft.sourceMarkerId = ''
-    draft.sourceMarkerNo = ''
-    draft.planUnits = (draft.planUnits || []).map((unit, index) => ({
-      ...unit,
-      sourceType: 'exception',
-      sourceLineId: unit.sourceLineId || `exception-${index + 1}`,
-    }))
+  for (let index = 0; index < selectedRows.length; index += 1) {
+    const source = selectedRows[index]
+    if (!source.spreadingContext || !source.markerRecord) {
+      state.feedback = { tone: 'warning', message: `唛架编号 ${source.sourceBedNo || source.markerNo} 未识别到上下文，无法创建铺布。` }
+      return null
+    }
+    const draft = createSpreadingDraftFromMarker(
+      source.markerRecord,
+      source.spreadingContext,
+      new Date(Date.now() + index),
+      {
+        baseSession: {
+          note: state.createNote || '铺布草稿已创建。',
+          ownerAccountId: state.createOwnerAccountId,
+          ownerName,
+          isExceptionBackfill: false,
+          exceptionReason: '',
+        },
+      },
+    )
+
+    const plannedStartAt =
+      state.createScheduleMode === 'WHOLE_PLAN_ONE_TABLE'
+        ? addMinutesToDateTimeLocal(baseStartAt, index * DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES)
+        : baseStartAt
+    const plannedEndAt = addMinutesToDateTimeLocal(plannedStartAt, DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES)
+    draft.ownerAccountId = state.createOwnerAccountId
+    draft.ownerName = ownerName
+    draft.note = state.createNote || draft.note
+    draft.cuttingTableId = selectedTable.cuttingTableId
+    draft.cuttingTableNo = selectedTable.cuttingTableNo
+    draft.cuttingTableName = selectedTable.cuttingTableName
+    draft.plannedStartAt = plannedStartAt
+    draft.plannedEndAt = plannedEndAt
+    draft.estimatedDurationMinutes = DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES
+    draft.tableScheduleStatus = '已排程'
+    draft.scheduleMode = state.createScheduleMode
+    draft.scheduleBatchId = scheduleBatchId
+    draft.sequenceNoInScheme = index + 1
+
+    const plannedCutGarmentQty = (draft.planUnits || []).reduce(
+      (sum, unit) => sum + Math.max(Number(unit.plannedCutGarmentQty || 0), 0),
+      0,
+    )
+    const plannedSpreadLengthM = (draft.planUnits || []).reduce(
+      (sum, unit) => sum + Math.max(Number(unit.plannedSpreadLengthM || 0), 0),
+      0,
+    )
+
+    if (!draft.sourceMarkerId || !draft.sourceSchemeId || !draft.sourceBedId) {
+      state.feedback = { tone: 'warning', message: `唛架编号 ${source.sourceBedNo || source.markerNo} 未绑定来源排唛架方案。` }
+      return null
+    }
+
+    if (plannedCutGarmentQty <= 0) {
+      state.feedback = { tone: 'warning', message: `唛架编号 ${source.sourceBedNo || source.markerNo} 的计划成衣件数必须大于 0。` }
+      return null
+    }
+
+    if (plannedSpreadLengthM <= 0) {
+      state.feedback = { tone: 'warning', message: `唛架编号 ${source.sourceBedNo || source.markerNo} 的计划铺布总长度必须大于 0。` }
+      return null
+    }
+
+    if (hasCuttingTableScheduleConflict(draft, existingSessions) || hasCuttingTableScheduleConflictInDrafts(draft, drafts)) {
+      state.feedback = { tone: 'warning', message: `裁床 ${selectedTable.cuttingTableName} 在 ${plannedStartAt} 至 ${plannedEndAt} 已有铺布任务。` }
+      return null
+    }
+    drafts.push(draft)
   }
 
-  const plannedCutGarmentQty = (draft.planUnits || []).reduce(
-    (sum, unit) => sum + Math.max(Number(unit.plannedCutGarmentQty || 0), 0),
-    0,
-  )
-  const plannedSpreadLengthM = (draft.planUnits || []).reduce(
-    (sum, unit) => sum + Math.max(Number(unit.plannedSpreadLengthM || 0), 0),
-    0,
-  )
-
-  if (!draft.sourceMarkerId || !draft.sourceSchemeId || !draft.sourceBedId) {
-    state.feedback = { tone: 'warning', message: '正常创建铺布必须关联来源方案床次。' }
-    return null
-  }
-
-  if (plannedCutGarmentQty <= 0) {
-    state.feedback = { tone: 'warning', message: '计划裁剪成衣件数必须大于 0，才能创建铺布。' }
-    return null
-  }
-
-  if (plannedSpreadLengthM <= 0) {
-    state.feedback = { tone: 'warning', message: '计划铺布总长度必须大于 0，才能创建铺布。' }
-    return null
-  }
-
-  if (hasCuttingTableScheduleConflict(draft, readMarkerSpreadingPrototypeData().store.sessions)) {
-    state.feedback = { tone: 'warning', message: '该裁床当前时间段已有铺布任务。' }
-    return null
-  }
-
-  return draft
+  return drafts
 }
 
 function confirmSpreadingCreate(): boolean {
-  const draft = buildCreateSessionFromSelection()
-  if (!draft) return true
-  return persistImportedDraftAndOpen(draft, `已创建铺布 ${draft.sessionNo || ''}`.trim())
+  const drafts = buildCreateSessionsFromSelection()
+  if (!drafts?.length) return true
+  const data = readMarkerSpreadingPrototypeData()
+  const nextStore = drafts.reduce((store, draft) => upsertSpreadingSession(draft, store), data.store)
+  persistMarkerSpreadingStore(nextStore)
+  state.feedback = {
+    tone: 'success',
+    message: drafts.length === 1 ? `已创建铺布 ${drafts[0].sessionNo || ''}`.trim() : `已按整方案创建 ${drafts.length} 条铺布任务。`,
+  }
+  if (drafts.length === 1) {
+    const saved = nextStore.sessions.find((item) => item.spreadingSessionId === drafts[0].spreadingSessionId) || drafts[0]
+    appStore.navigate(buildMarkerRouteWithContext(getCanonicalCuttingPath('spreading-edit'), buildContextPayloadFromSession(saved)))
+    return true
+  }
+  appStore.navigate(buildListRoute())
+  return true
 }
 
 function saveCurrentSpreading(goDetail: boolean, successMessage?: string): boolean {
@@ -5859,6 +5958,10 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
     }
     if (field === 'owner-account') {
       state.createOwnerAccountId = value
+      return true
+    }
+    if (field === 'schedule-mode') {
+      state.createScheduleMode = value === 'WHOLE_PLAN_ONE_TABLE' ? 'WHOLE_PLAN_ONE_TABLE' : 'BY_MARKER_NO'
       return true
     }
     if (field === 'cutting-table-id') {
@@ -6257,7 +6360,7 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
   }
 
   if (action === 'create-spreading-exception') {
-    state.feedback = { tone: 'warning', message: '铺布必须选择某个排唛架方案的唛架床次。' }
+    state.feedback = { tone: 'warning', message: '铺布必须选择某个排唛架方案的唛架编号。' }
     return true
   }
 
@@ -6271,7 +6374,7 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
   if (action === 'next-spreading-create-step') {
     const source = getSelectedCreateSource()
     if (!source) {
-      state.feedback = { tone: 'warning', message: '创建铺布需先选中一条可交接铺布的方案床次。' }
+      state.feedback = { tone: 'warning', message: '创建铺布需先选中一条可交接铺布的唛架编号。' }
       return true
     }
     state.createStep = 'CONFIRM_CREATE'

@@ -79,7 +79,7 @@ const DEMO_STAGE_PROFILES: CuttingDemoStageProfile[] = [
     cutRatio: 0,
     inboundRatio: 0,
     riskFlags: [],
-    latestActionText: '排唛架方案已生成，等待选择唛架床次并安排裁床。',
+    latestActionText: '排唛架方案已生成，等待选择唛架编号并安排裁床。',
     lastOperatorName: '裁床计划员',
   },
   {
@@ -94,7 +94,7 @@ const DEMO_STAGE_PROFILES: CuttingDemoStageProfile[] = [
     cutRatio: 0.55,
     inboundRatio: 0,
     riskFlags: [],
-    latestActionText: '已按唛架床次开始铺布，裁床执行中。',
+    latestActionText: '已按唛架编号开始铺布，裁床执行中。',
     lastOperatorName: '裁床 A 组',
   },
   {

@@ -105,7 +105,7 @@ export function renderWarehouseSummaryHeader(
                 <div class="mt-1 font-semibold">${overview.handoutCompletedOrderCount} 单</div>
               </div>
               <div class="rounded-2xl border bg-background px-3 py-2">
-                <div class="text-muted-foreground">待审核差异</div>
+                <div class="text-muted-foreground">待处理差异</div>
                 <div class="mt-1 font-semibold">${overview.stocktakeWaitReviewCount} 条</div>
               </div>
               <div class="rounded-2xl border bg-background px-3 py-2">

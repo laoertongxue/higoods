@@ -129,7 +129,7 @@ function renderDetailDrawer(): string {
         <div class="sticky bottom-0 mt-4 border-t bg-background py-3">
           <div class="flex gap-2">
             <button type="button" class="flex-1 rounded-xl border px-3 py-2.5 text-sm" data-pda-warehouse-action="close-stocktake-detail">返回</button>
-            ${order.status === '盘点中' ? `<button type="button" class="flex-1 rounded-xl bg-primary px-3 py-2.5 text-sm font-medium text-primary-foreground" data-pda-warehouse-action="complete-stocktake" data-order-id="${escapeAttr(order.stocktakeOrderId)}">完成盘点</button>` : `<div class="flex-1 rounded-xl border px-3 py-2.5 text-center text-sm text-muted-foreground">${order.status === '待确认' ? '已提交差异待审核' : escapeHtml(order.status)}</div>`}
+            ${order.status === '盘点中' ? `<button type="button" class="flex-1 rounded-xl bg-primary px-3 py-2.5 text-sm font-medium text-primary-foreground" data-pda-warehouse-action="complete-stocktake" data-order-id="${escapeAttr(order.stocktakeOrderId)}">完成盘点</button>` : `<div class="flex-1 rounded-xl border px-3 py-2.5 text-center text-sm text-muted-foreground">${order.status === '待确认' ? '已提交差异待处理' : escapeHtml(order.status)}</div>`}
           </div>
         </div>
       </section>

@@ -104,7 +104,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     pageTitle: '唛架方案列表',
     pageSubtitle: '',
     isPlaceholder: false,
-    shortDescription: '查看排唛架方案、床次和图片状态。',
+    shortDescription: '查看排唛架方案与唛架编号。',
   },
   'marker-create': {
     key: 'marker-create',
@@ -134,7 +134,7 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     pageTitle: '新建铺布',
     pageSubtitle: '',
     isPlaceholder: false,
-    shortDescription: '基于排唛架方案床次新建铺布任务。',
+    shortDescription: '基于排唛架方案中的唛架编号新建铺布任务。',
   },
   'marker-spreading': {
     key: 'marker-spreading',

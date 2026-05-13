@@ -68,6 +68,12 @@ import {
   getTransferBagContentDisplayItems,
 } from '../data/fcs/cutting/sewing-dispatch.ts'
 import {
+  FULL_CAPABILITY_FACTORY_ID,
+  confirmPostFinishingWarehouseReceipt,
+  listPostFinishingWarehouseAreas,
+  listPostFinishingWarehouseLocations,
+} from '../data/fcs/post-finishing-domain.ts'
+import {
   ACTION_PERMISSION_DENIED_TEXT,
   canAcceptDiffAction,
   canCreateHandoverRecord,
@@ -80,6 +86,7 @@ import { getTaskChainTaskById } from '../data/fcs/page-adapters/task-chain-pages
 import { getPdaTaskFlowTaskById, isCuttingSpecialTask } from '../data/fcs/pda-cutting-execution-source.ts'
 import { renderPdaCuttingTaskDetailPage } from './pda-cutting-task-detail'
 import { renderPdaFrame } from './pda-shell'
+import { getPdaRuntimeContext } from './pda-runtime'
 
 interface ProofFile {
   id: string
@@ -451,6 +458,23 @@ function appendTaskAudit(taskId: string, action: string, detail: string, by: str
   ]
 }
 
+function parsePostFinishingPickupRecord(record: PdaPickupRecord): { handoverRecordNo: string; handoverLineId: string } | null {
+  const prefix = 'POST_FINISHING_PICKUP|'
+  if (!record.qrCodeValue.startsWith(prefix)) return null
+  const [, handoverRecordNo, handoverLineId] = record.qrCodeValue.split('|')
+  if (!handoverRecordNo || !handoverLineId) return null
+  return { handoverRecordNo, handoverLineId }
+}
+
+function isPostFinishingHandoutHead(head: PdaHandoverHead | undefined): boolean {
+  return Boolean(head && head.headType === 'HANDOUT' && head.processBusinessCode === 'POST_FINISHING')
+}
+
+function isPostFinishingHandoutRecord(record: PdaHandoverRecord | undefined): boolean {
+  if (!record) return false
+  return isPostFinishingHandoutHead(findPdaHandoverHead(record.handoverId))
+}
+
 function getRecordStatusMeta(status: PdaHandoverRecord['status']): { label: string; className: string } {
   if (status === 'PENDING_WRITEBACK') {
     return { label: '待回写', className: 'border-amber-200 bg-amber-50 text-amber-700' }
@@ -582,9 +606,10 @@ function renderPickupCurrentPanel(
   const reportedQtyValue = formatPickupQty(record.factoryReportedQty, record.qtyUnit)
   const finalQtyValue = formatPickupQty(record.finalResolvedQty, record.qtyUnit)
   const linkedInboundRecord = getLinkedInboundRecord(record.recordId)
-  const linkedInboundLabel = linkedInboundRecord?.inboundRecordNo || '未入库'
+  const postFinishingPickup = parsePostFinishingPickupRecord(record)
+  const linkedInboundLabel = linkedInboundRecord?.inboundRecordNo || (postFinishingPickup && record.status === 'RECEIVED' ? '后道待加工仓已入库' : '未入库')
   const linkedInboundHref = linkedInboundRecord ? buildInboundRecordRoute(record.recordId) : ''
-  const sourceStatusLabel = getPickupWarehouseSourceStatus(record)
+  const sourceStatusLabel = postFinishingPickup && record.status === 'RECEIVED' ? '已入后道待加工仓' : getPickupWarehouseSourceStatus(record)
   const shouldShowExpectedInPendingConfirm =
     typeof record.warehouseHandedQty === 'number' && record.warehouseHandedQty !== record.qtyExpected
 
@@ -900,9 +925,10 @@ function renderPickupRecordItem(record: PdaPickupRecord): string {
   const meta = getPickupRecordStatusMeta(record.status)
   const selected = detailState.selectedPickupRecordId === record.recordId
   const linkedInboundRecord = getLinkedInboundRecord(record.recordId)
-  const linkedInboundLabel = linkedInboundRecord?.inboundRecordNo || '未入库'
+  const postFinishingPickup = parsePostFinishingPickupRecord(record)
+  const linkedInboundLabel = linkedInboundRecord?.inboundRecordNo || (postFinishingPickup && record.status === 'RECEIVED' ? '后道待加工仓已入库' : '未入库')
   const linkedInboundHref = linkedInboundRecord ? buildInboundRecordRoute(record.recordId) : ''
-  const sourceStatusLabel = getPickupWarehouseSourceStatus(record)
+  const sourceStatusLabel = postFinishingPickup && record.status === 'RECEIVED' ? '已入后道待加工仓' : getPickupWarehouseSourceStatus(record)
   const materialSubject = [record.materialName, record.materialSpec].filter(Boolean).join(' · ')
   const sceneChips = [
     record.skuCode ? `SKU ${record.skuCode}` : '',
@@ -1742,6 +1768,21 @@ export function renderPdaHandoverDetailPage(eventId: string): string {
     return renderPdaFrame(content, 'handover')
   }
 
+  const runtime = getPdaRuntimeContext()
+  if (runtime?.factoryId === FULL_CAPABILITY_FACTORY_ID && head.processBusinessCode !== 'POST_FINISHING') {
+    const content = `
+      <div class="space-y-4 p-4">
+        <button class="inline-flex h-8 items-center rounded-md px-2 text-sm text-muted-foreground hover:bg-muted" data-pda-handoverd-action="back">
+          <i data-lucide="arrow-left" class="mr-2 h-4 w-4"></i>返回
+        </button>
+        <article class="rounded-lg border bg-card px-4 py-8 text-center text-sm text-muted-foreground">
+          当前工厂为后道工厂，只能处理后道交接单。
+        </article>
+      </div>
+    `
+    return renderPdaFrame(content, 'handover')
+  }
+
   const task = getPdaTaskFlowTaskById(head.taskId)
   if (head.headType === 'PICKUP' && isCuttingSpecialTask(task)) {
     const backHref = head.headType === 'PICKUP' ? '/fcs/pda/handover?tab=pickup' : '/fcs/pda/handover?tab=handout'
@@ -2043,46 +2084,48 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
       detailState.newRecordQty = ''
       detailState.newRecordUnit = qtyUnit
       detailState.newRecordRemark = ''
-      try {
-        const outboundLinkInput = {
-          handoverOrderId: head.handoverOrderId || head.handoverId,
-          handoverOrderNo: head.handoverOrderNo || head.handoverId,
-          handoverRecordId: created.handoverRecordId || created.recordId,
-          handoverRecordNo: created.handoverRecordNo || created.recordId,
-          [LINKED_QR_FIELD]: getLinkedQrValue(created),
-          taskId: created.taskId,
-          taskNo: head.taskNo,
-          factoryId: head.factoryId,
-          factoryName: head.sourceFactoryName,
-          receiverKind: head.targetKind === 'WAREHOUSE' ? '中转仓' : '其他接收方',
-          receiverName: head.receiverName || head.targetName,
-          itemKind:
-            detailState.newRecordObjectType === 'FABRIC'
-              ? '面料'
-              : detailState.newRecordObjectType === 'CUT_PIECE'
-                ? '裁片'
-                : detailState.newRecordObjectType === 'SEMI_FINISHED_GARMENT'
-                  ? '成衣半成品'
-                  : '其他半成品',
-          itemName: created.handoutItemLabel || created.materialName || head.processName,
-          materialSku: created.materialCode || created.skuCode,
-          partName: created.pieceName,
-          fabricColor: created.skuColor,
-          sizeCode: created.skuSize,
-          submittedQty: created.submittedQty ?? created.plannedQty ?? submittedQty,
-          unit: created.qtyUnit,
-          operatorName: '工厂端移动应用',
-          submittedAt: created.factorySubmittedAt,
-        }
-        linkHandoverRecordToOutboundRecord(
-          outboundLinkInput as Parameters<typeof linkHandoverRecordToOutboundRecord>[0],
-        )
-      } catch (error) {
-        if (!isWarehouseLinkageSkippableError(error)) {
-          throw error
+      if (!isPostFinishingHandoutHead(head)) {
+        try {
+          const outboundLinkInput = {
+            handoverOrderId: head.handoverOrderId || head.handoverId,
+            handoverOrderNo: head.handoverOrderNo || head.handoverId,
+            handoverRecordId: created.handoverRecordId || created.recordId,
+            handoverRecordNo: created.handoverRecordNo || created.recordId,
+            [LINKED_QR_FIELD]: getLinkedQrValue(created),
+            taskId: created.taskId,
+            taskNo: head.taskNo,
+            factoryId: head.factoryId,
+            factoryName: head.sourceFactoryName,
+            receiverKind: head.targetKind === 'WAREHOUSE' ? '中转仓' : '其他接收方',
+            receiverName: head.receiverName || head.targetName,
+            itemKind:
+              detailState.newRecordObjectType === 'FABRIC'
+                ? '面料'
+                : detailState.newRecordObjectType === 'CUT_PIECE'
+                  ? '裁片'
+                  : detailState.newRecordObjectType === 'SEMI_FINISHED_GARMENT'
+                    ? '成衣半成品'
+                    : '其他半成品',
+            itemName: created.handoutItemLabel || created.materialName || head.processName,
+            materialSku: created.materialCode || created.skuCode,
+            partName: created.pieceName,
+            fabricColor: created.skuColor,
+            sizeCode: created.skuSize,
+            submittedQty: created.submittedQty ?? created.plannedQty ?? submittedQty,
+            unit: created.qtyUnit,
+            operatorName: '工厂端移动应用',
+            submittedAt: created.factorySubmittedAt,
+          }
+          linkHandoverRecordToOutboundRecord(
+            outboundLinkInput as Parameters<typeof linkHandoverRecordToOutboundRecord>[0],
+          )
+        } catch (error) {
+          if (!isWarehouseLinkageSkippableError(error)) {
+            throw error
+          }
         }
       }
-      showPdaHandoverDetailToast('已生成出库记录')
+      showPdaHandoverDetailToast(isPostFinishingHandoutHead(head) ? '已生成后道交出记录' : '已生成出库记录')
     } catch (error) {
       const message = error instanceof Error ? error.message : '交出记录新增失败'
       showPdaHandoverDetailToast(message)
@@ -2159,6 +2202,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
 
       const handoverRecordId = updated.handoverRecordId || updated.recordId
       const isPrompt7ReturnFlow = isSpecialCraftReturnHandoverRecord(handoverRecordId)
+      const isPostFinishingReturnFlow = isPostFinishingHandoutRecord(updated)
 
       if (isPrompt7ReturnFlow) {
         try {
@@ -2180,6 +2224,8 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
             throw error
           }
         }
+      } else if (isPostFinishingReturnFlow) {
+        // 后道交出已由 post-finishing-domain 回写待交出仓，不再写通用工厂内部仓。
       } else {
         try {
           syncReceiverWritebackToOutboundRecord({
@@ -2250,6 +2296,10 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
           ? receiverWrittenQty === submittedQty
             ? '已回仓'
             : '已回写，回仓差异待处理'
+          : isPostFinishingReturnFlow
+            ? receiverWrittenQty === submittedQty
+              ? '后道交出回写已同步'
+              : '后道交出回写有差异，待处理'
           : receiverWrittenQty === submittedQty
             ? '接收方回写已完成'
             : '接收方已回写，待工厂确认差异',
@@ -2319,9 +2369,27 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
       `已确认领料数量 ${updated.factoryConfirmedQty ?? updated.qtyExpected} ${updated.qtyUnit}`,
       '工厂端移动应用',
     )
+    const postFinishingPickup = parsePostFinishingPickupRecord(updated)
     const isPrompt7Dispatch = isSpecialCraftDispatchPickupRecord(updated.recordId)
     try {
-      if (isPrompt7Dispatch) {
+      if (postFinishingPickup) {
+        const area = listPostFinishingWarehouseAreas('wait-process')[0]
+        if (!area) {
+          showPdaHandoverDetailToast('请先维护后道待加工仓库区')
+          return true
+        }
+        const location = listPostFinishingWarehouseLocations('wait-process').find((item) => item.areaId === area.areaId)
+        confirmPostFinishingWarehouseReceipt({
+          handoverRecordNo: postFinishingPickup.handoverRecordNo,
+          receiverName: '工厂端移动应用',
+          lines: [{
+            handoverLineId: postFinishingPickup.handoverLineId,
+            actualQty: updated.factoryConfirmedQty ?? updated.warehouseHandedQty ?? updated.qtyExpected,
+            areaId: area.areaId,
+            locationId: location?.locationId,
+          }],
+        })
+      } else if (isPrompt7Dispatch) {
         const binding = getSpecialCraftBindingByPickupRecordId(updated.recordId)
         if (binding?.dispatchHandoverRecordId) {
           markSpecialCraftFactoryReceivedFromHandover({
@@ -2347,7 +2415,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
         throw error
       }
     }
-    showPdaHandoverDetailToast('已入待加工仓')
+    showPdaHandoverDetailToast(postFinishingPickup ? '已入后道待加工仓' : '已入待加工仓')
     return true
   }
 

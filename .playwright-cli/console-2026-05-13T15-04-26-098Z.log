@@ -1,0 +1,19 @@
+[      74ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[     442ms] [VERBOSE] [DOM] Password field is not contained in a form: (More info: https://goo.gl/9p2vKq) %o @ http://127.0.0.1:5173/fcs/pda/auth/login?returnTo=%2Ffcs%2Fpda%2Ftask-receive:0
+[    3611ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[    3860ms] [VERBOSE] [DOM] Password field is not contained in a form: (More info: https://goo.gl/9p2vKq) %o @ http://127.0.0.1:5173/fcs/pda/auth/login?returnTo=%2Ffcs%2Fpda%2Ftask-receive:0
+[   35132ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[   35273ms] [VERBOSE] [DOM] Password field is not contained in a form: (More info: https://goo.gl/9p2vKq) %o @ http://127.0.0.1:5173/fcs/pda/auth/login?returnTo=%2Ffcs%2Fpda%2Ftask-receive:0
+[  145241ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[  156051ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[  157753ms] ReferenceError: listPdaTaskFlowTasks is not defined
+    at getAwardedTenders (http://127.0.0.1:5173/src/pages/pda-task-receive.ts?t=1778684821962:315:21)
+    at renderPdaTaskReceivePage (http://127.0.0.1:5173/src/pages/pda-task-receive.ts?t=1778684821962:858:26)
+    at http://127.0.0.1:5173/src/router/route-renderers.ts?t=1778684821962:15:12
+    at async resolvePage (http://127.0.0.1:5173/src/router/routes.ts?t=1778684821962:119:28)
+    at async render (http://127.0.0.1:5173/src/main.ts?t=1778684821962:274:23)
+[  167315ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[  172828ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[  185959ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[  197157ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[  213592ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356

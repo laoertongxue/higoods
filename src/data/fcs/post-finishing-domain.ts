@@ -6,6 +6,7 @@ export type PostFinishingSourceFactoryType = '车缝厂' | '针织厂' | '未关
 export type PostFinishingQcResult = '全数合规' | '部分不合格' | '全数不合格'
 export type PostFinishingNeedFlag = '开扣眼' | '装扣子' | '熨烫' | '包装'
 export type PostFinishingTaskStatus = '待上游交出' | '待收货' | '待质检' | '质检中' | '待后道' | '后道中' | '待复检' | '待交出' | '已完成'
+export type PostFinishingTaskAcceptanceStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED'
 
 export const FULL_CAPABILITY_FACTORY_ID = 'F090'
 export const FULL_CAPABILITY_FACTORY_NAME = '全能力测试工厂'
@@ -80,7 +81,26 @@ export interface PostFinishingTaskView {
   qcOrderCount: number
   postOrderCount: number
   recheckOrderCount: number
+  acceptanceStatus: PostFinishingTaskAcceptanceStatus
+  acceptedAt?: string
+  acceptedBy?: string
+  rejectedAt?: string
+  rejectedBy?: string
+  rejectReason?: string
   createdAt: string
+  updatedAt: string
+}
+
+export interface PostFinishingTaskAcceptanceRecord {
+  postTaskId: string
+  postTaskNo: string
+  productionOrderNo: string
+  status: PostFinishingTaskAcceptanceStatus
+  acceptedAt?: string
+  acceptedBy?: string
+  rejectedAt?: string
+  rejectedBy?: string
+  rejectReason?: string
   updatedAt: string
 }
 
@@ -601,6 +621,108 @@ function cloneValue<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
 }
 
+const POST_FINISHING_TASK_ACCEPTANCE_STORE_KEY = 'higoods-post-finishing-task-acceptance'
+let postFinishingTaskAcceptanceRecords: PostFinishingTaskAcceptanceRecord[] = []
+
+function readPostFinishingTaskAcceptanceRecords(): PostFinishingTaskAcceptanceRecord[] {
+  if (typeof window === 'undefined') return postFinishingTaskAcceptanceRecords
+  try {
+    const raw = window.localStorage.getItem(POST_FINISHING_TASK_ACCEPTANCE_STORE_KEY)
+    if (!raw) return postFinishingTaskAcceptanceRecords
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return postFinishingTaskAcceptanceRecords
+    postFinishingTaskAcceptanceRecords = parsed
+      .map((item) => ({
+        postTaskId: String(item.postTaskId || ''),
+        postTaskNo: String(item.postTaskNo || ''),
+        productionOrderNo: String(item.productionOrderNo || ''),
+        status: item.status === 'ACCEPTED' || item.status === 'REJECTED' ? item.status : 'PENDING',
+        acceptedAt: item.acceptedAt ? String(item.acceptedAt) : undefined,
+        acceptedBy: item.acceptedBy ? String(item.acceptedBy) : undefined,
+        rejectedAt: item.rejectedAt ? String(item.rejectedAt) : undefined,
+        rejectedBy: item.rejectedBy ? String(item.rejectedBy) : undefined,
+        rejectReason: item.rejectReason ? String(item.rejectReason) : undefined,
+        updatedAt: String(item.updatedAt || ''),
+      }))
+      .filter((item) => item.postTaskId && item.postTaskNo && item.productionOrderNo)
+  } catch {
+    postFinishingTaskAcceptanceRecords = []
+  }
+  return postFinishingTaskAcceptanceRecords
+}
+
+function persistPostFinishingTaskAcceptanceRecords(): void {
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem(POST_FINISHING_TASK_ACCEPTANCE_STORE_KEY, JSON.stringify(postFinishingTaskAcceptanceRecords))
+  }
+}
+
+function hasPostFinishingTaskProgress(task: Pick<PostFinishingTaskView, 'currentStatus' | 'receivedQty' | 'qcOrderCount' | 'postOrderCount' | 'recheckOrderCount' | 'waitHandoverQty'>): boolean {
+  return (
+    task.currentStatus !== '待上游交出'
+    && task.currentStatus !== '待收货'
+  ) || task.receivedQty > 0 || task.qcOrderCount > 0 || task.postOrderCount > 0 || task.recheckOrderCount > 0 || task.waitHandoverQty > 0
+}
+
+function getDefaultPostFinishingTaskAcceptance(task: Pick<PostFinishingTaskView, 'postTaskId' | 'postTaskNo' | 'productionOrderNo' | 'currentStatus' | 'receivedQty' | 'qcOrderCount' | 'postOrderCount' | 'recheckOrderCount' | 'waitHandoverQty' | 'createdAt'>): PostFinishingTaskAcceptanceRecord {
+  const progressed = hasPostFinishingTaskProgress(task)
+  return {
+    postTaskId: task.postTaskId,
+    postTaskNo: task.postTaskNo,
+    productionOrderNo: task.productionOrderNo,
+    status: progressed ? 'ACCEPTED' : 'PENDING',
+    acceptedAt: progressed ? task.createdAt : undefined,
+    acceptedBy: progressed ? FULL_CAPABILITY_FACTORY_NAME : undefined,
+    updatedAt: task.createdAt,
+  }
+}
+
+export function getPostFinishingTaskAcceptance(task: Pick<PostFinishingTaskView, 'postTaskId' | 'postTaskNo' | 'productionOrderNo' | 'currentStatus' | 'receivedQty' | 'qcOrderCount' | 'postOrderCount' | 'recheckOrderCount' | 'waitHandoverQty' | 'createdAt'>): PostFinishingTaskAcceptanceRecord {
+  const stored = readPostFinishingTaskAcceptanceRecords().find((item) => item.postTaskId === task.postTaskId)
+  return cloneValue(stored || getDefaultPostFinishingTaskAcceptance(task))
+}
+
+export function acceptPostFinishingTask(postTaskId: string, operatorName = FULL_CAPABILITY_FACTORY_NAME, acceptedAt = nowText()): PostFinishingTaskAcceptanceRecord | null {
+  const task = getPostFinishingTaskById(postTaskId)
+  if (!task) return null
+  const next: PostFinishingTaskAcceptanceRecord = {
+    postTaskId: task.postTaskId,
+    postTaskNo: task.postTaskNo,
+    productionOrderNo: task.productionOrderNo,
+    status: 'ACCEPTED',
+    acceptedAt,
+    acceptedBy: operatorName,
+    updatedAt: acceptedAt,
+  }
+  const records = readPostFinishingTaskAcceptanceRecords()
+  const index = records.findIndex((item) => item.postTaskId === task.postTaskId)
+  if (index >= 0) postFinishingTaskAcceptanceRecords[index] = next
+  else postFinishingTaskAcceptanceRecords.unshift(next)
+  persistPostFinishingTaskAcceptanceRecords()
+  return cloneValue(next)
+}
+
+export function rejectPostFinishingTask(postTaskId: string, rejectReason: string, operatorName = FULL_CAPABILITY_FACTORY_NAME, rejectedAt = nowText()): PostFinishingTaskAcceptanceRecord | null {
+  const task = getPostFinishingTaskById(postTaskId)
+  if (!task) return null
+  const next: PostFinishingTaskAcceptanceRecord = {
+    postTaskId: task.postTaskId,
+    postTaskNo: task.postTaskNo,
+    productionOrderNo: task.productionOrderNo,
+    status: 'REJECTED',
+    rejectedAt,
+    rejectedBy: operatorName,
+    rejectReason: rejectReason.trim() || '工厂拒绝接单',
+    updatedAt: rejectedAt,
+  }
+  const records = readPostFinishingTaskAcceptanceRecords()
+  const index = records.findIndex((item) => item.postTaskId === task.postTaskId)
+  if (index >= 0) postFinishingTaskAcceptanceRecords[index] = next
+  else postFinishingTaskAcceptanceRecords.unshift(next)
+  persistPostFinishingTaskAcceptanceRecords()
+  return cloneValue(next)
+}
+
 function totalQty(lines: PostFinishingSkuLine[]): number {
   return lines.reduce((sum, line) => sum + line.plannedQty, 0)
 }
@@ -750,7 +872,7 @@ function buildPostFinishingTaskView(order: ProductionOrder): PostFinishingTaskVi
     waitHandoverQty,
     plannedQty,
   })
-  return {
+  const taskCore = {
     postTaskId,
     postTaskNo,
     productionOrderId: order.productionOrderId,
@@ -786,6 +908,16 @@ function buildPostFinishingTaskView(order: ProductionOrder): PostFinishingTaskVi
     recheckOrderCount: recheckRecords.length,
     createdAt: order.createdAt,
     updatedAt: [order.updatedAt, ...qcRecords.map((record) => record.updatedAt), ...postRecords.map((record) => record.updatedAt), ...recheckRecords.map((record) => record.updatedAt)].sort().slice(-1)[0] || order.updatedAt,
+  }
+  const acceptance = getPostFinishingTaskAcceptance(taskCore)
+  return {
+    ...taskCore,
+    acceptanceStatus: acceptance.status,
+    acceptedAt: acceptance.acceptedAt,
+    acceptedBy: acceptance.acceptedBy,
+    rejectedAt: acceptance.rejectedAt,
+    rejectedBy: acceptance.rejectedBy,
+    rejectReason: acceptance.rejectReason,
   }
 }
 

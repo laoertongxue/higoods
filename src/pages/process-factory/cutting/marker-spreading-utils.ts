@@ -639,7 +639,7 @@ export function summarizeMarkerLineItems(lineItems: MarkerLineItem[] = []): Mark
     totalPieces,
     summaryText: lineItems.length
       ? `${lineItems.length} 行 · ${colorSummary || '颜色待补'} · ${totalPieces} 件`
-      : '当前尚未补录排版明细。',
+      : '当前尚未补录唛架明细。',
   }
 }
 

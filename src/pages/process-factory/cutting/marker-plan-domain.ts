@@ -7,14 +7,12 @@ export type MarkerSizeCode = (typeof MARKER_SIZE_CODES)[number]
 export type MarkerPlanModeKey = 'normal' | 'high_low' | 'fold_normal' | 'fold_high_low'
 export type MarkerBedModeKey = MarkerPlanModeKey
 export type MarkerPlanContextType = 'original-cut-order' | 'merge-batch'
-export type MarkerPlanTabKey = 'basic' | 'allocation' | 'explosion' | 'layout' | 'images'
+export type MarkerPlanTabKey = 'basic' | 'explosion' | 'layout'
 export type MarkerSchemeSourceType = 'original-cut-order' | 'merge-batch' | 'mixed'
 
 export type MarkerPlanStatusKey =
-  | 'WAITING_BALANCE'
   | 'MAPPING_ISSUE'
   | 'WAITING_LAYOUT'
-  | 'WAITING_IMAGE'
   | 'CANCELED'
   | 'READY_FOR_SPREADING'
 
@@ -25,6 +23,32 @@ export type MarkerImageStatusKey = 'pending' | 'done'
 export type MarkerSchemeImageStatusKey = '待生成' | '已生成' | '部分生成' | '已过期'
 export type MarkerSchemeSpreadingStatusKey = '未排程' | '部分排程' | '铺布中' | '已完成'
 export type MarkerBedStatusKey = '草稿' | '可铺布' | '已排程' | '铺布中' | '已完成' | '已锁定'
+export type MarkerDemandMatchStatusKey = '待编辑唛架' | '已匹配' | '有不足' | '有超出' | '有差异'
+export type MarkerDemandMatchRowStatusKey = '已匹配' | '不足' | '超出'
+export type MarkerPlanConfirmationStatusKey = '待确认' | '已确认' | '需调整'
+
+export interface MarkerDemandMatchRow {
+  rowId: string
+  colorCode: string
+  colorName: string
+  sizeCode: string
+  sizeName: string
+  demandQty: number
+  markerQty: number
+  diffQty: number
+  status: MarkerDemandMatchRowStatusKey
+}
+
+export interface MarkerDemandMatchSummary {
+  status: MarkerDemandMatchStatusKey
+  demandTotalQty: number
+  markerTotalQty: number
+  diffTotalQty: number
+  shortageQty: number
+  surplusQty: number
+  rowCount: number
+  rows: MarkerDemandMatchRow[]
+}
 
 export interface MarkerSizeRatioRow {
   sizeCode: MarkerSizeCode
@@ -328,6 +352,10 @@ export interface MarkerPlan {
   mappingStatus: MarkerMappingStatusKey
   layoutStatus: MarkerLayoutStatusKey
   imageStatus: MarkerImageStatusKey
+  confirmationStatus?: MarkerPlanConfirmationStatusKey
+  confirmedBy?: string
+  confirmedAt?: string
+  confirmationRemark?: string
   readyForSpreading: boolean
   remark: string
   hasAdjustment: boolean
@@ -400,13 +428,7 @@ export const markerPlanModeMeta: Record<MarkerPlanModeKey, MarkerPlanStatusMeta<
 }
 
 export const markerPlanStatusMeta: Record<MarkerPlanStatusKey, MarkerPlanStatusMeta<MarkerPlanStatusKey>> = {
-  WAITING_BALANCE: {
-    key: 'WAITING_BALANCE',
-    label: '待配平',
-    className: 'bg-amber-100 text-amber-700 border border-amber-200',
-    helperText: '来源分配还没配平，不能交接铺布。',
-  },
-  MAPPING_ISSUE: {
+MAPPING_ISSUE: {
     key: 'MAPPING_ISSUE',
     label: '映射异常',
     className: 'bg-rose-100 text-rose-700 border border-rose-200',
@@ -417,12 +439,6 @@ export const markerPlanStatusMeta: Record<MarkerPlanStatusKey, MarkerPlanStatusM
     label: '待补唛架',
     className: 'bg-sky-100 text-sky-700 border border-sky-200',
     helperText: '唛架矩阵还没完成，不能交接铺布。',
-  },
-  WAITING_IMAGE: {
-    key: 'WAITING_IMAGE',
-    label: '待上传图片',
-    className: 'bg-slate-100 text-slate-700 border border-slate-200',
-    helperText: '方案图或唛架明细图还没生成，建议先补齐资料。',
   },
   CANCELED: {
     key: 'CANCELED',
@@ -447,7 +463,7 @@ export const markerAllocationStatusMeta: Record<MarkerAllocationStatusKey, Marke
   },
   balanced: {
     key: 'balanced',
-    label: '已配平',
+    label: '已匹配',
     className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
     helperText: '各尺码来源分配与配比一致。',
   },
@@ -682,34 +698,24 @@ export function deriveMarkerImageStatus(imageCount: number): MarkerImageStatusKe
   return imageCount > 0 ? 'done' : 'pending'
 }
 
-export function deriveMarkerReadyForSpreading(
-  plan: Pick<MarkerPlan, 'totalPieces' | 'netLength' | 'allocationStatus' | 'mappingStatus' | 'layoutStatus'> & Partial<Pick<MarkerPlan, 'imageStatus'>>,
-): boolean {
-  return (
-    safeNumber(plan.totalPieces) > 0 &&
-    safeNumber(plan.netLength) > 0 &&
-    plan.allocationStatus === 'balanced' &&
-    plan.mappingStatus === 'passed' &&
-    plan.layoutStatus === 'done' &&
-    (!plan.imageStatus || plan.imageStatus === 'done')
-  )
+export function deriveMarkerReadyForSpreading(plan: Partial<Pick<MarkerPlan, 'confirmationStatus'>>): boolean {
+  return plan.confirmationStatus === '已确认'
 }
 
-export function deriveMarkerPlanStatus(plan: Pick<MarkerPlan, 'allocationStatus' | 'mappingStatus' | 'layoutStatus' | 'imageStatus' | 'readyForSpreading'>): MarkerPlanStatusKey {
-  if (plan.allocationStatus !== 'balanced') return 'WAITING_BALANCE'
-  if (plan.mappingStatus !== 'passed') return 'MAPPING_ISSUE'
+export function deriveMarkerPlanStatus(
+  plan: Partial<Pick<MarkerPlan, 'mappingStatus' | 'layoutStatus' | 'confirmationStatus'>>,
+): MarkerPlanStatusKey {
+  if (plan.mappingStatus === 'issue') return 'MAPPING_ISSUE'
   if (plan.layoutStatus !== 'done') return 'WAITING_LAYOUT'
-  if (plan.imageStatus !== 'done') return 'WAITING_IMAGE'
-  if (plan.readyForSpreading) return 'READY_FOR_SPREADING'
-  return 'WAITING_IMAGE'
+  if (plan.confirmationStatus === '已确认') return 'READY_FOR_SPREADING'
+  return 'WAITING_LAYOUT'
 }
 
-export function deriveMarkerPlanDefaultTab(plan: Pick<MarkerPlan, 'allocationStatus' | 'mappingStatus' | 'layoutStatus' | 'imageStatus' | 'lastVisitedTab'>): MarkerPlanTabKey {
-  if (plan.allocationStatus !== 'balanced') return 'allocation'
-  if (plan.mappingStatus !== 'passed') return 'explosion'
+export function deriveMarkerPlanDefaultTab(plan: Pick<MarkerPlan, 'mappingStatus' | 'layoutStatus' | 'lastVisitedTab'>): MarkerPlanTabKey {
+  if (plan.lastVisitedTab === 'basic' || plan.lastVisitedTab === 'explosion' || plan.lastVisitedTab === 'layout') return plan.lastVisitedTab
+  if (plan.mappingStatus === 'issue') return 'explosion'
   if (plan.layoutStatus !== 'done') return 'layout'
-  if (plan.imageStatus !== 'done') return 'images'
-  return plan.lastVisitedTab || 'basic'
+  return 'layout'
 }
 
 export function buildMarkerTotalPiecesFormula(sizeRatioRows: MarkerSizeRatioRow[]): string {

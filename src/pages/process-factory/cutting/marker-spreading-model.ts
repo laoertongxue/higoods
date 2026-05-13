@@ -493,6 +493,9 @@ export interface SpreadingSession {
   actualEndAt?: string
   actualDurationMinutes?: number
   tableScheduleStatus?: '未排程' | '已排程' | '执行中' | '已完成' | '异常'
+  scheduleMode?: 'BY_MARKER_NO' | 'WHOLE_PLAN_ONE_TABLE'
+  scheduleBatchId?: string
+  sequenceNoInScheme?: number
   sourceMarkerId?: string
   sourceMarkerNo?: string
   styleCode?: string
@@ -658,24 +661,24 @@ export interface MarkerSpreadingViewModel {
 
 const markerModeMeta: Record<MarkerModeKey, { label: string; className: string; detailText: string }> = {
   normal: {
-    label: '普通排版',
+    label: '普通唛架',
     className: 'bg-slate-100 text-slate-700 border border-slate-200',
-    detailText: '普通排版床次铺布。',
+    detailText: '普通唛架铺布。',
   },
   high_low: {
-    label: '高低层排版',
+    label: '高低层唛架',
     className: 'bg-amber-100 text-amber-700 border border-amber-200',
-    detailText: '高低层排版床次。',
+    detailText: '高低层唛架铺布。',
   },
   fold_normal: {
-    label: '对折普通排版',
+    label: '对折普通唛架',
     className: 'bg-blue-100 text-blue-700 border border-blue-200',
-    detailText: 'fold_normal：对折普通排版，用于对折裁片场景。',
+    detailText: 'fold_normal：对折普通唛架，用于对折裁片场景。',
   },
   fold_high_low: {
-    label: '对折高低层排版',
+    label: '对折高低层唛架',
     className: 'bg-violet-100 text-violet-700 border border-violet-200',
-    detailText: 'fold_high_low：对折高低层排版，用于对折且需高低层排布的裁片场景。',
+    detailText: 'fold_high_low：对折高低层唛架，用于对折且需高低层排布的裁片场景。',
   },
 }
 
@@ -1016,7 +1019,7 @@ export function validateMarkerModeShape(marker: Partial<MarkerRecord>): string[]
   const issues: string[] = []
 
   if (template === 'row-template' && !(marker.lineItems || []).length) {
-    issues.push('当前模式应使用行明细模板，但排版明细为空。')
+    issues.push('当前模式应使用行明细模板，但唛架明细为空。')
   }
 
   if (template === 'matrix-template') {
@@ -1024,7 +1027,7 @@ export function validateMarkerModeShape(marker: Partial<MarkerRecord>): string[]
       issues.push('高低层床次缺少裁剪明细矩阵。')
     }
     if (!(marker.highLowPatternRows || []).length) {
-      issues.push('高低层排版缺少床次模式矩阵。')
+      issues.push('高低层唛架缺少床次模式矩阵。')
     }
   }
 
@@ -1855,7 +1858,7 @@ function buildSeedMarker(context: MarkerSpreadingContext): MarkerRecord {
           spreadTotalLength: spreadLengthPerLine,
           spreadingTotalLength: spreadLengthPerLine,
           widthHint: '默认门幅 160cm',
-          note: `${row.materialSkuSummary} · 默认排版明细`,
+          note: `${row.materialSkuSummary} · 默认唛架明细`,
         }))
   const highLowCuttingRows = isHighLowMarkerMode(markerMode) ? createDefaultHighLowCuttingRows(markerId, colors, sizeDistribution) : []
   const highLowPatternRows = isHighLowMarkerMode(markerMode) ? createDefaultHighLowPatternRows(markerId, colors, highLowPatternKeys) : []
@@ -2004,7 +2007,7 @@ export function createSpreadingDraftFromMarker(
     actualCutPieceQty: baseSession?.actualCutPieceQty || 0,
     unitPrice: baseSession?.unitPrice || 0,
     totalAmount: baseSession?.totalAmount || 0,
-    note: baseSession?.note || '铺布草稿已从当前方案床次记录导入，可继续补录卷与人员。',
+    note: baseSession?.note || '铺布草稿已从当前唛架编号记录导入，可继续补录卷与人员。',
     createdAt: baseSession?.createdAt || nowText(now),
     updatedAt: nowText(now),
     warningMessages: baseSession?.warningMessages || [],
@@ -2113,7 +2116,7 @@ export function validateMarkerForSpreadingImport(marker: Partial<MarkerRecord>):
   if (Number(marker.singlePieceUsage || 0) <= 0) messages.push('床次单件用量不能为空，才能导入铺布。')
 
   if (templateType === 'row-template' && !(marker.lineItems || []).length) {
-    messages.push('当前方案床次缺少排版明细，不能导入铺布草稿。')
+    messages.push('当前唛架编号缺少唛架明细，不能导入铺布草稿。')
   }
 
   if (templateType === 'matrix-template') {
@@ -2121,7 +2124,7 @@ export function validateMarkerForSpreadingImport(marker: Partial<MarkerRecord>):
       messages.push('高低层床次缺少裁剪明细矩阵，不能导入铺布草稿。')
     }
     if (!(marker.highLowPatternRows || []).length) {
-      messages.push('高低层排版缺少模式分布矩阵，不能导入铺布草稿。')
+      messages.push('高低层唛架缺少模式分布矩阵，不能导入铺布草稿。')
     }
   }
 

@@ -1,4 +1,10 @@
 import { listFactoryWarehouseInboundRecords } from '../data/fcs/factory-internal-warehouse.ts'
+import {
+  FULL_CAPABILITY_FACTORY_ID,
+  listPostFinishingWaitHandoverWarehouseRecords,
+  listPostFinishingWaitProcessWarehouseRecords,
+  type PostFinishingWarehouseFlowRecord,
+} from '../data/fcs/post-finishing-domain.ts'
 import { renderPdaFrame } from './pda-shell'
 import {
   buildWarehouseDifferenceText,
@@ -37,6 +43,52 @@ const FILTERS: Array<{ value: InboundFilter; label: string }> = [
   { value: '已入库', label: '已入库' },
   { value: '差异待处理', label: '差异待处理' },
 ]
+
+interface PostFinishingInboundFlowRow {
+  recordId: string
+  warehouseRecordNo: string
+  flow: PostFinishingWarehouseFlowRecord
+  flowLabel: string
+  sourceProductionOrderNo: string
+  sourceTaskNo: string
+  spuName: string
+  skuSummary: string
+  positionText: string
+}
+
+function getPostFinishingInboundRows(): PostFinishingInboundFlowRow[] {
+  const waitProcessRows = listPostFinishingWaitProcessWarehouseRecords().flatMap((record) =>
+    record.flowRecords
+      .filter((flow) => flow.flowType === '扫码收货')
+      .map((flow) => ({
+        recordId: flow.flowRecordId,
+        warehouseRecordNo: record.warehouseRecordNo,
+        flow,
+        flowLabel: '扫码收货入待加工仓',
+        sourceProductionOrderNo: record.sourceProductionOrderNo,
+        sourceTaskNo: record.sourceTaskNo,
+        spuName: record.spuName,
+        skuSummary: record.skuSummary,
+        positionText: `${record.areaName || '-'} / ${record.locationCode || '-'}`,
+      })),
+  )
+  const waitHandoverRows = listPostFinishingWaitHandoverWarehouseRecords().flatMap((record) =>
+    record.flowRecords
+      .filter((flow) => flow.flowType === '复检入仓')
+      .map((flow) => ({
+        recordId: flow.flowRecordId,
+        warehouseRecordNo: record.warehouseRecordNo,
+        flow,
+        flowLabel: '复检完成入待交出仓',
+        sourceProductionOrderNo: record.sourceProductionOrderNo,
+        sourceTaskNo: record.sourceTaskNo,
+        spuName: record.spuName,
+        skuSummary: record.skuSummary,
+        positionText: '待交出仓',
+      })),
+  )
+  return [...waitProcessRows, ...waitHandoverRows]
+}
 
 function getRows() {
   const runtime = getMobileWarehouseRuntimeContext()
@@ -117,10 +169,91 @@ function renderDetailDrawer(): string {
   `
 }
 
+function renderPostFinishingInboundDetailDrawer(): string {
+  const row = getPostFinishingInboundRows().find((item) => item.recordId === state.detailId)
+  if (!row) return ''
+  return `
+    <div class="fixed inset-0 z-[120]">
+      <button type="button" class="absolute inset-0 bg-black/40" data-pda-warehouse-action="close-inbound-detail"></button>
+      <section class="absolute inset-x-0 bottom-[72px] rounded-t-3xl border bg-background px-4 py-4 shadow-2xl">
+        <div class="flex items-center justify-between gap-3">
+          <h2 class="text-base font-semibold text-foreground">后道入库流水</h2>
+          <button type="button" class="rounded-full border px-3 py-1 text-xs" data-pda-warehouse-action="close-inbound-detail">关闭</button>
+        </div>
+        <div class="mt-4 rounded-2xl border bg-card px-4 py-4 shadow-sm">
+          ${renderCompactFieldList([
+            { label: '流水号', value: row.flow.flowRecordNo },
+            { label: '入库类型', value: row.flowLabel },
+            { label: '仓库记录', value: row.warehouseRecordNo },
+            { label: '生产单', value: row.sourceProductionOrderNo },
+            { label: '后道任务', value: row.sourceTaskNo },
+            { label: '款式', value: row.spuName },
+            { label: 'SKU', value: row.skuSummary },
+            { label: '数量', value: `${row.flow.qty} ${row.flow.qtyUnit}` },
+            { label: '变动前后', value: `${row.flow.beforeQty} → ${row.flow.afterQty}` },
+            { label: '库区库位', value: row.positionText },
+            { label: '来源单据', value: row.flow.sourceActionRecordNo },
+            { label: '操作人', value: row.flow.operatorName },
+            { label: '操作时间', value: formatWarehouseDateTime(row.flow.operatedAt) },
+            { label: '备注', value: row.flow.remark },
+          ])}
+        </div>
+      </section>
+    </div>
+  `
+}
+
+function renderPostFinishingInboundRecordsPage(runtimeFactoryName: string): string {
+  const rows = getPostFinishingInboundRows()
+  const totalQty = rows.reduce((sum, row) => sum + row.flow.qty, 0)
+  const content = `
+    <div class="space-y-4 px-4 pb-5 pt-4">
+      <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <div class="text-lg font-semibold text-foreground">后道入库流水</div>
+            <div class="mt-1 text-xs text-muted-foreground">扫码收货和复检入仓形成的仓库流水。</div>
+          </div>
+          <div class="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary">${escapeHtml(runtimeFactoryName)}</div>
+        </div>
+        <div class="mt-4 grid grid-cols-2 gap-2 text-xs">
+          <div class="rounded-2xl bg-muted/50 px-3 py-3"><div class="text-muted-foreground">流水</div><div class="mt-1 text-base font-semibold">${rows.length} 条</div></div>
+          <div class="rounded-2xl bg-muted/50 px-3 py-3"><div class="text-muted-foreground">入库数量</div><div class="mt-1 text-base font-semibold">${totalQty} 件</div></div>
+        </div>
+      </section>
+      <section class="space-y-3">
+        ${rows.length > 0 ? rows.map((row) => `
+          <article class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0 flex-1">
+                <div class="text-sm font-semibold">${escapeHtml(row.flow.flowRecordNo)}</div>
+                <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(row.flowLabel)} · ${escapeHtml(row.skuSummary)}</div>
+              </div>
+              ${renderStatusPill('已入库')}
+            </div>
+            <div class="mt-3 space-y-1.5 text-xs text-muted-foreground">
+              <div>生产单：${escapeHtml(row.sourceProductionOrderNo)}</div>
+              <div>来源单据：${escapeHtml(row.flow.sourceActionRecordNo)}</div>
+              <div>数量：${row.flow.qty} ${escapeHtml(row.flow.qtyUnit)}</div>
+              <div>操作时间：${escapeHtml(formatWarehouseDateTime(row.flow.operatedAt))}</div>
+            </div>
+            <div class="mt-4 flex flex-wrap gap-2">
+              <button type="button" class="rounded-full border px-3 py-1.5 text-xs" data-pda-warehouse-action="open-inbound-detail" data-record-id="${escapeAttr(row.recordId)}">查看</button>
+            </div>
+          </article>
+        `).join('') : renderMobilePageEmptyState('暂无后道入库流水', '扫码收货或复检完成后，会形成入库流水。')}
+      </section>
+      ${renderPostFinishingInboundDetailDrawer()}
+    </div>
+  `
+  return renderPdaFrame(content, 'warehouse', { headerTitle: '后道入库流水', disableTodoAutoOpen: true })
+}
+
 export function renderPdaWarehouseInboundRecordsPage(): string {
   const runtime = getMobileWarehouseRuntimeContext()
   if (!runtime) return renderPdaFrame(renderMobilePageEmptyState('未登录', '请先登录工厂端移动应用。'), 'warehouse')
   syncStateFromQuery()
+  if (runtime.factoryId === FULL_CAPABILITY_FACTORY_ID) return renderPostFinishingInboundRecordsPage(runtime.factoryName)
   const rows = getRows()
   const content = `
     <div class="space-y-4 px-4 pb-5 pt-4">

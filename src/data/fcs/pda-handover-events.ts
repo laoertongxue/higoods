@@ -36,10 +36,13 @@ import {
 } from './knitting-task-domain.ts'
 import {
   FULL_CAPABILITY_FACTORY_ID,
+  FULL_CAPABILITY_FACTORY_NAME,
   listPostFinishingAvailableHandoverLines,
+  listPostFinishingUpstreamHandovers,
   listPostFinishingWaitHandoverWarehouseRecords,
   recordPostFinishingHandoverSubmission,
   writeBackPostFinishingHandoverSubmission,
+  type PostFinishingUpstreamHandover,
   type PostFinishingWaitHandoverWarehouseRecord,
 } from './post-finishing-domain.ts'
 import {
@@ -803,6 +806,100 @@ function buildPostFinishingHandoutHeadId(recheckOrderNo: string): string {
   return `HOH-POST-${normalizeIdSegment(recheckOrderNo)}`
 }
 
+function buildPostFinishingPickupHeadId(handoverRecordNo: string): string {
+  return `PKH-POST-${normalizeIdSegment(handoverRecordNo)}`
+}
+
+function buildPostFinishingTaskIdFromOrderNo(productionOrderNo: string): string {
+  return `POST-TASK-${productionOrderNo.replace(/^PO-/, '')}`
+}
+
+function buildPostFinishingPickupHeads(): PdaHandoverHead[] {
+  return listPostFinishingUpstreamHandovers().map((handover) => {
+    const handoverId = buildPostFinishingPickupHeadId(handover.handoverRecordNo)
+    const qtyExpectedTotal = sumBy(handover.skuLines, (line) => line.plannedQty)
+    return {
+      handoverId,
+      headType: 'PICKUP',
+      qrCodeValue: handover.qrCode,
+      taskId: buildPostFinishingTaskIdFromOrderNo(handover.productionOrderNo),
+      sourceTaskId: handover.sourceTaskNo,
+      taskNo: buildPostFinishingTaskIdFromOrderNo(handover.productionOrderNo),
+      sourceTaskNo: handover.sourceTaskNo,
+      rootTaskNo: handover.sourceTaskNo,
+      productionOrderNo: handover.productionOrderNo,
+      processName: '后道',
+      sourceFactoryName: handover.sourceFactoryName,
+      targetName: FULL_CAPABILITY_FACTORY_NAME,
+      targetKind: 'FACTORY',
+      qtyUnit: handover.skuLines[0]?.qtyUnit || '件',
+      factoryId: FULL_CAPABILITY_FACTORY_ID,
+      taskStatus: 'IN_PROGRESS',
+      summaryStatus: 'SUBMITTED',
+      recordCount: handover.skuLines.length,
+      pendingWritebackCount: handover.skuLines.length,
+      writtenBackQtyTotal: 0,
+      objectionCount: 0,
+      completionStatus: 'OPEN',
+      qtyExpectedTotal,
+      qtyActualTotal: 0,
+      qtyDiffTotal: qtyExpectedTotal,
+      sourceDocId: handover.handoverRecordId,
+      sourceDocNo: handover.handoverRecordNo,
+      scopeLabel: `${handover.sourceFactoryType}交出成衣 ${handover.skuLines.length} 个 SKU`,
+      executorKind: 'EXTERNAL_FACTORY',
+      transitionFromPrev: 'SAME_FACTORY_CONTINUE',
+      transitionToNext: 'SAME_FACTORY_CONTINUE',
+      stageCode: 'POST',
+      stageName: '后道阶段',
+      processBusinessCode: 'POST_FINISHING',
+      processBusinessName: '后道',
+      taskTypeCode: 'POST_FINISHING',
+      taskTypeLabel: '后道任务',
+      assignmentGranularity: 'ORDER',
+      assignmentGranularityLabel: '整单',
+      isSpecialCraft: false,
+    }
+  })
+}
+
+function isPostFinishingPickupHead(head: Pick<PdaHandoverHead, 'headType' | 'processBusinessCode' | 'sourceDocNo'>): boolean {
+  return head.headType === 'PICKUP' && head.processBusinessCode === 'POST_FINISHING' && Boolean(head.sourceDocNo)
+}
+
+function buildPostFinishingPickupRecords(head: PdaHandoverHead): PdaPickupRecord[] {
+  if (!isPostFinishingPickupHead(head)) return []
+  const handover = listPostFinishingUpstreamHandovers().find((item) => item.handoverRecordNo === head.sourceDocNo)
+  if (!handover) return []
+
+  return handover.skuLines.map((line, index) => ({
+    recordId: `PF-PICKUP-${normalizeIdSegment(handover.handoverRecordNo)}-${String(index + 1).padStart(2, '0')}`,
+    handoverId: head.handoverId,
+    taskId: head.taskId,
+    sequenceNo: index + 1,
+    materialCode: handover.handoverRecordNo,
+    materialName: `${handover.sourceFactoryType}交出成衣`,
+    materialSpec: `${handover.spuCode} / ${line.colorName} / ${line.sizeName}`,
+    skuCode: line.skuCode,
+    skuColor: line.colorName,
+    skuSize: line.sizeName,
+    pieceName: '成衣',
+    pickupMode: 'WAREHOUSE_DELIVERY',
+    pickupModeLabel: '仓库配送到厂',
+    materialSummary: `${handover.sourceFactoryName}交出 ${line.skuCode} / ${line.colorName} / ${line.sizeName}`,
+    qtyExpected: line.plannedQty,
+    qtyActual: 0,
+    qtyUnit: line.qtyUnit,
+    submittedAt: handover.handedOverAt,
+    status: 'PENDING_FACTORY_CONFIRM',
+    qrCodeValue: `POST_FINISHING_PICKUP|${handover.handoverRecordNo}|${line.handoverLineId}`,
+    warehouseHandedQty: line.plannedQty,
+    warehouseHandedAt: handover.handedOverAt,
+    warehouseHandedBy: handover.sourceFactoryName,
+    remark: `${handover.handoverRecordNo} / ${line.handoverLineId}`,
+  }))
+}
+
 function buildPostFinishingHandoutHeads(): PdaHandoverHead[] {
   const groups = new Map<string, PostFinishingWaitHandoverWarehouseRecord[]>()
   listPostFinishingWaitHandoverWarehouseRecords().forEach((record) => {
@@ -871,10 +968,6 @@ function buildPostFinishingHandoutHeads(): PdaHandoverHead[] {
 
 function isPostFinishingGeneratedHead(head: Pick<PdaHandoverHead, 'handoverId' | 'processBusinessCode'>): boolean {
   return head.processBusinessCode === 'POST_FINISHING' && head.handoverId.startsWith('HOH-POST-')
-}
-
-function isLegacyPostFinishingMockHead(head: Pick<PdaHandoverHead, 'handoverId' | 'processBusinessCode'>): boolean {
-  return head.processBusinessCode === 'POST_FINISHING' && head.handoverId === 'HOH-MOCK-SEW-235'
 }
 
 function buildGenericPickupRecord(seed: PdaTaskMockPickupRecordSeed): PdaPickupRecord {
@@ -1033,44 +1126,6 @@ const PDA_MOCK_HANDOVER_HEADS: PdaHandoverHead[] = [
     assignmentGranularity: 'ORDER',
     assignmentGranularityLabel: '整单',
     isSpecialCraft: true,
-  },
-  {
-    handoverId: 'HOH-MOCK-SEW-235',
-    headType: 'HANDOUT',
-    qrCodeValue: buildHandoutHeadQrCodeValue('HOH-MOCK-SEW-235'),
-    taskId: 'TASK-POST-000235',
-    taskNo: 'TASK-POST-000235',
-    productionOrderNo: 'PO-20260318-005',
-    processName: '后道',
-    sourceFactoryName: '华盛后道厂',
-    targetName: '成衣仓交接点',
-    targetKind: 'WAREHOUSE',
-    qtyUnit: '件',
-    factoryId: PDA_MOCK_FACTORY_ID,
-    taskStatus: 'DONE',
-    summaryStatus: 'SUBMITTED',
-    recordCount: 0,
-    pendingWritebackCount: 0,
-    writtenBackQtyTotal: 0,
-    objectionCount: 0,
-    completionStatus: 'OPEN',
-    qtyExpectedTotal: 260,
-    qtyActualTotal: 0,
-    qtyDiffTotal: 260,
-    sourceDocNo: 'RET-MOCK-POST-235',
-    scopeLabel: '整单',
-    executorKind: 'EXTERNAL_FACTORY',
-    transitionFromPrev: 'RETURN_TO_WAREHOUSE',
-    transitionToNext: 'RETURN_TO_WAREHOUSE',
-    stageCode: 'POST',
-    stageName: '后道阶段',
-    processBusinessCode: 'POST_FINISHING',
-    processBusinessName: '后道',
-    taskTypeCode: 'POST_FINISHING',
-    taskTypeLabel: '后道任务',
-    assignmentGranularity: 'ORDER',
-    assignmentGranularityLabel: '整单',
-    isSpecialCraft: false,
   },
   {
     handoverId: 'HOH-MOCK-CUT-093',
@@ -1375,52 +1430,6 @@ const PDA_MOCK_PICKUP_RECORDS: Record<string, PdaPickupRecord[]> = {
 }
 
 const PDA_MOCK_HANDOUT_RECORDS: Record<string, PdaHandoverRecord[]> = {
-  'HOH-MOCK-SEW-235': [
-    {
-      recordId: 'HOR-MOCK-SEW235-001',
-      handoverId: 'HOH-MOCK-SEW-235',
-      taskId: 'TASK-POST-000235',
-      sequenceNo: 1,
-      handoutObjectType: 'GARMENT',
-      handoutItemLabel: '黑色 / SKU-IRON-235 / 140件',
-      materialName: '后道成衣',
-      materialSpec: '男款外套整单交接',
-      skuCode: 'SKU-IRON-235',
-      skuColor: '黑色',
-      skuSize: 'L',
-      pieceName: '成衣包',
-      plannedQty: 140,
-      qtyUnit: '件',
-      factorySubmittedAt: '2026-03-22 11:00:00',
-      factoryRemark: '首批交出完成',
-      factoryProofFiles: [],
-      status: 'WRITTEN_BACK',
-      warehouseReturnNo: 'RET-MOCK-POST-235-001',
-      warehouseWrittenQty: 140,
-      warehouseWrittenAt: '2026-03-22 11:20:00',
-      receiverWrittenBy: '成衣仓收货员',
-    },
-    {
-      recordId: 'HOR-MOCK-SEW235-002',
-      handoverId: 'HOH-MOCK-SEW-235',
-      taskId: 'TASK-POST-000235',
-      sequenceNo: 2,
-      handoutObjectType: 'GARMENT',
-      handoutItemLabel: '黑色 / SKU-IRON-235 / 120件',
-      materialName: '后道成衣',
-      materialSpec: '男款外套整单交接',
-      skuCode: 'SKU-IRON-235',
-      skuColor: '黑色',
-      skuSize: 'L',
-      pieceName: '成衣包',
-      plannedQty: 120,
-      qtyUnit: '件',
-      factorySubmittedAt: '2026-03-22 14:05:00',
-      factoryRemark: '尾批待仓库回写',
-      factoryProofFiles: [],
-      status: 'PENDING_WRITEBACK',
-    },
-  ],
   'HOH-MOCK-CUT-093': [
     {
       recordId: 'HOR-MOCK-CUT093-001',
@@ -2686,12 +2695,15 @@ function getHeadCompletionOverride(handoverId: string): {
 function getPickupRecordsForHeadInternal(head: PdaHandoverHead): PdaPickupRecord[] {
   const mockRecords = PDA_MOCK_PICKUP_RECORDS[head.handoverId]?.map(clonePickupRecord) ?? []
   const taskBoardSeedRecords = buildTaskBoardPickupRecordSeeds(head)
+  const postFinishingPickupRecords = buildPostFinishingPickupRecords(head)
   const doc = head.sourceDocId ? (getWarehouseExecutionDocById(head.sourceDocId) as WarehouseIssueOrder | null) : null
   const baseRecords =
     mockRecords.length > 0
       ? mockRecords
       : taskBoardSeedRecords.length > 0
         ? taskBoardSeedRecords
+      : postFinishingPickupRecords.length > 0
+        ? postFinishingPickupRecords
       : doc && doc.docType === 'ISSUE'
         ? doc.lines.map((line, index) => buildPickupLineRecord(head, doc, line, index))
         : []
@@ -2864,9 +2876,10 @@ function recomputeHeadsInternal(): PdaHandoverHead[] {
     .filter((doc) => shouldIncludePdaDoc(doc, getRuntimeTaskById(doc.runtimeTaskId)))
     .map((doc) => refreshHandoutHeadSummary(buildHandoutHeadFromReturn(doc)))
 
-  const postFinishingHeads = buildPostFinishingHandoutHeads().map((head) => refreshHandoutHeadSummary(head))
+  const postFinishingPickupHeads = buildPostFinishingPickupHeads().map((head) => refreshPickupHeadSummary(head))
+  const postFinishingHandoutHeads = buildPostFinishingHandoutHeads().map((head) => refreshHandoutHeadSummary(head))
 
-  const mockHeads = PDA_MOCK_HANDOVER_HEADS.filter((head) => !isLegacyPostFinishingMockHead(head)).map((head) =>
+  const mockHeads = PDA_MOCK_HANDOVER_HEADS.map((head) =>
     head.headType === 'PICKUP'
       ? refreshPickupHeadSummary(cloneHead(head))
       : refreshHandoutHeadSummary(cloneHead(head)),
@@ -2878,7 +2891,7 @@ function recomputeHeadsInternal(): PdaHandoverHead[] {
       : refreshHandoutHeadSummary(cloneHead(head)),
   )
 
-  return [...pickupHeads, ...handoutHeads, ...postFinishingHeads, ...mockHeads, ...addedHeads]
+  return [...pickupHeads, ...handoutHeads, ...postFinishingPickupHeads, ...postFinishingHandoutHeads, ...mockHeads, ...addedHeads]
 }
 
 function buildHeadsInternal(): PdaHandoverHead[] {
@@ -3140,6 +3153,24 @@ export function getPdaHandoutHeads(factoryId?: string): PdaHandoverHead[] {
   return listHeadsSorted(factoryId).filter(
     (head) => head.headType === 'HANDOUT' && head.completionStatus === 'OPEN',
   )
+}
+
+export function getPdaPostFinishingPickupHeads(): PdaHandoverHead[] {
+  return listHeadsSorted(FULL_CAPABILITY_FACTORY_ID).filter(
+    (head) => head.headType === 'PICKUP' && head.completionStatus === 'OPEN' && head.processBusinessCode === 'POST_FINISHING',
+  )
+}
+
+export function getPdaPostFinishingHandoutHeads(): PdaHandoverHead[] {
+  return listHeadsSorted(FULL_CAPABILITY_FACTORY_ID).filter(
+    (head) => head.headType === 'HANDOUT' && head.completionStatus === 'OPEN' && head.processBusinessCode === 'POST_FINISHING',
+  )
+}
+
+export function getPdaPostFinishingCompletedHeads(): PdaHandoverHead[] {
+  return listHeadsSorted(FULL_CAPABILITY_FACTORY_ID)
+    .filter((head) => head.completionStatus === 'COMPLETED' && head.processBusinessCode === 'POST_FINISHING')
+    .sort((a, b) => parseDateMs(b.completedByWarehouseAt || '') - parseDateMs(a.completedByWarehouseAt || ''))
 }
 
 export function getPdaCompletedHeads(factoryId?: string): PdaHandoverHead[] {

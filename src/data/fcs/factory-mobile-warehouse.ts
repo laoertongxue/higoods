@@ -15,6 +15,12 @@ import {
   listKnittingWaitProcessReceiptRecords,
   listKnittingWarehouseInventory,
 } from './knitting-task-domain.ts'
+import {
+  FULL_CAPABILITY_FACTORY_ID,
+  listPostFinishingUpstreamHandovers,
+  listPostFinishingWaitHandoverWarehouseRecords,
+  listPostFinishingWaitProcessWarehouseRecords,
+} from './post-finishing-domain.ts'
 
 export interface FactoryMobileWarehouseOverview {
   factoryId: string
@@ -118,6 +124,50 @@ export function getFactoryMobileWarehouseOverview(factoryId: string, factoryName
     }
   }
 
+  if (factoryId === FULL_CAPABILITY_FACTORY_ID) {
+    const waitProcessRecords = listPostFinishingWaitProcessWarehouseRecords()
+    const waitHandoverRecords = listPostFinishingWaitHandoverWarehouseRecords()
+    const upstreamHandovers = listPostFinishingUpstreamHandovers()
+    const inboundFlows = waitProcessRecords.flatMap((record) => record.flowRecords.filter((flow) => flow.flowType === '扫码收货'))
+    const recheckInboundFlows = waitHandoverRecords.flatMap((record) => record.flowRecords.filter((flow) => flow.flowType === '复检入仓'))
+    const outboundFlows = waitHandoverRecords.flatMap((record) => record.flowRecords.filter((flow) => flow.flowType === '交出出仓'))
+    const activeWaitHandover = waitHandoverRecords.map((record) => Math.max(record.waitHandoverGarmentQty - record.submittedHandoverGarmentQty, 0))
+    return {
+      factoryId,
+      factoryName,
+      waitProcessCount: waitProcessRecords.filter((record) => record.availableGarmentQty > 0).length,
+      waitProcessQty: waitProcessRecords.reduce((sum, record) => sum + record.availableGarmentQty, 0),
+      waitHandoverCount: waitHandoverRecords.filter((record, index) => activeWaitHandover[index] > 0).length,
+      waitHandoverQty: activeWaitHandover.reduce((sum, qty) => sum + qty, 0),
+      todayInboundCount: inboundFlows.length + recheckInboundFlows.length,
+      todayInboundQty: [...inboundFlows, ...recheckInboundFlows].reduce((sum, flow) => sum + flow.qty, 0),
+      todayOutboundCount: outboundFlows.length,
+      todayOutboundQty: outboundFlows.reduce((sum, flow) => sum + flow.qty, 0),
+      stocktakeCount: 0,
+      differenceCount: waitHandoverRecords.filter((record) => record.diffGarmentQty !== 0).length,
+      objectionCount: 0,
+      pickupCompletedOrderCount: upstreamHandovers.filter((handover) => {
+        const plannedQty = handover.skuLines.reduce((sum, line) => sum + line.plannedQty, 0)
+        const receivedQty = waitProcessRecords
+          .filter((record) => record.upstreamHandoverRecordNo === handover.handoverRecordNo)
+          .reduce((sum, record) => sum + record.inboundGarmentQty, 0)
+        return receivedQty >= plannedQty
+      }).length,
+      handoutCompletedOrderCount: waitHandoverRecords.filter((record) => (
+        record.submittedHandoverGarmentQty >= record.waitHandoverGarmentQty
+        && record.receivedHandoverGarmentQty >= record.submittedHandoverGarmentQty
+      )).length,
+      stocktakeWaitReviewCount: 0,
+      stocktakeAdjustedCount: 0,
+      transferBagPackTaskCount: 0,
+      pendingTransferBagReceiveCount: 0,
+      receivedTransferBagCount: 0,
+      feiTicketWritebackCount: 0,
+      transferBagDifferenceCount: 0,
+      isSewingLightweight: false,
+    }
+  }
+
   const waitProcessItems = listFactoryWaitProcessStockItems().filter((item) => item.factoryId === factoryId)
   const waitHandoverItems = listFactoryWaitHandoverStockItems().filter((item) => item.factoryId === factoryId)
   const inboundRecords = listFactoryWarehouseInboundRecords().filter((item) => item.factoryId === factoryId)
@@ -204,7 +254,7 @@ export function getFactoryMobileWarehouseCards(factoryId: string, factoryName: s
       cardId: 'difference',
       title: '差异',
       countText: `${overview.differenceCount} 条`,
-      subText: overview.stocktakeWaitReviewCount > 0 ? `待审核 ${overview.stocktakeWaitReviewCount} 条` : `已调整 ${overview.stocktakeAdjustedCount} 条`,
+      subText: overview.stocktakeWaitReviewCount > 0 ? `待处理 ${overview.stocktakeWaitReviewCount} 条` : `已调整 ${overview.stocktakeAdjustedCount} 条`,
       route: '/fcs/pda/warehouse/outbound-records?status=差异',
       status: overview.differenceCount > 0 ? 'danger' : 'normal',
     },

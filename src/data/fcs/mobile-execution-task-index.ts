@@ -9,6 +9,7 @@ import {
   getMobileTaskExecutionState,
   getPdaMobileExecutionTaskById,
   isTaskVisibleInMobileExecutionList,
+  listPostFinishingMobileExecutionTasks,
   listPdaMobileExecutionTasks,
   type MobileTaskProcessType,
 } from './process-mobile-task-binding.ts'
@@ -587,7 +588,8 @@ export function matchMobileTaskKeyword(task: ProcessTask | null | undefined, key
 export function listMobileExecutionTasks(params: ListMobileExecutionTasksParams = {}): ProcessTask[] {
   const currentFactoryId = normalizeString(params.currentFactoryId) || TEST_FACTORY_ID
   const statusTab = normalizeTabKey(params.statusTab)
-  let tasks = listPdaMobileExecutionTasks().filter((task) => isMobileTaskVisibleForFactory(task, currentFactoryId))
+  let tasks = (params.processType === 'POST_FINISHING' ? listPostFinishingMobileExecutionTasks() : listPdaMobileExecutionTasks())
+    .filter((task) => isMobileTaskVisibleForFactory(task, currentFactoryId))
 
   if (params.processType) {
     tasks = tasks.filter((task) => getMobileTaskProcessType(task) === params.processType)

@@ -31,6 +31,7 @@ import {
 } from '../data/fcs/process-mobile-task-binding.ts'
 import { getPrintWorkOrderByTaskId } from '../data/fcs/printing-task-domain.ts'
 import { getDyeWorkOrderByTaskId } from '../data/fcs/dyeing-task-domain.ts'
+import { FULL_CAPABILITY_FACTORY_ID } from '../data/fcs/post-finishing-domain.ts'
 import {
   formatProcessQuantityWithUnit,
   getQuantityLabel,
@@ -363,7 +364,10 @@ function mutateFinishTask(taskId: string, by: string): void {
 }
 
 function getAcceptedTasks(factoryId: string): ProcessTask[] {
-  return listMobileExecutionTasks({ currentFactoryId: factoryId })
+  return listMobileExecutionTasks({
+    currentFactoryId: factoryId,
+    processType: factoryId === FULL_CAPABILITY_FACTORY_ID ? 'POST_FINISHING' : undefined,
+  })
 }
 
 function getFilteredTasks(
@@ -550,10 +554,22 @@ function renderNotStartedCard(task: ProcessTask): string {
                     data-task-id="${escapeHtml(task.taskId)}"
                   >
                     <i data-lucide="play" class="mr-1 h-3 w-3"></i>
-                    去开工
+                    开工
                   </button>
                 `
               : `
+                  <button
+                    class="inline-flex h-7 cursor-not-allowed items-center rounded-md bg-muted px-3 text-xs text-muted-foreground opacity-70"
+                    type="button"
+                    disabled
+                    title="${escapeHtml(prereq.blocker)}"
+                  >
+                    <i data-lucide="play" class="mr-1 h-3 w-3"></i>
+                    开工
+                  </button>
+                  <span class="inline-flex min-h-7 items-center rounded-md bg-amber-50 px-2 text-xs text-amber-700">
+                    原因：${escapeHtml(prereq.blocker)}
+                  </span>
                   <button
                     class="inline-flex h-7 items-center rounded-md border border-amber-300 px-3 text-xs text-amber-700 hover:bg-amber-50"
                     data-pda-exec-action="go-warehouse"

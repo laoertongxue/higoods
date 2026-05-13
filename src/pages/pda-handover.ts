@@ -7,6 +7,9 @@ import {
   getPdaCompletedHeads,
   getPdaHandoverRecordsByHead,
   getPdaHandoutHeads,
+  getPdaPostFinishingCompletedHeads,
+  getPdaPostFinishingHandoutHeads,
+  getPdaPostFinishingPickupHeads,
   getPdaPickupHeads,
   type PdaHandoverHead,
 } from '../data/fcs/pda-handover-events'
@@ -23,6 +26,7 @@ import {
   renderPdaLoginRedirect,
 } from './pda-runtime'
 import { ensureSpecialCraftFeiTicketFlowSeeded } from '../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
+import { FULL_CAPABILITY_FACTORY_ID } from '../data/fcs/post-finishing-domain.ts'
 
 type HandoverTab = 'pickup' | 'handout' | 'done'
 
@@ -415,9 +419,10 @@ export function renderPdaHandoverPage(): string {
   ensureSpecialCraftFeiTicketFlowSeeded()
   syncTabWithQuery()
   const selectedFactoryId = getCurrentFactoryId()
-  const pickupHeads = getPdaPickupHeads(selectedFactoryId)
-  const handoutHeads = getPdaHandoutHeads(selectedFactoryId)
-  const doneHeads = getPdaCompletedHeads(selectedFactoryId)
+  const isPostFinishingFactory = selectedFactoryId === FULL_CAPABILITY_FACTORY_ID
+  const pickupHeads = isPostFinishingFactory ? getPdaPostFinishingPickupHeads() : getPdaPickupHeads(selectedFactoryId)
+  const handoutHeads = isPostFinishingFactory ? getPdaPostFinishingHandoutHeads() : getPdaHandoutHeads(selectedFactoryId)
+  const doneHeads = isPostFinishingFactory ? getPdaPostFinishingCompletedHeads() : getPdaCompletedHeads(selectedFactoryId)
 
   const donePickupCount = doneHeads.filter((head) => head.headType === 'PICKUP').length
   const doneHandoutCount = doneHeads.filter((head) => head.headType === 'HANDOUT').length
@@ -470,7 +475,7 @@ export function renderPdaHandoverPage(): string {
         ${
           state.activeTab === 'handout'
             ? `
-              <p class="text-xs text-muted-foreground">交出记录由工厂发起，接收方回写实收对象数量；裁床厂可看待装袋、装袋中、已装袋待交出，车缝厂可看待收中转袋、部分回写、差异。</p>
+              <p class="text-xs text-muted-foreground">${isPostFinishingFactory ? '后道交出记录由工厂发起，接收方回写实收成衣数量。' : '交出记录由工厂发起，接收方回写实收对象数量；裁床厂可看待装袋、装袋中、已装袋待交出，车缝厂可看待收中转袋、部分回写、差异。'}</p>
               ${
                 handoutHeads.length === 0
                   ? renderEmptyState('暂无待处理交出单')

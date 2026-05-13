@@ -7,6 +7,14 @@ import {
   listFactoryWaitProcessStockItems,
 } from './factory-internal-warehouse.ts'
 import { listSettlementStatementsByParty } from './store-domain-settlement-seeds.ts'
+import {
+  FULL_CAPABILITY_FACTORY_ID,
+  listPostFinishingTasks,
+  listPostFinishingWaitHandoverWarehouseRecords,
+} from './post-finishing-domain.ts'
+import {
+  listPostFinishingMobileExecutionTasks,
+} from './process-mobile-task-binding.ts'
 
 export type FactoryMobileTodoType =
   | '待接单'
@@ -111,6 +119,28 @@ function buildTaskReceiveTodos(factoryId: string): FactoryMobileTodo[] {
     }))
 }
 
+function buildPostFinishingTaskReceiveTodos(factoryId: string): FactoryMobileTodo[] {
+  return listPostFinishingTasks()
+    .filter((task) => task.managedPostFactoryId === factoryId && task.acceptanceStatus === 'PENDING')
+    .map((task, index) => ({
+      todoId: `todo-post-accept-${task.postTaskId}`,
+      todoNo: `TD-PA-${String(index + 1).padStart(3, '0')}`,
+      todoType: '待接单' as const,
+      todoTitle: `后道任务待接单`,
+      todoSubtitle: `${task.productionOrderNo} · ${task.postTaskNo} · ${task.spuName}`,
+      factoryId,
+      factoryName: task.managedPostFactoryName,
+      relatedTaskId: task.postTaskId,
+      relatedTaskNo: task.postTaskNo,
+      priority: resolvePriority(task.createdAt),
+      status: '待处理' as const,
+      dueAt: task.createdAt,
+      createdAt: task.createdAt,
+      detailRoute: `/fcs/pda/notify/todo-post-accept-${task.postTaskId}`,
+      actionLabel: '去处理' as const,
+    }))
+}
+
 function buildExecTodos(factoryId: string): FactoryMobileTodo[] {
   const acceptedTasks = listPdaTaskFlowTasks().filter(
     (task) => task.assignedFactoryId === factoryId && task.acceptanceStatus === 'ACCEPTED',
@@ -179,6 +209,43 @@ function buildExecTodos(factoryId: string): FactoryMobileTodo[] {
   return [...pendingStart, ...pendingFinish, ...blocked]
 }
 
+function buildPostFinishingExecTodos(factoryId: string): FactoryMobileTodo[] {
+  const tasks = listPostFinishingMobileExecutionTasks().filter(
+    (task) =>
+      task.assignedFactoryId === factoryId
+      && task.acceptanceStatus === 'ACCEPTED'
+  )
+
+  return tasks
+    .filter((task) => task.status !== 'DONE')
+    .map((task, index) => {
+      const status = task.status === 'BLOCKED' ? '处理中' : task.status === 'IN_PROGRESS' ? '处理中' : '待处理'
+      const todoType =
+        task.status === 'BLOCKED'
+          ? '异常待处理'
+          : task.status === 'IN_PROGRESS'
+            ? '待完工'
+            : '待开工'
+      return {
+        todoId: `todo-post-exec-${task.taskId}`,
+        todoNo: `TD-PE-${String(index + 1).padStart(3, '0')}`,
+        todoType,
+        todoTitle: `后道任务${todoType}`,
+        todoSubtitle: `${task.productionOrderId} · ${task.taskNo || task.taskId}`,
+        factoryId,
+        factoryName: task.assignedFactoryName || factoryId,
+        relatedTaskId: task.taskId,
+        relatedTaskNo: task.taskNo || task.taskId,
+        priority: task.status === 'BLOCKED' ? '紧急' : resolvePriority((task as PdaTaskFlowMock & { taskDeadline?: string }).taskDeadline, status),
+        status,
+        dueAt: (task as PdaTaskFlowMock & { taskDeadline?: string }).taskDeadline || task.updatedAt || task.createdAt,
+        createdAt: task.startedAt || task.acceptedAt || task.createdAt || '',
+        detailRoute: `/fcs/pda/notify/todo-post-exec-${task.taskId}`,
+        actionLabel: '去处理',
+      } satisfies FactoryMobileTodo
+    })
+}
+
 function buildPickupTodos(factoryId: string): FactoryMobileTodo[] {
   return getPdaPickupHeads(factoryId).map((head, index) => ({
     todoId: `todo-pickup-${head.handoverId}`,
@@ -200,6 +267,29 @@ function buildPickupTodos(factoryId: string): FactoryMobileTodo[] {
   }))
 }
 
+function buildPostFinishingPickupTodos(factoryId: string): FactoryMobileTodo[] {
+  return getPdaPickupHeads(factoryId)
+    .filter((head) => head.processBusinessCode === 'POST_FINISHING')
+    .map((head, index) => ({
+      todoId: `todo-post-pickup-${head.handoverId}`,
+      todoNo: `TD-PP-${String(index + 1).padStart(3, '0')}`,
+      todoType: '待领料' as const,
+      todoTitle: `后道待接收上游交出`,
+      todoSubtitle: `${head.productionOrderNo || '-'} · ${head.sourceDocNo || head.objectSummary || head.scopeLabel || ''}`,
+      factoryId,
+      factoryName: head.factoryName || head.targetName || factoryId,
+      relatedTaskId: head.taskId,
+      relatedTaskNo: head.taskNo,
+      relatedHandoverOrderId: head.handoverId,
+      priority: resolvePriority(head.deadlineAt || head.lastRecordAt || head.completedByWarehouseAt),
+      status: '待处理' as const,
+      dueAt: head.deadlineAt || head.lastRecordAt || head.completedByWarehouseAt,
+      createdAt: head.lastRecordAt || head.completedByWarehouseAt || '',
+      detailRoute: `/fcs/pda/notify/todo-post-pickup-${head.handoverId}`,
+      actionLabel: '确认' as const,
+    }))
+}
+
 function buildHandoutTodos(factoryId: string): FactoryMobileTodo[] {
   return getPdaHandoutHeads(factoryId).map((head, index) => ({
     todoId: `todo-handout-${head.handoverId}`,
@@ -219,6 +309,29 @@ function buildHandoutTodos(factoryId: string): FactoryMobileTodo[] {
     detailRoute: `/fcs/pda/notify/todo-handout-${head.handoverId}`,
     actionLabel: '去处理',
   }))
+}
+
+function buildPostFinishingHandoutTodos(factoryId: string): FactoryMobileTodo[] {
+  return getPdaHandoutHeads(factoryId)
+    .filter((head) => head.processBusinessCode === 'POST_FINISHING')
+    .map((head, index) => ({
+      todoId: `todo-post-handout-${head.handoverId}`,
+      todoNo: `TD-PH-${String(index + 1).padStart(3, '0')}`,
+      todoType: '待交出' as const,
+      todoTitle: `后道待交出`,
+      todoSubtitle: `${head.productionOrderNo || '-'} · ${head.sourceDocNo || head.scopeLabel || head.objectSummary || ''}`,
+      factoryId,
+      factoryName: head.factoryName || head.sourceFactoryName || factoryId,
+      relatedTaskId: head.taskId,
+      relatedTaskNo: head.taskNo,
+      relatedHandoverOrderId: head.handoverId,
+      priority: resolvePriority(head.deadlineAt || head.lastRecordAt, '处理中'),
+      status: '处理中' as const,
+      dueAt: head.deadlineAt || head.lastRecordAt,
+      createdAt: head.lastRecordAt || '',
+      detailRoute: `/fcs/pda/notify/todo-post-handout-${head.handoverId}`,
+      actionLabel: '去处理' as const,
+    }))
 }
 
 function buildDifferenceTodos(factoryId: string): FactoryMobileTodo[] {
@@ -290,6 +403,30 @@ function buildDifferenceTodos(factoryId: string): FactoryMobileTodo[] {
   return [...processDiffs, ...outboundDiffs, ...objections]
 }
 
+function buildPostFinishingDifferenceTodos(factoryId: string): FactoryMobileTodo[] {
+  return listPostFinishingWaitHandoverWarehouseRecords()
+    .filter((record) => record.diffGarmentQty !== 0)
+    .map((record, index) => ({
+      todoId: `todo-post-diff-${record.warehouseRecordId}`,
+      todoNo: `TD-PD-${String(index + 1).padStart(3, '0')}`,
+      todoType: '差异待处理' as const,
+      todoTitle: `后道交出差异待处理`,
+      todoSubtitle: `${record.sourceProductionOrderNo} · ${record.recheckOrderNo} · 差异 ${record.diffGarmentQty}${record.qtyUnit}`,
+      factoryId,
+      factoryName: record.managedPostFactoryName,
+      relatedTaskId: record.postOrderId,
+      relatedTaskNo: record.postOrderNo,
+      relatedHandoverRecordId: record.handoverRecordId,
+      relatedOutboundRecordId: record.warehouseRecordId,
+      priority: '紧急' as const,
+      status: '处理中' as const,
+      dueAt: record.updatedAt,
+      createdAt: record.updatedAt,
+      detailRoute: `/fcs/pda/notify/todo-post-diff-${record.warehouseRecordId}`,
+      actionLabel: '去处理' as const,
+    }))
+}
+
 function buildSettlementTodos(factoryId: string): FactoryMobileTodo[] {
   return listSettlementStatementsByParty(factoryId)
     .filter(
@@ -349,6 +486,18 @@ export function getFactoryMobileTodoActionRoute(todo: FactoryMobileTodo): string
 }
 
 export function getFactoryMobileTodos(factoryId: string): FactoryMobileTodo[] {
+  if (factoryId === FULL_CAPABILITY_FACTORY_ID) {
+    return [
+      ...buildPostFinishingTaskReceiveTodos(factoryId),
+      ...buildPostFinishingPickupTodos(factoryId),
+      ...buildPostFinishingExecTodos(factoryId),
+      ...buildPostFinishingHandoutTodos(factoryId),
+      ...buildPostFinishingDifferenceTodos(factoryId),
+      ...buildSettlementTodos(factoryId),
+    ]
+      .sort(compareTodo)
+  }
+
   return [
     ...buildTaskReceiveTodos(factoryId),
     ...buildPickupTodos(factoryId),
@@ -367,9 +516,12 @@ export function getFactoryMobileTodoCount(factoryId: string): number {
 export function getFactoryMobileTodoById(todoId: string): FactoryMobileTodo | null {
   const allTodos = Array.from(
     new Set(
-      listPdaTaskFlowTasks()
+      [
+        FULL_CAPABILITY_FACTORY_ID,
+        ...listPdaTaskFlowTasks()
         .map((task) => task.assignedFactoryId)
         .filter((factoryId): factoryId is string => Boolean(factoryId)),
+      ],
     ),
   ).flatMap((factoryId) => getFactoryMobileTodos(factoryId))
   return allTodos.find((item) => item.todoId === todoId) ?? null

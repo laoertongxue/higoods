@@ -1129,7 +1129,7 @@ function renderSettlementRequestDrawer(): string {
       '申请修改结算资料',
       `
         <div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
-          提交后进入待审核，不会立即改写当前生效资料；已生成对账单和预付款批次继续沿用原快照。
+          提交后进入待处理，不会立即改写当前生效资料；已生成对账单和预付款批次继续沿用原快照。
         </div>
         ${
           state.settlementRequestErrorText

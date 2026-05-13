@@ -54,7 +54,6 @@ export interface SpreadingCreateSourceRow {
   plannedCutGarmentQtyFormula: string
   plannedSpreadLengthM: number
   plannedSpreadLengthFormula: string
-  imageStatusLabel: string
   markerRecord: MarkerRecord
   spreadingContext: MarkerSpreadingContext
 }
@@ -138,7 +137,7 @@ function buildMarkerRecordFromPlanBed(
     materialSku: bed.materialSku || plan.materialSkuSummary,
     sizeLabel: row.sizeName || row.sizeCode,
     plannedGarmentQty: Math.max(Number(distributedQty[index] || 0), 0),
-    note: '来自唛架床次覆盖尺码',
+    note: '来自唛架编号覆盖尺码',
   }))
   const normalLineItems: MarkerLineItem[] =
     bed.bedMode === 'normal' || bed.bedMode === 'fold_normal'
@@ -318,7 +317,6 @@ function buildCreateSourceRowsFromPlan(
         plannedCutGarmentQtyFormula: buildQtyFormula(plannedCutGarmentQty, bed.plannedLayerCount, bed.markerPieceQtyPerLayer),
         plannedSpreadLengthM: bed.spreadTotalLength,
         plannedSpreadLengthFormula: `${Number(bed.spreadTotalLength || 0).toFixed(2)} 米 = ${bed.bedNo} 铺布总长度`,
-        imageStatusLabel: plan.imageStatusMeta.label,
         markerRecord,
         spreadingContext,
       }

@@ -26,9 +26,11 @@ import {
   MARKER_PLAN_STORAGE_KEY,
   MARKER_SIZE_CODES,
   type MarkerAllocationRow,
-  type MarkerAllocationStatusKey,
+  type MarkerDemandMatchRow,
+  type MarkerDemandMatchRowStatusKey,
+  type MarkerDemandMatchStatusKey,
+  type MarkerDemandMatchSummary,
   type MarkerFoldConfig,
-  type MarkerImageRecord,
   type MarkerLayoutStatusKey,
   type MarkerHighLowMatrixRow,
   type MarkerMappingStatusKey,
@@ -39,6 +41,7 @@ import {
   type MarkerPlanModeKey,
   type MarkerPlanStatusKey,
   type MarkerPlanTabKey,
+  type MarkerPlanConfirmationStatusKey,
   type MarkerPieceExplosionRow,
   type MarkerSchemeBed,
   type MarkerSchemeDemandRow,
@@ -69,8 +72,6 @@ import {
   deriveMarkerPlanDefaultTab,
   deriveMarkerPlanStatus,
   deriveMarkerReadyForSpreading,
-  markerAllocationStatusMeta,
-  markerImageStatusMeta,
   markerLayoutStatusMeta,
   markerMappingStatusMeta,
   markerPlanModeMeta,
@@ -238,7 +239,6 @@ export interface MarkerPlanListStats {
   totalContextCount: number
   builtContextCount: number
   pendingContextCount: number
-  pendingBalanceCount: number
   mappingIssueCount: number
   waitingLayoutCount: number
   readyForSpreadingCount: number
@@ -247,10 +247,8 @@ export interface MarkerPlanListStats {
 export interface MarkerPlanViewRow extends MarkerPlan {
   modeMeta: (typeof markerPlanModeMeta)[MarkerPlanModeKey]
   statusMeta: (typeof markerPlanStatusMeta)[MarkerPlanStatusKey]
-  allocationStatusMeta: (typeof markerAllocationStatusMeta)[MarkerAllocationStatusKey]
   mappingStatusMeta: (typeof markerMappingStatusMeta)[MarkerMappingStatusKey]
   layoutStatusMeta: (typeof markerLayoutStatusMeta)[MarkerLayoutStatusKey]
-  imageStatusMeta: (typeof markerImageStatusMeta)[MarkerPlan['imageStatus']]
   contextLabel: string
   contextNo: string
   productionOrderSummary: string
@@ -273,6 +271,7 @@ export interface MarkerPlanViewRow extends MarkerPlan {
   skuTypeCountText: string
   balanceRows: MarkerPlanBalanceSummaryRow[]
   explosionSummary: MarkerPlanExplosionSummary
+  demandMatchSummary: MarkerDemandMatchSummary
 }
 
 export interface MarkerPlanViewModel {
@@ -291,7 +290,6 @@ export interface MarkerPlanMockCoverageReport {
   builtPlanCount: number
   referencedPlanCount: number
   mappingIssueCount: number
-  missingImageCount: number
   modeCounts: Record<MarkerPlanModeKey, number>
   statusCounts: Record<MarkerPlanStatusKey, number>
 }
@@ -319,12 +317,12 @@ export function buildMarkerPlanModeOptions(): Array<{ value: MarkerPlanModeKey; 
   }))
 }
 
-export function buildMarkerPlanListTabOptions(): Array<{ key: 'ALL' | 'WAITING_BALANCE' | 'WAITING_LAYOUT' | 'WAITING_IMAGE' | 'READY_FOR_SPREADING' | 'EXCEPTIONS'; label: string }> {
+export function buildMarkerPlanListTabOptions(): Array<{ key: 'ALL' | 'WAITING_LAYOUT' | 'DEMAND_DIFF' | 'WAITING_CONFIRM' | 'READY_FOR_SPREADING' | 'EXCEPTIONS'; label: string }> {
   return [
     { key: 'ALL', label: '全部方案' },
-    { key: 'WAITING_BALANCE', label: '待配平' },
     { key: 'WAITING_LAYOUT', label: '待排唛架' },
-    { key: 'WAITING_IMAGE', label: '待生成图片' },
+    { key: 'DEMAND_DIFF', label: '有需求差异' },
+    { key: 'WAITING_CONFIRM', label: '待业务确认' },
     { key: 'READY_FOR_SPREADING', label: '可交接铺布' },
     { key: 'EXCEPTIONS', label: '异常待处理' },
   ]
@@ -712,19 +710,6 @@ function buildMockImageSvg(label: string, accent: string): string {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
 }
 
-function createImageRecord(planId: string, index: number, markerNo: string, note = ''): MarkerImageRecord {
-  const imageLabel = index === 1 ? '方案图' : '唛架明细图'
-  return {
-    id: `${planId}-image-${index}`,
-    fileId: `${planId}-image-file-${index}`,
-    fileName: `${markerNo}-${imageLabel}.svg`,
-    previewUrl: buildMockImageSvg(`${markerNo} · ${imageLabel}`, index % 2 === 0 ? '#2563EB' : '#7C3AED'),
-    isPrimary: index === 1,
-    note,
-    uploadedAt: nowText(),
-    uploadedBy: '计划员-陈静',
-  }
-}
 function buildDefaultFoldConfig(context: MarkerPlanContextCandidate): MarkerFoldConfig {
   const originalEffectiveWidth = context.materialSkuSummary.includes('LINING') ? 150 : 168
   const foldAllowance = 2
@@ -908,6 +893,137 @@ function buildDefaultSchemeBeds(options: {
       assignedCuttingTableIds: [],
       status: '草稿',
       readyForSpreading: false,
+      lockedBySpreading: false,
+      remark: '',
+    },
+  ]
+}
+
+function getGreatestCommonDivisor(left: number, right: number): number {
+  let a = Math.abs(Math.round(left))
+  let b = Math.abs(Math.round(right))
+  while (b > 0) {
+    const next = a % b
+    a = b
+    b = next
+  }
+  return a || 1
+}
+
+function getSeedPiecePerLayer(demands: number[]): number {
+  const positiveDemands = demands.map((value) => Math.max(Math.round(safeNumber(value)), 0)).filter((value) => value > 0)
+  if (!positiveDemands.length) return 1
+  const demandGcd = positiveDemands.reduce((current, value) => getGreatestCommonDivisor(current, value), positiveDemands[0])
+  for (let candidate = Math.min(demandGcd, 80); candidate >= 1; candidate -= 1) {
+    if (demandGcd % candidate === 0) return candidate
+  }
+  return 1
+}
+
+function getSeedLayerCount(demandQty: number, piecePerLayer: number, bedMode: MarkerPlanModeKey): number {
+  const layerCount = Math.max(Math.ceil(Math.max(Math.round(safeNumber(demandQty)), 0) / Math.max(Math.round(safeNumber(piecePerLayer)), 1)), 0)
+  if (!isFoldMarkerBedMode(bedMode)) return layerCount
+  return layerCount % 2 === 0 ? layerCount : layerCount + 1
+}
+
+function buildReadySeedSchemeBeds(plan: MarkerPlan, context: MarkerPlanContextCandidate): MarkerSchemeBed[] {
+  const demandRows = Array.isArray(plan.schemeDemandRows) && plan.schemeDemandRows.length
+    ? plan.schemeDemandRows
+    : buildSchemeDemandRowsFromContext(context)
+  const sizeNames = uniqueStrings(demandRows.map((row) => row.sizeName || row.sizeCode)).filter(Boolean)
+  const colorNames = uniqueStrings(demandRows.map((row) => row.colorName || row.colorCode)).filter(Boolean)
+  const activeSizes = sizeNames.length ? sizeNames : ['M']
+  const activeColors = colorNames.length ? colorNames : ['主色']
+  const bedMode = plan.markerMode || 'normal'
+  const isHighLowMode = isHighLowMarkerBedMode(bedMode)
+  const demandByColorSize = new Map<string, number>()
+
+  demandRows.forEach((row) => {
+    const colorName = row.colorName || row.colorCode || '主色'
+    const sizeName = row.sizeName || row.sizeCode || 'M'
+    const key = buildDemandMatchKey(colorName, sizeName)
+    demandByColorSize.set(key, (demandByColorSize.get(key) || 0) + Math.max(Math.round(safeNumber(row.demandQty)), 0))
+  })
+
+  const sizePiecePerLayer = Object.fromEntries(
+    activeSizes.map((sizeName) => [
+      sizeName,
+      getSeedPiecePerLayer(activeColors.map((colorName) => demandByColorSize.get(buildDemandMatchKey(colorName, sizeName)) || 0)),
+    ]),
+  ) as Record<string, number>
+
+  const baseMarkerLength = roundTo(12 + activeSizes.length * 1.2 + activeColors.length * 0.4, 2)
+  const matrixRows: MarkerHighLowMatrixRow[] = activeColors.map((colorName, index) => {
+    const rawLayers = activeSizes.map((sizeName) =>
+      getSeedLayerCount(demandByColorSize.get(buildDemandMatchKey(colorName, sizeName)) || 0, sizePiecePerLayer[sizeName], bedMode),
+    )
+    const rowLayer = Math.max(...rawLayers, 0)
+    const sizeValues = Object.fromEntries(
+      activeSizes.map((sizeName) => [sizeName, rowLayer]),
+    ) as Record<string, number>
+    const totalQty = activeSizes.reduce(
+      (total, sizeName) => total + Math.max(Math.round(safeNumber(sizeValues[sizeName])), 0) * Math.max(Math.round(safeNumber(sizePiecePerLayer[sizeName])), 0),
+      0,
+    )
+    return {
+      rowId: `${plan.id}-ready-marker-row-${index + 1}`,
+      colorCode: colorName,
+      colorName,
+      markerLength: isHighLowMode ? roundTo(baseMarkerLength + index * 0.8, 2) : 0,
+      sizeValues,
+      patternValues: {},
+      totalQty,
+    }
+  })
+  const coverageRows = demandRows.map((row, index) => {
+    const colorName = row.colorName || row.colorCode || '主色'
+    const sizeName = row.sizeName || row.sizeCode || 'M'
+    const matrixRow = matrixRows.find((item) => (item.colorName || item.colorCode) === colorName)
+    const plannedQty = matrixRow ? getMarkerMatrixCellPlannedQty(matrixRow, sizeName, sizePiecePerLayer) : 0
+    const demandQty = Math.max(Math.round(safeNumber(row.demandQty)), 0)
+    return {
+      rowId: `${row.rowId}-ready-coverage-${index + 1}`,
+      colorCode: row.colorCode || colorName,
+      colorName,
+      sizeCode: row.sizeCode || sizeName,
+      sizeName,
+      demandQty,
+      plannedQty,
+      remainingQty: demandQty - plannedQty,
+    }
+  })
+  const bedNoPrefix = isHighLowMode ? 'B' : 'A'
+  const markerLength = isHighLowMode ? 0 : baseMarkerLength
+
+  return [
+    {
+      bedId: `${plan.id}-bed-1`,
+      schemeId: plan.schemeId || plan.id,
+      schemeNo: plan.schemeNo || plan.markerNo,
+      bedNo: `${bedNoPrefix}-1`,
+      bedName: `${bedNoPrefix}-1`,
+      bedSortOrder: 1,
+      bedMode,
+      colorCode: activeColors.join(' / '),
+      colorName: activeColors.join(' / '),
+      materialSku: uniqueStrings(demandRows.map((row) => row.materialSku)).join(' / ') || context.materialSkuSummary,
+      sizeSummaryText: activeSizes.join(' / '),
+      sizePiecePerLayer,
+      plannedLayerCount: 0,
+      markerLength,
+      markerPieceQtyPerLayer: 0,
+      plannedGarmentQty: 0,
+      spreadTotalLength: 0,
+      unitFabricUsage: 0,
+      normalLayoutRows: [],
+      highLowMatrixRows: matrixRows,
+      foldConfig: isFoldMarkerBedMode(bedMode) ? plan.foldConfig : null,
+      coverageRows,
+      bedImage: null,
+      spreadingSessionIds: [],
+      assignedCuttingTableIds: [],
+      status: '可铺布',
+      readyForSpreading: true,
       lockedBySpreading: false,
       remark: '',
     },
@@ -1106,6 +1222,110 @@ function normalizeMarkerMatrixRows(
   })
 }
 
+function buildDemandMatchKey(colorName: string, sizeName: string): string {
+  return `${String(colorName || '').trim()}::${String(sizeName || '').trim()}`
+}
+
+function getDemandMatchRowStatus(diffQty: number): MarkerDemandMatchRowStatusKey {
+  if (diffQty < 0) return '不足'
+  if (diffQty > 0) return '超出'
+  return '已匹配'
+}
+
+function getDemandMatchStatus(summary: {
+  markerTotalQty: number
+  shortageQty: number
+  surplusQty: number
+}): MarkerDemandMatchStatusKey {
+  if (summary.markerTotalQty <= 0) return '待编辑唛架'
+  if (summary.shortageQty > 0 && summary.surplusQty > 0) return '有差异'
+  if (summary.shortageQty > 0) return '有不足'
+  if (summary.surplusQty > 0) return '有超出'
+  return '已匹配'
+}
+
+export function buildMarkerDemandMatchSummary(
+  plan: Pick<MarkerPlan, 'schemeDemandRows'> & Partial<Pick<MarkerPlan, 'beds'>>,
+): MarkerDemandMatchSummary {
+  const demandMap = new Map<string, MarkerDemandMatchRow>()
+  const sizeNames = uniqueStrings((plan.schemeDemandRows || []).map((row) => row.sizeName || row.sizeCode))
+
+  ;(plan.schemeDemandRows || []).forEach((row) => {
+    const colorName = row.colorName || row.colorCode || '主色'
+    const sizeName = row.sizeName || row.sizeCode || ''
+    if (!sizeName) return
+    const key = buildDemandMatchKey(colorName, sizeName)
+    const current = demandMap.get(key)
+    const demandQty = Math.max(Math.round(safeNumber(row.demandQty)), 0)
+    demandMap.set(key, {
+      rowId: key,
+      colorCode: row.colorCode || colorName,
+      colorName,
+      sizeCode: row.sizeCode || sizeName,
+      sizeName,
+      demandQty: (current?.demandQty || 0) + demandQty,
+      markerQty: current?.markerQty || 0,
+      diffQty: 0,
+      status: '已匹配',
+    })
+  })
+
+  ;(plan.beds || []).forEach((bed) => {
+    const bedSizeNames = sizeNames.length
+      ? sizeNames
+      : uniqueStrings((bed.coverageRows || []).map((row) => row.sizeName || row.sizeCode))
+    const sizePiecePerLayer = normalizeMarkerSizePiecePerLayer(bed, bedSizeNames)
+    normalizeMarkerMatrixRows(bed, bedSizeNames).forEach((matrixRow) => {
+      const colorName = matrixRow.colorName || matrixRow.colorCode || '主色'
+      bedSizeNames.forEach((sizeName) => {
+        const markerQty = getMarkerMatrixCellPlannedQty(matrixRow, sizeName, sizePiecePerLayer)
+        if (markerQty <= 0) return
+        const key = buildDemandMatchKey(colorName, sizeName)
+        const current = demandMap.get(key)
+        demandMap.set(key, {
+          rowId: key,
+          colorCode: current?.colorCode || matrixRow.colorCode || colorName,
+          colorName: current?.colorName || colorName,
+          sizeCode: current?.sizeCode || sizeName,
+          sizeName: current?.sizeName || sizeName,
+          demandQty: current?.demandQty || 0,
+          markerQty: (current?.markerQty || 0) + markerQty,
+          diffQty: 0,
+          status: '已匹配',
+        })
+      })
+    })
+  })
+
+  const rows = Array.from(demandMap.values())
+    .map((row): MarkerDemandMatchRow => {
+      const diffQty = row.markerQty - row.demandQty
+      return {
+        ...row,
+        diffQty,
+        status: getDemandMatchRowStatus(diffQty),
+      }
+    })
+    .sort((left, right) =>
+      `${left.colorName}-${left.sizeName}`.localeCompare(`${right.colorName}-${right.sizeName}`, 'zh-CN'),
+    )
+  const demandTotalQty = rows.reduce((total, row) => total + row.demandQty, 0)
+  const markerTotalQty = rows.reduce((total, row) => total + row.markerQty, 0)
+  const shortageQty = rows.reduce((total, row) => total + (row.diffQty < 0 ? Math.abs(row.diffQty) : 0), 0)
+  const surplusQty = rows.reduce((total, row) => total + (row.diffQty > 0 ? row.diffQty : 0), 0)
+  const diffTotalQty = markerTotalQty - demandTotalQty
+  return {
+    status: getDemandMatchStatus({ markerTotalQty, shortageQty, surplusQty }),
+    demandTotalQty,
+    markerTotalQty,
+    diffTotalQty,
+    shortageQty,
+    surplusQty,
+    rowCount: rows.length,
+    rows,
+  }
+}
+
 function getMarkerMatrixActualLayerTotal(
   bed: MarkerSchemeBed,
   rows: MarkerHighLowMatrixRow[],
@@ -1232,6 +1452,7 @@ export function hydrateMarkerPlan(plan: MarkerPlan, context: MarkerPlanContextCa
   const allocationStatus = deriveMarkerAllocationStatus(sizeRatioRows, allocationRows)
   const mappingStatus = deriveMarkerMappingStatus(pieceExplosionRows)
   const layoutStatus: MarkerLayoutStatusKey = beds.length > 0 && beds.every((bed) => bed.readyForSpreading) ? 'done' : 'pending'
+  const confirmationStatus: MarkerPlanConfirmationStatusKey = plan.confirmationStatus || '待确认'
   const imageStatus = plan.schemeImage || plan.detailImage || plan.imageRecords.length ? deriveMarkerImageStatus(1) : deriveMarkerImageStatus(0)
   const schemeImageStatus = imageStatus === 'done'
     ? plan.schemeImageStatus === '已过期'
@@ -1241,16 +1462,14 @@ export function hydrateMarkerPlan(plan: MarkerPlan, context: MarkerPlanContextCa
   const derivedReadyForSpreading = deriveMarkerReadyForSpreading({
     totalPieces,
     netLength,
-    allocationStatus,
     mappingStatus,
     layoutStatus,
-    imageStatus,
+    confirmationStatus,
   })
   const derivedStatus = deriveMarkerPlanStatus({
-    allocationStatus,
     mappingStatus,
     layoutStatus,
-    imageStatus,
+    confirmationStatus,
     readyForSpreading: derivedReadyForSpreading,
   })
   const status = plan.status === 'CANCELED' ? 'CANCELED' : derivedStatus
@@ -1276,6 +1495,7 @@ export function hydrateMarkerPlan(plan: MarkerPlan, context: MarkerPlanContextCa
     allocationStatus,
     mappingStatus,
     layoutStatus,
+    confirmationStatus,
     imageStatus,
     readyForSpreading,
     status,
@@ -1365,6 +1585,7 @@ function buildPlanViewRow(
 ): MarkerPlanViewRow {
   const hydrated = hydrateMarkerPlan(plan, context)
   const explosionSummary = buildExplosionSummary(hydrated)
+  const demandMatchSummary = buildMarkerDemandMatchSummary(hydrated)
   const sourceProductionOrderCount = uniqueStrings(hydrated.productionOrderIds).length
   const sourceOriginalOrderCount = uniqueStrings(hydrated.originalCutOrderIds).length
   const isReferencedBySpreading = hydrated.originalCutOrderIds.some((id) => referencedOriginalCutOrderIds.has(id))
@@ -1372,10 +1593,8 @@ function buildPlanViewRow(
     ...hydrated,
     modeMeta: markerPlanModeMeta[hydrated.markerMode],
     statusMeta: markerPlanStatusMeta[hydrated.status],
-    allocationStatusMeta: markerAllocationStatusMeta[hydrated.allocationStatus],
     mappingStatusMeta: markerMappingStatusMeta[hydrated.mappingStatus],
     layoutStatusMeta: markerLayoutStatusMeta[hydrated.layoutStatus],
-    imageStatusMeta: markerImageStatusMeta[hydrated.imageStatus],
     contextLabel: context.contextLabel,
     contextNo: context.contextNo,
     productionOrderSummary: hydrated.productionOrderNos.join(' / '),
@@ -1400,6 +1619,7 @@ function buildPlanViewRow(
     skuTypeCountText: `${explosionSummary.skuTypeCount}`,
     balanceRows: buildBalanceRows(hydrated),
     explosionSummary,
+    demandMatchSummary,
   }
 }
 
@@ -1451,7 +1671,7 @@ function createPlanFromContext(options: {
     detailImage: null,
     schemeImageStatus: '待生成',
     schemeSpreadingStatus: '未排程',
-    status: 'WAITING_IMAGE',
+    status: 'WAITING_LAYOUT',
     markerMode,
     contextType: options.context.contextType,
     originalCutOrderIds: [...options.context.originalCutOrderIds],
@@ -1482,6 +1702,10 @@ function createPlanFromContext(options: {
     mappingStatus: 'pending',
     layoutStatus: 'pending',
     imageStatus: 'pending',
+    confirmationStatus: '待确认',
+    confirmedBy: '',
+    confirmedAt: '',
+    confirmationRemark: '',
     readyForSpreading: false,
     remark: '',
     hasAdjustment: false,
@@ -1529,6 +1753,10 @@ export function cloneMarkerPlanAsNewDraft(source: MarkerPlan, existingPlans: Mar
     schemeName: markerNo,
     status: 'WAITING_LAYOUT',
     readyForSpreading: false,
+    confirmationStatus: '待确认',
+    confirmedBy: '',
+    confirmedAt: '',
+    confirmationRemark: '',
     beds: clonedBeds,
     schemeImage: null,
     detailImage: null,
@@ -1567,16 +1795,20 @@ function buildSeedVariants(contexts: MarkerPlanContextCandidate[]): Array<{ cont
 function applySeedVariant(plan: MarkerPlan, variant: SeedVariantKey, context: MarkerPlanContextCandidate): MarkerPlan {
   let nextPlan: MarkerPlan = {
     ...plan,
-    imageRecords: [createImageRecord(plan.id, 1, plan.markerNo, '系统预置方案图')],
+    imageRecords: [],
     hasAdjustment: variant === 'mapping',
     adjustmentNote: variant === 'mapping' ? '当前样例用于演示技术包映射异常人工确认。' : '',
     remark: variant === 'ready' ? '当前方案可直接交接铺布。' : '当前为计划层样例方案。',
+    confirmationStatus: variant === 'ready' || variant === 'manual' ? '已确认' : variant === 'mapping' || variant === 'unbalanced' ? '需调整' : '待确认',
+    confirmedBy: variant === 'ready' || variant === 'manual' ? '业务同事-廖晓飞' : '',
+    confirmedAt: variant === 'ready' || variant === 'manual' ? plan.updatedAt || plan.createdAt : '',
+    confirmationRemark: variant === 'ready' || variant === 'manual' ? '业务已确认当前差异结果可用于铺布。' : '',
   }
 
   if (variant === 'unbalanced' && nextPlan.allocationRows[0]) {
     nextPlan = {
       ...nextPlan,
-      imageRecords: [createImageRecord(plan.id, 1, plan.markerNo, '待配平方案图')],
+      imageRecords: [],
       allocationRows: nextPlan.allocationRows.map((row, index) =>
         index === 0 ? { ...row, garmentQty: Math.max(row.garmentQty - 1, 0) } : row,
       ),
@@ -1603,7 +1835,7 @@ function applySeedVariant(plan: MarkerPlan, variant: SeedVariantKey, context: Ma
   if (variant === 'layout') {
     nextPlan = {
       ...nextPlan,
-      imageRecords: [createImageRecord(plan.id, 1, plan.markerNo, '待补唛架样例图')],
+      imageRecords: [],
       beds: nextPlan.beds?.map((bed, index) =>
         index === 0
           ? {
@@ -1635,7 +1867,7 @@ function applySeedVariant(plan: MarkerPlan, variant: SeedVariantKey, context: Ma
   if (variant === 'manual') {
     nextPlan = {
       ...nextPlan,
-      imageRecords: [createImageRecord(plan.id, 1, plan.markerNo, '人工修正用量样例图')],
+      imageRecords: [],
       manualUnitUsage: roundTo(Math.max(nextPlan.systemUnitUsage + 0.028, 0.2), 3),
       remark: '当前样例用于演示人工修正单件成衣用量。',
     }
@@ -1645,6 +1877,13 @@ function applySeedVariant(plan: MarkerPlan, variant: SeedVariantKey, context: Ma
     nextPlan = {
       ...nextPlan,
       manualUnitUsage: plan.markerMode === 'high_low' || plan.markerMode === 'fold_high_low' ? roundTo(plan.systemUnitUsage + 0.015, 3) : plan.manualUnitUsage,
+    }
+  }
+
+  if (variant === 'ready' || variant === 'manual') {
+    nextPlan = {
+      ...nextPlan,
+      beds: buildReadySeedSchemeBeds(nextPlan, context),
     }
   }
 
@@ -1740,7 +1979,10 @@ function buildSystemSeedMarkerPlans(contexts: MarkerPlanContextCandidate[]): Mar
 function mergePlans(seed: MarkerPlan[], stored: MarkerPlan[]): MarkerPlan[] {
   const merged = new Map<string, MarkerPlan>()
   seed.forEach((plan) => merged.set(plan.id, plan))
-  stored.forEach((plan) => merged.set(plan.id, plan))
+  stored.forEach((plan) => {
+    if (plan.id.startsWith('seed-marker-plan-')) return
+    merged.set(plan.id, plan)
+  })
   return Array.from(merged.values()).sort((left, right) => right.updatedAt.localeCompare(left.updatedAt, 'zh-CN'))
 }
 
@@ -1774,7 +2016,6 @@ export function buildMarkerPlanViewModel(sources: CuttingSummaryBuildOptions, st
       totalContextCount: contexts.length,
       builtContextCount,
       pendingContextCount: pendingContexts.length,
-      pendingBalanceCount: plans.filter((plan) => plan.allocationStatus !== 'balanced').length,
       mappingIssueCount: plans.filter((plan) => plan.mappingStatus !== 'passed').length,
       waitingLayoutCount: plans.filter((plan) => plan.layoutStatus !== 'done').length,
       readyForSpreadingCount: plans.filter((plan) => plan.readyForSpreading).length,
@@ -1832,7 +2073,6 @@ export function buildMarkerPlanMockCoverageReport(
     builtPlanCount: hydratedPlans.length,
     referencedPlanCount: hydratedPlans.filter((plan) => plan.originalCutOrderIds.some((id) => referencedOriginalCutOrderIds.has(id))).length,
     mappingIssueCount: hydratedPlans.filter((plan) => plan.mappingStatus !== 'passed').length,
-    missingImageCount: hydratedPlans.filter((plan) => plan.imageStatus !== 'done').length,
     modeCounts,
     statusCounts,
   }
@@ -1928,101 +2168,6 @@ export function createMarkerPlanFromContext(options: {
   return createPlanFromContext(options)
 }
 
-export function regenerateMarkerPlanAllocationRows(
-  plan: MarkerPlan,
-  context: MarkerPlanContextCandidate,
-): MarkerPlan {
-  return hydrateMarkerPlan(
-    {
-      ...plan,
-      allocationRows: buildAutoAllocationRows(context, plan.sizeRatioRows),
-      updatedAt: nowText(),
-      updatedBy: '计划员-陈静',
-    },
-    context,
-  )
-}
-
-export function createEmptyMarkerPlanAllocationRow(
-  plan: MarkerPlan,
-  context: MarkerPlanContextCandidate,
-): MarkerAllocationRow {
-  const defaultSourceRow = context.sourceOriginalRows[0] ?? null
-  const defaultGeneratedRow = context.sourceGeneratedRows[0] ?? null
-  return {
-    id: `${plan.id}-allocation-${plan.allocationRows.length + 1}`,
-    sourceCutOrderId: defaultSourceRow?.originalCutOrderId || '',
-    sourceProductionOrderId: defaultSourceRow?.productionOrderId || '',
-    colorCode: defaultGeneratedRow?.colorScope[0] || defaultSourceRow?.color || '',
-    materialSku: defaultGeneratedRow?.materialSku || context.materialSkuSummary.split(' / ')[0] || '',
-    styleCode: context.styleCode,
-    spuCode: context.spuCode,
-    techPackSpu: context.techPackSpu,
-    sizeCode: MARKER_SIZE_CODES.find((sizeCode) => plan.sizeRatioRows.some((row) => row.sizeCode === sizeCode && row.qty > 0)) || 'M',
-    garmentQty: 0,
-    note: '',
-    specialFlags: [],
-  }
-}
-export function createMarkerPlanImage(plan: MarkerPlan, action: 'upload' | 'replace-primary'): MarkerPlan {
-  const nextImage = createImageRecord(plan.id, plan.imageRecords.length + 1, plan.markerNo, action === 'upload' ? '新上传示例图' : '替换主图')
-  if (action === 'upload' || !plan.imageRecords.length) {
-    return {
-      ...plan,
-      imageRecords: [...plan.imageRecords, { ...nextImage, isPrimary: plan.imageRecords.length === 0 }],
-      updatedAt: nowText(),
-      updatedBy: '计划员-陈静',
-    }
-  }
-  return {
-    ...plan,
-    imageRecords: plan.imageRecords.map((record, index) =>
-      index === 0
-        ? { ...nextImage, isPrimary: true }
-        : { ...record, isPrimary: false },
-    ),
-    updatedAt: nowText(),
-    updatedBy: '计划员-陈静',
-  }
-}
-
-export function setMarkerPlanPrimaryImage(plan: MarkerPlan, imageId: string): MarkerPlan {
-  return {
-    ...plan,
-    imageRecords: plan.imageRecords.map((record) => ({ ...record, isPrimary: record.id === imageId })),
-    updatedAt: nowText(),
-    updatedBy: '计划员-陈静',
-  }
-}
-
-export function deleteMarkerPlanImage(plan: MarkerPlan, imageId: string): MarkerPlan {
-  const remaining = plan.imageRecords.filter((record) => record.id !== imageId)
-  const primaryId = remaining.find((record) => record.isPrimary)?.id || remaining[0]?.id || ''
-  return {
-    ...plan,
-    imageRecords: remaining.map((record) => ({ ...record, isPrimary: record.id === primaryId })),
-    updatedAt: nowText(),
-    updatedBy: '计划员-陈静',
-  }
-}
-
-export function replaceMarkerPlanImage(plan: MarkerPlan, imageId: string): MarkerPlan {
-  const replacement = createImageRecord(plan.id, plan.imageRecords.length + 1, plan.markerNo, '替换图片')
-  return {
-    ...plan,
-    imageRecords: plan.imageRecords.map((record) =>
-      record.id === imageId
-        ? {
-            ...replacement,
-            id: imageId,
-            isPrimary: record.isPrimary,
-          }
-        : record,
-    ),
-    updatedAt: nowText(),
-    updatedBy: '计划员-陈静',
-  }
-}
 export function getMarkerPlanInitialEditTab(plan: MarkerPlanViewRow): MarkerPlanTabKey {
   return deriveMarkerPlanDefaultTab(plan)
 }

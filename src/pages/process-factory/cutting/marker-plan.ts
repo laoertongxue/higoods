@@ -8,15 +8,13 @@ import {
 import { buildMarkerSchemeFromPlan, validateMarkerSchemeSourceCandidates } from './marker-scheme-adapter.ts'
 import {
   buildMarkerPlanBalanceRows,
+  buildMarkerDemandMatchSummary,
   buildCombinedMarkerPlanContextCandidate,
   buildMarkerPlanContextTypeOptions,
   buildMarkerPlanGoSpreadingPath,
   buildMarkerPlanModeOptions,
   cloneMarkerPlanAsNewDraft,
-  createEmptyMarkerPlanAllocationRow,
   createMarkerPlanFromContext,
-  createMarkerPlanImage,
-  deleteMarkerPlanImage,
   deserializeMarkerPlanStorage,
   findMarkerPlanContextById,
   findMarkerPlanContextForPlan,
@@ -24,10 +22,7 @@ import {
   getMarkerPlanReferencedWarning,
   getMarkerPlanStorageKey,
   hydrateMarkerPlan,
-  replaceMarkerPlanImage,
-  regenerateMarkerPlanAllocationRows,
   serializeMarkerPlanStorage,
-  setMarkerPlanPrimaryImage,
   type MarkerPlanBalanceSummaryRow,
   type MarkerPlanContextCandidate,
   type MarkerPlanExplosionSummary,
@@ -42,21 +37,19 @@ import {
   buildMarkerPlannedSpreadLengthFormula,
   buildMarkerSkuExplodedPieceQtyFormula,
   buildMarkerTotalPiecesFormula,
-  markerAllocationStatusMeta,
-  markerImageStatusMeta,
   markerLayoutStatusMeta,
   markerMappingStatusMeta,
   markerPlanModeMeta,
   markerPlanStatusMeta,
   type MarkerBedModeKey,
-  type MarkerAllocationRow,
+  type MarkerDemandMatchSummary,
   type MarkerFoldConfig,
   type MarkerHighLowMatrixRow,
-  type MarkerImageRecord,
   type MarkerPlan,
   type MarkerPlanContextType,
   type MarkerPlanModeKey,
   type MarkerPieceExplosionRow,
+  type MarkerPlanConfirmationStatusKey,
   type MarkerPlanStatusKey,
   type MarkerPlanTabKey,
   type MarkerSchemeBed,
@@ -72,9 +65,9 @@ import {
 } from './layout.helpers.ts'
 
 type MarkerPlanRouteKind = 'LIST' | 'CREATE' | 'EDIT' | 'DETAIL' | 'OTHER'
-type MarkerPlanListTab = 'ALL' | 'WAITING_BALANCE' | 'WAITING_LAYOUT' | 'WAITING_IMAGE' | 'READY_FOR_SPREADING' | 'EXCEPTIONS'
+type MarkerPlanListTab = 'ALL' | 'WAITING_LAYOUT' | 'DEMAND_DIFF' | 'WAITING_CONFIRM' | 'READY_FOR_SPREADING' | 'EXCEPTIONS'
 type MarkerPlanListFilterField = 'keyword' | 'contextNo' | 'markerNo' | 'contextType' | 'mode' | 'status' | 'ready'
-type MarkerPlanCreateStepKey = 'source' | 'demand' | 'layout' | 'images'
+type MarkerPlanCreateStepKey = 'source' | 'layout' | 'match'
 type MarkerPlanContextField = 'contextKeyword'
 type MarkerPlanBasicField =
   | 'markerNo'
@@ -83,8 +76,8 @@ type MarkerPlanBasicField =
   | 'netLength'
   | 'manualUnitUsage'
   | 'remark'
+  | 'confirmationRemark'
   | 'singleSpreadFixedLoss'
-type MarkerPlanAllocationField = 'sourceCutOrderId' | 'sizeCode' | 'garmentQty' | 'note' | 'specialFlags'
 type MarkerPlanBedField =
   | 'bedNo'
   | 'bedMode'
@@ -94,7 +87,6 @@ type MarkerPlanBedField =
   | 'markerPieceQtyPerLayer'
   | 'remark'
 type MarkerPlanFoldField = 'originalEffectiveWidth' | 'foldAllowance' | 'foldDirection' | 'maxLayoutWidth'
-type MarkerPlanImageField = 'hasAdjustment' | 'adjustmentNote' | 'primaryImageNote'
 
 interface MarkerPlanMappingDraft {
   targetSku: string
@@ -318,6 +310,14 @@ function formatCount(value: number): string {
   return new Intl.NumberFormat('zh-CN').format(Math.max(Number(value || 0), 0))
 }
 
+function formatSignedCount(value: number): string {
+  const normalized = Math.round(Number(value || 0))
+  const formatted = new Intl.NumberFormat('zh-CN').format(Math.abs(normalized))
+  if (normalized > 0) return `+${formatted}`
+  if (normalized < 0) return `-${formatted}`
+  return '0'
+}
+
 function getPlanSourceTypeText(row: MarkerPlan | MarkerPlanViewRow): string {
   const hasOriginal = row.originalCutOrderNos.length > 0
   const hasMerge = Boolean(row.mergeBatchNo)
@@ -359,18 +359,37 @@ function getPlanSpreadingStatusText(row: MarkerPlan | MarkerPlanViewRow): string
   return row.readyForSpreading ? '可交接铺布' : '未交接铺布'
 }
 
+function getPlanDemandMatchSummary(plan: MarkerPlan | MarkerPlanViewRow): MarkerDemandMatchSummary {
+  if ('demandMatchSummary' in plan) return plan.demandMatchSummary
+  return buildMarkerDemandMatchSummary(plan)
+}
+
+function getDemandMatchStatusMeta(status: MarkerDemandMatchSummary['status']): { label: string; className: string } {
+  if (status === '已匹配') return { label: status, className: 'bg-emerald-100 text-emerald-700 border border-emerald-200' }
+  if (status === '有不足') return { label: status, className: 'bg-amber-100 text-amber-700 border border-amber-200' }
+  if (status === '有超出') return { label: status, className: 'bg-blue-100 text-blue-700 border border-blue-200' }
+  if (status === '有差异') return { label: status, className: 'bg-rose-100 text-rose-700 border border-rose-200' }
+  return { label: status, className: 'bg-slate-100 text-slate-700 border border-slate-200' }
+}
+
+function getConfirmationStatusMeta(status: MarkerPlanConfirmationStatusKey | undefined): { label: string; className: string } {
+  if (status === '已确认') return { label: '已确认', className: 'bg-emerald-100 text-emerald-700 border border-emerald-200' }
+  if (status === '需调整') return { label: '需调整', className: 'bg-rose-100 text-rose-700 border border-rose-200' }
+  return { label: '待确认', className: 'bg-amber-100 text-amber-700 border border-amber-200' }
+}
+
 function getListTabMeta(listTab: MarkerPlanListTab): { label: string; countLabel: string } {
   if (listTab === 'EXCEPTIONS') {
     return { label: '异常待处理', countLabel: '异常方案数' }
   }
-  if (listTab === 'WAITING_BALANCE') {
-    return { label: '待配平', countLabel: '待配平方案数' }
-  }
   if (listTab === 'WAITING_LAYOUT') {
     return { label: '待排唛架', countLabel: '待排唛架方案数' }
   }
-  if (listTab === 'WAITING_IMAGE') {
-    return { label: '待生成图片', countLabel: '待生成图片方案数' }
+  if (listTab === 'DEMAND_DIFF') {
+    return { label: '有需求差异', countLabel: '差异方案数' }
+  }
+  if (listTab === 'WAITING_CONFIRM') {
+    return { label: '待业务确认', countLabel: '待确认方案数' }
   }
   if (listTab === 'READY_FOR_SPREADING') {
     return { label: '可交接铺布', countLabel: '可交接铺布方案数' }
@@ -381,6 +400,9 @@ function getListTabMeta(listTab: MarkerPlanListTab): { label: string; countLabel
 function getPlanListTabCount(listTab: MarkerPlanListTab, rows: MarkerPlanViewRow[]): number {
   if (listTab === 'EXCEPTIONS') return rows.filter(hasPlanExceptionIssue).length
   if (listTab === 'ALL') return rows.length
+  if (listTab === 'WAITING_LAYOUT') return rows.filter((row) => row.layoutStatus !== 'done').length
+  if (listTab === 'DEMAND_DIFF') return rows.filter((row) => row.demandMatchSummary.status !== '已匹配' && row.demandMatchSummary.status !== '待编辑唛架').length
+  if (listTab === 'WAITING_CONFIRM') return rows.filter((row) => row.layoutStatus === 'done' && row.confirmationStatus !== '已确认').length
   return rows.filter((row) => row.status === listTab).length
 }
 
@@ -388,9 +410,9 @@ function buildMarkerPlanListTabOptions(viewModel = getViewModel()): Array<{ valu
   const rows = viewModel.plans
   return ([
     'ALL',
-    'WAITING_BALANCE',
     'WAITING_LAYOUT',
-    'WAITING_IMAGE',
+    'DEMAND_DIFF',
+    'WAITING_CONFIRM',
     'READY_FOR_SPREADING',
     'EXCEPTIONS',
   ] as MarkerPlanListTab[]).map((value) => ({
@@ -1013,6 +1035,9 @@ function applySchemeBedsToPlan(plan: MarkerPlan, beds: MarkerSchemeBed[]): Marke
     schemeImageStatus: '已过期',
     schemeImage: null,
     detailImage: null,
+    confirmationStatus: '待确认',
+    confirmedBy: '',
+    confirmedAt: '',
     updatedAt: nowText(),
     updatedBy: '计划员-陈静',
   }
@@ -1054,10 +1079,6 @@ function buildGoProductionProgressPath(options: {
     materialSku: options.materialSku,
     autoOpenDetail: options.productionOrderNo ? '1' : undefined,
   })
-}
-
-function getCurrentPrimaryImage(plan: MarkerPlan): MarkerImageRecord | null {
-  return plan.imageRecords.find((image) => image.isPrimary) || plan.imageRecords[0] || null
 }
 
 function buildMappingDraftForRow(row: MarkerPieceExplosionRow): MarkerPlanMappingDraft {
@@ -1113,7 +1134,6 @@ function buildCurrentListExportRows(viewModel = getViewModel()): { filename: str
         '唛架数量',
         '唛架模式',
         '计划裁片数',
-        '图片状态',
         '铺布状态',
         '主状态',
         '最近更新',
@@ -1129,7 +1149,6 @@ function buildCurrentListExportRows(viewModel = getViewModel()): { filename: str
         getPlanBedCountText(row),
         getPlanBedModeText(row),
         `${formatCount(row.totalPieces)} 件`,
-        row.imageStatusMeta.label,
         getPlanSpreadingStatusText(row),
         row.statusMeta.label,
         row.updatedAt,
@@ -1142,6 +1161,7 @@ function navigateToCreateWithContext(context: MarkerPlanContextCandidate): void 
   const params = new URLSearchParams({
     contextType: context.contextType,
     contextId: context.id,
+    tab: 'layout',
   })
   appStore.navigate(`${CREATE_PATH}?${params.toString()}`)
 }
@@ -1153,6 +1173,7 @@ function navigateToCreateWithContexts(contexts: MarkerPlanContextCandidate[]): v
   }
   const params = new URLSearchParams()
   contexts.forEach((context) => params.append('contextKey', context.contextKey))
+  params.set('tab', 'layout')
   appStore.navigate(`${CREATE_PATH}?${params.toString()}`)
 }
 
@@ -1215,7 +1236,7 @@ function syncStateFromRoute(viewModel = getViewModel()): void {
   const route = parseRoute()
   const params = getCurrentSearchParams()
   const requestedTab = (params.get('tab') as MarkerPlanTabKey | null) || ''
-  const resolvedTab = ['basic', 'allocation', 'explosion', 'layout', 'images'].includes(requestedTab)
+  const resolvedTab = ['basic', 'explosion', 'layout'].includes(requestedTab)
     ? (requestedTab as MarkerPlanTabKey)
     : null
 
@@ -1256,7 +1277,7 @@ function syncStateFromRoute(viewModel = getViewModel()): void {
       const schemeValidation = baseValidation.ok ? validateSchemeSourceCandidates(contexts) : baseValidation
       const combinedContext = schemeValidation.ok ? buildCombinedMarkerPlanContextCandidate(contexts) : null
       state.draftPlan = combinedContext ? createMarkerPlanFromContext({ context: combinedContext, existingPlans: viewModel.plans }) : null
-      state.activeTab = 'basic'
+      state.activeTab = resolvedTab || 'basic'
       state.contextDrawerOpen = !Boolean(state.draftPlan)
       state.contextDrawerType = 'ALL'
       state.selectedContextKeys = contexts.map((context) => context.contextKey)
@@ -1276,7 +1297,7 @@ function syncStateFromRoute(viewModel = getViewModel()): void {
         state.draftPlan =
           context && schemeValidation.ok ? createMarkerPlanFromContext({ context, existingPlans: viewModel.plans }) : null
         if (!schemeValidation.ok) setFeedback('warning', schemeValidation.message)
-        state.activeTab = 'basic'
+        state.activeTab = resolvedTab || 'basic'
       }
       state.selectedContextKeys = context ? [context.contextKey] : []
       state.contextDrawerOpen = !Boolean(state.draftPlan)
@@ -1397,7 +1418,7 @@ function renderInputField(label: string, value: string, field: MarkerPlanBasicFi
   `
 }
 
-function renderTextareaField(label: string, value: string, field: MarkerPlanBasicField | MarkerPlanImageField): string {
+function renderTextareaField(label: string, value: string, field: MarkerPlanBasicField): string {
   return `
     <label class="space-y-1" data-marker-plan-control-type="textarea">
       <span class="text-xs font-medium text-foreground">${escapeHtml(label)}</span>
@@ -1538,22 +1559,6 @@ function resolveCurrentPlan(viewModel = getViewModel(), planId = ''): MarkerPlan
   return null
 }
 
-function updatePrimaryImageNote(plan: MarkerPlan, note: string): MarkerPlan {
-  const primaryId = getCurrentPrimaryImage(plan)?.id
-  if (!primaryId) return plan
-  return {
-    ...plan,
-    imageRecords: plan.imageRecords.map((image) =>
-      image.id === primaryId
-        ? {
-            ...image,
-            note,
-          }
-        : image,
-    ),
-  }
-}
-
 function validateDraftForCompletion(): { ok: true } | { ok: false; tab: MarkerPlanTabKey; message: string } {
   const plan = state.draftPlan
   if (!plan) {
@@ -1561,9 +1566,6 @@ function validateDraftForCompletion(): { ok: true } | { ok: false; tab: MarkerPl
   }
   if (plan.totalPieces <= 0) {
     return { ok: false, tab: 'basic', message: '请先补齐尺码成衣件数（件），确保方案成衣件数（件）大于 0。' }
-  }
-  if (plan.allocationStatus !== 'balanced') {
-    return { ok: false, tab: 'allocation', message: '来源分配尚未配平，请先完成来源分配。' }
   }
   if (plan.mappingStatus !== 'passed') {
     return { ok: false, tab: 'explosion', message: '裁片拆解仍有映射异常，请先修正映射。' }
@@ -1587,30 +1589,24 @@ function validateDraftForCompletion(): { ok: true } | { ok: false; tab: MarkerPl
   if (plan.layoutStatus !== 'done') {
     return { ok: false, tab: 'layout', message: '唛架编辑器尚未完成，请先补齐唛架矩阵。' }
   }
-  const scheme = buildMarkerSchemeFromPlan(plan)
-  if (scheme.remainingQty > 0) {
-    return { ok: false, tab: 'layout', message: '唛架编号尚未覆盖全部需求，请先补齐计划件数。' }
-  }
-  if (plan.imageStatus !== 'done') {
-    return { ok: false, tab: 'images', message: '方案图片尚未补齐，请先上传方案图或唛架明细图。' }
+  if (plan.confirmationStatus !== '已确认') {
+    return { ok: false, tab: 'explosion', message: '请先在需求匹配与确认中确认当前唛架方案。' }
   }
   return { ok: true }
 }
 
 function getProblemTabForPlan(row: MarkerPlanViewRow): MarkerPlanTabKey {
-  if (row.allocationStatus !== 'balanced') return 'allocation'
   if (row.mappingStatus === 'issue') return 'explosion'
   if (row.layoutStatus !== 'done') return 'layout'
-  if (row.imageStatus !== 'done') return 'images'
+  if (row.confirmationStatus !== '已确认') return 'explosion'
   return 'basic'
 }
 
 function hasPlanExceptionIssue(row: MarkerPlanViewRow): boolean {
   return (
-    row.allocationStatus !== 'balanced' ||
     row.mappingStatus === 'issue' ||
     row.layoutStatus !== 'done' ||
-    row.imageStatus !== 'done'
+    row.confirmationStatus === '需调整'
   )
 }
 
@@ -1655,6 +1651,9 @@ function renderPlanTopInfo(
     'plannedSpreadLengthFormula' in plan
       ? plan.plannedSpreadLengthFormula
       : buildMarkerPlannedSpreadLengthFormula(plan)
+  const demandMatchSummary = getPlanDemandMatchSummary(plan)
+  const demandMatchMeta = getDemandMatchStatusMeta(demandMatchSummary.status)
+  const confirmationMeta = getConfirmationStatusMeta(plan.confirmationStatus)
   const productionSummary = plan.productionOrderNos.join(' / ') || '—'
   const originalChips = plan.originalCutOrderNos.length
     ? plan.originalCutOrderNos
@@ -1694,11 +1693,11 @@ function renderPlanTopInfo(
     { label: '计划铺布总长度（m）', value: `${formatNumber(plan.plannedSpreadLength, 2)} m`, formula: plannedSpreadLengthFormula },
   ]
   const statusItems = [
-    ['分配状态', renderStatusBadge(markerAllocationStatusMeta[plan.allocationStatus].label, markerAllocationStatusMeta[plan.allocationStatus].className)],
+    ['需求匹配', renderStatusBadge(demandMatchMeta.label, demandMatchMeta.className)],
+    ['业务确认', renderStatusBadge(confirmationMeta.label, confirmationMeta.className)],
     ['主状态', renderStatusBadge(markerPlanStatusMeta[plan.status].label, markerPlanStatusMeta[plan.status].className)],
     ['映射状态', renderStatusBadge(markerMappingStatusMeta[plan.mappingStatus].label, markerMappingStatusMeta[plan.mappingStatus].className)],
     ['唛架状态', renderStatusBadge(markerLayoutStatusMeta[plan.layoutStatus].label, markerLayoutStatusMeta[plan.layoutStatus].className)],
-    ['图片状态', renderStatusBadge(markerImageStatusMeta[plan.imageStatus].label, markerImageStatusMeta[plan.imageStatus].className)],
     ['可交接铺布', plan.readyForSpreading ? renderStatusBadge('是', 'bg-emerald-100 text-emerald-700 border-emerald-200') : renderStatusBadge('否', 'bg-slate-100 text-slate-700 border-slate-200')],
   ] as const
 
@@ -1777,12 +1776,11 @@ function renderPlanTopInfo(
 }
 
 function renderTabNav(activeTab: MarkerPlanTabKey): string {
+  const normalizedActiveTab = activeTab
   const tabs: Array<{ key: MarkerPlanTabKey; label: string }> = [
-    { key: 'basic', label: '确认需求' },
-    { key: 'allocation', label: '来源分配' },
-    { key: 'explosion', label: '裁片拆解' },
-    { key: 'layout', label: '唛架编辑器' },
-    { key: 'images', label: '图片与变更' },
+    { key: 'basic', label: '排唛架来源' },
+    { key: 'layout', label: '编辑唛架' },
+    { key: 'explosion', label: '需求匹配与确认' },
   ]
 
   return `
@@ -1794,7 +1792,7 @@ function renderTabNav(activeTab: MarkerPlanTabKey): string {
               <button
                 type="button"
                 class="inline-flex cursor-pointer items-center rounded-md px-3 py-3 text-sm font-medium ${
-                  activeTab === tab.key
+                  normalizedActiveTab === tab.key
                     ? 'bg-blue-600 text-white hover:bg-blue-700'
                     : 'border hover:bg-muted'
                 }"
@@ -1814,47 +1812,39 @@ function renderTabNav(activeTab: MarkerPlanTabKey): string {
 
 function renderMarkerPlanTabLabel(tab: MarkerPlanTabKey): string {
   const labels: Record<MarkerPlanTabKey, string> = {
-    basic: '确认需求',
-    allocation: '来源分配',
-    explosion: '裁片拆解',
-    layout: '唛架编辑器',
-    images: '图片与变更',
+    basic: '排唛架来源',
+      explosion: '需求匹配与确认',
+    layout: '编辑唛架',
   }
-  return labels[tab] || '确认需求'
+  return labels[tab] || '排唛架来源'
 }
 
 function getCreateStepFromActiveTab(activeTab: MarkerPlanTabKey): MarkerPlanCreateStepKey {
   if (activeTab === 'layout') return 'layout'
-  if (activeTab === 'images') return 'images'
-  return 'demand'
+  if (activeTab === 'explosion') return 'match'
+  return 'source'
 }
 
 function getCreateStepTargetTab(step: MarkerPlanCreateStepKey): MarkerPlanTabKey {
   if (step === 'layout') return 'layout'
-  if (step === 'images') return 'images'
+  if (step === 'match') return 'explosion'
   return 'basic'
 }
 
 function getCreateStepStatus(plan: MarkerPlan | null, step: MarkerPlanCreateStepKey): string {
   if (step === 'source') return plan ? '已选择' : '当前'
   if (!plan) return '未开始'
-  if (step === 'demand') {
-    if (plan.allocationStatus !== 'balanced') return '待配平'
-    if (plan.mappingStatus !== 'passed') return '待拆解'
-    return plan.totalPieces > 0 ? '已确认' : '待确认'
-  }
   if (step === 'layout') return markerLayoutStatusMeta[plan.layoutStatus]?.label || '待编辑'
-  if (step === 'images') return markerImageStatusMeta[plan.imageStatus]?.label || '待生成'
+  if (step === 'match') return getPlanDemandMatchSummary(plan).status
   return '未开始'
 }
 
 function renderCreateStepNav(plan: MarkerPlan | null): string {
   const activeStep = state.contextDrawerOpen ? 'source' : plan ? getCreateStepFromActiveTab(state.activeTab) : 'source'
   const steps: Array<{ key: MarkerPlanCreateStepKey; title: string; hint: string }> = [
-    { key: 'source', title: '选择排唛架来源', hint: '原始裁片单 / 合并裁剪批次' },
-    { key: 'demand', title: '确认需求', hint: '技术包颜色尺码与需求矩阵' },
+    { key: 'source', title: '排唛架来源', hint: '方案编号 / 原始裁片单 / 合并裁剪批次' },
     { key: 'layout', title: '编辑唛架', hint: '唛架模式、层数、长度' },
-    { key: 'images', title: '生成图片并完成', hint: '唛架明细图 / 方案图' },
+    { key: 'match', title: '需求匹配与确认', hint: '来源需求 / 唛架产出 / 业务确认' },
   ]
 
   return `
@@ -1896,7 +1886,7 @@ function renderCreateStepNav(plan: MarkerPlan | null): string {
 function renderBalanceStatusBadge(status: MarkerPlanBalanceSummaryRow['status']): string {
   const meta =
     status === 'matched'
-      ? { label: '已配平', className: 'bg-emerald-100 text-emerald-700 border-emerald-200' }
+      ? { label: '已匹配', className: 'bg-emerald-100 text-emerald-700 border-emerald-200' }
       : status === 'over'
         ? { label: '超配', className: 'bg-amber-100 text-amber-700 border-amber-200' }
         : { label: '少配', className: 'bg-rose-100 text-rose-700 border-rose-200' }
@@ -1936,174 +1926,6 @@ function renderBasicTab(plan: MarkerPlan): string {
   `
 }
 
-function renderAllocationTable(plan: MarkerPlan, context: MarkerPlanContextCandidate | null): string {
-  const sourceMap = buildSourceMetaMap(context)
-  const specialFlagOptions = ['人工确认', '撞色', 'AB料', '多来源']
-  return `
-    <div class="overflow-hidden rounded-lg border bg-background">
-      ${renderStickyTableScroller(`
-      <table class="min-w-full text-left text-sm">
-        <thead class="bg-muted/40 text-xs text-muted-foreground">
-          <tr>
-            <th class="px-3 py-3 font-medium">来源裁片单</th>
-            <th class="px-3 py-3 font-medium">来源生产单</th>
-            <th class="px-3 py-3 font-medium">颜色</th>
-            <th class="px-3 py-3 font-medium">面料 SKU</th>
-            <th class="px-3 py-3 font-medium">款号 / SPU</th>
-            <th class="px-3 py-3 font-medium">技术包 SPU</th>
-            <th class="px-3 py-3 font-medium">尺码</th>
-            <th class="px-3 py-3 font-medium">来源分配成衣件数（件）</th>
-            <th class="px-3 py-3 font-medium">特殊标记</th>
-            <th class="px-3 py-3 font-medium">备注</th>
-            <th class="px-3 py-3 font-medium">操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${
-            plan.allocationRows.length
-              ? plan.allocationRows
-                  .map((row) => {
-                    const sourceMeta = sourceMap[row.sourceCutOrderId] || null
-                    return `
-                      <tr class="border-t align-top">
-                        <td class="px-3 py-3">
-                          <select
-                            data-marker-plan-allocation-field="sourceCutOrderId"
-                            data-allocation-id="${escapeHtml(row.id)}"
-                            data-marker-plan-control-type="select"
-                            class="h-9 w-full rounded-md border bg-card px-2 text-xs outline-none focus:ring-2 focus:ring-blue-500"
-                          >
-                            ${Object.values(sourceMap)
-                              .map((option) => `<option value="${escapeHtml(option.sourceCutOrderId)}" ${option.sourceCutOrderId === row.sourceCutOrderId ? 'selected' : ''}>${escapeHtml(option.sourceCutOrderNo)}</option>`)
-                              .join('')}
-                          </select>
-                        </td>
-                        <td class="px-3 py-3 text-xs">${escapeHtml(sourceMeta?.sourceProductionOrderNo || row.sourceProductionOrderId || '—')}</td>
-                        <td class="px-3 py-3 text-xs">${escapeHtml(sourceMeta?.colorCode || row.colorCode || '—')}</td>
-                        <td class="px-3 py-3 text-xs">${escapeHtml(sourceMeta?.materialSku || row.materialSku || '—')}</td>
-                        <td class="px-3 py-3 text-xs">${escapeHtml(`${sourceMeta?.styleCode || row.styleCode || '-'} / ${sourceMeta?.spuCode || row.spuCode || '-'}`)}</td>
-                        <td class="px-3 py-3 text-xs">${escapeHtml(sourceMeta?.techPackSpu || row.techPackSpu || '—')}</td>
-                        <td class="px-3 py-3">
-                          <select
-                            data-marker-plan-allocation-field="sizeCode"
-                            data-allocation-id="${escapeHtml(row.id)}"
-                            data-marker-plan-control-type="select"
-                            class="h-9 w-full rounded-md border bg-card px-2 text-xs outline-none focus:ring-2 focus:ring-blue-500"
-                          >
-                            ${MARKER_SIZE_CODES.map((sizeCode) => `<option value="${sizeCode}" ${sizeCode === row.sizeCode ? 'selected' : ''}>${escapeHtml(sizeCode)}</option>`).join('')}
-                          </select>
-                        </td>
-                        <td class="px-3 py-3">
-                          <input
-                            type="number"
-                            min="0"
-                            step="1"
-                            value="${row.garmentQty}"
-                            data-marker-plan-allocation-field="garmentQty"
-                            data-allocation-id="${escapeHtml(row.id)}"
-                            data-marker-plan-control-type="number-input"
-                            class="h-9 w-24 rounded-md border bg-card px-2 text-xs outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </td>
-                        <td class="px-3 py-3">
-                          <select
-                            multiple
-                            data-marker-plan-allocation-field="specialFlags"
-                            data-allocation-id="${escapeHtml(row.id)}"
-                            data-marker-plan-control-type="select"
-                            class="min-h-[5rem] w-32 rounded-md border bg-card px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-blue-500"
-                          >
-                            ${specialFlagOptions
-                              .map(
-                                (option) =>
-                                  `<option value="${escapeHtml(option)}" ${row.specialFlags.includes(option) ? 'selected' : ''}>${escapeHtml(option)}</option>`,
-                              )
-                              .join('')}
-                          </select>
-                        </td>
-                        <td class="px-3 py-3">
-                          <input
-                            type="text"
-                            value="${escapeHtml(row.note)}"
-                            data-marker-plan-allocation-field="note"
-                            data-allocation-id="${escapeHtml(row.id)}"
-                            data-marker-plan-control-type="text-input"
-                            class="h-9 w-32 rounded-md border bg-card px-2 text-xs outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </td>
-                        <td class="px-3 py-3">
-                          ${renderActionButton('删除', `data-marker-plan-action="remove-allocation-row" data-allocation-id="${escapeHtml(row.id)}"`, 'ghost')}
-                        </td>
-                      </tr>
-                    `
-                  })
-                  .join('')
-              : `
-                <tr>
-                  <td colspan="11" class="px-3 py-6 text-center text-xs text-muted-foreground">当前还没有来源分配，请先一键生成或新增分配行。</td>
-                </tr>
-              `
-          }
-        </tbody>
-      </table>
-      `, 'max-h-[48vh]')}
-    </div>
-  `
-}
-
-function renderAllocationReadonlyTable(plan: MarkerPlan, context: MarkerPlanContextCandidate | null): string {
-  const sourceMap = buildSourceMetaMap(context)
-  return `
-    <div class="overflow-hidden rounded-lg border bg-background">
-      <table class="min-w-full text-left text-sm">
-        <thead class="bg-muted/40 text-xs text-muted-foreground">
-          <tr>
-            <th class="px-3 py-3 font-medium">来源裁片单</th>
-            <th class="px-3 py-3 font-medium">来源生产单</th>
-            <th class="px-3 py-3 font-medium">颜色</th>
-            <th class="px-3 py-3 font-medium">面料 SKU</th>
-            <th class="px-3 py-3 font-medium">款号 / SPU</th>
-            <th class="px-3 py-3 font-medium">技术包 SPU</th>
-            <th class="px-3 py-3 font-medium">尺码</th>
-            <th class="px-3 py-3 font-medium">来源分配成衣件数（件）</th>
-            <th class="px-3 py-3 font-medium">特殊标记</th>
-            <th class="px-3 py-3 font-medium">备注</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${
-            plan.allocationRows.length
-              ? plan.allocationRows
-                  .map((row) => {
-                    const sourceMeta = sourceMap[row.sourceCutOrderId] || null
-                    return `
-                      <tr class="border-t align-top">
-                        <td class="px-3 py-3 text-xs font-medium">${escapeHtml(sourceMeta?.sourceCutOrderNo || row.sourceCutOrderId || '—')}</td>
-                        <td class="px-3 py-3 text-xs">${escapeHtml(sourceMeta?.sourceProductionOrderNo || row.sourceProductionOrderId || '—')}</td>
-                        <td class="px-3 py-3 text-xs">${escapeHtml(sourceMeta?.colorCode || row.colorCode || '—')}</td>
-                        <td class="px-3 py-3 text-xs">${escapeHtml(sourceMeta?.materialSku || row.materialSku || '—')}</td>
-                        <td class="px-3 py-3 text-xs">${escapeHtml(`${sourceMeta?.styleCode || row.styleCode || '-'} / ${sourceMeta?.spuCode || row.spuCode || '-'}`)}</td>
-                        <td class="px-3 py-3 text-xs">${escapeHtml(sourceMeta?.techPackSpu || row.techPackSpu || '—')}</td>
-                        <td class="px-3 py-3 text-xs">${escapeHtml(row.sizeCode || '—')}</td>
-                        <td class="px-3 py-3 text-xs">${renderValueWithFormula(formatCount(row.garmentQty), `${formatCount(row.garmentQty)} 件`)}</td>
-                        <td class="px-3 py-3 text-xs">${escapeHtml(row.specialFlags.length ? row.specialFlags.join(' / ') : '—')}</td>
-                        <td class="px-3 py-3 text-xs">${escapeHtml(row.note || '—')}</td>
-                      </tr>
-                    `
-                  })
-                  .join('')
-              : `
-                <tr>
-                  <td colspan="10" class="px-3 py-6 text-center text-xs text-muted-foreground">当前还没有来源分配记录。</td>
-                </tr>
-              `
-          }
-        </tbody>
-      </table>
-    </div>
-  `
-}
-
 function renderBalanceTable(balanceRows: MarkerPlanBalanceSummaryRow[]): string {
   return `
     <div class="overflow-hidden rounded-lg border bg-background">
@@ -2132,27 +1954,6 @@ function renderBalanceTable(balanceRows: MarkerPlanBalanceSummaryRow[]): string 
         </tbody>
       </table>
     </div>
-  `
-}
-
-function renderAllocationTab(plan: MarkerPlan, context: MarkerPlanContextCandidate | null): string {
-  const balanceRows = buildMarkerPlanBalanceRows(hydrateDraft(plan, context))
-  return `
-    <section class="space-y-4 rounded-xl border bg-card p-4" data-testid="marker-plan-allocation-tab">
-      <div class="flex flex-wrap items-center gap-2">
-        ${renderActionButton('一键按尺码配比生成', 'data-marker-plan-action="auto-allocation"', 'primary')}
-        ${renderActionButton('新增分配行', 'data-marker-plan-action="add-allocation-row"')}
-        ${renderActionButton('清空重配', 'data-marker-plan-action="clear-allocations"')}
-      </div>
-      ${renderAllocationTable(plan, context)}
-      <div class="space-y-2">
-        <div class="flex items-center justify-between">
-          <h3 class="text-sm font-semibold">配平表</h3>
-          ${renderStatusBadge(markerAllocationStatusMeta[plan.allocationStatus].label, markerAllocationStatusMeta[plan.allocationStatus].className)}
-        </div>
-        ${renderBalanceTable(balanceRows)}
-      </div>
-    </section>
   `
 }
 
@@ -2536,144 +2337,6 @@ function renderLayoutReadonlyTab(plan: MarkerPlan | MarkerPlanViewRow): string {
   `
 }
 
-function renderImageCards(images: MarkerImageRecord[], readOnly = false): string {
-  if (!images.length) {
-    return '<div class="rounded-lg border border-dashed bg-background px-4 py-8 text-center text-xs text-muted-foreground">当前还没有唛架明细图，可先上传图片或替换主图。</div>'
-  }
-  return `
-    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-      ${images
-        .map((image) => `
-          <article class="overflow-hidden rounded-lg border bg-background">
-            <div class="aspect-[16/9] bg-slate-100">
-              <img src="${escapeHtml(image.previewUrl)}" alt="${escapeHtml(image.fileName)}" class="h-full w-full object-cover" />
-            </div>
-            <div class="space-y-2 px-3 py-3">
-              <div class="flex items-center justify-between gap-2">
-                <p class="text-sm font-medium">${escapeHtml(image.fileName)}</p>
-                ${image.isPrimary ? renderStatusBadge('主图', 'bg-blue-100 text-blue-700 border-blue-200') : ''}
-              </div>
-              <p class="text-xs text-muted-foreground">${escapeHtml(image.uploadedAt)} · ${escapeHtml(image.uploadedBy)}</p>
-              ${image.note ? `<p class="text-xs text-muted-foreground">备注：${escapeHtml(image.note)}</p>` : ''}
-              ${
-                !readOnly
-                  ? `
-                    <div class="flex flex-wrap gap-2">
-                      ${renderActionButton('预览', `data-marker-plan-action="preview-image" data-image-id="${escapeHtml(image.id)}"`, 'ghost')}
-                      ${image.isPrimary ? '' : renderActionButton('设为主图', `data-marker-plan-action="set-primary-image" data-image-id="${escapeHtml(image.id)}"`)}
-                      ${renderActionButton('替换', `data-marker-plan-action="replace-image" data-image-id="${escapeHtml(image.id)}"`)}
-                      ${renderActionButton('删除', `data-marker-plan-action="delete-image" data-image-id="${escapeHtml(image.id)}"`, 'ghost')}
-                    </div>
-                  `
-                  : `<div class="flex flex-wrap gap-2">${renderActionButton('预览', `data-marker-plan-action="preview-image" data-image-id="${escapeHtml(image.id)}"`, 'ghost')}</div>`
-              }
-            </div>
-          </article>
-        `)
-        .join('')}
-    </div>
-  `
-}
-
-function renderImagesTab(plan: MarkerPlan, readOnly = false): string {
-  const primaryImage = getCurrentPrimaryImage(plan)
-  const historyEntries = [
-    ...(plan.updatedAt
-      ? [
-          {
-            id: 'plan-updated',
-            title: '计划最近更新',
-            time: plan.updatedAt,
-            actor: plan.updatedBy || '系统',
-            detail: `主状态：${markerPlanStatusMeta[plan.status].label}`,
-          },
-        ]
-      : []),
-    ...plan.imageRecords.map((image) => ({
-      id: image.id,
-      title: image.isPrimary ? '主图更新' : '图片上传',
-      time: image.uploadedAt,
-      actor: image.uploadedBy,
-      detail: image.fileName,
-    })),
-  ].sort((left, right) => String(right.time || '').localeCompare(String(left.time || ''), 'zh-CN'))
-
-  return `
-    <section class="space-y-4 rounded-xl border bg-card p-4" data-testid="marker-plan-images-tab">
-      ${
-        !readOnly
-          ? `
-            <div class="flex flex-wrap items-center gap-2">
-              ${renderActionButton('上传图片', 'data-marker-plan-action="upload-image"', 'primary')}
-              ${renderActionButton('替换主图', 'data-marker-plan-action="replace-primary-image"', 'secondary', !primaryImage)}
-            </div>
-          `
-          : ''
-      }
-      ${renderImageCards(plan.imageRecords, readOnly)}
-      ${
-        readOnly
-          ? `
-            ${
-              primaryImage
-                ? `
-                  <section class="space-y-2 rounded-lg border bg-background p-3">
-                    <h3 class="text-sm font-semibold">主图预览</h3>
-                    <div class="overflow-hidden rounded-lg border bg-slate-50">
-                      <img src="${escapeHtml(primaryImage.previewUrl)}" alt="${escapeHtml(primaryImage.fileName)}" class="h-full max-h-72 w-full object-contain" />
-                    </div>
-                  </section>
-                `
-                : ''
-            }
-            <div class="grid gap-3 lg:grid-cols-2">
-              ${renderReadonlyField('是否有调整', plan.hasAdjustment ? '是' : '否')}
-              ${renderReadonlyField('调整记录', plan.adjustmentNote || '—')}
-              ${renderReadonlyField('备注', primaryImage?.note || '—')}
-            </div>
-            <section class="space-y-3 rounded-lg border bg-background p-3">
-              <h3 class="text-sm font-semibold">变更历史</h3>
-              ${
-                historyEntries.length
-                  ? `
-                    <div class="space-y-3">
-                      ${historyEntries
-                        .map(
-                          (entry) => `
-                            <article class="rounded-lg border bg-card px-3 py-3">
-                              <div class="flex flex-wrap items-center justify-between gap-2">
-                                <div class="text-sm font-medium text-foreground">${escapeHtml(entry.title)}</div>
-                                <div class="text-xs text-muted-foreground">${escapeHtml(entry.time)}</div>
-                              </div>
-                              <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(entry.actor)}${entry.detail ? ` · ${escapeHtml(entry.detail)}` : ''}</div>
-                            </article>
-                          `,
-                        )
-                        .join('')}
-                    </div>
-                  `
-                  : '<div class="text-xs text-muted-foreground">当前还没有变更记录。</div>'
-              }
-            </section>
-          `
-          : `
-            <div class="grid gap-3 lg:grid-cols-2">
-              <label class="space-y-2 rounded-lg border bg-background px-3 py-3">
-                <span class="text-sm font-medium text-foreground">是否有调整</span>
-                <select data-marker-plan-image-field="hasAdjustment" data-marker-plan-control-type="select" class="h-10 w-full rounded-md border bg-card px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500">
-                  <option value="NO" ${plan.hasAdjustment ? '' : 'selected'}>否</option>
-                  <option value="YES" ${plan.hasAdjustment ? 'selected' : ''}>是</option>
-                </select>
-              </label>
-              ${renderTextareaField('调整记录', plan.adjustmentNote, 'adjustmentNote')}
-            </div>
-            ${renderTextareaField('备注', primaryImage?.note || '', 'primaryImageNote')}
-          `
-      }
-    </section>
-  `
-}
-
 function renderSchemeDemandMatrix(plan: MarkerPlan | MarkerPlanViewRow): string {
   const scheme = buildMarkerSchemeFromPlan(plan as MarkerPlan)
   const sizeNames = Array.from(new Set(scheme.demandRows.map((row) => row.sizeName || row.sizeCode).filter(Boolean)))
@@ -2995,23 +2658,23 @@ function renderSchemeBedEditor(plan: MarkerPlan, context: MarkerPlanContextCandi
 function renderDetailPreviewAndFlow(plan: MarkerPlanViewRow, context: MarkerPlanContextCandidate | null): string {
   return `
     ${renderDetailStepNav(plan)}
-    ${renderCreateSourceSummary(plan, context, { title: '方案来源', showCurrentStep: false })}
-    ${renderTabNav(state.activeTab)}
-    ${renderDetailTab(plan, state.activeTab)}
-    ${renderDetailFlowPanel(plan)}
+    ${renderPlanTopInfo(plan, context, { showActionRow: false })}
+    ${renderSchemeDemandMatrix(plan)}
+    ${renderExplosionTab(plan, context, true)}
+    ${renderLayoutReadonlyTab(plan)}
   `
 }
 
 function renderDetailStepNav(plan: MarkerPlanViewRow): string {
+  const matchSummary = getPlanDemandMatchSummary(plan)
   const steps = [
     { title: '1. 排唛架来源', status: '已确认' },
-    { title: '2. 需求矩阵', status: plan.allocationStatusMeta.label },
-    { title: '3. 唛架编号', status: plan.layoutStatusMeta.label },
-    { title: '4. 方案图片', status: plan.imageStatusMeta.label },
+    { title: '2. 编辑唛架', status: plan.layoutStatusMeta.label },
+    { title: '3. 需求匹配与确认', status: matchSummary.status },
   ]
   return `
     <section class="rounded-lg border bg-card p-1.5" data-testid="marker-plan-detail-step-nav">
-      <div class="grid gap-1.5 md:grid-cols-4">
+      <div class="grid gap-1.5 md:grid-cols-3">
         ${steps
           .map(
             (step) => `
@@ -3094,7 +2757,10 @@ function filterPlans(rows: MarkerPlanViewRow[], tab: MarkerPlanListTab): MarkerP
   const contextNo = state.filters.contextNo.trim().toLowerCase()
   const markerNo = state.filters.markerNo.trim().toLowerCase()
   return rows.filter((row) => {
-    if (tab !== 'ALL' && tab !== 'EXCEPTIONS' && row.status !== tab) return false
+    if (tab === 'WAITING_LAYOUT' && row.layoutStatus === 'done') return false
+    if (tab === 'DEMAND_DIFF' && (row.demandMatchSummary.status === '已匹配' || row.demandMatchSummary.status === '待编辑唛架')) return false
+    if (tab === 'WAITING_CONFIRM' && !(row.layoutStatus === 'done' && row.confirmationStatus !== '已确认')) return false
+    if (tab === 'READY_FOR_SPREADING' && !row.readyForSpreading) return false
     if (tab === 'EXCEPTIONS' && !hasPlanExceptionIssue(row)) return false
     if (contextNo) {
       const contextKeywords = [row.contextNo, row.mergeBatchNo, ...row.originalCutOrderNos]
@@ -3144,7 +2810,9 @@ function renderListFilters(): string {
           <span class="text-sm font-medium text-foreground">主状态</span>
           <select data-marker-plan-filter-field="status" class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500">
             <option value="ALL">全部</option>
-            ${(Object.keys(markerPlanStatusMeta) as MarkerPlanStatusKey[]).map((key) => `<option value="${key}" ${key === state.filters.status ? 'selected' : ''}>${escapeHtml(markerPlanStatusMeta[key].label)}</option>`).join('')}
+            ${(Object.keys(markerPlanStatusMeta) as MarkerPlanStatusKey[])
+              .map((key) => `<option value="${key}" ${key === state.filters.status ? 'selected' : ''}>${escapeHtml(markerPlanStatusMeta[key].label)}</option>`)
+              .join('')}
           </select>
         </label>
         <label class="space-y-2">
@@ -3203,14 +2871,14 @@ function renderListFilters(): string {
 function renderStats(viewModel = getViewModel()): string {
   const plans = viewModel.plans
   const readyCount = plans.filter((plan) => plan.readyForSpreading).length
-  const waitingImageCount = plans.filter((plan) => plan.imageStatus !== 'done' && plan.status !== 'CANCELED').length
-  const exceptionCount = plans.filter(hasPlanExceptionIssue).length
+  const diffCount = getPlanListTabCount('DEMAND_DIFF', plans)
+  const waitingConfirmCount = getPlanListTabCount('WAITING_CONFIRM', plans)
   return `
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4" data-testid="marker-plan-list-stats">
       ${renderCompactKpiCard('方案总数', plans.length, `可交接 ${readyCount}`, 'text-slate-900', `全部 ${plans.length} 个方案`)}
       ${renderCompactKpiCard('待排唛架', getPlanListTabCount('WAITING_LAYOUT', plans), '唛架未完成', 'text-blue-600', `${getPlanListTabCount('WAITING_LAYOUT', plans)} 个方案`)}
-      ${renderCompactKpiCard('待生成图片', waitingImageCount, '明细图 / 方案图', 'text-amber-600', `${waitingImageCount} 个方案`)}
-      ${renderCompactKpiCard('异常待处理', exceptionCount, '配平 / 映射 / 唛架 / 图片', 'text-rose-600', `${exceptionCount} 个方案`)}
+      ${renderCompactKpiCard('需求差异', diffCount, `待确认 ${waitingConfirmCount}`, 'text-amber-600', `${diffCount} 个方案`)}
+      ${renderCompactKpiCard('可交接铺布', readyCount, '已确认方案', 'text-emerald-600', `${readyCount} 个方案`)}
     </section>
   `
 }
@@ -3227,7 +2895,7 @@ function renderPlanRowsTable(rows: MarkerPlanViewRow[], exceptionOnly = false): 
         <div class="text-xs text-muted-foreground">${countText}</div>
       </div>
       ${renderStickyTableScroller(`
-        <table class="min-w-[1880px] text-left text-sm">
+        <table class="min-w-[1960px] text-left text-sm">
           <thead class="bg-muted/40 text-xs text-muted-foreground">
             <tr>
               <th class="px-2 py-1 font-medium">方案编号</th>
@@ -3240,7 +2908,9 @@ function renderPlanRowsTable(rows: MarkerPlanViewRow[], exceptionOnly = false): 
               <th class="px-2 py-1 font-medium">唛架数量</th>
               <th class="px-2 py-1 font-medium">唛架模式</th>
               <th class="px-2 py-1 font-medium">计划裁片数</th>
-              <th class="px-2 py-1 font-medium">图片状态</th>
+              <th class="px-2 py-1 font-medium">需求匹配</th>
+              <th class="px-2 py-1 font-medium">差异</th>
+              <th class="px-2 py-1 font-medium">业务确认</th>
               <th class="px-2 py-1 font-medium">铺布状态</th>
               <th class="px-2 py-1 font-medium">主状态</th>
               <th class="px-2 py-1 font-medium">最近更新</th>
@@ -3253,6 +2923,8 @@ function renderPlanRowsTable(rows: MarkerPlanViewRow[], exceptionOnly = false): 
                 ? rows
                     .map((row) => {
                       const problemTab = getProblemTabForPlan(row)
+                      const matchMeta = getDemandMatchStatusMeta(row.demandMatchSummary.status)
+                      const confirmationMeta = getConfirmationStatusMeta(row.confirmationStatus)
                       return `
                       <tr class="border-t align-top ${exceptionOnly ? 'cursor-pointer hover:bg-muted/10' : ''}" ${
                         exceptionOnly
@@ -3273,7 +2945,11 @@ function renderPlanRowsTable(rows: MarkerPlanViewRow[], exceptionOnly = false): 
                         <td class="px-2 py-1">${escapeHtml(getPlanBedCountText(row))}</td>
                         <td class="px-2 py-1">${escapeHtml(getPlanBedModeText(row))}</td>
                         <td class="px-2 py-1">${renderCompactListValueWithFormula(`${formatCount(row.totalPieces)} 件`, row.totalPiecesFormula)}</td>
-                        <td class="px-2 py-1">${renderStatusBadge(row.imageStatusMeta.label, row.imageStatusMeta.className)}</td>
+                        <td class="px-2 py-1">${renderStatusBadge(matchMeta.label, matchMeta.className)}</td>
+                        <td class="px-2 py-1">
+                          <div class="text-xs text-muted-foreground">不足 ${formatCount(row.demandMatchSummary.shortageQty)} / 超出 ${formatCount(row.demandMatchSummary.surplusQty)}</div>
+                        </td>
+                        <td class="px-2 py-1">${renderStatusBadge(confirmationMeta.label, confirmationMeta.className)}</td>
                         <td class="px-2 py-1">${escapeHtml(getPlanSpreadingStatusText(row))}</td>
                         <td class="px-2 py-1">${renderStatusBadge(row.statusMeta.label, row.statusMeta.className)}</td>
                         <td class="px-2 py-1">${escapeHtml(row.updatedAt || '—')}</td>
@@ -3281,14 +2957,13 @@ function renderPlanRowsTable(rows: MarkerPlanViewRow[], exceptionOnly = false): 
                           <div class="flex flex-nowrap gap-1.5 overflow-x-auto whitespace-nowrap">
                             ${renderActionButton('查看详情', `data-marker-plan-action="go-detail" data-plan-id="${escapeHtml(row.id)}"${exceptionOnly ? ` data-tab-key="${problemTab}"` : ''}`)}
                             ${row.status === 'READY_FOR_SPREADING' ? '' : renderActionButton('继续编辑', `data-marker-plan-action="go-edit" data-plan-id="${escapeHtml(row.id)}"${exceptionOnly ? ` data-tab-key="${problemTab}"` : ''}`)}
-                            ${row.imageStatus !== 'done' ? renderActionButton('生成图片', `data-marker-plan-action="go-edit" data-plan-id="${escapeHtml(row.id)}" data-tab-key="images"`) : ''}
                             ${row.readyForSpreading ? renderActionButton('交给铺布', `data-marker-plan-action="go-spreading" data-plan-id="${escapeHtml(row.id)}"`, 'primary') : ''}
                           </div>
                         </td>
                       </tr>
                     `})
                     .join('')
-                : `<tr><td colspan="15" class="px-3 py-8 text-center text-xs text-muted-foreground">当前筛选范围内没有排唛架方案。</td></tr>`
+                : `<tr><td colspan="17" class="px-3 py-8 text-center text-xs text-muted-foreground">当前筛选范围内没有排唛架方案。</td></tr>`
             }
           </tbody>
         </table>
@@ -3660,22 +3335,115 @@ function renderCreateSourceStep(viewModel = getViewModel()): string {
 
 function renderCreateDemandStep(plan: MarkerPlan, context: MarkerPlanContextCandidate | null): string {
   return `
-    ${renderSchemeDemandMatrix(plan)}
     <section class="rounded-lg border bg-card p-3" data-testid="marker-plan-create-demand-step">
       <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h3 class="text-sm font-semibold">需求确认</h3>
+          <h3 class="text-sm font-semibold">排唛架来源</h3>
         </div>
         ${renderStatusBadge(context?.techPackStatusLabel || '技术包待确认', 'border-blue-200 bg-blue-50 text-blue-700')}
       </div>
       <div class="grid gap-3 lg:grid-cols-3">
         ${renderInputField('方案编号', plan.markerNo, 'markerNo')}
-        ${renderReadonlyField('方案成衣件数（件）', `${formatCount(plan.totalPieces)} 件`, buildMarkerTotalPiecesFormula(plan.sizeRatioRows))}
+        ${renderReadonlyField('来源类型', context?.contextLabel || '待选择')}
+        ${renderReadonlyField('来源生产单', plan.productionOrderNos.join(' / ') || '—')}
         ${renderReadonlyField('正式技术包', context?.techPackStatusLabel || plan.techPackVersion || '正式版')}
       </div>
       <div class="mt-3">
         ${renderTextareaField('备注', plan.remark || '', 'remark')}
       </div>
+    </section>
+  `
+}
+
+function renderDemandMatchStep(plan: MarkerPlan | MarkerPlanViewRow, context: MarkerPlanContextCandidate | null, readOnly = false): string {
+  const summary = getPlanDemandMatchSummary(plan)
+  const statusMeta = getDemandMatchStatusMeta(summary.status)
+  const confirmationMeta = getConfirmationStatusMeta(plan.confirmationStatus)
+  const rows = summary.rows
+  return `
+    <section class="space-y-3" data-testid="marker-plan-demand-match-step">
+      ${renderSchemeDemandMatrix(plan)}
+      <section class="rounded-lg border bg-card p-3">
+        <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h3 class="text-sm font-semibold">需求匹配与确认</h3>
+          <div class="flex flex-wrap gap-2">
+            ${renderStatusBadge(statusMeta.label, statusMeta.className)}
+            ${renderStatusBadge(confirmationMeta.label, confirmationMeta.className)}
+          </div>
+        </div>
+        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          ${renderReadonlyField('需求成衣件数', `${formatCount(summary.demandTotalQty)} 件`)}
+          ${renderReadonlyField('唛架产出件数', `${formatCount(summary.markerTotalQty)} 件`)}
+          ${renderReadonlyField('差异合计', `${formatSignedCount(summary.diffTotalQty)} 件`)}
+          ${renderReadonlyField('不足数量', `${formatCount(summary.shortageQty)} 件`)}
+          ${renderReadonlyField('超出数量', `${formatCount(summary.surplusQty)} 件`)}
+        </div>
+      </section>
+      <section class="rounded-lg border bg-card">
+        <div class="border-b px-3 py-3">
+          <h3 class="text-sm font-semibold">颜色尺码差异</h3>
+        </div>
+        ${renderStickyTableScroller(`
+          <table class="min-w-full text-left text-sm">
+            <thead class="bg-muted/40 text-xs text-muted-foreground">
+              <tr>
+                <th class="px-3 py-2">颜色</th>
+                <th class="px-3 py-2">尺码</th>
+                <th class="px-3 py-2 text-right">需求件数</th>
+                <th class="px-3 py-2 text-right">唛架件数</th>
+                <th class="px-3 py-2 text-right">差异</th>
+                <th class="px-3 py-2">结果</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y">
+              ${
+                rows.length
+                  ? rows.map((row) => {
+                      const rowMeta = row.status === '已匹配'
+                        ? { className: 'bg-emerald-100 text-emerald-700 border border-emerald-200' }
+                        : row.status === '不足'
+                          ? { className: 'bg-amber-100 text-amber-700 border border-amber-200' }
+                          : { className: 'bg-blue-100 text-blue-700 border border-blue-200' }
+                      return `
+                        <tr>
+                          <td class="px-3 py-3 font-medium">${escapeHtml(row.colorName)}</td>
+                          <td class="px-3 py-3">${escapeHtml(row.sizeName)}</td>
+                          <td class="px-3 py-3 text-right">${formatCount(row.demandQty)}</td>
+                          <td class="px-3 py-3 text-right">${formatCount(row.markerQty)}</td>
+                          <td class="px-3 py-3 text-right">${formatSignedCount(row.diffQty)}</td>
+                          <td class="px-3 py-3">${renderStatusBadge(row.status, rowMeta.className)}</td>
+                        </tr>
+                      `
+                    }).join('')
+                  : `<tr><td colspan="6" class="px-3 py-8 text-center text-xs text-muted-foreground">请先在唛架编辑器中维护唛架矩阵。</td></tr>`
+              }
+            </tbody>
+          </table>
+        `, 'max-h-[46vh]')}
+      </section>
+      <section class="rounded-lg border bg-card p-3">
+        <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h3 class="text-sm font-semibold">业务确认</h3>
+          ${renderStatusBadge(confirmationMeta.label, confirmationMeta.className)}
+        </div>
+        ${
+          readOnly
+            ? `
+              <div class="grid gap-3 md:grid-cols-3">
+                ${renderReadonlyField('确认人', plan.confirmedBy || '—')}
+                ${renderReadonlyField('确认时间', plan.confirmedAt || '—')}
+                ${renderReadonlyField('确认备注', plan.confirmationRemark || '—')}
+              </div>
+            `
+            : `
+              ${renderTextareaField('确认备注', plan.confirmationRemark || '', 'confirmationRemark')}
+              <div class="mt-3 flex flex-wrap justify-end gap-2">
+                ${renderActionButton('标记需调整', 'data-marker-plan-action="mark-plan-adjust"', 'secondary', !plan)}
+                ${renderActionButton('确认当前唛架方案', 'data-marker-plan-action="confirm-plan"', 'primary', !plan)}
+              </div>
+            `
+        }
+      </section>
     </section>
   `
 }
@@ -3691,6 +3459,7 @@ function renderCreateEditorBody(plan: MarkerPlan | null, context: MarkerPlanCont
   if (state.contextDrawerOpen) {
     return `
       ${renderCreateStepNav(plan)}
+      ${renderCreateDemandStep(plan, context)}
       ${renderCreateSourceStep(getViewModel())}
     `
   }
@@ -3699,13 +3468,9 @@ function renderCreateEditorBody(plan: MarkerPlan | null, context: MarkerPlanCont
   const tabContent =
     activeTab === 'basic'
       ? renderCreateDemandStep(plan, context)
-      : activeTab === 'allocation'
-        ? renderAllocationTab(plan, context)
-        : activeTab === 'explosion'
-          ? renderExplosionTab(plan)
-          : activeTab === 'layout'
-            ? renderLayoutTab(plan, context)
-            : renderImagesTab(plan)
+      : activeTab === 'explosion'
+        ? renderDemandMatchStep(plan, context)
+        : renderLayoutTab(plan, context)
 
   return `
     ${renderCreateStepNav(plan)}
@@ -3725,21 +3490,19 @@ function renderEditorBody(route: MarkerPlanRouteKind, plan: MarkerPlan | MarkerP
   }
 
   const activeTab = state.activeTab
+  const isDetail = route === 'DETAIL'
   const tabContent =
     activeTab === 'basic'
-      ? renderBasicTab(plan as MarkerPlan)
-      : activeTab === 'allocation'
-        ? renderAllocationTab(plan as MarkerPlan, context)
-        : activeTab === 'explosion'
-          ? renderExplosionTab(plan as MarkerPlanViewRow | MarkerPlan)
-          : activeTab === 'layout'
-            ? renderLayoutTab(plan as MarkerPlan, context)
-            : renderImagesTab(plan as MarkerPlan)
+      ? (isDetail ? renderBasicTab(plan as MarkerPlan) : renderCreateDemandStep(plan as MarkerPlan, context))
+      : activeTab === 'explosion'
+        ? renderDemandMatchStep(plan as MarkerPlanViewRow | MarkerPlan, context, isDetail)
+        : isDetail
+          ? renderSchemeBedsOverview(plan as MarkerPlanViewRow | MarkerPlan)
+          : renderLayoutTab(plan as MarkerPlan, context)
 
   return `
+    ${route === 'DETAIL' ? renderDetailStepNav(plan as MarkerPlanViewRow) : renderCreateStepNav(plan as MarkerPlan)}
     ${renderPlanTopInfo(plan, context)}
-    ${renderSchemeDemandMatrix(plan)}
-    ${renderSchemeBedsOverview(plan)}
     ${renderTabNav(activeTab)}
     ${tabContent}
     ${route === 'CREATE' ? renderContextDrawer(getViewModel()) : ''}
@@ -3770,7 +3533,7 @@ function renderEditPage(viewModel = getViewModel(), id = parseRoute().id): strin
       })}
       ${renderFeedbackBar()}
       ${renderEditorWarning(sourcePlan)}
-      ${renderEditorBody('EDIT', state.draftPlan, getDraftContext(viewModel))}
+      ${renderCreateEditorBody(state.draftPlan, getDraftContext(viewModel))}
     </div>
   `
 }
@@ -3897,23 +3660,6 @@ function createFromSelectedContext(viewModel = getViewModel()): boolean {
   state.selectedContextKeys = contexts.map((context) => context.contextKey)
   navigateToCreateWithContexts(contexts)
   return true
-}
-
-function updateAllocationRowSource(row: MarkerAllocationRow, context: MarkerPlanContextCandidate, sourceCutOrderId: string): MarkerAllocationRow {
-  const sourceRow = context.sourceOriginalRows.find((item) => item.originalCutOrderId === sourceCutOrderId) || context.sourceOriginalRows[0] || null
-  const generatedRow = context.sourceGeneratedRows.find((item) => item.originalCutOrderId === sourceCutOrderId) || context.sourceGeneratedRows[0] || null
-  return {
-    ...row,
-    sourceCutOrderId: sourceRow?.originalCutOrderId || sourceCutOrderId,
-    sourceProductionOrderId: sourceRow?.productionOrderId || '',
-    colorCode: generatedRow?.colorScope[0] || sourceRow?.color || '',
-    materialSku: generatedRow?.materialSku || sourceRow?.materialSku || row.materialSku,
-    styleCode: sourceRow?.styleCode || context.styleCode,
-    spuCode: sourceRow?.spuCode || context.spuCode,
-    techPackSpu:
-      context.sourceMaterialPrepRows.find((item) => item.originalCutOrderId === sourceCutOrderId)?.techPackSpuCode ||
-      context.techPackSpu,
-  }
 }
 
 function handleAction(action: string, node: HTMLElement): boolean {
@@ -4119,7 +3865,7 @@ function handleAction(action: string, node: HTMLElement): boolean {
   }
 
   if (action === 'switch-create-step') {
-    const createStep = (node.dataset.createStep as MarkerPlanCreateStepKey | undefined) || 'demand'
+    const createStep = (node.dataset.createStep as MarkerPlanCreateStepKey | undefined) || 'source'
     if (createStep === 'source') {
       state.contextDrawerOpen = true
       state.contextDrawerType = 'ALL'
@@ -4174,41 +3920,36 @@ function handleAction(action: string, node: HTMLElement): boolean {
     return cancelDraftPlan()
   }
 
+  if (action === 'confirm-plan') {
+    const handled = updateDraft((plan) => ({
+      ...plan,
+      confirmationStatus: '已确认',
+      confirmedBy: '业务同事-廖晓飞',
+      confirmedAt: nowText(),
+      lastVisitedTab: 'explosion',
+    }))
+    if (handled) setFeedback('success', '已确认当前唛架方案，可交接铺布。')
+    return handled
+  }
+
+  if (action === 'mark-plan-adjust') {
+    const handled = updateDraft((plan) => ({
+      ...plan,
+      confirmationStatus: '需调整',
+      confirmedBy: '',
+      confirmedAt: '',
+      readyForSpreading: false,
+      lastVisitedTab: 'explosion',
+    }))
+    if (handled) setFeedback('warning', '已标记为需调整，请回到唛架编辑器修改。')
+    return handled
+  }
+
   if (action === 'restore-system-unit-usage') {
     return updateDraft((plan) => ({ ...plan, manualUnitUsage: null }))
   }
 
-  if (action === 'auto-allocation') {
-    if (!confirmReferencedStructuralEdit(viewModel)) return true
-    return updateDraft((plan, context) => regenerateMarkerPlanAllocationRows(plan, context))
-  }
-
-  if (action === 'add-allocation-row') {
-    if (!confirmReferencedStructuralEdit(viewModel)) return true
-    return updateDraft((plan, context) => ({
-      ...plan,
-      allocationRows: [...plan.allocationRows, createEmptyMarkerPlanAllocationRow(plan, context)],
-    }))
-  }
-
-  if (action === 'remove-allocation-row') {
-    const allocationId = node.dataset.allocationId || ''
-    if (!confirmReferencedStructuralEdit(viewModel)) return true
-    return updateDraft((plan) => ({
-      ...plan,
-      allocationRows: plan.allocationRows.filter((row) => row.id !== allocationId),
-    }))
-  }
-
-  if (action === 'clear-allocations') {
-    if (!confirmReferencedStructuralEdit(viewModel)) return true
-    return updateDraft((plan) => ({
-      ...plan,
-      allocationRows: [],
-    }))
-  }
-
-  if (action === 'add-scheme-bed') {
+if (action === 'add-scheme-bed') {
     const mode = (node.dataset.bedMode as MarkerBedModeKey | undefined) || 'normal'
     if (!confirmReferencedStructuralEdit(viewModel)) return true
     return updateDraft((plan, context) => {
@@ -4314,101 +4055,6 @@ function handleAction(action: string, node: HTMLElement): boolean {
       })
       return applySchemeBedsToPlan(plan, beds)
     })
-  }
-
-  if (action === 'upload-image') {
-    return updateDraft((plan) => createMarkerPlanImage(plan, 'upload'))
-  }
-
-  if (action === 'replace-primary-image') {
-    return updateDraft((plan) => createMarkerPlanImage(plan, 'replace-primary'))
-  }
-
-  if (action === 'preview-image') {
-    const planId = route.kind === 'DETAIL' ? route.id : state.draftPlan?.id || ''
-    const sourcePlan =
-      route.kind === 'DETAIL'
-        ? viewModel.plansById[planId]
-        : state.draftPlan
-    const imageId = node.dataset.imageId || ''
-    const image = sourcePlan?.imageRecords.find((record) => record.id === imageId)
-    if (!image) return false
-    const previewWindow = window.open('', '_blank')
-    if (!previewWindow) {
-      window.alert('浏览器阻止了预览窗口，请允许弹窗后重试。')
-      return false
-    }
-    const safeTitle = escapeHtml(image.fileName)
-    const safePreviewUrl = escapeHtml(image.previewUrl)
-    previewWindow.document.write(`
-      <!doctype html>
-      <html lang="zh-CN">
-        <head>
-          <meta charset="UTF-8" />
-          <title>${safeTitle}</title>
-          <style>
-            body {
-              margin: 0;
-              padding: 24px;
-              font-family: Arial, sans-serif;
-              background: #f8fafc;
-              color: #0f172a;
-            }
-            .preview-shell {
-              display: flex;
-              flex-direction: column;
-              gap: 16px;
-              min-height: calc(100vh - 48px);
-            }
-            .preview-card {
-              border: 1px solid #e2e8f0;
-              border-radius: 16px;
-              background: #ffffff;
-              box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
-              padding: 20px;
-            }
-            img {
-              display: block;
-              width: 100%;
-              max-width: 100%;
-              height: auto;
-              background: #ffffff;
-            }
-            .preview-meta {
-              font-size: 14px;
-              color: #475569;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="preview-shell">
-            <div class="preview-card">
-              <div class="preview-meta">图片文件：${safeTitle}</div>
-            </div>
-            <div class="preview-card">
-              <img src="${safePreviewUrl}" alt="${safeTitle}" />
-            </div>
-          </div>
-        </body>
-      </html>
-    `)
-    previewWindow.document.close()
-    return true
-  }
-
-  if (action === 'set-primary-image') {
-    const imageId = node.dataset.imageId || ''
-    return updateDraft((plan) => setMarkerPlanPrimaryImage(plan, imageId))
-  }
-
-  if (action === 'replace-image') {
-    const imageId = node.dataset.imageId || ''
-    return updateDraft((plan) => replaceMarkerPlanImage(plan, imageId))
-  }
-
-  if (action === 'delete-image') {
-    const imageId = node.dataset.imageId || ''
-    return updateDraft((plan) => deleteMarkerPlanImage(plan, imageId))
   }
 
   if (action === 'open-mapping-drawer') {
@@ -4539,67 +4185,11 @@ export function handleCraftCuttingMarkerPlanEvent(target: Element): boolean {
 
   const textareaFieldNode = target.closest<HTMLElement>('[data-marker-plan-textarea-field]')
   if (textareaFieldNode) {
-    const field = textareaFieldNode.dataset.markerPlanTextareaField as MarkerPlanBasicField | MarkerPlanImageField | undefined
+    const field = textareaFieldNode.dataset.markerPlanTextareaField as MarkerPlanBasicField | undefined
     const input = textareaFieldNode as HTMLTextAreaElement
     if (!field) return false
     if (field === 'remark') return updateDraft((plan) => ({ ...plan, remark: input.value }))
-    if (field === 'adjustmentNote') return updateDraft((plan) => ({ ...plan, adjustmentNote: input.value }))
-    if (field === 'primaryImageNote') return updateDraft((plan) => updatePrimaryImageNote(plan, input.value))
-  }
-
-  const imageFieldNode = target.closest<HTMLElement>('[data-marker-plan-image-field]')
-  if (imageFieldNode) {
-    const field = imageFieldNode.dataset.markerPlanImageField as MarkerPlanImageField | undefined
-    const input = imageFieldNode as HTMLSelectElement
-    if (field === 'hasAdjustment') {
-      return updateDraft((plan) => ({ ...plan, hasAdjustment: input.value === 'YES' }))
-    }
-  }
-
-  const allocationFieldNode = target.closest<HTMLElement>('[data-marker-plan-allocation-field]')
-  if (allocationFieldNode) {
-    const field = allocationFieldNode.dataset.markerPlanAllocationField as MarkerPlanAllocationField | undefined
-    const allocationId = allocationFieldNode.dataset.allocationId || ''
-    const input = allocationFieldNode as HTMLInputElement | HTMLSelectElement
-    if (!field || !allocationId) return false
-    if (!confirmReferencedStructuralEdit(viewModel)) return true
-    return updateDraft((plan, context) => ({
-      ...plan,
-      allocationRows: plan.allocationRows.map((row) => {
-        if (row.id !== allocationId) return row
-        if (field === 'sourceCutOrderId') return updateAllocationRowSource(row, context, input.value)
-        if (field === 'sizeCode') return { ...row, sizeCode: input.value as MarkerAllocationRow['sizeCode'] }
-        if (field === 'garmentQty') return { ...row, garmentQty: Math.max(Math.round(safeNumber(input.value)), 0) }
-        if (field === 'specialFlags') {
-          const select = input as HTMLSelectElement
-          return { ...row, specialFlags: Array.from(select.selectedOptions).map((option) => option.value) }
-        }
-        return { ...row, note: input.value }
-      }),
-    }))
-  }
-
-  const sizePiecePerLayerNode = target.closest<HTMLElement>('[data-marker-plan-size-piece-per-layer]')
-  if (sizePiecePerLayerNode) {
-    const bedId = sizePiecePerLayerNode.dataset.bedId || ''
-    const sizeName = sizePiecePerLayerNode.dataset.sizeName || ''
-    const input = sizePiecePerLayerNode as HTMLInputElement
-    if (!bedId || !sizeName) return false
-    if (!confirmReferencedStructuralEdit(viewModel)) return true
-    return updateDraft((plan) => {
-      const nextValue = Math.max(Math.round(safeNumber(input.value)), 0)
-      const beds = buildMarkerSchemeFromPlan(plan).beds.map((bed) => {
-        if (bed.bedId !== bedId) return bed
-        return {
-          ...bed,
-          sizePiecePerLayer: {
-            ...(bed.sizePiecePerLayer || {}),
-            [sizeName]: nextValue,
-          },
-        }
-      })
-      return applySchemeBedsToPlan(plan, beds)
-    })
+    if (field === 'confirmationRemark') return updateDraft((plan) => ({ ...plan, confirmationRemark: input.value }))
   }
 
   const matrixCellNode = target.closest<HTMLElement>('[data-marker-plan-matrix-cell]')

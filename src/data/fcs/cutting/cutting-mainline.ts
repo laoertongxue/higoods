@@ -140,7 +140,7 @@ function mapRowToSession(taskId: string, row: SpreadingListRow, reportConfig = g
     sourceOrderLabel,
     sourceTypeLabel,
     markerPlanNo: row.session.sourceSchemeNo || row.session.markerNo || row.session.sourceMarkerNo || row.session.markerId || '待绑定方案',
-    markerBedNo: row.session.sourceBedNo || row.sourceMarkerLabel || '待绑定床次',
+    markerBedNo: row.session.sourceBedNo || row.sourceMarkerLabel || '待绑定唛架编号',
     markerBedMode: row.spreadingModeLabel,
     cuttingTableName: row.session.cuttingTableName || row.session.cuttingTableNo || '未排程裁床',
     plannedStartAt: row.session.plannedStartAt || '未排程',

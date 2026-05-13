@@ -841,7 +841,10 @@ function buildSpreadingTargets(snapshot: CuttingDomainSnapshot, execution: PdaCu
     spreadingSessionId: session.spreadingSessionId,
     markerId: session.markerId || '',
     markerNo: session.markerNo || '',
-    sourceMarkerLabel: session.markerNo || session.sourceMarkerNo || '未绑定参考唛架',
+    sourceMarkerLabel:
+      session.sourceSchemeNo && (session.sourceBedNo || session.markerNo)
+        ? `${session.sourceSchemeNo} / ${session.sourceBedNo || session.markerNo}`
+        : session.markerNo || session.sourceMarkerNo || '未绑定唛架编号',
     spreadingMode: mapSpreadingModeKey(session.spreadingMode),
     title: session.sessionNo || `铺布对象 ${session.spreadingSessionId.slice(-6)}`,
     contextLabel: '继续当前铺布',
@@ -917,7 +920,7 @@ function buildSpreadingTargets(snapshot: CuttingDomainSnapshot, execution: PdaCu
       spreadingSessionId: '',
       markerId: '',
       markerNo: '',
-      sourceMarkerLabel: '未绑定参考唛架',
+      sourceMarkerLabel: '未绑定唛架编号',
       spreadingMode: 'NORMAL',
       title: execution.mergeBatchNo ? '异常补录当前批次铺布' : '异常补录当前裁片单铺布',
       contextLabel: '异常补录铺布',

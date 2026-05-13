@@ -110,6 +110,7 @@ import type {
   SewingFactoryPostTask,
 } from '../data/fcs/post-finishing-domain.ts'
 import {
+  FULL_CAPABILITY_FACTORY_ID,
   getPostFinishingFlowText,
   getPostFinishingSourceLabel,
   getPostFinishingTaskById,
@@ -134,6 +135,7 @@ import {
 } from '../data/fcs/mobile-execution-task-index.ts'
 import {
   getMobileTaskAccessResult,
+  getMobileTaskProcessType,
   listPdaMobileExecutionTasks,
 } from '../data/fcs/process-mobile-task-binding.ts'
 import { getPdaSession } from '../data/fcs/store-domain-pda.ts'
@@ -481,8 +483,8 @@ function renderPrintingTaskCard(
       ? renderPrintingStatusBadge('已完成', 'success')
       : review.reviewStatus === 'REJECTED'
         ? renderPrintingStatusBadge('已驳回', 'danger')
-        : renderPrintingStatusBadge('待审核', 'warning')
-    : renderPrintingStatusBadge('待审核', 'muted')
+        : renderPrintingStatusBadge('待处理', 'warning')
+    : renderPrintingStatusBadge('待处理', 'muted')
 
   return `
     <article class="rounded-lg border bg-card">
@@ -645,8 +647,8 @@ function renderPrintingTaskCard(
               <div><span class="text-muted-foreground">接收方：</span>${escapeHtml(printOrder.targetTransferWarehouseName)}</div>
               <div><span class="text-muted-foreground">${escapeHtml(receivedQtyLabel)}：</span>${review?.receivedQty ?? handoverSummary.writtenBackQty} ${escapeHtml(getQtyUnitLabel(printOrder.qtyUnit))}</div>
               <div><span class="text-muted-foreground">${escapeHtml(diffQtyLabel)}：</span>${review?.diffQty ?? handoverSummary.diffQty} ${escapeHtml(getQtyUnitLabel(printOrder.qtyUnit))}</div>
-              <div><span class="text-muted-foreground">审核状态：</span>${escapeHtml(review ? review.reviewStatus === 'PASS' ? '已完成' : review.reviewStatus === 'REJECTED' ? '已驳回' : '待审核' : '待审核')}</div>
-              <div class="sm:col-span-2"><span class="text-muted-foreground">备注：</span>${escapeHtml(review?.remark || '接收方回写后进入待审核')}</div>
+              <div><span class="text-muted-foreground">处理状态：</span>${escapeHtml(review ? review.reviewStatus === 'PASS' ? '已完成' : review.reviewStatus === 'REJECTED' ? '已驳回' : '待处理' : '待处理')}</div>
+              <div class="sm:col-span-2"><span class="text-muted-foreground">备注：</span>${escapeHtml(review?.remark || '接收方回写后待处理')}</div>
             </div>
           </section>
         </div>
@@ -788,8 +790,8 @@ function renderDyeingTaskCard(
       ? renderPrintingStatusBadge('已完成', 'success')
       : review.reviewStatus === 'REJECTED'
         ? renderPrintingStatusBadge('已驳回', 'danger')
-        : renderPrintingStatusBadge('待审核', 'warning')
-    : renderPrintingStatusBadge('待审核', 'muted')
+        : renderPrintingStatusBadge('待处理', 'warning')
+    : renderPrintingStatusBadge('待处理', 'muted')
 
   const postProcessRows = [
     { label: '脱水', code: 'DEHYDRATE' as const, record: dehydrateNode, requireFinished: Boolean(dyeNode?.finishedAt) },
@@ -1084,8 +1086,8 @@ function renderDyeingTaskCard(
               <div><span class="text-muted-foreground">接收方：</span>${escapeHtml(dyeOrder.targetTransferWarehouseName)}</div>
               <div><span class="text-muted-foreground">实收染色面料米数：</span>${review?.receivedQty ?? handoverSummary.writtenBackQty} ${escapeHtml(getQtyUnitLabel(dyeOrder.qtyUnit))}</div>
               <div><span class="text-muted-foreground">差异面料米数：</span>${review?.diffQty ?? handoverSummary.diffQty} ${escapeHtml(getQtyUnitLabel(dyeOrder.qtyUnit))}</div>
-              <div><span class="text-muted-foreground">审核状态：</span>${escapeHtml(review ? review.reviewStatus === 'PASS' ? '已完成' : review.reviewStatus === 'REJECTED' ? '已驳回' : '待审核' : '待审核')}</div>
-              <div><span class="text-muted-foreground">备注：</span>${escapeHtml(review?.remark || '接收方回写后进入待审核')}</div>
+              <div><span class="text-muted-foreground">处理状态：</span>${escapeHtml(review ? review.reviewStatus === 'PASS' ? '已完成' : review.reviewStatus === 'REJECTED' ? '已驳回' : '待处理' : '待处理')}</div>
+              <div><span class="text-muted-foreground">备注：</span>${escapeHtml(review?.remark || '接收方回写后待处理')}</div>
             </div>
           </section>
         </div>
@@ -2025,13 +2027,19 @@ function canPostFinishingManagedFactoryOperate(order: PostFinishingWorkOrder): b
 
 function renderPostFinishingActionPanel(order: PostFinishingWorkOrder): string {
   const actions: string[] = []
-  const waitReceiveStatuses = ['待扫码收货', '待接收']
-  const receivingStatuses = ['扫码收货中', '接收中']
   const receivedStatuses = ['已入库', '已接收']
-  if (waitReceiveStatuses.includes(order.receiveAction.status)) {
-    actions.push(renderPostFinishingActionButton(order, '扫码收货', 'start'))
-  } else if (receivingStatuses.includes(order.receiveAction.status)) {
-    actions.push(renderPostFinishingActionButton(order, '扫码收货', 'finish'))
+
+  if (!receivedStatuses.includes(order.receiveAction.status)) {
+    return `
+      <div class="grid gap-2">
+        <div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-800">
+          当前后道单还未完成上游来货接收，请先到交接模块确认收货；收货入库后再执行质检、后道和复检。
+        </div>
+        <button type="button" class="inline-flex h-10 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground" data-pda-execd-action="post-go-handover" data-post-task-id="${escapeHtml(order.postTaskId || '')}">
+          去交接接收
+        </button>
+      </div>
+    `
   }
 
   if (!order.isPostDoneBySewingFactory && order.currentStatus === '待后道') {
@@ -2126,7 +2134,15 @@ function renderPdaPostFinishingTaskPage(execId: string, task: PostFinishingTaskV
   const postOrders = listPostFinishingWorkOrders().filter((item) => item.postTaskId === task.postTaskId || item.sourceProductionOrderNo === task.productionOrderNo)
   const recheckOrders = listPostFinishingRecheckOrderEntities().filter((item) => item.postTaskId === task.postTaskId || item.productionOrderNo === task.productionOrderNo)
   const waitQcQty = task.waitQcQty + task.qcInProgressQty
+  const shouldGoHandover = task.currentStatus === '待上游交出' || task.currentStatus === '待收货'
+  const isAccepted = task.acceptanceStatus === 'ACCEPTED'
   const currentActions = [
+    !isAccepted
+      ? `<a class="inline-flex h-10 items-center justify-center rounded-md border px-3 text-sm font-medium hover:bg-muted" href="/fcs/pda/task-receive/${encodeURIComponent(task.postTaskId)}?returnTo=/fcs/pda/exec">去接单</a>`
+      : '',
+    isAccepted && shouldGoHandover
+      ? `<button type="button" class="inline-flex h-10 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground" data-pda-execd-action="post-go-handover" data-post-task-id="${escapeHtml(task.postTaskId)}">去交接接收</button>`
+      : '',
     task.waitQcQty > 0
       ? `<button type="button" class="inline-flex h-10 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground" data-pda-execd-action="post-task-create-qc" data-post-task-id="${escapeHtml(task.postTaskId)}">创建质检单</button>`
       : '',
@@ -2459,6 +2475,22 @@ export function renderPdaExecDetailPage(taskId: string): string {
     return renderPdaFrame(content, 'exec', { disableTodoAutoOpen: true })
   }
 
+  const currentFactoryId = getPdaSession()?.factoryId || task.assignedFactoryId || TEST_FACTORY_ID
+  if (currentFactoryId === FULL_CAPABILITY_FACTORY_ID && getMobileTaskProcessType(task) !== 'POST_FINISHING') {
+    const content = `
+      <div class="flex min-h-[760px] flex-col bg-background">
+        <div class="p-4">
+          <button class="inline-flex items-center rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-muted" data-pda-execd-action="back">
+            <i data-lucide="arrow-left" class="mr-1 h-4 w-4"></i>
+            返回
+          </button>
+        </div>
+        <div class="flex flex-1 items-center justify-center px-4 text-center text-sm text-muted-foreground">当前工厂为后道工厂，只能处理后道执行任务。</div>
+      </div>
+    `
+    return renderPdaFrame(content, 'exec', { disableTodoAutoOpen: true })
+  }
+
   syncDialogStateWithQuery(task)
 
   const status = task.status || 'NOT_STARTED'
@@ -2468,7 +2500,6 @@ export function renderPdaExecDetailPage(taskId: string): string {
     task.finishedAt,
   )
 
-  const currentFactoryId = getPdaSession()?.factoryId || task.assignedFactoryId || TEST_FACTORY_ID
   const mobileTaskAccess = getMobileTaskAccessResult(task, currentFactoryId)
   const canStart = status === 'NOT_STARTED' && prereq.met && mobileTaskAccess.canExecuteInMobile
   const canFinish = status === 'IN_PROGRESS' && mobileTaskAccess.canExecuteInMobile
@@ -4090,6 +4121,11 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
     const postTaskId = actionNode.dataset.postTaskId
     if (!postTaskId) return true
     appStore.navigate(`/fcs/craft/post-finishing/qc-orders?postTaskId=${encodeURIComponent(postTaskId)}&createQc=1`)
+    return true
+  }
+
+  if (action === 'post-go-handover') {
+    appStore.navigate('/fcs/pda/handover?tab=pickup')
     return true
   }
 

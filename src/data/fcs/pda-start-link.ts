@@ -120,7 +120,7 @@ export function getStartPrerequisite(task: ProcessTask): StartPrerequisiteInfo {
     return {
       met: false,
       type: 'PICKUP',
-      conditionLabel: '已有领料记录',
+      conditionLabel: '已生成执行任务',
       summaryLabel: '暂无执行任务',
       statusLabel: '暂无执行任务，暂不可开工',
       blocker: '暂无执行任务，暂不可开工',

@@ -81,7 +81,7 @@ export function renderPdaCuttingExecutionUnitPage(taskId: string, executionOrder
               <div>
                 <div class="text-xs text-muted-foreground">铺布现场</div>
                 <h1 class="mt-1 text-lg font-semibold text-foreground">${escapeHtml(session.sessionNo)}</h1>
-                <div class="mt-1 text-xs text-muted-foreground">排唛架方案 ${escapeHtml(session.markerPlanNo)} / 唛架床次 ${escapeHtml(session.markerBedNo)}</div>
+                <div class="mt-1 text-xs text-muted-foreground">排唛架方案 ${escapeHtml(session.markerPlanNo)} / 唛架编号 ${escapeHtml(session.markerBedNo)}</div>
               </div>
               ${chip(session.mainStageLabel, toneForSession(session))}
             </div>

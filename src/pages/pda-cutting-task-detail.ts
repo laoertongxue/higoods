@@ -74,7 +74,7 @@ function renderSessionCard(session: CuttingMainlineSessionView): string {
         <div class="min-w-0">
           <div class="text-[11px] text-muted-foreground">铺布任务</div>
           <div class="mt-0.5 text-base font-semibold text-foreground">${escapeHtml(session.sessionNo)}</div>
-          <div class="mt-1 text-xs text-muted-foreground">排唛架方案 ${escapeHtml(session.markerPlanNo)} / 唛架床次 ${escapeHtml(session.markerBedNo)}</div>
+          <div class="mt-1 text-xs text-muted-foreground">排唛架方案 ${escapeHtml(session.markerPlanNo)} / 唛架编号 ${escapeHtml(session.markerBedNo)}</div>
         </div>
         ${chip(session.mainStageLabel, toneForSession(session))}
       </div>
