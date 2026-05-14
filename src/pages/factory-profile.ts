@@ -380,6 +380,12 @@ function setDraft(updater: (prev: FactoryFormData) => FactoryFormData): void {
   state.formError = ''
 }
 
+function setDraftValue<K extends keyof FactoryFormData>(field: K, value: FactoryFormData[K]): void {
+  if (!state.formDraft) return
+  state.formDraft[field] = value
+  state.formError = ''
+}
+
 function resetPdaEditorState(): void {
   state.pdaAddOpen = false
   state.pdaNewName = ''
@@ -403,6 +409,13 @@ function requestFactoryRender(): void {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('higood:request-render'))
   }
+}
+
+function syncFactoryDialogHost(): void {
+  if (typeof document === 'undefined') return
+  const host = document.querySelector('[data-factory-dialog-host="true"]')
+  if (!(host instanceof HTMLElement)) return
+  host.innerHTML = `${renderFactoryDrawer()}${renderDeleteDialog()}`
 }
 
 function getCurrentDialogFactoryId(): string | null {
@@ -867,8 +880,8 @@ function renderFactoryTableRows(factories: Factory[]): string {
           </td>
           <td class="px-3 py-3 text-right">
             <div class="inline-flex gap-1">
-              <button class="rounded-md px-2 py-1 text-xs hover:bg-blue-50 hover:text-blue-600" data-factory-action="edit" data-factory-id="${factory.id}">编辑</button>
-              <button class="rounded-md px-2 py-1 text-xs hover:bg-red-50 hover:text-red-600" data-factory-action="delete" data-factory-id="${factory.id}">删除</button>
+              <button class="rounded-md px-2 py-1 text-xs hover:bg-blue-50 hover:text-blue-600" data-skip-page-rerender="true" data-factory-action="edit" data-factory-id="${factory.id}">编辑</button>
+              <button class="rounded-md px-2 py-1 text-xs hover:bg-red-50 hover:text-red-600" data-fast-page-render="true" data-factory-action="delete" data-factory-id="${factory.id}">删除</button>
             </div>
           </td>
         </tr>
@@ -1300,13 +1313,13 @@ function renderFactoryDrawer(): string {
 
   return `
     <div class="fixed inset-0 z-50">
-      <button class="absolute inset-0 bg-black/45" data-factory-action="close-dialog" aria-label="关闭抽屉"></button>
+      <button class="absolute inset-0 bg-black/45" data-skip-page-rerender="true" data-factory-action="close-dialog" aria-label="关闭抽屉"></button>
 
       <section class="absolute inset-y-0 right-0 flex w-full flex-col border-l bg-background shadow-2xl sm:max-w-[720px]">
         <header class="sticky top-0 z-10 border-b bg-background px-6 py-4">
           <div class="flex items-center justify-between">
             <h3 class="text-lg font-semibold">${state.dialog.type === 'create' ? '新增工厂档案' : '编辑工厂档案'}</h3>
-            <button type="button" data-factory-action="close-dialog" class="rounded-md border px-2 py-1 text-xs hover:bg-muted">关闭</button>
+            <button type="button" data-skip-page-rerender="true" data-factory-action="close-dialog" class="rounded-md border px-2 py-1 text-xs hover:bg-muted">关闭</button>
           </div>
         </header>
 
@@ -1532,13 +1545,13 @@ function renderFactoryDrawer(): string {
               }
 
               <div class="grid w-full grid-cols-3 rounded-md border p-1">
-                <button type="button" data-factory-action="switch-pda-tab" data-pda-tab="users" class="rounded px-2 py-1 text-xs ${
+                <button type="button" data-fast-page-render="true" data-factory-action="switch-pda-tab" data-pda-tab="users" class="rounded px-2 py-1 text-xs ${
                   state.pdaTab === 'users' ? 'bg-blue-50 text-blue-700' : 'text-muted-foreground hover:bg-muted'
                 }">账号列表</button>
-                <button type="button" data-factory-action="switch-pda-tab" data-pda-tab="roles" class="rounded px-2 py-1 text-xs ${
+                <button type="button" data-fast-page-render="true" data-factory-action="switch-pda-tab" data-pda-tab="roles" class="rounded px-2 py-1 text-xs ${
                   state.pdaTab === 'roles' ? 'bg-blue-50 text-blue-700' : 'text-muted-foreground hover:bg-muted'
                 }">角色管理</button>
-                <button type="button" data-factory-action="switch-pda-tab" data-pda-tab="permissions" class="rounded px-2 py-1 text-xs ${
+                <button type="button" data-fast-page-render="true" data-factory-action="switch-pda-tab" data-pda-tab="permissions" class="rounded px-2 py-1 text-xs ${
                   state.pdaTab === 'permissions' ? 'bg-blue-50 text-blue-700' : 'text-muted-foreground hover:bg-muted'
                 }">权限矩阵</button>
               </div>
@@ -1557,7 +1570,7 @@ function renderFactoryDrawer(): string {
           <footer class="border-t px-6 py-4">
             ${state.formError ? `<p class="mb-2 text-sm text-red-600">${escapeHtml(state.formError)}</p>` : ''}
             <div class="flex items-center justify-between gap-3">
-              <button type="button" data-factory-action="close-dialog" class="rounded-md border px-4 py-2 text-sm hover:bg-muted">取消</button>
+              <button type="button" data-skip-page-rerender="true" data-factory-action="close-dialog" class="rounded-md border px-4 py-2 text-sm hover:bg-muted">取消</button>
               <button type="submit" class="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">${
                 state.dialog.type === 'edit' ? '保存' : '创建工厂'
               }</button>
@@ -1589,7 +1602,9 @@ function renderDeleteDialog(): string {
 }
 
 export function renderFactoryProfilePage(): string {
-  state.factories = listFactoryMasterRecords()
+  if (state.dialog.type === 'none') {
+    state.factories = listFactoryMasterRecords()
+  }
   const filteredFactories = getVisibleFactories()
   const paginated = getPagedFactories(filteredFactories)
 
@@ -1607,7 +1622,7 @@ export function renderFactoryProfilePage(): string {
           <h1 class="text-2xl font-semibold text-foreground">工厂档案</h1>
           <p class="mt-1 text-sm text-muted-foreground">管理合作工厂的核心主数据，包括组织层级、工厂端移动应用配置、生产流程开始条件等。</p>
         </div>
-        <button class="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-factory-action="open-create">
+        <button class="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-skip-page-rerender="true" data-factory-action="open-create">
           新增工厂
         </button>
       </div>
@@ -1712,7 +1727,7 @@ export function renderFactoryProfilePage(): string {
       </div>
 
       ${renderPagination(filteredFactories.length)}
-      ${dialogHtml}
+      <div data-factory-dialog-host="true">${dialogHtml}</div>
     </div>
   `
 }
@@ -1792,7 +1807,7 @@ export function handleFactoryPageEvent(target: HTMLElement): boolean {
     if (!field) return true
 
     if (field === 'name' || field === 'contact' || field === 'address' || field === 'phone') {
-      setDraft((prev) => ({ ...prev, [field]: formField.value }))
+      setDraftValue(field, formField.value)
       return true
     }
 
@@ -1841,7 +1856,7 @@ export function handleFactoryPageEvent(target: HTMLElement): boolean {
     }
 
     if (field === 'pdaTenantId') {
-      setDraft((prev) => ({ ...prev, pdaTenantId: formField.value }))
+      setDraftValue('pdaTenantId', formField.value)
       return true
     }
 
@@ -2043,6 +2058,7 @@ export function handleFactoryPageEvent(target: HTMLElement): boolean {
 
   if (action === 'open-create') {
     openCreateDialog()
+    syncFactoryDialogHost()
     return true
   }
 
@@ -2050,6 +2066,7 @@ export function handleFactoryPageEvent(target: HTMLElement): boolean {
     const factoryId = actionNode.dataset.factoryId
     if (!factoryId) return true
     openEditDialog(factoryId)
+    syncFactoryDialogHost()
     return true
   }
 
@@ -2202,6 +2219,7 @@ export function handleFactoryPageEvent(target: HTMLElement): boolean {
 
   if (action === 'close-dialog') {
     closeDialog()
+    syncFactoryDialogHost()
     return true
   }
 

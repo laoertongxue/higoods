@@ -120,3 +120,27 @@
     at buildPdaExecTasksByStatus (http://localhost:5173/src/pages/pda-exec.ts?t=1778715313907:386:25)
     at buildPdaExecTasksByStatus (http://localhost:5173/src/pages/pda-exec.ts?t=1778715313907:386:25)
     at buildPdaExecTasksByStatus (http://localhost:5173/src/pages/pda-exec.ts?t=1778715313907:386:25)
+[21844080ms] [LOG] [vite] server connection lost. Polling for restart... @ http://localhost:5173/@vite/client:963
+[21845048ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[21847665ms] [LOG] [vite] server connection lost. Polling for restart... @ http://localhost:5173/@vite/client:963
+[21848196ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[25883091ms] [LOG] [vite] server connection lost. Polling for restart... @ http://localhost:5173/@vite/client:963
+[25883655ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[29232408ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[29259477ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[29284488ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[29315539ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[30173361ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[30209887ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[30240209ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[30270276ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[34283821ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[34789706ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[34900450ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[35047026ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[35605905ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[35623500ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[35635015ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[35889825ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[35983127ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[36363536ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356

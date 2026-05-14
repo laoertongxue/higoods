@@ -7,6 +7,7 @@ type FcsHandlersModule = typeof import('./main-handlers/fcs-handlers')
 type PcsHandlersModule = typeof import('./main-handlers/pcs-handlers')
 type PdaHandlersModule = typeof import('./main-handlers/pda-handlers')
 type DispatchBoardPageModule = typeof import('./pages/dispatch-board')
+type FactoryProfilePageModule = typeof import('./pages/factory-profile')
 type CraftCuttingMarkerPlanPageModule = typeof import('./pages/process-factory/cutting/marker-plan')
 type CraftCuttingMarkerSpreadingPageModule = typeof import('./pages/process-factory/cutting/marker-spreading')
 type PdaExecPageModule = typeof import('./pages/pda-exec')
@@ -16,6 +17,7 @@ let fcsHandlersModulePromise: Promise<FcsHandlersModule> | null = null
 let pcsHandlersModulePromise: Promise<PcsHandlersModule> | null = null
 let pdaHandlersModulePromise: Promise<PdaHandlersModule> | null = null
 let dispatchBoardPageModulePromise: Promise<DispatchBoardPageModule> | null = null
+let factoryProfilePageModulePromise: Promise<FactoryProfilePageModule> | null = null
 let craftCuttingMarkerPlanPageModulePromise: Promise<CraftCuttingMarkerPlanPageModule> | null = null
 let craftCuttingMarkerSpreadingPageModulePromise: Promise<CraftCuttingMarkerSpreadingPageModule> | null = null
 let pdaExecPageModulePromise: Promise<PdaExecPageModule> | null = null
@@ -59,6 +61,16 @@ function getDispatchBoardPageModule(): Promise<DispatchBoardPageModule> {
     })
   }
   return dispatchBoardPageModulePromise
+}
+
+function getFactoryProfilePageModule(): Promise<FactoryProfilePageModule> {
+  if (!factoryProfilePageModulePromise) {
+    factoryProfilePageModulePromise = import('./pages/factory-profile').catch((error) => {
+      factoryProfilePageModulePromise = null
+      throw error
+    })
+  }
+  return factoryProfilePageModulePromise
 }
 
 function getCraftCuttingMarkerPlanPageModule(): Promise<CraftCuttingMarkerPlanPageModule> {
@@ -199,6 +211,17 @@ window.addEventListener('error', (event) => {
 async function dispatchPageEvent(target: Element): Promise<boolean> {
   const eventTarget = target as HTMLElement
   const pathname = appStore.getState().pathname
+  if (pathname.startsWith('/fcs/factories/profile')) {
+    try {
+      const factoryProfilePage = await getFactoryProfilePageModule()
+      return factoryProfilePage.handleFactoryPageEvent(eventTarget)
+    } catch (error) {
+      if (reloadForDynamicModuleLoadError(error, '工厂档案事件处理器')) return false
+      console.error('工厂档案事件处理器加载失败，已降级为不处理', error)
+      return false
+    }
+  }
+
   if (pathname.startsWith('/fcs/dispatch/board')) {
     const dispatchBoardPage = await getDispatchBoardPageModule()
     return dispatchBoardPage.handleDispatchBoardEvent(eventTarget)
@@ -259,6 +282,18 @@ async function dispatchPageEvent(target: Element): Promise<boolean> {
 }
 
 async function dispatchPageSubmit(form: HTMLFormElement): Promise<boolean> {
+  const pathname = appStore.getState().pathname
+  if (pathname.startsWith('/fcs/factories/profile')) {
+    try {
+      const factoryProfilePage = await getFactoryProfilePageModule()
+      return factoryProfilePage.handleFactoryPageSubmit(form)
+    } catch (error) {
+      if (reloadForDynamicModuleLoadError(error, '工厂档案提交处理器')) return false
+      console.error('工厂档案提交处理器加载失败，已降级为不提交', error)
+      return false
+    }
+  }
+
   try {
     const fcsHandlers = await getFcsHandlersModule()
     return fcsHandlers.dispatchFcsPageSubmit(form)
@@ -281,7 +316,22 @@ async function dispatchPcsInputEvent(target: Element): Promise<boolean> {
 }
 
 async function closeDialogsOnEscape(): Promise<boolean> {
-  const handlerSystem = getCurrentHandlerSystem(appStore.getState().pathname)
+  const pathname = appStore.getState().pathname
+  if (pathname.startsWith('/fcs/factories/profile')) {
+    try {
+      const factoryProfilePage = await getFactoryProfilePageModule()
+      if (!factoryProfilePage.isFactoryPageOpenDialog()) return false
+      const fakeButton = document.createElement('button')
+      fakeButton.dataset.factoryAction = 'close-dialog'
+      return factoryProfilePage.handleFactoryPageEvent(fakeButton)
+    } catch (error) {
+      if (reloadForDynamicModuleLoadError(error, '工厂档案弹窗处理器')) return false
+      console.error('工厂档案弹窗处理器加载失败', error)
+      return false
+    }
+  }
+
+  const handlerSystem = getCurrentHandlerSystem(pathname)
   try {
     if (handlerSystem === 'pcs') {
       const pcsHandlers = await getPcsHandlersModule()
@@ -645,6 +695,14 @@ function shouldSkipInputRerender(target: Element): boolean {
     return true
   }
 
+  const factoryProfileFieldNode = target.closest<HTMLElement>('[data-factory-field], [data-pda-field]')
+  if (factoryProfileFieldNode instanceof HTMLInputElement || factoryProfileFieldNode instanceof HTMLTextAreaElement) {
+    const inputType = factoryProfileFieldNode instanceof HTMLInputElement
+      ? (factoryProfileFieldNode.type || 'text').toLowerCase()
+      : 'text'
+    return !['checkbox', 'radio', 'file', 'range', 'color'].includes(inputType)
+  }
+
   return false
 }
 
@@ -687,6 +745,14 @@ function shouldSkipChangeRerender(target: Element): boolean {
       if (inputType === 'radio' || inputType === 'checkbox') return false
     }
     return true
+  }
+
+  const factoryProfileFieldNode = target.closest<HTMLElement>('[data-factory-field], [data-pda-field]')
+  if (factoryProfileFieldNode instanceof HTMLInputElement || factoryProfileFieldNode instanceof HTMLTextAreaElement) {
+    const inputType = factoryProfileFieldNode instanceof HTMLInputElement
+      ? (factoryProfileFieldNode.type || 'text').toLowerCase()
+      : 'text'
+    return !['checkbox', 'radio', 'file', 'range', 'color'].includes(inputType)
   }
 
   return false

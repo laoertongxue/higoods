@@ -12,10 +12,6 @@ import {
   listPdaTaskFlowTasks,
   resolvePdaTaskExecPath,
 } from '../data/fcs/pda-cutting-execution-source.ts'
-import {
-  buildCuttingMainlineTaskView,
-  isCuttingProcessTask,
-} from '../data/fcs/cutting/cutting-mainline.ts'
 import { listPdaGenericTasksByProcess } from '../data/fcs/pda-task-mock-factory.ts'
 import { getKnittingWorkOrderByTaskId } from '../data/fcs/knitting-task-domain.ts'
 import {
@@ -412,55 +408,6 @@ function renderSourceBadge(mode: string): string {
   `
 }
 
-function renderCuttingMainlineCard(task: ProcessTask): string {
-  const view = buildCuttingMainlineTaskView(task)
-  const firstSession = view.sessions[0]
-  const statusText = firstSession
-    ? `${firstSession.mainStageLabel} / ${firstSession.cuttingTableName}`
-    : '待生成铺布任务'
-
-  return `
-    <article class="cursor-pointer rounded-lg border transition-colors hover:border-primary" data-testid="pda-exec-task-card" data-pda-exec-action="open-detail" data-task-id="${escapeHtml(task.taskId)}">
-      <div class="space-y-2.5 p-3">
-        <div class="flex items-start justify-between gap-2">
-          <div class="min-w-0">
-            <div class="truncate font-mono text-sm font-semibold">${escapeHtml(view.taskNo)}</div>
-            <div class="mt-1 text-xs text-muted-foreground">生产单 ${escapeHtml(view.productionOrderNo || task.productionOrderId)}</div>
-          </div>
-          <span class="inline-flex rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">裁片主线</span>
-        </div>
-
-        <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-          <div class="text-muted-foreground">执行对象</div>
-          <div class="font-medium">排唛架方案 / 唛架编号</div>
-          <div class="text-muted-foreground">铺布任务</div>
-          <div class="font-medium">${escapeHtml(String(view.sessions.length))} 个</div>
-          <div class="text-muted-foreground">当前状态</div>
-          <div class="font-medium">${escapeHtml(statusText)}</div>
-          <div class="text-muted-foreground">当前工厂</div>
-          <div class="font-medium">${escapeHtml(formatFactoryDisplayName(view.factoryName || task.assignedFactoryName, view.factoryId || task.assignedFactoryId))}</div>
-        </div>
-
-        <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
-          <div class="font-medium">执行上报配置</div>
-          <div class="mt-1">${escapeHtml(view.reportConfig.label)}</div>
-        </div>
-
-        <div class="flex gap-2 pt-1">
-          <button
-            class="inline-flex h-7 items-center rounded-md bg-primary px-3 text-xs text-primary-foreground hover:bg-primary/90"
-            data-pda-exec-action="go-start"
-            data-task-id="${escapeHtml(task.taskId)}"
-          >
-            <i data-lucide="play" class="mr-1 h-3 w-3"></i>
-            进入铺布现场
-          </button>
-        </div>
-      </div>
-    </article>
-  `
-}
-
 function buildPdaExecTasksByStatus(acceptedTasks: ProcessTask[]): Record<TaskStatusTab, ProcessTask[]> {
   const tasksByStatus = buildPdaExecTasksByStatus(acceptedTasks)
 
@@ -482,7 +429,6 @@ function renderPdaExecCardList(filteredTasks: ProcessTask[], emptyStateText: str
 
   return filteredTasks
     .map((task) => {
-      if (isCuttingProcessTask(task)) return renderCuttingMainlineCard(task)
       if (state.activeTab === 'NOT_STARTED') return renderNotStartedCard(task)
       if (state.activeTab === 'IN_PROGRESS') return renderInProgressCard(task)
       if (state.activeTab === 'BLOCKED') return renderBlockedCard(task)

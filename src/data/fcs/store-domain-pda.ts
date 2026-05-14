@@ -222,7 +222,9 @@ export const pdaRoleTemplates: PdaRoleTemplate[] = [
   { roleId: 'ROLE_OPERATOR', roleName: '操作工', permissionKeys: [...operatorFactoryMobileAppPermissionKeys] },
 ]
 
-const LEGACY_DEFAULT_PDA_PASSWORD_HASH = '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92'
+export const FACTORY_MOCK_PDA_PASSWORD = '123456'
+const FACTORY_MOCK_PDA_PASSWORD_HASH = '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92'
+const LEGACY_DEFAULT_PDA_PASSWORD_HASH = FACTORY_MOCK_PDA_PASSWORD_HASH
 
 export function createFactoryPdaUsersForFactory(
   factoryId: string,
@@ -295,6 +297,23 @@ export const initialFactoryPdaUsers: FactoryPdaUser[] = [
   ...ownKnittingFactoryPdaUsers,
   ...onboardingOfficialFactoryPdaUsers,
 ]
+
+const initialFactoryPdaUserIds = new Set(initialFactoryPdaUsers.map((user) => user.userId))
+const initialFactoryPdaLoginIds = new Set(initialFactoryPdaUsers.map((user) => normalizePdaLoginId(user.loginId)))
+
+function isInitialFactoryPdaUser(user: FactoryPdaUser): boolean {
+  return initialFactoryPdaUserIds.has(user.userId) || initialFactoryPdaLoginIds.has(normalizePdaLoginId(user.loginId))
+}
+
+function normalizeInitialFactoryPdaPassword(user: FactoryPdaUser, now: string): FactoryPdaUser {
+  if (!isInitialFactoryPdaUser(user)) return user
+  if (user.passwordHash === FACTORY_MOCK_PDA_PASSWORD_HASH) return user
+  return {
+    ...user,
+    passwordHash: FACTORY_MOCK_PDA_PASSWORD_HASH,
+    passwordUpdatedAt: user.passwordUpdatedAt || now,
+  }
+}
 
 // =============================================
 // Permission Catalog（全局权限字典，只读）
@@ -563,13 +582,16 @@ function ensurePdaUserStore(): FactoryPdaUser[] {
       .map((item) => normalizeStoredPdaUser(item))
       .filter((item): item is FactoryPdaUser => Boolean(item))
       .map((item) => {
-        if (item.passwordHash) return item
-        needsMigration = true
-        return {
-          ...item,
-          passwordHash: LEGACY_DEFAULT_PDA_PASSWORD_HASH,
-          passwordUpdatedAt: item.passwordUpdatedAt || now,
-        }
+        const withPasswordHash = item.passwordHash
+          ? item
+          : {
+              ...item,
+              passwordHash: LEGACY_DEFAULT_PDA_PASSWORD_HASH,
+              passwordUpdatedAt: item.passwordUpdatedAt || now,
+            }
+        const normalized = normalizeInitialFactoryPdaPassword(withPasswordHash, now)
+        if (normalized !== item) needsMigration = true
+        return normalized
       })
     const userIds = new Set(cachedPdaUsers.map((item) => item.userId))
     const missingSeedUsers = initialFactoryPdaUsers.filter((item) => !userIds.has(item.userId)).map(clonePdaUser)
@@ -583,7 +605,7 @@ function ensurePdaUserStore(): FactoryPdaUser[] {
     return cachedPdaUsers
   }
 
-  cachedPdaUsers = initialFactoryPdaUsers.map(clonePdaUser)
+  cachedPdaUsers = initialFactoryPdaUsers.map((item) => normalizeInitialFactoryPdaPassword(clonePdaUser(item), nowTimestamp()))
   writeStoredJson(PDA_USER_STORE_KEY, cachedPdaUsers)
   return cachedPdaUsers
 }

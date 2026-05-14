@@ -289,6 +289,7 @@ interface MarkerSpreadingPageState {
   spreadingCompletionSelection: string[]
   createStep: SpreadingCreateStepKey
   selectedCreateMarkerId: string
+  selectedCreateSourceSnapshot: SpreadingCreateSourceRow | null
   createExceptionBackfill: boolean
   createExceptionReason: string
   createScheduleMode: SpreadingCreateScheduleMode
@@ -382,6 +383,7 @@ const state: MarkerSpreadingPageState = {
   spreadingCompletionSelection: [],
   createStep: 'SELECT_MARKER',
   selectedCreateMarkerId: '',
+  selectedCreateSourceSnapshot: null,
   createExceptionBackfill: false,
   createExceptionReason: '',
   createScheduleMode: 'BY_MARKER_NO',
@@ -467,10 +469,23 @@ function getSpreadingCreateSourceRows(): SpreadingCreateSourceRow[] {
 
 function getSelectedCreateSource(rows = getSpreadingCreateSourceRows()): SpreadingCreateSourceRow | null {
   if (!state.selectedCreateMarkerId) return null
-  return rows.find((row) => row.markerId === state.selectedCreateMarkerId) ||
+  const matched = rows.find((row) => row.markerId === state.selectedCreateMarkerId) ||
     rows.find((row) => row.sourceBedId === state.selectedCreateMarkerId) ||
     rows.find((row) => row.sourceSchemeId === state.selectedCreateMarkerId) ||
     null
+  if (matched) return matched
+  const snapshot = state.selectedCreateSourceSnapshot
+  if (
+    snapshot &&
+    (
+      snapshot.markerId === state.selectedCreateMarkerId ||
+      snapshot.sourceBedId === state.selectedCreateMarkerId ||
+      snapshot.sourceSchemeId === state.selectedCreateMarkerId
+    )
+  ) {
+    return snapshot
+  }
+  return null
 }
 
 function getSelectedCreateSchemeSources(rows = getSpreadingCreateSourceRows()): SpreadingCreateSourceRow[] {
@@ -1763,6 +1778,11 @@ function syncStateFromPath(): void {
     if (currentPath === getCanonicalCuttingPath('spreading-create')) {
       state.createStep = getSearchParams().get('step') === 'confirm' ? 'CONFIRM_CREATE' : 'SELECT_MARKER'
       state.selectedCreateMarkerId = getSearchParams().get('bedId') || getSearchParams().get('markerId') || ''
+      state.selectedCreateSourceSnapshot = null
+      state.createStep =
+        getSearchParams().get('step') === 'confirm' && state.selectedCreateMarkerId
+          ? 'CONFIRM_CREATE'
+          : 'SELECT_MARKER'
       state.createExceptionBackfill = false
       state.createExceptionReason = ''
       state.createOwnerAccountId = SPREADING_CREATE_OWNER_OPTIONS[0].value
@@ -6367,6 +6387,13 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
   if (action === 'select-spreading-create-marker') {
     const markerId = actionNode.dataset.markerId || ''
     state.selectedCreateMarkerId = markerId
+    const currentRows = getSpreadingCreateSourceRows()
+    const selectedSource =
+      currentRows.find((row) => row.markerId === markerId) ||
+      currentRows.find((row) => row.sourceBedId === markerId) ||
+      currentRows.find((row) => row.sourceSchemeId === markerId) ||
+      null
+    state.selectedCreateSourceSnapshot = selectedSource ? { ...selectedSource } : null
     state.feedback = null
     window.history.replaceState(
       window.history.state,
@@ -6396,6 +6423,8 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
       state.feedback = { tone: 'warning', message: '创建铺布需先选中一条可交接铺布的唛架编号。' }
       return true
     }
+    state.selectedCreateMarkerId = source.markerId
+    state.selectedCreateSourceSnapshot = { ...source }
     state.createStep = 'CONFIRM_CREATE'
     appStore.navigate(buildMarkerRouteWithContext(getCanonicalCuttingPath('spreading-create'), { markerId: source.markerId, step: 'confirm' }))
     return true

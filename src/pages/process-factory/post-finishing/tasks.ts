@@ -83,8 +83,6 @@ function renderTaskRows(tasks: PostFinishingTaskView[]): string {
         <td class="px-3 py-3 text-sm">${formatGarmentQty(task.qcDoneQty, task.qtyUnit)}</td>
         <td class="px-3 py-3 text-sm">${formatGarmentQty(task.waitHandoverQty, task.qtyUnit)}</td>
         <td class="px-3 py-3 text-sm">${escapeHtml(sourceLabel)}</td>
-        <td class="px-3 py-3">${renderPostStatusBadge(task.currentStatus)}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(task.currentNode)}</td>
         <td class="px-3 py-3">
           <div class="flex flex-wrap gap-2">
             ${renderPostAction('查看任务', buildPostFinishingTaskLink(task.postTaskId))}
@@ -190,9 +188,9 @@ export function renderPostFinishingTasksPage(): string {
         keywordPlaceholder: '后道任务 / 生产单 / 款式 / 技术包版本',
       })}
       ${renderPostSection('后道任务列表', `${renderPostTable(
-        ['后道任务', '生产单 / 技术包', '款式衣服', '计划数量', '未质检', '已质检', '待交出', '上游来源', '状态', '当前节点', '操作'],
-        rows || '<tr><td colspan="11" class="px-3 py-8 text-center text-sm text-muted-foreground">暂无后道任务</td></tr>',
-        'min-w-[1520px]',
+        ['后道任务', '生产单 / 技术包', '款式衣服', '计划数量', '未质检', '已质检', '待交出', '上游来源', '操作'],
+        rows || '<tr><td colspan="9" class="px-3 py-8 text-center text-sm text-muted-foreground">暂无后道任务</td></tr>',
+        'min-w-[1280px]',
       )}<div class="mt-4">${renderPostPagination(pagination)}</div>`)}
       ${selectedTask ? renderTaskDetail(selectedTask) : ''}
     </div>

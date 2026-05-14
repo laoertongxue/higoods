@@ -654,13 +654,29 @@ export function buildMarkerSpreadingPrototypeStore(options: {
   const rowsById = Object.fromEntries(executableRows.map((row) => [row.originalCutOrderId, row]))
   const isLinkedToExecutableRows = (originalCutOrderIds: string[]) =>
     originalCutOrderIds.length > 0 && originalCutOrderIds.every((id) => executableRowIds.has(id))
+  const isGeneratedSeedSession = (session: SpreadingSession) =>
+    session.spreadingSessionId.startsWith('spreading-session-original-order-') ||
+    session.spreadingSessionId.startsWith('spreading-session-merge-batch-')
+  const isLinkedToMarkerPlan = (session: SpreadingSession) =>
+    Boolean(
+      session.sourceSchemeId &&
+      session.sourceSchemeNo &&
+      session.sourceBedId &&
+      session.sourceBedNo &&
+      session.sourceMarkerId &&
+      session.sourceMarkerNo &&
+      session.planUnits?.length,
+    )
   nextStore = {
     ...nextStore,
     markers: nextStore.markers.filter((marker) => isLinkedToExecutableRows(marker.originalCutOrderIds)),
-    sessions: nextStore.sessions.filter((session) => isLinkedToExecutableRows(session.originalCutOrderIds)),
+    sessions: nextStore.sessions.filter((session) =>
+      isLinkedToExecutableRows(session.originalCutOrderIds) &&
+      isLinkedToMarkerPlan(session) &&
+      !isGeneratedSeedSession(session),
+    ),
   }
 
-  const seedContexts: MarkerSpreadingContext[] = []
   const originalContexts = executableRows
     .map((row) => buildOriginalContext(row))
     .filter((context, index, all) => all.findIndex((item) => item.originalCutOrderIds[0] === context.originalCutOrderIds[0]) === index)
@@ -672,7 +688,7 @@ export function buildMarkerSpreadingPrototypeStore(options: {
     .filter((context, index, all) => all.findIndex((item) => item.mergeBatchId === context.mergeBatchId) === index)
     .slice(0, 3)
 
-  seedContexts.push(...originalContexts, ...mergeBatchContexts)
+  const seedContexts: MarkerSpreadingContext[] = [...originalContexts, ...mergeBatchContexts].slice(0, 5)
 
   const preferredSeedModes = new Map<string, MarkerModeKey>()
   if (originalContexts[0]) preferredSeedModes.set(`original-order:${originalContexts[0].originalCutOrderIds[0]}`, 'normal')

@@ -150,3 +150,27 @@
 [34174038ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
 [34357243ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
 [34556713ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[35272456ms] [LOG] [vite] server connection lost. Polling for restart... @ http://127.0.0.1:5173/@vite/client:963
+[35273477ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[35274328ms] [LOG] [vite] server connection lost. Polling for restart... @ http://127.0.0.1:5173/@vite/client:963
+[35274331ms] [ERROR] Failed to load resource: net::ERR_NETWORK_IO_SUSPENDED @ http://127.0.0.1:5173/src/data/pcs-first-order-sample-field-policy.ts:0
+[35274331ms] [ERROR] Failed to load resource: net::ERR_NETWORK_IO_SUSPENDED @ http://127.0.0.1:5173/src/data/pcs-work-item-configs/mappings.ts:0
+[35274331ms] [ERROR] Failed to load resource: net::ERR_NETWORK_IO_SUSPENDED @ http://127.0.0.1:5173/src/data/pcs-config-dimensions.ts:0
+[35274331ms] [ERROR] Failed to load resource: net::ERR_NETWORK_IO_SUSPENDED @ http://127.0.0.1:5173/src/data/pcs-project-image-blob-repository.ts:0
+[35274336ms] [WARNING] 未处理 Promise 动态模块加载失败，将按当前地址刷新一次。 TypeError: Failed to fetch dynamically imported module: http://127.0.0.1:5173/src/router/routes-fcs.ts?t=1778715726464 @ http://127.0.0.1:5173/src/main.ts?t=1778715726464:133
+[35276449ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[39311468ms] [LOG] [vite] server connection lost. Polling for restart... @ http://127.0.0.1:5173/@vite/client:963
+[39312103ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[42660834ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[42687865ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[42712863ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[42743881ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[47712141ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[48218043ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[48475300ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[49034305ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[49052058ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[49063334ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[49318521ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[49411503ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[49792007ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356

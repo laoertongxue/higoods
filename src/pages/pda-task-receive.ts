@@ -182,11 +182,6 @@ function isPostFinishingDirectOnlyFactory(factoryId: string): boolean {
   return factoryId === FULL_CAPABILITY_FACTORY_ID
 }
 
-function getVisibleTabs(factoryId: string): Array<{ key: TabKey; label: string }> {
-  if (isPostFinishingDirectOnlyFactory(factoryId)) return TABS.filter((tab) => tab.key === 'pending-accept')
-  return TABS
-}
-
 function getTaskDisplayNo(task: ProcessTask | null): string {
   if (!task) return '-'
   return task.taskNo || task.taskId
@@ -213,13 +208,12 @@ function getCurrentSearchParams(): URLSearchParams {
 }
 
 function syncTabWithQuery(): void {
-  const visibleTabs = getVisibleTabs(getCurrentFactoryId())
   const tab = getCurrentSearchParams().get('tab')
   if (!tab) {
     state.activeTab = 'pending-accept'
     return
   }
-  if (visibleTabs.some((item) => item.key === tab)) {
+  if (TABS.some((item) => item.key === tab)) {
     state.activeTab = tab as TabKey
   } else {
     state.activeTab = 'pending-accept'
@@ -1087,7 +1081,6 @@ export function renderPdaTaskReceivePage(): string {
 
   const selectedFactoryId = getCurrentFactoryId()
   const factoryName = getFactoryName(selectedFactoryId)
-  const visibleTabs = getVisibleTabs(selectedFactoryId)
   scheduleTaskFocus(getFocusedTaskId())
 
   const pendingAcceptTasks = getPendingAcceptTasks(selectedFactoryId)
@@ -1096,11 +1089,10 @@ export function renderPdaTaskReceivePage(): string {
     state.processFilter = 'ALL'
   }
 
-  const directOnlyFactory = isPostFinishingDirectOnlyFactory(selectedFactoryId)
-  const activeBiddingTenders = directOnlyFactory ? [] : getActiveBiddingTenders()
+  const activeBiddingTenders = getActiveBiddingTenders()
   syncQuoteDialogWithQuery(activeBiddingTenders)
-  const allQuotedTenders = directOnlyFactory ? [] : getQuotedTenders(selectedFactoryId)
-  const awardedTenders = directOnlyFactory ? [] : getAwardedTenders(selectedFactoryId)
+  const allQuotedTenders = getQuotedTenders(selectedFactoryId)
+  const awardedTenders = getAwardedTenders(selectedFactoryId)
   const filteredPendingTasks = getFilteredPendingTasks(pendingAcceptTasks)
   const tabCounts = getTabCounts(
     pendingAcceptTasks,
@@ -1115,7 +1107,7 @@ export function renderPdaTaskReceivePage(): string {
       <header class="sticky top-0 z-30 border-b bg-background px-4 py-3">
         <h1 class="mb-3 flex items-center gap-2 text-lg font-semibold">
           <i data-lucide="clipboard-list" class="h-5 w-5"></i>
-          ${directOnlyFactory ? '派单接单' : '接单与报价'}
+          接单与报价
         </h1>
 
         <div class="relative mb-2">
@@ -1155,7 +1147,7 @@ export function renderPdaTaskReceivePage(): string {
       </header>
 
       <div class="sticky top-[auto] z-20 flex border-b bg-background">
-        ${visibleTabs.map((tab) => {
+        ${TABS.map((tab) => {
           const active = tab.key === state.activeTab
           return `
             <button
@@ -1320,7 +1312,7 @@ export function handlePdaTaskReceiveEvent(target: HTMLElement): boolean {
 
   if (action === 'switch-tab') {
     const tab = actionNode.dataset.tab as TabKey | undefined
-    if (tab && getVisibleTabs(getCurrentFactoryId()).some((item) => item.key === tab)) {
+    if (tab && TABS.some((item) => item.key === tab)) {
       state.activeTab = tab
       appStore.navigate(`/fcs/pda/task-receive?tab=${tab}`)
     }

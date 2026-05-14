@@ -188,8 +188,13 @@ import {
 } from '../pages/process-factory/shared/warehouse-standard'
 
 export async function dispatchFcsPageEvent(target: HTMLElement): Promise<boolean> {
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : ''
+  if (pathname.startsWith('/fcs/factories/profile')) {
+    return handleFactoryPageEvent(target)
+  }
+
   const isPostFinishingRoute =
-    typeof window !== 'undefined' && window.location.pathname.includes('/fcs/craft/post-finishing')
+    pathname.includes('/fcs/craft/post-finishing')
   if (
     isPostFinishingRoute
     && target.closest('[data-post-finishing-action], [data-process-web-status-action]')
@@ -197,10 +202,8 @@ export async function dispatchFcsPageEvent(target: HTMLElement): Promise<boolean
     return handlePostFinishingEvent(target)
   }
   const isSpecialCraftRoute =
-    typeof window !== 'undefined' && (
-      window.location.pathname.includes('/fcs/process-factory/special-craft') ||
-      window.location.pathname.includes('/fcs/craft/special-craft')
-    )
+    pathname.includes('/fcs/process-factory/special-craft') ||
+    pathname.includes('/fcs/craft/special-craft')
   if (
     isSpecialCraftRoute
     && target.closest('[data-special-craft-web-action], [data-process-web-status-action]')
