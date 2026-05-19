@@ -737,7 +737,7 @@ function formatSpreadingAssemblyText(value: {
 function renderSpreadingOutputMatrix(sessionId: string): string {
   const rows = listSpreadingPieceOutputLines().filter((item) => item.spreadingSessionId === sessionId)
   const matrixTable = `
-    <table class="min-w-[1320px] text-sm">
+    <table class="w-full min-w-[1320px] text-sm">
       <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
         <tr>
           <th class="px-3 py-3">面料卷号</th>
@@ -1240,7 +1240,7 @@ function renderMarkerSourceRowsTable(rows: MarkerAllocationSourceRow[]): string 
   }
   return `
     <div class="overflow-auto">
-      <table class="min-w-full text-sm">
+      <table class="w-full min-w-full text-sm">
         <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
           <tr>
             <th class="px-3 py-3">来源裁片单号</th>
@@ -1282,7 +1282,7 @@ function renderMarkerAllocationTable(rows: MarkerExplosionAllocationRow[]): stri
   }
   return `
     <div class="overflow-auto">
-      <table class="min-w-full text-sm">
+      <table class="w-full min-w-full text-sm">
         <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
           <tr>
             <th class="px-3 py-3">来源裁片单号</th>
@@ -1326,7 +1326,7 @@ function renderMarkerSkuSummaryTable(rows: MarkerExplosionSkuSummaryRow[]): stri
   }
   return `
     <div class="overflow-auto">
-      <table class="min-w-full text-sm">
+      <table class="w-full min-w-full text-sm">
         <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
           <tr>
             <th class="px-3 py-3">来源裁片单号</th>
@@ -1368,7 +1368,7 @@ function renderMarkerPieceDetailTable(rows: MarkerExplosionPieceDetailRow[]): st
   }
   return `
     <div class="overflow-auto">
-      <table class="min-w-full text-sm">
+      <table class="w-full min-w-full text-sm">
         <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
           <tr>
             <th class="px-3 py-3">来源裁片单号</th>
@@ -2436,7 +2436,7 @@ function renderSpreadingTable(rows: SupervisorSpreadingRow[]): string {
         <div class="text-xs text-muted-foreground">共 ${rows.length} 条铺布记录</div>
       </div>
       ${renderStickyTableScroller(`
-    <table class="min-w-[1180px] text-sm">
+    <table class="w-full min-w-[1180px] text-sm">
       <thead class="sticky top-0 bg-muted/70 text-left text-xs text-muted-foreground backdrop-blur">
         <tr>
           <th class="px-2 py-1 font-medium">铺布编号</th>
@@ -2566,7 +2566,7 @@ function renderOperatorAllocationSummary(summary: SpreadingOperatorAmountSummary
         { label: '人工调整金额', value: summary.hasManualAdjustedAmount ? '存在人工调整' : '未人工调整' },
       ])}
       <div class="overflow-auto">
-        <table class="min-w-[880px] text-sm">
+        <table class="w-full min-w-[880px] text-sm">
           <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
             <tr>
               <th class="px-3 py-3">人员姓名</th>
@@ -2909,7 +2909,7 @@ function renderSpreadingPlanSection(session: SpreadingSession): string {
     session.planLineItems?.length
       ? `
           <div class="overflow-auto">
-            <table class="min-w-[1180px] text-sm">
+            <table class="w-full min-w-[1180px] text-sm">
               <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
                 <tr>
                   <th class="px-3 py-3">唛架编号</th>
@@ -2977,7 +2977,7 @@ function renderMarkerPlanMetricsSection(
 function renderMarkerRowTemplateDetailTable(lineItems: MarkerLineItem[]): string {
   return `
     <div class="overflow-auto">
-      <table class="min-w-[1180px] text-sm">
+      <table class="w-full min-w-[1180px] text-sm">
         <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
           <tr>
             <th class="px-3 py-3">行号</th>
@@ -3030,7 +3030,7 @@ function renderHighLowCuttingMatrix(
 
   return `
     <div class="overflow-auto">
-      <table class="min-w-[980px] text-sm">
+      <table class="w-full min-w-[980px] text-sm">
         <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
           <tr>
             <th class="px-3 py-3">颜色</th>
@@ -3088,7 +3088,7 @@ function renderHighLowPatternMatrix(
 
   return `
     <div class="overflow-auto">
-      <table class="min-w-[980px] text-sm">
+      <table class="w-full min-w-[980px] text-sm">
         <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
           <tr>
             <th class="px-3 py-3">颜色</th>
@@ -3225,7 +3225,7 @@ function renderMarkerDetailPage(): string {
                 ${detailView.mappingWarnings.map((warning) => renderTag(warning, 'bg-amber-100 text-amber-700')).join('')}
               </div>
               <div class="overflow-auto">
-                <table class="min-w-full text-sm">
+                <table class="w-full min-w-full text-sm">
                   <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
                     <tr>
                       <th class="px-3 py-3">来源裁片单号</th>
@@ -3265,7 +3265,7 @@ function renderMarkerDetailPage(): string {
             { label: '配比摘要', value: detailView.lineSummary.summaryText },
           ])}
           <div class="mt-4 overflow-auto">
-            <table class="min-w-full text-sm">
+            <table class="w-full min-w-full text-sm">
               <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
                 <tr>
                   <th class="px-3 py-3">尺码</th>
@@ -3425,7 +3425,7 @@ function renderMarkerEditPage(): string {
             <button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="add-allocation-line">新增分配行</button>
           </div>
           <div class="overflow-auto">
-            <table class="min-w-[1380px] text-sm">
+            <table class="w-full min-w-[1380px] text-sm">
               <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
                 <tr>
                   <th class="px-3 py-3">来源裁片单</th>
@@ -3488,7 +3488,7 @@ function renderMarkerEditPage(): string {
         '实时校验区',
         `
           <div class="overflow-auto">
-            <table class="min-w-full text-sm">
+            <table class="w-full min-w-full text-sm">
               <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
                 <tr>
                   <th class="px-3 py-3">尺码</th>
@@ -3531,7 +3531,7 @@ function renderMarkerEditPage(): string {
             <button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="add-size-row">新增尺码行</button>
           </div>
           <div class="overflow-auto">
-            <table class="min-w-full text-sm">
+            <table class="w-full min-w-full text-sm">
               <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
                 <tr>
                   <th class="px-3 py-3">尺码</th>
@@ -3584,7 +3584,7 @@ function renderMarkerEditPage(): string {
                   <button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="add-line-item">新增明细行</button>
                 </div>
                 <div class="overflow-auto">
-                  <table class="min-w-[1380px] text-sm">
+                  <table class="w-full min-w-[1380px] text-sm">
                     <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
                       <tr>
                         <th class="px-3 py-3">行号</th>
@@ -3840,7 +3840,7 @@ function renderSpreadingDetailPage(): string {
       '卷记录',
       `
         <div class="overflow-auto">
-          <table class="min-w-[1760px] text-sm">
+          <table class="w-full min-w-[1760px] text-sm">
             <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
               <tr>
                 <th class="px-3 py-3">唛架项</th>
@@ -3907,7 +3907,7 @@ function renderSpreadingDetailPage(): string {
         <details open class="rounded-md border bg-background" data-testid="cutting-spreading-detail-operators-fold" data-default-open="open">
           <summary class="cursor-pointer px-2.5 py-1.5 text-sm font-medium text-foreground">换班明细摘要</summary>
           <div class="border-t overflow-auto">
-          <table class="min-w-[1560px] text-sm">
+          <table class="w-full min-w-[1560px] text-sm">
             <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
               <tr>
                 <th class="px-3 py-3">所属卷</th>
@@ -4023,7 +4023,7 @@ function renderSpreadingDetailPage(): string {
         <details class="mt-2 rounded-md border bg-background" data-testid="cutting-spreading-detail-replenishment-fold" data-default-open="collapsed">
           <summary class="cursor-pointer px-2.5 py-1.5 text-sm font-medium text-foreground">补料建议摘要</summary>
           <div class="border-t overflow-auto">
-          <table class="min-w-[1540px] text-sm">
+          <table class="w-full min-w-[1540px] text-sm">
             <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
               <tr>
                 <th class="px-3 py-3">原始裁片单</th>
@@ -4281,7 +4281,7 @@ function renderSpreadingEditPage(): string {
           </div>
         </div>
         <div class="overflow-auto">
-          <table class="min-w-[1760px] text-sm">
+          <table class="w-full min-w-[1760px] text-sm">
             <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
               <tr>
                 <th class="px-3 py-3">唛架项</th>
@@ -4368,7 +4368,7 @@ function renderSpreadingEditPage(): string {
         <details open class="rounded-md border bg-background" data-testid="cutting-spreading-edit-operators-fold" data-default-open="open">
           <summary class="cursor-pointer px-3 py-3 text-sm font-medium text-foreground">换班明细摘要</summary>
           <div class="border-t overflow-auto">
-          <table class="min-w-[1560px] text-sm">
+          <table class="w-full min-w-[1560px] text-sm">
             <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
               <tr>
                 <th class="px-3 py-3">所属卷</th>
@@ -4502,7 +4502,7 @@ function renderSpreadingEditPage(): string {
         <details class="mt-2 rounded-md border bg-background" data-testid="cutting-spreading-edit-replenishment-fold" data-default-open="collapsed">
           <summary class="cursor-pointer px-3 py-3 text-sm font-medium text-foreground">补料建议摘要</summary>
           <div class="border-t overflow-auto">
-          <table class="min-w-[1540px] text-sm">
+          <table class="w-full min-w-[1540px] text-sm">
             <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
               <tr>
                 <th class="px-3 py-3">原始裁片单</th>
@@ -4643,7 +4643,7 @@ function renderSpreadingCreateSourceTable(rows: SpreadingCreateSourceRow[]): str
 
   return `
     <div class="overflow-auto" data-testid="cutting-spreading-create-source-table">
-      <table class="min-w-[1080px] text-sm">
+      <table class="w-full min-w-[1080px] text-sm">
         <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
           <tr>
             <th class="px-3 py-3">选中</th>
@@ -4749,7 +4749,7 @@ function renderSpreadingCreateScheduleRows(rows: SpreadingCreateSourceRow[]): st
 
   return `
     <div class="mt-3 overflow-auto rounded-lg border">
-      <table class="min-w-[1280px] text-sm">
+      <table class="w-full min-w-[1280px] text-sm">
         <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
           <tr>
             <th class="px-3 py-3">唛架编号</th>
@@ -4789,7 +4789,7 @@ function renderSpreadingCreateConfirmStep(): string {
         将按“裁床 + 计划开始 + 计划结束 + 负责人/班组”分组生成 ${formatQty(groups.length)} 张铺布单。
       </div>
       <div class="mt-3 overflow-auto rounded-lg border">
-        <table class="min-w-[980px] text-sm">
+        <table class="w-full min-w-[980px] text-sm">
           <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
             <tr>
               <th class="px-3 py-3">预计铺布单</th>
