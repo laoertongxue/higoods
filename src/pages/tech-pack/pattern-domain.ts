@@ -559,6 +559,57 @@ function renderPatternDetailPieceTable(): string {
   const isWoven = pattern.patternMaterialType === 'WOVEN'
   const patternTotalPieceQty = calculatePatternTotalPieceQty(pattern.pieceRows)
 
+  if (pattern.recordKind === 'PACKAGE') {
+    return `
+      <div class="space-y-2" data-testid="pattern-piece-table">
+        <div class="flex items-center justify-end text-xs font-medium text-blue-700" data-testid="pattern-piece-total">
+          当前总片数：${escapeHtml(String(patternTotalPieceQty))} 片
+        </div>
+        ${patternTotalPieceQty === 0 ? '<div class="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-700">当前总片数为 0，请维护部位片数。</div>' : ''}
+        <table class="w-full text-xs">
+          <thead>
+            <tr class="border-b bg-muted/20">
+              <th class="px-2 py-1 text-left">部位名称</th>
+              ${
+                isWoven
+                  ? `
+                    <th class="px-2 py-1 text-left">原始名称</th>
+                    <th class="px-2 py-1 text-left">尺码</th>
+                    <th class="px-2 py-1 text-left">解析参考片数</th>
+                    <th class="px-2 py-1 text-left">预览</th>
+                  `
+                  : ''
+              }
+              <th class="px-2 py-1 text-right">片数</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${pattern.pieceRows
+              .map(
+                (row) => `
+                  <tr class="border-b align-top last:border-0" data-testid="pattern-piece-row">
+                    <td class="px-2 py-1">${escapeHtml(row.name)}</td>
+                    ${
+                      isWoven
+                        ? `
+                          <td class="px-2 py-1">${renderTextValue(row.sourcePartName || row.systemPieceName)}</td>
+                          <td class="px-2 py-1">${renderTextValue(row.sizeCode)}</td>
+                          <td class="px-2 py-1">${renderTextValue(row.parsedQuantity)}</td>
+                          <td class="px-2 py-1">${renderPatternPiecePreview(row.previewSvg)}</td>
+                        `
+                        : ''
+                    }
+                    <td class="px-2 py-1 text-right" data-testid="pattern-piece-total-qty">${escapeHtml(String(row.totalPieceQty || row.count || row.parsedQuantity || 0))} 片</td>
+                  </tr>
+                `,
+              )
+              .join('')}
+          </tbody>
+        </table>
+      </div>
+    `
+  }
+
   return `
     <div class="space-y-2" data-testid="pattern-piece-table">
       <div class="flex items-center justify-end text-xs font-medium text-blue-700" data-testid="pattern-piece-total">
@@ -912,13 +963,19 @@ export function renderPatternDialog(): string {
               `
               : ''
           }
-          <div class="space-y-2">
-            <div class="flex items-center justify-between">
-              <h5 class="text-sm font-medium">捆条</h5>
-              <span class="text-xs text-muted-foreground">长度和宽度单位：cm</span>
-            </div>
-            ${renderPatternBindingStripDetail(pattern)}
-          </div>
+          ${
+            pattern.recordKind === 'PACKAGE'
+              ? ''
+              : `
+                <div class="space-y-2">
+                  <div class="flex items-center justify-between">
+                    <h5 class="text-sm font-medium">捆条</h5>
+                    <span class="text-xs text-muted-foreground">长度和宽度单位：cm</span>
+                  </div>
+                  ${renderPatternBindingStripDetail(pattern)}
+                </div>
+              `
+          }
           <div class="space-y-2">
             <div class="flex items-center justify-between">
               <h5 class="text-sm font-medium">裁片明细</h5>
@@ -1052,6 +1109,88 @@ function renderPatternPieceSpecialCraftSelector(
       >${escapeHtml(craft.displayName)}</button>`
     })
     .join('')}</div>`
+}
+
+function renderPatternPackagePieceEditorTable(isWoven: boolean): string {
+  if (state.newPattern.pieceRows.length === 0) {
+    return '<div class="rounded border border-dashed px-3 py-3 text-xs text-muted-foreground">暂无数据</div>'
+  }
+  const patternTotalPieceQty = calculatePatternTotalPieceQty(state.newPattern.pieceRows)
+
+  return `
+    <div class="space-y-2" data-testid="pattern-piece-table">
+      <div class="flex items-center justify-end text-xs font-medium text-blue-700" data-testid="pattern-piece-total">
+        当前总片数：${escapeHtml(String(patternTotalPieceQty))} 片
+      </div>
+      ${patternTotalPieceQty === 0 ? '<div class="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-700">当前总片数为 0，请维护部位片数。</div>' : ''}
+      <table class="w-full text-xs">
+        <thead>
+          <tr class="border-b bg-muted/20">
+            <th class="px-2 py-1 text-left">部位名称</th>
+            ${isWoven ? '<th class="px-2 py-1 text-left">原始名称</th><th class="px-2 py-1 text-left">尺码</th><th class="px-2 py-1 text-left">解析参考片数</th><th class="px-2 py-1 text-left">预览</th>' : ''}
+            <th class="px-2 py-1 text-right">片数</th>
+            <th class="px-2 py-1 text-right">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${state.newPattern.pieceRows
+            .map(
+              (row) => `
+                <tr class="border-b align-top last:border-0" data-testid="pattern-piece-row">
+                  <td class="px-2 py-1">
+                    ${
+                      isWoven
+                        ? row.name.trim()
+                          ? escapeHtml(row.name)
+                          : '<span class="text-red-600">名称缺失</span>'
+                        : `<input class="h-8 w-full rounded border px-2 text-xs" data-tech-field="new-pattern-piece-name" data-piece-id="${row.id}" value="${escapeHtml(row.name)}" placeholder="部位名称" />`
+                    }
+                  </td>
+                  ${
+                    isWoven
+                      ? `
+                        <td class="px-2 py-1">${renderTextValue(row.sourcePartName || row.systemPieceName)}</td>
+                        <td class="px-2 py-1">${renderTextValue(row.sizeCode)}</td>
+                        <td class="px-2 py-1">${renderTextValue(row.parsedQuantity)}</td>
+                        <td class="px-2 py-1">${renderPatternPiecePreview(row.previewSvg)}</td>
+                      `
+                      : ''
+                  }
+                  <td class="px-2 py-1 text-right" data-testid="pattern-piece-total-qty">
+                    ${
+                      isWoven
+                        ? `${escapeHtml(String(row.totalPieceQty || row.count || row.parsedQuantity || 0))} 片`
+                        : `<div class="inline-flex items-center gap-1">
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              class="h-8 w-20 rounded border px-2 text-right text-xs"
+                              data-tech-field="new-pattern-piece-count"
+                              data-piece-id="${row.id}"
+                              value="${escapeHtml(String(row.totalPieceQty || row.count || 0))}"
+                            />
+                            <span class="text-muted-foreground">片</span>
+                          </div>`
+                    }
+                  </td>
+                  <td class="px-2 py-1 text-right">
+                    ${
+                      isWoven
+                        ? '<span class="text-muted-foreground">-</span>'
+                        : `<button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded text-red-600 hover:bg-red-50" data-tech-action="delete-new-pattern-piece-row" data-piece-id="${row.id}">
+                            <i data-lucide="trash-2" class="h-3 w-3"></i>
+                          </button>`
+                    }
+                  </td>
+                </tr>
+              `,
+            )
+            .join('')}
+        </tbody>
+      </table>
+    </div>
+  `
 }
 
 function renderPatternPieceEditorTable(isWoven: boolean): string {
@@ -1486,7 +1625,7 @@ export function renderPatternFormDialog(): string {
                         <div class="flex items-center justify-between">
                           <h4 class="text-sm font-medium">解析部位信息</h4>
                         </div>
-                        ${renderPatternPieceEditorTable(true)}
+                        ${renderPatternPackagePieceEditorTable(true)}
                       </section>
                     `
                     : ''
@@ -1503,7 +1642,7 @@ export function renderPatternFormDialog(): string {
                             新增部位
                           </button>
                         </div>
-                        ${renderPatternPieceEditorTable(false)}
+                        ${renderPatternPackagePieceEditorTable(false)}
                       </section>
                     `
                 }

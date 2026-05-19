@@ -1166,15 +1166,25 @@ function ensurePatternStatusDemoCoverage(
     }
   })
   return nextItems.map((item) => {
-    const pieceRows = normalizePatternPieceRows(item.pieceRows, item.id, item.linkedBomItemId)
+    const isPackage = item.recordKind === 'PACKAGE'
+    const normalizedRows = normalizePatternPieceRows(item.pieceRows, item.id, item.linkedBomItemId)
+    const pieceRows = isPackage ? sanitizePatternPackageAssetRows(normalizedRows) : normalizedRows
     const patternTotalPieceQty = calculatePatternTotalPieceQty(pieceRows)
-    const generatedPieceInstances = generatePieceInstancesFromColorQuantities({
-      id: item.id,
-      pieceRows,
-      pieceInstances: item.pieceInstances,
-    })
-    const pieceInstances = seedDemoPieceInstanceSpecialCrafts(generatedPieceInstances, item.id)
-    const pieceInstanceSummary = summarizePieceInstances(pieceInstances)
+    const generatedPieceInstances = isPackage
+      ? []
+      : generatePieceInstancesFromColorQuantities({
+          id: item.id,
+          pieceRows,
+          pieceInstances: item.pieceInstances,
+        })
+    const pieceInstances = isPackage ? [] : seedDemoPieceInstanceSpecialCrafts(generatedPieceInstances, item.id)
+    const pieceInstanceSummary = isPackage
+      ? {
+          pieceInstanceTotal: 0,
+          specialCraftConfiguredPieceTotal: 0,
+          specialCraftUnconfiguredPieceTotal: 0,
+        }
+      : summarizePieceInstances(pieceInstances)
     return {
       ...item,
       totalPieceCount: patternTotalPieceQty,
@@ -1182,10 +1192,33 @@ function ensurePatternStatusDemoCoverage(
       pieceRows,
       pieceInstances,
       ...pieceInstanceSummary,
-      bindingStrips: normalizePatternBindingStrips(item.bindingStrips),
+      bindingStrips: isPackage ? [] : normalizePatternBindingStrips(item.bindingStrips),
       patternSignature: item.patternSignature || buildPatternSignature(item),
       duplicateConfirmed: Boolean(item.duplicateConfirmed),
       duplicateWarningReasons: [...(item.duplicateWarningReasons || [])],
+    }
+  })
+}
+
+function sanitizePatternPackageAssetRows(rows: PatternPieceRow[]): PatternPieceRow[] {
+  return rows.map((row) => {
+    const pieceQty = normalizePieceQty(row.totalPieceQty || row.count || row.parsedQuantity || 0)
+    return {
+      ...row,
+      count: pieceQty,
+      note: row.note || row.annotation || '',
+      isTemplate: false,
+      partTemplateId: undefined,
+      partTemplateName: undefined,
+      partTemplatePreviewSvg: undefined,
+      partTemplateShapeDescription: undefined,
+      applicableSkuCodes: [],
+      colorAllocations: [],
+      colorPieceQuantities: [],
+      totalPieceQty: pieceQty,
+      specialCrafts: [],
+      bundleLengthCm: undefined,
+      bundleWidthCm: undefined,
     }
   })
 }
@@ -1201,7 +1234,7 @@ function createPatternPoolDemoPackage(
   },
 ): PatternItem {
   const isWool = spec.materialType === 'WOOL'
-  const pieceRows = isWool ? [] : normalizePatternPieceRows(source.pieceRows, spec.id, '')
+  const pieceRows = isWool ? [] : sanitizePatternPackageAssetRows(normalizePatternPieceRows(source.pieceRows, spec.id, ''))
   const patternTotalPieceQty = calculatePatternTotalPieceQty(pieceRows)
 
   return {
@@ -3675,7 +3708,11 @@ function buildPatternItemsFromTechPack(techPack: TechPack): PatternItem[] {
       patternId,
       item.linkedBomItemId ?? '',
     )
-    const inferredPieceCount = calculatePatternTotalPieceQty(normalizedRows)
+    const recordKind = item.recordKind ?? 'MATERIAL_ASSOCIATION'
+    const effectiveRows = recordKind === 'PACKAGE'
+      ? sanitizePatternPackageAssetRows(normalizedRows)
+      : normalizedRows
+    const inferredPieceCount = calculatePatternTotalPieceQty(effectiveRows)
     const patternMaterialType =
       normalizePatternMaterialType(item.patternMaterialType)
       || inferPatternMaterialTypeFromPatternFile({
@@ -3736,17 +3773,25 @@ function buildPatternItemsFromTechPack(techPack: TechPack): PatternItem[] {
       uploadedAt: item.rulLastModified || item.uploadedAt,
       uploadedBy: item.uploadedBy,
     })
-    const bindingStrips = normalizePatternBindingStrips(item.bindingStrips)
-    const pieceInstances = generatePieceInstancesFromColorQuantities({
-      id: patternId,
-      pieceRows: normalizedRows,
-      pieceInstances: item.pieceInstances ?? [],
-    })
-    const pieceInstanceSummary = summarizePieceInstances(pieceInstances)
+    const bindingStrips = recordKind === 'PACKAGE' ? [] : normalizePatternBindingStrips(item.bindingStrips)
+    const pieceInstances = recordKind === 'PACKAGE'
+      ? []
+      : generatePieceInstancesFromColorQuantities({
+          id: patternId,
+          pieceRows: effectiveRows,
+          pieceInstances: item.pieceInstances ?? [],
+        })
+    const pieceInstanceSummary = recordKind === 'PACKAGE'
+      ? {
+          pieceInstanceTotal: 0,
+          specialCraftConfiguredPieceTotal: 0,
+          specialCraftUnconfiguredPieceTotal: 0,
+        }
+      : summarizePieceInstances(pieceInstances)
 
     return {
       id: patternId,
-      recordKind: item.recordKind ?? 'MATERIAL_ASSOCIATION',
+      recordKind,
       name: patternName,
       type: (item.patternCategory as TechPackPatternCategory) || '主体片',
       image: item.imageUrl || '',
@@ -3758,15 +3803,15 @@ function buildPatternItemsFromTechPack(techPack: TechPack): PatternItem[] {
         fileName: item.fileName,
       }),
       remark: item.remark || '',
-      linkedBomItemId: item.linkedBomItemId || linkedBom?.id || '',
-      linkedMaterialId: item.linkedMaterialId || item.linkedBomItemId || linkedBom?.id || '',
-      linkedMaterialName: item.linkedMaterialName || linkedBom?.name || '',
-      linkedMaterialAlias: item.linkedMaterialAlias || '',
-      linkedMaterialSku: item.linkedMaterialSku || linkedBom?.id || '',
+      linkedBomItemId: recordKind === 'PACKAGE' ? '' : item.linkedBomItemId || linkedBom?.id || '',
+      linkedMaterialId: recordKind === 'PACKAGE' ? '' : item.linkedMaterialId || item.linkedBomItemId || linkedBom?.id || '',
+      linkedMaterialName: recordKind === 'PACKAGE' ? '' : item.linkedMaterialName || linkedBom?.name || '',
+      linkedMaterialAlias: recordKind === 'PACKAGE' ? '' : item.linkedMaterialAlias || '',
+      linkedMaterialSku: recordKind === 'PACKAGE' ? '' : item.linkedMaterialSku || linkedBom?.id || '',
       // 门幅单位固定 cm
-      widthCm: Number.isFinite(item.widthCm) && Number(item.widthCm) > 0 ? Number(item.widthCm) : 142 + index,
+      widthCm: recordKind === 'PACKAGE' ? 0 : Number.isFinite(item.widthCm) && Number(item.widthCm) > 0 ? Number(item.widthCm) : 142 + index,
       // 排料长度单位固定 m
-      markerLengthM: Number.isFinite(item.markerLengthM) ? Number(item.markerLengthM) : 0,
+      markerLengthM: recordKind === 'PACKAGE' ? 0 : Number.isFinite(item.markerLengthM) ? Number(item.markerLengthM) : 0,
       // totalPieceCount 固定语义：裁片总片数
       totalPieceCount:
         Number.isFinite(item.totalPieceCount) && Number(item.totalPieceCount) > 0
@@ -3781,8 +3826,10 @@ function buildPatternItemsFromTechPack(techPack: TechPack): PatternItem[] {
         item.maintainerStepStatus
         || (parseStatus === 'PARSED' ? '已解析待确认' : prjFile && markerImage && item.dxfFileName && item.rulFileName ? '待解析' : '待版师维护'),
       merchandiserInfoStatus:
-        item.merchandiserInfoStatus
-        || (patternName && item.linkedBomItemId && Number(item.widthCm) > 0 ? '已填写' : '未填写'),
+        recordKind === 'PACKAGE'
+          ? '已填写'
+          : item.merchandiserInfoStatus
+            || (patternName && item.linkedBomItemId && Number(item.widthCm) > 0 ? '已填写' : '未填写'),
       patternMakerInfoStatus:
         item.patternMakerInfoStatus
         || (parseStatus === 'PARSED' ? '已解析' : prjFile && markerImage && item.dxfFileName && item.rulFileName ? '待解析' : '未填写'),
@@ -3828,7 +3875,7 @@ function buildPatternItemsFromTechPack(techPack: TechPack): PatternItem[] {
       sizeRange:
         normalizeSelectedSizeCodes([...(item.selectedSizeCodes ?? [])], item.sizeRange || '', techPack.sizeTable)
           .join(' / ') || item.sizeRange || '',
-      pieceRows: normalizedRows,
+      pieceRows: effectiveRows,
       sourcePatternPackageId: item.sourcePatternPackageId,
       sourcePatternPackageName: item.sourcePatternPackageName,
     }

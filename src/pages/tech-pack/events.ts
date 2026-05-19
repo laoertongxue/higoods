@@ -408,7 +408,66 @@ function syncColorAllocationsFromColorPieceQuantities(
   }
 }
 
+function normalizePackagePieceQty(value: unknown): number {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return 0
+  const integer = Math.trunc(numeric)
+  return integer >= 0 ? integer : 0
+}
+
+function getPackagePieceQty(row: (typeof state.newPattern.pieceRows)[number]): number {
+  const candidates = [row.totalPieceQty, row.count, row.parsedQuantity]
+  for (const candidate of candidates) {
+    const normalized = normalizePackagePieceQty(candidate)
+    if (normalized > 0) return normalized
+  }
+  return 0
+}
+
+function sanitizePatternPackagePieceRow(
+  row: (typeof state.newPattern.pieceRows)[number],
+): (typeof state.newPattern.pieceRows)[number] {
+  const pieceQty = getPackagePieceQty(row)
+  return {
+    ...row,
+    count: pieceQty,
+    note: row.note || row.annotation || '',
+    isTemplate: false,
+    partTemplateId: undefined,
+    partTemplateName: undefined,
+    partTemplatePreviewSvg: undefined,
+    partTemplateShapeDescription: undefined,
+    applicableSkuCodes: [],
+    colorAllocations: [],
+    colorPieceQuantities: [],
+    totalPieceQty: pieceQty,
+    specialCrafts: [],
+    bundleLengthCm: undefined,
+    bundleWidthCm: undefined,
+  }
+}
+
+function sanitizePatternPackagePieceRows(
+  rows: typeof state.newPattern.pieceRows,
+): typeof state.newPattern.pieceRows {
+  return rows.map(sanitizePatternPackagePieceRow)
+}
+
+function refreshPatternPackagePieceTotals(): void {
+  state.newPattern.pieceRows = sanitizePatternPackagePieceRows(state.newPattern.pieceRows)
+  state.newPattern.totalPieceCount = calculatePatternTotalPieceQty(state.newPattern.pieceRows)
+  state.newPattern.patternTotalPieceQty = state.newPattern.totalPieceCount
+  state.newPattern.pieceInstances = []
+  state.newPattern.pieceInstanceTotal = 0
+  state.newPattern.specialCraftConfiguredPieceTotal = 0
+  state.newPattern.specialCraftUnconfiguredPieceTotal = 0
+}
+
 function refreshPatternPieceTotals(): void {
+  if (state.patternFormPurpose === 'PACKAGE') {
+    refreshPatternPackagePieceTotals()
+    return
+  }
   state.newPattern.pieceRows = state.newPattern.pieceRows.map(syncColorAllocationsFromColorPieceQuantities)
   state.newPattern.totalPieceCount = calculatePatternTotalPieceQty(state.newPattern.pieceRows)
   state.newPattern.patternTotalPieceQty = state.newPattern.totalPieceCount
@@ -584,6 +643,9 @@ async function startPatternParsing(): Promise<void> {
       state.editPatternItemId || `PAT-${Date.now()}`,
       state.newPattern.linkedBomItemId,
     )
+    const nextRows = state.patternFormPurpose === 'PACKAGE'
+      ? sanitizePatternPackagePieceRows(normalizedRows)
+      : normalizedRows
     state.newPattern.dxfFileName = parsed.dxfFileName
     state.newPattern.rulFileName = parsed.rulFileName
     state.newPattern.dxfEncoding = parsed.dxfEncoding
@@ -594,7 +656,7 @@ async function startPatternParsing(): Promise<void> {
     state.newPattern.parseStatus = 'PARSED'
     state.newPattern.parseStatusLabel = getPatternParseStatusLabel('PARSED')
     state.newPattern.parseError = ''
-    state.newPattern.pieceRows = normalizedRows.map((row) => ({
+    state.newPattern.pieceRows = nextRows.map((row) => ({
       ...row,
       colorAllocations: [...row.colorAllocations],
       colorPieceQuantities: [...row.colorPieceQuantities],
@@ -608,7 +670,7 @@ async function startPatternParsing(): Promise<void> {
       partTemplateShapeDescription: undefined,
       note: row.note || row.annotation || '',
     }))
-    state.newPattern.totalPieceCount = calculatePatternTotalPieceQty(normalizedRows)
+    state.newPattern.totalPieceCount = calculatePatternTotalPieceQty(nextRows)
     state.newPattern.patternTotalPieceQty = state.newPattern.totalPieceCount
     state.newPattern.file = buildPatternDisplayFile({
       patternFileMode: 'PAIRED_DXF_RUL',
@@ -760,7 +822,7 @@ function validatePatternPackage(): string | null {
     const invalidRow = state.newPattern.pieceRows.find(
       (row) => row.sourceType !== 'MANUAL' || !row.name.trim() || Number(row.totalPieceQty) <= 0,
     )
-    if (invalidRow) return '毛织部位名称和颜色片数必须填写完整'
+    if (invalidRow) return '毛织部位名称和片数必须填写完整'
     return null
   }
   if (!state.newPattern.prjFile?.fileName) return '请上传纸样 PRJ 文件'
@@ -774,6 +836,17 @@ function validatePatternPackage(): string | null {
     if (!state.newPattern.rulFileName.trim()) return '请上传 RUL 文件'
     if (!hasFileExtension(state.newPattern.dxfFileName, ['.dxf'])) return '文件格式不正确，请上传 DXF 文件'
     if (!hasFileExtension(state.newPattern.rulFileName, ['.rul'])) return '文件格式不正确，请上传 RUL 文件'
+    if (state.newPattern.parseStatus !== 'PARSED') return '布料纸样需先解析部位信息'
+    if (state.newPattern.pieceRows.length === 0) return '布料纸样解析不到部位明细，不能保存'
+    const invalidRow = state.newPattern.pieceRows.find(
+      (row) =>
+        row.sourceType !== 'PARSED_PATTERN'
+        || !row.name.trim()
+        || Number(row.totalPieceQty) <= 0
+        || row.missingName,
+    )
+    if (invalidRow?.missingName) return '布料纸样存在名称缺失，不能保存'
+    if (invalidRow) return '布料纸样解析结果不完整，不能保存'
   }
   return null
 }
@@ -791,11 +864,15 @@ function updatePatternMaintainerStatuses(nextStatus: typeof state.newPattern.mai
 }
 
 function buildPatternItemFromForm(nowId: string, finalStatus: typeof state.newPattern.maintainerStepStatus) {
-  const normalizedPieceRows = normalizePatternPieceRows(
+  const isPatternPackage = state.patternFormPurpose === 'PACKAGE'
+  const normalizedFormPieceRows = normalizePatternPieceRows(
     state.newPattern.pieceRows.map((row) => ({ ...row })),
     nowId,
     state.newPattern.linkedBomItemId,
   )
+  const normalizedPieceRows = isPatternPackage
+    ? sanitizePatternPackagePieceRows(normalizedFormPieceRows)
+    : normalizedFormPieceRows
   const totalPieceCount = calculatePatternTotalPieceQty(normalizedPieceRows)
   const selectedSizeCodes = dedupeStrings(
     state.newPattern.selectedSizeCodes.length > 0
@@ -804,7 +881,7 @@ function buildPatternItemFromForm(nowId: string, finalStatus: typeof state.newPa
   )
   const sizeRange = selectedSizeCodes.join(' / ')
   const linkedBom = state.bomItems.find((item) => item.id === state.newPattern.linkedBomItemId) || null
-  const bindingStrips = normalizePatternBindingStrips(state.newPattern.bindingStrips)
+  const bindingStrips = isPatternPackage ? [] : normalizePatternBindingStrips(state.newPattern.bindingStrips)
   const normalizedPatternMaterialType =
     state.newPattern.patternMaterialType === 'UNKNOWN'
       ? 'WOVEN'
@@ -813,12 +890,20 @@ function buildPatternItemFromForm(nowId: string, finalStatus: typeof state.newPa
     normalizedPatternMaterialType === 'WOOL'
       ? 'SINGLE_FILE'
       : state.newPattern.patternFileMode || 'PAIRED_DXF_RUL'
-  const pieceInstances = generatePieceInstancesFromColorQuantities({
-    id: nowId,
-    pieceRows: normalizedPieceRows,
-    pieceInstances: state.newPattern.pieceInstances,
-  })
-  const pieceInstanceSummary = summarizePieceInstances(pieceInstances)
+  const pieceInstances = isPatternPackage
+    ? []
+    : generatePieceInstancesFromColorQuantities({
+        id: nowId,
+        pieceRows: normalizedPieceRows,
+        pieceInstances: state.newPattern.pieceInstances,
+      })
+  const pieceInstanceSummary = isPatternPackage
+    ? {
+        pieceInstanceTotal: 0,
+        specialCraftConfiguredPieceTotal: 0,
+        specialCraftUnconfiguredPieceTotal: 0,
+      }
+    : summarizePieceInstances(pieceInstances)
   const nextParseStatus =
     normalizedPatternMaterialType === 'WOOL'
       ? 'NOT_REQUIRED'
@@ -829,7 +914,7 @@ function buildPatternItemFromForm(nowId: string, finalStatus: typeof state.newPa
           : 'NOT_PARSED'
 
   return {
-    recordKind: state.patternFormPurpose === 'PACKAGE' ? 'PACKAGE' as const : 'MATERIAL_ASSOCIATION' as const,
+    recordKind: isPatternPackage ? 'PACKAGE' as const : 'MATERIAL_ASSOCIATION' as const,
     name: state.newPattern.name.trim(),
     type: state.newPattern.type,
     image: state.newPattern.markerImage?.previewUrl || state.newPattern.image,
@@ -841,13 +926,13 @@ function buildPatternItemFromForm(nowId: string, finalStatus: typeof state.newPa
       fileName: state.newPattern.file,
     }),
     remark: state.newPattern.remark,
-    linkedBomItemId: state.newPattern.linkedBomItemId,
-    linkedMaterialId: state.newPattern.linkedBomItemId,
-    linkedMaterialName: linkedBom?.materialName || state.newPattern.linkedMaterialName,
-    linkedMaterialAlias: state.newPattern.linkedMaterialAlias?.trim() || '',
-    linkedMaterialSku: linkedBom?.materialCode || state.newPattern.linkedMaterialSku,
-    widthCm: state.newPattern.widthCm,
-    markerLengthM: state.newPattern.markerLengthM,
+    linkedBomItemId: isPatternPackage ? '' : state.newPattern.linkedBomItemId,
+    linkedMaterialId: isPatternPackage ? '' : state.newPattern.linkedBomItemId,
+    linkedMaterialName: isPatternPackage ? '' : linkedBom?.materialName || state.newPattern.linkedMaterialName,
+    linkedMaterialAlias: isPatternPackage ? '' : state.newPattern.linkedMaterialAlias?.trim() || '',
+    linkedMaterialSku: isPatternPackage ? '' : linkedBom?.materialCode || state.newPattern.linkedMaterialSku,
+    widthCm: isPatternPackage ? 0 : state.newPattern.widthCm,
+    markerLengthM: isPatternPackage ? 0 : state.newPattern.markerLengthM,
     totalPieceCount,
     patternTotalPieceQty: totalPieceCount,
     isWoolted: state.newPattern.patternMaterialType === 'WOOL' ? '是' as const : '否' as const,
@@ -919,13 +1004,22 @@ function buildPatternItemFromForm(nowId: string, finalStatus: typeof state.newPa
     patternSoftwareName: state.newPattern.patternSoftwareName,
     selectedSizeCodes,
     sizeRange,
-    pieceRows: normalizedPieceRows.map((row) => ({
-      ...row,
-      sourceType: row.sourceType || 'MANUAL' as const,
-      applicableSkuCodes: dedupeStrings(row.colorAllocations.flatMap((allocation) => allocation.skuCodes ?? [])),
-      missingName: false,
-      missingCount: false,
-    })),
+    pieceRows: normalizedPieceRows.map((row) =>
+      isPatternPackage
+        ? {
+            ...row,
+            sourceType: row.sourceType || 'MANUAL' as const,
+            missingName: false,
+            missingCount: false,
+          }
+        : {
+            ...row,
+            sourceType: row.sourceType || 'MANUAL' as const,
+            applicableSkuCodes: dedupeStrings(row.colorAllocations.flatMap((allocation) => allocation.skuCodes ?? [])),
+            missingName: false,
+            missingCount: false,
+          },
+    ),
     sourcePatternPackageId: state.newPattern.sourcePatternPackageId,
     sourcePatternPackageName: state.newPattern.sourcePatternPackageName,
   }
@@ -1105,7 +1199,7 @@ function applyPatternPackageToAssociation(patternPackageId: string): void {
     patternParsing: false,
   }
 
-  if (selectedPackage.patternMaterialType === 'WOOL' && currentPieceRows.length > 0) {
+  if (selectedPackage.patternMaterialType === 'WOOL' && selectedPackage.pieceRows.length === 0 && currentPieceRows.length > 0) {
     state.newPattern.pieceRows = currentPieceRows
     state.newPattern.pieceInstances = currentPieceInstances
   }
@@ -1400,10 +1494,23 @@ function handleTechPackField(
     return true
   }
   if (field === 'new-pattern-piece-count') {
-    if (state.newPattern.patternMaterialType === 'WOVEN') return true
+    if (state.newPattern.patternMaterialType === 'WOVEN' && state.patternFormPurpose !== 'PACKAGE') return true
     const pieceId = node.dataset.pieceId
     if (!pieceId) return true
     const nextCount = Number.parseInt(value, 10) || 0
+    if (state.patternFormPurpose === 'PACKAGE') {
+      updatePatternPieceRow(pieceId, (row) => ({
+        ...row,
+        count: nextCount,
+        totalPieceQty: nextCount,
+        colorAllocations: [],
+        colorPieceQuantities: [],
+        applicableSkuCodes: [],
+        specialCrafts: [],
+      }))
+      refreshPatternPieceTotals()
+      return true
+    }
     applyPatternPieceRowsWithInstanceProtection(() => {
       updatePatternPieceRow(pieceId, (row) => ({
         ...row,
@@ -2576,6 +2683,26 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
   }
   if (action === 'add-new-pattern-piece-row') {
     if (state.newPattern.patternMaterialType !== 'WOOL') return true
+    if (state.patternFormPurpose === 'PACKAGE') {
+      state.newPattern.pieceRows = [
+        ...state.newPattern.pieceRows,
+        {
+          id: `piece-${Date.now()}`,
+          name: '',
+          count: 1,
+          note: '',
+          isTemplate: false,
+          applicableSkuCodes: [],
+          colorAllocations: [],
+          colorPieceQuantities: [],
+          totalPieceQty: 1,
+          specialCrafts: [],
+          sourceType: 'MANUAL',
+        },
+      ]
+      refreshPatternPieceTotals()
+      return true
+    }
     const colorOptions = getPatternColorQuantityOptions(state.newPattern.linkedBomItemId)
     const colorPieceQuantities = colorOptions.length > 0
       ? colorOptions.map((option) => ({
