@@ -341,6 +341,13 @@ function resolveSpecialCraftContext(actionResult: ProcessWarehouseLinkageActionR
   const objectQty = roundQty(actionResult.objectQty || workOrder.currentQty || workOrder.planQty)
   const transferBagNos = [...(workOrder.transferBagNos || [])]
   const feiTicketNos = [...(workOrder.feiTicketNos || [])]
+  const targetObject = String(workOrder.targetObject || '')
+  const objectType: ProcessWarehouseObjectType = targetObject.includes('成衣')
+    ? '成衣'
+    : targetObject.includes('面料')
+      ? '面料'
+      : '裁片'
+  const qtyUnit = objectType === '成衣' ? '件' : objectType === '面料' ? '米' : '片'
   return {
     craftType: 'SPECIAL_CRAFT',
     craftName: workOrder.operationName,
@@ -362,10 +369,10 @@ function resolveSpecialCraftContext(actionResult: ProcessWarehouseLinkageActionR
     materialSku: workOrder.materialSku || '',
     materialName: workOrder.partName || workOrder.operationName,
     batchNo: transferBagNos[0] || '',
-    objectType: '裁片',
+    objectType,
     plannedObjectQty: roundQty(workOrder.planQty),
     objectQty,
-    qtyUnit: '片',
+    qtyUnit,
     packageQty: Math.max(feiTicketNos.length, 1),
     packageUnit: '包',
     relatedFeiTicketIds: feiTicketNos,
@@ -517,7 +524,7 @@ function ensureSpecialCraftDifference(
     sourceProductionOrderNo: context.sourceProductionOrderNo,
     craftType: 'SPECIAL_CRAFT',
     craftName: context.craftName,
-    objectType: '裁片',
+    objectType: context.objectType,
     expectedObjectQty: context.plannedObjectQty,
     actualObjectQty: Math.max(context.plannedObjectQty - diffQty, 0),
     diffObjectQty: diffQty,
@@ -537,7 +544,7 @@ export function applyPrintWarehouseLinkageAfterAction(actionResult: ProcessWareh
   const context = resolvePrintContext(actionResult)
   const base = emptyLinkageResult(actionResult)
   if (!context) return mergeResult(base, { success: false, message: '未找到印花加工单，不能执行仓联动' })
-  if (!['PRINT_FINISH_TRANSFER', 'PRINT_MARK_WAIT_DELIVERY', 'PRINT_SUBMIT_HANDOVER'].includes(actionResult.actionCode)) return base
+  if (!['PRINT_FINISH_TRANSFER', 'PRINT_SUBMIT_HANDOVER'].includes(actionResult.actionCode)) return base
   const waitHandover = ensureWaitHandoverWarehouseRecord(context, actionResult)
   let result = mergeResult(base, {
     createdWaitHandoverWarehouseRecordId: waitHandover.warehouseRecordId,
@@ -559,7 +566,7 @@ export function applyDyeWarehouseLinkageAfterAction(actionResult: ProcessWarehou
   const context = resolveDyeContext(actionResult)
   const base = emptyLinkageResult(actionResult)
   if (!context) return mergeResult(base, { success: false, message: '未找到染色加工单，不能执行仓联动' })
-  if (!['DYE_FINISH_PACKING', 'DYE_MARK_WAIT_DELIVERY', 'DYE_SUBMIT_HANDOVER'].includes(actionResult.actionCode)) return base
+  if (!['DYE_FINISH_PACKING', 'DYE_SUBMIT_HANDOVER'].includes(actionResult.actionCode)) return base
   const waitHandover = ensureWaitHandoverWarehouseRecord(context, actionResult)
   let result = mergeResult(base, {
     createdWaitHandoverWarehouseRecordId: waitHandover.warehouseRecordId,

@@ -19,13 +19,11 @@ import {
   type PdaTaskFlowMock,
 } from '../data/fcs/pda-cutting-execution-source.ts'
 import {
-  getMobileTaskProcessType,
   getPdaMobileExecutionTaskById,
   listPdaMobileExecutionTasks,
 } from '../data/fcs/process-mobile-task-binding.ts'
 import {
   acceptPostFinishingTask,
-  FULL_CAPABILITY_FACTORY_ID,
   rejectPostFinishingTask,
 } from '../data/fcs/post-finishing-domain.ts'
 import { renderPdaFrame } from './pda-shell'
@@ -803,22 +801,6 @@ export function renderPdaTaskReceiveDetailPage(taskId: string): string {
   }
 
   const task = getTaskFactById(taskId)
-  const currentFactoryId = getCurrentFactoryId()
-
-  if (task && currentFactoryId === FULL_CAPABILITY_FACTORY_ID && getMobileTaskProcessType(task) !== 'POST_FINISHING') {
-    const content = `
-      <div class="flex min-h-[760px] flex-col bg-background">
-        <header class="sticky top-0 z-30 border-b bg-background px-4 py-3">
-          <button class="inline-flex items-center text-sm text-muted-foreground hover:text-foreground" data-pda-trd-action="back">
-            <i data-lucide="arrow-left" class="mr-1.5 h-4 w-4"></i>
-            返回
-          </button>
-        </header>
-        <div class="flex flex-1 items-center justify-center p-6 text-center text-sm text-muted-foreground">当前工厂为后道工厂，只能处理后道派单。</div>
-      </div>
-    `
-    return renderPdaFrame(content, 'task-receive')
-  }
 
   if (isCuttingSpecialTask(task)) {
     return renderPdaTaskReceiveCuttingDetailPage(task as PdaReceiveTask)

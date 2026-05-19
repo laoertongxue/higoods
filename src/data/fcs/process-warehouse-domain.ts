@@ -1,4 +1,3 @@
-import { listProcessWorkOrders, type ProcessWorkOrder } from './process-work-order-domain.ts'
 import {
   getSpecialCraftTaskWorkOrdersByTaskOrderId,
   listSpecialCraftTaskOrders,
@@ -10,9 +9,9 @@ import { listPostFinishingWorkOrders, type PostFinishingWorkOrder } from './post
 export type ProcessWarehouseCraftType = 'PRINT' | 'DYE' | 'CUTTING' | 'SPECIAL_CRAFT' | 'POST_FINISHING'
 export type ProcessWarehouseRecordType = 'WAIT_PROCESS' | 'WAIT_HANDOVER'
 export type ProcessWarehouseObjectType = '面料' | '裁片' | '成衣'
-export type ProcessWarehouseHandoverStatus = '待回写' | '已回写' | '有差异' | '平台处理中' | '需重新交出' | '已关闭'
+export type ProcessWarehouseHandoverStatus = '交出待收货' | '部分交出' | '全部交出' | '收货差异' | '平台处理中' | '需重新交出' | '已关闭'
 export type ProcessWarehouseDifferenceStatus = '待处理' | '处理中' | '已确认差异' | '需重新交出' | '已关闭'
-export type ProcessWarehouseReviewStatus = '待审核' | '审核通过' | '审核驳回' | '数量差异' | '已关闭'
+export type ProcessWarehouseReviewStatus = '收货确认中' | '收货已确认' | '收货差异' | '已关闭'
 export type ProcessWarehouseDifferenceType = '少收' | '多收' | '破损' | '报废' | '货损' | '错交' | '其他'
 export type ProcessWarehouseResponsibilitySide = '待判定' | '交出工厂' | '接收方' | '仓库' | '平台' | '非工厂责任'
 export type ProcessWarehouseDifferenceNextAction = '确认差异继续流转' | '要求重新交出' | '关闭记录' | '平台处理'
@@ -356,149 +355,285 @@ export function getProcessWarehouseQtyLabel(prefix: string, objectType: ProcessW
   return `${prefix}${getObjectQtyLabel(objectType)}`
 }
 
-function printWaitAction(order: ProcessWorkOrder): string {
-  if (order.statusLabel.includes('转印') || order.statusLabel.includes('打印完成')) return '待转印'
-  return '待打印'
-}
+function buildSeedProcessWarehouseRecords(): ProcessWarehouseRecord[] {
+  const commonFactory = {
+    sourceFactoryId: 'F090',
+    sourceFactoryName: '全能力测试工厂',
+    targetFactoryId: 'F090',
+    targetFactoryName: '全能力测试工厂',
+  }
+  const records: Array<WarehouseRecordPayload & { recordType: ProcessWarehouseRecordType }> = [
+    {
+      recordType: 'WAIT_PROCESS',
+      warehouseRecordId: 'PWH-WAIT_PROCESS-PRINT-1',
+      craftType: 'PRINT',
+      craftName: '印花',
+      sourceWorkOrderId: 'PWO-PRINT-003',
+      sourceWorkOrderNo: 'PH-20260328-003',
+      sourceTaskId: 'TASK-PRINT-000715',
+      sourceTaskNo: 'TASK-PRINT-000715',
+      sourceProductionOrderId: 'PO-20260328-073',
+      sourceProductionOrderNo: 'PO-20260328-073',
+      sourceDemandId: 'PRD-PRINT-003',
+      sourceDemandNo: 'PRD-PRINT-003',
+      ...commonFactory,
+      targetWarehouseName: '印花待加工仓',
+      warehouseLocation: '印花待加工仓 A 区 / PPA-A-01',
+      skuSummary: '米黄底蓝花主面料',
+      styleNo: 'SPU-PRINT-003',
+      materialSku: 'FAB-PRINT-026',
+      materialName: '印花面料',
+      batchNo: 'PRD-PRINT-003',
+      objectType: '面料',
+      plannedObjectQty: 860,
+      receivedObjectQty: 860,
+      availableObjectQty: 860,
+      qtyUnit: '米',
+      currentActionName: '待打印',
+      status: '已入仓',
+      inboundAt: '2026-05-11 09:20:00',
+      createdAt: '2026-05-11 09:20:00',
+      updatedAt: '2026-05-11 09:20:00',
+      relatedFeiTicketIds: [],
+      remark: '印花加工单完成领料后进入待加工仓',
+    },
+    {
+      recordType: 'WAIT_PROCESS',
+      warehouseRecordId: 'PWH-WAIT_PROCESS-PRINT-2',
+      craftType: 'PRINT',
+      craftName: '印花',
+      sourceWorkOrderId: 'PWO-PRINT-004',
+      sourceWorkOrderNo: 'PH-20260328-004',
+      sourceTaskId: 'TASK-PRINT-000717',
+      sourceTaskNo: 'TASK-PRINT-000717',
+      sourceProductionOrderId: 'PO-20260328-074',
+      sourceProductionOrderNo: 'PO-20260328-074',
+      sourceDemandId: 'PRD-PRINT-004',
+      sourceDemandNo: 'PRD-PRINT-004',
+      ...commonFactory,
+      targetWarehouseName: '印花待加工仓',
+      warehouseLocation: '印花待加工仓 A 区 / PPA-A-02',
+      skuSummary: '黑底白花裁片',
+      styleNo: 'SPU-PRINT-004',
+      materialSku: 'FAB-PRINT-032',
+      materialName: '印花裁片',
+      batchNo: 'PRD-PRINT-004',
+      objectType: '裁片',
+      plannedObjectQty: 872,
+      receivedObjectQty: 872,
+      availableObjectQty: 872,
+      qtyUnit: '片',
+      currentActionName: '待转印领料',
+      status: '已入仓',
+      inboundAt: '2026-05-11 10:00:00',
+      createdAt: '2026-05-11 10:00:00',
+      updatedAt: '2026-05-11 10:00:00',
+      relatedFeiTicketIds: ['FT-PRINT-20260328-004-01'],
+      remark: '印花加工单完成领料后进入待加工仓',
+    },
+    {
+      recordType: 'WAIT_PROCESS',
+      warehouseRecordId: 'PWH-WAIT_PROCESS-DYE-1',
+      craftType: 'DYE',
+      craftName: '染色',
+      sourceWorkOrderId: 'DWO-005',
+      sourceWorkOrderNo: 'DY-20260328-005',
+      sourceTaskId: 'TASK-DYE-000725',
+      sourceTaskNo: 'TASK-DYE-000725',
+      sourceProductionOrderId: 'PO-20260328-405',
+      sourceProductionOrderNo: 'PO-20260328-405',
+      sourceDemandId: 'DM-DYE-005',
+      sourceDemandNo: 'DM-DYE-005',
+      ...commonFactory,
+      targetWarehouseName: '染色待加工仓',
+      warehouseLocation: '染色待加工仓 A 区 / DPA-A-01',
+      skuSummary: '牛仔布 / 靛青',
+      styleNo: 'SPU-DYE-005',
+      materialSku: 'FAB-DYE-005',
+      materialName: '牛仔布',
+      batchNo: 'DM-DYE-005',
+      objectType: '面料',
+      plannedObjectQty: 980,
+      receivedObjectQty: 980,
+      availableObjectQty: 960,
+      qtyUnit: '米',
+      currentActionName: '烘干中',
+      status: '已入仓',
+      inboundAt: '2026-05-11 08:30:00',
+      createdAt: '2026-05-11 08:30:00',
+      updatedAt: '2026-05-11 08:30:00',
+      remark: '染色加工单完成领料后进入待加工仓',
+    },
+    {
+      recordType: 'WAIT_PROCESS',
+      warehouseRecordId: 'PWH-WAIT_PROCESS-DYE-2',
+      craftType: 'DYE',
+      craftName: '染色',
+      sourceWorkOrderId: 'DWO-006',
+      sourceWorkOrderNo: 'DY-20260328-006',
+      sourceTaskId: 'TASK-DYE-000726',
+      sourceTaskNo: 'TASK-DYE-000726',
+      sourceProductionOrderId: 'PO-20260328-406',
+      sourceProductionOrderNo: 'PO-20260328-406',
+      sourceDemandId: 'DM-DYE-006',
+      sourceDemandNo: 'DM-DYE-006',
+      ...commonFactory,
+      targetWarehouseName: '染色待加工仓',
+      warehouseLocation: '染色待加工仓 A 区 / DPA-A-02',
+      skuSummary: '针织布 / 藏青',
+      styleNo: 'SPU-DYE-006',
+      materialSku: 'FAB-DYE-006',
+      materialName: '针织布',
+      batchNo: 'DM-DYE-006',
+      objectType: '面料',
+      plannedObjectQty: 920,
+      receivedObjectQty: 920,
+      availableObjectQty: 910,
+      qtyUnit: '米',
+      currentActionName: '染色中',
+      status: '已入仓',
+      inboundAt: '2026-05-11 09:10:00',
+      createdAt: '2026-05-11 09:10:00',
+      updatedAt: '2026-05-11 09:10:00',
+      remark: '染色加工单完成领料后进入待加工仓',
+    },
+    {
+      recordType: 'WAIT_HANDOVER',
+      warehouseRecordId: 'PWH-WAIT_HANDOVER-PRINT-10',
+      craftType: 'PRINT',
+      craftName: '印花',
+      sourceWorkOrderId: 'PWO-PRINT-005',
+      sourceWorkOrderNo: 'PH-20260328-005',
+      sourceTaskId: 'TASK-PRINT-000718',
+      sourceTaskNo: 'TASK-PRINT-000718',
+      sourceProductionOrderId: 'PO-20260328-075',
+      sourceProductionOrderNo: 'PO-20260328-075',
+      sourceDemandId: 'PRD-PRINT-005',
+      sourceDemandNo: 'PRD-PRINT-005',
+      ...commonFactory,
+      targetWarehouseName: '中转区域',
+      warehouseLocation: '印花待交出仓 A 区 / PHA-A-01',
+      skuSummary: '浅蓝底白花裁片',
+      styleNo: 'SPU-PRINT-005',
+      materialSku: 'FAB-PRINT-037',
+      materialName: '印花裁片',
+      batchNo: 'PRD-PRINT-005',
+      objectType: '裁片',
+      plannedObjectQty: 808,
+      receivedObjectQty: 808,
+      availableObjectQty: 808,
+      qtyUnit: '片',
+      currentActionName: '印花待交出',
+      status: '待交出',
+      inboundAt: '2026-05-12 16:30:00',
+      createdAt: '2026-05-12 16:30:00',
+      updatedAt: '2026-05-12 16:30:00',
+      relatedFeiTicketIds: ['FT-PRINT-20260328-005-01'],
+      remark: '转印完成后进入印花待交出仓',
+    },
+    {
+      recordType: 'WAIT_HANDOVER',
+      warehouseRecordId: 'PWH-WAIT_HANDOVER-PRINT-11',
+      craftType: 'PRINT',
+      craftName: '印花',
+      sourceWorkOrderId: 'PWO-PRINT-006',
+      sourceWorkOrderNo: 'PH-20260328-006',
+      sourceTaskId: 'TASK-PRINT-000719',
+      sourceTaskNo: 'TASK-PRINT-000719',
+      sourceProductionOrderId: 'PO-20260328-076',
+      sourceProductionOrderNo: 'PO-20260328-076',
+      sourceDemandId: 'PRD-PRINT-006',
+      sourceDemandNo: 'PRD-PRINT-006',
+      ...commonFactory,
+      targetWarehouseName: '中转区域',
+      warehouseLocation: '印花待交出仓 A 区 / PHA-A-02',
+      skuSummary: '深灰底银花裁片',
+      styleNo: 'SPU-PRINT-006',
+      materialSku: 'FAB-PRINT-041',
+      materialName: '印花裁片',
+      batchNo: 'PRD-PRINT-006',
+      objectType: '裁片',
+      plannedObjectQty: 1044,
+      receivedObjectQty: 1044,
+      availableObjectQty: 1044,
+      qtyUnit: '片',
+      currentActionName: '印花交出待收货',
+      status: '待交出',
+      inboundAt: '2026-05-12 17:20:00',
+      createdAt: '2026-05-12 17:20:00',
+      updatedAt: '2026-05-12 17:20:00',
+      relatedFeiTicketIds: ['FT-PRINT-20260328-006-01'],
+      remark: '转印完成后进入印花待交出仓',
+    },
+    {
+      recordType: 'WAIT_HANDOVER',
+      warehouseRecordId: 'PWH-WAIT_HANDOVER-DYE-1',
+      craftType: 'DYE',
+      craftName: '染色',
+      sourceWorkOrderId: 'DWO-007',
+      sourceWorkOrderNo: 'DY-20260328-007',
+      sourceTaskId: 'TASK-DYE-000727',
+      sourceTaskNo: 'TASK-DYE-000727',
+      sourceProductionOrderId: 'PO-20260328-372',
+      sourceProductionOrderNo: 'PO-20260328-372',
+      sourceDemandId: 'DM-DYE-007',
+      sourceDemandNo: 'DM-DYE-007',
+      ...commonFactory,
+      targetWarehouseName: '染色待交出仓',
+      warehouseLocation: '染色待交出仓 A 区 / DHA-A-01',
+      skuSummary: '纯棉针织布 / Navy',
+      styleNo: 'SPU-2024-372',
+      materialSku: 'FAB-DYE-007',
+      materialName: '纯棉针织布',
+      batchNo: 'DM-DYE-007',
+      objectType: '面料',
+      plannedObjectQty: 1100,
+      receivedObjectQty: 1100,
+      availableObjectQty: 1100,
+      qtyUnit: '米',
+      currentActionName: '染色待交出',
+      status: '待交出',
+      inboundAt: '2026-05-12 18:10:00',
+      createdAt: '2026-05-12 18:10:00',
+      updatedAt: '2026-05-12 18:10:00',
+      remark: '包装完成后进入染色待交出仓',
+    },
+    {
+      recordType: 'WAIT_HANDOVER',
+      warehouseRecordId: 'PWH-WAIT_HANDOVER-DYE-2',
+      craftType: 'DYE',
+      craftName: '染色',
+      sourceWorkOrderId: 'DWO-008',
+      sourceWorkOrderNo: 'DY-20260328-008',
+      sourceTaskId: 'TASK-DYE-000728',
+      sourceTaskNo: 'TASK-DYE-000728',
+      sourceProductionOrderId: 'PO-20260328-373',
+      sourceProductionOrderNo: 'PO-20260328-373',
+      sourceDemandId: 'DM-DYE-008',
+      sourceDemandNo: 'DM-DYE-008',
+      ...commonFactory,
+      targetWarehouseName: '染色待交出仓',
+      warehouseLocation: '染色待交出仓 A 区 / DHA-A-02',
+      skuSummary: '纯棉针织布 / Black',
+      styleNo: 'SPU-2024-373',
+      materialSku: 'FAB-DYE-008',
+      materialName: '纯棉针织布',
+      batchNo: 'DM-DYE-008',
+      objectType: '面料',
+      plannedObjectQty: 2800,
+      receivedObjectQty: 2800,
+      availableObjectQty: 2800,
+      qtyUnit: '米',
+      currentActionName: '染色待交出',
+      status: '待交出',
+      inboundAt: '2026-05-12 18:40:00',
+      createdAt: '2026-05-12 18:40:00',
+      updatedAt: '2026-05-12 18:40:00',
+      remark: '包装完成后进入染色待交出仓',
+    },
+  ]
 
-function dyeWaitAction(order: ProcessWorkOrder): string {
-  if (order.statusLabel.includes('排缸')) return '待排缸'
-  if (order.statusLabel.includes('染色')) return '待染色'
-  if (order.statusLabel.includes('备料') || order.statusLabel.includes('原料')) return '待备料'
-  return '待打样'
-}
-
-function isPrintWaitProcess(order: ProcessWorkOrder): boolean {
-  return ['WAIT_PRINT', 'PRINTING', 'PRINT_DONE', 'WAIT_TRANSFER', 'TRANSFERRING'].includes(String(order.status))
-}
-
-function isPrintWaitHandover(order: ProcessWorkOrder): boolean {
-  return ['WAIT_HANDOVER', 'HANDOVER_SUBMITTED', 'WAIT_REVIEW', 'COMPLETED', 'REJECTED'].includes(String(order.status))
-}
-
-function isDyeWaitProcess(order: ProcessWorkOrder): boolean {
-  return [
-    'WAIT_SAMPLE',
-    'SAMPLE_TESTING',
-    'SAMPLE_DONE',
-    'WAIT_MATERIAL',
-    'MATERIAL_READY',
-    'WAIT_VAT_PLAN',
-    'VAT_PLANNED',
-    'DYEING',
-    'DEHYDRATING',
-    'DRYING',
-    'SETTING',
-    'ROLLING',
-    'PACKING',
-  ].includes(String(order.status))
-}
-
-function isDyeWaitHandover(order: ProcessWorkOrder): boolean {
-  return ['WAIT_HANDOVER', 'HANDOVER_SUBMITTED', 'WAIT_REVIEW', 'COMPLETED', 'REJECTED'].includes(String(order.status))
-}
-
-function buildProcessWorkOrderWarehouseRecords(orders: ProcessWorkOrder[]): ProcessWarehouseRecord[] {
-  const records: ProcessWarehouseRecord[] = []
-  orders.forEach((order, index) => {
-    const isPrint = order.processType === 'PRINT'
-    const waitProcess = isPrint ? isPrintWaitProcess(order) : isDyeWaitProcess(order)
-    const waitHandover = isPrint ? isPrintWaitHandover(order) : isDyeWaitHandover(order)
-    const craftType: ProcessWarehouseCraftType = isPrint ? 'PRINT' : 'DYE'
-    const craftName = isPrint ? '印花' : '染色'
-    const objectType: ProcessWarehouseObjectType =
-      isPrint && (order.objectType === '裁片' || order.plannedUnit === '片') ? '裁片' : '面料'
-    const qtyUnit = order.plannedUnit || (objectType === '裁片' ? '片' : '米')
-    const targetWarehouseName = isPrint
-      ? order.printPayload?.targetTransferWarehouseName || '印花待交出仓'
-      : order.dyePayload?.targetTransferWarehouseName || '染色待交出仓'
-
-    if (waitProcess) {
-      records.push(
-        buildWarehouseRecord(
-          {
-            craftType,
-            craftName,
-            sourceWorkOrderId: order.workOrderId,
-            sourceWorkOrderNo: order.workOrderNo,
-            sourceTaskId: order.taskId,
-            sourceTaskNo: order.taskNo,
-            sourceProductionOrderId: order.productionOrderIds[0] || '',
-            sourceProductionOrderNo: order.productionOrderIds[0] || '',
-            sourceDemandId: order.sourceDemandIds[0] || '',
-            sourceDemandNo: order.sourceDemandIds[0] || '',
-            sourceFactoryId: order.factoryId,
-            sourceFactoryName: order.factoryName,
-            targetFactoryId: order.factoryId,
-            targetFactoryName: order.factoryName,
-            targetWarehouseName: `${craftName}待加工仓`,
-            skuSummary: order.materialName,
-            materialSku: order.materialSku,
-            materialName: order.materialName,
-            batchNo: order.materialBatchNos[0] || '',
-            objectType,
-            plannedObjectQty: order.plannedQty,
-            receivedObjectQty: order.plannedQty,
-            availableObjectQty: order.plannedQty,
-            qtyUnit,
-            currentActionName: isPrint ? printWaitAction(order) : dyeWaitAction(order),
-            status: order.statusLabel.includes('中') ? '加工中' : '已入仓',
-            inboundAt: order.createdAt,
-            updatedAt: order.updatedAt,
-            remark: `${craftName}加工单进入统一待加工仓`,
-          },
-          'WAIT_PROCESS',
-          records.length + 1,
-        ),
-      )
-    }
-
-    if (waitHandover) {
-      const handedOverQty = order.handoverRecords.reduce((sum, record) => sum + (record.submittedQty || 0), 0)
-      const writtenBackQty = order.handoverRecords.reduce((sum, record) => sum + (record.receiverWrittenQty || 0), 0)
-      records.push(
-        buildWarehouseRecord(
-          {
-            craftType,
-            craftName,
-            sourceWorkOrderId: order.workOrderId,
-            sourceWorkOrderNo: order.workOrderNo,
-            sourceTaskId: order.taskId,
-            sourceTaskNo: order.taskNo,
-            sourceProductionOrderId: order.productionOrderIds[0] || '',
-            sourceProductionOrderNo: order.productionOrderIds[0] || '',
-            sourceDemandId: order.sourceDemandIds[0] || '',
-            sourceDemandNo: order.sourceDemandIds[0] || '',
-            sourceFactoryId: order.factoryId,
-            sourceFactoryName: order.factoryName,
-            targetFactoryId: order.factoryId,
-            targetFactoryName: order.factoryName,
-            targetWarehouseName,
-            skuSummary: order.materialName,
-            materialSku: order.materialSku,
-            materialName: order.materialName,
-            batchNo: order.materialBatchNos[0] || '',
-            objectType,
-            plannedObjectQty: order.plannedQty,
-            receivedObjectQty: order.plannedQty,
-            availableObjectQty: order.plannedQty,
-            handedOverObjectQty: handedOverQty,
-            writtenBackObjectQty: writtenBackQty,
-            diffObjectQty: Math.max(handedOverQty - writtenBackQty, 0),
-            qtyUnit,
-            currentActionName: `${craftName}待交出`,
-            status: order.statusLabel.includes('差异') || handedOverQty > writtenBackQty ? '有差异' : order.statusLabel.includes('回写') || writtenBackQty > 0 ? '已回写' : '待交出',
-            inboundAt: order.updatedAt,
-            updatedAt: order.updatedAt,
-            remark: `${craftName}加工完成进入统一待交出仓`,
-          },
-          'WAIT_HANDOVER',
-          records.length + 1,
-        ),
-      )
-    }
-  })
-  return records
+  return records.map((record, index) => buildWarehouseRecord(record, record.recordType, index + 1))
 }
 
 function buildSpecialCraftWarehouseRecords(taskOrders: SpecialCraftTaskOrder[]): ProcessWarehouseRecord[] {
@@ -551,18 +686,18 @@ function buildSpecialCraftWarehouseRecords(taskOrders: SpecialCraftTaskOrder[]):
         ),
       )
     }
-    if (taskOrder.waitHandoverQty > 0 || ['待交出', '已交出', '已回写', '差异', '异议中'].includes(taskOrder.status)) {
+    if (taskOrder.waitHandoverQty > 0 || ['待交出', '已交出', '全部交出', '收货差异', '差异', '异议中'].includes(taskOrder.status)) {
       records.push(
         buildWarehouseRecord(
           {
             ...common,
             targetWarehouseName: `${taskOrder.operationName}待交出仓`,
             availableObjectQty: taskOrder.waitHandoverQty || taskOrder.completedQty,
-            handedOverObjectQty: taskOrder.status === '已交出' || taskOrder.status === '已回写' ? taskOrder.waitHandoverQty : 0,
-            writtenBackObjectQty: taskOrder.status === '已回写' ? taskOrder.returnedQty || taskOrder.waitHandoverQty : 0,
+            handedOverObjectQty: taskOrder.status === '已交出' || taskOrder.status === '全部交出' ? taskOrder.waitHandoverQty : 0,
+            writtenBackObjectQty: taskOrder.status === '全部交出' ? taskOrder.returnedQty || taskOrder.waitHandoverQty : 0,
             diffObjectQty: Math.max((taskOrder.waitHandoverQty || 0) - (taskOrder.returnedQty || 0), 0),
             currentActionName: '特殊工艺待交出',
-            status: taskOrder.status === '已回写' ? '已回写' : taskOrder.status === '已交出' ? '已全部交出' : '待交出',
+            status: taskOrder.status === '全部交出' ? '全部交出' : taskOrder.status === '已交出' ? '交出待收货' : '待交出',
             remark: '特殊工艺完成后进入统一待交出仓',
           },
           'WAIT_HANDOVER',
@@ -652,7 +787,7 @@ function buildPostFinishingWarehouseRecords(orders: PostFinishingWorkOrder[]): P
             receivedObjectQty: order.recheckAction.acceptedGarmentQty,
             availableObjectQty: order.recheckAction.acceptedGarmentQty,
             handedOverObjectQty: order.handoverRecordId ? order.recheckAction.acceptedGarmentQty : 0,
-            writtenBackObjectQty: order.currentStatus === '已回写' ? order.recheckAction.acceptedGarmentQty - order.recheckAction.diffGarmentQty : 0,
+            writtenBackObjectQty: order.currentStatus === '全部交出' ? order.recheckAction.acceptedGarmentQty - order.recheckAction.diffGarmentQty : 0,
             diffObjectQty: order.recheckAction.diffGarmentQty,
             qtyUnit: order.plannedGarmentQtyUnit,
             currentActionName: '后道待交出',
@@ -672,7 +807,7 @@ function buildPostFinishingWarehouseRecords(orders: PostFinishingWorkOrder[]): P
 
 function buildInitialWarehouseRecords(): ProcessWarehouseRecord[] {
   return [
-    ...buildProcessWorkOrderWarehouseRecords(listProcessWorkOrders()),
+    ...buildSeedProcessWarehouseRecords(),
     ...buildSpecialCraftWarehouseRecords(listSpecialCraftTaskOrders()),
     ...buildPostFinishingWarehouseRecords(listPostFinishingWorkOrders()),
   ].map((record, index) => ({
@@ -683,60 +818,12 @@ function buildInitialWarehouseRecords(): ProcessWarehouseRecord[] {
 
 function buildInitialHandoverRecords(warehouseRecords: ProcessWarehouseRecord[]): ProcessHandoverRecord[] {
   const records: ProcessHandoverRecord[] = []
-  const workOrderHandoverRows = listProcessWorkOrders().flatMap((order) =>
-    order.handoverRecords.map((record) => ({ order, record })),
-  )
-  workOrderHandoverRows.forEach(({ order, record }) => {
-    const warehouseRecord = warehouseRecords.find((item) =>
-      item.recordType === 'WAIT_HANDOVER' && item.sourceWorkOrderId === order.workOrderId,
-    )
-    if (!warehouseRecord) return
-    records.push({
-      handoverRecordId: record.handoverRecordId,
-      handoverRecordNo: record.handoverRecordNo || record.handoverRecordId,
-      warehouseRecordId: warehouseRecord.warehouseRecordId,
-      craftType: warehouseRecord.craftType,
-      craftName: warehouseRecord.craftName,
-      sourceWorkOrderId: order.workOrderId,
-      sourceWorkOrderNo: order.workOrderNo,
-      sourceTaskId: order.taskId,
-      sourceTaskNo: order.taskNo,
-      sourceProductionOrderId: order.productionOrderIds[0] || '',
-      sourceProductionOrderNo: order.productionOrderIds[0] || '',
-      handoverFactoryId: order.factoryId,
-      handoverFactoryName: order.factoryName,
-      receiveFactoryId: warehouseRecord.targetFactoryId,
-      receiveFactoryName: warehouseRecord.targetFactoryName,
-      receiveWarehouseName: warehouseRecord.targetWarehouseName,
-      objectType: '面料',
-      handoverObjectQty: roundQty(record.submittedQty),
-      receiveObjectQty: roundQty(record.receiverWrittenQty),
-      diffObjectQty: record.receiverWrittenAt ? roundQty((record.receiverWrittenQty || 0) - (record.submittedQty || 0)) : 0,
-      qtyUnit: record.qtyUnit || order.plannedUnit,
-      packageQty: record.expectedTransferBagCount || record.expectedFeiTicketCount || 1,
-      packageUnit: '卷',
-      handoverPerson: record.factorySubmittedBy || '工厂操作员',
-      handoverAt: record.factorySubmittedAt || order.updatedAt,
-      receivePerson: record.receiverWrittenBy || '',
-      receiveAt: record.receiverWrittenAt || '',
-      status: record.receiverWrittenAt
-        ? Math.abs((record.submittedQty || 0) - (record.receiverWrittenQty || 0)) > 0
-          ? '有差异'
-          : '已回写'
-        : '待回写',
-      evidenceUrls: [],
-      relatedReviewRecordId: '',
-      relatedDifferenceRecordId: '',
-      relatedFeiTicketIds: [...warehouseRecord.relatedFeiTicketIds],
-      remark: record.factoryRemark || record.diffReason || '',
-    })
-  })
 
   warehouseRecords
     .filter((record) => record.recordType === 'WAIT_HANDOVER' && record.craftType !== 'PRINT' && record.craftType !== 'DYE')
     .forEach((record) => {
       const handoverQty = record.handedOverObjectQty || record.availableObjectQty
-      const writtenQty = record.writtenBackObjectQty || (record.status === '已回写' ? handoverQty : 0)
+      const writtenQty = record.writtenBackObjectQty || (record.status === '全部交出' ? handoverQty : 0)
       records.push({
         handoverRecordId: `PHR-${record.warehouseRecordId}`,
         handoverRecordNo: `JH-${record.warehouseRecordNo}`,
@@ -757,15 +844,15 @@ function buildInitialHandoverRecords(warehouseRecords: ProcessWarehouseRecord[])
         objectType: record.objectType,
         handoverObjectQty: roundQty(handoverQty),
         receiveObjectQty: roundQty(writtenQty),
-        diffObjectQty: record.status === '待交出' || record.status === '已全部交出' ? 0 : roundQty(writtenQty - handoverQty),
+        diffObjectQty: record.status === '待交出' || record.status === '全部交出' ? 0 : roundQty(writtenQty - handoverQty),
         qtyUnit: record.qtyUnit,
         packageQty: record.relatedFeiTicketIds.length || 1,
         packageUnit: record.objectType === '裁片' ? '包' : '箱',
         handoverPerson: `${record.craftName}操作员`,
         handoverAt: record.updatedAt,
-        receivePerson: record.status === '已回写' ? '接收方仓管' : '',
-        receiveAt: record.status === '已回写' ? record.updatedAt : '',
-        status: record.status === '已回写' ? '已回写' : record.diffObjectQty > 0 ? '有差异' : '待回写',
+        receivePerson: record.status === '全部交出' ? '接收方仓管' : '',
+        receiveAt: record.status === '全部交出' ? record.updatedAt : '',
+        status: record.status === '全部交出' ? '全部交出' : record.diffObjectQty > 0 ? '收货差异' : '交出待收货',
         evidenceUrls: [],
         relatedReviewRecordId: '',
         relatedDifferenceRecordId: '',
@@ -781,7 +868,8 @@ function buildInitialHandoverRecords(warehouseRecords: ProcessWarehouseRecord[])
       && (!craftName || record.craftName === craftName),
     )
     if (!warehouses.length) return
-    ;(['待回写', '已回写', '有差异'] as ProcessWarehouseHandoverStatus[]).forEach((status) => {
+    const demoRecordedAt = nowText()
+    ;(['交出待收货', '全部交出', '收货差异'] as ProcessWarehouseHandoverStatus[]).forEach((status) => {
       let existedCount = records.filter((record) =>
         record.craftType === craftType
         && (!craftName || record.craftName === craftName)
@@ -790,9 +878,9 @@ function buildInitialHandoverRecords(warehouseRecords: ProcessWarehouseRecord[])
       while (existedCount < 3) {
         const warehouse = warehouses[(records.length + existedCount) % warehouses.length]
         const handoverQty = roundQty(Math.max(warehouse.availableObjectQty || warehouse.plannedObjectQty || 1, 1))
-        const receiveQty = status === '待回写'
+        const receiveQty = status === '交出待收货'
           ? 0
-          : status === '已回写'
+          : status === '全部交出'
             ? handoverQty
             : roundQty(handoverQty + (existedCount % 2 === 0 ? -Math.min(5, handoverQty) : 3))
         records.push({
@@ -815,20 +903,20 @@ function buildInitialHandoverRecords(warehouseRecords: ProcessWarehouseRecord[])
           objectType: warehouse.objectType,
           handoverObjectQty: handoverQty,
           receiveObjectQty: receiveQty,
-          diffObjectQty: status === '待回写' ? 0 : roundQty(receiveQty - handoverQty),
+          diffObjectQty: status === '交出待收货' ? 0 : roundQty(receiveQty - handoverQty),
           qtyUnit: warehouse.qtyUnit,
           packageQty: warehouse.relatedFeiTicketIds.length || 1,
           packageUnit: warehouse.objectType === '面料' ? '卷' : warehouse.objectType === '裁片' ? '包' : '箱',
           handoverPerson: `${warehouse.craftName}交出员`,
-          handoverAt: warehouse.updatedAt,
-          receivePerson: status === '待回写' ? '' : '接收方仓管',
-          receiveAt: status === '待回写' ? '' : warehouse.updatedAt,
+          handoverAt: demoRecordedAt,
+          receivePerson: status === '交出待收货' ? '' : '接收方仓管',
+          receiveAt: status === '交出待收货' ? '' : demoRecordedAt,
           status,
           evidenceUrls: [],
           relatedReviewRecordId: '',
           relatedDifferenceRecordId: '',
           relatedFeiTicketIds: [...warehouse.relatedFeiTicketIds],
-          remark: status === '有差异' ? `${warehouse.objectType}回写数量存在差异` : warehouse.remark,
+          remark: status === '收货差异' ? `${warehouse.objectType}收货确认数量存在差异` : warehouse.remark,
         })
         existedCount += 1
       }
@@ -859,18 +947,18 @@ function buildInitialReviewRecords(handoverRecords: ProcessHandoverRecord[]): Pr
     sourceWorkOrderNo: record.sourceWorkOrderNo,
     craftType: record.craftType,
     craftName: record.craftName,
-    reviewStatus: record.status === '有差异' ? '数量差异' : record.status === '已回写' ? '审核通过' : '待审核',
+    reviewStatus: record.status === '收货差异' ? '收货差异' : record.status === '全部交出' ? '收货已确认' : '收货确认中',
     expectedObjectQty: record.handoverObjectQty,
     actualObjectQty: record.receiveObjectQty,
     diffObjectQty: record.diffObjectQty,
     qtyUnit: record.qtyUnit,
-    reviewerName: record.status === '待回写' ? '' : '平台审核员',
-    reviewedAt: record.status === '待回写' ? '' : record.receiveAt || record.handoverAt,
-    reason: Math.abs(record.diffObjectQty) > 0 ? '接收回写数量与交出对象数量不一致' : '交出回写数量一致',
+    reviewerName: record.status === '交出待收货' ? '' : '接收方仓管',
+    reviewedAt: record.status === '交出待收货' ? '' : record.receiveAt || record.handoverAt,
+    reason: Math.abs(record.diffObjectQty) > 0 ? '收货确认数量与交出对象数量不一致' : '交出与收货确认数量一致',
     evidenceUrls: [],
     nextAction: Math.abs(record.diffObjectQty) > 0 ? '平台处理差异' : '进入下一环节',
     relatedDifferenceRecordId: '',
-    remark: Math.abs(record.diffObjectQty) > 0 ? '等待平台处理交出差异' : '交出回写数量一致',
+    remark: Math.abs(record.diffObjectQty) > 0 ? '等待平台处理交出差异' : '交出与收货确认数量一致',
   }))
 }
 
@@ -920,13 +1008,13 @@ function buildDifferenceRecordFromHandover(record: ProcessHandoverRecord, index:
     handlingResult: status === '待处理' ? '' : nextAction,
     nextAction,
     relatedFeiTicketIds: [...record.relatedFeiTicketIds],
-    remark: record.remark || '接收方回写数量与交出对象数量不一致',
+    remark: record.remark || '收货确认数量与交出对象数量不一致',
   }
 }
 
 function buildInitialDifferenceRecords(handoverRecords: ProcessHandoverRecord[]): ProcessHandoverDifferenceRecord[] {
   return handoverRecords
-    .filter((record) => record.status === '有差异' || Math.abs(record.diffObjectQty) > 0)
+    .filter((record) => record.status === '收货差异' || Math.abs(record.diffObjectQty) > 0)
     .map(buildDifferenceRecordFromHandover)
 }
 
@@ -1178,7 +1266,7 @@ export function createProcessHandoverRecord(payload: ProcessHandoverRecordPayloa
     handoverAt,
     receivePerson: payload.receivePerson || '',
     receiveAt: payload.receiveAt || '',
-    status: payload.status || '待回写',
+    status: payload.status || '交出待收货',
     evidenceUrls: [...(payload.evidenceUrls || [])],
     relatedReviewRecordId: payload.relatedReviewRecordId || '',
     relatedDifferenceRecordId: payload.relatedDifferenceRecordId || '',
@@ -1189,7 +1277,7 @@ export function createProcessHandoverRecord(payload: ProcessHandoverRecordPayloa
   if (warehouse) {
     warehouse.handedOverObjectQty = roundQty(warehouse.handedOverObjectQty + record.handoverObjectQty)
     warehouse.availableObjectQty = roundQty(Math.max(warehouse.availableObjectQty - record.handoverObjectQty, 0))
-    warehouse.status = warehouse.availableObjectQty > 0 ? '已部分交出' : '已全部交出'
+    warehouse.status = warehouse.availableObjectQty > 0 ? '部分交出' : '全部交出'
     warehouse.outboundAt = handoverAt
     warehouse.updatedAt = handoverAt
     if (!warehouse.relatedHandoverRecordIds.includes(record.handoverRecordId)) {
@@ -1229,7 +1317,7 @@ export function createProcessHandoverDifferenceRecord(payload: DifferenceRecordP
     handlingResult: payload.handlingResult || '',
     nextAction: payload.nextAction || '平台处理',
     relatedFeiTicketIds: [...(payload.relatedFeiTicketIds || [])],
-    remark: payload.remark || '接收方回写数量与交出对象数量不一致',
+    remark: payload.remark || '收货确认数量与交出对象数量不一致',
   }
   if (existed) {
     Object.assign(existed, next)
@@ -1239,7 +1327,7 @@ export function createProcessHandoverDifferenceRecord(payload: DifferenceRecordP
   const handover = processHandoverRecords.find((record) => record.handoverRecordId === next.handoverRecordId)
   if (handover) {
     handover.relatedDifferenceRecordId = next.differenceRecordId
-    handover.status = '有差异'
+    handover.status = '收货差异'
   }
   return cloneDifferenceRecord(next)
 }
@@ -1261,7 +1349,7 @@ export function writeBackProcessHandoverRecord(
   handover.diffObjectQty = roundQty(handover.receiveObjectQty - handover.handoverObjectQty)
   handover.receivePerson = payload.receivePerson
   handover.receiveAt = receiveAt
-  handover.status = Math.abs(handover.diffObjectQty) > 0 ? '有差异' : '已回写'
+  handover.status = Math.abs(handover.diffObjectQty) > 0 ? '收货差异' : '全部交出'
   handover.evidenceUrls = [...(payload.evidenceUrls || handover.evidenceUrls)]
   handover.remark = payload.remark || handover.remark
 
@@ -1269,7 +1357,7 @@ export function writeBackProcessHandoverRecord(
   if (warehouse) {
     warehouse.writtenBackObjectQty = roundQty(warehouse.writtenBackObjectQty + handover.receiveObjectQty)
     warehouse.diffObjectQty = roundQty(warehouse.writtenBackObjectQty - warehouse.handedOverObjectQty)
-    warehouse.status = Math.abs(warehouse.diffObjectQty) > 0 ? '有差异' : '已回写'
+    warehouse.status = Math.abs(warehouse.diffObjectQty) > 0 ? '收货差异' : '全部交出'
     warehouse.updatedAt = receiveAt
   }
 
@@ -1292,7 +1380,7 @@ export function writeBackProcessHandoverRecord(
         reportedAt: receiveAt,
         evidenceUrls: payload.evidenceUrls,
         relatedFeiTicketIds: handover.relatedFeiTicketIds,
-        remark: payload.remark || '接收方回写数量存在差异',
+        remark: payload.remark || '收货确认数量存在差异',
       })
     : undefined
 
@@ -1303,14 +1391,14 @@ export function writeBackProcessHandoverRecord(
     sourceWorkOrderNo: handover.sourceWorkOrderNo,
     craftType: handover.craftType,
     craftName: handover.craftName,
-    reviewStatus: handover.status === '有差异' ? '数量差异' : '待审核',
+    reviewStatus: handover.status === '收货差异' ? '收货差异' : '收货已确认',
     expectedObjectQty: handover.handoverObjectQty,
     actualObjectQty: handover.receiveObjectQty,
     qtyUnit: handover.qtyUnit,
     reviewerName: '',
     reviewedAt: '',
-    reason: handover.status === '有差异' ? '接收方回写数量存在差异' : '接收方已回写，等待平台审核',
-    nextAction: handover.status === '有差异' ? '平台处理差异' : '进入下一环节',
+    reason: handover.status === '收货差异' ? '收货确认数量存在差异' : '接收方已确认收货',
+    nextAction: handover.status === '收货差异' ? '平台处理差异' : '进入下一环节',
     relatedDifferenceRecordId: difference?.differenceRecordId || '',
   })
   handover.relatedReviewRecordId = review.reviewRecordId
@@ -1320,7 +1408,7 @@ export function writeBackProcessHandoverRecord(
       applySpecialCraftDifferenceToFeiTickets(difference.differenceRecordId, {
         operatorName: payload.receivePerson,
         operatedAt: receiveAt,
-        reason: payload.remark || '特殊工艺交出回写差异',
+        reason: payload.remark || '特殊工艺交出收货确认差异',
       })
     }
   }
@@ -1339,7 +1427,7 @@ export function createProcessWarehouseReviewRecord(payload: ReviewRecordPayload)
     sourceWorkOrderNo: payload.sourceWorkOrderNo,
     craftType: payload.craftType,
     craftName: payload.craftName,
-    reviewStatus: payload.reviewStatus || (Math.abs(diffQty) > 0 ? '数量差异' : '待审核'),
+    reviewStatus: payload.reviewStatus || (Math.abs(diffQty) > 0 ? '收货差异' : '收货已确认'),
     expectedObjectQty: roundQty(payload.expectedObjectQty),
     actualObjectQty: roundQty(payload.actualObjectQty),
     diffObjectQty: diffQty,
@@ -1395,13 +1483,13 @@ export function handleProcessHandoverDifference(
 
   if (payload.nextAction === '确认差异继续流转') {
     difference.status = '已确认差异'
-    if (handover) handover.status = '已回写'
+    if (handover) handover.status = '全部交出'
     if (warehouse) {
-      warehouse.status = '已回写'
+      warehouse.status = '全部交出'
       warehouse.updatedAt = handledAt
     }
     if (review) {
-      review.reviewStatus = '审核通过'
+      review.reviewStatus = '收货已确认'
       review.nextAction = '进入下一环节'
       review.reviewerName = payload.handledBy
       review.reviewedAt = handledAt
@@ -1417,7 +1505,7 @@ export function handleProcessHandoverDifference(
       warehouse.updatedAt = handledAt
     }
     if (review) {
-      review.reviewStatus = '审核驳回'
+      review.reviewStatus = '收货差异'
       review.nextAction = '退回重交'
       review.reviewerName = payload.handledBy
       review.reviewedAt = handledAt
@@ -1515,13 +1603,13 @@ export function getProcessWarehouseSummary(filter: ProcessWarehouseRecordFilter 
     handedOverQty: roundQty(handovers.reduce((sum, record) => sum + record.handoverObjectQty, 0)),
     writtenBackQty: roundQty(handovers.reduce((sum, record) => sum + record.receiveObjectQty, 0)),
     diffQty: roundQty(handovers.reduce((sum, record) => sum + Math.abs(record.diffObjectQty), 0)),
-    waitWritebackHandoverCount: handovers.filter((record) => record.status === '待回写').length,
-    writtenBackHandoverCount: handovers.filter((record) => record.status === '已回写').length,
-    differenceHandoverCount: handovers.filter((record) => record.status === '有差异' || record.status === '平台处理中' || record.status === '需重新交出').length,
+    waitWritebackHandoverCount: handovers.filter((record) => record.status === '交出待收货').length,
+    writtenBackHandoverCount: handovers.filter((record) => record.status === '全部交出').length,
+    differenceHandoverCount: handovers.filter((record) => record.status === '收货差异' || record.status === '平台处理中' || record.status === '需重新交出').length,
     differenceRecordCount: differences.length,
     scrapQty: roundQty(differences.filter((record) => record.differenceType === '报废').reduce((sum, record) => sum + Math.abs(record.diffObjectQty), 0)),
     damageQty: roundQty(differences.filter((record) => record.differenceType === '货损' || record.differenceType === '破损').reduce((sum, record) => sum + Math.abs(record.diffObjectQty), 0)),
-    waitReviewCount: reviews.filter((record) => record.reviewStatus === '待审核' || record.reviewStatus === '数量差异').length,
+    waitReviewCount: reviews.filter((record) => record.reviewStatus === '收货确认中' || record.reviewStatus === '收货差异').length,
     feiTicketCount: new Set([...waitProcess, ...waitHandover].flatMap((record) => record.relatedFeiTicketIds)).size,
   }
 }

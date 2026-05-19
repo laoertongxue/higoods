@@ -2,7 +2,6 @@ import { appStore } from '../../../state/store'
 import { escapeHtml } from '../../../utils'
 import {
   getPrintExecutionNodeRecord,
-  getPrintReviewStatusLabel,
   getPrintWorkOrderStatusLabel,
   type PrintExecutionNodeCode,
   type PrintReviewStatus,
@@ -92,13 +91,13 @@ export function renderBadge(label: string, tone: BadgeTone = 'muted'): string {
 
 export function renderWorkOrderStatusBadge(status: PrintWorkOrderStatus): string {
   const tone: BadgeTone =
-    status === 'COMPLETED'
+    status === 'FULL_HANDOVER'
       ? 'success'
-      : status === 'REJECTED'
+      : status === 'HANDOVER_DIFFERENCE'
         ? 'danger'
-        : status === 'WAIT_HANDOVER' || status === 'HANDOVER_SUBMITTED' || status === 'WAIT_REVIEW'
+        : status === 'WAIT_HANDOVER' || status === 'HANDOVER_WAIT_RECEIVE' || status === 'PARTIAL_HANDOVER'
           ? 'warning'
-          : status === 'PRINTING' || status === 'TRANSFERRING' || status === 'REVIEWING'
+          : status === 'PRINTING' || status === 'TRANSFERRING'
             ? 'info'
             : 'muted'
   return renderBadge(getPrintWorkOrderStatusLabel(status), tone)
@@ -106,14 +105,22 @@ export function renderWorkOrderStatusBadge(status: PrintWorkOrderStatus): string
 
 export function renderReviewStatusBadge(status: PrintReviewStatus): string {
   const tone: BadgeTone =
-    status === 'PASS'
+    status === 'FULL_HANDOVER'
       ? 'success'
-      : status === 'REJECTED'
+      : status === 'HANDOVER_DIFFERENCE'
         ? 'danger'
-        : status === 'WAIT_REVIEW'
+        : status === 'WAIT_RECEIVE'
           ? 'warning'
           : 'info'
-  return renderBadge(getPrintReviewStatusLabel(status), tone)
+  const label =
+    status === 'FULL_HANDOVER'
+      ? '全部交出'
+      : status === 'HANDOVER_DIFFERENCE'
+        ? '收货差异'
+        : status === 'PARTIAL_HANDOVER'
+          ? '部分交出'
+          : '交出待收货'
+  return renderBadge(label, tone)
 }
 
 export function renderMetricCard(title: string, value: string, helper = ''): string {
@@ -175,7 +182,7 @@ export function renderActionButton(input: {
   }
   return `
     <button
-      class="inline-flex h-8 items-center justify-center rounded-md border px-3 text-xs ${toneClass} ${widthClass} disabled:cursor-not-allowed disabled:opacity-50"
+      class="inline-flex h-8 items-center justify-center whitespace-nowrap rounded-md border px-3 text-xs ${toneClass} ${widthClass} disabled:cursor-not-allowed disabled:opacity-50"
       data-printing-action="${escapeHtml(input.action)}"
       ${attrs}
       ${input.disabled ? 'disabled' : ''}

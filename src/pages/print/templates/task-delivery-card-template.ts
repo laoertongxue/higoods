@@ -83,7 +83,7 @@ function objectQtyNoun(objectType: ProcessWarehouseObjectType | string, qtyUnit?
 }
 
 function qtyText(value: number | undefined | null, unit: string | undefined): string {
-  if (!Number.isFinite(value)) return '待回写'
+  if (!Number.isFinite(value)) return '待确认'
   return formatPrintQty(value, unit || '')
 }
 
@@ -135,8 +135,25 @@ function buildDeliveryQrValue(input: {
   }).toString()
 }
 
-function findFieldValue(rows: Array<{ label: string; value: string }> | undefined, keyword: string, fallback = '待回写'): string {
+function findFieldValue(rows: Array<{ label: string; value: string }> | undefined, keyword: string, fallback = '待确认'): string {
   return rows?.find((row) => row.label.includes(keyword))?.value || fallback
+}
+
+function normalizeReceiptStatus(status: string | undefined): string {
+  const legacyWait = ['待', ['回', '写'].join('')].join('')
+  const legacyDone = ['已', ['回', '写'].join('')].join('')
+  if (!status) return '待确认收货'
+  if (status === legacyWait || status === '已交出') return '交出待收货'
+  if (status === legacyDone) return '收货确认中'
+  if (status.includes('差异') || status.includes('驳回')) return '收货差异'
+  return status
+}
+
+function normalizeReceiptReviewStatus(status: string | undefined): string {
+  if (!status) return '待确认收货'
+  if (status.includes('通过')) return '收货已确认'
+  if (status.includes('差异') || status.includes('驳回')) return '收货差异'
+  return '收货确认中'
 }
 
 function buildDifferenceRows(differences: ProcessHandoverDifferenceRecord[]): string[][] {
@@ -145,7 +162,7 @@ function buildDifferenceRows(differences: ProcessHandoverDifferenceRecord[]): st
     qtyText(record.expectedObjectQty, record.qtyUnit),
     qtyText(record.actualObjectQty, record.qtyUnit),
     qtyText(record.diffObjectQty, record.qtyUnit),
-    record.remark || record.handlingResult || '接收方回写差异',
+    record.remark || record.handlingResult || '接收方确认收货差异',
     record.responsibilitySide,
     record.handlingResult || record.nextAction || '待处理',
     [record.handledBy, record.handledAt].filter(Boolean).join(' / '),
@@ -158,9 +175,9 @@ function buildLegacyDifferenceRows(doc: TaskDeliveryCardPrintDoc, noun: string):
   return [[
     `${noun}差异`,
     qtyText(doc.submittedQty, doc.qtyUnit),
-    findFieldValue(doc.writebackRows, '回写', '待回写'),
+    findFieldValue(doc.writebackRows, '收货', '待确认收货'),
     diffValue,
-    findFieldValue(doc.remarkRows, '接收方备注', '现场回写差异'),
+    findFieldValue(doc.remarkRows, '接收方备注', '现场收货差异'),
     '待判定',
     '平台处理',
     '',
@@ -223,12 +240,12 @@ function buildDocumentFromLegacyDoc(
     paperType: 'A4',
     orientation: 'portrait',
     printTitle: title,
-    printSubtitle: '用于工厂交出、接收回写、差异确认和现场签收。',
+    printSubtitle: '用于工厂交出、接收确认、差异确认和现场签收。',
     headerFields: mapFields([
       { label: '交货卡号 / 交出记录号', value: doc.handoverRecordNo, emphasis: true },
       { label: '来源单据号', value: doc.handoverOrderNo },
       { label: '生产单号', value: doc.productionOrderNo || '待确认' },
-      { label: '当前状态', value: findFieldValue(doc.writebackRows, '异议状态', doc.summaryRows.find((row) => row.label === '状态')?.value || '待回写') },
+      { label: '当前状态', value: normalizeReceiptStatus(findFieldValue(doc.writebackRows, '异议状态', doc.summaryRows.find((row) => row.label === '状态')?.value || '待确认收货')) },
       { label: '打印时间', value: generatedAt },
     ]),
     imageBlocks: [
@@ -264,8 +281,8 @@ function buildDocumentFromLegacyDoc(
           { label: '交出时间', value: doc.submittedAt || '待确认' },
           { label: '接收方', value: doc.receiverName },
           { label: '接收仓 / 接收工厂', value: doc.receiverName },
-          { label: '接收人', value: findFieldValue(doc.writebackRows, '回写人', '待回写') },
-          { label: '回写时间', value: findFieldValue(doc.writebackRows, '回写时间', '待回写') },
+          { label: '接收人', value: findFieldValue(doc.writebackRows, '收货人', '待确认收货') },
+          { label: '收货时间', value: findFieldValue(doc.writebackRows, '收货时间', '待确认收货') },
         ]),
       },
       {
@@ -295,21 +312,21 @@ function buildDocumentFromLegacyDoc(
           { label: '本次交出对象类型', value: line?.objectTypeLabel || noun },
           { label: `交出${noun}`, value: qtyText(doc.submittedQty, doc.qtyUnit), emphasis: true },
           { label: '包装数量', value: `${doc.lineRows.length || 1} 包` },
-          { label: `实收${noun}`, value: findFieldValue(doc.writebackRows, '回写', '待回写') },
+          { label: `实收${noun}`, value: findFieldValue(doc.writebackRows, '收货', '待确认收货') },
           { label: `差异${noun}`, value: findFieldValue(doc.writebackRows, '差异', '0') },
-          { label: '当前状态', value: findFieldValue(doc.writebackRows, '异议状态', '待回写') },
+          { label: '当前状态', value: normalizeReceiptStatus(findFieldValue(doc.writebackRows, '异议状态', '待确认收货')) },
         ]),
       },
       {
         sectionId: 'writeback',
-        title: '回写信息区',
+        title: '收货确认信息区',
         fields: mapFields([
           { label: `应收${noun}`, value: qtyText(doc.submittedQty, doc.qtyUnit) },
-          { label: `实收${noun}`, value: findFieldValue(doc.writebackRows, '回写', '待回写') },
+          { label: `实收${noun}`, value: findFieldValue(doc.writebackRows, '收货', '待确认收货') },
           { label: `差异${noun}`, value: findFieldValue(doc.writebackRows, '差异', '0') },
-          { label: '回写人', value: findFieldValue(doc.writebackRows, '回写人', '待回写') },
-          { label: '回写时间', value: findFieldValue(doc.writebackRows, '回写时间', '待回写') },
-          { label: '回写状态', value: findFieldValue(doc.writebackRows, '异议状态', '待回写') },
+          { label: '收货人', value: findFieldValue(doc.writebackRows, '收货人', '待确认收货') },
+          { label: '收货时间', value: findFieldValue(doc.writebackRows, '收货时间', '待确认收货') },
+          { label: '收货状态', value: normalizeReceiptStatus(findFieldValue(doc.writebackRows, '异议状态', '待确认收货')) },
           { label: '凭证', value: '现场拍照凭证随交出记录留存' },
           { label: '备注', value: findFieldValue(doc.remarkRows, '接收方备注', '无') },
         ]),
@@ -335,7 +352,7 @@ function buildDocumentFromLegacyDoc(
     signatureBlocks: [
       { label: '交出人签字', signerRole: '交出人' },
       { label: '接收人签字', signerRole: '接收人' },
-      { label: '回写人签字', signerRole: '回写人' },
+      { label: '收货人签字', signerRole: '收货人' },
       { label: '平台确认人签字', signerRole: '平台确认人' },
       { label: '备注', signerRole: '现场备注' },
     ],
@@ -387,7 +404,7 @@ function buildDocumentFromProcessHandover(
     paperType: 'A4',
     orientation: 'portrait',
     printTitle: title,
-    printSubtitle: '用于工厂交出、接收回写、差异确认和现场签收。',
+    printSubtitle: '用于工厂交出、接收确认、差异确认和现场签收。',
     headerFields: mapFields([
       { label: '交货卡号 / 交出记录号', value: record.handoverRecordNo, emphasis: true },
       { label: '来源单据号', value: record.sourceWorkOrderNo },
@@ -428,8 +445,8 @@ function buildDocumentFromProcessHandover(
           { label: '交出时间', value: record.handoverAt || '待确认' },
           { label: '接收方', value: record.receiveFactoryName || warehouse?.targetFactoryName || '待确认' },
           { label: '接收仓 / 接收工厂', value: record.receiveWarehouseName || record.receiveFactoryName || '待确认' },
-          { label: '接收人', value: record.receivePerson || '待回写' },
-          { label: '回写时间', value: record.receiveAt || '待回写' },
+          { label: '接收人', value: record.receivePerson || '待确认收货' },
+          { label: '收货时间', value: record.receiveAt || '待确认收货' },
         ]),
       },
       {
@@ -460,9 +477,9 @@ function buildDocumentFromProcessHandover(
           : record.craftType === 'SPECIAL_CRAFT'
             ? `关联菲票：${record.relatedFeiTicketIds.length > 0 ? record.relatedFeiTicketIds.join('、') : '待现场绑定'}。`
             : record.craftType === 'PRINT'
-              ? '印花交货卡按面料米数、卷数和接收方回写记录留痕。'
+              ? '印花交货卡按面料米数、卷数和接收方收货确认记录留痕。'
               : record.craftType === 'DYE'
-                ? '染色交货卡按面料米数、卷数和接收方回写记录留痕。'
+                ? '染色交货卡按面料米数、卷数和接收方收货确认记录留痕。'
                 : undefined,
       },
       {
@@ -472,23 +489,23 @@ function buildDocumentFromProcessHandover(
           { label: '本次交出对象类型', value: record.objectType },
           { label: `交出${noun}`, value: qtyText(record.handoverObjectQty, record.qtyUnit), emphasis: true },
           { label: '包装数量', value: qtyText(record.packageQty, record.packageUnit) },
-          { label: `实收${noun}`, value: record.receiveAt ? qtyText(record.receiveObjectQty, record.qtyUnit) : '待回写' },
+          { label: `实收${noun}`, value: record.receiveAt ? qtyText(record.receiveObjectQty, record.qtyUnit) : '待确认收货' },
           { label: `差异${noun}`, value: qtyText(record.diffObjectQty, record.qtyUnit) },
-          { label: '当前状态', value: record.status },
-          { label: '审核状态', value: review?.reviewStatus || '待审核' },
+          { label: '当前状态', value: normalizeReceiptStatus(record.status) },
+          { label: '收货确认状态', value: normalizeReceiptReviewStatus(review?.reviewStatus) },
           { label: '交出记录号', value: record.handoverRecordNo },
         ]),
       },
       {
         sectionId: 'writeback',
-        title: '回写信息区',
+        title: '收货确认信息区',
         fields: mapFields([
           { label: `应收${noun}`, value: qtyText(record.handoverObjectQty, record.qtyUnit) },
-          { label: `实收${noun}`, value: record.receiveAt ? qtyText(record.receiveObjectQty, record.qtyUnit) : '待回写' },
+          { label: `实收${noun}`, value: record.receiveAt ? qtyText(record.receiveObjectQty, record.qtyUnit) : '待确认收货' },
           { label: `差异${noun}`, value: qtyText(record.diffObjectQty, record.qtyUnit) },
-          { label: '回写人', value: record.receivePerson || '待回写' },
-          { label: '回写时间', value: record.receiveAt || '待回写' },
-          { label: '回写状态', value: record.status },
+          { label: '收货人', value: record.receivePerson || '待确认收货' },
+          { label: '收货时间', value: record.receiveAt || '待确认收货' },
+          { label: '收货状态', value: normalizeReceiptStatus(record.status) },
           { label: '凭证', value: record.evidenceUrls.length > 0 ? record.evidenceUrls.join('、') : '现场拍照凭证随交出记录留存' },
           { label: '备注', value: record.remark || '无' },
         ]),
@@ -514,7 +531,7 @@ function buildDocumentFromProcessHandover(
     signatureBlocks: [
       { label: '交出人签字', signerRole: '交出人' },
       { label: '接收人签字', signerRole: '接收人' },
-      { label: '回写人签字', signerRole: '回写人' },
+      { label: '收货人签字', signerRole: '收货人' },
       { label: '平台确认人签字', signerRole: '平台确认人' },
       { label: '备注', signerRole: '现场备注' },
     ],

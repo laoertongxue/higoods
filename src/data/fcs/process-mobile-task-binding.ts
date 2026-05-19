@@ -218,6 +218,9 @@ function mapSpecialCraftExecutionStatus(status: string): ProcessTask['status'] {
 function mapSpecialCraftTaskOrderToMobileTask(taskOrder: SpecialCraftTaskOrder, seq: number): ProcessTask {
   const taskId = taskOrder.sourceTaskId || taskOrder.taskOrderId
   const taskNo = taskOrder.sourceTaskNo || taskOrder.taskOrderNo
+  const isAssigned = taskOrder.assignmentStatus === 'ASSIGNED'
+  const assignedFactoryId = isAssigned ? taskOrder.assignedFactoryId || taskOrder.factoryId : undefined
+  const assignedFactoryName = isAssigned ? taskOrder.assignedFactoryName || taskOrder.factoryName : undefined
   return {
     taskId,
     taskNo,
@@ -230,16 +233,16 @@ function mapSpecialCraftTaskOrderToMobileTask(taskOrder: SpecialCraftTaskOrder, 
     qty: taskOrder.planQty,
     qtyUnit: 'PIECE',
     assignmentMode: 'DIRECT',
-    assignmentStatus: 'ASSIGNED',
+    assignmentStatus: isAssigned ? 'ASSIGNED' : 'UNASSIGNED',
     ownerSuggestion: { kind: 'RECOMMENDED_FACTORY_POOL', recommendedTypes: ['FINISHING'] },
-    assignedFactoryId: taskOrder.factoryId,
-    assignedFactoryName: taskOrder.factoryName,
+    assignedFactoryId,
+    assignedFactoryName,
     qcPoints: [],
     attachments: [],
     status: mapSpecialCraftExecutionStatus(taskOrder.executionStatus),
-    acceptanceStatus: 'ACCEPTED',
-    acceptedAt: taskOrder.createdAt,
-    acceptedBy: taskOrder.factoryName,
+    acceptanceStatus: isAssigned ? 'ACCEPTED' : 'PENDING',
+    acceptedAt: isAssigned ? taskOrder.createdAt : undefined,
+    acceptedBy: isAssigned ? assignedFactoryName : undefined,
     dispatchedAt: taskOrder.createdAt,
     dispatchedBy: '系统',
     dispatchRemark: '特殊工艺任务同步到工厂端移动应用执行',
@@ -258,6 +261,9 @@ function isSpecialCraftTask(task: ProcessTask): boolean {
 }
 
 export function listPdaMobileExecutionTasks(): ProcessTask[] {
+  listPrintWorkOrders()
+  listDyeWorkOrders()
+
   const baseTasks = listPdaTaskFlowTasks().filter((task) => !isSpecialCraftTask(task) && getMobileTaskProcessType(task) !== 'KNITTING')
   const existingTaskIds = new Set(baseTasks.map((task) => task.taskId))
   const genericProcessTasks = [

@@ -185,7 +185,7 @@ const RULES = [
   '必须手工创建：印花加工单由业务人员手工创建',
   '创建方式固定：仅支持按需求创建 / 按备货创建',
   '多需求关联：一个加工单允许同时关联多张需求单',
-  '需求完成判定：以回货批次关联满足为准（加工单不等于需求完成）',
+  '需求完成判定：以收货批次关联满足为准（加工单不等于需求完成）',
 ]
 
 const ORDERS: PrintProcessOrder[] = listPrepProcessOrders('PRINT').map((item) => ({
@@ -313,8 +313,8 @@ const BATCH_STATUS_CLASS: Record<BatchStatusZh, string> = {
 }
 
 const WAITING_RECEIVE_STATUSES: OrderStatusZh[] = ['待下发', '待接单', '待开工', '准备中']
-const IN_PROCESSING_STATUSES: OrderStatusZh[] = ['加工中', '待送货', '待回写', '待审核', '异常']
-const DONE_STATUSES: OrderStatusZh[] = ['已完成']
+const IN_PROCESSING_STATUSES: OrderStatusZh[] = ['加工中', '待交出', '交出待收货', '收货确认中', '部分交出', '收货差异', '异常']
+const DONE_STATUSES: OrderStatusZh[] = ['全部交出', '已完成']
 
 function createDefaultForm(): CreateForm {
   return {
@@ -668,7 +668,7 @@ function renderPlatformSyncSection(order: PrintProcessOrder): string {
       <div class="mt-3 flex flex-wrap gap-2">
         ${renderResultFlag('待交出仓', order.hasWaitHandoverRecord, order.latestWarehouseRecordId)}
         ${renderResultFlag('交出记录', order.hasHandoverRecord, order.latestHandoverRecordId)}
-        ${renderResultFlag('审核记录', order.hasReviewRecord, order.latestReviewRecordId)}
+        ${renderResultFlag('收货确认记录', order.hasReviewRecord, order.latestReviewRecordId)}
         ${renderResultFlag('差异记录', order.hasDifferenceRecord, order.latestDifferenceRecordId)}
       </div>
       <div class="mt-3 flex flex-wrap gap-2">${renderFollowUpLinks(order)}</div>
@@ -722,7 +722,7 @@ function renderOrderRow(order: PrintProcessOrder): string {
           </div>
           <div class="mt-3 flex flex-wrap gap-2 border-t pt-3">
             <a role="button" class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" href="${escapeHtml(detailHref)}" data-nav="${escapeHtml(detailHref)}">查看详情</a>
-            <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-print-order-action="open-batches" data-order-no="${escapeHtml(order.orderNo)}">查看回货批次</button>
+            <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-print-order-action="open-batches" data-order-no="${escapeHtml(order.orderNo)}">查看收货批次</button>
             <button class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted" data-print-order-action="open-demands" data-order-no="${escapeHtml(order.orderNo)}">查看关联需求单</button>
             ${renderFollowUpLinks(order)}
           </div>
@@ -733,7 +733,7 @@ function renderOrderRow(order: PrintProcessOrder): string {
             <h4 class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">结果字段</h4>
             <div class="mt-2 space-y-2 text-sm">
               <div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">${escapeHtml(order.returnedQtyLabel || '已交出裁片数量')}</span><span class="font-medium">${escapeHtml(formatQty(returnedQty, order.unit))}</span></div>
-              <div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">回货批次数</span><span class="font-medium">${batchCount}批</span></div>
+              <div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">收货批次数</span><span class="font-medium">${batchCount}批</span></div>
               <div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">关联需求单</span><span class="text-right text-xs">${escapeHtml(getDemandNosText(order))}</span></div>
               <div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">平台状态</span>${renderBadge(order.status, ORDER_STATUS_CLASS[order.status])}</div>
               <div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">工厂内部状态</span><span class="text-xs">${escapeHtml(order.factoryInternalStatusLabel || order.statusLabel || '—')}</span></div>
@@ -744,7 +744,7 @@ function renderOrderRow(order: PrintProcessOrder): string {
               <div class="flex flex-wrap gap-1 pt-2">
                 ${renderResultFlag('待交出仓', order.hasWaitHandoverRecord, order.latestWarehouseRecordId)}
                 ${renderResultFlag('交出记录', order.hasHandoverRecord, order.latestHandoverRecordId)}
-                ${renderResultFlag('审核记录', order.hasReviewRecord, order.latestReviewRecordId)}
+                ${renderResultFlag('收货确认记录', order.hasReviewRecord, order.latestReviewRecordId)}
                 ${renderResultFlag('差异记录', order.hasDifferenceRecord, order.latestDifferenceRecordId)}
               </div>
               <div class="flex items-start justify-between gap-3"><span class="text-muted-foreground">跟单动作</span><span class="text-right text-xs">${escapeHtml(order.followUpActionLabel || '查看工艺详情')}</span></div>
@@ -808,7 +808,7 @@ function renderDetailDrawer(): string {
           <div class="flex items-start justify-between gap-3">
             <div>
               <h2 class="text-lg font-semibold">印花加工单详情</h2>
-              <p class="mt-1 text-xs text-muted-foreground">执行对象详情、回货进度与批次去向追溯</p>
+              <p class="mt-1 text-xs text-muted-foreground">执行对象详情、收货进度与批次去向追溯</p>
             </div>
             <button class="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted" data-print-order-action="close-drawer" aria-label="关闭"><i data-lucide="x" class="h-4 w-4"></i></button>
           </div>
@@ -849,7 +849,7 @@ function renderDetailDrawer(): string {
               <div><span class="text-muted-foreground">创建时间：</span>${escapeHtml(order.createdAt)}</div>
               <div><span class="text-muted-foreground">更新时间：</span>${escapeHtml(order.updatedAt)}</div>
             </div>
-            <p class="mt-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">执行提示：平台主状态用于跟单收口，工厂内部状态保留印花现场细节点，需求是否完成仍以回货批次关联满足为准。</p>
+            <p class="mt-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">执行提示：平台主状态用于跟单收口，工厂内部状态保留印花现场细节点，需求是否完成仍以收货批次关联满足为准。</p>
           </section>
 
           <section class="rounded-lg border bg-card p-4 ${focusDemands ? 'ring-2 ring-blue-200' : ''}" data-print-order-section="demands">
@@ -887,14 +887,14 @@ function renderDetailDrawer(): string {
           </section>
 
           <section class="rounded-lg border bg-card p-4 ${focusBatches ? 'ring-2 ring-blue-200' : ''}" data-print-order-section="batches">
-            <h3 class="mb-3 text-sm font-semibold">回货批次</h3>
+            <h3 class="mb-3 text-sm font-semibold">收货批次</h3>
             ${
               order.batches.length === 0
-                ? '<p class="text-sm text-muted-foreground">暂无回货批次</p>'
+                ? '<p class="text-sm text-muted-foreground">暂无收货批次</p>'
                 : `
                   <div class="overflow-x-auto rounded-md border">
                     <table class="w-full min-w-[960px] text-sm">
-                      <thead><tr class="border-b bg-muted/40 text-left"><th class="px-3 py-2 font-medium">回货批次号</th><th class="px-3 py-2 font-medium">${escapeHtml(order.returnedQtyLabel || '已交出裁片数量')}</th><th class="px-3 py-2 font-medium">合格${escapeHtml(order.objectType || '裁片')}${order.unit === '米' ? '米数' : '数量'}</th><th class="px-3 py-2 font-medium">当前可关联${escapeHtml(order.objectType || '裁片')}${order.unit === '米' ? '米数' : '数量'}</th><th class="px-3 py-2 font-medium">已关联${escapeHtml(order.objectType || '裁片')}${order.unit === '米' ? '米数' : '数量'}</th><th class="px-3 py-2 font-medium">状态</th><th class="px-3 py-2 font-medium">回货时间</th></tr></thead>
+                      <thead><tr class="border-b bg-muted/40 text-left"><th class="px-3 py-2 font-medium">收货批次号</th><th class="px-3 py-2 font-medium">${escapeHtml(order.returnedQtyLabel || '已交出裁片数量')}</th><th class="px-3 py-2 font-medium">合格${escapeHtml(order.objectType || '裁片')}${order.unit === '米' ? '米数' : '数量'}</th><th class="px-3 py-2 font-medium">当前可关联${escapeHtml(order.objectType || '裁片')}${order.unit === '米' ? '米数' : '数量'}</th><th class="px-3 py-2 font-medium">已关联${escapeHtml(order.objectType || '裁片')}${order.unit === '米' ? '米数' : '数量'}</th><th class="px-3 py-2 font-medium">状态</th><th class="px-3 py-2 font-medium">收货时间</th></tr></thead>
                       <tbody>
                         ${order.batches
                           .map((batch) => `<tr class="border-b last:border-b-0"><td class="px-3 py-2 font-mono text-xs">${escapeHtml(batch.batchNo)}</td><td class="px-3 py-2">${escapeHtml(formatQty(batch.returnedQty, order.unit))}</td><td class="px-3 py-2">${escapeHtml(formatQty(batch.qualifiedQty, order.unit))}</td><td class="px-3 py-2">${escapeHtml(formatQty(batch.availableQty, order.unit))}</td><td class="px-3 py-2">${escapeHtml(formatQty(batch.linkedQty, order.unit))}</td><td class="px-3 py-2">${renderBadge(batch.status, BATCH_STATUS_CLASS[batch.status])}</td><td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(batch.returnedAt)}</td></tr>`)
@@ -914,7 +914,7 @@ function renderDetailDrawer(): string {
                 : `
                   <div class="overflow-x-auto rounded-md border">
                     <table class="w-full min-w-[760px] text-sm">
-                      <thead><tr class="border-b bg-muted/40 text-left"><th class="px-3 py-2 font-medium">回货批次号</th><th class="px-3 py-2 font-medium">需求单号</th><th class="px-3 py-2 font-medium">本次满足${escapeHtml(order.objectType || '裁片')}${order.unit === '米' ? '米数' : '数量'}</th><th class="px-3 py-2 font-medium">关联时间</th></tr></thead>
+                      <thead><tr class="border-b bg-muted/40 text-left"><th class="px-3 py-2 font-medium">收货批次号</th><th class="px-3 py-2 font-medium">需求单号</th><th class="px-3 py-2 font-medium">本次满足${escapeHtml(order.objectType || '裁片')}${order.unit === '米' ? '米数' : '数量'}</th><th class="px-3 py-2 font-medium">关联时间</th></tr></thead>
                       <tbody>
                         ${order.destinations
                           .map((item) => `<tr class="border-b last:border-b-0"><td class="px-3 py-2 font-mono text-xs">${escapeHtml(item.batchNo)}</td><td class="px-3 py-2 font-mono text-xs">${escapeHtml(item.demandId)}</td><td class="px-3 py-2">${escapeHtml(formatQty(item.fulfilledQty, order.unit))}</td><td class="px-3 py-2 text-xs text-muted-foreground">${escapeHtml(item.linkedAt)}</td></tr>`)
@@ -1124,7 +1124,7 @@ export function renderProcessPrintOrdersPage(): string {
         <div class="flex flex-wrap items-end gap-3">
           <div class="min-w-[220px] flex-1">
             <label class="mb-1 block text-xs text-muted-foreground">关键词</label>
-            <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" placeholder="加工单号 / 工厂 / 需求单号 / 回货批次号" value="${escapeHtml(state.keyword)}" data-print-order-field="keyword" />
+            <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" placeholder="加工单号 / 工厂 / 需求单号 / 收货批次号" value="${escapeHtml(state.keyword)}" data-print-order-field="keyword" />
           </div>
           <div class="w-[180px]"><label class="mb-1 block text-xs text-muted-foreground">创建方式</label><select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-print-order-field="modeFilter">${modeOptions.map((mode) => `<option value="${mode}" ${state.modeFilter === mode ? 'selected' : ''}>${mode}</option>`).join('')}</select></div>
           <div class="w-[180px]"><label class="mb-1 block text-xs text-muted-foreground">状态</label><select class="h-9 w-full rounded-md border bg-background px-3 text-sm" data-print-order-field="statusFilter">${statusOptions.map((status) => `<option value="${status}" ${state.statusFilter === status ? 'selected' : ''}>${status}</option>`).join('')}</select></div>

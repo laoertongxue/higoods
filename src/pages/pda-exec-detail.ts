@@ -110,7 +110,6 @@ import type {
   SewingFactoryPostTask,
 } from '../data/fcs/post-finishing-domain.ts'
 import {
-  FULL_CAPABILITY_FACTORY_ID,
   getPostFinishingFlowText,
   getPostFinishingSourceLabel,
   getPostFinishingTaskById,
@@ -134,8 +133,8 @@ import {
   MOBILE_EXECUTION_TASK_TAB_LABELS,
 } from '../data/fcs/mobile-execution-task-index.ts'
 import {
-  getMobileTaskAccessResult,
   getMobileTaskProcessType,
+  getMobileTaskAccessResult,
   listPdaMobileExecutionTasks,
 } from '../data/fcs/process-mobile-task-binding.ts'
 import { getPdaSession } from '../data/fcs/store-domain-pda.ts'
@@ -190,7 +189,7 @@ const detailState: PdaExecDetailState = {
 function mapPostFinishingStatusToTaskStatus(status: string): ProcessTask['status'] {
   if (status.includes('差异')) return 'BLOCKED'
   if (status.includes('中')) return 'IN_PROGRESS'
-  if (status.includes('已交出') || status.includes('已回写') || status.includes('已完成')) return 'DONE'
+  if (status.includes('已交出') || status.includes('已收货') || status.includes('已完成')) return 'DONE'
   return 'NOT_STARTED'
 }
 
@@ -307,9 +306,9 @@ function getHandoverOrderStatusLabel(status: HandoverOrderStatus | undefined): s
     AUTO_CREATED: '已创建',
     OPEN: '可交出',
     PARTIAL_SUBMITTED: '已部分交出',
-    WAIT_RECEIVER_WRITEBACK: '待回写',
-    PARTIAL_WRITTEN_BACK: '部分回写',
-    WRITTEN_BACK: '已回写',
+    WAIT_RECEIVER_WRITEBACK: '待收货',
+    PARTIAL_WRITTEN_BACK: '部分收货',
+    WRITTEN_BACK: '已收货',
     DIFF_WAIT_FACTORY_CONFIRM: '差异待确认',
     HAS_OBJECTION: '有异议',
     OBJECTION_PROCESSING: '异议处理中',
@@ -380,13 +379,13 @@ function renderHandoverOrderCard(handoverOrder: PdaHandoverHead): string {
           <span class="text-xs font-medium">${escapeHtml(getHandoverOrderStatusLabel(handoverOrder.handoverOrderStatus))}</span>
           <span class="text-xs text-muted-foreground">已交出</span>
           <span class="text-xs">${handoverOrder.submittedQtyTotal ?? 0} ${escapeHtml(unitLabel)}</span>
-          <span class="text-xs text-muted-foreground">已回写</span>
+          <span class="text-xs text-muted-foreground">已收货</span>
           <span class="text-xs">${handoverOrder.writtenBackQtyTotal ?? 0} ${escapeHtml(unitLabel)}</span>
           <span class="text-xs text-muted-foreground">差异</span>
           <span class="text-xs">${handoverOrder.diffQtyTotal ?? 0} ${escapeHtml(unitLabel)}</span>
           <span class="text-xs text-muted-foreground">异议</span>
           <span class="text-xs">${handoverOrder.objectionCount} 条</span>
-          <span class="text-xs text-muted-foreground">待回写</span>
+          <span class="text-xs text-muted-foreground">待收货</span>
           <span class="text-xs">${handoverOrder.pendingWritebackCount} 条</span>
         </div>
       </div>
@@ -407,6 +406,14 @@ function renderPrintingStatusBadge(label: string, tone: 'muted' | 'info' | 'warn
             : 'border-slate-200 bg-slate-50 text-slate-700'
 
   return `<span class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs ${className}">${escapeHtml(label)}</span>`
+}
+
+function getReceiptStatusMeta(status: string | undefined): { label: string; tone: 'muted' | 'info' | 'warning' | 'success' | 'danger' } {
+  if (status === 'FULL_HANDOVER') return { label: '全部交出', tone: 'success' }
+  if (status === 'PARTIAL_HANDOVER') return { label: '部分交出', tone: 'warning' }
+  if (status === 'HANDOVER_DIFFERENCE') return { label: '收货差异', tone: 'danger' }
+  if (status === 'WAIT_RECEIVE' || status === 'HANDOVER_WAIT_RECEIVE') return { label: '交出待收货', tone: 'warning' }
+  return { label: '待收货确认', tone: 'muted' }
 }
 
 function canOperatePrintingNode(task: ProcessTask): boolean {
@@ -472,19 +479,10 @@ function renderPrintingTaskCard(
       : renderPrintingStatusBadge('等转印', 'muted')
   const handoverBadge =
     printOrder.status === 'WAIT_HANDOVER'
-      ? renderPrintingStatusBadge('待送货', 'warning')
-      : printOrder.status === 'HANDOVER_SUBMITTED'
-        ? renderPrintingStatusBadge('已交出待回写', 'warning')
-        : handoverSummary.writtenBackQty > 0
-          ? renderPrintingStatusBadge('接收方已回写', 'info')
-          : renderPrintingStatusBadge('未开始', 'muted')
-  const reviewBadge = review
-    ? review.reviewStatus === 'PASS'
-      ? renderPrintingStatusBadge('已完成', 'success')
-      : review.reviewStatus === 'REJECTED'
-        ? renderPrintingStatusBadge('已驳回', 'danger')
-        : renderPrintingStatusBadge('待处理', 'warning')
-    : renderPrintingStatusBadge('待处理', 'muted')
+      ? renderPrintingStatusBadge('待交出', 'warning')
+      : renderPrintingStatusBadge(getReceiptStatusMeta(printOrder.status).label, getReceiptStatusMeta(printOrder.status).tone)
+  const reviewMeta = getReceiptStatusMeta(review?.reviewStatus)
+  const reviewBadge = renderPrintingStatusBadge(reviewMeta.label, reviewMeta.tone)
 
   return `
     <article class="rounded-lg border bg-card">
@@ -494,7 +492,7 @@ function renderPrintingTaskCard(
             <i data-lucide="palette" class="h-4 w-4"></i>
             印花任务
           </h2>
-          ${renderPrintingStatusBadge(getPrintWorkOrderStatusLabel(printOrder.status), printOrder.status === 'COMPLETED' ? 'success' : printOrder.status === 'REJECTED' ? 'danger' : printOrder.status === 'WAIT_HANDOVER' || printOrder.status === 'HANDOVER_SUBMITTED' || printOrder.status === 'WAIT_REVIEW' ? 'warning' : 'info')}
+          ${renderPrintingStatusBadge(getPrintWorkOrderStatusLabel(printOrder.status), printOrder.status === 'FULL_HANDOVER' ? 'success' : printOrder.status === 'HANDOVER_DIFFERENCE' ? 'danger' : printOrder.status === 'WAIT_HANDOVER' || printOrder.status === 'HANDOVER_WAIT_RECEIVE' || printOrder.status === 'PARTIAL_HANDOVER' ? 'warning' : 'info')}
         </div>
       </header>
 
@@ -608,13 +606,13 @@ function renderPrintingTaskCard(
 
           <section class="rounded-lg border bg-background p-3">
             <div class="flex items-center justify-between gap-2">
-              <h3 class="text-sm font-medium">待送货</h3>
+              <h3 class="text-sm font-medium">待交出</h3>
               ${handoverBadge}
             </div>
             <div class="mt-3 space-y-1 text-xs">
               <div><span class="text-muted-foreground">交出单：</span>${escapeHtml(handoverOrder?.handoverOrderNo || printOrder.handoverOrderNo || printOrder.handoverOrderId || '未生成')}</div>
               <div><span class="text-muted-foreground">交出记录：</span>${handoverSummary.recordCount} 条</div>
-              <div><span class="text-muted-foreground">待回写：</span>${handoverSummary.pendingWritebackCount} 条</div>
+              <div><span class="text-muted-foreground">待收货：</span>${handoverSummary.pendingWritebackCount} 条</div>
               <div><span class="text-muted-foreground">${escapeHtml(receivedQtyLabel)}：</span>${handoverSummary.writtenBackQty} ${escapeHtml(getQtyUnitLabel(printOrder.qtyUnit))}</div>
             </div>
             <div class="mt-3 grid grid-cols-2 gap-2">
@@ -640,15 +638,15 @@ function renderPrintingTaskCard(
 
           <section class="rounded-lg border bg-background p-3 xl:col-span-2">
             <div class="flex items-center justify-between gap-2">
-              <h3 class="text-sm font-medium">审核</h3>
+              <h3 class="text-sm font-medium">收货确认</h3>
               ${reviewBadge}
             </div>
             <div class="mt-3 grid gap-x-4 gap-y-1 text-xs sm:grid-cols-2">
               <div><span class="text-muted-foreground">接收方：</span>${escapeHtml(printOrder.targetTransferWarehouseName)}</div>
               <div><span class="text-muted-foreground">${escapeHtml(receivedQtyLabel)}：</span>${review?.receivedQty ?? handoverSummary.writtenBackQty} ${escapeHtml(getQtyUnitLabel(printOrder.qtyUnit))}</div>
               <div><span class="text-muted-foreground">${escapeHtml(diffQtyLabel)}：</span>${review?.diffQty ?? handoverSummary.diffQty} ${escapeHtml(getQtyUnitLabel(printOrder.qtyUnit))}</div>
-              <div><span class="text-muted-foreground">处理状态：</span>${escapeHtml(review ? review.reviewStatus === 'PASS' ? '已完成' : review.reviewStatus === 'REJECTED' ? '已驳回' : '待处理' : '待处理')}</div>
-              <div class="sm:col-span-2"><span class="text-muted-foreground">备注：</span>${escapeHtml(review?.remark || '接收方回写后待处理')}</div>
+              <div><span class="text-muted-foreground">收货状态：</span>${escapeHtml(reviewMeta.label)}</div>
+              <div class="sm:col-span-2"><span class="text-muted-foreground">备注：</span>${escapeHtml(review?.remark || '仓库确认收货后更新状态')}</div>
             </div>
           </section>
         </div>
@@ -779,19 +777,10 @@ function renderDyeingTaskCard(
       : renderPrintingStatusBadge('待染色', 'muted')
   const handoverBadge =
     dyeOrder.status === 'WAIT_HANDOVER'
-      ? renderPrintingStatusBadge('待送货', 'warning')
-      : dyeOrder.status === 'HANDOVER_SUBMITTED'
-        ? renderPrintingStatusBadge('已交出待回写', 'warning')
-        : handoverSummary.writtenBackQty > 0
-          ? renderPrintingStatusBadge('接收方已回写', 'info')
-          : renderPrintingStatusBadge('未开始', 'muted')
-  const reviewBadge = review
-    ? review.reviewStatus === 'PASS'
-      ? renderPrintingStatusBadge('已完成', 'success')
-      : review.reviewStatus === 'REJECTED'
-        ? renderPrintingStatusBadge('已驳回', 'danger')
-        : renderPrintingStatusBadge('待处理', 'warning')
-    : renderPrintingStatusBadge('待处理', 'muted')
+      ? renderPrintingStatusBadge('待交出', 'warning')
+      : renderPrintingStatusBadge(getReceiptStatusMeta(dyeOrder.status).label, getReceiptStatusMeta(dyeOrder.status).tone)
+  const reviewMeta = getReceiptStatusMeta(review?.reviewStatus)
+  const reviewBadge = renderPrintingStatusBadge(reviewMeta.label, reviewMeta.tone)
 
   const postProcessRows = [
     { label: '脱水', code: 'DEHYDRATE' as const, record: dehydrateNode, requireFinished: Boolean(dyeNode?.finishedAt) },
@@ -809,7 +798,7 @@ function renderDyeingTaskCard(
             <i data-lucide="droplets" class="h-4 w-4"></i>
             染色任务
           </h2>
-          ${renderPrintingStatusBadge(getDyeWorkOrderStatusLabel(dyeOrder.status), dyeOrder.status === 'COMPLETED' ? 'success' : dyeOrder.status === 'REJECTED' ? 'danger' : dyeOrder.status === 'WAIT_HANDOVER' || dyeOrder.status === 'HANDOVER_SUBMITTED' || dyeOrder.status === 'WAIT_REVIEW' ? 'warning' : 'info')}
+          ${renderPrintingStatusBadge(getDyeWorkOrderStatusLabel(dyeOrder.status), dyeOrder.status === 'FULL_HANDOVER' ? 'success' : dyeOrder.status === 'HANDOVER_DIFFERENCE' ? 'danger' : dyeOrder.status === 'WAIT_HANDOVER' || dyeOrder.status === 'HANDOVER_WAIT_RECEIVE' || dyeOrder.status === 'PARTIAL_HANDOVER' ? 'warning' : 'info')}
         </div>
       </header>
 
@@ -1007,7 +996,7 @@ function renderDyeingTaskCard(
           <section class="rounded-lg border bg-background p-3 xl:col-span-2">
             <div class="flex items-center justify-between gap-2">
               <h3 class="text-sm font-medium">后处理</h3>
-              ${renderPrintingStatusBadge(packNode?.finishedAt ? '包装完成' : dyeOrder.status === 'WAIT_HANDOVER' || dyeOrder.status === 'HANDOVER_SUBMITTED' ? '待送货' : '按节点推进', packNode?.finishedAt ? 'success' : 'info')}
+              ${renderPrintingStatusBadge(packNode?.finishedAt ? '包装完成' : dyeOrder.status === 'WAIT_HANDOVER' || dyeOrder.status === 'HANDOVER_WAIT_RECEIVE' ? '待交出' : '按节点推进', packNode?.finishedAt ? 'success' : 'info')}
             </div>
             <div class="mt-3 space-y-2">
               ${postProcessRows
@@ -1048,13 +1037,13 @@ function renderDyeingTaskCard(
 
           <section class="rounded-lg border bg-background p-3">
             <div class="flex items-center justify-between gap-2">
-              <h3 class="text-sm font-medium">待送货</h3>
+              <h3 class="text-sm font-medium">待交出</h3>
               ${handoverBadge}
             </div>
             <div class="mt-3 space-y-1 text-xs">
               <div><span class="text-muted-foreground">交出单：</span>${escapeHtml(handoverOrder?.handoverOrderNo || dyeOrder.handoverOrderNo || dyeOrder.handoverOrderId || '未生成')}</div>
               <div><span class="text-muted-foreground">交出记录：</span>${handoverSummary.recordCount} 条</div>
-              <div><span class="text-muted-foreground">待回写：</span>${handoverSummary.pendingWritebackCount} 条</div>
+              <div><span class="text-muted-foreground">待收货：</span>${handoverSummary.pendingWritebackCount} 条</div>
               <div><span class="text-muted-foreground">实收染色面料米数：</span>${handoverSummary.writtenBackQty} ${escapeHtml(getQtyUnitLabel(dyeOrder.qtyUnit))}</div>
             </div>
             <div class="mt-3 grid grid-cols-2 gap-2">
@@ -1070,7 +1059,7 @@ function renderDyeingTaskCard(
                 class="inline-flex h-8 items-center justify-center rounded-md border text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
                 data-pda-execd-action="dye-submit-handover"
                 data-task-id="${escapeHtml(dyeOrder.taskId)}"
-                ${!handoverOrder || (dyeOrder.status !== 'WAIT_HANDOVER' && dyeOrder.status !== 'HANDOVER_SUBMITTED') ? 'disabled' : ''}
+                ${!handoverOrder || (dyeOrder.status !== 'WAIT_HANDOVER' && dyeOrder.status !== 'HANDOVER_WAIT_RECEIVE') ? 'disabled' : ''}
               >
                 发起交出
               </button>
@@ -1079,15 +1068,15 @@ function renderDyeingTaskCard(
 
           <section class="rounded-lg border bg-background p-3">
             <div class="flex items-center justify-between gap-2">
-              <h3 class="text-sm font-medium">审核</h3>
+              <h3 class="text-sm font-medium">收货确认</h3>
               ${reviewBadge}
             </div>
             <div class="mt-3 space-y-1 text-xs">
               <div><span class="text-muted-foreground">接收方：</span>${escapeHtml(dyeOrder.targetTransferWarehouseName)}</div>
               <div><span class="text-muted-foreground">实收染色面料米数：</span>${review?.receivedQty ?? handoverSummary.writtenBackQty} ${escapeHtml(getQtyUnitLabel(dyeOrder.qtyUnit))}</div>
               <div><span class="text-muted-foreground">差异面料米数：</span>${review?.diffQty ?? handoverSummary.diffQty} ${escapeHtml(getQtyUnitLabel(dyeOrder.qtyUnit))}</div>
-              <div><span class="text-muted-foreground">处理状态：</span>${escapeHtml(review ? review.reviewStatus === 'PASS' ? '已完成' : review.reviewStatus === 'REJECTED' ? '已驳回' : '待处理' : '待处理')}</div>
-              <div><span class="text-muted-foreground">备注：</span>${escapeHtml(review?.remark || '接收方回写后待处理')}</div>
+              <div><span class="text-muted-foreground">收货状态：</span>${escapeHtml(reviewMeta.label)}</div>
+              <div><span class="text-muted-foreground">备注：</span>${escapeHtml(review?.remark || '仓库确认收货后更新状态')}</div>
             </div>
           </section>
         </div>
@@ -1851,12 +1840,70 @@ function getSpecialCraftExecBindings(task: ProcessTask) {
   )
 }
 
+type SpecialCraftPdaObjectMeta = {
+  objectType: '面料' | '裁片' | '成衣'
+  objectLabel: '面料' | '裁片' | '成衣'
+  qtyUnit: '米' | '片' | '件'
+  requiresFeiTicket: boolean
+}
+
+function resolveSpecialCraftPdaObjectMeta(workOrder?: { targetObject?: string } | null): SpecialCraftPdaObjectMeta {
+  const targetObject = String(workOrder?.targetObject || '')
+  if (targetObject.includes('成衣')) {
+    return { objectType: '成衣', objectLabel: '成衣', qtyUnit: '件', requiresFeiTicket: false }
+  }
+  if (targetObject.includes('面料')) {
+    return { objectType: '面料', objectLabel: '面料', qtyUnit: '米', requiresFeiTicket: false }
+  }
+  return { objectType: '裁片', objectLabel: '裁片', qtyUnit: '片', requiresFeiTicket: true }
+}
+
+function getSpecialCraftWorkOrderForPdaTask(task: ProcessTask, bindings = getSpecialCraftExecBindings(task)) {
+  const params = getExecDetailSearchParams()
+  const querySourceType = params.get('sourceType') || ''
+  const querySourceId = params.get('sourceId') || ''
+  if (querySourceId && ['SPECIAL_CRAFT', 'SPECIAL_CRAFT_WORK_ORDER'].includes(querySourceType)) {
+    const queryWorkOrder = getSpecialCraftTaskWorkOrderById(querySourceId)
+    if (queryWorkOrder) return queryWorkOrder
+  }
+
+  const sourceInfo = getMobileExecutionTaskSourceInfo(task)
+  if (sourceInfo.sourceId) {
+    const sourceWorkOrder = getSpecialCraftTaskWorkOrderById(sourceInfo.sourceId)
+    if (sourceWorkOrder) return sourceWorkOrder
+  }
+  if (sourceInfo.sourceWorkOrderId) {
+    const sourceWorkOrder = getSpecialCraftTaskWorkOrderById(sourceInfo.sourceWorkOrderId)
+    if (sourceWorkOrder) return sourceWorkOrder
+  }
+
+  const bindingWorkOrderId = bindings[0]?.workOrderId
+  return bindingWorkOrderId ? getSpecialCraftTaskWorkOrderById(bindingWorkOrderId) : undefined
+}
+
+function getSpecialCraftPdaBaseQty(
+  task: ProcessTask,
+  workOrder: ReturnType<typeof getSpecialCraftWorkOrderForPdaTask>,
+  binding: ReturnType<typeof getSpecialCraftExecBindings>[number] | undefined,
+  objectMeta: SpecialCraftPdaObjectMeta,
+): number {
+  if (objectMeta.requiresFeiTicket) {
+    return binding?.receivedQty || binding?.currentQty || binding?.openingQty || workOrder?.receivedQty || workOrder?.currentQty || workOrder?.planQty || task.qty || 0
+  }
+  return workOrder?.receivedQty || workOrder?.currentQty || workOrder?.planQty || task.qty || 0
+}
+
 function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, displayProcessName: string): string {
   const bindings = getSpecialCraftExecBindings(task)
   if (!isSpecialCraftExecutionTask(task, displayProcessName) && bindings.length === 0) return ''
 
+  const workOrder = getSpecialCraftWorkOrderForPdaTask(task, bindings)
+  const objectMeta = resolveSpecialCraftPdaObjectMeta(workOrder)
+  const firstBinding = objectMeta.requiresFeiTicket ? bindings[0] : undefined
   const summaries = bindings.map((binding) => getSpecialCraftFeiTicketScanSummary(binding.feiTicketNo))
-  const ticketRows = summaries.length > 0
+  const ticketRows = !objectMeta.requiresFeiTicket
+    ? `<div class="rounded-md border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">目标对象为${escapeHtml(objectMeta.objectLabel)}，无需绑定菲票，按${escapeHtml(objectMeta.qtyUnit)}记录数量。</div>`
+    : summaries.length > 0
     ? summaries
         .map(
           (summary) => `
@@ -1868,10 +1915,10 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
               <div class="mt-1 grid grid-cols-2 gap-x-3 gap-y-1">
                 <span>当前特殊工艺：${escapeHtml(summary.currentOperationName || '—')}</span>
                 <span>已完成特殊工艺：${escapeHtml(summary.completedOperationNames.join('、') || '无')}</span>
-                <span data-field-label="原数量">原裁片数量：${summary.originalQty} 片</span>
-                <span data-field-label="当前数量">当前裁片数量：${summary.currentQty} 片</span>
-                <span>累计报废裁片数量：${summary.cumulativeScrapQty} 片</span>
-                <span>累计货损裁片数量：${summary.cumulativeDamageQty} 片</span>
+                <span data-field-label="原数量">原${escapeHtml(objectMeta.objectLabel)}数量：${summary.originalQty} ${escapeHtml(objectMeta.qtyUnit)}</span>
+                <span data-field-label="当前数量">当前${escapeHtml(objectMeta.objectLabel)}数量：${summary.currentQty} ${escapeHtml(objectMeta.qtyUnit)}</span>
+                <span>累计报废${escapeHtml(objectMeta.objectLabel)}数量：${summary.cumulativeScrapQty} ${escapeHtml(objectMeta.qtyUnit)}</span>
+                <span>累计货损${escapeHtml(objectMeta.objectLabel)}数量：${summary.cumulativeDamageQty} ${escapeHtml(objectMeta.qtyUnit)}</span>
               </div>
             </div>
           `,
@@ -1879,13 +1926,11 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
         .join('')
     : '<div class="rounded-md border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">暂无绑定菲票</div>'
 
-  const firstBinding = bindings[0]
-  const receivedQty = firstBinding?.receivedQty || firstBinding?.currentQty || firstBinding?.openingQty || 0
+  const receivedQty = getSpecialCraftPdaBaseQty(task, workOrder, firstBinding, objectMeta)
   const scrapQty = Number(detailState.specialCraftScrapQty || 0)
   const damageQty = Number(detailState.specialCraftDamageQty || 0)
   const completedQty = Math.max(receivedQty - (Number.isFinite(scrapQty) ? scrapQty : 0) - (Number.isFinite(damageQty) ? damageQty : 0), 0)
-  const workOrderId = firstBinding?.workOrderId || ''
-  const workOrder = workOrderId ? getSpecialCraftTaskWorkOrderById(workOrderId) : undefined
+  const workOrderId = workOrder?.workOrderId || firstBinding?.workOrderId || ''
   const operationRecords = workOrderId
     ? [
         ...getProcessActionOperationRecordsBySource('SPECIAL_CRAFT', workOrderId),
@@ -1918,7 +1963,7 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
     ? handoverRecords.map((record) => `${record.handoverRecordNo}：${record.handoverObjectQty}${record.qtyUnit}`).join('；')
     : '暂无交出记录'
   const differenceSummary = differenceRecords.length
-    ? differenceRecords.map((record) => `${record.differenceRecordNo}：差异裁片数量${record.diffObjectQty}${record.qtyUnit}`).join('；')
+    ? differenceRecords.map((record) => `${record.differenceRecordNo}：差异${objectMeta.objectLabel}数量${record.diffObjectQty}${record.qtyUnit}`).join('；')
     : '暂无差异记录'
 
   return `
@@ -1926,7 +1971,7 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
       <header class="border-b px-4 py-3">
         <h2 class="flex items-center gap-2 text-sm font-semibold">
           <i data-lucide="scan-line" class="h-4 w-4"></i>
-          特殊工艺菲票
+          特殊工艺${objectMeta.requiresFeiTicket ? '菲票' : '执行'}
         </h2>
       </header>
       <div class="space-y-3 p-4 text-sm" data-writeback-link="linkSpecialCraftCompletionToReturnWaitHandoverStock">
@@ -1936,8 +1981,8 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
             <span>特殊工艺：${escapeHtml(workOrder?.operationName || displayProcessName)}</span>
             <span>工艺工厂：${escapeHtml(workOrder?.factoryName || task.assignedFactoryName || '—')}</span>
             <span>当前状态：${escapeHtml(workOrder?.status || status)}</span>
-            <span>当前裁片数量：${completedQty || workOrder?.currentQty || task.qty} 片</span>
-            <span>绑定菲票数量：${bindings.length} 张</span>
+            <span>当前${escapeHtml(objectMeta.objectLabel)}数量：${completedQty || workOrder?.currentQty || task.qty} ${escapeHtml(objectMeta.qtyUnit)}</span>
+            <span>${objectMeta.requiresFeiTicket ? `绑定菲票数量：${bindings.length} 张` : `目标对象：${escapeHtml(objectMeta.objectLabel)}`}</span>
           </div>
         </div>
         <div class="space-y-2">${ticketRows}</div>
@@ -1946,24 +1991,24 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
             ? `
                 <div class="grid gap-3 sm:grid-cols-3">
                   <label class="space-y-1">
-                    <span class="text-xs text-muted-foreground" data-field-label="报废数量">报废裁片数量</span>
+                    <span class="text-xs text-muted-foreground" data-field-label="报废数量">报废${escapeHtml(objectMeta.objectLabel)}数量</span>
                     <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" type="number" min="0" data-pda-execd-field="specialCraftScrapQty" value="${escapeHtml(detailState.specialCraftScrapQty)}" />
                   </label>
                   <label class="space-y-1">
-                    <span class="text-xs text-muted-foreground" data-field-label="货损数量">货损裁片数量</span>
+                    <span class="text-xs text-muted-foreground" data-field-label="货损数量">货损${escapeHtml(objectMeta.objectLabel)}数量</span>
                     <input class="h-9 w-full rounded-md border bg-background px-3 text-sm" type="number" min="0" data-pda-execd-field="specialCraftDamageQty" value="${escapeHtml(detailState.specialCraftDamageQty)}" />
                   </label>
                   <div class="rounded-md border bg-muted/20 px-3 py-2 text-xs">
-                    <div class="text-muted-foreground" data-field-label="完工后数量">完工后裁片数量</div>
-                    <div class="mt-1 text-sm font-semibold">${completedQty} 片</div>
+                    <div class="text-muted-foreground" data-field-label="完工后数量">完工后${escapeHtml(objectMeta.objectLabel)}数量</div>
+                    <div class="mt-1 text-sm font-semibold">${completedQty} ${escapeHtml(objectMeta.qtyUnit)}</div>
                   </div>
                 </div>
               `
             : ''
         }
         <div class="grid grid-cols-2 gap-2">
-          <button type="button" class="inline-flex h-9 items-center justify-center rounded-md border text-sm hover:bg-muted" data-pda-execd-action="special-bind-fei-ticket" data-task-id="${escapeHtml(task.taskId)}">绑定菲票</button>
-          <button type="button" class="inline-flex h-9 items-center justify-center rounded-md border text-sm hover:bg-muted" data-pda-execd-action="special-receive-cut-pieces" data-task-id="${escapeHtml(task.taskId)}">确认接收裁片</button>
+          ${objectMeta.requiresFeiTicket ? `<button type="button" class="inline-flex h-9 items-center justify-center rounded-md border text-sm hover:bg-muted" data-pda-execd-action="special-bind-fei-ticket" data-task-id="${escapeHtml(task.taskId)}">绑定菲票</button>` : ''}
+          <button type="button" class="inline-flex h-9 items-center justify-center rounded-md border text-sm hover:bg-muted" data-pda-execd-action="special-receive-cut-pieces" data-task-id="${escapeHtml(task.taskId)}">确认接收${escapeHtml(objectMeta.objectLabel)}</button>
           <button type="button" class="inline-flex h-9 items-center justify-center rounded-md border text-sm hover:bg-muted" data-pda-execd-action="special-start-process" data-task-id="${escapeHtml(task.taskId)}">开始加工</button>
           <button type="button" class="inline-flex h-9 items-center justify-center rounded-md border text-sm hover:bg-muted" data-pda-execd-action="special-finish-process" data-task-id="${escapeHtml(task.taskId)}">完成加工</button>
           <button type="button" class="inline-flex h-9 items-center justify-center rounded-md border text-sm hover:bg-muted" data-pda-execd-action="special-report-difference" data-task-id="${escapeHtml(task.taskId)}">上报差异</button>
@@ -2476,20 +2521,6 @@ export function renderPdaExecDetailPage(taskId: string): string {
   }
 
   const currentFactoryId = getPdaSession()?.factoryId || task.assignedFactoryId || TEST_FACTORY_ID
-  if (currentFactoryId === FULL_CAPABILITY_FACTORY_ID && getMobileTaskProcessType(task) !== 'POST_FINISHING') {
-    const content = `
-      <div class="flex min-h-[760px] flex-col bg-background">
-        <div class="p-4">
-          <button class="inline-flex items-center rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-muted" data-pda-execd-action="back">
-            <i data-lucide="arrow-left" class="mr-1 h-4 w-4"></i>
-            返回
-          </button>
-        </div>
-        <div class="flex flex-1 items-center justify-center px-4 text-center text-sm text-muted-foreground">当前工厂为后道工厂，只能处理后道执行任务。</div>
-      </div>
-    `
-    return renderPdaFrame(content, 'exec', { disableTodoAutoOpen: true })
-  }
 
   syncDialogStateWithQuery(task)
 
@@ -2581,7 +2612,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
     ? formatFactoryDisplayName(assignedFactory.name, assignedFactory.code || assignedFactory.id)
     : sourceInfo.factoryDisplayName
 
-  const specialCraftExecutionPanel = mobileTaskAccess.canOpenMobileExecution
+  const specialCraftExecutionPanel = mobileTaskAccess.canOpenMobileExecution && getMobileTaskProcessType(task) === 'SPECIAL_CRAFT'
     ? renderSpecialCraftExecutionPanel(task, status, displayProcessName)
     : ''
   const accessNoticeMeta = getExecDetailAccessNotice(mobileTaskAccess)
@@ -3098,7 +3129,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
                             class="inline-flex h-9 w-full items-center justify-center rounded-md border text-sm text-muted-foreground"
                             disabled
                           >
-                            ${printWorkOrder ? '印花加工单审核通过后完成' : '染色加工单审核通过后完成'}
+                            ${printWorkOrder ? '印花加工单全部交出后完成' : '染色加工单全部交出后完成'}
                           </button>
                         `
                       : `
@@ -3464,7 +3495,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
           remark: '移动端发起交出',
         })
       }
-      showPdaExecDetailToast('交出记录已生成，Web 端送货交出和审核记录已同步')
+      showPdaExecDetailToast('交出记录已生成，Web 端交出与仓库待收货记录已同步')
     } catch (error) {
       showPdaExecDetailToast(error instanceof Error ? error.message : '交出失败')
     }
@@ -3623,6 +3654,8 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       })
       const usedMaterialQtyText = window.prompt(`请输入实际使用${printOrder.qtyUnit === '片' ? '裁片数量' : '原料面料米数'}`, String(printOrder.plannedQty))?.trim() || ''
       const actualCompletedQtyText = window.prompt(`请输入${transferLabel}`, String(printOrder.plannedQty))?.trim() || ''
+      const rollCountText = window.prompt('请输入转印完成卷数', String(printOrder.plannedRollCount || 1))?.trim() || ''
+      const rollLengthText = window.prompt('请输入每卷长度（多卷可用逗号分隔）')?.trim() || ''
       executeMobileProcessAction({
         sourceType: 'PRINT',
         sourceId: printOrder.printOrderId,
@@ -3634,9 +3667,14 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
         objectQty: Number(actualCompletedQtyText),
         qtyUnit: printOrder.qtyUnit,
         qtyLabel: transferLabel,
+        formData: {
+          [printOrder.qtyUnit === '片' ? '实际使用原料裁片数量' : '实际使用原料面料米数']: Number(usedMaterialQtyText),
+          转印完成卷数: Number(rollCountText),
+          每卷长度: rollLengthText,
+        },
         remark: `实际使用原料${Number(usedMaterialQtyText)} ${printOrder.qtyUnit}`,
       })
-      showPdaExecDetailToast('转印完成，已进入待送货')
+      showPdaExecDetailToast('转印完成，已进入待交出')
       return true
     } catch (error) {
       showPdaExecDetailToast(error instanceof Error ? error.message : '保存失败')
@@ -3878,6 +3916,12 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       }
 
       const outputQtyText = window.prompt(`请输入${nodeCode === 'PACK' ? '包装完成面料米数' : '完成面料米数'}（${nodeLabelMap[nodeCode]}）`, String(dyeOrder.plannedQty))?.trim() || ''
+      const packRollCountText = nodeCode === 'PACK'
+        ? window.prompt('请输入包装卷数', String(dyeOrder.plannedRollCount || 1))?.trim() || ''
+        : ''
+      const packRollLengthText = nodeCode === 'PACK'
+        ? window.prompt('请输入每卷长度（多卷可用逗号分隔）')?.trim() || ''
+        : ''
       const finishActionCodeMap: Record<'DEHYDRATE' | 'DRY' | 'SET' | 'ROLL' | 'PACK', string> = {
         DEHYDRATE: 'DYE_FINISH_DEHYDRATION',
         DRY: 'DYE_FINISH_DRYING',
@@ -3895,8 +3939,14 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
         objectType: '面料',
         objectQty: outputQtyText ? Number(outputQtyText) : dyeOrder.plannedQty,
         qtyUnit: dyeOrder.qtyUnit,
+        formData: nodeCode === 'PACK'
+          ? {
+              包装卷数: Number(packRollCountText),
+              每卷长度: packRollLengthText,
+            }
+          : undefined,
       })
-      showPdaExecDetailToast(nodeCode === 'PACK' ? '包装完成，已进入待送货' : `${nodeLabelMap[nodeCode]}完成已记录`)
+      showPdaExecDetailToast(nodeCode === 'PACK' ? '包装完成，已进入待交出' : `${nodeLabelMap[nodeCode]}完成已记录`)
       return true
     } catch (error) {
       showPdaExecDetailToast(error instanceof Error ? error.message : '保存失败')
@@ -3929,7 +3979,10 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
 
       if (action === 'special-report-difference') {
         const task = getTaskFactById(taskId)
-        const sourceId = task ? getSpecialCraftExecBindings(task)[0]?.workOrderId : ''
+        const bindings = task ? getSpecialCraftExecBindings(task) : []
+        const workOrder = task ? getSpecialCraftWorkOrderForPdaTask(task, bindings) : undefined
+        const objectMeta = resolveSpecialCraftPdaObjectMeta(workOrder)
+        const sourceId = workOrder?.workOrderId || ''
         if (!sourceId) {
           showPdaExecDetailToast('特殊工艺工艺单未关联')
           return true
@@ -3937,12 +3990,12 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
         let scrapQty = Number(detailState.specialCraftScrapQty || 0)
         let damageQty = Number(detailState.specialCraftDamageQty || 0)
         if (scrapQty + damageQty <= 0) {
-          const diffQtyText = window.prompt('请输入差异裁片数量', '1')?.trim() || ''
+          const diffQtyText = window.prompt(`请输入差异${objectMeta.objectLabel}数量`, '1')?.trim() || ''
           scrapQty = Number(diffQtyText || 0)
           damageQty = 0
         }
         if (!Number.isFinite(scrapQty) || !Number.isFinite(damageQty) || scrapQty + damageQty <= 0) {
-          showPdaExecDetailToast('请填写有效差异裁片数量')
+          showPdaExecDetailToast(`请填写有效差异${objectMeta.objectLabel}数量`)
           return true
         }
         executeMobileProcessAction({
@@ -3952,22 +4005,25 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
           actionCode: 'SPECIAL_CRAFT_REPORT_DIFFERENCE',
           operatorName: '现场操作员',
           operatedAt: nowTimestamp(),
-          objectType: '裁片',
+          objectType: objectMeta.objectType,
           objectQty: scrapQty + damageQty,
-          qtyUnit: '片',
+          qtyUnit: objectMeta.qtyUnit,
           remark: '移动端上报差异',
         })
-        showPdaExecDetailToast('差异已上报，菲票数量和 Web 端差异记录已同步')
+        showPdaExecDetailToast(`差异已上报，${objectMeta.requiresFeiTicket ? '菲票数量和 ' : ''}Web 端差异记录已同步`)
         return true
       }
 
       const task = getTaskFactById(taskId)
-      const sourceId = task ? getSpecialCraftExecBindings(task)[0]?.workOrderId : ''
+      const bindings = task ? getSpecialCraftExecBindings(task) : []
+      const workOrder = task ? getSpecialCraftWorkOrderForPdaTask(task, bindings) : undefined
+      const objectMeta = resolveSpecialCraftPdaObjectMeta(workOrder)
+      const sourceId = workOrder?.workOrderId || ''
       if (!sourceId) {
         showPdaExecDetailToast('特殊工艺工艺单未关联')
         return true
       }
-      const sourceBinding = getSpecialCraftExecBindings(task as ProcessTask)[0]
+      const sourceBinding = objectMeta.requiresFeiTicket ? bindings[0] : undefined
       const actionCodeMap: Record<string, string> = {
         'special-receive-cut-pieces': 'SPECIAL_CRAFT_RECEIVE_CUT_PIECES',
         'special-start-process': 'SPECIAL_CRAFT_START_PROCESS',
@@ -3976,13 +4032,13 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
         'special-rework-after-reject': 'SPECIAL_CRAFT_REWORK_AFTER_REJECT',
       }
       const actionLabelMap: Record<string, string> = {
-        'special-receive-cut-pieces': '确认接收裁片',
+        'special-receive-cut-pieces': `确认接收${objectMeta.objectLabel}`,
         'special-start-process': '开始加工',
         'special-finish-process': '完成加工',
         'special-submit-handover': '发起交出',
         'special-rework-after-reject': '驳回后重交',
       }
-      const baseQty = sourceBinding?.currentQty || sourceBinding?.receivedQty || sourceBinding?.openingQty || 1
+      const baseQty = getSpecialCraftPdaBaseQty(task as ProcessTask, workOrder, sourceBinding, objectMeta) || 1
       const finishQty = Math.max(
         baseQty - Number(detailState.specialCraftScrapQty || 0) - Number(detailState.specialCraftDamageQty || 0),
         0,
@@ -3994,9 +4050,9 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
         actionCode: actionCodeMap[action] || 'SPECIAL_CRAFT_SUBMIT_HANDOVER',
         operatorName: '现场操作员',
         operatedAt: nowTimestamp(),
-        objectType: '裁片',
+        objectType: objectMeta.objectType,
         objectQty: action === 'special-finish-process' ? finishQty || baseQty : baseQty,
-        qtyUnit: '片',
+        qtyUnit: objectMeta.qtyUnit,
         remark: `移动端${actionLabelMap[action] || '发起交出'}`,
       })
       showPdaExecDetailToast(`特殊工艺${actionLabelMap[action] || '发起交出'}已同步`)
@@ -4269,7 +4325,11 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
     }
     if (!isKnittingTask && isSpecialCraftExecutionTask(task, getTaskProcessDisplayName(task))) {
       try {
-        const sourceId = getSpecialCraftExecBindings(task)[0]?.workOrderId
+        const specialBindings = getSpecialCraftExecBindings(task)
+        const specialWorkOrder = getSpecialCraftWorkOrderForPdaTask(task, specialBindings)
+        const objectMeta = resolveSpecialCraftPdaObjectMeta(specialWorkOrder)
+        const sourceBinding = objectMeta.requiresFeiTicket ? specialBindings[0] : undefined
+        const sourceId = specialWorkOrder?.workOrderId || ''
         if (sourceId) {
           executeMobileProcessAction({
             sourceType: 'SPECIAL_CRAFT',
@@ -4278,9 +4338,9 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
             actionCode: 'SPECIAL_CRAFT_START_PROCESS',
             operatorName: '现场操作员',
             operatedAt: startTime,
-            objectType: '裁片',
-            objectQty: getSpecialCraftExecBindings(task)[0]?.currentQty || getSpecialCraftExecBindings(task)[0]?.receivedQty || task.qty || 1,
-            qtyUnit: '片',
+            objectType: objectMeta.objectType,
+            objectQty: getSpecialCraftPdaBaseQty(task, specialWorkOrder, sourceBinding, objectMeta) || 1,
+            qtyUnit: objectMeta.qtyUnit,
             remark: '移动端开始加工',
           })
         }
@@ -4417,24 +4477,28 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
 
     const displayProcessName = getTaskProcessDisplayName(task)
     const specialCraftBindings = getSpecialCraftExecBindings(task)
-    if (isSpecialCraftExecutionTask(task, displayProcessName) && specialCraftBindings.length > 0) {
+    const specialCraftWorkOrder = getSpecialCraftWorkOrderForPdaTask(task, specialCraftBindings)
+    if (isSpecialCraftExecutionTask(task, displayProcessName) && specialCraftWorkOrder) {
       const scrapQty = Number(detailState.specialCraftScrapQty || 0)
       const damageQty = Number(detailState.specialCraftDamageQty || 0)
       if (!Number.isFinite(scrapQty) || scrapQty < 0 || !Number.isFinite(damageQty) || damageQty < 0) {
         showPdaExecDetailToast('请填写有效报废和货损数量')
           return true
       }
+      const objectMeta = resolveSpecialCraftPdaObjectMeta(specialCraftWorkOrder)
+      const sourceBinding = objectMeta.requiresFeiTicket ? specialCraftBindings[0] : undefined
+      const baseQty = getSpecialCraftPdaBaseQty(task, specialCraftWorkOrder, sourceBinding, objectMeta)
       executeMobileProcessAction({
         sourceType: 'SPECIAL_CRAFT',
-        sourceId: specialCraftBindings[0].workOrderId,
+        sourceId: specialCraftWorkOrder.workOrderId,
         taskId,
         actionCode: 'SPECIAL_CRAFT_FINISH_PROCESS',
         operatorName: '现场操作员',
         operatedAt: nowTimestamp(),
-        objectType: '裁片',
-        objectQty: Math.max((specialCraftBindings[0].currentQty || specialCraftBindings[0].receivedQty || task.qty || 0) - scrapQty - damageQty, 0),
-        qtyUnit: '片',
-        remark: `移动端完成加工，报废裁片数量${scrapQty}片，货损裁片数量${damageQty}片`,
+        objectType: objectMeta.objectType,
+        objectQty: Math.max(baseQty - scrapQty - damageQty, 0),
+        qtyUnit: objectMeta.qtyUnit,
+        remark: `移动端完成加工，报废${objectMeta.objectLabel}数量${scrapQty}${objectMeta.qtyUnit}，货损${objectMeta.objectLabel}数量${damageQty}${objectMeta.qtyUnit}`,
       })
       detailState.specialCraftScrapQty = '0'
       detailState.specialCraftDamageQty = '0'

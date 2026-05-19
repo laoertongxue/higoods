@@ -18,6 +18,7 @@ import {
   type ProcessWebOperationRecord,
 } from '../../../data/fcs/process-web-status-actions.ts'
 import { getPlatformStatusForProcessWorkOrder } from '../../../data/fcs/process-platform-status-adapter.ts'
+import { getStartPrerequisiteByTaskId } from '../../../data/fcs/pda-start-link.ts'
 import { getProcessWorkOrderById, getProcessWorkOrderByNo } from '../../../data/fcs/process-work-order-domain.ts'
 import {
   getDifferenceRecordsByWorkOrderId,
@@ -26,7 +27,6 @@ import {
   handleProcessHandoverDifference,
   type ProcessHandoverDifferenceRecord,
 } from '../../../data/fcs/process-warehouse-domain.ts'
-import { getPrintReviewStatusLabel, type PrintReviewStatus } from '../../../data/fcs/printing-task-domain.ts'
 import { formatFactoryDisplayName } from '../../../data/fcs/factory-mock-data.ts'
 import { appStore } from '../../../state/store.ts'
 import {
@@ -45,8 +45,8 @@ const printDetailTabs: Array<{ key: PrintDetailTab; label: string }> = [
   { key: 'base', label: '基本信息' },
   { key: 'pattern', label: '花型与调色' },
   { key: 'execution', label: '打印转印' },
-  { key: 'handover', label: '送货交出' },
-  { key: 'review', label: '审核记录' },
+  { key: 'handover', label: '交出记录' },
+  { key: 'review', label: '收货确认' },
   { key: 'progress', label: '执行进度' },
   { key: 'exception', label: '异常与结算' },
 ]
@@ -234,9 +234,11 @@ function renderNodeRows(orderId: string): string {
 }
 
 function renderReviewStatusLabel(status: unknown): string {
-  return typeof status === 'string' && ['WAIT_REVIEW', 'PASS', 'REJECTED', 'PARTIAL_PASS'].includes(status)
-    ? getPrintReviewStatusLabel(status as PrintReviewStatus)
-    : '—'
+  if (status === 'FULL_HANDOVER') return '全部交出'
+  if (status === 'PARTIAL_HANDOVER') return '部分交出'
+  if (status === 'HANDOVER_DIFFERENCE') return '收货差异'
+  if (status === 'WAIT_RECEIVE' || status === 'HANDOVER_WAIT_RECEIVE') return '交出待收货'
+  return '—'
 }
 
 function resolveDifferenceAction(): { differenceId: string; action: string } | undefined {
@@ -350,11 +352,11 @@ export function renderCraftPrintingWorkOrderDetailPage(printOrderId: string): st
   const reviewRows = processReviewRecords
     .map((review) => `
       <tr class="border-b last:border-b-0">
-        <td class="px-3 py-3 text-sm">${escapeHtml(review.reviewStatus)}</td>
+        <td class="px-3 py-3 text-sm">${escapeHtml(renderReviewStatusLabel(review.reviewStatus))}</td>
         <td class="px-3 py-3 text-sm">${formatPrintQty(review.expectedObjectQty, review.qtyUnit)}</td>
         <td class="px-3 py-3 text-sm">${formatPrintQty(review.actualObjectQty, review.qtyUnit)}</td>
         <td class="px-3 py-3 text-sm">${formatPrintQty(review.diffObjectQty, review.qtyUnit)}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(review.reviewerName || '待审核')}</td>
+        <td class="px-3 py-3 text-sm">${escapeHtml(review.reviewerName || '待收货确认')}</td>
         <td class="px-3 py-3 text-sm">${escapeHtml(review.reviewedAt || '—')}</td>
         <td class="px-3 py-3 text-sm">${escapeHtml(review.reason || review.nextAction || '—')}</td>
       </tr>
@@ -398,6 +400,7 @@ export function renderCraftPrintingWorkOrderDetailPage(printOrderId: string): st
   const webActions = getAvailablePrintWebActions(order.workOrderId)
   const webOperationRecords = getUnifiedOperationRecordsForProcessWorkOrder('PRINT_WORK_ORDER', order.workOrderId, order.taskId)
   const platformStatus = getPlatformStatusForProcessWorkOrder(order)
+  const startPrerequisite = getStartPrerequisiteByTaskId(order.taskId)
   const sections: Record<PrintDetailTab, string> = {
     base: renderSection(
       '基本信息',
@@ -417,6 +420,9 @@ export function renderCraftPrintingWorkOrderDetailPage(printOrderId: string): st
           ${renderField('绑定状态', mobileBindingStatus)}
           ${renderField('校验结果', mobileBinding.canOpenMobileExecution ? '允许打开移动端执行页' : '当前不可执行')}
           ${renderField('不可执行原因', mobileBindingReasonLabel)}
+          ${renderField('开工准备状态', startPrerequisite?.statusLabel || '按加工单状态判断')}
+          ${renderField('开工前置口径', startPrerequisite?.conditionLabel || '印花加工单已接单')}
+          ${renderField('实际印花前要求', '必须确认领料到位')}
           ${renderField('移动端交出记录引用', order.handoverOrderNo || order.handoverOrderId || '未生成')}
         </div>
       `,
@@ -448,10 +454,10 @@ export function renderCraftPrintingWorkOrderDetailPage(printOrderId: string): st
       `,
     ),
     handover: renderSection(
-      '送货交出',
+      '交出记录',
       `
         <div class="mb-3 grid gap-3 text-sm md:grid-cols-3">
-          ${renderField('待送货接收方', print.targetTransferWarehouseName)}
+          ${renderField('接收方', print.targetTransferWarehouseName)}
           ${renderField('交出单', order.handoverOrderNo || order.handoverOrderId || '未生成')}
           ${renderField('交出记录数', `${processHandoverRecords.length} 条`)}
         </div>
@@ -463,7 +469,7 @@ export function renderCraftPrintingWorkOrderDetailPage(printOrderId: string): st
                 <th class="px-3 py-2 font-medium">提交时间</th>
                 <th class="px-3 py-2 font-medium">${escapeHtml(handoverQtyLabel)}</th>
                 <th class="px-3 py-2 font-medium">${escapeHtml(receivedQtyLabel)}</th>
-                <th class="px-3 py-2 font-medium">回写时间</th>
+                <th class="px-3 py-2 font-medium">收货时间</th>
                 <th class="px-3 py-2 font-medium">备注</th>
               </tr>
             </thead>
@@ -473,22 +479,22 @@ export function renderCraftPrintingWorkOrderDetailPage(printOrderId: string): st
       `,
     ),
     review: renderSection(
-      '审核记录',
+      '收货确认',
       `
         <div class="overflow-x-auto">
           <table class="min-w-full text-left text-sm">
             <thead class="bg-slate-50 text-xs text-muted-foreground">
               <tr>
-                <th class="px-3 py-2 font-medium">审核状态</th>
+                <th class="px-3 py-2 font-medium">收货状态</th>
                 <th class="px-3 py-2 font-medium">${escapeHtml(handoverQtyLabel)}</th>
                 <th class="px-3 py-2 font-medium">${escapeHtml(receivedQtyLabel)}</th>
                 <th class="px-3 py-2 font-medium">${escapeHtml(diffQtyLabel)}</th>
-                <th class="px-3 py-2 font-medium">审核人</th>
-                <th class="px-3 py-2 font-medium">审核时间</th>
+                <th class="px-3 py-2 font-medium">收货确认人</th>
+                <th class="px-3 py-2 font-medium">收货确认时间</th>
                 <th class="px-3 py-2 font-medium">备注</th>
               </tr>
             </thead>
-            <tbody>${reviewRows || '<tr><td class="px-3 py-8 text-center text-sm text-muted-foreground" colspan="7">暂无审核记录</td></tr>'}</tbody>
+            <tbody>${reviewRows || '<tr><td class="px-3 py-8 text-center text-sm text-muted-foreground" colspan="7">暂无收货确认记录</td></tr>'}</tbody>
           </table>
         </div>
       `,

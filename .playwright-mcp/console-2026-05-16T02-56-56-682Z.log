@@ -1,0 +1,5 @@
+[   10891ms] [ERROR] `DialogContent` requires a `DialogTitle` for the component to be accessible for screen reader users.
+
+If you want to hide the `DialogTitle`, you can wrap it with our VisuallyHidden component.
+
+For more information, see https://radix-ui.com/primitives/docs/components/dialog @ https://chatgpt.com/cdn/assets/2340486e-clg423ry0ibju5j0.js:60

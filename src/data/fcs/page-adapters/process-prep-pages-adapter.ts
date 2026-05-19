@@ -27,11 +27,11 @@ type PrepUnit = '片' | '米' | 'Yard'
 type CreateModeZh = '按需求创建' | '按备货创建'
 type DemandStatusZh = '待满足' | '部分满足' | '已满足' | '已完成交接'
 type OrderStatusZh = PlatformProcessStatus
-type LegacyOrderStatusZh = '待接收来料' | '待开工' | '加工中' | '部分回货' | '已完工' | '已关闭'
+type LegacyOrderStatusZh = '待接收来料' | '待开工' | '加工中' | '部分交出' | '全部交出' | '已关闭'
 type ReceiptStatusZh = '待接收' | '部分接收' | '已接收'
 type BatchStatusZh = '待关联' | '部分关联' | '已关联'
 
-type LinkedOrderStatusZh = '进行中' | '待送货' | '待回写' | '待审核' | '异常' | '已回货'
+type LinkedOrderStatusZh = '进行中' | '待交出' | '交出待收货' | '收货确认中' | '部分交出' | '收货差异' | '已收货'
 
 interface PrepProcessMeta {
   processCode: PrepProcessCode
@@ -255,19 +255,20 @@ function toDemandStatus(requiredQty: number, satisfiedQty: number, handoverCompl
 }
 
 function toLinkedOrderStatus(status: OrderStatusZh): LinkedOrderStatusZh {
-  if (status === '待送货') return '待送货'
-  if (status === '待回写') return '待回写'
-  if (status === '待审核') return '待审核'
-  if (status === '异常') return '异常'
-  if (status === '已完成' || status === '已关闭') return '已回货'
+  if (status === '待交出') return '待交出'
+  if (status === '交出待收货') return '交出待收货'
+  if (status === '收货确认中') return '收货确认中'
+  if (status === '部分交出') return '部分交出'
+  if (status === '收货差异' || status === '异常') return '收货差异'
+  if (status === '全部交出' || status === '已完成' || status === '已关闭') return '已收货'
   return '进行中'
 }
 
 function calcOrderStatus(requiredQty: number, satisfiedQty: number, index: number): LegacyOrderStatusZh {
   if (satisfiedQty <= 0) return '待接收来料'
   if (satisfiedQty < requiredQty * 0.4) return '加工中'
-  if (satisfiedQty < requiredQty) return '部分回货'
-  return index % 4 === 0 ? '已关闭' : '已完工'
+  if (satisfiedQty < requiredQty) return '部分交出'
+  return index % 4 === 0 ? '已关闭' : '全部交出'
 }
 
 function legacyOrderStatusToPlatformStatus(status: LegacyOrderStatusZh): OrderStatusZh {
@@ -277,10 +278,10 @@ function legacyOrderStatusToPlatformStatus(status: LegacyOrderStatusZh): OrderSt
       return '待开工'
     case '加工中':
       return '加工中'
-    case '部分回货':
-      return '待回写'
-    case '已完工':
-      return '已完成'
+    case '部分交出':
+      return '部分交出'
+    case '全部交出':
+      return '全部交出'
     case '已关闭':
       return '已关闭'
     default:
@@ -422,15 +423,17 @@ function buildFacts(processCode: PrepProcessCode): {
         ? 'COMPLETED'
         : legacyOrderStatusToPlatformStatus(orderStatus) === '已关闭'
           ? 'CLOSED'
-          : legacyOrderStatusToPlatformStatus(orderStatus) === '待回写'
-            ? 'WAIT_WRITEBACK'
+          : legacyOrderStatusToPlatformStatus(orderStatus) === '部分交出'
+            ? 'PARTIAL_HANDOVER'
+            : legacyOrderStatusToPlatformStatus(orderStatus) === '全部交出'
+              ? 'FULL_HANDOVER'
             : legacyOrderStatusToPlatformStatus(orderStatus) === '加工中'
               ? 'PROCESSING'
               : 'WAIT_START',
       platformStageLabel: '平台聚合状态',
-      platformRiskLevel: legacyOrderStatusToPlatformStatus(orderStatus) === '待回写' ? '预警' : '关注',
+      platformRiskLevel: legacyOrderStatusToPlatformStatus(orderStatus) === '部分交出' ? '预警' : '关注',
       platformRiskLabel: '由演示需求生成的加工单状态',
-      platformActionHint: '跟进加工单执行与回货关联',
+      platformActionHint: '跟进加工单执行与交出收货',
       platformOwnerHint: '平台 / 工艺工厂',
       createMode,
       factoryName: meta.factoryNames[index % meta.factoryNames.length],
@@ -669,7 +672,7 @@ function mapUnifiedWorkOrderToPrepOrder(order: ProcessWorkOrder): PrepProcessOrd
       receivedQty: satisfiedQty,
       receivedAt: order.handoverRecords[0]?.factorySubmittedAt || order.updatedAt,
       receiptVoucher: order.handoverOrderNo || order.handoverOrderId || '待交出后回填',
-      qualityConclusion: order.status === 'REJECTED' ? '接收方回写后审核驳回，需工厂复核处理。' : '同一加工单事实源回写。',
+      qualityConclusion: order.status === 'REJECTED' ? '接收方确认收货存在差异，需工厂复核处理。' : '同一加工单事实源收货确认。',
     },
     batches:
       submittedQty > 0

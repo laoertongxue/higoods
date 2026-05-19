@@ -31,35 +31,35 @@ function renderTopMetrics(): string {
       ${renderMetricCard('打印中印花加工单数', String(statistics.statusCounts['打印中'] || 0), '机台执行中')}
       ${renderMetricCard('待转印印花加工单数', String(statistics.statusCounts['待转印'] || 0), '打印完成待转印')}
       ${renderMetricCard('转印中印花加工单数', String(statistics.statusCounts['转印中'] || 0), '转印执行中')}
-      ${renderMetricCard('待送货印花加工单数', String(statistics.statusCounts['待送货'] || 0), '转印完成待送货')}
+      ${renderMetricCard('待交出印花加工单数', String(statistics.statusCounts['待交出'] || 0), '转印完成待发起交出')}
       ${renderMetricCard('待交出印花加工单数', String(statistics.waitHandoverRecordCount), '统一待交出仓')}
-      ${renderMetricCard('待审核印花加工单数', String(statistics.waitReviewCount), '统一审核记录')}
-      ${renderMetricCard('已完成印花加工单数', String(statistics.statusCounts['已完成'] || 0), '审核通过')}
-      ${renderMetricCard('已驳回印花加工单数', String(statistics.statusCounts['已驳回'] || 0), '审核驳回')}
+      ${renderMetricCard('交出待收货印花加工单数', String(statistics.waitReviewCount), '统一收货确认记录')}
+      ${renderMetricCard('全部交出印花加工单数', String(statistics.statusCounts['全部交出'] || 0), '仓库确认全部收货')}
+      ${renderMetricCard('收货差异印花加工单数', String(statistics.statusCounts['收货差异'] || 0), '仓库确认存在差异')}
       ${renderMetricCard('需求单印花数量', `${statistics.plannedPrintFabricMeters} 米`, '统一加工单计划')}
       ${renderMetricCard('待印花面料米数 / 裁片数量', `${statistics.waitProcessFabricMeters} 米`, '统一待加工仓')}
       ${renderMetricCard('打印完成面料米数 / 裁片数量', `${statistics.printCompletedFabricMeters} 米`, '执行节点')}
       ${renderMetricCard('转印完成面料米数 / 裁片数量', `${statistics.transferCompletedFabricMeters} 米`, '执行节点')}
       ${renderMetricCard('待交出面料米数 / 裁片数量', `${statistics.waitHandoverFabricMeters} 米`, '统一待交出仓')}
       ${renderMetricCard('已交出面料米数 / 裁片数量', `${statistics.handedOverFabricMeters} 米`, '统一交出记录')}
-      ${renderMetricCard('实收面料米数 / 裁片数量', `${statistics.receivedFabricMeters} 米`, '接收方回写')}
+      ${renderMetricCard('实收面料米数 / 裁片数量', `${statistics.receivedFabricMeters} 米`, '接收方确认收货')}
       ${renderMetricCard('差异面料米数 / 裁片数量', `${statistics.diffFabricMeters} 米`, '统一差异口径')}
       ${renderMetricCard('印花待加工仓记录数', String(statistics.waitProcessRecordCount), '统一待加工仓')}
       ${renderMetricCard('印花待交出仓记录数', String(statistics.waitHandoverRecordCount), '统一待交出仓')}
       ${renderMetricCard('印花已部分交出记录数', String(statistics.partialHandoverRecordCount), '统一仓记录')}
-      ${renderMetricCard('印花待回写交出记录数', String(statistics.waitWritebackHandoverCount), '统一交出记录')}
-      ${renderMetricCard('印花已回写交出记录数', String(statistics.writtenBackHandoverCount), '统一交出记录')}
+      ${renderMetricCard('印花待收货交出记录数', String(statistics.waitWritebackHandoverCount), '统一交出记录')}
+      ${renderMetricCard('印花已收货交出记录数', String(statistics.writtenBackHandoverCount), '统一交出记录')}
       ${renderMetricCard('印花有差异交出记录数', String(statistics.differenceHandoverCount), '统一差异记录')}
       ${renderMetricCard('印花数量差异记录数', String(statistics.differenceRecordCount), '统一差异记录')}
       ${renderMetricCard('印花待处理差异记录数', String(statistics.pendingDifferenceRecordCount), '统一差异记录')}
       ${renderMetricCard('印花需重新交出记录数', String(statistics.reworkDifferenceRecordCount), '统一差异记录')}
-      ${renderMetricCard('印花待审核记录数', String(statistics.waitReviewCount), '统一审核记录')}
-      ${renderMetricCard('印花审核通过记录数', String(statistics.reviewPassCount), '统一审核记录')}
-      ${renderMetricCard('印花审核驳回记录数', String(statistics.reviewRejectCount), '统一审核记录')}
+      ${renderMetricCard('印花待收货确认记录数', String(statistics.waitReviewCount), '统一收货确认记录')}
+      ${renderMetricCard('印花全部交出确认记录数', String(statistics.reviewPassCount), '统一收货确认记录')}
+      ${renderMetricCard('印花收货差异记录数', String(statistics.reviewRejectCount), '统一收货确认记录')}
       ${renderMetricCard('打印平均耗时', `${statistics.printAverageHours} 小时`, '执行节点')}
       ${renderMetricCard('转印平均耗时', `${statistics.transferAverageHours} 小时`, '执行节点')}
-      ${renderMetricCard('交出平均回写耗时', `${statistics.handoverAverageWritebackHours} 小时`, '统一交出记录')}
-      ${renderMetricCard('待回写超时记录数', String(statistics.overdueWritebackCount), '超过 48 小时')}
+      ${renderMetricCard('交出平均收货确认耗时', `${statistics.handoverAverageWritebackHours} 小时`, '统一交出记录')}
+      ${renderMetricCard('待收货超时记录数', String(statistics.overdueWritebackCount), '超过 48 小时')}
     </section>
   `
 }
@@ -142,7 +142,7 @@ function renderOrderStats(): string {
                 disabled: !order.handoverOrderId,
               })}
               ${renderActionButton({
-                label: '查看加工单审核',
+                label: '查看收货确认',
                 action: 'navigate',
                 attrs: { href: `${buildPrintingWorkOrderDetailLink(order.printOrderId)}?tab=review` },
               })}

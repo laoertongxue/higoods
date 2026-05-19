@@ -165,7 +165,7 @@ function buildTaskRouteCardPrintDocumentForSource(
       { label: '执行确认签字', signerRole: '操作人' },
       { label: '交出确认签字', signerRole: '交出人' },
       { label: '接收确认签字', signerRole: '接收方' },
-      { label: '审核确认签字', signerRole: '审核人' },
+      { label: '收货确认签字', signerRole: '收货人' },
     ],
     differenceBlocks: [
       {

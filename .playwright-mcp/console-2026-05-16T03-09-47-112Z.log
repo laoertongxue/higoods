@@ -1,0 +1,57 @@
+[    5457ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://web-api.qiniu.com/api/proxy/gaea/api/developer-view/overview:0
+[    5460ms] [WARNING] Get advert-info for www-homepage_button-4 failed. @ https://www-static.qbox.me/_next/static/UEHeLAxmgWO6Rc03LJVsU/pages/index.js:0
+[    5460ms] [WARNING] Get advert-info for www-homepage_button-1 failed. @ https://www-static.qbox.me/_next/static/UEHeLAxmgWO6Rc03LJVsU/pages/index.js:0
+[    5465ms] [WARNING] Get advert-info for www-homepage_button-3 failed. @ https://www-static.qbox.me/_next/static/UEHeLAxmgWO6Rc03LJVsU/pages/index.js:0
+[    5471ms] [WARNING] Get advert-info for www-homepage_button-2 failed. @ https://www-static.qbox.me/_next/static/UEHeLAxmgWO6Rc03LJVsU/pages/index.js:0
+[    5665ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_CLOSED @ https://cm.g.doubleclick.net/pixel?google_nid=MEV&google_sc&google_cm&tid=3&from_mv=1&google_ula=2121606:0
+[    5703ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_CLOSED @ https://cm.miaozhen.atm.youku.com/cm.gif?dspid=11115:0
+[    6431ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_CLOSED @ https://stats.g.doubleclick.net/g/collect?v=2&tid=G-JP28X22DD7&cid=560433377.1778900994&gtm=45je65d0v876680672za20g&rcb=7&aip=1&dma=0&gcd=13l3l3l3l1l1&npa=0&frm=0&tag_exp=0~115938466~115938468:0
+[    6707ms] [VERBOSE] [DOM] Password field is not contained in a form: (More info: https://goo.gl/9p2vKq) %o @ https://sso.qiniu.com/?client_id=K6a8OASEcABGpG8RywoRjyzF6PW73g2E&redirect_url=https%3A%2F%2Fwww.qiniu.com%2F:0
+[    6707ms] [VERBOSE] [DOM] Password field is not contained in a form: (More info: https://goo.gl/9p2vKq) %o @ https://sso.qiniu.com/?client_id=K6a8OASEcABGpG8RywoRjyzF6PW73g2E&redirect_url=https%3A%2F%2Fwww.qiniu.com%2F:0
+[    6855ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://web-api.qiniu.com/api/proxy/gaea/api/developer-view/overview:0
+[    7222ms] [LOG] call 'https://web-api.qiniu.com/api/proxy/uc-biz/wx/mini-program/qr-code/signin' completed @ https://sso.qiniu.com/asserts/js/qrcode.js?2:78
+[    7222ms] [LOG] undefined @ https://sso.qiniu.com/asserts/js/qrcode.js?2:78
+[    8320ms] [LOG] call 'https://web-api.qiniu.com/api/proxy/uc-biz/wx/mini-program/qr-code/status?qr_key=JfMJp2o74H0B4bmm' completed @ https://sso.qiniu.com/asserts/js/base.js?11:68
+[    9273ms] [LOG] call 'https://web-api.qiniu.com/api/proxy/uc-biz/wx/mini-program/qr-code/status?qr_key=JfMJp2o74H0B4bmm' completed @ https://sso.qiniu.com/asserts/js/base.js?11:68
+[   10276ms] [LOG] call 'https://web-api.qiniu.com/api/proxy/uc-biz/wx/mini-program/qr-code/status?qr_key=JfMJp2o74H0B4bmm' completed @ https://sso.qiniu.com/asserts/js/base.js?11:68
+[   11281ms] [LOG] call 'https://web-api.qiniu.com/api/proxy/uc-biz/wx/mini-program/qr-code/status?qr_key=JfMJp2o74H0B4bmm' completed @ https://sso.qiniu.com/asserts/js/base.js?11:68
+[   12277ms] [LOG] call 'https://web-api.qiniu.com/api/proxy/uc-biz/wx/mini-program/qr-code/status?qr_key=JfMJp2o74H0B4bmm' completed @ https://sso.qiniu.com/asserts/js/base.js?11:68
+[   13273ms] [LOG] call 'https://web-api.qiniu.com/api/proxy/uc-biz/wx/mini-program/qr-code/status?qr_key=JfMJp2o74H0B4bmm' completed @ https://sso.qiniu.com/asserts/js/base.js?11:68
+[   14325ms] [LOG] call 'https://web-api.qiniu.com/api/proxy/uc-biz/wx/mini-program/qr-code/status?qr_key=JfMJp2o74H0B4bmm' completed @ https://sso.qiniu.com/asserts/js/base.js?11:68
+[   15284ms] [LOG] call 'https://web-api.qiniu.com/api/proxy/uc-biz/wx/mini-program/qr-code/status?qr_key=JfMJp2o74H0B4bmm' completed @ https://sso.qiniu.com/asserts/js/base.js?11:68
+[   16197ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://sso.qiniu.com/signin?client_id=K6a8OASEcABGpG8RywoRjyzF6PW73g2E&redirect_url=https%3A%2F%2Fwww.qiniu.com%2F:0
+[   16288ms] [LOG] call 'https://web-api.qiniu.com/api/proxy/uc-biz/wx/mini-program/qr-code/status?qr_key=JfMJp2o74H0B4bmm' completed @ https://sso.qiniu.com/asserts/js/base.js?11:68
+[   17275ms] [LOG] call 'https://web-api.qiniu.com/api/proxy/uc-biz/wx/mini-program/qr-code/status?qr_key=JfMJp2o74H0B4bmm' completed @ https://sso.qiniu.com/asserts/js/base.js?11:68
+[   18277ms] [LOG] call 'https://web-api.qiniu.com/api/proxy/uc-biz/wx/mini-program/qr-code/status?qr_key=JfMJp2o74H0B4bmm' completed @ https://sso.qiniu.com/asserts/js/base.js?11:68
+[   19285ms] [LOG] call 'https://web-api.qiniu.com/api/proxy/uc-biz/wx/mini-program/qr-code/status?qr_key=JfMJp2o74H0B4bmm' completed @ https://sso.qiniu.com/asserts/js/base.js?11:68
+[   19756ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://sso.qiniu.com/signin?client_id=K6a8OASEcABGpG8RywoRjyzF6PW73g2E&redirect_url=https%3A%2F%2Fwww.qiniu.com%2F:0
+[   20323ms] [LOG] call 'https://web-api.qiniu.com/api/proxy/uc-biz/wx/mini-program/qr-code/status?qr_key=JfMJp2o74H0B4bmm' completed @ https://sso.qiniu.com/asserts/js/base.js?11:68
+[   21284ms] [LOG] call 'https://web-api.qiniu.com/api/proxy/uc-biz/wx/mini-program/qr-code/status?qr_key=JfMJp2o74H0B4bmm' completed @ https://sso.qiniu.com/asserts/js/base.js?11:68
+[   22280ms] [LOG] call 'https://web-api.qiniu.com/api/proxy/uc-biz/wx/mini-program/qr-code/status?qr_key=JfMJp2o74H0B4bmm' completed @ https://sso.qiniu.com/asserts/js/base.js?11:68
+[   23280ms] [LOG] call 'https://web-api.qiniu.com/api/proxy/uc-biz/wx/mini-program/qr-code/status?qr_key=JfMJp2o74H0B4bmm' completed @ https://sso.qiniu.com/asserts/js/base.js?11:68
+[   24276ms] [LOG] call 'https://web-api.qiniu.com/api/proxy/uc-biz/wx/mini-program/qr-code/status?qr_key=JfMJp2o74H0B4bmm' completed @ https://sso.qiniu.com/asserts/js/base.js?11:68
+[   25287ms] [LOG] call 'https://web-api.qiniu.com/api/proxy/uc-biz/wx/mini-program/qr-code/status?qr_key=JfMJp2o74H0B4bmm' completed @ https://sso.qiniu.com/asserts/js/base.js?11:68
+[   26367ms] [LOG] call 'https://web-api.qiniu.com/api/proxy/uc-biz/wx/mini-program/qr-code/status?qr_key=JfMJp2o74H0B4bmm' completed @ https://sso.qiniu.com/asserts/js/base.js?11:68
+[   27317ms] [LOG] call 'https://web-api.qiniu.com/api/proxy/uc-biz/wx/mini-program/qr-code/status?qr_key=JfMJp2o74H0B4bmm' completed @ https://sso.qiniu.com/asserts/js/base.js?11:68
+[   28280ms] [LOG] call 'https://web-api.qiniu.com/api/proxy/uc-biz/wx/mini-program/qr-code/status?qr_key=JfMJp2o74H0B4bmm' completed @ https://sso.qiniu.com/asserts/js/base.js?11:68
+[   29282ms] [LOG] call 'https://web-api.qiniu.com/api/proxy/uc-biz/wx/mini-program/qr-code/status?qr_key=JfMJp2o74H0B4bmm' completed @ https://sso.qiniu.com/asserts/js/base.js?11:68
+[   29990ms] [VERBOSE] [DOM] Password field is not contained in a form: (More info: https://goo.gl/9p2vKq) %o @ https://sso.qiniu.com/?client_id=K6a8OASEcABGpG8RywoRjyzF6PW73g2E&redirect_url=https%3A%2F%2Fwww.qiniu.com%2F:0
+[   29990ms] [VERBOSE] [DOM] Password field is not contained in a form: (More info: https://goo.gl/9p2vKq) %o @ https://sso.qiniu.com/?client_id=K6a8OASEcABGpG8RywoRjyzF6PW73g2E&redirect_url=https%3A%2F%2Fwww.qiniu.com%2F:0
+[   30123ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://web-api.qiniu.com/api/proxy/gaea/api/developer-view/overview:0
+[   30571ms] [LOG] call 'https://web-api.qiniu.com/api/proxy/uc-biz/wx/mini-program/qr-code/signin' completed @ https://sso.qiniu.com/asserts/js/qrcode.js?2:78
+[   30571ms] [LOG] undefined @ https://sso.qiniu.com/asserts/js/qrcode.js?2:78
+[   31647ms] [LOG] call 'https://web-api.qiniu.com/api/proxy/uc-biz/wx/mini-program/qr-code/status?qr_key=BLzCy2T4H6RCLC9h' completed @ https://sso.qiniu.com/asserts/js/base.js?11:68
+[   32636ms] [LOG] call 'https://web-api.qiniu.com/api/proxy/uc-biz/wx/mini-program/qr-code/status?qr_key=BLzCy2T4H6RCLC9h' completed @ https://sso.qiniu.com/asserts/js/base.js?11:68
+[   33620ms] [LOG] call 'https://web-api.qiniu.com/api/proxy/uc-biz/wx/mini-program/qr-code/status?qr_key=BLzCy2T4H6RCLC9h' completed @ https://sso.qiniu.com/asserts/js/base.js?11:68
+[   34622ms] [LOG] call 'https://web-api.qiniu.com/api/proxy/uc-biz/wx/mini-program/qr-code/status?qr_key=BLzCy2T4H6RCLC9h' completed @ https://sso.qiniu.com/asserts/js/base.js?11:68
+[   35622ms] [LOG] call 'https://web-api.qiniu.com/api/proxy/uc-biz/wx/mini-program/qr-code/status?qr_key=BLzCy2T4H6RCLC9h' completed @ https://sso.qiniu.com/asserts/js/base.js?11:68
+[   36638ms] [LOG] call 'https://web-api.qiniu.com/api/proxy/uc-biz/wx/mini-program/qr-code/status?qr_key=BLzCy2T4H6RCLC9h' completed @ https://sso.qiniu.com/asserts/js/base.js?11:68
+[   37672ms] [LOG] call 'https://web-api.qiniu.com/api/proxy/uc-biz/wx/mini-program/qr-code/status?qr_key=BLzCy2T4H6RCLC9h' completed @ https://sso.qiniu.com/asserts/js/base.js?11:68
+[   38624ms] [LOG] call 'https://web-api.qiniu.com/api/proxy/uc-biz/wx/mini-program/qr-code/status?qr_key=BLzCy2T4H6RCLC9h' completed @ https://sso.qiniu.com/asserts/js/base.js?11:68
+[   39638ms] [LOG] call 'https://web-api.qiniu.com/api/proxy/uc-biz/wx/mini-program/qr-code/status?qr_key=BLzCy2T4H6RCLC9h' completed @ https://sso.qiniu.com/asserts/js/base.js?11:68
+[   40622ms] [LOG] call 'https://web-api.qiniu.com/api/proxy/uc-biz/wx/mini-program/qr-code/status?qr_key=BLzCy2T4H6RCLC9h' completed @ https://sso.qiniu.com/asserts/js/base.js?11:68
+[   41378ms] [WARNING] Get advert-info for www-homepage_button-1 failed. @ https://www-static.qbox.me/_next/static/UEHeLAxmgWO6Rc03LJVsU/pages/index.js:0
+[   41412ms] [WARNING] Get advert-info for www-homepage_button-3 failed. @ https://www-static.qbox.me/_next/static/UEHeLAxmgWO6Rc03LJVsU/pages/index.js:0
+[   41412ms] [WARNING] Get advert-info for www-homepage_button-4 failed. @ https://www-static.qbox.me/_next/static/UEHeLAxmgWO6Rc03LJVsU/pages/index.js:0
+[   41412ms] [WARNING] Get advert-info for www-homepage_button-2 failed. @ https://www-static.qbox.me/_next/static/UEHeLAxmgWO6Rc03LJVsU/pages/index.js:0
+[   48003ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_CLOSED @ https://local.info.g9hc4.cn:54360/?callback=uuidjsonpcb2020&t=1778901028613:0

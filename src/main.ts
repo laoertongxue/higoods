@@ -10,6 +10,10 @@ type DispatchBoardPageModule = typeof import('./pages/dispatch-board')
 type FactoryProfilePageModule = typeof import('./pages/factory-profile')
 type CraftCuttingMarkerPlanPageModule = typeof import('./pages/process-factory/cutting/marker-plan')
 type CraftCuttingMarkerSpreadingPageModule = typeof import('./pages/process-factory/cutting/marker-spreading')
+type CraftPrintingWarehousePageModule = typeof import('./pages/process-factory/printing/warehouse')
+type CraftDyeingWarehousePageModule = typeof import('./pages/process-factory/dyeing/warehouse')
+type FactoryWarehouseSharedModule = typeof import('./pages/process-factory/shared/warehouse-standard')
+type PrintPreviewPageModule = typeof import('./pages/print/print-preview')
 type PdaExecPageModule = typeof import('./pages/pda-exec')
 type RoutesModule = typeof import('./router/routes')
 
@@ -20,6 +24,10 @@ let dispatchBoardPageModulePromise: Promise<DispatchBoardPageModule> | null = nu
 let factoryProfilePageModulePromise: Promise<FactoryProfilePageModule> | null = null
 let craftCuttingMarkerPlanPageModulePromise: Promise<CraftCuttingMarkerPlanPageModule> | null = null
 let craftCuttingMarkerSpreadingPageModulePromise: Promise<CraftCuttingMarkerSpreadingPageModule> | null = null
+let craftPrintingWarehousePageModulePromise: Promise<CraftPrintingWarehousePageModule> | null = null
+let craftDyeingWarehousePageModulePromise: Promise<CraftDyeingWarehousePageModule> | null = null
+let factoryWarehouseSharedModulePromise: Promise<FactoryWarehouseSharedModule> | null = null
+let printPreviewPageModulePromise: Promise<PrintPreviewPageModule> | null = null
 let pdaExecPageModulePromise: Promise<PdaExecPageModule> | null = null
 let routesModulePromise: Promise<RoutesModule> | null = null
 
@@ -91,6 +99,46 @@ function getCraftCuttingMarkerSpreadingPageModule(): Promise<CraftCuttingMarkerS
     })
   }
   return craftCuttingMarkerSpreadingPageModulePromise
+}
+
+function getCraftPrintingWarehousePageModule(): Promise<CraftPrintingWarehousePageModule> {
+  if (!craftPrintingWarehousePageModulePromise) {
+    craftPrintingWarehousePageModulePromise = import('./pages/process-factory/printing/warehouse').catch((error) => {
+      craftPrintingWarehousePageModulePromise = null
+      throw error
+    })
+  }
+  return craftPrintingWarehousePageModulePromise
+}
+
+function getCraftDyeingWarehousePageModule(): Promise<CraftDyeingWarehousePageModule> {
+  if (!craftDyeingWarehousePageModulePromise) {
+    craftDyeingWarehousePageModulePromise = import('./pages/process-factory/dyeing/warehouse').catch((error) => {
+      craftDyeingWarehousePageModulePromise = null
+      throw error
+    })
+  }
+  return craftDyeingWarehousePageModulePromise
+}
+
+function getFactoryWarehouseSharedModule(): Promise<FactoryWarehouseSharedModule> {
+  if (!factoryWarehouseSharedModulePromise) {
+    factoryWarehouseSharedModulePromise = import('./pages/process-factory/shared/warehouse-standard').catch((error) => {
+      factoryWarehouseSharedModulePromise = null
+      throw error
+    })
+  }
+  return factoryWarehouseSharedModulePromise
+}
+
+function getPrintPreviewPageModule(): Promise<PrintPreviewPageModule> {
+  if (!printPreviewPageModulePromise) {
+    printPreviewPageModulePromise = import('./pages/print/print-preview').catch((error) => {
+      printPreviewPageModulePromise = null
+      throw error
+    })
+  }
+  return printPreviewPageModulePromise
 }
 
 function getPdaExecPageModule(): Promise<PdaExecPageModule> {
@@ -371,9 +419,30 @@ let renderSerial = 0
 
 async function renderCurrentPageContent(pathname: string): Promise<string> {
   try {
-    if (pathname.split('?')[0].split('#')[0] === '/fcs/pda/exec') {
+    const normalizedPathname = pathname.split('?')[0].split('#')[0]
+    if (normalizedPathname === '/fcs/pda/exec') {
       const pdaExecPage = await getPdaExecPageModule()
       return pdaExecPage.renderPdaExecPage()
+    }
+    if (normalizedPathname === '/fcs/craft/printing/wait-process-warehouse') {
+      const printingWarehousePage = await getCraftPrintingWarehousePageModule()
+      return printingWarehousePage.renderCraftPrintingWaitProcessWarehousePage()
+    }
+    if (normalizedPathname === '/fcs/craft/printing/wait-handover-warehouse') {
+      const printingWarehousePage = await getCraftPrintingWarehousePageModule()
+      return printingWarehousePage.renderCraftPrintingWaitHandoverWarehousePage()
+    }
+    if (normalizedPathname === '/fcs/craft/dyeing/wait-process-warehouse') {
+      const dyeingWarehousePage = await getCraftDyeingWarehousePageModule()
+      return dyeingWarehousePage.renderCraftDyeingWaitProcessWarehousePage()
+    }
+    if (normalizedPathname === '/fcs/craft/dyeing/wait-handover-warehouse') {
+      const dyeingWarehousePage = await getCraftDyeingWarehousePageModule()
+      return dyeingWarehousePage.renderCraftDyeingWaitHandoverWarehousePage()
+    }
+    if (normalizedPathname === '/fcs/print/preview') {
+      const printPreviewPage = await getPrintPreviewPageModule()
+      return printPreviewPage.renderPrintPreviewPage()
     }
     const { resolvePage } = await getRoutesModule()
     return resolvePage(pathname)
@@ -864,6 +933,15 @@ root.addEventListener('click', async (event) => {
   if (shellActionNode && handleShellAction(shellActionNode)) {
     event.preventDefault()
     return
+  }
+
+  const warehouseSharedNode = target.closest<HTMLElement>('[data-warehouse-flow-action], [data-factory-warehouse-location-action]')
+  if (warehouseSharedNode) {
+    event.preventDefault()
+    const warehouseShared = await getFactoryWarehouseSharedModule()
+    if (await warehouseShared.handleFactoryWarehouseSharedEvent(warehouseSharedNode)) {
+      return
+    }
   }
 
   const directNavNode = target.closest<HTMLElement>('[data-nav]')

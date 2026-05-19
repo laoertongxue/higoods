@@ -34,15 +34,14 @@ export type PrintWorkOrderStatus =
   | 'TRANSFERRING'
   | 'TRANSFER_DONE'
   | 'WAIT_HANDOVER'
-  | 'HANDOVER_SUBMITTED'
-  | 'RECEIVER_WRITTEN_BACK'
-  | 'WAIT_REVIEW'
-  | 'REVIEWING'
-  | 'COMPLETED'
-  | 'REJECTED'
+  | 'HANDOVER_WAIT_RECEIVE'
+  | 'PARTIAL_HANDOVER'
+  | 'FULL_HANDOVER'
+  | 'HANDOVER_DIFFERENCE'
 
-export type PrintExecutionNodeCode = 'COLOR_TEST' | 'PRINT' | 'TRANSFER' | 'HANDOVER' | 'REVIEW'
-export type PrintReviewStatus = 'WAIT_REVIEW' | 'PASS' | 'REJECTED' | 'PARTIAL_PASS'
+export type PrintExecutionNodeCode = 'COLOR_TEST' | 'PRINT' | 'TRANSFER' | 'HANDOVER'
+export type PrintReceiptStatus = 'WAIT_RECEIVE' | 'PARTIAL_HANDOVER' | 'FULL_HANDOVER' | 'HANDOVER_DIFFERENCE'
+export type PrintReviewStatus = PrintReceiptStatus
 
 export interface PrintWorkOrder {
   printOrderId: string
@@ -138,10 +137,10 @@ export interface PrintWorkOrderSummary {
   printingCount: number
   transferringCount: number
   waitHandoverCount: number
-  waitWritebackCount: number
-  waitReviewCount: number
-  completedCount: number
-  rejectedCount: number
+  waitReceiveCount: number
+  partialHandoverCount: number
+  fullHandoverCount: number
+  handoverDifferenceCount: number
   printCompletedQty: number
   transferCompletedQty: number
   usedMaterialQty: number
@@ -159,28 +158,25 @@ export const PRINT_WORK_ORDER_STATUS_LABEL: Record<PrintWorkOrderStatus, string>
   WAIT_TRANSFER: '待转印',
   TRANSFERRING: '转印中',
   TRANSFER_DONE: '转印完成',
-  WAIT_HANDOVER: '待送货',
-  HANDOVER_SUBMITTED: '待回写',
-  RECEIVER_WRITTEN_BACK: '待审核',
-  WAIT_REVIEW: '待审核',
-  REVIEWING: '审核中',
-  COMPLETED: '已完成',
-  REJECTED: '已驳回',
+  WAIT_HANDOVER: '待交出',
+  HANDOVER_WAIT_RECEIVE: '交出待收货',
+  PARTIAL_HANDOVER: '部分交出',
+  FULL_HANDOVER: '全部交出',
+  HANDOVER_DIFFERENCE: '收货差异',
 }
 
 export const PRINT_NODE_LABEL: Record<PrintExecutionNodeCode, string> = {
   COLOR_TEST: '花型测试',
   PRINT: '打印',
   TRANSFER: '转印',
-  HANDOVER: '待送货',
-  REVIEW: '审核',
+  HANDOVER: '交出',
 }
 
 export const PRINT_REVIEW_STATUS_LABEL: Record<PrintReviewStatus, string> = {
-  WAIT_REVIEW: '待审核',
-  PASS: '审核通过',
-  REJECTED: '审核驳回',
-  PARTIAL_PASS: '部分通过',
+  WAIT_RECEIVE: '交出待收货',
+  PARTIAL_HANDOVER: '部分交出',
+  FULL_HANDOVER: '全部交出',
+  HANDOVER_DIFFERENCE: '收货差异',
 }
 
 type MutablePrintWorkOrder = PrintWorkOrder
@@ -193,11 +189,11 @@ const PRINT_WORK_ORDER_IDS = {
   WAIT_PRINT: 'PWO-PRINT-003',
   PRINTING: 'PWO-PRINT-004',
   WAIT_HANDOVER: 'PWO-PRINT-005',
-  HANDOVER_SUBMITTED: 'PWO-PRINT-006',
-  WAIT_REVIEW: 'PWO-PRINT-007',
-  COMPLETED: 'PWO-PRINT-008',
+  HANDOVER_WAIT_RECEIVE: 'PWO-PRINT-006',
+  PARTIAL_HANDOVER: 'PWO-PRINT-007',
+  FULL_HANDOVER: 'PWO-PRINT-008',
   TRANSFERRING: 'PWO-PRINT-009',
-  REJECTED: 'PWO-PRINT-010',
+  HANDOVER_DIFFERENCE: 'PWO-PRINT-010',
   WAIT_PRINT_EXTRA: 'PWO-PRINT-011',
   PRINTING_EXTRA: 'PWO-PRINT-012',
 } as const
@@ -552,8 +548,11 @@ function seedWorkOrders(): void {
     blockRemark: undefined,
   })
   syncLinkedTaskState('TASK-PRINT-000719', {
-    status: 'DONE',
+    status: 'IN_PROGRESS',
     acceptanceStatus: 'ACCEPTED',
+    finishedAt: undefined,
+    blockReason: undefined,
+    blockRemark: undefined,
   })
   syncLinkedTaskState('TASK-PRINT-000720', {
     status: 'DONE',
@@ -752,7 +751,7 @@ function seedWorkOrders(): void {
   })
 
   addSeedWorkOrder({
-    printOrderId: PRINT_WORK_ORDER_IDS.HANDOVER_SUBMITTED,
+    printOrderId: PRINT_WORK_ORDER_IDS.HANDOVER_WAIT_RECEIVE,
     printOrderNo: 'PH-20260328-006',
     sourceType: 'PRODUCTION_ORDER',
     sourceDemandIds: ['PRD-PRINT-006'],
@@ -769,17 +768,17 @@ function seedWorkOrders(): void {
     printFactoryName: TEST_FACTORY_NAME,
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
-    status: 'HANDOVER_SUBMITTED',
+    status: 'HANDOVER_WAIT_RECEIVE',
     taskId: 'TASK-PRINT-000719',
     taskNo: 'TASK-PRINT-000719',
     createdAt: '2026-03-27 11:00:00',
     updatedAt: '2026-03-28 18:20:00',
     handoverOrderId: handoverHead?.handoverOrderId || handoverHead?.handoverId,
-    remark: '已送中转区域，仍有一条交出记录待回写',
+    remark: '已发起交出，等待中转区域确认收货',
   })
 
   addSeedWorkOrder({
-    printOrderId: PRINT_WORK_ORDER_IDS.WAIT_REVIEW,
+    printOrderId: PRINT_WORK_ORDER_IDS.PARTIAL_HANDOVER,
     printOrderNo: 'PH-20260328-007',
     sourceType: 'PRODUCTION_ORDER',
     sourceDemandIds: ['PRD-PRINT-007'],
@@ -796,13 +795,13 @@ function seedWorkOrders(): void {
     printFactoryName: TEST_FACTORY_NAME,
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
-    status: 'WAIT_REVIEW',
+    status: 'PARTIAL_HANDOVER',
     taskId: 'TASK-PRINT-000720',
     taskNo: 'TASK-PRINT-000720',
     createdAt: '2026-03-27 11:30:00',
     updatedAt: '2026-03-28 17:30:00',
     handoverOrderId: waitReviewSeed.handoverOrderId,
-    remark: '接收方已回写，等待中转审核',
+    remark: '中转区域已确认部分收货',
   })
 
   addSeedWorkOrder({
@@ -832,7 +831,7 @@ function seedWorkOrders(): void {
   })
 
   addSeedWorkOrder({
-    printOrderId: PRINT_WORK_ORDER_IDS.REJECTED,
+    printOrderId: PRINT_WORK_ORDER_IDS.HANDOVER_DIFFERENCE,
     printOrderNo: 'PH-20260329-010',
     sourceType: 'PRODUCTION_ORDER',
     sourceDemandIds: ['PRD-PRINT-010'],
@@ -849,17 +848,17 @@ function seedWorkOrders(): void {
     printFactoryName: TEST_FACTORY_NAME,
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
-    status: 'REJECTED',
+    status: 'HANDOVER_DIFFERENCE',
     taskId: 'TASK-PRINT-000712',
     taskNo: 'TASK-PRINT-000712',
     createdAt: '2026-03-28 08:50:00',
     updatedAt: '2026-03-29 14:20:00',
     handoverOrderId: rejectedSeed.handoverOrderId,
-    remark: '中转审核驳回，需从待送货节点重新处理',
+    remark: '中转区域收货存在差异，需补送或复核',
   })
 
   addSeedWorkOrder({
-    printOrderId: PRINT_WORK_ORDER_IDS.COMPLETED,
+    printOrderId: PRINT_WORK_ORDER_IDS.FULL_HANDOVER,
     printOrderNo: 'PH-20260329-008',
     sourceType: 'PRODUCTION_ORDER',
     sourceDemandIds: ['PRD-PRINT-008'],
@@ -876,13 +875,13 @@ function seedWorkOrders(): void {
     printFactoryName: TEST_FACTORY_NAME,
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
-    status: 'COMPLETED',
+    status: 'FULL_HANDOVER',
     taskId: 'TASK-PRINT-000721',
     taskNo: 'TASK-PRINT-000721',
     createdAt: '2026-03-28 08:00:00',
     updatedAt: '2026-03-29 17:10:00',
     handoverOrderId: completedSeed.handoverOrderId,
-    remark: '接收方回写后审核通过，可进入中转可配置',
+    remark: '中转区域已全部确认收货',
   })
 
   addSeedWorkOrder({
@@ -1089,13 +1088,13 @@ function seedNodeRecords(): void {
       usedMaterialQty: 832,
       actualCompletedQty: 796,
       qtyUnit: '片',
-      remark: '转印结束，等待送货',
+      remark: '转印结束，等待交出',
     },
   ])
-  setNodeRecords(PRINT_WORK_ORDER_IDS.HANDOVER_SUBMITTED, [
+  setNodeRecords(PRINT_WORK_ORDER_IDS.HANDOVER_WAIT_RECEIVE, [
     {
-      nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.HANDOVER_SUBMITTED, 'COLOR_TEST'),
-      printOrderId: PRINT_WORK_ORDER_IDS.HANDOVER_SUBMITTED,
+      nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.HANDOVER_WAIT_RECEIVE, 'COLOR_TEST'),
+      printOrderId: PRINT_WORK_ORDER_IDS.HANDOVER_WAIT_RECEIVE,
       taskId: 'TASK-PRINT-000719',
       nodeCode: 'COLOR_TEST',
       nodeName: PRINT_NODE_LABEL.COLOR_TEST,
@@ -1107,8 +1106,8 @@ function seedNodeRecords(): void {
       remark: '花型测试通过',
     },
     {
-      nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.HANDOVER_SUBMITTED, 'PRINT'),
-      printOrderId: PRINT_WORK_ORDER_IDS.HANDOVER_SUBMITTED,
+      nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.HANDOVER_WAIT_RECEIVE, 'PRINT'),
+      printOrderId: PRINT_WORK_ORDER_IDS.HANDOVER_WAIT_RECEIVE,
       taskId: 'TASK-PRINT-000719',
       nodeCode: 'PRINT',
       nodeName: PRINT_NODE_LABEL.PRINT,
@@ -1124,8 +1123,8 @@ function seedNodeRecords(): void {
       remark: '打印结束',
     },
     {
-      nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.HANDOVER_SUBMITTED, 'TRANSFER'),
-      printOrderId: PRINT_WORK_ORDER_IDS.HANDOVER_SUBMITTED,
+      nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.HANDOVER_WAIT_RECEIVE, 'TRANSFER'),
+      printOrderId: PRINT_WORK_ORDER_IDS.HANDOVER_WAIT_RECEIVE,
       taskId: 'TASK-PRINT-000719',
       nodeCode: 'TRANSFER',
       nodeName: PRINT_NODE_LABEL.TRANSFER,
@@ -1136,13 +1135,13 @@ function seedNodeRecords(): void {
       usedMaterialQty: 1060,
       actualCompletedQty: 1044,
       qtyUnit: '片',
-      remark: '转印结束，已安排送货',
+      remark: '转印结束，已发起交出',
     },
   ])
-  setNodeRecords(PRINT_WORK_ORDER_IDS.WAIT_REVIEW, [
+  setNodeRecords(PRINT_WORK_ORDER_IDS.PARTIAL_HANDOVER, [
     {
-      nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.WAIT_REVIEW, 'COLOR_TEST'),
-      printOrderId: PRINT_WORK_ORDER_IDS.WAIT_REVIEW,
+      nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.PARTIAL_HANDOVER, 'COLOR_TEST'),
+      printOrderId: PRINT_WORK_ORDER_IDS.PARTIAL_HANDOVER,
       taskId: 'TASK-PRINT-000720',
       nodeCode: 'COLOR_TEST',
       nodeName: PRINT_NODE_LABEL.COLOR_TEST,
@@ -1154,8 +1153,8 @@ function seedNodeRecords(): void {
       remark: '花型测试通过',
     },
     {
-      nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.WAIT_REVIEW, 'PRINT'),
-      printOrderId: PRINT_WORK_ORDER_IDS.WAIT_REVIEW,
+      nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.PARTIAL_HANDOVER, 'PRINT'),
+      printOrderId: PRINT_WORK_ORDER_IDS.PARTIAL_HANDOVER,
       taskId: 'TASK-PRINT-000720',
       nodeCode: 'PRINT',
       nodeName: PRINT_NODE_LABEL.PRINT,
@@ -1171,8 +1170,8 @@ function seedNodeRecords(): void {
       remark: '打印结束',
     },
     {
-      nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.WAIT_REVIEW, 'TRANSFER'),
-      printOrderId: PRINT_WORK_ORDER_IDS.WAIT_REVIEW,
+      nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.PARTIAL_HANDOVER, 'TRANSFER'),
+      printOrderId: PRINT_WORK_ORDER_IDS.PARTIAL_HANDOVER,
       taskId: 'TASK-PRINT-000720',
       nodeCode: 'TRANSFER',
       nodeName: PRINT_NODE_LABEL.TRANSFER,
@@ -1183,7 +1182,7 @@ function seedNodeRecords(): void {
       usedMaterialQty: 482,
       actualCompletedQty: 468,
       qtyUnit: '片',
-      remark: '转印结束，已送货并完成回写',
+      remark: '转印结束，已完成部分收货确认',
     },
   ])
 
@@ -1230,14 +1229,14 @@ function seedNodeRecords(): void {
       usedMaterialQty: 1016,
       actualCompletedQty: 620,
       qtyUnit: '片',
-      remark: '转印中，待完成后送货',
+      remark: '转印中，待完成后交出',
     },
   ])
 
-  setNodeRecords(PRINT_WORK_ORDER_IDS.REJECTED, [
+  setNodeRecords(PRINT_WORK_ORDER_IDS.HANDOVER_DIFFERENCE, [
     {
-      nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.REJECTED, 'COLOR_TEST'),
-      printOrderId: PRINT_WORK_ORDER_IDS.REJECTED,
+      nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.HANDOVER_DIFFERENCE, 'COLOR_TEST'),
+      printOrderId: PRINT_WORK_ORDER_IDS.HANDOVER_DIFFERENCE,
       taskId: 'TASK-PRINT-000712',
       nodeCode: 'COLOR_TEST',
       nodeName: PRINT_NODE_LABEL.COLOR_TEST,
@@ -1249,8 +1248,8 @@ function seedNodeRecords(): void {
       remark: '花型测试通过',
     },
     {
-      nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.REJECTED, 'PRINT'),
-      printOrderId: PRINT_WORK_ORDER_IDS.REJECTED,
+      nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.HANDOVER_DIFFERENCE, 'PRINT'),
+      printOrderId: PRINT_WORK_ORDER_IDS.HANDOVER_DIFFERENCE,
       taskId: 'TASK-PRINT-000712',
       nodeCode: 'PRINT',
       nodeName: PRINT_NODE_LABEL.PRINT,
@@ -1266,8 +1265,8 @@ function seedNodeRecords(): void {
       remark: '打印完成',
     },
     {
-      nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.REJECTED, 'TRANSFER'),
-      printOrderId: PRINT_WORK_ORDER_IDS.REJECTED,
+      nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.HANDOVER_DIFFERENCE, 'TRANSFER'),
+      printOrderId: PRINT_WORK_ORDER_IDS.HANDOVER_DIFFERENCE,
       taskId: 'TASK-PRINT-000712',
       nodeCode: 'TRANSFER',
       nodeName: PRINT_NODE_LABEL.TRANSFER,
@@ -1278,14 +1277,14 @@ function seedNodeRecords(): void {
       usedMaterialQty: 750,
       actualCompletedQty: 742,
       qtyUnit: '片',
-      remark: '转印完成，已送货后被审核驳回',
+      remark: '转印完成，交出收货存在差异',
     },
   ])
 
-  setNodeRecords(PRINT_WORK_ORDER_IDS.COMPLETED, [
+  setNodeRecords(PRINT_WORK_ORDER_IDS.FULL_HANDOVER, [
     {
-      nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.COMPLETED, 'COLOR_TEST'),
-      printOrderId: PRINT_WORK_ORDER_IDS.COMPLETED,
+      nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.FULL_HANDOVER, 'COLOR_TEST'),
+      printOrderId: PRINT_WORK_ORDER_IDS.FULL_HANDOVER,
       taskId: 'TASK-PRINT-000721',
       nodeCode: 'COLOR_TEST',
       nodeName: PRINT_NODE_LABEL.COLOR_TEST,
@@ -1297,8 +1296,8 @@ function seedNodeRecords(): void {
       remark: '花型测试通过',
     },
     {
-      nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.COMPLETED, 'PRINT'),
-      printOrderId: PRINT_WORK_ORDER_IDS.COMPLETED,
+      nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.FULL_HANDOVER, 'PRINT'),
+      printOrderId: PRINT_WORK_ORDER_IDS.FULL_HANDOVER,
       taskId: 'TASK-PRINT-000721',
       nodeCode: 'PRINT',
       nodeName: PRINT_NODE_LABEL.PRINT,
@@ -1314,8 +1313,8 @@ function seedNodeRecords(): void {
       remark: '打印完成',
     },
     {
-      nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.COMPLETED, 'TRANSFER'),
-      printOrderId: PRINT_WORK_ORDER_IDS.COMPLETED,
+      nodeRecordId: createNodeRecordId(PRINT_WORK_ORDER_IDS.FULL_HANDOVER, 'TRANSFER'),
+      printOrderId: PRINT_WORK_ORDER_IDS.FULL_HANDOVER,
       taskId: 'TASK-PRINT-000721',
       nodeCode: 'TRANSFER',
       nodeName: PRINT_NODE_LABEL.TRANSFER,
@@ -1326,13 +1325,13 @@ function seedNodeRecords(): void {
       usedMaterialQty: 636,
       actualCompletedQty: 624,
       qtyUnit: '片',
-      remark: '转印完成，已送货并审核通过',
+      remark: '转印完成，已全部交出',
     },
   ])
 }
 
 function seedReviewRecords(): void {
-  const waitReviewOrder = workOrderStore.get(PRINT_WORK_ORDER_IDS.WAIT_REVIEW)
+  const waitReviewOrder = workOrderStore.get(PRINT_WORK_ORDER_IDS.PARTIAL_HANDOVER)
   if (!waitReviewOrder?.handoverOrderId) return
 
   const head = getHandoverOrderById(waitReviewOrder.handoverOrderId)
@@ -1352,11 +1351,11 @@ function seedReviewRecords(): void {
     receivedRollCount: 4,
     receivedLength: 126,
     lengthUnit: '米',
-    reviewStatus: 'WAIT_REVIEW',
-    remark: '接收方回写后待中转审核',
+    reviewStatus: 'PARTIAL_HANDOVER',
+    remark: '中转区域已确认部分收货',
   })
 
-  const completedOrder = workOrderStore.get(PRINT_WORK_ORDER_IDS.COMPLETED)
+  const completedOrder = workOrderStore.get(PRINT_WORK_ORDER_IDS.FULL_HANDOVER)
   if (!completedOrder?.handoverOrderId) return
 
   const completedHead = getHandoverOrderById(completedOrder.handoverOrderId)
@@ -1376,13 +1375,13 @@ function seedReviewRecords(): void {
     receivedRollCount: 5,
     receivedLength: 168,
     lengthUnit: '米',
-    reviewStatus: 'PASS',
-    reviewedBy: '中转审核员',
+    reviewStatus: 'FULL_HANDOVER',
+    reviewedBy: '中转仓管',
     reviewedAt: '2026-03-29 17:10:00',
-    remark: '接收方回写后审核通过',
+    remark: '中转区域已全部确认收货',
   })
 
-  const rejectedOrder = workOrderStore.get(PRINT_WORK_ORDER_IDS.REJECTED)
+  const rejectedOrder = workOrderStore.get(PRINT_WORK_ORDER_IDS.HANDOVER_DIFFERENCE)
   if (!rejectedOrder?.handoverOrderId) return
 
   const rejectedHead = getHandoverOrderById(rejectedOrder.handoverOrderId)
@@ -1402,11 +1401,11 @@ function seedReviewRecords(): void {
     receivedRollCount: 6,
     receivedLength: 236,
     lengthUnit: '米',
-    reviewStatus: 'REJECTED',
-    reviewedBy: '中转审核员',
+    reviewStatus: 'HANDOVER_DIFFERENCE',
+    reviewedBy: '中转仓管',
     reviewedAt: '2026-03-29 14:20:00',
     rejectReason: '局部花位偏差，需退回补送',
-    remark: '审核驳回后回到待送货处理',
+    remark: '收货差异，需要补送或复核',
   })
 }
 
@@ -1416,45 +1415,89 @@ function seedDomain(): void {
   seedWorkOrders()
   seedNodeRecords()
   seedReviewRecords()
-  syncDerivedWorkflow()
 }
 
 function syncOrderFromReview(order: MutablePrintWorkOrder, review?: MutableReviewRecord): boolean {
   if (!review) return false
 
-  if (review.reviewStatus === 'PASS') {
-    order.status = 'COMPLETED'
-  } else if (review.reviewStatus === 'REJECTED') {
-    order.status = 'REJECTED'
-  } else if (review.reviewStatus === 'PARTIAL_PASS') {
-    order.status = 'COMPLETED'
-  } else if (review.reviewStatus === 'WAIT_REVIEW') {
-    order.status = 'WAIT_REVIEW'
+  if (review.reviewStatus === 'FULL_HANDOVER') {
+    order.status = 'FULL_HANDOVER'
+  } else if (review.reviewStatus === 'HANDOVER_DIFFERENCE') {
+    order.status = 'HANDOVER_DIFFERENCE'
+  } else if (review.reviewStatus === 'PARTIAL_HANDOVER') {
+    order.status = 'PARTIAL_HANDOVER'
   } else {
-    order.status = 'REVIEWING'
+    order.status = 'HANDOVER_WAIT_RECEIVE'
   }
   return true
 }
 
-function ensureReviewForWrittenBackOrder(order: MutablePrintWorkOrder, head: PdaHandoverHead): void {
-  if (reviewRecordStore.has(order.printOrderId)) return
-  if ((head.pendingWritebackCount ?? 0) > 0 || (head.writtenBackQtyTotal ?? 0) <= 0) return
+function getPrintCompletedQty(order: MutablePrintWorkOrder): number {
+  const nodes = nodeRecordStore.get(order.printOrderId) ?? []
+  const transferQty = nodes.find((node) => node.nodeCode === 'TRANSFER')?.actualCompletedQty
+  const printQty = nodes.find((node) => node.nodeCode === 'PRINT')?.outputQty
+  return Number(transferQty ?? printQty ?? order.plannedQty ?? 0)
+}
 
+function resolvePrintReceiptStatus(input: {
+  completedQty: number
+  submittedQty: number
+  receivedQty: number
+  forceDifference?: boolean
+}): PrintReviewStatus {
+  const completedQty = Math.max(Number(input.completedQty || 0), 0)
+  const submittedQty = Math.max(Number(input.submittedQty || 0), 0)
+  const receivedQty = Math.max(Number(input.receivedQty || 0), 0)
+  if (input.forceDifference || receivedQty > submittedQty) return 'HANDOVER_DIFFERENCE'
+  if (receivedQty <= 0) return 'WAIT_RECEIVE'
+  if (completedQty > 0 && receivedQty < completedQty) return 'PARTIAL_HANDOVER'
+  return 'FULL_HANDOVER'
+}
+
+function ensureReviewForHandoverOrder(order: MutablePrintWorkOrder, head: PdaHandoverHead): void {
   const records = getPdaHandoverRecordsByHead(head.handoverId)
+  const submittedQty = head.submittedQtyTotal ?? 0
+  const receivedQty = head.pendingWritebackCount && head.pendingWritebackCount > 0 ? 0 : (head.writtenBackQtyTotal ?? 0)
+  const diffQty = head.pendingWritebackCount && head.pendingWritebackCount > 0 ? 0 : (head.diffQtyTotal ?? receivedQty - submittedQty)
+  const reviewStatus = resolvePrintReceiptStatus({
+    completedQty: getPrintCompletedQty(order),
+    submittedQty,
+    receivedQty,
+    forceDifference: Math.abs(diffQty) > 0 && receivedQty > 0,
+  })
+
+  const current = reviewRecordStore.get(order.printOrderId)
+  if (current) {
+    current.handoverOrderId = head.handoverOrderId || head.handoverId
+    current.handoverRecordIds = records.map((record) => record.handoverRecordId)
+    current.receiverName = order.targetTransferWarehouseName
+    current.submittedQty = submittedQty
+    if (current.reviewStatus === 'WAIT_RECEIVE') {
+      current.receivedQty = receivedQty
+      current.diffQty = diffQty
+      current.receivedRollCount = receivedQty > 0 ? order.plannedRollCount : undefined
+      current.receivedLength = receivedQty > 0 ? Math.max(receivedQty, 0) / 3 : undefined
+      current.lengthUnit = '米'
+      current.reviewStatus = reviewStatus
+      current.remark = current.remark || (reviewStatus === 'WAIT_RECEIVE' ? '交出记录已生成，等待接收方确认收货' : '接收方已确认收货')
+    }
+    return
+  }
+
   reviewRecordStore.set(order.printOrderId, {
     reviewRecordId: `PRV-${order.printOrderId}`,
     printOrderId: order.printOrderId,
     handoverOrderId: head.handoverOrderId || head.handoverId,
     handoverRecordIds: records.map((record) => record.handoverRecordId),
     receiverName: order.targetTransferWarehouseName,
-    submittedQty: head.submittedQtyTotal ?? 0,
-    receivedQty: head.writtenBackQtyTotal ?? 0,
-    diffQty: (head.writtenBackQtyTotal ?? 0) - (head.submittedQtyTotal ?? 0),
-    receivedRollCount: order.plannedRollCount,
-    receivedLength: Math.max(head.writtenBackQtyTotal ?? 0, 0) / 3,
+    submittedQty,
+    receivedQty,
+    diffQty,
+    receivedRollCount: receivedQty > 0 ? order.plannedRollCount : undefined,
+    receivedLength: receivedQty > 0 ? Math.max(receivedQty, 0) / 3 : undefined,
     lengthUnit: '米',
-    reviewStatus: 'WAIT_REVIEW',
-    remark: '接收方回写完成，等待审核',
+    reviewStatus,
+    remark: reviewStatus === 'WAIT_RECEIVE' ? '交出记录已生成，等待接收方确认收货' : '接收方已确认收货',
   })
 }
 
@@ -1478,22 +1521,26 @@ function syncDerivedWorkflow(): void {
     if (!head) continue
 
     if ((head.recordCount ?? 0) === 0) {
-      if (order.status !== 'PRINTING' && order.status !== 'TRANSFERRING') {
+      if (!['PRINTING', 'PRINT_DONE', 'WAIT_TRANSFER', 'TRANSFERRING', 'WAIT_HANDOVER'].includes(order.status)) {
         order.status = 'WAIT_HANDOVER'
       }
       continue
     }
 
     if ((head.pendingWritebackCount ?? 0) > 0) {
-      order.status = 'HANDOVER_SUBMITTED'
+      ensureReviewForHandoverOrder(order, head)
+      const nextReview = reviewRecordStore.get(order.printOrderId)
+      if (!syncOrderFromReview(order, nextReview)) {
+        order.status = 'HANDOVER_WAIT_RECEIVE'
+      }
       continue
     }
 
     if ((head.writtenBackQtyTotal ?? 0) > 0) {
-      ensureReviewForWrittenBackOrder(order, head)
+      ensureReviewForHandoverOrder(order, head)
       const nextReview = reviewRecordStore.get(order.printOrderId)
       if (!syncOrderFromReview(order, nextReview)) {
-        order.status = 'RECEIVER_WRITTEN_BACK'
+        order.status = 'HANDOVER_WAIT_RECEIVE'
       }
     }
   }
@@ -1615,7 +1662,7 @@ export function validateTransferCompletePayload(input: {
 
 export function validateReviewRejectPayload(reason: string): { ok: boolean; message?: string } {
   if (!reason.trim()) {
-    return { ok: false, message: '请填写驳回原因' }
+    return { ok: false, message: '请填写收货差异原因' }
   }
   return { ok: true }
 }
@@ -1780,7 +1827,7 @@ export function completeTransfer(
     usedMaterialQty: Number(input.usedMaterialQty),
     actualCompletedQty: Number(input.actualCompletedQty),
     qtyUnit: getQtyUnit(order),
-    remark: '转印完成，等待送货',
+    remark: '转印完成，等待交出',
   }))
   order.status = 'WAIT_HANDOVER'
   updateOrderTimestamp(order, now)
@@ -1807,90 +1854,118 @@ export function submitPrintHandover(
     objectType: order.qtyUnit === '米' ? 'FABRIC' : 'CUT_PIECE',
   })
   order.handoverOrderId = result.handoverOrderId || order.handoverOrderId
-  order.status = 'HANDOVER_SUBMITTED'
+  order.status = 'HANDOVER_WAIT_RECEIVE'
   order.remark = input.remark?.trim() || order.remark
   updateOrderTimestamp(order, now)
   syncDerivedWorkflow()
   return result
 }
 
+function getMutablePrintReceiptReview(printOrderId: string): { order: MutablePrintWorkOrder; review: MutableReviewRecord } {
+  const order = getMutableWorkOrder(printOrderId)
+  let review = reviewRecordStore.get(printOrderId)
+  if (!review) {
+    const head =
+      (order.handoverOrderId ? getHandoverOrderById(order.handoverOrderId) : null)
+      || getPrimaryHandoverOrder(order.taskId)
+    if (!head) {
+      throw new Error('交出记录创建后才能确认收货')
+    }
+    ensureReviewForHandoverOrder(order, head)
+    review = reviewRecordStore.get(printOrderId)
+  }
+  if (!review) {
+    throw new Error('交出记录创建后才能确认收货')
+  }
+  return { order, review }
+}
+
+function applyPrintReceiptState(order: MutablePrintWorkOrder, review: MutableReviewRecord): void {
+  order.status = review.reviewStatus === 'WAIT_RECEIVE' ? 'HANDOVER_WAIT_RECEIVE' : review.reviewStatus
+  if (review.reviewStatus === 'FULL_HANDOVER') {
+    syncLinkedTaskState(order.taskId, {
+      status: 'DONE',
+      finishedAt: review.reviewedAt,
+      blockReason: undefined,
+      blockRemark: undefined,
+    })
+  } else if (review.reviewStatus === 'HANDOVER_DIFFERENCE') {
+    syncLinkedTaskState(order.taskId, {
+      status: 'BLOCKED',
+      finishedAt: undefined,
+      blockReason: 'QUALITY',
+      blockRemark: review.rejectReason,
+    })
+  } else {
+    syncLinkedTaskState(order.taskId, {
+      status: 'IN_PROGRESS',
+      finishedAt: undefined,
+      blockReason: undefined,
+      blockRemark: undefined,
+    })
+  }
+}
+
+export function confirmPrintReceipt(
+  printOrderId: string,
+  input: { receivedBy: string; receivedQty?: number; remark?: string },
+): PrintReviewRecord {
+  const { order, review } = getMutablePrintReceiptReview(printOrderId)
+  const receivedQty = Number.isFinite(input.receivedQty) ? Number(input.receivedQty) : review.submittedQty
+  review.receivedQty = receivedQty
+  review.diffQty = Number((receivedQty - review.submittedQty).toFixed(2))
+  review.reviewStatus = resolvePrintReceiptStatus({
+    completedQty: getPrintCompletedQty(order),
+    submittedQty: review.submittedQty,
+    receivedQty,
+  })
+  review.reviewedBy = input.receivedBy
+  review.reviewedAt = nowTimestamp()
+  review.rejectReason = undefined
+  review.remark = input.remark?.trim() || (review.reviewStatus === 'PARTIAL_HANDOVER' ? '本次收货已确认，仍有未交出数量' : '本次收货已确认')
+  applyPrintReceiptState(order, review)
+  updateOrderTimestamp(order, review.reviewedAt)
+  return cloneReviewRecord(review)
+}
+
+export function markPrintReceiptDifference(
+  printOrderId: string,
+  input: { receivedBy: string; receivedQty?: number; differenceReason: string; remark?: string },
+): PrintReviewRecord {
+  const validation = validateReviewRejectPayload(input.differenceReason)
+  if (!validation.ok) {
+    throw new Error(validation.message)
+  }
+  const { order, review } = getMutablePrintReceiptReview(printOrderId)
+  const receivedQty = Number.isFinite(input.receivedQty) ? Number(input.receivedQty) : review.receivedQty
+  review.receivedQty = receivedQty
+  review.diffQty = Number((receivedQty - review.submittedQty).toFixed(2))
+  review.reviewStatus = 'HANDOVER_DIFFERENCE'
+  review.reviewedBy = input.receivedBy
+  review.reviewedAt = nowTimestamp()
+  review.rejectReason = input.differenceReason.trim()
+  review.remark = input.remark?.trim() || '收货差异'
+  applyPrintReceiptState(order, review)
+  updateOrderTimestamp(order, review.reviewedAt)
+  return cloneReviewRecord(review)
+}
+
 export function approvePrintReview(
   printOrderId: string,
   input: { reviewedBy: string; remark?: string },
 ): PrintReviewRecord {
-  const order = getMutableWorkOrder(printOrderId)
-  const review = reviewRecordStore.get(printOrderId)
-  if (!review) {
-    throw new Error('接收方回写后才能进入审核')
-  }
-  review.reviewStatus = 'PASS'
-  review.reviewedBy = input.reviewedBy
-  review.reviewedAt = nowTimestamp()
-  review.remark = input.remark?.trim() || review.remark || '审核通过'
-  order.status = 'COMPLETED'
-  syncLinkedTaskState(order.taskId, {
-    status: 'DONE',
-    finishedAt: review.reviewedAt,
-    blockReason: undefined,
-    blockRemark: undefined,
-  })
-  updateOrderTimestamp(order, review.reviewedAt)
-  appendNodeRecord(printOrderId, {
-    nodeRecordId: `${printOrderId}-REVIEW-${Date.now()}`,
-    printOrderId,
-    taskId: order.taskId,
-    nodeCode: 'REVIEW',
-    nodeName: PRINT_NODE_LABEL.REVIEW,
-    operatorUserId: 'USR-REVIEW',
-    operatorName: input.reviewedBy,
-    finishedAt: review.reviewedAt,
-    outputQty: review.receivedQty,
-    qtyUnit: getQtyUnit(order),
-    remark: review.remark,
-  })
-  return cloneReviewRecord(review)
+  return confirmPrintReceipt(printOrderId, { receivedBy: input.reviewedBy, remark: input.remark })
 }
 
 export function rejectPrintReview(
   printOrderId: string,
   input: { reviewedBy: string; rejectReason: string; remark?: string },
 ): PrintReviewRecord {
-  const validation = validateReviewRejectPayload(input.rejectReason)
-  if (!validation.ok) {
-    throw new Error(validation.message)
-  }
-  const order = getMutableWorkOrder(printOrderId)
-  const review = reviewRecordStore.get(printOrderId)
-  if (!review) {
-    throw new Error('接收方回写后才能进入审核')
-  }
-  review.reviewStatus = 'REJECTED'
-  review.reviewedBy = input.reviewedBy
-  review.reviewedAt = nowTimestamp()
-  review.rejectReason = input.rejectReason.trim()
-  review.remark = input.remark?.trim() || '审核驳回'
-  order.status = 'REJECTED'
-  syncLinkedTaskState(order.taskId, {
-    status: 'BLOCKED',
-    finishedAt: undefined,
-    blockReason: 'QUALITY',
-    blockRemark: review.rejectReason,
+  return markPrintReceiptDifference(printOrderId, {
+    receivedBy: input.reviewedBy,
+    differenceReason: input.rejectReason,
+    remark: input.remark,
   })
-  updateOrderTimestamp(order, review.reviewedAt)
-  appendNodeRecord(printOrderId, {
-    nodeRecordId: `${printOrderId}-REVIEW-${Date.now()}`,
-    printOrderId,
-    taskId: order.taskId,
-    nodeCode: 'REVIEW',
-    nodeName: PRINT_NODE_LABEL.REVIEW,
-    operatorUserId: 'USR-REVIEW',
-    operatorName: input.reviewedBy,
-    finishedAt: review.reviewedAt,
-    outputQty: review.receivedQty,
-    qtyUnit: getQtyUnit(order),
-    remark: `审核驳回：${review.rejectReason}`,
-  })
-  return cloneReviewRecord(review)
 }
 
 export function listPrintingDashboardBuckets(): Array<{ key: string; label: string; count: number }> {
@@ -1900,10 +1975,10 @@ export function listPrintingDashboardBuckets(): Array<{ key: string; label: stri
     { key: 'wait-print', label: '等打印', count: summary.waitPrintCount },
     { key: 'printing', label: '打印中', count: summary.printingCount },
     { key: 'transferring', label: '转印中', count: summary.transferringCount },
-    { key: 'wait-handover', label: '待送货', count: summary.waitHandoverCount },
-    { key: 'wait-writeback', label: '待回写', count: summary.waitWritebackCount },
-    { key: 'wait-review', label: '待审核', count: summary.waitReviewCount },
-    { key: 'abnormal', label: '异常', count: summary.rejectedCount + summary.waitArtworkCount },
+    { key: 'wait-handover', label: '待交出', count: summary.waitHandoverCount },
+    { key: 'wait-receive', label: '交出待收货', count: summary.waitReceiveCount },
+    { key: 'partial-handover', label: '部分交出', count: summary.partialHandoverCount },
+    { key: 'abnormal', label: '异常', count: summary.handoverDifferenceCount + summary.waitArtworkCount },
   ]
 }
 
@@ -1924,10 +1999,10 @@ export function getPrintWorkOrderSummary(): PrintWorkOrderSummary {
     printingCount: orders.filter((order) => order.status === 'PRINTING').length,
     transferringCount: orders.filter((order) => order.status === 'TRANSFERRING' || order.status === 'WAIT_TRANSFER').length,
     waitHandoverCount: orders.filter((order) => order.status === 'WAIT_HANDOVER').length,
-    waitWritebackCount: orders.filter((order) => order.status === 'HANDOVER_SUBMITTED').length,
-    waitReviewCount: orders.filter((order) => order.status === 'WAIT_REVIEW' || order.status === 'REVIEWING').length,
-    completedCount: orders.filter((order) => order.status === 'COMPLETED').length,
-    rejectedCount: orders.filter((order) => order.status === 'REJECTED').length,
+    waitReceiveCount: orders.filter((order) => order.status === 'HANDOVER_WAIT_RECEIVE').length,
+    partialHandoverCount: orders.filter((order) => order.status === 'PARTIAL_HANDOVER').length,
+    fullHandoverCount: orders.filter((order) => order.status === 'FULL_HANDOVER').length,
+    handoverDifferenceCount: orders.filter((order) => order.status === 'HANDOVER_DIFFERENCE').length,
     printCompletedQty: nodes
       .filter((node) => node.nodeCode === 'PRINT')
       .reduce((sum, node) => sum + (node.outputQty ?? 0), 0),

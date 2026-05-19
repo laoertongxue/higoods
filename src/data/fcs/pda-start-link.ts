@@ -33,6 +33,22 @@ import {
   markCaseResolved,
   maybeAutoCloseResolvedCase,
 } from './progress-exception-lifecycle'
+import {
+  isCuttingSpecialTask,
+  listPdaCuttingExecutionRowsByTaskId,
+} from './pda-cutting-execution-source.ts'
+import { getPostFinishingTaskById } from './post-finishing-domain.ts'
+import { listSpecialCraftTaskOrders } from './special-craft-task-orders.ts'
+import {
+  getDyeWorkOrderByTaskId,
+  getDyeWorkOrderStatusLabel,
+  type DyeWorkOrder,
+} from './dyeing-task-domain.ts'
+import {
+  getPrintWorkOrderByTaskId,
+  getPrintWorkOrderStatusLabel,
+  type PrintWorkOrder,
+} from './printing-task-domain.ts'
 
 export type StartDueSource = 'ACCEPTED' | 'AWARDED'
 export type StartRiskStatus = 'NORMAL' | 'DUE_SOON' | 'OVERDUE'
@@ -48,7 +64,7 @@ export interface TaskStartRuleState {
   ruleLabel: string
 }
 
-interface StartPrerequisiteInfo {
+export interface StartPrerequisiteInfo {
   met: boolean
   type: 'PICKUP'
   conditionLabel: string
@@ -65,41 +81,235 @@ type RuntimeStartReadiness =
   | 'WAIT_INTERNAL_TRANSFER'
   | 'NO_RUNTIME_TASK'
 
-function nowTimestamp(date: Date = new Date()): string {
-  return date.toISOString().replace('T', ' ').slice(0, 19)
+function isCuttingReceiveReady(status: string): boolean {
+  return status.includes('来料已入仓') || status.includes('已回执') || status.includes('已领取')
 }
 
-function parseDateMs(value: string): number {
-  return new Date(value.replace(' ', 'T')).getTime()
-}
+function getCuttingStartPrerequisite(task: ProcessTask): StartPrerequisiteInfo | null {
+  if (!isCuttingSpecialTask(task)) return null
 
-function addHours(baseAt: string, hours: number): string {
-  const date = new Date(baseAt.replace(' ', 'T'))
-  date.setHours(date.getHours() + hours)
-  return nowTimestamp(date)
-}
+  const executionRows = listPdaCuttingExecutionRowsByTaskId(task.taskId)
+  if (!executionRows.length) {
+    return {
+      met: false,
+      type: 'PICKUP',
+      conditionLabel: '已生成裁片执行单',
+      summaryLabel: '暂无裁片执行单',
+      statusLabel: '暂无裁片执行单，暂不可开工',
+      blocker: '暂无裁片执行单，暂不可开工',
+      hint: '请先检查裁片执行单是否已生成，并确认已绑定原始裁片单',
+    }
+  }
 
-function normalizeDueHours(value?: number): number {
-  if (!Number.isFinite(value) || Number(value) <= 0) return DEFAULT_START_DUE_HOURS
-  return Math.max(1, Math.floor(Number(value)))
-}
+  const unboundRow = executionRows.find((row) => row.bindingState === 'UNBOUND')
+  if (unboundRow) {
+    return {
+      met: false,
+      type: 'PICKUP',
+      conditionLabel: '裁片执行单已绑定原始裁片单',
+      summaryLabel: '待绑定原始裁片单',
+      statusLabel: '存在未绑定裁片执行单，暂不可开工',
+      blocker: '存在未绑定裁片执行单，暂不可开工',
+      hint: `${unboundRow.executionOrderNo} 需要先绑定原始裁片单，再判断来料和开工前置`,
+    }
+  }
 
-export function getTaskStartRuleState(task: ProcessTask): TaskStartRuleState {
-  const config = getMilestoneConfigForTask(task)
-  const proofRequirement = config?.startProofRequirement || 'NONE'
-  const dueHours = normalizeDueHours(config?.startDueHours)
-  const required = config?.startRequired ?? true
+  const waitingReceiveRow = executionRows.find((row) => !isCuttingReceiveReady(row.currentReceiveStatus))
+  if (waitingReceiveRow) {
+    return {
+      met: false,
+      type: 'PICKUP',
+      conditionLabel: '来料已入裁床待加工仓',
+      summaryLabel: waitingReceiveRow.currentReceiveStatus || '待 WMS 来料',
+      statusLabel: 'WMS 来料未完成，暂不可开工',
+      blocker: 'WMS 来料未完成，暂不可开工',
+      hint: `${waitingReceiveRow.executionOrderNo} 需要先在交接模块完成来料入仓确认`,
+    }
+  }
 
   return {
-    required,
-    dueHours,
-    proofRequirement,
-    proofRequirementLabel: getMilestoneProofRequirementLabel(proofRequirement),
-    ruleLabel: required ? `要求开工，${dueHours} 小时内确认` : '不要求开工',
+    met: true,
+    type: 'PICKUP',
+    conditionLabel: '裁片执行单与来料已满足',
+    summaryLabel: '前置已满足',
+    statusLabel: '已满足开工前置，可开工',
+    blocker: '已满足开工前置',
+    hint:
+      executionRows.length > 1
+        ? `已生成 ${executionRows.length} 个裁片执行单，来料均已入仓，可开工后按唛架方案执行`
+        : '裁片执行单已生成，来料已入仓，可开工后按唛架方案执行',
+  }
+}
+
+function getPostFinishingStartPrerequisite(task: ProcessTask): StartPrerequisiteInfo | null {
+  const postTask = getPostFinishingTaskById(task.taskId)
+  if (!postTask) return null
+
+  if (postTask.currentStatus === '待上游交出') {
+    return {
+      met: false,
+      type: 'PICKUP',
+      conditionLabel: '上游交出记录已到位',
+      summaryLabel: '待上游交出',
+      statusLabel: '等待上游交出，暂不可开工',
+      blocker: '等待上游交出，暂不可开工',
+      hint: '请先由上游工厂发起交出，后道工厂收货后再开工',
+    }
+  }
+
+  if (postTask.currentStatus === '待收货' || postTask.receivedQty <= 0) {
+    return {
+      met: false,
+      type: 'PICKUP',
+      conditionLabel: '后道收货已入仓',
+      summaryLabel: '待收货',
+      statusLabel: '后道收货未完成，暂不可开工',
+      blocker: '后道收货未完成，暂不可开工',
+      hint: '请先在交接或仓管模块完成扫码收货，生成后道待加工库存',
+    }
+  }
+
+  return {
+    met: true,
+    type: 'PICKUP',
+    conditionLabel: '后道收货与任务已满足',
+    summaryLabel: '前置已满足',
+    statusLabel: '已满足开工前置，可开工',
+    blocker: '已满足开工前置',
+    hint: `后道已收货 ${postTask.receivedQty.toLocaleString('zh-CN')} 件，可开工后按当前节点执行${postTask.currentNode}`,
+  }
+}
+
+function getSpecialCraftTaskForStart(task: ProcessTask) {
+  return listSpecialCraftTaskOrders().find((taskOrder) =>
+    taskOrder.taskOrderId === task.taskId ||
+    taskOrder.taskOrderNo === task.taskNo ||
+    taskOrder.sourceTaskId === task.taskId ||
+    taskOrder.sourceTaskNo === task.taskNo,
+  )
+}
+
+function getSpecialCraftStartPrerequisite(task: ProcessTask): StartPrerequisiteInfo | null {
+  const specialCraftTask = getSpecialCraftTaskForStart(task)
+  if (!specialCraftTask) return null
+
+  if (specialCraftTask.assignmentStatus !== 'ASSIGNED') {
+    return {
+      met: false,
+      type: 'PICKUP',
+      conditionLabel: '特殊工艺任务已分配',
+      summaryLabel: '待分配',
+      statusLabel: '特殊工艺任务未分配，暂不可开工',
+      blocker: '特殊工艺任务未分配，暂不可开工',
+      hint: '该特殊工艺任务尚未进入工厂执行链路，不应出现在 PDA 执行列表',
+    }
+  }
+
+  const hasReceived =
+    specialCraftTask.receivedQty > 0 ||
+    Boolean(specialCraftTask.waitProcessStockItemIds?.length) ||
+    ['IN_WAIT_PROCESS_WAREHOUSE', 'PROCESSING', 'COMPLETED', 'WAIT_HANDOVER', 'HANDED_OVER', 'WRITTEN_BACK'].includes(
+      specialCraftTask.executionStatus || '',
+    )
+
+  if (!hasReceived) {
+    return {
+      met: false,
+      type: 'PICKUP',
+      conditionLabel: '特殊工艺领料已入仓',
+      summaryLabel: '待领料',
+      statusLabel: '特殊工艺领料未完成，暂不可开工',
+      blocker: '特殊工艺领料未完成，暂不可开工',
+      hint: '请先在交接模块完成领料入仓，再开始特殊工艺加工',
+    }
+  }
+
+  return {
+    met: true,
+    type: 'PICKUP',
+    conditionLabel: '特殊工艺领料已满足',
+    summaryLabel: '前置已满足',
+    statusLabel: '已满足开工前置，可开工',
+    blocker: '已满足开工前置',
+    hint: `${specialCraftTask.operationName} 领料已入待加工仓，可开工执行`,
+  }
+}
+
+function getPrintStartPrerequisite(task: ProcessTask): StartPrerequisiteInfo | null {
+  const order = getPrintWorkOrderByTaskId(task.taskId)
+  if (!order) return null
+
+  const statusLabel = getPrintWorkOrderStatusLabel(order.status)
+  const preparationHintMap: Partial<Record<PrintWorkOrder["status"], string>> = {
+    WAIT_ARTWORK: `印花加工单  可先开工做花型资料核对和试印准备；实际开始印花前必须确认领料到位`,
+    WAIT_COLOR_TEST: `印花加工单  可先开工做调色测试和花型试印；实际开始印花前必须确认领料到位`,
+  }
+
+  return {
+    met: true,
+    type: "PICKUP",
+    conditionLabel: "印花加工单已接单，可先开工准备",
+    summaryLabel: statusLabel,
+    statusLabel: "可先开工准备，实际开始印花前需确认领料到位",
+    blocker: "已满足开工前置",
+    hint:
+      preparationHintMap[order.status] ||
+      `印花加工单  已同步到 PDA，可先开工准备；实际开始印花前必须确认领料到位`,
+  }
+}
+
+function getDyeStartPrerequisite(task: ProcessTask): StartPrerequisiteInfo | null {
+  const order = getDyeWorkOrderByTaskId(task.taskId)
+  if (!order) return null
+
+  const statusLabel = getDyeWorkOrderStatusLabel(order.status)
+  const preparationHintMap: Partial<Record<DyeWorkOrder["status"], string>> = {
+    WAIT_SAMPLE: `染色加工单  可先开工做调色、工艺准备；实际开始染色前必须确认坯布和染化料到位`,
+    SAMPLE_TESTING: `染色加工单  可继续打样、调色和工艺准备；实际开始染色前必须确认坯布和染化料到位`,
+    WAIT_MATERIAL: `染色加工单  可先开工做调色、排缸准备；实际开始染色前必须确认坯布和染化料到位`,
+  }
+
+  return {
+    met: true,
+    type: "PICKUP",
+    conditionLabel: "染色加工单已接单，可先开工准备",
+    summaryLabel: statusLabel,
+    statusLabel: "可先开工准备，实际开始染色前需确认坯布和染化料到位",
+    blocker: "已满足开工前置",
+    hint:
+      preparationHintMap[order.status] ||
+      `染色加工单  已同步到 PDA，可先开工准备；实际开始染色前必须确认坯布和染化料到位`,
   }
 }
 
 export function getStartPrerequisite(task: ProcessTask): StartPrerequisiteInfo {
+  if (task.startedAt || task.status === 'IN_PROGRESS' || task.status === 'DONE') {
+    return {
+      met: true,
+      type: 'PICKUP',
+      conditionLabel: '已进入执行',
+      summaryLabel: '已开工',
+      statusLabel: '已满足开工前置',
+      blocker: '已满足开工前置',
+      hint: `${task.processNameZh || '当前任务'}已进入执行状态，无需重复判断开工前置`,
+    }
+  }
+
+  const cuttingPrerequisite = getCuttingStartPrerequisite(task)
+  if (cuttingPrerequisite) return cuttingPrerequisite
+
+  const postPrerequisite = getPostFinishingStartPrerequisite(task)
+  if (postPrerequisite) return postPrerequisite
+
+  const specialCraftPrerequisite = getSpecialCraftStartPrerequisite(task)
+  if (specialCraftPrerequisite) return specialCraftPrerequisite
+
+  const printPrerequisite = getPrintStartPrerequisite(task)
+  if (printPrerequisite) return printPrerequisite
+
+  const dyePrerequisite = getDyeStartPrerequisite(task)
+  if (dyePrerequisite) return dyePrerequisite
+
   const mockTask = task as ProcessTask & { mockStartPrerequisiteMet?: boolean; mockReceiveSummary?: string }
   if (mockTask.mockStartPrerequisiteMet === true) {
     return {
@@ -117,14 +327,15 @@ export function getStartPrerequisite(task: ProcessTask): StartPrerequisiteInfo {
     isRuntimeTaskExecutionTask(runtimeTask),
   )
   if (!runtimeTasks.length) {
+    const processName = task.processNameZh || '当前工序'
     return {
       met: false,
       type: 'PICKUP',
-      conditionLabel: '已生成执行任务',
-      summaryLabel: '暂无执行任务',
-      statusLabel: '暂无执行任务，暂不可开工',
-      blocker: '暂无执行任务，暂不可开工',
-      hint: '请先完成任务分配后再判断开工前置',
+      conditionLabel: '任务已自动接单',
+      summaryLabel: '待来料/执行明细',
+      statusLabel: '待来料或执行明细同步，暂不可开工',
+      blocker: '待来料或执行明细同步，暂不可开工',
+      hint: `${processName}任务已进入 PDA，等待上游来料或执行明细同步后开工`,
     }
   }
 
@@ -175,6 +386,47 @@ export function getStartPrerequisite(task: ProcessTask): StartPrerequisiteInfo {
     statusLabel,
     blocker,
     hint,
+  }
+}
+
+export function getStartPrerequisiteByTaskId(taskId: string): StartPrerequisiteInfo | null {
+  const task = processTasks.find((item) => item.taskId === taskId || item.taskNo === taskId)
+  return task ? getStartPrerequisite(task) : null
+}
+
+function normalizeDueHours(value?: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return DEFAULT_START_DUE_HOURS
+  return Math.max(1, Math.floor(value))
+}
+
+function parseDateMs(value?: string): number {
+  if (!value) return Date.now()
+  const normalized = value.includes('T') ? value : value.replace(' ', 'T')
+  const parsed = new Date(normalized).getTime()
+  return Number.isFinite(parsed) ? parsed : Date.now()
+}
+
+function nowTimestamp(date: Date = new Date()): string {
+  return date.toISOString().replace('T', ' ').slice(0, 19)
+}
+
+function addHours(value: string, hours: number): string {
+  const date = new Date(parseDateMs(value) + normalizeDueHours(hours) * 60 * 60 * 1000)
+  return nowTimestamp(date)
+}
+
+export function getTaskStartRuleState(task: ProcessTask): TaskStartRuleState {
+  const config = getMilestoneConfigForTask(task)
+  const dueHours = normalizeDueHours(config?.startDueHours)
+  const proofRequirement = config?.startProofRequirement || 'NONE'
+  const required = config?.startRequired ?? true
+
+  return {
+    required,
+    dueHours,
+    proofRequirement,
+    proofRequirementLabel: getMilestoneProofRequirementLabel(proofRequirement),
+    ruleLabel: required ? `要求开工，${dueHours} 小时内确认` : '不要求开工',
   }
 }
 

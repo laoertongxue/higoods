@@ -752,7 +752,10 @@ export function renderPatternTab(): string {
 
                       return `
                         <tr class="border-b last:border-0">
-                          <td class="px-3 py-2 text-sm">${escapeHtml(linkedBom ? `${linkedBom.materialName} · ${linkedBom.materialCode}` : '未关联物料')}</td>
+                          <td class="px-3 py-2 text-sm">
+                            <div>${escapeHtml(linkedBom ? `${linkedBom.materialName} · ${linkedBom.materialCode}` : '未关联物料')}</div>
+                            ${item.linkedMaterialAlias ? `<div class="mt-1 text-xs text-muted-foreground">别名：${escapeHtml(item.linkedMaterialAlias)}</div>` : ''}
+                          </td>
                           <td class="px-3 py-2 text-sm text-muted-foreground">${escapeHtml(linkedBom?.spec || '-')}</td>
                           <td class="px-3 py-2 font-medium">${escapeHtml(item.sourcePatternPackageName || item.name)}</td>
                           <td class="px-3 py-2">${renderPatternFileBadge(item.patternMaterialTypeLabel || '暂无数据')}</td>
@@ -847,6 +850,10 @@ export function renderPatternDialog(): string {
             <div>
               <p class="text-xs text-muted-foreground">关联物料</p>
               <p class="mt-1">${escapeHtml(linkedBom ? `${linkedBom.materialCode} · ${linkedBom.materialName}` : '未关联')}</p>
+            </div>
+            <div>
+              <p class="text-xs text-muted-foreground">物料别名</p>
+              <p class="mt-1">${renderTextValue(pattern.linkedMaterialAlias)}</p>
             </div>
             <div>
               <p class="text-xs text-muted-foreground">规格（门幅 × 排料长度）</p>
@@ -1543,6 +1550,10 @@ export function renderPatternFormDialog(): string {
           <span class="text-sm">门幅（cm） <span class="text-red-500">*</span></span>
           <input type="number" min="0.01" step="0.01" class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-width-cm" value="${escapeHtml(String(state.newPattern.widthCm || ''))}" placeholder="门幅" />
         </label>
+        <label class="space-y-1">
+          <span class="text-sm">物料别名</span>
+          <input class="w-full rounded-md border px-3 py-2 text-sm ${state.newPattern.linkedBomItemId ? '' : 'bg-muted text-muted-foreground'}" data-tech-field="new-pattern-linked-material-alias" value="${escapeHtml(state.newPattern.linkedMaterialAlias || '')}" placeholder="例：主面料 / 前片面料" ${state.newPattern.linkedBomItemId ? '' : 'disabled'} />
+        </label>
         <label class="space-y-1 md:col-span-2">
           <span class="text-sm">关联纸样 <span class="text-red-500">*</span></span>
           ${
@@ -1602,6 +1613,10 @@ export function renderPatternFormDialog(): string {
           <div>
             <div class="text-xs text-muted-foreground">关联物料</div>
             <div class="mt-1">${escapeHtml(selectedBom ? `${selectedBom.materialName} · ${selectedBom.materialCode}` : '未关联')}</div>
+          </div>
+          <div>
+            <div class="text-xs text-muted-foreground">物料别名</div>
+            <div class="mt-1">${renderTextValue(state.newPattern.linkedMaterialAlias)}</div>
           </div>
         </div>
       </div>

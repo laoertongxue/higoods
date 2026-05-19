@@ -89,8 +89,9 @@ assertIncludes('src/data/fcs/process-web-status-actions.ts', 'DYE_START_DYEING',
 assertIncludes('src/data/fcs/process-web-status-actions.ts', 'CUTTING_START_SPREADING', 'Web 裁片动作必须使用统一 actionCode')
 assertIncludes('src/data/fcs/process-web-status-actions.ts', 'SPECIAL_CRAFT_START_PROCESS', 'Web 特殊工艺动作必须使用统一 actionCode')
 
-const binding = validatePrintWorkOrderMobileTaskBinding('PWO-PRINT-011')
-assert(binding.reasonCode === 'OK', `PWO-PRINT-011 绑定校验应有效：${binding.reasonLabel}`)
+const printWorkOrderId = 'PWO-PRINT-003'
+const binding = validatePrintWorkOrderMobileTaskBinding(printWorkOrderId)
+assert(binding.reasonCode === 'OK', `${printWorkOrderId} 绑定校验应有效：${binding.reasonLabel}`)
 
 const invalidBeforeCount = listProcessActionOperationRecords().length
 const invalidValidation = validateProcessAction({
@@ -126,7 +127,7 @@ try {
 
 const webResult = executeProcessWebAction({
   sourceType: 'PRINT_WORK_ORDER',
-  sourceId: 'PWO-PRINT-011',
+  sourceId: printWorkOrderId,
   actionCode: 'PRINT_START_PRINTING',
   operatorName: '检查脚本 Web',
   operatedAt: '2026-04-28 10:00',
@@ -140,7 +141,7 @@ assert(webResult.success, 'Web 写回应成功')
 
 const mobileResult = executeMobileProcessAction({
   sourceType: 'PRINT',
-  sourceId: 'PWO-PRINT-011',
+  sourceId: printWorkOrderId,
   taskId: webResult.updatedTaskId,
   actionCode: 'PRINT_FINISH_PRINTING',
   operatorName: '检查脚本移动端',
@@ -152,19 +153,45 @@ const mobileResult = executeMobileProcessAction({
 })
 assert(mobileResult.success, '移动端写回应成功')
 
-const actionRecords = getProcessActionOperationRecordsBySource('PRINT', 'PWO-PRINT-011')
+const actionRecords = getProcessActionOperationRecordsBySource('PRINT', printWorkOrderId)
 assert(actionRecords.some((record) => record.sourceChannel === 'Web 端' && record.actionCode === 'PRINT_START_PRINTING'), '统一操作记录必须包含 Web 端开始打印')
 assert(actionRecords.some((record) => record.sourceChannel === '移动端' && record.actionCode === 'PRINT_FINISH_PRINTING'), '统一操作记录必须包含移动端完成打印')
 assert(getProcessActionOperationRecordsByTask(webResult.updatedTaskId).length >= 2, '操作记录必须支持按 taskId 查询')
 
-const webRecords = getProcessWebOperationRecordsBySource('PRINT_WORK_ORDER', 'PWO-PRINT-011')
+const webRecords = getProcessWebOperationRecordsBySource('PRINT_WORK_ORDER', printWorkOrderId)
 assert(webRecords.some((record) => record.sourceChannel === 'Web 端'), 'Web 详情操作记录列表必须能展示 Web 端记录')
 assert(webRecords.some((record) => record.sourceChannel === '移动端'), 'Web 详情操作记录列表必须能展示移动端记录')
 
-const processOrder = getProcessWorkOrderById('PWO-PRINT-011')
+const processOrder = getProcessWorkOrderById(printWorkOrderId)
 assert(processOrder, '统一写回后应能读取平台侧加工单')
 const platformStatus = getPlatformStatusForProcessWorkOrder(processOrder!)
-assert(['加工中', '待送货', '准备中', '待回写', '待审核', '异常', '已完成'].includes(platformStatus.platformStatusLabel), '统一写回后平台聚合状态必须可派生')
+assert(['加工中', '待交出', '交出待收货', '收货确认中', '收货差异', '异常', '已完成'].includes(platformStatus.platformStatusLabel), '统一写回后平台聚合状态必须可派生')
+
+const stepSixTargetFiles = [
+  'src/pages/print/templates/task-delivery-card-template.ts',
+  'src/pages/print/templates/label-print-template.ts',
+  'src/data/fcs/task-print-cards.ts',
+  'src/data/fcs/process-warehouse-domain.ts',
+  'src/data/fcs/process-web-status-actions.ts',
+  'src/pages/process-factory/printing/warehouse.ts',
+  'src/pages/process-factory/dyeing/warehouse.ts',
+  'src/pages/progress-handover.ts',
+  'docs/fcs-process-platform-status-mapping.md',
+  'docs/fcs-platform-process-result-view.md',
+]
+const oldReceiptTerms = [
+  ['待', '送货'].join(''),
+  ['待', '回', '写'].join(''),
+  ['待', '审核'].join(''),
+  ['接收方', '回', '写'].join(''),
+  ['处理', '审核'].join(''),
+  ['审核', '记录'].join(''),
+]
+for (const file of stepSixTargetFiles) {
+  for (const term of oldReceiptTerms) {
+    assertNotIncludes(file, term, '第 6 步收口范围不得保留旧交出/收货语义')
+  }
+}
 
 assertNotIncludes(servicePath, '自由状态下拉', '不得出现自由状态下拉')
 assertNotIncludes(servicePath, '任意跳', '不得允许任意跳转')

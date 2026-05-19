@@ -10,7 +10,6 @@ import {
   type FactoryWarehouseOutboundRecord,
   type FactoryWarehouseStocktakeOrder,
 } from './factory-internal-warehouse.ts'
-import { listDyeWorkOrders } from './dyeing-task-domain.ts'
 import {
   listProcessHandoverRecords,
   listWaitHandoverWarehouseRecords,
@@ -38,6 +37,21 @@ export interface DyeingWarehouseView {
   warehouses: FactoryInternalWarehouse[]
   nodeRows: FactoryWarehouseNodeRow[]
   stocktakeOrders: FactoryWarehouseStocktakeOrder[]
+}
+
+function normalizeDyeWarehouseReceiptStatus(status: string): string {
+  if (status === '有差异' || status === '收货差异') return '收货差异'
+  if (status === '已回写' || status === '已全部交出' || status === '全部交出') return '全部交出'
+  if (status === '部分交出') return '部分交出'
+  if (status === '待回写' || status === '待交出' || status === '已出库') return '交出待收货'
+  return status
+}
+
+function normalizeDyeWarehouseReference(value: string | undefined): string | undefined {
+  return value
+    ?.replaceAll('待回写', '交出待收货')
+    .replaceAll('已回写', '全部交出')
+    .replaceAll('有差异', '收货差异')
 }
 
 function parseDateValue(value: string | undefined): number {
@@ -137,11 +151,11 @@ function mapWaitHandoverRecord(record: ProcessWarehouseRecord): FactoryWaitHando
     waitHandoverQty: record.availableObjectQty,
     receiverKind: '裁床厂',
     receiverName: record.targetWarehouseName,
-    handoverRecordId: record.relatedHandoverRecordIds[0],
-    handoverRecordNo: record.relatedHandoverRecordIds[0],
+    handoverRecordId: normalizeDyeWarehouseReference(record.relatedHandoverRecordIds[0]) || record.relatedHandoverRecordIds[0],
+    handoverRecordNo: normalizeDyeWarehouseReference(record.relatedHandoverRecordIds[0]) || record.relatedHandoverRecordIds[0],
     receiverWrittenQty: record.writtenBackObjectQty,
     differenceQty: record.diffObjectQty,
-    status: record.status === '有差异' ? '差异' : record.status === '已回写' ? '已回写' : record.status === '已全部交出' ? '已交出' : '待交出',
+    status: normalizeDyeWarehouseReceiptStatus(record.status),
   }
 }
 
@@ -187,8 +201,8 @@ function mapInboundRecord(record: ProcessWarehouseRecord): FactoryWarehouseInbou
 
 function mapOutboundRecord(record: ProcessHandoverRecord): FactoryWarehouseOutboundRecord {
   return {
-    outboundRecordId: record.handoverRecordId,
-    outboundRecordNo: record.handoverRecordNo,
+    outboundRecordId: normalizeDyeWarehouseReference(record.handoverRecordId) || record.handoverRecordId,
+    outboundRecordNo: normalizeDyeWarehouseReference(record.handoverRecordNo) || record.handoverRecordNo,
     warehouseId: record.warehouseRecordId,
     warehouseName: record.receiveWarehouseName,
     factoryId: record.handoverFactoryId,
@@ -200,8 +214,8 @@ function mapOutboundRecord(record: ProcessHandoverRecord): FactoryWarehouseOutbo
     craftName: record.craftName,
     sourceTaskId: record.sourceTaskId,
     sourceTaskNo: record.sourceTaskNo,
-    handoverRecordId: record.handoverRecordId,
-    handoverRecordNo: record.handoverRecordNo,
+    handoverRecordId: normalizeDyeWarehouseReference(record.handoverRecordId) || record.handoverRecordId,
+    handoverRecordNo: normalizeDyeWarehouseReference(record.handoverRecordNo) || record.handoverRecordNo,
     receiverKind: '裁床厂',
     receiverName: record.receiveFactoryName || record.receiveWarehouseName,
     itemKind: '面料',
@@ -212,7 +226,7 @@ function mapOutboundRecord(record: ProcessHandoverRecord): FactoryWarehouseOutbo
     unit: record.qtyUnit,
     operatorName: record.handoverPerson,
     outboundAt: record.handoverAt,
-    status: record.status === '有差异' ? '差异' : record.status === '已回写' ? '已回写' : '已出库',
+    status: normalizeDyeWarehouseReceiptStatus(record.status),
     photoList: [],
     relatedWaitHandoverStockItemId: record.warehouseRecordId,
     remark: record.remark,
@@ -220,11 +234,6 @@ function mapOutboundRecord(record: ProcessHandoverRecord): FactoryWarehouseOutbo
 }
 
 export function getDyeingWarehouseView(filters: DyeingWarehouseViewFilters = {}): DyeingWarehouseView {
-  const workOrders = listDyeWorkOrders()
-  const taskIds = new Set(workOrders.map((order) => order.taskId))
-  const factoryIds = new Set(workOrders.map((order) => order.dyeFactoryId))
-  const dyeOrderIds = new Set(workOrders.map((order) => order.dyeOrderId))
-  const handoverOrderIds = new Set(workOrders.map((order) => order.handoverOrderId).filter(Boolean) as string[])
   const keyword = filters.keyword?.trim().toLowerCase() || ''
 
   const byFactory = (factoryId: string): boolean => !filters.factoryId || factoryId === filters.factoryId
@@ -251,6 +260,22 @@ export function getDyeingWarehouseView(filters: DyeingWarehouseViewFilters = {})
   const waitHandoverItems = waitHandoverRecords.map(mapWaitHandoverRecord)
   const inboundRecords = waitProcessRecords.map(mapInboundRecord)
   const outboundRecords = handoverRecords.map(mapOutboundRecord)
+  const taskIds = new Set([
+    ...waitProcessRecords.map((record) => record.sourceTaskId),
+    ...waitHandoverRecords.map((record) => record.sourceTaskId),
+    ...handoverRecords.map((record) => record.sourceTaskId),
+  ].filter(Boolean))
+  const factoryIds = new Set([
+    ...waitProcessRecords.map((record) => record.targetFactoryId),
+    ...waitHandoverRecords.map((record) => record.targetFactoryId),
+    ...handoverRecords.map((record) => record.handoverFactoryId),
+  ].filter(Boolean))
+  const dyeOrderIds = new Set([
+    ...waitProcessRecords.map((record) => record.sourceWorkOrderId),
+    ...waitHandoverRecords.map((record) => record.sourceWorkOrderId),
+    ...handoverRecords.map((record) => record.sourceWorkOrderId),
+  ].filter(Boolean))
+  const handoverOrderIds = new Set(outboundRecords.map((record) => record.handoverOrderId).filter(Boolean) as string[])
 
   const visibleFactoryIds = new Set([
     ...Array.from(factoryIds),

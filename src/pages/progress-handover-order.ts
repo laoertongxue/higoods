@@ -70,7 +70,7 @@ function getOrderName(orderId: string): string {
 function getFocusLabel(focus: HandoverFocus): string {
   if (focus === 'pickup') return '待领料'
   if (focus === 'handout') return '待交出'
-  if (focus === 'warehouse-confirm') return '待接收方回写'
+  if (focus === 'warehouse-confirm') return '待接收方确认'
   return '异议处理'
 }
 
@@ -215,7 +215,7 @@ function isSectionFocused(section: HandoverTimelineProcessSection): boolean {
 
   if (state.focusHint === 'pickup') return section.processStatusLabel === '待领料'
   if (state.focusHint === 'handout') return section.processStatusLabel === '待交出' || section.processStatusLabel === '已领料待交出'
-  if (state.focusHint === 'warehouse-confirm') return section.processStatusLabel === '已交出待接收方回写'
+  if (state.focusHint === 'warehouse-confirm') return section.processStatusLabel === '已交出待接收方确认'
   if (state.focusHint === 'objection') return section.processStatusLabel === '有异议' || section.processStatusLabel === '异议处理中'
   return false
 }

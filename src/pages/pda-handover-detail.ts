@@ -83,8 +83,6 @@ import {
 } from '../data/fcs/action-permissions.ts'
 import { createPdaPickupDisputeCase } from '../helpers/fcs-pda-pickup-dispute'
 import { getTaskChainTaskById } from '../data/fcs/page-adapters/task-chain-pages-adapter'
-import { getPdaTaskFlowTaskById, isCuttingSpecialTask } from '../data/fcs/pda-cutting-execution-source.ts'
-import { renderPdaCuttingTaskDetailPage } from './pda-cutting-task-detail'
 import { renderPdaFrame } from './pda-shell'
 import { getPdaRuntimeContext } from './pda-runtime'
 
@@ -373,9 +371,9 @@ function renderTransferBagMobilePanel(record: PdaHandoverRecord): string {
       <div class="mt-2 flex flex-wrap gap-2">
         <button type="button" class="rounded border bg-white px-2 py-1 text-[11px]">新建中转袋</button>
         <button type="button" class="rounded border bg-white px-2 py-1 text-[11px]">扫描中转袋</button>
-        <button type="button" class="rounded border bg-white px-2 py-1 text-[11px]">${isReceiverSide ? '按袋回写' : '标记已收袋'}</button>
-        <button type="button" class="rounded border bg-white px-2 py-1 text-[11px]">按菲票回写</button>
-        <button type="button" class="rounded border bg-white px-2 py-1 text-[11px]">提交回写</button>
+        <button type="button" class="rounded border bg-white px-2 py-1 text-[11px]">${isReceiverSide ? '按袋确认' : '标记已收袋'}</button>
+        <button type="button" class="rounded border bg-white px-2 py-1 text-[11px]">按菲票确认</button>
+        <button type="button" class="rounded border bg-white px-2 py-1 text-[11px]">提交收货确认</button>
       </div>
     </div>
   `
@@ -477,10 +475,10 @@ function isPostFinishingHandoutRecord(record: PdaHandoverRecord | undefined): bo
 
 function getRecordStatusMeta(status: PdaHandoverRecord['status']): { label: string; className: string } {
   if (status === 'PENDING_WRITEBACK') {
-    return { label: '待回写', className: 'border-amber-200 bg-amber-50 text-amber-700' }
+    return { label: '待收货确认', className: 'border-amber-200 bg-amber-50 text-amber-700' }
   }
   if (status === 'WRITTEN_BACK') {
-    return { label: '已回写', className: 'border-emerald-200 bg-emerald-50 text-emerald-700' }
+    return { label: '已确认收货', className: 'border-emerald-200 bg-emerald-50 text-emerald-700' }
   }
   if (status === 'OBJECTION_REPORTED') {
     return { label: '已发起异议', className: 'border-red-200 bg-red-50 text-red-700' }
@@ -1176,7 +1174,7 @@ function renderPickupHeadDetail(head: PdaHandoverHead): string {
     ${renderSectionCard(
       '仓库已生成的领料记录',
       records.length === 0
-        ? '<div class="py-4 text-center text-xs text-muted-foreground">暂无仓库回写的领料记录</div>'
+        ? '<div class="py-4 text-center text-xs text-muted-foreground">暂无仓库送料后的领料记录</div>'
         : `<div class="space-y-2">${records.map((record) => renderPickupRecordItem(record)).join('')}</div>`,
     )}
 
@@ -1422,7 +1420,7 @@ function renderReceiverWritebackForm(record: PdaHandoverRecord): string {
           class="inline-flex h-8 items-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90"
           data-pda-handoverd-action="submit-receiver-writeback"
           data-record-id="${escapeHtml(record.recordId)}"
-        >确认回写</button>
+        >确认收货</button>
       </div>
     </div>
   `
@@ -1497,9 +1495,9 @@ function renderHandoutRecordItem(
         ${renderFieldRow('交出记录号', record.handoverRecordNo || record.recordId, true)}
         ${renderFieldRow('状态', getHandoverRecordStatusLabel(record.handoverRecordStatus || record.status))}
         ${renderFieldRow('交出对象数量', `${record.submittedQty ?? record.plannedQty ?? 0} ${record.qtyUnit}`, true)}
-        ${renderFieldRow('实收对象数量', typeof receiverWrittenQty === 'number' ? `${receiverWrittenQty} ${record.qtyUnit}` : '待回写', true)}
-        ${renderFieldRow('差异', typeof diffQty === 'number' ? `${diffQty > 0 ? '+' : ''}${diffQty} ${record.qtyUnit}` : '待回写', typeof diffQty === 'number' && diffQty !== 0)}
-        ${renderFieldRow('接收方回写时间', receiverWrittenAt || '待回写')}
+        ${renderFieldRow('实收对象数量', typeof receiverWrittenQty === 'number' ? `${receiverWrittenQty} ${record.qtyUnit}` : '待收货确认', true)}
+        ${renderFieldRow('差异', typeof diffQty === 'number' ? `${diffQty > 0 ? '+' : ''}${diffQty} ${record.qtyUnit}` : '待收货确认', typeof diffQty === 'number' && diffQty !== 0)}
+        ${renderFieldRow('接收方确认时间', receiverWrittenAt || '待收货确认')}
         ${renderFieldRow('工厂提交时间', record.factorySubmittedAt)}
         ${renderFieldRow('出库记录', linkedOutboundLabel, Boolean(linkedOutboundRecord))}
         ${renderFieldRow('备注', record.receiverRemark || record.factoryRemark || '—')}
@@ -1516,7 +1514,7 @@ function renderHandoutRecordItem(
                 ${renderFieldRow('菲票数', `${sewingBatch.feiTicketNos.length} 张`)}
                 ${renderFieldRow('本次发料件数', `${sewingBatch.plannedGarmentQty} 件`)}
                 ${renderFieldRow('裁片数量', `${sewingPieceQty} 片`)}
-                ${renderFieldRow('车缝厂回写', typeof sewingBatch.receiverWrittenQty === 'number' ? `${sewingBatch.receiverWrittenQty} 件` : '待回写')}
+                ${renderFieldRow('车缝厂实收', typeof sewingBatch.receiverWrittenQty === 'number' ? `${sewingBatch.receiverWrittenQty} 件` : '待收货确认')}
               </div>
               <div class="mt-2 flex flex-wrap gap-2">
                 <button type="button" class="rounded border bg-white px-2 py-1 text-[11px] text-blue-700 hover:bg-blue-100" data-nav="/fcs/craft/cutting/warehouse-management/wait-handover?tab=sewing-dispatch">查看裁片发料</button>
@@ -1568,7 +1566,7 @@ function renderHandoutRecordItem(
 
       ${
         canWriteback
-          ? '<div class="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs text-amber-700">当前等待接收方回写实收对象数量。</div>'
+          ? '<div class="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs text-amber-700">当前等待接收方确认实收对象数量。</div>'
           : ''
       }
 
@@ -1580,7 +1578,7 @@ function renderHandoutRecordItem(
                 class="inline-flex h-8 items-center rounded-md border px-3 text-xs hover:bg-muted"
                 data-pda-handoverd-action="open-receiver-writeback"
                 data-record-id="${escapeHtml(record.recordId)}"
-              >接收方回写</button>
+              >确认收货</button>
             `
             : ''
         }
@@ -1618,7 +1616,7 @@ function renderHandoutRecordItem(
                 <label class="text-xs font-medium">异议原因 *</label>
                 <input
                   class="h-8 w-full rounded-md border bg-background px-2.5 text-xs"
-                  placeholder="例如：回写对象与工厂交接单不一致"
+                  placeholder="例如：实收对象与工厂交接单不一致"
                   value="${escapeHtml(detailState.objectionReason)}"
                   data-pda-handoverd-field="objectionReason"
                 />
@@ -1717,14 +1715,14 @@ function renderHandoutHeadDetail(head: PdaHandoverHead): string {
           ${renderFieldRow(profile.pendingQtyLabel, `${profile.totalPendingQty} ${profile.displayUnit}`, true)}
           ${renderFieldRow('数量异议', `${head.objectionCount} 条`)}
           ${renderFieldRow('累计交出次数', `${head.recordCount} 次`)}
-          ${renderFieldRow('待回写', `${head.pendingWritebackCount} 条`)}
+          ${renderFieldRow('待收货', `${head.pendingWritebackCount} 条`)}
         </div>
       </div>
       <div class="rounded-md border ${head.qtyDiffTotal !== 0 ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'} px-2.5 py-1.5 text-xs">
         ${head.qtyDiffTotal !== 0 ? `数量有差异（差异 ${head.qtyDiffTotal > 0 ? '-' : '+'}${Math.abs(head.qtyDiffTotal)} ${profile.displayUnit}）` : '数量一致'}
       </div>
       <div class="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-muted/20 px-2.5 py-2 text-xs">
-        <span>${escapeHtml(isCompleted ? '交出单已完成；接收方回写和异议仍可继续' : completionCheck.message)}</span>
+        <span>${escapeHtml(isCompleted ? '交出单已完成；接收方收货确认和异议仍可继续' : completionCheck.message)}</span>
         ${
           isCompleted
             ? ''
@@ -1769,7 +1767,11 @@ export function renderPdaHandoverDetailPage(eventId: string): string {
   }
 
   const runtime = getPdaRuntimeContext()
-  if (runtime?.factoryId === FULL_CAPABILITY_FACTORY_ID && head.processBusinessCode !== 'POST_FINISHING') {
+  if (
+    runtime?.factoryId === FULL_CAPABILITY_FACTORY_ID
+    && head.processBusinessCode !== 'POST_FINISHING'
+    && head.factoryId !== runtime.factoryId
+  ) {
     const content = `
       <div class="space-y-4 p-4">
         <button class="inline-flex h-8 items-center rounded-md px-2 text-sm text-muted-foreground hover:bg-muted" data-pda-handoverd-action="back">
@@ -1781,12 +1783,6 @@ export function renderPdaHandoverDetailPage(eventId: string): string {
       </div>
     `
     return renderPdaFrame(content, 'handover')
-  }
-
-  const task = getPdaTaskFlowTaskById(head.taskId)
-  if (head.headType === 'PICKUP' && isCuttingSpecialTask(task)) {
-    const backHref = head.headType === 'PICKUP' ? '/fcs/pda/handover?tab=pickup' : '/fcs/pda/handover?tab=handout'
-    return renderPdaCuttingTaskDetailPage(head.taskId, { backHref })
   }
 
   const pathname = appStore.getState().pathname || ''
@@ -2141,7 +2137,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
     const recordId = actionNode.dataset.recordId
     const record = recordId ? findPdaHandoverRecord(recordId) : undefined
     if (!record || !canReceiverWriteback(record)) {
-      showPdaHandoverDetailToast('当前记录暂不可回写')
+      showPdaHandoverDetailToast('当前记录暂不可确认收货')
       return true
     }
     detailState.writebackRecordId = record.recordId
@@ -2169,7 +2165,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
     const recordId = actionNode.dataset.recordId
     const record = recordId ? findPdaHandoverRecord(recordId) : undefined
     if (!record || !canReceiverWriteback(record)) {
-      showPdaHandoverDetailToast('当前记录暂不可回写')
+      showPdaHandoverDetailToast('当前记录暂不可确认收货')
       return true
     }
     const receiverWrittenQty = Number(detailState.writebackQty)
@@ -2196,7 +2192,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
       appendTaskAudit(
         updated.taskId,
         'HANDOUT_RECORD_WRITEBACK',
-        `接收方已回写实收对象数量 ${updated.receiverWrittenQty ?? 0} ${updated.qtyUnit}`,
+        `接收方已确认实收对象数量 ${updated.receiverWrittenQty ?? 0} ${updated.qtyUnit}`,
         '工厂端移动应用',
       )
 
@@ -2225,7 +2221,7 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
           }
         }
       } else if (isPostFinishingReturnFlow) {
-        // 后道交出已由 post-finishing-domain 回写待交出仓，不再写通用工厂内部仓。
+        // 后道交出已由 post-finishing-domain 同步待交出仓，不再写通用工厂内部仓。
       } else {
         try {
           syncReceiverWritebackToOutboundRecord({
@@ -2295,17 +2291,17 @@ export function handlePdaHandoverDetailEvent(target: HTMLElement): boolean {
         isPrompt7ReturnFlow
           ? receiverWrittenQty === submittedQty
             ? '已回仓'
-            : '已回写，回仓差异待处理'
+            : '已收货，回仓差异待处理'
           : isPostFinishingReturnFlow
             ? receiverWrittenQty === submittedQty
-              ? '后道交出回写已同步'
-              : '后道交出回写有差异，待处理'
+              ? '后道交出收货已同步'
+              : '后道交出收货有差异，待处理'
           : receiverWrittenQty === submittedQty
-            ? '接收方回写已完成'
-            : '接收方已回写，待工厂确认差异',
+            ? '接收方收货确认已完成'
+            : '接收方已确认收货，待工厂确认差异',
       )
     } catch (error) {
-      const message = error instanceof Error ? error.message : '接收方回写失败'
+      const message = error instanceof Error ? error.message : '接收方确认收货失败'
       showPdaHandoverDetailToast(message)
     }
     return true

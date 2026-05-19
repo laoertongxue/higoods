@@ -2,6 +2,7 @@ import { escapeHtml } from '../../../utils'
 import {
   getPrintOrderHandoverSummary,
   getPrintReviewRecordByOrderId,
+  getPrintReviewStatusLabel,
   listPrintWorkOrders,
 } from '../../../data/fcs/printing-task-domain.ts'
 import {
@@ -93,7 +94,7 @@ export function renderCraftPrintingProgressPage(): string {
               disabled: !selected.handoverOrderId,
             })}
             ${renderActionButton({
-              label: '查看加工单审核',
+              label: '查看收货确认',
               action: 'navigate',
               attrs: { href: `${buildPrintingWorkOrderDetailLink(selected.printOrderId)}?tab=review` },
             })}
@@ -150,32 +151,32 @@ export function renderCraftPrintingProgressPage(): string {
           `,
         )}
         ${renderNodeCard(
-          '待送货',
+          '待交出',
           `
-            <div><span class="text-muted-foreground">当前状态：</span>${escapeHtml(selected.status === 'WAIT_HANDOVER' ? '待送货' : selected.status === 'HANDOVER_SUBMITTED' ? '已交出待回写' : selected.status === 'RECEIVER_WRITTEN_BACK' || selected.status === 'WAIT_REVIEW' || selected.status === 'REVIEWING' || selected.status === 'COMPLETED' || selected.status === 'REJECTED' ? '已交出' : '未开始')}</div>
+            <div><span class="text-muted-foreground">当前状态：</span>${escapeHtml(selected.status === 'WAIT_HANDOVER' ? '待交出' : selected.status === 'HANDOVER_WAIT_RECEIVE' ? '交出待收货' : selected.status === 'PARTIAL_HANDOVER' ? '部分交出' : selected.status === 'FULL_HANDOVER' ? '全部交出' : selected.status === 'HANDOVER_DIFFERENCE' ? '收货差异' : '未开始')}</div>
             <div><span class="text-muted-foreground">交出单：</span>${escapeHtml(selected.handoverOrderId || '未生成')}</div>
             <div><span class="text-muted-foreground">交出记录数：</span>${handoverSummary.recordCount} 条</div>
-            <div><span class="text-muted-foreground">待回写：</span>${handoverSummary.pendingWritebackCount} 条</div>
+            <div><span class="text-muted-foreground">待收货：</span>${handoverSummary.pendingWritebackCount} 条</div>
           `,
         )}
         ${renderNodeCard(
-          '接收方回写',
+          '接收方收货',
           `
             <div><span class="text-muted-foreground">接收方：</span>${escapeHtml(selected.targetTransferWarehouseName)}</div>
             <div><span class="text-muted-foreground">${escapeHtml(getPrintQuantityLabel(selected, '已交出'))}：</span>${formatPrintQty(handoverSummary.submittedQty, selected.qtyUnit)}</div>
             <div><span class="text-muted-foreground">${escapeHtml(getPrintQuantityLabel(selected, '实收'))}：</span>${formatPrintQty(handoverSummary.writtenBackQty, selected.qtyUnit)}</div>
             <div><span class="text-muted-foreground">${escapeHtml(getPrintQuantityLabel(selected, '差异'))}：</span>${handoverSummary.diffQty} ${escapeHtml(selected.qtyUnit || '米')}</div>
-            <div><span class="text-muted-foreground">当前状态：</span>${escapeHtml(handoverSummary.pendingWritebackCount > 0 ? '待回写' : handoverSummary.writtenBackQty > 0 ? '接收方已回写' : '未开始')}</div>
+            <div><span class="text-muted-foreground">当前状态：</span>${escapeHtml(handoverSummary.pendingWritebackCount > 0 ? '待收货' : handoverSummary.writtenBackQty > 0 ? '接收方已收货' : '未开始')}</div>
           `,
         )}
         ${renderNodeCard(
-          '审核',
+          '收货确认',
           `
-            <div class="flex items-center gap-2">${review ? renderReviewStatusBadge(review.reviewStatus) : '<span class="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-700">待审核</span>'}</div>
+            <div class="flex items-center gap-2">${review ? renderReviewStatusBadge(review.reviewStatus) : '<span class="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-700">待收货确认</span>'}</div>
             <div><span class="text-muted-foreground">${escapeHtml(getPrintQuantityLabel(selected, '实收'))}：</span>${formatPrintQty(review?.receivedQty ?? handoverSummary.writtenBackQty, selected.qtyUnit)}</div>
             <div><span class="text-muted-foreground">${escapeHtml(getPrintQuantityLabel(selected, '差异'))}：</span>${review?.diffQty ?? handoverSummary.diffQty} ${escapeHtml(selected.qtyUnit || '米')}</div>
-            <div><span class="text-muted-foreground">审核状态：</span>${escapeHtml(review ? (review.reviewStatus === 'WAIT_REVIEW' ? '待审核' : review.reviewStatus === 'PASS' ? '审核通过' : review.reviewStatus === 'REJECTED' ? '审核驳回' : '审核中') : '待审核')}</div>
-            <div><span class="text-muted-foreground">备注：</span>${escapeHtml(review?.remark || '接收方回写后进入审核')}</div>
+            <div><span class="text-muted-foreground">收货状态：</span>${escapeHtml(review ? getPrintReviewStatusLabel(review.reviewStatus) : '交出待收货')}</div>
+            <div><span class="text-muted-foreground">备注：</span>${escapeHtml(review?.remark || '接收方收货后进入确认')}</div>
           `,
         )}
       </section>

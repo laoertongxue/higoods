@@ -1,7 +1,8 @@
 import { appStore } from '../../../state/store'
 import {
-  approvePrintReview,
-  rejectPrintReview,
+  confirmPrintReceipt,
+  getPrintReviewRecordByOrderId,
+  markPrintReceiptDifference,
 } from '../../../data/fcs/printing-task-domain.ts'
 import { executeProcessWebAction } from '../../../data/fcs/process-web-status-actions.ts'
 import {
@@ -106,26 +107,36 @@ export function handleCraftPrintingEvent(target: HTMLElement): boolean {
     return true
   }
 
-  if (action === 'approve-review') {
+  if (action === 'confirm-receipt') {
     const printOrderId = actionNode.dataset.printOrderId
     if (!printOrderId) return true
-    approvePrintReview(printOrderId, { reviewedBy: '中转审核员', remark: '中转区域审核通过' })
-    showPrintingToast('审核通过')
+    confirmPrintReceipt(printOrderId, { receivedBy: '仓库收货员', remark: '仓库确认本次收货' })
+    showPrintingToast('已确认本次收货')
     appStore.navigate(`/fcs/craft/printing/pending-review?printOrderId=${encodeURIComponent(printOrderId)}`)
     return true
   }
 
-  if (action === 'reject-review') {
+  if (action === 'mark-receipt-difference') {
     const printOrderId = actionNode.dataset.printOrderId
     if (!printOrderId) return true
-    const rejectReason = window.prompt('请输入驳回原因')
-    if (!rejectReason) return true
-    rejectPrintReview(printOrderId, {
-      reviewedBy: '中转审核员',
-      rejectReason,
-      remark: '中转区域审核驳回',
+    const review = getPrintReviewRecordByOrderId(printOrderId)
+    const defaultQty = review?.receivedQty || review?.submittedQty || 0
+    const qtyText = window.prompt('请输入本次实收数量', String(defaultQty))
+    if (qtyText === null) return true
+    const receivedQty = Number(qtyText)
+    if (!Number.isFinite(receivedQty) || receivedQty < 0) {
+      showPrintingToast('请填写有效的实收数量')
+      return true
+    }
+    const differenceReason = window.prompt('请输入收货差异原因')
+    if (!differenceReason) return true
+    markPrintReceiptDifference(printOrderId, {
+      receivedBy: '仓库收货员',
+      receivedQty,
+      differenceReason,
+      remark: '仓库确认收货差异',
     })
-    showPrintingToast('审核驳回')
+    showPrintingToast('已标记收货差异')
     appStore.navigate(`/fcs/craft/printing/pending-review?printOrderId=${encodeURIComponent(printOrderId)}`)
     return true
   }

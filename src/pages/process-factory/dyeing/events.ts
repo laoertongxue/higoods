@@ -1,7 +1,8 @@
 import { appStore } from '../../../state/store'
 import {
-  approveDyeReview,
-  rejectDyeReview,
+  confirmDyeReceipt,
+  getDyeReviewRecordByOrderId,
+  markDyeReceiptDifference,
 } from '../../../data/fcs/dyeing-task-domain.ts'
 import { executeProcessWebAction } from '../../../data/fcs/process-web-status-actions.ts'
 import {
@@ -98,26 +99,36 @@ export function handleCraftDyeingEvent(target: HTMLElement): boolean {
     return true
   }
 
-  if (action === 'approve-review') {
+  if (action === 'confirm-receipt') {
     const dyeOrderId = actionNode.dataset.dyeOrderId
     if (!dyeOrderId) return true
-    approveDyeReview(dyeOrderId, { reviewedBy: '中转审核员', remark: '中转区域审核通过' })
-    showDyeingToast('审核通过')
+    confirmDyeReceipt(dyeOrderId, { receivedBy: '仓库收货员', remark: '仓库确认本次收货' })
+    showDyeingToast('已确认本次收货')
     appStore.navigate(`/fcs/craft/dyeing/reports?dyeOrderId=${encodeURIComponent(dyeOrderId)}`)
     return true
   }
 
-  if (action === 'reject-review') {
+  if (action === 'mark-receipt-difference') {
     const dyeOrderId = actionNode.dataset.dyeOrderId
     if (!dyeOrderId) return true
-    const rejectReason = window.prompt('请输入驳回原因')
-    if (!rejectReason) return true
-    rejectDyeReview(dyeOrderId, {
-      reviewedBy: '中转审核员',
-      rejectReason,
-      remark: '中转区域审核驳回',
+    const review = getDyeReviewRecordByOrderId(dyeOrderId)
+    const defaultQty = review?.receivedQty || review?.submittedQty || 0
+    const qtyText = window.prompt('请输入本次实收数量', String(defaultQty))
+    if (qtyText === null) return true
+    const receivedQty = Number(qtyText)
+    if (!Number.isFinite(receivedQty) || receivedQty < 0) {
+      showDyeingToast('请填写有效的实收数量')
+      return true
+    }
+    const differenceReason = window.prompt('请输入收货差异原因')
+    if (!differenceReason) return true
+    markDyeReceiptDifference(dyeOrderId, {
+      receivedBy: '仓库收货员',
+      receivedQty,
+      differenceReason,
+      remark: '仓库确认收货差异',
     })
-    showDyeingToast('审核驳回')
+    showDyeingToast('已标记收货差异')
     appStore.navigate(`/fcs/craft/dyeing/reports?dyeOrderId=${encodeURIComponent(dyeOrderId)}`)
     return true
   }

@@ -10,6 +10,7 @@ import {
   getPdaTaskFlowTaskById,
   isCuttingSpecialTask,
   listPdaTaskFlowTasks,
+  resolvePdaTaskDetailPath,
   resolvePdaTaskExecPath,
 } from '../data/fcs/pda-cutting-execution-source.ts'
 import { listPdaGenericTasksByProcess } from '../data/fcs/pda-task-mock-factory.ts'
@@ -342,6 +343,7 @@ function mutateFinishTask(taskId: string, by: string): void {
   const now = nowTimestamp()
   const task = getTaskFactById(taskId)
   if (!task) return
+  if (getPrintWorkOrderByTaskId(taskId) || getDyeWorkOrderByTaskId(taskId)) return
 
   task.status = 'DONE'
   task.finishedAt = now
@@ -409,7 +411,16 @@ function renderSourceBadge(mode: string): string {
 }
 
 function buildPdaExecTasksByStatus(acceptedTasks: ProcessTask[]): Record<TaskStatusTab, ProcessTask[]> {
-  const tasksByStatus = buildPdaExecTasksByStatus(acceptedTasks)
+  const tasksByStatus: Record<TaskStatusTab, ProcessTask[]> = {
+    NOT_STARTED: [],
+    IN_PROGRESS: [],
+    BLOCKED: [],
+    DONE: [],
+  }
+
+  for (const task of acceptedTasks) {
+    tasksByStatus[getMobileTaskTabKey(task)].push(task)
+  }
 
   return tasksByStatus
 }
@@ -446,6 +457,13 @@ function updatePdaExecCardListInPlace(): void {
   const tasksByStatus = buildPdaExecTasksByStatus(acceptedTasks)
   const filteredTasks = getFilteredTasks(tasksByStatus, state.activeTab)
   listNode.innerHTML = renderPdaExecCardList(filteredTasks, getPdaExecEmptyStateText(acceptedTasks))
+}
+
+function resolvePdaExecCardDetailPath(taskId: string): string {
+  const currentPath = appStore.getState().pathname
+  const task = getPdaTaskFlowTaskById(taskId)
+  if (task && isCuttingSpecialTask(task)) return resolvePdaTaskDetailPath(taskId, currentPath)
+  return resolvePdaTaskExecPath(taskId, currentPath)
 }
 
 function renderNotStartedCard(task: ProcessTask): string {
@@ -581,6 +599,7 @@ function renderNotStartedCard(task: ProcessTask): string {
 function renderInProgressCard(task: ProcessTask): string {
   const displayProcessName = getTaskProcessDisplayName(task)
   const qtyDisplayMeta = resolveTaskQtyDisplayMeta(task, displayProcessName)
+  const isProcessDomainTask = Boolean(getPrintWorkOrderByTaskId(task.taskId) || getDyeWorkOrderByTaskId(task.taskId))
   const deadline = getDeadlineStatus(
     (task as ProcessTask & { taskDeadline?: string }).taskDeadline,
     task.finishedAt,
@@ -670,14 +689,20 @@ function renderInProgressCard(task: ProcessTask): string {
             上报暂停
           </button>
 
-          <button
-            class="inline-flex h-7 items-center rounded-md bg-primary px-3 text-xs text-primary-foreground hover:bg-primary/90"
-            data-pda-exec-action="finish-task"
-            data-task-id="${escapeHtml(task.taskId)}"
-          >
-            <i data-lucide="check-circle" class="mr-1 h-3 w-3"></i>
-            完工
-          </button>
+          ${
+            isProcessDomainTask
+              ? ''
+              : `
+                  <button
+                    class="inline-flex h-7 items-center rounded-md bg-primary px-3 text-xs text-primary-foreground hover:bg-primary/90"
+                    data-pda-exec-action="finish-task"
+                    data-task-id="${escapeHtml(task.taskId)}"
+                  >
+                    <i data-lucide="check-circle" class="mr-1 h-3 w-3"></i>
+                    完工
+                  </button>
+                `
+          }
 
           <button
             class="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-md hover:bg-muted"
@@ -963,7 +988,7 @@ export function handlePdaExecEvent(target: HTMLElement): boolean {
   if (action === 'open-detail') {
     const taskId = actionNode.dataset.taskId
     if (taskId) {
-      appStore.navigate(resolvePdaTaskExecPath(taskId, appStore.getState().pathname))
+      appStore.navigate(resolvePdaExecCardDetailPath(taskId))
     }
     return true
   }
@@ -1004,6 +1029,10 @@ export function handlePdaExecEvent(target: HTMLElement): boolean {
 
     const task = getTaskFactById(taskId)
     if (!task) return true
+    if (getPrintWorkOrderByTaskId(taskId) || getDyeWorkOrderByTaskId(taskId)) {
+      showPdaExecToast('请进入任务详情按当前节点操作')
+      return true
+    }
 
     if (!isTaskMilestoneReported(task)) {
       showPdaExecToast('请先完成关键节点上报')

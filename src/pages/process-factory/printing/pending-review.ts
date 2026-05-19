@@ -23,6 +23,7 @@ function renderReviewList(selectedId: string): string {
       const order = listPrintWorkOrders().find((item) => item.printOrderId === review.printOrderId)
       if (!order) return ''
       const active = review.printOrderId === selectedId
+      const canConfirmReceipt = review.reviewStatus === 'WAIT_RECEIVE' || review.reviewStatus === 'PARTIAL_HANDOVER'
       return `
         <tr class="border-b last:border-b-0 ${active ? 'bg-blue-50/70' : ''}">
           <td class="px-3 py-3 font-mono text-xs">${escapeHtml(order.printOrderNo)}</td>
@@ -39,16 +40,18 @@ function renderReviewList(selectedId: string): string {
           <td class="px-3 py-3">
             <div class="flex flex-wrap gap-2">
               ${renderActionButton({
-                label: '审核通过',
-                action: 'approve-review',
+                label: '确认全部收货',
+                action: 'confirm-receipt',
                 attrs: { 'print-order-id': review.printOrderId },
                 tone: 'primary',
+                disabled: !canConfirmReceipt,
               })}
               ${renderActionButton({
-                label: '审核驳回',
-                action: 'reject-review',
+                label: '登记收货差异',
+                action: 'mark-receipt-difference',
                 attrs: { 'print-order-id': review.printOrderId },
                 tone: 'danger',
+                disabled: !canConfirmReceipt,
               })}
               ${renderActionButton({
                 label: '打开移动端交出页',
@@ -64,10 +67,10 @@ function renderReviewList(selectedId: string): string {
     .join('')
 
   return renderSection(
-    '审核列表',
+    '收货确认列表',
     `
       <div class="overflow-x-auto">
-        <table class="min-w-full text-left text-sm">
+        <table class="min-w-[1280px] text-left text-sm">
           <thead class="bg-slate-50 text-xs text-muted-foreground">
             <tr>
               <th class="px-3 py-2 font-medium">印花单号</th>
@@ -80,7 +83,7 @@ function renderReviewList(selectedId: string): string {
               <th class="px-3 py-2 font-medium">卷数</th>
               <th class="px-3 py-2 font-medium">长度</th>
               <th class="px-3 py-2 font-medium">差异面料米数</th>
-              <th class="px-3 py-2 font-medium">审核状态</th>
+              <th class="px-3 py-2 font-medium">收货状态</th>
               <th class="px-3 py-2 font-medium">操作</th>
             </tr>
           </thead>
@@ -98,11 +101,13 @@ export function renderCraftPrintingPendingReviewPage(): string {
   const selectedOrder = orders.find((item) => item.printOrderId === selectedOrderId)
   const selectedReview = selectedOrder ? getPrintReviewRecordByOrderId(selectedOrder.printOrderId) : undefined
   const handoverSummary = selectedOrder ? getPrintOrderHandoverSummary(selectedOrder.printOrderId) : undefined
+  const canConfirmSelectedReceipt =
+    selectedReview?.reviewStatus === 'WAIT_RECEIVE' || selectedReview?.reviewStatus === 'PARTIAL_HANDOVER'
 
   const detail =
     selectedOrder && selectedReview
       ? renderSection(
-          '审核明细',
+          '收货确认明细',
           `
             <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               <article class="rounded-md border bg-background px-3 py-3 text-sm">
@@ -111,7 +116,7 @@ export function renderCraftPrintingPendingReviewPage(): string {
                 <div class="mt-2">${renderWorkOrderStatusBadge(selectedOrder.status)}</div>
               </article>
               <article class="rounded-md border bg-background px-3 py-3 text-sm">
-                <div class="text-xs text-muted-foreground">接收方回写</div>
+                <div class="text-xs text-muted-foreground">接收方收货</div>
                 <div class="mt-1">${formatPrintQty(selectedReview.receivedQty, selectedOrder.qtyUnit)}</div>
                 <div class="mt-1 text-xs text-muted-foreground">交出 ${formatPrintQty(selectedReview.submittedQty, selectedOrder.qtyUnit)}</div>
               </article>
@@ -123,21 +128,23 @@ export function renderCraftPrintingPendingReviewPage(): string {
               <article class="rounded-md border bg-background px-3 py-3 text-sm">
                 <div class="text-xs text-muted-foreground">差异</div>
                 <div class="mt-1">${selectedReview.diffQty}</div>
-                <div class="mt-1 text-xs text-muted-foreground">待回写 ${handoverSummary?.pendingWritebackCount ?? 0} 条</div>
+                <div class="mt-1 text-xs text-muted-foreground">待收货 ${handoverSummary?.pendingWritebackCount ?? 0} 条</div>
               </article>
             </div>
             <div class="mt-4 flex flex-wrap gap-2">
               ${renderActionButton({
-                label: '审核通过',
-                action: 'approve-review',
+                label: '确认全部收货',
+                action: 'confirm-receipt',
                 attrs: { 'print-order-id': selectedOrder.printOrderId },
                 tone: 'primary',
+                disabled: !canConfirmSelectedReceipt,
               })}
               ${renderActionButton({
-                label: '审核驳回',
-                action: 'reject-review',
+                label: '登记收货差异',
+                action: 'mark-receipt-difference',
                 attrs: { 'print-order-id': selectedOrder.printOrderId },
                 tone: 'danger',
+                disabled: !canConfirmSelectedReceipt,
               })}
               ${renderActionButton({
                 label: '打开移动端交出页',
@@ -153,7 +160,7 @@ export function renderCraftPrintingPendingReviewPage(): string {
             </div>
             ${
               selectedReview.rejectReason
-                ? `<div class="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">驳回原因：${escapeHtml(selectedReview.rejectReason)}</div>`
+                ? `<div class="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">差异原因：${escapeHtml(selectedReview.rejectReason)}</div>`
                 : ''
             }
           `,
@@ -162,7 +169,7 @@ export function renderCraftPrintingPendingReviewPage(): string {
 
   return `
     <div class="space-y-4 p-4">
-      ${renderPageHeader('印花加工单审核视图', '审核记录归属于印花加工单，不作为独立主单。')}
+      ${renderPageHeader('印花收货确认视图', '收货确认记录归属于印花加工单，不作为独立主单。')}
       ${renderReviewList(selectedOrderId)}
       ${detail}
     </div>

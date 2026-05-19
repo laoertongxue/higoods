@@ -6,6 +6,7 @@ import {
 } from '../../../data/fcs/printing-task-domain.ts'
 import { buildPrintingWorkOrderDetailLink, buildTaskRouteCardPrintLink } from '../../../data/fcs/fcs-route-links.ts'
 import { formatFactoryDisplayName } from '../../../data/fcs/factory-mock-data.ts'
+import { getStartPrerequisiteByTaskId } from '../../../data/fcs/pda-start-link.ts'
 import {
   formatPrintProcessQty,
   getPrintQuantityLabel,
@@ -24,9 +25,11 @@ function renderSummaryCards(): string {
       ${renderMetricCard('印花任务', String(summary.total), '加工单数')}
       ${renderMetricCard('等打印', String(summary.waitPrintCount), '花型测试已完成')}
       ${renderMetricCard('打印中', String(summary.printingCount), '当前机台执行')}
-      ${renderMetricCard('待送货', String(summary.waitHandoverCount), '转印结束待交出')}
-      ${renderMetricCard('待回写', String(summary.waitWritebackCount), '交出后待接收方回写')}
-      ${renderMetricCard('待审核', String(summary.waitReviewCount), '中转区域待审核')}
+      ${renderMetricCard('待交出', String(summary.waitHandoverCount), '转印完成待发起交出')}
+      ${renderMetricCard('交出待收货', String(summary.waitReceiveCount), '交出后待仓库确认收货')}
+      ${renderMetricCard('部分交出', String(summary.partialHandoverCount), '仓库已确认部分收货')}
+      ${renderMetricCard('全部交出', String(summary.fullHandoverCount), '仓库已确认全部收货')}
+      ${renderMetricCard('收货差异', String(summary.handoverDifferenceCount), '交出与实收存在差异')}
       ${renderMetricCard('差异', String(summary.diffQty), '交出与实收差异')}
     </section>
   `
@@ -38,6 +41,7 @@ function renderOrdersTable(): string {
       const handover = getPrintOrderHandoverSummary(order.printOrderId)
       const printer = getPrintPrinterSummary(order)
       const handoverText = order.handoverOrderId ? escapeHtml(order.handoverOrderNo || order.handoverOrderId) : '未生成'
+      const startPrerequisite = getStartPrerequisiteByTaskId(order.taskId)
 
       return `
         <tr class="border-b align-top last:border-b-0">
@@ -57,6 +61,10 @@ function renderOrdersTable(): string {
           </td>
           <td class="px-3 py-3 text-sm">${escapeHtml(formatFactoryDisplayName(order.printFactoryName, order.printFactoryId))}</td>
           <td class="px-3 py-3">${renderWorkOrderStatusBadge(order.status)}</td>
+          <td class="px-3 py-3 text-sm">
+            <div class="font-medium">${escapeHtml(startPrerequisite?.statusLabel || '按加工单状态判断')}</div>
+            <div class="mt-1 text-xs text-muted-foreground">实际印花前必须确认领料到位</div>
+          </td>
           <td class="px-3 py-3 text-sm">
             <div>${escapeHtml(printer.printerNo)}</div>
             <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(printer.speedText)}</div>
@@ -102,10 +110,11 @@ function renderOrdersTable(): string {
               <th class="px-3 py-2 font-medium">需求单印花数量</th>
               <th class="px-3 py-2 font-medium">印花工厂</th>
               <th class="px-3 py-2 font-medium">当前状态</th>
+              <th class="px-3 py-2 font-medium">开工准备</th>
               <th class="px-3 py-2 font-medium">打印机</th>
               <th class="px-3 py-2 font-medium">转印完成面料米数 / 裁片数量</th>
               <th class="px-3 py-2 font-medium">交出单</th>
-              <th class="px-3 py-2 font-medium">待回写</th>
+              <th class="px-3 py-2 font-medium">待收货</th>
               <th class="px-3 py-2 font-medium">差异</th>
               <th class="px-3 py-2 font-medium">异议</th>
               <th class="px-3 py-2 font-medium">操作</th>

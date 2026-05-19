@@ -172,8 +172,13 @@ const MOBILE_SOURCE_CHANNEL = 'PDA' as const
 const MOBILE_WRITEBACK_CHANNEL = 'PDA_WRITEBACK' as const
 
 type SpreadingSourceFilter = 'ALL' | 'PC' | typeof MOBILE_SOURCE_CHANNEL
-type SpreadingCreateStepKey = 'SELECT_MARKER' | 'CONFIRM_CREATE'
+type SpreadingCreateStepKey = 'SELECT_MARKER' | 'ASSIGN_TABLES' | 'CONFIRM_CREATE'
 type SpreadingCreateScheduleMode = 'BY_MARKER_NO' | 'WHOLE_PLAN_ONE_TABLE'
+interface SpreadingCreateAssignment {
+  cuttingTableId: string
+  plannedStartAt: string
+  ownerAccountId: string
+}
 type SpreadingEditTabKey = 'summary' | 'rolls' | 'operators' | 'variance' | 'completion'
 type MarkerDraftField =
   | 'markerNo'
@@ -297,6 +302,7 @@ interface MarkerSpreadingPageState {
   createCuttingTableId: string
   createPlannedStartAt: string
   createNote: string
+  createAssignments: Record<string, SpreadingCreateAssignment>
   markerDraft: MarkerRecord | null
   spreadingDraft: SpreadingSession | null
   feedback: {
@@ -391,6 +397,7 @@ const state: MarkerSpreadingPageState = {
   createCuttingTableId: cuttingTableResources[0]?.cuttingTableId || '',
   createPlannedStartAt: '',
   createNote: '',
+  createAssignments: {},
   markerDraft: null,
   spreadingDraft: null,
   feedback: null,
@@ -494,6 +501,82 @@ function getSelectedCreateSchemeSources(rows = getSpreadingCreateSourceRows()): 
   return rows
     .filter((row) => row.sourceSchemeId === selected.sourceSchemeId)
     .sort((left, right) => left.sourceBedNo.localeCompare(right.sourceBedNo, 'zh-CN', { numeric: true }))
+}
+
+function getCreateAssignmentKey(source: SpreadingCreateSourceRow): string {
+  return source.markerId || source.sourceBedId || source.sourceSchemeId
+}
+
+function getDefaultCreateAssignment(source: SpreadingCreateSourceRow, index: number): SpreadingCreateAssignment {
+  const startAt = state.createPlannedStartAt || formatDateTimeLocal()
+  return {
+    cuttingTableId: state.createCuttingTableId || cuttingTableResources[0]?.cuttingTableId || '',
+    plannedStartAt:
+      state.createScheduleMode === 'WHOLE_PLAN_ONE_TABLE'
+        ? startAt
+        : addMinutesToDateTimeLocal(startAt, index * DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES),
+    ownerAccountId: state.createOwnerAccountId || SPREADING_CREATE_OWNER_OPTIONS[0].value,
+  }
+}
+
+function ensureCreateAssignments(rows: SpreadingCreateSourceRow[]): Record<string, SpreadingCreateAssignment> {
+  const validKeys = new Set(rows.map(getCreateAssignmentKey))
+  Object.keys(state.createAssignments).forEach((key) => {
+    if (!validKeys.has(key)) delete state.createAssignments[key]
+  })
+  rows.forEach((row, index) => {
+    const key = getCreateAssignmentKey(row)
+    if (!state.createAssignments[key]) {
+      state.createAssignments[key] = getDefaultCreateAssignment(row, index)
+    }
+  })
+  return state.createAssignments
+}
+
+function getCreateAssignment(source: SpreadingCreateSourceRow, index: number): SpreadingCreateAssignment {
+  const key = getCreateAssignmentKey(source)
+  if (!state.createAssignments[key]) {
+    state.createAssignments[key] = getDefaultCreateAssignment(source, index)
+  }
+  return state.createAssignments[key]
+}
+
+function buildCreateAssignmentGroups(rows: SpreadingCreateSourceRow[]): Array<{
+  groupKey: string
+  rows: SpreadingCreateSourceRow[]
+  cuttingTableId: string
+  plannedStartAt: string
+  ownerAccountId: string
+}> {
+  ensureCreateAssignments(rows)
+  const groups = new Map<string, {
+    groupKey: string
+    rows: SpreadingCreateSourceRow[]
+    cuttingTableId: string
+    plannedStartAt: string
+    ownerAccountId: string
+  }>()
+  rows.forEach((row, index) => {
+    const assignment = getCreateAssignment(row, index)
+    const groupKey = [
+      assignment.cuttingTableId,
+      assignment.plannedStartAt,
+      assignment.ownerAccountId,
+    ].join('|')
+    const existing = groups.get(groupKey)
+    if (existing) {
+      existing.rows.push(row)
+      return
+    }
+    groups.set(groupKey, {
+      groupKey,
+      rows: [row],
+      cuttingTableId: assignment.cuttingTableId,
+      plannedStartAt: assignment.plannedStartAt,
+      ownerAccountId: assignment.ownerAccountId,
+    })
+  })
+  return Array.from(groups.values())
 }
 
 function getExceptionCreateContext(): MarkerSpreadingContext | null {
@@ -1776,20 +1859,27 @@ function syncStateFromPath(): void {
 
   if (currentPath === getCanonicalCuttingPath('spreading-edit') || currentPath === getCanonicalCuttingPath('spreading-create')) {
     if (currentPath === getCanonicalCuttingPath('spreading-create')) {
-      state.createStep = getSearchParams().get('step') === 'confirm' ? 'CONFIRM_CREATE' : 'SELECT_MARKER'
+      const previousSelectedCreateMarkerId = state.selectedCreateMarkerId
+      const previousCreateAssignments = { ...state.createAssignments }
+      const previousCreateScheduleMode = state.createScheduleMode
+      const previousCreateOwnerAccountId = state.createOwnerAccountId
+      const previousCreateCuttingTableId = state.createCuttingTableId
+      const previousCreatePlannedStartAt = state.createPlannedStartAt
+      const previousCreateNote = state.createNote
+      const step = getSearchParams().get('step')
+      state.createStep = step === 'confirm' ? 'CONFIRM_CREATE' : step === 'assign' ? 'ASSIGN_TABLES' : 'SELECT_MARKER'
       state.selectedCreateMarkerId = getSearchParams().get('bedId') || getSearchParams().get('markerId') || ''
       state.selectedCreateSourceSnapshot = null
-      state.createStep =
-        getSearchParams().get('step') === 'confirm' && state.selectedCreateMarkerId
-          ? 'CONFIRM_CREATE'
-          : 'SELECT_MARKER'
+      state.createStep = state.selectedCreateMarkerId ? state.createStep : 'SELECT_MARKER'
       state.createExceptionBackfill = false
       state.createExceptionReason = ''
-      state.createOwnerAccountId = SPREADING_CREATE_OWNER_OPTIONS[0].value
-      state.createCuttingTableId = cuttingTableResources[0]?.cuttingTableId || ''
-      state.createScheduleMode = 'BY_MARKER_NO'
-      state.createPlannedStartAt = formatDateTimeLocal()
-      state.createNote = ''
+      const shouldPreserveCreateState = Boolean(previousSelectedCreateMarkerId && previousSelectedCreateMarkerId === state.selectedCreateMarkerId)
+      state.createOwnerAccountId = shouldPreserveCreateState ? previousCreateOwnerAccountId : SPREADING_CREATE_OWNER_OPTIONS[0].value
+      state.createCuttingTableId = shouldPreserveCreateState ? previousCreateCuttingTableId : cuttingTableResources[0]?.cuttingTableId || ''
+      state.createScheduleMode = shouldPreserveCreateState ? previousCreateScheduleMode : 'WHOLE_PLAN_ONE_TABLE'
+      state.createPlannedStartAt = shouldPreserveCreateState ? previousCreatePlannedStartAt : formatDateTimeLocal()
+      state.createNote = shouldPreserveCreateState ? previousCreateNote : ''
+      state.createAssignments = shouldPreserveCreateState ? previousCreateAssignments : {}
       state.spreadingDraft = null
       state.spreadingCompletionSelection = []
       state.markerDraft = null
@@ -1814,9 +1904,10 @@ function syncStateFromPath(): void {
   state.createExceptionReason = ''
   state.createOwnerAccountId = SPREADING_CREATE_OWNER_OPTIONS[0].value
   state.createCuttingTableId = cuttingTableResources[0]?.cuttingTableId || ''
-  state.createScheduleMode = 'BY_MARKER_NO'
+  state.createScheduleMode = 'WHOLE_PLAN_ONE_TABLE'
   state.createPlannedStartAt = formatDateTimeLocal()
   state.createNote = ''
+  state.createAssignments = {}
   state.spreadingEditTab = 'summary'
 }
 
@@ -2039,7 +2130,14 @@ function getPageData() {
     if (!matchesIncludesFilter(state.mergeBatchFilter, [row.mergeBatchNo])) {
       return false
     }
-    if (!matchesIncludesFilter(state.markerNoFilter, [row.sourceMarkerLabel])) {
+    if (!matchesIncludesFilter(state.markerNoFilter, [
+      row.sourceMarkerLabel,
+      row.session.sourceSchemeNo,
+      row.session.sourceBedNo,
+      row.session.markerNo,
+      row.session.cuttingTableName,
+      row.session.cuttingTableNo,
+    ])) {
       return false
     }
     if (!matchesIncludesFilter(state.productionOrderFilter, row.productionOrderNos)) {
@@ -2294,67 +2392,17 @@ function renderListStateBar(): string {
 
 function renderFilterArea(): string {
   return renderStickyFilterShell(`
-      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-[repeat(4,minmax(0,1fr))_auto] xl:items-end">
-        ${renderListTextInput('搜索', state.keyword, 'data-cutting-spreading-list-field="keyword"', '铺布编号 / 方案编号 / 原始裁片单 / 合并裁剪批次 / 生产单 / SPU')}
+      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-[repeat(5,minmax(0,1fr))_auto] xl:items-end">
+        ${renderListTextInput('搜索', state.keyword, 'data-cutting-spreading-list-field="keyword"', '铺布单 / 唛架方案 / 唛架号 / 生产单 / 款式')}
         ${renderListSelect('主状态', state.spreadingStageFilter, 'data-cutting-spreading-list-field="main-stage"', [
           { value: 'ALL', label: '全部' },
           ...getSpreadingStageOptions().filter((item) => item.value !== 'ALL'),
         ])}
-        ${renderListTextInput('原始裁片单 / 合并裁剪批次', state.contextNoFilter, 'data-cutting-spreading-list-field="context-no"', '')}
-        ${renderListTextInput('铺布编号', state.sessionNoFilter, 'data-cutting-spreading-list-field="session-no"', '')}
+        ${renderListTextInput('生产单 / 裁片单', state.contextNoFilter, 'data-cutting-spreading-list-field="context-no"', '')}
+        ${renderListTextInput('款式 / SPU', state.styleSpuFilter, 'data-cutting-spreading-list-field="style-spu"', '')}
+        ${renderListTextInput('裁床', state.markerNoFilter, 'data-cutting-spreading-list-field="marker-no"', '裁床名称 / 唛架方案')}
         <button type="button" class="h-10 rounded-md border px-3 text-sm hover:bg-muted" data-cutting-marker-action="clear-filters">重置筛选</button>
       </div>
-      <details class="mt-3 rounded-md border bg-background" data-testid="cutting-spreading-more-filters">
-        <summary class="cursor-pointer list-none px-3 py-3 text-sm font-medium text-foreground">更多筛选</summary>
-        <div class="border-t p-3">
-          <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            ${renderListTextInput('原始裁片单', state.originalCutOrderFilter, 'data-cutting-spreading-list-field="original-cut-order"', '')}
-            ${renderListTextInput('合并裁剪批次', state.mergeBatchFilter, 'data-cutting-spreading-list-field="merge-batch"', '')}
-            ${renderListTextInput('方案编号', state.markerNoFilter, 'data-cutting-spreading-list-field="marker-no"', '')}
-            ${renderListTextInput('生产单号', state.productionOrderFilter, 'data-cutting-spreading-list-field="production-order"', '')}
-            ${renderListTextInput('款号 / SPU', state.styleSpuFilter, 'data-cutting-spreading-list-field="style-spu"', '')}
-            ${renderListTextInput('面料 SKU', state.materialSkuFilter, 'data-cutting-spreading-list-field="material-sku"', '')}
-            ${renderListTextInput('颜色', state.colorFilter, 'data-cutting-spreading-list-field="color"', '')}
-            ${renderListSelect('模式', state.spreadingModeFilter, 'data-cutting-spreading-list-field="mode"', [
-              { value: 'ALL', label: '全部模式' },
-              { value: 'normal', label: '普通唛架' },
-              { value: 'high_low', label: '高低层唛架' },
-              { value: 'fold_normal', label: '对折普通唛架' },
-              { value: 'fold_high_low', label: '对折高低层唛架' },
-            ])}
-            ${renderListSelect('上下文类型', state.contextTypeFilter, 'data-cutting-spreading-list-field="context"', [
-              { value: 'ALL', label: '全部' },
-              { value: 'original-order', label: '原始裁片单' },
-              { value: 'merge-batch', label: '合并裁剪批次' },
-            ])}
-            ${renderListSelect('补料状态', state.replenishmentStatusFilter, 'data-cutting-spreading-list-field="replenishment-status"', [
-              { value: 'ALL', label: '全部' },
-              { value: '待补料确认', label: '待补料确认' },
-              { value: '无需补料', label: '无需补料' },
-            ])}
-            ${renderListSelect('菲票状态', state.feiTicketStatusFilter, 'data-cutting-spreading-list-field="fei-status"', [
-              { value: 'ALL', label: '全部' },
-              { value: '待打印菲票', label: '待打印菲票' },
-              { value: '已打印菲票', label: '已打印菲票' },
-            ])}
-            ${renderListSelect('装袋状态', state.baggingStatusFilter, 'data-cutting-spreading-list-field="bagging-status"', [
-              { value: 'ALL', label: '全部' },
-              { value: '待装袋', label: '待装袋' },
-              { value: '已装袋', label: '已装袋' },
-            ])}
-            ${renderListSelect('入仓状态', state.warehouseStatusFilter, 'data-cutting-spreading-list-field="warehouse-status"', [
-              { value: 'ALL', label: '全部' },
-              { value: '待入仓', label: '待入仓' },
-              { value: '已入仓', label: '已入仓' },
-            ])}
-            ${renderListSelect('录入来源', state.sourceChannelFilter, 'data-cutting-spreading-list-field="source-channel"', [
-              { value: 'ALL', label: '全部' },
-              { value: 'PC', label: '电脑录入' },
-              { value: MOBILE_SOURCE_CHANNEL, label: '移动录入' },
-            ])}
-          </div>
-        </div>
-      </details>
     `, '', 'data-testid="cutting-spreading-list-filters"')
 }
 
@@ -2436,64 +2484,52 @@ function renderSpreadingTable(rows: SupervisorSpreadingRow[]): string {
         <div class="text-xs text-muted-foreground">共 ${rows.length} 条铺布记录</div>
       </div>
       ${renderStickyTableScroller(`
-    <table class="min-w-[2680px] text-sm">
+    <table class="min-w-[1180px] text-sm">
       <thead class="sticky top-0 bg-muted/70 text-left text-xs text-muted-foreground backdrop-blur">
         <tr>
           <th class="px-2 py-1 font-medium">铺布编号</th>
-          <th class="px-2 py-1 font-medium">主状态</th>
-          <th class="px-2 py-1 font-medium">来源唛架编号</th>
-          <th class="px-2 py-1 font-medium">裁床</th>
-          <th class="px-2 py-1 font-medium">计划开始</th>
-          <th class="px-2 py-1 font-medium">计划结束</th>
-          <th class="px-2 py-1 font-medium">预计耗时</th>
-          <th class="px-2 py-1 font-medium">上下文摘要</th>
-          <th class="px-2 py-1 font-medium">原始裁片单数（张）</th>
-          <th class="px-2 py-1 font-medium">生产单数（单）</th>
-          <th class="px-2 py-1 font-medium">款号 / SPU</th>
-          <th class="px-2 py-1 font-medium">面料 / 颜色</th>
-          <th class="px-2 py-1 font-medium">铺布模式</th>
-          <th class="px-2 py-1 font-medium">计划裁剪成衣件数（件）</th>
-          <th class="px-2 py-1 font-medium">实际裁剪成衣件数（件）</th>
-          <th class="px-2 py-1 font-medium">缺口成衣件数（件）</th>
-          <th class="px-2 py-1 font-medium">总实际铺布长度（m）</th>
-          <th class="px-2 py-1 font-medium">补料状态</th>
-          <th class="px-2 py-1 font-medium">菲票状态</th>
-          <th class="px-2 py-1 font-medium">装袋状态</th>
-          <th class="px-2 py-1 font-medium">入仓状态</th>
-          <th class="px-2 py-1 font-medium">更新时间</th>
+          <th class="px-2 py-1 font-medium">来源唛架方案</th>
+          <th class="px-2 py-1 font-medium">包含唛架号</th>
+          <th class="px-2 py-1 font-medium">裁床 / 班组</th>
+          <th class="px-2 py-1 font-medium">生产单 / 款式</th>
+          <th class="px-2 py-1 font-medium">数量进度</th>
+          <th class="px-2 py-1 font-medium">当前状态</th>
+          <th class="px-2 py-1 font-medium">异常</th>
           <th class="px-2 py-1 font-medium">操作</th>
         </tr>
       </thead>
       <tbody>
         ${rows
           .map((row) => {
-            const modeMeta = deriveSpreadingModeMeta(row.session.spreadingMode)
-            const statusMeta = deriveSpreadingStatus(row.session.status)
             const primaryAction = renderSpreadingListPrimaryAction(row.mainStageKey, row.spreadingSessionId)
+            const markerNos = row.session.sourceBedNo || row.session.markerNo || row.sourceMarkerLabel
+            const exceptionText = row.pendingReplenishmentConfirmation
+              ? row.replenishmentStatusLabel
+              : row.hasWarnings
+                ? row.warningStatusLabel
+                : '无异常'
             return `
               <tr class="border-b align-top">
-                <td class="px-2 py-1 font-medium text-foreground">${escapeHtml(`${row.sessionNo} / ${getSpreadingDataSourceLabel(row.dataSourceLabel)}`)}</td>
+                <td class="px-2 py-1 font-medium text-foreground">
+                  <div>${escapeHtml(row.sessionNo)}</div>
+                  <div class="mt-1 text-[11px] text-muted-foreground">${escapeHtml(getSpreadingDataSourceLabel(row.dataSourceLabel))}</div>
+                </td>
+                <td class="px-2 py-1 font-medium">${escapeHtml(row.session.sourceSchemeNo || row.sourceMarkerLabel || '待关联')}</td>
+                <td class="px-2 py-1">${escapeHtml(markerNos || '待补')}</td>
+                <td class="px-2 py-1">
+                  <div class="font-medium text-foreground">${escapeHtml(row.session.cuttingTableName || row.session.cuttingTableNo || '未排程')}</div>
+                  <div class="mt-1 text-[11px] text-muted-foreground">${escapeHtml(row.session.ownerName || '未分配')}</div>
+                </td>
+                <td class="px-2 py-1">
+                  <div>${escapeHtml(row.productionOrderNos.join(' / ') || '待补')}</div>
+                  <div class="mt-1 text-[11px] text-muted-foreground">${escapeHtml(`${row.styleCode || '待补'} / ${row.spuCode || '待补'}`)}</div>
+                </td>
+                <td class="px-2 py-1">
+                  <div class="font-medium text-foreground">${escapeHtml(`${formatQty(row.actualCutGarmentQty)} / ${formatQty(row.plannedCutGarmentQty)} 件`)}</div>
+                  <div class="mt-1 text-[11px] text-muted-foreground">${escapeHtml(formatLength(row.spreadActualLengthM))}</div>
+                </td>
                 <td class="px-2 py-1">${renderCompactListValueWithFormula(row.mainStageLabel, row.mainStageFormula)}</td>
-                <td class="px-2 py-1 font-medium">${escapeHtml(row.session.sourceBedNo || row.sourceMarkerLabel)}</td>
-                <td class="px-2 py-1">${escapeHtml(row.session.cuttingTableName || row.session.cuttingTableNo || '未排程')}</td>
-                <td class="px-2 py-1">${escapeHtml(row.session.plannedStartAt || '未排程')}</td>
-                <td class="px-2 py-1">${escapeHtml(row.session.plannedEndAt || '未排程')}</td>
-                <td class="px-2 py-1">${escapeHtml(`${row.session.estimatedDurationMinutes || 45} 分钟`)}</td>
-                <td class="px-2 py-1">${escapeHtml(row.contextSummary)}</td>
-                <td class="px-2 py-1">${escapeHtml(formatQty(row.originalCutOrderCount))}</td>
-                <td class="px-2 py-1">${escapeHtml(formatQty(row.productionOrderCount))}</td>
-                <td class="px-2 py-1">${escapeHtml(`${row.styleCode || '待补'} / ${row.spuCode || '待补'}`)}</td>
-                <td class="px-2 py-1">${escapeHtml(`${row.materialSkuSummary || '待补'} / ${row.colorSummary || '待补'}`)}</td>
-                <td class="px-2 py-1">${renderTag(modeMeta.label, modeMeta.className)}</td>
-                <td class="px-2 py-1">${renderCompactListValueWithFormula(`${formatQty(row.plannedCutGarmentQty)} 件`, row.plannedCutGarmentQtyFormula)}</td>
-                <td class="px-2 py-1">${renderCompactListValueWithFormula(`${formatQty(row.actualCutGarmentQty)} 件`, row.actualCutGarmentQtyFormula)}</td>
-                <td class="px-2 py-1">${renderCompactListValueWithFormula(`${formatQty(row.shortageGarmentQty)} 件`, row.shortageGarmentQtyFormula)}</td>
-                <td class="px-2 py-1">${renderCompactListValueWithFormula(formatLength(row.spreadActualLengthM), row.spreadActualLengthFormula)}</td>
-                <td class="px-2 py-1">${renderSubStatusTag(row.replenishmentStatusLabel)}</td>
-                <td class="px-2 py-1">${renderSubStatusTag(row.feiTicketStatusLabel)}</td>
-                <td class="px-2 py-1">${renderSubStatusTag(row.baggingStatusLabel)}</td>
-                <td class="px-2 py-1">${renderSubStatusTag(row.warehouseStatusLabel)}</td>
-                <td class="px-2 py-1">${escapeHtml(formatDateText(row.updatedAt))}</td>
+                <td class="px-2 py-1">${renderSubStatusTag(exceptionText)}</td>
                 <td class="px-2 py-1">
                   <div class="flex flex-nowrap gap-1 overflow-x-auto whitespace-nowrap">
                     ${primaryAction}
@@ -2522,7 +2558,7 @@ function renderSpreadingSupervisorListPage(): string {
     <div class="space-y-4 p-4" data-testid="cutting-spreading-list-page">
       ${renderCuttingPageHeader(meta, {
         actionsHtml: renderHeaderActions(appendSummaryReturnAction([
-          '<button type="button" class="rounded-md border border-blue-500 bg-blue-50 px-3 py-3 text-sm text-blue-700 hover:bg-blue-100" data-cutting-marker-action="create-spreading">按唛架编号新建铺布</button>',
+          '<button type="button" class="rounded-md border border-blue-500 bg-blue-50 px-3 py-3 text-sm text-blue-700 hover:bg-blue-100" data-cutting-marker-action="create-spreading">新建铺布</button>',
           '<button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="export-spreading-list">导出当前视图</button>',
         ])),
       })}
@@ -4844,8 +4880,9 @@ function renderSpreadingEditPage(): string {
 
 function renderSpreadingCreateStepBar(): string {
   const steps: Array<{ key: SpreadingCreateStepKey; label: string }> = [
-    { key: 'SELECT_MARKER', label: '步骤 1：选择排唛架方案' },
-    { key: 'CONFIRM_CREATE', label: '步骤 2：确认裁床排程' },
+    { key: 'SELECT_MARKER', label: '步骤 1：选择唛架方案' },
+    { key: 'ASSIGN_TABLES', label: '步骤 2：分配裁床' },
+    { key: 'CONFIRM_CREATE', label: '步骤 3：确认生成' },
   ]
 
   return `
@@ -4871,29 +4908,43 @@ function renderSpreadingCreateStepBar(): string {
 
 function renderSpreadingCreateSourceTable(rows: SpreadingCreateSourceRow[]): string {
   if (!rows.length) {
-    return '<div class="rounded-md border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">当前没有可铺布的排唛架方案，请先回到唛架方案列表补齐唛架编号。</div>'
+    return '<div class="rounded-md border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">当前没有可铺布的唛架方案，请先回到排唛架方案列表补齐可铺布床次。</div>'
   }
+  const schemeRows = Array.from(
+    rows.reduce<Map<string, SpreadingCreateSourceRow[]>>((accumulator, row) => {
+      const key = row.sourceSchemeId || row.markerId
+      if (!accumulator.has(key)) accumulator.set(key, [])
+      accumulator.get(key)!.push(row)
+      return accumulator
+    }, new Map()).values(),
+  ).map((items) => {
+    const first = items[0]
+    return {
+      first,
+      rows: items,
+      totalQty: items.reduce((sum, item) => sum + Math.max(Number(item.plannedCutGarmentQty || 0), 0), 0),
+      bedNos: items.map((item) => item.sourceBedNo).filter(Boolean),
+    }
+  })
 
   return `
     <div class="overflow-auto" data-testid="cutting-spreading-create-source-table">
-      <table class="min-w-[1280px] text-sm">
+      <table class="min-w-[1080px] text-sm">
         <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
           <tr>
             <th class="px-3 py-3">选中</th>
-            <th class="px-3 py-3">方案编号</th>
-            <th class="px-3 py-3">唛架编号</th>
-            <th class="px-3 py-3">上下文摘要</th>
-            <th class="px-3 py-3">模式</th>
-            <th class="px-3 py-3">尺码组合</th>
-            <th class="px-3 py-3">计划裁剪成衣件数（件）</th>
-            <th class="px-3 py-3">计划铺布总长度（m）</th>
+            <th class="px-3 py-3">唛架方案</th>
+            <th class="px-3 py-3">生产单 / 裁片单</th>
+            <th class="px-3 py-3">款式 / SPU</th>
             <th class="px-3 py-3">颜色</th>
-            <th class="px-3 py-3">面料 SKU</th>
+            <th class="px-3 py-3">唛架号数量</th>
+            <th class="px-3 py-3">计划件数</th>
+            <th class="px-3 py-3">可铺布状态</th>
           </tr>
         </thead>
         <tbody>
-          ${rows
-            .map((row) => {
+          ${schemeRows
+            .map(({ first: row, rows: groupRows, totalQty, bedNos }) => {
               const selected =
                 row.markerId === state.selectedCreateMarkerId ||
                 row.sourceBedId === state.selectedCreateMarkerId ||
@@ -4905,20 +4956,21 @@ function renderSpreadingCreateSourceTable(rows: SpreadingCreateSourceRow[]): str
                       type="button"
                       class="rounded-md border px-3 py-1.5 text-xs ${selected ? 'border-blue-500 bg-blue-50 text-blue-700' : 'hover:bg-muted'}"
                       data-cutting-marker-action="select-spreading-create-marker"
-                      data-marker-id="${escapeHtml(row.markerId)}"
+                      data-marker-id="${escapeHtml(row.sourceSchemeId || row.markerId)}"
                     >
                       ${selected ? '已选中' : '选中'}
                     </button>
                   </td>
-                  <td class="px-3 py-3 font-medium text-foreground">${escapeHtml(row.sourceSchemeNo)}</td>
-                  <td class="px-3 py-3 font-medium text-foreground">${escapeHtml(row.sourceBedNo)}</td>
-                  <td class="px-3 py-3">${escapeHtml(row.contextSummary)}</td>
-                  <td class="px-3 py-3">${escapeHtml(row.markerModeLabel)}</td>
-                  <td class="px-3 py-3">${escapeHtml(row.bedSizeSummaryText || '—')}</td>
-                  <td class="px-3 py-3">${renderValueWithFormula(`${formatQty(row.plannedCutGarmentQty)} 件`, row.plannedCutGarmentQtyFormula, 'text-sm font-medium text-foreground')}</td>
-                  <td class="px-3 py-3">${renderValueWithFormula(formatLength(row.plannedSpreadLengthM), row.plannedSpreadLengthFormula, 'text-sm font-medium text-foreground')}</td>
+                  <td class="px-3 py-3">
+                    <div class="font-medium text-foreground">${escapeHtml(row.sourceSchemeNo)}</div>
+                    <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(bedNos.slice(0, 4).join(' / ') || '待补唛架号')}${bedNos.length > 4 ? ` 等 ${bedNos.length} 个` : ''}</div>
+                  </td>
+                  <td class="px-3 py-3">${escapeHtml(row.productionOrderNos.join(' / ') || row.originalCutOrderNos.join(' / ') || '待补')}</td>
+                  <td class="px-3 py-3">${escapeHtml(`${row.styleCode || '待补'} / ${row.spuCode || '待补'}`)}</td>
                   <td class="px-3 py-3">${escapeHtml(row.colorSummary || '待补')}</td>
-                  <td class="px-3 py-3">${escapeHtml(row.materialSkuSummary || '待补')}</td>
+                  <td class="px-3 py-3">${escapeHtml(`${formatQty(groupRows.length)} 个`)}</td>
+                  <td class="px-3 py-3">${escapeHtml(`${formatQty(totalQty)} 件`)}</td>
+                  <td class="px-3 py-3">${renderTag('可铺布', 'bg-emerald-100 text-emerald-700 border border-emerald-200')}</td>
                 </tr>
               `
             })
@@ -4931,24 +4983,12 @@ function renderSpreadingCreateSourceTable(rows: SpreadingCreateSourceRow[]): str
 
 function renderSpreadingCreateSelectStep(rows: SpreadingCreateSourceRow[]): string {
   return renderSection(
-    '步骤 1：选择排唛架方案',
+    '步骤 1：选择唛架方案',
     `
       ${renderStickyFilterShell(`
-        <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          ${renderTextInput('原始裁片单', state.originalCutOrderFilter, 'data-cutting-spreading-list-field="original-cut-order"', '')}
-          ${renderTextInput('合并裁剪批次', state.mergeBatchFilter, 'data-cutting-spreading-list-field="merge-batch"', '')}
-          ${renderTextInput('生产单', state.productionOrderFilter, 'data-cutting-spreading-list-field="production-order"', '')}
-          ${renderTextInput('方案编号 / 唛架编号', state.markerNoFilter, 'data-cutting-spreading-list-field="marker-no"', '')}
-          ${renderTextInput('款号 / SPU', state.styleSpuFilter, 'data-cutting-spreading-list-field="style-spu"', '')}
-          ${renderTextInput('面料 SKU', state.materialSkuFilter, 'data-cutting-spreading-list-field="material-sku"', '')}
-          ${renderTextInput('颜色', state.colorFilter, 'data-cutting-spreading-list-field="color"', '')}
-          ${renderSelect('模式', state.spreadingModeFilter, 'data-cutting-spreading-list-field="mode"', [
-            { value: 'ALL', label: '全部' },
-            { value: 'normal', label: '普通唛架' },
-            { value: 'high_low', label: '高低层唛架' },
-            { value: 'fold_normal', label: '对折普通唛架' },
-            { value: 'fold_high_low', label: '对折高低层唛架' },
-          ])}
+        <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+          ${renderTextInput('搜索唛架方案', state.keyword, 'data-cutting-spreading-list-field="keyword"', '唛架方案 / 唛架号 / 生产单 / 款号 / 颜色')}
+          <button type="button" class="h-10 rounded-md border px-3 text-sm hover:bg-muted" data-cutting-marker-action="clear-filters">重置</button>
         </div>
       `)}
       <div class="mt-3">
@@ -4958,40 +4998,52 @@ function renderSpreadingCreateSelectStep(rows: SpreadingCreateSourceRow[]): stri
   )
 }
 
-function renderSpreadingCreateScheduleRows(rows: SpreadingCreateSourceRow[], plannedStartAt: string): string {
+function renderSpreadingCreateScheduleRows(rows: SpreadingCreateSourceRow[]): string {
+  ensureCreateAssignments(rows)
   const tableRows = rows.map((row, index) => {
-    const startAt =
-      state.createScheduleMode === 'WHOLE_PLAN_ONE_TABLE'
-        ? addMinutesToDateTimeLocal(plannedStartAt, index * DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES)
-        : plannedStartAt
+    const key = getCreateAssignmentKey(row)
+    const assignment = getCreateAssignment(row, index)
+    const table = resolveCuttingTable(assignment.cuttingTableId)
+    const ownerId = assignment.ownerAccountId || state.createOwnerAccountId
+    const startAt = assignment.plannedStartAt || state.createPlannedStartAt || formatDateTimeLocal()
     const endAt = addMinutesToDateTimeLocal(startAt, DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES)
     return `
       <tr class="border-b align-top">
-        <td class="px-3 py-3 font-medium text-foreground">${escapeHtml(row.sourceSchemeNo)}</td>
         <td class="px-3 py-3 font-medium text-foreground">${escapeHtml(row.sourceBedNo)}</td>
-        <td class="px-3 py-3">${escapeHtml(row.markerModeLabel)}</td>
-        <td class="px-3 py-3">${escapeHtml(resolveCuttingTable(state.createCuttingTableId).cuttingTableName)}</td>
-        <td class="px-3 py-3">${escapeHtml(startAt)}</td>
-        <td class="px-3 py-3">${escapeHtml(endAt)}</td>
-        <td class="px-3 py-3">${escapeHtml(`${DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES} 分钟`)}</td>
+        <td class="px-3 py-3">${escapeHtml(row.bedSizeSummaryText || '—')}</td>
         <td class="px-3 py-3">${escapeHtml(`${formatQty(row.plannedCutGarmentQty)} 件`)}</td>
+        <td class="px-3 py-3">${escapeHtml(formatLength(row.plannedSpreadLengthM))}</td>
+        <td class="px-3 py-3">
+          <select class="h-9 w-full min-w-32 rounded-md border bg-background px-2 text-sm" data-cutting-spreading-create-assignment-field="cuttingTableId" data-marker-id="${escapeHtml(key)}">
+            ${cuttingTableResources.map((item) => `<option value="${escapeHtml(item.cuttingTableId)}" ${item.cuttingTableId === table.cuttingTableId ? 'selected' : ''}>${escapeHtml(item.cuttingTableName)}</option>`).join('')}
+          </select>
+        </td>
+        <td class="px-3 py-3">
+          <input type="datetime-local" value="${escapeHtml(startAt)}" class="h-9 w-full min-w-44 rounded-md border bg-background px-2 text-sm" data-cutting-spreading-create-assignment-field="plannedStartAt" data-marker-id="${escapeHtml(key)}" />
+        </td>
+        <td class="px-3 py-3">${escapeHtml(endAt)}</td>
+        <td class="px-3 py-3">
+          <select class="h-9 w-full min-w-36 rounded-md border bg-background px-2 text-sm" data-cutting-spreading-create-assignment-field="ownerAccountId" data-marker-id="${escapeHtml(key)}">
+            ${SPREADING_CREATE_OWNER_OPTIONS.map((item) => `<option value="${escapeHtml(item.value)}" ${item.value === ownerId ? 'selected' : ''}>${escapeHtml(item.label)}</option>`).join('')}
+          </select>
+        </td>
       </tr>
     `
   })
 
   return `
     <div class="mt-3 overflow-auto rounded-lg border">
-      <table class="min-w-[1080px] text-sm">
+      <table class="min-w-[1280px] text-sm">
         <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
           <tr>
-            <th class="px-3 py-3">排唛架方案</th>
             <th class="px-3 py-3">唛架编号</th>
-            <th class="px-3 py-3">唛架模式</th>
+            <th class="px-3 py-3">颜色 / 尺码</th>
+            <th class="px-3 py-3">计划件数</th>
+            <th class="px-3 py-3">预计用布</th>
             <th class="px-3 py-3">裁床</th>
             <th class="px-3 py-3">计划开始</th>
             <th class="px-3 py-3">计划结束</th>
-            <th class="px-3 py-3">预计耗时</th>
-            <th class="px-3 py-3">计划成衣件数</th>
+            <th class="px-3 py-3">负责人/班组</th>
           </tr>
         </thead>
         <tbody>${tableRows.join('')}</tbody>
@@ -5000,52 +5052,82 @@ function renderSpreadingCreateScheduleRows(rows: SpreadingCreateSourceRow[], pla
   `
 }
 
-function renderSpreadingCreateConfirmStep(): string {
+function renderSpreadingCreateAssignStep(): string {
   const preview = getSpreadingCreatePreview()
   const selectedSchemeRows = getSelectedCreateSchemeSources()
-  const scheduleRows = state.createScheduleMode === 'WHOLE_PLAN_ONE_TABLE' ? selectedSchemeRows : selectedSchemeRows.slice(0, 1)
   const plannedStartAt = state.createPlannedStartAt || formatDateTimeLocal()
-  const plannedEndAt = addMinutesToDateTimeLocal(plannedStartAt, DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES)
   const colorSummary = deriveSpreadingColorSummary({
     contextColors: preview.context?.materialPrepRows.map((row) => row.color) || [],
     fallbackSummary: preview.marker?.colorSummary || preview.context?.materialSkuSummary || '',
   })
-  const modeLabel = preview.marker ? deriveSpreadingModeMeta(preview.marker.markerMode).label : '待补'
 
   return renderSection(
-    '步骤 2：确认裁床排程',
+    '步骤 2：分配裁床',
     `
       <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3" data-testid="cutting-spreading-create-confirmation">
         ${renderReadonlyField('来源方案', preview.source?.sourceSchemeNo || '未选择')}
-        ${renderReadonlyField('来源唛架编号', preview.source?.sourceBedNo || '未选择')}
+        ${renderReadonlyField('可铺布唛架号', `${formatQty(selectedSchemeRows.length)} 个`)}
         ${renderSelect('铺布方式', state.createScheduleMode, 'data-cutting-spreading-create-field="schedule-mode"', [
-          { value: 'BY_MARKER_NO', label: '按唛架编号分配裁床' },
-          { value: 'WHOLE_PLAN_ONE_TABLE', label: '整个方案使用同一裁床' },
+          { value: 'WHOLE_PLAN_ONE_TABLE', label: '批量同裁床同时间' },
+          { value: 'BY_MARKER_NO', label: '按唛架号分别分配' },
         ])}
-        ${renderSelect('裁床', state.createCuttingTableId || cuttingTableResources[0]?.cuttingTableId || '', 'data-cutting-spreading-create-field="cutting-table-id"', cuttingTableResources.map((table) => ({ value: table.cuttingTableId, label: table.cuttingTableName })))}
-        <label class="space-y-1 rounded-lg border bg-background px-3 py-3">
-          <span class="text-[11px] text-muted-foreground">计划开始时间</span>
-          <input type="datetime-local" value="${escapeHtml(plannedStartAt)}" data-cutting-spreading-create-field="planned-start-at" class="h-9 w-full rounded-md border bg-card px-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
-        </label>
-        ${renderReadonlyField('计划结束时间', plannedEndAt || '待排程')}
-        ${renderReadonlyField('预计耗时', '45 分钟')}
-        ${renderReadonlyField('上下文类型', preview.context?.contextType === 'merge-batch' ? '合并裁剪批次' : preview.context ? '原始裁片单' : '待补')}
-        ${renderReadonlyField('原始裁片单', preview.context?.originalCutOrderNos.join(' / ') || '—')}
-        ${renderReadonlyField('合并裁剪批次', preview.context?.mergeBatchNo || '—')}
-        ${renderReadonlyField('生产单', preview.context?.productionOrderNos.join(' / ') || '—')}
-        ${renderReadonlyField('模式', modeLabel)}
-        ${renderReadonlyField('计划裁剪成衣件数（件）', `${formatQty(preview.plannedCutGarmentQty)} 件`, {
-          formula: preview.plannedCutGarmentQtyFormula,
-        })}
-        ${renderReadonlyField('计划铺布总长度（m）', formatLength(preview.plannedSpreadLengthM), {
-          formula: preview.plannedSpreadLengthFormula,
-        })}
-        ${renderReadonlyField('面料 SKU', preview.marker?.materialSkuSummary || preview.context?.materialSkuSummary || '待补')}
         ${renderReadonlyField('颜色', colorSummary.value || '待补', { formula: colorSummary.formula })}
+        ${renderSelect('批量裁床', state.createCuttingTableId || cuttingTableResources[0]?.cuttingTableId || '', 'data-cutting-spreading-create-field="cutting-table-id"', cuttingTableResources.map((table) => ({ value: table.cuttingTableId, label: table.cuttingTableName })))}
+        <label class="space-y-2">
+          <span class="text-sm font-medium text-foreground">批量计划开始</span>
+          <input type="datetime-local" value="${escapeHtml(plannedStartAt)}" data-cutting-spreading-create-field="planned-start-at" class="h-10 w-full rounded-md border bg-card px-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
+        </label>
         ${renderSelect('负责人', state.createOwnerAccountId, 'data-cutting-spreading-create-field="owner-account"', SPREADING_CREATE_OWNER_OPTIONS.map((option) => ({ value: option.value, label: option.label })))}
         ${renderTextarea('创建备注', state.createNote, 'data-cutting-spreading-create-field="note"', 3)}
       </div>
-      ${renderSpreadingCreateScheduleRows(scheduleRows, plannedStartAt)}
+      ${renderSpreadingCreateScheduleRows(selectedSchemeRows)}
+    `,
+  )
+}
+
+function renderSpreadingCreateConfirmStep(): string {
+  const selectedSchemeRows = getSelectedCreateSchemeSources()
+  const groups = buildCreateAssignmentGroups(selectedSchemeRows)
+  return renderSection(
+    '步骤 3：确认生成',
+    `
+      <div class="rounded-lg border bg-muted/20 px-3 py-3 text-sm text-foreground">
+        将按“裁床 + 计划开始 + 负责人/班组”分组生成 ${formatQty(groups.length)} 张铺布单。
+      </div>
+      <div class="mt-3 overflow-auto rounded-lg border">
+        <table class="min-w-[980px] text-sm">
+          <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
+            <tr>
+              <th class="px-3 py-3">预计铺布单</th>
+              <th class="px-3 py-3">裁床</th>
+              <th class="px-3 py-3">计划时间</th>
+              <th class="px-3 py-3">负责人/班组</th>
+              <th class="px-3 py-3">包含唛架号</th>
+              <th class="px-3 py-3">计划数量</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${groups
+              .map((group, index) => {
+                const table = resolveCuttingTable(group.cuttingTableId)
+                const ownerName = buildCreateOwnerLabel(group.ownerAccountId)
+                const plannedEndAt = addMinutesToDateTimeLocal(group.plannedStartAt, DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES)
+                const totalQty = group.rows.reduce((sum, row) => sum + Math.max(Number(row.plannedCutGarmentQty || 0), 0), 0)
+                return `
+                  <tr class="border-b align-top">
+                    <td class="px-3 py-3 font-medium text-foreground">铺布单 ${index + 1}</td>
+                    <td class="px-3 py-3">${escapeHtml(table.cuttingTableName)}</td>
+                    <td class="px-3 py-3">${escapeHtml(group.plannedStartAt)} 至 ${escapeHtml(plannedEndAt)}</td>
+                    <td class="px-3 py-3">${escapeHtml(ownerName)}</td>
+                    <td class="px-3 py-3">${escapeHtml(group.rows.map((row) => row.sourceBedNo).join(' / '))}</td>
+                    <td class="px-3 py-3">${escapeHtml(`${formatQty(totalQty)} 件`)}</td>
+                  </tr>
+                `
+              })
+              .join('')}
+          </tbody>
+        </table>
+      </div>
     `,
   )
 }
@@ -5066,18 +5148,26 @@ function renderSpreadingCreatePage(): string {
       ${renderFeedbackBar()}
       ${renderPrefilterBar()}
       ${renderSpreadingCreateStepBar()}
-      ${state.createStep === 'SELECT_MARKER' ? renderSpreadingCreateSelectStep(createRows) : renderSpreadingCreateConfirmStep()}
+      ${
+        state.createStep === 'SELECT_MARKER'
+          ? renderSpreadingCreateSelectStep(createRows)
+          : state.createStep === 'ASSIGN_TABLES'
+            ? renderSpreadingCreateAssignStep()
+            : renderSpreadingCreateConfirmStep()
+      }
       <section class="rounded-xl border bg-card p-4">
         <div class="flex flex-wrap justify-end gap-2">
           ${
-            state.createStep === 'CONFIRM_CREATE'
+            state.createStep !== 'SELECT_MARKER'
               ? '<button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="prev-spreading-create-step">上一步</button>'
               : ''
           }
           ${
             state.createStep === 'SELECT_MARKER'
               ? `<button type="button" class="rounded-md bg-blue-600 px-3 py-3 text-sm text-white ${canProceed ? 'hover:bg-blue-700' : 'cursor-not-allowed opacity-50'}" data-cutting-marker-action="next-spreading-create-step" ${canProceed ? '' : 'disabled'}>下一步</button>`
-              : '<button type="button" class="rounded-md bg-blue-600 px-3 py-3 text-sm text-white hover:bg-blue-700" data-cutting-marker-action="confirm-spreading-create">确认创建并进入编辑</button>'
+              : state.createStep === 'ASSIGN_TABLES'
+                ? '<button type="button" class="rounded-md bg-blue-600 px-3 py-3 text-sm text-white hover:bg-blue-700" data-cutting-marker-action="next-spreading-create-step">预览生成结果</button>'
+                : '<button type="button" class="rounded-md bg-blue-600 px-3 py-3 text-sm text-white hover:bg-blue-700" data-cutting-marker-action="confirm-spreading-create">确认生成铺布单</button>'
           }
         </div>
       </section>
@@ -5639,60 +5729,65 @@ function buildPersistableSpreadingDraft(draft: SpreadingSession): {
 
 function buildCreateSessionsFromSelection(): SpreadingSession[] | null {
   const preview = getSpreadingCreatePreview()
-  const reason = state.createExceptionReason.trim()
-  const ownerName = buildCreateOwnerLabel(state.createOwnerAccountId)
 
   if (state.createExceptionBackfill) {
-    state.feedback = { tone: 'warning', message: '铺布必须选择某个排唛架方案的唛架编号。' }
+    state.feedback = { tone: 'warning', message: '铺布必须选择一个可执行的唛架方案。' }
     return null
   }
 
   if (!preview.source || !preview.source.markerId) {
-    state.feedback = { tone: 'warning', message: '创建铺布需先选中一个可铺布的唛架编号。' }
+    state.feedback = { tone: 'warning', message: '创建铺布需先选中一个可铺布的唛架方案。' }
     return null
   }
 
-  const selectedRows = state.createScheduleMode === 'WHOLE_PLAN_ONE_TABLE'
-    ? getSelectedCreateSchemeSources()
-    : [preview.source]
+  const selectedRows = getSelectedCreateSchemeSources()
   if (!selectedRows.length) {
-    state.feedback = { tone: 'warning', message: '当前排唛架方案没有可生成铺布任务的唛架编号。' }
+    state.feedback = { tone: 'warning', message: '当前排唛架方案没有可生成铺布任务的唛架号。' }
     return null
   }
 
-  const selectedTable = resolveCuttingTable(state.createCuttingTableId)
-  const baseStartAt = state.createPlannedStartAt || formatDateTimeLocal()
+  const assignmentGroups = buildCreateAssignmentGroups(selectedRows)
   const scheduleBatchId = `spreading-schedule-batch-${Date.now()}`
   const existingSessions = readMarkerSpreadingPrototypeData().store.sessions
   const drafts: SpreadingSession[] = []
 
-  for (let index = 0; index < selectedRows.length; index += 1) {
-    const source = selectedRows[index]
-    if (!source.spreadingContext || !source.markerRecord) {
-      state.feedback = { tone: 'warning', message: `唛架编号 ${source.sourceBedNo || source.markerNo} 未识别到上下文，无法创建铺布。` }
-      return null
-    }
-    const draft = createSpreadingDraftFromMarker(
-      source.markerRecord,
-      source.spreadingContext,
-      new Date(Date.now() + index),
-      {
-        baseSession: {
-          note: state.createNote || '铺布草稿已创建。',
-          ownerAccountId: state.createOwnerAccountId,
-          ownerName,
-          isExceptionBackfill: false,
-          exceptionReason: '',
-        },
-      },
-    )
+  for (let groupIndex = 0; groupIndex < assignmentGroups.length; groupIndex += 1) {
+    const group = assignmentGroups[groupIndex]
+    const selectedTable = resolveCuttingTable(group.cuttingTableId)
+    const ownerName = buildCreateOwnerLabel(group.ownerAccountId)
+    const sourceDrafts: SpreadingSession[] = []
 
-    const plannedStartAt =
-      state.createScheduleMode === 'WHOLE_PLAN_ONE_TABLE'
-        ? addMinutesToDateTimeLocal(baseStartAt, index * DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES)
-        : baseStartAt
+    for (let rowIndex = 0; rowIndex < group.rows.length; rowIndex += 1) {
+      const source = group.rows[rowIndex]
+      if (!source.spreadingContext || !source.markerRecord) {
+        state.feedback = { tone: 'warning', message: `唛架编号 ${source.sourceBedNo || source.markerNo} 未识别到上下文，无法创建铺布。` }
+        return null
+      }
+      sourceDrafts.push(
+        createSpreadingDraftFromMarker(
+          source.markerRecord,
+          source.spreadingContext,
+          new Date(Date.now() + groupIndex * 20 + rowIndex),
+          {
+            baseSession: {
+              note: state.createNote || '铺布草稿已创建。',
+              ownerAccountId: group.ownerAccountId,
+              ownerName,
+              isExceptionBackfill: false,
+              exceptionReason: '',
+            },
+          },
+        ),
+      )
+    }
+
+    const draft = sourceDrafts[0]
+    const plannedStartAt = group.plannedStartAt || state.createPlannedStartAt || formatDateTimeLocal()
     const plannedEndAt = addMinutesToDateTimeLocal(plannedStartAt, DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES)
-    draft.ownerAccountId = state.createOwnerAccountId
+    const bedNos = group.rows.map((source) => source.sourceBedNo || source.markerNo).filter(Boolean)
+    const bedIds = group.rows.map((source) => source.sourceBedId || source.markerId).filter(Boolean)
+
+    draft.ownerAccountId = group.ownerAccountId
     draft.ownerName = ownerName
     draft.note = state.createNote || draft.note
     draft.cuttingTableId = selectedTable.cuttingTableId
@@ -5704,7 +5799,23 @@ function buildCreateSessionsFromSelection(): SpreadingSession[] | null {
     draft.tableScheduleStatus = '已排程'
     draft.scheduleMode = state.createScheduleMode
     draft.scheduleBatchId = scheduleBatchId
-    draft.sequenceNoInScheme = index + 1
+    draft.sequenceNoInScheme = groupIndex + 1
+    draft.sourceSchemeId = group.rows[0]?.sourceSchemeId || draft.sourceSchemeId
+    draft.sourceSchemeNo = group.rows[0]?.sourceSchemeNo || draft.sourceSchemeNo
+    draft.sourceBedId = bedIds.join(',')
+    draft.sourceBedNo = bedNos.join(' / ')
+    draft.markerNo = bedNos.join(' / ')
+    draft.sourceMarkerNo = bedNos.join(' / ')
+    draft.planUnits = sourceDrafts.flatMap((item) => item.planUnits || [])
+    draft.planLineItems = sourceDrafts.flatMap((item) => item.planLineItems || [])
+    draft.theoreticalSpreadTotalLength = draft.planUnits.reduce(
+      (sum, unit) => sum + Math.max(Number(unit.plannedSpreadLengthM || 0), 0),
+      0,
+    )
+    draft.theoreticalActualCutPieceQty = draft.planUnits.reduce(
+      (sum, unit) => sum + Math.max(Number(unit.plannedCutGarmentQty || 0), 0),
+      0,
+    )
 
     const plannedCutGarmentQty = (draft.planUnits || []).reduce(
       (sum, unit) => sum + Math.max(Number(unit.plannedCutGarmentQty || 0), 0),
@@ -5716,17 +5827,17 @@ function buildCreateSessionsFromSelection(): SpreadingSession[] | null {
     )
 
     if (!draft.sourceMarkerId || !draft.sourceSchemeId || !draft.sourceBedId) {
-      state.feedback = { tone: 'warning', message: `唛架编号 ${source.sourceBedNo || source.markerNo} 未绑定来源排唛架方案。` }
+      state.feedback = { tone: 'warning', message: `唛架号 ${bedNos.join(' / ') || '待补'} 未绑定来源排唛架方案。` }
       return null
     }
 
     if (plannedCutGarmentQty <= 0) {
-      state.feedback = { tone: 'warning', message: `唛架编号 ${source.sourceBedNo || source.markerNo} 的计划成衣件数必须大于 0。` }
+      state.feedback = { tone: 'warning', message: `唛架号 ${bedNos.join(' / ') || '待补'} 的计划成衣件数必须大于 0。` }
       return null
     }
 
     if (plannedSpreadLengthM <= 0) {
-      state.feedback = { tone: 'warning', message: `唛架编号 ${source.sourceBedNo || source.markerNo} 的计划铺布总长度必须大于 0。` }
+      state.feedback = { tone: 'warning', message: `唛架号 ${bedNos.join(' / ') || '待补'} 的计划铺布总长度必须大于 0。` }
       return null
     }
 
@@ -5748,7 +5859,7 @@ function confirmSpreadingCreate(): boolean {
   persistMarkerSpreadingStore(nextStore)
   state.feedback = {
     tone: 'success',
-    message: drafts.length === 1 ? `已创建铺布 ${drafts[0].sessionNo || ''}`.trim() : `已按整方案创建 ${drafts.length} 条铺布任务。`,
+    message: drafts.length === 1 ? `已创建铺布 ${drafts[0].sessionNo || ''}`.trim() : `已按执行组合生成 ${drafts.length} 张铺布单。`,
   }
   if (drafts.length === 1) {
     const saved = nextStore.sessions.find((item) => item.spreadingSessionId === drafts[0].spreadingSessionId) || drafts[0]
@@ -5978,24 +6089,54 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
     }
     if (field === 'owner-account') {
       state.createOwnerAccountId = value
+      getSelectedCreateSchemeSources().forEach((row, index) => {
+        getCreateAssignment(row, index).ownerAccountId = value
+      })
       return true
     }
     if (field === 'schedule-mode') {
       state.createScheduleMode = value === 'WHOLE_PLAN_ONE_TABLE' ? 'WHOLE_PLAN_ONE_TABLE' : 'BY_MARKER_NO'
+      const selectedRows = getSelectedCreateSchemeSources()
+      state.createAssignments = {}
+      ensureCreateAssignments(selectedRows)
       return true
     }
     if (field === 'cutting-table-id') {
       state.createCuttingTableId = value
+      getSelectedCreateSchemeSources().forEach((row, index) => {
+        getCreateAssignment(row, index).cuttingTableId = value
+      })
       return true
     }
     if (field === 'planned-start-at') {
       state.createPlannedStartAt = value
+      getSelectedCreateSchemeSources().forEach((row, index) => {
+        getCreateAssignment(row, index).plannedStartAt =
+          state.createScheduleMode === 'WHOLE_PLAN_ONE_TABLE'
+            ? value
+            : addMinutesToDateTimeLocal(value, index * DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES)
+      })
       return true
     }
     if (field === 'note') {
       state.createNote = value
       return true
     }
+  }
+
+  const spreadingCreateAssignmentNode = target.closest<HTMLElement>('[data-cutting-spreading-create-assignment-field]')
+  if (spreadingCreateAssignmentNode) {
+    const field = spreadingCreateAssignmentNode.dataset.cuttingSpreadingCreateAssignmentField as keyof SpreadingCreateAssignment | undefined
+    const markerId = spreadingCreateAssignmentNode.dataset.markerId || ''
+    if (!field || !markerId) return false
+    const value = (spreadingCreateAssignmentNode as HTMLInputElement | HTMLSelectElement).value
+    const selectedRows = getSelectedCreateSchemeSources()
+    const rowIndex = selectedRows.findIndex((row) => getCreateAssignmentKey(row) === markerId)
+    const row = selectedRows[rowIndex]
+    if (!row) return false
+    const assignment = getCreateAssignment(row, rowIndex)
+    assignment[field] = value
+    return true
   }
 
   const keywordNode = target.closest<HTMLElement>('[data-cutting-marker-field="keyword"]')
@@ -6380,7 +6521,7 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
   }
 
   if (action === 'create-spreading-exception') {
-    state.feedback = { tone: 'warning', message: '铺布必须选择某个排唛架方案的唛架编号。' }
+    state.feedback = { tone: 'warning', message: '铺布必须选择一个可执行的唛架方案。' }
     return true
   }
 
@@ -6420,19 +6561,48 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
   if (action === 'next-spreading-create-step') {
     const source = getSelectedCreateSource()
     if (!source) {
-      state.feedback = { tone: 'warning', message: '创建铺布需先选中一条可交接铺布的唛架编号。' }
+      state.feedback = { tone: 'warning', message: '创建铺布需先选中一个可铺布的唛架方案。' }
       return true
     }
-    state.selectedCreateMarkerId = source.markerId
+    if (state.createStep === 'SELECT_MARKER') {
+      state.selectedCreateMarkerId = source.sourceSchemeId || source.markerId
+      state.selectedCreateSourceSnapshot = { ...source }
+      state.createStep = 'ASSIGN_TABLES'
+      ensureCreateAssignments(getSelectedCreateSchemeSources())
+      appStore.navigate(buildMarkerRouteWithContext(getCanonicalCuttingPath('spreading-create'), { markerId: state.selectedCreateMarkerId, step: 'assign' }))
+      return true
+    }
+    if (state.createStep === 'ASSIGN_TABLES') {
+      const selectedRows = getSelectedCreateSchemeSources()
+      if (!selectedRows.length) {
+        state.feedback = { tone: 'warning', message: '当前唛架方案没有可分配裁床的唛架号。' }
+        return true
+      }
+      const missing = selectedRows.find((row, index) => {
+        const assignment = getCreateAssignment(row, index)
+        return !assignment.cuttingTableId || !assignment.plannedStartAt || !assignment.ownerAccountId
+      })
+      if (missing) {
+        state.feedback = { tone: 'warning', message: `唛架号 ${missing.sourceBedNo || missing.markerNo} 的裁床、计划时间和负责人必须填写。` }
+        return true
+      }
+      state.createStep = 'CONFIRM_CREATE'
+      appStore.navigate(buildMarkerRouteWithContext(getCanonicalCuttingPath('spreading-create'), { markerId: state.selectedCreateMarkerId, step: 'confirm' }))
+      return true
+    }
+    state.selectedCreateMarkerId = source.sourceSchemeId || source.markerId
     state.selectedCreateSourceSnapshot = { ...source }
     state.createStep = 'CONFIRM_CREATE'
-    appStore.navigate(buildMarkerRouteWithContext(getCanonicalCuttingPath('spreading-create'), { markerId: source.markerId, step: 'confirm' }))
+    appStore.navigate(buildMarkerRouteWithContext(getCanonicalCuttingPath('spreading-create'), { markerId: state.selectedCreateMarkerId, step: 'confirm' }))
     return true
   }
 
   if (action === 'prev-spreading-create-step') {
-    state.createStep = 'SELECT_MARKER'
-    appStore.navigate(buildMarkerRouteWithContext(getCanonicalCuttingPath('spreading-create'), { markerId: state.selectedCreateMarkerId || undefined }))
+    state.createStep = state.createStep === 'CONFIRM_CREATE' ? 'ASSIGN_TABLES' : 'SELECT_MARKER'
+    appStore.navigate(buildMarkerRouteWithContext(getCanonicalCuttingPath('spreading-create'), {
+      markerId: state.selectedCreateMarkerId || undefined,
+      step: state.createStep === 'ASSIGN_TABLES' ? 'assign' : undefined,
+    }))
     return true
   }
 

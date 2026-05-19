@@ -148,8 +148,7 @@ function getSelectedPlanUnit(target: PdaCuttingSpreadingTarget | null, planUnitI
 function getTargetEntryLabel(target: PdaCuttingSpreadingTarget | null): string {
   if (!target) return '待选择铺布对象'
   if (target.targetType === 'session') return '继续当前铺布'
-  if (target.targetType === 'marker') return '按唛架开始铺布'
-  return '按唛架开始铺布'
+  return '待 Web 分配铺布单'
 }
 
 function getActualCutGarmentQty(form: SpreadingFormState, selectedPlanUnit: ReturnType<typeof getSelectedPlanUnit>): number {

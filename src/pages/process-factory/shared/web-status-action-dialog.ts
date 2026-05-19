@@ -50,6 +50,7 @@ export function getDefaultFieldValue(
   if (label.includes('色号')) return 'CLR-001'
   if (label.includes('打样结果')) return '打样通过'
   if (label.includes('原料面料 SKU')) return 'FAB-DYE-001'
+  if (label.includes('领料记录')) return '已完成领料记录'
   if (label.includes('关联菲票')) return '按绑定菲票'
   if (label.includes('差异类型')) return '数量差异'
   if (label.includes('原因')) return '现场数量差异'

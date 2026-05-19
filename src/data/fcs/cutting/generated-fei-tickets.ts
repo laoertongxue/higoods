@@ -859,7 +859,12 @@ function getGeneratedFeiTicketDataset(): GeneratedFeiTicketDataset {
   computingGeneratedFeiTicketDataset = true
   try {
     const spreadingDrivenFeiTickets = buildFeiRecordsFromSpreadingSessions(sourceRecords)
-    generatedFeiTicketDatasetCache = buildGeneratedFeiTicketDataset(spreadingDrivenFeiTickets)
+    const fallbackRecords = filterFallbackSourceRecordsBySpreadingCoverage(sourceRecords, spreadingDrivenFeiTickets)
+      .flatMap((record) => buildFeiRecordsForOriginalOrder(record))
+    generatedFeiTicketDatasetCache = buildGeneratedFeiTicketDataset([
+      ...spreadingDrivenFeiTickets,
+      ...fallbackRecords,
+    ])
     return generatedFeiTicketDatasetCache
   } finally {
     computingGeneratedFeiTicketDataset = false

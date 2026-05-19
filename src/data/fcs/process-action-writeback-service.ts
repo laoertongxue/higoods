@@ -48,6 +48,7 @@ import {
 import {
   createProcessHandoverDifferenceRecord,
   createProcessHandoverRecord,
+  listWaitProcessWarehouseRecords,
 } from './process-warehouse-domain.ts'
 import { mapCraftStatusToPlatformStatus } from './process-platform-status-adapter.ts'
 import { listFactoryDyeVatCapacities, listFactoryPrintMachineCapacities } from './factory-capacity-profile-mock.ts'
@@ -161,7 +162,6 @@ const ACTION_CODE_ALIASES: Record<string, string> = {
   START_TRANSFER: 'PRINT_START_TRANSFER',
   FINISH_TRANSFER: 'PRINT_FINISH_TRANSFER',
   SUBMIT_PRINT_HANDOVER: 'PRINT_SUBMIT_HANDOVER',
-  RESUBMIT_PRINT_AFTER_REJECT: 'PRINT_REWORK_AFTER_REJECT',
   CONFIRM_DYE_SAMPLE_READY: 'DYE_SAMPLE_RECEIVED',
   START_DYE_SAMPLE: 'DYE_START_SAMPLE',
   FINISH_DYE_SAMPLE: 'DYE_FINISH_SAMPLE',
@@ -235,7 +235,7 @@ export const PROCESS_ACTION_DEFINITIONS: ProcessActionDefinition[] = [
     sourceType: 'PRINT',
     fromStatuses: ['PRINT_DONE', 'WAIT_TRANSFER'],
     toStatus: 'TRANSFERRING',
-    requiredFields: ['操作人', '开始时间'],
+    requiredFields: ['操作人', '开始时间', '领料记录'],
     writebackHandler: 'executePrintAction.startTransfer',
   },
   {
@@ -244,48 +244,19 @@ export const PROCESS_ACTION_DEFINITIONS: ProcessActionDefinition[] = [
     sourceType: 'PRINT',
     fromStatuses: ['TRANSFERRING'],
     toStatus: 'WAIT_HANDOVER',
-    requiredFields: ['操作人', '完成时间', '转印完成面料米数', '单位'],
+    requiredFields: ['操作人', '完成时间', '转印完成面料米数', '完成卷数', '每卷长度', '单位'],
     writebackHandler: 'executePrintAction.completeTransfer',
-  },
-  {
-    actionCode: 'PRINT_MARK_WAIT_DELIVERY',
-    actionLabel: '标记待送货',
-    sourceType: 'PRINT',
-    fromStatuses: ['PRINT_DONE', 'WAIT_TRANSFER'],
-    toStatus: 'WAIT_HANDOVER',
-    requiredFields: ['操作人', '操作时间'],
-    optionalFields: ['备注'],
-    writebackHandler: 'executePrintAction.markWaitDelivery',
   },
   {
     actionCode: 'PRINT_SUBMIT_HANDOVER',
     actionLabel: '发起交出',
     sourceType: 'PRINT',
     fromStatuses: ['WAIT_HANDOVER'],
-    toStatus: 'HANDOVER_SUBMITTED',
+    toStatus: 'HANDOVER_WAIT_RECEIVE',
     requiredFields: ['交出人', '交出时间', '交出面料米数', '单位'],
     optionalFields: ['包装数量', '备注'],
     writebackHandler: 'executePrintAction.submitPrintHandover',
     affectsHandover: true,
-  },
-  {
-    actionCode: 'PRINT_SUBMIT_REVIEW',
-    actionLabel: '提交审核',
-    sourceType: 'PRINT',
-    fromStatuses: ['HANDOVER_SUBMITTED'],
-    toStatus: 'WAIT_REVIEW',
-    requiredFields: ['操作人', '操作时间'],
-    writebackHandler: 'executePrintAction.submitReview',
-    affectsReview: true,
-  },
-  {
-    actionCode: 'PRINT_REWORK_AFTER_REJECT',
-    actionLabel: '标记驳回后重交',
-    sourceType: 'PRINT',
-    fromStatuses: ['REJECTED'],
-    toStatus: 'WAIT_HANDOVER',
-    requiredFields: ['操作人', '操作时间', '重交原因'],
-    writebackHandler: 'executePrintAction.reworkAfterReject',
   },
   {
     actionCode: 'DYE_SAMPLE_RECEIVED',
@@ -401,48 +372,19 @@ export const PROCESS_ACTION_DEFINITIONS: ProcessActionDefinition[] = [
     sourceType: 'DYE',
     fromStatuses: ['PACKING'],
     toStatus: 'WAIT_HANDOVER',
-    requiredFields: ['操作人', '完成时间', '包装完成面料米数', '包装卷数'],
+    requiredFields: ['操作人', '完成时间', '包装完成面料米数', '包装卷数', '每卷长度'],
     writebackHandler: 'executeDyeAction.completeDyeNode',
-  },
-  {
-    actionCode: 'DYE_MARK_WAIT_DELIVERY',
-    actionLabel: '标记待送货',
-    sourceType: 'DYE',
-    fromStatuses: ['PACKING'],
-    toStatus: 'WAIT_HANDOVER',
-    requiredFields: ['操作人', '操作时间'],
-    optionalFields: ['备注'],
-    writebackHandler: 'executeDyeAction.markWaitDelivery',
   },
   {
     actionCode: 'DYE_SUBMIT_HANDOVER',
     actionLabel: '发起交出',
     sourceType: 'DYE',
     fromStatuses: ['WAIT_HANDOVER'],
-    toStatus: 'HANDOVER_SUBMITTED',
+    toStatus: 'HANDOVER_WAIT_RECEIVE',
     requiredFields: ['交出人', '交出时间', '交出面料米数', '交出卷数'],
     optionalFields: ['备注'],
     writebackHandler: 'executeDyeAction.submitDyeHandover',
     affectsHandover: true,
-  },
-  {
-    actionCode: 'DYE_SUBMIT_REVIEW',
-    actionLabel: '提交审核',
-    sourceType: 'DYE',
-    fromStatuses: ['HANDOVER_SUBMITTED'],
-    toStatus: 'WAIT_REVIEW',
-    requiredFields: ['操作人', '操作时间'],
-    writebackHandler: 'executeDyeAction.submitReview',
-    affectsReview: true,
-  },
-  {
-    actionCode: 'DYE_REWORK_AFTER_REJECT',
-    actionLabel: '标记驳回后重交',
-    sourceType: 'DYE',
-    fromStatuses: ['REJECTED'],
-    toStatus: 'WAIT_HANDOVER',
-    requiredFields: ['操作人', '操作时间', '重交原因'],
-    writebackHandler: 'executeDyeAction.reworkAfterReject',
   },
   {
     actionCode: 'CUTTING_CONFIRM_PICKUP',
@@ -513,16 +455,16 @@ export const PROCESS_ACTION_DEFINITIONS: ProcessActionDefinition[] = [
     actionLabel: '发起交出',
     sourceType: 'CUTTING',
     fromStatuses: ['待交出'],
-    toStatus: '待回写',
+    toStatus: '交出待收货',
     requiredFields: ['交出人', '交出时间', '交出裁片数量', '备注'],
     writebackHandler: 'executeCuttingAction.createProcessHandoverRecord',
     affectsHandover: true,
   },
   {
     actionCode: 'CUTTING_REWORK_AFTER_REJECT',
-    actionLabel: '标记驳回后重交',
+    actionLabel: '标记差异后重交',
     sourceType: 'CUTTING',
-    fromStatuses: ['审核驳回', '有差异'],
+    fromStatuses: ['收货差异', '有差异'],
     toStatus: '待交出',
     requiredFields: ['操作人', '操作时间', '重交原因'],
     writebackHandler: 'executeCuttingAction.updateCutPieceOrderWebStage',
@@ -571,7 +513,7 @@ export const PROCESS_ACTION_DEFINITIONS: ProcessActionDefinition[] = [
     actionLabel: '发起交出',
     sourceType: 'SPECIAL_CRAFT',
     fromStatuses: ['加工完成', '待交出'],
-    toStatus: '已交出',
+    toStatus: '交出待收货',
     requiredFields: ['交出人', '交出时间', '交出裁片数量', '关联菲票'],
     optionalFields: ['备注'],
     writebackHandler: 'executeSpecialCraftAction.createProcessHandoverRecord',
@@ -579,9 +521,9 @@ export const PROCESS_ACTION_DEFINITIONS: ProcessActionDefinition[] = [
   },
   {
     actionCode: 'SPECIAL_CRAFT_REWORK_AFTER_REJECT',
-    actionLabel: '驳回后重交',
+    actionLabel: '差异后重交',
     sourceType: 'SPECIAL_CRAFT',
-    fromStatuses: ['差异', '异议中', '异常', '待回写'],
+    fromStatuses: ['差异', '异议中', '异常', '交出待收货', '收货差异'],
     toStatus: '待交出',
     requiredFields: ['操作人', '重交裁片数量', '备注'],
     writebackHandler: 'executeSpecialCraftAction.updateSpecialCraftTaskWorkOrderWebStatus',
@@ -786,11 +728,12 @@ export function getProcessActionStatusSnapshot(sourceType: ProcessActionSourceTy
   const workOrder = getSpecialCraftTaskWorkOrderById(sourceId)
   if (!workOrder) throw new Error('特殊工艺工艺单不存在')
   const binding = validateSpecialCraftMobileTaskBinding(sourceId)
+  const objectMeta = resolveSpecialCraftObjectMeta(workOrder.targetObject)
   return {
     status: workOrder.status,
     label: workOrder.status,
     qty: workOrder.currentQty || workOrder.planQty,
-    unit: '片',
+    unit: objectMeta.qtyUnit,
     taskId: binding.actualTaskId,
     workOrderNo: workOrder.workOrderNo,
   }
@@ -825,6 +768,55 @@ function toPlatformStatus(sourceType: ProcessActionSourceType, sourceId: string,
   return result.platformStatusLabel
 }
 
+function getFormFieldValue(fields: ProcessActionPayload['formData'] | undefined, aliases: string[]): string {
+  if (!fields) return ''
+  for (const alias of aliases) {
+    const value = fields[alias]
+    if (value != null && String(value).trim() !== '') return String(value).trim()
+  }
+  return ''
+}
+
+function assertPositiveFormNumber(fields: ProcessActionPayload['formData'] | undefined, aliases: string[], label: string): void {
+  const value = getFormFieldValue(fields, aliases)
+  if (!value || !Number.isFinite(Number(value)) || Number(value) <= 0) throw new Error(`请填写${label}`)
+}
+
+function assertNonEmptyFormValue(fields: ProcessActionPayload['formData'] | undefined, aliases: string[], label: string): void {
+  if (!getFormFieldValue(fields, aliases)) throw new Error(`请填写${label}`)
+}
+
+function assertPrintTransferPickupReady(printOrderId: string): void {
+  const pickupRecords = listWaitProcessWarehouseRecords({
+    craftType: 'PRINT',
+    sourceWorkOrderId: printOrderId,
+  })
+  const hasPickup = pickupRecords.some((record) => record.receivedObjectQty > 0 || record.availableObjectQty > 0)
+  if (!hasPickup) throw new Error('开始转印前必须先在交接模块完成本单领料记录')
+}
+
+function assertActionSpecificFields(payload: ProcessActionPayload, definition: ProcessActionDefinition): void {
+  const fields = payload.formData || {}
+  if (definition.actionCode === 'PRINT_START_TRANSFER') {
+    assertPrintTransferPickupReady(payload.sourceId)
+  }
+  if (definition.actionCode === 'PRINT_FINISH_TRANSFER') {
+    assertPositiveFormNumber(fields, ['转印完成卷数', '完成卷数', '卷数'], '转印完成卷数')
+    assertNonEmptyFormValue(fields, ['每卷长度', '每卷长度明细', '卷长明细'], '每卷长度')
+  }
+  if (definition.actionCode === 'DYE_FINISH_PACKING') {
+    assertPositiveFormNumber(fields, ['包装卷数', '完成卷数', '卷数'], '包装卷数')
+    assertNonEmptyFormValue(fields, ['每卷长度', '每卷长度明细', '卷长明细'], '每卷长度')
+  }
+}
+
+function resolveSpecialCraftObjectMeta(targetObject: string | undefined): { objectType: '面料' | '裁片' | '成衣'; qtyUnit: '米' | '片' | '件' } {
+  const normalized = String(targetObject || '')
+  if (normalized.includes('成衣')) return { objectType: '成衣', qtyUnit: '件' }
+  if (normalized.includes('面料')) return { objectType: '面料', qtyUnit: '米' }
+  return { objectType: '裁片', qtyUnit: '片' }
+}
+
 function assertRequiredFields(payload: ProcessActionPayload, definition: ProcessActionDefinition, qty: number): void {
   const fields = payload.formData || {}
   for (const field of definition.requiredFields) {
@@ -854,6 +846,9 @@ function assertRequiredFields(payload: ProcessActionPayload, definition: Process
       if (!payload.qtyUnit?.trim()) throw new Error('请填写单位')
       continue
     }
+    if (field === '领料记录') {
+      continue
+    }
     const looseKey = field
     const value = fields[looseKey]
     if (value == null || String(value).trim() === '') {
@@ -875,6 +870,7 @@ export function validateProcessAction(payload: ProcessActionPayload): { ok: bool
   const qty = Number.isFinite(payload.objectQty) ? Number(payload.objectQty) : snapshot.qty
   try {
     assertRequiredFields(payload, definition, qty)
+    assertActionSpecificFields(payload, definition)
   } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : '必填字段不完整' }
   }
@@ -916,9 +912,21 @@ export function executePrintAction(payload: ProcessActionPayload): Partial<Proce
   } else if (actionCode === 'PRINT_FINISH_PRINTING') {
     completePrinting(payload.sourceId, { outputQty: qty, operatorName })
   } else if (actionCode === 'PRINT_START_TRANSFER') {
+    assertPrintTransferPickupReady(payload.sourceId)
     startTransfer(payload.sourceId, operatorName)
-  } else if (actionCode === 'PRINT_FINISH_TRANSFER' || actionCode === 'PRINT_MARK_WAIT_DELIVERY') {
-    completeTransfer(payload.sourceId, { usedMaterialQty: qty, actualCompletedQty: qty, operatorName })
+  } else if (actionCode === 'PRINT_FINISH_TRANSFER') {
+    const usedMaterialQty = Number(
+      fields['实际使用原料面料米数']
+        || fields['实际使用原料裁片数量']
+        || fields['实际使用原料']
+        || fields['usedMaterialQty']
+        || qty,
+    )
+    completeTransfer(payload.sourceId, {
+      usedMaterialQty: Number.isFinite(usedMaterialQty) && usedMaterialQty > 0 ? usedMaterialQty : qty,
+      actualCompletedQty: qty,
+      operatorName,
+    })
   } else if (actionCode === 'PRINT_SUBMIT_HANDOVER') {
     const result = submitPrintHandover(payload.sourceId, {
       handoverQty: qty,
@@ -927,8 +935,6 @@ export function executePrintAction(payload: ProcessActionPayload): Partial<Proce
       remark: payload.remark,
     })
     return { affectedHandoverRecordId: result.recordIds[0] || '' }
-  } else if (actionCode === 'PRINT_REWORK_AFTER_REJECT') {
-    startTransfer(payload.sourceId, operatorName)
   }
   return {}
 }
@@ -964,7 +970,7 @@ export function executeDyeAction(payload: ProcessActionPayload): Partial<Process
     completeDyeNode(payload.sourceId, 'SET', { outputQty: qty, operatorName })
   } else if (actionCode === 'DYE_FINISH_ROLLING') {
     completeDyeNode(payload.sourceId, 'ROLL', { outputQty: qty, operatorName })
-  } else if (actionCode === 'DYE_FINISH_PACKING' || actionCode === 'DYE_MARK_WAIT_DELIVERY') {
+  } else if (actionCode === 'DYE_FINISH_PACKING') {
     completeDyeNode(payload.sourceId, 'PACK', { outputQty: qty, operatorName })
   } else if (actionCode === 'DYE_SUBMIT_HANDOVER') {
     const result = submitDyeHandover(payload.sourceId, {
@@ -1033,6 +1039,7 @@ export function executeSpecialCraftAction(payload: ProcessActionPayload): Partia
   const qty = Number(payload.objectQty || workOrder.currentQty || workOrder.planQty || 0)
   const binding = validateSpecialCraftMobileTaskBinding(payload.sourceId)
   const nextStatus = definition.toStatus as SpecialCraftTaskStatus
+  const objectMeta = resolveSpecialCraftObjectMeta(workOrder.targetObject)
   const updated = updateSpecialCraftTaskWorkOrderWebStatus(payload.sourceId, {
     status: nextStatus,
     operatorName: payload.operatorName,
@@ -1059,11 +1066,11 @@ export function executeSpecialCraftAction(payload: ProcessActionPayload): Partia
       receiveFactoryId: workOrder.factoryId,
       receiveFactoryName: workOrder.factoryName,
       receiveWarehouseName: '特殊工艺待处理区',
-      objectType: '裁片',
+      objectType: objectMeta.objectType,
       handoverObjectQty: workOrder.planQty,
       receiveObjectQty: Math.max(workOrder.planQty - qty, 0),
       diffObjectQty: qty,
-      qtyUnit: '片',
+      qtyUnit: objectMeta.qtyUnit,
       handoverPerson: payload.operatorName || '操作员',
       handoverAt: payload.operatedAt,
       relatedFeiTicketIds: [...workOrder.feiTicketNos],
@@ -1078,11 +1085,11 @@ export function executeSpecialCraftAction(payload: ProcessActionPayload): Partia
       sourceProductionOrderNo: workOrder.productionOrderNo,
       craftType: 'SPECIAL_CRAFT',
       craftName: workOrder.operationName,
-      objectType: '裁片',
+      objectType: objectMeta.objectType,
       expectedObjectQty: workOrder.planQty,
       actualObjectQty: Math.max(workOrder.planQty - qty, 0),
       diffObjectQty: qty,
-      qtyUnit: '片',
+      qtyUnit: objectMeta.qtyUnit,
       reportedBy: payload.operatorName || '操作员',
       relatedFeiTicketIds: [...workOrder.feiTicketNos],
       remark: payload.remark || `${payload.sourceChannel}差异上报`,
@@ -1109,11 +1116,11 @@ export function executeSpecialCraftAction(payload: ProcessActionPayload): Partia
       receiveFactoryId: workOrder.factoryId,
       receiveFactoryName: workOrder.factoryName,
       receiveWarehouseName: '特殊工艺交出仓',
-      objectType: '裁片',
+      objectType: objectMeta.objectType,
       handoverObjectQty: qty,
       receiveObjectQty: 0,
       diffObjectQty: 0,
-      qtyUnit: '片',
+      qtyUnit: objectMeta.qtyUnit,
       handoverPerson: payload.operatorName || '操作员',
       handoverAt: payload.operatedAt,
       relatedFeiTicketIds: [...workOrder.feiTicketNos],
@@ -1221,6 +1228,16 @@ export function executePostFinishingAction(payload: ProcessActionPayload): Parti
   return { updatedWorkOrderId: payload.sourceId }
 }
 
+function buildOperationRemark(payload: ProcessActionPayload, definition?: ProcessActionDefinition): string {
+  const fields = payload.formData || {}
+  const rollCount = getFormFieldValue(fields, ['转印完成卷数', '包装卷数', '完成卷数', '卷数', '交出卷数'])
+  const rollLength = getFormFieldValue(fields, ['每卷长度', '每卷长度明细', '卷长明细'])
+  const parts = [payload.remark || definition?.actionLabel || '']
+  if (rollCount) parts.push(`卷数：${rollCount}`)
+  if (rollLength) parts.push(`每卷长度：${rollLength}`)
+  return parts.filter(Boolean).join('；')
+}
+
 export function createProcessActionOperationRecord(
   payload: ProcessActionPayload,
   definition?: ProcessActionDefinition,
@@ -1254,7 +1271,7 @@ export function createProcessActionOperationRecord(
     objectQty: Number.isFinite(payload.objectQty) ? Number(payload.objectQty) : snapshot?.qty || 0,
     qtyUnit: getProcessQtyUnit(quantityContext),
     qtyLabel: payload.qtyLabel || getQuantityLabel(quantityContext),
-    remark: payload.remark || definition?.actionLabel || '',
+    remark: buildOperationRemark(payload, definition),
     evidenceUrls: [...(payload.evidenceUrls || [])],
     relatedWarehouseRecordId: result.affectedWarehouseRecordId || '',
     relatedHandoverRecordId: result.affectedHandoverRecordId || '',

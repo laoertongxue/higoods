@@ -1495,11 +1495,11 @@ function buildManualSeedKnittingWorkOrders(): KnittingWorkOrder[] {
           ownerName: OWN_KNITTING_FACTORY_NAME,
         },
       ],
-      remark: '交出单已由工厂发起，接收仓库待确认回写。',
+      remark: '交出单已由工厂发起，接收仓库待确认收货。',
     },
     {
       knittingOrderId: 'KNIT-MOCK-PART-HANDOVER-COMPLETED',
-      knittingOrderNo: '针织单-手动-部位-已回写',
+      knittingOrderNo: '针织单-手动-部位-已收货',
       kind: 'PART_PANEL',
       productionOrderNo: partProduction?.productionOrderNo || 'PO-KNIT-PART-004',
       styleNo: partStyleNo,
@@ -1517,7 +1517,7 @@ function buildManualSeedKnittingWorkOrders(): KnittingWorkOrder[] {
       plannedMachineCount: 8,
       scheduledStartAt: '2026-05-08 10:00',
       scheduledEndAt: '2026-05-11 16:30',
-      taskNo: '任务-针织-手动-部位-已回写',
+      taskNo: '任务-针织-手动-部位-已收货',
       acceptedAt: '2026-05-08 08:30',
       acceptedBy: OWN_KNITTING_FACTORY_NAME,
       pickupStartedAt: '2026-05-08 09:00',
@@ -1547,7 +1547,7 @@ function buildManualSeedKnittingWorkOrders(): KnittingWorkOrder[] {
         feiTicketStatus: '已打印',
       })),
       priceInfo: makePrice('PART_PANEL', false),
-      handoverOrderNo: '交出-针织单-手动-部位-已回写',
+      handoverOrderNo: '交出-针织单-手动-部位-已收货',
       handoverQty: 720,
       receiverWrittenQty: 720,
       handoverDifferenceQty: 0,
@@ -3144,7 +3144,7 @@ export function listKnittingWaitHandoverHandoutRecords(): KnittingWaitHandoverHa
       receiverWrittenQty: order.receiverWrittenQty,
       unit: order.qtyUnit,
       handoutAt: order.scheduledEndAt,
-      statusText: order.receiverWrittenQty ? '已回写' : '已交出待回写',
+      statusText: order.receiverWrittenQty ? '已收货' : '已交出待收货确认',
     }))
 }
 

@@ -387,21 +387,21 @@ function getRuntimeTaskProductionOrderId(taskId: string, fallbackOrderNo: string
 }
 
 function getHandoverRecordStatusLabel(record: PdaHandoverRecord): string {
-  if (record.handoverRecordStatus === 'SUBMITTED_WAIT_WRITEBACK' || record.status === 'PENDING_WRITEBACK') return '待回写'
-  if (record.handoverRecordStatus === 'WRITTEN_BACK_MATCHED' || record.status === 'WRITTEN_BACK') return '已回写'
+  if (record.handoverRecordStatus === 'SUBMITTED_WAIT_WRITEBACK' || record.status === 'PENDING_WRITEBACK') return '待收货'
+  if (record.handoverRecordStatus === 'WRITTEN_BACK_MATCHED' || record.status === 'WRITTEN_BACK') return '已收货'
   if (record.handoverRecordStatus === 'WRITTEN_BACK_DIFF') return '差异待确认'
   if (record.handoverRecordStatus === 'DIFF_ACCEPTED') return '已接受差异'
   if (record.handoverRecordStatus === 'OBJECTION_REPORTED' || record.status === 'OBJECTION_REPORTED') return '已发起异议'
   if (record.handoverRecordStatus === 'OBJECTION_PROCESSING' || record.status === 'OBJECTION_PROCESSING') return '异议处理中'
   if (record.handoverRecordStatus === 'OBJECTION_RESOLVED' || record.status === 'OBJECTION_RESOLVED') return '异议已处理'
-  return '待回写'
+  return '待收货'
 }
 
 function getHandoverSummaryStatusLabel(status: PdaHandoverHead['summaryStatus']): string {
   if (status === 'NONE') return '暂无记录'
   if (status === 'SUBMITTED') return '已提交'
-  if (status === 'PARTIAL_WRITTEN_BACK') return '部分回写'
-  if (status === 'WRITTEN_BACK') return '已回写'
+  if (status === 'PARTIAL_WRITTEN_BACK') return '部分收货'
+  if (status === 'WRITTEN_BACK') return '已收货'
   if (status === 'HAS_OBJECTION') return '存在异议'
   return '待确认'
 }
@@ -552,9 +552,9 @@ function mapDeliveryCardToPrintDoc(card: TaskDeliveryCardModel, record?: PdaHand
   const writtenQtyLabel = getTaskQuantityLabel(card.processName, card.qtyUnit, '实收')
   const diffQtyLabel = getTaskQuantityLabel(card.processName, card.qtyUnit, '差异')
 
-  if (typeof writtenQty === 'number') writebackRows.push({ label: `接收方回写${writtenQtyLabel}`, value: `${writtenQty} ${card.qtyUnit}` })
-  if (writtenAt) writebackRows.push({ label: '回写时间', value: writtenAt })
-  if (writtenBy) writebackRows.push({ label: '回写人', value: writtenBy })
+  if (typeof writtenQty === 'number') writebackRows.push({ label: `接收方收货${writtenQtyLabel}`, value: `${writtenQty} ${card.qtyUnit}` })
+  if (writtenAt) writebackRows.push({ label: '收货时间', value: writtenAt })
+  if (writtenBy) writebackRows.push({ label: '收货人', value: writtenBy })
   if (typeof diffQty === 'number') writebackRows.push({ label: diffQtyLabel, value: `${diffQty} ${card.qtyUnit}` })
   if (record?.handoverRecordStatus) writebackRows.push({ label: '异议状态', value: getHandoverRecordStatusLabel(record) })
 
@@ -770,7 +770,7 @@ function buildRouteCardFromHandoverTask(head: PdaHandoverHead): TaskRouteCardBui
         { label: '接收方', value: getReceiverDisplayName(head) },
         { label: '交出单状态', value: head.handoverOrderStatus ? getHandoverOrderStatusLabel(head.handoverOrderStatus) : getHandoverSummaryStatusLabel(head.summaryStatus) },
         { label: '累计交出', value: `${head.submittedQtyTotal ?? 0} ${head.qtyUnit}` },
-        { label: '累计回写', value: `${head.writtenBackQtyTotal ?? 0} ${head.qtyUnit}` },
+        { label: '累计收货确认', value: `${head.writtenBackQtyTotal ?? 0} ${head.qtyUnit}` },
       ],
       routeRecords: buildHandoverRouteRows(head.taskId),
     },
@@ -898,7 +898,7 @@ function buildRouteCardFromPrintWorkOrder(sourceId: string): TaskRouteCardBuildR
           record.usedMaterialQty !== undefined ? `原料使用量：${formatQtyText(record.usedMaterialQty, record.qtyUnit)}` : '',
           record.remark || '',
         ].filter(Boolean).join('；') || '—',
-      })), ['花型与调色', '等打印', '打印', '转印', '待送货', '交出', '审核']),
+      })), ['花型与调色', '等打印', '打印', '转印', '待交出', '交出', '收货确认']),
     },
   }
 }
@@ -969,7 +969,7 @@ function buildRouteCardFromDyeWorkOrder(sourceId: string): TaskRouteCardBuildRes
           record.lossQty !== undefined ? `损耗：${formatQtyText(record.lossQty, record.qtyUnit)}` : '',
           record.remark || '',
         ].filter(Boolean).join('；') || '—',
-      })), ['打样', '备料', '排缸', '染色', '脱水', '烘干', '定型', '打卷', '包装', '交出', '审核']),
+      })), ['打样', '备料', '排缸', '染色', '脱水', '烘干', '定型', '打卷', '包装', '待交出', '交出', '收货确认']),
     },
   }
 }

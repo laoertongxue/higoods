@@ -1,0 +1,16 @@
+[     231ms] [WARNING] The provided component class (t) 
+                has already been declared as an observer component. @ https://static.qiniu.com/static/fec__vendor-4b752ce7b9ea4e0725d7.js:1
+[   26377ms] [WARNING] Blocked aria-hidden on an element because its descendant retained focus. The focus must not be hidden from assistive technology users. Avoid using aria-hidden on a focused element or its ancestor. Consider using the inert attribute instead, which will also prevent focus. For more details, see the aria-hidden section of the WAI-ARIA specification at https://w3c.github.io/aria/#aria-hidden.
+Element with focus: <div>
+Ancestor with aria-hidden: <div> @ https://portal.qiniu.com/financial/recharge:0
+[   27625ms] [WARNING] Blocked aria-hidden on an element because its descendant retained focus. The focus must not be hidden from assistive technology users. Avoid using aria-hidden on a focused element or its ancestor. Consider using the inert attribute instead, which will also prevent focus. For more details, see the aria-hidden section of the WAI-ARIA specification at https://w3c.github.io/aria/#aria-hidden.
+Element with focus: <div>
+Ancestor with aria-hidden: <div> @ https://portal.qiniu.com/financial/recharge:0
+[   50361ms] [WARNING] Blocked aria-hidden on an element because its descendant retained focus. The focus must not be hidden from assistive technology users. Avoid using aria-hidden on a focused element or its ancestor. Consider using the inert attribute instead, which will also prevent focus. For more details, see the aria-hidden section of the WAI-ARIA specification at https://w3c.github.io/aria/#aria-hidden.
+Element with focus: <div>
+Ancestor with aria-hidden: <div> @ https://portal.qiniu.com/financial/recharge:0
+[  287376ms] [WARNING] The provided component class (t) 
+                has already been declared as an observer component. @ https://static.qiniu.com/static/fec__vendor-0e8d795a1644b8b4d0ee.js:1
+[  302829ms] [WARNING] Blocked aria-hidden on an element because its descendant retained focus. The focus must not be hidden from assistive technology users. Avoid using aria-hidden on a focused element or its ancestor. Consider using the inert attribute instead, which will also prevent focus. For more details, see the aria-hidden section of the WAI-ARIA specification at https://w3c.github.io/aria/#aria-hidden.
+Element with focus: <div>
+Ancestor with aria-hidden: <div> @ https://portal.qiniu.com/cdn/log:0

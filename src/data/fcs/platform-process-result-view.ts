@@ -142,9 +142,12 @@ const STATUS_CODE_BY_LABEL: Record<PlatformProcessStatus, PlatformProcessStatusC
   待开工: 'WAIT_START',
   准备中: 'PREPARING',
   加工中: 'PROCESSING',
-  待送货: 'WAIT_DELIVERY',
-  待回写: 'WAIT_WRITEBACK',
-  待审核: 'WAIT_REVIEW',
+  待交出: 'WAIT_DELIVERY',
+  交出待收货: 'WAIT_WRITEBACK',
+  收货确认中: 'RECEIPT_CONFIRMING',
+  部分交出: 'PARTIAL_HANDOVER',
+  全部交出: 'FULL_HANDOVER',
+  收货差异: 'HANDOVER_DIFFERENCE',
   异常: 'EXCEPTION',
   已完成: 'COMPLETED',
   已关闭: 'CLOSED',
@@ -222,15 +225,28 @@ function resolveFacts(sourceType: PlatformResultSourceType, sourceId: string, ta
 
 function hasOpenDifference(facts: UnifiedFacts): boolean {
   return facts.differences.some((record) => !['已关闭', '已确认差异'].includes(record.status))
-    || facts.handovers.some((record) => ['有差异', '平台处理中', '需重新交出'].includes(record.status))
-    || facts.reviews.some((record) => ['数量差异', '审核驳回'].includes(record.reviewStatus))
+    || facts.handovers.some((record) => Math.abs(Number(record.diffObjectQty || 0)) > 0 || ['有差异', '平台处理中', '需重新交出', '收货差异'].includes(record.status))
+    || facts.reviews.some((record) => record.reviewStatus.includes('差异') || record.reviewStatus.includes('驳回'))
+}
+
+function hasPendingReceipt(facts: UnifiedFacts): boolean {
+  return facts.handovers.some((record) =>
+    Number(record.handoverObjectQty || 0) > 0
+    && Number(record.receiveObjectQty || 0) <= 0
+    && !record.receiveAt,
+  )
+}
+
+function hasPendingReceiptConfirm(facts: UnifiedFacts): boolean {
+  return facts.reviews.some((record) => !record.reviewedAt && !record.reviewStatus.includes('通过'))
 }
 
 function deriveStatusLabel(base: PlatformProcessStatus, facts: UnifiedFacts): PlatformProcessStatus {
-  if (hasOpenDifference(facts)) return '异常'
-  if (facts.handovers.some((record) => record.status === '待回写')) return '待回写'
-  if (facts.reviews.some((record) => ['待审核', '数量差异'].includes(record.reviewStatus))) return '待审核'
-  if (facts.warehouses.some((record) => record.recordType === 'WAIT_HANDOVER' && ['待交出', '部分交出', '已全部交出'].includes(record.status))) return '待送货'
+  if (['待交出', '交出待收货', '部分交出', '全部交出', '收货差异'].includes(base)) return base
+  if (hasOpenDifference(facts)) return '收货差异'
+  if (hasPendingReceipt(facts)) return '交出待收货'
+  if (hasPendingReceiptConfirm(facts)) return '收货确认中'
+  if (facts.warehouses.some((record) => record.recordType === 'WAIT_HANDOVER' && Number(record.availableObjectQty || record.plannedObjectQty || 0) > 0)) return '待交出'
   return base
 }
 
@@ -243,7 +259,7 @@ function buildPlatformMeta(statusLabel: PlatformProcessStatus, processType: Plat
     status: statusLabel,
   })
 
-  if (statusLabel === '待送货') {
+  if (statusLabel === '待交出') {
     return {
       ...mapped,
       platformRiskLabel: '工厂已完成加工，待交出',
@@ -251,27 +267,51 @@ function buildPlatformMeta(statusLabel: PlatformProcessStatus, processType: Plat
       platformOwnerHint: '工艺工厂',
     }
   }
-  if (statusLabel === '待回写') {
+  if (statusLabel === '交出待收货') {
     return {
       ...mapped,
-      platformRiskLabel: '接收方尚未回写实收',
-      platformActionHint: '跟进接收方回写',
+      platformRiskLabel: '接收方尚未确认收货',
+      platformActionHint: '跟进接收方确认收货',
       platformOwnerHint: '接收方 / 仓库',
     }
   }
-  if (statusLabel === '待审核') {
+  if (statusLabel === '收货确认中') {
     return {
       ...mapped,
-      platformRiskLabel: '等待平台或接收方审核',
-      platformActionHint: '处理审核',
-      platformOwnerHint: '平台 / 接收方',
+      platformRiskLabel: '接收方正在确认收货数量',
+      platformActionHint: '跟进收货确认',
+      platformOwnerHint: '接收方 / 仓库',
+    }
+  }
+  if (statusLabel === '部分交出') {
+    return {
+      ...mapped,
+      platformRiskLabel: '接收方已确认部分收货',
+      platformActionHint: '继续交出剩余数量',
+      platformOwnerHint: '工艺工厂 / 接收方',
+    }
+  }
+  if (statusLabel === '全部交出') {
+    return {
+      ...mapped,
+      platformRiskLabel: '接收方已确认全部收货',
+      platformActionHint: '查看交出和收货记录',
+      platformOwnerHint: '平台',
+    }
+  }
+  if (statusLabel === '收货差异') {
+    return {
+      ...mapped,
+      platformRiskLabel: '交出数量与实收数量存在差异',
+      platformActionHint: '处理收货差异',
+      platformOwnerHint: '平台 / 接收方 / 工艺工厂',
     }
   }
   if (statusLabel === '异常') {
     return {
       ...mapped,
-      platformRiskLabel: '存在数量差异、审核驳回或差异待处理',
-      platformActionHint: '处理差异',
+      platformRiskLabel: '存在异常，需要处理',
+      platformActionHint: '处理异常',
       platformOwnerHint: '平台',
     }
   }
@@ -287,10 +327,13 @@ function buildPlatformMeta(statusLabel: PlatformProcessStatus, processType: Plat
 }
 
 function resolveFollowUp(statusLabel: PlatformProcessStatus, hasHandoverRecord: boolean) {
-  if (statusLabel === '待送货') return { code: 'FOLLOW_FACTORY_HANDOVER', label: '跟进工厂交出', canFollow: true }
-  if (statusLabel === '待回写') return { code: 'FOLLOW_RECEIVER_WRITEBACK', label: '跟进接收方回写', canFollow: true }
-  if (statusLabel === '待审核') return { code: 'PROCESS_REVIEW', label: '处理审核', canFollow: true }
-  if (statusLabel === '异常') return { code: 'PROCESS_DIFFERENCE', label: '处理差异', canFollow: true }
+  if (statusLabel === '待交出') return { code: 'FOLLOW_FACTORY_HANDOVER', label: '跟进工厂交出', canFollow: true }
+  if (statusLabel === '交出待收货') return { code: 'FOLLOW_RECEIVER_RECEIPT', label: '跟进接收方确认收货', canFollow: true }
+  if (statusLabel === '收货确认中') return { code: 'FOLLOW_RECEIPT_CONFIRM', label: '跟进收货确认', canFollow: true }
+  if (statusLabel === '部分交出') return { code: 'FOLLOW_REMAINING_HANDOVER', label: '继续交出剩余数量', canFollow: true }
+  if (statusLabel === '收货差异') return { code: 'PROCESS_RECEIPT_DIFFERENCE', label: '处理收货差异', canFollow: true }
+  if (statusLabel === '异常') return { code: 'PROCESS_EXCEPTION', label: '处理异常', canFollow: true }
+  if (statusLabel === '全部交出') return { code: hasHandoverRecord ? 'VIEW_HANDOVER_RECORD' : 'VIEW_DETAIL', label: hasHandoverRecord ? '查看交出记录' : '查看详情', canFollow: false }
   if (statusLabel === '已完成') return { code: hasHandoverRecord ? 'VIEW_HANDOVER_RECORD' : 'VIEW_DETAIL', label: hasHandoverRecord ? '查看交出记录' : '查看详情', canFollow: false }
   if (statusLabel === '已关闭') return { code: 'VIEW_DETAIL', label: '查看详情', canFollow: false }
   if (statusLabel === '准备中') return { code: 'FOLLOW_PREPARATION', label: '跟进工艺准备', canFollow: true }
@@ -567,9 +610,9 @@ function buildCuttingWarehouseResultView(sourceId: string): PlatformProcessResul
   const latestWarehouse = latestByTime(facts.warehouses, (record) => record.updatedAt || record.createdAt)
   const latestHandover = latestByTime(facts.handovers, (record) => record.receiveAt || record.handoverAt)
   const internalStatusLabel = hasOpenDifference(facts)
-    ? '有差异'
-    : latestHandover?.status === '待回写'
-      ? '待回写'
+    ? '收货差异'
+    : latestHandover && hasPendingReceipt(facts)
+      ? '交出待收货'
       : facts.warehouses.some((record) => record.recordType === 'WAIT_HANDOVER')
         ? '待交出'
         : '已入仓'
@@ -823,15 +866,18 @@ export function getPlatformRiskSummary(filter: PlatformProcessResultViewFilter =
     totalCount: views.length,
     riskCount: views.filter((view) => view.platformRiskLevel !== '无风险').length,
     exceptionCount: views.filter((view) => view.platformStatusLabel === '异常').length,
-    waitHandoverCount: views.filter((view) => view.platformStatusLabel === '待送货').length,
-    waitWritebackCount: views.filter((view) => view.platformStatusLabel === '待回写').length,
+    waitHandoverCount: views.filter((view) => view.platformStatusLabel === '待交出').length,
+    waitReceiveCount: views.filter((view) => view.platformStatusLabel === '交出待收货').length,
+    receiptConfirmCount: views.filter((view) => view.platformStatusLabel === '收货确认中').length,
+    partialHandoverCount: views.filter((view) => view.platformStatusLabel === '部分交出').length,
+    receiptDifferenceCount: views.filter((view) => view.platformStatusLabel === '收货差异').length,
     allowedPlatformStatuses: listPlatformStatusOptions(),
   }
 }
 
 export function getPlatformFollowUpTasks(filter: PlatformProcessResultViewFilter = {}): PlatformProcessResultView[] {
   return listPlatformProcessResultViews(filter)
-    .filter((view) => view.canPlatformFollowUp || ['待送货', '待回写', '待审核', '异常'].includes(view.platformStatusLabel))
+    .filter((view) => view.canPlatformFollowUp || ['待交出', '交出待收货', '收货确认中', '部分交出', '收货差异', '异常'].includes(view.platformStatusLabel))
     .map(cloneView)
 }
 

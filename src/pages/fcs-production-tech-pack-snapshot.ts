@@ -296,7 +296,10 @@ function renderMaterialPatternLinks(content: TechnicalDataVersionContent): strin
                       const totalPieceQty = getPatternTotalPieceQty(item)
                       return `
                         <tr class="border-b align-top last:border-0">
-                          <td class="px-3 py-2">${bom ? escapeHtml(`${bom.name} · ${bom.id}`) : renderTextValue(item.linkedMaterialName || item.linkedMaterialSku)}</td>
+                          <td class="px-3 py-2">
+                            <div>${bom ? escapeHtml(`${bom.name} · ${bom.id}`) : renderTextValue(item.linkedMaterialName || item.linkedMaterialSku)}</div>
+                            ${item.linkedMaterialAlias ? `<div class="mt-1 text-xs text-muted-foreground">别名：${escapeHtml(item.linkedMaterialAlias)}</div>` : ''}
+                          </td>
                           <td class="px-3 py-2">${renderTextValue(bom?.spec || item.sizeRange)}</td>
                           <td class="px-3 py-2 font-medium">${escapeHtml(item.sourcePatternPackageName || resolvePatternTitle(item))}</td>
                           <td class="px-3 py-2">${escapeHtml(resolvePatternFileType(item))}</td>

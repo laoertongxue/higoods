@@ -1,0 +1,4 @@
+[     211ms] [ERROR] Refused to execute script from 'https://www.ipshudi.com/api/count/?ip=221.229.202.186' because its MIME type ('text/html') is not executable, and strict MIME type checking is enabled. @ https://www.ipshudi.com/221.229.202.186.htm:0
+[     310ms] [LOG] [用户登录系统初始化] @ https://www.ipshudi.com/static/www/script/dist/public/common.js:0
+[     438ms] [LOG] [json] {code: 0, data: Object, msg: fail, status: false} @ https://www.ipshudi.com/static/www/script/dist/index/detail.js:0
+[    2188ms] [WARNING] <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated. Please include <meta name="mobile-web-app-capable" content="yes"> @ https://www.ipshudi.com/221.229.202.186.htm:0

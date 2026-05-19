@@ -410,7 +410,7 @@ export interface PdaHandoverRecord {
   transferBagWritebackLines?: TransferBagWritebackLine[]
   feiTicketWritebackLines?: TransferBagFeiTicketWritebackLine[]
   writebackMode?: '按袋' | '按袋 + 菲票'
-  combinedWritebackStatus?: '待回写' | '部分回写' | '已回写' | '差异' | '异议中'
+  combinedWritebackStatus?: '待收货确认' | '部分收货' | '已确认收货' | '差异' | '异议中'
 }
 
 export interface TransferBagWritebackLine {
@@ -423,7 +423,7 @@ export interface TransferBagWritebackLine {
   expectedQty: number
   actualQty: number
   differenceQty: number
-  status: '待回写' | '已回写' | '差异'
+  status: '待收货确认' | '已确认收货' | '差异'
   remark?: string
 }
 
@@ -439,7 +439,7 @@ export interface TransferBagFeiTicketWritebackLine {
   expectedQty: number
   actualQty: number
   differenceQty: number
-  status: '待回写' | '已回写' | '差异'
+  status: '待收货确认' | '已确认收货' | '差异'
   remark?: string
 }
 
@@ -1487,7 +1487,7 @@ const PDA_MOCK_HANDOUT_RECORDS: Record<string, PdaHandoverRecord[]> = {
       plannedQty: 240,
       qtyUnit: '片',
       factorySubmittedAt: '2026-03-22 09:40:00',
-      factoryRemark: '前片、后片首批已完成仓库回写',
+      factoryRemark: '前片、后片首批已完成仓库收货确认',
       factoryProofFiles: [],
       status: 'WRITTEN_BACK',
       warehouseReturnNo: 'RET-MOCK-CUT-093-001',
@@ -1504,7 +1504,7 @@ const PDA_MOCK_HANDOUT_RECORDS: Record<string, PdaHandoverRecord[]> = {
       garmentEquivalentQty: 40,
       materialCode: 'CUT-093-COLLAR',
       materialName: '裁片',
-      materialSpec: '罗纹领口尾批待回写',
+      materialSpec: '罗纹领口尾批待收货确认',
       skuCode: 'CPO-20260319-G / CPO-20260319-H',
       skuColor: '石灰蓝',
       skuSize: 'M / L',
@@ -1643,7 +1643,7 @@ const PDA_MOCK_HANDOUT_RECORDS: Record<string, PdaHandoverRecord[]> = {
       plannedQty: 180,
       qtyUnit: '片',
       factorySubmittedAt: '2026-03-24 16:10:00',
-      factoryRemark: '尾批已发出，主厂回写后已发起数量异议',
+        factoryRemark: '尾批已发出，主厂收货确认后已发起数量异议',
       factoryProofFiles: [],
       status: 'OBJECTION_REPORTED',
       warehouseReturnNo: 'RET-MOCK-CUT-103-OPEN-001',
@@ -1844,7 +1844,7 @@ function buildTaskBoardHandoutRecordSeeds(head: PdaHandoverHead): PdaHandoverRec
         plannedQty: Math.max(head.qtyExpectedTotal, 120),
         qtyUnit: head.qtyUnit || '件',
         factorySubmittedAt: '2026-03-21 10:20:00',
-        factoryRemark: '已发起交出，待仓库回写',
+        factoryRemark: '已发起交出，待仓库收货确认',
         factoryProofFiles: [],
         status: 'PENDING_WRITEBACK',
       },
@@ -1867,7 +1867,7 @@ function buildTaskBoardHandoutRecordSeeds(head: PdaHandoverHead): PdaHandoverRec
         plannedQty: Math.max(Math.round(head.qtyExpectedTotal * 0.6), 90),
         qtyUnit: head.qtyUnit || '件',
         factorySubmittedAt: '2026-03-21 11:00:00',
-        factoryRemark: '首批已回写',
+        factoryRemark: '首批已确认收货',
         factoryProofFiles: [],
         status: 'WRITTEN_BACK',
         warehouseReturnNo: 'RET-TASKGEN0002005-001',
@@ -1888,7 +1888,7 @@ function buildTaskBoardHandoutRecordSeeds(head: PdaHandoverHead): PdaHandoverRec
         plannedQty: Math.max(head.qtyExpectedTotal - Math.max(Math.round(head.qtyExpectedTotal * 0.6), 90), 40),
         qtyUnit: head.qtyUnit || '件',
         factorySubmittedAt: '2026-03-21 11:45:00',
-        factoryRemark: '尾批已回写，存在数量差异',
+        factoryRemark: '尾批已确认收货，存在数量差异',
         factoryProofFiles: [],
         status: 'WRITTEN_BACK',
         warehouseReturnNo: 'RET-TASKGEN0002005-002',
@@ -2219,8 +2219,8 @@ function getHandoutQtyLabels(
   if (objectType === 'CUT_PIECE') {
     return {
       primaryQtyLabel: '计划交出裁片片数（片）',
-      writtenQtyLabel: '接收方回写裁片片数（片）',
-      pendingQtyLabel: '待接收方回写裁片片数（片）',
+      writtenQtyLabel: '接收方实收裁片片数（片）',
+      pendingQtyLabel: '待接收方确认裁片片数（片）',
     }
   }
   if (objectType === 'FABRIC') {
@@ -2228,19 +2228,19 @@ function getHandoutQtyLabels(
     const objectLabel = normalizedUnit === '卷' ? '面料卷数（卷）' : '面料长度（m）'
     return {
       primaryQtyLabel: `计划交出${objectLabel}`,
-      writtenQtyLabel: `接收方回写${objectLabel}`,
-      pendingQtyLabel: `待接收方回写${objectLabel}`,
+      writtenQtyLabel: `接收方实收${objectLabel}`,
+      pendingQtyLabel: `待接收方确认${objectLabel}`,
     }
   }
   return {
     primaryQtyLabel: '计划交出成衣件数（件）',
-    writtenQtyLabel: '接收方回写成衣件数（件）',
-    pendingQtyLabel: '待接收方回写成衣件数（件）',
+    writtenQtyLabel: '接收方实收成衣件数（件）',
+    pendingQtyLabel: '待接收方确认成衣件数（件）',
   }
 }
 
 function formatQtyValue(qty: number | undefined, unit: string): string {
-  if (typeof qty !== 'number') return '待接收方回写'
+  if (typeof qty !== 'number') return '待接收方确认'
   const normalizedUnit = normalizeDisplayUnit(unit)
   return `${Math.round(qty * 100) / 100} ${normalizedUnit}`
 }

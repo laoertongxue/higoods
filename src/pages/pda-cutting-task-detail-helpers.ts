@@ -19,9 +19,9 @@ function includesAny(value: string | undefined, keywords: string[]): boolean {
 }
 
 function resolveRouteLabel(routeKey: PdaCuttingExecutionRouteKey): string {
-  if (routeKey === 'spreading') return '进入铺布'
-  if (routeKey === 'inbound') return '查看入仓'
-  if (routeKey === 'handover') return '交出到待交出仓'
+  if (routeKey === 'spreading') return '按唛架方案铺布'
+  if (routeKey === 'inbound') return '入裁片待交出仓'
+  if (routeKey === 'handover') return '发起交出'
   return '反馈异常'
 }
 
@@ -49,15 +49,17 @@ function isInboundCompleted(status: string): boolean {
 }
 
 function resolveCurrentStepLabel(stepCode: PdaCuttingCurrentStepCode): string {
-  if (stepCode === 'PICKUP') return '查看来料'
-  if (stepCode === 'SPREADING') return '进入铺布'
+  if (stepCode === 'START') return '待开工'
+  if (stepCode === 'PICKUP') return '交接领料'
+  if (stepCode === 'SPREADING') return '按唛架方案铺布'
   if (stepCode === 'REPLENISHMENT') return '反馈异常'
-  if (stepCode === 'HANDOVER') return '交出到待交出仓'
-  if (stepCode === 'INBOUND') return '查看入仓'
+  if (stepCode === 'INBOUND') return '入裁片待交出仓'
+  if (stepCode === 'HANDOVER') return '发起交出'
   return '已完成'
 }
 
 function mapStepCodeToRouteKey(stepCode: PdaCuttingCurrentStepCode): PdaCuttingExecutionRouteKey | null {
+  if (stepCode === 'START') return null
   if (stepCode === 'PICKUP') return 'spreading'
   if (stepCode === 'SPREADING') return 'spreading'
   if (stepCode === 'REPLENISHMENT') return 'replenishment-feedback'
@@ -71,8 +73,8 @@ export function resolvePdaCuttingTaskOrderCurrentStepCode(line: PdaCuttingTaskOr
   if (!isReceiveCompleted(line.currentReceiveStatus)) return 'PICKUP'
   if (!isSpreadingCompleted(line.currentExecutionStatus)) return 'SPREADING'
   if (hasPendingReplenishment(line)) return 'REPLENISHMENT'
-  if (!isHandoverCompleted(line.currentHandoverStatus)) return 'HANDOVER'
   if (!isInboundCompleted(line.currentInboundStatus)) return 'INBOUND'
+  if (!isHandoverCompleted(line.currentHandoverStatus)) return 'HANDOVER'
   return 'DONE'
 }
 

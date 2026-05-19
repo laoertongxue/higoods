@@ -44,10 +44,7 @@ export type ProcessWebActionType =
   | '完成打印'
   | '开始转印'
   | '完成转印'
-  | '标记待送货'
   | '发起交出'
-  | '提交审核'
-  | '标记驳回后重交'
   | '确认样衣到位'
   | '开始打样'
   | '完成打样'
@@ -80,7 +77,7 @@ export type ProcessWebActionType =
   | '完成后道'
   | '开始复检'
   | '完成复检'
-  | '驳回后重交'
+  | '差异后重交'
 
 export interface ProcessWebAction {
   actionCode: string
@@ -217,7 +214,7 @@ const PRINT_ACTIONS: ActionDefinition[] = [
     processType: 'PRINT',
     fromStatuses: ['PRINT_DONE', 'WAIT_TRANSFER'],
     toStatus: 'TRANSFERRING',
-    requiredFields: ['操作人', '开始时间'],
+    requiredFields: ['操作人', '开始时间', '领料记录'],
     writebackHandler: 'startTransfer',
   },
   {
@@ -226,7 +223,7 @@ const PRINT_ACTIONS: ActionDefinition[] = [
     processType: 'PRINT',
     fromStatuses: ['TRANSFERRING'],
     toStatus: 'WAIT_HANDOVER',
-    requiredFields: ['操作人', '完成时间', '转印完成面料米数', '单位'],
+    requiredFields: ['操作人', '完成时间', '转印完成面料米数', '完成卷数', '每卷长度', '单位'],
     writebackHandler: 'finishTransfer',
   },
   {
@@ -234,20 +231,11 @@ const PRINT_ACTIONS: ActionDefinition[] = [
     actionLabel: '发起交出',
     processType: 'PRINT',
     fromStatuses: ['WAIT_HANDOVER'],
-    toStatus: 'HANDOVER_SUBMITTED',
+    toStatus: 'HANDOVER_WAIT_RECEIVE',
     requiredFields: ['交出人', '交出时间', '交出面料米数', '单位'],
     optionalFields: ['包装数量', '备注'],
     writebackHandler: 'submitPrintHandover',
     affectsHandover: true,
-  },
-  {
-    actionCode: 'PRINT_REWORK_AFTER_REJECT',
-    actionLabel: '标记驳回后重交',
-    processType: 'PRINT',
-    fromStatuses: ['REJECTED'],
-    toStatus: 'WAIT_HANDOVER',
-    requiredFields: ['操作人', '操作时间', '重交原因'],
-    writebackHandler: 'webStatusAdapter',
   },
 ]
 
@@ -366,7 +354,7 @@ const DYE_ACTIONS: ActionDefinition[] = [
     processType: 'DYE',
     fromStatuses: ['PACKING'],
     toStatus: 'WAIT_HANDOVER',
-    requiredFields: ['操作人', '完成时间', '包装完成面料米数', '包装卷数'],
+    requiredFields: ['操作人', '完成时间', '包装完成面料米数', '包装卷数', '每卷长度'],
     writebackHandler: 'finishDyeNode',
   },
   {
@@ -374,7 +362,7 @@ const DYE_ACTIONS: ActionDefinition[] = [
     actionLabel: '发起交出',
     processType: 'DYE',
     fromStatuses: ['WAIT_HANDOVER'],
-    toStatus: 'HANDOVER_SUBMITTED',
+    toStatus: 'HANDOVER_WAIT_RECEIVE',
     requiredFields: ['交出人', '交出时间', '交出面料米数', '交出卷数'],
     optionalFields: ['备注'],
     writebackHandler: 'submitDyeHandover',
@@ -452,7 +440,7 @@ const CUTTING_ACTIONS: ActionDefinition[] = [
     actionLabel: '发起交出',
     processType: 'CUTTING',
     fromStatuses: ['待交出'],
-    toStatus: '待回写',
+    toStatus: '交出待收货',
     requiredFields: ['交出人', '交出时间', '交出裁片数量', '备注'],
     writebackHandler: 'createProcessHandoverRecord',
     affectsHandover: true,
@@ -504,7 +492,7 @@ const SPECIAL_CRAFT_ACTIONS: ActionDefinition[] = [
     actionLabel: '发起交出',
     processType: 'SPECIAL_CRAFT',
     fromStatuses: ['加工完成', '待交出'],
-    toStatus: '已交出',
+    toStatus: '交出待收货',
     requiredFields: ['交出人', '交出时间', '交出裁片数量', '关联菲票'],
     optionalFields: ['备注'],
     writebackHandler: 'createProcessHandoverRecord',
@@ -512,9 +500,9 @@ const SPECIAL_CRAFT_ACTIONS: ActionDefinition[] = [
   },
   {
     actionCode: 'SPECIAL_CRAFT_REWORK_AFTER_REJECT',
-    actionLabel: '驳回后重交',
+    actionLabel: '差异后重交',
     processType: 'SPECIAL_CRAFT',
-    fromStatuses: ['差异', '异议中', '异常', '待回写'],
+    fromStatuses: ['差异', '异议中', '异常', '交出待收货', '收货差异'],
     toStatus: '待交出',
     requiredFields: ['操作人', '重交裁片数量', '备注'],
     optionalFields: [],

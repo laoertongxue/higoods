@@ -62,14 +62,14 @@ function checkPageSignals(): void {
   const orderPage = readFile('src/pages/progress-handover-order.ts')
   const execPage = readFile('src/pages/pda-exec-detail.ts')
 
-  ;['接收方', '已交出', '已回写', '差异', '异议', '待回写', '查看交出单', '新增交出记录'].forEach((term) => {
+  ;['接收方', '已交出', '已收货', '差异', '异议', '待收货', '查看交出单', '新增交出记录'].forEach((term) => {
     assert(listPage.includes(term), `pda-handover.ts 缺少列表关键信号：${term}`)
   })
 
-  ;['交出单二维码', '交出记录二维码', '新增交出记录', '完成领料单', '完成交出单', '接收方回写', '发起异议', '接受差异', '入库记录', '出库记录', '已入待加工仓', '已生成出库记录', '已驳回'].forEach((term) => {
+  ;['交出单二维码', '交出记录二维码', '新增交出记录', '完成领料单', '完成交出单', '确认收货', '发起异议', '接受差异', '入库记录', '出库记录', '已入待加工仓', '已生成出库记录', '已驳回'].forEach((term) => {
     assert(detailPage.includes(term), `pda-handover-detail.ts 缺少详情关键信号：${term}`)
   })
-  ;['中转袋', '扫码装袋', '移除菲票', '完成装袋', '扫描中转袋', '按袋回写', '按菲票回写', '袋内明细'].forEach((term) => {
+  ;['中转袋', '扫码装袋', '移除菲票', '完成装袋', '扫描中转袋', '按袋确认', '按菲票确认', '袋内明细'].forEach((term) => {
     assert((detailPage + readFile('src/pages/pda-transfer-bag-detail.ts')).includes(term), `移动端交接缺少中转袋闭环字段：${term}`)
   })
   ;['特殊工艺菲票', '原数量', '当前数量', '报废数量', '货损数量', '已完成特殊工艺', '差异状态'].forEach((term) => {
@@ -81,14 +81,14 @@ function checkPageSignals(): void {
     'pda-handover-detail.ts 未使用交出记录二维码字段或 helper',
   )
   assert(detailPage.includes('createFactoryHandoverRecord'), 'pda-handover-detail.ts 未接入新增交出记录 helper')
-  assert(detailPage.includes('writeBackHandoverRecord'), 'pda-handover-detail.ts 未接入接收方回写 helper')
+  assert(detailPage.includes('writeBackHandoverRecord'), 'pda-handover-detail.ts 未接入接收方收货确认 helper')
   assert(detailPage.includes('receiverWrittenQty') || detailPage.includes('getRecordReceiverWrittenQty'), 'pda-handover-detail.ts 未切换到 receiverWritten 主口径')
   assert(detailPage.includes('linkPickupConfirmToInboundRecord'), 'pda-handover-detail.ts 未接入待领料到入库联动 helper')
   assert(detailPage.includes('linkHandoverRecordToOutboundRecord'), 'pda-handover-detail.ts 未接入交出到出库联动 helper')
   assert(detailPage.includes('syncReceiverWritebackToOutboundRecord'), 'pda-handover-detail.ts 未接入回写同步出库 helper')
   assert(detailPage.includes('syncQuantityObjectionToOutboundRecord'), 'pda-handover-detail.ts 未接入异议同步出库 helper')
 
-  ;['接收方回写', '交出单', '交出记录'].forEach((term) => {
+  ;['接收方确认', '交出单', '交出记录'].forEach((term) => {
     assert(ledgerPage.includes(term), `progress-handover.ts 缺少台账口径：${term}`)
   })
   assert(orderPage.includes('查看交出详情'), 'progress-handover-order.ts 未提供交出详情入口')

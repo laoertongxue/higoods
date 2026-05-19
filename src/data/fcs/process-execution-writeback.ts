@@ -248,7 +248,7 @@ export function submitPrintDelivery(taskId: string, payload: ExecutionWritebackP
   return {
     workOrder: getPrintWorkOrderById(order.printOrderId),
     handoverOrderId,
-    deliveryRemark: payload.remark || '印花转印完成，进入待送货',
+    deliveryRemark: payload.remark || '印花转印完成，进入待交出仓',
   }
 }
 
@@ -397,7 +397,7 @@ export function submitDyeDelivery(taskId: string, payload: ExecutionWritebackPay
   return {
     workOrder: getDyeWorkOrderById(order.dyeOrderId),
     handoverOrderId,
-    deliveryRemark: payload.remark || '染色包装完成，进入待送货',
+    deliveryRemark: payload.remark || '染色包装完成，进入待交出仓',
   }
 }
 

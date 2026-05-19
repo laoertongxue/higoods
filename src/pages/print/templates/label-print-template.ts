@@ -538,7 +538,7 @@ export function buildHandoverQrLabelPrintDocument(input: PrintDocumentBuildInput
       { label: '接收方', value: record?.receiveFactoryName || record?.receiveWarehouseName },
       { label: '交出对象类型', value: record?.objectType },
       { label: `交出${noun}`, value: formatPrintQty(record?.handoverObjectQty, record?.qtyUnit), emphasis: true },
-      { label: `实收${noun}`, value: Number(record?.receiveObjectQty || 0) > 0 ? formatPrintQty(record?.receiveObjectQty, record?.qtyUnit) : '待回写', emphasis: true },
+      { label: `实收${noun}`, value: Number(record?.receiveObjectQty || 0) > 0 ? formatPrintQty(record?.receiveObjectQty, record?.qtyUnit) : '待确认收货', emphasis: true },
       { label: `差异${noun}`, value: formatPrintQty(record?.diffObjectQty, record?.qtyUnit), emphasis: true },
       { label: '当前状态', value: record?.status },
     ]),
@@ -549,7 +549,7 @@ export function buildHandoverQrLabelPrintDocument(input: PrintDocumentBuildInput
   }
   return buildBaseLabelDocument(input, {
     title: '交出记录二维码',
-    subtitle: '用于交出、回写、差异追溯。',
+    subtitle: '用于交出、收货确认、差异追溯。',
     templateCode: 'HANDOVER_QR_LABEL',
     sourceType: 'HANDOVER_RECORD',
     paperType: 'LABEL_100_60',

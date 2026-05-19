@@ -18,6 +18,7 @@ import {
   type ProcessWebOperationRecord,
 } from '../../../data/fcs/process-web-status-actions.ts'
 import { getPlatformStatusForProcessWorkOrder } from '../../../data/fcs/process-platform-status-adapter.ts'
+import { getStartPrerequisiteByTaskId } from '../../../data/fcs/pda-start-link.ts'
 import { getProcessWorkOrderById, getProcessWorkOrderByNo } from '../../../data/fcs/process-work-order-domain.ts'
 import {
   getDifferenceRecordsByWorkOrderId,
@@ -27,7 +28,6 @@ import {
   type ProcessHandoverDifferenceRecord,
 } from '../../../data/fcs/process-warehouse-domain.ts'
 import { getDyeingExecutionStatistics } from '../../../data/fcs/process-statistics-domain.ts'
-import { getDyeReviewStatusLabel, type DyeReviewStatus } from '../../../data/fcs/dyeing-task-domain.ts'
 import { formatFactoryDisplayName } from '../../../data/fcs/factory-mock-data.ts'
 import { appStore } from '../../../state/store.ts'
 import { formatDyeQty, formatDyeTime, renderBadge, renderPageHeader, renderSection } from './shared'
@@ -47,8 +47,8 @@ const dyeDetailTabs: Array<{ key: DyeDetailTab; label: string }> = [
   { key: 'sample', label: '打样备料' },
   { key: 'execution', label: '染缸执行' },
   { key: 'formula', label: '染色配方' },
-  { key: 'handover', label: '送货交出' },
-  { key: 'review', label: '审核记录' },
+  { key: 'handover', label: '交出记录' },
+  { key: 'review', label: '收货确认' },
   { key: 'statistics', label: '染色统计' },
   { key: 'exception', label: '异常与结算' },
 ]
@@ -225,9 +225,11 @@ function renderNodeTable(orderId: string): string {
 }
 
 function renderReviewStatusLabel(status: unknown): string {
-  return typeof status === 'string' && ['WAIT_REVIEW', 'PASS', 'REJECTED', 'PARTIAL_PASS'].includes(status)
-    ? getDyeReviewStatusLabel(status as DyeReviewStatus)
-    : '—'
+  if (status === 'FULL_HANDOVER') return '全部交出'
+  if (status === 'PARTIAL_HANDOVER') return '部分交出'
+  if (status === 'HANDOVER_DIFFERENCE') return '收货差异'
+  if (status === 'WAIT_RECEIVE' || status === 'HANDOVER_WAIT_RECEIVE') return '交出待收货'
+  return '—'
 }
 
 function resolveDifferenceAction(): { differenceId: string; action: string } | undefined {
@@ -358,11 +360,11 @@ export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string
   const reviewRows = processReviewRecords
     .map((review) => `
       <tr class="border-b last:border-b-0">
-        <td class="px-3 py-3 text-sm">${escapeHtml(review.reviewStatus)}</td>
+        <td class="px-3 py-3 text-sm">${escapeHtml(renderReviewStatusLabel(review.reviewStatus))}</td>
         <td class="px-3 py-3 text-sm">${formatDyeQty(review.expectedObjectQty, review.qtyUnit)}</td>
         <td class="px-3 py-3 text-sm">${formatDyeQty(review.actualObjectQty, review.qtyUnit)}</td>
         <td class="px-3 py-3 text-sm">${formatDyeQty(review.diffObjectQty, review.qtyUnit)}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(review.reviewerName || '待审核')}</td>
+        <td class="px-3 py-3 text-sm">${escapeHtml(review.reviewerName || '待收货确认')}</td>
         <td class="px-3 py-3 text-sm">${escapeHtml(review.reviewedAt || '—')}</td>
         <td class="px-3 py-3 text-sm">${escapeHtml(review.reason || review.nextAction || '—')}</td>
       </tr>
@@ -397,6 +399,7 @@ export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string
   const webActions = getAvailableDyeWebActions(order.workOrderId)
   const webOperationRecords = getUnifiedOperationRecordsForProcessWorkOrder('DYE_WORK_ORDER', order.workOrderId, order.taskId)
   const platformStatus = getPlatformStatusForProcessWorkOrder(order)
+  const startPrerequisite = getStartPrerequisiteByTaskId(order.taskId)
   const sections: Record<DyeDetailTab, string> = {
     base: renderSection(
       '基本信息',
@@ -421,6 +424,9 @@ export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string
           ${renderField('绑定状态', mobileBindingStatus)}
           ${renderField('校验结果', mobileBinding.canOpenMobileExecution ? '允许打开移动端执行页' : '当前不可执行')}
           ${renderField('不可执行原因', mobileBindingReasonLabel)}
+          ${renderField('开工准备状态', startPrerequisite?.statusLabel || '按加工单状态判断')}
+          ${renderField('开工前置口径', startPrerequisite?.conditionLabel || '染色加工单已接单')}
+          ${renderField('实际染色前要求', '必须确认坯布和染化料到位')}
           ${renderField('移动端交出记录引用', order.handoverOrderNo || order.handoverOrderId || '未生成')}
         </div>
       `,
@@ -474,7 +480,7 @@ export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string
       `,
     ),
     handover: renderSection(
-      '送货交出',
+      '交出记录',
       `
         <div class="mb-3 grid gap-3 text-sm md:grid-cols-3">
           ${renderField('接收方', dye.targetTransferWarehouseName)}
@@ -489,7 +495,7 @@ export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string
                 <th class="px-3 py-2 font-medium">提交时间</th>
                 <th class="px-3 py-2 font-medium">交出面料米数</th>
                 <th class="px-3 py-2 font-medium">实收面料米数</th>
-                <th class="px-3 py-2 font-medium">回写时间</th>
+                <th class="px-3 py-2 font-medium">收货时间</th>
                 <th class="px-3 py-2 font-medium">备注</th>
               </tr>
             </thead>
@@ -499,22 +505,22 @@ export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string
       `,
     ),
     review: renderSection(
-      '审核记录',
+      '收货确认',
       `
         <div class="overflow-x-auto">
           <table class="min-w-full text-left text-sm">
             <thead class="bg-slate-50 text-xs text-muted-foreground">
               <tr>
-                <th class="px-3 py-2 font-medium">审核状态</th>
+                <th class="px-3 py-2 font-medium">收货状态</th>
                 <th class="px-3 py-2 font-medium">交出面料米数</th>
                 <th class="px-3 py-2 font-medium">实收面料米数</th>
                 <th class="px-3 py-2 font-medium">差异面料米数</th>
-                <th class="px-3 py-2 font-medium">审核人</th>
-                <th class="px-3 py-2 font-medium">审核时间</th>
+                <th class="px-3 py-2 font-medium">收货确认人</th>
+                <th class="px-3 py-2 font-medium">收货确认时间</th>
                 <th class="px-3 py-2 font-medium">备注</th>
               </tr>
             </thead>
-            <tbody>${reviewRows || '<tr><td class="px-3 py-8 text-center text-sm text-muted-foreground" colspan="7">暂无审核记录</td></tr>'}</tbody>
+            <tbody>${reviewRows || '<tr><td class="px-3 py-8 text-center text-sm text-muted-foreground" colspan="7">暂无收货确认记录</td></tr>'}</tbody>
           </table>
         </div>
       `,

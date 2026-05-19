@@ -844,6 +844,7 @@ function buildPatternItemFromForm(nowId: string, finalStatus: typeof state.newPa
     linkedBomItemId: state.newPattern.linkedBomItemId,
     linkedMaterialId: state.newPattern.linkedBomItemId,
     linkedMaterialName: linkedBom?.materialName || state.newPattern.linkedMaterialName,
+    linkedMaterialAlias: state.newPattern.linkedMaterialAlias?.trim() || '',
     linkedMaterialSku: linkedBom?.materialCode || state.newPattern.linkedMaterialSku,
     widthCm: state.newPattern.widthCm,
     markerLengthM: state.newPattern.markerLengthM,
@@ -1079,6 +1080,7 @@ function applyPatternPackageToAssociation(patternPackageId: string): void {
   const linkedBomItemId = state.newPattern.linkedBomItemId
   const linkedMaterialId = state.newPattern.linkedMaterialId
   const linkedMaterialName = state.newPattern.linkedMaterialName
+  const linkedMaterialAlias = state.newPattern.linkedMaterialAlias
   const linkedMaterialSku = state.newPattern.linkedMaterialSku
   const widthCm = state.newPattern.widthCm
   const markerLengthM = state.newPattern.markerLengthM
@@ -1091,6 +1093,7 @@ function applyPatternPackageToAssociation(patternPackageId: string): void {
     linkedBomItemId,
     linkedMaterialId,
     linkedMaterialName,
+    linkedMaterialAlias,
     linkedMaterialSku,
     widthCm,
     markerLengthM,
@@ -1306,10 +1309,14 @@ function handleTechPackField(
     return true
   }
   if (field === 'new-pattern-linked-bom-item') {
+    const previousLinkedBomItemId = state.newPattern.linkedBomItemId
     state.newPattern.linkedBomItemId = value
     const linkedBom = state.bomItems.find((item) => item.id === value) || null
     state.newPattern.linkedMaterialId = value
     state.newPattern.linkedMaterialName = linkedBom?.materialName || ''
+    if (previousLinkedBomItemId !== value) {
+      state.newPattern.linkedMaterialAlias = ''
+    }
     state.newPattern.linkedMaterialSku = linkedBom?.materialCode || ''
     state.newPattern.duplicateConfirmed = false
     state.newPattern.duplicateWarningReasons = []
@@ -1337,6 +1344,10 @@ function handleTechPackField(
         state.newPattern.linkedBomItemId,
       )
     })
+    return true
+  }
+  if (field === 'new-pattern-linked-material-alias') {
+    state.newPattern.linkedMaterialAlias = value
     return true
   }
   if (field === 'new-pattern-binding-strip-name') {

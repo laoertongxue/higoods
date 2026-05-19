@@ -273,6 +273,7 @@ type PatternItem = {
   linkedBomItemId: string
   linkedMaterialId: string
   linkedMaterialName: string
+  linkedMaterialAlias?: string
   linkedMaterialSku: string
   widthCm: number
   markerLengthM: number
@@ -575,6 +576,7 @@ function createEmptyPatternFormState(): PatternFormState {
     linkedBomItemId: '',
     linkedMaterialId: '',
     linkedMaterialName: '',
+    linkedMaterialAlias: '',
     linkedMaterialSku: '',
     widthCm: 0,
     markerLengthM: 0,
@@ -732,6 +734,7 @@ const DEFAULT_PATTERN_ITEMS: PatternItem[] = [
     linkedBomItemId: 'bom-1',
     linkedMaterialId: 'bom-1',
     linkedMaterialName: '纯棉针织布',
+    linkedMaterialAlias: '主面料-前片',
     linkedMaterialSku: 'FAB-001',
     widthCm: 142,
     markerLengthM: 2.62,
@@ -866,6 +869,7 @@ const DEFAULT_PATTERN_ITEMS: PatternItem[] = [
     linkedBomItemId: 'bom-1',
     linkedMaterialId: 'bom-1',
     linkedMaterialName: '纯棉针织布',
+    linkedMaterialAlias: '主面料-后片',
     linkedMaterialSku: 'FAB-001',
     widthCm: 142,
     markerLengthM: 2.2,
@@ -1051,6 +1055,7 @@ function createPatternStatusDemoItem(
     linkedBomItemId: hasMerchandiserInfo ? linkedBomId : '',
     linkedMaterialId: hasMerchandiserInfo ? linkedBomId : '',
     linkedMaterialName: hasMerchandiserInfo ? linkedMaterialName : '',
+    linkedMaterialAlias: hasMerchandiserInfo ? `${status}用料${index + 1}` : '',
     linkedMaterialSku: hasMerchandiserInfo ? linkedMaterialSku : '',
     widthCm: hasMerchandiserInfo ? 142 + index : 0,
     markerLengthM: hasMakerFiles ? 2.2 + index * 0.08 : 0,
@@ -1211,6 +1216,7 @@ function createPatternPoolDemoPackage(
     linkedBomItemId: '',
     linkedMaterialId: '',
     linkedMaterialName: '',
+    linkedMaterialAlias: '',
     linkedMaterialSku: '',
     widthCm: 0,
     markerLengthM: 0,
@@ -1332,6 +1338,7 @@ function createMaterialPatternDemoAssociation(
     linkedBomItemId: linkedBomId,
     linkedMaterialId: linkedBomId,
     linkedMaterialName,
+    linkedMaterialAlias: `${patternPackage.name}用料`,
     linkedMaterialSku,
     widthCm: isKnit ? 0 : 142 + index,
     markerLengthM: isKnit ? 1.2 : 2.2 + index * 0.18,
@@ -3754,6 +3761,7 @@ function buildPatternItemsFromTechPack(techPack: TechPack): PatternItem[] {
       linkedBomItemId: item.linkedBomItemId || linkedBom?.id || '',
       linkedMaterialId: item.linkedMaterialId || item.linkedBomItemId || linkedBom?.id || '',
       linkedMaterialName: item.linkedMaterialName || linkedBom?.name || '',
+      linkedMaterialAlias: item.linkedMaterialAlias || '',
       linkedMaterialSku: item.linkedMaterialSku || linkedBom?.id || '',
       // 门幅单位固定 cm
       widthCm: Number.isFinite(item.widthCm) && Number(item.widthCm) > 0 ? Number(item.widthCm) : 142 + index,
@@ -4276,6 +4284,7 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
         linkedBomItemId: item.linkedBomItemId || undefined,
         linkedMaterialId: item.linkedMaterialId || item.linkedBomItemId || undefined,
         linkedMaterialName: item.linkedMaterialName || undefined,
+        linkedMaterialAlias: item.linkedMaterialAlias || undefined,
         linkedMaterialSku: item.linkedMaterialSku || undefined,
         isKnitted: item.isKnitted,
         maintainerStepStatus: item.maintainerStepStatus,
@@ -4569,6 +4578,7 @@ function buildPatternFormStateFromItem(item: PatternItem): PatternFormState {
     linkedBomItemId: item.linkedBomItemId,
     linkedMaterialId: item.linkedMaterialId,
     linkedMaterialName: item.linkedMaterialName,
+    linkedMaterialAlias: item.linkedMaterialAlias || '',
     linkedMaterialSku: item.linkedMaterialSku,
     widthCm: item.widthCm,
     markerLengthM: item.markerLengthM,

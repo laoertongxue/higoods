@@ -88,7 +88,7 @@ interface ProgressHandoverState {
     | 'ALL'
     | '待领料'
     | '待交出'
-    | '待接收方回写'
+    | '待接收方确认'
     | '有异议'
     | '异议处理中'
     | '已完成'
@@ -152,7 +152,7 @@ const LEDGER_EVENT_FILTER_OPTIONS: Array<{ value: LedgerEventTypeFilter; label: 
   { value: 'ALL', label: '事件类型' },
   { value: 'PICKUP', label: '领料' },
   { value: 'HANDOUT', label: '交出' },
-  { value: 'WAREHOUSE', label: '接收方回写' },
+  { value: 'WAREHOUSE', label: '接收方确认' },
   { value: 'OBJECTION', label: '数量异议' },
   { value: 'COMPLETED', label: '已完成' },
 ]
@@ -161,7 +161,7 @@ const LEDGER_STATUS_FILTER_OPTIONS: Array<{ value: LedgerStatusFilter; label: st
   { value: 'ALL', label: '当前状态' },
   { value: 'PENDING_PICKUP', label: '待领料' },
   { value: 'PENDING_HANDOUT', label: '待交出' },
-  { value: 'PENDING_WAREHOUSE', label: '待接收方回写' },
+  { value: 'PENDING_WAREHOUSE', label: '待接收方确认' },
   { value: 'HAS_OBJECTION', label: '有异议' },
   { value: 'OBJECTION_PROCESSING', label: '异议处理中' },
   { value: 'OBJECTION_RESOLVED', label: '异议已处理' },
@@ -173,7 +173,7 @@ const ORDER_BOTTLENECK_FILTER_OPTIONS: Array<{
     | 'ALL'
     | '待领料'
     | '待交出'
-    | '待接收方回写'
+    | '待接收方确认'
     | '有异议'
     | '异议处理中'
     | '已完成'
@@ -183,7 +183,7 @@ const ORDER_BOTTLENECK_FILTER_OPTIONS: Array<{
   { value: 'ALL', label: '当前交接卡点' },
   { value: '待领料', label: '待领料' },
   { value: '待交出', label: '待交出' },
-  { value: '待接收方回写', label: '待接收方回写' },
+  { value: '待接收方确认', label: '待接收方确认' },
   { value: '有异议', label: '有异议' },
   { value: '异议处理中', label: '异议处理中' },
   { value: '已完成', label: '已完成' },
@@ -254,7 +254,7 @@ function isHandoverFocus(value: string | null): value is HandoverFocus {
 function getFocusLabel(focus: HandoverFocus): string {
   if (focus === 'pickup') return '待领料'
   if (focus === 'handout') return '待交出'
-  if (focus === 'warehouse-confirm') return '待接收方回写'
+  if (focus === 'warehouse-confirm') return '待接收方确认'
   return '异议处理'
 }
 
@@ -563,8 +563,8 @@ function renderSourceFacts(row: HandoverLedgerRow): string {
       <div class="space-y-1 text-sm">
         <p><span class="text-muted-foreground">事实来源：</span>交出单</p>
         <p><span class="text-muted-foreground">交出次数：</span>${head.recordCount} 次</p>
-        <p><span class="text-muted-foreground">累计回写：</span>${head.qtyActualTotal} ${escapeHtml(head.qtyUnit)}</p>
-        <p><span class="text-muted-foreground">待回写：</span>${head.pendingWritebackCount} 条</p>
+        <p><span class="text-muted-foreground">累计收货：</span>${head.qtyActualTotal} ${escapeHtml(head.qtyUnit)}</p>
+        <p><span class="text-muted-foreground">待收货：</span>${head.pendingWritebackCount} 条</p>
         <p><span class="text-muted-foreground">异议条数：</span>${head.objectionCount} 条</p>
       </div>
     `
@@ -581,10 +581,10 @@ function renderSourceFacts(row: HandoverLedgerRow): string {
         <p><span class="text-muted-foreground">事实来源：</span>交出记录</p>
         <p><span class="text-muted-foreground">记录编号：</span>${escapeHtml(handoutRecord.recordId)}（第 ${handoutRecord.sequenceNo} 次）</p>
         <p><span class="text-muted-foreground">工厂发起：</span>${escapeHtml(handoutRecord.factorySubmittedAt)}</p>
-        <p><span class="text-muted-foreground">接收方回写：</span>${
+        <p><span class="text-muted-foreground">接收方确认：</span>${
           typeof getRecordReceiverWrittenQty(handoutRecord) === 'number'
             ? `${getRecordReceiverWrittenQty(handoutRecord)} ${escapeHtml(head.qtyUnit)}`
-            : '待回写'
+            : '待接收方确认'
         }</p>
         <p><span class="text-muted-foreground">异议状态：</span>${
           handoutRecord.status === 'OBJECTION_REPORTED'
@@ -603,7 +603,7 @@ function renderSourceFacts(row: HandoverLedgerRow): string {
 }
 
 function renderCurrentStatusText(row: HandoverLedgerRow): string {
-  if (row.statusCode === 'HANDOUT_RECORD_PENDING_WRITEBACK') return '接收方还未回写实收数量，先等待回写。'
+  if (row.statusCode === 'HANDOUT_RECORD_PENDING_WRITEBACK') return '接收方还未确认实收数量，先等待收货确认。'
   if (row.statusCode === 'HANDOUT_OBJECTION_REPORTED') return '工厂已发起异议，待平台跟进。'
   if (row.statusCode === 'HANDOUT_OBJECTION_PROCESSING') return '平台正在跟进异议，等待处理结论。'
   if (row.statusCode === 'HANDOUT_OBJECTION_RESOLVED') return '异议已处理完成，可继续关注是否完成。'
@@ -746,7 +746,7 @@ function renderEventsPreviewCards(rows: HandoverLedgerRow[]): string {
       >
         <p class="inline-flex items-center gap-2 text-sm text-muted-foreground">
           <i data-lucide="clipboard-check" class="h-4 w-4 text-yellow-500"></i>
-          待接收方回写
+          待接收方确认
         </p>
         <p class="mt-2 text-2xl font-bold">${stats.pendingWarehouseConfirm}</p>
       </button>
@@ -851,7 +851,7 @@ function renderRowActionMenu(row: HandoverLedgerRow): string {
   if (canWriteback) {
     primaryAction = `<button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-handover-action="open-writeback-dialog" data-record-id="${escapeAttr(
       row.recordId || '',
-    )}"><i data-lucide="clipboard-check" class="mr-2 h-4 w-4"></i>接收方回写</button>`
+    )}"><i data-lucide="clipboard-check" class="mr-2 h-4 w-4"></i>接收方确认</button>`
   } else if (canHandleObjection) {
     primaryAction = `<button class="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-muted" data-handover-action="open-objection-dialog" data-record-id="${escapeAttr(
       row.recordId || '',
@@ -1228,7 +1228,7 @@ function isTimelineSectionFocused(view: HandoverOrderTimelineView, section: Hand
 
   if (focus === 'pickup') return section.processStatusLabel === '待领料'
   if (focus === 'handout') return section.processStatusLabel === '待交出' || section.processStatusLabel === '已领料待交出'
-  if (focus === 'warehouse-confirm') return section.processStatusLabel === '待接收方回写'
+  if (focus === 'warehouse-confirm') return section.processStatusLabel === '待接收方确认'
   if (focus === 'objection') return section.processStatusLabel === '有异议' || section.processStatusLabel === '异议处理中'
   return false
 }
@@ -1392,7 +1392,7 @@ function renderOrderBottleneckBadge(label: string): string {
       ? 'bg-red-100 text-red-700 border-red-200'
       : label === '异议处理中'
         ? 'bg-orange-100 text-orange-700 border-orange-200'
-        : label === '待接收方回写'
+        : label === '待接收方确认'
           ? 'bg-amber-100 text-amber-700 border-amber-200'
           : label === '待交出' || label === '待领料'
             ? 'bg-blue-100 text-blue-700 border-blue-200'
@@ -1619,7 +1619,7 @@ function renderDetailDrawer(rows: HandoverLedgerRow[]): string {
     directActions.push(
       `<button class="inline-flex h-8 items-center rounded-md border border-emerald-200 bg-emerald-50 px-3 text-sm text-emerald-700 hover:bg-emerald-100" data-handover-action="open-writeback-dialog" data-record-id="${escapeAttr(
         row.recordId || '',
-      )}">接收方回写</button>`,
+      )}">接收方确认</button>`,
     )
   }
   if (canHandleObjection) {
@@ -1784,7 +1784,7 @@ function renderWritebackDialog(): string {
       <button class="absolute inset-0 bg-black/45" data-handover-action="close-writeback-dialog" aria-label="关闭"></button>
       <section class="absolute left-1/2 top-1/2 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-2xl">
         <header>
-          <h3 class="text-lg font-semibold">接收方回写</h3>
+          <h3 class="text-lg font-semibold">接收方收货确认</h3>
         </header>
 
         <div class="mt-4 space-y-2 text-sm">
@@ -1797,7 +1797,7 @@ function renderWritebackDialog(): string {
 
         <div class="mt-4 grid gap-3">
           <label class="space-y-1">
-            <span class="text-sm">回写备注</span>
+            <span class="text-sm">收货备注</span>
             <input
               class="h-9 w-full rounded-md border bg-background px-3 text-sm"
               placeholder="可填写差异原因或备注"
@@ -1816,7 +1816,7 @@ function renderWritebackDialog(): string {
             />
           </label>
           <label class="space-y-1">
-            <span class="text-sm">回写时间 *</span>
+            <span class="text-sm">收货确认时间 *</span>
             <input
               class="h-9 w-full rounded-md border bg-background px-3 text-sm"
               type="datetime-local"
@@ -1828,7 +1828,7 @@ function renderWritebackDialog(): string {
 
         <footer class="mt-6 flex justify-end gap-2">
           <button class="inline-flex h-9 items-center rounded-md border px-4 text-sm hover:bg-muted" data-handover-action="close-writeback-dialog">取消</button>
-          <button class="inline-flex h-9 items-center rounded-md border bg-primary px-4 text-sm text-primary-foreground hover:opacity-90" data-handover-action="confirm-writeback" data-record-id="${escapeAttr(record.recordId)}">确认回写</button>
+          <button class="inline-flex h-9 items-center rounded-md border bg-primary px-4 text-sm text-primary-foreground hover:opacity-90" data-handover-action="confirm-writeback" data-record-id="${escapeAttr(record.recordId)}">确认收货</button>
         </footer>
       </section>
     </div>
@@ -1866,7 +1866,7 @@ function renderObjectionDialog(): string {
           <div class="rounded-md border bg-muted/20 p-3">
             <p><span class="text-muted-foreground">工厂交出说明：</span>${escapeHtml(record.factoryRemark || '—')}</p>
             <p class="mt-1"><span class="text-muted-foreground">工厂交出凭证：</span>${record.factoryProofFiles.length} 个</p>
-            <p class="mt-1"><span class="text-muted-foreground">接收方回写数量：</span>${
+            <p class="mt-1"><span class="text-muted-foreground">接收方实收数量：</span>${
               typeof getRecordReceiverWrittenQty(record) === 'number' ? `${getRecordReceiverWrittenQty(record)} ${escapeHtml(head.qtyUnit)}` : '—'
             }</p>
             <p class="mt-1"><span class="text-muted-foreground">异议原因：</span>${escapeHtml(record.objectionReason || '—')}</p>
@@ -2194,17 +2194,17 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
     if (!recordId) return true
     const qty = Number(state.writebackQty)
     if (!Number.isFinite(qty) || qty <= 0) {
-      showProgressHandoverToast('请填写正确的回写数量', 'error')
+      showProgressHandoverToast('请填写正确的收货确认数量', 'error')
       return true
     }
     if (!state.writebackAt) {
-      showProgressHandoverToast('请填写回写时间', 'error')
+      showProgressHandoverToast('请填写收货确认时间', 'error')
       return true
     }
 
     const currentRecord = findPdaHandoverRecord(recordId)
     if (!currentRecord) {
-      showProgressHandoverToast('当前记录无法回写，请刷新后重试', 'error')
+      showProgressHandoverToast('当前记录无法确认收货，请刷新后重试', 'error')
       return true
     }
     const submittedQty = currentRecord.submittedQty ?? currentRecord.plannedQty ?? 0
@@ -2223,7 +2223,7 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
     })
 
     if (!updated) {
-      showProgressHandoverToast('当前记录无法回写，请刷新后重试', 'error')
+      showProgressHandoverToast('当前记录无法确认收货，请刷新后重试', 'error')
       return true
     }
 
@@ -2231,7 +2231,7 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
     state.writebackReturnNo = ''
     state.writebackQty = ''
     state.writebackAt = getCurrentLocalDateTimeInput()
-    showProgressHandoverToast(`接收方回写完成：${updated.recordId}`)
+    showProgressHandoverToast(`接收方确认收货完成：${updated.recordId}`)
     return true
   }
 

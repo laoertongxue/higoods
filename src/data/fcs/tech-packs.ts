@@ -219,6 +219,7 @@ export interface TechPackPatternFile {
   isKnitted?: '是' | '否'
   linkedMaterialId?: string
   linkedMaterialName?: string
+  linkedMaterialAlias?: string
   linkedMaterialSku?: string
   prjFile?: TechPackPatternManagedFile
   markerImage?: TechPackPatternManagedFile

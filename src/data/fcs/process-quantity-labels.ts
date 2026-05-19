@@ -80,7 +80,12 @@ export function getProcessObjectType(context: ProcessQuantityContext): ProcessOb
   }
   if (context.processType === 'DYE') return unit === '卷' ? '卷' : '面料'
   if (context.processType === 'CUTTING') return unit === '件' ? '成衣' : '裁片'
-  if (context.processType === 'SPECIAL_CRAFT') return unit === '张' ? '菲票' : '裁片'
+  if (context.processType === 'SPECIAL_CRAFT') {
+    if (unit === '张') return '菲票'
+    if (unit === '米' || unit === 'Yard') return '面料'
+    if (unit === '件') return '成衣'
+    return '裁片'
+  }
   if (context.processType === 'POST_FINISHING') return '成衣'
   if (unit === '米') return '面料'
   if (unit === '片') return '裁片'
@@ -212,35 +217,36 @@ function specialCraftPurposeLabel(context: ProcessQuantityContext, objectType: P
     if (context.qtyPurpose === '差异') return '有差异菲票数量'
     return '菲票数量'
   }
+  const objectLabel = objectType === '成衣' ? '成衣' : objectType === '面料' ? '面料' : '裁片'
   switch (context.operationCode) {
     case 'SPECIAL_CRAFT_FINISH_PROCESS':
-      return '加工完成裁片数量'
+      return `加工完成${objectLabel}数量`
     default:
       break
   }
   switch (context.qtyPurpose) {
     case '计划':
-      return '计划特殊工艺裁片数量'
+      return `计划特殊工艺${objectLabel}数量`
     case '待加工':
-      return '待加工裁片数量'
+      return `待加工${objectLabel}数量`
     case '已接收':
-      return '已接收裁片数量'
+      return `已接收${objectLabel}数量`
     case '已完成':
-      return '加工完成裁片数量'
+      return `加工完成${objectLabel}数量`
     case '待交出':
-      return '待交出裁片数量'
+      return `待交出${objectLabel}数量`
     case '已交出':
-      return '已交出裁片数量'
+      return `已交出${objectLabel}数量`
     case '实收':
-      return '实收裁片数量'
+      return `实收${objectLabel}数量`
     case '差异':
-      return '差异裁片数量'
+      return `差异${objectLabel}数量`
     case '报废':
-      return '报废裁片数量'
+      return `报废${objectLabel}数量`
     case '货损':
-      return '货损裁片数量'
+      return `货损${objectLabel}数量`
     default:
-      return '当前裁片数量'
+      return `当前${objectLabel}数量`
   }
 }
 

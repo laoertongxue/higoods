@@ -268,10 +268,8 @@ export const routes: RouteRegistry = {
       renderRouteRedirect('/fcs/craft/printing/wait-process-warehouse', '正在跳转到印花待加工仓'),
     '/fcs/craft/printing/warehouse-management': () =>
       renderRouteRedirect('/fcs/craft/printing/wait-process-warehouse', '正在跳转到印花待加工仓'),
-    '/fcs/craft/printing/pending-review': () =>
-      renderRouteRedirect('/fcs/craft/printing/work-orders?tab=review', '正在跳转到印花加工单审核视图'),
-    '/fcs/craft/printing/batches': () =>
-      renderRouteRedirect('/fcs/craft/printing/work-orders?tab=review', '正在跳转到印花加工单审核视图'),
+    '/fcs/craft/printing/pending-review': () => renderCraftPrintingPendingReviewPage(),
+    '/fcs/craft/printing/batches': () => renderCraftPrintingPendingReviewPage(),
     '/fcs/craft/printing/progress': () =>
       renderRouteRedirect('/fcs/craft/printing/work-orders?tab=progress', '正在跳转到印花加工单进度视图'),
     '/fcs/craft/printing/stats': () => renderCraftPrintingStatisticsPage(),

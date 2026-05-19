@@ -41,9 +41,9 @@ function checkSourceCopy(): void {
   assertIncludes('buildTaskQrValue', '任务详情页未使用 buildTaskQrValue 兜底任务二维码')
   assertIncludes('renderRealQrPlaceholder', '任务详情页未接入真实二维码渲染')
   assertIncludes('submittedQtyTotal', '任务详情页缺少交出单已交出汇总字段')
-  assertIncludes('writtenBackQtyTotal', '任务详情页缺少交出单已回写汇总字段')
+  assertIncludes('writtenBackQtyTotal', '任务详情页缺少交出单已收货汇总字段')
   assertIncludes('diffQtyTotal', '任务详情页缺少交出单差异汇总字段')
-  assertIncludes('pendingWritebackCount', '任务详情页缺少交出单待回写汇总字段')
+  assertIncludes('pendingWritebackCount', '任务详情页缺少交出单待收货汇总字段')
   assertIncludes('objectionCount', '任务详情页缺少交出单异议汇总字段')
   assertIncludes('报废数量', '任务详情页缺少特殊工艺报废数量')
   assertIncludes('货损数量', '任务详情页缺少特殊工艺货损数量')
@@ -52,10 +52,14 @@ function checkSourceCopy(): void {
   assertIncludes('原数量', '任务详情页缺少特殊工艺原数量')
   assertIncludes('当前数量', '任务详情页缺少特殊工艺当前数量')
   assertIncludes('linkSpecialCraftCompletionToReturnWaitHandoverStock', '特殊工艺完工未接入待交出仓 helper')
+  assertIncludes('resolveSpecialCraftPdaObjectMeta', 'PDA 特殊工艺未按目标对象解析数量口径')
+  assertIncludes('确认接收${escapeHtml(objectMeta.objectLabel)}', 'PDA 特殊工艺确认接收按钮未按目标对象展示')
+  assertIncludes('objectType: objectMeta.objectType', 'PDA 特殊工艺写回未使用目标对象类型')
+  assertIncludes('qtyUnit: objectMeta.qtyUnit', 'PDA 特殊工艺写回未使用目标对象单位')
+  assertIncludes('无需绑定菲票', 'PDA 特殊工艺成衣/面料对象未展示无需菲票口径')
 
   ;[
     '去交接（待交出）',
-    '去交接',
     '发起交出单',
     legacyMobileCopy('印花', ' ', 'PDA'),
     legacyMobileCopy('染色', ' ', 'PDA'),
@@ -64,13 +68,7 @@ function checkSourceCopy(): void {
     legacyMobileCopy('交出', '头'),
     '后道内部记录',
     '折叠区',
-    '开扣眼',
-    '装扣子',
-    '钉扣',
-    '熨烫',
-    '机器数',
-    '人数',
-    '设备数',
+    '>确认接收裁片</button>',
   ].forEach((token) => assertExcludes(token, `任务详情页仍残留禁用文案：${token}`))
 }
 

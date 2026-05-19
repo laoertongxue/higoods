@@ -245,7 +245,7 @@ function renderOutboundRows(view: PrintingWarehouseView): string {
                   ? `<button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${buildTaskDeliveryCardPrintLink(item.handoverRecordId)}">打印任务交货卡</button><button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${buildHandoverQrLabelPrintLink(item.handoverRecordId)}">打印交出二维码</button>`
                   : '<button type="button" class="inline-flex cursor-not-allowed items-center rounded-md border px-2 py-1 text-xs opacity-50" disabled>打印任务交货卡</button>'
               }
-              <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${item.handoverOrderId ? buildHandoverOrderLink(item.handoverOrderId) : ''}" ${item.handoverOrderId ? '' : 'disabled'}>查看回写</button>
+              <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${item.handoverOrderId ? buildHandoverOrderLink(item.handoverOrderId) : ''}" ${item.handoverOrderId ? '' : 'disabled'}>查看收货</button>
             </div>
           </td>
         </tr>
@@ -407,7 +407,7 @@ function renderPrintingWarehousePage(mode: PrintingWarehouseMode): string {
   const description =
     mode === 'wait-process'
       ? '查看印花任务接收后的待加工库存、入库记录与仓内位置。'
-      : '查看印花任务完工后的待交出库存、出库记录与回写差异。'
+      : '查看印花任务完工后的待交出库存、出库记录与收货差异。'
   const metrics =
     mode === 'wait-process'
       ? [
@@ -421,7 +421,7 @@ function renderPrintingWarehousePage(mode: PrintingWarehouseMode): string {
           renderMetricCard('待交出仓记录数', String(view.waitHandoverItems.length), '待交出仓记录'),
           renderMetricCard('交出记录', String(view.outboundRecords.length), '近 30 天'),
           renderMetricCard('加工入仓记录', String(view.waitHandoverItems.length), '按完工入仓'),
-          renderMetricCard('已回写记录数', String(view.outboundRecords.filter((item) => item.status === '已回写').length), '接收方回写'),
+          renderMetricCard('已收货记录数', String(view.outboundRecords.filter((item) => item.status === '已收货').length), '接收方确认收货'),
           renderMetricCard('出库差异记录数', String(outboundDifferenceCount), '出库差异'),
         ].join('')
 
@@ -458,13 +458,13 @@ function renderPrintingWarehousePage(mode: PrintingWarehouseMode): string {
             key: 'wait-handover',
             label: '库存',
             count: view.waitHandoverItems.length,
-            table: renderTable(['工厂', '仓库', '来源任务', '类型', '面料 SKU', '颜色', '卷号', '加工完成数量', '损耗数量', '当前库存', '接收方', '交出单', '交出记录', '回写数量', '状态', '操作'], renderWaitHandoverRows(view), 'min-w-[1740px]'),
+            table: renderTable(['工厂', '仓库', '来源任务', '类型', '面料 SKU', '颜色', '卷号', '加工完成数量', '损耗数量', '当前库存', '接收方', '交出单', '交出记录', '收货确认数量', '状态', '操作'], renderWaitHandoverRows(view), 'min-w-[1740px]'),
           },
           {
             key: 'outbound',
             label: '交出记录',
             count: view.outboundRecords.length,
-            table: renderTable(['交出记录号', '工厂', '待交出仓', '来源任务', '交出单', '交出记录', '接收方', '面料 SKU', '已交出数量', '回写数量', '差异数量', '操作人', '交出时间', '状态', '操作'], renderOutboundRows(view), 'min-w-[1720px]'),
+            table: renderTable(['交出记录号', '工厂', '待交出仓', '来源任务', '交出单', '交出记录', '接收方', '面料 SKU', '已交出数量', '收货确认数量', '差异数量', '操作人', '交出时间', '状态', '操作'], renderOutboundRows(view), 'min-w-[1720px]'),
           },
           {
             key: 'process-inbound',

@@ -1,175 +1,238 @@
 import { escapeHtml } from '../utils'
-import { processTasks, type ProcessTask } from '../data/fcs/process-tasks.ts'
 import {
-  buildCuttingMainlineTaskView,
-  buildPdaCuttingMainlineUnitPath,
-  isCuttingProcessTask,
-  type CuttingMainlineSessionView,
-} from '../data/fcs/cutting/cutting-mainline.ts'
+  buildPdaCuttingRoute,
+  getPdaCuttingTaskSnapshot,
+  type PdaCuttingRouteKey,
+  type PdaCuttingTaskDetailData,
+  type PdaCuttingTaskOrderLine,
+} from '../data/fcs/pda-cutting-execution-source.ts'
+import { listGeneratedFeiTicketsByOriginalCutOrderId } from '../data/fcs/cutting/generated-fei-tickets.ts'
+import {
+  readSelectedExecutionOrderIdFromLocation,
+  readSelectedExecutionOrderNoFromLocation,
+  resolveSelectedExecutionOrderLine,
+} from './pda-cutting-context'
+import {
+  renderPdaCuttingEmptyState,
+  renderPdaCuttingStatusChip,
+} from './pda-cutting-shared'
 import { renderPdaFrame } from './pda-shell'
 
-type Tone = 'blue' | 'green' | 'amber' | 'red' | 'slate'
-
-function chip(label: string, tone: Tone = 'slate'): string {
-  const className =
-    tone === 'blue'
-      ? 'border-blue-200 bg-blue-50 text-blue-700'
-      : tone === 'green'
-        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-        : tone === 'amber'
-          ? 'border-amber-200 bg-amber-50 text-amber-700'
-          : tone === 'red'
-            ? 'border-red-200 bg-red-50 text-red-700'
-            : 'border-slate-200 bg-slate-50 text-slate-700'
-  return `<span class="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${className}">${escapeHtml(label)}</span>`
+interface PdaCuttingTaskDetailOptions {
+  backHref?: string
 }
 
-function getTask(taskId: string): ProcessTask | null {
-  const matched = processTasks.find((task) => task.taskId === taskId || task.taskNo === taskId)
-  if (matched && isCuttingProcessTask(matched)) return matched
+type ActionRouteKey = Exclude<PdaCuttingRouteKey, 'task' | 'unit'>
 
-  return {
-    taskId,
-    taskNo: taskId,
-    productionOrderId: '',
-    seq: 1,
-    processCode: 'PROC_CUT',
-    processNameZh: '裁片',
-    stage: 'CUTTING',
-    qty: 0,
-    qtyUnit: 'PIECE',
-    assignmentMode: 'DIRECT',
-    assignmentStatus: 'ASSIGNED',
-    ownerSuggestion: { kind: 'RECOMMENDED_FACTORY_POOL', recommendedTypes: ['CUTTING_FACTORY'] },
-    assignedFactoryId: 'F090',
-    assignedFactoryName: '全能力测试工厂',
-    qcPoints: [],
-    attachments: [],
-    status: 'NOT_STARTED',
-  }
+function buildPickupHref(taskId: string, backHref: string, line?: PdaCuttingTaskOrderLine): string {
+  const params = new URLSearchParams()
+  params.set('tab', 'pickup')
+  params.set('focusTaskId', taskId)
+  if (line?.executionOrderId) params.set('executionOrderId', line.executionOrderId)
+  if (line?.executionOrderNo) params.set('executionOrderNo', line.executionOrderNo)
+  if (backHref) params.set('returnTo', backHref)
+  return `/fcs/pda/handover?${params.toString()}`
 }
 
-function toneForSession(session: CuttingMainlineSessionView): Tone {
-  if (session.statusTab === 'DONE') return 'green'
-  if (session.statusTab === 'IN_PROGRESS') return 'blue'
-  if (session.statusTab === 'BLOCKED') return 'red'
-  return 'amber'
+function buildActionHref(taskId: string, line: PdaCuttingTaskOrderLine, backHref: string): string {
+  if (line.currentStepCode === 'START') return backHref || '/fcs/pda/exec?tab=NOT_STARTED'
+  if (line.currentStepCode === 'PICKUP') return buildPickupHref(taskId, backHref, line)
+
+  const routeKey = line.primaryExecutionRouteKey as ActionRouteKey
+  return buildPdaCuttingRoute(taskId, routeKey, {
+    executionOrderId: line.executionOrderId,
+    executionOrderNo: line.executionOrderNo,
+    originalCutOrderId: line.originalCutOrderId,
+    originalCutOrderNo: line.originalCutOrderNo,
+    mergeBatchId: line.mergeBatchId,
+    mergeBatchNo: line.mergeBatchNo,
+    materialSku: line.materialSku,
+    returnTo: backHref,
+  })
 }
 
-function renderMetric(label: string, value: string, hint = ''): string {
+function renderMiniField(label: string, value: string): string {
+  return `
+    <div class="rounded-xl bg-muted/30 px-2.5 py-2">
+      <div class="text-[11px] text-muted-foreground">${escapeHtml(label)}</div>
+      <div class="mt-1 break-words text-sm font-medium text-foreground">${escapeHtml(value || '-')}</div>
+    </div>
+  `
+}
+
+function renderMetric(label: string, value: string, tone: 'default' | 'green' | 'amber' | 'red' = 'default'): string {
+  const valueClass =
+    tone === 'green'
+      ? 'text-emerald-700'
+      : tone === 'amber'
+        ? 'text-amber-700'
+        : tone === 'red'
+          ? 'text-red-700'
+          : 'text-foreground'
   return `
     <article class="rounded-xl border bg-card px-3 py-2 shadow-sm">
       <div class="text-[11px] text-muted-foreground">${escapeHtml(label)}</div>
-      <div class="mt-1 text-base font-semibold text-foreground">${escapeHtml(value)}</div>
-      ${hint ? `<div class="mt-0.5 text-[11px] text-muted-foreground">${escapeHtml(hint)}</div>` : ''}
+      <div class="mt-1 text-base font-semibold ${valueClass}">${escapeHtml(value)}</div>
     </article>
   `
 }
 
-function renderSessionCard(session: CuttingMainlineSessionView): string {
-  const href = buildPdaCuttingMainlineUnitPath(session.taskId, session.spreadingSessionId, '/fcs/pda/exec')
+function renderFeiTicketIds(originalCutOrderId: string): string {
+  const tickets = originalCutOrderId ? listGeneratedFeiTicketsByOriginalCutOrderId(originalCutOrderId) : []
+  if (!tickets.length) return '待生成菲票'
+  const firstNos = tickets.slice(0, 3).map((ticket) => ticket.feiTicketNo).join(' / ')
+  return tickets.length > 3 ? `${firstNos} 等 ${tickets.length} 张` : firstNos
+}
+
+function renderTraceIdentity(detail: PdaCuttingTaskDetailData): string {
   return `
-    <article class="rounded-2xl border bg-card p-3 shadow-sm">
-      <div class="flex items-start justify-between gap-2">
-        <div class="min-w-0">
-          <div class="text-[11px] text-muted-foreground">铺布任务</div>
-          <div class="mt-0.5 text-base font-semibold text-foreground">${escapeHtml(session.sessionNo)}</div>
-          <div class="mt-1 text-xs text-muted-foreground">排唛架方案 ${escapeHtml(session.markerPlanNo)} / 唛架编号 ${escapeHtml(session.markerBedNo)}</div>
-        </div>
-        ${chip(session.mainStageLabel, toneForSession(session))}
+    <section class="rounded-2xl border bg-card p-3 shadow-sm">
+      <div class="flex items-center justify-between gap-2">
+        <h2 class="text-sm font-semibold text-foreground">统一追踪 ID</h2>
+        <span class="text-[11px] text-muted-foreground">任务 / 裁片单 / 菲票 / 交出共用</span>
       </div>
       <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
-        <div class="rounded-xl bg-muted/30 px-2.5 py-2">
-          <div class="text-muted-foreground">执行裁床</div>
-          <div class="mt-1 font-medium text-foreground">${escapeHtml(session.cuttingTableName)}</div>
-        </div>
-        <div class="rounded-xl bg-muted/30 px-2.5 py-2">
-          <div class="text-muted-foreground">计划时间</div>
-          <div class="mt-1 font-medium text-foreground">${escapeHtml(session.plannedStartAt)}</div>
-          <div class="text-muted-foreground">${escapeHtml(session.estimatedDurationMinutes)} 分钟</div>
-        </div>
-        <div class="rounded-xl bg-muted/30 px-2.5 py-2">
-          <div class="text-muted-foreground">来源</div>
-          <div class="mt-1 font-medium text-foreground">${escapeHtml(session.sourceTypeLabel)}</div>
-          <div class="truncate text-muted-foreground">${escapeHtml(session.sourceOrderLabel)}</div>
-        </div>
-        <div class="rounded-xl bg-muted/30 px-2.5 py-2">
-          <div class="text-muted-foreground">面料 / 颜色</div>
-          <div class="mt-1 font-medium text-foreground">${escapeHtml(session.materialSku)}</div>
-          <div class="text-muted-foreground">${escapeHtml(session.color)}</div>
-        </div>
+        ${renderMiniField('原始裁片单号', detail.originalCutOrderNo)}
+        ${renderMiniField('原始裁片单 ID', detail.originalCutOrderId)}
+        ${renderMiniField('PDA 执行单号', detail.executionOrderNo)}
+        ${renderMiniField('PDA 执行单 ID', detail.executionOrderId)}
+        ${renderMiniField('菲票', renderFeiTicketIds(detail.originalCutOrderId))}
+        ${renderMiniField('交出记录', detail.latestHandoverRecordNo || '待发起交出')}
       </div>
-      <div class="mt-3 space-y-1.5 text-xs">
-        <div class="flex items-center justify-between gap-2 rounded-xl border px-2.5 py-2">
-          <span class="text-muted-foreground">WMS 来料</span>
-          <span class="font-medium text-foreground">${escapeHtml(session.wmsReceiveStatus)}</span>
+    </section>
+  `
+}
+
+function renderCurrentReceiveBlock(detail: PdaCuttingTaskDetailData, backHref: string): string {
+  return `
+    <section class="rounded-2xl border bg-card p-3 shadow-sm">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <h2 class="text-sm font-semibold text-foreground">来料状态</h2>
+          <div class="mt-1 text-xs text-muted-foreground">领料确认统一在交接模块处理，任务详情只展示状态和入口。</div>
         </div>
-        <div class="flex items-center justify-between gap-2 rounded-xl border px-2.5 py-2">
-          <span class="text-muted-foreground">菲票</span>
-          <span class="font-medium text-foreground">${escapeHtml(session.feiTicketStatus)}</span>
-        </div>
-        <div class="flex items-center justify-between gap-2 rounded-xl border px-2.5 py-2">
-          <span class="text-muted-foreground">执行上报配置</span>
-          <span class="text-right font-medium text-foreground">${escapeHtml(session.reportConfig.label)}</span>
-        </div>
+        ${renderPdaCuttingStatusChip(detail.currentReceiveStatus, detail.currentReceiveStatus.includes('异议') ? 'red' : detail.currentReceiveStatus.includes('已') ? 'green' : 'amber')}
       </div>
-      <button class="mt-3 w-full rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground" data-nav="${escapeHtml(href)}">
-        进入现场执行
+      <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
+        ${renderMiniField('领料单', detail.pickupSlipNo)}
+        ${renderMiniField('计划来料', detail.configuredQtyText)}
+        ${renderMiniField('实收数量', detail.actualReceivedQtyText)}
+        ${renderMiniField('差异说明', detail.discrepancyNote)}
+      </div>
+      <button class="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700" data-nav="${escapeHtml(buildPickupHref(detail.taskId, backHref))}">
+        去交接模块查看领料
+      </button>
+    </section>
+  `
+}
+
+function renderOrderLine(taskId: string, line: PdaCuttingTaskOrderLine, backHref: string, selected: boolean): string {
+  const actionHref = buildActionHref(taskId, line, backHref)
+  const tone = line.isDone ? 'green' : line.hasException ? 'red' : line.currentStepCode === 'PICKUP' ? 'amber' : 'blue'
+  return `
+    <article class="rounded-2xl border bg-card p-3 shadow-sm ${selected ? 'border-blue-300 ring-2 ring-blue-100' : ''}">
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <div class="text-[11px] text-muted-foreground">执行对象</div>
+          <div class="mt-0.5 break-words text-base font-semibold text-foreground">${escapeHtml(line.executionOrderNo)}</div>
+          <div class="mt-1 text-xs text-muted-foreground">原始裁片单 ${escapeHtml(line.originalCutOrderNo || '-')}</div>
+        </div>
+        ${renderPdaCuttingStatusChip(line.currentStepLabel, tone)}
+      </div>
+      <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
+        ${renderMiniField('生产单', line.productionOrderNo)}
+        ${renderMiniField('面料 SKU', line.materialSku)}
+        ${renderMiniField('计划数量', `${line.plannedQty.toLocaleString('zh-CN')} 件`)}
+        ${renderMiniField('当前状态', line.currentStateLabel)}
+        ${renderMiniField('入仓状态', line.currentInboundStatus)}
+        ${renderMiniField('交出状态', line.currentHandoverStatus)}
+      </div>
+      <button class="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground" data-nav="${escapeHtml(actionHref)}">
+        ${escapeHtml(line.nextActionLabel)}
       </button>
     </article>
   `
 }
 
-export function renderPdaCuttingTaskDetailPage(taskId: string): string {
-  const task = getTask(taskId)
-  if (!task) {
+function renderRecentActions(detail: PdaCuttingTaskDetailData): string {
+  if (!detail.recentActions.length) return renderPdaCuttingEmptyState('暂无操作记录', '')
+  return `
+    <section class="rounded-2xl border bg-card p-3 shadow-sm">
+      <h2 class="text-sm font-semibold text-foreground">最近操作</h2>
+      <div class="mt-3 space-y-2">
+        ${detail.recentActions.slice(0, 4).map((action) => `
+          <div class="rounded-xl border bg-muted/20 px-2.5 py-2 text-xs">
+            <div class="flex items-center justify-between gap-2">
+              <span class="font-medium text-foreground">${escapeHtml(action.actionTypeLabel)}</span>
+              <span class="text-muted-foreground">${escapeHtml(action.operatedAt)}</span>
+            </div>
+            <div class="mt-1 text-muted-foreground">${escapeHtml(action.operatedBy)} / ${escapeHtml(action.summary)}</div>
+          </div>
+        `).join('')}
+      </div>
+    </section>
+  `
+}
+
+export function renderPdaCuttingTaskDetailPage(taskId: string, options: PdaCuttingTaskDetailOptions = {}): string {
+  const decodedTaskId = decodeURIComponent(taskId)
+  const selectedExecutionKey = readSelectedExecutionOrderIdFromLocation() || readSelectedExecutionOrderNoFromLocation() || undefined
+  const detail = getPdaCuttingTaskSnapshot(decodedTaskId, selectedExecutionKey)
+  const backHref = options.backHref || '/fcs/pda/exec'
+
+  if (!detail) {
     return renderPdaFrame(
-      `<section class="px-3 py-4"><div class="rounded-2xl border border-dashed px-3 py-8 text-center text-sm">未找到裁片任务</div></section>`,
+      `<section class="space-y-3 px-3 py-4">
+        <button class="inline-flex items-center rounded-lg border px-2.5 py-1.5 text-sm" data-nav="${escapeHtml(backHref)}">返回</button>
+        ${renderPdaCuttingEmptyState('未找到裁片任务', '')}
+      </section>`,
       'exec',
       { disableTodoAutoOpen: true },
     )
   }
 
-  const view = buildCuttingMainlineTaskView(task)
-  const notStarted = view.sessions.filter((item) => item.statusTab === 'NOT_STARTED').length
-  const running = view.sessions.filter((item) => item.statusTab === 'IN_PROGRESS').length
-  const blocked = view.sessions.filter((item) => item.statusTab === 'BLOCKED').length
-  const done = view.sessions.filter((item) => item.statusTab === 'DONE').length
+  const selectedLine = resolveSelectedExecutionOrderLine(
+    detail,
+    readSelectedExecutionOrderIdFromLocation(),
+    readSelectedExecutionOrderNoFromLocation(),
+  ) || detail.cutPieceOrders.find((line) => line.executionOrderId === detail.currentSelectedExecutionOrderId) || detail.cutPieceOrders[0] || null
 
   return renderPdaFrame(
     `
       <section class="space-y-3 px-3 py-3">
         <header class="space-y-2">
-          <button class="inline-flex items-center rounded-lg border px-2.5 py-1.5 text-sm" data-nav="/fcs/pda/exec">返回执行列表</button>
-          <div class="rounded-2xl border bg-card p-3 shadow-sm">
+          <button class="inline-flex items-center rounded-lg border px-2.5 py-1.5 text-sm" data-nav="${escapeHtml(backHref)}">返回</button>
+          <section class="rounded-2xl border bg-card p-3 shadow-sm">
             <div class="flex items-start justify-between gap-3">
-              <div>
-                <div class="text-xs text-muted-foreground">裁片现场主线</div>
-                <h1 class="mt-1 text-lg font-semibold text-foreground">${escapeHtml(view.taskNo)}</h1>
-                <div class="mt-1 text-xs text-muted-foreground">生产单 ${escapeHtml(view.productionOrderNo || '按铺布任务展开')}</div>
+              <div class="min-w-0">
+                <div class="text-xs text-muted-foreground">裁片任务</div>
+                <h1 class="mt-1 break-words text-lg font-semibold text-foreground">${escapeHtml(detail.taskNo)}</h1>
+                <div class="mt-1 text-xs text-muted-foreground">生产单 ${escapeHtml(detail.productionOrderNo)} / 当前 ${escapeHtml(detail.currentStage)}</div>
               </div>
-              ${chip(view.factoryName ? `${view.factoryName}（${view.factoryId}）` : '全能力测试工厂（F090）', 'blue')}
+              ${renderPdaCuttingStatusChip(detail.taskStatusLabel, detail.taskStatusLabel === '已完成' ? 'green' : detail.taskStatusLabel === '有异常' ? 'red' : 'blue')}
             </div>
-            <div class="mt-3 rounded-xl bg-muted/30 px-2.5 py-2 text-xs text-muted-foreground">
-              ${escapeHtml(view.summaryLabel)} · ${escapeHtml(view.reportConfig.label)}
-            </div>
-          </div>
+          </section>
         </header>
 
         <section class="grid grid-cols-2 gap-2">
-          ${renderMetric('待开始', String(notStarted), '等待到床')}
-          ${renderMetric('铺布中', String(running), '现场执行')}
-          ${renderMetric('异常', String(blocked), '补料或待处理')}
-          ${renderMetric('已完成', String(done), '可查看记录')}
+          ${renderMetric('执行对象', `${detail.cutPieceOrderCount} 个`)}
+          ${renderMetric('未完成', `${detail.pendingCutPieceOrderCount} 个`, detail.pendingCutPieceOrderCount ? 'amber' : 'green')}
+          ${renderMetric('异常', `${detail.exceptionCutPieceOrderCount} 个`, detail.exceptionCutPieceOrderCount ? 'red' : 'default')}
+          ${renderMetric('下一步', detail.nextRecommendedAction)}
         </section>
+
+        ${renderCurrentReceiveBlock(detail, backHref)}
+        ${renderTraceIdentity(detail)}
 
         <section class="space-y-2">
           <div class="flex items-center justify-between">
-            <h2 class="text-sm font-semibold text-foreground">铺布任务</h2>
-            <span class="text-xs text-muted-foreground">共 ${view.sessions.length} 个</span>
+            <h2 class="text-sm font-semibold text-foreground">执行对象</h2>
+            <span class="text-xs text-muted-foreground">按原始裁片单追踪</span>
           </div>
-          ${view.sessions.length ? view.sessions.map(renderSessionCard).join('') : '<div class="rounded-2xl border border-dashed px-3 py-6 text-center text-sm text-muted-foreground">暂无铺布任务</div>'}
+          ${detail.cutPieceOrders.map((line) => renderOrderLine(decodedTaskId, line, backHref, selectedLine?.executionOrderId === line.executionOrderId)).join('')}
         </section>
+
+        ${renderRecentActions(detail)}
       </section>
     `,
     'exec',

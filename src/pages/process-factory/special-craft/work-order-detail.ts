@@ -114,6 +114,49 @@ function renderSection(title: string, body: string): string {
   `
 }
 
+function resolveWorkOrderObjectMeta(workOrder: { targetObject?: string }) {
+  const targetObject = String(workOrder.targetObject || '')
+  if (targetObject.includes('成衣')) {
+    return {
+      objectType: '成衣',
+      objectLabel: '成衣',
+      qtyUnit: '件',
+      targetLabel: '目标对象',
+      qtyRule: '按成衣件数记录，差异会写入统一差异记录',
+      feiTicketText: '无需菲票',
+    }
+  }
+  if (targetObject.includes('面料')) {
+    return {
+      objectType: '面料',
+      objectLabel: '面料',
+      qtyUnit: '米',
+      targetLabel: '目标对象',
+      qtyRule: '按面料米数记录，差异会写入统一差异记录',
+      feiTicketText: '无需菲票',
+    }
+  }
+  return {
+    objectType: '裁片',
+    objectLabel: '裁片',
+    qtyUnit: '片',
+    targetLabel: '裁片部位',
+    qtyRule: '操作裁片数量必须关联菲票，差异会写入统一差异记录',
+    feiTicketText: '待绑定',
+  }
+}
+
+function localizeSpecialCraftActionText(value: string, objectMeta: ReturnType<typeof resolveWorkOrderObjectMeta>): string {
+  if (objectMeta.objectType === '裁片') return value
+  return value.replaceAll('裁片', objectMeta.objectLabel)
+}
+
+function localizeSpecialCraftActionFields(fields: string[], objectMeta: ReturnType<typeof resolveWorkOrderObjectMeta>): string[] {
+  return fields
+    .filter((field) => objectMeta.objectType === '裁片' || field !== '关联菲票')
+    .map((field) => localizeSpecialCraftActionText(field, objectMeta))
+}
+
 function showSpecialCraftToast(message: string): void {
   if (typeof document === 'undefined') return
   const root = document.getElementById('special-craft-page-toast-root') || document.body
@@ -124,7 +167,13 @@ function showSpecialCraftToast(message: string): void {
   window.setTimeout(() => toast.remove(), 2400)
 }
 
-function renderWebActionPanel(workOrderId: string, currentStatus: string, actions: ProcessWebAction[], objectQty: number): string {
+function renderWebActionPanel(
+  workOrderId: string,
+  currentStatus: string,
+  actions: ProcessWebAction[],
+  objectQty: number,
+  objectMeta: ReturnType<typeof resolveWorkOrderObjectMeta>,
+): string {
   const actionable = actions.filter((action) => !action.disabledReason)
   const disabledReason = actions.find((action) => action.disabledReason)?.disabledReason
   return renderSection(
@@ -134,40 +183,44 @@ function renderWebActionPanel(workOrderId: string, currentStatus: string, action
         ${renderInfoGrid([
           { label: '当前细状态', value: escapeHtml(currentStatus) },
           { label: '操作方式', value: escapeHtml('仅展示当前状态允许的下一步动作') },
-          { label: '数量口径', value: escapeHtml('操作裁片数量必须关联菲票，差异会写入统一差异记录') },
+          { label: '数量口径', value: escapeHtml(objectMeta.qtyRule) },
           { label: '禁止事项', value: escapeHtml('不新增后道工序作为特殊工艺动作') },
         ])}
         ${
           actionable.length
             ? `<div class="flex flex-wrap gap-2">
                 ${actionable
-                  .map(
-                    (action) => `
+                  .map((action) => {
+                    const actionLabel = localizeSpecialCraftActionText(action.actionLabel, objectMeta)
+                    const requiredFields = localizeSpecialCraftActionFields(action.requiredFields, objectMeta)
+                    const optionalFields = localizeSpecialCraftActionFields(action.optionalFields, objectMeta)
+                    const confirmText = localizeSpecialCraftActionText(action.confirmText, objectMeta)
+                    return `
                       <button
                         type="button"
                         class="inline-flex items-center rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
                         data-special-craft-web-action="open-web-status-action-dialog"
                         data-source-id="${escapeHtml(workOrderId)}"
                         data-action-code="${escapeHtml(action.actionCode)}"
-                        data-action-label="${escapeHtml(action.actionLabel)}"
+                        data-action-label="${escapeHtml(actionLabel)}"
                         data-from-status="${escapeHtml(action.fromStatus)}"
                         data-to-status="${escapeHtml(action.toStatus)}"
-                        data-required-fields="${escapeHtml(action.requiredFields.join('|'))}"
-                        data-optional-fields="${escapeHtml(action.optionalFields.join('|'))}"
-                        data-confirm-text="${escapeHtml(action.confirmText)}"
-                        data-object-type="裁片"
+                        data-required-fields="${escapeHtml(requiredFields.join('|'))}"
+                        data-optional-fields="${escapeHtml(optionalFields.join('|'))}"
+                        data-confirm-text="${escapeHtml(confirmText)}"
+                        data-object-type="${escapeHtml(objectMeta.objectType)}"
                         data-object-qty="${escapeHtml(String(objectQty || 1))}"
-                        data-qty-unit="片"
+                        data-qty-unit="${escapeHtml(objectMeta.qtyUnit)}"
                         data-testid="web-status-action-button"
                       >
-                        ${escapeHtml(action.actionLabel)}
+                        ${escapeHtml(actionLabel)}
                       </button>
-                    `,
-                  )
+                    `
+                  })
                   .join('')}
               </div>
               <div class="rounded-md border border-dashed bg-slate-50 px-3 py-2 text-xs text-muted-foreground">
-                操作弹窗字段：${escapeHtml(actionable[0].requiredFields.join('、'))}；确认后写回特殊工艺事实源并生成 操作记录。
+                操作弹窗字段：${escapeHtml(localizeSpecialCraftActionFields(actionable[0].requiredFields, objectMeta).join('、'))}；确认后写回特殊工艺事实源并生成 操作记录。
               </div>`
             : `<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">${escapeHtml(disabledReason || '当前状态暂无可执行动作')}</div>`
         }
@@ -294,6 +347,12 @@ export function renderSpecialCraftWorkOrderDetailPage(operationSlug: string, wor
       ? '移动端执行列表不可见，请检查工厂或任务状态'
       : mobileBinding.reasonLabel
   const mobileExecutionTask = mobileBinding.actualTaskId ? getMobileExecutionTaskById(mobileBinding.actualTaskId) : null
+  const objectMeta = resolveWorkOrderObjectMeta(workOrder)
+  const totalOriginalQty = bindings.reduce((sum, binding) => sum + binding.originalQty, 0) || workOrder.planQty
+  const totalCurrentQty = bindings.reduce((sum, binding) => sum + binding.currentQty, 0) || workOrder.currentQty
+  const totalScrapQty = bindings.reduce((sum, binding) => sum + binding.cumulativeScrapQty, 0) || workOrder.scrapQty
+  const totalDamageQty = bindings.reduce((sum, binding) => sum + binding.cumulativeDamageQty, 0) || workOrder.damageQty
+  const totalReturnedQty = bindings.reduce((sum, binding) => sum + binding.returnedQty, 0) || workOrder.returnedQty
   const mobileExecutionLink =
     mobileBinding.canOpenMobileExecution && mobileExecutionTask
       ? buildTaskDetailLink(mobileBinding.actualTaskId, {
@@ -313,14 +372,14 @@ export function renderSpecialCraftWorkOrderDetailPage(operationSlug: string, wor
     { label: '生产单', value: escapeHtml(workOrder.productionOrderNo) },
     { label: '特殊工艺', value: escapeHtml(workOrder.operationName) },
     { label: '工厂', value: escapeHtml(formatSpecialCraftFactoryLabel(workOrder.factoryName, workOrder.factoryId)) },
-    { label: '裁片部位', value: escapeHtml(workOrder.partName) },
-    { label: '原裁片数量', value: `${formatQty(bindings.reduce((sum, binding) => sum + binding.originalQty, 0))} 片` },
-    { label: '当前裁片数量', value: `${formatQty(bindings.reduce((sum, binding) => sum + binding.currentQty, 0) || workOrder.currentQty)} 片` },
-    { label: '累计报废裁片数量', value: `${formatQty(bindings.reduce((sum, binding) => sum + binding.cumulativeScrapQty, 0) || workOrder.scrapQty)} 片` },
-    { label: '累计货损裁片数量', value: `${formatQty(bindings.reduce((sum, binding) => sum + binding.cumulativeDamageQty, 0) || workOrder.damageQty)} 片` },
-    { label: '已回仓裁片数量', value: `${formatQty(bindings.reduce((sum, binding) => sum + binding.returnedQty, 0) || workOrder.returnedQty)} 片` },
+    { label: objectMeta.targetLabel, value: escapeHtml(objectMeta.objectType === '裁片' ? workOrder.partName : workOrder.targetObject || workOrder.partName) },
+    { label: `计划${objectMeta.objectLabel}数量`, value: `${formatQty(totalOriginalQty)} ${objectMeta.qtyUnit}` },
+    { label: `当前${objectMeta.objectLabel}数量`, value: `${formatQty(totalCurrentQty)} ${objectMeta.qtyUnit}` },
+    { label: `累计报废${objectMeta.objectLabel}数量`, value: `${formatQty(totalScrapQty)} ${objectMeta.qtyUnit}` },
+    { label: `累计货损${objectMeta.objectLabel}数量`, value: `${formatQty(totalDamageQty)} ${objectMeta.qtyUnit}` },
+    { label: `已回仓${objectMeta.objectLabel}数量`, value: `${formatQty(totalReturnedQty)} ${objectMeta.qtyUnit}` },
     { label: '当前状态', value: renderStatusBadge(workOrder.status) },
-    { label: '绑定菲票数量', value: escapeHtml(bindings.map((binding) => binding.feiTicketNo).join('、') || '待绑定') },
+    { label: '绑定菲票数量', value: escapeHtml(bindings.map((binding) => binding.feiTicketNo).join('、') || objectMeta.feiTicketText) },
     { label: '统一仓记录', value: escapeHtml(warehouseRecords.map((record) => record.warehouseRecordNo).join('、') || '暂无') },
     { label: '统一交出记录', value: escapeHtml(handoverRecords.map((record) => record.handoverRecordNo).join('、') || '暂无') },
   ])
@@ -382,9 +441,9 @@ export function renderSpecialCraftWorkOrderDetailPage(operationSlug: string, wor
         <tr class="align-top">
           <td class="px-3 py-3">${escapeHtml(report.reportPhase)}</td>
           <td class="px-3 py-3">${escapeHtml(report.feiTicketNo)}</td>
-          <td class="px-3 py-3">${formatQty(report.expectedQty)}</td>
-          <td class="px-3 py-3">${formatQty(report.actualQty)}</td>
-          <td class="px-3 py-3">${formatQty(report.differenceQty)}</td>
+          <td class="px-3 py-3">${formatQty(report.expectedQty)} ${escapeHtml(objectMeta.qtyUnit)}</td>
+          <td class="px-3 py-3">${formatQty(report.actualQty)} ${escapeHtml(objectMeta.qtyUnit)}</td>
+          <td class="px-3 py-3">${formatQty(report.differenceQty)} ${escapeHtml(objectMeta.qtyUnit)}</td>
           <td class="px-3 py-3">${renderStatusBadge(report.platformStatus)}</td>
           <td class="px-3 py-3">${escapeHtml(report.reason)}</td>
           <td class="px-3 py-3">—</td>
@@ -399,9 +458,9 @@ export function renderSpecialCraftWorkOrderDetailPage(operationSlug: string, wor
         <tr class="align-top">
           <td class="px-3 py-3">${escapeHtml(record.differenceType)}</td>
           <td class="px-3 py-3">${escapeHtml(record.relatedFeiTicketIds.join('、') || '—')}</td>
-          <td class="px-3 py-3">${formatQty(record.expectedObjectQty)}</td>
-          <td class="px-3 py-3">${formatQty(record.actualObjectQty)}</td>
-          <td class="px-3 py-3">${formatQty(record.diffObjectQty)}</td>
+          <td class="px-3 py-3">${formatQty(record.expectedObjectQty)} ${escapeHtml(record.qtyUnit)}</td>
+          <td class="px-3 py-3">${formatQty(record.actualObjectQty)} ${escapeHtml(record.qtyUnit)}</td>
+          <td class="px-3 py-3">${formatQty(record.diffObjectQty)} ${escapeHtml(record.qtyUnit)}</td>
           <td class="px-3 py-3">${renderStatusBadge(record.status)}</td>
           <td class="px-3 py-3">${escapeHtml(record.remark || record.handlingResult || '统一交出差异')}</td>
           <td class="px-3 py-3">
@@ -488,26 +547,26 @@ export function renderSpecialCraftWorkOrderDetailPage(operationSlug: string, wor
     receive: renderSection(
       '接收记录',
       waitProcessRows
-        ? renderTable(['待加工仓记录', '当前动作', '计划裁片数量', '可用裁片数量', '关联菲票', '状态', '备注'], waitProcessRows, 'min-w-[1060px]')
+        ? renderTable(['待加工仓记录', '当前动作', `计划${objectMeta.objectLabel}数量`, `可用${objectMeta.objectLabel}数量`, '关联菲票', '状态', '备注'], waitProcessRows, 'min-w-[1060px]')
         : renderEmptyState('暂无接收记录'),
     ),
     process: renderSection(
       '加工记录',
       lineRows || quantityRows
-        ? `${lineRows ? renderTable(['颜色', '尺码', '计划裁片数量', '当前裁片数量', '绑定菲票数量'], lineRows, 'min-w-[820px]') : ''}${quantityRows ? `<div class="mt-4">${renderTable(['前裁片数量', '变化裁片数量', '后裁片数量', '操作人', '时间', '关联记录'], quantityRows, 'min-w-[900px]')}</div>` : ''}`
+        ? `${lineRows ? renderTable(['颜色', '尺码', `计划${objectMeta.objectLabel}数量`, `当前${objectMeta.objectLabel}数量`, '绑定菲票数量'], lineRows, 'min-w-[820px]') : ''}${quantityRows ? `<div class="mt-4">${renderTable([`前${objectMeta.objectLabel}数量`, `变化${objectMeta.objectLabel}数量`, `后${objectMeta.objectLabel}数量`, '操作人', '时间', '关联记录'], quantityRows, 'min-w-[900px]')}</div>` : ''}`
         : renderEmptyState('暂无加工记录'),
     ),
-    fei: renderSection('菲票记录', bindingRows ? renderTable(['菲票号', '颜色', '尺码', '原裁片数量', '当前裁片数量', '累计报废裁片数量', '累计货损裁片数量', '已完成特殊工艺', '状态', '差异状态'], bindingRows, 'min-w-[1180px]') : renderEmptyState('暂无菲票记录')),
+    fei: renderSection('菲票记录', bindingRows ? renderTable(['菲票号', '颜色', '尺码', '原裁片数量', '当前裁片数量', '累计报废裁片数量', '累计货损裁片数量', '已完成特殊工艺', '状态', '差异状态'], bindingRows, 'min-w-[1180px]') : renderEmptyState(objectMeta.objectType === '裁片' ? '暂无菲票记录' : '该目标对象无需菲票记录')),
     difference: renderSection(
       '差异记录',
       reportRows || unifiedDifferenceRows
-        ? renderTable(['差异类型', '菲票号', '交出裁片数量', '实收裁片数量', '差异裁片数量', '平台状态', '原因', '操作'], `${reportRows}${unifiedDifferenceRows}`, 'min-w-[1280px]')
+        ? renderTable(['差异类型', '菲票号', `交出${objectMeta.objectLabel}数量`, `实收${objectMeta.objectLabel}数量`, `差异${objectMeta.objectLabel}数量`, '平台状态', '原因', '操作'], `${reportRows}${unifiedDifferenceRows}`, 'min-w-[1280px]')
         : renderEmptyState('暂无差异记录'),
     ),
     handover: renderSection(
       '交出记录',
       waitHandoverRows || unifiedHandoverRows
-        ? `${waitHandoverRows ? renderTable(['待交出仓记录', '当前动作', '待交出裁片数量', '已交出裁片数量', '关联菲票', '状态', '备注'], waitHandoverRows, 'min-w-[1080px]') : ''}${unifiedHandoverRows ? `<div class="mt-4">${renderTable(['交出记录号', '待交出仓', '交出裁片数量', '实收裁片数量', '差异裁片数量', '关联菲票', '交出人', '交出时间', '状态'], unifiedHandoverRows, 'min-w-[1280px]')}</div>` : ''}`
+        ? `${waitHandoverRows ? renderTable(['待交出仓记录', '当前动作', `待交出${objectMeta.objectLabel}数量`, `已交出${objectMeta.objectLabel}数量`, '关联菲票', '状态', '备注'], waitHandoverRows, 'min-w-[1080px]') : ''}${unifiedHandoverRows ? `<div class="mt-4">${renderTable(['交出记录号', '待交出仓', `交出${objectMeta.objectLabel}数量`, `实收${objectMeta.objectLabel}数量`, `差异${objectMeta.objectLabel}数量`, '关联菲票', '交出人', '交出时间', '状态'], unifiedHandoverRows, 'min-w-[1280px]')}</div>` : ''}`
         : renderEmptyState('暂无交出记录'),
     ),
     events: renderWebOperationRecords(webOperationRecords),
@@ -515,7 +574,7 @@ export function renderSpecialCraftWorkOrderDetailPage(operationSlug: string, wor
 
   const content = [
     renderDetailTabs(detailHref, activeTab),
-    renderWebActionPanel(workOrder.workOrderId, workOrder.status, availableActions, workOrder.currentQty || workOrder.planQty),
+    renderWebActionPanel(workOrder.workOrderId, workOrder.status, availableActions, workOrder.currentQty || workOrder.planQty, objectMeta),
     sections[activeTab],
     mobileBinding.canOpenMobileExecution
       ? `<button type="button" class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-slate-50" data-nav="${escapeHtml(mobileExecutionLink)}">打开移动端执行页</button>`

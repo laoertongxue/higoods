@@ -46,10 +46,10 @@ function renderNodeOverview(): string {
         ${renderMetricCard('定型中染色加工单数', String(countByLabel('定型中')), '后处理节点')}
         ${renderMetricCard('打卷中染色加工单数', String(countByLabel('打卷中')), '后处理节点')}
         ${renderMetricCard('包装中染色加工单数', String(countByLabel('包装中')), '包装完成前')}
-        ${renderMetricCard('待送货染色加工单数', String(countByLabel('待送货')), '包装完成待交出')}
+        ${renderMetricCard('待交出染色加工单数', String(countByLabel('待交出')), '包装完成待发起交出')}
         ${renderMetricCard('待交出染色加工单数', String(statistics.waitHandoverRecordCount), '统一待交出仓')}
-        ${renderMetricCard('待审核染色加工单数', String(statistics.waitReviewCount), '统一审核记录')}
-        ${renderMetricCard('已完成染色加工单数', String(countByLabel('已完成')), '审核通过')}
+        ${renderMetricCard('交出待收货染色加工单数', String(statistics.waitReviewCount), '统一收货确认记录')}
+        ${renderMetricCard('全部交出染色加工单数', String(countByLabel('全部交出')), '仓库确认全部收货')}
       </div>
     `,
   )
@@ -67,27 +67,27 @@ function renderTopMetrics(): string {
       ${renderMetricCard('包装完成面料米数', `${statistics.finalPackedFabricMeters} 米`, '执行节点')}
       ${renderMetricCard('待交出面料米数', `${statistics.waitHandoverFabricMeters} 米`, '统一待交出仓')}
       ${renderMetricCard('已交出面料米数', `${statistics.handedOverFabricMeters} 米`, '统一交出记录')}
-      ${renderMetricCard('实收面料米数', `${statistics.receivedFabricMeters} 米`, '接收方回写')}
+      ${renderMetricCard('实收面料米数', `${statistics.receivedFabricMeters} 米`, '接收方确认收货')}
       ${renderMetricCard('差异面料米数', `${statistics.diffFabricMeters} 米`, '统一差异口径')}
       ${renderMetricCard('染色待加工仓记录数', String(statistics.waitProcessRecordCount), '统一待加工仓')}
       ${renderMetricCard('染色待交出仓记录数', String(statistics.waitHandoverRecordCount), '统一待交出仓')}
-      ${renderMetricCard('染色待回写交出记录数', String(statistics.waitWritebackHandoverCount), '统一交出记录')}
-      ${renderMetricCard('染色已回写交出记录数', String(statistics.writtenBackHandoverCount), '统一交出记录')}
+      ${renderMetricCard('染色待收货交出记录数', String(statistics.waitWritebackHandoverCount), '统一交出记录')}
+      ${renderMetricCard('染色已收货交出记录数', String(statistics.writtenBackHandoverCount), '统一交出记录')}
       ${renderMetricCard('染色有差异交出记录数', String(statistics.differenceHandoverCount), '统一交出记录')}
       ${renderMetricCard('染色数量差异记录数', String(statistics.differenceRecordCount), '统一差异记录')}
       ${renderMetricCard('染色待处理差异记录数', String(statistics.pendingDifferenceRecordCount), '统一差异记录')}
       ${renderMetricCard('染色需重新交出记录数', String(statistics.reworkDifferenceRecordCount), '统一差异记录')}
-      ${renderMetricCard('染色待审核记录数', String(statistics.waitReviewCount), '统一审核记录')}
-      ${renderMetricCard('染色审核通过记录数', String(statistics.reviewPassCount), '统一审核记录')}
-      ${renderMetricCard('染色审核驳回记录数', String(statistics.reviewRejectCount), '统一审核记录')}
+      ${renderMetricCard('染色待收货确认记录数', String(statistics.waitReviewCount), '统一收货确认记录')}
+      ${renderMetricCard('染色全部交出确认记录数', String(statistics.reviewPassCount), '统一收货确认记录')}
+      ${renderMetricCard('染色收货差异记录数', String(statistics.reviewRejectCount), '统一收货确认记录')}
       ${renderMetricCard('当前排缸记录数', String(statistics.currentVatScheduleCount), '染缸排程')}
       ${renderMetricCard('染色平均耗时', `${statistics.dyeAverageHours} 小时`, '执行节点')}
       ${renderMetricCard('脱水平均耗时', `${statistics.dehydrateAverageHours} 小时`, '执行节点')}
       ${renderMetricCard('烘干平均耗时', `${statistics.dryAverageHours} 小时`, '执行节点')}
       ${renderMetricCard('定型平均耗时', `${statistics.setAverageHours} 小时`, '执行节点')}
       ${renderMetricCard('包装平均耗时', `${statistics.packAverageHours} 小时`, '执行节点')}
-      ${renderMetricCard('交出平均回写耗时', `${statistics.handoverAverageWritebackHours} 小时`, '统一交出记录')}
-      ${renderMetricCard('待回写超时记录数', String(statistics.overdueWritebackCount), '超过 48 小时')}
+      ${renderMetricCard('交出平均收货确认耗时', `${statistics.handoverAverageWritebackHours} 小时`, '统一交出记录')}
+      ${renderMetricCard('待收货超时记录数', String(statistics.overdueWritebackCount), '超过 48 小时')}
     </section>
   `
 }
@@ -119,7 +119,7 @@ function renderDurationTable(): string {
     '等待原因与节点耗时',
     `
       <div class="overflow-x-auto">
-        <table class="min-w-full text-left text-sm">
+        <table class="min-w-[1280px] text-left text-sm">
           <thead class="bg-slate-50 text-xs text-muted-foreground">
             <tr>
               <th class="px-3 py-2 font-medium">染色加工单号</th>
@@ -201,6 +201,7 @@ function renderReviewTable(selectedId: string): string {
       const order = listDyeWorkOrders().find((item) => item.dyeOrderId === review.dyeOrderId)
       if (!order) return ''
       const active = review.dyeOrderId === selectedId
+      const canConfirmReceipt = review.reviewStatus === 'WAIT_RECEIVE' || review.reviewStatus === 'PARTIAL_HANDOVER'
       return `
         <tr class="border-b last:border-b-0 ${active ? 'bg-blue-50/70' : ''}">
           <td class="px-3 py-3 font-mono text-xs">${escapeHtml(order.dyeOrderNo)}</td>
@@ -216,18 +217,18 @@ function renderReviewTable(selectedId: string): string {
           <td class="px-3 py-3">
             <div class="flex flex-wrap gap-2">
               ${renderActionButton({
-                label: '审核通过',
-                action: 'approve-review',
+                label: '确认全部收货',
+                action: 'confirm-receipt',
                 attrs: { 'dye-order-id': review.dyeOrderId },
                 tone: 'primary',
-                disabled: review.reviewStatus !== 'WAIT_REVIEW',
+                disabled: !canConfirmReceipt,
               })}
               ${renderActionButton({
-                label: '审核驳回',
-                action: 'reject-review',
+                label: '登记收货差异',
+                action: 'mark-receipt-difference',
                 attrs: { 'dye-order-id': review.dyeOrderId },
                 tone: 'danger',
-                disabled: review.reviewStatus !== 'WAIT_REVIEW',
+                disabled: !canConfirmReceipt,
               })}
               ${renderActionButton({
                 label: '打开移动端交出页',
@@ -243,7 +244,7 @@ function renderReviewTable(selectedId: string): string {
     .join('')
 
   return renderSection(
-    '中转审核',
+    '收货确认',
     `
       <div class="overflow-x-auto">
         <table class="min-w-full text-left text-sm">
@@ -258,7 +259,7 @@ function renderReviewTable(selectedId: string): string {
               <th class="px-3 py-2 font-medium">卷数</th>
               <th class="px-3 py-2 font-medium">长度</th>
               <th class="px-3 py-2 font-medium">差异面料米数</th>
-              <th class="px-3 py-2 font-medium">审核状态</th>
+              <th class="px-3 py-2 font-medium">收货状态</th>
               <th class="px-3 py-2 font-medium">操作</th>
             </tr>
           </thead>
@@ -276,9 +277,10 @@ function renderSelectedDetail(selectedId: string): string {
   const review = getDyeReviewRecordByOrderId(order.dyeOrderId)
   const handover = getDyeOrderHandoverSummary(order.dyeOrderId)
   const vat = getDyeVatSummary(order)
+  const canConfirmReceipt = review?.reviewStatus === 'WAIT_RECEIVE' || review?.reviewStatus === 'PARTIAL_HANDOVER'
 
   return renderSection(
-    '审核明细',
+    '收货确认明细',
     `
       <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <article class="rounded-md border bg-background px-3 py-3 text-sm">
@@ -287,7 +289,7 @@ function renderSelectedDetail(selectedId: string): string {
           <div class="mt-2">${renderWorkOrderStatusBadge(order.status)}</div>
         </article>
         <article class="rounded-md border bg-background px-3 py-3 text-sm">
-          <div class="text-xs text-muted-foreground">接收方回写</div>
+          <div class="text-xs text-muted-foreground">接收方收货</div>
           <div class="mt-1">${formatDyeQty(review?.receivedQty ?? handover.writtenBackQty, order.qtyUnit)}</div>
           <div class="mt-1 text-xs text-muted-foreground">交出面料米数 ${formatDyeQty(review?.submittedQty ?? handover.submittedQty, order.qtyUnit)}</div>
         </article>
@@ -303,6 +305,20 @@ function renderSelectedDetail(selectedId: string): string {
         </article>
       </div>
       <div class="mt-4 flex flex-wrap gap-2">
+        ${renderActionButton({
+          label: '确认全部收货',
+          action: 'confirm-receipt',
+          attrs: { 'dye-order-id': order.dyeOrderId },
+          tone: 'primary',
+          disabled: !canConfirmReceipt,
+        })}
+        ${renderActionButton({
+          label: '登记收货差异',
+          action: 'mark-receipt-difference',
+          attrs: { 'dye-order-id': order.dyeOrderId },
+          tone: 'danger',
+          disabled: !canConfirmReceipt,
+        })}
         ${renderActionButton({
           label: '打开移动端执行页',
           action: 'navigate',
@@ -322,7 +338,7 @@ function renderSelectedDetail(selectedId: string): string {
       </div>
       ${
         review?.rejectReason
-          ? `<div class="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">驳回原因：${escapeHtml(review.rejectReason)}</div>`
+          ? `<div class="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">差异原因：${escapeHtml(review.rejectReason)}</div>`
           : ''
       }
     `,

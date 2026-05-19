@@ -37,12 +37,10 @@ export type DyeWorkOrderStatus =
   | 'ROLLING'
   | 'PACKING'
   | 'WAIT_HANDOVER'
-  | 'HANDOVER_SUBMITTED'
-  | 'RECEIVER_WRITTEN_BACK'
-  | 'WAIT_REVIEW'
-  | 'REVIEWING'
-  | 'COMPLETED'
-  | 'REJECTED'
+  | 'HANDOVER_WAIT_RECEIVE'
+  | 'PARTIAL_HANDOVER'
+  | 'FULL_HANDOVER'
+  | 'HANDOVER_DIFFERENCE'
 
 export type SampleWaitType = 'NONE' | 'WAIT_SAMPLE_GARMENT' | 'WAIT_COLOR_CARD'
 export type SampleStatus = 'NOT_REQUIRED' | 'WAITING' | 'TESTING' | 'DONE'
@@ -57,8 +55,8 @@ export type DyeExecutionNodeCode =
   | 'ROLL'
   | 'PACK'
   | 'HANDOVER'
-  | 'REVIEW'
-export type DyeReviewStatus = 'WAIT_REVIEW' | 'PASS' | 'REJECTED' | 'PARTIAL_PASS'
+export type DyeReceiptStatus = 'WAIT_RECEIVE' | 'PARTIAL_HANDOVER' | 'FULL_HANDOVER' | 'HANDOVER_DIFFERENCE'
+export type DyeReviewStatus = DyeReceiptStatus
 
 export interface DyeWorkOrder {
   dyeOrderId: string
@@ -196,10 +194,10 @@ export interface DyeWorkOrderSummary {
   waitVatPlanCount: number
   dyeingCount: number
   waitHandoverCount: number
-  waitWritebackCount: number
-  waitReviewCount: number
-  completedCount: number
-  rejectedCount: number
+  waitReceiveCount: number
+  partialHandoverCount: number
+  fullHandoverCount: number
+  handoverDifferenceCount: number
   diffQty: number
   objectionCount: number
   vatUtilizationCount: number
@@ -235,13 +233,11 @@ export const DYE_WORK_ORDER_STATUS_LABEL: Record<DyeWorkOrderStatus, string> = {
   SETTING: '定型中',
   ROLLING: '打卷中',
   PACKING: '包装中',
-  WAIT_HANDOVER: '待送货',
-  HANDOVER_SUBMITTED: '待回写',
-  RECEIVER_WRITTEN_BACK: '待审核',
-  WAIT_REVIEW: '待审核',
-  REVIEWING: '审核中',
-  COMPLETED: '已完成',
-  REJECTED: '已驳回',
+  WAIT_HANDOVER: '待交出',
+  HANDOVER_WAIT_RECEIVE: '交出待收货',
+  PARTIAL_HANDOVER: '部分交出',
+  FULL_HANDOVER: '全部交出',
+  HANDOVER_DIFFERENCE: '收货差异',
 }
 
 export const SAMPLE_WAIT_TYPE_LABEL: Record<SampleWaitType, string> = {
@@ -260,15 +256,14 @@ export const DYE_NODE_LABEL: Record<DyeExecutionNodeCode, string> = {
   SET: '定型',
   ROLL: '打卷',
   PACK: '包装',
-  HANDOVER: '待送货',
-  REVIEW: '审核',
+  HANDOVER: '交出',
 }
 
 export const DYE_REVIEW_STATUS_LABEL: Record<DyeReviewStatus, string> = {
-  WAIT_REVIEW: '待审核',
-  PASS: '审核通过',
-  REJECTED: '审核驳回',
-  PARTIAL_PASS: '部分通过',
+  WAIT_RECEIVE: '交出待收货',
+  PARTIAL_HANDOVER: '部分交出',
+  FULL_HANDOVER: '全部交出',
+  HANDOVER_DIFFERENCE: '收货差异',
 }
 
 const DYE_WORK_ORDER_IDS = [
@@ -358,13 +353,25 @@ function getGeneratedDyeContext(index: number): GeneratedDyeContext | null {
   }
 }
 
+function listVisibleRawDyeWorkOrders(): MutableDyeWorkOrder[] {
+  const sorted = Array.from(workOrderStore.values()).sort((left, right) => left.dyeOrderNo.localeCompare(right.dyeOrderNo))
+  const selected = new Map<string, MutableDyeWorkOrder>()
+  for (const order of sorted.slice(0, GENERATED_DYE_CRAFTS.length * DICTIONARY_CRAFT_MOCKS_PER_DEFINITION)) {
+    selected.set(order.dyeOrderId, order)
+  }
+  for (const order of sorted) {
+    if (
+      reviewRecordStore.has(order.dyeOrderId)
+      || ['WAIT_HANDOVER', 'HANDOVER_WAIT_RECEIVE', 'PARTIAL_HANDOVER', 'FULL_HANDOVER', 'HANDOVER_DIFFERENCE'].includes(order.status)
+    ) {
+      selected.set(order.dyeOrderId, order)
+    }
+  }
+  return Array.from(selected.values())
+}
+
 function getVisibleDyeWorkOrderIds(): Set<string> {
-  return new Set(
-    Array.from(workOrderStore.values())
-      .sort((left, right) => left.dyeOrderNo.localeCompare(right.dyeOrderNo))
-      .slice(0, GENERATED_DYE_CRAFTS.length * DICTIONARY_CRAFT_MOCKS_PER_DEFINITION)
-      .map((order) => order.dyeOrderId),
-  )
+  return new Set(listVisibleRawDyeWorkOrders().map((order) => order.dyeOrderId))
 }
 
 function toGeneratedDyeWorkOrder(order: MutableDyeWorkOrder, index: number): MutableDyeWorkOrder {
@@ -391,9 +398,7 @@ function toGeneratedDyeWorkOrder(order: MutableDyeWorkOrder, index: number): Mut
 }
 
 function listGeneratedDyeWorkOrders(): MutableDyeWorkOrder[] {
-  return Array.from(workOrderStore.values())
-    .sort((left, right) => left.dyeOrderNo.localeCompare(right.dyeOrderNo))
-    .slice(0, GENERATED_DYE_CRAFTS.length * DICTIONARY_CRAFT_MOCKS_PER_DEFINITION)
+  return listVisibleRawDyeWorkOrders()
     .map((order, index) => toGeneratedDyeWorkOrder(order, index))
 }
 
@@ -617,19 +622,15 @@ function getWaitingReason(order: DyeWorkOrder): string {
     case 'PACKING':
       return '包装处理中'
     case 'WAIT_HANDOVER':
-      return '包装完成待送货'
-    case 'HANDOVER_SUBMITTED':
-      return '已交出待接收方回写'
-    case 'RECEIVER_WRITTEN_BACK':
-      return '接收方已回写'
-    case 'WAIT_REVIEW':
-      return '接收方回写后待审核'
-    case 'REVIEWING':
-      return '审核处理中'
-    case 'REJECTED':
-      return '审核驳回待处理'
-    case 'COMPLETED':
-      return '已完成'
+      return '包装完成待交出'
+    case 'HANDOVER_WAIT_RECEIVE':
+      return '已交出，等待确认收货'
+    case 'PARTIAL_HANDOVER':
+      return '部分交出'
+    case 'HANDOVER_DIFFERENCE':
+      return '收货差异待处理'
+    case 'FULL_HANDOVER':
+      return '全部交出'
     default:
       return '跟进中'
   }
@@ -663,23 +664,80 @@ function updateOrderTimestamp(order: MutableDyeWorkOrder, at = nowTimestamp()): 
   order.updatedAt = at
 }
 
+function resolveDyeReceiptStatus(input: {
+  completedQty: number
+  submittedQty: number
+  receivedQty: number
+  forceDifference?: boolean
+}): DyeReviewStatus {
+  const completedQty = Math.max(Number(input.completedQty || 0), 0)
+  const submittedQty = Math.max(Number(input.submittedQty || 0), 0)
+  const receivedQty = Math.max(Number(input.receivedQty || 0), 0)
+  if (input.forceDifference || receivedQty > submittedQty) return 'HANDOVER_DIFFERENCE'
+  if (receivedQty <= 0) return 'WAIT_RECEIVE'
+  if (completedQty > 0 && receivedQty < completedQty) return 'PARTIAL_HANDOVER'
+  return 'FULL_HANDOVER'
+}
+
 function createReviewFromHandover(order: MutableDyeWorkOrder, head: PdaHandoverHead): MutableDyeReviewRecord {
   const records = getPdaHandoverRecordsByHead(head.handoverId)
+  const submittedQty = head.submittedQtyTotal ?? 0
+  const receivedQty = head.pendingWritebackCount && head.pendingWritebackCount > 0 ? 0 : (head.writtenBackQtyTotal ?? 0)
+  const diffQty = head.pendingWritebackCount && head.pendingWritebackCount > 0 ? 0 : (head.diffQtyTotal ?? receivedQty - submittedQty)
+  const reviewStatus = resolveDyeReceiptStatus({
+    completedQty: getCurrentOutputQty(order) || order.plannedQty,
+    submittedQty,
+    receivedQty,
+    forceDifference: Math.abs(diffQty) > 0 && receivedQty > 0,
+  })
   return {
     reviewRecordId: `DRV-${order.dyeOrderId}`,
     dyeOrderId: order.dyeOrderId,
     handoverOrderId: head.handoverOrderId || head.handoverId,
     handoverRecordIds: records.map((record) => record.handoverRecordId),
     receiverName: order.targetTransferWarehouseName,
-    submittedQty: head.submittedQtyTotal ?? 0,
-    receivedQty: head.writtenBackQtyTotal ?? 0,
-    diffQty: head.diffQtyTotal ?? 0,
-    receivedRollCount: order.plannedRollCount ? Math.max(1, order.plannedRollCount - (head.diffQtyTotal ? 1 : 0)) : undefined,
-    receivedLength: head.writtenBackQtyTotal ? Number((head.writtenBackQtyTotal * 0.82).toFixed(1)) : undefined,
+    submittedQty,
+    receivedQty,
+    diffQty,
+    receivedRollCount: receivedQty > 0 && order.plannedRollCount ? Math.max(1, order.plannedRollCount - (diffQty ? 1 : 0)) : undefined,
+    receivedLength: receivedQty > 0 ? Number((receivedQty * 0.82).toFixed(1)) : undefined,
     lengthUnit: '米',
-    reviewStatus: 'WAIT_REVIEW',
-    remark: '接收方回写后待审核',
+    reviewStatus,
+    remark: reviewStatus === 'WAIT_RECEIVE' ? '交出记录已生成，等待接收方确认收货' : '接收方已确认收货',
   }
+}
+
+function syncReviewFromHandover(order: MutableDyeWorkOrder, head: PdaHandoverHead): MutableDyeReviewRecord {
+  const next = createReviewFromHandover(order, head)
+  const current = reviewRecordStore.get(order.dyeOrderId)
+  if (!current) {
+    reviewRecordStore.set(order.dyeOrderId, next)
+    return next
+  }
+  current.handoverOrderId = next.handoverOrderId
+  current.handoverRecordIds = next.handoverRecordIds
+  current.receiverName = next.receiverName
+  current.submittedQty = next.submittedQty
+  if (current.reviewStatus === 'WAIT_RECEIVE') {
+    current.receivedQty = next.receivedQty
+    current.diffQty = next.diffQty
+    current.receivedRollCount = next.receivedRollCount
+    current.receivedLength = next.receivedLength
+    current.lengthUnit = next.lengthUnit
+    current.reviewStatus = next.reviewStatus
+    current.remark = current.remark || next.remark
+  }
+  return current
+}
+
+function syncDyeOrderFromReview(order: MutableDyeWorkOrder, review?: MutableDyeReviewRecord): boolean {
+  if (!review) return false
+  if (review.reviewStatus === 'WAIT_RECEIVE') {
+    order.status = 'HANDOVER_WAIT_RECEIVE'
+  } else {
+    order.status = review.reviewStatus
+  }
+  return true
 }
 
 function syncPreVatStatus(order: MutableDyeWorkOrder): void {
@@ -691,12 +749,12 @@ function syncPreVatStatus(order: MutableDyeWorkOrder): void {
     || order.status === 'ROLLING'
     || order.status === 'PACKING'
     || order.status === 'WAIT_HANDOVER'
-    || order.status === 'HANDOVER_SUBMITTED'
-    || order.status === 'RECEIVER_WRITTEN_BACK'
-    || order.status === 'WAIT_REVIEW'
-    || order.status === 'REVIEWING'
-    || order.status === 'COMPLETED'
-    || order.status === 'REJECTED'
+    || order.status === 'HANDOVER_WAIT_RECEIVE'
+    || order.status === 'HANDOVER_WAIT_RECEIVE'
+    || order.status === 'PARTIAL_HANDOVER'
+    || order.status === 'HANDOVER_WAIT_RECEIVE'
+    || order.status === 'FULL_HANDOVER'
+    || order.status === 'HANDOVER_DIFFERENCE'
   ) {
     return
   }
@@ -750,37 +808,13 @@ function syncDerivedWorkflow(): void {
     }
 
     const review = reviewRecordStore.get(order.dyeOrderId)
-    if (review?.reviewStatus === 'PASS') {
-      order.status = 'COMPLETED'
-      continue
-    }
-    if (review?.reviewStatus === 'REJECTED') {
-      order.status = 'REJECTED'
-      continue
-    }
-
-    if (head && (head.writtenBackQtyTotal ?? 0) > 0) {
-      if (!review) {
-        reviewRecordStore.set(order.dyeOrderId, createReviewFromHandover(order, head))
-      } else {
-        review.handoverOrderId = head.handoverOrderId || head.handoverId
-        review.submittedQty = head.submittedQtyTotal ?? review.submittedQty
-        review.receivedQty = head.writtenBackQtyTotal ?? review.receivedQty
-        review.diffQty = head.diffQtyTotal ?? review.diffQty
-      }
-      if (reviewRecordStore.get(order.dyeOrderId)?.reviewStatus === 'WAIT_REVIEW') {
-        order.status = 'WAIT_REVIEW'
-      }
-      continue
-    }
-
-    if (head && (head.recordCount ?? 0) > 0 && (head.pendingWritebackCount ?? 0) > 0) {
-      order.status = 'HANDOVER_SUBMITTED'
+    if (syncDyeOrderFromReview(order, review)) {
       continue
     }
 
     if (head && (head.recordCount ?? 0) > 0) {
-      order.status = 'HANDOVER_SUBMITTED'
+      const nextReview = syncReviewFromHandover(order, head)
+      syncDyeOrderFromReview(order, nextReview)
       continue
     }
 
@@ -878,10 +912,12 @@ function seedWorkOrders(): void {
     blockRemark: undefined,
   })
   syncLinkedTaskState('TASK-DYE-000729', {
-    status: 'DONE',
+    status: 'IN_PROGRESS',
     acceptanceStatus: 'ACCEPTED',
     startedAt: '2026-03-27 15:00:00',
-    finishedAt: '2026-03-28 18:00:00',
+    finishedAt: undefined,
+    blockReason: undefined,
+    blockRemark: undefined,
   })
   syncLinkedTaskState('TASK-DYE-000730', {
     status: 'BLOCKED',
@@ -889,7 +925,7 @@ function seedWorkOrders(): void {
     startedAt: '2026-03-27 16:00:00',
     finishedAt: undefined,
     blockReason: 'QUALITY',
-    blockRemark: '中转审核驳回',
+    blockRemark: '中转区域收货差异',
   })
   syncLinkedTaskState('TASK-DYE-000731', {
     status: 'DONE',
@@ -1318,7 +1354,7 @@ function seedWorkOrders(): void {
     taskId: 'TASK-DYE-000727',
     taskNo: 'TASK-DYE-000727',
     handoverOrderId: orderWaitHandover,
-    waitingReason: '包装完成待送货',
+    waitingReason: '包装完成待交出',
     createdAt: '2026-03-28 10:10:00',
     updatedAt: '2026-03-28 17:20:00',
   })
@@ -1420,7 +1456,7 @@ function seedWorkOrders(): void {
       finishedAt: '2026-03-28 17:00:00',
       outputQty: 1070,
       qtyUnit: '米',
-      remark: '包装完成待送货',
+      remark: '包装完成待交出',
     },
   ])
 
@@ -1448,11 +1484,11 @@ function seedWorkOrders(): void {
     dyeFactoryName: TEST_FACTORY_NAME,
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
-    status: 'HANDOVER_SUBMITTED',
+    status: 'HANDOVER_WAIT_RECEIVE',
     taskId: 'TASK-DYE-000728',
     taskNo: 'TASK-DYE-000728',
     handoverOrderId: orderSubmitted.handoverOrderId,
-    waitingReason: '已交出待回写',
+    waitingReason: '已交出，等待确认收货',
     createdAt: '2026-03-28 10:50:00',
     updatedAt: '2026-03-28 17:30:00',
   })
@@ -1511,11 +1547,11 @@ function seedWorkOrders(): void {
     dyeFactoryName: TEST_FACTORY_NAME,
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
-    status: 'WAIT_REVIEW',
+    status: 'PARTIAL_HANDOVER',
     taskId: 'TASK-DYE-000729',
     taskNo: 'TASK-DYE-000729',
     handoverOrderId: orderWaitReview.handoverOrderId,
-    waitingReason: '接收方回写后待审核',
+    waitingReason: '中转区域已确认部分收货',
     createdAt: '2026-03-27 14:50:00',
     updatedAt: '2026-03-28 20:40:00',
   })
@@ -1560,11 +1596,11 @@ function seedWorkOrders(): void {
     dyeFactoryName: TEST_FACTORY_NAME,
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
-    status: 'REJECTED',
+    status: 'HANDOVER_DIFFERENCE',
     taskId: 'TASK-DYE-000730',
     taskNo: 'TASK-DYE-000730',
     handoverOrderId: orderRejected.handoverOrderId,
-    waitingReason: '审核驳回待处理',
+    waitingReason: '收货差异待处理',
     createdAt: '2026-03-27 15:00:00',
     updatedAt: '2026-03-28 19:40:00',
   })
@@ -1608,7 +1644,7 @@ function seedWorkOrders(): void {
     dyeFactoryName: TEST_FACTORY_NAME,
     targetTransferWarehouseId: 'WH-TRANSFER',
     targetTransferWarehouseName: '中转区域',
-    status: 'COMPLETED',
+    status: 'FULL_HANDOVER',
     taskId: 'TASK-DYE-000731',
     taskNo: 'TASK-DYE-000731',
     handoverOrderId: orderCompleted.handoverOrderId,
@@ -1878,10 +1914,15 @@ function seedWorkOrders(): void {
 
   const waitReviewHead = orderWaitReview.handoverOrderId ? getHandoverOrderById(orderWaitReview.handoverOrderId) : undefined
   if (waitReviewHead) {
+    const partialReview = createReviewFromHandover(workOrderStore.get(DYE_WORK_ORDER_IDS[8])!, waitReviewHead)
     reviewRecordStore.set(DYE_WORK_ORDER_IDS[8], {
-      ...createReviewFromHandover(workOrderStore.get(DYE_WORK_ORDER_IDS[8])!, waitReviewHead),
-      reviewStatus: 'WAIT_REVIEW',
-      remark: '接收方回写后待审核',
+      ...partialReview,
+      receivedQty: partialReview.submittedQty,
+      diffQty: 0,
+      reviewStatus: 'PARTIAL_HANDOVER',
+      reviewedBy: '中转仓管',
+      reviewedAt: '2026-03-28 17:30:00',
+      remark: '本次收货已确认，仍有未交出数量',
     })
   }
 
@@ -1889,11 +1930,11 @@ function seedWorkOrders(): void {
   if (rejectedHead) {
     reviewRecordStore.set(DYE_WORK_ORDER_IDS[9], {
       ...createReviewFromHandover(workOrderStore.get(DYE_WORK_ORDER_IDS[9])!, rejectedHead),
-      reviewStatus: 'REJECTED',
-      reviewedBy: '中转审核员',
+      reviewStatus: 'HANDOVER_DIFFERENCE',
+      reviewedBy: '中转仓管',
       reviewedAt: '2026-03-28 19:40:00',
       rejectReason: '卷数与长度复核不一致',
-      remark: '中转区域审核驳回',
+      remark: '中转区域收货差异',
     })
   }
 
@@ -1901,10 +1942,10 @@ function seedWorkOrders(): void {
   if (completedHead) {
     reviewRecordStore.set(DYE_WORK_ORDER_IDS[10], {
       ...createReviewFromHandover(workOrderStore.get(DYE_WORK_ORDER_IDS[10])!, completedHead),
-      reviewStatus: 'PASS',
-      reviewedBy: '中转审核员',
+      reviewStatus: 'FULL_HANDOVER',
+      reviewedBy: '中转仓管',
       reviewedAt: '2026-03-29 18:10:00',
-      remark: '中转区域审核通过',
+      remark: '中转区域已全部确认收货',
     })
   }
 
@@ -1985,7 +2026,7 @@ function seedWorkOrders(): void {
       { materialName: '活性绿', materialCode: 'DYE-GREEN-05', feedQty: 8, feedUnit: 'kg' },
       { materialName: '稳定剂', materialCode: 'AUX-STABLE-02', feedQty: 6, feedUnit: 'kg' },
     ],
-    remark: '中转审核驳回后待复核',
+    remark: '收货差异后待复核',
   })
   addFormulaRecord({
     formulaId: 'DF-005',
@@ -2005,7 +2046,7 @@ function seedWorkOrders(): void {
       { materialName: '活性黑', materialCode: 'DYE-BLACK-01', feedQty: 16, feedUnit: 'kg' },
       { materialName: '还原剂', materialCode: 'AUX-REDUCE-01', feedQty: 8, feedUnit: 'kg' },
     ],
-    remark: '已审核通过',
+    remark: '已全部交出',
   })
 }
 
@@ -2013,7 +2054,6 @@ function seedDomain(): void {
   if (seeded) return
   seeded = true
   seedWorkOrders()
-  syncDerivedWorkflow()
 }
 
 function getMutableWorkOrder(dyeOrderId: string): MutableDyeWorkOrder {
@@ -2166,10 +2206,10 @@ export function getDyeWorkOrderSummary(): DyeWorkOrderSummary {
       ['DYEING', 'DEHYDRATING', 'DRYING', 'SETTING', 'ROLLING', 'PACKING'].includes(order.status),
     ).length,
     waitHandoverCount: orders.filter((order) => order.status === 'WAIT_HANDOVER').length,
-    waitWritebackCount: orders.filter((order) => order.status === 'HANDOVER_SUBMITTED').length,
-    waitReviewCount: orders.filter((order) => order.status === 'WAIT_REVIEW' || order.status === 'REVIEWING').length,
-    completedCount: orders.filter((order) => order.status === 'COMPLETED').length,
-    rejectedCount: orders.filter((order) => order.status === 'REJECTED').length,
+    waitReceiveCount: orders.filter((order) => order.status === 'HANDOVER_WAIT_RECEIVE').length,
+    partialHandoverCount: orders.filter((order) => order.status === 'PARTIAL_HANDOVER').length,
+    fullHandoverCount: orders.filter((order) => order.status === 'FULL_HANDOVER').length,
+    handoverDifferenceCount: orders.filter((order) => order.status === 'HANDOVER_DIFFERENCE').length,
     diffQty: orders.reduce((sum, order) => sum + Math.abs(getDyeOrderHandoverSummary(order.dyeOrderId).diffQty), 0),
     objectionCount: orders.reduce((sum, order) => sum + getDyeOrderHandoverSummary(order.dyeOrderId).objectionCount, 0),
     vatUtilizationCount: vatInUse.length,
@@ -2188,7 +2228,7 @@ export function listDyeReportRows(): DyeReportRow[] {
       currentNode: getCurrentNode(order),
       waitingReason: getWaitingReason(order),
       startedAt: order.sampleWaitStartedAt || getDyeExecutionNodeRecord(order.dyeOrderId, 'DYE')?.startedAt,
-      finishedAt: order.status === 'COMPLETED' ? (getDyeReviewRecordByOrderId(order.dyeOrderId)?.reviewedAt || order.updatedAt) : undefined,
+      finishedAt: order.status === 'FULL_HANDOVER' ? (getDyeReviewRecordByOrderId(order.dyeOrderId)?.reviewedAt || order.updatedAt) : undefined,
       durationHours: Number(getStatusDurationHours(order)),
       dyeVatNo: getCurrentDyeVatNo(order),
       plannedQty: order.plannedQty,
@@ -2542,7 +2582,7 @@ export function completeDyeNode(
     finishedAt: now,
     outputQty: Number.isFinite(input.outputQty) ? Number(input.outputQty) : current?.outputQty || order.plannedQty,
     qtyUnit: getQtyUnit(order),
-    remark: nodeCode === 'PACK' ? '包装完成待送货' : `${DYE_NODE_LABEL[nodeCode]}完成`,
+    remark: nodeCode === 'PACK' ? '包装完成待交出' : `${DYE_NODE_LABEL[nodeCode]}完成`,
   }))
   order.status = getNodeStatusAfterComplete(nodeCode)
   if (nodeCode === 'PACK' && !order.handoverOrderId) {
@@ -2567,87 +2607,111 @@ export function submitDyeHandover(
     submittedAt: now,
   })
   order.handoverOrderId = result.handoverOrderId || order.handoverOrderId
-  order.status = 'HANDOVER_SUBMITTED'
+  order.status = 'HANDOVER_WAIT_RECEIVE'
   order.remark = input.remark?.trim() || order.remark
   updateOrderTimestamp(order, now)
   syncDerivedWorkflow()
   return result
 }
 
+function getMutableDyeReceiptReview(dyeOrderId: string): { order: MutableDyeWorkOrder; review: MutableDyeReviewRecord } {
+  const order = getMutableWorkOrder(dyeOrderId)
+  let review = reviewRecordStore.get(dyeOrderId)
+  if (!review) {
+    const head = order.handoverOrderId
+      ? getHandoverOrderById(order.handoverOrderId)
+      : getPrimaryHandoverOrder(order.taskId)
+    if (!head) {
+      throw new Error('交出记录创建后才能确认收货')
+    }
+    review = syncReviewFromHandover(order, head)
+  }
+  return { order, review }
+}
+
+function applyDyeReceiptState(order: MutableDyeWorkOrder, review: MutableDyeReviewRecord): void {
+  order.status = review.reviewStatus === 'WAIT_RECEIVE' ? 'HANDOVER_WAIT_RECEIVE' : review.reviewStatus
+  if (review.reviewStatus === 'FULL_HANDOVER') {
+    syncLinkedTaskState(order.taskId, {
+      status: 'DONE',
+      finishedAt: review.reviewedAt,
+      blockReason: undefined,
+      blockRemark: undefined,
+    })
+  } else if (review.reviewStatus === 'HANDOVER_DIFFERENCE') {
+    syncLinkedTaskState(order.taskId, {
+      status: 'BLOCKED',
+      finishedAt: undefined,
+      blockReason: 'QUALITY',
+      blockRemark: review.rejectReason,
+    })
+  } else {
+    syncLinkedTaskState(order.taskId, {
+      status: 'IN_PROGRESS',
+      finishedAt: undefined,
+      blockReason: undefined,
+      blockRemark: undefined,
+    })
+  }
+}
+
+export function confirmDyeReceipt(
+  dyeOrderId: string,
+  input: { receivedBy: string; receivedQty?: number; remark?: string },
+): DyeReviewRecord {
+  const { order, review } = getMutableDyeReceiptReview(dyeOrderId)
+  const receivedQty = Number.isFinite(input.receivedQty) ? Number(input.receivedQty) : review.submittedQty
+  review.receivedQty = receivedQty
+  review.diffQty = Number((receivedQty - review.submittedQty).toFixed(2))
+  review.reviewStatus = resolveDyeReceiptStatus({
+    completedQty: getCurrentOutputQty(order) || order.plannedQty,
+    submittedQty: review.submittedQty,
+    receivedQty,
+  })
+  review.reviewedBy = input.receivedBy
+  review.reviewedAt = nowTimestamp()
+  review.rejectReason = undefined
+  review.remark = input.remark?.trim() || (review.reviewStatus === 'PARTIAL_HANDOVER' ? '本次收货已确认，仍有未交出数量' : '本次收货已确认')
+  applyDyeReceiptState(order, review)
+  updateOrderTimestamp(order, review.reviewedAt)
+  return cloneReviewRecord(review)
+}
+
+export function markDyeReceiptDifference(
+  dyeOrderId: string,
+  input: { receivedBy: string; receivedQty?: number; differenceReason: string; remark?: string },
+): DyeReviewRecord {
+  if (!input.differenceReason.trim()) {
+    throw new Error('请填写收货差异原因')
+  }
+  const { order, review } = getMutableDyeReceiptReview(dyeOrderId)
+  const receivedQty = Number.isFinite(input.receivedQty) ? Number(input.receivedQty) : review.receivedQty
+  review.receivedQty = receivedQty
+  review.diffQty = Number((receivedQty - review.submittedQty).toFixed(2))
+  review.reviewStatus = 'HANDOVER_DIFFERENCE'
+  review.reviewedBy = input.receivedBy
+  review.reviewedAt = nowTimestamp()
+  review.rejectReason = input.differenceReason.trim()
+  review.remark = input.remark?.trim() || '中转区域收货差异'
+  applyDyeReceiptState(order, review)
+  updateOrderTimestamp(order, review.reviewedAt)
+  return cloneReviewRecord(review)
+}
+
 export function approveDyeReview(
   dyeOrderId: string,
   input: { reviewedBy: string; remark?: string },
 ): DyeReviewRecord {
-  const order = getMutableWorkOrder(dyeOrderId)
-  const review = reviewRecordStore.get(dyeOrderId)
-  if (!review) {
-    throw new Error('接收方回写后才能进入审核')
-  }
-  review.reviewStatus = 'PASS'
-  review.reviewedBy = input.reviewedBy
-  review.reviewedAt = nowTimestamp()
-  review.remark = input.remark?.trim() || '中转区域审核通过'
-  order.status = 'COMPLETED'
-  syncLinkedTaskState(order.taskId, {
-    status: 'DONE',
-    finishedAt: review.reviewedAt,
-    blockReason: undefined,
-    blockRemark: undefined,
-  })
-  updateOrderTimestamp(order, review.reviewedAt)
-  appendNodeRecord(dyeOrderId, {
-    nodeRecordId: `${dyeOrderId}-REVIEW-${Date.now()}`,
-    dyeOrderId,
-    taskId: order.taskId,
-    nodeCode: 'REVIEW',
-    nodeName: DYE_NODE_LABEL.REVIEW,
-    operatorUserId: 'USR-REVIEW',
-    operatorName: input.reviewedBy,
-    finishedAt: review.reviewedAt,
-    outputQty: review.receivedQty,
-    qtyUnit: getQtyUnit(order),
-    remark: review.remark,
-  })
-  return cloneReviewRecord(review)
+  return confirmDyeReceipt(dyeOrderId, { receivedBy: input.reviewedBy, remark: input.remark })
 }
 
 export function rejectDyeReview(
   dyeOrderId: string,
   input: { reviewedBy: string; rejectReason: string; remark?: string },
 ): DyeReviewRecord {
-  if (!input.rejectReason.trim()) {
-    throw new Error('请填写驳回原因')
-  }
-  const order = getMutableWorkOrder(dyeOrderId)
-  const review = reviewRecordStore.get(dyeOrderId)
-  if (!review) {
-    throw new Error('接收方回写后才能进入审核')
-  }
-  review.reviewStatus = 'REJECTED'
-  review.reviewedBy = input.reviewedBy
-  review.reviewedAt = nowTimestamp()
-  review.rejectReason = input.rejectReason.trim()
-  review.remark = input.remark?.trim() || '中转区域审核驳回'
-  order.status = 'REJECTED'
-  syncLinkedTaskState(order.taskId, {
-    status: 'BLOCKED',
-    finishedAt: undefined,
-    blockReason: 'QUALITY',
-    blockRemark: review.rejectReason,
+  return markDyeReceiptDifference(dyeOrderId, {
+    receivedBy: input.reviewedBy,
+    differenceReason: input.rejectReason,
+    remark: input.remark,
   })
-  updateOrderTimestamp(order, review.reviewedAt)
-  appendNodeRecord(dyeOrderId, {
-    nodeRecordId: `${dyeOrderId}-REVIEW-${Date.now()}`,
-    dyeOrderId,
-    taskId: order.taskId,
-    nodeCode: 'REVIEW',
-    nodeName: DYE_NODE_LABEL.REVIEW,
-    operatorUserId: 'USR-REVIEW',
-    operatorName: input.reviewedBy,
-    finishedAt: review.reviewedAt,
-    outputQty: review.receivedQty,
-    qtyUnit: getQtyUnit(order),
-    remark: `审核驳回：${review.rejectReason}`,
-  })
-  return cloneReviewRecord(review)
 }
