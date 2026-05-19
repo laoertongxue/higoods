@@ -21,8 +21,8 @@ import {
   type TaskDetailRow,
 } from './task-detail-rows.ts'
 import {
-  OWN_KNITTING_FACTORY_ID,
-  OWN_KNITTING_FACTORY_NAME,
+  OWN_WOOL_FACTORY_ID,
+  OWN_WOOL_FACTORY_NAME,
 } from './factory-mock-data.ts'
 
 export type TaskAssignmentStatus = 'UNASSIGNED' | 'ASSIGNING' | 'ASSIGNED' | 'BIDDING' | 'AWARDED'
@@ -215,12 +215,12 @@ export interface ProcessTask {
   defaultDocType?: 'DEMAND' | 'TASK'
   taskTypeMode?: 'PROCESS' | 'CRAFT'
   isSpecialCraft?: boolean
-  knittingTaskType?: 'WHOLE_GARMENT' | 'PART_PANEL'
-  knittingKind?: 'WHOLE_GARMENT' | 'PART_PANEL'
-  knittingKindLabel?: string
-  knittingOrderId?: string
-  knittingOrderNo?: string
-  knittingDownstreamTarget?: '后道工厂' | '裁床待交出仓'
+  woolTaskType?: 'WHOLE_GARMENT' | 'PART_PANEL'
+  woolKind?: 'WHOLE_GARMENT' | 'PART_PANEL'
+  woolKindLabel?: string
+  woolOrderId?: string
+  woolOrderNo?: string
+  woolDownstreamTarget?: '后道工厂' | '裁床待交出仓'
   yarnSku?: string
   yarnPlannedWeightKg?: number
   yarnReceivedWeightKg?: number
@@ -408,14 +408,14 @@ function mapArtifactToTaskStage(artifact: GeneratedTaskArtifact): ProcessStage {
   if (mappedBySystemCode) return mappedBySystemCode
   if (artifact.stageCode === 'PREP') return 'PREP'
   if (artifact.stageCode === 'POST') return 'POST'
-  if (artifact.processCode === 'KNITTING') return 'SPECIAL'
+  if (artifact.processCode === 'WOOL') return 'SPECIAL'
   if (artifact.processCode === 'CUT_PANEL') return 'CUTTING'
   if (artifact.isSpecialCraft || artifact.processCode === 'SPECIAL_CRAFT') return 'SPECIAL'
   return 'SEWING'
 }
 
 function toGeneratedOwnerSuggestion(artifact: GeneratedTaskArtifact): OwnerSuggestion {
-  if (artifact.processCode === 'KNITTING') {
+  if (artifact.processCode === 'WOOL') {
     return {
       kind: 'RECOMMENDED_FACTORY_POOL',
       recommendedTier: 'CENTRAL',
@@ -446,8 +446,8 @@ function resolveGeneratedTaskReceiver(artifact: GeneratedTaskArtifact): Pick<
   ProcessTask,
   'receiverKind' | 'receiverId' | 'receiverName'
 > {
-  if (artifact.processCode === 'KNITTING') {
-    if (artifact.knittingTaskType === 'PART_PANEL' || artifact.craftName === '部位针织') {
+  if (artifact.processCode === 'WOOL') {
+    if (artifact.woolTaskType === 'PART_PANEL' || artifact.craftName === '部位毛织') {
       return {
         receiverKind: 'WAREHOUSE',
         receiverId: 'WH-CUTTING-WAIT-HANDOVER',
@@ -493,9 +493,9 @@ function resolveGeneratedTaskReceiver(artifact: GeneratedTaskArtifact): Pick<
   }
 }
 
-function resolveKnittingTaskType(artifact: GeneratedTaskArtifact): 'WHOLE_GARMENT' | 'PART_PANEL' {
-  if (artifact.knittingTaskType) return artifact.knittingTaskType
-  if (artifact.craftName === '部位针织' || artifact.taskTypeLabel === '部位针织') return 'PART_PANEL'
+function resolveWoolTaskType(artifact: GeneratedTaskArtifact): 'WHOLE_GARMENT' | 'PART_PANEL' {
+  if (artifact.woolTaskType) return artifact.woolTaskType
+  if (artifact.craftName === '部位毛织' || artifact.taskTypeLabel === '部位毛织') return 'PART_PANEL'
   return 'WHOLE_GARMENT'
 }
 
@@ -532,12 +532,12 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
         publishedSamPerUnit,
         publishedSamUnit,
       })
-      const isKnitting = artifact.processCode === 'KNITTING'
-      const knittingTaskType = isKnitting ? resolveKnittingTaskType(artifact) : undefined
-      const knittingKindLabel = knittingTaskType === 'PART_PANEL' ? '部位针织' : knittingTaskType === 'WHOLE_GARMENT' ? '整件针织' : undefined
-      const knittingDownstreamTarget = knittingTaskType === 'PART_PANEL' ? '裁床待交出仓' : knittingTaskType === 'WHOLE_GARMENT' ? '后道工厂' : undefined
-      const knittingOrderNo = isKnitting ? `针织单-${orderId.replace('PO-', '')}-${String(seq).padStart(2, '0')}` : undefined
-      const yarnRow = isKnitting ? detailRows.find((row) => row.sourceRefs.bomItemId) : undefined
+      const isWool = artifact.processCode === 'WOOL'
+      const woolTaskType = isWool ? resolveWoolTaskType(artifact) : undefined
+      const woolKindLabel = woolTaskType === 'PART_PANEL' ? '部位毛织' : woolTaskType === 'WHOLE_GARMENT' ? '整件毛织' : undefined
+      const woolDownstreamTarget = woolTaskType === 'PART_PANEL' ? '裁床待交出仓' : woolTaskType === 'WHOLE_GARMENT' ? '后道工厂' : undefined
+      const woolOrderNo = isWool ? `毛织单-${orderId.replace('PO-', '')}-${String(seq).padStart(2, '0')}` : undefined
+      const yarnRow = isWool ? detailRows.find((row) => row.sourceRefs.bomItemId) : undefined
       generatedIds.push(taskId)
       const prevTaskId = generatedIds[index - 1]
       const assignmentMode: AssignmentMode = artifact.isSpecialCraft ? 'BIDDING' : 'DIRECT'
@@ -553,10 +553,10 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
         qty: Math.max(artifact.orderQty, 0),
         qtyUnit: 'PIECE',
         assignmentMode,
-        assignmentStatus: isKnitting ? 'ASSIGNED' : 'UNASSIGNED',
+        assignmentStatus: isWool ? 'ASSIGNED' : 'UNASSIGNED',
         ownerSuggestion: toGeneratedOwnerSuggestion(artifact),
-        assignedFactoryId: isKnitting ? OWN_KNITTING_FACTORY_ID : undefined,
-        assignedFactoryName: isKnitting ? OWN_KNITTING_FACTORY_NAME : undefined,
+        assignedFactoryId: isWool ? OWN_WOOL_FACTORY_ID : undefined,
+        assignedFactoryName: isWool ? OWN_WOOL_FACTORY_NAME : undefined,
         qcPoints: [],
         stdTimeMinutes: publishedSamPerUnit,
         difficulty: mapPublishedSamDifficultyToTaskDifficulty(publishedSamDifficulty),
@@ -566,55 +566,55 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
         publishedSamDifficulty,
         publishedSamSource: artifact.publishedSamSource,
         attachments: [],
-        status: isKnitting ? 'IN_PROGRESS' : 'NOT_STARTED',
-        acceptanceStatus: isKnitting ? 'ACCEPTED' : undefined,
-        acceptedAt: isKnitting ? '2026-05-09 08:20' : undefined,
-        acceptedBy: isKnitting ? OWN_KNITTING_FACTORY_NAME : undefined,
-        acceptDeadline: isKnitting ? '2026-05-09 10:00' : undefined,
-        taskDeadline: isKnitting ? '2026-05-12 20:00' : undefined,
-        dispatchRemark: isKnitting
-          ? `${knittingKindLabel}；染厂/面料仓送料到厂，针织厂称重确认并上传照片/视频，完成后交${knittingDownstreamTarget}`
+        status: isWool ? 'IN_PROGRESS' : 'NOT_STARTED',
+        acceptanceStatus: isWool ? 'ACCEPTED' : undefined,
+        acceptedAt: isWool ? '2026-05-09 08:20' : undefined,
+        acceptedBy: isWool ? OWN_WOOL_FACTORY_NAME : undefined,
+        acceptDeadline: isWool ? '2026-05-09 10:00' : undefined,
+        taskDeadline: isWool ? '2026-05-12 20:00' : undefined,
+        dispatchRemark: isWool
+          ? `${woolKindLabel}；染厂/面料仓送料到厂，毛织厂称重确认并上传照片/视频，完成后交${woolDownstreamTarget}`
           : undefined,
-        dispatchedAt: isKnitting ? '2026-05-09 08:00' : undefined,
-        dispatchedBy: isKnitting ? '系统' : undefined,
-        startedAt: isKnitting ? '2026-05-09 09:00' : undefined,
-        startHeadcount: isKnitting ? 8 : undefined,
-        startProofFiles: isKnitting
+        dispatchedAt: isWool ? '2026-05-09 08:00' : undefined,
+        dispatchedBy: isWool ? '系统' : undefined,
+        startedAt: isWool ? '2026-05-09 09:00' : undefined,
+        startHeadcount: isWool ? 8 : undefined,
+        startProofFiles: isWool
           ? [
               {
                 id: `start-${taskId}-1`,
                 type: 'IMAGE',
-                name: `${knittingKindLabel}_开工现场.jpg`,
+                name: `${woolKindLabel}_开工现场.jpg`,
                 uploadedAt: '2026-05-09 09:00',
               },
             ]
           : undefined,
-        milestoneRequired: isKnitting,
-        milestoneRuleType: isKnitting ? 'AFTER_FIRST_BATCH' : undefined,
-        milestoneRuleLabel: isKnitting
-          ? knittingTaskType === 'PART_PANEL'
+        milestoneRequired: isWool,
+        milestoneRuleType: isWool ? 'AFTER_FIRST_BATCH' : undefined,
+        milestoneRuleLabel: isWool
+          ? woolTaskType === 'PART_PANEL'
             ? '横机完成首批部位片后上传照片或视频'
             : '横机完成首批整件后上传照片或视频'
           : undefined,
-        milestoneTargetQty: isKnitting ? (knittingTaskType === 'PART_PANEL' ? 80 : 20) : undefined,
-        milestoneTargetUnit: isKnitting ? 'PIECE' : undefined,
-        milestoneStatus: isKnitting ? 'REPORTED' : undefined,
-        milestoneReportedAt: isKnitting ? '2026-05-09 11:30' : undefined,
-        milestoneReportedQty: isKnitting ? (knittingTaskType === 'PART_PANEL' ? 86 : 24) : undefined,
-        milestoneProofFiles: isKnitting
+        milestoneTargetQty: isWool ? (woolTaskType === 'PART_PANEL' ? 80 : 20) : undefined,
+        milestoneTargetUnit: isWool ? 'PIECE' : undefined,
+        milestoneStatus: isWool ? 'REPORTED' : undefined,
+        milestoneReportedAt: isWool ? '2026-05-09 11:30' : undefined,
+        milestoneReportedQty: isWool ? (woolTaskType === 'PART_PANEL' ? 86 : 24) : undefined,
+        milestoneProofFiles: isWool
           ? [
               {
                 id: `milestone-${taskId}-1`,
                 type: 'IMAGE',
-                name: `${knittingKindLabel}_首批节点.jpg`,
+                name: `${woolKindLabel}_首批节点.jpg`,
                 uploadedAt: '2026-05-09 11:30',
               },
             ]
           : undefined,
-        milestoneProofRequirement: isKnitting ? 'IMAGE_OR_VIDEO' : undefined,
-        milestoneOverdueExceptionEnabled: isKnitting,
-        milestoneOverdueHours: isKnitting ? 24 : undefined,
-        milestoneExceptionSeverity: isKnitting ? 'S2' : undefined,
+        milestoneProofRequirement: isWool ? 'IMAGE_OR_VIDEO' : undefined,
+        milestoneOverdueExceptionEnabled: isWool,
+        milestoneOverdueHours: isWool ? 24 : undefined,
+        milestoneExceptionSeverity: isWool ? 'S2' : undefined,
         taskQrValue: buildTaskQrValue(taskId),
         taskQrStatus: 'ACTIVE',
         handoverAutoCreatePolicy: 'CREATE_ON_START',
@@ -647,26 +647,26 @@ function createGeneratedProcessTasksFromArtifacts(): ProcessTask[] {
         defaultDocType: artifact.defaultDocType,
         taskTypeMode: artifact.taskTypeMode,
         isSpecialCraft: artifact.isSpecialCraft,
-        knittingTaskType,
-        knittingKind: knittingTaskType,
-        knittingKindLabel,
-        knittingOrderId: isKnitting ? taskId : undefined,
-        knittingOrderNo,
-        knittingDownstreamTarget,
-        requiresFeiTicket: isKnitting ? artifact.requiresFeiTicket || knittingTaskType === 'PART_PANEL' : artifact.requiresFeiTicket,
-        packagingRequired: isKnitting ? Boolean(artifact.packagingRequired) : artifact.packagingRequired,
+        woolTaskType,
+        woolKind: woolTaskType,
+        woolKindLabel,
+        woolOrderId: isWool ? taskId : undefined,
+        woolOrderNo,
+        woolDownstreamTarget,
+        requiresFeiTicket: isWool ? artifact.requiresFeiTicket || woolTaskType === 'PART_PANEL' : artifact.requiresFeiTicket,
+        packagingRequired: isWool ? Boolean(artifact.packagingRequired) : artifact.packagingRequired,
         materialIssueMode: artifact.materialIssueMode,
         yarnSku: yarnRow?.sourceRefs.bomItemId,
-        yarnPlannedWeightKg: isKnitting ? Math.max(artifact.orderQty, 0) * (knittingTaskType === 'PART_PANEL' ? 0.08 : 0.48) : undefined,
-        yarnReceivedWeightKg: isKnitting ? Math.max(artifact.orderQty, 0) * (knittingTaskType === 'PART_PANEL' ? 0.08 : 0.48) : undefined,
-        mockReceiveSummary: isKnitting ? '染厂/面料仓送料到厂，针织厂按 kg 称重确认，需上传照片和视频' : undefined,
-        mockExecutionSummary: isKnitting
-          ? knittingTaskType === 'PART_PANEL'
-            ? '横机成片后打印部位针织菲票，不进入缝盘、熨烫、包装'
+        yarnPlannedWeightKg: isWool ? Math.max(artifact.orderQty, 0) * (woolTaskType === 'PART_PANEL' ? 0.08 : 0.48) : undefined,
+        yarnReceivedWeightKg: isWool ? Math.max(artifact.orderQty, 0) * (woolTaskType === 'PART_PANEL' ? 0.08 : 0.48) : undefined,
+        mockReceiveSummary: isWool ? '染厂/面料仓送料到厂，毛织厂按 kg 称重确认，需上传照片和视频' : undefined,
+        mockExecutionSummary: isWool
+          ? woolTaskType === 'PART_PANEL'
+            ? '横机成片后打印部位毛织菲票，不进入缝盘、熨烫、包装'
             : `横机成片后进入缝盘、熨烫${artifact.packagingRequired ? '、包装' : ''}`
           : undefined,
-        mockHandoverSummary: isKnitting ? `完成后交${knittingDownstreamTarget}` : undefined,
-        mockStartPrerequisiteMet: isKnitting ? true : undefined,
+        mockHandoverSummary: isWool ? `完成后交${woolDownstreamTarget}` : undefined,
+        mockStartPrerequisiteMet: isWool ? true : undefined,
         ...resolveGeneratedTaskReceiver(artifact),
         createdAt: GENERATED_TASK_CREATED_AT,
         updatedAt: GENERATED_TASK_CREATED_AT,

@@ -7,11 +7,11 @@ import {
   type PagingResult,
 } from '../../../utils/paging.ts'
 import {
-  getKnittingWorkOrderKindLabel,
-  getKnittingWorkOrderStatusLabel,
-  type KnittingWorkOrderKind,
-  type KnittingWorkOrderStatus,
-} from '../../../data/fcs/knitting-task-domain.ts'
+  getWoolWorkOrderKindLabel,
+  getWoolWorkOrderStatusLabel,
+  type WoolWorkOrderKind,
+  type WoolWorkOrderStatus,
+} from '../../../data/fcs/wool-task-domain.ts'
 
 export type BadgeTone = 'muted' | 'info' | 'warning' | 'success' | 'danger'
 
@@ -43,20 +43,20 @@ export function renderBadge(label: string, tone: BadgeTone = 'muted'): string {
   return `<span class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs ${className}">${escapeHtml(label)}</span>`
 }
 
-export function renderKindBadge(kind: KnittingWorkOrderKind): string {
-  return renderBadge(getKnittingWorkOrderKindLabel(kind), kind === 'PART_PANEL' ? 'info' : 'muted')
+export function renderKindBadge(kind: WoolWorkOrderKind): string {
+  return renderBadge(getWoolWorkOrderKindLabel(kind), kind === 'PART_PANEL' ? 'info' : 'muted')
 }
 
-export function renderStatusBadge(status: KnittingWorkOrderStatus): string {
+export function renderStatusBadge(status: WoolWorkOrderStatus): string {
   const tone: BadgeTone =
     status === 'COMPLETED'
       ? 'success'
       : ['WAIT_PICKUP', 'PICKUP_IN_PROGRESS', 'WAIT_MACHINE_SCHEDULE', 'MACHINE_SCHEDULED', 'WAIT_HANDOVER', 'HANDOVER_SUBMITTED', 'WAIT_FEI_TICKET', 'FEI_TICKET_PRINTED'].includes(status)
           ? 'warning'
-          : ['FLAT_KNITTING', 'LINKING', 'IRONING', 'PACKING'].includes(status)
+          : ['FLAT_WOOL', 'LINKING', 'IRONING', 'PACKING'].includes(status)
             ? 'info'
             : 'muted'
-  return renderBadge(getKnittingWorkOrderStatusLabel(status), tone)
+  return renderBadge(getWoolWorkOrderStatusLabel(status), tone)
 }
 
 export function renderMetricCard(title: string, value: string, helper = ''): string {
@@ -110,7 +110,7 @@ export function renderTable(headers: string[], rows: string, minWidthClass = 'mi
   `
 }
 
-export interface KnittingPaginationResult<T> extends PagingResult<T> {
+export interface WoolPaginationResult<T> extends PagingResult<T> {
   pageParam: string
   pageSize: number
   pageSizeParam: string
@@ -120,7 +120,7 @@ function getCurrentPathParts(): { path: string; params: URLSearchParams } {
   const statePath = appStore.getState().pathname || (typeof window === 'undefined' ? '' : `${window.location.pathname}${window.location.search}`)
   const [path = '', query = ''] = statePath.split('?')
   return {
-    path: path || '/fcs/craft/knitting/work-orders',
+    path: path || '/fcs/craft/wool/work-orders',
     params: new URLSearchParams(query),
   }
 }
@@ -133,12 +133,12 @@ function buildPaginationHref(pageParam: string, page: number, pageSizeParam: str
   return `${path}?${params.toString()}`
 }
 
-export function paginateKnittingItems<T>(
+export function paginateWoolItems<T>(
   items: T[],
   pageParam: string,
   defaultPageSize = 10,
   pageSizeParam = `${pageParam}Size`,
-): KnittingPaginationResult<T> {
+): WoolPaginationResult<T> {
   const { params } = getCurrentPathParts()
   const pageSize = parsePageSize(params.get(pageSizeParam) || defaultPageSize, DEFAULT_PAGE_SIZE_OPTIONS, defaultPageSize)
   const page = Number(params.get(pageParam) || 1)
@@ -150,7 +150,7 @@ export function paginateKnittingItems<T>(
   }
 }
 
-export function renderPaginationControls<T>(paging: KnittingPaginationResult<T>, label = '条记录'): string {
+export function renderPaginationControls<T>(paging: WoolPaginationResult<T>, label = '条记录'): string {
   const pages = new Set<number>([
     1,
     paging.totalPages,
@@ -214,7 +214,7 @@ export function renderPaginatedTable<T>(
   label = '条记录',
   defaultPageSize = 10,
 ): string {
-  const paging = paginateKnittingItems(items, pageParam, defaultPageSize)
+  const paging = paginateWoolItems(items, pageParam, defaultPageSize)
   return `
     ${renderTable(headers, paging.rows.map(renderRow).join(''), minWidthClass)}
     ${renderPaginationControls(paging, label)}

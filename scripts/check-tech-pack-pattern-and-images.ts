@@ -55,7 +55,7 @@ const patternDomainSource = read('src/pages/tech-pack/pattern-domain.ts')
   assertIncludes(snapshotBuilderSource, token, `技术包快照构建缺少新字段：${token}`)
 })
 
-;['KNIT', 'WOVEN', 'UNKNOWN', '针织', '布料', '暂无数据'].forEach((token) => {
+;['WOOL', 'WOVEN', 'UNKNOWN', '毛织', '布料', '暂无数据'].forEach((token) => {
   assertIncludes(snapshotTypesSource, token, `纸样类型映射缺少字段：${token}`)
 })
 
@@ -74,7 +74,7 @@ const seedSnapshot = productionOrders
 assert(seedSnapshot, '至少应存在一个来源生产需求单正式技术包的生产单快照')
 
 assert(Array.isArray(seedSnapshot.patternFiles), '技术包快照必须支持 patternFiles 数组')
-assert(seedSnapshot.patternFiles.some((item) => item.patternMaterialType === 'KNIT'), '必须支持针织纸样')
+assert(seedSnapshot.patternFiles.some((item) => item.patternMaterialType === 'WOOL'), '必须支持毛织纸样')
 assert(seedSnapshot.patternFiles.some((item) => item.patternMaterialType === 'WOVEN'), '必须支持布料纸样')
 assert(seedSnapshot.patternFiles.every((item) => 'patternSoftwareName' in item), '纸样必须支持打版软件字段')
 assert(seedSnapshot.patternFiles.every((item) => Array.isArray(item.selectedSizeCodes ?? [])), '技术包快照必须支持尺码数组')
@@ -94,7 +94,7 @@ const snapshotPageHtml = renderFcsProductionTechPackSnapshotPage(runtimeOrder.pr
 ;['纸样类型', '纸样文件', '纸样版本', '打版软件', '尺码范围', '纸样分类', '裁片部位', '每件用片数', '对应面料', '人工确认', '适用颜色', '每种颜色的片数', '特殊工艺'].forEach((token) => {
   assert(snapshotPageHtml.includes(token), `技术包快照页必须展示：${token}`)
 })
-assertNotIncludes(snapshotPageHtml, '>KNIT<', '技术包快照页不得直接显示 KNIT')
+assertNotIncludes(snapshotPageHtml, '>WOOL<', '技术包快照页不得直接显示 WOOL')
 assertNotIncludes(snapshotPageHtml, '>WOVEN<', '技术包快照页不得直接显示 WOVEN')
 assertNotIncludes(snapshotPageHtml, '>UNKNOWN<', '技术包快照页不得直接显示 UNKNOWN')
 
@@ -150,7 +150,7 @@ assertIncludes(generatedOriginalCutOrdersSource, 'getProductionOrderCutPiecePart
 })
 
 assertIncludes(patternDomainSource, '暂无图片', '纸样详情缺图时必须显示暂无图片')
-;['纸样文件类型', '布料纸样', '针织纸样', '纸样分类', '解析纸样', '适用颜色', '每种颜色的片数', '特殊工艺'].forEach((token) => {
+;['纸样文件类型', '布料纸样', '毛织纸样', '纸样分类', '解析纸样', '适用颜色', '每种颜色的片数', '特殊工艺'].forEach((token) => {
   assertIncludes(patternDomainSource, token, `纸样页必须展示：${token}`)
 })
 ;['<span class="text-sm">备注</span>', '备注：', '<th class="px-3 py-2 text-left">备注</th>'].forEach((token) => {

@@ -1,14 +1,14 @@
 import { escapeHtml } from '../../../utils'
 import {
-  listKnittingMachineSchedules,
-  listKnittingWorkOrders,
-  type KnittingExecutionNode,
-  type KnittingWorkOrder,
-} from '../../../data/fcs/knitting-task-domain.ts'
+  listWoolMachineSchedules,
+  listWoolWorkOrders,
+  type WoolExecutionNode,
+  type WoolWorkOrder,
+} from '../../../data/fcs/wool-task-domain.ts'
 import {
-  buildKnittingMachineScheduleLink,
-  buildKnittingWorkOrderDetailLink,
-  buildKnittingWorkOrdersLink,
+  buildWoolMachineScheduleLink,
+  buildWoolWorkOrderDetailLink,
+  buildWoolWorkOrdersLink,
 } from '../../../data/fcs/fcs-route-links.ts'
 import {
   formatNumber,
@@ -22,17 +22,17 @@ import {
   renderStatusBadge,
 } from './shared'
 
-function getNode(order: KnittingWorkOrder, nodeName: string): KnittingExecutionNode | undefined {
+function getNode(order: WoolWorkOrder, nodeName: string): WoolExecutionNode | undefined {
   return order.nodes.find((node) => node.nodeName === nodeName)
 }
 
-function renderNodeBadge(node: KnittingExecutionNode | undefined, fallback = '无节点'): string {
+function renderNodeBadge(node: WoolExecutionNode | undefined, fallback = '无节点'): string {
   if (!node) return renderBadge(fallback, 'muted')
   const tone = node.status === '已完成' ? 'success' : node.status === '进行中' ? 'info' : node.status === '已跳过' ? 'muted' : 'warning'
   return renderBadge(node.status, tone)
 }
 
-function renderNodeCell(order: KnittingWorkOrder, nodeName: string): string {
+function renderNodeCell(order: WoolWorkOrder, nodeName: string): string {
   const node = getNode(order, nodeName)
   if (!node) {
     return `
@@ -55,17 +55,17 @@ function renderNodeCell(order: KnittingWorkOrder, nodeName: string): string {
 function renderTopActions(): string {
   return `
     <div class="flex flex-wrap gap-2">
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildKnittingWorkOrdersLink())}">返回加工单</button>
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildKnittingMachineScheduleLink())}">查看横机排产</button>
+      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildWoolWorkOrdersLink())}">返回加工单</button>
+      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildWoolMachineScheduleLink())}">查看横机排产</button>
     </div>
   `
 }
 
 function renderSummaryCards(): string {
-  const orders = listKnittingWorkOrders()
+  const orders = listWoolWorkOrders()
   const wholeOrders = orders.filter((order) => order.kind === 'WHOLE_GARMENT')
   const partOrders = orders.filter((order) => order.kind === 'PART_PANEL')
-  const schedules = listKnittingMachineSchedules()
+  const schedules = listWoolMachineSchedules()
   const nodeCount = (nodeName: string, status?: string) =>
     wholeOrders.concat(partOrders).filter((order) => {
       const node = getNode(order, nodeName)
@@ -78,17 +78,17 @@ function renderSummaryCards(): string {
 
   return `
     <section class="grid gap-3 md:grid-cols-4 xl:grid-cols-8">
-      ${renderMetricCard('针织加工单', String(orders.length), '周哥针织厂')}
-      ${renderMetricCard('整件针织', String(wholeOrders.length), '后续到后道工厂')}
-      ${renderMetricCard('部位针织', String(partOrders.length), '后续到裁床待交出仓')}
+      ${renderMetricCard('毛织加工单', String(orders.length), '周哥毛织厂')}
+      ${renderMetricCard('整件毛织', String(wholeOrders.length), '后续到后道工厂')}
+      ${renderMetricCard('部位毛织', String(partOrders.length), '后续到裁床待交出仓')}
       ${renderMetricCard('横机排产记录', String(schedules.length), '机台负荷看板')}
       ${renderMetricCard('横机进行中', String(nodeCount('横机成片', '进行中')), '当前成片节点')}
-      ${renderMetricCard('缝盘进行中', String(nodeCount('缝盘', '进行中')), '仅整件针织')}
+      ${renderMetricCard('缝盘进行中', String(nodeCount('缝盘', '进行中')), '仅整件毛织')}
       ${renderMetricCard('熨烫进行中', String(nodeCount('熨烫', '进行中')), '整件必经')}
       ${renderMetricCard('包装待定/跳过', String(nodeCount('包装', '已跳过')), '按加工单要求')}
     </section>
     <section class="grid gap-3 md:grid-cols-4">
-      ${renderMetricCard('待打印菲票', String(waitFeiRows), '仅部位针织')}
+      ${renderMetricCard('待打印菲票', String(waitFeiRows), '仅部位毛织')}
       ${renderMetricCard('已打印菲票', String(printedFeiRows), '可交裁床')}
       ${renderMetricCard('领料差异单', String(yarnDiffCount), '称重领料差异')}
       ${renderMetricCard('交出差异单', String(handoverDiffCount), '接收方回写差异')}
@@ -97,13 +97,13 @@ function renderSummaryCards(): string {
 }
 
 function renderWholeTable(): string {
-  const orders = listKnittingWorkOrders().filter((order) => order.kind === 'WHOLE_GARMENT')
+  const orders = listWoolWorkOrders().filter((order) => order.kind === 'WHOLE_GARMENT')
   return renderPaginatedTable(
-    ['针织单号', '任务类型', '款式', '横机成片', '缝盘', '熨烫', '包装', '交出对象', '当前状态', '操作'],
+    ['毛织单号', '任务类型', '款式', '横机成片', '缝盘', '熨烫', '包装', '交出对象', '当前状态', '操作'],
     orders,
     (order) => `
         <tr class="border-b align-top last:border-b-0">
-          <td class="px-3 py-3 font-mono text-xs">${escapeHtml(order.knittingOrderNo)}</td>
+          <td class="px-3 py-3 font-mono text-xs">${escapeHtml(order.woolOrderNo)}</td>
           <td class="px-3 py-3">${renderKindBadge(order.kind)}</td>
           <td class="px-3 py-3 text-sm">
             <div class="font-medium">${escapeHtml(order.styleName)}</div>
@@ -117,22 +117,22 @@ function renderWholeTable(): string {
           <td class="px-3 py-3">${renderStatusBadge(order.status)}</td>
           <td class="px-3 py-3">
             <div class="flex flex-wrap gap-2">
-              <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildKnittingWorkOrderDetailLink(order.knittingOrderId, 'whole'))}">查看整件节点</button>
-              <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildKnittingWorkOrderDetailLink(order.knittingOrderId, 'handover'))}">查看交出</button>
+              <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildWoolWorkOrderDetailLink(order.woolOrderId, 'whole'))}">查看整件节点</button>
+              <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildWoolWorkOrderDetailLink(order.woolOrderId, 'handover'))}">查看交出</button>
             </div>
           </td>
         </tr>
       `,
     'min-w-[1560px]',
     'statWholePage',
-    '条整件针织',
+    '条整件毛织',
   )
 }
 
 function renderPartTable(): string {
-  const orders = listKnittingWorkOrders().filter((order) => order.kind === 'PART_PANEL')
+  const orders = listWoolWorkOrders().filter((order) => order.kind === 'PART_PANEL')
   return renderPaginatedTable(
-    ['针织单号', '任务类型', '款式', '横机成片', '成片片数', '菲票行数', '交出对象', '当前状态', '操作'],
+    ['毛织单号', '任务类型', '款式', '横机成片', '成片片数', '菲票行数', '交出对象', '当前状态', '操作'],
     orders,
     (order) => {
       const waitFeiRows = order.partPanels.filter((panel) => panel.feiTicketStatus === '待打印').length
@@ -141,7 +141,7 @@ function renderPartTable(): string {
       const completedPieces = order.partPanels.reduce((sum, panel) => sum + panel.completedPieces, 0)
       return `
         <tr class="border-b align-top last:border-b-0">
-          <td class="px-3 py-3 font-mono text-xs">${escapeHtml(order.knittingOrderNo)}</td>
+          <td class="px-3 py-3 font-mono text-xs">${escapeHtml(order.woolOrderNo)}</td>
           <td class="px-3 py-3">${renderKindBadge(order.kind)}</td>
           <td class="px-3 py-3 text-sm">
             <div class="font-medium">${escapeHtml(order.styleName)}</div>
@@ -157,8 +157,8 @@ function renderPartTable(): string {
           <td class="px-3 py-3">${renderStatusBadge(order.status)}</td>
           <td class="px-3 py-3">
             <div class="flex flex-wrap gap-2">
-              <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildKnittingWorkOrderDetailLink(order.knittingOrderId, 'fei'))}">查看菲票</button>
-              <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildKnittingWorkOrderDetailLink(order.knittingOrderId, 'handover'))}">查看交出</button>
+              <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildWoolWorkOrderDetailLink(order.woolOrderId, 'fei'))}">查看菲票</button>
+              <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildWoolWorkOrderDetailLink(order.woolOrderId, 'handover'))}">查看交出</button>
             </div>
           </td>
         </tr>
@@ -166,12 +166,12 @@ function renderPartTable(): string {
     },
     'min-w-[1360px]',
     'statPartPage',
-    '条部位针织',
+    '条部位毛织',
   )
 }
 
 function renderRiskRows(): string {
-  const rows = listKnittingWorkOrders()
+  const rows = listWoolWorkOrders()
     .flatMap((order) => {
       const riskRows: Array<{ title: string; description: string; tab: string; tone: 'warning' | 'danger' }> = []
       if (order.yarnReceipt.differenceWeightKg !== 0) {
@@ -193,7 +193,7 @@ function renderRiskRows(): string {
       if (order.kind === 'PART_PANEL' && order.partPanels.some((panel) => panel.feiTicketStatus === '待打印')) {
         riskRows.push({
           title: '部位菲票待打印',
-          description: '部位针织已进入横机成片阶段，完成后需要按部位、颜色、尺码打印菲票。',
+          description: '部位毛织已进入横机成片阶段，完成后需要按部位、颜色、尺码打印菲票。',
           tab: 'fei',
           tone: 'warning',
         })
@@ -203,18 +203,18 @@ function renderRiskRows(): string {
   return renderSection(
     '风险与待处理',
     renderPaginatedTable(
-      ['针织单号', '任务类型', '款式', '风险类型', '说明', '交出对象', '操作'],
+      ['毛织单号', '任务类型', '款式', '风险类型', '说明', '交出对象', '操作'],
       rows,
       ({ order, risk }) => `
         <tr class="border-b align-top last:border-b-0">
-          <td class="px-3 py-3 font-mono text-xs">${escapeHtml(order.knittingOrderNo)}</td>
+          <td class="px-3 py-3 font-mono text-xs">${escapeHtml(order.woolOrderNo)}</td>
           <td class="px-3 py-3">${renderKindBadge(order.kind)}</td>
           <td class="px-3 py-3 text-sm">${escapeHtml(order.styleName)}</td>
           <td class="px-3 py-3">${renderBadge(risk.title, risk.tone)}</td>
           <td class="px-3 py-3 text-sm">${escapeHtml(risk.description)}</td>
           <td class="px-3 py-3 text-sm">${escapeHtml(order.downstreamTarget)}</td>
           <td class="px-3 py-3">
-            <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildKnittingWorkOrderDetailLink(order.knittingOrderId, risk.tab))}">查看处理入口</button>
+            <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildWoolWorkOrderDetailLink(order.woolOrderId, risk.tab))}">查看处理入口</button>
           </td>
         </tr>
       `,
@@ -225,25 +225,25 @@ function renderRiskRows(): string {
   )
 }
 
-export function renderCraftKnittingStatisticsPage(): string {
+export function renderCraftWoolStatisticsPage(): string {
   return `
     <div class="space-y-4 p-4">
-      ${renderPageHeader('针织统计', '围绕周哥针织厂的整件节点、部位菲票、交出分流和差异待处理做演示统计。', renderTopActions())}
+      ${renderPageHeader('毛织统计', '围绕周哥毛织厂的整件节点、部位菲票、交出分流和差异待处理做演示统计。', renderTopActions())}
       ${renderSummaryCards()}
       ${renderSection(
-        '整件针织节点进度',
+        '整件毛织节点进度',
         `
           <div class="mb-3 rounded-md border border-amber-100 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-            整件针织固定包含缝盘和熨烫；包装是否执行按加工单要求决定，完成后交出给后道工厂。
+            整件毛织固定包含缝盘和熨烫；包装是否执行按加工单要求决定，完成后交出给后道工厂。
           </div>
           ${renderWholeTable()}
         `,
       )}
       ${renderSection(
-        '部位针织菲票进度',
+        '部位毛织菲票进度',
         `
           <div class="mb-3 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-700">
-            部位针织只包含横机成片和菲票流转，不存在缝盘、熨烫、包装节点，完成后交到裁床待交出仓。
+            部位毛织只包含横机成片和菲票流转，不存在缝盘、熨烫、包装节点，完成后交到裁床待交出仓。
           </div>
           ${renderPartTable()}
         `,

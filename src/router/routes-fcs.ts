@@ -112,14 +112,14 @@ import {
   renderCraftDyeingWaitProcessWarehousePage,
   renderCraftDyeingWorkOrderDetailPage,
   renderCraftDyeingWorkOrdersPage,
-  renderCraftKnittingFeiTicketsPage,
-  renderCraftKnittingMachineSchedulePage,
-  renderCraftKnittingMachinesPage,
-  renderCraftKnittingStatisticsPage,
-  renderCraftKnittingWorkOrderDetailPage,
-  renderCraftKnittingWorkOrdersPage,
-  renderCraftKnittingWaitHandoverWarehousePage,
-  renderCraftKnittingWaitProcessWarehousePage,
+  renderCraftWoolFeiTicketsPage,
+  renderCraftWoolMachineSchedulePage,
+  renderCraftWoolMachinesPage,
+  renderCraftWoolStatisticsPage,
+  renderCraftWoolWorkOrderDetailPage,
+  renderCraftWoolWorkOrdersPage,
+  renderCraftWoolWaitHandoverWarehousePage,
+  renderCraftWoolWaitProcessWarehousePage,
   renderPostFinishingQcOrdersPage,
   renderPostFinishingRecheckOrdersPage,
   renderPostFinishingRecheckOrderDetailPage,
@@ -289,24 +289,24 @@ export const routes: RouteRegistry = {
       renderRouteRedirect('/fcs/craft/dyeing/work-orders?tab=formula', '正在跳转到染色加工单配方视图'),
     '/fcs/craft/dyeing/stats': () => renderCraftDyeingReportsPage(),
     '/fcs/craft/dyeing/reports': () => renderCraftDyeingReportsPage(),
-    '/fcs/craft/knitting': () =>
-      renderRouteRedirect('/fcs/craft/knitting/work-orders', '正在跳转到针织加工单'),
-    '/fcs/craft/knitting/work-orders': () => renderCraftKnittingWorkOrdersPage(),
-    '/fcs/craft/knitting/wait-process-warehouse': () => renderCraftKnittingWaitProcessWarehousePage(),
-    '/fcs/craft/knitting/wait-handover-warehouse': () => renderCraftKnittingWaitHandoverWarehousePage(),
-    '/fcs/craft/knitting/fei-tickets': () => renderCraftKnittingFeiTicketsPage(),
-    '/fcs/craft/knitting/machine-schedule': () => renderCraftKnittingMachineSchedulePage(),
-    '/fcs/craft/knitting/machines': () => renderCraftKnittingMachinesPage(),
-    '/fcs/craft/knitting/statistics': () => renderCraftKnittingStatisticsPage(),
-    '/fcs/craft/knitting/stats': () => renderCraftKnittingStatisticsPage(),
-    '/fcs/craft/knitting/warehouse': () =>
-      renderRouteRedirect('/fcs/craft/knitting/wait-process-warehouse', '正在跳转到针织待加工仓'),
-    '/fcs/craft/knitting/warehouse-management': () =>
-      renderRouteRedirect('/fcs/craft/knitting/wait-process-warehouse', '正在跳转到针织待加工仓'),
-    '/fcs/craft/knitting/tasks': () =>
-      renderRouteRedirect('/fcs/craft/knitting/work-orders', '正在跳转到针织加工单'),
-    '/fcs/craft/knitting/orders': () =>
-      renderRouteRedirect('/fcs/craft/knitting/work-orders', '正在跳转到针织加工单'),
+    '/fcs/craft/wool': () =>
+      renderRouteRedirect('/fcs/craft/wool/work-orders', '正在跳转到毛织加工单'),
+    '/fcs/craft/wool/work-orders': () => renderCraftWoolWorkOrdersPage(),
+    '/fcs/craft/wool/wait-process-warehouse': () => renderCraftWoolWaitProcessWarehousePage(),
+    '/fcs/craft/wool/wait-handover-warehouse': () => renderCraftWoolWaitHandoverWarehousePage(),
+    '/fcs/craft/wool/fei-tickets': () => renderCraftWoolFeiTicketsPage(),
+    '/fcs/craft/wool/machine-schedule': () => renderCraftWoolMachineSchedulePage(),
+    '/fcs/craft/wool/machines': () => renderCraftWoolMachinesPage(),
+    '/fcs/craft/wool/statistics': () => renderCraftWoolStatisticsPage(),
+    '/fcs/craft/wool/stats': () => renderCraftWoolStatisticsPage(),
+    '/fcs/craft/wool/warehouse': () =>
+      renderRouteRedirect('/fcs/craft/wool/wait-process-warehouse', '正在跳转到毛织待加工仓'),
+    '/fcs/craft/wool/warehouse-management': () =>
+      renderRouteRedirect('/fcs/craft/wool/wait-process-warehouse', '正在跳转到毛织待加工仓'),
+    '/fcs/craft/wool/tasks': () =>
+      renderRouteRedirect('/fcs/craft/wool/work-orders', '正在跳转到毛织加工单'),
+    '/fcs/craft/wool/orders': () =>
+      renderRouteRedirect('/fcs/craft/wool/work-orders', '正在跳转到毛织加工单'),
     '/fcs/craft/post-finishing': () =>
       renderRouteRedirect('/fcs/craft/post-finishing/tasks', '正在跳转到后道任务'),
     '/fcs/craft/post-finishing/tasks': () => renderPostFinishingTasksPage(),
@@ -402,8 +402,8 @@ export const routes: RouteRegistry = {
       render: (match) => renderCraftDyeingWorkOrderDetailPage(decodeURIComponent(match[1])),
     },
     {
-      pattern: /^\/fcs\/craft\/knitting\/work-orders\/([^/]+)$/,
-      render: (match) => renderCraftKnittingWorkOrderDetailPage(decodeURIComponent(match[1])),
+      pattern: /^\/fcs\/craft\/wool\/work-orders\/([^/]+)$/,
+      render: (match) => renderCraftWoolWorkOrderDetailPage(decodeURIComponent(match[1])),
     },
     {
       pattern: /^\/fcs\/craft\/post-finishing\/recheck-orders\/([^/]+)$/,

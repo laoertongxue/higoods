@@ -377,37 +377,37 @@ export const renderCraftDyeingWaitHandoverWarehousePage = createAsyncRenderer(
   () => import('../pages/process-factory/dyeing/warehouse'),
   'renderCraftDyeingWaitHandoverWarehousePage',
 )
-export const renderCraftKnittingWorkOrdersPage = createAsyncRenderer(
-  () => import('../pages/process-factory/knitting/work-orders'),
-  'renderCraftKnittingWorkOrdersPage',
+export const renderCraftWoolWorkOrdersPage = createAsyncRenderer(
+  () => import('../pages/process-factory/wool/work-orders'),
+  'renderCraftWoolWorkOrdersPage',
 )
-export const renderCraftKnittingWorkOrderDetailPage = createAsyncRenderer(
-  () => import('../pages/process-factory/knitting/work-order-detail'),
-  'renderCraftKnittingWorkOrderDetailPage',
+export const renderCraftWoolWorkOrderDetailPage = createAsyncRenderer(
+  () => import('../pages/process-factory/wool/work-order-detail'),
+  'renderCraftWoolWorkOrderDetailPage',
 )
-export const renderCraftKnittingWaitProcessWarehousePage = createAsyncRenderer(
-  () => import('../pages/process-factory/knitting/warehouse'),
-  'renderCraftKnittingWaitProcessWarehousePage',
+export const renderCraftWoolWaitProcessWarehousePage = createAsyncRenderer(
+  () => import('../pages/process-factory/wool/warehouse'),
+  'renderCraftWoolWaitProcessWarehousePage',
 )
-export const renderCraftKnittingWaitHandoverWarehousePage = createAsyncRenderer(
-  () => import('../pages/process-factory/knitting/warehouse'),
-  'renderCraftKnittingWaitHandoverWarehousePage',
+export const renderCraftWoolWaitHandoverWarehousePage = createAsyncRenderer(
+  () => import('../pages/process-factory/wool/warehouse'),
+  'renderCraftWoolWaitHandoverWarehousePage',
 )
-export const renderCraftKnittingFeiTicketsPage = createAsyncRenderer(
-  () => import('../pages/process-factory/knitting/fei-tickets'),
-  'renderCraftKnittingFeiTicketsPage',
+export const renderCraftWoolFeiTicketsPage = createAsyncRenderer(
+  () => import('../pages/process-factory/wool/fei-tickets'),
+  'renderCraftWoolFeiTicketsPage',
 )
-export const renderCraftKnittingMachineSchedulePage = createAsyncRenderer(
-  () => import('../pages/process-factory/knitting/machine-schedule'),
-  'renderCraftKnittingMachineSchedulePage',
+export const renderCraftWoolMachineSchedulePage = createAsyncRenderer(
+  () => import('../pages/process-factory/wool/machine-schedule'),
+  'renderCraftWoolMachineSchedulePage',
 )
-export const renderCraftKnittingMachinesPage = createAsyncRenderer(
-  () => import('../pages/process-factory/knitting/machines'),
-  'renderCraftKnittingMachinesPage',
+export const renderCraftWoolMachinesPage = createAsyncRenderer(
+  () => import('../pages/process-factory/wool/machines'),
+  'renderCraftWoolMachinesPage',
 )
-export const renderCraftKnittingStatisticsPage = createAsyncRenderer(
-  () => import('../pages/process-factory/knitting/statistics'),
-  'renderCraftKnittingStatisticsPage',
+export const renderCraftWoolStatisticsPage = createAsyncRenderer(
+  () => import('../pages/process-factory/wool/statistics'),
+  'renderCraftWoolStatisticsPage',
 )
 export const renderPostFinishingWorkOrdersPage = createAsyncRenderer(
   () => import('../pages/process-factory/post-finishing/work-orders'),

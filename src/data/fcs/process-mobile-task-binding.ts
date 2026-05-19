@@ -10,12 +10,12 @@ import {
   type PdaTaskFlowProjectedTask,
 } from './pda-cutting-execution-source.ts'
 import {
-  getKnittingWorkOrderById,
-  getKnittingWorkOrderByTaskId,
-  listKnittingMobileProcessTasks,
-  listKnittingWorkOrders,
-  type KnittingWorkOrder,
-} from './knitting-task-domain.ts'
+  getWoolWorkOrderById,
+  getWoolWorkOrderByTaskId,
+  listWoolMobileProcessTasks,
+  listWoolWorkOrders,
+  type WoolWorkOrder,
+} from './wool-task-domain.ts'
 import { listPdaGenericTasksByProcess } from './pda-task-mock-factory.ts'
 import {
   getPostFinishingWorkOrderById,
@@ -57,7 +57,7 @@ export type MobileTaskProcessType =
   | 'PRINT'
   | 'DYE'
   | 'CUTTING'
-  | 'KNITTING'
+  | 'WOOL'
   | 'SPECIAL_CRAFT'
   | 'POST_FINISHING'
   | 'SEWING'
@@ -264,22 +264,22 @@ export function listPdaMobileExecutionTasks(): ProcessTask[] {
   listPrintWorkOrders()
   listDyeWorkOrders()
 
-  const baseTasks = listPdaTaskFlowTasks().filter((task) => !isSpecialCraftTask(task) && getMobileTaskProcessType(task) !== 'KNITTING')
+  const baseTasks = listPdaTaskFlowTasks().filter((task) => !isSpecialCraftTask(task) && getMobileTaskProcessType(task) !== 'WOOL')
   const existingTaskIds = new Set(baseTasks.map((task) => task.taskId))
   const genericProcessTasks = [
     ...listPdaGenericTasksByProcess('PRINTING'),
     ...listPdaGenericTasksByProcess('DYEING'),
   ].filter((task) => !existingTaskIds.has(task.taskId))
   const existingWithGeneric = new Set([...existingTaskIds, ...genericProcessTasks.map((task) => task.taskId)])
-  const knittingTasks = listKnittingMobileProcessTasks().filter((task) => !existingWithGeneric.has(task.taskId))
-  const existingWithKnitting = new Set([...existingWithGeneric, ...knittingTasks.map((task) => task.taskId)])
+  const woolTasks = listWoolMobileProcessTasks().filter((task) => !existingWithGeneric.has(task.taskId))
+  const existingWithWool = new Set([...existingWithGeneric, ...woolTasks.map((task) => task.taskId)])
   const specialCraftTasks = listSpecialCraftTaskOrders()
-    .map((taskOrder, index) => mapSpecialCraftTaskOrderToMobileTask(taskOrder, baseTasks.length + genericProcessTasks.length + knittingTasks.length + index + 1))
-    .filter((task) => !existingWithKnitting.has(task.taskId))
-  const existingWithSpecial = new Set([...existingWithKnitting, ...specialCraftTasks.map((task) => task.taskId)])
+    .map((taskOrder, index) => mapSpecialCraftTaskOrderToMobileTask(taskOrder, baseTasks.length + genericProcessTasks.length + woolTasks.length + index + 1))
+    .filter((task) => !existingWithWool.has(task.taskId))
+  const existingWithSpecial = new Set([...existingWithWool, ...specialCraftTasks.map((task) => task.taskId)])
   const postTasks = listPostFinishingMobileExecutionTasks()
     .filter((task) => !existingWithSpecial.has(task.taskId))
-  return [...baseTasks, ...genericProcessTasks, ...knittingTasks, ...specialCraftTasks, ...postTasks]
+  return [...baseTasks, ...genericProcessTasks, ...woolTasks, ...specialCraftTasks, ...postTasks]
 }
 
 export function getPdaMobileExecutionTaskById(taskId: string): ProcessTask | null {
@@ -305,7 +305,7 @@ export function getMobileTaskProcessType(task: ProcessTask | null | undefined): 
   if (/PROC_PRINT|PRINT\b|印花|转印/.test(explicitFields)) return 'PRINT'
   if (/PROC_DYE|DYE\b|染色/.test(explicitFields)) return 'DYE'
   if (/PROC_CUT|CUTTING|裁片|定位裁/.test(explicitFields)) return 'CUTTING'
-  if (/PROC_KNIT|KNITTING|针织|毛织/.test(explicitFields)) return 'KNITTING'
+  if (/PROC_WOOL|WOOL|毛织|毛织/.test(explicitFields)) return 'WOOL'
   if (/POST_FINISH|后道/.test(explicitFields)) return 'POST_FINISHING'
   if (/SEW|车缝/.test(explicitFields)) return 'SEWING'
   if (/SPECIAL|特殊工艺|绣花|打揽|打条|激光切|烫画|直喷|捆条/.test(craftFields)) return 'SPECIAL_CRAFT'
@@ -531,7 +531,7 @@ function getDyeTask(order: DyeWorkOrder): ProcessTask | null {
   return order.taskId ? getPdaMobileExecutionTaskById(order.taskId) : null
 }
 
-function getKnittingTask(order: KnittingWorkOrder): ProcessTask | null {
+function getWoolTask(order: WoolWorkOrder): ProcessTask | null {
   return getPdaMobileExecutionTaskById(order.taskNo)
 }
 
@@ -597,19 +597,19 @@ export function validateDyeWorkOrderMobileTaskBinding(dyeOrderId: string): Proce
   })
 }
 
-export function validateKnittingWorkOrderMobileTaskBinding(knittingOrderId: string): ProcessMobileTaskBindingResult {
-  const order = getKnittingWorkOrderById(knittingOrderId) ?? getKnittingWorkOrderByTaskId(knittingOrderId)
+export function validateWoolWorkOrderMobileTaskBinding(woolOrderId: string): ProcessMobileTaskBindingResult {
+  const order = getWoolWorkOrderById(woolOrderId) ?? getWoolWorkOrderByTaskId(woolOrderId)
   return validateBinding({
-    workOrderId: order?.knittingOrderId || knittingOrderId,
-    workOrderNo: order?.knittingOrderNo || knittingOrderId,
-    processType: 'KNITTING',
-    sourceType: 'KNITTING_WORK_ORDER',
-    sourceId: knittingOrderId,
+    workOrderId: order?.woolOrderId || woolOrderId,
+    workOrderNo: order?.woolOrderNo || woolOrderId,
+    processType: 'WOOL',
+    sourceType: 'WOOL_WORK_ORDER',
+    sourceId: woolOrderId,
     expectedTaskId: order?.taskNo,
     expectedTaskNo: order?.taskNo,
     expectedFactoryId: order?.factoryId,
     sourceExists: Boolean(order),
-    actualTask: order ? getKnittingTask(order) : null,
+    actualTask: order ? getWoolTask(order) : null,
     currentFactoryId: order?.factoryId || TEST_FACTORY_ID,
   })
 }
@@ -696,7 +696,7 @@ export function validatePostFinishingMobileTaskBinding(postOrderId: string): Pro
 export function validateProcessMobileTaskBinding(params: { processType: MobileTaskProcessType; sourceId: string }): ProcessMobileTaskBindingResult {
   if (params.processType === 'PRINT') return validatePrintWorkOrderMobileTaskBinding(params.sourceId)
   if (params.processType === 'DYE') return validateDyeWorkOrderMobileTaskBinding(params.sourceId)
-  if (params.processType === 'KNITTING') return validateKnittingWorkOrderMobileTaskBinding(params.sourceId)
+  if (params.processType === 'WOOL') return validateWoolWorkOrderMobileTaskBinding(params.sourceId)
   if (params.processType === 'CUTTING') return validateCuttingOrderMobileTaskBinding(params.sourceId)
   if (params.processType === 'SPECIAL_CRAFT') return validateSpecialCraftMobileTaskBinding(params.sourceId)
   if (params.processType === 'POST_FINISHING') return validatePostFinishingMobileTaskBinding(params.sourceId)
@@ -730,8 +730,8 @@ export function listInvalidProcessMobileTaskBindings(filter: { processType?: Mob
   if (!filter.processType || filter.processType === 'DYE') {
     results.push(...listDyeWorkOrders().map((order) => validateDyeWorkOrderMobileTaskBinding(order.dyeOrderId)))
   }
-  if (!filter.processType || filter.processType === 'KNITTING') {
-    results.push(...listKnittingWorkOrders().map((order) => validateKnittingWorkOrderMobileTaskBinding(order.knittingOrderId)))
+  if (!filter.processType || filter.processType === 'WOOL') {
+    results.push(...listWoolWorkOrders().map((order) => validateWoolWorkOrderMobileTaskBinding(order.woolOrderId)))
   }
   if (!filter.processType || filter.processType === 'CUTTING') {
     results.push(...listKnownCuttingOrderIds().map((orderId) => validateCuttingOrderMobileTaskBinding(orderId)))

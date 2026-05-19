@@ -245,7 +245,7 @@ function buildSeedSnapshot(): LiveTestingStoreSnapshot {
     {
       liveSessionId: 'LS-20260406-025',
       liveSessionCode: 'LS-20260406-025',
-      sessionTitle: '针织背心淘汰复盘直播',
+      sessionTitle: '毛织背心淘汰复盘直播',
       channelName: 'Shopee / 男装快反直播间',
       hostName: '达人-Ken',
       sessionStatus: '已关账',
@@ -476,7 +476,7 @@ function buildSeedSnapshot(): LiveTestingStoreSnapshot {
       liveSessionId: 'LS-20260406-025',
       liveSessionCode: 'LS-20260406-025',
       lineNo: 1,
-      productTitle: '改版针织背心淘汰款',
+      productTitle: '改版毛织背心淘汰款',
       styleCode: 'SPU-2026-025',
       spuCode: 'SPU-2026-025',
       skuCode: 'SPU-2026-025-M-GREEN',

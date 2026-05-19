@@ -309,10 +309,10 @@ const techPackSource =
   read('src/pages/tech-pack/events.ts') +
   read('src/pages/fcs-production-tech-pack-snapshot.ts') +
   read('src/pages/production/confirmation-print.ts')
-;['patternFiles', '纸样类型', '针织', '布料', '打版软件', '裁片部位', '暂无图片'].forEach((token) => {
+;['patternFiles', '纸样类型', '毛织', '布料', '打版软件', '裁片部位', '暂无图片'].forEach((token) => {
   assert(techPackSource.includes(token), `技术包口径缺少：${token}`)
 })
-;['纸样文件类型', '布料纸样', '针织纸样', '纸样分类', '解析纸样', '部位名称', '适用颜色', '每种颜色的片数', '特殊工艺', 'selectedSizeCodes', 'colorAllocations', 'specialCrafts', 'getPatternPieceSpecialCraftOptionsFromCurrentTechPack'].forEach((token) => {
+;['纸样文件类型', '布料纸样', '毛织纸样', '纸样分类', '解析纸样', '部位名称', '适用颜色', '每种颜色的片数', '特殊工艺', 'selectedSizeCodes', 'colorAllocations', 'specialCrafts', 'getPatternPieceSpecialCraftOptionsFromCurrentTechPack'].forEach((token) => {
   assert(techPackSource.includes(token), `技术包解析迁移口径缺少：${token}`)
 })
 

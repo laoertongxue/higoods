@@ -7,7 +7,7 @@ export type FactoryTier = 'CENTRAL' | 'SATELLITE' | 'THIRD_PARTY'
 // 组织类型（按 tier 约束）
 export type CentralType = 
   | 'CENTRAL_FACTORY' | 'PRINTING' | 'DYEING' | 'CUTTING' | 'AUX_PROCESS' | 'SPECIAL_PROCESS'
-  | 'TRIM_SUPPLIER' | 'KNIT' | 'DENIM_WASH' | 'POD'
+  | 'TRIM_SUPPLIER' | 'WOOL' | 'DENIM_WASH' | 'POD'
   | 'WAREHOUSE' | 'DISPATCH_CENTER' | 'DEV_DESIGN_CENTER'
 export type SatelliteType = 'SATELLITE_CLUSTER' | 'SATELLITE_SEWING' | 'SATELLITE_FINISHING'
 export type ThirdPartyType = 'MICRO_SEWING' | 'THIRD_SEWING'
@@ -20,7 +20,7 @@ export type KpiTemplate = 'SEWING' | 'PRINT_DYE' | 'WAREHOUSE' | 'GENERAL'
 export const typesByTier: Record<FactoryTier, FactoryType[]> = {
   CENTRAL: [
     'CENTRAL_FACTORY', 'PRINTING', 'DYEING', 'CUTTING', 'AUX_PROCESS', 'SPECIAL_PROCESS',
-    'TRIM_SUPPLIER', 'KNIT', 'DENIM_WASH', 'POD',
+    'TRIM_SUPPLIER', 'WOOL', 'DENIM_WASH', 'POD',
     'WAREHOUSE', 'DISPATCH_CENTER', 'DEV_DESIGN_CENTER',
   ],
   SATELLITE: ['SATELLITE_CLUSTER', 'SATELLITE_SEWING', 'SATELLITE_FINISHING'],
@@ -43,7 +43,7 @@ export const typeLabels: Record<FactoryType, string> = {
   AUX_PROCESS:        '辅助工艺厂',
   SPECIAL_PROCESS:    '特种工艺厂',
   TRIM_SUPPLIER:      '花边/织带厂',
-  KNIT:               '毛织厂',
+  WOOL:               '毛织厂',
   DENIM_WASH:         '牛仔水洗厂',
   POD:                'POD工厂',
   WAREHOUSE:          '原料仓库',
@@ -127,7 +127,7 @@ export const indonesiaBanks = [
 
 // 能力标签
 export const capabilityTags = [
-  '车缝', '后整', '梭织', '针织', '大货', '小单快反',
+  '车缝', '后整', '梭织', '毛织', '大货', '小单快反',
   '印花', '绣花', '水洗', '染色', '棉', '涤纶', '真丝', '牛仔', '羽绒服', '外套'
 ]
 
@@ -147,7 +147,7 @@ export const indonesiaFactories: IndonesiaFactory[] = [
     contactName: 'Budi Santoso',
     contactPhone: '+62 812-3456-7890',
     status: 'ACTIVE',
-    tags: ['车缝', '针织', '大货'],
+    tags: ['车缝', '毛织', '大货'],
     currency: 'IDR',
     timezone: 'Asia/Jakarta',
     monthlyCapacity: 50000,
@@ -345,9 +345,9 @@ export const indonesiaFactories: IndonesiaFactory[] = [
   {
     id: 'ID-F009',
     code: 'ID-FAC-0009',
-    name: 'PT Knit Central Bogor',
+    name: 'PT Wool Central Bogor',
     tier: 'CENTRAL',
-    type: 'KNIT',
+    type: 'WOOL',
     kpiTemplate: 'SEWING',
     city: 'Bogor',
     province: 'West Java',
@@ -355,7 +355,7 @@ export const indonesiaFactories: IndonesiaFactory[] = [
     contactName: 'Dian Putra',
     contactPhone: '+62 819-9999-0000',
     status: 'ACTIVE',
-    tags: ['针织', '小单快反'],
+    tags: ['毛织', '小单快反'],
     currency: 'IDR',
     timezone: 'Asia/Jakarta',
     monthlyCapacity: 45000,

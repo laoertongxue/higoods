@@ -181,12 +181,12 @@ function createFallbackTask(runtimeTask: RuntimeProcessTask): ProcessTask {
     defaultDocType: runtimeTask.defaultDocType,
     taskTypeMode: runtimeTask.taskTypeMode,
     isSpecialCraft: runtimeTask.isSpecialCraft,
-    knittingTaskType: runtimeTask.knittingTaskType,
-    knittingKind: runtimeTask.knittingKind,
-    knittingKindLabel: runtimeTask.knittingKindLabel,
-    knittingOrderId: runtimeTask.knittingOrderId,
-    knittingOrderNo: runtimeTask.knittingOrderNo,
-    knittingDownstreamTarget: runtimeTask.knittingDownstreamTarget,
+    woolTaskType: runtimeTask.woolTaskType,
+    woolKind: runtimeTask.woolKind,
+    woolKindLabel: runtimeTask.woolKindLabel,
+    woolOrderId: runtimeTask.woolOrderId,
+    woolOrderNo: runtimeTask.woolOrderNo,
+    woolDownstreamTarget: runtimeTask.woolDownstreamTarget,
     yarnSku: runtimeTask.yarnSku,
     yarnPlannedWeightKg: runtimeTask.yarnPlannedWeightKg,
     yarnReceivedWeightKg: runtimeTask.yarnReceivedWeightKg,
@@ -246,12 +246,12 @@ function syncTaskFromRuntime(task: ProcessTask, runtimeTask: RuntimeProcessTask,
   task.taskTypeMode = runtimeTask.taskTypeMode
   task.isSpecialCraft = runtimeTask.isSpecialCraft
   task.taskCategoryZh = runtimeTask.taskCategoryZh
-  task.knittingTaskType = runtimeTask.knittingTaskType
-  task.knittingKind = runtimeTask.knittingKind
-  task.knittingKindLabel = runtimeTask.knittingKindLabel
-  task.knittingOrderId = runtimeTask.knittingOrderId
-  task.knittingOrderNo = runtimeTask.knittingOrderNo
-  task.knittingDownstreamTarget = runtimeTask.knittingDownstreamTarget
+  task.woolTaskType = runtimeTask.woolTaskType
+  task.woolKind = runtimeTask.woolKind
+  task.woolKindLabel = runtimeTask.woolKindLabel
+  task.woolOrderId = runtimeTask.woolOrderId
+  task.woolOrderNo = runtimeTask.woolOrderNo
+  task.woolDownstreamTarget = runtimeTask.woolDownstreamTarget
   task.yarnSku = runtimeTask.yarnSku
   task.yarnPlannedWeightKg = runtimeTask.yarnPlannedWeightKg
   task.yarnReceivedWeightKg = runtimeTask.yarnReceivedWeightKg

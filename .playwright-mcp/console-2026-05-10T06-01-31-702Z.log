@@ -8,259 +8,259 @@
 [28414560ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
 [28420246ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
 [28435021ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[28435032ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[28435032ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421326498:1429:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421326498:1424:57
 [28447040ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[28447048ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[28447048ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [28456236ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[28456243ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[28456243ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [28466147ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[28466163ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[28466163ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [28477932ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[28477939ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[28477939ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [28484780ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[28484790ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[28484790ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [28550330ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[28550341ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[28550341ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [28558036ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[28558046ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[28558046ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [28583808ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[28583829ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[28583829ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [28589491ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[28589496ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[28589496ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [28597098ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[28597102ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[28597102ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [28608964ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[28608976ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[28608976ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [28616989ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[28616999ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[28616999ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [28654237ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[28654243ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[28654243ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [28661260ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[28661265ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[28661265ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [28673038ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[28673045ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[28673045ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [28705671ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[28705679ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[28705679ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [28715480ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[28715485ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[28715485ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [28758480ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[28758484ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[28758484ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [28776818ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[28776822ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[28776822ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [28786982ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[28786986ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[28786986ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [28794477ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[28794483ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[28794483ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [28856213ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[28856222ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[28856222ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [28869555ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[28869559ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[28869559ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [28876947ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[28876951ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[28876951ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [28884487ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[28884491ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[28884491ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [28896218ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[28896239ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[28896239ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [28910189ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[28910198ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[28910198ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [28925219ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[28925225ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[28925225ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [28942644ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[28942649ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[28942649ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [29158825ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[29158831ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[29158831ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [29173281ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[29173285ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[29173285ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [29210327ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[29210335ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[29210335ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [29252367ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[29252371ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[29252371ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [29264771ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[29264781ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[29264781ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [29274882ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[29274891ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[29274891ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [29342185ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[29342190ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[29342190ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [29352236ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[29352240ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[29352240ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [29370343ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[29370347ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[29370347ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [29376806ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[29376812ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[29376812ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [29405008ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[29405016ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[29405016ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [29459124ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[29459129ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[29459129ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1427:57
 [29519506ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
-[29519510ms] Error: 缺少工艺 整件针织 的当前阶段模板配置
+[29519510ms] Error: 缺少工艺 整件毛织 的当前阶段模板配置
     at getFactorySupplyFormulaTemplate (http://localhost:5173/src/data/fcs/process-craft-sam-explainer.ts:226:11)
     at http://localhost:5173/src/data/fcs/process-craft-dict.ts?t=1778421338487:1432:32
     at Array.map (<anonymous>)

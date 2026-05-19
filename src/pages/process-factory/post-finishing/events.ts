@@ -229,7 +229,7 @@ function renderReceiptDetails(handover: PostFinishingUpstreamHandover | undefine
   if (!handover) {
     return `
       <div class="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-        请输入车缝任务或针织任务的交出记录编号，也可以扫码二维码后读取明细。
+        请输入车缝任务或毛织任务的交出记录编号，也可以扫码二维码后读取明细。
       </div>
     `
   }
@@ -314,14 +314,14 @@ function openPostFinishingReceiptDialog(): void {
         <header class="flex items-start justify-between gap-3 border-b px-4 py-3">
           <div>
             <h2 class="text-base font-semibold">扫码收货</h2>
-            <div class="mt-1 text-xs text-muted-foreground">读取车缝任务或针织任务的交出明细后，逐行确认实收数量和存放库区库位。</div>
+            <div class="mt-1 text-xs text-muted-foreground">读取车缝任务或毛织任务的交出明细后，逐行确认实收数量和存放库区库位。</div>
           </div>
           <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-post-receipt-action="close">关闭</button>
         </header>
         <div class="space-y-4 overflow-y-auto p-4">
           <div class="grid gap-3 md:grid-cols-[1fr_auto]">
             <label class="text-sm">
-              <span class="text-xs text-muted-foreground">车缝任务/针织任务交出记录编号或二维码 *</span>
+              <span class="text-xs text-muted-foreground">车缝任务/毛织任务交出记录编号或二维码 *</span>
               <input class="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm" placeholder="例如 SEW-HO-202605-001 或 QR-SEW-HO-202605-001" data-post-receipt-field="handoverNo" />
             </label>
             <div class="flex items-end gap-2">

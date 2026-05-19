@@ -255,9 +255,9 @@ export function renderAddTechniqueDialog(): string {
   )
   const selectedCraft = availableCraftOptions.find((item) => item.craftCode === state.newTechnique.craftCode) ?? null
   const targetOptions = selectedCraft?.isSpecialCraft ? selectedCraft.supportedTargetObjectLabels ?? [] : []
-  const isKnittingCraft = selectedCraft?.processCode === 'KNITTING'
-  const isWholeKnitting = selectedCraft?.craftName === '整件针织'
-  const knittingDownstream = selectedCraft?.craftName === '部位针织' ? '裁床待交出仓' : '后道工厂'
+  const isWoolCraft = selectedCraft?.processCode === 'WOOL'
+  const isWholeWool = selectedCraft?.craftName === '整件毛织'
+  const woolDownstream = selectedCraft?.craftName === '部位毛织' ? '裁床待交出仓' : '后道工厂'
   const draftReferenceMeta = getTechniqueReferenceMetaByCraftCode(state.newTechnique.craftCode)
   const draftReferenceText =
     draftReferenceMeta.referencePublishedSamValue !== null && draftReferenceMeta.referencePublishedSamUnitLabel
@@ -325,21 +325,21 @@ export function renderAddTechniqueDialog(): string {
           }
 
           ${
-            isKnittingCraft
+            isWoolCraft
               ? `
                 <div class="rounded-md border border-emerald-100 bg-emerald-50/60 px-3 py-3 text-sm">
-                  <div class="font-medium text-emerald-800">针织任务规则</div>
+                  <div class="font-medium text-emerald-800">毛织任务规则</div>
                   <div class="mt-2 grid gap-2 text-xs text-slate-700 md:grid-cols-2">
                     <div>任务类型：${escapeHtml(selectedCraft?.craftName || '-')}</div>
                     <div>领料方式：染厂/面料仓送料到厂</div>
-                    <div>完成交出：${escapeHtml(knittingDownstream)}</div>
-                    <div>菲票规则：${selectedCraft?.craftName === '部位针织' ? '按针织部位打印菲票' : '整件针织不打印菲票'}</div>
+                    <div>完成交出：${escapeHtml(woolDownstream)}</div>
+                    <div>菲票规则：${selectedCraft?.craftName === '部位毛织' ? '按毛织部位打印菲票' : '整件毛织不打印菲票'}</div>
                   </div>
                   ${
-                    isWholeKnitting
+                    isWholeWool
                       ? `<label class="mt-3 flex items-center gap-2 text-xs text-slate-700">
                           <input type="checkbox" data-tech-field="new-technique-packaging-required" value="是" ${state.newTechnique.packagingRequired ? 'checked' : ''} />
-                          本单整件针织需要包装节点
+                          本单整件毛织需要包装节点
                         </label>`
                       : ''
                   }

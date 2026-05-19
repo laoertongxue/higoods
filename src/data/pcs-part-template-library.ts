@@ -259,7 +259,7 @@ function getDefaultStore(): PartTemplateStore {
         normalizedShapeSignature: '28-52-1320-164',
         parserStatus: '解析成功',
         machineReadyStatus: '待评估',
-        hotStyleNames: ['运动外套', '针织卫衣'],
+        hotStyleNames: ['运动外套', '毛织卫衣'],
       }),
     ],
   }

@@ -89,7 +89,7 @@ interface CoverageSeedContext {
 const COVERAGE_BLUEPRINTS: Record<TemplateStyleType, CoverageBlueprint[]> = {
   基础款: [
     {
-      projectLabel: '基础针织T恤',
+      projectLabel: '基础毛织T恤',
       categoryName: '上衣',
       ownerName: '张丽',
       teamName: '商品企划组',
@@ -1938,7 +1938,7 @@ export function ensurePcsProjectDemoDataReady(): void {
 
   const archivedProject = createProject(
     buildDemoDraft({
-      projectName: '双渠道归档项目-2026春季针织连衣裙',
+      projectName: '双渠道归档项目-2026春季毛织连衣裙',
       styleType: '基础款',
       projectSourceType: '测款沉淀',
       categoryName: '连衣裙',
@@ -2049,7 +2049,7 @@ export function ensurePcsProjectDemoDataReady(): void {
     sourceObjectType: '款式档案',
     sourceObjectId: `${archivedProject.projectId}-style-001`,
     sourceObjectCode: `SPU-${archivedProject.projectCode.split('-').slice(-1)[0]}`,
-    sourceTitle: '针织连衣裙款式档案',
+    sourceTitle: '毛织连衣裙款式档案',
     sourceStatus: '已启用',
     businessDate: '2026-04-05 09:20',
     noteMeta: {
@@ -2168,7 +2168,7 @@ export function ensurePcsProjectDemoDataReady(): void {
     sourceObjectType: '制版任务',
     sourceObjectId: `${archivedProject.projectId}-pattern-001`,
     sourceObjectCode: `${archivedProject.projectCode}-PATTERN-001`,
-    sourceTitle: '针织连衣裙 P1 制版任务',
+    sourceTitle: '毛织连衣裙 P1 制版任务',
     sourceStatus: '已完成',
     businessDate: '2026-04-05 15:30',
     noteMeta: {
@@ -2185,7 +2185,7 @@ export function ensurePcsProjectDemoDataReady(): void {
     sourceObjectType: '首版样衣打样任务',
     sourceObjectId: `${archivedProject.projectId}-first-sample-001`,
     sourceObjectCode: `${archivedProject.projectCode}-FS-001`,
-    sourceTitle: '针织连衣裙首版样衣打样',
+    sourceTitle: '毛织连衣裙首版样衣打样',
     sourceStatus: '已完成',
     businessDate: '2026-04-05 18:40',
     noteMeta: {

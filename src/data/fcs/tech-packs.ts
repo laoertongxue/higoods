@@ -25,7 +25,7 @@ export const TECH_PACK_STATUS_LABEL: Record<TechPackStatus, string> = {
   DISABLED: '未启用',
 }
 
-export type TechPackPatternMaterialType = 'WOVEN' | 'KNIT' | 'UNKNOWN'
+export type TechPackPatternMaterialType = 'WOVEN' | 'WOOL' | 'UNKNOWN'
 export type TechPackPatternFileMode = 'PAIRED_DXF_RUL' | 'SINGLE_FILE'
 export type TechPackPatternParseStatus =
   | 'NOT_PARSED'
@@ -45,7 +45,7 @@ export type TechPackPatternDesignSideType = 'FRONT' | 'INSIDE'
 
 export const TECH_PACK_PATTERN_MATERIAL_TYPE_LABELS: Record<TechPackPatternMaterialType, string> = {
   WOVEN: '布料纸样',
-  KNIT: '针织纸样',
+  WOOL: '毛织纸样',
   UNKNOWN: '暂无数据',
 }
 
@@ -216,7 +216,7 @@ export interface TechPackPatternFile {
   maintainerStepStatus?: TechPackPatternMaintainerStepStatus
   merchandiserInfoStatus?: Extract<TechPackPatternInfoStatus, '未填写' | '已填写'>
   patternMakerInfoStatus?: TechPackPatternInfoStatus
-  isKnitted?: '是' | '否'
+  isWoolted?: '是' | '否'
   linkedMaterialId?: string
   linkedMaterialName?: string
   linkedMaterialAlias?: string
@@ -258,8 +258,8 @@ export type TechPackTaskTypeMode = 'PROCESS' | 'CRAFT'
 export type TechPackRuleSource = RuleSource
 export type TechPackDetailSplitMode = DetailSplitMode
 export type TechPackDetailSplitDimension = DetailSplitDimension
-export type TechPackKnittingTaskType = 'WHOLE_GARMENT' | 'PART_PANEL'
-export type TechPackKnittingDownstreamTarget = '后道工厂' | '裁床待交出仓'
+export type TechPackWoolTaskType = 'WHOLE_GARMENT' | 'PART_PANEL'
+export type TechPackWoolDownstreamTarget = '后道工厂' | '裁床待交出仓'
 
 export interface TechPackProcessEntry {
   id: string
@@ -282,8 +282,8 @@ export interface TechPackProcessEntry {
   targetObjectName?: '裁片部位' | '面料' | '辅料' | '成衣半成品'
   supportedTargetObjects?: SpecialCraftSupportedTargetObject[]
   supportedTargetObjectLabels?: SpecialCraftTargetObjectLabel[]
-  knittingTaskType?: TechPackKnittingTaskType
-  downstreamTarget?: TechPackKnittingDownstreamTarget
+  woolTaskType?: TechPackWoolTaskType
+  downstreamTarget?: TechPackWoolDownstreamTarget
   requiresFeiTicket?: boolean
   packagingRequired?: boolean
   materialIssueMode?: 'WAREHOUSE_DELIVERY'

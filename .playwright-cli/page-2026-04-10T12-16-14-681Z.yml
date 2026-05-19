@@ -164,11 +164,11 @@
                 - columnheader "备注" [ref=e1643]
                 - columnheader "操作" [ref=e1644]
             - rowgroup [ref=e1645]:
-              - row "前片纸样 主体片 b-1 · 纯棉针织布（白色） 142cm × 2.62m 6 片 3 项明细 前片纸样.pdf -" [ref=e1646]:
+              - row "前片纸样 主体片 b-1 · 纯棉毛织布（白色） 142cm × 2.62m 6 片 3 项明细 前片纸样.pdf -" [ref=e1646]:
                 - cell "前片纸样" [ref=e1647]
                 - cell "主体片" [ref=e1648]:
                   - generic [ref=e1649]: 主体片
-                - cell "b-1 · 纯棉针织布（白色）" [ref=e1650]
+                - cell "b-1 · 纯棉毛织布（白色）" [ref=e1650]
                 - cell "142cm × 2.62m" [ref=e1651]
                 - cell "6 片" [ref=e1652]
                 - cell "3 项明细" [ref=e1653]:
@@ -181,11 +181,11 @@
                     - button [ref=e1660]
                     - button [ref=e1662]
                     - button [ref=e1664]
-              - row "后片纸样 主体片 b-1 · 纯棉针织布（白色） 142cm × 2.2m 4 片 2 项明细 后片纸样.pdf -" [ref=e1666]:
+              - row "后片纸样 主体片 b-1 · 纯棉毛织布（白色） 142cm × 2.2m 4 片 2 项明细 后片纸样.pdf -" [ref=e1666]:
                 - cell "后片纸样" [ref=e1667]
                 - cell "主体片" [ref=e1668]:
                   - generic [ref=e1669]: 主体片
-                - cell "b-1 · 纯棉针织布（白色）" [ref=e1670]
+                - cell "b-1 · 纯棉毛织布（白色）" [ref=e1670]
                 - cell "142cm × 2.2m" [ref=e1671]
                 - cell "4 片" [ref=e1672]
                 - cell "2 项明细" [ref=e1673]:

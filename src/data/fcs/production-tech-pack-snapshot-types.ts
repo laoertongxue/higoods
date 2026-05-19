@@ -11,16 +11,16 @@ import type {
   TechnicalSizeRow,
 } from '../pcs-technical-data-version-types.ts'
 
-export type PatternMaterialType = 'KNIT' | 'WOVEN' | 'UNKNOWN'
+export type PatternMaterialType = 'WOOL' | 'WOVEN' | 'UNKNOWN'
 
 export const patternMaterialTypeLabels: Record<PatternMaterialType, string> = {
-  KNIT: '针织',
+  WOOL: '毛织',
   WOVEN: '布料',
   UNKNOWN: '暂无数据',
 }
 
 export const patternMaterialFileTypeLabels: Record<PatternMaterialType, string> = {
-  KNIT: '针织纸样',
+  WOOL: '毛织纸样',
   WOVEN: '布料纸样',
   UNKNOWN: '暂无数据',
 }

@@ -65,7 +65,7 @@ function resolveBaseCost(styleName: string): number {
   if (styleName.includes('裙') || /dress/i.test(styleName)) return 96
   if (styleName.includes('裤') || /pants|jogger/i.test(styleName)) return 84
   if (styleName.includes('衬衫') || /shirt|kemeja/i.test(styleName)) return 79
-  if (styleName.includes('毛衣') || styleName.includes('针织') || /sweater|knit/i.test(styleName)) return 88
+  if (styleName.includes('毛衣') || styleName.includes('毛织') || /sweater|wool/i.test(styleName)) return 88
   return 68
 }
 

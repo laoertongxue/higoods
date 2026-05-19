@@ -248,16 +248,16 @@ function upsertRow(
   })
 }
 
-function isPartKnittingArtifact(artifact: GeneratedTaskArtifact): boolean {
-  return artifact.processCode === 'KNITTING'
-    && (artifact.knittingTaskType === 'PART_PANEL' || artifact.craftName === '部位针织' || artifact.taskTypeLabel === '部位针织')
+function isPartWoolArtifact(artifact: GeneratedTaskArtifact): boolean {
+  return artifact.processCode === 'WOOL'
+    && (artifact.woolTaskType === 'PART_PANEL' || artifact.craftName === '部位毛织' || artifact.taskTypeLabel === '部位毛织')
 }
 
-function isWholeKnittingArtifact(artifact: GeneratedTaskArtifact): boolean {
-  return artifact.processCode === 'KNITTING' && !isPartKnittingArtifact(artifact)
+function isWholeWoolArtifact(artifact: GeneratedTaskArtifact): boolean {
+  return artifact.processCode === 'WOOL' && !isPartWoolArtifact(artifact)
 }
 
-function buildKnittingRows(input: {
+function buildWoolRows(input: {
   rowMap: Map<string, TaskDetailRow>
   taskId: string
   dimensions: DetailSplitDimension[]
@@ -267,7 +267,7 @@ function buildKnittingRows(input: {
   baseRefs: Omit<TaskDetailRowSourceRefs, 'garmentSku' | 'garmentColor' | 'patternId' | 'pieceIds'>
 }): void {
   const { rowMap, taskId, dimensions, orderSkuLines, patterns, artifact, baseRefs } = input
-  if (isWholeKnittingArtifact(artifact)) {
+  if (isWholeWoolArtifact(artifact)) {
     for (const line of orderSkuLines) {
       upsertRow(
         rowMap,
@@ -286,8 +286,8 @@ function buildKnittingRows(input: {
     return
   }
 
-  const knitPatterns = patterns.filter((pattern) => pattern.patternMaterialType === 'KNIT')
-  for (const pattern of knitPatterns) {
+  const woolPatterns = patterns.filter((pattern) => pattern.patternMaterialType === 'WOOL')
+  for (const pattern of woolPatterns) {
     for (const piece of pattern.pieceRows ?? []) {
       const pieceName = String(piece.name || '').trim()
       if (!pieceName) continue
@@ -523,11 +523,11 @@ export function generateTaskDetailRowsForArtifact(input: {
   const hasPattern = dimensions.includes('PATTERN')
   const hasMaterial = dimensions.includes('MATERIAL_SKU')
 
-  if (artifact.processCode === 'KNITTING') {
-    buildKnittingRows({
+  if (artifact.processCode === 'WOOL') {
+    buildWoolRows({
       rowMap,
       taskId,
-      dimensions: isPartKnittingArtifact(artifact) ? ['PATTERN', 'GARMENT_SKU'] : ['GARMENT_SKU'],
+      dimensions: isPartWoolArtifact(artifact) ? ['PATTERN', 'GARMENT_SKU'] : ['GARMENT_SKU'],
       orderSkuLines,
       patterns: techPack.patternFiles,
       artifact,

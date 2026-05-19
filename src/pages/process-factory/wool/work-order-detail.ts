@@ -1,22 +1,22 @@
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils'
 import {
-  buildKnittingPartPanelFeiTicketSourceId,
-  getKnittingWorkOrderById,
-  getKnittingAllowedActions,
-  getKnittingYarnUsageSummary,
-  getKnittingWorkOrderKindLabel,
-  getKnittingWorkOrderStatusLabel,
-  listKnittingMobileProcessTasks,
-  type KnittingWorkOrder,
-} from '../../../data/fcs/knitting-task-domain.ts'
+  buildWoolPartPanelFeiTicketSourceId,
+  getWoolWorkOrderById,
+  getWoolAllowedActions,
+  getWoolYarnUsageSummary,
+  getWoolWorkOrderKindLabel,
+  getWoolWorkOrderStatusLabel,
+  listWoolMobileProcessTasks,
+  type WoolWorkOrder,
+} from '../../../data/fcs/wool-task-domain.ts'
 import {
   buildFeiTicketLabelPrintLink,
-  buildKnittingMachineScheduleLink,
-  buildKnittingMachinesLink,
-  buildKnittingWaitHandoverWarehouseLink,
-  buildKnittingWaitProcessWarehouseLink,
-  buildKnittingWorkOrderDetailLink,
+  buildWoolMachineScheduleLink,
+  buildWoolMachinesLink,
+  buildWoolWaitHandoverWarehouseLink,
+  buildWoolWaitProcessWarehouseLink,
+  buildWoolWorkOrderDetailLink,
 } from '../../../data/fcs/fcs-route-links.ts'
 import { getTaskMilestoneState } from '../../../data/fcs/pda-exec-link.ts'
 import { getTaskStartDueInfo, getTaskStartRuleState } from '../../../data/fcs/pda-start-link.ts'
@@ -32,10 +32,10 @@ import {
   renderStatusBadge,
 } from './shared'
 
-type KnittingDetailTab = 'base' | 'yarn' | 'machine' | 'whole' | 'fei' | 'handover' | 'price' | 'evidence'
+type WoolDetailTab = 'base' | 'yarn' | 'machine' | 'whole' | 'fei' | 'handover' | 'price' | 'evidence'
 
-function getDetailTabs(order: KnittingWorkOrder): Array<{ key: KnittingDetailTab; label: string }> {
-  const tabs: Array<{ key: KnittingDetailTab; label: string }> = [
+function getDetailTabs(order: WoolWorkOrder): Array<{ key: WoolDetailTab; label: string }> {
+  const tabs: Array<{ key: WoolDetailTab; label: string }> = [
     { key: 'base', label: '基本信息' },
     { key: 'yarn', label: '领料信息' },
     { key: 'machine', label: '横机成片' },
@@ -44,7 +44,7 @@ function getDetailTabs(order: KnittingWorkOrder): Array<{ key: KnittingDetailTab
   if (order.kind === 'WHOLE_GARMENT') {
     tabs.push({ key: 'whole', label: '缝盘熨烫包装' })
   } else {
-    tabs.push({ key: 'fei', label: '针织菲票' })
+    tabs.push({ key: 'fei', label: '毛织菲票' })
   }
 
   tabs.push(
@@ -56,14 +56,14 @@ function getDetailTabs(order: KnittingWorkOrder): Array<{ key: KnittingDetailTab
   return tabs
 }
 
-function getCurrentTab(order: KnittingWorkOrder): KnittingDetailTab {
+function getCurrentTab(order: WoolWorkOrder): WoolDetailTab {
   const [, queryString = ''] = (appStore.getState().pathname || '').split('?')
-  const tab = new URLSearchParams(queryString).get('tab') as KnittingDetailTab | null
+  const tab = new URLSearchParams(queryString).get('tab') as WoolDetailTab | null
   const tabs = getDetailTabs(order)
   return tabs.some((item) => item.key === tab) ? tab || 'base' : 'base'
 }
 
-function renderDetailTabs(order: KnittingWorkOrder, activeTab: KnittingDetailTab): string {
+function renderDetailTabs(order: WoolWorkOrder, activeTab: WoolDetailTab): string {
   return `
     <nav class="inline-flex flex-wrap gap-1 rounded-md bg-muted p-1">
       ${getDetailTabs(order)
@@ -73,7 +73,7 @@ function renderDetailTabs(order: KnittingWorkOrder, activeTab: KnittingDetailTab
             <button
               type="button"
               class="rounded px-3 py-1.5 text-sm ${active ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'}"
-              data-nav="${escapeHtml(buildKnittingWorkOrderDetailLink(order.knittingOrderId, item.key))}"
+              data-nav="${escapeHtml(buildWoolWorkOrderDetailLink(order.woolOrderId, item.key))}"
             >
               ${escapeHtml(item.label)}
             </button>
@@ -84,11 +84,11 @@ function renderDetailTabs(order: KnittingWorkOrder, activeTab: KnittingDetailTab
   `
 }
 
-function getOrderExecutionTask(order: KnittingWorkOrder) {
-  return listKnittingMobileProcessTasks().find((task) => task.taskId === order.taskNo)
+function getOrderExecutionTask(order: WoolWorkOrder) {
+  return listWoolMobileProcessTasks().find((task) => task.taskId === order.taskNo)
 }
 
-function getStartStatusLabel(order: KnittingWorkOrder): string {
+function getStartStatusLabel(order: WoolWorkOrder): string {
   if (order.status === 'WAIT_ACCEPT') return '未接单'
   if (order.status === 'WAIT_PICKUP') return '待领料'
   if (order.status === 'PICKUP_IN_PROGRESS') return '领料中'
@@ -101,8 +101,8 @@ function getStartStatusLabel(order: KnittingWorkOrder): string {
   return task.acceptedAt ? '待开工' : '待领料'
 }
 
-function renderNodeActions(order: KnittingWorkOrder, nodeName: string): string {
-  const actions = getKnittingAllowedActions(order).filter((action) => action.nodeName === nodeName)
+function renderNodeActions(order: WoolWorkOrder, nodeName: string): string {
+  const actions = getWoolAllowedActions(order).filter((action) => action.nodeName === nodeName)
   if (!actions.length) return '<span class="text-xs text-muted-foreground">当前不可操作</span>'
   return `
     <div class="flex flex-wrap gap-2">
@@ -110,8 +110,8 @@ function renderNodeActions(order: KnittingWorkOrder, nodeName: string): string {
         <button
           type="button"
           class="rounded-md border border-blue-200 px-2 py-1 text-xs text-blue-700 hover:bg-blue-50"
-          data-knitting-workflow-action="${escapeHtml(action.code)}"
-          data-knitting-order-id="${escapeHtml(order.knittingOrderId)}"
+          data-wool-workflow-action="${escapeHtml(action.code)}"
+          data-wool-order-id="${escapeHtml(order.woolOrderId)}"
           data-node-name="${escapeHtml(nodeName)}"
         >${escapeHtml(action.label)}</button>
       `).join('')}
@@ -119,7 +119,7 @@ function renderNodeActions(order: KnittingWorkOrder, nodeName: string): string {
   `
 }
 
-function getMilestoneStatusLabel(order: KnittingWorkOrder): string {
+function getMilestoneStatusLabel(order: WoolWorkOrder): string {
   const task = getOrderExecutionTask(order)
   if (!task) return '移动端任务未同步'
   const milestone = getTaskMilestoneState(task)
@@ -127,7 +127,7 @@ function getMilestoneStatusLabel(order: KnittingWorkOrder): string {
   return milestone.status === 'REPORTED' ? '已上报' : '待上报'
 }
 
-function getMilestoneQtyText(order: KnittingWorkOrder): string {
+function getMilestoneQtyText(order: WoolWorkOrder): string {
   const task = getOrderExecutionTask(order)
   if (!task) return '未同步'
   const milestone = getTaskMilestoneState(task)
@@ -136,26 +136,26 @@ function getMilestoneQtyText(order: KnittingWorkOrder): string {
   return formatQty(milestone.reportedQty, unit)
 }
 
-function renderDetailWorkflowActions(order: KnittingWorkOrder): string {
-  const actions = getKnittingAllowedActions(order)
+function renderDetailWorkflowActions(order: WoolWorkOrder): string {
+  const actions = getWoolAllowedActions(order)
   if (!actions.length) return ''
   return actions.map((action) => `
     <button
       type="button"
       class="rounded-md ${action.tone === 'primary' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'border hover:bg-muted'} px-3 py-2 text-sm font-medium"
-      data-knitting-workflow-action="${escapeHtml(action.code)}"
-      data-knitting-order-id="${escapeHtml(order.knittingOrderId)}"
+      data-wool-workflow-action="${escapeHtml(action.code)}"
+      data-wool-order-id="${escapeHtml(order.woolOrderId)}"
       ${action.nodeName ? `data-node-name="${escapeHtml(action.nodeName)}"` : ''}
     >${escapeHtml(action.label)}</button>
   `).join('')
 }
 
-function renderExecutionReportSection(order: KnittingWorkOrder): string {
+function renderExecutionReportSection(order: WoolWorkOrder): string {
   const task = getOrderExecutionTask(order)
   if (!task) {
     return renderSection(
       '开工与关键节点',
-      '<div class="text-sm text-muted-foreground">当前针织加工单尚未同步到工厂端移动任务。</div>',
+      '<div class="text-sm text-muted-foreground">当前毛织加工单尚未同步到工厂端移动任务。</div>',
     )
   }
 
@@ -210,16 +210,16 @@ function renderExecutionReportSection(order: KnittingWorkOrder): string {
   )
 }
 
-function renderBaseTab(order: KnittingWorkOrder): string {
-  const yarnUsage = getKnittingYarnUsageSummary(order)
+function renderBaseTab(order: WoolWorkOrder): string {
+  const yarnUsage = getWoolYarnUsageSummary(order)
   return `
     ${renderSection(
       '加工单概览',
       `
         <div class="grid gap-3 text-sm md:grid-cols-3">
-          ${renderField('针织单号', order.knittingOrderNo)}
-          ${renderField('任务类型', getKnittingWorkOrderKindLabel(order.kind))}
-          ${renderField('当前状态', getKnittingWorkOrderStatusLabel(order.status))}
+          ${renderField('毛织单号', order.woolOrderNo)}
+          ${renderField('任务类型', getWoolWorkOrderKindLabel(order.kind))}
+          ${renderField('当前状态', getWoolWorkOrderStatusLabel(order.status))}
           ${renderField('生产单', order.productionOrderNo)}
           ${renderField('款号', order.styleNo)}
           ${renderField('款式名称', order.styleName)}
@@ -229,9 +229,9 @@ function renderBaseTab(order: KnittingWorkOrder): string {
           ${renderField('开工领用纱线', formatQty(yarnUsage.processingUsageWeightKg, 'kg'))}
           ${renderField('缝盘损耗纱线', formatQty(yarnUsage.linkingLossWeightKg, 'kg'))}
           ${renderField('回收入仓纱线', formatQty(yarnUsage.recoveredWeightKg, 'kg'))}
-          ${renderField('针织工厂', order.factoryName)}
+          ${renderField('毛织工厂', order.factoryName)}
           ${renderField('交出对象', order.downstreamTarget)}
-          ${renderField('包装要求', order.kind === 'WHOLE_GARMENT' ? (order.needsPackaging ? '需要包装' : '无需包装') : '部位针织无包装节点')}
+          ${renderField('包装要求', order.kind === 'WHOLE_GARMENT' ? (order.needsPackaging ? '需要包装' : '无需包装') : '部位毛织无包装节点')}
         </div>
       `,
     )}
@@ -239,9 +239,9 @@ function renderBaseTab(order: KnittingWorkOrder): string {
   `
 }
 
-function renderYarnTab(order: KnittingWorkOrder): string {
+function renderYarnTab(order: WoolWorkOrder): string {
   const receipt = order.yarnReceipt
-  const yarnUsage = getKnittingYarnUsageSummary(order)
+  const yarnUsage = getWoolYarnUsageSummary(order)
   return renderSection(
     '领料信息',
     `
@@ -250,7 +250,7 @@ function renderYarnTab(order: KnittingWorkOrder): string {
         ${renderField('纱线名称', receipt.yarnName)}
         ${renderField('纱线颜色', receipt.colorName)}
         ${renderField('计划送料重量', formatQty(receipt.plannedWeightKg, 'kg'))}
-        ${renderField('针织厂实收重量', formatQty(receipt.receivedWeightKg, 'kg'))}
+        ${renderField('毛织厂实收重量', formatQty(receipt.receivedWeightKg, 'kg'))}
         ${renderField('差异重量', formatQty(receipt.differenceWeightKg, 'kg'))}
         ${renderField('开工领用重量', formatQty(yarnUsage.processingUsageWeightKg, 'kg'))}
         ${renderField('缝盘损耗重量', formatQty(yarnUsage.linkingLossWeightKg, 'kg'))}
@@ -261,14 +261,14 @@ function renderYarnTab(order: KnittingWorkOrder): string {
         ${renderField('证据', receipt.evidenceText || '无差异证据')}
       </div>
       <div class="mt-3 flex flex-wrap gap-2">
-        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildKnittingWaitProcessWarehouseLink(order.knittingOrderId))}">查看待加工仓</button>
+        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildWoolWaitProcessWarehouseLink(order.woolOrderId))}">查看待加工仓</button>
       </div>
     `,
   )
 }
 
-function renderMachineTab(order: KnittingWorkOrder): string {
-  const yarnUsage = getKnittingYarnUsageSummary(order)
+function renderMachineTab(order: WoolWorkOrder): string {
+  const yarnUsage = getWoolYarnUsageSummary(order)
   const nodes = order.nodes.filter((node) => node.nodeName === '横机成片')
 
   return renderSection(
@@ -280,8 +280,8 @@ function renderMachineTab(order: KnittingWorkOrder): string {
         ${renderField('计划完成', order.scheduledEndAt)}
       </div>
       <div class="mb-3 flex flex-wrap gap-2">
-        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildKnittingMachineScheduleLink(order.knittingOrderId))}">查看横机排产</button>
-        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildKnittingMachinesLink())}">查看横机设备</button>
+        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildWoolMachineScheduleLink(order.woolOrderId))}">查看横机排产</button>
+        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildWoolMachinesLink())}">查看横机设备</button>
       </div>
       ${renderPaginatedTable(
         ['节点', '状态', '计划数量', '完成数量', '开工领用纱线', '横机编号', '操作人', '开始时间', '完成时间', 'Web操作'],
@@ -308,15 +308,15 @@ function renderMachineTab(order: KnittingWorkOrder): string {
   )
 }
 
-function renderWholeTab(order: KnittingWorkOrder): string {
-  const yarnUsage = getKnittingYarnUsageSummary(order)
+function renderWholeTab(order: WoolWorkOrder): string {
+  const yarnUsage = getWoolYarnUsageSummary(order)
   const nodes = order.nodes.filter((node) => node.nodeName !== '横机成片')
 
   return renderSection(
-    '整件针织节点',
+    '整件毛织节点',
     `
       <div class="mb-3 rounded-md border border-amber-100 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-        整件针织固定包含缝盘和熨烫；包装按加工单要求决定是否执行。
+        整件毛织固定包含缝盘和熨烫；包装按加工单要求决定是否执行。
       </div>
       ${renderPaginatedTable(
         ['节点', '状态', '计划数量', '完成数量', '纱线损耗', '操作人', '开始时间', '完成时间', '备注', 'Web操作'],
@@ -343,19 +343,19 @@ function renderWholeTab(order: KnittingWorkOrder): string {
   )
 }
 
-function renderFeiTab(order: KnittingWorkOrder): string {
+function renderFeiTab(order: WoolWorkOrder): string {
   const panels = order.partPanels
   return renderSection(
-    '部位针织菲票',
+    '部位毛织菲票',
     `
       <div class="mb-3 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-700">
-        部位针织只包含横机成片和菲票流转，不进入缝盘、熨烫、包装节点。
+        部位毛织只包含横机成片和菲票流转，不进入缝盘、熨烫、包装节点。
       </div>
       ${renderPaginatedTable(
         ['部位', '颜色', '尺码', '计划片数', '完成片数', '菲票号', '打印状态', '后续去向', '操作'],
         panels,
         (panel) => {
-      const sourceId = buildKnittingPartPanelFeiTicketSourceId(order, panel)
+      const sourceId = buildWoolPartPanelFeiTicketSourceId(order, panel)
       return `
         <tr class="border-b last:border-b-0">
           <td class="px-3 py-3">${escapeHtml(panel.partName)}</td>
@@ -387,8 +387,8 @@ function renderFeiTab(order: KnittingWorkOrder): string {
   )
 }
 
-function renderHandoverTab(order: KnittingWorkOrder): string {
-  const handoverActions = getKnittingAllowedActions(order).filter((action) =>
+function renderHandoverTab(order: WoolWorkOrder): string {
+  const handoverActions = getWoolAllowedActions(order).filter((action) =>
     action.code === 'SUBMIT_HANDOVER' || action.code === 'CONFIRM_HANDOVER_RECEIPT',
   )
   return renderSection(
@@ -407,23 +407,23 @@ function renderHandoverTab(order: KnittingWorkOrder): string {
           <button
             type="button"
             class="rounded-md ${action.tone === 'primary' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'border hover:bg-muted'} px-3 py-2 text-sm font-medium"
-            data-knitting-workflow-action="${escapeHtml(action.code)}"
-            data-knitting-order-id="${escapeHtml(order.knittingOrderId)}"
+            data-wool-workflow-action="${escapeHtml(action.code)}"
+            data-wool-order-id="${escapeHtml(order.woolOrderId)}"
           >${escapeHtml(action.label)}</button>
         `).join('')}
-        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildKnittingWaitHandoverWarehouseLink(order.knittingOrderId))}">查看待交出仓</button>
+        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildWoolWaitHandoverWarehouseLink(order.woolOrderId))}">查看待交出仓</button>
       </div>
     `,
   )
 }
 
-function renderPriceTab(order: KnittingWorkOrder): string {
+function renderPriceTab(order: WoolWorkOrder): string {
   return renderSection(
     '价格信息',
     `
       <div class="grid gap-3 text-sm md:grid-cols-3">
-        ${renderField('横机时间', `${order.priceInfo.flatKnittingMinutes} 分钟/件或片`)}
-        ${renderField('缝盘时间', order.priceInfo.linkingMinutes ? `${order.priceInfo.linkingMinutes} 分钟/件` : '部位针织无缝盘')}
+        ${renderField('横机时间', `${order.priceInfo.flatWoolMinutes} 分钟/件或片`)}
+        ${renderField('缝盘时间', order.priceInfo.linkingMinutes ? `${order.priceInfo.linkingMinutes} 分钟/件` : '部位毛织无缝盘')}
         ${renderField('熨烫计价', order.priceInfo.ironingIncluded ? '包含' : '不包含')}
         ${renderField('包装计价', order.priceInfo.packagingIncluded ? '包含' : '不包含')}
         ${renderField('公式状态', order.priceInfo.formulaStatus === '已估算' ? '已按临时公式估算' : '待提供正式公式')}
@@ -434,7 +434,7 @@ function renderPriceTab(order: KnittingWorkOrder): string {
   )
 }
 
-function renderEvidenceTab(order: KnittingWorkOrder): string {
+function renderEvidenceTab(order: WoolWorkOrder): string {
   return renderSection(
     '异常证据',
     renderPaginatedTable(
@@ -455,7 +455,7 @@ function renderEvidenceTab(order: KnittingWorkOrder): string {
   )
 }
 
-function renderActiveTab(order: KnittingWorkOrder, activeTab: KnittingDetailTab): string {
+function renderActiveTab(order: WoolWorkOrder, activeTab: WoolDetailTab): string {
   if (activeTab === 'yarn') return renderYarnTab(order)
   if (activeTab === 'machine') return renderMachineTab(order)
   if (activeTab === 'whole' && order.kind === 'WHOLE_GARMENT') return renderWholeTab(order)
@@ -466,13 +466,13 @@ function renderActiveTab(order: KnittingWorkOrder, activeTab: KnittingDetailTab)
   return renderBaseTab(order)
 }
 
-export function renderCraftKnittingWorkOrderDetailPage(knittingOrderId: string): string {
-  const order = getKnittingWorkOrderById(knittingOrderId)
+export function renderCraftWoolWorkOrderDetailPage(woolOrderId: string): string {
+  const order = getWoolWorkOrderById(woolOrderId)
   if (!order) {
     return `
       <div class="space-y-4 p-4">
-        ${renderPageHeader('针织加工单详情', '未找到对应的针织加工单')}
-        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="/fcs/craft/knitting/work-orders">返回针织加工单</button>
+        ${renderPageHeader('毛织加工单详情', '未找到对应的毛织加工单')}
+        <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="/fcs/craft/wool/work-orders">返回毛织加工单</button>
       </div>
     `
   }
@@ -482,12 +482,12 @@ export function renderCraftKnittingWorkOrderDetailPage(knittingOrderId: string):
   return `
     <div class="space-y-4 p-4">
       ${renderPageHeader(
-        '针织加工单详情',
-        `${order.knittingOrderNo} / ${getKnittingWorkOrderKindLabel(order.kind)} / ${order.downstreamTarget}`,
+        '毛织加工单详情',
+        `${order.woolOrderNo} / ${getWoolWorkOrderKindLabel(order.kind)} / ${order.downstreamTarget}`,
         `
           <div class="flex flex-wrap gap-2">
             ${renderDetailWorkflowActions(order)}
-            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="/fcs/craft/knitting/work-orders">返回针织加工单</button>
+            <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="/fcs/craft/wool/work-orders">返回毛织加工单</button>
           </div>
         `,
       )}

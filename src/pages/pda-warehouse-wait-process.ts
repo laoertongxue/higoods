@@ -2,21 +2,21 @@ import {
   listFactoryWaitProcessStockItems,
   updateWaitProcessStockLocation,
 } from '../data/fcs/factory-internal-warehouse.ts'
-import { OWN_KNITTING_FACTORY_ID } from '../data/fcs/factory-mock-data.ts'
+import { OWN_WOOL_FACTORY_ID } from '../data/fcs/factory-mock-data.ts'
 import type { PostFinishingWaitProcessWarehouseRecord } from '../data/fcs/post-finishing-domain.ts'
 import {
   FULL_CAPABILITY_FACTORY_ID,
   listPostFinishingWaitProcessWarehouseRecords,
 } from '../data/fcs/post-finishing-domain.ts'
 import {
-  getKnittingWorkOrderById,
-  getKnittingYarnUsageSummary,
-  listKnittingWaitProcessReceiptRecords,
-  listKnittingWaitProcessUsageRecords,
-  listKnittingWorkOrders,
-  listKnittingWarehouseInventory,
-  recoverKnittingYarnToWaitProcessWarehouse,
-} from '../data/fcs/knitting-task-domain.ts'
+  getWoolWorkOrderById,
+  getWoolYarnUsageSummary,
+  listWoolWaitProcessReceiptRecords,
+  listWoolWaitProcessUsageRecords,
+  listWoolWorkOrders,
+  listWoolWarehouseInventory,
+  recoverWoolYarnToWaitProcessWarehouse,
+} from '../data/fcs/wool-task-domain.ts'
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
 import { renderPdaFrame } from './pda-shell'
@@ -288,10 +288,10 @@ function renderPostFinishingWaitProcessPage(): string {
   return renderPdaFrame(content, 'warehouse', { headerTitle: '后道待加工仓', disableTodoAutoOpen: true })
 }
 
-function renderKnittingWaitProcessPage(): string {
-  const inventory = listKnittingWarehouseInventory('wait-process')
-  const receipts = listKnittingWaitProcessReceiptRecords()
-  const usage = listKnittingWaitProcessUsageRecords()
+function renderWoolWaitProcessPage(): string {
+  const inventory = listWoolWarehouseInventory('wait-process')
+  const receipts = listWoolWaitProcessReceiptRecords()
+  const usage = listWoolWaitProcessUsageRecords()
   const content = `
     <div class="space-y-4 px-4 pb-5 pt-4">
       <section class="grid grid-cols-2 gap-2">
@@ -299,7 +299,7 @@ function renderKnittingWaitProcessPage(): string {
         <button type="button" class="rounded-2xl border bg-background px-4 py-3 text-sm font-medium" data-nav="/fcs/pda/warehouse/wait-handover">待交出仓</button>
       </section>
       <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
-        <div class="text-base font-semibold">针织待加工仓</div>
+        <div class="text-base font-semibold">毛织待加工仓</div>
         <div class="mt-1 text-xs text-muted-foreground">库存对象为纱线，开工领用和缝盘损耗扣减，损耗回收后回收入仓。</div>
         <div class="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
           <div class="rounded-xl bg-muted px-2 py-2"><div class="font-semibold">${inventory.length}</div><div class="text-muted-foreground">库存</div></div>
@@ -318,7 +318,7 @@ function renderKnittingWaitProcessPage(): string {
               ${renderStatusPill(item.statusText)}
             </div>
             <div class="mt-3 space-y-1.5 text-xs text-muted-foreground">
-              <div>关联针织单：${escapeHtml(item.knittingOrderNo)}</div>
+              <div>关联毛织单：${escapeHtml(item.woolOrderNo)}</div>
               <div>来源生产单：${escapeHtml(item.productionOrderNo)}</div>
               <div>当前库存：${item.currentQty} ${escapeHtml(item.unit)}</div>
               <div>库区库位：${escapeHtml(item.locationText)}</div>
@@ -329,9 +329,9 @@ function renderKnittingWaitProcessPage(): string {
               <button
                 type="button"
                 class="rounded-full border border-emerald-200 px-3 py-1.5 text-xs text-emerald-700"
-                data-pda-warehouse-action="recover-knitting-yarn"
-                data-knitting-order-id="${escapeAttr(item.knittingOrderId)}"
-                data-related-order-nos="${escapeAttr((item.relatedOrderNos || [item.knittingOrderNo]).join('|'))}"
+                data-pda-warehouse-action="recover-wool-yarn"
+                data-wool-order-id="${escapeAttr(item.woolOrderId)}"
+                data-related-order-nos="${escapeAttr((item.relatedOrderNos || [item.woolOrderNo]).join('|'))}"
               >回收入仓</button>
             </div>
           </article>
@@ -339,14 +339,14 @@ function renderKnittingWaitProcessPage(): string {
       </section>
     </div>
   `
-  return renderPdaFrame(content, 'warehouse', { headerTitle: '针织待加工仓', disableTodoAutoOpen: true })
+  return renderPdaFrame(content, 'warehouse', { headerTitle: '毛织待加工仓', disableTodoAutoOpen: true })
 }
 
 export function renderPdaWarehouseWaitProcessPage(): string {
   const runtime = getMobileWarehouseRuntimeContext()
   if (!runtime) return renderPdaFrame(renderMobilePageEmptyState('未登录', '请先登录工厂端移动应用。'), 'warehouse', { disableTodoAutoOpen: true })
   if (runtime.factoryId === FULL_CAPABILITY_FACTORY_ID) return renderPostFinishingWaitProcessPage()
-  if (runtime.factoryId === OWN_KNITTING_FACTORY_ID) return renderKnittingWaitProcessPage()
+  if (runtime.factoryId === OWN_WOOL_FACTORY_ID) return renderWoolWaitProcessPage()
 
   const rows = getRows()
   const content = `
@@ -424,23 +424,23 @@ export function renderPdaWarehouseWaitProcessPage(): string {
 export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean {
   const actionNode = target.closest<HTMLElement>('[data-pda-warehouse-action]')
   const action = actionNode?.dataset.pdaWarehouseAction
-  if (action === 'recover-knitting-yarn' && actionNode.dataset.knittingOrderId) {
+  if (action === 'recover-wool-yarn' && actionNode.dataset.woolOrderId) {
     const relatedOrderNos = (actionNode.dataset.relatedOrderNos || '')
       .split('|')
       .map((item) => item.trim())
       .filter(Boolean)
     const selectedOrderNo = relatedOrderNos.length > 1
-      ? window.prompt('请输入回收来源针织单号', relatedOrderNos[0])?.trim()
+      ? window.prompt('请输入回收来源毛织单号', relatedOrderNos[0])?.trim()
       : relatedOrderNos[0]
     if (selectedOrderNo === undefined) return true
     const order = selectedOrderNo
-      ? listKnittingWorkOrders().find((item) => item.knittingOrderNo === selectedOrderNo || item.knittingOrderId === selectedOrderNo)
-      : getKnittingWorkOrderById(actionNode.dataset.knittingOrderId)
+      ? listWoolWorkOrders().find((item) => item.woolOrderNo === selectedOrderNo || item.woolOrderId === selectedOrderNo)
+      : getWoolWorkOrderById(actionNode.dataset.woolOrderId)
     if (!order) {
-      window.alert('未找到该针织加工单，请重新选择来源针织单。')
+      window.alert('未找到该毛织加工单，请重新选择来源毛织单。')
       return true
     }
-    const usage = order ? getKnittingYarnUsageSummary(order) : null
+    const usage = order ? getWoolYarnUsageSummary(order) : null
     const defaultQty = usage ? Math.max(usage.linkingLossWeightKg - usage.recoveredWeightKg, 0) : 0
     const rawValue = window.prompt('请输入回收入仓纱线重量（kg）', String(defaultQty))?.trim()
     if (rawValue === undefined) return true
@@ -449,7 +449,7 @@ export function handlePdaWarehouseWaitProcessEvent(target: HTMLElement): boolean
       window.alert('请输入大于 0 的重量。')
       return true
     }
-    recoverKnittingYarnToWaitProcessWarehouse(order.knittingOrderId, Math.round(recoveredWeightKg * 100) / 100, '工厂端仓管')
+    recoverWoolYarnToWaitProcessWarehouse(order.woolOrderId, Math.round(recoveredWeightKg * 100) / 100, '工厂端仓管')
     return true
   }
   if (action === 'open-wait-process-detail' && actionNode.dataset.stockItemId) {

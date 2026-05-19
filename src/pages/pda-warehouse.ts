@@ -1,18 +1,18 @@
 import { renderPdaFrame } from './pda-shell'
-import { OWN_KNITTING_FACTORY_ID } from '../data/fcs/factory-mock-data.ts'
+import { OWN_WOOL_FACTORY_ID } from '../data/fcs/factory-mock-data.ts'
 import {
   FULL_CAPABILITY_FACTORY_ID,
   listPostFinishingWaitHandoverWarehouseRecords,
   listPostFinishingWaitProcessWarehouseRecords,
 } from '../data/fcs/post-finishing-domain.ts'
 import {
-  listKnittingWaitHandoverHandoutRecords,
-  listKnittingWaitHandoverInboundRecords,
-  listKnittingWaitProcessReceiptRecords,
-  listKnittingWaitProcessUsageRecords,
-  listKnittingWarehouseInventory,
-  listKnittingWarehouseLocations,
-} from '../data/fcs/knitting-task-domain.ts'
+  listWoolWaitHandoverHandoutRecords,
+  listWoolWaitHandoverInboundRecords,
+  listWoolWaitProcessReceiptRecords,
+  listWoolWaitProcessUsageRecords,
+  listWoolWarehouseInventory,
+  listWoolWarehouseLocations,
+} from '../data/fcs/wool-task-domain.ts'
 import {
   getMobileWarehouseRuntimeContext,
   renderMobileWarehouseLoginRedirect,
@@ -21,7 +21,7 @@ import {
 } from './pda-warehouse-shared'
 import { escapeHtml } from '../utils'
 
-function renderKnittingWarehouseTabs(active: 'home' | 'wait-process' | 'wait-handover' = 'home'): string {
+function renderWoolWarehouseTabs(active: 'home' | 'wait-process' | 'wait-handover' = 'home'): string {
   const tabClass = (key: 'wait-process' | 'wait-handover') =>
     active === key
       ? 'bg-primary text-primary-foreground'
@@ -34,15 +34,15 @@ function renderKnittingWarehouseTabs(active: 'home' | 'wait-process' | 'wait-han
   `
 }
 
-function renderKnittingWarehouseHome(): string {
-  const waitProcessInventory = listKnittingWarehouseInventory('wait-process')
-  const waitHandoverInventory = listKnittingWarehouseInventory('wait-handover')
-  const receiptRecords = listKnittingWaitProcessReceiptRecords()
-  const usageRecords = listKnittingWaitProcessUsageRecords()
-  const inboundRecords = listKnittingWaitHandoverInboundRecords()
-  const handoutRecords = listKnittingWaitHandoverHandoutRecords()
-  const waitProcessLocations = listKnittingWarehouseLocations('wait-process')
-  const waitHandoverLocations = listKnittingWarehouseLocations('wait-handover')
+function renderWoolWarehouseHome(): string {
+  const waitProcessInventory = listWoolWarehouseInventory('wait-process')
+  const waitHandoverInventory = listWoolWarehouseInventory('wait-handover')
+  const receiptRecords = listWoolWaitProcessReceiptRecords()
+  const usageRecords = listWoolWaitProcessUsageRecords()
+  const inboundRecords = listWoolWaitHandoverInboundRecords()
+  const handoutRecords = listWoolWaitHandoverHandoutRecords()
+  const waitProcessLocations = listWoolWarehouseLocations('wait-process')
+  const waitHandoverLocations = listWoolWarehouseLocations('wait-handover')
   return `
     <section class="grid gap-3">
       <button type="button" class="rounded-2xl border bg-card px-4 py-4 text-left shadow-sm" data-nav="/fcs/pda/warehouse/wait-process">
@@ -144,15 +144,15 @@ export function renderPdaWarehousePage(): string {
     return renderPdaFrame(content, 'warehouse', { headerTitle: '后道仓管', disableTodoAutoOpen: true })
   }
 
-  if (runtime.factoryId === OWN_KNITTING_FACTORY_ID) {
+  if (runtime.factoryId === OWN_WOOL_FACTORY_ID) {
     const content = `
       <div class="space-y-4 px-4 pb-5 pt-4">
-        ${renderWarehouseSummaryHeader('针织仓管', '通过待加工仓和待交出仓切换处理针织库存。', runtime.overview)}
-        ${renderKnittingWarehouseTabs('home')}
-        ${renderKnittingWarehouseHome()}
+        ${renderWarehouseSummaryHeader('毛织仓管', '通过待加工仓和待交出仓切换处理毛织库存。', runtime.overview)}
+        ${renderWoolWarehouseTabs('home')}
+        ${renderWoolWarehouseHome()}
       </div>
     `
-    return renderPdaFrame(content, 'warehouse', { headerTitle: '针织仓管', disableTodoAutoOpen: true })
+    return renderPdaFrame(content, 'warehouse', { headerTitle: '毛织仓管', disableTodoAutoOpen: true })
   }
 
   const content = `

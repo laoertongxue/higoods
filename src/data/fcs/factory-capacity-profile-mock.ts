@@ -468,7 +468,7 @@ function buildCustomFactoryEquipments(factoryId: string): FactoryCapacityEquipme
         status: 'AVAILABLE',
         displaySpecValue: 650,
         displaySpecUnit: 'kg/缸',
-        supportedMaterialTypes: ['针织棉', '涤棉'],
+        supportedMaterialTypes: ['毛织棉', '涤棉'],
         remark: '常规深色批次',
       },
       {

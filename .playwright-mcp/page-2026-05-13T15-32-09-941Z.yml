@@ -102,13 +102,13 @@
               - generic [ref=e193]: 染厂管理
               - img [ref=e660]
           - generic [ref=e196]:
-            - button "针织厂管理" [ref=e197]:
+            - button "毛织厂管理" [ref=e197]:
               - img [ref=e662]
-              - generic [ref=e201]: 针织厂管理
+              - generic [ref=e201]: 毛织厂管理
               - img [ref=e664]
-            - button "针织管理" [ref=e206]:
+            - button "毛织管理" [ref=e206]:
               - img [ref=e666]
-              - generic [ref=e210]: 针织管理
+              - generic [ref=e210]: 毛织管理
               - img [ref=e668]
           - generic [ref=e213]:
             - button "后道工厂管理" [ref=e214]:
@@ -166,7 +166,7 @@
           - button "后道待交出仓" [ref=e319]
           - button "总览" [ref=e321]
           - button "后道统计" [ref=e323]
-          - button "针织待加工仓" [ref=e325]
+          - button "毛织待加工仓" [ref=e325]
           - button "可裁排产" [ref=e327]
         - button "全部关闭" [ref=e329]
       - generic [ref=e715]:

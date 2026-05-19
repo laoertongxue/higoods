@@ -40,7 +40,7 @@ test('纸样管理两步维护、文件校验、关联物料和保存状态', as
   const merchandiserPanel = dialog.getByTestId('pattern-step-merchandiser-panel')
   await expect(merchandiserPanel).toContainText('纸样名称')
   await expect(merchandiserPanel).toContainText('纸样类型')
-  await expect(merchandiserPanel).toContainText('是否针织')
+  await expect(merchandiserPanel).toContainText('是否毛织')
   await expect(merchandiserPanel).toContainText('门幅（cm）')
   await expect(merchandiserPanel).toContainText('关联物料')
   await expect(dialog.getByText('纸样 PRJ 文件', { exact: true })).toHaveCount(0)

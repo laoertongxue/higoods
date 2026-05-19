@@ -3,7 +3,7 @@ export type TechnicalDomainStatus = 'EMPTY' | 'DRAFT' | 'COMPLETE'
 export type TechPackSourceTaskType = 'REVISION' | 'PLATE' | 'ARTWORK' | 'MANUAL'
 export type TechPackVersionChangeScope = '制版生成' | '花型写入' | '花型替换' | '改版生成' | '手动新增'
 
-export type TechnicalPatternMaterialType = 'WOVEN' | 'KNIT' | 'UNKNOWN'
+export type TechnicalPatternMaterialType = 'WOVEN' | 'WOOL' | 'UNKNOWN'
 export type TechnicalPatternFileMode = 'PAIRED_DXF_RUL' | 'SINGLE_FILE'
 export type TechnicalPatternParseStatus =
   | 'NOT_PARSED'
@@ -179,7 +179,7 @@ export interface TechnicalPatternFile {
   maintainerStepStatus?: TechnicalPatternMaintainerStepStatus
   merchandiserInfoStatus?: Extract<TechnicalPatternInfoStatus, '未填写' | '已填写'>
   patternMakerInfoStatus?: TechnicalPatternInfoStatus
-  isKnitted?: '是' | '否'
+  isWoolted?: '是' | '否'
   linkedMaterialId?: string
   linkedMaterialName?: string
   linkedMaterialAlias?: string
@@ -227,7 +227,7 @@ export interface TechnicalProcessEntry {
   targetObjectName?: '裁片部位' | '面料' | '辅料' | '成衣半成品'
   supportedTargetObjects?: Array<'CUT_PIECE' | 'FULL_FABRIC' | 'SEMI_FINISHED_GARMENT'>
   supportedTargetObjectLabels?: Array<'已裁部位' | '完整面料' | '成衣半成品'>
-  knittingTaskType?: 'WHOLE_GARMENT' | 'PART_PANEL'
+  woolTaskType?: 'WHOLE_GARMENT' | 'PART_PANEL'
   downstreamTarget?: '后道工厂' | '裁床待交出仓'
   requiresFeiTicket?: boolean
   packagingRequired?: boolean

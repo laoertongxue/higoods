@@ -244,8 +244,8 @@ assert(listRuntimeProcessTasks().length >= processTasks.length, 'FCS 路由加�
 assert(processTasks.every((task) => productionOrders.some((order) => order.productionOrderId === task.productionOrderId)), '工序工艺任务必须关联已有生产单')
 assert(processTasks.every((task) => Boolean(getProductionOrderTechPackSnapshot(task.productionOrderId))), '工序工艺任务必须关联已有生产单技术包快照')
 assert(processTasks.some((task) => task.isSpecialCraft && task.craftName === '烫画'), '工序工艺任务必须包含烫画特殊工艺')
-assert(processTasks.some((task) => task.knittingTaskType === 'WHOLE_GARMENT'), '工序工艺任务必须包含整件针织')
-assert(processTasks.some((task) => task.knittingTaskType === 'PART_PANEL'), '工序工艺任务必须包含部位针织')
+assert(processTasks.some((task) => task.woolTaskType === 'WHOLE_GARMENT'), '工序工艺任务必须包含整件毛织')
+assert(processTasks.some((task) => task.woolTaskType === 'PART_PANEL'), '工序工艺任务必须包含部位毛织')
 
 const productionOrderIds = new Set(productionOrders.map((order) => order.productionOrderId))
 function assertExistingProductionOrderWithSnapshot(productionOrderId: string, message: string): void {

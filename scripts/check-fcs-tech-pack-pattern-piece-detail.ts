@@ -96,11 +96,11 @@ removedPseudoCraftNames.forEach((token) => {
   assertNotIncludes(patternContextSource, token, '技术包特殊工艺 helper 不得暴露已删除伪特殊工艺')
 })
 
-assertIncludes(patternEventsSource, "if (state.newPattern.patternMaterialType !== 'KNIT') return true", '新增裁片入口必须只对针织纸样开放')
-assertIncludes(patternDomainSource, '新增裁片', '针织纸样必须显示新增裁片入口')
+assertIncludes(patternEventsSource, "if (state.newPattern.patternMaterialType !== 'WOOL') return true", '新增裁片入口必须只对毛织纸样开放')
+assertIncludes(patternDomainSource, '新增裁片', '毛织纸样必须显示新增裁片入口')
 assertIncludes(patternDomainSource, '解析结果只读部位名称和片数', '布料纸样必须说明解析行只读')
 assertIncludes(patternEventsSource, "sourceType !== 'PARSED_PATTERN'", '布料纸样保存必须校验解析来源')
-assertIncludes(patternEventsSource, "sourceType !== 'MANUAL'", '针织纸样保存必须校验人工来源')
+assertIncludes(patternEventsSource, "sourceType !== 'MANUAL'", '毛织纸样保存必须校验人工来源')
 
 assertNotIncludes(patternDomainSource, 'type="submit"', '弹窗按钮不得触发表单提交')
 assertNotIncludes(patternDomainSource, '<form', '纸样弹窗不得使用默认 form 提交')
@@ -163,7 +163,7 @@ const confirmationHtml = renderProductionConfirmationPrintPage(confirmationOrder
 ;['适用颜色', '每种颜色的片数', '特殊工艺', '纸样分类'].forEach((token) => {
   assertIncludes(confirmationHtml, token, `生产确认单渲染缺少：${token}`)
 })
-;['patternMaterialType', 'colorAllocations', 'specialCrafts', 'sourceType', 'WOVEN', 'KNIT', 'JSON'].forEach((token) => {
+;['patternMaterialType', 'colorAllocations', 'specialCrafts', 'sourceType', 'WOVEN', 'WOOL', 'JSON'].forEach((token) => {
   assertNotIncludes(confirmationHtml, token, `生产确认单不得展示研发字段：${token}`)
 })
 

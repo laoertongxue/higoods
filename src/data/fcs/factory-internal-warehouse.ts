@@ -438,7 +438,7 @@ function resolvePrimaryFactoryProcess(factory: Factory): { processCode?: string;
             ? 'POST_FINISHING'
             : factory.factoryType === 'CENTRAL_DENIM_WASH' || factory.factoryType === 'CENTRAL_SPECIAL'
               ? 'SPECIAL_CRAFT'
-              : factory.factoryType === 'CENTRAL_KNIT'
+              : factory.factoryType === 'CENTRAL_WOOL'
                 ? 'PLEATING'
                 : undefined
   if (explicitProcessCode) {

@@ -24,9 +24,9 @@ export const TEST_FACTORY_CODE = 'F090'
 export const TEST_FACTORY_NAME = '全能力测试工厂'
 export const TEST_FACTORY_DISPLAY_NAME = `${TEST_FACTORY_NAME}（${TEST_FACTORY_CODE}）`
 export const TEST_FACTORY_SCOPE = 'ALL_PROCESS_CRAFT' as const
-export const OWN_KNITTING_FACTORY_ID = 'OWN_KNITTING_FACTORY'
-export const OWN_KNITTING_FACTORY_CODE = 'KNIT-OWN-001'
-export const OWN_KNITTING_FACTORY_NAME = '周哥针织厂'
+export const OWN_WOOL_FACTORY_ID = 'OWN_WOOL_FACTORY'
+export const OWN_WOOL_FACTORY_CODE = 'WOOL-OWN-001'
+export const OWN_WOOL_FACTORY_NAME = '周哥毛织厂'
 
 export function formatFactoryDisplayName(factoryName?: string | null, factoryCodeOrId?: string | null): string {
   const normalizedName = factoryName?.trim() || ''
@@ -61,7 +61,7 @@ const factoryTypeProcessMap: Partial<Record<FactoryType, string[]>> = {
   CENTRAL_SPECIAL: ['SPECIAL_CRAFT'],
   CENTRAL_AUX: ['POST_FINISHING', 'SPECIAL_CRAFT'],
   CENTRAL_LACE: ['POST_FINISHING'],
-  CENTRAL_KNIT: ['SEW', 'PLEATING'],
+  CENTRAL_WOOL: ['SEW', 'PLEATING'],
   CENTRAL_DENIM_WASH: ['WASHING', 'SHRINKING'],
   SATELLITE_SEWING: ['SEW'],
   SATELLITE_FINISHING: ['POST_FINISHING', 'PLEATING', 'SPECIAL_CRAFT'],
@@ -184,7 +184,7 @@ function mapType(tier: string, type: string, index: number): FactoryType {
     AUX_PROCESS: 'CENTRAL_AUX',
     SPECIAL_PROCESS: 'CENTRAL_SPECIAL',
     TRIM_SUPPLIER: 'CENTRAL_LACE',
-    KNIT: 'CENTRAL_KNIT',
+    WOOL: 'CENTRAL_WOOL',
     DENIM_WASH: 'CENTRAL_DENIM_WASH',
     POD: 'CENTRAL_POD',
     SATELLITE_CLUSTER: 'SATELLITE_SEWING',
@@ -266,23 +266,23 @@ const allProcessCraftTestFactory: Factory = {
   },
 }
 
-const ownKnittingFactory: Factory = {
-  id: OWN_KNITTING_FACTORY_ID,
-  code: OWN_KNITTING_FACTORY_CODE,
-  name: OWN_KNITTING_FACTORY_NAME,
-  address: '浙江绍兴针织园区 9 号楼',
+const ownWoolFactory: Factory = {
+  id: OWN_WOOL_FACTORY_ID,
+  code: OWN_WOOL_FACTORY_CODE,
+  name: OWN_WOOL_FACTORY_NAME,
+  address: '浙江绍兴毛织园区 9 号楼',
   contact: '周哥',
   phone: '+86 138 0000 2605',
   status: 'active',
   cooperationMode: 'exclusive',
   processAbilities: [
     {
-      processCode: 'PROC_KNIT',
-      craftCodes: ['WHOLE_GARMENT_KNIT', 'PART_PANEL_KNIT'],
-      abilityId: 'ABILITY_PROC_KNIT_OWN',
-      processName: '针织',
-      craftNames: ['整件针织', '部位针织'],
-      abilityName: '针织 / 整件与部位',
+      processCode: 'PROC_WOOL',
+      craftCodes: ['WHOLE_GARMENT_WOOL', 'PART_PANEL_WOOL'],
+      abilityId: 'ABILITY_PROC_WOOL_OWN',
+      processName: '毛织',
+      craftNames: ['整件毛织', '部位毛织'],
+      abilityName: '毛织 / 整件与部位',
       abilityScope: 'PROCESS',
       canReceiveTask: true,
       capacityManaged: true,
@@ -294,9 +294,9 @@ const ownKnittingFactory: Factory = {
   createdAt: '2026-05-09 09:00:00',
   updatedAt: '2026-05-09 09:00:00',
   factoryTier: 'CENTRAL',
-  factoryType: 'CENTRAL_KNIT',
+  factoryType: 'CENTRAL_WOOL',
   pdaEnabled: true,
-  pdaTenantId: OWN_KNITTING_FACTORY_ID,
+  pdaTenantId: OWN_WOOL_FACTORY_ID,
   eligibility: {
     allowDispatch: true,
     allowBid: false,
@@ -305,6 +305,6 @@ const ownKnittingFactory: Factory = {
   },
 }
 
-export const mockFactories: Factory[] = [...generatedFactories, allProcessCraftTestFactory, ownKnittingFactory]
+export const mockFactories: Factory[] = [...generatedFactories, allProcessCraftTestFactory, ownWoolFactory]
 
 export { genCode as generateFactoryCode }

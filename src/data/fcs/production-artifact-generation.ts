@@ -58,7 +58,7 @@ export interface GeneratedProductionArtifactBase {
   taskTypeMode: TaskTypeMode
   isSpecialCraft: boolean
   selectedTargetObject?: string
-  knittingTaskType?: 'WHOLE_GARMENT' | 'PART_PANEL'
+  woolTaskType?: 'WHOLE_GARMENT' | 'PART_PANEL'
   downstreamTarget?: '后道工厂' | '裁床待交出仓'
   requiresFeiTicket?: boolean
   packagingRequired?: boolean
@@ -209,7 +209,7 @@ function toCoverageSourceEntryId(definition: ProcessCraftDefinition, mockIndex: 
 
 function toCoverageTargetObject(definition: ProcessCraftDefinition): string | undefined {
   if (definition.isSpecialCraft) return definition.supportedTargetObjectLabels[0] || definition.targetObjectName
-  if (definition.processCode === 'KNITTING') return definition.targetObjectName
+  if (definition.processCode === 'WOOL') return definition.targetObjectName
   return undefined
 }
 
@@ -248,21 +248,21 @@ function buildDictionaryCoverageBase(
     taskTypeMode: definition.taskTypeMode,
     isSpecialCraft: definition.isSpecialCraft,
     selectedTargetObject: toCoverageTargetObject(definition),
-    knittingTaskType:
-      definition.processCode === 'KNITTING'
-        ? definition.craftName === '部位针织'
+    woolTaskType:
+      definition.processCode === 'WOOL'
+        ? definition.craftName === '部位毛织'
           ? 'PART_PANEL'
           : 'WHOLE_GARMENT'
         : undefined,
     downstreamTarget:
-      definition.processCode === 'KNITTING'
-        ? definition.craftName === '部位针织'
+      definition.processCode === 'WOOL'
+        ? definition.craftName === '部位毛织'
           ? '裁床待交出仓'
           : '后道工厂'
         : undefined,
-    requiresFeiTicket: definition.processCode === 'KNITTING' && definition.craftName === '部位针织',
-    packagingRequired: definition.processCode === 'KNITTING' && definition.craftName === '整件针织' ? false : undefined,
-    materialIssueMode: definition.processCode === 'KNITTING' ? 'WAREHOUSE_DELIVERY' : undefined,
+    requiresFeiTicket: definition.processCode === 'WOOL' && definition.craftName === '部位毛织',
+    packagingRequired: definition.processCode === 'WOOL' && definition.craftName === '整件毛织' ? false : undefined,
+    materialIssueMode: definition.processCode === 'WOOL' ? 'WAREHOUSE_DELIVERY' : undefined,
     linkedBomItemIds: linkedBomItem ? [linkedBomItem.id] : undefined,
     linkedPatternIds: undefined,
     docTypeLabel: definition.defaultDocType === 'DEMAND' ? `${definition.craftName}需求单` : DOC_TYPE_LABEL.TASK,
@@ -494,7 +494,7 @@ function toTaskArtifact(context: ResolvedEntryContext): GeneratedTaskArtifact {
     taskTypeMode: context.taskTypeMode,
     isSpecialCraft: context.isSpecialCraft,
     selectedTargetObject: context.sourceEntry.selectedTargetObject,
-    knittingTaskType: context.sourceEntry.knittingTaskType,
+    woolTaskType: context.sourceEntry.woolTaskType,
     downstreamTarget: context.sourceEntry.downstreamTarget,
     requiresFeiTicket: context.sourceEntry.requiresFeiTicket,
     packagingRequired: context.sourceEntry.packagingRequired,

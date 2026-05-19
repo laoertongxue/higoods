@@ -97,10 +97,10 @@ export const capabilityTagsFull: CapabilityTagFull[] = [
   },
   {
     id: 'tag-008',
-    name: '针织',
+    name: '毛织',
     categoryId: 'cat-003',
     categoryName: '面料类型',
-    description: '擅长针织面料加工',
+    description: '擅长毛织面料加工',
     status: 'active',
     usageCount: 11,
     isSystemTag: true,

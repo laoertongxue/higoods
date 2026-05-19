@@ -215,7 +215,7 @@ function checkPatternTwoStepAndBinding(): void {
   ;[
     ['patternName', ['patternName', 'name: string']],
     ['patternType', ['patternType', 'type: TechPackPatternCategory', 'patternMaterialType']],
-    ['isKnitted', ['isKnitted']],
+    ['isWoolted', ['isWoolted']],
     ['fabricWidthCm', ['fabricWidthCm', 'widthCm']],
     ['linkedMaterialId', ['linkedMaterialId']],
     ['linkedMaterialName', ['linkedMaterialName']],

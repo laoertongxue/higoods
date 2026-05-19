@@ -6,15 +6,15 @@ import {
   listFactoryWaitHandoverStockItems,
   listFactoryWaitProcessStockItems,
 } from './factory-internal-warehouse.ts'
-import { OWN_KNITTING_FACTORY_ID, mockFactories } from './factory-mock-data.ts'
+import { OWN_WOOL_FACTORY_ID, mockFactories } from './factory-mock-data.ts'
 import { listCuttingSewingDispatchBatches, listCuttingSewingDispatchOrders, listCuttingSewingTransferBags } from './cutting/sewing-dispatch.ts'
 import { listPdaHandoverHeads } from './pda-handover-events.ts'
 import {
-  listKnittingWaitHandoverHandoutRecords,
-  listKnittingWaitHandoverInboundRecords,
-  listKnittingWaitProcessReceiptRecords,
-  listKnittingWarehouseInventory,
-} from './knitting-task-domain.ts'
+  listWoolWaitHandoverHandoutRecords,
+  listWoolWaitHandoverInboundRecords,
+  listWoolWaitProcessReceiptRecords,
+  listWoolWarehouseInventory,
+} from './wool-task-domain.ts'
 import {
   FULL_CAPABILITY_FACTORY_ID,
   listPostFinishingUpstreamHandovers,
@@ -91,12 +91,12 @@ export function getFactoryMobileTransferBagReceiveTasks(factoryId: string) {
 }
 
 export function getFactoryMobileWarehouseOverview(factoryId: string, factoryName: string): FactoryMobileWarehouseOverview {
-  if (factoryId === OWN_KNITTING_FACTORY_ID) {
-    const waitProcessInventory = listKnittingWarehouseInventory('wait-process')
-    const waitHandoverInventory = listKnittingWarehouseInventory('wait-handover')
-    const receiptRecords = listKnittingWaitProcessReceiptRecords()
-    const inboundRecords = listKnittingWaitHandoverInboundRecords()
-    const handoutRecords = listKnittingWaitHandoverHandoutRecords()
+  if (factoryId === OWN_WOOL_FACTORY_ID) {
+    const waitProcessInventory = listWoolWarehouseInventory('wait-process')
+    const waitHandoverInventory = listWoolWarehouseInventory('wait-handover')
+    const receiptRecords = listWoolWaitProcessReceiptRecords()
+    const inboundRecords = listWoolWaitHandoverInboundRecords()
+    const handoutRecords = listWoolWaitHandoverHandoutRecords()
     return {
       factoryId,
       factoryName,

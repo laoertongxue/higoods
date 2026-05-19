@@ -166,7 +166,7 @@
           - article [ref=e3865]:
             - heading "拆解结果" [level=3] [ref=e3866]
             - generic [ref=e3867]: 已拆解
-            - paragraph [ref=e3868]: 布包扣、部位针织、激光开袋
+            - paragraph [ref=e3868]: 布包扣、部位毛织、激光开袋
             - paragraph [ref=e3869]: 任务明细行 10 条 · 合计 40600件
             - paragraph [ref=e3870]: 原始任务 5 · 执行任务 5
             - paragraph [ref=e3871]: 拆分来源 0 · 拆分结果 0 · 拆分组 0
@@ -333,11 +333,11 @@
                   - cell "1.8" [ref=e4035]
                   - cell "分钟/件" [ref=e4036]
                   - cell "6,300 分钟" [ref=e4037]
-                - row "部位针织 针织 TASKGEN-202603-0004-003 3,500 2.5 分钟/件 8,750 分钟" [ref=e4038]:
-                  - cell "部位针织 针织 TASKGEN-202603-0004-003" [ref=e4039]:
+                - row "部位毛织 毛织 TASKGEN-202603-0004-003 3,500 2.5 分钟/件 8,750 分钟" [ref=e4038]:
+                  - cell "部位毛织 毛织 TASKGEN-202603-0004-003" [ref=e4039]:
                     - generic [ref=e4040]:
-                      - generic [ref=e4041]: 部位针织
-                      - generic [ref=e4042]: 针织
+                      - generic [ref=e4041]: 部位毛织
+                      - generic [ref=e4042]: 毛织
                       - generic [ref=e4043]: TASKGEN-202603-0004-003
                   - cell "3,500" [ref=e4044]
                   - cell "2.5" [ref=e4045]

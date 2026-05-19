@@ -29,11 +29,11 @@ function buildSizeTable(seed: ProductionDemandTechPackSeed) {
   ]
 }
 
-type SeedScenario = 'DEFAULT' | 'WHOLE_KNIT' | 'PART_KNIT' | 'GARMENT_HEAT_TRANSFER'
+type SeedScenario = 'DEFAULT' | 'WHOLE_WOOL' | 'PART_WOOL' | 'GARMENT_HEAT_TRANSFER'
 
 function resolveSeedScenario(seed: ProductionDemandTechPackSeed): SeedScenario {
-  if (seed.demand.spuCode === 'SPU-2024-011' || seed.demand.spuCode === 'SPU-2024-012') return 'WHOLE_KNIT'
-  if (seed.demand.spuCode === 'SPU-TEE-084') return 'PART_KNIT'
+  if (seed.demand.spuCode === 'SPU-2024-011' || seed.demand.spuCode === 'SPU-2024-012') return 'WHOLE_WOOL'
+  if (seed.demand.spuCode === 'SPU-TEE-084') return 'PART_WOOL'
   if (seed.demand.spuCode === 'SPU-2024-004') return 'GARMENT_HEAT_TRANSFER'
   return 'DEFAULT'
 }
@@ -61,40 +61,40 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
     { id: `${patternId}-back`, name: '后片', count: 1 },
     { id: `${patternId}-sleeve`, name: '袖片', count: 2 },
   ])
-  const knitPieceRows = scenario === 'WHOLE_KNIT'
-    ? buildPieceRows([{ id: `${patternId}-whole`, name: '整件针织成衣', count: 1 }])
+  const woolPieceRows = scenario === 'WHOLE_WOOL'
+    ? buildPieceRows([{ id: `${patternId}-whole`, name: '整件毛织成衣', count: 1 }])
     : buildPieceRows([
         { id: `${patternId}-collar`, name: '领口罗纹', count: 1 },
         { id: `${patternId}-cuff`, name: '袖口罗纹', count: 2 },
         { id: `${patternId}-hem`, name: '下摆罗纹', count: 1 },
       ])
-  const isKnitScenario = scenario === 'WHOLE_KNIT' || scenario === 'PART_KNIT'
-  const pieceRows = isKnitScenario ? knitPieceRows : defaultPieceRows
-  const patternMaterialType = isKnitScenario ? 'KNIT' : 'WOVEN'
-  const patternMaterialTypeLabel = isKnitScenario ? '针织纸样' : '布料纸样'
-  const patternFileName = isKnitScenario ? `${demand.spuCode}-针织工艺单.pdf` : `${demand.spuCode}-正式纸样.dxf`
-  const mainBomType = scenario === 'GARMENT_HEAT_TRANSFER' ? '半成品' : isKnitScenario ? '纱线' : '面料'
+  const isWoolScenario = scenario === 'WHOLE_WOOL' || scenario === 'PART_WOOL'
+  const pieceRows = isWoolScenario ? woolPieceRows : defaultPieceRows
+  const patternMaterialType = isWoolScenario ? 'WOOL' : 'WOVEN'
+  const patternMaterialTypeLabel = isWoolScenario ? '毛织纸样' : '布料纸样'
+  const patternFileName = isWoolScenario ? `${demand.spuCode}-毛织工艺单.pdf` : `${demand.spuCode}-正式纸样.dxf`
+  const mainBomType = scenario === 'GARMENT_HEAT_TRANSFER' ? '半成品' : isWoolScenario ? '纱线' : '面料'
   const mainBomName = scenario === 'GARMENT_HEAT_TRANSFER'
     ? '纯色 T-shirt 半成品'
-    : isKnitScenario
-      ? '针织用纱线'
+    : isWoolScenario
+      ? '毛织用纱线'
       : '主面料'
   const mainUsageProcessCodes = scenario === 'GARMENT_HEAT_TRANSFER'
     ? ['SPECIAL_CRAFT']
-    : isKnitScenario
-      ? ['KNITTING']
+    : isWoolScenario
+      ? ['WOOL']
       : ['CUT_PANEL', 'SEW']
-  const processEntries = scenario === 'WHOLE_KNIT'
+  const processEntries = scenario === 'WHOLE_WOOL'
     ? [
         {
-          id: `${seed.technicalVersionId}-process-knit-whole`,
+          id: `${seed.technicalVersionId}-process-wool-whole`,
           entryType: 'CRAFT' as const,
           stageCode: 'PROD' as const,
           stageName: '生产执行',
-          processCode: 'KNITTING',
-          processName: '针织',
+          processCode: 'WOOL',
+          processName: '毛织',
           craftCode: 'CRAFT_2000007',
-          craftName: '整件针织',
+          craftName: '整件毛织',
           assignmentGranularity: 'SKU' as const,
           ruleSource: 'OVERRIDE_CRAFT',
           detailSplitMode: 'COMPOSITE',
@@ -102,7 +102,7 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
           defaultDocType: 'TASK' as const,
           taskTypeMode: 'CRAFT' as const,
           isSpecialCraft: false,
-          knittingTaskType: 'WHOLE_GARMENT' as const,
+          woolTaskType: 'WHOLE_GARMENT' as const,
           downstreamTarget: '后道工厂' as const,
           requiresFeiTicket: false,
           packagingRequired: true,
@@ -112,20 +112,20 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
           standardTimeMinutes: 18,
           timeUnit: '分钟/件',
           difficulty: 'HIGH' as const,
-          remark: '整件针织完成后交后道工厂，熨烫必有，包装按本单要求执行。',
+          remark: '整件毛织完成后交后道工厂，熨烫必有，包装按本单要求执行。',
         },
       ]
-    : scenario === 'PART_KNIT'
+    : scenario === 'PART_WOOL'
       ? [
           {
-            id: `${seed.technicalVersionId}-process-knit-part`,
+            id: `${seed.technicalVersionId}-process-wool-part`,
             entryType: 'CRAFT' as const,
             stageCode: 'PROD' as const,
             stageName: '生产执行',
-            processCode: 'KNITTING',
-            processName: '针织',
+            processCode: 'WOOL',
+            processName: '毛织',
             craftCode: 'CRAFT_2000008',
-            craftName: '部位针织',
+            craftName: '部位毛织',
             assignmentGranularity: 'DETAIL' as const,
             ruleSource: 'OVERRIDE_CRAFT',
             detailSplitMode: 'COMPOSITE',
@@ -133,7 +133,7 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
             defaultDocType: 'TASK' as const,
             taskTypeMode: 'CRAFT' as const,
             isSpecialCraft: false,
-            knittingTaskType: 'PART_PANEL' as const,
+            woolTaskType: 'PART_PANEL' as const,
             downstreamTarget: '裁床待交出仓' as const,
             requiresFeiTicket: true,
             packagingRequired: false,
@@ -143,7 +143,7 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
             standardTimeMinutes: 2.5,
             timeUnit: '分钟/件',
             difficulty: 'MEDIUM' as const,
-            remark: '部位针织按部位、颜色、尺码生成明细并打印菲票，完成后交裁床待交出仓。',
+            remark: '部位毛织按部位、颜色、尺码生成明细并打印菲票，完成后交裁床待交出仓。',
           },
         ]
       : scenario === 'GARMENT_HEAT_TRANSFER'
@@ -247,8 +247,8 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
     patternFiles: [
       {
         id: patternId,
-        patternName: isKnitScenario ? `${demand.spuCode} 针织纸样` : `${demand.spuCode} 正式纸样`,
-        patternCategory: isKnitScenario ? '结构片' : '主体片',
+        patternName: isWoolScenario ? `${demand.spuCode} 毛织纸样` : `${demand.spuCode} 正式纸样`,
+        patternCategory: isWoolScenario ? '结构片' : '主体片',
         patternMaterialType,
         patternMaterialTypeLabel,
         patternFileMode: 'SINGLE_FILE',
@@ -257,22 +257,22 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
         uploadedAt: demand.updatedAt,
         uploadedBy: '生产需求单',
         singlePatternFileName: patternFileName,
-        parseStatus: isKnitScenario ? 'NOT_REQUIRED' : 'PARSED',
-        parseStatusLabel: isKnitScenario ? '无需解析' : '已解析',
+        parseStatus: isWoolScenario ? 'NOT_REQUIRED' : 'PARSED',
+        parseStatusLabel: isWoolScenario ? '无需解析' : '已解析',
         merchandiserInfoStatus: '已填写',
         patternMakerInfoStatus: '已完成',
         maintainerStepStatus: '已完成',
         selectedSizeCodes: Array.from(new Set(demand.skuLines.map((line) => line.size))),
         linkedBomItemId: bomItemId,
         totalPieceCount: pieceRows.reduce((sum, row) => sum + row.count, 0),
-        isKnitted: isKnitScenario ? '是' : '否',
+        isWoolted: isWoolScenario ? '是' : '否',
         pieceRows,
       },
     ],
-    patternDesc: scenario === 'WHOLE_KNIT'
-      ? '整件针织技术包，生产单生成针织加工单，完成后交后道工厂。'
-      : scenario === 'PART_KNIT'
-        ? '部位针织技术包，生产单生成部位针织加工单和针织菲票，完成后交裁床待交出仓。'
+    patternDesc: scenario === 'WHOLE_WOOL'
+      ? '整件毛织技术包，生产单生成毛织加工单，完成后交后道工厂。'
+      : scenario === 'PART_WOOL'
+        ? '部位毛织技术包，生产单生成部位毛织加工单和毛织菲票，完成后交裁床待交出仓。'
         : scenario === 'GARMENT_HEAT_TRANSFER'
           ? '纯色 T-shirt 半成品烫画技术包，按成衣半成品生成特殊工艺任务。'
           : '来源生产需求单当前生效技术包。',
@@ -285,12 +285,12 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
         name: mainBomName,
         spec: scenario === 'GARMENT_HEAT_TRANSFER'
           ? `${colors.join(' / ') || '默认色'} 纯色 T-shirt`
-          : isKnitScenario
+          : isWoolScenario
             ? `${colors.join(' / ') || '默认色'} 纱线，染厂/面料仓送料到厂`
             : `${colors.join(' / ') || '默认色'} 主面料`,
         colorLabel: colors.join(' / '),
-        unitConsumption: scenario === 'GARMENT_HEAT_TRANSFER' ? 1 : isKnitScenario ? 0.48 : 1.2,
-        lossRate: isKnitScenario ? 0.05 : 0.03,
+        unitConsumption: scenario === 'GARMENT_HEAT_TRANSFER' ? 1 : isWoolScenario ? 0.48 : 1.2,
+        lossRate: isWoolScenario ? 0.05 : 0.03,
         supplier: '生产需求单指定',
         applicableSkuCodes: [...allSkuCodes],
         linkedPatternIds: [patternId],
@@ -310,9 +310,9 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
         bomItemId,
         materialCode: resolveColorMaterialInfo(color, index).code,
         materialName: resolveColorMaterialInfo(color, index).name,
-        materialType: scenario === 'GARMENT_HEAT_TRANSFER' ? '半成品' : isKnitScenario ? '其他' : '面料',
+        materialType: scenario === 'GARMENT_HEAT_TRANSFER' ? '半成品' : isWoolScenario ? '其他' : '面料',
         patternId,
-        patternName: isKnitScenario ? `${demand.spuCode} 针织纸样` : `${demand.spuCode} 正式纸样`,
+        patternName: isWoolScenario ? `${demand.spuCode} 毛织纸样` : `${demand.spuCode} 正式纸样`,
         pieceId: piece.id,
         pieceName: piece.name,
         pieceCountPerUnit: piece.count,

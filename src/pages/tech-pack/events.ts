@@ -158,7 +158,7 @@ function clearWovenFileState(): void {
   state.newPattern.file = ''
 }
 
-function clearKnitFileState(): void {
+function clearWoolFileState(): void {
   state.newPattern.selectedSinglePatternFile = null
   state.newPattern.singlePatternFileName = ''
   state.newPattern.singlePatternFileSize = 0
@@ -527,14 +527,14 @@ function applyPatternMaterialTypeChange(nextType: TechPackPatternMaterialType): 
   state.newPattern.patternMaterialTypeLabel = getPatternMaterialTypeLabel(nextType)
 
   if (nextType === 'WOVEN') {
-    clearKnitFileState()
+    clearWoolFileState()
     clearParsedPatternRows()
     state.newPattern.patternFileMode = 'PAIRED_DXF_RUL'
     clearPatternParseState('NOT_PARSED')
     return
   }
 
-  if (nextType === 'KNIT') {
+  if (nextType === 'WOOL') {
     clearWovenFileState()
     clearParsedPatternRows()
     state.newPattern.patternFileMode = 'SINGLE_FILE'
@@ -544,7 +544,7 @@ function applyPatternMaterialTypeChange(nextType: TechPackPatternMaterialType): 
 
   state.newPattern.patternFileMode = 'SINGLE_FILE'
   clearWovenFileState()
-  clearKnitFileState()
+  clearWoolFileState()
   clearParsedPatternRows()
   clearPatternParseState('NOT_PARSED')
 }
@@ -701,13 +701,13 @@ function validatePatternForm(): string | null {
   }
 
   if (!state.newPattern.singlePatternFileName.trim() && !state.newPattern.file.trim()) {
-    return '针织纸样需先选择纸样文件'
+    return '毛织纸样需先选择纸样文件'
   }
-  if (state.newPattern.pieceRows.length === 0) return '针织纸样至少保留 1 行针织部位明细'
+  if (state.newPattern.pieceRows.length === 0) return '毛织纸样至少保留 1 行毛织部位明细'
   const invalidRow = state.newPattern.pieceRows.find(
     (row) => row.sourceType !== 'MANUAL' || !row.name.trim() || Number(row.totalPieceQty) <= 0,
   )
-  if (invalidRow) return '针织纸样部位名称和颜色片数必须填写完整'
+  if (invalidRow) return '毛织纸样部位名称和颜色片数必须填写完整'
   return null
 }
 
@@ -744,8 +744,8 @@ function validatePatternMakerStep(): string | null {
   if (state.newPattern.patternMaterialType === 'WOVEN' && state.newPattern.pieceRows.length === 0) {
     return '布料纸样请先在纸样池解析部位信息'
   }
-  if (state.newPattern.patternMaterialType === 'KNIT' && state.newPattern.pieceRows.length === 0) {
-    return '针织纸样请添加部位信息'
+  if (state.newPattern.patternMaterialType === 'WOOL' && state.newPattern.pieceRows.length === 0) {
+    return '毛织纸样请添加部位信息'
   }
   return null
 }
@@ -753,14 +753,14 @@ function validatePatternMakerStep(): string | null {
 function validatePatternPackage(): string | null {
   const baseError = validatePatternMerchandiserStep()
   if (baseError) return baseError
-  if (state.newPattern.patternMaterialType === 'KNIT') {
-    if (!state.newPattern.singlePatternFileName.trim() && !state.newPattern.file.trim()) return '请上传针织纸样 Zip 文件'
-    if (!hasFileExtension(state.newPattern.singlePatternFileName || state.newPattern.file, ['.zip'])) return '针织纸样包只能上传 Zip 文件'
-    if (state.newPattern.pieceRows.length === 0) return '请新增针织部位明细'
+  if (state.newPattern.patternMaterialType === 'WOOL') {
+    if (!state.newPattern.singlePatternFileName.trim() && !state.newPattern.file.trim()) return '请上传毛织纸样 Zip 文件'
+    if (!hasFileExtension(state.newPattern.singlePatternFileName || state.newPattern.file, ['.zip'])) return '毛织纸样包只能上传 Zip 文件'
+    if (state.newPattern.pieceRows.length === 0) return '请新增毛织部位明细'
     const invalidRow = state.newPattern.pieceRows.find(
       (row) => row.sourceType !== 'MANUAL' || !row.name.trim() || Number(row.totalPieceQty) <= 0,
     )
-    if (invalidRow) return '针织部位名称和颜色片数必须填写完整'
+    if (invalidRow) return '毛织部位名称和颜色片数必须填写完整'
     return null
   }
   if (!state.newPattern.prjFile?.fileName) return '请上传纸样 PRJ 文件'
@@ -810,7 +810,7 @@ function buildPatternItemFromForm(nowId: string, finalStatus: typeof state.newPa
       ? 'WOVEN'
       : state.newPattern.patternMaterialType
   const normalizedPatternFileMode =
-    normalizedPatternMaterialType === 'KNIT'
+    normalizedPatternMaterialType === 'WOOL'
       ? 'SINGLE_FILE'
       : state.newPattern.patternFileMode || 'PAIRED_DXF_RUL'
   const pieceInstances = generatePieceInstancesFromColorQuantities({
@@ -820,7 +820,7 @@ function buildPatternItemFromForm(nowId: string, finalStatus: typeof state.newPa
   })
   const pieceInstanceSummary = summarizePieceInstances(pieceInstances)
   const nextParseStatus =
-    normalizedPatternMaterialType === 'KNIT'
+    normalizedPatternMaterialType === 'WOOL'
       ? 'NOT_REQUIRED'
       : finalStatus === '已解析待确认' || finalStatus === '已完成'
         ? 'PARSED'
@@ -850,7 +850,7 @@ function buildPatternItemFromForm(nowId: string, finalStatus: typeof state.newPa
     markerLengthM: state.newPattern.markerLengthM,
     totalPieceCount,
     patternTotalPieceQty: totalPieceCount,
-    isKnitted: state.newPattern.patternMaterialType === 'KNIT' ? '是' as const : '否' as const,
+    isWoolted: state.newPattern.patternMaterialType === 'WOOL' ? '是' as const : '否' as const,
     maintainerStepStatus: finalStatus,
     merchandiserInfoStatus: '已填写' as const,
     patternMakerInfoStatus:
@@ -1105,7 +1105,7 @@ function applyPatternPackageToAssociation(patternPackageId: string): void {
     patternParsing: false,
   }
 
-  if (selectedPackage.patternMaterialType === 'KNIT' && currentPieceRows.length > 0) {
+  if (selectedPackage.patternMaterialType === 'WOOL' && currentPieceRows.length > 0) {
     state.newPattern.pieceRows = currentPieceRows
     state.newPattern.pieceInstances = currentPieceInstances
   }
@@ -1135,15 +1135,15 @@ function handleTechPackField(
   }
   if (field === 'new-pattern-material-type') {
     applyPatternMaterialTypeChange(
-      value === 'WOVEN' || value === 'KNIT' ? value : 'UNKNOWN',
+      value === 'WOVEN' || value === 'WOOL' ? value : 'UNKNOWN',
     )
-    state.newPattern.isKnitted = value === 'KNIT' ? '是' : '否'
+    state.newPattern.isWoolted = value === 'WOOL' ? '是' : '否'
     return true
   }
-  if (field === 'new-pattern-is-knitted') {
-    const nextType: TechPackPatternMaterialType = value === '是' ? 'KNIT' : 'WOVEN'
+  if (field === 'new-pattern-is-woolted') {
+    const nextType: TechPackPatternMaterialType = value === '是' ? 'WOOL' : 'WOVEN'
     applyPatternMaterialTypeChange(nextType)
-    state.newPattern.isKnitted = value === '是' ? '是' : '否'
+    state.newPattern.isWoolted = value === '是' ? '是' : '否'
     return true
   }
   if (field === 'new-pattern-type') {
@@ -1275,10 +1275,10 @@ function handleTechPackField(
     if (
       file
       && state.patternFormPurpose === 'PACKAGE'
-      && state.newPattern.patternMaterialType === 'KNIT'
+      && state.newPattern.patternMaterialType === 'WOOL'
       && !hasFileExtension(file.name, ['.zip'])
     ) {
-      applyPatternFileError('针织纸样包只能上传 Zip 文件', node)
+      applyPatternFileError('毛织纸样包只能上传 Zip 文件', node)
       state.newPattern.selectedSinglePatternFile = null
       state.newPattern.singlePatternFileName = ''
       state.newPattern.singlePatternFileSize = 0
@@ -1656,7 +1656,7 @@ function handleTechPackField(
       ...state.newTechnique,
       craftCode: value,
       selectedTargetObject,
-      packagingRequired: craft?.craftName === '整件针织' ? state.newTechnique.packagingRequired : false,
+      packagingRequired: craft?.craftName === '整件毛织' ? state.newTechnique.packagingRequired : false,
       standardTime: craft ? String(craft.referencePublishedSamValue) : state.newTechnique.standardTime,
       timeUnit: craft ? craft.referencePublishedSamUnitLabel : state.newTechnique.timeUnit,
     }
@@ -2366,7 +2366,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     }
     state.newPattern.parseError = ''
     const finalStatus =
-      state.newPattern.patternMaterialType === 'KNIT'
+      state.newPattern.patternMaterialType === 'WOOL'
         ? '已解析待确认'
         : state.newPattern.patternMaterialType === 'WOVEN' && state.newPattern.parseStatus === 'PARSED'
         ? '已解析待确认'
@@ -2386,7 +2386,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     }
     state.newPattern.parseError = ''
     const finalStatus =
-      action === 'save-pattern-and-parse' || state.newPattern.parseStatus === 'PARSED' || state.newPattern.patternMaterialType === 'KNIT'
+      action === 'save-pattern-and-parse' || state.newPattern.parseStatus === 'PARSED' || state.newPattern.patternMaterialType === 'WOOL'
         ? '已解析待确认'
         : '待解析'
     updatePatternMaintainerStatuses(finalStatus)
@@ -2439,7 +2439,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       if (dxfInput instanceof HTMLInputElement) dxfInput.value = ''
       if (rulInput instanceof HTMLInputElement) rulInput.value = ''
     } else {
-      clearKnitFileState()
+      clearWoolFileState()
       const singleInput = document.getElementById('tech-pack-pattern-single-input')
       if (singleInput instanceof HTMLInputElement) singleInput.value = ''
     }
@@ -2575,7 +2575,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     return true
   }
   if (action === 'add-new-pattern-piece-row') {
-    if (state.newPattern.patternMaterialType !== 'KNIT') return true
+    if (state.newPattern.patternMaterialType !== 'WOOL') return true
     const colorOptions = getPatternColorQuantityOptions(state.newPattern.linkedBomItemId)
     const colorPieceQuantities = colorOptions.length > 0
       ? colorOptions.map((option) => ({
@@ -2614,7 +2614,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     return true
   }
   if (action === 'delete-new-pattern-piece-row') {
-    if (state.newPattern.patternMaterialType !== 'KNIT') return true
+    if (state.newPattern.patternMaterialType !== 'WOOL') return true
     const pieceId = actionNode.dataset.pieceId
     if (!pieceId) return true
     applyPatternPieceRowsWithInstanceProtection(() => {
@@ -3111,7 +3111,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       selectedTargetObject: effectiveMeta.selectedTargetObject,
       targetObject: effectiveMeta.targetObject,
       targetObjectName: effectiveMeta.targetObjectName,
-      knittingTaskType: effectiveMeta.knittingTaskType,
+      woolTaskType: effectiveMeta.woolTaskType,
       downstreamTarget: effectiveMeta.downstreamTarget,
       requiresFeiTicket: effectiveMeta.requiresFeiTicket,
       packagingRequired: effectiveMeta.packagingRequired,

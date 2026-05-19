@@ -251,7 +251,7 @@ const seedProductionDemands: ProductionDemand[] = [
   createDemandSeed({
     demandId: 'DEM-202603-0011', legacyType: 'ID_PURCHASE', legacyOrderNo: '240786', sourceSystem: 'LEGACY',
     spuCode: 'SPU-2024-011', spuName: 'Sweater Rajut Wanita', imageUrl: '/placeholder.svg?height=80&width=80',
-    category: 'Womens Knitwear', marketScopes: ['ID', 'VN'], priority: 'URGENT', demandStatus: 'CONVERTED', techPackStatus: 'RELEASED', techPackVersionLabel: 'v1.1',
+    category: 'Womens Woolwear', marketScopes: ['ID', 'VN'], priority: 'URGENT', demandStatus: 'CONVERTED', techPackStatus: 'RELEASED', techPackVersionLabel: 'v1.1',
     requiredDeliveryDate: '2026-04-18', constraintsNote: 'Rajutan harus rapat. Tidak boleh melar.',
     skuLines: [
       { skuCode: 'SKU-011-S-CRM', size: 'S', color: 'Cream', qty: 500 },
@@ -264,7 +264,7 @@ const seedProductionDemands: ProductionDemand[] = [
   createDemandSeed({
     demandId: 'DEM-202603-0012', legacyType: 'GOODS_PURCHASE', legacyOrderNo: '240787', sourceSystem: 'LEGACY',
     spuCode: 'SPU-2024-012', spuName: 'Cardigan Wanita', imageUrl: '/placeholder.svg?height=80&width=80',
-    category: 'Womens Knitwear', marketScopes: ['ID'], priority: 'HIGH', demandStatus: 'CONVERTED', techPackStatus: 'RELEASED', techPackVersionLabel: 'v1.0',
+    category: 'Womens Woolwear', marketScopes: ['ID'], priority: 'HIGH', demandStatus: 'CONVERTED', techPackStatus: 'RELEASED', techPackVersionLabel: 'v1.0',
     requiredDeliveryDate: '2026-04-22', constraintsNote: 'Kancing mutiara. Rajutan halus.',
     skuLines: [
       { skuCode: 'SKU-012-S-BEG', size: 'S', color: 'Beige', qty: 400 },
@@ -392,9 +392,9 @@ const seedProductionDemands: ProductionDemand[] = [
   }),
   createDemandSeed({
     demandId: 'DEM-202603-0084', legacyType: 'ID_PURCHASE', legacyOrderNo: '26031184', sourceSystem: 'NEW',
-    spuCode: 'SPU-TEE-084', spuName: '针织撞色短袖上衣', imageUrl: '/placeholder.svg?height=80&width=80',
+    spuCode: 'SPU-TEE-084', spuName: '毛织撞色短袖上衣', imageUrl: '/placeholder.svg?height=80&width=80',
     category: 'Mens T-Shirt', marketScopes: ['ID'], priority: 'NORMAL', demandStatus: 'CONVERTED', techPackStatus: 'RELEASED', techPackVersionLabel: 'v1.0',
-    requiredDeliveryDate: '2026-04-05', constraintsNote: '染色针织主布与弹力网布里料并行准备。',
+    requiredDeliveryDate: '2026-04-05', constraintsNote: '染色毛织主布与弹力网布里料并行准备。',
     skuLines: [
       { skuCode: 'SKU-084-S-CRL', size: 'S', color: '珊瑚粉', qty: 700 },
       { skuCode: 'SKU-084-M-CRL', size: 'M', color: '珊瑚粉', qty: 700 },

@@ -523,7 +523,7 @@ function canSavePatternForm(): boolean {
     )
   }
 
-  if (state.newPattern.patternMaterialType === 'KNIT') {
+  if (state.newPattern.patternMaterialType === 'WOOL') {
     if (!state.newPattern.singlePatternFileName.trim() && !state.newPattern.file.trim()) return false
     if (state.newPattern.pieceRows.length === 0) return false
     if (hasInvalidColorQuantities) return false
@@ -704,7 +704,7 @@ export function renderPatternTab(): string {
                           ${renderPatternImagePreview(item)}
                         </div>
                       </div>
-                      <div class="mt-3 text-xs text-blue-700">${item.patternMaterialType === 'KNIT' ? `针织部位明细 ${item.pieceRows.length} 项` : `已解析 ${item.pieceRows.length} 个部位`}</div>
+                      <div class="mt-3 text-xs text-blue-700">${item.patternMaterialType === 'WOOL' ? `毛织部位明细 ${item.pieceRows.length} 项` : `已解析 ${item.pieceRows.length} 个部位`}</div>
                     </article>
                   `)
                   .join('')}
@@ -1164,7 +1164,7 @@ function renderPatternFormDialogLegacy(): string {
 
   const bomOptions = state.bomItems
   const isWoven = state.newPattern.patternMaterialType === 'WOVEN'
-  const isKnit = state.newPattern.patternMaterialType === 'KNIT'
+  const isWool = state.newPattern.patternMaterialType === 'WOOL'
   const sizeOptions = getSizeCodeOptionsFromSizeRules()
   const bomColorOptions = getBomColorOptionsForPattern(state.newPattern.linkedBomItemId)
   const parseButtonLabel =
@@ -1196,7 +1196,7 @@ function renderPatternFormDialogLegacy(): string {
               <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-material-type">
                 <option value="UNKNOWN" ${state.newPattern.patternMaterialType === 'UNKNOWN' ? 'selected' : ''}>请选择</option>
                 <option value="WOVEN" ${state.newPattern.patternMaterialType === 'WOVEN' ? 'selected' : ''}>布料纸样</option>
-                <option value="KNIT" ${state.newPattern.patternMaterialType === 'KNIT' ? 'selected' : ''}>针织纸样</option>
+                <option value="WOOL" ${state.newPattern.patternMaterialType === 'WOOL' ? 'selected' : ''}>毛织纸样</option>
               </select>
             </label>
             <label class="space-y-1">
@@ -1307,7 +1307,7 @@ function renderPatternFormDialogLegacy(): string {
           }
 
           ${
-            isKnit
+            isWool
               ? `
                 <section class="space-y-3 rounded-lg border p-4">
                   ${renderPatternFileInfo({
@@ -1354,7 +1354,7 @@ export function renderPatternFormDialog(): string {
   if (!state.addPatternDialogOpen) return ''
 
   const bomOptions = state.bomItems
-  const isWoven = state.newPattern.patternMaterialType !== 'KNIT'
+  const isWoven = state.newPattern.patternMaterialType !== 'WOOL'
   const activeStep = state.patternMaintenanceStep
   const selectedBom = state.newPattern.linkedBomItemId
     ? state.bomItems.find((item) => item.id === state.newPattern.linkedBomItemId)
@@ -1395,14 +1395,14 @@ export function renderPatternFormDialog(): string {
                     <span class="text-sm">纸样类型 <span class="text-red-500">*</span></span>
                     <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-material-type">
                       <option value="WOVEN" ${state.newPattern.patternMaterialType === 'WOVEN' || state.newPattern.patternMaterialType === 'UNKNOWN' ? 'selected' : ''}>布料纸样</option>
-                      <option value="KNIT" ${state.newPattern.patternMaterialType === 'KNIT' ? 'selected' : ''}>针织纸样</option>
+                      <option value="WOOL" ${state.newPattern.patternMaterialType === 'WOOL' ? 'selected' : ''}>毛织纸样</option>
                     </select>
                   </label>
                   <label class="space-y-1">
-                    <span class="text-sm">是否针织 <span class="text-red-500">*</span></span>
-                    <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-is-knitted">
-                      <option value="否" ${state.newPattern.isKnitted === '否' ? 'selected' : ''}>否</option>
-                      <option value="是" ${state.newPattern.isKnitted === '是' ? 'selected' : ''}>是</option>
+                    <span class="text-sm">是否毛织 <span class="text-red-500">*</span></span>
+                    <select class="w-full rounded-md border px-3 py-2 text-sm" data-tech-field="new-pattern-is-woolted">
+                      <option value="否" ${state.newPattern.isWoolted === '否' ? 'selected' : ''}>否</option>
+                      <option value="是" ${state.newPattern.isWoolted === '是' ? 'selected' : ''}>是</option>
                     </select>
                   </label>
                   <label class="space-y-1">
@@ -1467,7 +1467,7 @@ export function renderPatternFormDialog(): string {
                     `
                 }
                 <div class="rounded-md border bg-muted/20 px-3 py-2 text-sm ${state.newPattern.parseStatus === 'FAILED' ? 'text-red-600' : 'text-muted-foreground'}">
-                  ${escapeHtml(isWoven ? getWovenStatusMessage() : '待维护针织部位明细')}
+                  ${escapeHtml(isWoven ? getWovenStatusMessage() : '待维护毛织部位明细')}
                 </div>
                 ${
                   isWoven
@@ -1497,7 +1497,7 @@ export function renderPatternFormDialog(): string {
                     : `
                       <section class="space-y-2 rounded-md border p-3">
                         <div class="flex items-center justify-between">
-                          <h4 class="text-sm font-medium">针织部位明细</h4>
+                          <h4 class="text-sm font-medium">毛织部位明细</h4>
                           <button type="button" class="inline-flex items-center rounded border px-2 py-1 text-xs hover:bg-muted" data-tech-action="add-new-pattern-piece-row">
                             <i data-lucide="plus" class="mr-1 h-3 w-3"></i>
                             新增部位
@@ -1582,8 +1582,8 @@ export function renderPatternFormDialog(): string {
             <div class="mt-1">${renderTextValue(state.newPattern.patternMaterialTypeLabel)}</div>
           </div>
           <div>
-            <div class="text-xs text-muted-foreground">是否针织</div>
-            <div class="mt-1">${renderTextValue(state.newPattern.isKnitted)}</div>
+            <div class="text-xs text-muted-foreground">是否毛织</div>
+            <div class="mt-1">${renderTextValue(state.newPattern.isWoolted)}</div>
           </div>
           <div>
             <div class="text-xs text-muted-foreground">纸样分类</div>

@@ -152,7 +152,7 @@ function buildSeedSnapshot(): VideoTestingStoreSnapshot {
     {
       videoRecordId: 'SV-PJT-019',
       videoRecordCode: 'SV-PJT-019',
-      videoTitle: '基础款针织开衫测款复盘',
+      videoTitle: '基础款毛织开衫测款复盘',
       channelName: '抖音 / 基础款内容号',
       businessDate: '2026-04-02',
       publishedAt: '2026-04-02 14:00',

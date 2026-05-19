@@ -64,7 +64,7 @@ export const routingTemplates: RoutingTemplate[] = [
     version: 'v1.0',
     description: '适用于无特殊工艺的常规款式，全程派单',
     tags: ['基础款', '常规', '快速'],
-    applicableCategory: '针织',
+    applicableCategory: '毛织',
     matchRule: {
       mode: 'AUTO',
       requiredProcessCodes: ['PROC_CUT', 'PROC_SEW'],
@@ -89,7 +89,7 @@ export const routingTemplates: RoutingTemplate[] = [
     version: 'v1.0',
     description: '适用于需要打条（如领口、袖口装饰条）的款式',
     tags: ['打条', '装饰', '领口'],
-    applicableCategory: '针织',
+    applicableCategory: '毛织',
     matchRule: {
       mode: 'AUTO',
       requiredProcessCodes: ['PROC_CUT', 'PROC_DATIAO', 'PROC_SEW'],
@@ -115,7 +115,7 @@ export const routingTemplates: RoutingTemplate[] = [
     version: 'v1.0',
     description: '适用于需要捆条（绑条）包边的款式',
     tags: ['捆条', '绑条', '包边'],
-    applicableCategory: '针织',
+    applicableCategory: '毛织',
     matchRule: {
       mode: 'AUTO',
       requiredProcessCodes: ['PROC_CUT', 'PROC_KUNTIAO', 'PROC_SEW'],
@@ -192,7 +192,7 @@ export const routingTemplates: RoutingTemplate[] = [
     version: 'v1.0',
     description: '适用于需要激光切割和绣花的复杂款式，建议竞价',
     tags: ['激光切', '绣花', '特种工艺', '复杂'],
-    applicableCategory: '针织',
+    applicableCategory: '毛织',
     matchRule: {
       mode: 'AUTO',
       requiredProcessCodes: ['PROC_CUT', 'PROC_LASER_CUT', 'PROC_EMBROIDER', 'PROC_SEW'],
@@ -245,7 +245,7 @@ export const routingTemplates: RoutingTemplate[] = [
     version: 'v1.0',
     description: '适用于多种特种工艺组合的复杂款式，混合派单与竞价',
     tags: ['复杂', '特种工艺', '混合', '印花', '绣花', '压褶'],
-    applicableCategory: '针织',
+    applicableCategory: '毛织',
     matchRule: {
       mode: 'AUTO',
       requiredProcessCodes: ['PROC_CUT', 'PROC_SEW'],
@@ -298,7 +298,7 @@ export const routingTemplates: RoutingTemplate[] = [
     version: 'v0.9',
     description: '旧版基础款模板，已被新版本替代',
     tags: ['基础款', '旧版'],
-    applicableCategory: '针织',
+    applicableCategory: '毛织',
     matchRule: {
       mode: 'MANUAL',
       requiredProcessCodes: ['PROC_CUT', 'PROC_SEW'],

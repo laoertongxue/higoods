@@ -210,13 +210,13 @@ export function buildDyeingWorkOrderDetailLink(dyeOrderId: string): string {
   return `/fcs/craft/dyeing/work-orders/${encodeSegment(dyeOrderId)}`
 }
 
-export function buildKnittingWorkOrdersLink(knittingOrderId?: string): string {
-  const base = '/fcs/craft/knitting/work-orders'
-  return knittingOrderId ? `${base}?knittingOrderId=${encodeSegment(knittingOrderId)}` : base
+export function buildWoolWorkOrdersLink(woolOrderId?: string): string {
+  const base = '/fcs/craft/wool/work-orders'
+  return woolOrderId ? `${base}?woolOrderId=${encodeSegment(woolOrderId)}` : base
 }
 
-export function buildKnittingWorkOrderDetailLink(knittingOrderId: string, tab?: string): string {
-  const base = `/fcs/craft/knitting/work-orders/${encodeSegment(knittingOrderId)}`
+export function buildWoolWorkOrderDetailLink(woolOrderId: string, tab?: string): string {
+  const base = `/fcs/craft/wool/work-orders/${encodeSegment(woolOrderId)}`
   return tab ? `${base}?tab=${encodeSegment(tab)}` : base
 }
 
@@ -225,34 +225,34 @@ export function buildPostFinishingTaskLink(postTaskId?: string): string {
   return postTaskId ? `${base}?taskId=${encodeSegment(postTaskId)}` : base
 }
 
-export function buildKnittingWaitProcessWarehouseLink(knittingOrderId?: string): string {
-  const base = '/fcs/craft/knitting/wait-process-warehouse'
-  return knittingOrderId ? `${base}?knittingOrderId=${encodeSegment(knittingOrderId)}` : base
+export function buildWoolWaitProcessWarehouseLink(woolOrderId?: string): string {
+  const base = '/fcs/craft/wool/wait-process-warehouse'
+  return woolOrderId ? `${base}?woolOrderId=${encodeSegment(woolOrderId)}` : base
 }
 
-export function buildKnittingWaitHandoverWarehouseLink(knittingOrderId?: string): string {
-  const base = '/fcs/craft/knitting/wait-handover-warehouse'
-  return knittingOrderId ? `${base}?knittingOrderId=${encodeSegment(knittingOrderId)}` : base
+export function buildWoolWaitHandoverWarehouseLink(woolOrderId?: string): string {
+  const base = '/fcs/craft/wool/wait-handover-warehouse'
+  return woolOrderId ? `${base}?woolOrderId=${encodeSegment(woolOrderId)}` : base
 }
 
-export function buildKnittingFeiTicketsLink(knittingOrderId?: string): string {
-  const base = '/fcs/craft/knitting/fei-tickets'
-  return knittingOrderId ? `${base}?knittingOrderId=${encodeSegment(knittingOrderId)}` : base
+export function buildWoolFeiTicketsLink(woolOrderId?: string): string {
+  const base = '/fcs/craft/wool/fei-tickets'
+  return woolOrderId ? `${base}?woolOrderId=${encodeSegment(woolOrderId)}` : base
 }
 
-export function buildKnittingMachineScheduleLink(knittingOrderId?: string): string {
-  const base = '/fcs/craft/knitting/machine-schedule'
-  return knittingOrderId ? `${base}?knittingOrderId=${encodeSegment(knittingOrderId)}` : base
+export function buildWoolMachineScheduleLink(woolOrderId?: string): string {
+  const base = '/fcs/craft/wool/machine-schedule'
+  return woolOrderId ? `${base}?woolOrderId=${encodeSegment(woolOrderId)}` : base
 }
 
-export function buildKnittingMachinesLink(machineNo?: string): string {
-  const base = '/fcs/craft/knitting/machines'
+export function buildWoolMachinesLink(machineNo?: string): string {
+  const base = '/fcs/craft/wool/machines'
   return machineNo ? `${base}?machineNo=${encodeSegment(machineNo)}` : base
 }
 
-export function buildKnittingStatisticsLink(knittingOrderId?: string): string {
-  const base = '/fcs/craft/knitting/statistics'
-  return knittingOrderId ? `${base}?knittingOrderId=${encodeSegment(knittingOrderId)}` : base
+export function buildWoolStatisticsLink(woolOrderId?: string): string {
+  const base = '/fcs/craft/wool/statistics'
+  return woolOrderId ? `${base}?woolOrderId=${encodeSegment(woolOrderId)}` : base
 }
 
 export function buildPostFinishingWorkOrderDetailLink(postOrderId: string, tab?: string): string {

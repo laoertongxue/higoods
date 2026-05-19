@@ -206,11 +206,11 @@
                           - option "前片纸样包"
                           - option "后片纸样包"
                           - option "袖片纸样包"
-                          - option "罗纹针织纸样包"
+                          - option "罗纹毛织纸样包"
                           - option "前片纸样包"
                           - option "后片纸样包"
                           - option "袖片纸样包"
-                          - option "罗纹针织纸样包"
+                          - option "罗纹毛织纸样包"
                       - cell "未绑定裁片" [ref=e751]:
                         - combobox [ref=e752]:
                           - option "未绑定裁片" [selected]
@@ -246,11 +246,11 @@
                           - option "前片纸样包"
                           - option "后片纸样包"
                           - option "袖片纸样包"
-                          - option "罗纹针织纸样包"
+                          - option "罗纹毛织纸样包"
                           - option "前片纸样包"
                           - option "后片纸样包"
                           - option "袖片纸样包"
-                          - option "罗纹针织纸样包"
+                          - option "罗纹毛织纸样包"
                       - cell "未绑定裁片" [ref=e777]:
                         - combobox [ref=e778]:
                           - option "未绑定裁片" [selected]
@@ -286,11 +286,11 @@
                           - option "前片纸样包"
                           - option "后片纸样包"
                           - option "袖片纸样包"
-                          - option "罗纹针织纸样包"
+                          - option "罗纹毛织纸样包"
                           - option "前片纸样包"
                           - option "后片纸样包"
                           - option "袖片纸样包"
-                          - option "罗纹针织纸样包"
+                          - option "罗纹毛织纸样包"
                       - cell "未绑定裁片" [ref=e803]:
                         - combobox [ref=e804]:
                           - option "未绑定裁片" [selected]

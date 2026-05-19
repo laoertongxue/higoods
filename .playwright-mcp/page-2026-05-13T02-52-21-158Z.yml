@@ -610,7 +610,7 @@
                     - img [ref=e1824]
                   - button [ref=e1829]:
                     - img [ref=e1830]
-            - row "PO-202603-0007 240788 SPU-2024-013 Jas Pria Formal 分配中 TDV-DEMAND-SPU_2024_013 / v1.5 已冻结 冻结时间 2026-03-05 14:00:00 分配中 任务 2 / 分配中 9,600 分钟 执行任务 5 条 派单 1 / 已确认 1 / 待确认 0 竞价 1 / 已发起 1 / 待定标 1 总计 2 分配中 未建草稿 实际分配后待生成 PT Knit Central Bogor 实际主工厂 中央工厂 毛织厂 派单被拒 2026-03-05" [ref=e1834] [cursor=pointer]:
+            - row "PO-202603-0007 240788 SPU-2024-013 Jas Pria Formal 分配中 TDV-DEMAND-SPU_2024_013 / v1.5 已冻结 冻结时间 2026-03-05 14:00:00 分配中 任务 2 / 分配中 9,600 分钟 执行任务 5 条 派单 1 / 已确认 1 / 待确认 0 竞价 1 / 已发起 1 / 待定标 1 总计 2 分配中 未建草稿 实际分配后待生成 PT Wool Central Bogor 实际主工厂 中央工厂 毛织厂 派单被拒 2026-03-05" [ref=e1834] [cursor=pointer]:
               - cell [ref=e1835]:
                 - checkbox [ref=e1836]
               - cell "PO-202603-0007" [ref=e1837]:
@@ -647,9 +647,9 @@
                 - button "未建草稿 实际分配后待生成" [ref=e1868]:
                   - generic [ref=e1869]: 未建草稿
                   - generic [ref=e1870]: 实际分配后待生成
-              - cell "PT Knit Central Bogor 实际主工厂 中央工厂 毛织厂" [ref=e1871]:
+              - cell "PT Wool Central Bogor 实际主工厂 中央工厂 毛织厂" [ref=e1871]:
                 - generic [ref=e1872]:
-                  - generic "PT Knit Central Bogor" [ref=e1873]
+                  - generic "PT Wool Central Bogor" [ref=e1873]
                   - generic [ref=e1874]: 实际主工厂
                   - generic [ref=e1875]:
                     - generic [ref=e1876]: 中央工厂

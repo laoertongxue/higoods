@@ -413,7 +413,7 @@ function createSeedSampleVerification(seed: number): FactorySampleVerification {
     mobileOrWhatsapp: application.mobileOrWhatsapp,
     sampleBatchNo: `SY-20260506-${String(seed).padStart(3, '0')}`,
     styleNo: `HG-SAMPLE-${String(seed).padStart(3, '0')}`,
-    sampleName: seed % 2 === 0 ? '针织上衣验证样' : '梭织短裤验证样',
+    sampleName: seed % 2 === 0 ? '毛织上衣验证样' : '梭织短裤验证样',
     sampleDescription: '用于验证工厂当前工序工艺能力、质量稳定性和交期配合度。',
     verificationPurpose: getSeedPurposes(seed),
     sampleQuantity: 2 + (seed % 4),

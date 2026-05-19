@@ -61,7 +61,7 @@ for (const expected of [
   'type PatternItem',
   'name: string',
   'type: TechPackPatternCategory',
-  "isKnitted: '是' | '否'",
+  "isWoolted: '是' | '否'",
   'widthCm: number',
   'linkedMaterialId: string',
   'linkedMaterialName: string',
@@ -82,7 +82,7 @@ for (const expected of [
   'TechPackPatternMaintainerStepStatus',
   'TechPackPatternInfoStatus',
   'TechPackPatternManagedFile',
-  'isKnitted?:',
+  'isWoolted?:',
   'linkedMaterialId?:',
   'linkedMaterialName?:',
   'linkedMaterialSku?:',
@@ -113,7 +113,7 @@ for (const expected of [
 const merchandiserPanel = extractBetween(patternSource, 'const merchandiserPanel = `', 'const makerPanel = `')
 const makerPanel = extractBetween(patternSource, 'const makerPanel = `', 'return `')
 
-for (const expected of ['纸样名称', '纸样类型', '是否针织', '门幅（cm）', '关联物料']) {
+for (const expected of ['纸样名称', '纸样类型', '是否毛织', '门幅（cm）', '关联物料']) {
   assert(merchandiserPanel.includes(expected), `跟单基础信息缺少字段：${expected}`)
 }
 for (const forbidden of ['纸样 PRJ 文件', '唛架图片', 'DXF 文件', 'RUL 文件', 'new-pattern-prj-file', 'new-pattern-dxf-file', 'new-pattern-rul-file']) {
@@ -123,7 +123,7 @@ for (const forbidden of ['纸样 PRJ 文件', '唛架图片', 'DXF 文件', 'RUL
 for (const expected of ['排料长度（m）', '纸样 PRJ 文件', '唛架图片', 'DXF 文件', 'RUL 文件', '裁片明细']) {
   assert(makerPanel.includes(expected), `版师技术信息缺少字段：${expected}`)
 }
-for (const forbidden of ['data-tech-field="new-pattern-name"', 'data-tech-field="new-pattern-material-type"', 'data-tech-field="new-pattern-is-knitted"', 'data-tech-field="new-pattern-width-cm"', 'data-tech-field="new-pattern-linked-bom-item"']) {
+for (const forbidden of ['data-tech-field="new-pattern-name"', 'data-tech-field="new-pattern-material-type"', 'data-tech-field="new-pattern-is-woolted"', 'data-tech-field="new-pattern-width-cm"', 'data-tech-field="new-pattern-linked-bom-item"']) {
   assert(!makerPanel.includes(forbidden), `版师技术信息不应重复编辑跟单字段：${forbidden}`)
 }
 
@@ -165,7 +165,7 @@ const allPatterns = techPacks.flatMap((techPack) => buildPatternItemsFromTechPac
 for (const status of ['待跟单维护', '待版师维护', '待解析', '已解析待确认', '已完成']) {
   const rows = allPatterns.filter((item) => item.maintainerStepStatus === status)
   assert(rows.length >= 3, `mock 数据状态 ${status} 少于 3 行`)
-  assert(rows.every((item) => item.name && item.type && item.isKnitted && item.widthCm > 0 && item.linkedMaterialName && item.linkedMaterialSku), `mock 数据状态 ${status} 存在空壳基础字段`)
+  assert(rows.every((item) => item.name && item.type && item.isWoolted && item.widthCm > 0 && item.linkedMaterialName && item.linkedMaterialSku), `mock 数据状态 ${status} 存在空壳基础字段`)
 }
 
 const makerStagePatterns = allPatterns.filter((item) => ['待解析', '已解析待确认', '已完成'].includes(item.maintainerStepStatus))

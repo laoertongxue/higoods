@@ -29,11 +29,11 @@ import {
   type PdaTaskMockPickupRecordSeed,
 } from './pda-task-mock-factory.ts'
 import {
-  getKnittingHandoutRecordSeedsByHeadId,
-  getKnittingPickupRecordSeedsByHeadId,
-  listKnittingHandoverHeadSeeds,
-  listKnittingMobileProcessTasks,
-} from './knitting-task-domain.ts'
+  getWoolHandoutRecordSeedsByHeadId,
+  getWoolPickupRecordSeedsByHeadId,
+  listWoolHandoverHeadSeeds,
+  listWoolMobileProcessTasks,
+} from './wool-task-domain.ts'
 import {
   FULL_CAPABILITY_FACTORY_ID,
   FULL_CAPABILITY_FACTORY_NAME,
@@ -1054,7 +1054,7 @@ function buildGenericHandoutRecord(seed: PdaTaskMockHandoutRecordSeed): PdaHando
 
 const PDA_GENERIC_HANDOVER_HEADS = [
   ...listPdaGenericHandoverHeadSeeds(),
-  ...listKnittingHandoverHeadSeeds(),
+  ...listWoolHandoverHeadSeeds(),
 ].map((seed) => buildGenericMockHead(seed))
 const PDA_GENERIC_PICKUP_RECORDS = Object.fromEntries(
   PDA_GENERIC_HANDOVER_HEADS
@@ -1065,7 +1065,7 @@ const PDA_GENERIC_PICKUP_RECORDS = Object.fromEntries(
           head.handoverId,
           [
             ...getPdaGenericPickupRecordSeedsByHeadId(head.handoverId),
-            ...getKnittingPickupRecordSeedsByHeadId(head.handoverId),
+            ...getWoolPickupRecordSeedsByHeadId(head.handoverId),
           ].map((seed) => buildGenericPickupRecord(seed)),
         ] as const,
     ),
@@ -1079,7 +1079,7 @@ const PDA_GENERIC_HANDOUT_RECORDS = Object.fromEntries(
           head.handoverId,
           [
             ...getPdaGenericHandoutRecordSeedsByHeadId(head.handoverId),
-            ...getKnittingHandoutRecordSeedsByHeadId(head.handoverId),
+            ...getWoolHandoutRecordSeedsByHeadId(head.handoverId),
           ].map((seed) => buildGenericHandoutRecord(seed)),
         ] as const,
     ),
@@ -2948,7 +2948,7 @@ function findPickupRecord(recordId: string): PdaPickupRecord | undefined {
 function findTaskById(taskId: string): RuntimeProcessTask | PdaTaskMockProcessTaskLike | null {
   return getRuntimeTaskById(taskId)
     ?? listPdaGenericProcessTasks().find((task) => task.taskId === taskId)
-    ?? listKnittingMobileProcessTasks().find((task) => task.taskId === taskId)
+    ?? listWoolMobileProcessTasks().find((task) => task.taskId === taskId)
     ?? null
 }
 

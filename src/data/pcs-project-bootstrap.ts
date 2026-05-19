@@ -562,7 +562,7 @@ const BOOTSTRAP_PROJECT_SEEDS: BootstrapProjectSeed[] = [
     remark: '历史演示项目已迁入项目仓储。',
     linkedStyleId: 'style_seed_020',
     linkedStyleCode: 'SPU-TEE-084',
-    linkedStyleName: '针织撞色短袖上衣',
+    linkedStyleName: '毛织撞色短袖上衣',
     linkedStyleGeneratedAt: '2026-04-01 10:40',
     linkedTechPackVersionId: 'tdv_seed_020',
     linkedTechPackVersionCode: 'TDV-LEGACY-020',
@@ -1136,7 +1136,7 @@ const SCENARIO_PROJECT_SEEDS: BootstrapProjectSeed[] = [
     linkedStyleGeneratedAt: '2026-04-01 18:20',
   }),
   createScenarioProjectSeed('019', {
-    projectName: '基础款针织开衫待确认',
+    projectName: '基础款毛织开衫待确认',
     projectType: '商品开发',
     projectSourceType: '企划提案',
     templateId: 'TPL-001',
@@ -1388,7 +1388,7 @@ const SCENARIO_PROJECT_SEEDS: BootstrapProjectSeed[] = [
     updatedAt: '2026-04-05 16:20',
   }),
   createScenarioProjectSeed('025', {
-    projectName: '改版针织背心淘汰',
+    projectName: '改版毛织背心淘汰',
     projectType: '改版开发',
     projectSourceType: '历史复用',
     templateId: 'TPL-003',

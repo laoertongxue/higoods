@@ -95,7 +95,7 @@ test('FCS 技术包支持双面印绑定与纸样模板选择', async ({ page })
   await expect(patternDialog.locator('[data-tech-field="new-pattern-name"]')).toHaveValue(patternName)
   await expect(patternDialog).toBeVisible()
 
-  await patternDialog.locator('[data-tech-field="new-pattern-material-type"]').selectOption('KNIT')
+  await patternDialog.locator('[data-tech-field="new-pattern-material-type"]').selectOption('WOOL')
   await expect(patternDialog.locator('[data-tech-field="new-pattern-name"]')).toHaveValue(patternName)
   await expect(patternDialog).toBeVisible()
 

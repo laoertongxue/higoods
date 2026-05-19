@@ -91,7 +91,7 @@ function isAllowedSnapshotImage(url: string | undefined | null): url is string {
 function inferPatternMaterialTypeFromText(input: string): PatternMaterialType {
   const normalized = normalizeText(input).toLowerCase()
   if (!normalized) return 'UNKNOWN'
-  if (normalized.includes('针织') || normalized.includes('毛织') || normalized.includes('knit')) return 'KNIT'
+  if (normalized.includes('毛织') || normalized.includes('毛织') || normalized.includes('wool')) return 'WOOL'
   if (normalized.includes('梭织') || normalized.includes('布料') || normalized.includes('woven')) return 'WOVEN'
   return 'UNKNOWN'
 }
@@ -117,7 +117,7 @@ function inferPatternParseStatus(input: {
   ) {
     return input.parseStatus
   }
-  if (input.materialType === 'KNIT') return 'NOT_REQUIRED'
+  if (input.materialType === 'WOOL') return 'NOT_REQUIRED'
   if ((input.pieceRows ?? []).length > 0) return 'PARSED'
   return 'NOT_PARSED'
 }
@@ -283,7 +283,7 @@ function normalizePatternFiles(
     const linkedBom = options.bomItems.find((bom) => bom.id === item.linkedBomItemId) || null
     const explicitPatternMaterialType = (item as { patternMaterialType?: string }).patternMaterialType
     const patternMaterialType =
-      explicitPatternMaterialType === 'KNIT' || explicitPatternMaterialType === 'WOVEN'
+      explicitPatternMaterialType === 'WOOL' || explicitPatternMaterialType === 'WOVEN'
         ? explicitPatternMaterialType
         : inferPatternMaterialTypeFromText([
             linkedBom?.name,
@@ -381,7 +381,7 @@ function buildCutPieceParts(input: {
 
   const partMap = new Map<string, TechPackCutPiecePartSnapshot>()
   input.patternFiles.forEach((patternFile) => {
-    if (patternFile.patternMaterialType === 'KNIT') return
+    if (patternFile.patternMaterialType === 'WOOL') return
     const linkedBom = input.bomItems.find((bom) => bom.id === patternFile.linkedBomItemId) || input.bomItems[0] || null
     const patternSizeCodes = uniqueStrings([
       ...(patternFile.selectedSizeCodes ?? []),

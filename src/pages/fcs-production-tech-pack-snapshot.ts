@@ -205,11 +205,11 @@ function resolvePatternTitle(pattern: TechnicalPatternFile): string {
 }
 
 function resolvePatternMaterialTypeLabel(pattern: TechnicalPatternFile): string {
-  return pattern.patternMaterialTypeLabel || (pattern.patternMaterialType === 'KNIT' ? '针织纸样' : pattern.patternMaterialType === 'WOVEN' ? '布料纸样' : '暂无数据')
+  return pattern.patternMaterialTypeLabel || (pattern.patternMaterialType === 'WOOL' ? '毛织纸样' : pattern.patternMaterialType === 'WOVEN' ? '布料纸样' : '暂无数据')
 }
 
 function resolvePatternFileType(pattern: TechnicalPatternFile): string {
-  return pattern.patternMaterialTypeLabel || (pattern.patternMaterialType === 'KNIT' ? '针织纸样' : '布料纸样')
+  return pattern.patternMaterialTypeLabel || (pattern.patternMaterialType === 'WOOL' ? '毛织纸样' : '布料纸样')
 }
 
 function renderPatternPool(patternRows: TechnicalPatternFile[]): string {
@@ -247,7 +247,7 @@ function renderPatternPool(patternRows: TechnicalPatternFile[]): string {
                         ${renderPatternImagePreview(item)}
                       </div>
                     </div>
-                    <div class="mt-3 text-xs text-blue-700">${item.patternMaterialType === 'KNIT' ? `针织部位明细 ${escapeHtml(String((item.pieceRows ?? []).length))} 项` : `已解析 ${escapeHtml(String((item.pieceRows ?? []).length))} 个部位`}</div>
+                    <div class="mt-3 text-xs text-blue-700">${item.patternMaterialType === 'WOOL' ? `毛织部位明细 ${escapeHtml(String((item.pieceRows ?? []).length))} 项` : `已解析 ${escapeHtml(String((item.pieceRows ?? []).length))} 个部位`}</div>
                   </section>
                 `)
                 .join('')}
@@ -456,8 +456,8 @@ function renderProcessTab(rows: TechnicalProcessEntry[]): string {
                 <td class="px-3 py-2">${renderTextValue(row.downstreamTarget)}</td>
                 <td class="px-3 py-2 text-xs text-muted-foreground">${[
                   row.materialIssueMode === 'WAREHOUSE_DELIVERY' ? '染厂/面料仓送料到厂' : '',
-                  row.requiresFeiTicket ? '打印针织菲票' : '',
-                  row.packagingRequired ? '针织厂包装' : '',
+                  row.requiresFeiTicket ? '打印毛织菲票' : '',
+                  row.packagingRequired ? '毛织厂包装' : '',
                 ].filter(Boolean).map((item) => escapeHtml(item)).join(' / ') || '—'}</td>
                 <td class="px-3 py-2">${row.standardTimeMinutes ? `${escapeHtml(String(row.standardTimeMinutes))} ${escapeHtml(row.timeUnit || '分钟/件')}` : '暂无数据'}</td>
               </tr>

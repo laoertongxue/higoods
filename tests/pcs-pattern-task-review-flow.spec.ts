@@ -16,7 +16,7 @@ const task = savePatternTaskDraft({
   demandSourceType: '预售测款通过',
   processType: '数码印',
   requestQty: 1,
-  fabricName: '针织印花坯布',
+  fabricName: '毛织印花坯布',
   demandImageIds: ['mock://pattern-demand/b.png'],
   assignedTeamCode: 'JKT_TEAM',
   assignedMemberId: 'jkt_bandung',

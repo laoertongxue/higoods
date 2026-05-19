@@ -102,13 +102,13 @@
               - generic [ref=e694]: 染厂管理
               - img [ref=e695]
           - generic [ref=e697]:
-            - button "针织厂管理" [ref=e698]:
+            - button "毛织厂管理" [ref=e698]:
               - img [ref=e700]
-              - generic [ref=e702]: 针织厂管理
+              - generic [ref=e702]: 毛织厂管理
               - img [ref=e703]
-            - button "针织管理" [ref=e707]:
+            - button "毛织管理" [ref=e707]:
               - img [ref=e709]
-              - generic [ref=e711]: 针织管理
+              - generic [ref=e711]: 毛织管理
               - img [ref=e712]
           - generic [ref=e714]:
             - button "后道工厂管理" [ref=e715]:

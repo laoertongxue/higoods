@@ -111,7 +111,7 @@ type TechniqueItem = {
   targetObjectName?: '裁片部位' | '面料' | '辅料' | '成衣半成品'
   supportedTargetObjects?: SpecialCraftSupportedTargetObject[]
   supportedTargetObjectLabels?: SpecialCraftTargetObjectLabel[]
-  knittingTaskType?: 'WHOLE_GARMENT' | 'PART_PANEL'
+  woolTaskType?: 'WHOLE_GARMENT' | 'PART_PANEL'
   downstreamTarget?: '后道工厂' | '裁床待交出仓'
   requiresFeiTicket?: boolean
   packagingRequired?: boolean
@@ -279,7 +279,7 @@ type PatternItem = {
   markerLengthM: number
   totalPieceCount: number
   patternTotalPieceQty: number
-  isKnitted: '是' | '否'
+  isWoolted: '是' | '否'
   maintainerStepStatus: TechPackPatternMaintainerStepStatus
   merchandiserInfoStatus: Extract<TechPackPatternInfoStatus, '未填写' | '已填写'>
   patternMakerInfoStatus: TechPackPatternInfoStatus
@@ -462,7 +462,7 @@ function clearTechPackDerivedCache(): void {
 function normalizePatternMaterialType(
   value: string | null | undefined,
 ): TechPackPatternMaterialType {
-  if (value === 'WOVEN' || value === 'KNIT' || value === 'UNKNOWN') return value
+  if (value === 'WOVEN' || value === 'WOOL' || value === 'UNKNOWN') return value
   return 'UNKNOWN'
 }
 
@@ -509,7 +509,7 @@ function inferPatternMaterialTypeFromPatternFile(input: {
     .map((item) => String(item || '').trim().toLowerCase())
     .join(' ')
 
-  if (haystack.includes('针织') || haystack.includes('knit')) return 'KNIT'
+  if (haystack.includes('毛织') || haystack.includes('wool')) return 'WOOL'
   if (haystack.includes('布料') || haystack.includes('梭织') || haystack.includes('woven')) return 'WOVEN'
   return 'UNKNOWN'
 }
@@ -518,9 +518,9 @@ function inferPatternFileMode(materialType: TechPackPatternMaterialType): TechPa
   return materialType === 'WOVEN' ? 'PAIRED_DXF_RUL' : 'SINGLE_FILE'
 }
 
-function getPatternIsKnitted(materialType: TechPackPatternMaterialType, input?: '是' | '否'): '是' | '否' {
+function getPatternIsWoolted(materialType: TechPackPatternMaterialType, input?: '是' | '否'): '是' | '否' {
   if (input === '是' || input === '否') return input
-  return materialType === 'KNIT' ? '是' : '否'
+  return materialType === 'WOOL' ? '是' : '否'
 }
 
 function createPatternManagedFile(input: {
@@ -582,7 +582,7 @@ function createEmptyPatternFormState(): PatternFormState {
     markerLengthM: 0,
     totalPieceCount: 0,
     patternTotalPieceQty: 0,
-    isKnitted: '否',
+    isWoolted: '否',
     maintainerStepStatus: '待跟单维护',
     merchandiserInfoStatus: '未填写',
     patternMakerInfoStatus: '未填写',
@@ -733,14 +733,14 @@ const DEFAULT_PATTERN_ITEMS: PatternItem[] = [
     remark: '标准前片',
     linkedBomItemId: 'bom-1',
     linkedMaterialId: 'bom-1',
-    linkedMaterialName: '纯棉针织布',
+    linkedMaterialName: '纯棉毛织布',
     linkedMaterialAlias: '主面料-前片',
     linkedMaterialSku: 'FAB-001',
     widthCm: 142,
     markerLengthM: 2.62,
     totalPieceCount: 6,
     patternTotalPieceQty: 6,
-    isKnitted: '否',
+    isWoolted: '否',
     maintainerStepStatus: '已完成',
     merchandiserInfoStatus: '已填写',
     patternMakerInfoStatus: '已解析',
@@ -868,14 +868,14 @@ const DEFAULT_PATTERN_ITEMS: PatternItem[] = [
     remark: '标准后片',
     linkedBomItemId: 'bom-1',
     linkedMaterialId: 'bom-1',
-    linkedMaterialName: '纯棉针织布',
+    linkedMaterialName: '纯棉毛织布',
     linkedMaterialAlias: '主面料-后片',
     linkedMaterialSku: 'FAB-001',
     widthCm: 142,
     markerLengthM: 2.2,
     totalPieceCount: 4,
     patternTotalPieceQty: 4,
-    isKnitted: '是',
+    isWoolted: '是',
     maintainerStepStatus: '已完成',
     merchandiserInfoStatus: '已填写',
     patternMakerInfoStatus: '已解析',
@@ -905,13 +905,13 @@ const DEFAULT_PATTERN_ITEMS: PatternItem[] = [
       uploadedBy: 'Sari 版师',
     }),
     bindingStrips: normalizePatternBindingStrips([
-      { bindingStripName: '领口捆条', lengthCm: 58, widthCm: 3.2, remark: '针织后片领口使用' },
+      { bindingStripName: '领口捆条', lengthCm: 58, widthCm: 3.2, remark: '毛织后片领口使用' },
     ]),
     patternSignature: '',
     duplicateConfirmed: false,
     duplicateWarningReasons: [],
-    patternMaterialType: 'KNIT',
-    patternMaterialTypeLabel: getPatternMaterialTypeLabel('KNIT'),
+    patternMaterialType: 'WOOL',
+    patternMaterialTypeLabel: getPatternMaterialTypeLabel('WOOL'),
     patternFileMode: 'SINGLE_FILE',
     parseStatus: 'NOT_REQUIRED',
     parseStatusLabel: getPatternParseStatusLabel('NOT_REQUIRED'),
@@ -1061,7 +1061,7 @@ function createPatternStatusDemoItem(
     markerLengthM: hasMakerFiles ? 2.2 + index * 0.08 : 0,
     totalPieceCount: hasParsedRows ? 4 : 0,
     patternTotalPieceQty: hasParsedRows ? 4 : 0,
-    isKnitted: '否',
+    isWoolted: '否',
     maintainerStepStatus: status,
     merchandiserInfoStatus: status === '待跟单维护' ? '未填写' : '已填写',
     patternMakerInfoStatus:
@@ -1196,12 +1196,12 @@ function createPatternPoolDemoPackage(
     id: string
     name: string
     type: TechPackPatternCategory
-    materialType: 'WOVEN' | 'KNIT'
+    materialType: 'WOVEN' | 'WOOL'
     fileBaseName: string
   },
 ): PatternItem {
-  const isKnit = spec.materialType === 'KNIT'
-  const pieceRows = isKnit ? [] : normalizePatternPieceRows(source.pieceRows, spec.id, '')
+  const isWool = spec.materialType === 'WOOL'
+  const pieceRows = isWool ? [] : normalizePatternPieceRows(source.pieceRows, spec.id, '')
   const patternTotalPieceQty = calculatePatternTotalPieceQty(pieceRows)
 
   return {
@@ -1211,7 +1211,7 @@ function createPatternPoolDemoPackage(
     name: spec.name,
     type: spec.type,
     image: `${spec.fileBaseName}-marker.png`,
-    file: isKnit ? `${spec.fileBaseName}.prj` : `${spec.fileBaseName}.dxf / ${spec.fileBaseName}.rul`,
+    file: isWool ? `${spec.fileBaseName}.prj` : `${spec.fileBaseName}.dxf / ${spec.fileBaseName}.rul`,
     remark: '',
     linkedBomItemId: '',
     linkedMaterialId: '',
@@ -1222,10 +1222,10 @@ function createPatternPoolDemoPackage(
     markerLengthM: 0,
     totalPieceCount: patternTotalPieceQty,
     patternTotalPieceQty,
-    isKnitted: isKnit ? '是' : '否',
-    maintainerStepStatus: isKnit ? '待版师维护' : '已解析待确认',
+    isWoolted: isWool ? '是' : '否',
+    maintainerStepStatus: isWool ? '待版师维护' : '已解析待确认',
     merchandiserInfoStatus: '已填写',
-    patternMakerInfoStatus: isKnit ? '未填写' : '已解析',
+    patternMakerInfoStatus: isWool ? '未填写' : '已解析',
     prjFile: createPatternManagedFile({
       fileName: `${spec.fileBaseName}.prj`,
       fileSize: 24576,
@@ -1239,7 +1239,7 @@ function createPatternPoolDemoPackage(
       uploadedBy: 'Sari 版师',
       previewUrl: `${spec.fileBaseName}-marker.png`,
     }),
-    dxfFile: isKnit
+    dxfFile: isWool
       ? null
       : createPatternManagedFile({
           fileName: `${spec.fileBaseName}.dxf`,
@@ -1247,7 +1247,7 @@ function createPatternPoolDemoPackage(
           uploadedAt: '2026-04-20 09:10:00',
           uploadedBy: 'Sari 版师',
         }),
-    rulFile: isKnit
+    rulFile: isWool
       ? null
       : createPatternManagedFile({
           fileName: `${spec.fileBaseName}.rul`,
@@ -1261,27 +1261,27 @@ function createPatternPoolDemoPackage(
     duplicateWarningReasons: [],
     patternMaterialType: spec.materialType,
     patternMaterialTypeLabel: getPatternMaterialTypeLabel(spec.materialType),
-    patternFileMode: isKnit ? 'SINGLE_FILE' : 'PAIRED_DXF_RUL',
-    parseStatus: isKnit ? 'NOT_REQUIRED' : 'PARSED',
-    parseStatusLabel: getPatternParseStatusLabel(isKnit ? 'NOT_REQUIRED' : 'PARSED'),
+    patternFileMode: isWool ? 'SINGLE_FILE' : 'PAIRED_DXF_RUL',
+    parseStatus: isWool ? 'NOT_REQUIRED' : 'PARSED',
+    parseStatusLabel: getPatternParseStatusLabel(isWool ? 'NOT_REQUIRED' : 'PARSED'),
     parseError: '',
-    parsedAt: isKnit ? '' : '2026-04-20 09:30:00',
-    dxfFileName: isKnit ? '' : `${spec.fileBaseName}.dxf`,
-    dxfFileSize: isKnit ? 0 : 32768,
-    dxfLastModified: isKnit ? '' : '2026-04-20 09:10:00',
-    rulFileName: isKnit ? '' : `${spec.fileBaseName}.rul`,
-    rulFileSize: isKnit ? 0 : 8192,
-    rulLastModified: isKnit ? '' : '2026-04-20 09:15:00',
-    singlePatternFileName: isKnit ? `${spec.fileBaseName}.prj` : '',
-    singlePatternFileSize: isKnit ? 24576 : 0,
-    singlePatternFileLastModified: isKnit ? '2026-04-20 09:00:00' : '',
-    dxfEncoding: isKnit ? '' : 'UTF-8',
-    rulEncoding: isKnit ? '' : 'UTF-8',
-    rulSizeList: isKnit ? [] : [...source.rulSizeList],
-    rulSampleSize: isKnit ? '' : source.rulSampleSize,
-    patternSoftwareName: isKnit ? '' : source.patternSoftwareName || 'Lectra',
-    sizeRange: isKnit ? '' : source.sizeRange,
-    selectedSizeCodes: isKnit ? [] : [...source.selectedSizeCodes],
+    parsedAt: isWool ? '' : '2026-04-20 09:30:00',
+    dxfFileName: isWool ? '' : `${spec.fileBaseName}.dxf`,
+    dxfFileSize: isWool ? 0 : 32768,
+    dxfLastModified: isWool ? '' : '2026-04-20 09:10:00',
+    rulFileName: isWool ? '' : `${spec.fileBaseName}.rul`,
+    rulFileSize: isWool ? 0 : 8192,
+    rulLastModified: isWool ? '' : '2026-04-20 09:15:00',
+    singlePatternFileName: isWool ? `${spec.fileBaseName}.prj` : '',
+    singlePatternFileSize: isWool ? 24576 : 0,
+    singlePatternFileLastModified: isWool ? '2026-04-20 09:00:00' : '',
+    dxfEncoding: isWool ? '' : 'UTF-8',
+    rulEncoding: isWool ? '' : 'UTF-8',
+    rulSizeList: isWool ? [] : [...source.rulSizeList],
+    rulSampleSize: isWool ? '' : source.rulSampleSize,
+    patternSoftwareName: isWool ? '' : source.patternSoftwareName || 'Lectra',
+    sizeRange: isWool ? '' : source.sizeRange,
+    selectedSizeCodes: isWool ? [] : [...source.selectedSizeCodes],
     pieceRows,
     pieceInstances: [],
     pieceInstanceTotal: 0,
@@ -1301,14 +1301,14 @@ function createMaterialPatternDemoAssociation(
   const linkedMaterialName = bomItem?.materialName || bomItem?.name || ''
   const linkedMaterialSku = bomItem?.materialCode || linkedBomId
   const associationId = `PAT-LINK-${index + 1}`
-  const isKnit = patternPackage.patternMaterialType === 'KNIT'
-  const pieceRows = isKnit
+  const isWool = patternPackage.patternMaterialType === 'WOOL'
+  const pieceRows = isWool
     ? normalizePatternPieceRows([
         {
           id: `${associationId}-R1`,
           name: '罗纹领口片',
           count: 2,
-          note: '针织纸样手工维护部位',
+          note: '毛织纸样手工维护部位',
           isTemplate: false,
           applicableSkuCodes: [],
           colorAllocations: [],
@@ -1340,16 +1340,16 @@ function createMaterialPatternDemoAssociation(
     linkedMaterialName,
     linkedMaterialAlias: `${patternPackage.name}用料`,
     linkedMaterialSku,
-    widthCm: isKnit ? 0 : 142 + index,
-    markerLengthM: isKnit ? 1.2 : 2.2 + index * 0.18,
+    widthCm: isWool ? 0 : 142 + index,
+    markerLengthM: isWool ? 1.2 : 2.2 + index * 0.18,
     totalPieceCount: patternTotalPieceQty,
     patternTotalPieceQty,
     maintainerStepStatus: '已解析待确认',
     merchandiserInfoStatus: '已填写',
-    patternMakerInfoStatus: isKnit ? '已填写' : '已解析',
-    bindingStrips: isKnit
+    patternMakerInfoStatus: isWool ? '已填写' : '已解析',
+    bindingStrips: isWool
       ? normalizePatternBindingStrips([
-          { bindingStripName: '领口捆条', lengthCm: 58, widthCm: 3.2, remark: '跟随针织纸样维护' },
+          { bindingStripName: '领口捆条', lengthCm: 58, widthCm: 3.2, remark: '跟随毛织纸样维护' },
         ])
       : [],
     pieceRows,
@@ -1371,13 +1371,13 @@ function ensurePatternPoolDemoPackages(
 
   const materialAssociations = normalizedItems.filter((item) => item.recordKind !== 'PACKAGE')
   const parsedWovenSources = materialAssociations.filter(
-    (item) => item.patternMaterialType !== 'KNIT' && item.pieceRows.length > 0,
+    (item) => item.patternMaterialType !== 'WOOL' && item.pieceRows.length > 0,
   )
   const wovenSources =
     parsedWovenSources.length >= 3
       ? parsedWovenSources
-      : materialAssociations.filter((item) => item.patternMaterialType !== 'KNIT')
-  const knitSource = materialAssociations.find((item) => item.patternMaterialType === 'KNIT') ?? DEFAULT_PATTERN_ITEMS[1]
+      : materialAssociations.filter((item) => item.patternMaterialType !== 'WOOL')
+  const woolSource = materialAssociations.find((item) => item.patternMaterialType === 'WOOL') ?? DEFAULT_PATTERN_ITEMS[1]
   const fallbackWoven = wovenSources[0] ?? DEFAULT_PATTERN_ITEMS[0]
   const packageItems = [
     createPatternPoolDemoPackage(wovenSources[0] ?? fallbackWoven, {
@@ -1401,12 +1401,12 @@ function ensurePatternPoolDemoPackages(
       materialType: 'WOVEN',
       fileBaseName: 'sleeve-pattern-package',
     }),
-    createPatternPoolDemoPackage(knitSource, {
-      id: 'PAT-PKG-KNIT-RIB',
-      name: '罗纹针织纸样包',
+    createPatternPoolDemoPackage(woolSource, {
+      id: 'PAT-PKG-WOOL-RIB',
+      name: '罗纹毛织纸样包',
       type: '主体片',
-      materialType: 'KNIT',
-      fileBaseName: 'rib-knit-pattern-package',
+      materialType: 'WOOL',
+      fileBaseName: 'rib-wool-pattern-package',
     }),
   ]
 
@@ -1427,7 +1427,7 @@ const DEFAULT_BOM_ITEMS: BomItemRow[] = [
     type: '面料',
     colorLabel: 'White',
     materialCode: 'FAB-001',
-    materialName: '纯棉针织布',
+    materialName: '纯棉毛织布',
     spec: '180g/m²',
     patternPieces: ['前片', '后片', '袖片'],
     linkedPatternIds: ['PAT-001', 'PAT-002'],
@@ -2044,22 +2044,22 @@ function getSelectedTargetObjectForCraft(craft: Pick<CraftOption, 'isSpecialCraf
   return getDefaultSelectedTargetObject(craft)
 }
 
-function getKnittingEntryMeta(craftName: string): Pick<
+function getWoolEntryMeta(craftName: string): Pick<
   TechniqueItem,
-  'knittingTaskType' | 'downstreamTarget' | 'requiresFeiTicket' | 'packagingRequired' | 'materialIssueMode'
+  'woolTaskType' | 'downstreamTarget' | 'requiresFeiTicket' | 'packagingRequired' | 'materialIssueMode'
 > {
-  if (craftName === '部位针织') {
+  if (craftName === '部位毛织') {
     return {
-      knittingTaskType: 'PART_PANEL',
+      woolTaskType: 'PART_PANEL',
       downstreamTarget: '裁床待交出仓',
       requiresFeiTicket: true,
       packagingRequired: false,
       materialIssueMode: 'WAREHOUSE_DELIVERY',
     }
   }
-  if (craftName === '整件针织') {
+  if (craftName === '整件毛织') {
     return {
-      knittingTaskType: 'WHOLE_GARMENT',
+      woolTaskType: 'WHOLE_GARMENT',
       downstreamTarget: '后道工厂',
       requiresFeiTicket: false,
       packagingRequired: state.newTechnique.packagingRequired,
@@ -2216,9 +2216,9 @@ function getSelectedDraftMeta():
     taskTypeMode: craft.taskTypeMode,
     isSpecialCraft: craft.isSpecialCraft,
     selectedTargetObject,
-    targetObject: craft.isSpecialCraft ? undefined : craft.processCode === 'KNITTING' && craft.craftName === '整件针织' ? 'GARMENT_SEMI' : craft.processCode === 'KNITTING' ? 'CUT_PIECE_PART' : undefined,
-    targetObjectName: craft.isSpecialCraft ? undefined : craft.processCode === 'KNITTING' && craft.craftName === '整件针织' ? '成衣半成品' : craft.processCode === 'KNITTING' ? '裁片部位' : undefined,
-    ...getKnittingEntryMeta(craft.craftName),
+    targetObject: craft.isSpecialCraft ? undefined : craft.processCode === 'WOOL' && craft.craftName === '整件毛织' ? 'GARMENT_SEMI' : craft.processCode === 'WOOL' ? 'CUT_PIECE_PART' : undefined,
+    targetObjectName: craft.isSpecialCraft ? undefined : craft.processCode === 'WOOL' && craft.craftName === '整件毛织' ? '成衣半成品' : craft.processCode === 'WOOL' ? '裁片部位' : undefined,
+    ...getWoolEntryMeta(craft.craftName),
     supportedTargetObjects: craft.supportedTargetObjects ? [...craft.supportedTargetObjects] : undefined,
     supportedTargetObjectLabels: craft.supportedTargetObjectLabels ? [...craft.supportedTargetObjectLabels] : undefined,
     triggerSource: '',
@@ -3776,7 +3776,7 @@ function buildPatternItemsFromTechPack(techPack: TechPack): PatternItem[] {
         Number.isFinite(item.patternTotalPieceQty) && Number(item.patternTotalPieceQty) > 0
           ? Number(item.patternTotalPieceQty)
           : inferredPieceCount,
-      isKnitted: getPatternIsKnitted(normalizedMaterialType, item.isKnitted),
+      isWoolted: getPatternIsWoolted(normalizedMaterialType, item.isWoolted),
       maintainerStepStatus:
         item.maintainerStepStatus
         || (parseStatus === 'PARSED' ? '已解析待确认' : prjFile && markerImage && item.dxfFileName && item.rulFileName ? '待解析' : '待版师维护'),
@@ -3919,7 +3919,7 @@ function toTechniqueItemFromEntry(entry: TechPackProcessEntry, fallbackIndex: nu
       : undefined,
     targetObject: normalizedEntry.targetObject,
     targetObjectName: normalizedEntry.targetObjectName,
-    knittingTaskType: normalizedEntry.knittingTaskType,
+    woolTaskType: normalizedEntry.woolTaskType,
     downstreamTarget: normalizedEntry.downstreamTarget,
     requiresFeiTicket: normalizedEntry.requiresFeiTicket,
     packagingRequired: normalizedEntry.packagingRequired,
@@ -4286,7 +4286,7 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
         linkedMaterialName: item.linkedMaterialName || undefined,
         linkedMaterialAlias: item.linkedMaterialAlias || undefined,
         linkedMaterialSku: item.linkedMaterialSku || undefined,
-        isKnitted: item.isKnitted,
+        isWoolted: item.isWoolted,
         maintainerStepStatus: item.maintainerStepStatus,
         merchandiserInfoStatus: item.merchandiserInfoStatus,
         patternMakerInfoStatus: item.patternMakerInfoStatus,
@@ -4416,7 +4416,7 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
       selectedTargetObject: item.selectedTargetObject,
       targetObject: item.targetObject,
       targetObjectName: item.targetObjectName,
-      knittingTaskType: item.knittingTaskType,
+      woolTaskType: item.woolTaskType,
       downstreamTarget: item.downstreamTarget,
       requiresFeiTicket: item.requiresFeiTicket,
       packagingRequired: item.packagingRequired,
@@ -4584,7 +4584,7 @@ function buildPatternFormStateFromItem(item: PatternItem): PatternFormState {
     markerLengthM: item.markerLengthM,
     totalPieceCount: item.totalPieceCount,
     patternTotalPieceQty: item.patternTotalPieceQty,
-    isKnitted: item.isKnitted,
+    isWoolted: item.isWoolted,
     maintainerStepStatus: item.maintainerStepStatus,
     merchandiserInfoStatus: item.merchandiserInfoStatus,
     patternMakerInfoStatus: item.patternMakerInfoStatus,

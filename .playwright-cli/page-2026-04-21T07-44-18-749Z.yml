@@ -204,7 +204,7 @@
                 - combobox "纸样文件类型 *" [ref=e690]:
                   - option "请选择" [selected]
                   - option "布料纸样"
-                  - option "针织纸样"
+                  - option "毛织纸样"
               - generic [ref=e691]:
                 - text: 纸样分类
                 - combobox "纸样分类" [ref=e692]:

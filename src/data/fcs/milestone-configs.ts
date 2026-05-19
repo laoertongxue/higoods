@@ -1,4 +1,4 @@
-import { OWN_KNITTING_FACTORY_ID } from './factory-mock-data.ts'
+import { OWN_WOOL_FACTORY_ID } from './factory-mock-data.ts'
 import { getFactoryMasterRecordById } from './factory-master-store.ts'
 import { processTasks } from './process-tasks'
 
@@ -8,7 +8,7 @@ export type MilestoneProofRequirement = 'NONE' | 'IMAGE' | 'VIDEO' | 'IMAGE_OR_V
 export type MilestoneExceptionSeverity = 'S1' | 'S2' | 'S3'
 export type ExecutionFactoryTypeScope =
   | 'ALL'
-  | 'OWN_KNITTING_FACTORY'
+  | 'OWN_WOOL_FACTORY'
   | 'PROCESS_FACTORY'
   | 'CUTTING_FACTORY'
   | 'POST_FACTORY'
@@ -73,7 +73,7 @@ export const MILESTONE_PROOF_REQUIREMENT_LABEL: Record<MilestoneProofRequirement
 
 export const EXECUTION_FACTORY_TYPE_SCOPE_LABEL: Record<ExecutionFactoryTypeScope, string> = {
   ALL: '全部工厂类型',
-  OWN_KNITTING_FACTORY: '自有针织厂',
+  OWN_WOOL_FACTORY: '自有毛织厂',
   PROCESS_FACTORY: '工序工艺工厂',
   CUTTING_FACTORY: '裁床厂',
   POST_FACTORY: '后道工厂',
@@ -81,8 +81,8 @@ export const EXECUTION_FACTORY_TYPE_SCOPE_LABEL: Record<ExecutionFactoryTypeScop
 
 export const EXECUTION_TASK_TYPE_SCOPE_LABEL: Record<ExecutionTaskTypeScope, string> = {
   ALL: '全部任务类型',
-  WHOLE_GARMENT: '整件针织',
-  PART_PANEL: '部位针织',
+  WHOLE_GARMENT: '整件毛织',
+  PART_PANEL: '部位毛织',
   CUTTING: '裁片任务',
   PRINT_DYE: '印花 / 染色任务',
   SEWING: '车缝任务',
@@ -206,11 +206,11 @@ const milestoneConfigs: MilestoneConfig[] = [
     remark: '当前裁片工序不启用关键节点上报',
   },
   {
-    id: 'MC-PROC-KNIT-WHOLE',
-    processCode: 'PROC_KNIT',
-    processNameZh: '针织',
-    factoryTypeScope: 'OWN_KNITTING_FACTORY',
-    factoryTypeScopeLabel: EXECUTION_FACTORY_TYPE_SCOPE_LABEL.OWN_KNITTING_FACTORY,
+    id: 'MC-PROC-WOOL-WHOLE',
+    processCode: 'PROC_WOOL',
+    processNameZh: '毛织',
+    factoryTypeScope: 'OWN_WOOL_FACTORY',
+    factoryTypeScopeLabel: EXECUTION_FACTORY_TYPE_SCOPE_LABEL.OWN_WOOL_FACTORY,
     taskTypeScope: 'WHOLE_GARMENT',
     taskTypeScopeLabel: EXECUTION_TASK_TYPE_SCOPE_LABEL.WHOLE_GARMENT,
     startRequired: true,
@@ -229,14 +229,14 @@ const milestoneConfigs: MilestoneConfig[] = [
     exceptionSeverity: 'S2',
     updatedAt: '2026-05-10 09:00:00',
     updatedBy: '平台运营',
-    remark: '自有针织厂整件针织：要求开工，横机首批完成后上报关键节点，完成后交后道工厂。',
+    remark: '自有毛织厂整件毛织：要求开工，横机首批完成后上报关键节点，完成后交后道工厂。',
   },
   {
-    id: 'MC-PROC-KNIT-PART',
-    processCode: 'PROC_KNIT',
-    processNameZh: '针织',
-    factoryTypeScope: 'OWN_KNITTING_FACTORY',
-    factoryTypeScopeLabel: EXECUTION_FACTORY_TYPE_SCOPE_LABEL.OWN_KNITTING_FACTORY,
+    id: 'MC-PROC-WOOL-PART',
+    processCode: 'PROC_WOOL',
+    processNameZh: '毛织',
+    factoryTypeScope: 'OWN_WOOL_FACTORY',
+    factoryTypeScopeLabel: EXECUTION_FACTORY_TYPE_SCOPE_LABEL.OWN_WOOL_FACTORY,
     taskTypeScope: 'PART_PANEL',
     taskTypeScopeLabel: EXECUTION_TASK_TYPE_SCOPE_LABEL.PART_PANEL,
     startRequired: true,
@@ -255,7 +255,7 @@ const milestoneConfigs: MilestoneConfig[] = [
     exceptionSeverity: 'S2',
     updatedAt: '2026-05-10 09:10:00',
     updatedBy: '平台运营',
-    remark: '自有针织厂部位针织：要求开工和横机节点上报，完成后交裁床待交出仓，并按部位打印针织菲票。',
+    remark: '自有毛织厂部位毛织：要求开工和横机节点上报，完成后交裁床待交出仓，并按部位打印毛织菲票。',
   },
 ]
 
@@ -377,7 +377,7 @@ export interface ExecutionRuleTaskContext {
   taskType?: string
   assignedFactoryId?: string
   factoryType?: string
-  knittingKind?: string
+  woolKind?: string
   isSpecialCraft?: boolean
 }
 
@@ -394,11 +394,11 @@ export function resolveExecutionFactoryTypeScope(input: ExecutionRuleTaskContext
   const factory = input.assignedFactoryId ? getFactoryMasterRecordById(input.assignedFactoryId) : undefined
   const factoryType = normalizeText(factory?.factoryType) || explicitFactoryType
 
-  if (input.assignedFactoryId === OWN_KNITTING_FACTORY_ID || explicitFactoryType === 'OWN_KNITTING_FACTORY') {
-    return 'OWN_KNITTING_FACTORY'
+  if (input.assignedFactoryId === OWN_WOOL_FACTORY_ID || explicitFactoryType === 'OWN_WOOL_FACTORY') {
+    return 'OWN_WOOL_FACTORY'
   }
-  if (factory?.id === OWN_KNITTING_FACTORY_ID) return 'OWN_KNITTING_FACTORY'
-  if (factoryType === 'CENTRAL_KNIT' && factory?.id === OWN_KNITTING_FACTORY_ID) return 'OWN_KNITTING_FACTORY'
+  if (factory?.id === OWN_WOOL_FACTORY_ID) return 'OWN_WOOL_FACTORY'
+  if (factoryType === 'CENTRAL_WOOL' && factory?.id === OWN_WOOL_FACTORY_ID) return 'OWN_WOOL_FACTORY'
   if (includesAny(`${factoryType} ${explicitFactoryType}`, ['CUTTING', 'CUT'])) return 'CUTTING_FACTORY'
   if (includesAny(`${factoryType} ${explicitFactoryType}`, ['FINISHING', 'POST', 'MANAGED_POST_FACTORY'])) return 'POST_FACTORY'
   return 'PROCESS_FACTORY'
@@ -407,7 +407,7 @@ export function resolveExecutionFactoryTypeScope(input: ExecutionRuleTaskContext
 export function resolveExecutionTaskTypeScope(input: ExecutionRuleTaskContext): ExecutionTaskTypeScope {
   const codeText = normalizeText(
     [
-      input.knittingKind,
+      input.woolKind,
       input.taskTypeCode,
       input.taskType,
       input.craftCode,
@@ -427,8 +427,8 @@ export function resolveExecutionTaskTypeScope(input: ExecutionRuleTaskContext): 
     .filter(Boolean)
     .join(' ')
 
-  if (includesAny(codeText, ['WHOLE_GARMENT']) || labelText.includes('整件针织')) return 'WHOLE_GARMENT'
-  if (includesAny(codeText, ['PART_PANEL']) || labelText.includes('部位针织')) return 'PART_PANEL'
+  if (includesAny(codeText, ['WHOLE_GARMENT']) || labelText.includes('整件毛织')) return 'WHOLE_GARMENT'
+  if (includesAny(codeText, ['PART_PANEL']) || labelText.includes('部位毛织')) return 'PART_PANEL'
   if (includesAny(codeText, ['CUTTING', 'CUT']) || labelText.includes('裁片')) return 'CUTTING'
   if (includesAny(codeText, ['PRINT', 'DYE']) || labelText.includes('印花') || labelText.includes('染色')) {
     return 'PRINT_DYE'

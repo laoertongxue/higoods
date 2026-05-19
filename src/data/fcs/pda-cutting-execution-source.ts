@@ -14,7 +14,7 @@ import {
   type PdaCuttingTaskSourceRecord,
 } from './cutting/pda-cutting-task-source.ts'
 import { listPdaGenericProcessTasks } from './pda-task-mock-factory.ts'
-import { listKnittingMobileProcessTasks } from './knitting-task-domain.ts'
+import { listWoolMobileProcessTasks } from './wool-task-domain.ts'
 import { TEST_FACTORY_ID, TEST_FACTORY_NAME } from './factory-mock-data.ts'
 import {
   getPdaCuttingTaskScenarioByTaskId,
@@ -713,15 +713,15 @@ function getMarkerStore(snapshot: CuttingDomainSnapshot): MarkerSpreadingStore {
 
 function listTaskFacts(): ProcessTask[] {
   const runtimeTasks = listTaskChainTasks().filter((task) =>
-    task.processBusinessCode !== 'KNITTING'
-    && task.processCode !== 'PROC_KNIT'
-    && task.processCode !== 'KNITTING',
+    task.processBusinessCode !== 'WOOL'
+    && task.processCode !== 'PROC_WOOL'
+    && task.processCode !== 'WOOL',
   )
   const runtimeTaskIds = new Set(runtimeTasks.map((task) => task.taskId))
   const genericTasks = listPdaGenericProcessTasks().filter((task) => !runtimeTaskIds.has(task.taskId))
   const existingAfterGenericIds = new Set([...runtimeTaskIds, ...genericTasks.map((task) => task.taskId)])
-  const knittingTasks = listKnittingMobileProcessTasks().filter((task) => !existingAfterGenericIds.has(task.taskId))
-  const genericTaskIds = new Set([...genericTasks.map((task) => task.taskId), ...knittingTasks.map((task) => task.taskId)])
+  const woolTasks = listWoolMobileProcessTasks().filter((task) => !existingAfterGenericIds.has(task.taskId))
+  const genericTaskIds = new Set([...genericTasks.map((task) => task.taskId), ...woolTasks.map((task) => task.taskId)])
   const validCuttingOriginalOrderIds = new Set(listGeneratedOriginalCutOrderSourceRecords().map((record) => record.originalCutOrderId))
   const executableFallbackTaskIds = new Set(
     listPdaCuttingExecutionSourceRecords()
@@ -733,7 +733,7 @@ function listTaskFacts(): ProcessTask[] {
     .filter((record) => !runtimeTaskIds.has(record.taskId) && !genericTaskIds.has(record.taskId))
     .map((record) => buildFallbackCuttingTaskFact(record))
 
-  return [...runtimeTasks, ...genericTasks, ...knittingTasks, ...fallbackCuttingTasks]
+  return [...runtimeTasks, ...genericTasks, ...woolTasks, ...fallbackCuttingTasks]
 }
 
 function getRuntimeTask(taskId: string): ProcessTask | null {

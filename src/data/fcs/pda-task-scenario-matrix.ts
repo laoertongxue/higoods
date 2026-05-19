@@ -6,7 +6,7 @@ export type PdaMobileTaskStage = 'TODO' | 'RECEIVE' | 'EXEC' | 'HANDOVER'
 export type PdaMobileProcessKey =
   | 'CUTTING'
   | 'SEWING'
-  | 'KNITTING'
+  | 'WOOL'
   | 'PRINTING'
   | 'DYEING'
   | 'IRONING'
@@ -62,14 +62,14 @@ export const PDA_MOBILE_PROCESS_DEFINITIONS: PdaMobileProcessDefinition[] = [
     notes: '普通成衣厂主工序，接单、执行、交接都应长期占主要比例。',
   },
   {
-    key: 'KNITTING',
-    processCode: 'PROC_KNIT',
-    processNameZh: '针织',
+    key: 'WOOL',
+    processCode: 'PROC_WOOL',
+    processNameZh: '毛织',
     stage: 'SPECIAL',
-    primaryFactoryIds: ['OWN_KNITTING_FACTORY'],
+    primaryFactoryIds: ['OWN_WOOL_FACTORY'],
     preferredAssignmentMode: 'DIRECT',
     supportsTaskMatrix: true,
-    notes: '周哥针织厂自有任务，覆盖整件针织与部位针织的接单、收纱、开工、关键节点和交出。',
+    notes: '周哥毛织厂自有任务，覆盖整件毛织与部位毛织的接单、收纱、开工、关键节点和交出。',
   },
   {
     key: 'PRINTING',
@@ -142,11 +142,11 @@ export const PDA_MOBILE_FACTORY_PROFILES: PdaMobileFactoryProfile[] = [
     notes: '演示工厂统一为 F090，工厂端执行页可检索印花、染色、裁片和后续工序任务。',
   },
   {
-    factoryId: 'OWN_KNITTING_FACTORY',
-    label: '周哥针织厂',
-    dominantProcesses: ['KNITTING'],
+    factoryId: 'OWN_WOOL_FACTORY',
+    label: '周哥毛织厂',
+    dominantProcesses: ['WOOL'],
     secondaryProcesses: [],
-    notes: '自有针织厂账号，移动端处理整件针织和部位针织任务。',
+    notes: '自有毛织厂账号，移动端处理整件毛织和部位毛织任务。',
   },
 ]
 

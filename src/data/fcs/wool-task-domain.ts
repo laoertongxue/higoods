@@ -1,6 +1,6 @@
 import {
-  OWN_KNITTING_FACTORY_ID,
-  OWN_KNITTING_FACTORY_NAME,
+  OWN_WOOL_FACTORY_ID,
+  OWN_WOOL_FACTORY_NAME,
 } from './factory-mock-data.ts'
 import type {
   PdaTaskMockHandoverHeadSeed,
@@ -24,15 +24,15 @@ import {
 import type { TaskDetailRow } from './task-detail-rows.ts'
 import { buildTaskQrValue } from './task-qr.ts'
 
-export type KnittingWorkOrderKind = 'WHOLE_GARMENT' | 'PART_PANEL'
+export type WoolWorkOrderKind = 'WHOLE_GARMENT' | 'PART_PANEL'
 
-export type KnittingWorkOrderStatus =
+export type WoolWorkOrderStatus =
   | 'WAIT_ACCEPT'
   | 'WAIT_PICKUP'
   | 'PICKUP_IN_PROGRESS'
   | 'WAIT_MACHINE_SCHEDULE'
   | 'MACHINE_SCHEDULED'
-  | 'FLAT_KNITTING'
+  | 'FLAT_WOOL'
   | 'WAIT_LINKING'
   | 'LINKING'
   | 'WAIT_IRONING'
@@ -45,30 +45,30 @@ export type KnittingWorkOrderStatus =
   | 'HANDOVER_SUBMITTED'
   | 'COMPLETED'
 
-export type KnittingNodeStatus = '未开始' | '进行中' | '已完成' | '已跳过'
+export type WoolNodeStatus = '未开始' | '进行中' | '已完成' | '已跳过'
 
-export type KnittingMachineScheduleStatus = '待开工' | '生产中' | '已完成' | '空闲' | '已取消' | '延误'
+export type WoolMachineScheduleStatus = '待开工' | '生产中' | '已完成' | '空闲' | '已取消' | '延误'
 
-export type KnittingMachineStatus = '空闲' | '已排产' | '生产中' | '维修' | '停用'
+export type WoolMachineStatus = '空闲' | '已排产' | '生产中' | '维修' | '停用'
 
-export interface KnittingMachineScheduleInput {
+export interface WoolMachineScheduleInput {
   machineNos?: string[]
   scheduledStartAt?: string
   scheduledEndAt?: string
   remark?: string
 }
 
-export interface KnittingMachine {
+export interface WoolMachine {
   machineId: string
   machineNo: string
   machineName: string
-  factoryId: 'OWN_KNITTING_FACTORY'
-  factoryName: '周哥针织厂'
+  factoryId: 'OWN_WOOL_FACTORY'
+  factoryName: '周哥毛织厂'
   machineGroupId: string
   machineGroupName: string
   needleType: string
-  supportedKinds: KnittingWorkOrderKind[]
-  status: KnittingMachineStatus
+  supportedKinds: WoolWorkOrderKind[]
+  status: WoolMachineStatus
   currentTaskNo?: string
   dailyCapacityText: string
   locationText: string
@@ -76,7 +76,7 @@ export interface KnittingMachine {
   remark: string
 }
 
-export interface KnittingYarnReceipt {
+export interface WoolYarnReceipt {
   yarnSku: string
   yarnName: string
   colorName: string
@@ -93,9 +93,9 @@ export interface KnittingYarnReceipt {
   evidenceText?: string
 }
 
-export interface KnittingExecutionNode {
+export interface WoolExecutionNode {
   nodeName: string
-  status: KnittingNodeStatus
+  status: WoolNodeStatus
   plannedQty: number
   completedQty: number
   unit: string
@@ -107,7 +107,7 @@ export interface KnittingExecutionNode {
   remark?: string
 }
 
-export interface KnittingPartPanel {
+export interface WoolPartPanel {
   partName: string
   colorName: string
   sizeCode: string
@@ -117,8 +117,8 @@ export interface KnittingPartPanel {
   feiTicketStatus: '待打印' | '已打印' | '无需打印'
 }
 
-export interface KnittingFeiTicketPrintRecord {
-  ticketSourceType: 'KNITTING_PART_PANEL'
+export interface WoolFeiTicketPrintRecord {
+  ticketSourceType: 'WOOL_PART_PANEL'
   ticketRecordId: string
   ticketNo: string
   feiTicketId: string
@@ -155,8 +155,8 @@ export interface KnittingFeiTicketPrintRecord {
   reprintCount: number
 }
 
-export interface KnittingPriceInfo {
-  flatKnittingMinutes: number
+export interface WoolPriceInfo {
+  flatWoolMinutes: number
   linkingMinutes?: number
   ironingIncluded: boolean
   packagingIncluded: boolean
@@ -166,39 +166,39 @@ export interface KnittingPriceInfo {
   remark: string
 }
 
-export interface KnittingMachineSchedule {
+export interface WoolMachineSchedule {
   scheduleId: string
   machineGroupName: string
   machineNos: string[]
-  knittingOrderId?: string
+  woolOrderId?: string
   plannedStartAt: string
   plannedEndAt: string
   actualStartAt?: string
   actualEndAt?: string
   operatorName?: string
-  status: KnittingMachineScheduleStatus
+  status: WoolMachineScheduleStatus
   scheduleSource: '正式排产' | '临时排产' | '空闲预留'
   riskText: string
   remark: string
 }
 
-export interface KnittingWorkOrder {
-  knittingOrderId: string
-  knittingOrderNo: string
+export interface WoolWorkOrder {
+  woolOrderId: string
+  woolOrderNo: string
   taskNo: string
-  kind: KnittingWorkOrderKind
+  kind: WoolWorkOrderKind
   productionOrderNo: string
   styleNo: string
   styleName: string
   colorName: string
   sizeRange: string
-  factoryId: 'OWN_KNITTING_FACTORY'
-  factoryName: '周哥针织厂'
+  factoryId: 'OWN_WOOL_FACTORY'
+  factoryName: '周哥毛织厂'
   plannedQty: number
   completedQty: number
   qtyUnit: '件' | '片'
   needsPackaging: boolean
-  status: KnittingWorkOrderStatus
+  status: WoolWorkOrderStatus
   downstreamTarget: '后道工厂' | '裁床待交出仓'
   plannedMachineCount: number
   scheduledStartAt: string
@@ -208,10 +208,10 @@ export interface KnittingWorkOrder {
   pickupStartedAt?: string
   pickupCompletedAt?: string
   machineScheduleId?: string
-  yarnReceipt: KnittingYarnReceipt
-  nodes: KnittingExecutionNode[]
-  partPanels: KnittingPartPanel[]
-  priceInfo: KnittingPriceInfo
+  yarnReceipt: WoolYarnReceipt
+  nodes: WoolExecutionNode[]
+  partPanels: WoolPartPanel[]
+  priceInfo: WoolPriceInfo
   handoverOrderNo?: string
   handoverQty?: number
   receiverWrittenQty?: number
@@ -225,7 +225,7 @@ export interface KnittingWorkOrder {
   remark?: string
 }
 
-export interface KnittingWorkOrderSummary {
+export interface WoolWorkOrderSummary {
   total: number
   wholeGarmentCount: number
   partPanelCount: number
@@ -233,7 +233,7 @@ export interface KnittingWorkOrderSummary {
   waitPickupCount: number
   pickupInProgressCount: number
   waitMachineScheduleCount: number
-  flatKnittingCount: number
+  flatWoolCount: number
   waitFeiTicketCount: number
   waitHandoverCount: number
   completedCount: number
@@ -241,7 +241,7 @@ export interface KnittingWorkOrderSummary {
   completedQty: number
 }
 
-export interface KnittingMachineScheduleSummary {
+export interface WoolMachineScheduleSummary {
   scheduleCount: number
   scheduledWorkOrderCount: number
   totalMachineCount: number
@@ -251,9 +251,9 @@ export interface KnittingMachineScheduleSummary {
   delayedScheduleCount: number
 }
 
-export type KnittingWarehouseMode = 'wait-process' | 'wait-handover'
+export type WoolWarehouseMode = 'wait-process' | 'wait-handover'
 
-export interface KnittingWarehouseFlowRecord {
+export interface WoolWarehouseFlowRecord {
   flowId: string
   flowType: '领料入仓' | '加工用料' | '回收入仓' | '加工入仓' | '交出出仓'
   sourceNo: string
@@ -264,9 +264,9 @@ export interface KnittingWarehouseFlowRecord {
   remark: string
 }
 
-export interface KnittingWarehouseInventoryDetailLine {
+export interface WoolWarehouseInventoryDetailLine {
   detailId: string
-  knittingOrderNo: string
+  woolOrderNo: string
   productionOrderNo: string
   itemName: string
   itemSpec: string
@@ -277,14 +277,14 @@ export interface KnittingWarehouseInventoryDetailLine {
   remark: string
 }
 
-export interface KnittingWarehouseInventoryItem {
+export interface WoolWarehouseInventoryItem {
   inventoryId: string
-  warehouseMode: KnittingWarehouseMode
+  warehouseMode: WoolWarehouseMode
   inventoryObjectType: '纱线' | '整件' | '部位'
-  knittingOrderId: string
-  knittingOrderNo: string
+  woolOrderId: string
+  woolOrderNo: string
   taskNo: string
-  kind: KnittingWorkOrderKind
+  kind: WoolWorkOrderKind
   productionOrderNo: string
   styleName: string
   yarnSku?: string
@@ -296,18 +296,18 @@ export interface KnittingWarehouseInventoryItem {
   unit: string
   locationText: string
   statusText: string
-  detailLines: KnittingWarehouseInventoryDetailLine[]
-  flowRecords: KnittingWarehouseFlowRecord[]
+  detailLines: WoolWarehouseInventoryDetailLine[]
+  flowRecords: WoolWarehouseFlowRecord[]
 }
 
-export interface KnittingYarnRecoveryAssociation {
-  knittingOrderId: string
-  knittingOrderNo: string
+export interface WoolYarnRecoveryAssociation {
+  woolOrderId: string
+  woolOrderNo: string
   productionOrderNo: string
   lossWeightKg: number
 }
 
-export interface KnittingYarnRecoveryRecord {
+export interface WoolYarnRecoveryRecord {
   recoveryId: string
   recoveryNo: string
   yarnSku: string
@@ -316,13 +316,13 @@ export interface KnittingYarnRecoveryRecord {
   recoveredWeightKg: number
   operatedAt: string
   operatorName: string
-  associations: KnittingYarnRecoveryAssociation[]
+  associations: WoolYarnRecoveryAssociation[]
   remark: string
 }
 
-export interface KnittingWarehouseArea {
+export interface WoolWarehouseArea {
   areaId: string
-  warehouseMode: KnittingWarehouseMode
+  warehouseMode: WoolWarehouseMode
   areaCode: string
   areaName: string
   managerName: string
@@ -331,9 +331,9 @@ export interface KnittingWarehouseArea {
   updatedAt: string
 }
 
-export interface KnittingWarehouseLocation {
+export interface WoolWarehouseLocation {
   locationId: string
-  warehouseMode: KnittingWarehouseMode
+  warehouseMode: WoolWarehouseMode
   areaId: string
   areaName: string
   locationCode: string
@@ -343,11 +343,11 @@ export interface KnittingWarehouseLocation {
   updatedAt: string
 }
 
-export interface KnittingWaitProcessReceiptRecord {
+export interface WoolWaitProcessReceiptRecord {
   recordId: string
   receiptNo: string
-  knittingOrderId: string
-  knittingOrderNo: string
+  woolOrderId: string
+  woolOrderNo: string
   productionOrderNo: string
   sourceName: string
   yarnSku: string
@@ -361,13 +361,13 @@ export interface KnittingWaitProcessReceiptRecord {
   statusText: string
 }
 
-export interface KnittingWaitProcessScanReceiptLine {
+export interface WoolWaitProcessScanReceiptLine {
   receiptLineId: string
-  knittingOrderId: string
-  knittingOrderNo: string
+  woolOrderId: string
+  woolOrderNo: string
   productionOrderNo: string
   taskNo: string
-  kind: KnittingWorkOrderKind
+  kind: WoolWorkOrderKind
   styleName: string
   yarnSku: string
   yarnName: string
@@ -377,19 +377,19 @@ export interface KnittingWaitProcessScanReceiptLine {
   unit: 'kg'
 }
 
-export interface KnittingWaitProcessScanReceipt {
+export interface WoolWaitProcessScanReceipt {
   receiptNo: string
   qrCode: string
   sourceDeliveryNo: string
   sourceName: string
-  knittingOrderNo: string
+  woolOrderNo: string
   productionOrderNo: string
   taskNo: string
   styleName: string
-  lines: KnittingWaitProcessScanReceiptLine[]
+  lines: WoolWaitProcessScanReceiptLine[]
 }
 
-export interface KnittingWaitProcessReceiptLineInput {
+export interface WoolWaitProcessReceiptLineInput {
   receiptLineId: string
   actualWeightKg: number
   areaId: string
@@ -397,12 +397,12 @@ export interface KnittingWaitProcessReceiptLineInput {
   evidenceText?: string
 }
 
-export interface KnittingWaitProcessUsageRecord {
+export interface WoolWaitProcessUsageRecord {
   recordId: string
   usageNo: string
   recordType: '开工领用' | '缝盘损耗'
-  knittingOrderId: string
-  knittingOrderNo: string
+  woolOrderId: string
+  woolOrderNo: string
   taskNo?: string
   productionOrderNo: string
   yarnSku: string
@@ -413,13 +413,13 @@ export interface KnittingWaitProcessUsageRecord {
   statusText: string
 }
 
-export interface KnittingWaitHandoverInboundRecord {
+export interface WoolWaitHandoverInboundRecord {
   recordId: string
   inboundNo: string
-  knittingOrderId: string
-  knittingOrderNo: string
+  woolOrderId: string
+  woolOrderNo: string
   productionOrderNo: string
-  kind: KnittingWorkOrderKind
+  kind: WoolWorkOrderKind
   itemName: string
   inboundQty: number
   unit: string
@@ -428,13 +428,13 @@ export interface KnittingWaitHandoverInboundRecord {
   statusText: string
 }
 
-export interface KnittingWaitHandoverHandoutRecord {
+export interface WoolWaitHandoverHandoutRecord {
   recordId: string
   handoutNo: string
-  knittingOrderId: string
-  knittingOrderNo: string
+  woolOrderId: string
+  woolOrderNo: string
   productionOrderNo: string
-  downstreamTarget: KnittingWorkOrder['downstreamTarget']
+  downstreamTarget: WoolWorkOrder['downstreamTarget']
   handoutQty: number
   receiverWrittenQty?: number
   unit: string
@@ -442,18 +442,18 @@ export interface KnittingWaitHandoverHandoutRecord {
   statusText: string
 }
 
-export const KNITTING_KIND_LABEL: Record<KnittingWorkOrderKind, string> = {
-  WHOLE_GARMENT: '整件针织',
-  PART_PANEL: '部位针织',
+export const WOOL_KIND_LABEL: Record<WoolWorkOrderKind, string> = {
+  WHOLE_GARMENT: '整件毛织',
+  PART_PANEL: '部位毛织',
 }
 
-export const KNITTING_STATUS_LABEL: Record<KnittingWorkOrderStatus, string> = {
+export const WOOL_STATUS_LABEL: Record<WoolWorkOrderStatus, string> = {
   WAIT_ACCEPT: '未接单',
   WAIT_PICKUP: '待领料',
   PICKUP_IN_PROGRESS: '领料中',
   WAIT_MACHINE_SCHEDULE: '待排机',
   MACHINE_SCHEDULED: '待开工',
-  FLAT_KNITTING: '横机成片中',
+  FLAT_WOOL: '横机成片中',
   WAIT_LINKING: '待缝盘',
   LINKING: '缝盘中',
   WAIT_IRONING: '待熨烫',
@@ -467,7 +467,7 @@ export const KNITTING_STATUS_LABEL: Record<KnittingWorkOrderStatus, string> = {
   COMPLETED: '已完成',
 }
 
-export type KnittingWorkOrderActionCode =
+export type WoolWorkOrderActionCode =
   | 'ACCEPT'
   | 'CONFIRM_PICKUP'
   | 'COMPLETE_PICKUP'
@@ -486,24 +486,28 @@ export type KnittingWorkOrderActionCode =
   | 'SUBMIT_HANDOVER'
   | 'CONFIRM_HANDOVER_RECEIPT'
 
-export interface KnittingAllowedAction {
-  code: KnittingWorkOrderActionCode
+export interface WoolAllowedAction {
+  code: WoolWorkOrderActionCode
   label: string
   tone: 'primary' | 'normal' | 'success' | 'warning'
   nodeName?: string
 }
 
-interface KnittingDomainStore {
-  workOrders: Record<string, KnittingWorkOrder>
-  areas: KnittingWarehouseArea[]
-  locations: KnittingWarehouseLocation[]
-  yarnRecoveryRecords?: KnittingYarnRecoveryRecord[]
+interface WoolDomainStore {
+  workOrders: Record<string, WoolWorkOrder>
+  areas: WoolWarehouseArea[]
+  locations: WoolWarehouseLocation[]
+  yarnRecoveryRecords?: WoolYarnRecoveryRecord[]
 }
 
-const KNITTING_DOMAIN_STORE_KEY = 'higood-fcs-knitting-domain-store-v1'
+const WOOL_DOMAIN_STORE_KEY = 'higood-fcs-wool-domain-store-v1'
 
 function cloneValue<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
+}
+
+function normalizeWoolText(value: string): string {
+  return value.replaceAll(String.fromCharCode(38024, 32455), '毛织')
 }
 
 function nowTimestamp(date = new Date()): string {
@@ -515,12 +519,12 @@ function isBusinessTimestamp(value: string | undefined): value is string {
   return Boolean(value && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(value))
 }
 
-function readKnittingStore(): KnittingDomainStore {
+function readWoolStore(): WoolDomainStore {
   if (typeof window === 'undefined') return { workOrders: {}, areas: [], locations: [], yarnRecoveryRecords: [] }
   try {
-    const raw = window.localStorage.getItem(KNITTING_DOMAIN_STORE_KEY)
+    const raw = window.localStorage.getItem(WOOL_DOMAIN_STORE_KEY)
     if (!raw) return { workOrders: {}, areas: [], locations: [], yarnRecoveryRecords: [] }
-    const parsed = JSON.parse(raw) as Partial<KnittingDomainStore>
+    const parsed = JSON.parse(raw) as Partial<WoolDomainStore>
     return {
       workOrders: parsed.workOrders && typeof parsed.workOrders === 'object' ? parsed.workOrders : {},
       areas: Array.isArray(parsed.areas) ? parsed.areas : [],
@@ -532,24 +536,24 @@ function readKnittingStore(): KnittingDomainStore {
   }
 }
 
-function writeKnittingStore(store: KnittingDomainStore): void {
+function writeWoolStore(store: WoolDomainStore): void {
   if (typeof window === 'undefined') return
-  window.localStorage.setItem(KNITTING_DOMAIN_STORE_KEY, JSON.stringify(store))
+  window.localStorage.setItem(WOOL_DOMAIN_STORE_KEY, JSON.stringify(store))
 }
 
-function saveKnittingWorkOrder(order: KnittingWorkOrder): KnittingWorkOrder {
-  const store = readKnittingStore()
-  store.workOrders[order.knittingOrderId] = cloneValue(order)
-  writeKnittingStore(store)
+function saveWoolWorkOrder(order: WoolWorkOrder): WoolWorkOrder {
+  const store = readWoolStore()
+  store.workOrders[order.woolOrderId] = cloneValue(order)
+  writeWoolStore(store)
   return cloneValue(order)
 }
 
-function isGeneratedKnittingTask(task: ProcessTask): boolean {
-  return task.processBusinessCode === 'KNITTING'
-    || task.processCode === 'PROC_KNIT'
-    || task.processCode === 'KNITTING'
-    || task.craftName === '整件针织'
-    || task.craftName === '部位针织'
+function isGeneratedWoolTask(task: ProcessTask): boolean {
+  return task.processBusinessCode === 'WOOL'
+    || task.processCode === 'PROC_WOOL'
+    || task.processCode === 'WOOL'
+    || task.craftName === '整件毛织'
+    || task.craftName === '部位毛织'
 }
 
 function normalizeTaskToken(value: string): string {
@@ -570,9 +574,9 @@ function getPatternPackageRows(patternFiles: TechPackPatternFileSnapshot[]): Tec
   return explicitPackages.length > 0 ? explicitPackages : patternFiles
 }
 
-function getMixedPatternPartKnittingSources(patternFiles: TechPackPatternFileSnapshot[]): TechPackPatternFileSnapshot[] {
+function getMixedPatternPartWoolSources(patternFiles: TechPackPatternFileSnapshot[]): TechPackPatternFileSnapshot[] {
   const materialAssociations = patternFiles.filter((item) => item.recordKind !== 'PACKAGE')
-  return materialAssociations.filter((item) => item.patternMaterialType === 'KNIT')
+  return materialAssociations.filter((item) => item.patternMaterialType === 'WOOL')
 }
 
 function resolvePatternLinkedMaterial(pattern: TechPackPatternFileSnapshot, order: ProductionOrder) {
@@ -582,7 +586,7 @@ function resolvePatternLinkedMaterial(pattern: TechPackPatternFileSnapshot, orde
     ?? null
 }
 
-function buildPartKnittingDetailRows(input: {
+function buildPartWoolDetailRows(input: {
   order: ProductionOrder
   pattern: TechPackPatternFileSnapshot
   taskId: string
@@ -613,11 +617,11 @@ function buildPartKnittingDetailRows(input: {
           rowKey,
           taskId,
           rowType: 'COMPOSITE',
-          rowLabel: `${piece.name || '针织部位'} / ${skuLine.color} / ${skuLine.size}`,
+          rowLabel: `${piece.name || '毛织部位'} / ${skuLine.color} / ${skuLine.size}`,
           qty,
           uom: '片',
           dimensions: {
-            PATTERN: piece.name || '针织部位',
+            PATTERN: piece.name || '毛织部位',
             GARMENT_COLOR: skuLine.color,
             GARMENT_SKU: skuLine.skuCode,
             MATERIAL_SKU: linkedMaterial?.materialCode || pattern.linkedMaterialSku || pattern.linkedBomItemId || '',
@@ -625,9 +629,9 @@ function buildPartKnittingDetailRows(input: {
           sourceRefs: {
             orderId: order.productionOrderId,
             spuCode: order.demandSnapshot.spuCode,
-            processCode: 'KNITTING',
+            processCode: 'WOOL',
             sourceEntryId: pattern.id,
-            craftCode: 'PART_PANEL_KNIT',
+            craftCode: 'PART_PANEL_WOOL',
             bomItemId: pattern.linkedBomItemId || pattern.linkedMaterialId || linkedMaterial?.id,
             patternId: pattern.id,
             pieceIds: [piece.id],
@@ -646,20 +650,20 @@ function buildPartKnittingDetailRows(input: {
     rowKey: `${taskId}-ROW-001`,
     taskId,
     rowType: 'COMPOSITE',
-    rowLabel: `${pattern.patternName || pattern.patternFileName || '针织部位'} / 按生产单`,
+    rowLabel: `${pattern.patternName || pattern.patternFileName || '毛织部位'} / 按生产单`,
     qty: fallbackQty,
     uom: '片',
     dimensions: {
-      PATTERN: pattern.patternName || pattern.patternFileName || '针织部位',
+      PATTERN: pattern.patternName || pattern.patternFileName || '毛织部位',
       GARMENT_COLOR: '按生产单',
       MATERIAL_SKU: linkedMaterial?.materialCode || pattern.linkedMaterialSku || pattern.linkedBomItemId || '',
     },
     sourceRefs: {
       orderId: order.productionOrderId,
       spuCode: order.demandSnapshot.spuCode,
-      processCode: 'KNITTING',
+      processCode: 'WOOL',
       sourceEntryId: pattern.id,
-      craftCode: 'PART_PANEL_KNIT',
+      craftCode: 'PART_PANEL_WOOL',
       bomItemId: pattern.linkedBomItemId || pattern.linkedMaterialId || linkedMaterial?.id,
       patternId: pattern.id,
       pieceIds: pieceRows.map((piece) => piece.id),
@@ -668,31 +672,31 @@ function buildPartKnittingDetailRows(input: {
   }]
 }
 
-function buildSnapshotKnittingTask(input: {
+function buildSnapshotWoolTask(input: {
   order: ProductionOrder
-  kind: KnittingWorkOrderKind
+  kind: WoolWorkOrderKind
   index: number
   pattern?: TechPackPatternFileSnapshot
 }): ProcessTask {
   const { order, kind, index, pattern } = input
   const suffix = kind === 'WHOLE_GARMENT' ? 'WHOLE' : `PART-${normalizeTaskToken(pattern?.id || String(index + 1))}`
-  const taskId = `TASK-KNIT-${normalizeTaskToken(order.productionOrderId)}-${suffix}`
+  const taskId = `TASK-WOOL-${normalizeTaskToken(order.productionOrderId)}-${suffix}`
   const detailRows = kind === 'PART_PANEL' && pattern
-    ? buildPartKnittingDetailRows({ order, pattern, taskId })
+    ? buildPartWoolDetailRows({ order, pattern, taskId })
     : []
   const qty = kind === 'PART_PANEL'
     ? roundQty(detailRows.reduce((sum, row) => sum + row.qty, 0))
     : resolveProductionOrderQty(order)
   const isStarted = index % 2 === 0
-  const craftName = kind === 'PART_PANEL' ? '部位针织' : '整件针织'
+  const craftName = kind === 'PART_PANEL' ? '部位毛织' : '整件毛织'
 
   return {
     taskId,
     taskNo: taskId,
     productionOrderId: order.productionOrderId,
     seq: 350 + index,
-    processCode: 'PROC_KNIT',
-    processNameZh: '针织',
+    processCode: 'PROC_WOOL',
+    processNameZh: '毛织',
     stage: 'SPECIAL',
     qty,
     qtyUnit: 'PIECE',
@@ -701,11 +705,11 @@ function buildSnapshotKnittingTask(input: {
     ownerSuggestion: {
       kind: 'RECOMMENDED_FACTORY_POOL',
       recommendedTier: 'CENTRAL',
-      recommendedTypes: ['OWN_KNITTING_FACTORY'],
-      requiredTags: ['针织'],
+      recommendedTypes: ['OWN_WOOL_FACTORY'],
+      requiredTags: ['毛织'],
     },
-    assignedFactoryId: OWN_KNITTING_FACTORY_ID,
-    assignedFactoryName: OWN_KNITTING_FACTORY_NAME,
+    assignedFactoryId: OWN_WOOL_FACTORY_ID,
+    assignedFactoryName: OWN_WOOL_FACTORY_NAME,
     qcPoints: [],
     stdTimeMinutes: kind === 'PART_PANEL' ? 2.5 : 18,
     difficulty: 'MEDIUM',
@@ -716,18 +720,18 @@ function buildSnapshotKnittingTask(input: {
     status: isStarted ? 'IN_PROGRESS' : 'NOT_STARTED',
     acceptanceStatus: isStarted ? 'ACCEPTED' : 'PENDING',
     acceptedAt: isStarted ? '2026-05-09 08:20' : undefined,
-    acceptedBy: isStarted ? OWN_KNITTING_FACTORY_NAME : undefined,
+    acceptedBy: isStarted ? OWN_WOOL_FACTORY_NAME : undefined,
     acceptDeadline: '2026-05-11 18:00',
     taskDeadline: '2026-05-14 20:00',
     dispatchRemark: kind === 'PART_PANEL'
-      ? '生产单生成时按物料&针织纸样关联自动生成部位针织加工单。'
-      : '生产单生成时判定全部纸样包为针织类型，自动生成整件针织加工单。',
+      ? '生产单生成时按物料&毛织纸样关联自动生成部位毛织加工单。'
+      : '生产单生成时判定全部纸样包为毛织类型，自动生成整件毛织加工单。',
     dispatchedAt: order.createdAt,
     dispatchedBy: '系统',
     startedAt: isStarted ? '2026-05-09 09:15' : undefined,
-    processBusinessCode: 'KNITTING',
-    processBusinessName: '针织',
-    craftCode: kind === 'PART_PANEL' ? 'PART_PANEL_KNIT' : 'WHOLE_GARMENT_KNIT',
+    processBusinessCode: 'WOOL',
+    processBusinessName: '毛织',
+    craftCode: kind === 'PART_PANEL' ? 'PART_PANEL_WOOL' : 'WHOLE_GARMENT_WOOL',
     craftName,
     taskCategoryZh: craftName,
     sourceEntryId: pattern?.id || order.techPackSnapshot?.snapshotId || order.productionOrderId,
@@ -745,17 +749,17 @@ function buildSnapshotKnittingTask(input: {
     defaultDocType: 'TASK',
     taskTypeMode: 'CRAFT',
     isSpecialCraft: false,
-    knittingTaskType: kind,
-    knittingKind: kind,
-    knittingKindLabel: craftName,
-    knittingOrderId: `KNIT-${normalizeTaskToken(order.productionOrderId)}-${suffix}`,
-    knittingOrderNo: `针织单-${order.productionOrderNo.replace(/^PO-?/, '')}-${String(index + 1).padStart(2, '0')}`,
-    knittingDownstreamTarget: kind === 'PART_PANEL' ? '裁床待交出仓' : '后道工厂',
+    woolTaskType: kind,
+    woolKind: kind,
+    woolKindLabel: craftName,
+    woolOrderId: `WOOL-${normalizeTaskToken(order.productionOrderId)}-${suffix}`,
+    woolOrderNo: `毛织单-${order.productionOrderNo.replace(/^PO-?/, '')}-${String(index + 1).padStart(2, '0')}`,
+    woolDownstreamTarget: kind === 'PART_PANEL' ? '裁床待交出仓' : '后道工厂',
     requiresFeiTicket: kind === 'PART_PANEL',
     packagingRequired: false,
     materialIssueMode: 'WAREHOUSE_DELIVERY',
-    mockReceiveSummary: '染厂/面料仓送料到针织厂，针织厂称重确认并上传照片视频。',
-    mockExecutionSummary: kind === 'PART_PANEL' ? '横机成片完成后进入菲票打印。' : '整件针织完成后交后道工厂。',
+    mockReceiveSummary: '染厂/面料仓送料到毛织厂，毛织厂称重确认并上传照片视频。',
+    mockExecutionSummary: kind === 'PART_PANEL' ? '横机成片完成后进入菲票打印。' : '整件毛织完成后交后道工厂。',
     mockHandoverSummary: kind === 'PART_PANEL' ? '完成后交裁床待交出仓。' : '完成后交后道工厂。',
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
@@ -764,8 +768,8 @@ function buildSnapshotKnittingTask(input: {
         id: `AL-${taskId}-CREATE`,
         action: 'CREATED',
         detail: kind === 'PART_PANEL'
-          ? '由生产单技术包物料&针织纸样关联生成部位针织加工单'
-          : '由生产单技术包全针织纸样包判断生成整件针织加工单',
+          ? '由生产单技术包物料&毛织纸样关联生成部位毛织加工单'
+          : '由生产单技术包全毛织纸样包判断生成整件毛织加工单',
         at: order.createdAt,
         by: '系统',
       },
@@ -773,7 +777,7 @@ function buildSnapshotKnittingTask(input: {
   }
 }
 
-function buildSnapshotDrivenKnittingTasks(): ProcessTask[] {
+function buildSnapshotDrivenWoolTasks(): ProcessTask[] {
   const tasks: ProcessTask[] = []
   productionOrders.forEach((order) => {
     const snapshot = getProductionOrderTechPackSnapshot(order.productionOrderId)
@@ -781,9 +785,9 @@ function buildSnapshotDrivenKnittingTasks(): ProcessTask[] {
     const patternPackages = getPatternPackageRows(snapshot.patternFiles)
     if (patternPackages.length === 0) return
 
-    const allPatternPackagesAreKnit = patternPackages.every((item) => item.patternMaterialType === 'KNIT')
-    if (allPatternPackagesAreKnit) {
-      tasks.push(buildSnapshotKnittingTask({
+    const allPatternPackagesAreWool = patternPackages.every((item) => item.patternMaterialType === 'WOOL')
+    if (allPatternPackagesAreWool) {
+      tasks.push(buildSnapshotWoolTask({
         order,
         kind: 'WHOLE_GARMENT',
         index: tasks.length,
@@ -791,8 +795,8 @@ function buildSnapshotDrivenKnittingTasks(): ProcessTask[] {
       return
     }
 
-    getMixedPatternPartKnittingSources(snapshot.patternFiles).forEach((pattern) => {
-      tasks.push(buildSnapshotKnittingTask({
+    getMixedPatternPartWoolSources(snapshot.patternFiles).forEach((pattern) => {
+      tasks.push(buildSnapshotWoolTask({
         order,
         kind: 'PART_PANEL',
         index: tasks.length,
@@ -803,12 +807,12 @@ function buildSnapshotDrivenKnittingTasks(): ProcessTask[] {
   return tasks
 }
 
-function listGeneratedKnittingTasks(): ProcessTask[] {
-  const snapshotDrivenTasks = buildSnapshotDrivenKnittingTasks()
+function listGeneratedWoolTasks(): ProcessTask[] {
+  const snapshotDrivenTasks = buildSnapshotDrivenWoolTasks()
   const snapshotOrderIds = new Set(snapshotDrivenTasks.map((task) => task.productionOrderId))
   const runtimeTasks = listRuntimeExecutionTasks()
     .filter((task) => task.defaultDocType !== 'DEMAND')
-    .filter(isGeneratedKnittingTask)
+    .filter(isGeneratedWoolTask)
     .filter((task) => !snapshotOrderIds.has(task.productionOrderId))
 
   return [...snapshotDrivenTasks, ...runtimeTasks]
@@ -824,9 +828,9 @@ function roundQty(value: number): number {
   return Math.round(value * 100) / 100
 }
 
-function resolveKnittingKind(task: ProcessTask): KnittingWorkOrderKind {
-  if (task.knittingTaskType === 'PART_PANEL' || task.knittingKind === 'PART_PANEL') return 'PART_PANEL'
-  if (task.craftName === '部位针织' || task.taskCategoryZh === '部位针织') return 'PART_PANEL'
+function resolveWoolKind(task: ProcessTask): WoolWorkOrderKind {
+  if (task.woolTaskType === 'PART_PANEL' || task.woolKind === 'PART_PANEL') return 'PART_PANEL'
+  if (task.craftName === '部位毛织' || task.taskCategoryZh === '部位毛织') return 'PART_PANEL'
   return 'WHOLE_GARMENT'
 }
 
@@ -842,7 +846,7 @@ function resolveOrderColorName(task: ProcessTask): string {
   return colors.length ? colors.join(' / ') : '按生产单'
 }
 
-function resolvePlannedQty(task: ProcessTask, kind: KnittingWorkOrderKind): number {
+function resolvePlannedQty(task: ProcessTask, kind: WoolWorkOrderKind): number {
   if (kind === 'PART_PANEL') {
     const detailQty = task.detailRows?.reduce((sum, row) => sum + row.qty, 0) ?? 0
     return roundQty(detailQty || task.qty)
@@ -850,18 +854,18 @@ function resolvePlannedQty(task: ProcessTask, kind: KnittingWorkOrderKind): numb
   return roundQty(task.qty)
 }
 
-function resolveCompletedQty(task: ProcessTask, plannedQty: number, kind: KnittingWorkOrderKind): number {
+function resolveCompletedQty(task: ProcessTask, plannedQty: number, kind: WoolWorkOrderKind): number {
   if (task.status === 'DONE') return plannedQty
   if (task.status === 'NOT_STARTED') return 0
   if (kind === 'PART_PANEL') return plannedQty
   return roundQty(plannedQty * 0.58)
 }
 
-function resolveYarnReceipt(task: ProcessTask, kind: KnittingWorkOrderKind, plannedQty: number): KnittingYarnReceipt {
+function resolveYarnReceipt(task: ProcessTask, kind: WoolWorkOrderKind, plannedQty: number): WoolYarnReceipt {
   const snapshot = getProductionOrderTechPackSnapshot(task.productionOrderId)
   const yarnBom = snapshot?.bomItems.find((item) => {
     const usage = item.usageProcessCodes ?? []
-    return usage.includes('KNITTING') || /纱|线|yarn/i.test(`${item.id} ${item.name}`)
+    return usage.includes('WOOL') || /纱|线|yarn/i.test(`${item.id} ${item.name}`)
   })
   const plannedWeightKg = roundQty(task.yarnPlannedWeightKg ?? (
     yarnBom ? plannedQty * Math.max(yarnBom.unitConsumption || 0, kind === 'PART_PANEL' ? 0.08 : 0.48) * (1 + Math.max(yarnBom.lossRate || 0, 0)) : plannedQty * (kind === 'PART_PANEL' ? 0.08 : 0.48)
@@ -870,7 +874,7 @@ function resolveYarnReceipt(task: ProcessTask, kind: KnittingWorkOrderKind, plan
   const receivedWeightKg = roundQty(task.yarnReceivedWeightKg ?? (hasAccepted ? plannedWeightKg : 0))
   return {
     yarnSku: task.yarnSku || yarnBom?.id || (kind === 'PART_PANEL' ? 'YARN-RIB-PART' : 'YARN-WHOLE-GARMENT'),
-    yarnName: yarnBom?.name || (kind === 'PART_PANEL' ? '针织部位纱线' : '整件针织纱线'),
+    yarnName: normalizeWoolText(yarnBom?.name || (kind === 'PART_PANEL' ? '毛织部位纱线' : '整件毛织纱线')),
     colorName: resolveOrderColorName(task),
     plannedWeightKg,
     receivedWeightKg,
@@ -881,20 +885,20 @@ function resolveYarnReceipt(task: ProcessTask, kind: KnittingWorkOrderKind, plan
   }
 }
 
-function makeNodeStatus(task: ProcessTask, completedQty: number, plannedQty: number): KnittingNodeStatus {
+function makeNodeStatus(task: ProcessTask, completedQty: number, plannedQty: number): WoolNodeStatus {
   if (task.status === 'NOT_STARTED') return '未开始'
   if (completedQty >= plannedQty && plannedQty > 0) return '已完成'
   return '进行中'
 }
 
-function buildGeneratedKnittingNodes(
+function buildGeneratedWoolNodes(
   task: ProcessTask,
-  kind: KnittingWorkOrderKind,
+  kind: WoolWorkOrderKind,
   plannedQty: number,
   completedQty: number,
   needsPackaging: boolean,
   machineNos: string[],
-): KnittingExecutionNode[] {
+): WoolExecutionNode[] {
   const flatStatus = makeNodeStatus(task, completedQty, plannedQty)
   if (kind === 'PART_PANEL') {
     return [
@@ -904,11 +908,11 @@ function buildGeneratedKnittingNodes(
         plannedQty,
         completedQty,
         unit: '片',
-        operatorName: '针织车间',
+        operatorName: '毛织车间',
         machineNos,
         startedAt: task.startedAt,
         finishedAt: flatStatus === '已完成' ? task.finishedAt || '2026-05-10 16:30' : undefined,
-        remark: '部位针织完成后打印菲票，交裁床待交出仓。',
+        remark: '部位毛织完成后打印菲票，交裁床待交出仓。',
       },
     ]
   }
@@ -920,7 +924,7 @@ function buildGeneratedKnittingNodes(
       plannedQty,
       completedQty: flatStatus === '未开始' ? 0 : Math.min(plannedQty, Math.max(completedQty, Math.round(plannedQty * 0.5))),
       unit: '件',
-      operatorName: '针织车间',
+      operatorName: '毛织车间',
       machineNos,
       startedAt: task.startedAt,
       finishedAt: flatStatus === '已完成' ? task.finishedAt || '2026-05-09 18:30' : undefined,
@@ -943,7 +947,7 @@ function buildGeneratedKnittingNodes(
       unit: '件',
       operatorName: '熨烫组',
       startedAt: completedQty > plannedQty * 0.5 ? '2026-05-10 13:20' : undefined,
-      remark: '整件针织必经熨烫。',
+      remark: '整件毛织必经熨烫。',
     },
     {
       nodeName: '包装',
@@ -951,12 +955,12 @@ function buildGeneratedKnittingNodes(
       plannedQty,
       completedQty: 0,
       unit: '件',
-      remark: needsPackaging ? '按任务配置待包装。' : '当前任务未要求针织厂包装。',
+      remark: needsPackaging ? '按任务配置待包装。' : '当前任务未要求毛织厂包装。',
     },
   ]
 }
 
-function resolveGeneratedStatus(task: ProcessTask, kind: KnittingWorkOrderKind): KnittingWorkOrderStatus {
+function resolveGeneratedStatus(task: ProcessTask, kind: WoolWorkOrderKind): WoolWorkOrderStatus {
   if (task.status === 'DONE') return 'COMPLETED'
   if (task.acceptanceStatus !== 'ACCEPTED' && !task.acceptedAt && task.status === 'NOT_STARTED') return 'WAIT_ACCEPT'
   if (task.status === 'NOT_STARTED') return 'WAIT_PICKUP'
@@ -970,10 +974,10 @@ function parseSizeFromSku(skuCode: string): string {
   return segments[segments.length - 1] || '-'
 }
 
-function buildGeneratedPartPanels(task: ProcessTask, completedRatio: number): KnittingPartPanel[] {
+function buildGeneratedPartPanels(task: ProcessTask, completedRatio: number): WoolPartPanel[] {
   const rows = task.detailRows ?? []
   return rows.map((row, index) => {
-    const partName = row.dimensions.PATTERN || row.rowLabel || '针织部位'
+    const partName = row.dimensions.PATTERN || row.rowLabel || '毛织部位'
     const colorName = row.sourceRefs.garmentColor || row.dimensions.GARMENT_COLOR || resolveOrderColorName(task)
     const skuCode = row.sourceRefs.garmentSku || row.dimensions.GARMENT_SKU || ''
     const plannedPieces = roundQty(row.qty)
@@ -990,8 +994,8 @@ function buildGeneratedPartPanels(task: ProcessTask, completedRatio: number): Kn
   })
 }
 
-function buildGeneratedKnittingWorkOrder(task: ProcessTask, index: number): KnittingWorkOrder {
-  const kind = resolveKnittingKind(task)
+function buildGeneratedWoolWorkOrder(task: ProcessTask, index: number): WoolWorkOrder {
+  const kind = resolveWoolKind(task)
   const order = productionOrders.find((item) => item.productionOrderId === task.productionOrderId)
   const plannedQty = resolvePlannedQty(task, kind)
   const completedQty = resolveCompletedQty(task, plannedQty, kind)
@@ -999,7 +1003,7 @@ function buildGeneratedKnittingWorkOrder(task: ProcessTask, index: number): Knit
   const downstreamTarget = kind === 'PART_PANEL' ? '裁床待交出仓' : '后道工厂'
   const yarnReceipt = resolveYarnReceipt(task, kind, plannedQty)
   const status = resolveGeneratedStatus(task, kind)
-  const orderNo = task.knittingOrderNo || `针织单-${task.productionOrderId.replace('PO-', '')}-${String(index + 1).padStart(2, '0')}`
+  const orderNo = task.woolOrderNo || `毛织单-${task.productionOrderId.replace('PO-', '')}-${String(index + 1).padStart(2, '0')}`
   const isScheduled = task.status === 'IN_PROGRESS' || task.status === 'DONE' || Boolean(task.startedAt)
   const machineScheduleId = isScheduled ? `KMS-${task.taskId}` : undefined
   const machineStart = index * 4 + 1
@@ -1011,16 +1015,16 @@ function buildGeneratedKnittingWorkOrder(task: ProcessTask, index: number): Knit
     : []
 
   return {
-    knittingOrderId: task.knittingOrderId || task.taskId,
-    knittingOrderNo: orderNo,
+    woolOrderId: task.woolOrderId || task.taskId,
+    woolOrderNo: orderNo,
     kind,
     productionOrderNo: order?.productionOrderNo || task.productionOrderId,
     styleNo: order?.demandSnapshot.spuCode || task.productionOrderId,
     styleName: order?.demandSnapshot.spuName || task.processNameZh,
     colorName: resolveOrderColorName(task),
     sizeRange: resolveOrderSkuSizeRange(task),
-    factoryId: 'OWN_KNITTING_FACTORY',
-    factoryName: '周哥针织厂',
+    factoryId: 'OWN_WOOL_FACTORY',
+    factoryName: '周哥毛织厂',
     plannedQty,
     completedQty,
     qtyUnit: kind === 'PART_PANEL' ? '片' : '件',
@@ -1037,10 +1041,10 @@ function buildGeneratedKnittingWorkOrder(task: ProcessTask, index: number): Knit
     pickupCompletedAt: yarnReceipt.receivedWeightKg > 0 ? yarnReceipt.receivedAt : undefined,
     machineScheduleId,
     yarnReceipt,
-    nodes: buildGeneratedKnittingNodes(task, kind, plannedQty, completedQty, needsPackaging, machineNos),
+    nodes: buildGeneratedWoolNodes(task, kind, plannedQty, completedQty, needsPackaging, machineNos),
     partPanels,
     priceInfo: {
-      flatKnittingMinutes: kind === 'PART_PANEL' ? 0.45 : 3.2,
+      flatWoolMinutes: kind === 'PART_PANEL' ? 0.45 : 3.2,
       linkingMinutes: kind === 'WHOLE_GARMENT' ? 1.1 : undefined,
       ironingIncluded: kind === 'WHOLE_GARMENT',
       packagingIncluded: needsPackaging,
@@ -1048,8 +1052,8 @@ function buildGeneratedKnittingWorkOrder(task: ProcessTask, index: number): Knit
       estimatedDispatchPrice: kind === 'PART_PANEL' ? 850 : 8200,
       currency: 'IDR',
       remark: kind === 'PART_PANEL'
-        ? '部位针织按片估算，不含缝盘、熨烫、包装。'
-        : `整件针织含横机、缝盘、熨烫${needsPackaging ? '、包装' : ''}。`,
+        ? '部位毛织按片估算，不含缝盘、熨烫、包装。'
+        : `整件毛织含横机、缝盘、熨烫${needsPackaging ? '、包装' : ''}。`,
     },
     handoverOrderNo: status === 'WAIT_HANDOVER' || status === 'COMPLETED' ? `交出-${orderNo}` : undefined,
     handoverQty: status === 'WAIT_HANDOVER' || status === 'COMPLETED' ? completedQty : undefined,
@@ -1060,56 +1064,56 @@ function buildGeneratedKnittingWorkOrder(task: ProcessTask, index: number): Knit
         title: '纱线收料确认',
         description: yarnReceipt.evidenceText || '已上传称重凭证',
         createdAt: yarnReceipt.receivedAt,
-        ownerName: OWN_KNITTING_FACTORY_NAME,
+        ownerName: OWN_WOOL_FACTORY_NAME,
       },
       {
         title: '关键节点上报',
         description: task.milestoneRuleLabel || '首批横机完成后已上报',
         createdAt: task.milestoneReportedAt || task.startedAt || yarnReceipt.receivedAt,
-        ownerName: OWN_KNITTING_FACTORY_NAME,
+        ownerName: OWN_WOOL_FACTORY_NAME,
       },
     ],
     remark: task.dispatchRemark,
   }
 }
 
-function buildGeneratedKnittingWorkOrders(): KnittingWorkOrder[] {
-  return listGeneratedKnittingTasks().map((task, index) => buildGeneratedKnittingWorkOrder(task, index))
+function buildGeneratedWoolWorkOrders(): WoolWorkOrder[] {
+  return listGeneratedWoolTasks().map((task, index) => buildGeneratedWoolWorkOrder(task, index))
 }
 
-function buildManualSeedKnittingWorkOrders(): KnittingWorkOrder[] {
+function buildManualSeedWoolWorkOrders(): WoolWorkOrder[] {
   const baseOrders = productionOrders.length ? productionOrders : []
   const wholeProduction = baseOrders[0]
   const partProduction = baseOrders[1] ?? baseOrders[0]
-  const wholeStyleNo = wholeProduction?.demandSnapshot.spuCode || 'SPU-KNIT-WHOLE'
-  const wholeStyleName = wholeProduction?.demandSnapshot.spuName || '整件针织演示款'
-  const partStyleNo = partProduction?.demandSnapshot.spuCode || 'SPU-KNIT-PART'
-  const partStyleName = partProduction?.demandSnapshot.spuName || '部位针织演示款'
-  const makePrice = (kind: KnittingWorkOrderKind, needsPackaging: boolean): KnittingPriceInfo => ({
-    flatKnittingMinutes: kind === 'PART_PANEL' ? 0.45 : 3.2,
+  const wholeStyleNo = wholeProduction?.demandSnapshot.spuCode || 'SPU-WOOL-WHOLE'
+  const wholeStyleName = wholeProduction?.demandSnapshot.spuName || '整件毛织演示款'
+  const partStyleNo = partProduction?.demandSnapshot.spuCode || 'SPU-WOOL-PART'
+  const partStyleName = partProduction?.demandSnapshot.spuName || '部位毛织演示款'
+  const makePrice = (kind: WoolWorkOrderKind, needsPackaging: boolean): WoolPriceInfo => ({
+    flatWoolMinutes: kind === 'PART_PANEL' ? 0.45 : 3.2,
     linkingMinutes: kind === 'WHOLE_GARMENT' ? 1.1 : undefined,
     ironingIncluded: kind === 'WHOLE_GARMENT',
     packagingIncluded: needsPackaging,
     formulaStatus: '已估算',
     estimatedDispatchPrice: kind === 'PART_PANEL' ? 850 : 8200,
     currency: 'IDR',
-    remark: kind === 'PART_PANEL' ? '部位针织按片估算。' : '整件针织按件估算。',
+    remark: kind === 'PART_PANEL' ? '部位毛织按片估算。' : '整件毛织按件估算。',
   })
 
   const wholePlannedQty = 420
   const partPlannedQty = 1260
   return [
     {
-      knittingOrderId: 'KNIT-MOCK-WHOLE-WAIT-ACCEPT',
-      knittingOrderNo: '针织单-手动-整件-001',
+      woolOrderId: 'WOOL-MOCK-WHOLE-WAIT-ACCEPT',
+      woolOrderNo: '毛织单-手动-整件-001',
       kind: 'WHOLE_GARMENT',
-      productionOrderNo: wholeProduction?.productionOrderNo || 'PO-KNIT-WHOLE-001',
+      productionOrderNo: wholeProduction?.productionOrderNo || 'PO-WOOL-WHOLE-001',
       styleNo: wholeStyleNo,
       styleName: wholeStyleName,
       colorName: '黑色 / 白色',
       sizeRange: 'S-M-L-XL',
-      factoryId: 'OWN_KNITTING_FACTORY',
-      factoryName: '周哥针织厂',
+      factoryId: 'OWN_WOOL_FACTORY',
+      factoryName: '周哥毛织厂',
       plannedQty: wholePlannedQty,
       completedQty: 0,
       qtyUnit: '件',
@@ -1119,23 +1123,23 @@ function buildManualSeedKnittingWorkOrders(): KnittingWorkOrder[] {
       plannedMachineCount: 18,
       scheduledStartAt: '2026-05-11 09:00',
       scheduledEndAt: '2026-05-14 20:00',
-      taskNo: '任务-针织-手动-整件-001',
+      taskNo: '任务-毛织-手动-整件-001',
       yarnReceipt: {
         yarnSku: 'YARN-WHOLE-BLK-WHT',
-        yarnName: '整件针织纱线',
+        yarnName: '整件毛织纱线',
         colorName: '黑色 / 白色',
         plannedWeightKg: 201.6,
         receivedWeightKg: 0,
         differenceWeightKg: 0,
         receiverName: '待接单',
         receivedAt: '待接单',
-        evidenceText: '接单后由染厂/面料仓送料到厂，针织厂确认本次领料并上传照片视频。',
+        evidenceText: '接单后由染厂/面料仓送料到厂，毛织厂确认本次领料并上传照片视频。',
       },
       nodes: [
         { nodeName: '横机成片', status: '未开始', plannedQty: wholePlannedQty, completedQty: 0, unit: '件', machineNos: [] },
         { nodeName: '缝盘', status: '未开始', plannedQty: wholePlannedQty, completedQty: 0, unit: '件' },
-        { nodeName: '熨烫', status: '未开始', plannedQty: wholePlannedQty, completedQty: 0, unit: '件', remark: '整件针织必经熨烫。' },
-        { nodeName: '包装', status: '已跳过', plannedQty: wholePlannedQty, completedQty: 0, unit: '件', remark: '当前整件针织单暂不要求针织厂包装。' },
+        { nodeName: '熨烫', status: '未开始', plannedQty: wholePlannedQty, completedQty: 0, unit: '件', remark: '整件毛织必经熨烫。' },
+        { nodeName: '包装', status: '已跳过', plannedQty: wholePlannedQty, completedQty: 0, unit: '件', remark: '当前整件毛织单暂不要求毛织厂包装。' },
       ],
       partPanels: [],
       priceInfo: makePrice('WHOLE_GARMENT', false),
@@ -1143,16 +1147,16 @@ function buildManualSeedKnittingWorkOrders(): KnittingWorkOrder[] {
       remark: 'Web 或移动端均可接单后继续操作节点。',
     },
     {
-      knittingOrderId: 'KNIT-MOCK-PART-WAIT-ACCEPT',
-      knittingOrderNo: '针织单-手动-部位-001',
+      woolOrderId: 'WOOL-MOCK-PART-WAIT-ACCEPT',
+      woolOrderNo: '毛织单-手动-部位-001',
       kind: 'PART_PANEL',
-      productionOrderNo: partProduction?.productionOrderNo || 'PO-KNIT-PART-001',
+      productionOrderNo: partProduction?.productionOrderNo || 'PO-WOOL-PART-001',
       styleNo: partStyleNo,
       styleName: partStyleName,
       colorName: '藏青',
       sizeRange: 'S-M-L',
-      factoryId: 'OWN_KNITTING_FACTORY',
-      factoryName: '周哥针织厂',
+      factoryId: 'OWN_WOOL_FACTORY',
+      factoryName: '周哥毛织厂',
       plannedQty: partPlannedQty,
       completedQty: 0,
       qtyUnit: '片',
@@ -1162,7 +1166,7 @@ function buildManualSeedKnittingWorkOrders(): KnittingWorkOrder[] {
       plannedMachineCount: 8,
       scheduledStartAt: '2026-05-11 10:00',
       scheduledEndAt: '2026-05-13 18:00',
-      taskNo: '任务-针织-手动-部位-001',
+      taskNo: '任务-毛织-手动-部位-001',
       yarnReceipt: {
         yarnSku: 'YARN-PART-NVY',
         yarnName: '罗纹部位纱线',
@@ -1172,10 +1176,10 @@ function buildManualSeedKnittingWorkOrders(): KnittingWorkOrder[] {
         differenceWeightKg: 0,
         receiverName: '待接单',
         receivedAt: '待接单',
-        evidenceText: '接单后确认本次领料，横机成片完成后打印针织菲票。',
+        evidenceText: '接单后确认本次领料，横机成片完成后打印毛织菲票。',
       },
       nodes: [
-        { nodeName: '横机成片', status: '未开始', plannedQty: partPlannedQty, completedQty: 0, unit: '片', machineNos: [], remark: '部位针织完成后按部位打印菲票。' },
+        { nodeName: '横机成片', status: '未开始', plannedQty: partPlannedQty, completedQty: 0, unit: '片', machineNos: [], remark: '部位毛织完成后按部位打印菲票。' },
       ],
       partPanels: ['前片罗纹', '后片罗纹', '袖口罗纹'].map((partName, index) => ({
         partName,
@@ -1188,19 +1192,19 @@ function buildManualSeedKnittingWorkOrders(): KnittingWorkOrder[] {
       })),
       priceInfo: makePrice('PART_PANEL', false),
       evidenceItems: [],
-      remark: '部位针织不进入缝盘、熨烫、包装节点。',
+      remark: '部位毛织不进入缝盘、熨烫、包装节点。',
     },
     {
-      knittingOrderId: 'KNIT-MOCK-WHOLE-WAIT-MACHINE',
-      knittingOrderNo: '针织单-手动-整件-待排机',
+      woolOrderId: 'WOOL-MOCK-WHOLE-WAIT-MACHINE',
+      woolOrderNo: '毛织单-手动-整件-待排机',
       kind: 'WHOLE_GARMENT',
-      productionOrderNo: wholeProduction?.productionOrderNo || 'PO-KNIT-WHOLE-002',
+      productionOrderNo: wholeProduction?.productionOrderNo || 'PO-WOOL-WHOLE-002',
       styleNo: wholeStyleNo,
       styleName: wholeStyleName,
       colorName: '黑色 / 白色',
       sizeRange: 'S-M-L-XL',
-      factoryId: 'OWN_KNITTING_FACTORY',
-      factoryName: '周哥针织厂',
+      factoryId: 'OWN_WOOL_FACTORY',
+      factoryName: '周哥毛织厂',
       plannedQty: 520,
       completedQty: 0,
       qtyUnit: '件',
@@ -1210,14 +1214,14 @@ function buildManualSeedKnittingWorkOrders(): KnittingWorkOrder[] {
       plannedMachineCount: 18,
       scheduledStartAt: '2026-05-12 09:00',
       scheduledEndAt: '2026-05-15 20:00',
-      taskNo: '任务-针织-手动-整件-待排机',
+      taskNo: '任务-毛织-手动-整件-待排机',
       acceptedAt: '2026-05-11 08:20',
-      acceptedBy: OWN_KNITTING_FACTORY_NAME,
+      acceptedBy: OWN_WOOL_FACTORY_NAME,
       pickupStartedAt: '2026-05-11 09:00',
       pickupCompletedAt: '2026-05-11 09:30',
       yarnReceipt: {
         yarnSku: 'YARN-WHOLE-WAIT-MACHINE',
-        yarnName: '整件针织纱线',
+        yarnName: '整件毛织纱线',
         colorName: '黑色 / 白色',
         plannedWeightKg: 249.6,
         receivedWeightKg: 249.6,
@@ -1229,8 +1233,8 @@ function buildManualSeedKnittingWorkOrders(): KnittingWorkOrder[] {
       nodes: [
         { nodeName: '横机成片', status: '未开始', plannedQty: 520, completedQty: 0, unit: '件', machineNos: [] },
         { nodeName: '缝盘', status: '未开始', plannedQty: 520, completedQty: 0, unit: '件' },
-        { nodeName: '熨烫', status: '未开始', plannedQty: 520, completedQty: 0, unit: '件', remark: '整件针织必经熨烫。' },
-        { nodeName: '包装', status: '已跳过', plannedQty: 520, completedQty: 0, unit: '件', remark: '当前整件针织单暂不要求针织厂包装。' },
+        { nodeName: '熨烫', status: '未开始', plannedQty: 520, completedQty: 0, unit: '件', remark: '整件毛织必经熨烫。' },
+        { nodeName: '包装', status: '已跳过', plannedQty: 520, completedQty: 0, unit: '件', remark: '当前整件毛织单暂不要求毛织厂包装。' },
       ],
       partPanels: [],
       priceInfo: makePrice('WHOLE_GARMENT', false),
@@ -1238,16 +1242,16 @@ function buildManualSeedKnittingWorkOrders(): KnittingWorkOrder[] {
       remark: '领料完成但未排机，不允许开工。',
     },
     {
-      knittingOrderId: 'KNIT-MOCK-WHOLE-MACHINE-SCHEDULED',
-      knittingOrderNo: '针织单-手动-整件-待开工',
+      woolOrderId: 'WOOL-MOCK-WHOLE-MACHINE-SCHEDULED',
+      woolOrderNo: '毛织单-手动-整件-待开工',
       kind: 'WHOLE_GARMENT',
-      productionOrderNo: wholeProduction?.productionOrderNo || 'PO-KNIT-WHOLE-003',
+      productionOrderNo: wholeProduction?.productionOrderNo || 'PO-WOOL-WHOLE-003',
       styleNo: wholeStyleNo,
       styleName: wholeStyleName,
       colorName: '米白',
       sizeRange: 'S-M-L-XL',
-      factoryId: 'OWN_KNITTING_FACTORY',
-      factoryName: '周哥针织厂',
+      factoryId: 'OWN_WOOL_FACTORY',
+      factoryName: '周哥毛织厂',
       plannedQty: 680,
       completedQty: 0,
       qtyUnit: '件',
@@ -1257,15 +1261,15 @@ function buildManualSeedKnittingWorkOrders(): KnittingWorkOrder[] {
       plannedMachineCount: 24,
       scheduledStartAt: '2026-05-12 10:00',
       scheduledEndAt: '2026-05-15 20:00',
-      taskNo: '任务-针织-手动-整件-待开工',
+      taskNo: '任务-毛织-手动-整件-待开工',
       acceptedAt: '2026-05-11 08:30',
-      acceptedBy: OWN_KNITTING_FACTORY_NAME,
+      acceptedBy: OWN_WOOL_FACTORY_NAME,
       pickupStartedAt: '2026-05-11 09:10',
       pickupCompletedAt: '2026-05-11 09:40',
       machineScheduleId: 'KMS-MOCK-WHOLE-MACHINE-SCHEDULED',
       yarnReceipt: {
         yarnSku: 'YARN-WHOLE-CREAM',
-        yarnName: '整件针织纱线',
+        yarnName: '整件毛织纱线',
         colorName: '米白',
         plannedWeightKg: 326.4,
         receivedWeightKg: 326.4,
@@ -1277,8 +1281,8 @@ function buildManualSeedKnittingWorkOrders(): KnittingWorkOrder[] {
       nodes: [
         { nodeName: '横机成片', status: '未开始', plannedQty: 680, completedQty: 0, unit: '件', machineNos: ['H-011', 'H-012', 'H-013', 'H-014', 'H-015', 'H-016'] },
         { nodeName: '缝盘', status: '未开始', plannedQty: 680, completedQty: 0, unit: '件' },
-        { nodeName: '熨烫', status: '未开始', plannedQty: 680, completedQty: 0, unit: '件', remark: '整件针织必经熨烫。' },
-        { nodeName: '包装', status: '已跳过', plannedQty: 680, completedQty: 0, unit: '件', remark: '当前整件针织单暂不要求针织厂包装。' },
+        { nodeName: '熨烫', status: '未开始', plannedQty: 680, completedQty: 0, unit: '件', remark: '整件毛织必经熨烫。' },
+        { nodeName: '包装', status: '已跳过', plannedQty: 680, completedQty: 0, unit: '件', remark: '当前整件毛织单暂不要求毛织厂包装。' },
       ],
       partPanels: [],
       priceInfo: makePrice('WHOLE_GARMENT', false),
@@ -1286,28 +1290,28 @@ function buildManualSeedKnittingWorkOrders(): KnittingWorkOrder[] {
       remark: '已排机，Web/PDA 可开工。',
     },
     {
-      knittingOrderId: 'KNIT-MOCK-PART-FLAT',
-      knittingOrderNo: '针织单-手动-部位-横机中',
+      woolOrderId: 'WOOL-MOCK-PART-FLAT',
+      woolOrderNo: '毛织单-手动-部位-横机中',
       kind: 'PART_PANEL',
-      productionOrderNo: partProduction?.productionOrderNo || 'PO-KNIT-PART-002',
+      productionOrderNo: partProduction?.productionOrderNo || 'PO-WOOL-PART-002',
       styleNo: partStyleNo,
       styleName: partStyleName,
       colorName: '藏青',
       sizeRange: 'S-M-L',
-      factoryId: 'OWN_KNITTING_FACTORY',
-      factoryName: '周哥针织厂',
+      factoryId: 'OWN_WOOL_FACTORY',
+      factoryName: '周哥毛织厂',
       plannedQty: 960,
       completedQty: 320,
       qtyUnit: '片',
       needsPackaging: false,
-      status: 'FLAT_KNITTING',
+      status: 'FLAT_WOOL',
       downstreamTarget: '裁床待交出仓',
       plannedMachineCount: 8,
       scheduledStartAt: '2026-05-11 10:00',
       scheduledEndAt: '2026-05-13 18:00',
-      taskNo: '任务-针织-手动-部位-横机中',
+      taskNo: '任务-毛织-手动-部位-横机中',
       acceptedAt: '2026-05-11 08:30',
-      acceptedBy: OWN_KNITTING_FACTORY_NAME,
+      acceptedBy: OWN_WOOL_FACTORY_NAME,
       pickupStartedAt: '2026-05-11 09:00',
       pickupCompletedAt: '2026-05-11 09:20',
       machineScheduleId: 'KMS-MOCK-PART-FLAT',
@@ -1323,7 +1327,7 @@ function buildManualSeedKnittingWorkOrders(): KnittingWorkOrder[] {
         evidenceText: '领料单已完成，当前横机成片中。',
       },
       nodes: [
-        { nodeName: '横机成片', status: '进行中', plannedQty: 960, completedQty: 320, unit: '片', machineNos: ['H-031', 'H-032', 'H-033', 'H-034'], startedAt: '2026-05-11 10:10', operatorName: '部位针织车间' },
+        { nodeName: '横机成片', status: '进行中', plannedQty: 960, completedQty: 320, unit: '片', machineNos: ['H-031', 'H-032', 'H-033', 'H-034'], startedAt: '2026-05-11 10:10', operatorName: '部位毛织车间' },
       ],
       partPanels: ['前片罗纹', '后片罗纹', '袖口罗纹'].map((partName) => ({
         partName,
@@ -1339,16 +1343,16 @@ function buildManualSeedKnittingWorkOrders(): KnittingWorkOrder[] {
       remark: '进行中只允许上报或完成横机成片。',
     },
     {
-      knittingOrderId: 'KNIT-MOCK-PART-WAIT-FEI',
-      knittingOrderNo: '针织单-手动-部位-待菲票',
+      woolOrderId: 'WOOL-MOCK-PART-WAIT-FEI',
+      woolOrderNo: '毛织单-手动-部位-待菲票',
       kind: 'PART_PANEL',
-      productionOrderNo: partProduction?.productionOrderNo || 'PO-KNIT-PART-003',
+      productionOrderNo: partProduction?.productionOrderNo || 'PO-WOOL-PART-003',
       styleNo: partStyleNo,
       styleName: partStyleName,
       colorName: '灰色',
       sizeRange: 'S-M-L',
-      factoryId: 'OWN_KNITTING_FACTORY',
-      factoryName: '周哥针织厂',
+      factoryId: 'OWN_WOOL_FACTORY',
+      factoryName: '周哥毛织厂',
       plannedQty: 900,
       completedQty: 900,
       qtyUnit: '片',
@@ -1358,9 +1362,9 @@ function buildManualSeedKnittingWorkOrders(): KnittingWorkOrder[] {
       plannedMachineCount: 8,
       scheduledStartAt: '2026-05-10 10:00',
       scheduledEndAt: '2026-05-12 18:00',
-      taskNo: '任务-针织-手动-部位-待菲票',
+      taskNo: '任务-毛织-手动-部位-待菲票',
       acceptedAt: '2026-05-10 08:30',
-      acceptedBy: OWN_KNITTING_FACTORY_NAME,
+      acceptedBy: OWN_WOOL_FACTORY_NAME,
       pickupStartedAt: '2026-05-10 09:00',
       pickupCompletedAt: '2026-05-10 09:20',
       machineScheduleId: 'KMS-MOCK-PART-WAIT-FEI',
@@ -1376,7 +1380,7 @@ function buildManualSeedKnittingWorkOrders(): KnittingWorkOrder[] {
         evidenceText: '横机成片已完成，待打印菲票。',
       },
       nodes: [
-        { nodeName: '横机成片', status: '已完成', plannedQty: 900, completedQty: 900, unit: '片', machineNos: ['H-041', 'H-042', 'H-043', 'H-044'], startedAt: '2026-05-10 10:00', finishedAt: '2026-05-11 16:00', operatorName: '部位针织车间' },
+        { nodeName: '横机成片', status: '已完成', plannedQty: 900, completedQty: 900, unit: '片', machineNos: ['H-041', 'H-042', 'H-043', 'H-044'], startedAt: '2026-05-10 10:00', finishedAt: '2026-05-11 16:00', operatorName: '部位毛织车间' },
       ],
       partPanels: ['前片罗纹', '后片罗纹', '袖口罗纹'].map((partName) => ({
         partName,
@@ -1392,16 +1396,16 @@ function buildManualSeedKnittingWorkOrders(): KnittingWorkOrder[] {
       remark: '横机完成后才能打印菲票。',
     },
     {
-      knittingOrderId: 'KNIT-MOCK-WHOLE-WAIT-IRONING',
-      knittingOrderNo: '针织单-手动-整件-待熨烫',
+      woolOrderId: 'WOOL-MOCK-WHOLE-WAIT-IRONING',
+      woolOrderNo: '毛织单-手动-整件-待熨烫',
       kind: 'WHOLE_GARMENT',
-      productionOrderNo: wholeProduction?.productionOrderNo || 'PO-KNIT-WHOLE-004',
+      productionOrderNo: wholeProduction?.productionOrderNo || 'PO-WOOL-WHOLE-004',
       styleNo: wholeStyleNo,
       styleName: wholeStyleName,
       colorName: '深蓝',
       sizeRange: 'S-M-L-XL',
-      factoryId: 'OWN_KNITTING_FACTORY',
-      factoryName: '周哥针织厂',
+      factoryId: 'OWN_WOOL_FACTORY',
+      factoryName: '周哥毛织厂',
       plannedQty: 360,
       completedQty: 360,
       qtyUnit: '件',
@@ -1411,45 +1415,45 @@ function buildManualSeedKnittingWorkOrders(): KnittingWorkOrder[] {
       plannedMachineCount: 18,
       scheduledStartAt: '2026-05-09 09:00',
       scheduledEndAt: '2026-05-12 20:00',
-      taskNo: '任务-针织-手动-整件-待熨烫',
+      taskNo: '任务-毛织-手动-整件-待熨烫',
       acceptedAt: '2026-05-09 08:30',
-      acceptedBy: OWN_KNITTING_FACTORY_NAME,
+      acceptedBy: OWN_WOOL_FACTORY_NAME,
       pickupStartedAt: '2026-05-09 09:00',
       pickupCompletedAt: '2026-05-09 09:30',
       machineScheduleId: 'KMS-MOCK-WHOLE-WAIT-IRONING',
       yarnReceipt: {
         yarnSku: 'YARN-WHOLE-NVY',
-        yarnName: '整件针织纱线',
+        yarnName: '整件毛织纱线',
         colorName: '深蓝',
         plannedWeightKg: 172.8,
         receivedWeightKg: 172.8,
         differenceWeightKg: 0,
         receiverName: '周哥',
         receivedAt: '2026-05-09 09:00',
-        evidenceText: '横机与缝盘已完成，整件针织待熨烫。',
+        evidenceText: '横机与缝盘已完成，整件毛织待熨烫。',
       },
       nodes: [
-        { nodeName: '横机成片', status: '已完成', plannedQty: 360, completedQty: 360, unit: '件', machineNos: ['H-021', 'H-022', 'H-023', 'H-024'], startedAt: '2026-05-09 09:30', finishedAt: '2026-05-10 18:00', operatorName: '整件针织车间' },
+        { nodeName: '横机成片', status: '已完成', plannedQty: 360, completedQty: 360, unit: '件', machineNos: ['H-021', 'H-022', 'H-023', 'H-024'], startedAt: '2026-05-09 09:30', finishedAt: '2026-05-10 18:00', operatorName: '整件毛织车间' },
         { nodeName: '缝盘', status: '已完成', plannedQty: 360, completedQty: 360, unit: '件', startedAt: '2026-05-11 08:00', finishedAt: '2026-05-11 14:00', operatorName: '缝盘组' },
-        { nodeName: '熨烫', status: '未开始', plannedQty: 360, completedQty: 0, unit: '件', remark: '整件针织必经熨烫。' },
-        { nodeName: '包装', status: '已跳过', plannedQty: 360, completedQty: 0, unit: '件', remark: '当前整件针织单暂不要求针织厂包装。' },
+        { nodeName: '熨烫', status: '未开始', plannedQty: 360, completedQty: 0, unit: '件', remark: '整件毛织必经熨烫。' },
+        { nodeName: '包装', status: '已跳过', plannedQty: 360, completedQty: 0, unit: '件', remark: '当前整件毛织单暂不要求毛织厂包装。' },
       ],
       partPanels: [],
       priceInfo: makePrice('WHOLE_GARMENT', false),
       evidenceItems: [],
-      remark: '整件针织熨烫是必有节点。',
+      remark: '整件毛织熨烫是必有节点。',
     },
     {
-      knittingOrderId: 'KNIT-MOCK-WHOLE-HANDOVER-SUBMITTED',
-      knittingOrderNo: '针织单-手动-整件-已交出',
+      woolOrderId: 'WOOL-MOCK-WHOLE-HANDOVER-SUBMITTED',
+      woolOrderNo: '毛织单-手动-整件-已交出',
       kind: 'WHOLE_GARMENT',
-      productionOrderNo: wholeProduction?.productionOrderNo || 'PO-KNIT-WHOLE-005',
+      productionOrderNo: wholeProduction?.productionOrderNo || 'PO-WOOL-WHOLE-005',
       styleNo: wholeStyleNo,
       styleName: wholeStyleName,
       colorName: '浅灰',
       sizeRange: 'S-M-L-XL',
-      factoryId: 'OWN_KNITTING_FACTORY',
-      factoryName: '周哥针织厂',
+      factoryId: 'OWN_WOOL_FACTORY',
+      factoryName: '周哥毛织厂',
       plannedQty: 300,
       completedQty: 300,
       qtyUnit: '件',
@@ -1459,15 +1463,15 @@ function buildManualSeedKnittingWorkOrders(): KnittingWorkOrder[] {
       plannedMachineCount: 16,
       scheduledStartAt: '2026-05-08 09:00',
       scheduledEndAt: '2026-05-11 17:30',
-      taskNo: '任务-针织-手动-整件-已交出',
+      taskNo: '任务-毛织-手动-整件-已交出',
       acceptedAt: '2026-05-08 08:30',
-      acceptedBy: OWN_KNITTING_FACTORY_NAME,
+      acceptedBy: OWN_WOOL_FACTORY_NAME,
       pickupStartedAt: '2026-05-08 09:00',
       pickupCompletedAt: '2026-05-08 09:20',
       machineScheduleId: 'KMS-MOCK-WHOLE-HANDOVER-SUBMITTED',
       yarnReceipt: {
         yarnSku: 'YARN-WHOLE-LGY',
-        yarnName: '整件针织纱线',
+        yarnName: '整件毛织纱线',
         colorName: '浅灰',
         plannedWeightKg: 144,
         receivedWeightKg: 144,
@@ -1477,37 +1481,37 @@ function buildManualSeedKnittingWorkOrders(): KnittingWorkOrder[] {
         evidenceText: '领料单已完成，节点已完成，工厂已发起交出。',
       },
       nodes: [
-        { nodeName: '横机成片', status: '已完成', plannedQty: 300, completedQty: 300, unit: '件', machineNos: ['H-051', 'H-052', 'H-053', 'H-054'], startedAt: '2026-05-08 09:30', finishedAt: '2026-05-09 18:00', operatorName: '整件针织车间' },
+        { nodeName: '横机成片', status: '已完成', plannedQty: 300, completedQty: 300, unit: '件', machineNos: ['H-051', 'H-052', 'H-053', 'H-054'], startedAt: '2026-05-08 09:30', finishedAt: '2026-05-09 18:00', operatorName: '整件毛织车间' },
         { nodeName: '缝盘', status: '已完成', plannedQty: 300, completedQty: 300, unit: '件', startedAt: '2026-05-10 08:00', finishedAt: '2026-05-10 12:30', operatorName: '缝盘组' },
-        { nodeName: '熨烫', status: '已完成', plannedQty: 300, completedQty: 300, unit: '件', startedAt: '2026-05-10 13:30', finishedAt: '2026-05-10 18:00', operatorName: '熨烫组', remark: '整件针织必经熨烫。' },
-        { nodeName: '包装', status: '已跳过', plannedQty: 300, completedQty: 0, unit: '件', remark: '当前整件针织单暂不要求针织厂包装。' },
+        { nodeName: '熨烫', status: '已完成', plannedQty: 300, completedQty: 300, unit: '件', startedAt: '2026-05-10 13:30', finishedAt: '2026-05-10 18:00', operatorName: '熨烫组', remark: '整件毛织必经熨烫。' },
+        { nodeName: '包装', status: '已跳过', plannedQty: 300, completedQty: 0, unit: '件', remark: '当前整件毛织单暂不要求毛织厂包装。' },
       ],
       partPanels: [],
       priceInfo: makePrice('WHOLE_GARMENT', false),
-      handoverOrderNo: '交出-针织单-手动-整件-已交出',
+      handoverOrderNo: '交出-毛织单-手动-整件-已交出',
       handoverQty: 300,
       handoverDifferenceQty: 0,
       evidenceItems: [
         {
           title: '发起交出',
-          description: '周哥针织厂已发起交出到后道工厂，等待后道仓库确认收货。',
+          description: '周哥毛织厂已发起交出到后道工厂，等待后道仓库确认收货。',
           createdAt: '2026-05-11 17:30',
-          ownerName: OWN_KNITTING_FACTORY_NAME,
+          ownerName: OWN_WOOL_FACTORY_NAME,
         },
       ],
       remark: '交出单已由工厂发起，接收仓库待确认收货。',
     },
     {
-      knittingOrderId: 'KNIT-MOCK-PART-HANDOVER-COMPLETED',
-      knittingOrderNo: '针织单-手动-部位-已收货',
+      woolOrderId: 'WOOL-MOCK-PART-HANDOVER-COMPLETED',
+      woolOrderNo: '毛织单-手动-部位-已收货',
       kind: 'PART_PANEL',
-      productionOrderNo: partProduction?.productionOrderNo || 'PO-KNIT-PART-004',
+      productionOrderNo: partProduction?.productionOrderNo || 'PO-WOOL-PART-004',
       styleNo: partStyleNo,
       styleName: partStyleName,
       colorName: '藏青',
       sizeRange: 'S-M-L',
-      factoryId: 'OWN_KNITTING_FACTORY',
-      factoryName: '周哥针织厂',
+      factoryId: 'OWN_WOOL_FACTORY',
+      factoryName: '周哥毛织厂',
       plannedQty: 720,
       completedQty: 720,
       qtyUnit: '片',
@@ -1517,9 +1521,9 @@ function buildManualSeedKnittingWorkOrders(): KnittingWorkOrder[] {
       plannedMachineCount: 8,
       scheduledStartAt: '2026-05-08 10:00',
       scheduledEndAt: '2026-05-11 16:30',
-      taskNo: '任务-针织-手动-部位-已收货',
+      taskNo: '任务-毛织-手动-部位-已收货',
       acceptedAt: '2026-05-08 08:30',
-      acceptedBy: OWN_KNITTING_FACTORY_NAME,
+      acceptedBy: OWN_WOOL_FACTORY_NAME,
       pickupStartedAt: '2026-05-08 09:00',
       pickupCompletedAt: '2026-05-08 09:20',
       machineScheduleId: 'KMS-MOCK-PART-HANDOVER-COMPLETED',
@@ -1532,10 +1536,10 @@ function buildManualSeedKnittingWorkOrders(): KnittingWorkOrder[] {
         differenceWeightKg: 0,
         receiverName: '周哥',
         receivedAt: '2026-05-08 09:00',
-        evidenceText: '部位针织领料、横机、菲票、交出、仓库回写均已完成。',
+        evidenceText: '部位毛织领料、横机、菲票、交出、仓库回写均已完成。',
       },
       nodes: [
-        { nodeName: '横机成片', status: '已完成', plannedQty: 720, completedQty: 720, unit: '片', machineNos: ['H-071', 'H-072', 'H-073', 'H-074'], startedAt: '2026-05-08 10:00', finishedAt: '2026-05-10 16:30', operatorName: '部位针织车间' },
+        { nodeName: '横机成片', status: '已完成', plannedQty: 720, completedQty: 720, unit: '片', machineNos: ['H-071', 'H-072', 'H-073', 'H-074'], startedAt: '2026-05-08 10:00', finishedAt: '2026-05-10 16:30', operatorName: '部位毛织车间' },
       ],
       partPanels: ['前片罗纹', '后片罗纹', '袖口罗纹'].map((partName) => ({
         partName,
@@ -1547,7 +1551,7 @@ function buildManualSeedKnittingWorkOrders(): KnittingWorkOrder[] {
         feiTicketStatus: '已打印',
       })),
       priceInfo: makePrice('PART_PANEL', false),
-      handoverOrderNo: '交出-针织单-手动-部位-已收货',
+      handoverOrderNo: '交出-毛织单-手动-部位-已收货',
       handoverQty: 720,
       receiverWrittenQty: 720,
       handoverDifferenceQty: 0,
@@ -1564,25 +1568,25 @@ function buildManualSeedKnittingWorkOrders(): KnittingWorkOrder[] {
   ]
 }
 
-function getFlatKnittingNode(order: KnittingWorkOrder): KnittingExecutionNode | undefined {
+function getFlatWoolNode(order: WoolWorkOrder): WoolExecutionNode | undefined {
   return order.nodes.find((node) => node.nodeName === '横机成片')
 }
 
-function hasKnittingMachineSchedule(order: KnittingWorkOrder): boolean {
-  return Boolean(order.machineScheduleId) || Boolean(getFlatKnittingNode(order)?.machineNos?.length)
+function hasWoolMachineSchedule(order: WoolWorkOrder): boolean {
+  return Boolean(order.machineScheduleId) || Boolean(getFlatWoolNode(order)?.machineNos?.length)
 }
 
-function getKnittingMachineScheduleStatus(order: KnittingWorkOrder): KnittingMachineScheduleStatus {
-  const flatNode = getFlatKnittingNode(order)
+function getWoolMachineScheduleStatus(order: WoolWorkOrder): WoolMachineScheduleStatus {
+  const flatNode = getFlatWoolNode(order)
   if (flatNode?.status === '已完成') return '已完成'
   if (flatNode?.status === '进行中' || flatNode?.startedAt) return '生产中'
   return '待开工'
 }
 
-function getKnittingMachineRiskText(order: KnittingWorkOrder): string {
-  const flatNode = getFlatKnittingNode(order)
+function getWoolMachineRiskText(order: WoolWorkOrder): string {
+  const flatNode = getFlatWoolNode(order)
   if (order.yarnReceipt.differenceWeightKg !== 0) return '本次领料数量存在差异'
-  if (order.status === 'WAIT_ACCEPT') return '待针织厂接单'
+  if (order.status === 'WAIT_ACCEPT') return '待毛织厂接单'
   if (order.status === 'WAIT_PICKUP' || order.status === 'PICKUP_IN_PROGRESS') return '待完成领料单'
   if (order.status === 'WAIT_MACHINE_SCHEDULE') return '领料完成后待排机'
   if (!flatNode || flatNode.status === '未开始') return '待开工'
@@ -1590,28 +1594,28 @@ function getKnittingMachineRiskText(order: KnittingWorkOrder): string {
   return '按计划执行'
 }
 
-function buildGeneratedKnittingMachineSchedules(): KnittingMachineSchedule[] {
-  const orders = listKnittingWorkOrders()
-  const schedules = orders.filter(hasKnittingMachineSchedule).map((order, index): KnittingMachineSchedule => {
+function buildGeneratedWoolMachineSchedules(): WoolMachineSchedule[] {
+  const orders = listWoolWorkOrders()
+  const schedules = orders.filter(hasWoolMachineSchedule).map((order, index): WoolMachineSchedule => {
     const machineStart = index * 4 + 1
-    const flatNode = getFlatKnittingNode(order)
+    const flatNode = getFlatWoolNode(order)
     const machineNos = flatNode?.machineNos?.length
       ? flatNode.machineNos
       : Array.from({ length: Math.min(order.plannedMachineCount, order.kind === 'PART_PANEL' ? 4 : 6) }, (_, offset) => `H-${String(machineStart + offset).padStart(3, '0')}`)
     return {
       scheduleId: order.machineScheduleId || `KMS-GEN-${String(index + 1).padStart(3, '0')}`,
-      machineGroupName: order.kind === 'PART_PANEL' ? '部位针织组' : '整件针织组',
+      machineGroupName: order.kind === 'PART_PANEL' ? '部位毛织组' : '整件毛织组',
       machineNos,
-      knittingOrderId: order.knittingOrderId,
+      woolOrderId: order.woolOrderId,
       plannedStartAt: order.scheduledStartAt,
       plannedEndAt: order.scheduledEndAt,
       actualStartAt: flatNode?.startedAt,
       actualEndAt: flatNode?.finishedAt,
-      operatorName: order.kind === 'PART_PANEL' ? '部位针织车间' : '整件针织车间',
-      status: getKnittingMachineScheduleStatus(order),
+      operatorName: order.kind === 'PART_PANEL' ? '部位毛织车间' : '整件毛织车间',
+      status: getWoolMachineScheduleStatus(order),
       scheduleSource: '正式排产',
-      riskText: getKnittingMachineRiskText(order),
-      remark: `${KNITTING_KIND_LABEL[order.kind]}，完成后交${order.downstreamTarget}`,
+      riskText: getWoolMachineRiskText(order),
+      remark: `${WOOL_KIND_LABEL[order.kind]}，完成后交${order.downstreamTarget}`,
     }
   })
 
@@ -1631,26 +1635,26 @@ function buildGeneratedKnittingMachineSchedules(): KnittingMachineSchedule[] {
   ]
 }
 
-export function listKnittingWorkOrders(): KnittingWorkOrder[] {
-  const ordersById = new Map<string, KnittingWorkOrder>()
-  ;[...buildGeneratedKnittingWorkOrders(), ...buildManualSeedKnittingWorkOrders()].forEach((order) => {
-    ordersById.set(order.knittingOrderId, normalizeKnittingWorkOrderRuntime(cloneValue(order)))
+export function listWoolWorkOrders(): WoolWorkOrder[] {
+  const ordersById = new Map<string, WoolWorkOrder>()
+  ;[...buildGeneratedWoolWorkOrders(), ...buildManualSeedWoolWorkOrders()].forEach((order) => {
+    ordersById.set(order.woolOrderId, normalizeWoolWorkOrderRuntime(cloneValue(order)))
   })
-  Object.values(readKnittingStore().workOrders).forEach((order) => {
-    ordersById.set(order.knittingOrderId, normalizeKnittingWorkOrderRuntime(cloneValue(order)))
+  Object.values(readWoolStore().workOrders).forEach((order) => {
+    ordersById.set(order.woolOrderId, normalizeWoolWorkOrderRuntime(cloneValue(order)))
   })
   return Array.from(ordersById.values()).sort((left, right) => {
     if (left.status === 'WAIT_ACCEPT' && right.status !== 'WAIT_ACCEPT') return -1
     if (right.status === 'WAIT_ACCEPT' && left.status !== 'WAIT_ACCEPT') return 1
-    return left.knittingOrderNo.localeCompare(right.knittingOrderNo, 'zh-CN')
+    return left.woolOrderNo.localeCompare(right.woolOrderNo, 'zh-CN')
   })
 }
 
-export function listKnittingMachineSchedules(): KnittingMachineSchedule[] {
-  return buildGeneratedKnittingMachineSchedules()
+export function listWoolMachineSchedules(): WoolMachineSchedule[] {
+  return buildGeneratedWoolMachineSchedules()
 }
 
-function getMachineStatusBySchedule(schedule: KnittingMachineSchedule): KnittingMachineStatus {
+function getMachineStatusBySchedule(schedule: WoolMachineSchedule): WoolMachineStatus {
   if (schedule.status === '生产中') return '生产中'
   if (schedule.status === '空闲') return '空闲'
   if (schedule.status === '已取消') return '空闲'
@@ -1658,25 +1662,25 @@ function getMachineStatusBySchedule(schedule: KnittingMachineSchedule): Knitting
   return '已排产'
 }
 
-export function listKnittingMachines(): KnittingMachine[] {
-  const machinesByNo = new Map<string, KnittingMachine>()
-  listKnittingMachineSchedules().forEach((schedule) => {
-    const order = schedule.knittingOrderId ? getKnittingWorkOrderById(schedule.knittingOrderId) : undefined
+export function listWoolMachines(): WoolMachine[] {
+  const machinesByNo = new Map<string, WoolMachine>()
+  listWoolMachineSchedules().forEach((schedule) => {
+    const order = schedule.woolOrderId ? getWoolWorkOrderById(schedule.woolOrderId) : undefined
     schedule.machineNos.forEach((machineNo, index) => {
       machinesByNo.set(machineNo, {
         machineId: `KM-${machineNo}`,
         machineNo,
         machineName: `${schedule.machineGroupName}-${index + 1}`,
-        factoryId: OWN_KNITTING_FACTORY_ID,
-        factoryName: OWN_KNITTING_FACTORY_NAME,
-        machineGroupId: schedule.machineGroupName === '部位针织组' ? 'KNIT-PART' : schedule.machineGroupName === '整件针织组' ? 'KNIT-WHOLE' : 'KNIT-RESERVE',
+        factoryId: OWN_WOOL_FACTORY_ID,
+        factoryName: OWN_WOOL_FACTORY_NAME,
+        machineGroupId: schedule.machineGroupName === '部位毛织组' ? 'WOOL-PART' : schedule.machineGroupName === '整件毛织组' ? 'WOOL-WHOLE' : 'WOOL-RESERVE',
         machineGroupName: schedule.machineGroupName,
         needleType: order?.kind === 'PART_PANEL' ? '14G' : '12G',
         supportedKinds: order?.kind ? [order.kind] : ['WHOLE_GARMENT', 'PART_PANEL'],
         status: getMachineStatusBySchedule(schedule),
         currentTaskNo: order?.taskNo,
         dailyCapacityText: order?.kind === 'PART_PANEL' ? '600-900 片/日' : '180-260 件/日',
-        locationText: schedule.machineGroupName === '部位针织组' ? '针织车间 B 区' : '针织车间 A 区',
+        locationText: schedule.machineGroupName === '部位毛织组' ? '毛织车间 B 区' : '毛织车间 A 区',
         ownerName: schedule.operatorName || '排产主管',
         remark: schedule.riskText,
       })
@@ -1701,9 +1705,9 @@ export function listKnittingMachines(): KnittingMachine[] {
       machineId: `KM-${extra.machineNo}`,
       machineNo: extra.machineNo,
       machineName: `${extra.machineGroupName}-${index + 1}`,
-      factoryId: OWN_KNITTING_FACTORY_ID,
-      factoryName: OWN_KNITTING_FACTORY_NAME,
-      machineGroupId: `KNIT-EXTRA-${index + 1}`,
+      factoryId: OWN_WOOL_FACTORY_ID,
+      factoryName: OWN_WOOL_FACTORY_NAME,
+      machineGroupId: `WOOL-EXTRA-${index + 1}`,
       machineGroupName: extra.machineGroupName,
       needleType: index === 0 ? '12G' : '14G',
       supportedKinds: ['WHOLE_GARMENT', 'PART_PANEL'],
@@ -1718,15 +1722,15 @@ export function listKnittingMachines(): KnittingMachine[] {
   return Array.from(machinesByNo.values()).sort((left, right) => left.machineNo.localeCompare(right.machineNo, 'zh-CN'))
 }
 
-export function getKnittingWorkOrderById(knittingOrderId: string): KnittingWorkOrder | undefined {
-  return listKnittingWorkOrders().find((order) => order.knittingOrderId === knittingOrderId)
+export function getWoolWorkOrderById(woolOrderId: string): WoolWorkOrder | undefined {
+  return listWoolWorkOrders().find((order) => order.woolOrderId === woolOrderId)
 }
 
-export function getKnittingWorkOrderByTaskId(taskId: string): KnittingWorkOrder | undefined {
-  return listKnittingWorkOrders().find((order) => order.taskNo === taskId || order.knittingOrderId === taskId)
+export function getWoolWorkOrderByTaskId(taskId: string): WoolWorkOrder | undefined {
+  return listWoolWorkOrders().find((order) => order.taskNo === taskId || order.woolOrderId === taskId)
 }
 
-function ensureKnittingPickupReceived(order: KnittingWorkOrder, operatorName: string, operatedAt: string): KnittingYarnReceipt {
+function ensureWoolPickupReceived(order: WoolWorkOrder, operatorName: string, operatedAt: string): WoolYarnReceipt {
   if (order.yarnReceipt.receivedWeightKg > 0) return order.yarnReceipt
   return {
     ...order.yarnReceipt,
@@ -1738,47 +1742,47 @@ function ensureKnittingPickupReceived(order: KnittingWorkOrder, operatorName: st
   }
 }
 
-function getKnittingNode(order: KnittingWorkOrder, nodeName: string): KnittingExecutionNode | undefined {
+function getWoolNode(order: WoolWorkOrder, nodeName: string): WoolExecutionNode | undefined {
   return order.nodes.find((node) => node.nodeName === nodeName)
 }
 
-function getKnittingStartUsageDefault(order: KnittingWorkOrder): number {
+function getWoolStartUsageDefault(order: WoolWorkOrder): number {
   return roundQty(order.yarnReceipt.receivedWeightKg || order.yarnReceipt.plannedWeightKg)
 }
 
-function getKnittingYarnProcessingUsageWeight(order: KnittingWorkOrder): number {
+function getWoolYarnProcessingUsageWeight(order: WoolWorkOrder): number {
   if (typeof order.yarnReceipt.processingUsageWeightKg === 'number') {
     return roundQty(order.yarnReceipt.processingUsageWeightKg)
   }
-  const flatNode = getKnittingNode(order, '横机成片')
+  const flatNode = getWoolNode(order, '横机成片')
   if (flatNode && (flatNode.status !== '未开始' || flatNode.startedAt)) {
-    return getKnittingStartUsageDefault(order)
+    return getWoolStartUsageDefault(order)
   }
   return 0
 }
 
-function getKnittingLinkingLossWeight(order: KnittingWorkOrder): number {
-  const linkingNode = getKnittingNode(order, '缝盘')
+function getWoolLinkingLossWeight(order: WoolWorkOrder): number {
+  const linkingNode = getWoolNode(order, '缝盘')
   if (!linkingNode) return 0
   if (typeof linkingNode.yarnLossWeightKg === 'number') return roundQty(linkingNode.yarnLossWeightKg)
-  if (linkingNode.status === '已完成') return roundQty(getKnittingYarnProcessingUsageWeight(order) * 0.015)
+  if (linkingNode.status === '已完成') return roundQty(getWoolYarnProcessingUsageWeight(order) * 0.015)
   return 0
 }
 
-function getKnittingRecoveredYarnWeight(order: KnittingWorkOrder): number {
+function getWoolRecoveredYarnWeight(order: WoolWorkOrder): number {
   return roundQty(order.yarnReceipt.recoveredWeightKg || 0)
 }
 
-export function getKnittingYarnUsageSummary(order: KnittingWorkOrder): {
+export function getWoolYarnUsageSummary(order: WoolWorkOrder): {
   processingUsageWeightKg: number
   linkingLossWeightKg: number
   recoveredWeightKg: number
   netUsedWeightKg: number
   waitProcessStockWeightKg: number
 } {
-  const processingUsageWeightKg = getKnittingYarnProcessingUsageWeight(order)
-  const linkingLossWeightKg = getKnittingLinkingLossWeight(order)
-  const recoveredWeightKg = getKnittingRecoveredYarnWeight(order)
+  const processingUsageWeightKg = getWoolYarnProcessingUsageWeight(order)
+  const linkingLossWeightKg = getWoolLinkingLossWeight(order)
+  const recoveredWeightKg = getWoolRecoveredYarnWeight(order)
   const netUsedWeightKg = roundQty(Math.max(processingUsageWeightKg + linkingLossWeightKg - recoveredWeightKg, 0))
   return {
     processingUsageWeightKg,
@@ -1789,7 +1793,7 @@ export function getKnittingYarnUsageSummary(order: KnittingWorkOrder): {
   }
 }
 
-function deriveKnittingOrderStatus(order: KnittingWorkOrder): KnittingWorkOrderStatus {
+function deriveWoolOrderStatus(order: WoolWorkOrder): WoolWorkOrderStatus {
   const flatNode = order.nodes.find((node) => node.nodeName === '横机成片')
   const hasNodeProgress = order.nodes.some((node) => {
     if (node.status === '已跳过' && node.nodeName === '包装' && !order.needsPackaging) return false
@@ -1802,10 +1806,10 @@ function deriveKnittingOrderStatus(order: KnittingWorkOrder): KnittingWorkOrderS
   if (!flatNode || flatNode.status === '未开始') {
     if (!hasYarnReceived) return 'WAIT_PICKUP'
     if (!order.pickupCompletedAt) return 'PICKUP_IN_PROGRESS'
-    if (!hasKnittingMachineSchedule(order)) return 'WAIT_MACHINE_SCHEDULE'
+    if (!hasWoolMachineSchedule(order)) return 'WAIT_MACHINE_SCHEDULE'
     return 'MACHINE_SCHEDULED'
   }
-  if (flatNode.status === '进行中') return 'FLAT_KNITTING'
+  if (flatNode.status === '进行中') return 'FLAT_WOOL'
 
   if (order.kind === 'PART_PANEL') {
     if (order.partPanels.every((panel) => panel.feiTicketStatus === '已打印')) return 'FEI_TICKET_PRINTED'
@@ -1830,16 +1834,16 @@ function deriveKnittingOrderStatus(order: KnittingWorkOrder): KnittingWorkOrderS
   return 'WAIT_HANDOVER'
 }
 
-function normalizeKnittingWorkOrderRuntime(order: KnittingWorkOrder): KnittingWorkOrder {
-  const status = deriveKnittingOrderStatus(order)
+function normalizeWoolWorkOrderRuntime(order: WoolWorkOrder): WoolWorkOrder {
+  const status = deriveWoolOrderStatus(order)
   return {
     ...order,
     status,
-    handoverOrderNo: status === 'WAIT_HANDOVER' ? order.handoverOrderNo || `交出-${order.knittingOrderNo}` : order.handoverOrderNo,
+    handoverOrderNo: status === 'WAIT_HANDOVER' ? order.handoverOrderNo || `交出-${order.woolOrderNo}` : order.handoverOrderNo,
   }
 }
 
-export function getKnittingAllowedActions(order: KnittingWorkOrder): KnittingAllowedAction[] {
+export function getWoolAllowedActions(order: WoolWorkOrder): WoolAllowedAction[] {
   switch (order.status) {
     case 'WAIT_ACCEPT':
       return [{ code: 'ACCEPT', label: '接单', tone: 'primary' }]
@@ -1854,7 +1858,7 @@ export function getKnittingAllowedActions(order: KnittingWorkOrder): KnittingAll
       return [{ code: 'SCHEDULE_MACHINE', label: '排机', tone: 'primary' }]
     case 'MACHINE_SCHEDULED':
       return [{ code: 'START_FLAT', label: '开工', tone: 'primary', nodeName: '横机成片' }]
-    case 'FLAT_KNITTING':
+    case 'FLAT_WOOL':
       return [
         { code: 'REPORT_FLAT_MILESTONE', label: '上报横机节点', tone: 'normal', nodeName: '横机成片' },
         { code: 'COMPLETE_FLAT', label: '完成横机成片', tone: 'primary', nodeName: '横机成片' },
@@ -1885,14 +1889,14 @@ export function getKnittingAllowedActions(order: KnittingWorkOrder): KnittingAll
   }
 }
 
-export function acceptKnittingWorkOrder(
-  knittingOrderId: string,
-  operatorName = OWN_KNITTING_FACTORY_NAME,
+export function acceptWoolWorkOrder(
+  woolOrderId: string,
+  operatorName = OWN_WOOL_FACTORY_NAME,
   operatedAt = nowTimestamp(),
-): KnittingWorkOrder | undefined {
-  const order = getKnittingWorkOrderById(knittingOrderId)
+): WoolWorkOrder | undefined {
+  const order = getWoolWorkOrderById(woolOrderId)
   if (!order) return undefined
-  const next: KnittingWorkOrder = {
+  const next: WoolWorkOrder = {
     ...order,
     status: order.status === 'WAIT_ACCEPT' ? 'WAIT_PICKUP' : order.status,
     acceptedAt: order.acceptedAt || operatedAt,
@@ -1901,27 +1905,27 @@ export function acceptKnittingWorkOrder(
       ...order.evidenceItems,
       {
         title: '接单确认',
-        description: `${operatorName} 已确认接收 ${KNITTING_KIND_LABEL[order.kind]}任务`,
+        description: `${operatorName} 已确认接收 ${WOOL_KIND_LABEL[order.kind]}任务`,
         createdAt: operatedAt,
         ownerName: operatorName,
       },
     ],
   }
-  return saveKnittingWorkOrder(next)
+  return saveWoolWorkOrder(next)
 }
 
-export function confirmKnittingPickupRecord(
-  knittingOrderId: string,
-  operatorName = OWN_KNITTING_FACTORY_NAME,
+export function confirmWoolPickupRecord(
+  woolOrderId: string,
+  operatorName = OWN_WOOL_FACTORY_NAME,
   operatedAt = nowTimestamp(),
-): KnittingWorkOrder | undefined {
-  const order = getKnittingWorkOrderById(knittingOrderId)
+): WoolWorkOrder | undefined {
+  const order = getWoolWorkOrderById(woolOrderId)
   if (!order) return undefined
   const acceptedOrder = order.status === 'WAIT_ACCEPT'
-    ? acceptKnittingWorkOrder(knittingOrderId, operatorName, operatedAt) || order
+    ? acceptWoolWorkOrder(woolOrderId, operatorName, operatedAt) || order
     : order
-  const yarnReceipt = ensureKnittingPickupReceived(acceptedOrder, operatorName, operatedAt)
-  const nextBase: KnittingWorkOrder = {
+  const yarnReceipt = ensureWoolPickupReceived(acceptedOrder, operatorName, operatedAt)
+  const nextBase: WoolWorkOrder = {
     ...acceptedOrder,
     yarnReceipt,
     pickupStartedAt: acceptedOrder.pickupStartedAt || operatedAt,
@@ -1936,21 +1940,21 @@ export function confirmKnittingPickupRecord(
       },
     ],
   }
-  return saveKnittingWorkOrder({ ...nextBase, status: deriveKnittingOrderStatus(nextBase) })
+  return saveWoolWorkOrder({ ...nextBase, status: deriveWoolOrderStatus(nextBase) })
 }
 
-export function completeKnittingPickupHead(
-  knittingOrderId: string,
-  operatorName = OWN_KNITTING_FACTORY_NAME,
+export function completeWoolPickupHead(
+  woolOrderId: string,
+  operatorName = OWN_WOOL_FACTORY_NAME,
   operatedAt = nowTimestamp(),
-): KnittingWorkOrder | undefined {
-  const order = getKnittingWorkOrderById(knittingOrderId)
+): WoolWorkOrder | undefined {
+  const order = getWoolWorkOrderById(woolOrderId)
   if (!order) return undefined
   const acceptedOrder = order.status === 'WAIT_ACCEPT'
-    ? acceptKnittingWorkOrder(knittingOrderId, operatorName, operatedAt) || order
+    ? acceptWoolWorkOrder(woolOrderId, operatorName, operatedAt) || order
     : order
-  const yarnReceipt = ensureKnittingPickupReceived(acceptedOrder, operatorName, operatedAt)
-  const nextBase: KnittingWorkOrder = {
+  const yarnReceipt = ensureWoolPickupReceived(acceptedOrder, operatorName, operatedAt)
+  const nextBase: WoolWorkOrder = {
     ...acceptedOrder,
     yarnReceipt,
     pickupStartedAt: acceptedOrder.pickupStartedAt || operatedAt,
@@ -1965,16 +1969,16 @@ export function completeKnittingPickupHead(
       },
     ],
   }
-  return saveKnittingWorkOrder({ ...nextBase, status: deriveKnittingOrderStatus(nextBase) })
+  return saveWoolWorkOrder({ ...nextBase, status: deriveWoolOrderStatus(nextBase) })
 }
 
-export function scheduleKnittingMachines(
-  knittingOrderId: string,
-  operatorName = OWN_KNITTING_FACTORY_NAME,
+export function scheduleWoolMachines(
+  woolOrderId: string,
+  operatorName = OWN_WOOL_FACTORY_NAME,
   operatedAt = nowTimestamp(),
-  input: KnittingMachineScheduleInput = {},
-): KnittingWorkOrder | undefined {
-  const order = getKnittingWorkOrderById(knittingOrderId)
+  input: WoolMachineScheduleInput = {},
+): WoolWorkOrder | undefined {
+  const order = getWoolWorkOrderById(woolOrderId)
   if (!order || !order.pickupCompletedAt) return order
   const prefix = order.kind === 'PART_PANEL' ? 'H-03' : 'H-01'
   const inputMachineNos = (input.machineNos || []).map((machineNo) => machineNo.trim()).filter(Boolean)
@@ -1986,13 +1990,13 @@ export function scheduleKnittingMachines(
       ? { ...node, machineNos }
       : node,
   )
-  const nextBase: KnittingWorkOrder = {
+  const nextBase: WoolWorkOrder = {
     ...order,
     nodes,
     plannedMachineCount: machineNos.length,
     scheduledStartAt: input.scheduledStartAt || order.scheduledStartAt,
     scheduledEndAt: input.scheduledEndAt || order.scheduledEndAt,
-    machineScheduleId: order.machineScheduleId || `KMS-${order.knittingOrderNo}`,
+    machineScheduleId: order.machineScheduleId || `KMS-${order.woolOrderNo}`,
     evidenceItems: [
       ...order.evidenceItems,
       {
@@ -2003,14 +2007,14 @@ export function scheduleKnittingMachines(
       },
     ],
   }
-  return saveKnittingWorkOrder({ ...nextBase, status: deriveKnittingOrderStatus(nextBase) })
+  return saveWoolWorkOrder({ ...nextBase, status: deriveWoolOrderStatus(nextBase) })
 }
 
-function getAllowedNodeTransition(order: KnittingWorkOrder, nodeName: string, nodeStatus: KnittingNodeStatus): boolean {
+function getAllowedNodeTransition(order: WoolWorkOrder, nodeName: string, nodeStatus: WoolNodeStatus): boolean {
   if (nodeStatus === '未开始') return true
   if (nodeName === '横机成片') {
     if (nodeStatus === '进行中') return order.status === 'MACHINE_SCHEDULED'
-    if (nodeStatus === '已完成') return order.status === 'FLAT_KNITTING'
+    if (nodeStatus === '已完成') return order.status === 'FLAT_WOOL'
     return false
   }
   if (nodeName === '缝盘') {
@@ -2034,19 +2038,19 @@ function getAllowedNodeTransition(order: KnittingWorkOrder, nodeName: string, no
   return false
 }
 
-export function updateKnittingWorkOrderNodeStatus(
-  knittingOrderId: string,
+export function updateWoolWorkOrderNodeStatus(
+  woolOrderId: string,
   nodeName: string,
-  nodeStatus: KnittingNodeStatus,
-  operatorName = OWN_KNITTING_FACTORY_NAME,
+  nodeStatus: WoolNodeStatus,
+  operatorName = OWN_WOOL_FACTORY_NAME,
   operatedAt = nowTimestamp(),
   options: { yarnUsageWeightKg?: number; yarnLossWeightKg?: number } = {},
-): KnittingWorkOrder | undefined {
-  const order = getKnittingWorkOrderById(knittingOrderId)
+): WoolWorkOrder | undefined {
+  const order = getWoolWorkOrderById(woolOrderId)
   if (!order) return undefined
   if (!getAllowedNodeTransition(order, nodeName, nodeStatus)) return order
-  const startYarnUsageWeightKg = roundQty(options.yarnUsageWeightKg ?? order.yarnReceipt.processingUsageWeightKg ?? getKnittingStartUsageDefault(order))
-  const linkingLossWeightKg = roundQty(options.yarnLossWeightKg ?? getKnittingLinkingLossWeight(order))
+  const startYarnUsageWeightKg = roundQty(options.yarnUsageWeightKg ?? order.yarnReceipt.processingUsageWeightKg ?? getWoolStartUsageDefault(order))
+  const linkingLossWeightKg = roundQty(options.yarnLossWeightKg ?? getWoolLinkingLossWeight(order))
   const nodes = order.nodes.map((node) => {
     if (node.nodeName !== nodeName) return node
     if (nodeStatus === '进行中') {
@@ -2105,7 +2109,7 @@ export function updateKnittingWorkOrderNodeStatus(
     : nodeName === '缝盘' && nodeStatus === '已完成'
       ? `；缝盘损耗纱线 ${linkingLossWeightKg} kg`
       : ''
-  const nextBase: KnittingWorkOrder = {
+  const nextBase: WoolWorkOrder = {
     ...order,
     yarnReceipt,
     nodes,
@@ -2121,61 +2125,61 @@ export function updateKnittingWorkOrderNodeStatus(
       },
     ],
   }
-  const next: KnittingWorkOrder = {
+  const next: WoolWorkOrder = {
     ...nextBase,
-    status: deriveKnittingOrderStatus(nextBase),
-    handoverOrderNo: deriveKnittingOrderStatus(nextBase) === 'WAIT_HANDOVER' ? nextBase.handoverOrderNo || `交出-${nextBase.knittingOrderNo}` : nextBase.handoverOrderNo,
+    status: deriveWoolOrderStatus(nextBase),
+    handoverOrderNo: deriveWoolOrderStatus(nextBase) === 'WAIT_HANDOVER' ? nextBase.handoverOrderNo || `交出-${nextBase.woolOrderNo}` : nextBase.handoverOrderNo,
   }
-  return saveKnittingWorkOrder(next)
+  return saveWoolWorkOrder(next)
 }
 
-export function recoverKnittingYarnToWaitProcessWarehouse(
-  knittingOrderId: string,
+export function recoverWoolYarnToWaitProcessWarehouse(
+  woolOrderId: string,
   recoveredWeightKg: number,
-  operatorName = OWN_KNITTING_FACTORY_NAME,
+  operatorName = OWN_WOOL_FACTORY_NAME,
   operatedAt = nowTimestamp(),
-): KnittingWorkOrder | undefined {
-  const order = getKnittingWorkOrderById(knittingOrderId)
+): WoolWorkOrder | undefined {
+  const order = getWoolWorkOrderById(woolOrderId)
   if (!order) return order
-  recordKnittingYarnRecovery({
+  recordWoolYarnRecovery({
     yarnSku: order.yarnReceipt.yarnSku,
     recoveredWeightKg,
     operatorName,
     operatedAt,
-    associationOrderIds: [knittingOrderId],
+    associationOrderIds: [woolOrderId],
   })
-  return getKnittingWorkOrderById(knittingOrderId)
+  return getWoolWorkOrderById(woolOrderId)
 }
 
-export function recordKnittingYarnRecovery(input: {
+export function recordWoolYarnRecovery(input: {
   yarnSku: string
   recoveredWeightKg: number
   operatorName?: string
   operatedAt?: string
   associationOrderIds?: string[]
   remark?: string
-}): KnittingYarnRecoveryRecord | undefined {
+}): WoolYarnRecoveryRecord | undefined {
   const qty = roundQty(input.recoveredWeightKg)
   if (!input.yarnSku.trim() || qty <= 0) return undefined
   const operatedAt = input.operatedAt || nowTimestamp()
-  const operatorName = input.operatorName || OWN_KNITTING_FACTORY_NAME
-  const allOrders = listKnittingWorkOrders()
+  const operatorName = input.operatorName || OWN_WOOL_FACTORY_NAME
+  const allOrders = listWoolWorkOrders()
   const selectedOrderIds = new Set((input.associationOrderIds || []).filter(Boolean))
   const associatedOrders = allOrders.filter((order) =>
     order.yarnReceipt.yarnSku === input.yarnSku
-    && (selectedOrderIds.has(order.knittingOrderId) || selectedOrderIds.has(order.knittingOrderNo)),
+    && (selectedOrderIds.has(order.woolOrderId) || selectedOrderIds.has(order.woolOrderNo)),
   )
   const yarnOrder = associatedOrders.find((order) => order.yarnReceipt.yarnSku === input.yarnSku)
     || allOrders.find((order) => order.yarnReceipt.yarnSku === input.yarnSku)
   if (!yarnOrder) return undefined
   const associations = associatedOrders.map((order) => ({
-    knittingOrderId: order.knittingOrderId,
-    knittingOrderNo: order.knittingOrderNo,
+    woolOrderId: order.woolOrderId,
+    woolOrderNo: order.woolOrderNo,
     productionOrderNo: order.productionOrderNo,
-    lossWeightKg: getKnittingYarnUsageSummary(order).linkingLossWeightKg,
+    lossWeightKg: getWoolYarnUsageSummary(order).linkingLossWeightKg,
   }))
   const recoveryId = `KWP-RECOVER-${Date.now()}`
-  const recovery: KnittingYarnRecoveryRecord = {
+  const recovery: WoolYarnRecoveryRecord = {
     recoveryId,
     recoveryNo: `回收入仓-${nowTimestamp().replace(/[-:\s]/g, '').slice(0, 12)}`,
     yarnSku: input.yarnSku,
@@ -2185,14 +2189,14 @@ export function recordKnittingYarnRecovery(input: {
     operatedAt,
     operatorName,
     associations,
-    remark: input.remark?.trim() || (associations.length ? '关联针织加工单回收损耗纱线' : '未关联针织加工单的纱线回收入仓'),
+    remark: input.remark?.trim() || (associations.length ? '关联毛织加工单回收损耗纱线' : '未关联毛织加工单的纱线回收入仓'),
   }
-  const store = readKnittingStore()
+  const store = readWoolStore()
   store.yarnRecoveryRecords = [recovery, ...(store.yarnRecoveryRecords || [])]
   const recoveredPerOrder = associations.length ? roundQty(qty / associations.length) : 0
   associatedOrders.forEach((order) => {
-    const existing = store.workOrders[order.knittingOrderId] || order
-    store.workOrders[order.knittingOrderId] = {
+    const existing = store.workOrders[order.woolOrderId] || order
+    store.workOrders[order.woolOrderId] = {
       ...existing,
       yarnReceipt: {
         ...existing.yarnReceipt,
@@ -2202,43 +2206,43 @@ export function recordKnittingYarnRecovery(input: {
         ...(existing.evidenceItems || []),
         {
           title: '损耗纱线回收入仓',
-          description: `${operatorName} 手动回收 ${qty} kg 损耗纱线入针织待加工仓；回收入仓单 ${recovery.recoveryNo}`,
+          description: `${operatorName} 手动回收 ${qty} kg 损耗纱线入毛织待加工仓；回收入仓单 ${recovery.recoveryNo}`,
           createdAt: operatedAt,
           ownerName: operatorName,
         },
       ],
     }
   })
-  writeKnittingStore(store)
+  writeWoolStore(store)
   return cloneValue(recovery)
 }
 
-export function listKnittingYarnRecoveryRecords(): KnittingYarnRecoveryRecord[] {
-  return cloneValue(readKnittingStore().yarnRecoveryRecords || [])
+export function listWoolYarnRecoveryRecords(): WoolYarnRecoveryRecord[] {
+  return cloneValue(readWoolStore().yarnRecoveryRecords || [])
 }
 
-function buildKnittingRecoveryRemark(record: KnittingYarnRecoveryRecord): string {
-  if (!record.associations.length) return record.remark || '未关联针织加工单'
+function buildWoolRecoveryRemark(record: WoolYarnRecoveryRecord): string {
+  if (!record.associations.length) return record.remark || '未关联毛织加工单'
   const detail = record.associations
-    .map((item) => `${item.knittingOrderNo} / ${item.productionOrderNo} / 损耗 ${roundQty(item.lossWeightKg)} kg`)
+    .map((item) => `${item.woolOrderNo} / ${item.productionOrderNo} / 损耗 ${roundQty(item.lossWeightKg)} kg`)
     .join('；')
-  return `${record.remark || '关联针织加工单回收'}：${detail}`
+  return `${record.remark || '关联毛织加工单回收'}：${detail}`
 }
 
-function getLegacyRecoveredWeight(order: KnittingWorkOrder, recoveryRecords: KnittingYarnRecoveryRecord[]): number {
+function getLegacyRecoveredWeight(order: WoolWorkOrder, recoveryRecords: WoolYarnRecoveryRecord[]): number {
   const recorded = recoveryRecords.some((record) =>
-    record.associations.some((association) => association.knittingOrderId === order.knittingOrderId),
+    record.associations.some((association) => association.woolOrderId === order.woolOrderId),
   )
-  return recorded ? 0 : getKnittingRecoveredYarnWeight(order)
+  return recorded ? 0 : getWoolRecoveredYarnWeight(order)
 }
 
 function addRecoveryFlowsToGroup(
   group: {
     recoveredQty: number
-    flowRecords: KnittingWarehouseFlowRecord[]
+    flowRecords: WoolWarehouseFlowRecord[]
   },
   yarnSku: string,
-  recoveryRecords: KnittingYarnRecoveryRecord[],
+  recoveryRecords: WoolYarnRecoveryRecord[],
 ): void {
   recoveryRecords
     .filter((record) => record.yarnSku === yarnSku)
@@ -2252,7 +2256,7 @@ function addRecoveryFlowsToGroup(
         unit: 'kg',
         operatedAt: record.operatedAt,
         operatorName: record.operatorName,
-        remark: buildKnittingRecoveryRemark(record),
+        remark: buildWoolRecoveryRemark(record),
       })
     })
 }
@@ -2260,62 +2264,62 @@ function addRecoveryFlowsToGroup(
 function addLegacyRecoveryFlow(
   group: {
     recoveredQty: number
-    flowRecords: KnittingWarehouseFlowRecord[]
+    flowRecords: WoolWarehouseFlowRecord[]
   },
-  order: KnittingWorkOrder,
-  recoveryRecords: KnittingYarnRecoveryRecord[],
+  order: WoolWorkOrder,
+  recoveryRecords: WoolYarnRecoveryRecord[],
 ): void {
   const recoveredWeightKg = getLegacyRecoveredWeight(order, recoveryRecords)
   if (recoveredWeightKg <= 0) return
   group.recoveredQty = roundQty(group.recoveredQty + recoveredWeightKg)
   group.flowRecords.push({
-    flowId: `KWP-FLOW-LEGACY-RECOVER-${order.knittingOrderId}`,
+    flowId: `KWP-FLOW-LEGACY-RECOVER-${order.woolOrderId}`,
     flowType: '回收入仓',
-    sourceNo: `回收-${order.knittingOrderNo}`,
+    sourceNo: `回收-${order.woolOrderNo}`,
     qty: recoveredWeightKg,
     unit: 'kg',
     operatedAt: order.evidenceItems.find((item) => item.title === '损耗纱线回收入仓')?.createdAt || '已回收',
-    operatorName: order.evidenceItems.find((item) => item.title === '损耗纱线回收入仓')?.ownerName || OWN_KNITTING_FACTORY_NAME,
-    remark: `${order.knittingOrderNo} / ${order.productionOrderNo} / 损耗 ${getKnittingYarnUsageSummary(order).linkingLossWeightKg} kg`,
+    operatorName: order.evidenceItems.find((item) => item.title === '损耗纱线回收入仓')?.ownerName || OWN_WOOL_FACTORY_NAME,
+    remark: `${order.woolOrderNo} / ${order.productionOrderNo} / 损耗 ${getWoolYarnUsageSummary(order).linkingLossWeightKg} kg`,
   })
 }
 
-export function markKnittingFeiTicketsPrinted(
-  knittingOrderId: string,
-  operatorName = OWN_KNITTING_FACTORY_NAME,
+export function markWoolFeiTicketsPrinted(
+  woolOrderId: string,
+  operatorName = OWN_WOOL_FACTORY_NAME,
   operatedAt = nowTimestamp(),
-): KnittingWorkOrder | undefined {
-  const order = getKnittingWorkOrderById(knittingOrderId)
+): WoolWorkOrder | undefined {
+  const order = getWoolWorkOrderById(woolOrderId)
   if (!order || order.kind !== 'PART_PANEL') return order
   if (order.status !== 'WAIT_FEI_TICKET') return order
-  const nextBase: KnittingWorkOrder = {
+  const nextBase: WoolWorkOrder = {
     ...order,
     partPanels: order.partPanels.map((panel) => ({ ...panel, feiTicketStatus: '已打印' })),
     evidenceItems: [
       ...order.evidenceItems,
       {
         title: '菲票打印',
-        description: '部位针织菲票已打印',
+        description: '部位毛织菲票已打印',
         createdAt: operatedAt,
         ownerName: operatorName,
       },
     ],
   }
-  const next: KnittingWorkOrder = { ...nextBase, status: deriveKnittingOrderStatus(nextBase) }
-  return saveKnittingWorkOrder(next)
+  const next: WoolWorkOrder = { ...nextBase, status: deriveWoolOrderStatus(nextBase) }
+  return saveWoolWorkOrder(next)
 }
 
-export function submitKnittingHandover(
-  knittingOrderId: string,
-  operatorName = OWN_KNITTING_FACTORY_NAME,
+export function submitWoolHandover(
+  woolOrderId: string,
+  operatorName = OWN_WOOL_FACTORY_NAME,
   operatedAt = nowTimestamp(),
-): KnittingWorkOrder | undefined {
-  const order = getKnittingWorkOrderById(knittingOrderId)
+): WoolWorkOrder | undefined {
+  const order = getWoolWorkOrderById(woolOrderId)
   if (!order || (order.status !== 'WAIT_HANDOVER' && order.status !== 'FEI_TICKET_PRINTED')) return order
-  const nextBase: KnittingWorkOrder = {
+  const nextBase: WoolWorkOrder = {
     ...order,
     status: 'HANDOVER_SUBMITTED',
-    handoverOrderNo: order.handoverOrderNo || `交出-${order.knittingOrderNo}`,
+    handoverOrderNo: order.handoverOrderNo || `交出-${order.woolOrderNo}`,
     handoverQty: order.completedQty,
     evidenceItems: [
       ...order.evidenceItems,
@@ -2327,18 +2331,18 @@ export function submitKnittingHandover(
       },
     ],
   }
-  return saveKnittingWorkOrder({ ...nextBase, status: deriveKnittingOrderStatus(nextBase) })
+  return saveWoolWorkOrder({ ...nextBase, status: deriveWoolOrderStatus(nextBase) })
 }
 
-export function confirmKnittingHandoverReceipt(
-  knittingOrderId: string,
+export function confirmWoolHandoverReceipt(
+  woolOrderId: string,
   operatorName = '接收仓库',
   operatedAt = nowTimestamp(),
-): KnittingWorkOrder | undefined {
-  const order = getKnittingWorkOrderById(knittingOrderId)
+): WoolWorkOrder | undefined {
+  const order = getWoolWorkOrderById(woolOrderId)
   if (!order || order.status !== 'HANDOVER_SUBMITTED') return order
   const qty = order.handoverQty ?? order.completedQty
-  const nextBase: KnittingWorkOrder = {
+  const nextBase: WoolWorkOrder = {
     ...order,
     receiverWrittenQty: qty,
     handoverDifferenceQty: roundQty(qty - (order.handoverQty ?? qty)),
@@ -2352,16 +2356,16 @@ export function confirmKnittingHandoverReceipt(
       },
     ],
   }
-  return saveKnittingWorkOrder({ ...nextBase, status: deriveKnittingOrderStatus(nextBase) })
+  return saveWoolWorkOrder({ ...nextBase, status: deriveWoolOrderStatus(nextBase) })
 }
 
-function getKnittingTaskStatus(order: KnittingWorkOrder): TaskStatus {
+function getWoolTaskStatus(order: WoolWorkOrder): TaskStatus {
   if (order.status === 'WAIT_ACCEPT' || order.status === 'WAIT_PICKUP' || order.status === 'PICKUP_IN_PROGRESS' || order.status === 'WAIT_MACHINE_SCHEDULE' || order.status === 'MACHINE_SCHEDULED') return 'NOT_STARTED'
   if (order.status === 'WAIT_HANDOVER' || order.status === 'HANDOVER_SUBMITTED' || order.status === 'COMPLETED') return 'DONE'
   return 'IN_PROGRESS'
 }
 
-function getKnittingTaskAcceptedAt(order: KnittingWorkOrder): string | undefined {
+function getWoolTaskAcceptedAt(order: WoolWorkOrder): string | undefined {
   if (order.status === 'WAIT_ACCEPT') return undefined
   if (order.acceptedAt) return order.acceptedAt
   return isBusinessTimestamp(order.yarnReceipt.receivedAt)
@@ -2369,39 +2373,39 @@ function getKnittingTaskAcceptedAt(order: KnittingWorkOrder): string | undefined
     : order.scheduledStartAt
 }
 
-function getKnittingTaskStartedAt(order: KnittingWorkOrder): string | undefined {
+function getWoolTaskStartedAt(order: WoolWorkOrder): string | undefined {
   return order.nodes.find((node) => node.startedAt)?.startedAt
 }
 
-function getKnittingTaskFinishedAt(order: KnittingWorkOrder): string | undefined {
-  if (getKnittingTaskStatus(order) !== 'DONE') return undefined
+function getWoolTaskFinishedAt(order: WoolWorkOrder): string | undefined {
+  if (getWoolTaskStatus(order) !== 'DONE') return undefined
   return [...order.nodes].reverse().find((node) => node.finishedAt)?.finishedAt || order.scheduledEndAt
 }
 
-function getKnittingMilestoneProofFiles(order: KnittingWorkOrder): StartProofFile[] {
-  const startedAt = getKnittingTaskStartedAt(order)
+function getWoolMilestoneProofFiles(order: WoolWorkOrder): StartProofFile[] {
+  const startedAt = getWoolTaskStartedAt(order)
   if (!startedAt) return []
   return [
     {
-      id: `knit-ms-${order.knittingOrderId}-1`,
+      id: `wool-ms-${order.woolOrderId}-1`,
       type: 'IMAGE',
-      name: `${order.kind === 'PART_PANEL' ? '部位针织' : '整件针织'}首批节点照片.jpg`,
+      name: `${order.kind === 'PART_PANEL' ? '部位毛织' : '整件毛织'}首批节点照片.jpg`,
       uploadedAt: startedAt,
     },
   ]
 }
 
-function isKnittingMilestoneReported(order: KnittingWorkOrder): boolean {
+function isWoolMilestoneReported(order: WoolWorkOrder): boolean {
   if (order.status === 'WAIT_HANDOVER' || order.status === 'HANDOVER_SUBMITTED' || order.status === 'COMPLETED') return true
   return order.nodes.some((node) => node.nodeName === '横机成片' && (node.status === '进行中' || node.status === '已完成' || node.completedQty > 0))
 }
 
-function buildKnittingMobileTask(order: KnittingWorkOrder): ProcessTask {
-  const taskStatus = getKnittingTaskStatus(order)
-  const acceptedAt = getKnittingTaskAcceptedAt(order)
-  const startedAt = getKnittingTaskStartedAt(order)
-  const finishedAt = getKnittingTaskFinishedAt(order)
-  const milestoneReported = isKnittingMilestoneReported(order)
+function buildWoolMobileTask(order: WoolWorkOrder): ProcessTask {
+  const taskStatus = getWoolTaskStatus(order)
+  const acceptedAt = getWoolTaskAcceptedAt(order)
+  const startedAt = getWoolTaskStartedAt(order)
+  const finishedAt = getWoolTaskFinishedAt(order)
+  const milestoneReported = isWoolMilestoneReported(order)
   const milestoneTargetQty = order.kind === 'PART_PANEL' ? 80 : 20
   const milestoneUnitLabel = order.kind === 'PART_PANEL' ? '片' : '件'
   const downstreamReceiver =
@@ -2412,30 +2416,30 @@ function buildKnittingMobileTask(order: KnittingWorkOrder): ProcessTask {
   return {
     taskId: order.taskNo,
     taskNo: order.taskNo,
-    rootTaskNo: order.knittingOrderNo,
+    rootTaskNo: order.woolOrderNo,
     productionOrderId: order.productionOrderNo,
     seq: 1,
-    processCode: 'PROC_KNIT',
-    processNameZh: '针织',
+    processCode: 'PROC_WOOL',
+    processNameZh: '毛织',
     stage: 'SPECIAL',
     qty: order.plannedQty,
     qtyUnit: order.qtyUnit as never,
     assignmentMode: 'DIRECT',
     assignmentStatus: 'ASSIGNED',
     ownerSuggestion: { kind: 'RECOMMENDED_FACTORY_POOL', recommendedTypes: ['FINISHING'] },
-    assignedFactoryId: OWN_KNITTING_FACTORY_ID,
-    assignedFactoryName: OWN_KNITTING_FACTORY_NAME,
+    assignedFactoryId: OWN_WOOL_FACTORY_ID,
+    assignedFactoryName: OWN_WOOL_FACTORY_NAME,
     qcPoints: [],
     attachments: [],
     status: taskStatus,
     acceptanceStatus: order.status === 'WAIT_ACCEPT' ? 'PENDING' : 'ACCEPTED',
     acceptedAt,
-    acceptedBy: acceptedAt ? OWN_KNITTING_FACTORY_NAME : undefined,
+    acceptedBy: acceptedAt ? OWN_WOOL_FACTORY_NAME : undefined,
     acceptDeadline: order.scheduledStartAt,
     taskDeadline: order.scheduledEndAt,
-    dispatchRemark: `${KNITTING_KIND_LABEL[order.kind]}；纱线由染厂/面料仓送料到厂，完成后交${order.downstreamTarget}`,
+    dispatchRemark: `${WOOL_KIND_LABEL[order.kind]}；纱线由染厂/面料仓送料到厂，完成后交${order.downstreamTarget}`,
     dispatchedAt: order.scheduledStartAt,
-    dispatchedBy: '针织管理',
+    dispatchedBy: '毛织管理',
     standardPrice: order.priceInfo.estimatedDispatchPrice || undefined,
     standardPriceCurrency: order.priceInfo.currency,
     standardPriceUnit: order.qtyUnit,
@@ -2448,9 +2452,9 @@ function buildKnittingMobileTask(order: KnittingWorkOrder): ProcessTask {
     startProofFiles: startedAt
       ? [
           {
-            id: `knit-start-${order.knittingOrderId}-1`,
+            id: `wool-start-${order.woolOrderId}-1`,
             type: 'IMAGE',
-            name: `${order.knittingOrderNo}_开工现场.jpg`,
+            name: `${order.woolOrderNo}_开工现场.jpg`,
             uploadedAt: startedAt,
           },
         ]
@@ -2470,25 +2474,25 @@ function buildKnittingMobileTask(order: KnittingWorkOrder): ProcessTask {
     milestoneStatus: milestoneReported ? 'REPORTED' : 'PENDING',
     milestoneReportedAt: milestoneReported ? startedAt || acceptedAt || order.scheduledStartAt : null,
     milestoneReportedQty: milestoneReported ? milestoneTargetQty : null,
-    milestoneProofFiles: milestoneReported ? getKnittingMilestoneProofFiles(order) : [],
+    milestoneProofFiles: milestoneReported ? getWoolMilestoneProofFiles(order) : [],
     milestoneProofRequirement: 'IMAGE_OR_VIDEO',
     milestoneOverdueExceptionEnabled: true,
     milestoneOverdueHours: 24,
     milestoneExceptionSeverity: 'S2',
     taskKind: 'NORMAL',
-    taskCategoryZh: `${KNITTING_KIND_LABEL[order.kind]}任务`,
+    taskCategoryZh: `${WOOL_KIND_LABEL[order.kind]}任务`,
     stageCode: 'PROD',
     stageName: '生产加工',
-    processBusinessCode: 'KNITTING',
-    processBusinessName: '针织',
+    processBusinessCode: 'WOOL',
+    processBusinessName: '毛织',
     taskTypeCode: order.kind,
-    taskTypeLabel: KNITTING_KIND_LABEL[order.kind],
+    taskTypeLabel: WOOL_KIND_LABEL[order.kind],
     assignmentGranularityLabel: order.kind === 'PART_PANEL' ? '部位/尺码' : '整件',
-    knittingOrderId: order.knittingOrderId,
-    knittingOrderNo: order.knittingOrderNo,
-    knittingKind: order.kind,
-    knittingKindLabel: KNITTING_KIND_LABEL[order.kind],
-    knittingDownstreamTarget: order.downstreamTarget,
+    woolOrderId: order.woolOrderId,
+    woolOrderNo: order.woolOrderNo,
+    woolKind: order.kind,
+    woolKindLabel: WOOL_KIND_LABEL[order.kind],
+    woolDownstreamTarget: order.downstreamTarget,
     yarnSku: order.yarnReceipt.yarnSku,
     yarnPlannedWeightKg: order.yarnReceipt.plannedWeightKg,
     yarnReceivedWeightKg: order.yarnReceipt.receivedWeightKg,
@@ -2502,18 +2506,18 @@ function buildKnittingMobileTask(order: KnittingWorkOrder): ProcessTask {
       {
         id: `AL-${order.taskNo}-DISPATCH`,
         action: 'DISPATCH',
-        detail: `${KNITTING_KIND_LABEL[order.kind]}任务同步到工厂端移动应用`,
+        detail: `${WOOL_KIND_LABEL[order.kind]}任务同步到工厂端移动应用`,
         at: order.scheduledStartAt,
-        by: '针织管理',
+        by: '毛织管理',
       },
       ...(acceptedAt
         ? [
             {
               id: `AL-${order.taskNo}-ACCEPT`,
               action: 'ACCEPT',
-              detail: '周哥针织厂确认接单',
+              detail: '周哥毛织厂确认接单',
               at: acceptedAt,
-              by: OWN_KNITTING_FACTORY_NAME,
+              by: OWN_WOOL_FACTORY_NAME,
             },
           ]
         : []),
@@ -2521,51 +2525,51 @@ function buildKnittingMobileTask(order: KnittingWorkOrder): ProcessTask {
   } as ProcessTask
 }
 
-export function listKnittingMobileProcessTasks(): ProcessTask[] {
-  return listKnittingWorkOrders().map(buildKnittingMobileTask)
+export function listWoolMobileProcessTasks(): ProcessTask[] {
+  return listWoolWorkOrders().map(buildWoolMobileTask)
 }
 
-function getKnittingHandoverId(order: KnittingWorkOrder, type: 'PICKUP' | 'HANDOUT'): string {
+function getWoolHandoverId(order: WoolWorkOrder, type: 'PICKUP' | 'HANDOUT'): string {
   return `${type === 'PICKUP' ? 'PKH' : 'HOH'}-${order.taskNo.replace(/^任务-/, '')}`
 }
 
-export function listKnittingHandoverHeadSeeds(): PdaTaskMockHandoverHeadSeed[] {
-  const pickupHeads = listKnittingWorkOrders().map((order): PdaTaskMockHandoverHeadSeed => {
+export function listWoolHandoverHeadSeeds(): PdaTaskMockHandoverHeadSeed[] {
+  const pickupHeads = listWoolWorkOrders().map((order): PdaTaskMockHandoverHeadSeed => {
     const received = Math.max(order.yarnReceipt.receivedWeightKg, 0)
     const handed = order.yarnReceipt.plannedWeightKg
     return {
-      handoverId: getKnittingHandoverId(order, 'PICKUP'),
+      handoverId: getWoolHandoverId(order, 'PICKUP'),
       headType: 'PICKUP',
       taskId: order.taskNo,
       taskNo: order.taskNo,
       productionOrderNo: order.productionOrderNo,
-      processKey: 'KNITTING',
-      processName: '针织',
+      processKey: 'WOOL',
+      processName: '毛织',
       sourceFactoryName: '染厂/面料仓',
-      targetName: OWN_KNITTING_FACTORY_NAME,
+      targetName: OWN_WOOL_FACTORY_NAME,
       targetKind: 'FACTORY',
       qtyUnit: 'kg',
-      factoryId: OWN_KNITTING_FACTORY_ID,
-      taskStatus: getKnittingTaskStatus(order) === 'DONE' ? 'DONE' : 'IN_PROGRESS',
+      factoryId: OWN_WOOL_FACTORY_ID,
+      taskStatus: getWoolTaskStatus(order) === 'DONE' ? 'DONE' : 'IN_PROGRESS',
       summaryStatus: received <= 0 ? 'SUBMITTED' : order.yarnReceipt.differenceWeightKg !== 0 ? 'HAS_OBJECTION' : 'WRITTEN_BACK',
       completionStatus: received > 0 ? 'COMPLETED' : 'OPEN',
       completedByWarehouseAt: received > 0 ? order.yarnReceipt.receivedAt : undefined,
       qtyExpectedTotal: handed,
       qtyActualTotal: received,
       qtyDiffTotal: Number((handed - received).toFixed(2)),
-      sourceDocNo: `送料-${order.knittingOrderNo}`,
-      scopeLabel: `${KNITTING_KIND_LABEL[order.kind]}纱线送料到厂`,
+      sourceDocNo: `送料-${order.woolOrderNo}`,
+      scopeLabel: `${WOOL_KIND_LABEL[order.kind]}纱线送料到厂`,
       stageCode: 'PREP',
       stageName: '领料',
-      processBusinessCode: 'KNITTING',
-      processBusinessName: '针织',
+      processBusinessCode: 'WOOL',
+      processBusinessName: '毛织',
       taskTypeCode: order.kind,
-      taskTypeLabel: KNITTING_KIND_LABEL[order.kind],
+      taskTypeLabel: WOOL_KIND_LABEL[order.kind],
       assignmentGranularityLabel: order.kind === 'PART_PANEL' ? '部位/尺码' : '整件',
     }
   })
 
-  const handoutHeads = listKnittingWorkOrders()
+  const handoutHeads = listWoolWorkOrders()
     .filter((order) => order.status === 'WAIT_HANDOVER' || order.status === 'FEI_TICKET_PRINTED' || order.status === 'HANDOVER_SUBMITTED' || order.status === 'COMPLETED')
     .map((order): PdaTaskMockHandoverHeadSeed => {
       const targetName = order.kind === 'PART_PANEL' ? '裁床待交出仓' : '后道工厂'
@@ -2574,35 +2578,35 @@ export function listKnittingHandoverHeadSeeds(): PdaTaskMockHandoverHeadSeed[] {
       const expectedQty = order.handoverQty ?? order.completedQty
       const writtenQty = order.receiverWrittenQty ?? 0
       return {
-        handoverId: getKnittingHandoverId(order, 'HANDOUT'),
+        handoverId: getWoolHandoverId(order, 'HANDOUT'),
         headType: 'HANDOUT',
         taskId: order.taskNo,
         taskNo: order.taskNo,
         productionOrderNo: order.productionOrderNo,
-        processKey: 'KNITTING',
-        processName: '针织',
-        sourceFactoryName: OWN_KNITTING_FACTORY_NAME,
+        processKey: 'WOOL',
+        processName: '毛织',
+        sourceFactoryName: OWN_WOOL_FACTORY_NAME,
         targetName,
         targetKind,
         receiverKind,
         receiverId: order.kind === 'PART_PANEL' ? 'WH-CUTTING-WAIT-HANDOVER' : 'POST-FACTORY-OWN',
         receiverName: targetName,
         qtyUnit: order.qtyUnit,
-        factoryId: OWN_KNITTING_FACTORY_ID,
+        factoryId: OWN_WOOL_FACTORY_ID,
         taskStatus: 'DONE',
         summaryStatus: writtenQty > 0 ? (order.handoverDifferenceQty ? 'HAS_OBJECTION' : 'WRITTEN_BACK') : 'SUBMITTED',
         completionStatus: 'OPEN',
         qtyExpectedTotal: expectedQty,
         qtyActualTotal: writtenQty,
         qtyDiffTotal: Number((expectedQty - writtenQty).toFixed(2)),
-        sourceDocNo: order.handoverOrderNo || `交出-${order.knittingOrderNo}`,
-        scopeLabel: `${KNITTING_KIND_LABEL[order.kind]}交出`,
+        sourceDocNo: order.handoverOrderNo || `交出-${order.woolOrderNo}`,
+        scopeLabel: `${WOOL_KIND_LABEL[order.kind]}交出`,
         stageCode: 'PROD',
-        stageName: '针织交出',
-        processBusinessCode: 'KNITTING',
-        processBusinessName: '针织',
+        stageName: '毛织交出',
+        processBusinessCode: 'WOOL',
+        processBusinessName: '毛织',
         taskTypeCode: order.kind,
-        taskTypeLabel: KNITTING_KIND_LABEL[order.kind],
+        taskTypeLabel: WOOL_KIND_LABEL[order.kind],
         assignmentGranularityLabel: order.kind === 'PART_PANEL' ? '部位/尺码' : '整件',
       }
     })
@@ -2610,8 +2614,8 @@ export function listKnittingHandoverHeadSeeds(): PdaTaskMockHandoverHeadSeed[] {
   return [...pickupHeads, ...handoutHeads]
 }
 
-export function getKnittingPickupRecordSeedsByHeadId(handoverId: string): PdaTaskMockPickupRecordSeed[] {
-  const order = listKnittingWorkOrders().find((item) => getKnittingHandoverId(item, 'PICKUP') === handoverId)
+export function getWoolPickupRecordSeedsByHeadId(handoverId: string): PdaTaskMockPickupRecordSeed[] {
+  const order = listWoolWorkOrders().find((item) => getWoolHandoverId(item, 'PICKUP') === handoverId)
   if (!order) return []
   const handedQty = order.yarnReceipt.plannedWeightKg
   const receivedQty = order.yarnReceipt.receivedWeightKg
@@ -2629,7 +2633,7 @@ export function getKnittingPickupRecordSeedsByHeadId(handoverId: string): PdaTas
       skuCode: order.yarnReceipt.yarnSku,
       skuColor: order.yarnReceipt.colorName,
       skuSize: '纱线',
-      pieceName: '针织纱线',
+      pieceName: '毛织纱线',
       qtyExpected: handedQty,
       qtyActual: hasReceived ? receivedQty : undefined,
       qtyUnit: 'kg',
@@ -2637,7 +2641,7 @@ export function getKnittingPickupRecordSeedsByHeadId(handoverId: string): PdaTas
       status: hasReceived ? (order.yarnReceipt.differenceWeightKg !== 0 ? 'OBJECTION_RESOLVED' : 'RECEIVED') : 'PENDING_FACTORY_CONFIRM',
       receivedAt: hasReceived ? order.yarnReceipt.receivedAt : undefined,
       pickupMode: 'WAREHOUSE_DELIVERY',
-      qrCodeValue: `KNIT-PICKUP:${order.taskNo}`,
+      qrCodeValue: `WOOL-PICKUP:${order.taskNo}`,
       warehouseHandedQty: handedQty,
       warehouseHandedAt: order.scheduledStartAt,
       warehouseHandedBy: '染厂/面料仓送料员',
@@ -2646,19 +2650,19 @@ export function getKnittingPickupRecordSeedsByHeadId(handoverId: string): PdaTas
       factoryReportedQty: hasReceived && order.yarnReceipt.differenceWeightKg !== 0 ? receivedQty : undefined,
       finalResolvedQty: hasReceived && order.yarnReceipt.differenceWeightKg !== 0 ? receivedQty : undefined,
       finalResolvedAt: hasReceived && order.yarnReceipt.differenceWeightKg !== 0 ? order.yarnReceipt.receivedAt : undefined,
-      exceptionCaseId: hasReceived && order.yarnReceipt.differenceWeightKg !== 0 ? `EX-KNIT-YARN-${order.knittingOrderNo}` : undefined,
-      objectionReason: hasReceived && order.yarnReceipt.differenceWeightKg !== 0 ? '针织厂称重实收与送料重量不一致' : undefined,
+      exceptionCaseId: hasReceived && order.yarnReceipt.differenceWeightKg !== 0 ? `EX-WOOL-YARN-${order.woolOrderNo}` : undefined,
+      objectionReason: hasReceived && order.yarnReceipt.differenceWeightKg !== 0 ? '毛织厂称重实收与送料重量不一致' : undefined,
       objectionRemark: order.yarnReceipt.evidenceText,
       objectionProofFiles: hasReceived && order.yarnReceipt.evidenceText
         ? [
             {
-              id: `proof-${order.knittingOrderId}-image`,
+              id: `proof-${order.woolOrderId}-image`,
               type: 'IMAGE',
               name: '纱线称重照片.jpg',
               uploadedAt: order.yarnReceipt.receivedAt,
             },
             {
-              id: `proof-${order.knittingOrderId}-video`,
+              id: `proof-${order.woolOrderId}-video`,
               type: 'VIDEO',
               name: '纱线到货视频.mp4',
               uploadedAt: order.yarnReceipt.receivedAt,
@@ -2666,14 +2670,14 @@ export function getKnittingPickupRecordSeedsByHeadId(handoverId: string): PdaTas
           ]
         : [],
       objectionStatus: hasReceived && order.yarnReceipt.differenceWeightKg !== 0 ? 'RESOLVED' : undefined,
-      resolvedRemark: hasReceived && order.yarnReceipt.differenceWeightKg !== 0 ? '已按针织厂称重实收数量确认' : undefined,
-      remark: '染厂/面料仓送料到厂，针织厂按 kg 称重确认。',
+      resolvedRemark: hasReceived && order.yarnReceipt.differenceWeightKg !== 0 ? '已按毛织厂称重实收数量确认' : undefined,
+      remark: '染厂/面料仓送料到厂，毛织厂按 kg 称重确认。',
     },
   ]
 }
 
-export function getKnittingHandoutRecordSeedsByHeadId(handoverId: string): PdaTaskMockHandoutRecordSeed[] {
-  const order = listKnittingWorkOrders().find((item) => getKnittingHandoverId(item, 'HANDOUT') === handoverId)
+export function getWoolHandoutRecordSeedsByHeadId(handoverId: string): PdaTaskMockHandoutRecordSeed[] {
+  const order = listWoolWorkOrders().find((item) => getWoolHandoverId(item, 'HANDOUT') === handoverId)
   if (!order) return []
   const plannedQty = order.handoverQty ?? order.completedQty
   const isPartPanel = order.kind === 'PART_PANEL'
@@ -2683,18 +2687,18 @@ export function getKnittingHandoutRecordSeedsByHeadId(handoverId: string): PdaTa
       recordId: `${handoverId}-001`,
       taskId: order.taskNo,
       materialCode: order.yarnReceipt.yarnSku,
-      materialName: isPartPanel ? '针织部位片' : '针织整件',
+      materialName: isPartPanel ? '毛织部位片' : '毛织整件',
       materialSpec: `${order.styleName} / ${order.colorName} / ${order.sizeRange}`,
       skuCode: order.styleNo,
       skuColor: order.colorName,
       skuSize: order.sizeRange,
-      pieceName: isPartPanel ? '针织部位片' : '针织整件',
+      pieceName: isPartPanel ? '毛织部位片' : '毛织整件',
       plannedQty,
       qtyUnit: order.qtyUnit,
       handoutObjectType: isPartPanel ? 'CUT_PIECE' : 'GARMENT',
-      handoutItemLabel: `${KNITTING_KIND_LABEL[order.kind]} / ${order.colorName} / ${plannedQty}${order.qtyUnit} / 交${order.downstreamTarget}`,
+      handoutItemLabel: `${WOOL_KIND_LABEL[order.kind]} / ${order.colorName} / ${plannedQty}${order.qtyUnit} / 交${order.downstreamTarget}`,
       garmentEquivalentQty: isPartPanel ? Math.round(plannedQty / Math.max(order.partPanels.length || 1, 1)) : plannedQty,
-      factorySubmittedBy: OWN_KNITTING_FACTORY_NAME,
+      factorySubmittedBy: OWN_WOOL_FACTORY_NAME,
       receiverWrittenQty: order.receiverWrittenQty,
       receiverWrittenAt: order.receiverWrittenQty ? order.scheduledEndAt : undefined,
       receiverWrittenBy: order.receiverWrittenQty ? order.downstreamTarget : undefined,
@@ -2707,33 +2711,33 @@ export function getKnittingHandoutRecordSeedsByHeadId(handoverId: string): PdaTa
       warehouseReturnNo: order.handoverOrderNo,
       warehouseWrittenQty: order.receiverWrittenQty,
       warehouseWrittenAt: order.receiverWrittenQty ? order.scheduledEndAt : undefined,
-      factoryRemark: `${KNITTING_KIND_LABEL[order.kind]}完成后交${order.downstreamTarget}`,
+      factoryRemark: `${WOOL_KIND_LABEL[order.kind]}完成后交${order.downstreamTarget}`,
       objectionReason: order.handoverDifferenceQty ? `${order.downstreamTarget}回写数量存在差异` : undefined,
       objectionRemark: order.handoverDifferenceQty ? `交出 ${plannedQty}${order.qtyUnit}，回写 ${order.receiverWrittenQty}${order.qtyUnit}` : undefined,
     },
   ]
 }
 
-export function buildKnittingPartPanelFeiTicketSourceId(order: KnittingWorkOrder, panel: KnittingPartPanel): string {
-  return panel.feiTicketNo || `针织菲票-${order.knittingOrderNo}-${panel.partName}-${panel.colorName}-${panel.sizeCode}`
+export function buildWoolPartPanelFeiTicketSourceId(order: WoolWorkOrder, panel: WoolPartPanel): string {
+  return panel.feiTicketNo || `毛织菲票-${order.woolOrderNo}-${panel.partName}-${panel.colorName}-${panel.sizeCode}`
 }
 
-export function listKnittingFeiTicketPrintRecords(): KnittingFeiTicketPrintRecord[] {
-  return listKnittingWorkOrders()
+export function listWoolFeiTicketPrintRecords(): WoolFeiTicketPrintRecord[] {
+  return listWoolWorkOrders()
     .filter((order) => order.kind === 'PART_PANEL')
     .flatMap((order) =>
       order.partPanels.map((panel) => {
-        const ticketNo = buildKnittingPartPanelFeiTicketSourceId(order, panel)
+        const ticketNo = buildWoolPartPanelFeiTicketSourceId(order, panel)
         const quantity = panel.completedPieces || panel.plannedPieces
         return {
-          ticketSourceType: 'KNITTING_PART_PANEL',
+          ticketSourceType: 'WOOL_PART_PANEL',
           ticketRecordId: ticketNo,
           ticketNo,
           feiTicketId: ticketNo,
           feiTicketNo: ticketNo,
-          originalCutOrderId: order.knittingOrderId,
-          originalCutOrderNo: order.knittingOrderNo,
-          sourceCutOrderNo: order.knittingOrderNo,
+          originalCutOrderId: order.woolOrderId,
+          originalCutOrderNo: order.woolOrderNo,
+          sourceCutOrderNo: order.woolOrderNo,
           productionOrderNo: order.productionOrderNo,
           sourceProductionOrderNo: order.productionOrderNo,
           styleCode: order.styleNo,
@@ -2750,14 +2754,14 @@ export function listKnittingFeiTicketPrintRecords(): KnittingFeiTicketPrintRecor
           quantity,
           actualCutPieceQty: quantity,
           qty: quantity,
-          processTags: ['部位针织'],
-          specialCraftSummary: '部位针织 · 不进缝盘、熨烫、包装',
-          currentCraftStage: '部位针织菲票',
+          processTags: ['部位毛织'],
+          specialCraftSummary: '部位毛织 · 不进缝盘、熨烫、包装',
+          currentCraftStage: '部位毛织菲票',
           status: panel.feiTicketStatus === '已打印' ? 'PRINTED' : 'WAITING_PRINT',
           printStatusLabel: panel.feiTicketStatus,
           flowStatusLabel: panel.feiTicketStatus === '已打印' ? '待交裁床待交出仓' : '待打印',
           boundPocketNo: order.downstreamTarget,
-          sourcePieceInstanceId: `${order.knittingOrderId}-${panel.partName}-${panel.sizeCode}`,
+          sourcePieceInstanceId: `${order.woolOrderId}-${panel.partName}-${panel.sizeCode}`,
           sequenceNo: panel.sizeCode,
           version: panel.feiTicketStatus === '已打印' ? 'V1' : '待首次打印',
           reprintCount: 0,
@@ -2766,7 +2770,7 @@ export function listKnittingFeiTicketPrintRecords(): KnittingFeiTicketPrintRecor
     )
 }
 
-function getDefaultKnittingWarehouseAreas(mode: KnittingWarehouseMode): KnittingWarehouseArea[] {
+function getDefaultWoolWarehouseAreas(mode: WoolWarehouseMode): WoolWarehouseArea[] {
   const prefix = mode === 'wait-process' ? 'KWP' : 'KWH'
   const warehouseName = mode === 'wait-process' ? '待加工仓' : '待交出仓'
   return [
@@ -2785,7 +2789,7 @@ function getDefaultKnittingWarehouseAreas(mode: KnittingWarehouseMode): Knitting
       warehouseMode: mode,
       areaCode: `${prefix}-B`,
       areaName: `${warehouseName} B 区`,
-      managerName: '针织仓管',
+      managerName: '毛织仓管',
       status: '启用',
       remark: '周转库区',
       updatedAt: '2026-05-09 09:00',
@@ -2793,32 +2797,32 @@ function getDefaultKnittingWarehouseAreas(mode: KnittingWarehouseMode): Knitting
   ]
 }
 
-export function listKnittingWarehouseAreas(mode: KnittingWarehouseMode): KnittingWarehouseArea[] {
-  const storeAreas = readKnittingStore().areas.filter((area) => area.warehouseMode === mode)
+export function listWoolWarehouseAreas(mode: WoolWarehouseMode): WoolWarehouseArea[] {
+  const storeAreas = readWoolStore().areas.filter((area) => area.warehouseMode === mode)
   const storedIds = new Set(storeAreas.map((area) => area.areaId))
   return cloneValue([
     ...storeAreas,
-    ...getDefaultKnittingWarehouseAreas(mode).filter((area) => !storedIds.has(area.areaId)),
+    ...getDefaultWoolWarehouseAreas(mode).filter((area) => !storedIds.has(area.areaId)),
   ])
 }
 
-function findKnittingWarehouseArea(mode: KnittingWarehouseMode, areaIdOrName: string | undefined): KnittingWarehouseArea | undefined {
+function findWoolWarehouseArea(mode: WoolWarehouseMode, areaIdOrName: string | undefined): WoolWarehouseArea | undefined {
   if (!areaIdOrName) return undefined
-  return listKnittingWarehouseAreas(mode).find((area) => area.areaId === areaIdOrName || area.areaName === areaIdOrName)
+  return listWoolWarehouseAreas(mode).find((area) => area.areaId === areaIdOrName || area.areaName === areaIdOrName)
 }
 
-export function upsertKnittingWarehouseArea(input: Partial<KnittingWarehouseArea> & { warehouseMode: KnittingWarehouseMode }): KnittingWarehouseArea {
-  const store = readKnittingStore()
+export function upsertWoolWarehouseArea(input: Partial<WoolWarehouseArea> & { warehouseMode: WoolWarehouseMode }): WoolWarehouseArea {
+  const store = readWoolStore()
   const areaId = input.areaId || `KAREA-${input.warehouseMode}-${Date.now()}`
   const existing =
     store.areas.find((area) => area.areaId === areaId)
-    || getDefaultKnittingWarehouseAreas(input.warehouseMode).find((area) => area.areaId === areaId)
-  const next: KnittingWarehouseArea = {
+    || getDefaultWoolWarehouseAreas(input.warehouseMode).find((area) => area.areaId === areaId)
+  const next: WoolWarehouseArea = {
     areaId,
     warehouseMode: input.warehouseMode,
     areaCode: input.areaCode?.trim() || existing?.areaCode || `KAREA-${String(store.areas.length + 1).padStart(2, '0')}`,
     areaName: input.areaName?.trim() || existing?.areaName || (input.warehouseMode === 'wait-process' ? '待加工仓新区' : '待交出仓新区'),
-    managerName: input.managerName?.trim() || existing?.managerName || '针织仓管',
+    managerName: input.managerName?.trim() || existing?.managerName || '毛织仓管',
     status: input.status || existing?.status || '启用',
     remark: input.remark?.trim() || existing?.remark || '',
     updatedAt: nowTimestamp(),
@@ -2831,13 +2835,13 @@ export function upsertKnittingWarehouseArea(input: Partial<KnittingWarehouseArea
       ? { ...location, areaName: next.areaName, updatedAt: next.updatedAt }
       : location
   ))
-  writeKnittingStore(store)
+  writeWoolStore(store)
   return cloneValue(next)
 }
 
-function getDefaultKnittingWarehouseLocations(mode: KnittingWarehouseMode): KnittingWarehouseLocation[] {
+function getDefaultWoolWarehouseLocations(mode: WoolWarehouseMode): WoolWarehouseLocation[] {
   const prefix = mode === 'wait-process' ? 'KWP' : 'KWH'
-  const areas = getDefaultKnittingWarehouseAreas(mode)
+  const areas = getDefaultWoolWarehouseAreas(mode)
   return [
     {
       locationId: `${prefix}-LOC-A01`,
@@ -2856,7 +2860,7 @@ function getDefaultKnittingWarehouseLocations(mode: KnittingWarehouseMode): Knit
       areaId: areas[1].areaId,
       areaName: areas[1].areaName,
       locationCode: `${prefix}-B-01`,
-      managerName: '针织仓管',
+      managerName: '毛织仓管',
       status: '启用',
       remark: '周转库位',
       updatedAt: '2026-05-09 09:00',
@@ -2864,27 +2868,27 @@ function getDefaultKnittingWarehouseLocations(mode: KnittingWarehouseMode): Knit
   ]
 }
 
-export function listKnittingWarehouseLocations(mode: KnittingWarehouseMode): KnittingWarehouseLocation[] {
-  const areas = listKnittingWarehouseAreas(mode)
-  const storeLocations = readKnittingStore().locations.filter((location) => location.warehouseMode === mode)
+export function listWoolWarehouseLocations(mode: WoolWarehouseMode): WoolWarehouseLocation[] {
+  const areas = listWoolWarehouseAreas(mode)
+  const storeLocations = readWoolStore().locations.filter((location) => location.warehouseMode === mode)
   const storedIds = new Set(storeLocations.map((location) => location.locationId))
   return cloneValue([
     ...storeLocations,
-    ...getDefaultKnittingWarehouseLocations(mode).filter((location) => !storedIds.has(location.locationId)),
+    ...getDefaultWoolWarehouseLocations(mode).filter((location) => !storedIds.has(location.locationId)),
   ].map((location) => {
     const area = areas.find((item) => item.areaId === location.areaId || item.areaName === location.areaName)
     return area ? { ...location, areaId: area.areaId, areaName: area.areaName } : location
   }))
 }
 
-export function upsertKnittingWarehouseLocation(input: Partial<KnittingWarehouseLocation> & { warehouseMode: KnittingWarehouseMode }): KnittingWarehouseLocation {
-  const store = readKnittingStore()
+export function upsertWoolWarehouseLocation(input: Partial<WoolWarehouseLocation> & { warehouseMode: WoolWarehouseMode }): WoolWarehouseLocation {
+  const store = readWoolStore()
   const locationId = input.locationId || `KLOC-${input.warehouseMode}-${Date.now()}`
   const existing =
     store.locations.find((location) => location.locationId === locationId)
-    || getDefaultKnittingWarehouseLocations(input.warehouseMode).find((location) => location.locationId === locationId)
-  const area = findKnittingWarehouseArea(input.warehouseMode, input.areaId || input.areaName)
-  const next: KnittingWarehouseLocation = {
+    || getDefaultWoolWarehouseLocations(input.warehouseMode).find((location) => location.locationId === locationId)
+  const area = findWoolWarehouseArea(input.warehouseMode, input.areaId || input.areaName)
+  const next: WoolWarehouseLocation = {
     locationId,
     warehouseMode: input.warehouseMode,
     areaId: area?.areaId || existing?.areaId || '',
@@ -2898,24 +2902,24 @@ export function upsertKnittingWarehouseLocation(input: Partial<KnittingWarehouse
   const index = store.locations.findIndex((location) => location.locationId === locationId)
   if (index >= 0) store.locations[index] = next
   else store.locations.unshift(next)
-  writeKnittingStore(store)
+  writeWoolStore(store)
   return cloneValue(next)
 }
 
-export function deleteKnittingWarehouseLocation(locationId: string): void {
-  const store = readKnittingStore()
+export function deleteWoolWarehouseLocation(locationId: string): void {
+  const store = readWoolStore()
   store.locations = store.locations.filter((location) => location.locationId !== locationId)
-  writeKnittingStore(store)
+  writeWoolStore(store)
 }
 
-function buildKnittingWaitProcessReceiptNo(order: KnittingWorkOrder): string {
-  return `领料-${order.knittingOrderNo}`
+function buildWoolWaitProcessReceiptNo(order: WoolWorkOrder): string {
+  return `领料-${order.woolOrderNo}`
 }
 
-function resolveKnittingWaitProcessLocationText(order: KnittingWorkOrder, fallback = '待分配库位'): string {
+function resolveWoolWaitProcessLocationText(order: WoolWorkOrder, fallback = '待分配库位'): string {
   if (order.yarnReceipt.waitProcessLocationText) return order.yarnReceipt.waitProcessLocationText
-  const area = findKnittingWarehouseArea('wait-process', order.yarnReceipt.waitProcessAreaId)
-  const location = listKnittingWarehouseLocations('wait-process').find((item) =>
+  const area = findWoolWarehouseArea('wait-process', order.yarnReceipt.waitProcessAreaId)
+  const location = listWoolWarehouseLocations('wait-process').find((item) =>
     item.locationId === order.yarnReceipt.waitProcessLocationId
     && (!area || item.areaId === area.areaId),
   )
@@ -2924,22 +2928,22 @@ function resolveKnittingWaitProcessLocationText(order: KnittingWorkOrder, fallba
   return fallback
 }
 
-export function listKnittingWaitProcessScanReceipts(): KnittingWaitProcessScanReceipt[] {
-  return listKnittingWorkOrders().map((order) => {
-    const receiptNo = buildKnittingWaitProcessReceiptNo(order)
+export function listWoolWaitProcessScanReceipts(): WoolWaitProcessScanReceipt[] {
+  return listWoolWorkOrders().map((order) => {
+    const receiptNo = buildWoolWaitProcessReceiptNo(order)
     return {
       receiptNo,
       qrCode: `QR-${receiptNo}`,
-      sourceDeliveryNo: `送料-${order.knittingOrderNo}`,
+      sourceDeliveryNo: `送料-${order.woolOrderNo}`,
       sourceName: order.yarnReceipt.colorName.includes('印花') ? '印花厂送料' : '染厂/面辅料仓送料',
-      knittingOrderNo: order.knittingOrderNo,
+      woolOrderNo: order.woolOrderNo,
       productionOrderNo: order.productionOrderNo,
       taskNo: order.taskNo,
       styleName: order.styleName,
       lines: [{
-        receiptLineId: `KWP-SCAN-LINE-${order.knittingOrderId}`,
-        knittingOrderId: order.knittingOrderId,
-        knittingOrderNo: order.knittingOrderNo,
+        receiptLineId: `KWP-SCAN-LINE-${order.woolOrderId}`,
+        woolOrderId: order.woolOrderId,
+        woolOrderNo: order.woolOrderNo,
         productionOrderNo: order.productionOrderNo,
         taskNo: order.taskNo,
         kind: order.kind,
@@ -2955,34 +2959,34 @@ export function listKnittingWaitProcessScanReceipts(): KnittingWaitProcessScanRe
   })
 }
 
-export function lookupKnittingWaitProcessScanReceipt(input: string): KnittingWaitProcessScanReceipt | undefined {
+export function lookupWoolWaitProcessScanReceipt(input: string): WoolWaitProcessScanReceipt | undefined {
   const keyword = input.trim()
   if (!keyword) return undefined
   const normalized = keyword.toLowerCase()
-  const matched = listKnittingWaitProcessScanReceipts().find((receipt) => (
+  const matched = listWoolWaitProcessScanReceipts().find((receipt) => (
     receipt.receiptNo.toLowerCase() === normalized
     || receipt.qrCode.toLowerCase() === normalized
     || receipt.sourceDeliveryNo.toLowerCase() === normalized
-    || receipt.knittingOrderNo.toLowerCase() === normalized
+    || receipt.woolOrderNo.toLowerCase() === normalized
     || receipt.taskNo.toLowerCase() === normalized
   ))
   return matched ? cloneValue(matched) : undefined
 }
 
-export function confirmKnittingWaitProcessScanReceipt(input: {
+export function confirmWoolWaitProcessScanReceipt(input: {
   receiptNo: string
   receiverName?: string
-  lines: KnittingWaitProcessReceiptLineInput[]
-}): KnittingWaitProcessReceiptRecord[] {
-  const receipt = lookupKnittingWaitProcessScanReceipt(input.receiptNo)
-  if (!receipt) throw new Error('未找到针织领料单或送料二维码。')
+  lines: WoolWaitProcessReceiptLineInput[]
+}): WoolWaitProcessReceiptRecord[] {
+  const receipt = lookupWoolWaitProcessScanReceipt(input.receiptNo)
+  if (!receipt) throw new Error('未找到毛织领料单或送料二维码。')
 
   const now = nowTimestamp()
-  const receiverName = input.receiverName || '针织仓管'
-  const areas = listKnittingWarehouseAreas('wait-process')
-  const locations = listKnittingWarehouseLocations('wait-process')
-  const ordersById = new Map(listKnittingWorkOrders().map((order) => [order.knittingOrderId, order]))
-  const store = readKnittingStore()
+  const receiverName = input.receiverName || '毛织仓管'
+  const areas = listWoolWarehouseAreas('wait-process')
+  const locations = listWoolWarehouseLocations('wait-process')
+  const ordersById = new Map(listWoolWorkOrders().map((order) => [order.woolOrderId, order]))
+  const store = readWoolStore()
   const updatedOrderIds: string[] = []
 
   input.lines.forEach((lineInput) => {
@@ -2995,10 +2999,10 @@ export function confirmKnittingWaitProcessScanReceipt(input: {
     )
     if (!line || actualWeightKg <= 0 || !area) return
 
-    const order = store.workOrders[line.knittingOrderId] || ordersById.get(line.knittingOrderId)
+    const order = store.workOrders[line.woolOrderId] || ordersById.get(line.woolOrderId)
     if (!order) return
     const locationText = location ? `${area.areaName} / ${location.locationCode}` : area.areaName
-    const nextBase: KnittingWorkOrder = {
+    const nextBase: WoolWorkOrder = {
       ...order,
       yarnReceipt: {
         ...order.yarnReceipt,
@@ -3022,25 +3026,25 @@ export function confirmKnittingWaitProcessScanReceipt(input: {
         },
       ],
     }
-    store.workOrders[line.knittingOrderId] = {
+    store.workOrders[line.woolOrderId] = {
       ...nextBase,
-      status: deriveKnittingOrderStatus(nextBase),
+      status: deriveWoolOrderStatus(nextBase),
     }
-    updatedOrderIds.push(line.knittingOrderId)
+    updatedOrderIds.push(line.woolOrderId)
   })
 
   if (!updatedOrderIds.length) throw new Error('请至少填写一条有效的实收重量和库区。')
-  writeKnittingStore(store)
+  writeWoolStore(store)
   const updatedIdSet = new Set(updatedOrderIds)
-  return listKnittingWaitProcessReceiptRecords().filter((record) => updatedIdSet.has(record.knittingOrderId))
+  return listWoolWaitProcessReceiptRecords().filter((record) => updatedIdSet.has(record.woolOrderId))
 }
 
-export function listKnittingWaitProcessReceiptRecords(): KnittingWaitProcessReceiptRecord[] {
-  return listKnittingWorkOrders().map((order) => ({
-    recordId: `KWP-RCV-${order.knittingOrderId}`,
-    receiptNo: buildKnittingWaitProcessReceiptNo(order),
-    knittingOrderId: order.knittingOrderId,
-    knittingOrderNo: order.knittingOrderNo,
+export function listWoolWaitProcessReceiptRecords(): WoolWaitProcessReceiptRecord[] {
+  return listWoolWorkOrders().map((order) => ({
+    recordId: `KWP-RCV-${order.woolOrderId}`,
+    receiptNo: buildWoolWaitProcessReceiptNo(order),
+    woolOrderId: order.woolOrderId,
+    woolOrderNo: order.woolOrderNo,
     productionOrderNo: order.productionOrderNo,
     sourceName: '染厂/印花厂/面辅料仓',
     yarnSku: order.yarnReceipt.yarnSku,
@@ -3050,48 +3054,48 @@ export function listKnittingWaitProcessReceiptRecords(): KnittingWaitProcessRece
     differenceWeightKg: order.yarnReceipt.receivedWeightKg > 0 ? order.yarnReceipt.differenceWeightKg : 0,
     evidenceText: order.yarnReceipt.evidenceText || '待上传照片视频',
     receivedAt: order.yarnReceipt.receivedWeightKg > 0 ? order.yarnReceipt.receivedAt : '待确认',
-    locationText: resolveKnittingWaitProcessLocationText(order),
+    locationText: resolveWoolWaitProcessLocationText(order),
     statusText: order.yarnReceipt.receivedWeightKg > 0 ? (order.yarnReceipt.differenceWeightKg === 0 ? '已确认' : '差异已记录') : '待确认',
   }))
 }
 
-export function listKnittingWaitProcessUsageRecords(): KnittingWaitProcessUsageRecord[] {
-  return listKnittingWorkOrders()
+export function listWoolWaitProcessUsageRecords(): WoolWaitProcessUsageRecord[] {
+  return listWoolWorkOrders()
     .flatMap((order) => {
-      const flatNode = getKnittingNode(order, '横机成片')
-      const linkingNode = getKnittingNode(order, '缝盘')
-      const usageSummary = getKnittingYarnUsageSummary(order)
-      const records: KnittingWaitProcessUsageRecord[] = [
+      const flatNode = getWoolNode(order, '横机成片')
+      const linkingNode = getWoolNode(order, '缝盘')
+      const usageSummary = getWoolYarnUsageSummary(order)
+      const records: WoolWaitProcessUsageRecord[] = [
         {
-          recordId: `KWP-USE-START-${order.knittingOrderId}`,
-          usageNo: `开工领用-${order.knittingOrderNo}`,
+          recordId: `KWP-USE-START-${order.woolOrderId}`,
+          usageNo: `开工领用-${order.woolOrderNo}`,
           recordType: '开工领用',
-          knittingOrderId: order.knittingOrderId,
-          knittingOrderNo: order.knittingOrderNo,
+          woolOrderId: order.woolOrderId,
+          woolOrderNo: order.woolOrderNo,
           taskNo: order.taskNo,
           productionOrderNo: order.productionOrderNo,
           yarnSku: order.yarnReceipt.yarnSku,
           usedWeightKg: usageSummary.processingUsageWeightKg,
           usedAt: flatNode?.startedAt || '待开工',
           nodeName: '横机成片',
-          operatorName: flatNode?.operatorName || OWN_KNITTING_FACTORY_NAME,
+          operatorName: flatNode?.operatorName || OWN_WOOL_FACTORY_NAME,
           statusText: usageSummary.processingUsageWeightKg > 0 ? '已领用' : '待开工领用',
         },
       ]
       if (order.kind === 'WHOLE_GARMENT' && linkingNode) {
         records.push({
-          recordId: `KWP-USE-LINKING-${order.knittingOrderId}`,
-          usageNo: `缝盘损耗-${order.knittingOrderNo}`,
+          recordId: `KWP-USE-LINKING-${order.woolOrderId}`,
+          usageNo: `缝盘损耗-${order.woolOrderNo}`,
           recordType: '缝盘损耗',
-          knittingOrderId: order.knittingOrderId,
-          knittingOrderNo: order.knittingOrderNo,
+          woolOrderId: order.woolOrderId,
+          woolOrderNo: order.woolOrderNo,
           taskNo: order.taskNo,
           productionOrderNo: order.productionOrderNo,
           yarnSku: order.yarnReceipt.yarnSku,
           usedWeightKg: usageSummary.linkingLossWeightKg,
           usedAt: linkingNode.finishedAt || '待缝盘完成',
           nodeName: '缝盘',
-          operatorName: linkingNode.operatorName || OWN_KNITTING_FACTORY_NAME,
+          operatorName: linkingNode.operatorName || OWN_WOOL_FACTORY_NAME,
           statusText: usageSummary.linkingLossWeightKg > 0 ? '已记录损耗' : linkingNode.status === '已完成' ? '损耗为 0' : '待记录损耗',
         })
       }
@@ -3100,44 +3104,44 @@ export function listKnittingWaitProcessUsageRecords(): KnittingWaitProcessUsageR
     .filter((record) => record.usedWeightKg > 0 || record.statusText.startsWith('待') || record.statusText === '损耗为 0')
 }
 
-function hasKnittingInboundToHandover(order: KnittingWorkOrder): boolean {
+function hasWoolInboundToHandover(order: WoolWorkOrder): boolean {
   if (order.kind === 'PART_PANEL') {
     return order.nodes.some((node) => node.nodeName === '横机成片' && node.status === '已完成')
   }
   return ['WAIT_HANDOVER', 'HANDOVER_SUBMITTED', 'COMPLETED'].includes(order.status)
 }
 
-export function listKnittingWaitHandoverInboundRecords(): KnittingWaitHandoverInboundRecord[] {
-  return listKnittingWorkOrders()
-    .filter(hasKnittingInboundToHandover)
+export function listWoolWaitHandoverInboundRecords(): WoolWaitHandoverInboundRecord[] {
+  return listWoolWorkOrders()
+    .filter(hasWoolInboundToHandover)
     .map((order) => {
       const finishedNode = [...order.nodes].reverse().find((node) => node.finishedAt)
       return {
-        recordId: `KWH-IN-${order.knittingOrderId}`,
-        inboundNo: `加工入仓-${order.knittingOrderNo}`,
-        knittingOrderId: order.knittingOrderId,
-        knittingOrderNo: order.knittingOrderNo,
+        recordId: `KWH-IN-${order.woolOrderId}`,
+        inboundNo: `加工入仓-${order.woolOrderNo}`,
+        woolOrderId: order.woolOrderId,
+        woolOrderNo: order.woolOrderNo,
         taskNo: order.taskNo,
         productionOrderNo: order.productionOrderNo,
         kind: order.kind,
-        itemName: order.kind === 'PART_PANEL' ? '针织部位片' : '整件针织半成品',
+        itemName: order.kind === 'PART_PANEL' ? '毛织部位片' : '整件毛织半成品',
         inboundQty: order.completedQty,
         unit: order.qtyUnit,
         inboundAt: finishedNode?.finishedAt || order.scheduledEndAt,
-        operatorName: finishedNode?.operatorName || OWN_KNITTING_FACTORY_NAME,
+        operatorName: finishedNode?.operatorName || OWN_WOOL_FACTORY_NAME,
         statusText: order.status === 'COMPLETED' ? '已完成' : '已入待交出仓',
       }
     })
 }
 
-export function listKnittingWaitHandoverHandoutRecords(): KnittingWaitHandoverHandoutRecord[] {
-  return listKnittingWorkOrders()
+export function listWoolWaitHandoverHandoutRecords(): WoolWaitHandoverHandoutRecord[] {
+  return listWoolWorkOrders()
     .filter((order) => ['HANDOVER_SUBMITTED', 'COMPLETED'].includes(order.status))
     .map((order) => ({
-      recordId: `KWH-OUT-${order.knittingOrderId}`,
-      handoutNo: order.handoverOrderNo || `交出-${order.knittingOrderNo}`,
-      knittingOrderId: order.knittingOrderId,
-      knittingOrderNo: order.knittingOrderNo,
+      recordId: `KWH-OUT-${order.woolOrderId}`,
+      handoutNo: order.handoverOrderNo || `交出-${order.woolOrderNo}`,
+      woolOrderId: order.woolOrderId,
+      woolOrderNo: order.woolOrderNo,
       productionOrderNo: order.productionOrderNo,
       downstreamTarget: order.downstreamTarget,
       handoutQty: order.handoverQty ?? order.completedQty,
@@ -3148,19 +3152,19 @@ export function listKnittingWaitHandoverHandoutRecords(): KnittingWaitHandoverHa
     }))
 }
 
-export function listKnittingWarehouseInventory(mode: KnittingWarehouseMode): KnittingWarehouseInventoryItem[] {
-  const locations = listKnittingWarehouseLocations(mode)
+export function listWoolWarehouseInventory(mode: WoolWarehouseMode): WoolWarehouseInventoryItem[] {
+  const locations = listWoolWarehouseLocations(mode)
   if (mode === 'wait-process') {
-    const receiptMap = new Map(listKnittingWaitProcessReceiptRecords().map((record) => [record.knittingOrderId, record]))
-    const recoveryRecords = listKnittingYarnRecoveryRecords()
+    const receiptMap = new Map(listWoolWaitProcessReceiptRecords().map((record) => [record.woolOrderId, record]))
+    const recoveryRecords = listWoolYarnRecoveryRecords()
     const yarnGroups = new Map<string, {
-      orders: KnittingWorkOrder[]
+      orders: WoolWorkOrder[]
       receivedQty: number
       usedQty: number
       recoveredQty: number
-      flowRecords: KnittingWarehouseFlowRecord[]
+      flowRecords: WoolWarehouseFlowRecord[]
     }>()
-    listKnittingWorkOrders().forEach((order) => {
+    listWoolWorkOrders().forEach((order) => {
       const key = `${order.yarnReceipt.yarnSku}__${order.yarnReceipt.colorName}`
       const group = yarnGroups.get(key) || {
         orders: [],
@@ -3169,47 +3173,47 @@ export function listKnittingWarehouseInventory(mode: KnittingWarehouseMode): Kni
         recoveredQty: 0,
         flowRecords: [],
       }
-      const receipt = receiptMap.get(order.knittingOrderId)
-      const usageSummary = getKnittingYarnUsageSummary(order)
+      const receipt = receiptMap.get(order.woolOrderId)
+      const usageSummary = getWoolYarnUsageSummary(order)
       const receivedQty = receipt?.receivedWeightKg || 0
       group.orders.push(order)
       group.receivedQty = roundQty(group.receivedQty + receivedQty)
       group.usedQty = roundQty(group.usedQty + usageSummary.processingUsageWeightKg + usageSummary.linkingLossWeightKg)
       if (receivedQty > 0) {
         group.flowRecords.push({
-          flowId: `KWP-FLOW-IN-${order.knittingOrderId}`,
+          flowId: `KWP-FLOW-IN-${order.woolOrderId}`,
           flowType: '领料入仓',
-          sourceNo: receipt?.receiptNo || `领料-${order.knittingOrderNo}`,
+          sourceNo: receipt?.receiptNo || `领料-${order.woolOrderNo}`,
           qty: receivedQty,
           unit: 'kg',
           operatedAt: receipt?.receivedAt || '待确认',
           operatorName: order.yarnReceipt.receiverName,
-          remark: `${order.knittingOrderNo} / ${receipt?.statusText || '已确认'}`,
+          remark: `${order.woolOrderNo} / ${receipt?.statusText || '已确认'}`,
         })
       }
       if (usageSummary.processingUsageWeightKg > 0) {
-        const flatNode = getKnittingNode(order, '横机成片')
+        const flatNode = getWoolNode(order, '横机成片')
         group.flowRecords.push({
-          flowId: `KWP-FLOW-START-USE-${order.knittingOrderId}`,
+          flowId: `KWP-FLOW-START-USE-${order.woolOrderId}`,
           flowType: '加工用料',
-          sourceNo: `开工领用-${order.knittingOrderNo}`,
+          sourceNo: `开工领用-${order.woolOrderNo}`,
           qty: -usageSummary.processingUsageWeightKg,
           unit: 'kg',
           operatedAt: flatNode?.startedAt || '已开工',
-          operatorName: flatNode?.operatorName || OWN_KNITTING_FACTORY_NAME,
+          operatorName: flatNode?.operatorName || OWN_WOOL_FACTORY_NAME,
           remark: '横机开工领用',
         })
       }
       if (usageSummary.linkingLossWeightKg > 0) {
-        const linkingNode = getKnittingNode(order, '缝盘')
+        const linkingNode = getWoolNode(order, '缝盘')
         group.flowRecords.push({
-          flowId: `KWP-FLOW-LINKING-LOSS-${order.knittingOrderId}`,
+          flowId: `KWP-FLOW-LINKING-LOSS-${order.woolOrderId}`,
           flowType: '加工用料',
-          sourceNo: `缝盘损耗-${order.knittingOrderNo}`,
+          sourceNo: `缝盘损耗-${order.woolOrderNo}`,
           qty: -usageSummary.linkingLossWeightKg,
           unit: 'kg',
           operatedAt: linkingNode?.finishedAt || '已缝盘',
-          operatorName: linkingNode?.operatorName || OWN_KNITTING_FACTORY_NAME,
+          operatorName: linkingNode?.operatorName || OWN_WOOL_FACTORY_NAME,
           remark: '缝盘损耗',
         })
       }
@@ -3219,11 +3223,11 @@ export function listKnittingWarehouseInventory(mode: KnittingWarehouseMode): Kni
     return Array.from(yarnGroups.values()).map((group, index) => {
       const firstOrder = group.orders[0]
       addRecoveryFlowsToGroup(group, firstOrder.yarnReceipt.yarnSku, recoveryRecords)
-      const relatedOrderNos = group.orders.map((order) => order.knittingOrderNo)
+      const relatedOrderNos = group.orders.map((order) => order.woolOrderNo)
       const relatedProductionOrderNos = Array.from(new Set(group.orders.map((order) => order.productionOrderNo)))
       const location = locations[index % Math.max(locations.length, 1)]
       const fallbackLocationText = location ? `${location.areaName} / ${location.locationCode}` : '待分配库位'
-      const locationLabels = Array.from(new Set(group.orders.map((order) => resolveKnittingWaitProcessLocationText(order, fallbackLocationText))))
+      const locationLabels = Array.from(new Set(group.orders.map((order) => resolveWoolWaitProcessLocationText(order, fallbackLocationText))))
       const locationText = locationLabels.length === 1
         ? locationLabels[0]
         : `多库位：${locationLabels.slice(0, 2).join('、')}${locationLabels.length > 2 ? '等' : ''}`
@@ -3233,8 +3237,8 @@ export function listKnittingWarehouseInventory(mode: KnittingWarehouseMode): Kni
         inventoryId: `KWP-YARN-${firstOrder.yarnReceipt.yarnSku}-${firstOrder.yarnReceipt.colorName}`,
         warehouseMode: mode,
         inventoryObjectType: '纱线',
-        knittingOrderId: firstOrder.knittingOrderId,
-        knittingOrderNo: relatedOrderNos.slice(0, 3).join(' / ') + (relatedOrderNos.length > 3 ? ` 等 ${relatedOrderNos.length} 单` : ''),
+        woolOrderId: firstOrder.woolOrderId,
+        woolOrderNo: relatedOrderNos.slice(0, 3).join(' / ') + (relatedOrderNos.length > 3 ? ` 等 ${relatedOrderNos.length} 单` : ''),
         taskNo: firstOrder.taskNo,
         kind: firstOrder.kind,
         productionOrderNo: relatedProductionOrderNos.slice(0, 3).join(' / ') + (relatedProductionOrderNos.length > 3 ? ` 等 ${relatedProductionOrderNos.length} 单` : ''),
@@ -3249,21 +3253,21 @@ export function listKnittingWarehouseInventory(mode: KnittingWarehouseMode): Kni
         locationText,
         statusText: group.receivedQty <= 0 ? '待领料确认' : hasPendingReceipt ? '部分待领料' : group.usedQty > 0 ? '加工用料中' : '已入待加工仓',
         detailLines: group.orders.map((order) => {
-          const receipt = receiptMap.get(order.knittingOrderId)
-          const usageSummary = getKnittingYarnUsageSummary(order)
+          const receipt = receiptMap.get(order.woolOrderId)
+          const usageSummary = getWoolYarnUsageSummary(order)
           const receivedQty = receipt?.receivedWeightKg || 0
           const usedQty = usageSummary.processingUsageWeightKg + usageSummary.linkingLossWeightKg
-          const recoveredQty = getKnittingRecoveredYarnWeight(order)
+          const recoveredQty = getWoolRecoveredYarnWeight(order)
           return {
-            detailId: `KWP-YARN-DETAIL-${order.knittingOrderId}`,
-            knittingOrderNo: order.knittingOrderNo,
+            detailId: `KWP-YARN-DETAIL-${order.woolOrderId}`,
+            woolOrderNo: order.woolOrderNo,
             productionOrderNo: order.productionOrderNo,
             itemName: order.yarnReceipt.yarnName,
-            itemSpec: `${order.yarnReceipt.colorName} / ${KNITTING_KIND_LABEL[order.kind]} / ${order.styleName}`,
+            itemSpec: `${order.yarnReceipt.colorName} / ${WOOL_KIND_LABEL[order.kind]} / ${order.styleName}`,
             qty: roundQty(Math.max(receivedQty - usedQty + recoveredQty, 0)),
             unit: 'kg',
-            locationText: resolveKnittingWaitProcessLocationText(order, fallbackLocationText),
-            sourceNo: receipt?.receiptNo || `领料-${order.knittingOrderNo}`,
+            locationText: resolveWoolWaitProcessLocationText(order, fallbackLocationText),
+            sourceNo: receipt?.receiptNo || `领料-${order.woolOrderNo}`,
             remark: `领料 ${roundQty(receivedQty)} kg，用料 ${roundQty(usedQty)} kg，回收 ${roundQty(recoveredQty)} kg`,
           }
         }),
@@ -3272,35 +3276,35 @@ export function listKnittingWarehouseInventory(mode: KnittingWarehouseMode): Kni
     })
   }
 
-  const inboundMap = new Map(listKnittingWaitHandoverInboundRecords().map((record) => [record.knittingOrderId, record]))
-  const handoutMap = new Map(listKnittingWaitHandoverHandoutRecords().map((record) => [record.knittingOrderId, record]))
-  return listKnittingWorkOrders()
-    .filter((order) => inboundMap.has(order.knittingOrderId))
+  const inboundMap = new Map(listWoolWaitHandoverInboundRecords().map((record) => [record.woolOrderId, record]))
+  const handoutMap = new Map(listWoolWaitHandoverHandoutRecords().map((record) => [record.woolOrderId, record]))
+  return listWoolWorkOrders()
+    .filter((order) => inboundMap.has(order.woolOrderId))
     .flatMap((order, index) => {
-      const inbound = inboundMap.get(order.knittingOrderId)
-      const handout = handoutMap.get(order.knittingOrderId)
+      const inbound = inboundMap.get(order.woolOrderId)
+      const handout = handoutMap.get(order.woolOrderId)
       const inboundQty = inbound?.inboundQty || 0
       const handoutQty = handout?.handoutQty || 0
-      const baseInboundFlow: KnittingWarehouseFlowRecord = {
-        flowId: `KWH-FLOW-IN-${order.knittingOrderId}`,
+      const baseInboundFlow: WoolWarehouseFlowRecord = {
+        flowId: `KWH-FLOW-IN-${order.woolOrderId}`,
         flowType: '加工入仓',
-        sourceNo: inbound?.inboundNo || `加工入仓-${order.knittingOrderNo}`,
+        sourceNo: inbound?.inboundNo || `加工入仓-${order.woolOrderNo}`,
         qty: inboundQty,
         unit: order.qtyUnit,
         operatedAt: inbound?.inboundAt || order.scheduledEndAt,
-        operatorName: inbound?.operatorName || OWN_KNITTING_FACTORY_NAME,
+        operatorName: inbound?.operatorName || OWN_WOOL_FACTORY_NAME,
         remark: inbound?.statusText || '已入待交出仓',
       }
-      const buildHandoutFlow = (qty: number, unit: string): KnittingWarehouseFlowRecord[] => qty > 0
+      const buildHandoutFlow = (qty: number, unit: string): WoolWarehouseFlowRecord[] => qty > 0
         ? [
             {
-              flowId: `KWH-FLOW-OUT-${order.knittingOrderId}`,
+              flowId: `KWH-FLOW-OUT-${order.woolOrderId}`,
               flowType: '交出出仓' as const,
-              sourceNo: handout?.handoutNo || `交出-${order.knittingOrderNo}`,
+              sourceNo: handout?.handoutNo || `交出-${order.woolOrderNo}`,
               qty: -qty,
               unit,
               operatedAt: handout?.handoutAt || order.scheduledEndAt,
-              operatorName: OWN_KNITTING_FACTORY_NAME,
+              operatorName: OWN_WOOL_FACTORY_NAME,
               remark: `交出给${order.downstreamTarget}`,
             },
           ]
@@ -3319,7 +3323,7 @@ export function listKnittingWarehouseInventory(mode: KnittingWarehouseMode): Kni
             const locationText = location ? `${location.areaName} / ${location.locationCode}` : '待分配库位'
             const itemName = panel.partName
             const itemSpec = `${order.styleName} / ${panel.colorName} / ${panel.sizeCode}`
-            const flowRecords: KnittingWarehouseFlowRecord[] = [
+            const flowRecords: WoolWarehouseFlowRecord[] = [
               {
                 ...baseInboundFlow,
                 flowId: `${baseInboundFlow.flowId}-${panelIndex + 1}`,
@@ -3334,11 +3338,11 @@ export function listKnittingWarehouseInventory(mode: KnittingWarehouseMode): Kni
               })),
             ]
             return {
-              inventoryId: `KWH-PART-${order.knittingOrderId}-${panel.partName}-${panel.colorName}-${panel.sizeCode}`,
+              inventoryId: `KWH-PART-${order.woolOrderId}-${panel.partName}-${panel.colorName}-${panel.sizeCode}`,
               warehouseMode: mode,
               inventoryObjectType: '部位',
-              knittingOrderId: order.knittingOrderId,
-              knittingOrderNo: order.knittingOrderNo,
+              woolOrderId: order.woolOrderId,
+              woolOrderNo: order.woolOrderNo,
               taskNo: order.taskNo,
               kind: order.kind,
               productionOrderNo: order.productionOrderNo,
@@ -3350,23 +3354,23 @@ export function listKnittingWarehouseInventory(mode: KnittingWarehouseMode): Kni
               locationText,
               statusText: panelHandoutQty > 0 ? '已交出' : '待交出',
               detailLines: [{
-                detailId: `KWH-PART-DETAIL-${order.knittingOrderId}-${panelIndex + 1}`,
-                knittingOrderNo: order.knittingOrderNo,
+                detailId: `KWH-PART-DETAIL-${order.woolOrderId}-${panelIndex + 1}`,
+                woolOrderNo: order.woolOrderNo,
                 productionOrderNo: order.productionOrderNo,
                 itemName,
                 itemSpec,
                 qty: currentQty,
                 unit: '片',
                 locationText,
-                sourceNo: inbound?.inboundNo || `加工入仓-${order.knittingOrderNo}`,
+                sourceNo: inbound?.inboundNo || `加工入仓-${order.woolOrderNo}`,
                 remark: `入仓 ${panelInboundQty} 片，交出 ${panelHandoutQty} 片，去向 ${order.downstreamTarget}`,
               }],
               flowRecords,
-            } satisfies KnittingWarehouseInventoryItem
+            } satisfies WoolWarehouseInventoryItem
           })
       }
 
-      const flowRecords: KnittingWarehouseFlowRecord[] = [
+      const flowRecords: WoolWarehouseFlowRecord[] = [
         {
           ...baseInboundFlow,
         },
@@ -3376,67 +3380,67 @@ export function listKnittingWarehouseInventory(mode: KnittingWarehouseMode): Kni
       const locationText = location ? `${location.areaName} / ${location.locationCode}` : '待分配库位'
       const currentQty = roundQty(Math.max(inboundQty - handoutQty, 0))
       return {
-        inventoryId: `KWH-INV-${order.knittingOrderId}`,
+        inventoryId: `KWH-INV-${order.woolOrderId}`,
         warehouseMode: mode,
         inventoryObjectType: '整件',
-        knittingOrderId: order.knittingOrderId,
-        knittingOrderNo: order.knittingOrderNo,
+        woolOrderId: order.woolOrderId,
+        woolOrderNo: order.woolOrderNo,
         taskNo: order.taskNo,
         kind: order.kind,
         productionOrderNo: order.productionOrderNo,
         styleName: order.styleName,
-        itemName: order.kind === 'PART_PANEL' ? '针织部位片' : '整件针织半成品',
+        itemName: order.kind === 'PART_PANEL' ? '毛织部位片' : '整件毛织半成品',
         itemSpec: `${order.styleNo} / ${order.colorName} / ${order.sizeRange}`,
         currentQty,
         unit: order.qtyUnit,
         locationText,
         statusText: handoutQty > 0 ? '已交出' : '待交出',
         detailLines: [{
-          detailId: `KWH-WHOLE-DETAIL-${order.knittingOrderId}`,
-          knittingOrderNo: order.knittingOrderNo,
+          detailId: `KWH-WHOLE-DETAIL-${order.woolOrderId}`,
+          woolOrderNo: order.woolOrderNo,
           productionOrderNo: order.productionOrderNo,
-          itemName: '整件针织半成品',
+          itemName: '整件毛织半成品',
           itemSpec: `${order.styleName} / ${order.colorName} / ${order.sizeRange}`,
           qty: currentQty,
           unit: order.qtyUnit,
           locationText,
-          sourceNo: inbound?.inboundNo || `加工入仓-${order.knittingOrderNo}`,
+          sourceNo: inbound?.inboundNo || `加工入仓-${order.woolOrderNo}`,
           remark: `入仓 ${inboundQty}${order.qtyUnit}，交出 ${handoutQty}${order.qtyUnit}，去向 ${order.downstreamTarget}`,
         }],
         flowRecords,
-      } satisfies KnittingWarehouseInventoryItem
+      } satisfies WoolWarehouseInventoryItem
     })
 }
 
-export function getKnittingMachineScheduleSummary(): KnittingMachineScheduleSummary {
-  const schedules = listKnittingMachineSchedules()
+export function getWoolMachineScheduleSummary(): WoolMachineScheduleSummary {
+  const schedules = listWoolMachineSchedules()
   const inUseSchedules = schedules.filter((schedule) => schedule.status !== '空闲')
   return {
     scheduleCount: schedules.length,
-    scheduledWorkOrderCount: new Set(inUseSchedules.map((schedule) => schedule.knittingOrderId).filter(Boolean)).size,
+    scheduledWorkOrderCount: new Set(inUseSchedules.map((schedule) => schedule.woolOrderId).filter(Boolean)).size,
     totalMachineCount: schedules.reduce((sum, schedule) => sum + schedule.machineNos.length, 0),
     inUseMachineCount: inUseSchedules.reduce((sum, schedule) => sum + schedule.machineNos.length, 0),
     idleMachineCount: schedules
       .filter((schedule) => schedule.status === '空闲')
       .reduce((sum, schedule) => sum + schedule.machineNos.length, 0),
     partPanelScheduleCount: inUseSchedules.filter((schedule) => {
-      const order = schedule.knittingOrderId ? getKnittingWorkOrderById(schedule.knittingOrderId) : undefined
+      const order = schedule.woolOrderId ? getWoolWorkOrderById(schedule.woolOrderId) : undefined
       return order?.kind === 'PART_PANEL'
     }).length,
     delayedScheduleCount: schedules.filter((schedule) => schedule.status === '延误').length,
   }
 }
 
-export function getKnittingWorkOrderKindLabel(kind: KnittingWorkOrderKind): string {
-  return KNITTING_KIND_LABEL[kind]
+export function getWoolWorkOrderKindLabel(kind: WoolWorkOrderKind): string {
+  return WOOL_KIND_LABEL[kind]
 }
 
-export function getKnittingWorkOrderStatusLabel(status: KnittingWorkOrderStatus): string {
-  return KNITTING_STATUS_LABEL[status]
+export function getWoolWorkOrderStatusLabel(status: WoolWorkOrderStatus): string {
+  return WOOL_STATUS_LABEL[status]
 }
 
-export function getKnittingWorkOrderSummary(): KnittingWorkOrderSummary {
-  const orders = listKnittingWorkOrders()
+export function getWoolWorkOrderSummary(): WoolWorkOrderSummary {
+  const orders = listWoolWorkOrders()
   return {
     total: orders.length,
     wholeGarmentCount: orders.filter((order) => order.kind === 'WHOLE_GARMENT').length,
@@ -3445,8 +3449,8 @@ export function getKnittingWorkOrderSummary(): KnittingWorkOrderSummary {
     waitPickupCount: orders.filter((order) => order.status === 'WAIT_PICKUP').length,
     pickupInProgressCount: orders.filter((order) => order.status === 'PICKUP_IN_PROGRESS').length,
     waitMachineScheduleCount: orders.filter((order) => order.status === 'WAIT_MACHINE_SCHEDULE').length,
-    flatKnittingCount: orders.filter((order) =>
-      order.status === 'FLAT_KNITTING'
+    flatWoolCount: orders.filter((order) =>
+      order.status === 'FLAT_WOOL'
       || order.nodes.some((node) => node.nodeName === '横机成片' && node.status === '进行中'),
     ).length,
     waitFeiTicketCount: orders.filter((order) => order.status === 'WAIT_FEI_TICKET').length,

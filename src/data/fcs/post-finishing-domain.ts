@@ -2,7 +2,7 @@ import { productionOrders, type ProductionOrder } from './production-orders.ts'
 
 export type PostFinishingRouteMode = '需要后道加工' | '无需后道加工'
 export type PostFinishingActionType = '扫码收货' | '质检' | '后道' | '复检'
-export type PostFinishingSourceFactoryType = '车缝厂' | '针织厂' | '未关联任务'
+export type PostFinishingSourceFactoryType = '车缝厂' | '毛织厂' | '未关联任务'
 export type PostFinishingQcResult = '全数合规' | '部分不合格' | '全数不合格'
 export type PostFinishingNeedFlag = '开扣眼' | '装扣子' | '熨烫' | '包装'
 export type PostFinishingTaskStatus = '待上游交出' | '待收货' | '待质检' | '质检中' | '待后道' | '后道中' | '待复检' | '待交出' | '已完成'
@@ -460,7 +460,7 @@ export interface PostFinishingUpstreamHandover {
   handoverRecordId: string
   handoverRecordNo: string
   qrCode: string
-  sourceFactoryType: '车缝任务' | '针织任务'
+  sourceFactoryType: '车缝任务' | '毛织任务'
   sourceFactoryName: string
   sourceTaskNo: string
   productionOrderNo: string
@@ -824,7 +824,7 @@ function resolvePostTaskStatus(input: {
 
 function postTaskCurrentNode(status: PostFinishingTaskStatus): string {
   const nodeMap: Record<PostFinishingTaskStatus, string> = {
-    待上游交出: '等待车缝/针织交出',
+    待上游交出: '等待车缝/毛织交出',
     待收货: '扫码收货',
     待质检: '质检',
     质检中: '质检',
@@ -953,11 +953,11 @@ const SOURCE_CONTEXTS: PostFinishingSourceContext[] = [
     spuName: 'Sweater Rajut Wanita',
     productionOrderId: 'PO-202603-0005',
     productionOrderNo: 'PO-202603-0005',
-    sourceTaskId: 'TASK-KNIT-202603-011-A',
-    sourceTaskNo: '针织任务-202603-011-A',
-    sourceFactoryId: 'F-KNIT-011',
-    sourceFactoryName: 'PT Knit Central Bogor',
-    sourceFactoryType: '针织厂',
+    sourceTaskId: 'TASK-WOOL-202603-011-A',
+    sourceTaskNo: '毛织任务-202603-011-A',
+    sourceFactoryId: 'F-WOOL-011',
+    sourceFactoryName: 'PT Wool Central Bogor',
+    sourceFactoryType: '毛织厂',
     canCreateWithoutTask: false,
     skuLines: [
       sku('SKU-2024-011-CRM-M', 'SPU-2024-011', 'SPU-2024-011', 'Sweater Rajut Wanita', 'Cream', 'M', 160),
@@ -974,11 +974,11 @@ const SOURCE_CONTEXTS: PostFinishingSourceContext[] = [
     spuName: 'Cardigan Wanita',
     productionOrderId: 'PO-202603-0006',
     productionOrderNo: 'PO-202603-0006',
-    sourceTaskId: 'TASK-KNIT-202603-012-A',
-    sourceTaskNo: '针织任务-202603-012-A',
-    sourceFactoryId: 'F-KNIT-012',
-    sourceFactoryName: 'PT Nusa Knit Factory',
-    sourceFactoryType: '针织厂',
+    sourceTaskId: 'TASK-WOOL-202603-012-A',
+    sourceTaskNo: '毛织任务-202603-012-A',
+    sourceFactoryId: 'F-WOOL-012',
+    sourceFactoryName: 'PT Nusa Wool Factory',
+    sourceFactoryType: '毛织厂',
     canCreateWithoutTask: false,
     skuLines: [sku('SKU-2024-012-BGE-M', 'SPU-2024-012', 'SPU-2024-012', 'Cardigan Wanita', 'Beige', 'M', 260)],
   },
@@ -1024,8 +1024,8 @@ const SOURCE_CONTEXTS: PostFinishingSourceContext[] = [
 ]
 
 const UPSTREAM_HANDOVER_RECORDS: PostFinishingUpstreamHandover[] = SOURCE_CONTEXTS.slice(0, 4).map((context, index) => {
-  const sourceFactoryType: PostFinishingUpstreamHandover['sourceFactoryType'] = context.sourceFactoryType === '针织厂' ? '针织任务' : '车缝任务'
-  const recordNo = `${sourceFactoryType === '针织任务' ? 'KNIT' : 'SEW'}-HO-202605-${pad(index + 1)}`
+  const sourceFactoryType: PostFinishingUpstreamHandover['sourceFactoryType'] = context.sourceFactoryType === '毛织厂' ? '毛织任务' : '车缝任务'
+  const recordNo = `${sourceFactoryType === '毛织任务' ? 'WOOL' : 'SEW'}-HO-202605-${pad(index + 1)}`
   return {
     handoverRecordId: `PF-UP-HO-${pad(index + 1)}`,
     handoverRecordNo: recordNo,

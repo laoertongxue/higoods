@@ -326,7 +326,7 @@ function inferPatternMaterialType(order: ProductionOrder): PatternMaterialType {
     .join(' ')
     .toLowerCase()
 
-  if (combinedText.includes('针织') || combinedText.includes('knit')) return 'KNIT'
+  if (combinedText.includes('毛织') || combinedText.includes('wool')) return 'WOOL'
   if (combinedText.includes('梭织') || combinedText.includes('布料') || combinedText.includes('woven')) return 'WOVEN'
   return 'UNKNOWN'
 }

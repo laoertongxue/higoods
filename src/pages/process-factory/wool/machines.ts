@@ -1,17 +1,17 @@
 import { escapeHtml } from '../../../utils'
 import { appStore } from '../../../state/store.ts'
 import {
-  listKnittingMachines,
-  type KnittingMachine,
-  type KnittingMachineStatus,
-} from '../../../data/fcs/knitting-task-domain.ts'
+  listWoolMachines,
+  type WoolMachine,
+  type WoolMachineStatus,
+} from '../../../data/fcs/wool-task-domain.ts'
 import {
-  buildKnittingMachineScheduleLink,
-  buildKnittingMachinesLink,
-  buildKnittingWorkOrdersLink,
+  buildWoolMachineScheduleLink,
+  buildWoolMachinesLink,
+  buildWoolWorkOrdersLink,
 } from '../../../data/fcs/fcs-route-links.ts'
 import {
-  paginateKnittingItems,
+  paginateWoolItems,
   renderBadge,
   renderMetricCard,
   renderPageHeader,
@@ -20,7 +20,7 @@ import {
   renderTable,
 } from './shared'
 
-function renderMachineStatusBadge(status: KnittingMachineStatus): string {
+function renderMachineStatusBadge(status: WoolMachineStatus): string {
   const tone =
     status === '生产中'
       ? 'info'
@@ -38,8 +38,8 @@ function renderTopActions(): string {
   return `
     <div class="flex flex-wrap gap-2">
       <button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-nav="${escapeHtml(buildMachineDialogLink('create'))}">新增横机</button>
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildKnittingMachineScheduleLink())}">查看横机排产</button>
-      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildKnittingWorkOrdersLink())}">返回加工单</button>
+      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildWoolMachineScheduleLink())}">查看横机排产</button>
+      <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildWoolWorkOrdersLink())}">返回加工单</button>
     </div>
   `
 }
@@ -48,7 +48,7 @@ function buildMachineDialogLink(dialog: 'create' | 'edit' | 'maintenance', machi
   const params = new URLSearchParams()
   params.set('dialog', dialog)
   if (machineNo) params.set('machineNo', machineNo)
-  return `${buildKnittingMachinesLink()}?${params.toString()}`
+  return `${buildWoolMachinesLink()}?${params.toString()}`
 }
 
 function getCurrentDialogState(): { dialog: string; machineNo: string } {
@@ -61,10 +61,10 @@ function getCurrentDialogState(): { dialog: string; machineNo: string } {
   }
 }
 
-function renderSummaryCards(machines: KnittingMachine[]): string {
+function renderSummaryCards(machines: WoolMachine[]): string {
   return `
     <section class="grid gap-3 md:grid-cols-4 xl:grid-cols-6">
-      ${renderMetricCard('横机总数', String(machines.length), '周哥针织厂')}
+      ${renderMetricCard('横机总数', String(machines.length), '周哥毛织厂')}
       ${renderMetricCard('生产中', String(machines.filter((machine) => machine.status === '生产中').length), '横机成片中')}
       ${renderMetricCard('已排产', String(machines.filter((machine) => machine.status === '已排产').length), '待开工或待排产执行')}
       ${renderMetricCard('空闲', String(machines.filter((machine) => machine.status === '空闲').length), '可用于排机')}
@@ -87,8 +87,8 @@ function renderFilters(): string {
           <span class="text-xs text-muted-foreground">机台组</span>
           <select class="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm">
             <option>全部机台组</option>
-            <option>整件针织组</option>
-            <option>部位针织组</option>
+            <option>整件毛织组</option>
+            <option>部位毛织组</option>
             <option>横机预留组</option>
           </select>
         </label>
@@ -104,15 +104,15 @@ function renderFilters(): string {
           </select>
         </label>
         <div class="flex items-end gap-2">
-          <button type="button" class="h-9 rounded-md bg-blue-600 px-3 text-sm font-medium text-white hover:bg-blue-700" data-nav="${escapeHtml(`${buildKnittingMachinesLink()}?filtered=1`)}">筛选</button>
-          <button type="button" class="h-9 rounded-md border px-3 text-sm hover:bg-muted" data-nav="${escapeHtml(buildKnittingMachinesLink())}">重置</button>
+          <button type="button" class="h-9 rounded-md bg-blue-600 px-3 text-sm font-medium text-white hover:bg-blue-700" data-nav="${escapeHtml(`${buildWoolMachinesLink()}?filtered=1`)}">筛选</button>
+          <button type="button" class="h-9 rounded-md border px-3 text-sm hover:bg-muted" data-nav="${escapeHtml(buildWoolMachinesLink())}">重置</button>
         </div>
       </div>
     `,
   )
 }
 
-function renderMachineRows(machines: KnittingMachine[]): string {
+function renderMachineRows(machines: WoolMachine[]): string {
   return machines
     .map((machine) => `
       <tr class="border-b align-top last:border-b-0">
@@ -120,7 +120,7 @@ function renderMachineRows(machines: KnittingMachine[]): string {
         <td class="px-3 py-3 text-sm">${escapeHtml(machine.machineName)}</td>
         <td class="px-3 py-3 text-sm">${escapeHtml(machine.machineGroupName)}</td>
         <td class="px-3 py-3 text-sm">${escapeHtml(machine.needleType)}</td>
-        <td class="px-3 py-3 text-sm">${escapeHtml(machine.supportedKinds.map((kind) => kind === 'WHOLE_GARMENT' ? '整件针织' : '部位针织').join('、'))}</td>
+        <td class="px-3 py-3 text-sm">${escapeHtml(machine.supportedKinds.map((kind) => kind === 'WHOLE_GARMENT' ? '整件毛织' : '部位毛织').join('、'))}</td>
         <td class="px-3 py-3">${renderMachineStatusBadge(machine.status)}</td>
         <td class="px-3 py-3 text-sm">${escapeHtml(machine.currentTaskNo || '未占用')}</td>
         <td class="px-3 py-3 text-sm">${escapeHtml(machine.dailyCapacityText)}</td>
@@ -129,7 +129,7 @@ function renderMachineRows(machines: KnittingMachine[]): string {
         <td class="px-3 py-3 text-sm">${escapeHtml(machine.remark)}</td>
         <td class="px-3 py-3">
           <div class="flex flex-wrap gap-2">
-            <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildKnittingMachineScheduleLink())}">查看排产</button>
+            <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildWoolMachineScheduleLink())}">查看排产</button>
             <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildMachineDialogLink('edit', machine.machineNo))}">编辑</button>
             <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildMachineDialogLink('maintenance', machine.machineNo))}">维修</button>
           </div>
@@ -139,7 +139,7 @@ function renderMachineRows(machines: KnittingMachine[]): string {
     .join('')
 }
 
-function renderMachineDialog(machines: KnittingMachine[]): string {
+function renderMachineDialog(machines: WoolMachine[]): string {
   const { dialog, machineNo } = getCurrentDialogState()
   if (!dialog) return ''
   const machine = machines.find((item) => item.machineNo === machineNo)
@@ -154,7 +154,7 @@ function renderMachineDialog(machines: KnittingMachine[]): string {
       <section class="w-full max-w-2xl rounded-lg border bg-background shadow-xl">
         <div class="flex items-center justify-between border-b px-5 py-4">
           <h2 class="text-base font-semibold">${escapeHtml(title)}</h2>
-          <button type="button" class="rounded-md border px-2 py-1 text-sm hover:bg-muted" data-nav="${escapeHtml(buildKnittingMachinesLink())}">关闭</button>
+          <button type="button" class="rounded-md border px-2 py-1 text-sm hover:bg-muted" data-nav="${escapeHtml(buildWoolMachinesLink())}">关闭</button>
         </div>
         <div class="grid gap-4 p-5 md:grid-cols-2">
           <label class="text-sm">
@@ -164,8 +164,8 @@ function renderMachineDialog(machines: KnittingMachine[]): string {
           <label class="text-sm">
             <span class="text-xs text-muted-foreground">机台组</span>
             <select class="mt-1 h-9 w-full rounded-md border bg-background px-3 text-sm">
-              <option ${machine?.machineGroupName === '整件针织组' ? 'selected' : ''}>整件针织组</option>
-              <option ${machine?.machineGroupName === '部位针织组' ? 'selected' : ''}>部位针织组</option>
+              <option ${machine?.machineGroupName === '整件毛织组' ? 'selected' : ''}>整件毛织组</option>
+              <option ${machine?.machineGroupName === '部位毛织组' ? 'selected' : ''}>部位毛织组</option>
               <option ${machine?.machineGroupName === '横机预留组' ? 'selected' : ''}>横机预留组</option>
             </select>
           </label>
@@ -185,20 +185,20 @@ function renderMachineDialog(machines: KnittingMachine[]): string {
           </label>
         </div>
         <div class="flex justify-end gap-2 border-t px-5 py-4">
-          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildKnittingMachinesLink())}">取消</button>
-          <button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-nav="${escapeHtml(buildKnittingMachinesLink())}">保存</button>
+          <button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-nav="${escapeHtml(buildWoolMachinesLink())}">取消</button>
+          <button type="button" class="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700" data-nav="${escapeHtml(buildWoolMachinesLink())}">保存</button>
         </div>
       </section>
     </div>
   `
 }
 
-export function renderCraftKnittingMachinesPage(): string {
-  const machines = listKnittingMachines()
-  const paging = paginateKnittingItems(machines, 'machinesPage', 10)
+export function renderCraftWoolMachinesPage(): string {
+  const machines = listWoolMachines()
+  const paging = paginateWoolItems(machines, 'machinesPage', 10)
   return `
     <div class="space-y-4 p-4">
-      ${renderPageHeader('横机设备', '维护周哥针织厂横机档案，排机动作只从可用横机中选择。', renderTopActions())}
+      ${renderPageHeader('横机设备', '维护周哥毛织厂横机档案，排机动作只从可用横机中选择。', renderTopActions())}
       ${renderSummaryCards(machines)}
       ${renderFilters()}
       ${renderSection(
@@ -214,10 +214,10 @@ export function renderCraftKnittingMachinesPage(): string {
   `
 }
 
-export function handleCraftKnittingMachinesEvent(target: HTMLElement): boolean {
-  const actionNode = target.closest<HTMLElement>('[data-knitting-machine-action]')
+export function handleCraftWoolMachinesEvent(target: HTMLElement): boolean {
+  const actionNode = target.closest<HTMLElement>('[data-wool-machine-action]')
   if (!actionNode) return false
-  const action = actionNode.dataset.knittingMachineAction
+  const action = actionNode.dataset.woolMachineAction
   const machineNo = actionNode.dataset.machineNo
   if (action === 'create') window.alert('原型动作：新增横机设备')
   if (action === 'edit') window.alert(`原型动作：编辑横机 ${machineNo || ''}`)

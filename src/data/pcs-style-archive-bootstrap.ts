@@ -62,7 +62,7 @@ function resolveCategory(styleName: string): { categoryName: string; subCategory
     const option = findOptionByKeywords(WORKSPACE_CATEGORIES, ['卫衣', '上衣']) ?? pickOptionByIndex(WORKSPACE_CATEGORIES, 13)
     return { categoryName: option.name || '卫衣', subCategoryName: '' }
   }
-  if (styleName.includes('毛衣') || styleName.includes('针织') || styleName.includes('开衫') || lowered.includes('sweater')) {
+  if (styleName.includes('毛衣') || styleName.includes('毛织') || styleName.includes('开衫') || lowered.includes('sweater')) {
     const option = findOptionByKeywords(WORKSPACE_CATEGORIES, ['开衫', '毛衣']) ?? pickOptionByIndex(WORKSPACE_CATEGORIES, 5)
     return { categoryName: option.name || '开衫', subCategoryName: '' }
   }

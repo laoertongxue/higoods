@@ -11,8 +11,8 @@ import {
 } from '../browser-storage.ts'
 import { getFactoryMasterRecordById, listFactoryMasterRecords } from './factory-master-store.ts'
 import {
-  OWN_KNITTING_FACTORY_ID,
-  OWN_KNITTING_FACTORY_NAME,
+  OWN_WOOL_FACTORY_ID,
+  OWN_WOOL_FACTORY_NAME,
   TEST_FACTORY_ID,
   TEST_FACTORY_NAME,
 } from './factory-mock-data.ts'
@@ -270,7 +270,7 @@ export function generateFactoryPdaUsers(
 }
 
 const fullCapabilityTestFactoryPdaUsers = createFactoryPdaUsersForFactory(TEST_FACTORY_ID, TEST_FACTORY_NAME)
-const ownKnittingFactoryPdaUsers = createFactoryPdaUsersForFactory(OWN_KNITTING_FACTORY_ID, OWN_KNITTING_FACTORY_NAME)
+const ownWoolFactoryPdaUsers = createFactoryPdaUsersForFactory(OWN_WOOL_FACTORY_ID, OWN_WOOL_FACTORY_NAME)
 const onboardingOfficialFactoryPdaUsers: FactoryPdaUser[] = [34, 35, 36].map((seed) => {
   const factoryId = `FACTORY-ONBOARD-${String(seed).padStart(4, '0')}`
   const now = '2026-05-09 16:00:00'
@@ -294,7 +294,7 @@ const onboardingOfficialFactoryPdaUsers: FactoryPdaUser[] = [34, 35, 36].map((se
 export const initialFactoryPdaUsers: FactoryPdaUser[] = [
   ...generateFactoryPdaUsers(indonesiaFactories).filter((user) => user.factoryId !== TEST_FACTORY_ID),
   ...fullCapabilityTestFactoryPdaUsers,
-  ...ownKnittingFactoryPdaUsers,
+  ...ownWoolFactoryPdaUsers,
   ...onboardingOfficialFactoryPdaUsers,
 ]
 
@@ -421,7 +421,7 @@ export const initialFactoryPdaRoles: FactoryPdaRole[] = [
     .filter((factory) => factory.status === 'ACTIVE' && factory.id !== TEST_FACTORY_ID)
     .flatMap((factory) => generatePresetRolesForFactory(factory.id, INIT_NOW)),
   ...generatePresetRolesForFactory(TEST_FACTORY_ID, INIT_NOW),
-  ...generatePresetRolesForFactory(OWN_KNITTING_FACTORY_ID, INIT_NOW),
+  ...generatePresetRolesForFactory(OWN_WOOL_FACTORY_ID, INIT_NOW),
   ...[34, 35, 36].flatMap((seed) => generatePresetRolesForFactory(`FACTORY-ONBOARD-${String(seed).padStart(4, '0')}`, '2026-05-09 16:00:00')),
 ]
 

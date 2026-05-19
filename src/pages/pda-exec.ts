@@ -14,7 +14,7 @@ import {
   resolvePdaTaskExecPath,
 } from '../data/fcs/pda-cutting-execution-source.ts'
 import { listPdaGenericTasksByProcess } from '../data/fcs/pda-task-mock-factory.ts'
-import { getKnittingWorkOrderByTaskId } from '../data/fcs/knitting-task-domain.ts'
+import { getWoolWorkOrderByTaskId } from '../data/fcs/wool-task-domain.ts'
 import {
   getMobileExecutionTaskById,
   getMobileTaskTabKey,
@@ -109,12 +109,12 @@ function getQtyUnitLabel(unit: string | undefined): string {
 }
 
 function resolveTaskQtyDisplayMeta(task: ProcessTask, displayProcessName = getTaskProcessDisplayName(task)): { label: string; valueText: string } {
-  const knittingOrder = getKnittingWorkOrderByTaskId(task.taskId)
-  if (knittingOrder) {
-    const label = knittingOrder.kind === 'PART_PANEL' ? '本单针织部位片数（片）' : '本单针织整件数（件）'
+  const woolOrder = getWoolWorkOrderByTaskId(task.taskId)
+  if (woolOrder) {
+    const label = woolOrder.kind === 'PART_PANEL' ? '本单毛织部位片数（片）' : '本单毛织整件数（件）'
     return {
       label,
-      valueText: `${label.replace(/（.*$/, '')}：${knittingOrder.plannedQty} ${knittingOrder.qtyUnit}`,
+      valueText: `${label.replace(/（.*$/, '')}：${woolOrder.plannedQty} ${woolOrder.qtyUnit}`,
     }
   }
 

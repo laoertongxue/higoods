@@ -888,7 +888,7 @@
                   - button "查看当前生效技术包" [ref=e1068]:
                     - img [ref=e1069]
                     - text: 查看当前生效技术包
-            - row "DEM-202603-0084 26031184 SPU-TEE-084 针织撞色短袖上衣 普通 已转单 已启用 TDV-LEGACY-020 V1 2,800 2026-04-05 PO-202603-084 查看详情 查看当前生效技术包" [ref=e1072]:
+            - row "DEM-202603-0084 26031184 SPU-TEE-084 毛织撞色短袖上衣 普通 已转单 已启用 TDV-LEGACY-020 V1 2,800 2026-04-05 PO-202603-084 查看详情 查看当前生效技术包" [ref=e1072]:
               - cell [ref=e1073]:
                 - checkbox [ref=e1074]
               - cell "DEM-202603-0084" [ref=e1075]
@@ -896,9 +896,9 @@
                 - generic [ref=e1077]:
                   - generic [ref=e1078]: "26031184"
                   - button [ref=e1079]
-              - cell "SPU-TEE-084 针织撞色短袖上衣" [ref=e1081]:
+              - cell "SPU-TEE-084 毛织撞色短袖上衣" [ref=e1081]:
                 - paragraph [ref=e1082]: SPU-TEE-084
-                - paragraph [ref=e1083]: 针织撞色短袖上衣
+                - paragraph [ref=e1083]: 毛织撞色短袖上衣
               - cell "普通" [ref=e1084]:
                 - generic [ref=e1085]: 普通
               - cell "已转单" [ref=e1086]:
