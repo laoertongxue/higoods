@@ -317,10 +317,3 @@ export function buildSpecialCraftPreferredWarehousePath(
     ? buildSpecialCraftWaitHandoverWarehousePath(input)
     : buildSpecialCraftWaitProcessWarehousePath(input)
 }
-
-export function buildSpecialCraftStatisticsPath(
-  input: Pick<SpecialCraftOperationDefinition, 'operationId'> | string,
-): string {
-  const slug = typeof input === 'string' ? normalizeOperationSlug(input) : buildSpecialCraftOperationSlug(input)
-  return `/fcs/process-factory/special-craft/${slug}/statistics`
-}

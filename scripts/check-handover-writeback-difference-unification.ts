@@ -104,7 +104,6 @@ includes('src/data/fcs/process-statistics-domain.ts', ['listProcessHandoverRecor
 
 includes('src/pages/process-factory/printing/statistics.ts', ['有差异交出记录数', '待回写交出记录数', '已回写交出记录数'])
 includes('src/pages/process-factory/dyeing/reports.ts', ['有差异交出记录数', '待回写交出记录数', '已回写交出记录数'])
-includes('src/pages/process-factory/special-craft/statistics.ts', ['报废裁片数量', '货损裁片数量', '有差异交出记录数'])
 
 const requiredCrafts = [
   ['PRINT', '印花'],

@@ -39,25 +39,6 @@ test('染色统计和详情统计 Tab 使用同源统计口径', async ({ page }
   await expect(page.getByText('包装完成面料米数').first()).toBeVisible()
 })
 
-test('特殊工艺统计读取菲票、裁片数量和差异记录', async ({ page }) => {
-  await page.goto('/fcs/process-factory/special-craft/sc-op-008/statistics')
-  await expect(page.getByRole('heading', { name: /统计/ })).toBeVisible()
-  await expect(page.getByText('待加工裁片数量').first()).toBeVisible()
-  await expect(page.getByText('加工完成裁片数量').first()).toBeVisible()
-  await expect(page.getByText('当前裁片数量').first()).toBeVisible()
-  await expect(page.getByText('累计报废裁片数量').first()).toBeVisible()
-  await expect(page.getByText('累计货损裁片数量').first()).toBeVisible()
-  await expect(page.getByText('关联菲票数量').first()).toBeVisible()
-
-  const detailPath = '/fcs/process-factory/special-craft/sc-op-008/work-orders/SC-TASK-SC-OP-008-02-WO-001-'
-  await page.goto(`${detailPath}?tab=fei`)
-  await expect(page.getByRole('heading', { name: '绑定菲票' })).toBeVisible()
-  await expect(page.getByText('当前裁片数量').first()).toBeVisible()
-  await page.goto(`${detailPath}?tab=difference`)
-  await expect(page.getByRole('heading', { name: '差异上报' })).toBeVisible()
-  await expect(page.getByText('差异裁片数量').first()).toBeVisible()
-})
-
 test('后道统计读取后道、质检、复检、交出和差异记录', async ({ page }) => {
   await page.goto('/fcs/craft/post-finishing/statistics')
   await expect(page.getByRole('heading', { name: '后道统计' })).toBeVisible()

@@ -13,7 +13,7 @@ type MetricCard = {
   tone?: 'slate' | 'blue' | 'green' | 'amber' | 'red' | 'violet'
 }
 
-type SubNavKey = 'tasks' | 'wait-process' | 'wait-handover' | 'statistics'
+type SubNavKey = 'tasks' | 'wait-process' | 'wait-handover'
 
 interface SpecialCraftFactoryContextGuard {
   factoryId: string | null

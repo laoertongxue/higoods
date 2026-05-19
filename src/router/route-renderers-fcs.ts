@@ -469,10 +469,6 @@ export const renderSpecialCraftWaitHandoverWarehousePage = createAsyncRenderer(
   () => import('../pages/process-factory/special-craft/warehouse'),
   'renderSpecialCraftWaitHandoverWarehousePage',
 )
-export const renderSpecialCraftStatisticsPage = createAsyncRenderer(
-  () => import('../pages/process-factory/special-craft/statistics'),
-  'renderSpecialCraftStatisticsPage',
-)
 export const renderTraceMappingPage = createAsyncRenderer(() => import('../pages/trace'), 'renderTraceMappingPage')
 export const renderTraceParentCodesPage = createAsyncRenderer(
   () => import('../pages/trace'),

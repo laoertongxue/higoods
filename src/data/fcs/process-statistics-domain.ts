@@ -11,8 +11,6 @@ import {
   type ProcessWarehouseObjectType,
   type ProcessWarehouseRecord,
 } from './process-warehouse-domain.ts'
-import { listCuttingSpecialCraftFeiTicketBindings, listSpecialCraftQtyDifferenceReports } from './cutting/special-craft-fei-ticket-flow.ts'
-import { getSpecialCraftTaskOrders, listSpecialCraftTaskOrders } from './special-craft-task-orders.ts'
 import {
   listPostFinishingActionRecords,
   listPostFinishingQcOrders,
@@ -104,30 +102,6 @@ export interface DyeingExecutionStatistics extends BaseExecutionStatistics {
   setAverageHours: number
   rollAverageHours: number
   packAverageHours: number
-}
-
-export interface SpecialCraftExecutionStatistics extends BaseExecutionStatistics {
-  craftRows: StatusCountRow[]
-  taskOrderCount: number
-  waitProcessPieceQty: number
-  receivedPieceQty: number
-  completedPieceQty: number
-  waitHandoverPieceQty: number
-  handedOverPieceQty: number
-  receivedHandoverPieceQty: number
-  diffPieceQty: number
-  currentPieceQty: number
-  scrapPieceQty: number
-  damagePieceQty: number
-  feiTicketCount: number
-  waitProcessFeiTicketCount: number
-  completedFeiTicketCount: number
-  differenceFeiTicketCount: number
-  scrapFeiTicketCount: number
-  damageFeiTicketCount: number
-  lessReceivePieceQty: number
-  moreReceivePieceQty: number
-  averageProcessHours: number
 }
 
 export interface PostFinishingExecutionStatistics extends BaseExecutionStatistics {
@@ -487,84 +461,6 @@ export function getDyeingExecutionStatistics(filter: ProcessStatisticsFilter = {
 
 export function getDyeingDashboardMetrics(filter: ProcessStatisticsFilter = {}): DashboardMetrics<DyeingExecutionStatistics> {
   const statistics = getDyeingExecutionStatistics(filter)
-  return {
-    statistics,
-    statusRows: statistics.statusRows,
-    factoryRows: statistics.factoryRows,
-  }
-}
-
-export function getSpecialCraftExecutionStatistics(filter: ProcessStatisticsFilter = {}): SpecialCraftExecutionStatistics {
-  const taskOrders = (filter.craftName
-    ? getSpecialCraftTaskOrders(undefined).filter((order) => order.operationName === filter.craftName)
-    : listSpecialCraftTaskOrders())
-    .filter((order) => (!filter.factoryId || order.factoryId === filter.factoryId) && (!filter.workOrderId || order.taskOrderId === filter.workOrderId))
-  const records = filterWarehouseRecords('SPECIAL_CRAFT', filter)
-  const fakeOrders: ProcessWorkOrder[] = taskOrders.map((order) => ({
-    workOrderId: order.taskOrderId,
-    workOrderNo: order.taskOrderNo,
-    processType: 'PRINT',
-    sourceDemandIds: [order.productionOrderId],
-    productionOrderIds: [order.productionOrderNo],
-    factoryId: order.factoryId,
-    factoryName: order.factoryName,
-    plannedQty: order.planQty,
-    plannedUnit: '片',
-    materialSku: order.materialSku || order.partName,
-    materialName: order.partName,
-    materialBatchNos: [],
-    status: order.status as never,
-    statusLabel: order.status,
-    taskId: order.sourceTaskId,
-    taskNo: order.taskOrderNo,
-    taskQrValue: '',
-    executionNodes: [],
-    reviewRecords: [],
-    handoverRecords: [],
-    createdAt: order.createdAt,
-    updatedAt: order.updatedAt,
-  }))
-  const base = buildBaseStatistics(fakeOrders, records)
-  const bindings = listCuttingSpecialCraftFeiTicketBindings().filter((binding) =>
-    (!filter.craftName || binding.operationName === filter.craftName)
-    && taskOrders.some((order) => order.taskOrderId === binding.taskOrderId),
-  )
-  const qtyReports = listSpecialCraftQtyDifferenceReports().filter((report) =>
-    (!filter.craftName || report.operationName === filter.craftName)
-    && taskOrders.some((order) => order.taskOrderId === report.taskOrderId),
-  )
-  const differences = records.differences
-  return {
-    ...base,
-    taskOrderCount: taskOrders.length,
-    craftRows: statusRows(taskOrders.reduce<Record<string, number>>((result, order) => {
-      result[order.operationName] = (result[order.operationName] || 0) + 1
-      return result
-    }, {})),
-    waitProcessPieceQty: sumWarehouseQty(records.waitProcess, '裁片', 'availableObjectQty'),
-    receivedPieceQty: round(taskOrders.reduce((sum, order) => sum + order.receivedQty, 0)),
-    completedPieceQty: round(taskOrders.reduce((sum, order) => sum + order.completedQty, 0)),
-    waitHandoverPieceQty: sumWarehouseQty(records.waitHandover, '裁片', 'availableObjectQty'),
-    handedOverPieceQty: sumHandoverQty(records.handovers, '裁片', 'handoverObjectQty'),
-    receivedHandoverPieceQty: sumHandoverQty(records.handovers, '裁片', 'receiveObjectQty'),
-    diffPieceQty: sumHandoverQty(records.handovers, '裁片', 'diffObjectQty'),
-    currentPieceQty: round(bindings.reduce((sum, binding) => sum + binding.currentQty, 0)),
-    scrapPieceQty: round(bindings.reduce((sum, binding) => sum + (binding.cumulativeScrapQty || binding.scrapQty || 0), 0) + qtyReports.filter((report) => report.differenceType === '报废').reduce((sum, report) => sum + Math.abs(report.differenceQty), 0)),
-    damagePieceQty: round(bindings.reduce((sum, binding) => sum + (binding.cumulativeDamageQty || binding.damageQty || 0), 0) + qtyReports.filter((report) => report.differenceType === '货损').reduce((sum, report) => sum + Math.abs(report.differenceQty), 0)),
-    feiTicketCount: new Set(bindings.map((binding) => binding.feiTicketNo)).size,
-    waitProcessFeiTicketCount: bindings.filter((binding) => binding.specialCraftFlowStatus === '已接收' || binding.specialCraftFlowStatus === '加工中').length,
-    completedFeiTicketCount: bindings.filter((binding) => binding.specialCraftFlowStatus === '待回仓' || binding.specialCraftFlowStatus === '已回仓').length,
-    differenceFeiTicketCount: bindings.filter((binding) => binding.receiveDifferenceStatus || binding.returnDifferenceStatus || binding.differenceQty).length,
-    scrapFeiTicketCount: bindings.filter((binding) => (binding.scrapQty || 0) > 0).length,
-    damageFeiTicketCount: bindings.filter((binding) => (binding.damageQty || 0) > 0).length,
-    lessReceivePieceQty: round(differences.filter((record) => record.differenceType === '少收').reduce((sum, record) => sum + Math.abs(record.diffObjectQty), 0)),
-    moreReceivePieceQty: round(differences.filter((record) => record.differenceType === '多收').reduce((sum, record) => sum + Math.abs(record.diffObjectQty), 0)),
-    averageProcessHours: calcAverageDuration(taskOrders.flatMap((order) => order.nodeRecords.map((record) => ({ startedAt: record.operatedAt, finishedAt: record.operatedAt })))),
-  }
-}
-
-export function getSpecialCraftDashboardMetrics(filter: ProcessStatisticsFilter = {}): DashboardMetrics<SpecialCraftExecutionStatistics> {
-  const statistics = getSpecialCraftExecutionStatistics(filter)
   return {
     statistics,
     statusRows: statistics.statusRows,

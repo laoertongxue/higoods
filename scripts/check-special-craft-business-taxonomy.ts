@@ -11,7 +11,6 @@ import {
   listSelectableSpecialCraftDefinitions,
 } from '../src/data/fcs/process-craft-dict.ts'
 import {
-  buildSpecialCraftStatisticsPath,
   buildSpecialCraftTaskOrdersPath,
   buildSpecialCraftWarehousePath,
   listEnabledSpecialCraftOperationDefinitions,
@@ -132,7 +131,6 @@ function main(): void {
     assert(menuItem, `${operation.operationName} 缺少一级菜单`)
     assert(menuItem!.children?.some((child) => child.href === buildSpecialCraftTaskOrdersPath(operation)), `${operation.operationName} 缺少任务单菜单`)
     assert(menuItem!.children?.some((child) => child.href === buildSpecialCraftWarehousePath(operation)), `${operation.operationName} 缺少仓库管理菜单`)
-    assert(menuItem!.children?.some((child) => child.href === buildSpecialCraftStatisticsPath(operation)), `${operation.operationName} 缺少统计菜单`)
   })
   assert(
     !pfosItems.some((item) => item.key.includes('pfos-special') && item.title.includes(buildToken('印', '花'))),

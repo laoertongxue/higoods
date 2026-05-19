@@ -1,7 +1,6 @@
 import type { RouteRegistry } from './route-types'
 import {
   buildSpecialCraftOperationSlug,
-  buildSpecialCraftStatisticsPath,
   buildSpecialCraftTaskOrdersPath,
   buildSpecialCraftWarehousePath,
   buildSpecialCraftWaitHandoverWarehousePath,
@@ -130,7 +129,6 @@ import {
   renderPostFinishingWaitProcessWarehousePage,
   renderPostFinishingWorkOrderDetailPage,
   renderPostFinishingWorkOrdersPage,
-  renderSpecialCraftStatisticsPage,
   renderSpecialCraftTaskDetailPage,
   renderSpecialCraftTaskOrdersPage,
   renderSpecialCraftWaitHandoverWarehousePage,
@@ -154,7 +152,6 @@ const specialCraftExactRoutes = Object.fromEntries(
         buildSpecialCraftWarehousePath(operation),
         () => renderRouteRedirect(buildSpecialCraftWaitProcessWarehousePath(operation), `正在跳转到${operation.operationName}待加工仓`),
       ],
-      [buildSpecialCraftStatisticsPath(operation), () => renderSpecialCraftStatisticsPage(operationSlug)],
     ]
   }),
 )

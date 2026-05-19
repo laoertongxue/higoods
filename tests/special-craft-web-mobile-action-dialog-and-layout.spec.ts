@@ -119,7 +119,7 @@ test('特殊工艺上报差异持续关联菲票并同步平台异常结果', as
   await expect(page.locator('body')).toContainText(/异常|差异记录/)
 })
 
-test('特殊工艺页面、移动端和统计不出现后道错误动作，统计保持裁片与菲票口径', async ({ page }) => {
+test('特殊工艺页面和移动端不出现后道错误动作', async ({ page }) => {
   for (const path of [
     '/fcs/process-factory/special-craft/sc-op-008/work-orders/SC-TASK-SC-OP-008-01-WO-001-',
     '/fcs/process-factory/special-craft/sc-op-008/task-orders',

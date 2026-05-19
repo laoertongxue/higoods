@@ -316,31 +316,6 @@ export interface SpecialCraftTaskOrder {
   remark?: string
 }
 
-export interface SpecialCraftTaskStatistic {
-  statisticId: string
-  operationId: string
-  operationName: string
-  factoryId: string
-  factoryName: string
-  date: string
-  taskCount: number
-  planQty: number
-  receivedQty: number
-  completedQty: number
-  waitHandoverQty: number
-  waitPickupTaskCount: number
-  waitProcessTaskCount: number
-  processingTaskCount: number
-  completedTaskCount: number
-  waitHandoverTaskCount: number
-  handedOverTaskCount: number
-  writtenBackTaskCount: number
-  differenceTaskCount: number
-  objectionTaskCount: number
-  abnormalTaskCount: number
-  unit: string
-}
-
 export interface SpecialCraftWarehouseView {
   operation: SpecialCraftOperationDefinition
   factoryIds: string[]
@@ -414,7 +389,6 @@ interface SpecialCraftTaskStore {
   taskOrders: SpecialCraftTaskOrder[]
   workOrders: SpecialCraftTaskWorkOrder[]
   workOrderLines: SpecialCraftTaskWorkOrderLine[]
-  statistics: SpecialCraftTaskStatistic[]
   generationBatches: SpecialCraftTaskGenerationBatch[]
   generationErrors: SpecialCraftTaskGenerationError[]
 }
@@ -1258,66 +1232,6 @@ function buildSeedTaskOrders(): SpecialCraftTaskOrder[] {
   })
 }
 
-function buildStatistics(taskOrders: SpecialCraftTaskOrder[]): SpecialCraftTaskStatistic[] {
-  const grouped = new Map<string, SpecialCraftTaskStatistic>()
-
-  const ensureStatistic = (taskOrder: SpecialCraftTaskOrder): SpecialCraftTaskStatistic => {
-    const date = taskOrder.createdAt.slice(0, 10)
-    const key = `${taskOrder.operationId}::${taskOrder.factoryId}::${date}`
-    const existing = grouped.get(key)
-    if (existing) return existing
-    const next: SpecialCraftTaskStatistic = {
-      statisticId: `STAT-${taskOrder.operationId}-${taskOrder.factoryId}-${date}`,
-      operationId: taskOrder.operationId,
-      operationName: taskOrder.operationName,
-      factoryId: taskOrder.factoryId,
-      factoryName: taskOrder.factoryName,
-      date,
-      taskCount: 0,
-      planQty: 0,
-      receivedQty: 0,
-      completedQty: 0,
-      waitHandoverQty: 0,
-      waitPickupTaskCount: 0,
-      waitProcessTaskCount: 0,
-      processingTaskCount: 0,
-      completedTaskCount: 0,
-      waitHandoverTaskCount: 0,
-      handedOverTaskCount: 0,
-      writtenBackTaskCount: 0,
-      differenceTaskCount: 0,
-      objectionTaskCount: 0,
-      abnormalTaskCount: 0,
-      unit: taskOrder.unit,
-    }
-    grouped.set(key, next)
-    return next
-  }
-
-  taskOrders.forEach((taskOrder) => {
-    const statistic = ensureStatistic(taskOrder)
-    statistic.taskCount += 1
-    statistic.planQty = roundQty(statistic.planQty + taskOrder.planQty)
-    statistic.receivedQty = roundQty(statistic.receivedQty + taskOrder.receivedQty)
-    statistic.completedQty = roundQty(statistic.completedQty + taskOrder.completedQty)
-    statistic.waitHandoverQty = roundQty(statistic.waitHandoverQty + taskOrder.waitHandoverQty)
-    if (taskOrder.status === '待领料') statistic.waitPickupTaskCount += 1
-    if (taskOrder.status === '已入待加工仓') statistic.waitProcessTaskCount += 1
-    if (taskOrder.status === '加工中') statistic.processingTaskCount += 1
-    if (taskOrder.status === '已完成') statistic.completedTaskCount += 1
-    if (taskOrder.status === '待交出') statistic.waitHandoverTaskCount += 1
-    if (taskOrder.status === '已交出') statistic.handedOverTaskCount += 1
-    if (taskOrder.status === '已回写') statistic.writtenBackTaskCount += 1
-    if (taskOrder.status === '差异') statistic.differenceTaskCount += 1
-    if (taskOrder.status === '异议中') statistic.objectionTaskCount += 1
-    if (taskOrder.abnormalStatus !== '无异常' || taskOrder.status === '异常') statistic.abnormalTaskCount += 1
-  })
-
-  return [...grouped.values()].sort((left, right) =>
-    left.date === right.date ? left.factoryName.localeCompare(right.factoryName, 'zh-CN') : right.date.localeCompare(left.date),
-  )
-}
-
 function normalizeWorkOrderPartName(line: SpecialCraftTaskDemandLine, taskOrder: SpecialCraftTaskOrder): string {
   return line.partName || taskOrder.partName || '未命名部位'
 }
@@ -1491,7 +1405,6 @@ function ensureStore(): SpecialCraftTaskStore {
       taskOrders: workOrderBuild.syncedTaskOrders,
       workOrders: workOrderBuild.workOrders,
       workOrderLines: workOrderBuild.workOrderLines,
-      statistics: buildStatistics(workOrderBuild.syncedTaskOrders),
       generationBatches,
       generationErrors,
     }
@@ -1623,7 +1536,6 @@ export function syncSpecialCraftTaskOrderAggregatesFromWorkOrders(taskOrderId: s
     updatedAt: formatDay(0),
   }
   store.taskOrders[taskOrderIndex] = nextTaskOrder
-  store.statistics = buildStatistics(store.taskOrders)
   return nextTaskOrder
 }
 
@@ -1742,18 +1654,6 @@ export function getSpecialCraftWarehouseView(
   }
 }
 
-export function getSpecialCraftStatistics(
-  operationId: string,
-  filters: SpecialCraftTaskFilters = {},
-): SpecialCraftTaskStatistic[] {
-  return ensureStore().statistics.filter((item) => {
-    if (item.operationId !== operationId) return false
-    if (filters.factoryId && item.factoryId !== filters.factoryId) return false
-    if (!withinTimeRange(`${item.date} 00:00:00`, filters.timeRange)) return false
-    return true
-  })
-}
-
 export function listSpecialCraftTaskOrders(): SpecialCraftTaskOrder[] {
   return [...ensureStore().taskOrders]
 }
@@ -1777,7 +1677,7 @@ export function getSpecialCraftGenerationBatchByOrderId(
     || getSpecialCraftGenerationBatchByProductionOrder(productionOrderId, ensureStore().taskOrders)
 }
 
-export function buildSpecialCraftPageTitle(operation: SpecialCraftOperationDefinition, suffix: '任务单' | '任务详情' | '待加工仓' | '待交出仓' | '统计'): string {
+export function buildSpecialCraftPageTitle(operation: SpecialCraftOperationDefinition, suffix: '任务单' | '任务详情' | '待加工仓' | '待交出仓'): string {
   return `${operation.operationName}${suffix}`
 }
 

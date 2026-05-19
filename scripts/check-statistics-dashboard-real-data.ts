@@ -8,8 +8,6 @@ import {
   getPostFinishingExecutionStatistics,
   getPrintingDashboardMetrics,
   getPrintingExecutionStatistics,
-  getSpecialCraftDashboardMetrics,
-  getSpecialCraftExecutionStatistics,
 } from '../src/data/fcs/process-statistics-domain.ts'
 
 const root = process.cwd()
@@ -38,8 +36,6 @@ assertIncludes(domainPath, [
   'getPrintingDashboardMetrics',
   'getDyeingExecutionStatistics',
   'getDyeingDashboardMetrics',
-  'getSpecialCraftExecutionStatistics',
-  'getSpecialCraftDashboardMetrics',
   'getPostFinishingExecutionStatistics',
   'getPostFinishingDashboardMetrics',
   'sumWarehouseQty',
@@ -89,16 +85,6 @@ assertIncludes('src/pages/process-factory/dyeing/work-order-detail.ts', [
   '包装完成面料米数',
   '差异面料米数',
 ])
-assertIncludes('src/pages/process-factory/special-craft/statistics.ts', [
-  'getSpecialCraftExecutionStatistics',
-  '特殊工艺单总数',
-  '待加工裁片数量',
-  '加工完成裁片数量',
-  '当前裁片数量',
-  '累计报废裁片数量',
-  '累计货损裁片数量',
-  '关联菲票数量',
-])
 assertIncludes('src/pages/process-factory/post-finishing/statistics.ts', [
   'getPostFinishingExecutionStatistics',
   '后道统计',
@@ -111,7 +97,6 @@ assertIncludes('src/pages/process-factory/post-finishing/statistics.ts', [
 
 const printStats = getPrintingExecutionStatistics()
 const dyeStats = getDyeingExecutionStatistics()
-const specialStats = getSpecialCraftExecutionStatistics()
 const postStats = getPostFinishingExecutionStatistics()
 assert(printStats.workOrderCount >= 12, '印花加工单统计样本少于 12 条')
 assert(printStats.printCompletedFabricMeters > 0 && printStats.transferCompletedFabricMeters > 0, '印花执行节点未纳入统计')
@@ -123,10 +108,6 @@ assert(dyeStats.dyeCompletedFabricMeters > 0 && dyeStats.finalPackedFabricMeters
 assert(dyeStats.waitHandoverRecordCount >= 3 && dyeStats.differenceRecordCount >= 3, '染色仓记录或差异记录样本不足')
 assert(getDyeingDashboardMetrics().statusRows.length > 0, '染色大屏指标为空')
 
-assert(specialStats.taskOrderCount >= 18, '特殊工艺任务样本不足')
-assert(specialStats.feiTicketCount >= 12, '特殊工艺菲票未纳入统计')
-assert(specialStats.diffPieceQty >= 0 && specialStats.scrapPieceQty >= 0 && specialStats.damagePieceQty >= 0, '特殊工艺差异数量未纳入统计')
-assert(getSpecialCraftDashboardMetrics().statusRows.length > 0, '特殊工艺大屏派生指标为空')
 
 assert(postStats.postOrderCount >= 12, '后道单统计样本少于 12 条')
 assert(postStats.qcPassGarmentQty > 0 && postStats.recheckConfirmedGarmentQty > 0, '后道质检/复检记录未纳入统计')
@@ -137,7 +118,6 @@ const pagesWithPotentialMocks = [
   'src/pages/process-factory/printing/statistics.ts',
   'src/pages/process-factory/printing/dashboards.ts',
   'src/pages/process-factory/dyeing/reports.ts',
-  'src/pages/process-factory/special-craft/statistics.ts',
   'src/pages/process-factory/post-finishing/statistics.ts',
 ].map(read).join('\n')
 assert(!/const\s+\w*Statistics\w*\s*=\s*\[/.test(pagesWithPotentialMocks), '统计页面不得维护孤立统计数组')
@@ -186,12 +166,6 @@ for (const route of [
 ]) {
   assert(read('src/router/routes-fcs.ts').includes(route), `缺少统计或大屏路由：${route}`)
 }
-assert(
-  read('src/router/routes-fcs.ts').includes('buildSpecialCraftStatisticsPath(operation)') &&
-    read('src/router/routes-fcs.ts').includes('renderSpecialCraftStatisticsPage(operationSlug)'),
-  '缺少特殊工艺统计路由生成逻辑',
-)
-
 assert(existsSync(join(root, 'docs/fcs-statistics-dashboard-real-data.md')), '缺少统计与大屏真实取数文档')
 
 console.log('统计与大屏真实执行数据检查通过')

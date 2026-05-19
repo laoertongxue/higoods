@@ -409,6 +409,15 @@ function buildBundleNo(index: number): string {
   return `BUNDLE-${String(index + 1).padStart(3, '0')}`
 }
 
+type SpreadingOutputSourceLine = {
+  originalCutOrderId: string
+  originalCutOrderNo?: string
+  materialSku: string
+  color: string
+  actualCutGarmentQty: number
+  rollRecordId?: string
+}
+
 function findPieceRowsForSku(
   sourceRecord: GeneratedOriginalCutOrderSourceRecord,
   skuCode: string,
@@ -421,6 +430,107 @@ function findPieceRowsForSku(
   return matched.length ? matched : pieceRows
 }
 
+function listSessionSourceRecords(
+  session: SpreadingSession,
+  sourceRecords: GeneratedOriginalCutOrderSourceRecord[],
+): GeneratedOriginalCutOrderSourceRecord[] {
+  const originalCutOrderIds = new Set([
+    ...(session.originalCutOrderIds || []),
+    ...(session.completionLinkage?.linkedOriginalCutOrderIds || []),
+  ].map(normalizeText).filter(Boolean))
+  const originalCutOrderNos = new Set((session.completionLinkage?.linkedOriginalCutOrderNos || []).map(normalizeText).filter(Boolean))
+
+  const matched = sourceRecords.filter((record) =>
+    originalCutOrderIds.has(record.originalCutOrderId) ||
+    originalCutOrderNos.has(record.originalCutOrderNo),
+  )
+  if (matched.length) return matched
+
+  const sessionMaterialSkus = new Set([
+    ...(session.planUnits || []).map((unit) => unit.materialSku),
+    ...(session.rolls || []).map((roll) => roll.materialSku),
+    session.materialSkuSummary || '',
+  ].map(normalizeText).filter(Boolean))
+  const sessionColors = new Set([
+    ...(session.planUnits || []).map((unit) => unit.color),
+    ...(session.rolls || []).map((roll) => roll.color || ''),
+    ...(session.colorSummary || '').split('/'),
+  ].map(normalizeText).filter(Boolean))
+
+  return sourceRecords.filter((record) => {
+    const materialMatched = sessionMaterialSkus.has(normalizeText(record.materialSku))
+    const colorMatched = record.colorScope.some((color) => sessionColors.has(normalizeText(color)))
+    return materialMatched && colorMatched
+  })
+}
+
+function findSourceRecordForRoll(
+  session: SpreadingSession,
+  sourceRecords: GeneratedOriginalCutOrderSourceRecord[],
+  roll: SpreadingSession['rolls'][number],
+): GeneratedOriginalCutOrderSourceRecord | null {
+  const candidates = listSessionSourceRecords(session, sourceRecords)
+  if (!candidates.length) return null
+
+  const rollMaterialSku = normalizeText(roll.materialSku)
+  const rollColor = normalizeText(roll.color || '')
+  return (
+    candidates.find(
+      (record) =>
+        normalizeText(record.materialSku) === rollMaterialSku &&
+        record.colorScope.some((color) => normalizeText(color) === rollColor),
+    ) ||
+    candidates.find((record) => normalizeText(record.materialSku) === rollMaterialSku) ||
+    candidates.find((record) => record.colorScope.some((color) => normalizeText(color) === rollColor)) ||
+    candidates[0] ||
+    null
+  )
+}
+
+function deriveRollActualGarmentQty(session: SpreadingSession, roll: SpreadingSession['rolls'][number]): number {
+  const explicitQty = normalizePositiveInteger((roll.actualCutGarmentQty ?? roll.actualCutPieceQty) || 0)
+  if (explicitQty > 0) return explicitQty
+  const planUnit = (session.planUnits || []).find((unit) => unit.planUnitId === roll.planUnitId) || session.planUnits?.[0] || null
+  return normalizePositiveInteger(Number(roll.layerCount || 0) * Number(planUnit?.garmentQtyPerUnit || 0))
+}
+
+function buildFallbackOutputSourceLines(
+  session: SpreadingSession,
+  sourceRecords: GeneratedOriginalCutOrderSourceRecord[],
+): SpreadingOutputSourceLine[] {
+  return (session.rolls || [])
+    .map((roll) => {
+      const sourceRecord = findSourceRecordForRoll(session, sourceRecords, roll)
+      const actualCutGarmentQty = deriveRollActualGarmentQty(session, roll)
+      if (!sourceRecord || !actualCutGarmentQty) return null
+      return {
+        originalCutOrderId: sourceRecord.originalCutOrderId,
+        originalCutOrderNo: sourceRecord.originalCutOrderNo,
+        materialSku: normalizeText(roll.materialSku) || sourceRecord.materialSku,
+        color: normalizeText(roll.color || '') || sourceRecord.colorScope[0] || '待补颜色',
+        actualCutGarmentQty,
+        rollRecordId: roll.rollRecordId,
+      }
+    })
+    .filter((line): line is SpreadingOutputSourceLine => Boolean(line))
+}
+
+function listOutputSourceLinesForSession(
+  session: SpreadingSession,
+  sourceRecords: GeneratedOriginalCutOrderSourceRecord[],
+): SpreadingOutputSourceLine[] {
+  const warningLines = (session.replenishmentWarning?.lines || [])
+    .map((line) => ({
+      originalCutOrderId: line.originalCutOrderId,
+      originalCutOrderNo: line.originalCutOrderNo,
+      materialSku: line.materialSku,
+      color: line.color,
+      actualCutGarmentQty: normalizePositiveInteger(line.actualCutGarmentQty || 0),
+    }))
+    .filter((line) => line.actualCutGarmentQty > 0)
+  return warningLines.length ? warningLines : buildFallbackOutputSourceLines(session, sourceRecords)
+}
+
 function buildSpreadingPieceOutputLinesFromSessions(
   sourceRecords: GeneratedOriginalCutOrderSourceRecord[],
 ): SpreadingPieceOutputLine[] {
@@ -430,10 +540,11 @@ function buildSpreadingPieceOutputLinesFromSessions(
   store.sessions
     .filter(isReadyForFeiGeneration)
     .forEach((session) => {
-      const warningLines = session.replenishmentWarning?.lines || []
-      warningLines.forEach((line, lineIndex) => {
+      const outputSourceLines = listOutputSourceLinesForSession(session, sourceRecords)
+      outputSourceLines.forEach((line, lineIndex) => {
         const sourceRecord = resolveSourceRecordForLine(sourceRecords, line)
         const roll =
+          (line.rollRecordId ? session.rolls.find((item) => item.rollRecordId === line.rollRecordId) : null) ||
           session.rolls.find(
             (item) =>
               normalizeText(item.materialSku) === normalizeText(line.materialSku)

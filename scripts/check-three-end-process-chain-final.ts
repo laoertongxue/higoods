@@ -67,7 +67,6 @@ import {
 import {
   getDyeingExecutionStatistics,
   getPrintingExecutionStatistics,
-  getSpecialCraftExecutionStatistics,
 } from '../src/data/fcs/process-statistics-domain.ts'
 import {
   listProcessHandoverDifferenceRecords,
@@ -543,10 +542,8 @@ function assertPlatformResultAfterLinkage(): void {
 function assertStatisticsAndPrintAreConnected(): void {
   const printingStats = getPrintingExecutionStatistics({ factoryId: TEST_FACTORY_ID })
   const dyeStats = getDyeingExecutionStatistics({ factoryId: TEST_FACTORY_ID })
-  const specialStats = getSpecialCraftExecutionStatistics({ factoryId: TEST_FACTORY_ID })
   assert(printingStats.workOrderCount > 0 && printingStats.waitHandoverRecordCount >= 0 && printingStats.differenceRecordCount >= 0, '印花统计必须读取统一加工单、仓交出和差异数据')
   assert(dyeStats.workOrderCount > 0 && dyeStats.waitHandoverRecordCount >= 0 && dyeStats.differenceRecordCount >= 0, '染色统计必须读取统一加工单、仓交出和差异数据')
-  assert(specialStats.taskOrderCount > 0 && specialStats.feiTicketCount > 0 && specialStats.differenceRecordCount >= 0, '特殊工艺统计必须读取特殊工艺单、菲票和差异数据')
   assertNotIncludes('src/pages/process-factory/dyeing/reports.ts', '染色报表', '染色统计页面不得出现染色报表')
   assertIncludes('src/data/fcs/task-print-cards.ts', 'getQuantityLabel', '打印任务卡必须使用统一数量文案')
   assertIncludes('src/data/fcs/print-service.ts', 'print', '打印服务文件必须保持可用')

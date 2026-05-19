@@ -60,8 +60,7 @@ const specialCraftGuardSource =
   read('src/pages/process-factory/special-craft/shared.ts') +
   read('src/pages/process-factory/special-craft/task-orders.ts') +
   read('src/pages/process-factory/special-craft/task-detail.ts') +
-  read('src/pages/process-factory/special-craft/warehouse.ts') +
-  read('src/pages/process-factory/special-craft/statistics.ts')
+  read('src/pages/process-factory/special-craft/warehouse.ts')
 const capacitySource =
   read('src/pages/capacity.ts') +
   read('src/pages/factory-capacity-profile.ts') +

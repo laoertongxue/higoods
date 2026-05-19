@@ -6,7 +6,6 @@
 import type { System, MenuGroup } from './app-shell-types.ts'
 import {
   buildSpecialCraftOperationSlug,
-  buildSpecialCraftStatisticsPath,
   buildSpecialCraftTaskOrdersPath,
   buildSpecialCraftWaitHandoverWarehousePath,
   buildSpecialCraftWaitProcessWarehousePath,
@@ -42,12 +41,6 @@ function buildSpecialCraftMenuItems(factoryId?: string) {
           title: `${operation.operationName}待交出仓`,
           icon: 'PackageCheck',
           href: buildSpecialCraftWaitHandoverWarehousePath(operation),
-        },
-        {
-          key: `pfos-special-${operationSlug}-statistics`,
-          title: `${operation.operationName}统计`,
-          icon: 'BarChart3',
-          href: buildSpecialCraftStatisticsPath(operation),
         },
       ],
     }

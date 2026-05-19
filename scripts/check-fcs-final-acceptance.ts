@@ -178,7 +178,6 @@ const requiredFiles = [
   'src/pages/process-factory/special-craft/task-orders.ts',
   'src/pages/process-factory/special-craft/task-detail.ts',
   'src/pages/process-factory/special-craft/warehouse.ts',
-  'src/pages/process-factory/special-craft/statistics.ts',
   'src/pages/process-factory/printing/warehouse.ts',
   'src/pages/process-factory/printing/statistics.ts',
   'src/pages/process-factory/dyeing/warehouse.ts',
@@ -374,7 +373,6 @@ const routeSource =
   'renderSpecialCraftWaitHandoverWarehousePage',
   'renderSpecialCraftTaskOrdersPage',
   'renderSpecialCraftWarehousePage',
-  'renderSpecialCraftStatisticsPage',
   '/confirmation-print',
 ].forEach((token) => {
   assert(routeSource.includes(token), `路由注册缺少：${token}`)

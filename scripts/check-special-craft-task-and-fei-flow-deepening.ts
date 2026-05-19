@@ -53,7 +53,6 @@ const taskDetailPageSource = read('src/pages/process-factory/special-craft/task-
 const warehousePageSource = read('src/pages/process-factory/special-craft/warehouse.ts')
 const sharedPageSource = read('src/pages/process-factory/special-craft/shared.ts')
 const workOrderDetailPageSource = read('src/pages/process-factory/special-craft/work-order-detail.ts')
-const statisticsPageSource = read('src/pages/process-factory/special-craft/statistics.ts')
 const dispatchPageSource = read('src/pages/process-factory/cutting/special-craft-dispatch.ts')
 const returnPageSource = read('src/pages/process-factory/cutting/special-craft-return.ts')
 const feiTicketsPageSource = read('src/pages/process-factory/cutting/fei-tickets.ts')
@@ -200,17 +199,16 @@ assertContains(workOrderDetailPageSource, '流转事件', '子工艺单详情必
 ].forEach((item) => assertContains(pdaHandoverSource + pdaWarehouseSource, item, `交接或仓管缺少特殊工艺数量展示：${item}`))
 
 ;[
-  '默认按工艺分组',
   "groupBy: '工艺'",
   '接收差异菲票',
   '回仓差异菲票',
   '累计报废裁片数量',
   '累计货损裁片数量',
   '当前裁片数量',
-].forEach((item) => assertContains(statisticsPageSource + progressSource, item, `特殊工艺统计缺少深化字段：${item}`))
-assertNotContains(statisticsPageSource + progressSource, '水洗批次', '洗水统计不得新增水洗批次维度')
+].forEach((item) => assertContains(progressSource, item, `特殊工艺进度联动缺少深化字段：${item}`))
+assertNotContains(progressSource, '水洗批次', '洗水联动不得新增水洗批次维度')
 if (taskOrdersSource.includes('bundleWidthCm') || taskOrdersSource.includes('stripCount')) {
-  assertContains(statisticsPageSource + progressSource + taskOrdersSource, 'bundleWidthCm', '捆条宽度源字段存在时统计消费位必须保留')
+  assertContains(progressSource + taskOrdersSource, 'bundleWidthCm', '捆条宽度源字段存在时联动消费位必须保留')
 }
 
 assertContains(sewingDispatchSource, 'currentQty > 0', '已回仓裁片发车缝仍需 currentQty > 0')

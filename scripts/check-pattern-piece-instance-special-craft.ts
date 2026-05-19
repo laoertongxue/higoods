@@ -118,7 +118,7 @@ for (const expected of [
   'data-testid="piece-instance-special-craft-select"',
   'data-testid="piece-instance-position-select"',
 ]) {
-  assertIncludes(patternSource, expected, '纸样页面必须提供逐片特殊工艺配置入口和统计')
+  assertIncludes(patternSource, expected, '纸样页面必须提供逐片特殊工艺配置入口')
 }
 
 for (const expected of [

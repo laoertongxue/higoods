@@ -78,7 +78,6 @@ includes('src/data/fcs/process-execution-writeback.ts', [
 includes('src/data/fcs/process-statistics-domain.ts', ['listWaitProcessWarehouseRecords', 'listWaitHandoverWarehouseRecords'])
 includes('src/pages/process-factory/printing/statistics.ts', ['getPrintingExecutionStatistics', '待加工面料米数', '待交出面料米数'])
 includes('src/pages/process-factory/dyeing/reports.ts', ['getDyeingExecutionStatistics', '染色统计', '待交出面料米数'])
-includes('src/pages/process-factory/special-craft/statistics.ts', ['getSpecialCraftExecutionStatistics', '待加工裁片数量', '关联菲票数量'])
 includes('src/pages/process-factory/post-finishing/statistics.ts', ['getPostFinishingExecutionStatistics', '待质检成衣件数', '差异成衣件数'])
 
 const requiredCrafts = [

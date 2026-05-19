@@ -8,10 +8,7 @@ import {
   getWarehouseRecordsByWorkOrderId,
 } from '../src/data/fcs/process-warehouse-domain.ts'
 import { validateSpecialCraftMobileTaskBinding } from '../src/data/fcs/process-mobile-task-binding.ts'
-import {
-  getSpecialCraftStatistics,
-  listSpecialCraftTaskWorkOrders,
-} from '../src/data/fcs/special-craft-task-orders.ts'
+import { listSpecialCraftTaskWorkOrders } from '../src/data/fcs/special-craft-task-orders.ts'
 import { listPlatformSpecialCraftResultViews } from '../src/data/fcs/platform-process-result-view.ts'
 
 const root = process.cwd()
@@ -35,7 +32,6 @@ const detailSource = read('src/pages/process-factory/special-craft/work-order-de
 const taskDetailSource = read('src/pages/process-factory/special-craft/task-detail.ts')
 const taskOrdersSource = read('src/pages/process-factory/special-craft/task-orders.ts')
 const warehouseSource = read('src/pages/process-factory/special-craft/warehouse.ts')
-const statisticsSource = read('src/pages/process-factory/special-craft/statistics.ts')
 const sharedDialogSource = read('src/pages/process-factory/shared/web-status-action-dialog.ts')
 const webActionsSource = read('src/data/fcs/process-web-status-actions.ts')
 const writebackSource = read('src/data/fcs/process-action-writeback-service.ts')
@@ -117,7 +113,6 @@ includesAll(platformSource, [
   'platformRiskLabel',
   'platformActionHint',
 ], '平台特殊工艺结果视图')
-assert(statisticsSource.includes('裁片数量') && statisticsSource.includes('菲票数量'), '特殊工艺统计未使用裁片数量和菲票数量口径')
 assert(!`${detailSource}\n${taskDetailSource}\n${taskOrdersSource}\n${warehouseSource}`.match(/开扣眼|装扣子|熨烫|包装/), '特殊工艺页面出现后道或染色包装动作文案')
 
 const workOrders = listSpecialCraftTaskWorkOrders()
@@ -230,7 +225,4 @@ assert(differenceRecords.some((record) => record.relatedFeiTicketIds.length > 0)
 
 const platformViews = listPlatformSpecialCraftResultViews()
 assert(platformViews.some((view) => view.processType === 'SPECIAL_CRAFT' && view.platformStatusLabel), '平台侧看不到特殊工艺结果')
-const statistics = getSpecialCraftStatistics(waitHandover!.operationId)
-assert(statistics.length > 0, '特殊工艺统计未读取统一事实源')
-
 console.log('special craft web mobile action dialog and layout checks passed')
