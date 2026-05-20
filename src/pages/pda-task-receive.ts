@@ -392,7 +392,7 @@ function getTabCounts(
 function getQuotedTenders(selectedFactoryId: string): QuotedTender[] {
   const rawTenders = listPdaQuotedTendersByFactoryId(selectedFactoryId)
 
-  return filterReceiveQuotedTenders(rawTenders, state.submittedTenderIds, getTaskFactById)
+  return filterReceiveQuotedTenders(rawTenders, state.submittedTenderIds, getTaskFactById, selectedFactoryId)
     .map((tender) => {
       const task = tender.taskId ? getTaskFactById(tender.taskId) : null
       const snapshot = submittedQuotes.get(tender.tenderId)
@@ -424,7 +424,7 @@ function getActiveBiddingTenders(): BiddingTender[] {
   const selectedFactoryId = getCurrentFactoryId()
   const rawTenders = listPdaBiddingTendersByFactoryId(selectedFactoryId)
 
-  return filterReceiveActiveBiddingTenders(rawTenders, state.submittedTenderIds, getTaskFactById)
+  return filterReceiveActiveBiddingTenders(rawTenders, state.submittedTenderIds, getTaskFactById, selectedFactoryId)
     .map((tender) => {
       const task = tender.taskId ? getTaskFactById(tender.taskId) : null
       const qtyUnit = task?.qtyUnit || tender.qtyUnit

@@ -1,4 +1,5 @@
 import { PDA_MOCK_QUOTED_TENDERS } from './pda-mobile-mock.ts'
+import { canFactoryAccessSpecialCraftPdaTask } from './special-craft-pda-scope.ts'
 import { type ProcessTask } from './process-tasks.ts'
 
 export const PDA_RECEIVE_EXCLUDED_PROCESS_NAMES = ['印花', '染色'] as const
@@ -8,6 +9,7 @@ const EXCLUDED_PROCESS_CODE_KEYWORDS = ['PRINT', 'DYE']
 export interface ReceiveScopedTenderLike {
   tenderId: string
   processName?: string
+  processCode?: string
   taskId?: string
 }
 
@@ -31,17 +33,20 @@ export function isReceiveEligibleProcessName(processName?: string, processCode?:
   return !hasExcludedProcessName(processName) && !hasExcludedProcessCode(processCode)
 }
 
-export function isReceiveEligibleTask(task: ProcessTask | null | undefined): boolean {
+export function isReceiveEligibleTask(task: ProcessTask | null | undefined, selectedFactoryId?: string): boolean {
   if (!task) return false
   return isReceiveEligibleProcessName(task.processNameZh, task.processCode)
+    && (!selectedFactoryId || canFactoryAccessSpecialCraftPdaTask(selectedFactoryId, task))
 }
 
 export function isReceiveEligibleTender(
   tender: ReceiveScopedTenderLike,
   task: ProcessTask | null,
+  selectedFactoryId?: string,
 ): boolean {
-  if (task) return isReceiveEligibleTask(task)
-  return isReceiveEligibleProcessName(tender.processName)
+  if (task) return isReceiveEligibleTask(task, selectedFactoryId)
+  return isReceiveEligibleProcessName(tender.processName, tender.processCode)
+    && (!selectedFactoryId || canFactoryAccessSpecialCraftPdaTask(selectedFactoryId, tender))
 }
 
 export function createInitialPdaReceiveSubmittedTenderIds(): Set<string> {
@@ -57,7 +62,7 @@ export function filterReceivePendingAcceptTasks(
       task.assignedFactoryId === selectedFactoryId &&
       task.assignmentMode === 'DIRECT' &&
       (!task.acceptanceStatus || task.acceptanceStatus === 'PENDING') &&
-      isReceiveEligibleTask(task),
+      isReceiveEligibleTask(task, selectedFactoryId),
   )
 }
 
@@ -65,11 +70,12 @@ export function filterReceiveActiveBiddingTenders<T extends ReceiveScopedTenderL
   tenders: T[],
   submittedTenderIds: ReadonlySet<string>,
   resolveTask: ReceiveTaskResolver,
+  selectedFactoryId?: string,
 ): T[] {
   return tenders.filter(
     (tender) =>
       !submittedTenderIds.has(tender.tenderId) &&
-      isReceiveEligibleTender(tender, tender.taskId ? resolveTask(tender.taskId) : null),
+      isReceiveEligibleTender(tender, tender.taskId ? resolveTask(tender.taskId) : null, selectedFactoryId),
   )
 }
 
@@ -77,11 +83,12 @@ export function filterReceiveQuotedTenders<T extends ReceiveScopedTenderLike>(
   tenders: T[],
   submittedTenderIds: ReadonlySet<string>,
   resolveTask: ReceiveTaskResolver,
+  selectedFactoryId?: string,
 ): T[] {
   return tenders.filter(
     (tender) =>
       submittedTenderIds.has(tender.tenderId) &&
-      isReceiveEligibleTender(tender, tender.taskId ? resolveTask(tender.taskId) : null),
+      isReceiveEligibleTender(tender, tender.taskId ? resolveTask(tender.taskId) : null, selectedFactoryId),
   )
 }
 
@@ -94,6 +101,6 @@ export function filterReceiveAwardedTaskFacts(
       task.assignmentMode === 'BIDDING' &&
       task.assignmentStatus === 'AWARDED' &&
       task.assignedFactoryId === selectedFactoryId &&
-      isReceiveEligibleTask(task),
+      isReceiveEligibleTask(task, selectedFactoryId),
   )
 }

@@ -38,6 +38,19 @@ function resolveSeedScenario(seed: ProductionDemandTechPackSeed): SeedScenario {
   return 'DEFAULT'
 }
 
+function buildSpecialCraftConfig(craftCode: string, craftName: string, selectedTargetObject = '裁片部位') {
+  return {
+    processCode: 'SPECIAL_CRAFT',
+    processName: '特殊工艺',
+    craftCode,
+    craftName,
+    displayName: craftName,
+    selectedTargetObject,
+    supportedTargetObjects: ['CUT_PIECE', 'CUT_PIECE_PART'],
+    supportedTargetObjectLabels: ['裁片部位'],
+  }
+}
+
 function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionContent {
   const { demand } = seed
   const scenario = resolveSeedScenario(seed)
@@ -45,7 +58,25 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
   const colors = Array.from(new Set(demand.skuLines.map((line) => line.color)))
   const bomItemId = `${seed.technicalVersionId}-bom-main`
   const patternId = `${seed.technicalVersionId}-pattern-main`
-  const buildPieceRows = (pieces: Array<{ id: string; name: string; count: number }>) => pieces.map((piece) => ({
+  const buildPieceRows = (pieces: Array<{
+    id: string
+    name: string
+    count: number
+    bundleLengthCm?: number
+    bundleWidthCm?: number
+    stripCount?: number
+    remark?: string
+    specialCrafts?: Array<{
+      processCode: string
+      processName: string
+      craftCode: string
+      craftName: string
+      displayName: string
+      selectedTargetObject: string
+      supportedTargetObjects: string[]
+      supportedTargetObjectLabels: string[]
+    }>
+  }>) => pieces.map((piece) => ({
     ...piece,
     applicableSkuCodes: [...allSkuCodes],
     colorAllocations: colors.map((color, index) => ({
@@ -54,12 +85,71 @@ function buildContent(seed: ProductionDemandTechPackSeed): TechnicalDataVersionC
       skuCodes: demand.skuLines.filter((line) => line.color === color).map((line) => line.skuCode),
       pieceCount: piece.count,
     })),
-    sourceType: 'MANUAL' as const,
+    specialCrafts: piece.specialCrafts ?? [],
+      sourceType: 'MANUAL' as const,
   }))
+  const specialCraftsBySpuAndPiece: Record<string, Record<string, ReturnType<typeof buildSpecialCraftConfig>[]>> = {
+    'SPU-2024-005': {
+      后片: [
+        buildSpecialCraftConfig('CRAFT_000032', '打条'),
+        buildSpecialCraftConfig('CRAFT_3000002', '压褶'),
+      ],
+    },
+    'SPU-2024-009': {
+      前片: [
+        buildSpecialCraftConfig('CRAFT_3000001', '绣花'),
+        buildSpecialCraftConfig('CRAFT_000008', '打揽'),
+      ],
+    },
+    'SPU-2024-014': {
+      后片: [
+        buildSpecialCraftConfig('CRAFT_016384', '直喷'),
+        buildSpecialCraftConfig('CRAFT_3000008', '特种车缝（花样机）'),
+      ],
+    },
+    'SPU-2024-015': {
+      袖片: [
+        buildSpecialCraftConfig('CRAFT_3000003', '贝壳绣'),
+        buildSpecialCraftConfig('CRAFT_3000009', '橡筋定长切割'),
+      ],
+    },
+    'SPU-2024-016': {
+      前片: [buildSpecialCraftConfig('CRAFT_3000004', '曲牙绣')],
+    },
+    'SPU-2024-017': {
+      后片: [buildSpecialCraftConfig('CRAFT_3000005', '一字贝绣花')],
+    },
+  }
+  const getPieceSpecialCrafts = (pieceName: string) => specialCraftsBySpuAndPiece[demand.spuCode]?.[pieceName] ?? []
   const defaultPieceRows = buildPieceRows([
-    { id: `${patternId}-front`, name: '前片', count: 1 },
-    { id: `${patternId}-back`, name: '后片', count: 1 },
-    { id: `${patternId}-sleeve`, name: '袖片', count: 2 },
+    {
+      id: `${patternId}-front`,
+      name: '前片',
+      count: 1,
+      specialCrafts: [
+        ...getPieceSpecialCrafts('前片'),
+        ...(demand.spuCode === 'SPU-2024-010' ? [buildSpecialCraftConfig('CRAFT_3000006', '模板工序')] : []),
+      ],
+    },
+    {
+      id: `${patternId}-back`,
+      name: '后片',
+      count: 1,
+      specialCrafts: [
+        ...getPieceSpecialCrafts('后片'),
+        ...(demand.spuCode === 'SPU-2024-013' ? [buildSpecialCraftConfig('CRAFT_3000007', '激光开袋')] : []),
+      ],
+    },
+    {
+      id: `${patternId}-sleeve`,
+      name: '袖片',
+      count: 2,
+      bundleLengthCm: demand.spuCode === 'SPU-2024-010' ? 34 : undefined,
+      bundleWidthCm: demand.spuCode === 'SPU-2024-010' ? 1.2 : undefined,
+      stripCount: demand.spuCode === 'SPU-2024-010' ? 2 : undefined,
+      remark: demand.spuCode === 'SPU-2024-010' ? '捆条：袖口捆条，按裁床捆条加工单生成' : undefined,
+      specialCrafts: getPieceSpecialCrafts('袖片'),
+    },
   ])
   const woolPieceRows = scenario === 'WHOLE_WOOL'
     ? buildPieceRows([{ id: `${patternId}-whole`, name: '整件毛织成衣', count: 1 }])

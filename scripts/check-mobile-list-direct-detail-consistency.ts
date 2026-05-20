@@ -116,7 +116,7 @@ const specialWorkOrder = listSpecialCraftTaskWorkOrders().find((workOrder) => wo
 assert(specialWorkOrder, '缺少打揽工艺单')
 const specialBinding = validateSpecialCraftMobileTaskBinding(specialWorkOrder.workOrderId)
 assert(specialBinding.reasonCode === 'OK', `特殊工艺绑定异常：${specialBinding.reasonLabel}`)
-assert(listMobileExecutionTasks({ currentFactoryId: TEST_FACTORY_ID, keyword: specialWorkOrder.workOrderNo }).some((task) => task.taskId === specialBinding.actualTaskId), '搜索特殊工艺工艺单号无法返回对应任务')
+assert(listMobileExecutionTasks({ currentFactoryId: TEST_FACTORY_ID, keyword: specialWorkOrder.workOrderNo }).some((task) => task.taskId === specialBinding.actualTaskId), '搜索特殊工艺加工单号无法返回对应任务')
 assert(listMobileExecutionTasks({ currentFactoryId: TEST_FACTORY_ID, keyword: specialBinding.actualTaskNo }).some((task) => task.taskId === specialBinding.actualTaskId), '搜索特殊工艺任务号无法返回对应任务')
 const specialTask = getMobileExecutionTaskById(specialBinding.actualTaskId)
 assert(specialTask, '特殊工艺移动端任务不存在')

@@ -19,8 +19,8 @@ import type {
   TechnicalVersionStatus,
 } from './pcs-technical-data-version-types.ts'
 
-const TECHNICAL_VERSION_STORAGE_KEY = 'higood-pcs-technical-data-version-store-v2'
-const TECHNICAL_VERSION_STORE_VERSION = 2
+const TECHNICAL_VERSION_STORAGE_KEY = 'higood-pcs-technical-data-version-store-v3'
+const TECHNICAL_VERSION_STORE_VERSION = 3
 
 let memorySnapshot: TechnicalDataVersionStoreSnapshot | null = null
 
@@ -59,6 +59,11 @@ function clonePatternFiles(items: TechnicalPatternFile[]): TechnicalPatternFile[
         skuCodes: [...(allocation.skuCodes ?? [])],
       })),
       colorPieceQuantities: row.colorPieceQuantities?.map((quantity) => ({ ...quantity })),
+      specialCrafts: row.specialCrafts?.map((craft) => ({
+        ...craft,
+        supportedTargetObjects: [...(craft.supportedTargetObjects ?? [])],
+        supportedTargetObjectLabels: [...(craft.supportedTargetObjectLabels ?? [])],
+      })),
     })),
     pieceInstances: item.pieceInstances?.map((instance) => ({
       ...instance,

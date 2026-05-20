@@ -11,6 +11,8 @@ export const CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY = 'cuttingMarkerSpreadi
 
 export type MarkerModeKey = 'normal' | 'high_low' | 'fold_normal' | 'fold_high_low'
 export type SpreadingStatusKey = 'DRAFT' | 'IN_PROGRESS' | 'DONE' | 'TO_FILL'
+export type SpreadingListStatusKey = 'WAITING_START' | 'IN_PROGRESS' | 'DONE'
+export type SpreadingCuttingStatusKey = 'WAITING_CUTTING' | 'CUTTING' | 'CUTTING_DONE'
 export type SpreadingSupervisorStageKey =
   | 'WAITING_START'
   | 'IN_PROGRESS'
@@ -541,6 +543,10 @@ export interface SpreadingSession {
   importAdjustmentNote?: string
   replenishmentWarning?: SpreadingReplenishmentWarning | null
   completionLinkage?: SpreadingCompletionLinkage | null
+  cuttingStatus?: SpreadingCuttingStatusKey
+  cuttingStatusUpdatedAt?: string
+  cuttingStartedAt?: string
+  cuttingFinishedAt?: string
   prototypeLifecycleOverrides?: {
     replenishmentStatusLabel?: '待补料确认' | '无需补料'
     feiTicketStatusLabel?: '待打印菲票' | '已打印菲票'
@@ -684,24 +690,60 @@ const markerModeMeta: Record<MarkerModeKey, { label: string; className: string; 
 
 const spreadingStatusMeta: Record<SpreadingStatusKey, { label: string; className: string; detailText: string }> = {
   DRAFT: {
-    label: '草稿',
+    label: '待开始',
     className: 'bg-slate-100 text-slate-700 border border-slate-200',
-    detailText: '仅完成铺布草稿录入，尚未进入正式执行。',
+    detailText: '铺布单已创建，尚未开始铺布。',
   },
   IN_PROGRESS: {
-    label: '进行中',
+    label: '铺布中',
     className: 'bg-amber-100 text-amber-700 border border-amber-200',
-    detailText: '当前铺布正在执行中，卷和人员记录仍可继续补录。',
+    detailText: '当前正在铺布。',
   },
   DONE: {
-    label: '已完成',
+    label: '完成铺布',
     className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
-    detailText: '当前铺布记录已完成，可作为补料预警与后续打印菲票的基础数据。',
+    detailText: '铺布已完成，等待裁剪。',
   },
   TO_FILL: {
-    label: '待补录',
-    className: 'bg-rose-100 text-rose-700 border border-rose-200',
-    detailText: '当前铺布记录不完整，需要补录卷或人员信息。',
+    label: '待开始',
+    className: 'bg-slate-100 text-slate-700 border border-slate-200',
+    detailText: '铺布单已创建，尚未开始铺布。',
+  },
+}
+
+const spreadingListStatusMeta: Record<SpreadingListStatusKey, { label: string; className: string; detailText: string }> = {
+  WAITING_START: {
+    label: '待开始',
+    className: 'bg-slate-100 text-slate-700 border border-slate-200',
+    detailText: '铺布单已创建，尚未开始铺布。',
+  },
+  IN_PROGRESS: {
+    label: '铺布中',
+    className: 'bg-amber-100 text-amber-700 border border-amber-200',
+    detailText: '当前正在铺布。',
+  },
+  DONE: {
+    label: '完成铺布',
+    className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
+    detailText: '铺布已完成，等待裁剪。',
+  },
+}
+
+const spreadingCuttingStatusMeta: Record<SpreadingCuttingStatusKey, { label: string; className: string; detailText: string }> = {
+  WAITING_CUTTING: {
+    label: '待裁剪',
+    className: 'bg-blue-100 text-blue-700 border border-blue-200',
+    detailText: '铺布已完成，等待开始裁剪。',
+  },
+  CUTTING: {
+    label: '裁剪中',
+    className: 'bg-violet-100 text-violet-700 border border-violet-200',
+    detailText: '当前正在裁剪。',
+  },
+  CUTTING_DONE: {
+    label: '裁剪完成',
+    className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
+    detailText: '裁剪已完成。',
   },
 }
 
@@ -1976,8 +2018,10 @@ export function createSpreadingDraftFromMarker(
     cuttingTableId: getDefaultCuttingTable().cuttingTableId,
     cuttingTableNo: getDefaultCuttingTable().cuttingTableNo,
     cuttingTableName: getDefaultCuttingTable().cuttingTableName,
+    plannedStartAt: baseSession?.plannedStartAt || '',
+    plannedEndAt: baseSession?.plannedEndAt || '',
     estimatedDurationMinutes: DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES,
-    tableScheduleStatus: '未排程',
+    tableScheduleStatus: baseSession?.tableScheduleStatus || '未排程',
     sourceMarkerId: marker.markerId,
     sourceMarkerNo: marker.markerNo || '',
     styleCode: context.styleCode,
@@ -2349,6 +2393,9 @@ export function finalizeSpreadingCompletion(options: {
   return {
     ...options.session,
     status: 'DONE',
+    actualEndAt: options.session.actualEndAt || completedAt,
+    cuttingStatus: options.session.cuttingStatus || 'WAITING_CUTTING',
+    cuttingStatusUpdatedAt: options.session.cuttingStatusUpdatedAt || completedAt,
     replenishmentWarning,
     completionLinkage: {
       completedAt,
@@ -2916,6 +2963,22 @@ export function summarizeSpreadingOperators(operators: SpreadingOperatorRecord[]
 
 export function deriveSpreadingStatus(status: SpreadingStatusKey): MarkerSpreadingSummaryMeta<SpreadingStatusKey> {
   const meta = spreadingStatusMeta[status]
+  return createSummaryMeta(status, meta.label, meta.className, meta.detailText)
+}
+
+export function deriveSpreadingListStatus(status: SpreadingStatusKey): MarkerSpreadingSummaryMeta<SpreadingListStatusKey> {
+  const key: SpreadingListStatusKey =
+    status === 'IN_PROGRESS'
+      ? 'IN_PROGRESS'
+      : status === 'DONE'
+        ? 'DONE'
+        : 'WAITING_START'
+  const meta = spreadingListStatusMeta[key]
+  return createSummaryMeta(key, meta.label, meta.className, meta.detailText)
+}
+
+export function deriveSpreadingCuttingStatus(status: SpreadingCuttingStatusKey): MarkerSpreadingSummaryMeta<SpreadingCuttingStatusKey> {
+  const meta = spreadingCuttingStatusMeta[status]
   return createSummaryMeta(status, meta.label, meta.className, meta.detailText)
 }
 
@@ -3692,6 +3755,8 @@ export function upsertSpreadingSession(session: SpreadingSession, store: MarkerS
     actualStartAt: session.actualStartAt || '',
     actualEndAt: session.actualEndAt || '',
     actualDurationMinutes: session.actualDurationMinutes || 0,
+    cuttingStartedAt: session.cuttingStartedAt || '',
+    cuttingFinishedAt: session.cuttingFinishedAt || '',
     tableScheduleStatus: session.tableScheduleStatus || '未排程',
     isExceptionBackfill: Boolean(session.isExceptionBackfill),
     exceptionReason: session.exceptionReason || '',

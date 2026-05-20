@@ -137,6 +137,7 @@ import {
   getMobileTaskAccessResult,
   listPdaMobileExecutionTasks,
 } from '../data/fcs/process-mobile-task-binding.ts'
+import { canFactoryAccessSpecialCraftPdaTask } from '../data/fcs/special-craft-pda-scope.ts'
 import { getPdaSession } from '../data/fcs/store-domain-pda.ts'
 import { renderPdaCuttingTaskDetailPage } from './pda-cutting-task-detail'
 import { renderPdaFrame } from './pda-shell'
@@ -695,6 +696,12 @@ function resolveExecDetailBackHref(task?: ProcessTask | null): string {
 
 function getExecDetailAccessNotice(access: ReturnType<typeof getMobileTaskAccessResult>): { title: string; lines: string[] } | null {
   if (access.canOpenMobileExecution) return null
+  if (access.reasonLabel === '当前工厂无该特殊工艺加工权限') {
+    return {
+      title: '当前工厂无该特殊工艺加工权限',
+      lines: [access.suggestedAction],
+    }
+  }
   if (access.reasonCode === 'TASK_FACTORY_MISMATCH') {
     return {
       title: '当前任务不属于当前工厂',
@@ -1977,7 +1984,7 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
       <div class="space-y-3 p-4 text-sm" data-writeback-link="linkSpecialCraftCompletionToReturnWaitHandoverStock">
         <div class="rounded-md border bg-muted/20 px-3 py-2 text-xs">
           <div class="grid grid-cols-2 gap-x-3 gap-y-1">
-            <span>工艺单号：${escapeHtml(workOrder?.workOrderNo || firstBinding?.workOrderNo || task.taskNo || task.taskId)}</span>
+            <span>加工单号：${escapeHtml(workOrder?.workOrderNo || firstBinding?.workOrderNo || task.taskNo || task.taskId)}</span>
             <span>特殊工艺：${escapeHtml(workOrder?.operationName || displayProcessName)}</span>
             <span>工艺工厂：${escapeHtml(workOrder?.factoryName || task.assignedFactoryName || '—')}</span>
             <span>当前状态：${escapeHtml(workOrder?.status || status)}</span>
@@ -2531,7 +2538,17 @@ export function renderPdaExecDetailPage(taskId: string): string {
     task.finishedAt,
   )
 
-  const mobileTaskAccess = getMobileTaskAccessResult(task, currentFactoryId)
+  let mobileTaskAccess = getMobileTaskAccessResult(task, currentFactoryId)
+  if (!canFactoryAccessSpecialCraftPdaTask(currentFactoryId, task)) {
+    mobileTaskAccess = {
+      ...mobileTaskAccess,
+      canOpenMobileExecution: false,
+      canExecuteInMobile: false,
+      reasonCode: 'TASK_NOT_VISIBLE_IN_MOBILE_LIST',
+      reasonLabel: '当前工厂无该特殊工艺加工权限',
+      suggestedAction: '请切换到对应辅助工艺或特种工艺工厂账号后查看',
+    }
+  }
   const canStart = status === 'NOT_STARTED' && prereq.met && mobileTaskAccess.canExecuteInMobile
   const canFinish = status === 'IN_PROGRESS' && mobileTaskAccess.canExecuteInMobile
   const startRule = getTaskStartRuleState(task)
@@ -3984,7 +4001,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
         const objectMeta = resolveSpecialCraftPdaObjectMeta(workOrder)
         const sourceId = workOrder?.workOrderId || ''
         if (!sourceId) {
-          showPdaExecDetailToast('特殊工艺工艺单未关联')
+          showPdaExecDetailToast('特殊工艺加工单未关联')
           return true
         }
         let scrapQty = Number(detailState.specialCraftScrapQty || 0)
@@ -4020,7 +4037,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement): boolean {
       const objectMeta = resolveSpecialCraftPdaObjectMeta(workOrder)
       const sourceId = workOrder?.workOrderId || ''
       if (!sourceId) {
-        showPdaExecDetailToast('特殊工艺工艺单未关联')
+        showPdaExecDetailToast('特殊工艺加工单未关联')
         return true
       }
       const sourceBinding = objectMeta.requiresFeiTicket ? bindings[0] : undefined

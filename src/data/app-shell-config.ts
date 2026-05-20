@@ -5,66 +5,105 @@
 
 import type { System, MenuGroup } from './app-shell-types.ts'
 import {
+  buildSpecialCraftDomainWaitHandoverWarehousePath,
+  buildSpecialCraftDomainWaitProcessWarehousePath,
   buildSpecialCraftOperationSlug,
   buildSpecialCraftTaskOrdersPath,
-  buildSpecialCraftWaitHandoverWarehousePath,
-  buildSpecialCraftWaitProcessWarehousePath,
-  listEnabledSpecialCraftOperationDefinitions,
+  listEnabledAuxiliaryCraftOperationDefinitions,
+  listEnabledSpecialTypeCraftOperationDefinitions,
   listVisibleSpecialCraftOperationsForFactory,
 } from './fcs/special-craft-operations.ts'
+import type { SpecialCraftOperationDefinition } from './fcs/special-craft-operations.ts'
 
-function buildSpecialCraftMenuItems(factoryId?: string) {
-  const operations = factoryId
-    ? listVisibleSpecialCraftOperationsForFactory(factoryId)
-    : listEnabledSpecialCraftOperationDefinitions()
+type SpecialCraftMenuDomain = 'AUXILIARY_CRAFT_FACTORY' | 'SPECIAL_CRAFT_FACTORY'
+
+const specialCraftMenuDomainConfig: Record<SpecialCraftMenuDomain, {
+  title: string
+  icon: string
+  waitProcessTitle: string
+  waitHandoverTitle: string
+}> = {
+  AUXILIARY_CRAFT_FACTORY: {
+    title: '辅助工艺工厂管理',
+    icon: 'Sparkles',
+    waitProcessTitle: '辅助工艺待加工仓',
+    waitHandoverTitle: '辅助工艺待交出仓',
+  },
+  SPECIAL_CRAFT_FACTORY: {
+    title: '特种工艺工厂管理',
+    icon: 'Sparkles',
+    waitProcessTitle: '特种工艺待加工仓',
+    waitHandoverTitle: '特种工艺待交出仓',
+  },
+}
+
+function listSpecialCraftMenuOperationsByDomain(domain: SpecialCraftMenuDomain, factoryId?: string) {
+  if (factoryId) {
+    return listVisibleSpecialCraftOperationsForFactory(factoryId).filter((operation) => operation.managementDomain === domain)
+  }
+  if (domain === 'AUXILIARY_CRAFT_FACTORY') return listEnabledAuxiliaryCraftOperationDefinitions()
+  return listEnabledSpecialTypeCraftOperationDefinitions()
+}
+
+function buildSpecialCraftMenuItems(domain: SpecialCraftMenuDomain, factoryId?: string) {
+  const operations = listSpecialCraftMenuOperationsByDomain(domain, factoryId)
   return operations.map((operation) => {
     const operationSlug = buildSpecialCraftOperationSlug(operation)
     return {
-      key: `pfos-special-${operationSlug}`,
-      title: operation.operationName,
+      key: `pfos-special-${operationSlug}-tasks`,
+      title: `${operation.operationName}加工单`,
       icon: 'Sparkles',
-      children: [
-        {
-          key: `pfos-special-${operationSlug}-tasks`,
-          title: `${operation.operationName}任务单`,
-          icon: 'ClipboardList',
-          href: buildSpecialCraftTaskOrdersPath(operation),
-        },
-        {
-          key: `pfos-special-${operationSlug}-wait-process-warehouse`,
-          title: `${operation.operationName}待加工仓`,
-          icon: 'Warehouse',
-          href: buildSpecialCraftWaitProcessWarehousePath(operation),
-        },
-        {
-          key: `pfos-special-${operationSlug}-wait-handover-warehouse`,
-          title: `${operation.operationName}待交出仓`,
-          icon: 'PackageCheck',
-          href: buildSpecialCraftWaitHandoverWarehousePath(operation),
-        },
-      ],
+      href: buildSpecialCraftTaskOrdersPath(operation),
     }
   })
 }
 
+function buildSpecialCraftMenuGroup(domain: SpecialCraftMenuDomain, operations?: SpecialCraftOperationDefinition[]) {
+  const config = specialCraftMenuDomainConfig[domain]
+  const operationItems = operations
+    ? operations.map((operation) => {
+        const operationSlug = buildSpecialCraftOperationSlug(operation)
+        return {
+          key: `pfos-special-${operationSlug}-tasks`,
+          title: `${operation.operationName}加工单`,
+          icon: 'Sparkles',
+          href: buildSpecialCraftTaskOrdersPath(operation),
+        }
+      })
+    : buildSpecialCraftMenuItems(domain)
+  const items = [
+    ...operationItems,
+    {
+      key: `pfos-special-${domain}-wait-process-warehouse`,
+      title: config.waitProcessTitle,
+      icon: 'Warehouse',
+      href: buildSpecialCraftDomainWaitProcessWarehousePath(domain),
+    },
+    {
+      key: `pfos-special-${domain}-wait-handover-warehouse`,
+      title: config.waitHandoverTitle,
+      icon: 'PackageCheck',
+      href: buildSpecialCraftDomainWaitHandoverWarehousePath(domain),
+    },
+  ]
+  return {
+    title: config.title,
+    icon: config.icon,
+    items,
+  } as MenuGroup & { icon: string }
+}
+
 export function buildSpecialCraftMenuGroups(): MenuGroup[] {
   return [
-    {
-      title: '特殊工艺',
-      icon: 'Sparkles',
-      items: buildSpecialCraftMenuItems(),
-    } as MenuGroup & { icon: string },
-  ]
+    buildSpecialCraftMenuGroup('AUXILIARY_CRAFT_FACTORY'),
+    buildSpecialCraftMenuGroup('SPECIAL_CRAFT_FACTORY'),
+  ].filter((group) => group.items.length > 0)
 }
 
 export function buildSpecialCraftMenuGroupsForFactory(factoryId: string): MenuGroup[] {
-  return [
-    {
-      title: '特殊工艺',
-      icon: 'Sparkles',
-      items: buildSpecialCraftMenuItems(factoryId),
-    } as MenuGroup & { icon: string },
-  ]
+  return (Object.keys(specialCraftMenuDomainConfig) as SpecialCraftMenuDomain[])
+    .map((domain) => buildSpecialCraftMenuGroup(domain, listSpecialCraftMenuOperationsByDomain(domain, factoryId)))
+    .filter((group) => group.items.length > 0)
 }
 
 const specialCraftMenuGroups: MenuGroup[] = buildSpecialCraftMenuGroups()
@@ -370,6 +409,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           icon: 'PackageCheck',
           children: [
             { key: 'pfos-cutting-replenishment', title: '补料管理', icon: 'ShieldAlert', href: '/fcs/craft/cutting/replenishment' },
+            { key: 'pfos-cutting-binding-strip-orders', title: '捆条加工单', icon: 'Sparkles', href: '/fcs/craft/cutting/special-processes' },
             { key: 'pfos-cutting-fei-tickets', title: '打印菲票', icon: 'Ticket', href: '/fcs/craft/cutting/fei-tickets' },
             { key: 'pfos-cutting-transfer-bags', title: '中转袋流转', icon: 'PackageCheck', href: '/fcs/craft/cutting/transfer-bags' },
             { key: 'pfos-cutting-summary', title: '裁剪总结', icon: 'ClipboardPen', href: '/fcs/craft/cutting/summary' },

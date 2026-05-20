@@ -46,7 +46,6 @@ export interface FeiTicketQrPayload extends CuttingQrPayloadBase<'FEI_TICKET'> {
   bundleNo: string
   bundleQty: number
   actualCutPieceQty: number
-  assemblyGroupKey: string
   qty: number
   secondaryCrafts: string[]
   craftSequenceVersion: string
@@ -139,7 +138,6 @@ export function buildFeiTicketQrPayload(input: {
   bundleNo: string
   bundleQty: number
   actualCutPieceQty: number
-  assemblyGroupKey: string
   qty: number
   secondaryCrafts: string[]
   craftSequenceVersion: string
@@ -173,7 +171,6 @@ export function buildFeiTicketQrPayload(input: {
     bundleNo: input.bundleNo,
     bundleQty: Math.max(input.bundleQty, 0),
     actualCutPieceQty: Math.max(input.actualCutPieceQty, 0),
-    assemblyGroupKey: input.assemblyGroupKey,
     qty: Math.max(input.qty, 0),
     secondaryCrafts: [...input.secondaryCrafts],
     craftSequenceVersion: input.craftSequenceVersion,

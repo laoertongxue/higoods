@@ -2,7 +2,10 @@ import {
   getSpecialCraftSupportedTargetObjectLabels,
   getSpecialCraftTargetObjectLabel,
   listSelectableSpecialCraftDefinitions,
+  PROCESS_CRAFT_MANAGEMENT_DOMAIN_NAME,
   type ProcessCraftDefinition,
+  type ProcessCraftManagementDomain,
+  type ProcessCraftManagementDomainName,
   type SpecialCraftSupportedTargetObject,
   type SpecialCraftTargetObjectLabel,
   type SpecialCraftVisibleFactoryType,
@@ -22,6 +25,8 @@ export interface SpecialCraftOperationDefinition {
   craftName: string
   processCode: string
   processName: string
+  managementDomain: ProcessCraftManagementDomain
+  managementDomainName: ProcessCraftManagementDomainName
   operationName: string
   supportedTargetObjects: SpecialCraftSupportedTargetObject[]
   supportedTargetObjectLabels: SpecialCraftTargetObjectLabel[]
@@ -31,7 +36,6 @@ export interface SpecialCraftOperationDefinition {
   visibleFactoryIds?: string[]
   requiresTaskOrder: boolean
   requiresFactoryWarehouse: boolean
-  requiresStatistics: boolean
   requiresFeiTicketScan: boolean
   mustReturnToCuttingFactory: boolean
   isEnabled: boolean
@@ -46,55 +50,114 @@ interface SpecialCraftOperationSeed {
   remark: string
 }
 
-const specialCraftOperationSeedByName: Record<string, SpecialCraftOperationSeed> = {
-  打揽: {
-    operationId: 'SC-OP-008',
+type OperationCraftDefinition = ProcessCraftDefinition & {
+  managementDomain?: ProcessCraftManagementDomain
+  managementDomainName?: ProcessCraftManagementDomainName
+}
+
+const auxiliaryCraftOperationSeedByName: Record<string, SpecialCraftOperationSeed> = {
+  绣花: {
+    operationId: 'AUX-OP-EMBROIDERY',
     defaultTargetObject: 'CUT_PIECE',
     requiresFeiTicketScan: true,
     mustReturnToCuttingFactory: true,
-    remark: '按裁片任务单管理，完成后回裁床厂待交出仓。',
+    remark: '按绣花类辅助工艺加工单管理，完成后进入辅助工艺待交出仓。',
   },
   打条: {
-    operationId: 'SC-OP-032',
+    operationId: 'AUX-OP-STRIP',
     defaultTargetObject: 'CUT_PIECE',
     requiresFeiTicketScan: true,
     mustReturnToCuttingFactory: true,
-    remark: '按裁片任务单管理，完成后回裁床厂待交出仓。',
+    remark: '按裁片打条辅助工艺加工单管理，完成后进入辅助工艺待交出仓。',
   },
-  激光切: {
-    operationId: 'SC-OP-064',
+  压褶: {
+    operationId: 'AUX-OP-PLEATING',
     defaultTargetObject: 'CUT_PIECE',
     requiresFeiTicketScan: true,
     mustReturnToCuttingFactory: true,
-    remark: '按裁片任务单管理，完成后回裁床厂待交出仓。',
+    remark: '按裁片压褶辅助工艺加工单管理，完成后进入辅助工艺待交出仓。',
+  },
+  打揽: {
+    operationId: 'AUX-OP-DALAN',
+    defaultTargetObject: 'CUT_PIECE',
+    requiresFeiTicketScan: true,
+    mustReturnToCuttingFactory: true,
+    remark: '按裁片打揽辅助工艺加工单管理，完成后进入辅助工艺待交出仓。',
   },
   烫画: {
-    operationId: 'SC-OP-8192',
+    operationId: 'AUX-OP-HEAT-TRANSFER',
     defaultTargetObject: 'SEMI_FINISHED_GARMENT',
     requiresFeiTicketScan: false,
     mustReturnToCuttingFactory: false,
-    remark: '纯色 T-shirt 成衣半成品烫画，按件执行，不打印裁片菲票，不回裁床待交出仓。',
+    remark: '按成衣半成品烫画辅助工艺加工单管理，完成后进入辅助工艺待交出仓。',
   },
   直喷: {
-    operationId: 'SC-OP-16384',
+    operationId: 'AUX-OP-DIRECT-PRINT',
     defaultTargetObject: 'CUT_PIECE',
     requiresFeiTicketScan: true,
     mustReturnToCuttingFactory: true,
-    remark: '按裁片任务单管理，完成后回裁床厂待交出仓。',
+    remark: '按裁片直喷辅助工艺加工单管理，完成后进入辅助工艺待交出仓。',
   },
-  捆条: {
-    operationId: 'SC-OP-131072',
+  贝壳绣: {
+    operationId: 'AUX-OP-SHELL-EMBROIDERY',
     defaultTargetObject: 'CUT_PIECE',
     requiresFeiTicketScan: true,
     mustReturnToCuttingFactory: true,
-    remark: '按裁片任务单管理，完成后回裁床厂待交出仓。',
+    remark: '按贝壳绣辅助工艺加工单管理，完成后进入辅助工艺待交出仓。',
+  },
+  曲牙绣: {
+    operationId: 'AUX-OP-CURVED-TEETH-EMBROIDERY',
+    defaultTargetObject: 'CUT_PIECE',
+    requiresFeiTicketScan: true,
+    mustReturnToCuttingFactory: true,
+    remark: '按曲牙绣辅助工艺加工单管理，完成后进入辅助工艺待交出仓。',
+  },
+  一字贝绣花: {
+    operationId: 'AUX-OP-STRAIGHT-SHELL-EMBROIDERY',
+    defaultTargetObject: 'CUT_PIECE',
+    requiresFeiTicketScan: true,
+    mustReturnToCuttingFactory: true,
+    remark: '按一字贝绣花辅助工艺加工单管理，完成后进入辅助工艺待交出仓。',
+  },
+}
+
+const specialTypeCraftOperationSeedByName: Record<string, SpecialCraftOperationSeed> = {
+  模板工序: {
+    operationId: 'SPC-OP-TEMPLATE-PROCESS',
+    defaultTargetObject: 'CUT_PIECE',
+    requiresFeiTicketScan: true,
+    mustReturnToCuttingFactory: true,
+    remark: '按模板机特种工艺加工单管理，完成后进入特种工艺待交出仓。',
+  },
+  激光开袋: {
+    operationId: 'SPC-OP-LASER-POCKET',
+    defaultTargetObject: 'CUT_PIECE',
+    requiresFeiTicketScan: true,
+    mustReturnToCuttingFactory: true,
+    remark: '按激光开袋特种工艺加工单管理，完成后进入特种工艺待交出仓。',
+  },
+  '特种车缝（花样机）': {
+    operationId: 'SPC-OP-PATTERN-MACHINE-SEWING',
+    defaultTargetObject: 'CUT_PIECE',
+    requiresFeiTicketScan: true,
+    mustReturnToCuttingFactory: true,
+    remark: '按花样机特种车缝加工单管理，完成后进入特种工艺待交出仓。',
+  },
+  橡筋定长切割: {
+    operationId: 'SPC-OP-ELASTIC-FIXED-LENGTH-CUTTING',
+    defaultTargetObject: 'ACCESSORY',
+    requiresFeiTicketScan: false,
+    mustReturnToCuttingFactory: false,
+    remark: '按橡筋定长切割特种工艺加工单管理，完成后进入特种工艺待交出仓。',
   },
 }
 
 function buildOperationDefinition(
-  craftDefinition: ProcessCraftDefinition,
+  craftDefinition: OperationCraftDefinition,
   seed: SpecialCraftOperationSeed,
+  managementDomain: ProcessCraftManagementDomain,
 ): SpecialCraftOperationDefinition {
+  const managementDomainName = PROCESS_CRAFT_MANAGEMENT_DOMAIN_NAME[managementDomain]
   const supportedTargetObjects = craftDefinition.supportedTargetObjects.length > 0
     ? [...craftDefinition.supportedTargetObjects]
     : [seed.defaultTargetObject]
@@ -106,7 +169,9 @@ function buildOperationDefinition(
     craftCode: craftDefinition.craftCode,
     craftName: craftDefinition.craftName,
     processCode: craftDefinition.processCode,
-    processName: '特殊工艺',
+    processName: managementDomain === 'AUXILIARY_CRAFT_FACTORY' ? '辅助工艺' : '特种工艺',
+    managementDomain,
+    managementDomainName,
     operationName: craftDefinition.craftName,
     supportedTargetObjects,
     supportedTargetObjectLabels: getSpecialCraftSupportedTargetObjectLabels(supportedTargetObjects),
@@ -116,7 +181,6 @@ function buildOperationDefinition(
     visibleFactoryIds: [],
     requiresTaskOrder: true,
     requiresFactoryWarehouse: true,
-    requiresStatistics: true,
     requiresFeiTicketScan: seed.requiresFeiTicketScan,
     mustReturnToCuttingFactory: seed.mustReturnToCuttingFactory,
     isEnabled: craftDefinition.isActive,
@@ -134,13 +198,29 @@ function cloneOperationDefinition(item: SpecialCraftOperationDefinition): Specia
   }
 }
 
-export const specialCraftOperationDefinitions: SpecialCraftOperationDefinition[] =
-  listSelectableSpecialCraftDefinitions()
+function buildOperationDefinitionsForDomain(
+  managementDomain: ProcessCraftManagementDomain,
+  seedByName: Record<string, SpecialCraftOperationSeed>,
+): SpecialCraftOperationDefinition[] {
+  return (listSelectableSpecialCraftDefinitions() as OperationCraftDefinition[])
+    .filter((craftDefinition) => craftDefinition.managementDomain === managementDomain)
     .map((craftDefinition) => {
-      const seed = specialCraftOperationSeedByName[craftDefinition.craftName]
-      return seed ? buildOperationDefinition(craftDefinition, seed) : null
+      const seed = seedByName[craftDefinition.craftName]
+      return seed ? buildOperationDefinition(craftDefinition, seed, managementDomain) : null
     })
     .filter((item): item is SpecialCraftOperationDefinition => Boolean(item))
+}
+
+export const auxiliaryCraftOperationDefinitions: SpecialCraftOperationDefinition[] =
+  buildOperationDefinitionsForDomain('AUXILIARY_CRAFT_FACTORY', auxiliaryCraftOperationSeedByName)
+
+export const specialTypeCraftOperationDefinitions: SpecialCraftOperationDefinition[] =
+  buildOperationDefinitionsForDomain('SPECIAL_CRAFT_FACTORY', specialTypeCraftOperationSeedByName)
+
+export const specialCraftOperationDefinitions: SpecialCraftOperationDefinition[] = [
+  ...auxiliaryCraftOperationDefinitions,
+  ...specialTypeCraftOperationDefinitions,
+]
 
 const specialCraftOperationById = new Map(
   specialCraftOperationDefinitions.map((item) => [item.operationId, item] as const),
@@ -158,8 +238,42 @@ export function listSpecialCraftOperationDefinitions(): SpecialCraftOperationDef
   return specialCraftOperationDefinitions.map((item) => cloneOperationDefinition(item))
 }
 
+export function listAuxiliaryCraftOperationDefinitions(): SpecialCraftOperationDefinition[] {
+  return auxiliaryCraftOperationDefinitions.map((item) => cloneOperationDefinition(item))
+}
+
+export function listSpecialTypeCraftOperationDefinitions(): SpecialCraftOperationDefinition[] {
+  return specialTypeCraftOperationDefinitions.map((item) => cloneOperationDefinition(item))
+}
+
+export function listOperationDefinitionsByManagementDomain(
+  managementDomain: ProcessCraftManagementDomain,
+): SpecialCraftOperationDefinition[] {
+  if (managementDomain === 'AUXILIARY_CRAFT_FACTORY') {
+    return listAuxiliaryCraftOperationDefinitions()
+  }
+
+  if (managementDomain === 'SPECIAL_CRAFT_FACTORY') {
+    return listSpecialTypeCraftOperationDefinitions()
+  }
+
+  return []
+}
+
 export function listEnabledSpecialCraftOperationDefinitions(): SpecialCraftOperationDefinition[] {
   return specialCraftOperationDefinitions
+    .filter((item) => item.isEnabled)
+    .map((item) => cloneOperationDefinition(item))
+}
+
+export function listEnabledAuxiliaryCraftOperationDefinitions(): SpecialCraftOperationDefinition[] {
+  return auxiliaryCraftOperationDefinitions
+    .filter((item) => item.isEnabled)
+    .map((item) => cloneOperationDefinition(item))
+}
+
+export function listEnabledSpecialTypeCraftOperationDefinitions(): SpecialCraftOperationDefinition[] {
+  return specialTypeCraftOperationDefinitions
     .filter((item) => item.isEnabled)
     .map((item) => cloneOperationDefinition(item))
 }
@@ -281,29 +395,35 @@ export function buildSpecialCraftWorkOrderDetailPath(
   return `/fcs/process-factory/special-craft/${slug}/work-orders/${encodeURIComponent(workOrderId)}`
 }
 
-export function buildSpecialCraftWarehousePath(
-  input: Pick<SpecialCraftOperationDefinition, 'operationId'> | string,
-): string {
-  const slug = typeof input === 'string' ? normalizeOperationSlug(input) : buildSpecialCraftOperationSlug(input)
-  return `/fcs/process-factory/special-craft/${slug}/warehouse`
+export function buildSpecialCraftManagementDomainSlug(
+  managementDomain: ProcessCraftManagementDomain,
+): 'auxiliary' | 'special-type' {
+  return managementDomain === 'AUXILIARY_CRAFT_FACTORY' ? 'auxiliary' : 'special-type'
 }
 
-export function buildSpecialCraftWaitProcessWarehousePath(
-  input: Pick<SpecialCraftOperationDefinition, 'operationId'> | string,
-): string {
-  const slug = typeof input === 'string' ? normalizeOperationSlug(input) : buildSpecialCraftOperationSlug(input)
-  return `/fcs/process-factory/special-craft/${slug}/wait-process-warehouse`
+export function getSpecialCraftManagementDomainBySlug(
+  slug: string,
+): ProcessCraftManagementDomain | undefined {
+  const normalizedSlug = normalizeOperationSlug(slug)
+  if (normalizedSlug === 'auxiliary') return 'AUXILIARY_CRAFT_FACTORY'
+  if (normalizedSlug === 'special-type') return 'SPECIAL_CRAFT_FACTORY'
+  return undefined
 }
 
-export function buildSpecialCraftWaitHandoverWarehousePath(
-  input: Pick<SpecialCraftOperationDefinition, 'operationId'> | string,
+export function buildSpecialCraftDomainWaitProcessWarehousePath(
+  managementDomain: ProcessCraftManagementDomain,
 ): string {
-  const slug = typeof input === 'string' ? normalizeOperationSlug(input) : buildSpecialCraftOperationSlug(input)
-  return `/fcs/process-factory/special-craft/${slug}/wait-handover-warehouse`
+  return `/fcs/process-factory/special-craft/${buildSpecialCraftManagementDomainSlug(managementDomain)}/wait-process-warehouse`
+}
+
+export function buildSpecialCraftDomainWaitHandoverWarehousePath(
+  managementDomain: ProcessCraftManagementDomain,
+): string {
+  return `/fcs/process-factory/special-craft/${buildSpecialCraftManagementDomainSlug(managementDomain)}/wait-handover-warehouse`
 }
 
 export function buildSpecialCraftPreferredWarehousePath(
-  input: Pick<SpecialCraftOperationDefinition, 'operationId'> & {
+  input: Pick<SpecialCraftOperationDefinition, 'operationId' | 'managementDomain'> & {
     waitHandoverQty?: number
     handoverOrderId?: string
     handoverRecordNo?: string
@@ -314,6 +434,6 @@ export function buildSpecialCraftPreferredWarehousePath(
     || Boolean(input.handoverOrderId)
     || Boolean(input.handoverRecordNo)
   return shouldOpenWaitHandover
-    ? buildSpecialCraftWaitHandoverWarehousePath(input)
-    : buildSpecialCraftWaitProcessWarehousePath(input)
+    ? buildSpecialCraftDomainWaitHandoverWarehousePath(input.managementDomain)
+    : buildSpecialCraftDomainWaitProcessWarehousePath(input.managementDomain)
 }

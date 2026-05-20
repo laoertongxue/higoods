@@ -457,17 +457,13 @@ export const renderSpecialCraftWorkOrderDetailPage = createAsyncRenderer(
   () => import('../pages/process-factory/special-craft/work-order-detail'),
   'renderSpecialCraftWorkOrderDetailPage',
 )
-export const renderSpecialCraftWarehousePage = createAsyncRenderer(
+export const renderSpecialCraftDomainWaitProcessWarehousePage = createAsyncRenderer(
   () => import('../pages/process-factory/special-craft/warehouse'),
-  'renderSpecialCraftWarehousePage',
+  'renderSpecialCraftDomainWaitProcessWarehousePage',
 )
-export const renderSpecialCraftWaitProcessWarehousePage = createAsyncRenderer(
+export const renderSpecialCraftDomainWaitHandoverWarehousePage = createAsyncRenderer(
   () => import('../pages/process-factory/special-craft/warehouse'),
-  'renderSpecialCraftWaitProcessWarehousePage',
-)
-export const renderSpecialCraftWaitHandoverWarehousePage = createAsyncRenderer(
-  () => import('../pages/process-factory/special-craft/warehouse'),
-  'renderSpecialCraftWaitHandoverWarehousePage',
+  'renderSpecialCraftDomainWaitHandoverWarehousePage',
 )
 export const renderTraceMappingPage = createAsyncRenderer(() => import('../pages/trace'), 'renderTraceMappingPage')
 export const renderTraceParentCodesPage = createAsyncRenderer(

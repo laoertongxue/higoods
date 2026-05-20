@@ -638,6 +638,27 @@ function buildSeedProcessWarehouseRecords(): ProcessWarehouseRecord[] {
 
 function buildSpecialCraftWarehouseRecords(taskOrders: SpecialCraftTaskOrder[]): ProcessWarehouseRecord[] {
   const records: ProcessWarehouseRecord[] = []
+  const resolveLocation = (
+    craftName: string,
+    warehouseKind: 'WAIT_PROCESS' | 'WAIT_HANDOVER',
+    seed: string,
+  ): { targetWarehouseName: string; warehouseLocation: string } => {
+    const normalizedCraftName = craftName.trim()
+    const meta = normalizedCraftName.includes('直喷') || normalizedCraftName.includes('烫画')
+      ? { areaName: '印花厂库区', locationPrefix: 'PF' }
+      : normalizedCraftName.includes('绣') || normalizedCraftName.includes('贝壳') || normalizedCraftName.includes('曲牙')
+        ? { areaName: '毛织厂库区', locationPrefix: 'WF' }
+        : normalizedCraftName.includes('打条') || normalizedCraftName.includes('压褶')
+          ? { areaName: '裁片仓库区', locationPrefix: 'CP' }
+          : { areaName: '车缝厂库区', locationPrefix: 'SW' }
+    const seedValue = Array.from(seed).reduce((sum, char) => sum + char.charCodeAt(0), 0)
+    const locationNo = String((seedValue % 9) + 1).padStart(2, '0')
+    const warehouseName = warehouseKind === 'WAIT_PROCESS' ? '待加工仓' : '待交出仓'
+    return {
+      targetWarehouseName: `${meta.areaName} · ${warehouseName}`,
+      warehouseLocation: `${meta.areaName} / ${meta.locationPrefix}-A-${locationNo}`,
+    }
+  }
   taskOrders.forEach((taskOrder) => {
     const workOrder = getSpecialCraftTaskWorkOrdersByTaskOrderId(taskOrder.taskOrderId)[0]
     const sourceWorkOrderId = workOrder?.workOrderId || taskOrder.taskOrderId
@@ -672,14 +693,16 @@ function buildSpecialCraftWarehouseRecords(taskOrders: SpecialCraftTaskOrder[]):
       updatedAt: taskOrder.updatedAt || taskOrder.createdAt,
     }
     if (taskOrder.status === '待领料' || taskOrder.status === '已入待加工仓' || taskOrder.status === '加工中') {
+      const location = resolveLocation(taskOrder.operationName, 'WAIT_PROCESS', taskOrder.taskOrderNo)
       records.push(
         buildWarehouseRecord(
           {
             ...common,
-            targetWarehouseName: `${taskOrder.operationName}待加工仓`,
+            targetWarehouseName: location.targetWarehouseName,
+            warehouseLocation: location.warehouseLocation,
             currentActionName: `待${taskOrder.operationName}`,
             status: taskOrder.status === '加工中' ? '加工中' : '已入仓',
-            remark: '特殊工艺单进入统一待加工仓',
+            remark: '特殊工艺单进入对应物理库区待加工仓',
           },
           'WAIT_PROCESS',
           records.length + 1,
@@ -687,18 +710,20 @@ function buildSpecialCraftWarehouseRecords(taskOrders: SpecialCraftTaskOrder[]):
       )
     }
     if (taskOrder.waitHandoverQty > 0 || ['待交出', '已交出', '全部交出', '收货差异', '差异', '异议中'].includes(taskOrder.status)) {
+      const location = resolveLocation(taskOrder.operationName, 'WAIT_HANDOVER', taskOrder.taskOrderNo)
       records.push(
         buildWarehouseRecord(
           {
             ...common,
-            targetWarehouseName: `${taskOrder.operationName}待交出仓`,
+            targetWarehouseName: location.targetWarehouseName,
+            warehouseLocation: location.warehouseLocation,
             availableObjectQty: taskOrder.waitHandoverQty || taskOrder.completedQty,
             handedOverObjectQty: taskOrder.status === '已交出' || taskOrder.status === '全部交出' ? taskOrder.waitHandoverQty : 0,
             writtenBackObjectQty: taskOrder.status === '全部交出' ? taskOrder.returnedQty || taskOrder.waitHandoverQty : 0,
             diffObjectQty: Math.max((taskOrder.waitHandoverQty || 0) - (taskOrder.returnedQty || 0), 0),
             currentActionName: '特殊工艺待交出',
             status: taskOrder.status === '全部交出' ? '全部交出' : taskOrder.status === '已交出' ? '交出待收货' : '待交出',
-            remark: '特殊工艺完成后进入统一待交出仓',
+            remark: '特殊工艺完成后进入对应物理库区待交出仓',
           },
           'WAIT_HANDOVER',
           records.length + 1,

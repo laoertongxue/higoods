@@ -22,6 +22,7 @@ import {
   getPdaMobileExecutionTaskById,
   listPdaMobileExecutionTasks,
 } from '../data/fcs/process-mobile-task-binding.ts'
+import { canFactoryAccessSpecialCraftPdaTask } from '../data/fcs/special-craft-pda-scope.ts'
 import {
   acceptPostFinishingTask,
   rejectPostFinishingTask,
@@ -820,6 +821,26 @@ export function renderPdaTaskReceiveDetailPage(taskId: string): string {
       </div>
     `
 
+    return renderPdaFrame(content, 'task-receive')
+  }
+
+  if (!canFactoryAccessSpecialCraftPdaTask(getCurrentFactoryId(), task)) {
+    const content = `
+      <div class="flex min-h-[760px] flex-col bg-background">
+        <header class="sticky top-0 z-30 border-b bg-background px-4 py-3">
+          <button class="inline-flex items-center text-sm text-muted-foreground hover:text-foreground" data-pda-trd-action="back">
+            <i data-lucide="arrow-left" class="mr-1.5 h-4 w-4"></i>
+            返回
+          </button>
+        </header>
+        <div class="flex flex-1 items-center justify-center p-6">
+          <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+            <div class="font-medium">当前工厂无该特殊工艺任务权限</div>
+            <div class="mt-1">请切换到对应辅助工艺或特种工艺工厂账号后查看。</div>
+          </div>
+        </div>
+      </div>
+    `
     return renderPdaFrame(content, 'task-receive')
   }
 

@@ -31,8 +31,9 @@ import {
   createSpreadingDraftFromMarker,
   CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY,
   deriveSpreadingStatus,
+  deriveSpreadingCuttingStatus,
+  deriveSpreadingListStatus,
   deriveSpreadingSessionGarmentQtyPerLayer,
-  deriveSpreadingSupervisorStage,
   hasSpreadingActualExecution,
   serializeMarkerSpreadingStorage,
   upsertMarkerRecord,
@@ -40,15 +41,12 @@ import {
   updateSessionStatus,
   validateSpreadingCompletion,
   summarizeSpreadingOperatorAmounts,
-  resolveSpreadingPrimaryActionMeta,
-  resolveSpreadingPrimaryActionKeyByStage,
   type MarkerAllocationLine,
   type MarkerLineItem,
   type MarkerModeKey,
   type MarkerRecord,
   type MarkerSpreadingContext,
   type MarkerSpreadingPrefilter,
-  type SpreadingSupervisorStageKey,
   type SpreadingPricingMode,
   type SpreadingReplenishmentWarning,
   type SpreadingOperatorRecord,
@@ -57,6 +55,8 @@ import {
   type SpreadingRollHandoverSummary,
   type SpreadingRollRecord,
   type SpreadingSession,
+  type SpreadingCuttingStatusKey,
+  type SpreadingListStatusKey,
   type SpreadingStatusKey,
   findSpreadingPlanUnitById,
   validateMarkerForSpreadingImport,
@@ -92,9 +92,6 @@ import {
   type SpreadingListRow,
 } from './marker-spreading-utils.ts'
 import { listSpreadingPieceOutputLines } from '../../../data/fcs/cutting/generated-fei-tickets.ts'
-import { buildFeiTicketPrintProjection } from './fei-ticket-print-projection.ts'
-import { buildTransferBagsProjection } from './transfer-bags-projection.ts'
-import { buildCutPieceWarehouseProjection } from './cut-piece-warehouse-projection.ts'
 import {
   buildMarkerSpreadingProjection,
   buildSpreadingPlanUnitProjectionLabel,
@@ -157,16 +154,12 @@ import { buildPdaCuttingMainlinePathForSession } from '../../../data/fcs/cutting
 void import('../../pda-cutting-execution-unit.ts')
 void import('../../../router/routes-pda.ts')
 
-type ListTabKey = 'ALL' | SpreadingSupervisorStageKey
+type ListTabKey = 'ALL' | SpreadingListStatusKey
 type FeedbackTone = 'success' | 'warning'
 type MarkerModeFilter = 'ALL' | MarkerModeKey
 type ContextTypeFilter = 'ALL' | 'original-order' | 'merge-batch'
 type BooleanFilter = 'ALL' | 'YES' | 'NO'
-type SpreadingStageFilter = 'ALL' | SpreadingSupervisorStageKey
-type SpreadingReplenishmentFilter = 'ALL' | '待补料确认' | '无需补料'
-type SpreadingFeiStatusFilter = 'ALL' | '待打印菲票' | '已打印菲票'
-type SpreadingBaggingStatusFilter = 'ALL' | '待装袋' | '已装袋'
-type SpreadingWarehouseStatusFilter = 'ALL' | '待入仓' | '已入仓'
+type SpreadingStageFilter = 'ALL' | SpreadingListStatusKey
 const MOBILE_SOURCE_CHANNEL = 'PDA' as const
 const MOBILE_WRITEBACK_CHANNEL = 'PDA_WRITEBACK' as const
 
@@ -282,10 +275,6 @@ interface MarkerSpreadingPageState {
   markerModeFilter: MarkerModeFilter
   contextTypeFilter: ContextTypeFilter
   spreadingStageFilter: SpreadingStageFilter
-  replenishmentStatusFilter: SpreadingReplenishmentFilter
-  feiTicketStatusFilter: SpreadingFeiStatusFilter
-  baggingStatusFilter: SpreadingBaggingStatusFilter
-  warehouseStatusFilter: SpreadingWarehouseStatusFilter
   sourceChannelFilter: SpreadingSourceFilter
   spreadingEditTab: SpreadingEditTabKey
   adjustmentFilter: BooleanFilter
@@ -332,15 +321,15 @@ interface SupervisorSpreadingRow extends SpreadingListRow {
   shortageGarmentQty: number
   shortageGarmentQtyFormula: string
   spreadActualLengthFormula: string
-  replenishmentStatusLabel: '待补料确认' | '无需补料'
-  feiTicketStatusLabel: '待打印菲票' | '已打印菲票'
-  baggingStatusLabel: '待装袋' | '已装袋'
-  warehouseStatusLabel: '待入仓' | '已入仓'
   dataSourceLabel: 'PC' | typeof MOBILE_SOURCE_CHANNEL
-  mainStageKey: SpreadingSupervisorStageKey
+  mainStageKey: SpreadingListStatusKey
   mainStageLabel: string
   mainStageClassName: string
   mainStageFormula: string
+  cuttingStatusKey: SpreadingCuttingStatusKey | ''
+  cuttingStatusLabel: string
+  cuttingStatusClassName: string
+  cuttingStatusFormula: string
 }
 
 function getSpreadingDataSourceLabel(source: 'ALL' | 'PC' | typeof MOBILE_SOURCE_CHANNEL): string {
@@ -377,10 +366,6 @@ const state: MarkerSpreadingPageState = {
   markerModeFilter: 'ALL',
   contextTypeFilter: 'ALL',
   spreadingStageFilter: 'ALL',
-  replenishmentStatusFilter: 'ALL',
-  feiTicketStatusFilter: 'ALL',
-  baggingStatusFilter: 'ALL',
-  warehouseStatusFilter: 'ALL',
   sourceChannelFilter: 'ALL',
   spreadingEditTab: 'summary',
   adjustmentFilter: 'ALL',
@@ -719,25 +704,10 @@ function computeSessionPlannedCutGarmentQty(
   return Math.max(Math.round(Number(session.plannedLayers || 0) * Math.max(garmentQtyPerLayer, 0)), 0)
 }
 
-function formatSpreadingAssemblyText(value: {
-  originalCutOrderNo?: string
-  fabricRollNo?: string
-  fabricColor?: string
-  sizeCode?: string
-}): string {
-  const segments = [
-    value.originalCutOrderNo,
-    value.fabricRollNo,
-    value.fabricColor,
-    value.sizeCode,
-  ].map((item) => String(item || '').trim()).filter(Boolean)
-  return segments.length ? segments.join(' / ') : '暂无数据'
-}
-
 function renderSpreadingOutputMatrix(sessionId: string): string {
   const rows = listSpreadingPieceOutputLines().filter((item) => item.spreadingSessionId === sessionId)
   const matrixTable = `
-    <table class="w-full min-w-[1320px] text-sm">
+    <table class="w-full min-w-[1180px] text-sm">
       <thead class="bg-muted/50 text-left text-xs text-muted-foreground">
         <tr>
           <th class="px-3 py-3">面料卷号</th>
@@ -747,7 +717,6 @@ function renderSpreadingOutputMatrix(sessionId: string): string {
           <th class="px-3 py-3">数量</th>
           <th class="px-3 py-3">原始裁片单</th>
           <th class="px-3 py-3">生产单</th>
-          <th class="px-3 py-3">同组裁片</th>
         </tr>
       </thead>
       <tbody>
@@ -764,12 +733,11 @@ function renderSpreadingOutputMatrix(sessionId: string): string {
                       <td class="px-3 py-3">${escapeHtml(`${formatQty(row.bundleQty || 0)} 件`)}</td>
                       <td class="px-3 py-3">${escapeHtml(row.originalCutOrderNo || '暂无数据')}</td>
                       <td class="px-3 py-3">${escapeHtml(row.productionOrderNo || '暂无数据')}</td>
-                      <td class="px-3 py-3">${escapeHtml(formatSpreadingAssemblyText(row))}</td>
                     </tr>
                   `,
                 )
                 .join('')
-            : '<tr><td colspan="8" class="px-3 py-6 text-center text-xs text-muted-foreground">暂无数据</td></tr>'
+            : '<tr><td colspan="7" class="px-3 py-6 text-center text-xs text-muted-foreground">暂无数据</td></tr>'
         }
       </tbody>
     </table>
@@ -793,6 +761,29 @@ function formatCurrency(value: number | null | undefined): string {
 
 function formatDateText(value: string): string {
   return value || '待补'
+}
+
+function formatScheduleDateTime(value?: string): string {
+  if (!value) return '—'
+  return value.replace('T', ' ').slice(0, 16)
+}
+
+function renderSchedulePlanActualCell(plannedAt?: string, actualAt?: string): string {
+  return `
+    <div class="space-y-1 text-xs leading-5">
+      <div><span class="text-muted-foreground">计划：</span><span class="font-medium text-foreground">${escapeHtml(formatScheduleDateTime(plannedAt))}</span></div>
+      <div><span class="text-muted-foreground">实际：</span><span class="font-medium text-foreground">${escapeHtml(formatScheduleDateTime(actualAt))}</span></div>
+    </div>
+  `
+}
+
+function renderCuttingTimeCell(startedAt?: string, finishedAt?: string): string {
+  return `
+    <div class="space-y-1 text-xs leading-5">
+      <div><span class="text-muted-foreground">开始：</span><span class="font-medium text-foreground">${escapeHtml(formatScheduleDateTime(startedAt))}</span></div>
+      <div><span class="text-muted-foreground">结束：</span><span class="font-medium text-foreground">${escapeHtml(formatScheduleDateTime(finishedAt))}</span></div>
+    </div>
+  `
 }
 
 function formatDateTimeLocal(date = new Date()): string {
@@ -1882,10 +1873,6 @@ function syncStateFromPath(): void {
   state.contextTypeFilter = 'ALL'
   state.spreadingModeFilter = 'ALL'
   state.spreadingStageFilter = 'ALL'
-  state.replenishmentStatusFilter = 'ALL'
-  state.feiTicketStatusFilter = 'ALL'
-  state.baggingStatusFilter = 'ALL'
-  state.warehouseStatusFilter = 'ALL'
   state.sourceChannelFilter = 'ALL'
   state.spreadingCompletionSelection = []
   state.feedback = null
@@ -1961,93 +1948,29 @@ function matchesIncludesFilter(filterValue: string, candidates: Array<string | u
   return candidates.some((value) => String(value || '').toLowerCase().includes(normalized))
 }
 
-function normalizeFeiTicketStatusByOriginalCutOrderId(): Record<string, '待打印菲票' | '已打印菲票'> {
-  const projection = buildFeiTicketPrintProjection()
-  return projection.printableViewModel.units.reduce<Record<string, '待打印菲票' | '已打印菲票'>>((accumulator, unit) => {
-    const status = unit.printableUnitStatus === 'PRINTED' ? '已打印菲票' : '待打印菲票'
-    unit.sourceCutOrderIds.forEach((originalCutOrderId) => {
-      const current = accumulator[originalCutOrderId]
-      accumulator[originalCutOrderId] = current === '待打印菲票' || status === '待打印菲票' ? '待打印菲票' : '已打印菲票'
-    })
-    return accumulator
-  }, {})
-}
-
-function normalizeBaggingStatusBySessionId(): Record<string, '待装袋' | '已装袋'> {
-  const projection = buildTransferBagsProjection()
-  return projection.viewModel.usages.reduce<Record<string, '待装袋' | '已装袋'>>((accumulator, usage) => {
-    if (!usage.spreadingSessionId) return accumulator
-    const hasBagging = usage.bindingItems.length > 0 || usage.bagFirstSatisfied
-    accumulator[usage.spreadingSessionId] =
-      accumulator[usage.spreadingSessionId] === '已装袋' || hasBagging ? '已装袋' : '待装袋'
-    return accumulator
-  }, {})
-}
-
-function normalizeWarehouseStatusBySessionId(): Record<string, '待入仓' | '已入仓'> {
-  const projection = buildCutPieceWarehouseProjection()
-  return projection.viewModel.items.reduce<Record<string, '待入仓' | '已入仓'>>((accumulator, item) => {
-    if (!item.spreadingSessionId) return accumulator
-    const isInbounded = item.warehouseStatus.key !== 'PENDING_INBOUND'
-    accumulator[item.spreadingSessionId] =
-      accumulator[item.spreadingSessionId] === '已入仓' || isInbounded ? '已入仓' : '待入仓'
-    return accumulator
-  }, {})
-}
-
-function renderSpreadingListPrimaryAction(stageKey: SpreadingSupervisorStageKey, sessionId: string): string {
-  const actionKey = resolveSpreadingPrimaryActionKeyByStage(stageKey)
-  if (!actionKey) return ''
-  if (actionKey === 'COMPLETE_SPREADING') {
+function renderSpreadingListPrimaryAction(stageKey: SpreadingListStatusKey, sessionId: string): string {
+  if (stageKey === 'WAITING_START') {
+    return `<button type="button" class="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium leading-5 text-white hover:bg-blue-700" data-cutting-marker-action="start-spreading-session" data-session-id="${escapeHtml(sessionId)}">开始铺布</button>`
+  }
+  if (stageKey === 'IN_PROGRESS') {
     return `<button type="button" class="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium leading-5 text-white hover:bg-blue-700" data-cutting-marker-action="open-spreading-edit" data-session-id="${escapeHtml(sessionId)}">继续铺布</button>`
   }
-  const actionMeta = resolveSpreadingPrimaryActionMeta(actionKey)
-  if (!actionMeta || !actionMeta.action) return ''
-  return `<button type="button" class="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium leading-5 text-white hover:bg-blue-700" data-cutting-marker-action="${escapeHtml(actionMeta.action)}" data-session-id="${escapeHtml(sessionId)}">${escapeHtml(actionMeta.label)}</button>`
+  return ''
 }
 
 function buildSpreadingMainStageFormula(label: string): string {
-  return `${label} = 主状态 = ${label}`
-}
-
-function resolvePrototypeLifecycleOverrides(session: Pick<SpreadingSession, 'prototypeLifecycleOverrides'>) {
-  return session.prototypeLifecycleOverrides || null
+  return `铺布状态 = ${label}`
 }
 
 function buildSupervisorSpreadingRows(baseRows: SpreadingListRow[]): SupervisorSpreadingRow[] {
-  const feiTicketStatusByOriginalCutOrderId = normalizeFeiTicketStatusByOriginalCutOrderId()
-  const baggingStatusBySessionId = normalizeBaggingStatusBySessionId()
-  const warehouseStatusBySessionId = normalizeWarehouseStatusBySessionId()
-
   return baseRows.map((row) => {
-    const lifecycleOverrides = resolvePrototypeLifecycleOverrides(row.session)
-    const replenishmentStatusLabel: SupervisorSpreadingRow['replenishmentStatusLabel'] =
-      lifecycleOverrides?.replenishmentStatusLabel || (row.pendingReplenishmentConfirmation ? '待补料确认' : '无需补料')
-    const feiTicketStatusLabel: SupervisorSpreadingRow['feiTicketStatusLabel'] =
-      lifecycleOverrides?.feiTicketStatusLabel ||
-      (row.session.originalCutOrderIds.length > 0 &&
-      row.session.originalCutOrderIds.every((originalCutOrderId) => feiTicketStatusByOriginalCutOrderId[originalCutOrderId] === '已打印菲票')
-        ? '已打印菲票'
-        : '待打印菲票')
-    const baggingStatusLabel: SupervisorSpreadingRow['baggingStatusLabel'] =
-      lifecycleOverrides?.baggingStatusLabel || baggingStatusBySessionId[row.spreadingSessionId] || '待装袋'
-    const warehouseStatusLabel: SupervisorSpreadingRow['warehouseStatusLabel'] =
-      lifecycleOverrides?.warehouseStatusLabel || warehouseStatusBySessionId[row.spreadingSessionId] || '待入仓'
     const dataSourceLabel: SupervisorSpreadingRow['dataSourceLabel'] =
       isMobileWritebackSource(row.session.sourceChannel, row.session.sourceWritebackId) ? MOBILE_SOURCE_CHANNEL : 'PC'
-    const pendingReplenishmentConfirmation =
-      replenishmentStatusLabel === '待补料确认'
-        ? true
-        : lifecycleOverrides?.replenishmentStatusLabel
-          ? false
-          : row.pendingReplenishmentConfirmation
-    const mainStageMeta = deriveSpreadingSupervisorStage({
-      status: row.statusKey,
-      pendingReplenishmentConfirmation,
-      feiTicketReady: feiTicketStatusLabel === '已打印菲票',
-      baggingReady: baggingStatusLabel === '已装袋',
-      warehouseReady: warehouseStatusLabel === '已入仓',
-    })
+    const mainStageMeta = deriveSpreadingListStatus(row.statusKey)
+    const cuttingStatusMeta =
+      row.session.cuttingStatus || row.statusKey === 'DONE'
+        ? deriveSpreadingCuttingStatus(row.session.cuttingStatus || 'WAITING_CUTTING')
+        : null
     const shortageGarmentQty = row.replenishmentWarning?.shortageQty || 0
 
     return {
@@ -2072,15 +1995,15 @@ function buildSupervisorSpreadingRows(baseRows: SpreadingListRow[]): SupervisorS
         row.replenishmentWarning?.shortageGarmentQtyFormula ||
         buildShortageQtyFormula(shortageGarmentQty, row.plannedCutGarmentQty, row.actualCutGarmentQty),
       spreadActualLengthFormula: buildSumFormula(row.spreadActualLengthM, row.session.rolls.map((roll) => roll.actualLength || 0), 2),
-      replenishmentStatusLabel,
-      feiTicketStatusLabel,
-      baggingStatusLabel,
-      warehouseStatusLabel,
       dataSourceLabel,
       mainStageKey: mainStageMeta.key,
       mainStageLabel: mainStageMeta.label,
       mainStageClassName: mainStageMeta.className,
       mainStageFormula: buildSpreadingMainStageFormula(mainStageMeta.label),
+      cuttingStatusKey: cuttingStatusMeta?.key || '',
+      cuttingStatusLabel: cuttingStatusMeta?.label || '—',
+      cuttingStatusClassName: cuttingStatusMeta?.className || 'bg-slate-100 text-slate-500 border border-slate-200',
+      cuttingStatusFormula: cuttingStatusMeta ? `裁剪状态 = ${cuttingStatusMeta.label}` : '—',
     }
   })
 }
@@ -2157,18 +2080,6 @@ function getPageData() {
     if (state.spreadingStageFilter !== 'ALL' && row.mainStageKey !== state.spreadingStageFilter) {
       return false
     }
-    if (state.replenishmentStatusFilter !== 'ALL' && row.replenishmentStatusLabel !== state.replenishmentStatusFilter) {
-      return false
-    }
-    if (state.feiTicketStatusFilter !== 'ALL' && row.feiTicketStatusLabel !== state.feiTicketStatusFilter) {
-      return false
-    }
-    if (state.baggingStatusFilter !== 'ALL' && row.baggingStatusLabel !== state.baggingStatusFilter) {
-      return false
-    }
-    if (state.warehouseStatusFilter !== 'ALL' && row.warehouseStatusLabel !== state.warehouseStatusFilter) {
-      return false
-    }
     if (state.sourceChannelFilter !== 'ALL' && row.dataSourceLabel !== state.sourceChannelFilter) {
       return false
     }
@@ -2178,10 +2089,6 @@ function getPageData() {
     ALL: nonStageFilteredRows.length,
     WAITING_START: nonStageFilteredRows.filter((row) => row.mainStageKey === 'WAITING_START').length,
     IN_PROGRESS: nonStageFilteredRows.filter((row) => row.mainStageKey === 'IN_PROGRESS').length,
-    WAITING_REPLENISHMENT: nonStageFilteredRows.filter((row) => row.mainStageKey === 'WAITING_REPLENISHMENT').length,
-    WAITING_FEI_TICKET: nonStageFilteredRows.filter((row) => row.mainStageKey === 'WAITING_FEI_TICKET').length,
-    WAITING_BAGGING: nonStageFilteredRows.filter((row) => row.mainStageKey === 'WAITING_BAGGING').length,
-    WAITING_WAREHOUSE: nonStageFilteredRows.filter((row) => row.mainStageKey === 'WAITING_WAREHOUSE').length,
     DONE: nonStageFilteredRows.filter((row) => row.mainStageKey === 'DONE').length,
   } satisfies Record<ListTabKey, number>
   const spreadingRows =
@@ -2262,11 +2169,7 @@ function getSpreadingStageOptions(): Array<{ value: ListTabKey; label: string }>
     { value: 'ALL', label: '全部' },
     { value: 'WAITING_START', label: '待开始' },
     { value: 'IN_PROGRESS', label: '铺布中' },
-    { value: 'WAITING_REPLENISHMENT', label: '待补料确认' },
-    { value: 'WAITING_FEI_TICKET', label: '待打印菲票' },
-    { value: 'WAITING_BAGGING', label: '待装袋' },
-    { value: 'WAITING_WAREHOUSE', label: '待入仓' },
-    { value: 'DONE', label: '已完成' },
+    { value: 'DONE', label: '完成铺布' },
   ]
 }
 
@@ -2275,8 +2178,7 @@ function getSpreadingStageLabel(stage: ListTabKey): string {
 }
 
 function buildSpreadingStageCountFormula(label: string): string {
-  const displayLabel = label === '待补料确认' ? '待补料' : label
-  return `${displayLabel}数 = 主状态 = ${label} 的铺布数`
+  return `${label}数 = 铺布状态 = ${label} 的铺布单数`
 }
 
 function buildCurrentListExportRows(rows: SupervisorSpreadingRow[]): { filename: string; rows: string[][] } {
@@ -2296,11 +2198,14 @@ function buildCurrentListExportRows(rows: SupervisorSpreadingRow[]): { filename:
     rows: [
       [
         '铺布编号',
-        '主状态',
+        '铺布状态',
+        '裁剪状态',
         '来源唛架编号',
         '裁床',
-        '计划开始',
-        '计划结束',
+        '负责人',
+        '开始时间',
+        '结束时间',
+        '裁剪时间',
         '预计耗时',
         '上下文摘要',
         '原始裁片单数（张）',
@@ -2310,19 +2215,18 @@ function buildCurrentListExportRows(rows: SupervisorSpreadingRow[]): { filename:
         '实际裁剪成衣件数（件）',
         '缺口成衣件数（件）',
         '总实际铺布长度（m）',
-        '补料状态',
-        '菲票状态',
-        '装袋状态',
-        '入仓状态',
         '最近更新时间',
       ],
       ...rows.map((row) => [
         row.sessionNo,
         row.mainStageLabel,
+        row.cuttingStatusLabel,
         row.session.sourceBedNo || row.sourceMarkerLabel,
         row.session.cuttingTableName || row.session.cuttingTableNo || '未排程',
-        row.session.plannedStartAt || '未排程',
-        row.session.plannedEndAt || '未排程',
+        row.session.ownerName || '未分配',
+        `计划：${formatScheduleDateTime(row.session.plannedStartAt)} / 实际：${formatScheduleDateTime(row.session.actualStartAt)}`,
+        `计划：${formatScheduleDateTime(row.session.plannedEndAt)} / 实际：${formatScheduleDateTime(row.session.actualEndAt)}`,
+        `开始：${formatScheduleDateTime(row.session.cuttingStartedAt)} / 结束：${formatScheduleDateTime(row.session.cuttingFinishedAt)}`,
         `${row.session.estimatedDurationMinutes || 45} 分钟`,
         row.contextSummary,
         row.originalCutOrderCount,
@@ -2332,10 +2236,6 @@ function buildCurrentListExportRows(rows: SupervisorSpreadingRow[]): { filename:
         row.actualCutGarmentQty,
         row.shortageGarmentQty,
         Number(row.spreadActualLengthM).toFixed(2),
-        row.replenishmentStatusLabel,
-        row.feiTicketStatusLabel,
-        row.baggingStatusLabel,
-        row.warehouseStatusLabel,
         formatDateText(row.updatedAt),
       ]),
     ],
@@ -2346,7 +2246,7 @@ function renderFilterArea(): string {
   return renderStickyFilterShell(`
       <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-[repeat(5,minmax(0,1fr))_auto] xl:items-end">
         ${renderListTextInput('搜索', state.keyword, 'data-cutting-spreading-list-field="keyword"', '铺布单 / 唛架方案 / 唛架号 / 生产单 / 款式')}
-        ${renderListSelect('主状态', state.spreadingStageFilter, 'data-cutting-spreading-list-field="main-stage"', [
+        ${renderListSelect('铺布状态', state.spreadingStageFilter, 'data-cutting-spreading-list-field="main-stage"', [
           { value: 'ALL', label: '全部' },
           ...getSpreadingStageOptions().filter((item) => item.value !== 'ALL'),
         ])}
@@ -2387,11 +2287,10 @@ function renderListStats(): string {
   const { stageCounts } = getPageData()
 
   return `
-    <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4" data-testid="cutting-spreading-list-stats">
+    <section class="grid gap-3 md:grid-cols-3" data-testid="cutting-spreading-list-stats">
       ${renderCompactKpiCard('待开始数', stageCounts.WAITING_START, '', 'text-slate-900', buildSpreadingStageCountFormula('待开始'))}
       ${renderCompactKpiCard('铺布中数', stageCounts.IN_PROGRESS, '', 'text-amber-600', buildSpreadingStageCountFormula('铺布中'))}
-      ${renderCompactKpiCard('待补料数', stageCounts.WAITING_REPLENISHMENT, '', 'text-rose-600', buildSpreadingStageCountFormula('待补料确认'))}
-      ${renderCompactKpiCard('待打印菲票数', stageCounts.WAITING_FEI_TICKET, '', 'text-sky-600', buildSpreadingStageCountFormula('待打印菲票'))}
+      ${renderCompactKpiCard('完成铺布数', stageCounts.DONE, '', 'text-emerald-600', buildSpreadingStageCountFormula('完成铺布'))}
     </section>
   `
 }
@@ -2411,15 +2310,14 @@ function renderMarkerTable(rows: MarkerListRow[]): string {
   return ''
 }
 
-function renderSubStatusTag(label: string): string {
-  if (label === '待补料确认') return renderTag(label, 'bg-rose-100 text-rose-700 border border-rose-200')
-  if (label === '待打印菲票') return renderTag(label, 'bg-sky-100 text-sky-700 border border-sky-200')
-  if (label === '待装袋') return renderTag(label, 'bg-violet-100 text-violet-700 border border-violet-200')
-  if (label === '待入仓') return renderTag(label, 'bg-cyan-100 text-cyan-700 border border-cyan-200')
-  if (label === '已打印菲票' || label === '已装袋' || label === '已入仓') {
-    return renderTag(label, 'bg-emerald-100 text-emerald-700 border border-emerald-200')
+function renderSpreadingListCuttingAction(row: SupervisorSpreadingRow): string {
+  if (row.cuttingStatusKey === 'WAITING_CUTTING') {
+    return `<button type="button" class="rounded-md border border-violet-500 bg-violet-50 px-3 py-1.5 text-xs leading-5 text-violet-700 hover:bg-violet-100" data-cutting-marker-action="start-cutting" data-session-id="${escapeHtml(row.spreadingSessionId)}">开始裁剪</button>`
   }
-  return renderTag(label, 'bg-slate-100 text-slate-700 border border-slate-200')
+  if (row.cuttingStatusKey === 'CUTTING') {
+    return `<button type="button" class="rounded-md border border-emerald-500 bg-emerald-50 px-3 py-1.5 text-xs leading-5 text-emerald-700 hover:bg-emerald-100" data-cutting-marker-action="finish-cutting" data-session-id="${escapeHtml(row.spreadingSessionId)}">完成裁剪</button>`
+  }
+  return ''
 }
 
 function renderSpreadingTable(rows: SupervisorSpreadingRow[]): string {
@@ -2436,31 +2334,31 @@ function renderSpreadingTable(rows: SupervisorSpreadingRow[]): string {
         <div class="text-xs text-muted-foreground">共 ${rows.length} 条铺布记录</div>
       </div>
       ${renderStickyTableScroller(`
-    <table class="w-full min-w-[1180px] text-sm">
+	    <table class="w-full min-w-[1620px] text-sm">
       <thead class="sticky top-0 bg-muted/70 text-left text-xs text-muted-foreground backdrop-blur">
         <tr>
           <th class="px-2 py-1 font-medium">铺布编号</th>
           <th class="px-2 py-1 font-medium">来源唛架方案</th>
           <th class="px-2 py-1 font-medium">包含唛架号</th>
-          <th class="px-2 py-1 font-medium">裁床 / 班组</th>
+          <th class="px-2 py-1 font-medium">裁床</th>
+          <th class="px-2 py-1 font-medium">开始时间</th>
+          <th class="px-2 py-1 font-medium">结束时间</th>
+          <th class="px-2 py-1 font-medium">负责人</th>
           <th class="px-2 py-1 font-medium">生产单 / 款式</th>
           <th class="px-2 py-1 font-medium">数量进度</th>
-          <th class="px-2 py-1 font-medium">当前状态</th>
-          <th class="px-2 py-1 font-medium">异常</th>
-          <th class="px-2 py-1 font-medium">操作</th>
+	          <th class="px-2 py-1 font-medium">铺布状态</th>
+	          <th class="px-2 py-1 font-medium">裁剪状态</th>
+	          <th class="px-2 py-1 font-medium">裁剪时间</th>
+	          <th class="px-2 py-1 font-medium">操作</th>
         </tr>
       </thead>
       <tbody>
         ${rows
-          .map((row) => {
-            const primaryAction = renderSpreadingListPrimaryAction(row.mainStageKey, row.spreadingSessionId)
-            const markerNos = row.session.sourceBedNo || row.session.markerNo || row.sourceMarkerLabel
-            const exceptionText = row.pendingReplenishmentConfirmation
-              ? row.replenishmentStatusLabel
-              : row.hasWarnings
-                ? row.warningStatusLabel
-                : '无异常'
-            return `
+	          .map((row) => {
+	            const primaryAction = renderSpreadingListPrimaryAction(row.mainStageKey, row.spreadingSessionId)
+	            const cuttingAction = renderSpreadingListCuttingAction(row)
+	            const markerNos = row.session.sourceBedNo || row.session.markerNo || row.sourceMarkerLabel
+	            return `
               <tr class="border-b align-top">
                 <td class="px-2 py-1 font-medium text-foreground">
                   <div>${escapeHtml(row.sessionNo)}</div>
@@ -2470,8 +2368,10 @@ function renderSpreadingTable(rows: SupervisorSpreadingRow[]): string {
                 <td class="px-2 py-1">${escapeHtml(markerNos || '待补')}</td>
                 <td class="px-2 py-1">
                   <div class="font-medium text-foreground">${escapeHtml(row.session.cuttingTableName || row.session.cuttingTableNo || '未排程')}</div>
-                  <div class="mt-1 text-[11px] text-muted-foreground">${escapeHtml(row.session.ownerName || '未分配')}</div>
                 </td>
+                <td class="px-2 py-1">${renderSchedulePlanActualCell(row.session.plannedStartAt, row.session.actualStartAt)}</td>
+                <td class="px-2 py-1">${renderSchedulePlanActualCell(row.session.plannedEndAt, row.session.actualEndAt)}</td>
+                <td class="px-2 py-1">${escapeHtml(row.session.ownerName || '未分配')}</td>
                 <td class="px-2 py-1">
                   <div>${escapeHtml(row.productionOrderNos.join(' / ') || '待补')}</div>
                   <div class="mt-1 text-[11px] text-muted-foreground">${escapeHtml(`${row.styleCode || '待补'} / ${row.spuCode || '待补'}`)}</div>
@@ -2480,12 +2380,13 @@ function renderSpreadingTable(rows: SupervisorSpreadingRow[]): string {
                   <div class="font-medium text-foreground">${escapeHtml(`${formatQty(row.actualCutGarmentQty)} / ${formatQty(row.plannedCutGarmentQty)} 件`)}</div>
                   <div class="mt-1 text-[11px] text-muted-foreground">${escapeHtml(formatLength(row.spreadActualLengthM))}</div>
                 </td>
-                <td class="px-2 py-1">${renderCompactListValueWithFormula(row.mainStageLabel, row.mainStageFormula)}</td>
-                <td class="px-2 py-1">${renderSubStatusTag(exceptionText)}</td>
-                <td class="px-2 py-1">
-                  <div class="flex flex-nowrap gap-1 overflow-x-auto whitespace-nowrap">
-                    ${primaryAction}
-                    <button type="button" class="rounded-md border px-3 py-1.5 text-xs leading-5 hover:bg-muted" data-cutting-marker-action="open-pda-spreading-site" data-fast-page-render="true" data-session-id="${escapeHtml(row.spreadingSessionId)}">PDA现场</button>
+	                <td class="px-2 py-1">${renderCompactListValueWithFormula(row.mainStageLabel, row.mainStageFormula)}</td>
+	                <td class="px-2 py-1">${renderCompactListValueWithFormula(row.cuttingStatusLabel, row.cuttingStatusFormula)}</td>
+	                <td class="px-2 py-1">${renderCuttingTimeCell(row.session.cuttingStartedAt, row.session.cuttingFinishedAt)}</td>
+	                <td class="px-2 py-1">
+	                  <div class="flex flex-nowrap gap-1 overflow-x-auto whitespace-nowrap">
+	                    ${primaryAction}
+	                    ${cuttingAction}
                     <button type="button" class="rounded-md border px-3 py-1.5 text-xs leading-5 hover:bg-muted" data-cutting-marker-action="open-spreading-detail" data-session-id="${escapeHtml(row.spreadingSessionId)}">查看详情</button>
                   </div>
                 </td>
@@ -3720,7 +3621,7 @@ function renderSpreadingDetailPage(): string {
   const rollSummary = derived.rollSummary
   const varianceSummary = derived.varianceSummary
   const replenishmentWarning = buildSpreadingReplenishmentPreview(session, detailView.linkedOriginalCutOrderNos, derived)
-  const lifecycleState = resolveSpreadingEditLifecycleState(session, varianceSummary)
+  const lifecycleState = resolveSpreadingEditLifecycleState(session)
   const data = readMarkerSpreadingPrototypeData()
   const primaryRows = session.originalCutOrderIds.map((id) => data.rowsById[id]).filter(Boolean)
   const linkedOriginalCutOrderNos = detailView.linkedOriginalCutOrderNos
@@ -3759,7 +3660,7 @@ function renderSpreadingDetailPage(): string {
           </div>
           <div class="flex flex-wrap gap-2">
             ${renderStatusBadge(lifecycleState.mainStageLabel, lifecycleState.mainStageClassName)}
-            ${renderStatusBadge(lifecycleState.replenishmentStatusLabel, lifecycleState.replenishmentStatusLabel === '待补料确认' ? 'bg-rose-100 text-rose-700 border-rose-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200')}
+            ${lifecycleState.cuttingStatusLabel ? renderStatusBadge(lifecycleState.cuttingStatusLabel, lifecycleState.cuttingStatusClassName) : ''}
           </div>
         </div>
         <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -3836,7 +3737,9 @@ function renderSpreadingDetailPage(): string {
     )
 
   const renderRollsTab = (): string =>
-    renderSection(
+    !canEditSpreadingExecution(draft)
+      ? renderSection('卷记录', renderStartSpreadingGate('卷记录'))
+      : renderSection(
       '卷记录',
       `
         <div class="overflow-auto">
@@ -3901,7 +3804,9 @@ function renderSpreadingDetailPage(): string {
     )
 
   const renderOperatorsTab = (): string =>
-    renderSection(
+    !canEditSpreadingExecution(draft)
+      ? renderSection('换班与人员', renderStartSpreadingGate('换班与人员'))
+      : renderSection(
       '换班与人员',
       `
         <details open class="rounded-md border bg-background" data-testid="cutting-spreading-detail-operators-fold" data-default-open="open">
@@ -4114,28 +4019,45 @@ function renderSpreadingDetailPage(): string {
   `
 }
 
-function resolveSpreadingEditLifecycleState(
-  draft: SpreadingSession,
-  varianceSummary: ReturnType<typeof buildSpreadingVarianceSummary>,
-): {
-  replenishmentStatusLabel: '待补料确认' | '无需补料'
+function resolveSpreadingEditLifecycleState(draft: SpreadingSession): {
   mainStageLabel: string
   mainStageClassName: string
+  cuttingStatusLabel: string
+  cuttingStatusClassName: string
 } {
-  const pendingReplenishmentConfirmation =
-    draft.status === 'DONE'
-      ? Boolean(draft.replenishmentWarning && draft.replenishmentWarning.suggestedAction !== '无需补料' && !draft.replenishmentWarning.handled)
-      : Boolean(varianceSummary?.shortageIndicator)
-  const lifecycleOverrides = resolvePrototypeLifecycleOverrides(draft)
-  const replenishmentStatusLabel =
-    lifecycleOverrides?.replenishmentStatusLabel || (pendingReplenishmentConfirmation ? '待补料确认' : '无需补料')
-  const mainStageMeta = deriveSpreadingStatus(draft.status)
+  const mainStageMeta = deriveSpreadingListStatus(draft.status)
+  const cuttingStatusMeta =
+    draft.cuttingStatus || draft.status === 'DONE'
+      ? deriveSpreadingCuttingStatus(draft.cuttingStatus || 'WAITING_CUTTING')
+      : null
 
   return {
-    replenishmentStatusLabel,
     mainStageLabel: mainStageMeta.label,
     mainStageClassName: mainStageMeta.className,
+    cuttingStatusLabel: cuttingStatusMeta?.label || '',
+    cuttingStatusClassName: cuttingStatusMeta?.className || '',
   }
+}
+
+function canEditSpreadingExecution(draft: SpreadingSession): boolean {
+  return draft.status !== 'DRAFT' && draft.status !== 'TO_FILL'
+}
+
+function renderStartSpreadingGate(targetLabel: string): string {
+  return `
+    <div class="rounded-lg border border-dashed bg-muted/10 px-4 py-6">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="text-sm text-muted-foreground">开始铺布后录入${escapeHtml(targetLabel)}。</div>
+        <button type="button" class="rounded-md border border-blue-500 bg-blue-50 px-3 py-2 text-sm text-blue-700 hover:bg-blue-100" data-cutting-marker-action="start-current-spreading">开始铺布</button>
+      </div>
+    </div>
+  `
+}
+
+function ensureCanEditCurrentSpreadingExecution(): boolean {
+  if (!state.spreadingDraft || canEditSpreadingExecution(state.spreadingDraft)) return true
+  state.feedback = { tone: 'warning', message: '请先点击开始铺布，再录入卷记录和换班与人员。' }
+  return false
 }
 
 function renderSpreadingEditPage(): string {
@@ -4164,7 +4086,7 @@ function renderSpreadingEditPage(): string {
     computeSessionPlannedCutGarmentQty(draft, markerTotalPieces)
   const replenishmentWarning = buildSpreadingReplenishmentPreview(draft, linkedOriginalCutOrderNos, derived)
   const handoverSummaryByRollId = buildRollHandoverSummaryMap(draft, derived.markerTotalPieces)
-  const lifecycleState = resolveSpreadingEditLifecycleState(draft, varianceSummary)
+  const lifecycleState = resolveSpreadingEditLifecycleState(draft)
   const plannedSpreadLengthM = (draft.planUnits || []).reduce((sum, unit) => sum + Math.max(Number(unit.plannedSpreadLengthM || 0), 0), 0)
   const plannedSpreadLengthFormula = buildSumFormula(
     plannedSpreadLengthM,
@@ -4185,7 +4107,7 @@ function renderSpreadingEditPage(): string {
           </div>
           <div class="flex flex-wrap gap-1">
             ${renderStatusBadge(lifecycleState.mainStageLabel, lifecycleState.mainStageClassName)}
-            ${renderStatusBadge(lifecycleState.replenishmentStatusLabel, lifecycleState.replenishmentStatusLabel === '待补料确认' ? 'bg-rose-100 text-rose-700 border-rose-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200')}
+            ${lifecycleState.cuttingStatusLabel ? renderStatusBadge(lifecycleState.cuttingStatusLabel, lifecycleState.cuttingStatusClassName) : ''}
           </div>
         </div>
         <div class="grid gap-1.5 sm:grid-cols-2 xl:grid-cols-5">
@@ -4256,13 +4178,11 @@ function renderSpreadingEditPage(): string {
             formula: varianceSummary?.varianceLengthFormula || buildDifferenceFormula(varianceSummary?.varianceLength || 0, varianceSummary?.claimedLengthTotal || 0, rollSummary.totalActualLength, 2),
           },
         ])}
-        <div class="mt-3 grid gap-2 md:grid-cols-3">
-          ${renderSelect('裁床', draft.cuttingTableId || cuttingTableResources[0]?.cuttingTableId || '', 'data-cutting-spreading-draft-field="cuttingTableId"', cuttingTableResources.map((table) => ({ value: table.cuttingTableId, label: table.cuttingTableName })))}
-          <label class="space-y-1 rounded-lg border bg-background px-3 py-3">
-            <span class="text-[11px] text-muted-foreground">计划开始时间</span>
-            <input type="datetime-local" value="${escapeHtml(draft.plannedStartAt || '')}" data-cutting-spreading-draft-field="plannedStartAt" class="h-9 w-full rounded-md border bg-card px-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
-          </label>
-          ${renderReadonlyField('计划结束时间', draft.plannedEndAt || '未排程')}
+        <div class="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+          ${renderReadonlyField('裁床', draft.cuttingTableName || draft.cuttingTableNo || '—')}
+          ${renderReadonlyField('计划开始时间', formatScheduleDateTime(draft.plannedStartAt))}
+          ${renderReadonlyField('计划结束时间', formatScheduleDateTime(draft.plannedEndAt))}
+          ${renderReadonlyField('负责人', draft.ownerName || '未分配')}
         </div>
         <div class="mt-3">
           ${renderTextarea('Session 备注', draft.note || '', 'data-cutting-spreading-draft-field="note"', 3)}
@@ -4578,6 +4498,9 @@ function renderSpreadingEditPage(): string {
   const headerActions = renderHeaderActions([
     '<button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="go-list">返回列表</button>',
     '<button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="save-spreading">保存草稿</button>',
+    draft.status === 'DONE' || draft.status === 'IN_PROGRESS'
+      ? ''
+      : '<button type="button" class="rounded-md border border-blue-500 bg-blue-50 px-3 py-3 text-sm text-blue-700 hover:bg-blue-100" data-cutting-marker-action="start-current-spreading">开始铺布</button>',
     '<button type="button" class="rounded-md border px-3 py-3 text-sm hover:bg-muted" data-cutting-marker-action="complete-spreading">完成铺布</button>',
   ])
 
@@ -5645,10 +5568,7 @@ function completeCurrentSpreading(): boolean {
   state.spreadingEditTab = 'completion'
   state.feedback = {
     tone: 'success',
-    message:
-      saved.replenishmentWarning?.suggestedAction === '无需补料'
-        ? `已完成铺布，并联动更新 ${linkedOriginalCutOrderNos.length} 个原始裁片单。`
-        : `已完成铺布、联动更新 ${linkedOriginalCutOrderNos.length} 个原始裁片单，并生成补料预警。`,
+    message: `已完成铺布，裁剪状态已进入待裁剪，并联动更新 ${linkedOriginalCutOrderNos.length} 个原始裁片单。`,
   }
   return true
 }
@@ -5665,6 +5585,74 @@ function persistCurrentSpreadingStatus(nextStatus: SpreadingStatusKey): boolean 
   }
   state.spreadingDraft = updateSessionStatus(draft, nextStatus)
   return saveCurrentSpreading(false, `当前铺布 session 已标记为“${deriveSpreadingStatus(nextStatus).label}”。`)
+}
+
+function startSpreadingSession(sessionId: string | null | undefined, openEdit = true): boolean {
+  const session = getStoredSpreadingSession(sessionId)
+  if (!session) return false
+  if (session.status === 'DONE') {
+    state.feedback = { tone: 'warning', message: '当前铺布已完成，不能重新开始铺布。' }
+    return true
+  }
+
+  const now = formatDateTimeLocal()
+  const nextSession = {
+    ...updateSessionStatus(session, 'IN_PROGRESS'),
+    actualStartAt: session.actualStartAt || now,
+    updatedAt: now,
+  }
+  const data = readMarkerSpreadingPrototypeData()
+  const nextStore = upsertSpreadingSession(nextSession, data.store)
+  persistMarkerSpreadingStore(nextStore)
+  if (state.spreadingDraft?.spreadingSessionId === nextSession.spreadingSessionId) {
+    state.spreadingDraft = cloneSpreadingSession(nextSession)
+  }
+  state.feedback = { tone: 'success', message: '已开始铺布。' }
+  if (openEdit) {
+    appStore.navigate(buildMarkerRouteWithContext(getCanonicalCuttingPath('spreading-edit'), buildContextPayloadFromSession(nextSession)))
+  }
+  return true
+}
+
+function startCurrentSpreading(): boolean {
+  return startSpreadingSession(state.spreadingDraft?.spreadingSessionId, false)
+}
+
+function updateSpreadingCuttingStatus(sessionId: string | null | undefined, nextStatus: SpreadingCuttingStatusKey): boolean {
+  const session = getStoredSpreadingSession(sessionId)
+  if (!session) return false
+  if (session.status !== 'DONE') {
+    state.feedback = { tone: 'warning', message: '完成铺布后才能更新裁剪状态。' }
+    return true
+  }
+  if (nextStatus === 'CUTTING' && session.cuttingStatus === 'CUTTING_DONE') {
+    state.feedback = { tone: 'warning', message: '裁剪已完成，不能重新开始裁剪。' }
+    return true
+  }
+  if (nextStatus === 'CUTTING_DONE' && session.cuttingStatus !== 'CUTTING') {
+    state.feedback = { tone: 'warning', message: '开始裁剪后才能完成裁剪。' }
+    return true
+  }
+
+  const now = formatDateTimeLocal()
+  const nextSession: SpreadingSession = {
+    ...session,
+    cuttingStatus: nextStatus,
+    cuttingStatusUpdatedAt: now,
+    cuttingStartedAt:
+      nextStatus === 'CUTTING'
+        ? session.cuttingStartedAt || now
+        : nextStatus === 'CUTTING_DONE'
+          ? session.cuttingStartedAt || session.cuttingStatusUpdatedAt || now
+          : session.cuttingStartedAt,
+    cuttingFinishedAt: nextStatus === 'CUTTING_DONE' ? now : session.cuttingFinishedAt,
+    updatedAt: now,
+  }
+  const data = readMarkerSpreadingPrototypeData()
+  const nextStore = upsertSpreadingSession(nextSession, data.store)
+  persistMarkerSpreadingStore(nextStore)
+  state.feedback = { tone: 'success', message: `裁剪状态已更新为“${deriveSpreadingCuttingStatus(nextStatus).label}”。` }
+  return true
 }
 
 function closeMarkerEditOverlay(): boolean {
@@ -5758,10 +5746,6 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
     if (field === 'mode') state.spreadingModeFilter = value as MarkerModeFilter
     if (field === 'context') state.contextTypeFilter = value as ContextTypeFilter
     if (field === 'main-stage') state.spreadingStageFilter = value as SpreadingStageFilter
-    if (field === 'replenishment-status') state.replenishmentStatusFilter = value as SpreadingReplenishmentFilter
-    if (field === 'fei-status') state.feiTicketStatusFilter = value as SpreadingFeiStatusFilter
-    if (field === 'bagging-status') state.baggingStatusFilter = value as SpreadingBaggingStatusFilter
-    if (field === 'warehouse-status') state.warehouseStatusFilter = value as SpreadingWarehouseStatusFilter
     if (field === 'source-channel') state.sourceChannelFilter = value as SpreadingSourceFilter
     return true
   }
@@ -6104,6 +6088,7 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
 
   const spreadingRollFieldNode = target.closest<HTMLElement>('[data-cutting-spreading-roll-field]')
   if (spreadingRollFieldNode && state.spreadingDraft) {
+    if (!ensureCanEditCurrentSpreadingExecution()) return true
     const index = Number(spreadingRollFieldNode.dataset.cuttingSpreadingRollIndex)
     const field = spreadingRollFieldNode.dataset.cuttingSpreadingRollField as SpreadingRollField | undefined
     const roll = state.spreadingDraft.rolls[index]
@@ -6137,6 +6122,7 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
 
   const spreadingOperatorFieldNode = target.closest<HTMLElement>('[data-cutting-spreading-operator-field]')
   if (spreadingOperatorFieldNode && state.spreadingDraft) {
+    if (!ensureCanEditCurrentSpreadingExecution()) return true
     const index = Number(spreadingOperatorFieldNode.dataset.cuttingSpreadingOperatorIndex)
     const field = spreadingOperatorFieldNode.dataset.cuttingSpreadingOperatorField as SpreadingOperatorField | undefined
     const operator = state.spreadingDraft.operators[index]
@@ -6200,10 +6186,6 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
     state.contextTypeFilter = 'ALL'
     state.spreadingModeFilter = 'ALL'
     state.spreadingStageFilter = 'ALL'
-    state.replenishmentStatusFilter = 'ALL'
-    state.feiTicketStatusFilter = 'ALL'
-    state.baggingStatusFilter = 'ALL'
-    state.warehouseStatusFilter = 'ALL'
     state.sourceChannelFilter = 'ALL'
     return true
   }
@@ -6340,6 +6322,10 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
 
   if (action === 'open-spreading-detail') return navigateToSpreadingPage('detail', actionNode.dataset.sessionId)
   if (action === 'open-spreading-edit') return navigateToSpreadingPage('edit', actionNode.dataset.sessionId)
+  if (action === 'start-spreading-session') return startSpreadingSession(actionNode.dataset.sessionId)
+  if (action === 'start-current-spreading') return startCurrentSpreading()
+  if (action === 'start-cutting') return updateSpreadingCuttingStatus(actionNode.dataset.sessionId, 'CUTTING')
+  if (action === 'finish-cutting') return updateSpreadingCuttingStatus(actionNode.dataset.sessionId, 'CUTTING_DONE')
   if (action === 'open-pda-spreading-site') {
     const sessionId = actionNode.dataset.sessionId
     if (!sessionId) return false
@@ -6537,6 +6523,7 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
   }
 
   if (action === 'add-roll' && state.spreadingDraft) {
+    if (!ensureCanEditCurrentSpreadingExecution()) return true
     addSpreadingRoll(state.spreadingDraft, (draft) => ({
       ...createRollRecordDraft(
         draft.spreadingSessionId,
@@ -6549,6 +6536,7 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
   }
 
   if (action === 'duplicate-roll' && state.spreadingDraft) {
+    if (!ensureCanEditCurrentSpreadingExecution()) return true
     const index = Number(actionNode.dataset.index)
     const current = state.spreadingDraft.rolls[index]
     if (Number.isNaN(index) || !current) return false
@@ -6562,6 +6550,7 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
   }
 
   if (action === 'remove-roll' && state.spreadingDraft) {
+    if (!ensureCanEditCurrentSpreadingExecution()) return true
     const index = Number(actionNode.dataset.index)
     if (Number.isNaN(index)) return false
     const feedbackMessage = removeSpreadingRoll(state.spreadingDraft, index)
@@ -6572,10 +6561,12 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
   }
 
   if (action === 'sync-spreading-rolls-from-pda' && state.spreadingDraft) {
+    if (!ensureCanEditCurrentSpreadingExecution()) return true
     return syncSpreadingDraftFromStoredPdaWriteback(state.spreadingDraft)
   }
 
   if (action === 'add-operator' && state.spreadingDraft) {
+    if (!ensureCanEditCurrentSpreadingExecution()) return true
     addSpreadingOperator(state.spreadingDraft, (draft) => ({
       ...createOperatorRecordDraft(draft.spreadingSessionId),
       sortOrder: draft.operators.length + 1,
@@ -6586,6 +6577,7 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
   }
 
   if (action === 'add-operator-for-roll' && state.spreadingDraft) {
+    if (!ensureCanEditCurrentSpreadingExecution()) return true
     const rollRecordId = actionNode.dataset.rollRecordId
     if (!rollRecordId) return false
     addSpreadingOperatorForRoll(state.spreadingDraft, rollRecordId, createOperatorDraftForRoll)
@@ -6593,6 +6585,7 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element): boolean
   }
 
   if (action === 'remove-operator' && state.spreadingDraft) {
+    if (!ensureCanEditCurrentSpreadingExecution()) return true
     const index = Number(actionNode.dataset.index)
     if (Number.isNaN(index)) return false
     removeSpreadingOperator(state.spreadingDraft, index)

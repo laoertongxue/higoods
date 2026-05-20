@@ -53,9 +53,6 @@ function syncTodoModalAutoOpen(disableAutoOpen = false): void {
   }
   if (disableAutoOpen) return
   if (!runtime || !sessionKey) return
-  if (shownTodoSessionKey === sessionKey) return
-  if (getFactoryMobileTodoCount(runtime.factoryId) <= 0) return
-  todoModalOpen = true
   shownTodoSessionKey = sessionKey
 }
 

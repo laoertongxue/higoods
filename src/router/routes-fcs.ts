@@ -1,10 +1,9 @@
 import type { RouteRegistry } from './route-types'
 import {
+  buildSpecialCraftDomainWaitHandoverWarehousePath,
+  buildSpecialCraftDomainWaitProcessWarehousePath,
   buildSpecialCraftOperationSlug,
   buildSpecialCraftTaskOrdersPath,
-  buildSpecialCraftWarehousePath,
-  buildSpecialCraftWaitHandoverWarehousePath,
-  buildSpecialCraftWaitProcessWarehousePath,
   listEnabledSpecialCraftOperationDefinitions,
 } from '../data/fcs/special-craft-operations'
 import { buildDeductionEntryHrefByBasisId } from '../data/fcs/quality-chain-adapter'
@@ -129,10 +128,10 @@ import {
   renderPostFinishingWaitProcessWarehousePage,
   renderPostFinishingWorkOrderDetailPage,
   renderPostFinishingWorkOrdersPage,
+  renderSpecialCraftDomainWaitHandoverWarehousePage,
+  renderSpecialCraftDomainWaitProcessWarehousePage,
   renderSpecialCraftTaskDetailPage,
   renderSpecialCraftTaskOrdersPage,
-  renderSpecialCraftWaitHandoverWarehousePage,
-  renderSpecialCraftWaitProcessWarehousePage,
   renderSpecialCraftWorkOrderDetailPage,
   renderTraceMappingPage,
   renderTraceParentCodesPage,
@@ -142,18 +141,28 @@ import {
 } from './route-renderers-fcs'
 
 const specialCraftExactRoutes = Object.fromEntries(
-  listEnabledSpecialCraftOperationDefinitions().flatMap((operation) => {
-    const operationSlug = buildSpecialCraftOperationSlug(operation)
-    return [
-      [buildSpecialCraftTaskOrdersPath(operation), () => renderSpecialCraftTaskOrdersPage(operationSlug)],
-      [buildSpecialCraftWaitProcessWarehousePath(operation), () => renderSpecialCraftWaitProcessWarehousePage(operationSlug)],
-      [buildSpecialCraftWaitHandoverWarehousePath(operation), () => renderSpecialCraftWaitHandoverWarehousePage(operationSlug)],
-      [
-        buildSpecialCraftWarehousePath(operation),
-        () => renderRouteRedirect(buildSpecialCraftWaitProcessWarehousePath(operation), `正在跳转到${operation.operationName}待加工仓`),
-      ],
-    ]
-  }),
+  [
+    ...listEnabledSpecialCraftOperationDefinitions().map((operation) => {
+      const operationSlug = buildSpecialCraftOperationSlug(operation)
+      return [buildSpecialCraftTaskOrdersPath(operation), () => renderSpecialCraftTaskOrdersPage(operationSlug)]
+    }),
+    [
+      buildSpecialCraftDomainWaitProcessWarehousePath('AUXILIARY_CRAFT_FACTORY'),
+      () => renderSpecialCraftDomainWaitProcessWarehousePage('auxiliary'),
+    ],
+    [
+      buildSpecialCraftDomainWaitHandoverWarehousePath('AUXILIARY_CRAFT_FACTORY'),
+      () => renderSpecialCraftDomainWaitHandoverWarehousePage('auxiliary'),
+    ],
+    [
+      buildSpecialCraftDomainWaitProcessWarehousePath('SPECIAL_CRAFT_FACTORY'),
+      () => renderSpecialCraftDomainWaitProcessWarehousePage('special-type'),
+    ],
+    [
+      buildSpecialCraftDomainWaitHandoverWarehousePath('SPECIAL_CRAFT_FACTORY'),
+      () => renderSpecialCraftDomainWaitHandoverWarehousePage('special-type'),
+    ],
+  ],
 )
 
 export const routes: RouteRegistry = {

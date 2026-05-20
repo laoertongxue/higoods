@@ -197,11 +197,11 @@ function getSpecialCraftStartPrerequisite(task: ProcessTask): StartPrerequisiteI
     return {
       met: false,
       type: 'PICKUP',
-      conditionLabel: '特殊工艺任务已分配',
+      conditionLabel: '特殊工艺加工单已分配',
       summaryLabel: '待分配',
-      statusLabel: '特殊工艺任务未分配，暂不可开工',
-      blocker: '特殊工艺任务未分配，暂不可开工',
-      hint: '该特殊工艺任务尚未进入工厂执行链路，不应出现在 PDA 执行列表',
+      statusLabel: '特殊工艺加工单未分配，暂不可开工',
+      blocker: '特殊工艺加工单未分配，暂不可开工',
+      hint: '该特殊工艺加工单尚未进入工厂执行链路，不应出现在 PDA 执行列表',
     }
   }
 

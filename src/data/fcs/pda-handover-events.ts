@@ -207,7 +207,6 @@ export interface HandoverRecordLine {
   partName?: string
   feiTicketId?: string
   feiTicketNo?: string
-  assemblyGroupKey?: string
   bundleNo?: string
   submittedQty: number
   receiverWrittenQty?: number

@@ -87,7 +87,7 @@ export const EXECUTION_TASK_TYPE_SCOPE_LABEL: Record<ExecutionTaskTypeScope, str
   PRINT_DYE: '印花 / 染色任务',
   SEWING: '车缝任务',
   POST_FINISHING: '后道任务',
-  SPECIAL_CRAFT: '特殊工艺任务',
+  SPECIAL_CRAFT: '特殊工艺加工',
 }
 
 export interface UpsertMilestoneConfigPayload {

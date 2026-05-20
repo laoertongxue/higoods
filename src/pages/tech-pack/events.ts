@@ -1897,6 +1897,15 @@ function handleTechPackField(
     updateTechnique(techId, (item) => ({ ...item, remark: value }))
     return true
   }
+  if (field === 'tech-packaging-required') {
+    const techId = node.dataset.techId
+    if (!techId) return true
+    updateTechnique(techId, (item) => ({
+      ...item,
+      packagingRequired: item.technique === '整件毛织' || item.woolTaskType === 'WHOLE_GARMENT' ? checked : false,
+    }))
+    return true
+  }
 
   if (field === 'material-price') {
     const rowId = node.dataset.rowId

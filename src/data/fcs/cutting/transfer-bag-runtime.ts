@@ -61,8 +61,6 @@ export interface TransferBagSeedTicketLike {
   bundleNo?: string
   qty?: number
   actualCutPieceQty?: number
-  assemblyGroupKey?: string
-  siblingPartTicketNos?: string[]
   garmentQty?: number
   materialSku: string
   sourceContextType: string
@@ -149,8 +147,6 @@ export interface CarrierCycleItemBinding {
   qty: number
   actualCutPieceQty?: number
   garmentQty?: number
-  assemblyGroupKey?: string
-  siblingPartTicketNos?: string[]
   boundAt: string
   boundBy: string
   operator: string
@@ -484,8 +480,6 @@ export function createCarrierCycleBinding(options: {
     qty: Math.max(options.ticket.qty || 1, 1),
     actualCutPieceQty: Math.max(options.ticket.actualCutPieceQty || options.ticket.qty || 1, 1),
     garmentQty: Math.max(options.ticket.garmentQty || options.ticket.qty || 1, 1),
-    assemblyGroupKey: options.ticket.assemblyGroupKey || '',
-    siblingPartTicketNos: [...(options.ticket.siblingPartTicketNos || [])],
     boundAt: options.boundAt,
     boundBy: options.operator,
     operator: options.operator,

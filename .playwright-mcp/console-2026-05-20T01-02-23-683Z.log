@@ -1,0 +1,7 @@
+[     471ms] [VERBOSE] [DOM] Password field is not contained in a form: (More info: https://goo.gl/9p2vKq) %o @ http://zhibo8.com/nba/2026/0519-5197a8e-svideo.htm:0
+[     471ms] [ERROR] Access to XMLHttpRequest at 'https://tj.qiumibao.com/count/countPc.php?filename=2026-nbajijin-0519-5197a8e-svideo' from origin 'http://zhibo8.com' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://zhibo8.com/nba/2026/0519-5197a8e-svideo.htm:0
+[     472ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://tj.qiumibao.com/count/countPc.php?filename=2026-nbajijin-0519-5197a8e-svideo:0
+[     472ms] [ERROR] Access to XMLHttpRequest at 'https://zhibo8.com/other/pca/comment_bottom.htm' from origin 'http://zhibo8.com' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header has a value 'https://news.zhibo8.cc' that is not equal to the supplied origin. @ http://zhibo8.com/nba/2026/0519-5197a8e-svideo.htm:0
+[     472ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://zhibo8.com/other/pca/comment_bottom.htm:0
+[     623ms] [ERROR] Access to XMLHttpRequest at 'https://webstat.qiumibao.com/api/stat' from origin 'http://zhibo8.com' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://zhibo8.com/nba/2026/0519-5197a8e-svideo.htm:0
+[     623ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://webstat.qiumibao.com/api/stat:0

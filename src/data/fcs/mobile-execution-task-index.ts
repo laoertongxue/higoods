@@ -24,6 +24,7 @@ import {
   listSpecialCraftTaskOrders,
   listSpecialCraftTaskWorkOrders,
 } from './special-craft-task-orders.ts'
+import { canFactoryAccessSpecialCraftPdaTask } from './special-craft-pda-scope.ts'
 
 export type MobileExecutionTaskStatusTab = 'NOT_STARTED' | 'IN_PROGRESS' | 'BLOCKED' | 'DONE'
 
@@ -477,6 +478,7 @@ export function getMobileTaskTabKey(task: ProcessTask | null | undefined): Mobil
 
 export function isMobileTaskVisibleForFactory(task: ProcessTask | null | undefined, currentFactoryId = TEST_FACTORY_ID): boolean {
   return isTaskVisibleInMobileExecutionList(task, currentFactoryId)
+    && canFactoryAccessSpecialCraftPdaTask(currentFactoryId, task)
 }
 
 export function getMobileExecutionTaskSourceInfo(task: ProcessTask | null | undefined): MobileExecutionTaskSourceInfo {
@@ -623,7 +625,7 @@ export function getMobileExecutionTaskByNo(taskNo: string): ProcessTask | null {
 export function getMobileExecutionTaskBySource(sourceType: string, sourceId: string): ProcessTask | null {
   const normalizedSourceId = normalizeString(sourceId)
   if (!normalizedSourceId) return null
-  return listPdaMobileExecutionTasks().filter((task) => matchSourceType(task, sourceType, normalizedSourceId)).sort(compareTasks)[0] ?? null
+  return listMobileExecutionTasks().filter((task) => matchSourceType(task, sourceType, normalizedSourceId)).sort(compareTasks)[0] ?? null
 }
 
 export function buildMobileExecutionListPath(params: ListMobileExecutionTasksParams = {}): string {

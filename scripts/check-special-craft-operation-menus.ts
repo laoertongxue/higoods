@@ -5,280 +5,135 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { buildSpecialCraftMenuGroups, menusBySystem } from '../src/data/app-shell-config.ts'
 import {
-  buildSpecialCraftMenuGroups,
-  buildSpecialCraftMenuGroupsForFactory,
-  menusBySystem,
-} from '../src/data/app-shell-config.ts'
-import { TEST_FACTORY_ID } from '../src/data/fcs/factory-mock-data.ts'
-import {
+  buildSpecialCraftDomainWaitHandoverWarehousePath,
+  buildSpecialCraftDomainWaitProcessWarehousePath,
   buildSpecialCraftTaskOrdersPath,
-  buildSpecialCraftWaitHandoverWarehousePath,
-  buildSpecialCraftWaitProcessWarehousePath,
-  canFactorySeeSpecialCraftOperation,
-  listEnabledSpecialCraftOperationDefinitions,
-  listVisibleSpecialCraftOperationsForFactory,
-  listVisibleSpecialCraftOperationsForFactoryType,
+  listEnabledAuxiliaryCraftOperationDefinitions,
+  listEnabledSpecialTypeCraftOperationDefinitions,
 } from '../src/data/fcs/special-craft-operations.ts'
+import { getSpecialCraftTaskOrders } from '../src/data/fcs/special-craft-task-orders.ts'
 import {
-  getSpecialCraftTaskOrderById,
-  getSpecialCraftTaskOrders,
-  getSpecialCraftWarehouseView,
-} from '../src/data/fcs/special-craft-task-orders.ts'
-import { getProcessDefinitionByCode, listSelectableSpecialCraftDefinitions } from '../src/data/fcs/process-craft-dict.ts'
+  renderSpecialCraftDomainWaitHandoverWarehousePage,
+  renderSpecialCraftDomainWaitProcessWarehousePage,
+} from '../src/pages/process-factory/special-craft/warehouse.ts'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 
-function resolveRepoPath(relativePath: string): string {
-  return path.join(ROOT, relativePath)
-}
-
 function read(relativePath: string): string {
-  return fs.readFileSync(resolveRepoPath(relativePath), 'utf8')
-}
-
-function ensureExists(relativePath: string): void {
-  assert(fs.existsSync(resolveRepoPath(relativePath)), `缺少文件：${relativePath}`)
+  return fs.readFileSync(path.join(ROOT, relativePath), 'utf8')
 }
 
 function flattenMenuItems(groups: typeof menusBySystem.pfos) {
   return groups.flatMap((group) => group.items)
 }
 
-function assertContains(source: string, token: string, message: string): void {
+function assertIncludes(source: string, token: string, message: string): void {
   assert(source.includes(token), message)
 }
 
-function assertNoToken(source: string, token: string, message: string): void {
+function assertNotIncludes(source: string, token: string, message: string): void {
   assert(!source.includes(token), message)
-}
-
-function buildToken(...parts: string[]): string {
-  return parts.join('')
 }
 
 const packageSource = read('package.json')
 const appShellSource = read('src/data/app-shell-config.ts')
 const routeSource = read('src/router/routes-fcs.ts')
 const rendererSource = read('src/router/route-renderers-fcs.ts')
-const taskOrderSource = read('src/data/fcs/special-craft-task-orders.ts')
+const operationSource = read('src/data/fcs/special-craft-operations.ts')
 const taskOrdersPageSource = read('src/pages/process-factory/special-craft/task-orders.ts')
 const taskDetailPageSource = read('src/pages/process-factory/special-craft/task-detail.ts')
 const warehouseSource = read('src/pages/process-factory/special-craft/warehouse.ts')
 const sharedSource = read('src/pages/process-factory/special-craft/shared.ts')
-const cuttingSpecialSource = read('src/pages/process-factory/cutting/special-processes.ts')
-const productionArtifactSource = read('src/data/fcs/production-artifact-generation.ts')
+const oldWaitProcessPathBuilder = ['buildSpecialCraft', 'WaitProcessWarehousePath'].join('')
+const oldWaitHandoverPathBuilder = ['buildSpecialCraft', 'WaitHandoverWarehousePath'].join('')
+const oldWarehousePathBuilder = ['buildSpecialCraft', 'WarehousePath'].join('')
+const removedStatisticsFlag = ['requires', 'Statistics'].join('')
+const removedOldCopyA = ['旧能力', '继续'].join('')
+const removedOldCopyB = ['层级', '说明'].join('')
+
+assertIncludes(packageSource, 'check:special-craft-operation-menus', 'package.json 缺少特殊工艺菜单检查命令')
+
+const auxiliaryOperations = listEnabledAuxiliaryCraftOperationDefinitions()
+const specialTypeOperations = listEnabledSpecialTypeCraftOperationDefinitions()
+assert(auxiliaryOperations.length >= 9, '辅助工艺工厂管理启用工艺不足')
+assert(specialTypeOperations.length >= 4, '特种工艺工厂管理启用工艺不足')
+assert(![...auxiliaryOperations, ...specialTypeOperations].some((operation) => operation.operationName === '捆条'), '捆条不得留在辅助工艺或特种工艺菜单')
+
+const groups = menusBySystem.pfos
+const auxiliaryGroup = groups.find((group) => group.title === '辅助工艺工厂管理')
+const specialTypeGroup = groups.find((group) => group.title === '特种工艺工厂管理')
+assert(auxiliaryGroup, 'PFOS 缺少辅助工艺工厂管理菜单组')
+assert(specialTypeGroup, 'PFOS 缺少特种工艺工厂管理菜单组')
+assert(!groups.some((group) => group.title === '特殊工艺'), 'PFOS 不应保留旧特殊工艺统一菜单组')
+
+const auxiliaryChildTitles = auxiliaryGroup!.items.map((item) => item.title)
+const specialTypeChildTitles = specialTypeGroup!.items.map((item) => item.title)
+const auxiliaryChildHrefs = auxiliaryGroup!.items.map((item) => item.href || '')
+const specialTypeChildHrefs = specialTypeGroup!.items.map((item) => item.href || '')
+auxiliaryOperations.forEach((operation) => {
+  const taskPath = buildSpecialCraftTaskOrdersPath(operation)
+  assert(auxiliaryChildTitles.includes(`${operation.operationName}加工单`), `${operation.operationName} 缺少辅助工艺加工单菜单`)
+  assert(auxiliaryChildHrefs.includes(taskPath), `${operation.operationName} 加工单菜单 href 缺失`)
+})
+specialTypeOperations.forEach((operation) => {
+  const taskPath = buildSpecialCraftTaskOrdersPath(operation)
+  assert(specialTypeChildTitles.includes(`${operation.operationName}加工单`), `${operation.operationName} 缺少特种工艺加工单菜单`)
+  assert(specialTypeChildHrefs.includes(taskPath), `${operation.operationName} 加工单菜单 href 缺失`)
+})
+assertIncludes(routeSource, 'buildSpecialCraftTaskOrdersPath(operation)', '特殊工艺加工单动态路由缺失')
+
+assert(auxiliaryChildTitles.includes('辅助工艺待加工仓'), '辅助工艺工厂管理缺少待加工仓')
+assert(auxiliaryChildTitles.includes('辅助工艺待交出仓'), '辅助工艺工厂管理缺少待交出仓')
+assert(specialTypeChildTitles.includes('特种工艺待加工仓'), '特种工艺工厂管理缺少待加工仓')
+assert(specialTypeChildTitles.includes('特种工艺待交出仓'), '特种工艺工厂管理缺少待交出仓')
+;[...auxiliaryChildTitles, ...specialTypeChildTitles].forEach((title) => {
+  assert(!title.includes('统计'), `特殊工艺菜单不得保留统计入口：${title}`)
+  assert(!title.includes('任务单'), `特殊工艺菜单用户文案应使用加工单：${title}`)
+})
 
 ;[
-  'src/data/fcs/special-craft-task-orders.ts',
-  'src/pages/process-factory/special-craft/shared.ts',
-  'src/pages/process-factory/special-craft/task-orders.ts',
-  'src/pages/process-factory/special-craft/task-detail.ts',
-  'src/pages/process-factory/special-craft/warehouse.ts',
-  'scripts/check-special-craft-operation-menus.ts',
-].forEach(ensureExists)
+  buildSpecialCraftDomainWaitProcessWarehousePath('AUXILIARY_CRAFT_FACTORY'),
+  buildSpecialCraftDomainWaitHandoverWarehousePath('AUXILIARY_CRAFT_FACTORY'),
+  buildSpecialCraftDomainWaitProcessWarehousePath('SPECIAL_CRAFT_FACTORY'),
+  buildSpecialCraftDomainWaitHandoverWarehousePath('SPECIAL_CRAFT_FACTORY'),
+].forEach((route) => assert([...auxiliaryChildHrefs, ...specialTypeChildHrefs].includes(route), `缺少管理域仓库菜单 href：${route}`))
 
-assertContains(packageSource, 'check:special-craft-operation-menus', 'package.json 缺少特殊工艺一级菜单检查命令')
+assertIncludes(appShellSource, 'buildSpecialCraftMenuGroups', '菜单配置缺少特殊工艺菜单 helper')
+assertIncludes(routeSource, 'buildSpecialCraftDomainWaitProcessWarehousePath', '路由缺少管理域待加工仓 path')
+assertIncludes(routeSource, 'buildSpecialCraftDomainWaitHandoverWarehousePath', '路由缺少管理域待交出仓 path')
+assertIncludes(rendererSource, 'renderSpecialCraftDomainWaitProcessWarehousePage', '缺少辅助/特种待加工仓渲染器')
+assertIncludes(rendererSource, 'renderSpecialCraftDomainWaitHandoverWarehousePage', '缺少辅助/特种待交出仓渲染器')
+assertNotIncludes(operationSource + routeSource + rendererSource, oldWaitProcessPathBuilder, '不得保留旧单工艺待加工仓路径')
+assertNotIncludes(operationSource + routeSource + rendererSource, oldWaitHandoverPathBuilder, '不得保留旧单工艺待交出仓路径')
+assertNotIncludes(operationSource + routeSource + rendererSource, oldWarehousePathBuilder, '不得保留旧单工艺仓库路径')
+assertNotIncludes(operationSource + taskOrdersPageSource + warehouseSource + sharedSource, removedStatisticsFlag, '特殊工艺不得保留统计入口配置')
 
-const enabledOperations = listEnabledSpecialCraftOperationDefinitions()
-const selectableSpecialCrafts = listSelectableSpecialCraftDefinitions()
-const selectableCraftCodeSet = new Set(selectableSpecialCrafts.map((item) => item.craftCode))
-const globalSpecialCraftMenus = flattenMenuItems(buildSpecialCraftMenuGroups())
-const testFactorySpecialCraftMenus = flattenMenuItems(buildSpecialCraftMenuGroupsForFactory(TEST_FACTORY_ID))
-
-assert(enabledOperations.length > 0, '缺少启用中的特殊工艺运营分类')
-enabledOperations.forEach((operation) => {
-  assert(selectableCraftCodeSet.has(operation.craftCode), `${operation.operationName} 未在工序工艺字典中启用`)
-  assert(getProcessDefinitionByCode(operation.processCode), `${operation.operationName} 缺少工序定义`)
-  assert(operation.isEnabled, `${operation.operationName} 不应以停用状态生成菜单`)
-})
-
-const pfosMenus = flattenMenuItems(menusBySystem.pfos)
-const specialCraftGroup = menusBySystem.pfos.find((group) => group.title === '特殊工艺')
-assert(specialCraftGroup, '工艺工厂运营系统缺少特殊工艺菜单组')
-assert(enabledOperations.length === 6, 'PFOS 特殊工艺启用菜单数量必须为 6')
-assert(globalSpecialCraftMenus.length === enabledOperations.length, 'PFOS 全局特殊工艺菜单必须全量显示启用菜单')
-assertContains(appShellSource, 'buildSpecialCraftMenuGroupsForFactory', '菜单配置缺少工厂上下文特殊工艺菜单 helper')
-assertContains(appShellSource, 'buildSpecialCraftMenuGroups()', '菜单配置缺少 PFOS 全局特殊工艺菜单 helper')
-
-enabledOperations.forEach((operation) => {
-  const menuItem = specialCraftGroup!.items.find((item) => item.title === operation.operationName)
-  assert(menuItem, `${operation.operationName} 缺少一级菜单`)
-  assert.deepEqual(
-    menuItem!.children?.map((child) => child.title),
-    [`${operation.operationName}任务单`, `${operation.operationName}待加工仓`, `${operation.operationName}待交出仓`],
-    `${operation.operationName} 子菜单必须拆成任务单 / 待加工仓 / 待交出仓`,
-  )
-  assert(!menuItem!.children?.some((child) => child.title.includes('仓库管理')), `${operation.operationName} 子菜单不应继续展示仓库管理`)
-  assert(menuItem!.children?.some((child) => child.href === buildSpecialCraftTaskOrdersPath(operation)), `${operation.operationName} 任务单菜单 href 不正确`)
-  assert(menuItem!.children?.some((child) => child.href === buildSpecialCraftWaitProcessWarehousePath(operation)), `${operation.operationName} 待加工仓菜单 href 不正确`)
-  assert(menuItem!.children?.some((child) => child.href === buildSpecialCraftWaitHandoverWarehousePath(operation)), `${operation.operationName} 待交出仓菜单 href 不正确`)
-  assert(globalSpecialCraftMenus.some((item) => item.title === operation.operationName), `${operation.operationName} 未进入 PFOS 全局特殊工艺菜单 helper`)
-})
-
-assert(!enabledOperations.some((operation) => operation.operationName === '洗水'), '洗水不得继续作为特殊工艺菜单定义')
-assert(
-  !listVisibleSpecialCraftOperationsForFactoryType('CENTRAL_DENIM_WASH').some((item) => item.operationName === '洗水'),
-  '工厂类型过滤下，洗水不得继续作为特殊工艺菜单开放',
-)
-assert(
-  listVisibleSpecialCraftOperationsForFactory(TEST_FACTORY_ID).length === enabledOperations.length,
-  '全能力测试工厂应能看到全部启用特殊工艺菜单以覆盖联调场景',
-)
-assert(
-  testFactorySpecialCraftMenus.length === enabledOperations.length,
-  '工厂上下文菜单 helper 对测试工厂应返回全量启用特殊工艺菜单',
-)
-assertContains(routeSource, 'special-craft', '路由文件缺少特殊工艺路由前缀')
-assertContains(routeSource, 'buildSpecialCraftTaskOrdersPath', '特殊工艺路由仍应从启用菜单生成')
-assertContains(
-  taskOrdersPageSource + taskDetailPageSource + warehouseSource + sharedSource,
-  'resolveSpecialCraftFactoryContextGuard',
-  '特殊工艺页面缺少工厂上下文访问保护',
-)
-assertContains(
-  taskOrdersPageSource + taskDetailPageSource + warehouseSource + sharedSource,
-  '当前工厂无该特殊工艺入口',
-  '特殊工艺页面缺少工厂上下文空态提示',
-)
-
-assert(
-  !pfosMenus.some((item) => item.title.includes(buildToken('印', '花')) && item.key.includes('pfos-special')),
-  `${buildToken('印', '花')}不应挂入特殊工艺菜单`,
-)
-assert(
-  !pfosMenus.some((item) => item.title.includes(buildToken('染', '色')) && item.key.includes('pfos-special')),
-  `${buildToken('染', '色')}不应挂入特殊工艺菜单`,
-)
-
-enabledOperations.forEach((operation) => {
-  assertContains(routeSource, 'buildSpecialCraftTaskOrdersPath', `${operation.operationName} 缺少任务单路由生成逻辑`)
-  assertContains(routeSource, 'buildSpecialCraftWaitProcessWarehousePath', `${operation.operationName} 缺少待加工仓路由生成逻辑`)
-  assertContains(routeSource, 'buildSpecialCraftWaitHandoverWarehousePath', `${operation.operationName} 缺少待交出仓路由生成逻辑`)
-  assertContains(routeSource, 'buildSpecialCraftWarehousePath', `${operation.operationName} 缺少旧 warehouse 兼容路由生成逻辑`)
-})
-assertContains(routeSource, 'special-craft', '路由文件缺少特殊工艺路由前缀')
-assertContains(rendererSource, 'renderSpecialCraftTaskOrdersPage', '缺少特殊工艺任务单渲染器')
-assertContains(rendererSource, 'renderSpecialCraftTaskDetailPage', '缺少特殊工艺任务详情渲染器')
-assertContains(rendererSource, 'renderSpecialCraftWaitProcessWarehousePage', '缺少特殊工艺待加工仓渲染器')
-assertContains(rendererSource, 'renderSpecialCraftWaitHandoverWarehousePage', '缺少特殊工艺待交出仓渲染器')
-
-const sampleOperation = enabledOperations.find((operation) => {
-  const warehouseView = getSpecialCraftWarehouseView(operation.operationId)
-  return warehouseView.waitProcessItems.length > 0
-    && warehouseView.waitHandoverItems.length > 0
-    && warehouseView.inboundRecords.length > 0
-    && warehouseView.outboundRecords.length > 0
-}) || enabledOperations[0]
-const sampleTask = getSpecialCraftTaskOrders(sampleOperation.operationId)[0]
-assert(sampleTask, '缺少可展示的特殊工艺任务样例')
-assert(getSpecialCraftTaskOrderById(sampleTask.taskOrderId), '缺少可展示的特殊工艺任务详情样例')
-assertContains(taskOrdersPageSource, 'renderSpecialCraftTaskOrdersPage', '缺少特殊工艺任务单页面实现')
-assertContains(taskDetailPageSource, 'renderSpecialCraftTaskDetailPage', '缺少特殊工艺任务详情页面实现')
-assertContains(warehouseSource, 'renderSpecialCraftWaitProcessWarehousePage', '缺少特殊工艺待加工仓页面实现')
-assertContains(warehouseSource, 'renderSpecialCraftWaitHandoverWarehousePage', '缺少特殊工艺待交出仓页面实现')
-assertContains(taskOrdersPageSource, '生产单生成', '任务单页面缺少来源展示')
-assertContains(taskOrdersPageSource, '明细数', '任务单页面缺少明细数字段')
-assertContains(taskOrdersPageSource, '分配状态', '任务单页面缺少分配状态字段')
-assertContains(taskOrdersPageSource, '执行状态', '任务单页面缺少执行状态字段')
-assertContains(taskDetailPageSource, '任务明细', '任务详情页面缺少任务明细区块')
-assertContains(taskDetailPageSource, '来源纸样', '任务详情页面缺少来源纸样字段')
-assertContains(taskDetailPageSource, '来源裁片明细', '任务详情页面缺少来源裁片明细字段')
-assertContains(productionArtifactSource, 'specialCraftTaskOrders', '生产单生成产物缺少特殊工艺任务接入')
-
+const auxiliaryWaitProcessHtml = renderSpecialCraftDomainWaitProcessWarehousePage('auxiliary')
+const auxiliaryWaitHandoverHtml = renderSpecialCraftDomainWaitHandoverWarehousePage('auxiliary')
+const specialTypeWaitProcessHtml = renderSpecialCraftDomainWaitProcessWarehousePage('special-type')
+const specialTypeWaitHandoverHtml = renderSpecialCraftDomainWaitHandoverWarehousePage('special-type')
 ;[
-  '任务号',
-  '生产单',
-  '特殊工艺',
-  '工厂',
-  '作用对象',
-  '裁片部位',
-  '菲票号',
-  '计划裁片数量',
-  '已接收裁片数量',
-  '已完成裁片数量',
-  '待交出裁片数量',
-  '当前状态',
-].forEach((token) => {
-  assertContains(taskOrdersPageSource, token, `任务单页面缺少字段：${token}`)
+  ['辅助工艺待加工仓', auxiliaryWaitProcessHtml],
+  ['辅助工艺待交出仓', auxiliaryWaitHandoverHtml],
+  ['特种工艺待加工仓', specialTypeWaitProcessHtml],
+  ['特种工艺待交出仓', specialTypeWaitHandoverHtml],
+].forEach(([title, html]) => {
+  assertIncludes(html, title, `仓库页面缺少标题：${title}`)
+  assertNotIncludes(html, removedOldCopyA, `${title} 不得出现说明性旧文案`)
+  assertNotIncludes(html, removedOldCopyB, `${title} 不得出现说明性旧文案`)
 })
 
-;['节点记录', '仓库记录', '异常记录'].forEach((token) => {
-  assertContains(taskDetailPageSource, token, `任务详情页面缺少：${token}`)
-})
-;['菲票流转', '发料状态', '回仓状态', '发料交出记录', '回仓交出记录'].forEach((token) => {
-  assertContains(taskDetailPageSource, token, `任务详情页面缺少裁床特殊工艺流转展示：${token}`)
-})
+assertIncludes(taskOrdersPageSource, '加工单', '加工单列表页面缺少加工单文案')
+assertIncludes(taskDetailPageSource, '加工单详情', '加工单详情页面缺少加工单详情文案')
+assertIncludes(warehouseSource, '查看加工单', '仓库页面缺少加工单查看入口')
+assertIncludes(sharedSource + taskOrdersPageSource + taskDetailPageSource + warehouseSource, 'resolveSpecialCraftFactoryContextGuard', '特殊工艺页面缺少工厂上下文保护')
 
-;['待加工仓', '待交出仓', '入库记录', '出库记录', '库区库位', '盘点'].forEach((token) => {
-  assertContains(warehouseSource, token, `仓库管理页面缺少：${token}`)
-})
-assertContains(warehouseSource, 'getSpecialCraftWarehouseView', '特殊工艺仓库管理未复用仓库视图 helper')
-assertContains(taskOrderSource, 'FactoryWaitProcessStockItem', '特殊工艺仓库视图未复用待加工仓模型')
-assertContains(taskOrderSource, 'FactoryWaitHandoverStockItem', '特殊工艺仓库视图未复用待交出仓模型')
-assertContains(taskOrderSource, 'FactoryWarehouseInboundRecord', '特殊工艺仓库视图未复用入库记录模型')
-assertContains(taskOrderSource, 'FactoryWarehouseOutboundRecord', '特殊工艺仓库视图未复用出库记录模型')
-assertContains(taskOrderSource, 'FactoryWarehouseStocktakeOrder', '特殊工艺仓库视图未复用盘点模型')
-assertContains(warehouseSource, '自动转单', '特殊工艺仓库管理缺少自动转单展示')
+const allTasks = [...auxiliaryOperations, ...specialTypeOperations].flatMap((operation) => getSpecialCraftTaskOrders(operation.operationId))
+assert(allTasks.length > 0, '缺少辅助/特种工艺加工单演示数据')
+assert(buildSpecialCraftMenuGroups().length === 2, '特殊工艺菜单 helper 应拆为辅助工艺与特种工艺两个菜单组')
+assert(flattenMenuItems(buildSpecialCraftMenuGroups()).some((item) => item.title === '辅助工艺待加工仓'), '菜单 helper 缺少辅助工艺待加工仓')
+assert(flattenMenuItems(buildSpecialCraftMenuGroups()).some((item) => item.title === '特种工艺待交出仓'), '菜单 helper 缺少特种工艺待交出仓')
 
-const warehouseView = getSpecialCraftWarehouseView(sampleOperation.operationId)
-assert(warehouseView.waitProcessItems.length > 0, '特殊工艺仓库管理缺少待加工仓数据')
-assert(warehouseView.waitHandoverItems.length > 0, '特殊工艺仓库管理缺少待交出仓数据')
-assert(warehouseView.inboundRecords.length > 0, '特殊工艺仓库管理缺少入库记录数据')
-assert(warehouseView.outboundRecords.length > 0, '特殊工艺仓库管理缺少出库记录数据')
-
-;[
-  buildToken('新', '增任务'),
-  buildToken('生', '成任务'),
-  buildToken('从', '裁片仓', '生成'),
-  buildToken('手动', '入库'),
-  buildToken('手动', '出库'),
-  buildToken('新增', '库存'),
-].forEach((token) => {
-  assertNoToken(taskOrdersPageSource + warehouseSource, token, `特殊工艺页面不应出现：${token}`)
-})
-;[
-  buildToken('manual', 'SpecialCraftTask'),
-  buildToken('create', 'WarehouseSpecialCraftTask'),
-  buildToken('from', 'CutWarehouseSpecialCraftTask'),
-].forEach((token) => {
-  assertNoToken(productionArtifactSource + taskOrderSource, token, `不应新增越界任务入口：${token}`)
-})
-;[
-  'SpecialCraftWarehouseStock',
-  'SpecialCraftPickupOrder',
-  'SpecialCraftHandoverOrder',
-  '特殊工艺领料单',
-  '特殊工艺交出单',
-].forEach((token) => {
-  assertNoToken(taskOrderSource + warehouseSource, token, `不应新增特殊工艺专属主模型：${token}`)
-})
-;[
-  'PDA',
-  '来料仓',
-  '半成品仓',
-  buildToken('库存', '三态'),
-  buildToken('上架', '任务'),
-  buildToken('拣货', '波次'),
-  buildToken('库位', '规则'),
-  'WMS',
-].forEach((token) => {
-  assertNoToken(taskOrdersPageSource + taskDetailPageSource + warehouseSource, token, `页面用户可见文案不应出现：${token}`)
-})
-;[
-  buildToken('axi', 'os'),
-  buildToken('fet', 'ch('),
-  buildToken('api', 'Client'),
-  buildToken('/', 'api', '/'),
-  buildToken('i1', '8n'),
-  buildToken('use', 'Translation'),
-  buildToken('e', 'charts'),
-  buildToken('chart', '.', 'js'),
-  buildToken('re', 'charts'),
-].forEach((token) => {
-  assertNoToken(taskOrderSource + warehouseSource, token, `本轮越界内容不应出现：${token}`)
-})
-
-assertContains(cuttingSpecialSource, '可前往的特殊工艺任务单', '旧裁床特殊工艺入口未改为兼容入口')
-
-console.log('check:special-craft-operation-menus passed')
+console.log('[check-special-craft-operation-menus] 辅助工艺 / 特种工艺菜单收口通过')

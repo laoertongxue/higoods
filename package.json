@@ -54,6 +54,7 @@
     "check:process-craft-final-taxonomy": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-process-craft-final-taxonomy.ts",
     "check:special-craft-business-taxonomy": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-special-craft-business-taxonomy.ts",
     "check:special-craft-operation-menus": "node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-special-craft-operation-menus.ts",
+    "check:process-factory-special-craft-split": "tsx scripts/check-process-factory-special-craft-split.ts",
     "check:special-craft-task-generation": "tsx scripts/check-special-craft-task-generation.ts",
     "check:special-craft-task-and-fei-flow-deepening": "tsx scripts/check-special-craft-task-and-fei-flow-deepening.ts",
     "check:pickup-handout-order-and-warehouse-foundation": "tsx scripts/check-pickup-handout-order-and-warehouse-foundation.ts",

@@ -12,7 +12,9 @@ import {
   getDefaultSpecialCraftTargetObject,
   getSpecialCraftOperationByCraftCode,
   isSpecialCraftTargetObjectSupported,
+  listEnabledAuxiliaryCraftOperationDefinitions,
   listEnabledSpecialCraftOperationDefinitions,
+  listEnabledSpecialTypeCraftOperationDefinitions,
   type SpecialCraftOperationDefinition,
   type SpecialCraftTargetObject,
 } from './special-craft-operations.ts'
@@ -134,6 +136,10 @@ function getQtyMatrixByColorSize(order: ProductionOrder): Map<string, QtyMatrixL
 
 function isForbiddenSpecialCraft(operation: SpecialCraftOperationDefinition): boolean {
   return operation.craftName === '印花' || operation.craftName === '染色'
+}
+
+function getTaskPrefixByOperation(operation: SpecialCraftOperationDefinition): string {
+  return operation.managementDomain === 'AUXILIARY_CRAFT_FACTORY' ? 'AUX' : 'SPC'
 }
 
 function resolveSelectedTargetObject(
@@ -448,9 +454,11 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
               pieceCountPerGarment,
               orderQty,
               planPieceQty: pieceCountPerGarment * orderQty,
-              specialCraftKey: `${operation.processCode}:${operation.craftCode}:${selectedTargetObject}`,
+              specialCraftKey: `${operation.managementDomain}:${operation.processCode}:${operation.craftCode}:${selectedTargetObject}`,
               operationId: operation.operationId,
               operationName: operation.operationName,
+              managementDomain: operation.managementDomain,
+              managementDomainName: operation.managementDomainName,
               processCode: operation.processCode,
               processName: operation.processName,
               craftCode: operation.craftCode,
@@ -518,9 +526,11 @@ export function buildSpecialCraftTaskDemandLinesFromProductionOrder(input: {
           pieceCountPerGarment: 1,
           orderQty,
           planPieceQty: orderQty,
-          specialCraftKey: `${operation.processCode}:${operation.craftCode}:${selectedTargetObject}`,
+          specialCraftKey: `${operation.managementDomain}:${operation.processCode}:${operation.craftCode}:${selectedTargetObject}`,
           operationId: operation.operationId,
           operationName: operation.operationName,
+          managementDomain: operation.managementDomain,
+          managementDomainName: operation.managementDomainName,
           processCode: operation.processCode,
           processName: operation.processName,
           craftCode: operation.craftCode,
@@ -553,6 +563,7 @@ export function getSpecialCraftGenerationKey(input: {
   productionOrderId: string
   productionOrderVersion: string
   techPackSnapshotId: string
+  managementDomain: string
   operationId: string
   targetObject: string
   demandLines: SpecialCraftTaskDemandLine[]
@@ -575,6 +586,7 @@ export function getSpecialCraftGenerationKey(input: {
     input.productionOrderId,
     input.productionOrderVersion,
     input.techPackSnapshotId,
+    input.managementDomain,
     input.operationId,
     input.targetObject,
     signature,
@@ -601,13 +613,14 @@ function buildInitialNodeRecord(taskOrder: SpecialCraftTaskOrder): SpecialCraftT
 }
 
 function buildTaskOrderId(order: ProductionOrder, operation: SpecialCraftOperationDefinition, generationKey: string, index: number): string {
-  return `SC-TASK-${order.productionOrderId.replace(/[^A-Za-z0-9]/g, '')}-${operation.operationId.slice(-4)}-${generationKey.slice(0, 6)}-${String(index + 1).padStart(2, '0')}`
+  const prefix = getTaskPrefixByOperation(operation)
+  return `${prefix}-TASK-${order.productionOrderId.replace(/[^A-Za-z0-9]/g, '')}-${operation.operationId.slice(-4)}-${generationKey.slice(0, 6)}-${String(index + 1).padStart(2, '0')}`
 }
 
 function buildTaskOrderNo(order: ProductionOrder, operation: SpecialCraftOperationDefinition, index: number): string {
   const orderNo = resolveProductionOrderNo(order).replace(/^PO-/, '')
   const craftShortCode = operation.craftCode.replace('CRAFT_', '').replace(/^0+/, '').slice(-4) || operation.operationId.slice(-4)
-  return `SC-${orderNo}-${craftShortCode}-${String(index + 1).padStart(2, '0')}`
+  return `${getTaskPrefixByOperation(operation)}-${orderNo}-${craftShortCode}-${String(index + 1).padStart(2, '0')}`
 }
 
 function mergeDemandLinesIntoTaskOrder(input: {
@@ -638,12 +651,14 @@ function mergeDemandLinesIntoTaskOrder(input: {
     taskOrderNo: existingTask?.taskOrderNo || buildTaskOrderNo(order, operation, taskIndex),
     operationId: operation.operationId,
     operationName: operation.operationName,
+    managementDomain: operation.managementDomain,
+    managementDomainName: operation.managementDomainName,
     processCode: operation.processCode,
     processName: operation.processName,
     craftCode: operation.craftCode,
     craftName: operation.craftName,
-    factoryId: existingTask?.factoryId || TEST_FACTORY_ID,
-    factoryName: existingTask?.factoryName || TEST_FACTORY_NAME,
+    factoryId: existingTask?.factoryId || 'WAIT_ASSIGN',
+    factoryName: existingTask?.factoryName || '待分配',
     productionOrderId: order.productionOrderId,
     productionOrderNo,
     productionOrderVersion,
@@ -675,8 +690,8 @@ function mergeDemandLinesIntoTaskOrder(input: {
     generationSourceLabel: '生产单生成',
     sourceTrigger: 'PRODUCTION_ORDER_CREATED',
     sourceTriggerLabel: '生产单生成',
-    assignmentStatus: existingTask?.assignmentStatus || 'ASSIGNED',
-    assignmentStatusLabel: existingTask?.assignmentStatusLabel || '已分配',
+    assignmentStatus: existingTask?.assignmentStatus || 'WAIT_ASSIGN',
+    assignmentStatusLabel: existingTask?.assignmentStatusLabel || '待分配',
     executionStatus: existingTask?.executionStatus || 'WAIT_PICKUP',
     executionStatusLabel: existingTask?.executionStatusLabel || '待领料',
     demandLines: demandLines.map((line) => ({
@@ -696,8 +711,8 @@ function mergeDemandLinesIntoTaskOrder(input: {
     generationKey,
     suggestedFactoryId,
     suggestedFactoryName,
-    assignedFactoryId: existingTask?.assignedFactoryId || existingTask?.factoryId || TEST_FACTORY_ID,
-    assignedFactoryName: existingTask?.assignedFactoryName || existingTask?.factoryName || TEST_FACTORY_NAME,
+    assignedFactoryId: existingTask?.assignedFactoryId || existingTask?.factoryId || 'WAIT_ASSIGN',
+    assignedFactoryName: existingTask?.assignedFactoryName || existingTask?.factoryName || '待分配',
     assignmentMode: existingTask?.assignmentMode,
     nodeRecords: existingTask?.nodeRecords?.length ? existingTask.nodeRecords : [],
     warehouseLinks: existingTask?.warehouseLinks?.length ? existingTask.warehouseLinks : [],
@@ -722,9 +737,13 @@ export function validateSpecialCraftTaskGenerationResult(result: SpecialCraftTas
   const taskIds = new Set<string>()
   result.taskOrders.forEach((taskOrder) => {
     if (taskIds.has(taskOrder.taskOrderId)) {
-      throw new Error(`特殊工艺任务重复：${taskOrder.taskOrderId}`)
+      throw new Error(`工艺加工单重复：${taskOrder.taskOrderId}`)
     }
     taskIds.add(taskOrder.taskOrderId)
+    const operation = getSpecialCraftOperationByCraftCode(taskOrder.craftCode)
+    if (!operation || operation.managementDomain !== taskOrder.managementDomain) {
+      throw new Error(`工艺加工单管理域错误：${taskOrder.taskOrderNo}`)
+    }
   })
 }
 
@@ -732,6 +751,7 @@ export function generateSpecialCraftTaskOrdersFromProductionOrder(input: {
   productionOrder: ProductionOrder
   techPackSnapshot?: ProductionOrderTechPackSnapshot | null
   existingGeneratedTasks?: SpecialCraftTaskOrder[]
+  specialCraftOperations?: SpecialCraftOperationDefinition[]
 }): SpecialCraftTaskGenerationResult {
   const { productionOrder } = input
   const techPackSnapshot = input.techPackSnapshot ?? getProductionOrderTechPackSnapshot(productionOrder.productionOrderId)
@@ -768,6 +788,7 @@ export function generateSpecialCraftTaskOrdersFromProductionOrder(input: {
   const { demandLines, errors, warnings } = buildSpecialCraftTaskDemandLinesFromProductionOrder({
     productionOrder,
     techPackSnapshot,
+    specialCraftOperations: input.specialCraftOperations,
   })
 
   const blockingErrors = errors.filter((item) => item.blocking)
@@ -825,7 +846,7 @@ export function generateSpecialCraftTaskOrdersFromProductionOrder(input: {
   demandLines.forEach((line) => {
     const operation = getSpecialCraftOperationByCraftCode(line.craftCode)
     if (!operation) return
-    const key = [line.productionOrderId, line.operationId, line.targetObject, 'WAIT_ASSIGN'].join('::')
+    const key = [line.productionOrderId, line.managementDomain, line.operationId, line.targetObject, 'WAIT_ASSIGN'].join('::')
     const current = grouped.get(key)
     if (current) {
       current.demandLines.push(line)
@@ -844,6 +865,7 @@ export function generateSpecialCraftTaskOrdersFromProductionOrder(input: {
       productionOrderId: productionOrder.productionOrderId,
       productionOrderVersion,
       techPackSnapshotId: techPackSnapshot.snapshotId,
+      managementDomain: operation.managementDomain,
       operationId: operation.operationId,
       targetObject: groupDemandLines[0]?.targetObject || operation.targetObject,
       demandLines: groupDemandLines,
@@ -862,7 +884,7 @@ export function generateSpecialCraftTaskOrdersFromProductionOrder(input: {
   })
 
   if (existingByOrder.some((task) => !taskOrders.some((item) => item.generationKey === task.generationKey) && itemHasExecution(task))) {
-    warnings.push('特殊工艺任务已有执行记录，需人工处理')
+    warnings.push('工艺加工单已有执行记录，需人工处理')
   }
 
   const generationBatch: SpecialCraftTaskGenerationBatch = {
@@ -890,6 +912,28 @@ export function generateSpecialCraftTaskOrdersFromProductionOrder(input: {
   }
   validateSpecialCraftTaskGenerationResult(result)
   return result
+}
+
+export function generateAuxiliaryCraftTaskOrdersFromProductionOrder(input: {
+  productionOrder: ProductionOrder
+  techPackSnapshot?: ProductionOrderTechPackSnapshot | null
+  existingGeneratedTasks?: SpecialCraftTaskOrder[]
+}): SpecialCraftTaskGenerationResult {
+  return generateSpecialCraftTaskOrdersFromProductionOrder({
+    ...input,
+    specialCraftOperations: listEnabledAuxiliaryCraftOperationDefinitions(),
+  })
+}
+
+export function generateSpecialTypeCraftTaskOrdersFromProductionOrder(input: {
+  productionOrder: ProductionOrder
+  techPackSnapshot?: ProductionOrderTechPackSnapshot | null
+  existingGeneratedTasks?: SpecialCraftTaskOrder[]
+}): SpecialCraftTaskGenerationResult {
+  return generateSpecialCraftTaskOrdersFromProductionOrder({
+    ...input,
+    specialCraftOperations: listEnabledSpecialTypeCraftOperationDefinitions(),
+  })
 }
 
 function itemHasExecution(task: SpecialCraftTaskOrder): boolean {
@@ -975,6 +1019,28 @@ export function generateSpecialCraftTaskOrdersForAllProductionOrders(
 ): SpecialCraftTaskGenerationResult[] {
   return productionOrders.map((productionOrder) =>
     generateSpecialCraftTaskOrdersFromProductionOrder({
+      productionOrder,
+      existingGeneratedTasks,
+    }),
+  )
+}
+
+export function generateAuxiliaryCraftTaskOrdersForAllProductionOrders(
+  existingGeneratedTasks: SpecialCraftTaskOrder[] = [],
+): SpecialCraftTaskGenerationResult[] {
+  return productionOrders.map((productionOrder) =>
+    generateAuxiliaryCraftTaskOrdersFromProductionOrder({
+      productionOrder,
+      existingGeneratedTasks,
+    }),
+  )
+}
+
+export function generateSpecialTypeCraftTaskOrdersForAllProductionOrders(
+  existingGeneratedTasks: SpecialCraftTaskOrder[] = [],
+): SpecialCraftTaskGenerationResult[] {
+  return productionOrders.map((productionOrder) =>
+    generateSpecialTypeCraftTaskOrdersFromProductionOrder({
       productionOrder,
       existingGeneratedTasks,
     }),

@@ -182,6 +182,8 @@ import { handleCraftWoolEvent } from '../pages/process-factory/wool/work-orders'
 import { handleCraftWoolMachineScheduleEvent } from '../pages/process-factory/wool/machine-schedule'
 import { handleCraftWoolMachinesEvent } from '../pages/process-factory/wool/machines'
 import { handleSpecialCraftWorkOrderDetailEvent } from '../pages/process-factory/special-craft/work-order-detail'
+import { handleSpecialCraftTaskOrdersEvent } from '../pages/process-factory/special-craft/task-orders'
+import { handleSpecialCraftWarehouseEvent } from '../pages/process-factory/special-craft/warehouse'
 import {
   closeFactoryWarehouseSharedDialogs,
   handleFactoryWarehouseSharedEvent,
@@ -206,9 +208,22 @@ export async function dispatchFcsPageEvent(target: HTMLElement): Promise<boolean
     pathname.includes('/fcs/craft/special-craft')
   if (
     isSpecialCraftRoute
-    && target.closest('[data-special-craft-web-action], [data-process-web-status-action]')
+    && target.closest([
+      '[data-special-craft-web-action]',
+      '[data-process-web-status-action]',
+      '[data-special-craft-task-field]',
+      '[data-special-craft-task-action]',
+      '[data-special-craft-task-page-size]',
+      '[data-special-craft-warehouse-field]',
+      '[data-special-craft-warehouse-action]',
+      '[data-special-craft-warehouse-page-size]',
+    ].join(', '))
   ) {
-    return handleSpecialCraftWorkOrderDetailEvent(target)
+    return (
+      handleSpecialCraftTaskOrdersEvent(target) ||
+      handleSpecialCraftWarehouseEvent(target) ||
+      handleSpecialCraftWorkOrderDetailEvent(target)
+    )
   }
 
   return (
@@ -219,6 +234,8 @@ export async function dispatchFcsPageEvent(target: HTMLElement): Promise<boolean
     await handleCraftWoolEvent(target) ||
     await handleCraftWoolMachinesEvent(target) ||
     await handlePostFinishingEvent(target) ||
+    handleSpecialCraftTaskOrdersEvent(target) ||
+    handleSpecialCraftWarehouseEvent(target) ||
     await handleSpecialCraftWorkOrderDetailEvent(target) ||
     await handleCraftCuttingOriginalOrdersEvent(target) ||
     await handleFactoryOnboardingEvent(target) ||

@@ -427,7 +427,7 @@ export const PROCESS_ACTION_DEFINITIONS: ProcessActionDefinition[] = [
     actionLabel: '完成裁剪',
     sourceType: 'CUTTING',
     fromStatuses: ['裁剪中'],
-    toStatus: '待菲票',
+    toStatus: '裁剪完成',
     requiredFields: ['操作人', '完成时间', '已裁裁片数量'],
     writebackHandler: 'executeCuttingAction.updateCutPieceOrderWebStage',
   },
@@ -726,7 +726,7 @@ export function getProcessActionStatusSnapshot(sourceType: ProcessActionSourceTy
   }
 
   const workOrder = getSpecialCraftTaskWorkOrderById(sourceId)
-  if (!workOrder) throw new Error('特殊工艺工艺单不存在')
+  if (!workOrder) throw new Error('特殊工艺加工单不存在')
   const binding = validateSpecialCraftMobileTaskBinding(sourceId)
   const objectMeta = resolveSpecialCraftObjectMeta(workOrder.targetObject)
   return {
@@ -1035,7 +1035,7 @@ export function executeSpecialCraftAction(payload: ProcessActionPayload): Partia
   const definition = getProcessActionDefinition('SPECIAL_CRAFT', payload.actionCode)
   if (!definition) throw new Error('特殊工艺动作未注册')
   const workOrder = getSpecialCraftTaskWorkOrderById(payload.sourceId)
-  if (!workOrder) throw new Error('特殊工艺工艺单不存在')
+  if (!workOrder) throw new Error('特殊工艺加工单不存在')
   const qty = Number(payload.objectQty || workOrder.currentQty || workOrder.planQty || 0)
   const binding = validateSpecialCraftMobileTaskBinding(payload.sourceId)
   const nextStatus = definition.toStatus as SpecialCraftTaskStatus

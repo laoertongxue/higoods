@@ -9,10 +9,6 @@ import {
   getSpecialCraftTaskOrderById,
   getSpecialCraftTaskWorkOrdersByTaskOrderId,
 } from '../../../data/fcs/special-craft-task-orders.ts'
-import {
-  getSpecialCraftBindingsByTaskOrderId,
-  getSpecialCraftQtyDifferenceReportsByTaskOrderId,
-} from '../../../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
 import { escapeHtml } from '../../../utils.ts'
 import {
   formatQty,
@@ -64,14 +60,14 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
   const taskOrder = getSpecialCraftTaskOrderById(decodeURIComponent(taskOrderId))
 
   if (!operation || !taskOrder || taskOrder.operationId !== operation.operationId) {
-    return renderEmptyState('未找到对应特殊工艺任务详情。')
+    return renderEmptyState('未找到对应加工单详情。')
   }
   const factoryGuard = resolveSpecialCraftFactoryContextGuard(operation)
   if (factoryGuard.blocked) {
     return renderSpecialCraftFactoryContextBlockedLayout({
       operation,
-      title: `${operation.operationName}任务详情`,
-      description: '查看任务明细、子工艺单、菲票流转和差异上报。',
+      title: `${operation.operationName}加工单详情`,
+      description: '',
       activeSubNav: 'tasks',
       factoryName: factoryGuard.factoryName,
     })
@@ -83,7 +79,7 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
     { label: '来源', value: escapeHtml(taskOrder.generationSourceLabel || '生产单生成') },
     { label: '技术包版本', value: escapeHtml(taskOrder.techPackVersion || '—') },
     { label: '生成批次', value: escapeHtml(taskOrder.generationBatchId || '—') },
-    { label: '特殊工艺', value: escapeHtml(taskOrder.operationName) },
+    { label: '工艺', value: escapeHtml(taskOrder.operationName) },
     { label: '执行工厂', value: escapeHtml(formatSpecialCraftFactoryLabel(taskOrder.factoryName, taskOrder.factoryId)) },
     { label: '作用对象', value: escapeHtml(taskOrder.targetObject) },
     { label: '分配状态', value: renderStatusBadge(taskOrder.assignmentStatusLabel || '待分配') },
@@ -104,7 +100,7 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
         { label: '尺码', value: escapeHtml(taskOrder.sizeCode || '—') },
         { label: '菲票号', value: escapeHtml(taskOrder.feiTicketNos.join('、') || '待绑定') },
         { label: '中转袋号', value: escapeHtml(taskOrder.transferBagNos.join('、') || '—') },
-        { label: '计划特殊工艺裁片数量', value: `${formatQty(taskOrder.planQty)}${escapeHtml(taskOrder.unit)}` },
+        { label: '计划加工数量', value: `${formatQty(taskOrder.planQty)}${escapeHtml(taskOrder.unit)}` },
       ])
     : ''
 
@@ -113,7 +109,7 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
         { label: '面料 SKU', value: escapeHtml(taskOrder.materialSku || '—') },
         { label: '颜色', value: escapeHtml(taskOrder.fabricColor || '—') },
         { label: '卷号', value: escapeHtml(taskOrder.fabricRollNos.join('、') || '—') },
-        { label: '计划特殊工艺裁片数量', value: `${formatQty(taskOrder.planQty)}${escapeHtml(taskOrder.unit)}` },
+        { label: '计划加工数量', value: `${formatQty(taskOrder.planQty)}${escapeHtml(taskOrder.unit)}` },
         { label: '单位', value: escapeHtml(taskOrder.unit) },
       ])
     : ''
@@ -194,28 +190,16 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
     )
     .join('')
 
-  const bindingRows = getSpecialCraftBindingsByTaskOrderId(taskOrder.taskOrderId)
+  const bindingRows = taskOrder.feiTicketNos
     .map(
-      (binding) => `
+      (feiTicketNo) => `
         <tr class="align-top">
-          <td class="px-3 py-3">${escapeHtml(binding.feiTicketNo)}</td>
-          <td class="px-3 py-3">${escapeHtml(binding.workOrderNo || '—')}</td>
-          <td class="px-3 py-3">${escapeHtml(binding.partName)}</td>
-          <td class="px-3 py-3">${escapeHtml(binding.colorName)}</td>
-          <td class="px-3 py-3">${escapeHtml(binding.sizeCode)}</td>
-          <td class="px-3 py-3">${formatQty(binding.originalQty)} ${escapeHtml(binding.unit)}</td>
-          <td class="px-3 py-3">${formatQty(binding.currentQty)} ${escapeHtml(binding.unit)}</td>
-          <td class="px-3 py-3">${formatQty(binding.cumulativeScrapQty)} ${escapeHtml(binding.unit)}</td>
-          <td class="px-3 py-3">${formatQty(binding.cumulativeDamageQty)} ${escapeHtml(binding.unit)}</td>
-          <td class="px-3 py-3">${escapeHtml(binding.currentLocation)}</td>
-          <td class="px-3 py-3">${renderStatusBadge(binding.specialCraftFlowStatus)}</td>
-          <td class="px-3 py-3">${renderStatusBadge(binding.specialCraftFlowStatus === '已回仓' ? '已回仓' : binding.currentLocation === '回仓途中' ? '回仓途中' : binding.specialCraftFlowStatus === '待回仓' ? '待回仓' : binding.specialCraftFlowStatus)}</td>
-          <td class="px-3 py-3">${escapeHtml(binding.dispatchHandoverRecordNo || '—')}</td>
-          <td class="px-3 py-3">${escapeHtml(binding.returnHandoverRecordNo || '—')}</td>
-          <td class="px-3 py-3">${binding.differenceQty ?? '—'}</td>
-          <td class="px-3 py-3">${escapeHtml(binding.receiveDifferenceStatus || '—')}</td>
-          <td class="px-3 py-3">${escapeHtml(binding.returnDifferenceStatus || '—')}</td>
-          <td class="px-3 py-3">${escapeHtml(binding.objectionStatus || '—')}</td>
+          <td class="px-3 py-3">${escapeHtml(feiTicketNo)}</td>
+          <td class="px-3 py-3">${escapeHtml(taskOrder.partName || '—')}</td>
+          <td class="px-3 py-3">${escapeHtml(taskOrder.fabricColor || '—')}</td>
+          <td class="px-3 py-3">${escapeHtml(taskOrder.sizeCode || '多尺码')}</td>
+          <td class="px-3 py-3">${formatQty(taskOrder.planQty)} ${escapeHtml(taskOrder.unit)}</td>
+          <td class="px-3 py-3">${renderStatusBadge(taskOrder.status)}</td>
         </tr>
       `,
     )
@@ -233,30 +217,26 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
           <td class="px-3 py-3">${formatQty(workOrder.scrapQty)}</td>
           <td class="px-3 py-3">${formatQty(workOrder.damageQty)}</td>
           <td class="px-3 py-3">${String(workOrder.feiTicketNos.length)}</td>
-          <td class="px-3 py-3">${String(getSpecialCraftBindingsByTaskOrderId(taskOrder.taskOrderId).filter((binding) => binding.workOrderId === workOrder.workOrderId && binding.specialCraftFlowStatus === '已回仓').length)}</td>
+          <td class="px-3 py-3">${workOrder.returnedQty > 0 ? String(workOrder.feiTicketNos.length) : '0'}</td>
           <td class="px-3 py-3">${String(workOrder.openDifferenceReportCount)}</td>
           <td class="px-3 py-3">${String(workOrder.openObjectionCount)}</td>
           <td class="px-3 py-3">${renderStatusBadge(workOrder.status)}</td>
-          <td class="px-3 py-3"><button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="${workOrderHref}">查看工艺单</button></td>
+          <td class="px-3 py-3"><button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="${workOrderHref}">查看加工单</button></td>
         </tr>
       `
     })
     .join('')
 
-  const differenceRows = getSpecialCraftQtyDifferenceReportsByTaskOrderId(taskOrder.taskOrderId)
+  const differenceRows = taskOrder.abnormalRecords
     .map(
       (report) => `
         <tr class="align-top">
-          <td class="px-3 py-3">${escapeHtml(report.reportPhase)}</td>
-          <td class="px-3 py-3">${escapeHtml(report.workOrderNo)}</td>
-          <td class="px-3 py-3">${escapeHtml(report.feiTicketNo)}</td>
-          <td class="px-3 py-3">${formatQty(report.expectedQty)}${escapeHtml(report.unit)}</td>
-          <td class="px-3 py-3">${formatQty(report.actualQty)}${escapeHtml(report.unit)}</td>
-          <td class="px-3 py-3">${formatQty(report.differenceQty)}${escapeHtml(report.unit)}</td>
-          <td class="px-3 py-3">${escapeHtml(report.sourceRecordNo || '—')}</td>
-          <td class="px-3 py-3">${escapeHtml(report.reason)}</td>
-          <td class="px-3 py-3">${renderStatusBadge(report.platformStatus)}</td>
-          <td class="px-3 py-3">${escapeHtml(report.processRemark || '—')}</td>
+          <td class="px-3 py-3">${escapeHtml(report.abnormalType)}</td>
+          <td class="px-3 py-3">${formatQty(report.qty)}${escapeHtml(report.unit)}</td>
+          <td class="px-3 py-3">${escapeHtml(report.description)}</td>
+          <td class="px-3 py-3">${escapeHtml(report.reportedBy)}</td>
+          <td class="px-3 py-3">${escapeHtml(report.reportedAt)}</td>
+          <td class="px-3 py-3">${renderStatusBadge(report.status)}</td>
         </tr>
       `,
     )
@@ -267,39 +247,39 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
     isCutPieceTarget(taskOrder.targetObject) ? renderSection('裁片信息', pieceInfo) : '',
     isFabricTarget(taskOrder.targetObject) ? renderSection('面料信息', fabricInfo) : '',
     renderSection(
-      '任务明细',
+      '加工明细',
       demandRows
         ? renderTable(
             ['裁片部位', '颜色', '尺码', '每件片数', '生产成衣件数', '计划裁片数量', '来源纸样', '来源裁片明细', '菲票号'],
             demandRows,
             'min-w-[1120px]',
           )
-        : renderEmptyState('暂无任务明细'),
+        : renderEmptyState('暂无加工明细'),
     ),
     renderSection(
       '菲票流转',
       bindingRows
         ? renderTable(
-            ['菲票号', '工艺单号', '裁片部位', '颜色', '尺码', '原裁片数量', '当前裁片数量', '累计报废裁片数量', '累计货损裁片数量', '当前所在', '发料状态', '回仓状态', '发料交出记录', '回仓交出记录', '差异裁片数量', '接收差异', '回仓差异', '异议状态'],
+            ['菲票号', '裁片部位', '颜色', '尺码', '计划数量', '当前状态'],
             bindingRows,
-            'min-w-[1880px]',
+            'min-w-[860px]',
           )
         : renderEmptyState('暂无菲票流转'),
     ),
     renderSection(
-      '子工艺单',
+      '子加工单',
       workOrderRows
         ? renderTable(
-            ['工艺单号', '裁片部位', '计划裁片数量', '当前裁片数量', '累计报废裁片数量', '累计货损裁片数量', '绑定菲票数量', '已回仓菲票数量', '接收差异裁片数量', '回仓差异裁片数量', '状态', '操作'],
+            ['加工单号', '裁片部位', '计划裁片数量', '当前裁片数量', '累计报废裁片数量', '累计货损裁片数量', '绑定菲票数量', '已回仓菲票数量', '接收差异裁片数量', '回仓差异裁片数量', '状态', '操作'],
             workOrderRows,
             'min-w-[1320px]',
           )
-        : renderEmptyState('暂无子工艺单'),
+        : renderEmptyState('暂无子加工单'),
     ),
     renderSection(
       '接收差异上报 / 回仓差异上报',
       differenceRows
-        ? renderTable(['差异类型', '工艺单号', '菲票号', '应收裁片数量', '实收裁片数量', '差异裁片数量', '来源记录', '原因', '平台状态', '处理备注'], differenceRows, 'min-w-[1280px]')
+        ? renderTable(['差异类型', '差异数量', '原因', '上报人', '上报时间', '状态'], differenceRows, 'min-w-[860px]')
         : renderEmptyState('暂无差异上报'),
     ),
     renderSection(
@@ -332,8 +312,8 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
 
   return renderSpecialCraftPageLayout({
     operation,
-    title: `${operation.operationName}任务详情`,
-    description: '只读展示特殊工艺任务的节点、仓库和异常记录；本页不提供新增执行主流程动作。',
+    title: `${operation.operationName}加工单详情`,
+    description: '',
     activeSubNav: 'tasks',
     content,
   })

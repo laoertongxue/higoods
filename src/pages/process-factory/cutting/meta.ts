@@ -381,10 +381,10 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     canonicalPath: '/fcs/craft/cutting/special-processes',
     aliases: [],
     menuGroupTitle: '裁后处理',
-    pageTitle: '特殊工艺',
+    pageTitle: '捆条加工单',
     pageSubtitle: '',
     isPlaceholder: false,
-    shortDescription: '查看特殊工艺单。',
+    shortDescription: '查看裁床捆条加工单。',
   },
   summary: {
     key: 'summary',

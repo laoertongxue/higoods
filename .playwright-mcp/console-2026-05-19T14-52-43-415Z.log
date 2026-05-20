@@ -1,0 +1,23 @@
+[     104ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[  860145ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[  885695ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[  928313ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[ 1175901ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[ 1176229ms] ReferenceError: getSpecialCraftFeiTicketSummary is not defined
+    at http://localhost:5173/src/pages/process-factory/special-craft/warehouse.ts?t=1779203539175:503:27
+    at Array.map (<anonymous>)
+    at renderSpecialCraftWarehousePageByMode (http://localhost:5173/src/pages/process-factory/special-craft/warehouse.ts?t=1779203539175:501:52)
+    at renderSpecialCraftWaitProcessWarehousePage (http://localhost:5173/src/pages/process-factory/special-craft/warehouse.ts?t=1779203539175:621:10)
+    at http://localhost:5173/src/router/route-renderers-fcs.ts?t=1779203539175:15:12
+    at async resolvePage (http://localhost:5173/src/router/routes.ts?t=1779203539175:119:28)
+    at async render (http://localhost:5173/src/main.ts?t=1779203539175:380:23)
+[ 1239908ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356
+[ 1240234ms] ReferenceError: getSpecialCraftFeiTicketSummary is not defined
+    at http://localhost:5173/src/pages/process-factory/special-craft/warehouse.ts?t=1779203539175:503:27
+    at Array.map (<anonymous>)
+    at renderSpecialCraftWarehousePageByMode (http://localhost:5173/src/pages/process-factory/special-craft/warehouse.ts?t=1779203539175:501:52)
+    at renderSpecialCraftWaitProcessWarehousePage (http://localhost:5173/src/pages/process-factory/special-craft/warehouse.ts?t=1779203539175:621:10)
+    at http://localhost:5173/src/router/route-renderers-fcs.ts?t=1779203603174:15:12
+    at async resolvePage (http://localhost:5173/src/router/routes.ts?t=1779203603174:119:28)
+    at async render (http://localhost:5173/src/main.ts?t=1779203603174:380:23)
+[ 1418091ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=0b2f40ba:20356

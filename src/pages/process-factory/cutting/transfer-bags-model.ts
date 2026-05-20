@@ -228,8 +228,6 @@ export interface TransferBagItemBinding {
   partName?: string
   bundleNo?: string
   actualCutPieceQty?: number
-  assemblyGroupKey?: string
-  siblingPartTicketNos?: string[]
   裁剪批次No?: string
   qty: number
   garmentQty: number
@@ -423,7 +421,6 @@ export interface TransferBagParentChildSummary {
   originalCutOrderCount: number
   productionOrderCount: number
   mergeBatchCount: number
-  assemblyGroupCount: number
   quantityTotal: number
   garmentQtyTotal: number
 }
@@ -453,8 +450,6 @@ export interface TransferBagTicketCandidate {
   bundleNo: string
   qty: number
   actualCutPieceQty: number
-  assemblyGroupKey: string
-  siblingPartTicketNos: string[]
   garmentQty: number
   materialSku: string
   sourceContextType: string
@@ -949,8 +944,6 @@ function toRuntimeBinding(binding: TransferBagItemBinding): CarrierCycleItemBind
     qty: binding.qty,
     actualCutPieceQty: binding.actualCutPieceQty ?? binding.qty,
     garmentQty: binding.garmentQty ?? binding.qty,
-    assemblyGroupKey: binding.assemblyGroupKey || '',
-    siblingPartTicketNos: [...(binding.siblingPartTicketNos || [])],
     boundAt: binding.boundAt,
     boundBy: binding.boundBy,
     operator: normalized.operator,
@@ -987,8 +980,6 @@ function toPageBinding(binding: CarrierCycleItemBinding): TransferBagItemBinding
     qty: binding.qty,
     garmentQty: binding.garmentQty ?? binding.qty,
     actualCutPieceQty: binding.actualCutPieceQty ?? binding.qty,
-    assemblyGroupKey: binding.assemblyGroupKey || '',
-    siblingPartTicketNos: [...(binding.siblingPartTicketNos || [])],
     boundAt: binding.boundAt,
     boundBy: binding.boundBy,
     operator: binding.operator || binding.boundBy,
@@ -1115,8 +1106,6 @@ function toRuntimeSeedTickets(ticketRecords: FeiTicketLabelRecord[]): TransferBa
     bundleNo: record.bundleNo,
     qty: record.quantity,
     actualCutPieceQty: record.actualCutPieceQty,
-    assemblyGroupKey: record.assemblyGroupKey,
-    siblingPartTicketNos: record.siblingPartTicketNos,
     garmentQty: record.quantity,
     materialSku: record.materialSku,
     sourceContextType: record.sourceContextType,
@@ -1436,7 +1425,6 @@ export function buildTransferBagParentChildSummary(bindings: TransferBagItemBind
     originalCutOrderCount: uniqueStrings(bindings.map((item) => item.originalCutOrderNo)).length,
     productionOrderCount: uniqueStrings(bindings.map((item) => item.productionOrderNo)).length,
     mergeBatchCount: uniqueStrings(bindings.map((item) => item.mergeBatchNo)).length,
-    assemblyGroupCount: uniqueStrings(bindings.map((item) => item.assemblyGroupKey)).length,
     quantityTotal: bindings.reduce((sum, item) => sum + Math.max(item.qty, 0), 0),
     garmentQtyTotal: bindings.reduce((sum, item) => sum + Math.max(item.garmentQty ?? item.qty, 0), 0),
   }
@@ -1617,8 +1605,6 @@ function buildTicketCandidates(ticketRecords: FeiTicketLabelRecord[]): TransferB
       bundleNo: record.bundleNo || '',
       qty: Math.max(record.quantity ?? 1, 1),
       actualCutPieceQty: Math.max(record.actualCutPieceQty ?? record.quantity ?? 1, 1),
-      assemblyGroupKey: record.assemblyGroupKey || '',
-      siblingPartTicketNos: [...(record.siblingPartTicketNos || [])],
       garmentQty: Math.max(record.quantity ?? 1, 1),
       materialSku: record.materialSku,
       sourceContextType: record.sourceContextType,
@@ -1933,8 +1919,6 @@ export function buildTransferBagViewModel(options: {
         size: binding.size || ticketCandidate?.size || '',
         partName: binding.partName || ticketCandidate?.partName || '',
         bundleNo: binding.bundleNo || ticketCandidate?.bundleNo || '',
-        assemblyGroupKey: binding.assemblyGroupKey || ticketCandidate?.assemblyGroupKey || '',
-        siblingPartTicketNos: binding.siblingPartTicketNos || ticketCandidate?.siblingPartTicketNos || [],
         pocketStatusKey: mapUsageStatusToPocketCarrierStatus({
           usage: usagesByIdRaw[binding.usageId] ?? null,
           masterStatus: options.store.masters.find((item) => item.bagId === binding.bagId)?.currentStatus || 'IDLE',

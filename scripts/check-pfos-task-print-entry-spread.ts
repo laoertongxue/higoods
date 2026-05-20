@@ -109,8 +109,8 @@ assertIncludes(dyeingPageSource, '打印任务流转卡', '/fcs/craft/dyeing/wor
 assertIncludes(dyeingPageSource, "buildTaskRouteCardPrintLink('DYEING_WORK_ORDER', order.dyeOrderId)", '染色加工单必须使用 dyeOrderId')
 assertNotIncludes(dyeingPageSource, '打印任务交货卡', '染色加工单不得提前增加任务交货卡')
 
-assertIncludes(specialTaskListSource, '打印任务流转卡', '特殊工艺任务单列表缺少打印任务流转卡')
-assertIncludes(specialTaskListSource, "buildTaskRouteCardPrintLink('SPECIAL_CRAFT_TASK_ORDER', taskOrder.taskOrderId)", '特殊工艺任务单列表必须使用 taskOrderId')
+assertIncludes(specialTaskListSource, '打印任务流转卡', '特殊工艺加工单列表缺少打印任务流转卡')
+assertIncludes(specialTaskListSource, "buildTaskRouteCardPrintLink('SPECIAL_CRAFT_TASK_ORDER', taskOrder.taskOrderId)", '特殊工艺加工单列表必须使用 taskOrderId')
 assertIncludes(specialTaskDetailSource, '打印任务流转卡', '特殊工艺任务详情缺少打印任务流转卡')
 assertIncludes(specialTaskDetailSource, "buildTaskRouteCardPrintLink('SPECIAL_CRAFT_TASK_ORDER', taskOrder.taskOrderId)", '特殊工艺任务详情必须使用 taskOrderId')
 

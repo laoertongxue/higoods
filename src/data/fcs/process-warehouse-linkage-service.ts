@@ -626,7 +626,7 @@ export function applySpecialCraftWarehouseLinkageAfterAction(actionResult: Proce
       createdWaitProcessWarehouseRecordId: waitProcess.warehouseRecordId,
       updatedWaitProcessWarehouseRecordId: waitProcess.warehouseRecordId,
       updatedFeiTicketIds: context.relatedFeiTicketIds,
-      message: '特殊工艺待加工仓已联动并关联菲票',
+      message: `${context.targetWarehouseName}已联动并关联菲票`,
     })
   }
   if (actionResult.actionCode === 'SPECIAL_CRAFT_REPORT_DIFFERENCE') {
@@ -644,7 +644,7 @@ export function applySpecialCraftWarehouseLinkageAfterAction(actionResult: Proce
     createdWaitHandoverWarehouseRecordId: waitHandover.warehouseRecordId,
     updatedWaitHandoverWarehouseRecordId: waitHandover.warehouseRecordId,
     updatedFeiTicketIds: context.relatedFeiTicketIds,
-    message: '特殊工艺待交出仓已联动',
+    message: `${context.targetWarehouseName}已联动`,
   })
   if (actionResult.actionCode === 'SPECIAL_CRAFT_SUBMIT_HANDOVER') {
     const handover = ensureHandoverRecord(context, actionResult, waitHandover.warehouseRecordId)

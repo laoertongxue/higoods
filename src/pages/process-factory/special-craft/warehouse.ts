@@ -1,101 +1,321 @@
 import {
   buildSpecialCraftWorkOrderDetailPath,
-  getSpecialCraftOperationBySlug,
+  getSpecialCraftManagementDomainBySlug,
+  listOperationDefinitionsByManagementDomain,
+  type SpecialCraftOperationDefinition,
 } from '../../../data/fcs/special-craft-operations.ts'
-import {
-  buildHandoverQrLabelPrintLink,
-  buildTaskDeliveryCardPrintLink,
-} from '../../../data/fcs/fcs-route-links.ts'
-import { getSpecialCraftWarehouseView } from '../../../data/fcs/special-craft-task-orders.ts'
-import { getSpecialCraftFeiTicketSummary } from '../../../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
+import type { ProcessCraftManagementDomain } from '../../../data/fcs/process-craft-dict.ts'
+import type { ProcessHandoverRecord, ProcessWarehouseRecord } from '../../../data/fcs/process-warehouse-domain.ts'
 import {
   listProcessHandoverRecords,
   listWaitHandoverWarehouseRecords,
   listWaitProcessWarehouseRecords,
-  type ProcessHandoverRecord,
-  type ProcessWarehouseRecord,
 } from '../../../data/fcs/process-warehouse-domain.ts'
 import { escapeHtml } from '../../../utils.ts'
 import {
+  paginateItems,
+  renderCompactKpiCard,
+  renderStickyFilterShell,
+  renderStickyTableScroller,
+  renderWorkbenchFilterChip,
+  renderWorkbenchPagination,
+  renderWorkbenchStateBar,
+} from '../cutting/layout.helpers.ts'
+import {
   formatQty,
-  formatSpecialCraftFactoryLabel,
   renderEmptyState,
-  renderSpecialCraftFactoryContextBlockedLayout,
-  renderFilterGrid,
-  renderMetricCards,
   renderSpecialCraftPageLayout,
-  resolveSpecialCraftFactoryContextGuard,
   renderStatusBadge,
-  renderTable,
 } from './shared.ts'
 import {
   renderFactoryWarehouseStandardTabs,
   renderWarehouseFlowButton,
-  renderWarehouseLocationActions,
-  renderWarehouseLocationToolbar,
   type FactoryWarehouseFlowLine,
   type FactoryWarehouseStandardTab,
 } from '../shared/warehouse-standard.ts'
 
 type SpecialCraftWarehousePageMode = 'wait-process' | 'wait-handover'
+type SpecialCraftWarehouseDomain = 'AUXILIARY_CRAFT_FACTORY' | 'SPECIAL_CRAFT_FACTORY'
+type WarehouseFilterField = 'keyword' | 'operationName' | 'factoryId' | 'physicalAreaName'
 
-function getModeMeta(operationName: string, mode: SpecialCraftWarehousePageMode): {
-  title: string
-  description: string
-  activeSubNav: 'wait-process' | 'wait-handover'
-} {
-  if (mode === 'wait-handover') {
-    return {
-      title: `${operationName}待交出仓`,
-      description: '查看特殊工艺完工后的待交出库存、出库记录与回写差异。',
-      activeSubNav: 'wait-handover',
-    }
-  }
-  return {
-    title: `${operationName}待加工仓`,
-    description: '查看特殊工艺接收后的待加工库存、入库记录与仓内位置。',
-    activeSubNav: 'wait-process',
-  }
+interface SpecialCraftWarehousePageState {
+  keyword: string
+  operationName: string
+  factoryId: string
+  physicalAreaName: string
+  page: number
+  pageSize: number
 }
 
-function renderObjectQty(value: number | undefined, unit: string): string {
-  return `${formatQty(value || 0)} ${escapeHtml(unit)}`
+interface PhysicalAreaMeta {
+  areaName: '印花厂库区' | '毛织厂库区' | '裁片仓库区' | '车缝厂库区'
+  warehousePrefix: string
+  shelfPrefix: string
+}
+
+const initialWarehouseState: SpecialCraftWarehousePageState = {
+  keyword: '',
+  operationName: '全部',
+  factoryId: '全部',
+  physicalAreaName: '全部',
+  page: 1,
+  pageSize: 20,
+}
+
+const warehouseStateByPage = new Map<string, SpecialCraftWarehousePageState>()
+
+const PHYSICAL_AREA_OPTIONS: PhysicalAreaMeta[] = [
+  { areaName: '印花厂库区', warehousePrefix: 'PF', shelfPrefix: 'PFA' },
+  { areaName: '毛织厂库区', warehousePrefix: 'WF', shelfPrefix: 'WFA' },
+  { areaName: '裁片仓库区', warehousePrefix: 'CP', shelfPrefix: 'CPA' },
+  { areaName: '车缝厂库区', warehousePrefix: 'SW', shelfPrefix: 'SWA' },
+]
+
+const specialCraftWarehouseDomainMeta: Record<
+  SpecialCraftWarehouseDomain,
+  { titlePrefix: string; domainLabel: string }
+> = {
+  AUXILIARY_CRAFT_FACTORY: {
+    titlePrefix: '辅助工艺',
+    domainLabel: '辅助工艺工厂管理',
+  },
+  SPECIAL_CRAFT_FACTORY: {
+    titlePrefix: '特种工艺',
+    domainLabel: '特种工艺工厂管理',
+  },
+}
+
+function isSpecialCraftWarehouseDomain(
+  domain: ProcessCraftManagementDomain | undefined,
+): domain is SpecialCraftWarehouseDomain {
+  return domain === 'AUXILIARY_CRAFT_FACTORY' || domain === 'SPECIAL_CRAFT_FACTORY'
+}
+
+function getDomainOperations(domain: SpecialCraftWarehouseDomain): SpecialCraftOperationDefinition[] {
+  return listOperationDefinitionsByManagementDomain(domain).filter((operation) => operation.isEnabled)
+}
+
+function buildDomainCraftNameSet(operations: SpecialCraftOperationDefinition[]): Set<string> {
+  return new Set(operations.map((operation) => operation.operationName))
+}
+
+function getWarehouseStateKey(domainSlug: string, mode: SpecialCraftWarehousePageMode): string {
+  return `${domainSlug}:${mode}`
+}
+
+function getWarehouseState(domainSlug: string, mode: SpecialCraftWarehousePageMode): SpecialCraftWarehousePageState {
+  const key = getWarehouseStateKey(domainSlug, mode)
+  const current = warehouseStateByPage.get(key)
+  if (current) return current
+  const next = { ...initialWarehouseState }
+  warehouseStateByPage.set(key, next)
+  return next
+}
+
+function setWarehouseState(domainSlug: string, mode: SpecialCraftWarehousePageMode, patch: Partial<SpecialCraftWarehousePageState>): void {
+  const key = getWarehouseStateKey(domainSlug, mode)
+  warehouseStateByPage.set(key, { ...getWarehouseState(domainSlug, mode), ...patch })
+}
+
+function formatNumber(value: number | undefined | null): string {
+  return (value || 0).toLocaleString('zh-CN')
+}
+
+function findOperationByCraftName(
+  operations: SpecialCraftOperationDefinition[],
+  craftName: string,
+): SpecialCraftOperationDefinition | undefined {
+  return operations.find((operation) => operation.operationName === craftName)
+}
+
+function filterSpecialCraftRecordsByDomain<T extends { craftType: string; craftName: string }>(
+  records: T[],
+  craftNames: Set<string>,
+): T[] {
+  return records.filter((record) => record.craftType === 'SPECIAL_CRAFT' && craftNames.has(record.craftName))
+}
+
+function resolvePhysicalAreaMeta(craftName: string): PhysicalAreaMeta {
+  if (craftName.includes('直喷') || craftName.includes('烫画')) return PHYSICAL_AREA_OPTIONS[0]
+  if (craftName.includes('绣') || craftName.includes('贝壳') || craftName.includes('曲牙')) return PHYSICAL_AREA_OPTIONS[1]
+  if (craftName.includes('打条') || craftName.includes('压褶')) return PHYSICAL_AREA_OPTIONS[2]
+  return PHYSICAL_AREA_OPTIONS[3]
+}
+
+function buildLocationText(craftName: string, locationSeed: string): string {
+  const area = resolvePhysicalAreaMeta(craftName)
+  const index = Math.abs(Array.from(locationSeed).reduce((sum, char) => sum + char.charCodeAt(0), 0)) % 9 + 1
+  return `${area.areaName} / ${area.shelfPrefix}-A-${String(index).padStart(2, '0')}`
+}
+
+function recordMatchesKeyword(record: ProcessWarehouseRecord | ProcessHandoverRecord, keyword: string): boolean {
+  const normalized = keyword.trim().toLowerCase()
+  if (!normalized) return true
+  const area = resolvePhysicalAreaMeta(record.craftName).areaName
+  const tokens = [
+    record.craftName,
+    record.sourceWorkOrderNo,
+    record.sourceTaskNo,
+    record.sourceProductionOrderNo,
+    'targetFactoryName' in record ? record.targetFactoryName : record.handoverFactoryName,
+    'warehouseRecordNo' in record ? record.warehouseRecordNo : record.handoverRecordNo,
+    'warehouseLocation' in record ? record.warehouseLocation : '',
+    area,
+  ]
+  return tokens.some((token) => token?.toLowerCase().includes(normalized))
+}
+
+function recordMatchesWarehouseState(
+  record: ProcessWarehouseRecord | ProcessHandoverRecord,
+  state: SpecialCraftWarehousePageState,
+): boolean {
+  if (state.operationName !== '全部' && record.craftName !== state.operationName) return false
+  if (state.factoryId !== '全部') {
+    const factoryId = 'targetFactoryId' in record ? record.targetFactoryId : record.handoverFactoryId
+    if (factoryId !== state.factoryId) return false
+  }
+  if (state.physicalAreaName !== '全部' && resolvePhysicalAreaMeta(record.craftName).areaName !== state.physicalAreaName) return false
+  return recordMatchesKeyword(record, state.keyword)
+}
+
+function buildOperationOptions(operations: SpecialCraftOperationDefinition[]): Array<{ value: string; label: string }> {
+  return [{ value: '全部', label: '全部' }, ...operations.map((operation) => ({ value: operation.operationName, label: operation.operationName }))]
+}
+
+function buildFactoryOptions(records: Array<ProcessWarehouseRecord | ProcessHandoverRecord>): Array<{ value: string; label: string }> {
+  const seen = new Set<string>()
+  const options = records
+    .map((record) => {
+      if ('targetFactoryId' in record) return { value: record.targetFactoryId, label: record.targetFactoryName }
+      return { value: record.handoverFactoryId, label: record.handoverFactoryName }
+    })
+    .filter((option) => {
+      if (!option.value || seen.has(option.value)) return false
+      seen.add(option.value)
+      return true
+    })
+  return [{ value: '全部', label: '全部' }, ...options]
+}
+
+function renderWarehouseFilterSelect(
+  label: string,
+  field: WarehouseFilterField,
+  value: string,
+  options: Array<{ value: string; label: string }>,
+  domainSlug: string,
+  mode: SpecialCraftWarehousePageMode,
+): string {
+  return `
+    <label class="space-y-2">
+      <span class="text-sm font-medium text-foreground">${escapeHtml(label)}</span>
+      <select
+        class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+        data-special-craft-warehouse-field="${field}"
+        data-domain-slug="${escapeHtml(domainSlug)}"
+        data-warehouse-mode="${mode}"
+      >
+        ${options
+          .map((option) => `<option value="${escapeHtml(option.value)}" ${option.value === value ? 'selected' : ''}>${escapeHtml(option.label)}</option>`)
+          .join('')}
+      </select>
+    </label>
+  `
+}
+
+function renderWarehouseFilters(
+  domainSlug: string,
+  mode: SpecialCraftWarehousePageMode,
+  state: SpecialCraftWarehousePageState,
+  operations: SpecialCraftOperationDefinition[],
+  activeRecords: Array<ProcessWarehouseRecord | ProcessHandoverRecord>,
+): string {
+  return renderStickyFilterShell(`
+    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+      <label class="space-y-2 md:col-span-2">
+        <span class="text-sm font-medium text-foreground">关键词</span>
+        <input
+          type="text"
+          value="${escapeHtml(state.keyword)}"
+          placeholder="加工单 / 生产单 / 工艺 / 库区 / 库位"
+          class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+          data-special-craft-warehouse-field="keyword"
+          data-domain-slug="${escapeHtml(domainSlug)}"
+          data-warehouse-mode="${mode}"
+        />
+      </label>
+      ${renderWarehouseFilterSelect('工艺', 'operationName', state.operationName, buildOperationOptions(operations), domainSlug, mode)}
+      ${renderWarehouseFilterSelect('工厂', 'factoryId', state.factoryId, buildFactoryOptions(activeRecords), domainSlug, mode)}
+      ${renderWarehouseFilterSelect(
+        '物理库区',
+        'physicalAreaName',
+        state.physicalAreaName,
+        [{ value: '全部', label: '全部' }, ...PHYSICAL_AREA_OPTIONS.map((item) => ({ value: item.areaName, label: item.areaName }))],
+        domainSlug,
+        mode,
+      )}
+    </div>
+  `)
+}
+
+function renderWarehouseStateBar(domainSlug: string, mode: SpecialCraftWarehousePageMode, state: SpecialCraftWarehousePageState): string {
+  const chips = [
+    state.keyword ? `关键词：${state.keyword}` : '',
+    state.operationName !== '全部' ? `工艺：${state.operationName}` : '',
+    state.factoryId !== '全部' ? `工厂：${state.factoryId}` : '',
+    state.physicalAreaName !== '全部' ? `物理库区：${state.physicalAreaName}` : '',
+  ].filter(Boolean)
+  return renderWorkbenchStateBar({
+    summary: '当前筛选条件',
+    chips: chips.map((label) => renderWorkbenchFilterChip(label, `data-special-craft-warehouse-action="clear-filters" data-domain-slug="${domainSlug}" data-warehouse-mode="${mode}"`, 'blue')),
+    clearAttrs: `data-special-craft-warehouse-action="clear-filters" data-domain-slug="${domainSlug}" data-warehouse-mode="${mode}"`,
+  })
+}
+
+function renderDomainWorkOrderAction(
+  operations: SpecialCraftOperationDefinition[],
+  record: { craftName: string; sourceWorkOrderId: string },
+): string {
+  const operation = findOperationByCraftName(operations, record.craftName)
+  if (!operation) return `<span class="text-sm text-slate-400">未匹配工艺</span>`
+  return `<button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildSpecialCraftWorkOrderDetailPath(operation, record.sourceWorkOrderId))}">查看加工单</button>`
 }
 
 function buildSpecialWarehouseFlowLines(record: ProcessWarehouseRecord): FactoryWarehouseFlowLine[] {
-  const lines: FactoryWarehouseFlowLine[] = record.recordType === 'WAIT_PROCESS'
-    ? [
-        {
-          flowType: '领料入仓',
-          qtyText: renderObjectQty(record.receivedObjectQty, record.qtyUnit),
-          sourceNo: record.warehouseRecordNo,
-          operatedAt: record.inboundAt || record.createdAt,
-          operatorName: record.targetFactoryName,
-          statusText: record.status,
-        },
-        {
-          flowType: '加工用料',
-          qtyText: `-${renderObjectQty(Math.max(record.receivedObjectQty - record.availableObjectQty, 0), record.qtyUnit)}`,
-          sourceNo: record.sourceWorkOrderNo,
-          operatedAt: record.updatedAt,
-          operatorName: record.targetFactoryName,
-          statusText: record.currentActionName,
-        },
-      ]
-    : [
-        {
-          flowType: '加工入仓',
-          qtyText: renderObjectQty(record.availableObjectQty + record.handedOverObjectQty, record.qtyUnit),
-          sourceNo: record.warehouseRecordNo,
-          operatedAt: record.inboundAt || record.createdAt,
-          operatorName: record.targetFactoryName,
-          statusText: record.status,
-        },
-      ]
-  if (record.recordType === 'WAIT_HANDOVER' && record.handedOverObjectQty > 0) {
+  if (record.recordType === 'WAIT_PROCESS') {
+    return [
+      {
+        flowType: '入仓',
+        qtyText: `${formatQty(record.receivedObjectQty)} ${record.qtyUnit}`,
+        sourceNo: record.warehouseRecordNo,
+        operatedAt: record.inboundAt || record.createdAt,
+        operatorName: record.targetFactoryName,
+        statusText: record.status,
+      },
+      {
+        flowType: '加工占用',
+        qtyText: `${formatQty(Math.max(record.receivedObjectQty - record.availableObjectQty, 0))} ${record.qtyUnit}`,
+        sourceNo: record.sourceWorkOrderNo,
+        operatedAt: record.updatedAt,
+        operatorName: record.targetFactoryName,
+        statusText: record.currentActionName,
+      },
+    ]
+  }
+
+  const lines: FactoryWarehouseFlowLine[] = [
+    {
+      flowType: '加工入仓',
+      qtyText: `${formatQty(record.availableObjectQty + record.handedOverObjectQty)} ${record.qtyUnit}`,
+      sourceNo: record.warehouseRecordNo,
+      operatedAt: record.inboundAt || record.createdAt,
+      operatorName: record.targetFactoryName,
+      statusText: record.status,
+    },
+  ]
+  if (record.handedOverObjectQty > 0) {
     lines.push({
       flowType: '交出出仓',
-      qtyText: `-${renderObjectQty(record.handedOverObjectQty, record.qtyUnit)}`,
+      qtyText: `${formatQty(record.handedOverObjectQty)} ${record.qtyUnit}`,
       sourceNo: record.relatedHandoverRecordIds.join('、') || record.warehouseRecordNo,
       operatedAt: record.outboundAt || record.updatedAt,
       operatorName: record.targetFactoryName,
@@ -105,340 +325,391 @@ function buildSpecialWarehouseFlowLines(record: ProcessWarehouseRecord): Factory
   return lines
 }
 
-function renderSpecialUsageRows(records: ProcessWarehouseRecord[]): string {
+function renderWaitProcessRows(records: ProcessWarehouseRecord[], operations: SpecialCraftOperationDefinition[]): string {
+  if (!records.length) return `<tr><td colspan="11" class="py-10 text-center text-muted-foreground">当前筛选条件下暂无待加工库存。</td></tr>`
   return records
-    .map((record) => `
-      <tr class="align-top">
-        <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.sourceWorkOrderNo)}</td>
-        <td class="px-3 py-3">${escapeHtml(record.sourceProductionOrderNo || '—')}</td>
-        <td class="px-3 py-3">${escapeHtml(record.craftName)}</td>
-        <td class="px-3 py-3">${escapeHtml(record.targetFactoryName)}</td>
-        <td class="px-3 py-3">${renderObjectQty(Math.max(record.receivedObjectQty - record.availableObjectQty, 0), record.qtyUnit)}</td>
-        <td class="px-3 py-3">${escapeHtml(record.currentActionName)}</td>
-        <td class="px-3 py-3">${escapeHtml(record.updatedAt)}</td>
-        <td class="px-3 py-3">${renderStatusBadge(record.status)}</td>
-      </tr>
-    `)
-    .join('')
-}
-
-function renderSpecialProcessInboundRows(records: ProcessWarehouseRecord[]): string {
-  return records
-    .map((record) => `
-      <tr class="align-top">
-        <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.warehouseRecordNo)}</td>
-        <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.sourceWorkOrderNo)}</td>
-        <td class="px-3 py-3">${escapeHtml(record.sourceProductionOrderNo || '—')}</td>
-        <td class="px-3 py-3">${escapeHtml(record.craftName)}</td>
-        <td class="px-3 py-3">${escapeHtml(record.targetFactoryName)}</td>
-        <td class="px-3 py-3">${renderObjectQty(record.availableObjectQty + record.handedOverObjectQty, record.qtyUnit)}</td>
-        <td class="px-3 py-3">${escapeHtml(record.warehouseLocation || '—')}</td>
-        <td class="px-3 py-3">${escapeHtml(record.inboundAt || record.createdAt)}</td>
-        <td class="px-3 py-3">${renderStatusBadge(record.status)}</td>
-      </tr>
-    `)
-    .join('')
-}
-
-function renderUnifiedWaitProcessRows(
-  operation: NonNullable<ReturnType<typeof getSpecialCraftOperationBySlug>>,
-  records: ProcessWarehouseRecord[],
-): string {
-  return records
-    .map((record) => `
-      <tr class="align-top">
-        <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.warehouseRecordNo)}</td>
-        <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.sourceWorkOrderNo)}</td>
-        <td class="px-3 py-3">${escapeHtml(record.sourceProductionOrderNo || '—')}</td>
-        <td class="px-3 py-3">${escapeHtml(record.craftName)}</td>
-        <td class="px-3 py-3">${escapeHtml(record.targetFactoryName || record.sourceFactoryName)}</td>
-        <td class="px-3 py-3">${escapeHtml(record.materialName || record.skuSummary || '—')}</td>
-        <td class="px-3 py-3">${renderObjectQty(record.availableObjectQty || record.receivedObjectQty, record.qtyUnit)}</td>
-        <td class="px-3 py-3">${String(record.relatedFeiTicketIds.length)}</td>
-        <td class="px-3 py-3">${escapeHtml(record.currentActionName)}</td>
-        <td class="px-3 py-3">${escapeHtml(record.warehouseLocation || '—')}</td>
-        <td class="px-3 py-3">${renderStatusBadge(record.status)}</td>
-        <td class="px-3 py-3">
-          <div class="flex flex-wrap gap-2">
-            <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="${buildSpecialCraftWorkOrderDetailPath(operation, record.sourceWorkOrderId)}">查看特殊工艺单</button>
-            ${renderWarehouseFlowButton(`${record.warehouseRecordNo} 库存流水`, buildSpecialWarehouseFlowLines(record))}
-            <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="/fcs/factory/warehouse">调整位置</button>
-          </div>
-        </td>
-      </tr>
-    `)
-    .join('')
-}
-
-function renderUnifiedWaitHandoverRows(
-  operation: NonNullable<ReturnType<typeof getSpecialCraftOperationBySlug>>,
-  records: ProcessWarehouseRecord[],
-): string {
-  return records
-    .map((record) => `
-      <tr class="align-top">
-        <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.warehouseRecordNo)}</td>
-        <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.sourceWorkOrderNo)}</td>
-        <td class="px-3 py-3">${escapeHtml(record.sourceProductionOrderNo || '—')}</td>
-        <td class="px-3 py-3">${escapeHtml(record.craftName)}</td>
-        <td class="px-3 py-3">${escapeHtml(record.targetFactoryName || record.sourceFactoryName)}</td>
-        <td class="px-3 py-3">${renderObjectQty(record.availableObjectQty, record.qtyUnit)}</td>
-        <td class="px-3 py-3">${renderObjectQty(record.handedOverObjectQty, record.qtyUnit)}</td>
-        <td class="px-3 py-3">${renderObjectQty(record.writtenBackObjectQty, record.qtyUnit)}</td>
-        <td class="px-3 py-3">${renderObjectQty(record.diffObjectQty, record.qtyUnit)}</td>
-        <td class="px-3 py-3">${String(record.relatedFeiTicketIds.length)}</td>
-        <td class="px-3 py-3">${renderStatusBadge(record.status)}</td>
-        <td class="px-3 py-3">
-          <div class="flex flex-wrap gap-2">
-            <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="${buildSpecialCraftWorkOrderDetailPath(operation, record.sourceWorkOrderId)}">查看特殊工艺单</button>
-            ${renderWarehouseFlowButton(`${record.warehouseRecordNo} 库存流水`, buildSpecialWarehouseFlowLines(record))}
-            <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="/fcs/pda/handover">查看交出</button>
-          </div>
-        </td>
-      </tr>
-    `)
-    .join('')
-}
-
-function renderUnifiedOutboundRows(records: ProcessHandoverRecord[]): string {
-  return records
-    .map((record) => `
-      <tr class="align-top">
-        <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.handoverRecordNo)}</td>
-        <td class="px-3 py-3">${escapeHtml(record.handoverFactoryName)}</td>
-        <td class="px-3 py-3">${escapeHtml(record.receiveWarehouseName || record.receiveFactoryName)}</td>
-        <td class="px-3 py-3 font-mono text-xs">${escapeHtml(record.sourceWorkOrderNo)}</td>
-        <td class="px-3 py-3">${escapeHtml(record.craftName)}</td>
-        <td class="px-3 py-3">${escapeHtml(record.sourceProductionOrderNo || '—')}</td>
-        <td class="px-3 py-3">${renderObjectQty(record.handoverObjectQty, record.qtyUnit)}</td>
-        <td class="px-3 py-3">${renderObjectQty(record.receiveObjectQty, record.qtyUnit)}</td>
-        <td class="px-3 py-3">${renderObjectQty(record.diffObjectQty, record.qtyUnit)}</td>
-        <td class="px-3 py-3">${escapeHtml(record.handoverPerson)}</td>
-        <td class="px-3 py-3">${escapeHtml(record.handoverAt)}</td>
-        <td class="px-3 py-3">${renderStatusBadge(record.status)}</td>
-        <td class="px-3 py-3">
-          <div class="flex flex-wrap gap-2">
-            <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="/fcs/pda/handover">查看交出</button>
-            <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="${buildTaskDeliveryCardPrintLink(record.handoverRecordId)}">打印任务交货卡</button>
-            <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="${buildHandoverQrLabelPrintLink(record.handoverRecordId)}">打印交出二维码</button>
-            <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="/fcs/pda/handover">查看回写</button>
-          </div>
-        </td>
-      </tr>
-    `)
-    .join('')
-}
-
-function renderSpecialCraftWarehousePageByMode(
-  operationSlug: string,
-  mode: SpecialCraftWarehousePageMode,
-): string {
-  const operation = getSpecialCraftOperationBySlug(operationSlug)
-  if (!operation) {
-    return renderEmptyState('未找到对应特殊工艺仓页面。')
-  }
-  const modeMeta = getModeMeta(operation.operationName, mode)
-  const factoryGuard = resolveSpecialCraftFactoryContextGuard(operation)
-  if (factoryGuard.blocked) {
-    return renderSpecialCraftFactoryContextBlockedLayout({
-      operation,
-      title: modeMeta.title,
-      description: modeMeta.description,
-      activeSubNav: modeMeta.activeSubNav,
-      factoryName: factoryGuard.factoryName,
-    })
-  }
-
-  const warehouseView = getSpecialCraftWarehouseView(operation.operationId)
-  const unifiedWaitProcessRecords = listWaitProcessWarehouseRecords({
-    craftType: 'SPECIAL_CRAFT',
-    craftName: operation.operationName,
-  })
-  const unifiedWaitHandoverRecords = listWaitHandoverWarehouseRecords({
-    craftType: 'SPECIAL_CRAFT',
-    craftName: operation.operationName,
-  })
-  const unifiedHandoverRecords = listProcessHandoverRecords({
-    craftType: 'SPECIAL_CRAFT',
-    craftName: operation.operationName,
-  })
-  const differenceCount =
-    warehouseView.inboundRecords.filter((item) => item.status === '差异待处理').length
-    + unifiedHandoverRecords.filter((item) => item.status === '有差异' || Math.abs(item.diffObjectQty) > 0).length
-  const stocktakeDifferenceCount = warehouseView.stocktakeOrders.reduce(
-    (total, order) => total + order.lineList.filter((line) => line.status === '差异').length,
-    0,
-  )
-
-  const filters = renderFilterGrid([
-    { label: '工厂', value: warehouseView.factoryIds.length > 1 ? '全部关联工厂' : formatSpecialCraftFactoryLabel(warehouseView.warehouses[0]?.factoryName, warehouseView.factoryIds[0]) || '全部工厂' },
-    { label: '仓库类型', value: mode === 'wait-process' ? '待加工仓' : '待交出仓' },
-    { label: '状态', value: '全部状态' },
-    { label: '关键字', value: '支持任务号 / 菲票号 / 中转袋号 / 卷号' },
-    { label: '时间范围', value: '近 30 天' },
-  ])
-
-  const metrics = renderMetricCards(
-    mode === 'wait-process'
-      ? [
-          { label: '待加工仓记录数', value: String(unifiedWaitProcessRecords.length), tone: 'blue' },
-          { label: '入库记录', value: String(warehouseView.inboundRecords.length), tone: 'green' },
-          { label: '入库差异记录数', value: String(warehouseView.inboundRecords.filter((item) => item.status === '差异待处理').length), tone: 'red' },
-          { label: '盘点差异', value: String(stocktakeDifferenceCount), tone: 'red' },
-        ]
-      : [
-          { label: '待交出仓记录数', value: String(unifiedWaitHandoverRecords.length), tone: 'amber' },
-          { label: '出库记录', value: String(unifiedHandoverRecords.length), tone: 'blue' },
-          { label: '已回写记录数', value: String(unifiedHandoverRecords.filter((item) => item.status === '已回写').length), tone: 'green' },
-          { label: '出库差异记录数', value: String(differenceCount), tone: 'red' },
-          { label: '盘点差异', value: String(stocktakeDifferenceCount), tone: 'red' },
-        ],
-  )
-
-  const inboundRows = warehouseView.inboundRecords
-    .map(
-      (item) => {
-        const flowSummary = getSpecialCraftFeiTicketSummary(item.feiTicketNo || '')
-        return `
-        <tr class="align-top">
-          <td class="px-3 py-3">${escapeHtml(item.inboundRecordNo)}</td>
-          <td class="px-3 py-3">${escapeHtml(formatSpecialCraftFactoryLabel(item.factoryName, item.factoryId))}</td>
-          <td class="px-3 py-3">${escapeHtml(item.warehouseName)}</td>
-          <td class="px-3 py-3">${escapeHtml(item.sourceRecordNo)}</td>
-          <td class="px-3 py-3">${escapeHtml(item.sourceObjectName)}</td>
-          <td class="px-3 py-3">${escapeHtml(item.taskNo || '—')}</td>
-          <td class="px-3 py-3">${escapeHtml(item.itemKind)}</td>
-          <td class="px-3 py-3">${escapeHtml(item.materialSku || item.partName || '—')}</td>
-          <td class="px-3 py-3">${escapeHtml(item.fabricColor || '—')}</td>
-          <td class="px-3 py-3">${escapeHtml(item.sizeCode || '—')}</td>
-          <td class="px-3 py-3">${escapeHtml(item.feiTicketNo || '—')}</td>
-          <td class="px-3 py-3">${escapeHtml(item.transferBagNo || '—')}</td>
-          <td class="px-3 py-3">${escapeHtml(item.fabricRollNo || '—')}</td>
-          <td class="px-3 py-3">${formatQty(item.expectedQty)}</td>
-          <td class="px-3 py-3">${formatQty(item.receivedQty)}</td>
-          <td class="px-3 py-3">${formatQty(item.differenceQty)}</td>
-          <td class="px-3 py-3">${escapeHtml(item.sourceRecordType === 'MATERIAL_PICKUP' ? '领料确认' : '交出接收')}</td>
-          <td class="px-3 py-3">${escapeHtml(item.areaName)}</td>
-          <td class="px-3 py-3">${escapeHtml(item.shelfNo)}</td>
-          <td class="px-3 py-3">${escapeHtml(item.locationNo)}</td>
-          <td class="px-3 py-3">自动转单</td>
-          <td class="px-3 py-3">${escapeHtml(flowSummary.currentLocation)}</td>
-          <td class="px-3 py-3">${escapeHtml(item.receiverName)}</td>
-          <td class="px-3 py-3">${escapeHtml(item.receivedAt)}</td>
-          <td class="px-3 py-3">${renderStatusBadge(item.status)}</td>
-          <td class="px-3 py-3"><button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="/fcs/pda/handover">查看来源</button></td>
+    .map((record) => {
+      const locationText = buildLocationText(record.craftName, record.warehouseRecordNo)
+      return `
+        <tr class="align-top hover:bg-muted/20">
+          <td class="px-3 py-3 font-medium text-slate-900">${escapeHtml(record.warehouseRecordNo)}</td>
+          <td class="px-3 py-3">${escapeHtml(record.craftName)}</td>
+          <td class="px-3 py-3">${escapeHtml(record.sourceWorkOrderNo)}</td>
+          <td class="px-3 py-3">${escapeHtml(record.sourceProductionOrderNo)}</td>
+          <td class="px-3 py-3">${escapeHtml(record.targetFactoryName)}</td>
+          <td class="px-3 py-3">${escapeHtml(record.skuSummary || record.materialName || '—')}</td>
+          <td class="px-3 py-3 font-semibold tabular-nums">${formatNumber(record.availableObjectQty || record.receivedObjectQty)} ${escapeHtml(record.qtyUnit)}</td>
+          <td class="px-3 py-3">${escapeHtml(resolvePhysicalAreaMeta(record.craftName).areaName)}</td>
+          <td class="px-3 py-3">${escapeHtml(locationText)}</td>
+          <td class="px-3 py-3">${renderStatusBadge(record.currentActionName || record.status || '待处理')}</td>
+          <td class="px-3 py-3">
+            <div class="flex flex-wrap gap-2">
+              ${renderDomainWorkOrderAction(operations, record)}
+              ${renderWarehouseFlowButton(`${record.warehouseRecordNo} 库存流水`, buildSpecialWarehouseFlowLines(record))}
+            </div>
+          </td>
         </tr>
       `
-      },
-    )
+    })
     .join('')
+}
 
-  const nodeRows = warehouseView.nodeRows
-    .map(
-      (row) => `
-        <tr>
-          <td class="px-3 py-3">${escapeHtml(formatSpecialCraftFactoryLabel(row.factoryName, row.factoryId))}</td>
-          <td class="px-3 py-3">${escapeHtml(row.warehouseName)}</td>
-          <td class="px-3 py-3">${escapeHtml(row.areaName)}</td>
-          <td class="px-3 py-3">${escapeHtml(row.shelfNo || '—')}</td>
-          <td class="px-3 py-3">${escapeHtml(row.locationNo || '—')}</td>
-          <td class="px-3 py-3">${renderStatusBadge(row.status === 'AVAILABLE' ? '可用' : '停用')}</td>
-          <td class="px-3 py-3">${escapeHtml(row.remark || '—')}</td>
-          <td class="px-3 py-3">${renderWarehouseLocationActions(`${operation.operationName}仓库库区库位`, `${row.areaName}/${row.shelfNo || '—'}/${row.locationNo || '—'}`)}</td>
+function renderWaitHandoverRows(records: ProcessWarehouseRecord[], operations: SpecialCraftOperationDefinition[]): string {
+  if (!records.length) return `<tr><td colspan="11" class="py-10 text-center text-muted-foreground">当前筛选条件下暂无待交出库存。</td></tr>`
+  return records
+    .map((record) => {
+      const locationText = buildLocationText(record.craftName, record.warehouseRecordNo)
+      return `
+        <tr class="align-top hover:bg-muted/20">
+          <td class="px-3 py-3 font-medium text-slate-900">${escapeHtml(record.warehouseRecordNo)}</td>
+          <td class="px-3 py-3">${escapeHtml(record.craftName)}</td>
+          <td class="px-3 py-3">${escapeHtml(record.sourceWorkOrderNo)}</td>
+          <td class="px-3 py-3">${escapeHtml(record.sourceProductionOrderNo)}</td>
+          <td class="px-3 py-3">${escapeHtml(record.targetFactoryName)}</td>
+          <td class="px-3 py-3">${escapeHtml(record.skuSummary || record.materialName || '—')}</td>
+          <td class="px-3 py-3 font-semibold tabular-nums">${formatNumber(record.availableObjectQty)} ${escapeHtml(record.qtyUnit)}</td>
+          <td class="px-3 py-3">${escapeHtml(resolvePhysicalAreaMeta(record.craftName).areaName)}</td>
+          <td class="px-3 py-3">${escapeHtml(locationText)}</td>
+          <td class="px-3 py-3">${renderStatusBadge(record.status || '待交出')}</td>
+          <td class="px-3 py-3">
+            <div class="flex flex-wrap gap-2">
+              ${renderDomainWorkOrderAction(operations, record)}
+              ${renderWarehouseFlowButton(`${record.warehouseRecordNo} 库存流水`, buildSpecialWarehouseFlowLines(record))}
+            </div>
+          </td>
         </tr>
-      `,
-    )
+      `
+    })
     .join('')
+}
 
-  const unifiedWaitProcessRows = renderUnifiedWaitProcessRows(operation, unifiedWaitProcessRecords)
-  const unifiedWaitHandoverRows = renderUnifiedWaitHandoverRows(operation, unifiedWaitHandoverRecords)
-  const unifiedOutboundRows = renderUnifiedOutboundRows(unifiedHandoverRecords)
+function renderHandoverRows(records: ProcessHandoverRecord[]): string {
+  if (!records.length) return `<tr><td colspan="9" class="py-10 text-center text-muted-foreground">当前筛选条件下暂无交出记录。</td></tr>`
+  return records
+    .map((record) => `
+      <tr class="align-top hover:bg-muted/20">
+        <td class="px-3 py-3 font-medium text-slate-900">${escapeHtml(record.handoverRecordNo)}</td>
+        <td class="px-3 py-3">${escapeHtml(record.craftName)}</td>
+        <td class="px-3 py-3">${escapeHtml(record.sourceWorkOrderNo)}</td>
+        <td class="px-3 py-3">${escapeHtml(record.sourceProductionOrderNo)}</td>
+        <td class="px-3 py-3">${escapeHtml(record.handoverFactoryName)}</td>
+        <td class="px-3 py-3 font-semibold tabular-nums">${formatNumber(record.handoverObjectQty)} ${escapeHtml(record.qtyUnit)}</td>
+        <td class="px-3 py-3">${escapeHtml(resolvePhysicalAreaMeta(record.craftName).areaName)}</td>
+        <td class="px-3 py-3">${escapeHtml(record.handoverAt)}</td>
+        <td class="px-3 py-3">${renderStatusBadge(record.status)}</td>
+      </tr>
+    `)
+    .join('')
+}
 
-  const standardTabs: FactoryWarehouseStandardTab[] = mode === 'wait-process'
+interface DomainLocationRow {
+  operationName: string
+  physicalAreaName: string
+  warehouseName: string
+  areaName: string
+  shelfNo: string
+  locationNo: string
+  capacityLabel: string
+}
+
+function buildDomainLocationRows(
+  operations: SpecialCraftOperationDefinition[],
+  mode: SpecialCraftWarehousePageMode,
+): DomainLocationRow[] {
+  return operations.flatMap((operation, index) => {
+    const area = resolvePhysicalAreaMeta(operation.operationName)
+    const warehouseName = `${area.areaName} · ${mode === 'wait-process' ? '待加工仓' : '待交出仓'}`
+    return [1, 2].map((slot) => ({
+      operationName: operation.operationName,
+      physicalAreaName: area.areaName,
+      warehouseName,
+      areaName: `${area.areaName} A区`,
+      shelfNo: `${area.shelfPrefix}-A-${String((index % 3) + 1).padStart(2, '0')}`,
+      locationNo: `${area.warehousePrefix}-${String(slot).padStart(2, '0')}`,
+      capacityLabel: slot === 1 ? '常用库位' : '备用库位',
+    }))
+  })
+}
+
+function renderLocationRows(rows: DomainLocationRow[]): string {
+  if (!rows.length) return `<tr><td colspan="7" class="py-10 text-center text-muted-foreground">当前筛选条件下暂无库区库位。</td></tr>`
+  const seen = new Set<string>()
+  return rows
+    .filter((row) => {
+      const key = `${row.operationName}-${row.warehouseName}-${row.shelfNo}-${row.locationNo}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    .map((row) => `
+      <tr class="hover:bg-muted/20">
+        <td class="px-3 py-3 font-medium text-slate-900">${escapeHtml(row.operationName)}</td>
+        <td class="px-3 py-3">${escapeHtml(row.physicalAreaName)}</td>
+        <td class="px-3 py-3">${escapeHtml(row.warehouseName)}</td>
+        <td class="px-3 py-3">${escapeHtml(row.areaName)}</td>
+        <td class="px-3 py-3">${escapeHtml(row.shelfNo)}</td>
+        <td class="px-3 py-3">${escapeHtml(row.locationNo)}</td>
+        <td class="px-3 py-3">${escapeHtml(row.capacityLabel)}</td>
+      </tr>
+    `)
+    .join('')
+}
+
+function renderPaginatedTable<T>(input: {
+  title: string
+  rows: T[]
+  state: SpecialCraftWarehousePageState
+  domainSlug: string
+  mode: SpecialCraftWarehousePageMode
+  headers: string[]
+  rowHtml: (items: T[]) => string
+  minWidth?: string
+}): string {
+  const pagination = paginateItems(input.rows, input.state.page, input.state.pageSize)
+  const colSpan = input.headers.length
+  const table = `
+    <table class="w-full ${input.minWidth || 'min-w-[1180px]'} table-auto border-collapse text-sm">
+      <thead class="sticky top-0 z-10 bg-slate-50 text-left text-slate-600">
+        <tr>${input.headers.map((header) => `<th class="px-3 py-3 font-medium">${escapeHtml(header)}</th>`).join('')}</tr>
+      </thead>
+      <tbody class="divide-y bg-card">${input.rowHtml(pagination.items) || `<tr><td colspan="${colSpan}" class="py-10 text-center text-muted-foreground">暂无数据。</td></tr>`}</tbody>
+    </table>
+  `
+  return `
+    <div>
+      ${renderStickyTableScroller(table, 'max-h-[58vh]')}
+      ${renderWorkbenchPagination({
+        page: pagination.page,
+        pageSize: pagination.pageSize,
+        total: pagination.total,
+        actionAttr: 'data-special-craft-warehouse-action',
+        pageAction: 'set-page',
+        pageSizeAttr: 'data-special-craft-warehouse-page-size',
+        extraAttrs: `data-domain-slug="${escapeHtml(input.domainSlug)}" data-warehouse-mode="${input.mode}"`,
+        pageSizeOptions: [10, 20, 50],
+      })}
+    </div>
+  `
+}
+
+function renderSpecialCraftDomainWarehousePageByMode(
+  domainSlug: string,
+  mode: SpecialCraftWarehousePageMode,
+): string {
+  const domain = getSpecialCraftManagementDomainBySlug(domainSlug)
+  if (!isSpecialCraftWarehouseDomain(domain)) {
+    return renderEmptyState('未找到对应工艺仓页面。')
+  }
+
+  const state = getWarehouseState(domainSlug, mode)
+  const operations = getDomainOperations(domain)
+  const craftNames = buildDomainCraftNameSet(operations)
+  const meta = specialCraftWarehouseDomainMeta[domain]
+  const allWaitProcessRecords = mode === 'wait-process'
+    ? filterSpecialCraftRecordsByDomain(
+      listWaitProcessWarehouseRecords({ craftType: 'SPECIAL_CRAFT' }),
+      craftNames,
+    )
+    : []
+  const allWaitHandoverRecords = mode === 'wait-handover'
+    ? filterSpecialCraftRecordsByDomain(
+      listWaitHandoverWarehouseRecords({ craftType: 'SPECIAL_CRAFT' }),
+      craftNames,
+    )
+    : []
+  const allHandoverRecords = mode === 'wait-handover'
+    ? filterSpecialCraftRecordsByDomain(
+      listProcessHandoverRecords({ craftType: 'SPECIAL_CRAFT' }),
+      craftNames,
+    )
+    : []
+  const activeAllRecords = mode === 'wait-process' ? allWaitProcessRecords : allWaitHandoverRecords
+  const waitProcessRecords = mode === 'wait-process'
+    ? allWaitProcessRecords.filter((record) => recordMatchesWarehouseState(record, state))
+    : []
+  const waitHandoverRecords = mode === 'wait-handover'
+    ? allWaitHandoverRecords.filter((record) => recordMatchesWarehouseState(record, state))
+    : []
+  const handoverRecords = mode === 'wait-handover'
+    ? allHandoverRecords.filter((record) => recordMatchesWarehouseState(record, state))
+    : []
+  const activeRecords = mode === 'wait-process' ? waitProcessRecords : waitHandoverRecords
+  const locationRows = buildDomainLocationRows(operations, mode).filter((row) => {
+    if (state.operationName !== '全部' && row.operationName !== state.operationName) return false
+    if (state.physicalAreaName !== '全部' && row.physicalAreaName !== state.physicalAreaName) return false
+    if (!state.keyword.trim()) return true
+    const normalized = state.keyword.trim().toLowerCase()
+    return [row.operationName, row.physicalAreaName, row.warehouseName, row.areaName, row.shelfNo, row.locationNo]
+      .some((token) => token.toLowerCase().includes(normalized))
+  })
+  const title = mode === 'wait-process' ? `${meta.titlePrefix}待加工仓` : `${meta.titlePrefix}待交出仓`
+  const totalQty = activeRecords.reduce((sum, record) => sum + record.availableObjectQty, 0)
+  const factoryCount = new Set(activeRecords.map((record) => record.targetFactoryId).filter(Boolean)).size
+  const productionOrderCount = new Set(activeRecords.map((record) => record.sourceProductionOrderNo).filter(Boolean)).size
+
+  if (state.page > Math.max(1, Math.ceil(activeRecords.length / state.pageSize))) {
+    state.page = 1
+  }
+
+  const metrics = `
+    <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      ${renderCompactKpiCard(mode === 'wait-process' ? '待加工库存' : '待交出库存', `${formatNumber(totalQty)} 件`, `${activeRecords.length} 条库存记录`, mode === 'wait-process' ? 'text-amber-600' : 'text-blue-600')}
+      ${renderCompactKpiCard('覆盖工艺', operations.length, operations.map((operation) => operation.operationName).slice(0, 4).join(' / '), 'text-slate-900')}
+      ${renderCompactKpiCard('生产单', productionOrderCount, '按生产单聚合', 'text-blue-600')}
+      ${renderCompactKpiCard('工厂', factoryCount, '当前筛选结果', 'text-emerald-600')}
+    </section>
+  `
+
+  const tabs: FactoryWarehouseStandardTab[] = mode === 'wait-process'
     ? [
         {
           key: 'inventory',
           label: '库存',
-          count: unifiedWaitProcessRecords.length,
-          content: unifiedWaitProcessRecords.length > 0
-            ? renderTable(['仓记录号', '特殊工艺单号', '生产单', '工艺名称', '工厂', '裁片部位', '当前库存', '关联菲票数量', '当前动作', '仓内位置', '状态', '操作'], unifiedWaitProcessRows, 'min-w-[1320px]')
-            : renderEmptyState(),
+          count: waitProcessRecords.length,
+          content: renderPaginatedTable({
+            title: '库存',
+            rows: waitProcessRecords,
+            state,
+            domainSlug,
+            mode,
+            headers: ['仓记录号', '工艺', '加工单号', '生产单', '工厂', '对象', '当前库存', '物理库区', '库区库位', '当前动作', '操作'],
+            rowHtml: (items) => renderWaitProcessRows(items, operations),
+          }),
         },
         {
-          key: 'receipts',
-          label: '领料记录',
-          count: warehouseView.inboundRecords.length,
-          content: warehouseView.inboundRecords.length > 0
-            ? renderTable(['领料单号', '工厂', '待加工仓', '来源单号', '来源对象', '所属任务', '物料 / 裁片类型', '面料 SKU / 裁片部位', '颜色', '尺码', '菲票号', '中转袋号', '卷号', '应收裁片数量', '实收裁片数量', '差异裁片数量', '来源动作', '库区', '货架', '库位', '生成方式', '当前所在', '操作人', '操作时间', '状态', '操作'], inboundRows, 'min-w-[2280px]')
-            : renderEmptyState(),
-        },
-        {
-          key: 'usage',
-          label: '加工用料记录',
-          count: unifiedWaitProcessRecords.length,
-          content: renderTable(['特殊工艺单号', '生产单', '工艺名称', '工厂', '用料裁片数量', '对应动作', '操作时间', '状态'], renderSpecialUsageRows(unifiedWaitProcessRecords), 'min-w-[1120px]'),
+          key: 'records',
+          label: '入仓记录',
+          count: waitProcessRecords.length,
+          content: renderPaginatedTable({
+            title: '入仓记录',
+            rows: waitProcessRecords,
+            state,
+            domainSlug,
+            mode,
+            headers: ['仓记录号', '工艺', '加工单号', '生产单', '工厂', '对象', '当前库存', '物理库区', '库区库位', '当前动作', '操作'],
+            rowHtml: (items) => renderWaitProcessRows(items, operations),
+          }),
         },
         {
           key: 'locations',
           label: '库区库位',
-          count: warehouseView.nodeRows.length,
-          content: `<div class="border-b px-4 py-3">${renderWarehouseLocationToolbar(`${operation.operationName}待加工仓`)}</div>${nodeRows ? renderTable(['工厂', '仓库', '库区', '货架', '库位', '状态', '备注', '操作'], nodeRows, 'min-w-[980px]') : renderEmptyState()}`,
+          count: locationRows.length,
+          content: renderPaginatedTable({
+            title: '库区库位',
+            rows: locationRows,
+            state,
+            domainSlug,
+            mode,
+            headers: ['工艺', '物理库区', '仓库', '库区', '货架', '库位', '容量'],
+            rowHtml: renderLocationRows,
+            minWidth: 'min-w-[960px]',
+          }),
         },
       ]
     : [
         {
           key: 'inventory',
           label: '库存',
-          count: unifiedWaitHandoverRecords.length,
-          content: unifiedWaitHandoverRecords.length > 0
-            ? renderTable(['仓记录号', '特殊工艺单号', '生产单', '工艺名称', '工厂', '当前库存', '已交出裁片数量', '回写裁片数量', '差异裁片数量', '关联菲票数量', '状态', '操作'], unifiedWaitHandoverRows, 'min-w-[1500px]')
-            : renderEmptyState(),
+          count: waitHandoverRecords.length,
+          content: renderPaginatedTable({
+            title: '库存',
+            rows: waitHandoverRecords,
+            state,
+            domainSlug,
+            mode,
+            headers: ['仓记录号', '工艺', '加工单号', '生产单', '工厂', '对象', '当前库存', '物理库区', '库区库位', '交出状态', '操作'],
+            rowHtml: (items) => renderWaitHandoverRows(items, operations),
+          }),
         },
         {
-          key: 'handouts',
+          key: 'handover',
           label: '交出记录',
-          count: unifiedHandoverRecords.length,
-          content: unifiedHandoverRecords.length > 0
-            ? renderTable(['交出记录号', '工厂', '接收方', '特殊工艺单号', '工艺名称', '生产单', '已交出裁片数量', '回写裁片数量', '差异裁片数量', '操作人', '交出时间', '状态', '操作'], unifiedOutboundRows, 'min-w-[1440px]')
-            : renderEmptyState(),
-        },
-        {
-          key: 'inbounds',
-          label: '加工入仓记录',
-          count: unifiedWaitHandoverRecords.length,
-          content: renderTable(['入仓记录号', '特殊工艺单号', '生产单', '工艺名称', '工厂', '加工入仓数量', '仓内位置', '入仓时间', '状态'], renderSpecialProcessInboundRows(unifiedWaitHandoverRecords), 'min-w-[1280px]'),
+          count: handoverRecords.length,
+          content: renderPaginatedTable({
+            title: '交出记录',
+            rows: handoverRecords,
+            state,
+            domainSlug,
+            mode,
+            headers: ['交出记录号', '工艺', '加工单号', '生产单', '工厂', '交出数量', '物理库区', '交出时间', '状态'],
+            rowHtml: renderHandoverRows,
+          }),
         },
         {
           key: 'locations',
           label: '库区库位',
-          count: warehouseView.nodeRows.length,
-          content: `<div class="border-b px-4 py-3">${renderWarehouseLocationToolbar(`${operation.operationName}待交出仓`)}</div>${nodeRows ? renderTable(['工厂', '仓库', '库区', '货架', '库位', '状态', '备注', '操作'], nodeRows, 'min-w-[980px]') : renderEmptyState()}`,
+          count: locationRows.length,
+          content: renderPaginatedTable({
+            title: '库区库位',
+            rows: locationRows,
+            state,
+            domainSlug,
+            mode,
+            headers: ['工艺', '物理库区', '仓库', '库区', '货架', '库位', '容量'],
+            rowHtml: renderLocationRows,
+            minWidth: 'min-w-[960px]',
+          }),
         },
       ]
 
-  const content = `
-    ${filters}
-    ${metrics}
-    ${renderFactoryWarehouseStandardTabs(standardTabs, `${operation.operationId}-${mode}-warehouse-tabs`)}
-  `
-
   return renderSpecialCraftPageLayout({
-    operation,
-    title: modeMeta.title,
-    description: modeMeta.description,
-    activeSubNav: modeMeta.activeSubNav,
-    content,
+    operation: operations[0],
+    title,
+    description: '',
+    activeSubNav: mode === 'wait-process' ? 'wait-process' : 'wait-handover',
+    content: `
+      <div class="space-y-3">
+        ${metrics}
+        ${renderWarehouseFilters(domainSlug, mode, state, operations, activeAllRecords)}
+        ${renderWarehouseStateBar(domainSlug, mode, state)}
+        ${renderFactoryWarehouseStandardTabs(tabs, `special-craft-${domainSlug}-${mode}-warehouse-tabs`)}
+      </div>
+    `,
   })
 }
 
-export function renderSpecialCraftWarehousePage(operationSlug: string): string {
-  return renderSpecialCraftWaitProcessWarehousePage(operationSlug)
+export function renderSpecialCraftDomainWaitProcessWarehousePage(domainSlug: string): string {
+  return renderSpecialCraftDomainWarehousePageByMode(domainSlug, 'wait-process')
 }
 
-export function renderSpecialCraftWaitProcessWarehousePage(operationSlug: string): string {
-  return renderSpecialCraftWarehousePageByMode(operationSlug, 'wait-process')
+export function renderSpecialCraftDomainWaitHandoverWarehousePage(domainSlug: string): string {
+  return renderSpecialCraftDomainWarehousePageByMode(domainSlug, 'wait-handover')
 }
 
-export function renderSpecialCraftWaitHandoverWarehousePage(operationSlug: string): string {
-  return renderSpecialCraftWarehousePageByMode(operationSlug, 'wait-handover')
+export function handleSpecialCraftWarehouseEvent(target: Element): boolean {
+  const pageSizeNode = target.closest<HTMLElement>('[data-special-craft-warehouse-page-size]')
+  if (pageSizeNode) {
+    const domainSlug = pageSizeNode.dataset.domainSlug
+    const mode = pageSizeNode.dataset.warehouseMode as SpecialCraftWarehousePageMode | undefined
+    if (!domainSlug || !mode) return false
+    setWarehouseState(domainSlug, mode, { pageSize: Number((pageSizeNode as HTMLSelectElement).value) || 20, page: 1 })
+    return true
+  }
+
+  const fieldNode = target.closest<HTMLElement>('[data-special-craft-warehouse-field]')
+  if (fieldNode) {
+    const domainSlug = fieldNode.dataset.domainSlug
+    const mode = fieldNode.dataset.warehouseMode as SpecialCraftWarehousePageMode | undefined
+    const field = fieldNode.dataset.specialCraftWarehouseField as WarehouseFilterField | undefined
+    if (!domainSlug || !mode || !field) return false
+    setWarehouseState(domainSlug, mode, { [field]: (fieldNode as HTMLInputElement | HTMLSelectElement).value, page: 1 })
+    return true
+  }
+
+  const actionNode = target.closest<HTMLElement>('[data-special-craft-warehouse-action]')
+  const action = actionNode?.dataset.specialCraftWarehouseAction
+  if (!actionNode || !action) return false
+  const domainSlug = actionNode.dataset.domainSlug
+  const mode = actionNode.dataset.warehouseMode as SpecialCraftWarehousePageMode | undefined
+  if (!domainSlug || !mode) return false
+
+  if (action === 'clear-filters') {
+    warehouseStateByPage.set(getWarehouseStateKey(domainSlug, mode), { ...initialWarehouseState })
+    return true
+  }
+  if (action === 'set-page') {
+    setWarehouseState(domainSlug, mode, { page: Number(actionNode.dataset.page) || 1 })
+    return true
+  }
+  return false
 }

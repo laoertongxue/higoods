@@ -5,7 +5,7 @@ import {
   readMarkerSpreadingPrototypeData,
   type SpreadingListRow,
 } from '../../../pages/process-factory/cutting/marker-spreading-utils.ts'
-import { deriveSpreadingSupervisorStage } from '../../../pages/process-factory/cutting/marker-spreading-model.ts'
+import { deriveSpreadingListStatus } from '../../../pages/process-factory/cutting/marker-spreading-model.ts'
 import { DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES } from '../../../pages/process-factory/cutting/cutting-table-resource.ts'
 
 export type CuttingMainlineStatusTab = 'NOT_STARTED' | 'IN_PROGRESS' | 'BLOCKED' | 'DONE'
@@ -97,7 +97,6 @@ function getCuttingReportConfig(): CuttingMainlineReportConfigView {
 }
 
 function mapStageToTab(stageLabel: string): CuttingMainlineStatusTab {
-  if (stageLabel.includes('待补料') || stageLabel.includes('异常')) return 'BLOCKED'
   if (stageLabel.includes('铺布中')) return 'IN_PROGRESS'
   if (stageLabel.includes('待开始')) return 'NOT_STARTED'
   return 'DONE'
@@ -106,10 +105,6 @@ function mapStageToTab(stageLabel: string): CuttingMainlineStatusTab {
 function getActionLabel(stageLabel: string): string {
   if (stageLabel.includes('待开始')) return '开始铺布'
   if (stageLabel.includes('铺布中')) return '继续铺布'
-  if (stageLabel.includes('待补料')) return '上报补料异常'
-  if (stageLabel.includes('待打印菲票')) return '查看菲票状态'
-  if (stageLabel.includes('待装袋')) return '查看中转袋状态'
-  if (stageLabel.includes('待入仓')) return '查看待交出仓状态'
   return '查看现场记录'
 }
 
@@ -124,7 +119,7 @@ function getRows(): SpreadingListRow[] {
 }
 
 function mapRowToSession(taskId: string, row: SpreadingListRow, reportConfig = getCuttingReportConfig()): CuttingMainlineSessionView {
-  const stage = deriveSpreadingSupervisorStage(row.session)
+  const stage = deriveSpreadingListStatus(row.session.status)
   const sourceTypeLabel = row.contextType === 'merge-batch' ? '合并裁剪批次' : '原始裁片单'
   const sourceOrderLabel = row.contextType === 'merge-batch'
     ? row.mergeBatchNo || row.originalCutOrderNos.join(' / ')

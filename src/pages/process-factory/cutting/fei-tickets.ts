@@ -253,22 +253,6 @@ function truncate(value: string, maxLength = 36): string {
   return `${value.slice(0, maxLength)}...`
 }
 
-function formatAssemblyGroupText(item: Pick<TicketCard | TicketSplitDetail, 'sourceCutOrderNo' | 'fabricRollNo' | 'fabricColor' | 'size' | 'bundleNo'>): string {
-  const segments = [
-    item.sourceCutOrderNo || '',
-    item.fabricRollNo || '',
-    item.fabricColor || '',
-    item.size || '',
-    item.bundleNo || '',
-  ].filter(Boolean)
-  return segments.length ? segments.join(' / ') : '暂无数据'
-}
-
-function renderSiblingTicketNos(ticketNos: string[]): string {
-  if (!ticketNos.length) return '暂无数据'
-  return escapeHtml(ticketNos.join(' / '))
-}
-
 function formatOperationTypeLabel(value: TicketPrintRecord['operationType']): string {
   return operationTypeMeta[value]
 }
@@ -1264,7 +1248,6 @@ function renderSplitDetailsTab(detailView: PrintableUnitDetailViewModel): string
           <th class="px-3 py-3 text-left font-medium">扎号</th>
           <th class="px-3 py-3 text-left font-medium">原始裁片单</th>
           <th class="px-3 py-3 text-left font-medium">生产单</th>
-          <th class="px-3 py-3 text-left font-medium">同组裁片</th>
           <th class="px-3 py-3 text-left font-medium">缺口菲票数</th>
         </tr>
       </thead>
@@ -1281,7 +1264,6 @@ function renderSplitDetailsTab(detailView: PrintableUnitDetailViewModel): string
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(detail.bundleNo || '暂无数据')}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(detail.sourceCutOrderNo)}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(detail.sourceProductionOrderNo)}</td>
-                <td class="px-3 py-3 text-slate-700">${renderSiblingTicketNos(detail.siblingPartTicketNos)}</td>
                 <td class="px-3 py-3 text-slate-700">${formatCount(detail.gapCount)}</td>
               </tr>
             `,
@@ -1431,11 +1413,6 @@ function renderTicketPreviewPanel(unit: PrintableUnit, ticket: TicketCard | null
                   <p class="mt-1 text-xs text-slate-500">${escapeHtml(`${formatCount(ticket.actualCutPieceQty)} 片`)}</p>
                 </div>
                 <div>
-                  <p class="text-sm text-slate-500">同组裁片</p>
-                  <p class="text-sm font-semibold text-slate-900">${escapeHtml(formatAssemblyGroupText(ticket))}</p>
-                  <p class="mt-1 text-xs text-slate-500">${renderSiblingTicketNos(ticket.siblingPartTicketNos)}</p>
-                </div>
-                <div>
                   <p class="text-sm text-slate-500">工艺顺序</p>
                   <p class="text-sm font-semibold text-slate-900">${escapeHtml(craftTrace?.secondaryCrafts.join(' → ') || '未配置')}</p>
                   <p class="mt-1 text-xs text-slate-500">${escapeHtml(`版本 ${craftTrace?.craftSequenceVersion || '待补'} / 当前 ${craftTrace?.currentCraftStage || '未开始'}`)}</p>
@@ -1486,7 +1463,6 @@ function renderTicketPreviewPanel(unit: PrintableUnit, ticket: TicketCard | null
                 <div>生产单：${escapeHtml(craftTrace?.productionOrderNo || ticket.sourceProductionOrderNo || '待补')}</div>
                 <div>面料 SKU：${escapeHtml(craftTrace?.materialSku || unit.fabricSku || '待补')}</div>
                 <div>扎号：${escapeHtml(ticket.bundleNo || '暂无数据')}</div>
-                <div>同组裁片：${escapeHtml(formatAssemblyGroupText(ticket))}</div>
               </div>
             </div>
           </div>
@@ -1534,7 +1510,6 @@ function renderPrintedTicketsTab(unit: PrintableUnit, detailView: PrintableUnitD
           <th class="px-3 py-3 text-left font-medium">是否已交出</th>
           <th class="px-3 py-3 text-left font-medium">车缝回写状态</th>
           <th class="px-3 py-3 text-left font-medium">特殊工艺回仓状态</th>
-          <th class="px-3 py-3 text-left font-medium">同组裁片</th>
           <th class="px-3 py-3 text-left font-medium">打印版本号</th>
           <th class="px-3 py-3 text-left font-medium">打印状态</th>
           <th class="px-3 py-3 text-left font-medium">中转袋绑定</th>
@@ -1557,7 +1532,6 @@ function renderPrintedTicketsTab(unit: PrintableUnit, detailView: PrintableUnitD
                     { label: '查看打印预览', href: buildFeiTicketLabelPrintLink(ticket.ticketId, 'first') },
                     { label: '打印菲票标签', href: buildFeiTicketLabelPrintLink(ticket.ticketId, 'first') },
                     { label: '补打标签', href: buildFeiTicketLabelPrintLink(ticket.ticketId, 'reprint') },
-                    { label: '查看同组', href: buildTicketPanelHref(unit, ticket, 'preview') },
                     {
                       label: '查看裁片发料',
                       href: `${getCanonicalCuttingPath('sewing-dispatch')}?keyword=${encodeURIComponent(ticket.ticketNo)}`,
@@ -1637,7 +1611,6 @@ function renderPrintedTicketsTab(unit: PrintableUnit, detailView: PrintableUnitD
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(['已交出', '已回写', '差异', '异议中'].includes(sewingDispatchSummary.feiTicketSewingStatus) ? '已交出' : '未交出')}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(sewingDispatchSummary.feiTicketSewingStatus === '已回写' ? '已回写' : sewingDispatchSummary.feiTicketSewingStatus === '差异' ? '差异' : sewingDispatchSummary.feiTicketSewingStatus === '异议中' ? '异议中' : '待回写')}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(sewingDispatchSummary.specialCraftReturnStatus)}</td>
-                <td class="px-3 py-3 text-slate-700">${renderSiblingTicketNos(ticket.siblingPartTicketNos)}</td>
                 <td class="px-3 py-3 text-slate-700">V${formatCount(ticket.version)}</td>
                 <td class="px-3 py-3">
                   <div class="space-y-1">

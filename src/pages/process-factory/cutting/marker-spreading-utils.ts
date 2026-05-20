@@ -1,5 +1,6 @@
 import type { MaterialPrepRow } from './material-prep-model.ts'
 import type { MergeBatchRecord } from './merge-batches-model.ts'
+import { DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES } from './cutting-table-resource.ts'
 import {
   buildMarkerSeedDraft,
   buildMarkerSpreadingNavigationPayload,
@@ -59,7 +60,7 @@ import {
   type SpreadingRollHandoverSummary,
   type SpreadingSourceChannel,
   type SpreadingStatusKey,
-  type SpreadingSupervisorStageKey,
+  type SpreadingCuttingStatusKey,
   type SpreadingSession,
 } from './marker-spreading-model.ts'
 import { buildMarkerSpreadingProjection } from './marker-spreading-projection.ts'
@@ -353,80 +354,100 @@ function buildMergeBatchContext(batch: MergeBatchRecord, rowsById: Record<string
 interface SeedSessionProfile {
   code: string
   status: SpreadingStatusKey
-  stage: SpreadingSupervisorStageKey
+  cuttingStatus?: SpreadingCuttingStatusKey
   sourceChannel?: SpreadingSourceChannel
   sourceWritebackId?: string
 }
 
 const SEED_SESSION_MATRIX: SeedSessionProfile[][] = [
   [
-    { code: 'waiting-start-a', status: 'DRAFT', stage: 'WAITING_START' },
+    { code: 'waiting-start-a', status: 'DRAFT' },
   ],
   [
-    { code: 'in-progress-b', status: 'IN_PROGRESS', stage: 'IN_PROGRESS' },
+    { code: 'in-progress-b', status: 'IN_PROGRESS' },
   ],
   [
-    { code: 'waiting-fei-ticket-b', status: 'DONE', stage: 'WAITING_FEI_TICKET' },
+    { code: 'waiting-cutting-b', status: 'DONE', cuttingStatus: 'WAITING_CUTTING' },
   ],
   [
-    { code: 'waiting-warehouse-b', status: 'DONE', stage: 'WAITING_WAREHOUSE' },
+    { code: 'cutting-b', status: 'DONE', cuttingStatus: 'CUTTING' },
   ],
   [
-    { code: 'done-pc-c', status: 'DONE', stage: 'DONE' },
+    { code: 'cutting-done-c', status: 'DONE', cuttingStatus: 'CUTTING_DONE' },
   ],
   [
-    { code: 'done-pc-d', status: 'DONE', stage: 'DONE' },
+    { code: 'cutting-done-d', status: 'DONE', cuttingStatus: 'CUTTING_DONE' },
   ],
 ]
+
+const SEED_SESSION_OWNERS = [
+  { ownerAccountId: 'supervisor-liufang', ownerName: '铺布主管-刘芳' },
+  { ownerAccountId: 'supervisor-zhouwei', ownerName: '铺布主管-周伟' },
+  { ownerAccountId: 'planner-chenjing', ownerName: '计划员-陈静' },
+] as const
 
 function sanitizeSeedKey(value: string): string {
   return value.trim().replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'na'
 }
 
-function buildPrototypeLifecycleOverrides(
-  stage: SpreadingSupervisorStageKey,
-): SpreadingSession['prototypeLifecycleOverrides'] {
-  if (stage === 'WAITING_REPLENISHMENT') {
-    return {
-      replenishmentStatusLabel: '待补料确认',
-      feiTicketStatusLabel: '待打印菲票',
-      baggingStatusLabel: '待装袋',
-      warehouseStatusLabel: '待入仓',
-    }
+function formatSeedDateTimeLocal(date: Date): string {
+  const year = date.getFullYear()
+  const month = `${date.getMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getDate()}`.padStart(2, '0')
+  const hours = `${date.getHours()}`.padStart(2, '0')
+  const minutes = `${date.getMinutes()}`.padStart(2, '0')
+  return `${year}-${month}-${day}T${hours}:${minutes}`
+}
+
+function parseSeedDate(value?: string): Date | null {
+  if (!value) return null
+  const parsed = new Date(value.includes('T') ? value : value.replace(' ', 'T'))
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
+function ensureSpreadingScheduleDefaults(session: SpreadingSession, index: number): SpreadingSession {
+  const operatorStartTimes = (session.operators || []).map((operator) => operator.startAt).filter(Boolean).sort((left, right) => left.localeCompare(right, 'zh-CN'))
+  const operatorEndTimes = (session.operators || []).map((operator) => operator.endAt).filter(Boolean).sort((left, right) => right.localeCompare(left, 'zh-CN'))
+  const shouldHaveCuttingStartedAt = session.cuttingStatus === 'CUTTING' || session.cuttingStatus === 'CUTTING_DONE'
+  const shouldHaveCuttingFinishedAt = session.cuttingStatus === 'CUTTING_DONE'
+  if (
+    session.plannedStartAt &&
+    session.plannedEndAt &&
+    session.ownerName &&
+    session.actualStartAt &&
+    (session.status !== 'DONE' || session.actualEndAt) &&
+    (!shouldHaveCuttingStartedAt || session.cuttingStartedAt) &&
+    (!shouldHaveCuttingFinishedAt || session.cuttingFinishedAt)
+  ) {
+    return session
   }
-  if (stage === 'WAITING_FEI_TICKET') {
-    return {
-      replenishmentStatusLabel: '无需补料',
-      feiTicketStatusLabel: '待打印菲票',
-      baggingStatusLabel: '待装袋',
-      warehouseStatusLabel: '待入仓',
-    }
+  const baseDate =
+    parseSeedDate(session.plannedStartAt) ||
+    parseSeedDate(session.createdAt) ||
+    parseSeedDate(session.updatedAt) ||
+    new Date(`2026-03-${String(10 + (index % 8)).padStart(2, '0')}T09:00:00`)
+  const endDate = new Date(baseDate)
+  endDate.setMinutes(endDate.getMinutes() + (session.estimatedDurationMinutes || DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES))
+  const owner = SEED_SESSION_OWNERS[index % SEED_SESSION_OWNERS.length]
+  return {
+    ...session,
+    plannedStartAt: session.plannedStartAt || formatSeedDateTimeLocal(baseDate),
+    plannedEndAt: session.plannedEndAt || formatSeedDateTimeLocal(endDate),
+    estimatedDurationMinutes: session.estimatedDurationMinutes || DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES,
+    tableScheduleStatus: session.tableScheduleStatus || '已排程',
+    ownerAccountId: session.ownerAccountId || owner.ownerAccountId,
+    ownerName: session.ownerName || owner.ownerName,
+    actualStartAt: session.actualStartAt || (session.status !== 'DRAFT' ? operatorStartTimes[0] || session.updatedFromPdaAt || '' : ''),
+    actualEndAt:
+      session.actualEndAt ||
+      (session.status === 'DONE' ? session.completionLinkage?.completedAt || operatorEndTimes[0] || session.updatedAt || '' : ''),
+    cuttingStartedAt:
+      session.cuttingStartedAt ||
+      (shouldHaveCuttingStartedAt ? session.cuttingStatusUpdatedAt || session.updatedAt || '' : ''),
+    cuttingFinishedAt:
+      session.cuttingFinishedAt ||
+      (shouldHaveCuttingFinishedAt ? session.cuttingStatusUpdatedAt || session.updatedAt || '' : ''),
   }
-  if (stage === 'WAITING_BAGGING') {
-    return {
-      replenishmentStatusLabel: '无需补料',
-      feiTicketStatusLabel: '已打印菲票',
-      baggingStatusLabel: '待装袋',
-      warehouseStatusLabel: '待入仓',
-    }
-  }
-  if (stage === 'WAITING_WAREHOUSE') {
-    return {
-      replenishmentStatusLabel: '无需补料',
-      feiTicketStatusLabel: '已打印菲票',
-      baggingStatusLabel: '已装袋',
-      warehouseStatusLabel: '待入仓',
-    }
-  }
-  if (stage === 'DONE') {
-    return {
-      replenishmentStatusLabel: '无需补料',
-      feiTicketStatusLabel: '已打印菲票',
-      baggingStatusLabel: '已装袋',
-      warehouseStatusLabel: '已入仓',
-    }
-  }
-  return null
 }
 
 function createSeedSession(
@@ -437,6 +458,9 @@ function createSeedSession(
   profileIndex: number,
 ): SpreadingSession {
   const seedDate = new Date(`2026-03-${String(10 + contextIndex).padStart(2, '0')}T${String(9 + profileIndex * 2).padStart(2, '0')}:00:00`)
+  const seedEndDate = new Date(seedDate)
+  seedEndDate.setMinutes(seedEndDate.getMinutes() + DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES)
+  const owner = SEED_SESSION_OWNERS[(contextIndex + profileIndex) % SEED_SESSION_OWNERS.length]
   const sessionKeyBase =
     context.contextType === 'merge-batch' ? context.mergeBatchId || context.mergeBatchNo : context.originalCutOrderIds[0] || context.originalCutOrderNos[0]
   const sessionId = `spreading-session-${context.contextType}-${sanitizeSeedKey(sessionKeyBase)}-${profile.code}`
@@ -445,10 +469,15 @@ function createSeedSession(
       spreadingSessionId: sessionId,
       sessionNo: `PB-${String(2400 + contextIndex * 10 + profileIndex).padStart(4, '0')}`,
       status: profile.status,
+      plannedStartAt: formatSeedDateTimeLocal(seedDate),
+      plannedEndAt: formatSeedDateTimeLocal(seedEndDate),
+      estimatedDurationMinutes: DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES,
+      tableScheduleStatus: profile.status === 'DONE' ? '已完成' : profile.status === 'IN_PROGRESS' ? '执行中' : '已排程',
+      ownerAccountId: owner.ownerAccountId,
+      ownerName: owner.ownerName,
       sourceChannel: profile.sourceChannel || 'MANUAL',
       sourceWritebackId: profile.sourceWritebackId || '',
       updatedFromPdaAt: profile.sourceChannel === 'PDA_WRITEBACK' ? nowText(seedDate) : '',
-      prototypeLifecycleOverrides: buildPrototypeLifecycleOverrides(profile.stage),
     },
   })
   const primaryMaterial = context.materialPrepRows[0]?.materialLineItems[0]
@@ -546,40 +575,36 @@ function createSeedSession(
   operatorC.note = '接手完成本卷剩余铺布。'
   operatorC.handoverNotes = '承接李师傅交接，继续铺至本卷结束。'
 
-  const hasExecution = profile.stage !== 'WAITING_START'
-  const multiRoll = profile.stage !== 'WAITING_START' && profile.stage !== 'IN_PROGRESS'
+  const hasExecution = profile.status !== 'DRAFT'
+  const multiRoll = profile.status === 'DONE'
   session.rolls = hasExecution ? (multiRoll ? [rollA, rollB] : [rollA]) : []
   session.operators = hasExecution ? (multiRoll ? [operatorA, operatorB, operatorC] : [operatorA]) : []
   session.status = profile.status
+  if (profile.status !== 'DRAFT') {
+    session.actualStartAt = formatSeedDateTimeLocal(seedDate)
+  }
+  if (profile.status === 'DONE') {
+    session.cuttingStatus = profile.cuttingStatus || 'WAITING_CUTTING'
+    session.actualEndAt = formatSeedDateTimeLocal(new Date(`2026-03-${String(10 + contextIndex).padStart(2, '0')}T17:30:00`))
+    if (session.cuttingStatus === 'CUTTING' || session.cuttingStatus === 'CUTTING_DONE') {
+      session.cuttingStartedAt = formatSeedDateTimeLocal(new Date(`2026-03-${String(10 + contextIndex).padStart(2, '0')}T18:00:00`))
+    }
+    if (session.cuttingStatus === 'CUTTING_DONE') {
+      session.cuttingFinishedAt = formatSeedDateTimeLocal(new Date(`2026-03-${String(10 + contextIndex).padStart(2, '0')}T20:00:00`))
+    }
+  }
   session.actualCutPieceQty = session.rolls.reduce((sum, roll) => sum + Math.max(roll.actualCutPieceQty || 0, 0), 0)
   session.actualLayers = session.rolls.reduce((sum, roll) => sum + Math.max(roll.layerCount || 0, 0), 0)
   session.unitPrice = 0.46 + contextIndex * 0.04 + profileIndex * 0.01
   session.note =
-    profile.stage === 'WAITING_START'
+    profile.status === 'DRAFT'
       ? '当前待开始，已完成铺布创建但尚未录入卷记录。'
-      : profile.stage === 'IN_PROGRESS'
+      : profile.status === 'IN_PROGRESS'
         ? '当前仍可继续补录剩余卷与人员交接。'
-        : '当前铺布记录已完成，可用于后续补料与执行闭环。'
+        : '当前铺布记录已完成。'
   session.updatedAt = nowText(new Date(`2026-03-${String(10 + contextIndex).padStart(2, '0')}T18:${String(profileIndex).padStart(2, '0')}:00`))
-  if (profile.stage === 'WAITING_REPLENISHMENT') {
-    const warning = buildSpreadingReplenishmentWarning({
-      context,
-      session,
-      markerTotalPieces: marker.totalPieces,
-      originalCutOrderNos: context.originalCutOrderNos,
-      productionOrderNos: context.productionOrderNos,
-      materialAttr: context.materialPrepRows[0]?.materialLabel || '',
-      createdAt: session.updatedAt,
-      note: '当前为 prototype 待补料确认样例。',
-    })
-    session.replenishmentWarning = {
-      ...warning,
-      suggestedAction: '建议补料',
-      handled: false,
-      shortageQty: Math.max(warning.shortageQty, 12),
-      note: 'prototype：待补料确认',
-    }
-  } else if (profile.status === 'DONE') {
+  if (profile.status === 'DONE') {
+    session.cuttingStatusUpdatedAt = session.updatedAt
     const warning = buildSpreadingReplenishmentWarning({
       context,
       session,
@@ -605,11 +630,8 @@ function createSeedSession(
       linkedOriginalCutOrderIds: [...context.originalCutOrderIds],
       linkedOriginalCutOrderNos: [...context.originalCutOrderNos],
       generatedWarningId: session.replenishmentWarning?.warningId || `warning-${session.spreadingSessionId}`,
-      generatedWarning: profile.stage === 'WAITING_REPLENISHMENT',
-      note:
-        profile.stage === 'WAITING_REPLENISHMENT'
-          ? '当前铺布已完成，并等待补料管理确认。'
-          : '当前铺布已完成，并进入后续闭环链路。',
+      generatedWarning: false,
+      note: '当前铺布已完成。',
     }
   }
   return session
@@ -654,9 +676,6 @@ export function buildMarkerSpreadingPrototypeStore(options: {
   const rowsById = Object.fromEntries(executableRows.map((row) => [row.originalCutOrderId, row]))
   const isLinkedToExecutableRows = (originalCutOrderIds: string[]) =>
     originalCutOrderIds.length > 0 && originalCutOrderIds.every((id) => executableRowIds.has(id))
-  const isGeneratedSeedSession = (session: SpreadingSession) =>
-    session.spreadingSessionId.startsWith('spreading-session-original-order-') ||
-    session.spreadingSessionId.startsWith('spreading-session-merge-batch-')
   const isLinkedToMarkerPlan = (session: SpreadingSession) =>
     Boolean(
       session.sourceSchemeId &&
@@ -672,9 +691,8 @@ export function buildMarkerSpreadingPrototypeStore(options: {
     markers: nextStore.markers.filter((marker) => isLinkedToExecutableRows(marker.originalCutOrderIds)),
     sessions: nextStore.sessions.filter((session) =>
       isLinkedToExecutableRows(session.originalCutOrderIds) &&
-      isLinkedToMarkerPlan(session) &&
-      !isGeneratedSeedSession(session),
-    ),
+      isLinkedToMarkerPlan(session),
+    ).map((session, index) => ensureSpreadingScheduleDefaults(session, index)),
   }
 
   const originalContexts = executableRows
@@ -1133,21 +1151,18 @@ export function buildMarkerSpreadingCountsByOriginalOrder(originalCutOrderId: st
   const doneCount = linkedSessions.filter((item) => item.status === 'DONE').length
   const inProgressCount = linkedSessions.filter((item) => item.status === 'IN_PROGRESS').length
   const latestSession = [...linkedSessions].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt, 'zh-CN'))[0] || null
-  const latestWarning = latestSession?.replenishmentWarning || null
   const latestMarkerTotalPieces = latestSession?.markerId ? markersById[latestSession.markerId]?.totalPieces || 0 : 0
   const latestAmountSummary = latestSession
     ? summarizeSpreadingOperatorAmounts(latestSession.operators, latestMarkerTotalPieces, latestSession.unitPrice)
     : null
   const completedForCurrentOrder = linkedSessions.some((item) => getCompletedLinkedOriginalCutOrderIds(item).includes(originalCutOrderId))
-  const spreadingStatusLabel = latestWarning && latestWarning.suggestedAction !== '无需补料'
-    ? '待补料确认'
-    : completedForCurrentOrder
-      ? '铺布完成'
-      : inProgressCount > 0
-        ? '铺布中'
-        : doneCount > 0
-          ? '铺布完成'
-          : '待铺布'
+  const spreadingStatusLabel = completedForCurrentOrder
+    ? '完成铺布'
+    : inProgressCount > 0
+      ? '铺布中'
+      : doneCount > 0
+        ? '完成铺布'
+        : '待开始'
 
   return {
     markerCount: store.markers.filter((item) => item.originalCutOrderIds.includes(originalCutOrderId)).length,

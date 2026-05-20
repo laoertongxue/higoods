@@ -369,10 +369,11 @@ const routeSource =
   '/fcs/craft/cutting/warehouse-management/wait-handover',
   '/fcs/craft/cutting/warehouse-management/sample-warehouse',
   'special-craft',
-  'renderSpecialCraftWaitProcessWarehousePage',
-  'renderSpecialCraftWaitHandoverWarehousePage',
+  'renderSpecialCraftDomainWaitProcessWarehousePage',
+  'renderSpecialCraftDomainWaitHandoverWarehousePage',
   'renderSpecialCraftTaskOrdersPage',
-  'renderSpecialCraftWarehousePage',
+  '/fcs/process-factory/special-craft/auxiliary/wait-process-warehouse',
+  '/fcs/process-factory/special-craft/special-type/wait-process-warehouse',
   '/confirmation-print',
 ].forEach((token) => {
   assert(routeSource.includes(token), `路由注册缺少：${token}`)
@@ -381,7 +382,7 @@ const routeSource =
   "renderRouteRedirect('/fcs/craft/printing/wait-process-warehouse', '正在跳转到印花待加工仓')",
   "renderRouteRedirect('/fcs/craft/dyeing/wait-process-warehouse', '正在跳转到染色待加工仓')",
   "renderRouteRedirect('/fcs/craft/cutting/warehouse-management/wait-process', '正在跳转到待加工仓')",
-  'renderRouteRedirect(buildSpecialCraftWaitProcessWarehousePath(operation)',
+  'buildSpecialCraftDomainWaitProcessWarehousePath',
 ].forEach((token) => {
   assert(routeSource.includes(token), `旧仓库入口兼容跳转缺少：${token}`)
 })

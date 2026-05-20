@@ -990,7 +990,7 @@ function mapSpecialCraftNodeRecord(record: SpecialCraftTaskNodeRecord): TaskRout
 
 function buildRouteCardFromSpecialCraftTaskOrder(sourceId: string): TaskRouteCardBuildResult {
   const order = getSpecialCraftTaskOrderById(sourceId)
-  if (!order) return { ok: false, title: TASK_ROUTE_CARD_NAME, message: `未找到特殊工艺任务单：${sourceId}` }
+  if (!order) return { ok: false, title: TASK_ROUTE_CARD_NAME, message: `未找到特殊工艺加工单：${sourceId}` }
 
   return {
     ok: true,
@@ -998,7 +998,7 @@ function buildRouteCardFromSpecialCraftTaskOrder(sourceId: string): TaskRouteCar
       cardName: TASK_ROUTE_CARD_NAME,
       sourceType: 'SPECIAL_CRAFT_TASK_ORDER',
       sourceId,
-      sourceLabel: '特殊工艺任务单',
+      sourceLabel: '特殊工艺加工单',
       taskId: order.sourceTaskId || order.taskOrderId,
       taskNo: order.sourceTaskNo || order.taskOrderNo,
       productionOrderId: order.productionOrderId,
@@ -1012,7 +1012,7 @@ function buildRouteCardFromSpecialCraftTaskOrder(sourceId: string): TaskRouteCar
       dueAt: order.dueAt,
       qrValue: buildTaskQrValue(order.sourceTaskId || order.taskOrderId),
       image: resolvePrintImage({ productionOrderId: order.productionOrderId, processName: order.processName, craftName: order.craftName }),
-      summaryRemark: order.remark || '特殊工艺任务单生成',
+      summaryRemark: order.remark || '特殊工艺加工单生成',
       titleOverride: `${order.operationName}任务流转卡`,
       summaryRowsOverride: [
         { label: '任务号', value: order.taskOrderNo },

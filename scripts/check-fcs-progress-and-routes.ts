@@ -76,6 +76,8 @@ const routeSources =
   read('src/router/route-renderers.ts') +
   read('src/router/route-renderers-fcs.ts')
 const stateStoreSource = read('src/state/store.ts')
+const oldSpecialCraftWaitProcessPathBuilder = ['buildSpecialCraft', 'WaitProcessWarehousePath'].join('')
+const oldSpecialCraftWaitHandoverPathBuilder = ['buildSpecialCraft', 'WaitHandoverWarehousePath'].join('')
 const uiSources = [
   progressBoardSource,
   handoverSource,
@@ -181,6 +183,10 @@ assertIncludesAll(
     '/fcs/craft/cutting/warehouse-management/wait-process',
     '/fcs/craft/cutting/warehouse-management/wait-handover',
     '/fcs/craft/cutting/warehouse-management/sample-warehouse',
+    '/fcs/process-factory/special-craft/auxiliary/wait-process-warehouse',
+    '/fcs/process-factory/special-craft/auxiliary/wait-handover-warehouse',
+    '/fcs/process-factory/special-craft/special-type/wait-process-warehouse',
+    '/fcs/process-factory/special-craft/special-type/wait-handover-warehouse',
     '/fcs/quality/qc-records',
     '/fcs/production/orders',
     '/confirmation-print',
@@ -189,9 +195,10 @@ assertIncludesAll(
   ],
   '路由注册',
 )
-assertIncludes(routeSources, 'buildSpecialCraftWaitProcessWarehousePath', '缺少特殊工艺待加工仓路由生成')
-assertIncludes(routeSources, 'buildSpecialCraftWaitHandoverWarehousePath', '缺少特殊工艺待交出仓路由生成')
-assertIncludes(routeSources, 'renderRouteRedirect(buildSpecialCraftWaitProcessWarehousePath(operation)', '旧特殊工艺 warehouse 路由必须重定向')
+assertIncludes(routeSources, 'buildSpecialCraftDomainWaitProcessWarehousePath', '缺少辅助/特种工艺待加工仓路由生成')
+assertIncludes(routeSources, 'buildSpecialCraftDomainWaitHandoverWarehousePath', '缺少辅助/特种工艺待交出仓路由生成')
+assertNotIncludes(routeSources, oldSpecialCraftWaitProcessPathBuilder, '不得保留旧单工艺特殊工艺待加工仓路由')
+assertNotIncludes(routeSources, oldSpecialCraftWaitHandoverPathBuilder, '不得保留旧单工艺特殊工艺待交出仓路由')
 assertIncludes(routeSources, 'renderCraftCuttingWarehouseManagementWaitProcessPage', '缺少裁床待加工仓汇总渲染器')
 assertIncludes(routeSources, 'renderCraftCuttingWarehouseManagementWaitHandoverPage', '缺少裁床待交出仓汇总渲染器')
 assertIncludes(routeSources, "renderRouteRedirect('/fcs/craft/printing/wait-process-warehouse', '正在跳转到印花待加工仓')", '印花旧 warehouse alias 必须重定向到印花待加工仓')

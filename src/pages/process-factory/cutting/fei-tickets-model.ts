@@ -179,8 +179,6 @@ export interface FeiTicketLabelRecord {
   bundleNo?: string
   quantity?: number
   actualCutPieceQty?: number
-  assemblyGroupKey?: string
-  siblingPartTicketNos?: string[]
   printStatus?: 'WAIT_PRINT' | 'PRINTED' | 'REPRINTED' | 'VOIDED'
   processTags?: string[]
   version?: number
@@ -458,8 +456,6 @@ function createEmptyPreviewRecord(
     bundleNo: generated?.bundleNo || `BUNDLE-${String(sequenceNo).padStart(3, '0')}`,
     quantity: generated?.bundleQty ?? generated?.qty ?? 1,
     actualCutPieceQty: generated?.actualCutPieceQty ?? generated?.qty ?? 1,
-    assemblyGroupKey: generated?.assemblyGroupKey || '',
-    siblingPartTicketNos: generated?.siblingPartTicketNos ? [...generated.siblingPartTicketNos] : [],
     printStatus: generated?.printStatus || 'WAIT_PRINT',
     processTags: generated?.secondaryCrafts || [],
   }
@@ -582,8 +578,6 @@ function createSeedTicketRecord(options: {
       bundleNo: generated?.bundleNo || `BUNDLE-${String(options.sequenceNo).padStart(3, '0')}`,
       quantity: options.quantity ?? generated?.bundleQty ?? generated?.qty ?? 1,
       actualCutPieceQty: generated?.actualCutPieceQty ?? options.quantity ?? generated?.qty ?? 1,
-      assemblyGroupKey: generated?.assemblyGroupKey || '',
-      siblingPartTicketNos: generated?.siblingPartTicketNos ? [...generated.siblingPartTicketNos] : [],
       printStatus: options.version > 1 ? 'REPRINTED' : generated?.printStatus || 'PRINTED',
       processTags: options.processTags || generated?.secondaryCrafts || [],
       version: options.version,
@@ -1792,8 +1786,6 @@ export interface TicketSplitDetail {
   bundleNo: string
   quantity: number
   actualCutPieceQty: number
-  assemblyGroupKey: string
-  siblingPartTicketNos: string[]
   garmentQty: number
   requiredTicketCount: number
   validPrintedTicketCount: number
@@ -1823,8 +1815,6 @@ export interface TicketCard {
   bundleNo: string
   quantity: number
   actualCutPieceQty: number
-  assemblyGroupKey: string
-  siblingPartTicketNos: string[]
   printStatus: 'WAIT_PRINT' | 'PRINTED' | 'REPRINTED' | 'VOIDED'
   garmentQty: number
   processTags: string[]
@@ -2406,8 +2396,6 @@ function buildSplitDetailsFromOwner(
         bundleNo: record.bundleNo || `BUNDLE-${String(index + 1).padStart(3, '0')}`,
         quantity: Math.max(record.bundleQty || record.qty, 1),
         actualCutPieceQty: Math.max(record.actualCutPieceQty || record.qty, 1),
-        assemblyGroupKey: record.assemblyGroupKey || '',
-        siblingPartTicketNos: [...(record.siblingPartTicketNos || [])],
         garmentQty: Math.max(record.garmentQty || record.bundleQty || record.qty, 1),
       }))
     : Array.from({ length: Math.max(source.owner.plannedTicketQty, 0) }, (_, index) => ({
@@ -2423,8 +2411,6 @@ function buildSplitDetailsFromOwner(
         bundleNo: `BUNDLE-${String(index + 1).padStart(3, '0')}`,
         quantity: 1,
         actualCutPieceQty: 1,
-        assemblyGroupKey: '',
-        siblingPartTicketNos: [],
         garmentQty: 1,
       }))
 
@@ -2449,8 +2435,6 @@ function buildSplitDetailsFromOwner(
         bundleNo: seed.bundleNo,
         quantity: seed.quantity,
         actualCutPieceQty: seed.actualCutPieceQty,
-        assemblyGroupKey: seed.assemblyGroupKey,
-        siblingPartTicketNos: seed.siblingPartTicketNos,
         requiredTicketCount: 1,
         validPrintedTicketCount: 0,
         gapCount: 0,
@@ -2482,8 +2466,6 @@ function buildSplitDetailsFromOwner(
       bundleNo: seed.bundleNo,
       quantity: seed.quantity,
       actualCutPieceQty: seed.actualCutPieceQty,
-      assemblyGroupKey: seed.assemblyGroupKey,
-      siblingPartTicketNos: seed.siblingPartTicketNos,
       garmentQty: seed.garmentQty,
       requiredTicketCount: 1,
       validPrintedTicketCount,
@@ -2543,8 +2525,6 @@ export function buildTicketCards(options: {
         bundleNo: record.bundleNo || detail?.bundleNo || '',
         quantity: record.quantity ?? detail?.quantity ?? 1,
         actualCutPieceQty: record.actualCutPieceQty ?? detail?.actualCutPieceQty ?? record.quantity ?? 1,
-        assemblyGroupKey: record.assemblyGroupKey || detail?.assemblyGroupKey || '',
-        siblingPartTicketNos: record.siblingPartTicketNos ? [...record.siblingPartTicketNos] : [...(detail?.siblingPartTicketNos || [])],
         printStatus: record.printStatus || 'PRINTED',
         garmentQty: record.quantity ?? detail?.garmentQty ?? detail?.quantity ?? 1,
         processTags: record.processTags || [],

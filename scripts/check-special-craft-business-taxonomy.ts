@@ -11,8 +11,11 @@ import {
   listSelectableSpecialCraftDefinitions,
 } from '../src/data/fcs/process-craft-dict.ts'
 import {
+  buildSpecialCraftDomainWaitHandoverWarehousePath,
+  buildSpecialCraftDomainWaitProcessWarehousePath,
   buildSpecialCraftTaskOrdersPath,
-  buildSpecialCraftWarehousePath,
+  listEnabledAuxiliaryCraftOperationDefinitions,
+  listEnabledSpecialTypeCraftOperationDefinitions,
   listEnabledSpecialCraftOperationDefinitions,
   listSpecialCraftOperationDefinitions,
 } from '../src/data/fcs/special-craft-operations.ts'
@@ -123,15 +126,25 @@ function main(): void {
       && !removedLegacyCraftNames.includes(item.craftName)),
     '特殊工艺运营分类存在非法引用',
   )
-  const specialCraftMenuGroup = menusBySystem.pfos.find((group) => group.title === '特殊工艺')
-  assert(specialCraftMenuGroup, '工艺工厂运营系统缺少特殊工艺菜单组')
+  const auxiliaryCraftMenuGroup = menusBySystem.pfos.find((group) => group.title === '辅助工艺工厂管理')
+  const specialTypeCraftMenuGroup = menusBySystem.pfos.find((group) => group.title === '特种工艺工厂管理')
+  assert(auxiliaryCraftMenuGroup, '工艺工厂运营系统缺少辅助工艺工厂管理菜单组')
+  assert(specialTypeCraftMenuGroup, '工艺工厂运营系统缺少特种工艺工厂管理菜单组')
+  assert(!menusBySystem.pfos.some((group) => group.title === '特殊工艺'), '不得保留旧特殊工艺统一菜单组')
   const pfosItems = flattenMenuItems(menusBySystem.pfos)
-  enabledOperations.forEach((operation) => {
-    const menuItem = specialCraftMenuGroup!.items.find((item) => item.title === operation.operationName)
-    assert(menuItem, `${operation.operationName} 缺少一级菜单`)
-    assert(menuItem!.children?.some((child) => child.href === buildSpecialCraftTaskOrdersPath(operation)), `${operation.operationName} 缺少任务单菜单`)
-    assert(menuItem!.children?.some((child) => child.href === buildSpecialCraftWarehousePath(operation)), `${operation.operationName} 缺少仓库管理菜单`)
+  listEnabledAuxiliaryCraftOperationDefinitions().forEach((operation) => {
+    const menuItem = auxiliaryCraftMenuGroup!.items.find((item) => item.title === `${operation.operationName}加工单`)
+    assert(menuItem?.href === buildSpecialCraftTaskOrdersPath(operation), `${operation.operationName} 缺少辅助工艺加工单菜单`)
   })
+  listEnabledSpecialTypeCraftOperationDefinitions().forEach((operation) => {
+    const menuItem = specialTypeCraftMenuGroup!.items.find((item) => item.title === `${operation.operationName}加工单`)
+    assert(menuItem?.href === buildSpecialCraftTaskOrdersPath(operation), `${operation.operationName} 缺少特种工艺加工单菜单`)
+  })
+  assert(auxiliaryCraftMenuGroup!.items.some((item) => item.href === buildSpecialCraftDomainWaitProcessWarehousePath('AUXILIARY_CRAFT_FACTORY')), '辅助工艺缺少待加工仓菜单')
+  assert(auxiliaryCraftMenuGroup!.items.some((item) => item.href === buildSpecialCraftDomainWaitHandoverWarehousePath('AUXILIARY_CRAFT_FACTORY')), '辅助工艺缺少待交出仓菜单')
+  assert(specialTypeCraftMenuGroup!.items.some((item) => item.href === buildSpecialCraftDomainWaitProcessWarehousePath('SPECIAL_CRAFT_FACTORY')), '特种工艺缺少待加工仓菜单')
+  assert(specialTypeCraftMenuGroup!.items.some((item) => item.href === buildSpecialCraftDomainWaitHandoverWarehousePath('SPECIAL_CRAFT_FACTORY')), '特种工艺缺少待交出仓菜单')
+  assert(!pfosItems.some((item) => item.title.includes('统计') && item.key.includes('pfos-special')), '特殊工艺不得保留统计菜单')
   assert(
     !pfosItems.some((item) => item.key.includes('pfos-special') && item.title.includes(buildToken('印', '花'))),
     `${buildToken('印', '花')}不应挂入特殊工艺菜单`,

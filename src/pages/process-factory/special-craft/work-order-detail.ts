@@ -3,14 +3,8 @@ import {
   buildSpecialCraftWorkOrderDetailPath,
   getSpecialCraftOperationBySlug,
 } from '../../../data/fcs/special-craft-operations.ts'
-import { buildHandoverDifferenceRequestPrintLink, buildTaskDetailLink } from '../../../data/fcs/fcs-route-links.ts'
+import { buildHandoverDifferenceRequestPrintLink } from '../../../data/fcs/fcs-route-links.ts'
 import {
-  buildMobileExecutionListLocatePathForTask,
-  getMobileExecutionTaskById,
-} from '../../../data/fcs/mobile-execution-task-index.ts'
-import { validateSpecialCraftMobileTaskBinding } from '../../../data/fcs/process-mobile-task-binding.ts'
-import {
-  getAvailableSpecialCraftWebActions,
   getUnifiedOperationRecordsForProcessWorkOrder,
   type ProcessWebAction,
   type ProcessWebOperationRecord,
@@ -60,6 +54,95 @@ const specialCraftDetailTabs: Array<{ key: SpecialCraftDetailTab; label: string 
   { key: 'handover', label: '交出记录' },
   { key: 'events', label: '操作记录' },
 ]
+
+const fastSpecialCraftActionDefs: Array<{
+  actionCode: string
+  actionLabel: ProcessWebAction['actionLabel']
+  fromStatuses: string[]
+  toStatus: string
+  requiredFields: string[]
+  optionalFields?: string[]
+  writebackHandler: string
+  affectsHandover?: boolean
+  affectsDifference?: boolean
+}> = [
+  {
+    actionCode: 'SPECIAL_CRAFT_RECEIVE_CUT_PIECES',
+    actionLabel: '确认接收裁片',
+    fromStatuses: ['待接收', '待领料', '已入待加工仓'],
+    toStatus: '已入待加工仓',
+    requiredFields: ['接收人', '接收时间', '接收裁片数量', '关联菲票'],
+    optionalFields: ['备注'],
+    writebackHandler: 'startSpecialCraftTask',
+  },
+  {
+    actionCode: 'SPECIAL_CRAFT_START_PROCESS',
+    actionLabel: '开始加工',
+    fromStatuses: ['已接收', '待加工', '已入待加工仓'],
+    toStatus: '加工中',
+    requiredFields: ['操作人', '开始时间'],
+    writebackHandler: 'startSpecialCraftTask',
+  },
+  {
+    actionCode: 'SPECIAL_CRAFT_FINISH_PROCESS',
+    actionLabel: '完成加工',
+    fromStatuses: ['加工中'],
+    toStatus: '待交出',
+    requiredFields: ['操作人', '完成时间', '加工完成裁片数量'],
+    writebackHandler: 'finishSpecialCraftTask',
+  },
+  {
+    actionCode: 'SPECIAL_CRAFT_REPORT_DIFFERENCE',
+    actionLabel: '上报差异',
+    fromStatuses: ['已接收', '已入待加工仓', '加工中', '加工完成', '待交出'],
+    toStatus: '差异',
+    requiredFields: ['上报人', '差异类型', '应收裁片数量', '实收裁片数量', '差异裁片数量', '关联菲票', '原因'],
+    optionalFields: ['证据'],
+    writebackHandler: 'createProcessHandoverDifferenceRecord',
+    affectsDifference: true,
+  },
+  {
+    actionCode: 'SPECIAL_CRAFT_SUBMIT_HANDOVER',
+    actionLabel: '发起交出',
+    fromStatuses: ['加工完成', '待交出'],
+    toStatus: '交出待收货',
+    requiredFields: ['交出人', '交出时间', '交出裁片数量', '关联菲票'],
+    optionalFields: ['备注'],
+    writebackHandler: 'createProcessHandoverRecord',
+    affectsHandover: true,
+  },
+  {
+    actionCode: 'SPECIAL_CRAFT_REWORK_AFTER_REJECT',
+    actionLabel: '差异后重交',
+    fromStatuses: ['差异', '异议中', '异常', '交出待收货', '收货差异'],
+    toStatus: '待交出',
+    requiredFields: ['操作人', '重交裁片数量', '备注'],
+    writebackHandler: 'reworkAfterReject',
+    affectsHandover: true,
+  },
+]
+
+function getFastSpecialCraftWebActions(status: string): ProcessWebAction[] {
+  const matched = fastSpecialCraftActionDefs.filter((action) => action.fromStatuses.includes(status))
+  const defs = matched.length ? matched : [fastSpecialCraftActionDefs[0]]
+  return defs.map((action) => ({
+    actionCode: action.actionCode,
+    actionLabel: action.actionLabel,
+    processType: 'SPECIAL_CRAFT',
+    fromStatus: status,
+    toStatus: action.toStatus,
+    requiredFields: action.requiredFields,
+    optionalFields: action.optionalFields || [],
+    confirmText: `确认${action.actionLabel}`,
+    disabledReason: matched.length ? undefined : '当前状态暂无可执行动作',
+    writebackHandler: action.writebackHandler,
+    affectsWarehouse: false,
+    affectsHandover: Boolean(action.affectsHandover),
+    affectsReview: false,
+    affectsDifference: Boolean(action.affectsDifference),
+    affectsPlatformStatus: false,
+  }))
+}
 
 function getCurrentDetailTab(): SpecialCraftDetailTab {
   const [, queryString = ''] = (appStore.getState().pathname || '').split('?')
@@ -184,7 +267,7 @@ function renderWebActionPanel(
           { label: '当前细状态', value: escapeHtml(currentStatus) },
           { label: '操作方式', value: escapeHtml('仅展示当前状态允许的下一步动作') },
           { label: '数量口径', value: escapeHtml(objectMeta.qtyRule) },
-          { label: '禁止事项', value: escapeHtml('不新增后道工序作为特殊工艺动作') },
+          { label: '禁止事项', value: escapeHtml('不新增后道工序作为加工动作') },
         ])}
         ${
           actionable.length
@@ -220,7 +303,7 @@ function renderWebActionPanel(
                   .join('')}
               </div>
               <div class="rounded-md border border-dashed bg-slate-50 px-3 py-2 text-xs text-muted-foreground">
-                操作弹窗字段：${escapeHtml(localizeSpecialCraftActionFields(actionable[0].requiredFields, objectMeta).join('、'))}；确认后写回特殊工艺事实源并生成 操作记录。
+                操作弹窗字段：${escapeHtml(localizeSpecialCraftActionFields(actionable[0].requiredFields, objectMeta).join('、'))}；确认后写回加工事实源并生成操作记录。
               </div>`
             : `<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">${escapeHtml(disabledReason || '当前状态暂无可执行动作')}</div>`
         }
@@ -289,7 +372,7 @@ function applyDifferenceActionFromUrl(): void {
   if (input.action === 'apply-fei') {
     applySpecialCraftDifferenceToFeiTickets(input.differenceId, {
       operatorName: '平台处理员',
-      reason: '特殊工艺差异同步菲票数量',
+      reason: '加工差异同步菲票数量',
     })
     return
   }
@@ -306,71 +389,60 @@ function applyDifferenceActionFromUrl(): void {
     responsibilitySide: nextAction === '确认差异继续流转' ? '非工厂责任' : '待判定',
     nextAction,
     handledBy: '平台处理员',
-    remark: '特殊工艺交出差异处理',
+    remark: '加工交出差异处理',
   })
 }
 
 export function renderSpecialCraftWorkOrderDetailPage(operationSlug: string, workOrderId: string): string {
   applyDifferenceActionFromUrl()
+  const activeTab = getCurrentDetailTab()
   const operation = getSpecialCraftOperationBySlug(operationSlug)
   const workOrder = getSpecialCraftTaskWorkOrderById(decodeURIComponent(workOrderId))
   if (!operation || !workOrder || workOrder.operationId !== operation.operationId) {
-    return renderEmptyState('未找到对应工艺单。')
+    return renderEmptyState('未找到对应加工单。')
   }
   const factoryGuard = resolveSpecialCraftFactoryContextGuard(operation)
   if (factoryGuard.blocked) {
     return renderSpecialCraftFactoryContextBlockedLayout({
       operation,
-      title: '工艺单详情',
-      description: '查看工艺单明细、绑定菲票数量、差异上报和流转事件。',
+      title: '加工单详情',
+      description: '查看加工明细、绑定菲票数量、差异上报和流转事件。',
       activeSubNav: 'tasks',
       factoryName: factoryGuard.factoryName,
     })
   }
   const taskOrder = getSpecialCraftTaskOrderById(workOrder.taskOrderId)
-  const bindings = listCuttingSpecialCraftFeiTicketBindings().filter((binding) => binding.workOrderId === workOrder.workOrderId)
+  const needsFeiBindings = ['process', 'fei'].includes(activeTab)
+  const bindings = needsFeiBindings
+    ? listCuttingSpecialCraftFeiTicketBindings().filter((binding) => binding.workOrderId === workOrder.workOrderId)
+    : []
   const lines = getSpecialCraftTaskWorkOrderLinesByWorkOrderId(workOrder.workOrderId)
-  const reports = listSpecialCraftQtyDifferenceReports().filter((report) => report.workOrderId === workOrder.workOrderId)
-  const events = getSpecialCraftFeiTicketFlowEventsByWorkOrderId(workOrder.workOrderId)
+  const reports = activeTab === 'difference'
+    ? listSpecialCraftQtyDifferenceReports().filter((report) => report.workOrderId === workOrder.workOrderId)
+    : []
+  const events = activeTab === 'process' ? getSpecialCraftFeiTicketFlowEventsByWorkOrderId(workOrder.workOrderId) : []
   const warehouseRecords = getWarehouseRecordsByWorkOrderId(workOrder.workOrderId)
   const handoverRecords = getHandoverRecordsByWorkOrderId(workOrder.workOrderId)
   const unifiedDifferenceRecords = getDifferenceRecordsByWorkOrderId(workOrder.workOrderId)
-  const availableActions = getAvailableSpecialCraftWebActions(workOrder.workOrderId)
-  const mobileBinding = validateSpecialCraftMobileTaskBinding(workOrder.workOrderId)
-  const webOperationRecords = getUnifiedOperationRecordsForProcessWorkOrder(
-    'SPECIAL_CRAFT_WORK_ORDER',
-    workOrder.workOrderId,
-    mobileBinding.actualTaskId || workOrder.taskOrderId,
-  )
-  const mobileBindingReasonLabel =
-    mobileBinding.reasonCode === 'TASK_NOT_VISIBLE_IN_MOBILE_LIST'
-      ? '移动端执行列表不可见，请检查工厂或任务状态'
-      : mobileBinding.reasonLabel
-  const mobileExecutionTask = mobileBinding.actualTaskId ? getMobileExecutionTaskById(mobileBinding.actualTaskId) : null
+  const availableActions = getFastSpecialCraftWebActions(workOrder.status)
+  const webOperationRecords = activeTab === 'events'
+    ? getUnifiedOperationRecordsForProcessWorkOrder(
+        'SPECIAL_CRAFT_WORK_ORDER',
+        workOrder.workOrderId,
+        workOrder.taskOrderId,
+      )
+    : []
   const objectMeta = resolveWorkOrderObjectMeta(workOrder)
-  const totalOriginalQty = bindings.reduce((sum, binding) => sum + binding.originalQty, 0) || workOrder.planQty
-  const totalCurrentQty = bindings.reduce((sum, binding) => sum + binding.currentQty, 0) || workOrder.currentQty
-  const totalScrapQty = bindings.reduce((sum, binding) => sum + binding.cumulativeScrapQty, 0) || workOrder.scrapQty
-  const totalDamageQty = bindings.reduce((sum, binding) => sum + binding.cumulativeDamageQty, 0) || workOrder.damageQty
-  const totalReturnedQty = bindings.reduce((sum, binding) => sum + binding.returnedQty, 0) || workOrder.returnedQty
-  const mobileExecutionLink =
-    mobileBinding.canOpenMobileExecution && mobileExecutionTask
-      ? buildTaskDetailLink(mobileBinding.actualTaskId, {
-          returnTo: buildMobileExecutionListLocatePathForTask(mobileExecutionTask, {
-            currentFactoryId: workOrder.factoryId,
-            keyword: workOrder.workOrderNo,
-          }),
-          sourceType: 'SPECIAL_CRAFT_WORK_ORDER',
-          sourceId: workOrder.workOrderId,
-          currentFactoryId: workOrder.factoryId,
-          keyword: workOrder.workOrderNo,
-        })
-      : ''
+  const totalOriginalQty = workOrder.planQty
+  const totalCurrentQty = workOrder.currentQty
+  const totalScrapQty = workOrder.scrapQty
+  const totalDamageQty = workOrder.damageQty
+  const totalReturnedQty = workOrder.returnedQty
 
   const basicInfo = renderInfoGrid([
-    { label: '工艺单号', value: escapeHtml(workOrder.workOrderNo) },
+    { label: '加工单号', value: escapeHtml(workOrder.workOrderNo) },
     { label: '生产单', value: escapeHtml(workOrder.productionOrderNo) },
-    { label: '特殊工艺', value: escapeHtml(workOrder.operationName) },
+    { label: '工艺', value: escapeHtml(workOrder.operationName) },
     { label: '工厂', value: escapeHtml(formatSpecialCraftFactoryLabel(workOrder.factoryName, workOrder.factoryId)) },
     { label: objectMeta.targetLabel, value: escapeHtml(objectMeta.objectType === '裁片' ? workOrder.partName : workOrder.targetObject || workOrder.partName) },
     { label: `计划${objectMeta.objectLabel}数量`, value: `${formatQty(totalOriginalQty)} ${objectMeta.qtyUnit}` },
@@ -379,28 +451,10 @@ export function renderSpecialCraftWorkOrderDetailPage(operationSlug: string, wor
     { label: `累计货损${objectMeta.objectLabel}数量`, value: `${formatQty(totalDamageQty)} ${objectMeta.qtyUnit}` },
     { label: `已回仓${objectMeta.objectLabel}数量`, value: `${formatQty(totalReturnedQty)} ${objectMeta.qtyUnit}` },
     { label: '当前状态', value: renderStatusBadge(workOrder.status) },
-    { label: '绑定菲票数量', value: escapeHtml(bindings.map((binding) => binding.feiTicketNo).join('、') || objectMeta.feiTicketText) },
+    { label: '绑定菲票数量', value: escapeHtml(workOrder.feiTicketNos.join('、') || objectMeta.feiTicketText) },
     { label: '统一仓记录', value: escapeHtml(warehouseRecords.map((record) => record.warehouseRecordNo).join('、') || '暂无') },
     { label: '统一交出记录', value: escapeHtml(handoverRecords.map((record) => record.handoverRecordNo).join('、') || '暂无') },
   ])
-  const mobileBindingInfo = `
-    <div class="mt-4 space-y-3">
-      ${renderInfoGrid([
-        { label: '移动端执行任务号', value: escapeHtml(mobileBinding.actualTaskNo || mobileBinding.expectedTaskNo || '未绑定') },
-        { label: '绑定状态', value: escapeHtml(mobileBinding.canOpenMobileExecution ? '有效' : '不可执行') },
-        { label: '校验结果', value: escapeHtml(mobileBinding.canOpenMobileExecution ? '允许打开移动端执行页' : '当前不可执行') },
-        { label: '不可执行原因', value: escapeHtml(mobileBindingReasonLabel) },
-      ])}
-      <div class="flex flex-wrap gap-2">
-        ${
-          mobileBinding.canOpenMobileExecution
-            ? `<button type="button" class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-slate-50" data-nav="${escapeHtml(mobileExecutionLink)}">打开移动端执行页</button>`
-            : '<button type="button" class="inline-flex items-center rounded-md border px-3 py-2 text-sm opacity-50" disabled>打开移动端执行页</button>'
-        }
-        <span class="inline-flex items-center rounded-md border ${mobileBinding.canOpenMobileExecution ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700'} px-3 py-2 text-xs">${escapeHtml(mobileBinding.suggestedAction)}</span>
-      </div>
-    </div>
-  `
 
   const lineRows = lines
     .map(
@@ -541,9 +595,8 @@ export function renderSpecialCraftWorkOrderDetailPage(operationSlug: string, wor
     )
     .join('')
 
-  const activeTab = getCurrentDetailTab()
   const sections: Record<SpecialCraftDetailTab, string> = {
-    base: renderSection('基本信息', `${basicInfo}${mobileBindingInfo}`),
+    base: renderSection('基本信息', basicInfo),
     receive: renderSection(
       '接收记录',
       waitProcessRows
@@ -556,7 +609,7 @@ export function renderSpecialCraftWorkOrderDetailPage(operationSlug: string, wor
         ? `${lineRows ? renderTable(['颜色', '尺码', `计划${objectMeta.objectLabel}数量`, `当前${objectMeta.objectLabel}数量`, '绑定菲票数量'], lineRows, 'min-w-[820px]') : ''}${quantityRows ? `<div class="mt-4">${renderTable([`前${objectMeta.objectLabel}数量`, `变化${objectMeta.objectLabel}数量`, `后${objectMeta.objectLabel}数量`, '操作人', '时间', '关联记录'], quantityRows, 'min-w-[900px]')}</div>` : ''}`
         : renderEmptyState('暂无加工记录'),
     ),
-    fei: renderSection('菲票记录', bindingRows ? renderTable(['菲票号', '颜色', '尺码', '原裁片数量', '当前裁片数量', '累计报废裁片数量', '累计货损裁片数量', '已完成特殊工艺', '状态', '差异状态'], bindingRows, 'min-w-[1180px]') : renderEmptyState(objectMeta.objectType === '裁片' ? '暂无菲票记录' : '该目标对象无需菲票记录')),
+    fei: renderSection('菲票记录', bindingRows ? renderTable(['菲票号', '颜色', '尺码', '原裁片数量', '当前裁片数量', '累计报废裁片数量', '累计货损裁片数量', '已完成加工', '状态', '差异状态'], bindingRows, 'min-w-[1180px]') : renderEmptyState(objectMeta.objectType === '裁片' ? '暂无菲票记录' : '该目标对象无需菲票记录')),
     difference: renderSection(
       '差异记录',
       reportRows || unifiedDifferenceRows
@@ -576,16 +629,13 @@ export function renderSpecialCraftWorkOrderDetailPage(operationSlug: string, wor
     renderDetailTabs(detailHref, activeTab),
     renderWebActionPanel(workOrder.workOrderId, workOrder.status, availableActions, workOrder.currentQty || workOrder.planQty, objectMeta),
     sections[activeTab],
-    mobileBinding.canOpenMobileExecution
-      ? `<button type="button" class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-slate-50" data-nav="${escapeHtml(mobileExecutionLink)}">打开移动端执行页</button>`
-      : `<span class="inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">不可执行：${escapeHtml(mobileBindingReasonLabel)}</span>`,
-    `<button type="button" class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-slate-50" data-nav="${buildSpecialCraftTaskDetailPath(operation, taskOrder?.taskOrderId || workOrder.taskOrderId)}">返回任务详情</button>`,
+    `<button type="button" class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-slate-50" data-nav="${buildSpecialCraftTaskDetailPath(operation, taskOrder?.taskOrderId || workOrder.taskOrderId)}">返回加工单详情</button>`,
   ].join('')
 
   return renderSpecialCraftPageLayout({
     operation,
-    title: '工艺单详情',
-    description: '按裁片部位展示特殊工艺执行、数量变化、差异上报和流转事件。',
+    title: '加工单详情',
+    description: '',
     activeSubNav: 'tasks',
     content,
   })

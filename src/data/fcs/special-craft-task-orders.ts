@@ -91,6 +91,8 @@ export interface SpecialCraftTaskDemandLine {
   specialCraftKey: string
   operationId: string
   operationName: string
+  managementDomain: SpecialCraftOperationDefinition['managementDomain']
+  managementDomainName: SpecialCraftOperationDefinition['managementDomainName']
   processCode: string
   processName: string
   craftCode: string
@@ -246,6 +248,8 @@ export interface SpecialCraftTaskOrder {
   taskOrderNo: string
   operationId: string
   operationName: string
+  managementDomain: SpecialCraftOperationDefinition['managementDomain']
+  managementDomainName: SpecialCraftOperationDefinition['managementDomainName']
   processCode: string
   processName: string
   craftCode: string
@@ -334,6 +338,7 @@ interface SpecialCraftTaskFilters {
   abnormalStatus?: string
   keyword?: string
   timeRange?: 'TODAY' | '7D' | '30D' | 'ALL'
+  managementDomain?: SpecialCraftOperationDefinition['managementDomain']
 }
 
 interface TaskSeedContext {
@@ -888,7 +893,7 @@ function buildNodeRecords(seed: TaskSeedContext, artifacts: WarehouseArtifacts):
       relatedRecordNo: seed.productionOrderNo,
       relatedRecordType: '任务记录',
       photoCount: 0,
-      remark: '由生产单结果沉淀为特殊工艺任务单',
+      remark: '由生产单结果沉淀为工艺加工单',
     }),
   )
 
@@ -1112,9 +1117,11 @@ function buildTaskOrder(seed: TaskSeedContext, artifacts: WarehouseArtifacts): S
     pieceCountPerGarment: 1,
     orderQty: seed.planQty,
     planPieceQty: seed.planQty,
-    specialCraftKey: `${seed.operation.processCode}:${seed.operation.craftCode}`,
+    specialCraftKey: `${seed.operation.managementDomain}:${seed.operation.processCode}:${seed.operation.craftCode}`,
     operationId: seed.operation.operationId,
     operationName: seed.operation.operationName,
+    managementDomain: seed.operation.managementDomain,
+    managementDomainName: seed.operation.managementDomainName,
     processCode: seed.operation.processCode,
     processName: seed.operation.processName,
     craftCode: seed.operation.craftCode,
@@ -1129,6 +1136,8 @@ function buildTaskOrder(seed: TaskSeedContext, artifacts: WarehouseArtifacts): S
     taskOrderNo: seed.taskOrderNo,
     operationId: seed.operation.operationId,
     operationName: seed.operation.operationName,
+    managementDomain: seed.operation.managementDomain,
+    managementDomainName: seed.operation.managementDomainName,
     processCode: seed.operation.processCode,
     processName: seed.operation.processName,
     craftCode: seed.operation.craftCode,
@@ -1209,7 +1218,7 @@ function buildTaskOrder(seed: TaskSeedContext, artifacts: WarehouseArtifacts): S
     nodeRecords: [],
     warehouseLinks: [],
     abnormalRecords: [],
-    remark: '展示已由生产单沉淀后的特殊工艺任务结果。',
+    remark: '展示已由生产单沉淀后的工艺加工结果。',
   }
   taskOrder.nodeRecords = buildNodeRecords(seed, artifacts)
   taskOrder.warehouseLinks = buildWarehouseLinks(seed, artifacts)
@@ -1218,8 +1227,10 @@ function buildTaskOrder(seed: TaskSeedContext, artifacts: WarehouseArtifacts): S
   return taskOrder
 }
 
-function buildSeedTaskOrders(): SpecialCraftTaskOrder[] {
-  return listEnabledSpecialCraftOperationDefinitions().flatMap((operation, operationIndex) => {
+function buildSeedTaskOrders(
+  operations: SpecialCraftOperationDefinition[] = listEnabledSpecialCraftOperationDefinitions(),
+): SpecialCraftTaskOrder[] {
+  return operations.flatMap((operation, operationIndex) => {
     return [0, 1].map((variantIndex) => {
       const seed = buildTaskSeed(operation, operationIndex, variantIndex)
       const inboundArtifacts = buildInboundArtifacts(seed, operationIndex + variantIndex + 1)
@@ -1343,7 +1354,7 @@ function buildWorkOrdersFromTaskOrders(taskOrders: SpecialCraftTaskOrder[]): {
         lineIds,
         createdAt: taskOrder.createdAt,
         updatedAt: taskOrder.updatedAt || taskOrder.createdAt,
-        remark: '按裁片部位拆分的特殊工艺工艺单',
+        remark: '按裁片部位拆分的工艺加工单',
       }
       workOrders.push(workOrder)
       taskWorkOrderIds.set(taskOrder.taskOrderId, [...(taskWorkOrderIds.get(taskOrder.taskOrderId) || []), workOrderId])
@@ -1399,8 +1410,9 @@ function ensureStore(): SpecialCraftTaskStore {
     const generatedTaskOrders = generatedResults.flatMap((item) => item.taskOrders)
     const generationBatches = generatedResults.map((item) => item.generationBatch)
     const generationErrors = generatedResults.flatMap((item) => item.errors)
+    const taskOrders = [...generatedTaskOrders]
 
-    const workOrderBuild = buildWorkOrdersFromTaskOrders(generatedTaskOrders)
+    const workOrderBuild = buildWorkOrdersFromTaskOrders(taskOrders)
     specialCraftTaskStore = {
       taskOrders: workOrderBuild.syncedTaskOrders,
       workOrders: workOrderBuild.workOrders,
@@ -1451,10 +1463,13 @@ export function getSpecialCraftOperationBySlug(slug: string): SpecialCraftOperat
 export function assertSpecialCraftTaskOrderValid(taskOrder: SpecialCraftTaskOrder): void {
   const operation = getSpecialCraftOperationById(taskOrder.operationId)
   if (!operation || !operation.isEnabled) {
-    throw new Error(`非法特殊工艺任务单：${taskOrder.taskOrderNo}`)
+    throw new Error(`非法工艺加工单：${taskOrder.taskOrderNo}`)
   }
   if (operation.processCode !== taskOrder.processCode || operation.craftCode !== taskOrder.craftCode) {
-    throw new Error(`特殊工艺任务单编码不匹配：${taskOrder.taskOrderNo}`)
+    throw new Error(`工艺加工单编码不匹配：${taskOrder.taskOrderNo}`)
+  }
+  if (operation.managementDomain !== taskOrder.managementDomain) {
+    throw new Error(`工艺加工单管理域不匹配：${taskOrder.taskOrderNo}`)
   }
 }
 
@@ -1464,6 +1479,7 @@ export function getSpecialCraftTaskOrders(
 ): SpecialCraftTaskOrder[] {
   return ensureStore().taskOrders.filter((taskOrder) => {
     if (taskOrder.operationId !== operationId) return false
+    if (filters.managementDomain && taskOrder.managementDomain !== filters.managementDomain) return false
     if (filters.factoryId && taskOrder.factoryId !== filters.factoryId) return false
     if (filters.status && filters.status !== '全部' && taskOrder.status !== filters.status) return false
     if (filters.abnormalStatus && filters.abnormalStatus !== '全部' && taskOrder.abnormalStatus !== filters.abnormalStatus) return false
@@ -1658,6 +1674,20 @@ export function listSpecialCraftTaskOrders(): SpecialCraftTaskOrder[] {
   return [...ensureStore().taskOrders]
 }
 
+export function listAuxiliaryCraftTaskOrders(): SpecialCraftTaskOrder[] {
+  return listSpecialCraftTaskOrders().filter((taskOrder) => taskOrder.managementDomain === 'AUXILIARY_CRAFT_FACTORY')
+}
+
+export function listSpecialTypeCraftTaskOrders(): SpecialCraftTaskOrder[] {
+  return listSpecialCraftTaskOrders().filter((taskOrder) => taskOrder.managementDomain === 'SPECIAL_CRAFT_FACTORY')
+}
+
+export function listSpecialCraftTaskOrdersByManagementDomain(
+  managementDomain: SpecialCraftOperationDefinition['managementDomain'],
+): SpecialCraftTaskOrder[] {
+  return listSpecialCraftTaskOrders().filter((taskOrder) => taskOrder.managementDomain === managementDomain)
+}
+
 export function listSpecialCraftGenerationBatches(): SpecialCraftTaskGenerationBatch[] {
   return [...ensureStore().generationBatches]
 }
@@ -1677,7 +1707,10 @@ export function getSpecialCraftGenerationBatchByOrderId(
     || getSpecialCraftGenerationBatchByProductionOrder(productionOrderId, ensureStore().taskOrders)
 }
 
-export function buildSpecialCraftPageTitle(operation: SpecialCraftOperationDefinition, suffix: '任务单' | '任务详情' | '待加工仓' | '待交出仓'): string {
+export function buildSpecialCraftPageTitle(
+  operation: SpecialCraftOperationDefinition,
+  suffix: '加工单' | '加工单详情' | '待加工仓' | '待交出仓',
+): string {
   return `${operation.operationName}${suffix}`
 }
 

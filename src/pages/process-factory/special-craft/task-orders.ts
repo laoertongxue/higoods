@@ -4,21 +4,99 @@ import {
   getSpecialCraftOperationBySlug,
 } from '../../../data/fcs/special-craft-operations.ts'
 import { buildTaskRouteCardPrintLink } from '../../../data/fcs/fcs-route-links.ts'
-import { getSpecialCraftTaskOrders } from '../../../data/fcs/special-craft-task-orders.ts'
-import { getSpecialCraftBindingSummaryByTaskOrderId } from '../../../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
+import {
+  getSpecialCraftTaskOrders,
+  type SpecialCraftTaskOrder,
+} from '../../../data/fcs/special-craft-task-orders.ts'
 import { escapeHtml } from '../../../utils.ts'
+import {
+  paginateItems,
+  renderCompactKpiCard,
+  renderStickyFilterShell,
+  renderStickyTableScroller,
+  renderWorkbenchFilterChip,
+  renderWorkbenchPagination,
+  renderWorkbenchStateBar,
+} from '../cutting/layout.helpers.ts'
 import {
   formatQty,
   formatSpecialCraftFactoryLabel,
   renderEmptyState,
   renderSpecialCraftFactoryContextBlockedLayout,
-  renderFilterGrid,
-  renderMetricCards,
   renderSpecialCraftPageLayout,
   resolveSpecialCraftFactoryContextGuard,
   renderStatusBadge,
-  renderTable,
 } from './shared.ts'
+
+type TaskTimeRange = 'TODAY' | '7D' | '30D' | 'ALL'
+type TaskFilterField = 'keyword' | 'factoryId' | 'status' | 'abnormalStatus' | 'timeRange'
+
+interface SpecialCraftTaskListState {
+  keyword: string
+  factoryId: string
+  status: string
+  abnormalStatus: string
+  timeRange: TaskTimeRange
+  page: number
+  pageSize: number
+}
+
+const initialTaskListState: SpecialCraftTaskListState = {
+  keyword: '',
+  factoryId: '全部',
+  status: '全部',
+  abnormalStatus: '全部',
+  timeRange: '30D',
+  page: 1,
+  pageSize: 20,
+}
+
+const taskListStateByOperation = new Map<string, SpecialCraftTaskListState>()
+
+const TASK_STATUS_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: '全部', label: '全部' },
+  { value: '待领料', label: '待领料' },
+  { value: '已入待加工仓', label: '已入待加工仓' },
+  { value: '加工中', label: '加工中' },
+  { value: '已完成', label: '已完成' },
+  { value: '待交出', label: '待交出' },
+  { value: '已交出', label: '已交出' },
+  { value: '已回写', label: '已回写' },
+  { value: '差异', label: '差异' },
+  { value: '异议中', label: '异议中' },
+  { value: '异常', label: '异常' },
+]
+
+const TASK_ABNORMAL_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: '全部', label: '全部' },
+  { value: '无异常', label: '无异常' },
+  { value: '数量差异', label: '数量差异' },
+  { value: '破损', label: '破损' },
+  { value: '错片', label: '错片' },
+  { value: '延期', label: '延期' },
+  { value: '设备异常', label: '设备异常' },
+  { value: '其他异常', label: '其他异常' },
+]
+
+const TASK_TIME_RANGE_OPTIONS: Array<{ value: TaskTimeRange; label: string }> = [
+  { value: 'TODAY', label: '今日' },
+  { value: '7D', label: '近 7 天' },
+  { value: '30D', label: '近 30 天' },
+  { value: 'ALL', label: '全部时间' },
+]
+
+function getTaskListState(operationId: string): SpecialCraftTaskListState {
+  const current = taskListStateByOperation.get(operationId)
+  if (current) return current
+  const next = { ...initialTaskListState }
+  taskListStateByOperation.set(operationId, next)
+  return next
+}
+
+function setTaskListState(operationId: string, patch: Partial<SpecialCraftTaskListState>): void {
+  const current = getTaskListState(operationId)
+  taskListStateByOperation.set(operationId, { ...current, ...patch })
+}
 
 function renderMissingOperation(): string {
   return renderSpecialCraftPageLayout({
@@ -37,17 +115,290 @@ function renderMissingOperation(): string {
       visibleFactoryIds: [],
       requiresTaskOrder: true,
       requiresFactoryWarehouse: true,
-      requiresStatistics: true,
       requiresFeiTicketScan: false,
       mustReturnToCuttingFactory: false,
       isEnabled: false,
       remark: '',
     },
-    title: '特殊工艺任务单',
+    title: '工艺加工单',
     description: '未找到对应特殊工艺，请从左侧菜单重新进入。',
     activeSubNav: 'tasks',
     content: renderEmptyState('未找到对应特殊工艺。'),
   })
+}
+
+function buildTaskOrderLightweightSummary(taskOrder: SpecialCraftTaskOrder) {
+  const linkedFeiTicketCount = taskOrder.feiTicketNos.length
+  const completedFeiTicketCount = taskOrder.completedQty > 0 ? linkedFeiTicketCount : 0
+  const receivedFeiTicketCount = taskOrder.receivedQty > 0 ? linkedFeiTicketCount : 0
+  const returnedFeiTicketCount = (taskOrder.returnedQty || 0) > 0 || taskOrder.status === '已交出' || taskOrder.status === '已回写'
+    ? linkedFeiTicketCount
+    : 0
+  const hasDifference = taskOrder.status === '差异' || taskOrder.abnormalStatus === '数量差异'
+
+  return {
+    linkedFeiTicketCount,
+    currentQty: taskOrder.currentQty ?? taskOrder.receivedQty,
+    returnedFeiTicketCount,
+    returnStatus:
+      taskOrder.waitHandoverQty > 0
+        ? '待回仓'
+        : returnedFeiTicketCount > 0
+          ? '已回仓'
+          : linkedFeiTicketCount > 0
+            ? '待绑定'
+            : '无菲票',
+    hasDifference,
+    demandLineCount: taskOrder.demandLines?.length || 0,
+  }
+}
+
+function buildFactoryOptions(taskOrders: SpecialCraftTaskOrder[]): Array<{ value: string; label: string }> {
+  const seen = new Set<string>()
+  const options = taskOrders
+    .map((taskOrder) => ({
+      value: taskOrder.factoryId,
+      label: formatSpecialCraftFactoryLabel(taskOrder.factoryName, taskOrder.factoryId),
+    }))
+    .filter((option) => {
+      if (!option.value || seen.has(option.value)) return false
+      seen.add(option.value)
+      return true
+    })
+  return [{ value: '全部', label: '全部' }, ...options]
+}
+
+function buildTaskFilters(state: SpecialCraftTaskListState) {
+  return {
+    factoryId: state.factoryId === '全部' ? undefined : state.factoryId,
+    status: state.status === '全部' ? undefined : state.status,
+    abnormalStatus: state.abnormalStatus === '全部' ? undefined : state.abnormalStatus,
+    keyword: state.keyword,
+    timeRange: state.timeRange,
+  }
+}
+
+function renderTaskFilterSelect(
+  label: string,
+  field: TaskFilterField,
+  value: string,
+  options: Array<{ value: string; label: string }>,
+  operationId: string,
+): string {
+  return `
+    <label class="space-y-2">
+      <span class="text-sm font-medium text-foreground">${escapeHtml(label)}</span>
+      <select
+        class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+        data-special-craft-task-field="${field}"
+        data-operation-id="${escapeHtml(operationId)}"
+      >
+        ${options
+          .map((option) => `<option value="${escapeHtml(option.value)}" ${option.value === value ? 'selected' : ''}>${escapeHtml(option.label)}</option>`)
+          .join('')}
+      </select>
+    </label>
+  `
+}
+
+function renderTaskQuickFilterRow(operationId: string, state: SpecialCraftTaskListState): string {
+  const options: Array<{ value: string; label: string; tone: 'blue' | 'amber' | 'emerald' | 'rose' }> = [
+    { value: '全部', label: '全部任务', tone: 'blue' },
+    { value: '待领料', label: '待领料', tone: 'amber' },
+    { value: '已入待加工仓', label: '待加工', tone: 'blue' },
+    { value: '加工中', label: '加工中', tone: 'blue' },
+    { value: '待交出', label: '待交出', tone: 'amber' },
+    { value: '已完成', label: '已完成', tone: 'emerald' },
+    { value: '差异', label: '差异', tone: 'rose' },
+  ]
+  return `
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="text-xs font-medium text-muted-foreground">快捷筛选</span>
+      ${options
+        .map((option) =>
+          renderWorkbenchFilterChip(
+            option.label,
+            `data-special-craft-task-action="set-status" data-status="${option.value}" data-operation-id="${operationId}"`,
+            state.status === option.value ? option.tone : 'blue',
+          ),
+        )
+        .join('')}
+    </div>
+  `
+}
+
+function renderTaskFilters(
+  operationId: string,
+  state: SpecialCraftTaskListState,
+  allTaskOrders: SpecialCraftTaskOrder[],
+): string {
+  return renderStickyFilterShell(`
+    <div class="space-y-3">
+      ${renderTaskQuickFilterRow(operationId, state)}
+      <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+        <label class="space-y-2 md:col-span-2 xl:col-span-2">
+          <span class="text-sm font-medium text-foreground">关键词</span>
+          <input
+            type="text"
+            value="${escapeHtml(state.keyword)}"
+            placeholder="加工单号 / 生产单 / 工厂 / 菲票 / 中转袋"
+            class="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+            data-special-craft-task-field="keyword"
+            data-operation-id="${escapeHtml(operationId)}"
+          />
+        </label>
+        ${renderTaskFilterSelect('工厂', 'factoryId', state.factoryId, buildFactoryOptions(allTaskOrders), operationId)}
+        ${renderTaskFilterSelect('当前状态', 'status', state.status, TASK_STATUS_OPTIONS, operationId)}
+        ${renderTaskFilterSelect('异常状态', 'abnormalStatus', state.abnormalStatus, TASK_ABNORMAL_OPTIONS, operationId)}
+        ${renderTaskFilterSelect('时间范围', 'timeRange', state.timeRange, TASK_TIME_RANGE_OPTIONS, operationId)}
+      </div>
+    </div>
+  `)
+}
+
+function renderTaskStateBar(operationId: string, state: SpecialCraftTaskListState): string {
+  const chips = [
+    state.keyword ? `关键词：${state.keyword}` : '',
+    state.factoryId !== '全部' ? `工厂：${state.factoryId}` : '',
+    state.status !== '全部' ? `状态：${state.status}` : '',
+    state.abnormalStatus !== '全部' ? `异常：${state.abnormalStatus}` : '',
+    state.timeRange !== '30D' ? `时间：${TASK_TIME_RANGE_OPTIONS.find((item) => item.value === state.timeRange)?.label || state.timeRange}` : '',
+  ].filter(Boolean)
+  return renderWorkbenchStateBar({
+    summary: '当前筛选条件',
+    chips: chips.map((label) => renderWorkbenchFilterChip(label, `data-special-craft-task-action="clear-filters" data-operation-id="${operationId}"`, 'blue')),
+    clearAttrs: `data-special-craft-task-action="clear-filters" data-operation-id="${operationId}"`,
+  })
+}
+
+function renderStatsCards(taskOrders: SpecialCraftTaskOrder[]): string {
+  const taskCount = taskOrders.length
+  const waitPickupCount = taskOrders.filter((item) => item.status === '待领料').length
+  const waitProcessCount = taskOrders.filter((item) => item.status === '已入待加工仓').length
+  const processingCount = taskOrders.filter((item) => item.status === '加工中').length
+  const waitHandoverCount = taskOrders.filter((item) => item.status === '待交出').length
+  const differenceCount = taskOrders.filter((item) => item.status === '差异' || item.abnormalStatus === '数量差异').length
+  const totalPlanQty = taskOrders.reduce((sum, item) => sum + item.planQty, 0)
+
+  return `
+    <section class="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+      ${renderCompactKpiCard('加工单', taskCount, '当前筛选结果', 'text-blue-600')}
+      ${renderCompactKpiCard('待领料', waitPickupCount, '待进入待加工仓', 'text-amber-600')}
+      ${renderCompactKpiCard('待加工', waitProcessCount, '已在待加工仓', 'text-slate-900')}
+      ${renderCompactKpiCard('加工中', processingCount, '现场执行中', 'text-blue-600')}
+      ${renderCompactKpiCard('待交出', waitHandoverCount, '待进入待交出仓', 'text-amber-600')}
+      ${renderCompactKpiCard('计划数量', formatQty(totalPlanQty), `差异 ${differenceCount} 单`, differenceCount ? 'text-rose-600' : 'text-emerald-600')}
+    </section>
+  `
+}
+
+function renderTaskOrdersTable(
+  operationId: string,
+  taskOrders: SpecialCraftTaskOrder[],
+  state: SpecialCraftTaskListState,
+): string {
+  const pagination = paginateItems(taskOrders, state.page, state.pageSize)
+  const rows = pagination.items
+    .map((taskOrder) => {
+      const detailHref = buildSpecialCraftTaskDetailPath(
+        {
+          operationId: taskOrder.operationId,
+          operationName: taskOrder.operationName,
+          managementDomain: taskOrder.managementDomain,
+        },
+        taskOrder.taskOrderId,
+      )
+      const warehouseHref = buildSpecialCraftPreferredWarehousePath(taskOrder)
+      const summary = buildTaskOrderLightweightSummary(taskOrder)
+      const objectText = [taskOrder.targetObject, taskOrder.partName, taskOrder.fabricColor, taskOrder.sizeCode]
+        .filter(Boolean)
+        .join(' / ')
+      return `
+        <tr class="align-top hover:bg-muted/20">
+          <td class="px-3 py-3 font-medium text-blue-700">
+            <button type="button" class="text-left hover:underline" data-nav="${escapeHtml(detailHref)}">${escapeHtml(taskOrder.taskOrderNo)}</button>
+            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(taskOrder.sourceTriggerLabel || '生产单生成')}</div>
+          </td>
+          <td class="px-3 py-3">
+            <div class="font-medium">${escapeHtml(taskOrder.productionOrderNo)}</div>
+            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(taskOrder.techPackVersion || '正式版')}</div>
+          </td>
+          <td class="px-3 py-3">${escapeHtml(taskOrder.operationName)}</td>
+          <td class="px-3 py-3">${escapeHtml(objectText || '—')}</td>
+          <td class="px-3 py-3">${escapeHtml(formatSpecialCraftFactoryLabel(taskOrder.factoryName, taskOrder.factoryId))}</td>
+          <td class="px-3 py-3 font-medium tabular-nums">${formatQty(taskOrder.planQty)}${escapeHtml(taskOrder.unit)}</td>
+          <td class="px-3 py-3">
+            <div class="text-xs leading-5 text-muted-foreground">已接收 <span class="font-medium text-foreground">${formatQty(taskOrder.receivedQty)}</span></div>
+            <div class="text-xs leading-5 text-muted-foreground">已完成 <span class="font-medium text-foreground">${formatQty(taskOrder.completedQty)}</span></div>
+            <div class="text-xs leading-5 text-muted-foreground">待交出 <span class="font-medium text-foreground">${formatQty(taskOrder.waitHandoverQty)}</span></div>
+          </td>
+          <td class="px-3 py-3">${renderStatusBadge(taskOrder.assignmentStatusLabel || '待分配')}</td>
+          <td class="px-3 py-3">${renderStatusBadge(taskOrder.executionStatusLabel || taskOrder.status)}</td>
+          <td class="px-3 py-3">${renderStatusBadge(taskOrder.status)}</td>
+          <td class="px-3 py-3">${renderStatusBadge(taskOrder.abnormalStatus)}</td>
+          <td class="px-3 py-3 text-xs text-muted-foreground">
+            <div>菲票 ${summary.linkedFeiTicketCount} 张</div>
+            <div>明细 ${summary.demandLineCount} 条</div>
+            <div>${escapeHtml(summary.returnStatus)}</div>
+          </td>
+          <td class="px-3 py-3">${escapeHtml(taskOrder.dueAt.slice(0, 10))}</td>
+          <td class="px-3 py-3">
+            <div class="flex flex-wrap gap-2">
+              <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(detailHref)}">查看详情</button>
+              <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildTaskRouteCardPrintLink('SPECIAL_CRAFT_TASK_ORDER', taskOrder.taskOrderId))}">打印流转卡</button>
+              <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(warehouseHref)}">查看仓库</button>
+            </div>
+          </td>
+        </tr>
+      `
+    })
+    .join('')
+
+  const table = `
+    <table class="w-full min-w-[1280px] table-auto border-collapse text-sm">
+      <thead class="sticky top-0 z-10 bg-slate-50 text-left text-slate-600">
+        <tr>
+          ${[
+            '加工单号',
+            '生产单',
+            '工艺',
+            '加工对象',
+            '承接工厂',
+            '计划数量',
+            '进度',
+            '分配状态',
+            '执行状态',
+            '当前状态',
+            '异常状态',
+            '关联',
+            '截止日期',
+            '操作',
+          ].map((header) => `<th class="px-3 py-3 font-medium">${escapeHtml(header)}</th>`).join('')}
+        </tr>
+      </thead>
+      <tbody class="divide-y bg-card">${rows || `<tr><td colspan="14" class="py-10 text-center text-muted-foreground">当前筛选条件下暂无加工单。</td></tr>`}</tbody>
+    </table>
+  `
+
+  return `
+    <section class="rounded-lg border bg-card shadow-sm">
+      <div class="flex items-center justify-between border-b px-3 py-2.5">
+        <h2 class="text-sm font-semibold text-foreground">加工单列表</h2>
+        <span class="text-xs text-muted-foreground">共 ${taskOrders.length} 条</span>
+      </div>
+      ${renderStickyTableScroller(table)}
+      ${renderWorkbenchPagination({
+        page: pagination.page,
+        pageSize: pagination.pageSize,
+        total: pagination.total,
+        actionAttr: 'data-special-craft-task-action',
+        pageAction: 'set-page',
+        pageSizeAttr: 'data-special-craft-task-page-size',
+        extraAttrs: `data-operation-id="${escapeHtml(operationId)}"`,
+        pageSizeOptions: [10, 20, 50],
+      })}
+    </section>
+  `
 }
 
 export function renderSpecialCraftTaskOrdersPage(operationSlug: string): string {
@@ -57,152 +408,74 @@ export function renderSpecialCraftTaskOrdersPage(operationSlug: string): string 
   if (factoryGuard.blocked) {
     return renderSpecialCraftFactoryContextBlockedLayout({
       operation,
-      title: `${operation.operationName}任务单`,
-      description: '按任务单查看该工艺的接单、执行、菲票流转和差异状态。',
+      title: `${operation.operationName}加工单`,
+      description: '',
       activeSubNav: 'tasks',
       factoryName: factoryGuard.factoryName,
     })
   }
 
-  const taskOrders = getSpecialCraftTaskOrders(operation.operationId)
-  const taskCount = taskOrders.length
-  const waitPickupCount = taskOrders.filter((item) => item.status === '待领料').length
-  const processingCount = taskOrders.filter((item) => item.status === '加工中').length
-  const completedCount = taskOrders.filter((item) => item.status === '已完成').length
-  const waitHandoverCount = taskOrders.filter((item) => item.status === '待交出').length
-  const differenceCount = taskOrders.filter((item) => item.status === '差异' || item.abnormalStatus === '数量差异').length
-  const abnormalCount = taskOrders.filter((item) => item.abnormalStatus !== '无异常' || item.status === '异常').length
-
-  const metrics = renderMetricCards([
-    { label: '任务总数', value: String(taskCount), tone: 'blue' },
-    { label: '待领料', value: String(waitPickupCount), tone: 'amber' },
-    { label: '加工中', value: String(processingCount), tone: 'blue' },
-    { label: '已完成', value: String(completedCount), tone: 'green' },
-    { label: '待交出', value: String(waitHandoverCount), tone: 'amber' },
-    { label: '差异', value: String(differenceCount), tone: 'red' },
-    { label: '异常', value: String(abnormalCount), tone: 'red' },
-  ])
-
-  const filters = renderFilterGrid([
-    { label: '任务号', value: '全部任务号' },
-    { label: '生产单', value: '全部生产单' },
-    { label: '工厂', value: '全部工厂' },
-    { label: '状态', value: '全部状态' },
-    { label: '异常', value: '全部异常' },
-    { label: '时间范围', value: '近 30 天' },
-    { label: '关键字', value: '支持任务号 / 生产单 / 菲票号 / 中转袋号' },
-  ])
-
-  const rows = taskOrders
-    .map((taskOrder) => {
-      const detailHref = buildSpecialCraftTaskDetailPath(operation, taskOrder.taskOrderId)
-      const warehouseHref = buildSpecialCraftPreferredWarehousePath(taskOrder)
-      const demandLineCount = taskOrder.demandLines?.length || 0
-      const bindingSummary = getSpecialCraftBindingSummaryByTaskOrderId(taskOrder.taskOrderId)
-      return `
-        <tr class="align-top">
-          <td class="px-3 py-3 font-medium text-blue-700">
-            <button type="button" class="text-left hover:underline" data-nav="${detailHref}">${escapeHtml(taskOrder.taskOrderNo)}</button>
-          </td>
-          <td class="px-3 py-3">${escapeHtml(taskOrder.productionOrderNo)}</td>
-          <td class="px-3 py-3">${escapeHtml(taskOrder.generationSourceLabel || '生产单生成')}</td>
-          <td class="px-3 py-3">${escapeHtml(taskOrder.operationName)}</td>
-          <td class="px-3 py-3">${escapeHtml(formatSpecialCraftFactoryLabel(taskOrder.factoryName, taskOrder.factoryId))}</td>
-          <td class="px-3 py-3">${escapeHtml(taskOrder.targetObject)}</td>
-          <td class="px-3 py-3">${escapeHtml(taskOrder.partName || '—')}</td>
-          <td class="px-3 py-3">${escapeHtml(taskOrder.fabricColor || '—')}</td>
-          <td class="px-3 py-3">${escapeHtml(taskOrder.sizeCode || '—')}</td>
-          <td class="px-3 py-3">${String(demandLineCount)}</td>
-          <td class="px-3 py-3">${String(bindingSummary.linkedFeiTicketCount)}</td>
-          <td class="px-3 py-3">${String(bindingSummary.childWorkOrderCount)}</td>
-          <td class="px-3 py-3">${formatQty(bindingSummary.currentQty)}${escapeHtml(taskOrder.unit)}</td>
-          <td class="px-3 py-3">${formatQty(bindingSummary.cumulativeScrapQty)}${escapeHtml(taskOrder.unit)}</td>
-          <td class="px-3 py-3">${formatQty(bindingSummary.cumulativeDamageQty)}${escapeHtml(taskOrder.unit)}</td>
-          <td class="px-3 py-3">${String(bindingSummary.dispatchedFeiTicketCount)}</td>
-          <td class="px-3 py-3">${String(bindingSummary.receivedFeiTicketCount)}</td>
-          <td class="px-3 py-3">${String(bindingSummary.completedFeiTicketCount)}</td>
-          <td class="px-3 py-3">${String(bindingSummary.returnedFeiTicketCount)}</td>
-          <td class="px-3 py-3">${String(bindingSummary.receiveDifferenceTicketCount)}</td>
-          <td class="px-3 py-3">${String(bindingSummary.returnDifferenceTicketCount)}</td>
-          <td class="px-3 py-3">${renderStatusBadge(bindingSummary.returnStatus)}</td>
-          <td class="px-3 py-3">${escapeHtml(taskOrder.feiTicketNos.join('、') || '—')}</td>
-          <td class="px-3 py-3">${escapeHtml(taskOrder.transferBagNos.join('、') || '—')}</td>
-          <td class="px-3 py-3">${formatQty(taskOrder.planQty)}${escapeHtml(taskOrder.unit)}</td>
-          <td class="px-3 py-3">${formatQty(taskOrder.receivedQty)}${escapeHtml(taskOrder.unit)}</td>
-          <td class="px-3 py-3">${formatQty(taskOrder.completedQty)}${escapeHtml(taskOrder.unit)}</td>
-          <td class="px-3 py-3">${formatQty(taskOrder.waitHandoverQty)}${escapeHtml(taskOrder.unit)}</td>
-          <td class="px-3 py-3">${renderStatusBadge(taskOrder.assignmentStatusLabel || '待分配')}</td>
-          <td class="px-3 py-3">${renderStatusBadge(taskOrder.executionStatusLabel || taskOrder.status)}</td>
-          <td class="px-3 py-3">${renderStatusBadge(taskOrder.status)}</td>
-          <td class="px-3 py-3">${renderStatusBadge(taskOrder.abnormalStatus)}</td>
-          <td class="px-3 py-3">${escapeHtml(taskOrder.dueAt.slice(0, 10))}</td>
-          <td class="px-3 py-3">
-            <div class="flex flex-wrap gap-2">
-              <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="${detailHref}">查看详情</button>
-              <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="${buildTaskRouteCardPrintLink('SPECIAL_CRAFT_TASK_ORDER', taskOrder.taskOrderId)}">打印任务流转卡</button>
-              <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="${warehouseHref}">查看仓库记录</button>
-              <button type="button" class="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="/fcs/pda/handover">查看交出记录</button>
-            </div>
-          </td>
-        </tr>
-      `
-    })
-    .join('')
+  const state = getTaskListState(operation.operationId)
+  const allTaskOrders = getSpecialCraftTaskOrders(operation.operationId, { timeRange: 'ALL' })
+  const taskOrders = getSpecialCraftTaskOrders(operation.operationId, buildTaskFilters(state))
+  if (state.page > Math.max(1, Math.ceil(taskOrders.length / state.pageSize))) {
+    state.page = 1
+  }
 
   const content = `
-    ${filters}
-    ${metrics}
-    ${
-      taskOrders.length > 0
-        ? renderTable(
-            [
-              '任务号',
-              '生产单',
-              '来源',
-              '特殊工艺',
-              '工厂',
-              '作用对象',
-              '裁片部位',
-              '颜色',
-              '尺码',
-              '明细数',
-              '关联菲票数量',
-              '子工艺单数',
-              '当前裁片数量',
-              '累计报废裁片数量',
-              '累计货损裁片数量',
-              '已发料菲票数量',
-              '已接收菲票数量',
-              '已完成菲票数量',
-              '已回仓菲票数量',
-              '接收差异菲票数量',
-              '回仓差异菲票数量',
-              '回仓状态',
-              '菲票号',
-              '中转袋号',
-              '计划裁片数量',
-              '已接收裁片数量',
-              '已完成裁片数量',
-              '待交出裁片数量',
-              '分配状态',
-              '执行状态',
-              '当前状态',
-              '异常状态',
-              '交期',
-              '操作',
-            ],
-            rows,
-            'min-w-[2100px]',
-          )
-        : renderEmptyState()
-    }
+    <div class="space-y-3">
+      ${renderStatsCards(taskOrders)}
+      ${renderTaskFilters(operation.operationId, state, allTaskOrders)}
+      ${renderTaskStateBar(operation.operationId, state)}
+      ${renderTaskOrdersTable(operation.operationId, taskOrders, state)}
+    </div>
   `
 
   return renderSpecialCraftPageLayout({
     operation,
-    title: `${operation.operationName}任务单`,
-    description: '展示该工艺已由生产单沉淀后的任务结果，本页仅承接任务查看与结果追踪。',
+    title: `${operation.operationName}加工单`,
+    description: '',
     activeSubNav: 'tasks',
     content,
   })
+}
+
+export function handleSpecialCraftTaskOrdersEvent(target: Element): boolean {
+  const pageSizeNode = target.closest<HTMLElement>('[data-special-craft-task-page-size]')
+  if (pageSizeNode) {
+    const operationId = pageSizeNode.dataset.operationId
+    if (!operationId) return false
+    setTaskListState(operationId, { pageSize: Number((pageSizeNode as HTMLSelectElement).value) || 20, page: 1 })
+    return true
+  }
+
+  const fieldNode = target.closest<HTMLElement>('[data-special-craft-task-field]')
+  if (fieldNode) {
+    const operationId = fieldNode.dataset.operationId
+    const field = fieldNode.dataset.specialCraftTaskField as TaskFilterField | undefined
+    if (!operationId || !field) return false
+    setTaskListState(operationId, { [field]: (fieldNode as HTMLInputElement | HTMLSelectElement).value, page: 1 })
+    return true
+  }
+
+  const actionNode = target.closest<HTMLElement>('[data-special-craft-task-action]')
+  const action = actionNode?.dataset.specialCraftTaskAction
+  if (!actionNode || !action) return false
+  const operationId = actionNode.dataset.operationId
+  if (!operationId) return false
+
+  if (action === 'set-status') {
+    setTaskListState(operationId, { status: actionNode.dataset.status || '全部', page: 1 })
+    return true
+  }
+  if (action === 'clear-filters') {
+    taskListStateByOperation.set(operationId, { ...initialTaskListState })
+    return true
+  }
+  if (action === 'set-page') {
+    setTaskListState(operationId, { page: Number(actionNode.dataset.page) || 1 })
+    return true
+  }
+
+  return false
 }

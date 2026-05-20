@@ -146,7 +146,7 @@ assertContains(flowSource, 'previous.specialCraftFlowStatus === \'已回仓\'', 
   buildToken('已回仓', '菲票数'),
   buildToken('回仓状态'),
 ].forEach((token) => {
-  assertContains(specialCraftTaskOrdersSource, token, `特殊工艺任务单列表缺少：${token}`)
+  assertContains(specialCraftTaskOrdersSource, token, `特殊工艺加工单列表缺少：${token}`)
 })
 
 ;[

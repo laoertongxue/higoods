@@ -1209,8 +1209,8 @@ export function assertSpecialCraftDispatchAllowed(input: {
 }): InternalBinding {
   ensureSpecialCraftFeiTicketFlowSeeded()
   const binding = findBindingByFeiTicketAndOperation(flowStore!, input.feiTicketNo, input.operationId)
-  if (!binding) throw new Error(`菲票 ${input.feiTicketNo} 未绑定对应特殊工艺任务。`)
-  if (binding.targetFactoryId !== input.targetFactoryId) throw new Error('目标工厂与特殊工艺任务不一致。')
+  if (!binding) throw new Error(`菲票 ${input.feiTicketNo} 未绑定对应特殊工艺加工单。`)
+  if (binding.targetFactoryId !== input.targetFactoryId) throw new Error('目标工厂与特殊工艺加工单不一致。')
   if (binding.currentLocation !== '裁床厂待交出仓') throw new Error('当前菲票不在裁床厂待交出仓。')
   if (binding.currentQty <= 0) throw new Error('当前数量为 0，不能发料。')
   if (binding.specialCraftFlowStatus !== '待发料') {
@@ -1229,7 +1229,7 @@ export function assertSpecialCraftReturnAllowed(input: {
 }): InternalBinding {
   ensureSpecialCraftFeiTicketFlowSeeded()
   const binding = findBindingByFeiTicketAndOperation(flowStore!, input.feiTicketNo, input.operationId)
-  if (!binding) throw new Error(`菲票 ${input.feiTicketNo} 未绑定对应特殊工艺任务。`)
+  if (!binding) throw new Error(`菲票 ${input.feiTicketNo} 未绑定对应特殊工艺加工单。`)
   if (binding.specialCraftFlowStatus !== '待回仓') throw new Error(`当前菲票状态为 ${binding.specialCraftFlowStatus}，暂不可回仓。`)
   if (binding.currentLocation !== '特殊工艺厂待交出仓') throw new Error('当前菲票不在特殊工艺厂待交出仓。')
   if (input.receiverFactoryId !== getCuttingFactory().id) throw new Error('特殊工艺回仓对象必须是裁床厂。')
@@ -1781,7 +1781,7 @@ export function linkSpecialCraftCompletionToReturnWaitHandoverStock(input: {
 } {
   ensureSpecialCraftFeiTicketFlowSeeded()
   const taskOrder = getSpecialCraftTaskOrderById(input.taskOrderId)
-  if (!taskOrder) throw new Error(`未找到特殊工艺任务：${input.taskOrderId}`)
+  if (!taskOrder) throw new Error(`未找到特殊工艺加工单：${input.taskOrderId}`)
   const targetBindings = flowStore!.bindings.filter(
     (binding) =>
       binding.taskOrderId === input.taskOrderId
@@ -2953,7 +2953,7 @@ function ensureFlowStore(): FlowStore {
       afterQty: binding.currentQty,
       operatorName: '系统',
       occurredAt: binding.createdAt,
-      remark: '由特殊工艺任务明细绑定菲票',
+      remark: '由特殊工艺加工明细绑定菲票',
     })),
     warnings: built.warnings,
     errors: built.errors,

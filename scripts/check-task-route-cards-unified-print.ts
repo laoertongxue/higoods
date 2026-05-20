@@ -129,7 +129,7 @@ const mergeBatch = listCuttingMergeBatchTaskPrintSources()[0]
 assert(runtimeTask, '缺少运行时任务 mock 数据')
 assert(printOrder, '缺少印花加工单 mock 数据')
 assert(dyeOrder, '缺少染色加工单 mock 数据')
-assert(specialOrder, '缺少特殊工艺任务单 mock 数据')
+assert(specialOrder, '缺少特殊工艺加工单 mock 数据')
 assert(postOrder, '缺少后道单 mock 数据')
 assert(originalOrder, '缺少原始裁片单 mock 数据')
 assert(mergeBatch, '缺少裁片批次 mock 数据')

@@ -188,6 +188,16 @@ export interface PreparationProcessDefinition {
   description: string
 }
 
+export type ProcessCraftManagementDomain =
+  | 'AUXILIARY_CRAFT_FACTORY'
+  | 'SPECIAL_CRAFT_FACTORY'
+  | 'CUTTING_FACTORY'
+
+export type ProcessCraftManagementDomainName =
+  | '辅助工艺工厂管理'
+  | '特种工艺工厂管理'
+  | '裁床厂管理'
+
 export interface ModernSpecialCraftDefinition {
   craftCode: string
   craftName: string
@@ -195,6 +205,8 @@ export interface ModernSpecialCraftDefinition {
   craftCategoryName: SpecialCraftCategoryName
   specialCraftType: SpecialCraftCategory
   specialCraftTypeName: SpecialCraftCategoryName
+  managementDomain: ProcessCraftManagementDomain
+  managementDomainName: ProcessCraftManagementDomainName
   targetObject: ProcessTargetObject
   targetObjectName: ProcessTargetObjectName
   canSelectInPatternPiece: boolean
@@ -320,6 +332,36 @@ export const SPECIAL_CRAFT_CATEGORY_NAME: Record<SpecialCraftCategory, SpecialCr
   SPECIAL: '特种工艺',
 }
 
+export const PROCESS_CRAFT_MANAGEMENT_DOMAIN_NAME: Record<ProcessCraftManagementDomain, ProcessCraftManagementDomainName> = {
+  AUXILIARY_CRAFT_FACTORY: '辅助工艺工厂管理',
+  SPECIAL_CRAFT_FACTORY: '特种工艺工厂管理',
+  CUTTING_FACTORY: '裁床厂管理',
+}
+
+const AUXILIARY_CRAFT_FACTORY_CRAFT_NAMES = new Set([
+  '绣花',
+  '打条',
+  '压褶',
+  '打揽',
+  '烫画',
+  '直喷',
+  '贝壳绣',
+  '曲牙绣',
+  '一字贝绣花',
+])
+
+const SPECIAL_CRAFT_FACTORY_CRAFT_NAMES = new Set([
+  '模板工序',
+  '模板机',
+  '激光开袋',
+  '特种车缝（花样机）',
+  '特种车缝',
+  '橡筋定长切割',
+  '激光切',
+])
+
+const CUTTING_FACTORY_CRAFT_NAMES = new Set(['捆条'])
+
 const SPECIAL_CRAFT_SUPPORTED_TARGET_OBJECTS_BY_LEGACY_VALUE: Record<number, SpecialCraftSupportedTargetObject[]> = {
   8: ['CUT_PIECE'],
   32: ['CUT_PIECE'],
@@ -375,6 +417,8 @@ export const modernSpecialCraftDefinitions: ModernSpecialCraftDefinition[] = [
     craftCategoryName: '辅助工艺',
     specialCraftType: 'AUXILIARY',
     specialCraftTypeName: '辅助工艺',
+    managementDomain: 'AUXILIARY_CRAFT_FACTORY',
+    managementDomainName: '辅助工艺工厂管理',
     targetObject: 'CUT_PIECE_PART',
     targetObjectName: '裁片部位',
     canSelectInPatternPiece: true,
@@ -390,6 +434,8 @@ export const modernSpecialCraftDefinitions: ModernSpecialCraftDefinition[] = [
     craftCategoryName: '辅助工艺',
     specialCraftType: 'AUXILIARY',
     specialCraftTypeName: '辅助工艺',
+    managementDomain: 'AUXILIARY_CRAFT_FACTORY',
+    managementDomainName: '辅助工艺工厂管理',
     targetObject: 'CUT_PIECE_PART',
     targetObjectName: '裁片部位',
     canSelectInPatternPiece: true,
@@ -405,6 +451,8 @@ export const modernSpecialCraftDefinitions: ModernSpecialCraftDefinition[] = [
     craftCategoryName: '辅助工艺',
     specialCraftType: 'AUXILIARY',
     specialCraftTypeName: '辅助工艺',
+    managementDomain: 'AUXILIARY_CRAFT_FACTORY',
+    managementDomainName: '辅助工艺工厂管理',
     targetObject: 'CUT_PIECE_PART',
     targetObjectName: '裁片部位',
     canSelectInPatternPiece: true,
@@ -420,6 +468,8 @@ export const modernSpecialCraftDefinitions: ModernSpecialCraftDefinition[] = [
     craftCategoryName: '辅助工艺',
     specialCraftType: 'AUXILIARY',
     specialCraftTypeName: '辅助工艺',
+    managementDomain: 'AUXILIARY_CRAFT_FACTORY',
+    managementDomainName: '辅助工艺工厂管理',
     targetObject: 'CUT_PIECE_PART',
     targetObjectName: '裁片部位',
     canSelectInPatternPiece: true,
@@ -435,6 +485,8 @@ export const modernSpecialCraftDefinitions: ModernSpecialCraftDefinition[] = [
     craftCategoryName: '辅助工艺',
     specialCraftType: 'AUXILIARY',
     specialCraftTypeName: '辅助工艺',
+    managementDomain: 'AUXILIARY_CRAFT_FACTORY',
+    managementDomainName: '辅助工艺工厂管理',
     targetObject: 'GARMENT_SEMI',
     targetObjectName: '成衣半成品',
     canSelectInPatternPiece: false,
@@ -450,6 +502,8 @@ export const modernSpecialCraftDefinitions: ModernSpecialCraftDefinition[] = [
     craftCategoryName: '辅助工艺',
     specialCraftType: 'AUXILIARY',
     specialCraftTypeName: '辅助工艺',
+    managementDomain: 'AUXILIARY_CRAFT_FACTORY',
+    managementDomainName: '辅助工艺工厂管理',
     targetObject: 'CUT_PIECE_PART',
     targetObjectName: '裁片部位',
     canSelectInPatternPiece: true,
@@ -465,6 +519,8 @@ export const modernSpecialCraftDefinitions: ModernSpecialCraftDefinition[] = [
     craftCategoryName: '辅助工艺',
     specialCraftType: 'AUXILIARY',
     specialCraftTypeName: '辅助工艺',
+    managementDomain: 'AUXILIARY_CRAFT_FACTORY',
+    managementDomainName: '辅助工艺工厂管理',
     targetObject: 'CUT_PIECE_PART',
     targetObjectName: '裁片部位',
     canSelectInPatternPiece: true,
@@ -480,6 +536,8 @@ export const modernSpecialCraftDefinitions: ModernSpecialCraftDefinition[] = [
     craftCategoryName: '辅助工艺',
     specialCraftType: 'AUXILIARY',
     specialCraftTypeName: '辅助工艺',
+    managementDomain: 'AUXILIARY_CRAFT_FACTORY',
+    managementDomainName: '辅助工艺工厂管理',
     targetObject: 'CUT_PIECE_PART',
     targetObjectName: '裁片部位',
     canSelectInPatternPiece: true,
@@ -495,6 +553,8 @@ export const modernSpecialCraftDefinitions: ModernSpecialCraftDefinition[] = [
     craftCategoryName: '辅助工艺',
     specialCraftType: 'AUXILIARY',
     specialCraftTypeName: '辅助工艺',
+    managementDomain: 'AUXILIARY_CRAFT_FACTORY',
+    managementDomainName: '辅助工艺工厂管理',
     targetObject: 'CUT_PIECE_PART',
     targetObjectName: '裁片部位',
     canSelectInPatternPiece: true,
@@ -510,6 +570,8 @@ export const modernSpecialCraftDefinitions: ModernSpecialCraftDefinition[] = [
     craftCategoryName: '辅助工艺',
     specialCraftType: 'AUXILIARY',
     specialCraftTypeName: '辅助工艺',
+    managementDomain: 'CUTTING_FACTORY',
+    managementDomainName: '裁床厂管理',
     targetObject: 'FABRIC',
     targetObjectName: '面料',
     canSelectInPatternPiece: false,
@@ -525,6 +587,8 @@ export const modernSpecialCraftDefinitions: ModernSpecialCraftDefinition[] = [
     craftCategoryName: '特种工艺',
     specialCraftType: 'SPECIAL',
     specialCraftTypeName: '特种工艺',
+    managementDomain: 'SPECIAL_CRAFT_FACTORY',
+    managementDomainName: '特种工艺工厂管理',
     targetObject: 'CUT_PIECE_PART',
     targetObjectName: '裁片部位',
     canSelectInPatternPiece: true,
@@ -540,6 +604,8 @@ export const modernSpecialCraftDefinitions: ModernSpecialCraftDefinition[] = [
     craftCategoryName: '特种工艺',
     specialCraftType: 'SPECIAL',
     specialCraftTypeName: '特种工艺',
+    managementDomain: 'SPECIAL_CRAFT_FACTORY',
+    managementDomainName: '特种工艺工厂管理',
     targetObject: 'CUT_PIECE_PART',
     targetObjectName: '裁片部位',
     canSelectInPatternPiece: true,
@@ -555,6 +621,8 @@ export const modernSpecialCraftDefinitions: ModernSpecialCraftDefinition[] = [
     craftCategoryName: '特种工艺',
     specialCraftType: 'SPECIAL',
     specialCraftTypeName: '特种工艺',
+    managementDomain: 'SPECIAL_CRAFT_FACTORY',
+    managementDomainName: '特种工艺工厂管理',
     targetObject: 'CUT_PIECE_PART',
     targetObjectName: '裁片部位',
     canSelectInPatternPiece: true,
@@ -570,6 +638,8 @@ export const modernSpecialCraftDefinitions: ModernSpecialCraftDefinition[] = [
     craftCategoryName: '特种工艺',
     specialCraftType: 'SPECIAL',
     specialCraftTypeName: '特种工艺',
+    managementDomain: 'SPECIAL_CRAFT_FACTORY',
+    managementDomainName: '特种工艺工厂管理',
     targetObject: 'ACCESSORY',
     targetObjectName: '辅料',
     canSelectInPatternPiece: false,
@@ -1738,19 +1808,19 @@ export const legacyProcessCraftMappings: LegacyCraftMappingDefinition[] = [
   { legacyValue: 1, legacyCraftName: '定位裁', craftName: '定位裁', processCode: 'CUT_PANEL', isSpecialCraft: false, defaultDocument: '任务单' },
   { legacyValue: 2, legacyCraftName: '绣花', craftName: '绣花', processCode: 'EMBROIDERY', isSpecialCraft: false, defaultDocument: '任务单' },
   { legacyValue: 4, legacyCraftName: '压褶', craftName: '压褶', processCode: 'PLEATING', isSpecialCraft: false, defaultDocument: '任务单' },
-  { legacyValue: 8, legacyCraftName: '打揽', craftName: '打揽', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '已明确按特殊工艺任务单管理' },
+  { legacyValue: 8, legacyCraftName: '打揽', craftName: '打揽', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '已明确按特殊工艺加工单管理' },
   { legacyValue: 16, legacyCraftName: '定向裁', craftName: '定向裁', processCode: 'CUT_PANEL', isSpecialCraft: false, defaultDocument: '任务单' },
-  { legacyValue: 32, legacyCraftName: '打条', craftName: '打条', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '已明确按特殊工艺任务单管理' },
-  { legacyValue: 64, legacyCraftName: '激光切', craftName: '激光切', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '已明确按特殊工艺任务单管理' },
+  { legacyValue: 32, legacyCraftName: '打条', craftName: '打条', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '已明确按特殊工艺加工单管理' },
+  { legacyValue: 64, legacyCraftName: '激光切', craftName: '激光切', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '已明确按特殊工艺加工单管理' },
   { legacyValue: 128, legacyCraftName: '洗水', craftName: '洗水', processCode: 'WASHING', isSpecialCraft: false, isActive: true, defaultDocument: '任务单', legacy: true, hiddenInNewDict: true, remark: '旧特殊工艺口径已迁移为准备阶段面料洗水工序，不再作为裁片部位特殊工艺选择项' },
   { legacyValue: 256, legacyCraftName: '手缝扣', craftName: '手缝扣', processCode: 'BUTTON_ATTACH', isSpecialCraft: false, defaultDocument: '任务单' },
   { legacyValue: 512, legacyCraftName: '机打扣', craftName: '机打扣', processCode: 'BUTTON_ATTACH', isSpecialCraft: false, defaultDocument: '任务单' },
   { legacyValue: 1024, legacyCraftName: '四爪扣', craftName: '四爪扣', processCode: 'BUTTON_ATTACH', isSpecialCraft: false, defaultDocument: '任务单' },
   { legacyValue: 4096, legacyCraftName: '缩水', craftName: '缩水', processCode: 'SHRINKING', isSpecialCraft: false, isActive: true, defaultDocument: '任务单', remark: '缩水归准备阶段' },
-  { legacyValue: 8192, legacyCraftName: '烫画', craftName: '烫画', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '通常用于纯色T-shirt，已明确按特殊工艺任务单管理' },
-  { legacyValue: 16384, legacyCraftName: '直喷', craftName: '直喷', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '通常用于纯色T-shirt，已明确按特殊工艺任务单管理' },
+  { legacyValue: 8192, legacyCraftName: '烫画', craftName: '烫画', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '通常用于纯色T-shirt，已明确按特殊工艺加工单管理' },
+  { legacyValue: 16384, legacyCraftName: '直喷', craftName: '直喷', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '通常用于纯色T-shirt，已明确按特殊工艺加工单管理' },
   { legacyValue: 32768, legacyCraftName: '布包扣', craftName: '布包扣', processCode: 'BUTTON_ATTACH', isSpecialCraft: false, defaultDocument: '任务单' },
-  { legacyValue: 131072, legacyCraftName: '捆条', craftName: '捆条', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '已明确按特殊工艺任务单管理' },
+  { legacyValue: 131072, legacyCraftName: '捆条', craftName: '捆条', processCode: 'SPECIAL_CRAFT', isSpecialCraft: true, defaultDocument: '任务单', remark: '已明确按特殊工艺加工单管理' },
   { legacyValue: 262144, legacyCraftName: '曲牙', craftName: '曲牙', processCode: 'SEW', isSpecialCraft: false, defaultDocument: '任务单', remark: '当前先按车缝归类' },
   { legacyValue: 262145, legacyCraftName: '基础连接', craftName: '基础连接', processCode: 'SEW', isSpecialCraft: false, defaultDocument: '任务单', remark: '当前按普通车缝基线归类' },
   { legacyValue: 524288, legacyCraftName: '开扣眼', craftName: '开扣眼', processCode: 'BUTTONHOLE', isSpecialCraft: false, defaultDocument: '任务单' },
@@ -1815,6 +1885,41 @@ const processDefinitionByCode = new Map(processDefinitions.map((item) => [item.p
 const processDefinitionBySystemCode = new Map(processDefinitions.map((item) => [item.systemProcessCode, item]))
 const stageDefinitionByCode = new Map(processStageDefinitions.map((item) => [item.stageCode, item]))
 
+function resolveProcessCraftManagementDomain(
+  item: Pick<LegacyCraftMappingDefinition, 'craftName' | 'processCode'>,
+): { managementDomain?: ProcessCraftManagementDomain; managementDomainName?: ProcessCraftManagementDomainName } {
+  const modernSpecialCraft = modernSpecialCraftDefinitions.find((craft) => craft.craftName === item.craftName)
+  if (modernSpecialCraft) {
+    return {
+      managementDomain: modernSpecialCraft.managementDomain,
+      managementDomainName: modernSpecialCraft.managementDomainName,
+    }
+  }
+
+  if (CUTTING_FACTORY_CRAFT_NAMES.has(item.craftName)) {
+    return {
+      managementDomain: 'CUTTING_FACTORY',
+      managementDomainName: PROCESS_CRAFT_MANAGEMENT_DOMAIN_NAME.CUTTING_FACTORY,
+    }
+  }
+
+  if (AUXILIARY_CRAFT_FACTORY_CRAFT_NAMES.has(item.craftName)) {
+    return {
+      managementDomain: 'AUXILIARY_CRAFT_FACTORY',
+      managementDomainName: PROCESS_CRAFT_MANAGEMENT_DOMAIN_NAME.AUXILIARY_CRAFT_FACTORY,
+    }
+  }
+
+  if (SPECIAL_CRAFT_FACTORY_CRAFT_NAMES.has(item.craftName) || item.processCode === 'SPECIAL_CRAFT') {
+    return {
+      managementDomain: 'SPECIAL_CRAFT_FACTORY',
+      managementDomainName: PROCESS_CRAFT_MANAGEMENT_DOMAIN_NAME.SPECIAL_CRAFT_FACTORY,
+    }
+  }
+
+  return {}
+}
+
 function resolveProcessCraftTargetObject(
   item: Pick<LegacyCraftMappingDefinition, 'craftName' | 'processCode'>,
 ): { targetObject: ProcessTargetObject; targetObjectName: ProcessTargetObjectName } {
@@ -1873,6 +1978,7 @@ export const allProcessCraftDefinitions: ProcessCraftDefinition[] = [
     const craftCurrentTemplate = getFactorySupplyFormulaTemplate(item.craftName)
     const craftCurrentGuide = getFactorySupplyFormulaGuide(item.craftName)
     const targetObjectInfo = resolveProcessCraftTargetObject(item)
+    const managementDomainInfo = resolveProcessCraftManagementDomain(item)
     if (!referencePublishedSam) {
       throw new Error(`缺少工艺理论参考值配置：${item.craftName}`)
     }
@@ -1924,6 +2030,7 @@ export const allProcessCraftDefinitions: ProcessCraftDefinition[] = [
       isSpecialCraft: item.isSpecialCraft,
       targetObject: targetObjectInfo.targetObject,
       targetObjectName: targetObjectInfo.targetObjectName,
+      ...managementDomainInfo,
       supportedTargetObjects: resolveSpecialCraftSupportedTargetObjects(item),
       supportedTargetObjectLabels: getSpecialCraftSupportedTargetObjectLabels(
         resolveSpecialCraftSupportedTargetObjects(item),
@@ -2074,6 +2181,20 @@ function findModernSpecialCraft(craftCodeOrName: string): ModernSpecialCraftDefi
   return modernSpecialCraftDefinitions.find(
     (item) => item.craftCode === craftCodeOrName || item.craftName === craftCodeOrName,
   )
+}
+
+export function listCraftsByManagementDomain(domain: ProcessCraftManagementDomain): ModernSpecialCraftDefinition[] {
+  return modernSpecialCraftDefinitions
+    .filter((item) => item.managementDomain === domain)
+    .map((item) => cloneModernSpecialCraft(item))
+}
+
+export function getCraftManagementDomain(craftCodeOrName: string): ProcessCraftManagementDomain | undefined {
+  return findModernSpecialCraft(craftCodeOrName)?.managementDomain
+}
+
+export function getCraftManagementDomainName(craftCodeOrName: string): ProcessCraftManagementDomainName | undefined {
+  return findModernSpecialCraft(craftCodeOrName)?.managementDomainName
 }
 
 export function listPreparationProcesses(): PreparationProcessDefinition[] {

@@ -412,7 +412,7 @@ const CUTTING_ACTIONS: ActionDefinition[] = [
     actionLabel: '完成裁剪',
     processType: 'CUTTING',
     fromStatuses: ['裁剪中'],
-    toStatus: '待菲票',
+    toStatus: '裁剪完成',
     requiredFields: ['操作人', '完成时间', '已裁裁片数量'],
     writebackHandler: 'cuttingWebStageAdapter',
   },

@@ -39,7 +39,6 @@ export interface SpreadingPieceOutputLine {
   layerCount: number
   actualCutPieceQty: number
   actualCutGarmentQty: number
-  assemblyGroupKey: string
   sourceBasisType: 'SPREADING_RESULT' | 'WAITING_SPREADING_RESULT'
   createdBy: string
   createdAt: string
@@ -76,8 +75,6 @@ export interface GeneratedFeiTicketSourceRecord {
   bundleNo: string
   bundleQty: number
   actualCutPieceQty: number
-  assemblyGroupKey: string
-  siblingPartTicketNos: string[]
   printStatus: 'WAIT_PRINT' | 'PRINTED' | 'REPRINTED' | 'VOIDED'
   qty: number
   garmentQty: number
@@ -112,8 +109,6 @@ export interface GeneratedFeiTicketTraceMatrixRow {
   partName: string
   bundleNo: string
   bundleQty: number
-  assemblyGroupKey: string
-  siblingPartTicketNos: string[]
   garmentQty: number
   sourceBasisType: 'SPREADING_RESULT' | 'WAITING_SPREADING_RESULT'
   sourceTraceCompleteness: 'COMPLETE' | 'WAITING_SPREADING_RESULT'
@@ -149,22 +144,6 @@ function compareOutputLines(left: SpreadingPieceOutputLine, right: SpreadingPiec
     || left.bundleNo.localeCompare(right.bundleNo, 'zh-CN')
     || left.partName.localeCompare(right.partName, 'zh-CN')
   )
-}
-
-function buildAssemblyGroupKey(options: {
-  originalCutOrderId: string
-  fabricRollNo: string
-  fabricColor: string
-  sizeCode: string
-  bundleNo: string
-}): string {
-  return [
-    options.originalCutOrderId,
-    normalizeBusinessText(options.fabricRollNo, 'ROLL'),
-    normalizeBusinessText(options.fabricColor, 'COLOR'),
-    normalizeBusinessText(options.sizeCode, 'SIZE'),
-    normalizeBusinessText(options.bundleNo, 'BUNDLE'),
-  ].join('__')
 }
 
 function resolveSecondaryCrafts(productionOrderId: string): {
@@ -555,14 +534,6 @@ function buildSpreadingPieceOutputLinesFromSessions(
         const splitRows = splitGarmentQtyBySize(resolveColorScopedSkuLines(sourceRecord, line.color), line.actualCutGarmentQty)
         splitRows.forEach((sizeRow, sizeIndex) => {
           const bundleNo = buildBundleNo(sizeIndex)
-          const assemblyGroupKey = buildAssemblyGroupKey({
-            originalCutOrderId: sourceRecord.originalCutOrderId,
-            fabricRollNo: normalizeBusinessText(roll.rollNo, '待补卷号'),
-            fabricColor: normalizeBusinessText(line.color || roll.color, '待补颜色'),
-            sizeCode: normalizeBusinessText(sizeRow.size, '均码'),
-            bundleNo,
-          })
-
           findPieceRowsForSku(sourceRecord, sizeRow.skuCode).forEach((pieceRow, partIndex) => {
             outputLines.push({
               outputLineId: [
@@ -596,7 +567,6 @@ function buildSpreadingPieceOutputLinesFromSessions(
               layerCount: Math.max(Number(roll.layerCount || 0), 1),
               actualCutPieceQty: Math.max(sizeRow.garmentQty, 1) * Math.max(Number(pieceRow.pieceCountPerUnit || 0), 1),
               actualCutGarmentQty: Math.max(sizeRow.garmentQty, 1),
-              assemblyGroupKey,
               sourceBasisType: 'SPREADING_RESULT',
               createdBy: session.completedBy || session.updatedBy || '裁床组长',
               createdAt: session.completedAt || session.updatedAt || '',
@@ -704,7 +674,7 @@ function buildFeiRecordsFromSpreadingSessions(
     const feiTicketId = line.outputLineId
     const feiTicketNo = buildFeiTicketNo(line.originalCutOrderNo, sequenceNo)
     const pieceScope = unique([line.fabricRollNo, line.fabricColor, line.sizeCode, line.partName])
-    const pieceGroup = line.assemblyGroupKey
+    const pieceGroup = normalizeText(line.partName) || normalizeText(line.partCode) || '整单裁片'
     const bundleScope = `${line.fabricRollNo}-${line.fabricColor}-${line.sizeCode}-${line.bundleNo}`
     const qty = Math.max(line.bundleQty, 1)
     const encoded = encodeFeiTicketQr({
@@ -731,7 +701,6 @@ function buildFeiRecordsFromSpreadingSessions(
       bundleNo: line.bundleNo,
       bundleQty: line.bundleQty,
       actualCutPieceQty: line.actualCutPieceQty,
-      assemblyGroupKey: line.assemblyGroupKey,
       qty,
       secondaryCrafts: secondaryCraftMeta.secondaryCrafts,
       craftSequenceVersion: secondaryCraftMeta.craftSequenceVersion,
@@ -770,8 +739,6 @@ function buildFeiRecordsFromSpreadingSessions(
       bundleNo: line.bundleNo,
       bundleQty: line.bundleQty,
       actualCutPieceQty: line.actualCutPieceQty,
-      assemblyGroupKey: line.assemblyGroupKey,
-      siblingPartTicketNos: [],
       printStatus: 'WAIT_PRINT',
       qty,
       garmentQty: Math.max(line.actualCutGarmentQty, 1),
@@ -787,17 +754,7 @@ function buildFeiRecordsFromSpreadingSessions(
     } satisfies GeneratedFeiTicketSourceRecord
   })
 
-  const siblingNosByGroup = records.reduce<Record<string, string[]>>((accumulator, record) => {
-    if (!record.assemblyGroupKey) return accumulator
-    if (!accumulator[record.assemblyGroupKey]) accumulator[record.assemblyGroupKey] = []
-    accumulator[record.assemblyGroupKey].push(record.feiTicketNo)
-    return accumulator
-  }, {})
-
-  return records.map((record) => ({
-    ...record,
-    siblingPartTicketNos: (siblingNosByGroup[record.assemblyGroupKey] || []).filter((ticketNo) => ticketNo !== record.feiTicketNo),
-  }))
+  return records
 }
 
 function buildFeiRecordsForOriginalOrder(
@@ -855,7 +812,6 @@ function buildFeiRecordsForOriginalOrder(
         bundleNo: bundleScope,
         bundleQty: qty,
         actualCutPieceQty: qty,
-        assemblyGroupKey: '',
         qty,
         secondaryCrafts,
         craftSequenceVersion,
@@ -894,8 +850,6 @@ function buildFeiRecordsForOriginalOrder(
         bundleNo: bundleScope,
         bundleQty: qty,
         actualCutPieceQty: qty,
-        assemblyGroupKey: '',
-        siblingPartTicketNos: [],
         printStatus: 'WAIT_PRINT',
         qty,
         garmentQty: qty,
@@ -986,7 +940,6 @@ function cloneGeneratedFeiRecord(record: GeneratedFeiTicketSourceRecord): Genera
   return {
     ...record,
     pieceScope: [...record.pieceScope],
-    siblingPartTicketNos: [...record.siblingPartTicketNos],
     secondaryCrafts: [...record.secondaryCrafts],
     qrPayload: {
       ...record.qrPayload,
@@ -1061,8 +1014,6 @@ export function buildGeneratedFeiTicketTraceMatrix(
         partName: record.partName,
         bundleNo: record.bundleNo,
         bundleQty: record.bundleQty,
-        assemblyGroupKey: record.assemblyGroupKey,
-        siblingPartTicketNos: [...record.siblingPartTicketNos],
         garmentQty: record.garmentQty,
         sourceBasisType: record.sourceBasisType,
         sourceTraceCompleteness: record.sourceTraceCompleteness,

@@ -26,6 +26,7 @@ import {
   getMobileTaskProcessType,
   listPdaMobileExecutionTasks,
 } from '../data/fcs/process-mobile-task-binding.ts'
+import { canFactoryAccessSpecialCraftPdaTask } from '../data/fcs/special-craft-pda-scope.ts'
 import { getPrintWorkOrderByTaskId } from '../data/fcs/printing-task-domain.ts'
 import { getDyeWorkOrderByTaskId } from '../data/fcs/dyeing-task-domain.ts'
 import {
@@ -363,7 +364,7 @@ function mutateFinishTask(taskId: string, by: string): void {
 function getAcceptedTasks(factoryId: string): ProcessTask[] {
   return listMobileExecutionTasks({
     currentFactoryId: factoryId,
-  })
+  }).filter((task) => canFactoryAccessSpecialCraftPdaTask(factoryId, task))
 }
 
 function getFilteredTasks(
