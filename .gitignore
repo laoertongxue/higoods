@@ -5,6 +5,17 @@ __MACOSX/
 *.zip
 playwright-report/
 test-results/
+.playwright-cli/
+.playwright-mcp/
+dist-manifest/
+output/
+/*-check.png
+/*-local.png
+/*-formal-only.png
+/special-craft-aux-title.png
+/special-craft-special-title.png
+/*-snapshot.md
+/cutting-console-errors.md
 node_modules/
 .npm/
 .tmp*
