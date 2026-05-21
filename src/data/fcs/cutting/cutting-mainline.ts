@@ -5,7 +5,10 @@ import {
   readMarkerSpreadingPrototypeData,
   type SpreadingListRow,
 } from '../../../pages/process-factory/cutting/marker-spreading-utils.ts'
-import { deriveSpreadingListStatus } from '../../../pages/process-factory/cutting/marker-spreading-model.ts'
+import {
+  deriveSpreadingCuttingStatus,
+  deriveSpreadingListStatus,
+} from '../../../pages/process-factory/cutting/marker-spreading-model.ts'
 import { DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES } from '../../../pages/process-factory/cutting/cutting-table-resource.ts'
 
 export type CuttingMainlineStatusTab = 'NOT_STARTED' | 'IN_PROGRESS' | 'BLOCKED' | 'DONE'
@@ -34,6 +37,8 @@ export interface CuttingMainlineSessionView {
   cuttingTableName: string
   plannedStartAt: string
   plannedEndAt: string
+  actualStartAt: string
+  actualEndAt: string
   estimatedDurationMinutes: number
   spuCode: string
   styleCode: string
@@ -42,6 +47,7 @@ export interface CuttingMainlineSessionView {
   plannedGarmentQty: number
   actualGarmentQty: number
   mainStageLabel: string
+  cuttingStageLabel: string
   statusTab: CuttingMainlineStatusTab
   wmsReceiveStatus: string
   warehouseFlowStatus: string
@@ -126,6 +132,11 @@ function mapRowToSession(taskId: string, row: SpreadingListRow, reportConfig = g
     : row.originalCutOrderNos.join(' / ')
   const productionOrderNo = row.productionOrderNos[0] || ''
   const stageLabel = stage.label
+  const cuttingStageLabel = row.session.cuttingStatus
+    ? deriveSpreadingCuttingStatus(row.session.cuttingStatus).label
+    : row.session.status === 'DONE'
+      ? '待裁剪'
+      : '—'
 
   return {
     taskId,
@@ -140,6 +151,8 @@ function mapRowToSession(taskId: string, row: SpreadingListRow, reportConfig = g
     cuttingTableName: row.session.cuttingTableName || row.session.cuttingTableNo || '未排程裁床',
     plannedStartAt: row.session.plannedStartAt || '未排程',
     plannedEndAt: row.session.plannedEndAt || '未排程',
+    actualStartAt: row.session.actualStartAt || '',
+    actualEndAt: row.session.actualEndAt || '',
     estimatedDurationMinutes: row.session.estimatedDurationMinutes || DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES,
     spuCode: row.spuCode,
     styleCode: row.styleCode,
@@ -148,6 +161,7 @@ function mapRowToSession(taskId: string, row: SpreadingListRow, reportConfig = g
     plannedGarmentQty: row.plannedCutGarmentQty,
     actualGarmentQty: row.actualCutGarmentQty,
     mainStageLabel: stageLabel,
+    cuttingStageLabel,
     statusTab: mapStageToTab(stageLabel),
     wmsReceiveStatus: row.configuredLengthTotal > 0 || row.claimedLengthTotal > 0 ? '待加工仓已接收' : '待 WMS 来料入待加工仓',
     warehouseFlowStatus: row.session.prototypeLifecycleOverrides?.warehouseStatusLabel || '待交出仓未接收',

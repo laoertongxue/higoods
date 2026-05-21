@@ -36,6 +36,10 @@ export interface SpreadingPieceOutputLine {
   pieceCountPerGarment: number
   bundleNo: string
   bundleQty: number
+  pieceSetNoStart: number
+  pieceSetNoEnd: number
+  pieceSetNoRange: string
+  bundleTicketType: string
   layerCount: number
   actualCutPieceQty: number
   actualCutGarmentQty: number
@@ -74,6 +78,10 @@ export interface GeneratedFeiTicketSourceRecord {
   partName: string
   bundleNo: string
   bundleQty: number
+  pieceSetNoStart: number
+  pieceSetNoEnd: number
+  pieceSetNoRange: string
+  bundleTicketType: string
   actualCutPieceQty: number
   printStatus: 'WAIT_PRINT' | 'PRINTED' | 'REPRINTED' | 'VOIDED'
   qty: number
@@ -109,6 +117,10 @@ export interface GeneratedFeiTicketTraceMatrixRow {
   partName: string
   bundleNo: string
   bundleQty: number
+  pieceSetNoStart: number
+  pieceSetNoEnd: number
+  pieceSetNoRange: string
+  bundleTicketType: string
   garmentQty: number
   sourceBasisType: 'SPREADING_RESULT' | 'WAITING_SPREADING_RESULT'
   sourceTraceCompleteness: 'COMPLETE' | 'WAITING_SPREADING_RESULT'
@@ -125,6 +137,12 @@ function unique(values: string[]): string[] {
 
 function normalizeBusinessText(value: string | null | undefined, defaultText: string): string {
   return normalizeText(value) || defaultText
+}
+
+function formatPieceSetRange(start: number, end: number): string {
+  const safeStart = Math.max(Math.floor(start || 1), 1)
+  const safeEnd = Math.max(Math.floor(end || safeStart), safeStart)
+  return safeStart === safeEnd ? String(safeStart) : `${safeStart}-${safeEnd}`
 }
 
 function compareFeiRecords(left: GeneratedFeiTicketSourceRecord, right: GeneratedFeiTicketSourceRecord): number {
@@ -534,6 +552,9 @@ function buildSpreadingPieceOutputLinesFromSessions(
         const splitRows = splitGarmentQtyBySize(resolveColorScopedSkuLines(sourceRecord, line.color), line.actualCutGarmentQty)
         splitRows.forEach((sizeRow, sizeIndex) => {
           const bundleNo = buildBundleNo(sizeIndex)
+          const pieceSetNoStart = 1
+          const pieceSetNoEnd = Math.max(sizeRow.garmentQty, 1)
+          const pieceSetNoRange = formatPieceSetRange(pieceSetNoStart, pieceSetNoEnd)
           findPieceRowsForSku(sourceRecord, sizeRow.skuCode).forEach((pieceRow, partIndex) => {
             outputLines.push({
               outputLineId: [
@@ -564,6 +585,10 @@ function buildSpreadingPieceOutputLinesFromSessions(
               pieceCountPerGarment: Math.max(Number(pieceRow.pieceCountPerUnit || 0), 1),
               bundleNo,
               bundleQty: Math.max(sizeRow.garmentQty, 1),
+              pieceSetNoStart,
+              pieceSetNoEnd,
+              pieceSetNoRange,
+              bundleTicketType: '扎束菲票',
               layerCount: Math.max(Number(roll.layerCount || 0), 1),
               actualCutPieceQty: Math.max(sizeRow.garmentQty, 1) * Math.max(Number(pieceRow.pieceCountPerUnit || 0), 1),
               actualCutGarmentQty: Math.max(sizeRow.garmentQty, 1),
@@ -700,6 +725,10 @@ function buildFeiRecordsFromSpreadingSessions(
       partName: line.partName,
       bundleNo: line.bundleNo,
       bundleQty: line.bundleQty,
+      pieceSetNoStart: line.pieceSetNoStart,
+      pieceSetNoEnd: line.pieceSetNoEnd,
+      pieceSetNoRange: line.pieceSetNoRange,
+      bundleTicketType: line.bundleTicketType,
       actualCutPieceQty: line.actualCutPieceQty,
       qty,
       secondaryCrafts: secondaryCraftMeta.secondaryCrafts,
@@ -738,6 +767,10 @@ function buildFeiRecordsFromSpreadingSessions(
       partName: line.partName,
       bundleNo: line.bundleNo,
       bundleQty: line.bundleQty,
+      pieceSetNoStart: line.pieceSetNoStart,
+      pieceSetNoEnd: line.pieceSetNoEnd,
+      pieceSetNoRange: line.pieceSetNoRange,
+      bundleTicketType: line.bundleTicketType,
       actualCutPieceQty: line.actualCutPieceQty,
       printStatus: 'WAIT_PRINT',
       qty,
@@ -788,6 +821,9 @@ function buildFeiRecordsForOriginalOrder(
       const pieceGroup = normalizeText(pieceRow.partName) || normalizeText(pieceRow.partCode) || '整单裁片'
       const bundleScope = makeBundleScope(sequenceNo - 1)
       const qty = Math.max(Number(pieceRow.pieceCountPerUnit || 0), 1)
+      const pieceSetNoStart = 1
+      const pieceSetNoEnd = Math.max(qty, 1)
+      const pieceSetNoRange = formatPieceSetRange(pieceSetNoStart, pieceSetNoEnd)
       const encoded = encodeFeiTicketQr({
         feiTicketId,
         feiTicketNo,
@@ -811,6 +847,10 @@ function buildFeiRecordsForOriginalOrder(
         partName: normalizeText(pieceRow.partName) || '整单裁片',
         bundleNo: bundleScope,
         bundleQty: qty,
+        pieceSetNoStart,
+        pieceSetNoEnd,
+        pieceSetNoRange,
+        bundleTicketType: '扎束菲票',
         actualCutPieceQty: qty,
         qty,
         secondaryCrafts,
@@ -849,6 +889,10 @@ function buildFeiRecordsForOriginalOrder(
         partName: normalizeText(pieceRow.partName) || '整单裁片',
         bundleNo: bundleScope,
         bundleQty: qty,
+        pieceSetNoStart,
+        pieceSetNoEnd,
+        pieceSetNoRange,
+        bundleTicketType: '扎束菲票',
         actualCutPieceQty: qty,
         printStatus: 'WAIT_PRINT',
         qty,
@@ -1014,6 +1058,10 @@ export function buildGeneratedFeiTicketTraceMatrix(
         partName: record.partName,
         bundleNo: record.bundleNo,
         bundleQty: record.bundleQty,
+        pieceSetNoStart: record.pieceSetNoStart,
+        pieceSetNoEnd: record.pieceSetNoEnd,
+        pieceSetNoRange: record.pieceSetNoRange,
+        bundleTicketType: record.bundleTicketType,
         garmentQty: record.garmentQty,
         sourceBasisType: record.sourceBasisType,
         sourceTraceCompleteness: record.sourceTraceCompleteness,

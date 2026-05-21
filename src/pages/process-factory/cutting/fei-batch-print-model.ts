@@ -144,9 +144,9 @@ const aggregateStatusMeta: Record<FeiBatchAggregateTicketStatus, FeiBatchAggrega
     detailText: '当前批次下全部原始裁片单都已生成菲票草稿，但未全部打印。',
   },
   PARTIAL_PRINTED: {
-    label: '部分已打印',
+    label: '需补打',
     className: 'bg-amber-100 text-amber-700 border border-amber-200',
-    detailText: '当前批次下仅部分原始裁片单完成打印。',
+    detailText: '当前批次下存在需要补打的原始裁片单。',
   },
   ALL_PRINTED: {
     label: '全部已打印',
@@ -257,7 +257,7 @@ export function expandMergeBatchToOriginalTicketOwners(
     warningMessages.push('存在待补录的原始裁片单，批量打印时会自动跳过。')
   }
   if (ownerGroups.some((group) => group.ticketStatus === 'PARTIAL_PRINTED')) {
-    warningMessages.push('存在部分已打印的原始裁片单，建议逐组检查后再处理。')
+    warningMessages.push('存在需补打的原始裁片单，建议逐组检查后再处理。')
   }
 
   return {
@@ -459,7 +459,7 @@ export function createPrintJobsFromBatchOwnerGroups(options: {
       return
     }
     if (!shouldReprint && group.ticketStatus === 'PARTIAL_PRINTED') {
-      skippedOwnerGroups.push(buildIssue(group, '当前原始裁片单存在部分已打印记录，请逐组处理。'))
+      skippedOwnerGroups.push(buildIssue(group, '当前原始裁片单存在补打缺口，请逐组处理。'))
       return
     }
     if (shouldReprint && group.printedTicketQty <= 0) {

@@ -352,7 +352,7 @@ export const cuttingSummaryIssueMetaMap: Record<CuttingSummaryIssueType, Cutting
     key: 'TICKET_QR',
     label: '打印菲票问题',
     className: 'bg-sky-100 text-sky-700 border border-sky-200',
-    detailText: '待打印、部分已打印或主码结构警告。',
+    detailText: '待打印、需补打或主码结构警告。',
     actionHint: '去打印菲票',
   },
   WAREHOUSE_HANDOFF: {
@@ -388,8 +388,8 @@ function summarizeTicketStatus(owners: OriginalCutOrderTicketOwner[], records: F
   const planned = owners.reduce((sum, owner) => sum + owner.plannedTicketQty, 0)
   const printed = records.length
   const pendingOwners = owners.filter((owner) => !['PRINTED', 'REPRINTED'].includes(owner.ticketStatus)).length
-  const partialOwners = owners.filter((owner) => owner.ticketStatus === 'PARTIAL_PRINTED').length
-  return `${formatCount(printed)}/${formatCount(planned)} 已打印菲票 · 待处理主体 ${pendingOwners}${partialOwners ? ` · 部分已打印 ${partialOwners}` : ''}`
+  const reprintGapOwners = owners.filter((owner) => owner.ticketStatus === 'PARTIAL_PRINTED').length
+  return `${formatCount(printed)}/${formatCount(planned)} 已打印菲票 · 待处理主体 ${pendingOwners}${reprintGapOwners ? ` · 需补打 ${reprintGapOwners}` : ''}`
 }
 
 function summarizeWarehouseStatus(options: {
@@ -1241,7 +1241,7 @@ export function buildSummaryDashboardCards(
       key: 'ticket-unprinted',
       label: '未打印票主体数',
       value: dashboard.unprintedOwnerCount,
-      hint: '待打印或部分已打印',
+      hint: '待打印或需补打',
       accentClass: 'text-sky-600',
       filterType: 'pending-ticket',
       filterValue: 'true',

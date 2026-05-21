@@ -46,7 +46,7 @@ const initialTaskListState: SpecialCraftTaskListState = {
   factoryId: '全部',
   status: '全部',
   abnormalStatus: '全部',
-  timeRange: '30D',
+  timeRange: 'ALL',
   page: 1,
   pageSize: 20,
 }
@@ -262,7 +262,7 @@ function renderTaskStateBar(operationId: string, state: SpecialCraftTaskListStat
     state.factoryId !== '全部' ? `工厂：${state.factoryId}` : '',
     state.status !== '全部' ? `状态：${state.status}` : '',
     state.abnormalStatus !== '全部' ? `异常：${state.abnormalStatus}` : '',
-    state.timeRange !== '30D' ? `时间：${TASK_TIME_RANGE_OPTIONS.find((item) => item.value === state.timeRange)?.label || state.timeRange}` : '',
+    state.timeRange !== 'ALL' ? `时间：${TASK_TIME_RANGE_OPTIONS.find((item) => item.value === state.timeRange)?.label || state.timeRange}` : '',
   ].filter(Boolean)
   return renderWorkbenchStateBar({
     summary: '当前筛选条件',
@@ -313,35 +313,38 @@ function renderTaskOrdersTable(
       const objectText = [taskOrder.targetObject, taskOrder.partName, taskOrder.fabricColor, taskOrder.sizeCode]
         .filter(Boolean)
         .join(' / ')
+      const sourceText = [
+        `来源纸样 ${taskOrder.sourcePatternFileIds?.length || 0} 个`,
+        `来源裁片明细 ${taskOrder.sourcePieceRowIds?.length || 0} 条`,
+        `明细数 ${summary.demandLineCount} 条`,
+      ].join(' / ')
       return `
         <tr class="align-top hover:bg-muted/20">
-          <td class="px-3 py-3 font-medium text-blue-700">
+          <td class="px-3 py-3">
             <button type="button" class="text-left hover:underline" data-nav="${escapeHtml(detailHref)}">${escapeHtml(taskOrder.taskOrderNo)}</button>
             <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(taskOrder.sourceTriggerLabel || '生产单生成')}</div>
+            <div class="mt-1 text-xs text-muted-foreground">截止 ${escapeHtml(taskOrder.dueAt.slice(0, 10))}</div>
           </td>
           <td class="px-3 py-3">
             <div class="font-medium">${escapeHtml(taskOrder.productionOrderNo)}</div>
             <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(taskOrder.techPackVersion || '正式版')}</div>
+            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(taskOrder.operationName)}</div>
           </td>
-          <td class="px-3 py-3">${escapeHtml(taskOrder.operationName)}</td>
-          <td class="px-3 py-3">${escapeHtml(objectText || '—')}</td>
-          <td class="px-3 py-3">${escapeHtml(formatSpecialCraftFactoryLabel(taskOrder.factoryName, taskOrder.factoryId))}</td>
-          <td class="px-3 py-3 font-medium tabular-nums">${formatQty(taskOrder.planQty)}${escapeHtml(taskOrder.unit)}</td>
           <td class="px-3 py-3">
-            <div class="text-xs leading-5 text-muted-foreground">已接收 <span class="font-medium text-foreground">${formatQty(taskOrder.receivedQty)}</span></div>
-            <div class="text-xs leading-5 text-muted-foreground">已完成 <span class="font-medium text-foreground">${formatQty(taskOrder.completedQty)}</span></div>
-            <div class="text-xs leading-5 text-muted-foreground">待交出 <span class="font-medium text-foreground">${formatQty(taskOrder.waitHandoverQty)}</span></div>
+            <div class="font-medium">${escapeHtml(objectText || '—')}</div>
+            <div class="mt-1 text-xs text-muted-foreground">菲票 ${summary.linkedFeiTicketCount} 张 / ${escapeHtml(summary.returnStatus)}</div>
           </td>
-          <td class="px-3 py-3">${renderStatusBadge(taskOrder.assignmentStatusLabel || '待分配')}</td>
-          <td class="px-3 py-3">${renderStatusBadge(taskOrder.executionStatusLabel || taskOrder.status)}</td>
-          <td class="px-3 py-3">${renderStatusBadge(taskOrder.status)}</td>
-          <td class="px-3 py-3">${renderStatusBadge(taskOrder.abnormalStatus)}</td>
-          <td class="px-3 py-3 text-xs text-muted-foreground">
-            <div>菲票 ${summary.linkedFeiTicketCount} 张</div>
-            <div>明细 ${summary.demandLineCount} 条</div>
-            <div>${escapeHtml(summary.returnStatus)}</div>
+          <td class="px-3 py-3">${escapeHtml(formatSpecialCraftFactoryLabel(taskOrder.factoryName, taskOrder.factoryId))}</td>
+          <td class="px-3 py-3">
+            <div class="font-medium tabular-nums">计划 ${formatQty(taskOrder.planQty)}${escapeHtml(taskOrder.unit)}</div>
+            <div class="mt-1 text-xs leading-5 text-muted-foreground">接收 ${formatQty(taskOrder.receivedQty)} / 完成 ${formatQty(taskOrder.completedQty)} / 待交出 ${formatQty(taskOrder.waitHandoverQty)}</div>
           </td>
-          <td class="px-3 py-3">${escapeHtml(taskOrder.dueAt.slice(0, 10))}</td>
+          <td class="px-3 py-3">
+            <div class="flex flex-wrap gap-1">${renderStatusBadge(taskOrder.status)}${renderStatusBadge(taskOrder.abnormalStatus)}</div>
+            <div class="mt-2 text-xs leading-5 text-muted-foreground">分配状态：${escapeHtml(taskOrder.assignmentStatusLabel || '待分配')}</div>
+            <div class="text-xs leading-5 text-muted-foreground">执行状态：${escapeHtml(taskOrder.executionStatusLabel || taskOrder.status)}</div>
+          </td>
+          <td class="px-3 py-3 text-xs leading-5 text-muted-foreground">${escapeHtml(sourceText)}</td>
           <td class="px-3 py-3">
             <div class="flex flex-wrap gap-2">
               <button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(detailHref)}">查看详情</button>
@@ -360,23 +363,17 @@ function renderTaskOrdersTable(
         <tr>
           ${[
             '加工单号',
-            '生产单',
-            '工艺',
+            '生产单 / 技术包',
             '加工对象',
             '承接工厂',
-            '计划数量',
-            '进度',
-            '分配状态',
-            '执行状态',
-            '当前状态',
-            '异常状态',
-            '关联',
-            '截止日期',
+            '数量进度',
+            '状态',
+            '来源链路',
             '操作',
           ].map((header) => `<th class="px-3 py-3 font-medium">${escapeHtml(header)}</th>`).join('')}
         </tr>
       </thead>
-      <tbody class="divide-y bg-card">${rows || `<tr><td colspan="14" class="py-10 text-center text-muted-foreground">当前筛选条件下暂无加工单。</td></tr>`}</tbody>
+      <tbody class="divide-y bg-card">${rows || `<tr><td colspan="8" class="py-10 text-center text-muted-foreground">当前筛选条件下暂无加工单。</td></tr>`}</tbody>
     </table>
   `
 

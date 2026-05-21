@@ -128,8 +128,8 @@ function renderDetailDrawer(): string {
             { label: '中转袋号', value: row.transferBagNo || '-' },
             { label: '卷号', value: row.fabricRollNo || '-' },
             { label: '应收数量', value: `${row.expectedQty} ${row.unit}` },
-            { label: '实收对象数量', value: `${row.receivedQty} ${row.unit}` },
-            { label: '差异对象数量', value: buildWarehouseDifferenceText(row.differenceQty) },
+            { label: '实收数量', value: `${row.receivedQty} ${row.unit}` },
+            { label: '差异数量', value: buildWarehouseDifferenceText(row.differenceQty) },
             { label: '库区', value: row.areaName },
             { label: '货架', value: row.shelfNo },
             { label: '库位', value: row.locationNo },
@@ -250,7 +250,7 @@ function renderPostFinishingWaitProcessPage(): string {
       </section>
       <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
         <div class="text-base font-semibold">后道待加工仓</div>
-        <div class="mt-1 text-xs text-muted-foreground">上游交出扫码收货后进入待加工仓，质检创建时占用库存。</div>
+        <div class="mt-1 text-xs text-muted-foreground">上游交出扫码收货后进入待加工仓，质检创建时锁定对应数量。</div>
         <div class="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
           <div class="rounded-xl bg-muted px-2 py-2"><div class="font-semibold">${rows.length}</div><div class="text-muted-foreground">SKU</div></div>
           <div class="rounded-xl bg-muted px-2 py-2"><div class="font-semibold">${totalAvailable}</div><div class="text-muted-foreground">可用件数</div></div>
@@ -389,8 +389,8 @@ export function renderPdaWarehouseWaitProcessPage(): string {
                         <div>卷号：${escapeHtml(row.fabricRollNo || '-')}</div>
                         <div>入库记录：${escapeHtml(resolveWarehouseInboundRecordRoute(row.sourceRecordId).includes('recordId=') ? '已生成' : '未入库')}</div>
                         <div>来源状态：${escapeHtml(getWaitProcessSourceStatusLabel(row))}</div>
-                        <div>应收对象数量 / 实收对象数量：${row.expectedQty} / ${row.receivedQty} ${escapeHtml(row.unit)}</div>
-                        <div>差异对象数量：${escapeHtml(buildWarehouseDifferenceText(row.differenceQty))}</div>
+                        <div>应收数量 / 实收数量：${row.expectedQty} / ${row.receivedQty} ${escapeHtml(row.unit)}</div>
+                        <div>差异数量：${escapeHtml(buildWarehouseDifferenceText(row.differenceQty))}</div>
                         <div>库区 / 货架 / 库位：${escapeHtml(row.areaName)} / ${escapeHtml(row.shelfNo)} / ${escapeHtml(row.locationNo)}</div>
                         <div>接收时间：${escapeHtml(formatWarehouseDateTime(row.receivedAt))}</div>
                       </div>

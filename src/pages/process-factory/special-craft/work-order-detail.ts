@@ -173,11 +173,11 @@ function renderDetailTabs(baseHref: string, activeTab: SpecialCraftDetailTab): s
 
 function renderInfoGrid(items: Array<{ label: string; value: string }>): string {
   return `
-    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+    <div class="grid border-y bg-white md:grid-cols-2 xl:grid-cols-4">
       ${items
         .map(
           (item) => `
-            <div class="rounded-2xl border bg-slate-50/60 p-3">
+            <div class="border-b px-1 py-3 md:px-3 xl:border-r">
               <div class="text-xs text-muted-foreground">${escapeHtml(item.label)}</div>
               <div class="mt-1 text-sm font-medium text-foreground">${item.value}</div>
             </div>
@@ -190,9 +190,9 @@ function renderInfoGrid(items: Array<{ label: string; value: string }>): string 
 
 function renderSection(title: string, body: string): string {
   return `
-    <section class="rounded-2xl border bg-white p-4 shadow-sm">
+    <section class="space-y-3 border-t pt-4">
       <h2 class="text-base font-semibold text-foreground">${escapeHtml(title)}</h2>
-      <div class="mt-4">${body}</div>
+      <div>${body}</div>
     </section>
   `
 }
@@ -259,57 +259,55 @@ function renderWebActionPanel(
 ): string {
   const actionable = actions.filter((action) => !action.disabledReason)
   const disabledReason = actions.find((action) => action.disabledReason)?.disabledReason
-  return renderSection(
-    '可执行动作',
-    `
-      <div class="space-y-3" data-testid="web-status-action-area">
-        ${renderInfoGrid([
-          { label: '当前细状态', value: escapeHtml(currentStatus) },
-          { label: '操作方式', value: escapeHtml('仅展示当前状态允许的下一步动作') },
-          { label: '数量口径', value: escapeHtml(objectMeta.qtyRule) },
-          { label: '禁止事项', value: escapeHtml('不新增后道工序作为加工动作') },
-        ])}
-        ${
-          actionable.length
-            ? `<div class="flex flex-wrap gap-2">
-                ${actionable
-                  .map((action) => {
-                    const actionLabel = localizeSpecialCraftActionText(action.actionLabel, objectMeta)
-                    const requiredFields = localizeSpecialCraftActionFields(action.requiredFields, objectMeta)
-                    const optionalFields = localizeSpecialCraftActionFields(action.optionalFields, objectMeta)
-                    const confirmText = localizeSpecialCraftActionText(action.confirmText, objectMeta)
-                    return `
-                      <button
-                        type="button"
-                        class="inline-flex items-center rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
-                        data-special-craft-web-action="open-web-status-action-dialog"
-                        data-source-id="${escapeHtml(workOrderId)}"
-                        data-action-code="${escapeHtml(action.actionCode)}"
-                        data-action-label="${escapeHtml(actionLabel)}"
-                        data-from-status="${escapeHtml(action.fromStatus)}"
-                        data-to-status="${escapeHtml(action.toStatus)}"
-                        data-required-fields="${escapeHtml(requiredFields.join('|'))}"
-                        data-optional-fields="${escapeHtml(optionalFields.join('|'))}"
-                        data-confirm-text="${escapeHtml(confirmText)}"
-                        data-object-type="${escapeHtml(objectMeta.objectType)}"
-                        data-object-qty="${escapeHtml(String(objectQty || 1))}"
-                        data-qty-unit="${escapeHtml(objectMeta.qtyUnit)}"
-                        data-testid="web-status-action-button"
-                      >
-                        ${escapeHtml(actionLabel)}
-                      </button>
-                    `
-                  })
-                  .join('')}
-              </div>
-              <div class="rounded-md border border-dashed bg-slate-50 px-3 py-2 text-xs text-muted-foreground">
-                操作弹窗字段：${escapeHtml(localizeSpecialCraftActionFields(actionable[0].requiredFields, objectMeta).join('、'))}；确认后写回加工事实源并生成操作记录。
-              </div>`
-            : `<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">${escapeHtml(disabledReason || '当前状态暂无可执行动作')}</div>`
-        }
+  return `
+    <div class="space-y-3" data-testid="web-status-action-area">
+      <div class="grid gap-2 text-sm">
+        <div class="flex justify-between gap-3">
+          <span class="text-muted-foreground">当前状态</span>
+          <span class="font-medium text-foreground">${escapeHtml(currentStatus)}</span>
+        </div>
+        <div class="flex justify-between gap-3">
+          <span class="text-muted-foreground">数量口径</span>
+          <span class="font-medium text-foreground">${escapeHtml(objectMeta.objectLabel)} / ${escapeHtml(objectMeta.qtyUnit)}</span>
+        </div>
       </div>
-    `,
-  )
+      ${
+        actionable.length
+          ? `<div class="grid gap-2">
+              ${actionable
+                .map((action) => {
+                  const actionLabel = localizeSpecialCraftActionText(action.actionLabel, objectMeta)
+                  const requiredFields = localizeSpecialCraftActionFields(action.requiredFields, objectMeta)
+                  const optionalFields = localizeSpecialCraftActionFields(action.optionalFields, objectMeta)
+                  const confirmText = localizeSpecialCraftActionText(action.confirmText, objectMeta)
+                  return `
+                    <button
+                      type="button"
+                      class="inline-flex items-center justify-center rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
+                      data-special-craft-web-action="open-web-status-action-dialog"
+                      data-source-id="${escapeHtml(workOrderId)}"
+                      data-action-code="${escapeHtml(action.actionCode)}"
+                      data-action-label="${escapeHtml(actionLabel)}"
+                      data-from-status="${escapeHtml(action.fromStatus)}"
+                      data-to-status="${escapeHtml(action.toStatus)}"
+                      data-required-fields="${escapeHtml(requiredFields.join('|'))}"
+                      data-optional-fields="${escapeHtml(optionalFields.join('|'))}"
+                      data-confirm-text="${escapeHtml(confirmText)}"
+                      data-object-type="${escapeHtml(objectMeta.objectType)}"
+                      data-object-qty="${escapeHtml(String(objectQty || 1))}"
+                      data-qty-unit="${escapeHtml(objectMeta.qtyUnit)}"
+                      data-testid="web-status-action-button"
+                    >
+                      ${escapeHtml(actionLabel)}
+                    </button>
+                  `
+                })
+                .join('')}
+            </div>`
+          : `<div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">${escapeHtml(disabledReason || '当前状态暂无可执行动作')}</div>`
+      }
+    </div>
+  `
 }
 
 function renderWebOperationRecords(records: ProcessWebOperationRecord[]): string {
@@ -625,12 +623,55 @@ export function renderSpecialCraftWorkOrderDetailPage(operationSlug: string, wor
     events: renderWebOperationRecords(webOperationRecords),
   }
 
-  const content = [
-    renderDetailTabs(detailHref, activeTab),
-    renderWebActionPanel(workOrder.workOrderId, workOrder.status, availableActions, workOrder.currentQty || workOrder.planQty, objectMeta),
-    sections[activeTab],
-    `<button type="button" class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-slate-50" data-nav="${buildSpecialCraftTaskDetailPath(operation, taskOrder?.taskOrderId || workOrder.taskOrderId)}">返回加工单详情</button>`,
-  ].join('')
+  const parentTaskHref = buildSpecialCraftTaskDetailPath(operation, taskOrder?.taskOrderId || workOrder.taskOrderId)
+  const content = `
+    <section class="border-y bg-white py-3">
+      <div class="grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-5">
+        <div>
+          <div class="text-xs text-muted-foreground">加工单号</div>
+          <div class="mt-1 font-semibold text-foreground">${escapeHtml(workOrder.workOrderNo)}</div>
+        </div>
+        <div>
+          <div class="text-xs text-muted-foreground">生产单</div>
+          <div class="mt-1 font-medium text-foreground">${escapeHtml(workOrder.productionOrderNo)}</div>
+        </div>
+        <div>
+          <div class="text-xs text-muted-foreground">${escapeHtml(objectMeta.targetLabel)}</div>
+          <div class="mt-1 font-medium text-foreground">${escapeHtml(objectMeta.objectType === '裁片' ? workOrder.partName : workOrder.targetObject || workOrder.partName)}</div>
+        </div>
+        <div>
+          <div class="text-xs text-muted-foreground">当前数量</div>
+          <div class="mt-1 font-medium text-foreground">${formatQty(totalCurrentQty)} ${escapeHtml(objectMeta.qtyUnit)}</div>
+        </div>
+        <div>
+          <div class="text-xs text-muted-foreground">当前状态</div>
+          <div class="mt-1">${renderStatusBadge(workOrder.status)}</div>
+        </div>
+      </div>
+    </section>
+    <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+      <main class="min-w-0 space-y-4">
+        ${renderDetailTabs(detailHref, activeTab)}
+        ${sections[activeTab]}
+      </main>
+      <aside class="space-y-4 xl:sticky xl:top-4 xl:self-start">
+        <section class="space-y-4 border-l pl-4">
+          <div class="space-y-1">
+            <h2 class="text-base font-semibold text-foreground">当前处理</h2>
+            <p class="text-xs text-muted-foreground">${escapeHtml(objectMeta.qtyRule)}</p>
+          </div>
+          ${renderWebActionPanel(workOrder.workOrderId, workOrder.status, availableActions, workOrder.currentQty || workOrder.planQty, objectMeta)}
+          <div class="grid gap-2 border-t pt-3 text-sm">
+            <div class="flex justify-between gap-3"><span class="text-muted-foreground">计划数量</span><span class="font-medium text-foreground">${formatQty(totalOriginalQty)} ${escapeHtml(objectMeta.qtyUnit)}</span></div>
+            <div class="flex justify-between gap-3"><span class="text-muted-foreground">报废数量</span><span class="font-medium text-foreground">${formatQty(totalScrapQty)} ${escapeHtml(objectMeta.qtyUnit)}</span></div>
+            <div class="flex justify-between gap-3"><span class="text-muted-foreground">货损数量</span><span class="font-medium text-foreground">${formatQty(totalDamageQty)} ${escapeHtml(objectMeta.qtyUnit)}</span></div>
+            <div class="flex justify-between gap-3"><span class="text-muted-foreground">已回仓</span><span class="font-medium text-foreground">${formatQty(totalReturnedQty)} ${escapeHtml(objectMeta.qtyUnit)}</span></div>
+          </div>
+          <button type="button" class="inline-flex w-full items-center justify-center rounded-md border px-3 py-2 text-sm hover:bg-slate-50" data-nav="${escapeHtml(parentTaskHref)}">返回加工单详情</button>
+        </section>
+      </aside>
+    </div>
+  `
 
   return renderSpecialCraftPageLayout({
     operation,

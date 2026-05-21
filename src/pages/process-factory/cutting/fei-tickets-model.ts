@@ -73,7 +73,7 @@ export type FeiTicketStatusKey =
   | 'PENDING_SUPPLEMENT'
 
 export type FeiTicketPrintJobStatus = 'PRINTED' | 'REPRINTED' | 'CANCELLED'
-export type FeiTicketOperationType = 'FIRST_PRINT' | 'CONTINUE_PRINT' | 'REPRINT' | 'VOID'
+export type FeiTicketOperationType = 'FIRST_PRINT' | 'REPRINT' | 'VOID'
 
 export interface FeiTicketsContext {
   contextType: FeiTicketsContextType
@@ -177,6 +177,10 @@ export interface FeiTicketLabelRecord {
   partName?: string
   size?: string
   bundleNo?: string
+  pieceSetNoStart?: number
+  pieceSetNoEnd?: number
+  pieceSetNoRange?: string
+  bundleTicketType?: string
   quantity?: number
   actualCutPieceQty?: number
   printStatus?: 'WAIT_PRINT' | 'PRINTED' | 'REPRINTED' | 'VOIDED'
@@ -334,9 +338,9 @@ const feiTicketStatusMetaMap: Record<FeiTicketStatusKey, FeiTicketStatusMeta> = 
     detailText: '当前原始裁片单已生成打印草稿，尚未执行打印。',
   },
   PARTIAL_PRINTED: {
-    label: '部分已打印',
+    label: '需补打',
     className: 'bg-amber-100 text-amber-700 border border-amber-200',
-    detailText: '当前原始裁片单仅完成部分菲票打印。',
+    detailText: '当前原始裁片单存在菲票缺口，需要补打。',
   },
   PRINTED: {
     label: '已打印',
@@ -405,10 +409,11 @@ export function isFeiTicketFiveDimComplete(record: Pick<
 
 export function buildFeiTicketFiveDimTitle(record: Pick<
   FeiTicketLabelRecord | TicketCard | TicketSplitDetail,
-  'fabricRollNo' | 'fabricColor' | 'size' | 'partName' | 'quantity'
+  'fabricRollNo' | 'fabricColor' | 'size' | 'partName' | 'quantity' | 'pieceSetNoRange' | 'bundleNo'
 >): string {
   if (!isFeiTicketFiveDimComplete(record)) return '暂无数据'
-  return `${record.fabricRollNo} - ${record.fabricColor} - ${record.size} - ${record.partName} - ${formatQty(record.quantity)}`
+  const pieceSetText = record.pieceSetNoRange ? `配套${record.pieceSetNoRange}` : record.bundleNo
+  return `${record.fabricRollNo} - ${record.fabricColor} - ${record.size} - ${record.partName} - ${pieceSetText || '待补扎号'} - ${formatQty(record.quantity)}`
 }
 
 function createEmptyPreviewRecord(
@@ -454,6 +459,10 @@ function createEmptyPreviewRecord(
     partName: generated?.partName || '',
     size: generated?.skuSize || '',
     bundleNo: generated?.bundleNo || `BUNDLE-${String(sequenceNo).padStart(3, '0')}`,
+    pieceSetNoStart: generated?.pieceSetNoStart || 1,
+    pieceSetNoEnd: generated?.pieceSetNoEnd || generated?.bundleQty || 1,
+    pieceSetNoRange: generated?.pieceSetNoRange || `1-${Math.max(generated?.bundleQty || 1, 1)}`,
+    bundleTicketType: generated?.bundleTicketType || '扎束菲票',
     quantity: generated?.bundleQty ?? generated?.qty ?? 1,
     actualCutPieceQty: generated?.actualCutPieceQty ?? generated?.qty ?? 1,
     printStatus: generated?.printStatus || 'WAIT_PRINT',
@@ -576,6 +585,10 @@ function createSeedTicketRecord(options: {
       partName: options.partName || generated?.partName || printablePartCycle[(options.sequenceNo - 1) % printablePartCycle.length],
       size: options.size || generated?.skuSize || printableSizeCycle[(options.sequenceNo - 1) % printableSizeCycle.length],
       bundleNo: generated?.bundleNo || `BUNDLE-${String(options.sequenceNo).padStart(3, '0')}`,
+      pieceSetNoStart: generated?.pieceSetNoStart || 1,
+      pieceSetNoEnd: generated?.pieceSetNoEnd || generated?.bundleQty || options.quantity || 1,
+      pieceSetNoRange: generated?.pieceSetNoRange || `1-${Math.max(generated?.bundleQty || options.quantity || 1, 1)}`,
+      bundleTicketType: generated?.bundleTicketType || '扎束菲票',
       quantity: options.quantity ?? generated?.bundleQty ?? generated?.qty ?? 1,
       actualCutPieceQty: generated?.actualCutPieceQty ?? options.quantity ?? generated?.qty ?? 1,
       printStatus: options.version > 1 ? 'REPRINTED' : generated?.printStatus || 'PRINTED',
@@ -1466,7 +1479,7 @@ export function buildSystemSeedFeiTicketLedger(options: {
     const seed = getGeneratedFeiRecordBySequence(secondOwner.originalCutOrderId, 1)
     if (seed) {
       const printJob = createSeedPrintJob({
-        printJobId: buildFeiPrintJobId(printedAt, secondOwner.originalCutOrderId, 'partial'),
+      printJobId: buildFeiPrintJobId(printedAt, secondOwner.originalCutOrderId, 'reprint-gap'),
         printJobNo: 'FEI-PJ-DEMO-B-001',
         owner: secondOwner,
         ...scope,
@@ -1475,7 +1488,7 @@ export function buildSystemSeedFeiTicketLedger(options: {
         printedBy: '打票员-周莉',
         printedAt,
         ticketRecordIds: [seed.feiTicketId],
-        note: '正式菲票主源部分打印演示。',
+        note: '正式菲票主源补打缺口演示。',
       })
       ticketRecords.push(
         createSeedTicketRecord({
@@ -1690,7 +1703,7 @@ export function buildSystemSeedFeiTicketLedger(options: {
 }
 
 export type PrintableUnitType = 'BATCH' | 'CUT_ORDER'
-export type PrintableUnitStatus = 'WAITING_PRINT' | 'PARTIAL_PRINTED' | 'PRINTED' | 'NEED_REPRINT'
+export type PrintableUnitStatus = 'WAITING_PRINT' | 'PRINTED' | 'NEED_REPRINT'
 
 export interface PrintableUnitNavigationPayload {
   printableUnitId: string
@@ -1784,6 +1797,10 @@ export interface TicketSplitDetail {
   partCode: string
   partName: string
   bundleNo: string
+  pieceSetNoStart: number
+  pieceSetNoEnd: number
+  pieceSetNoRange: string
+  bundleTicketType: string
   quantity: number
   actualCutPieceQty: number
   garmentQty: number
@@ -1813,6 +1830,10 @@ export interface TicketCard {
   partCode: string
   partName: string
   bundleNo: string
+  pieceSetNoStart: number
+  pieceSetNoEnd: number
+  pieceSetNoRange: string
+  bundleTicketType: string
   quantity: number
   actualCutPieceQty: number
   printStatus: 'WAIT_PRINT' | 'PRINTED' | 'REPRINTED' | 'VOIDED'
@@ -1883,11 +1904,6 @@ const printableUnitStatusMetaMap: Record<PrintableUnitStatus, PrintableUnitStatu
     className: 'bg-slate-100 text-slate-700 border border-slate-200',
     detailText: '已完成裁片，但当前还没有有效菲票。',
   },
-  PARTIAL_PRINTED: {
-    label: '部分打印',
-    className: 'bg-amber-100 text-amber-700 border border-amber-200',
-    detailText: '已有部分有效菲票，当前仍存在未打印缺口。',
-  },
   PRINTED: {
     label: '已打印',
     className: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
@@ -1905,6 +1921,9 @@ function isFeiTicketRecordVoided(record: FeiTicketLabelRecord): boolean {
 }
 
 export function isPrintableSourceRow(row: OriginalCutOrderRow): boolean {
+  if (getGeneratedFeiRecordsByOriginalCutOrderId(row.originalCutOrderId).some((record) => record.sourceBasisType === 'SPREADING_RESULT')) {
+    return true
+  }
   if (row.currentStage.key === 'WAITING_INBOUND' || row.currentStage.key === 'DONE') return true
   return /待入仓|已完成|已入仓/.test(row.currentStage.label)
 }
@@ -1919,11 +1938,9 @@ function derivePrintableUnitSortPriority(status: PrintableUnitStatus): number {
       return 0
     case 'NEED_REPRINT':
       return 1
-    case 'PARTIAL_PRINTED':
-      return 2
     case 'PRINTED':
     default:
-      return 3
+      return 2
   }
 }
 
@@ -1969,15 +1986,11 @@ export function derivePrintableUnitStatus(options: {
     return 'PRINTED'
   }
 
-  if (
-    options.hasPrintedHistory &&
-    options.validPrintedTicketCount < options.requiredTicketCount &&
-    options.voidedTicketCount > 0
-  ) {
+  if (options.hasPrintedHistory && options.validPrintedTicketCount < options.requiredTicketCount) {
     return 'NEED_REPRINT'
   }
 
-  return 'PARTIAL_PRINTED'
+  return 'NEED_REPRINT'
 }
 
 export function getPrintableUnitStatusMeta(status: PrintableUnitStatus): PrintableUnitStatusMeta {
@@ -2290,7 +2303,7 @@ export function buildPrintableUnitViewModel(options: {
   })
 
   const contextualUnits = filterUnitsByContext(units, options.prefilter)
-    .filter((unit) => unit.requiredTicketCount > 0)
+    .filter((unit) => unit.requiredTicketCount > 0 && unit.ticketCountBasisType === 'SPREADING_RESULT')
     .sort((left, right) => {
       const priorityDiff = derivePrintableUnitSortPriority(left.printableUnitStatus) - derivePrintableUnitSortPriority(right.printableUnitStatus)
       if (priorityDiff !== 0) return priorityDiff
@@ -2304,7 +2317,6 @@ export function buildPrintableUnitViewModel(options: {
     unitsById: Object.fromEntries(contextualUnits.map((unit) => [unit.printableUnitId, unit])),
     statusCounts: {
       WAITING_PRINT: contextualUnits.filter((unit) => unit.printableUnitStatus === 'WAITING_PRINT').length,
-      PARTIAL_PRINTED: contextualUnits.filter((unit) => unit.printableUnitStatus === 'PARTIAL_PRINTED').length,
       PRINTED: contextualUnits.filter((unit) => unit.printableUnitStatus === 'PRINTED').length,
       NEED_REPRINT: contextualUnits.filter((unit) => unit.printableUnitStatus === 'NEED_REPRINT').length,
     },
@@ -2394,6 +2406,10 @@ function buildSplitDetailsFromOwner(
         partCode: record.partCode || '',
         partName: record.partName || printablePartCycle[index % printablePartCycle.length],
         bundleNo: record.bundleNo || `BUNDLE-${String(index + 1).padStart(3, '0')}`,
+        pieceSetNoStart: record.pieceSetNoStart || 1,
+        pieceSetNoEnd: record.pieceSetNoEnd || record.bundleQty || record.qty || 1,
+        pieceSetNoRange: record.pieceSetNoRange || `1-${Math.max(record.bundleQty || record.qty || 1, 1)}`,
+        bundleTicketType: record.bundleTicketType || '扎束菲票',
         quantity: Math.max(record.bundleQty || record.qty, 1),
         actualCutPieceQty: Math.max(record.actualCutPieceQty || record.qty, 1),
         garmentQty: Math.max(record.garmentQty || record.bundleQty || record.qty, 1),
@@ -2409,6 +2425,10 @@ function buildSplitDetailsFromOwner(
         partCode: '',
         partName: printablePartCycle[index % printablePartCycle.length],
         bundleNo: `BUNDLE-${String(index + 1).padStart(3, '0')}`,
+        pieceSetNoStart: 1,
+        pieceSetNoEnd: 1,
+        pieceSetNoRange: '1',
+        bundleTicketType: '扎束菲票',
         quantity: 1,
         actualCutPieceQty: 1,
         garmentQty: 1,
@@ -2433,6 +2453,10 @@ function buildSplitDetailsFromOwner(
         partCode: seed.partCode,
         partName: seed.partName,
         bundleNo: seed.bundleNo,
+        pieceSetNoStart: seed.pieceSetNoStart,
+        pieceSetNoEnd: seed.pieceSetNoEnd,
+        pieceSetNoRange: seed.pieceSetNoRange,
+        bundleTicketType: seed.bundleTicketType,
         quantity: seed.quantity,
         actualCutPieceQty: seed.actualCutPieceQty,
         requiredTicketCount: 1,
@@ -2464,6 +2488,10 @@ function buildSplitDetailsFromOwner(
       partCode: seed.partCode,
       partName: seed.partName,
       bundleNo: seed.bundleNo,
+      pieceSetNoStart: seed.pieceSetNoStart,
+      pieceSetNoEnd: seed.pieceSetNoEnd,
+      pieceSetNoRange: seed.pieceSetNoRange,
+      bundleTicketType: seed.bundleTicketType,
       quantity: seed.quantity,
       actualCutPieceQty: seed.actualCutPieceQty,
       garmentQty: seed.garmentQty,
@@ -2523,6 +2551,10 @@ export function buildTicketCards(options: {
         partCode: record.partCode || detail?.partCode || '',
         partName: record.partName || detail?.partName || '待补部位',
         bundleNo: record.bundleNo || detail?.bundleNo || '',
+        pieceSetNoStart: record.pieceSetNoStart || detail?.pieceSetNoStart || 1,
+        pieceSetNoEnd: record.pieceSetNoEnd || detail?.pieceSetNoEnd || record.quantity || detail?.quantity || 1,
+        pieceSetNoRange: record.pieceSetNoRange || detail?.pieceSetNoRange || `1-${Math.max(record.quantity || detail?.quantity || 1, 1)}`,
+        bundleTicketType: record.bundleTicketType || detail?.bundleTicketType || '扎束菲票',
         quantity: record.quantity ?? detail?.quantity ?? 1,
         actualCutPieceQty: record.actualCutPieceQty ?? detail?.actualCutPieceQty ?? record.quantity ?? 1,
         printStatus: record.printStatus || 'PRINTED',
@@ -2556,7 +2588,11 @@ export function buildTicketPrintRecords(options: {
     .map((job) => ({
       recordId: job.printJobId,
       printableUnitId: options.unit.printableUnitId,
-      operationType: job.operationType || (job.status === 'REPRINTED' ? 'REPRINT' : 'FIRST_PRINT'),
+      operationType: job.operationType === 'VOID'
+        ? 'VOID'
+        : job.operationType === 'REPRINT' || job.status === 'REPRINTED'
+          ? 'REPRINT'
+          : 'FIRST_PRINT',
       ticketIds: job.ticketRecordIds || [],
       operator: job.printedBy,
       operatedAt: job.printedAt,
@@ -2652,7 +2688,7 @@ export function executePrintableUnitPrint(options: {
   markerStore: MarkerSpreadingStore
   ticketRecords: FeiTicketLabelRecord[]
   printJobs: FeiTicketPrintJob[]
-  operationType: Extract<FeiTicketOperationType, 'FIRST_PRINT' | 'CONTINUE_PRINT' | 'REPRINT'>
+  operationType: Extract<FeiTicketOperationType, 'FIRST_PRINT' | 'REPRINT'>
   operator: string
   operatedAt: string
   printerName: string
@@ -2701,6 +2737,11 @@ export function executePrintableUnitPrint(options: {
         quantity: detail.quantity,
         partName: detail.partName,
         size: detail.size,
+        bundleNo: detail.bundleNo,
+        pieceSetNoStart: detail.pieceSetNoStart,
+        pieceSetNoEnd: detail.pieceSetNoEnd,
+        pieceSetNoRange: detail.pieceSetNoRange,
+        bundleTicketType: detail.bundleTicketType,
         processTags: [],
         version: nextVersion,
         createdAt: options.operatedAt,

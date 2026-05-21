@@ -429,14 +429,15 @@ function ensureSpreadingScheduleDefaults(session: SpreadingSession, index: numbe
   const endDate = new Date(baseDate)
   endDate.setMinutes(endDate.getMinutes() + (session.estimatedDurationMinutes || DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES))
   const owner = SEED_SESSION_OWNERS[index % SEED_SESSION_OWNERS.length]
+  const isUnstartedDraft = session.status === 'DRAFT' && !session.plannedStartAt && !session.cuttingTableId
   return {
     ...session,
-    plannedStartAt: session.plannedStartAt || formatSeedDateTimeLocal(baseDate),
-    plannedEndAt: session.plannedEndAt || formatSeedDateTimeLocal(endDate),
+    plannedStartAt: isUnstartedDraft ? '' : session.plannedStartAt || formatSeedDateTimeLocal(baseDate),
+    plannedEndAt: isUnstartedDraft ? '' : session.plannedEndAt || formatSeedDateTimeLocal(endDate),
     estimatedDurationMinutes: session.estimatedDurationMinutes || DEFAULT_MARKER_BED_SPREADING_DURATION_MINUTES,
-    tableScheduleStatus: session.tableScheduleStatus || '已排程',
-    ownerAccountId: session.ownerAccountId || owner.ownerAccountId,
-    ownerName: session.ownerName || owner.ownerName,
+    tableScheduleStatus: isUnstartedDraft ? session.tableScheduleStatus || '待开始' : session.tableScheduleStatus || '已排程',
+    ownerAccountId: isUnstartedDraft ? session.ownerAccountId || '' : session.ownerAccountId || owner.ownerAccountId,
+    ownerName: isUnstartedDraft ? session.ownerName || '' : session.ownerName || owner.ownerName,
     actualStartAt: session.actualStartAt || (session.status !== 'DRAFT' ? operatorStartTimes[0] || session.updatedFromPdaAt || '' : ''),
     actualEndAt:
       session.actualEndAt ||
@@ -964,7 +965,7 @@ export function buildSpreadingListViewModel(options: {
         replenishmentWarning,
         replenishmentPayload: navigationPayload.replenishment,
         productionOrderNos: context?.productionOrderNos || uniqueStrings(originalRows.map((row) => row.productionOrderNo)),
-        statusLabel: session.status === 'DRAFT' ? '草稿' : session.status === 'IN_PROGRESS' ? '进行中' : session.status === 'DONE' ? '已完成' : '待补录',
+        statusLabel: session.status === 'DRAFT' ? '待开始' : session.status === 'IN_PROGRESS' ? '铺布中' : session.status === 'DONE' ? '铺布完成' : '待补录',
         statusKey: session.status,
         updatedAt: session.updatedAt,
         session,

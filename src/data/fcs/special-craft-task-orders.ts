@@ -25,6 +25,9 @@ import {
   upsertFactoryWarehouseInboundRecord,
   upsertFactoryWarehouseOutboundRecord,
 } from './factory-internal-warehouse.ts'
+import { getProductionOrderTechPackSnapshot } from './production-order-tech-pack-runtime.ts'
+import { productionOrders, type ProductionOrder } from './production-orders.ts'
+import type { ProductionOrderTechPackSnapshot } from './production-tech-pack-snapshot-types.ts'
 import type { SpecialCraftOperationDefinition, SpecialCraftTargetObject } from './special-craft-operations.ts'
 import {
   buildSpecialCraftOperationSlug,
@@ -58,8 +61,8 @@ export type SpecialCraftTaskAbnormalStatus =
   | '设备异常'
   | '其他异常'
 
-export type SpecialCraftTaskGenerationSource = 'PRODUCTION_ORDER' | 'PROTOTYPE_SEED'
-export type SpecialCraftTaskSourceTrigger = 'PRODUCTION_ORDER_CREATED' | 'PROTOTYPE_SEED'
+export type SpecialCraftTaskGenerationSource = 'PRODUCTION_ORDER'
+export type SpecialCraftTaskSourceTrigger = 'PRODUCTION_ORDER_CREATED'
 export type SpecialCraftTaskAssignmentStatus = 'WAIT_ASSIGN' | 'ASSIGNED'
 export type SpecialCraftTaskExecutionStatus =
   | 'WAIT_PICKUP'
@@ -347,8 +350,24 @@ interface TaskSeedContext {
   taskOrderNo: string
   productionOrderId: string
   productionOrderNo: string
+  productionOrderVersion?: string
+  techPackSnapshotId?: string
+  techPackVersion?: string
   sourceTaskId: string
   sourceTaskNo: string
+  generationBatchId?: string
+  generationSource?: SpecialCraftTaskGenerationSource
+  generationSourceLabel?: string
+  sourceTrigger?: SpecialCraftTaskSourceTrigger
+  sourceTriggerLabel?: string
+  assignmentStatus?: SpecialCraftTaskAssignmentStatus
+  assignmentStatusLabel?: string
+  executionStatus?: SpecialCraftTaskExecutionStatus
+  executionStatusLabel?: string
+  demandLines?: SpecialCraftTaskDemandLine[]
+  sourcePieceRowIds?: string[]
+  sourcePatternFileIds?: string[]
+  sourceSpecialCraftKeys?: string[]
   factory: Factory
   targetObject: SpecialCraftTargetObject
   partName?: string
@@ -381,6 +400,13 @@ interface TaskSeedContext {
   handoverRecordId: string
   handoverRecordNo: string
   handoverRecordQrValue: string
+  generationKey?: string
+  suggestedFactoryId?: string
+  suggestedFactoryName?: string
+  assignedFactoryId?: string
+  assignedFactoryName?: string
+  assignmentMode?: string
+  remark?: string
 }
 
 interface WarehouseArtifacts {
@@ -399,12 +425,9 @@ interface SpecialCraftTaskStore {
 }
 
 const PART_NAMES = ['前片', '后片', '袖片', '领片', '门襟', '裤身片', '侧片']
-const FABRIC_COLORS = ['象牙白', '海军蓝', '雾霾灰', '焦糖棕', '雾粉', '橄榄绿', '深炭黑']
-const SIZE_CODES = ['S', 'M', 'L', 'XL', '2XL']
-const PRIMARY_STATUSES: SpecialCraftTaskStatus[] = ['待领料', '已入待加工仓', '加工中', '加工中', '已完成', '已入待加工仓', '待领料']
-const FLOW_STATUSES: SpecialCraftTaskStatus[] = ['待交出', '已交出', '已回写', '差异', '异议中', '待交出', '已回写']
-const PRIMARY_ABNORMALS: SpecialCraftTaskAbnormalStatus[] = ['无异常', '数量差异', '设备异常', '无异常', '延期', '无异常', '无异常']
-const FLOW_ABNORMALS: SpecialCraftTaskAbnormalStatus[] = ['无异常', '无异常', '无异常', '数量差异', '数量差异', '破损', '无异常']
+const MIN_TASK_ORDER_COUNT_PER_OPERATION = 5
+const LINKED_DEMO_STATUSES: SpecialCraftTaskStatus[] = ['待领料', '已入待加工仓', '加工中', '待交出', '已交出']
+const LINKED_DEMO_ABNORMALS: SpecialCraftTaskAbnormalStatus[] = ['无异常', '无异常', '设备异常', '无异常', '无异常']
 let specialCraftTaskStore: SpecialCraftTaskStore | null = null
 
 function formatDay(offsetDays = 0): string {
@@ -417,13 +440,22 @@ function roundQty(value: number): number {
 }
 
 function resolveOperationFactories(operation: SpecialCraftOperationDefinition): Factory[] {
-  const testFactory = mockFactories.find((factory) => factory.id === TEST_FACTORY_ID)
-  if (testFactory?.processAbilities.some((ability) => ability.craftCodes.includes(operation.craftCode))) {
-    return [testFactory]
-  }
   const matched = mockFactories.filter((factory) =>
-    factory.processAbilities.some((ability) => ability.craftCodes.includes(operation.craftCode)),
+    factory.processAbilities.some((ability) =>
+      ability.processCode === operation.processCode
+      && ability.craftCodes.includes(operation.craftCode)
+      && ability.canReceiveTask !== false
+      && (ability.status ?? 'ACTIVE') !== 'DISABLED',
+    ),
   )
+  const visibleFactoryIds = new Set(operation.visibleFactoryIds ?? [])
+  if (visibleFactoryIds.size > 0) {
+    const scoped = matched.filter((factory) => visibleFactoryIds.has(factory.id))
+    if (scoped.length === 0) {
+      throw new Error(`未找到特殊工艺专属工厂：${operation.operationName}`)
+    }
+    return scoped
+  }
   const preferred = operation.targetObject === '完整面料' || operation.targetObject === '面料'
     ? matched.filter((factory) => factory.factoryType === 'CENTRAL_DENIM_WASH')
     : matched.filter((factory) => factory.factoryType === 'SATELLITE_FINISHING' || factory.factoryType === 'CENTRAL_SPECIAL')
@@ -494,57 +526,170 @@ function getReceiverName(operation: SpecialCraftOperationDefinition): string {
   return '公司中转仓'
 }
 
-function buildTaskSeed(operation: SpecialCraftOperationDefinition, operationIndex: number, variantIndex: number): TaskSeedContext {
+function resolveProductionOrderVersion(order: ProductionOrder): string {
+  const lastBreakdownAt = order.taskBreakdownSummary.lastBreakdownAt
+  if (lastBreakdownAt) return `POV-${lastBreakdownAt.replace(/[^0-9]/g, '').slice(0, 14)}`
+  return `POV-${String(order.updatedAt || order.createdAt).replace(/[^0-9]/g, '').slice(0, 14) || 'CURRENT'}`
+}
+
+function listLinkedProductionOrderContexts(): Array<{ order: ProductionOrder; snapshot: ProductionOrderTechPackSnapshot }> {
+  return productionOrders
+    .map((order) => ({ order, snapshot: getProductionOrderTechPackSnapshot(order.productionOrderId) }))
+    .filter((item): item is { order: ProductionOrder; snapshot: ProductionOrderTechPackSnapshot } =>
+      Boolean(item.snapshot)
+      && item.order.demandSnapshot.skuLines.length > 0
+      && item.snapshot.patternFiles.length > 0,
+    )
+}
+
+function stableDemoHash(input: string): string {
+  let hash = 0
+  for (let index = 0; index < input.length; index += 1) {
+    hash = (hash * 31 + input.charCodeAt(index)) >>> 0
+  }
+  return hash.toString(16).padStart(8, '0')
+}
+
+function mapTaskStatusToExecutionStatus(status: SpecialCraftTaskStatus): SpecialCraftTaskExecutionStatus {
+  if (status === '已入待加工仓') return 'IN_WAIT_PROCESS_WAREHOUSE'
+  if (status === '加工中') return 'PROCESSING'
+  if (status === '已完成') return 'COMPLETED'
+  if (status === '待交出') return 'WAIT_HANDOVER'
+  if (status === '已交出') return 'HANDED_OVER'
+  if (status === '已回写') return 'WRITTEN_BACK'
+  if (status === '差异') return 'DIFFERENCE'
+  if (status === '异议中') return 'OBJECTION'
+  if (status === '异常') return 'ABNORMAL'
+  return 'WAIT_PICKUP'
+}
+
+function resolveSnapshotPatternContext(
+  snapshot: ProductionOrderTechPackSnapshot,
+  variantIndex: number,
+): {
+  patternFileId: string
+  patternFileName: string
+  pieceRowId: string
+  partName: string
+  pieceCountPerGarment: number
+  bundleWidthCm?: number
+  bundleLengthCm?: number
+} {
+  const patternFiles = snapshot.patternFiles.filter((file) => (file.pieceRows ?? []).length > 0)
+  const patternFile = patternFiles[variantIndex % Math.max(patternFiles.length, 1)] ?? snapshot.patternFiles[0]
+  const pieceRows = patternFile?.pieceRows ?? []
+  const pieceRow = pieceRows[variantIndex % Math.max(pieceRows.length, 1)]
+  const allocation = pieceRow?.colorAllocations?.find((item) => Number(item.pieceCount) > 0) ?? pieceRow?.colorAllocations?.[0]
+  const pieceCountPerGarment = Number(allocation?.pieceCount)
+
+  return {
+    patternFileId: patternFile?.patternFileId || patternFile?.id || `PF-${snapshot.productionOrderNo}`,
+    patternFileName: patternFile?.patternFileName || patternFile?.fileName || `${snapshot.styleCode}纸样`,
+    pieceRowId: pieceRow?.id || `PR-${snapshot.productionOrderNo}-${String(variantIndex + 1).padStart(2, '0')}`,
+    partName: pieceRow?.name || PART_NAMES[variantIndex % PART_NAMES.length],
+    pieceCountPerGarment: Number.isFinite(pieceCountPerGarment) && pieceCountPerGarment > 0 ? pieceCountPerGarment : 1,
+    bundleWidthCm: pieceRow?.bundleWidthCm,
+    bundleLengthCm: pieceRow?.bundleLengthCm,
+  }
+}
+
+function buildLinkedDemoTaskSeed(input: {
+  operation: SpecialCraftOperationDefinition
+  operationIndex: number
+  variantIndex: number
+  context: { order: ProductionOrder; snapshot: ProductionOrderTechPackSnapshot }
+}): TaskSeedContext {
+  const { operation, operationIndex, variantIndex, context } = input
+  const { order, snapshot } = context
   const factory = pickFactoryForOperation(operation, variantIndex)
-  const baseSuffix = `${String(operationIndex + 1).padStart(2, '0')}${String(variantIndex + 1).padStart(2, '0')}`
-  const isFabricTarget = operation.targetObject === '完整面料' || operation.targetObject === '面料'
-  const isCutPieceTarget = operation.targetObject === '已裁部位' || operation.targetObject === '裁片'
-  const planQty = isFabricTarget ? 6 + operationIndex + variantIndex : 180 + operationIndex * 40 + variantIndex * 26
-  const receivedQty =
-    variantIndex === 0 && PRIMARY_STATUSES[operationIndex % PRIMARY_STATUSES.length] === '待领料'
-      ? 0
-      : roundQty(planQty - ((operationIndex + variantIndex) % 3 === 0 ? 4 : 0))
-  const completedQty = roundQty(Math.max(receivedQty - (variantIndex === 1 ? (operationIndex % 2) + 1 : 0), 0))
+  const orderLine = order.demandSnapshot.skuLines[(operationIndex + variantIndex) % order.demandSnapshot.skuLines.length]
+  const patternContext = resolveSnapshotPatternContext(snapshot, variantIndex)
+  const taskPrefix = operation.managementDomain === 'AUXILIARY_CRAFT_FACTORY' ? 'AUX' : 'SPC'
+  const craftShortCode = operation.craftCode.replace('CRAFT_', '').replace(/^0+/, '').slice(-4) || operation.operationId.slice(-4)
+  const seedKey = stableDemoHash([operation.operationId, order.productionOrderId, variantIndex].join('|'))
+  const taskOrderId = `${taskPrefix}-TASK-${order.productionOrderId.replace(/[^A-Za-z0-9]/g, '')}-${operation.operationId.slice(-4)}-${seedKey.slice(0, 6)}`
+  const taskOrderNo = `${taskPrefix}-${order.productionOrderNo.replace(/^PO-/, '')}-${craftShortCode}-${String(variantIndex + 1).padStart(2, '0')}`
+  const sourceTaskNo = `TASK-${taskOrderNo}`
+  const status = LINKED_DEMO_STATUSES[variantIndex % LINKED_DEMO_STATUSES.length]
+  const abnormalStatus = LINKED_DEMO_ABNORMALS[variantIndex % LINKED_DEMO_ABNORMALS.length]
+  const pieceCountPerGarment = operation.targetObject === '成衣半成品' ? 1 : patternContext.pieceCountPerGarment
+  const planQty = roundQty(orderLine.qty * pieceCountPerGarment)
+  const receivedQty = status === '待领料' ? 0 : roundQty(planQty - (abnormalStatus === '无异常' ? 0 : Math.max(1, Math.round(planQty * 0.01))))
+  const completedQty = ['已完成', '待交出', '已交出', '已回写'].includes(status)
+    ? receivedQty
+    : status === '加工中'
+      ? roundQty(Math.max(receivedQty * 0.45, 0))
+      : 0
   const lossQty = roundQty(Math.max(receivedQty - completedQty, 0))
-  const waitHandoverQty = roundQty(Math.max(completedQty - (variantIndex === 1 ? (operationIndex % 3) * 12 : 0), 0))
+  const waitHandoverQty = ['待交出', '已交出', '已回写'].includes(status) ? completedQty : 0
   const targetObject = operation.targetObject
-  const partName = isCutPieceTarget ? PART_NAMES[(operationIndex + variantIndex) % PART_NAMES.length] : undefined
-  const fabricColor = FABRIC_COLORS[(operationIndex + variantIndex) % FABRIC_COLORS.length]
-  const sizeCode = isCutPieceTarget ? SIZE_CODES[(operationIndex + variantIndex) % SIZE_CODES.length] : undefined
-  const feiTicketNos = isCutPieceTarget ? [`FP-${baseSuffix}-01`, `FP-${baseSuffix}-02`] : []
-  const transferBagNos = isCutPieceTarget && variantIndex === 1 ? [`TB-${baseSuffix}`] : []
-  const fabricRollNos = isFabricTarget ? [`ROLL-${baseSuffix}-A`, `ROLL-${baseSuffix}-B`] : []
-  const materialSku = isFabricTarget ? `FAB-${String(operationIndex + 1).padStart(3, '0')}` : `PANEL-${String(operationIndex + 1).padStart(3, '0')}`
-  const status = variantIndex === 0
-    ? PRIMARY_STATUSES[operationIndex % PRIMARY_STATUSES.length]
-    : FLOW_STATUSES[operationIndex % FLOW_STATUSES.length]
-  const abnormalStatus = variantIndex === 0
-    ? PRIMARY_ABNORMALS[operationIndex % PRIMARY_ABNORMALS.length]
-    : FLOW_ABNORMALS[operationIndex % FLOW_ABNORMALS.length]
-  const sourceAction: '领料确认' | '交出接收' =
-    variantIndex === 0 || isFabricTarget ? '领料确认' : '交出接收'
-  const sourceRecordType: FactoryWarehouseInboundRecord['sourceRecordType'] =
-    sourceAction === '领料确认' && isFabricTarget ? 'MATERIAL_PICKUP' : 'HANDOVER_RECEIVE'
+  const demandLine: SpecialCraftTaskDemandLine = {
+    demandLineId: `${taskOrderId}-LINE-01`,
+    taskOrderId,
+    productionOrderId: order.productionOrderId,
+    productionOrderNo: order.productionOrderNo,
+    patternFileId: targetObject === '成衣半成品' ? `GARMENT-${operation.operationId}` : patternContext.patternFileId,
+    patternFileName: targetObject === '成衣半成品' ? '成衣半成品' : patternContext.patternFileName,
+    pieceRowId: targetObject === '成衣半成品' ? `GARMENT-${operation.operationId}` : patternContext.pieceRowId,
+    partName: targetObject === '成衣半成品' ? '成衣半成品' : patternContext.partName,
+    colorName: orderLine.color,
+    colorCode: orderLine.color,
+    sizeCode: orderLine.size,
+    pieceCountPerGarment,
+    orderQty: orderLine.qty,
+    planPieceQty: planQty,
+    specialCraftKey: `${operation.managementDomain}:${operation.processCode}:${operation.craftCode}:${targetObject}`,
+    operationId: operation.operationId,
+    operationName: operation.operationName,
+    managementDomain: operation.managementDomain,
+    managementDomainName: operation.managementDomainName,
+    processCode: operation.processCode,
+    processName: operation.processName,
+    craftCode: operation.craftCode,
+    craftName: operation.craftName,
+    targetObject,
+    unit: getTaskUnit(targetObject),
+    feiTicketNos: targetObject === '成衣半成品' ? [] : [`FT-${order.productionOrderNo.replace(/^PO-/, '')}-${String(variantIndex + 1).padStart(2, '0')}`],
+    bundleWidthCm: patternContext.bundleWidthCm,
+    bundleLengthCm: patternContext.bundleLengthCm,
+    remark: `来源生产单 ${order.productionOrderNo} / 技术包 ${snapshot.sourceTechPackVersionLabel || snapshot.versionLabel}`,
+  }
 
   return {
     operation,
-    taskOrderId: `SC-TASK-${operation.operationId}-${String(variantIndex + 1).padStart(2, '0')}`,
-    taskOrderNo: `TG-${operation.operationId.slice(-6)}-${String(variantIndex + 1).padStart(2, '0')}`,
-    productionOrderId: `PO-${operation.operationId.slice(-6)}-${baseSuffix}`,
-    productionOrderNo: `SCPO-${operation.operationId.slice(-6)}-${baseSuffix}`,
-    sourceTaskId: `TASK-SC-${operation.operationId.slice(-6)}-${baseSuffix}`,
-    sourceTaskNo: `TASK-SC-${operation.operationId.slice(-6)}-${baseSuffix}`,
+    taskOrderId,
+    taskOrderNo,
+    productionOrderId: order.productionOrderId,
+    productionOrderNo: order.productionOrderNo,
+    productionOrderVersion: resolveProductionOrderVersion(order),
+    techPackSnapshotId: snapshot.snapshotId,
+    techPackVersion: snapshot.sourceTechPackVersionLabel || snapshot.versionLabel,
+    sourceTaskId: sourceTaskNo,
+    sourceTaskNo,
+    generationBatchId: `SCB-${seedKey}`,
+    generationSource: 'PRODUCTION_ORDER',
+    generationSourceLabel: '生产单生成',
+    sourceTrigger: 'PRODUCTION_ORDER_CREATED',
+    sourceTriggerLabel: '生产单自动拆分任务',
+    assignmentStatus: 'ASSIGNED',
+    assignmentStatusLabel: '已分配',
+    executionStatus: mapTaskStatusToExecutionStatus(status),
+    executionStatusLabel: status,
+    demandLines: [demandLine],
+    sourcePieceRowIds: [demandLine.pieceRowId],
+    sourcePatternFileIds: [demandLine.patternFileId],
+    sourceSpecialCraftKeys: [demandLine.specialCraftKey],
     factory,
     targetObject,
-    partName,
-    fabricColor,
-    sizeCode,
-    feiTicketNos,
-    transferBagNos,
-    fabricRollNos,
-    materialSku,
+    partName: demandLine.partName,
+    fabricColor: orderLine.color,
+    sizeCode: orderLine.size,
+    feiTicketNos: [...demandLine.feiTicketNos],
+    transferBagNos: targetObject === '成衣半成品' ? [] : [`TB-${order.productionOrderNo.replace(/^PO-/, '')}-${String(variantIndex + 1).padStart(2, '0')}`],
+    fabricRollNos: [],
+    materialSku: orderLine.skuCode,
     unit: getTaskUnit(targetObject),
-    itemName: getTaskItemName(operation, targetObject, partName),
+    itemName: getTaskItemName(operation, targetObject, demandLine.partName),
     itemKind: getTaskItemKind(targetObject),
     planQty,
     receivedQty,
@@ -553,24 +698,26 @@ function buildTaskSeed(operation: SpecialCraftOperationDefinition, operationInde
     waitHandoverQty,
     status,
     abnormalStatus,
-    createdAt: formatDay(-(operationIndex + variantIndex + 2)),
-    dueAt: formatDay(operationIndex + variantIndex + 1),
+    createdAt: order.updatedAt || order.createdAt,
+    dueAt: order.planEndDate || order.demandSnapshot.requiredDeliveryDate || order.updatedAt,
     receiverName: getReceiverName(operation),
     receiverKind: getReceiverKind(operation),
-    sourceAction,
-    sourceRecordType,
-    sourceRecordNo: `${sourceAction === '领料确认' ? 'LL' : 'JS'}-${operation.operationId.slice(-6)}-${baseSuffix}`,
-    sourceObjectName:
-      sourceAction === '领料确认'
-        ? isFabricTarget
-          ? '面辅料仓'
-          : TEST_FACTORY_NAME
-        : TEST_FACTORY_NAME,
-    handoverOrderId: `SC-HO-${operation.operationId.slice(-6)}-${baseSuffix}`,
-    handoverOrderNo: `SC-HDO-${operation.operationId.slice(-6)}-${baseSuffix}`,
-    handoverRecordId: `SC-HR-${operation.operationId.slice(-6)}-${baseSuffix}`,
-    handoverRecordNo: `SC-HDR-${operation.operationId.slice(-6)}-${baseSuffix}`,
-    handoverRecordQrValue: `SCQR-${operation.operationId.slice(-6)}-${baseSuffix}`,
+    sourceAction: targetObject === '成衣半成品' ? '交出接收' : '领料确认',
+    sourceRecordType: targetObject === '成衣半成品' ? 'HANDOVER_RECEIVE' : 'MATERIAL_PICKUP',
+    sourceRecordNo: `${targetObject === '成衣半成品' ? 'JS' : 'LL'}-${taskOrderNo}`,
+    sourceObjectName: targetObject === '成衣半成品' ? '上游工厂交出' : '裁床待交出仓',
+    handoverOrderId: `SC-HO-${seedKey}`,
+    handoverOrderNo: `SC-HDO-${taskOrderNo}`,
+    handoverRecordId: `SC-HR-${seedKey}`,
+    handoverRecordNo: `SC-HDR-${taskOrderNo}`,
+    handoverRecordQrValue: `SCQR-${seedKey}`,
+    generationKey: seedKey,
+    suggestedFactoryId: factory.id,
+    suggestedFactoryName: factory.name,
+    assignedFactoryId: factory.id,
+    assignedFactoryName: factory.name,
+    assignmentMode: '直接派单',
+    remark: `由生产单 ${order.productionOrderNo} 按正式技术包 ${snapshot.sourceTechPackVersionLabel || snapshot.versionLabel} 自动拆分生成。`,
   }
 }
 
@@ -1102,7 +1249,7 @@ function buildAbnormalRecords(seed: TaskSeedContext): SpecialCraftTaskAbnormalRe
 
 function buildTaskOrder(seed: TaskSeedContext, artifacts: WarehouseArtifacts): SpecialCraftTaskOrder {
   const taskOrderId = seed.taskOrderId
-  const demandLine: SpecialCraftTaskDemandLine = {
+  const fallbackDemandLine: SpecialCraftTaskDemandLine = {
     demandLineId: `${taskOrderId}-LINE-01`,
     taskOrderId,
     productionOrderId: seed.productionOrderId,
@@ -1131,6 +1278,14 @@ function buildTaskOrder(seed: TaskSeedContext, artifacts: WarehouseArtifacts): S
     feiTicketNos: [...seed.feiTicketNos],
     remark: '演示任务明细',
   }
+  const demandLines = (seed.demandLines?.length ? seed.demandLines : [fallbackDemandLine]).map((line, index) => ({
+    ...line,
+    taskOrderId,
+    demandLineId: line.demandLineId || `${taskOrderId}-LINE-${String(index + 1).padStart(2, '0')}`,
+  }))
+  const sourcePieceRowIds = seed.sourcePieceRowIds || [...new Set(demandLines.map((line) => line.pieceRowId))]
+  const sourcePatternFileIds = seed.sourcePatternFileIds || [...new Set(demandLines.map((line) => line.patternFileId))]
+  const sourceSpecialCraftKeys = seed.sourceSpecialCraftKeys || [...new Set(demandLines.map((line) => line.specialCraftKey))]
   const taskOrder: SpecialCraftTaskOrder = {
     taskOrderId,
     taskOrderNo: seed.taskOrderNo,
@@ -1146,20 +1301,19 @@ function buildTaskOrder(seed: TaskSeedContext, artifacts: WarehouseArtifacts): S
     factoryName: seed.factory.name,
     productionOrderId: seed.productionOrderId,
     productionOrderNo: seed.productionOrderNo,
-    productionOrderVersion: 'POV-SEED',
-    techPackSnapshotId: `TPS-${seed.operation.operationId}`,
-    techPackVersion: '演示版',
+    productionOrderVersion: seed.productionOrderVersion || 'POV-SEED',
+    techPackSnapshotId: seed.techPackSnapshotId || `TPS-${seed.operation.operationId}`,
+    techPackVersion: seed.techPackVersion || '演示版',
     sourceTaskId: seed.sourceTaskId,
     sourceTaskNo: seed.sourceTaskNo,
-    generationBatchId: `SCB-SEED-${seed.operation.operationId}`,
-    generationSource: 'PROTOTYPE_SEED',
-    generationSourceLabel: '生产单生成',
-    sourceTrigger: 'PROTOTYPE_SEED',
-    sourceTriggerLabel: '生产单生成',
-    assignmentStatus: 'ASSIGNED',
-    assignmentStatusLabel: '已分配',
-    executionStatus:
-      seed.status === '待领料'
+    generationBatchId: seed.generationBatchId || `SCB-SEED-${seed.operation.operationId}`,
+    generationSource: seed.generationSource || 'PRODUCTION_ORDER',
+    generationSourceLabel: seed.generationSourceLabel || '生产单生成',
+    sourceTrigger: seed.sourceTrigger || 'PRODUCTION_ORDER_CREATED',
+    sourceTriggerLabel: seed.sourceTriggerLabel || '生产单生成',
+    assignmentStatus: seed.assignmentStatus || 'ASSIGNED',
+    assignmentStatusLabel: seed.assignmentStatusLabel || '已分配',
+    executionStatus: seed.executionStatus || (seed.status === '待领料'
         ? 'WAIT_PICKUP'
         : seed.status === '已入待加工仓'
           ? 'IN_WAIT_PROCESS_WAREHOUSE'
@@ -1177,12 +1331,12 @@ function buildTaskOrder(seed: TaskSeedContext, artifacts: WarehouseArtifacts): S
                       ? 'DIFFERENCE'
                       : seed.status === '异议中'
                         ? 'OBJECTION'
-                        : 'ABNORMAL',
-    executionStatusLabel: seed.status,
-    demandLines: [demandLine],
-    sourcePieceRowIds: [demandLine.pieceRowId],
-    sourcePatternFileIds: [demandLine.patternFileId],
-    sourceSpecialCraftKeys: [demandLine.specialCraftKey],
+                        : 'ABNORMAL'),
+    executionStatusLabel: seed.executionStatusLabel || seed.status,
+    demandLines,
+    sourcePieceRowIds,
+    sourcePatternFileIds,
+    sourceSpecialCraftKeys,
     targetObject: seed.targetObject,
     partName: seed.partName,
     fabricColor: seed.fabricColor,
@@ -1209,16 +1363,16 @@ function buildTaskOrder(seed: TaskSeedContext, artifacts: WarehouseArtifacts): S
     validationWarnings: [],
     isGenerated: true,
     isManualCreated: false,
-    generationKey: `SEED-${taskOrderId}`,
-    suggestedFactoryId: seed.factory.id,
-    suggestedFactoryName: seed.factory.name,
-    assignedFactoryId: seed.factory.id,
-    assignedFactoryName: seed.factory.name,
-    assignmentMode: '演示分配',
+    generationKey: seed.generationKey || `SEED-${taskOrderId}`,
+    suggestedFactoryId: seed.suggestedFactoryId || seed.factory.id,
+    suggestedFactoryName: seed.suggestedFactoryName || seed.factory.name,
+    assignedFactoryId: seed.assignedFactoryId || seed.factory.id,
+    assignedFactoryName: seed.assignedFactoryName || seed.factory.name,
+    assignmentMode: seed.assignmentMode || '演示分配',
     nodeRecords: [],
     warehouseLinks: [],
     abnormalRecords: [],
-    remark: '展示已由生产单沉淀后的工艺加工结果。',
+    remark: seed.remark || '展示已由生产单沉淀后的工艺加工结果。',
   }
   taskOrder.nodeRecords = buildNodeRecords(seed, artifacts)
   taskOrder.warehouseLinks = buildWarehouseLinks(seed, artifacts)
@@ -1227,20 +1381,86 @@ function buildTaskOrder(seed: TaskSeedContext, artifacts: WarehouseArtifacts): S
   return taskOrder
 }
 
-function buildSeedTaskOrders(
+function buildLinkedSupplementTaskOrders(
+  existingTaskOrders: SpecialCraftTaskOrder[],
   operations: SpecialCraftOperationDefinition[] = listEnabledSpecialCraftOperationDefinitions(),
 ): SpecialCraftTaskOrder[] {
-  return operations.flatMap((operation, operationIndex) => {
-    return [0, 1].map((variantIndex) => {
-      const seed = buildTaskSeed(operation, operationIndex, variantIndex)
+  const contexts = listLinkedProductionOrderContexts()
+  if (contexts.length === 0) return []
+  const existingProductionOrderIds = new Set(existingTaskOrders.map((taskOrder) => taskOrder.productionOrderId))
+  const supplementalContexts = contexts.filter((context) => !existingProductionOrderIds.has(context.order.productionOrderId))
+  const candidateContexts = supplementalContexts.length > 0 ? supplementalContexts : contexts
+
+  const supplements: SpecialCraftTaskOrder[] = []
+  operations.forEach((operation, operationIndex) => {
+    const existingForOperation = existingTaskOrders
+      .filter((taskOrder) => taskOrder.operationId === operation.operationId)
+    const existingKeys = new Set(existingForOperation.map((taskOrder) => `${taskOrder.productionOrderId}::${taskOrder.operationId}`))
+    let candidateCursor = operationIndex * MIN_TASK_ORDER_COUNT_PER_OPERATION
+
+    while (existingForOperation.length + supplements.filter((taskOrder) => taskOrder.operationId === operation.operationId).length < MIN_TASK_ORDER_COUNT_PER_OPERATION) {
+      const context = candidateContexts[candidateCursor % candidateContexts.length]
+      candidateCursor += 1
+      const key = `${context.order.productionOrderId}::${operation.operationId}`
+      if (existingKeys.has(key) && candidateContexts.length > 1) continue
+      existingKeys.add(key)
+
+      const variantIndex = existingForOperation.length
+        + supplements.filter((taskOrder) => taskOrder.operationId === operation.operationId).length
+      const seed = buildLinkedDemoTaskSeed({
+        operation,
+        operationIndex,
+        variantIndex,
+        context,
+      })
       const inboundArtifacts = buildInboundArtifacts(seed, operationIndex + variantIndex + 1)
       const outboundArtifacts = buildOutboundArtifacts(seed, operationIndex + variantIndex + 3)
-      return buildTaskOrder(seed, {
+      supplements.push(buildTaskOrder(seed, {
         ...inboundArtifacts,
         ...outboundArtifacts,
-      })
-    })
+      }))
+    }
   })
+
+  return supplements
+}
+
+function normalizeGeneratedTaskOrderForMobile(taskOrder: SpecialCraftTaskOrder): SpecialCraftTaskOrder {
+  const sourceTaskNo = taskOrder.sourceTaskNo || `TASK-${taskOrder.taskOrderNo}`
+  const sourceTaskId = taskOrder.sourceTaskId || sourceTaskNo
+  const operation = getSpecialCraftOperationById(taskOrder.operationId)
+  const fallbackFactory = operation ? pickFactoryForOperation(operation, 0) : mockFactories.find((factory) => factory.id === TEST_FACTORY_ID)
+  const currentFactoryIsReal = Boolean(taskOrder.factoryId && taskOrder.factoryId !== 'WAIT_ASSIGN')
+  const assignedFactoryIsReal = Boolean(taskOrder.assignedFactoryId && taskOrder.assignedFactoryId !== 'WAIT_ASSIGN')
+  const suggestedFactoryIsReal = Boolean(taskOrder.suggestedFactoryId && taskOrder.suggestedFactoryId !== 'WAIT_ASSIGN')
+  const assignedFactoryId = (assignedFactoryIsReal ? taskOrder.assignedFactoryId : undefined)
+    || (suggestedFactoryIsReal ? taskOrder.suggestedFactoryId : undefined)
+    || (currentFactoryIsReal ? taskOrder.factoryId : fallbackFactory?.id)
+    || TEST_FACTORY_ID
+  const assignedFactoryName = (assignedFactoryIsReal ? taskOrder.assignedFactoryName : undefined)
+    || (suggestedFactoryIsReal ? taskOrder.suggestedFactoryName : undefined)
+    || (currentFactoryIsReal ? taskOrder.factoryName : fallbackFactory?.name)
+    || TEST_FACTORY_NAME
+  return {
+    ...taskOrder,
+    sourceTaskId,
+    sourceTaskNo,
+    factoryId: assignedFactoryId,
+    factoryName: assignedFactoryName,
+    generationSource: 'PRODUCTION_ORDER',
+    generationSourceLabel: taskOrder.generationSourceLabel || '生产单生成',
+    sourceTrigger: 'PRODUCTION_ORDER_CREATED',
+    sourceTriggerLabel: taskOrder.sourceTriggerLabel || '生产单自动拆分任务',
+    assignmentStatus: 'ASSIGNED',
+    assignmentStatusLabel: '已分配',
+    executionStatus: taskOrder.executionStatus || mapTaskStatusToExecutionStatus(taskOrder.status),
+    executionStatusLabel: taskOrder.executionStatusLabel || taskOrder.status,
+    assignedFactoryId,
+    assignedFactoryName,
+    suggestedFactoryId: taskOrder.suggestedFactoryId || assignedFactoryId,
+    suggestedFactoryName: taskOrder.suggestedFactoryName || assignedFactoryName,
+    assignmentMode: taskOrder.assignmentMode || '直接派单',
+  }
 }
 
 function normalizeWorkOrderPartName(line: SpecialCraftTaskDemandLine, taskOrder: SpecialCraftTaskOrder): string {
@@ -1407,10 +1627,13 @@ function buildWorkOrdersFromTaskOrders(taskOrders: SpecialCraftTaskOrder[]): {
 function ensureStore(): SpecialCraftTaskStore {
   if (!specialCraftTaskStore) {
     const generatedResults = generateSpecialCraftTaskOrdersForAllProductionOrders([])
-    const generatedTaskOrders = generatedResults.flatMap((item) => item.taskOrders)
+    const generatedTaskOrders = generatedResults
+      .flatMap((item) => item.taskOrders)
+      .map((taskOrder) => normalizeGeneratedTaskOrderForMobile(taskOrder))
     const generationBatches = generatedResults.map((item) => item.generationBatch)
     const generationErrors = generatedResults.flatMap((item) => item.errors)
-    const taskOrders = [...generatedTaskOrders]
+    const supplementalTaskOrders = buildLinkedSupplementTaskOrders(generatedTaskOrders)
+    const taskOrders = [...generatedTaskOrders, ...supplementalTaskOrders]
 
     const workOrderBuild = buildWorkOrdersFromTaskOrders(taskOrders)
     specialCraftTaskStore = {

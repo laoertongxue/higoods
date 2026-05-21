@@ -238,6 +238,8 @@ function buildFeiLabelItem(record: AnyFeiTicket, input: PrintDocumentBuildInput,
   const craftPositionText = Array.isArray(record.specialCrafts) && record.specialCrafts.length
     ? record.specialCrafts.map((craft: AnyFeiTicket) => craft.craftPositionName).filter(Boolean).join('、')
     : isWoolTicket ? '毛织部位' : '无'
+  const pieceSetText = record.pieceSetNoRange
+    || (record.pieceSetNoStart && record.pieceSetNoEnd ? `${record.pieceSetNoStart}-${record.pieceSetNoEnd}` : '')
   const warnings = isVoid
     ? ['已作废', '不可流转', '作废二维码只进入作废记录或菲票详情']
     : isReprint
@@ -257,6 +259,10 @@ function buildFeiLabelItem(record: AnyFeiTicket, input: PrintDocumentBuildInput,
     { label: isWoolTicket ? '尺码片数' : '片序号', value: isWoolTicket ? `${toText(record.size || record.skuSize)} / ${formatPrintQty(record.quantity ?? record.actualCutPieceQty ?? record.qty, '片')}` : record.sequenceNo ? `第${record.sequenceNo}片` : '待补片序号' },
     { label: isWoolTicket ? '毛织片数' : '裁片数量', value: formatPrintQty(record.quantity ?? record.actualCutPieceQty ?? record.qty, '片'), emphasis: true },
     { label: isWoolTicket ? '毛织单号' : '扎号', value: isWoolTicket ? record.originalCutOrderNo || record.originalCutOrderId : record.bundleNo || record.bundleScope },
+    ...(!isWoolTicket ? [
+      { label: '配套编号', value: pieceSetText || '待补配套编号', emphasis: true },
+      { label: '菲票类型', value: record.bundleTicketType || '扎束菲票' },
+    ] : []),
     { label: isWoolTicket ? '纱线 SKU' : '面料 SKU', value: record.materialSku },
     { label: isWoolTicket ? '纱线颜色' : '面料颜色', value: record.fabricColor || record.color || record.garmentColor },
     { label: '当前所在位置', value: isWoolTicket ? '周哥毛织厂待交出' : record.boundPocketNo ? `中转袋 ${record.boundPocketNo}` : '裁片仓待流转' },

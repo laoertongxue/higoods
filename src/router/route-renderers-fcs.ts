@@ -208,10 +208,6 @@ export const renderCraftCuttingCuttablePoolPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/cuttable-pool'),
   'renderCraftCuttingCuttablePoolPage',
 )
-export const renderCraftCuttingFeiTicketContinuePrintPage = createAsyncRenderer(
-  () => import('../pages/process-factory/cutting/fei-tickets'),
-  'renderCraftCuttingFeiTicketContinuePrintPage',
-)
 export const renderCraftCuttingFeiTicketDetailPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/fei-tickets'),
   'renderCraftCuttingFeiTicketDetailPage',

@@ -1900,6 +1900,45 @@ function getSpecialCraftPdaBaseQty(
   return workOrder?.receivedQty || workOrder?.currentQty || workOrder?.planQty || task.qty || 0
 }
 
+function getSpecialCraftPdaAllowedActions(input: {
+  status: string
+  workOrderStatus?: string
+  objectLabel: string
+  requiresFeiTicket: boolean
+  bindingCount: number
+}): Array<{ action: string; label: string; primary?: boolean }> {
+  const currentStatus = input.workOrderStatus || input.status
+  const actions: Array<{ action: string; label: string; primary?: boolean }> = []
+  if (input.requiresFeiTicket && input.bindingCount === 0) {
+    actions.push({ action: 'special-bind-fei-ticket', label: '绑定菲票', primary: true })
+    return actions
+  }
+  if (['WAITING', 'TODO', '待接收', '待领料'].includes(currentStatus)) {
+    actions.push({ action: 'special-receive-cut-pieces', label: `确认接收${input.objectLabel}`, primary: true })
+    return actions
+  }
+  if (['已接收', '待加工', '已入待加工仓'].includes(currentStatus)) {
+    actions.push({ action: 'special-start-process', label: '开始加工', primary: true })
+    actions.push({ action: 'special-report-difference', label: '上报差异' })
+    return actions
+  }
+  if (currentStatus === 'IN_PROGRESS' || currentStatus === '加工中') {
+    actions.push({ action: 'special-finish-process', label: '完成加工', primary: true })
+    actions.push({ action: 'special-report-difference', label: '上报差异' })
+    return actions
+  }
+  if (['加工完成', '已完成', '待交出'].includes(currentStatus)) {
+    actions.push({ action: 'special-submit-handover', label: '发起交出', primary: true })
+    actions.push({ action: 'special-report-difference', label: '上报差异' })
+    return actions
+  }
+  if (['差异', '异议中', '异常', '交出待收货', '收货差异', '需重新交出'].includes(currentStatus)) {
+    actions.push({ action: 'special-rework-after-reject', label: '驳回后重交', primary: true })
+    actions.push({ action: 'special-report-difference', label: '上报差异' })
+  }
+  return actions
+}
+
 function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, displayProcessName: string): string {
   const bindings = getSpecialCraftExecBindings(task)
   if (!isSpecialCraftExecutionTask(task, displayProcessName) && bindings.length === 0) return ''
@@ -1972,6 +2011,13 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
   const differenceSummary = differenceRecords.length
     ? differenceRecords.map((record) => `${record.differenceRecordNo}：差异${objectMeta.objectLabel}数量${record.diffObjectQty}${record.qtyUnit}`).join('；')
     : '暂无差异记录'
+  const allowedActions = getSpecialCraftPdaAllowedActions({
+    status,
+    workOrderStatus: workOrder?.status,
+    objectLabel: objectMeta.objectLabel,
+    requiresFeiTicket: objectMeta.requiresFeiTicket,
+    bindingCount: bindings.length,
+  })
 
   return `
     <article class="rounded-lg border bg-card">
@@ -1982,17 +2028,14 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
         </h2>
       </header>
       <div class="space-y-3 p-4 text-sm" data-writeback-link="linkSpecialCraftCompletionToReturnWaitHandoverStock">
-        <div class="rounded-md border bg-muted/20 px-3 py-2 text-xs">
-          <div class="grid grid-cols-2 gap-x-3 gap-y-1">
-            <span>加工单号：${escapeHtml(workOrder?.workOrderNo || firstBinding?.workOrderNo || task.taskNo || task.taskId)}</span>
-            <span>特殊工艺：${escapeHtml(workOrder?.operationName || displayProcessName)}</span>
-            <span>工艺工厂：${escapeHtml(workOrder?.factoryName || task.assignedFactoryName || '—')}</span>
-            <span>当前状态：${escapeHtml(workOrder?.status || status)}</span>
-            <span>当前${escapeHtml(objectMeta.objectLabel)}数量：${completedQty || workOrder?.currentQty || task.qty} ${escapeHtml(objectMeta.qtyUnit)}</span>
-            <span>${objectMeta.requiresFeiTicket ? `绑定菲票数量：${bindings.length} 张` : `目标对象：${escapeHtml(objectMeta.objectLabel)}`}</span>
-          </div>
+        <div class="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+          <span>加工单号：${escapeHtml(workOrder?.workOrderNo || firstBinding?.workOrderNo || task.taskNo || task.taskId)}</span>
+          <span>特殊工艺：${escapeHtml(workOrder?.operationName || displayProcessName)}</span>
+          <span>工艺工厂：${escapeHtml(workOrder?.factoryName || task.assignedFactoryName || '—')}</span>
+          <span>当前状态：${escapeHtml(workOrder?.status || status)}</span>
+          <span>当前${escapeHtml(objectMeta.objectLabel)}数量：${completedQty || workOrder?.currentQty || task.qty} ${escapeHtml(objectMeta.qtyUnit)}</span>
+          <span>${objectMeta.requiresFeiTicket ? `绑定菲票数量：${bindings.length} 张` : `目标对象：${escapeHtml(objectMeta.objectLabel)}`}</span>
         </div>
-        <div class="space-y-2">${ticketRows}</div>
         ${
           status === 'IN_PROGRESS'
             ? `
@@ -2014,14 +2057,18 @@ function renderSpecialCraftExecutionPanel(task: ProcessTask, status: string, dis
             : ''
         }
         <div class="grid grid-cols-2 gap-2">
-          ${objectMeta.requiresFeiTicket ? `<button type="button" class="inline-flex h-9 items-center justify-center rounded-md border text-sm hover:bg-muted" data-pda-execd-action="special-bind-fei-ticket" data-task-id="${escapeHtml(task.taskId)}">绑定菲票</button>` : ''}
-          <button type="button" class="inline-flex h-9 items-center justify-center rounded-md border text-sm hover:bg-muted" data-pda-execd-action="special-receive-cut-pieces" data-task-id="${escapeHtml(task.taskId)}">确认接收${escapeHtml(objectMeta.objectLabel)}</button>
-          <button type="button" class="inline-flex h-9 items-center justify-center rounded-md border text-sm hover:bg-muted" data-pda-execd-action="special-start-process" data-task-id="${escapeHtml(task.taskId)}">开始加工</button>
-          <button type="button" class="inline-flex h-9 items-center justify-center rounded-md border text-sm hover:bg-muted" data-pda-execd-action="special-finish-process" data-task-id="${escapeHtml(task.taskId)}">完成加工</button>
-          <button type="button" class="inline-flex h-9 items-center justify-center rounded-md border text-sm hover:bg-muted" data-pda-execd-action="special-report-difference" data-task-id="${escapeHtml(task.taskId)}">上报差异</button>
-          <button type="button" class="inline-flex h-9 items-center justify-center rounded-md border text-sm hover:bg-muted" data-pda-execd-action="special-submit-handover" data-task-id="${escapeHtml(task.taskId)}">发起交出</button>
-          <button type="button" class="inline-flex h-9 items-center justify-center rounded-md border text-sm hover:bg-muted" data-pda-execd-action="special-rework-after-reject" data-task-id="${escapeHtml(task.taskId)}">驳回后重交</button>
+          ${
+            allowedActions.length
+              ? allowedActions.map((action) => `
+                <button type="button" class="inline-flex h-9 items-center justify-center rounded-md ${action.primary ? 'bg-primary text-primary-foreground' : 'border'} text-sm hover:bg-muted" data-pda-execd-action="${action.action}" data-task-id="${escapeHtml(task.taskId)}">${action.action === 'special-receive-cut-pieces' ? `确认接收${escapeHtml(objectMeta.objectLabel)}` : escapeHtml(action.label)}</button>
+              `).join('')
+              : '<div class="col-span-2 rounded-md border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">当前状态暂无可执行动作</div>'
+          }
         </div>
+        <details class="rounded-md border bg-muted/20 px-3 py-2 text-xs">
+          <summary class="cursor-pointer font-medium">查看菲票和流转信息</summary>
+          <div class="mt-2 space-y-2">${ticketRows}</div>
+        </details>
         <div class="rounded-md border bg-muted/20 px-3 py-2 text-xs">
           <div>待加工仓 / 待交出仓：${escapeHtml(warehouseSummary)}</div>
           <div class="mt-1">交出记录：${escapeHtml(handoverSummary)}</div>

@@ -1359,6 +1359,47 @@ function seedFactoryWarehouseStore(): FactoryInternalWarehouseStore {
       })
     })
 
+  const firstWarehouseFactory = factoryMap.get('ID-F002')
+  const firstWaitProcessWarehouse = firstWarehouseFactory ? waitProcessWarehouseMap.get(firstWarehouseFactory.id) : undefined
+  if (firstWarehouseFactory && firstWaitProcessWarehouse && !inboundRecords.some((record) => record.factoryId === firstWarehouseFactory.id)) {
+    const location = pickWarehouseLocation(firstWaitProcessWarehouse, 'TASK-PRINT-COMPLETE-SEED-001', '已入库')
+    const factoryProcess = resolvePrimaryFactoryProcess(firstWarehouseFactory)
+    inboundRecords.push({
+      inboundRecordId: 'INB-TASK-PRINT-COMPLETE-SEED-001',
+      inboundRecordNo: 'RK-WL-PRINT-SEED-001',
+      warehouseId: firstWaitProcessWarehouse.warehouseId,
+      warehouseName: firstWaitProcessWarehouse.warehouseName,
+      factoryId: firstWarehouseFactory.id,
+      factoryName: firstWarehouseFactory.name,
+      factoryKind: firstWarehouseFactory.factoryType,
+      processCode: factoryProcess.processCode,
+      processName: factoryProcess.processName,
+      sourceRecordId: 'ISSUE-PRINT-SEED-001',
+      sourceRecordNo: 'WL-PRINT-SEED-001',
+      sourceRecordType: 'MATERIAL_PICKUP',
+      sourceObjectName: '面辅料仓',
+      taskId: 'TASK-PRINT-COMPLETE-SEED-001',
+      taskNo: 'TASK-PRINT-COMPLETE-SEED-001',
+      itemKind: '面料',
+      itemName: '印花底布',
+      materialSku: 'FAB-PRINT-COMPLETE-001',
+      fabricColor: '青石灰',
+      sizeCode: '整匹',
+      expectedQty: 180,
+      receivedQty: 180,
+      differenceQty: 0,
+      unit: '匹',
+      receiverName: firstWarehouseFactory.name,
+      receivedAt: '2026-04-15 09:00:00',
+      areaName: location.areaName,
+      shelfNo: location.shelfNo,
+      locationNo: location.locationNo,
+      status: '已入库',
+      photoList: [],
+      remark: '由领料记录生成',
+    })
+  }
+
   const waitProcessStockItems = inboundRecords.map((record) => buildWaitProcessStockItemFromInbound(record))
   inboundRecords.forEach((record, index) => {
     record.generatedStockItemId = waitProcessStockItems[index]?.stockItemId
@@ -1450,6 +1491,48 @@ function seedFactoryWarehouseStore(): FactoryInternalWarehouseStore {
         remark: '任务完工后待交出',
       }),
     )
+
+    if (!outboundRecords.some((record) => record.factoryId === completionSeedFactory.id)) {
+      const factoryProcess = resolvePrimaryFactoryProcess(completionSeedFactory)
+      const outbound: FactoryWarehouseOutboundRecord = {
+        outboundRecordId: 'OUT-TASK-PRINT-COMPLETE-SEED-001',
+        outboundRecordNo: 'CK-PRINT-SEED-001',
+        warehouseId: completionSeedWarehouse.warehouseId,
+        warehouseName: completionSeedWarehouse.warehouseName,
+        factoryId: completionSeedFactory.id,
+        factoryName: completionSeedFactory.name,
+        factoryKind: completionSeedFactory.factoryType,
+        processCode: factoryProcess.processCode,
+        processName: factoryProcess.processName,
+        sourceTaskId: 'TASK-PRINT-COMPLETE-SEED-001',
+        sourceTaskNo: 'TASK-PRINT-COMPLETE-SEED-001',
+        handoverOrderId: 'HOH-PRINT-SEED-001',
+        handoverOrderNo: 'HDO-PRINT-SEED-001',
+        handoverRecordId: 'HOR-PRINT-SEED-001',
+        handoverRecordNo: 'HDR-PRINT-SEED-001',
+        handoverRecordQrValue: 'QR:HDR-PRINT-SEED-001',
+        receiverKind: '中转仓',
+        receiverName: '中转仓',
+        itemKind: '面料',
+        itemName: '印花面料待交出',
+        materialSku: 'FAB-PRINT-COMPLETE-001',
+        fabricColor: '青石灰',
+        sizeCode: '整匹',
+        outboundQty: 120,
+        receiverWrittenQty: 120,
+        differenceQty: 0,
+        unit: '匹',
+        operatorName: '印花工厂仓管',
+        outboundAt: '2026-04-16 16:30:00',
+        status: '已回写',
+        photoList: [],
+        remark: '由交出记录生成',
+      }
+      outboundRecords.push(outbound)
+      const stockItem = buildWaitHandoverStockItemFromOutbound(outbound)
+      outbound.relatedWaitHandoverStockItemId = stockItem.stockItemId
+      waitHandoverStockItems.push(stockItem)
+    }
   }
 
   const completedStocktakeOrderId = 'STO-FIW-001'

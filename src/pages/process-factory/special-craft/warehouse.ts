@@ -326,21 +326,27 @@ function buildSpecialWarehouseFlowLines(record: ProcessWarehouseRecord): Factory
 }
 
 function renderWaitProcessRows(records: ProcessWarehouseRecord[], operations: SpecialCraftOperationDefinition[]): string {
-  if (!records.length) return `<tr><td colspan="11" class="py-10 text-center text-muted-foreground">当前筛选条件下暂无待加工库存。</td></tr>`
+  if (!records.length) return `<tr><td colspan="8" class="py-10 text-center text-muted-foreground">当前筛选条件下暂无待加工库存。</td></tr>`
   return records
     .map((record) => {
       const locationText = buildLocationText(record.craftName, record.warehouseRecordNo)
       return `
         <tr class="align-top hover:bg-muted/20">
-          <td class="px-3 py-3 font-medium text-slate-900">${escapeHtml(record.warehouseRecordNo)}</td>
-          <td class="px-3 py-3">${escapeHtml(record.craftName)}</td>
-          <td class="px-3 py-3">${escapeHtml(record.sourceWorkOrderNo)}</td>
-          <td class="px-3 py-3">${escapeHtml(record.sourceProductionOrderNo)}</td>
+          <td class="px-3 py-3">
+            <div class="font-medium text-slate-900">${escapeHtml(record.warehouseRecordNo)}</div>
+            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(record.craftName)}</div>
+          </td>
+          <td class="px-3 py-3">
+            <div>${escapeHtml(record.sourceWorkOrderNo)}</div>
+            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(record.sourceProductionOrderNo)}</div>
+          </td>
           <td class="px-3 py-3">${escapeHtml(record.targetFactoryName)}</td>
           <td class="px-3 py-3">${escapeHtml(record.skuSummary || record.materialName || '—')}</td>
           <td class="px-3 py-3 font-semibold tabular-nums">${formatNumber(record.availableObjectQty || record.receivedObjectQty)} ${escapeHtml(record.qtyUnit)}</td>
-          <td class="px-3 py-3">${escapeHtml(resolvePhysicalAreaMeta(record.craftName).areaName)}</td>
-          <td class="px-3 py-3">${escapeHtml(locationText)}</td>
+          <td class="px-3 py-3">
+            <div>${escapeHtml(resolvePhysicalAreaMeta(record.craftName).areaName)}</div>
+            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(locationText)}</div>
+          </td>
           <td class="px-3 py-3">${renderStatusBadge(record.currentActionName || record.status || '待处理')}</td>
           <td class="px-3 py-3">
             <div class="flex flex-wrap gap-2">
@@ -355,21 +361,27 @@ function renderWaitProcessRows(records: ProcessWarehouseRecord[], operations: Sp
 }
 
 function renderWaitHandoverRows(records: ProcessWarehouseRecord[], operations: SpecialCraftOperationDefinition[]): string {
-  if (!records.length) return `<tr><td colspan="11" class="py-10 text-center text-muted-foreground">当前筛选条件下暂无待交出库存。</td></tr>`
+  if (!records.length) return `<tr><td colspan="8" class="py-10 text-center text-muted-foreground">当前筛选条件下暂无待交出库存。</td></tr>`
   return records
     .map((record) => {
       const locationText = buildLocationText(record.craftName, record.warehouseRecordNo)
       return `
         <tr class="align-top hover:bg-muted/20">
-          <td class="px-3 py-3 font-medium text-slate-900">${escapeHtml(record.warehouseRecordNo)}</td>
-          <td class="px-3 py-3">${escapeHtml(record.craftName)}</td>
-          <td class="px-3 py-3">${escapeHtml(record.sourceWorkOrderNo)}</td>
-          <td class="px-3 py-3">${escapeHtml(record.sourceProductionOrderNo)}</td>
+          <td class="px-3 py-3">
+            <div class="font-medium text-slate-900">${escapeHtml(record.warehouseRecordNo)}</div>
+            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(record.craftName)}</div>
+          </td>
+          <td class="px-3 py-3">
+            <div>${escapeHtml(record.sourceWorkOrderNo)}</div>
+            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(record.sourceProductionOrderNo)}</div>
+          </td>
           <td class="px-3 py-3">${escapeHtml(record.targetFactoryName)}</td>
           <td class="px-3 py-3">${escapeHtml(record.skuSummary || record.materialName || '—')}</td>
           <td class="px-3 py-3 font-semibold tabular-nums">${formatNumber(record.availableObjectQty)} ${escapeHtml(record.qtyUnit)}</td>
-          <td class="px-3 py-3">${escapeHtml(resolvePhysicalAreaMeta(record.craftName).areaName)}</td>
-          <td class="px-3 py-3">${escapeHtml(locationText)}</td>
+          <td class="px-3 py-3">
+            <div>${escapeHtml(resolvePhysicalAreaMeta(record.craftName).areaName)}</div>
+            <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(locationText)}</div>
+          </td>
           <td class="px-3 py-3">${renderStatusBadge(record.status || '待交出')}</td>
           <td class="px-3 py-3">
             <div class="flex flex-wrap gap-2">
@@ -384,15 +396,20 @@ function renderWaitHandoverRows(records: ProcessWarehouseRecord[], operations: S
 }
 
 function renderHandoverRows(records: ProcessHandoverRecord[]): string {
-  if (!records.length) return `<tr><td colspan="9" class="py-10 text-center text-muted-foreground">当前筛选条件下暂无交出记录。</td></tr>`
+  if (!records.length) return `<tr><td colspan="8" class="py-10 text-center text-muted-foreground">当前筛选条件下暂无交出记录。</td></tr>`
   return records
     .map((record) => `
       <tr class="align-top hover:bg-muted/20">
-        <td class="px-3 py-3 font-medium text-slate-900">${escapeHtml(record.handoverRecordNo)}</td>
-        <td class="px-3 py-3">${escapeHtml(record.craftName)}</td>
-        <td class="px-3 py-3">${escapeHtml(record.sourceWorkOrderNo)}</td>
-        <td class="px-3 py-3">${escapeHtml(record.sourceProductionOrderNo)}</td>
+        <td class="px-3 py-3">
+          <div class="font-medium text-slate-900">${escapeHtml(record.handoverRecordNo)}</div>
+          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(record.craftName)}</div>
+        </td>
+        <td class="px-3 py-3">
+          <div>${escapeHtml(record.sourceWorkOrderNo)}</div>
+          <div class="mt-1 text-xs text-muted-foreground">${escapeHtml(record.sourceProductionOrderNo)}</div>
+        </td>
         <td class="px-3 py-3">${escapeHtml(record.handoverFactoryName)}</td>
+        <td class="px-3 py-3">${escapeHtml(record.receiveFactoryName || record.receiveWarehouseName || '—')}</td>
         <td class="px-3 py-3 font-semibold tabular-nums">${formatNumber(record.handoverObjectQty)} ${escapeHtml(record.qtyUnit)}</td>
         <td class="px-3 py-3">${escapeHtml(resolvePhysicalAreaMeta(record.craftName).areaName)}</td>
         <td class="px-3 py-3">${escapeHtml(record.handoverAt)}</td>
@@ -572,7 +589,7 @@ function renderSpecialCraftDomainWarehousePageByMode(
             state,
             domainSlug,
             mode,
-            headers: ['仓记录号', '工艺', '加工单号', '生产单', '工厂', '对象', '当前库存', '物理库区', '库区库位', '当前动作', '操作'],
+            headers: ['仓记录 / 工艺', '加工来源', '工厂', '库存对象', '当前库存', '库区库位', '当前动作', '操作'],
             rowHtml: (items) => renderWaitProcessRows(items, operations),
           }),
         },
@@ -586,7 +603,7 @@ function renderSpecialCraftDomainWarehousePageByMode(
             state,
             domainSlug,
             mode,
-            headers: ['仓记录号', '工艺', '加工单号', '生产单', '工厂', '对象', '当前库存', '物理库区', '库区库位', '当前动作', '操作'],
+            headers: ['仓记录 / 工艺', '加工来源', '工厂', '库存对象', '当前库存', '库区库位', '当前动作', '操作'],
             rowHtml: (items) => renderWaitProcessRows(items, operations),
           }),
         },
@@ -617,7 +634,7 @@ function renderSpecialCraftDomainWarehousePageByMode(
             state,
             domainSlug,
             mode,
-            headers: ['仓记录号', '工艺', '加工单号', '生产单', '工厂', '对象', '当前库存', '物理库区', '库区库位', '交出状态', '操作'],
+            headers: ['仓记录 / 工艺', '加工来源', '工厂', '库存对象', '当前库存', '库区库位', '交出状态', '操作'],
             rowHtml: (items) => renderWaitHandoverRows(items, operations),
           }),
         },
@@ -631,7 +648,7 @@ function renderSpecialCraftDomainWarehousePageByMode(
             state,
             domainSlug,
             mode,
-            headers: ['交出记录号', '工艺', '加工单号', '生产单', '工厂', '交出数量', '物理库区', '交出时间', '状态'],
+            headers: ['交出记录 / 工艺', '加工来源', '交出工厂', '接收方', '交出数量', '物理库区', '交出时间', '状态'],
             rowHtml: renderHandoverRows,
           }),
         },

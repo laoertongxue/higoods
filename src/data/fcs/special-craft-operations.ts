@@ -12,6 +12,7 @@ import {
 } from './process-craft-dict.ts'
 import { getFactoryMasterRecordById, listFactoryMasterRecords } from './factory-master-store.ts'
 import type { FactoryType } from './factory-types.ts'
+import { getDedicatedSpecialCraftFactoryId } from './special-craft-dedicated-factories.ts'
 
 export type SpecialCraftTargetObject =
   | SpecialCraftTargetObjectLabel
@@ -164,6 +165,7 @@ function buildOperationDefinition(
   const defaultTargetObject = supportedTargetObjects.includes(seed.defaultTargetObject)
     ? getSpecialCraftTargetObjectLabel(seed.defaultTargetObject)
     : getSpecialCraftTargetObjectLabel(supportedTargetObjects[0])
+  const dedicatedFactoryId = getDedicatedSpecialCraftFactoryId(seed.operationId)
   return {
     operationId: seed.operationId,
     craftCode: craftDefinition.craftCode,
@@ -178,7 +180,7 @@ function buildOperationDefinition(
     defaultTargetObject,
     targetObject: defaultTargetObject,
     visibleFactoryTypes: [],
-    visibleFactoryIds: [],
+    visibleFactoryIds: dedicatedFactoryId ? [dedicatedFactoryId] : [],
     requiresTaskOrder: true,
     requiresFactoryWarehouse: true,
     requiresFeiTicketScan: seed.requiresFeiTicketScan,

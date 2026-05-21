@@ -375,13 +375,15 @@ function getVisibleDyeWorkOrderIds(): Set<string> {
 }
 
 function toGeneratedDyeWorkOrder(order: MutableDyeWorkOrder, index: number): MutableDyeWorkOrder {
-  const context = getGeneratedDyeContext(index)
+  const generatedCount = GENERATED_DYE_CRAFTS.length * DICTIONARY_CRAFT_MOCKS_PER_DEFINITION
+  const context = getGeneratedDyeContext(index) ?? (generatedCount > 0 ? getGeneratedDyeContext(index % generatedCount) : null)
   if (!context) return order
   const { productionOrder, techPackSnapshot, craftDefinition, mockIndex, plannedQty, materialName, targetColor } = context
   const demandId = buildDyeDemandId(craftDefinition.craftCode, productionOrder.productionOrderId, mockIndex)
+  const baseWorkOrderNo = buildDyeWorkOrderNo(craftDefinition.craftCode, productionOrder.productionOrderId, mockIndex)
   return {
     ...order,
-    dyeOrderNo: buildDyeWorkOrderNo(craftDefinition.craftCode, productionOrder.productionOrderId, mockIndex),
+    dyeOrderNo: index < generatedCount ? baseWorkOrderNo : `${baseWorkOrderNo}-${String(index + 1).padStart(2, '0')}`,
     sourceDemandIds: [demandId],
     productionOrderIds: [productionOrder.productionOrderId],
     isFirstOrder: mockIndex === 0,

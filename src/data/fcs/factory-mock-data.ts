@@ -15,6 +15,7 @@ import {
   listCraftsByProcessCode,
   listProcessDefinitions,
 } from './process-craft-dict.ts'
+import { specialCraftDedicatedFactorySeeds } from './special-craft-dedicated-factories.ts'
 
 const POST_CAPACITY_NODE_CODES = ['BUTTONHOLE', 'BUTTON_ATTACH', 'IRONING', 'PACKAGING'] as const satisfies FactoryPostCapacityNodeCode[]
 const DEDICATED_POST_ACTION_NAMES = ['质检', '后道', '复检'] as const
@@ -305,6 +306,54 @@ const ownWoolFactory: Factory = {
   },
 }
 
-export const mockFactories: Factory[] = [...generatedFactories, allProcessCraftTestFactory, ownWoolFactory]
+export const specialCraftDedicatedFactories: Factory[] = specialCraftDedicatedFactorySeeds.map((seed) => {
+  const processName = seed.managementDomain === 'AUXILIARY_CRAFT_FACTORY' ? '辅助工艺' : '特种工艺'
+  return {
+    id: seed.factoryId,
+    code: seed.factoryCode,
+    name: seed.factoryName,
+    factoryShortName: seed.craftName,
+    address: `印尼雅加达 ${seed.craftName}工艺园区`,
+    contact: `${seed.craftName}负责人`,
+    phone: '+62 21 8800 0001',
+    status: 'active',
+    cooperationMode: 'exclusive',
+    processAbilities: [
+      {
+        processCode: 'SPECIAL_CRAFT',
+        craftCodes: [seed.craftCode],
+        abilityId: `ABILITY_${seed.factoryId}`,
+        processName,
+        craftNames: [seed.craftName],
+        abilityName: `${seed.craftName}专属加工`,
+        abilityScope: 'CRAFT',
+        canReceiveTask: true,
+        capacityManaged: true,
+        status: 'ACTIVE',
+      },
+    ],
+    qualityScore: 90,
+    deliveryScore: 90,
+    createdAt: '2026-05-21 09:00:00',
+    updatedAt: '2026-05-21 09:00:00',
+    factoryTier: 'CENTRAL',
+    factoryType: seed.factoryType,
+    pdaEnabled: true,
+    pdaTenantId: seed.factoryId,
+    eligibility: {
+      allowDispatch: true,
+      allowBid: false,
+      allowExecute: true,
+      allowSettle: true,
+    },
+  }
+})
+
+export const mockFactories: Factory[] = [
+  ...generatedFactories,
+  allProcessCraftTestFactory,
+  ownWoolFactory,
+  ...specialCraftDedicatedFactories,
+]
 
 export { genCode as generateFactoryCode }

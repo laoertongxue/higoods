@@ -15,6 +15,7 @@ import {
   OWN_WOOL_FACTORY_NAME,
   TEST_FACTORY_ID,
   TEST_FACTORY_NAME,
+  specialCraftDedicatedFactories,
 } from './factory-mock-data.ts'
 import { indonesiaFactories, type IndonesiaFactory } from './indonesia-factories'
 import type { Factory } from './factory-types'
@@ -271,6 +272,9 @@ export function generateFactoryPdaUsers(
 
 const fullCapabilityTestFactoryPdaUsers = createFactoryPdaUsersForFactory(TEST_FACTORY_ID, TEST_FACTORY_NAME)
 const ownWoolFactoryPdaUsers = createFactoryPdaUsersForFactory(OWN_WOOL_FACTORY_ID, OWN_WOOL_FACTORY_NAME)
+const specialCraftDedicatedFactoryPdaUsers = specialCraftDedicatedFactories.flatMap((factory) =>
+  createFactoryPdaUsersForFactory(factory.id, factory.name),
+)
 const onboardingOfficialFactoryPdaUsers: FactoryPdaUser[] = [34, 35, 36].map((seed) => {
   const factoryId = `FACTORY-ONBOARD-${String(seed).padStart(4, '0')}`
   const now = '2026-05-09 16:00:00'
@@ -295,6 +299,7 @@ export const initialFactoryPdaUsers: FactoryPdaUser[] = [
   ...generateFactoryPdaUsers(indonesiaFactories).filter((user) => user.factoryId !== TEST_FACTORY_ID),
   ...fullCapabilityTestFactoryPdaUsers,
   ...ownWoolFactoryPdaUsers,
+  ...specialCraftDedicatedFactoryPdaUsers,
   ...onboardingOfficialFactoryPdaUsers,
 ]
 
@@ -422,6 +427,7 @@ export const initialFactoryPdaRoles: FactoryPdaRole[] = [
     .flatMap((factory) => generatePresetRolesForFactory(factory.id, INIT_NOW)),
   ...generatePresetRolesForFactory(TEST_FACTORY_ID, INIT_NOW),
   ...generatePresetRolesForFactory(OWN_WOOL_FACTORY_ID, INIT_NOW),
+  ...specialCraftDedicatedFactories.flatMap((factory) => generatePresetRolesForFactory(factory.id, INIT_NOW)),
   ...[34, 35, 36].flatMap((seed) => generatePresetRolesForFactory(`FACTORY-ONBOARD-${String(seed).padStart(4, '0')}`, '2026-05-09 16:00:00')),
 ]
 

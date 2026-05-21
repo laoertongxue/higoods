@@ -45,6 +45,10 @@ export interface FeiTicketQrPayload extends CuttingQrPayloadBase<'FEI_TICKET'> {
   partName: string
   bundleNo: string
   bundleQty: number
+  pieceSetNoStart: number
+  pieceSetNoEnd: number
+  pieceSetNoRange: string
+  bundleTicketType: string
   actualCutPieceQty: number
   qty: number
   secondaryCrafts: string[]
@@ -137,6 +141,10 @@ export function buildFeiTicketQrPayload(input: {
   partName: string
   bundleNo: string
   bundleQty: number
+  pieceSetNoStart?: number
+  pieceSetNoEnd?: number
+  pieceSetNoRange?: string
+  bundleTicketType?: string
   actualCutPieceQty: number
   qty: number
   secondaryCrafts: string[]
@@ -170,6 +178,10 @@ export function buildFeiTicketQrPayload(input: {
     partName: input.partName,
     bundleNo: input.bundleNo,
     bundleQty: Math.max(input.bundleQty, 0),
+    pieceSetNoStart: Math.max(input.pieceSetNoStart || 1, 1),
+    pieceSetNoEnd: Math.max(input.pieceSetNoEnd || input.bundleQty || 1, 1),
+    pieceSetNoRange: input.pieceSetNoRange || `${Math.max(input.pieceSetNoStart || 1, 1)}-${Math.max(input.pieceSetNoEnd || input.bundleQty || 1, 1)}`,
+    bundleTicketType: input.bundleTicketType || '扎束菲票',
     actualCutPieceQty: Math.max(input.actualCutPieceQty, 0),
     qty: Math.max(input.qty, 0),
     secondaryCrafts: [...input.secondaryCrafts],

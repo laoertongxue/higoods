@@ -152,8 +152,8 @@ function renderDetailDrawer(): string {
             { label: '中转袋号', value: row.transferBagNo || '-' },
             { label: '卷号', value: row.fabricRollNo || '-' },
             { label: '出库数量', value: `${row.outboundQty} ${row.unit}` },
-            { label: '回写对象', value: row.receiverWrittenQty === undefined ? '-' : `${row.receiverWrittenQty} ${row.unit}` },
-            { label: '差异对象数量', value: buildWarehouseDifferenceText(row.differenceQty) },
+            { label: '回写数量', value: row.receiverWrittenQty === undefined ? '-' : `${row.receiverWrittenQty} ${row.unit}` },
+            { label: '差异数量', value: buildWarehouseDifferenceText(row.differenceQty) },
             { label: '操作人', value: row.operatorName },
             { label: '出库时间', value: formatWarehouseDateTime(row.outboundAt) },
             { label: '状态', value: row.status },
@@ -306,8 +306,8 @@ export function renderPdaWarehouseOutboundRecordsPage(): string {
                             : ''
                         }
                         <div>卷号：${escapeHtml(row.fabricRollNo || '-')}</div>
-                        <div>出库对象数量 / 回写对象数量：${row.outboundQty} / ${row.receiverWrittenQty ?? '-'} ${escapeHtml(row.unit)}</div>
-                        <div>差异对象数量：${escapeHtml(buildWarehouseDifferenceText(row.differenceQty))}</div>
+                        <div>出库数量 / 回写数量：${row.outboundQty} / ${row.receiverWrittenQty ?? '-'} ${escapeHtml(row.unit)}</div>
+                        <div>差异数量：${escapeHtml(buildWarehouseDifferenceText(row.differenceQty))}</div>
                         <div>出库时间：${escapeHtml(formatWarehouseDateTime(row.outboundAt))}</div>
                       </div>
                       <div class="mt-4 flex flex-wrap gap-2">

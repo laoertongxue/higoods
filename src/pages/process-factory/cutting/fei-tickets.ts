@@ -45,18 +45,6 @@ import {
   getSpecialCraftFeiTicketSummary,
   listCuttingSpecialCraftFeiTicketBindings,
 } from '../../../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
-import {
-  confirmFeiTicketGeneration,
-  getCutPieceFeiTicketById,
-  listCutPieceFeiTicketGenerationSourceOrders,
-  listCutPieceFeiTickets,
-  previewFeiTicketGeneration,
-  reprintCutPieceFeiTicket,
-  voidCutPieceFeiTicket,
-  type CutPieceFeiTicket,
-  type CutPieceFeiTicketFlowStatus,
-  type CutPieceFeiTicketPrintStatus,
-} from '../../../data/fcs/cutting/fei-ticket-generation.ts'
 import { findCuttingSewingDispatchByFeiTicketNo } from '../../../data/fcs/cutting/sewing-dispatch.ts'
 import { buildSpecialCraftTaskDetailPath } from '../../../data/fcs/special-craft-operations.ts'
 import { buildFeiTicketLabelPrintLink } from '../../../data/fcs/fcs-route-links.ts'
@@ -69,24 +57,9 @@ import type { CraftTraceProjection, CraftTraceProjectionItem } from './craft-tra
 
 interface FeiTicketsPageState {
   filters: PrintableUnitFilters
-  perPieceFilters: PerPieceFeiTicketFilters
-  perPieceSelectedTicketId: string
-  perPieceGenerationOriginalCutOrderId: string
-  perPieceGenerationPreviewOpen: boolean
-  perPieceMessage: string
   querySignature: string
   operationSignature: string
   operationDraft: FeiOperationDraft
-}
-
-interface PerPieceFeiTicketFilters {
-  keyword: string
-  specialCraft: string
-  originalCutPieceOrderId: string
-  pieceName: string
-  colorName: string
-  printStatus: '全部' | CutPieceFeiTicketPrintStatus
-  flowStatus: '全部' | CutPieceFeiTicketFlowStatus
 }
 
 interface FeiOperationDraft {
@@ -111,14 +84,13 @@ interface FeiTicketsDataBundle {
 }
 
 type DetailTabKey = 'split' | 'printed' | 'records'
-type OperationPageKey = 'fei-ticket-print' | 'fei-ticket-continue-print' | 'fei-ticket-reprint' | 'fei-ticket-void'
+type OperationPageKey = 'fei-ticket-print' | 'fei-ticket-reprint' | 'fei-ticket-void'
 
 type PrintableActionPageKey =
   | 'fei-ticket-detail'
   | 'fei-ticket-printed'
   | 'fei-ticket-records'
   | 'fei-ticket-print'
-  | 'fei-ticket-continue-print'
   | 'fei-ticket-reprint'
   | 'fei-ticket-void'
 
@@ -137,7 +109,6 @@ const printableTypeMeta: Record<'ALL' | PrintableUnitType, string> = {
 
 const operationTypeMeta: Record<TicketPrintRecord['operationType'], string> = {
   FIRST_PRINT: '首次打印',
-  CONTINUE_PRINT: '继续打印',
   REPRINT: '补打',
   VOID: '作废',
 }
@@ -166,19 +137,6 @@ const initialFilters: PrintableUnitFilters = {
 
 const state: FeiTicketsPageState = {
   filters: { ...initialFilters },
-  perPieceFilters: {
-    keyword: '',
-    specialCraft: '',
-    originalCutPieceOrderId: '',
-    pieceName: '',
-    colorName: '',
-    printStatus: '全部',
-    flowStatus: '全部',
-  },
-  perPieceSelectedTicketId: '',
-  perPieceGenerationOriginalCutOrderId: '',
-  perPieceGenerationPreviewOpen: false,
-  perPieceMessage: '',
   querySignature: '',
   operationSignature: '',
   operationDraft: createDefaultOperationDraft(),
@@ -267,11 +225,11 @@ function persistPrintJobs(printJobs: FeiTicketPrintJob[]): void {
 
 function mapPrintableStatusFromQuery(value: string | null): 'ALL' | PrintableUnitStatus {
   if (!value) return 'ALL'
-  if (value === 'WAITING_PRINT' || value === 'PARTIAL_PRINTED' || value === 'PRINTED' || value === 'NEED_REPRINT') {
+  if (value === 'WAITING_PRINT' || value === 'PRINTED' || value === 'NEED_REPRINT') {
     return value
   }
   if (value === 'NOT_GENERATED') return 'WAITING_PRINT'
-  if (value === 'REPRINTED' || value === 'PENDING_SUPPLEMENT') return 'NEED_REPRINT'
+  if (value === 'REPRINTED' || value === 'PENDING_SUPPLEMENT' || value === 'PARTIAL_PRINTED') return 'NEED_REPRINT'
   return 'ALL'
 }
 
@@ -384,7 +342,6 @@ function hydrateOperationDraftFromRoute(): void {
   const pathname = getCurrentPathname()
   const isOperationPage = new Set<OperationPageKey>([
     'fei-ticket-print',
-    'fei-ticket-continue-print',
     'fei-ticket-reprint',
     'fei-ticket-void',
   ]).has(getCanonicalCuttingMeta(pathname, 'fei-tickets').key as OperationPageKey)
@@ -420,7 +377,6 @@ function getDataBundle(): FeiTicketsDataBundle {
     unitsById: Object.fromEntries(contextualUnits.map((unit) => [unit.printableUnitId, unit])),
     statusCounts: {
       WAITING_PRINT: contextualUnits.filter((unit) => unit.printableUnitStatus === 'WAITING_PRINT').length,
-      PARTIAL_PRINTED: contextualUnits.filter((unit) => unit.printableUnitStatus === 'PARTIAL_PRINTED').length,
       PRINTED: contextualUnits.filter((unit) => unit.printableUnitStatus === 'PRINTED').length,
       NEED_REPRINT: contextualUnits.filter((unit) => unit.printableUnitStatus === 'NEED_REPRINT').length,
     },
@@ -620,7 +576,7 @@ function renderFilterArea(): string {
             class="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
           >
             <option value="ALL" ${state.filters.printableUnitStatus === 'ALL' ? 'selected' : ''}>全部</option>
-            ${(['WAITING_PRINT', 'PARTIAL_PRINTED', 'PRINTED', 'NEED_REPRINT'] as const)
+            ${(['WAITING_PRINT', 'PRINTED', 'NEED_REPRINT'] as const)
               .map((status) => {
                 const meta = getPrintableUnitStatusMeta(status)
                 return `<option value="${status}" ${state.filters.printableUnitStatus === status ? 'selected' : ''}>${meta.label}</option>`
@@ -660,7 +616,6 @@ function renderStatusTabsArea(bundle: FeiTicketsDataBundle): string {
       <div class="flex flex-wrap gap-2">
         ${renderStatusTab('ALL', '全部', totalCount, state.filters.printableUnitStatus === 'ALL')}
         ${renderStatusTab('WAITING_PRINT', '待打印', statusCounts.WAITING_PRINT, state.filters.printableUnitStatus === 'WAITING_PRINT')}
-        ${renderStatusTab('PARTIAL_PRINTED', '部分打印', statusCounts.PARTIAL_PRINTED, state.filters.printableUnitStatus === 'PARTIAL_PRINTED')}
         ${renderStatusTab('PRINTED', '已打印', statusCounts.PRINTED, state.filters.printableUnitStatus === 'PRINTED')}
         ${renderStatusTab('NEED_REPRINT', '需补打', statusCounts.NEED_REPRINT, state.filters.printableUnitStatus === 'NEED_REPRINT')}
       </div>
@@ -677,7 +632,6 @@ function buildRowActionGroups(unit: PrintableUnit): {
   const printedHref = buildActionHref('fei-ticket-printed', unit)
   const recordsHref = buildActionHref('fei-ticket-records', unit)
   const printHref = buildFeiTicketLabelPrintLink(unit.printableUnitId, 'first')
-  const continueHref = buildFeiTicketLabelPrintLink(unit.printableUnitId, 'continue')
   const reprintHref = buildFeiTicketLabelPrintLink(unit.printableUnitId, 'reprint')
 
   if (unit.printableUnitStatus === 'WAITING_PRINT') {
@@ -685,17 +639,6 @@ function buildRowActionGroups(unit: PrintableUnit): {
       primary: { label: '打印菲票', href: printHref },
       secondary: { label: '查看详情', href: detailHref },
       more: [],
-    }
-  }
-
-  if (unit.printableUnitStatus === 'PARTIAL_PRINTED') {
-    return {
-      primary: { label: '继续打印', href: continueHref },
-      secondary: { label: '查看详情', href: detailHref },
-      more: [
-        { label: '查看已打印菲票', href: printedHref },
-        { label: '查看打印记录', href: recordsHref },
-      ],
     }
   }
 
@@ -845,246 +788,23 @@ function renderListTable(bundle: FeiTicketsDataBundle): string {
   `
 }
 
-function ensurePerPieceGenerationSelection(): string {
-  const sources = listCutPieceFeiTicketGenerationSourceOrders()
-  const current = sources.find((item) => item.originalCutPieceOrderId === state.perPieceGenerationOriginalCutOrderId)
-  if (current && current.pendingCount > 0) return current.originalCutPieceOrderId
-
-  const source = sources.find((item) => item.pendingCount > 0) || current || sources[0]
-  state.perPieceGenerationOriginalCutOrderId = source?.originalCutPieceOrderId || ''
-  return state.perPieceGenerationOriginalCutOrderId
-}
-
-function getPerPieceCraftOptions(tickets: CutPieceFeiTicket[]): string[] {
-  return Array.from(new Set(tickets.flatMap((ticket) => ticket.specialCrafts.map((craft) => craft.craftName)).filter(Boolean)))
-}
-
-function getFilteredPerPieceTickets(): CutPieceFeiTicket[] {
-  const filters = state.perPieceFilters
-  const keyword = filters.keyword.trim()
-  return listCutPieceFeiTickets().filter((ticket) => {
-    if (keyword) {
-      const haystack = [
-        ticket.feiTicketNo,
-        ticket.originalCutPieceOrderNo,
-        ticket.productionOrderNo,
-        ticket.pieceName,
-        ticket.colorName,
-        ticket.sizeName,
-        ticket.sourcePieceInstanceId,
-        ticket.specialCraftSummary,
-      ].join(' ')
-      if (!haystack.includes(keyword)) return false
-    }
-    if (filters.specialCraft && !ticket.specialCrafts.some((craft) => craft.craftName === filters.specialCraft || craft.craftCode === filters.specialCraft)) return false
-    if (filters.originalCutPieceOrderId && ticket.originalCutPieceOrderId !== filters.originalCutPieceOrderId) return false
-    if (filters.pieceName && ticket.pieceName !== filters.pieceName) return false
-    if (filters.colorName && ticket.colorName !== filters.colorName) return false
-    if (filters.printStatus !== '全部' && ticket.printStatus !== filters.printStatus) return false
-    if (filters.flowStatus !== '全部' && ticket.flowStatus !== filters.flowStatus) return false
-    return true
-  })
-}
-
-function renderPerPiecePrintStatusBadge(status: CutPieceFeiTicketPrintStatus): string {
-  if (status === '已作废') return renderBadge(status, 'border border-rose-200 bg-rose-50 text-rose-700')
-  if (status === '已补打') return renderBadge(status, 'border border-amber-200 bg-amber-50 text-amber-700')
-  if (status === '已打印') return renderBadge(status, 'border border-emerald-200 bg-emerald-50 text-emerald-700')
-  return renderBadge(status, 'border border-slate-200 bg-slate-50 text-slate-700')
-}
-
-function renderPerPieceFlowStatusBadge(status: CutPieceFeiTicketFlowStatus): string {
-  if (status === '已交出' || status === '已完成') return renderBadge(status, 'border border-emerald-200 bg-emerald-50 text-emerald-700')
-  if (status === '已绑定周转口袋') return renderBadge(status, 'border border-blue-200 bg-blue-50 text-blue-700')
-  if (status === '已流转到下一工序') return renderBadge(status, 'border border-violet-200 bg-violet-50 text-violet-700')
-  return renderBadge(status, 'border border-slate-200 bg-slate-50 text-slate-700')
-}
-
-function renderPerPieceGenerationPanel(): string {
-  const sources = listCutPieceFeiTicketGenerationSourceOrders()
-  const selectedSourceId = ensurePerPieceGenerationSelection()
-  const preview = state.perPieceGenerationPreviewOpen && selectedSourceId ? previewFeiTicketGeneration(selectedSourceId) : null
-  const selectedSource = sources.find((item) => item.originalCutPieceOrderId === selectedSourceId)
-  return `
-    <section class="rounded-lg border bg-white p-4 shadow-sm" data-testid="per-piece-fei-ticket-generation">
-      <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-        <div>
-          <h2 class="text-sm font-semibold text-slate-900">逐片生成菲票</h2>
-          <p class="mt-1 text-xs text-slate-500">一片裁片实例一张菲票。菲票归属原始裁片单，合并裁剪批次仅作为执行上下文，菲票仍归属原始裁片单。</p>
-          <p class="mt-1 text-xs text-slate-500">生成预览会显示“本次将生成”多少张菲票，以及其中包含特殊工艺的数量。</p>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <select data-cutting-fei-piece-field="generationOriginalCutOrderId" class="h-10 min-w-[240px] rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-            ${sources.map((source) => `<option value="${escapeHtml(source.originalCutPieceOrderId)}" ${source.originalCutPieceOrderId === selectedSourceId ? 'selected' : ''}>${escapeHtml(`${source.originalCutPieceOrderNo} · 待生成 ${source.pendingCount} 张`)}</option>`).join('')}
-          </select>
-          <button type="button" data-cutting-fei-action="open-piece-generation-preview" class="inline-flex min-h-10 items-center rounded-md border border-blue-600 bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700">生成菲票</button>
-        </div>
-      </div>
-      ${selectedSource?.mergeBatchNo ? `<p class="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">合并裁剪批次仅作为执行上下文：${escapeHtml(selectedSource.mergeBatchNo)}，菲票仍归属原始裁片单。</p>` : ''}
-      ${state.perPieceMessage ? `<p class="mt-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800" data-testid="per-piece-fei-ticket-message">${escapeHtml(state.perPieceMessage)}</p>` : ''}
-      ${preview ? `
-        <div class="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4" data-testid="per-piece-fei-ticket-preview">
-          <div class="grid gap-3 md:grid-cols-5">
-            <div><p class="text-xs text-slate-500">待生成菲票数量</p><p class="text-lg font-semibold text-slate-900">${formatCount(preview.pendingGenerateCount)} 张</p></div>
-            <div><p class="text-xs text-slate-500">有特殊工艺菲票数量</p><p class="text-lg font-semibold text-slate-900">${formatCount(preview.specialCraftTicketCount)} 张</p></div>
-            <div><p class="text-xs text-slate-500">无特殊工艺菲票数量</p><p class="text-lg font-semibold text-slate-900">${formatCount(preview.plainTicketCount)} 张</p></div>
-            <div><p class="text-xs text-slate-500">涉及部位数量</p><p class="text-lg font-semibold text-slate-900">${formatCount(preview.partCount)} 个</p></div>
-            <div><p class="text-xs text-slate-500">涉及颜色数量</p><p class="text-lg font-semibold text-slate-900">${formatCount(preview.colorCount)} 个</p></div>
-          </div>
-          <p class="mt-3 text-sm font-medium text-slate-900">${escapeHtml(preview.message)}</p>
-          <div class="mt-3 flex flex-wrap gap-2">
-            <button type="button" data-cutting-fei-action="confirm-piece-generation" class="inline-flex min-h-9 items-center rounded-md border border-blue-600 bg-blue-600 px-3 text-sm font-medium text-white hover:bg-blue-700">确认生成</button>
-            <button type="button" data-cutting-fei-action="close-piece-generation-preview" class="inline-flex min-h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50">取消</button>
-          </div>
-        </div>
-      ` : ''}
-    </section>
-  `
-}
-
-function renderPerPieceTicketDetail(ticket: CutPieceFeiTicket | null): string {
-  if (!ticket) {
-    return `<section class="rounded-lg border border-dashed bg-white p-4 text-sm text-slate-500">请选择一张逐片菲票查看来源裁片实例、特殊工艺和二维码内容。</section>`
-  }
-  return `
-    <section class="rounded-lg border bg-white p-4 shadow-sm" data-testid="per-piece-fei-ticket-detail">
-      <div class="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 class="text-sm font-semibold text-slate-900">菲票详情</h2>
-          <p class="mt-1 text-lg font-semibold text-blue-700">${escapeHtml(ticket.feiTicketNo)}</p>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <button type="button" data-cutting-fei-action="reprint-piece-ticket" data-fei-ticket-id="${escapeHtml(ticket.feiTicketId)}" class="inline-flex min-h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">补打</button>
-          <button type="button" data-cutting-fei-action="void-piece-ticket" data-fei-ticket-id="${escapeHtml(ticket.feiTicketId)}" class="inline-flex min-h-9 items-center rounded-md border border-rose-200 bg-white px-3 text-xs font-medium text-rose-700 hover:bg-rose-50">作废</button>
-          <button type="button" data-nav="${escapeHtml(buildFeiTicketLabelPrintLink(ticket.feiTicketId, ticket.isReprint ? 'reprint' : 'first'))}" class="inline-flex min-h-9 items-center rounded-md border border-blue-600 bg-blue-600 px-3 text-xs font-medium text-white hover:bg-blue-700">打印预览</button>
-        </div>
-      </div>
-      <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        ${[
-          ['来源技术包版本', ticket.sourceTechPackVersionId],
-          ['来源纸样', ticket.sourcePatternId],
-          ['来源裁片实例', ticket.sourcePieceInstanceId],
-          ['原始裁片单', `${ticket.originalCutPieceOrderNo} / ${ticket.originalCutPieceOrderId}`],
-          ['合并裁剪批次执行上下文', ticket.mergeBatchNo || '无'],
-          ['生产单', ticket.productionOrderNo],
-          ['款号', ticket.styleNo],
-          ['SKU', ticket.skuId],
-          ['部位', ticket.pieceName],
-          ['颜色', ticket.colorName],
-          ['尺码', ticket.sizeName],
-          ['片序号', `第${ticket.sequenceNo}片`],
-          ['特殊工艺', ticket.specialCraftSummary],
-          ['打印状态', ticket.printStatus],
-          ['流转状态', ticket.flowStatus],
-          ['周转口袋', ticket.relatedTransferBagNo || '未绑定'],
-        ].map(([label, value]) => `<div class="rounded-lg border border-slate-200 bg-slate-50 p-3"><p class="text-xs text-slate-500">${escapeHtml(label)}</p><p class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(value)}</p></div>`).join('')}
-      </div>
-      <div class="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
-        <div>
-          <h3 class="text-sm font-semibold text-slate-900">特殊工艺明细</h3>
-          <div class="mt-2 overflow-hidden rounded-lg border border-slate-200">
-            <table class="min-w-full text-sm">
-              <thead class="bg-slate-50 text-xs text-slate-500"><tr><th class="px-3 py-2 text-left">工艺名称</th><th class="px-3 py-2 text-left">工艺类别</th><th class="px-3 py-2 text-left">工艺位置</th><th class="px-3 py-2 text-left">备注</th></tr></thead>
-              <tbody class="divide-y divide-slate-100 bg-white">
-                ${ticket.specialCrafts.length ? ticket.specialCrafts.map((craft) => `<tr><td class="px-3 py-2 font-medium text-slate-900">${escapeHtml(craft.craftName)}</td><td class="px-3 py-2 text-slate-700">${escapeHtml(craft.craftCategoryName || '特殊工艺')}</td><td class="px-3 py-2 text-slate-700">${escapeHtml(craft.craftPositionName)}</td><td class="px-3 py-2 text-slate-700">${escapeHtml(craft.remark || '—')}</td></tr>`).join('') : '<tr><td colspan="4" class="px-3 py-6 text-center text-slate-500">无特殊工艺</td></tr>'}
-              </tbody>
-            </table>
-          </div>
-        </div>
-        <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
-          <p class="text-xs text-slate-500">二维码内容</p>
-          <div class="mt-2 flex justify-center">${renderRealQrPlaceholder({ value: ticket.qrCodePayload, size: 128, title: '菲票二维码', label: ticket.feiTicketNo })}</div>
-          <p class="mt-2 break-all text-xs text-slate-600" data-testid="per-piece-fei-ticket-qr-payload">${escapeHtml(ticket.qrCodePayload)}</p>
-        </div>
-      </div>
-    </section>
-  `
-}
-
-function renderPerPieceFeiTicketsSection(): string {
-  const allTickets = listCutPieceFeiTickets()
-  const filteredTickets = getFilteredPerPieceTickets()
-  const selectedTicket = getCutPieceFeiTicketById(state.perPieceSelectedTicketId)
-    || filteredTickets[0]
-    || allTickets[0]
-    || null
-  if (selectedTicket) state.perPieceSelectedTicketId = selectedTicket.feiTicketId
-  const originalOptions = Array.from(new Map(allTickets.map((ticket) => [ticket.originalCutPieceOrderId, ticket.originalCutPieceOrderNo])).entries())
-  const pieceOptions = uniqueStrings(allTickets.map((ticket) => ticket.pieceName))
-  const colorOptions = uniqueStrings(allTickets.map((ticket) => ticket.colorName))
-  const craftOptions = getPerPieceCraftOptions(allTickets)
-  const printStatuses: Array<'全部' | CutPieceFeiTicketPrintStatus> = ['全部', '待打印', '已打印', '已补打', '已作废']
-  const flowStatuses: Array<'全部' | CutPieceFeiTicketFlowStatus> = ['全部', '已生成', '已打印', '已绑定周转口袋', '已交出', '已流转到下一工序', '已完成']
-  const rowHtml = filteredTickets.length
-    ? filteredTickets.map((ticket) => `
-      <tr class="hover:bg-slate-50/60" data-testid="per-piece-fei-ticket-row">
-        <td class="px-3 py-2.5">
-          <button type="button" data-cutting-fei-action="select-piece-ticket" data-fei-ticket-id="${escapeHtml(ticket.feiTicketId)}" class="text-left font-semibold text-blue-700 hover:underline">${escapeHtml(ticket.feiTicketNo)}</button>
-          <p class="mt-1 text-xs text-slate-500">${escapeHtml(ticket.sourcePieceInstanceId)}</p>
-        </td>
-        <td class="px-3 py-2.5 text-slate-700">${escapeHtml(ticket.originalCutPieceOrderNo)}</td>
-        <td class="px-3 py-2.5 text-slate-700">${escapeHtml(ticket.productionOrderNo)}</td>
-        <td class="px-3 py-2.5 text-slate-700">${escapeHtml(ticket.pieceName)}</td>
-        <td class="px-3 py-2.5 text-slate-700">${escapeHtml(ticket.colorName)}</td>
-        <td class="px-3 py-2.5 text-slate-700">${escapeHtml(ticket.sizeName)}</td>
-        <td class="px-3 py-2.5 text-slate-700">第${formatCount(ticket.sequenceNo)}片</td>
-        <td class="px-3 py-2.5 text-slate-700" data-testid="per-piece-fei-ticket-special-craft">${escapeHtml(ticket.specialCraftSummary)}</td>
-        <td class="px-3 py-2.5">${renderPerPiecePrintStatusBadge(ticket.printStatus)}</td>
-        <td class="px-3 py-2.5">${renderPerPieceFlowStatusBadge(ticket.flowStatus)}</td>
-        <td class="px-3 py-2.5 text-slate-700">${escapeHtml(ticket.relatedTransferBagNo || '未绑定')}</td>
-        <td class="px-3 py-2.5">
-          <div class="flex min-w-[220px] flex-wrap gap-2">
-            <button type="button" data-cutting-fei-action="select-piece-ticket" data-fei-ticket-id="${escapeHtml(ticket.feiTicketId)}" class="inline-flex min-h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">详情</button>
-            <button type="button" data-nav="${escapeHtml(buildFeiTicketLabelPrintLink(ticket.feiTicketId, ticket.printStatus === '已补打' ? 'reprint' : ticket.printStatus === '已作废' ? 'void' : 'first'))}" class="inline-flex min-h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">打印预览</button>
-          </div>
-        </td>
-      </tr>
-    `).join('')
-    : '<tr><td colspan="12" class="px-3 py-8 text-center text-slate-500">暂无逐片菲票，请调整筛选或先生成菲票。</td></tr>'
-  return `
-    <div class="space-y-3">
-      ${renderPerPieceGenerationPanel()}
-      <section class="rounded-lg border bg-white p-4 shadow-sm" data-testid="per-piece-fei-ticket-section">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 class="text-sm font-semibold text-slate-900">逐片菲票</h2>
-            <p class="mt-1 text-xs text-slate-500">列表按裁片实例展开，不是部位汇总；每张菲票只代表一个裁片实例。</p>
-          </div>
-          <div class="text-xs text-slate-500">共 ${formatCount(filteredTickets.length)} 张 / 全部 ${formatCount(allTickets.length)} 张</div>
-        </div>
-        <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <label class="space-y-1 text-sm text-slate-600"><span class="font-medium text-slate-700">菲票搜索</span><input data-cutting-fei-piece-field="keyword" value="${escapeHtml(state.perPieceFilters.keyword)}" placeholder="菲票号 / 原始裁片单 / 裁片实例" class="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" /></label>
-          <label class="space-y-1 text-sm text-slate-600"><span class="font-medium text-slate-700">特殊工艺筛选</span><select data-cutting-fei-piece-field="specialCraft" class="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"><option value="">全部</option>${craftOptions.map((craft) => `<option value="${escapeHtml(craft)}" ${state.perPieceFilters.specialCraft === craft ? 'selected' : ''}>${escapeHtml(craft)}</option>`).join('')}</select></label>
-          <label class="space-y-1 text-sm text-slate-600"><span class="font-medium text-slate-700">原始裁片单</span><select data-cutting-fei-piece-field="originalCutPieceOrderId" class="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"><option value="">全部</option>${originalOptions.map(([id, no]) => `<option value="${escapeHtml(id)}" ${state.perPieceFilters.originalCutPieceOrderId === id ? 'selected' : ''}>${escapeHtml(no)}</option>`).join('')}</select></label>
-          <label class="space-y-1 text-sm text-slate-600"><span class="font-medium text-slate-700">部位</span><select data-cutting-fei-piece-field="pieceName" class="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"><option value="">全部</option>${pieceOptions.map((piece) => `<option value="${escapeHtml(piece)}" ${state.perPieceFilters.pieceName === piece ? 'selected' : ''}>${escapeHtml(piece)}</option>`).join('')}</select></label>
-          <label class="space-y-1 text-sm text-slate-600"><span class="font-medium text-slate-700">颜色</span><select data-cutting-fei-piece-field="colorName" class="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"><option value="">全部</option>${colorOptions.map((color) => `<option value="${escapeHtml(color)}" ${state.perPieceFilters.colorName === color ? 'selected' : ''}>${escapeHtml(color)}</option>`).join('')}</select></label>
-          <label class="space-y-1 text-sm text-slate-600"><span class="font-medium text-slate-700">打印状态</span><select data-cutting-fei-piece-field="printStatus" class="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200">${printStatuses.map((status) => `<option value="${status}" ${state.perPieceFilters.printStatus === status ? 'selected' : ''}>${status}</option>`).join('')}</select></label>
-          <label class="space-y-1 text-sm text-slate-600"><span class="font-medium text-slate-700">流转状态</span><select data-cutting-fei-piece-field="flowStatus" class="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200">${flowStatuses.map((status) => `<option value="${status}" ${state.perPieceFilters.flowStatus === status ? 'selected' : ''}>${status}</option>`).join('')}</select></label>
-        </div>
-        <div class="mt-4 overflow-hidden rounded-lg border border-slate-200">
-          ${renderStickyTableScroller(`<table class="min-w-full text-sm"><thead class="sticky top-0 z-10 bg-slate-50 text-xs text-slate-500"><tr><th class="px-3 py-3 text-left font-medium">菲票编号</th><th class="px-3 py-3 text-left font-medium">原始裁片单</th><th class="px-3 py-3 text-left font-medium">生产单</th><th class="px-3 py-3 text-left font-medium">部位</th><th class="px-3 py-3 text-left font-medium">颜色</th><th class="px-3 py-3 text-left font-medium">尺码</th><th class="px-3 py-3 text-left font-medium">片序号</th><th class="px-3 py-3 text-left font-medium">特殊工艺</th><th class="px-3 py-3 text-left font-medium">打印状态</th><th class="px-3 py-3 text-left font-medium">流转状态</th><th class="px-3 py-3 text-left font-medium">周转口袋</th><th class="px-3 py-3 text-left font-medium">操作</th></tr></thead><tbody class="divide-y divide-slate-100 bg-white">${rowHtml}</tbody></table>`, 'max-h-[52vh]')}
-        </div>
-      </section>
-      ${renderPerPieceTicketDetail(selectedTicket)}
-    </div>
-  `
-}
-
 function renderListPage(): string {
   const bundle = getDataBundle()
   const pathname = getCurrentPathname()
   const meta = getCanonicalCuttingMeta(pathname, 'fei-tickets')
   const summaryAction = renderReturnToSummaryButton()
+  const body = `
+    ${renderFilterArea()}
+    ${renderStatusTabsArea(bundle)}
+    ${renderListTable(bundle)}
+  `
 
   return renderPrintablePageShell(`
     ${renderCuttingPageHeader(meta, {
       showAliasBadge: isCuttingAliasPath(pathname),
       actionsHtml: summaryAction ? `<div class="flex flex-wrap gap-2">${summaryAction}</div>` : '',
     })}
-    ${renderPerPieceFeiTicketsSection()}
-    ${renderFilterArea()}
-    ${renderStatusTabsArea(bundle)}
-    ${renderListTable(bundle)}
+    ${body}
   `)
 }
 
@@ -1246,6 +966,7 @@ function renderSplitDetailsTab(detailView: PrintableUnitDetailViewModel): string
           <th class="px-3 py-3 text-left font-medium">裁片部位</th>
           <th class="px-3 py-3 text-left font-medium">数量</th>
           <th class="px-3 py-3 text-left font-medium">扎号</th>
+          <th class="px-3 py-3 text-left font-medium">配套编号</th>
           <th class="px-3 py-3 text-left font-medium">原始裁片单</th>
           <th class="px-3 py-3 text-left font-medium">生产单</th>
           <th class="px-3 py-3 text-left font-medium">缺口菲票数</th>
@@ -1262,6 +983,7 @@ function renderSplitDetailsTab(detailView: PrintableUnitDetailViewModel): string
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(detail.partName)}</td>
                 <td class="px-3 py-3 text-slate-700">${formatCount(detail.quantity)}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(detail.bundleNo || '暂无数据')}</td>
+                <td class="px-3 py-3 text-slate-700">${escapeHtml(detail.pieceSetNoRange || '暂无数据')}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(detail.sourceCutOrderNo)}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(detail.sourceProductionOrderNo)}</td>
                 <td class="px-3 py-3 text-slate-700">${formatCount(detail.gapCount)}</td>
@@ -1408,6 +1130,11 @@ function renderTicketPreviewPanel(unit: PrintableUnit, ticket: TicketCard | null
                   <p class="mt-1 text-xs text-slate-500">${escapeHtml(ticket.bundleNo || '暂无数据')}</p>
                 </div>
                 <div>
+                  <p class="text-sm text-slate-500">配套编号</p>
+                  <p class="text-lg font-semibold text-slate-900">${escapeHtml(ticket.pieceSetNoRange || '暂无数据')}</p>
+                  <p class="mt-1 text-xs text-slate-500">${escapeHtml(ticket.bundleTicketType || '扎束菲票')}</p>
+                </div>
+                <div>
                   <p class="text-sm text-slate-500">数量 / 裁片数</p>
                   <p class="text-lg font-semibold text-slate-900">${formatCount(ticket.quantity)}</p>
                   <p class="mt-1 text-xs text-slate-500">${escapeHtml(`${formatCount(ticket.actualCutPieceQty)} 片`)}</p>
@@ -1463,6 +1190,7 @@ function renderTicketPreviewPanel(unit: PrintableUnit, ticket: TicketCard | null
                 <div>生产单：${escapeHtml(craftTrace?.productionOrderNo || ticket.sourceProductionOrderNo || '待补')}</div>
                 <div>面料 SKU：${escapeHtml(craftTrace?.materialSku || unit.fabricSku || '待补')}</div>
                 <div>扎号：${escapeHtml(ticket.bundleNo || '暂无数据')}</div>
+                <div>配套编号：${escapeHtml(ticket.pieceSetNoRange || '暂无数据')}</div>
               </div>
             </div>
           </div>
@@ -1486,6 +1214,7 @@ function renderPrintedTicketsTab(unit: PrintableUnit, detailView: PrintableUnitD
           <th class="px-3 py-3 text-left font-medium">裁片部位</th>
           <th class="px-3 py-3 text-left font-medium">数量</th>
           <th class="px-3 py-3 text-left font-medium">扎号</th>
+          <th class="px-3 py-3 text-left font-medium">配套编号</th>
           <th class="px-3 py-3 text-left font-medium">是否需要特殊工艺</th>
           <th class="px-3 py-3 text-left font-medium">特殊工艺</th>
           <th class="px-3 py-3 text-left font-medium">特殊工艺顺序</th>
@@ -1587,6 +1316,7 @@ function renderPrintedTicketsTab(unit: PrintableUnit, detailView: PrintableUnitD
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(ticket.partName)}</td>
                 <td class="px-3 py-3 text-slate-700">${formatCount(ticket.quantity)}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(ticket.bundleNo || '暂无数据')}</td>
+                <td class="px-3 py-3 text-slate-700">${escapeHtml(ticket.pieceSetNoRange || '暂无数据')}</td>
                 <td class="px-3 py-3 text-slate-700">${specialCraftSummary.needSpecialCraft ? '是' : '无'}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(specialCraftSummary.operationNames.join(' / ') || '待绑定')}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(specialCraftSummary.operationNames.join(' → ') || '无')}</td>
@@ -1711,6 +1441,8 @@ function renderMissingDetailsSummary(detailView: PrintableUnitDetailViewModel): 
               <span class="mx-2 text-slate-400">/</span>
               <span>${escapeHtml(`${detail.color} / ${detail.size}`)}</span>
               <span class="mx-2 text-slate-400">/</span>
+              <span>配套 ${escapeHtml(detail.pieceSetNoRange || '暂无')}</span>
+              <span class="mx-2 text-slate-400">/</span>
               <span>来源 ${escapeHtml(detail.sourceCutOrderNo)}</span>
               <span class="mx-2 text-slate-400">/</span>
               <span>缺口 ${formatCount(detail.gapCount)}</span>
@@ -1770,6 +1502,7 @@ function buildOperationPreviewRows(rows: TicketSplitDetail[]): string {
           <th class="px-3 py-3 text-left font-medium">裁片部位</th>
           <th class="px-3 py-3 text-left font-medium">数量</th>
           <th class="px-3 py-3 text-left font-medium">扎号</th>
+          <th class="px-3 py-3 text-left font-medium">配套编号</th>
           <th class="px-3 py-3 text-left font-medium">原始裁片单</th>
           <th class="px-3 py-3 text-left font-medium">当前缺口数</th>
         </tr>
@@ -1785,6 +1518,7 @@ function buildOperationPreviewRows(rows: TicketSplitDetail[]): string {
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(detail.partName)}</td>
                 <td class="px-3 py-3 text-slate-700">${formatCount(detail.quantity)}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(detail.bundleNo || '暂无数据')}</td>
+                <td class="px-3 py-3 text-slate-700">${escapeHtml(detail.pieceSetNoRange || '暂无数据')}</td>
                 <td class="px-3 py-3 text-slate-700">${escapeHtml(detail.sourceCutOrderNo)}</td>
                 <td class="px-3 py-3 text-slate-700">${formatCount(detail.gapCount)}</td>
               </tr>
@@ -1833,7 +1567,6 @@ function renderOperationValidation(message: string, unit: PrintableUnit | null, 
 
 function getOperationButtonMeta(pageKey: OperationPageKey): { label: string; action: string } {
   if (pageKey === 'fei-ticket-print') return { label: '确认首次打印', action: 'confirm-first-print' }
-  if (pageKey === 'fei-ticket-continue-print') return { label: '确认继续打印', action: 'confirm-continue-print' }
   if (pageKey === 'fei-ticket-reprint') return { label: '确认补打', action: 'confirm-reprint' }
   return { label: '确认作废', action: 'confirm-void-ticket' }
 }
@@ -1858,9 +1591,6 @@ function renderOperationPage(pageKey: OperationPageKey): string {
   if (pageKey === 'fei-ticket-print' && unit.printableUnitStatus !== 'WAITING_PRINT') {
     return renderOperationValidation('只有待打印状态才能进入首次打印页。', unit, pageKey)
   }
-  if (pageKey === 'fei-ticket-continue-print' && unit.printableUnitStatus !== 'PARTIAL_PRINTED') {
-    return renderOperationValidation('只有部分打印状态才能进入继续打印页。', unit, pageKey)
-  }
   if (pageKey === 'fei-ticket-reprint' && unit.printableUnitStatus !== 'NEED_REPRINT') {
     return renderOperationValidation('只有需补打状态才能进入补打页。', unit, pageKey)
   }
@@ -1874,7 +1604,7 @@ function renderOperationPage(pageKey: OperationPageKey): string {
     }
   }
 
-  const previewDetails = pageKey === 'fei-ticket-print' || pageKey === 'fei-ticket-continue-print' || pageKey === 'fei-ticket-reprint' ? detailView.missingSplitDetails : []
+  const previewDetails = pageKey === 'fei-ticket-print' || pageKey === 'fei-ticket-reprint' ? detailView.missingSplitDetails : []
   const invalidPreviewDetails = previewDetails.filter((detail) => !isFeiTicketFiveDimComplete(detail))
   if (invalidPreviewDetails.length) {
     return renderOperationValidation('当前存在缺少五维字段的菲票，不能打印。', unit, pageKey)
@@ -1935,7 +1665,7 @@ function renderPrintableUnitPage(pageKey: PrintableActionPageKey): string {
   return renderOperationPage(pageKey as OperationPageKey)
 }
 
-function performPrintOperation(pageKey: Extract<OperationPageKey, 'fei-ticket-print' | 'fei-ticket-continue-print' | 'fei-ticket-reprint'>): void {
+function performPrintOperation(pageKey: Extract<OperationPageKey, 'fei-ticket-print' | 'fei-ticket-reprint'>): void {
   const bundle = getDataBundle()
   const unit = findUnit(bundle)
   if (!unit) return
@@ -1957,9 +1687,7 @@ function performPrintOperation(pageKey: Extract<OperationPageKey, 'fei-ticket-pr
   const operationType =
     pageKey === 'fei-ticket-print'
       ? 'FIRST_PRINT'
-      : pageKey === 'fei-ticket-continue-print'
-        ? 'CONTINUE_PRINT'
-        : 'REPRINT'
+      : 'REPRINT'
 
   const params = getCurrentSearchParams()
   const result = executePrintableUnitPrint({
@@ -2042,10 +1770,6 @@ export function renderCraftCuttingFeiTicketPrintPage(): string {
   return renderPrintableUnitPage('fei-ticket-print')
 }
 
-export function renderCraftCuttingFeiTicketContinuePrintPage(): string {
-  return renderPrintableUnitPage('fei-ticket-continue-print')
-}
-
 export function renderCraftCuttingFeiTicketReprintPage(): string {
   return renderPrintableUnitPage('fei-ticket-reprint')
 }
@@ -2074,33 +1798,6 @@ export function handleCraftCuttingFeiTicketsEvent(target: Element): boolean {
     }
     state.filters = { ...state.filters, [field]: input.value }
     return true
-  }
-
-  const pieceFieldNode = target.closest<HTMLElement>('[data-cutting-fei-piece-field]')
-  if (pieceFieldNode) {
-    const field = pieceFieldNode.dataset.cuttingFeiPieceField
-    const input = pieceFieldNode as HTMLInputElement | HTMLSelectElement
-    if (field === 'generationOriginalCutOrderId') {
-      state.perPieceGenerationOriginalCutOrderId = input.value
-      state.perPieceGenerationPreviewOpen = false
-      state.perPieceMessage = ''
-      return true
-    }
-    if (
-      field === 'keyword'
-      || field === 'specialCraft'
-      || field === 'originalCutPieceOrderId'
-      || field === 'pieceName'
-      || field === 'colorName'
-      || field === 'printStatus'
-      || field === 'flowStatus'
-    ) {
-      state.perPieceFilters = {
-        ...state.perPieceFilters,
-        [field]: input.value,
-      } as PerPieceFeiTicketFilters
-      return true
-    }
   }
 
   const opFieldNode = target.closest<HTMLElement>('[data-cutting-fei-op-field]')
@@ -2132,66 +1829,6 @@ export function handleCraftCuttingFeiTicketsEvent(target: Element): boolean {
     return true
   }
 
-  if (action === 'open-piece-generation-preview') {
-    const sourceId = ensurePerPieceGenerationSelection()
-    if (!sourceId) {
-      state.perPieceMessage = '请先选择原始裁片单。'
-      return true
-    }
-    const preview = previewFeiTicketGeneration(sourceId)
-    if (!preview) {
-      state.perPieceMessage = '当前纸样未生成裁片实例，请先维护颜色片数和裁片实例。'
-      return true
-    }
-    state.perPieceGenerationPreviewOpen = true
-    state.perPieceMessage = preview.message
-    return true
-  }
-
-  if (action === 'close-piece-generation-preview') {
-    state.perPieceGenerationPreviewOpen = false
-    return true
-  }
-
-  if (action === 'confirm-piece-generation') {
-    const result = confirmFeiTicketGeneration(ensurePerPieceGenerationSelection())
-    state.perPieceGenerationPreviewOpen = false
-    state.perPieceMessage = result.message
-    if (result.createdTickets[0]) {
-      state.perPieceSelectedTicketId = result.createdTickets[0].feiTicketId
-      state.perPieceFilters = {
-        ...state.perPieceFilters,
-        originalCutPieceOrderId: result.createdTickets[0].originalCutPieceOrderId,
-      }
-    }
-    return true
-  }
-
-  if (action === 'select-piece-ticket') {
-    const ticketId = actionNode.dataset.feiTicketId || ''
-    if (ticketId) state.perPieceSelectedTicketId = ticketId
-    return true
-  }
-
-  if (action === 'reprint-piece-ticket') {
-    const ticketId = actionNode.dataset.feiTicketId || state.perPieceSelectedTicketId
-    const ticket = reprintCutPieceFeiTicket(ticketId)
-    state.perPieceMessage = ticket ? `已补打菲票 ${ticket.feiTicketNo}，补打不生成新的业务菲票。` : '未找到需要补打的菲票。'
-    return true
-  }
-
-  if (action === 'void-piece-ticket') {
-    const ticketId = actionNode.dataset.feiTicketId || state.perPieceSelectedTicketId
-    const reason = window.prompt('请填写作废原因') || ''
-    if (!reason.trim()) {
-      state.perPieceMessage = '已打印菲票不能删除，如需取消请作废。'
-      return true
-    }
-    const ticket = voidCutPieceFeiTicket(ticketId, reason.trim())
-    state.perPieceMessage = ticket ? `已作废菲票 ${ticket.feiTicketNo}，原因：${reason.trim()}` : '未找到需要作废的菲票。'
-    return true
-  }
-
   if (action === 'return-summary') {
     const context = buildReturnToSummaryContext(getCurrentDrillContext())
     if (!context) return false
@@ -2201,11 +1838,6 @@ export function handleCraftCuttingFeiTicketsEvent(target: Element): boolean {
 
   if (action === 'confirm-first-print') {
     performPrintOperation('fei-ticket-print')
-    return true
-  }
-
-  if (action === 'confirm-continue-print') {
-    performPrintOperation('fei-ticket-continue-print')
     return true
   }
 

@@ -1,5 +1,6 @@
 import {
   buildSpecialCraftPreferredWarehousePath,
+  buildSpecialCraftTaskDetailPath,
   buildSpecialCraftTaskOrdersPath,
   buildSpecialCraftWorkOrderDetailPath,
   getSpecialCraftOperationBySlug,
@@ -9,6 +10,7 @@ import {
   getSpecialCraftTaskOrderById,
   getSpecialCraftTaskWorkOrdersByTaskOrderId,
 } from '../../../data/fcs/special-craft-task-orders.ts'
+import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
 import {
   formatQty,
@@ -21,13 +23,51 @@ import {
   renderTable,
 } from './shared.ts'
 
+type SpecialCraftTaskDetailTab = 'overview' | 'demand' | 'work-orders' | 'warehouse' | 'exceptions' | 'events'
+
+const specialCraftTaskDetailTabs: Array<{ key: SpecialCraftTaskDetailTab; label: string }> = [
+  { key: 'overview', label: '概览' },
+  { key: 'demand', label: '任务明细' },
+  { key: 'work-orders', label: '子加工单' },
+  { key: 'warehouse', label: '仓库流转' },
+  { key: 'exceptions', label: '差异异常' },
+  { key: 'events', label: '节点记录' },
+]
+
+function getCurrentTaskDetailTab(): SpecialCraftTaskDetailTab {
+  const [, queryString = ''] = (appStore.getState().pathname || '').split('?')
+  const tab = new URLSearchParams(queryString).get('tab')
+  return specialCraftTaskDetailTabs.some((item) => item.key === tab) ? (tab as SpecialCraftTaskDetailTab) : 'overview'
+}
+
+function renderTaskDetailTabs(baseHref: string, activeTab: SpecialCraftTaskDetailTab): string {
+  return `
+    <nav class="inline-flex flex-wrap gap-1 rounded-md bg-muted p-1">
+      ${specialCraftTaskDetailTabs
+        .map((item) => {
+          const active = item.key === activeTab
+          return `
+            <button
+              type="button"
+              class="rounded px-3 py-1.5 text-sm ${active ? 'bg-background font-medium text-foreground shadow-sm' : 'text-muted-foreground hover:bg-background/60 hover:text-foreground'}"
+              data-nav="${escapeHtml(`${baseHref}?tab=${item.key}`)}"
+            >
+              ${escapeHtml(item.label)}
+            </button>
+          `
+        })
+        .join('')}
+    </nav>
+  `
+}
+
 function renderInfoGrid(items: Array<{ label: string; value: string }>): string {
   return `
-    <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+    <div class="grid border-y bg-white md:grid-cols-2 xl:grid-cols-4">
       ${items
         .map(
           (item) => `
-            <div class="rounded-2xl border bg-slate-50/60 p-3">
+            <div class="border-b px-1 py-3 md:px-3 xl:border-r">
               <div class="text-xs text-muted-foreground">${escapeHtml(item.label)}</div>
               <div class="mt-1 text-sm font-medium text-foreground">${item.value}</div>
             </div>
@@ -40,9 +80,9 @@ function renderInfoGrid(items: Array<{ label: string; value: string }>): string 
 
 function renderSection(title: string, body: string): string {
   return `
-    <section class="rounded-2xl border bg-white p-4 shadow-sm">
+    <section class="space-y-3 border-t pt-4">
       <h2 class="text-base font-semibold text-foreground">${escapeHtml(title)}</h2>
-      <div class="mt-4">${body}</div>
+      <div>${body}</div>
     </section>
   `
 }
@@ -242,12 +282,31 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
     )
     .join('')
 
-  const content = [
-    renderSection('基本信息', basicInfo),
-    isCutPieceTarget(taskOrder.targetObject) ? renderSection('裁片信息', pieceInfo) : '',
-    isFabricTarget(taskOrder.targetObject) ? renderSection('面料信息', fabricInfo) : '',
-    renderSection(
-      '加工明细',
+  const taskDetailHref = buildSpecialCraftTaskDetailPath(operation, taskOrder.taskOrderId)
+  const activeTab = getCurrentTaskDetailTab()
+  const targetInfoSection = isCutPieceTarget(taskOrder.targetObject)
+    ? renderSection('裁片信息', pieceInfo)
+    : isFabricTarget(taskOrder.targetObject)
+      ? renderSection('面料信息', fabricInfo)
+      : ''
+  const firstDemandLine = (taskOrder.demandLines ?? [])[0]
+  const demandSummary = renderInfoGrid([
+    { label: '任务明细', value: `${formatQty(taskOrder.demandLines?.length || 0)} 条` },
+    { label: '来源纸样', value: escapeHtml(firstDemandLine?.patternFileName || '—') },
+    { label: '来源裁片明细', value: escapeHtml(firstDemandLine?.pieceRowId || '—') },
+    { label: '菲票状态', value: escapeHtml(taskOrder.feiTicketNos.join('、') || '待绑定') },
+  ])
+
+  const sections: Record<SpecialCraftTaskDetailTab, string> = {
+    overview: `
+      <div class="space-y-5">
+        ${renderSection('基本信息', basicInfo)}
+        ${renderSection('任务明细摘要', demandSummary)}
+        ${targetInfoSection}
+      </div>
+    `,
+    demand: renderSection(
+      '任务明细',
       demandRows
         ? renderTable(
             ['裁片部位', '颜色', '尺码', '每件片数', '生产成衣件数', '计划裁片数量', '来源纸样', '来源裁片明细', '菲票号'],
@@ -256,17 +315,7 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
           )
         : renderEmptyState('暂无加工明细'),
     ),
-    renderSection(
-      '菲票流转',
-      bindingRows
-        ? renderTable(
-            ['菲票号', '裁片部位', '颜色', '尺码', '计划数量', '当前状态'],
-            bindingRows,
-            'min-w-[860px]',
-          )
-        : renderEmptyState('暂无菲票流转'),
-    ),
-    renderSection(
+    'work-orders': renderSection(
       '子加工单',
       workOrderRows
         ? renderTable(
@@ -276,39 +325,108 @@ export function renderSpecialCraftTaskDetailPage(operationSlug: string, taskOrde
           )
         : renderEmptyState('暂无子加工单'),
     ),
-    renderSection(
-      '接收差异上报 / 回仓差异上报',
-      differenceRows
-        ? renderTable(['差异类型', '差异数量', '原因', '上报人', '上报时间', '状态'], differenceRows, 'min-w-[860px]')
-        : renderEmptyState('暂无差异上报'),
-    ),
-    renderSection(
+    warehouse: `
+      <div class="space-y-5">
+        ${renderSection(
+          '菲票流转',
+          bindingRows
+            ? renderTable(
+                ['菲票号', '裁片部位', '颜色', '尺码', '计划数量', '当前状态'],
+                bindingRows,
+                'min-w-[860px]',
+              )
+            : renderEmptyState('暂无菲票流转'),
+        )}
+        ${renderSection(
+          '仓库记录',
+          renderTable(
+            [
+              '仓库类型',
+              '仓库名称',
+              '入库记录',
+              '出库记录',
+              '待加工仓记录',
+              '待交出仓记录',
+              '交出记录',
+              '交出二维码',
+              '回写状态',
+              '差异 / 异议',
+            ],
+            warehouseRows || `<tr><td colspan="10" class="px-3 py-6 text-center text-muted-foreground">暂无数据</td></tr>`,
+            'min-w-[1420px]',
+          ),
+        )}
+      </div>
+    `,
+    exceptions: `
+      <div class="space-y-5">
+        ${renderSection(
+          '接收差异上报 / 回仓差异上报',
+          differenceRows
+            ? renderTable(['差异类型', '差异数量', '原因', '上报人', '上报时间', '状态'], differenceRows, 'min-w-[860px]')
+            : renderEmptyState('暂无差异上报'),
+        )}
+        ${renderSection(
+          '异常记录',
+          abnormalRows
+            ? renderTable(['异常类型', '异常裁片数量', '描述', '照片数量', '上报人', '上报时间', '状态'], abnormalRows, 'min-w-[980px]')
+            : renderEmptyState('暂无异常记录'),
+        )}
+      </div>
+    `,
+    events: renderSection(
       '节点记录',
       renderTable(['节点', '操作', '操作裁片数量', '操作人', '操作时间', '关联单号', '照片数量', '备注'], nodeRows, 'min-w-[1160px]'),
     ),
-    renderSection(
-      '仓库记录',
-      renderTable(
-        ['仓库类型', '仓库名称', '入库记录', '出库记录', '待加工仓记录', '待交出仓记录', '交出记录', '交出二维码', '回写状态', '差异 / 异议'],
-        warehouseRows || `<tr><td colspan="10" class="px-3 py-6 text-center text-muted-foreground">暂无数据</td></tr>`,
-        'min-w-[1420px]',
-      ),
-    ),
-    renderSection(
-      '异常记录',
-      abnormalRows
-        ? renderTable(['异常类型', '异常裁片数量', '描述', '照片数量', '上报人', '上报时间', '状态'], abnormalRows, 'min-w-[980px]')
-        : renderEmptyState('暂无异常记录'),
-    ),
-    `
-      <div class="flex flex-wrap gap-2">
-        <button type="button" class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-slate-50" data-nav="${buildSpecialCraftTaskOrdersPath(operation)}">返回</button>
-        <button type="button" class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-slate-50" data-nav="${buildTaskRouteCardPrintLink('SPECIAL_CRAFT_TASK_ORDER', taskOrder.taskOrderId)}">打印任务流转卡</button>
-        <button type="button" class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-slate-50" data-nav="${buildSpecialCraftPreferredWarehousePath(taskOrder)}">查看仓库记录</button>
-        <button type="button" class="inline-flex items-center rounded-md border px-3 py-2 text-sm hover:bg-slate-50" data-nav="/fcs/pda/handover">查看交出记录</button>
+  }
+
+  const content = `
+    <section class="border-y bg-white py-3">
+      <div class="grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-4">
+        <div>
+          <div class="text-xs text-muted-foreground">加工单号</div>
+          <div class="mt-1 font-semibold text-foreground">${escapeHtml(taskOrder.taskOrderNo)}</div>
+        </div>
+        <div>
+          <div class="text-xs text-muted-foreground">生产单 / 技术包</div>
+          <div class="mt-1 font-medium text-foreground">${escapeHtml(taskOrder.productionOrderNo)} / ${escapeHtml(taskOrder.techPackVersion || '—')}</div>
+        </div>
+        <div>
+          <div class="text-xs text-muted-foreground">执行工厂</div>
+          <div class="mt-1 font-medium text-foreground">${escapeHtml(formatSpecialCraftFactoryLabel(taskOrder.factoryName, taskOrder.factoryId))}</div>
+        </div>
+        <div>
+          <div class="text-xs text-muted-foreground">当前状态</div>
+          <div class="mt-1">${renderStatusBadge(taskOrder.status)}</div>
+        </div>
       </div>
-    `,
-  ].join('')
+    </section>
+    <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <main class="min-w-0 space-y-4">
+        ${renderTaskDetailTabs(taskDetailHref, activeTab)}
+        ${sections[activeTab]}
+      </main>
+      <aside class="space-y-4 xl:sticky xl:top-4 xl:self-start">
+        <section class="space-y-3 border-l pl-4">
+          <h2 class="text-base font-semibold text-foreground">当前处理</h2>
+          <div class="grid gap-2 text-sm">
+            <div class="flex justify-between gap-3"><span class="text-muted-foreground">作用对象</span><span class="font-medium text-foreground">${escapeHtml(taskOrder.targetObject)}</span></div>
+            <div class="flex justify-between gap-3"><span class="text-muted-foreground">计划数量</span><span class="font-medium text-foreground">${formatQty(taskOrder.planQty)} ${escapeHtml(taskOrder.unit)}</span></div>
+            <div class="flex justify-between gap-3"><span class="text-muted-foreground">已接收</span><span class="font-medium text-foreground">${formatQty(taskOrder.receivedQty)} ${escapeHtml(taskOrder.unit)}</span></div>
+            <div class="flex justify-between gap-3"><span class="text-muted-foreground">已完成</span><span class="font-medium text-foreground">${formatQty(taskOrder.completedQty)} ${escapeHtml(taskOrder.unit)}</span></div>
+            <div class="flex justify-between gap-3"><span class="text-muted-foreground">待交出</span><span class="font-medium text-foreground">${formatQty(taskOrder.waitHandoverQty)} ${escapeHtml(taskOrder.unit)}</span></div>
+            <div class="flex justify-between gap-3"><span class="text-muted-foreground">交期</span><span class="font-medium text-foreground">${escapeHtml(taskOrder.dueAt.slice(0, 10))}</span></div>
+          </div>
+          <div class="grid gap-2 pt-2">
+            <button type="button" class="inline-flex items-center justify-center rounded-md border px-3 py-2 text-sm hover:bg-slate-50" data-nav="${escapeHtml(buildSpecialCraftTaskOrdersPath(operation))}">返回列表</button>
+            <button type="button" class="inline-flex items-center justify-center rounded-md border px-3 py-2 text-sm hover:bg-slate-50" data-nav="${escapeHtml(buildTaskRouteCardPrintLink('SPECIAL_CRAFT_TASK_ORDER', taskOrder.taskOrderId))}">打印任务流转卡</button>
+            <button type="button" class="inline-flex items-center justify-center rounded-md border px-3 py-2 text-sm hover:bg-slate-50" data-nav="${escapeHtml(buildSpecialCraftPreferredWarehousePath(taskOrder))}">查看仓库记录</button>
+            <button type="button" class="inline-flex items-center justify-center rounded-md border px-3 py-2 text-sm hover:bg-slate-50" data-nav="/fcs/pda/handover">查看交出记录</button>
+          </div>
+        </section>
+      </aside>
+    </div>
+  `
 
   return renderSpecialCraftPageLayout({
     operation,

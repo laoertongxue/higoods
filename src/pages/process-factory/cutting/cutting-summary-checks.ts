@@ -220,7 +220,7 @@ const sectionStateMetaMap: Record<
 const ownerStatusLabelMap: Record<string, string> = {
   NOT_GENERATED: '未生成',
   DRAFT: '草稿中',
-  PARTIAL_PRINTED: '部分已打印',
+  PARTIAL_PRINTED: '需补打',
   PRINTED: '已打印',
   REPRINTED: '已重打',
   PENDING_SUPPLEMENT: '待补录',

@@ -148,8 +148,8 @@ function renderDetailDrawer(): string {
             { label: '中转袋号', value: row.transferBagNo || '-' },
             { label: '卷号', value: row.fabricRollNo || '-' },
             { label: '应收数量', value: `${row.expectedQty} ${row.unit}` },
-            { label: '实收对象数量', value: `${row.receivedQty} ${row.unit}` },
-            { label: '差异对象数量', value: buildWarehouseDifferenceText(row.differenceQty) },
+            { label: '实收数量', value: `${row.receivedQty} ${row.unit}` },
+            { label: '差异数量', value: buildWarehouseDifferenceText(row.differenceQty) },
             { label: '库区 / 货架 / 库位', value: `${row.areaName} / ${row.shelfNo} / ${row.locationNo}` },
             { label: '操作人', value: row.receiverName },
             { label: '操作时间', value: formatWarehouseDateTime(row.receivedAt) },
@@ -296,7 +296,7 @@ export function renderPdaWarehouseInboundRecordsPage(): string {
                             : ''
                         }
                         <div>卷号：${escapeHtml(row.fabricRollNo || '-')}</div>
-                        <div>应收对象数量 / 实收对象数量：${row.expectedQty} / ${row.receivedQty} ${escapeHtml(row.unit)}</div>
+                        <div>应收数量 / 实收数量：${row.expectedQty} / ${row.receivedQty} ${escapeHtml(row.unit)}</div>
                         <div>库区 / 货架 / 库位：${escapeHtml(row.areaName)} / ${escapeHtml(row.shelfNo)} / ${escapeHtml(row.locationNo)}</div>
                         <div>操作时间：${escapeHtml(formatWarehouseDateTime(row.receivedAt))}</div>
                       </div>

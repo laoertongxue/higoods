@@ -130,16 +130,16 @@ function renderDetailDrawer(): string {
             { label: '发料状态 / 回仓状态', value: specialCraftSummary ? `${specialCraftSummary.dispatchStatus} / ${specialCraftSummary.returnStatus}` : '-' },
             { label: '中转袋号', value: row.transferBagNo || '-' },
             { label: '卷号', value: row.fabricRollNo || '-' },
-            { label: '加工完成对象数量', value: `${row.completedQty} ${row.unit}` },
+            { label: '加工完成数量', value: `${row.completedQty} ${row.unit}` },
             { label: '损耗数量', value: `${row.lossQty} ${row.unit}` },
-            { label: '待交出对象数量', value: `${row.waitHandoverQty} ${row.unit}` },
+            { label: '待交出数量', value: `${row.waitHandoverQty} ${row.unit}` },
             { label: '接收方', value: row.receiverName || '-' },
             { label: '交出单', value: row.handoverOrderNo || '-' },
             { label: '交出记录', value: row.handoverRecordNo || '-' },
             { label: '出库记录', value: outboundRoute.includes('recordId=') ? '点击查看' : '未出库' },
             { label: '交出二维码', value: getWarehouseQrDisplayText(getLinkedQrValue(row)) },
             { label: '回写状态', value: getWaitHandoverWritebackStatusLabel(row) },
-            { label: '回写对象', value: row.receiverWrittenQty === undefined ? '-' : `${row.receiverWrittenQty} ${row.unit}` },
+            { label: '回写数量', value: row.receiverWrittenQty === undefined ? '-' : `${row.receiverWrittenQty} ${row.unit}` },
             { label: '差异 / 异议', value: buildWarehouseDifferenceText(row.differenceQty) },
             { label: '库区', value: row.areaName },
             { label: '货架', value: row.shelfNo },
@@ -397,7 +397,7 @@ export function renderPdaWarehouseWaitHandoverPage(): string {
                         }
                         <div>卷号：${escapeHtml(row.fabricRollNo || '-')}</div>
                         <div>加工完成对象数量 / 损耗对象数量：${row.completedQty} / ${row.lossQty} ${escapeHtml(row.unit)}</div>
-                        <div>待交出对象数量 / 回写对象数量：${row.waitHandoverQty} / ${row.receiverWrittenQty ?? '-'} ${escapeHtml(row.unit)}</div>
+                        <div>待交出数量 / 回写数量：${row.waitHandoverQty} / ${row.receiverWrittenQty ?? '-'} ${escapeHtml(row.unit)}</div>
                         <div>出库记录：${escapeHtml(resolveWarehouseOutboundRecordRoute(row.handoverRecordId).includes('recordId=') ? '已生成' : '未出库')}</div>
                         <div>交出二维码：${escapeHtml(getWarehouseQrDisplayText(getLinkedQrValue(row)))}</div>
                         <div>回写状态：${escapeHtml(getWaitHandoverWritebackStatusLabel(row))}</div>

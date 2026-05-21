@@ -111,8 +111,23 @@ function resolveSuggestedFactory(operation: SpecialCraftOperationDefinition, tar
   suggestedFactoryName?: string
 } {
   const matched = mockFactories
-    .filter((factory) => factory.processAbilities.some((ability) => ability.craftCodes.includes(operation.craftCode)))
+    .filter((factory) => factory.processAbilities.some((ability) =>
+      ability.processCode === operation.processCode
+      && ability.craftCodes.includes(operation.craftCode)
+      && ability.canReceiveTask !== false
+      && (ability.status ?? 'ACTIVE') !== 'DISABLED',
+    ))
     .sort((left, right) => left.name.localeCompare(right.name, 'zh-CN'))
+  const visibleFactoryIds = new Set(operation.visibleFactoryIds ?? [])
+  if (visibleFactoryIds.size > 0) {
+    const scoped = matched.find((factory) => visibleFactoryIds.has(factory.id))
+    if (scoped) {
+      return {
+        suggestedFactoryId: scoped.id,
+        suggestedFactoryName: scoped.name,
+      }
+    }
+  }
   const preferred = targetObject === '完整面料' || targetObject === '面料'
     ? matched.find((factory) => factory.factoryType === 'CENTRAL_DENIM_WASH')
     : matched.find((factory) => factory.factoryType === 'CENTRAL_SPECIAL' || factory.factoryType === 'SATELLITE_FINISHING')

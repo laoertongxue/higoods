@@ -53,6 +53,12 @@ function renderStep(label: string, status: string, action: string, enabled = tru
   `
 }
 
+function getActualTimeText(session: CuttingMainlineSessionView): string {
+  if (session.actualStartAt && session.actualEndAt) return `${session.actualStartAt} 至 ${session.actualEndAt}`
+  if (session.actualStartAt) return `${session.actualStartAt} 起`
+  return '未开始'
+}
+
 function getSession(taskId: string, sessionId: string): CuttingMainlineSessionView | null {
   return getCuttingMainlineSession(taskId, sessionId)
     || listCuttingMainlineSessions(taskId).find((item) => item.sessionNo === sessionId || item.spreadingSessionId === sessionId)
@@ -86,8 +92,11 @@ export function renderPdaCuttingExecutionUnitPage(taskId: string, executionOrder
               ${chip(session.mainStageLabel, toneForSession(session))}
             </div>
             <div class="mt-3 grid grid-cols-2 gap-2">
-              ${field('执行裁床', session.cuttingTableName)}
-              ${field('预计耗时', `${session.estimatedDurationMinutes} 分钟`, `${session.plannedStartAt} 至 ${session.plannedEndAt}`)}
+              ${field('执行裁床', session.cuttingTableName || '待选择')}
+              ${field('预计耗时', `${session.estimatedDurationMinutes} 分钟`)}
+              ${field('铺布状态', session.mainStageLabel)}
+              ${field('裁剪状态', session.cuttingStageLabel)}
+              ${field('实际时间', getActualTimeText(session))}
               ${field('来源', session.sourceTypeLabel, session.sourceOrderLabel)}
               ${field('面料 / 颜色', session.materialSku, session.color)}
             </div>
@@ -97,8 +106,6 @@ export function renderPdaCuttingExecutionUnitPage(taskId: string, executionOrder
         <section class="grid grid-cols-2 gap-2">
           ${field('WMS 来料接收', session.wmsReceiveStatus)}
           ${field('待加工仓', '铺布扣出')}
-          ${field('菲票状态', session.feiTicketStatus)}
-          ${field('待交出仓', session.warehouseFlowStatus)}
         </section>
 
         <section class="rounded-2xl border bg-card p-3 shadow-sm">
@@ -115,9 +122,10 @@ export function renderPdaCuttingExecutionUnitPage(taskId: string, executionOrder
           <div class="flex items-center justify-between">
             <h2 class="text-sm font-semibold text-foreground">现场动作</h2>
           </div>
-          ${renderStep('确认到床', '待加工仓已到床', '确认到床', session.statusTab !== 'DONE')}
-          ${renderStep('开始铺布', session.markerBedNo, '开始铺布', session.statusTab !== 'DONE')}
-          ${renderStep('完成铺布裁剪', '流转到菲票 / 待交出仓', '完成铺布', session.statusTab !== 'DONE')}
+          ${renderStep('开始铺布', session.markerBedNo, '开始铺布', session.statusTab === 'NOT_STARTED')}
+          ${renderStep('完成铺布', '铺布完成后进入待裁剪', '完成铺布', session.statusTab === 'IN_PROGRESS')}
+          ${renderStep('开始裁剪', '铺布完成后可开始裁剪', '开始裁剪', session.cuttingStageLabel === '待裁剪')}
+          ${renderStep('完成裁剪', '记录裁剪完成数量', '完成裁剪', session.cuttingStageLabel === '裁剪中')}
           ${renderStep('异常反馈', '补料 / 长度差异 / 裁床冲突', '反馈异常')}
           <div class="hidden rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800" data-pda-cutting-action-feedback></div>
         </section>

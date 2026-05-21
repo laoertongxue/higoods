@@ -255,6 +255,13 @@ function normalizeBasePayload(input: {
     partName: generated?.partName || normalizeText(input.ticketRecord.partName) || '整单裁片',
     bundleNo: generated?.bundleNo || normalizeText(input.ticketRecord.bundleNo) || `BUNDLE-${String(input.ticketRecord.sequenceNo || 1).padStart(3, '0')}`,
     bundleQty: Math.max(generated?.bundleQty || input.ticketRecord.quantity || 1, 1),
+    pieceSetNoStart: Math.max(generated?.pieceSetNoStart || input.ticketRecord.pieceSetNoStart || 1, 1),
+    pieceSetNoEnd: Math.max(generated?.pieceSetNoEnd || input.ticketRecord.pieceSetNoEnd || generated?.bundleQty || input.ticketRecord.quantity || 1, 1),
+    pieceSetNoRange:
+      generated?.pieceSetNoRange
+      || input.ticketRecord.pieceSetNoRange
+      || `${Math.max(generated?.pieceSetNoStart || input.ticketRecord.pieceSetNoStart || 1, 1)}-${Math.max(generated?.pieceSetNoEnd || input.ticketRecord.pieceSetNoEnd || generated?.bundleQty || input.ticketRecord.quantity || 1, 1)}`,
+    bundleTicketType: generated?.bundleTicketType || input.ticketRecord.bundleTicketType || '扎束菲票',
     actualCutPieceQty: Math.max(generated?.actualCutPieceQty || input.ticketRecord.actualCutPieceQty || input.ticketRecord.quantity || 1, 1),
     qty: Math.max(generated?.qty || input.ticketRecord.quantity || 1, 1),
     secondaryCrafts: generated?.secondaryCrafts || unique((input.ticketRecord.processTags || []).map((item) => normalizeText(item))),
@@ -373,6 +380,10 @@ function toCanonicalPayload(payload: FeiQrPayload): CanonicalFeiTicketQrPayload 
     partName: payload.partName,
     bundleNo: payload.bundleNo,
     bundleQty: payload.bundleQty,
+    pieceSetNoStart: payload.pieceSetNoStart,
+    pieceSetNoEnd: payload.pieceSetNoEnd,
+    pieceSetNoRange: payload.pieceSetNoRange,
+    bundleTicketType: payload.bundleTicketType,
     actualCutPieceQty: payload.actualCutPieceQty,
     qty: payload.qty,
     secondaryCrafts: [...payload.secondaryCrafts],
