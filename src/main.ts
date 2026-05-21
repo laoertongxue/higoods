@@ -1,6 +1,6 @@
 import './styles.css'
 import { hydrateRealQRCodes } from './components/real-qr'
-import { hydrateIcons, renderAppShell } from './components/shell'
+import { hydrateIcons, renderAppShell, renderSidebar } from './components/shell'
 import { appStore } from './state/store'
 
 type FcsHandlersModule = typeof import('./main-handlers/fcs-handlers')
@@ -30,6 +30,9 @@ let factoryWarehouseSharedModulePromise: Promise<FactoryWarehouseSharedModule> |
 let printPreviewPageModulePromise: Promise<PrintPreviewPageModule> | null = null
 let pdaExecPageModulePromise: Promise<PdaExecPageModule> | null = null
 let routesModulePromise: Promise<RoutesModule> | null = null
+type StoreRenderMode = 'full' | 'sidebar'
+
+let nextStoreRenderMode: StoreRenderMode = 'full'
 
 function getFcsHandlersModule(): Promise<FcsHandlersModule> {
   if (!fcsHandlersModulePromise) {
@@ -472,6 +475,21 @@ async function render(): Promise<void> {
   }
 }
 
+async function renderSidebarOnly(): Promise<void> {
+  const sidebarHost = root.querySelector('[data-shell-sidebar-root="true"]')
+  if (!(sidebarHost instanceof HTMLElement)) {
+    await render()
+    return
+  }
+
+  sidebarHost.innerHTML = renderSidebar(appStore.getState())
+  hydrateIcons(sidebarHost)
+}
+
+function markNextStoreRenderAsSidebarOnly(): void {
+  nextStoreRenderMode = 'sidebar'
+}
+
 function getPageContentHost(): HTMLDivElement | null {
   const host = root.querySelector('[data-page-content-root="true"]')
   return host instanceof HTMLDivElement ? host : null
@@ -667,8 +685,16 @@ async function renderPageContentOnlyWithFocusRestore(snapshot: FocusSnapshot | n
 function closeMobileSidebar(): void {
   const { sidebarOpen } = appStore.getState()
   if (sidebarOpen) {
+    markNextStoreRenderAsSidebarOnly()
     appStore.setSidebarOpen(false)
   }
+}
+
+function navigateWithImmediateSidebar(pathname: string): void {
+  markNextStoreRenderAsSidebarOnly()
+  appStore.navigate(pathname)
+  closeMobileSidebar()
+  void renderPageContentOnly()
 }
 
 function hasDatasetAction(node: HTMLElement): boolean {
@@ -863,24 +889,32 @@ function handleShellAction(actionNode: HTMLElement): boolean {
   }
 
   if (action === 'set-sidebar-open') {
+    markNextStoreRenderAsSidebarOnly()
     appStore.setSidebarOpen(actionNode.dataset.sidebarOpen === 'true')
     return true
   }
 
   if (action === 'toggle-sidebar-collapsed') {
+    markNextStoreRenderAsSidebarOnly()
     appStore.toggleSidebarCollapsed()
     return true
   }
 
   if (action === 'toggle-menu-group') {
     const groupKey = actionNode.dataset.groupKey
-    if (groupKey) appStore.toggleGroup(groupKey)
+    if (groupKey) {
+      markNextStoreRenderAsSidebarOnly()
+      appStore.toggleGroup(groupKey)
+    }
     return true
   }
 
   if (action === 'toggle-menu-item') {
     const itemKey = actionNode.dataset.itemKey
-    if (itemKey) appStore.toggleItem(itemKey)
+    if (itemKey) {
+      markNextStoreRenderAsSidebarOnly()
+      appStore.toggleItem(itemKey)
+    }
     return true
   }
 
@@ -947,8 +981,7 @@ root.addEventListener('click', async (event) => {
   const directNavNode = target.closest<HTMLElement>('[data-nav]')
   if (directNavNode?.dataset.nav && !hasDatasetAction(directNavNode)) {
     event.preventDefault()
-    appStore.navigate(directNavNode.dataset.nav)
-    closeMobileSidebar()
+    navigateWithImmediateSidebar(directNavNode.dataset.nav)
     return
   }
 
@@ -969,8 +1002,7 @@ root.addEventListener('click', async (event) => {
   const navNode = target.closest<HTMLElement>('[data-nav]')
   if (navNode?.dataset.nav) {
     event.preventDefault()
-    appStore.navigate(navNode.dataset.nav)
-    closeMobileSidebar()
+    navigateWithImmediateSidebar(navNode.dataset.nav)
     return
   }
 
@@ -1078,6 +1110,14 @@ window.addEventListener('popstate', () => {
 })
 
 appStore.subscribe(() => {
+  const renderMode = nextStoreRenderMode
+  nextStoreRenderMode = 'full'
+
+  if (renderMode === 'sidebar') {
+    void renderSidebarOnly()
+    return
+  }
+
   void render()
 })
 window.addEventListener('higood:request-render', () => {

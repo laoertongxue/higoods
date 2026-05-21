@@ -66,6 +66,41 @@ import {
   deserializeCuttingWarehouseWritebackStorage,
 } from './warehouse-writeback-ledger.ts'
 
+const CUTTING_RUNTIME_LOCAL_STORAGE_SIGNATURE_KEYS = [
+  CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY,
+  CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY,
+  CUTTING_FEI_TICKET_PRINT_JOBS_STORAGE_KEY,
+  CUTTING_TRANSFER_BAG_LEDGER_STORAGE_KEY,
+  CUTTING_REPLENISHMENT_REVIEWS_STORAGE_KEY,
+  CUTTING_REPLENISHMENT_IMPACTS_STORAGE_KEY,
+  CUTTING_REPLENISHMENT_ACTIONS_STORAGE_KEY,
+  CUTTING_SPECIAL_PROCESS_ORDERS_STORAGE_KEY,
+  CUTTING_SPECIAL_PROCESS_BINDING_PAYLOAD_STORAGE_KEY,
+  CUTTING_SPECIAL_PROCESS_SCOPE_LINES_STORAGE_KEY,
+  CUTTING_SPECIAL_PROCESS_EXECUTION_LOGS_STORAGE_KEY,
+  CUTTING_SPECIAL_PROCESS_FOLLOWUP_ACTIONS_STORAGE_KEY,
+  CUTTING_PDA_EXECUTION_WRITEBACK_STORAGE_KEY,
+  CUTTING_MERGE_BATCH_LEDGER_STORAGE_KEY,
+  CUTTING_WAREHOUSE_WRITEBACK_STORAGE_KEY,
+]
+
+const CUTTING_RUNTIME_SESSION_STORAGE_SIGNATURE_KEYS = [
+  CUTTING_FEI_TICKET_DRAFTS_STORAGE_KEY,
+]
+
+export function getCuttingRuntimeStorageSignature(): string {
+  const localStorageRef = getBrowserLocalStorage()
+  const sessionStorageRef = getBrowserSessionStorage()
+  const localSignature = CUTTING_RUNTIME_LOCAL_STORAGE_SIGNATURE_KEYS
+    .map((key) => `${key}:${readBrowserStorageItem(localStorageRef, key) || ''}`)
+    .join('\n')
+  const sessionSignature = CUTTING_RUNTIME_SESSION_STORAGE_SIGNATURE_KEYS
+    .map((key) => `${key}:${readBrowserStorageItem(sessionStorageRef, key) || ''}`)
+    .join('\n')
+
+  return `${localSignature}\n${sessionSignature}`
+}
+
 export function readCuttingMarkerStore() {
   return deserializeMarkerSpreadingStorage(
     readBrowserStorageItem(getBrowserLocalStorage(), CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY),

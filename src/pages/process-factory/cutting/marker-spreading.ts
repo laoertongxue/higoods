@@ -83,6 +83,7 @@ import {
   deriveMarkerModeMeta,
   deriveSpreadingModeMeta,
   getDefaultMarkerSpreadingContext,
+  buildMarkerSpreadingPrototypeStore,
   MARKER_SIZE_KEYS,
   readMarkerSpreadingPrototypeData,
   type HighLowCuttingRow,
@@ -2032,18 +2033,22 @@ function getPageData() {
   const projection = buildMarkerSpreadingProjection({
     prefilter: state.prefilter,
   })
-  const data = readMarkerSpreadingPrototypeData()
+  const store = buildMarkerSpreadingPrototypeStore({
+    rows: projection.rows,
+    mergeBatches: projection.mergeBatches,
+    stored: projection.store,
+  })
   const viewModel = buildMarkerSpreadingViewModel({
     rows: projection.rows,
     mergeBatches: projection.mergeBatches,
-    store: data.store,
+    store,
     prefilter: state.prefilter,
   })
   const baseRows = buildSpreadingListViewModel({
     spreadingSessions: viewModel.spreadingSessions,
     rowsById: projection.rowsById,
     mergeBatches: projection.mergeBatches,
-    markerRecords: data.store.markers,
+    markerRecords: store.markers,
   })
   const supervisorRows = buildSupervisorSpreadingRows(baseRows)
   const nonStageFilteredRows = supervisorRows.filter((row) => {
@@ -2114,7 +2119,11 @@ function getPageData() {
     state.activeTab === 'ALL' ? nonStageFilteredRows : nonStageFilteredRows.filter((row) => row.mainStageKey === state.activeTab)
 
   return {
-    ...data,
+    rows: projection.rows,
+    rowsById: projection.rowsById,
+    mergeBatches: projection.mergeBatches,
+    mergeBatchesById: projection.mergeBatchesById,
+    store,
     projection,
     viewModel,
     spreadingRows,

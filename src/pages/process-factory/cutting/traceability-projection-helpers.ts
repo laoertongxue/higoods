@@ -1,5 +1,4 @@
 import {
-  buildFcsCuttingDomainSnapshot,
   type CuttingDomainSnapshot,
 } from '../../../domain/fcs-cutting-runtime/index.ts'
 import type { FeiTicketPrintJob, FeiTicketLabelRecord, PrintableUnitViewModel } from './fei-tickets-model.ts'
@@ -46,6 +45,7 @@ import {
 import {
   buildExecutionPrepProjectionContext,
 } from './execution-prep-projection-helpers.ts'
+import { getCuttingRuntimeStorageSignature } from '../../../data/fcs/cutting/runtime-inputs.ts'
 
 export interface CuttingTraceabilityProjectionContext {
   snapshot: CuttingDomainSnapshot
@@ -63,6 +63,12 @@ export interface CuttingTraceabilityProjectionContext {
   transferBagViewModel: TransferBagViewModel
   transferBagReturnViewModel: TransferBagReturnViewModel
 }
+
+let defaultTraceabilityProjectionCache: {
+  signature: string
+  context: CuttingTraceabilityProjectionContext
+} | null = null
+const snapshotTraceabilityProjectionCache = new WeakMap<CuttingDomainSnapshot, CuttingTraceabilityProjectionContext>()
 
 function castTicketRecords(input: Array<Record<string, unknown>>): FeiTicketLabelRecord[] {
   return input as unknown as FeiTicketLabelRecord[]
@@ -538,10 +544,26 @@ function ensureTraceabilityBagFirstSeed(options: {
 }
 
 export function buildCuttingTraceabilityProjectionContext(
-  snapshot: CuttingDomainSnapshot = buildFcsCuttingDomainSnapshot(),
+  snapshot?: CuttingDomainSnapshot,
   storeOverride?: TransferBagStore,
 ): CuttingTraceabilityProjectionContext {
+  const canUseDefaultCache = !snapshot && !storeOverride
+  if (canUseDefaultCache) {
+    const signature = getCuttingRuntimeStorageSignature()
+    if (defaultTraceabilityProjectionCache?.signature === signature) {
+      return defaultTraceabilityProjectionCache.context
+    }
+  }
+
+  if (snapshot && !storeOverride) {
+    const cachedContext = snapshotTraceabilityProjectionCache.get(snapshot)
+    if (cachedContext) {
+      return cachedContext
+    }
+  }
+
   const context = buildExecutionPrepProjectionContext(snapshot)
+  const effectiveSnapshot = context.snapshot
   const originalRows = context.sources.originalRows
   const materialPrepRows = context.sources.materialPrepRows
   const mergeBatches = context.sources.mergeBatches
@@ -566,7 +588,7 @@ export function buildCuttingTraceabilityProjectionContext(
   })
   const mergedRawTicketRecords = mergeTicketRecords(
     seedLedger.ticketRecords,
-    castTicketRecords(snapshot.feiTicketState.ticketRecords),
+    castTicketRecords(effectiveSnapshot.feiTicketState.ticketRecords),
   )
   const rawTicketRecords = ensureTraceabilityTicketRecords({
     ticketRecords: mergedRawTicketRecords,
@@ -574,7 +596,7 @@ export function buildCuttingTraceabilityProjectionContext(
     mergeBatches,
     spreadingStore,
   })
-  const printJobs = mergePrintJobs(seedLedger.printJobs, castPrintJobs(snapshot.feiTicketState.printJobs))
+  const printJobs = mergePrintJobs(seedLedger.printJobs, castPrintJobs(effectiveSnapshot.feiTicketState.printJobs))
   const seedTransferBagStore = buildSystemSeedTransferBagStore({
     originalRows,
     ticketRecords: rawTicketRecords,
@@ -582,7 +604,7 @@ export function buildCuttingTraceabilityProjectionContext(
   })
   const mergedTransferBagStore = storeOverride
     ? mergeTransferBagStores(seedTransferBagStore, storeOverride)
-    : mergeTransferBagStores(seedTransferBagStore, castTransferBagStore(snapshot.transferBagState.store))
+    : mergeTransferBagStores(seedTransferBagStore, castTransferBagStore(effectiveSnapshot.transferBagState.store))
   const transferBagStore = ensureTraceabilityBagFirstSeed({
     store: mergedTransferBagStore,
     ticketRecords: rawTicketRecords,
@@ -612,8 +634,8 @@ export function buildCuttingTraceabilityProjectionContext(
     baseViewModel: transferBagViewModel,
   })
 
-  return {
-    snapshot,
+  const nextContext = {
+    snapshot: context.snapshot,
     originalRows,
     materialPrepRows,
     mergeBatches,
@@ -628,6 +650,18 @@ export function buildCuttingTraceabilityProjectionContext(
     transferBagViewModel,
     transferBagReturnViewModel,
   }
+
+  if (canUseDefaultCache) {
+    defaultTraceabilityProjectionCache = {
+      signature: getCuttingRuntimeStorageSignature(),
+      context: nextContext,
+    }
+  }
+  if (snapshot && !storeOverride) {
+    snapshotTraceabilityProjectionCache.set(snapshot, nextContext)
+  }
+
+  return nextContext
 }
 
 export function resolveCarrierScanInput(input: string, store: TransferBagStore) {

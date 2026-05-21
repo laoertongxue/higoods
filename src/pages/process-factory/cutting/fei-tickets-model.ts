@@ -8,8 +8,7 @@ import {
 import {
   getGeneratedFeiTicketMapByOriginalCutOrderId,
   getFeiTicketById as getGeneratedFeiTicketById,
-  listGeneratedFeiTickets,
-  listGeneratedFeiTicketsByOriginalCutOrderId,
+  listSpreadingResultGeneratedFeiTicketsByOriginalCutOrderId,
   type GeneratedFeiTicketSourceRecord,
 } from '../../../data/fcs/cutting/generated-fei-tickets.ts'
 import {
@@ -376,7 +375,7 @@ function uniqueStrings(values: Array<string | undefined>): string[] {
 }
 
 function getGeneratedFeiRecordsByOriginalCutOrderId(originalCutOrderId: string): GeneratedFeiTicketSourceRecord[] {
-  return listGeneratedFeiTicketsByOriginalCutOrderId(originalCutOrderId)
+  return listSpreadingResultGeneratedFeiTicketsByOriginalCutOrderId(originalCutOrderId)
 }
 
 function getGeneratedFeiRecordBySequence(

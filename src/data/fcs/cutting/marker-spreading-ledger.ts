@@ -6,7 +6,7 @@ import {
 } from '../../../pages/process-factory/cutting/marker-spreading-model.ts'
 import { readMarkerSpreadingPrototypeData } from '../../../pages/process-factory/cutting/marker-spreading-utils.ts'
 import { listGeneratedOriginalCutOrderSourceRecords } from './generated-original-cut-orders.ts'
-import { buildSpreadingDrivenFeiTicketTraceMatrix, listGeneratedFeiTickets } from './generated-fei-tickets.ts'
+import { buildSpreadingDrivenFeiTicketTraceMatrix, listSpreadingResultGeneratedFeiTickets } from './generated-fei-tickets.ts'
 import { buildReplenishmentFlowTraceMatrix } from './replenishment.ts'
 import {
   buildSpreadingDrivenTransferBagTraceMatrix,
@@ -93,8 +93,7 @@ function buildSeedTransferBagStore() {
       materialSku: record.materialSku,
       plannedQty: record.requiredQty,
     })),
-    ticketRecords: listGeneratedFeiTickets()
-      .filter((record) => Boolean(record.sourceSpreadingSessionId))
+    ticketRecords: listSpreadingResultGeneratedFeiTickets()
       .map((record) => {
         const trace = feiTraceById.get(record.feiTicketId)
         return {

@@ -47,9 +47,12 @@ import {
   type CuttingNavigationTarget,
 } from './navigation-context.ts'
 import { buildProductionProgressProjection } from './production-progress-projection.ts'
-import { getCuttingSpecialCraftReturnStatusByProductionOrder } from '../../../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
-import { getCuttingSewingDispatchProgressByProductionOrder } from '../../../data/fcs/cutting/sewing-dispatch.ts'
-import { getCuttingProgressSnapshots } from '../../../data/fcs/progress-statistics-linkage.ts'
+import {
+  getCuttingProgressSnapshots,
+  getCuttingSewingDispatchProgressByProductionOrder,
+  getCuttingSpecialCraftReturnStatusByProductionOrders,
+  type CuttingSpecialCraftReturnStatusSummary,
+} from '../../../data/fcs/progress-statistics-linkage.ts'
 
 type ProductionProgressQuickFilter = 'URGENT_ONLY' | 'PREP_DELAY' | 'CLAIM_EXCEPTION' | 'CUTTING_ACTIVE'
 type ProductionProgressQuickFilterExtended =
@@ -413,8 +416,10 @@ function renderStatsCards(rows: ProductionProgressRow[]): string {
 }
 
 function renderSpecialCraftReturnCards(rows: ProductionProgressRow[]): string {
+  const statusByProductionId = getCuttingSpecialCraftReturnStatusByProductionOrders(rows.map((row) => row.productionOrderId))
   const summaries = rows
-    .map((row) => getCuttingSpecialCraftReturnStatusByProductionOrder(row.productionOrderId))
+    .map((row) => statusByProductionId.get(row.productionOrderId))
+    .filter((item): item is CuttingSpecialCraftReturnStatusSummary => Boolean(item))
     .filter((item) => item.totalNeedSpecialCraftFeiTickets > 0)
 
   if (summaries.length === 0) return ''

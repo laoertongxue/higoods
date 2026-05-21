@@ -53,9 +53,12 @@ import {
   buildFcsCuttingSummaryProjection,
   type FcsCuttingSummaryProjection,
 } from './runtime-projections.ts'
-import { getCuttingSpecialCraftReturnStatusByProductionOrder } from '../../../data/fcs/cutting/special-craft-fei-ticket-flow.ts'
-import { getCuttingSewingDispatchProgressByProductionOrder } from '../../../data/fcs/cutting/sewing-dispatch.ts'
-import { getCuttingProgressSnapshots } from '../../../data/fcs/progress-statistics-linkage.ts'
+import {
+  getCuttingProgressSnapshots,
+  getCuttingSewingDispatchProgressByProductionOrder,
+  getCuttingSpecialCraftReturnStatusByProductionOrders,
+  type CuttingSpecialCraftReturnStatusSummary,
+} from '../../../data/fcs/progress-statistics-linkage.ts'
 
 type SummaryFilterField =
   | 'keyword'
@@ -177,6 +180,15 @@ const sourceObjectGroupOrder: CuttingCheckSourceObjectType[] = [
   'BAG_USAGE',
   'SPECIAL_PROCESS',
 ]
+
+type SewingDispatchProgressSummary = ReturnType<typeof getCuttingSewingDispatchProgressByProductionOrder>
+type CuttingProgressSnapshot = ReturnType<typeof getCuttingProgressSnapshots>[number]
+
+interface CuttingSummaryRenderAggregates {
+  specialReturnByProductionId: Map<string, SpecialCraftReturnStatusSummary>
+  sewingDispatchByProductionId: Map<string, SewingDispatchProgressSummary>
+  cuttingProgressSnapshots: CuttingProgressSnapshot[]
+}
 
 function formatCount(value: number): string {
   return new Intl.NumberFormat('zh-CN').format(Math.max(value, 0))
@@ -432,10 +444,21 @@ function renderStats(viewModel: CuttingSummaryViewModel): string {
   `
 }
 
-function renderSpecialCraftReturnOverview(rows: CuttingSummaryRow[]): string {
+function buildSummaryRenderAggregates(rows: CuttingSummaryRow[]): CuttingSummaryRenderAggregates {
+  const productionIds = new Set(rows.map((row) => row.productionOrderId))
+  return {
+    specialReturnByProductionId: getCuttingSpecialCraftReturnStatusByProductionOrders([...productionIds]),
+    sewingDispatchByProductionId: new Map(
+      rows.map((row) => [row.productionOrderId, getCuttingSewingDispatchProgressByProductionOrder(row.productionOrderId)]),
+    ),
+    cuttingProgressSnapshots: getCuttingProgressSnapshots().filter((snapshot) => productionIds.has(snapshot.productionOrderId)),
+  }
+}
+
+function renderSpecialCraftReturnOverview(rows: CuttingSummaryRow[], aggregates: CuttingSummaryRenderAggregates): string {
   const summaries = rows
-    .map((row) => getCuttingSpecialCraftReturnStatusByProductionOrder(row.productionOrderId))
-    .filter((item) => item.totalNeedSpecialCraftFeiTickets > 0)
+    .map((row) => aggregates.specialReturnByProductionId.get(row.productionOrderId))
+    .filter((item): item is SpecialCraftReturnStatusSummary => Boolean(item && item.totalNeedSpecialCraftFeiTickets > 0))
 
   if (summaries.length === 0) return ''
 
@@ -487,8 +510,10 @@ function renderSpecialCraftReturnOverview(rows: CuttingSummaryRow[]): string {
   `
 }
 
-function renderSewingDispatchOverview(rows: CuttingSummaryRow[]): string {
-  const summaries = rows.map((row) => getCuttingSewingDispatchProgressByProductionOrder(row.productionOrderId))
+function renderSewingDispatchOverview(rows: CuttingSummaryRow[], aggregates: CuttingSummaryRenderAggregates): string {
+  const summaries = rows
+    .map((row) => aggregates.sewingDispatchByProductionId.get(row.productionOrderId))
+    .filter((item): item is SewingDispatchProgressSummary => Boolean(item))
   const total = summaries.reduce(
     (result, item) => {
       result.totalProductionQty += item.totalProductionQty
@@ -540,11 +565,12 @@ function renderSewingDispatchOverview(rows: CuttingSummaryRow[]): string {
   `
 }
 
-function renderProgressStatisticsSummary(rows: CuttingSummaryRow[]): string {
-  const rowIds = new Set(rows.map((row) => row.productionOrderId))
-  const snapshots = getCuttingProgressSnapshots().filter((snapshot) => rowIds.has(snapshot.productionOrderId))
+function renderProgressStatisticsSummary(rows: CuttingSummaryRow[], aggregates: CuttingSummaryRenderAggregates): string {
+  const snapshots = aggregates.cuttingProgressSnapshots
   if (!snapshots.length) return ''
-  const sewingSummaries = rows.map((row) => getCuttingSewingDispatchProgressByProductionOrder(row.productionOrderId))
+  const sewingSummaries = rows
+    .map((row) => aggregates.sewingDispatchByProductionId.get(row.productionOrderId))
+    .filter((item): item is SewingDispatchProgressSummary => Boolean(item))
 
   const totalProductionQty = snapshots.reduce((sum, item) => sum + item.sewingDispatchProgress.plannedQty, 0)
   const cuttingCompletedQty = snapshots.reduce((sum, item) => sum + item.cuttingProgress.completedQty, 0)
@@ -589,8 +615,8 @@ function renderProgressStatisticsSummary(rows: CuttingSummaryRow[]): string {
 
 function renderCuttingStatusOverview(rows: CuttingSummaryRow[]): string {
   const total = rows.length || 1
-  const configuredCount = rows.filter((row) => row.materialPrepSummary.includes('已配置')).length
-  const claimedCount = rows.filter((row) => row.mainReceiveStatusLabel.includes('已入待加工仓')).length
+  const configuredCount = rows.filter((row) => String(row.materialPrepSummary || '').includes('已配置')).length
+  const claimedCount = rows.filter((row) => String(row.mainReceiveStatusLabel || '').includes('已入待加工仓')).length
   const markerCount = rows.filter((row) => row.relatedOriginalCutOrderNos.length > 0).length
   const spreadingCount = rows.filter((row) => row.spreadingSummary && row.spreadingSummary !== '暂无数据').length
   const ticketCount = rows.filter((row) => row.ticketSummary && row.ticketSummary !== '暂无数据').length
@@ -1419,6 +1445,7 @@ function renderPage(): string {
   const issueRows = getFilteredRows(viewModel, { ignoreIssueType: true })
   const issues = buildCuttingSummaryIssues(issueRows)
   const filteredRows = getFilteredRows(viewModel)
+  const aggregates = buildSummaryRenderAggregates(filteredRows)
   const activeRowId = getActiveRowId(filteredRows, issues)
   const detail = activeRowId ? buildFcsCuttingSummaryDetailProjection(activeRowId, projection) : null
   const pathname = appStore.getState().pathname
@@ -1432,9 +1459,9 @@ function renderPage(): string {
       ${renderFilterBar()}
       ${renderIssueBoard(issues)}
       ${renderCheckStateBar(filteredRows)}
-      ${renderSpecialCraftReturnOverview(filteredRows)}
-      ${renderSewingDispatchOverview(filteredRows)}
-      ${renderProgressStatisticsSummary(filteredRows)}
+      ${renderSpecialCraftReturnOverview(filteredRows, aggregates)}
+      ${renderSewingDispatchOverview(filteredRows, aggregates)}
+      ${renderProgressStatisticsSummary(filteredRows, aggregates)}
       ${renderCuttingStatusOverview(filteredRows)}
       ${renderMainTable(filteredRows)}
       <section class="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(360px,1fr)]">

@@ -6,7 +6,7 @@ import {
   type PdaCuttingTaskDetailData,
   type PdaCuttingTaskOrderLine,
 } from '../data/fcs/pda-cutting-execution-source.ts'
-import { listGeneratedFeiTicketsByOriginalCutOrderId } from '../data/fcs/cutting/generated-fei-tickets.ts'
+import { listSpreadingResultGeneratedFeiTicketsByOriginalCutOrderId } from '../data/fcs/cutting/generated-fei-tickets.ts'
 import {
   readSelectedExecutionOrderIdFromLocation,
   readSelectedExecutionOrderNoFromLocation,
@@ -78,7 +78,7 @@ function renderMetric(label: string, value: string, tone: 'default' | 'green' | 
 }
 
 function renderFeiTicketIds(originalCutOrderId: string): string {
-  const tickets = originalCutOrderId ? listGeneratedFeiTicketsByOriginalCutOrderId(originalCutOrderId) : []
+  const tickets = originalCutOrderId ? listSpreadingResultGeneratedFeiTicketsByOriginalCutOrderId(originalCutOrderId) : []
   if (!tickets.length) return '待生成菲票'
   const firstNos = tickets.slice(0, 3).map((ticket) => ticket.feiTicketNo).join(' / ')
   return tickets.length > 3 ? `${firstNos} 等 ${tickets.length} 张` : firstNos

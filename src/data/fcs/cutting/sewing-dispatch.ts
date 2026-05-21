@@ -27,7 +27,7 @@ import {
 import { buildHandoverOrderQrValue } from '../task-qr.ts'
 import {
   getFeiTicketByNo,
-  listGeneratedFeiTickets,
+  listSpreadingResultGeneratedFeiTickets,
   type GeneratedFeiTicketSourceRecord,
 } from './generated-fei-tickets.ts'
 import {
@@ -579,7 +579,7 @@ export function buildRequiredCutPiecesForSewingDispatch(
   if (!techPackSnapshot) errors.push('技术包快照缺失')
   if (!techPackSnapshot?.cutPieceParts?.length) errors.push('纸样裁片明细缺失')
 
-  const tickets = listGeneratedFeiTickets().filter((ticket) => ticket.productionOrderId === productionOrder.productionOrderId)
+  const tickets = listSpreadingResultGeneratedFeiTickets().filter((ticket) => ticket.productionOrderId === productionOrder.productionOrderId)
   const lines: RequiredCutPieceLine[] = []
   const seen = new Set<string>()
 
@@ -650,7 +650,7 @@ export function getEligibleFeiTicketsForSewingDispatch(input: {
   excludeBagId?: string
 }): GeneratedFeiTicketSourceRecord[] {
   const occupied = getOccupiedFeiTicketNos({ excludeBagId: input.excludeBagId })
-  return listGeneratedFeiTickets().filter((ticket) => {
+  return listSpreadingResultGeneratedFeiTickets().filter((ticket) => {
     if (ticket.productionOrderId !== input.productionOrderId) return false
     if (input.colorName && ticket.garmentColor !== input.colorName) return false
     if (input.sizeCode && ticket.skuSize !== input.sizeCode) return false
@@ -671,7 +671,7 @@ export function createCuttingSewingDispatchOrder(input: CreateDispatchOrderInput
   const sewingFactory = input.sewingFactoryId
     ? mockFactories.find((factory) => factory.id === input.sewingFactoryId) || getSewingFactory()
     : getSewingFactory()
-  const tickets = listGeneratedFeiTickets().filter((ticket) => ticket.productionOrderId === productionOrder.productionOrderId)
+  const tickets = listSpreadingResultGeneratedFeiTickets().filter((ticket) => ticket.productionOrderId === productionOrder.productionOrderId)
   const dispatchIndex = storeRef.dispatchOrders.length + 1
   const createdAt = nowText()
   const order: CuttingSewingDispatchOrder = {
@@ -1921,7 +1921,7 @@ function seedStore(): void {
   const storeRef = store!
   const pickSeedFeiTicketNos = (batch: CuttingSewingDispatchBatch, fallback: string[]): string[] => {
     const requiredLines = getRequiredLinesForBag(batch)
-    const tickets = listGeneratedFeiTickets().filter((ticket) => ticket.productionOrderId === batch.productionOrderId)
+    const tickets = listSpreadingResultGeneratedFeiTickets().filter((ticket) => ticket.productionOrderId === batch.productionOrderId)
     const picked: string[] = []
     requiredLines.forEach((line) => {
       const ticket = tickets.find(

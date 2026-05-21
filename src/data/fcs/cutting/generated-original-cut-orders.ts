@@ -1,10 +1,8 @@
 import {
   productionOrders,
+  getProductionOrderTechPackSnapshot,
   type ProductionOrder,
 } from '../production-orders.ts'
-import {
-  getProductionOrderTechPackSnapshot,
-} from '../production-order-tech-pack-runtime.ts'
 import type { TechnicalBomItem, TechnicalColorMaterialMappingLine } from '../../pcs-technical-data-version-types.ts'
 import type { ProductionOrderTechPackSnapshot } from '../production-tech-pack-snapshot-types.ts'
 import type { CuttingMaterialType } from './types.ts'

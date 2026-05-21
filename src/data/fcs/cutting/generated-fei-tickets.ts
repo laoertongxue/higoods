@@ -1,7 +1,6 @@
 import {
-  getProductionOrderProcessEntries,
   getProductionOrderTechPackSnapshot,
-} from '../production-order-tech-pack-runtime.ts'
+} from '../production-orders.ts'
 import {
   listGeneratedOriginalCutOrderSourceRecords,
   type GeneratedOriginalCutOrderPieceRow,
@@ -10,13 +9,20 @@ import {
 } from './generated-original-cut-orders.ts'
 import { encodeFeiTicketQr } from './qr-codes.ts'
 import type { FeiTicketQrPayload } from './qr-payload.ts'
-import { readMarkerSpreadingPrototypeData } from '../../../pages/process-factory/cutting/marker-spreading-utils.ts'
-import type { SpreadingSession } from '../../../pages/process-factory/cutting/marker-spreading-model.ts'
+import {
+  createEmptyStore,
+  CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY,
+  deserializeMarkerSpreadingStorage,
+  type MarkerSpreadingStore,
+  type SpreadingSession,
+} from '../../../pages/process-factory/cutting/marker-spreading-model.ts'
 
 export interface SpreadingPieceOutputLine {
   outputLineId: string
   spreadingSessionId: string
+  sourceSpreadingSessionNo: string
   sourceMarkerId: string
+  sourceMarkerNo: string
   sourceMarkerLineItemId: string
   originalCutOrderId: string
   originalCutOrderNo: string
@@ -169,7 +175,7 @@ function resolveSecondaryCrafts(productionOrderId: string): {
   craftSequenceVersion: string
 } {
   const snapshot = getProductionOrderTechPackSnapshot(productionOrderId)
-  const processEntries = getProductionOrderProcessEntries(productionOrderId)
+  const processEntries = snapshot?.processEntries || []
   const secondaryCrafts = unique(
     processEntries
       .filter((entry) => entry.isSpecialCraft)
@@ -406,6 +412,84 @@ function buildBundleNo(index: number): string {
   return `BUNDLE-${String(index + 1).padStart(3, '0')}`
 }
 
+function readStoredMarkerSpreadingStore(): MarkerSpreadingStore {
+  const storage = typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'function'
+    ? localStorage
+    : null
+  if (!storage) return createEmptyStore()
+  const raw = storage.getItem(CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY)
+  if (!raw) return createEmptyStore()
+  try {
+    return deserializeMarkerSpreadingStorage(raw)
+  } catch {
+    return createEmptyStore()
+  }
+}
+
+function buildDemoSpreadingSessionsFromSourceRecords(
+  sourceRecords: GeneratedOriginalCutOrderSourceRecord[],
+): SpreadingSession[] {
+  return sourceRecords.slice(0, 8).map((record, index) => {
+    const skuScopeLines = buildFallbackSkuScope(record)
+    const firstSku = skuScopeLines[0]
+    const color = firstSku?.color || record.colorScope[0] || '待补颜色'
+    const garmentQty = normalizePositiveInteger(
+      skuScopeLines.reduce((total, line) => total + Number(line.plannedQty || 0), 0) || record.requiredQty || 1,
+    )
+    const planUnitId = `plan-unit-${record.originalCutOrderId}`
+    const rollRecordId = `roll-${record.originalCutOrderId}`
+    return {
+      spreadingSessionId: `spreading-session-seed-${record.originalCutOrderId}`,
+      sessionNo: `SP-${record.originalCutOrderNo}`,
+      status: 'DONE',
+      originalCutOrderIds: [record.originalCutOrderId],
+      originalCutOrderNos: [record.originalCutOrderNo],
+      mergeBatchId: record.mergeBatchId || '',
+      mergeBatchNo: record.mergeBatchNo || '',
+      sourceMarkerId: `marker-${record.originalCutOrderId}`,
+      sourceMarkerNo: `MKP-${String(index + 1).padStart(4, '0')}`,
+      markerId: `marker-${record.originalCutOrderId}`,
+      markerNo: `MKP-${String(index + 1).padStart(4, '0')}`,
+      planUnits: [{
+        planUnitId,
+        materialSku: record.materialSku,
+        color,
+        garmentQtyPerUnit: Math.max(garmentQty, 1),
+      }],
+      rolls: [{
+        rollRecordId,
+        rollNo: `ROLL-${record.originalCutOrderNo}`,
+        materialSku: record.materialSku,
+        color,
+        planUnitId,
+        layerCount: Math.max(garmentQty, 1),
+        actualCutGarmentQty: Math.max(garmentQty, 1),
+        actualCutPieceQty: Math.max(garmentQty, 1),
+      }],
+      completionLinkage: {
+        linkedOriginalCutOrderIds: [record.originalCutOrderId],
+        linkedOriginalCutOrderNos: [record.originalCutOrderNo],
+        completedAt: toIssuedAt(record),
+      },
+      completedAt: toIssuedAt(record),
+      completedBy: '裁床组长',
+      updatedAt: toIssuedAt(record),
+      updatedBy: '裁床组长',
+    } as unknown as SpreadingSession
+  })
+}
+
+function readMarkerSpreadingStoreForFeiTickets(
+  sourceRecords: GeneratedOriginalCutOrderSourceRecord[],
+): MarkerSpreadingStore {
+  const store = readStoredMarkerSpreadingStore()
+  if (store.sessions.some(isReadyForFeiGeneration)) return store
+  return {
+    ...store,
+    sessions: buildDemoSpreadingSessionsFromSourceRecords(sourceRecords),
+  }
+}
+
 type SpreadingOutputSourceLine = {
   originalCutOrderId: string
   originalCutOrderNo?: string
@@ -531,7 +615,7 @@ function listOutputSourceLinesForSession(
 function buildSpreadingPieceOutputLinesFromSessions(
   sourceRecords: GeneratedOriginalCutOrderSourceRecord[],
 ): SpreadingPieceOutputLine[] {
-  const { store } = readMarkerSpreadingPrototypeData()
+  const store = readMarkerSpreadingStoreForFeiTickets(sourceRecords)
   const outputLines: SpreadingPieceOutputLine[] = []
 
   store.sessions
@@ -565,7 +649,9 @@ function buildSpreadingPieceOutputLinesFromSessions(
                 bundleNo,
               ].join('__'),
               spreadingSessionId: session.spreadingSessionId,
+              sourceSpreadingSessionNo: session.sessionNo || session.spreadingSessionId,
               sourceMarkerId: session.sourceMarkerId || session.markerId || '',
+              sourceMarkerNo: session.sourceMarkerNo || session.markerNo || session.sourceBedNo || session.sourceSchemeNo || session.markerId || '',
               sourceMarkerLineItemId: `${session.spreadingSessionId}-${lineIndex + 1}`,
               originalCutOrderId: sourceRecord.originalCutOrderId,
               originalCutOrderNo: sourceRecord.originalCutOrderNo,
@@ -631,7 +717,7 @@ interface SpreadingFeiSeed {
 function buildSpreadingFeiSeeds(
   sourceRecords: GeneratedOriginalCutOrderSourceRecord[],
 ): SpreadingFeiSeed[] {
-  const { store } = readMarkerSpreadingPrototypeData()
+  const store = readMarkerSpreadingStoreForFeiTickets(sourceRecords)
   const seeds: SpreadingFeiSeed[] = []
 
   store.sessions
@@ -742,9 +828,9 @@ function buildFeiRecordsFromSpreadingSessions(
       feiTicketNo,
       sourceOutputLineId: line.outputLineId,
       sourceSpreadingSessionId: line.spreadingSessionId,
-      sourceSpreadingSessionNo: line.spreadingSessionId,
+      sourceSpreadingSessionNo: line.sourceSpreadingSessionNo,
       sourceMarkerId: line.sourceMarkerId,
-      sourceMarkerNo: line.sourceMarkerId,
+      sourceMarkerNo: line.sourceMarkerNo,
       originalCutOrderId: line.originalCutOrderId,
       originalCutOrderNo: line.originalCutOrderNo,
       productionOrderId: line.productionOrderId,
@@ -918,6 +1004,8 @@ interface GeneratedFeiTicketDataset {
   generatedFeiTickets: GeneratedFeiTicketSourceRecord[]
   feiTicketsById: Record<string, GeneratedFeiTicketSourceRecord>
   feiTicketsByNo: Record<string, GeneratedFeiTicketSourceRecord>
+  feiTicketsByProductionOrderId: Record<string, GeneratedFeiTicketSourceRecord[]>
+  spreadingResultFeiTicketsByProductionOrderId: Record<string, GeneratedFeiTicketSourceRecord[]>
   feiTicketsByOriginalCutOrderId: Record<string, GeneratedFeiTicketSourceRecord[]>
   feiTicketsBySpreadingSessionId: Record<string, GeneratedFeiTicketSourceRecord[]>
 }
@@ -928,6 +1016,17 @@ function buildGeneratedFeiTicketDataset(records: GeneratedFeiTicketSourceRecord[
     generatedFeiTickets,
     feiTicketsById: Object.fromEntries(generatedFeiTickets.map((record) => [record.feiTicketId, record])),
     feiTicketsByNo: Object.fromEntries(generatedFeiTickets.map((record) => [record.feiTicketNo, record])),
+    feiTicketsByProductionOrderId: generatedFeiTickets.reduce<Record<string, GeneratedFeiTicketSourceRecord[]>>((acc, record) => {
+      if (!acc[record.productionOrderId]) acc[record.productionOrderId] = []
+      acc[record.productionOrderId].push(record)
+      return acc
+    }, {}),
+    spreadingResultFeiTicketsByProductionOrderId: generatedFeiTickets.reduce<Record<string, GeneratedFeiTicketSourceRecord[]>>((acc, record) => {
+      if (record.sourceBasisType !== 'SPREADING_RESULT') return acc
+      if (!acc[record.productionOrderId]) acc[record.productionOrderId] = []
+      acc[record.productionOrderId].push(record)
+      return acc
+    }, {}),
     feiTicketsByOriginalCutOrderId: generatedFeiTickets.reduce<Record<string, GeneratedFeiTicketSourceRecord[]>>((acc, record) => {
       if (!acc[record.originalCutOrderId]) acc[record.originalCutOrderId] = []
       acc[record.originalCutOrderId].push(record)
@@ -955,26 +1054,60 @@ export function listSpreadingPieceOutputLines(
   return Array.from(lineMap.values()).sort(compareOutputLines)
 }
 
-let generatedFeiTicketDatasetCache: GeneratedFeiTicketDataset | null = null
 let computingGeneratedFeiTicketDataset = false
+const EMPTY_GENERATED_FEI_TICKET_DATASET = buildGeneratedFeiTicketDataset([])
+let generatedFeiTicketDatasetCache: {
+  signature: string
+  dataset: GeneratedFeiTicketDataset
+} | null = null
+
+function getGeneratedFeiTicketRuntimeSignature(): string {
+  const storage = typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'function'
+    ? localStorage
+    : null
+  if (!storage) return ''
+  return [
+    'cuttingMarkerSpreadingLedger',
+    'cuttingMergeBatchLedger',
+  ]
+    .map((key) => `${key}:${storage.getItem(key) || ''}`)
+    .join('\n')
+}
+
+function buildGeneratedFeiTicketDatasetSignature(sourceRecords: GeneratedOriginalCutOrderSourceRecord[]): string {
+  const sourceSignature = sourceRecords
+    .map((record) => [
+      record.originalCutOrderId,
+      record.originalCutOrderNo,
+      record.productionOrderNo,
+      record.materialSku,
+      record.requiredQty,
+    ].join(':'))
+    .join('|')
+
+  return `${sourceSignature}\n${getGeneratedFeiTicketRuntimeSignature()}`
+}
 
 function getGeneratedFeiTicketDataset(): GeneratedFeiTicketDataset {
-  if (generatedFeiTicketDatasetCache) return generatedFeiTicketDatasetCache
-
   const sourceRecords = listGeneratedOriginalCutOrderSourceRecords()
-  const emptyDataset = buildGeneratedFeiTicketDataset([])
-  if (computingGeneratedFeiTicketDataset) return emptyDataset
+  if (computingGeneratedFeiTicketDataset) return EMPTY_GENERATED_FEI_TICKET_DATASET
+
+  const signature = buildGeneratedFeiTicketDatasetSignature(sourceRecords)
+  if (generatedFeiTicketDatasetCache?.signature === signature) {
+    return generatedFeiTicketDatasetCache.dataset
+  }
 
   computingGeneratedFeiTicketDataset = true
   try {
     const spreadingDrivenFeiTickets = buildFeiRecordsFromSpreadingSessions(sourceRecords)
     const fallbackRecords = filterFallbackSourceRecordsBySpreadingCoverage(sourceRecords, spreadingDrivenFeiTickets)
       .flatMap((record) => buildFeiRecordsForOriginalOrder(record))
-    generatedFeiTicketDatasetCache = buildGeneratedFeiTicketDataset([
+    const dataset = buildGeneratedFeiTicketDataset([
       ...spreadingDrivenFeiTickets,
       ...fallbackRecords,
     ])
-    return generatedFeiTicketDatasetCache
+    generatedFeiTicketDatasetCache = { signature, dataset }
+    return dataset
   } finally {
     computingGeneratedFeiTicketDataset = false
   }
@@ -997,8 +1130,16 @@ export function listGeneratedFeiTickets(): GeneratedFeiTicketSourceRecord[] {
   return getGeneratedFeiTicketDataset().generatedFeiTickets.map((record) => cloneGeneratedFeiRecord(record))
 }
 
+export function listSpreadingResultGeneratedFeiTickets(): GeneratedFeiTicketSourceRecord[] {
+  return listGeneratedFeiTickets().filter((record) => record.sourceBasisType === 'SPREADING_RESULT')
+}
+
 export function listGeneratedFeiTicketsByOriginalCutOrderId(originalCutOrderId: string): GeneratedFeiTicketSourceRecord[] {
   return (getGeneratedFeiTicketDataset().feiTicketsByOriginalCutOrderId[originalCutOrderId] || []).map((record) => cloneGeneratedFeiRecord(record))
+}
+
+export function listSpreadingResultGeneratedFeiTicketsByOriginalCutOrderId(originalCutOrderId: string): GeneratedFeiTicketSourceRecord[] {
+  return listGeneratedFeiTicketsByOriginalCutOrderId(originalCutOrderId).filter((record) => record.sourceBasisType === 'SPREADING_RESULT')
 }
 
 export function listGeneratedFeiTicketsBySpreadingSessionId(spreadingSessionId: string): GeneratedFeiTicketSourceRecord[] {
@@ -1025,15 +1166,19 @@ export function getGeneratedFeiTicketMapByOriginalCutOrderId(): Record<string, G
 }
 
 export function listGeneratedFeiTicketsByProductionOrderId(productionOrderId: string): GeneratedFeiTicketSourceRecord[] {
-  return getGeneratedFeiTicketDataset().generatedFeiTickets
-    .filter((record) => record.productionOrderId === productionOrderId)
+  return (getGeneratedFeiTicketDataset().feiTicketsByProductionOrderId[productionOrderId] || [])
+    .map((record) => cloneGeneratedFeiRecord(record))
+}
+
+export function listSpreadingResultGeneratedFeiTicketsByProductionOrderId(productionOrderId: string): GeneratedFeiTicketSourceRecord[] {
+  return (getGeneratedFeiTicketDataset().spreadingResultFeiTicketsByProductionOrderId[productionOrderId] || [])
     .map((record) => cloneGeneratedFeiRecord(record))
 }
 
 export function buildGeneratedFeiTicketTraceMatrix(
   records: GeneratedFeiTicketSourceRecord[] = listGeneratedFeiTickets(),
 ): GeneratedFeiTicketTraceMatrixRow[] {
-  const { store } = readMarkerSpreadingPrototypeData()
+  const store = readMarkerSpreadingStoreForFeiTickets(listGeneratedOriginalCutOrderSourceRecords())
   const sessionById = Object.fromEntries(store.sessions.map((session) => [session.spreadingSessionId, session]))
   return records
     .map((record) => {

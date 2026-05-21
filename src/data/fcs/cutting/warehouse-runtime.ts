@@ -1,7 +1,7 @@
 import { buildCuttingCoreRegistry } from '../../../domain/cutting-core/index.ts'
 import { productionOrders } from '../production-orders.ts'
 import { listGeneratedOriginalCutOrderSourceRecords } from './generated-original-cut-orders.ts'
-import { buildGeneratedFeiTicketTraceMatrix, listGeneratedFeiTickets } from './generated-fei-tickets.ts'
+import { buildGeneratedFeiTicketTraceMatrix, listSpreadingResultGeneratedFeiTickets } from './generated-fei-tickets.ts'
 import { cuttingOrderProgressRecords } from './order-progress.ts'
 import { buildSpreadingDrivenTransferBagTraceMatrix, buildSystemSeedTransferBagRuntime } from './transfer-bag-runtime.ts'
 import type { CuttingConfigStatus, CuttingMaterialLine, CuttingMaterialType, CuttingReceiveStatus } from './types.ts'
@@ -581,7 +581,7 @@ export function buildWarehouseRuntimeTraceMatrix(
         materialSku: record.materialSku,
         plannedQty: record.requiredQty,
       })),
-      ticketRecords: listGeneratedFeiTickets().filter((record) => Boolean(record.sourceSpreadingSessionId)).map((record) => {
+      ticketRecords: listSpreadingResultGeneratedFeiTickets().map((record) => {
         const original = originalRowsById.get(record.originalCutOrderId)
         const trace = feiTraceById.get(record.feiTicketId)
         return {

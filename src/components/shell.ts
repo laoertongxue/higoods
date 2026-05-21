@@ -1,4 +1,4 @@
-import { createIcons, icons as lucideIcons } from 'lucide'
+import { createElement, icons as lucideIcons, type IconNode } from 'lucide'
 import {
   getCurrentMenus,
   getCurrentSystem,
@@ -229,7 +229,7 @@ function renderSidebarContent(state: AppState, collapsed: boolean, showCollapseB
   `
 }
 
-function renderSidebar(state: AppState): string {
+export function renderSidebar(state: AppState): string {
   const desktop = `
     <aside class="${toClassName(
       'hidden min-h-0 flex-col border-r bg-background transition-all duration-300 lg:flex',
@@ -320,7 +320,9 @@ export function renderAppShell(state: AppState, pageContent: string): string {
       ${renderTopBar(state)}
 
       <div class="flex min-h-0 flex-1 overflow-hidden">
-        ${renderSidebar(state)}
+        <div class="contents" data-shell-sidebar-root="true">
+          ${renderSidebar(state)}
+        </div>
 
         <main class="flex min-h-0 min-w-0 flex-1 flex-col">
           ${renderTabsBar(state)}
@@ -335,14 +337,49 @@ export function renderAppShell(state: AppState, pageContent: string): string {
   `
 }
 
-export function hydrateIcons(root: ParentNode = document): void {
-  createIcons({
-    icons: { ...lucideIcons, ...shellIcons },
-    attrs: {
-      strokeWidth: '2',
-    },
-  })
+function toPascalCaseIconName(name: string): string {
+  return name
+    .replace(/(^\w|[-_\s]+\w)/g, (part) => part.replace(/[-_\s]+/g, '').toUpperCase())
+}
 
-  // createIcons scans document by default; keeping root param for call-site symmetry.
-  void root
+function getElementAttrs(element: Element): Record<string, string> {
+  return Array.from(element.attributes).reduce<Record<string, string>>((attrs, attr) => {
+    attrs[attr.name] = attr.value
+    return attrs
+  }, {})
+}
+
+function joinClassNames(...values: Array<string | undefined>): string {
+  return values
+    .flatMap((value) => (value || '').split(/\s+/))
+    .filter(Boolean)
+    .join(' ')
+}
+
+export function hydrateIcons(root: ParentNode = document): void {
+  const iconMap = { ...lucideIcons, ...shellIcons } as unknown as Record<string, IconNode>
+  root.querySelectorAll('[data-lucide]').forEach((element) => {
+    const iconName = element.getAttribute('data-lucide')
+    if (!iconName || !element.parentNode) return
+
+    const iconNode = iconMap[toPascalCaseIconName(iconName)]
+    if (!iconNode) return
+
+    const [tag, iconAttrs, children] = iconNode
+    const elementAttrs = getElementAttrs(element)
+    const className = joinClassNames('lucide', `lucide-${iconName}`, elementAttrs.class)
+    const svgElement = createElement([
+      tag,
+      {
+        ...iconAttrs,
+        ...elementAttrs,
+        class: className,
+        'data-lucide': iconName,
+        'stroke-width': '2',
+      },
+      children,
+    ])
+
+    element.parentNode.replaceChild(svgElement, element)
+  })
 }

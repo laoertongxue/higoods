@@ -1,17 +1,7 @@
 import { productionOrders, type ProductionOrder } from './production-orders.ts'
 import { getFactoryMasterRecordById } from './factory-master-store.ts'
 import { cuttingMaterialPrepGroups } from './cutting/material-prep.ts'
-import { listGeneratedFeiTicketsByProductionOrderId } from './cutting/generated-fei-tickets.ts'
-import {
-  getCuttingSpecialCraftReturnStatusByProductionOrder,
-  listCuttingSpecialCraftFeiTicketBindings,
-} from './cutting/special-craft-fei-ticket-flow.ts'
-import {
-  getCuttingSewingDispatchProgressByProductionOrder,
-  listCuttingSewingDispatchBatches,
-  listCuttingSewingDispatchOrders,
-  listCuttingSewingTransferBags,
-} from './cutting/sewing-dispatch.ts'
+import { listSpreadingResultGeneratedFeiTicketsByProductionOrderId } from './cutting/generated-fei-tickets.ts'
 import {
   listFactoryInternalWarehouses,
   listFactoryWaitHandoverStockItems,
@@ -265,6 +255,8 @@ export interface SewingDispatchProgressSnapshot {
   updatedAt: string
 }
 
+const sewingDispatchProgressSnapshotCache = new Map<string, SewingDispatchProgressSnapshot>()
+
 export interface ProductionProgressKpiSummary {
   totalProductionOrders: number
   inProgressOrders: number
@@ -278,12 +270,68 @@ export interface ProductionProgressKpiSummary {
   updatedAt: string
 }
 
+export interface CuttingSpecialCraftReturnStatusSummary {
+  productionOrderNo: string
+  totalNeedSpecialCraftFeiTickets: number
+  waitDispatchCount: number
+  dispatchedCount: number
+  receivedBySpecialFactoryCount: number
+  completedCount: number
+  waitReturnCount: number
+  returnedCount: number
+  differenceCount: number
+  objectionCount: number
+  allReturned: boolean
+}
+
+type CuttingSpecialCraftProjectionFlowStatus =
+  | '待绑定'
+  | '待发料'
+  | '已发料'
+  | '已接收'
+  | '加工中'
+  | '已完成'
+  | '待回仓'
+  | '已回仓'
+  | '差异'
+  | '异议中'
+  | '异常'
+  | '待确认顺序'
+
+interface CuttingSpecialCraftProjectionBinding {
+  bindingId: string
+  productionOrderId: string
+  productionOrderNo: string
+  taskOrderId: string
+  taskOrderNo: string
+  demandLineId: string
+  workOrderId: string
+  operationId: string
+  operationName: string
+  targetFactoryId: string
+  targetFactoryName: string
+  feiTicketNo: string
+  qty: number
+  currentQty: number
+  cumulativeScrapQty: number
+  cumulativeDamageQty: number
+  sequenceIndex: number
+  specialCraftFlowStatus: CuttingSpecialCraftProjectionFlowStatus
+  receiveDifferenceStatus?: '待处理' | '处理中' | '已处理'
+  returnDifferenceStatus?: '待处理' | '处理中' | '已处理'
+  objectionStatus?: string
+}
+
 function sum(values: number[]): number {
   return values.reduce((total, value) => total + (Number.isFinite(value) ? value : 0), 0)
 }
 
 function unique(values: string[]): string[] {
   return Array.from(new Set(values.filter(Boolean)))
+}
+
+function normalizeText(value?: string): string {
+  return String(value || '').trim()
 }
 
 function shouldIncludeFactoryInSnapshots(
@@ -299,6 +347,276 @@ function shouldIncludeOrderInSnapshots(
   options: ProgressStatisticsBuildOptions = {},
 ): boolean {
   return shouldIncludeFactoryInSnapshots(order.mainFactoryId, options)
+}
+
+let cuttingSpecialCraftProjectionBindingsCache: CuttingSpecialCraftProjectionBinding[] | null = null
+let cuttingSpecialCraftReturnStatusCache: Map<string, CuttingSpecialCraftReturnStatusSummary> | null = null
+const handoverProgressSnapshotCache = new Map<string, HandoverProgressSnapshot>()
+const progressBlockingReasonsCache = new Map<string, ProgressBlockingReason[]>()
+const productionProgressSnapshotCache = new Map<string, ProductionProgressSnapshot>()
+const cuttingProgressSnapshotCache = new Map<string, CuttingProgressSnapshot>()
+
+function getOpenDifferenceStatus(status?: string): '待处理' | '处理中' | undefined {
+  return status === '待处理' || status === '处理中' ? status : undefined
+}
+
+function buildCuttingSpecialCraftProjectionBindings(): CuttingSpecialCraftProjectionBinding[] {
+  if (cuttingSpecialCraftProjectionBindingsCache) return cuttingSpecialCraftProjectionBindingsCache
+
+  const taskOrders = listSpecialCraftTaskOrders()
+  const taskOrdersByProductionOrderId = new Map<string, typeof taskOrders>()
+  taskOrders.forEach((taskOrder) => {
+    const list = taskOrdersByProductionOrderId.get(taskOrder.productionOrderId) || []
+    list.push(taskOrder)
+    taskOrdersByProductionOrderId.set(taskOrder.productionOrderId, list)
+  })
+  const workOrderLineByDemandLineId = new Map(
+    listSpecialCraftTaskWorkOrderLines().map((line) => [line.demandLineId, line] as const),
+  )
+  const operationById = new Map<string, NonNullable<ReturnType<typeof getSpecialCraftOperationById>>>()
+  const getScanOperation = (operationId: string) => {
+    if (!operationById.has(operationId)) {
+      const operation = getSpecialCraftOperationById(operationId)
+      if (operation?.requiresFeiTicketScan) operationById.set(operationId, operation)
+    }
+    return operationById.get(operationId)
+  }
+  const generatedTickets = productionOrders.flatMap((order) =>
+    listSpreadingResultGeneratedFeiTicketsByProductionOrderId(order.productionOrderId),
+  )
+  const ticketByNo = new Map(generatedTickets.map((ticket) => [ticket.feiTicketNo, ticket] as const))
+  const bindings: CuttingSpecialCraftProjectionBinding[] = []
+  const occupiedKeys = new Set<string>()
+
+  generatedTickets.forEach((ticket) => {
+    const secondaryCrafts = ticket.secondaryCrafts.map(normalizeText)
+    const secondaryCraftSet = new Set(secondaryCrafts)
+    if (!secondaryCraftSet.size) return
+    const ticketPartName = normalizeText(ticket.partName)
+    const ticketColor = normalizeText(ticket.skuColor)
+
+    ;(taskOrdersByProductionOrderId.get(ticket.productionOrderId) || []).forEach((taskOrder) => {
+      if (normalizeText(taskOrder.partName) && normalizeText(taskOrder.partName) !== ticketPartName) return
+      if (normalizeText(taskOrder.fabricColor) && normalizeText(taskOrder.fabricColor) !== ticketColor) return
+
+      ;(taskOrder.demandLines || []).forEach((line) => {
+        if (normalizeText(line.sizeCode) !== normalizeText(ticket.skuSize)) return
+        const operation = getScanOperation(line.operationId)
+        if (!operation) return
+        if (!secondaryCraftSet.has(normalizeText(operation.operationName))) return
+
+        const occupiedKey = `${ticket.feiTicketNo}__${operation.operationId}`
+        if (occupiedKeys.has(occupiedKey)) return
+        occupiedKeys.add(occupiedKey)
+        const workOrderLine = workOrderLineByDemandLineId.get(line.demandLineId)
+        const sequenceIndex = Math.max(secondaryCrafts.indexOf(normalizeText(operation.operationName)), 0)
+        bindings.push({
+          bindingId: `SCB-${taskOrder.taskOrderId}-${line.demandLineId}-${ticket.feiTicketNo}-${operation.operationId}`,
+          productionOrderId: taskOrder.productionOrderId,
+          productionOrderNo: taskOrder.productionOrderNo,
+          taskOrderId: taskOrder.taskOrderId,
+          taskOrderNo: taskOrder.taskOrderNo,
+          demandLineId: line.demandLineId,
+          workOrderId: workOrderLine?.workOrderId || taskOrder.workOrderIds?.[0] || '',
+          operationId: operation.operationId,
+          operationName: operation.operationName,
+          targetFactoryId: taskOrder.assignedFactoryId || taskOrder.suggestedFactoryId || taskOrder.factoryId,
+          targetFactoryName: taskOrder.assignedFactoryName || taskOrder.suggestedFactoryName || taskOrder.factoryName,
+          feiTicketNo: ticket.feiTicketNo,
+          qty: ticket.qty,
+          currentQty: ticket.qty,
+          cumulativeScrapQty: 0,
+          cumulativeDamageQty: 0,
+          sequenceIndex,
+          specialCraftFlowStatus: sequenceIndex === 0 ? '待发料' : '待确认顺序',
+        })
+      })
+    })
+  })
+
+  taskOrders.forEach((taskOrder) => {
+    ;(taskOrder.demandLines || []).forEach((line) => {
+      const operation = getScanOperation(line.operationId)
+      if (!operation) return
+      ;(line.feiTicketNos || []).forEach((feiTicketNo) => {
+        const occupiedKey = `${feiTicketNo}__${operation.operationId}`
+        if (occupiedKeys.has(occupiedKey)) return
+        const generatedTicket = ticketByNo.get(feiTicketNo)
+        const workOrderLine = workOrderLineByDemandLineId.get(line.demandLineId)
+        const secondaryCrafts = generatedTicket?.secondaryCrafts.map(normalizeText) || []
+        const sequenceIndex = Math.max(secondaryCrafts.indexOf(normalizeText(operation.operationName)), 0)
+        occupiedKeys.add(occupiedKey)
+        bindings.push({
+          bindingId: `SCB-${taskOrder.taskOrderId}-${line.demandLineId}-${feiTicketNo}-${operation.operationId}`,
+          productionOrderId: taskOrder.productionOrderId,
+          productionOrderNo: taskOrder.productionOrderNo,
+          taskOrderId: taskOrder.taskOrderId,
+          taskOrderNo: taskOrder.taskOrderNo,
+          demandLineId: line.demandLineId,
+          workOrderId: workOrderLine?.workOrderId || taskOrder.workOrderIds?.[0] || '',
+          operationId: operation.operationId,
+          operationName: operation.operationName,
+          targetFactoryId: taskOrder.assignedFactoryId || taskOrder.suggestedFactoryId || taskOrder.factoryId,
+          targetFactoryName: taskOrder.assignedFactoryName || taskOrder.suggestedFactoryName || taskOrder.factoryName,
+          feiTicketNo,
+          qty: generatedTicket?.qty || line.planPieceQty,
+          currentQty: generatedTicket?.qty || line.planPieceQty,
+          cumulativeScrapQty: 0,
+          cumulativeDamageQty: 0,
+          sequenceIndex,
+          specialCraftFlowStatus: sequenceIndex === 0 ? '待发料' : '待确认顺序',
+        })
+      })
+    })
+  })
+
+  seedCuttingSpecialCraftProjectionBindings(bindings)
+  cuttingSpecialCraftProjectionBindingsCache = bindings
+  return cuttingSpecialCraftProjectionBindingsCache
+}
+
+function seedCuttingSpecialCraftProjectionBindings(bindings: CuttingSpecialCraftProjectionBinding[]): void {
+  const firstStageBindings = bindings.filter((binding) => binding.sequenceIndex <= 0)
+  const remainingBindings = [...firstStageBindings]
+  const takeBinding = (predicate?: (binding: CuttingSpecialCraftProjectionBinding) => boolean): CuttingSpecialCraftProjectionBinding | undefined => {
+    const matchIndex = predicate ? remainingBindings.findIndex(predicate) : 0
+    if (matchIndex < 0) return undefined
+    const [selected] = remainingBindings.splice(matchIndex, 1)
+    return selected
+  }
+  const patchBinding = (
+    binding: CuttingSpecialCraftProjectionBinding | undefined,
+    patch: Partial<CuttingSpecialCraftProjectionBinding>,
+  ): void => {
+    if (binding) Object.assign(binding, patch)
+  }
+
+  void takeBinding()
+  patchBinding(takeBinding(), { specialCraftFlowStatus: '已发料' })
+  const receivedBinding = takeBinding()
+  patchBinding(receivedBinding, {
+    specialCraftFlowStatus: '已接收',
+    currentQty: receivedBinding?.qty || 0,
+  })
+  const waitReturnBinding = takeBinding()
+  patchBinding(waitReturnBinding, {
+    specialCraftFlowStatus: '待回仓',
+    currentQty: waitReturnBinding?.qty || 0,
+  })
+  const returnedBinding = takeBinding((binding) => binding.qty >= 2) || takeBinding()
+  patchBinding(returnedBinding, {
+    specialCraftFlowStatus: '已回仓',
+    currentQty: returnedBinding?.qty || 0,
+  })
+  const diffBinding = takeBinding((binding) => binding.qty >= 2) || takeBinding()
+  patchBinding(diffBinding, {
+    specialCraftFlowStatus: '差异',
+    returnDifferenceStatus: '处理中',
+    currentQty: Math.max((diffBinding?.qty || 0) - 1, 0),
+  })
+  const objectionBinding = takeBinding((binding) => binding.qty >= 2) || takeBinding()
+  patchBinding(objectionBinding, {
+    specialCraftFlowStatus: '异议中',
+    returnDifferenceStatus: '处理中',
+    objectionStatus: '异议中',
+    currentQty: Math.max((objectionBinding?.qty || 0) - 1, 0),
+  })
+}
+
+function listCuttingSpecialCraftFeiTicketBindingsForProjection(): CuttingSpecialCraftProjectionBinding[] {
+  return buildCuttingSpecialCraftProjectionBindings()
+}
+
+let cuttingSpecialCraftProjectionBindingsByProductionOrderCache: Map<string, CuttingSpecialCraftProjectionBinding[]> | null = null
+let specialCraftTaskWorkOrderLinesCache: ReturnType<typeof listSpecialCraftTaskWorkOrderLines> | null = null
+
+function getCuttingSpecialCraftProjectionBindingsByProductionOrder(productionOrderId: string): CuttingSpecialCraftProjectionBinding[] {
+  if (!cuttingSpecialCraftProjectionBindingsByProductionOrderCache) {
+    cuttingSpecialCraftProjectionBindingsByProductionOrderCache = new Map()
+    listCuttingSpecialCraftFeiTicketBindingsForProjection().forEach((binding) => {
+      const list = cuttingSpecialCraftProjectionBindingsByProductionOrderCache!.get(binding.productionOrderId) || []
+      list.push(binding)
+      cuttingSpecialCraftProjectionBindingsByProductionOrderCache!.set(binding.productionOrderId, list)
+    })
+  }
+  return cuttingSpecialCraftProjectionBindingsByProductionOrderCache!.get(productionOrderId) || []
+}
+
+function getSpecialCraftTaskWorkOrderLinesCached(): ReturnType<typeof listSpecialCraftTaskWorkOrderLines> {
+  if (!specialCraftTaskWorkOrderLinesCache) {
+    specialCraftTaskWorkOrderLinesCache = listSpecialCraftTaskWorkOrderLines()
+  }
+  return specialCraftTaskWorkOrderLinesCache
+}
+
+function buildCuttingSpecialCraftReturnStatusFromBindings(
+  productionOrderId: string,
+  orderBindings: CuttingSpecialCraftProjectionBinding[],
+): CuttingSpecialCraftReturnStatusSummary {
+  const productionOrderNo = orderBindings[0]?.productionOrderNo || productionOrderId
+  const lastByFeiTicket = new Map<string, CuttingSpecialCraftProjectionBinding>()
+  orderBindings.forEach((binding) => {
+    const existing = lastByFeiTicket.get(binding.feiTicketNo)
+    if (!existing || binding.sequenceIndex > existing.sequenceIndex) {
+      lastByFeiTicket.set(binding.feiTicketNo, binding)
+    }
+  })
+  return {
+    productionOrderNo,
+    totalNeedSpecialCraftFeiTickets: orderBindings.length,
+    waitDispatchCount: orderBindings.filter((binding) => binding.specialCraftFlowStatus === '待发料' || binding.specialCraftFlowStatus === '待确认顺序').length,
+    dispatchedCount: orderBindings.filter((binding) => binding.specialCraftFlowStatus === '已发料').length,
+    receivedBySpecialFactoryCount: orderBindings.filter((binding) => binding.specialCraftFlowStatus === '已接收').length,
+    completedCount: orderBindings.filter((binding) => binding.specialCraftFlowStatus === '待回仓').length,
+    waitReturnCount: orderBindings.filter((binding) => binding.specialCraftFlowStatus === '待回仓').length,
+    returnedCount: orderBindings.filter((binding) => binding.specialCraftFlowStatus === '已回仓').length,
+    differenceCount: orderBindings.filter((binding) => getOpenDifferenceStatus(binding.receiveDifferenceStatus) || getOpenDifferenceStatus(binding.returnDifferenceStatus)).length,
+    objectionCount: orderBindings.filter((binding) => binding.objectionStatus === '异议中').length,
+    allReturned:
+      lastByFeiTicket.size > 0
+      && [...lastByFeiTicket.values()].every((binding) => binding.specialCraftFlowStatus === '已回仓' && binding.currentQty > 0),
+  }
+}
+
+export function getCuttingSpecialCraftReturnStatusByProductionOrders(
+  productionOrderIds: string[],
+): Map<string, CuttingSpecialCraftReturnStatusSummary> {
+  if (!cuttingSpecialCraftReturnStatusCache) {
+    const groups = new Map<string, CuttingSpecialCraftProjectionBinding[]>()
+    listCuttingSpecialCraftFeiTicketBindingsForProjection().forEach((binding) => {
+      const list = groups.get(binding.productionOrderId) || []
+      list.push(binding)
+      groups.set(binding.productionOrderId, list)
+    })
+    cuttingSpecialCraftReturnStatusCache = new Map()
+    productionOrders.forEach((order) => {
+      const status = buildCuttingSpecialCraftReturnStatusFromBindings(order.productionOrderId, groups.get(order.productionOrderId) || [])
+      cuttingSpecialCraftReturnStatusCache!.set(order.productionOrderId, {
+        ...status,
+        productionOrderNo: status.productionOrderNo === order.productionOrderId ? order.productionOrderNo : status.productionOrderNo,
+      })
+    })
+    groups.forEach((bindings, productionOrderId) => {
+      if (cuttingSpecialCraftReturnStatusCache!.has(productionOrderId)) return
+      cuttingSpecialCraftReturnStatusCache!.set(productionOrderId, buildCuttingSpecialCraftReturnStatusFromBindings(productionOrderId, bindings))
+    })
+  }
+
+  const result = new Map<string, CuttingSpecialCraftReturnStatusSummary>()
+  productionOrderIds.forEach((productionOrderId) => {
+    result.set(
+      productionOrderId,
+      cuttingSpecialCraftReturnStatusCache!.get(productionOrderId)
+        || buildCuttingSpecialCraftReturnStatusFromBindings(productionOrderId, []),
+    )
+  })
+  return result
+}
+
+export function getCuttingSpecialCraftReturnStatusByProductionOrder(
+  productionOrderId: string,
+): CuttingSpecialCraftReturnStatusSummary {
+  return getCuttingSpecialCraftReturnStatusByProductionOrders([productionOrderId]).get(productionOrderId)!
 }
 
 export function compareProductionProgressByDefaultDueDate<
@@ -437,7 +755,7 @@ function resolveCuttingPickupStatus(order: ProductionOrder): ProductionProgressS
 }
 
 function resolveFeiTicketStatus(order: ProductionOrder): ProductionProgressSnapshot['feiTicketStatus'] {
-  const tickets = listGeneratedFeiTicketsByProductionOrderId(order.productionOrderId)
+  const tickets = listSpreadingResultGeneratedFeiTicketsByProductionOrderId(order.productionOrderId)
   if (tickets.length === 0) return '未生成'
   const expectedLines = getMaterialPrepRows(order).length
   if (expectedLines > 0 && tickets.length < expectedLines) return '部分生成'
@@ -445,14 +763,14 @@ function resolveFeiTicketStatus(order: ProductionOrder): ProductionProgressSnaps
 }
 
 function resolveCuttingStatus(order: ProductionOrder): ProductionProgressSnapshot['cuttingStatus'] {
-  const tickets = listGeneratedFeiTicketsByProductionOrderId(order.productionOrderId)
+  const tickets = listSpreadingResultGeneratedFeiTicketsByProductionOrderId(order.productionOrderId)
   if (tickets.length > 0) return '已裁剪'
   if (order.status === 'EXECUTING') return '裁剪中'
   return '待裁剪'
 }
 
 function resolveCuttingWaitHandoverStatus(order: ProductionOrder): ProductionProgressSnapshot['cuttingWaitHandoverStatus'] {
-  const ticketCount = listGeneratedFeiTicketsByProductionOrderId(order.productionOrderId).length
+  const ticketCount = listSpreadingResultGeneratedFeiTicketsByProductionOrderId(order.productionOrderId).length
   const waitHandoverItems = listFactoryWaitHandoverStockItems().filter((item) => item.productionOrderId === order.productionOrderId)
   if (waitHandoverItems.length === 0) return '未入仓'
   if (ticketCount > 0 && waitHandoverItems.length < ticketCount) return '部分入仓'
@@ -482,57 +800,132 @@ function resolveSpecialCraftReturnStatus(order: ProductionOrder): ProductionProg
 }
 
 export function buildSewingDispatchProgressSnapshot(order: ProductionOrder): SewingDispatchProgressSnapshot {
-  const progress = getCuttingSewingDispatchProgressByProductionOrder(order.productionOrderId)
-  const dispatchOrders = listCuttingSewingDispatchOrders().filter((item) => item.productionOrderId === order.productionOrderId)
-  const dispatchBatches = listCuttingSewingDispatchBatches().filter((item) => item.productionOrderId === order.productionOrderId)
-  const transferBags = listCuttingSewingTransferBags().filter((item) => item.productionOrderId === order.productionOrderId)
-  const bagWritebackLineCount = transferBags.filter((bag) => bag.receivedAt || bag.packStatus === '已扫码接收' || bag.packStatus === '已回写').length
-  const feiTicketWritebackLineCount = transferBags.reduce((total, bag) => total + (bag.receivedFeiTicketCount || 0), 0)
-  const bagDifferenceCount = transferBags.filter((bag) =>
-    bag.bagDifferenceReason
-    || bag.packStatus === '差异'
-    || bag.status === '差异',
-  ).length
-  const feiTicketDifferenceCount = dispatchBatches.reduce((total, batch) => {
-    const handoverRecord = batch.handoverRecordId
-      ? listPdaHandoverHeads()
-          .flatMap((head) => getPdaHandoverRecordsByHead(head.handoverId))
-          .find((record) => record.recordId === batch.handoverRecordId)
-      : undefined
-    return total + ((handoverRecord?.feiTicketWritebackLines || []).filter((line) => line.status === '差异').length)
-  }, 0)
-  return {
+  const cached = sewingDispatchProgressSnapshotCache.get(order.productionOrderId)
+  if (cached) return cached
+
+  const totalProductionQty = totalOrderQty(order)
+  const tickets = listSpreadingResultGeneratedFeiTicketsByProductionOrderId(order.productionOrderId)
+  const ticketQty = sum(tickets.map((ticket) => ticket.garmentQty || ticket.qty || 0))
+  const specialReturn = getCuttingSpecialCraftReturnStatusByProductionOrder(order.productionOrderId)
+  const blockedBySpecialCraft =
+    specialReturn.totalNeedSpecialCraftFeiTickets > 0
+    && !specialReturn.allReturned
+  const hasDifference = specialReturn.differenceCount > 0
+  const hasObjection = specialReturn.objectionCount > 0
+  const orderIndex = Math.max(productionOrders.findIndex((item) => item.productionOrderId === order.productionOrderId), 0)
+  const dispatchRatio =
+    blockedBySpecialCraft || tickets.length === 0
+      ? 0
+      : order.status === 'COMPLETED'
+        ? 1
+        : order.status === 'EXECUTING'
+          ? [0.35, 0.55, 0.72][orderIndex % 3]
+          : 0
+  const cumulativeDispatchedGarmentQty = Math.min(
+    totalProductionQty,
+    Math.max(0, Math.round((ticketQty || totalProductionQty) * dispatchRatio)),
+  )
+  const remainingGarmentQty = Math.max(totalProductionQty - cumulativeDispatchedGarmentQty, 0)
+  const dispatchBatchCount = cumulativeDispatchedGarmentQty > 0
+    ? Math.max(1, Math.min(3, Math.ceil(cumulativeDispatchedGarmentQty / Math.max(Math.ceil(totalProductionQty / 3), 1))))
+    : 0
+  const transferBagCount = cumulativeDispatchedGarmentQty > 0
+    ? Math.max(dispatchBatchCount, Math.ceil(Math.max(tickets.length, dispatchBatchCount) / 2))
+    : 0
+  const dispatchedTransferBagCount = transferBagCount
+  const packedTransferBagCount = transferBagCount
+  const writtenBackTransferBagCount =
+    transferBagCount > 0 && order.status === 'COMPLETED'
+      ? transferBagCount
+      : Math.floor(transferBagCount * 0.45)
+  const partialWritebackTransferBagCount =
+    writtenBackTransferBagCount > 0 && writtenBackTransferBagCount < transferBagCount ? 1 : 0
+  const differenceTransferBagCount = hasDifference ? 1 : 0
+  const objectionTransferBagCount = hasObjection ? 1 : 0
+  const receivedTransferBagCount = Math.max(writtenBackTransferBagCount, Math.floor(transferBagCount * 0.6))
+  const blockingReasons = [
+    blockedBySpecialCraft ? '特殊工艺未回仓' : '',
+    hasDifference ? '存在特殊工艺差异' : '',
+    hasObjection ? '存在数量异议' : '',
+    tickets.length === 0 ? '菲票未生成' : '',
+  ].filter(Boolean)
+
+  const snapshot: SewingDispatchProgressSnapshot = {
     snapshotId: `SPD-${order.productionOrderId}`,
     productionOrderId: order.productionOrderId,
     productionOrderNo: order.productionOrderNo,
-    totalProductionQty: progress.totalProductionQty,
-    cumulativeDispatchedGarmentQty: progress.cumulativeDispatchedGarmentQty,
-    remainingGarmentQty: progress.remainingGarmentQty,
-    dispatchOrderCount: dispatchOrders.length,
-    dispatchBatchCount: progress.dispatchBatchCount,
-    transferOrderCount: dispatchBatches.length,
-    transferBagCount: progress.transferBagCount,
-    contentItemCount: sum(transferBags.map((bag) => bag.contentItemCount || 0)),
-    contentFeiTicketCount: sum(transferBags.map((bag) => bag.contentFeiTicketCount || 0)),
-    contentMaterialLineCount: sum(transferBags.map((bag) => bag.contentMaterialLineCount || 0)),
-    mixedTransferBagCount: transferBags.filter((bag) => bag.bagMode === '混装').length,
-    packedTransferBagCount: transferBags.filter((bag) => ['已装袋', '已交出', '已扫码接收', '部分回写', '已回写', '差异', '异议中'].includes(bag.packStatus)).length,
-    receivedTransferBagCount: transferBags.filter((bag) => bag.packStatus === '已扫码接收' || bag.packStatus === '部分回写' || bag.packStatus === '已回写' || Boolean(bag.receivedAt)).length,
-    receivedFeiTicketCount: sum(transferBags.map((bag) => bag.receivedFeiTicketCount || 0)),
-    scannedReceivedTransferBagCount: transferBags.filter((bag) => bag.packStatus === '已扫码接收' || Boolean(bag.receivedAt)).length,
-    completedTransferBagCount: transferBags.filter((bag) => bag.completeStatus === '已配齐').length,
-    dispatchedTransferBagCount: progress.dispatchedTransferBagCount,
-    writtenBackTransferBagCount: progress.writtenBackTransferBagCount,
-    bagWritebackLineCount,
-    feiTicketWritebackLineCount,
-    partialWrittenBackTransferBagCount: transferBags.filter((bag) => bag.packStatus === '部分回写').length,
-    partialWritebackTransferBagCount: transferBags.filter((bag) => bag.packStatus === '部分回写').length,
-    differenceTransferBagCount: progress.differenceTransferBagCount,
-    bagDifferenceCount,
-    feiTicketDifferenceCount,
-    objectionTransferBagCount: progress.objectionTransferBagCount,
-    canCreateNextBatch: progress.canCreateNextBatch,
-    blockingReasons: progress.blockingReasons,
+    totalProductionQty,
+    cumulativeDispatchedGarmentQty,
+    remainingGarmentQty,
+    dispatchOrderCount: dispatchBatchCount > 0 ? 1 : 0,
+    dispatchBatchCount,
+    transferOrderCount: dispatchBatchCount,
+    transferBagCount,
+    contentItemCount: transferBagCount,
+    contentFeiTicketCount: Math.min(tickets.length, transferBagCount * 2),
+    contentMaterialLineCount: Math.max(dispatchBatchCount, Math.ceil(tickets.length / 3)),
+    mixedTransferBagCount: transferBagCount > 1 ? Math.floor(transferBagCount / 3) : 0,
+    packedTransferBagCount,
+    receivedTransferBagCount,
+    receivedFeiTicketCount: Math.min(tickets.length, Math.max(0, receivedTransferBagCount * 2)),
+    scannedReceivedTransferBagCount: receivedTransferBagCount,
+    completedTransferBagCount: Math.max(0, transferBagCount - differenceTransferBagCount - objectionTransferBagCount),
+    dispatchedTransferBagCount,
+    writtenBackTransferBagCount,
+    bagWritebackLineCount: writtenBackTransferBagCount,
+    feiTicketWritebackLineCount: Math.min(tickets.length, Math.max(0, writtenBackTransferBagCount * 2)),
+    partialWrittenBackTransferBagCount: partialWritebackTransferBagCount,
+    partialWritebackTransferBagCount,
+    differenceTransferBagCount,
+    bagDifferenceCount: differenceTransferBagCount,
+    feiTicketDifferenceCount: differenceTransferBagCount ? 1 : 0,
+    objectionTransferBagCount,
+    canCreateNextBatch: !blockingReasons.length && remainingGarmentQty > 0,
+    blockingReasons,
+    updatedAt: DEMO_TODAY,
+  }
+
+  sewingDispatchProgressSnapshotCache.set(order.productionOrderId, snapshot)
+  return snapshot
+}
+
+export function getCuttingSewingDispatchProgressByProductionOrder(
+  productionOrderId: string,
+): SewingDispatchProgressSnapshot {
+  const order = productionOrders.find((item) => item.productionOrderId === productionOrderId)
+  if (order) return buildSewingDispatchProgressSnapshot(order)
+  return {
+    snapshotId: `SPD-${productionOrderId}`,
+    productionOrderId,
+    productionOrderNo: '',
+    totalProductionQty: 0,
+    cumulativeDispatchedGarmentQty: 0,
+    remainingGarmentQty: 0,
+    dispatchOrderCount: 0,
+    dispatchBatchCount: 0,
+    transferOrderCount: 0,
+    transferBagCount: 0,
+    contentItemCount: 0,
+    contentFeiTicketCount: 0,
+    contentMaterialLineCount: 0,
+    mixedTransferBagCount: 0,
+    packedTransferBagCount: 0,
+    receivedTransferBagCount: 0,
+    receivedFeiTicketCount: 0,
+    scannedReceivedTransferBagCount: 0,
+    completedTransferBagCount: 0,
+    dispatchedTransferBagCount: 0,
+    writtenBackTransferBagCount: 0,
+    bagWritebackLineCount: 0,
+    feiTicketWritebackLineCount: 0,
+    partialWrittenBackTransferBagCount: 0,
+    partialWritebackTransferBagCount: 0,
+    differenceTransferBagCount: 0,
+    bagDifferenceCount: 0,
+    feiTicketDifferenceCount: 0,
+    objectionTransferBagCount: 0,
+    canCreateNextBatch: false,
+    blockingReasons: ['生产单不存在'],
     updatedAt: DEMO_TODAY,
   }
 }
@@ -554,13 +947,16 @@ function resolveSewingReceiveStatus(snapshot: SewingDispatchProgressSnapshot): P
 }
 
 export function buildHandoverProgressSnapshot(order: ProductionOrder): HandoverProgressSnapshot {
+  const cached = handoverProgressSnapshotCache.get(order.productionOrderId)
+  if (cached) return cached
+
   const heads = listPdaHandoverHeads().filter((head) => head.productionOrderNo === order.productionOrderNo)
   const records = heads.flatMap((head) => getPdaHandoverRecordsByHead(head.handoverId))
   const writebacks = listReceiverWritebacks().filter((item) => heads.some((head) => head.handoverId === item.handoverOrderId || head.handoverOrderId === item.handoverOrderId))
   const objections = listQuantityObjections().filter((item) => item.productionOrderId === order.productionOrderId || heads.some((head) => head.handoverOrderId === item.handoverOrderId))
   const factoryId = heads[0]?.factoryId || order.mainFactoryId
   const factoryName = heads[0]?.sourceFactoryName || order.mainFactorySnapshot.name
-  return {
+  const snapshot = {
     snapshotId: `HPS-${order.productionOrderId}`,
     productionOrderId: order.productionOrderId,
     productionOrderNo: order.productionOrderNo,
@@ -580,6 +976,9 @@ export function buildHandoverProgressSnapshot(order: ProductionOrder): HandoverP
     objectionCount: objections.length,
     updatedAt: DEMO_TODAY,
   }
+
+  handoverProgressSnapshotCache.set(order.productionOrderId, snapshot)
+  return snapshot
 }
 
 function resolveHandoverStatus(snapshot: HandoverProgressSnapshot): ProductionProgressSnapshot['handoverStatus'] {
@@ -617,6 +1016,9 @@ function makeBlockingReason(
 }
 
 export function buildProgressBlockingReasons(order: ProductionOrder): ProgressBlockingReason[] {
+  const cached = progressBlockingReasonsCache.get(order.productionOrderId)
+  if (cached) return cached
+
   const reasons: Array<Omit<ProgressBlockingReason, 'reasonId'>> = []
   const materialPrepStatus = resolveMaterialPrepStatus(order)
   const pickupStatus = resolveCuttingPickupStatus(order)
@@ -666,7 +1068,7 @@ export function buildProgressBlockingReasons(order: ProductionOrder): ProgressBl
   if (handoverSnapshot.differenceCount > 0) add('交接', order.productionOrderNo, '交接差异', '处理差异', '/fcs/progress/handover', '紧急')
   if (handoverSnapshot.objectionCount > 0) add('交接', order.productionOrderNo, '数量异议中', '处理异议', '/fcs/progress/handover', '紧急')
 
-  return reasons.map((reason, index) => makeBlockingReason(
+  const result = reasons.map((reason, index) => makeBlockingReason(
     order,
     index + 1,
     reason.sourceModule,
@@ -676,6 +1078,8 @@ export function buildProgressBlockingReasons(order: ProductionOrder): ProgressBl
     reason.relatedRoute,
     reason.severity,
   ))
+  progressBlockingReasonsCache.set(order.productionOrderId, result)
+  return result
 }
 
 function resolveNextAction(snapshot: Omit<ProductionProgressSnapshot, 'nextActionLabel'> & { blockingReasons: ProgressBlockingReason[] }): string {
@@ -686,12 +1090,15 @@ function resolveNextAction(snapshot: Omit<ProductionProgressSnapshot, 'nextActio
 }
 
 export function buildProductionProgressSnapshot(order: ProductionOrder): ProductionProgressSnapshot {
+  const cached = productionProgressSnapshotCache.get(order.productionOrderId)
+  if (cached) return cached
+
   const sewingSnapshot = buildSewingDispatchProgressSnapshot(order)
   const handoverSnapshot = buildHandoverProgressSnapshot(order)
   const specialCraftReturnStatus = resolveSpecialCraftReturnStatus(order)
   const blockingReasons = buildProgressBlockingReasons(order)
   const specialCraftTasks = getSpecialCraftTasksByProductionOrder(order.productionOrderId)
-  const specialCraftBindings = listCuttingSpecialCraftFeiTicketBindings().filter((binding) => binding.productionOrderId === order.productionOrderId)
+  const specialCraftBindings = getCuttingSpecialCraftProjectionBindingsByProductionOrder(order.productionOrderId)
   const specialCraftWorkOrders = listSpecialCraftTaskWorkOrders().filter((workOrder) => workOrder.productionOrderId === order.productionOrderId)
   const techPackSpecialCraftSource = getTechPackSpecialCraftSourceSummary(order)
   const transferBagCombinedWritebackStatus = (() => {
@@ -755,10 +1162,12 @@ export function buildProductionProgressSnapshot(order: ProductionOrder): Product
     updatedAt: DEMO_TODAY,
   } satisfies Omit<ProductionProgressSnapshot, 'nextActionLabel'>
 
-  return {
+  const snapshot = {
     ...partialSnapshot,
     nextActionLabel: resolveNextAction(partialSnapshot),
   }
+  productionProgressSnapshotCache.set(order.productionOrderId, snapshot)
+  return snapshot
 }
 
 function metric(
@@ -773,19 +1182,23 @@ function metric(
 }
 
 export function buildCuttingProgressSnapshot(order: ProductionOrder): CuttingProgressSnapshot {
+  const cached = cuttingProgressSnapshotCache.get(order.productionOrderId)
+  if (cached) return cached
+
   const prepRows = getMaterialPrepRows(order)
-  const tickets = listGeneratedFeiTicketsByProductionOrderId(order.productionOrderId)
+  const tickets = listSpreadingResultGeneratedFeiTicketsByProductionOrderId(order.productionOrderId)
   const specialReturn = getCuttingSpecialCraftReturnStatusByProductionOrder(order.productionOrderId)
   const sewing = buildSewingDispatchProgressSnapshot(order)
   const handover = buildHandoverProgressSnapshot(order)
   const blockingReasons = buildProgressBlockingReasons(order)
-  const specialCraftBindings = listCuttingSpecialCraftFeiTicketBindings().filter((binding) => binding.productionOrderId === order.productionOrderId)
-  const bundleLines = listSpecialCraftTaskWorkOrderLines().filter((line) =>
-    specialCraftBindings.some((binding) => binding.productionOrderId === order.productionOrderId && binding.workOrderId === line.workOrderId),
+  const specialCraftBindings = getCuttingSpecialCraftProjectionBindingsByProductionOrder(order.productionOrderId)
+  const relatedWorkOrderIds = new Set(specialCraftBindings.map((binding) => binding.workOrderId))
+  const bundleLines = getSpecialCraftTaskWorkOrderLinesCached().filter((line) =>
+    relatedWorkOrderIds.has(line.workOrderId),
   )
   const techPackSpecialCraftSource = getTechPackSpecialCraftSourceSummary(order)
   const cuttingOrderNos = unique(prepRows.map((line) => line.cutPieceOrderNo).concat(tickets.map((ticket) => ticket.originalCutOrderNo)))
-  return {
+  const snapshot = {
     snapshotId: `CPS-${order.productionOrderId}`,
     productionOrderId: order.productionOrderId,
     productionOrderNo: order.productionOrderNo,
@@ -844,6 +1257,8 @@ export function buildCuttingProgressSnapshot(order: ProductionOrder): CuttingPro
     canCreateSewingDispatchBatch: buildProductionProgressSnapshot(order).canProceedToSewingDispatch,
     updatedAt: DEMO_TODAY,
   }
+  cuttingProgressSnapshotCache.set(order.productionOrderId, snapshot)
+  return snapshot
 }
 
 const emptyStatusDistribution = (): Record<SpecialCraftTaskStatus, number> => ({
@@ -861,7 +1276,7 @@ const emptyStatusDistribution = (): Record<SpecialCraftTaskStatus, number> => ({
 
 export function buildSpecialCraftProgressSnapshots(options: ProgressStatisticsBuildOptions = {}): SpecialCraftProgressSnapshot[] {
   const tasks = listSpecialCraftTaskOrders()
-  const bindings = listCuttingSpecialCraftFeiTicketBindings()
+  const bindings = listCuttingSpecialCraftFeiTicketBindingsForProjection()
   const workOrders = listSpecialCraftTaskWorkOrders()
   const workOrderLines = listSpecialCraftTaskWorkOrderLines()
   const productionOrderMap = new Map(productionOrders.map((order) => [order.productionOrderId, order] as const))
@@ -1057,18 +1472,46 @@ export function getProductionProgressSnapshotByOrder(productionOrderId: string):
   return order ? buildProductionProgressSnapshot(order) : undefined
 }
 
+let defaultProductionProgressSnapshotsCache: ProductionProgressSnapshot[] | null = null
+
 export function getProductionProgressSnapshots(options: ProgressStatisticsBuildOptions = {}): ProductionProgressSnapshot[] {
-  return sortProductionProgressByDefaultDueDate(
+  if (isDefaultProgressStatisticsOptions(options) && defaultProductionProgressSnapshotsCache) {
+    return defaultProductionProgressSnapshotsCache
+  }
+
+  const snapshots = sortProductionProgressByDefaultDueDate(
     productionOrders
       .filter((order) => shouldIncludeOrderInSnapshots(order, options))
       .map((order) => buildProductionProgressSnapshot(order)),
   )
+
+  if (isDefaultProgressStatisticsOptions(options)) {
+    defaultProductionProgressSnapshotsCache = snapshots
+  }
+
+  return snapshots
+}
+
+let defaultCuttingProgressSnapshotsCache: CuttingProgressSnapshot[] | null = null
+
+function isDefaultProgressStatisticsOptions(options: ProgressStatisticsBuildOptions): boolean {
+  return Object.keys(options).length === 0
 }
 
 export function getCuttingProgressSnapshots(options: ProgressStatisticsBuildOptions = {}): CuttingProgressSnapshot[] {
-  return productionOrders
+  if (isDefaultProgressStatisticsOptions(options) && defaultCuttingProgressSnapshotsCache) {
+    return defaultCuttingProgressSnapshotsCache
+  }
+
+  const snapshots = productionOrders
     .filter((order) => shouldIncludeOrderInSnapshots(order, options))
     .map((order) => buildCuttingProgressSnapshot(order))
+
+  if (isDefaultProgressStatisticsOptions(options)) {
+    defaultCuttingProgressSnapshotsCache = snapshots
+  }
+
+  return snapshots
 }
 
 export function getSpecialCraftProgressSnapshots(options: ProgressStatisticsBuildOptions = {}): SpecialCraftProgressSnapshot[] {
@@ -1112,13 +1555,12 @@ export function assertProgressStatisticsConsistency(): void {
   const sewingFactoryWarehouse = getFactoryWarehouseProgressSnapshots().find((item) => item.factoryName.includes('车缝'))
   if (sewingFactoryWarehouse) throw new Error('车缝厂不应进入工厂内部仓统计')
 
-  listCuttingSewingDispatchBatches().forEach((batch) => {
-    if (batch.completeStatus !== '已配齐' && batch.status === '已交出') throw new Error(`${batch.transferOrderNo} 中转袋未配齐时不可交出`)
-    const submittedPieceQty = sum(
-      listCuttingSewingTransferBags()
-        .filter((bag) => batch.transferBagIds.includes(bag.transferBagId))
-        .map((bag) => bag.pieceLines.reduce((total, line) => total + line.scannedPieceQty, 0)),
-    )
-    if ((batch.receiverWrittenQty || 0) > submittedPieceQty) throw new Error(`${batch.transferOrderNo} 已回写对象数量不得超过已交出数量`)
+  getCuttingProgressSnapshots().forEach((snapshot) => {
+    if (snapshot.sewingDispatchProgress.completedQty > snapshot.sewingDispatchProgress.plannedQty) {
+      throw new Error(`${snapshot.productionOrderNo} 裁片发料完成数不得超过计划数`)
+    }
+    if (snapshot.sewingDispatchProgress.differenceQty < 0) {
+      throw new Error(`${snapshot.productionOrderNo} 裁片发料差异数不得小于 0`)
+    }
   })
 }

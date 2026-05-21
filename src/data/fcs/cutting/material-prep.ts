@@ -695,7 +695,7 @@ function buildTransferMaterialAvailableLots(): TransferMaterialAvailableLot[] {
   return [...printLots, ...dyeLots, ...manualLots]
 }
 
-const transferMaterialAvailableLots = buildTransferMaterialAvailableLots()
+let transferMaterialAvailableLotsCache: TransferMaterialAvailableLot[] | null = null
 
 export function cloneCuttingMaterialPrepGroups(): CuttingMaterialPrepGroup[] {
   return cuttingMaterialPrepGroups.map((group) => ({
@@ -711,5 +711,8 @@ export function cloneCuttingMaterialPrepGroups(): CuttingMaterialPrepGroup[] {
 }
 
 export function listTransferMaterialAvailableLots(): TransferMaterialAvailableLot[] {
-  return transferMaterialAvailableLots.map((item) => ({ ...item }))
+  if (!transferMaterialAvailableLotsCache) {
+    transferMaterialAvailableLotsCache = buildTransferMaterialAvailableLots()
+  }
+  return transferMaterialAvailableLotsCache.map((item) => ({ ...item }))
 }

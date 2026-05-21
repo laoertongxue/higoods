@@ -17,11 +17,9 @@ import {
   type PrintQrCode,
 } from '../../../data/fcs/print-service.ts'
 import { buildFeiTicketPrintProjection } from '../../process-factory/cutting/fei-ticket-print-projection.ts'
-import { listGeneratedFeiTickets } from '../../../data/fcs/cutting/generated-fei-tickets.ts'
 import {
-  listCutPieceFeiTickets,
-  type CutPieceFeiTicket,
-} from '../../../data/fcs/cutting/fei-ticket-generation.ts'
+  listSpreadingResultGeneratedFeiTickets,
+} from '../../../data/fcs/cutting/generated-fei-tickets.ts'
 import { listWoolFeiTicketPrintRecords } from '../../../data/fcs/wool-task-domain.ts'
 import { getCuttingOriginalOrderTaskPrintSourceById } from '../../../data/fcs/cutting-task-print-source.ts'
 import { buildTransferBagsProjection } from '../../process-factory/cutting/transfer-bags-projection.ts'
@@ -84,68 +82,17 @@ function generatedTicketToRecord(ticket: AnyFeiTicket): AnyFeiTicket {
   }
 }
 
-function perPieceTicketToRecord(ticket: CutPieceFeiTicket): AnyFeiTicket {
-  const processTags = ticket.specialCrafts.length
-    ? ticket.specialCrafts.map((craft) => `${craft.craftName}（${craft.craftPositionName}）`)
-    : ['无特殊工艺']
-  return {
-    ...ticket,
-    ticketRecordId: ticket.feiTicketId,
-    ticketNo: ticket.feiTicketNo,
-    feiTicketId: ticket.feiTicketId,
-    feiTicketNo: ticket.feiTicketNo,
-    sourcePieceInstanceId: ticket.sourcePieceInstanceId,
-    sourcePieceId: ticket.sourcePieceId,
-    originalCutOrderId: ticket.originalCutPieceOrderId,
-    originalCutOrderNo: ticket.originalCutPieceOrderNo,
-    sourceCutOrderNo: ticket.originalCutPieceOrderNo,
-    productionOrderNo: ticket.productionOrderNo,
-    sourceProductionOrderNo: ticket.productionOrderNo,
-    styleCode: ticket.styleNo,
-    spuCode: ticket.styleNo,
-    skuId: ticket.skuId,
-    materialSku: ticket.skuId,
-    partName: ticket.pieceName,
-    pieceGroup: ticket.pieceName,
-    pieceDisplayName: ticket.pieceDisplayName,
-    color: ticket.colorName,
-    fabricColor: ticket.colorName,
-    garmentColor: ticket.colorName,
-    size: ticket.sizeName,
-    skuSize: ticket.sizeName,
-    quantity: 1,
-    actualCutPieceQty: 1,
-    qty: 1,
-    processTags,
-    specialCraftSummary: ticket.specialCraftSummary,
-    specialCrafts: ticket.specialCrafts,
-    currentCraftStage: ticket.specialCraftSummary,
-    status: ticket.printStatus === '已作废' ? 'VOIDED' : 'PRINTED',
-    boundPocketNo: ticket.relatedTransferBagNo,
-    qrSerializedValue: ticket.qrCodePayload,
-    qrCodePayload: ticket.qrCodePayload,
-    sequenceNo: ticket.sequenceNo,
-    printStatusLabel: ticket.printStatus,
-    flowStatusLabel: ticket.flowStatus,
-    version: ticket.isReprint ? 'R1' : 'V1',
-    reprintCount: ticket.isReprint ? 1 : 0,
-    isReprint: ticket.isReprint,
-    originalFeiTicketId: ticket.originalFeiTicketId,
-    voidReason: ticket.voidReason,
-  }
-}
-
-function listFeiRecords(): AnyFeiTicket[] {
+function listFeiRecords(documentType?: PrintDocumentType): AnyFeiTicket[] {
   const projection = buildFeiTicketPrintProjection()
   const projected = (projection.ticketRecords || []) as AnyFeiTicket[]
-  const perPiece = listCutPieceFeiTickets().map(perPieceTicketToRecord)
-  const generated = listGeneratedFeiTickets().map(generatedTicketToRecord)
+  const generated = listSpreadingResultGeneratedFeiTickets().map(generatedTicketToRecord)
   const wool = listWoolFeiTicketPrintRecords()
-  return uniqueBy([...perPiece, ...projected, ...generated, ...wool], (item) => toText(item.ticketRecordId || item.feiTicketId || item.ticketNo || item.feiTicketNo, ''))
+  const cuttingRecords = documentType === 'FEI_TICKET_LABEL' ? generated : [...projected, ...generated]
+  return uniqueBy([...cuttingRecords, ...wool], (item) => toText(item.ticketRecordId || item.feiTicketId || item.ticketNo || item.feiTicketNo, ''))
 }
 
-function findFeiRecord(sourceId: string): AnyFeiTicket | null {
-  const records = listFeiRecords()
+function findFeiRecord(sourceId: string, documentType?: PrintDocumentType): AnyFeiTicket | null {
+  const records = listFeiRecords(documentType)
   return records.find((item) => [
     item.ticketRecordId,
     item.feiTicketId,
@@ -154,13 +101,13 @@ function findFeiRecord(sourceId: string): AnyFeiTicket | null {
   ].some((value) => value === sourceId)) || null
 }
 
-function listFeiRecordsForSource(sourceId: string): AnyFeiTicket[] {
-  const records = listFeiRecords()
+function listFeiRecordsForSource(sourceId: string, documentType?: PrintDocumentType): AnyFeiTicket[] {
+  const records = listFeiRecords(documentType)
   if (sourceId.includes(',')) {
     const ids = sourceId.split(',').map((item) => item.trim()).filter(Boolean)
-    return ids.map((id) => findFeiRecord(id)).filter(Boolean) as AnyFeiTicket[]
+    return ids.map((id) => findFeiRecord(id, documentType)).filter(Boolean) as AnyFeiTicket[]
   }
-  const exact = findFeiRecord(sourceId)
+  const exact = findFeiRecord(sourceId, documentType)
   if (exact) return [exact]
 
   const printableUnitKey = sourceId.startsWith('cut-order:') ? sourceId.replace(/^cut-order:/, '') : sourceId
@@ -172,9 +119,9 @@ function listFeiRecordsForSource(sourceId: string): AnyFeiTicket[] {
     || item.sourceMergeBatchNo === sourceId.replace(/^batch:/, '')
     || item.printableUnitNo === printableUnitKey,
   )
-  if (byOriginal.length) return byOriginal.slice(0, 12)
+  if (byOriginal.length) return byOriginal
 
-  return records.slice(0, 1)
+  return []
 }
 
 function resolveFeiTicketTargetRoute(record: AnyFeiTicket): string {
@@ -376,7 +323,7 @@ function resolveFeiMode(documentType: PrintDocumentType): PrintMode {
 
 export function buildFeiTicketLabelPrintDocument(input: PrintDocumentBuildInput): PrintDocument {
   const mode = resolveFeiMode(input.documentType)
-  const records = listFeiRecordsForSource(input.sourceId)
+  const records = listFeiRecordsForSource(input.sourceId, input.documentType)
   const items = records.map((record) => buildFeiLabelItem(record, input, mode))
   const paperType: PrintPaperType = items.length > 1 ? 'A4_LABEL_GRID' : 'LABEL_80_50'
   const isWoolTicket = records.some((record) => record.ticketSourceType === 'WOOL_PART_PANEL')

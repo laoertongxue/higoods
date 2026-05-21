@@ -3,6 +3,7 @@ import {
   buildFcsCuttingDomainSnapshot,
   type CuttingDomainSnapshot,
 } from '../../../domain/fcs-cutting-runtime/index.ts'
+import { getCuttingRuntimeStorageSignature } from '../../../data/fcs/cutting/runtime-inputs.ts'
 import {
   mapCuttingDomainSnapshotToSummaryBuildOptions,
 } from './runtime-projections.ts'
@@ -13,13 +14,42 @@ export interface CuttingExecutionPrepProjectionContext {
   sources: CuttingSummaryBuildOptions
 }
 
+let defaultExecutionPrepProjectionCache: {
+  signature: string
+  context: CuttingExecutionPrepProjectionContext
+} | null = null
+const snapshotExecutionPrepProjectionCache = new WeakMap<CuttingDomainSnapshot, CuttingExecutionPrepProjectionContext>()
+
 export function buildExecutionPrepProjectionContext(
-  snapshot: CuttingDomainSnapshot = buildFcsCuttingDomainSnapshot(),
+  snapshot?: CuttingDomainSnapshot,
 ): CuttingExecutionPrepProjectionContext {
-  return {
+  if (!snapshot) {
+    const signature = getCuttingRuntimeStorageSignature()
+    if (defaultExecutionPrepProjectionCache?.signature === signature) {
+      return defaultExecutionPrepProjectionCache.context
+    }
+
+    const nextSnapshot = buildFcsCuttingDomainSnapshot()
+    const context = {
+      snapshot: nextSnapshot,
+      sources: mapCuttingDomainSnapshotToSummaryBuildOptions(nextSnapshot),
+    }
+    defaultExecutionPrepProjectionCache = { signature, context }
+    snapshotExecutionPrepProjectionCache.set(nextSnapshot, context)
+    return context
+  }
+
+  const cachedContext = snapshotExecutionPrepProjectionCache.get(snapshot)
+  if (cachedContext) {
+    return cachedContext
+  }
+
+  const context = {
     snapshot,
     sources: mapCuttingDomainSnapshotToSummaryBuildOptions(snapshot),
   }
+  snapshotExecutionPrepProjectionCache.set(snapshot, context)
+  return context
 }
 
 export function buildProgressRecordMapByOriginalCutOrder(

@@ -46,7 +46,7 @@ import {
   type ProcessActionSourceType,
 } from './process-action-writeback-service.ts'
 import { cloneCutPieceOrderRecords, type CutPieceOrderRecord } from './cutting/cut-piece-orders.ts'
-import { listGeneratedFeiTicketsByOriginalCutOrderId } from './cutting/generated-fei-tickets.ts'
+import { listSpreadingResultGeneratedFeiTicketsByOriginalCutOrderId } from './cutting/generated-fei-tickets.ts'
 import {
   buildSpecialCraftOperationSlug,
   getSpecialCraftOperationById,
@@ -563,7 +563,7 @@ function buildCuttingView(record: CutPieceOrderRecord): PlatformProcessResultVie
     craftStatusLabel: record.currentStage,
     status: record.currentStage,
   })
-  const feiTickets = listGeneratedFeiTicketsByOriginalCutOrderId(sourceId)
+  const feiTickets = listSpreadingResultGeneratedFeiTicketsByOriginalCutOrderId(sourceId)
   const view = buildCommonResult({
     sourceType: 'CUTTING',
     sourceId,

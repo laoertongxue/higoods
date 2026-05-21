@@ -4,7 +4,7 @@ import { getDyeWorkOrderById } from './dyeing-task-domain.ts'
 import { cutPieceOrderRecords, type CutPieceOrderRecord } from './cutting/cut-piece-orders.ts'
 import { buildFcsCuttingDomainSnapshot } from '../../domain/fcs-cutting-runtime/index.ts'
 import type { GeneratedOriginalCutOrderSourceRecord } from './cutting/generated-original-cut-orders.ts'
-import { listGeneratedFeiTicketsByOriginalCutOrderId } from './cutting/generated-fei-tickets.ts'
+import { listSpreadingResultGeneratedFeiTicketsByOriginalCutOrderId } from './cutting/generated-fei-tickets.ts'
 import {
   getSpecialCraftTaskWorkOrderById,
 } from './special-craft-task-orders.ts'
@@ -251,7 +251,7 @@ function findGeneratedOriginalCutOrder(sourceId: string): GeneratedOriginalCutOr
 
 function resolveCuttingFeiTicketIds(originalCutOrderId: string | undefined): string[] {
   if (!originalCutOrderId) return []
-  return listGeneratedFeiTicketsByOriginalCutOrderId(originalCutOrderId).map((ticket) => ticket.feiTicketNo)
+  return listSpreadingResultGeneratedFeiTicketsByOriginalCutOrderId(originalCutOrderId).map((ticket) => ticket.feiTicketNo)
 }
 
 function resolveCuttingContextFromGeneratedOrder(
